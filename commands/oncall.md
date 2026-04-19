@@ -103,10 +103,10 @@ Collect state for the outgoing on-call engineer.
 ```bash
 # 1. Incidents this week
 bd list --label production --status open 2>/dev/null | head -10
-ls docs/postmortems/PM-*.md 2>/dev/null | xargs grep -l "$(date +%Y-%m)" 2>/dev/null | head -5
+ls docs/postmortems/PM-*.md 2>/dev/null | sort | xargs grep -l "$(date +%Y-%m)" 2>/dev/null | head -5
 
 # 2. Recent agent verdicts (failures need follow-up)
-for LOG in .great_cto/verdicts/*.log; do
+for LOG in $(ls .great_cto/verdicts/*.log 2>/dev/null | sort); do
   tail -3 "$LOG" 2>/dev/null | grep -E "FAIL|BLOCKED"
 done
 

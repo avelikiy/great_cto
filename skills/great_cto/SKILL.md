@@ -621,6 +621,8 @@ Two kinds of files live under `.great_cto/`. Do not mix them:
 
 When in doubt: *would I want git blame on this line?* Yes → agent-context. No → runtime-state.
 
+**Immutable at runtime:** `agents/*.md` and `commands/*.md` must never be mutated by a hook or another agent. Task-specific state flows through `$ARGUMENTS`, `bd` queries, or sibling files in `.great_cto/`. Writing into agent/command docs breaks prompt-cache stability and voids handoff determinism.
+
 ## Rules
 
 - Max 1 question to CTO at a time
