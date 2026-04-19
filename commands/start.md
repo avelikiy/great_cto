@@ -344,7 +344,7 @@ fi
 
 ```bash
 CATALOG=~/.great_cto/catalog/cli-tool/components/agents
-find "$CATALOG" -name "*.md" 2>/dev/null | xargs grep -il "<keyword>" | head -5
+find "$CATALOG" -name "*.md" 2>/dev/null | sort | xargs grep -il "<keyword>" | head -5
 ```
 
 For each match: copy to `~/.claude/agents/<name>.md`.
