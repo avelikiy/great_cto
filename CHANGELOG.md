@@ -4,6 +4,38 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.74 — 2026-04-19
+
+### Added — Cost attribution + auto-generated onboarding
+
+Fourth release in the arc (v1.0.71 → v1.0.75). Addresses the "features ship, cost compounds, nobody tracks" problem and the "new engineer needs 2 weeks to ramp" problem — both by making previously-tribal knowledge into greppable files.
+
+**Two new artifact patterns:**
+
+**1. Cost Model section — inside each qualifying ARCH-*.md.** Not a separate file; kept coupled to the decision it justifies. Required for `project_size ≥ medium` OR archetype `ai-system`/`commerce`/`regulated`. Schema: runtime cost table (compute, database, data transfer, external APIs with vendor-register cross-reference), unit economics (per-DAU, per-transaction, break-even), cost controls (caps, rate limits, cache, scheduled scale-down), quarterly review cadence. For teams, the estimate mirrors into `OWNERSHIP.md` "Expected cost/mo" column so per-team cost attribution is answerable without re-parsing every ARCH.
+
+**2. `docs/onboarding/README.md`** — synthesized single-file onboarding. project-auditor combines `.great_cto/brain.md`, `DECISION-LOG.md`, `CODEBASE.md` god-nodes, `OWNERSHIP.md`, runbooks, and top Beads tasks into a linear read. Regenerated monthly by `/digest`; first-created by `/audit` if `team-size ≥ 2`. Respects hand-edits (checks generated-date marker before overwriting).
+
+**Actual-vs-estimate reconciliation** (optional). If the CTO wires a FinOps source to populate `.great_cto/cost-actual.log` via cron / GitHub Action, `/digest` flags any service > 20% over estimate at quarter start. No live billing integration inside the plugin — files only.
+
+**Integration summary:**
+- tech-lead (+21): Cost Model section injection in ARCH for qualifying projects; vendor-register cross-reference for external APIs
+- project-auditor (+26): onboarding synthesis with conflict-flagging and hand-edit respect
+- `/audit` (+26): cost-model coverage scan on IaC files; onboarding first-run generation
+- `/digest` (+22): quarterly cost reconciliation; monthly onboarding refresh
+
+**Two new references** in `skills/great_cto/references/`: `cost-model.md` (schema, data sources, OWNERSHIP.md coupling, actual-vs-estimate file format) and `onboarding.md` (schema, source mapping table, regeneration rules, conflict handling).
+
+**Backward-compat**: pure additive. ARCH docs without Cost Model remain valid (retroactive enforcement absent). Projects without `docs/onboarding/` see zero change. Solo founders (team-size: 1) skip onboarding generation entirely. Every access guarded by `[ -f ... ]` / `[ -d ... ]`. Old `PROJECT.md` from v1.0.68–v1.0.73 works unchanged.
+
+**Cache discipline**: tech-lead edited once more (4th consecutive release — each edit is an appended section, preserving stable prefix). project-auditor gets its first touch in this arc. security-officer, devops, l3-support all untouched this release. SessionStart hook byte-identical.
+
+**Behavioral change worth flagging**: for `medium`+ ARCH docs, tech-lead now writes a Cost Model section as a mandatory part of output. CTO sees one more section in the ARCH doc (runtime cost + unit economics + cost controls). For smaller projects: zero change.
+
+Files: `.claude-plugin/plugin.json`, `CHANGELOG.md`, `agents/{tech-lead,project-auditor}.md`, `commands/{audit,digest}.md`, `skills/great_cto/references/{cost-model,onboarding}.md` (2 new).
+
+---
+
 ## v1.0.73 — 2026-04-19
 
 ### Added — Forward-looking: pre-mortem + vendor register
