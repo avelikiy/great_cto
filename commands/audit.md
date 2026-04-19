@@ -79,6 +79,29 @@ Running audit anyway to find gaps and update config.
 ```
 Continue — audit is always safe to re-run.
 
+## Pre-audit: surface active risks
+
+Before the agent runs, prepend the active-risks summary so both CTO and auditor see the current risk landscape — new gaps found by `/audit` can then be cross-referenced.
+
+```bash
+if [ -f "docs/risks/RISK-REGISTER.md" ]; then
+  echo "=== ACTIVE RISKS (top 5) ==="
+  awk '/## Active risks/,/^## /' docs/risks/RISK-REGISTER.md 2>/dev/null | \
+    grep -E "^\| R-[0-9]+" | head -5
+fi
+```
+
+## Deprecation auto-suggestions
+
+As part of dependency scanning, detect stale packages (no releases > 24 months) and framework majors diverging from upstream. For each detected candidate, output an auto-suggest line the auditor reviews — do **not** auto-append to DEPRECATION-CALENDAR without CTO confirmation.
+
+```bash
+# Node: scan package.json vs npm latest, flag "last release > 2 years ago"
+# Python: pip-audit metadata → date of last release
+# Suggestions go to /tmp/deprecation-suggestions.txt for the auditor to review.
+echo "See skills/great_cto/references/deprecations.md for what to flag and how."
+```
+
 ## Run audit
 
 Spawn `great_cto-project-auditor` with this context (vary by MODE):

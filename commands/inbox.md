@@ -74,6 +74,42 @@ ls .great_cto/retrospectives/*.md 2>/dev/null | sort | tail -1 | xargs grep -h "
 ls docs/audits/AUDIT-*.md 2>/dev/null | sort | tail -1 || echo "NO_AUDIT"
 ```
 
+**Top risks (if register exists):**
+```bash
+if [ -f "docs/risks/RISK-REGISTER.md" ]; then
+  # Filter active H×H and H×M lines from the Active section
+  awk '/## Active risks/,/^## /' docs/risks/RISK-REGISTER.md 2>/dev/null | \
+    grep -E "^\| R-[0-9]+" | awk -F'|' '{
+      prob=$4; imp=$5; gsub(/ /, "", prob); gsub(/ /, "", imp);
+      if ((imp=="H" && (prob=="H" || prob=="M")) || (imp=="M" && prob=="H")) print $0
+    }' | head -5
+fi
+```
+
+**Upcoming EOLs (if calendar exists):**
+```bash
+if [ -f "docs/deprecations/DEPRECATION-CALENDAR.md" ]; then
+  # Entries with EOL within 90 days — human-readable list from Active section
+  awk '/## Active/,/## Completed/' docs/deprecations/DEPRECATION-CALENDAR.md 2>/dev/null | \
+    grep -E "^\|" | tail -n +3 | head -10
+fi
+```
+
+**Waivers (if directory exists):**
+```bash
+if [ -d "docs/waivers" ]; then
+  ACTIVE=$(ls docs/waivers/WAIVER-*.md 2>/dev/null | wc -l | tr -d ' ')
+  # Expired: any active waiver whose Expires date is in the past
+  TODAY=$(date +%Y-%m-%d)
+  EXPIRED=$(for W in docs/waivers/WAIVER-*.md; do
+    [ -f "$W" ] || continue
+    EXP=$(grep -m1 "^\*\*Expires:\*\*" "$W" | awk '{print $2}')
+    [ -n "$EXP" ] && [ "$EXP" \< "$TODAY" ] && echo "$W"
+  done 2>/dev/null | wc -l | tr -d ' ')
+  echo "waivers_active=$ACTIVE expired_unresolved=$EXPIRED"
+fi
+```
+
 ## Format Output
 
 ```
@@ -111,6 +147,19 @@ ls docs/audits/AUDIT-*.md 2>/dev/null | sort | tail -1 || echo "NO_AUDIT"
 
 --- RECENT DECISIONS (shown only if DECISION-LOG.md has entries) ---
   [last 3 entries, one per line: D-NNNN — YYYY-MM-DD — title]
+
+--- TOP RISKS (shown only if docs/risks/RISK-REGISTER.md has H×H or H×M active entries) ---
+  [Top 5 active risks sorted by Impact desc then Probability desc]
+  Format per line: R-NNN | <title> | P:<L/M/H> I:<L/M/H> | <owner> | <status>
+  Suppress section entirely if 0 active risks at H×H or H×M.
+
+--- UPCOMING EOLS (shown only if DEPRECATION-CALENDAR.md has entries within 90 days) ---
+  [list entries sorted by EOL ascending, any Active status]
+  Format: <what> | EOL <date> (<N>d remaining) | <owner> | <status>
+
+--- WAIVERS (shown only if docs/waivers/ has active entries) ---
+  Active: [count] | Expired unresolved: [count]
+  [list each expired with open follow-up: ⚠ WAIVER-NNN EXPIRED — follow-up <task-id> open Nd overdue]
 
 --- TEAM (shown only if configured) ---
   On-call: [@person (team) until <date> | "not configured — /oncall schedule"]

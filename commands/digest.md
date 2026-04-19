@@ -266,6 +266,60 @@ Cache invalidates automatically on age. Force refresh by deleting: `rm .great_ct
 
 ---
 
+## Risk maintenance — detect recurring incident patterns
+
+Before writing to brain, scan recent incidents and postmortems for patterns that warrant a risk-register entry. Only add risks when the same cause appears **3+ times in 30 days** — otherwise the register becomes noise.
+
+```bash
+if [ -f "docs/reliability/INCIDENT-LOG.md" ] && [ -f "docs/risks/RISK-REGISTER.md" ]; then
+  # Extract causes from incident log (last 30 days), count frequencies
+  # Cutoff timestamp (portable between GNU/BSD date)
+  CUTOFF=$(date -v-30d +%Y-%m-%d 2>/dev/null || date -d "30 days ago" +%Y-%m-%d)
+  awk -v cut="$CUTOFF" '/^## [0-9]{4}-/ { d=$2; next }
+    /^Cause:/ && d >= cut { sub(/^Cause: /, ""); print }' \
+    docs/reliability/INCIDENT-LOG.md 2>/dev/null | \
+    sort | uniq -c | awk '$1 >= 3 { print $0 }' > /tmp/recurring-causes.txt
+  # For each line in /tmp/recurring-causes.txt, check if a matching R- exists;
+  # if not, append a new risk (source: "INC-LOG recurring", status: analysis).
+  # See references/risk-register.md for ID scheme and dedup rules.
+fi
+```
+
+## Waiver maintenance — expiry + repeat patterns
+
+```bash
+if [ -d "docs/waivers" ]; then
+  TODAY=$(date +%Y-%m-%d)
+  # Expired detection
+  for W in docs/waivers/WAIVER-*.md; do
+    [ -f "$W" ] || continue
+    EXP=$(grep -m1 "^\*\*Expires:\*\*" "$W" | awk '{print $2}')
+    [ -n "$EXP" ] && [ "$EXP" \< "$TODAY" ] && echo "EXPIRED: $(basename "$W" .md)"
+  done > /tmp/waiver-expired.txt
+  # Repeat pattern (quarterly only — when DAYS >= 90)
+  if [ "$DAYS" -ge 90 ]; then
+    grep -h "^\*\*Gate(s) skipped:\*\*" docs/waivers/WAIVER-*.md 2>/dev/null | \
+      sort | uniq -c | awk '$1 >= 3 { print "PATTERN: " $0 }'
+  fi
+fi
+```
+
+## Deprecation maintenance — EOL < 90d call-out
+
+```bash
+if [ -f "docs/deprecations/DEPRECATION-CALENDAR.md" ]; then
+  CUTOFF=$(date -v+90d +%Y-%m-%d 2>/dev/null || date -d "+90 days" +%Y-%m-%d)
+  awk -v cut="$CUTOFF" '/## Active/,/## Completed/' \
+    docs/deprecations/DEPRECATION-CALENDAR.md 2>/dev/null | \
+    grep -E "^\|" | awk -F'|' -v cut="$CUTOFF" '
+      NR > 2 { eol=$3; gsub(/ /, "", eol); if (eol != "" && eol < cut) print "EOL SOON: " $0 }'
+fi
+```
+
+Findings from the three sections above are included in the digest output (Reliability / Upcoming deadlines) when non-empty; suppressed otherwise to keep weekly digests lean.
+
+---
+
 ## Dream Cycle — update brain.md
 
 After saving the digest cache, synthesize signals into `.great_cto/brain.md`.

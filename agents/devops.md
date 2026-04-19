@@ -339,6 +339,20 @@ grep "contract-address:" .great_cto/PROJECT.md 2>/dev/null || echo "Not found �
 If upgrade proxy exists → rollback via `upgradeTo(previousImplementation)` through timelock (48h delay applies).
 Tell CTO: "Contract paused. Rollback via timelock takes 48h. Emergency contact: [from PROJECT.md security-contact field]"
 
+## Waiver required when skipping gate:ship
+
+**You cannot silently deploy with a skipped gate:ship.** If the CTO says "just ship it, skip the canary" or requests bypass of a blocking gate (QA, compliance, arch), require an explicit waiver:
+
+```
+You asked to skip gate:<name>. To proceed I need a WAIVER artifact.
+
+Required: reason, follow-up action, expiry (max 14 days / 48h for emergency).
+Reply with those 3 and I'll create docs/waivers/WAIVER-XXX.md,
+open Beads follow-up task, then proceed.
+```
+
+On confirmation, create the waiver file + Beads follow-up task (see `skills/great_cto/references/waivers.md` for schema and ID scheme). Link the waiver id in the RELEASE doc under "Gates skipped". If CTO declines → refuse and BLOCK.
+
 ## Reporting Contract
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For devops:

@@ -4,6 +4,38 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.71 — 2026-04-19
+
+### Added — Foundation artifacts: risk register, waiver log, deprecation calendar
+
+First release in a 5-part arc (v1.0.71 → v1.0.75) that closes the gaps between **"Great CTO does X"** and **"the plugin actually captures X"**. Release 1 lays three new artifact foundations that later releases consume.
+
+**1. Risk register (`docs/risks/RISK-REGISTER.md`).** Persistent reality of active architectural, operational, and security risks. Different from backlog (tasks have done-state — risks don't) and from postmortems (past vs forward-looking). Scored by probability × impact over 6 months. Sources: tech-lead's ARCH "Risks" section, security-officer's CVE-pattern detection (3+ similar findings in 90d), recurring INCIDENT-LOG causes via `/digest`, deprecation EOLs approaching, manual CTO entries. Consumed by `/inbox` (top-5 H×H / H×M surfaces), `/audit` (pre-audit summary), and future pre-mortem synthesis.
+
+**2. Waiver log (`docs/waivers/WAIVER-*.md`).** Makes "skip this gate" a **tracked artifact** instead of a silent shortcut. security-officer and devops now refuse to skip gates without a waiver containing: reason, follow-up action (Beads task created automatically), and expiry (max 14 days; 48h for emergency). `/inbox` surfaces expired waivers with open follow-ups; `/digest` detects repeat-skip patterns (same gate 3+ times in 90d) as a process-debt signal.
+
+**3. Deprecation calendar (`docs/deprecations/DEPRECATION-CALENDAR.md`).** Explicit lifecycle for frameworks, APIs, runtimes, regions being sunset. tech-lead greps it before finalizing an ARCH stack — proposed use of a deprecated thing gets surfaced in the "Stack considerations" section. `/audit` auto-suggests entries for packages with > 24-month silent releases. `/inbox` shows EOLs within 90 days; `/digest` calls out EOLs within the next quarter. When an EOL < 6 months remaining has no active migration, `/audit` auto-creates a risk-register entry linking back.
+
+**Integration summary:**
+- tech-lead (+27 LOC): risk append from ARCH; deprecation consult before stack
+- security-officer (+35): CVE-pattern → risk; waiver enforcement on gate:compliance skip
+- devops (+15): waiver enforcement on gate:ship skip
+- `/inbox` (+37): top risks, upcoming EOLs, waiver expiry
+- `/digest` (+33): recurring-cause risk detection; waiver expiry + pattern; EOL calls
+- `/audit` (+28): pre-audit risk summary; deprecation auto-suggest
+
+**Three new references** in `skills/great_cto/references/`: `risk-register.md`, `waivers.md`, `deprecations.md` — canonical schemas with ID schemes, dedup rules, and lifecycle diagrams.
+
+**Backward-compat**: pure additive release. Projects without the new artifacts see zero behavior change; agents check `[ -f ... ]` before every access. Old `PROJECT.md` from v1.0.68–v1.0.70 works unchanged.
+
+**Cache discipline** (per v1.0.69): each agent edited exactly once in this release. `tech-lead.md` gets both risk and deprecation blocks in one delta; `security-officer.md` gets risk-pattern and waiver together; `devops.md` gets waiver only. Future v1.0.72–v1.0.75 will each touch different agents to keep prompt prefix stable across most releases.
+
+**Behavioral change worth flagging**: gate skips are no longer silent. When CTO says "skip security this time", security-officer now demands reason + follow-up + expiry before proceeding. This is intentional — silent skips were the dominant source of tracked debt loss.
+
+Files: `.claude-plugin/plugin.json`, `CHANGELOG.md`, `agents/{tech-lead,security-officer,devops}.md`, `commands/{inbox,digest,audit}.md`, `skills/great_cto/references/{risk-register,waivers,deprecations}.md` (3 new).
+
+---
+
 ## v1.0.70 — 2026-04-19
 
 ### Changed — Pareto simplification (UX surface shrunk; internals unchanged)

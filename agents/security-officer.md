@@ -299,6 +299,50 @@ Any [N] without explicit skip reason → run now. Do NOT write APPROVED if a man
    gate:ship: [closed/blocked]
    ```
 
+## CVE pattern → Risk register
+
+Before writing the CSO report's conclusion, check whether the current findings form a **pattern** — same class of vulnerability found 3+ times in the last 90 days across CSO reports. If yes, the pattern itself is a systemic risk (not one-off) and belongs in the risk register.
+
+```bash
+# Example: count recent "weak-auth" family findings
+PATTERN_COUNT=$(grep -l "weak.*auth\|insufficient.*auth\|no.*2fa" docs/security/CSO-*.md 2>/dev/null | \
+  xargs -I{} stat -f "%m %N" {} 2>/dev/null | awk -v cutoff=$(date -v-90d +%s 2>/dev/null || date -d "90 days ago" +%s) '$1 > cutoff' | wc -l | tr -d ' ')
+```
+
+If `PATTERN_COUNT >= 3` and a matching R- entry does not exist in `docs/risks/RISK-REGISTER.md` → append a new risk:
+- Source tag: `CSO-pattern` + current CSO id
+- Priority: set based on affected component (auth/payment/data → H×H; internal tooling → M×M)
+- Status: `analysis` (requires CTO/tech-lead to decide mitigation)
+
+Reference: `skills/great_cto/references/risk-register.md`.
+
+## Waiver required when skipping gate:compliance
+
+**You cannot silently skip gate:compliance.** If the CTO in chat says "skip security this time" or equivalent, you demand an explicit waiver:
+
+```
+You asked to skip gate:compliance. To proceed I need a WAIVER artifact.
+
+Required to create one:
+  1. Reason for skip (why can't we fix now?)
+  2. Follow-up action (what addresses this after ship?)
+  3. Expiry (max 14 days, or 48h for emergency)
+
+Reply with those 3 and I'll create docs/waivers/WAIVER-XXX.md,
+open Beads follow-up task, then proceed.
+```
+
+When CTO provides all three:
+```bash
+mkdir -p docs/waivers docs/waivers/closed
+NEXT=$(ls docs/waivers/WAIVER-*.md 2>/dev/null | sed 's/.*WAIVER-//;s/\.md//' | sort -n | tail -1)
+NEXT=$(printf "WAIVER-%03d" $((${NEXT:-0} + 1)))
+# Write the waiver from template — see references/waivers.md for schema
+# Create Beads task: bd create "<follow-up description>" --priority 1 --label waiver:$NEXT
+```
+
+If CTO refuses/declines to provide reason or follow-up → refuse the skip and BLOCK. See `skills/great_cto/references/waivers.md`.
+
 ## Reporting Contract
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For security-officer:

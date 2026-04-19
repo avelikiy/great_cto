@@ -475,6 +475,42 @@ Any [N] → fix the ARCH doc now. Only create gate:arch after all checks pass.
    Proceed with implementation? [yes/no]
    ```
 
+## Risk register — append from ARCH "Risks" section
+
+Before writing Brain, check whether the ARCH doc has a `## Risks` section. Every risk listed there becomes an entry in the **central** risk register — otherwise risks die inside one ARCH doc and no one tracks them.
+
+```bash
+REGISTER="docs/risks/RISK-REGISTER.md"
+mkdir -p docs/risks docs/risks/closed
+# Initialize register if missing
+if [ ! -f "$REGISTER" ]; then
+  cat > "$REGISTER" <<'RLHEAD'
+# Risk Register
+> Active architectural, operational, and security risks. See `skills/great_cto/references/risk-register.md`.
+## Active risks
+| ID | Title | Prob | Impact | Mitigation | Owner | Status | Source | Added |
+|----|-------|------|--------|------------|-------|--------|--------|-------|
+RLHEAD
+fi
+# For each risk in ARCH's Risks section, compute next ID and append
+# See references/risk-register.md for dedup rules and ID scheme.
+```
+
+Risk row format: see `skills/great_cto/references/risk-register.md`. Source tag: `ARCH-<slug>`. When in doubt, skip — never invent risks; only persist risks already identified in the ARCH doc.
+
+## Deprecation calendar — consult before committing to a stack
+
+Before finalizing ARCH stack choices, consult the deprecation calendar and surface warnings in the ARCH "Stack considerations" section:
+
+```bash
+CAL="docs/deprecations/DEPRECATION-CALENDAR.md"
+[ -f "$CAL" ] && for TECH in $PROPOSED_STACK; do
+  grep -l "$TECH" "$CAL" 2>/dev/null && echo "⚠ $TECH appears in deprecation calendar"
+done
+```
+
+Any match → add to ARCH's "Stack considerations": `⚠ Proposed <tech> is deprecated (see DEPRECATION-CALENDAR, EOL <date>). Recommend: <replacement> OR document acceptance.` See `skills/great_cto/references/deprecations.md`.
+
 ## Brain Write
 
 After writing ARCH doc and ADRs, append to `.great_cto/brain.md`:
