@@ -18,12 +18,14 @@ Add `board` flag for quarterly board-report format: `/digest Q2 board` or `/dige
 **Parse args — detect board flag and period:**
 ```bash
 BOARD_MODE=false
+ARCHITECTURE_MODE=false
 DAYS=7
 CURRENT_YEAR=$(date +%Y)
 CURRENT_MONTH=$(date +%m)
 for arg in "$@"; do
   case "$arg" in
     board) BOARD_MODE=true ;;
+    architecture) ARCHITECTURE_MODE=true ;;
     Q1) DAYS=90; QUARTER="Q1"; PERIOD_LABEL="Q1 (Jan–Mar $CURRENT_YEAR)" ;;
     Q2) DAYS=91; QUARTER="Q2"; PERIOD_LABEL="Q2 (Apr–Jun $CURRENT_YEAR)" ;;
     Q3) DAYS=92; QUARTER="Q3"; PERIOD_LABEL="Q3 (Jul–Sep $CURRENT_YEAR)" ;;
@@ -629,3 +631,167 @@ Write to `$REPORT_FILE`:
 ```
 
 After writing: confirm `Board report → <REPORT_FILE>`. Do NOT output full report to terminal — just the path.
+
+## Executive Narrative (extends Board Report)
+
+**Triggered automatically** when `BOARD_MODE=true`. Appends (or prepends to the DORA table) a synthesized story connecting ships to business outcomes. See `skills/great_cto/references/board-narrative.md` for source mapping and synthesizer rules.
+
+```bash
+if [ "$BOARD_MODE" = "true" ]; then
+  NARRATIVE_FILE="$REPORT_FILE"
+  PERIOD_DAYS="${DAYS:-90}"
+  CUTOFF=$(date -v-${PERIOD_DAYS}d +%Y-%m-%d 2>/dev/null || date -d "${PERIOD_DAYS} days ago" +%Y-%m-%d)
+
+  # Inputs (every line traces to a file):
+  #   docs/architecture/ARCH-*.md modified since CUTOFF → "What we shipped"
+  #   docs/rfcs/RFC-*.md accepted since CUTOFF → also "What we shipped"
+  #   docs/risks/RISK-REGISTER.md top-3 H×H / H×M active → "Risks on the horizon"
+  #   .great_cto/slo-budget-current.md EXHAUSTED rows → also "Risks on the horizon"
+  #   bd list --label epic:q<N+1> → "Next quarter focus"
+  #   Existing DORA numbers from /digest + prior-quarter deltas → "Metrics"
+
+  SHIPPED_ARCH=$(find docs/architecture -name "ARCH-*.md" -newermt "$CUTOFF" 2>/dev/null | head -5)
+  ACCEPTED_RFCS=$(find docs/rfcs -name "RFC-*.md" -newermt "$CUTOFF" 2>/dev/null | head -5)
+  TOP_RISKS=$(awk '/## Active risks/,/^## /' docs/risks/RISK-REGISTER.md 2>/dev/null | \
+    grep -E "^\| R-[0-9]+" | awk -F'|' '{
+      prob=$4; imp=$5; gsub(/ /, "", prob); gsub(/ /, "", imp);
+      if (imp=="H" && (prob=="H" || prob=="M")) print $0
+    }' | head -3)
+  EXHAUSTED_SLO=$(grep "EXHAUSTED" .great_cto/slo-budget-current.md 2>/dev/null | head -3)
+  NEXT_Q_NUM=$(( ${QUARTER#Q} % 4 + 1 ))
+  NEXT_EPICS=$(bd list --label "epic:q${NEXT_Q_NUM}" --status open 2>/dev/null | head -5)
+
+  # Append narrative to the board report file. Synthesizer rule: if source is empty, write explicit fallback
+  # ("No material risks identified this quarter" / "Q1 baseline — trends will show next quarter").
+  echo "Executive narrative appended → $NARRATIVE_FILE"
+fi
+```
+
+Narrative shape (written at the top of the board report, before DORA):
+
+```markdown
+## Executive narrative
+
+### What we shipped (<PERIOD_LABEL>)
+- <ARCH slug>: <one-line business outcome from ARCH "Business context"> (ARCH-<slug>)
+- ...
+
+### Why it matters
+<1 paragraph — two sentences connecting each ship to outcome. Synthesize from ARCH + ADR rationale only. No inventions.>
+
+### Metrics that tell the story
+- Deploys: <N> (<delta>) — <interpretation>
+- Lead time: <p50> (<delta>) — <interpretation>
+- MTTR: <Nmin> (<delta>) — <interpretation>
+
+### Risks on the horizon
+<top 3 H×H / H×M from RISK-REGISTER + any EXHAUSTED SLO row>
+
+### Next quarter focus
+<Beads epic:q<N+1> tasks>
+```
+
+Fallbacks: first quarter → "Q1 baseline — trends will show next quarter". Empty risk register → "No material risks identified this quarter". No ARCH docs → fall back to `gh pr list --state merged --label feature --limit 5`.
+
+## Architecture Review Mode
+
+**Triggered by**: `architecture` in arguments — e.g. `/digest Q2 architecture` or `/digest architecture` (current quarter to date).
+
+Generates `docs/architecture/ARCH-REVIEW-<YEAR>-Q<N>.md` in **draft status** — the CTO reviews and removes the draft marker to finalize. See `skills/great_cto/references/quarterly-review.md` for inputs and schema.
+
+```bash
+if [ "$ARCHITECTURE_MODE" = "true" ]; then
+  # Skip for small/solo projects
+  TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '[:alpha:]')
+  SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+  case "$SIZE" in nano|small) echo "Q-review skipped — project_size=$SIZE (needs medium+)"; exit 0 ;; esac
+
+  REVIEW_FILE="docs/architecture/ARCH-REVIEW-${CURRENT_YEAR}-${QUARTER}.md"
+  mkdir -p docs/architecture
+
+  # Refuse to overwrite if the existing file is finalized (no Draft marker)
+  if [ -f "$REVIEW_FILE" ]; then
+    FIRST=$(head -1 "$REVIEW_FILE")
+    case "$FIRST" in \>*Draft*) ;; *) echo "Q-review already finalized for ${QUARTER} — skipping. Delete file to regenerate."; exit 0 ;; esac
+  fi
+
+  # Snapshot brain.md at start of quarter (once) for next review's diff base
+  QUARTER_SNAPSHOT=".great_cto/brain-${CURRENT_YEAR}-${QUARTER}-snapshot.md"
+  [ -f ".great_cto/brain.md" ] && [ ! -f "$QUARTER_SNAPSHOT" ] && cp .great_cto/brain.md "$QUARTER_SNAPSHOT"
+
+  CUTOFF=$(date -v-90d +%Y-%m-%d 2>/dev/null || date -d "90 days ago" +%Y-%m-%d)
+
+  # Inputs (each is optional — skip section if source missing, per synthesizer rules):
+  ADR_COUNT=$(find docs/decisions -name "ADR-*.md" -newermt "$CUTOFF" 2>/dev/null | wc -l | tr -d ' ')
+  RFC_COUNT=$(find docs/rfcs -name "RFC-*.md" -newermt "$CUTOFF" 2>/dev/null | wc -l | tr -d ' ')
+  GOD_NODES=$(grep -A 10 "^## God nodes" .great_cto/CODEBASE.md 2>/dev/null | head -15)
+  ACTIVE_RISKS=$(awk '/## Active risks/,/^## /' docs/risks/RISK-REGISTER.md 2>/dev/null | grep -cE "^\| R-[0-9]+")
+  PRE_MORTEMS_DUE=$(grep -r "To be filled" docs/pre-mortems/ 2>/dev/null | wc -l | tr -d ' ')
+  WAIVER_EXPIRED=0
+  if [ -d docs/waivers ]; then
+    TODAY_DATE=$(date +%Y-%m-%d)
+    WAIVER_EXPIRED=$(for W in docs/waivers/WAIVER-*.md; do
+      [ -f "$W" ] || continue
+      EXP=$(grep -m1 "^\*\*Expires:\*\*" "$W" | awk '{print $2}')
+      [ -n "$EXP" ] && [ "$EXP" \< "$TODAY_DATE" ] && echo "$W"
+    done 2>/dev/null | wc -l | tr -d ' ')
+  fi
+  SLO_BURNED=$(grep -cE "\| (WARN|EXHAUSTED) \|" .great_cto/slo-budget-current.md 2>/dev/null)
+  AGED_DEBT=$(bd list --status open 2>/dev/null | wc -l | tr -d ' ')  # filter by age in final synthesis
+  EOL_90D=$(awk '/## Active/,/## Completed/' docs/deprecations/DEPRECATION-CALENDAR.md 2>/dev/null | grep -cE "^\|")
+
+  echo "Q-review draft → $REVIEW_FILE (inputs: adrs=$ADR_COUNT rfcs=$RFC_COUNT risks_active=$ACTIVE_RISKS pre_due=$PRE_MORTEMS_DUE waiver_exp=$WAIVER_EXPIRED slo_burned=$SLO_BURNED eol_90d=$EOL_90D)"
+fi
+```
+
+Generated file shape (always opens with draft marker; CTO removes after review):
+
+```markdown
+# Architecture Review — <YEAR>-Q<N>
+
+> Draft — generated <date> — CTO review required
+
+## Decisions Landscape
+- ADRs: <N> added, <M> superseded, <K> conflict(s) → action
+- RFCs: <posted> posted, <accepted> accepted, <rejected> rejected, <in-progress> in progress
+
+## Drift Analysis
+Planned in Q<N-1> retro:
+- <item> (<%done>, <blocker>)
+
+Recommendation: <concrete step>.
+
+## God Nodes Evolution
+- `<path>`: <delta> imports — <interpretation>
+
+## Aged Tech Debt (> 90d open)
+- <bd-id> <title> (aged <N>d) — <register link>
+
+## Active Risks Summary
+<N> H×H risks, <M> H×M, <K> M×M → top-5 tracked, <P> in progress, <Q> unowned
+
+## Unresolved Waivers
+<WAIVER-id> expired <N>d — ESCALATE
+
+## Pre-mortem Post-Reviews Due
+<PRE-slug>: <N>d post-launch — has anything realized?
+
+## Reliability Summary
+SLIs at WARN/EXHAUSTED: <list>
+Stability-plan weeks: <count>
+Recurring incident causes: <top 3>
+
+## Cost Drift
+Services > 20% over estimate: <list>
+
+## Deprecations on the Horizon
+EOL within <N> quarters: <list>
+
+## Recommendations for Q<N+1>
+1. <action with evidence citation>
+2. ...
+```
+
+Massive-review summarization: if > 50 ADRs+RFCs modified, summarize by theme (group on first H1/H2 keyword) instead of listing each.
+
+Confirm `Q-review draft → <REVIEW_FILE>` at the end. Do NOT output full contents to terminal.

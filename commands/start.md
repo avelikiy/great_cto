@@ -407,7 +407,21 @@ prompt: |
 
 Replace `<project-slug>`, `<project-name>`, `<project-directory>` with actual values from PROJECT.md.
 
-Silent on success — note only: "Weekly automation: digest (Mon 9:00) + audit (Sun 23:00) scheduled."
+**Task 3 — Quarterly Architecture Review** (only if `project_size: medium` or larger — 1st of Jan/Apr/Jul/Oct at 10:00):
+
+```
+taskId: <project-slug>-quarterly-review
+description: Quarterly architecture review for <project-name>
+cronExpression: 0 10 1 1,4,7,10 *
+prompt: |
+  Run /digest architecture in <project-directory>.
+  Writes draft ARCH-REVIEW-<YEAR>-Q<N>.md. CTO reviews before finalization.
+  See skills/great_cto/references/quarterly-review.md.
+```
+
+Skip Task 3 for `project_size: nano` or `small` — Q-review is overkill for those.
+
+Silent on success — note only: "Weekly automation: digest (Mon 9:00) + audit (Sun 23:00) scheduled [+ quarterly review if medium+]."
 If `mcp__scheduled-tasks__create_scheduled_task` unavailable: skip silently, note "Scheduled tasks: tool unavailable — run /digest and /audit manually each week."
 
 ## Step 6: Confirm

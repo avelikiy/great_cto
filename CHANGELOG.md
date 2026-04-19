@@ -4,6 +4,52 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.75 — 2026-04-19
+
+### Added — Synthesis consumers: executive narrative + quarterly architecture review
+
+Fifth and final release in the arc (v1.0.71 → v1.0.75). **Zero agents touched.** Just `/digest` and `/start` — yet this is the largest functional delta of the arc. Q-review and the board narrative consume every artifact the four prior releases produced.
+
+**Why last and why agents-free.** The v1.0.71–v1.0.74 releases added writing surfaces: risks, waivers, deprecations, SLOs, incident-log, pre-mortems, vendors, cost models, onboarding. This release adds the **reading surfaces** that turn those files into decisions. Keeping it agents-free preserves the prompt cache prefix exactly as it stood after v1.0.74 — CTOs who never invoke the synthesis modes pay zero cache cost.
+
+**Two new synthesis modes in `/digest`:**
+
+**1. Executive narrative** (extends `board` mode, auto-triggered). Appends a connected-story section to the board report: **What we shipped** (one-liner per ARCH-*.md / RFC-*.md from the period, each cited by artifact slug), **Why it matters** (synthesized from ARCH "Business context" + ADR rationale — no inventions), **Metrics that tell the story** (existing DORA numbers + trend interpretation), **Risks on the horizon** (top-3 H×H / H×M from RISK-REGISTER + any EXHAUSTED SLO row), **Next quarter focus** (Beads tasks tagged `epic:q<N+1>`). Synthesizer rule: every line traces to a file. Fallbacks for first-quarter / zero-risk / small-project.
+
+**2. Architecture review** (new `architecture` mode: `/digest Q2 architecture`). Generates `docs/architecture/ARCH-REVIEW-<YEAR>-Q<N>.md` in **draft status** — CTO reviews and removes the `> Draft` marker to finalize. Subsequent runs refuse to overwrite finalized reviews. Sections: Decisions Landscape, Drift Analysis, God Nodes Evolution, Aged Tech Debt, Active Risks Summary, Unresolved Waivers, Pre-mortem Post-Reviews Due, Reliability Summary, Cost Drift, Deprecations on the Horizon, Recommendations for Q+1. Every recommendation cites its evidence. First run of each quarter snapshots `.great_cto/brain.md` as `brain-<Y>-Q<N>-snapshot.md` for the next review's diff base.
+
+**Scheduled automation for Q-review.** `/start` registers a third scheduled task for `project_size: medium` or larger: `0 10 1 1,4,7,10 *` (1st of Jan/Apr/Jul/Oct at 10:00). Skipped for nano/small projects where Q-review is overkill.
+
+**Integration summary:**
+- `/digest` (+160): executive narrative builder extending board mode; full architecture review mode with draft-status protection + brain.md snapshotting
+- `/start` (+15): third scheduled task (quarterly review) for medium+ projects
+
+**Two new references** in `skills/great_cto/references/`: `board-narrative.md` (source mapping, synthesizer rules, fallback behaviors) and `quarterly-review.md` (input inventory from v1.0.71–v1.0.74, output schema, draft/final lifecycle, massive-review summarization rule, small-project skip).
+
+**Backward-compat**: pure additive. Projects that never invoke `/digest architecture` see zero change (all existing modes unchanged). Projects that invoke `board` get the narrative section appended to their existing board report — original DORA table stays intact below. Every access guarded — missing sources produce explicit fallback text, never fabricated data.
+
+**Cache discipline — the important one**: **zero agent edits this release**. The agents/*.md prompt surface is byte-identical to v1.0.74. SessionStart hook byte-identical (verified). `/digest` and `/start` are user-invocable commands — their output is outside the agent's prompt cache path entirely. Maximum feature delta, minimum prefix disruption.
+
+**Behavioral change worth flagging**: `/digest board` now produces a longer output (narrative + DORA instead of DORA alone). `/digest architecture` is a new capability entirely. Neither changes any existing agent's behavior.
+
+Files: `.claude-plugin/plugin.json`, `CHANGELOG.md`, `commands/{digest,start}.md`, `skills/great_cto/references/{board-narrative,quarterly-review}.md` (2 new). **No agent files edited.**
+
+### Arc summary (v1.0.71 → v1.0.75)
+
+Five releases closed the gap between "Great CTO does X" and "plugin captures X":
+
+| Release | Artifacts introduced | Files |
+|---------|---------------------|-------|
+| v1.0.71 | Risk register, waivers, deprecations | 3 new refs, 3 agent edits |
+| v1.0.72 | SLO + INCIDENT-LOG + error budgets | 1 new ref, 3 agent edits |
+| v1.0.73 | Pre-mortem + vendor register | 2 new refs, 2 agent edits |
+| v1.0.74 | Cost attribution + onboarding | 2 new refs, 2 agent edits |
+| v1.0.75 | Executive narrative + Q-review | 2 new refs, **0 agent edits** |
+
+Total: **10 new references, 15 file edits, 5 new artifact families**, ~1000 LOC across 5 commits. Every release backward-compatible; every release preserved SessionStart hook byte-identical; every release additive with `[ -f ... ]` guards on every access.
+
+---
+
 ## v1.0.74 — 2026-04-19
 
 ### Added — Cost attribution + auto-generated onboarding
