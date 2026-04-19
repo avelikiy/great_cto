@@ -559,6 +559,37 @@ Beads: [total] tasks created
 Start with Tier 0? [yes/no]
 ```
 
+## Onboarding synthesis — `docs/onboarding/README.md`
+
+When invoked for onboarding generation (from `/audit` first-run or `/digest` monthly refresh), synthesize a single-file onboarding from existing artifacts. See `skills/great_cto/references/onboarding.md` for schema, data sources, and regeneration rules.
+
+```bash
+TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '[:alpha:]')
+if [ "${TEAM_SIZE:-1}" -ge 2 ]; then
+  mkdir -p docs/onboarding
+  OUT=docs/onboarding/README.md
+  # Skip regeneration if the file was hand-edited (first line not our date marker)
+  if [ -f "$OUT" ]; then
+    FIRST=$(head -1 "$OUT")
+    case "$FIRST" in \>*Generated*) ;; *) echo "Onboarding hand-edited — skipping regen. Restore marker to re-enable."; exit 0 ;; esac
+  fi
+  # Synthesize from:
+  #   .great_cto/brain.md       → "What we're building" + "What to avoid"
+  #   docs/decisions/DECISION-LOG.md → "Key architectural decisions" (top-10 by reference)
+  #   .great_cto/CODEBASE.md    → "Where the code lives" (god nodes)
+  #   .great_cto/OWNERSHIP.md   → "Who owns what" + "People to ping"
+  #   docs/runbooks/*.md        → "Common tasks"
+  #   bd list --priority 0 --priority 1 --status open | head -5 → "Current focus"
+  # Skip sections whose source is missing — write "not yet populated" placeholder.
+  # Flag conflicts between ADRs and brain.md as "⚠ conflict — see Q-review".
+fi
+```
+
+Synthesis rules:
+- Skip section rather than fabricate when source missing
+- Flag, don't silently pick, when sources disagree
+- Respect hand-edits: if the first line is not the generated-date marker, abort and tell CTO
+
 ## Reporting Contract
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For project-auditor:

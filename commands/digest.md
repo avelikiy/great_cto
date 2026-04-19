@@ -394,6 +394,41 @@ fi
 
 Any overdue pre-mortems feed into the digest output under "Pre-mortem reviews due" so the CTO prompts tech-lead to close them at the next ARCH session.
 
+## Cost reconciliation (quarterly)
+
+Aggregate estimated vs actual cost across ARCH docs. Flag services > 20% over estimate for review. See `skills/great_cto/references/cost-model.md`.
+
+```bash
+MONTH=$(date +%m); DAY=$(date +%d)
+case "$MONTH" in 01|04|07|10) Q_START=1 ;; *) Q_START=0 ;; esac
+if [ "$Q_START" = "1" ] && [ "$DAY" -le 7 ]; then
+  ACTUAL_LOG=.great_cto/cost-actual.log
+  if [ -f "$ACTUAL_LOG" ]; then
+    # Entries are: <YYYY-MM> service:<slug> actual:$<N> estimate:$<N> delta:<%>
+    grep "delta:+" "$ACTUAL_LOG" 2>/dev/null | awk -F 'delta:\\+' '{
+      gsub(/%/, "", $2); if ($2 + 0 > 20) print "COST OVERRUN: " $0
+    }' | tail -10
+  fi
+  # Also count ARCH docs with Cost Model section present
+  ARCH_WITH_COST=$(grep -l "^## Cost Model" docs/architecture/ARCH-*.md 2>/dev/null | wc -l | tr -d ' ')
+  echo "Quarterly cost check: $ARCH_WITH_COST ARCH doc(s) with Cost Model"
+fi
+```
+
+## Onboarding refresh (monthly)
+
+On the first digest of each month, regenerate `docs/onboarding/README.md` if the project has ≥ 2 team members. See `skills/great_cto/references/onboarding.md`.
+
+```bash
+DAY=$(date +%d)
+if [ "$DAY" -le 7 ]; then
+  TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '[:alpha:]')
+  if [ "${TEAM_SIZE:-1}" -ge 2 ]; then
+    echo "MONTHLY ONBOARDING REFRESH — invoke project-auditor with action=onboarding-refresh"
+  fi
+fi
+```
+
 ## Vendor register — quarterly trigger for security-officer
 
 Once per quarter (Q-review window), `/digest` invokes security-officer's vendor review pass. See `skills/great_cto/references/vendors.md`.

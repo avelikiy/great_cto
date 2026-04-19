@@ -475,6 +475,33 @@ Any [N] → fix the ARCH doc now. Only create gate:arch after all checks pass.
    Proceed with implementation? [yes/no]
    ```
 
+## Cost Model — include in ARCH for qualifying projects
+
+Every ARCH-*.md for `project_size: medium` or larger, OR archetype `ai-system` / `commerce` / `regulated` (any size), includes a `## Cost Model` section. See `skills/great_cto/references/cost-model.md` for schema and data sources.
+
+```bash
+SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+NEED_COST=0
+case "$SIZE" in medium|large|enterprise) NEED_COST=1 ;; esac
+case "$ARCHETYPE" in ai-system|commerce|regulated) NEED_COST=1 ;; esac
+
+if [ "$NEED_COST" -eq 1 ]; then
+  echo "Cost Model section required in ARCH — see skills/great_cto/references/cost-model.md"
+  # Populate from:
+  #   - Compute: instance type × 730 hrs × region rate
+  #   - Database: instance + storage + IO
+  #   - External APIs: vendor register (docs/vendors/VENDOR-*.md Contract section) × expected volume
+  #   - Data transfer: egress GB × per-GB rate
+  # Unit economics: per DAU, per transaction, break-even
+  # Cost controls: caps, rate limits, cache, scheduled scale-down
+fi
+```
+
+Greenfield with no cloud deploy yet → write placeholder "TBD pre-deploy" instead of skipping the section. If any Runtime cost row uses a third-party vendor, cross-reference `docs/vendors/VENDOR-<slug>.md` for the rate — the register is the source of truth.
+
+For teams (`team-size ≥ 5`), mirror the estimate into OWNERSHIP.md "Expected cost/mo" column so per-team cost attribution is answerable without re-parsing every ARCH.
+
 ## Pre-mortem — generate before finalizing ARCH (when triggered)
 
 Forward-looking failure analysis before the first line of code. See `skills/great_cto/references/pre-mortem.md` for triggers, brainstorming prompts, and schema.
