@@ -475,6 +475,49 @@ Any [N] → fix the ARCH doc now. Only create gate:arch after all checks pass.
    Proceed with implementation? [yes/no]
    ```
 
+## Pre-mortem — generate before finalizing ARCH (when triggered)
+
+Forward-looking failure analysis before the first line of code. See `skills/great_cto/references/pre-mortem.md` for triggers, brainstorming prompts, and schema.
+
+```bash
+SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+RISK_FLAG=$(grep "^risk:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+SKIP_FLAG=$(grep "^pre-mortem: skip" .great_cto/PROJECT.md 2>/dev/null)
+
+TRIGGER=0
+case "$SIZE" in large|enterprise) TRIGGER=1 ;; esac
+case "$ARCHETYPE" in web3|iot-embedded|regulated) TRIGGER=1 ;; esac
+[ "$RISK_FLAG" = "high" ] && TRIGGER=1
+[ -n "$SKIP_FLAG" ] && TRIGGER=0
+
+if [ "$TRIGGER" -eq 1 ]; then
+  mkdir -p docs/pre-mortems
+  SLUG="<feature-slug>"  # match ARCH doc slug
+  PRE="docs/pre-mortems/PRE-${SLUG}.md"
+  if [ ! -f "$PRE" ]; then
+    echo "Pre-mortem required. Generating $PRE — see skills/great_cto/references/pre-mortem.md for schema."
+    # Write PRE-<slug>.md per reference: Scenario, ≥5 failure modes, rank P×I,
+    # early warning signs, mitigations→gates, risks to register, empty post-ship review.
+  fi
+fi
+```
+
+After writing the pre-mortem: cross-reference with ARCH — every high-scoring scenario (P×I ≥ 6) must have either a mitigation mapped to a gate OR an explicit R- entry in the risk register. Scenarios with no mitigation and no risk entry get flagged in ARCH "Stack considerations" as "known unmitigated pre-mortem #N".
+
+## Vendor register — check at ARCH time
+
+When ARCH introduces a new external service (Stripe, OpenAI, Twilio, Auth0, managed DB, etc.), verify the vendor register has an entry. See `skills/great_cto/references/vendors.md` for criticality thresholds and schema.
+
+```bash
+mkdir -p docs/vendors
+# For each external-service SDK referenced in proposed stack:
+#   VENDOR="docs/vendors/VENDOR-${vendor_slug}.md"
+#   [ ! -f "$VENDOR" ] && echo "New vendor $vendor_slug — ask CTO for criticality; create VENDOR doc if critical/high"
+```
+
+Skip for `low` criticality vendors. For `critical` vendors, creating the VENDOR doc is mandatory before ARCH merges — fallback plan cannot be empty. If the CTO can't name a fallback, the risk enters the register as `accepted` (vendor outage = our outage) with explicit CTO sign-off.
+
 ## Risk register — append from ARCH "Risks" section
 
 Before writing Brain, check whether the ARCH doc has a `## Risks` section. Every risk listed there becomes an entry in the **central** risk register — otherwise risks die inside one ARCH doc and no one tracks them.

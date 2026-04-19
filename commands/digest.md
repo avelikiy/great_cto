@@ -375,6 +375,39 @@ fi
 
 Budget cache is read by `/inbox` (surface WARN/EXHAUSTED) and `devops` (block deploy on EXHAUSTED).
 
+## Pre-mortem post-review reminder
+
+Pre-mortems ship with an empty "Post-ship review" section that the tech-lead fills 90 days after launch. `/digest` scans for overdue reviews and surfaces them so the learning loop actually closes. See `skills/great_cto/references/pre-mortem.md`.
+
+```bash
+CUTOFF_90=$(date -v-90d +%Y-%m-%d 2>/dev/null || date -d "90 days ago" +%Y-%m-%d)
+if [ -d "docs/pre-mortems" ]; then
+  for P in docs/pre-mortems/PRE-*.md; do
+    [ -f "$P" ] || continue
+    # A pre-mortem is overdue for review if (a) it references a ship date ≥ 90d ago
+    # AND (b) the "Realized:" line under Post-ship review is still empty / placeholder.
+    REALIZED=$(awk '/## Post-ship review/,/^## /' "$P" | grep -m1 "^- Realized:" | sed 's/^- Realized: *//')
+    case "$REALIZED" in ""|"—"|"To be filled"*) echo "PRE-MORTEM REVIEW DUE: $P" ;; esac
+  done
+fi
+```
+
+Any overdue pre-mortems feed into the digest output under "Pre-mortem reviews due" so the CTO prompts tech-lead to close them at the next ARCH session.
+
+## Vendor register — quarterly trigger for security-officer
+
+Once per quarter (Q-review window), `/digest` invokes security-officer's vendor review pass. See `skills/great_cto/references/vendors.md`.
+
+```bash
+# Only trigger on the first digest of each quarter (month in 1/4/7/10, first 7 days).
+MONTH=$(date +%m); DAY=$(date +%d)
+case "$MONTH" in 01|04|07|10) QUARTER_START=1 ;; *) QUARTER_START=0 ;; esac
+if [ "$QUARTER_START" -eq 1 ] && [ "$DAY" -le 7 ] && [ -d "docs/vendors" ]; then
+  VENDOR_COUNT=$(ls docs/vendors/VENDOR-*.md 2>/dev/null | wc -l | tr -d ' ')
+  [ "$VENDOR_COUNT" -gt 0 ] && echo "VENDOR QUARTERLY REVIEW DUE — $VENDOR_COUNT vendors. Run: invoke security-officer with action=vendor-review"
+fi
+```
+
 ---
 
 ## Dream Cycle — update brain.md

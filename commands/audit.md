@@ -102,6 +102,27 @@ As part of dependency scanning, detect stale packages (no releases > 24 months) 
 echo "See skills/great_cto/references/deprecations.md for what to flag and how."
 ```
 
+## Vendor coverage scan
+
+Detect calls to known third-party services (paid SaaS / critical free-tier) and flag any without a matching `docs/vendors/VENDOR-*.md`. See `skills/great_cto/references/vendors.md` for criticality thresholds.
+
+```bash
+# Known-vendor SDK patterns — extend as new integrations land.
+VENDOR_PATTERNS="stripe auth0 openai anthropic twilio sendgrid datadog segment mixpanel firebase supabase vercel cloudflare"
+MISSING=""
+for VP in $VENDOR_PATTERNS; do
+  FOUND_IN_DEPS=""
+  for DEP in package.json requirements.txt pyproject.toml go.mod Cargo.toml Gemfile composer.json; do
+    [ -f "$DEP" ] && grep -qi "\"$VP\\|$VP-\\|$VP_\\|/$VP/" "$DEP" 2>/dev/null && FOUND_IN_DEPS=1 && break
+  done
+  if [ -n "$FOUND_IN_DEPS" ]; then
+    [ ! -f "docs/vendors/VENDOR-${VP}.md" ] && MISSING="$MISSING $VP"
+  fi
+done
+[ -n "$MISSING" ] && echo "=== VENDOR DOCS MISSING (advisory) ===$MISSING" > /tmp/vendor-suggestions.txt
+# Suggestions are advisory — auditor reviews, CTO confirms criticality before creating VENDOR-*.md.
+```
+
 ## Run audit
 
 Spawn `great_cto-project-auditor` with this context (vary by MODE):

@@ -343,6 +343,41 @@ NEXT=$(printf "WAIVER-%03d" $((${NEXT:-0} + 1)))
 
 If CTO refuses/declines to provide reason or follow-up → refuse the skip and BLOCK. See `skills/great_cto/references/waivers.md`.
 
+## Pre-mortem — verify mitigations are enforceable
+
+When running gate:compliance or gate:security for a feature that has a matching `docs/pre-mortems/PRE-<slug>.md`, verify each "mitigation → gate" row in the pre-mortem is actually enforceable at this gate. See `skills/great_cto/references/pre-mortem.md`.
+
+```bash
+FEATURE_SLUG="<from ARCH or Beads task>"
+PRE="docs/pre-mortems/PRE-${FEATURE_SLUG}.md"
+if [ -f "$PRE" ]; then
+  # Extract rows tagged gate:security or gate:compliance, flag any without an obvious enforcement artifact
+  awk '/## Mitigations/,/^## /' "$PRE" 2>/dev/null | grep -E "gate:(security|compliance)" | while read -r row; do
+    echo "Pre-mortem mitigation claimed at CSO gate: $row"
+    # Verify: is there a test, scan rule, or threat-model entry covering this? If not → flag in CSO report.
+  done
+fi
+```
+
+Findings: include a "Pre-mortem verification" section in the CSO report listing each mitigation row and whether it is enforced (PASS), enforced-by-proxy (OK with citation), or unenforced (FLAG). Unenforced mitigations at H×H or H×M pre-mortem scenarios BLOCK the gate unless the CTO waives per the waiver procedure above.
+
+## Vendor register — quarterly review (triggered by /digest)
+
+Once per quarter, when invoked by `/digest`, iterate all `docs/vendors/VENDOR-*.md` at `criticality: critical` or `high`. See `skills/great_cto/references/vendors.md` for the review cadence.
+
+```bash
+QUARTER_AGO=$(date -v-90d +%Y-%m-%d 2>/dev/null || date -d "90 days ago" +%Y-%m-%d)
+for V in docs/vendors/VENDOR-*.md; do
+  [ -f "$V" ] || continue
+  CRIT=$(grep -m1 "^<criticality:\|^- \*\*criticality" "$V" 2>/dev/null)
+  LAST=$(grep -m1 "^## Last reviewed:" "$V" | awk '{print $4}')
+  # Check: cert expirations within 90 days; incident history current; renewal date; linked risks still valid
+  # Append findings to the CSO quarterly vendor review section
+done
+```
+
+Review output: append to the CSO quarterly report — "Vendors reviewed: N | Certs expiring <90d: M | Renewals upcoming: K | New risks identified: L". Any cert expiring within 30 days → create a P1 Beads task for renewal-prep.
+
 ## Reporting Contract
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For security-officer:
