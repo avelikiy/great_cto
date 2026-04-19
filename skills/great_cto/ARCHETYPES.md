@@ -1,7 +1,21 @@
 # Archetypes — Pipeline Rules by Archetype
 
 > 10 archetypes cover 95% of projects. Domain packs add depth for specialized needs.
-> See TYPE_MAP.md for how 75+ specific types resolve to archetypes.
+> See TYPE_MAP.md for how 75+ specific types resolve to archetypes (internal).
+
+## User-facing scales vs internal sizes
+
+The CTO chats about three scales: `quick` / `standard` / `deep`. Agents read five internal sizes from PROJECT.md:
+
+| User-facing | Internal `size:` values | When |
+|-------------|------------------------|------|
+| `quick` | `nano` OR `small` | Hotfix, typo, new endpoint, small feature |
+| `standard` | `medium` (default) | Standard feature, new service |
+| `deep` | `large` OR `enterprise` | Cross-cutting, regulated, arch migration |
+
+`/start` writes the canonical internal name to PROJECT.md. Agents never need to know about the user-facing vocabulary.
+
+For approvals: the CTO chooses `auto` or `review` (default); PROJECT.md stores `auto` / `gates-only` (canonical). Advanced levels (`strict` / `expert` / `step-by-step`) are opt-in, written verbatim.
 
 ## Archetype Definitions
 

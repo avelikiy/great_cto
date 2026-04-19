@@ -4,6 +4,39 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.70 — 2026-04-19
+
+### Changed — Pareto simplification (UX surface shrunk; internals unchanged)
+
+The 20% of the surface area that drives 80% of real usage now fits on one screen. Everything else is still present — just moved out of the first fold. Zero functionality removed; backward-compatible for every existing `PROJECT.md`.
+
+**1. README rewrite.** Top fold is now four things: one-paragraph pitch, one `/start` example, one install command, three commands. Down from 430 to ~220 visible lines. Eight deep sections (`<details>`): ROI math, 10 archetypes, 13 compliance frameworks, 7 agents, artifacts, competitive compare. The first-time visitor reads in ~60 seconds instead of scrolling past 11 tables.
+
+**2. Three primary commands, everything else demoted.** `/start`, `/review`, `/inbox` are the only commands on the first screen. `/audit`, `/rfc`, `/digest`, `/release`, `/ownership`, `/oncall`, `/triage` are still in `plugin.json` (nothing deleted from the plugin) but sit behind a collapsed "More commands" block.
+
+**3. Pipeline sizes: 5 → 3 user-facing.** The CTO chats about `quick` / `standard` / `deep`. Internally the five canonical sizes (`nano` / `small` / `medium` / `large` / `enterprise`) still back the agents — `/start` maps user-facing to internal at write time. Agent files untouched (preserves the cache discipline from v1.0.69).
+
+**4. Approval levels: 5 → 2 user-facing.** Default is `review` (the old `gates-only`); `auto` is unchanged. The three advanced levels (`strict`, `expert`, `step-by-step`) remain opt-in — written verbatim to PROJECT.md when the CTO asks for them. All seven agents continue to grep for the canonical names.
+
+**5. "73 types" removed from user-facing docs.** `TYPE_MAP.md` is now marked **internal** in its header — it's an auto-detection dispatch table, not user configuration. `README.md` no longer surfaces the "73 types" count. The 10 archetypes stay; the CTO never picks a type manually.
+
+**Backward compat**:
+- Every existing `PROJECT.md` from v1.0.68/v1.0.69 keeps working without migration
+- Agents read the same canonical values as before (`nano`…`enterprise`, `gates-only`…`step-by-step`)
+- The simplification is purely a UX layer over unchanged internals
+
+**What we did NOT change**:
+- 12-angle `/review` (killer feature, untouched)
+- brain.md, CODEBASE.md, HANDOFF.md hooks
+- Advisor pattern (Opus escalation)
+- Agent files (cache discipline preserved per v1.0.69)
+- `plugin.json` command list (all 10 commands still dispatch)
+- Compliance auto-detection, packs, archetypes
+
+Files: `README.md`, `commands/start.md`, `skills/great_cto/ARCHETYPES.md`, `skills/great_cto/TYPE_MAP.md`, `.claude-plugin/plugin.json`, `docs/plans/PLAN-pareto-simplification.md` (new).
+
+---
+
 ## v1.0.69 — 2026-04-19
 
 ### Changed — Cache discipline across SessionStart, /review, and file globs
