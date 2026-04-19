@@ -4,6 +4,33 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.69 — 2026-04-19
+
+### Changed — Cache discipline across SessionStart, /review, and file globs
+
+Five surgical changes that make our prompt structure cache-friendly for the KV-cache in Claude Code's transport. Zero semantic change — same data, same agents, same gates. Just stable-prefix-first / volatile-suffix-last.
+
+**1. SessionStart hook reorder** (`.claude-plugin/plugin.json`). `=== LOCAL ===` moved from the top (between PREFERENCES and PROJECT) to after CODEBASE and before HANDOFF. The stable prefix is now: `PREFERENCES → PROJECT → PHASE → BRAIN → CODEBASE`, followed by the volatile `LOCAL → HANDOFF → QA/CSO/PERF → STATUS`. A CTO edit to `.great_cto/local.md` no longer invalidates the cache for PROJECT/brain/codebase.
+
+**2. Phase cache implication documented** in `skills/great_cto/references/phases.md`. Switching phase mid-pipeline is now flagged as a cache-invalidation event. Switch between pipelines (after gate:ship closes), not during one.
+
+**3. Deterministic sort on every `ls *.md` / `find … *.md` that feeds context** — `commands/inbox.md`, `commands/digest.md`, `commands/release.md`, `commands/rfc.md`, `commands/oncall.md`, `commands/audit.md`, `commands/start.md`. Previously filesystem order leaked into prompts (different on macOS HFS+ vs APFS vs Linux ext4), producing different token prefixes across runs. Every list is now `| sort`-stable.
+
+**4. Runtime-immutability rule for `agents/*.md` and `commands/*.md`** added to the File Layout Invariant in `skills/great_cto/SKILL.md`. Task-specific state flows through `$ARGUMENTS`, `bd`, or sibling files — never through mutation of an agent document. Preserves the largest cache-hot blocks we ship.
+
+**5. `/review` cache-discipline note** (`commands/review.md`) after Setup, before Angle 1. The diff + archetype + design-system detection is the stable prefix across all 12 angles; re-reading or reordering it between angle evaluations forfeits prefix caching. Codified so future edits don't regress.
+
+**Why this is the right ROI:**
+- Zero-risk edits: every change is a one-line doc note, a one-argument `| sort`, or a single block reorder
+- Total ~30 LOC across 10 files; each item independently reversible
+- Biggest practical win on `/review` (12 angles × same diff) and on daily `/inbox` runs
+
+**Source of principles:** prompt-caching works on exact-token-prefix match; any edit in the middle invalidates everything after. Our job is just to keep volatile content at the tail.
+
+Files: `.claude-plugin/plugin.json`, `commands/{inbox,digest,release,rfc,oncall,audit,start,review}.md`, `skills/great_cto/SKILL.md`, `skills/great_cto/references/phases.md`, `docs/plans/PLAN-cache-discipline.md` (new).
+
+---
+
 ## v1.0.68 — 2026-04-19
 
 ### Added — `/triage`, DONE/BLOCKED contract, file-layout invariant

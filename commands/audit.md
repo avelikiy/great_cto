@@ -16,7 +16,7 @@ If argument is `eval` (i.e. `/audit eval`):
 
 ```bash
 EVAL_DIR="docs/eval"
-ls "$EVAL_DIR"/EVAL-*.md 2>/dev/null || echo "NO_EVALS"
+ls "$EVAL_DIR"/EVAL-*.md 2>/dev/null | sort || echo "NO_EVALS"
 ```
 
 If no eval files found:

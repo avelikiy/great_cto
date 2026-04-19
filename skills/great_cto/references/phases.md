@@ -31,6 +31,10 @@ echo "Phase set to: $PHASE. Next SessionStart will load phase-specific context."
 - Pipeline rules come from `archetype` + `approval-level`, not from `phase`.
 - **Default is `implementation`.** If `phase:` is missing from PROJECT.md, the hook falls back to `implementation` behavior. Backward compatible.
 
+### Cache implication
+
+Each phase produces a cache-stable SessionStart prefix. Switching phase in the middle of an active pipeline invalidates the KV-cache for the rest of the run. Switch **between** pipelines (after gate:ship closes, before the next feature starts) — not during one.
+
 ## Mental model
 
 Think of `phase:` as a filter on the SessionStart hook output — nothing more. The same pipelines, agents, and gates run regardless of which phase is set. Phase just trims what the model sees on session start so it focuses on what matters *right now*.

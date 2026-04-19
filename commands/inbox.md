@@ -39,7 +39,7 @@ If bd unavailable: read `.great_cto/tasks.md` for manual task state and show in 
 
 **New artifacts:**
 ```bash
-find docs/ -name "*.md" -mtime -1 2>/dev/null | head -10
+find docs/ -name "*.md" -mtime -1 2>/dev/null | sort | head -10
 ```
 
 **Open PRs:**
@@ -55,7 +55,7 @@ bd list --label production --status open 2>/dev/null || true
 **Team signals (only if files exist):**
 ```bash
 # Overdue RFCs
-[ -d "docs/rfcs" ] && ls docs/rfcs/RFC-*.md 2>/dev/null | xargs grep -l "Status: DRAFT\|Status: REVIEW" 2>/dev/null | xargs grep "^Review deadline:" 2>/dev/null | awk -v today="$(date +%Y-%m-%d)" '$3 < today {print FILENAME, "OVERDUE:", $3}' | sed 's|docs/rfcs/||'
+[ -d "docs/rfcs" ] && ls docs/rfcs/RFC-*.md 2>/dev/null | sort | xargs grep -l "Status: DRAFT\|Status: REVIEW" 2>/dev/null | xargs grep "^Review deadline:" 2>/dev/null | awk -v today="$(date +%Y-%m-%d)" '$3 < today {print FILENAME, "OVERDUE:", $3}' | sed 's|docs/rfcs/||'
 
 # On-call
 [ -f ".great_cto/oncall-schedule.md" ] && grep "^Current:" .great_cto/oncall-schedule.md | head -5 || echo "oncall: not configured"

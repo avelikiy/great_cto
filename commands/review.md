@@ -104,6 +104,10 @@ grep -rl "StyleSheet\.create\|useTheme\|ThemeProvider" . --include="*.tsx" --inc
 echo "Design system detected: $DESIGN_SYSTEM"
 ```
 
+## Cache discipline
+
+Setup above produces the **stable prefix** shared across all 12 angles: archetype, design-system detection, and the full `$DIFF`. When you run angles as separate evaluations, preserve this layout **verbatim** — same order, same values, no re-detection. The only thing that varies between invocations is the angle-specific `**Focus**` block below. Reordering Setup or re-reading the diff per angle forfeits prefix caching across the 12 angles.
+
 ## Angle 1 — Performance Reviewer
 
 **Focus**: latency, memory, unnecessary computation, N+1 queries, missing caching, unbounded loops.

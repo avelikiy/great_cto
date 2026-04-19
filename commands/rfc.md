@@ -132,7 +132,7 @@ To close: /rfc close <NUM> accept|reject "reason"
 ## Action: `list` (default) — show all open RFCs
 
 ```bash
-ls "$RFC_DIR"/RFC-*.md 2>/dev/null | while read F; do
+ls "$RFC_DIR"/RFC-*.md 2>/dev/null | sort | while read F; do
   NUM=$(basename "$F" | grep -oE '[0-9]+' | head -1)
   TITLE=$(grep "^# RFC-" "$F" | sed 's/^# RFC-[0-9]*: //')
   STATUS=$(grep "^Status:" "$F" | head -1 | awk '{print $2}')

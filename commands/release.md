@@ -146,13 +146,13 @@ Identify what needs updating after this release:
 CHANGED_FEATURES=$(git log ${PREV_TAG}..HEAD --format="%s" 2>/dev/null | grep -iE "^feat" | head -20)
 
 # Existing docs to scan
-find docs/ README.md public/ src/ -name "*.md" -newer ".great_cto/PROJECT.md" 2>/dev/null | head -20
-ls docs/help/ docs/guides/ docs/user/ 2>/dev/null
-find . -name "CHANGELOG-USER.md" -o -name "FAQ.md" -o -name "GUIDE*.md" 2>/dev/null | head -10
+find docs/ README.md public/ src/ -name "*.md" -newer ".great_cto/PROJECT.md" 2>/dev/null | sort | head -20
+ls docs/help/ docs/guides/ docs/user/ 2>/dev/null | sort
+find . -name "CHANGELOG-USER.md" -o -name "FAQ.md" -o -name "GUIDE*.md" 2>/dev/null | sort | head -10
 
 # Landing page copy files
 find . -path "*/landing*" -o -path "*/marketing*" -o -name "*.mdx" 2>/dev/null | \
-  grep -v node_modules | grep -v ".next" | head -15
+  grep -v node_modules | grep -v ".next" | sort | head -15
 ```
 
 Output:
