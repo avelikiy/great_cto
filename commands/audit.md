@@ -123,6 +123,35 @@ done
 # Suggestions are advisory — auditor reviews, CTO confirms criticality before creating VENDOR-*.md.
 ```
 
+## Cost-model coverage scan
+
+For services deployed via IaC without a matching ARCH Cost Model section, emit an advisory finding. See `skills/great_cto/references/cost-model.md`.
+
+```bash
+IAC_FILES=$(ls *.tf terraform/*.tf helm/values.yaml k8s/*.yaml 2>/dev/null | head -20)
+if [ -n "$IAC_FILES" ]; then
+  # For each aws_instance / aws_db_instance / k8s Deployment resource name,
+  # grep docs/architecture/ARCH-*.md for a "## Cost Model" section referencing the resource.
+  NO_COST=0
+  for ARCH in docs/architecture/ARCH-*.md; do
+    [ -f "$ARCH" ] || continue
+    grep -q "^## Cost Model" "$ARCH" || NO_COST=$((NO_COST+1))
+  done
+  [ "$NO_COST" -gt 0 ] && echo "=== COST MODEL GAP (advisory) === $NO_COST ARCH doc(s) missing Cost Model section"
+fi
+```
+
+## Onboarding generation (first-run)
+
+If `team-size ≥ 2` and `docs/onboarding/README.md` does not yet exist, invoke project-auditor for synthesis. See `skills/great_cto/references/onboarding.md`.
+
+```bash
+TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '[:alpha:]')
+if [ "${TEAM_SIZE:-1}" -ge 2 ] && [ ! -f "docs/onboarding/README.md" ]; then
+  echo "Onboarding not yet generated — project-auditor will synthesize (see skills/great_cto/references/onboarding.md)"
+fi
+```
+
 ## Run audit
 
 Spawn `great_cto-project-auditor` with this context (vary by MODE):
