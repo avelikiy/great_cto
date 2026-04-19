@@ -1,8 +1,8 @@
 # Type → Archetype Mapping
 
-> Every specific type resolves to an archetype + default parameters.
-> `/start` detects the specific type using keywords (below), then resolves via mapping table.
-> Agents read `archetype:` from PROJECT.md — not the specific type.
+> **Internal dispatch table — users never pick types manually.**
+> `/start` and `/audit` detect the specific type from description/dependencies, then resolve to one of 10 archetypes + default parameters.
+> Agents read `archetype:` from PROJECT.md — the specific type is a stepping stone, not user-facing config.
 
 ## Type Detection Keywords
 

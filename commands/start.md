@@ -112,30 +112,39 @@ If primary type is not in TYPE_MAP.md → default to `web-service` archetype, wa
 
 ## Step 2b: Auto-detect size, pipeline, and codebase state
 
-**Size detection** — infer from the CTO's description:
+**Size detection** — infer from the CTO's description. Three user-facing scales (`quick` / `standard` / `deep`) map to five internal sizes used by agents:
 
-| Signal in description | Size |
-|-----------------------|------|
-| "fix", "typo", "rename", "update config", "change a label", 1-2 specific files, <500 LOC total | `nano` |
-| "add endpoint", "add feature", "small change", "integrate X" | `small` |
-| "build service", "add auth", "refactor module", "new API", schema change | `medium` |
-| "build platform", "redesign", "migrate entire", "full rewrite", multi-service | `large` |
-| Regulated type detected (payment-service, custody-wallet, gxp-system, critical-infrastructure, financial-services, automotive-supplier, iso27001-scope) | `enterprise` |
+| User says | Signal in description | User-facing scale | Internal size |
+|-----------|----------------------|-------------------|---------------|
+| "fix", "typo", "rename", "update config", 1-2 files, <500 LOC | trivial change | `quick` | `nano` |
+| "add endpoint", "small change", "integrate X" | new endpoint, minor feature | `quick` | `small` |
+| "build service", "add auth", "refactor module", "new API", schema change | standard feature | `standard` | `medium` |
+| "build platform", "redesign", "migrate entire", "full rewrite", multi-service | cross-cutting | `deep` | `large` |
+| Regulated type detected (payment-service, custody-wallet, gxp-system, critical-infrastructure, financial-services, automotive-supplier, iso27001-scope) | regulated | `deep` | `enterprise` |
+
+**Write the internal size to PROJECT.md** (`size: medium`, not `size: standard`) — agents still read internal names. The user-facing label is only shown in the confirmation summary.
+
+**Accept user overrides in either vocabulary:**
+```
+"make it deep" / "large" / "enterprise"   →  upgrade
+"standard" / "medium"                      →  default
+"just a quick fix" / "nano" / "small"      →  downgrade
+```
 
 Override rules:
 - Regulated type → always `enterprise` regardless of description signals
-- MANDATORY security gate type (see ARCHETYPES.md) + any size → minimum `medium`
-- If CTO requests `nano` on a MANDATORY type: warn "This type requires security gate — minimum size is `medium`. Upgrading." Do NOT allow nano for mandatory types.
+- MANDATORY security gate archetype (see ARCHETYPES.md) + any size → minimum `medium`
+- If CTO requests `quick`/`nano` on a MANDATORY type: warn "This type requires security gate — minimum is `standard`. Upgrading." Do NOT allow nano for mandatory types.
 - If `min-size: enterprise` in TYPE_MAP.md → enforce enterprise regardless of CTO override
 
 **Pipeline by size:**
-| Size | Agents | Est. time |
-|------|--------|-----------|
-| `nano` | senior-dev only | ~5min |
-| `small` | tech-lead → senior-dev → qa | ~20min |
-| `medium` | tech-lead → senior-dev → qa → security-officer → devops | ~45min |
-| `large` | full 7 agents + canary | ~90min |
-| `enterprise` | full 7 agents + compliance gates | ~2-3h |
+| Internal size | User-facing | Agents | Est. time |
+|---------------|-------------|--------|-----------|
+| `nano` | quick | senior-dev only | ~5min |
+| `small` | quick | tech-lead → senior-dev → qa | ~20min |
+| `medium` | standard | tech-lead → senior-dev → qa → security-officer → devops | ~45min |
+| `large` | deep | full 7 agents + canary | ~90min |
+| `enterprise` | deep | full 7 agents + compliance gates | ~2-3h |
 
 **Greenfield detection** — infer from description and repo state:
 ```bash
@@ -152,22 +161,23 @@ echo "src_files=$SRC_FILES"
 
 ```
 Detected:
-  type=<primary>[+ <secondary>] | size=<SIZE> | <N> agents
+  archetype=<archetype> | scale=<quick|standard|deep> | <N> agents
 
 Pipeline: <agent1> → <agent2> → ... [~<time>]
 
 <If greenfield is ambiguous>: "Greenfield or existing repo? (say \"existing\" if working on live code)"
-<If greenfield is obvious>: "Say \"go\" to start — or override: \"make it large\", \"add security\", \"nano\""
+<If greenfield is obvious>: "Say \"go\" to start — or override: \"make it deep\", \"add security\", \"quick\""
 ```
 
-Wait for CTO reply before writing PROJECT.md.
+Wait for CTO reply before writing PROJECT.md. Show **user-facing scale** (`quick`/`standard`/`deep`) in this summary even though PROJECT.md stores internal size.
 
-**Handle override replies:**
+**Handle override replies** (accept both user-facing and legacy vocab):
 - "go" / "yes" / "start" → proceed with detected values
 - "existing" / "yes existing" → set `greenfield: false`
-- "make it large" / "large" → upgrade size to `large`
+- "make it deep" / "deep" / "large" / "enterprise" → upgrade size to `large` (or `enterprise` if regulated)
+- "standard" / "medium" → size `medium`
+- "quick" / "nano" / "small" / "just a fix" → size `nano` or `small` per signal
 - "add security" / "security gate" → add security-officer to pipeline (set minimum `medium`)
-- "nano" / "just a fix" → downgrade to `nano`
 - Any other text → treat as additional project context, re-run type detection ONCE. If still ambiguous after 2 rounds, ask: "I couldn't determine the type. Say 'go' to use `web-service` default, or specify the archetype directly (e.g. 'ai-system')."
 
 Do NOT output scoring tables. Do NOT explain pipeline in detail unless CTO asks.
@@ -218,13 +228,26 @@ Notes:
 - `project_size` is set from Step 2b detection (can be overridden by CTO at any time: "make it large")
 - `greenfield: false` → tech-lead will read existing code before designing architecture
 - `phase:` controls what SessionStart hook loads — `implementation` (default) loads CODEBASE.md + HANDOFF.md; `planning` loads brain.md + digest only; `review` loads latest QA + CSO; `release` loads perf-baseline. CTO switches in chat: "move to review phase".
-- `approval-level:` single control for pipeline depth (replaces project_size + interaction_mode + review_mode):
-  - `auto` — no gates, no checkpoints (hotfix, trusted auto)
-  - `gates-only` — **default** — gate:arch + gate:ship only
-  - `strict` — gate:arch + gate:code + gate:ship (code review required)
+- `approval-level:` single control for pipeline depth. **Two user-facing values** that the CTO specifies in chat:
+  - `auto` — no gates (hotfix, trusted automation) → written as `auto`
+  - `review` — **default** — arch + ship gates (2 approvals per feature) → written as **`gates-only`** (canonical internal name; agents read this)
+
+  **Advanced** (written verbatim when CTO opts in):
+  - `strict` — arch + code + ship gates (adds code review)
   - `expert` — all gates + 2 checkpoints per agent (deep review)
   - `step-by-step` — every substep gets approval (learning mode)
-  - MANDATORY archetypes (ai-system, commerce, web3, iot-embedded, regulated) → minimum `strict`
+
+  **Write-time mapping** — PROJECT.md always stores the canonical internal name so agents (which grep for `gates-only|strict|expert|step-by-step`) keep working:
+  ```
+  user says → stored in PROJECT.md
+    auto       → auto
+    review     → gates-only   (default)
+    strict     → strict
+    expert     → expert
+    step-by-step → step-by-step
+  ```
+
+  MANDATORY archetypes (ai-system, commerce, web3, iot-embedded, regulated) → auto-upgrade from `review` to `strict` (CTO is notified).
 - `packs:` auto-detected from archetype:
   - `ai-system` → `[ai-pack]`
   - `web3` → `[web3-pack]`
