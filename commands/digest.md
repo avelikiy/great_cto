@@ -318,6 +318,63 @@ fi
 
 Findings from the three sections above are included in the digest output (Reliability / Upcoming deadlines) when non-empty; suppressed otherwise to keep weekly digests lean.
 
+## SLO budget recomputation — write slo-budget-current.md
+
+Recompute per-service SLI budgets from the INCIDENT-LOG over the 30d rolling window. See `skills/great_cto/references/reliability.md` for entry format.
+
+```bash
+SLO=docs/reliability/SLO.md
+LOG=docs/reliability/INCIDENT-LOG.md
+CACHE=.great_cto/slo-budget-current.md
+
+if [ -f "$SLO" ] && [ -f "$LOG" ]; then
+  mkdir -p .great_cto
+  CUTOFF=$(date -v-30d +%Y-%m-%dT%H:%M 2>/dev/null || date -d "30 days ago" +%Y-%m-%dT%H:%M)
+  TODAY=$(date +%Y-%m-%d)
+
+  {
+    printf '# SLO Budget — current state (updated %s)\n\n' "$TODAY"
+    printf '| Service | SLI | Window | Used | Remaining | Status |\n'
+    printf '|---------|-----|--------|------|-----------|--------|\n'
+
+    # For each service + SLI row defined in SLO.md, sum "Budget consumed" minutes from INCIDENT-LOG within cutoff.
+    awk -v cut="$CUTOFF" -v log="$LOG" '
+      /^### / { svc = $2; next }
+      svc != "" && /^\| [A-Za-z]/ && !/^\| SLI / && !/^\|---/ {
+        # Parse SLO target row: | SLI-name | target | budget-text | window |
+        n = split($0, f, "|");
+        sli = f[2]; budget_text = f[4];
+        gsub(/^ +| +$/, "", sli); gsub(/^ +| +$/, "", budget_text);
+        # Extract first number from budget_text as budget minutes (approximation — hours→min handled loosely).
+        if (match(budget_text, /[0-9]+(\.[0-9]+)?/)) {
+          budget = substr(budget_text, RSTART, RLENGTH) + 0;
+          if (budget_text ~ /h|hour/) budget = budget * 60;
+        } else budget = 0;
+        # Sum matching consumed minutes from log.
+        used = 0;
+        cmd = "awk -v cut=\"" cut "\" -v svc=\"" svc "\" \47" \
+              "/^## [0-9]{4}-/ { d=$2; s=$4; next } " \
+              "s == svc && /Budget consumed:/ && d >= cut { " \
+              "  match($0, /[0-9]+/); print substr($0, RSTART, RLENGTH) " \
+              "}\47 " log;
+        while ((cmd | getline line) > 0) used += line + 0;
+        close(cmd);
+        remaining = budget - used;
+        pct = (budget > 0) ? (used * 100.0 / budget) : 0;
+        status = "ok";
+        if (pct >= 100) status = "EXHAUSTED";
+        else if (pct >= 80) status = "WARN";
+        else if (pct >= 50) status = "warn";
+        printf "| %s | %s | 30d rolling | %.1fmin (%.0f%%) | %.1fmin | %s |\n", svc, sli, used, pct, remaining, status;
+      }
+    ' "$SLO"
+  } > "$CACHE"
+  echo "slo-budget-current.md recomputed → $CACHE"
+fi
+```
+
+Budget cache is read by `/inbox` (surface WARN/EXHAUSTED) and `devops` (block deploy on EXHAUSTED).
+
 ---
 
 ## Dream Cycle — update brain.md

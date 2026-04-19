@@ -250,6 +250,23 @@ P0 TIMER: 15 min to resolution or escalation to next level
    ```
    This feeds tech-lead's retrospective reader on next feature — recurring patterns become architecture constraints.
 
+9. **INCIDENT-LOG append** — every postmortem that impacts an SLI (availability, latency, error rate, success rate). See `skills/great_cto/references/reliability.md` for format.
+   ```bash
+   mkdir -p docs/reliability
+   LOG=docs/reliability/INCIDENT-LOG.md
+   [ ! -f "$LOG" ] && printf '# Incident Log — append only\n\n> Every incident that impacts an SLI. See `skills/great_cto/references/reliability.md` for format.\n\n' > "$LOG"
+   # Append 4-line entry — edit placeholders before committing.
+   {
+     printf '## %s | <service> | <short title>\n' "$(date -u +%Y-%m-%dT%H:%MZ)"
+     printf 'Cause: <one-liner root cause from postmortem>\n'
+     printf 'SLI impact: <which SLI, magnitude, window delta>\n'
+     printf 'Budget consumed: <min consumed> of <window budget> (<percent>)\n'
+     printf 'Postmortem: PM-<id>\n\n'
+   } >> "$LOG"
+   echo "INCIDENT-LOG appended → $LOG — fill in SLI magnitude / budget % before next /digest"
+   ```
+   Skip append only if the incident had zero SLI impact (e.g. caught pre-deploy, never hit users).
+
 ## Regular Report
 - Clean: `L3 monitoring: OK (no incidents)`
 - Issues found: `L3 triage complete — P1: N tasks | P2: M tasks`

@@ -511,6 +511,31 @@ done
 
 Any match → add to ARCH's "Stack considerations": `⚠ Proposed <tech> is deprecated (see DEPRECATION-CALENDAR, EOL <date>). Recommend: <replacement> OR document acceptance.` See `skills/great_cto/references/deprecations.md`.
 
+## SLO seed — when introducing a new service in ARCH
+
+When the ARCH doc introduces a new network-facing or user-impacting service, seed the SLO entry so reliability measurement starts with the service, not after the first outage. See `skills/great_cto/references/reliability.md` for format.
+
+```bash
+SLO=docs/reliability/SLO.md
+mkdir -p docs/reliability
+[ ! -f "$SLO" ] && printf '# SLO — %s\n\n> Per-service Service Level Objectives. See `skills/great_cto/references/reliability.md`.\n\n## Services\n\n' "$(basename "$PWD")" > "$SLO"
+# Only append if the service heading is not already there.
+SVC_NEW="<new-service-name>"  # e.g. "billing"
+if ! grep -q "^### $SVC_NEW$" "$SLO"; then
+  {
+    printf '### %s\n' "$SVC_NEW"
+    printf '| SLI | Target | Budget (30d rolling) | Window |\n'
+    printf '|-----|--------|----------------------|--------|\n'
+    printf '| Availability (HTTP 2xx / total) | 99.9%% | 43.2 min downtime | 30d rolling |\n'
+    printf '| Latency p95 | < 200ms | 2h over threshold | 30d rolling |\n'
+    printf '| Error rate | < 0.5%% | 3.6h > threshold | 30d rolling |\n\n'
+  } >> "$SLO"
+  echo "SLO seeded for $SVC_NEW — CTO to review/tighten defaults before merge"
+fi
+```
+
+Draft defaults are starting points — the CTO tightens or loosens based on product criticality. Tightening later requires an ADR per `reliability.md` § SLO change procedure.
+
 ## Brain Write
 
 After writing ARCH doc and ADRs, append to `.great_cto/brain.md`:

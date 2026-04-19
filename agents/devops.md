@@ -55,6 +55,27 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
    ```
    Get the task ID from output, then `bd show <id>` — status must be `closed`. If not closed, stop: "gate:ship not approved yet. Security review pending."
 
+   **SLO budget check** — before proceeding, read `.great_cto/slo-budget-current.md` for the service being deployed (if file exists). Format per `skills/great_cto/references/reliability.md`.
+   ```bash
+   BUDGET_FILE=.great_cto/slo-budget-current.md
+   SVC=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+   if [ -f "$BUDGET_FILE" ]; then
+     EXHAUSTED=$(grep -i "EXHAUSTED" "$BUDGET_FILE" | grep -i "$SVC")
+     WARN=$(grep -E "\| WARN \|" "$BUDGET_FILE" | grep -i "$SVC")
+     if [ -n "$EXHAUSTED" ]; then
+       echo "BLOCKED: SLO budget EXHAUSTED for $SVC:"
+       echo "$EXHAUSTED"
+       echo "Deploy blocked — only hotfix with WAIVER permitted. See skills/great_cto/references/reliability.md."
+       exit 1
+     fi
+     if [ -n "$WARN" ]; then
+       echo "WARN: SLO budget > 80% consumed for $SVC — requires CTO explicit approval before proceeding:"
+       echo "$WARN"
+       # Pause for CTO; proceed only after explicit "yes" in chat.
+     fi
+   fi
+   ```
+
 2. **Verify artifacts — requirements depend on project_size**:
    ```bash
    PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
@@ -163,6 +184,21 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
    Step 3 → 100% traffic → full cutover → drain old fleet
    ```
    After each step: if error rate >1% OR p99 +50% vs baseline → rollback immediately, stop canary, create P0 Beads task.
+
+   **On canary failure (rollback triggered)** — append to INCIDENT-LOG per `skills/great_cto/references/reliability.md`:
+   ```bash
+   mkdir -p docs/reliability
+   LOG=docs/reliability/INCIDENT-LOG.md
+   [ ! -f "$LOG" ] && printf '# Incident Log — append only\n\n> Every incident that impacts an SLI. See `skills/great_cto/references/reliability.md` for format.\n\n' > "$LOG"
+   {
+     printf '## %s | %s | canary failure — rolled back\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$SVC"
+     printf 'Cause: <observed signal: error-rate / p99 / smoke-fail>\n'
+     printf 'SLI impact: availability degraded during canary window; latency p99 breach\n'
+     printf 'Budget consumed: <N>min of <budget>min (<pct>)\n'
+     printf 'Postmortem: — (l3-support to triage)\n\n'
+   } >> "$LOG"
+   echo "INCIDENT-LOG appended → $LOG"
+   ```
 
    **Direct deploy** (no canary): `library-sdk`, `cli-tool`, `compiler-lang`, `wordpress-plugin`, `infra-iac`, `k8s-operator`, `data-warehouse`, `embedded-iot`
 

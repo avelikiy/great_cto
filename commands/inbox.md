@@ -95,6 +95,14 @@ if [ -f "docs/deprecations/DEPRECATION-CALENDAR.md" ]; then
 fi
 ```
 
+**SLO budget (if cache exists):**
+```bash
+if [ -f ".great_cto/slo-budget-current.md" ]; then
+  # Show any row at WARN or EXHAUSTED status — these need attention
+  grep -E "\| (WARN|EXHAUSTED) \|" .great_cto/slo-budget-current.md 2>/dev/null | head -5
+fi
+```
+
 **Waivers (if directory exists):**
 ```bash
 if [ -d "docs/waivers" ]; then
@@ -156,6 +164,12 @@ fi
 --- UPCOMING EOLS (shown only if DEPRECATION-CALENDAR.md has entries within 90 days) ---
   [list entries sorted by EOL ascending, any Active status]
   Format: <what> | EOL <date> (<N>d remaining) | <owner> | <status>
+
+--- SLO BUDGETS (shown only if .great_cto/slo-budget-current.md has WARN or EXHAUSTED rows) ---
+  [list each WARN/EXHAUSTED row from cache — 1 per SLI]
+  Format per line: <service> | <SLI> | <used> / <budget> (<%>) | <status>
+  Suppress section if all SLIs at ok.
+  ⚠ prefix on any EXHAUSTED row — deploys for that service are blocked.
 
 --- WAIVERS (shown only if docs/waivers/ has active entries) ---
   Active: [count] | Expired unresolved: [count]

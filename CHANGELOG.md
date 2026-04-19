@@ -4,6 +4,46 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.72 — 2026-04-19
+
+### Added — Reliability layer: SLO, INCIDENT-LOG, error budgets
+
+Second release in the arc (v1.0.71 → v1.0.75). Builds on the risk/waiver foundation from v1.0.71 to make reliability a **measured artifact** rather than tribal knowledge.
+
+**Three new files managed by the plugin:**
+
+**1. `docs/reliability/SLO.md`** — per-service SLO definitions + response policy. Seeded by tech-lead when a new network-facing service is introduced in ARCH (default: availability 99.9%, latency p95 < 200ms, error rate < 0.5%; 30d rolling window). CTO tightens or loosens based on product criticality. Tightening retroactively requires an ADR per the reference.
+
+**2. `docs/reliability/INCIDENT-LOG.md`** — append-only, chronological, exact 4-line-per-entry format that `awk` can grep in one shot. Written by `l3-support` after every postmortem with SLI impact and by `devops` on canary failure (rollback triggered). Makes reality a first-class artifact alongside intent (SLO).
+
+**3. `.great_cto/slo-budget-current.md`** — computed cache. `/digest` recomputes it from INCIDENT-LOG over the 30d rolling window. Statuses: `ok` / `warn` (50–80%) / `WARN` (80–100%) / `EXHAUSTED` (>100%). Read-only at runtime by `devops` (gate:ship blocks on EXHAUSTED, requires CTO approval on WARN) and `/inbox` (surfaces any WARN/EXHAUSTED row).
+
+**Policy, not paging.** The layer is deliberately **manual reality log + computed budget** — no Datadog / Prometheus integration, no automated alerts, no per-endpoint SLOs. Alerts stay in the team's existing monitoring system; this is a **decision record** that makes "are we within budget?" answerable from files in the repo.
+
+**Enforcement in the pipeline:**
+- `ok` → proceed normally
+- `warn` → log in RELEASE doc, proceed
+- `WARN` (80%+) → devops pauses, requires CTO explicit approval
+- `EXHAUSTED` (>100%) → **deploy blocked** except for hotfix with WAIVER per v1.0.71 enforcement
+- Multiple SLIs burned simultaneously → tech-lead drafts `STABILITY-PLAN-<date>.md` within 24h; team executes a stability week before new features resume
+
+**Integration summary:**
+- tech-lead (+21): seed SLO.md entry when introducing new service in ARCH
+- devops (+35): SLO budget check in gate:ship (block on EXHAUSTED, pause on WARN) + INCIDENT-LOG append on canary failure
+- l3-support (+15): append INCIDENT-LOG on postmortems with SLI impact
+- `/inbox` (+14): surface WARN/EXHAUSTED rows from budget cache
+- `/digest` (+54): recompute SLO budgets from INCIDENT-LOG, write cache
+
+**One new reference** in `skills/great_cto/references/`: `reliability.md` — canonical schemas for all three files, budget computation bash, entry format contract, source/consumer tables.
+
+**Backward-compat**: pure additive. Projects without `docs/reliability/` see zero behavior change; every access guarded by `[ -f ... ]` / `[ -d ... ]`. Old `PROJECT.md` from v1.0.68–v1.0.71 works unchanged.
+
+**Cache discipline**: three agent edits this release (tech-lead, devops, l3-support) — none of which were touched in v1.0.71's foundation release. Prompt prefix unchanged where possible.
+
+Files: `.claude-plugin/plugin.json`, `CHANGELOG.md`, `agents/{tech-lead,devops,l3-support}.md`, `commands/{inbox,digest}.md`, `skills/great_cto/references/reliability.md` (1 new).
+
+---
+
 ## v1.0.71 — 2026-04-19
 
 ### Added — Foundation artifacts: risk register, waiver log, deprecation calendar
