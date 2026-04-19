@@ -1,0 +1,125 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║              PIPELINES.MD QA - QUICK REFERENCE CARD                        ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+STATUS: FAIL (5/7 PASS | 3 P1 ISSUES)
+DATE: 2026-04-07
+FILE: skills/great_cto/PIPELINES.md (v1.2)
+
+════════════════════════════════════════════════════════════════════════════
+
+ISSUE #1: MISSING COMPLIANCE CHECKS
+────────────────────────────────────
+Location: Lines 193–201
+Severity: P1 (45% of gate types uncovered)
+Affected:
+  • smart-contract
+  • trading-bot
+  • defi-protocol
+  • payment-service
+  • auth-service
+
+Action: Add 5 compliance check entries (copy format from existing entries)
+Time: ~10 min
+
+════════════════════════════════════════════════════════════════════════════
+
+ISSUE #2: MISSING GATE PREREQUISITES
+─────────────────────────────────────
+Location: Lines 294–305 (table)
+Severity: P1 (no artifact validation)
+Affected:
+  • auth-service
+  • notification-service
+
+Action: Add 2 table rows with artifacts and locations
+Time: ~10 min
+
+════════════════════════════════════════════════════════════════════════════
+
+ISSUE #3: UNDEFINED DEPLOY METHODS
+──────────────────────────────────
+Location: Lines 206–211
+Severity: P1 (routing ambiguity)
+Affected:
+  • rag-system (needs clarification)
+  • ai-agent (needs clarification)
+  (mcp-server is CORRECT ✓)
+
+Action: Add to "No /ship" block or confirm standard /ship usage
+Time: ~5 min
+
+════════════════════════════════════════════════════════════════════════════
+
+GATE TYPE MAPPING STATUS
+────────────────────────
+(out of 11 total gate types)
+
+Compliance Check:    7/11 complete (64%)  FAIL
+Gate Prerequisites:  9/11 complete (82%)  FAIL
+Deploy Routing:     53/55 complete (96%)  FAIL
+
+════════════════════════════════════════════════════════════════════════════
+
+NEW TYPE STATUS
+───────────────
+rag-system       8/9 aspects complete  MISSING: no_ship ✗
+ai-agent         8/9 aspects complete  MISSING: no_ship ✗
+mcp-server       9/9 aspects complete  FULLY MAPPED ✓
+
+════════════════════════════════════════════════════════════════════════════
+
+GENERATED REPORTS
+─────────────────
+📄 QA-PIPELINES-MD-2026-04-07.md (comprehensive)
+📄 PIPELINES-QA-SUMMARY.txt (structured)
+📄 QA-PIPELINES-FINAL-VERDICT.txt (quick ref)
+📄 TEST-CHECKLIST-PIPELINES.md (audit trail)
+📄 README-PIPELINES-QA.md (navigation)
+
+════════════════════════════════════════════════════════════════════════════
+
+TESTS PASSING (5/7)
+───────────────────
+✓ Coverage Consistency (55 types in all sections)
+✓ No Browser QA Completeness (new types correct)
+✓ Threshold Values Sanity (all valid)
+✓ Keyword Uniqueness (no overlaps)
+✓ Table Formatting (valid markdown)
+
+TESTS FAILING (2/7)
+──────────────────
+✗ Mandatory Gate Completeness (5+2 gaps)
+✗ No /ship Completeness (2 types undefined)
+
+════════════════════════════════════════════════════════════════════════════
+
+IMPACT ASSESSMENT
+─────────────────
+DEPLOYMENT: BLOCKED for rag-system, ai-agent types
+AUDIT: Cannot validate 45% of high-risk project types
+ROUTING: CI/CD will make implicit assumptions on deploy method
+
+════════════════════════════════════════════════════════════════════════════
+
+FIX TIMELINE
+────────────
+Issue 1: 10 min (add 5 lines)
+Issue 2: 10 min (add 2 rows)
+Issue 3:  5 min (clarify 2 entries)
+Testing:  5 min (verify all 7/7 pass)
+─────────────
+TOTAL: ~30 minutes
+
+════════════════════════════════════════════════════════════════════════════
+
+NEXT STEPS
+──────────
+1. Review QA-PIPELINES-MD-2026-04-07.md
+2. Fix Issue 1 (add compliance entries)
+3. Fix Issue 2 (add prerequisite rows)
+4. Fix Issue 3 (clarify deploy methods)
+5. Re-run QA suite → target 7/7 PASS
+6. Commit and deploy
+
+════════════════════════════════════════════════════════════════════════════

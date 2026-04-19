@@ -1,0 +1,87 @@
+name: CLI CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/cli/**"
+      - ".github/workflows/cli-ci.yml"
+  pull_request:
+    paths:
+      - "packages/cli/**"
+      - ".github/workflows/cli-ci.yml"
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ["18", "20", "22"]
+    defaults:
+      run:
+        working-directory: packages/cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: "npm"
+          cache-dependency-path: packages/cli/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: node --test tests/*.test.mjs
+
+      - name: Smoke test CLI (--help)
+        run: node index.mjs --help
+
+      - name: Smoke test CLI (--version)
+        run: node index.mjs --version
+
+  dry-run-fixtures:
+    name: Dry-run on fixtures
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: packages/cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: packages/cli/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+      - name: Dry-run against commerce fixture
+        run: |
+          mkdir -p /tmp/commerce
+          echo '{"dependencies":{"next":"^14","stripe":"^14","react":"^18"}}' > /tmp/commerce/package.json
+          node index.mjs init --dry-run --yes --dir /tmp/commerce | tee /tmp/out.txt
+          grep -q "commerce" /tmp/out.txt
+
+      - name: Dry-run against AI fixture
+        run: |
+          mkdir -p /tmp/ai
+          echo '{"dependencies":{"openai":"^4","langchain":"^0.1"}}' > /tmp/ai/package.json
+          node index.mjs init --dry-run --yes --dir /tmp/ai | tee /tmp/out.txt
+          grep -q "ai-system" /tmp/out.txt
+
+      - name: Dry-run against infra fixture
+        run: |
+          mkdir -p /tmp/infra
+          echo 'resource "aws_s3_bucket" "x" {}' > /tmp/infra/main.tf
+          node index.mjs init --dry-run --yes --dir /tmp/infra | tee /tmp/out.txt
+          grep -q "infra" /tmp/out.txt
