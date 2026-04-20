@@ -4,6 +4,31 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.86 — 2026-04-20
+
+### Added — ADR lifecycle + incident lesson crystallization
+
+Decisions don't rot silently anymore, and incidents leave durable traces
+that tech-lead reads on every new feature.
+
+- **ADR review candidates.** `/doctor` now surfaces decisions older than
+  180 days with zero references in the code (`src/`, `app/`, `lib/`, …).
+  Old ADRs that still drive live code stay quiet; truly forgotten ones
+  get flagged as candidates to revisit or mark superseded.
+- **Supersession tracked both ways.** `/rfc new` accepts an optional
+  `Supersedes: ADR-003, ADR-007` header. On `/rfc close accept`, the
+  listed ADRs are auto-marked `Status: SUPERSEDED` with a reciprocal
+  `Superseded-by:` link back to the new RFC/ADR. `/doctor --fix` repairs
+  any one-way links.
+- **Incidents crystallize into lessons.** When `l3-support` finishes a
+  P0 postmortem, it appends a single actionable line to
+  `.great_cto/lessons.md` (date | service | root cause | prevention).
+  `tech-lead` now reads this log at the start of every new feature —
+  recurring failure patterns become architecture constraints before the
+  next ship, not after the next incident.
+
+---
+
 ## v1.0.85 — 2026-04-20
 
 ### Removed
