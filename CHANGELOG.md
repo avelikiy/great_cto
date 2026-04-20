@@ -4,6 +4,46 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.82 — 2026-04-20
+
+### Added — two more e2e fixtures
+
+Extended the test harness with two new fixtures that cover the most common archetypes and reproduce known failure modes:
+
+- **`tests/fixtures/trading-system-rust/`** — reproduces the Copytrader_Rust failure mode: committed API keys (`render.yaml` with `OPENROUTER_API_KEY`, `GEMINI_API_KEY`), `unwrap()` panic on hot path, no kill-switch, no risk tests, outdated `reqwest 0.11`. Manifest asserts `security-officer | BLOCKED` verdict — validates the v1.0.79 hard rule (P0 + SEC label must BLOCK).
+- **`tests/fixtures/web-fullstack-node/`** — covers `web-fullstack` primary / `web-service` archetype. Next.js 13 with unauthenticated `/api/admin`, committed `.env.local`, green-lie tests (`echo no tests && exit 0`). Manifest asserts CSO BLOCKs on unauthenticated admin endpoint.
+
+### Changed
+
+- `tests/e2e/assert_manifest.py`: added optional `after_cso` block processing and `cso_ran()` detection; bootstrap existence check now accepts `pyproject.toml | package.json | Cargo.toml | go.mod | pom.xml` (previously Python-only).
+- `.github/workflows/plugin-ci.yml`: e2e matrix expanded from `[cli-tool-python]` to all three fixtures.
+
+---
+
+## v1.0.81 — 2026-04-20
+
+### Fixed — zsh compatibility in /doctor and SessionStart
+
+Dogfooding `/doctor` on Copytrader_Rust on macOS (default shell: zsh) surfaced two shell incompatibilities that produced noisy stderr output and broken branches:
+
+1. **`grep -c PATTERN 2>/dev/null || echo 0`** — when grep finds zero matches it still prints `0` AND exits 1, so `|| echo 0` runs, producing `"0\n0"`. The captured value then fails `[ "$X" -gt 0 ]` integer tests with "integer expression expected".
+2. **`ls docs/audit/AUDIT-*.md 2>/dev/null`** — zsh without `setopt nomatch` prints "no matches found" to stderr *before* the command runs, so `2>/dev/null` inside the command can't suppress it.
+
+**Fixes:**
+
+- `commands/doctor.md`: replaced `|| echo 0` with `VAR=${VAR:-0}` guard; replaced `ls PATTERN` with `find <dir> -maxdepth 1 -name <pat>` in all artefact and verdict-log lookups.
+- `.claude-plugin/plugin.json` SessionStart hook: same two fixes in the inline P0 banner + audit-staleness detection.
+
+**Dogfood result on Copytrader_Rust** (previously failing, now clean):
+```
+✓ PROJECT.md present, old format (no Stack:/Type: — will migrate)
+✗ 6/6 pipeline phases — no artefacts ever written
+17 Beads open, 1 in_progress, P0 SEC (leaked API keys) pinpointed
+0 verdicts, 0 permission denials
+```
+
+---
+
 ## v1.0.80 — 2026-04-20
 
 ### Added — Test harness foundation
