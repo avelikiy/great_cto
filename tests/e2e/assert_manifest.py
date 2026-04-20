@@ -95,6 +95,10 @@ def audit_ran(workdir: pathlib.Path) -> bool:
     return any((workdir / "docs" / "audit").glob("AUDIT-*.md"))
 
 
+def cso_ran(workdir: pathlib.Path) -> bool:
+    return any((workdir / "docs" / "security").glob("CSO-*.md"))
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         print("usage: assert_manifest.py <manifest.json> <workdir>", file=sys.stderr)
@@ -126,10 +130,25 @@ def main() -> int:
     else:
         ok("audit artefacts not present — skipping after_audit assertions (assert-only mode)")
 
+    # Optional after_cso block — used by trading-system-rust to assert the
+    # security gate actually fires on P0-SEC findings.
+    if "after_cso" in manifest:
+        if cso_ran(workdir):
+            after_cso = manifest["after_cso"]
+            all_errors += check_files_exist(workdir, after_cso.get("files_must_exist", []))
+            pat = after_cso.get("verdict_log_must_contain_pattern")
+            if pat:
+                all_errors += check_verdict_log(workdir, pat)
+        else:
+            ok("CSO artefacts not present — skipping after_cso assertions")
+
     # Fixture bootstrap is always checked regardless of audit state.
-    for required in ("pyproject.toml", "README.md"):
-        if not (workdir / required).is_file():
-            all_errors.append(f"fixture missing bootstrap file: {required}")
+    # README is required everywhere; at least one project-manifest must exist.
+    if not (workdir / "README.md").is_file():
+        all_errors.append("fixture missing bootstrap file: README.md")
+    manifests = ["pyproject.toml", "package.json", "Cargo.toml", "go.mod", "pom.xml"]
+    if not any((workdir / m).is_file() for m in manifests):
+        all_errors.append(f"fixture missing any project manifest ({manifests})")
 
     if all_errors:
         for e in all_errors:

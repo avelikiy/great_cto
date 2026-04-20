@@ -1,0 +1,22 @@
+{
+  "name": "web-fullstack-node-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal Next.js fixture with seeded problems for great_cto tests",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "echo no tests yet && exit 0"
+  },
+  "dependencies": {
+    "next": "13.4.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "typescript": "5.2.0",
+    "@types/node": "20.0.0",
+    "@types/react": "18.2.0"
+  }
+}
