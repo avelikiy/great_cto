@@ -4,6 +4,30 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.77 — 2026-04-20
+
+### Fixed — Docs + command-reference hygiene
+
+Trivia release caught by a full command smoke test. Three user-facing hints still pointed at `/update` — a command removed in v1.0.52 — and the README version badge had been frozen at 1.0.70 for six releases. Zero behaviour changes, zero cache impact, zero agents touched.
+
+**1. Stale `/update` references replaced:**
+- `commands/digest.md:244` — "Consider /update to audit agent coverage" → "Consider /audit to scan agent/tooling coverage"
+- `commands/start.md:260` — "sections (added later via `/update`)" → "sections (added later via `/audit` refresh or edited by hand as the project matures)"
+- `commands/start.md:377` — "catalog unavailable — run /update when online" → "catalog unavailable — SessionStart hook will retry on the next session"
+
+**2. README version badge + text** — 1.0.70 → 1.0.77 (line 6 badge, line 267 "actively maintained" line).
+
+**Integration summary:**
+- `commands/digest.md` (1 line): stale-command hint
+- `commands/start.md` (2 lines): stale-command hints
+- `README.md` (2 lines): version badge + maintenance copy
+
+**Cache discipline.** Zero agent edits. SessionStart hook byte-identical with v1.0.76. Pure copy-fix release.
+
+**Verification.** Full smoke test of all 10 commands and 7 agents: bash syntax OK (known `<placeholder>` false-positives preserved), SessionStart hook CMD/AGENT loops match filesystem (10 + 7), every `skills/great_cto/references/*.md` (12 files) exists, no orphaned subagent_type references, `/digest` board + architecture modes wired, `/rfc` team-size guard in place, `/start` three scheduled tasks (Mon digest + Sun audit + Q1 arch-review) for medium+ projects.
+
+---
+
 ## v1.0.76 — 2026-04-19
 
 ### Fixed — Audit reliability: stop hallucinated types, surface Stack/Type in every report
