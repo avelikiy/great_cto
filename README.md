@@ -75,6 +75,7 @@ Everything else is either automatic or runs only when you need it.
 | `/ownership map\|show\|set` | Service ownership matrix → CODEOWNERS |
 | `/oncall who\|schedule\|handoff` | On-call rotations and shift handoffs |
 | `/triage` | Backlog reorganizer: duplicates, misplaced items, priority inversions |
+| `/doctor` | Health check — flags missing artefacts, stale audits, broken Beads, permission denials |
 </details>
 
 ---
@@ -264,7 +265,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.82 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.83 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
