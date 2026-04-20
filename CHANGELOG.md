@@ -4,6 +4,72 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.80 — 2026-04-20
+
+### Added — Test harness foundation
+
+Until now, the only way to test the plugin was "run /audit on a real project and eyeball the output". Slow, non-reproducible, hides silent failures. v1.0.80 introduces three layers of automated tests.
+
+**Layers:**
+
+- **Structural** — `tests/structural/validate.py` verifies `plugin.json` is valid semver JSON with required keys; every `commands/*.md` and `agents/*.md` has a parseable YAML frontmatter with required fields; the SessionStart CMD-copy loop references only files that exist (and vice versa — no orphan commands); `TYPE_MAP.md` has well-formed rows with backticked slugs. Fast (< 1s). Catches contract drift before any runtime.
+- **E2E harness** — `tests/e2e/run_pipeline.sh <fixture>` copies a fixture to a tmpdir, `git init`s it, optionally invokes `claude -p "/audit"` when `CLAUDE_CLI_AVAILABLE=1`, then runs `assert_manifest.py` against the fixture's `expected/manifest.json`. Supports `--assert-only` for CI runs without the Claude CLI.
+- **Fixtures** — `tests/fixtures/<name>/` each carry deliberately seeded problems an agent should detect, plus a golden `expected/manifest.json` describing the required post-audit state (artefact paths, PROJECT.md format lines, verdict-log patterns, Beads coverage topics, min/max issue counts).
+
+**First fixture:** `cli-tool-python` — 6 seeded problems (committed fake token, CVE-2023-32681 in pinned requests, bare except, missing tests, TODO on entry point, type detection). Small enough to iterate on quickly.
+
+**CI:** `.github/workflows/plugin-ci.yml` runs structural + e2e-assert-only on every push/PR that touches `commands/`, `agents/`, `skills/`, `.claude-plugin/`, or `tests/`. The full e2e path (actual `/audit` via `claude -p`) is wired but gated on `CLAUDE_CLI_AVAILABLE=1` and will run nightly once the Anthropic key is configured as a GitHub secret.
+
+**Why this matters: the v1.0.79 observability work only helps if someone looks. CI with real fixtures turns "did the pipeline write its artefacts" from a human check into an automated gate.**
+
+Next fixtures (v1.0.81): `web-fullstack-node`, `trading-system-rust`.
+
+---
+
+## v1.0.79 — 2026-04-20
+
+### Added — Observability foundation
+
+The audit of great_cto's own behaviour on real projects (<private-project>, <private-project>) revealed a systemic failure mode: **agents run, then fail silently**. Beyond PROJECT.md and Beads, no pipeline artefacts ever landed on disk — no audit reports, no ARCH docs, no QA reports, no CSO reports. Silent Write/Bash denials (v1.0.78 diagnosed the cause — plan mode inheritance) produced partial work without alerting the user.
+
+v1.0.79 makes failure visible.
+
+**New:**
+
+- `/doctor` command — health check that reports: required-file presence, PROJECT.md format version (v1.0.76+ Stack/Type contract), artefact freshness per phase (audit/arch/qa/cso/ADR/digest with configurable max-age), Beads backlog (P0/P1/in_progress counts, stall detection), verdict log tail, PermissionDenied tail, scheduled-task health, plugin install integrity. No writes — diagnosis only. Ends with a prioritised "Next actions" list.
+- `.great_cto/verdicts/YYYY-MM-DD.log` — one-line verdict each time a pipeline agent terminates. Format: `ISO_TS | agent | DONE|BLOCKED | artefacts=N | <domain_metric>`. Enables audit trail and powers `/doctor`.
+- **Mandatory artefact post-condition** in `project-auditor`, `qa-engineer`, `security-officer`, `tech-lead`: before emitting DONE, each agent verifies its expected artefact file exists on disk. Missing file → `BLOCKED: <agent> post-condition failed — <path> not written` rather than a vacuous DONE.
+- **SessionStart banner** (plugin.json hook):
+  - Red P0 banner with top-3 P0 titles when any P0 is open.
+  - Audit staleness warning when `docs/audit/AUDIT-*.md` is > 30 days old or absent.
+  - Digest staleness warning when `.great_cto/digest-latest.md` is > 8 days old (catches broken Mon 09:00 scheduler).
+- `doctor` added to the plugin's SessionStart CMD copy loop — `/doctor` is now available out of the box.
+
+**Rationale: without these three layers (post-conditions + verdicts + banner), a pipeline that silently produces nothing is indistinguishable from a pipeline that was never run. The audit of <private-project> — 6 months of activity, 12 Beads issues, P0 leaked API keys open for 6 days — showed exactly that failure mode.**
+
+---
+
+## v1.0.78 — 2026-04-20
+
+### Fixed — Spawned sub-agent reliability (bugs found during <private-project> pipeline run)
+
+Three issues observed when spawning `project-auditor`, `qa-engineer`, and `security-officer` via the `Agent` tool from a parent session:
+
+1. **`qa-engineer` returned "I need bash access"** despite `Bash` being in frontmatter `tools:`. Root cause: spawned sub-agents inherit the parent session's `permissionMode`. If the parent was in plan mode (or any restrictive mode), `Bash`/`Write` are blocked at the session layer regardless of what the agent declares.
+2. **`security-officer` cut off mid-sentence** with no summary. Root cause: `maxTurns: 25` / `timeout: 600` was too tight for HIGH-effort security scans with CVE lookups.
+3. **`project-auditor` / `qa-engineer` could not write artefacts** even when their analysis completed — same `PermissionDenied` cause as (1).
+
+**Fixes:**
+
+- `agents/security-officer.md` — bumped `maxTurns: 25 → 40`, `timeout: 600 → 900`, added `Edit` to `tools:`.
+- `agents/qa-engineer.md` — bumped `maxTurns: 35 → 40`, `timeout: 600 → 900`, added `Edit` to `tools:`.
+- **Pre-flight probe** in all three agents (`project-auditor`, `qa-engineer`, `security-officer`): before any real work, the agent attempts `mkdir -p .great_cto && touch .great_cto/.<name>-probe`. On `PermissionDenied`, it emits a clear `BLOCKED: permission denied (Bash/Write)` message with remediation (exit plan mode, or `/permissions` allow-list), rather than silently producing useless partial output.
+- `README.md` — FAQ entry documenting the plan-mode inheritance issue and pointing users at `.great_cto/permission-denied.log`.
+
+**Not fixed (by design):** the permission inheritance itself is a Claude Code platform behaviour, not something a plugin can override. The plugin's `PermissionDenied` hook (v1.0.x) already logs each denial to `.great_cto/permission-denied.log` for forensics.
+
+---
+
 ## v1.0.77 — 2026-04-20
 
 ### Fixed — Docs + command-reference hygiene
