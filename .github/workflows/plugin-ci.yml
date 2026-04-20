@@ -1,0 +1,48 @@
+name: Plugin CI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "commands/**"
+      - "agents/**"
+      - "skills/**"
+      - ".claude-plugin/**"
+      - "tests/**"
+      - ".github/workflows/plugin-ci.yml"
+  pull_request:
+    paths:
+      - "commands/**"
+      - "agents/**"
+      - "skills/**"
+      - ".claude-plugin/**"
+      - "tests/**"
+      - ".github/workflows/plugin-ci.yml"
+
+jobs:
+  structural:
+    name: Structural validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate plugin contracts
+        run: python3 tests/structural/validate.py
+
+  e2e-assert-only:
+    name: E2E (assert-only) — ${{ matrix.fixture }}
+    runs-on: ubuntu-latest
+    needs: structural
+    strategy:
+      fail-fast: false
+      matrix:
+        fixture: [cli-tool-python]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run pipeline harness (assert-only, no claude CLI)
+        run: bash tests/e2e/run_pipeline.sh ${{ matrix.fixture }} --assert-only

@@ -1,0 +1,31 @@
+{
+  "fixture": "cli-tool-python",
+  "description": "Deliberately small Python CLI with 6 seeded problems — see README.md",
+  "after_audit": {
+    "files_must_exist": [
+      "docs/audit/AUDIT-*.md",
+      "docs/audit/REFACTOR-PLAN.md",
+      ".great_cto/audit-state.json",
+      ".great_cto/PROJECT.md",
+      ".great_cto/verdicts/*.log"
+    ],
+    "project_md_must_contain_lines_matching": [
+      "^Stack:",
+      "^Type:"
+    ],
+    "verdict_log_must_contain_pattern": "project-auditor \\| DONE",
+    "beads_issues_must_cover_topics": [
+      "requests",
+      "cve",
+      "except",
+      "test",
+      "token"
+    ],
+    "min_beads_open": 3,
+    "max_beads_open": 20
+  },
+  "type_detection": {
+    "expected_primary": "cli-tool",
+    "expected_archetype": "library"
+  }
+}

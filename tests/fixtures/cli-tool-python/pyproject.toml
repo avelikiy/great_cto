@@ -1,0 +1,16 @@
+[project]
+name = "cli-tool-python"
+version = "0.1.0"
+description = "Deliberately small CLI tool for great_cto pipeline testing"
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.1",
+  "requests==2.25.0",
+]
+
+[project.scripts]
+cli-tool = "cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
