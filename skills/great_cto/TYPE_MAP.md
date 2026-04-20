@@ -64,6 +64,7 @@
 | stack migration, EOL upgrade, PHP upgrade, Node upgrade, Python 2 to 3, Angular migration, strangler fig, runtime EOL | `stack-migration` |
 | large refactor, mass rename, architectural refactoring, >50 files, monolith decomposition, extract service, boundary refactor | `large-scale-refactor` |
 | AI agent framework, LangGraph, CrewAI, AutoGen, multi-agent framework | `ai-agent-framework` |
+| AI orchestrator, agent orchestrator, multi-agent orchestration, agent router, workflow orchestrator, agent coordinator | `ai-agent-framework` |
 | BFF, backend for frontend, API gateway per client, client-specific backend | `bff` |
 | feature flags, LaunchDarkly, Unleash, flag service, feature toggles | `feature-flags-service` |
 | Chrome extension MV3, Manifest V3, service worker extension, Chromium ext | `chrome-extension-mv3` |

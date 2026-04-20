@@ -4,6 +4,36 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.76 — 2026-04-19
+
+### Fixed — Audit reliability: stop hallucinated types, surface Stack/Type in every report
+
+Patch release driven by a real-world audit run on an AI-orchestrator project that produced two silent failures: a secondary type (`neobroker`) that does not exist in TYPE_MAP.md, and a chat summary with no Stack or Type line for the CTO to verify. Three narrow fixes close both holes without touching agents unrelated to audit.
+
+**1. TYPE_MAP.md — new keyword row for AI orchestrators.**
+Added `AI orchestrator, agent orchestrator, multi-agent orchestration, agent router, workflow orchestrator, agent coordinator → ai-agent-framework`. Projects that describe themselves as "orchestrator" now resolve deterministically instead of being forced into `ai-agent` + invented secondary.
+
+**2. project-auditor Phase 7 — mandatory type validation.**
+Before writing `.great_cto/PROJECT.md`, the detected primary and secondary types are validated against the canonical list of backticked tokens in TYPE_MAP.md. Invalid primary → **BLOCKED** with the 10 nearest valid types printed. Invalid secondary → dropped with a warning. No more silent inventions of vertical labels (`neobroker`, `fintech`, `crypto`) as types — those belong in a `## Domain` section, not `## Type`.
+
+**3. project-auditor Phase 9 — Stack/Type lines are now mandatory, not optional.**
+Reporting Contract upgraded: every DONE or BLOCKED summary MUST include two verbatim lines before the DONE/BLOCKED terminator:
+```
+Stack: <language> <major-version> / <primary framework> / <database> / <deploy target>
+Type:  <primary> [+ <secondary>]   archetype: <archetype>
+```
+Detection-failure path is explicit (`Stack: detection failed (<reason>)`) rather than silent omission. Type-preservation path is explicit (`Type: <primary> (preserved, PROJECT.md < 7d old)`). Rationale: without these two lines the CTO cannot spot misdetection until it has already polluted the Beads backlog.
+
+**Integration summary:**
+- `skills/great_cto/TYPE_MAP.md` (+1 row): orchestrator keyword mapping
+- `agents/project-auditor.md` (+45 lines): type validation block in Phase 7; mandatory summary block in Reporting Contract
+
+**Cache discipline.** One agent edit (project-auditor only). Other six agents untouched. SessionStart hook byte-identical with v1.0.75 — full prefix cache survives.
+
+**Backward-compat.** Strictly additive. Existing PROJECT.md files with valid types pass validation unchanged. The only "breaking" path is intentional: a future audit that would have hallucinated a type now blocks and asks for a canonical choice — this is the desired behaviour, not a regression.
+
+---
+
 ## v1.0.75 — 2026-04-19
 
 ### Added — Synthesis consumers: executive narrative + quarterly architecture review
