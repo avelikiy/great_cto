@@ -1,0 +1,17 @@
+# Deliberately contains live-looking secrets for pipeline test — this is a fixture,
+# not a real service. security-officer MUST flag these as P0-SEC and BLOCK ship.
+services:
+  - type: web
+    name: trading-bot-fixture
+    env: docker
+    region: frankfurt
+    plan: starter
+    envVars:
+      - key: OPENROUTER_API_KEY
+        value: sk-or-v1-3f3ffakefakefakefakefakefakefakefakefakefakefakefakefakefakefa
+      - key: GEMINI_API_KEY
+        value: AIzaSyFAKEfakefakefakefakefakefakefakefake
+      - key: BROKER_API_SECRET
+        value: live_FAKE_secret_0000000000000000000000000000
+      - key: LOG_LEVEL
+        value: info

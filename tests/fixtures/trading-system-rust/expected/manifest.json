@@ -1,0 +1,38 @@
+{
+  "fixture": "trading-system-rust",
+  "description": "Reproduces <private-project> failure mode — P0-SEC committed keys + trading panics + missing kill-switch.",
+  "after_audit": {
+    "files_must_exist": [
+      "docs/audit/AUDIT-*.md",
+      "docs/audit/REFACTOR-PLAN.md",
+      ".great_cto/audit-state.json",
+      ".great_cto/PROJECT.md",
+      ".great_cto/verdicts/*.log"
+    ],
+    "project_md_must_contain_lines_matching": [
+      "^Stack:",
+      "^Type:"
+    ],
+    "verdict_log_must_contain_pattern": "project-auditor \\| DONE",
+    "beads_issues_must_cover_topics": [
+      "secret",
+      "key",
+      "unwrap",
+      "kill-switch",
+      "risk"
+    ],
+    "min_beads_open": 4,
+    "max_beads_open": 25
+  },
+  "after_cso": {
+    "files_must_exist": [
+      "docs/security/CSO-*.md"
+    ],
+    "verdict_log_must_contain_pattern": "security-officer \\| BLOCKED",
+    "rationale": "v1.0.79 hard rule: P0 with SEC label must produce BLOCKED verdict. If this assertion fails, the CSO gate is not enforcing P0-SEC."
+  },
+  "type_detection": {
+    "expected_primary": "trading-bot",
+    "expected_archetype": "web3"
+  }
+}

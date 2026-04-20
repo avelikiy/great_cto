@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fixture: [cli-tool-python]
+        fixture: [cli-tool-python, trading-system-rust, web-fullstack-node]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

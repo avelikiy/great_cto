@@ -1,0 +1,4 @@
+node_modules/
+.next/
+.great_cto/verdicts/
+.great_cto/permission-denied.log
