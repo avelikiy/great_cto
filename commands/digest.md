@@ -241,7 +241,7 @@ RECOMMENDATION
    — "Security BLOCKED 2 of last 3 deploys — review security-officer gap vs codebase"
    — "P2 backlog grew 40% this week — schedule debt sprint before next feature"
    — "Perf p95 trending up 3 deploys in a row — add perf gate or investigate [hot area]"
-   — "No incidents, velocity steady — good week. Consider /update to audit agent coverage."
+   — "No incidents, velocity steady — good week. Consider /audit to scan agent/tooling coverage."
    — "Auth area touched in 8/[N] commits — consider ADR to lock down change policy"
    — "DORA: Lead Time >1 week (medium) — check for manual approval bottlenecks in pipeline"
    — "DORA: Change Failure Rate 18% (low) — add /review gate before every merge to main"
