@@ -4,6 +4,39 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.85 — 2026-04-20
+
+### Removed
+
+- **11 orphan files** across `docs/qa-reports/`, `docs/demo/`, `docs/plans/`,
+  and `CONTRIBUTING.md`. These were historical artefacts from closed releases
+  (QA reports for v1.0.2, planning docs for shipped features, an unused demo
+  gif) that no command, README link, or skill referenced. Repo is ~1500 lines
+  lighter and easier to navigate.
+
+---
+
+## v1.0.84 — 2026-04-20
+
+### Fixed
+
+- **Stale gates now surface on macOS.** `/inbox` and the great_cto skill no
+  longer silently report every gate as fresh under zsh — the age calculation
+  correctly detects gates older than 24h regardless of shell.
+- **Force-push protection closed a gap.** The PreToolUse guard now blocks
+  `git push --force-with-lease` (previously only `--force` / `-f` were caught),
+  matching the policy intent.
+- **Write audit covers bulk edits.** Multi-file edits are now logged to
+  `permission-denied.log` the same way single-file writes are.
+
+### Added
+
+- **`scripts/bump-version.sh`** — single command to bump `plugin.json` and
+  sync the README badge + "actively maintained" line, removing the drift
+  that let version references go out of sync in earlier releases.
+
+---
+
 ## v1.0.83 — 2026-04-20
 
 ### Added

@@ -6,3 +6,13 @@
 # This is the per-project state directory that `npx great-cto init` creates.
 # Each user generates their own based on their stack; not committed.
 .great_cto/
+
+# Local Claude Code permission cache — developer-specific, must never be committed.
+.claude/settings.local.json
+
+# Bundled npm artefacts — CLI package compiles on demand.
+packages/cli/node_modules/
+packages/cli/*.tgz
+
+# Misc
+*.log
