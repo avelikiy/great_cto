@@ -4,6 +4,18 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.85 — 2026-04-20
+
+### Removed
+
+- **11 orphan files** across `docs/qa-reports/`, `docs/demo/`, `docs/plans/`,
+  and `CONTRIBUTING.md`. These were historical artefacts from closed releases
+  (QA reports for v1.0.2, planning docs for shipped features, an unused demo
+  gif) that no command, README link, or skill referenced. Repo is ~1500 lines
+  lighter and easier to navigate.
+
+---
+
 ## v1.0.84 — 2026-04-20
 
 ### Fixed
