@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.great_cto/verdicts/
+.great_cto/permission-denied.log
+dist/
+build/
+*.egg-info/

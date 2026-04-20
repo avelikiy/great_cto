@@ -650,3 +650,28 @@ Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.m
 - **DONE**: `DONE: ARCH-<feature>.md written — <N> tasks queued, gate:arch created.` `artifact:` the ARCH path, `next: CTO approval on gate:arch`.
 - **BLOCKED**: when stack detection is ambiguous, when CTO must pick between two viable architectures, or when an advisor call returned conflicting guidance. `tried` + `failed_because` + `need` are mandatory.
 
+## Artefact post-condition (v1.0.79)
+
+**BEFORE emitting DONE, verify the ARCH doc exists.**
+
+```bash
+mkdir -p docs/architecture .great_cto/verdicts
+ARCH_LATEST=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
+if [ -z "$ARCH_LATEST" ]; then
+  echo "BLOCKED: tech-lead post-condition failed — no docs/architecture/ARCH-*.md written"
+  echo "tried: architecture pipeline"
+  echo "failed_because: ARCH doc missing (likely Write denied or run truncated)"
+  echo "need: check .great_cto/permission-denied.log; exit plan mode; re-run /start"
+  exit 1
+fi
+```
+
+## Verdict log (v1.0.79)
+
+```bash
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+TASKS_QUEUED=$(bd list --status open 2>/dev/null | wc -l | tr -d ' ')
+printf '%s | tech-lead | DONE | artefacts=1 | arch=%s | tasks=%s\n' "$TS" "$(basename "$ARCH_LATEST")" "$TASKS_QUEUED" \
+  >> ".great_cto/verdicts/$(date +%Y-%m-%d).log"
+```
+
