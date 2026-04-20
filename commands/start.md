@@ -257,7 +257,7 @@ Notes:
   - `web-service`, `mobile-app`, `infra`, `library`, `iot-embedded` → `[]` (no pack by default)
   - Multiple packs allowed: `packs: [ai-pack, enterprise-pack]` for regulated AI systems
   - CTO can add/remove packs at any time in PROJECT.md
-- Do NOT include L3, Oncall, or Pipeline version sections (added later via `/update`)
+- Do NOT include L3, Oncall, or Pipeline version sections (added later via `/audit` refresh or edited by hand as the project matures)
 
 Initialize Beads:
 ```bash
@@ -374,7 +374,7 @@ For each match: copy to `~/.claude/agents/<name>.md`.
 
 Silent — don't mention individual files. Report count only: "Domain agents: +N installed from catalog"
 
-If catalog unavailable: skip silently, note "Domain agents: catalog unavailable — run /update when online."
+If catalog unavailable: skip silently, note "Domain agents: catalog unavailable — SessionStart hook will retry on the next session."
 
 ## Step 5: Set up weekly automation
 
