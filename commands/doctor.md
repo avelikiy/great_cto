@@ -92,6 +92,79 @@ report_artefact "ADR (latest)" "$LAST_ADR"    90
 report_artefact "digest"       "$LAST_DIGEST"  7
 ```
 
+## Check 3b — ADR health (lifecycle + supersession)
+
+```bash
+echo ""
+echo "ADR health:"
+ADR_DIR="docs/decisions"
+if [ -d "$ADR_DIR" ] && ls "$ADR_DIR"/ADR-*.md >/dev/null 2>&1; then
+  TOTAL=$(ls "$ADR_DIR"/ADR-*.md 2>/dev/null | wc -l | tr -d ' ')
+  SUPERSEDED=$(grep -l "^Status: SUPERSEDED" "$ADR_DIR"/ADR-*.md 2>/dev/null | wc -l | tr -d ' ')
+  ACTIVE=$((TOTAL - SUPERSEDED))
+  STALE_COUNT=0
+  BROKEN_LINK=0
+
+  # Pick code roots that are actually present; fall back to repo root if none
+  CODE_ROOTS=""
+  for R in src app lib packages services apps internal pkg cmd; do
+    if [ -d "$R" ]; then
+      [ -z "$CODE_ROOTS" ] && CODE_ROOTS="$R" || CODE_ROOTS="$CODE_ROOTS $R"
+    fi
+  done
+  [ -z "$CODE_ROOTS" ] && CODE_ROOTS="."
+
+  STALE_OUT=""
+  for F in "$ADR_DIR"/ADR-*.md; do
+    [ -f "$F" ] || continue
+    # Skip superseded — they've already been reviewed
+    grep -q "^Status: SUPERSEDED" "$F" 2>/dev/null && continue
+    ADR_ID=$(basename "$F" | grep -oE 'ADR-[0-9]+' | head -1)
+    [ -z "$ADR_ID" ] && continue
+    AGE=$(age_days "$F")
+    # Only flag ADRs older than 180d
+    [ "$AGE" -lt 180 ] && continue
+    # Count code references (excluding the ADR file itself + docs/)
+    REFS=$(grep -rIl --exclude-dir=docs --exclude-dir=.git --exclude-dir=node_modules \
+             --exclude-dir=.great_cto "$ADR_ID" $CODE_ROOTS 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${REFS:-0}" = "0" ]; then
+      STALE_OUT="${STALE_OUT}  ⚠ ${ADR_ID} (${AGE}d old, 0 code refs) — run /rfc new \"revisit ${ADR_ID}\" or mark superseded\n"
+      STALE_COUNT=$((STALE_COUNT+1))
+    fi
+  done
+
+  # Validate supersession links are bidirectional
+  if [ -d docs/rfcs ] && ls docs/rfcs/RFC-*.md >/dev/null 2>&1; then
+    for R in docs/rfcs/RFC-*.md; do
+      [ -f "$R" ] || continue
+      SUP=$(grep -iE "^Supersedes:" "$R" 2>/dev/null | sed 's/.*://' | tr -d '[:space:]')
+      [ -z "$SUP" ] || [ "$SUP" = "—" ] && continue
+      # Split comma list (ADR-003,ADR-007)
+      OLD_IFS=$IFS; IFS=','
+      for TARGET in $SUP; do
+        TARGET=$(echo "$TARGET" | tr -d '[:space:]')
+        [ -z "$TARGET" ] && continue
+        ADR_FILE=$(ls "$ADR_DIR"/${TARGET}-*.md 2>/dev/null | head -1)
+        if [ -z "$ADR_FILE" ]; then
+          echo "  ⚠ $(basename "$R") supersedes $TARGET but ADR file not found"
+          BROKEN_LINK=$((BROKEN_LINK+1))
+        elif ! grep -qiE "^Superseded-by:" "$ADR_FILE" 2>/dev/null; then
+          echo "  ⚠ ${TARGET} missing reciprocal 'Superseded-by:' header → run /doctor --fix"
+          BROKEN_LINK=$((BROKEN_LINK+1))
+        fi
+      done
+      IFS=$OLD_IFS
+    done
+  fi
+
+  echo "  total: $TOTAL | active: $ACTIVE | superseded: $SUPERSEDED | stale (review candidate): $STALE_COUNT"
+  [ "$STALE_COUNT" -gt 0 ] && printf "$STALE_OUT"
+  [ "$STALE_COUNT" = "0" ] && [ "$BROKEN_LINK" = "0" ] && echo "  ✓ no stale ADRs, all supersession links intact"
+else
+  echo "  (no ADRs yet — docs/decisions/ADR-*.md absent)"
+fi
+```
+
 ## Check 4 — Beads health
 
 ```bash
@@ -246,7 +319,37 @@ if [ "$FIX_MODE" = "true" ]; then
     fi
   fi
 
-  # Fix 6 — bd init if backlog absent but .beads dir missing
+  # Fix 6 — ADR supersession reciprocal links
+  if [ -d docs/rfcs ] && [ -d docs/decisions ]; then
+    for R in docs/rfcs/RFC-*.md; do
+      [ -f "$R" ] || continue
+      SUP=$(grep -iE "^Supersedes:" "$R" 2>/dev/null | sed 's/.*://' | tr -d '[:space:]')
+      [ -z "$SUP" ] || [ "$SUP" = "—" ] && continue
+      RFC_ID=$(basename "$R" | grep -oE 'RFC-[0-9]+' | head -1)
+      OLD_IFS=$IFS; IFS=','
+      for TARGET in $SUP; do
+        TARGET=$(echo "$TARGET" | tr -d '[:space:]')
+        ADR_FILE=$(ls docs/decisions/${TARGET}-*.md 2>/dev/null | head -1)
+        [ -z "$ADR_FILE" ] && continue
+        if ! grep -qiE "^Superseded-by:" "$ADR_FILE" 2>/dev/null; then
+          # Insert Superseded-by line right after the first Status: line
+          python3 - "$ADR_FILE" "$RFC_ID" <<'PY'
+import sys, re
+path, rfc = sys.argv[1], sys.argv[2]
+with open(path) as f: text = f.read()
+if re.search(r'^Superseded-by:', text, re.M|re.I): sys.exit(0)
+text = re.sub(r'^(Status:[^\n]*)', rf'\1\nSuperseded-by: {rfc}', text, count=1, flags=re.M|re.I)
+with open(path, 'w') as f: f.write(text)
+PY
+          echo "  ✓ added 'Superseded-by: $RFC_ID' to $(basename "$ADR_FILE")"
+          FIXED=$((FIXED+1))
+        fi
+      done
+      IFS=$OLD_IFS
+    done
+  fi
+
+  # Fix 7 — bd init if backlog absent but .beads dir missing
   if command -v bd >/dev/null 2>&1 && [ ! -d .beads ]; then
     bd init 2>/dev/null && echo "  ✓ initialised bd backlog" && FIXED=$((FIXED+1))
   fi

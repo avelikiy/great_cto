@@ -186,6 +186,10 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
      ```bash
      ls docs/postmortems/PM-*.md 2>/dev/null | sort | tail -3 | xargs cat 2>/dev/null || echo "NO_POSTMORTEMS"
      ```
+   - **Lessons log** (one-line crystallized lessons from every past incident — scan for patterns matching the current feature):
+     ```bash
+     [ -f .great_cto/lessons.md ] && tail -50 .great_cto/lessons.md || echo "NO_LESSONS"
+     ```
    If retrospectives/postmortems exist — extract recurring failure patterns and add them to the **Risks** section of ADR. If the same pattern appears ≥2 times, it becomes a required mitigation, not just a note.
 
 2. **Determine project_size** — write to PROJECT.md before designing:
