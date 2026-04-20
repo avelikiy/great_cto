@@ -181,24 +181,112 @@ fi
 [ -f .great_cto/env.sh ] && echo "  ✓ .great_cto/env.sh present" || echo "  ⚠ .great_cto/env.sh missing — SessionStart did not prime"
 ```
 
-## Summary
+## Check 9 — Auto-remediation (--fix mode)
+
+If `FIX_MODE=true`, perform safe, non-destructive fixes. Skip silently otherwise.
 
 ```bash
-echo ""
-echo "─────────────────────────"
-echo "Next actions (priority order):"
+if [ "$FIX_MODE" = "true" ]; then
+  echo ""
+  echo "─────────────────────────"
+  echo "Applying fixes (safe, non-destructive):"
+  FIXED=0
+
+  # Fix 1 — Create missing artefact directories
+  for D in .great_cto/verdicts docs/audit docs/architecture docs/qa-reports docs/security docs/decisions; do
+    if [ ! -d "$D" ]; then
+      mkdir -p "$D" && echo "  ✓ created $D" && FIXED=$((FIXED+1))
+    fi
+  done
+
+  # Fix 2 — Re-prime env.sh if missing but plugin cache exists
+  if [ ! -f .great_cto/env.sh ] && [ -n "$PLUGIN_DIR" ]; then
+    mkdir -p .great_cto
+    printf "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:/usr/local/bin:\$PATH\nexport ARCHETYPES_MD=.great_cto/ARCHETYPES.md\n" > .great_cto/env.sh
+    echo "  ✓ regenerated .great_cto/env.sh"
+    FIXED=$((FIXED+1))
+  fi
+
+  # Fix 3 — Copy missing ARCHETYPES.md / SKILL.md from plugin cache
+  if [ -n "$PLUGIN_DIR" ]; then
+    for F in ARCHETYPES.md SKILL.md; do
+      if [ ! -f ".great_cto/$F" ] && [ -f "$PLUGIN_DIR/skills/great_cto/$F" ]; then
+        cp "$PLUGIN_DIR/skills/great_cto/$F" ".great_cto/$F"
+        echo "  ✓ restored .great_cto/$F"
+        FIXED=$((FIXED+1))
+      fi
+    done
+  fi
+
+  # Fix 4 — Migrate old PROJECT.md (no Stack:/Type: lines)
+  if [ -f .great_cto/PROJECT.md ]; then
+    HAS_STACK=$(grep -c "^Stack:" .great_cto/PROJECT.md 2>/dev/null); HAS_STACK=${HAS_STACK:-0}
+    HAS_TYPE=$(grep -c "^Type:" .great_cto/PROJECT.md 2>/dev/null); HAS_TYPE=${HAS_TYPE:-0}
+    if [ "$HAS_STACK" = "0" ] || [ "$HAS_TYPE" = "0" ]; then
+      # Append migration stubs (agents fill real values on next /audit)
+      {
+        echo ""
+        echo "<!-- migrated by /doctor --fix on $TODAY — run /audit to populate -->"
+        [ "$HAS_STACK" = "0" ] && echo "Stack: (run /audit to detect)"
+        [ "$HAS_TYPE" = "0" ]  && echo "Type: (run /audit to detect)"
+      } >> .great_cto/PROJECT.md
+      echo "  ✓ added Stack:/Type: migration stubs to PROJECT.md (run /audit to fill)"
+      FIXED=$((FIXED+1))
+    fi
+  fi
+
+  # Fix 5 — Rotate permission-denied.log if stale (> 1000 lines or older than 30d)
+  if [ -f "$DENY_LOG" ]; then
+    LINES=$(wc -l < "$DENY_LOG" | tr -d ' ')
+    LOG_AGE=$(age_days "$DENY_LOG")
+    if [ "$LINES" -gt 1000 ] || [ "$LOG_AGE" -gt 30 ]; then
+      mv "$DENY_LOG" "${DENY_LOG}.$(date +%Y%m%d)"
+      echo "  ✓ rotated stale $DENY_LOG"
+      FIXED=$((FIXED+1))
+    fi
+  fi
+
+  # Fix 6 — bd init if backlog absent but .beads dir missing
+  if command -v bd >/dev/null 2>&1 && [ ! -d .beads ]; then
+    bd init 2>/dev/null && echo "  ✓ initialised bd backlog" && FIXED=$((FIXED+1))
+  fi
+
+  echo ""
+  if [ "$FIXED" = "0" ]; then
+    echo "Nothing to fix — environment is healthy."
+  else
+    echo "$FIXED fix(es) applied. Re-run /doctor to verify."
+  fi
+  echo ""
+  echo "Not fixed automatically (requires your input):"
+  echo "  • P0 Beads — triage via /inbox"
+  echo "  • Stale audit (>30d) — run /audit"
+  echo "  • Stalled backlog — run /start or /audit"
+  echo "  • Missing scheduler — see docs/validation/README.md for cron setup"
+fi
+```
+
+## Summary (diagnosis mode, when --fix not passed)
+
+```bash
+if [ "$FIX_MODE" != "true" ]; then
+  echo ""
+  echo "─────────────────────────"
+  echo "Next actions (priority order):"
+fi
 ```
 
 Emit in order (skip section if nothing to say):
 1. If P0 open → `→ /inbox` (block everything else until triaged)
-2. If PROJECT.md old format → `→ /audit` (migration)
-3. If audit > 30d → `→ /audit` (refresh)
+2. If PROJECT.md old format → `→ /doctor --fix` then `/audit`
+3. If audit > 30d → `→ /audit`
 4. If QA > 14d and there's an in_progress task → `→ /review`
-5. If digest > 8d → `→ /digest 7` (manual, scheduler broken)
-6. If backlog stalled → `→ /backlog` or `/start backlog`
+5. If digest > 8d → `→ /digest 7`
+6. If backlog stalled → `→ /start` or `/audit`
 7. If permission-denied.log > 0 → `→ exit plan mode, retry`
+8. If missing dirs / env.sh / migration needed → `→ /doctor --fix`
 
 End with:
 ```
-Run /doctor --fix to emit shell commands for above (v1.0.80+).
+Run /doctor --fix to auto-remediate safe issues (dirs, env.sh, PROJECT.md stubs).
 ```

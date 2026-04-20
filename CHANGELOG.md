@@ -4,6 +4,28 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.83 — 2026-04-20
+
+### Added
+
+- **`/doctor --fix`** — one-shot remediation. Creates missing artefact
+  directories (`docs/audit`, `docs/security`, `.great_cto/verdicts`, …),
+  regenerates `.great_cto/env.sh`, migrates old PROJECT.md to the v1.0.76
+  format with stub `Stack:`/`Type:` lines, rotates stale
+  `permission-denied.log`, initialises `bd` if absent.
+- **`docs/validation/README.md`** — documents the three-tier test strategy
+  (L1 structural, L2 e2e assert-only, L3 manual dogfood) and when to run each.
+- **`docs/scheduling/README.md`** — how to set up recurring `/digest` (Mon
+  09:00) and `/audit` (monthly) via Claude scheduler, cron, or Actions.
+- **`docs/postmortem/SILENT-PIPELINE-FAILURE.md`** — write-up of the
+  six-month-silent-failure that motivated v1.0.78–v1.0.82 hardening.
+
+### Changed
+
+- README now lists `/doctor` in the advanced commands table.
+
+---
+
 ## v1.0.82 — 2026-04-20
 
 ### Added — two more e2e fixtures
