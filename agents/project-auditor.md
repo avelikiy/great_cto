@@ -473,8 +473,43 @@ if [ "$AGE_DAYS" -lt 7 ]; then
 fi
 ```
 - If `SKIP_DRIFT=true` → preserve existing type/archetype, only update `## Last Audit` section
-- Otherwise: Score current stack against all 73 types in TYPE_MAP.md, resolve to archetype
+- Otherwise: Score current stack against all types in TYPE_MAP.md, resolve to archetype
 - If new type scores ≥ 7 and not in PROJECT.md → flag drift
+
+### Type validation (mandatory before PROJECT.md write)
+
+**Rule: the detected type MUST exist verbatim in TYPE_MAP.md. No invented types, no approximations.**
+
+```bash
+# Extract canonical type list from TYPE_MAP.md (backticked tokens in the right column)
+TYPE_MAP_PATH="${ARCHETYPES_MD%ARCHETYPES.md}TYPE_MAP.md"
+[ -f "$TYPE_MAP_PATH" ] || TYPE_MAP_PATH=$(find ~/.claude -name "TYPE_MAP.md" -path "*/great_cto/*" 2>/dev/null | head -1)
+VALID_TYPES=$(grep -oE '`[a-z0-9-]+`' "$TYPE_MAP_PATH" 2>/dev/null | tr -d '`' | sort -u)
+
+validate_type() {
+  local t="$1"
+  [ -z "$t" ] && return 1
+  echo "$VALID_TYPES" | grep -qx "$t"
+}
+
+# Apply to primary and secondary before writing PROJECT.md
+if ! validate_type "$DETECTED_PRIMARY"; then
+  echo "ERROR: detected primary type '$DETECTED_PRIMARY' is NOT in TYPE_MAP.md"
+  echo "Valid types nearest to this description:"
+  echo "$VALID_TYPES" | head -10
+  echo "BLOCKED — refusing to write a hallucinated type. Either:"
+  echo "  1. Add a matching keyword line to TYPE_MAP.md, or"
+  echo "  2. Pick the closest existing type from the list above"
+  exit 1
+fi
+
+if [ -n "$DETECTED_SECONDARY" ] && ! validate_type "$DETECTED_SECONDARY"; then
+  echo "WARN: secondary type '$DETECTED_SECONDARY' is NOT in TYPE_MAP.md — dropping"
+  DETECTED_SECONDARY=""
+fi
+```
+
+If the detection produced a type that does not exist in TYPE_MAP (e.g. fintech vertical labels like `neobroker`, domain adjectives like `orchestrator` without a mapping), **do not invent**. Either add a keyword row to TYPE_MAP.md (and commit it as part of the audit) or pick the nearest existing type. Hallucinating a secondary type to capture a vertical (`fintech`, `crypto`, `healthcare`) is wrong — those belong in a `## Domain` section, not `## Type`.
 
 Add audit metadata to PROJECT.md (user-facing) + `.great_cto/audit-state.json` (internal):
 
@@ -595,5 +630,18 @@ Synthesis rules:
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For project-auditor:
 - **DONE**: `DONE: audit complete — Tier 0:N Tier 1:M, PROJECT.md updated.` `artifact:` AUDIT-*.md + REFACTOR-PLAN.md paths, `next: CTO triage Tier 0 or run /inbox`.
 - **BLOCKED**: when no CVE scanner is available for the detected stack, when PROJECT.md has conflicting type signals that cannot be auto-resolved, or when a compliance archetype lacks the required artifacts. `tried` lists the scanners attempted; `failed_because` names the missing tool / signal; `need` is a one-line install command or a CTO type-choice.
+
+### Mandatory summary block (applies to both DONE and BLOCKED)
+
+The chat summary MUST include these two lines verbatim before DONE/BLOCKED — they are not optional:
+
+```
+Stack: <language> <major-version> / <primary framework> / <database> / <deploy target>
+Type:  <primary> [+ <secondary>]   archetype: <archetype>
+```
+
+If Stack cannot be filled because Phase 1 failed — state `Stack: detection failed (<reason>)` rather than omitting the line. If Type was preserved from an existing PROJECT.md via `SKIP_DRIFT=true`, say so: `Type: <primary> (preserved, PROJECT.md < 7d old)`.
+
+Rationale: without Stack and Type lines the CTO cannot verify the audit understood the project correctly, and silent misdetection (like a hallucinated secondary type) survives unnoticed.
 
 
