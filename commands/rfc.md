@@ -58,6 +58,7 @@ Created: <date>
 Review deadline: <5 business days from today>
 Teams affected: []
 Related ADR: —
+Supersedes: —   # optional: comma list of ADRs this RFC replaces, e.g. ADR-003, ADR-007
 
 ---
 
@@ -222,6 +223,32 @@ ADR_DIR="docs/decisions"
 mkdir -p "$ADR_DIR"
 LAST_ADR=$(ls "$ADR_DIR"/ADR-*.md 2>/dev/null | grep -oE 'ADR-[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1 || echo "0")
 ADR_NUM=$(printf "%03d" $((LAST_ADR + 1)))
+
+# Extract Supersedes list from the RFC (comma-separated ADR ids)
+SUPERSEDES=$(grep -iE "^Supersedes:" "$RFC_FILE" 2>/dev/null | sed 's/^[Ss]upersedes://' | sed 's/#.*//' | tr -d '[:space:]')
+[ "$SUPERSEDES" = "—" ] && SUPERSEDES=""
+
+# For each superseded ADR, mark it SUPERSEDED and add reciprocal link
+if [ -n "$SUPERSEDES" ]; then
+  RFC_ID="RFC-${ID}"
+  OLD_IFS=$IFS; IFS=','
+  for T in $SUPERSEDES; do
+    T=$(echo "$T" | tr -d '[:space:]')
+    OLD_ADR=$(ls "$ADR_DIR"/${T}-*.md 2>/dev/null | head -1)
+    [ -z "$OLD_ADR" ] && { echo "⚠ Supersedes target $T not found — skipping"; continue; }
+    python3 - "$OLD_ADR" "$RFC_ID" "ADR-${ADR_NUM}" <<'PY'
+import sys, re
+path, rfc, new_adr = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path) as f: text = f.read()
+text = re.sub(r'^Status:[^\n]*', f'Status: SUPERSEDED', text, count=1, flags=re.M)
+if not re.search(r'^Superseded-by:', text, re.M|re.I):
+    text = re.sub(r'^(Status:[^\n]*)', rf'\1\nSuperseded-by: {rfc} (→ {new_adr})', text, count=1, flags=re.M)
+with open(path, 'w') as f: f.write(text)
+PY
+    echo "  ↳ marked $T as SUPERSEDED by $RFC_ID"
+  done
+  IFS=$OLD_IFS
+fi
 ```
 
 Write `docs/decisions/ADR-<NUM>-<slug>.md`:
@@ -231,6 +258,7 @@ Write `docs/decisions/ADR-<NUM>-<slug>.md`:
 Date: <date>
 Status: ACCEPTED
 Source: RFC-<RFC-ID>
+Supersedes: <comma list of ADRs replaced, or —>
 
 ## Context
 <Copy Problem section from RFC>

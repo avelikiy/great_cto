@@ -237,6 +237,16 @@ P0 TIMER: 15 min to resolution or escalation to next level
    Action: <update agent prompt / add test case / strengthen gate>
    ```
 
+7b. **Lesson crystallization** — distill the postmortem into one actionable line that tech-lead reads on every new feature:
+   ```bash
+   LESSONS=".great_cto/lessons.md"
+   [ ! -f "$LESSONS" ] && printf '# Lessons learned — append only, one line per incident\n\n> Format: date | service | root cause | prevention\n\n' > "$LESSONS"
+   # Append the distilled lesson. Fill <placeholders> from the postmortem you just wrote.
+   printf '%s | <service> | <root-cause-one-liner> | <prevention-action>\n' "$(date -u +%Y-%m-%d)" >> "$LESSONS"
+   echo "Lesson crystallized → $LESSONS"
+   ```
+   tech-lead reads this file at the start of every feature to catch recurring patterns before they ship again.
+
 8. **Retrospective entry** — after every postmortem (append, don't create new file):
    ```bash
    mkdir -p .great_cto/retrospectives
