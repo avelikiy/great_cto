@@ -264,7 +264,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.80 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.81 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).

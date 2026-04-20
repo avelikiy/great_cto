@@ -36,14 +36,15 @@ Exit early with summary if PROJECT.md missing — no point checking the rest.
 ## Check 2 — PROJECT.md format (v1.0.76+ contract)
 
 ```bash
+# Use bash -c to avoid zsh nomatch + grep-c "0 || echo 0" doubling quirks.
 if [ -f .great_cto/PROJECT.md ]; then
-  HAS_STACK=$(grep -c "^Stack:" .great_cto/PROJECT.md 2>/dev/null || echo 0)
-  HAS_TYPE=$(grep -c "^Type:" .great_cto/PROJECT.md 2>/dev/null || echo 0)
-  HAS_ARCHETYPE=$(grep -c "archetype:" .great_cto/PROJECT.md 2>/dev/null || echo 0)
+  HAS_STACK=$(grep -c "^Stack:" .great_cto/PROJECT.md 2>/dev/null); HAS_STACK=${HAS_STACK:-0}
+  HAS_TYPE=$(grep -c "^Type:" .great_cto/PROJECT.md 2>/dev/null); HAS_TYPE=${HAS_TYPE:-0}
+  HAS_ARCHETYPE=$(grep -c "archetype:" .great_cto/PROJECT.md 2>/dev/null); HAS_ARCHETYPE=${HAS_ARCHETYPE:-0}
   echo "PROJECT.md format:"
-  [ "$HAS_STACK" -gt 0 ] && echo "  ✓ Stack: line present" || echo "  ⚠ Stack: line missing — old format, run /audit to migrate"
-  [ "$HAS_TYPE" -gt 0 ] && echo "  ✓ Type: line present" || echo "  ⚠ Type: line missing — old format, run /audit to migrate"
-  [ "$HAS_ARCHETYPE" -gt 0 ] && echo "  ✓ archetype: present" || echo "  ⚠ archetype: missing"
+  [ "${HAS_STACK}" -gt 0 ] && echo "  ✓ Stack: line present" || echo "  ⚠ Stack: line missing — old format, run /audit to migrate"
+  [ "${HAS_TYPE}" -gt 0 ] && echo "  ✓ Type: line present" || echo "  ⚠ Type: line missing — old format, run /audit to migrate"
+  [ "${HAS_ARCHETYPE}" -gt 0 ] && echo "  ✓ archetype: present" || echo "  ⚠ archetype: missing"
 fi
 ```
 
@@ -52,12 +53,14 @@ fi
 ```bash
 echo ""
 echo "Pipeline artefacts:"
-LAST_AUDIT=$(ls docs/audit/AUDIT-*.md 2>/dev/null | sort | tail -1)
-LAST_ARCH=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort | tail -1)
-LAST_QA=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort | tail -1)
-LAST_CSO=$(ls docs/security/CSO-*.md 2>/dev/null | sort | tail -1)
-LAST_ADR=$(ls docs/decisions/ADR-*.md 2>/dev/null | sort | tail -1)
-LAST_DIGEST=$(ls .great_cto/digest-latest.md 2>/dev/null)
+# Use find instead of globs so zsh without nullglob doesn't error on no-match.
+find_latest() { find "$1" -maxdepth 1 -name "$2" 2>/dev/null | sort | tail -1; }
+LAST_AUDIT=$(find_latest docs/audit          'AUDIT-*.md')
+LAST_ARCH=$(find_latest  docs/architecture   'ARCH-*.md')
+LAST_QA=$(find_latest    docs/qa-reports     'QA-*.md')
+LAST_CSO=$(find_latest   docs/security       'CSO-*.md')
+LAST_ADR=$(find_latest   docs/decisions      'ADR-*.md')
+LAST_DIGEST=$( [ -f .great_cto/digest-latest.md ] && echo .great_cto/digest-latest.md )
 
 age_days() {
   local f="$1"
@@ -95,8 +98,8 @@ report_artefact "digest"       "$LAST_DIGEST"  7
 echo ""
 echo "Beads backlog:"
 if command -v bd >/dev/null 2>&1; then
-  P0_OPEN=$(bd list --status open 2>/dev/null | grep -c "P0" || echo 0)
-  P1_OPEN=$(bd list --status open 2>/dev/null | grep -c "P1" || echo 0)
+  P0_OPEN=$(bd list --status open 2>/dev/null | grep -c "P0"); P0_OPEN=${P0_OPEN:-0}
+  P1_OPEN=$(bd list --status open 2>/dev/null | grep -c "P1"); P1_OPEN=${P1_OPEN:-0}
   IN_PROG=$(bd list --status in_progress 2>/dev/null | wc -l | tr -d ' ')
   TOTAL_OPEN=$(bd list --status open 2>/dev/null | wc -l | tr -d ' ')
   echo "  total open: $TOTAL_OPEN | in_progress: $IN_PROG | P0: $P0_OPEN | P1: $P1_OPEN"
@@ -114,7 +117,7 @@ echo ""
 echo "Agent activity (.great_cto/verdicts/):"
 VERDICT_DIR=".great_cto/verdicts"
 if [ -d "$VERDICT_DIR" ]; then
-  LAST_LOG=$(ls -t "$VERDICT_DIR"/*.log 2>/dev/null | head -1)
+  LAST_LOG=$(find "$VERDICT_DIR" -maxdepth 1 -name "*.log" 2>/dev/null | sort | tail -1)
   if [ -n "$LAST_LOG" ]; then
     echo "  last log: $(basename "$LAST_LOG") ($(age_days "$LAST_LOG") days ago)"
     echo "  last 5 entries:"

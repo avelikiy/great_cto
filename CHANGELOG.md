@@ -4,6 +4,30 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.81 — 2026-04-20
+
+### Fixed — zsh compatibility in /doctor and SessionStart
+
+Dogfooding `/doctor` on Copytrader_Rust on macOS (default shell: zsh) surfaced two shell incompatibilities that produced noisy stderr output and broken branches:
+
+1. **`grep -c PATTERN 2>/dev/null || echo 0`** — when grep finds zero matches it still prints `0` AND exits 1, so `|| echo 0` runs, producing `"0\n0"`. The captured value then fails `[ "$X" -gt 0 ]` integer tests with "integer expression expected".
+2. **`ls docs/audit/AUDIT-*.md 2>/dev/null`** — zsh without `setopt nomatch` prints "no matches found" to stderr *before* the command runs, so `2>/dev/null` inside the command can't suppress it.
+
+**Fixes:**
+
+- `commands/doctor.md`: replaced `|| echo 0` with `VAR=${VAR:-0}` guard; replaced `ls PATTERN` with `find <dir> -maxdepth 1 -name <pat>` in all artefact and verdict-log lookups.
+- `.claude-plugin/plugin.json` SessionStart hook: same two fixes in the inline P0 banner + audit-staleness detection.
+
+**Dogfood result on Copytrader_Rust** (previously failing, now clean):
+```
+✓ PROJECT.md present, old format (no Stack:/Type: — will migrate)
+✗ 6/6 pipeline phases — no artefacts ever written
+17 Beads open, 1 in_progress, P0 SEC (leaked API keys) pinpointed
+0 verdicts, 0 permission denials
+```
+
+---
+
 ## v1.0.80 — 2026-04-20
 
 ### Added — Test harness foundation
