@@ -14,12 +14,15 @@ Show the CTO everything that needs attention: pending gates, recent activity dig
 ```bash
 bd list --label gate --status open 2>/dev/null || true
 bd list --status open --priority 0 2>/dev/null || true
-# Detect stale gates (open > 24h)
+# Detect stale gates (open > 24h) — pre-compute epoch outside arithmetic to survive zsh subshell scoping
 NOW=$(date +%s)
 bd list --label gate --status open 2>/dev/null | while read line; do
   TASK_ID=$(echo "$line" | awk '{print $1}')
   CREATED=$(bd show "$TASK_ID" 2>/dev/null | grep "created:" | awk '{print $2}')
-  [ -n "$CREATED" ] && AGE=$(( (NOW - $(date -d "$CREATED" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$CREATED" +%s 2>/dev/null || echo $NOW)) / 3600 ))
+  [ -z "$CREATED" ] && continue
+  CREATED_EPOCH=$(date -d "$CREATED" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$CREATED" +%s 2>/dev/null || echo "$NOW")
+  CREATED_EPOCH=${CREATED_EPOCH:-$NOW}
+  AGE=$(( (NOW - CREATED_EPOCH) / 3600 ))
   [ "${AGE:-0}" -gt 24 ] && echo "STALE:$TASK_ID age:${AGE}h"
 done
 ```
