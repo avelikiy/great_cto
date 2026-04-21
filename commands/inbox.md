@@ -121,6 +121,41 @@ if [ -d "docs/waivers" ]; then
 fi
 ```
 
+### DORA signal (CFR spike)
+
+```bash
+# Lightweight check — only fires if there's enough data and CFR is concerning.
+# Full breakdown lives in /dora.
+if [ -f .great_cto/deploys.log ] && [ -d docs/postmortems ]; then
+  WIN_START=$(( $(date +%s) - 7 * 86400 ))
+  DEPLOYS_7D=$(awk -F'|' -v ws="$WIN_START" '
+    $1 ~ /^[[:space:]]*#/ || NF<2 {next}
+    { gsub(/[[:space:]]/,"",$1)
+      cmd = "python3 -c \"import datetime; print(int(datetime.datetime.fromisoformat(\\\""$1"\\\".replace(\\\"Z\\\",\\\"+00:00\\\")).timestamp()))\" 2>/dev/null"
+      cmd | getline ep; close(cmd)
+      if (ep+0 >= ws) c++ }
+    END { print c+0 }' .great_cto/deploys.log)
+  INC_7D=0
+  for F in docs/postmortems/PM-*.md; do
+    [ -f "$F" ] || continue
+    MT=$(stat -f %m "$F" 2>/dev/null || stat -c %Y "$F" 2>/dev/null || echo 0)
+    [ "$MT" -ge "$WIN_START" ] && INC_7D=$((INC_7D+1))
+  done
+  if [ "$DEPLOYS_7D" -gt 0 ]; then
+    CFR=$(python3 -c "print(round($INC_7D/$DEPLOYS_7D*100))")
+    [ "$CFR" -gt 15 ] && echo "DORA_TRIGGER:CFR=${CFR}% deploys=${DEPLOYS_7D} incidents=${INC_7D}"
+  fi
+fi
+```
+
+If `DORA_TRIGGER` line emitted, include in output:
+```
+--- DORA SIGNAL ---
+  ⚠ Change Failure Rate (7d) = <CFR>%  (<deploys> deploys, <incidents> incidents)
+  → run /dora 30 for context
+  → consider pausing feature work until next 3 deploys are clean
+```
+
 ## Format Output
 
 ```

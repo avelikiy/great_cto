@@ -14,5 +14,8 @@
 packages/cli/node_modules/
 packages/cli/*.tgz
 
+# DORA baseline — local trend log, not committed.
+.great_cto/dora-baseline.log
+
 # Misc
 *.log
