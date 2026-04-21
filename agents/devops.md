@@ -215,14 +215,23 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
        >> .great_cto/perf-baseline.log
      ```
      **Do NOT append if deploy was rolled back** — a failed deploy must not corrupt the baseline.
-   - **Actual vs. estimated cost** check:
+   - **Actual vs. estimated cost** check — append to structured cost log for `/cost` aggregation:
      ```bash
      ARCH_DOC=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort | tail -1)
-     ESTIMATED=$(grep "Total estimated addition:" "$ARCH_DOC" 2>/dev/null | grep -oE '\$[0-9]+' | head -1)
+     ESTIMATED_RAW=$(grep "Total estimated addition:" "$ARCH_DOC" 2>/dev/null | grep -oE '\$[0-9]+' | head -1 | tr -d '$')
+     ESTIMATED=${ESTIMATED_RAW:-0}
      CONSOLE_URL=$(grep "console-url:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-     echo "cost-check: $(date +%Y-%m-%d) | estimated: ${ESTIMATED:-unknown}/mo" >> .great_cto/perf-baseline.log
+     SERVICE=$(grep "^service:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || basename "$PWD")
+     FEATURE=$(basename "$ARCH_DOC" .md 2>/dev/null | sed 's/^ARCH-//' || echo "unknown")
+
+     COST_LOG=.great_cto/cost-history.log
+     [ ! -f "$COST_LOG" ] && printf '# Cost history — append only. Format: ISO8601 | service | estimated_usd_month | actual_usd_month | source | feature\n' > "$COST_LOG"
+     printf '%s | %s | %s | %s | %s | %s\n' \
+       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SERVICE" "$ESTIMATED" "-" "arch-estimate" "$FEATURE" \
+       >> "$COST_LOG"
+     echo "cost-history: appended estimate=\$${ESTIMATED}/mo for $FEATURE"
      ```
-     Report in step 13: `Cost estimate: [ESTIMATED]/mo → verify actual in cloud console [CONSOLE_URL if set]`
+     Report in step 13: `Cost estimate: \$${ESTIMATED}/mo → verify actual in cloud console [CONSOLE_URL if set]. After 30d run /cost to see actual vs estimated drift.`
 
 9. **Type drift check** (every 5th deploy):
    ```bash

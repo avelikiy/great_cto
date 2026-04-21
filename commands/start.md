@@ -212,6 +212,9 @@ packs: [<auto-detected from archetype>]
 team-size: <N engineers — ask if not mentioned in description>
 senior-dev: <N>
 review_mode: auto
+## Budget
+monthly-budget: <optional — USD/mo infrastructure ceiling. Leave commented to disable /cost headroom signal>
+budget-alert-threshold: 80
 ## Owners
 arch-owner: tech-lead
 qa-owner: qa-engineer
