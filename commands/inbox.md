@@ -121,6 +121,63 @@ if [ -d "docs/waivers" ]; then
 fi
 ```
 
+### SLO burn alert (proactive — fires before exhaustion)
+
+```bash
+# Cheap check: only compute for the most-burning service+SLI in latest snapshot.
+# Full breakdown lives in /burn.
+if [ -f .great_cto/slo-burn-history.log ]; then
+  python3 - <<'PY' 2>/dev/null
+import datetime, collections, sys
+from pathlib import Path
+p = Path(".great_cto/slo-burn-history.log")
+series = collections.defaultdict(list)
+for line in p.read_text().splitlines():
+    line = line.strip()
+    if not line or line.startswith('#'): continue
+    parts = [x.strip() for x in line.split('|')]
+    if len(parts) < 6: continue
+    try:
+        ts = datetime.datetime.fromisoformat(parts[0].replace('Z','+00:00')).timestamp()
+        used = float(parts[3]); budget = float(parts[4])
+    except Exception: continue
+    series[(parts[1], parts[2])].append((ts, used, budget))
+for k, snaps in series.items():
+    snaps.sort()
+    if len(snaps) < 2: continue
+    ts_now, used_now, budget = snaps[-1]
+    if budget <= 0: continue
+    # Look at 24h window for fast-burn signal
+    target = ts_now - 86400
+    prev = next((s for s in reversed(snaps) if s[0] <= target), snaps[0])
+    delta_secs = ts_now - prev[0]
+    if delta_secs <= 0: continue
+    actual = (used_now - prev[1]) / delta_secs
+    normal = budget / (30 * 86400)
+    if normal <= 0: continue
+    mult = actual / normal
+    if mult >= 14.4:
+        print(f"BURN_ALERT:{k[0]}/{k[1]} fast={mult:.1f}× window=24h")
+    elif mult >= 6.0:
+        # Also check 7d slow-burn separately
+        target7 = ts_now - 604800
+        prev7 = next((s for s in reversed(snaps) if s[0] <= target7), snaps[0])
+        d7 = ts_now - prev7[0]
+        if d7 > 0:
+            mult7 = ((used_now - prev7[1]) / d7) / normal
+            if mult7 >= 6.0:
+                print(f"BURN_ALERT:{k[0]}/{k[1]} slow={mult7:.1f}× window=7d")
+PY
+fi
+```
+
+If `BURN_ALERT` lines emitted, include in output:
+```
+--- BURN ALERTS ---
+  🔴 <service>/<sli>: burn = <N>× normal (<window>) — projected exhaustion soon
+  → run /burn for full breakdown and remediation context
+```
+
 ### DORA signal (CFR spike)
 
 ```bash

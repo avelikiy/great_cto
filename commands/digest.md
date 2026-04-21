@@ -384,10 +384,37 @@ if [ -f "$SLO" ] && [ -f "$LOG" ]; then
     ' "$SLO"
   } > "$CACHE"
   echo "slo-budget-current.md recomputed → $CACHE"
+
+  # Snapshot for burn-rate trend (consumed by /burn).
+  HISTORY=.great_cto/slo-burn-history.log
+  [ ! -f "$HISTORY" ] && printf '# SLO burn history — append only. Format: ISO8601 | service | sli | used_min | budget_min | pct\n' > "$HISTORY"
+  TS_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  python3 - "$CACHE" "$TS_ISO" >> "$HISTORY" <<'PY'
+import sys, re
+cache, ts = sys.argv[1], sys.argv[2]
+with open(cache) as f:
+    for line in f:
+        if not line.startswith('|') or 'Service' in line or '---' in line:
+            continue
+        parts = [p.strip() for p in line.strip().strip('|').split('|')]
+        if len(parts) < 6:
+            continue
+        svc, sli, _window, used_field, rem_field, _status = parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]
+        used_m = re.search(r'([0-9]+\.?[0-9]*)\s*min', used_field)
+        rem_m  = re.search(r'([0-9]+\.?[0-9]*)\s*min', rem_field)
+        pct_m  = re.search(r'\(([0-9]+)%\)', used_field)
+        used    = float(used_m.group(1)) if used_m else 0.0
+        remain  = float(rem_m.group(1))  if rem_m  else 0.0
+        pct     = int(pct_m.group(1))    if pct_m  else 0
+        budget  = used + remain
+        print(f"{ts} | {svc} | {sli} | {used:.1f} | {budget:.1f} | {pct}")
+PY
+  echo "slo-burn-history snapshot appended"
 fi
 ```
 
 Budget cache is read by `/inbox` (surface WARN/EXHAUSTED) and `devops` (block deploy on EXHAUSTED).
+Burn history is consumed by `/burn` for derivative-based alerting (catch bad trends before exhaustion).
 
 ## Pre-mortem post-review reminder
 
