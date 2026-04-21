@@ -20,5 +20,8 @@ packages/cli/*.tgz
 # SLO burn history — local snapshot series, not committed.
 .great_cto/slo-burn-history.log
 
+# Cost history — local cost log, not committed (may contain contract values).
+.great_cto/cost-history.log
+
 # Misc
 *.log

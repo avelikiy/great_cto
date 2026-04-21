@@ -4,6 +4,45 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.90 — 2026-04-21
+
+### Added — Cost & capacity (the third axis after reliability and delivery)
+
+A feature that ships on time with 99.99% uptime but doubles the cloud
+bill per 1k users is still a failed feature. Cost is a silent SLO — no
+pager fires when you cross a threshold, so the discipline has to come
+from the release process itself.
+
+- **`/cost [days]`** — monthly run-rate (aggregated across services),
+  cost-per-deploy, WoW/MoM delta, top movers (≥20% change MoM), and
+  headroom vs `monthly-budget` in PROJECT.md. Flags cost-added spikes,
+  near-budget conditions, and rising cost-per-deploy.
+- **Devops appends cost estimates automatically** to
+  `.great_cto/cost-history.log` after every production deploy, pulled
+  from the latest ARCH doc's "Total estimated addition" line.
+  Structured format: `ISO8601 | service | estimated | actual | source |
+  feature`. Actuals fill in via monthly cloud-console reconcile (15 min
+  per month — see `cost-discipline.md`).
+- **Cost alert in `/inbox`.** Fires on run-rate ≥ `budget-alert-threshold`
+  (default 80%) or on any service +30% MoM spike. Points at `/cost` for
+  the full breakdown and action items.
+- **Budget config in PROJECT.md.** Two optional fields —
+  `monthly-budget: <usd>` and `budget-alert-threshold: <pct>`. Omit
+  both to disable headroom signals (estimate-only mode still works).
+- **`skills/great_cto/references/cost-discipline.md`** — why cost is an
+  engineering signal, how to run the monthly reconcile, anti-patterns
+  to refuse ("optimize later", "reserved instances will fix it",
+  "ignore the one-off"), and workflows for top-mover and near-budget
+  alerts.
+
+With this release, `/dora` + `/burn` + `/gates` + `/cost` cover the four
+CTO health axes: delivery, reliability, process, economics — each
+visible at-a-glance from `/inbox` and drill-down on demand.
+
+`.great_cto/cost-history.log` is gitignored (may contain contract values).
+
+---
+
 ## v1.0.89 — 2026-04-20
 
 ### Added — Quality gate health (catch gates that have started rubber-stamping)

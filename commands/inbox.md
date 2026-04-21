@@ -271,6 +271,89 @@ If `GATE_DRIFT` line emitted, include in output:
   → run /gates 30 for full breakdown and effectiveness check
 ```
 
+### Cost alert (run-rate vs budget or top mover spike)
+
+```bash
+# Fires when run-rate crosses alert_threshold of budget OR any service +30% MoM.
+# Cheap version — full breakdown lives in /cost.
+if [ -f .great_cto/cost-history.log ]; then
+  python3 - <<'PY' 2>/dev/null
+import datetime, collections
+from pathlib import Path
+import re
+p = Path(".great_cto/cost-history.log")
+proj = Path(".great_cto/PROJECT.md")
+budget = 0.0
+threshold = 80.0
+if proj.exists():
+    for line in proj.read_text().splitlines():
+        m = re.match(r'^monthly-budget:\s*\$?([0-9.]+)', line)
+        if m:
+            try: budget = float(m.group(1))
+            except: pass
+        m = re.match(r'^budget-alert-threshold:\s*([0-9.]+)', line)
+        if m:
+            try: threshold = float(m.group(1))
+            except: pass
+
+rows = []
+for line in p.read_text().splitlines():
+    line = line.strip()
+    if not line or line.startswith('#'): continue
+    parts = [x.strip() for x in line.split('|')]
+    if len(parts) < 6: continue
+    try:
+        ts = datetime.datetime.fromisoformat(parts[0].replace('Z','+00:00')).timestamp()
+    except: continue
+    try: est = float(parts[2]) if parts[2] not in ('-','') else None
+    except: est = None
+    try: actual = float(parts[3]) if parts[3] not in ('-','') else None
+    except: actual = None
+    rows.append((ts, parts[1], est, actual))
+
+if not rows: exit()
+rows.sort()
+# Latest per service (for run-rate)
+latest = {}
+for ts, svc, est, actual in rows:
+    if svc not in latest or ts > latest[svc][0]:
+        latest[svc] = (ts, est, actual)
+runrate = sum((v[2] if v[2] is not None else (v[1] or 0)) for v in latest.values())
+
+# Budget alert
+if budget > 0:
+    pct = runrate / budget * 100
+    if pct >= 100:
+        print(f"COST_ALERT:OVER_BUDGET runrate=${runrate:.0f} budget=${budget:.0f} pct={pct:.0f}%")
+    elif pct >= threshold:
+        print(f"COST_ALERT:NEAR_BUDGET runrate=${runrate:.0f} budget=${budget:.0f} pct={pct:.0f}%")
+
+# Top-mover alert (30d window, +30% service MoM)
+now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+cur_start = now - 30*86400
+prev_start = now - 60*86400
+cur = collections.defaultdict(float); prev = collections.defaultdict(float)
+for ts, svc, est, _ in rows:
+    if est is None: continue
+    if ts >= cur_start: cur[svc] += est
+    elif ts >= prev_start: prev[svc] += est
+for svc in cur:
+    if prev.get(svc, 0) > 0:
+        delta = (cur[svc] - prev[svc]) / prev[svc] * 100
+        if delta >= 30:
+            print(f"COST_MOVER:{svc} delta=+{delta:.0f}% added=${cur[svc]:.0f}")
+PY
+fi
+```
+
+If `COST_ALERT` or `COST_MOVER` emitted, include in output:
+```
+--- COST ---
+  ⚠ Run-rate $<N>/mo = <pct>% of $<budget> budget (threshold <threshold>%)
+  ⚠ Mover: <service> +<pct>% MoM ($<added> added this 30d)
+  → run /cost 30 for top movers and actions
+```
+
 ## Format Output
 
 ```

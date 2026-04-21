@@ -3,7 +3,7 @@
 > The engineering process for solo founders and teams up to 50 engineers — without the overhead.
 
 [![Stars](https://img.shields.io/github/stars/avelikiy/great_cto?style=flat)](https://github.com/avelikiy/great_cto/stargazers)
-[![Version](https://img.shields.io/badge/version-1.0.89-blue)]()
+[![Version](https://img.shields.io/badge/version-1.0.90-blue)]()
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
@@ -66,16 +66,25 @@ Everything else is either automatic or runs only when you need it.
 <details>
 <summary><b>More commands (advanced)</b></summary>
 
+**Project lifecycle**
 | Command | When |
 |---------|------|
 | `/audit` | Existing repo — gap analysis + task backlog |
 | `/rfc new\|list\|close` | Cross-team decisions (guarded: team-size < 10 → warns) |
-| `/digest [days] [board]` | DORA metrics. Add `board` for quarterly CEO report. Runs automatically Mon 9:00. |
 | `/release notes\|changelog\|docs\|sync` | App Store notes, user changelog, stale docs, version sync |
 | `/ownership map\|show\|set` | Service ownership matrix → CODEOWNERS |
 | `/oncall who\|schedule\|handoff` | On-call rotations and shift handoffs |
 | `/triage` | Backlog reorganizer: duplicates, misplaced items, priority inversions |
 | `/doctor` | Health check — flags missing artefacts, stale audits, broken Beads, permission denials |
+| `/digest [days] [board]` | DORA metrics. Add `board` for quarterly CEO report. Runs automatically Mon 9:00. |
+
+**Engineering health dashboard** — drill-downs from `/inbox` signals
+| Command | When |
+|---------|------|
+| `/dora [days]` | Deployment frequency, lead time, change failure rate, MTTR |
+| `/burn [service]` | Multi-window SLO burn rate — catches budget exhaustion 6h+ before it happens |
+| `/gates [days]` | Per-agent pass rate + drift + effectiveness — catches gates that started rubber-stamping |
+| `/cost [days]` | Monthly run-rate, cost-per-deploy, top movers, headroom vs `monthly-budget` in PROJECT.md |
 </details>
 
 ---
@@ -265,7 +274,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.89 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.90 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
