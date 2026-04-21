@@ -4,6 +4,38 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.88 — 2026-04-21
+
+### Added — SLO burn rate (catch exhaustion before it happens)
+
+A point-in-time SLO check tells you "78% consumed" but not whether you got
+there gradually (fine) or in the last 6 hours (not fine). Burn rate is
+the derivative — and multi-window burn rate catches both fast incidents
+and slow regressions days before the budget runs out.
+
+- **`/burn [service]`** — multi-window burn rate (24h / 7d / 30d) per
+  service+SLI, with projected exhaustion in days at the current 7d pace.
+  Thresholds match the Google SRE multi-window pattern: 14.4× normal in
+  24h pages on-call, 6× in 7d files a ticket, 1× in 30d goes on the
+  review pile.
+- **Burn alert in `/inbox`.** When any service crosses fast (24h) or
+  slow (7d) burn threshold, `/inbox` surfaces it with the multiplier
+  and a pointer to `/burn` for the breakdown — proactive rather than
+  reactive.
+- **`/digest` writes a snapshot per run** to `.great_cto/slo-burn-history.log`.
+  Burn rate needs at least 2 snapshots; weekly digest cadence gives 7d
+  resolution. Run `/digest 1` daily to make 24h burn meaningful.
+- **`skills/great_cto/references/burn-rate.md`** — multi-window pattern,
+  the four numbers and what they mean, anti-patterns to refuse
+  ("just lower the SLO" is not the answer), and the workflow split
+  between fast-burn (incident response) and slow-burn (planning).
+
+`.great_cto/slo-burn-history.log` is gitignored. Snapshots are derived
+from `slo-budget-current.md` so no new data input is required — only
+the cadence at which `/digest` runs determines burn-rate resolution.
+
+---
+
 ## v1.0.87 — 2026-04-21
 
 ### Added — DORA aggregator (the loop, not the dashboard)

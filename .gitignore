@@ -17,5 +17,8 @@ packages/cli/*.tgz
 # DORA baseline — local trend log, not committed.
 .great_cto/dora-baseline.log
 
+# SLO burn history — local snapshot series, not committed.
+.great_cto/slo-burn-history.log
+
 # Misc
 *.log
