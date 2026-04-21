@@ -233,6 +233,20 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
    If `DRIFT_CHECK`: spawn `great_cto-project-auditor` with context: "Post-deploy type drift check only. Skip full gap analysis. Check if current codebase has outgrown its PROJECT.md type. Update PROJECT.md secondary: if new type detected. Report back in 2 lines."
    This detects when a rest-api becomes a realtime-system, or a library becomes a saas-platform.
 
+9b. **DORA event log** — single-line append per production deploy. Drives `/dora` aggregation and weekly DORA snapshot in `/digest`.
+   ```bash
+   mkdir -p .great_cto
+   DORA_LOG=.great_cto/deploys.log
+   [ ! -f "$DORA_LOG" ] && printf '# DORA deploy log — append only. Format: ISO8601 | service | version | status | mr_merged_at\n' > "$DORA_LOG"
+   SERVICE=$(grep "^service:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || basename "$PWD")
+   VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+   STATUS="success"   # set to "rollback" if Checkpoint C decided to roll back
+   # MR merge timestamp — best-effort: last commit on main older than this deploy
+   MR_MERGED=$(git log -1 --format=%cI 2>/dev/null || echo "-")
+   printf '%s | %s | %s | %s | %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SERVICE" "$VERSION" "$STATUS" "$MR_MERGED" >> "$DORA_LOG"
+   ```
+   On rollback (Checkpoint C decided to roll back): override `STATUS=rollback` before the printf above.
+
 10. **Generate Changelog entry**:
    ```bash
    # Append to CHANGELOG.md (use printf — echo "\n" is not portable)

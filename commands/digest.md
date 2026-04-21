@@ -120,8 +120,15 @@ CUTOFF=$(python3 -c "from datetime import date, timedelta; print((date.today() -
   || date -d "${DAYS:-7} days ago" +%Y-%m-%d 2>/dev/null \
   || echo "1970-01-01")
 
-# Deployment Frequency: deploys in period from perf-baseline.log
-DEPLOY_COUNT=$(grep "ts:" .great_cto/perf-baseline.log 2>/dev/null | grep -oE 'ts:[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/ts://' | awk -v cut="$CUTOFF" '$1 >= cut' | wc -l | tr -d ' ')
+# Deployment Frequency: prefer .great_cto/deploys.log (v1.0.87+); fallback to perf-baseline.log.
+if [ -f .great_cto/deploys.log ]; then
+  DEPLOY_COUNT=$(awk -F'|' -v cut="$CUTOFF" '
+    $1 ~ /^[[:space:]]*#/ || NF<2 {next}
+    { gsub(/[[:space:]]/,"",$1); if (substr($1,1,10) >= cut) c++ }
+    END { print c+0 }' .great_cto/deploys.log)
+else
+  DEPLOY_COUNT=$(grep "ts:" .great_cto/perf-baseline.log 2>/dev/null | grep -oE 'ts:[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/ts://' | awk -v cut="$CUTOFF" '$1 >= cut' | wc -l | tr -d ' ')
+fi
 echo "deploy_frequency=${DEPLOY_COUNT} deploys in last ${DAYS} days"
 
 # Lead Time: first commit to deploy (git first commit in feature branch → deploy ts in perf-baseline.log)
@@ -159,8 +166,13 @@ else:
     print('mttr=N/A (no postmortems with MTTR field)')
 " 2>/dev/null || echo "mttr=N/A"
 
-# Change Failure Rate: postmortems / total deploys (all time)
-TOTAL_DEPLOYS=$(grep -c "ts:" .great_cto/perf-baseline.log 2>/dev/null || echo 0)
+# Change Failure Rate: postmortems / total deploys (all time).
+# Prefer deploys.log (v1.0.87+); fallback to perf-baseline.log.
+if [ -f .great_cto/deploys.log ]; then
+  TOTAL_DEPLOYS=$(grep -cv "^[[:space:]]*#" .great_cto/deploys.log 2>/dev/null || echo 0)
+else
+  TOTAL_DEPLOYS=$(grep -c "ts:" .great_cto/perf-baseline.log 2>/dev/null || echo 0)
+fi
 TOTAL_PMS=$(ls docs/postmortems/PM-*.md 2>/dev/null | wc -l | tr -d ' ')
 python3 -c "
 d, p = ${TOTAL_DEPLOYS:-0}, ${TOTAL_PMS:-0}

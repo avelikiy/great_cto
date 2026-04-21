@@ -4,6 +4,35 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.87 — 2026-04-21
+
+### Added — DORA aggregator (the loop, not the dashboard)
+
+Four numbers that tell you whether the engineering system is healthy,
+computed from artefacts you already produce.
+
+- **`/dora [period]`** — snapshot of Deployment Frequency, Lead Time for
+  Changes, Change Failure Rate, and MTTR for the last N days (default 30),
+  with week-over-week deltas. Reads `.great_cto/deploys.log`,
+  `docs/postmortems/PM-*.md`, and `bd` closed tasks; no new services.
+- **CFR signal in `/inbox`.** When 7-day CFR exceeds 15%, `/inbox` flags
+  it with the latest 3 incidents — so the metric becomes an actionable
+  prompt in the daily workflow, not a dashboard nobody opens.
+- **Weekly DORA snapshot in `/digest`.** Existing DORA section now reads
+  `deploys.log` first (fallback: `perf-baseline.log`), so the weekly
+  Monday digest carries real numbers instead of placeholders.
+- **`devops` writes a single line per production deploy** to
+  `.great_cto/deploys.log` (timestamp, service, version, status,
+  MR-merge-time). This is the only new data input the feature requires.
+- **`skills/great_cto/references/dora.md`** — reference for `tech-lead`
+  and `qa-engineer`. Encodes the Ostrovok pattern: when CFR rises, look
+  at Lead Time first; "stricter QA" is rarely the right answer.
+
+`.great_cto/dora-baseline.log` accumulates one row per `/dora` run for
+local trend-over-time without re-computation. Gitignored.
+
+---
+
 ## v1.0.86 — 2026-04-20
 
 ### Added — ADR lifecycle + incident lesson crystallization
