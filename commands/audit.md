@@ -15,14 +15,14 @@ Fast by default (v1.0.43+): phases 1-4 run in parallel via sub-agents + CVE scan
 If argument is `eval` (i.e. `/audit eval`):
 
 ```bash
-EVAL_DIR="docs/eval"
+EVAL_DIR="tests/eval"
 ls "$EVAL_DIR"/EVAL-*.md 2>/dev/null | sort || echo "NO_EVALS"
 ```
 
 If no eval files found:
 ```
-No eval cases in docs/eval/.
-Run /audit to create initial eval cases, or see docs/eval/ for the format.
+No eval cases in tests/eval/.
+Run /audit to create initial eval cases, or see tests/eval/ for the format.
 ```
 
 If eval files exist — for each `EVAL-*.md`:

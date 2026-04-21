@@ -365,7 +365,7 @@ PY
   echo "  • P0 Beads — triage via /inbox"
   echo "  • Stale audit (>30d) — run /audit"
   echo "  • Stalled backlog — run /start or /audit"
-  echo "  • Missing scheduler — see docs/validation/README.md for cron setup"
+  echo "  • Missing scheduler — set up a weekly cron for /digest (Mon 9:00 is the default)"
 fi
 ```
 
