@@ -213,6 +213,64 @@ If `DORA_TRIGGER` line emitted, include in output:
   → consider pausing feature work until next 3 deploys are clean
 ```
 
+### Gate drift signal (rubber-stamping check)
+
+```bash
+# Fires when a gate is at >85% pass AND drifted +10pp vs prior 30d window.
+# Cheap version — full breakdown lives in /gates.
+if [ -d .great_cto/verdicts ]; then
+  python3 - <<'PY' 2>/dev/null
+import os, re, glob, datetime, collections
+NOW = datetime.datetime.now().timestamp()
+WIN = 30 * 86400
+PASS = {"PASS","APPROVED","ARCH_READY","DEPLOYED","DONE"}
+FAIL = {"FAIL","BLOCKED","ROLLED_BACK","ROLLBACK"}
+verdicts = collections.defaultdict(list)
+for path in glob.glob(".great_cto/verdicts/*.log"):
+    base = os.path.basename(path)
+    is_per_agent = not re.match(r'^\d{4}-\d{2}-\d{2}\.log$', base)
+    default_agent = base[:-4] if is_per_agent else None
+    try:
+        for line in open(path):
+            line = line.strip()
+            if not line or line.startswith('#'): continue
+            if '|' in line:
+                parts = [p.strip() for p in line.split('|')]
+                if len(parts) < 3: continue
+                ts_s, agent, status = parts[0], parts[1], parts[2]
+            else:
+                bits = line.split(None, 3)
+                if len(bits) < 3: continue
+                ts_s, agent, status = bits[0], bits[1], bits[2]
+                if default_agent and agent.upper() in PASS | FAIL:
+                    status, agent = agent, default_agent
+            try:
+                ts = datetime.datetime.fromisoformat(ts_s.replace('Z','+00:00')).timestamp()
+            except Exception: continue
+            su = status.upper()
+            norm = "PASS" if su in PASS else "FAIL" if su in FAIL else "OTHER"
+            verdicts[agent].append((ts, norm))
+    except Exception: continue
+for agent, snaps in verdicts.items():
+    cur = [s for s in snaps if s[0] >= NOW - WIN and s[1] in ("PASS","FAIL")]
+    prev = [s for s in snaps if NOW - 2*WIN <= s[0] < NOW - WIN and s[1] in ("PASS","FAIL")]
+    if len(cur) < 5 or len(prev) < 5: continue
+    cur_rate = sum(1 for s in cur if s[1]=="PASS") / len(cur) * 100
+    prev_rate = sum(1 for s in prev if s[1]=="PASS") / len(prev) * 100
+    drift = cur_rate - prev_rate
+    if cur_rate > 85 and drift >= 10:
+        print(f"GATE_DRIFT:{agent} pass={cur_rate:.0f}% drift=+{drift:.0f}pp n={len(cur)}")
+PY
+fi
+```
+
+If `GATE_DRIFT` line emitted, include in output:
+```
+--- GATE HEALTH ---
+  ⚠ <agent>: pass=<N>% (drift +<M>pp over prior 30d) — likely rubber-stamping
+  → run /gates 30 for full breakdown and effectiveness check
+```
+
 ## Format Output
 
 ```
