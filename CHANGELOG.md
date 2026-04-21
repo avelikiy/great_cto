@@ -4,6 +4,42 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.89 — 2026-04-20
+
+### Added — Quality gate health (catch gates that have started rubber-stamping)
+
+A gate that always passes is not a gate — it's theater. The only way to
+know whether a gate is real is to compare its verdicts against subsequent
+reality (incidents, postmortem agent-verdict audits). This release makes
+that comparison a single command.
+
+- **`/gates [days]`** — per-agent pass rate, drift vs prior window,
+  time-to-verdict, and effectiveness (% of audited PMs where the agent's
+  PASS was actually correct). Healthy window: 70–90% pass rate. Outside
+  that, flag. Drift +10pp upward while already at >85% triggers
+  "rubber-stamping?" warning. Effectiveness <70% triggers "missed too
+  many incidents."
+- **Two verdict log formats supported.** Per-agent files
+  (`qa-engineer.log`, space-delimited) and per-day files
+  (`2026-04-20.log`, pipe-delimited) are both parsed automatically.
+- **Postmortem audit cross-reference.** `/gates` parses the
+  "Agent Verdict Audit" tables from every PM in the window and counts
+  per-agent "Correct? = no" rows to compute effectiveness.
+- **Gate drift signal in `/inbox`.** Cheap version of the same check
+  surfaces a warning when any agent crosses the rubber-stamping
+  threshold, with a pointer to `/gates` for the breakdown.
+- **`skills/great_cto/references/gate-health.md`** — calibration table,
+  the 70–90% window rationale, anti-patterns to refuse ("disable noisy
+  gate", "auto-approve when busy"), and workflows for both
+  rubber-stamping and low-effectiveness flags.
+
+No new data input required — `/gates` reads the existing
+`.great_cto/verdicts/*.log` and `docs/postmortems/PM-*.md` artefacts.
+Effectiveness scoring activates as soon as your PMs include the
+"Agent Verdict Audit" section.
+
+---
+
 ## v1.0.88 — 2026-04-21
 
 ### Added — SLO burn rate (catch exhaustion before it happens)
