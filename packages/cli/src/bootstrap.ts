@@ -43,9 +43,15 @@ export function bootstrap(
 ## Project
 
 primary: ${archetype}
+archetype: ${archetype}
+project_size: medium
 stack: ${stackLine}
 languages: ${detection.languages.join(", ") || "to be defined"}
 package-manager: ${detection.packageManager ?? "none"}
+
+> \`archetype:\` drives tier/gate selection (see references/security-tiers.md).
+> \`project_size:\` is one of nano | small | medium | large | enterprise — agents
+> scale gate depth accordingly. Edit either if auto-detection got it wrong.
 
 ## Phase
 
@@ -57,13 +63,18 @@ phase: implementation
 
 ## Team
 
-size: ${teamSize}
+team-size: ${teamSize}
 mode: solo
 approval-level: ${approvalLevel}
 
+> \`team-size:\` is read at root level (not nested) by /rfc and other commands.
+
 ## Compliance
 
-frameworks: [${complianceLine}]
+compliance: [${complianceLine}]
+
+> \`compliance:\` list drives which checklists security-officer runs.
+> See ARCHETYPES.md "Parameter Values" for supported keys.
 
 ## Goals
 

@@ -189,6 +189,44 @@ async function runInit(args: CliArgs): Promise<number> {
     log(`  ${dim("already enabled in")} ${enableResult.settingsPath}`);
   }
 
+  // ── 4b. one-shot legacy cleanup ──────────────────────────
+  // Versions < 1.0.104 copied commands to ~/.claude/commands/ without a
+  // `great_cto-managed` marker; the SessionStart hook in 1.0.104+ can't
+  // safely delete them. If this looks like an upgrade from an older version,
+  // remove any unmarked copies of commands we used to ship so the new loop
+  // can drop its marker-tagged versions.
+  if (existing.length > 0) {
+    try {
+      const { existsSync, readFileSync, unlinkSync } = await import("node:fs");
+      const { homedir } = await import("node:os");
+      const { join } = await import("node:path");
+      const legacy = [
+        "triage", "gates", "dora", "investigate", "threat-model", "sbom",
+        "security-incident", "update", "status", "capture", "revisit",
+        "board-report", "burn", "cost", "poc", "promote", "sec",
+      ];
+      const cmdDir = join(homedir(), ".claude", "commands");
+      let cleaned = 0;
+      for (const name of legacy) {
+        const f = join(cmdDir, `${name}.md`);
+        if (!existsSync(f)) continue;
+        const head = readFileSync(f, "utf-8").slice(0, 4096);
+        // Only delete files that look like OUR old commands (contain great_cto
+        // references) AND lack the 1.0.104+ marker. Hand-written user files
+        // won't match the great_cto reference test.
+        const looksOurs = /great_cto|\.great_cto|Great CTO/.test(head);
+        const hasMarker = /great_cto-managed/.test(head);
+        if (looksOurs && !hasMarker) {
+          unlinkSync(f);
+          cleaned++;
+        }
+      }
+      if (cleaned > 0) {
+        log(`  ${dim(`cleaned ${cleaned} legacy command file(s) from ~/.claude/commands (pre-1.0.104 unmarked)`)}`);
+      }
+    } catch { /* best-effort — don't block install */ }
+  }
+
   // ── 5. bootstrap ─────────────────────────────────────────
   step(5, 5, "bootstrapping .great_cto/PROJECT.md");
   const bs = bootstrap(args.dir, detection, archetype as never, compliance);
