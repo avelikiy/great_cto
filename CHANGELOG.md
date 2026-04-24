@@ -4,6 +4,29 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.105 — 2026-04-24
+
+### Fixed (P2) — `great-cto init` scaffolded PROJECT.md that agents couldn't parse
+
+The installer CLI wrote `primary: <archetype>` without the `archetype:` key
+agents read. It nested `size:` under `## Team` instead of writing `team-size:`
+at root (the key `/rfc` actually greps for), and used a non-existent
+`frameworks:` key instead of `compliance:`. Fresh installs scaffolded a
+PROJECT.md that silently failed the v1.0.104 tier/guard logic. Fixed: CLI now
+writes `archetype:`, `project_size:`, `team-size:` at root, and `compliance:`.
+
+### Fixed (P2) — pre-1.0.104 legacy commands stuck in `~/.claude/commands/`
+
+Users upgrading from < 1.0.104 have unmarked command files the SessionStart
+cleanup loop can't touch (it only deletes marked files, for safety). Those
+stale commands keep showing up in Claude Code forever. Fixed: `great-cto init`
+now runs a one-shot cleanup on upgrade detection — removes files in
+`~/.claude/commands/` matching our known legacy names **and** referencing
+great_cto **and** lacking the 1.0.104 marker. Hand-written user files with
+the same names are preserved (they won't match the great_cto reference test).
+
+---
+
 ## v1.0.104 — 2026-04-24
 
 ### Fixed (P0) — devops still used v1.0.101 binary `IS_MANDATORY` model
