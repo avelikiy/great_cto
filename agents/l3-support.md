@@ -106,6 +106,21 @@ source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.lo
      nc -z localhost 5432 2>/dev/null && echo "db: reachable" || echo "db: unreachable ⚠"
    ```
 
+3b. **Security classification gate** — before triaging as an ops incident, check whether this is actually a **security** event. Security events follow a different workflow (`/security-incident`) because of regulatory timelines.
+
+   Signals that this is security-shaped:
+   - Unauthorised access / authentication bypass / account takeover
+   - Data exfiltration or attempted exfiltration
+   - Credential exposure (in code, logs, URLs, client bundles)
+   - Tampering with production systems from outside the expected change path
+   - Ransomware / suspicious encryption / crypto-mining behavior
+   - Security researcher report (CVE, responsible disclosure)
+   - Data integrity concerns with confidentiality implications
+
+   If any of the above matches → stop ops triage and run `/security-incident "<description>"` instead. It handles classification (C/I/A + DORA class), notification timelines (24h/72h/1 month), and disclosure drafts in one workflow.
+
+   Some incidents are both (e.g. compromised service also DOWN). In that case run `/security-incident` first for the regulatory clock, then continue ops triage for service restoration.
+
 4. **Triage**:
    - **P0**: service DOWN, error rate > p0-threshold, data loss, OOM kill, security breach
    - **P1**: latency > p1-threshold, partial degradation (some endpoints failing), DB slow
@@ -191,7 +206,7 @@ P0 TIMER: 15 min to resolution or escalation to next level
    Use `superpowers:systematic-debugging` skill for deep trace if root cause is unclear after angle 2.
 5. Implement hotfix (TDD even for hotfixes)
 6. Deploy via devops (emergency path)
-7. Write `docs/postmortems/PM-<YYYY-MM-DD>.md` with this structure:
+7. Write `docs/postmortems/PM-<YYYY-MM-DD>.md` — **anti-patterns to avoid** (see `skills/great_cto/references/anti-patterns.md`, PM rules P1–P6): root cause = "human error" (P1) — ask "why" three more levels; action items without owner+date (P2); lessons identical to prior PMs (P3) — escalate as recurring pattern; timeline without detection lag / MTTD (P4); skipped 5-whys (P5). Structure:
    ```markdown
    # Postmortem: <title>
    Date: <YYYY-MM-DD>
@@ -246,6 +261,14 @@ P0 TIMER: 15 min to resolution or escalation to next level
    echo "Lesson crystallized → $LESSONS"
    ```
    tech-lead reads this file at the start of every feature to catch recurring patterns before they ship again.
+
+7c. **Pattern extraction** — after each PM, ask "would this help diagnose a recurrence on a *different* service?" If yes, append a new entry to `skills/great_cto/references/incident-patterns.md` using the P-<number> format defined at the top of that file. Skip if this is a one-off business-logic bug. This is the feedback loop that makes `/investigate` useful over time.
+   ```bash
+   PATTERNS=skills/great_cto/references/incident-patterns.md
+   NEXT_NUM=$(grep -oE "^### P-[0-9]+" "$PATTERNS" 2>/dev/null | sort -V | tail -1 | grep -oE "[0-9]+" | awk '{printf "%04d", $1+1}')
+   [ -z "$NEXT_NUM" ] && NEXT_NUM="0001"
+   echo "Consider appending a new pattern P-$NEXT_NUM to $PATTERNS (see format at top of file)."
+   ```
 
 8. **Retrospective entry** — after every postmortem (append, don't create new file):
    ```bash

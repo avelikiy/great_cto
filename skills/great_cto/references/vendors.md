@@ -32,6 +32,29 @@
 - **medium**: outage causes user friction (analytics, search)
 - **low**: outage invisible to users (logging, monitoring)
 
+## DORA classification (EU Digital Operational Resilience Act)
+
+> Required for financial-sector entities subject to DORA (Reg. 2022/2554, Art. 28). Optional otherwise — if you're not in-scope for DORA, write "n/a" in the fields below but keep the section so a future audit can find it.
+
+- **ICT-3P register entry**: <yes / no / n/a>
+- **Supports critical or important function**: <yes / no / n/a>
+  (DORA Art. 28 requires exit strategy + enhanced monitoring if yes)
+- **Data shared**: <categories — e.g. "customer PII, payment card, transaction logs" / "none">
+- **Data location**: <region(s) — e.g. "eu-west-1, eu-central-1">
+- **Sub-processors**: <list names + URL of subprocessor page, or "none declared">
+- **Concentration risk**: <low / medium / high — are multiple critical functions dependent on this one vendor?>
+
+## Exit strategy
+
+> Concrete plan for migrating away from this vendor. For `critical` vendors (and DORA "critical or important function" vendors) this must not be blank.
+
+- **Trigger** (what would force a migration): <acquisition / security incident / SLA breach / pricing change>
+- **Migration path**: <step-by-step, at least first 3 steps>
+- **Alternative vendor(s)**: <name + rough switch cost>
+- **Estimated migration time**: <days / weeks / months>
+- **Data portability**: <what format can we export? is it fully structured?>
+- **Tested**: <yes — last tested <YYYY-MM-DD> / no — theoretical only>
+
 ## SLA
 - Commitment: <X.XX%> uptime per vendor public SLA
 - Our dependency tier: <tier-reason>
@@ -65,7 +88,7 @@ Source: <vendor status page URL>
 
 ## Review cadence
 
-- **Quarterly** (by security-officer): check incident history, cert expirations, renewal dates, risk linkage
+- **Quarterly** (by security-officer): check incident history, cert expirations, renewal dates, risk linkage, DORA classification accuracy, exit strategy freshness (must be re-verified if not tested in > 12 months)
 - **On-demand** when vendor has a public incident → append to incident history
 - **At ARCH time** (by tech-lead): when a new vendor is introduced → VENDOR doc created before ARCH merges
 

@@ -1,6 +1,6 @@
 ---
 description: "Audit an existing codebase. Detects stack, finds gaps, creates tasks, generates PROJECT.md."
-argument-hint: "[optional: focus area, e.g. 'focus on security' or 'check auth layer']"
+argument-hint: "[optional: 'eval' | 'lint' | focus area, e.g. 'focus on security']"
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep, Agent
 model: sonnet
@@ -51,6 +51,195 @@ MANUAL CHECKS:
 ```
 
 Exit after eval report. Do NOT proceed with normal audit.
+
+---
+
+## Action: `lint` — scan artefacts against anti-pattern blocklist
+
+If argument is `lint` (i.e. `/audit lint`):
+
+Scans `docs/architecture/`, `docs/threat-models/`, `docs/releases/SBOM-*.json`,
+`docs/postmortems/`, `.great_cto/verdicts/` against rules in
+`skills/great_cto/references/anti-patterns.md`. Advisory findings, not blocking.
+Respects `<!-- anti-pattern-waiver: <rule-id> reason:<why> -->` lines.
+
+```bash
+python3 - <<'PY' 2>/dev/null
+import os, re, glob, json
+from pathlib import Path
+
+FINDINGS = []
+
+def flag(rule, path, line_no, snippet):
+    FINDINGS.append((rule, path, line_no, snippet.strip()[:120]))
+
+def has_waiver(line, rule):
+    return f"anti-pattern-waiver: {rule}" in line
+
+def scan_file(path, rules):
+    try:
+        lines = Path(path).read_text(encoding='utf-8', errors='ignore').splitlines()
+    except Exception: return
+    text = "\n".join(lines)
+    for rule_id, pattern, needs_section, section_pattern in rules:
+        if needs_section:
+            # Structural rule: section MUST exist
+            if not re.search(section_pattern, text, re.I | re.M):
+                flag(rule_id, path, 0, f"missing section: {section_pattern}")
+            continue
+        for i, line in enumerate(lines, 1):
+            if re.search(pattern, line, re.I) and not has_waiver(line, rule_id):
+                flag(rule_id, path, i, line)
+
+# ARCH rules
+ARCH_RULES = [
+    ("A1", None, True,  r"^##\s+(Non-goals?|Out of scope)"),
+    ("A2", r"\b(scalable|reliable|performant|robust|cutting-edge|best-in-class|world-class)\b", False, None),
+    ("A3", r"\b(a database|a queue|a cache|some storage|some database)\b", False, None),
+    ("A4", r"(monitoring|logging|tracing|observability).{0,30}(later|phase 2|TODO|future)", False, None),
+    ("A6", r"\b(rewrite|greenfield)\b", False, None),  # pair with missing Migration manually
+]
+for p in glob.glob("docs/architecture/ARCH-*.md"):
+    scan_file(p, ARCH_RULES)
+    # A8: Security section exists but too thin
+    try:
+        t = Path(p).read_text()
+        m = re.search(r"^##\s+Security\s*\n(.*?)(?=^##|\Z)", t, re.M|re.S)
+        if m and len(m.group(1).strip().splitlines()) < 3:
+            flag("A8", p, 0, "Security section is < 3 lines")
+    except: pass
+
+# Threat model rules
+TM_RULES = [
+    ("T1", r"mitigation.*:.*\b(validation|sanitis[ae]tion)\s*$", False, None),
+    ("T3", None, True, r"^##\s+Accepted risks?"),
+    ("T4", None, True, r"(mermaid|```mermaid|flowchart|graph\s+(LR|TD))"),
+]
+for p in glob.glob("docs/threat-models/TM-*.md"):
+    scan_file(p, TM_RULES)
+
+# SBOM rules (JSON)
+for p in glob.glob("docs/releases/SBOM-*.json"):
+    try:
+        data = json.loads(Path(p).read_text())
+        comps = data.get("components", [])
+        if len(comps) < 5:
+            flag("S1", p, 0, f"only {len(comps)} components — tool may not have run")
+        if comps and not any("hashes" in c for c in comps[:10]):
+            flag("S2", p, 0, "no integrity hashes on components")
+        range_versions = [c for c in comps if re.search(r"[\^~>*]", str(c.get("version","")))]
+        if range_versions:
+            flag("S3", p, 0, f"{len(range_versions)} components with version ranges (should be pinned)")
+    except Exception: pass
+
+# PM rules
+PM_RULES = [
+    ("P1", r"root cause.*:.*\b(human error|operator (mistake|error)|user error)\b", False, None),
+]
+for p in glob.glob("docs/postmortems/PM-*.md"):
+    scan_file(p, PM_RULES)
+
+# PM-SEC must have Notification log
+for p in glob.glob("docs/postmortems/PM-SEC-*.md"):
+    t = Path(p).read_text(errors='ignore')
+    if not re.search(r"^##\s+Notification log", t, re.M|re.I):
+        flag("P6", p, 0, "PM-SEC missing Notification log section")
+
+# Cross-doc link rot (L1–L4) — scan all docs/**/*.md
+import time
+ALL_DOCS = glob.glob("docs/**/*.md", recursive=True)
+DOC_SET = set(os.path.abspath(p) for p in ALL_DOCS)
+# Build inline-ref inventory for L2 (name -> absolute path)
+ARTEFACT_INDEX = {}
+for p in ALL_DOCS + glob.glob("docs/releases/SBOM-*.json"):
+    ARTEFACT_INDEX[os.path.basename(p)] = os.path.abspath(p)
+
+MD_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+\.md)(?:#[^)]*)?\)")
+ARTEFACT_REF_RE = re.compile(r"\b((?:ARCH|PM|PM-SEC|ADR|RFC|TM|SBOM|CSO|QA|AUDIT|PENTEST|RISK|USER-SPEC|RELEASE)-[A-Za-z0-9._-]+\.(?:md|json))\b")
+TEMPORAL_RE = re.compile(r"\b(current version|latest release|TBD|to be determined)\b", re.I)
+
+# L3 incoming-link index
+incoming = {os.path.abspath(p): 0 for p in ALL_DOCS}
+for p in ALL_DOCS:
+    try: text = Path(p).read_text(errors='ignore')
+    except Exception: continue
+    base_dir = os.path.dirname(os.path.abspath(p))
+    for m in MD_LINK_RE.finditer(text):
+        href = m.group(2)
+        if href.startswith("http"): continue
+        target = os.path.normpath(os.path.join(base_dir, href))
+        if target in incoming:
+            incoming[target] += 1
+    for m in ARTEFACT_REF_RE.finditer(text):
+        name = m.group(1)
+        if name in ARTEFACT_INDEX:
+            incoming[ARTEFACT_INDEX[name]] = incoming.get(ARTEFACT_INDEX[name], 0) + 1
+
+NOW = time.time()
+# Skip template placeholders like <slug>, <feature>, <YYYY-MM-DD>, {name}, ...
+PLACEHOLDER_RE = re.compile(r"[<{][^>}]+[>}]|\.\.\.|N{2,}|\bfoo\b|\bbar\b|\bbaz\b|\bslug\b|\bfeature\b")
+for p in ALL_DOCS:
+    try:
+        lines = Path(p).read_text(errors='ignore').splitlines()
+        mtime = os.path.getmtime(p)
+    except Exception: continue
+    base_dir = os.path.dirname(os.path.abspath(p))
+    p_abs = os.path.abspath(p)
+    in_fence = False
+    for i, line in enumerate(lines, 1):
+        # Track fenced code blocks — treat them as examples, not real links
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence: continue
+        # L1: ghost relative markdown link (skip placeholders)
+        for m in MD_LINK_RE.finditer(line):
+            href = m.group(2)
+            if href.startswith("http") or has_waiver(line, "L1"): continue
+            if PLACEHOLDER_RE.search(href): continue
+            target = os.path.normpath(os.path.join(base_dir, href))
+            if not os.path.exists(target):
+                flag("L1", p, i, f"→ {href} (not found)")
+        # L2: artefact ref in prose without backing file (skip placeholders)
+        for m in ARTEFACT_REF_RE.finditer(line):
+            name = m.group(1)
+            if has_waiver(line, "L2") or PLACEHOLDER_RE.search(name): continue
+            if name not in ARTEFACT_INDEX:
+                flag("L2", p, i, f"ref {name} (no such file under docs/)")
+        # L4: expired temporal marker in old doc
+        if TEMPORAL_RE.search(line) and not has_waiver(line, "L4"):
+            age_days = (NOW - mtime) / 86400
+            if age_days > 90:
+                flag("L4", p, i, f"'{TEMPORAL_RE.search(line).group(0)}' in doc {int(age_days)}d old")
+
+# L3: orphan ADR/RFC
+for pat in ("docs/adr/ADR-*.md", "docs/rfcs/RFC-*.md", "docs/decisions/ADR-*.md"):
+    for p in glob.glob(pat):
+        p_abs = os.path.abspath(p)
+        # Ignore index/log files
+        if os.path.basename(p).lower() in ("adr-index.md", "rfc-index.md", "decision-log.md"): continue
+        if incoming.get(p_abs, 0) == 0:
+            flag("L3", p, 0, "orphan — no incoming references from other docs")
+
+# Report
+if not FINDINGS:
+    print("LINT: 0 anti-pattern findings. Artefacts look honest.")
+else:
+    by_rule = {}
+    for f in FINDINGS:
+        by_rule.setdefault(f[0], []).append(f)
+    print(f"LINT: {len(FINDINGS)} finding(s) across {len(by_rule)} rule(s).\n")
+    for rule in sorted(by_rule):
+        for _, path, ln, snippet in by_rule[rule]:
+            loc = f"{path}:{ln}" if ln else path
+            print(f"  {rule}  {loc}")
+            print(f"        {snippet}")
+    print("\nSee skills/great_cto/references/anti-patterns.md for rule definitions.")
+    print("Waive a false positive with: <!-- anti-pattern-waiver: <rule-id> reason:<why> -->")
+PY
+```
+
+Exit after lint report. Do NOT proceed with normal audit.
 
 ---
 

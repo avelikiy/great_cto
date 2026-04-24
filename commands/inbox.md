@@ -176,6 +176,7 @@ If `BURN_ALERT` lines emitted, include in output:
 --- BURN ALERTS ---
   🔴 <service>/<sli>: burn = <N>× normal (<window>) — projected exhaustion soon
   → run /burn for full breakdown and remediation context
+  → run /investigate "<burn alert line>" for ranked hypotheses against prior PMs
 ```
 
 ### DORA signal (CFR spike)
@@ -198,9 +199,29 @@ if [ -f .great_cto/deploys.log ] && [ -d docs/postmortems ]; then
     MT=$(stat -f %m "$F" 2>/dev/null || stat -c %Y "$F" 2>/dev/null || echo 0)
     [ "$MT" -ge "$WIN_START" ] && INC_7D=$((INC_7D+1))
   done
-  if [ "$DEPLOYS_7D" -gt 0 ]; then
+  if [ "$DEPLOYS_7D" -ge 3 ]; then
     CFR=$(python3 -c "print(round($INC_7D/$DEPLOYS_7D*100))")
-    [ "$CFR" -gt 15 ] && echo "DORA_TRIGGER:CFR=${CFR}% deploys=${DEPLOYS_7D} incidents=${INC_7D}"
+    # Thresholds per 2024 DORA: elite <5%, high 5–15%, concerning >15%.
+    # Require ≥3 deploys in the window so we don't cry wolf on a single bad deploy.
+    if [ "$CFR" -gt 15 ]; then
+      echo "DORA_TRIGGER:level=alert CFR=${CFR}% deploys=${DEPLOYS_7D} incidents=${INC_7D}"
+    elif [ "$CFR" -gt 5 ]; then
+      echo "DORA_TRIGGER:level=warn CFR=${CFR}% deploys=${DEPLOYS_7D} incidents=${INC_7D}"
+    fi
+  fi
+
+  # Deployment Rework Rate (5th DORA metric, 2024) — fires >10% in 7d window.
+  # Kind lives in column 6 (added in v1.0.92). Legacy rows without KIND are treated as feature.
+  REWORK_7D=$(awk -F'|' -v ws="$WIN_START" '
+    $1 ~ /^[[:space:]]*#/ || NF<2 {next}
+    { gsub(/[[:space:]]/,"",$1); gsub(/[[:space:]]/,"",$6)
+      cmd = "python3 -c \"import datetime; print(int(datetime.datetime.fromisoformat(\\\""$1"\\\".replace(\\\"Z\\\",\\\"+00:00\\\")).timestamp()))\" 2>/dev/null"
+      cmd | getline ep; close(cmd)
+      if (ep+0 >= ws && ($6=="hotfix" || $6=="rollback" || $6=="patch")) c++ }
+    END { print c+0 }' .great_cto/deploys.log)
+  if [ "$DEPLOYS_7D" -ge 3 ] && [ "$REWORK_7D" -gt 0 ]; then
+    RWR=$(python3 -c "print(round($REWORK_7D/$DEPLOYS_7D*100))")
+    [ "$RWR" -gt 10 ] && echo "REWORK_TRIGGER:rate=${RWR}% rework=${REWORK_7D}/${DEPLOYS_7D}"
   fi
 fi
 ```
@@ -208,9 +229,19 @@ fi
 If `DORA_TRIGGER` line emitted, include in output:
 ```
 --- DORA SIGNAL ---
-  ⚠ Change Failure Rate (7d) = <CFR>%  (<deploys> deploys, <incidents> incidents)
+  ⚠ Change Failure Rate (7d) = <CFR>% [<level>]  (<deploys> deploys, <incidents> incidents)
   → run /dora 30 for context
-  → consider pausing feature work until next 3 deploys are clean
+  → run /investigate "CFR spike 7d, <N> incidents" for hypotheses from prior PMs
+  level=warn:  CFR is above elite (<5%) — watch the trend, don't panic
+  level=alert: pause feature work until next 3 deploys are clean
+```
+
+If `REWORK_TRIGGER` line emitted, include in output:
+```
+--- REWORK SIGNAL ---
+  ⚠ Deployment Rework Rate (7d) = <rate>%  (<rework>/<deploys> unplanned)
+  → hotfixes/rollbacks/patches are consuming capacity without delivering value
+  → run /dora for breakdown; check whether staging mirrors prod
 ```
 
 ### Gate drift signal (rubber-stamping check)
@@ -352,6 +383,70 @@ If `COST_ALERT` or `COST_MOVER` emitted, include in output:
   ⚠ Run-rate $<N>/mo = <pct>% of $<budget> budget (threshold <threshold>%)
   ⚠ Mover: <service> +<pct>% MoM ($<added> added this 30d)
   → run /cost 30 for top movers and actions
+```
+
+### Security signals (cheap checks — full breakdown lives in /sec)
+
+```bash
+# SEC_CVE_ALERT — ≥1 critical CVE still open > 14 days
+if [ -f docs/cve-log.md ]; then
+  python3 - <<'PY' 2>/dev/null
+import datetime, re
+from pathlib import Path
+today = datetime.date.today()
+open_crit = 0
+overdue = 0
+for line in Path("docs/cve-log.md").read_text().splitlines():
+    m = re.match(r'^\s*(\d{4}-\d{2}-\d{2})\s*\|\s*(CVE-\d+-\d+)\s*\|\s*(\w+)\s*\|\s*(\w+)', line)
+    if not m: continue
+    disclosed_s, cve, sev, status = m.groups()
+    if status.lower() in ("resolved", "fixed", "closed", "mitigated"): continue
+    try: disclosed = datetime.date.fromisoformat(disclosed_s)
+    except: continue
+    age = (today - disclosed).days
+    if sev.lower() == "critical":
+        open_crit += 1
+        if age > 14: overdue += 1
+if overdue > 0:
+    print(f"SEC_CVE_ALERT:open_critical={open_crit} overdue_14d={overdue}")
+PY
+fi
+
+# SEC_ROTATION — ≥1 secret past rotation_due
+if [ -f .great_cto/secrets.md ]; then
+  TODAY=$(date +%Y-%m-%d)
+  OVERDUE=$(grep -E "^\s*rotation_due:\s*[0-9]{4}-[0-9]{2}-[0-9]{2}" .great_cto/secrets.md 2>/dev/null | awk -v today="$TODAY" '{ if ($2 < today) c++ } END { print c+0 }')
+  [ "${OVERDUE:-0}" -gt 0 ] && echo "SEC_ROTATION:overdue=${OVERDUE}"
+fi
+
+# SEC_TM_GAP — threat-model coverage <60% for security-critical archetypes
+if [ -d docs/architecture ] && [ -f .great_cto/PROJECT.md ]; then
+  ARCHETYPE=$(grep -E "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+  case "$ARCHETYPE" in
+    ai-system|commerce|web3|iot-embedded|regulated|fintech)
+      TOTAL=0; COVERED=0
+      for A in docs/architecture/ARCH-*.md; do
+        [ -f "$A" ] || continue
+        TOTAL=$((TOTAL+1))
+        SLUG=$(basename "$A" .md | sed 's/^ARCH-//')
+        grep -q "^## Security" "$A" && [ -f "docs/threat-models/TM-${SLUG}.md" ] && COVERED=$((COVERED+1))
+      done
+      if [ "$TOTAL" -ge 3 ]; then
+        PCT=$(python3 -c "print(round($COVERED/$TOTAL*100))")
+        [ "$PCT" -lt 60 ] && echo "SEC_TM_GAP:coverage=${PCT}% covered=${COVERED}/${TOTAL} archetype=${ARCHETYPE}"
+      fi
+      ;;
+  esac
+fi
+```
+
+If any `SEC_*` line emitted, include in output:
+```
+--- SECURITY ---
+  ⚠ Critical CVEs open > 14 days: <overdue_14d>  (total open critical: <open_critical>)
+  ⚠ Secrets past rotation_due: <overdue>
+  ⚠ Threat-model coverage <PCT>% for <archetype> — below 60% threshold
+  → run /sec for full snapshot and remediation
 ```
 
 ## Format Output

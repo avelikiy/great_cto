@@ -6,6 +6,7 @@
 #
 # Updates:
 #   - .claude-plugin/plugin.json "version"
+#   - packages/cli/package.json "version" (kept in lockstep with the plugin)
 #   - README.md version badge
 #   - README.md "v1.0.xx — actively maintained" line
 
@@ -24,6 +25,7 @@ fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGIN_JSON="$ROOT/.claude-plugin/plugin.json"
+CLI_JSON="$ROOT/packages/cli/package.json"
 README="$ROOT/README.md"
 
 OLD=$(grep -m1 '"version"' "$PLUGIN_JSON" | sed 's/.*"\([0-9][0-9.]*\)".*/\1/')
@@ -35,6 +37,15 @@ fi
 
 # plugin.json
 python3 - "$PLUGIN_JSON" "$NEW" <<'PY'
+import json, sys
+path, new = sys.argv[1], sys.argv[2]
+with open(path) as f: data = json.load(f)
+data["version"] = new
+with open(path, "w") as f: json.dump(data, f, indent=2); f.write("\n")
+PY
+
+# packages/cli/package.json — kept in lockstep with plugin
+python3 - "$CLI_JSON" "$NEW" <<'PY'
 import json, sys
 path, new = sys.argv[1], sys.argv[2]
 with open(path) as f: data = json.load(f)
@@ -55,6 +66,7 @@ PY
 
 echo "bumped: $OLD → $NEW"
 echo "  ✓ $PLUGIN_JSON"
+echo "  ✓ $CLI_JSON"
 echo "  ✓ $README (badge + actively-maintained)"
 echo ""
 echo "next: update CHANGELOG.md, commit, tag"

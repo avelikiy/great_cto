@@ -246,15 +246,37 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
    ```bash
    mkdir -p .great_cto
    DORA_LOG=.great_cto/deploys.log
-   [ ! -f "$DORA_LOG" ] && printf '# DORA deploy log — append only. Format: ISO8601 | service | version | status | mr_merged_at\n' > "$DORA_LOG"
+   [ ! -f "$DORA_LOG" ] && printf '# DORA deploy log — append only. Format: ISO8601 | service | version | status | mr_merged_at | kind\n' > "$DORA_LOG"
    SERVICE=$(grep "^service:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || basename "$PWD")
    VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "unknown")
    STATUS="success"   # set to "rollback" if Checkpoint C decided to roll back
+   # KIND classifies the deploy for Deployment Rework Rate (5th DORA metric, 2024):
+   #   feature  — planned value delivery (default)
+   #   hotfix   — unplanned fix for production defect
+   #   rollback — reversion of a prior bad deploy
+   #   patch    — small unplanned fix that isn't a P0/P1 hotfix (e.g. config correction)
+   # Decide KIND by checking: was this deploy triggered by an open PM-*.md incident,
+   # a `hotfix/*` branch, or a revert commit? Otherwise it's a feature.
+   KIND="feature"
+   BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+   case "$BRANCH" in hotfix/*|fix/*) KIND="hotfix" ;; esac
+   git log -1 --format=%s 2>/dev/null | grep -qiE '^revert' && KIND="rollback"
    # MR merge timestamp — best-effort: last commit on main older than this deploy
    MR_MERGED=$(git log -1 --format=%cI 2>/dev/null || echo "-")
-   printf '%s | %s | %s | %s | %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SERVICE" "$VERSION" "$STATUS" "$MR_MERGED" >> "$DORA_LOG"
+   printf '%s | %s | %s | %s | %s | %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SERVICE" "$VERSION" "$STATUS" "$MR_MERGED" "$KIND" >> "$DORA_LOG"
    ```
-   On rollback (Checkpoint C decided to roll back): override `STATUS=rollback` before the printf above.
+   On rollback (Checkpoint C decided to roll back): override `STATUS=rollback` and `KIND=rollback` before the printf above.
+   On hotfix: the branch heuristic catches most cases; set `KIND=hotfix` manually if the commit came from a feature branch.
+
+9c. **Generate SBOM** — supply-chain integrity artefact per SSDF PS.2 / SLSA L1. Produced on every production deploy; cross-referenced in the RELEASE doc (step 10). See `skills/great_cto/references/secure-sdlc.md`.
+   ```bash
+   VERSION=$(git describe --tags --abbrev=0 2>/dev/null || grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "unreleased")
+   # Invoke /sbom $VERSION — emits docs/releases/SBOM-<version>.json (CycloneDX 1.5).
+   # Falls back to minimal hand-built SBOM if ecosystem tools aren't installed.
+   echo "Generating SBOM for $VERSION → docs/releases/SBOM-${VERSION}.json"
+   # (In practice: /sbom runs as a separate command. devops either invokes it or documents that CI did.)
+   ```
+   If CI already emits a signed SBOM (cosign + OIDC → SLSA L2), skip local generation and reference the CI artefact instead.
 
 10. **Generate Changelog entry**:
    ```bash
