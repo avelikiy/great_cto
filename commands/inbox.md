@@ -206,7 +206,7 @@ If `BURN_ALERT` lines emitted, include in output:
 --- BURN ALERTS ---
   🔴 <service>/<sli>: burn = <N>× normal (<window>) — projected exhaustion soon
   → run /burn for full breakdown and remediation context
-  → run /investigate "<burn alert line>" for ranked hypotheses against prior PMs
+  → spawn l3-support with the burn alert line to get ranked hypotheses against prior PMs
 ```
 
 ### DORA signal (CFR spike)
@@ -261,7 +261,7 @@ If `DORA_TRIGGER` line emitted, include in output:
 --- DORA SIGNAL ---
   ⚠ Change Failure Rate (7d) = <CFR>% [<level>]  (<deploys> deploys, <incidents> incidents)
   → run /dora 30 for context
-  → run /investigate "CFR spike 7d, <N> incidents" for hypotheses from prior PMs
+  → spawn l3-support with "CFR spike 7d, <N> incidents" for hypotheses from prior PMs
   level=warn:  CFR is above elite (<5%) — watch the trend, don't panic
   level=alert: pause feature work until next 3 deploys are clean
 ```
@@ -278,7 +278,7 @@ If `REWORK_TRIGGER` line emitted, include in output:
 
 ```bash
 # Fires when a gate is at >85% pass AND drifted +10pp vs prior 30d window.
-# Cheap version — full breakdown lives in /gates.
+# Gate drift — cheap inline check. Rubber-stamping shows as >85% pass + rising trend.
 if [ -d .great_cto/verdicts ]; then
   python3 - <<'PY' 2>/dev/null
 import os, re, glob, datetime, collections
@@ -329,7 +329,7 @@ If `GATE_DRIFT` line emitted, include in output:
 ```
 --- GATE HEALTH ---
   ⚠ <agent>: pass=<N>% (drift +<M>pp over prior 30d) — likely rubber-stamping
-  → run /gates 30 for full breakdown and effectiveness check
+  → inspect recent verdicts in .great_cto/verdicts/ to see if <agent> is auto-approving without reading artefacts
 ```
 
 ### Cost alert (run-rate vs budget or top mover spike)
@@ -477,6 +477,40 @@ If any `SEC_*` line emitted, include in output:
   ⚠ Secrets past rotation_due: <overdue>
   ⚠ Threat-model coverage <PCT>% for <archetype> — below 60% threshold
   → run /sec for full snapshot and remediation
+```
+
+### Backlog hygiene (replaces former /triage)
+
+Cheap signals only — emit line if a problem is worth surfacing. Do NOT
+restructure backlog automatically; just name the issue.
+
+```bash
+OPEN_TASKS=$(bd list --status open 2>/dev/null | wc -l | tr -d ' ')
+# Duplicate titles (case-insensitive, exact match)
+DUP_COUNT=$(bd list --status open 2>/dev/null | awk -F'  +' '{print tolower($NF)}' | sort | uniq -d | wc -l | tr -d ' ')
+# P0/P1 without assignee (if OWNERSHIP.md exists)
+UNOWNED_URGENT=$(bd list --status open 2>/dev/null | grep -E 'P[01]' | grep -v '@' | wc -l | tr -d ' ')
+# Tasks older than 60 days
+STALE_TASKS=0
+if [ -f .beads/tasks.db ] || command -v bd >/dev/null 2>&1; then
+  STALE_TASKS=$(bd list --status open --older-than 60d 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+fi
+
+if [ "$OPEN_TASKS" -gt 100 ] || [ "$DUP_COUNT" -gt 0 ] || [ "$UNOWNED_URGENT" -gt 2 ] || [ "$STALE_TASKS" -gt 10 ]; then
+  HYGIENE_LINES=()
+  [ "$OPEN_TASKS" -gt 100 ] && HYGIENE_LINES+=("Backlog: ${OPEN_TASKS} open tasks — consider pruning")
+  [ "$DUP_COUNT" -gt 0 ] && HYGIENE_LINES+=("Duplicates: ${DUP_COUNT} task titles appear multiple times")
+  [ "$UNOWNED_URGENT" -gt 2 ] && HYGIENE_LINES+=("Unowned urgent: ${UNOWNED_URGENT} P0/P1 tasks without an assignee")
+  [ "$STALE_TASKS" -gt 10 ] && HYGIENE_LINES+=("Stale: ${STALE_TASKS} tasks untouched for 60+ days")
+  printf 'HYGIENE_%s\n' "${HYGIENE_LINES[@]}"
+fi
+```
+
+If any `HYGIENE_*` line emitted, include in output (only when thresholds tripped — do not show on healthy backlog):
+```
+--- BACKLOG HYGIENE ---
+  ⚠ <hygiene line>
+  → prune stale tasks with `bd close <id>`; fix duplicates with `bd merge`
 ```
 
 ## Format Output

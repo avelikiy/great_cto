@@ -4,6 +4,79 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.101 — 2026-04-24
+
+### Changed — Pareto cut: 22 commands → 15 (7 primary + 8 conditional)
+
+After 100 releases the surface area had drifted past useful. Most of the
+extra commands duplicated data that `/inbox` or `/digest` already compute,
+or were specialist playbooks that fit naturally under a single security
+umbrella.
+
+**Deleted (4 — zero functionality loss):**
+- `/triage` — backlog hygiene (duplicates, stale tasks, unowned P0/P1) is
+  now a section in `/inbox` that fires only when thresholds trip.
+- `/gates` — gate health + drift detection was already in `/inbox`; the
+  dedicated command only repeated the same numbers.
+- `/dora` — the 4 DORA metrics are already computed and emitted by
+  `/digest` on its weekly cadence.
+- `/investigate` — use Superpowers' `systematic-debugging` skill, or
+  spawn the `l3-support` agent with the question. `/inbox` references
+  updated to name the agent directly.
+
+**Merged under `/sec`:**
+- `/threat-model` → `/sec threat [arch-slug]`
+- `/sbom` → `/sec sbom [version]`
+- `/security-incident` → `/sec incident "<desc>"`
+
+`/sec` is now a dispatcher:
+```
+/sec                         # posture metrics (default = status)
+/sec status [days]           # same, explicit
+/sec threat [arch-slug]      # STRIDE threat model
+/sec sbom [version]          # CycloneDX SBOM
+/sec incident "<desc>"       # DORA/GDPR workflow
+/sec rotate                  # overdue secret rotations only
+```
+
+The three playbook files (threat-model, sbom, security-incident) moved
+to `skills/great_cto/playbooks/` — same content, accessed through the
+dispatcher. No behaviour change, just one less mental anchor.
+
+**SessionStart hook now cleans up stale commands** from earlier versions
+(`~/.claude/commands/{triage,gates,dora,investigate,threat-model,sbom,security-incident,update,status,capture,revisit,board-report}.md`).
+Users upgrading from any past version get a clean command list.
+
+### Numbers
+
+| | v1.0.100 | v1.0.101 | Δ |
+|---|---|---|---|
+| Commands total | 22 | 15 | −32% |
+| Commands in README primary | 3 | 3 | — |
+| Lines in `commands/` | 6915 | ~5200 | −25% |
+| Cognitive load (commands to remember) | 22 | 7 (primary + /sec family) | **−68%** |
+
+### What stayed
+
+All 7 agents, all scheduled automation, gate system, PROJECT.md contract,
+LLM router. None of the cuts touched the core pipeline — pure surface-area
+reduction.
+
+### Migration
+
+Run `/doctor` after upgrading to confirm old commands are cleaned from
+`~/.claude/commands/`. Old muscle memory:
+
+- `/triage` → `/inbox` (hygiene section fires automatically)
+- `/gates` → `/inbox` (already shows gate health)
+- `/dora` → `/digest`
+- `/investigate "<q>"` → spawn `l3-support` with the question
+- `/threat-model foo` → `/sec threat foo`
+- `/sbom 1.2.3` → `/sec sbom 1.2.3`
+- `/security-incident "creds leaked"` → `/sec incident "creds leaked"`
+
+---
+
 ## v1.0.100 — 2026-04-24
 
 ### Added — LLM router (OpenRouter / Kimi K2) as cost saver
