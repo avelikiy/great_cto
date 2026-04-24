@@ -1,12 +1,48 @@
 ---
-description: "Security metrics snapshot — CVE MTTR, dep freshness, threat-model coverage, pentest burn-down, secret rotation. Computed from local artefacts."
-argument-hint: "[period_days] — default 30. Examples: /sec | /sec 7 | /sec 90"
+description: "Security umbrella: posture metrics, threat model, SBOM, incident workflow. Subcommands: status (default) | threat | sbom | incident | rotate."
+argument-hint: "[subcommand] [args...] — default: status. Examples: /sec | /sec status 7 | /sec threat stripe-subscriptions | /sec sbom | /sec incident \"creds leaked\""
 user-invocable: true
-allowed-tools: Read, Bash, Glob, Grep
-model: haiku
+allowed-tools: Read, Write, Bash, Glob, Grep
+model: sonnet
 ---
 
-You are the great_cto security-metrics aggregator. Compute the five security-posture metrics from artefacts produced by `security-officer`, `tech-lead`, `devops`, and `/audit`. No external scanners, no new telemetry — only what already lives in the repo.
+You are the great_cto security umbrella. This is the single entry point for all security workflows — metrics, threat modeling, SBOM generation, incident response.
+
+## Dispatcher
+
+```bash
+SUBCMD="${1:-status}"
+shift 2>/dev/null || true  # remaining args are for subcommand
+case "$SUBCMD" in
+  status|threat|sbom|incident|rotate) ;;
+  *)
+    echo "Usage: /sec [subcommand] [args]"
+    echo ""
+    echo "  status [days]           — security posture metrics (default: 30d)"
+    echo "  threat [arch-slug]      — STRIDE threat model for a feature"
+    echo "  sbom [version]          — generate CycloneDX SBOM for release"
+    echo "  incident \"<desc>\"       — security-incident workflow (DORA/GDPR)"
+    echo "  rotate                  — show overdue secret rotations"
+    echo ""
+    echo "Unknown subcommand: $SUBCMD"
+    exit 2 ;;
+esac
+```
+
+**Routing:**
+- `status` (or no args) → continue below (Steps 1-8 of metrics).
+- `threat` → read `skills/great_cto/playbooks/threat-model.md` and follow its instructions end-to-end. Pass the remaining args ($1 = arch-slug).
+- `sbom` → read `skills/great_cto/playbooks/sbom.md` and follow it. $1 = version (optional).
+- `incident` → read `skills/great_cto/playbooks/security-incident.md` and follow it. $1 = description.
+- `rotate` → jump directly to Step 5 below (secret rotation only), skip other metrics.
+
+**For `threat`, `sbom`, `incident`**: the playbook files are the old `/threat-model`, `/sbom`, `/security-incident` commands — same content, now accessed via `/sec <sub>`. Read the file, then execute exactly as if it were the top-level command.
+
+---
+
+## status subcommand — Security metrics aggregator
+
+Compute the five security-posture metrics from artefacts produced by `security-officer`, `tech-lead`, `devops`, and `/audit`. No external scanners, no new telemetry — only what already lives in the repo.
 
 See `skills/great_cto/references/sec-metrics.md` for formula definitions and data-source documentation.
 
@@ -14,9 +50,10 @@ See `skills/great_cto/references/sec-metrics.md` for formula definitions and dat
 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+# After `shift` above, $1 is now the first arg after the subcommand
 PERIOD=${1:-30}
 case "$PERIOD" in
-  ''|*[!0-9]*) echo "Usage: /sec [period_days]  (got: $PERIOD)"; exit 2 ;;
+  ''|*[!0-9]*) echo "Usage: /sec status [period_days]  (got: $PERIOD)"; exit 2 ;;
 esac
 NOW_EPOCH=$(date +%s)
 WINDOW_START=$(( NOW_EPOCH - PERIOD * 86400 ))
