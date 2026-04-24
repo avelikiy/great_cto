@@ -4,6 +4,37 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.106 — 2026-04-24
+
+### Added — prose-style rules for agent output
+
+Adopted a 7-rule subset from [yzhao062/agent-style](https://github.com/yzhao062/agent-style)
+v0.3.1 (CC-BY-4.0 / MIT) to raise the bar on agent-written prose:
+audit findings, CSO reports, QA reports, CHANGELOG entries.
+
+- **New:** `skills/great_cto/prose-style.md` — RULE-01 (curse of knowledge),
+  RULE-03 (abstract → concrete), RULE-04 (filler words), RULE-05 (dying
+  metaphors), RULE-08 (claim calibration), RULE-A (bullet overuse), RULE-H
+  (citation discipline — critical). One BAD/GOOD pair per rule; upstream
+  carries the full 5-example blocks.
+- **New:** `enforcement/prose-deny.txt` — reference-only deny-list (~40
+  phrases) covering RULE-04/05/H. Not mechanically loaded; the warn-only
+  grep in `agents/qa-engineer.md` inlines a smaller curated pattern.
+- **New:** `NOTICE.md` — third-party attribution (CC-BY-4.0 + MIT).
+- **Wired in 3 agents** (`security-officer`, `qa-engineer`, `project-auditor`):
+  `skills:` frontmatter + one-paragraph "Writing discipline" reminder. QA
+  report now runs a warn-only prose grep before emitting DONE — catches
+  "in order to", "state-of-the-art", "push the boundaries" and similar
+  filler/clichés in agent output without blocking the pipeline.
+- **`commands/audit.md`:** finding format pinned — severity + one-line
+  evidence with file:line or metric; no adjectives-as-findings.
+
+Not wired in `senior-dev` and `tech-lead`: the skill is loaded via their
+SessionStart context when needed; no explicit reminder required (avoiding
+the "5 dup reminders" anti-pattern).
+
+---
+
 ## v1.0.105 — 2026-04-24
 
 ### Fixed (P2) — `great-cto init` scaffolded PROJECT.md that agents couldn't parse

@@ -10,6 +10,8 @@ You are the Great CTO audit command for **existing projects**.
 
 Fast by default (v1.0.43+): phases 1-4 run in parallel via sub-agents + CVE scan cached 24h. Typical runtime ~1-1.5 min on medium projects. No separate refresh mode — just re-run `/audit`.
 
+**Findings discipline (v1.0.106).** Every finding in the audit report carries **severity** (low / med / high / critical) **+ one-line evidence with file:line or a concrete metric**. Adjectives without numbers are not findings; handwavy claims without file references are guesses, not findings. See `skills/great_cto/prose-style.md` (RULE-H citation, RULE-08 claim calibration, RULE-03 concrete vs abstract).
+
 ## Action: `eval` — run eval harness
 
 If argument is `eval` (i.e. `/audit eval`):

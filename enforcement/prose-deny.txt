@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: MIT
+#
+# enforcement/prose-deny.txt — reference-only prose deny list for great_cto
+# agent output (not mechanically loaded; qa-engineer hook uses an inline
+# subset). Case-insensitive matches. Comments start with #. Blank lines ok.
+#
+# Adapted from https://github.com/yzhao062/agent-style (v0.3.1),
+# enforcement/deny-phrases.txt (MIT). Trimmed to phrases that fire in our
+# contexts (audit findings, QA reports, CSO reports, CHANGELOG entries).
+#
+# ──────────────── RULE-04: needless words / filler ────────────────
+it is important to note
+it should be noted
+in order to
+due to the fact that
+at this point in time
+may potentially
+could possibly
+in the event that
+it may be necessary to
+for the purpose of
+in the process of
+with regard to
+in terms of
+needless to say
+
+# ──────────────── RULE-05: dying metaphors / clichés ────────────────
+push the boundaries
+paving the way
+paves the way
+industry-leading
+state-of-the-art
+cutting-edge
+bleeding-edge
+groundbreaking
+paradigm shift
+revolutionize
+revolutionized
+revolutionizes
+game-changer
+game-changing
+seamlessly integrates
+seamless integration
+unlock the full potential
+unleash the power
+leverage the power of
+harness the power of
+next-generation
+next-gen
+world-class
+best-in-class
+mission-critical
+future-proof
+
+# ──────────────── RULE-H: handwavy hedges in findings ────────────────
+appears to
+seems to
+might be
+could be problematic
+potentially impacts
+may impact
