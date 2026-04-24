@@ -4,6 +4,84 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.100 — 2026-04-24
+
+### Added — LLM router (OpenRouter / Kimi K2) as cost saver
+
+Anthropic tokens are the single largest cost of running great_cto on an
+active project. Most agent calls genuinely need Sonnet — architecture, TDD,
+security review — but ~20–30% is grunt work (log triage, summarization,
+POC smoke tests) that Kimi K2 handles fine at ~5× lower cost.
+
+v1.0.100 adds an optional MCP server `great_cto_llm_router` that exposes a
+single tool, `ask_kimi`, to specific agents. Opt-in, zero-config when
+disabled, zero external dependencies.
+
+**New files:**
+- `mcp-servers/llm-router/server.py` — stdlib-only MCP server (Python 3.9+).
+  Implements MCP 2024-11-05 over stdio. Exposes `ask_kimi` + `router_status`.
+  Appends usage JSONL to `.great_cto/llm-router-usage.log` for later cost
+  reporting. Graceful fallback: if `OPENROUTER_API_KEY` is unset, the tool
+  returns a structured `fallback` signal instead of erroring — agents are
+  instructed to do the task natively.
+- `skills/great_cto/references/llm-router.md` — setup, config, which
+  agents use it and when, security caveats, troubleshooting.
+
+**Config (env vars, layered lookup `env > .env.local > ~/.great_cto/secrets.env`):**
+- `OPENROUTER_API_KEY` — required to enable
+- `GREAT_CTO_ROUTER_MODEL` — default `moonshotai/kimi-k2`; any OpenRouter slug
+- `GREAT_CTO_ROUTER_MAX_TOKENS` — default 4096
+- `GREAT_CTO_ROUTER_TIMEOUT` — default 60s
+
+**Wired agents:**
+- `l3-support` — routine log triage, error clustering, stack-trace
+  summarization. P0/P1 reasoning + postmortem writing stay on Claude.
+- `senior-dev` — POC mode only: smoke tests and boilerplate scaffolding.
+  MVP / production code stays on Claude.
+- `qa-engineer` — POC mode only: smoke test generation. Production QA
+  stays on Claude.
+
+**Never delegates**: tech-lead, security-officer, devops, /audit. Critical
+reasoning stays on native Claude by design.
+
+**Onboarding:**
+- `/start` now enforces `.env.local` in `.gitignore`, mentions the router
+  as a one-time optional cost saver (with setup hint), and shows router
+  status in the confirmation line when active.
+- `/doctor` has a new Check 8b that pings OpenRouter `/auth/key` to show
+  live quota, verifies `.env.local` is git-ignored, and warns if not.
+
+**Cost reporting:**
+- `/digest` reads the usage log and emits an `LLM ROUTER` section with
+  calls, tokens, Kimi spend, Sonnet-equivalent cost, and savings.
+
+**Security:**
+- `senior-dev` credential-scan updated to recognize OpenRouter key shape
+  (`sk-or-v1-[a-f0-9]{32,}`) — blocks accidental commits.
+- `.env.local` git-ignore enforced in `/start`, verified in `/doctor`.
+- Doc warns against sending PII / secrets through the router.
+
+**Expected savings**: 20–30% on total LLM spend for active projects.
+Zero overhead for users who don't configure the key — pipeline is
+unchanged.
+
+### Files modified
+- `.claude-plugin/plugin.json` — `mcpServers` block added.
+- `commands/start.md` — Step 5b (gitignore + optional router setup hint).
+- `commands/doctor.md` — Check 8b (router health + key-leak guard).
+- `commands/digest.md` — LLM ROUTER cost report.
+- `agents/l3-support.md` — `ask_kimi` wired for routine triage.
+- `agents/senior-dev.md` — POC-mode delegation + OpenRouter key pattern in
+  credential scan.
+- `agents/qa-engineer.md` — POC-mode delegation.
+
+### When to skip
+- Solo project shipping one feature / week — savings rounding error.
+- Strict-compliance env (HIPAA, PCI) without an OpenRouter BAA.
+- Offline / air-gapped.
+
+---
+
 ## v1.0.99 — 2026-04-24
 
 ### Added — POC mode (hypothesis-driven pipeline extension)

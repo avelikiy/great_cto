@@ -263,6 +263,32 @@ RECOMMENDATION
    — "On-call not configured — run /oncall schedule before next deploy"]
 ```
 
+**LLM router cost report** (only emit if `.great_cto/llm-router-usage.log` exists):
+```bash
+if [ -f .great_cto/llm-router-usage.log ]; then
+  python3 <<'PY'
+import json, pathlib
+lines = pathlib.Path(".great_cto/llm-router-usage.log").read_text(encoding="utf-8").splitlines()
+recs = [json.loads(l) for l in lines if l.strip()]
+if not recs:
+    raise SystemExit
+total_tok = sum((r.get("total_tokens") or 0) for r in recs)
+calls = len(recs)
+# Rough Kimi K2 pricing on OpenRouter ≈ $0.60 / 1M in + $2.50 / 1M out (as of 2026-04).
+# Claude Sonnet ≈ $3 / 1M in + $15 / 1M out. Assume 50/50 split for estimate.
+in_tok = sum((r.get("prompt_tokens") or 0) for r in recs)
+out_tok = sum((r.get("completion_tokens") or 0) for r in recs)
+kimi_cost = in_tok * 0.60e-6 + out_tok * 2.50e-6
+sonnet_cost = in_tok * 3.0e-6 + out_tok * 15.0e-6
+saved = sonnet_cost - kimi_cost
+print("")
+print("LLM ROUTER")
+print(f"  Calls: {calls} | Tokens: {total_tok:,}")
+print(f"  Kimi spend: ${kimi_cost:.2f} | Sonnet-equiv: ${sonnet_cost:.2f} | Saved: ${saved:.2f}")
+PY
+fi
+```
+
 If no data available (new project, no commits): "/digest — not enough data yet. Ship a few features first."
 
 ## Save Output to Cache
