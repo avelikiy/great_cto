@@ -134,7 +134,7 @@ for p in glob.glob("docs/releases/SBOM-*.json"):
 
 # PM rules
 PM_RULES = [
-    ("P1", r"root cause.*:.*\b(human error|operator (mistake|error)|user error)\b", False, None),
+    ("P1", r"root cause.{0,40}\b(human error|operator (mistake|error)|user error)\b", False, None),
 ]
 for p in glob.glob("docs/postmortems/PM-*.md"):
     scan_file(p, PM_RULES)
