@@ -64,7 +64,8 @@ compute_tier() {
     local SUPPRESSED
     SUPPRESSED=$(ALLOWLIST="$allowlist" SIGNAL_LOG="$signal_log" python3 <<'PY'
 import os, datetime, re, sys
-path = os.environ["ALLOWLIST"]; today = datetime.date.today()
+path = os.environ["ALLOWLIST"]; log_path = os.environ.get("SIGNAL_LOG","")
+today = datetime.date.today()
 max_exp = today + datetime.timedelta(days=90)
 try: import yaml; doc = yaml.safe_load(open(path))
 except Exception:
@@ -79,22 +80,34 @@ except Exception:
             m = re.match(r"\s*-\s*name:\s*(.+)$", line)
             if m:
                 if entry: doc["allowed-deps"].append(entry)
-                entry = {"name": m.group(1).strip()}; continue
+                entry = {"name": m.group(1).strip().strip('"').strip("'")}; continue
             m = re.match(r"\s+(\w[\w-]*):\s*(.+)$", line)
-            if m and entry is not None: entry[m.group(1)] = m.group(2).strip()
+            if m and entry is not None: entry[m.group(1)] = m.group(2).strip().strip('"').strip("'")
     if entry: doc["allowed-deps"].append(entry)
 
-def valid(e):
-    if not isinstance(e, dict): return False
-    for k in ("reason","approved-by","expires"):
-        if not str(e.get(k,"")).strip(): return False
-    if not str(e["approved-by"]).startswith("@"): return False
+def audit(line):
+    if log_path:
+        with open(log_path, "a") as f: f.write(line + "\n")
+
+def validate(e):
+    if not isinstance(e, dict): return (False, "not-an-object")
+    missing = [k for k in ("reason","approved-by","expires") if not str(e.get(k,"")).strip()]
+    if missing: return (False, f"missing:{','.join(missing)}")
+    if not str(e["approved-by"]).startswith("@"): return (False, "owner-not-@handle")
     try: d = datetime.date.fromisoformat(str(e["expires"]))
-    except Exception: return False
-    return today < d <= max_exp
+    except Exception: return (False, f"expires-invalid")
+    if d <= today: return (False, f"expired:{e['expires']}")
+    if d > max_exp: return (False, f"expires-beyond-90d:{e['expires']}")
+    return (True, str(e["approved-by"]))
 
 for e in (doc.get("allowed-deps") or []):
-    if valid(e): print(f"DEP:{e['name']}")
+    name = e.get("name","?") if isinstance(e, dict) else "?"
+    ok, info = validate(e)
+    if ok:
+        audit(f"SEC_WAIVER: dep={name} owner={info} expires={e['expires']}")
+        print(f"DEP:{name}")
+    else:
+        audit(f"WARN_WAIVER_REJECTED: dep={name} reason={info}")
 PY
 )
     if echo "$SUPPRESSED" | grep -q '^DEP:'; then
@@ -211,6 +224,30 @@ allowed-deps:
 EOF
 assert_tier "waiver for unrelated package → standard (not suppressed)" \
   "standard" "$(compute_tier "$TMP/c8/PROJECT.md" "$TMP/c8/signals.log" "$TMP/c8/allowlist.yml")"
+
+assert_log_contains() {
+  local name="$1" logfile="$2" needle="$3"
+  if [ -f "$logfile" ] && grep -q "$needle" "$logfile"; then
+    PASS=$((PASS+1))
+    echo "${GREEN}PASS${RST}  $name — log contains '$needle'"
+  else
+    FAIL=$((FAIL+1))
+    echo "${RED}FAIL${RST}  $name — log missing '$needle'"
+    [ -f "$logfile" ] && echo "        log contents:" && sed 's/^/          /' "$logfile"
+  fi
+}
+
+# ── Case 9: valid waiver emits SEC_WAIVER audit line
+assert_log_contains "valid waiver emits SEC_WAIVER line" \
+  "$TMP/c5/signals.log" "SEC_WAIVER: dep=stripe"
+
+# ── Case 10: expired waiver emits WARN_WAIVER_REJECTED
+assert_log_contains "expired waiver emits WARN_WAIVER_REJECTED" \
+  "$TMP/c6/signals.log" "WARN_WAIVER_REJECTED.*dep=stripe"
+
+# ── Case 11: missing @owner emits WARN_WAIVER_REJECTED
+assert_log_contains "missing-@owner waiver rejected in log" \
+  "$TMP/c7/signals.log" "WARN_WAIVER_REJECTED.*dep=stripe"
 
 echo
 if [ "$FAIL" -gt 0 ]; then

@@ -4,6 +4,61 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.104 — 2026-04-24
+
+### Fixed (P0) — devops still used v1.0.101 binary `IS_MANDATORY` model
+
+`devops.md` gated pre-deploy on `archetype ∈ {ai-system, commerce, web3, iot-embedded, regulated}`
+and required a full `docs/security/CSO-*.md` for any `medium+` project. After
+v1.0.102 the tier model explicitly says **baseline tier writes no CSO file**, so
+every `medium+` library / web-service / mobile-app / data-platform would **block
+at deploy** on "No CSO security report." Fixed: devops now computes the same
+effective tier as `security-officer` and accepts the one-line baseline verdict
+from `.great_cto/verdicts/security-officer.log` when tier=baseline; CSO file
+required only at `standard` / `deep`.
+
+### Fixed (P0) — SessionStart hook deleted user files
+
+The SessionStart hook in `plugin.json` ran `rm -f ~/.claude/commands/{update,status,dora,...}.md`
+unconditionally. Command names in that list (`update`, `status`, `dora`) are
+generic — if a user had another plugin or a hand-written command with the same
+name, great_cto silently deleted it on every session start. Fixed: copied
+commands are now tagged with a `<!-- great_cto-managed -->` marker, and the
+stale-cleanup loop only removes files that contain that marker.
+
+### Fixed (P1) — `security-gate:` left in TYPE_MAP.md after v1.0.102
+
+v1.0.102 replaced per-type `security-gate: mandatory` overrides with the tier
+model but left 20+ stale rows in TYPE_MAP.md. The migration doc said "ignored"
+but new types copy-pasted the pattern. Scrubbed all `security-gate:` entries
+from TYPE_MAP.md; ARCHETYPES.md example PROJECT.md snippet now shows
+`default-tier:` + `tier-override-reason:` instead.
+
+### Fixed (P2) — `/rfc` team-size guard silently bypassed on malformed input
+
+`team-size: many` (or any non-numeric value) was stripped to `""` by
+`tr -d '[:alpha:]'`, defaulted to 1, and the guard passed with `1 -lt 10`.
+Looked like guard fired correctly but allowed any malformed value through.
+Fixed: validate with regex `^[0-9]+$`; warn on malformed input.
+
+### Fixed (P2) — E2E test harness false-positive success on skipped runs
+
+`tests/e2e/run_pipeline.sh --assert-only` with `CLAUDE_CLI_AVAILABLE` unset
+printed "✓ all assertions passed" and exited 0, so CI saw green without the
+pipeline ever running. Fixed: exits 77 (Autotools SKIPPED convention) when
+bootstrap-only. Set `GREAT_CTO_E2E_ALLOW_SKIP=1` to opt back into lenient
+behaviour for fixture smoke tests.
+
+### New — additional tier-test coverage
+
+`tests/structural/test_security_tiers.sh` now also asserts that:
+- valid waivers emit `SEC_WAIVER: dep=<name> owner=<@x> expires=<date>`
+- expired and owner-less waivers emit `WARN_WAIVER_REJECTED: ...`
+
+11 cases total; runs in ~1s.
+
+---
+
 ## v1.0.103 — 2026-04-24
 
 ### New — Allowlist waiver parser (`.great_cto/security-allowlist.yml`)
