@@ -3,7 +3,7 @@
 > The engineering process for solo founders and teams up to 50 engineers — without the overhead.
 
 [![Stars](https://img.shields.io/github/stars/avelikiy/great_cto?style=flat)](https://github.com/avelikiy/great_cto/stargazers)
-[![Version](https://img.shields.io/badge/version-1.0.100-blue)]()
+[![Version](https://img.shields.io/badge/version-1.0.101-blue)]()
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
@@ -59,7 +59,7 @@ Restart Claude Code, then use three commands:
 |---------|-------------|
 | `/start "description"` | Runs the full SDLC pipeline — detects archetype, generates architecture doc, implements with TDD, reviews, QA, security, deploys |
 | `/review` | 12 independent code-review angles (perf, security, readability, SQL safety, concurrency, API contracts, design system, …) |
-| `/inbox` | Open gates, blocked tasks, incidents — everything that needs your decision right now |
+| `/inbox` | Open gates, blocked tasks, incidents, backlog hygiene, DORA/SLO/security alerts — everything that needs your decision right now |
 
 Everything else is either automatic or runs only when you need it.
 
@@ -70,21 +70,35 @@ Everything else is either automatic or runs only when you need it.
 | Command | When |
 |---------|------|
 | `/audit` | Existing repo — gap analysis + task backlog |
-| `/rfc new\|list\|close` | Cross-team decisions (guarded: team-size < 10 → warns) |
-| `/release notes\|changelog\|docs\|sync` | App Store notes, user changelog, stale docs, version sync |
-| `/ownership map\|show\|set` | Service ownership matrix → CODEOWNERS |
-| `/oncall who\|schedule\|handoff` | On-call rotations and shift handoffs |
-| `/triage` | Backlog reorganizer: duplicates, misplaced items, priority inversions |
 | `/doctor` | Health check — flags missing artefacts, stale audits, broken Beads, permission denials |
-| `/digest [days] [board]` | DORA metrics. Add `board` for quarterly CEO report. Runs automatically Mon 9:00. |
+| `/digest [days] [board]` | DORA metrics, cost reconciliation, LLM spend. Add `board` for quarterly CEO report. Runs automatically Mon 9:00. |
+| `/poc <hypothesis>` + `/promote` | Hypothesis-driven lightweight mode with forced timebox — see `skills/great_cto/references/poc-mode.md` |
 
-**Engineering health dashboard** — drill-downs from `/inbox` signals
+**Security — unified under `/sec`**
 | Command | When |
 |---------|------|
-| `/dora [days]` | Deployment frequency, lead time, change failure rate, MTTR |
-| `/burn [service]` | Multi-window SLO burn rate — catches budget exhaustion 6h+ before it happens |
-| `/gates [days]` | Per-agent pass rate + drift + effectiveness — catches gates that started rubber-stamping |
-| `/cost [days]` | Monthly run-rate, cost-per-deploy, top movers, headroom vs `monthly-budget` in PROJECT.md |
+| `/sec` or `/sec status [days]` | Posture snapshot: CVE MTTR, dep freshness, TM coverage, pentest burn-down, secret rotation |
+| `/sec threat [arch-slug]` | STRIDE threat model for a feature (required for security-critical archetypes) |
+| `/sec sbom [version]` | Generate CycloneDX SBOM for a release |
+| `/sec incident "<desc>"` | Security-incident workflow (DORA Art. 17-23 / GDPR Art. 33-34 compatible drafting) |
+| `/sec rotate` | Overdue secret rotations only |
+
+**Team & governance** (conditional — only when relevant)
+| Command | When |
+|---------|------|
+| `/rfc new\|list\|close` | Cross-team decisions (guarded: team-size < 10 → warns) |
+| `/ownership map\|show\|set` | Service ownership matrix → CODEOWNERS |
+| `/oncall who\|schedule\|handoff` | On-call rotations and shift handoffs |
+| `/release notes\|changelog\|docs\|sync` | App Store notes, user changelog, stale docs, version sync |
+| `/burn [service]` | Multi-window SLO burn rate (only if SLOs configured) |
+| `/cost [days]` | Monthly run-rate, cost-per-deploy, top movers vs `monthly-budget` |
+
+**Removed in v1.0.101** (functionality absorbed elsewhere):
+- `/triage` → backlog hygiene is now a section in `/inbox`
+- `/gates` → gate health + drift detection already in `/inbox`
+- `/dora` → metrics already in `/digest`
+- `/investigate` → spawn `l3-support` agent, or use `superpowers:systematic-debugging` skill
+- `/threat-model`, `/sbom`, `/security-incident` → subcommands of `/sec`
 </details>
 
 ---
@@ -280,7 +294,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.100 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.101 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
