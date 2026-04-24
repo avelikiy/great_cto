@@ -42,7 +42,28 @@ Do not attempt partial work. A CSO report without scanning tools is worthless.
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | head -1)}"
+MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+MODE=${MODE:-production}
 ```
+
+## POC-mode behaviour
+
+If `$MODE` is `poc`, **skip the full CSO report**. Run only the
+credential-scan check:
+
+```bash
+# Scan the diff (or whole branch if initial POC commit) for hardcoded secrets
+git diff origin/main...HEAD 2>/dev/null | \
+  grep -nE 'sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\b(password|secret|token|api_key)\s*[=:]\s*["'"'"'][^"'"'"']{8,}["'"'"']' \
+  >> .great_cto/sec-findings.log 2>/dev/null
+```
+
+Write a one-line verdict to `.great_cto/verdicts/security-officer.log`:
+`<ts> | security-officer | PASS | scope:poc credentials_clean` or
+`<ts> | security-officer | BLOCK | scope:poc credentials_found:<N>`.
+
+Do **not** produce a CSO report in POC mode. Full review happens at
+`/promote`. See `skills/great_cto/references/poc-mode.md`.
 
 ## Interaction Checkpoints
 
