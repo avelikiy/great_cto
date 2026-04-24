@@ -53,6 +53,7 @@ echo "→ fixture materialised at $TMPDIR"
 # Phase 2 — optional: run /audit via claude CLI
 # -----------------------------------------------------------------------------
 
+RAN_PIPELINE=0
 if [ "$MODE" != "--assert-only" ] && [ "${CLAUDE_CLI_AVAILABLE:-0}" = "1" ]; then
   if ! command -v claude >/dev/null 2>&1; then
     echo "FAIL: CLAUDE_CLI_AVAILABLE=1 but claude not in PATH" >&2
@@ -63,6 +64,7 @@ if [ "$MODE" != "--assert-only" ] && [ "${CLAUDE_CLI_AVAILABLE:-0}" = "1" ]; the
     echo "FAIL: claude -p /audit exited non-zero" >&2
     exit 1
   }
+  RAN_PIPELINE=1
 else
   echo "→ skipping claude -p (CLAUDE_CLI_AVAILABLE unset or --assert-only)"
 fi
@@ -71,4 +73,21 @@ fi
 # Phase 3 — assert expected manifest
 # -----------------------------------------------------------------------------
 
+set +e
 python3 "$ROOT/tests/e2e/assert_manifest.py" "$FIXTURE_DIR/expected/manifest.json" "$TMPDIR"
+ASSERT_STATUS=$?
+set -e
+
+# If no real pipeline ran, the assertion only verified bootstrap — signal SKIPPED
+# (exit code 77, the Autotools convention) so CI doesn't falsely green-light.
+# Callers who want the lenient behaviour (fixture smoke only) can set
+# GREAT_CTO_E2E_ALLOW_SKIP=1 to treat 77 as success.
+if [ "$ASSERT_STATUS" = 0 ] && [ "$RAN_PIPELINE" = 0 ]; then
+  if [ "${GREAT_CTO_E2E_ALLOW_SKIP:-0}" = "1" ]; then
+    echo "→ SKIPPED pipeline phase — GREAT_CTO_E2E_ALLOW_SKIP=1, reporting success"
+    exit 0
+  fi
+  echo "→ SKIPPED pipeline phase — fixture bootstrap OK but no /audit invocation (set CLAUDE_CLI_AVAILABLE=1 for full E2E)"
+  exit 77
+fi
+exit "$ASSERT_STATUS"

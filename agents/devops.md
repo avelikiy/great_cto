@@ -104,10 +104,23 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
    TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
    ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | head -1)}"
    ARCHETYPE_CHECK=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+
+   # Compute effective security tier (v1.0.102+ tier model).
+   # See skills/great_cto/references/security-tiers.md for the canonical matrix.
    case "$ARCHETYPE_CHECK" in
-     ai-system|commerce|web3|iot-embedded|regulated) IS_MANDATORY=1 ;;
-     *) IS_MANDATORY=0 ;;
+     web3|iot-embedded|regulated)              TIER_DEFAULT=deep ;;
+     ai-system|commerce|infra)                 TIER_DEFAULT=standard ;;
+     web-service|mobile-app|data-platform|library) TIER_DEFAULT=baseline ;;
+     *)                                        TIER_DEFAULT=baseline ;;
    esac
+   TIER_OVERRIDE=$(grep "^default-tier:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+   TIER_EFFECTIVE="${TIER_OVERRIDE:-$TIER_DEFAULT}"
+   # Signal upgrades (same rule as security-officer): baseline → standard
+   if [ -f ".great_cto/security-signals.log" ] && [ "$TIER_EFFECTIVE" = "baseline" ]; then
+     if tail -100 .great_cto/security-signals.log 2>/dev/null | grep -qE "SECURITY_SIGNAL: (pci-dep-introduced|crypto-dep-introduced|auth-path-changed|pii-field-added|iac-perimeter-changed|high-cve-in-dep|external-ingest-added) "; then
+       TIER_EFFECTIVE=standard
+     fi
+   fi
 
    QA_REPORT=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort | tail -1)
    CSO_REPORT=$(ls docs/security/CSO-*.md 2>/dev/null | sort | tail -1)
@@ -119,19 +132,25 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
      [ "$QA_RESULT" != "PASS" ] && echo "BLOCKED: QA result=$QA_RESULT — deploy not allowed." && exit 1
    fi
 
-   # CSO report required if: medium/large/enterprise OR small with MANDATORY type
-   NEED_CSO=0
-   case "$PROJECT_SIZE" in medium|large|enterprise) NEED_CSO=1 ;; esac
-   [ "$PROJECT_SIZE" = "small" ] && [ "$IS_MANDATORY" -gt 0 ] && NEED_CSO=1
-
-   if [ "$NEED_CSO" -eq 1 ]; then
-     [ -z "$CSO_REPORT" ] && echo "BLOCKED: No CSO security report. Run security-officer first." && exit 1
-     CSO_RESULT=$(grep -m1 "^Decision:" "$CSO_REPORT" 2>/dev/null | awk '{print $2}')
-     [ "$CSO_RESULT" != "APPROVED" ] && echo "BLOCKED: Security=$CSO_RESULT — deploy not allowed." && exit 1
-     echo "Pre-deploy verified: QA=$QA_RESULT | Security=$CSO_RESULT | size=$PROJECT_SIZE"
-   else
-     echo "Pre-deploy verified: QA=$QA_RESULT | Security=SKIPPED (size=$PROJECT_SIZE, type not MANDATORY) | size=$PROJECT_SIZE"
-   fi
+   # Security verification depends on effective tier, NOT on project_size or archetype alone.
+   # - baseline: security-officer writes a one-line verdict (no CSO file). Check verdict log.
+   # - standard / deep: full CSO report required.
+   case "$TIER_EFFECTIVE" in
+     standard|deep)
+       [ -z "$CSO_REPORT" ] && echo "BLOCKED: tier=$TIER_EFFECTIVE requires CSO report. Run security-officer first." && exit 1
+       CSO_RESULT=$(grep -m1 "^Decision:" "$CSO_REPORT" 2>/dev/null | awk '{print $2}')
+       [ "$CSO_RESULT" != "APPROVED" ] && echo "BLOCKED: Security=$CSO_RESULT — deploy not allowed." && exit 1
+       echo "Pre-deploy verified: QA=$QA_RESULT | Security=$CSO_RESULT | tier=$TIER_EFFECTIVE | size=$PROJECT_SIZE"
+       ;;
+     baseline)
+       BASELINE_VERDICT=$(grep "security-officer.*PASS.*scope:baseline\|security-officer.*baseline.*OK" .great_cto/verdicts/security-officer.log 2>/dev/null | tail -1)
+       if [ -z "$BASELINE_VERDICT" ]; then
+         echo "BLOCKED: tier=baseline but no security-officer verdict in .great_cto/verdicts/security-officer.log — run security-officer first."
+         exit 1
+       fi
+       echo "Pre-deploy verified: QA=$QA_RESULT | Security=BASELINE_PASS | tier=baseline | size=$PROJECT_SIZE"
+       ;;
+   esac
    ```
    If any required check fails → **stop**. Do not deploy. Tell CTO which artifact is missing.
 
