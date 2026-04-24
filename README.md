@@ -3,7 +3,7 @@
 > The engineering process for solo founders and teams up to 50 engineers — without the overhead.
 
 [![Stars](https://img.shields.io/github/stars/avelikiy/great_cto?style=flat)](https://github.com/avelikiy/great_cto/stargazers)
-[![Version](https://img.shields.io/badge/version-1.0.90-blue)]()
+[![Version](https://img.shields.io/badge/version-1.0.98-blue)]()
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
@@ -167,18 +167,11 @@ Existing repos also get a zero-dependency codebase map (`.great_cto/CODEBASE.md`
 ---
 
 <details>
-<summary><b>The math — what you're replacing</b></summary>
+<summary><b>The math — indicative run-cost</b></summary>
 
-| Role | Fully loaded |
-|------|-------------|
-| Tech Lead | $270K |
-| Senior Engineer | $245K |
-| QA Engineer | $165K |
-| Security Engineer | $205K |
-| DevOps | $180K |
-| **Team total** | **~$1.07M/year** |
+great_cto is **process**, not a team. It doesn't replace engineers — it replaces the slow, ad-hoc scaffolding around them (tech-lead reviews, QA planning, security checklists, release gates) on teams that don't yet have full-time specialists for each.
 
-great_cto on a typical product team (20 pipeline runs/month):
+Indicative Anthropic API spend on a typical product team (~20 pipeline runs/month):
 
 | Pipeline | Cost/run | Runs | Monthly |
 |----------|----------|------|---------|
@@ -188,9 +181,22 @@ great_cto on a typical product team (20 pipeline runs/month):
 | deep — cross-cutting | ~$12 | 1 | ~$12 |
 | **Total** | | | **~$34/month** |
 
-**~$400/year vs ~$1.07M/year.**
+Costs are your own Anthropic usage — no per-seat fee from great_cto. Numbers are indicative (based on Sonnet-4.x pricing and observed pipeline runs); your mileage will vary with context size, model choice, and how often `deep` is invoked.
 
-You still need a human engineer to write code and make decisions. great_cto handles the process that wraps it.
+You still need a human engineer to write code and own decisions. great_cto covers the process that wraps that work until your team is large enough to staff it.
+</details>
+
+<details>
+<summary><b>Limitations &amp; non-goals</b></summary>
+
+Things great_cto **does not** do — and isn't trying to:
+
+- **Not a replacement for senior engineers.** It codifies process; it doesn't make architectural judgement calls without one.
+- **Not an IDE.** It runs inside Claude Code. If you're not using Claude Code, this plugin isn't for you.
+- **Not a CI/CD system.** Gates run locally / in-session. You still need GitHub Actions (or similar) for the actual merge pipeline.
+- **Not a secrets manager, observability platform, or incident-response tool.** It integrates with them (via ADRs, postmortems, vendor docs) but doesn't host the data.
+- **Not deterministic.** Outputs are LLM-generated. Every gate verdict should be sanity-checked; `/gates` exists specifically to detect rubber-stamping.
+- **Not audited against specific compliance frameworks.** PCI/HIPAA/SOC2 archetype scaffolds are starting points, not certifications.
 </details>
 
 <details>
@@ -274,7 +280,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.90 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.98 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).

@@ -53,19 +53,42 @@ iso_to_epoch() {
 # Source: .great_cto/deploys.log (one line per devops deploy, since v1.0.87).
 # Fallback: count PM-postmortems is meaningless; if no log, report NO_DATA.
 DF_CUR=0; DF_PREV=0; DF_ROLLBACK=0
+REWORK_CUR=0; REWORK_PREV=0
 if [ -f "$DORA_LOG" ]; then
-  while IFS='|' read -r TS REST; do
+  while IFS='|' read -r TS SERVICE VERSION STATUS MR_MERGED KIND; do
     TS=$(echo "$TS" | tr -d '[:space:]')
     case "$TS" in '#'*|'') continue ;; esac
     EPOCH=$(iso_to_epoch "$TS")
-    [ "$EPOCH" -ge "$WINDOW_START" ] && DF_CUR=$((DF_CUR+1))
-    [ "$EPOCH" -ge "$PREV_START" ] && [ "$EPOCH" -lt "$WINDOW_START" ] && DF_PREV=$((DF_PREV+1))
-    # Status field is 4th col (0-indexed 3) — strip whitespace
-    STATUS=$(echo "$REST" | awk -F'|' '{print $3}' | tr -d '[:space:]')
-    [ "$STATUS" = "rollback" ] && [ "$EPOCH" -ge "$WINDOW_START" ] && DF_ROLLBACK=$((DF_ROLLBACK+1))
+    STATUS=$(echo "$STATUS" | tr -d '[:space:]')
+    KIND=$(echo "$KIND" | tr -d '[:space:]')
+    # Legacy rows (pre-v1.0.92) have no KIND field — infer from STATUS.
+    [ -z "$KIND" ] && { [ "$STATUS" = "rollback" ] && KIND="rollback" || KIND="feature"; }
+    IN_CUR=false; IN_PREV=false
+    [ "$EPOCH" -ge "$WINDOW_START" ] && { DF_CUR=$((DF_CUR+1)); IN_CUR=true; }
+    [ "$EPOCH" -ge "$PREV_START" ] && [ "$EPOCH" -lt "$WINDOW_START" ] && { DF_PREV=$((DF_PREV+1)); IN_PREV=true; }
+    # Rollbacks count separately for the warning banner.
+    [ "$STATUS" = "rollback" ] && [ "$IN_CUR" = "true" ] && DF_ROLLBACK=$((DF_ROLLBACK+1))
+    # Rework = hotfix + rollback + patch. Anything that isn't planned value delivery.
+    case "$KIND" in
+      hotfix|rollback|patch)
+        [ "$IN_CUR"  = "true" ] && REWORK_CUR=$((REWORK_CUR+1))
+        [ "$IN_PREV" = "true" ] && REWORK_PREV=$((REWORK_PREV+1))
+        ;;
+    esac
   done < "$DORA_LOG"
 fi
 DF_PER_DAY=$(python3 -c "print(round($DF_CUR/$PERIOD,2))")
+# Deployment Rework Rate (5th DORA metric, 2024)
+if [ "$DF_CUR" = "0" ]; then
+  RWR_CUR="-"
+else
+  RWR_CUR=$(python3 -c "print(round(${REWORK_CUR}/${DF_CUR}*100,1))")
+fi
+if [ "$DF_PREV" = "0" ]; then
+  RWR_PREV="-"
+else
+  RWR_PREV=$(python3 -c "print(round(${REWORK_PREV}/${DF_PREV}*100,1))")
+fi
 ```
 
 ## Step 2 — Lead Time for Changes
@@ -156,6 +179,7 @@ delta_pct() {
 }
 DF_DELTA=$(delta_pct "$DF_CUR" "$DF_PREV")
 CFR_DELTA=$(delta_pct "$CFR_CUR" "$CFR_PREV")
+RWR_DELTA=$(delta_pct "$RWR_CUR" "$RWR_PREV")
 
 # Verdict markers:
 # DF: more is better. CFR: less is better. MTTR: less is better. LT: less is better.
@@ -163,6 +187,7 @@ mark_lower_better() { [ "$1" = "-" ] || [ "$2" = "-" ] && { echo "  "; return; }
 mark_higher_better() { [ "$1" = "-" ] || [ "$2" = "-" ] && { echo "  "; return; }; python3 -c "import sys; print('✓ ' if $1>=$2 else '⚠ ')"; }
 DF_MARK=$(mark_higher_better "$DF_CUR" "$DF_PREV")
 CFR_MARK=$(mark_lower_better "$CFR_CUR" "$CFR_PREV")
+RWR_MARK=$(mark_lower_better "$RWR_CUR" "$RWR_PREV")
 ```
 
 ## Step 6 — Output
@@ -174,6 +199,7 @@ printf "  %-25s %s deploys  (%s vs prev ${PERIOD}d) %s\n" "Deployment Frequency:
 printf "  %-25s %s hours\n"   "Lead Time for Changes:" "${LT_HOURS}"
 printf "  %-25s %s%%  (%s vs prev) %s\n" "Change Failure Rate:" "${CFR_CUR}" "$CFR_DELTA" "$CFR_MARK"
 printf "  %-25s %s min\n"     "MTTR:" "${MTTR}"
+printf "  %-25s %s%%  (%s/%s deploys, %s vs prev) %s\n" "Deployment Rework Rate:" "${RWR_CUR}" "${REWORK_CUR}" "${DF_CUR}" "$RWR_DELTA" "$RWR_MARK"
 [ "$DF_ROLLBACK" -gt 0 ] && echo "  ⚠ ${DF_ROLLBACK} rollback(s) in window"
 echo ""
 
@@ -208,13 +234,30 @@ fi
 ## Step 8 — Append baseline (for trend over time)
 
 ```bash
-[ ! -f "$BASELINE" ] && printf '# date | period | df | df_per_day | lt_h | cfr | mttr_min | rollbacks\n' > "$BASELINE"
-printf '%s | %s | %s | %s | %s | %s | %s | %s\n' \
-  "$(date +%Y-%m-%d)" "$PERIOD" "$DF_CUR" "$DF_PER_DAY" "$LT_HOURS" "$CFR_CUR" "$MTTR" "$DF_ROLLBACK" \
+[ ! -f "$BASELINE" ] && printf '# date | period | df | df_per_day | lt_h | cfr | mttr_min | rollbacks | rework_rate\n' > "$BASELINE"
+printf '%s | %s | %s | %s | %s | %s | %s | %s | %s\n' \
+  "$(date +%Y-%m-%d)" "$PERIOD" "$DF_CUR" "$DF_PER_DAY" "$LT_HOURS" "$CFR_CUR" "$MTTR" "$DF_ROLLBACK" "$RWR_CUR" \
   >> "$BASELINE"
 ```
 
 ## Reporting Contract
 
 End with one DONE line:
-- `DONE: DORA snapshot for ${PERIOD}d — DF=${DF_CUR}, LT=${LT_HOURS}h, CFR=${CFR_CUR}%, MTTR=${MTTR}min. baseline appended.`
+- `DONE: DORA snapshot for ${PERIOD}d — DF=${DF_CUR}, LT=${LT_HOURS}h, CFR=${CFR_CUR}%, MTTR=${MTTR}min, Rework=${RWR_CUR}%. baseline appended.`
+
+## Gaming guards (anti-manipulation checks)
+
+Per the 2024 DORA update, metrics become lies when teams optimize numbers instead of process. These are the manipulations `/dora` watches for — see `skills/great_cto/references/dora.md` for the full playbook.
+
+```bash
+# Guard 1: DF up, Rework up → empty/technical deploys inflating DF.
+if [ "$DF_DELTA" != "—" ] && [ "$RWR_DELTA" != "—" ]; then
+  python3 -c "exit(0 if '$DF_DELTA'.replace('+','').replace('%','')!='' and float('$DF_DELTA'.replace('+','').replace('%',''))>10 and float('$RWR_DELTA'.replace('+','').replace('%',''))>10 else 1)" 2>/dev/null \
+    && echo "  ⚠ Gaming check: DF and Rework both rising — possible empty/hotfix-inflated DF."
+fi
+# Guard 2: CFR dropped >30% in one window without Lead Time change → suspicious definition change.
+if [ "$CFR_DELTA" != "—" ]; then
+  python3 -c "exit(0 if float('$CFR_DELTA'.replace('+','').replace('%',''))<-30 else 1)" 2>/dev/null \
+    && echo "  ⚠ Gaming check: CFR dropped >30% in one window — verify incident definition wasn't narrowed."
+fi
+```

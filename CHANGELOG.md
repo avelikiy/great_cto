@@ -4,6 +4,413 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.98 — 2026-04-24
+
+### Added — Cross-doc link rot lint (L1–L4)
+
+Docs reference each other — ARCH → ADR, PM → ARCH, TM → ARCH,
+RELEASE → SBOM. Links rot silently when files are renamed or
+deleted. Inspired by the ghost-link lint pattern from
+cablate/llm-atomic-wiki (Karpathy-style atomic wiki, but the idea
+we borrowed is the cheap deterministic lint, not the compile
+pipeline).
+
+- **New rules L1–L4** in `skills/great_cto/references/anti-patterns.md`:
+  - **L1** — relative markdown link to a non-existent `.md` file
+  - **L2** — inline artefact reference (`ARCH-<slug>.md`,
+    `PM-<date>.md`, `ADR-NNNN.md`, etc.) without a matching file
+  - **L3** — orphan ADR / RFC (no incoming links from any other doc)
+  - **L4** — expired temporal markers (`current version`, `latest
+    release`, `TBD`) in docs older than 90 days
+- **`/audit lint` extended** — scans all `docs/**/*.md` against
+  L1–L4. Skips fenced code blocks and template placeholders
+  (`<slug>`, `<feature>`, `NNNN`, `foo/bar/baz`) to avoid false
+  positives on example snippets.
+- **Waiver syntax respected** — add
+  `<!-- anti-pattern-waiver: L2 reason:<why> -->` on the offending
+  line to suppress.
+
+### Why
+Link rot is the definitive boring problem. A deterministic grep-level
+scan finds 90% of it in seconds without an LLM in the loop. Anything
+subtler (semantic contradictions across docs, drift in claims) stays
+in the "too expensive for every run" bucket — that's what the
+security-officer / project-auditor agents are for.
+
+### Non-goals
+- Not a semantic linter (doesn't read meaning, only names and links)
+- Not a docs-system generator (we don't compile a wiki from scratch —
+  we trust the folder layout the pipeline already produces)
+- Not a replacement for human review — findings are advisory
+
+---
+
+## v1.0.97 — 2026-04-24
+
+### Added — Anti-pattern blocklist + `/audit lint`
+
+Negative rules are sharper than positive guidance. This release adds a
+curated blocklist of shapes engineering artefacts take when they're
+theatrical rather than useful, plus a mechanical lint pass that detects
+them. Inspired by the anti-cliché blocklist pattern
+(ConardLi/web-design-skill), applied here to architecture, threat
+models, SBOMs, postmortems, and gate verdicts.
+
+- **`skills/great_cto/references/anti-patterns.md`** — 5 categories,
+  28 rules with grep-able **tells** and "do instead" guidance:
+  - **ARCH** (A1–A8): no `## Non-goals`, marketing adjectives
+    (scalable/reliable/performant) without numbers, unnamed
+    infrastructure ("a database"), deferred observability, one-line
+    `## Security`, greenfield rewrites without migration
+  - **Threat models** (T1–T6): mitigation = "input validation" alone,
+    accepted risks without owner+expiry, missing dataflow, STRIDE
+    boilerplate left unchanged
+  - **SBOM** (S1–S4): <5 components (tool didn't run), missing
+    integrity hashes, unpinned versions
+  - **Postmortems** (P1–P6): root cause = "human error", action items
+    without owner+date, same lessons as prior PMs, skipped 5-whys,
+    PM-SEC without notification log
+  - **Gate verdicts** (G1–G4): PASS without evidence, batch
+    rubber-stamping (3+ verdicts in 60s), self-approval
+- **`/audit lint`** — scans all artefacts against the blocklist,
+  reports findings with rule ID + file:line + offending snippet.
+  Advisory, not blocking. Respects waivers via
+  `<!-- anti-pattern-waiver: <rule-id> reason:<why> -->`.
+- **Agent prompts reference the blocklist** — `tech-lead` (when
+  writing ARCH), `commands/threat-model` (when writing TM),
+  `l3-support` (when writing PMs) now cite the relevant rule range
+  inline so authors avoid the patterns at drafting time, not at
+  review time.
+
+### Why
+One well-placed "never" beats ten "try to"s. Positive guidance
+("write good architecture") lets mediocre docs through; negative
+constraints with detectable tells stop specific failure modes. The
+cheap win is that most of these patterns are **grep-detectable** — so
+a linter catches them without a model-in-the-loop review.
+
+### Non-goals
+- Not a style guide (no prose quality opinions)
+- Not a code linter (artefact-level only)
+- Not a gate blocker (findings are advisory; waive if intentional)
+
+---
+
+## v1.0.96 — 2026-04-24 🛡
+
+### Added — `/sec` (five security metrics, DORA-style)
+
+DORA gives us four delivery-health numbers. Nothing equivalent existed
+for security posture trend. This release adds a fifth number-set —
+**five metrics computed entirely from artefacts great_cto already
+produces**, no external scanners required, no new telemetry. They
+trend the same way DORA metrics do: up-and-right or down-and-right.
+
+- **`/sec [period_days]`** (default 30) — computes the snapshot:
+  - **CVE MTTR** — median days from public advisory to our resolution
+    in the window. Healthy < 14d; critical < 7d. Source: append-only
+    `docs/cve-log.md`.
+  - **Dependency freshness** — % of direct deps whose latest release
+    is ≤ 180 days old. Healthy ≥ 70%. Source: latest `SBOM-*.json` +
+    registry timestamp cache (`.great_cto/dep-freshness-cache.jsonl`).
+  - **Threat-model coverage** — % of ARCH docs in window that have a
+    `## Security` section AND a matching `TM-<slug>.md`. Healthy ≥ 90%
+    for security-critical archetypes (ai-system / commerce / web3 /
+    iot-embedded / regulated / fintech).
+  - **Pentest burn-down** — severity-weighted `open / (open + closed)`
+    ratio from `docs/security/PENTEST-*.md` finding tables. Trended,
+    not alerted — slow burn-down is a team-culture conversation.
+  - **Secret rotation overdue** — count of secrets past `rotation_due`
+    in `.great_cto/secrets.md`. The only binary metric in the set.
+- **`skills/great_cto/references/sec-metrics.md`** — explains why
+  these five, why not SAST counts / coverage / bug-bounty intake,
+  and documents gaming guards (finding reopen rate, selective dep
+  updates on low-import crates).
+- **`/inbox` signals** — four new triggers fire when thresholds trip:
+  `SEC_CVE_ALERT` (≥1 critical CVE open > 14d), `SEC_ROTATION` (any
+  secret overdue), `SEC_TM_GAP` (< 60% TM coverage on
+  security-critical archetypes), `SEC_FRESHNESS` (reserved for when
+  freshness cache lands). Pentest burn-down is intentionally
+  **not** alerted.
+- **`.great_cto/sec-baseline.log`** — append-only snapshot history,
+  same pattern as `.great_cto/perf-baseline.log`. Used by `/digest`
+  for weekly security trend.
+
+### Why
+**CVE MTTR** is what a CISO asks about first. **Freshness** is the
+leading indicator; MTTR is lagging. **TM coverage** is the proxy for
+"is the team doing design-time security" (SSDF PW.1). **Pentest
+burn-down** tells you whether the team treats findings as real work
+or theatre. **Rotation overdue** is the binary one — you either did
+or you didn't. Five numbers, one snapshot, no new infrastructure.
+
+### Next
+Dependency-freshness cache populator — currently `/sec` reports `-`
+when the cache is absent. A cron-able fetcher that warms
+`.great_cto/dep-freshness-cache.jsonl` from npm / PyPI / crates.io
+closes the last data gap.
+
+---
+
+## v1.0.95 — 2026-04-24 🛡
+
+### Added — `/security-incident` (DORA Art. 17-23 workflow)
+
+Security incidents have different mechanics than ops incidents:
+regulatory clocks start at detection, the classification axes are
+C/I/A rather than P0/P1/P2, and the paper-trail requirements are
+larger by an order of magnitude. v1.0.94 added the **preventive**
+side of secure SDLC (threat models, SBOMs). This release adds the
+**response** side.
+
+- **`/security-incident "<description>"`** — walks the operator from
+  detection to sign-off. Classifies C/I/A impact + DORA class (major
+  / significant / non-significant). Computes notification deadlines
+  from T+0 (DORA 24h / 72h / 1 month; GDPR Art. 33 72h). Drafts
+  `PM-SEC-<id>.md` with a separate template (meta, timeline,
+  evidence, scope assessment, notification log, regulatory analysis,
+  Agent Verdict Audit). Generates **drafts** of DPA / competent-
+  authority / customer notifications — never sends them. Regulatory
+  filing stays a human legal act, forever out of scope for this tool.
+- **PM-SEC-*.md template** — separate from ops PMs. Fields include
+  Classification block (C/I/A + DORA class + affected subjects),
+  Evidence (attach, don't paraphrase), Scope assessment with
+  confidence level, Notification log (every external comm logged by
+  timestamp + recipient), Regulatory analysis (GDPR 33/34, DORA 19,
+  PCI DSS, HIPAA if applicable), and the same Agent Verdict Audit
+  pattern used in ops PMs — applied to security-officer, threat
+  model (tech-lead/TM), QA, red team, and SBOM review.
+- **`l3-support` routes security events** before ops triage. A new
+  "Security classification gate" step (3b) lists seven signals that
+  indicate a security event (auth bypass, data exfiltration,
+  credential exposure, etc.) and hands off to `/security-incident`
+  immediately. Combined events (compromised service that is also
+  DOWN) run `/security-incident` for the regulatory clock, then
+  continue ops triage for service restoration.
+
+### Principles baked into the workflow
+
+- **Speed first, paperwork second.** First 60 min of any incident is
+  containment, not classification. The command is used once
+  containment is underway.
+- **Never auto-notify.** Every notification is a legal act; the
+  command drafts, a human reviews, a human sends.
+- **Preserve evidence.** Every log query, screenshot, and timestamp
+  goes into the PM. No paraphrasing of logs.
+- **Classify before escalating.** Wrong class costs more than a
+  30-minute delay in notification.
+
+### Commands catalogue is now 18
+
+Added to the CMD loop: `security-incident`. Full list: `start audit
+inbox digest review ownership oncall rfc release triage doctor dora
+burn gates cost investigate threat-model sbom security-incident`.
+
+### Next
+
+- v1.0.96 — `/sec` security-DORA metrics (CVE-MTTR, dep freshness,
+  % features with threat model, pentest burn-down, secret rotation)
+  + signals in `/inbox`.
+
+---
+
+## v1.0.94 — 2026-04-24 🛡
+
+### Added — Secure SDLC foundation (NIST SSDF + SLSA L1 + DORA Art. 28)
+
+Security was not missing from great_cto — it was diffused across agents
+with no authoritative mapping. v1.0.94 introduces the **Secure SDLC
+layer**: one reference that says "here's what practice X looks like in
+this framework, and here's the great_cto component that implements it."
+No new certification claims, no new telemetry — just honest scaffolding
+that an auditor or CTO can follow.
+
+Scope of this release is deliberately narrow: **threat modeling +
+supply chain + third-party risk**. These are the three gaps most
+external audits of engineering-process frameworks flag first.
+
+- **`skills/great_cto/references/secure-sdlc.md`** — authoritative
+  mapping of great_cto components to NIST SSDF (SP 800-218), SLSA
+  (v1.0), and EU DORA (Reg. 2022/2554). Includes explicit
+  out-of-scope declarations so auditors can see what great_cto does
+  *not* promise.
+- **`/threat-model [slug]`** — generates a STRIDE-based threat model
+  from the latest (or named) ARCH doc. Writes
+  `docs/threat-models/TM-<slug>.md` with dataflow, asset table,
+  threat matrix, mitigation map, and accepted risks. Auto-appends a
+  `## Security` section to the ARCH doc pointing at the TM. Closes
+  SSDF practice PW.1 (design for security).
+- **`/sbom [version]`** — generates a CycloneDX 1.5 SBOM for the
+  current release. Uses ecosystem-native tools when available
+  (`npm sbom`, `cyclonedx-py`, `cyclonedx-gomod`, `cargo-cyclonedx`),
+  falls back to a minimal hand-built SBOM when they aren't. Writes
+  `docs/releases/SBOM-<version>.json` and cross-references it in the
+  RELEASE doc. Closes SSDF PS.2 / SLSA L1.
+- **`devops` agent invokes `/sbom` on every production deploy**
+  (step 9c), before generating the CHANGELOG entry. If CI already
+  emits a signed SBOM (cosign + OIDC → SLSA L2), the agent references
+  the CI artefact instead of generating locally.
+- **`tech-lead` enforces `## Security` section** in every ARCH-*.md
+  for archetypes `ai-system`, `commerce`, `web3`, `iot-embedded`,
+  `regulated`, `fintech`. Missing section blocks the ARCH gate.
+- **VENDOR schema extended** with DORA Art. 28 fields: ICT-3P
+  register flag, critical-or-important-function classification, data
+  categories shared, data location, sub-processors, concentration
+  risk, and a mandatory **exit strategy** section (trigger, migration
+  path, alternatives, estimated time, data portability, tested?).
+  Fields are marked "n/a" for non-financial projects so the structure
+  survives a future audit without forcing EU-regulatory ceremony on
+  every team.
+
+### What this does *not* do
+
+`secure-sdlc.md` is explicit about the scope limits:
+
+- great_cto does not claim certification readiness for any framework.
+- Regulatory notifications (DORA Art. 19, GDPR Art. 33) remain legal
+  acts that a human must perform — out of scope.
+- SLSA L3+ requires external build infrastructure and is out of scope;
+  L1-L2 is achievable with the patterns this release establishes.
+- Dedicated security teams for regulated-sector entities are still
+  needed for entities in scope for DORA proper.
+
+### Commands catalogue is now 17
+
+Added to the CMD loop: `threat-model`, `sbom`. Full list:
+`start audit inbox digest review ownership oncall rfc release triage doctor dora burn gates cost investigate threat-model sbom`
+
+### Next (not in this release)
+
+- v1.0.95 — `/security-incident` with DORA Art. 17-23 notification
+  timeline (24h → 72h → 1 month) + `PM-SEC-*.md` template.
+- v1.0.96 — `/sec` command: security DORA (CVE-MTTR, dependency
+  freshness, % features with threat model, pentest-findings burn-down,
+  secret-rotation overdue count).
+
+---
+
+## v1.0.93 — 2026-04-24
+
+### Added — `/investigate` (AI SRE command)
+
+Inspired by Gouthamve Venkatasubramanyam's _"I built an AI SRE in 60
+minutes"_ (2024). The core observation: an investigation agent is
+useless on day one and invaluable after five incidents — because
+pattern recognition compounds. The knowledge base, not the model, is
+the moat.
+
+great_cto already produces that knowledge base (postmortems,
+crystallised lessons, DORA baseline) — it was missing the command that
+reads it.
+
+- **`/investigate "<alert>"`** — given an alert description, loads
+  prior postmortems, lessons, the curated pattern library, recent
+  deploys, active risks, and the last 48h of commits, then produces
+  **three ranked hypotheses** with the cheapest diagnostic for each.
+  Ranks by `likelihood × cheapness_of_test`, not by "interestingness."
+  Never writes fixes — hands off to `l3-support` or `senior-dev` with
+  a concrete proof plan.
+- **`skills/great_cto/references/incident-patterns.md`** — curated
+  pattern library. Append-only. Format: `P-<num>` with `Tell`,
+  `Hypothesis`, `Confirm with`, `Fix`, `Seen in`, `Applies to`.
+  `l3-support` adds entries after each postmortem where the root cause
+  generalises beyond the specific service.
+- **Wired into `/inbox`.** BURN_ALERT and DORA_TRIGGER now both suggest
+  `/investigate` as the next step, so an on-call engineer can go from
+  "something's wrong" to "three ranked hypotheses" in one command.
+- **`l3-support` pattern-extraction step** — after each PM, the agent
+  computes the next `P-<num>` and prompts whether to append a new
+  entry. Skipped for one-off business-logic bugs.
+
+### Why now
+
+The five-command health dashboard (`/dora /burn /gates /cost`) answers
+"is something wrong?" — it did not answer "what's wrong and what should
+I check first?" `/investigate` closes that gap using artefacts we were
+already producing. No new infrastructure, no new integrations.
+
+---
+
+## v1.0.92 — 2026-04-24
+
+### Added — Deployment Rework Rate (5th DORA metric, 2024)
+
+The classic four DORA metrics measure **what went out and how reliably** —
+they don't tell you whether a deploy delivered value or just cleaned up
+yesterday's mess. A team doing ten deploys a week, six of them hotfixes,
+looks great on DF and MTTR but is burning capacity. The 2024 DORA report
+flagged Rework Rate as the single best predictor of "feels fast but isn't
+shipping." great_cto now tracks it.
+
+- **New `kind` column in `.great_cto/deploys.log`** — `devops` agent tags
+  each deploy as `feature` / `hotfix` / `rollback` / `patch`. Branch-name
+  heuristic (`hotfix/*`, `fix/*`) + revert-commit detection picks the
+  right label automatically; legacy rows without `kind` are treated as
+  `feature` for backwards compatibility.
+- **`/dora` reports Rework Rate** — 5th line in the snapshot, with delta
+  vs previous window and verdict marker. Elite threshold: < 10%.
+- **Rework signal in `/inbox`** — fires when 7-day Rework Rate > 10% and
+  there are ≥3 deploys in the window (to avoid noise from tiny samples).
+- **CFR thresholds tightened** per 2024 DORA: elite < 5%, high 5–15%,
+  concerning > 15%. `/inbox` now emits `level=warn` at 5–15% and
+  `level=alert` at > 15%, so growing teams see the signal before it's
+  already a fire.
+
+### Added — Gaming guards in `/dora`
+
+Metrics become lies when teams optimize the **number** instead of the
+process. `/dora` now runs two automated anti-manipulation checks after
+computing the snapshot:
+
+- **Guard 1**: DF and Rework both rising > 10% — flags possible empty /
+  technical deploys being counted to inflate DF.
+- **Guard 2**: CFR dropped > 30% in a single window — flags possible
+  incident-definition narrowing.
+
+Two more manipulations (task fragmentation, rework hidden in features)
+aren't mechanically detectable but are documented for tech-lead in
+`skills/great_cto/references/dora.md` with detection heuristics.
+
+### Baseline schema
+
+`.great_cto/dora-baseline.log` gained a `rework_rate` column. Existing
+baselines stay readable (extra column at the end, ignored by older
+tooling).
+
+---
+
+## v1.0.91 — 2026-04-24 🛡
+
+### Trust-signal pass — addressing external audit findings
+
+A pass over the parts of the repo that shape first impressions for new
+users and potential contributors. No behavioural changes — just trust
+signals and honesty.
+
+- **`SECURITY.md` rewritten.** Replaced the default GitHub template
+  placeholder with a real policy: threat surface, supported-versions
+  table, private reporting channel (email + GitHub security advisory),
+  response SLA (72h ack / 7d triage / 30d fix for High/Critical),
+  coordinated disclosure window, and a threat model distinguishing
+  out-of-scope (LLM-layer issues) from in-scope (hook bypass,
+  over-broad agent `tools:` frontmatter, shell injection in command
+  skills, CLI installer bugs).
+- **Versioning unified.** `packages/cli/package.json` was drifting at
+  `0.1.4` while the plugin was at `1.0.90`, creating ambiguity about
+  what's versioned. CLI and plugin now ship on the same track.
+  `scripts/bump-version.sh` updates both in lockstep going forward.
+- **Economic claims softened in README.** The old "$400/yr vs $1.07M/yr"
+  framing replaced by an honest statement: great_cto is process, not a
+  team, and the numbers are indicative Anthropic-API spend (varies with
+  context size and model).
+- **Limitations & non-goals section added to README.** Explicit list of
+  what great_cto does *not* do: it's not an IDE, not a CI/CD system,
+  not a secrets manager, not deterministic, and not audited against any
+  compliance framework. Archetype scaffolds are starting points, not
+  certifications.
+
+---
+
 ## v1.0.90 — 2026-04-21
 
 ### Added — Cost & capacity (the third axis after reliability and delivery)
