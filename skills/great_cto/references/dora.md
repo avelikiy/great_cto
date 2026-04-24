@@ -45,7 +45,7 @@ A team at Ostrovok (booking platform) saw incidents climbing and assumed the cau
 
 Ostrovok's headline result was **−40 to −80% incidents in one year**. The metrics did not cause that — the loop did:
 
-1. Measure (`/dora`)
+1. Measure (`/digest`)
 2. Identify the bottleneck (one of the four)
 3. Automate the bottleneck (not the symptom)
 4. Re-measure to confirm
@@ -54,13 +54,13 @@ A dashboard nobody acts on is decoration. The CFR signal in `/inbox` exists so t
 
 ## Gaming the metrics (watch for these in your own team)
 
-Metrics become lies the moment a team optimises for the number instead of the process. The 2024 DORA report lists four common manipulations — `/dora` runs automated guards against the two most detectable ones, but tech-lead should watch for all four:
+Metrics become lies the moment a team optimises for the number instead of the process. The 2024 DORA report lists four common manipulations — `/digest` runs automated guards against the two most detectable ones, but tech-lead should watch for all four:
 
 | Manipulation | What it looks like | How to catch it |
 |---|---|---|
-| **Empty-deploy inflation** | DF climbs but Rework Rate climbs with it. Team is counting config nudges or CI re-runs as "deploys." | `/dora` guard 1 (DF and Rework both up >10%). Also: spot-check `deploys.log` for same-version duplicates. |
+| **Empty-deploy inflation** | DF climbs but Rework Rate climbs with it. Team is counting config nudges or CI re-runs as "deploys." | `/digest` guard 1 (DF and Rework both up >10%). Also: spot-check `deploys.log` for same-version duplicates. |
 | **Task fragmentation** | Lead Time drops sharply without any process change. Team is splitting one story into five tickets so each closes faster. | Compare median LT to a random sample of PRs: does the code delta actually match the ticket size? |
-| **Incident-definition narrowing** | CFR drops >30% in one window with no corresponding LT or MTTR change. Team quietly stopped calling degradations "incidents." | `/dora` guard 2 (CFR drop >30%). Also: compare PM count to support-ticket escalations. |
+| **Incident-definition narrowing** | CFR drops >30% in one window with no corresponding LT or MTTR change. Team quietly stopped calling degradations "incidents." | `/digest` guard 2 (CFR drop >30%). Also: compare PM count to support-ticket escalations. |
 | **Rework hidden in features** | Rework Rate is suspiciously low but postmortems keep citing "regression of last week's change." Team is bundling hotfixes into the next feature branch. | Grep postmortems for "regression" + check whether the fixing deploy was tagged `feature` vs `hotfix`. |
 
 **The honest posture:** low DF with clean CFR is a better signal than high DF with rising Rework. Don't game your way up the elite ladder — the loop (measure → find bottleneck → automate → re-measure) is what produces the −40 to −80% incident reduction, not the numbers themselves.
@@ -77,6 +77,6 @@ Metrics become lies the moment a team optimises for the number instead of the pr
 - `.great_cto/deploys.log` — appended by `devops` agent on every production deploy (since v1.0.87; `kind` column added in v1.0.92)
 - `docs/postmortems/PM-*.md` — written by `l3-support` on every P0/P1
 - `.great_cto/lessons.md` — one-liner crystallized lessons (since v1.0.86)
-- `.great_cto/dora-baseline.log` — local trend log, appended on every `/dora` run
+- `.great_cto/dora-baseline.log` — local trend log, appended on every `/digest` run
 
-If `deploys.log` is empty, `/dora` reports `NO_DATA` and points at the source of truth, rather than fabricating numbers.
+If `deploys.log` is empty, `/digest` reports `NO_DATA` and points at the source of truth, rather than fabricating numbers.

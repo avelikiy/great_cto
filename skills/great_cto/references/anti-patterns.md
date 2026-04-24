@@ -46,7 +46,7 @@ to architecture docs, threat models, SBOMs, postmortems, and gate verdicts.
 
 | # | NEVER | Tell | Do instead |
 |---|---|---|---|
-| S1 | 1-component SBOM (tool didn't actually run) | `components` array length < 5 | Re-run with `/sbom` — genuine manifest has dozens |
+| S1 | 1-component SBOM (tool didn't actually run) | `components` array length < 5 | Re-run with `/sec sbom` — genuine manifest has dozens |
 | S2 | Missing integrity hashes | no `hashes` field on components | Use native tool output (npm sbom, cyclonedx-py) which includes hashes |
 | S3 | Version ranges instead of pins | version field contains `^\|~\|>=\|*` | Exact versions; ranges belong in manifest, not SBOM snapshot |
 | S4 | No SBOM link in RELEASE doc | RELEASE-*.md without `SBOM-*.json` reference | Cross-ref in RELEASE under `## Artefacts` |
@@ -72,7 +72,7 @@ to architecture docs, threat models, SBOMs, postmortems, and gate verdicts.
 |---|---|---|---|
 | G1 | PASS verdict with zero evidence | verdict line has no artefact path / no finding count | Link the QA report / CSO report or state "N/A because X" |
 | G2 | "No issues found" on a non-trivial change | diff > 100 LOC, verdict = `PASS.*no issues` | At minimum: one risk noted, even if accepted |
-| G3 | Verdict timestamps cluster (batch rubber-stamp) | 3+ verdicts within 60 seconds from same agent | Genuine review takes longer; flag to `/gates` drift check |
+| G3 | Verdict timestamps cluster (batch rubber-stamp) | 3+ verdicts within 60 seconds from same agent | Genuine review takes longer; flag via `/inbox` drift signal |
 | G4 | Gate closed by author (self-approval) | verdict emitter == artefact author in git log | Another agent / human must close the gate |
 
 ---

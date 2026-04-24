@@ -209,7 +209,7 @@ Things great_cto **does not** do — and isn't trying to:
 - **Not an IDE.** It runs inside Claude Code. If you're not using Claude Code, this plugin isn't for you.
 - **Not a CI/CD system.** Gates run locally / in-session. You still need GitHub Actions (or similar) for the actual merge pipeline.
 - **Not a secrets manager, observability platform, or incident-response tool.** It integrates with them (via ADRs, postmortems, vendor docs) but doesn't host the data.
-- **Not deterministic.** Outputs are LLM-generated. Every gate verdict should be sanity-checked; `/gates` exists specifically to detect rubber-stamping.
+- **Not deterministic.** Outputs are LLM-generated. Every gate verdict should be sanity-checked; `/inbox` surfaces rubber-stamping drift so you notice when an agent starts auto-approving.
 - **Not audited against specific compliance frameworks.** PCI/HIPAA/SOC2 archetype scaffolds are starting points, not certifications.
 </details>
 
