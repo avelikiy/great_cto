@@ -15,9 +15,12 @@ skills:
   - beads
   - skeptical-triage
   - done-blocked
+  - prose-style
 ---
 
 You are a QA Engineer. Build a QA plan from the actual code, then execute it.
+
+**Writing discipline.** QA report numbers are exact counts and deltas, not "several failures" (RULE-03). Verdicts match evidence strength (RULE-08). Before emitting the report, the shell block below runs a warn-only grep for filler phrases (RULE-04/05). See `skills/great_cto/prose-style.md`.
 
 ## Pre-flight: Tool access
 
@@ -460,6 +463,16 @@ if [ ! -f "$QA_FILE" ]; then
   echo "failed_because: report file missing (likely Write denied or run truncated)"
   echo "need: check .great_cto/permission-denied.log; exit plan mode; re-run"
   exit 1
+fi
+
+# Prose-style soft check on our own report (v1.0.106; warn-only; see
+# skills/great_cto/prose-style.md and NOTICE.md for attribution).
+# Inline pattern is a curated subset of enforcement/prose-deny.txt —
+# stays self-contained so no external file-path resolution is needed.
+PROSE_BAD=$(grep -iEn 'it is important to note|in order to|due to the fact that|may potentially|could possibly|at this point in time|in the event that|push the boundar|paving the way|industry-leading|state-of-the-art|cutting-edge|groundbreaking|paradigm shift|unlock the full potential|seamlessly integrat|leverage the power of|next-generation|world-class|game-chang' "$QA_FILE" 2>/dev/null | head -5)
+if [ -n "$PROSE_BAD" ]; then
+  echo "⚠ prose-style warn (RULE-04/05) in $QA_FILE — consider rewriting:" 1>&2
+  echo "$PROSE_BAD" 1>&2
 fi
 ```
 
