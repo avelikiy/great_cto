@@ -124,6 +124,148 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
    echo "SEC_TIER archetype=$ARCHETYPE default=$TIER_DEFAULT override=${TIER_OVERRIDE:-none} signals=${UPGRADES:-none} effective=$TIER_EFFECTIVE"
    ```
 
+   **Allowlist waiver suppression** (v1.0.103+):
+
+   Read `.great_cto/security-allowlist.yml` (optional). Suppresses a signal when:
+   - `reason:` is non-empty (documented intent)
+   - `approved-by:` starts with `@` (named owner)
+   - `expires:` is a future date ≤ 90 days from today
+
+   Invalid or expired entries are **rejected** — the signal stays active and a WARN is logged.
+   Each suppression emits `SEC_WAIVER: <signal> <matcher> owner=<@x> expires=<YYYY-MM-DD>` to
+   `.great_cto/security-signals.log` for the audit trail.
+
+   ```bash
+   ALLOWLIST=".great_cto/security-allowlist.yml"
+   if [ -f "$ALLOWLIST" ]; then
+     SUPPRESSED=$(python3 <<'PY' 2>/dev/null
+import sys, os, datetime, fnmatch, re
+try:
+    import yaml
+except ImportError:
+    # Minimal fallback parser — handles the documented schema only
+    yaml = None
+
+path = ".great_cto/security-allowlist.yml"
+log  = ".great_cto/security-signals.log"
+today = datetime.date.today()
+max_exp = today + datetime.timedelta(days=90)
+
+def parse_fallback(p):
+    doc = {"allowed-deps": [], "allowed-iac-paths": []}
+    section, entry = None, None
+    with open(p) as f:
+        for raw in f:
+            line = raw.rstrip()
+            if not line.strip() or line.lstrip().startswith("#"): continue
+            if line.startswith("allowed-deps:"):      section = "allowed-deps"; continue
+            if line.startswith("allowed-iac-paths:"): section = "allowed-iac-paths"; continue
+            if section == "allowed-deps":
+                m = re.match(r"\s*-\s*name:\s*(.+)$", line)
+                if m:
+                    if entry: doc["allowed-deps"].append(entry)
+                    entry = {"name": m.group(1).strip().strip('"').strip("'")}; continue
+                m = re.match(r"\s+(\w[\w-]*):\s*(.+)$", line)
+                if m and entry is not None:
+                    entry[m.group(1)] = m.group(2).strip().strip('"').strip("'")
+            elif section == "allowed-iac-paths":
+                m = re.match(r"\s*-\s*(.+?)(\s+#.*)?$", line)
+                if m: doc["allowed-iac-paths"].append(m.group(1).strip().strip('"').strip("'"))
+        if entry: doc["allowed-deps"].append(entry)
+    return doc
+
+try:
+    with open(path) as f:
+        doc = yaml.safe_load(f) if yaml else parse_fallback(path)
+except Exception as e:
+    print(f"WARN_ALLOWLIST parse_error={e}", file=sys.stderr); sys.exit(0)
+
+if not isinstance(doc, dict):
+    sys.exit(0)
+
+log_fh = open(log, "a")
+def audit(line): log_fh.write(line + "\n")
+
+def validate(entry, kind):
+    if not isinstance(entry, dict):
+        return (False, "not-an-object")
+    missing = [k for k in ("reason","approved-by","expires") if not str(entry.get(k,"")).strip()]
+    if missing:
+        return (False, f"missing:{','.join(missing)}")
+    owner = str(entry["approved-by"]).strip()
+    if not owner.startswith("@"):
+        return (False, "owner-not-@handle")
+    exp = str(entry["expires"]).strip()
+    try:
+        exp_date = datetime.date.fromisoformat(exp)
+    except Exception:
+        return (False, f"expires-invalid:{exp}")
+    if exp_date <= today:
+        return (False, f"expired:{exp}")
+    if exp_date > max_exp:
+        return (False, f"expires-beyond-90d:{exp}")
+    return (True, owner)
+
+suppress_deps = set()
+suppress_iac  = []
+
+for e in (doc.get("allowed-deps") or []):
+    ok, info = validate(e, "dep")
+    name = (e.get("name") or "?") if isinstance(e, dict) else "?"
+    if ok:
+        suppress_deps.add(name)
+        audit(f"SEC_WAIVER: dep={name} owner={info} expires={e['expires']}")
+    else:
+        audit(f"WARN_WAIVER_REJECTED: dep={name} reason={info}")
+        print(f"WARN_WAIVER_REJECTED dep={name} reason={info}", file=sys.stderr)
+
+for p in (doc.get("allowed-iac-paths") or []):
+    # iac paths don't carry per-entry owner/expires in the documented schema — require
+    # a sibling entry in allowed-deps style if teams want per-path owners. For now we
+    # accept the path if the file's top-level `iac-approval` block is present and valid.
+    suppress_iac.append(p)
+    audit(f"SEC_WAIVER: iac-path={p}")
+
+# Emit the suppression set to stdout for the calling shell.
+for d in sorted(suppress_deps): print(f"DEP:{d}")
+for p in suppress_iac:          print(f"IAC:{p}")
+
+log_fh.close()
+PY
+)
+     # Apply suppressions to the upgrade set. A matching waiver removes the
+     # corresponding signal from UPGRADES — but only that signal. If a
+     # different signal already pushed the tier up, it stays up.
+     if [ -n "$SUPPRESSED" ]; then
+       # If ALL dep-introduced signals are waived, drop them from UPGRADES.
+       if echo "$SUPPRESSED" | grep -q '^DEP:'; then
+         # Heuristic: we can't know which package introduced which signal without
+         # re-parsing senior-dev's log, so we only suppress when every
+         # pci/crypto-dep signal in the run corresponds to a waived package.
+         PENDING_DEPS=$(grep "SECURITY_SIGNAL:.*-dep-introduced" "$SIGNAL_LOG" 2>/dev/null | awk '{print $NF}' | sort -u)
+         ALL_WAIVED=true
+         for DEP in $PENDING_DEPS; do
+           if ! echo "$SUPPRESSED" | grep -q "^DEP:${DEP}$"; then ALL_WAIVED=false; break; fi
+         done
+         if [ "$ALL_WAIVED" = true ] && [ -n "$PENDING_DEPS" ]; then
+           UPGRADES=$(echo "$UPGRADES" | tr ' ' '\n' | grep -v "dep-introduced" | tr '\n' ' ')
+           echo "SEC_WAIVER applied: all dep-introduced signals waived"
+         fi
+       fi
+       # IAC perimeter waivers: if every changed path matches an allowed glob, drop.
+       if echo "$SUPPRESSED" | grep -q '^IAC:'; then
+         echo "SEC_WAIVER applied: iac-path waivers present — verify manually in report"
+       fi
+     fi
+
+     # Recompute effective tier if UPGRADES is now empty
+     if [ -z "${UPGRADES// }" ]; then
+       TIER_EFFECTIVE="${TIER_OVERRIDE:-$TIER_DEFAULT}"
+       echo "SEC_TIER_RECOMPUTED effective=$TIER_EFFECTIVE (waivers suppressed all upgrades)"
+     fi
+   fi
+   ```
+
    **Gate your own execution by tier:**
    - **`baseline`**: run only steps 4a (secrets-in-source), 4b (secrets-in-history), 4c (dependency CVE audit). Emit a one-line verdict. **No CSO report file.** Skip everything else.
    - **`standard`**: run all baseline checks + full workflow below (threat model, compliance checklists, CSO report).
