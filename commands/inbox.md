@@ -10,6 +10,36 @@ Show the CTO everything that needs attention: pending gates, recent activity dig
 
 ## Gather Data (run all in parallel)
 
+**POC mode banner (fires only if `mode: poc` in PROJECT.md):**
+```bash
+if grep -q "^mode:\s*poc" .great_cto/PROJECT.md 2>/dev/null; then
+  POC_SLUG=$(grep "^poc_slug:" .great_cto/PROJECT.md | awk '{print $2}')
+  POC_EXPIRES=$(grep "^poc_expires:" .great_cto/PROJECT.md | awk '{print $2}')
+  TODAY=$(date +%Y-%m-%d)
+  if [ -n "$POC_EXPIRES" ]; then
+    DAYS_LEFT=$(python3 -c "import datetime; d=(datetime.date.fromisoformat('$POC_EXPIRES')-datetime.date.fromisoformat('$TODAY')).days; print(d)" 2>/dev/null || echo "?")
+    if [ "$DAYS_LEFT" -lt 0 ] 2>/dev/null; then
+      echo "POC_EXPIRED:slug=${POC_SLUG} overdue=$((-DAYS_LEFT))d expires=${POC_EXPIRES}"
+    elif [ "$DAYS_LEFT" -le 1 ] 2>/dev/null; then
+      echo "POC_URGENT:slug=${POC_SLUG} days_left=${DAYS_LEFT} expires=${POC_EXPIRES}"
+    else
+      echo "POC_ACTIVE:slug=${POC_SLUG} days_left=${DAYS_LEFT} expires=${POC_EXPIRES}"
+    fi
+  fi
+fi
+```
+
+If `POC_*` line emitted, display at top of `/inbox` output (before everything else):
+```
+--- POC MODE ---
+  ⚠ POC-<slug> — <N> days remaining (expires <date>)
+  → Hypothesis: <read from docs/poc/POC-<slug>.md "Hypothesis" line>
+  → Out of scope: <read "Out of scope" bullets>
+  → When timebox hits: /poc decide  (required — ship/pivot/kill)
+```
+For `POC_EXPIRED`: use 🔴 red banner, add `DEPLOY BLOCKED — /poc decide required`.
+For `POC_URGENT`: use 🟡 yellow banner.
+
 **Open gates + stale gate detection:**
 ```bash
 bd list --label gate --status open 2>/dev/null || true

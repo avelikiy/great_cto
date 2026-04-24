@@ -36,7 +36,20 @@ Skip triage for obvious calls (standard pattern, single viable option, well-know
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | head -1)}"
+MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+MODE=${MODE:-production}
 ```
+
+## POC-mode behaviour
+
+If `$MODE` is `poc`, produce a **1-pager ARCH** only: Problem / Decision / Risks.
+Skip: full component diagrams, API contracts, threat model, cost model, vendor
+register, pre-mortem, requirements checklist. Add header: `> POC ARCH — will
+be expanded by /promote. See POC-<slug>.md for hypothesis.` Everything else in
+this agent's workflow operates on the 1-pager. When POC ships, `/promote` will
+re-invoke this agent to produce the full ARCH.
+
+See `skills/great_cto/references/poc-mode.md` for the full skip matrix.
 
 ## Interaction Checkpoints
 

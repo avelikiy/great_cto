@@ -51,7 +51,23 @@ Skip triage for deterministic failures (test fails 3x in a row, same assertion) 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | head -1)}"
+MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+MODE=${MODE:-production}
 ```
+
+## POC-mode behaviour
+
+If `$MODE` is `poc`, run **smoke tests only** — verify the POC's hypothesis
+success criteria pass, nothing more. Skip: coverage analysis, state coverage,
+error paths, concurrency tests, regression matrix. Write a short report to
+`docs/qa-reports/QA-poc-<slug>.md` with:
+
+- One line per success criterion: ✓ / ✗ / partial + evidence
+- Explicit header: `**POC QA — not production QA.** See poc-mode.md.`
+
+Verdict is binary: `PASS` (all criteria pass) or `FAIL`. No nuanced "mostly
+works" outcomes — that's how POCs become production bugs. See
+`skills/great_cto/references/poc-mode.md` for the full skip matrix.
 
 ## Interaction Checkpoints
 
