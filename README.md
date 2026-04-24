@@ -1,12 +1,27 @@
-# great_cto
+<p align="center">
+  <img src="site/assets/logo.svg" alt="great_cto" width="320" />
+</p>
 
-> The engineering process for solo founders and teams up to 50 engineers — without the overhead.
+<p align="center">
+  <b>The engineering process for solo founders and teams up to 50 engineers — without the overhead.</b>
+</p>
 
-[![Stars](https://img.shields.io/github/stars/avelikiy/great_cto?style=flat)](https://github.com/avelikiy/great_cto/stargazers)
-[![Version](https://img.shields.io/badge/version-1.0.106-blue)]()
-[![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
-[![License](https://img.shields.io/badge/license-MIT-green)]()
-[![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
+<p align="center">
+  <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
+  <img src="https://img.shields.io/badge/version-1.0.107-blue" alt="Version" />
+  <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
+  <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
+  <a href="https://github.com/avelikiy/great_cto/discussions"><img src="https://img.shields.io/github/discussions/avelikiy/great_cto?color=3fb950" alt="Discussions" /></a>
+</p>
+
+<p align="center">
+  <b>9 agents</b> · <b>13 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b> · <b>5 releases in the last 24h</b>
+</p>
+
+<p align="center">
+  <img src="site/assets/demo.gif" alt="great_cto pipeline demo: /start → approve architecture → ship" width="800" />
+</p>
 
 ---
 
@@ -286,6 +301,8 @@ Advisor pattern: Opus 4.7 escalation for hard reasoning (architecture trade-offs
 | [Conductor](https://conductor.build/) | Many parallel Claude sessions | Architecture, QA, security, compliance — not just parallelism |
 | [Superset](https://superset.sh/) | Orchestrate CLI agents | Opinionated SDLC pipeline with approval gates, not a canvas |
 | [claude-flow](https://github.com/ruvnet/claude-flow) | Flow engine | Role specialization, 12-angle review, compliance |
+| [obra/superpowers](https://github.com/obra/superpowers) | Skills library (TDD, brainstorming, planning) | Role-specialized agents + approval gates *on top of* superpowers skills — we integrate, not replace |
+| [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) | Template registry (1000+ components) | Opinionated SDLC pipeline. We consume their templates via `template-broker`; they are the catalog, we are the workflow |
 | Custom CLAUDE.md | Ad-hoc rules per project | Versioned pipeline with brain.md learning + weekly automation |
 
 Opinionated about **what** to do (architecture → TDD → review → QA → security → deploy). Pick great_cto if you want a process, not a canvas.
@@ -296,7 +313,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.106 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.107 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
@@ -332,9 +349,10 @@ Spawned agents inherit the parent session's permission mode. If you started the 
 ## Links
 
 - GitHub: [avelikiy/great_cto](https://github.com/avelikiy/great_cto)
+- Discussions: [ask a question · share a setup · request a feature](https://github.com/avelikiy/great_cto/discussions)
 - Archetypes: [`skills/great_cto/ARCHETYPES.md`](skills/great_cto/ARCHETYPES.md)
 - Example projects: [`demo/saas-api.md`](demo/saas-api.md) · [`demo/smart-contract.md`](demo/smart-contract.md) · [`demo/trading-bot.md`](demo/trading-bot.md)
-- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md) · [Website](https://greatcto.systems)
 
 ---
 
