@@ -1,6 +1,6 @@
 # Gate Health — reference
 
-How to tell whether your quality gates are real gates or theater. Read by `tech-lead` when `/gates` flags rubber-stamping, and by anyone calibrating a gate after a postmortem.
+How to tell whether your quality gates are real gates or theater. Read by `tech-lead` when `/inbox` flags rubber-stamping, and by anyone calibrating a gate after a postmortem.
 
 ## The problem with gates
 
@@ -11,7 +11,7 @@ A gate that always passes is not a gate — it's a rubber stamp with extra steps
 3. Six months later, gate has implicit threshold 30pp looser than the original spec
 4. First incident traces back to something the gate "passed"
 
-`/gates` makes this drift visible by aggregating pass-rate trends and cross-referencing PM "Agent Verdict Audit" tables.
+`/inbox` makes this drift visible by aggregating pass-rate trends and cross-referencing PM "Agent Verdict Audit" tables.
 
 ## Healthy gate calibration
 
@@ -42,7 +42,7 @@ Postmortems include an "Agent Verdict Audit" table:
 | Security (security-officer) | PASS | yes | not a security issue |
 ```
 
-`/gates` parses these tables across all PMs in the window. If `qa-engineer` shows up as "Correct? = no" 4 times out of 6 audited PMs, effectiveness = 33%, and the agent's checklist is broken — not the agent.
+`/inbox` parses these tables across all PMs in the window. If `qa-engineer` shows up as "Correct? = no" 4 times out of 6 audited PMs, effectiveness = 33%, and the agent's checklist is broken — not the agent.
 
 ## Anti-patterns to refuse
 
@@ -52,7 +52,7 @@ Postmortems include an "Agent Verdict Audit" table:
 - **"Add more gates to be safe"** — every gate has a cost. Two gates checking the same thing don't add safety; they just diffuse responsibility. One sharp gate beats three blunt ones.
 - **"Trust the agent, it knows what it's doing"** — the entire point of postmortem audits is that agents drift and you can't tell from the verdict alone. Always audit retroactively.
 
-## When `/gates` flags rubber-stamping
+## When `/inbox` flags rubber-stamping
 
 Workflow:
 
@@ -62,7 +62,7 @@ Workflow:
 4. If formulaic → re-write the agent's checklist with concrete `assert`-style criteria, not vibes
 5. If real → check whether the work being reviewed got easier (better senior-dev, smaller PRs). If yes, the high pass rate is genuine; raise the bar.
 
-## When `/gates` flags low effectiveness
+## When `/inbox` flags low effectiveness
 
 Workflow:
 
@@ -75,5 +75,5 @@ Workflow:
 
 - `.great_cto/verdicts/*.log` — append-only verdict log (per-agent or per-day format)
 - `docs/postmortems/PM-*.md` — must include "Agent Verdict Audit" section for retroactive scoring
-- `/gates [days]` — aggregator and rubber-stamping detector
-- `/inbox` — cheap drift signal (only fires on >85% + +10pp drift)
+- `/inbox` — surfaces gate drift and rubber-stamping signals (fires on >85% + +10pp)
+- Manual verdict inspection: `ls -t .great_cto/verdicts/ | head` then read the agent's recent logs

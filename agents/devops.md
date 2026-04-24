@@ -264,7 +264,7 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
    If `DRIFT_CHECK`: spawn `great_cto-project-auditor` with context: "Post-deploy type drift check only. Skip full gap analysis. Check if current codebase has outgrown its PROJECT.md type. Update PROJECT.md secondary: if new type detected. Report back in 2 lines."
    This detects when a rest-api becomes a realtime-system, or a library becomes a saas-platform.
 
-9b. **DORA event log** — single-line append per production deploy. Drives `/dora` aggregation and weekly DORA snapshot in `/digest`.
+9b. **DORA event log** — single-line append per production deploy. Drives weekly DORA snapshot in `/digest`.
    ```bash
    mkdir -p .great_cto
    DORA_LOG=.great_cto/deploys.log
@@ -293,10 +293,10 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 9c. **Generate SBOM** — supply-chain integrity artefact per SSDF PS.2 / SLSA L1. Produced on every production deploy; cross-referenced in the RELEASE doc (step 10). See `skills/great_cto/references/secure-sdlc.md`.
    ```bash
    VERSION=$(git describe --tags --abbrev=0 2>/dev/null || grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "unreleased")
-   # Invoke /sbom $VERSION — emits docs/releases/SBOM-<version>.json (CycloneDX 1.5).
+   # Invoke /sec sbom $VERSION — emits docs/releases/SBOM-<version>.json (CycloneDX 1.5).
    # Falls back to minimal hand-built SBOM if ecosystem tools aren't installed.
    echo "Generating SBOM for $VERSION → docs/releases/SBOM-${VERSION}.json"
-   # (In practice: /sbom runs as a separate command. devops either invokes it or documents that CI did.)
+   # (In practice: /sec sbom runs as a separate command. devops either invokes it or documents that CI did.)
    ```
    If CI already emits a signed SBOM (cosign + OIDC → SLSA L2), skip local generation and reference the CI artefact instead.
 

@@ -60,7 +60,7 @@ ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md | awk '{print $2}')
 case "$ARCHETYPE" in
   ai-system|commerce|web3|iot-embedded|regulated|fintech)
     echo "Archetype '$ARCHETYPE' requires threat model."
-    # Invoke /threat-model ${SLUG}
+    # Invoke /sec threat ${SLUG}
     ;;
   *)
     echo "Threat model optional for archetype '$ARCHETYPE' — recommended if feature touches auth/payments/PII."
@@ -68,7 +68,7 @@ case "$ARCHETYPE" in
 esac
 ```
 
-For required cases, invoke `/threat-model ${SLUG}` or note it as a blocking
+For required cases, invoke `/sec threat ${SLUG}` or note it as a blocking
 TODO before proceeding.
 
 ### Step 3 — SBOM
@@ -76,7 +76,7 @@ TODO before proceeding.
 First production-bound SBOM for this code:
 
 ```bash
-# Invoke /sbom — writes docs/releases/SBOM-<version>.json
+# Invoke /sec sbom — writes docs/releases/SBOM-<version>.json
 ```
 
 Verify the SBOM has > 5 components (S1 anti-pattern check). If tool failed,
@@ -166,7 +166,7 @@ EOF
 
 Produced:
   - docs/architecture/ARCH-<slug>.md (full)
-  - docs/threat-models/TM-<slug>.md   (if required by archetype)
+  - docs/sec threats/TM-<slug>.md   (if required by archetype)
   - docs/releases/SBOM-<ver>.json
   - docs/security/CSO-<slug>-<date>.md
   - docs/qa-reports/QA-<slug>-<date>.md

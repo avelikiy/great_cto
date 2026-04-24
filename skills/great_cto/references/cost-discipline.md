@@ -97,9 +97,9 @@ With v1.0.90 shipped, great_cto covers the three engineering axes:
 
 | Axis | Command | Question answered |
 |---|---|---|
-| Delivery | `/dora` | Do we ship often and safely? |
+| Delivery | `/digest` (DORA section) | Do we ship often and safely? |
 | Reliability | `/burn` | Are we burning SLO budget faster than we should? |
 | Cost | `/cost` | Can we afford what we ship? |
-| Process | `/gates` | Are our quality gates still real gates? |
+| Process | `/inbox` (gate drift alert) | Are our quality gates still real gates? |
 
 One number per axis, all feeding `/inbox` for at-a-glance triage.
