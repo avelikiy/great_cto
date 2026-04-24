@@ -3,7 +3,7 @@
 > The engineering process for solo founders and teams up to 50 engineers — without the overhead.
 
 [![Stars](https://img.shields.io/github/stars/avelikiy/great_cto?style=flat)](https://github.com/avelikiy/great_cto/stargazers)
-[![Version](https://img.shields.io/badge/version-1.0.101-blue)]()
+[![Version](https://img.shields.io/badge/version-1.0.102-blue)]()
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
@@ -216,20 +216,22 @@ Things great_cto **does not** do — and isn't trying to:
 <details>
 <summary><b>10 archetypes (auto-detected)</b></summary>
 
-| Archetype | Covers | Security gate |
-|-----------|--------|--------------|
-| `web-service` | REST, GraphQL, SSR, SPA, full-stack | conditional |
-| `mobile-app` | iOS, Android, Electron, extensions | conditional |
-| `ai-system` | Agents, RAG, MCP, LLM ops, ML, voice | **mandatory** |
-| `data-platform` | Pipelines, warehouses, analytics | conditional |
-| `infra` | IaC, K8s, platform eng, migrations | conditional |
-| `library` | SDKs, CLIs, compilers, plugins, games | no |
-| `commerce` | E-commerce, payments, SaaS | **mandatory** |
-| `web3` | Smart contracts, DeFi, custody, bots | **mandatory** |
-| `iot-embedded` | IoT devices, hardware drivers | **mandatory** |
-| `regulated` | GxP, financial services, ISO 27001 | **mandatory** |
+Security gates use a **tier model** (v1.0.102+): `baseline` (CVE + secret scan, ~2 min, always on) → `standard` (+ threat model + compliance checks) → `deep` (+ penetration review). Signals emitted by `senior-dev` during implementation (new payment deps, auth-path changes, PII fields, IAM diffs) can **upgrade** the tier at runtime — archetype default is the floor, not the cap.
 
-**Domain packs** add depth for specialized archetypes: `ai-pack` · `web3-pack` · `enterprise-pack` · `data-pack`. Auto-loaded by archetype, overridable in PROJECT.md.
+| Archetype | Covers | Default tier |
+|-----------|--------|--------------|
+| `web-service` | REST, GraphQL, SSR, SPA, full-stack | baseline → standard on signals |
+| `mobile-app` | iOS, Android, Electron, extensions | baseline → standard on signals |
+| `ai-system` | Agents, RAG, MCP, LLM ops, ML, voice | **standard** → deep on MCP/tool-use |
+| `data-platform` | Pipelines, warehouses, analytics | baseline → standard on PII |
+| `infra` | IaC, K8s, platform eng, migrations | **standard** (owns IAM/perimeter) |
+| `library` | SDKs, CLIs, compilers, plugins, games | baseline (supply-chain floor) |
+| `commerce` | E-commerce, payments, SaaS | **standard** → deep on PCI dep |
+| `web3` | Smart contracts, DeFi, custody, bots | **deep** |
+| `iot-embedded` | IoT devices, hardware drivers | **deep** |
+| `regulated` | GxP, financial services, ISO 27001 | **deep** |
+
+See [`skills/great_cto/references/security-tiers.md`](skills/great_cto/references/security-tiers.md) for the full tier model and signal matrix. **Domain packs** add depth for specialized archetypes: `ai-pack` · `web3-pack` · `enterprise-pack` · `data-pack`.
 </details>
 
 <details>
@@ -294,7 +296,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.101 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.102 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).

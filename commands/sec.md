@@ -61,6 +61,40 @@ SEC_BASELINE=.great_cto/sec-baseline.log
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
 ```
 
+## Step 0 — Current security tier
+
+Reference: `skills/great_cto/references/security-tiers.md`. Compute effective tier from archetype + signals emitted by `senior-dev`.
+
+```bash
+case "$ARCHETYPE" in
+  web3|iot-embedded|regulated)                   TIER_DEFAULT=deep ;;
+  ai-system|commerce|infra)                      TIER_DEFAULT=standard ;;
+  web-service|mobile-app|data-platform|library)  TIER_DEFAULT=baseline ;;
+  *)                                             TIER_DEFAULT=baseline ;;
+esac
+TIER_OVERRIDE=$(grep "^default-tier:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+TIER_EFFECTIVE="${TIER_OVERRIDE:-$TIER_DEFAULT}"
+
+SIGNAL_LOG=.great_cto/security-signals.log
+SIGNALS_FIRED=""
+if [ -f "$SIGNAL_LOG" ]; then
+  for S in pci-dep-introduced crypto-dep-introduced auth-path-changed pii-field-added iac-perimeter-changed high-cve-in-dep external-ingest-added; do
+    if grep -q "SECURITY_SIGNAL: $S " "$SIGNAL_LOG"; then
+      SIGNALS_FIRED="$SIGNALS_FIRED $S"
+      case "$TIER_EFFECTIVE" in baseline) TIER_EFFECTIVE=standard ;; esac
+    fi
+  done
+fi
+
+echo ""
+echo "─ Current tier: $TIER_EFFECTIVE  (archetype=$ARCHETYPE default=$TIER_DEFAULT${TIER_OVERRIDE:+ override=$TIER_OVERRIDE})"
+if [ -n "$SIGNALS_FIRED" ]; then
+  echo "  Signals upgrading tier:"
+  for S in $SIGNALS_FIRED; do echo "    · $S"; done
+fi
+echo ""
+```
+
 ## Helper: ISO8601 → epoch
 
 ```bash
