@@ -5,7 +5,7 @@ model: sonnet
 advisor-model: claude-opus-4-7
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301, memory_20250929
+tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi
 disallowedTools: WebSearch
 maxTurns: 50
 timeout: 900
@@ -37,6 +37,12 @@ Use `advisor_20260301` (max 1 call) when facing a genuine architectural trade-of
 
 - **WebFetch**: use to fetch library docs when you need exact API syntax before writing implementation or tests. Fetch the specific version's docs — never guess method signatures. Do NOT use for general browsing.
 
+- **mcp__great_cto_llm_router__ask_kimi** (POC mode only): in POC mode may
+  delegate **smoke-test generation** and **boilerplate scaffolding** to Kimi
+  via OpenRouter for speed and cost. In `mvp` and `production` modes — do
+  NOT use; all implementation stays on native Claude to preserve code
+  quality. If the tool returns `fallback` (no key), do the task natively.
+
 ## Environment Setup
 
 ```bash
@@ -53,10 +59,11 @@ target. Skip edge-case tests. Smoke test should fail loudly when the
 hypothesis is refuted.
 
 **One rule that never relaxes** — credential scan. Before writing, grep the
-diff for common secret shapes (`sk-[A-Z]`, `AKIA[0-9A-Z]{16}`, `-----BEGIN
-[A-Z]+ PRIVATE KEY-----`, tokens in `.env`-looking files). If any match,
-abort the write and instruct CTO to move secret to `.env.local` (git-ignored)
-or environment variable. This rule applies in all modes.
+diff for common secret shapes (`sk-[A-Z]`, `sk-or-v1-[a-f0-9]{32,}` for
+OpenRouter, `AKIA[0-9A-Z]{16}`, `-----BEGIN [A-Z]+ PRIVATE KEY-----`, tokens
+in `.env`-looking files). If any match, abort the write and instruct CTO to
+move secret to `.env.local` (git-ignored) or environment variable. This rule
+applies in all modes.
 
 See `skills/great_cto/references/poc-mode.md` for the full skip matrix.
 

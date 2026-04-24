@@ -254,6 +254,53 @@ fi
 [ -f .great_cto/env.sh ] && echo "  ✓ .great_cto/env.sh present" || echo "  ⚠ .great_cto/env.sh missing — SessionStart did not prime"
 ```
 
+## Check 8b — LLM router (optional cost saver)
+
+```bash
+echo ""
+echo "LLM router (OpenRouter / Kimi K2):"
+ROUTER_KEY=""
+# Layered lookup: env > .env.local > ~/.great_cto/secrets.env
+if [ -n "$OPENROUTER_API_KEY" ]; then
+  ROUTER_KEY="$OPENROUTER_API_KEY"
+  SRC="env"
+elif [ -f .env.local ] && grep -q '^OPENROUTER_API_KEY=' .env.local 2>/dev/null; then
+  ROUTER_KEY=$(grep '^OPENROUTER_API_KEY=' .env.local | head -1 | cut -d= -f2- | tr -d '"'"'"'')
+  SRC=".env.local"
+elif [ -f ~/.great_cto/secrets.env ] && grep -q '^OPENROUTER_API_KEY=' ~/.great_cto/secrets.env 2>/dev/null; then
+  ROUTER_KEY=$(grep '^OPENROUTER_API_KEY=' ~/.great_cto/secrets.env | head -1 | cut -d= -f2- | tr -d '"'"'"'')
+  SRC="~/.great_cto/secrets.env"
+fi
+
+if [ -z "$ROUTER_KEY" ]; then
+  echo "  ℹ not configured — all tasks on Anthropic (fine, just pricier)"
+  echo "    To enable: echo 'OPENROUTER_API_KEY=sk-or-v1-...' >> .env.local (and restart session)"
+else
+  # Quick ping to verify key is live + get usage
+  USAGE_JSON=$(curl -s -m 5 -H "Authorization: Bearer $ROUTER_KEY" https://openrouter.ai/api/v1/auth/key 2>/dev/null)
+  if echo "$USAGE_JSON" | grep -q '"usage"'; then
+    USAGE=$(echo "$USAGE_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin).get('data',{}); print(f\"spent=\${d.get('usage',0):.2f} limit=\${d.get('limit') or 'none'}\")" 2>/dev/null)
+    echo "  ✓ key live (source: $SRC) — $USAGE"
+    # Usage log stats
+    if [ -f .great_cto/llm-router-usage.log ]; then
+      CALLS=$(wc -l < .great_cto/llm-router-usage.log | tr -d ' ')
+      echo "    calls this project: $CALLS"
+    fi
+  else
+    echo "  ✗ key present (source: $SRC) but OpenRouter rejected it — check key at https://openrouter.ai/keys"
+  fi
+fi
+
+# .env.local must be git-ignored
+if [ -f .env.local ]; then
+  if git check-ignore .env.local >/dev/null 2>&1; then
+    echo "  ✓ .env.local is git-ignored"
+  else
+    echo "  ✗ .env.local exists but is NOT git-ignored — SECURITY RISK. Add to .gitignore immediately."
+  fi
+fi
+```
+
 ## Check 9 — Auto-remediation (--fix mode)
 
 If `FIX_MODE=true`, perform safe, non-destructive fixes. Skip silently otherwise.

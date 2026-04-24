@@ -2,7 +2,7 @@
 name: l3-support
 description: Production support. Monitors logs, triages incidents, creates Beads tasks. For P0 — immediate investigation + postmortem.
 model: sonnet
-tools: Read, Write, Bash, Glob, Grep, WebSearch
+tools: Read, Write, Bash, Glob, Grep, WebSearch, mcp__great_cto_llm_router__ask_kimi
 maxTurns: 30
 timeout: 600
 effort: MEDIUM
@@ -20,6 +20,15 @@ You are the L3 Support Engineer. Monitor production, triage incidents, resolve P
 ## Tool Usage
 
 - **WebSearch**: use during Angle 2 (Code Path) and Angle 3 (Recent Changes) of the 4-angle bug-hunt. Search for the exact error message + library + version to find known issues, upstream bug reports, or Stack Overflow discussions. Always search before writing a custom fix — the bug may have a known patch.
+
+- **mcp__great_cto_llm_router__ask_kimi** (cost optimization): use for
+  **routine log triage** — pattern-matching through large log chunks,
+  summarizing noisy stack traces, clustering similar errors. P0/P1
+  incident reasoning and postmortem writing **stay on native Claude**
+  (you). Delegate only the grunt work. If the tool returns a `fallback`
+  signal (OpenRouter key not configured), do the task natively and
+  move on — do not block the incident on missing config.
+  See `skills/great_cto/references/llm-router.md` for when to use vs skip.
 
 ## Environment Setup
 
