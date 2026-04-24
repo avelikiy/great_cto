@@ -96,8 +96,8 @@
 | `web-fullstack` | `web-service` | compliance: [owasp, gdpr-cookie] |  |
 | `spa-frontend` | `web-service` | compliance: [owasp, gdpr-cookie, csp] |  |
 | `ssr-app` | `web-service` | compliance: [owasp, csp] |  |
-| `static-site` | `web-service` |  | security-gate: no |
-| `docs-site` | `web-service` |  | security-gate: no |
+| `static-site` | `web-service` |  |   |
+| `docs-site` | `web-service` |  |   |
 | `cms-headless` | `web-service` | compliance: [owasp] |  |
 | `internal-tool` | `web-service` | compliance: [rbac] |  |
 | `realtime-system` | `web-service` | performance-sla: p95 < 50ms |  |
@@ -113,18 +113,18 @@
 | `browser-extension` | `mobile-app` | compliance: [csp] |  |
 | `chrome-extension-mv3` | `mobile-app` | compliance: [csp, mv3-security] |  |
 | `vscode-extension` | `mobile-app` |  |  |
-| `ai-agent` | `ai-system` | compliance: [eu-ai-act] | security-gate: mandatory |
+| `ai-agent` | `ai-system` | compliance: [eu-ai-act] |   |
 | `ai-agent-framework` | `ai-system` | compliance: [eu-ai-act] |  |
 | `rag-system` | `ai-system` | compliance: [eu-ai-act], qa-extras: [retrieval-quality] |  |
-| `mcp-server` | `ai-system` | qa-extras: [tool-injection, schema-enforcement] | security-gate: mandatory |
+| `mcp-server` | `ai-system` | qa-extras: [tool-injection, schema-enforcement] |   |
 | `llm-ops` | `ai-system` | compliance: [eu-ai-act], qa-extras: [prompt-regression, cost-cap] |  |
 | `ml-training` | `ai-system` | qa-extras: [bias-audit, data-poisoning, model-card] |  |
 | `ml-serving` | `ai-system` | qa-extras: [drift-monitoring, model-card] |  |
 | `computer-vision` | `ai-system` | qa-extras: [edge-compat, model-card, bias-audit] |  |
 | `recommendation-engine` | `ai-system` | qa-extras: [popularity-bias, diversity, model-card] |  |
 | `anomaly-detection` | `ai-system` | qa-extras: [false-positive-rate, threshold-justification] |  |
-| `voice-agent` | `ai-system` | compliance: [tcpa, gdpr-biometric], qa-extras: [wer, ttfb, barge-in] | security-gate: mandatory |
-| `multimodal-app` | `ai-system` | compliance: [eu-ai-act], qa-extras: [per-modality-accuracy, hallucination, cross-modal] | security-gate: mandatory |
+| `voice-agent` | `ai-system` | compliance: [tcpa, gdpr-biometric], qa-extras: [wer, ttfb, barge-in] |   |
+| `multimodal-app` | `ai-system` | compliance: [eu-ai-act], qa-extras: [per-modality-accuracy, hallucination, cross-modal] |   |
 | `data-pipeline` | `data-platform` |  |  |
 | `data-warehouse` | `data-platform` | compliance: [pii-classification, data-lineage] |  |
 | `data-visualization` | `data-platform` | qa-extras: [snapshot-regression] |  |
@@ -141,25 +141,25 @@
 | `compiler-lang` | `library` | qa-extras: [cross-version-compat, benchmark-regression] |  |
 | `wordpress-plugin` | `library` | compliance: [owasp] |  |
 | `game` | `library` | qa-extras: [fps-benchmark, memory-profiling] |  |
-| `e-commerce` | `commerce` | compliance: [pci-dss, owasp] | security-gate: mandatory |
-| `payment-service` | `commerce` | compliance: [pci-dss, sox] | security-gate: mandatory, min-size: enterprise |
-| `saas-platform` | `commerce` | compliance: [soc2] | security-gate: mandatory |
-| `auth-service` | `commerce` | compliance: [owasp-auth] | security-gate: mandatory |
-| `smart-contract` | `web3` |  | security-gate: mandatory |
-| `defi-protocol` | `web3` | qa-extras: [formal-verification, flash-loan-sim] | security-gate: mandatory |
-| `trading-bot` | `web3` | qa-extras: [kill-switch] | security-gate: mandatory |
-| `custody-wallet` | `web3` | compliance: [fatf, ccss, ofac] | security-gate: mandatory, min-size: enterprise |
-| `bridge-protocol` | `web3` | qa-extras: [formal-verification, economic-attack-sim] | security-gate: mandatory |
-| `cex-exchange` | `web3` | compliance: [kyc-aml, fatf, ofac, pci-dss] | security-gate: mandatory, min-size: enterprise |
-| `embedded-iot` | `iot-embedded` | compliance: [etsi-303-645] | security-gate: mandatory |
+| `e-commerce` | `commerce` | compliance: [pci-dss, owasp] |   |
+| `payment-service` | `commerce` | compliance: [pci-dss, sox] | min-size: enterprise |
+| `saas-platform` | `commerce` | compliance: [soc2] |   |
+| `auth-service` | `commerce` | compliance: [owasp-auth] |   |
+| `smart-contract` | `web3` |  |   |
+| `defi-protocol` | `web3` | qa-extras: [formal-verification, flash-loan-sim] |   |
+| `trading-bot` | `web3` | qa-extras: [kill-switch] |   |
+| `custody-wallet` | `web3` | compliance: [fatf, ccss, ofac] | min-size: enterprise |
+| `bridge-protocol` | `web3` | qa-extras: [formal-verification, economic-attack-sim] |   |
+| `cex-exchange` | `web3` | compliance: [kyc-aml, fatf, ofac, pci-dss] | min-size: enterprise |
+| `embedded-iot` | `iot-embedded` | compliance: [etsi-303-645] |   |
 | `hardware-driver` | `iot-embedded` | qa-extras: [hil-test] |  |
-| `critical-infrastructure` | `regulated` | compliance: [nis2] | security-gate: mandatory, min-size: enterprise |
-| `financial-services` | `regulated` | compliance: [dora] | security-gate: mandatory, min-size: enterprise |
-| `gxp-system` | `regulated` | compliance: [21cfr11] | security-gate: mandatory, min-size: enterprise |
-| `iso27001-scope` | `regulated` | compliance: [iso27001] | security-gate: mandatory, min-size: enterprise |
-| `automotive-supplier` | `regulated` | compliance: [tisax] | security-gate: mandatory, min-size: enterprise |
-| `large-scale-refactor` | `web-service` | qa-extras: [snapshot-regression, dep-graph] | security-gate: no |
-| `stack-migration` | `web-service` | qa-extras: [snapshot-regression, dual-runtime] | security-gate: no |
+| `critical-infrastructure` | `regulated` | compliance: [nis2] | min-size: enterprise |
+| `financial-services` | `regulated` | compliance: [dora] | min-size: enterprise |
+| `gxp-system` | `regulated` | compliance: [21cfr11] | min-size: enterprise |
+| `iso27001-scope` | `regulated` | compliance: [iso27001] | min-size: enterprise |
+| `automotive-supplier` | `regulated` | compliance: [tisax] | min-size: enterprise |
+| `large-scale-refactor` | `web-service` | qa-extras: [snapshot-regression, dep-graph] |   |
+| `stack-migration` | `web-service` | qa-extras: [snapshot-regression, dual-runtime] |   |
 | `monorepo` | `web-service` | qa-extras: [affected-only-test] |  |
 | `video-streaming` | `web-service` | qa-extras: [webrtc-security, cdn-latency] |  |
 
@@ -174,7 +174,7 @@
    archetype: ai-system          # pipeline rules come from here
    compliance: [tcpa, gdpr-biometric]
    qa-extras: [wer, ttfb, barge-in]
-   security-gate: mandatory
+   # tier computed from archetype: see references/security-tiers.md
    ```
 5. Agents read `archetype:` + params — not `primary:` — for all pipeline decisions
 

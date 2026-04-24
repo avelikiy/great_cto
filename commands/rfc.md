@@ -13,11 +13,18 @@ You are the RFC command. Manage cross-team technical decisions via a structured 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 
-TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '[:alpha:]' || echo "1")
-if [ "${TEAM_SIZE:-1}" -lt 10 ]; then
-  echo "RFC process is for teams of 10+. Your team: ${TEAM_SIZE:-1}."
+TEAM_SIZE_RAW=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+# Validate: must be a plain positive integer. Anything else → treat as 1 (single dev).
+if [[ "$TEAM_SIZE_RAW" =~ ^[0-9]+$ ]]; then
+  TEAM_SIZE="$TEAM_SIZE_RAW"
+else
+  [ -n "$TEAM_SIZE_RAW" ] && echo "WARN: team-size='$TEAM_SIZE_RAW' is not a positive integer — treating as 1."
+  TEAM_SIZE=1
+fi
+if [ "$TEAM_SIZE" -lt 10 ]; then
+  echo "RFC process is for teams of 10+. Your team: $TEAM_SIZE."
   echo "For smaller teams, discuss decisions in chat and record them as ADRs directly."
-  echo "To use RFC anyway: set team-size: 10 in .great_cto/PROJECT.md"
+  echo "To use RFC anyway: set 'team-size: 10' in .great_cto/PROJECT.md"
   exit 0
 fi
 
