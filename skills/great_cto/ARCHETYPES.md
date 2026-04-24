@@ -81,8 +81,10 @@ Override: if archetype has `security gate: mandatory` → minimum `medium` size 
 **Single source of truth for mandatory security gate** — archetypes with `mandatory` in the table above:
 `ai-system`, `commerce`, `web3`, `iot-embedded`, `regulated`
 
-Plus individual type overrides in TYPE_MAP.md `Overrides` column (`security-gate: mandatory`).
-All agents should reference this list from ARCHETYPES.md, not maintain their own.
+**v1.0.102+ note:** per-type `security-gate:` overrides in TYPE_MAP.md are deprecated and
+ignored. Tier derives from archetype + signals (see `references/security-tiers.md`). The
+archetypes listed above are the only mandatory-security set; everything else runs at its
+archetype default tier and upgrades on signal.
 
 ## Required Agents by Size
 
@@ -107,8 +109,9 @@ approval-level: strict
 # Compliance (additive — each adds checklist items)
 compliance: [gdpr, pci-dss, hipaa, sox]
 
-# Security
-security-gate: mandatory          # force security-officer
+# Security (v1.0.102+ tier model — see references/security-tiers.md)
+default-tier: standard            # override archetype's default tier (rarely needed)
+tier-override-reason: "explain why" # mandatory when downgrading from archetype default
 
 # Performance SLA (overrides archetype default)
 performance-sla: p95 < 100ms
