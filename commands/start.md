@@ -427,6 +427,34 @@ Skip Task 3 for `project_size: nano` or `small` — Q-review is overkill for tho
 Silent on success — note only: "Weekly automation: digest (Mon 9:00) + audit (Sun 23:00) scheduled [+ quarterly review if medium+]."
 If `mcp__scheduled-tasks__create_scheduled_task` unavailable: skip silently, note "Scheduled tasks: tool unavailable — run /digest and /audit manually each week."
 
+## Step 5b: Ensure `.env.local` is git-ignored
+
+Before finishing, make sure `.env.local` is in `.gitignore` — we use it for
+any secret config (OpenRouter keys, per-project API tokens):
+
+```bash
+if [ -f .gitignore ]; then
+  grep -qxF '.env.local' .gitignore || printf '\n# great_cto secrets\n.env.local\n' >> .gitignore
+else
+  printf '.env.local\n' > .gitignore
+fi
+```
+
+**Optional: LLM router (cost saver)** — mention once, do not block. If CTO
+wants to delegate cheap tasks (log triage, summarization, POC smoke tests) to
+Kimi K2 via OpenRouter (~25% cost reduction):
+
+```
+Optional: save ~25% on LLM costs by routing non-critical tasks to Kimi K2.
+  1. Get a key at https://openrouter.ai/keys
+  2. echo "OPENROUTER_API_KEY=sk-or-v1-..." >> .env.local
+  3. Restart session — agents auto-detect and use it.
+
+Skip? Pipeline works fine on Anthropic only.
+```
+
+See `skills/great_cto/references/llm-router.md` for full details.
+
 ## Step 6: Confirm
 
 ```
@@ -436,6 +464,7 @@ Compliance: [<list>] | Security gate: <mandatory/conditional/no>
 Config: .great_cto/PROJECT.md
 Weekly: digest Mon 9:00 + audit Sun 23:00
 [If team-size ≥ 5: "Team: OWNERSHIP.md scaffolded → run /inbox to see team state"]
+[If OPENROUTER_API_KEY set: "LLM router: active (Kimi K2 for non-critical tasks)"]
 
 Tell me what to build.
 ```

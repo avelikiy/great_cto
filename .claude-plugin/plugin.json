@@ -2,7 +2,7 @@
   "name": "great_cto",
   "id": "great_cto",
   "description": "Engineering process for solo founders and teams up to 50 engineers. Agents do architecture, code review, QA, and security. You make two decisions per feature.",
-  "version": "1.0.99",
+  "version": "1.0.100",
   "author": {
     "name": "Great CTO",
     "url": "https://github.com/avelikiy/great_cto"
@@ -19,6 +19,20 @@
     "superpowers@superpowers-marketplace",
     "beads@local"
   ],
+  "mcpServers": {
+    "great_cto_llm_router": {
+      "command": "python3",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/llm-router/server.py"
+      ],
+      "env": {
+        "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}",
+        "GREAT_CTO_ROUTER_MODEL": "${GREAT_CTO_ROUTER_MODEL}",
+        "GREAT_CTO_ROUTER_MAX_TOKENS": "${GREAT_CTO_ROUTER_MAX_TOKENS}",
+        "GREAT_CTO_ROUTER_TIMEOUT": "${GREAT_CTO_ROUTER_TIMEOUT}"
+      }
+    }
+  },
   "hooks": {
     "SessionStart": [
       {
