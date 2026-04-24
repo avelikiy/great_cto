@@ -41,7 +41,24 @@ Use `advisor_20260301` (max 1 call) when facing a genuine architectural trade-of
 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+MODE=${MODE:-production}
 ```
+
+## POC-mode behaviour
+
+If `$MODE` is `poc`, relax TDD: write **one smoke test per hypothesis success
+criterion** (from `docs/poc/POC-<slug>.md`), not per function. Skip coverage
+target. Skip edge-case tests. Smoke test should fail loudly when the
+hypothesis is refuted.
+
+**One rule that never relaxes** — credential scan. Before writing, grep the
+diff for common secret shapes (`sk-[A-Z]`, `AKIA[0-9A-Z]{16}`, `-----BEGIN
+[A-Z]+ PRIVATE KEY-----`, tokens in `.env`-looking files). If any match,
+abort the write and instruct CTO to move secret to `.env.local` (git-ignored)
+or environment variable. This rule applies in all modes.
+
+See `skills/great_cto/references/poc-mode.md` for the full skip matrix.
 
 ## Interaction Checkpoints
 

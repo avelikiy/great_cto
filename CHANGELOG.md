@@ -4,6 +4,85 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.99 — 2026-04-24
+
+### Added — POC mode (hypothesis-driven pipeline extension)
+
+CTOs often need to validate a risky assumption before committing to production
+rigor — ship a prototype in 3 days, see if users care, keep it or throw it
+away. Full SDLC (ARCH → threat-model → SBOM → CSO → QA) is expensive overhead
+when the code will be deleted by Friday.
+
+v1.0.99 adds **POC mode**: a lightweight path with forced timebox and
+forced ship/pivot/kill decision. Not a parallel pipeline — a mode flag that
+agents read and adjust rigor accordingly.
+
+**New commands:**
+- `/poc <hypothesis>` — start a POC. Writes `docs/poc/POC-<slug>.md` with
+  hypothesis, success criteria, hard timebox (default 7d, max 14d), and
+  explicit out-of-scope list. Flips `mode: poc` + `poc_slug:` +
+  `poc_expires:` in PROJECT.md.
+- `/poc decide` — forced ritual at expiry. Ship / Pivot / Kill.
+  Evidence required. Always writes `docs/poc/POC-<slug>-learnings.md`.
+- `/poc extend <days>` — max 1×7d. Burns reputation.
+- `/promote` — all-or-nothing gate from POC → production. Runs full
+  ARCH, threat-model (if archetype requires), SBOM, cost-model, security
+  CSO, QA. Flips mode back. Partial promotion is prevented by design.
+
+**Agent skip matrix (see `skills/great_cto/references/poc-mode.md`):**
+- **tech-lead**: 1-pager ARCH (Problem / Decision / Risks only). Skip
+  full Requirements / Non-functional / Alternatives sections.
+- **senior-dev**: one smoke test per hypothesis criterion. Skip
+  coverage target, skip edge-case tests. **Credential-scan still runs.**
+- **qa-engineer**: smoke tests only. Binary PASS / FAIL verdict. QA
+  report headed "POC QA — not production QA".
+- **security-officer**: skip CSO entirely. Run credential-scan only.
+  One-line verdict.
+- **devops**: refuse production deploys. Preview / dev / local /
+  ephemeral staging only.
+
+**One rule that never relaxes:** credential-scan. In all modes, agents
+grep the diff for `sk-[A-Z]`, `AKIA[0-9A-Z]{16}`,
+`-----BEGIN * PRIVATE KEY-----`, `.env` tokens. Match → abort and
+move to `.env.local` / env var.
+
+**/inbox banner:** when `mode=poc`, /inbox emits POC_ACTIVE /
+POC_URGENT (≤2 days) / POC_EXPIRED signals at the top.
+
+**Principles:**
+1. One POC at a time (enforced via PROJECT.md flag).
+2. Hard expiry — no silent slippage.
+3. Observable success criteria (not "users like it").
+4. Forced decision at expiry — no limbo.
+5. Learnings always captured, even on kill.
+6. Promotion requires full rigor — no sneak-through.
+
+### Files added
+
+- `commands/poc.md`
+- `commands/promote.md`
+- `skills/great_cto/references/poc-mode.md`
+
+### Files modified
+
+- `commands/inbox.md` — POC banner at top of Gather Data.
+- `agents/tech-lead.md` — MODE read + POC-mode behaviour.
+- `agents/senior-dev.md` — MODE read + POC-mode behaviour + credential-scan exception.
+- `agents/qa-engineer.md` — MODE read + POC-mode behaviour.
+- `agents/security-officer.md` — MODE read + POC-mode behaviour.
+- `agents/devops.md` — MODE read + POC-mode behaviour.
+- `.claude-plugin/plugin.json` — CMD loop adds `poc promote`.
+
+### When NOT to use POC mode
+
+- Anything that touches money, PII, or production user data.
+- Core architecture decisions (use ADR + full ARCH instead).
+- "I just want to skip the boring parts" — that's production code
+  with less rigor, not a POC. /promote requires full audit, not
+  retroactive rubber-stamp.
+
+---
+
 ## v1.0.98 — 2026-04-24
 
 ### Added — Cross-doc link rot lint (L1–L4)
