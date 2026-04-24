@@ -205,6 +205,56 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 ## Stack Detection
 Read PROJECT.md for stack. Use: Jest/Vitest (TS), pytest (Python), `cargo test` (Rust), `go test` (Go).
 
+## Security Signals — emit during implementation
+
+When making changes, watch for conditions that raise the security-review tier.
+Emit one `SECURITY_SIGNAL:` line per hit to `.great_cto/security-signals.log`.
+`security-officer` parses these and upgrades the review depth.
+
+Reference: `skills/great_cto/references/security-tiers.md`.
+
+**When to emit:** after each implementation step, before closing the Proof Loop.
+
+```bash
+SIGLOG=.great_cto/security-signals.log
+mkdir -p .great_cto
+TS=$(date -u +%FT%TZ)
+
+# 1. Payment-processing dep introduced
+if git diff --cached --name-only | grep -qE '(package\.json|requirements\.txt|Cargo\.toml|go\.mod|Gemfile)$'; then
+  if git diff --cached | grep -qiE '(^\+.*)(stripe|plaid|square|braintree|adyen|checkout-com|paddle|lemon-squeezy)'; then
+    echo "$TS SECURITY_SIGNAL: pci-dep-introduced $(git diff --cached --name-only | grep -E 'package\.json|requirements|Cargo|go\.mod|Gemfile' | head -1)" >> "$SIGLOG"
+  fi
+  # 2. Crypto/auth library introduced
+  if git diff --cached | grep -qiE '(^\+.*)(jose|jsonwebtoken|bcrypt|argon2|scrypt|tweetnacl|libsodium|node-forge)'; then
+    echo "$TS SECURITY_SIGNAL: crypto-dep-introduced $(git diff --cached --name-only | grep -E 'package|requirements|Cargo|go\.mod' | head -1)" >> "$SIGLOG"
+  fi
+fi
+
+# 3. Auth/IAM/middleware path changed
+CHANGED=$(git diff --cached --name-only 2>/dev/null)
+if echo "$CHANGED" | grep -qE '(^|/)(auth|iam|oauth|saml|passport)(/|$)|middleware/auth'; then
+  echo "$TS SECURITY_SIGNAL: auth-path-changed $(echo "$CHANGED" | grep -E '(^|/)(auth|iam|oauth|saml|passport)(/|$)|middleware/auth' | head -1)" >> "$SIGLOG"
+fi
+
+# 4. PII column added in a migration
+if echo "$CHANGED" | grep -qE '(migrations?|schema)/.*\.(sql|py|ts|js|rb)$'; then
+  if git diff --cached -- '*/migrations/*' '*/schema*' 2>/dev/null | grep -qiE '(^\+.*)(ssn|sin|date_of_birth|dob|passport|phone_number|medical_|health_|credit_card)'; then
+    echo "$TS SECURITY_SIGNAL: pii-field-added $(echo "$CHANGED" | grep -E 'migrations|schema' | head -1)" >> "$SIGLOG"
+  fi
+fi
+
+# 5. IaC perimeter / IAM change
+if echo "$CHANGED" | grep -qE '\.(tf|tfvars)$|cdk|pulumi'; then
+  if git diff --cached | grep -qiE '(^\+.*)(aws_security_group|aws_iam_|google_iam_|azurerm_role|public.*bucket|0\.0\.0\.0/0)'; then
+    echo "$TS SECURITY_SIGNAL: iac-perimeter-changed $(echo "$CHANGED" | grep -E '\.tf|cdk|pulumi' | head -1)" >> "$SIGLOG"
+  fi
+fi
+```
+
+Signals **never block** senior-dev work — they are advisory breadcrumbs for
+`security-officer`. Do not debate them with the user; just emit and continue.
+
 ## Reporting Contract
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For senior-dev:

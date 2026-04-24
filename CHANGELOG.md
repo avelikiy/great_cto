@@ -4,6 +4,79 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.102 — 2026-04-24
+
+### Changed — Risk-based security tiers replace binary mandatory/conditional gate
+
+The previous `mandatory | conditional | none` model had three systemic holes:
+
+1. **`library → none`** was a supply-chain default. In 2026 npm/PyPI supply
+   chain attacks are the #1 vector; zero gate is never right.
+2. **"conditional" read as "off by default"** on archetypes that actually own
+   the blast radius (web-service with auth, infra with IAM).
+3. **Archetype is a proxy for risk, not risk itself** — a web-service handling
+   auth for 10M users is more security-critical than a commerce demo, but the
+   old model said the opposite.
+
+### New — Three tier model
+
+| Tier | Runs | Time | Skippable? |
+|---|---|---|---|
+| `baseline` | CVE scan + secret scan + dep freshness | ~2 min | **never** — floor |
+| `standard` | baseline + STRIDE threat model + OWASP checklist + compliance map | ~15–25 min | requires explicit waiver with owner + expiry |
+| `deep` | standard + penetration-style review + external-dep supply-chain audit + formal dataflow + kill-chain analysis | ~45–90 min | never on deep-tier archetypes |
+
+### New — Signal-driven tier upgrades
+
+`senior-dev` emits `SECURITY_SIGNAL:` lines to `.great_cto/security-signals.log`
+when it detects risky changes in the diff. `security-officer` reads these and
+upgrades the tier for the pipeline run. Signals only upgrade — never downgrade.
+
+| Signal | Detected on |
+|---|---|
+| `pci-dep-introduced` | new dep in stripe/plaid/square/braintree/adyen |
+| `crypto-dep-introduced` | new dep in jose/jsonwebtoken/bcrypt/argon2/libsodium |
+| `auth-path-changed` | file changes in `auth/**`, `iam/**`, `middleware/auth*` |
+| `pii-field-added` | migration adds ssn/dob/passport/medical_*/health_* column |
+| `iac-perimeter-changed` | Terraform diff touching security_group/iam/public bucket |
+| `high-cve-in-dep` | `npm audit` / `pip-audit` / `cargo audit` reports ≥ High |
+
+### Archetype → default tier mapping
+
+| Archetype | Default tier |
+|---|---|
+| `web3` · `iot-embedded` · `regulated` | **deep** |
+| `ai-system` · `commerce` · `infra` | **standard** |
+| `web-service` · `mobile-app` · `data-platform` · `library` | **baseline** |
+
+**`library` now runs baseline** (was: no gate). Supply-chain attacks made the
+old default indefensible. Two minutes of CVE + secret scan closes the hole.
+
+### New / updated
+
+- **`skills/great_cto/references/security-tiers.md`** — single source of truth for tier model, archetype mapping, signal matrix, waiver rules.
+- **`agents/security-officer.md`** — tier-aware execution; baseline runs without CSO report file.
+- **`agents/senior-dev.md`** — emits signals during implementation.
+- **`/sec status`** — reports current tier + fired signals in every run.
+- **`ARCHETYPES.md` / `README.md` / site landing** — tier column replaces binary gate.
+
+### Migration
+
+If PROJECT.md has the old `security-gate: mandatory|conditional|none`, it is
+now ignored (tier derives from archetype + signals). Most projects need zero
+config change — new defaults are strictly more secure without adding review
+burden where it wasn't needed.
+
+To pin a tier explicitly:
+
+```
+## Security
+default-tier: standard
+tier-override-reason: "internal service but handles auth tokens for 10M users"
+```
+
+---
+
 ## v1.0.101 — 2026-04-24
 
 ### Changed — Pareto cut: 22 commands → 15 (7 primary + 8 conditional)
