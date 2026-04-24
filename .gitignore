@@ -7,8 +7,8 @@
 # Each user generates their own based on their stack; not committed.
 .great_cto/
 
-# Local Claude Code permission cache — developer-specific, must never be committed.
-.claude/settings.local.json
+# Claude Code runtime state — per-session, developer-specific, never committed.
+.claude/
 
 # Bundled npm artefacts — CLI package compiles on demand.
 packages/cli/node_modules/

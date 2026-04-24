@@ -4,6 +4,31 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.108 — 2026-04-24
+
+### Added — browseable web UI
+
+- **`site/archetypes.html`** — 10-archetype grid with default tier badges (baseline / standard / deep).
+- **`site/agents.html`** — 7-agent grid with model tier (Haiku / Sonnet / Opus) and role description.
+- **`site/commands.html`** — 15 commands grouped by usage: Primary (3) / Project lifecycle (5) / Security (5 `/sec` subcommands) / Team & governance (6).
+- **Shared stylesheet** — inline `<style>` block (426 lines) in `site/index.html` extracted to `site/assets/site.css`; all four pages share it.
+- **Cross-page nav** with current page highlighted.
+- **`site/sitemap.xml`** updated with three new URLs.
+
+### Fixed
+
+- **Hero scale metrics**: landing now reads "7 agents · 10 archetypes · 15 commands · 12-angle review · 13 compliance frameworks" — the real counts (was "9 agents · 13 archetypes").
+- **`site/assets/demo.tape`**: output lines were being executed as shell commands, producing `syntax error near unexpected token '('` throughout the GIF. Rewrote every output line as `echo '...'` and replaced the ANSI-escape PS1 (which VHS's bracket parser mangled into `clear114m\]`) with a neutral `export PS1='> '`. GIF re-rendered cleanly.
+- **Nav menu wrapping**: long labels ("How it works", "12-angle review") wrapped to 2–3 lines and pushed the Install button off-screen. Trimmed to 6 nowrap items.
+- **Footer version pin**: was still `v1.0.101`; now reads `v1.0.108`.
+
+### Cleanup
+
+- **`.gitignore`** tightened from `.claude/settings.local.json` to `.claude/` (covers runtime artefacts like `scheduled_tasks.lock` that accidentally got committed in v1.0.107).
+- **`.claude/scheduled_tasks.lock`** removed from the tree.
+
+---
+
 ## v1.0.107 — 2026-04-24
 
 ### Added — launch polish sprint (README + landing)

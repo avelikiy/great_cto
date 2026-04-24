@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.107-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.108-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <b>9 agents</b> · <b>13 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b> · <b>5 releases in the last 24h</b>
+  <b>7 agents</b> · <b>10 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b> · <b>15 commands</b> · <b>shipped 6 releases in 24h</b>
 </p>
 
 <p align="center">
@@ -313,7 +313,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.107 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.108 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
