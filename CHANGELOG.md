@@ -4,6 +4,38 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.107 — 2026-04-24
+
+### Added — launch polish sprint (README + landing)
+
+Closed competitive gaps against top Claude-Code adjacent projects
+(`anthropics/claude-code`, `obra/superpowers`, `davila7/claude-code-templates`,
+`ruvnet/claude-flow`, `conductor.build`):
+
+- **Demo GIF** (`site/assets/demo.gif`, rendered via `site/assets/demo.tape`
+  using charmbracelet/vhs). 45-second terminal recording: `/start "add Stripe
+  subscriptions"` → tech-lead architecture → approval → senior-dev TDD →
+  12-angle review → QA → CSO → devops canary → ship. Embedded in README
+  header and landing hero.
+- **Logo in README header** — centered SVG + badge row aligned under it
+  (previously text-only H1).
+- **Scale metric row**: "9 agents · 13 archetypes · 12-angle review · 13
+  compliance frameworks" in both README and landing hero. Concrete numbers
+  readers can verify.
+- **Release-velocity signal**: "shipped 5 releases in 24h" pill in hero.
+- **GitHub Discussions enabled** (`gh api -X PATCH /repos/... -F
+  has_discussions=true`). Linked from README, nav, and Links section. Free
+  community channel — no Discord setup overhead.
+- **Comparison table extended** (README): rows for `obra/superpowers`
+  (skills library we integrate on top of, not replace) and
+  `davila7/claude-code-templates` (registry we consume via `template-broker`,
+  not duplicate). Stops the two most-frequent "how is this different from
+  X?" questions at the door.
+
+No agent / pipeline behavior changes in this release.
+
+---
+
 ## v1.0.106 — 2026-04-24
 
 ### Added — prose-style rules for agent output
