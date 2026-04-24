@@ -4,6 +4,53 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.103 — 2026-04-24
+
+### New — Allowlist waiver parser (`.great_cto/security-allowlist.yml`)
+
+v1.0.102 documented the waiver format in `security-tiers.md` but the agent
+couldn't read it. Now it can.
+
+`security-officer` parses `.great_cto/security-allowlist.yml` during tier
+computation. A waiver suppresses its matching signal only if **all three** are
+valid:
+
+- `reason:` non-empty (documented intent)
+- `approved-by:` starts with `@` (named owner — not a blank line or "team")
+- `expires:` a real ISO date, in the future, ≤ 90 days out
+
+Invalid, expired, or owner-less entries are **rejected** — the signal stays
+active and a `WARN_WAIVER_REJECTED` line is logged. Valid suppressions emit
+`SEC_WAIVER: <target> owner=<@x> expires=<date>` to the audit log for
+traceability.
+
+When every pending `*-dep-introduced` signal is covered by a valid waiver,
+the tier is recomputed — a correctly-waived pci-dep signal drops a
+web-service back from `standard` to `baseline`.
+
+### New — Structural test `tests/structural/test_security_tiers.sh`
+
+Eight fixture scenarios pinning the tier-computation contract:
+
+- archetype defaults (library→baseline, web3→deep, web-service→baseline)
+- signal-driven upgrade (auth-path-changed lifts baseline→standard)
+- explicit `default-tier` override
+- valid waiver suppresses the upgrade
+- expired waiver rejected (stays upgraded)
+- waiver missing `@owner` rejected
+- waiver for unrelated package doesn't suppress
+
+Runs in ~1s. Mirrors the bash in `agents/security-officer.md` — edits there
+should bump this test in lockstep.
+
+### Deferred
+
+- **HTTPS enforcement for greatcto.systems** — cert still provisioning at
+  Let's Encrypt (24h SLA from CNAME setup). Will enforce via
+  `gh api -X PUT /pages -F https_enforced=true` once state flips from `none`.
+
+---
+
 ## v1.0.102 — 2026-04-24
 
 ### Changed — Risk-based security tiers replace binary mandatory/conditional gate
