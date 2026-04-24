@@ -83,24 +83,53 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ## Workflow
 
-1. **Check project_size — gate your own execution**:
+1. **Compute security tier** (replaces old `IS_MANDATORY` check — v1.0.102+):
+
+   Reference: `skills/great_cto/references/security-tiers.md` — single source of truth.
+
    ```bash
+   ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
    PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
-   TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-   ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | head -1)}"
-   # MANDATORY archetypes from ARCHETYPES.md — ai-system, commerce, web3, iot-embedded, regulated
-   ARCHETYPE_CHECK=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-   case "$ARCHETYPE_CHECK" in
-     ai-system|commerce|web3|iot-embedded|regulated) IS_MANDATORY=1 ;;
-     *) IS_MANDATORY=0 ;;
+
+   # Archetype default tier
+   case "$ARCHETYPE" in
+     web3|iot-embedded|regulated)              TIER_DEFAULT=deep ;;
+     ai-system|commerce|infra)                 TIER_DEFAULT=standard ;;
+     web-service|mobile-app|data-platform|library) TIER_DEFAULT=baseline ;;
+     *)                                        TIER_DEFAULT=baseline ;;
    esac
-   # Also check type-specific overrides in TYPE_MAP.md (security-gate: mandatory)
-   TYPE_MAP=$(find ~/.claude -name "TYPE_MAP.md" -path "*/great_cto/*" 2>/dev/null | head -1)
-   [ -n "$TYPE_MAP" ] && grep -q "^| \`${TYPE}\`" "$TYPE_MAP" 2>/dev/null && grep "^| \`${TYPE}\`" "$TYPE_MAP" | grep -q "security-gate: mandatory" && IS_MANDATORY=1
+
+   # Explicit override in PROJECT.md (rarely needed; downgrades require reason)
+   TIER_OVERRIDE=$(grep "^default-tier:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+   TIER_EFFECTIVE="${TIER_OVERRIDE:-$TIER_DEFAULT}"
+
+   # Signal-driven upgrades (emitted by senior-dev during implementation)
+   # Signals can only UPGRADE, never downgrade.
+   SIGNAL_LOG=".great_cto/security-signals.log"
+   UPGRADES=""
+   if [ -f "$SIGNAL_LOG" ]; then
+     # Only consider signals from the current pipeline run (last --run-id match or last ~50 lines)
+     RECENT_SIGNALS=$(tail -100 "$SIGNAL_LOG" 2>/dev/null)
+     for SIGNAL in pci-dep-introduced crypto-dep-introduced auth-path-changed pii-field-added iac-perimeter-changed high-cve-in-dep external-ingest-added; do
+       if echo "$RECENT_SIGNALS" | grep -q "SECURITY_SIGNAL: $SIGNAL "; then
+         UPGRADES="$UPGRADES $SIGNAL"
+         # All above signals upgrade at least to standard
+         case "$TIER_EFFECTIVE" in
+           baseline) TIER_EFFECTIVE=standard ;;
+         esac
+       fi
+     done
+   fi
+
+   echo "SEC_TIER archetype=$ARCHETYPE default=$TIER_DEFAULT override=${TIER_OVERRIDE:-none} signals=${UPGRADES:-none} effective=$TIER_EFFECTIVE"
    ```
-   - **If `nano` or `small`** AND `IS_MANDATORY=0`: exit. "project_size=${PROJECT_SIZE}, type=${TYPE} not in MANDATORY list — security-officer not required. Deploy can proceed after QA."
-   - **If `nano` or `small`** AND `IS_MANDATORY=1`: proceed — MANDATORY type overrides size.
-   - **If `medium` or larger**: always proceed.
+
+   **Gate your own execution by tier:**
+   - **`baseline`**: run only steps 4a (secrets-in-source), 4b (secrets-in-history), 4c (dependency CVE audit). Emit a one-line verdict. **No CSO report file.** Skip everything else.
+   - **`standard`**: run all baseline checks + full workflow below (threat model, compliance checklists, CSO report).
+   - **`deep`**: `standard` + additional pen-test checklist (step 7), external-dep deep audit (step 8), formal dataflow diagram with kill-chain analysis.
+
+   **`nano`/`small` projects**: baseline is still floor. Old behaviour of "skip entirely" is **removed** — even 1-file libraries need CVE + secret scan. Takes ~2 min.
 
 1c. **Check for stale audit findings** — read `.great_cto/audit-state.json`:
    ```bash

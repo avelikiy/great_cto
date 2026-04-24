@@ -19,18 +19,23 @@ For approvals: the CTO chooses `auto` or `review` (default); PROJECT.md stores `
 
 ## Archetype Definitions
 
-| Archetype | Description | Security gate | Default compliance |
+Security gate is tier-based since v1.0.102 — see `references/security-tiers.md` for definitions.
+Signals emitted by `senior-dev` (new deps, auth-path changes, PII columns, IAM diffs) can **upgrade** the tier at runtime.
+
+| Archetype | Description | Default tier | Default compliance |
 |-----------|-------------|--------------|-------------------|
-| `web-service` | Backend APIs, web apps, full-stack | conditional (medium+) | OWASP Top 10, GDPR if EU users |
-| `mobile-app` | Mobile, desktop, Electron apps | conditional (medium+) | OWASP MASVS, platform privacy |
-| `ai-system` | AI/ML agents, RAG, LLM apps, voice, multimodal | mandatory | EU AI Act check, model card |
-| `data-platform` | Pipelines, warehouses, feature stores, analytics | conditional (large+) | PII classification, data lineage |
-| `infra` | IaC, K8s, platform engineering, DevOps tools | conditional (medium+) | CIS Benchmarks |
-| `library` | SDKs, CLIs, compilers, extensions, plugins | no | OpenSSF Scorecard, SBOM |
-| `commerce` | E-commerce, payments, SaaS platforms | mandatory | PCI-DSS, SOC2 |
-| `web3` | Smart contracts, DeFi, exchanges, wallets | mandatory | SWC Registry, KYC/AML |
-| `iot-embedded` | IoT devices, hardware drivers, edge computing | mandatory | ETSI EN 303 645 |
-| `regulated` | GxP, critical infra, financial services, automotive | mandatory (always enterprise) | Domain-specific (see pack) |
+| `web-service` | Backend APIs, web apps, full-stack | **baseline** (→ standard on auth/crypto signals) | OWASP Top 10, GDPR if EU users |
+| `mobile-app` | Mobile, desktop, Electron apps | **baseline** (→ standard on payment/biometric signals) | OWASP MASVS, platform privacy |
+| `ai-system` | AI/ML agents, RAG, LLM apps, voice, multimodal | **standard** (→ deep on MCP/tool-use) | EU AI Act check, model card |
+| `data-platform` | Pipelines, warehouses, feature stores, analytics | **baseline** (→ standard on PII) | PII classification, data lineage |
+| `infra` | IaC, K8s, platform engineering, DevOps tools | **standard** | CIS Benchmarks |
+| `library` | SDKs, CLIs, compilers, extensions, plugins | **baseline** (never off — supply-chain floor) | OpenSSF Scorecard, SBOM |
+| `commerce` | E-commerce, payments, SaaS platforms | **standard** (→ deep on PCI dep) | PCI-DSS, SOC2 |
+| `web3` | Smart contracts, DeFi, exchanges, wallets | **deep** | SWC Registry, KYC/AML |
+| `iot-embedded` | IoT devices, hardware drivers, edge computing | **deep** | ETSI EN 303 645 |
+| `regulated` | GxP, critical infra, financial services, automotive | **deep** | Domain-specific (see pack) |
+
+**Tier floor:** `baseline` (CVE + secret scan, ~2 min) runs on **every** pipeline, no exceptions. Previous "no gate" default for `library` is removed — supply-chain attacks made that default indefensible.
 
 ## QA Strategy by Archetype
 
