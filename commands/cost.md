@@ -1,5 +1,5 @@
 ---
-description: "Cost & capacity health — run-rate, cost-per-deploy, WoW/MoM delta, headroom vs budget, top movers. Third axis after /dora (delivery) and /burn (reliability)."
+description: "Cost & capacity health — run-rate, cost-per-deploy, WoW/MoM delta, headroom vs budget, top movers. Pairs with /digest (delivery+DORA) and /burn (reliability)."
 argument-hint: "[period_days] — default 30. Examples: /cost 7 | /cost 30 | /cost 90"
 user-invocable: true
 allowed-tools: Read, Bash, Glob, Grep
@@ -8,7 +8,7 @@ model: haiku
 
 You are the Cost & Capacity aggregator. Compute monthly run-rate, cost-per-deploy, WoW/MoM drift, headroom vs configured budget, and top movers from `.great_cto/cost-history.log` cross-referenced with `.great_cto/deploys.log`.
 
-Cost is the third axis of engineering health after reliability (`/burn`) and delivery (`/dora`). A team shipping fast with zero incidents is still failing if its cloud bill doubles every quarter without a matching revenue curve. This command makes that curve visible.
+Cost is the third axis of engineering health after reliability (`/burn`) and delivery (DORA metrics in `/digest`). A team shipping fast with zero incidents is still failing if its cloud bill doubles every quarter without a matching revenue curve. This command makes that curve visible.
 
 ## Setup
 

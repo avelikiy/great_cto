@@ -115,7 +115,7 @@ source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.lo
      nc -z localhost 5432 2>/dev/null && echo "db: reachable" || echo "db: unreachable ⚠"
    ```
 
-3b. **Security classification gate** — before triaging as an ops incident, check whether this is actually a **security** event. Security events follow a different workflow (`/security-incident`) because of regulatory timelines.
+3b. **Security classification gate** — before triaging as an ops incident, check whether this is actually a **security** event. Security events follow a different workflow (`/sec incident`) because of regulatory timelines.
 
    Signals that this is security-shaped:
    - Unauthorised access / authentication bypass / account takeover
@@ -128,7 +128,7 @@ source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.lo
 
    If any of the above matches → stop ops triage and run `/security-incident "<description>"` instead. It handles classification (C/I/A + DORA class), notification timelines (24h/72h/1 month), and disclosure drafts in one workflow.
 
-   Some incidents are both (e.g. compromised service also DOWN). In that case run `/security-incident` first for the regulatory clock, then continue ops triage for service restoration.
+   Some incidents are both (e.g. compromised service also DOWN). In that case run `/sec incident` first for the regulatory clock, then continue ops triage for service restoration.
 
 4. **Triage**:
    - **P0**: service DOWN, error rate > p0-threshold, data loss, OOM kill, security breach
@@ -271,7 +271,7 @@ P0 TIMER: 15 min to resolution or escalation to next level
    ```
    tech-lead reads this file at the start of every feature to catch recurring patterns before they ship again.
 
-7c. **Pattern extraction** — after each PM, ask "would this help diagnose a recurrence on a *different* service?" If yes, append a new entry to `skills/great_cto/references/incident-patterns.md` using the P-<number> format defined at the top of that file. Skip if this is a one-off business-logic bug. This is the feedback loop that makes `/investigate` useful over time.
+7c. **Pattern extraction** — after each PM, ask "would this help diagnose a recurrence on a *different* service?" If yes, append a new entry to `skills/great_cto/references/incident-patterns.md` using the P-<number> format defined at the top of that file. Skip if this is a one-off business-logic bug. This is the feedback loop that makes future l3-support triage smarter over time.
    ```bash
    PATTERNS=skills/great_cto/references/incident-patterns.md
    NEXT_NUM=$(grep -oE "^### P-[0-9]+" "$PATTERNS" 2>/dev/null | sort -V | tail -1 | grep -oE "[0-9]+" | awk '{printf "%04d", $1+1}')

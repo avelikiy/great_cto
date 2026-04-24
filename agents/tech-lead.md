@@ -553,7 +553,7 @@ After writing the pre-mortem: cross-reference with ARCH — every high-scoring s
 
 ## Threat model — generate before finalizing ARCH (security-critical archetypes)
 
-Every ARCH-*.md for archetype `ai-system` / `commerce` / `web3` / `iot-embedded` / `regulated` / `fintech` must include a `## Security` section, backed by a threat model in `docs/threat-models/TM-<slug>.md`. This closes SSDF practice PW.1 (design for security). See `skills/great_cto/references/secure-sdlc.md` for the full framework mapping.
+Every ARCH-*.md for archetype `ai-system` / `commerce` / `web3` / `iot-embedded` / `regulated` / `fintech` must include a `## Security` section, backed by a threat model in `docs/sec threats/TM-<slug>.md`. This closes SSDF practice PW.1 (design for security). See `skills/great_cto/references/secure-sdlc.md` for the full framework mapping.
 
 ```bash
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
@@ -562,20 +562,20 @@ case "$ARCHETYPE" in ai-system|commerce|web3|iot-embedded|regulated|fintech) SEC
 
 if [ "$SECURITY_REQUIRED" -eq 1 ]; then
   SLUG="<feature-slug>"  # match ARCH doc slug
-  TM="docs/threat-models/TM-${SLUG}.md"
+  TM="docs/sec threats/TM-${SLUG}.md"
   if [ ! -f "$TM" ]; then
-    echo "Archetype $ARCHETYPE requires a threat model. Generating → /threat-model ${SLUG}"
-    # Invoke /threat-model ${SLUG} to produce TM-<slug>.md AND append ## Security to ARCH.
+    echo "Archetype $ARCHETYPE requires a threat model. Generating → /sec threat ${SLUG}"
+    # Invoke /sec threat ${SLUG} to produce TM-<slug>.md AND append ## Security to ARCH.
     # Block ARCH gate until Critical/High threats have mitigations + mapped gates.
   fi
   # After threat model is in place, ARCH must have ## Security — verify before marking ARCH done.
   if ! grep -q "^## Security" "docs/architecture/ARCH-${SLUG}.md" 2>/dev/null; then
-    echo "BLOCK: ARCH-${SLUG}.md missing ## Security section. Run /threat-model ${SLUG} (or append manually)."
+    echo "BLOCK: ARCH-${SLUG}.md missing ## Security section. Run /sec threat ${SLUG} (or append manually)."
   fi
 fi
 ```
 
-For `recommended` archetypes (`data-platform`, `mobile-app`, `web-service`), threat model is optional but encouraged — surface it to the CTO as "consider running /threat-model before code starts; high-severity threats are cheapest to fix at design time."
+For `recommended` archetypes (`data-platform`, `mobile-app`, `web-service`), threat model is optional but encouraged — surface it to the CTO as "consider running /sec threat before code starts; high-severity threats are cheapest to fix at design time."
 
 For everything else (`library`, `cli-tool`, etc.) threat model is advisory only.
 
