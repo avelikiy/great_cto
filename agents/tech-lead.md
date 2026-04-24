@@ -259,6 +259,8 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 3. **Write** `docs/architecture/ARCH-<feature>.md` with: Problem, Decision (with alternatives), Components, API/Data contracts, Security considerations, DB migration plan (if schema changes), Implementation tasks, Definition of Done, Cost Estimate, Requirements Checklist
 
+   **Anti-patterns to avoid** (see `skills/great_cto/references/anti-patterns.md`, ARCH rules A1–A8). Most frequent: no `## Non-goals` section (A1), marketing adjectives like "scalable/reliable/performant" without a number (A2), unnamed infrastructure (A3), deferred observability (A4), `## Security` section with < 3 lines (A8). These are flagged by `/audit lint`.
+
    **Traceability link**: if USER-SPEC exists, add at the top of ARCH doc:
    ```markdown
    > Implements: [USER-SPEC-<feature>.md](../specs/USER-SPEC-<feature>.md)
@@ -535,6 +537,34 @@ fi
 ```
 
 After writing the pre-mortem: cross-reference with ARCH — every high-scoring scenario (P×I ≥ 6) must have either a mitigation mapped to a gate OR an explicit R- entry in the risk register. Scenarios with no mitigation and no risk entry get flagged in ARCH "Stack considerations" as "known unmitigated pre-mortem #N".
+
+## Threat model — generate before finalizing ARCH (security-critical archetypes)
+
+Every ARCH-*.md for archetype `ai-system` / `commerce` / `web3` / `iot-embedded` / `regulated` / `fintech` must include a `## Security` section, backed by a threat model in `docs/threat-models/TM-<slug>.md`. This closes SSDF practice PW.1 (design for security). See `skills/great_cto/references/secure-sdlc.md` for the full framework mapping.
+
+```bash
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+SECURITY_REQUIRED=0
+case "$ARCHETYPE" in ai-system|commerce|web3|iot-embedded|regulated|fintech) SECURITY_REQUIRED=1 ;; esac
+
+if [ "$SECURITY_REQUIRED" -eq 1 ]; then
+  SLUG="<feature-slug>"  # match ARCH doc slug
+  TM="docs/threat-models/TM-${SLUG}.md"
+  if [ ! -f "$TM" ]; then
+    echo "Archetype $ARCHETYPE requires a threat model. Generating → /threat-model ${SLUG}"
+    # Invoke /threat-model ${SLUG} to produce TM-<slug>.md AND append ## Security to ARCH.
+    # Block ARCH gate until Critical/High threats have mitigations + mapped gates.
+  fi
+  # After threat model is in place, ARCH must have ## Security — verify before marking ARCH done.
+  if ! grep -q "^## Security" "docs/architecture/ARCH-${SLUG}.md" 2>/dev/null; then
+    echo "BLOCK: ARCH-${SLUG}.md missing ## Security section. Run /threat-model ${SLUG} (or append manually)."
+  fi
+fi
+```
+
+For `recommended` archetypes (`data-platform`, `mobile-app`, `web-service`), threat model is optional but encouraged — surface it to the CTO as "consider running /threat-model before code starts; high-severity threats are cheapest to fix at design time."
+
+For everything else (`library`, `cli-tool`, etc.) threat model is advisory only.
 
 ## Vendor register — check at ARCH time
 
