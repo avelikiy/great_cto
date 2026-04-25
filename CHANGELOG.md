@@ -4,6 +4,43 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.113 — 2026-04-25
+
+### Added — Self-improving agent system (`/crystallize` + Knowledge Extraction)
+
+Every resolved incident, blocked QA run, or completed audit now feeds a structured learning loop:
+agent extracts knowledge → `/crystallize` promotes it to a global pattern → next session,
+agents surface matching patterns before starting standard diagnostics.
+
+- **`skills/great_cto/references/knowledge-extraction.md`** (NEW): KE schema and extraction protocol.
+  Defines when extraction is mandatory (P0 incidents, iterations > 3, new vulnerability class, etc.),
+  full YAML schema for `~/.great_cto/extractions/KE-*.yaml` (symptom, dead_ends, breakthrough_tool,
+  detection_order_next_time, why_standard_checks_missed_it), anonymized canonical example
+  (Grafana jsonData.database null — visible only in Playwright browser console, 8 iterations, 4h),
+  and a privacy scan bash script (no project names, URLs, credentials in KE files — plugin is public).
+- **`commands/crystallize.md`** (NEW): CTO-approval workflow for promoting KE files to global patterns.
+  Subcommands: `status` (pending KEs + proposals + active pattern stats), `review` (KE→GP promotion
+  with noise filter: high=auto-promote, medium≥5 iterations, low≥8 iterations, plus dedup check),
+  `approve GP-NNNN` (applies proposal to agent file + git commit + copies to `~/.claude/agents/`),
+  `reject GP-NNNN reason`, `rollback GP-NNNN` (git revert), `prune` (archive zero-hit patterns
+  older than 90 days). MTTR reduction tracked in `~/.great_cto/metrics/crystallize.log`.
+- **`agents/l3-support.md`**: new **Step 0 Pattern Lookup** block runs before all diagnostics.
+  Reads `~/.great_cto/global-patterns/`, filters by project archetype + stack fingerprint,
+  surfaces matching patterns with `detection_order[0]` as Priority 0 diagnostic.
+  Canonical: "No data in Grafana" → GP match → Playwright browser console first → saves 4h.
+  New **Knowledge Extraction** block at end of workflow: mandatory when P0 or iterations > 3;
+  guides agent to write `~/.great_cto/extractions/KE-*.yaml` with privacy-safe content.
+- **`plugin.json` SessionStart hook**: injects active global patterns matching current project archetype
+  at session start. Each matched pattern surfaces symptom + first detection step so agents apply
+  proven shortcuts before re-discovering known root causes.
+- **`commands/digest.md`**: new `PATTERN LIBRARY` section in format output and data gather block.
+  Shows: active pattern count, total hits, avg MTTR reduction, top 3 patterns by hits.
+
+Pattern files live in `~/.great_cto/global-patterns/` (local machine only — never committed to repo).
+KE files live in `~/.great_cto/extractions/` (local machine only). Public repo contains schemas only.
+
+---
+
 ## v1.0.112 — 2026-04-25
 
 ### Added — Grafana-native monitoring in `l3-support`

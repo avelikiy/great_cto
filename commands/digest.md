@@ -228,6 +228,32 @@ except: print('')
 ls .great_cto/retrospectives/*.md 2>/dev/null | sort | tail -2 | xargs grep -h "What slowed down:\|Notes:" 2>/dev/null | sort | uniq -c | sort -rn | head -3
 ```
 
+**Pattern library stats:**
+```bash
+GP_DIR="$HOME/.great_cto/global-patterns"
+if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
+  GP_TOTAL=$(ls "$GP_DIR"/GP-*.md 2>/dev/null | wc -l | tr -d ' ')
+  GP_ACTIVE=$(grep -rl "status: active" "$GP_DIR" 2>/dev/null | wc -l | tr -d ' ')
+  GP_HITS_TOTAL=$(grep -h "^hits:" "$GP_DIR"/GP-*.md 2>/dev/null | awk '{sum += $2} END {print sum+0}')
+  # MTTR reductions — parse "Xh → Yh (Z%)" format from mttr_reduction field
+  GP_AVG_REDUCTION=$(grep -h "^mttr_reduction:" "$GP_DIR"/GP-*.md 2>/dev/null | \
+    grep -oE "[0-9]+%" | tr -d '%' | awk '{sum+=$1; c++} END {c>0 ? printf "%.0f%%", sum/c : print "N/A"}')
+  # Top 3 by hits
+  echo "pattern_total=$GP_TOTAL | active=$GP_ACTIVE | total_hits=$GP_HITS_TOTAL | avg_mttr_reduction=$GP_AVG_REDUCTION"
+  echo "Top patterns by hits:"
+  grep -h "^hits:" "$GP_DIR"/GP-*.md 2>/dev/null | \
+    paste - <(ls "$GP_DIR"/GP-*.md 2>/dev/null) | \
+    sort -rn -k2 | head -3 | while read hits_line f; do
+      HITS=$(echo "$hits_line" | awk '{print $2}')
+      SLUG=$(basename "$f" .md)
+      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
+      printf "  %s (hits=%s): %s\n" "$SLUG" "$HITS" "$SYMPTOM"
+    done
+else
+  echo "pattern_total=0 | no extractions yet — run /crystallize after first incident"
+fi
+```
+
 **SPACE capsule — 3 lightweight developer-experience signals:**
 ```bash
 # 1. On-call burden: postmortems per active engineer in period
@@ -325,6 +351,15 @@ TEAM (show only if .great_cto/OWNERSHIP.md or docs/rfcs/ exist)
   On-call now: [@person (team, Nh remaining) | "not configured — run /oncall schedule"]
   RFCs open: [N | "none"]  ⚠ overdue: [N if deadline < today]
   Ownership gaps: [N unowned paths | "ownership map current"]
+
+PATTERN LIBRARY
+  Active patterns: [N of M total] | Total hits: [N] | Avg MTTR reduction: [N%]
+  Top 3 by hits:
+  — [GP-NNNN slug] (hits=[N]): [symptom one-liner]
+  — [GP-NNNN slug] (hits=[N]): [symptom one-liner]
+  — [GP-NNNN slug] (hits=[N]): [symptom one-liner]
+  [or "No global patterns yet — run /crystallize after first incident"]
+  [⚠ if hits=0 for >90d: pattern is stale — run /crystallize prune]
 
 RECOMMENDATION
   [One clear CTO action derived from signals above.
