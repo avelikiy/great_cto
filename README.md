@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.121-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.122-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
@@ -249,16 +249,20 @@ Specialist agents are then callable via the `Agent` tool from `tech-lead` or `se
 
 ## Multi-IDE compatibility
 
-Agents and skills are plain Markdown — they work anywhere a coding agent reads `.claude/agents/`.
+Built for Claude Code. Agent prompts (the *content* of each `agents/*.md`) port cleanly to any tool that reads Markdown. **Workflow orchestration** (gates, slash commands, hooks, `/crystallize`) does not — that lives in Claude Code's runtime.
 
-| Tool | Agents (`.claude/agents/`) | Slash commands | SessionStart hooks |
-|------|----------------------------|----------------|-------------------|
-| **Claude Code** | ✅ native | ✅ native | ✅ native |
-| **Cursor** | ✅ via `.claude/agents/` reader | ⚠️ partial (custom rules) | ❌ |
-| **Codex CLI** | ✅ via `AGENTS.md` mapping | ⚠️ via prompts | ❌ |
-| **Gemini CLI / Antigravity** | ✅ via skills format | ⚠️ via prompts | ❌ |
+| Tool | Agent prompts | Aggregate as `AGENTS.md` | Slash commands | Hooks / SessionStart | MCP servers | `/crystallize` |
+|------|---|---|---|---|---|---|
+| **Claude Code** | ✅ native | n/a | ✅ all 16 | ✅ 6 hook events | ✅ stdio | ✅ |
+| **Cursor** | ✅ via `.cursor/rules/*.mdc` (manual frontmatter conversion) | ✅ | ❌ | ❌ | 🟡 HTTP only | ❌ |
+| **Codex CLI** | ✅ via `AGENTS.md` aggregate | ✅ | ❌ | ❌ | 🟡 partial | ❌ |
+| **Gemini CLI / Antigravity** | ✅ via `AGENTS.md` aggregate | ✅ | ❌ | ❌ | 🟡 partial | ❌ |
 
-For full functionality (hooks + commands) → Claude Code. For agent prompts only → any of the above.
+**For the methodology only** (12-angle review, archetype-to-tier mapping, postmortem rules, discovery questions) → all `skills/great_cto/references/*.md` are plain Markdown. Copy into any tool.
+
+**For the full pipeline with gates and self-improving loop** → stay on Claude Code.
+
+Full adaptation guide with conversion steps, what you lose outside CC, and validation checks: [`docs/multi-ide.md`](docs/multi-ide.md).
 
 ---
 
@@ -396,7 +400,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.121 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.122 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
@@ -435,6 +439,8 @@ Spawned agents inherit the parent session's permission mode. If you started the 
 - Discussions: [ask a question · share a setup · request a feature](https://github.com/avelikiy/great_cto/discussions)
 - Archetypes: [`skills/great_cto/ARCHETYPES.md`](skills/great_cto/ARCHETYPES.md)
 - Example projects: [`demo/saas-api.md`](demo/saas-api.md) · [`demo/smart-contract.md`](demo/smart-contract.md) · [`demo/trading-bot.md`](demo/trading-bot.md)
+- Multi-IDE adaptation guide: [`docs/multi-ide.md`](docs/multi-ide.md)
+- Production smoke test: [`docs/smoke-test.md`](docs/smoke-test.md) — 7-phase runbook to verify everything works on your real project
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md) · [Website](https://greatcto.systems)
 
 ---

@@ -1,12 +1,15 @@
 ---
-description: "Cost & capacity health — run-rate, cost-per-deploy, WoW/MoM delta, headroom vs budget, top movers. Pairs with /digest (delivery+DORA) and /burn (reliability)."
+description: "Cost & capacity health — LLM router savings, run-rate, cost-per-deploy, WoW/MoM delta, headroom vs budget, top movers. Pairs with /digest (delivery+DORA) and /burn (reliability)."
 argument-hint: "[period_days] — default 30. Examples: /cost 7 | /cost 30 | /cost 90"
 user-invocable: true
 allowed-tools: Read, Bash, Glob, Grep
 model: haiku
 ---
 
-You are the Cost & Capacity aggregator. Compute monthly run-rate, cost-per-deploy, WoW/MoM drift, headroom vs configured budget, and top movers from `.great_cto/cost-history.log` cross-referenced with `.great_cto/deploys.log`.
+You are the Cost & Capacity aggregator. Two parts:
+
+1. **LLM router savings** — measured Kimi-vs-Sonnet differential from `.great_cto/llm-router-usage.log`. This is the data behind the README "LLM costs down 60–80%" badge. Suppressed when the log is empty (no fake claim).
+2. **Infra cost** — monthly run-rate, cost-per-deploy, WoW/MoM drift, headroom vs configured budget, and top movers from `.great_cto/cost-history.log` cross-referenced with `.great_cto/deploys.log`.
 
 Cost is the third axis of engineering health after reliability (`/burn`) and delivery (DORA metrics in `/digest`). A team shipping fast with zero incidents is still failing if its cloud bill doubles every quarter without a matching revenue curve. This command makes that curve visible.
 
@@ -34,6 +37,78 @@ MONTHLY_BUDGET=$(grep "^monthly-budget:" .great_cto/PROJECT.md 2>/dev/null | awk
 ALERT_THRESHOLD=$(grep "^budget-alert-threshold:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '%')
 ALERT_THRESHOLD=${ALERT_THRESHOLD:-80}
 ```
+
+## LLM router savings (lead the report with this)
+
+Surface measured cost reduction from `.great_cto/llm-router-usage.log` first, before infra cost. The README badge claims "60–80% LLM cost down" — this section is the data backing it. If the log is empty, the section is suppressed (no false claim).
+
+```bash
+ROUTER_LOG=.great_cto/llm-router-usage.log
+if [ -f "$ROUTER_LOG" ]; then
+  python3 - "$ROUTER_LOG" "$PERIOD" <<'PY'
+import sys, json, datetime, pathlib
+log_path, period = sys.argv[1], int(sys.argv[2])
+window_start = datetime.datetime.now(datetime.timezone.utc).timestamp() - period * 86400
+
+# Pricing (USD per 1M tokens) — keep in sync with skills/great_cto/references/llm-router.md
+PRICING = {
+    # Routine triage path (Kimi K2 via OpenRouter)
+    "kimi":   {"in": 0.60e-6, "out": 2.50e-6},
+    # Native Claude path (Sonnet) — what the same call would have cost without the router
+    "sonnet": {"in": 3.00e-6, "out": 15.00e-6},
+}
+
+calls = 0
+in_tok = out_tok = 0
+for line in pathlib.Path(log_path).read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if not line or line.startswith("#"):
+        continue
+    try:
+        rec = json.loads(line)
+    except Exception:
+        continue
+    ts = rec.get("ts") or rec.get("timestamp")
+    if ts:
+        try:
+            t = datetime.datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+            if t < window_start:
+                continue
+        except Exception:
+            pass
+    calls += 1
+    in_tok += rec.get("prompt_tokens") or 0
+    out_tok += rec.get("completion_tokens") or 0
+
+if calls == 0:
+    print("─── LLM ROUTER SAVINGS ─────────────────────────")
+    print("  No router calls in the last", period, "days. Routine triage stays on native Claude.")
+    print("  Set OPENROUTER_API_KEY to enable the Kimi fallback (see skills/great_cto/references/llm-router.md).")
+    raise SystemExit
+
+kimi_cost   = in_tok * PRICING["kimi"]["in"]   + out_tok * PRICING["kimi"]["out"]
+sonnet_cost = in_tok * PRICING["sonnet"]["in"] + out_tok * PRICING["sonnet"]["out"]
+saved = sonnet_cost - kimi_cost
+pct = (saved / sonnet_cost * 100.0) if sonnet_cost > 0 else 0.0
+
+print("─── LLM ROUTER SAVINGS ─────────────────────────")
+print(f"  Window:     last {period} days")
+print(f"  Calls:      {calls:,}        Tokens: {in_tok+out_tok:,} ({in_tok:,} in + {out_tok:,} out)")
+print(f"  Kimi spend: ${kimi_cost:>9.4f}")
+print(f"  Sonnet eq:  ${sonnet_cost:>9.4f}")
+print(f"  Saved:      ${saved:>9.4f}    ({pct:.1f}% reduction)")
+print()
+if pct >= 60:
+    print(f"  ✓ Backs the README claim 'LLM costs down 60–80%' ({pct:.0f}% measured here).")
+elif pct >= 40:
+    print(f"  ⚠ Below the 60% claim — mostly running on Sonnet path. Audit ask_kimi triggers in agent prompts.")
+else:
+    print(f"  ✗ Router under-utilised — most calls still on Sonnet. Check llm-router.md routing rules.")
+PY
+fi
+```
+
+---
 
 ## Compute cost metrics
 
