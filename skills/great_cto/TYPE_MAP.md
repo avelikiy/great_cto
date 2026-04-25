@@ -30,6 +30,8 @@
 | ETL, Airflow, Spark, data ingestion, pipeline | `data-pipeline` |
 | dashboard, D3, Plotly, charts, data visualization | `data-visualization` |
 | AI agent, LangChain, autonomous agent, multi-agent | `ai-agent` |
+| user-facing agent, Claude Agent SDK, agent product, personal assistant AI, AI copilot, AI assistant app, agent app, agentic product | `agent-product` |
+| LangGraph agent, CrewAI, AutoGen agent, multi-agent product, agent-as-a-service | `agent-product` |
 | RAG, retrieval, vector DB, embeddings, semantic search | `rag-system` |
 | Terraform, Pulumi, IaC, cloud infra, infrastructure as code | `infra-iac` |
 | GitHub Actions, CI/CD tool, workflow automation, DevOps tool | `devops-tool` |
@@ -114,6 +116,7 @@
 | `chrome-extension-mv3` | `mobile-app` | compliance: [csp, mv3-security] |  |
 | `vscode-extension` | `mobile-app` |  |  |
 | `ai-agent` | `ai-system` | compliance: [eu-ai-act] |   |
+| `agent-product` | `agent-product` | compliance: [owasp-llm, eu-ai-act], packs: [agent-pack] |  |
 | `ai-agent-framework` | `ai-system` | compliance: [eu-ai-act] |  |
 | `rag-system` | `ai-system` | compliance: [eu-ai-act], qa-extras: [retrieval-quality] |  |
 | `mcp-server` | `ai-system` | qa-extras: [tool-injection, schema-enforcement] |   |

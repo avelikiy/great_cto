@@ -26,7 +26,8 @@ Signals emitted by `senior-dev` (new deps, auth-path changes, PII columns, IAM d
 |-----------|-------------|--------------|-------------------|
 | `web-service` | Backend APIs, web apps, full-stack | **baseline** (→ standard on auth/crypto signals) | OWASP Top 10, GDPR if EU users |
 | `mobile-app` | Mobile, desktop, Electron apps | **baseline** (→ standard on payment/biometric signals) | OWASP MASVS, platform privacy |
-| `ai-system` | AI/ML agents, RAG, LLM apps, voice, multimodal | **standard** (→ deep on MCP/tool-use) | EU AI Act check, model card |
+| `ai-system` | Internal AI/ML: RAG, LLM ops, evals, voice, multimodal — not user-facing agents | **standard** (→ deep on MCP/tool-use) | EU AI Act check, model card |
+| `agent-product` | User-facing autonomous agents built on Claude Agent SDK / LangGraph / CrewAI. Agent executes tools on behalf of end-users. | **deep** (always — user input controls tool execution) | OWASP LLM Top 10, EU AI Act, GDPR if storing memory |
 | `data-platform` | Pipelines, warehouses, feature stores, analytics | **baseline** (→ standard on PII) | PII classification, data lineage |
 | `infra` | IaC, K8s, platform engineering, DevOps tools | **standard** | CIS Benchmarks |
 | `library` | SDKs, CLIs, compilers, extensions, plugins | **baseline** (never off — supply-chain floor) | OpenSSF Scorecard, SBOM |
@@ -44,6 +45,7 @@ Signals emitted by `senior-dev` (new deps, auth-path changes, PII columns, IAM d
 | `web-service` | Unit + integration + E2E (Playwright) + OWASP scan | Load test (k6), contract test (Pact) | p95 < 200ms, coverage ≥ 80%, 0 OWASP critical |
 | `mobile-app` | Unit + UI test + device matrix | Accessibility audit, perf profiling | Launch < 2s, crash rate < 0.1%, coverage ≥ 75% |
 | `ai-system` | Eval suite (accuracy/F1/BLEU per task) + prompt regression + cost cap test | Bias/fairness audit, hallucination rate test | Accuracy ≥ baseline, cost ≤ 2× baseline, hallucination ≤ 2% |
+| `agent-product` | Agent evals (task completion rate, tool accuracy) + prompt injection test suite + cost regression | Cross-user isolation test, loop bound verification, output filter test | Task completion ≥ 80%, 0 prompt injection bypasses, cost ≤ budget cap, 0 cross-user leaks |
 | `data-platform` | Data contract validation + schema test + lineage audit | Freshness SLA, PII scan | 0 schema violations, lineage 100% traced, freshness ≤ SLA |
 | `infra` | Terratest / `terraform plan` + CIS benchmark scan | DR failover drill, cost delta check | 0 CIS critical, plan matches intent, cost delta < 20% |
 | `library` | Unit + cross-version compat matrix + semver check | Benchmark regression, bundle size | 0 breaking changes (unless major), coverage ≥ 90% |
@@ -59,6 +61,7 @@ Signals emitted by `senior-dev` (new deps, auth-path changes, PII columns, IAM d
 | `web-service` | Canary (1%→5%→25%→100%) or blue-green | Previous container tag / git revert |
 | `mobile-app` | Staged rollout (1%→10%→50%→100%) per app store | Rollback store version / feature flag disable |
 | `ai-system` | Shadow mode → A/B test → full traffic | Previous model version / prompt rollback |
+| `agent-product` | Feature flag off → 1% canary (monitor cost + errors) → 10% → 100%. Async agents via queue. | Disable feature flag / drain queue / roll back agent version |
 | `data-platform` | Backfill → validate → promote | Restore previous pipeline version, re-run |
 | `infra` | `terraform apply` / `helm upgrade` with plan review | `terraform apply` previous state / `helm rollback` |
 | `library` | Publish to registry (staging tag → release tag) | Yank + publish previous version |
