@@ -3,12 +3,13 @@
 </p>
 
 <p align="center">
-  <b>The engineering process for solo founders and teams up to 50 engineers — without the overhead.</b>
+  <b>The Claude Code plugin that turns one engineer into a full SDLC team.</b><br/>
+  <i>Architecture · TDD · code review · QA · security · deploy — one pipeline, two decisions per feature.</i>
 </p>
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.118-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.119-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
@@ -16,11 +17,11 @@
 </p>
 
 <p align="center">
-  <b>7 agents</b> · <b>11 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b> · <b>15 commands</b>
+  <b>7 Claude Code subagents</b> · <b>16 commands</b> · <b>11 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b>
 </p>
 
 <p align="center">
-  <code>hooks</code> · <code>skills</code> · <code>MCP</code> · <code>subagents</code> · <code>SDLC pipeline</code> · <code>approval gates</code>
+  <code>multi-agent orchestration</code> · <code>agentic engineering</code> · <code>hooks</code> · <code>skills</code> · <code>MCP</code> · <code>self-improving</code>
 </p>
 
 <p align="center">
@@ -31,7 +32,9 @@
 
 You don't have a CTO. Or you are the CTO — and you're the bottleneck.
 
-Every feature gets stuck behind the same questions: *Is the architecture right? Did we miss a security issue? Will this break in production?* Plug great_cto into Claude Code. Describe what you're building. The pipeline handles architecture, implementation, code review, QA, security, and deployment. **You make two decisions per feature.**
+Every feature gets stuck behind the same questions: *Is the architecture right? Did we miss a security issue? Will this break in production?* Install **great_cto** as a [Claude Code plugin](https://claude.com/plugins). Describe what you're building. **7 specialised subagents** handle architecture, implementation, code review, QA, security, and deployment in one pipeline. **You make two decisions per feature.**
+
+Built for **agentic coding** — multi-agent orchestration with explicit gates, MCP integrations, and a self-improving knowledge layer that learns from every incident.
 
 ```
 You:  /start "add Stripe subscriptions to our SaaS — monthly and annual plans"
@@ -324,7 +327,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.118 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.119 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).

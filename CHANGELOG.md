@@ -4,6 +4,43 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.119 — 2026-04-25
+
+### Changed — discoverability overhaul (P0 from gap analysis)
+
+After auditing top-30 Claude Code plugin/agent repos (April 2026), our four discoverability
+surfaces — GitHub topics, npm keywords, plugin.json keywords, site meta — were inconsistent
+or missing critical terms. Direct competitors (`wshobson/agents`, `ruvnet/ruflo`,
+`Yeachan-Heo/oh-my-claudecode`) have 30k+ stars; we had 4. Biggest single gap: **0 GitHub topics
+set on the repo** — searches for `claude-code-plugin`, `multi-agent`, `agentic-coding` did
+not surface us.
+
+- **GitHub topics set (19)**: claude-code, claude-code-plugin, claude-code-subagents,
+  claude-code-commands, claude-code-skills, claude, anthropic, ai-agents, agentic-coding,
+  agentic-engineering, multi-agent, multi-agent-systems, sdlc, orchestration, automation,
+  code-review, devops, mcp, plugin
+- **`plugin.json` keywords**: 5 → 21 (added claude-code, claude-code-plugin,
+  claude-code-subagents, claude-code-commands, claude-code-skills, claude, anthropic, plugin,
+  ai-agents, agentic-coding, agentic-engineering, multi-agent-systems, orchestration, mcp,
+  code-review, devops). Previous keywords were disjoint from npm.
+- **`packages/cli/package.json` keywords**: 28 → 39 (added the same agentic-* and claude-code-*
+  terms; kept compliance + tdd + startup terms).
+- **Site meta tags**: index.html keywords expanded 8 → 26 terms; added keyword meta to
+  commands.html, agents.html, archetypes.html (previously: none).
+- **README intro**: rewritten with "**Claude Code plugin** that turns one engineer into a
+  full SDLC team" + explicit "agentic coding · multi-agent orchestration" phrasing. Tagline
+  band shows "7 Claude Code subagents · 16 commands" (was: "7 agents · 11 archetypes ·
+  12-angle review · 13 compliance frameworks · 15 commands"). Stale "15 commands" fixed to 16.
+
+### Added — submitted to two awesome-lists
+
+- **PR opened**: [ComposioHQ/awesome-claude-skills#734](https://github.com/ComposioHQ/awesome-claude-skills/pull/734)
+  added great_cto under Development & Code Tools.
+- **Pre-filled submission URL** generated for `hesreallyhim/awesome-claude-code` (their
+  policy forbids `gh` CLI submissions; one-click manual submit by maintainer).
+
+---
+
 ## v1.0.118 — 2026-04-25
 
 ### Fixed — discovery Option C path + 24-scenario test coverage
