@@ -4,6 +4,36 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.112 — 2026-04-25
+
+### Added — Grafana-native monitoring in `l3-support`
+
+Upgrades `l3-support` incident detection from grep/tail/Docker logs to Grafana MCP
+(`query_loki`, `search_alerts`, `query_tempo`, `get_panel`, `list_dashboards`) with
+graceful file-based fallback for projects without Grafana configured.
+
+- **`agents/l3-support.md`**: frontmatter `tools:` adds 5 Grafana MCP tool names;
+  new `## Grafana Setup` block detects `grafana-url` / `grafana-api-key-env` from PROJECT.md
+  and sets `$GRAFANA_OK` / `$GCX_OK` flags at startup; Step 2 (Check logs) becomes
+  Grafana-first — `search_alerts` + `query_loki` as Priority 0, full file/Docker/journalctl
+  chain preserved as Priority 1–4 fallback; Step 3 (Quick diagnostics) adds
+  `gcx alerts list --state firing` and `gcx correlate --commit HEAD` when gcx is present;
+  new `## Proactive Alert Polling` section enables pre-P0 alert detection from Grafana before
+  users notice; P0 Response Angle 4 gains Tempo trace lookup via `query_tempo` to pinpoint
+  the slow span in a distributed system failure.
+- **`mcp-servers/grafana.md`** (NEW): setup guide for `grafana/mcp-grafana`, `loki-mcp`,
+  and `gcx` CLI — install commands, Claude Code `settings.json` snippet, required Grafana
+  API key scopes, PROJECT.md fields, tool-to-workflow-step mapping, and verification commands.
+- **`skills/great_cto/references/grafana-ops.md`** (NEW): ops reference — 6 LogQL patterns
+  (error spike, latency, OOM, panic, auth failure, dependency timeout), PromQL SLI queries
+  (availability, p95 latency, error budget burn rate, anomaly band), gcx command reference,
+  proactive alert classification table, and the full alert correlation workflow
+  (firing alert → Loki → Tempo → gcx correlate → root-cause statement).
+- **`commands/start.md`**: `## L3` section in PROJECT.md template now documents 4 optional
+  Grafana fields (`grafana-url`, `grafana-api-key-env`, `loki-datasource`, `tempo-datasource`).
+
+---
+
 ## v1.0.111 — 2026-04-25
 
 ### Added — `agent-product` archetype
