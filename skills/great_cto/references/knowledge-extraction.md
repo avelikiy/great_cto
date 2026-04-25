@@ -108,13 +108,20 @@ learning:
     - <technology-2>
 
 # === ROUTING ===
-target_agent: <agent-name>
-target_section: "<section in agent .md file to update>"
+# Either target_agent (workflow change in one agent) OR target_skill (shared reference doc).
+# Use target_skill when the knowledge applies across multiple agents (e.g. a new LogQL pattern,
+# a new postmortem rule, a new threat-model technique). Use target_agent when the change only
+# matters for one agent's workflow (e.g. l3-support's Step 2 priority order).
+target_agent: <agent-name>             # OR
+target_skill: <skill-file-relative-path>  # e.g. "skills/great_cto/references/grafana-ops.md"
+target_section: "<section in target file to update>"
 proposed_change: >
-  One paragraph: concrete change to agent workflow.
-  Example: "Add Playwright browser console check as Priority 0
+  One paragraph: concrete change to agent workflow OR concrete addition to the skill doc.
+  Example (agent): "Add Playwright browser console check as Priority 0
   in Step 2 (Check logs) for any tool that has a browser-rendered UI,
   before running API-level diagnostics."
+  Example (skill): "Add LogQL pattern P-007 to grafana-ops.md → ## LogQL patterns:
+  '{service=$svc} |~ \"jsonData.*null\" | line_format ...'"
 mttr_reduction_estimate: "<before> → <after> (<percent>%)"
 confidence: high | medium | low
 ```
