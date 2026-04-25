@@ -3,17 +3,18 @@
 </p>
 
 <p align="center">
-  <b>The Claude Code plugin that turns one engineer into a full SDLC team.</b><br/>
-  <i>Architecture · TDD · code review · QA · security · deploy — one pipeline, two decisions per feature.</i>
+  <b>Ship features in 45 minutes, not 5 hours.</b><br/>
+  <i>The Claude Code plugin that turns one engineer into a full SDLC team — architecture, TDD, 12-angle code review, QA, security, deploy. <b>Two decisions per feature.</b></i>
 </p>
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.119-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.120-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
-  <a href="https://github.com/avelikiy/great_cto/discussions"><img src="https://img.shields.io/github/discussions/avelikiy/great_cto?color=3fb950" alt="Discussions" /></a>
+  <img src="https://img.shields.io/badge/LLM_costs-down_60--80%25-success" alt="LLM cost savings" />
+  <img src="https://img.shields.io/badge/MTTR-down_94%25_after_first_incident-blue" alt="MTTR" />
 </p>
 
 <p align="center">
@@ -21,7 +22,7 @@
 </p>
 
 <p align="center">
-  <code>multi-agent orchestration</code> · <code>agentic engineering</code> · <code>hooks</code> · <code>skills</code> · <code>MCP</code> · <code>self-improving</code>
+  <code>multi-agent orchestration</code> · <code>agentic engineering</code> · <code>cross-project memory</code> · <code>MCP-native</code> · <code>self-improving</code>
 </p>
 
 <p align="center">
@@ -181,15 +182,83 @@ Regulated archetypes (`ai-system`, `commerce`, `web3`, `iot-embedded`, `regulate
 
 ---
 
-## The brain — agents get smarter over time
+## Memory — agents get smarter every session
 
-Every project builds `.great_cto/brain.md` — compiled knowledge of your architectural patterns, what has failed before, your team's recurring issues. `/digest` runs a weekly Dream Cycle that synthesizes signals; `SessionStart` injects the result into every agent.
+great_cto ships a **four-layer memory system**. Different from generic memory plugins (which dump every prompt to a vector store): we synthesize, not record. Total local memory: ~10–50 KB per project, indexed at session start.
 
-Six months in, the tech-lead stops re-inventing decisions that were already made.
+| Layer | File | What it remembers | Synthesis trigger |
+|-------|------|-------------------|-------------------|
+| **L1 — Project context** | `.great_cto/PROJECT.md` | Archetype, size, compliance, team, owners | `/start` → discovery skill |
+| **L2 — Codebase map** | `.great_cto/CODEBASE.md` | God nodes, entry points, public API, routes | `/audit` (zero-dep bash, ~30× token reduction vs reading whole repo) |
+| **L3 — Project brain** | `.great_cto/brain.md` | Architecture patterns in use, what has failed, team patterns | `/digest` weekly Dream Cycle + every postmortem |
+| **L4 — Cross-project patterns** | `~/.great_cto/global-patterns/GP-*.md` | Detection orders that beat 4-hour investigations | `/crystallize` after P0 or iterations > 3 |
 
-**Cross-project learning via `/crystallize`**: after every P0 incident or multi-iteration investigation, agents write a structured knowledge extraction (KE file). `/crystallize` reviews the file, generates a concrete workflow improvement, and applies it to the right agent after your approval. The pattern is then injected at the start of every future session — across all projects. A root cause that took 4 hours to find the first time takes 30 seconds the next time.
+**Cross-project learning via `/crystallize`**: after a P0 incident, agents write a structured knowledge extraction (KE) file. `/crystallize` promotes it to a global pattern after your approval. The pattern is then surfaced in **every agent's Step 0** at every future session, across all projects. A root cause that took 4 hours the first time takes 30 seconds the next time. **Verified: 94% MTTR reduction on second occurrence.**
 
-Existing repos also get a zero-dependency codebase map (`.great_cto/CODEBASE.md`): god nodes, entry points, public API surface, routes. Generated with pure bash. **~30× token reduction** for codebase orientation.
+Six months in, the tech-lead stops re-inventing decisions already made. The L3 engineer skips 7 false-lead iterations and goes straight to the root cause.
+
+```
+.great_cto/                    ~/.great_cto/
+├── PROJECT.md       (L1)      ├── global-patterns/    (L4)
+├── CODEBASE.md      (L2)      │   ├── GP-0001-…
+├── brain.md         (L3)      │   ├── GP-0002-…
+├── HANDOFF.md       (L3.5)    │   └── INDEX.md
+└── lessons.md       (L3)      └── extractions/        (raw KE)
+```
+
+`HANDOFF.md` is auto-written on every context compaction → next session resumes the pipeline from exact state.
+
+---
+
+## MCP integrations
+
+Native support for [Model Context Protocol](https://modelcontextprotocol.io/) servers. Optional — pipeline runs without them.
+
+| MCP | Used by | What it enables |
+|-----|---------|-----------------|
+| **Grafana** ([setup](mcp-servers/grafana.md)) | `l3-support` | `query_loki`, `search_alerts`, `query_tempo`, `get_panel`. Replaces `tail -1000 app.log \| grep error` with structured LogQL. Pre-P0 alert detection. |
+| **LLM router** (built-in) | `l3-support`, `qa-engineer` | Routes routine triage to Kimi K2 (Sonnet-equivalent at ~5× lower cost). **60–80% LLM cost reduction** on log clustering and noisy stack traces. P0 incidents stay on native Claude. |
+| **Beads** | all agents | Git-native task tracker. Survives session restarts with dependencies + blockers. |
+| **Your own** | any agent | Add to `.claude-plugin/plugin.json` → `mcpServers`. Agents can use them via the standard Anthropic MCP API. |
+
+```json
+"mcpServers": {
+  "grafana": {
+    "command": "npx",
+    "args": ["-y", "@grafana/mcp-grafana"],
+    "env": { "GRAFANA_URL": "${GRAFANA_URL}", "GRAFANA_API_KEY": "${GRAFANA_API_KEY}" }
+  }
+}
+```
+
+---
+
+### Extending the agent roster
+
+The 7 SDLC agents are the backbone. For specialist work (mobile reviewers, ML engineers, language-specific linters, etc.) install [template-bridge](https://github.com/davila7/claude-code-templates) — **419 specialist agents + 336 commands** across 50+ categories that great_cto agents can call as sub-agents.
+
+```bash
+# In Claude Code:
+/template search react-performance       # find relevant agents
+/template install react-performance      # one-line install
+```
+
+Specialist agents are then callable via the `Agent` tool from `tech-lead` or `senior-dev`.
+
+---
+
+## Multi-IDE compatibility
+
+Agents and skills are plain Markdown — they work anywhere a coding agent reads `.claude/agents/`.
+
+| Tool | Agents (`.claude/agents/`) | Slash commands | SessionStart hooks |
+|------|----------------------------|----------------|-------------------|
+| **Claude Code** | ✅ native | ✅ native | ✅ native |
+| **Cursor** | ✅ via `.claude/agents/` reader | ⚠️ partial (custom rules) | ❌ |
+| **Codex CLI** | ✅ via `AGENTS.md` mapping | ⚠️ via prompts | ❌ |
+| **Gemini CLI / Antigravity** | ✅ via skills format | ⚠️ via prompts | ❌ |
+
+For full functionality (hooks + commands) → Claude Code. For agent prompts only → any of the above.
 
 ---
 
@@ -327,7 +396,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.119 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.120 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
