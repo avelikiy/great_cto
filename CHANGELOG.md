@@ -4,6 +4,34 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.114 — 2026-04-25
+
+### Added — Step 0 Pattern Lookup in all 6 remaining agents
+
+Completes the self-improving loop: every agent now opens a session by surfacing known patterns
+from `~/.great_cto/global-patterns/` before starting its standard workflow.
+
+- **`agents/tech-lead.md`**: Step 0 before ARCH design — surfaces `arch-rework` patterns as
+  architecture constraints so past decisions aren't repeated. Architecture decisions blocked by
+  a pattern are documented in the new ARCH doc.
+- **`agents/senior-dev.md`**: Step 0 before implementation — surfaces known stack pitfalls with
+  `fix` field so the developer applies proven fixes immediately. KE trigger added: if advisor
+  called AND root cause absent from ARCH doc, write KE before DONE.
+- **`agents/qa-engineer.md`**: Step 0 before test plan — surfaces `why_standard_checks_missed_it`
+  per matched pattern so those exact failure modes become Priority 0 test cases. KE trigger:
+  escaped bug or advisor called more than once.
+- **`agents/security-officer.md`**: Step 0 before security checklist — surfaces `security-gap`
+  patterns with their verification first-step. KE trigger: new vulnerability class not in
+  existing checklist.
+- **`agents/devops.md`**: Step 0 before deploy sequence — surfaces deployment failure patterns
+  so pre-deploy verification of known failure modes runs before gate:ship check.
+- **`agents/project-auditor.md`**: Step 0 before Phase 1 stack fingerprinting — surfaces
+  `audit-recurrence` patterns (same debt found in two consecutive audits) and flags them as
+  RECURRING in the report, requiring structural remediation not just a finding. KE trigger:
+  same debt category appears in this and prior audit.
+
+---
+
 ## v1.0.113 — 2026-04-25
 
 ### Added — Self-improving agent system (`/crystallize` + Knowledge Extraction)
