@@ -4,6 +4,41 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.117 — 2026-04-25
+
+### Added — Discovery skill (no new agent — reusable across `/start`, `/audit`, `/poc`)
+
+Sparse input is the most common failure mode at project start: a one-sentence description
+forces agents to guess archetype, size, compliance. The fix is structured discovery — an
+8-question domain framework that maps answers to PROJECT.md fields and proposes 2–3 concrete
+approaches (Option A/B/C) with explicit tradeoffs.
+
+Implemented as a **skill, not an agent.** Sub-agents are bad at multi-turn user dialog;
+slash commands in the main session are not. Skills make the framework reusable across
+three entry points without forking logic.
+
+- **`skills/great_cto/references/discovery.md`** (NEW): 8-question framework in 4 blocks
+  (audience+pain, system shape, constraints, capacity+scope), mapping rules from answer
+  patterns to archetype / project_size / compliance / poc-mode, synthesis rule that always
+  proposes 2–3 options with Option C explicitly considering "don't build it / use existing tool",
+  and stop conditions (don't drag past 5 questions when archetype is already clear).
+- **`commands/start.md`**: new **Phase 0: Discovery** block runs before Step 1 type detection.
+  Triggers when description is short, vague, or has conflicting archetype signals. Replaces
+  the old narrow "ask one question and guess" path. Open-ended ideation falls back to
+  `superpowers:brainstorming` (different tool: brainstorming finds scope, discovery narrows it).
+- **`commands/audit.md`**: when README + git history don't reveal audience or compliance,
+  agent invokes the discovery skill for the 2–3 questions the codebase couldn't answer.
+  Audit gives stack; discovery fills audience + compliance. No re-asking obvious facts.
+- **`commands/poc.md`**: when the hypothesis is shorter than 8 words and not falsifiable,
+  Step 2 first runs discovery Block 1 (audience+pain) + Q8 (scope cut) before requiring a
+  falsifiable claim. Prevents POCs from drifting into research projects.
+
+PROJECT.md gains two new optional fields: `discovery: completed | defaulted` and
+`discovery-summary` (verbatim audience / pain / scope-cut + chosen approach), read by
+`tech-lead` at ARCH time so user intent isn't lost when only field values are kept.
+
+---
+
 ## v1.0.116 — 2026-04-25
 
 ### Added — `/crystallize` can now improve **skills**, not just agents
