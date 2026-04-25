@@ -181,9 +181,82 @@ else: print('change_failure_rate=N/A (no deploys logged)')
 " 2>/dev/null || echo "change_failure_rate=N/A"
 ```
 
+**Rework Rate (5th DORA metric) — unplanned fixes as % of deploys:**
+```bash
+# Count Beads tasks labelled hotfix / rework / unplanned in the DAYS window
+CUTOFF=$(python3 -c "from datetime import date, timedelta; print((date.today() - timedelta(days=${DAYS:-7})).isoformat())" 2>/dev/null || date -v-${DAYS:-7}d +%Y-%m-%d 2>/dev/null || echo "")
+REWORK_TASKS=$(bd list --label hotfix --status closed 2>/dev/null | awk -v cut="$CUTOFF" '$0 ~ cut || $0 > cut' | wc -l | tr -d ' ')
+REWORK_TASKS=$(( REWORK_TASKS + $(bd list --label rework --status closed 2>/dev/null | awk -v cut="$CUTOFF" '$0 ~ cut || $0 > cut' | wc -l | tr -d ' ') ))
+REWORK_TASKS=$(( REWORK_TASKS + $(bd list --label unplanned --status closed 2>/dev/null | awk -v cut="$CUTOFF" '$0 ~ cut || $0 > cut' | wc -l | tr -d ' ') ))
+DEPLOY_COUNT_FOR_RW=${DEPLOY_COUNT:-0}
+python3 -c "
+r, d = ${REWORK_TASKS:-0}, ${DEPLOY_COUNT_FOR_RW:-0}
+if d > 0: print(f'rework_rate={r/d*100:.1f}% ({r} unplanned tasks / {d} deploys)')
+else: print(f'rework_rate=N/A ({r} hotfix/rework/unplanned tasks, no deploy count)')
+" 2>/dev/null || echo "rework_rate=N/A"
+```
+
+**DORA delta — compare vs previous period (stored in .great_cto/dora-baseline.log):**
+```bash
+# Load previous DORA snapshot for delta arrows
+DORA_LOG=".great_cto/dora-baseline.log"
+PREV_DEPLOY=$(awk '/^deploy_freq:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
+PREV_LEAD=$(awk '/^lead_time_h:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
+PREV_MTTR=$(awk '/^mttr_h:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
+PREV_CFR=$(awk '/^cfr_pct:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
+PREV_REWORK=$(awk '/^rework_pct:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
+
+# Shell helper: emit arrow (↑ bad / ↓ good / — same) for a metric
+# Usage: dora_delta <current_float> <prev_float> <higher_is_worse: 1|0>
+dora_delta() {
+  python3 -c "
+c, p, bad_up = '${1}', '${2}', '${3}'
+try:
+  cv, pv = float(c), float(p)
+  diff = cv - pv
+  if abs(diff) < 0.01: sym = '—'
+  elif (diff > 0) == (bad_up == '1'): sym = f'↑{abs(diff):.1f} worse'
+  else: sym = f'↓{abs(diff):.1f} better'
+  print(sym)
+except: print('')
+" 2>/dev/null
+}
+```
+
 **Retro patterns:**
 ```bash
 ls .great_cto/retrospectives/*.md 2>/dev/null | sort | tail -2 | xargs grep -h "What slowed down:\|Notes:" 2>/dev/null | sort | uniq -c | sort -rn | head -3
+```
+
+**SPACE capsule — 3 lightweight developer-experience signals:**
+```bash
+# 1. On-call burden: postmortems per active engineer in period
+ACTIVE_AUTHORS=$(git log --since="${DAYS:-7} days ago" --format='%ae' 2>/dev/null | sort -u | wc -l | tr -d ' ')
+PM_PERIOD=$(ls docs/postmortems/PM-*.md 2>/dev/null | xargs grep -l "$(date -v-${DAYS:-7}d +%Y-%m 2>/dev/null || date --date="${DAYS:-7} days ago" +%Y-%m 2>/dev/null)" 2>/dev/null | wc -l | tr -d ' ')
+[ "${ACTIVE_AUTHORS:-0}" -gt 0 ] && echo "oncall_burden=$(python3 -c "print(f'{${PM_PERIOD:-0}/${ACTIVE_AUTHORS}:.2f} incidents/engineer')" 2>/dev/null)" || echo "oncall_burden=N/A"
+
+# 2. CI predictability: failed deploys % from deploys.log (if status field present)
+if [ -f .great_cto/deploys.log ]; then
+  CI_TOTAL=$(grep -cv "^[[:space:]]*#" .great_cto/deploys.log 2>/dev/null || echo 0)
+  CI_FAIL=$(grep -c "status:fail\|status:rollback" .great_cto/deploys.log 2>/dev/null || echo 0)
+  python3 -c "
+t, f = ${CI_TOTAL:-0}, ${CI_FAIL:-0}
+if t > 0: print(f'ci_predictability={100-f/t*100:.0f}% success ({f} failures / {t} total)')
+else: print('ci_predictability=N/A')
+" 2>/dev/null
+else
+  echo "ci_predictability=N/A (no deploys.log)"
+fi
+
+# 3. Review pressure: P1+P2 count from most recent /review report
+LATEST_REVIEW=$(ls docs/reviews/REVIEW-*.md 2>/dev/null | sort | tail -1)
+if [ -n "$LATEST_REVIEW" ]; then
+  P1R=$(grep -c "^\*\*P1\|^- P1\b" "$LATEST_REVIEW" 2>/dev/null || echo 0)
+  P2R=$(grep -c "^\*\*P2\|^- P2\b" "$LATEST_REVIEW" 2>/dev/null || echo 0)
+  echo "review_pressure=P1:${P1R} P2:${P2R} ($(basename $LATEST_REVIEW))"
+else
+  echo "review_pressure=N/A (no /review reports)"
+fi
 ```
 
 **Team signals (only if files exist):**
@@ -204,6 +277,7 @@ echo "rfc_open=$RFC_OPEN rfc_overdue=$RFC_OVERDUE"
 
 ```
 /digest — last [N] days ([from date] → [to date])
+⚑ These numbers describe this service only. Context determines what "good" looks like — do not rank or compare across services without accounting for team size, compliance requirements, and review overhead.
 
 VELOCITY
   Commits: [N] | Authors: [list by count]
@@ -224,12 +298,19 @@ AGENT VERDICTS (cumulative)
   devops:           pass=[N] fail=[M] | last: <date> DEPLOYED/ROLLED_BACK
   [Note: "No verdicts yet" if log is empty for any agent]
 
-DORA METRICS (last [N] days)
-  Deployment Frequency: [N deploys] ([elite: daily+ | high: weekly | medium: monthly | low: <monthly])
-  Lead Time for Changes: [Xh] ([elite: <1h | high: <1d | medium: <1wk | low: <1mo])
-  MTTR: [Xmin avg] ([elite: <1h | high: <1d | medium: <1wk | low: >1wk])
-  Change Failure Rate: [X%] ([elite: <5% | high: <10% | medium: <15% | low: >15%])
+DORA METRICS (last [N] days)  [delta vs previous period in brackets]
+  Deployment Frequency: [N deploys]  [↑N better | ↓N worse | — same]  ([elite: daily+ | high: weekly | medium: monthly | low: <monthly])
+  Lead Time for Changes: [Xh]        [delta]                           ([elite: <1h | high: <1d | medium: <1wk | low: <1mo])
+  MTTR:                  [Xmin avg]  [delta]                           ([elite: <1h | high: <1d | medium: <1wk | low: >1wk])
+  Change Failure Rate:   [X%]        [delta]                           ([elite: <5% | high: <10% | medium: <15% | low: >15%])
+  Rework Rate:           [X%]        [delta]                           ([elite: <5% | high: <10% | medium: <15% | low: >15%]) ← hotfix/rework tasks/deploys
   [⚠ if any metric is "medium" or "low": flag the weakest]
+  [— if no previous period baseline: show "first run, delta unavailable"]
+
+SPACE SIGNALS (developer experience)
+  On-call burden:     [X incidents/engineer this period | N/A]
+  CI predictability:  [X% success rate | N/A]
+  Review pressure:    [P1:N P2:M from last /review | N/A]
 
 TECH DEBT
   P2 bugs open: [N] | Last audit: [date or "never"]
@@ -258,6 +339,9 @@ RECOMMENDATION
    — "DORA: Lead Time >1 week (medium) — check for manual approval bottlenecks in pipeline"
    — "DORA: Change Failure Rate 18% (low) — add /review gate before every merge to main"
    — "DORA: MTTR avg 4h (medium) — l3-support runbooks may be missing for key failure modes"
+   — "DORA: Rework Rate 22% (low) — N hotfix tasks this period; investigate recurring failure causes before next sprint"
+   — "SPACE: CI predictability 61% — every 2nd deploy fails; fix flaky tests or env drift before velocity matters"
+   — "SPACE: Review pressure high (P1:3 P2:8 last cycle) — consider mandatory /review gate on auth and payment paths"
    — "RFC-NNN overdue N days — unreviewed cross-team decision is blocking alignment"
    — "N ownership gaps found — run /ownership verify before next feature to avoid ambiguity"
    — "On-call not configured — run /oncall schedule before next deploy"]
@@ -303,6 +387,24 @@ echo "CACHED: digest-${DAYS}d.txt (valid for 1h)"
 ```
 
 Cache invalidates automatically on age. Force refresh by deleting: `rm .great_cto/cache/digest-*.txt`.
+
+**Save DORA snapshot for next-run delta comparison:**
+```bash
+# Persist current DORA values for delta arrows on next /digest run.
+# Format: <key>: <value>  (one per line, appended; last entry wins per key)
+DORA_LOG=".great_cto/dora-baseline.log"
+TODAY=$(date +%Y-%m-%d)
+{
+  echo "# /digest snapshot ${TODAY} (days=${DAYS:-7})"
+  echo "deploy_freq: ${DEPLOY_COUNT:-N/A}"
+  echo "lead_time_h: ${LEAD_TIME_H:-N/A}"
+  echo "mttr_h: ${MTTR_H:-N/A}"
+  echo "cfr_pct: ${CFR_PCT:-N/A}"
+  echo "rework_pct: ${REWORK_PCT:-N/A}"
+} >> "$DORA_LOG"
+# Keep only last 10 snapshots (60 lines) to avoid unbounded growth
+tail -60 "$DORA_LOG" > "$DORA_LOG.tmp" && mv "$DORA_LOG.tmp" "$DORA_LOG"
+```
 
 ---
 
@@ -591,6 +693,41 @@ Update "Current Synthesis" sections when signals cross thresholds:
 ```
 
 Silent on success. Log: `printf '%s dream-cycle brain.md updated\n' "$TODAY" >> .great_cto/agent-writes.log`
+
+**brain.md size guard — cap at 4000 chars (Hermes-pattern: keep memory dense, not sprawling):**
+```bash
+BRAIN_SIZE=$(wc -c < "$BRAIN" 2>/dev/null || echo 0)
+BRAIN_CAP=4000
+if [ "$BRAIN_SIZE" -gt "$BRAIN_CAP" ]; then
+  # Preserve the "Current Synthesis" block (first half) verbatim.
+  # Trim oldest Evidence Timeline entries from the end until under cap.
+  python3 - "$BRAIN" "$BRAIN_CAP" <<'PY'
+import sys, pathlib
+path, cap = pathlib.Path(sys.argv[1]), int(sys.argv[2])
+text = path.read_text()
+# Split at Evidence Timeline boundary
+marker = '\n## Evidence Timeline'
+if marker in text:
+    head, tail = text.split(marker, 1)
+    # Split tail into individual entries (### YYYY-MM-DD blocks)
+    import re
+    entries = re.split(r'(?=\n### \d{4}-)', tail)
+    header_entry = entries[0]
+    timeline_entries = entries[1:]  # most recent last
+    # Trim oldest (front of list) until total fits
+    while len((head + marker + header_entry + ''.join(timeline_entries)).encode()) > cap and timeline_entries:
+        timeline_entries.pop(0)
+    path.write_text(head + marker + header_entry + ''.join(timeline_entries))
+    trimmed = path.stat().st_size
+    print(f'brain.md trimmed: was {len(text)} chars → {trimmed} chars (cap={cap})')
+else:
+    # No timeline section — hard-truncate at cap
+    path.write_text(text[:cap] + '\n<!-- brain.md truncated at cap -->\n')
+    print(f'brain.md hard-truncated to {cap} chars')
+PY
+  printf '%s dream-cycle brain.md trimmed to cap=%d\n' "$TODAY" "$BRAIN_CAP" >> .great_cto/agent-writes.log
+fi
+```
 
 ## Board Report Mode
 

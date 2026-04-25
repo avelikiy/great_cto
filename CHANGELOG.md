@@ -4,6 +4,32 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.109 — 2026-04-25
+
+### Improved — DORA depth sprint (`/digest`)
+
+Inspired by Habr "DORA-метрики: как собирать, интерпретировать и не переусердствовать, ч.2"
+and AI-Zoo 2026 (Hermes memory-cap pattern):
+
+- **Rework Rate (5th DORA metric)**: counts Beads tasks labelled `hotfix`, `rework`, or
+  `unplanned` in the digest window, expressed as % of deploys. Appears alongside
+  Change Failure Rate in the DORA block.
+- **Delta arrows**: each DORA metric now shows `↑N worse` / `↓N better` / `— same`
+  vs the previous `/digest` run. Values persisted to `.great_cto/dora-baseline.log`
+  (already gitignored) after every run; last 10 snapshots kept.
+- **Context disclaimer**: one-line warning at the top of every digest output —
+  "These numbers describe this service only. Context determines what 'good' looks like."
+  Prevents the common anti-pattern of ranking teams by raw DORA numbers.
+- **SPACE capsule**: three lightweight developer-experience signals added after the
+  DORA block: on-call burden (incidents/engineer), CI predictability (success%),
+  and review pressure (P1/P2 count from last `/review`).
+- **brain.md size guard**: Dream Cycle now enforces a 4000-char cap on `.great_cto/brain.md`.
+  When exceeded, oldest Evidence Timeline entries are trimmed first; Current Synthesis
+  (the useful half) is always preserved. Mirrors the Hermes MEMORY.md pattern.
+- **RECOMMENDATION examples**: added Rework Rate and SPACE-signal example recommendations.
+
+---
+
 ## v1.0.108 — 2026-04-24
 
 ### Added — browseable web UI
