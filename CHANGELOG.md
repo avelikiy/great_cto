@@ -4,6 +4,25 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.121 — 2026-04-25
+
+### Fixed — first-run experience: PROJECT.md template tells users about Phase 0 discovery
+
+After v1.0.117 introduced the discovery skill, fresh installs from `npx great-cto init`
+still produced a PROJECT.md whose Notes section only mentioned `/audit`. Users who
+ran the installer never learned that `/start` will walk them through structured
+discovery if their input is sparse. Result: they'd accept the guessed archetype
+silently and miss the value.
+
+- **`packages/cli/src/bootstrap.ts`**: Notes section in generated PROJECT.md now
+  explicitly says "the archetype and compliance above are best-effort guesses",
+  documents three refinement paths (`/audit`, `/start "<description>"` with Phase 0
+  pointer, or direct edit). Compiled to dist/bootstrap.js.
+- Cleanup-only: removed v-prefixed plugin cache duplicates from manual rsyncs;
+  installer convention is bare version (`1.0.121`, not `v1.0.121`).
+
+---
+
 ## v1.0.120 — 2026-04-25
 
 ### Changed — outcome-led positioning + memory/MCP/multi-IDE narrative (P1 + P2 from gap analysis)
