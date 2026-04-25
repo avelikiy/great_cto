@@ -364,6 +364,11 @@ Spawn `great_cto-project-auditor` with this context (vary by MODE):
 > 5. **Write .great_cto/PROJECT.md** (overwrite if exists):
 >    Use detected stack, type, and team size (estimate from git log authors).
 >    Set review_mode: auto unless security-critical type (then: strict).
+>    **Audience / compliance gap**: if README + git history don't reveal who uses this
+>    or what compliance constraints apply (PII / payments / regulated data) — invoke the
+>    `skills/great_cto/references/discovery.md` skill before writing PROJECT.md.
+>    Ask only the 2–3 questions that the codebase couldn't answer; don't re-ask things
+>    obvious from package.json or routes. The audit gives you stack; discovery fills audience + compliance.
 > 6. **Report** in this format:
 >    ```
 >    Audit complete — <project name>
