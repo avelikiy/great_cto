@@ -4,6 +4,22 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.115 — 2026-04-25
+
+### Fixed — `/crystallize` wired into SessionStart + documented in README
+
+- **`plugin.json` SessionStart CMD loop**: added `crystallize` to the loop that copies command
+  files to `~/.claude/commands/` on every session start. Previously the command file existed in
+  the repo but was never installed for users — `/crystallize` would fail with "command not found".
+- **`README.md`**:
+  - Added `/crystallize` row to the advanced commands table with a one-line description
+  - Extended "The brain" section with a cross-project learning paragraph explaining the
+    KE → `/crystallize` → GP → Step 0 loop in plain language
+  - Updated "Fully automatic" table: session start now shows global patterns loaded;
+    added P0 trigger row; `/digest` line updated to mention pattern library stats
+
+---
+
 ## v1.0.114 — 2026-04-25
 
 ### Added — Step 0 Pattern Lookup in all 6 remaining agents

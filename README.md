@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.114-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.115-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
@@ -91,6 +91,7 @@ Everything else is either automatic or runs only when you need it.
 | `/audit` | Existing repo — gap analysis + task backlog |
 | `/doctor` | Health check — flags missing artefacts, stale audits, broken Beads, permission denials |
 | `/digest [days] [board]` | DORA metrics, cost reconciliation, LLM spend. Add `board` for quarterly CEO report. Runs automatically Mon 9:00. |
+| `/crystallize [approve\|reject\|rollback\|prune\|status]` | Promote incident learnings into global patterns. After any P0 or multi-iteration investigation, agents write a KE file — `/crystallize` reviews it, proposes a workflow improvement, and applies it after your approval. |
 | `/poc <hypothesis>` + `/promote` | Hypothesis-driven lightweight mode with forced timebox — see `skills/great_cto/references/poc-mode.md` |
 
 **Security — unified under `/sec`**
@@ -183,6 +184,8 @@ Every project builds `.great_cto/brain.md` — compiled knowledge of your archit
 
 Six months in, the tech-lead stops re-inventing decisions that were already made.
 
+**Cross-project learning via `/crystallize`**: after every P0 incident or multi-iteration investigation, agents write a structured knowledge extraction (KE file). `/crystallize` reviews the file, generates a concrete workflow improvement, and applies it to the right agent after your approval. The pattern is then injected at the start of every future session — across all projects. A root cause that took 4 hours to find the first time takes 30 seconds the next time.
+
 Existing repos also get a zero-dependency codebase map (`.great_cto/CODEBASE.md`): god nodes, entry points, public API surface, routes. Generated with pure bash. **~30× token reduction** for codebase orientation.
 
 ---
@@ -191,9 +194,10 @@ Existing repos also get a zero-dependency codebase map (`.great_cto/CODEBASE.md`
 
 | Trigger | What happens |
 |---------|-------------|
-| Session starts | PROJECT.md + brain.md + CODEBASE.md + HANDOFF.md loaded |
+| Session starts | PROJECT.md + brain.md + CODEBASE.md + HANDOFF.md + global patterns loaded |
 | Context compaction | HANDOFF.md written — next session resumes from exact pipeline state |
-| Every Monday 9:00 | `/digest` — DORA metrics + brain update |
+| P0 incident or iterations > 3 | Agent writes KE file → run `/crystallize` to promote to global pattern |
+| Every Monday 9:00 | `/digest` — DORA metrics + brain update + pattern library stats |
 | Every Sunday 23:00 | `/audit` — dependency + secrets scan |
 | Every Bash call | Safety check: blocks `rm -rf`, `git push --force`, `DROP TABLE` |
 
@@ -320,7 +324,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.114 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.115 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
