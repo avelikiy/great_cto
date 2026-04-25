@@ -261,6 +261,20 @@ Notes:
   - Multiple packs allowed: `packs: [ai-pack, enterprise-pack]` for regulated AI systems
   - CTO can add/remove packs at any time in PROJECT.md
 - Do NOT include L3, Oncall, or Pipeline version sections (added later via `/audit` refresh or edited by hand as the project matures)
+- **Optional Grafana fields** (add to `## L3` section when project uses Grafana for monitoring):
+  ```
+  ## L3
+  error-log: /var/log/app.log          # fallback if Grafana is down
+  port: 3000
+  p0-threshold: error_rate > 5%/5min
+  p1-threshold: latency > 500ms
+  oncall: @alice
+  grafana-url: https://grafana.example.com
+  grafana-api-key-env: GRAFANA_API_KEY  # env var name (not the key itself)
+  loki-datasource: Loki
+  tempo-datasource: Tempo
+  ```
+  These 4 Grafana fields activate native Loki/Tempo/alert monitoring in `l3-support`. Omit if not using Grafana — file-based fallback is automatic. Setup: `mcp-servers/grafana.md`.
 
 Initialize Beads:
 ```bash
