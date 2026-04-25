@@ -89,8 +89,18 @@ compliance: [${complianceLine}]
 
 ## Notes
 
-Generated from stack auto-detection. For a full audit (gap analysis, tech
-debt scan, architectural review) run \`/audit\` in Claude Code after install.
+Generated from stack auto-detection. The \`archetype\` and \`compliance\`
+above are best-effort guesses from your manifest files alone — refine them
+when you actually start work:
+
+- For a full audit (gap analysis, tech debt scan, architectural review):
+  \`/audit\` in Claude Code.
+- For a new feature with vague requirements: \`/start "<description>"\` —
+  if your input is sparse the Phase 0 Discovery skill will ask 4–6 questions
+  and propose 2–3 concrete approaches (build it / POC first / use a vendor
+  instead) before committing to architecture.
+- To override the guess directly: edit \`primary:\` and \`compliance:\` in
+  this file, then continue.
 `;
 
   writeFileSync(projectMd, content, "utf-8");
