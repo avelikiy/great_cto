@@ -4,6 +4,34 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.120 — 2026-04-25
+
+### Changed — outcome-led positioning + memory/MCP/multi-IDE narrative (P1 + P2 from gap analysis)
+
+We compete against `claude-mem` (67k★) on memory and `caveman`/`rtk` (35–46k★) on token cost
+without telling the user that, and we lead with process ("two decisions per feature") instead
+of outcomes. After v1.0.119 fixed discoverability, this release fixes positioning.
+
+- **README hero rewritten** outcome-first: "Ship features in 45 minutes, not 5 hours" headline,
+  "two decisions per feature" preserved as USP detail. Two new badges in hero:
+  `LLM costs down 60–80%` (from llm-router Kimi fallback) and `MTTR down 94% after first incident`
+  (verified from /crystallize loop). Tagline pills now lead with `cross-project memory` and
+  `MCP-native` instead of generic `hooks · skills`.
+- **README "Memory" section** (replaces "The brain"): explicit 4-layer narrative with table —
+  L1 PROJECT.md, L2 CODEBASE.md, L3 brain.md, L4 ~/.great_cto/global-patterns/. Differentiates
+  from generic memory plugins ("we synthesize, not record"). Disk usage stated (~10–50 KB).
+  ASCII diagram of the file layout. Concrete claim: 94% MTTR drop on second occurrence.
+- **README "MCP integrations" section** (NEW): table listing Grafana, LLM router (built-in,
+  60–80% cost reduction), Beads, "your own". JSON snippet showing how to add new servers.
+- **README "Extending the agent roster" subsection** (NEW): documents existing
+  template-bridge integration → 419 specialist agents + 336 commands available as sub-agents.
+- **README "Multi-IDE compatibility" section** (NEW): compatibility matrix for Claude Code /
+  Cursor / Codex CLI / Gemini CLI. Honest scoring (✅ / ⚠️ / ❌) per feature.
+- **`site/index.html` hero**: outcome-led headline mirror, version pill v1.0.115 → v1.0.120,
+  added cost-savings + MTTR pills.
+
+---
+
 ## v1.0.119 — 2026-04-25
 
 ### Changed — discoverability overhaul (P0 from gap analysis)
