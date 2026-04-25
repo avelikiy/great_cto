@@ -36,6 +36,29 @@ Wait for the answer. Then proceed with setup.
 
 ---
 
+## Phase 0: Discovery (when input is sparse)
+
+**Trigger** (any one is sufficient):
+- Description shorter than 8 words after the empty-description guard
+- Vague intent: "explore / figure out / not sure / what's best" + no domain noun
+- Conflicting archetype signals (top-2 scores within 1.5 points after Step 1)
+- User wrote a goal, not a deliverable ("I want to learn LLM stuff")
+
+**If triggered** — DO NOT proceed to Step 1 type detection. Run the discovery protocol instead:
+
+1. **Read the framework**: `skills/great_cto/references/discovery.md`
+2. **Ask 2–3 questions at a time** using the `AskUserQuestion` tool. Do NOT dump all 8 at once. Stop early when archetype + size become clear (most projects need 4–5 answers).
+3. **Map answers → PROJECT.md fields** using the mapping table in the skill doc.
+4. **Propose 2–3 approaches** (Option A / B / C) with explicit tradeoffs. Option C must consider "don't build it — use existing tool X" or "use /poc instead of /start".
+5. **Wait for CTO choice.** Only then proceed to Step 3 (Create PROJECT.md). Skip Step 1 type detection if discovery already determined the archetype.
+6. **Set `discovery: completed`** in PROJECT.md and store the chosen approach in `discovery-summary` for `tech-lead` to read at ARCH time.
+
+**Open-ended fallback**: if user says "I want to talk through this freely" or Q1 reveals "I'm not sure who would use it" → invoke `superpowers:brainstorming` skill instead of structured Q&A. Discovery narrows scope; brainstorming finds scope.
+
+**If NOT triggered** → proceed to Step 1 normally.
+
+---
+
 ## Guard: discovery / research / MVP
 
 Before type detection, scan the description for signals that the task is **not yet ready for the pipeline**.
