@@ -4,6 +4,32 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.116 — 2026-04-25
+
+### Added — `/crystallize` can now improve **skills**, not just agents
+
+Previously, every crystallized pattern targeted an agent file (`agents/<name>.md`) and was
+matched at runtime via Step 0 Pattern Lookup. Some learnings — new LogQL templates, new
+postmortem rules, new threat-model techniques — apply across multiple agents and belong in
+shared reference docs (`skills/great_cto/references/<topic>.md`).
+
+- **`skills/great_cto/references/knowledge-extraction.md`**: KE schema now supports
+  `target_skill: <relative-path>` as an alternative to `target_agent: <name>`.
+  KE files use exactly one of the two.
+- **`commands/crystallize.md`**:
+  - `review` subcommand validates that every KE has either `target_agent` or `target_skill`
+    (skips with explicit message if neither). Proposal `Target` line reflects the chosen route.
+  - `approve` subcommand splits into two paths:
+    - **Agent route**: pattern matched at runtime via Step 0 (no file edit needed)
+    - **Skill route**: appends a crystallized entry block to the skill file with proposed change,
+      detection method, fix template, verification, and source GP-NNNN. Auto-commits to plugin repo.
+
+End-to-end verified: synthetic KE with `target_skill: skills/great_cto/references/grafana-ops.md`
+correctly creates GP file, generates proposal, and on approval appends a complete pattern entry
+to the skill doc with attribution.
+
+---
+
 ## v1.0.115 — 2026-04-25
 
 ### Fixed — `/crystallize` wired into SessionStart + documented in README

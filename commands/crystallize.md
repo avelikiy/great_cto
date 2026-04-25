@@ -137,7 +137,13 @@ ls "$KE_DIR"/KE-*.yaml 2>/dev/null | while read ke_file; do
   ITERATIONS=$(grep "^  iterations:" "$ke_file" | awk '{print $2}')
   IS_CANDIDATE=$(grep "^  pattern_candidate:" "$ke_file" | awk '{print $2}')
   TARGET_AGENT=$(grep "^target_agent:" "$ke_file" | awk '{print $2}')
+  TARGET_SKILL=$(grep "^target_skill:" "$ke_file" | awk '{print $2}')
   SLUG=$(echo "$KE_ID" | sed 's/KE-[0-9-]*-//')
+
+  # Validate routing: must have exactly one of target_agent / target_skill
+  if [ -z "$TARGET_AGENT" ] && [ -z "$TARGET_SKILL" ]; then
+    echo "  SKIP: KE has no target_agent or target_skill"; continue
+  fi
 
   echo "Processing: $KE_ID"
 
@@ -242,13 +248,20 @@ GPEOF
   PROPOSED_CHANGE=$(grep -A5 "^proposed_change:" "$ke_file" | grep -v "proposed_change:" | tr -d '>' | xargs)
   TARGET_SECTION=$(grep "^target_section:" "$ke_file" | sed "s/target_section: //")
 
+  # Routing line — agent OR skill
+  if [ -n "$TARGET_SKILL" ]; then
+    ROUTING_LINE="Target skill: ${TARGET_SKILL}"
+  else
+    ROUTING_LINE="Target agent: ${TARGET_AGENT}"
+  fi
+
   cat > "$PROPOSAL_FILE" <<PROPEOF
 # Agent Evolution Proposal — ${GP_ID}
 
 Date: ${TODAY}
 Source: ${KE_ID}
 GP_ID: ${GP_ID}
-Target agent: ${TARGET_AGENT}
+${ROUTING_LINE}
 Target section: ${TARGET_SECTION}
 Status: PENDING_APPROVAL
 Evidence: MTTR reduction ${MTTR_EST}, confidence=${CONFIDENCE}, iterations=${ITERATIONS:-?}
@@ -299,7 +312,9 @@ echo "INDEX.md updated"
 
 ## Subcommand: approve GP-NNNN
 
-Apply the proposed change to the target agent file.
+Apply the proposed change. **Two target modes**:
+- `Target agent: <name>` — pattern is matched at runtime via Step 0 Pattern Lookup (no file edit needed)
+- `Target skill: <relative-path>` — pattern is **appended** to the skill doc as a new entry
 
 ```bash
 # Find proposal
@@ -311,67 +326,95 @@ fi
 
 grep -q "PENDING_APPROVAL" "$PROP_FILE" || { echo "ERROR: $GP_ID is not pending"; exit 1; }
 
-TARGET_AGENT=$(grep "^Target agent:" "$PROP_FILE" | sed "s/Target agent: //")
-PROPOSED_CHANGE=$(grep -A20 "^## Proposed change" "$PROP_FILE" | \
-  grep -v "^## " | head -10 | tr -d '\n')
+# Detect target mode (agent vs skill)
+TARGET_AGENT=$(grep "^Target agent:" "$PROP_FILE" 2>/dev/null | sed "s/Target agent: //")
+TARGET_SKILL=$(grep "^Target skill:" "$PROP_FILE" 2>/dev/null | sed "s/Target skill: //")
+GP_FILE=$(ls "$GP_DIR"/"${GP_ID}"-*.md 2>/dev/null | head -1)
+PROPOSED_CHANGE=$(awk '/^## Proposed change/{f=1;next} /^## /{f=0} f' "$PROP_FILE" | sed '/^$/d' | head -10)
 
-# Locate agent file
-AGENT_FILE="$PLUGIN_DIR/agents/${TARGET_AGENT}.md"
-if [ ! -f "$AGENT_FILE" ]; then
-  AGENT_FILE="agents/${TARGET_AGENT}.md"
-fi
+echo "=== APPROVING $GP_ID ==="
 
-if [ ! -f "$AGENT_FILE" ]; then
-  echo "ERROR: Agent file not found: $TARGET_AGENT"
+if [ -n "$TARGET_SKILL" ]; then
+  # === SKILL TARGET ===
+  SKILL_FILE="$PLUGIN_DIR/$TARGET_SKILL"
+  [ ! -f "$SKILL_FILE" ] && SKILL_FILE="$TARGET_SKILL"
+  if [ ! -f "$SKILL_FILE" ]; then
+    echo "ERROR: Skill file not found: $TARGET_SKILL"
+    exit 1
+  fi
+  echo "Target skill: $SKILL_FILE"
+  echo "Proposed change:"
+  echo "$PROPOSED_CHANGE"
+  echo ""
+  echo "Appending crystallized pattern to $SKILL_FILE..."
+
+  # Append a new entry block at the end of the skill file with the proposed change
+  cat >> "$SKILL_FILE" <<SKILLEOF
+
+<!-- Crystallized from $GP_ID on $TODAY (source KE: $(grep "^source_ke:" "$GP_FILE" | awk '{print $2}')) -->
+### Pattern $GP_ID — $(grep "^slug:" "$GP_FILE" | awk '{print $2}')
+
+$PROPOSED_CHANGE
+
+**Detection** — $(grep -A 2 "^detection_order:" "$GP_FILE" | grep "^  - " | head -1 | sed 's/^  - //')
+**Fix** — $(grep "^fix:" "$GP_FILE" | sed 's/fix: //')
+**Verification** — $(grep "^verification:" "$GP_FILE" | sed 's/verification: //')
+**Source** — $GP_ID (confidence=$(grep "^confidence:" "$GP_FILE" | awk '{print $2}'), MTTR reduction $(grep "^mttr_reduction:" "$GP_FILE" | sed 's/mttr_reduction: //'))
+SKILLEOF
+
+  echo "  ✓ Skill file extended"
+  TARGET_DESC="skill:$TARGET_SKILL"
+
+  # Commit
+  git -C "$PLUGIN_DIR" add "$SKILL_FILE" 2>/dev/null
+  git -C "$PLUGIN_DIR" commit -m "feat(skill): crystallize ${GP_ID} into $(basename "$SKILL_FILE")" 2>/dev/null \
+    && echo "  ✓ Committed to plugin repo"
+
+elif [ -n "$TARGET_AGENT" ]; then
+  # === AGENT TARGET ===
+  AGENT_FILE="$PLUGIN_DIR/agents/${TARGET_AGENT}.md"
+  [ ! -f "$AGENT_FILE" ] && AGENT_FILE="agents/${TARGET_AGENT}.md"
+  if [ ! -f "$AGENT_FILE" ]; then
+    echo "ERROR: Agent file not found: $TARGET_AGENT"
+    exit 1
+  fi
+  echo "Target agent: $AGENT_FILE"
+  echo "Proposed change:"
+  echo "$PROPOSED_CHANGE"
+  echo ""
+
+  if grep -q "## Step 0: Pattern Lookup" "$AGENT_FILE" 2>/dev/null; then
+    echo "  ✓ Step 0 present — $GP_ID will be matched at runtime via global-patterns dir"
+  else
+    echo "  ⚠ Step 0 not yet in $AGENT_FILE — run v1.0.113+ agent update first"
+  fi
+  TARGET_DESC="agent:$TARGET_AGENT"
+
+  # Copy updated agent to ~/.claude/agents/
+  cp "$AGENT_FILE" ~/.claude/agents/great_cto-${TARGET_AGENT}.md 2>/dev/null \
+    && echo "  ✓ Agent file synced to ~/.claude/agents/"
+
+else
+  echo "ERROR: proposal has neither 'Target agent:' nor 'Target skill:' field"
   exit 1
 fi
-
-# Show the proposed change and confirm
-GP_FILE=$(ls "$GP_DIR"/"${GP_ID}"-*.md 2>/dev/null | head -1)
-echo "=== APPROVING $GP_ID ==="
-echo "Target: $AGENT_FILE"
-echo ""
-echo "Pattern summary:"
-grep "### $GP_ID\|**Tell**\|**Detection order**" "$GP_FILE" 2>/dev/null | head -5
-echo ""
-echo "Proposed change:"
-cat "$PROP_FILE" | grep -A20 "## Proposed change" | grep -v "^##" | head -10
-echo ""
-echo "Applying: adding GP reference to Step 0 Pattern Lookup in $TARGET_AGENT..."
-
-# Add to Step 0 in agent file (or create Step 0 if absent)
-# The actual diff is applied by inserting the GP reference into the Step 0 block
-if grep -q "## Step 0: Pattern Lookup\|# Step 0: Global Pattern" "$AGENT_FILE" 2>/dev/null; then
-  # Step 0 exists — GP will be picked up automatically by the pattern lookup at runtime
-  echo "Step 0 already present — $GP_ID will be matched at runtime via global-patterns dir"
-else
-  echo "WARNING: Step 0 not yet in $AGENT_FILE — run v1.0.113 agent update first"
-fi
-
-# Commit
-git -C "$PLUGIN_DIR" add "$AGENT_FILE" 2>/dev/null
-git -C "$PLUGIN_DIR" commit -m "feat(${TARGET_AGENT}): learn ${GP_ID} $(grep 'slug:' "$GP_FILE" | awk '{print $2}')" \
-  2>/dev/null && echo "Committed to plugin repo" || echo "No repo changes needed (runtime injection)"
 
 # Mark proposal approved
 sed -i.bak "s/^Status: PENDING_APPROVAL/Status: APPROVED\nApproved: $TODAY/" "$PROP_FILE" 2>/dev/null
 rm -f "${PROP_FILE}.bak"
 
-# Update GP file
+# Update GP file last_validated
 sed -i.bak "s/^last_validated: .*/last_validated: $TODAY/" "$GP_FILE" 2>/dev/null
 rm -f "${GP_FILE}.bak"
 
-# Copy updated agent to ~/.claude/agents/
-cp "$AGENT_FILE" ~/.claude/agents/great_cto-${TARGET_AGENT}.md 2>/dev/null && \
-  echo "Agent updated: ~/.claude/agents/great_cto-${TARGET_AGENT}.md"
-
 # Log metric
-printf '%s APPROVED %s target=%s\n' "$TODAY" "$GP_ID" "$TARGET_AGENT" \
+printf '%s APPROVED %s target=%s\n' "$TODAY" "$GP_ID" "$TARGET_DESC" \
   >> "$METRICS_DIR/crystallize.log"
 
 echo ""
 echo "DONE: $GP_ID approved. Pattern is now active."
-echo "Next incident matching this pattern: Step 0 will surface it before investigation starts."
+[ -n "$TARGET_AGENT" ] && echo "Next matching incident: Step 0 will surface it before investigation starts."
+[ -n "$TARGET_SKILL" ] && echo "Skill doc updated; agents that read this skill will see the new pattern next session."
 ```
 
 ---
