@@ -60,6 +60,41 @@ echo "Grafana MCP: $GRAFANA_OK | gcx CLI: $GCX_OK"
 Setup guide: `mcp-servers/grafana.md`
 LogQL patterns + PromQL SLI queries + gcx reference: `skills/great_cto/references/grafana-ops.md`
 
+## Step 0: Pattern Lookup (always run first)
+
+Before any diagnostic, surface known patterns that match this project's archetype and stack.
+Skipping costs the hours already paid on a previous project. One matching pattern → skip Steps 2-3 entirely.
+
+```bash
+GP_DIR="$HOME/.great_cto/global-patterns"
+ARCH=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+STACK=$(grep "^stack:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+
+echo "=== KNOWN PATTERNS for archetype=${ARCH:-unknown} stack=${STACK:-unknown} ==="
+if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
+  FOUND=0
+  grep -rl "status: active" "$GP_DIR" 2>/dev/null | while read f; do
+    if grep -qiE "applies_to:.*${ARCH}|applies_to:.*${STACK}|stack_fingerprint:.*${STACK}" "$f" 2>/dev/null; then
+      SLUG=$(basename "$f" .md)
+      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
+      DETECT=$(grep -A 2 "^detection_order:" "$f" 2>/dev/null | grep "^  - " | head -1 | sed 's/^  - //')
+      HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
+      MTTR=$(grep "^mttr_reduction:" "$f" 2>/dev/null | awk -F': ' '{print $2}')
+      printf "  %s (hits=%s, mttr=%s)\n  symptom: %s\n  → CHECK FIRST: %s\n\n" \
+        "$SLUG" "${HITS:-0}" "${MTTR:-?}" "$SYMPTOM" "$DETECT"
+      FOUND=$((FOUND + 1))
+    fi
+  done
+  [ "$FOUND" -eq 0 ] && echo "  No patterns match archetype=${ARCH} yet."
+else
+  echo "  No global patterns yet. After resolving this incident, run /crystallize to build the library."
+fi
+echo "=== Pattern lookup complete — apply matching patterns above BEFORE Steps 2–3 ==="
+```
+
+**If a matching pattern is found**: the first item in `detection_order` becomes your Priority 0 diagnostic — run it before anything in Step 2.
+**Canonical example**: "No data in Grafana dashboard" → pattern GP-0001 → run Playwright browser console FIRST → skip 7 false iterations, save 4h.
+
 ## Monitoring Workflow
 
 1. **Read approval-level + project_size**:
@@ -397,6 +432,48 @@ P0 TIMER: 15 min to resolution or escalation to next level
    echo "INCIDENT-LOG appended → $LOG — fill in SLI magnitude / budget % before next /digest"
    ```
    Skip append only if the incident had zero SLI impact (e.g. caught pre-deploy, never hit users).
+
+## Knowledge Extraction (mandatory for qualifying incidents)
+
+Run after the postmortem is written. Determines whether a KE file is required and guides the agent to write it.
+
+```bash
+# Triggers (any one is sufficient):
+# — P0 incident regardless of iteration count
+# — iterations > 3 (more than 3 hypothesis-test cycles before root cause)
+# — Standard diagnostic chain (logs, API, health check) gave false negatives
+KE_REQUIRED=false
+[ "${INCIDENT_SEVERITY:-P1}" = "P0" ] && KE_REQUIRED=true
+[ "${INVESTIGATION_ITERATIONS:-1}" -gt 3 ] && KE_REQUIRED=true
+
+if [ "$KE_REQUIRED" = "true" ]; then
+  KE_DATE=$(date +%Y-%m-%d)
+  mkdir -p "$HOME/.great_cto/extractions"
+  echo ""
+  echo "=== KE EXTRACTION REQUIRED ==="
+  echo "  severity=${INCIDENT_SEVERITY:-P1} | iterations=${INVESTIGATION_ITERATIONS:-?}"
+  echo "  Write: ~/.great_cto/extractions/KE-${KE_DATE}-<slug>.yaml"
+  echo "  Schema: skills/great_cto/references/knowledge-extraction.md"
+  echo ""
+  echo "  Required fields from this incident:"
+  echo "    symptom.observable: one sentence — technology only, no project names"
+  echo "    investigation.iterations: ${INVESTIGATION_ITERATIONS:-?}"
+  echo "    investigation.dead_ends: list every method that gave a false negative"
+  echo "    investigation.breakthrough_tool: the method that finally revealed root cause"
+  echo "    learning.detection_order_next_time: reorder checks — breakthrough method FIRST"
+  echo "    learning.why_standard_checks_missed_it: explain the false negative mechanism"
+  echo "    target_agent: l3-support"
+  echo "    proposed_change: concrete change to this agent's workflow"
+  echo ""
+  echo "  After writing the KE file, run privacy scan from the schema, then emit:"
+  echo "  KE_WRITTEN: ~/.great_cto/extractions/KE-${KE_DATE}-<slug>.yaml"
+  echo "  confidence=<high|medium|low> | iterations=${INVESTIGATION_ITERATIONS:-?} | target=l3-support"
+  echo "  Run /crystallize to promote to global pattern."
+fi
+```
+
+Privacy rule: KE files must NOT contain project names, client names, URLs, credentials, or identifying data.
+Schema + privacy checklist + anonymized example: `skills/great_cto/references/knowledge-extraction.md`
 
 ## Regular Report
 - Clean: `L3 monitoring: OK (no incidents)`
