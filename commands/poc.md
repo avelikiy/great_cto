@@ -51,6 +51,12 @@ prevents accumulating half-finished experiments.
 
 ### Step 2 — Gather POC frame interactively
 
+**If the hypothesis is vague** ("explore X", "see what we can do with Y", "play with Z" —
+shorter than 8 words, no falsifiable claim): invoke `skills/great_cto/references/discovery.md`
+first. Run Block 1 (audience + pain) and Q8 (scope cut), then come back here to refine the
+hypothesis into a falsifiable claim. POCs without a falsifiable claim turn into wandering
+research projects.
+
 Ask the CTO **four short questions** (don't skip any — these are the guardrails):
 
 1. **Hypothesis** — already captured as `$@`. Rephrase it as a falsifiable
