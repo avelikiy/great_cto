@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.110-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.111-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <b>7 agents</b> · <b>10 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b> · <b>15 commands</b>
+  <b>7 agents</b> · <b>11 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b> · <b>15 commands</b>
 </p>
 
 <p align="center">
@@ -233,7 +233,7 @@ Things great_cto **does not** do — and isn't trying to:
 </details>
 
 <details>
-<summary><b>10 archetypes (auto-detected)</b></summary>
+<summary><b>11 archetypes (auto-detected)</b></summary>
 
 Security gates use a **tier model** (v1.0.102+): `baseline` (CVE + secret scan, ~2 min, always on) → `standard` (+ threat model + compliance checks) → `deep` (+ penetration review). Signals emitted by `senior-dev` during implementation (new payment deps, auth-path changes, PII fields, IAM diffs) can **upgrade** the tier at runtime — archetype default is the floor, not the cap.
 
@@ -241,7 +241,8 @@ Security gates use a **tier model** (v1.0.102+): `baseline` (CVE + secret scan, 
 |-----------|--------|--------------|
 | `web-service` | REST, GraphQL, SSR, SPA, full-stack | baseline → standard on signals |
 | `mobile-app` | iOS, Android, Electron, extensions | baseline → standard on signals |
-| `ai-system` | Agents, RAG, MCP, LLM ops, ML, voice | **standard** → deep on MCP/tool-use |
+| `ai-system` | Internal AI/ML: RAG, MCP, LLM ops, evals, voice (not user-facing) | **standard** → deep on MCP/tool-use |
+| `agent-product` | User-facing autonomous agents (Claude SDK, LangGraph, CrewAI) | **deep** always — OWASP LLM Top 10 |
 | `data-platform` | Pipelines, warehouses, analytics | baseline → standard on PII |
 | `infra` | IaC, K8s, platform eng, migrations | **standard** (owns IAM/perimeter) |
 | `library` | SDKs, CLIs, compilers, plugins, games | baseline (supply-chain floor) |
@@ -250,7 +251,7 @@ Security gates use a **tier model** (v1.0.102+): `baseline` (CVE + secret scan, 
 | `iot-embedded` | IoT devices, hardware drivers | **deep** |
 | `regulated` | GxP, financial services, ISO 27001 | **deep** |
 
-See [`skills/great_cto/references/security-tiers.md`](skills/great_cto/references/security-tiers.md) for the full tier model and signal matrix. **Domain packs** add depth for specialized archetypes: `ai-pack` · `web3-pack` · `enterprise-pack` · `data-pack`.
+See [`skills/great_cto/references/security-tiers.md`](skills/great_cto/references/security-tiers.md) for the full tier model and signal matrix. **Domain packs** add depth for specialized archetypes: `agent-pack` · `ai-pack` · `web3-pack` · `enterprise-pack` · `data-pack`.
 </details>
 
 <details>
@@ -307,7 +308,7 @@ Advisor pattern: Opus 4.7 escalation for hard reasoning (architecture trade-offs
 | [claude-flow](https://github.com/ruvnet/claude-flow) | Flow engine | Role specialization, 12-angle review, compliance |
 | [obra/superpowers](https://github.com/obra/superpowers) | Skills library (TDD, brainstorming, planning) | Role-specialized agents + approval gates *on top of* superpowers skills — we integrate, not replace |
 | [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) | Template registry (1000+ components) | Opinionated SDLC pipeline. We consume their templates via `template-broker`; they are the catalog, we are the workflow |
-| [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code) | Performance-focused agent harness (hooks, MCP, security scanning) | Full SDLC pipeline with 10 archetypes, compliance gates, and weekly brain synthesis. Won same Anthropic hackathon category — different philosophy: we add process structure and approval gates |
+| [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code) | Performance-focused agent harness (hooks, MCP, security scanning) | Full SDLC pipeline with 11 archetypes, compliance gates, and weekly brain synthesis. Won same Anthropic hackathon category — different philosophy: we add process structure and approval gates |
 | [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Staged workflow: discuss → plan → execute → verify → ship | Same pipeline philosophy, different scope. great_cto adds role-specialized agents (7), security tiers (3), compliance frameworks (13), and learning brain |
 | Custom CLAUDE.md | Ad-hoc rules per project | Versioned pipeline with brain.md learning + weekly automation |
 
@@ -319,7 +320,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.110 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.111 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).

@@ -4,6 +4,34 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.111 — 2026-04-25
+
+### Added — `agent-product` archetype
+
+New archetype for user-facing autonomous agents built on Claude Agent SDK, LangGraph, CrewAI, AutoGen, and similar frameworks. Differentiated from `ai-system` (which covers internal ML/LLM infrastructure).
+
+- **`skills/great_cto/ARCHETYPES.md`**: added `agent-product` to all three tables — definition,
+  QA strategy, and deploy method. Security tier: `deep` always (user input controls tool execution).
+  Compliance: OWASP LLM Top 10 + EU AI Act + GDPR if storing memory.
+- **`skills/great_cto/packs/agent-pack.md`** (NEW): full AI agent stack reference — orchestration
+  framework decision tree, memory tier selection (L1–L4), tool sandboxing (E2B vs Docker),
+  observability setup (Langfuse + OTel), agent constitution template, per-user isolation pattern,
+  budget cap enforcement, loop bounds, OWASP LLM Top 10 compliance checklist.
+- **`skills/great_cto/references/agent-security.md`** (NEW): security officer audit reference —
+  OWASP LLM Top 10 audit mapping with thresholds, prompt injection test patterns, per-user
+  isolation audit procedure, tool permission matrix template, loop bounds audit commands,
+  supply chain audit for agent deps, observability gate, EU AI Act checklist.
+- **`skills/great_cto/TYPE_MAP.md`**: added detection keywords for `agent-product` type
+  (Claude Agent SDK, user-facing agent, LangGraph agent, CrewAI, AutoGen, agent app, AI copilot).
+- **`agents/security-officer.md`**: added `agent-product` to mandatory archetype list and
+  tier-computation case statement (deep). Added dedicated Agent Security Audit section with
+  6 checks: injection resistance, per-user isolation, loop bounds/budget, observability,
+  tool permission matrix, OWASP LLM Top 10 checklist.
+- **Landing page + README**: updated archetype count 10 → 11, added `agent-product` card to
+  both the hero grid and archetypes page, added `agent-pack` to domain packs list.
+
+---
+
 ## v1.0.110 — 2026-04-25
 
 ### Improved — visibility + ecosystem positioning

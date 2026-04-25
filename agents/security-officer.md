@@ -80,7 +80,7 @@ Show decision: APPROVED/BLOCKED, findings by severity, compliance results. CTO a
 
 Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoints).
 
-**Skip checkpoints** if `approval-level` is `auto`, `gates-only`, or `strict`. For MANDATORY security archetypes (`ai-system`, `commerce`, `web3`, `iot-embedded`, `regulated`), checkpoints are always shown when `approval-level` is `expert` or `step-by-step`.
+**Skip checkpoints** if `approval-level` is `auto`, `gates-only`, or `strict`. For MANDATORY security archetypes (`agent-product`, `ai-system`, `commerce`, `web3`, `iot-embedded`, `regulated`), checkpoints are always shown when `approval-level` is `expert` or `step-by-step`.
 
 ---
 
@@ -97,6 +97,7 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
    # Archetype default tier
    case "$ARCHETYPE" in
      web3|iot-embedded|regulated)              TIER_DEFAULT=deep ;;
+     agent-product)                            TIER_DEFAULT=deep ;;
      ai-system|commerce|infra)                 TIER_DEFAULT=standard ;;
      web-service|mobile-app|data-platform|library) TIER_DEFAULT=baseline ;;
      *)                                        TIER_DEFAULT=baseline ;;
@@ -567,6 +568,88 @@ fi
 ```
 
 Findings: include a "Pre-mortem verification" section in the CSO report listing each mitigation row and whether it is enforced (PASS), enforced-by-proxy (OK with citation), or unenforced (FLAG). Unenforced mitigations at H×H or H×M pre-mortem scenarios BLOCK the gate unless the CTO waives per the waiver procedure above.
+
+## Agent-product mandatory checks (archetype: agent-product)
+
+When `$ARCHETYPE` is `agent-product`, run these checks **in addition** to the standard tier workflow. All items marked BLOCK are hard blockers for gate:ship.
+
+```bash
+if [ "$ARCHETYPE" = "agent-product" ]; then
+  echo "=== AGENT SECURITY AUDIT ==="
+  AGENT_SEC_REF=$(find ~/.claude -name "agent-security.md" -path "*/great_cto/*" 2>/dev/null | head -1)
+  [ -f "$AGENT_SEC_REF" ] && echo "Reference: $AGENT_SEC_REF"
+fi
+```
+
+### 1. Prompt Injection Resistance (BLOCK if any bypass)
+
+```bash
+# Verify injection test suite exists and passes
+if [ -f "tests/security/prompt_injection_test*" ] || \
+   find tests/ -name "*injection*" -o -name "*prompt_sec*" 2>/dev/null | grep -q .; then
+  echo "INJ_TESTS: FOUND"
+else
+  echo "INJ_TESTS: MISSING — HIGH (add injection test suite, see agent-security.md)"
+fi
+
+# Verify agent constitution exists
+if [ -f "docs/agent-constitution.md" ]; then
+  echo "CONSTITUTION: FOUND"
+else
+  echo "CONSTITUTION: MISSING — HIGH (create docs/agent-constitution.md)"
+fi
+```
+
+### 2. Per-User Memory Isolation (BLOCK if any cross-user leak)
+
+```bash
+# Check that all memory queries are namespaced by user_id
+USER_ID_FILTER=$(grep -r "user_id\|userId\|user-id" src/ --include="*.py" --include="*.ts" --include="*.js" 2>/dev/null | grep -i "filter\|namespace\|prefix\|scope" | wc -l)
+if [ "${USER_ID_FILTER:-0}" -gt 0 ]; then
+  echo "ISOLATION_PATTERN: FOUND ($USER_ID_FILTER occurrences)"
+else
+  echo "ISOLATION_PATTERN: MISSING — BLOCK (user_id scoping not found in memory queries)"
+fi
+```
+
+### 3. Loop Bounds and Budget Cap (HIGH if missing)
+
+```bash
+# Check for loop bounds enforcement
+BOUNDS=$(grep -r "max_iterations\|AGENT_MAX_ITERATIONS\|asyncio.timeout\|asyncio.wait_for" src/ 2>/dev/null | wc -l)
+BUDGET=$(grep -r "cost_cap\|AGENT_COST_CAP\|BudgetExceed\|budget.*cap" src/ 2>/dev/null | wc -l)
+
+[ "${BOUNDS:-0}" -gt 0 ] && echo "LOOP_BOUNDS: FOUND" || echo "LOOP_BOUNDS: MISSING — HIGH"
+[ "${BUDGET:-0}" -gt 0 ] && echo "BUDGET_CAP: FOUND" || echo "BUDGET_CAP: MISSING — HIGH"
+```
+
+### 4. Observability Gate (HIGH if missing)
+
+```bash
+# Verify tracing is instrumented
+OBS=$(grep -r "langfuse\|opentelemetry\|@observe\|tracer\." src/ 2>/dev/null | wc -l)
+[ "${OBS:-0}" -gt 0 ] && echo "OBSERVABILITY: FOUND" || echo "OBSERVABILITY: MISSING — HIGH (cannot audit agent in prod)"
+```
+
+### 5. Tool Permission Matrix (HIGH if undocumented)
+
+```bash
+# Check for tool trust documentation
+TOOL_MATRIX=$(find docs/ -name "*tool*permission*" -o -name "agent-constitution.md" 2>/dev/null | head -1)
+if [ -n "$TOOL_MATRIX" ]; then
+  echo "TOOL_MATRIX: FOUND in $TOOL_MATRIX"
+else
+  echo "TOOL_MATRIX: MISSING — HIGH (document tool trust levels and confirmation requirements)"
+fi
+```
+
+### 6. OWASP LLM Top 10 Checklist
+
+Run through `skills/great_cto/references/agent-security.md` § OWASP LLM Top 10 — Audit Mapping.
+Each item must be verified and documented in the CSO report's **Agent Security Assessment** section.
+Add BLOCK/HIGH/MEDIUM findings per the threshold column in that table.
+
+---
 
 ## Vendor register — quarterly review (triggered by /digest)
 
