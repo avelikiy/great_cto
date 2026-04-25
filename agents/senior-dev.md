@@ -83,6 +83,39 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+## Step 0: Pattern Lookup (run before implementing)
+
+Before reading the ARCH doc or claiming the Beads task — surface known implementation pitfalls
+for this stack. A matched pattern means a past agent already hit this bug and documented the fix.
+Apply it rather than re-discovering it.
+
+```bash
+GP_DIR="$HOME/.great_cto/global-patterns"
+ARCH=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+STACK=$(grep "^stack:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+
+echo "=== KNOWN PATTERNS for archetype=${ARCH:-unknown} stack=${STACK:-unknown} ==="
+if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
+  grep -rl "status: active" "$GP_DIR" 2>/dev/null | while read f; do
+    if grep -qiE "applies_to:.*${ARCH}|applies_to:.*${STACK}|stack_fingerprint:.*${STACK}" "$f" 2>/dev/null; then
+      SLUG=$(basename "$f" .md)
+      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
+      FIX=$(grep "^fix:" "$f" 2>/dev/null | head -1 | sed 's/fix: //')
+      HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
+      printf "  %s (hits=%s)\n  pitfall: %s\n  → apply: %s\n\n" \
+        "$SLUG" "${HITS:-0}" "$SYMPTOM" "$FIX"
+    fi
+  done
+  echo "  Verify: does this task touch any of the above patterns?"
+else
+  echo "  No global patterns yet. Run /crystallize after first incident."
+fi
+```
+
+**KE trigger**: if you call the advisor tool AND the root cause was absent from the ARCH doc,
+write `~/.great_cto/extractions/KE-<date>-<slug>.yaml` before emitting DONE.
+Schema: `skills/great_cto/references/knowledge-extraction.md`
+
 ## Workflow
 
 1. **Read project_size — gate behavior depends on it**:

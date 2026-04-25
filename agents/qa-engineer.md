@@ -88,6 +88,38 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+## Step 0: Pattern Lookup (run before testing)
+
+Before designing the test plan — surface known QA blind spots for this archetype and stack.
+A matched pattern means a bug escaped QA before. Front-load tests that cover these exact failure modes.
+
+```bash
+GP_DIR="$HOME/.great_cto/global-patterns"
+ARCH=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+STACK=$(grep "^stack:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+
+echo "=== KNOWN QA BLIND SPOTS for archetype=${ARCH:-unknown} stack=${STACK:-unknown} ==="
+if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
+  grep -rl "status: active" "$GP_DIR" 2>/dev/null | while read f; do
+    if grep -qiE "applies_to:.*${ARCH}|applies_to:.*${STACK}|stack_fingerprint:.*${STACK}" "$f" 2>/dev/null; then
+      SLUG=$(basename "$f" .md)
+      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
+      MISSED=$(grep "^why_standard_checks_missed_it:" "$f" 2>/dev/null | head -1 | sed 's/why_standard_checks_missed_it: //')
+      HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
+      printf "  %s (hits=%s)\n  escaped before: %s\n  → why tests missed it: %s\n\n" \
+        "$SLUG" "${HITS:-0}" "$SYMPTOM" "$MISSED"
+    fi
+  done
+  echo "  Add test coverage for each matched pattern — this is your highest-ROI test area."
+else
+  echo "  No global patterns yet. Run /crystallize after first escaped bug."
+fi
+```
+
+**KE trigger**: if a bug is found that escaped prior QA (reached production), OR if you call the advisor
+more than once in this run — write `~/.great_cto/extractions/KE-<date>-<slug>.yaml` before emitting DONE.
+Schema: `skills/great_cto/references/knowledge-extraction.md`
+
 ## Workflow
 
 ### Step 0: Check project_size — gate your own execution
