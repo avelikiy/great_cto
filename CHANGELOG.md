@@ -4,6 +4,25 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.110 — 2026-04-25
+
+### Improved — visibility + ecosystem positioning
+
+Based on KDnuggets "10 repos to master Claude Code" competitive analysis:
+
+- **README hero keywords**: added `hooks · skills · MCP · subagents · SDLC pipeline · approval gates`
+  code pill row — the terms developers search for when evaluating Claude Code extensions.
+- **Comparison table**: added `affaan-m/everything-claude-code` (hackathon winner, closest scope
+  competitor) and `gsd-build/get-shit-done` (same pipeline philosophy, different depth) with honest
+  positioning notes.
+- **Landing page badge**: updated hero pill to `hooks · skills · MCP · subagents`.
+- **PRs submitted to ecosystem catalogs**:
+  - `hesreallyhim/awesome-claude-code` → Tooling › Orchestrators section
+  - `VoltAgent/awesome-claude-code-subagents` → Meta & Orchestration category
+    (includes `categories/09-meta-orchestration/great-cto-pipeline.md` agent definition)
+
+---
+
 ## v1.0.109 — 2026-04-25
 
 ### Improved — DORA depth sprint (`/digest`)
