@@ -4,6 +4,37 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.122 — 2026-04-25
+
+### Added — OWASP LLM Top 10 audit completion + LLM router cost telemetry + multi-IDE truth + smoke test runbook
+
+Closes the four "next priorities" items from v1.0.121: OWASP gaps, cost-savings data
+backing, honest multi-IDE matrix, and a production smoke test plan.
+
+- **`skills/great_cto/references/agent-security.md`**: 5 OWASP categories without dedicated
+  audit sections (LLM02 Output Handling, LLM03 Training Data, LLM08 Excessive Agency,
+  LLM09 Overreliance, LLM10 Model Theft & Key Security) now have full audit checklists,
+  test prompts, and BLOCK/HIGH/MEDIUM thresholds. The OWASP table now anchors each row to
+  its detail section. CSO report template (`## Agent Security Assessment`) updated with
+  per-OWASP verdict slots so the security officer fills 10 verdict lines, not 4.
+- **`commands/cost.md`**: new "LLM router savings (lead the report with this)" section.
+  Reads `.great_cto/llm-router-usage.log`, computes Kimi-vs-Sonnet differential, prints
+  saved $ and %, validates against the README "60–80%" claim. Auto-suppresses if the log
+  is empty (no false claim). The intro now leads with cost savings before infra cost.
+- **`docs/multi-ide.md`** (NEW, 168 lines): honest multi-IDE adaptation guide. Verified
+  YAML frontmatter parses cleanly across all 7 agents; documented Cursor / Codex CLI /
+  Gemini CLI / Antigravity adaptation steps; explicit list of what's lost outside Claude
+  Code (8 items) and what ports cleanly (skills + packs + ARCHETYPES). README compatibility
+  matrix downgraded from optimistic ✅/⚠️ to honest ✅/🟡/❌ per feature × IDE; links to
+  the new doc for deep adaptation.
+- **`docs/smoke-test.md`** (NEW, 235 lines): 7-phase runbook to verify everything works
+  on a real project. Each phase has explicit PASS / FAIL signals; verdict matrix
+  (GREEN / YELLOW / RED) at the end; reporting protocol via `bd create` for found issues.
+- **`README.md`** Links section: added entries for `docs/multi-ide.md` and
+  `docs/smoke-test.md`.
+
+---
+
 ## v1.0.121 — 2026-04-25
 
 ### Fixed — first-run experience: PROJECT.md template tells users about Phase 0 discovery
