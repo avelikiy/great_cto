@@ -180,7 +180,11 @@ Heuristic: if Q1 reveals "I'm not sure who would use it" → switch to brainstor
 
 ---
 
-## What to write to PROJECT.md after CTO picks an option
+## What to write after CTO picks an option
+
+The output depends on which option was chosen.
+
+### Option A or B picked → write `.great_cto/PROJECT.md`
 
 ```markdown
 # <project-name>
@@ -195,10 +199,55 @@ discovery-summary: |
   Audience: <Q1 answer summary>
   Pain: <Q2 verbatim>
   Scope cut: <Q8 verbatim>
-  Chosen approach: Option <A|B|C> — <one-line reason>
+  Chosen approach: Option <A|B> — <one-line reason>
 ```
 
+If Option B → also run `/poc "<the falsifiable hypothesis>"` after creating PROJECT.md.
+
 The `discovery-summary` field is read by `tech-lead` at ARCH time so it can preserve user intent in the architecture doc — not just the field values.
+
+### Option C picked → write `.great_cto/DISCOVERY-NO-BUILD.md` instead
+
+When the user picks "don't build it / use vendor X" the pipeline must NOT start.
+Write a DISCOVERY-NO-BUILD.md that captures the decision so future sessions don't re-ask:
+
+```markdown
+# Discovery Outcome: NO BUILD (Option C)
+
+Date: <YYYY-MM-DD>
+Outcome: do-not-build
+
+## Inputs
+- Initial description: "<verbatim>"
+- Audience: <Q1>
+- Pain: <Q2>
+- Compliance: <Q5>
+- Team: <Q7>
+
+## Why no build
+<one paragraph: why building from scratch is wrong for this constraint set>
+
+## Vendor shortlist (evaluate in next 7 days)
+| Vendor | Pricing | GDPR | PCI | Notes |
+|--------|---------|------|-----|-------|
+| <name> | <approx> | ✓/✗ | ✓/✗ | <fit notes> |
+
+## Re-evaluation criteria (revisit in 6 months)
+Build your own only if ALL hold:
+1. <demand-validated condition — typically "N paying customers using vendor">
+2. <ROI condition — typically "vendor cost > $X/year">
+3. <ceiling condition — typically "hit a customization vendor can't fix">
+4. <capacity condition — typically "funding to hire N engineers">
+
+If conditions hold later → run `/start "<refined description>"`.
+
+## Action items
+- [ ] /poc "vendor evaluation: <vendor-A> vs <vendor-B> on 50 sample <items>" — 7 day timebox
+- [ ] After vendor pick: integrate via their API
+- [ ] Calendar reminder: revisit build-vs-buy in 6 months
+```
+
+**Critical**: do NOT also write PROJECT.md in this case. The presence of DISCOVERY-NO-BUILD.md tells `/start` "this project decided not to build — running /start again should re-confirm or supersede this decision".
 
 ---
 
