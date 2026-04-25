@@ -12,6 +12,7 @@ You are the Great CTO setup command for **new projects**.
 
 ```bash
 ls .great_cto/PROJECT.md 2>/dev/null && echo "EXISTS" || echo "NEW"
+ls .great_cto/DISCOVERY-NO-BUILD.md 2>/dev/null && echo "NO_BUILD"
 ```
 
 If EXISTS → stop and tell CTO:
@@ -24,6 +25,21 @@ Options:
   • Delete .great_cto/PROJECT.md → reset and run /start again
 ```
 Do NOT proceed with setup. Do NOT overwrite PROJECT.md.
+
+If NO_BUILD → stop and tell CTO:
+```
+Previous discovery decided NOT to build (see DISCOVERY-NO-BUILD.md).
+
+Reason: <quote "Why no build" section, first sentence>
+Vendor chosen / evaluated: <from action items>
+Revisit due: <created date + 6 months>
+
+Options:
+  • Re-confirm — keep using the vendor
+  • Supersede — conditions changed (revenue / scale / customization). Tell me what changed → I'll re-run discovery
+  • Delete .great_cto/DISCOVERY-NO-BUILD.md → reset and run /start fresh
+```
+Do NOT proceed with setup. Do NOT overwrite the no-build decision.
 
 ---
 

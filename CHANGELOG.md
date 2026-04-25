@@ -4,6 +4,35 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.118 — 2026-04-25
+
+### Fixed — discovery Option C path + 24-scenario test coverage
+
+Live test of v1.0.117 revealed the discovery skill described 3 options but didn't
+specify what to do when user picks **Option C (don't build it)**. Without explicit
+handling, agent could create a PROJECT.md anyway and start the pipeline.
+
+- **`skills/great_cto/references/discovery.md`**: split "What to write after CTO picks
+  an option" into two paths. Option A/B writes PROJECT.md as before. Option C writes
+  `.great_cto/DISCOVERY-NO-BUILD.md` with: inputs verbatim, why no build, vendor shortlist,
+  re-evaluation criteria (4 conditions all-must-hold), action items + 6-month revisit reminder.
+  Critical: do NOT also write PROJECT.md when Option C wins.
+- **`commands/start.md`**: existing-project guard now also detects DISCOVERY-NO-BUILD.md.
+  If present → stops with re-confirm / supersede / reset options. Prevents re-running
+  /start from quietly overriding a deliberate "don't build" decision.
+
+### Verified — 24-scenario deterministic test of mapping rules
+
+Encoded mapping rules from discovery.md as Python; ran across 24 representative
+scenarios spanning all 9 archetypes. Distribution: A=54% (teams with capacity),
+B=37% (solo founders / hackathons), C=8% (solo + heavy compliance only).
+
+Verified the skill's key heuristic: "solo + 2+ compliance regimes → Option C dominant"
+fires correctly for AI support bot with PII+PCI (sc#1) and regulated archetype solo (sc#14)
+but not for healthcare RAG with 5-15 team (sc#6, picks A) — capacity matters.
+
+---
+
 ## v1.0.117 — 2026-04-25
 
 ### Added — Discovery skill (no new agent — reusable across `/start`, `/audit`, `/poc`)
