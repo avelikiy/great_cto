@@ -4,6 +4,94 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.123 — 2026-04-26
+
+### Added — 5 new domain packs + extended stack detection (closes archetype coverage gaps)
+
+After auditing archetype coverage against the actual 2026 ecosystem, found that 6 of 11 archetypes
+had no domain pack, and stack detection missed major frameworks (Flutter, Tauri, Pulumi, dbt, vLLM,
+DuckDB, Iceberg, Adyen, etc.). This release closes those gaps in one batch.
+
+#### New packs (5)
+
+- **`packs/web-pack.md`** (319 lines): framework decision tree (Next/Nuxt/SvelteKit/Astro), backend
+  framework choice (Hono/Fastify/NestJS), ORM (Drizzle/Prisma/Kysely), auth providers (Clerk/Auth.js/Lucia),
+  edge runtime constraints, realtime patterns, perf budgets, OWASP defaults, anti-patterns specific to web.
+- **`packs/library-pack.md`** (282 lines): supply-chain security focus — OpenSSF Scorecard ≥ 7.5
+  baseline, npm provenance + PyPI Trusted Publishing (OIDC), SBOM generation via Syft, semver
+  enforcement (semantic-release/Changesets/cargo-semver-checks), bundle size budgets, ESM-first
+  exports, deprecation policy, security disclosure template, CLI-specific extras.
+- **`packs/mobile-pack.md`** (236 lines): native vs Flutter vs RN vs KMM vs Tauri decision tree,
+  build pipelines (Fastlane/EAS), App Store rejection patterns (4.3, 5.1.1, 2.1, 3.1.1, 4.7),
+  Google Play API 34 requirements, OWASP MASVS V1-V8 detailed checklist, push (APNs/FCM),
+  IAP (RevenueCat), OTA (EAS Update/Shorebird), passkeys-first auth.
+- **`packs/infra-pack.md`** (264 lines): IaC tool decision (Terraform/OpenTofu/Pulumi/CDK/Crossplane),
+  state backends, policy-as-code (OPA/Checkov/tfsec), GitOps (ArgoCD/Flux), cluster management
+  decision per cloud, service mesh "only when you need it" guidance, secrets management, OTel +
+  LGTM observability stack, FinOps essentials with Karpenter and Spot, DR strategy table.
+- **`packs/commerce-pack.md`** (271 lines): payment provider decision (Stripe/Adyen/Paddle/Polar),
+  subscription billing (Stripe Billing/Lago/Stigg/Orb), PCI-DSS scope reduction (SAQ-A target),
+  idempotency patterns, webhook signature verification, refund/dispute workflow, fraud detection
+  (Radar/Sift/Signifyd), multi-currency, tax compliance (Stripe Tax / Paddle MoR), pricing patterns.
+
+#### Pack updates (2)
+
+- **`packs/ai-pack.md`**: appended "Tooling Reference (2026 stack)" section — vLLM/Ollama/llama.cpp
+  for serving, DSPy/Instructor/Outlines for prompt engineering, Ragas/DeepEval/Promptfoo/Braintrust
+  for evaluation, vector DB decision (pgvector/Pinecone/Qdrant/Turbopuffer/LanceDB), Langfuse for
+  observability.
+- **`packs/data-pack.md`**: appended "Tooling Reference (2026 stack)" section — dbt + DuckDB for dev,
+  Polars replacing pandas, Dagster as default orchestrator, Iceberg as lakehouse standard, Snowflake
+  Polaris catalog, ClickHouse for OLAP, Confluent/Redpanda for streaming, Great Expectations / Soda
+  for quality, DataHub / OpenMetadata for catalog.
+
+#### Stack detection (`packages/cli/src/detect.ts`)
+
+Added detection for 15+ new frameworks/tools:
+
+- **Mobile**: Tauri (`@tauri-apps/api`), Capacitor, Flutter (`pubspec.yaml`)
+- **AI**: LangGraph, CrewAI, AutoGen, DSPy, vLLM, Ollama, Mastra, Vercel AI SDK, Ragas, DeepEval, OpenCV/YOLO
+- **Commerce**: Adyen, Paddle, LemonSqueezy, Polar
+- **DBs**: Kysely, Lucia, WorkOS, Neon, PlanetScale, Turso (libsql), DuckDB
+- **Data**: dbt (`dbt_project.yml`), Dagster (`dagster.yaml`), Polars, Iceberg
+- **Infra**: Pulumi (`Pulumi.yaml`), AWS CDK (`cdk.json`), Helmfile, ArgoCD
+- **Embedded**: Zephyr (`west.yml`), ESP-IDF, Embassy (Rust)
+
+#### Library archetype detection — strong signal
+
+`detect.ts` now identifies library projects by manifest signals (npm `main`/`exports`/`bin` without
+`private:true`, Python `[project]` without `manage.py`/`main.py`, Go `go.mod` without `main.go`,
+Rust `[lib]` without `[[bin]]`). When detected, `archetypes.ts` scores library at priority **7**
+(was 2, weak fallback). Library projects now classify with **high confidence** instead of fallback.
+
+#### `ARCHETYPES.md`
+
+Added "Packs Auto-load Map" table — explicit mapping of each archetype to its pack, plus 5
+common multi-pack combinations (e.g. `[ai-pack, enterprise-pack]` for regulated AI, `[web-pack,
+commerce-pack]` for SaaS with checkout, `[mobile-pack, commerce-pack]` for IAP-heavy mobile).
+
+### Pack coverage summary (after this release)
+
+| Archetype | Pack? |
+|-----------|-------|
+| web-service | ✅ web-pack (was ❌) |
+| mobile-app | ✅ mobile-pack (was ❌) |
+| ai-system | ✅ ai-pack (updated) |
+| agent-product | ✅ agent-pack |
+| data-platform | ✅ data-pack (updated) |
+| infra | ✅ infra-pack (was ❌) |
+| library | ✅ library-pack (was ❌) |
+| commerce | ✅ commerce-pack (was ❌) |
+| web3 | ✅ web3-pack |
+| iot-embedded | ⚠ no pack, only detection signals |
+| regulated | ✅ enterprise-pack |
+
+**10 of 11 archetypes now have domain packs (was 5).** iot-embedded keeps detection-only coverage
+since the existing TYPE_MAP entries (`embedded-iot`, `hardware-driver`) link to enterprise-pack
+when compliance overlaps.
+
+---
+
 ## v1.0.122 — 2026-04-25
 
 ### Added — OWASP LLM Top 10 audit completion + LLM router cost telemetry + multi-IDE truth + smoke test runbook
