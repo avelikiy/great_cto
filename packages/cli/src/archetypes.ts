@@ -170,20 +170,34 @@ const RULES: Rule[] = [
   },
 
   // ── library (no app framework, just code) ────────
+  // Detection priority: explicit "library" or "cli" stack signal from detect.ts (high confidence)
+  // Fallback: plain runtime + no web/mobile/infra framework (low confidence)
   {
     archetype: "library",
     score: (d) => {
+      // Strong signal: detect.ts found library indicators
+      if (d.stack.includes("library") || d.stack.includes("cli")) {
+        return 7;
+      }
+      // Weaker signal: no app framework detected
       const hasApp = d.stack.some((t) =>
-        ["next.js", "django", "fastapi", "express", "fastify", "nestjs", "react-native", "expo", "terraform"].includes(t),
+        ["next.js", "django", "fastapi", "flask", "express", "fastify", "nestjs", "hono",
+         "react-native", "expo", "tauri", "capacitor", "flutter",
+         "terraform", "pulumi", "aws-cdk", "helm",
+         "embedded", "zephyr", "esp-idf"].includes(t),
       );
       if (hasApp) return 0;
-      // Plain Node or Python or Go or Rust with no web/mobile/infra → likely a library
       if (d.stack.includes("nodejs") || d.stack.includes("python") || d.stack.includes("go") || d.stack.includes("rust")) {
         return 2;
       }
       return 0;
     },
-    reason: (_d) => "no web/mobile/infra framework detected — looks like a library/SDK",
+    reason: (d) => {
+      if (d.stack.includes("library") || d.stack.includes("cli")) {
+        return "package.json/pyproject/Cargo.toml indicates a publishable library or CLI";
+      }
+      return "no web/mobile/infra framework detected — looks like a library/SDK";
+    },
   },
 ];
 

@@ -138,6 +138,32 @@ packs: [ai-pack, enterprise-pack]
 5. **Explicit overrides** — `performance-sla`, `security-gate`, `review_mode` override any default
 6. **Domain pack** — `packs: [ai-pack]` loads additional type-specific depth
 
+### Packs Auto-load Map
+
+Each archetype auto-loads a domain pack when the archetype is detected. Multiple packs can be combined.
+
+| Archetype | Auto-loaded pack | What the pack adds |
+|-----------|------------------|--------------------|
+| `web-service` | `web-pack` | Framework decision tree (Next/Nuxt/Hono/Fastify), ORM choice, edge runtime constraints, auth providers, perf budgets |
+| `mobile-app` | `mobile-pack` | Native vs Flutter vs RN vs KMM decision, App Store / Play submission gotchas, MASVS V1-V8 detailed checklist, OTA update patterns |
+| `ai-system` | `ai-pack` | LLM serving (vLLM/Ollama), prompt programming (DSPy/Instructor), evaluation (Ragas/Promptfoo/Braintrust), vector DBs |
+| `agent-product` | `agent-pack` | OWASP LLM Top 10, agent constitution, budget cap, tool sandboxing, isolation, Langfuse observability |
+| `data-platform` | `data-pack` | dbt/Dagster/Polars/DuckDB/Iceberg, lakehouse patterns, streaming, data quality |
+| `infra` | `infra-pack` | Terraform/Pulumi/CDK decision, GitOps (ArgoCD/Flux), FinOps + Karpenter, secrets, observability stack |
+| `library` | `library-pack` | OpenSSF Scorecard, npm provenance, PyPI Trusted Publishing, SBOM (Syft), semver enforcement, deprecation policy |
+| `commerce` | `commerce-pack` | Stripe/Adyen/Paddle decision, subscription billing, idempotency, fraud detection, PCI-DSS scope reduction, tax |
+| `web3` | `web3-pack` | Slither/Echidna/Foundry/Certora, KYC/AML, custody (HSM/MPC/Shamir), MEV protection |
+| `iot-embedded` | (no dedicated pack — use detection signals) | platformio.ini, Zephyr (`west.yml`), ESP-IDF detected from filesystem |
+| `regulated` | `enterprise-pack` | DORA, NIS2, GxP/21CFR11, ISO 27001, TISAX detailed checklists |
+
+**Multi-pack combinations** — common stacking patterns:
+
+- `[ai-pack, enterprise-pack]` — regulated AI system (e.g. healthcare diagnosis)
+- `[web-pack, commerce-pack]` — SaaS with checkout
+- `[mobile-pack, commerce-pack]` — mobile app with in-app purchases
+- `[infra-pack, enterprise-pack]` — regulated infrastructure (financial services, critical infra)
+- `[library-pack, ai-pack]` — open-source LLM SDK
+
 ### Parameter Values
 
 | Value | What it adds |
