@@ -4,6 +4,71 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.125 — 2026-04-26
+
+### Added — three new archetypes: `devtools`, `browser-extension`, `game`
+
+Coverage gap closed. The 10-archetype taxonomy was missing API-platform/SDK
+products (~20% of YC W26), browser extensions (CSP / MV3 / Web Store review
+specifics), and games (netcode, anti-cheat, age ratings, loot-box jurisdiction
+rules). All three now have first-class archetypes with their own packs.
+
+- **`devtools`** — API-platform / SDK / developer-tools / agent-platform.
+  Compliance defaults: `openssf`, `api-stability`, `soc2-type-2`, `gdpr`.
+  QA gates: OpenAPI/GraphQL stability, multi-language SDK parity, deprecation
+  channels (RFC 9745 header + SDK warnings), docs-as-product.
+  Pack: **`skills/great_cto/packs/devtools-pack.md`** (~280 lines).
+
+- **`browser-extension`** — Chrome/Firefox/Edge MV3 extensions. Detection:
+  `manifest.json` with `manifest_version: 2|3`, WXT (`wxt.config.ts`), Plasmo.
+  Compliance defaults: `csp`, `mv3-security`, `gdpr`. QA gates: Web Store
+  review pre-flight (single-purpose policy, permissions justification, privacy
+  practices form), service-worker patterns, host-permissions scrutiny.
+  Pack: **`skills/great_cto/packs/browser-extension-pack.md`** (~340 lines).
+
+- **`game`** — Unity / Unreal / Godot / Phaser / Cocos. Detection:
+  `ProjectSettings/`+`Assets/` (Unity), `*.uproject` (Unreal), `project.godot`
+  (Godot), web-game deps via package.json. Compliance defaults: `coppa`,
+  `age-rating` (ESRB/PEGI/USK/IARC), `accessibility`. QA gates: netcode
+  (lockstep / rollback / authoritative), anti-cheat (server-side validation
+  always), loot-box jurisdiction matrix (Belgium/NL bans, CN/KR drop-rate
+  disclosure), platform certifications (Sony TRC, Xbox XR, Nintendo Lotcheck).
+  Pack: **`skills/great_cto/packs/game-pack.md`** (~360 lines).
+
+### Changed
+
+- **`packages/cli/src/archetypes.ts`** — `Archetype` union extended from 11
+  to 15 (added `agent-product`, `devtools`, `browser-extension`, `game`).
+  New scoring rules with priority 6–8 to override `library` / `mobile-app`
+  fallback when explicit signals present. `suggestCompliance` now seeds the
+  three new archetypes with their default compliance sets.
+
+- **`packages/cli/src/detect.ts`** — new detection signals:
+  - browser-extension: parses `manifest.json` for `manifest_version`, detects
+    WXT / Plasmo configs.
+  - game: detects Unity (`ProjectSettings/`), Unreal (`*.uproject`), Godot
+    (`project.godot`), and web-game npm deps (phaser, cocos2d, playcanvas).
+  - devtools: detects OpenAPI / Swagger specs at common paths, GraphQL schema,
+    Stainless config, multi-language SDK directories (≥3 language sub-dirs in
+    `sdks/` or `clients/`), Mintlify (`mint.json` / `docs.json`).
+  - Aggregate: `openapi-spec` + `multi-sdk` ⇒ explicit `devtools-api` flag.
+
+- **`skills/great_cto/TYPE_MAP.md`** — reroutes:
+  - `browser-extension` / `chrome-extension-mv3`: `mobile-app` → `browser-extension`
+  - `vscode-extension`: `mobile-app` → `library` (IDE plugins are marketplace
+    packages, not browser extensions)
+  - `game`: `library` → `game`
+  - Adds 4 new keyword rows + Mapping Table rows for `api-platform`,
+    `sdk-platform`, `developer-tools`, `agent-platform` → `devtools`.
+
+- **`packages/cli/src/main.ts`** — `--help` now lists 13 archetypes (was 10).
+
+### Coverage
+
+- 13 archetypes (was 10), 13 domain packs, 75+ specific types in TYPE_MAP.
+
+---
+
 ## v1.0.124 — 2026-04-26
 
 ### Added — automatic update check at session start

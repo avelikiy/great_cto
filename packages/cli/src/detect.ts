@@ -351,6 +351,117 @@ export function detect(dir: string): DetectionResult {
     stack.add("solidity");
   }
 
+  // ── Browser extension (MV2/MV3) ──────────────────────────
+  // manifest.json at repo root with "manifest_version" → Chrome/Firefox/Edge extension
+  const manifestPath = join(dir, "manifest.json");
+  if (existsSync(manifestPath)) {
+    try {
+      const m = JSON.parse(readFileSync(manifestPath, "utf-8")) as { manifest_version?: number };
+      if (m.manifest_version === 2 || m.manifest_version === 3) {
+        sig("browser-extension", `manifest_version=${m.manifest_version}`);
+        stack.add("browser-extension");
+        if (m.manifest_version === 3) stack.add("mv3");
+      }
+    } catch { /* not a browser-ext manifest */ }
+  }
+  // WXT framework signal
+  if (existsSync(join(dir, "wxt.config.ts")) || existsSync(join(dir, "wxt.config.js"))) {
+    sig("browser-extension", "wxt");
+    stack.add("browser-extension");
+    stack.add("wxt");
+  }
+  // Plasmo framework signal
+  if (existsSync(join(dir, ".plasmo"))) {
+    sig("browser-extension", "plasmo");
+    stack.add("browser-extension");
+    stack.add("plasmo");
+  }
+
+  // ── Game engines ─────────────────────────────────────────
+  // Unity: ProjectSettings/ + Assets/
+  if (existsSync(join(dir, "ProjectSettings")) && existsSync(join(dir, "Assets"))) {
+    sig("game", "unity");
+    stack.add("unity");
+    stack.add("game");
+    languages.add("csharp");
+  }
+  // Unreal: any .uproject file
+  if (safeGlob(dir, /\.uproject$/)) {
+    sig("game", "unreal");
+    stack.add("unreal");
+    stack.add("game");
+    languages.add("cpp");
+  }
+  // Godot: project.godot
+  if (existsSync(join(dir, "project.godot"))) {
+    sig("game", "godot");
+    stack.add("godot");
+    stack.add("game");
+    languages.add("gdscript");
+  }
+  // Phaser / Cocos / PlayCanvas (web-game frameworks via package.json deps)
+  {
+    const allDeps = {
+      ...(pkg.dependencies ?? {}),
+      ...(pkg.devDependencies ?? {}),
+    };
+    if ("phaser" in allDeps) { stack.add("phaser"); stack.add("game"); sig("game", "phaser"); }
+    if ("cocos2d" in allDeps) { stack.add("cocos"); stack.add("game"); sig("game", "cocos"); }
+    if ("playcanvas" in allDeps) { stack.add("playcanvas"); stack.add("game"); sig("game", "playcanvas"); }
+  }
+
+  // ── DevTools / API platform ──────────────────────────────
+  // OpenAPI / Swagger spec at root or in api/ dir
+  const openapiPaths = ["openapi.yaml", "openapi.yml", "openapi.json", "swagger.yaml", "swagger.json",
+                         "api/openapi.yaml", "api/openapi.yml", "api/openapi.json"];
+  for (const p of openapiPaths) {
+    if (existsSync(join(dir, p))) {
+      sig("devtools", `openapi:${p}`);
+      stack.add("openapi-spec");
+      break;
+    }
+  }
+  // GraphQL schema at root
+  if (existsSync(join(dir, "schema.graphql")) || existsSync(join(dir, "schema.gql"))) {
+    sig("devtools", "graphql-schema");
+    stack.add("graphql-schema");
+  }
+  // Stainless config (multi-SDK generation)
+  if (existsSync(join(dir, "stainless.yml")) || existsSync(join(dir, "stainless.yaml"))) {
+    sig("devtools", "stainless");
+    stack.add("stainless");
+    stack.add("multi-sdk");
+  }
+  // Multi-language SDK presence: sdks/ or clients/ with multiple language sub-dirs
+  const sdkRoots = ["sdks", "clients", "packages/sdk", "packages/clients"];
+  for (const root of sdkRoots) {
+    const rootPath = join(dir, root);
+    if (existsSync(rootPath)) {
+      try {
+        const sub = readdirSync(rootPath).filter((e) => {
+          try { return statSync(join(rootPath, e)).isDirectory(); } catch { return false; }
+        });
+        // ≥3 sub-dirs that look like language names → multi-SDK platform
+        const langPattern = /^(python|node|typescript|javascript|go|ruby|java|kotlin|php|rust|csharp|dotnet|swift|elixir)$/i;
+        const hits = sub.filter((s) => langPattern.test(s));
+        if (hits.length >= 3) {
+          sig("devtools", `multi-sdk:${root}:${hits.join(",")}`);
+          stack.add("multi-sdk");
+          break;
+        }
+      } catch { /* ignore */ }
+    }
+  }
+  // Mintlify docs (signal of devtools / API platform docs-as-product)
+  if (existsSync(join(dir, "mint.json")) || existsSync(join(dir, "docs.json"))) {
+    sig("devtools", "mintlify");
+    stack.add("docs-platform");
+  }
+  // Aggregate signal: OpenAPI + multi-SDK ⇒ explicit devtools-api flag
+  if (stack.has("openapi-spec") && stack.has("multi-sdk")) {
+    stack.add("devtools-api");
+  }
+
   // ── Embedded ─────────────────────────────────────────────
   if (existsSync(join(dir, "platformio.ini")) ||
       existsSync(join(dir, "sdkconfig")) ||
