@@ -1,7 +1,7 @@
 # Type → Archetype Mapping
 
 > **Internal dispatch table — users never pick types manually.**
-> `/start` and `/audit` detect the specific type from description/dependencies, then resolve to one of 10 archetypes + default parameters.
+> `/start` and `/audit` detect the specific type from description/dependencies, then resolve to one of 13 archetypes + default parameters.
 > Agents read `archetype:` from PROJECT.md — the specific type is a stepping stone, not user-facing config.
 
 ## Type Detection Keywords
@@ -86,6 +86,10 @@
 | voice agent, voice AI, VAPI, ElevenLabs conversational, Retell AI, voice bot, telephony AI, real-time voice, call center AI | `voice-agent` |
 | edge app, Cloudflare Workers, Deno Deploy, Vercel Edge, Fastly Compute, edge function, edge-first, edge runtime | `edge-app` |
 | multimodal, vision + text, audio + text, GPT-4o app, Claude vision, Gemini multimodal, multi-modal AI, image understanding app | `multimodal-app` |
+| API platform, public API, developer API, REST platform, OpenAPI-first, API-as-a-product | `api-platform` |
+| SDK, multi-language SDK, client libraries, Stainless, openapi-generator, API client | `sdk-platform` |
+| developer tool, dev productivity, IDE plugin platform, CLI platform, debugger, observability tool, dev infra | `developer-tools` |
+| agent platform, agent infrastructure, agent runtime, multi-tenant agents, agent-as-a-service infrastructure | `agent-platform` |
 
 ## Mapping Table
 
@@ -112,9 +116,9 @@
 | `mobile` | `mobile-app` | compliance: [owasp-masvs, att, play-api-34] |  |
 | `electron-app` | `mobile-app` | compliance: [electron-security] |  |
 | `desktop-app` | `mobile-app` |  |  |
-| `browser-extension` | `mobile-app` | compliance: [csp] |  |
-| `chrome-extension-mv3` | `mobile-app` | compliance: [csp, mv3-security] |  |
-| `vscode-extension` | `mobile-app` |  |  |
+| `browser-extension` | `browser-extension` | compliance: [csp, mv3-security], packs: [browser-extension-pack] |  |
+| `chrome-extension-mv3` | `browser-extension` | compliance: [csp, mv3-security], packs: [browser-extension-pack] |  |
+| `vscode-extension` | `library` | compliance: [openssf], packs: [library-pack] | IDE plugins ship as marketplace packages, not browser extensions |
 | `ai-agent` | `ai-system` | compliance: [eu-ai-act] |   |
 | `agent-product` | `agent-product` | compliance: [owasp-llm, eu-ai-act], packs: [agent-pack] |  |
 | `ai-agent-framework` | `ai-system` | compliance: [eu-ai-act] |  |
@@ -143,7 +147,7 @@
 | `cli-tool` | `library` |  |  |
 | `compiler-lang` | `library` | qa-extras: [cross-version-compat, benchmark-regression] |  |
 | `wordpress-plugin` | `library` | compliance: [owasp] |  |
-| `game` | `library` | qa-extras: [fps-benchmark, memory-profiling] |  |
+| `game` | `game` | compliance: [coppa, age-rating, accessibility], qa-extras: [fps-benchmark, memory-profiling, netcode, anti-cheat], packs: [game-pack] |  |
 | `e-commerce` | `commerce` | compliance: [pci-dss, owasp] |   |
 | `payment-service` | `commerce` | compliance: [pci-dss, sox] | min-size: enterprise |
 | `saas-platform` | `commerce` | compliance: [soc2] |   |
@@ -161,6 +165,10 @@
 | `gxp-system` | `regulated` | compliance: [21cfr11] | min-size: enterprise |
 | `iso27001-scope` | `regulated` | compliance: [iso27001] | min-size: enterprise |
 | `automotive-supplier` | `regulated` | compliance: [tisax] | min-size: enterprise |
+| `api-platform` | `devtools` | compliance: [openssf, api-stability, soc2-type-2, gdpr], qa-extras: [openapi-lint, contract-test, deprecation-channel], packs: [devtools-pack] |  |
+| `sdk-platform` | `devtools` | compliance: [openssf, api-stability, semver], qa-extras: [cross-version-compat, multi-language-parity], packs: [devtools-pack] |  |
+| `developer-tools` | `devtools` | compliance: [openssf, soc2-type-2], qa-extras: [docs-as-product, dx-survey], packs: [devtools-pack] |  |
+| `agent-platform` | `devtools` | compliance: [openssf, eu-ai-act, soc2-type-2], qa-extras: [tool-injection, schema-enforcement, multi-tenant-isolation], packs: [devtools-pack, agent-pack] |  |
 | `large-scale-refactor` | `web-service` | qa-extras: [snapshot-regression, dep-graph] |   |
 | `stack-migration` | `web-service` | qa-extras: [snapshot-regression, dual-runtime] |   |
 | `monorepo` | `web-service` | qa-extras: [affected-only-test] |  |

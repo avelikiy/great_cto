@@ -30,7 +30,10 @@ Signals emitted by `senior-dev` (new deps, auth-path changes, PII columns, IAM d
 | `agent-product` | User-facing autonomous agents built on Claude Agent SDK / LangGraph / CrewAI. Agent executes tools on behalf of end-users. | **deep** (always — user input controls tool execution) | OWASP LLM Top 10, EU AI Act, GDPR if storing memory |
 | `data-platform` | Pipelines, warehouses, feature stores, analytics | **baseline** (→ standard on PII) | PII classification, data lineage |
 | `infra` | IaC, K8s, platform engineering, DevOps tools | **standard** | CIS Benchmarks |
-| `library` | SDKs, CLIs, compilers, extensions, plugins | **baseline** (never off — supply-chain floor) | OpenSSF Scorecard, SBOM |
+| `library` | SDKs, CLIs, compilers, plugins (consumed by other devs as a dependency) | **baseline** (never off — supply-chain floor) | OpenSSF Scorecard, SBOM |
+| `devtools` | Developer platforms: API-first products, SDKs as the product, agent infra, RAG/eval platforms, IDE plugins | **standard** | OpenSSF Scorecard, OpenAPI/GraphQL stability |
+| `browser-extension` | MV3 Chrome / Firefox / Safari / Edge extensions | **standard** (→ deep on host_permissions:<all_urls>) | Web Store review, CSP, host_permissions audit |
+| `game` | Single/multi-player games, game engines, game services | **baseline** (→ deep on multiplayer + anti-cheat) | COPPA if <13, age ratings (ESRB/PEGI), accessibility |
 | `commerce` | E-commerce, payments, SaaS platforms | **standard** (→ deep on PCI dep) | PCI-DSS, SOC2 |
 | `web3` | Smart contracts, DeFi, exchanges, wallets | **deep** | SWC Registry, KYC/AML |
 | `iot-embedded` | IoT devices, hardware drivers, edge computing | **deep** | ETSI EN 303 645 |
@@ -49,6 +52,9 @@ Signals emitted by `senior-dev` (new deps, auth-path changes, PII columns, IAM d
 | `data-platform` | Data contract validation + schema test + lineage audit | Freshness SLA, PII scan | 0 schema violations, lineage 100% traced, freshness ≤ SLA |
 | `infra` | Terratest / `terraform plan` + CIS benchmark scan | DR failover drill, cost delta check | 0 CIS critical, plan matches intent, cost delta < 20% |
 | `library` | Unit + cross-version compat matrix + semver check | Benchmark regression, bundle size | 0 breaking changes (unless major), coverage ≥ 90% |
+| `devtools` | Unit + integration + SDK example test (each language) + OpenAPI/GraphQL contract test | API spec linting, SDK auto-gen verification, docs build | 0 breaking spec changes (unless major), SDK examples pass on all supported runtimes, docs build clean |
+| `browser-extension` | Unit + content script test + MV3 service worker lifecycle test + cross-browser smoke | Web Store review pre-flight, host_permissions audit, performance profile | 0 Web Store policy violations, host_permissions justified, no eval/innerHTML on untrusted input |
+| `game` | Unit + gameplay smoke (deterministic) + frame-time budget + memory profile per platform | Multiplayer netcode test (latency injection), anti-cheat verification, age-rating pre-flight | 60 FPS sustained on baseline device, no memory leaks across 1h play, multiplayer rollback recovers within N frames |
 | `commerce` | Unit + E2E checkout flow + idempotency proof + PCI scan | Load test, reconciliation test | p95 < 200ms, 0 PCI findings, idempotency verified |
 | `web3` | Unit + fuzz (Echidna) + static analysis (Slither) + formal verification | Economic attack sim, gas optimization | 0 Slither high/critical, fuzz 10k+ runs, formal spec verified |
 | `iot-embedded` | QEMU/HIL test + OTA update test + ETSI checklist | Power profiling, field condition sim | 0 ETSI critical, OTA verified, memory < limit |
@@ -65,6 +71,9 @@ Signals emitted by `senior-dev` (new deps, auth-path changes, PII columns, IAM d
 | `data-platform` | Backfill → validate → promote | Restore previous pipeline version, re-run |
 | `infra` | `terraform apply` / `helm upgrade` with plan review | `terraform apply` previous state / `helm rollback` |
 | `library` | Publish to registry (staging tag → release tag) | Yank + publish previous version |
+| `devtools` | API: canary 1%→5%→25%→100% on tenant boundaries. SDK: publish per language registry (npm/PyPI/crates/Maven/NuGet) on tag. Docs site: atomic deploy. | API: traffic-shift to previous version. SDK: yank + restore previous version, dispatch deprecation note via SDK telemetry. |
+| `browser-extension` | Web Store staged rollout (1%→10%→50%→100%) per browser. Submit + wait for review (Chrome ~24h, Firefox ~24-72h, Safari ~7d, Edge ~24h). | Submit previous version as new build (Web Stores have no instant rollback). Pre-stage emergency previous build before risky release. |
+| `game` | Console: certification → staged via store dashboard. PC (Steam): branch system (default branch + opt-in beta). Mobile: standard store rollout. Live-service: feature flag + remote config. | Roll back via store dashboard branch swap (Steam < 5min, console depends on cert). Live-service: feature flag off, drain matchmaking, hotfix patch. |
 | `commerce` | Canary with transaction monitoring | Instant traffic shift to previous version |
 | `web3` | Timelock → multisig → deploy (proxy upgrade if upgradeable) | Emergency pause / proxy downgrade |
 | `iot-embedded` | OTA staged rollout (1%→10%→100% of devices) | OTA rollback to previous firmware |
@@ -151,6 +160,9 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `data-platform` | `data-pack` | dbt/Dagster/Polars/DuckDB/Iceberg, lakehouse patterns, streaming, data quality |
 | `infra` | `infra-pack` | Terraform/Pulumi/CDK decision, GitOps (ArgoCD/Flux), FinOps + Karpenter, secrets, observability stack |
 | `library` | `library-pack` | OpenSSF Scorecard, npm provenance, PyPI Trusted Publishing, SBOM (Syft), semver enforcement, deprecation policy |
+| `devtools` | `devtools-pack` | API-first design, OpenAPI/GraphQL spec stability, multi-language SDK quality, docs as product, deprecation channels, dev relations |
+| `browser-extension` | `browser-extension-pack` | MV3 service worker, content script isolation, host_permissions audit, Web Store review pre-flight, cross-browser compat |
+| `game` | `game-pack` | Engine choice (Unity/Unreal/Godot/custom), multiplayer netcode (rollback/lockstep), anti-cheat, monetization (IAP/loot box compliance), platform certifications, age ratings |
 | `commerce` | `commerce-pack` | Stripe/Adyen/Paddle decision, subscription billing, idempotency, fraud detection, PCI-DSS scope reduction, tax |
 | `web3` | `web3-pack` | Slither/Echidna/Foundry/Certora, KYC/AML, custody (HSM/MPC/Shamir), MEV protection |
 | `iot-embedded` | (no dedicated pack — use detection signals) | platformio.ini, Zephyr (`west.yml`), ESP-IDF detected from filesystem |
