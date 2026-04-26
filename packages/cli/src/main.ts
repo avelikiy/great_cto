@@ -73,8 +73,9 @@ ${bold("Options:")}
       --dry-run          Show what would be done without doing it
       --force            Reinstall even if already present
       --archetype NAME   Override detected archetype
-                         (${cyan("web-service|mobile-app|ai-system|commerce|web3|")}
-                          ${cyan("data-platform|infra|library|iot-embedded|regulated")})
+                         (${cyan("web-service|mobile-app|ai-system|agent-product|commerce|web3|")}
+                          ${cyan("data-platform|infra|library|iot-embedded|regulated|")}
+                          ${cyan("devtools|browser-extension|game")})
       --version-tag VER  Pin to specific great_cto version (default: latest)
       --dir PATH         Run against a different directory (default: cwd)
   -h, --help             Show this help
@@ -82,7 +83,7 @@ ${bold("Options:")}
 
 ${bold("What it does:")}
   1. Scans your project for stack signals (package.json, Cargo.toml, go.mod, etc.)
-  2. Picks the matching great_cto archetype (web-service, commerce, ai-system, ...)
+  2. Picks the matching great_cto archetype (web-service, commerce, ai-system, devtools, browser-extension, game, ...)
   3. Clones the plugin into ~/.claude/plugins/cache/local/great_cto/<version>/
   4. Enables the plugin in ~/.claude/settings.json
   5. Creates .great_cto/PROJECT.md pre-filled with archetype + detected stack
