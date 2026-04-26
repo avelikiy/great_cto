@@ -239,7 +239,7 @@ if [ -n "$LAST_AUDIT" ]; then
 fi
 ```
 
-## Check 8 — SessionStart hook prime
+## Check 8 — SessionStart hook prime + version freshness
 
 ```bash
 echo ""
@@ -252,6 +252,25 @@ else
   echo "  ✗ plugin cache dir missing — SessionStart hook will fail"
 fi
 [ -f .great_cto/env.sh ] && echo "  ✓ .great_cto/env.sh present" || echo "  ⚠ .great_cto/env.sh missing — SessionStart did not prime"
+
+# Check freshness vs npm registry — force a fresh check (bypass 24h cache)
+if [ -n "$VER" ]; then
+  rm -f ~/.great_cto/.last-version-check 2>/dev/null
+  LATEST=$(curl -fsS --max-time 3 https://registry.npmjs.org/great-cto/latest 2>/dev/null \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version',''))" 2>/dev/null)
+  if [ -n "$LATEST" ] && [ "$VER" != "$LATEST" ]; then
+    NEWER=$(python3 -c "
+def p(v): return tuple(int(x) for x in v.split('.')[:3])
+print('yes' if p('$LATEST') > p('$VER') else 'no')" 2>/dev/null)
+    if [ "$NEWER" = "yes" ]; then
+      echo "  ⚠ outdated: latest is v$LATEST — upgrade with: npx great-cto init --force"
+    else
+      echo "  ✓ on latest (npm: v$LATEST)"
+    fi
+  elif [ "$VER" = "$LATEST" ]; then
+    echo "  ✓ on latest (npm: v$LATEST)"
+  fi
+fi
 ```
 
 ## Check 8b — LLM router (optional cost saver)
