@@ -4,6 +4,51 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.124 — 2026-04-26
+
+### Added — automatic update check at session start
+
+When a new version of great_cto is published to npm, users now see a one-line
+banner at the start of their next Claude Code session offering the upgrade
+command. No manual checking required.
+
+- **`scripts/check-update.sh`** (NEW): silent background update check called
+  from SessionStart hook. Compares cached plugin version against
+  `https://registry.npmjs.org/great-cto/latest`. Caches result for 24h to avoid
+  hammering npm. 3-second timeout so offline doesn't block session start.
+  Banner shows: current version, latest version, version delta (major/minor/patch),
+  upgrade command (`npx great-cto init --force`), changelog URL.
+- **`plugin.json` SessionStart hook**: appends call to `check-update.sh` at
+  the end. Runs after pattern injection so it's the most recent thing user sees.
+  Existence check (`-x`) means missing script doesn't break session start.
+- **`commands/doctor.md` Check 8**: extended with on-demand version freshness
+  check that bypasses the 24h cache. `/doctor` now shows whether the local
+  cache is current with npm's latest.
+
+### How it works
+
+```
+[every 24h, on SessionStart, silent unless update available]
+1. Read PLUGIN_DIR/.claude-plugin/plugin.json → CURRENT_VER
+2. curl npm registry → LATEST_VER (3s timeout, fail silently)
+3. If LATEST_VER > CURRENT_VER (semver): print banner
+4. Cache check timestamp in ~/.great_cto/.last-version-check
+```
+
+```
+╭─────────────────────────────────────────────────────────────────╮
+│  💡 great_cto 1.0.124 is available (you have 1.0.122, +2 patch) │
+│     Upgrade:  npx great-cto init --force                        │
+│     Changelog: https://github.com/avelikiy/great_cto/blob/...   │
+╰─────────────────────────────────────────────────────────────────╯
+```
+
+Verified across 5 scenarios: stale cache (banner shows), hot cache (silent),
+already on latest (silent), missing plugin.json (graceful skip), no network
+(3s timeout, silent).
+
+---
+
 ## v1.0.123 — 2026-04-26
 
 ### Added — 5 new domain packs + extended stack detection (closes archetype coverage gaps)
