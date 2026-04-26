@@ -1,5 +1,5 @@
 // Archetype decision: detected stack → archetype recommendation.
-// Mirrors great_cto's 10 archetypes in skills/great_cto/ARCHETYPES.md.
+// Mirrors great_cto's 13 archetypes in skills/great_cto/ARCHETYPES.md.
 
 import type { DetectionResult } from "./detect.js";
 
@@ -7,6 +7,7 @@ export type Archetype =
   | "web-service"
   | "mobile-app"
   | "ai-system"
+  | "agent-product"
   | "data-platform"
   | "infra"
   | "library"
@@ -14,6 +15,9 @@ export type Archetype =
   | "web3"
   | "iot-embedded"
   | "regulated"
+  | "devtools"
+  | "browser-extension"
+  | "game"
   | "greenfield";
 
 export interface ArchetypePick {
@@ -31,6 +35,62 @@ interface Rule {
 
 // Rules are evaluated; highest score wins.
 const RULES: Rule[] = [
+  // ── browser-extension ─────────────────────────────
+  // High priority: explicit MV3 manifest signal beats web-service / library
+  {
+    archetype: "browser-extension",
+    score: (d) => (d.stack.includes("browser-extension") ? 8 : 0),
+    reason: (_d) => "manifest.json with manifest_version detected — Chrome/Firefox/Edge extension",
+  },
+
+  // ── game ─────────────────────────────────────────
+  // High priority: Unity / Unreal / Godot signals beat library
+  {
+    archetype: "game",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("unity")) s += 8;
+      if (d.stack.includes("unreal")) s += 8;
+      if (d.stack.includes("godot")) s += 8;
+      if (d.stack.includes("phaser")) s += 6;
+      if (d.stack.includes("cocos")) s += 6;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("unity")) bits.push("Unity");
+      if (d.stack.includes("unreal")) bits.push("Unreal");
+      if (d.stack.includes("godot")) bits.push("Godot");
+      if (d.stack.includes("phaser")) bits.push("Phaser");
+      if (d.stack.includes("cocos")) bits.push("Cocos");
+      return `game engine detected: ${bits.join(", ")} — netcode/anti-cheat/age-rating gates`;
+    },
+  },
+
+  // ── devtools ─────────────────────────────────────
+  // High priority: OpenAPI + multi-language SDK presence beats library
+  {
+    archetype: "devtools",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("devtools-api")) s += 7;
+      if (d.stack.includes("openapi-spec")) s += 4;
+      if (d.stack.includes("graphql-schema")) s += 3;
+      if (d.stack.includes("multi-sdk")) s += 4;
+      if (d.stack.includes("stainless")) s += 4;
+      if (d.stack.includes("docs-platform")) s += 2;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("openapi-spec")) bits.push("OpenAPI spec");
+      if (d.stack.includes("graphql-schema")) bits.push("GraphQL schema");
+      if (d.stack.includes("multi-sdk")) bits.push("multi-language SDKs");
+      if (d.stack.includes("stainless")) bits.push("Stainless");
+      return `developer-tools platform detected (${bits.join(", ")}) — API stability + SDK quality gates`;
+    },
+  },
+
   // ── commerce ─────────────────────────────────────
   {
     archetype: "commerce",
@@ -184,7 +244,8 @@ const RULES: Rule[] = [
         ["next.js", "django", "fastapi", "flask", "express", "fastify", "nestjs", "hono",
          "react-native", "expo", "tauri", "capacitor", "flutter",
          "terraform", "pulumi", "aws-cdk", "helm",
-         "embedded", "zephyr", "esp-idf"].includes(t),
+         "embedded", "zephyr", "esp-idf",
+         "browser-extension", "unity", "unreal", "godot", "phaser", "cocos"].includes(t),
       );
       if (hasApp) return 0;
       if (d.stack.includes("nodejs") || d.stack.includes("python") || d.stack.includes("go") || d.stack.includes("rust")) {
@@ -238,6 +299,9 @@ export function suggestCompliance(d: DetectionResult, archetype: Archetype): str
   if (archetype === "ai-system") { c.add("eu-ai-act"); }
   if (archetype === "web3") { c.add("soc2"); }
   if (archetype === "iot-embedded") { c.add("iso27001"); }
+  if (archetype === "browser-extension") { c.add("csp"); c.add("mv3-security"); c.add("gdpr"); }
+  if (archetype === "game") { c.add("coppa"); c.add("age-rating"); c.add("accessibility"); }
+  if (archetype === "devtools") { c.add("openssf"); c.add("api-stability"); c.add("soc2-type-2"); c.add("gdpr"); }
   if (d.stack.includes("stripe")) c.add("pci-dss");
   // Reasonable default for any web service storing user data
   if (archetype === "web-service") c.add("gdpr");
