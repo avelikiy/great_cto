@@ -19,6 +19,12 @@ interface Pkg {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+  private?: boolean;
+  main?: string;
+  module?: string;
+  type?: string;
+  exports?: unknown;
+  bin?: string | Record<string, string>;
 }
 
 export function detect(dir: string): DetectionResult {
@@ -67,36 +73,75 @@ export function detect(dir: string): DetectionResult {
       // Mobile
       if (has("react-native")) { stack.add("react-native"); sig("mobile", "package.json"); }
       if (has("expo")) stack.add("expo");
+      if (has("@tauri-apps/api") || has("@tauri-apps/cli")) {
+        stack.add("tauri");
+        sig("desktop", "tauri");
+      }
+      if (has("@capacitor/core")) { stack.add("capacitor"); sig("mobile", "capacitor"); }
 
       // AI / agents
       if (has("openai")) { stack.add("openai-sdk"); sig("ai", "openai"); }
       if (has("@anthropic-ai/sdk")) { stack.add("anthropic-sdk"); sig("ai", "anthropic-sdk"); }
       if (has("langchain") || has("@langchain/core")) { stack.add("langchain"); sig("ai", "langchain"); }
+      if (has("@langchain/langgraph")) { stack.add("langgraph"); sig("agent", "langgraph"); }
+      if (has("crewai")) { stack.add("crewai"); sig("agent", "crewai"); }
       if (has("llamaindex")) { stack.add("llamaindex"); sig("ai", "llamaindex"); }
       if (has("@modelcontextprotocol/sdk")) { stack.add("mcp"); sig("ai", "mcp"); }
+      if (has("ollama")) { stack.add("ollama"); sig("ai", "ollama"); }
+      if (has("@mastra/core")) { stack.add("mastra"); sig("agent", "mastra"); }
+      if (has("ai")) { stack.add("vercel-ai-sdk"); sig("ai", "vercel-ai-sdk"); }
 
       // Payments / commerce
       if (has("stripe") || has("@stripe/stripe-js")) { stack.add("stripe"); sig("commerce", "stripe"); }
       if (has("@shopify/shopify-api")) { stack.add("shopify"); sig("commerce", "shopify"); }
       if (has("braintree")) { stack.add("braintree"); sig("commerce", "braintree"); }
+      if (has("@adyen/api-library")) { stack.add("adyen"); sig("commerce", "adyen"); }
+      if (has("@paddle/paddle-node-sdk")) { stack.add("paddle"); sig("commerce", "paddle"); }
+      if (has("@lemonsqueezy/lemonsqueezy.js")) { stack.add("lemonsqueezy"); sig("commerce", "lemonsqueezy"); }
+      if (has("polar-sh")) { stack.add("polar"); sig("commerce", "polar"); }
 
       // Auth
       if (has("next-auth") || has("@auth/core")) stack.add("auth");
       if (has("@clerk/nextjs") || has("@clerk/clerk-sdk-node")) stack.add("clerk");
       if (has("@supabase/supabase-js")) stack.add("supabase");
+      if (has("lucia")) { stack.add("lucia"); }
+      if (has("@workos-inc/node")) { stack.add("workos"); }
 
       // Databases / ORMs
       if (has("prisma") || has("@prisma/client")) stack.add("prisma");
       if (has("drizzle-orm")) stack.add("drizzle");
+      if (has("kysely")) stack.add("kysely");
       if (has("typeorm")) stack.add("typeorm");
       if (has("mongodb") || has("mongoose")) stack.add("mongodb");
       if (has("pg") || has("postgres")) stack.add("postgres");
+      if (has("@neondatabase/serverless")) { stack.add("neon"); sig("edge", "neon"); }
+      if (has("@planetscale/database")) { stack.add("planetscale"); sig("edge", "planetscale"); }
+      if (has("@libsql/client")) { stack.add("turso"); sig("edge", "turso"); }
       if (has("mysql") || has("mysql2")) stack.add("mysql");
       if (has("redis") || has("ioredis")) stack.add("redis");
+      if (has("duckdb") || has("@duckdb/node-api")) { stack.add("duckdb"); sig("data", "duckdb"); }
 
       // Testing
       if (has("jest") || has("vitest") || has("mocha") || has("@playwright/test") || has("playwright")) {
         sig("tests", "package.json");
+      }
+
+      // Library detection (npm package intended for distribution)
+      // Signals: has "main" or "exports", NOT "private:true", NOT a typical app structure
+      const isPublishable = !pkg.private && (pkg.main || pkg.exports || pkg.module || pkg.type === "module");
+      const hasAppStructure = existsSync(join(dir, "pages")) ||
+                              existsSync(join(dir, "app")) ||
+                              existsSync(join(dir, "src/pages")) ||
+                              existsSync(join(dir, "src/app")) ||
+                              existsSync(join(dir, "public/index.html"));
+      const hasBin = !!pkg.bin;
+      if (isPublishable && !hasAppStructure) {
+        stack.add("library");
+        sig("library", "package.json");
+      }
+      if (hasBin) {
+        stack.add("cli");
+        sig("library", "bin");
       }
     } catch { /* ignore malformed */ }
   }
@@ -125,16 +170,57 @@ export function detect(dir: string): DetectionResult {
       if (ihas("openai")) stack.add("openai-sdk");
       if (ihas("anthropic")) stack.add("anthropic-sdk");
       if (ihas("langchain")) { stack.add("langchain"); sig("ai", "langchain"); }
+      if (ihas("langgraph")) { stack.add("langgraph"); sig("agent", "langgraph"); }
+      if (ihas("crewai")) { stack.add("crewai"); sig("agent", "crewai"); }
+      if (ihas("autogen-agentchat") || ihas("pyautogen")) { stack.add("autogen"); sig("agent", "autogen"); }
+      if (ihas("dspy-ai")) { stack.add("dspy"); sig("ai", "dspy"); }
+      if (ihas("vllm")) { stack.add("vllm"); sig("ai", "vllm"); }
+      if (ihas("ollama")) { stack.add("ollama"); sig("ai", "ollama"); }
+      if (ihas("ragas") || ihas("deepeval")) { stack.add("llm-eval"); sig("ai", "llm-eval"); }
       if (ihas("llama-index") || ihas("llamaindex")) stack.add("llamaindex");
       if (ihas("torch") || ihas("tensorflow") || ihas("scikit-learn")) {
         stack.add("ml");
         sig("ml", "python");
       }
-      if (ihas("pandas") || ihas("dask") || ihas("airflow") || ihas("prefect")) {
+      if (ihas("opencv") || ihas("ultralytics") || ihas("detectron2")) {
+        stack.add("computer-vision");
+        sig("ai", "computer-vision");
+      }
+      if (ihas("pandas") || ihas("dask") || ihas("airflow") || ihas("prefect") || ihas("dagster")) {
         stack.add("data-pipeline");
         sig("data", "python");
       }
+      if (ihas("polars")) { stack.add("polars"); sig("data", "polars"); }
+      if (ihas("duckdb")) { stack.add("duckdb"); sig("data", "duckdb"); }
+      if (ihas("pyiceberg")) { stack.add("iceberg"); sig("data", "iceberg"); }
+      if (ihas("dbt-core") || ihas("dbt-")) { stack.add("dbt"); sig("data", "dbt"); }
       if (ihas("stripe")) { stack.add("stripe"); sig("commerce", "stripe"); }
+
+      // Library detection — Python package intended for distribution
+      // Signal: has setup.py / pyproject.toml [project] or [tool.poetry] without 'private = true'
+      const isPyLib = pyproject.includes("[project]") || pyproject.includes("[tool.poetry]") ||
+                      existsSync(join(dir, "setup.py"));
+      const hasPyApp = existsSync(join(dir, "manage.py")) ||
+                       existsSync(join(dir, "main.py")) ||
+                       existsSync(join(dir, "app.py")) ||
+                       existsSync(join(dir, "wsgi.py"));
+      if (isPyLib && !hasPyApp) {
+        stack.add("library");
+        sig("library", "python");
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ── Flutter / Dart ────────────────────────────────────────
+  if (existsSync(join(dir, "pubspec.yaml"))) {
+    sig("flutter", "pubspec.yaml");
+    stack.add("flutter");
+    languages.add("dart");
+    try {
+      const pubspec = readFileSync(join(dir, "pubspec.yaml"), "utf-8").toLowerCase();
+      if (pubspec.includes("flutter:")) sig("mobile", "flutter");
+      if (pubspec.includes("flutter_bloc")) stack.add("bloc");
+      if (pubspec.includes("riverpod")) stack.add("riverpod");
     } catch { /* ignore */ }
   }
 
@@ -147,6 +233,17 @@ export function detect(dir: string): DetectionResult {
       const gomod = readFileSync(join(dir, "go.mod"), "utf-8");
       if (gomod.includes("stripe-go")) stack.add("stripe");
       if (gomod.includes("openai-go")) stack.add("openai-sdk");
+      if (gomod.includes("anthropic-sdk-go")) stack.add("anthropic-sdk");
+      if (gomod.includes("gin-gonic/gin")) stack.add("gin");
+      if (gomod.includes("labstack/echo")) stack.add("echo");
+      if (gomod.includes("go-chi/chi")) stack.add("chi");
+
+      // Library detection: no main package + intended as module
+      const hasMainGo = existsSync(join(dir, "main.go")) || existsSync(join(dir, "cmd"));
+      if (!hasMainGo) {
+        stack.add("library");
+        sig("library", "go");
+      }
     } catch { /* ignore */ }
   }
 
@@ -159,6 +256,15 @@ export function detect(dir: string): DetectionResult {
       const cargo = readFileSync(join(dir, "Cargo.toml"), "utf-8");
       if (cargo.includes("actix-web") || cargo.includes("axum") || cargo.includes("rocket")) {
         sig("web-rust", "Cargo.toml");
+      }
+      if (cargo.includes("embassy")) { stack.add("embassy"); sig("embedded", "embassy"); }
+
+      // Library detection: [lib] section without [[bin]]
+      const hasLib = cargo.includes("[lib]") || (!cargo.includes("[[bin]]") && cargo.includes("[package]"));
+      const hasBin = cargo.includes("[[bin]]") || existsSync(join(dir, "src/main.rs"));
+      if (hasLib && !hasBin) {
+        stack.add("library");
+        sig("library", "rust");
       }
     } catch { /* ignore */ }
   }
@@ -192,17 +298,43 @@ export function detect(dir: string): DetectionResult {
     sig("infra", "terraform");
     stack.add("terraform");
   }
+  if (existsSync(join(dir, "Pulumi.yaml")) || existsSync(join(dir, "Pulumi.yml"))) {
+    sig("infra", "pulumi");
+    stack.add("pulumi");
+  }
+  if (existsSync(join(dir, "cdk.json"))) {
+    sig("infra", "aws-cdk");
+    stack.add("aws-cdk");
+  }
   if (existsSync(join(dir, "Chart.yaml")) || existsSync(join(dir, "values.yaml"))) {
     sig("infra", "helm");
     stack.add("helm");
+  }
+  if (existsSync(join(dir, "helmfile.yaml")) || existsSync(join(dir, "helmfile.yml"))) {
+    sig("infra", "helmfile");
+    stack.add("helmfile");
   }
   if (safeGlob(dir, /kustomization\.ya?ml$/)) {
     sig("infra", "kustomize");
     stack.add("kubernetes");
   }
+  if (existsSync(join(dir, "argocd")) || safeGlob(dir, /argocd-application\.ya?ml$/)) {
+    sig("infra", "argocd");
+    stack.add("argocd");
+  }
   if (existsSync(join(dir, "Dockerfile")) || existsSync(join(dir, "docker-compose.yml"))) {
     sig("docker", "Dockerfile");
     stack.add("docker");
+  }
+  if (existsSync(join(dir, "dbt_project.yml"))) {
+    sig("data", "dbt");
+    stack.add("dbt");
+    stack.add("data-pipeline");
+  }
+  if (existsSync(join(dir, "dagster.yaml")) || existsSync(join(dir, "workspace.yaml"))) {
+    sig("data", "dagster");
+    stack.add("dagster");
+    stack.add("data-pipeline");
   }
 
   // ── Smart contracts ──────────────────────────────────────
@@ -225,6 +357,16 @@ export function detect(dir: string): DetectionResult {
       existsSync(join(dir, "Kconfig"))) {
     sig("embedded", "platformio/sdk");
     stack.add("embedded");
+  }
+  if (existsSync(join(dir, "west.yml")) || existsSync(join(dir, "zephyr"))) {
+    sig("embedded", "zephyr");
+    stack.add("embedded");
+    stack.add("zephyr");
+  }
+  if (existsSync(join(dir, "CMakePresets.json")) && existsSync(join(dir, "components"))) {
+    sig("embedded", "esp-idf");
+    stack.add("embedded");
+    stack.add("esp-idf");
   }
 
   // ── Package manager ──────────────────────────────────────

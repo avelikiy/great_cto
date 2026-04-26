@@ -87,3 +87,96 @@
 - Verify compliance with geographic restrictions (EU data stays in EU, etc.)
 - Document cross-border transfer mechanisms (SCCs, BCRs)
 - Artifact: `docs/compliance/data-residency.md`
+
+## Tooling Reference (2026 stack)
+
+The data tooling landscape consolidated significantly between 2023-2026. Here's what to default to:
+
+### Transformation
+
+| Tool | When |
+|------|------|
+| **dbt Core / dbt Cloud** | SQL-first transformation, defines models + tests + docs together. Default for warehouse work. |
+| **SQLMesh** | dbt alternative with virtual environments, easier dev workflow |
+| **Spark** (Databricks) | Big data + ML workloads, when SQL alone isn't enough |
+| **Polars** | Pandas replacement, 10-100× faster, Rust core | Default for in-process analysis (replaces pandas in 2026) |
+| **DuckDB** | Embedded analytical DB, blazing on local files (Parquet, CSV, JSON) | Default for local exploratory analysis + ETL |
+
+For new project: dbt + DuckDB for dev, dbt + Snowflake/BigQuery for production. Polars for any custom Python transformation logic.
+
+### Orchestration
+
+| Tool | When |
+|------|------|
+| **Dagster** | Asset-based, type-checked, modern. Best DX of any orchestrator. | Default for new projects |
+| **Airflow 3.x** | Industry standard, vast operator library, mature | Pick if team has Airflow experience |
+| **Prefect** | Pythonic, dynamic DAGs, hosted option | Lighter alternative to Airflow |
+| **Mage** | Notebook-first, fast iteration | For experimentation-heavy teams |
+| **Temporal** | Workflow engine with durable execution | For event-driven workflows, not pure ETL |
+
+For new project without strong opinion: **Dagster** in 2026. Software engineering best practices baked in (typed assets, asset-level tests, declarative scheduling, partitions, backfills as a first-class concept).
+
+### Data warehouse / lakehouse
+
+| Tool | When |
+|------|------|
+| **Snowflake** | Industry default, mature, multi-cloud | Pick when budget allows |
+| **BigQuery** | GCP-native, serverless, generous free tier | Pick if already on GCP |
+| **Databricks** | Lakehouse, deep Spark + ML integration | Pick for AI/ML-heavy workloads |
+| **ClickHouse** | OLAP, blazing fast, self-hostable | Pick for high-throughput analytics, time-series |
+| **DuckDB** + **Iceberg** | Lakehouse pattern without compute layer | New: emerging "small data" lakehouse |
+
+### Lakehouse (Iceberg)
+
+Apache Iceberg has become the de-facto open lakehouse format in 2026 (winning over Delta and Hudi for new projects):
+
+- **Storage**: Parquet files in S3/GCS/Azure Blob
+- **Catalog**: AWS Glue, Snowflake Polaris, Tabular, or self-hosted via REST catalog
+- **Compute**: Spark, Trino, DuckDB, Snowflake, BigQuery — all read Iceberg natively
+- **Why**: time travel (snapshot-based), schema evolution, hidden partitioning, ACID transactions on object storage
+
+For new lakehouse: Iceberg + DuckDB for small/dev, Iceberg + Snowflake or Spark for production.
+
+### Streaming
+
+| Tool | When |
+|------|------|
+| **Kafka** + **Flink** | Standard for high-volume event streaming |
+| **Confluent Cloud** | Managed Kafka, lower operational burden |
+| **Redpanda** | Kafka-compatible, single binary, lower latency |
+| **Materialize** | Streaming SQL, incremental views |
+| **RisingWave** | Open-source streaming DB, Postgres-wire-compatible |
+
+### Data quality
+
+| Tool | When |
+|------|------|
+| **Great Expectations** | Pythonic, comprehensive, Python ecosystem | Default if you're Python-shop |
+| **Soda Core** | YAML-driven, lightweight, multi-language | Default if you want config-driven |
+| **dbt tests** | If on dbt anyway, start here, add specialised tools as needed |
+| **Monte Carlo** / **Bigeye** | Hosted observability, incident detection | When data outages cost money |
+
+### Catalog & discovery
+
+| Tool | When |
+|------|------|
+| **DataHub** | Open-source, LinkedIn-built, mature | Default for new self-hosted |
+| **OpenMetadata** | Alternative, more polished UI | Same role as DataHub |
+| **Atlan** / **Alation** | Hosted, enterprise focus | Pick when budget allows |
+
+### Vector data (when crossing into AI)
+
+See `ai-pack.md` § Vector databases. For pure data-platform: **pgvector** if you need it; otherwise Pinecone/Qdrant/Weaviate.
+
+### Recommended `PROJECT.md` for new data-platform project
+
+```yaml
+primary: data-pipeline
+archetype: data-platform
+project_size: medium
+stack: [python, dbt, dagster, snowflake, polars]
+team-size: 2
+compliance: [pii-classification, data-lineage]
+qa-extras: [data-lineage, dbt-test, freshness-sla, contract-validation]
+packs: [data-pack]
+```

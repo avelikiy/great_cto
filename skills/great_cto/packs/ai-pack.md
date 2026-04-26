@@ -120,3 +120,94 @@ Each `qa-extras` value below adds specific checks to qa-engineer's test plan.
 3. Data minimization: don't store voice data longer than needed
 4. Right to erasure: must be able to delete all voice recordings per user
 5. Document in `docs/compliance/GDPR-biometric-DPIA.md`
+
+## Tooling Reference (2026 stack)
+
+The AI tooling landscape moves fast. As of 2026, here's what to default to:
+
+### LLM serving (on-prem / self-hosted)
+
+| Tool | When |
+|------|------|
+| **vLLM** | Production GPU serving, throughput-optimised, supports continuous batching | Default for self-hosted GPU |
+| **Ollama** | Local dev, single-user, easy model management | Default for laptop / dev workstation |
+| **llama.cpp** | CPU inference, embedded, edge | When GPU isn't available |
+| **TGI** (HuggingFace Text Generation Inference) | Alternative to vLLM | Same role; comparable perf |
+| **TensorRT-LLM** | NVIDIA-specific, lowest latency | When you've committed to NVIDIA stack and need every ms |
+
+For most teams: vLLM in production, Ollama for local dev. Don't roll your own serving on top of `transformers` library — it's an order of magnitude slower than vLLM.
+
+### Prompt engineering / programmatic prompting
+
+| Tool | When |
+|------|------|
+| **DSPy** | Compose prompts as programs, optimise with metrics. Best when you have eval data and want to systematically improve. |
+| **Guidance** | Constrained generation (force JSON, force grammar). Good for structured output. |
+| **Outlines** | Similar to Guidance; cleaner API; pure Python |
+| **Instructor** | Pydantic-based structured output for OpenAI/Anthropic APIs |
+| **LangChain / LlamaIndex** | Full agent framework with retrieval; use when you need the kitchen sink |
+
+For new project starting in 2026: **Instructor** for simple typed outputs, **DSPy** for systematic prompt improvement, **vercel-ai-sdk** for streaming UI in React/Next.js.
+
+**Anti-pattern**: building everything on raw f-strings + JSON.parse. Works for prototype, breaks at scale when prompts evolve and you need to A/B test variations.
+
+### LLM evaluation
+
+| Tool | When |
+|------|------|
+| **Ragas** | RAG-specific evaluation (faithfulness, answer relevancy, context precision) |
+| **DeepEval** | Pytest-style LLM evals; CI-friendly |
+| **Braintrust** | Hosted eval + experimentation, dashboards, regression detection |
+| **Humanloop** | Hosted, focuses on prompt management + evaluation |
+| **Langfuse evals** | If you're already using Langfuse for observability |
+| **Promptfoo** | YAML-driven, runs in CI, good for prompt regression |
+
+For new project: **Promptfoo** (free, CI-native) for regression testing, plus **Braintrust** if budget allows for hosted experimentation. Add Ragas if you have a RAG system.
+
+### Local-first / privacy-preserving LLM
+
+When the use case requires no data leaves device:
+
+- **Ollama** + open models (Llama 3.x, Qwen 2.5, Mistral)
+- **WebLLM** (browser-based via WebGPU)
+- **mlc-llm** (cross-platform, mobile-capable)
+- **Llamafile** (single-file LLM)
+
+Model choice for local: Llama 3.3 70B if you have the GPU, Qwen 2.5 32B for speed, Phi-3 Mini for embedded.
+
+### Vector databases
+
+| Tool | When |
+|------|------|
+| **Pinecone** | Managed, default for SaaS without infra team |
+| **Weaviate** | Self-hosted or managed, hybrid search built-in |
+| **Qdrant** | Self-hosted, fastest open-source, Rust core |
+| **pgvector** (Postgres) | Already on Postgres, want to keep one DB | Default if vector count < 10M |
+| **Turbopuffer** | Cheapest scalable, S3-backed, serverless |
+| **LanceDB** | Embedded, columnar, great for local + edge |
+
+For new project on Postgres: pgvector. Switch to dedicated when query latency hurts at scale (~10M+ vectors).
+
+### Observability for LLM apps
+
+| Tool | When |
+|------|------|
+| **Langfuse** | Open-source, self-hostable, full LLM observability + eval |
+| **Helicone** | Drop-in proxy, instant tracing, cheap |
+| **Langsmith** | LangChain-native, hosted, expensive |
+| **Honeycomb** | If you already use Honeycomb for general APM, has LLM support |
+
+Default for new: Langfuse self-hosted. Free, complete, owns your data.
+
+### Recommended `PROJECT.md` for new ai-system project
+
+```yaml
+primary: rag-system
+archetype: ai-system
+project_size: medium
+stack: [python, fastapi, openai-sdk, vllm, pgvector]
+team-size: 2
+compliance: [eu-ai-act]
+qa-extras: [retrieval-quality, hallucination, prompt-regression, cost-cap]
+packs: [ai-pack]
+```
