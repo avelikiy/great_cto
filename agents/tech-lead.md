@@ -614,9 +614,18 @@ case "$ARCHETYPE" in web3|iot-embedded|regulated) TRIGGER=1 ;; esac
 
 if [ "$TRIGGER" -eq 1 ]; then
   mkdir -p docs/pre-mortems
-  SLUG="<feature-slug>"  # match ARCH doc slug
+  # Compute SLUG from feature description or latest ARCH file
+  SLUG="${FEATURE_SLUG:-$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1 | xargs -I{} basename {} .md | sed 's/^ARCH-//')}"
+  [ -z "$SLUG" ] && SLUG="feature"
   PRE="docs/pre-mortems/PRE-${SLUG}.md"
   if [ ! -f "$PRE" ]; then
+    # Hard halt for production mode in high-risk archetypes — pre-mortem is mandatory before ARCH gate.
+    MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+    if [ "$MODE" = "production" ]; then
+      echo "BLOCKED: pre-mortem PRE-${SLUG}.md is mandatory for production mode (size=$SIZE, archetype=$ARCHETYPE)" >&2
+      echo "Generate it now per skills/great_cto/references/pre-mortem.md (Scenario / ≥5 failure modes / P×I rank / mitigations→gates) or set 'pre-mortem: skip' in PROJECT.md with documented justification." >&2
+      exit 1
+    fi
     echo "Pre-mortem required. Generating $PRE — see skills/great_cto/references/pre-mortem.md for schema."
     # Write PRE-<slug>.md per reference: Scenario, ≥5 failure modes, rank P×I,
     # early warning signs, mitigations→gates, risks to register, empty post-ship review.
@@ -636,18 +645,53 @@ SECURITY_REQUIRED=0
 case "$ARCHETYPE" in ai-system|commerce|web3|iot-embedded|regulated|fintech) SECURITY_REQUIRED=1 ;; esac
 
 if [ "$SECURITY_REQUIRED" -eq 1 ]; then
-  SLUG="<feature-slug>"  # match ARCH doc slug
+  # Compute SLUG from latest ARCH file or fall back to feature slug variable
+  SLUG="${FEATURE_SLUG:-$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1 | xargs -I{} basename {} .md | sed 's/^ARCH-//')}"
+  [ -z "$SLUG" ] && SLUG="feature"
   TM="docs/sec threats/TM-${SLUG}.md"
-  if [ ! -f "$TM" ]; then
-    echo "Archetype $ARCHETYPE requires a threat model. Generating → /sec threat ${SLUG}"
-    # Invoke /sec threat ${SLUG} to produce TM-<slug>.md AND append ## Security to ARCH.
-    # Block ARCH gate until Critical/High threats have mitigations + mapped gates.
+  ARCH_FILE="docs/architecture/ARCH-${SLUG}.md"
+
+  # Hard halt: ARCH for security-critical archetype must have ## Security section.
+  # Same enforcement model as Step 0a Discovery gate (v1.0.131) — print BLOCKED, exit 1.
+  if [ -f "$ARCH_FILE" ] && ! grep -q "^## Security" "$ARCH_FILE"; then
+    echo "BLOCKED: $ARCH_FILE missing required ## Security section for archetype=$ARCHETYPE" >&2
+    echo "Run /sec threat ${SLUG} to generate threat model and Security section, or append manually with refs to OWASP/PCI-DSS/STRIDE per archetype pack." >&2
+    exit 1
   fi
-  # After threat model is in place, ARCH must have ## Security — verify before marking ARCH done.
-  if ! grep -q "^## Security" "docs/architecture/ARCH-${SLUG}.md" 2>/dev/null; then
-    echo "BLOCK: ARCH-${SLUG}.md missing ## Security section. Run /sec threat ${SLUG} (or append manually)."
+
+  # Hard halt: threat model file must exist before ARCH gate finalises.
+  if [ ! -f "$TM" ]; then
+    echo "BLOCKED: archetype=$ARCHETYPE requires threat model at $TM" >&2
+    echo "Run: /sec threat ${SLUG}" >&2
+    echo "Threat model must cover (per pack): prompt-injection (ai/agent), PCI-DSS scope (commerce), flash-loan + l2-resilience (web3), ETSI/OTA (iot-embedded), DORA Art.17-23 + ICT-third-party (regulated)." >&2
+    exit 1
   fi
 fi
+
+# Compliance artefact gate — declared compliance values must have backing artefacts.
+# Closes the orphaned-pack bug (regulated/DORA shipped with no DORA-checklist.md).
+COMPLIANCE_RAW=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/.*\[//;s/\].*//;s/,/ /g')
+for fw in $COMPLIANCE_RAW; do
+  fw=$(echo "$fw" | tr -d ' ')
+  case "$fw" in
+    dora)        REQ="docs/compliance/DORA-ICT-risk-assessment.md docs/compliance/DORA-third-party-register.md" ;;
+    nis2)        REQ="docs/compliance/NIS2-article21-controls.md" ;;
+    gxp|21cfr11) REQ="docs/compliance/21CFR11-checklist.md" ;;
+    tisax)       REQ="docs/compliance/TISAX-VDA-ISA-results.md" ;;
+    iso27001)    REQ="docs/compliance/ISO27001-SoA.md" ;;
+    sox)         REQ="docs/compliance/SOX-ITGC-checklist.md" ;;
+    pci-dss|pci-dss-saq-d) REQ="docs/compliance/PCI-DSS-SAQ-D.md" ;;
+    pci-dss-saq-a)         REQ="docs/compliance/PCI-DSS-SAQ-A.md" ;;
+    *) REQ="" ;;
+  esac
+  for f in $REQ; do
+    if [ ! -f "$f" ]; then
+      echo "BLOCKED: compliance:[$fw] declared in PROJECT.md but $f does not exist" >&2
+      echo "Generate it before ARCH gate. See skills/great_cto/packs/enterprise-pack.md for templates." >&2
+      exit 1
+    fi
+  done
+done
 ```
 
 For `recommended` archetypes (`data-platform`, `mobile-app`, `web-service`), threat model is optional but encouraged — surface it to the CTO as "consider running /sec threat before code starts; high-severity threats are cheapest to fix at design time."
