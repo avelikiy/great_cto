@@ -846,6 +846,52 @@ Write to `$REPORT_FILE`:
 
 ---
 
+## AI Operations (v1.0.137+, ai-system / agent-product only)
+
+> Show this section only if `archetype: ai-system | agent-product` in PROJECT.md.
+
+| Metric | This Q | Last Q | Trend |
+|---|---|---|---|
+| Sessions | <SESSIONS_THIS_Q> | <SESSIONS_LAST_Q> | ↑/↓/→ |
+| Avg cost per session (USD) | <AVG_COST> | <AVG_COST_PREV> | ↑/↓/→ |
+| Total LLM spend ($) | <TOTAL_SPEND> / <BUDGET> | <PREV_SPEND> | <PCT>% of cap |
+| Eval pass rate (overall) | <PASS_PCT>% | <PREV_PASS_PCT>% | ↑/↓/→ |
+| Prompt-injection bypass count | <BYPASS_COUNT> | <PREV_BYPASS> | should be 0 |
+| Cross-user isolation failures | <ISO_FAIL> | <PREV_ISO_FAIL> | should be 0 (agent-product) |
+| Models in production (pinned versions) | <list ADR-LLM versions> | <prev> | drift if N changes |
+| Outstanding prompt drift | <DRIFT_COUNT> ADR-PROMPTs out of sync | <prev> | 0 desired |
+| ADR-PROMPT revisions this Q | <REVS> | <prev> | iteration velocity |
+| Active threat model age | <max(TM_AGE_DAYS)>d | <prev> | < 90d desired |
+
+**Data sources** (read by digest in board mode):
+- Sessions + cost/session: `.great_cto/cost-history.log` / `logs/llm-cost.log` / `logs/audit.jsonl` (jsonl with `cost_usd` field, grouped by `session_id`)
+- Eval pass rate: parse `## History` table tail in each `tests/eval/EVAL-*.md`
+- Prompt-injection bypass: count of `BLOCK` verdicts in `EVAL-prompt-injection.md` history rows
+- Cross-user isolation: count of failures in `EVAL-cross-user-isolation.md` history
+- Models: `grep -h "^## Decision" docs/decisions/ADR-*-LLM-*.md` — extract pinned model versions
+- Prompt drift: re-compute sha256 of system prompts in src/ vs stored hash in `ADR-PROMPT-*.md`
+- TM age: `stat -f %m docs/sec-threats/TM-*.md`
+
+**What this surfaces for the board:**
+- Cost trajectory vs cap → predict need for raise
+- Eval pass rate trend → product reliability over time
+- Bypass + isolation failures → security health (target 0, escalate if > 0)
+- Drift signals → maintenance debt accumulating
+
+```bash
+# Implementation skeleton (board-mode only) — fill table values from data sources above
+if [ "$BOARD_MODE" = "true" ] && grep -qE "^archetype: (ai-system|agent-product)" .great_cto/PROJECT.md; then
+  # Compute metrics from data sources
+  SESSIONS_THIS_Q=$(grep "$CURRENT_YEAR-$QUARTER" .great_cto/cost-history.log 2>/dev/null | grep -oE '"session_id":"[^"]*"' | sort -u | wc -l | tr -d ' ')
+  TOTAL_SPEND=$(grep "$CURRENT_YEAR-$QUARTER" .great_cto/cost-history.log 2>/dev/null | grep -oE '"cost_usd":[0-9.]+' | awk -F: '{s+=$2} END {printf "%.2f",s}')
+  BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '$')
+  AVG_COST=$(echo "scale=4; ${TOTAL_SPEND:-0} / ${SESSIONS_THIS_Q:-1}" | bc 2>/dev/null)
+  # ... etc; emit AI Operations table to board report
+fi
+```
+
+---
+
 ## Risks
 
 | Risk | Likelihood | Impact | Mitigation |
