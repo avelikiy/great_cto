@@ -48,6 +48,24 @@ Column headers are the mode. ✓ = full; ○ = minimal/lite; ✗ = skip entirely
 | Anti-pattern lint (`/audit lint`) | ✓ | ✓ | ○ advisory only |
 | `/digest` inclusion | ✓ | ✓ | ○ POC appears as "ongoing experiment" block, not feature |
 
+## AI archetype overrides — `ai-system` and `agent-product` cannot fully skip security in POC mode
+
+The skip matrix above applies to most archetypes. AI archetypes are different because the cost of a prompt-injection bypass or a leaked API key in a "throwaway" PoC is the same as in production — the model doesn't care that you labelled the project PoC.
+
+| Step | poc — non-AI | poc — `ai-system` | poc — `agent-product` |
+|---|:-:|:-:|:-:|
+| Threat model | ✗ | ○ **3-section minimum**: prompt-injection vector, output exfiltration, cost runaway | ○ **5-section minimum**: above + tool-call sandbox + cross-user isolation if multi-tenant |
+| Eval set (`tests/eval/EVAL-*.md`) | ✗ | ○ **3 scenarios minimum**: golden citation, refuse-when-uncertain, output-schema-stability | ○ **5 scenarios minimum**: above + 1 prompt-injection case + 1 budget-overrun case |
+| `monthly-budget-llm-usd` in PROJECT.md | optional | **mandatory** — even at $5/mo, agents check it | **mandatory** |
+| Cost guardrail in code | optional | ○ at minimum, log every LLM call's cost; project-auditor flags absence as P1 | ○ same + per-session BudgetTracker (see agent-pack) |
+| `credential-scan` for LLM API keys | per default rule | mandatory — same as default | mandatory — same as default |
+| Kill-switch documented | ✗ | ○ 1-line note in ARCH: "how to stop this and who can do it within N minutes" | ○ same |
+| SSRF / URL allowlist if tool layer fetches user-suggested URLs | n/a | ○ scheme-and-port allowlist required even in PoC; scan for `requests.get` taking LLM-output is P0 | ○ same |
+
+**Rule of thumb**: in AI PoC mode, you skip ARCH ceremony, TDD strictness, and full pentest — but you do NOT skip the threats that are unique to AI (prompt injection, cost runaway, tool-call abuse, model-jailbreak). Those are baseline risks regardless of project lifetime.
+
+When the AI PoC promotes via `/promote`, the eval set and threat model upgrade to the full schema; the lite versions become the historical record of what the team knew at PoC time.
+
 ## The `credential-scan` exception
 
 POC mode skips `security-officer` **except** for one hard rule: **no
