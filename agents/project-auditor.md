@@ -420,6 +420,63 @@ grep -rn "prometheus\|datadog\|opentelemetry\|jaeger\|honeycomb\|grafana" \
 
 ---
 
+### 4D. AI cost-cap check (v1.0.133+)
+
+For `archetype: ai-system | agent-product`, verify actual LLM spend has not exceeded the declared `monthly-budget-llm-usd`. If exceeded, file a P0 Beads task immediately.
+
+```bash
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+case "$ARCHETYPE" in
+  ai-system|agent-product) ;;
+  *) ;;  # skip cost-cap for non-AI archetypes
+esac
+
+if [ "$ARCHETYPE" = "ai-system" ] || [ "$ARCHETYPE" = "agent-product" ]; then
+  BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '$')
+
+  if [ -z "$BUDGET" ] || [ "$BUDGET" = "0" ]; then
+    bd create "AI cost cap unset for $ARCHETYPE archetype" \
+      --priority P0 --label compliance --label cost \
+      --notes "PROJECT.md missing monthly-budget-llm-usd. ai-system / agent-product archetypes require explicit LLM spend cap. Fill in PROJECT.md ## Budget section." 2>/dev/null
+    echo "⚠ P0: monthly-budget-llm-usd not set for $ARCHETYPE archetype"
+  else
+    # Look for cost telemetry: standard locations
+    SPEND_THIS_MONTH=0
+    for SOURCE in \
+      .great_cto/cost-history.log \
+      logs/llm-cost.log \
+      logs/cost.log \
+      logs/audit.jsonl; do
+      if [ -f "$SOURCE" ]; then
+        # Sum cost_usd entries from current month (jsonl-style log expected)
+        MONTH_PREFIX=$(date -u +"%Y-%m")
+        SUM=$(grep "$MONTH_PREFIX" "$SOURCE" 2>/dev/null \
+          | grep -oE '"cost_usd"[[:space:]]*:[[:space:]]*[0-9.]+' \
+          | awk -F: '{s += $2} END {printf "%.2f", s}')
+        SPEND_THIS_MONTH=$(echo "$SPEND_THIS_MONTH + ${SUM:-0}" | bc 2>/dev/null || echo "$SPEND_THIS_MONTH")
+      fi
+    done
+
+    # Compare against budget — flag at 80% (warning) and 100% (P0)
+    PCT=$(echo "scale=0; $SPEND_THIS_MONTH * 100 / $BUDGET" | bc 2>/dev/null || echo 0)
+
+    if [ "${PCT:-0}" -ge 100 ]; then
+      bd create "LLM spend exceeded budget ($SPEND_THIS_MONTH USD vs $BUDGET cap)" \
+        --priority P0 --label compliance --label cost \
+        --notes "Audit detected LLM spend over the declared monthly cap. Either raise budget after CTO sign-off or kill-switch the runaway path. See ARCH-*.md § Cost Model." 2>/dev/null
+      echo "⚠ P0: LLM spend $SPEND_THIS_MONTH USD exceeds budget $BUDGET (${PCT}%)"
+    elif [ "${PCT:-0}" -ge 80 ]; then
+      bd create "LLM spend approaching budget cap (${PCT}%)" \
+        --priority P1 --label cost \
+        --notes "Spend is at ${PCT}% of monthly cap. Investigate runaway sessions or raise cap." 2>/dev/null
+      echo "P1: LLM spend at ${PCT}% of monthly cap"
+    fi
+  fi
+fi
+```
+
+If no cost log exists in any standard location, file a P1 Beads task: "LLM cost telemetry not instrumented — agent-pack BudgetTracker pattern not adopted yet". Reference `skills/great_cto/packs/agent-pack.md § Budget Cap Enforcement Pattern`.
+
 ## Phase 5 — Architect's Remediation Plan
 
 Based on all findings, produce a **tiered remediation plan** — not just a list of problems:

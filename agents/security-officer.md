@@ -135,6 +135,84 @@ fi
 archetype — write `~/.great_cto/extractions/KE-<date>-<slug>.yaml` with `source_type: security-gap`.
 Schema: `skills/great_cto/references/knowledge-extraction.md`
 
+## Mode — pre-impl vs post-impl (v1.0.133+)
+
+Security-officer runs in two modes depending on when in the pipeline it's invoked. Mode is detected from invocation arguments, environment variable, or by inspecting the project state.
+
+```bash
+MODE_ARG="${1:-${SEC_MODE:-}}"
+
+if [ -z "$MODE_ARG" ]; then
+  # Auto-detect: if no implementation has happened yet, run pre-impl. Else post-impl.
+  LATEST_ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
+  HAS_CODE=$(find src -type f \( -name "*.py" -o -name "*.ts" -o -name "*.go" -o -name "*.rs" -o -name "*.sol" \) 2>/dev/null | head -1)
+  if [ -n "$LATEST_ARCH" ] && [ -z "$HAS_CODE" ]; then
+    MODE_ARG="pre-impl"
+  else
+    MODE_ARG="post-impl"
+  fi
+fi
+```
+
+| Mode | When | Outputs | Halts on |
+|---|---|---|---|
+| **pre-impl** | After tech-lead writes ARCH, BEFORE senior-dev claims tasks | `docs/sec threats/TM-{slug}.md` (threat model), `docs/architecture/ARCH-{slug}.md § Security` (appended) | mitigations missing for Critical/High threats; senior-dev cannot proceed |
+| **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{slug}-{date}.md` (Compliance & Security Officer report), `gate:ship` verdict | unmitigated Critical findings |
+
+### pre-impl flow (security-critical archetypes only)
+
+```bash
+if [ "$MODE_ARG" = "pre-impl" ]; then
+  ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md | awk '{print $2}')
+  case "$ARCHETYPE" in
+    ai-system|agent-product|commerce|web3|iot-embedded|regulated|fintech) ;;
+    *) echo "pre-impl skipped: archetype $ARCHETYPE not security-critical"; exit 0 ;;
+  esac
+
+  SLUG=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1 | xargs basename | sed 's/^ARCH-\(.*\)\.md/\1/')
+  [ -z "$SLUG" ] && { echo "BLOCKED: no ARCH file found, run tech-lead first" >&2; exit 1; }
+
+  TM="docs/sec threats/TM-${SLUG}.md"
+  mkdir -p "docs/sec threats"
+
+  if [ ! -f "$TM" ]; then
+    case "$ARCHETYPE" in
+      ai-system|agent-product)
+        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM"
+        echo "Generated $TM from THREAT-MODEL-AI template — fill in {placeholders} for prompt-injection / output-exfil / SSRF / cost-runaway / cross-user / supply-chain sections" >&2
+        ;;
+      *)
+        echo "Generating $TM via STRIDE methodology — see references/secure-sdlc.md PW.1 for schema" >&2
+        # Run STRIDE elicitation per security-tiers.md → write TM
+        ;;
+    esac
+  fi
+
+  # Verify Critical/High threats have mitigation column filled
+  if grep -E "^\| (P|F)-[0-9]+" "$TM" 2>/dev/null | grep -E "Critical|High" | grep -q "__pending__\| TBD \| TODO "; then
+    echo "BLOCKED: $TM has Critical/High threats without mitigations or sign-off" >&2
+    exit 1
+  fi
+
+  # Append ## Security section to ARCH if missing
+  ARCH_FILE="docs/architecture/ARCH-${SLUG}.md"
+  if [ -f "$ARCH_FILE" ] && ! grep -q "^## Security" "$ARCH_FILE"; then
+    echo "" >> "$ARCH_FILE"
+    echo "## Security" >> "$ARCH_FILE"
+    echo "Cross-link: \`docs/sec threats/TM-${SLUG}.md\`" >> "$ARCH_FILE"
+    echo "Critical/High threats and their mitigations:" >> "$ARCH_FILE"
+    grep -E "^\| (P|F)-[0-9]+" "$TM" | grep -E "Critical|High" >> "$ARCH_FILE"
+  fi
+
+  echo "pre-impl complete. senior-dev can now claim bd tasks. Re-run security-officer in post-impl mode after implementation."
+  exit 0
+fi
+```
+
+### post-impl flow
+
+Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, controls `gate:ship`, blocks on unmitigated Critical findings.
+
 ## Workflow
 
 1. **Compute security tier** (replaces old `IS_MANDATORY` check — v1.0.102+):
