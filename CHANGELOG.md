@@ -4,6 +4,109 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.132 — 2026-04-27
+
+### Fixed — enforcement-print-without-halt across security-critical archetypes (P0 from cross-archetype audit)
+
+After v1.0.131 closed the AI-pipeline bypass, three parallel agent simulations
+(commerce / web3 / regulated) confirmed the same enforcement bug in every
+security-critical archetype: `echo "BLOCK:"` prints at multiple gates without
+`exit 1`. tech-lead happily emits DONE for a Stripe checkout with no threat
+model, a DeFi lending pool with no upgradeability ADR, and a DORA project
+with no DORA-checklist.md. This release converts every cosmetic BLOCK into
+a real halt.
+
+#### `agents/tech-lead.md` — three new hard halts
+
+1. **SECURITY_REQUIRED block** (lines 633–) now exits 1 when:
+   - ARCH file lacks `## Security` section for archetype in
+     `ai-system|commerce|web3|iot-embedded|regulated|fintech`
+   - Threat model `docs/sec threats/TM-${SLUG}.md` does not exist
+   - SLUG resolves from latest `ARCH-*.md` instead of placeholder `<feature-slug>`
+
+2. **Compliance artefact gate** — new check after COMPLIANCE is read.
+   For each value in `compliance: [...]` in PROJECT.md, the corresponding
+   evidence artefact must exist:
+   ```
+   dora        → docs/compliance/DORA-ICT-risk-assessment.md + DORA-third-party-register.md
+   nis2        → docs/compliance/NIS2-article21-controls.md
+   gxp/21cfr11 → docs/compliance/21CFR11-checklist.md
+   tisax       → docs/compliance/TISAX-VDA-ISA-results.md
+   iso27001    → docs/compliance/ISO27001-SoA.md
+   sox         → docs/compliance/SOX-ITGC-checklist.md
+   pci-dss     → docs/compliance/PCI-DSS-SAQ-D.md (or SAQ-A for saq-a)
+   ```
+   Closes the orphaned-pack bug — packs were declared but agents never
+   verified the evidence existed.
+
+3. **Pre-mortem hard halt for `mode: production`** — previously printed
+   "Pre-mortem required. Generating $PRE" and continued. Now exits 1 if
+   `PRE-${SLUG}.md` is missing AND `mode: production`. PoC and MVP modes
+   keep the previous advisory behaviour.
+
+#### `agents/senior-dev.md` — Step 0b archetype security pre-conditions
+
+For `archetype in [ai-system, agent-product, commerce, web3, iot-embedded,
+regulated, fintech]`, refuses to claim or implement bd tasks unless:
+- `docs/architecture/ARCH-*.md` exists
+- ARCH has `## Security` section
+- `docs/sec threats/TM-<slug>.md` exists
+
+Plus archetype-specific pre-impl rules table (idempotency for commerce,
+Slither + Foundry-fuzz for web3, manifest_version: 3 for browser-extension,
+per-user `tenant_id` namespace for agent-product, etc.) — pushed back to
+tech-lead before claiming the task if the implementation plan does not
+address the relevant rule.
+
+#### `agents/qa-engineer.md` — Step 0b archetype QA artefact gates
+
+Before signing off any QA report, verify archetype-specific artefacts and
+CI gates exist:
+
+- **web3**: Slither report or CI step + Foundry fuzz with `--fuzz-runs ≥
+  10000` configured in CI
+- **commerce**: idempotency proof test exists + grep for raw PAN in code
+  and logs (excluding Stripe test cards)
+- **iot-embedded**: `tests/qemu/` or `tests/hil/` directory exists
+- **browser-extension**: `manifest.json` declares `manifest_version: 3`
+- **agent-product**: cross-user isolation test + prompt-injection regression
+  suite (Garak or custom)
+- **ai-system**: ≥ 3 EVAL-*.md scenarios in `tests/eval/`
+
+QA-engineer cannot write a "pass" report when the gate that would catch the
+threat does not exist.
+
+#### `agents/devops.md` — PoC mode hard halt on prod deploy
+
+Previously narrative-only ("refuse production deploys" in prose). Now an
+actual bash check at start: if `mode: poc` AND target is
+`prod | production | main | live` → exit 1 with remediation pointing to
+`/promote`.
+
+### Why
+
+v1.0.131 fixed the AI archetype enforcement gap with `exit 1` calls. The
+audit confirmed the same gap existed for commerce / web3 / iot-embedded /
+regulated / fintech — same pattern, same blast radius. PROJECT.md's
+`compliance:`, `qa-extras:`, and `packs:` fields had been **decorative**:
+no agent enforced their semantics. v1.0.132 closes that loop end to end.
+
+### What's next (P1, planned for v1.0.133)
+
+Mandatory artefact templates: `templates/ARCH-ai.md`,
+`templates/THREAT-MODEL-AI.md`, `templates/EVAL-template.md`,
+`templates/ADR-LLM.md`, `templates/ADR-PROMPT.md`, plus compliance-framework
+templates (DORA / NIS2 / GxP / TISAX / ISO27001 / SOX / PCI-DSS).
+security-officer split into `mode=pre-impl` (threat model) and `mode=post-impl`
+(CSO report). project-auditor cost-cap check against `monthly-budget-llm-usd`.
+
+### What's next (P2, v1.0.134)
+
+Three new AI subagents: `ai-prompt-architect`, `ai-eval-engineer`,
+`ai-security-reviewer` wired into a dedicated AI pipeline branch.
+
+---
+
 ## v1.0.131 — 2026-04-27
 
 ### Fixed — pipeline bypass on AI projects (P0 from retro)

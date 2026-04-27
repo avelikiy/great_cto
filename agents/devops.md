@@ -30,7 +30,25 @@ MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 MODE=${MODE:-production}
 ```
 
-## POC-mode behaviour
+## POC-mode behaviour — hard halt on prod deploy
+
+```bash
+# Determine target environment from invocation args, env var, or deploy command target.
+TARGET_ENV="${DEPLOY_ENV:-${1:-staging}}"
+
+if [ "$MODE" = "poc" ]; then
+  case "$TARGET_ENV" in
+    prod|production|main|live)
+      echo "BLOCKED: cannot deploy POC mode to $TARGET_ENV" >&2
+      echo "POC code is throwaway by definition. To ship to production:" >&2
+      echo "  1. Run /promote — runs full rigor (ARCH, SBOM, threat model, CSO, QA)" >&2
+      echo "  2. /promote flips mode: production in PROJECT.md" >&2
+      echo "  3. Re-invoke this deploy" >&2
+      exit 1
+      ;;
+  esac
+fi
+```
 
 If `$MODE` is `poc`, **refuse production deploys**. POC code is throwaway by
 definition and must not serve real user traffic. Allowed targets:
