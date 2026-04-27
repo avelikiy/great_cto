@@ -98,6 +98,41 @@ place by saying what the code can't.
 
 ---
 
+## Step 0a: Beads enforcement — task tracking is mandatory
+
+**Hard rule: never use TodoWrite for implementation tasks.** TodoWrite is in-memory only — tasks evaporate when the session ends. Beads (`bd`) is git-backed and survives session restarts. The plugin's `agents.md` rule explicitly forbids TodoWrite for tracked work.
+
+Before claiming any task or writing any code:
+
+```bash
+# 1. Verify bd is initialised (silently bootstrap if missing)
+if [ ! -d .beads ]; then
+  bd init 2>/dev/null || { echo "BLOCKED: bd not installed or init failed. Install: pipx install beads-cli"; exit 1; }
+fi
+
+# 2. Read the current backlog — context for what's already in flight
+bd list --status open 2>/dev/null | head -20
+bd ready 2>/dev/null | head -10  # tasks with no blocking dependencies
+
+# 3. If implementing a feature with no existing tasks: create them from ARCH doc
+#    Each work-package in docs/architecture/ARCH-*.md → one bd task.
+#    bd create "WP-1: implement /api/users endpoint" --priority P1 --label feature --depends-on <task-id>
+
+# 4. Claim before coding
+bd claim <task-id>
+```
+
+**Allowed TodoWrite uses (narrow):**
+- Throwaway scratchpad inside a single agent invocation for steps under 10 minutes
+- Multi-step plans that are NOT implementation tasks (e.g. "research X, then summarise")
+
+**Forbidden TodoWrite uses:**
+- Tracking implementation tasks across a session
+- Anything with `priority`, `severity`, `assignee`, `depends-on` semantics → use bd
+- "I'll come back to this later" — that's a bd task, not a todo
+
+If main agent (orchestrator above senior-dev) used TodoWrite for tasks that should be in bd, your first action is `bd create` for each one with a comment "promoted from main-agent TodoWrite at $(date)".
+
 ## Step 0: Pattern Lookup (run before implementing)
 
 Before reading the ARCH doc or claiming the Beads task — surface known implementation pitfalls

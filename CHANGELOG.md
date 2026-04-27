@@ -4,6 +4,60 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.131 — 2026-04-27
+
+### Fixed — pipeline bypass on AI projects (P0 from retro)
+
+A real-world session ran `/start` from a directory that already had a `PROJECT.md`. The guard refused to overwrite, and the agent silently fell back to free-form Q&A — never created PROJECT.md, never invoked tech-lead, never wrote a threat model for an AI-system project that touched prompt injection, SSRF, and a runaway-cost surface. Three structural fixes ship this release.
+
+#### `commands/start.md` — Auto-cd suggestion + AI hard-trigger Discovery
+
+The existing-project guard now lists the **new-project escape hatch as option 1**, not an afterthought. It computes a slug from the description (`/start "build news agent for hashtags"` → suggests `mkdir ../news-agent && cd ../news-agent && /start "..."`) and explicitly forbids silent fallback to Q&A.
+
+Discovery trigger gains an **AI hard-trigger**: any of `ai-agent | agent-product | rag-system | ml-training | ml-serving | mcp-server | voice-agent | multimodal-app | computer-vision | recommendation-engine | anomaly-detection | llm-ops` — Discovery runs regardless of description length. AI-specific questions: audience, EU AI Act / GDPR memory trigger, data residency, kill-switch (who and how fast), monthly LLM cost cap, eval set source. PoC / MVP / production mode is mandatory.
+
+PROJECT.md schema gains three required fields:
+- `mode: poc|mvp|production`
+- `poc-deadline: YYYY-MM-DD` (required when mode=poc)
+- `discovery: required|completed|skipped`
+- `monthly-budget-llm-usd:` (required for ai-system / agent-product)
+
+#### `agents/tech-lead.md` — Step 0a hard-gate
+
+For `archetype in [ai-system, agent-product]`, tech-lead now refuses to write ARCH or call sub-agents until `discovery: completed` (or explicit `discovery: skipped`) AND `mode:` is set in PROJECT.md. Returns BLOCKED with a clear remediation message instead of falling through.
+
+#### `agents/senior-dev.md` — Step 0a Beads enforcement
+
+Hard rule: senior-dev **never uses TodoWrite for implementation tasks**. TodoWrite is in-memory and evaporates with the session. Step 0a runs `bd init` if missing, `bd list` for context, and creates one `bd` task per work-package in the ARCH doc before claiming any work. If the orchestrator above used TodoWrite for tracked tasks, senior-dev's first action is to promote them to `bd`.
+
+#### `references/poc-mode.md` — AI archetype skip matrix override
+
+The default skip matrix lets PoC drop ARCH ceremony, TDD strictness, and pentest. AI archetypes can NOT fully skip security in PoC: prompt-injection bypass and cost runaway are baseline risks regardless of project lifetime.
+
+For PoC mode on `ai-system` / `agent-product`:
+- Threat model: 3-section minimum (`ai-system`) / 5-section minimum (`agent-product`) — covers prompt-injection vector, output exfiltration, cost runaway, plus tool sandbox + cross-user isolation for agent-product
+- Eval set: 3 scenarios minimum (`ai-system`) / 5 scenarios (`agent-product`) — golden citation, refuse-when-uncertain, output-schema-stability, plus 1 prompt-injection + 1 budget-overrun case for agent-product
+- `monthly-budget-llm-usd`: mandatory even at $5/mo
+- Kill-switch documented in ARCH (1 line)
+- SSRF allowlist required if tool layer fetches LLM-suggested URLs
+
+### Why this release matters
+
+Without these fixes, the AI archetype "knows" about EU AI Act and OWASP LLM Top 10 in `ai-pack` and `agent-pack` — but the pipeline never enforced consultation of those docs because the agents were never invoked. v1.0.131 closes the enforcement gap. Knowledge without gates is just trivia.
+
+### What's next (P1, planned for v1.0.132)
+
+- Mandatory artefact templates: `templates/ARCH-ai.md`, `templates/THREAT-MODEL-AI.md`, `templates/EVAL-template.md`, `templates/ADR-LLM-{model}.md`, `templates/ADR-PROMPT-{name}.md`
+- Pre-implementation security gate for ai-system: security-officer split into `mode=pre-impl` (threat model) and `mode=post-impl` (CSO report)
+- `project-auditor` Phase 4 cost-cap check against `monthly-budget-llm-usd`
+
+### What's next (P2, planned for v1.0.133)
+
+- Three new AI subagents: `ai-prompt-architect`, `ai-eval-engineer`, `ai-security-reviewer`
+- Pipeline branch for ai-system / agent-product with these subagents wired in
+
+---
+
 ## v1.0.130 — 2026-04-27
 
 ### Improved — `/audit` adopts ideas from ksimback/tech-debt-skill
