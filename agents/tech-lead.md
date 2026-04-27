@@ -134,6 +134,18 @@ esac
 
 If blocked, do not write ARCH doc, do not create ADRs, do not call sub-agents. Return control to user with the BLOCKED message above.
 
+### AI subagent delegation (v1.0.134+)
+
+For `archetype: ai-system | agent-product`, after the ARCH doc is written but before handing off to senior-dev, delegate prompt-engineering work:
+
+| Subagent | When | What it produces |
+|---|---|---|
+| `ai-security-reviewer` | Before any prompt or code is written (pre-impl threat modelling) | `docs/sec threats/TM-{slug}.md` with OWASP LLM Top 10 coverage |
+| `ai-prompt-architect` | After threat model exists, when ARCH § LLM Scope identifies named LLM roles | `docs/decisions/ADR-{NN}-PROMPT-{name}.md` per role |
+| `ai-eval-engineer` | After ADR-PROMPT files exist | `tests/eval/EVAL-*.md` (≥ 3 for ai-system, ≥ 5 for agent-product) + CI runner |
+
+The chain is: tech-lead writes ARCH → ai-security-reviewer writes TM → ai-prompt-architect writes ADR-PROMPTs → ai-eval-engineer writes EVALs → senior-dev unblocks. Each subagent has an `<!-- HANDOFF -->` block in its output that the next subagent (or senior-dev) reads.
+
 ## Step 0: Pattern Lookup (run before designing)
 
 Before opening any ARCH doc or running brainstorm — surface patterns learned from past incidents and
