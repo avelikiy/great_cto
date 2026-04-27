@@ -10,6 +10,7 @@ memory: project
 color: yellow
 skills:
   - superpowers:writing-plans
+  - superpowers:requesting-code-review
   - beads
   - skeptical-triage
   - done-blocked
