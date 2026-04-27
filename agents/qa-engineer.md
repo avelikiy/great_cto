@@ -99,6 +99,99 @@ tests, affected files); reasoning stays in prose.
 
 ---
 
+## Step 0b: Archetype QA artefact gates
+
+Before signing off any QA report, verify the archetype-specific artefacts and CI gates exist. If the project says `qa-extras: [slither-audit, echidna-fuzz]` but none of those tools run in CI, the QA report is theatre — it would be GREEN even when the threats it claims to catch run unmonitored.
+
+```bash
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+QA_EXTRAS=$(grep "^qa-extras:" .great_cto/PROJECT.md 2>/dev/null | sed 's/.*\[//;s/\].*//;s/,/ /g')
+
+case "$ARCHETYPE" in
+  web3)
+    # Slither audit report or active CI step is mandatory
+    if ! ls docs/security/slither-*.md docs/qa-reports/slither-*.md 2>/dev/null | head -1 > /dev/null; then
+      if ! grep -rq "slither" .github/workflows/ 2>/dev/null; then
+        echo "BLOCKED: web3 archetype requires Slither static analysis (docs/security/slither-*.md OR CI step)" >&2
+        exit 1
+      fi
+    fi
+    # Foundry fuzz with ≥ 10k runs in CI
+    if [ -d ".github/workflows" ] && ! grep -rqE "fuzz-runs[[:space:]]+10000|fuzz-runs[[:space:]]+[2-9][0-9]{4,}" .github/workflows/ 2>/dev/null; then
+      echo "BLOCKED: web3 archetype requires forge fuzz with ≥ 10k runs configured in CI (--fuzz-runs ≥ 10000)" >&2
+      exit 1
+    fi
+    ;;
+
+  commerce)
+    # Idempotency proof test
+    if ! find tests -type f \( -name "*idempotency*" -o -name "*idempotent*" \) 2>/dev/null | head -1 > /dev/null; then
+      echo "BLOCKED: commerce archetype requires an idempotency proof test (tests/**/idempotency*.{py,ts,go,rs})" >&2
+      echo "Pattern: same Idempotency-Key fired twice → exactly one Stripe charge." >&2
+      exit 1
+    fi
+    # PAN grep — no full credit-card numbers in code or logs
+    if grep -rE "\b[0-9]{13,19}\b" --include="*.py" --include="*.ts" --include="*.js" --include="*.go" --include="*.rs" \
+       --include="*.log" src tests 2>/dev/null | grep -v "test_card\|4242424242424242\|stripe.com" | head -1 > /dev/null; then
+      echo "BLOCKED: possible full PAN in code or logs (commerce archetype). Audit grep result manually." >&2
+      exit 1
+    fi
+    ;;
+
+  iot-embedded)
+    if [ ! -d "tests/qemu" ] && [ ! -d "tests/hil" ] && [ ! -d "test/qemu" ]; then
+      echo "BLOCKED: iot-embedded archetype requires tests/qemu/ or tests/hil/ directory" >&2
+      exit 1
+    fi
+    ;;
+
+  browser-extension)
+    if [ -f manifest.json ] && ! grep -qE '"manifest_version"[[:space:]]*:[[:space:]]*3' manifest.json; then
+      echo "BLOCKED: browser-extension archetype requires manifest_version: 3 (Web Store deprecates MV2)" >&2
+      exit 1
+    fi
+    ;;
+
+  agent-product)
+    # Cross-user isolation test
+    if ! find tests -type f \( -name "*isolation*" -o -name "*cross_user*" -o -name "*cross-user*" \) 2>/dev/null | head -1 > /dev/null; then
+      echo "BLOCKED: agent-product archetype requires cross-user isolation test (tests/**/isolation*.{py,ts})" >&2
+      exit 1
+    fi
+    # Prompt-injection regression suite
+    if ! find tests -type f -name "*prompt*injection*" 2>/dev/null | head -1 > /dev/null \
+       && ! find tests -type d -name "garak" 2>/dev/null | head -1 > /dev/null; then
+      echo "BLOCKED: agent-product archetype requires prompt-injection test suite (Garak or custom)" >&2
+      exit 1
+    fi
+    ;;
+
+  ai-system)
+    # Eval set with at least 3 scenarios
+    EVAL_COUNT=$(find tests/eval -type f -name "EVAL-*.md" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${EVAL_COUNT:-0}" -lt 3 ]; then
+      echo "BLOCKED: ai-system archetype requires ≥ 3 eval scenarios in tests/eval/EVAL-*.md (found: ${EVAL_COUNT:-0})" >&2
+      echo "Minimum: golden-citation, refuse-when-uncertain, output-schema-stability." >&2
+      exit 1
+    fi
+    ;;
+esac
+
+# Generic check: every qa-extra declared in PROJECT.md must have evidence
+for extra in $QA_EXTRAS; do
+  extra=$(echo "$extra" | tr -d ' ')
+  case "$extra" in
+    slither-audit|echidna-fuzz|formal-verification|flash-loan-sim) ;;  # web3 covered above
+    idempotency-proof|pci-scan) ;;                                       # commerce covered above
+    cross-user-isolation|prompt-injection) ;;                            # agent-product covered above
+    "") ;;
+    *) ;;  # other qa-extras may be archetype-agnostic; tech-lead enforces ARCH ## Security
+  esac
+done
+```
+
+If any gate fires `BLOCKED`, do not write a QA report claiming pass — exit 1 and let tech-lead / senior-dev fix the upstream gap.
+
 ## Step 0: Pattern Lookup (run before testing)
 
 Before designing the test plan — surface known QA blind spots for this archetype and stack.
