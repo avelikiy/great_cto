@@ -4,6 +4,98 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.137 — 2026-04-27
+
+### Added — observability layer for AI archetypes + marketplace prep
+
+After v1.0.131–136 closed enforcement gaps and shipped templates + specialist subagents, AI projects now produce real artefacts. v1.0.137 makes those artefacts visible **between** deploys: in-session signals via `/inbox` and quarterly board reporting via `/digest board`.
+
+#### `commands/inbox.md` — AI Health section (NEW)
+
+Show only when `archetype: ai-system | agent-product`. Nine cheap signals:
+
+1. **PoC deadline approaching** (≤ 7d) / overdue (P0)
+2. **Monthly LLM budget at 80%** (warning) / **exceeded** (P0) — reads `cost-history.log`, `logs/llm-cost.log`, `logs/audit.jsonl` for current-month `cost_usd` sum
+3. Eval suite stale — no `EVAL-*.md` updated in 14d
+4. Cross-user isolation test missing (P0 for `agent-product`)
+5. Threat model age > 90d (re-run ai-security-reviewer)
+6. Floating model tag in src/ (drift risk; pin via ADR-LLM)
+7. ARCH § LLM Scope roles count > ADR-PROMPT count (run ai-prompt-architect)
+8. `monthly-budget-llm-usd` not set (warning for AI archetypes)
+9. (Hooks for) prompt drift detection — sha256 in code vs ADR-PROMPT stored hash
+
+#### `commands/digest.md` — AI Operations section (NEW, board mode)
+
+When `BOARD_MODE=true` AND archetype is AI, the quarterly board report now includes an **AI Operations** table:
+
+| Metric | Source |
+|---|---|
+| Sessions this Q | `cost-history.log` `session_id` deduplicated |
+| Avg cost per session (USD) | `cost_usd` sum / sessions |
+| Total LLM spend vs budget (% of cap) | sum vs `monthly-budget-llm-usd × 3` |
+| Eval pass rate (overall) | parse `## History` table tail in each `EVAL-*.md` |
+| Prompt-injection bypass count | `EVAL-prompt-injection.md` history `BLOCK` verdicts |
+| Cross-user isolation failures | `EVAL-cross-user-isolation.md` history |
+| Models in production (pinned versions) | `grep "## Decision" docs/decisions/ADR-*-LLM-*.md` |
+| Outstanding prompt drift | re-compute sha256 of prompts in src/ vs stored hash |
+| ADR-PROMPT revisions this Q | `git log` count of ADR-PROMPT file changes |
+| Active threat model age | `stat -f %m docs/sec-threats/TM-*.md` |
+
+Surfaces for the board:
+- Cost trajectory vs cap → predict need for raise
+- Eval pass rate trend → product reliability over time
+- Bypass + isolation failures → security health (target 0, escalate if > 0)
+- Drift signals → maintenance debt accumulating
+
+#### `docs/marketplace/SUBMISSION.md` (NEW)
+
+Pre-built submission package for Claude Code Plugin Marketplace (when Anthropic opens it). Contents:
+
+- One-line description (≤ 280 chars)
+- Long description (≤ 2000 chars)
+- Categories (primary + secondary)
+- Pricing model (free, MIT)
+- Requirements (Claude Code, Node 18.17+, optional Superpowers + Beads)
+- Install command
+- Screenshots inventory + recording recipes for new ones
+- Demo video render commands (VHS script in repo)
+- Marketing copy snippets + differentiation vs alternatives (Cursor / Aider / Cline / Superpowers / Templates / tech-debt-skill / raw Claude Code)
+- Submission checklist
+- Realistic expectations (review timeline, first-week installs)
+- Source-state inventory at v1.0.137 (verified: 11 agents, 18 templates, 14 archetypes, 13 packs, 16 commands, 27 compliance keys)
+
+Will be submitted when the marketplace officially opens.
+
+### Coverage
+
+| | v1.0.136 | v1.0.137 |
+|---|---|---|
+| Agents | 11 | 11 (no change) |
+| Templates | 18 | 18 (no change) |
+| `/inbox` signals | core only | + 9 AI Health signals (when AI archetype) |
+| `/digest board` sections | 5 | 6 (added AI Operations) |
+| Marketplace prep | absent | ready (`docs/marketplace/SUBMISSION.md`) |
+
+### What this completes
+
+The retro-driven cycle that started in v1.0.131 (after the AI pipeline silently failed) is now closed end-to-end:
+
+- **v1.0.131** — Hard halts for AI archetypes (Discovery / mode / Beads enforcement)
+- **v1.0.132** — Print-without-halt fix for commerce/web3/regulated/iot/fintech
+- **v1.0.133** — 14 mandatory artefact templates + security-officer pre/post split + AI cost-cap audit
+- **v1.0.134** — 3 AI specialist subagents (prompt-architect / eval-engineer / security-reviewer)
+- **v1.0.135** — Field-test fixes (9 P0 from real-execution attempt)
+- **v1.0.136** — Non-AI ARCH templates + web-store-reviewer subagent
+- **v1.0.137** — `/inbox` AI signals + `/digest` AI metrics + marketplace prep
+
+Knowledge → enforcement → templates → specialists → fixes → coverage → observability.
+
+### What's next
+
+Field test the observability layer on a real AI project that ran through the full v1.0.131-137 chain. Or wait for marketplace to open and submit. Or pivot to a new direction (templates for non-AI specialist subagents — e.g. `pci-reviewer` for commerce, `oracle-reviewer` for defi, `firmware-reviewer` for iot-embedded).
+
+---
+
 ## v1.0.136 — 2026-04-27
 
 ### Added — non-AI ARCH templates + browser-extension specialist subagent

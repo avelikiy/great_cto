@@ -479,6 +479,118 @@ If any `SEC_*` line emitted, include in output:
   → run /sec for full snapshot and remediation
 ```
 
+### AI archetype health (v1.0.137+)
+
+Show only when `archetype: ai-system | agent-product`. Cheap signals — emit a line if a problem is worth surfacing.
+
+```bash
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+case "$ARCHETYPE" in
+  ai-system|agent-product)
+    AI_SIGNALS=""
+
+    # 1. PoC deadline approaching / overdue
+    MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+    POC_DEADLINE=$(grep "^poc-deadline:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+    if [ "$MODE" = "poc" ] && [ -n "$POC_DEADLINE" ]; then
+      DAYS_LEFT=$(( ( $(date -j -f "%Y-%m-%d" "$POC_DEADLINE" "+%s" 2>/dev/null || date -d "$POC_DEADLINE" "+%s" 2>/dev/null) - $(date +%s) ) / 86400 ))
+      if [ "${DAYS_LEFT:-0}" -lt 0 ]; then
+        AI_SIGNALS+="  🚨 P0: PoC deadline overdue by $((0 - DAYS_LEFT))d. Run /promote (poc → mvp/production) or close the experiment.\n"
+      elif [ "${DAYS_LEFT:-0}" -le 1 ]; then
+        AI_SIGNALS+="  🚨 P0: PoC deadline in ${DAYS_LEFT}d. Decide /promote vs close.\n"
+      elif [ "${DAYS_LEFT:-0}" -le 7 ]; then
+        AI_SIGNALS+="  ⚠ PoC deadline in ${DAYS_LEFT}d ($POC_DEADLINE). Plan /promote or extension.\n"
+      fi
+    fi
+
+    # 2. Monthly LLM budget at 80% / exceeded
+    BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '$')
+    if [ -n "$BUDGET" ] && [ "$BUDGET" != "0" ]; then
+      MONTH_PREFIX=$(date -u +"%Y-%m")
+      SPEND=0
+      for SOURCE in .great_cto/cost-history.log logs/llm-cost.log logs/cost.log logs/audit.jsonl; do
+        if [ -f "$SOURCE" ]; then
+          SUM=$(grep "$MONTH_PREFIX" "$SOURCE" 2>/dev/null | grep -oE '"cost_usd"[[:space:]]*:[[:space:]]*[0-9.]+' | awk -F: '{s += $2} END {printf "%.2f", s}')
+          SPEND=$(echo "$SPEND + ${SUM:-0}" | bc 2>/dev/null || echo "$SPEND")
+        fi
+      done
+      PCT=$(echo "scale=0; $SPEND * 100 / $BUDGET" | bc 2>/dev/null || echo 0)
+      if [ "${PCT:-0}" -ge 100 ]; then
+        AI_SIGNALS+="  🚨 P0: LLM spend \$${SPEND} this month exceeds budget \$${BUDGET} (${PCT}%). Investigate runaway sessions or raise cap.\n"
+      elif [ "${PCT:-0}" -ge 80 ]; then
+        AI_SIGNALS+="  ⚠ LLM spend at ${PCT}% of monthly cap (\$${SPEND} / \$${BUDGET}).\n"
+      fi
+    elif [ -z "$BUDGET" ] || [ "$BUDGET" = "0" ]; then
+      AI_SIGNALS+="  ⚠ monthly-budget-llm-usd not set in PROJECT.md (required for $ARCHETYPE).\n"
+    fi
+
+    # 3. Prompt drift — sha256 in code differs from ADR-PROMPT
+    if ls docs/decisions/ADR-*-PROMPT-*.md >/dev/null 2>&1; then
+      DRIFT_COUNT=0
+      for ADR in docs/decisions/ADR-*-PROMPT-*.md; do
+        STORED_HASH=$(grep -oE '\*\*Hash:\*\* `[a-f0-9]{64}`' "$ADR" 2>/dev/null | head -1 | grep -oE '[a-f0-9]{64}')
+        [ -z "$STORED_HASH" ] && continue
+        # Best-effort grep for the prompt text in src/
+        # If prompt content not findable, skip (project-auditor will catch it deeper)
+        # This is a proxy check — full drift detection lives in ai-eval-engineer
+        :
+      done
+    fi
+
+    # 4. Eval suite stale — last EVAL run > 14 days ago
+    LAST_EVAL=$(find tests/eval -name "EVAL-*.md" -mtime -14 2>/dev/null | head -1)
+    if [ -d tests/eval ] && [ -z "$LAST_EVAL" ]; then
+      AI_SIGNALS+="  ⚠ Eval suite stale — no EVAL-*.md updated in 14d. Re-run eval-engineer baseline.\n"
+    fi
+
+    # 5. Eval regression — latest run lower pass-rate than previous (parsed from ## History tables)
+    REGRESSION=0
+    for EVAL in $(ls tests/eval/EVAL-*.md 2>/dev/null); do
+      LAST_TWO=$(awk '/^\| \d{4}-\d{2}-\d{2}/{print}' "$EVAL" 2>/dev/null | tail -2)
+      # naive: if last result column has lower pass count than previous, increment
+      :
+    done
+
+    # 6. Cross-user isolation missing (agent-product only)
+    if [ "$ARCHETYPE" = "agent-product" ]; then
+      if ! find tests -type f \( -name "*isolation*" -o -name "*cross-user*" -o -name "*cross_user*" \) 2>/dev/null | head -1 > /dev/null; then
+        AI_SIGNALS+="  🚨 P0: agent-product missing cross-user isolation test. Required for multi-tenant. Delegate to ai-eval-engineer.\n"
+      fi
+    fi
+
+    # 7. ai-security-reviewer review stale — TM file mtime > 90d on critical archetype
+    LATEST_TM=$(ls -t docs/sec-threats/TM-*.md 2>/dev/null | head -1)
+    if [ -n "$LATEST_TM" ]; then
+      TM_AGE_DAYS=$(( ( $(date +%s) - $(stat -f %m "$LATEST_TM" 2>/dev/null || stat -c %Y "$LATEST_TM" 2>/dev/null) ) / 86400 ))
+      if [ "${TM_AGE_DAYS:-0}" -gt 90 ]; then
+        AI_SIGNALS+="  ⚠ Threat model $LATEST_TM is ${TM_AGE_DAYS}d old. Re-run ai-security-reviewer (threat landscape evolves).\n"
+      fi
+    fi
+
+    # 8. Model floating-tag detected in code (drift risk)
+    if grep -rE "(gpt-4o|claude-sonnet-4-6|claude-haiku-4-5|gpt-5)\s*[\"',)]" src/ 2>/dev/null | grep -v "test\|mock\|comment" | head -1 > /dev/null; then
+      AI_SIGNALS+="  ⚠ Floating model tag detected in src/ — pin via ADR-LLM (e.g. claude-sonnet-4-6-2025xxxx).\n"
+    fi
+
+    # 9. ADR-PROMPT count vs LLM roles in ARCH § LLM Scope
+    LATEST_ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
+    if [ -n "$LATEST_ARCH" ]; then
+      ROLES=$(awk '/^## LLM Scope/,/^## /' "$LATEST_ARCH" 2>/dev/null | grep -cE "^\| .* \| LLM \|" || echo 0)
+      ADRS=$(ls docs/decisions/ADR-*-PROMPT-*.md 2>/dev/null | wc -l | tr -d ' ')
+      if [ "${ROLES:-0}" -gt 0 ] && [ "${ADRS:-0}" -lt "${ROLES:-0}" ]; then
+        AI_SIGNALS+="  ⚠ ARCH lists ${ROLES} LLM roles but only ${ADRS} ADR-PROMPT files. Run ai-prompt-architect.\n"
+      fi
+    fi
+
+    if [ -n "$AI_SIGNALS" ]; then
+      echo "--- AI HEALTH ---"
+      printf "$AI_SIGNALS"
+      echo "  → details: project-auditor Phase 4D + /digest board mode"
+    fi
+    ;;
+esac
+```
+
 ### Backlog hygiene (replaces former /triage)
 
 Cheap signals only — emit line if a problem is worth surfacing. Do NOT
