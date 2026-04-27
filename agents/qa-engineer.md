@@ -156,12 +156,22 @@ case "$ARCHETYPE" in
     # Cross-user isolation test
     if ! find tests -type f \( -name "*isolation*" -o -name "*cross_user*" -o -name "*cross-user*" \) 2>/dev/null | head -1 > /dev/null; then
       echo "BLOCKED: agent-product archetype requires cross-user isolation test (tests/**/isolation*.{py,ts})" >&2
+      echo "Delegate to ai-eval-engineer subagent (v1.0.134+) — it generates EVAL-cross-user-isolation.md from THREAT-MODEL § 5." >&2
       exit 1
     fi
     # Prompt-injection regression suite
     if ! find tests -type f -name "*prompt*injection*" 2>/dev/null | head -1 > /dev/null \
        && ! find tests -type d -name "garak" 2>/dev/null | head -1 > /dev/null; then
       echo "BLOCKED: agent-product archetype requires prompt-injection test suite (Garak or custom)" >&2
+      echo "Delegate to ai-eval-engineer subagent — it consumes the jailbreak corpus from ai-prompt-architect's ADR-PROMPT hand-off." >&2
+      exit 1
+    fi
+    # Eval suite minimum 5 for agent-product
+    EVAL_COUNT=$(find tests/eval -type f -name "EVAL-*.md" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${EVAL_COUNT:-0}" -lt 5 ]; then
+      echo "BLOCKED: agent-product archetype requires ≥ 5 EVAL files (found: ${EVAL_COUNT:-0})" >&2
+      echo "Minimum: golden-citation, refuse, output-schema, prompt-injection, cross-user-isolation. Add tool-misuse + budget-overrun if applicable." >&2
+      echo "Delegate to ai-eval-engineer subagent." >&2
       exit 1
     fi
     ;;
@@ -172,6 +182,7 @@ case "$ARCHETYPE" in
     if [ "${EVAL_COUNT:-0}" -lt 3 ]; then
       echo "BLOCKED: ai-system archetype requires ≥ 3 eval scenarios in tests/eval/EVAL-*.md (found: ${EVAL_COUNT:-0})" >&2
       echo "Minimum: golden-citation, refuse-when-uncertain, output-schema-stability." >&2
+      echo "Delegate to ai-eval-engineer subagent (v1.0.134+) — it consumes ARCH § Failure Modes + ADR-PROMPT hand-off and writes the EVAL files." >&2
       exit 1
     fi
     ;;
