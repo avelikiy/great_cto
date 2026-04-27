@@ -177,6 +177,19 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
 
   if [ ! -f "$TM" ]; then
     case "$ARCHETYPE" in
+      browser-extension)
+        # Browser extension — delegate to web-store-reviewer subagent (v1.0.136+) for
+        # Web Store policy preflight + manifest validation + permissions audit.
+        echo "DELEGATE: spawn web-store-reviewer subagent. It produces $TM with:" >&2
+        echo "  - permissions audit per Chrome/Firefox/Edge/Safari policies" >&2
+        echo "  - single-purpose declaration check" >&2
+        echo "  - CSP audit (no unsafe-eval, no unsafe-inline)" >&2
+        echo "  - three-worlds isolation review (SW / content / popup / offscreen)" >&2
+        echo "  - cross-browser compat review" >&2
+        # In Claude Code: Task(subagent_type='web-store-reviewer', prompt='generate Web Store preflight TM for slug={SLUG}')
+        # If subagent unavailable, fall back to template copy:
+        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        ;;
       ai-system|agent-product)
         # AI archetypes — delegate to ai-security-reviewer subagent for OWASP LLM Top 10 specifics.
         # ai-security-reviewer copies the THREAT-MODEL-AI.md template and fills in:
