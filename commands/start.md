@@ -15,16 +15,37 @@ ls .great_cto/PROJECT.md 2>/dev/null && echo "EXISTS" || echo "NEW"
 ls .great_cto/DISCOVERY-NO-BUILD.md 2>/dev/null && echo "NO_BUILD"
 ```
 
-If EXISTS → stop and tell CTO:
-```
-Project already configured as `<type>` (from .great_cto/PROJECT.md).
+If EXISTS → stop and tell CTO. **First option must be the new-project escape hatch** — most CTOs hit this guard because they meant to start a NEW project but forgot to `cd` into a fresh directory:
 
-Options:
-  • Tell me what to build → pipeline starts immediately
-  • /audit → re-audit the existing codebase
-  • Delete .great_cto/PROJECT.md → reset and run /start again
+```bash
+# Predict slug from first 2 nouns in the description (skip filler verbs).
+# E.g. /start "build news agent for hashtags" → SLUG="news-agent"
+SLUG=$(printf '%s' "$DESCRIPTION" | tr '[:upper:]' '[:lower:]' \
+  | sed -E 's/^(build|create|make|add|setup|implement|design) //' \
+  | awk '{print $1"-"$2}' | sed 's/[^a-z0-9-]//g' | cut -c1-30)
+[ -z "$SLUG" ] && SLUG="new-project"
 ```
-Do NOT proceed with setup. Do NOT overwrite PROJECT.md.
+
+Output:
+```
+Project already configured as `<type>` (from .great_cto/PROJECT.md in $(pwd)).
+
+You're inside an existing great_cto project. Three options, in order of likelihood:
+
+  1. **You meant a NEW project** (most common — wrong cwd):
+     mkdir ../<SLUG> && cd ../<SLUG> && /start "<description>"
+
+  2. **You want to add a feature TO this project**:
+     Tell me what to build → pipeline starts immediately on this codebase
+
+  3. **You want to re-audit / reset this project**:
+     /audit            — gap analysis of existing code
+     rm .great_cto/PROJECT.md && /start "..."   — reset config
+
+Do NOT proceed until CTO picks one.
+```
+
+Do NOT proceed with setup. Do NOT overwrite PROJECT.md. Do NOT silently fall back to free-form Q&A — that's the failure mode this guard exists to prevent.
 
 If NO_BUILD → stop and tell CTO:
 ```
@@ -59,6 +80,7 @@ Wait for the answer. Then proceed with setup.
 - Vague intent: "explore / figure out / not sure / what's best" + no domain noun
 - Conflicting archetype signals (top-2 scores within 1.5 points after Step 1)
 - User wrote a goal, not a deliverable ("I want to learn LLM stuff")
+- **AI hard-trigger**: type detection returns `ai-agent | agent-product | rag-system | ml-training | ml-serving | mcp-server | voice-agent | multimodal-app | computer-vision | recommendation-engine | anomaly-detection | llm-ops` — Discovery is **always** required for these regardless of description length. Specific AI questions: audience (internal vs customer-facing), compliance (EU AI Act trigger? GDPR memory?), data residency (which regions cannot leave?), kill-switch (who turns it off, in what time?), monthly cost cap USD, eval set source (golden examples ready or need to be built?). Mode question is mandatory: PoC / MVP / production?
 
 **If triggered** — DO NOT proceed to Step 1 type detection. Run the discovery protocol instead:
 
@@ -240,6 +262,9 @@ secondary: <type2>, <type3>
 greenfield: <true|false>
 approval-level: <auto|gates-only|strict|expert|step-by-step>
 phase: implementation
+mode: <poc|mvp|production>          # ← required. PoC time-boxed throwaway; MVP first ship; production = ongoing.
+poc-deadline: <YYYY-MM-DD or empty> # ← required if mode=poc. Default: today + 14 days. /inbox flags as P0 when overdue.
+discovery: <required|completed|skipped>  # ← AI archetypes always require=completed before tech-lead runs.
 ## Pipeline Parameters
 compliance: [<values from TYPE_MAP.md defaults + user overrides>]
 security-gate: <mandatory|conditional|no>
@@ -253,6 +278,7 @@ senior-dev: <N>
 review_mode: auto
 ## Budget
 monthly-budget: <optional — USD/mo infrastructure ceiling. Leave commented to disable /cost headroom signal>
+monthly-budget-llm-usd: <required for ai-system / agent-product — LLM API spend cap; project-auditor flags P0 when sum(cost_usd) > cap>
 budget-alert-threshold: 80
 ## Owners
 arch-owner: tech-lead

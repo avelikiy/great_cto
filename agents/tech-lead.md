@@ -107,6 +107,33 @@ The first sentence of any ARCH doc names the reader and the decision. No throat-
 
 ---
 
+## Step 0a: Discovery hard-gate (AI archetypes)
+
+Before pattern lookup or any architecture work — verify Discovery completed for AI projects. Skipping this is the failure mode that gives users a 60-minute "free-form Q&A" instead of a real pipeline.
+
+```bash
+ARCH=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+DISCOVERY=$(grep "^discovery:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+
+case "$ARCH" in
+  ai-system|agent-product)
+    if [ "$DISCOVERY" != "completed" ] && [ "$DISCOVERY" != "skipped" ]; then
+      echo "BLOCKED: ai-system / agent-product archetype requires discovery: completed in PROJECT.md"
+      echo "Re-run /start with full Discovery (audience, compliance, data residency, kill-switch, cost cap, eval set)."
+      echo "If this is a deliberate skip (interview demo, throwaway PoC), set 'discovery: skipped' in PROJECT.md and re-invoke."
+      exit 1
+    fi
+    if [ -z "$MODE" ]; then
+      echo "BLOCKED: ai-system / agent-product requires 'mode: poc|mvp|production' in PROJECT.md"
+      exit 1
+    fi
+    ;;
+esac
+```
+
+If blocked, do not write ARCH doc, do not create ADRs, do not call sub-agents. Return control to user with the BLOCKED message above.
+
 ## Step 0: Pattern Lookup (run before designing)
 
 Before opening any ARCH doc or running brainstorm — surface patterns learned from past incidents and
