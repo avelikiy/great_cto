@@ -133,6 +133,48 @@ bd claim <task-id>
 
 If main agent (orchestrator above senior-dev) used TodoWrite for tasks that should be in bd, your first action is `bd create` for each one with a comment "promoted from main-agent TodoWrite at $(date)".
 
+## Step 0b: Archetype security pre-conditions
+
+For security-critical archetypes, **refuse to start coding without the upstream artefacts in place**. Same enforcement model as Step 0a (Beads) — exit 1, not print-only. Each `BLOCKED:` here means tech-lead or security-officer didn't run; do not silently fill the gap by writing code.
+
+```bash
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+
+case "$ARCHETYPE" in
+  ai-system|agent-product|commerce|web3|iot-embedded|regulated|fintech)
+    LATEST_ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
+    if [ -z "$LATEST_ARCH" ]; then
+      echo "BLOCKED: $ARCHETYPE archetype requires an ARCH doc before implementation" >&2
+      echo "Likely cause: tech-lead did not run, or its run was truncated. Re-invoke /start (full pipeline) or call tech-lead manually." >&2
+      exit 1
+    fi
+    if ! grep -q "^## Security" "$LATEST_ARCH"; then
+      echo "BLOCKED: $LATEST_ARCH missing required ## Security section" >&2
+      echo "Run /sec threat (security-officer threat-model phase) to generate the section, then re-claim the bd task." >&2
+      exit 1
+    fi
+    SLUG=$(basename "$LATEST_ARCH" .md | sed 's/^ARCH-//')
+    if [ ! -f "docs/sec threats/TM-${SLUG}.md" ]; then
+      echo "BLOCKED: $ARCHETYPE archetype requires threat model docs/sec threats/TM-${SLUG}.md" >&2
+      echo "Run: /sec threat ${SLUG}" >&2
+      exit 1
+    fi
+    ;;
+esac
+```
+
+**Archetype-specific implementation guard rails** (referenced before writing code, not just CI):
+
+| Archetype | Pre-impl rule | Where it bites |
+|---|---|---|
+| `commerce` | Idempotency keys on POST /api/checkout, /api/refund. PAN never in code or logs. SAQ-A: card data via Stripe Elements only — no card forms in our HTML | Reject PR mentally; block bd task with comment if these patterns missing in plan |
+| `web3` | Slither + Foundry fuzz must be in plan before any contract code. CEI pattern. ReentrancyGuard. Storage gaps on UUPS proxies | Code without Slither in CI = unfinished |
+| `agent-product` | Per-user `tenant_id` namespace on every memory op. BudgetTracker on every LLM call. Output filter (Llama Guard 3 / Anthropic safety) | Code without these is a leak waiting to happen |
+| `browser-extension` | `manifest_version: 3`. No `unsafe-eval`. host_permissions justified per URL pattern | manifest.json `manifest_version: 3` check before claiming task |
+| `iot-embedded` | Static stack only (no dynamic alloc in interrupt handlers). Watchdog on critical paths | Trace memory in plan |
+
+If the implementation plan does not address the relevant rule, push back to tech-lead before claiming the bd task.
+
 ## Step 0: Pattern Lookup (run before implementing)
 
 Before reading the ARCH doc or claiming the Beads task — surface known implementation pitfalls
