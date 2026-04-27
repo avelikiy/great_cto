@@ -262,6 +262,69 @@ Extensions that slow down the browser get bad reviews fast.
 
 Profile with: `chrome://extensions` → click "service worker" → DevTools → Performance tab.
 
+## Long-running work — `chrome.offscreen` and the 50ms ceiling
+
+The 50ms rule is for the SW message handler — it tells you "return fast." It does **not** mean the actual work must finish in 50ms. For anything that takes longer (LLM inference, image processing, audio analysis, heavy DOM work), the SW must offload the work and respond asynchronously, otherwise the SW gets killed mid-operation.
+
+**Decision table:**
+
+| Work duration | Where it runs | Pattern |
+|---------------|---------------|---------|
+| < 50 ms | Service worker | inline `chrome.runtime.onMessage` handler |
+| 50 ms – 5 s, no DOM | Service worker, async | start work, return ack immediately, post result via `chrome.runtime.sendMessage` to UI |
+| 50 ms – 5 s, needs DOM/audio/canvas | **Offscreen document** | `chrome.offscreen.createDocument()` — DOM access without a visible page |
+| > 5 s, network-bound | Backend (your server) | extension is thin client; no SW process holds the wait |
+| > 5 s, on-device (e.g. WASM model) | Offscreen + chunked progress | break work into chunks, post progress, allow user to cancel |
+
+**Offscreen document quickstart** (for DOM-required work in MV3):
+
+```js
+// service worker
+async function ensureOffscreen() {
+  const has = await chrome.offscreen.hasDocument();
+  if (has) return;
+  await chrome.offscreen.createDocument({
+    url: 'offscreen.html',
+    reasons: ['DOM_PARSER'],         // or AUDIO_PLAYBACK, BLOBS, USER_MEDIA, IFRAME_SCRIPTING
+    justification: 'parse HTML for content extraction'
+  });
+}
+```
+
+**LLM inference / remote model calls** — the common case (extensions wrapping an AI API):
+- SW handler: dedupe → cache lookup → if miss, kick off `fetch` to backend → return ack to content script
+- Backend, **never the extension**, holds API keys (extension storage is unencrypted; pack BE03)
+- Stream results back via `chrome.runtime.sendMessage` or `chrome.tabs.sendMessage`
+- Show progressive UI in sidebar/popup; do **not** block on the full response
+
+## Sidebar / iframe injection (Grammarly / Honey pattern)
+
+Many extensions need a persistent overlay UI on top of arbitrary pages. Two options:
+
+| Approach | When to use | Caveats |
+|----------|-------------|---------|
+| **Side Panel API** (`chrome.sidePanel`, MV3) | Browser-managed sidebar, opens on user gesture | Chrome 114+, no Firefox parity (use `browser.sidebarAction` there) |
+| **Injected iframe** (content script appends `<iframe>`) | You need full overlay control or work pre-Chrome-114 | **Must isolate** — iframe `src` must be `chrome-extension://<id>/sidebar.html`, never `data:` or inline HTML |
+
+**Iframe isolation rules:**
+- Use `chrome-extension://` URL — gives you your own CSP, immune to host page styles/scripts
+- Communicate with content script via `window.postMessage` with origin check, **not** via `chrome.runtime` from inside the iframe (it works, but origin checks are clearer)
+- Set `iframe.style.all = 'initial'` to prevent host-page CSS bleed
+- Z-index conflicts: pick something insane (`2147483647`) and document it
+
+## Cross-pack stacking — when to load more than one pack
+
+Browser extensions often stack on another archetype's concerns. Set `packs:` in PROJECT.md to load both:
+
+| Extension does | Stack | Why |
+|----------------|-------|-----|
+| Wraps an LLM / runs ML inference | `[browser-extension-pack, ai-pack]` | hallucination, prompt-injection-via-page-content, cost cap, eval suite |
+| Talks to your own SaaS backend | `[browser-extension-pack, web-pack]` | API contract, auth flow, idempotency |
+| Crypto wallet / signs transactions | `[browser-extension-pack, web3-pack]` | key storage, signing UX, phishing resistance |
+| Touches payment forms (price comparison, autofill) | `[browser-extension-pack, commerce-pack]` | PCI surface, never read full PAN |
+
+**Prompt-injection-via-page-content** is the most-missed risk in AI extensions: a malicious page can embed instructions in DOM that the extension scrapes and feeds to the LLM. Always treat scraped page text as untrusted; sanitize and box it before model context.
+
 ## Compliance defaults for `browser-extension`
 
 | Trigger | Add to compliance |

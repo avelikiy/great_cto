@@ -92,6 +92,18 @@ done
 
 ---
 
+## Writing Style
+
+Audit reports (`docs/audit/AUDIT-*.md`) follow `skills/great_cto/references/agent-style.md`.
+The reader is the founder/CTO deciding what to spend the next quarter on — every gap
+must carry an effort estimate and an impact justification, not abstract severity.
+
+- RULE-03 concrete: "Schema migration `0042_add_user_index.sql` lacks a rollback step → 8h to add reversibility tests, blocks any zero-downtime deploy" beats "migration tooling needs improvement".
+- RULE-08 every CVE/dep finding shows current version → suggested version → known exploit (or absence).
+- RULE-H every "outdated", "deprecated", "EOL" claim links to the upstream announcement or release notes.
+
+---
+
 ## Step 0: Pattern Lookup (run before auditing)
 
 Before stack fingerprinting — surface recurring debt categories and known audit patterns for this
@@ -323,6 +335,33 @@ Flag any framework that is: (a) EOL, (b) 2+ major versions behind, (c) has a bre
 
 ## Phase 4 — Architectural Debt
 
+### 4A.0. Hot-spot identification — size × churn intersection
+
+The intersection of "biggest files" and "most-changed files" is where debt usually hides.
+A 200-line file that changes weekly is a known surface; a 1500-line file that changes
+weekly is where the team is paying interest every commit.
+
+```bash
+# Top 20 largest source files
+find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.py" \
+  -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.kt" \) \
+  ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" ! -path "*/build/*" \
+  -exec wc -l {} \; 2>/dev/null | sort -rn | head -20 > /tmp/audit-largest.txt
+
+# Top 20 most-modified files (last 6 months)
+git log --since="6 months ago" --name-only --pretty=format: 2>/dev/null \
+  | grep -E '\.(ts|tsx|js|py|go|rs|java|kt)$' \
+  | sort | uniq -c | sort -rn | head -20 > /tmp/audit-churn.txt
+
+# Intersection — these are the worst architectural offenders, focus Phase 4B/4C/4D here
+awk 'NR==FNR{a[$2];next} ($2 in a)' /tmp/audit-largest.txt /tmp/audit-churn.txt \
+  > /tmp/audit-hotspots.txt
+cat /tmp/audit-hotspots.txt
+```
+
+Every file in `audit-hotspots.txt` MUST receive concrete file:line citations in the
+findings table — these are the most expensive places to leave debt unaddressed.
+
 ### 4A. Code structure signals
 ```bash
 # God files (>500 lines = architectural smell)
@@ -455,12 +494,74 @@ TODO/FIXME cleanup, documentation gaps, minor version bumps.
 - Observability: [structured logging / raw / none]
 - Test coverage signal: [good / partial / minimal]
 
+## Architectural Mental Model
+<1–2 paragraphs: your understanding of the system AS IT ACTUALLY IS, not as the README claims.
+If your model contradicts the README, that's itself a finding — flag it.>
+
+## Findings Table
+| ID | Category | File:Line | Severity | Effort | Description | Recommendation |
+|----|----------|-----------|----------|--------|-------------|----------------|
+| F-01 | architectural-decay | src/api/users.ts:142 | High | M | 800-line god file mixing routing, validation, and DB access | Extract validation to `users.schema.ts`; DB access to `users.repo.ts` |
+| ... |
+
+> Aim for **30–80 findings**. Padding past 80 is noise — drop the weakest. Every finding
+> needs `file:line` citation. Vague claims ("the code generally...") don't count.
+
+## Top 5 — If You Fix Nothing Else, Fix These
+For each: concrete diff sketch or refactor outline (not vague advice).
+
+## Quick Wins
+Low-effort × Medium+ severity items as a checklist.
+
+## Things That Look Bad But Are Actually Fine
+
+> **This section is REQUIRED.** If empty, the audit didn't look hard enough.
+
+List 3–10 things you considered flagging and chose not to. Each entry: what you saw, why
+it looks like debt, why it's actually fine. Examples of legitimate "looks bad but fine":
+
+- A 600-line file that's 90% generated code (protobuf, OpenAPI types) — large by line
+  count but not maintained by humans
+- "God class" that's actually a façade hiding deliberate complexity (Strategy pattern
+  with N strategies — moving them out makes call sites worse)
+- A `// TODO: refactor this` from 3 years ago — the code works, the refactor is risky,
+  there's no business pressure
+- A circular dep flagged by madge that's actually a type-only import (erased at compile
+  time) and crosses no runtime boundary
+- An "abstraction nobody uses" that's actually used via dynamic registration — grep
+  misses it; the audit must show why
+
+If your candidate list comes back empty, recheck Phase 4 — you missed something.
+
+## Open Questions for the Maintainer
+Things you couldn't tell were debt vs. intentional. Ask, don't assert.
+
 ## Remediation Plan
 [Tier 0–3 from Phase 5]
 
 ## Type Drift
 [If detected — see Phase 7]
 ```
+
+### Hard Rules for the Audit Report
+
+- Cite `file:line` on every concrete finding. No exceptions.
+- Don't recommend rewrites. Recommend specific, scoped changes with effort estimate.
+- Don't pad. If a category has nothing material, write "Nothing material" and move on.
+- No sycophancy. No "overall the codebase is well-structured" filler.
+- 30–80 findings target — drop weakest if over budget.
+- "Looks bad but is fine" section MUST have entries.
+
+### Repeat-run mode
+
+If `docs/audit/AUDIT-<latest>.md` already exists:
+1. Read previous audit's findings table
+2. For each prior finding: re-check the cited file:line
+   - Resolved (issue gone) → mark `RESOLVED` in this run's table, link to previous finding ID
+   - Still present → carry forward, update line numbers if shifted
+   - Worse (more occurrences) → tag `REGRESSED`
+3. New findings get tagged `NEW` in this run's ID column
+4. The audit becomes a living document tracked across quarters
 
 ### `docs/audit/REFACTOR-PLAN.md` (architect's execution guide)
 
