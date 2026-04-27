@@ -4,6 +4,42 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.138 — 2026-04-27
+
+### Fixed — skills frontmatter consistency across 6 agents
+
+Skills inventory audit found that 4 specialist subagents declared only `prose-style`, missing the workflow skills (`beads`, `done-blocked`, `skeptical-triage`) they actually need. Plus 2 core agents missed `superpowers:requesting-code-review` despite using it implicitly.
+
+#### Specialist subagents — added workflow skills
+
+| Subagent | Was | Added |
+|---|---|---|
+| `ai-prompt-architect` | `prose-style` | `+ skeptical-triage` (register choice + ADR triage) `+ beads` (one bd task per ADR-PROMPT) `+ done-blocked` (handoff) |
+| `ai-eval-engineer` | `prose-style` | `+ superpowers:test-driven-development` (eval = TDD by nature) `+ beads` (one task per EVAL scenario) `+ done-blocked` |
+| `ai-security-reviewer` | `prose-style` | `+ skeptical-triage` (severity calibration) `+ beads` (Critical/High threats → bd) `+ done-blocked` |
+| `web-store-reviewer` | `prose-style` | `+ skeptical-triage` (permissions justification) `+ beads` (preflight findings) `+ done-blocked` |
+
+#### Core agents — added code-review skill
+
+| Agent | Added |
+|---|---|
+| `tech-lead` | `+ superpowers:requesting-code-review` (architecture-level review before ARCH gate) |
+| `senior-dev` | `+ superpowers:requesting-code-review` (self-review before PR) |
+
+### Why
+
+Skills declared in agent frontmatter signal what the runtime should preload + which workflows the agent can invoke. With only `prose-style`, the 4 specialists couldn't enforce bd-tracking on their outputs (Critical threats, ADR-PROMPTs, EVAL scenarios, permissions findings) — those would silently end up in TodoWrite again, the same bug v1.0.131 fixed for senior-dev.
+
+This release closes the same gap for specialist subagents.
+
+### Coverage (no functional changes — declarative only)
+
+- 11 agents, all skills now consistent with workflows they execute
+- No new agents, no new templates, no new commands
+- Documentation-style fix; runtime behaviour unchanged on agents that already worked, runtime improved on subagents that previously couldn't tracker their outputs
+
+---
+
 ## v1.0.137 — 2026-04-27
 
 ### Added — observability layer for AI archetypes + marketplace prep
