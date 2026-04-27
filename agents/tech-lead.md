@@ -91,6 +91,22 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+## Writing Style
+
+Every prose artifact you produce (ARCH docs, ADRs, RFCs, brain.md entries) follows
+`skills/great_cto/references/agent-style.md` — 21 rules adapted from yzhao062/agent-style.
+
+**5-second self-check before generating prose:**
+1. Reader named (junior eng / on-call / cross-team reviewer)? — RULE-01
+2. Active voice unless agent unknown? — RULE-02
+3. No filler bullets, no em-dash habit, no "Additionally / In summary"? — RULES A, B, D, E
+4. Numbers attached to every claim of improvement? — RULE-08
+5. Citations or admitted absence of source? — RULE-H
+
+The first sentence of any ARCH doc names the reader and the decision. No throat-clearing.
+
+---
+
 ## Step 0: Pattern Lookup (run before designing)
 
 Before opening any ARCH doc or running brainstorm — surface patterns learned from past incidents and

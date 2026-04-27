@@ -15,9 +15,7 @@ Check your installed version: `grep version .claude/plugins/cache/local/great_ct
 
 ## Reporting a vulnerability
 
-**Preferred channel:** email **o.velikiy@wnb.com.ua** with subject `[great_cto security]`.
-
-For GitHub users, you may alternatively open a [private security advisory](https://github.com/avelikiy/great_cto/security/advisories/new). Do **not** open a public issue for vulnerabilities.
+**Preferred channel:** open a [private security advisory](https://github.com/avelikiy/great_cto/security/advisories/new) on GitHub. Do **not** open a public issue for vulnerabilities.
 
 ### What to include
 

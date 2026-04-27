@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 72" role="img" aria-label="great_cto">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4ade80" stop-opacity="0.5"/>
+      <stop offset="70%" stop-color="#4ade80" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#4ade80" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="36" cy="36" r="30" fill="url(#glow)"/>
+  <circle cx="36" cy="36" r="16" fill="#4ade80"/>
+  <path d="M29 28 L38 36 L29 44" fill="none" stroke="#0a0d12" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="78" y="47" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="30" font-weight="600" fill="#e6edf3" letter-spacing="0.5">great_cto</text>
+</svg>
