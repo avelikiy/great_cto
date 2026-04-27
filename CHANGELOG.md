@@ -4,6 +4,76 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.133 — 2026-04-27
+
+### Added — mandatory artefact templates + security-officer split + AI cost-cap (P1 from retro)
+
+v1.0.131 + v1.0.132 closed the enforcement gap (turn print-only "BLOCK" into real `exit 1`). v1.0.133 supplies the **content** that those halts demand and splits security-officer so the gates can actually be cleared.
+
+#### `skills/great_cto/templates/` — 13 mandatory artefact templates (NEW directory)
+
+| Template | When required | Used by |
+|---|---|---|
+| `ARCH-ai.md` | `archetype: ai-system | agent-product` | tech-lead writes, senior-dev reads § Security |
+| `THREAT-MODEL-AI.md` | `archetype: ai-system | agent-product` | security-officer pre-impl, blocked by senior-dev Step 0b |
+| `EVAL-template.md` | `archetype: ai-system | agent-product` | qa-engineer Step 0b checks count |
+| `ADR-LLM.md` | AI / agent picks LLM | tech-lead during ADR phase |
+| `ADR-PROMPT.md` | AI / agent writes prompt | versioned prompts; CI compares hash |
+| `DORA-ICT-risk-assessment.md` | `compliance: [dora]` | tech-lead compliance gate |
+| `DORA-third-party-register.md` | `compliance: [dora]` | tech-lead compliance gate |
+| `NIS2-article21-controls.md` | `compliance: [nis2]` | tech-lead compliance gate |
+| `21CFR11-checklist.md` | `compliance: [gxp | 21cfr11]` | tech-lead compliance gate |
+| `TISAX-VDA-ISA-results.md` | `compliance: [tisax]` | tech-lead compliance gate |
+| `ISO27001-SoA.md` | `compliance: [iso27001]` | tech-lead compliance gate |
+| `SOX-ITGC-checklist.md` | `compliance: [sox]` | tech-lead compliance gate |
+| `PCI-DSS-SAQ-A.md` | `compliance: [pci-dss-saq-a]` | tech-lead compliance gate |
+| `PCI-DSS-SAQ-D.md` | `compliance: [pci-dss]` (full scope) | tech-lead compliance gate |
+
+Plus `templates/README.md` mapping triggers → templates → destination paths.
+
+When tech-lead's compliance gate fires `BLOCKED:` for a missing artefact, it now points the user at the matching template and gives the exact `cp` command. Same for SECURITY_REQUIRED — `BLOCKED: ARCH missing ## Security` now references `templates/ARCH-ai.md § Security`, and `BLOCKED: TM missing` references `templates/THREAT-MODEL-AI.md`.
+
+#### `agents/security-officer.md` — pre-impl / post-impl modes (NEW split)
+
+Previously security-officer ran only post-implementation, which meant threats could not block ARCH or implementation. Now two modes:
+
+| Mode | When | Outputs | Halts on |
+|---|---|---|---|
+| `pre-impl` | After tech-lead writes ARCH, BEFORE senior-dev claims tasks | `TM-{slug}.md` (from `THREAT-MODEL-AI.md` template for AI; STRIDE for traditional), `ARCH § Security` appended | Critical/High threats with `__pending__` mitigations or sign-off |
+| `post-impl` | After senior-dev finishes, BEFORE devops ships | `CSO-{slug}-{date}.md`, `gate:ship` verdict | unmitigated Critical findings |
+
+Mode auto-detects: if ARCH exists but no source code yet → pre-impl. Otherwise post-impl. Manual override via `SEC_MODE=pre-impl` env var or first arg.
+
+In pre-impl mode, security-officer **copies the matching template** from `skills/great_cto/templates/` for AI archetypes, then prompts the user to fill placeholders before the threat-model file is considered complete.
+
+#### `agents/project-auditor.md` — Phase 4D AI cost-cap check (NEW)
+
+For `archetype: ai-system | agent-product`, audit verifies actual LLM spend has not exceeded `monthly-budget-llm-usd` declared in PROJECT.md.
+
+- Cost telemetry sources scanned: `.great_cto/cost-history.log`, `logs/llm-cost.log`, `logs/cost.log`, `logs/audit.jsonl` (jsonl with `cost_usd` field)
+- Threshold violations:
+  - `monthly-budget-llm-usd` unset → P0 Beads task ("AI cost cap unset for $ARCHETYPE archetype")
+  - Spend ≥ 100% of cap → P0 ("LLM spend exceeded budget")
+  - Spend ≥ 80% of cap → P1 ("LLM spend approaching budget cap")
+  - No cost telemetry instrumented → P1 ("LLM cost telemetry not instrumented — agent-pack BudgetTracker not adopted")
+- References `agent-pack.md § Budget Cap Enforcement Pattern` for remediation
+
+#### `agents/tech-lead.md` — template references in BLOCKED messages
+
+When SECURITY_REQUIRED block fires `exit 1`, the BLOCKED message now points at the specific template path and gives the `cp` command. Same for compliance artefact gate. Reduces user friction from "BLOCKED: file missing" to "BLOCKED: file missing → cp this template".
+
+### What's next (P2, planned for v1.0.134)
+
+- Three new AI subagents (`ai-prompt-architect`, `ai-eval-engineer`, `ai-security-reviewer`) wired into a dedicated AI pipeline branch — they consume the templates shipped in v1.0.133
+
+### Coverage
+
+- Templates: 13 + README
+- Agents updated: tech-lead, security-officer, project-auditor (3 agents)
+- Hard halts now reference actual templates instead of saying "see pack" (7 BLOCKED messages enriched)
+
+---
+
 ## v1.0.132 — 2026-04-27
 
 ### Fixed — enforcement-print-without-halt across security-critical archetypes (P0 from cross-archetype audit)
