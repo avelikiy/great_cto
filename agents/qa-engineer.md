@@ -148,6 +148,22 @@ case "$ARCHETYPE" in
   browser-extension)
     if [ -f manifest.json ] && ! grep -qE '"manifest_version"[[:space:]]*:[[:space:]]*3' manifest.json; then
       echo "BLOCKED: browser-extension archetype requires manifest_version: 3 (Web Store deprecates MV2)" >&2
+      echo "Delegate to web-store-reviewer subagent (v1.0.136+) — it audits manifest + generates Web Store preflight checklist." >&2
+      exit 1
+    fi
+    # Web Store preflight TM must exist
+    LATEST_ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
+    if [ -n "$LATEST_ARCH" ]; then
+      SLUG=$(basename "$LATEST_ARCH" .md | sed 's/^ARCH-//')
+      if [ ! -f "docs/sec-threats/TM-${SLUG}.md" ]; then
+        echo "BLOCKED: browser-extension requires Web Store preflight TM at docs/sec-threats/TM-${SLUG}.md" >&2
+        echo "Delegate to web-store-reviewer subagent." >&2
+        exit 1
+      fi
+    fi
+    # No unsafe-eval / unsafe-inline in CSP
+    if [ -f manifest.json ] && grep -qE "unsafe-(eval|inline)" manifest.json; then
+      echo "BLOCKED: manifest.json contains unsafe-eval or unsafe-inline — Web Store rejection territory" >&2
       exit 1
     fi
     ;;
