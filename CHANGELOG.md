@@ -4,6 +4,66 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.136 — 2026-04-27
+
+### Added — non-AI ARCH templates + browser-extension specialist subagent
+
+v1.0.133 shipped templates for AI / compliance archetypes. v1.0.136 closes the gap for the rest: game / browser-extension / web3 (defi subtype) / default. Plus a new `web-store-reviewer` subagent for browser-extension preflight — same pattern as the v1.0.134 AI subagents.
+
+#### `skills/great_cto/templates/` — 4 new ARCH templates
+
+| Template | For archetype | Mandatory sections |
+|---|---|---|
+| `ARCH-game.md` | `game` | Engine choice, Multiplayer netcode, Anti-cheat tier, Performance budget per platform, Steam Deck Verified, Age rating + IARC, Live-service ops, PC launch milestones |
+| `ARCH-browser-extension.md` | `browser-extension` | Manifest version, Three-worlds split (SW / content / popup / offscreen), Storage decision table, Permissions justification (every entry), Web Store pre-flight checklist, Cross-browser compat |
+| `ARCH-defi-protocol.md` | `web3` (defi / bridge / lending / dex / aggregator) | Subtype + block-ship gate, Smart contract security stack, Upgradeability decision matrix, Oracle strategy, MEV protection, L2 resilience scenarios, Custody/multisig, Bug bounty (TVL-tiered), Insurance fund |
+| `ARCH-default.md` | All other archetypes (web-service / library / mobile-app / data-platform / infra) | Standard sections: Decision with alternatives / Components / API contracts / Data model / Non-goals / WPs / Cost / Risks |
+
+#### `agents/web-store-reviewer.md` (NEW, model: sonnet)
+
+Plays the role of a Chrome Web Store / Mozilla AMO / Edge Add-ons reviewer **before** submission — catches issues that get extensions rejected (1–7 day delay) or removed post-publish.
+
+- Reads ARCH § Permissions Justification, manifest.json (if exists), `browser-extension-pack.md`
+- Generates `docs/sec-threats/TM-{slug}.md` with: permissions audit, single-purpose declaration check, CSP audit, three-worlds isolation review, cross-browser compat, AI-extension cross-pack check
+- Appends Web Store pre-flight checklist to ARCH `## Security`
+- Hand-off: manifest.json fields to set, mitigations to land, tests required, reviewer-side gotchas
+- Refuses common rejection patterns: `<all_urls>` upfront (use `optional_host_permissions`), API key in extension storage, `unsafe-eval` for SDK, content script doing API calls, CDN-loaded jQuery
+
+### Changed — security-officer pre-impl delegates to web-store-reviewer
+
+For `archetype: browser-extension`, security-officer pre-impl mode spawns `web-store-reviewer` instead of running the generic STRIDE flow. Falls back to template copy if subagent unavailable.
+
+### Changed — tech-lead Step 0a documents subagent chain by archetype
+
+Subagent delegation table now covers AI archetypes + browser-extension. Pipeline for browser-extension: tech-lead → web-store-reviewer → senior-dev → qa-engineer (re-checks manifest static rules) → security-officer post-impl → devops (Web Store unlisted/internal channel).
+
+### Changed — qa-engineer Step 0b strengthens browser-extension checks
+
+- Web Store preflight TM must exist at `docs/sec-threats/TM-{slug}.md`
+- No `unsafe-eval` / `unsafe-inline` in `manifest.json` (Web Store rejection territory)
+- Points at web-store-reviewer subagent for delegation
+
+### Changed — `plugin.json` AGENT loop + `ARCHETYPES.md` Required Agents
+
+- AGENT copy loop adds `web-store-reviewer` (11 total)
+- `ARCHETYPES.md § Required Agents` gains "Browser-extension specialist subagent" subsection
+
+### Changed — `templates/README.md`
+
+Trigger → template mapping covers all archetypes now (was AI + compliance only). Including ARCH-default for everything not covered by archetype-specific templates.
+
+### Coverage
+
+- 11 agents total (was 10): added `web-store-reviewer`
+- 18 templates total (was 14): added `ARCH-game`, `ARCH-browser-extension`, `ARCH-defi-protocol`, `ARCH-default`
+- 14 archetypes, 13 packs, 27 compliance keys, 16 commands
+
+### What's next (v1.0.137)
+
+`/inbox` AI-archetype signals (PoC-deadline approaching, monthly-budget at 80%, prompt drift, eval regression) + `/digest` board mode AI metrics + marketplace listing prep.
+
+---
+
 ## v1.0.135 — 2026-04-27
 
 ### Fixed — field-test discovered execution-blocking bugs in v1.0.134

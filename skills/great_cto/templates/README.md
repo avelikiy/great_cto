@@ -8,7 +8,12 @@
 | Trigger | Template | Destination in project repo |
 |---|---|---|
 | `archetype: ai-system | agent-product` | `ARCH-ai.md` | `docs/architecture/ARCH-{slug}.md` |
+| `archetype: game` | `ARCH-game.md` | `docs/architecture/ARCH-{slug}.md` |
+| `archetype: browser-extension` | `ARCH-browser-extension.md` | `docs/architecture/ARCH-{slug}.md` |
+| `archetype: web3` (defi / bridge / lending / dex) | `ARCH-defi-protocol.md` | `docs/architecture/ARCH-{slug}.md` |
+| All other archetypes (web-service / library / mobile-app / data-platform / infra) | `ARCH-default.md` | `docs/architecture/ARCH-{slug}.md` |
 | `archetype: ai-system | agent-product` | `THREAT-MODEL-AI.md` | `docs/sec-threats/TM-{slug}.md` |
+| `archetype: browser-extension` | `THREAT-MODEL-AI.md` (adapted by web-store-reviewer) | `docs/sec-threats/TM-{slug}.md` |
 | `archetype: ai-system | agent-product` | `EVAL-template.md` (×3 or ×5) | `tests/eval/EVAL-{scenario}.md` |
 | AI / agent project picks LLM | `ADR-LLM.md` | `docs/decisions/ADR-{NN}-LLM-{model}.md` |
 | AI / agent project writes prompt | `ADR-PROMPT.md` | `docs/decisions/ADR-{NN}-PROMPT-{name}.md` |
