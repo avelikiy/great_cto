@@ -4,6 +4,70 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.135 — 2026-04-27
+
+### Fixed — field-test discovered execution-blocking bugs in v1.0.134
+
+Three parallel agent simulations on v1.0.134 (greenfield AI / CWD trap recovery / late-pipeline gates) found 27 gaps. This release fixes the **9 P0 bugs** that prevented v1.0.134 AI pipeline from actually running on real systems.
+
+#### Path fix — `docs/sec threats/` → `docs/sec-threats/`
+
+Literal space in directory path broke shell escaping across 9 files (`agents/*.md`, `commands/promote.md`, `templates/*.md`). Rewritten to `docs/sec-threats/` (hyphen). Affects: tech-lead, senior-dev, qa-engineer, security-officer, ai-prompt-architect, ai-eval-engineer, ai-security-reviewer, promote.md, ARCH-ai.md, THREAT-MODEL-AI.md, README.md.
+
+#### Portable sha256 in ai-prompt-architect
+
+`sha256sum` is Linux-only. macOS users (most Claude Code users) hit "command not found" → prompt-hash drift detection silently broken. Replaced with portable helper that tries `sha256sum`, falls back to `shasum -a 256`, halts if neither.
+
+#### Slug fallback collision
+
+`tech-lead.md` SECURITY_REQUIRED + Pre-mortem blocks fell back to `SLUG="feature"` when no ARCH file existed yet. First two AI projects in same repo overwrote each other's `TM-feature.md` / `PRE-feature.md`. Fixed: derive slug from PROJECT.md project name + date suffix as last resort.
+
+#### `mkdir -p` for new docs paths
+
+`ai-security-reviewer.md`, `tech-lead.md` Write to `docs/sec-threats/`, `docs/architecture/`, `docs/decisions/` — paths that don't exist on greenfield. Added explicit `mkdir -p` before any Write.
+
+#### ai-security-reviewer Step 0 actually copies template
+
+Previously said "from template" without `cp`. Now: `cp $PLUGIN/skills/great_cto/templates/THREAT-MODEL-AI.md $TM`, replaces `{slug}` placeholder, halts if template not found (broken plugin install).
+
+#### `/promote` flow updated for v1.0.134 (P0 — was using old semantics)
+
+Old `/promote` didn't know about: AI subagents, `monthly-budget-llm-usd`, `discovery` field, compliance artefacts, AI eval thresholds (3 → 5 → 10). New steps:
+
+- **Step 2 — Threat model**: hard halts if TM file missing OR Critical/High threats `__pending__`. For AI archetypes delegates to `ai-security-reviewer`.
+- **Step 2b — AI prompts + evals** (new, ai-system / agent-product only):
+  - ≥ 1 ADR-PROMPT-*.md required → invoke `ai-prompt-architect` if missing
+  - Eval count: ≥ 5 (ai-system) / ≥ 10 (agent-product) → invoke `ai-eval-engineer`
+  - `monthly-budget-llm-usd` must be set
+- **Step 3b — Compliance artefacts** (new): for each value in `compliance: [...]`, evidence file must exist (DORA / NIS2 / GxP / TISAX / ISO27001 / SOX / PCI-DSS).
+
+#### `agents/devops.md` — `agent-product` + `devtools` deploy strategies (P0)
+
+Previously fell through to undefined behavior. Now explicit:
+- `agent-product` → feature-flag canary 1% on staging, conversation state must persist, queue-drain on rollback (in-flight runs must complete)
+- `browser-extension` → Web Store unlisted/internal channel for review
+- `game` → Steam beta branch, console dev-kit, mobile TestFlight/Play Internal
+- `devtools` → SDK pre-release tag, API gateway canary on tenant boundaries
+
+`agent-product` and `devtools` added to canary archetype list.
+
+### Coverage
+
+- Files modified: 11
+- All space-paths replaced with hyphens
+- 9 P0 bugs from field test → fixed
+- 18 P1/P2 gaps documented for v1.0.136/137
+
+### What's next (v1.0.136)
+
+Non-AI templates (ARCH-game, ARCH-browser-extension, ARCH-defi-protocol, ARCH-default) + browser-extension subagent (web-store-reviewer for MV3 / Web Store policy preflight).
+
+### What's next (v1.0.137)
+
+`/inbox` AI-archetype signals (PoC deadline, monthly-budget at 80%, prompt drift) + `/digest` board mode AI metrics + marketplace listing prep.
+
+---
+
 ## v1.0.134 — 2026-04-27
 
 ### Added — three AI specialist subagents (P2 from retro)

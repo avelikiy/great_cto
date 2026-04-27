@@ -140,7 +140,7 @@ For `archetype: ai-system | agent-product`, after the ARCH doc is written but be
 
 | Subagent | When | What it produces |
 |---|---|---|
-| `ai-security-reviewer` | Before any prompt or code is written (pre-impl threat modelling) | `docs/sec threats/TM-{slug}.md` with OWASP LLM Top 10 coverage |
+| `ai-security-reviewer` | Before any prompt or code is written (pre-impl threat modelling) | `docs/sec-threats/TM-{slug}.md` with OWASP LLM Top 10 coverage |
 | `ai-prompt-architect` | After threat model exists, when ARCH § LLM Scope identifies named LLM roles | `docs/decisions/ADR-{NN}-PROMPT-{name}.md` per role |
 | `ai-eval-engineer` | After ADR-PROMPT files exist | `tests/eval/EVAL-*.md` (≥ 3 for ai-system, ≥ 5 for agent-product) + CI runner |
 
@@ -628,7 +628,13 @@ if [ "$TRIGGER" -eq 1 ]; then
   mkdir -p docs/pre-mortems
   # Compute SLUG from feature description or latest ARCH file
   SLUG="${FEATURE_SLUG:-$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1 | xargs -I{} basename {} .md | sed 's/^ARCH-//')}"
-  [ -z "$SLUG" ] && SLUG="feature"
+  # Last-resort slug from feature description in PROJECT.md (avoids "feature" collisions)
+  if [ -z "$SLUG" ]; then
+    SLUG=$(grep -m1 -E "^# |^## Project" .great_cto/PROJECT.md 2>/dev/null \
+      | tr -d '#' | head -c 80 | tr '[:upper:] ' '[:lower:]-' \
+      | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | head -c 40)
+    [ -z "$SLUG" ] && SLUG="feature-$(date +%Y%m%d)"
+  fi
   PRE="docs/pre-mortems/PRE-${SLUG}.md"
   if [ ! -f "$PRE" ]; then
     # Hard halt for production mode in high-risk archetypes — pre-mortem is mandatory before ARCH gate.
@@ -649,7 +655,7 @@ After writing the pre-mortem: cross-reference with ARCH — every high-scoring s
 
 ## Threat model — generate before finalizing ARCH (security-critical archetypes)
 
-Every ARCH-*.md for archetype `ai-system` / `commerce` / `web3` / `iot-embedded` / `regulated` / `fintech` must include a `## Security` section, backed by a threat model in `docs/sec threats/TM-<slug>.md`. This closes SSDF practice PW.1 (design for security). See `skills/great_cto/references/secure-sdlc.md` for the full framework mapping.
+Every ARCH-*.md for archetype `ai-system` / `commerce` / `web3` / `iot-embedded` / `regulated` / `fintech` must include a `## Security` section, backed by a threat model in `docs/sec-threats/TM-<slug>.md`. This closes SSDF practice PW.1 (design for security). See `skills/great_cto/references/secure-sdlc.md` for the full framework mapping.
 
 ```bash
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
@@ -659,8 +665,15 @@ case "$ARCHETYPE" in ai-system|commerce|web3|iot-embedded|regulated|fintech) SEC
 if [ "$SECURITY_REQUIRED" -eq 1 ]; then
   # Compute SLUG from latest ARCH file or fall back to feature slug variable
   SLUG="${FEATURE_SLUG:-$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1 | xargs -I{} basename {} .md | sed 's/^ARCH-//')}"
-  [ -z "$SLUG" ] && SLUG="feature"
-  TM="docs/sec threats/TM-${SLUG}.md"
+  # Last-resort slug from feature description in PROJECT.md (avoids "feature" collisions)
+  if [ -z "$SLUG" ]; then
+    SLUG=$(grep -m1 -E "^# |^## Project" .great_cto/PROJECT.md 2>/dev/null \
+      | tr -d '#' | head -c 80 | tr '[:upper:] ' '[:lower:]-' \
+      | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | head -c 40)
+    [ -z "$SLUG" ] && SLUG="feature-$(date +%Y%m%d)"
+  fi
+  mkdir -p docs/sec-threats docs/architecture docs/decisions
+  TM="docs/sec-threats/TM-${SLUG}.md"
   ARCH_FILE="docs/architecture/ARCH-${SLUG}.md"
 
   # Hard halt: ARCH for security-critical archetype must have ## Security section.

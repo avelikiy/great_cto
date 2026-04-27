@@ -70,9 +70,20 @@ For each LLM role identified in ARCH § LLM Scope:
 
 4. **Write the prompt** in plain text, no Jinja/templating. The exact bytes the model will see.
 
-5. **Compute sha256**:
+5. **Compute sha256** (portable across macOS + Linux):
    ```bash
-   PROMPT_HASH=$(echo -n "$PROMPT_TEXT" | sha256sum | cut -d' ' -f1)
+   # Helper: works on macOS (shasum) and Linux (sha256sum)
+   sha256_portable() {
+     if command -v sha256sum >/dev/null 2>&1; then
+       echo -n "$1" | sha256sum | cut -d' ' -f1
+     elif command -v shasum >/dev/null 2>&1; then
+       echo -n "$1" | shasum -a 256 | cut -d' ' -f1
+     else
+       echo "BLOCKED: neither sha256sum nor shasum available — install coreutils" >&2
+       exit 1
+     fi
+   }
+   PROMPT_HASH=$(sha256_portable "$PROMPT_TEXT")
    ```
 
 6. **Write ADR-PROMPT-{name}.md** from template, fill all sections.

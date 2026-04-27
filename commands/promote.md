@@ -53,23 +53,78 @@ POC mode allowed a 1-pager. Production requires a full ARCH.
   [ -f "docs/architecture/ARCH-${SLUG}.md" ] || { echo "BLOCKED: ARCH doc not produced"; exit 1; }
   ```
 
-### Step 2 — Threat model (if archetype requires)
+### Step 2 — Threat model (archetype-aware, v1.0.134)
 
 ```bash
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md | awk '{print $2}')
+TM="docs/sec-threats/TM-${SLUG}.md"
+mkdir -p docs/sec-threats
+
 case "$ARCHETYPE" in
-  ai-system|commerce|web3|iot-embedded|regulated|fintech)
-    echo "Archetype '$ARCHETYPE' requires threat model."
-    # Invoke /sec threat ${SLUG}
+  ai-system|agent-product)
+    # Delegate to ai-security-reviewer specialist (v1.0.134+) — full OWASP LLM Top 10 coverage.
+    # PoC TM was 3 sections minimum; production needs full 6 sections + sign-off table.
+    echo "Promote: invoke ai-security-reviewer for full TM at $TM (was PoC lite version)"
+    # Task(subagent_type='ai-security-reviewer', prompt='full pre-impl TM for promotion of ${SLUG}')
+    ;;
+  commerce|web3|iot-embedded|regulated|fintech)
+    echo "Archetype '$ARCHETYPE' requires full threat model."
+    # Invoke /sec threat ${SLUG} (security-officer pre-impl mode)
     ;;
   *)
     echo "Threat model optional for archetype '$ARCHETYPE' — recommended if feature touches auth/payments/PII."
     ;;
 esac
+
+# Hard halt: TM file exists + Critical/High threats signed off (no __pending__)
+if [ ! -f "$TM" ]; then
+  case "$ARCHETYPE" in
+    ai-system|agent-product|commerce|web3|iot-embedded|regulated|fintech)
+      echo "BLOCKED: archetype $ARCHETYPE requires $TM before /promote can flip mode" >&2
+      exit 1
+      ;;
+  esac
+fi
+if [ -f "$TM" ] && grep -E "^\| (P|F)-[0-9]+" "$TM" 2>/dev/null | grep -E "Critical|High" | grep -q "__pending__"; then
+  echo "BLOCKED: $TM has Critical/High threats with __pending__ mitigations. Run security-officer post-impl review." >&2
+  exit 1
+fi
 ```
 
-For required cases, invoke `/sec threat ${SLUG}` or note it as a blocking
-TODO before proceeding.
+### Step 2b — AI prompts + evals (ai-system / agent-product only)
+
+PoC mode allowed prompt sketches and 3 minimum EVAL scenarios. Production needs versioned prompts with sha256 + drift detection, plus full eval coverage (≥ 5 for ai-system, ≥ 10 for agent-product).
+
+```bash
+case "$ARCHETYPE" in
+  ai-system|agent-product)
+    # 1. Promote prompts to ADR-PROMPT files via ai-prompt-architect
+    #    Task(subagent_type='ai-prompt-architect', prompt='audit and version all prompts for ${SLUG} promotion to ${TARGET}')
+    PROMPT_ADRS=$(ls docs/decisions/ADR-*-PROMPT-*.md 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${PROMPT_ADRS:-0}" -lt 1 ]; then
+      echo "BLOCKED: at least one ADR-PROMPT-*.md required for production. Invoke ai-prompt-architect." >&2
+      exit 1
+    fi
+
+    # 2. Expand eval suite via ai-eval-engineer
+    #    Task(subagent_type='ai-eval-engineer', prompt='expand PoC eval set to production coverage for ${SLUG}')
+    EVAL_COUNT=$(find tests/eval -type f -name "EVAL-*.md" 2>/dev/null | wc -l | tr -d ' ')
+    MIN=5
+    [ "$ARCHETYPE" = "agent-product" ] && MIN=10
+    if [ "${EVAL_COUNT:-0}" -lt "$MIN" ]; then
+      echo "BLOCKED: production $ARCHETYPE requires ≥ $MIN EVAL files (have ${EVAL_COUNT:-0}). Invoke ai-eval-engineer." >&2
+      exit 1
+    fi
+
+    # 3. monthly-budget-llm-usd must be set
+    BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '$')
+    if [ -z "$BUDGET" ] || [ "$BUDGET" = "0" ]; then
+      echo "BLOCKED: production AI archetype requires monthly-budget-llm-usd in PROJECT.md (got: '$BUDGET')" >&2
+      exit 1
+    fi
+    ;;
+esac
+```
 
 ### Step 3 — SBOM
 
@@ -81,6 +136,32 @@ First production-bound SBOM for this code:
 
 Verify the SBOM has > 5 components (S1 anti-pattern check). If tool failed,
 halt and tell CTO to install the archetype-appropriate SBOM tool.
+
+### Step 3b — Compliance artefacts (v1.0.134)
+
+For each value in `compliance: [...]` in PROJECT.md, verify the matching evidence artefact exists. PoC mode skipped these; production cannot.
+
+```bash
+COMPLIANCE_RAW=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/.*\[//;s/\].*//;s/,/ /g')
+mkdir -p docs/compliance
+for fw in $COMPLIANCE_RAW; do
+  fw=$(echo "$fw" | tr -d ' ')
+  case "$fw" in
+    dora)        REQ="docs/compliance/DORA-ICT-risk-assessment.md docs/compliance/DORA-third-party-register.md" ;;
+    nis2)        REQ="docs/compliance/NIS2-article21-controls.md" ;;
+    gxp|21cfr11) REQ="docs/compliance/21CFR11-checklist.md" ;;
+    tisax)       REQ="docs/compliance/TISAX-VDA-ISA-results.md" ;;
+    iso27001)    REQ="docs/compliance/ISO27001-SoA.md" ;;
+    sox)         REQ="docs/compliance/SOX-ITGC-checklist.md" ;;
+    pci-dss|pci-dss-saq-d) REQ="docs/compliance/PCI-DSS-SAQ-D.md" ;;
+    pci-dss-saq-a)         REQ="docs/compliance/PCI-DSS-SAQ-A.md" ;;
+    *) REQ="" ;;
+  esac
+  for f in $REQ; do
+    [ -f "$f" ] || { echo "BLOCKED: compliance:[$fw] requires $f for production. Template: skills/great_cto/templates/$(basename "$f")" >&2; exit 1; }
+  done
+done
+```
 
 ### Step 4 — Cost model (if project_size ≥ medium)
 
@@ -166,7 +247,7 @@ EOF
 
 Produced:
   - docs/architecture/ARCH-<slug>.md (full)
-  - docs/sec threats/TM-<slug>.md   (if required by archetype)
+  - docs/sec-threats/TM-<slug>.md   (if required by archetype)
   - docs/releases/SBOM-<ver>.json
   - docs/security/CSO-<slug>-<date>.md
   - docs/qa-reports/QA-<slug>-<date>.md

@@ -1,14 +1,14 @@
 # `skills/great_cto/templates/` — mandatory artefact templates
 
 > One template per compliance / technical artefact required by `tech-lead.md`, `senior-dev.md`, `qa-engineer.md` hard halts (v1.0.131 + v1.0.132).
-> Agents read these to know what shape an artefact should have. Users copy them into project repos under `docs/compliance/`, `docs/architecture/`, `docs/sec threats/`, `tests/eval/`, or `docs/decisions/`.
+> Agents read these to know what shape an artefact should have. Users copy them into project repos under `docs/compliance/`, `docs/architecture/`, `docs/sec-threats/`, `tests/eval/`, or `docs/decisions/`.
 
 ## When each template gets copied
 
 | Trigger | Template | Destination in project repo |
 |---|---|---|
 | `archetype: ai-system | agent-product` | `ARCH-ai.md` | `docs/architecture/ARCH-{slug}.md` |
-| `archetype: ai-system | agent-product` | `THREAT-MODEL-AI.md` | `docs/sec threats/TM-{slug}.md` |
+| `archetype: ai-system | agent-product` | `THREAT-MODEL-AI.md` | `docs/sec-threats/TM-{slug}.md` |
 | `archetype: ai-system | agent-product` | `EVAL-template.md` (×3 or ×5) | `tests/eval/EVAL-{scenario}.md` |
 | AI / agent project picks LLM | `ADR-LLM.md` | `docs/decisions/ADR-{NN}-LLM-{model}.md` |
 | AI / agent project writes prompt | `ADR-PROMPT.md` | `docs/decisions/ADR-{NN}-PROMPT-{name}.md` |
