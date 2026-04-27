@@ -154,8 +154,8 @@ case "$ARCHETYPE" in
       exit 1
     fi
     SLUG=$(basename "$LATEST_ARCH" .md | sed 's/^ARCH-//')
-    if [ ! -f "docs/sec threats/TM-${SLUG}.md" ]; then
-      echo "BLOCKED: $ARCHETYPE archetype requires threat model docs/sec threats/TM-${SLUG}.md" >&2
+    if [ ! -f "docs/sec-threats/TM-${SLUG}.md" ]; then
+      echo "BLOCKED: $ARCHETYPE archetype requires threat model docs/sec-threats/TM-${SLUG}.md" >&2
       echo "Run: /sec threat ${SLUG}" >&2
       exit 1
     fi
