@@ -119,6 +119,14 @@ archetype default tier and upgrades on signal.
 
 Pipeline for `ai-system` / `agent-product`: tech-lead → ai-security-reviewer → ai-prompt-architect → ai-eval-engineer → senior-dev → qa-engineer → security-officer post-impl → devops.
 
+### Browser-extension specialist subagent (v1.0.136+)
+
+| Subagent | When invoked | What it produces |
+|---|---|---|
+| web-store-reviewer | After tech-lead writes ARCH for browser-extension archetype; security-officer pre-impl delegates here | TM-{slug}.md with permissions audit, single-purpose check, CSP audit, three-worlds isolation review, cross-browser compat review; ARCH § Web Store Pre-flight checklist |
+
+Pipeline for `browser-extension`: tech-lead → web-store-reviewer → senior-dev → qa-engineer (re-checks manifest static rules) → security-officer post-impl → devops (Web Store unlisted/internal channel).
+
 ## Parameters (override archetype defaults via PROJECT.md)
 
 These parameters customize behavior without changing archetype:
