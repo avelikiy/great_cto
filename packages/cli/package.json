@@ -1,6 +1,6 @@
 {
   "name": "great-cto",
-  "version": "1.0.125",
+  "version": "1.0.130",
   "description": "One command install for the great_cto Claude Code plugin. Auto-detects your stack, picks the right archetype, bootstraps PROJECT.md.",
   "keywords": [
     "claude-code",
@@ -45,7 +45,7 @@
   ],
   "homepage": "https://github.com/avelikiy/great_cto",
   "license": "MIT",
-  "author": "Oleksandr Velykyi",
+  "author": "avelikiy",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/avelikiy/great_cto.git",

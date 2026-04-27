@@ -152,6 +152,38 @@ async function handleEvent(event) {
 }
 ```
 
+## Subscription reactivation flow
+
+Reactivation is the highest-revenue lever in subscription B2C — and the most error-prone because it crosses three systems (auth, payments, billing state).
+
+| Case | Stripe pattern | Edge cases |
+|------|----------------|------------|
+| **Canceled, payment method still valid** | `subscriptions.create` with existing `pm_xxx`; reuse `customer.id` | Verify card not expired (`pm.card.exp_month/year`); if expired, fall to "PM expired" path |
+| **Canceled, payment method expired or removed** | `setup_intent` flow → collect new `pm_xxx` → `subscriptions.create` | Don't surprise-charge old card before consent; require fresh `confirm_setup_intent` |
+| **Paused (Stripe pause + resume)** | `subscriptions.update(pause_collection=null, resume_at=now)` | Use only if the user paused mid-cycle; do not use after explicit cancel |
+
+**Hard rules** (add to gate:ship):
+- Never silently reactivate. Reactivation is always user-initiated; "win-back" emails / links must hit a confirm-screen, never a one-click reactivate.
+- Pro-rate or zero-out the first cycle for users who reactivate within 30 days of cancel — anti-pattern is double-charging dunning + reactivation in one cycle.
+- Reactivation flow uses **idempotency keys** namespaced as `reactivate:{user_id}:{epoch_day}`. Two clicks within 1 day → one Stripe charge.
+- Webhook handler distinguishes `customer.subscription.created` (new) from `customer.subscription.resumed` (reactivation) — different welcome emails, different revenue attribution.
+- Track win-back cohort metrics: % reactivated within 30/60/90 days; median LTV uplift. Surface in `/digest` weekly.
+
+## Stripe ↔ DB reconciliation job
+
+Webhooks are best-effort, not authoritative. Run a reconciliation job that pulls Stripe Events API and replays any `event.id` we haven't recorded.
+
+| Aspect | Target |
+|--------|--------|
+| **Frequency** | Hourly during business hours, daily full-sync at 02:00 UTC |
+| **RPO (max data lag)** | 1 hour for active subscriptions, 25 hours for archived |
+| **SLA** | Reconciliation must complete within 15 min; alert pages on-call if > 30 min |
+| **Drift tolerance** | 0 tolerance for `subscription.status` mismatch; alert immediately |
+| **Storage** | `stripe_events_processed(event_id PK, type, created_at, processed_at)` — 90-day retention |
+| **Audit trail** | All Stripe API calls + responses logged in `stripe_audit_log` for 7 years (PCI / financial-audit retention) |
+
+Without this job: a missed webhook silently breaks revenue recognition until a user complains. With it: drift is detected within 1 hour and self-heals.
+
 ## Refund / dispute workflow
 
 Define this before launch, not after first complaint.

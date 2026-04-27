@@ -4,6 +4,260 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.130 — 2026-04-27
+
+### Improved — `/audit` adopts ideas from ksimback/tech-debt-skill
+
+Studied [ksimback/tech-debt-skill](https://github.com/ksimback/tech-debt-skill)
+(255+ ⭐, single-purpose tech-debt audit skill for Claude Code). Folded the
+unique design choices into `agents/project-auditor.md` without breaking the
+7-phase + 14-archetype flow.
+
+- **Phase 4A.0 — Hot-spot identification (size × churn intersection)**:
+  top-20 largest files ∩ top-20 most-modified files in last 6 months. Files
+  in the intersection MUST receive concrete `file:line` citations in
+  findings.
+- **Phase 6 audit report template** — three new required sections:
+  Architectural Mental Model paragraph, Findings Table with `file:line`
+  on every finding (30–80 cap), and the **Things That Look Bad But Are
+  Actually Fine** required section (3–10 entries; empty = audit didn't look
+  hard enough).
+- **Hard rules**: cite `file:line`, no rewrites, no padding ("Nothing
+  material" for empty categories), no sycophancy.
+- **Repeat-run mode**: prior findings tagged `RESOLVED` / `REGRESSED`; new
+  findings tagged `NEW`. Audit becomes living document.
+
+### Added — promotion package + identity cleanup
+
+#### LICENSE file at repo root
+GitHub API was reporting `license: null` because MIT was declared only in
+`plugin.json` and `packages/cli/package.json`. Added root `LICENSE` (MIT).
+This unblocks enterprise adoption gates that check for `LICENSE` file presence.
+
+#### README — comparison table
+New "How is this different from X?" section explicitly positions great_cto
+against raw Claude Code, Cursor / Copilot, Aider / Cline, the built-in
+`/review`, obra/superpowers, davila7/templates, and ksimback/tech-debt-skill.
+Each row says what the alternative does and what it doesn't, then closes with
+the unique slot great_cto fills (process layer above the AI, below the human).
+
+#### GitHub topics trimmed 19 → 8
+Old topics diluted signal. New set: `claude-code-plugin`,
+`claude-code-subagents`, `claude-code-skills`, `agentic-coding`, `sdlc`,
+`code-review`, `multi-agent`, `cto`. GitHub topic-search ranking improves
+when fewer, sharper topics are used.
+
+### Changed — single-contributor identity
+
+All git commits, file references, copyright lines, and footers are now under
+the canonical `avelikiy <avelikiy@users.noreply.github.com>` identity. Three
+prior commits authored under work-email and personal-Gmail identities have
+been rewritten via `git filter-branch`. SHAs of those commits change; tags
+v1.0.0–v1.0.129 are recreated to point at the new SHAs.
+
+Files updated to drop legal-name copyright lines (replaced with `avelikiy`):
+`LICENSE`, `packages/cli/LICENSE`, `packages/cli/package.json` (`author`),
+`README.md` (Author section), `SECURITY.md` (security contact email →
+GitHub private advisory), `site/*.html` (footers + `meta name="author"`),
+`docs/articles/*.md` (article bylines).
+
+### Coverage
+
+Auditor patches + promotion infrastructure + identity hygiene. No CLI changes,
+no archetype changes, no agent prompt changes outside `project-auditor`.
+
+---
+
+## v1.0.128 — 2026-04-27
+
+### Added — agent writing-style reference (21 rules)
+
+Adapted from [yzhao062/agent-style](https://github.com/yzhao062/agent-style) v0.3.1
+(CC BY 4.0) — 12 canonical rules from Strunk & White / Orwell / Pinker plus 9 rules
+from field observation of LLM output 2022–2026. Applied at **generation time** to all
+prose-heavy agents.
+
+#### `skills/great_cto/references/agent-style.md` (NEW)
+
+Condensed 21-rule guide with severity (critical/high/medium/low), BAD→GOOD examples
+in technical contexts, and a 5-second self-check (reader named, active voice, no filler
+bullets, numbers on every claim, citations or admit absence). Source attribution kept
+per CC BY 4.0 license.
+
+#### Wired into all 7 agents — `## Writing Style` section before Step 0
+
+- **tech-lead**: ARCH docs / ADRs / RFCs / brain.md — reader named in first sentence,
+  no throat-clearing
+- **senior-dev**: commit messages / PR descriptions / code comments — imperative active
+  voice, body explains why not what
+- **qa-engineer**: QA reports — every "regression" / "improvement" carries a number
+  (p95, RPS, run count); active voice on failure descriptions
+- **security-officer**: CSO reports / threat models — RULE-H strictest gate, every
+  "best practice" claim cites a NIST / OWASP / CVE / log line
+- **devops**: release notes / rollback runbooks — short, concrete, no "we are excited
+  to announce" preambles
+- **l3-support**: postmortems — active voice on root cause, timeline with UTC
+  timestamps + person/system per action, never close with "in summary"
+- **project-auditor**: audit reports — every gap carries effort estimate + impact;
+  every "outdated" claim links to upstream EOL announcement
+
+### Why
+
+Pipeline-test agents in v1.0.125–127 sometimes produced AI-tells: em-dash habit,
+"Additionally / Furthermore" transitions, summary sentences at every paragraph end,
+handwavy "industry best practice" citations, abstract category nouns ("various
+metrics", "performance issues"). These are mechanical and fixable at generation
+time with a rule reference; the 21-rule set covers ~80% of failure modes.
+
+The 5-second self-check before each prose artifact catches most violations without
+slowing the pipeline. Heavier enforcement (LanguageTool linter, post-generation
+review pass) deferred to v1.0.129+.
+
+---
+
+## v1.0.127 — 2026-04-26
+
+### Closed gaps surfaced by v1.0.126 pipeline dry-runs on remaining archetypes
+
+Pipeline simulation on `commerce`, `web3`, `agent-product` (the highest-stakes
+existing archetypes) flagged real gaps. This release patches them.
+
+#### `commerce-pack.md` — two new sections
+
+- **Subscription reactivation flow**: three reactivation cases (PM-valid /
+  PM-expired / paused) with Stripe patterns and edge cases. Hard rules: no
+  silent reactivate, pro-rate first cycle for 30-day reactivations,
+  idempotency keys namespaced as `reactivate:{user_id}:{epoch_day}`, webhook
+  handler distinguishes `created` vs `resumed`.
+- **Stripe ↔ DB reconciliation job**: hourly + daily full-sync schedule, RPO
+  targets (1h active / 25h archived), 0-tolerance drift on subscription
+  status, 7-year audit log retention for PCI / financial audit.
+
+#### `ARCHETYPES.md` Parameter Values — 11 new compliance keys
+
+Closes the gap where pack documents referenced compliance values that
+ARCHETYPES.md didn't define, leaving security-officer ambiguous on what
+checklist to run. Added: `pci-dss-saq-a`, `pci-dss-saq-a-ep`, `eu-vat`,
+`consumer-rights-directive`, `csp`, `mv3-security`, `age-rating`,
+`accessibility`, `coppa`, `openssf`, `api-stability`, `soc2-type-2`.
+
+#### `web3-pack.md` — six new sections
+
+- **`interest-rate-model`** QA extra (lending): kink-curve fuzzing,
+  utilization invariants, monotonicity proofs, 100k+ runs, gas cost <60k
+  for `accrueInterest`.
+- **`liquidation-keeper-decentralization`** QA extra (lending): top-1
+  keeper share <50% over 30 days, public liquidation interface (no
+  allowlist), Dutch auction or batch settlement preferred.
+- **`insurance-fund`** QA extra: bad-debt absorption mechanism, reserve
+  factor flow, haircut formula, ≥0.5% TVL coverage at launch.
+- **`l2-resilience`** QA extra: sequencer halt, force-inclusion via L1
+  entrypoint, reorg up to L1 finality, cross-domain message delays. Each
+  scenario as Foundry fork test.
+- **Upgradeability decision matrix**: Immutable / UUPS / Transparent /
+  Diamond / Beacon — when to use each, when to avoid, tooling. Universal
+  upgrade discipline (timelock tiers, storage gaps, layout diff in CI,
+  4-of-7 multisig).
+- **Block-ship gate disambiguation by subtype**: token / lending / AMM /
+  bridge / aggregator each have different hard gates. Lending = `flash-loan-sim`
+  with 0 profitable vectors.
+- **Bug bounty sizing**: pre-launch contest (Code4rena / Sherlock) → post-launch
+  Immunefi tier mapped to TVL: <$5M → $50k crit, $5–50M → $250k, $50–500M →
+  $500k–1M, >$500M → $1M–10M. Safe-harbour clause + payout SLA.
+
+#### `agent-pack.md` — five new sections
+
+- **Irreversible-action heuristic**: auto-promote any tool call to `high`
+  trust if it matches verb/recipient/monetary/permission/destructive/cross-system
+  patterns. Safety net for tools that forgot to declare `irreversible: true`.
+- **MCP server trust pattern**: allowlist + scope mapping in
+  `config/mcp_servers.yaml`, SHA256-pinned binaries, per-user OAuth (never
+  service-account), high-trust actions through internal adapters not raw MCP,
+  audit log on every tool call.
+- **Multi-identity scenarios**: `(user_id, account_id, scope)` model for
+  users with personal+work Gmail/Notion. Disambiguation rules: explicit
+  account on every call, no silent merging across accounts, switch-account
+  as first-class action, token revocation cascades.
+- **Output filter concrete recommendations**: Llama Guard 3 (self-hosted),
+  Anthropic safety classifier (built-in to Claude API), OpenAI Moderation,
+  custom regex/NER as always-on layer for deterministic leaks.
+- **Per-user rate limiting**: 4-layer matrix — API gateway, orchestrator
+  (concurrent sessions / RPM / daily token cap), per-tool (gmail.send ≤
+  10/h), budget tracker (per-session $0.50 default / $5 max). UI surfaces
+  quota usage; silent throttling is hostile UX.
+
+### Coverage
+
+Same 14 archetypes + 13 packs. Pack file sizes: commerce-pack ~340 lines
+(was ~310), web3-pack ~210 lines (was ~107), agent-pack ~430 lines (was
+~356), ARCHETYPES.md +11 compliance keys.
+
+---
+
+## v1.0.126 — 2026-04-26
+
+### Closed gaps surfaced by v1.0.125 pipeline dry-runs
+
+End-to-end pipeline simulation on the three new archetypes (browser-extension,
+game, devtools) flagged real architectural gaps in each pack. This release
+patches them.
+
+#### `browser-extension-pack.md` — three new sections
+
+- **Long-running work / `chrome.offscreen`**: decision table for work duration
+  (< 50ms / 50ms–5s / > 5s), offscreen document quickstart, LLM-inference
+  pattern (extension as thin client, backend holds the API key, streamed
+  results via `chrome.runtime.sendMessage`).
+- **Sidebar / iframe injection (Grammarly / Honey pattern)**: Side Panel API
+  vs injected iframe trade-offs, iframe isolation rules (`chrome-extension://`
+  URL, `style.all = initial`, postMessage with origin check, z-index).
+- **Cross-pack stacking**: when to load `[browser-extension-pack, ai-pack]`
+  vs `[..., web-pack]` vs `[..., web3-pack]` vs `[..., commerce-pack]`. Calls
+  out prompt-injection-via-page-content as the most-missed risk for AI
+  extensions.
+
+#### `game-pack.md` — four new sections
+
+- **Team-size sanity check**: red-flag matrix for engine choice (solo/2 picking
+  Unreal 5, 3–5 going custom, AAA-3D-in-Godot). Default rule: team ≤ 5,
+  PC/mobile only → Godot 4 (2D) or Unity 6 (3D); Unreal 5 needs ≥ 8 engineers.
+- **Netcode decision tree**: explicit top-to-bottom rules covering co-op PvE
+  (≤ 4 → P2P relay, 5–8 → cheap dedicated). Calls out the common indie-studio
+  mis-pick of authoritative servers for 4-player co-op.
+- **Steam Deck Verified — the de-facto indie PC baseline**: requirements
+  matrix (60 FPS at 1280×800, < 4 GB RAM, gamepad-mandatory, suspend/resume,
+  Linux-compatible AC). Notes Vanguard incompatibility with Proton.
+- **PC launch milestones**: 6-mo/12-mo timeline template (vertical slice →
+  Steam Next Fest demo → closed beta → EA → 1.0 → v1.1) with per-milestone
+  block-ship gates. Wishlist targets: 50k = break-even, 100k = ramen
+  profitable, < 25k → delay or pivot.
+
+#### `devtools-pack.md` — four new sections
+
+- **SDK release orchestration**: tooling matrix (Stainless pipeline, npm
+  changesets, Google release-please, custom Actions matrix) and the rule that
+  CI must block tag if any SDK fails its language matrix — no "patch Python
+  tomorrow" exceptions.
+- **WebSocket / streaming APIs**: AsyncAPI 3.0 spec, auth-on-upgrade-not-send,
+  token in subprotocol not URL, reconnection contracts (stateless vs cursor
+  resume vs exactly-once), message versioning (`type@v2`), heartbeats,
+  backpressure as explicit disconnect, idle close.
+- **Multi-tenancy**: tenant identity model (API key vs JWT-with-claim vs OAuth
+  audience), isolation level matrix (logical RLS / schema-per / DB-per /
+  cell-per), per-tenant rate limits + quota + flags + credentials rotation +
+  status page.
+- **Sandbox / test mode (Stripe-style)**: separate base URL + separate API
+  keys + same spec/SDK + realistic latency-and-failure injection + free
+  usage + `x-environment` indicator.
+
+### Coverage
+
+Same 13 archetypes + 13 packs. Pack file sizes: browser-extension-pack ~410
+lines (was ~314), game-pack ~370 lines (was ~311), devtools-pack ~390 lines
+(was ~297). No CLI changes.
+
+---
+
 ## v1.0.125 — 2026-04-26
 
 ### Added — three new archetypes: `devtools`, `browser-extension`, `game`
