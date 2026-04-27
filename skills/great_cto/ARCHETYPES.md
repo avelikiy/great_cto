@@ -109,6 +109,16 @@ archetype default tier and upgrades on signal.
 | devops | — | ✅ simple | ✅ | ✅ canary | ✅ canary |
 | l3-support | — | — | ✅ 15min | ✅ 30min | ✅ 60min+ |
 
+### AI specialist subagents (v1.0.134+, ai-system / agent-product only)
+
+| Subagent | nano | small | medium | large | enterprise | When invoked |
+|---|---|---|---|---|---|---|
+| ai-security-reviewer | — | ✅ | ✅ | ✅ | ✅ | security-officer pre-impl mode delegates here for AI archetypes |
+| ai-prompt-architect | — | ✅ | ✅ | ✅ | ✅ | After threat model exists, when ARCH § LLM Scope identifies named LLM roles |
+| ai-eval-engineer | — | ✅ | ✅ | ✅ | ✅ | After ADR-PROMPT files exist; qa-engineer Step 0b delegates EVAL creation |
+
+Pipeline for `ai-system` / `agent-product`: tech-lead → ai-security-reviewer → ai-prompt-architect → ai-eval-engineer → senior-dev → qa-engineer → security-officer post-impl → devops.
+
 ## Parameters (override archetype defaults via PROJECT.md)
 
 These parameters customize behavior without changing archetype:

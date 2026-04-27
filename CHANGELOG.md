@@ -4,6 +4,74 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.134 — 2026-04-27
+
+### Added — three AI specialist subagents (P2 from retro)
+
+v1.0.131 + v1.0.132 enforced halts. v1.0.133 supplied the templates those halts demand. v1.0.134 ships the **specialist agents** that consume those templates so the AI pipeline doesn't fall on the main agent (which produces "magic LLM wrappers" instead of disciplined, versioned, testable artefacts).
+
+#### `agents/ai-prompt-architect.md` (NEW, model: sonnet)
+
+Designs and versions LLM system prompts. Outputs `docs/decisions/ADR-{NN}-PROMPT-{name}.md` per LLM role identified in ARCH § LLM Scope.
+
+- Reads ARCH § LLM Scope + ARCH § Failure Modes + TM § 1 Prompt Injection
+- Writes prompts grounded in those constraints (refuse-when-uncertain, scope bound, citation requirement, prompt-injection resistance lines)
+- Computes sha256 hash for CI drift detection
+- Generates ≥ 5 jailbreak test cases per prompt across 7 categories: direct override, role swap, encoding, indirect via retrieved, authority impersonation, refusal-bypass, prefix injection
+- Hands off to ai-eval-engineer with explicit list of suggested EVAL files
+- Refuses anti-patterns: "you are a helpful assistant", embedded user data, tone-only instructions, unbounded "respond in detail"
+
+#### `agents/ai-eval-engineer.md` (NEW, model: haiku)
+
+Builds and maintains the eval pipeline. Outputs `tests/eval/EVAL-*.md` files + a runner (pytest / ts / shell depending on stack).
+
+- Cross-references ARCH § Failure Modes + TM § Sections + ADR-PROMPT hand-off → eval scenario inventory
+- Enforces minimums: ≥ 3 EVAL for ai-system, ≥ 5 for agent-product (must include cross-user-isolation + prompt-injection)
+- Per scenario: golden citation, refuse-when-uncertain, output schema, prompt injection (50+ cases), budget overrun, cross-user isolation, tool misuse
+- Writes CI runner (`tests/eval/test_evals.py` for Python, `eval.test.ts` for TS, `run.sh` fallback)
+- Drift detection: prompt sha256 mismatch, model floating-tag, output schema diff
+- Records baseline + revision history in each EVAL `## History`
+- Refuses anti-patterns: substring-match assertions, unpinned model versions, temperature > 0 without sampling
+
+#### `agents/ai-security-reviewer.md` (NEW, model: sonnet, advisor: opus 4.7)
+
+AI-specific pre-impl threat modelling. Specialises in OWASP LLM Top 10 — security-officer pre-impl mode delegates to it for AI archetypes.
+
+- Reads ARCH § Trust Boundaries + § LLM Scope, packs (agent-pack, ai-pack)
+- Per-section deep dives: prompt-injection inventory (3 vectors per untrusted boundary), SSRF (if tool layer), cost-runaway, cross-user isolation (agent-product), supply chain
+- Severity rubric: Critical = full system compromise / cross-tenant exfil / regulatory breach / >$10k cost; High = single-user PII / system-prompt disclosure
+- Refuses lazy mitigations: "mitigated by good prompt" → accepted-residual not mitigated; "user won't do that" → assume hostile
+- Hands off to senior-dev with specific code-change list + EVAL file list
+
+### Changed — security-officer pre-impl delegates to ai-security-reviewer
+
+For `archetype: ai-system | agent-product`, security-officer pre-impl mode now spawns `ai-security-reviewer` instead of running the generic STRIDE flow. Falls back to template copy if subagent unavailable.
+
+### Changed — tech-lead Step 0a documents the AI subagent chain
+
+For AI archetypes, tech-lead documents the delegation chain after ARCH:
+```
+tech-lead (ARCH) → ai-security-reviewer (TM) → ai-prompt-architect (ADR-PROMPT) → ai-eval-engineer (EVAL) → senior-dev
+```
+Each subagent has an `<!-- HANDOFF -->` block in its output that the next reads.
+
+### Changed — qa-engineer Step 0b BLOCKED messages reference ai-eval-engineer
+
+When ai-system / agent-product archetype lacks the required EVAL count, qa-engineer points the user at `ai-eval-engineer` subagent for delegation instead of leaving them to write evals themselves.
+
+### Changed — `plugin.json` AGENT loop + `ARCHETYPES.md` Required Agents
+
+- AGENT copy loop in SessionStart hook adds 3 new subagents (10 total)
+- `ARCHETYPES.md § Required Agents` gains "AI specialist subagents" subsection with invocation conditions
+- Pipeline diagram for ai-system / agent-product documented end-to-end
+
+### Coverage
+
+- 10 agents total (was 7): tech-lead, senior-dev, qa-engineer, security-officer, devops, l3-support, project-auditor + ai-prompt-architect, ai-eval-engineer, ai-security-reviewer
+- 14 archetypes, 13 packs, 14 templates, 27 compliance keys
+
+---
+
 ## v1.0.133 — 2026-04-27
 
 ### Added — mandatory artefact templates + security-officer split + AI cost-cap (P1 from retro)

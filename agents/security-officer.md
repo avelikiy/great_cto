@@ -178,8 +178,18 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
   if [ ! -f "$TM" ]; then
     case "$ARCHETYPE" in
       ai-system|agent-product)
-        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM"
-        echo "Generated $TM from THREAT-MODEL-AI template — fill in {placeholders} for prompt-injection / output-exfil / SSRF / cost-runaway / cross-user / supply-chain sections" >&2
+        # AI archetypes — delegate to ai-security-reviewer subagent for OWASP LLM Top 10 specifics.
+        # ai-security-reviewer copies the THREAT-MODEL-AI.md template and fills in:
+        #   - prompt-injection vectors (per ARCH § Trust Boundaries)
+        #   - output exfiltration (training-data leak / cross-user / system-prompt reveal)
+        #   - SSRF in tool layer (only if tools fetch URLs)
+        #   - cost runaway scenarios
+        #   - cross-user isolation (agent-product only)
+        #   - supply chain (model + MCP + prompt + vector DB)
+        echo "DELEGATE: spawn ai-security-reviewer subagent for AI threat-modeling. It produces $TM and signs off Critical/High mitigations." >&2
+        # In Claude Code: Task(subagent_type='ai-security-reviewer', prompt='generate threat model for slug={SLUG}')
+        # If subagent unavailable, fall back to template copy:
+        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
         ;;
       *)
         echo "Generating $TM via STRIDE methodology — see references/secure-sdlc.md PW.1 for schema" >&2
