@@ -16,6 +16,7 @@ color: blue
 skills:
   - superpowers:test-driven-development
   - superpowers:subagent-driven-development
+  - superpowers:requesting-code-review
   - beads
   - done-blocked
 ---
