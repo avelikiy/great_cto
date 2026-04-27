@@ -106,6 +106,19 @@ Each SDK MUST:
 
 Generates production-grade SDKs from OpenAPI spec. Used by OpenAI, Anthropic, Cloudflare, Linear. Run on every spec change in CI. Caveat: paid product after free tier; openapi-generator is the OSS alternative if budget is a hard constraint.
 
+### SDK release orchestration (CI recipe)
+
+The hard problem isn't generating SDKs — it's **shipping all of them on the same release**. Without orchestration, language-X gets feature-Y two weeks after language-Z, and you've broken parity. Recipe:
+
+| Tool | When |
+|------|------|
+| **Stainless release pipeline** | If using Stainless — it owns the release matrix |
+| **`changesets`** (npm) + sibling jobs | Multi-repo monorepo with TS as primary; sync-fan-out other languages |
+| **`release-please`** (Google) | Single repo with multiple language sub-dirs; PR-driven release notes |
+| **Custom GitHub Actions matrix** | Anything bespoke — but you'll maintain it |
+
+Block CI on tag if **any** SDK fails its example tests on its supported runtime matrix. No "we'll patch Python tomorrow" exceptions — that's how parity rot starts.
+
 ## OpenAPI / GraphQL spec stability — versioning
 
 Breaking changes in your API kill your customers' production builds. Strict rules:
@@ -254,6 +267,87 @@ DevTools companies live or die by community. You don't need a 5-person team — 
 - **Blog with technical depth** — not marketing fluff; deep dives on internals, architecture decisions, postmortems
 - **Office hours** — weekly 30-min open Zoom/Discord stage; first 50 customers will love this
 - **Public roadmap** — Notion / GitHub Projects / Linear public view; let customers vote
+
+## WebSocket / streaming APIs
+
+REST is well-trodden; streaming is where teams get hurt. If your platform exposes WebSocket, SSE, gRPC streaming, or any long-lived connection, you owe customers more than a spec.
+
+### Spec — declare it explicitly
+
+| Protocol | Spec format |
+|----------|-------------|
+| WebSocket | **AsyncAPI 3.0** — sibling to OpenAPI, same spec-first discipline |
+| Server-Sent Events (SSE) | OpenAPI extension `text/event-stream` content + AsyncAPI for event shape |
+| gRPC streaming | `.proto` is the spec — version it like OpenAPI |
+
+### Required design rules
+
+- **Auth on connect, not just on send** — WebSocket auth tokens must be validated on `WS_UPGRADE`. Do not trust auth in first message; attacker can hold the connection open silently.
+- **Token in subprotocol or first message, never URL** — query-string tokens leak via server logs, browser history, referrers. Use `Sec-WebSocket-Protocol` (with custom subprotocol) or post-connect auth message with strict timeout.
+- **Reconnection contract** — document the exact resume semantics. Three options: stateless reconnect (client re-subscribes), session resume (server replays from cursor for N seconds), exactly-once with sequence numbers. Pick one per stream type and document.
+- **Message versioning** — every event has `type` and `version` fields; never break a `type` schema, mint `type@v2` instead.
+- **Heartbeats** — server pings every 30s; client must pong within 60s or get dropped. Document. Without this, stale connections accumulate and you'll be debugging at 3am.
+- **Backpressure** — slow consumers must not break fast ones. Per-connection bounded queue (e.g. 1000 messages); on overflow, send `disconnect: backpressure` and let the client reconnect with cursor. Never drop silently.
+- **Idle close** — close after N minutes idle; document N (typically 5–15 min for chat, 60 min for telemetry).
+
+### SDK contract
+
+- Auto-reconnect with exponential backoff + jitter, capped at 30s
+- Surface connection state to user code: `connecting | open | closed | reconnecting`
+- Resume via cursor automatically if your protocol supports it
+- Never block the consumer thread — use async iterators (TS), generators (Py), channels (Go)
+
+## Multi-tenancy — when you have paying enterprise customers
+
+If your business model is "50+ enterprise customers in year 1", multi-tenancy is architecture, not a feature. Decide three things on day 1:
+
+### Tenant identity model
+
+| Model | When |
+|-------|------|
+| **API key per tenant** | Simple, machine-to-machine; default for B2B APIs |
+| **JWT with `tenant_id` claim** | Web SDK + API, user-context flows |
+| **OAuth + tenant in audience** | Enterprise SSO required; SOC 2 maturity |
+
+Pick one and stick with it. Mixing JWT and raw API keys for the same product is a maintenance disaster.
+
+### Isolation — pick a level, do it consistently
+
+| Isolation | Storage | Compute | When |
+|-----------|---------|---------|------|
+| **Logical (row-level)** | Single DB, `tenant_id` on every row, RLS or app-level filter | Shared | Default for B2B SaaS; cheapest |
+| **Schema-per-tenant** | Single DB, schema-per-tenant | Shared | Mid-tier; better for compliance audits |
+| **DB-per-tenant** | Dedicated DB or cluster | Shared or dedicated | Enterprise tier; required for some regulated workloads |
+| **Cell-per-tenant** | Dedicated everything | Dedicated | Hyperscale or extreme regulatory; AWS-style cells |
+
+Logical RLS is cheapest but ONE wrong query = data leak. Test the boundary: every code path that reads tenant data must have an automated test that proves a query for tenant A returns zero rows for tenant B's data.
+
+### Per-tenant operational concerns
+
+- **Per-tenant rate limits** — token bucket per tenant, not global. Otherwise a noisy tenant kills everyone.
+- **Per-tenant quota / cost cap** — enterprise wants "alert me at 80% of my plan." Build the metric infrastructure on day 1; retrofitting is painful.
+- **Per-tenant feature flags** — enterprise contract clauses become flag toggles. Use a flag service that supports tenant-scoped rules.
+- **Per-tenant credentials rotation** — provide rotation API + UI. Enterprise procurement asks for it during security review.
+- **Status page + per-tenant incident comms** — table-stakes for enterprise. statuspage.io / Better Stack / Atlassian Statuspage on day 1.
+
+## Sandbox / test mode (Stripe-style)
+
+Paid APIs need a sandbox. Customers must be able to integrate against fake endpoints before committing to paid plans, and they must be able to test risky calls (refunds, deletions, side-effect heavy actions) without affecting production data.
+
+### Sandbox design
+
+- **Separate base URL** (e.g. `api.example.com` vs `api-sandbox.example.com`) — clearer than a header flag
+- **Separate API keys** — sandbox keys cannot call production and vice versa; mistakes become immediate, loud errors
+- **Same spec, same SDK** — one OpenAPI spec, one SDK; sandbox is a runtime mode (env var, base URL config), not a separate library
+- **Realistic latency + failure injection** — sandbox should occasionally return 429, 500, slow responses; otherwise customers ship integrations that crumble in prod
+- **Free** — sandbox usage doesn't count against billing
+- **Visible test indicator** — every sandbox response includes `x-environment: sandbox`; dashboards show a banner
+
+### What sandbox doesn't do
+
+- Persistent state across resets — customers should be able to wipe sandbox state with one API call
+- Cross-tenant data — sandbox tenants are isolated, no shared "demo data" pool
+- Integration with real third parties (banks, identity providers) — those go through their own sandbox
 
 ## Compliance defaults for `devtools`
 

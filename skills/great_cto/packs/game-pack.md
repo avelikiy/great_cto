@@ -30,6 +30,17 @@ If you're shipping a game, this pack is your reference. If you're shipping a gam
 
 For new project without strong reason: **Unity 6** if mobile/cross-platform priority, **Unreal 5** if visual fidelity priority, **Godot 4** if OSS / no-royalties priority.
 
+### Team-size sanity check (red flags)
+
+| Team size | Avoid | Why |
+|-----------|-------|-----|
+| Solo / 2-person | **Unreal 5** | Asset pipeline + C++ ramp eats time-to-prototype; engine fights you alone |
+| 3–5 people | **Custom engine** | You will ship the engine, not the game; only justified for a unique tech bet |
+| Any size, no console plans | **Console-only engine licenses** (paid Unity Industry, Unreal source access) | Wasted spend |
+| Solo / 2-person doing 3D | **AAA-grade 3D in Godot** | Tooling gap is real for 3D; pick Unity 6 or scope down to 2D |
+
+If team size ≤ 5 and target is PC / mobile only, default to Godot 4 (2D) or Unity 6 (3D). Unreal 5 needs ≥ 8 engineers to be net-positive.
+
 ## Multiplayer netcode
 
 The hardest engineering problem in games. Pick the model based on your gameplay genre:
@@ -68,6 +79,19 @@ The hardest engineering problem in games. Pick the model based on your gameplay 
 - Tools: Steam P2P, Epic Online Services P2P
 
 For new project: **authoritative server with snapshot interpolation** for anything with > 4 players or anti-cheat needs. Rollback for fighting games. Lockstep for turn-based or RTS only.
+
+### Decision tree (read top-to-bottom, stop at first match)
+
+| If your game is… | Use |
+|------------------|-----|
+| Turn-based or RTS, ≤ 8 players | **Lockstep** |
+| Fighting / platform fighter, 1v1–4p | **Rollback** |
+| Co-op PvE, ≤ 4 players, no leaderboards | **P2P relay (Steam P2P / EOS P2P)** with host-authoritative validation |
+| Co-op PvE, 5–8 players | **Authoritative server (cheap dedicated)** |
+| PvP shooter / MOBA / battle royale, any count | **Authoritative server** |
+| MMO / persistent world | **Authoritative server (sharded)** |
+
+**Common mis-pick**: indie 4-player co-op studios reach for "authoritative server" out of habit, then burn 3 months and $2–5k/month on dedicated infra they don't need. For ≤ 4 co-op PvE, P2P relay is fine — cheating only hurts the cheater's friends.
 
 ## Anti-cheat
 
@@ -244,6 +268,39 @@ Bundle size (PC):              variable, no hard cap, but optimise patches < 5 G
 ```
 
 Profile: Unity Profiler / Unreal Insights / RenderDoc / GPA. Run on baseline device (iPhone XS / GTX 1650 / PS4 / Switch) before every cert.
+
+### Steam Deck Verified — the de-facto indie PC baseline (2026)
+
+Steam Deck has become the indie baseline. If your game ships on Steam, plan for Deck Verified from day 1:
+
+| Category | Requirement |
+|----------|-------------|
+| Performance | 60 FPS sustained at native res (1280×800), 30 FPS minimum on demanding scenes |
+| Memory | < 4 GB system RAM (Deck has 16 GB but shares with GPU; budget conservatively) |
+| Input | All actions playable with gamepad — keyboard/mouse must be optional |
+| Text | Default text size legible at 7" — minimum 9pt at native res |
+| Resolution | 1280×800 (16:10) supported and tested |
+| Suspend / resume | Must survive Deck sleep cycle without losing progress |
+| Anti-cheat | Linux-compatible — EAC and BattlEye both support Proton; Vanguard does not (don't pick Vanguard if you ship on Deck) |
+
+Verification: SteamOS dev kit or Steam Deck retail unit. Submit for Verified status during EA — getting "Playable" instead of "Verified" costs ~30% of indie sales.
+
+## PC launch milestones (6–18 month indie timeline)
+
+If your team is ≤ 5 and target is Steam launch, this is the standard milestone shape. Adapt durations to scope.
+
+| Milestone | Target | Goals | Block-ship gate |
+|-----------|--------|-------|-----------------|
+| **Vertical slice** | T - 12 mo | One representative level/loop, polished, demoable | Steam page approved, capsule art locked |
+| **Steam Next Fest demo** | T - 9 mo | 30-min demo, 1 hub area, online + offline play | < 1% crash rate across 1000 sessions, Discord set up |
+| **Closed beta** | T - 4 mo | Feature complete, ~80% content, IARC questionnaire submitted | Age rating returned, all platforms cert-ready |
+| **Open beta / EA launch** | T - 2 mo | Early Access on Steam OR final beta to wishlist | Day-one patch tested, refund-rate plan in place |
+| **1.0 launch** | T - 0 | Marketing push live, demo still up | Steam Deck Verified, no P0 bugs, rollback build pre-staged |
+| **Post-launch v1.1** | T + 1 mo | Day-30 patch addressing top community issues | Telemetry shows D7 retention ≥ 25% |
+
+**Next Fest is non-optional for indie Steam.** Apply 6 months in advance; participation drives ~40% of pre-launch wishlists for the cohort. Plan demo build separately from main game (different config, separate save format) to avoid post-Fest cleanup pain.
+
+**Wishlist target by 1.0**: 50k+ for "broke even" indie, 100k+ for "ramen profitable." Below 25k → consider delaying or pivoting marketing.
 
 ## Live service operations (post-launch)
 

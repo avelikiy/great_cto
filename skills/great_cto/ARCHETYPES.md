@@ -181,7 +181,9 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | Value | What it adds |
 |-------|-------------|
 | `gdpr` | Privacy notice, consent mechanism, right-to-erasure, DPIA |
-| `pci-dss` | PCI-DSS SAQ-D checklist, TLS audit, MFA enforcement |
+| `pci-dss` | PCI-DSS SAQ-D checklist (custom card-handling), TLS audit, MFA enforcement |
+| `pci-dss-saq-a` | PCI-DSS SAQ-A (fully outsourced via Stripe Elements / hosted fields): tokenization-only verification, no PAN in logs grep scan, third-party validation |
+| `pci-dss-saq-a-ep` | PCI-DSS SAQ-A-EP (direct-post / iframe): SAQ-A controls + script-injection protection (CSP, SRI, no inline JS on payment pages) |
 | `hipaa` | PHI isolation, access log, BAA verification |
 | `sox` | SOX ITGC: change management, logical access, computer ops, SoD |
 | `soc2` | Access controls, audit logging, encryption at rest + transit |
@@ -195,3 +197,13 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `tcpa` | Call recording consent, opt-out, autodial restrictions |
 | `ccpa` | California privacy rights, opt-out of sale |
 | `casl` | Canadian anti-spam, express consent |
+| `eu-vat` | EU VAT OSS scheme, VAT-ID validation, reverse-charge B2B handling, quarterly OSS return |
+| `consumer-rights-directive` | EU 14-day right of withdrawal, pre-contract disclosures, cancel-anytime UX |
+| `csp` | Content-Security-Policy header audit, no `unsafe-eval` / `unsafe-inline`, SRI on external scripts |
+| `mv3-security` | Manifest V3 specifics: service-worker lifecycle, declarativeNetRequest, no remote code, host-permissions justification |
+| `age-rating` | ESRB / PEGI / USK / CERO / IARC questionnaire submitted; rating displayed in store listing |
+| `accessibility` | CVAA (US) + EAA (EU) checklist: subtitle support, remappable controls, color-blind modes, no flicker |
+| `coppa` | US under-13 protections: parental consent, no behavioural ads, restricted chat |
+| `openssf` | OpenSSF Scorecard ≥ 7, npm provenance, PyPI Trusted Publishing, signed releases |
+| `api-stability` | OpenAPI / GraphQL spec linting, no breaking changes in MINOR/PATCH, deprecation channel |
+| `soc2-type-2` | SOC 2 Type II: 6+ months continuous evidence collection, access reviews, change management |

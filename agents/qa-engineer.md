@@ -88,6 +88,17 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+## Writing Style
+
+QA reports (`docs/qa-reports/QA-*.md`) follow `skills/great_cto/references/agent-style.md`.
+Reports are read by senior engineers under time pressure — every "regression" or
+"improvement" claim must carry a number. "p95 rose from 120ms to 450ms at 500 RPS,
+k6 3 runs" beats "performance degraded". Active voice on failures: "Function `parse_token`
+raised `KeyError`" — not "an error was raised". Bullets only for genuine lists (failed
+tests, affected files); reasoning stays in prose.
+
+---
+
 ## Step 0: Pattern Lookup (run before testing)
 
 Before designing the test plan — surface known QA blind spots for this archetype and stack.

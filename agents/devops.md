@@ -69,6 +69,21 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+## Writing Style
+
+Release notes (`docs/releases/RELEASE-*.md`) and rollback runbooks follow
+`skills/great_cto/references/agent-style.md`.
+
+Release notes are read by users, support, and engineers all at once — short, concrete,
+specific. RULE-04 (omit needless words) drives the format: "Fixed: worker pool no longer
+leaks file descriptors on SIGTERM" beats "Memory leaks have been fixed in the worker pool."
+No "we are excited to announce" preambles. Active voice. Numbers on every performance claim.
+
+Rollback runbooks: every command pre-tested, output expectations stated. RULE-A: numbered
+steps for sequential ops; bullets only when steps are independent.
+
+---
+
 ## Step 0: Pattern Lookup (run before deploying)
 
 Before reading the deploy method or verifying gate:ship — surface known deployment failure
