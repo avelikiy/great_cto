@@ -156,7 +156,7 @@ fi
 
 | Mode | When | Outputs | Halts on |
 |---|---|---|---|
-| **pre-impl** | After tech-lead writes ARCH, BEFORE senior-dev claims tasks | `docs/sec threats/TM-{slug}.md` (threat model), `docs/architecture/ARCH-{slug}.md § Security` (appended) | mitigations missing for Critical/High threats; senior-dev cannot proceed |
+| **pre-impl** | After tech-lead writes ARCH, BEFORE senior-dev claims tasks | `docs/sec-threats/TM-{slug}.md` (threat model), `docs/architecture/ARCH-{slug}.md § Security` (appended) | mitigations missing for Critical/High threats; senior-dev cannot proceed |
 | **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{slug}-{date}.md` (Compliance & Security Officer report), `gate:ship` verdict | unmitigated Critical findings |
 
 ### pre-impl flow (security-critical archetypes only)
@@ -172,8 +172,8 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
   SLUG=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1 | xargs basename | sed 's/^ARCH-\(.*\)\.md/\1/')
   [ -z "$SLUG" ] && { echo "BLOCKED: no ARCH file found, run tech-lead first" >&2; exit 1; }
 
-  TM="docs/sec threats/TM-${SLUG}.md"
-  mkdir -p "docs/sec threats"
+  TM="docs/sec-threats/TM-${SLUG}.md"
+  mkdir -p "docs/sec-threats"
 
   if [ ! -f "$TM" ]; then
     case "$ARCHETYPE" in
@@ -209,7 +209,7 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
   if [ -f "$ARCH_FILE" ] && ! grep -q "^## Security" "$ARCH_FILE"; then
     echo "" >> "$ARCH_FILE"
     echo "## Security" >> "$ARCH_FILE"
-    echo "Cross-link: \`docs/sec threats/TM-${SLUG}.md\`" >> "$ARCH_FILE"
+    echo "Cross-link: \`docs/sec-threats/TM-${SLUG}.md\`" >> "$ARCH_FILE"
     echo "Critical/High threats and their mitigations:" >> "$ARCH_FILE"
     grep -E "^\| (P|F)-[0-9]+" "$TM" | grep -E "Critical|High" >> "$ARCH_FILE"
   fi

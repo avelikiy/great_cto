@@ -69,7 +69,7 @@ For `agent-product`: add `EVAL-cross-user-isolation.md` and `EVAL-tool-misuse.md
 - {e.g. Fine-tuning — vendor model only}
 
 ## Security
-> **Mandatory for ai-system / agent-product.** Cross-link `docs/sec threats/TM-{slug}.md`.
+> **Mandatory for ai-system / agent-product.** Cross-link `docs/sec-threats/TM-{slug}.md`.
 
 - **Prompt-injection** vector covered: input sanitisation + retrieved-content sandboxing + output filter (Llama Guard 3 / Anthropic safety) — see `THREAT-MODEL-AI.md` § Prompt Injection
 - **Output exfiltration**: regex + NER filter on every output for PII / SSN / API keys / internal hostnames before returning to user
