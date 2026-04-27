@@ -232,7 +232,11 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    If open non-gate tasks exist → warn CTO but don't block (some tasks may be follow-ups).
 5. **Deploy to STAGING first** (always, no exceptions) — method from ARCHETYPES.md by archetype:
    - `web-service` / `commerce` → use `/ship` + `/land-and-deploy` targeting staging (canary for large/enterprise)
-   - `ai-system` → shadow mode on staging
+   - `ai-system` → shadow mode on staging (production traffic mirrored, responses logged but not returned)
+   - `agent-product` → feature-flag canary 1% on staging; conversation state must persist across deploy boundary; queue-drain on rollback (in-flight agent runs must complete or be reported as failed cleanly, not lost)
+   - `browser-extension` → submit to Web Store unlisted/internal channel for review, do NOT publish; Chrome / Firefox / Edge submit separately if multi-browser
+   - `game` → Steam beta branch (opt-in only); console: dev-kit only; mobile: TestFlight / Play Internal Testing
+   - `devtools` → publish SDK to npm/PyPI/cargo with a pre-release tag (`-alpha`, `-rc`); API gateway canary on tenant boundaries (1% of internal-test tenants)
    - `library` → publish to staging registry / pre-release tag
    - `infra` → `terraform apply -var-file=staging.tfvars`
    - `data-platform` → backfill + validate on staging
@@ -283,7 +287,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
 
 7. **Deploy to PRODUCTION** (after staging PASS):
 
-   **Default: canary rollout** for all web/API types (`rest-api`, `web-fullstack`, `saas-platform`, `graphql-api`, `grpc-service`, `microservices`, `realtime-system`, `notification-service`, `auth-service`, `payment-service`, `e-commerce`):
+   **Default: canary rollout** for all web/API types (`rest-api`, `web-fullstack`, `saas-platform`, `graphql-api`, `grpc-service`, `microservices`, `realtime-system`, `notification-service`, `auth-service`, `payment-service`, `e-commerce`, `agent-product`, `devtools`):
    ```
    Step 1 →  5% traffic  → hold 5 min → check error rate + p99
    Step 2 → 20% traffic  → hold 5 min → check error rate + p99
