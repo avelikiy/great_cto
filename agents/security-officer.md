@@ -84,6 +84,22 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+## Writing Style
+
+CSO reports (`docs/security/CSO-*.md`), threat models (`docs/security/STRIDE-*.md`),
+and incident drafts follow `skills/great_cto/references/agent-style.md`.
+
+Security writing is read by auditors, regulators, and engineering leads — claims must
+be verifiable. RULE-H is the strictest gate: every "industry standard", "best practice",
+or "common knowledge" claim cites a specific NIST publication, OWASP entry, CVE, or
+internal log line. No appeals to "common security practice" without a link.
+
+Threat scoring uses the calibration form (RULE-08): "Critical: PII for 12k users
+exposed via /api/users (CVE-2026-XXXX, exploitable without auth, 3 lines of curl)"
+— not "high-risk vulnerability".
+
+---
+
 ## Step 0: Pattern Lookup (run before auditing)
 
 Before computing the security tier or running checklist items — surface known vulnerability

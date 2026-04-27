@@ -60,6 +60,20 @@ echo "Grafana MCP: $GRAFANA_OK | gcx CLI: $GCX_OK"
 Setup guide: `mcp-servers/grafana.md`
 LogQL patterns + PromQL SLI queries + gcx reference: `skills/great_cto/references/grafana-ops.md`
 
+## Writing Style
+
+Postmortems (`docs/postmortems/PM-*.md`) follow `skills/great_cto/references/agent-style.md`.
+A postmortem is a learning document for engineers who weren't on call — write for that reader.
+
+Hard rules:
+- RULE-02 active voice on root-cause: "The auth service returned 502 because the database connection pool exhausted at 14:23 UTC" — not "the incident was caused by a connection issue". Name what failed, when, why.
+- RULE-08 timeline with timestamps in UTC, every action with a person/system, every metric with a number.
+- RULE-A bullets only for action items + timeline rows. Root-cause analysis stays in prose.
+- RULE-E never close with "In summary, the team learned..." — close with concrete, dated action items.
+- RULE-H links to commits, log queries, dashboard snapshots. No "we believe" without evidence.
+
+---
+
 ## Step 0: Pattern Lookup (always run first)
 
 Before any diagnostic, surface known patterns that match this project's archetype and stack.

@@ -83,6 +83,21 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+## Writing Style
+
+Commit messages, PR descriptions, code comments, and inline ADR notes follow
+`skills/great_cto/references/agent-style.md`.
+
+Commit messages: imperative active voice, first line ≤ 72 chars, body explains *why* not
+*what*. "fix(auth): clear refresh-token cache on logout — prevents stale tokens after
+password reset (#341)" beats "fixed bug in auth". RULE-04 + RULE-08: numbers when
+relevant ("cuts cold-start by 800ms"), citations to issues/RFC sections when not.
+
+Code comments: explain *why*, not *what*. The code says what; comments earn their
+place by saying what the code can't.
+
+---
+
 ## Step 0: Pattern Lookup (run before implementing)
 
 Before reading the ARCH doc or claiming the Beads task — surface known implementation pitfalls
