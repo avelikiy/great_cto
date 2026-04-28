@@ -127,6 +127,20 @@ Pipeline for `ai-system` / `agent-product`: tech-lead → ai-security-reviewer �
 
 Pipeline for `browser-extension`: tech-lead → web-store-reviewer → senior-dev → qa-engineer (re-checks manifest static rules) → security-officer post-impl → devops (Web Store unlisted/internal channel).
 
+### Commerce / Web3 / IoT specialist subagents (v1.0.143+)
+
+| Subagent | Archetype | When invoked | What it produces |
+|---|---|---|---|
+| pci-reviewer | `commerce` | security-officer pre-impl delegates here | TM with PCI-DSS scope decision (SAQ-A vs SAQ-D), idempotency proof requirements, webhook signature validation, refund/dispute flow, SCA/PSD2 (EU), PSP failover |
+| oracle-reviewer | `web3` | security-officer pre-impl delegates here | TM with subtype block-ship gate (lending → flash-loan-sim, AMM → k-invariant, bridge → cross-chain integrity), oracle strategy (Chainlink + Pyth + TWAP), MEV protection, upgradeability decision matrix, L2 resilience, custody/multisig, bug bounty TVL tier |
+| firmware-reviewer | `iot-embedded` | security-officer pre-impl delegates here | TM with OTA strategy (signing + A/B partitions + auto-rollback + fleet rollout), ETSI EN 303 645 13 provisions, secure boot, HIL test design, wireless protocol security (BLE / Wi-Fi / Zigbee / Matter / LoRa), supply chain |
+
+Pipeline for `commerce`: tech-lead → pci-reviewer → senior-dev → qa-engineer (idempotency + PAN grep) → security-officer post-impl → devops (transaction monitoring canary).
+
+Pipeline for `web3`: tech-lead → oracle-reviewer → senior-dev → qa-engineer (Slither + Foundry fuzz) → security-officer post-impl → devops (timelock-gated proxy upgrade).
+
+Pipeline for `iot-embedded`: tech-lead → firmware-reviewer → senior-dev → qa-engineer (HIL/QEMU tests) → security-officer post-impl → devops (OTA staged rollout).
+
 ## Parameters (override archetype defaults via PROJECT.md)
 
 These parameters customize behavior without changing archetype:
