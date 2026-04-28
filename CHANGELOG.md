@@ -4,6 +4,63 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.139 — 2026-04-28
+
+### Added — Skills auto-discovery + 4-tier architecture
+
+For users building AI agents in great_cto-tracked projects, skills come from multiple places: built-in packs, dependency plugins (superpowers / beads), Anthropic's official catalog, and custom personal libraries. v1.0.139 makes all four discoverable from one registry, auto-refreshed at session start.
+
+#### `scripts/skill-discover.sh` (NEW)
+
+Scans 4 tiers and writes `~/.great_cto/skills-registry.json`:
+
+| Tier | Source | Update cadence |
+|---|---|---|
+| **1** | great_cto built-in (`packs/`, `templates/`, `references/`) | per plugin release |
+| **2** | external dependencies (superpowers, anthropics/skills, beads) | 7d auto-pull |
+| **3** | personal repo (default `avelikiy/ai-agent-skills`) | 24h auto-pull |
+| **4** | on-demand (`/template fetch`, MCP servers) | per-invocation, not enumerated |
+
+Run via SessionStart hook (24h cache) or manually `/doctor --skills-refresh`.
+
+#### `.claude-plugin/plugin.json` SessionStart hook updated
+
+Now clones (background, non-blocking):
+- `https://github.com/anthropics/skills` → `~/.great_cto/anthropic-skills` (7d cache)
+- `https://github.com/avelikiy/ai-agent-skills` → `~/.great_cto/personal-skills` (1d cache)
+
+Plus runs `skill-discover.sh` (24h cache) to refresh registry.
+
+#### `commands/doctor.md` — Check 8c + new flags
+
+- `/doctor` → shows skills registry summary in default output
+- `/doctor --skills` → archetype-relevant skills auto-loaded for current project
+- `/doctor --skills-refresh` → force re-scan all 4 tiers immediately
+
+#### `skills/great_cto/references/skills-architecture.md` (NEW)
+
+Full design doc: 4-tier rationale, registry schema, agent-side consumption pattern, SKILL.md format, manual control commands, what's NOT here (marketplace integration, semantic search, versioning) and why.
+
+### What ships separately (NEW external repo)
+
+[`avelikiy/ai-agent-skills`](https://github.com/avelikiy/ai-agent-skills) — personal library of AI agent development skills. Started with one example: `rag-cascading-search` (production RAG with hybrid retrieval + LLM reranking + provenance, fully worked-out cost model + anti-patterns + EVAL coverage).
+
+Users with their own AI agent projects clone this repo into `~/.great_cto/personal-skills`, write their own skills there, and great_cto auto-discovers them.
+
+### Coverage
+
+- 4 skill tiers
+- ~56 tier-1 skills auto-discovered (packs + templates + references)
+- ~12 tier-2 skills (superpowers) once cloned
+- ~20-30 tier-2 anthropic skills once cloned (Anthropic's repo)
+- 1 tier-3 starter skill (rag-cascading-search) — extend yourself
+
+### What's next (v1.0.140 — agent-side consumption)
+
+Agent Step 0 reads the registry and auto-loads packs for current archetype (currently: each agent must manually `Read` packs). After v1.0.140, agents see "you're working on `agent-product` — consult these 5 packs" automatically at session start.
+
+---
+
 ## v1.0.138 — 2026-04-27
 
 ### Fixed — skills frontmatter consistency across 6 agents
