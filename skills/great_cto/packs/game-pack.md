@@ -1,3 +1,11 @@
+---
+name: game-pack
+description: Engine decision (Unity/Unreal/Godot/custom), multiplayer netcode patterns (lockstep/rollback/authoritative/P2P), anti-cheat tiers, monetization (IAP/loot box jurisdictions), platform certifications, age ratings (ESRB/PEGI/IARC)
+when_to_use: Building single-player or multiplayer games, game engines, game services. Read at architecture time + qa-engineer for performance budgets
+applies_to:
+  - game
+---
+
 # Game Pack
 
 > Extends `game` archetype with engine choice (Unity / Unreal / Godot / custom), multiplayer netcode patterns (rollback / lockstep / authoritative server), anti-cheat, monetization gotchas (loot box / IAP compliance), platform certifications, and age-rating pre-flight.

@@ -4,6 +4,47 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.145 — 2026-04-28
+
+### Changed — backfill canonical SKILL.md frontmatter in tier-1 packs/templates
+
+v1.0.144 shipped quality scoring; tier-1 average came in at **22/100** because most packs and templates predated the SKILL.md frontmatter convention. This release backfills the convention across all in-scope artefacts.
+
+#### Files updated (31)
+
+**Packs (13)** — `skills/great_cto/packs/`:
+agent-pack, ai-pack, browser-extension-pack, commerce-pack, data-pack, devtools-pack, enterprise-pack, game-pack, infra-pack, library-pack, mobile-pack, web-pack, web3-pack
+
+**Templates (18)** — `skills/great_cto/templates/`:
+ARCH-ai, ARCH-browser-extension, ARCH-default, ARCH-defi-protocol, ARCH-game, THREAT-MODEL-AI, EVAL-template, ADR-LLM, ADR-PROMPT, PCI-DSS-SAQ-A, PCI-DSS-SAQ-D, DORA-ICT-risk-assessment, DORA-third-party-register, NIS2-article21-controls, 21CFR11-checklist, TISAX-VDA-ISA-results, ISO27001-SoA, SOX-ITGC-checklist
+
+Each file now opens with:
+
+```yaml
+---
+name: <skill-name>
+description: <one-sentence purpose>
+when_to_use: <when an agent should consult this>
+applies_to:
+  - <archetype>
+---
+```
+
+#### `scripts/skill-discover.sh` — env override
+
+`PLUGIN_DIR` is now respected when set in env (`: "${PLUGIN_DIR:=…}"`). Lets developers re-score against the dev tree instead of the cached marketplace copy.
+
+### Result
+
+- **Tier-1 average quality: 22 → 61.9** (+182%)
+- **Packs**: all 13 score ≥ 80 (was 20)
+- **Templates**: 18/19 score ≥ 80 (only `README.md` left at 20 — meta, intentionally skipped)
+- Remaining low-score items are 28 `references/` (out of scope; future iteration)
+
+Why it matters: agents that scan the registry now see proper `applies_to` tags + when-to-use hints, enabling open-world skill discovery (v1.0.142+) to match by archetype reliably instead of by name alone.
+
+---
+
 ## v1.0.144 — 2026-04-28
 
 ### Added — auto-flow visibility + detection confidence + skill quality

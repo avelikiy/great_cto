@@ -1,3 +1,11 @@
+---
+name: PCI-DSS-SAQ-A
+description: PCI-DSS Self-Assessment Questionnaire A — for e-commerce merchants who fully outsource cardholder data to PSP (Stripe Elements / Checkout). 22 controls subset of full PCI-DSS
+when_to_use: Compliance documentation for commerce projects with compliance:[pci-dss-saq-a]. Cheapest PCI scope
+applies_to:
+  - commerce
+---
+
 # PCI-DSS-SAQ-A.md — Self-Assessment Questionnaire A (e-commerce, fully outsourced)
 
 > Mandatory artefact when `compliance: [pci-dss-saq-a]` in PROJECT.md.

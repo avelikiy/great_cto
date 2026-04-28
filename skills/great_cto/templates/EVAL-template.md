@@ -1,3 +1,12 @@
+---
+name: EVAL-template
+description: Eval scenario format: ≥5 cases per scenario (input + expected + pass criteria), pass threshold, run command, regression interpretation, cross-references to ARCH/TM/ADR-PROMPT, history table for baseline tracking
+when_to_use: Writing tests/eval/EVAL-{scenario}.md for AI projects. ≥3 EVAL files for ai-system, ≥5 for agent-product (qa-engineer Step 0b enforces)
+applies_to:
+  - ai-system
+  - agent-product
+---
+
 # EVAL-{slug}.md — Eval scenario for AI / agent project
 
 > **Mandatory minimum: 3 EVAL files for `archetype: ai-system`, 5 for `agent-product`.**

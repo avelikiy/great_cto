@@ -1,3 +1,11 @@
+---
+name: mobile-pack
+description: Native vs cross-platform decision (iOS/Android native, RN, Flutter, KMM), App Store / Play submission gotchas, MASVS V1-V8 detailed checklist, OTA update patterns (CodePush, EAS Update)
+when_to_use: Building iOS, Android, React Native, Flutter, Kotlin Multiplatform, or Electron apps
+applies_to:
+  - mobile-app
+---
+
 # Mobile Pack
 
 > Extends `mobile-app` archetype with framework decision tree, App Store / Play submission gotchas, OWASP MASVS detailed checklist, and OTA update patterns.
