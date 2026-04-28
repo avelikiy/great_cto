@@ -4,6 +4,53 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.142 — 2026-04-28
+
+### Fixed — gaps surfaced by 3 parallel field-test simulations of v1.0.140
+
+Three agent-based field tests on v1.0.140 (ai-system / commerce / cross-tier consumption) found 4 P0 bugs and several P1s. This release patches them.
+
+#### `scripts/skill-discover.sh` — broadened scan paths
+
+- **Top-level skills now scanned**: `$PLUGIN_DIR/skills/<name>/SKILL.md` for skills like `skeptical-triage`, `done-blocked`, `prose-style`, `cso`, `investigate`, `ship`, `canary` (tier1 went from 56 to 63 skills).
+- **superpowers + beads broader find**: previously matched only `superpowers/skills` directly; now matches multiple install layouts including `marketplaces/*/superpowers/`, `plugins/superpowers/plugins/superpowers/skills/`. Same for beads.
+- **Summary truncation**: 200 → 280 chars, no mid-word cuts (uses regex to trim at last whitespace before limit).
+
+#### `agents/tech-lead.md` — SECURITY_REQUIRED case fixed
+
+Line 711 case statement was missing `agent-product` and `browser-extension` — silent regression where TM hard-halt didn't fire. Fixed:
+- Added `agent-product` (multi-tenant agents need TM)
+- Added `browser-extension` (Web Store policy review needs TM)
+
+`NEED_COST` case also extended to include `agent-product` (cost-model required for production AI projects).
+
+#### Open-world skill discovery — agents instructed to scan beyond suggestions
+
+v1.0.140 agent Step 0 said "read your `_default` and decide which to Read." This was closed-world: agents would not discover relevant tier2 (anthropic) or tier3 (personal) skills not pre-listed.
+
+v1.0.142 adds explicit instruction to all 7 agents with Step 0c (tech-lead has full bash, others have one-liner reference): **scan `tier2_external` and `tier3_personal` for skills whose `summary` matches current task keywords**. Agent decides which to Read.
+
+### Why this matters
+
+**Before**: tech-lead working on "MCP integration for Linear API" would consult only suggestions in `agent_skills["tech-lead"]["agent-product"]` (5 items). Would miss `anthropic:mcp-builder` skill in tier2 (designed exactly for this).
+
+**After**: same agent now scans full registry, finds `anthropic:mcp-builder`, reads its description, decides whether to consult. Real cross-tier discovery.
+
+### Coverage (no architecture change, all incremental fixes)
+
+- Registry: 63 tier1 + 18 tier2 + 1 tier3 = 82 skills locally discoverable (was 80)
+- 7 agents updated with open-world hint
+- 1 critical regression (SECURITY_REQUIRED) fixed
+- Description quality improved (no mid-word cuts)
+
+### Skipped from field-test findings
+
+- **`pci-reviewer`, `oracle-reviewer`, `firmware-reviewer` specialist subagents** — moved to v1.0.143 (separate release, focused work)
+- **`/skills search <keyword>` command** — current bash pattern in tech-lead.md Step 0b is sufficient; new command is overkill until catalog grows past 200+ skills
+- **Smart embedding-based discovery** — deferred until tier3 grows past 20 skills
+
+---
+
 ## v1.0.140 — 2026-04-28
 
 ### Added — local skill catalog model: archetype → agents → agent picks skills

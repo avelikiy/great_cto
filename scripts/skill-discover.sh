@@ -17,10 +17,14 @@ mkdir -p "$(dirname "$REGISTRY")"
 PLUGIN_DIR=$(ls -d "$HOME/.claude/plugins/cache/local/great_cto/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
 
 # Helper: emit one registry entry as JSON-line (pre-comma-stripped)
+# Truncate summary to 280 chars at word boundary (no mid-word cut).
 emit_entry() {
   local name="$1" source="$2" path="$3" summary="$4"
-  # Escape quotes in summary
-  summary=$(printf '%s' "$summary" | sed 's/"/\\"/g' | tr -d '\n' | head -c 200)
+  summary=$(printf '%s' "$summary" | sed 's/"/\\"/g' | tr -d '\n')
+  if [ "${#summary}" -gt 280 ]; then
+    # Trim to last whitespace before 280 chars, append ellipsis
+    summary=$(printf '%s' "$summary" | head -c 280 | sed 's/ [^ ]*$//')…
+  fi
   printf '    {"name":"%s","source":"%s","path":"%s","summary":"%s"}' "$name" "$source" "$path" "$summary"
 }
 
@@ -78,21 +82,36 @@ if [ -n "$PLUGIN_DIR" ] && [ -d "$PLUGIN_DIR" ]; then
     type=$(basename "$(dirname "$f")")
     T1+=("$(emit_entry "$name" "great_cto:$type" "$f" "$summary")")
   done
+
+  # ALSO scan top-level skill dirs: skills/<name>/SKILL.md (logical skills like skeptical-triage, done-blocked, prose-style, ship, canary, investigate)
+  for skill_dir in "$PLUGIN_DIR"/skills/*/; do
+    skill_md="$skill_dir/SKILL.md"
+    [ -f "$skill_md" ] || continue
+    name=$(basename "$skill_dir")
+    [ "$name" = "great_cto" ] && continue  # already scanned above
+    summary=$(get_summary "$skill_md")
+    T1+=("$(emit_entry "$name" "great_cto:skills" "$skill_md" "$summary")")
+  done
 fi
 
 # ── Tier 2: external dependencies ─────────────────────────────────────────
 T2=()
 
-# superpowers (declared dep, lives in marketplace cache)
-SUPERPOWERS_DIR=$(find "$HOME/.claude/plugins" -type d -path "*/superpowers/skills" 2>/dev/null | head -1)
-if [ -n "$SUPERPOWERS_DIR" ]; then
-  for skill_dir in "$SUPERPOWERS_DIR"/*/; do
-    [ -f "$skill_dir/SKILL.md" ] || continue
-    name=$(basename "$skill_dir")
-    summary=$(get_summary "$skill_dir/SKILL.md")
-    T2+=("$(emit_entry "superpowers:$name" "obra/superpowers" "$skill_dir/SKILL.md" "$summary")")
+# superpowers (declared dep, can live in marketplace OR local plugins)
+# Try multiple locations: marketplace install, plain plugins/, plugins/cache/
+SUPERPOWERS_CANDIDATES=$(find "$HOME/.claude/plugins" -maxdepth 6 -type d \( -name "superpowers" -o -name "superpowers-marketplace" \) 2>/dev/null)
+for sp_root in $SUPERPOWERS_CANDIDATES; do
+  for sp_skills in "$sp_root/skills" "$sp_root/plugins/superpowers/skills"; do
+    if [ -d "$sp_skills" ]; then
+      for skill_dir in "$sp_skills"/*/; do
+        [ -f "$skill_dir/SKILL.md" ] || continue
+        name=$(basename "$skill_dir")
+        summary=$(get_summary "$skill_dir/SKILL.md")
+        T2+=("$(emit_entry "superpowers:$name" "obra/superpowers" "$skill_dir/SKILL.md" "$summary")")
+      done
+    fi
   done
-fi
+done
 
 # anthropic-skills (cloned to ~/.great_cto/anthropic-skills by SessionStart hook)
 ANTHROPIC_DIR="$HOME/.great_cto/anthropic-skills"
@@ -104,16 +123,20 @@ if [ -d "$ANTHROPIC_DIR" ]; then
   done < <(find "$ANTHROPIC_DIR" -name "SKILL.md" 2>/dev/null | head -100)
 fi
 
-# beads
-BEADS_DIR=$(find "$HOME/.claude/plugins" -type d -name "beads" 2>/dev/null | head -1)
-if [ -n "$BEADS_DIR" ] && [ -d "$BEADS_DIR/skills" ]; then
-  for skill_dir in "$BEADS_DIR/skills"/*/; do
-    [ -f "$skill_dir/SKILL.md" ] || continue
-    name=$(basename "$skill_dir")
-    summary=$(get_summary "$skill_dir/SKILL.md")
-    T2+=("$(emit_entry "beads:$name" "steveyegge/beads" "$skill_dir/SKILL.md" "$summary")")
+# beads (similar to superpowers — try multiple locations)
+BEADS_CANDIDATES=$(find "$HOME/.claude/plugins" -maxdepth 6 -type d -name "beads" 2>/dev/null)
+for bd_root in $BEADS_CANDIDATES; do
+  for bd_skills in "$bd_root/skills" "$bd_root/plugins/beads/skills"; do
+    if [ -d "$bd_skills" ]; then
+      for skill_dir in "$bd_skills"/*/; do
+        [ -f "$skill_dir/SKILL.md" ] || continue
+        name=$(basename "$skill_dir")
+        summary=$(get_summary "$skill_dir/SKILL.md")
+        T2+=("$(emit_entry "beads:$name" "steveyegge/beads" "$skill_dir/SKILL.md" "$summary")")
+      done
+    fi
   done
-fi
+done
 
 # ── Tier 3: personal repo ─────────────────────────────────────────────────
 T3=()
