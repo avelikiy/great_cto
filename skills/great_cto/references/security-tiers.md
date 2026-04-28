@@ -1,3 +1,11 @@
+---
+name: security-tiers
+description: Security tier matrix (T1 critical → T4 public): which controls per tier, which compliance keys map to tiers, override criteria
+when_to_use: All archetypes. Read by security-officer for gate selection
+applies_to:
+  - _default
+---
+
 # Security Tiers — reference
 
 Single source of truth for great_cto's security gate model. Read by `security-officer`

@@ -1,3 +1,15 @@
+---
+name: cost-model
+description: Cost model template for ARCH docs: pre-deploy estimate of runtime $ (compute + storage + egress + LLM tokens + vendor SaaS), unit economics, kill-switch thresholds
+when_to_use: Mandatory in ARCH doc for medium/large projects + ai-system/agent-product/commerce/regulated. Read by tech-lead
+applies_to:
+  - ai-system
+  - agent-product
+  - commerce
+  - regulated
+  - fintech
+---
+
 # Cost model — Reference
 
 > Every ARCH doc for non-trivial services includes a **Cost Model** section. Runtime cost estimated *before* deploy — not after the first AWS bill surprise. Unit economics surfaced *before* product-market fit lies to you.

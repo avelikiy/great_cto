@@ -1,3 +1,11 @@
+---
+name: anti-patterns
+description: Catalog of recurring failure modes across architectures: god-objects, hidden coupling, premature abstraction, distributed monolith, eager caching, sync-over-async
+when_to_use: Pattern lookup at architecture time (tech-lead Step 0) and during code review
+applies_to:
+  - _default
+---
+
 # Anti-patterns — reference
 
 Negative rules are sharper than positive guidance. This file is the curated blocklist of

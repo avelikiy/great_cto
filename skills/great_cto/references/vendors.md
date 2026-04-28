@@ -1,3 +1,11 @@
+---
+name: vendors
+description: Third-party vendor register: Stripe, Auth0, OpenAI, AWS regions, Datadog — fallback plans when vendor X has outage
+when_to_use: Vendor introduction time + ARCH review. Read by tech-lead
+applies_to:
+  - _default
+---
+
 # Vendor register — Reference
 
 > Systematic tracking of **third-party services** (not libraries). Stripe, Auth0, OpenAI, Twilio, AWS regions, Datadog. When vendor X has an outage, the fallback plan is found in 30 seconds — not improvised in a panic.

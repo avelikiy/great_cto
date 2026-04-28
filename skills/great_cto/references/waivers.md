@@ -1,3 +1,11 @@
+---
+name: waivers
+description: Waiver protocol: silent gate-skips become tracked debt with explicit time-boxed WAIVER-<id>.md + follow-up task — no silent bypass
+when_to_use: Hotfix shipping with skipped gates. Read by security-officer + tech-lead
+applies_to:
+  - _default
+---
+
 # Waivers — Reference
 
 > **Silent skip becomes tracked debt.** When CTO says "skip security gate for this hotfix," the agent refuses to proceed silently — it demands an explicit, time-boxed WAIVER artifact with a follow-up task.

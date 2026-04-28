@@ -1,3 +1,11 @@
+---
+name: dora
+description: DORA Four Keys reference: deployment frequency, lead time for changes, change failure rate, MTTR — definitions, instrumentation, baseline benchmarks
+when_to_use: Setting up DevOps metrics. Read by devops + tech-lead for engineering health signals
+applies_to:
+  - _default
+---
+
 # DORA — reference
 
 Five metrics that, taken together, predict engineering health better than any single dashboard. Read by `tech-lead` and `qa-engineer` whenever Change Failure Rate spikes. The fifth — Deployment Rework Rate — was added to the DORA model in 2024.

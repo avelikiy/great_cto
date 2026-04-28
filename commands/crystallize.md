@@ -28,8 +28,7 @@ METRICS_DIR=~/.great_cto/metrics
 mkdir -p "$KE_DIR" "$GP_DIR" "$PROPOSAL_DIR" "$METRICS_DIR"
 
 # Plugin dir (for agent files)
-PLUGIN_DIR=$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" \
-  -exec dirname {} \; 2>/dev/null | head -1)
+PLUGIN_DIR=$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | sort -V | tail -1 | xargs dirname)
 [ -z "$PLUGIN_DIR" ] && PLUGIN_DIR=$(dirname "$(find . .great_cto \
   -name "ARCHETYPES.md" 2>/dev/null | head -1)" 2>/dev/null)
 
