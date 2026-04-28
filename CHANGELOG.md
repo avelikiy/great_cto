@@ -4,6 +4,76 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.140 — 2026-04-28
+
+### Added — local skill catalog model: archetype → agents → agent picks skills
+
+Architecture: **archetype determines which agents run; each agent decides which skills to consult from a locally-cached catalog.** This release closes three gaps left in v1.0.139:
+
+1. Skills bootstrapped at install time (not just first SessionStart)
+2. Per-(agent × archetype) skill suggestions in registry
+3. Each of 11 agents has Step 0 guidance to consult registry
+
+#### `packages/cli/src/main.ts` — Skills bootstrap during `npx great-cto init`
+
+Added Step 4c between plugin install and PROJECT.md bootstrap:
+- Clone `anthropics/skills` → `~/.great_cto/anthropic-skills` (depth=1, 30s timeout)
+- Clone `avelikiy/ai-agent-skills` → `~/.great_cto/personal-skills`
+- Run `skill-discover.sh` to build initial registry
+
+User no longer waits for first SessionStart hook to populate catalog. Cold-cache delay shifts from session-1 to install-time (more visible, but also retry-able with `--force`).
+
+#### `scripts/skill-discover.sh` — Per-(agent × archetype) suggestions
+
+Registry now has `agent_skills` field:
+
+```json
+{
+  "agent_skills": {
+    "tech-lead": {
+      "_default": ["pre-mortem", "risk-register", "vendors", "cost-model", "anti-patterns"],
+      "ai-system": ["+ARCH-ai", "+ai-pack", "+secure-sdlc"],
+      "agent-product": ["+ARCH-ai", "+agent-pack", "+secure-sdlc"],
+      "commerce": ["+ARCH-default", "+commerce-pack", "+secure-sdlc"],
+      "web3": ["+ARCH-defi-protocol", "+web3-pack"],
+      ...
+    },
+    "ai-prompt-architect": {
+      "_default": ["ADR-PROMPT", "ai-pack", "agent-pack"]
+    },
+    ...11 agents total
+  }
+}
+```
+
+`+` prefix = additive on top of `_default`. Agent reads `agent_skills["<my-name>"]["_default"]` plus `agent_skills["<my-name>"]["<archetype>"]`, then decides which to actually `Read`.
+
+#### `scripts/skill-discover.sh` — Description extraction fix
+
+Previously most `summary` fields were empty (parser fell back to first text after `---` which often hit a blank line). Now tries 4 sources in order: frontmatter `description:`, frontmatter `summary:`/`when_to_use:`, first non-empty body paragraph (skipping headings + quotes), quote-block bold text. ~40 of 56 tier-1 skills now have meaningful summaries (up from ~5).
+
+#### Agents — Step 0 (or Step 0c) added to all 11
+
+Each agent now has a Step 0 block instructing: "read `~/.great_cto/skills-registry.json` → `agent_skills["<my-name>"][...]` → decide which SKILL.md to Read." `tech-lead.md` has the full bash pattern; the other 10 reference it briefly to avoid duplication.
+
+### Why this design
+
+- **Archetype → agents**: structural (ARCHETYPES.md Required Agents table — already worked)
+- **Agent → skills**: judgment-based, not auto-load. Agent at runtime knows what's relevant to current task; static archetype-pack mapping is too coarse. Suggestions framework: "here are the skills this combo usually needs; you decide what's actually relevant."
+
+### Coverage
+
+- 11 agents have Step 0 skill-catalog-browse guidance
+- Per-(agent × archetype) suggestions for every meaningful combination
+- Initial registry built at `npx great-cto init`, refreshed every 24h via SessionStart hook
+- Description quality improved across tier-1 skills
+
+### Skipped (deferred)
+
+- **Scheduled-tasks weekly sync** — current 7d cache pull on SessionStart is sufficient. If users want forced cron-style refresh, `/doctor --skills-refresh` exists. Adding scheduled-task overhead doesn't justify the marginal benefit.
+
+---
+
 ## v1.0.139 — 2026-04-28
 
 ### Added — Skills auto-discovery + 4-tier architecture

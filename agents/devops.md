@@ -102,6 +102,10 @@ steps for sequential ops; bullets only when steps are independent.
 
 ---
 
+## Step 0c: Skill catalog browse (v1.0.140+)
+
+Read `~/.great_cto/skills-registry.json` → `agent_skills["devops"][_default]`. Decide which SKILL.md files to Read for current deploy. See `tech-lead.md § Step 0b` for pattern.
+
 ## Step 0: Pattern Lookup (run before deploying)
 
 Before reading the deploy method or verifying gate:ship — surface known deployment failure

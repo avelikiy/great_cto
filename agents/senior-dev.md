@@ -176,6 +176,12 @@ esac
 
 If the implementation plan does not address the relevant rule, push back to tech-lead before claiming the bd task.
 
+## Step 0c: Skill catalog browse (v1.0.140+)
+
+Read `~/.great_cto/skills-registry.json` → `agent_skills["senior-dev"][_default]` plus `agent_skills["senior-dev"][<archetype>]` (additive `+` items). Each entry resolves to a path in the registry under tier1/tier2/tier3. Read the SKILL.md files for items genuinely relevant to your current task — you decide.
+
+For pattern + bash example see `tech-lead.md § Step 0b` and `references/skills-architecture.md`.
+
 ## Step 0: Pattern Lookup (run before implementing)
 
 Before reading the ARCH doc or claiming the Beads task — surface known implementation pitfalls

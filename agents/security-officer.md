@@ -100,6 +100,10 @@ exposed via /api/users (CVE-2026-XXXX, exploitable without auth, 3 lines of curl
 
 ---
 
+## Step 0c: Skill catalog browse (v1.0.140+)
+
+Read `~/.great_cto/skills-registry.json` → `agent_skills["security-officer"][_default]` plus `agent_skills["security-officer"][<archetype>]`. Decide which SKILL.md files to Read. See `tech-lead.md § Step 0b` for bash pattern.
+
 ## Step 0: Pattern Lookup (run before auditing)
 
 Before computing the security tier or running checklist items — surface known vulnerability
