@@ -4,6 +4,74 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.144 — 2026-04-28
+
+### Added — auto-flow visibility + detection confidence + skill quality
+
+User feedback: "How do I trust that archetype is correct? How do I trust that skills are quality?" Plus README/landing didn't surface the auto-loading flow that v1.0.140-143 built. This release closes both gaps.
+
+#### `packages/cli/src/main.ts` — Detection confidence display
+
+When `pickArchetype()` returns `confidence: low` OR `confidence: medium` with ≥ 2 alternatives, the CLI now shows a **highlighted warning** with:
+- Top candidate + rationale
+- Alternatives list
+- Override command: `--archetype <name>` or edit PROJECT.md after install
+
+User can spot a wrong detection at install time and override before the pipeline commits to the choice.
+
+#### `scripts/skill-discover.sh` — Quality scoring per skill
+
+Every skill in the registry now has `quality_score` (0–100) computed from:
+- Frontmatter present (---) — 30 pts
+- `description:` ≥ 30 chars — 20 pts
+- `when_to_use:` or `summary:` field — 15 pts
+- `applies_to:` field (archetype tags) — 15 pts
+- Body ≥ 50 lines — 10 pts
+- File size ≥ 2 KB — 10 pts
+
+Current scores (after this release):
+- Tier 3 (personal repo) avg: **100** — `rag-cascading-search` is canonical SKILL.md format
+- Tier 2 (anthropic) avg: **67** — well-formed but lack `when_to_use` field
+- Tier 1 (great_cto built-in) avg: **22** — packs/templates lack frontmatter; surfaces real cleanup work
+
+Agents can prefer high-score skills when multiple match a task. Low scores aren't blocking — they're diagnostic for content quality work.
+
+#### `README.md` — "How auto-loading works" section
+
+New section above commands table, explaining the 3-layer auto-loading flow with ASCII flowchart:
+
+```
+Layer 1: Archetype auto-detected from repo (15 manifest signals → 14 archetypes)
+Layer 2: Agents auto-wired by archetype (commerce → +pci-reviewer, etc.)
+Layer 3: Skills auto-suggested per (agent × archetype)
+```
+
+Plus quality + override paragraphs.
+
+#### Site (`great_cto-site` repo) — same auto-loading section
+
+Three side-by-side cards on landing page after archetypes section: Layer 1 (Archetype) / Layer 2 (Agents) / Layer 3 (Skills). Site bumped to v1.0.144.
+
+#### README — agent count corrected
+
+Header line: `7 Claude Code subagents` → `14 Claude Code subagents` (was stale since v1.0.134/136/143 added specialists).
+
+### Why this matters
+
+**Confidence display** answers: "Did detection get it right?" — user sees rationale + alternatives, can override before commit.
+
+**Quality scoring** answers: "Is this skill worth consulting?" — agents make informed choices when multiple skills match a task.
+
+**Auto-flow visibility** answers: "What does this thing actually do at install?" — visitors to README/landing see the 3-layer mechanism, not just outcome.
+
+### Coverage
+
+- 14 agents (no change vs v1.0.143)
+- Registry now includes `quality_score` per skill (82 skills × scores)
+- README + site both show auto-loading explanation
+
+---
+
 ## v1.0.143 — 2026-04-28
 
 ### Added — three new specialist subagents (commerce / web3 / iot)
