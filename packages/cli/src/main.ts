@@ -149,6 +149,19 @@ async function runInit(args: CliArgs): Promise<number> {
   }
   log(`  ${dim("suggested compliance:")} ${compliance.length > 0 ? compliance.join(", ") : "none"}`);
 
+  // v1.0.144+: ask user to confirm archetype if confidence is low
+  // OR if alternatives are present and not user-specified
+  if (!args.yes && !args.archetype && (confidence === "low" || (confidence === "medium" && alternatives.length >= 2))) {
+    log("");
+    log(`${bold("⚠ Archetype detection confidence:")} ${cyan(confidence)}`);
+    log(`  Top candidate: ${cyan(archetype)} — ${dim(rationale)}`);
+    if (alternatives.length > 0) {
+      log(`  Alternatives:  ${alternatives.map(a => cyan(a)).join(", ")}`);
+    }
+    log(`  ${dim("If wrong, override with: --archetype " + (alternatives[0] ?? "<name>"))}`);
+    log(`  ${dim("Or edit .great_cto/PROJECT.md after install — agents read 'archetype:' field.")}`);
+  }
+
   // Confirmation
   if (!args.yes) {
     log("");

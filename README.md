@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.143-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.144-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <b>7 Claude Code subagents</b> · <b>16 commands</b> · <b>14 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b>
+  <b>14 Claude Code subagents</b> · <b>16 commands</b> · <b>14 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b>
 </p>
 
 <p align="center">
@@ -92,6 +92,48 @@ Different layer of the stack. great_cto sits **above** the AI assistant and **be
 | **`great_cto`** | **Process layer + 7 specialist agents + 14 archetypes** | Full SDLC pipeline with archetype-aware gates, compliance, cross-project memory | We're not the AI itself — we orchestrate Claude Code |
 
 The reason this matters: **the AI is fine. The bottleneck is the human deciding what to ship.** great_cto removes the loops where you're the only person who can make the call by encoding the call as a gate. You make two decisions; everything else is automatic.
+
+---
+
+## How auto-loading works (v1.0.140+)
+
+Three layers fire automatically when you run `/start`:
+
+```
+        ┌──────────────────────────────────────────┐
+        │  1. ARCHETYPE auto-detected from repo    │
+        │  (15 manifest signals → 14 archetypes)   │
+        │  Confidence shown; --archetype to override│
+        └────────────────┬─────────────────────────┘
+                         ↓
+        ┌──────────────────────────────────────────┐
+        │  2. AGENTS auto-wired by archetype        │
+        │  ARCHETYPES.md "Required Agents" table   │
+        │  (commerce → +pci-reviewer specialist;   │
+        │   ai-system → +3 AI specialists; etc.)   │
+        └────────────────┬─────────────────────────┘
+                         ↓
+        ┌──────────────────────────────────────────┐
+        │  3. SKILLS auto-suggested per agent      │
+        │  agent_skills[<agent>][<archetype>] in   │
+        │  ~/.great_cto/skills-registry.json        │
+        │  4 tiers: built-in / external /          │
+        │   personal / on-demand                   │
+        └──────────────────────────────────────────┘
+```
+
+**You never pick agents or skills manually.** The pipeline assembles itself based on what your project IS.
+
+| What | Where | Auto-update |
+|---|---|---|
+| Archetypes (14) | `skills/great_cto/ARCHETYPES.md` | per plugin release |
+| Agents (14, incl. 7 specialists) | `agents/*.md` | per plugin release |
+| Skills (≥80 locally) | `~/.great_cto/skills-registry.json` | 24h cache, weekly upstream pull |
+| Personal skills | `~/.great_cto/personal-skills` (your repo) | daily auto-pull |
+
+**Quality control:** every skill in registry has a `quality_score` (0–100) computed from frontmatter completeness + body depth. Agents prefer high-score skills when multiple match a task.
+
+**Override at any time:** edit `.great_cto/PROJECT.md` `archetype:` field, change `agents:` if you need fewer/more, edit `agent_skills` map in registry. Files are plain markdown / JSON.
 
 ---
 
@@ -403,7 +445,7 @@ Opinionated about **what** to do (architecture → TDD → review → QA → sec
 ## FAQ
 
 **Is it production-ready?**
-v1.0.143 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
+v1.0.144 — actively maintained. MIT license, no telemetry, no SaaS lock-in. File-based configs in `.great_cto/` — inspect and edit anything.
 
 **What does it NOT do?**
 Write code for you (a human + senior-dev agent write code together). Replace CI/CD (keep your existing pipelines). Host anything (fully file-based).
