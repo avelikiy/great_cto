@@ -1,3 +1,11 @@
+---
+name: commerce-pack
+description: Payment provider decision tree (Stripe/Adyen/Paddle), subscription billing patterns, idempotency rules, fraud detection, PCI-DSS scope reduction (SAQ-A vs SAQ-D), refund/dispute, EU VAT
+when_to_use: Building e-commerce, payments, SaaS billing, marketplace. Read at architecture time + by pci-reviewer subagent
+applies_to:
+  - commerce
+---
+
 # Commerce Pack
 
 > Extends `commerce` archetype with payment provider decision tree, subscription billing patterns, fraud detection, idempotency rules, PCI-DSS scope reduction, and tax/compliance for global commerce.

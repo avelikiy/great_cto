@@ -1,3 +1,11 @@
+---
+name: NIS2-article21-controls
+description: EU NIS2 Directive cybersecurity risk-management measures (10 categories per Article 21(2)): policies, incident handling, business continuity, supply chain, secure SDLC, MFA, training. Reporting per Article 23 (24h/72h/1mo)
+when_to_use: Compliance documentation for regulated archetype with compliance:[nis2]. Required for EU essential and important entities
+applies_to:
+  - regulated
+---
+
 # NIS2-article21-controls.md — Cybersecurity risk management measures
 
 > Mandatory artefact when `compliance: [nis2]` in PROJECT.md.

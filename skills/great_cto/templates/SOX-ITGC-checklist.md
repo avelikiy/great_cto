@@ -1,3 +1,11 @@
+---
+name: SOX-ITGC-checklist
+description: Sarbanes-Oxley §404 IT General Controls (4 domains: Change Management, Logical Access, Computer Operations, Program Development). 25 controls + test methodology + materiality assessment
+when_to_use: Compliance documentation for regulated archetype with compliance:[sox]. Required for US public companies + foreign issuers
+applies_to:
+  - regulated
+---
+
 # SOX-ITGC-checklist.md — IT General Controls (Sarbanes-Oxley §404)
 
 > Mandatory artefact when `compliance: [sox]` in PROJECT.md.

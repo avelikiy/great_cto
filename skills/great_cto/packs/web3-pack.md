@@ -1,3 +1,11 @@
+---
+name: web3-pack
+description: Smart contract security (Slither/Echidna/Foundry/Certora), upgradeability decision matrix (Immutable/UUPS/Diamond/Beacon), oracle strategy (Chainlink/Pyth/TWAP), MEV protection, custody (HSM/MPC/Shamir), L2 resilience
+when_to_use: Building smart contracts, DeFi protocols, custody wallets, bridges, CEX exchanges, trading bots — anything with funds at risk on-chain
+applies_to:
+  - web3
+---
+
 # Web3 Domain Pack
 
 > Extends `web3` archetype with domain-specific depth for smart contracts, DeFi protocols, custody wallets, bridge protocols, CEX exchanges, and trading bots.

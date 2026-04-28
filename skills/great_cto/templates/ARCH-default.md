@@ -1,3 +1,15 @@
+---
+name: ARCH-default
+description: Standard ARCH document template for archetypes without dedicated templates: Decision with alternatives, Components, API contracts, Data model, Non-goals, Implementation work-packages, Cost, Risks
+when_to_use: Writing ARCH for web-service, library, mobile-app, data-platform, infra archetypes
+applies_to:
+  - web-service
+  - library
+  - mobile-app
+  - data-platform
+  - infra
+---
+
 # ARCH-{slug}.md — Standard architecture document
 
 > **Reader:** the engineer joining in 6 months. Be exact about decisions, trade-offs, and what you chose NOT to do.

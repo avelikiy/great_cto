@@ -1,3 +1,11 @@
+---
+name: ARCH-defi-protocol
+description: DeFi protocol ARCH template: subtype + block-ship gate (lending/AMM/bridge/aggregator), security stack (Slither/Echidna/Foundry/Certora), upgradeability matrix, oracle strategy, MEV protection, L2 resilience, custody, bug bounty TVL tier
+when_to_use: Writing ARCH for web3 archetype with subtype defi-protocol/bridge-protocol/lending/dex/aggregator
+applies_to:
+  - web3
+---
+
 # ARCH-{slug}.md — DeFi protocol template (web3 archetype)
 
 > **Reader:** the engineer joining post-launch who needs to ship the next protocol upgrade without draining TVL.

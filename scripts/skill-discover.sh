@@ -14,7 +14,7 @@ set -euo pipefail
 REGISTRY="${HOME}/.great_cto/skills-registry.json"
 mkdir -p "$(dirname "$REGISTRY")"
 
-PLUGIN_DIR=$(ls -d "$HOME/.claude/plugins/cache/local/great_cto/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+: "${PLUGIN_DIR:=$(ls -d "$HOME/.claude/plugins/cache/local/great_cto/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}"
 
 # Helper: emit one registry entry as JSON-line (pre-comma-stripped)
 # Truncate summary to 280 chars at word boundary (no mid-word cut).

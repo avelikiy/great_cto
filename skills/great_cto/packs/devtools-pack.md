@@ -1,3 +1,11 @@
+---
+name: devtools-pack
+description: API-first design (OpenAPI/GraphQL spec stability), multi-language SDK quality (Stainless/openapi-generator), docs-as-product (Mintlify), deprecation channels (RFC 9745), telemetry rules
+when_to_use: Building API platforms, multi-language SDKs, agent infrastructure, RAG/eval platforms, IDE plugins (anything where the API/SDK IS the product)
+applies_to:
+  - devtools
+---
+
 # DevTools Pack
 
 > Extends `devtools` archetype with API-first design discipline, multi-language SDK quality, OpenAPI/GraphQL spec stability, docs-as-product principles, deprecation channels, and dev-relations basics for products where the user is another developer.

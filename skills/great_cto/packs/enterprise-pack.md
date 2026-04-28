@@ -1,3 +1,11 @@
+---
+name: enterprise-pack
+description: Compliance frameworks for regulated industries: DORA (financial entities), NIS2 (essential services), GxP/21CFR11 (pharma/medical), ISO 27001 (ISMS), TISAX (automotive), SOX (US public)
+when_to_use: Building for regulated industries (financial services, pharma, medical devices, automotive supply chain, US public companies)
+applies_to:
+  - regulated
+---
+
 # Enterprise Domain Pack
 
 > Extends `regulated` archetype with deep compliance checklists for GxP, NIS2, DORA, TISAX, ISO 27001, and SOX.

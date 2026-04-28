@@ -1,3 +1,11 @@
+---
+name: web-pack
+description: Framework decision tree (Next/Nuxt/Hono/Fastify), ORM choice (Prisma/Drizzle/Kysely), edge runtime constraints (Cloudflare Workers, Vercel Edge, Deno Deploy), auth providers
+when_to_use: Building web services, REST/GraphQL APIs, full-stack apps, edge functions
+applies_to:
+  - web-service
+---
+
 # Web Service Pack
 
 > Extends `web-service` archetype with framework-specific guidance for full-stack web apps, REST/GraphQL APIs, edge runtime services, and microservices.

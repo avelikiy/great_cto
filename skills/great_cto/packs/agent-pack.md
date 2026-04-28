@@ -1,3 +1,11 @@
+---
+name: agent-pack
+description: Domain-specific depth for user-facing agent products: OWASP LLM Top 10, agent constitution template, BudgetTracker pattern, tool sandboxing, per-user memory isolation, MCP server trust, multi-identity scenarios
+when_to_use: Building agent products on Claude Agent SDK / LangGraph / CrewAI. Read at architecture time + post-impl security review
+applies_to:
+  - agent-product
+---
+
 # Agent Product Pack
 
 > Extends `agent-product` archetype with domain-specific depth for user-facing autonomous agents

@@ -1,3 +1,12 @@
+---
+name: ADR-PROMPT
+description: ADR template for system prompt versioning: full prompt text, sha256 hash for CI drift detection, why each instruction is there, what's deliberately NOT in the prompt, eval coverage per prompt, revision history
+when_to_use: Versioning system prompts for any LLM role (extractor, summariser, agent, classifier). Required by ai-prompt-architect output
+applies_to:
+  - ai-system
+  - agent-product
+---
+
 # ADR-{NN}-PROMPT-{name}.md — System prompt versioning
 
 > Records the system prompt for a named role (extractor, summariser, agent, classifier). Every prompt change ships as a new ADR or appended revision to keep eval-suite results meaningful.
