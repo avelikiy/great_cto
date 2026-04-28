@@ -4,6 +4,59 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.147 — 2026-04-28
+
+### Fixed — sort correctness, integration tests, doctor check, /migrate command, hook extraction
+
+Closes gaps A7, A12, A20/A25 (partial), A22, and M1+ identified in the v1.0.146 gap audit.
+
+#### A7 — Lexicographic `sort | tail -1` on numbered docs (CRITICAL)
+
+`ls ARCH-*.md | sort | tail -1` uses lexicographic order, so `ARCH-10.md` sorts
+before `ARCH-9.md` — the wrong document is loaded. Fixed **13 sites** across 7 files
+to use `sort -V | tail -1` (version-aware natural sort):
+
+- `agents/devops.md` (4 sites: QA report, CSO report, ARCH doc, changelog FEATURE grep)
+- `agents/qa-engineer.md` (FEATURE_SLUG extraction)
+- `agents/security-officer.md` (latest QA read)
+- `agents/senior-dev.md` (2 sites: ARCH doc hint, Requirements Checklist)
+- `commands/digest.md` (2 sites: latest AUDIT, latest REVIEW)
+- `commands/inbox.md` (latest AUDIT)
+- `commands/doctor.md` (`find_latest` helper)
+- `skills/great_cto/SKILL.md` (3 sites: LAST_PM, PREV_QA, PREV_CSO)
+- `.claude-plugin/plugin.json` SessionStart (QA + CSO phase-context reads)
+
+#### A12 — Integration test: agent × archetype → skill path resolution (NEW)
+
+Added `tests/structural/test_agent_skills.py`. Parses the AGENT_SKILLS matrix in
+`scripts/skill-discover.sh` and verifies every bundled skill name resolves to a real
+`.md` file under `skills/great_cto/`. Currently validates 201 skill references across
+14 agents × 93 archetype entries (2 external `superpowers:*` skills skipped).
+
+Run: `python3 tests/structural/test_agent_skills.py`
+
+#### M1+ — Check 2c in `/doctor`: archetype confidence validation
+
+Added **Check 2c** to `commands/doctor.md`. Reads `archetype_confidence:` from
+`PROJECT.md` and warns when the value is `medium` or `low` (detector uncertain) or
+missing (old install). Shows alternatives and recommends `/audit` or `/migrate`.
+
+#### A25 — New `/migrate` command
+
+Added `commands/migrate.md`. Appends missing `PROJECT.md` fields to existing installs
+without touching current values. Fields migrated: `archetype_confidence`,
+`archetype_alternatives`, `archetype_rationale`, `security_tier`, `project_size`.
+Supports `--dry-run` to preview changes.
+
+#### A22 — Extract UserPromptSubmit inline Python to external script
+
+Moved the 10-line inline Python from the `UserPromptSubmit` hook in `plugin.json` to
+`scripts/hooks/user-prompt-submit.py`. Hook now calls
+`python3 "${PLUGIN_DIR}/scripts/hooks/user-prompt-submit.py"`.
+Easier to test, diff, and extend.
+
+---
+
 ## v1.0.146 — 2026-04-28
 
 ### Fixed — pipeline gap audit triggered by real-world test on AI agent project

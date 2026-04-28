@@ -250,7 +250,7 @@ Do NOT ask if the request is reasonably clear. When in doubt — proceed. Tech-l
 **Step 0c — Decision Brief (non-blocking CTO pre-read):** Before spawning tech-lead, compile a 4-line brief in ~5 seconds:
 ```bash
 # Risk signals: recent postmortems + retro patterns
-LAST_PM=$(ls docs/postmortems/PM-*.md 2>/dev/null | sort | tail -1 | xargs grep -m1 "^#" 2>/dev/null | sed 's/# //')
+LAST_PM=$(ls docs/postmortems/PM-*.md 2>/dev/null | sort -V | tail -1 | xargs grep -m1 "^#" 2>/dev/null | sed 's/# //')
 RETRO=$(ls .great_cto/retrospectives/*.md 2>/dev/null | sort | tail -1 | xargs grep -m1 "What slowed down:" 2>/dev/null | sed 's/.*: //')
 # Current load
 OPEN_TASKS=$(bd list --status open 2>/dev/null | grep -c "task" || echo "?")
@@ -400,9 +400,9 @@ If ROLLBACK_RISK → show to CTO as ⚠ warning in GATE:SHIP **before** asking d
 
 ```bash
 # Previous QA report (second-to-last)
-PREV_QA=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort | tail -2 | head -1)
+PREV_QA=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort -V | tail -2 | head -1)
 # Previous CSO report
-PREV_CSO=$(ls docs/security/CSO-*.md 2>/dev/null | sort | tail -2 | head -1)
+PREV_CSO=$(ls docs/security/CSO-*.md 2>/dev/null | sort -V | tail -2 | head -1)
 # Performance baseline trend
 tail -5 .great_cto/perf-baseline.log 2>/dev/null || echo "NO_BASELINE"
 ```

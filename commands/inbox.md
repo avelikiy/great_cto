@@ -122,7 +122,7 @@ bd list --label production --status open 2>/dev/null || true
 bd list --status open --priority 2 2>/dev/null | wc -l
 tail -5 .great_cto/perf-baseline.log 2>/dev/null || echo "NO_BASELINE"
 ls .great_cto/retrospectives/*.md 2>/dev/null | sort | tail -1 | xargs grep -h "What slowed down:" 2>/dev/null | sort | uniq -c | sort -rn | head -3
-ls docs/audits/AUDIT-*.md 2>/dev/null | sort | tail -1 || echo "NO_AUDIT"
+ls docs/audits/AUDIT-*.md 2>/dev/null | sort -V | tail -1 || echo "NO_AUDIT"
 ```
 
 **Top risks (if register exists):**
