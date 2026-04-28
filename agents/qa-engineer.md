@@ -221,7 +221,7 @@ If any gate fires `BLOCKED`, do not write a QA report claiming pass — exit 1 a
 
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["qa-engineer"][_default]` plus `agent_skills["qa-engineer"][<archetype>]`. Decide which SKILL.md files to Read based on current task. See `tech-lead.md § Step 0b` for bash pattern; full design in `references/skills-architecture.md`.
+Read `~/.great_cto/skills-registry.json` → `agent_skills["qa-engineer"][_default]` plus `agent_skills["qa-engineer"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `tech-lead.md § Step 0b` for bash pattern.
 
 ## Step 0: Pattern Lookup (run before testing)
 
