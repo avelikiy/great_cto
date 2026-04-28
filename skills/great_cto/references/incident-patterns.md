@@ -1,3 +1,11 @@
+---
+name: incident-patterns
+description: Library of recurring production incidents: thundering herd, cache stampede, retry-storm, cascading failure, hot-partition, cold-start spike
+when_to_use: Incident triage. Read by l3-support during P0/P1 response and pattern lookup at ARCH time
+applies_to:
+  - _default
+---
+
 # Incident pattern library
 
 A curated library of recurring production failure patterns. `l3-support` appends to this file after every postmortem where the root cause generalises beyond the specific service. `/investigate` reads it to propose hypotheses for new alerts.

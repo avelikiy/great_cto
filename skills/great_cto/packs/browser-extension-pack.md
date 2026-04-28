@@ -1,3 +1,11 @@
+---
+name: browser-extension-pack
+description: MV3 service worker patterns, three-worlds architecture (SW/content/popup/offscreen), storage decision table, host_permissions audit, Web Store review preflight, cross-browser compat
+when_to_use: Building Chrome/Firefox/Edge/Safari extensions. Read at architecture time + by web-store-reviewer subagent
+applies_to:
+  - browser-extension
+---
+
 # Browser Extension Pack
 
 > Extends `browser-extension` archetype with MV3 service worker patterns, content script isolation, host_permissions audit, Web Store review pre-flight, and cross-browser compatibility for Chrome / Firefox / Safari / Edge extensions.

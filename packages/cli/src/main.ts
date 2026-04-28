@@ -149,6 +149,19 @@ async function runInit(args: CliArgs): Promise<number> {
   }
   log(`  ${dim("suggested compliance:")} ${compliance.length > 0 ? compliance.join(", ") : "none"}`);
 
+  // v1.0.144+: ask user to confirm archetype if confidence is low
+  // OR if alternatives are present and not user-specified
+  if (!args.yes && !args.archetype && (confidence === "low" || (confidence === "medium" && alternatives.length >= 2))) {
+    log("");
+    log(`${bold("⚠ Archetype detection confidence:")} ${cyan(confidence)}`);
+    log(`  Top candidate: ${cyan(archetype)} — ${dim(rationale)}`);
+    if (alternatives.length > 0) {
+      log(`  Alternatives:  ${alternatives.map(a => cyan(a)).join(", ")}`);
+    }
+    log(`  ${dim("If wrong, override with: --archetype " + (alternatives[0] ?? "<name>"))}`);
+    log(`  ${dim("Or edit .great_cto/PROJECT.md after install — agents read 'archetype:' field.")}`);
+  }
+
   // Confirmation
   if (!args.yes) {
     log("");
@@ -258,15 +271,42 @@ async function runInit(args: CliArgs): Promise<number> {
       }
     }
 
-    // Run skill-discover.sh to build initial registry
+    // Run skill-discover.sh to build initial registry.
+    // v1.0.146: version-sort properly (semver) and force refresh if registry
+    // plugin_version != installed plugin_version (stale cache from prior version).
     const pluginCacheBase = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
-    const { readdirSync } = await import("node:fs");
+    const { readdirSync, readFileSync, unlinkSync } = await import("node:fs");
     if (existsSync(pluginCacheBase)) {
-      const versions = readdirSync(pluginCacheBase).sort().reverse();
+      const semverCmp = (a: string, b: string) => {
+        const pa = a.split(".").map(n => parseInt(n, 10) || 0);
+        const pb = b.split(".").map(n => parseInt(n, 10) || 0);
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+          const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+          if (d !== 0) return d;
+        }
+        return 0;
+      };
+      const versions = readdirSync(pluginCacheBase).sort(semverCmp).reverse();
       if (versions.length > 0) {
-        const discover = join(pluginCacheBase, versions[0]!, "scripts", "skill-discover.sh");
+        const latest = versions[0]!;
+        const discover = join(pluginCacheBase, latest, "scripts", "skill-discover.sh");
         if (existsSync(discover)) {
-          spawnSync("bash", [discover], { stdio: "ignore", timeout: 15_000 });
+          // Force refresh: unlink existing registry if it pins to a different version
+          const registryPath = join(greatCtoDir, "skills-registry.json");
+          if (existsSync(registryPath)) {
+            try {
+              const reg = JSON.parse(readFileSync(registryPath, "utf-8")) as { plugin_version?: string };
+              if (reg.plugin_version && reg.plugin_version !== latest) {
+                unlinkSync(registryPath);
+                log(`  ${dim(`registry version mismatch (${reg.plugin_version} → ${latest}) — refreshing`)}`);
+              }
+            } catch { /* malformed — let discover overwrite */ }
+          }
+          spawnSync("bash", [discover], {
+            stdio: "ignore",
+            timeout: 15_000,
+            env: { ...process.env, PLUGIN_DIR: join(pluginCacheBase, latest) },
+          });
           log(`  ${dim("skills registry built at ~/.great_cto/skills-registry.json")}`);
         }
       }
@@ -277,7 +317,11 @@ async function runInit(args: CliArgs): Promise<number> {
 
   // ── 5. bootstrap ─────────────────────────────────────────
   step(5, 5, "bootstrapping .great_cto/PROJECT.md");
-  const bs = bootstrap(args.dir, detection, archetype as never, compliance);
+  const bs = bootstrap(args.dir, detection, archetype as never, compliance, {
+    confidence,
+    alternatives,
+    rationale,
+  });
   if (!bs.created) {
     log(`  ${dim("PROJECT.md already exists at")} ${bs.projectMdPath} ${dim("— kept as-is")}`);
   }

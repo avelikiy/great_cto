@@ -1,3 +1,11 @@
+---
+name: sec-metrics
+description: Five security metrics: vulnerability MTTR, patch SLA, security-debt count, audit-finding closure rate, mean-time-to-detect
+when_to_use: Engineering health monitoring. Read by security-officer + /sec command
+applies_to:
+  - _default
+---
+
 # Security metrics — reference
 
 Five metrics that, taken together, describe the **security posture trend** of a codebase. Computed from artefacts great_cto already produces (PM-SEC, threat models, SBOM, CSO reports, dependency manifests). No new telemetry, no external scanners required.

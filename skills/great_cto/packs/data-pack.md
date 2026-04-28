@@ -1,3 +1,11 @@
+---
+name: data-pack
+description: Data tooling decision tree: dbt for transformation, Dagster/Airflow for orchestration, DuckDB/Polars for compute, Iceberg for table format, lakehouse vs warehouse, data quality patterns
+when_to_use: Building data pipelines, warehouses, feature stores, analytics platforms
+applies_to:
+  - data-platform
+---
+
 # Data Domain Pack
 
 > Extends `data-platform` archetype with domain-specific depth for pipelines, warehouses, feature stores, analytics, and time-series systems.

@@ -1,3 +1,11 @@
+---
+name: quarterly-review
+description: Quarterly architecture review: step-back synthesis across ADRs/debt/god-nodes/drift — not the weekly /digest, the strategic ritual
+when_to_use: Quarterly review cadence. Read by /digest Q[1-4] and tech-lead
+applies_to:
+  - _default
+---
+
 # Quarterly architecture review — Reference
 
 > Weekly `/digest` updates brain.md continuously. But there's no **step-back ritual**: which ADRs conflict, what debt has lived > 90 days, where did we drift from plan, how did god-nodes evolve. Q-review is that ritual — synthesizer across every artifact the v1.0.71–v1.0.74 releases produce.

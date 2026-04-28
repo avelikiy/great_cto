@@ -1,3 +1,11 @@
+---
+name: ARCH-browser-extension
+description: Mandatory ARCH for browser extensions: Manifest version, Three-worlds split (SW/content/popup/offscreen), Storage decision, Permissions justification per URL pattern, Web Store pre-flight checklist, Cross-browser compat
+when_to_use: Writing ARCH for browser-extension archetype. Required for Web Store submission
+applies_to:
+  - browser-extension
+---
+
 # ARCH-{slug}.md — Browser extension project template
 
 > **Reader:** the engineer who will ship the next Web Store update without getting flagged by the reviewers.

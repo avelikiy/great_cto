@@ -1,3 +1,11 @@
+---
+name: phases
+description: Phase lifecycle (planning → implementation → review → release): which agents run, which gates apply, which artefacts are required per phase
+when_to_use: Phase transitions. Read by tech-lead at /start and SessionStart hook
+applies_to:
+  - _default
+---
+
 # Phases
 
 Projects move through four phases. Each phase changes **what context the SessionStart hook loads** — reducing noise and saving tokens.

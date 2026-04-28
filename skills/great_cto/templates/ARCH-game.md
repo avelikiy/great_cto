@@ -1,3 +1,11 @@
+---
+name: ARCH-game
+description: Game ARCH template: Engine choice with team-size sanity check, Multiplayer netcode (lockstep/rollback/authoritative/P2P relay), Anti-cheat tier, Performance budget per platform, Steam Deck Verified, Age rating + IARC, Live-service ops, PC launch milestones
+when_to_use: Writing ARCH for game archetype (Unity/Unreal/Godot/Phaser/Cocos)
+applies_to:
+  - game
+---
+
 # ARCH-{slug}.md — Game project template
 
 > **Reader:** the engineer joining mid-project who needs to ship next milestone without breaking the existing live build.

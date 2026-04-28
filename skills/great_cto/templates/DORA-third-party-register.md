@@ -1,3 +1,11 @@
+---
+name: DORA-third-party-register
+description: EU DORA Article 28 register of ICT third-party arrangements: critical-or-important provider classification, contract clauses (Article 30), exit strategies, concentration risk assessment
+when_to_use: Compliance documentation for regulated archetype with compliance:[dora]. Required for ICT third-party providers in EU financial sector
+applies_to:
+  - regulated
+---
+
 # DORA-third-party-register.md — Article 28 register of ICT third-party arrangements
 
 > Mandatory artefact when `compliance: [dora]` in PROJECT.md.

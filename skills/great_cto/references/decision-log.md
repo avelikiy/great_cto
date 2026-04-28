@@ -1,3 +1,11 @@
+---
+name: decision-log
+description: ADR (Architecture Decision Record) catalogue: format, lifecycle (proposed → accepted → superseded), cross-references to RFCs
+when_to_use: Recording architecture decisions. Read by tech-lead + project-auditor
+applies_to:
+  - _default
+---
+
 # Decision Log
 
 When CTO says "log decision", "we decided X", or starts a message with "decision:" — append an entry to `docs/decisions/DECISION-LOG.md`.

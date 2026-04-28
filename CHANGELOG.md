@@ -4,6 +4,232 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.146 — 2026-04-28
+
+### Fixed — pipeline gap audit triggered by real-world test on AI agent project
+
+Field-test on `/tmp/great-cto-test/ai-agent-demo` (Anthropic SDK + Node) surfaced
+a regression that has been live since v1.0.89 plus several smaller leaks. This
+release closes 7 gaps grouped by impact tier.
+
+#### G1 — `find … | head -1` resolves to **stale** plugin version (CRITICAL)
+
+When multiple plugin versions are cached at `~/.claude/plugins/cache/local/great_cto/<v>/`,
+`find … | head -1` returns the first match in filesystem order — not the latest version.
+Result: agents read `ARCHETYPES.md` / `TYPE_MAP.md` / `agent-security.md` from
+v1.0.88 even though v1.0.145 is installed. **Every agent change between v1.0.89 →
+v1.0.145 was silently invisible at runtime when v1.0.88 happened to be present.**
+
+Fixed in **12 call sites** across:
+- `agents/`: tech-lead, senior-dev (impl), qa-engineer (×2), security-officer (×3),
+  devops (×2), project-auditor (×2)
+- `commands/`: start (×2), crystallize (×1)
+
+Pattern: `find … | head -1` → `find … | sort -V | tail -1` (semver-aware).
+Variant with `-exec dirname {} \;` rewritten to
+`find … | sort -V | tail -1 | xargs dirname`.
+
+The 3 remaining `find . .great_cto … | head -1` sites are **project-local fallback
+lookups** (single-file scope, no version risk) — left unchanged.
+
+#### G2 — `applies_to` not exposed in skills-registry.json (CRITICAL)
+
+`skill-discover.sh` was scoring presence of `applies_to:` for quality (15pt)
+but not extracting the values. Open-world skill discovery (v1.0.142+) instructed
+agents to scan tier2/tier3 by `summary` keywords with no archetype tags to filter
+by — making the registry's per-skill metadata invisible.
+
+Fixed: `emit_entry()` now extracts `applies_to:` (both flow-style
+`[a, b]` and block-style `- a\n  - b` YAML) and emits a JSON array per skill.
+
+Result: **60/62 tier-1 skills** now expose `applies_to`. Open-world discovery
+becomes structured matching (`if archetype in skill["applies_to"]`) instead of
+substring match on summary.
+
+#### M3 — `README.md` in `templates/` polluted scoring
+
+`templates/README.md` was meta-documentation but indexed as a skill at score 20.
+Fixed: skip files matching `README` or starting with `_` during tier-1 scan.
+
+#### M4 — backfill `references/` frontmatter (29 files)
+
+All 29 reference files (`agent-security`, `agent-style`, `anti-patterns`,
+`board-narrative`, `burn-rate`, `cost-discipline`, `cost-model`, `decision-log`,
+`deprecations`, `discovery`, `dora`, `gate-health`, `grafana-ops`,
+`incident-patterns`, `knowledge-extraction`, `llm-router`, `onboarding`,
+`phases`, `poc-mode`, `pre-mortem`, `quarterly-review`, `reliability`,
+`risk-register`, `sec-metrics`, `secure-sdlc`, `security-tiers`,
+`skills-architecture`, `vendors`, `waivers`) now ship with canonical
+SKILL.md frontmatter (`name` / `description` / `when_to_use` / `applies_to`).
+
+**Result: tier-1 quality avg 22 → 99.4** (v1.0.143 → v1.0.146).
+Zero skills below score 50.
+
+#### G3 + G4 — extend AGENT_SKILLS matrix (8 archetypes added)
+
+`agent_skills` map in `skill-discover.sh` was missing per-archetype entries for
+**iot-embedded, fintech, data-platform, mobile-app, library, enterprise, web-app,
+marketing-site, devtools, infra**. Cross-archetype agents (devops, l3-support,
+project-auditor) had only `_default`.
+
+Coverage matrix now (out of 17 archetypes):
+- tech-lead: **17/17**
+- senior-dev: 16/17
+- qa-engineer: 13/17
+- security-officer: 10/17 (purposefully selective — no marketing-site/library/etc.)
+- devops: 9/17
+- l3-support: 8/17
+- project-auditor: 6/17
+
+Specific additions: regulated archetype now pulls full compliance pack
+(DORA-ICT, DORA-third-party, NIS2, ISO27001-SoA, SOX-ITGC, TISAX, 21CFR11);
+fintech pulls PCI-DSS-SAQ-D + DORA + SOX; commerce gains PCI-DSS-SAQ-A.
+
+#### M1 — persist detection confidence in PROJECT.md
+
+Previously `confidence: medium` was printed once at install and lost. Now
+`bootstrap()` writes:
+
+```yaml
+archetype_confidence: medium
+archetype_alternatives: [library]
+archetype_rationale: AI/LLM tooling detected (Anthropic SDK)
+```
+
+`/inbox` v1.0.146 surfaces a banner whenever `archetype_confidence != high &&
+!= user-specified` so the user can override before the pipeline commits.
+
+#### M2 — force registry refresh on plugin version mismatch
+
+CLI bootstrap now compares `skills-registry.json` `plugin_version` against the
+just-installed version. On mismatch (typical on upgrade), the stale registry is
+deleted and `skill-discover.sh` re-runs against the new plugin tree. Versions
+are sorted with proper semver compare (not lexicographic — fixes the
+`1.0.10 < 1.0.9` lexicographic bug).
+
+#### Site — landing + agents page
+
+- Hero stats line (`14 agents · 14 archetypes · …`) now `text-align:center` —
+  was left-aligned in centered container.
+- `agents.html` was showing **11 cards** ("14 agents" badge above). Added
+  the 3 specialist subagents shipped in v1.0.143:
+  - `pci-reviewer` (commerce — PCI-DSS scope, SCA, idempotency)
+  - `oracle-reviewer` (web3 — oracle strategy, MEV, upgradeability, L2)
+  - `firmware-reviewer` (iot-embedded — OTA, ETSI EN 303 645, secure boot)
+
+Total cards now **14/14**.
+
+---
+
+## v1.0.145 — 2026-04-28
+
+### Changed — backfill canonical SKILL.md frontmatter in tier-1 packs/templates
+
+v1.0.144 shipped quality scoring; tier-1 average came in at **22/100** because most packs and templates predated the SKILL.md frontmatter convention. This release backfills the convention across all in-scope artefacts.
+
+#### Files updated (31)
+
+**Packs (13)** — `skills/great_cto/packs/`:
+agent-pack, ai-pack, browser-extension-pack, commerce-pack, data-pack, devtools-pack, enterprise-pack, game-pack, infra-pack, library-pack, mobile-pack, web-pack, web3-pack
+
+**Templates (18)** — `skills/great_cto/templates/`:
+ARCH-ai, ARCH-browser-extension, ARCH-default, ARCH-defi-protocol, ARCH-game, THREAT-MODEL-AI, EVAL-template, ADR-LLM, ADR-PROMPT, PCI-DSS-SAQ-A, PCI-DSS-SAQ-D, DORA-ICT-risk-assessment, DORA-third-party-register, NIS2-article21-controls, 21CFR11-checklist, TISAX-VDA-ISA-results, ISO27001-SoA, SOX-ITGC-checklist
+
+Each file now opens with:
+
+```yaml
+---
+name: <skill-name>
+description: <one-sentence purpose>
+when_to_use: <when an agent should consult this>
+applies_to:
+  - <archetype>
+---
+```
+
+#### `scripts/skill-discover.sh` — env override
+
+`PLUGIN_DIR` is now respected when set in env (`: "${PLUGIN_DIR:=…}"`). Lets developers re-score against the dev tree instead of the cached marketplace copy.
+
+### Result
+
+- **Tier-1 average quality: 22 → 61.9** (+182%)
+- **Packs**: all 13 score ≥ 80 (was 20)
+- **Templates**: 18/19 score ≥ 80 (only `README.md` left at 20 — meta, intentionally skipped)
+- Remaining low-score items are 28 `references/` (out of scope; future iteration)
+
+Why it matters: agents that scan the registry now see proper `applies_to` tags + when-to-use hints, enabling open-world skill discovery (v1.0.142+) to match by archetype reliably instead of by name alone.
+
+---
+
+## v1.0.144 — 2026-04-28
+
+### Added — auto-flow visibility + detection confidence + skill quality
+
+User feedback: "How do I trust that archetype is correct? How do I trust that skills are quality?" Plus README/landing didn't surface the auto-loading flow that v1.0.140-143 built. This release closes both gaps.
+
+#### `packages/cli/src/main.ts` — Detection confidence display
+
+When `pickArchetype()` returns `confidence: low` OR `confidence: medium` with ≥ 2 alternatives, the CLI now shows a **highlighted warning** with:
+- Top candidate + rationale
+- Alternatives list
+- Override command: `--archetype <name>` or edit PROJECT.md after install
+
+User can spot a wrong detection at install time and override before the pipeline commits to the choice.
+
+#### `scripts/skill-discover.sh` — Quality scoring per skill
+
+Every skill in the registry now has `quality_score` (0–100) computed from:
+- Frontmatter present (---) — 30 pts
+- `description:` ≥ 30 chars — 20 pts
+- `when_to_use:` or `summary:` field — 15 pts
+- `applies_to:` field (archetype tags) — 15 pts
+- Body ≥ 50 lines — 10 pts
+- File size ≥ 2 KB — 10 pts
+
+Current scores (after this release):
+- Tier 3 (personal repo) avg: **100** — `rag-cascading-search` is canonical SKILL.md format
+- Tier 2 (anthropic) avg: **67** — well-formed but lack `when_to_use` field
+- Tier 1 (great_cto built-in) avg: **22** — packs/templates lack frontmatter; surfaces real cleanup work
+
+Agents can prefer high-score skills when multiple match a task. Low scores aren't blocking — they're diagnostic for content quality work.
+
+#### `README.md` — "How auto-loading works" section
+
+New section above commands table, explaining the 3-layer auto-loading flow with ASCII flowchart:
+
+```
+Layer 1: Archetype auto-detected from repo (15 manifest signals → 14 archetypes)
+Layer 2: Agents auto-wired by archetype (commerce → +pci-reviewer, etc.)
+Layer 3: Skills auto-suggested per (agent × archetype)
+```
+
+Plus quality + override paragraphs.
+
+#### Site (`great_cto-site` repo) — same auto-loading section
+
+Three side-by-side cards on landing page after archetypes section: Layer 1 (Archetype) / Layer 2 (Agents) / Layer 3 (Skills). Site bumped to v1.0.144.
+
+#### README — agent count corrected
+
+Header line: `7 Claude Code subagents` → `14 Claude Code subagents` (was stale since v1.0.134/136/143 added specialists).
+
+### Why this matters
+
+**Confidence display** answers: "Did detection get it right?" — user sees rationale + alternatives, can override before commit.
+
+**Quality scoring** answers: "Is this skill worth consulting?" — agents make informed choices when multiple skills match a task.
+
+**Auto-flow visibility** answers: "What does this thing actually do at install?" — visitors to README/landing see the 3-layer mechanism, not just outcome.
+
+### Coverage
+
+- 14 agents (no change vs v1.0.143)
+- Registry now includes `quality_score` per skill (82 skills × scores)
+- README + site both show auto-loading explanation
+
+---
+
 ## v1.0.143 — 2026-04-28
 
 ### Added — three new specialist subagents (commerce / web3 / iot)

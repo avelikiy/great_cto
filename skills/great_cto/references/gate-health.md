@@ -1,3 +1,11 @@
+---
+name: gate-health
+description: Gate quality monitoring: detect rubber-stamp approvals, gates that always pass, decision-time tracking, rejection-rate analysis
+when_to_use: Reviewing engineering process health. Read by /inbox + project-auditor
+applies_to:
+  - _default
+---
+
 # Gate Health — reference
 
 How to tell whether your quality gates are real gates or theater. Read by `tech-lead` when `/inbox` flags rubber-stamping, and by anyone calibrating a gate after a postmortem.

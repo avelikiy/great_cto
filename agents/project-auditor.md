@@ -35,7 +35,7 @@ Do not attempt partial analysis.
 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
-ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | head -1)}"
+ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | sort -V | tail -1)}"
 ```
 
 ---
@@ -696,7 +696,7 @@ fi
 ```bash
 # Extract canonical type list from TYPE_MAP.md (backticked tokens in the right column)
 TYPE_MAP_PATH="${ARCHETYPES_MD%ARCHETYPES.md}TYPE_MAP.md"
-[ -f "$TYPE_MAP_PATH" ] || TYPE_MAP_PATH=$(find ~/.claude -name "TYPE_MAP.md" -path "*/great_cto/*" 2>/dev/null | head -1)
+[ -f "$TYPE_MAP_PATH" ] || TYPE_MAP_PATH=$(find ~/.claude -name "TYPE_MAP.md" -path "*/great_cto/*" 2>/dev/null | sort -V | tail -1)
 VALID_TYPES=$(grep -oE '`[a-z0-9-]+`' "$TYPE_MAP_PATH" 2>/dev/null | tr -d '`' | sort -u)
 
 validate_type() {

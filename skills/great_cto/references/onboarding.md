@@ -1,3 +1,11 @@
+---
+name: onboarding
+description: Auto-generated onboarding doc: synthesised from existing artefacts (PROJECT.md, ARCH-*, RFC-*, RUNBOOK-*) — not a hand-written wiki that goes stale
+when_to_use: New engineer joining. Read by project-auditor when generating /onboarding
+applies_to:
+  - _default
+---
+
 # Onboarding — Reference
 
 > One artifact, two-hour read, real context. Synthesized from artifacts the project already produces — not a hand-written wiki that goes stale.

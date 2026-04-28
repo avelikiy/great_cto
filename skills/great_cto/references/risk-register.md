@@ -1,3 +1,11 @@
+---
+name: risk-register
+description: Active risk register: forward-looking architectural/operational/security risks (not tasks, not postmortems), severity × likelihood × mitigation
+when_to_use: Risk tracking. Read by tech-lead at ARCH time + security-officer at audit time
+applies_to:
+  - _default
+---
+
 # Risk Register — Reference
 
 > **Single active reference** for architectural, operational, and security risks. Not a backlog (tasks have done-state; risks don't). Not a postmortem (risks are *forward-looking*).

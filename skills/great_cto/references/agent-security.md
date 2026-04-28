@@ -1,3 +1,12 @@
+---
+name: agent-security
+description: Security reference for agent-product archetype: OWASP LLM Top 10 audit mapping, prompt injection defenses, tool sandboxing, output sanitization, agent constitution patterns
+when_to_use: Security review of user-facing agent products (Claude Agent SDK, LangGraph, CrewAI). Read by security-officer + ai-security-reviewer during audits
+applies_to:
+  - agent-product
+  - ai-system
+---
+
 # Agent Security Reference
 
 > Security reference for `agent-product` archetype. Used by security-officer during audits.

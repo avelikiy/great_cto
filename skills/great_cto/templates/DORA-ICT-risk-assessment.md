@@ -1,3 +1,11 @@
+---
+name: DORA-ICT-risk-assessment
+description: EU Digital Operational Resilience Act ICT risk assessment per Article 6/8/11/17-23. Governance, risk framework, response/recovery, incident management + reporting (≤4h initial, ≤72h formal, ≤1mo final)
+when_to_use: Compliance documentation for regulated archetype with compliance:[dora]. Required for EU financial entities
+applies_to:
+  - regulated
+---
+
 # DORA-ICT-risk-assessment.md — EU Digital Operational Resilience Act
 
 > Mandatory artefact when `compliance: [dora]` in PROJECT.md.

@@ -1,3 +1,11 @@
+---
+name: ai-pack
+description: Domain-specific depth for AI/ML projects: LLM serving (vLLM/Ollama), prompt programming (DSPy), evaluation frameworks (Ragas/Promptfoo/Braintrust), vector DB selection, RAG patterns
+when_to_use: Building internal AI/ML systems (RAG, MCP servers, LLM ops, ML training/serving, voice, multimodal — not user-facing agents)
+applies_to:
+  - ai-system
+---
+
 # AI Domain Pack
 
 > Extends `ai-system` archetype with domain-specific depth for voice agents, multimodal apps, RAG systems, LLM ops, ML training/serving, and computer vision.
