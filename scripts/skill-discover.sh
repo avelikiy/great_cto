@@ -18,14 +18,33 @@ PLUGIN_DIR=$(ls -d "$HOME/.claude/plugins/cache/local/great_cto/"*/ 2>/dev/null 
 
 # Helper: emit one registry entry as JSON-line (pre-comma-stripped)
 # Truncate summary to 280 chars at word boundary (no mid-word cut).
+# Compute quality_score (0-100) from frontmatter completeness + body length.
 emit_entry() {
   local name="$1" source="$2" path="$3" summary="$4"
   summary=$(printf '%s' "$summary" | sed 's/"/\\"/g' | tr -d '\n')
   if [ "${#summary}" -gt 280 ]; then
-    # Trim to last whitespace before 280 chars, append ellipsis
     summary=$(printf '%s' "$summary" | head -c 280 | sed 's/ [^ ]*$//')…
   fi
-  printf '    {"name":"%s","source":"%s","path":"%s","summary":"%s"}' "$name" "$source" "$path" "$summary"
+
+  # Quality scoring (v1.0.144+):
+  #   30pt — frontmatter present (--- ... --- block)
+  #   20pt — `description:` field present + ≥ 30 chars
+  #   15pt — `when_to_use:` OR `summary:` field present
+  #   15pt — `applies_to:` field present (archetype tags)
+  #   10pt — body has ≥ 50 lines
+  #   10pt — file size ≥ 2 KB (substantive content)
+  local score=0
+  if head -1 "$path" 2>/dev/null | grep -q "^---$"; then score=$((score + 30)); fi
+  local desc=$(awk '/^---$/{c++; next} c==1 && /^description:/{sub(/^description:[[:space:]]*/,""); print; exit}' "$path" 2>/dev/null)
+  if [ "${#desc}" -ge 30 ]; then score=$((score + 20)); fi
+  if grep -qE "^(when_to_use|summary):" "$path" 2>/dev/null; then score=$((score + 15)); fi
+  if grep -qE "^applies_to:" "$path" 2>/dev/null; then score=$((score + 15)); fi
+  local lines=$(wc -l < "$path" 2>/dev/null | tr -d ' ')
+  if [ "${lines:-0}" -ge 50 ]; then score=$((score + 10)); fi
+  local size=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
+  if [ "${size:-0}" -ge 2048 ]; then score=$((score + 10)); fi
+
+  printf '    {"name":"%s","source":"%s","path":"%s","quality_score":%d,"summary":"%s"}' "$name" "$source" "$path" "$score" "$summary"
 }
 
 # Helper: extract description for catalog browsing (≤200 chars).
