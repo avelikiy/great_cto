@@ -13,7 +13,15 @@ You are the Doctor. Produce a concise, actionable health report for the great_ct
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 FIX_MODE=false
-[ "${1:-}" = "--fix" ] && FIX_MODE=true
+SKILLS_DETAIL=false
+SKILLS_REFRESH=false
+for arg in "$@"; do
+  case "$arg" in
+    --fix) FIX_MODE=true ;;
+    --skills) SKILLS_DETAIL=true ;;
+    --skills-refresh) SKILLS_REFRESH=true; SKILLS_DETAIL=true ;;
+  esac
+done
 TODAY=$(date +%Y-%m-%d)
 NOW_EPOCH=$(date +%s)
 ```
@@ -319,6 +327,70 @@ if [ -f .env.local ]; then
   fi
 fi
 ```
+
+## Check 8c — Skills registry (v1.0.139+)
+
+Display the 4-tier skills inventory and flag missing pieces. With `--skills-refresh` flag, force re-scan.
+
+```bash
+echo ""
+echo "Skills registry:"
+REGISTRY="$HOME/.great_cto/skills-registry.json"
+
+# Refresh if requested OR registry missing/stale
+if [ "${SKILLS_REFRESH:-false}" = "true" ] || [ ! -f "$REGISTRY" ]; then
+  if [ -x "${PLUGIN_DIR}/scripts/skill-discover.sh" ]; then
+    bash "${PLUGIN_DIR}/scripts/skill-discover.sh" 2>&1 | sed 's/^/  /'
+  else
+    echo "  ✗ scripts/skill-discover.sh not found in plugin"
+  fi
+fi
+
+if [ -f "$REGISTRY" ]; then
+  AGE_HOURS=$(( ($(date +%s) - $(stat -f %m "$REGISTRY" 2>/dev/null || stat -c %Y "$REGISTRY")) / 3600 ))
+  echo "  Last refresh: ${AGE_HOURS}h ago (24h cache)"
+
+  T1=$(python3 -c "import json; d=json.load(open('$REGISTRY')); print(len(d.get('tier1_great_cto', [])))" 2>/dev/null)
+  T2=$(python3 -c "import json; d=json.load(open('$REGISTRY')); print(len(d.get('tier2_external', [])))" 2>/dev/null)
+  T3=$(python3 -c "import json; d=json.load(open('$REGISTRY')); print(len(d.get('tier3_personal', [])))" 2>/dev/null)
+  echo "  Tier 1 (great_cto built-in):     $T1 skills"
+  echo "  Tier 2 (external dependencies):  $T2 skills"
+  echo "  Tier 3 (personal repo):          $T3 skills"
+
+  # Check tier 2 sources presence
+  [ -d "$HOME/.great_cto/anthropic-skills" ] && \
+    echo "  ✓ anthropic-skills cloned ($(cd $HOME/.great_cto/anthropic-skills && git log -1 --pretty=%cr 2>/dev/null))" || \
+    echo "  ⚠ anthropic-skills not cloned — SessionStart will pull it next session"
+
+  [ -d "$HOME/.great_cto/personal-skills" ] && \
+    echo "  ✓ personal-skills cloned ($(cd $HOME/.great_cto/personal-skills && git log -1 --pretty=%cr 2>/dev/null))" || \
+    echo "  ⚠ personal-skills not configured — set up: gh repo create avelikiy/ai-agent-skills"
+
+  # If invoked with --skills, show archetype-relevant skills
+  if [ "${SKILLS_DETAIL:-false}" = "true" ]; then
+    ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+    if [ -n "$ARCHETYPE" ]; then
+      echo ""
+      echo "  Skills auto-loaded for archetype '$ARCHETYPE':"
+      python3 -c "
+import json
+d = json.load(open('$REGISTRY'))
+packs = d.get('archetype_packs', {}).get('$ARCHETYPE', [])
+for p in packs:
+    print(f'    ✓ {p}')
+" 2>/dev/null
+    fi
+  fi
+else
+  echo "  ⚠ skills-registry.json not yet generated"
+  echo "    Run: /doctor --skills-refresh"
+fi
+```
+
+**Flags**:
+- `/doctor --skills` → show registry summary + archetype-relevant skills
+- `/doctor --skills-refresh` → force re-scan all 4 tiers
+- (default) → show summary only as part of Check 8c
 
 ## Check 9 — Auto-remediation (--fix mode)
 
