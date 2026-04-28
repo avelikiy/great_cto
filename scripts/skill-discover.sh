@@ -24,18 +24,46 @@ emit_entry() {
   printf '    {"name":"%s","source":"%s","path":"%s","summary":"%s"}' "$name" "$source" "$path" "$summary"
 }
 
-# Helper: extract first line after frontmatter or first ## heading as summary
+# Helper: extract description for catalog browsing (≤200 chars).
+# Tries in order: frontmatter `description:`, frontmatter `summary:`,
+# first non-empty paragraph after frontmatter, first sentence of body.
 get_summary() {
   local file="$1"
-  # Try frontmatter description first
   local desc
-  desc=$(awk '/^description:/{sub(/^description:[[:space:]]*/,""); print; exit}' "$file" 2>/dev/null)
+
+  # 1. frontmatter description (most reliable)
+  desc=$(awk '/^---$/{c++; next} c==1 && /^description:/{sub(/^description:[[:space:]]*/,""); print; exit}' "$file" 2>/dev/null)
+  if [ -n "$desc" ]; then
+    printf '%s' "$desc" | head -c 200
+    return
+  fi
+
+  # 2. frontmatter summary or when_to_use
+  desc=$(awk '/^---$/{c++; next} c==1 && (/^summary:/ || /^when_to_use:/){sub(/^[a-z_]+:[[:space:]]*/,""); print; exit}' "$file" 2>/dev/null)
+  if [ -n "$desc" ]; then
+    printf '%s' "$desc" | head -c 200
+    return
+  fi
+
+  # 3. First text line after the SECOND --- (end of frontmatter)
+  # OR first text line if no frontmatter at all
+  desc=$(awk '
+    BEGIN { in_fm=0; saw_close=0 }
+    /^---$/ { in_fm = !in_fm; if(!in_fm) saw_close=1; next }
+    in_fm { next }
+    /^[[:space:]]*$/ { next }
+    /^#/ { next }
+    /^>/ { next }
+    /^[A-Za-z]/ { print; exit }
+  ' "$file" 2>/dev/null | head -c 200)
   if [ -n "$desc" ]; then
     printf '%s' "$desc"
     return
   fi
-  # Fall back to first paragraph after frontmatter
-  awk '/^---$/{c++;next} c>=2 && /^[A-Za-z]/{print;exit}' "$file" 2>/dev/null | head -c 200
+
+  # 4. Quote-block (often the "what this is" line)
+  desc=$(awk '/^>[[:space:]]+\*\*/{sub(/^>[[:space:]]+\*\*[^:*]+\*\*[[:space:]]*/,""); sub(/[[:space:]]*\*\*$/,""); print; exit}' "$file" 2>/dev/null | head -c 200)
+  printf '%s' "$desc"
 }
 
 # ── Tier 1: great_cto built-in ────────────────────────────────────────────
@@ -117,6 +145,70 @@ read -r -d '' ARCHETYPE_PACKS <<'JSON' || true
   "devtools":          ["devtools-pack", "ARCH-default"]
 JSON
 
+# ── Per-(agent × archetype) skill suggestions ─────────────────────────────
+# Logic: archetype determines which agents run; each agent picks skills from
+# this map based on its role + project archetype. Agent Step 0 consults the
+# matching list and decides which to Read.
+read -r -d '' AGENT_SKILLS <<'JSON' || true
+  "tech-lead": {
+    "_default":          ["pre-mortem", "risk-register", "vendors", "cost-model", "anti-patterns"],
+    "ai-system":         ["+ARCH-ai", "+ai-pack", "+secure-sdlc"],
+    "agent-product":     ["+ARCH-ai", "+agent-pack", "+secure-sdlc"],
+    "commerce":          ["+ARCH-default", "+commerce-pack", "+secure-sdlc"],
+    "web3":              ["+ARCH-defi-protocol", "+web3-pack"],
+    "browser-extension": ["+ARCH-browser-extension", "+browser-extension-pack"],
+    "game":              ["+ARCH-game", "+game-pack"],
+    "regulated":         ["+ARCH-default", "+enterprise-pack", "+secure-sdlc"]
+  },
+  "senior-dev": {
+    "_default":          ["superpowers:test-driven-development", "knowledge-extraction", "poc-mode"],
+    "ai-system":         ["+agent-pack", "+ADR-LLM", "+ADR-PROMPT"],
+    "agent-product":     ["+agent-pack", "+ADR-LLM", "+ADR-PROMPT"],
+    "commerce":          ["+commerce-pack"],
+    "web3":              ["+web3-pack"],
+    "browser-extension": ["+browser-extension-pack"]
+  },
+  "qa-engineer": {
+    "_default":          ["agent-style", "knowledge-extraction"],
+    "ai-system":         ["+EVAL-template", "+ai-pack"],
+    "agent-product":     ["+EVAL-template", "+agent-pack"],
+    "commerce":          ["+commerce-pack"],
+    "web3":              ["+web3-pack"]
+  },
+  "security-officer": {
+    "_default":          ["security-tiers", "secure-sdlc", "agent-security", "pre-mortem", "risk-register", "vendors", "waivers"],
+    "ai-system":         ["+THREAT-MODEL-AI", "+agent-pack"],
+    "agent-product":     ["+THREAT-MODEL-AI", "+agent-pack"],
+    "commerce":          ["+PCI-DSS-SAQ-A", "+commerce-pack"],
+    "web3":              ["+web3-pack"],
+    "browser-extension": ["+THREAT-MODEL-AI", "+browser-extension-pack"],
+    "regulated":         ["+enterprise-pack", "+DORA-ICT-risk-assessment", "+NIS2-article21-controls"]
+  },
+  "devops": {
+    "_default":          ["reliability", "secure-sdlc", "poc-mode", "waivers"]
+  },
+  "l3-support": {
+    "_default":          ["incident-patterns", "reliability", "grafana-ops", "anti-patterns", "knowledge-extraction"]
+  },
+  "project-auditor": {
+    "_default":          ["agent-style", "knowledge-extraction", "onboarding"],
+    "ai-system":         ["+agent-pack"],
+    "agent-product":     ["+agent-pack"]
+  },
+  "ai-prompt-architect": {
+    "_default":          ["ADR-PROMPT", "ai-pack", "agent-pack"]
+  },
+  "ai-eval-engineer": {
+    "_default":          ["EVAL-template", "ai-pack", "agent-pack", "superpowers:test-driven-development"]
+  },
+  "ai-security-reviewer": {
+    "_default":          ["THREAT-MODEL-AI", "agent-pack", "ai-pack", "agent-security"]
+  },
+  "web-store-reviewer": {
+    "_default":          ["browser-extension-pack", "THREAT-MODEL-AI"]
+  }
+JSON
+
 # ── Build registry JSON ───────────────────────────────────────────────────
 {
   echo "{"
@@ -143,7 +235,8 @@ JSON
     printf '\n'
   fi
   printf '  ],\n'
-  printf '  "archetype_packs": {\n%s\n  }\n' "$ARCHETYPE_PACKS"
+  printf '  "archetype_packs": {\n%s\n  },\n' "$ARCHETYPE_PACKS"
+  printf '  "agent_skills": {\n%s\n  }\n' "$AGENT_SKILLS"
   echo "}"
 } > "$REGISTRY"
 
