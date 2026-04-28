@@ -240,7 +240,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    ```
 4. **Read context** (mandatory before writing a single line of code):
    - Codebase map (if existing repo): `cat .great_cto/CODEBASE.md 2>/dev/null | head -40` — god nodes = highest-coupling modules, change carefully
-   - Architecture doc: `ls docs/architecture/ARCH-*.md | sort | tail -1`
+   - Architecture doc: `ls docs/architecture/ARCH-*.md | sort -V | tail -1`
    - ADRs: `ls docs/decisions/ADR-*.md 2>/dev/null | sort | tail -3`
    - Last 3 postmortems (learn from production failures):
      ```bash
@@ -305,7 +305,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 
    Read the Requirements Checklist from the ARCH doc:
    ```bash
-   ARCH_FILE=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort | tail -1)
+   ARCH_FILE=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
    grep "^\- \[" "$ARCH_FILE" 2>/dev/null | grep -v "x\]" || echo "NO_CHECKLIST"
    ```
    For each unchecked REQ item — confirm it is implemented and a test covers it:

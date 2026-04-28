@@ -491,7 +491,7 @@ If no ARCH file or no Requirements Checklist → note "No requirements checklist
 
 **Mirror COVERED REQs into bd as TEST tasks** — for every REQ marked COVERED, create a test task and wire it via `bd dep add TEST IMPL` (test blocks on impl). This completes the REQ → IMPL → TEST chain for `/review trace`:
 ```bash
-FEATURE_SLUG=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort | tail -1 | sed 's|.*ARCH-||;s|\.md$||' | tr '[:upper:]' '[:lower:]')
+FEATURE_SLUG=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1 | sed 's|.*ARCH-||;s|\.md$||' | tr '[:upper:]' '[:lower:]')
 # For each COVERED REQ-N (pseudocode — one call per covered REQ):
 #   TEST_ID=$(bd create "TEST: REQ-N — <evidence path>" --type task --priority 2 \
 #     --label test --label "feature-$FEATURE_SLUG" --json 2>/dev/null \

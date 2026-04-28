@@ -75,7 +75,7 @@ done | sort -r | head -5
 bd list --status open --priority 2 2>/dev/null | wc -l
 # New baseline format: p95:<value>ms error_rate:<value>% ts:<ISO8601> feature:<name>
 tail -7 .great_cto/perf-baseline.log 2>/dev/null | grep -oE 'p95:[0-9]+ms' | sed 's/p95://' | tr '\n' ' '
-ls docs/audits/AUDIT-*.md docs/audit/AUDIT-*.md 2>/dev/null | sort | tail -1 || echo "NO_AUDIT"
+ls docs/audits/AUDIT-*.md docs/audit/AUDIT-*.md 2>/dev/null | sort -V | tail -1 || echo "NO_AUDIT"
 ```
 
 **ADR decisions this period:**
@@ -275,7 +275,7 @@ else
 fi
 
 # 3. Review pressure: P1+P2 count from most recent /review report
-LATEST_REVIEW=$(ls docs/reviews/REVIEW-*.md 2>/dev/null | sort | tail -1)
+LATEST_REVIEW=$(ls docs/reviews/REVIEW-*.md 2>/dev/null | sort -V | tail -1)
 if [ -n "$LATEST_REVIEW" ]; then
   P1R=$(grep -c "^\*\*P1\|^- P1\b" "$LATEST_REVIEW" 2>/dev/null || echo 0)
   P2R=$(grep -c "^\*\*P2\|^- P2\b" "$LATEST_REVIEW" 2>/dev/null || echo 0)
