@@ -143,7 +143,10 @@ After ARCH is written but before handing off to senior-dev, delegate to speciali
 |---|---|
 | `ai-system` / `agent-product` | ai-security-reviewer → ai-prompt-architect → ai-eval-engineer |
 | `browser-extension` (v1.0.136+) | web-store-reviewer (Web Store preflight + manifest validation + permissions audit) |
-| `commerce` / `web3` / `regulated` / `iot-embedded` | security-officer pre-impl (generic STRIDE + archetype-specific from packs) |
+| `commerce` (v1.0.143+) | pci-reviewer (PCI scope, idempotency, webhook signing, SCA / PSD2, refund/dispute) |
+| `web3` (v1.0.143+) | oracle-reviewer (oracle strategy, MEV, upgradeability matrix, L2 resilience) |
+| `iot-embedded` (v1.0.143+) | firmware-reviewer (OTA, ETSI EN 303 645, secure boot, HIL test, wireless security) |
+| `regulated` | security-officer pre-impl (generic STRIDE + enterprise-pack compliance frameworks) |
 
 Each specialist subagent:
 - Reads ARCH + relevant pack

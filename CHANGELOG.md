@@ -4,6 +4,49 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.143 — 2026-04-28
+
+### Added — three new specialist subagents (commerce / web3 / iot)
+
+Same pattern as v1.0.134 AI specialists + v1.0.136 web-store-reviewer: each archetype with high domain-specific complexity gets a pre-impl reviewer that consults its pack + templates and produces a tailored TM-{slug}.md before senior-dev claims tasks.
+
+| Subagent | Archetype | Specialises in |
+|---|---|---|
+| **`pci-reviewer`** (Sonnet 4.6) | `commerce` | PCI-DSS scope (SAQ-A vs SAQ-D), idempotency proof, webhook signature validation, refund/dispute flow, SCA / PSD2 (EU), PSP failover |
+| **`oracle-reviewer`** (Sonnet 4.6) | `web3` | Subtype block-ship gates, oracle strategy (Chainlink + Pyth + TWAP), MEV protection, upgradeability matrix (Immutable / UUPS / Diamond / Beacon), L2 resilience, custody/multisig, bug bounty TVL tier |
+| **`firmware-reviewer`** (Sonnet 4.6) | `iot-embedded` | OTA strategy (signing + A/B + auto-rollback + fleet), ETSI EN 303 645 13 provisions, secure boot, HIL test, wireless protocol security (BLE/Wi-Fi/Zigbee/Matter/LoRa) |
+
+### Wiring
+
+- `security-officer.md` pre-impl mode delegates to each new specialist for matching archetype (commerce/web3/iot-embedded)
+- `tech-lead.md` § Subagent delegation table extended with rows for new specialists
+- `plugin.json` AGENT loop adds 3 new agents (now **14** agents total)
+- `ARCHETYPES.md` § Required Agents adds new subsection for commerce/web3/iot specialists with full pipeline diagrams
+- `scripts/skill-discover.sh` adds `agent_skills` entries for the 3 new subagents
+
+### Coverage
+
+| | Before | After |
+|---|---|---|
+| Agents | 11 | **14** |
+| Specialist subagents per archetype | AI (3) + browser-extension (1) | + commerce (1) + web3 (1) + iot (1) |
+| Templates | 19 | 19 (no change) |
+| Archetypes | 14 | 14 (no change) |
+
+### Pattern parity across security-critical archetypes
+
+| Archetype | Specialist subagent | Coverage depth |
+|---|---|---|
+| `ai-system` | ai-security-reviewer + ai-prompt-architect + ai-eval-engineer | Full chain |
+| `agent-product` | same as ai-system | Full chain |
+| `browser-extension` | web-store-reviewer | Single specialist |
+| `commerce` | pci-reviewer | Single specialist |
+| `web3` | oracle-reviewer | Single specialist |
+| `iot-embedded` | firmware-reviewer | Single specialist |
+| `regulated` | security-officer pre-impl + enterprise-pack | Generic STRIDE + compliance frameworks |
+
+---
+
 ## v1.0.142 — 2026-04-28
 
 ### Fixed — gaps surfaced by 3 parallel field-test simulations of v1.0.140
