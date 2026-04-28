@@ -1,3 +1,11 @@
+---
+name: board-narrative
+description: Synthesizer rules for /digest board: connect ships to business outcomes, every sentence traces to a repo file, no marketing fluff
+when_to_use: Quarterly board reports via /digest board. Read by digest command
+applies_to:
+  - _default
+---
+
 # Board narrative — Reference
 
 > `/digest board` output needs to connect ships to business outcomes — not just list DORA numbers. The narrative is a **synthesizer, not a writer**: every sentence traces back to a file in the repo.

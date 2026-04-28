@@ -10,6 +10,24 @@ Show the CTO everything that needs attention: pending gates, recent activity dig
 
 ## Gather Data (run all in parallel)
 
+**Archetype confidence banner (v1.0.146+):**
+```bash
+# Surface low/medium detection confidence so user can override before pipeline commits
+CONF=$(grep "^archetype_confidence:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+if [ -n "$CONF" ] && [ "$CONF" != "high" ] && [ "$CONF" != "user-specified" ]; then
+  ALT=$(grep "^archetype_alternatives:" .great_cto/PROJECT.md 2>/dev/null | sed 's/^archetype_alternatives:[[:space:]]*//')
+  ARCH=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+  echo "ARCHETYPE_CONFIDENCE:level=${CONF} archetype=${ARCH} alternatives=${ALT}"
+fi
+```
+
+Output line (if fires):
+```
+⚠ Archetype detection: <archetype> (confidence: <level>)
+  Alternatives: [<alts>]
+  If wrong, edit `archetype:` in .great_cto/PROJECT.md before running /start.
+```
+
 **POC mode banner (fires only if `mode: poc` in PROJECT.md):**
 ```bash
 if grep -q "^mode:\s*poc" .great_cto/PROJECT.md 2>/dev/null; then

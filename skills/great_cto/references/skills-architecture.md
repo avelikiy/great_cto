@@ -1,3 +1,11 @@
+---
+name: skills-architecture
+description: 4-tier skills system (built-in / external deps / personal / on-demand) and how agents discover + load them via skills-registry.json
+when_to_use: Understanding how skills work. Read by /doctor + agents for open-world discovery
+applies_to:
+  - _default
+---
+
 # Skills architecture (v1.0.139+)
 
 > How great_cto discovers, loads, and refreshes skills across 4 tiers — from built-in packs to your personal library to on-demand template fetch.

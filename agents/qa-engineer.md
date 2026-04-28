@@ -53,7 +53,7 @@ Skip triage for deterministic failures (test fails 3x in a row, same assertion) 
 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
-ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | head -1)}"
+ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | sort -V | tail -1)}"
 MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 MODE=${MODE:-production}
 ```
@@ -284,7 +284,7 @@ Read ARCHETYPES.md → find QA strategy row for `$ARCHETYPE`. This gives base QA
 ```bash
 PACKS=$(grep "^packs:" .great_cto/PROJECT.md 2>/dev/null | sed 's/packs: \[//' | sed 's/\]//' | tr ',' '\n' | tr -d ' ')
 QA_EXTRAS=$(grep "^qa-extras:" .great_cto/PROJECT.md 2>/dev/null | sed 's/qa-extras: \[//' | sed 's/\]//' | tr ',' '\n' | tr -d ' ')
-PLUGIN_DIR=$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" -exec dirname {} \; 2>/dev/null | head -1)
+PLUGIN_DIR=$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | sort -V | tail -1 | xargs dirname)
 [ -z "$PLUGIN_DIR" ] && PLUGIN_DIR=$(dirname "$(find . .great_cto -name "ARCHETYPES.md" 2>/dev/null | head -1)" 2>/dev/null)
 
 # Skip pack loading entirely if no qa-extras

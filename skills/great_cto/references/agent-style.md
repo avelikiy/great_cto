@@ -1,3 +1,11 @@
+---
+name: agent-style
+description: 21 prose-style rules for technical writing in agent outputs (no fluff, active voice, concrete numbers, no apologetics) — adapted from Strunk/White/Orwell/Pinker
+when_to_use: Writing ARCH/QA/CSO reports. Read by qa-engineer + project-auditor to enforce prose quality
+applies_to:
+  - _default
+---
+
 # Agent Writing Style — 21 rules
 
 > Condensed adaptation of [yzhao062/agent-style](https://github.com/yzhao062/agent-style) v0.3.1

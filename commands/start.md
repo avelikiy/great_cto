@@ -137,7 +137,7 @@ Wait for CTO reply. If they say "I know what to build" or equivalent → proceed
 
 Read plugin files for type detection + archetype resolution:
 ```bash
-PLUGIN_DIR=$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" -exec dirname {} \; 2>/dev/null | head -1)
+PLUGIN_DIR=$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | sort -V | tail -1 | xargs dirname)
 [ -z "$PLUGIN_DIR" ] && PLUGIN_DIR=$(dirname "$(find . .great_cto -name "ARCHETYPES.md" 2>/dev/null | head -1)" 2>/dev/null)
 ```
 1. **Keywords + Archetype** → read `$PLUGIN_DIR/TYPE_MAP.md` § Type Detection Keywords (keywords → type) + Mapping Table (type → archetype + params)

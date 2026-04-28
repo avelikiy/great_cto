@@ -1,3 +1,11 @@
+---
+name: reliability
+description: SLO + Error Budget framework: SLO defines target, INCIDENT-LOG records reality, budget = gap. When burned, feature velocity throttles automatically
+when_to_use: Production services. Read by devops + l3-support + tech-lead at ARCH time
+applies_to:
+  - _default
+---
+
 # Reliability — SLO + Error Budgets — Reference
 
 > **SLO defines the target. INCIDENT-LOG records reality. Budget is the gap.** When budget is burned, feature velocity automatically throttles — no "should we stabilize?" debate.

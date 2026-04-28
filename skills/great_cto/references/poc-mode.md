@@ -1,3 +1,11 @@
+---
+name: poc-mode
+description: POC/MVP mode: relaxed gates (no full ARCH, no full QA, no security audit), explicit kill-switch + graduation criteria to promote to production mode
+when_to_use: Throwaway prototypes and time-boxed POCs. Read by tech-lead at /poc + senior-dev when project_size=nano
+applies_to:
+  - _default
+---
+
 # POC / MVP mode — reference
 
 CTO work has three distinct rigor levels, not one. This reference documents
