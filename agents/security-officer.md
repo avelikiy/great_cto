@@ -181,6 +181,21 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
 
   if [ ! -f "$TM" ]; then
     case "$ARCHETYPE" in
+      commerce)
+        # v1.0.143+: delegate to pci-reviewer subagent for PCI scope + idempotency + webhook + SCA
+        echo "DELEGATE: spawn pci-reviewer subagent. Produces $TM with PCI-DSS scope, idempotency proof, webhook signature validation, refund/dispute flow, SCA/PSD2." >&2
+        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        ;;
+      web3)
+        # v1.0.143+: delegate to oracle-reviewer subagent for oracle/MEV/upgradeability
+        echo "DELEGATE: spawn oracle-reviewer subagent. Produces $TM with oracle strategy, MEV protection, upgradeability decision matrix, L2 resilience." >&2
+        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        ;;
+      iot-embedded)
+        # v1.0.143+: delegate to firmware-reviewer subagent for OTA/ETSI/secure boot/HIL
+        echo "DELEGATE: spawn firmware-reviewer subagent. Produces $TM with OTA strategy, ETSI EN 303 645, secure boot, HIL test design, wireless security." >&2
+        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        ;;
       browser-extension)
         # Browser extension — delegate to web-store-reviewer subagent (v1.0.136+) for
         # Web Store policy preflight + manifest validation + permissions audit.

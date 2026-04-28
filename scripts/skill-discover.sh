@@ -229,6 +229,15 @@ read -r -d '' AGENT_SKILLS <<'JSON' || true
   },
   "web-store-reviewer": {
     "_default":          ["browser-extension-pack", "THREAT-MODEL-AI"]
+  },
+  "pci-reviewer": {
+    "_default":          ["commerce-pack", "PCI-DSS-SAQ-A", "PCI-DSS-SAQ-D", "THREAT-MODEL-AI"]
+  },
+  "oracle-reviewer": {
+    "_default":          ["web3-pack", "ARCH-defi-protocol", "THREAT-MODEL-AI"]
+  },
+  "firmware-reviewer": {
+    "_default":          ["THREAT-MODEL-AI", "NIS2-article21-controls"]
   }
 JSON
 
