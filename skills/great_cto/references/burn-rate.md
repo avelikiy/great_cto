@@ -1,3 +1,11 @@
+---
+name: burn-rate
+description: SLO burn-rate alerting reference: multi-window multi-burn-rate (5min/1h/6h/3d), why point-in-time error-budget checks fail, fast-burn vs slow-burn
+when_to_use: Wiring SLO alerts in monitoring. Read by tech-lead at ARCH time + l3-support during incidents
+applies_to:
+  - _default
+---
+
 # SLO Burn Rate — reference
 
 Multi-window multi-burn-rate alerting. Catches budget exhaustion 6+ hours before it happens. Read by `tech-lead` and `devops` when `/burn` fires.

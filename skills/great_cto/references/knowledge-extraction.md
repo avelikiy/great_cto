@@ -1,3 +1,11 @@
+---
+name: knowledge-extraction
+description: Schema for structured extraction from incidents/blocked QA/audits: feeds global pattern library that surfaces at next ARCH time
+when_to_use: Crystallizing learnings via /crystallize. Read by senior-dev + project-auditor
+applies_to:
+  - _default
+---
+
 # Knowledge Extraction Protocol
 
 > Schema and instructions for structured knowledge extraction after resolved incidents,

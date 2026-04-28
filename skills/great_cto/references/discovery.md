@@ -1,3 +1,11 @@
+---
+name: discovery
+description: 4-6 question framework used when /start, /audit, /poc inputs are too sparse — disambiguates archetype, size, compliance before committing
+when_to_use: Phase 0 of any new feature when requirements are vague. Read by tech-lead at /start
+applies_to:
+  - _default
+---
+
 # Discovery Protocol
 
 > Structured question framework used by `/start`, `/audit`, and `/poc` when input is too sparse

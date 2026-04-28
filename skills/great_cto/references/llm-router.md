@@ -1,3 +1,12 @@
+---
+name: llm-router
+description: LLM router config (OpenRouter / Kimi K2): when to delegate to cheaper models, fallback chains, observability, $/token tracking
+when_to_use: Cost-optimised AI workflows. Read by tech-lead + senior-dev when LLM-cost is material
+applies_to:
+  - ai-system
+  - agent-product
+---
+
 # LLM Router (OpenRouter / Kimi K2)
 
 A zero-dependency MCP server that lets specific great_cto agents delegate

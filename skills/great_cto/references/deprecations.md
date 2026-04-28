@@ -1,3 +1,11 @@
+---
+name: deprecations
+description: Deprecation calendar: explicit lifecycle for sunsetting frameworks/APIs/runtimes/vendors, prevents quarterly firefights from EOL surprises
+when_to_use: Stack-introduction time + quarterly review. Read by tech-lead before committing to a stack
+applies_to:
+  - _default
+---
+
 # Deprecation Calendar — Reference
 
 > **Explicit lifecycle** for things we're sunsetting — frameworks, APIs, runtimes, regions, vendors. Without this, deprecation-driven emergencies become quarterly firefights.

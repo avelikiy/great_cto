@@ -1,3 +1,14 @@
+---
+name: pre-mortem
+description: Pre-mortem template: forward-looking failure analysis BEFORE risky work starts — distinct from ADR (decision), postmortem (past), threat model (adversarial)
+when_to_use: Risky changes (large/enterprise + web3/iot-embedded/regulated). Read by tech-lead before finalising ARCH
+applies_to:
+  - web3
+  - iot-embedded
+  - regulated
+  - fintech
+---
+
 # Pre-mortem — Reference
 
 > Forward-looking failure analysis. Run *before* risky work starts — not after something breaks. Distinct from ADR (decision rationale), postmortem (past incident), and threat model (adversarial security).

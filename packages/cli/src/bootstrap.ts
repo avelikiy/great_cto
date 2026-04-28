@@ -18,6 +18,7 @@ export function bootstrap(
   detection: DetectionResult,
   archetype: Archetype,
   compliance: string[],
+  detectionMeta?: { confidence: string; alternatives: string[]; rationale?: string },
 ): BootstrapResult {
   const greatCtoDir = join(dir, ".great_cto");
   const projectMd = join(greatCtoDir, "PROJECT.md");
@@ -48,10 +49,12 @@ project_size: medium
 stack: ${stackLine}
 languages: ${detection.languages.join(", ") || "to be defined"}
 package-manager: ${detection.packageManager ?? "none"}
-
+${detectionMeta ? `archetype_confidence: ${detectionMeta.confidence}\n` : ""}${detectionMeta && detectionMeta.alternatives.length > 0 ? `archetype_alternatives: [${detectionMeta.alternatives.join(", ")}]\n` : ""}${detectionMeta?.rationale ? `archetype_rationale: ${detectionMeta.rationale.replace(/\n/g, " ")}\n` : ""}
 > \`archetype:\` drives tier/gate selection (see references/security-tiers.md).
 > \`project_size:\` is one of nano | small | medium | large | enterprise — agents
 > scale gate depth accordingly. Edit either if auto-detection got it wrong.
+> \`archetype_confidence:\` is one of high | medium | low | user-specified — when
+> < high, /inbox surfaces a warning so you can override before committing.
 
 ## Phase
 

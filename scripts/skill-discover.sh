@@ -44,7 +44,27 @@ emit_entry() {
   local size=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
   if [ "${size:-0}" -ge 2048 ]; then score=$((score + 10)); fi
 
-  printf '    {"name":"%s","source":"%s","path":"%s","quality_score":%d,"summary":"%s"}' "$name" "$source" "$path" "$score" "$summary"
+  # v1.0.146: extract applies_to YAML list into JSON array.
+  # Supported formats:
+  #   applies_to: [archetype1, archetype2]
+  #   applies_to:
+  #     - archetype1
+  #     - archetype2
+  local applies_json
+  applies_json=$(awk '
+    /^---$/ { c++; if(c==2) exit; next }
+    c!=1 { next }
+    /^applies_to:[[:space:]]*\[/ {
+      sub(/^applies_to:[[:space:]]*\[/,""); sub(/\][[:space:]]*$/,"");
+      gsub(/[[:space:]]/,""); n=split($0,a,","); for(i=1;i<=n;i++) if(a[i]!="") print a[i];
+      next
+    }
+    /^applies_to:[[:space:]]*$/ { in_list=1; next }
+    in_list && /^[[:space:]]*-[[:space:]]+/ { sub(/^[[:space:]]*-[[:space:]]+/,""); gsub(/[[:space:]]/,""); print; next }
+    in_list && /^[^[:space:]-]/ { in_list=0 }
+  ' "$path" 2>/dev/null | awk 'BEGIN{ORS=""; first=1} {if(!first)printf ","; printf "\"%s\"", $0; first=0}')
+
+  printf '    {"name":"%s","source":"%s","path":"%s","quality_score":%d,"applies_to":[%s],"summary":"%s"}' "$name" "$source" "$path" "$score" "$applies_json" "$summary"
 }
 
 # Helper: extract description for catalog browsing (≤200 chars).
@@ -97,6 +117,8 @@ if [ -n "$PLUGIN_DIR" ] && [ -d "$PLUGIN_DIR" ]; then
            "$PLUGIN_DIR"/skills/great_cto/references/*.md; do
     [ -f "$f" ] || continue
     name=$(basename "$f" .md)
+    # v1.0.146: skip meta files (README, _drafts, etc. — start with _ or are README)
+    case "$name" in README|_*) continue ;; esac
     summary=$(get_summary "$f")
     type=$(basename "$(dirname "$f")")
     T1+=("$(emit_entry "$name" "great_cto:$type" "$f" "$summary")")
@@ -194,48 +216,103 @@ JSON
 read -r -d '' AGENT_SKILLS <<'JSON' || true
   "tech-lead": {
     "_default":          ["pre-mortem", "risk-register", "vendors", "cost-model", "anti-patterns"],
-    "ai-system":         ["+ARCH-ai", "+ai-pack", "+secure-sdlc"],
-    "agent-product":     ["+ARCH-ai", "+agent-pack", "+secure-sdlc"],
-    "commerce":          ["+ARCH-default", "+commerce-pack", "+secure-sdlc"],
-    "web3":              ["+ARCH-defi-protocol", "+web3-pack"],
+    "ai-system":         ["+ARCH-ai", "+ai-pack", "+secure-sdlc", "+THREAT-MODEL-AI", "+llm-router"],
+    "agent-product":     ["+ARCH-ai", "+agent-pack", "+secure-sdlc", "+THREAT-MODEL-AI"],
+    "commerce":          ["+ARCH-default", "+commerce-pack", "+secure-sdlc", "+PCI-DSS-SAQ-A"],
+    "web3":              ["+ARCH-defi-protocol", "+web3-pack", "+secure-sdlc"],
     "browser-extension": ["+ARCH-browser-extension", "+browser-extension-pack"],
     "game":              ["+ARCH-game", "+game-pack"],
-    "regulated":         ["+ARCH-default", "+enterprise-pack", "+secure-sdlc"]
+    "regulated":         ["+ARCH-default", "+enterprise-pack", "+secure-sdlc", "+DORA-ICT-risk-assessment", "+NIS2-article21-controls"],
+    "fintech":           ["+ARCH-default", "+enterprise-pack", "+secure-sdlc", "+PCI-DSS-SAQ-D", "+DORA-ICT-risk-assessment"],
+    "iot-embedded":      ["+ARCH-default", "+infra-pack", "+secure-sdlc"],
+    "data-platform":     ["+ARCH-default", "+data-pack"],
+    "mobile-app":        ["+ARCH-default", "+mobile-pack"],
+    "library":           ["+ARCH-default", "+library-pack"],
+    "enterprise":        ["+ARCH-default", "+enterprise-pack", "+secure-sdlc"],
+    "web-app":           ["+ARCH-default", "+web-pack"],
+    "marketing-site":    ["+ARCH-default", "+web-pack"],
+    "devtools":          ["+ARCH-default", "+devtools-pack"],
+    "infra":             ["+ARCH-default", "+infra-pack"]
   },
   "senior-dev": {
     "_default":          ["superpowers:test-driven-development", "knowledge-extraction", "poc-mode"],
-    "ai-system":         ["+agent-pack", "+ADR-LLM", "+ADR-PROMPT"],
+    "ai-system":         ["+agent-pack", "+ADR-LLM", "+ADR-PROMPT", "+ai-pack"],
     "agent-product":     ["+agent-pack", "+ADR-LLM", "+ADR-PROMPT"],
     "commerce":          ["+commerce-pack"],
     "web3":              ["+web3-pack"],
-    "browser-extension": ["+browser-extension-pack"]
+    "browser-extension": ["+browser-extension-pack"],
+    "game":              ["+game-pack"],
+    "regulated":         ["+enterprise-pack"],
+    "fintech":           ["+enterprise-pack"],
+    "iot-embedded":      ["+infra-pack"],
+    "data-platform":     ["+data-pack"],
+    "mobile-app":        ["+mobile-pack"],
+    "library":           ["+library-pack"],
+    "enterprise":        ["+enterprise-pack"],
+    "web-app":           ["+web-pack"],
+    "devtools":          ["+devtools-pack"],
+    "infra":             ["+infra-pack"]
   },
   "qa-engineer": {
     "_default":          ["agent-style", "knowledge-extraction"],
     "ai-system":         ["+EVAL-template", "+ai-pack"],
     "agent-product":     ["+EVAL-template", "+agent-pack"],
     "commerce":          ["+commerce-pack"],
-    "web3":              ["+web3-pack"]
+    "web3":              ["+web3-pack"],
+    "browser-extension": ["+browser-extension-pack"],
+    "game":              ["+game-pack"],
+    "regulated":         ["+enterprise-pack"],
+    "fintech":           ["+enterprise-pack"],
+    "iot-embedded":      ["+infra-pack"],
+    "data-platform":     ["+data-pack"],
+    "mobile-app":        ["+mobile-pack"],
+    "library":           ["+library-pack"],
+    "web-app":           ["+web-pack"]
   },
   "security-officer": {
-    "_default":          ["security-tiers", "secure-sdlc", "agent-security", "pre-mortem", "risk-register", "vendors", "waivers"],
-    "ai-system":         ["+THREAT-MODEL-AI", "+agent-pack"],
+    "_default":          ["security-tiers", "secure-sdlc", "agent-security", "pre-mortem", "risk-register", "vendors", "waivers", "sec-metrics"],
+    "ai-system":         ["+THREAT-MODEL-AI", "+agent-pack", "+ai-pack"],
     "agent-product":     ["+THREAT-MODEL-AI", "+agent-pack"],
-    "commerce":          ["+PCI-DSS-SAQ-A", "+commerce-pack"],
+    "commerce":          ["+PCI-DSS-SAQ-A", "+PCI-DSS-SAQ-D", "+commerce-pack"],
     "web3":              ["+web3-pack"],
     "browser-extension": ["+THREAT-MODEL-AI", "+browser-extension-pack"],
-    "regulated":         ["+enterprise-pack", "+DORA-ICT-risk-assessment", "+NIS2-article21-controls"]
+    "regulated":         ["+enterprise-pack", "+DORA-ICT-risk-assessment", "+DORA-third-party-register", "+NIS2-article21-controls", "+ISO27001-SoA", "+SOX-ITGC-checklist", "+TISAX-VDA-ISA-results", "+21CFR11-checklist"],
+    "fintech":           ["+enterprise-pack", "+PCI-DSS-SAQ-D", "+DORA-ICT-risk-assessment", "+DORA-third-party-register", "+SOX-ITGC-checklist"],
+    "iot-embedded":      ["+infra-pack", "+NIS2-article21-controls"],
+    "data-platform":     ["+data-pack"],
+    "enterprise":        ["+enterprise-pack", "+ISO27001-SoA", "+SOX-ITGC-checklist"]
   },
   "devops": {
-    "_default":          ["reliability", "secure-sdlc", "poc-mode", "waivers"]
+    "_default":          ["reliability", "secure-sdlc", "poc-mode", "waivers", "dora", "burn-rate"],
+    "ai-system":         ["+ai-pack"],
+    "agent-product":     ["+agent-pack"],
+    "commerce":          ["+commerce-pack"],
+    "web3":              ["+web3-pack"],
+    "regulated":         ["+enterprise-pack", "+DORA-ICT-risk-assessment", "+DORA-third-party-register"],
+    "fintech":           ["+enterprise-pack", "+DORA-ICT-risk-assessment"],
+    "iot-embedded":      ["+infra-pack"],
+    "data-platform":     ["+data-pack", "+infra-pack"],
+    "enterprise":        ["+enterprise-pack"]
   },
   "l3-support": {
-    "_default":          ["incident-patterns", "reliability", "grafana-ops", "anti-patterns", "knowledge-extraction"]
+    "_default":          ["incident-patterns", "reliability", "grafana-ops", "anti-patterns", "knowledge-extraction", "burn-rate"],
+    "ai-system":         ["+EVAL-template", "+ai-pack"],
+    "agent-product":     ["+EVAL-template", "+agent-pack"],
+    "commerce":          ["+commerce-pack"],
+    "web3":              ["+web3-pack"],
+    "regulated":         ["+enterprise-pack"],
+    "fintech":           ["+enterprise-pack"],
+    "data-platform":     ["+data-pack"],
+    "iot-embedded":      ["+infra-pack"]
   },
   "project-auditor": {
-    "_default":          ["agent-style", "knowledge-extraction", "onboarding"],
-    "ai-system":         ["+agent-pack"],
-    "agent-product":     ["+agent-pack"]
+    "_default":          ["agent-style", "knowledge-extraction", "onboarding", "anti-patterns", "decision-log"],
+    "ai-system":         ["+agent-pack", "+ai-pack"],
+    "agent-product":     ["+agent-pack"],
+    "commerce":          ["+commerce-pack"],
+    "web3":              ["+web3-pack"],
+    "browser-extension": ["+browser-extension-pack"],
+    "regulated":         ["+enterprise-pack"]
   },
   "ai-prompt-architect": {
     "_default":          ["ADR-PROMPT", "ai-pack", "agent-pack"]

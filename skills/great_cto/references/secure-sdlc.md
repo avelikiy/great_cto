@@ -1,3 +1,18 @@
+---
+name: secure-sdlc
+description: Secure SDLC mapping: which security activity at which phase (threat model at ARCH, SAST at impl, pen-test at release), gates between phases
+when_to_use: AI/agent/commerce/web3/iot/regulated archetypes. Read by tech-lead + security-officer
+applies_to:
+  - ai-system
+  - agent-product
+  - commerce
+  - web3
+  - iot-embedded
+  - regulated
+  - fintech
+  - browser-extension
+---
+
 # Secure SDLC — reference
 
 Mapping of great_cto components to NIST SSDF (SP 800-218), SLSA, and EU DORA practices. Use this as the authoritative crosswalk when an auditor or CTO asks "how does great_cto cover X?"

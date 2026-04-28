@@ -1,3 +1,11 @@
+---
+name: grafana-ops
+description: Grafana ops knowledge base: dashboard layout conventions, common queries (Loki, Tempo, Prometheus), p95/p99 patterns, log correlation
+when_to_use: Production support on Grafana stack. Read by l3-support + devops
+applies_to:
+  - _default
+---
+
 # Grafana Ops Reference
 
 > Ops knowledge base for Grafana-integrated projects. Read by `l3-support` during log checks,
