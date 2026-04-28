@@ -76,7 +76,7 @@ Hard rules:
 
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["l3-support"][_default]`. Decide which SKILL.md files to Read for current incident. See `tech-lead.md § Step 0b` for pattern.
+Read `~/.great_cto/skills-registry.json` → `agent_skills["l3-support"][_default]` plus `agent_skills["l3-support"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `tech-lead.md § Step 0b` for bash pattern.
 
 ## Step 0: Pattern Lookup (always run first)
 

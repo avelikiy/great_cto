@@ -194,6 +194,28 @@ fi
 
 **Decision time**: read the description for each suggested skill (registry has `summary` field). Read the full SKILL.md only for skills genuinely relevant to the current task. **You decide what to consult — registry just shows what's available.**
 
+### Open-world discovery (v1.0.142+)
+
+The `agent_skills[<my-name>]` map is a **starting set of priors**, not exhaustive. After consulting suggested skills, also scan the FULL registry for additional matches:
+
+```bash
+# Search tier2 (anthropic) + tier3 (personal) for skills whose summary semantically matches your current task.
+# Example: working on "MCP integration for Linear API" → tier2 has "anthropic:mcp-builder"; suggestions don't list it,
+# but description match is obvious. Read it.
+python3 - <<'PY'
+import json, re, os
+d = json.load(open(os.path.expanduser("~/.great_cto/skills-registry.json")))
+TASK_KEYWORDS = ["mcp", "linear", "tool"]  # ← derived from your current task description
+for tier in ["tier2_external", "tier3_personal"]:
+    for s in d.get(tier, []):
+        text = (s.get("summary") or "").lower() + " " + s["name"].lower()
+        if any(k in text for k in TASK_KEYWORDS):
+            print(f"  candidate: {s['name']} → {s['path']}")
+PY
+```
+
+This is **judgment-based**, not prescriptive — you decide which keywords to extract from the task description and whether candidates are worth Reading. Treat the suggestions as defaults, the open-world scan as discovery.
+
 ## Step 0: Pattern Lookup (run before designing)
 
 Before opening any ARCH doc or running brainstorm — surface patterns learned from past incidents and
@@ -638,7 +660,7 @@ SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 NEED_COST=0
 case "$SIZE" in medium|large|enterprise) NEED_COST=1 ;; esac
-case "$ARCHETYPE" in ai-system|commerce|regulated) NEED_COST=1 ;; esac
+case "$ARCHETYPE" in ai-system|agent-product|commerce|regulated) NEED_COST=1 ;; esac
 
 if [ "$NEED_COST" -eq 1 ]; then
   echo "Cost Model section required in ARCH — see skills/great_cto/references/cost-model.md"
@@ -708,7 +730,7 @@ Every ARCH-*.md for archetype `ai-system` / `commerce` / `web3` / `iot-embedded`
 ```bash
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 SECURITY_REQUIRED=0
-case "$ARCHETYPE" in ai-system|commerce|web3|iot-embedded|regulated|fintech) SECURITY_REQUIRED=1 ;; esac
+case "$ARCHETYPE" in ai-system|agent-product|commerce|web3|iot-embedded|regulated|fintech|browser-extension) SECURITY_REQUIRED=1 ;; esac
 
 if [ "$SECURITY_REQUIRED" -eq 1 ]; then
   # Compute SLUG from latest ARCH file or fall back to feature slug variable
