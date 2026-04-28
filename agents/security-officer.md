@@ -500,7 +500,7 @@ PY
 2. **Read** ARCHETYPES.md → confirm archetype security gate status (already checked in step 1)
 3. **Read latest QA report** (before running own analysis — share context):
    ```bash
-   LATEST_QA=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort | tail -1)
+   LATEST_QA=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort -V | tail -1)
    [ -n "$LATEST_QA" ] && cat "$LATEST_QA" || echo "NO_QA_REPORT"
    ```
    From QA report extract: uncovered paths, P1/P2 bugs found, coverage gaps. Use these as **high-priority targets** for security scan — uncovered code is higher-risk surface.

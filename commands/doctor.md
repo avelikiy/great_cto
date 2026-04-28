@@ -56,13 +56,42 @@ if [ -f .great_cto/PROJECT.md ]; then
 fi
 ```
 
+## Check 2c — Archetype confidence
+
+```bash
+if [ -f .great_cto/PROJECT.md ]; then
+  CONFIDENCE=$(grep "^archetype_confidence:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+  ALTERNATIVES=$(grep "^archetype_alternatives:" .great_cto/PROJECT.md 2>/dev/null | sed 's/.*\[//;s/\]//')
+  echo "Archetype confidence:"
+  case "${CONFIDENCE:-}" in
+    high)
+      echo "  ✓ archetype_confidence: high — detector is certain"
+      ;;
+    medium|low)
+      echo "  ⚠ archetype_confidence: ${CONFIDENCE} — consider reviewing alternatives: ${ALTERNATIVES:-none}"
+      echo "    Run /audit to re-detect, or set archetype: manually in .great_cto/PROJECT.md"
+      ;;
+    user-specified)
+      echo "  ✓ archetype_confidence: user-specified — manually confirmed"
+      ;;
+    "")
+      echo "  ⚠ archetype_confidence: missing — upgrade to v1.0.146+ and re-run bootstrap"
+      echo "    Quick fix: run \`npx great-cto\` in the project directory"
+      ;;
+    *)
+      echo "  ⚠ archetype_confidence: unknown value '${CONFIDENCE}' — expected high | medium | low | user-specified"
+      ;;
+  esac
+fi
+```
+
 ## Check 3 — Output artefacts per phase
 
 ```bash
 echo ""
 echo "Pipeline artefacts:"
 # Use find instead of globs so zsh without nullglob doesn't error on no-match.
-find_latest() { find "$1" -maxdepth 1 -name "$2" 2>/dev/null | sort | tail -1; }
+find_latest() { find "$1" -maxdepth 1 -name "$2" 2>/dev/null | sort -V | tail -1; }
 LAST_AUDIT=$(find_latest docs/audit          'AUDIT-*.md')
 LAST_ARCH=$(find_latest  docs/architecture   'ARCH-*.md')
 LAST_QA=$(find_latest    docs/qa-reports     'QA-*.md')
