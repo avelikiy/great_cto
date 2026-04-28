@@ -104,6 +104,10 @@ must carry an effort estimate and an impact justification, not abstract severity
 
 ---
 
+## Step 0c: Skill catalog browse (v1.0.140+)
+
+Read `~/.great_cto/skills-registry.json` → `agent_skills["project-auditor"][_default]` plus `agent_skills["project-auditor"][<archetype>]`. Decide which SKILL.md files to Read for current audit. See `tech-lead.md § Step 0b` for pattern.
+
 ## Step 0: Pattern Lookup (run before auditing)
 
 Before stack fingerprinting — surface recurring debt categories and known audit patterns for this

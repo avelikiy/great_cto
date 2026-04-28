@@ -228,6 +228,53 @@ async function runInit(args: CliArgs): Promise<number> {
     } catch { /* best-effort — don't block install */ }
   }
 
+  // ── 4c. bootstrap skills catalog (v1.0.140+) ─────────────
+  // Clone external skill repos + run skill-discover.sh so agents have
+  // the catalog locally from session 1, not after first SessionStart hook.
+  try {
+    const { existsSync, mkdirSync } = await import("node:fs");
+    const { homedir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { spawnSync } = await import("node:child_process");
+    const greatCtoDir = join(homedir(), ".great_cto");
+    mkdirSync(greatCtoDir, { recursive: true });
+
+    const skillSources = [
+      { name: "anthropic-skills", url: "https://github.com/anthropics/skills.git" },
+      { name: "personal-skills", url: "https://github.com/avelikiy/ai-agent-skills.git" },
+    ];
+
+    for (const src of skillSources) {
+      const path = join(greatCtoDir, src.name);
+      if (!existsSync(path)) {
+        log(`  ${dim(`cloning ${src.name}...`)}`);
+        const r = spawnSync("git", ["clone", "--depth=1", src.url, path], {
+          stdio: "pipe",
+          timeout: 30_000,
+        });
+        if (r.status !== 0) {
+          log(`  ${dim(`(skipped ${src.name}: clone failed; SessionStart hook will retry)`)}`);
+        }
+      }
+    }
+
+    // Run skill-discover.sh to build initial registry
+    const pluginCacheBase = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
+    const { readdirSync } = await import("node:fs");
+    if (existsSync(pluginCacheBase)) {
+      const versions = readdirSync(pluginCacheBase).sort().reverse();
+      if (versions.length > 0) {
+        const discover = join(pluginCacheBase, versions[0]!, "scripts", "skill-discover.sh");
+        if (existsSync(discover)) {
+          spawnSync("bash", [discover], { stdio: "ignore", timeout: 15_000 });
+          log(`  ${dim("skills registry built at ~/.great_cto/skills-registry.json")}`);
+        }
+      }
+    }
+  } catch {
+    /* best-effort — don't block install if skills bootstrap fails */
+  }
+
   // ── 5. bootstrap ─────────────────────────────────────────
   step(5, 5, "bootstrapping .great_cto/PROJECT.md");
   const bs = bootstrap(args.dir, detection, archetype as never, compliance);
