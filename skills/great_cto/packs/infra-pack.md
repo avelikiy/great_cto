@@ -1,3 +1,11 @@
+---
+name: infra-pack
+description: IaC patterns (Terraform/Pulumi/CDK decision), GitOps (ArgoCD/Flux), FinOps + Karpenter for K8s autoscaling, secrets management (Vault/Doppler), observability stack
+when_to_use: Building IaC, Kubernetes platforms, platform engineering, DevOps tooling
+applies_to:
+  - infra
+---
+
 # Infra Pack
 
 > Extends `infra` archetype with IaC tool decision tree, GitOps patterns, FinOps essentials, observability stack, and edge runtime constraints.

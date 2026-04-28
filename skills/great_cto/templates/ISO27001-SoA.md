@@ -1,3 +1,11 @@
+---
+name: ISO27001-SoA
+description: ISO/IEC 27001:2022 Statement of Applicability per clause 6.1.3(d): Annex A 93 controls (Organizational/People/Physical/Technological), applicability + justification per control + risk register cross-reference
+when_to_use: Compliance documentation for regulated archetype with compliance:[iso27001]. Required for ISMS certification
+applies_to:
+  - regulated
+---
+
 # ISO27001-SoA.md — Statement of Applicability
 
 > Mandatory artefact when `compliance: [iso27001]` in PROJECT.md.

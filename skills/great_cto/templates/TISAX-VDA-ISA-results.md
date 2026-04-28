@@ -1,3 +1,11 @@
+---
+name: TISAX-VDA-ISA-results
+description: TISAX VDA ISA assessment results: Information Security + Prototype Protection + Data Protection objectives. Maturity scale 0-5 across 9 chapters. AL1/AL2/AL3 levels
+when_to_use: Compliance documentation for regulated archetype with compliance:[tisax]. Required for automotive supply chain (BMW/Mercedes/VW/Audi suppliers)
+applies_to:
+  - regulated
+---
+
 # TISAX-VDA-ISA-results.md — Trusted Information Security Assessment Exchange
 
 > Mandatory artefact when `compliance: [tisax]` in PROJECT.md.

@@ -1,3 +1,12 @@
+---
+name: ADR-LLM
+description: ADR template for LLM model selection: provider + version pinning (no floating tags), temperature, max tokens, fallback policy, alternatives considered, cost estimate, eval suite re-run on version change
+when_to_use: Choosing LLM model for AI project. One ADR per primary model decision
+applies_to:
+  - ai-system
+  - agent-product
+---
+
 # ADR-{NN}-LLM-{model}.md — LLM model selection
 
 > Records the choice of LLM provider, model version, temperature, fallback policy. One ADR per primary model decision.

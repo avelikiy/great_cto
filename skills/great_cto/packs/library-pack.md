@@ -1,3 +1,11 @@
+---
+name: library-pack
+description: Supply-chain security for published packages: OpenSSF Scorecard, npm provenance, PyPI Trusted Publishing, SBOM (Syft/CycloneDX), semver enforcement, deprecation policy
+when_to_use: Building SDKs, CLIs, compilers, IDE plugins, npm/PyPI/crates packages — anything published as a dependency for others
+applies_to:
+  - library
+---
+
 # Library Pack
 
 > Extends `library` archetype with deep supply-chain security, semver discipline, and distribution patterns for SDKs, CLIs, npm packages, PyPI packages, Rust crates, Go modules, plugins.

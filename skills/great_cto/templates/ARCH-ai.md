@@ -1,3 +1,12 @@
+---
+name: ARCH-ai
+description: Mandatory ARCH document template for AI/agent projects: Trust Boundaries, LLM Scope (deterministic vs LLM-decided), Failure Modes (≥5 from OWASP LLM Top 10), Cost Model, Kill-switch, Eval set, Security section
+when_to_use: Writing ARCH-{slug}.md for ai-system or agent-product archetype. Required by tech-lead Step 0a + SECURITY_REQUIRED block
+applies_to:
+  - ai-system
+  - agent-product
+---
+
 # ARCH-{slug}.md — AI/Agent project template
 
 > **Reader:** the engineer joining this project in 6 months. Be exact about what is deterministic and what the LLM decides.

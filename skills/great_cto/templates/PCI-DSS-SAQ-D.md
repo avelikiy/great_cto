@@ -1,3 +1,11 @@
+---
+name: PCI-DSS-SAQ-D
+description: PCI-DSS Self-Assessment Questionnaire D — full PCI-DSS scope. ~250 sub-controls. For merchants storing/processing/transmitting CHD on own systems (custom vault, direct API integration)
+when_to_use: Compliance documentation for commerce projects with compliance:[pci-dss] (full scope). Most expensive scope; only when SAQ-A unavailable
+applies_to:
+  - commerce
+---
+
 # PCI-DSS-SAQ-D.md — Self-Assessment Questionnaire D (full PCI-DSS scope)
 
 > Mandatory artefact when `compliance: [pci-dss]` (default → SAQ-D unless `[pci-dss-saq-a]` or `[pci-dss-saq-a-ep]` specified) in PROJECT.md.

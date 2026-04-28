@@ -1,3 +1,11 @@
+---
+name: 21CFR11-checklist
+description: FDA 21 CFR Part 11 (electronic records & signatures) checklist: Subpart B controls (audit trail, access controls, validation), Subpart C electronic signatures (linking, uniqueness, MFA components)
+when_to_use: Compliance documentation for regulated archetype with compliance:[gxp] or [21cfr11]. Required for systems creating/maintaining/transmitting FDA-regulated records (pharma, medical devices, clinical trials)
+applies_to:
+  - regulated
+---
+
 # 21CFR11-checklist.md — FDA 21 CFR Part 11 (electronic records & signatures)
 
 > Mandatory artefact when `compliance: [gxp]` or `compliance: [21cfr11]` in PROJECT.md.
