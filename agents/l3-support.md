@@ -74,6 +74,10 @@ Hard rules:
 
 ---
 
+## Step 0c: Skill catalog browse (v1.0.140+)
+
+Read `~/.great_cto/skills-registry.json` → `agent_skills["l3-support"][_default]`. Decide which SKILL.md files to Read for current incident. See `tech-lead.md § Step 0b` for pattern.
+
 ## Step 0: Pattern Lookup (always run first)
 
 Before any diagnostic, surface known patterns that match this project's archetype and stack.

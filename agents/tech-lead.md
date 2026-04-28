@@ -154,6 +154,46 @@ Each specialist subagent:
 The full chain for AI: tech-lead → ai-security-reviewer → ai-prompt-architect → ai-eval-engineer → senior-dev.
 For browser-extension: tech-lead → web-store-reviewer → senior-dev → qa-engineer (which then re-checks manifest static rules).
 
+## Step 0b: Skill catalog browse (v1.0.140+)
+
+Local skill catalog is at `~/.great_cto/skills-registry.json` (refreshed on SessionStart, weekly auto-pull from upstream). Architecture: archetype determines which agents run; each agent picks skills from suggestions for its (agent × archetype) combo.
+
+```bash
+REGISTRY="$HOME/.great_cto/skills-registry.json"
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+MY_AGENT="tech-lead"
+
+if [ -f "$REGISTRY" ] && command -v python3 >/dev/null; then
+  # Read suggestions for this (agent × archetype). Format:
+  #   "_default": [base list] + "<archetype>": [extras with + prefix to add to default]
+  SUGGESTIONS=$(python3 - <<PY
+import json
+d = json.load(open("$REGISTRY"))
+agent_map = d.get("agent_skills", {}).get("$MY_AGENT", {})
+defaults = agent_map.get("_default", [])
+extras = [s.lstrip("+") for s in agent_map.get("$ARCHETYPE", [])]
+all_skills = defaults + extras
+# Resolve each name to its path in the registry
+all_paths = {}
+for tier in ["tier1_great_cto", "tier2_external", "tier3_personal"]:
+    for s in d.get(tier, []):
+        # match by name OR by tier-namespaced name (e.g. "personal:rag-cascading-search")
+        bare = s["name"].split(":")[-1]
+        all_paths.setdefault(bare, s["path"])
+for name in all_skills:
+    if name in all_paths:
+        print(f"  {name}: {all_paths[name]}")
+    else:
+        print(f"  {name}: (not found in registry — write or import)")
+PY
+)
+  echo "Skill suggestions for $MY_AGENT × $ARCHETYPE:"
+  echo "$SUGGESTIONS"
+fi
+```
+
+**Decision time**: read the description for each suggested skill (registry has `summary` field). Read the full SKILL.md only for skills genuinely relevant to the current task. **You decide what to consult — registry just shows what's available.**
+
 ## Step 0: Pattern Lookup (run before designing)
 
 Before opening any ARCH doc or running brainstorm — surface patterns learned from past incidents and
