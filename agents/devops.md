@@ -191,8 +191,8 @@ step for that condition before proceeding to Step 1 (gate:ship check).
      fi
    fi
 
-   QA_REPORT=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort | tail -1)
-   CSO_REPORT=$(ls docs/security/CSO-*.md 2>/dev/null | sort | tail -1)
+   QA_REPORT=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort -V | tail -1)
+   CSO_REPORT=$(ls docs/security/CSO-*.md 2>/dev/null | sort -V | tail -1)
 
    # QA report required for small/medium/large/enterprise (not nano — senior-dev deploys directly)
    if [ "$PROJECT_SIZE" != "nano" ]; then
@@ -331,7 +331,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
      **Do NOT append if deploy was rolled back** — a failed deploy must not corrupt the baseline.
    - **Actual vs. estimated cost** check — append to structured cost log for `/cost` aggregation:
      ```bash
-     ARCH_DOC=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort | tail -1)
+     ARCH_DOC=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
      ESTIMATED_RAW=$(grep "Total estimated addition:" "$ARCH_DOC" 2>/dev/null | grep -oE '\$[0-9]+' | head -1 | tr -d '$')
      ESTIMATED=${ESTIMATED_RAW:-0}
      CONSOLE_URL=$(grep "console-url:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
@@ -396,7 +396,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    ```bash
    # Append to CHANGELOG.md (use printf — echo "\n" is not portable)
    VERSION=$(git describe --tags --abbrev=0 2>/dev/null || grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "unreleased")
-   FEATURE=$(grep "^# " docs/architecture/ARCH-*.md 2>/dev/null | sort | tail -1 | sed 's/.*# //')
+   FEATURE=$(grep "^# " docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1 | sed 's/.*# //')
    printf '\n## %s — %s\n\n### Deployed\n- %s\n\n' "$VERSION" "$(date +%Y-%m-%d)" "${FEATURE:-<feature>}" >> CHANGELOG.md
    git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null)"..HEAD 2>/dev/null \
      | grep -E "^[a-f0-9]+ (feat|fix|perf)" \
