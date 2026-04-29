@@ -94,6 +94,35 @@ Each row → one bd task created by architect.
 
 Cap (`monthly-budget` in PROJECT.md): {$N} → {N% headroom}
 
+## Safeguards ← senior-dev reads before writing any code; security-officer cross-checks at CSO
+
+> Non-negotiable invariants for this feature. `senior-dev`: acknowledge every item before starting.
+> Add/remove items per archetype. Never leave this section empty.
+
+### Data integrity
+- [ ] {e.g. All monetary values stored as integer cents — never float or string}
+- [ ] {e.g. Mutations to `orders` table wrapped in transaction — no partial writes}
+
+### Security
+- [ ] {e.g. Auth check on every route under `/api/admin/*`}
+- [ ] {e.g. Raw DB errors never exposed in API response body}
+- [ ] {e.g. No secrets, PII, or card data in logs}
+
+### Performance
+- [ ] {e.g. Max request payload: 10 MB — reject with 413 before processing}
+- [ ] {e.g. Every DB query has a timeout ≤ 5 s}
+
+### API contracts
+- [ ] {e.g. No breaking change to existing endpoint signatures in this feature}
+- [ ] {e.g. Deprecation header added before removing any field}
+
+> **Archetype hints (fill in the relevant ones, delete the rest):**
+> - `commerce`: idempotency key on every payment mutation; card data via PSP JS only — never our server
+> - `ai-system / agent-product`: per-user cost cap enforced; user input sanitised before LLM call; no PII in prompts
+> - `web3`: CEI pattern on every state-changing function; ReentrancyGuard on ETH-receiving contracts
+> - `iot-embedded`: no dynamic allocation in interrupt handlers; watchdog on critical paths
+> - `regulated / fintech`: immutable audit log for every state change; data-residency constraint honoured
+
 ## Risks
 | # | Risk | Probability × Impact | Mitigation |
 |---|---|---|---|
