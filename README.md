@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.144-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.151-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <b>14 Claude Code subagents</b> · <b>16 commands</b> · <b>14 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b>
+  <b>8 core agents</b> · <b>17 commands</b> · <b>14 archetypes</b> · <b>12-angle review</b> · <b>13 compliance frameworks</b>
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@
 
 You don't have a CTO. Or you are the CTO — and you're the bottleneck.
 
-Every feature gets stuck behind the same questions: *Is the architecture right? Did we miss a security issue? Will this break in production?* Install **great_cto** as a [Claude Code plugin](https://claude.com/plugins). Describe what you're building. **7 specialised subagents** handle architecture, implementation, code review, QA, security, and deployment in one pipeline. **You make two decisions per feature.**
+Every feature gets stuck behind the same questions: *Is the architecture right? Did we miss a security issue? Will this break in production?* Install **great_cto** as a [Claude Code plugin](https://claude.com/plugins). Describe what you're building. **8 specialised agents** handle architecture, planning, implementation, code review, QA, security, and deployment in one pipeline. **You make two decisions per feature.**
 
 Built for **agentic coding** — multi-agent orchestration with explicit gates, MCP integrations, and a self-improving knowledge layer that learns from every incident.
 
@@ -89,7 +89,7 @@ Different layer of the stack. great_cto sits **above** the AI assistant and **be
 | **obra/superpowers** | Methodology skills | TDD, plan-writing, code-review skills | Skills only — no agents, no gates, no archetypes |
 | **davila7/templates** | Template catalog | 419 agents + 336 commands you can drop in | A la carte — no opinionated pipeline, you assemble |
 | **ksimback/tech-debt-skill** | Single-purpose skill | One audit format, file-cited findings | Just audit — no SDLC, no implementation, no deploy |
-| **`great_cto`** | **Process layer + 7 specialist agents + 14 archetypes** | Full SDLC pipeline with archetype-aware gates, compliance, cross-project memory | We're not the AI itself — we orchestrate Claude Code |
+| **`great_cto`** | **Process layer + 8 core agents + 14 archetypes** | Full SDLC pipeline with archetype-aware gates, compliance, cross-project memory | We're not the AI itself — we orchestrate Claude Code |
 
 The reason this matters: **the AI is fine. The bottleneck is the human deciding what to ship.** great_cto removes the loops where you're the only person who can make the call by encoding the call as a gate. You make two decisions; everything else is automatic.
 
@@ -127,7 +127,7 @@ Three layers fire automatically when you run `/start`:
 | What | Where | Auto-update |
 |---|---|---|
 | Archetypes (14) | `skills/great_cto/ARCHETYPES.md` | per plugin release |
-| Agents (14, incl. 7 specialists) | `agents/*.md` | per plugin release |
+| Agents (8 core + domain specialists) | `agents/*.md` | per plugin release |
 | Skills (≥80 locally) | `~/.great_cto/skills-registry.json` | 24h cache, weekly upstream pull |
 | Personal skills | `~/.great_cto/personal-skills` (your repo) | daily auto-pull |
 
@@ -390,11 +390,12 @@ Dependencies auto-trigger frameworks (Stripe → PCI-DSS, healthcare data → HI
 </details>
 
 <details>
-<summary><b>Seven agents behind the loop</b></summary>
+<summary><b>Eight core agents behind the loop</b></summary>
 
 | Agent | Model | Role |
 |-------|-------|------|
 | tech-lead | Opus 4.7 | Architecture, ADRs, cost estimate |
+| pm | Sonnet 4.6 | Gantt planning, dependency graph, gate:plan |
 | senior-dev | Sonnet 4.6 | TDD implementation |
 | qa-engineer | Haiku 4.5 | QA report, requirements traceability |
 | security-officer | Sonnet 4.6 | Compliance checklists, threat modeling |
@@ -411,6 +412,7 @@ Advisor pattern: Opus 4.7 escalation for hard reasoning (architecture trade-offs
 | Artifact | Created by |
 |----------|-----------|
 | `docs/architecture/ARCH-*.md` | tech-lead — architecture + cost estimate + Well-Architected |
+| `docs/plans/PLAN-*.md` | pm — Gantt plan, dependency graph, agent allocation |
 | `docs/decisions/ADR-*.md` | tech-lead, `/rfc` |
 | `docs/qa-reports/QA-*.md` | qa-engineer |
 | `docs/security/CSO-*.md` | security-officer |
@@ -434,7 +436,7 @@ Advisor pattern: Opus 4.7 escalation for hard reasoning (architecture trade-offs
 | [obra/superpowers](https://github.com/obra/superpowers) | Skills library (TDD, brainstorming, planning) | Role-specialized agents + approval gates *on top of* superpowers skills — we integrate, not replace |
 | [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) | Template registry (1000+ components) | Opinionated SDLC pipeline. We consume their templates via `template-broker`; they are the catalog, we are the workflow |
 | [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code) | Performance-focused agent harness (hooks, MCP, security scanning) | Full SDLC pipeline with 14 archetypes, compliance gates, and weekly brain synthesis. Won same Anthropic hackathon category — different philosophy: we add process structure and approval gates |
-| [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Staged workflow: discuss → plan → execute → verify → ship | Same pipeline philosophy, different scope. great_cto adds role-specialized agents (7), security tiers (3), compliance frameworks (13), and learning brain |
+| [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Staged workflow: discuss → plan → execute → verify → ship | Same pipeline philosophy, different scope. great_cto adds role-specialized agents (8), security tiers (3), compliance frameworks (13), and learning brain |
 | Custom CLAUDE.md | Ad-hoc rules per project | Versioned pipeline with brain.md learning + weekly automation |
 
 Opinionated about **what** to do (architecture → TDD → review → QA → security → deploy). Pick great_cto if you want a process, not a canvas.
