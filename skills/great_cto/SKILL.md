@@ -287,6 +287,23 @@ Proceed? [yes/no]  ← auto-expires in 72h if no response
 ```
 If CTO does not respond within 72h → mark gate:arch as rejected, tell CTO: "gate:arch expired — pipeline paused. Say 'approve arch' to resume or 'cancel' to drop." Do NOT auto-proceed past a gate.
 
+**Step 1b — PM (sonnet):** Spawn `great_cto-pm` after gate:arch is approved. Skip for `project_size: nano`.
+
+PM reads the ARCH doc and produces `docs/plans/PLAN-<feature>.md`:
+- Mermaid Gantt + ASCII fallback
+- Dependency graph + parallelism map
+- Agent allocation (how many senior-devs concurrently)
+- Timeline estimates (PoC/MVP/full mode, with buffer)
+- `gate:plan` human checkpoint
+
+**GATE:PLAN** — show CTO:
+```
+Plan ready → docs/plans/PLAN-<feature>.md
+Tasks: N  |  Agents: M concurrent  |  Duration: Xh–Xh (excl. gate wait)
+Approve plan? [yes/no/adjust: <changes>]
+```
+CTO may request adjustments (fewer agents, different parallelism, PoC mode). PM updates plan and re-presents. Do NOT unblock senior-dev until gate:plan is approved.
+
 **Step 2 — Senior Dev(s):** Before spawning, check for active pipeline:
 ```bash
 # Detect in-progress tasks (claimed by senior-dev)
