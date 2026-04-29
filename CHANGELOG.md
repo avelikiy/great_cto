@@ -4,6 +4,46 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.150 — 2026-04-29
+
+### Fixed — project-auditor: deduplication, self-fix guard, risk/vendor scaffolding
+
+Three gaps surfaced from a real PoC run producing 8 duplicate ticket pairs.
+
+#### Deduplication — `bd_create_if_new` helper (Phase 8)
+
+Re-running `/audit` on the same repo created duplicate Beads tasks for every finding.
+Root cause: `bd create` was called unconditionally — no check against open tasks.
+
+Added `bd_create_if_new <keyword> <title> [flags]` shell function to Phase 8:
+- Runs `bd search <keyword>` before creating
+- If any open/in-progress match → prints `SKIP (duplicate)` and returns
+- If no match → creates the task normally
+- All example `bd create` calls in Phase 8 updated to use this pattern
+- Also applied to cost-cap tasks in Phase 4b (LLM spend exceeded / approaching)
+- Phase 9 report now shows `[N created, M skipped — duplicates]`
+
+#### Self-fix guard
+
+Auditor was filing tickets for issues it had already auto-fixed in the same run
+(e.g. updating `infra: fly.io → render.com` in PROJECT.md then creating a task for it).
+
+Added explicit **Self-fix guard** section in Phase 8: if the fix is already applied
+in this run, emit `AUTO-FIXED:` log line and skip `bd create`.
+
+#### Risk / vendor directory scaffolding
+
+`docs/risks/RISK-REGISTER.md` and `docs/vendors/` only exist after running `/start`
+with tech-lead. Pure `/audit` on an existing repo silently skipped all risk and vendor
+management (commands read these with `[ -f ... ]` guards).
+
+Added scaffolding block before the caching layer in project-auditor's pre-flight:
+- Creates `docs/risks/RISK-REGISTER.md` with header table if missing
+- Creates `docs/vendors/.gitkeep` if missing
+- Idempotent — never overwrites existing content
+
+---
+
 ## v1.0.149 — 2026-04-29
 
 ### Fixed — LLM router infrastructure: secrets.env template, doctor hint, pre-flight check
