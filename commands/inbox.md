@@ -724,7 +724,7 @@ When CTO says "yes" / "approve" for a gate:
 
 When CTO says "no" / "reject":
 1. `bd update <gate-id> --status blocked --note "<CTO feedback>"`
-2. Confirm: "🔴 gate:<name> rejected. [tech-lead / security-officer] notified to revise."
+2. Confirm: "🔴 gate:<name> rejected. [architect / security-officer] notified to revise."
 
 When CTO says "later" / "skip":
 1. Leave gate open

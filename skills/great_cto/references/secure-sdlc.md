@@ -1,7 +1,7 @@
 ---
 name: secure-sdlc
 description: Secure SDLC mapping: which security activity at which phase (threat model at ARCH, SAST at impl, pen-test at release), gates between phases
-when_to_use: AI/agent/commerce/web3/iot/regulated archetypes. Read by tech-lead + security-officer
+when_to_use: AI/agent/commerce/web3/iot/regulated archetypes. Read by architect + security-officer
 applies_to:
   - ai-system
   - agent-product
@@ -102,7 +102,7 @@ great_cto will not:
 
 | Agent | Reads this file to... |
 |---|---|
-| `tech-lead` | decide whether `## Security` section is mandatory in ARCH, invoke `/threat-model` |
+| `architect` | decide whether `## Security` section is mandatory in ARCH, invoke `/threat-model` |
 | `security-officer` | verify every SSDF practice has evidence before gate vote |
 | `devops` | invoke `/sbom` on production deploy |
 | `l3-support` | classify security vs ops incidents |

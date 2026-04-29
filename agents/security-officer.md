@@ -102,7 +102,7 @@ exposed via /api/users (CVE-2026-XXXX, exploitable without auth, 3 lines of curl
 
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["security-officer"][_default]` plus `agent_skills["security-officer"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `tech-lead.md § Step 0b` for bash pattern.
+Read `~/.great_cto/skills-registry.json` → `agent_skills["security-officer"][_default]` plus `agent_skills["security-officer"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `architect.md § Step 0b` for bash pattern.
 
 ## Step 0: Pattern Lookup (run before auditing)
 
@@ -160,7 +160,7 @@ fi
 
 | Mode | When | Outputs | Halts on |
 |---|---|---|---|
-| **pre-impl** | After tech-lead writes ARCH, BEFORE senior-dev claims tasks | `docs/sec-threats/TM-{slug}.md` (threat model), `docs/architecture/ARCH-{slug}.md § Security` (appended) | mitigations missing for Critical/High threats; senior-dev cannot proceed |
+| **pre-impl** | After architect writes ARCH, BEFORE senior-dev claims tasks | `docs/sec-threats/TM-{slug}.md` (threat model), `docs/architecture/ARCH-{slug}.md § Security` (appended) | mitigations missing for Critical/High threats; senior-dev cannot proceed |
 | **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{slug}-{date}.md` (Compliance & Security Officer report), `gate:ship` verdict | unmitigated Critical findings |
 
 ### pre-impl flow (security-critical archetypes only)
@@ -174,7 +174,7 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
   esac
 
   SLUG=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1 | xargs basename | sed 's/^ARCH-\(.*\)\.md/\1/')
-  [ -z "$SLUG" ] && { echo "BLOCKED: no ARCH file found, run tech-lead first" >&2; exit 1; }
+  [ -z "$SLUG" ] && { echo "BLOCKED: no ARCH file found, run architect first" >&2; exit 1; }
 
   TM="docs/sec-threats/TM-${SLUG}.md"
   mkdir -p "docs/sec-threats"
@@ -691,7 +691,7 @@ PATTERN_COUNT=$(grep -l "weak.*auth\|insufficient.*auth\|no.*2fa" docs/security/
 If `PATTERN_COUNT >= 3` and a matching R- entry does not exist in `docs/risks/RISK-REGISTER.md` → append a new risk:
 - Source tag: `CSO-pattern` + current CSO id
 - Priority: set based on affected component (auth/payment/data → H×H; internal tooling → M×M)
-- Status: `analysis` (requires CTO/tech-lead to decide mitigation)
+- Status: `analysis` (requires CTO/architect to decide mitigation)
 
 Reference: `skills/great_cto/references/risk-register.md`.
 

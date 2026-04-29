@@ -89,7 +89,7 @@ Wait for the answer. Then proceed with setup.
 3. **Map answers → PROJECT.md fields** using the mapping table in the skill doc.
 4. **Propose 2–3 approaches** (Option A / B / C) with explicit tradeoffs. Option C must consider "don't build it — use existing tool X" or "use /poc instead of /start".
 5. **Wait for CTO choice.** Only then proceed to Step 3 (Create PROJECT.md). Skip Step 1 type detection if discovery already determined the archetype.
-6. **Set `discovery: completed`** in PROJECT.md and store the chosen approach in `discovery-summary` for `tech-lead` to read at ARCH time.
+6. **Set `discovery: completed`** in PROJECT.md and store the chosen approach in `discovery-summary` for `architect` to read at ARCH time.
 
 **Open-ended fallback**: if user says "I want to talk through this freely" or Q1 reveals "I'm not sure who would use it" → invoke `superpowers:brainstorming` skill instead of structured Q&A. Discovery narrows scope; brainstorming finds scope.
 
@@ -119,7 +119,7 @@ The pipeline works best when requirements are clear:
 ✓ "Build a JWT auth service with refresh tokens"
 ✗ "Explore auth options and figure out what to build"
 
-The pipeline (tech-lead → senior-dev → QA → security → devops) assumes
+The pipeline (architect → senior-dev → QA → security → devops) assumes
 you know what to build. For fuzzy tasks it produces architecture docs
 for the wrong thing.
 
@@ -202,8 +202,8 @@ Override rules:
 | Internal size | User-facing | Agents | Est. time |
 |---------------|-------------|--------|-----------|
 | `nano` | quick | senior-dev only | ~5min |
-| `small` | quick | tech-lead → senior-dev → qa | ~20min |
-| `medium` | standard | tech-lead → senior-dev → qa → security-officer → devops | ~45min |
+| `small` | quick | architect → senior-dev → qa | ~20min |
+| `medium` | standard | architect → senior-dev → qa → security-officer → devops | ~45min |
 | `large` | deep | full 7 agents + canary | ~90min |
 | `enterprise` | deep | full 7 agents + compliance gates | ~2-3h |
 
@@ -264,7 +264,7 @@ approval-level: <auto|gates-only|strict|expert|step-by-step>
 phase: implementation
 mode: <poc|mvp|production>          # ← required. PoC time-boxed throwaway; MVP first ship; production = ongoing.
 poc-deadline: <YYYY-MM-DD or empty> # ← required if mode=poc. Default: today + 14 days. /inbox flags as P0 when overdue.
-discovery: <required|completed|skipped>  # ← AI archetypes always require=completed before tech-lead runs.
+discovery: <required|completed|skipped>  # ← AI archetypes always require=completed before architect runs.
 ## Pipeline Parameters
 compliance: [<values from TYPE_MAP.md defaults + user overrides>]
 security-gate: <mandatory|conditional|no>
@@ -281,7 +281,7 @@ monthly-budget: <optional — USD/mo infrastructure ceiling. Leave commented to 
 monthly-budget-llm-usd: <required for ai-system / agent-product — LLM API spend cap; project-auditor flags P0 when sum(cost_usd) > cap>
 budget-alert-threshold: 80
 ## Owners
-arch-owner: tech-lead
+arch-owner: architect
 qa-owner: qa-engineer
 security-owner: security-officer
 deploy-owner: devops
@@ -294,7 +294,7 @@ incident-owner: l3-support
 Notes:
 - If primary is `stack-migration`: add `runtime-old:` and `runtime-new:` under Stack
 - `project_size` is set from Step 2b detection (can be overridden by CTO at any time: "make it large")
-- `greenfield: false` → tech-lead will read existing code before designing architecture
+- `greenfield: false` → architect will read existing code before designing architecture
 - `phase:` controls what SessionStart hook loads — `implementation` (default) loads CODEBASE.md + HANDOFF.md; `planning` loads brain.md + digest only; `review` loads latest QA + CSO; `release` loads perf-baseline. CTO switches in chat: "move to review phase".
 - `approval-level:` single control for pipeline depth. **Two user-facing values** that the CTO specifies in chat:
   - `auto` — no gates (hotfix, trusted automation) → written as `auto`
@@ -358,7 +358,7 @@ if [ ! -f ".great_cto/brain.md" ]; then
   PROJECT_NAME=$(grep -m1 "^# " .great_cto/PROJECT.md 2>/dev/null | sed 's/^# //' || echo "Untitled")
   cat > .great_cto/brain.md << BRAINEOF
 # Project Brain — ${PROJECT_NAME}
-> Compiled truth. Updated by /digest (dream cycle). Read by tech-lead before designing.
+> Compiled truth. Updated by /digest (dream cycle). Read by architect before designing.
 > Do NOT edit manually. Evidence is appended; synthesis is recomputed from evidence.
 
 ## Current Synthesis
@@ -412,13 +412,13 @@ if [ "${TEAM_SIZE:-1}" -ge 5 ] && [ ! -f ".great_cto/OWNERSHIP.md" ]; then
 
   cat > .great_cto/OWNERSHIP.md << 'OWNEREOF'
 # Ownership Map
-> Auto-scaffolded by /start. Fill in Team, Tech Lead, On-call, Slack, SLA columns.
+> Auto-scaffolded by /start. Fill in Team, Architect, On-call, Slack, SLA columns.
 > To rebuild from git history: /ownership map
 > To update one entry: /ownership set <path> <team>
 
 ## Services
 
-| Path | Team | Tech Lead | On-call | Slack | SLA | Notes |
+| Path | Team | Architect | On-call | Slack | SLA | Notes |
 |------|------|-----------|---------|-------|-----|-------|
 OWNEREOF
 

@@ -1,7 +1,7 @@
 ---
 name: risk-register
 description: Active risk register: forward-looking architectural/operational/security risks (not tasks, not postmortems), severity × likelihood × mitigation
-when_to_use: Risk tracking. Read by tech-lead at ARCH time + security-officer at audit time
+when_to_use: Risk tracking. Read by architect at ARCH time + security-officer at audit time
 applies_to:
   - _default
 ---
@@ -20,7 +20,7 @@ Single file. Append new risks; modify existing (status, mitigation). When a risk
 # Risk Register
 
 > Active architectural, operational, and security risks.
-> Updated by agents (tech-lead, security-officer, /digest) and CTO.
+> Updated by agents (architect, security-officer, /digest) and CTO.
 > Closed risks move to `docs/risks/closed/`.
 
 ## Scoring
@@ -47,9 +47,9 @@ NEXT_ID=$(printf "R-%03d" $((${NEXT_ID:-0} + 1)))
 
 | Trigger | Who writes | Source tag |
 |---------|------------|------------|
-| Tech-lead "Risks" section in ARCH | tech-lead | `ARCH-<slug>` |
+| Architect "Risks" section in ARCH | architect | `ARCH-<slug>` |
 | Security-officer finds CVE pattern (3rd similar in 90d) | security-officer | `CSO-<id>` |
-| Pre-mortem scenario not fully mitigated | tech-lead | `PRE-<slug>` |
+| Pre-mortem scenario not fully mitigated | architect | `PRE-<slug>` |
 | INCIDENT-LOG recurring cause (same cause 3× in 30d) | `/digest` | `INC-LOG recurring` |
 | Deprecation calendar EOL < 6mo and status != migrating | `/audit` | `DEPRECATION-<slug>` |
 | CTO manual: "add risk: ..." in chat | manual edit | `manual` |
@@ -78,5 +78,5 @@ Entry with `added >180 days ago` and no status updates in last 90 days → `/dig
 - `/inbox` shows top 5 by priority (H×H → M×M)
 - `/audit` prepends active-risks summary
 - `/digest` quarterly counts H×H risks as board-report input
-- tech-lead reads active risks before drafting new ARCH
+- architect reads active risks before drafting new ARCH
 - pre-mortem uses register as "known risks — brainstorm NEW failure modes"

@@ -213,7 +213,7 @@ Write to `$PM_FILE` with this structure (separate from ordinary `PM-*.md` — se
 | Agent | Verdict | Correct? | Gap |
 |-------|---------|----------|-----|
 | Security (security-officer) | APPROVED / BLOCKED | yes / no | <what was missed> |
-| Threat model (tech-lead/TM) | <TM-slug> | yes / no | <threat missed> |
+| Threat model (architect/TM) | <TM-slug> | yes / no | <threat missed> |
 | QA (qa-engineer)            | PASS / FAIL | yes / no | <security test missing> |
 | Red Team                    | <N attacks> | yes / no | <attack vector not tested> |
 | SBOM review                 | N/A / reviewed | yes / no | <vulnerable dep not flagged> |

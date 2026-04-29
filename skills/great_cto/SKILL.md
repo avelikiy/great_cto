@@ -203,7 +203,7 @@ All rules come from ARCHETYPES.md by archetype. No type-specific lookup. Agents 
 **Composite types** (primary + secondary): merge rules at archetype level. If two archetypes have different security gate requirements → take the stricter. Threshold = strictest across both.
 
 **Multi-region** — if PROJECT.md has `regions:` with 2+ values:
-- tech-lead includes region deploy ordering in ARCH doc
+- architect includes region deploy ordering in ARCH doc
 - devops deploys to canary region first, then others sequentially
 
 ## Fast Path (bugfix / patch)
@@ -241,13 +241,13 @@ Clarify needed if ANY of these:
 If clarify needed → ask **ONE question only** (use the question from the table above, or a custom one):
 > "Before I start architecture: [one specific question that unlocks the rest]"
 
-Do NOT ask if the request is reasonably clear. When in doubt — proceed. Tech-lead will surface gaps.
+Do NOT ask if the request is reasonably clear. When in doubt — proceed. Architect will surface gaps.
 
 **Step 0b — Brainstorm:** Use `superpowers:brainstorming` skill to explore requirements before any architecture work.
 - If Skill tool fails with "Unknown skill" → spawn Agent(general-purpose) with prompt: "Brainstorm requirements for: <feature>. Output: goals, user flows, edge cases, open questions."
-- Output feeds directly into Step 1 — tech-lead reads the brainstorm notes before writing ARCH doc.
+- Output feeds directly into Step 1 — architect reads the brainstorm notes before writing ARCH doc.
 
-**Step 0c — Decision Brief (non-blocking CTO pre-read):** Before spawning tech-lead, compile a 4-line brief in ~5 seconds:
+**Step 0c — Decision Brief (non-blocking CTO pre-read):** Before spawning architect, compile a 4-line brief in ~5 seconds:
 ```bash
 # Risk signals: recent postmortems + retro patterns
 LAST_PM=$(ls docs/postmortems/PM-*.md 2>/dev/null | sort -V | tail -1 | xargs grep -m1 "^#" 2>/dev/null | sed 's/# //')
@@ -277,7 +277,7 @@ Proceed to architecture? → say "yes", describe changes, or "alternatives first
 
 **This is NOT a gate.** Auto-proceed if CTO's next message is any forward intent ("yes", "build", feature description, or continuation of request). Only pause if CTO explicitly says "alternatives first" or "scope down".
 
-**Step 1 — Tech Lead (opus):** Spawn `great_cto-tech-lead`. Arch doc + ADR + Beads epic + gate:arch.
+**Step 1 — Architect (opus):** Spawn `great_cto-architect`. Arch doc + ADR + Beads epic + gate:arch.
 
 **GATE:ARCH** — show CTO:
 ```
@@ -455,7 +455,7 @@ node --version 2>/dev/null || php --version 2>/dev/null || python3 --version 2>/
 # Count files affected by migration
 find src/ \( -name "*.php" -o -name "*.js" -o -name "*.py" \) -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | wc -l
 ```
-Ask tech-lead to include in ARCH doc: (a) current version + EOL date, (b) target version, (c) breaking changes list, (d) strangler fig boundary.
+Ask architect to include in ARCH doc: (a) current version + EOL date, (b) target version, (c) breaking changes list, (d) strangler fig boundary.
 
 **GATE:ARCH for stack-migration** — gate summary MUST include inline breaking changes count:
 ```
@@ -469,7 +469,7 @@ If breaking changes > 5 → add: `⚠ High-risk migration — review breaking ch
 
 **Pipeline:**
 ```
-tech-lead (ARCH + migration plan) → GATE:ARCH
+architect (ARCH + migration plan) → GATE:ARCH
 → senior-dev (compatibility shim + dual-stack setup — SEQUENTIAL)
 → QA (dual-stack test matrix — inject: "STACK_MIGRATION: run tests against BOTH old and new runtime. OLD suite must pass on old runtime. NEW suite must pass on new runtime. Report separately.")
 → security-officer (dependency vulnerability scan on new version)
@@ -488,7 +488,7 @@ tech-lead (ARCH + migration plan) → GATE:ARCH
   This prevents any senior-dev from claiming task2 via `bd ready` while task1 is in-progress.
 - OLD stack must remain deployable until 100% cutover confirmed stable for ≥48h
 - Devops maintains instant rollback (traffic shift back) throughout cutover
-- tech-lead ARCH doc must include: compatibility matrix (what breaks), rollback plan per stage
+- architect ARCH doc must include: compatibility matrix (what breaks), rollback plan per stage
 
 **OLD stack retirement** — after 100% cutover and ≥48h stability confirmed, devops creates a retirement gate:
 ```bash
@@ -525,7 +525,7 @@ Wait for CTO decision. This IS a blocking question (unlike Decision Brief).
 
 **Pipeline:**
 ```
-tech-lead (ARCH + file ownership matrix) → GATE:ARCH
+architect (ARCH + file ownership matrix) → GATE:ARCH
 → senior-dev (SEQUENTIAL tasks only — one at a time, exclusive file ownership)
 → QA (inject: "LARGE_SCALE_REFACTOR: (1) snapshot regression — compare HTTP responses/outputs before vs after refactor. (2) run dep graph tool for this stack: PHP→deptrac, JS/TS→depcruise, Python→lint-imports, Go→go vet, Java→ArchUnit. Report to docs/qa-reports/DEP-GRAPH-<date>.txt. Block on circular deps.")
 → security-officer (dependency graph audit — no new attack surface)
@@ -543,7 +543,7 @@ bd dep "$T2" "$T1" && bd dep "$T3" "$T2"
 This prevents `bd ready` from returning T2/T3 while T1 is in-progress. Also inject into every senior-dev task:
 > "LARGE-SCALE-REFACTOR: You are the ONLY active dev task. Do NOT start until previous task is confirmed closed. Your owned files: [list from work-packet]. Do not touch any file not in your ownership list."
 
-**File ownership matrix** — tech-lead must produce this in ARCH doc:
+**File ownership matrix** — architect must produce this in ARCH doc:
 ```markdown
 ## File Ownership Matrix
 | Task | Owned files | Must not touch |
@@ -553,7 +553,7 @@ This prevents `bd ready` from returning T2/T3 while T1 is in-progress. Also inje
 ```
 No two tasks may share ownership of any file. Overlap = blocked until resolved.
 
-**Database splitting** — if the project has a monolithic database, tech-lead MUST include a `## Database Split Plan` section in the ARCH doc covering:
+**Database splitting** — if the project has a monolithic database, architect MUST include a `## Database Split Plan` section in the ARCH doc covering:
 - Which tables belong to which domain (ownership map)
 - Transition strategy: dual-write (write to both old + new schema simultaneously) OR cut-and-migrate (migrate all at once with downtime window)
 - Data consistency validation: row count checksums before and after migration
@@ -624,7 +624,7 @@ When CTO says "move to <phase> phase", update `phase:` in PROJECT.md and confirm
 
 ## Decision Log
 
-When CTO says "log decision", "we decided X", or starts a message with "decision:" — append an entry to `docs/decisions/DECISION-LOG.md`. For **non-architectural** decisions only (ADRs still go through tech-lead).
+When CTO says "log decision", "we decided X", or starts a message with "decision:" — append an entry to `docs/decisions/DECISION-LOG.md`. For **non-architectural** decisions only (ADRs still go through architect).
 
 Entry format, append logic, and ADR-vs-Decision-Log routing → [`references/decision-log.md`](references/decision-log.md).
 

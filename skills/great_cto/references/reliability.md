@@ -1,7 +1,7 @@
 ---
 name: reliability
 description: SLO + Error Budget framework: SLO defines target, INCIDENT-LOG records reality, budget = gap. When burned, feature velocity throttles automatically
-when_to_use: Production services. Read by devops + l3-support + tech-lead at ARCH time
+when_to_use: Production services. Read by devops + l3-support + architect at ARCH time
 applies_to:
   - _default
 ---
@@ -14,7 +14,7 @@ applies_to:
 
 ### `docs/reliability/SLO.md`
 
-Single file. Per-service SLO definitions + response policy. Owner: tech-lead creates during ARCH, CTO edits manually.
+Single file. Per-service SLO definitions + response policy. Owner: architect creates during ARCH, CTO edits manually.
 
 ```markdown
 # SLO — <project>
@@ -40,7 +40,7 @@ Single file. Per-service SLO definitions + response policy. Owner: tech-lead cre
 - **Budget < 50%** — notify #engineering (informational)
 - **Budget < 20%** — warn at gate:ship, devops flags risky deploys
 - **Budget < 0%** (budget exceeded) — freeze feature deploys until next window recovers; hotfix-only mode
-- **Multiple SLIs burned simultaneously** — tech-lead drafts stability plan, CTO approves
+- **Multiple SLIs burned simultaneously** — architect drafts stability plan, CTO approves
 
 ## SLO change procedure
 Changing an SLO target (e.g. 99.9% → 99.95%) requires ADR.
@@ -136,11 +136,11 @@ Before promoting canary → full rollout, devops reads `.great_cto/slo-budget-cu
 
 ### Policy-change ceremony
 
-When budget hits `EXHAUSTED`, the recovery is not "wait for window to roll over." tech-lead drafts a stability plan (`docs/reliability/STABILITY-PLAN-<date>.md`) within 24h; CTO reviews; team executes for a week before new features resume.
+When budget hits `EXHAUSTED`, the recovery is not "wait for window to roll over." architect drafts a stability plan (`docs/reliability/STABILITY-PLAN-<date>.md`) within 24h; CTO reviews; team executes for a week before new features resume.
 
 ## Consumers
 
-- `tech-lead` — seeds SLO.md entry when introducing new service in ARCH
+- `architect` — seeds SLO.md entry when introducing new service in ARCH
 - `l3-support` — appends to INCIDENT-LOG on every postmortem
 - `devops` — appends on canary failure; blocks deploys on EXHAUSTED budget
 - `/inbox` — shows SLIs at WARN/EXHAUSTED

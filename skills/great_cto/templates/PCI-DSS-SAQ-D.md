@@ -9,7 +9,7 @@ applies_to:
 # PCI-DSS-SAQ-D.md — Self-Assessment Questionnaire D (full PCI-DSS scope)
 
 > Mandatory artefact when `compliance: [pci-dss]` (default → SAQ-D unless `[pci-dss-saq-a]` or `[pci-dss-saq-a-ep]` specified) in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate.
+> Required by `architect.md` compliance artefact gate.
 > SAQ-D applies when the merchant **electronically stores, processes, or transmits cardholder data** on its own systems (e.g. payment terminal, custom card-handling code, vault, payment service provider built in-house). Most comprehensive — covers all 12 PCI-DSS requirements + ~250 sub-controls.
 > Source: `skills/great_cto/templates/PCI-DSS-SAQ-D.md`.
 

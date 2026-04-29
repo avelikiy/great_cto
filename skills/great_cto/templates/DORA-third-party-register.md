@@ -9,7 +9,7 @@ applies_to:
 # DORA-third-party-register.md — Article 28 register of ICT third-party arrangements
 
 > Mandatory artefact when `compliance: [dora]` in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate. Article 28 of DORA mandates a register of all ICT third-party service arrangements at entity and group level.
+> Required by `architect.md` compliance artefact gate. Article 28 of DORA mandates a register of all ICT third-party service arrangements at entity and group level.
 > Source: `skills/great_cto/templates/DORA-third-party-register.md`.
 
 ## Register

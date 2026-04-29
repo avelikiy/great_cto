@@ -24,7 +24,7 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["ai-eval-engineer"][_
 ## When you're invoked
 
 - ai-prompt-architect finished writing ADR-PROMPT files and hand-off comment lists EVAL files to create
-- Tech-lead added a new failure mode to ARCH § Failure Modes — you write a matching EVAL
+- Architect added a new failure mode to ARCH § Failure Modes — you write a matching EVAL
 - Eval suite regressed (CI red) — diagnose which prompt/model change caused it
 - qa-engineer Step 0b for AI archetype found < 3 EVAL files — you create the missing ones
 - Pre-promote (mode: poc → production) — you upgrade the lite eval set to full coverage

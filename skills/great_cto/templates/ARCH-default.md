@@ -65,7 +65,7 @@ applies_to:
 - {e.g. we don't migrate legacy data — fresh slate}
 
 ## Implementation tasks (work-packages)
-Each row → one bd task created by tech-lead.
+Each row → one bd task created by architect.
 
 | WP | Title | Effort | Owner | Depends on |
 |---|---|---|---|---|

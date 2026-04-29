@@ -1,14 +1,14 @@
 ---
 name: burn-rate
 description: SLO burn-rate alerting reference: multi-window multi-burn-rate (5min/1h/6h/3d), why point-in-time error-budget checks fail, fast-burn vs slow-burn
-when_to_use: Wiring SLO alerts in monitoring. Read by tech-lead at ARCH time + l3-support during incidents
+when_to_use: Wiring SLO alerts in monitoring. Read by architect at ARCH time + l3-support during incidents
 applies_to:
   - _default
 ---
 
 # SLO Burn Rate — reference
 
-Multi-window multi-burn-rate alerting. Catches budget exhaustion 6+ hours before it happens. Read by `tech-lead` and `devops` when `/burn` fires.
+Multi-window multi-burn-rate alerting. Catches budget exhaustion 6+ hours before it happens. Read by `architect` and `devops` when `/burn` fires.
 
 ## The problem with point-in-time SLO checks
 
@@ -49,20 +49,20 @@ The finer the cadence of `/digest`, the finer the burn-rate resolution. Default 
 
 ## When the alert fires
 
-`tech-lead` workflow on a fast-burn (24h) alert:
+`architect` workflow on a fast-burn (24h) alert:
 1. Open `docs/reliability/INCIDENT-LOG.md` — last 5 entries for the affected service
 2. Look for a single dominant cause in the last 24-48h. Usually one bad deploy or one cascading dependency.
 3. If found → `l3-support` runs the 4-angle bug-hunt (see `agents/l3-support.md`)
 4. If diffuse → it's a real reliability regression. Stop feature deploys, schedule a stability week, write `STABILITY-PLAN-<date>.md`.
 
-`tech-lead` workflow on a slow-burn (7d) alert:
+`architect` workflow on a slow-burn (7d) alert:
 1. No emergency. File a ticket with the snapshot series attached.
 2. Investigate during regular planning. Often the root cause is gradual: a slowly degrading dependency, a slowly leaking resource, or aggregate load growth without capacity planning.
 3. Resist the urge to "just lower the SLO." That's the symptom, not the fix.
 
 ## Source artefacts
 
-- `docs/reliability/SLO.md` — SLO targets per service (manual, owned by tech-lead)
+- `docs/reliability/SLO.md` — SLO targets per service (manual, owned by architect)
 - `docs/reliability/INCIDENT-LOG.md` — append-only incident reality log (written by `l3-support`)
 - `.great_cto/slo-budget-current.md` — point-in-time cache, recomputed by `/digest`
 - `.great_cto/slo-burn-history.log` — snapshot series, appended by `/digest`, consumed by `/burn`

@@ -4,6 +4,35 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.154 — 2026-04-29
+
+### Rename: tech-lead → architect + new skills/tools
+
+**`agents/architect.md`** (renamed from `agents/tech-lead.md`)
+
+- Agent renamed: `tech-lead` → `architect` across all 66 source files (agents, commands, skills, templates, tests, demos, site)
+- `CHANGELOG.md` preserved as-is (historical record)
+- `plugin.json` stale-cleanup loop now removes `great_cto-tech-lead.md` from old installs
+
+#### New tools for Architect
+- `advisor_20260301` — Opus 4.7 advisor escalation for hard architectural reasoning
+- `mcp__great_cto_llm_router__ask_kimi` — consult external LLM (Kimi) on contested trade-offs
+
+#### New skills for Architect (frontmatter)
+- `anthropic-skills:system-architect` — system architecture methodology
+- `anthropic-skills:adr` — ADR writing methodology
+- `well-architected` — AWS/MSFT Well-Architected lens
+- `discovery` — project discovery phase
+
+#### New skills in AGENT_SKILLS `_default`
+- `cost-discipline` — cost-aware architecture decisions
+- `decision-log` — architect logs every significant decision
+- `secure-sdlc` — promoted from archetype-specific to `_default` (security is a universal architecture concern, not just for high-risk archetypes)
+
+`secure-sdlc` was previously duplicated in 5 archetype-specific entries; now single entry in `_default` inherited by all.
+
+---
+
 ## v1.0.152 — 2026-04-29
 
 ### PM agent: LLM cost model + human comparison

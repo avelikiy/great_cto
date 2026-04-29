@@ -16,7 +16,7 @@ great_cto turns Claude Code into a full SDLC team. You describe what to build; s
 Auto-detects 14 project archetypes from your repo (web-service, mobile-app, ai-system, agent-product, devtools, browser-extension, game, data-platform, infra, library, commerce, web3, iot-embedded, regulated). Each archetype routes through its own QA strategy, deploy method, gates, and compliance defaults. Tier-model security: archetype is the floor; signals during implementation upgrade it (Stripe dep → PCI gate, auth touch → deep tier).
 
 11 agents:
-• tech-lead (architecture + ADRs)
+• architect (architecture + ADRs)
 • senior-dev (TDD impl, Beads task tracking)
 • qa-engineer (QA reports, archetype-aware gates)
 • security-officer (pre-impl + post-impl modes)

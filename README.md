@@ -216,7 +216,7 @@ Each finding rated P0 / P1 / P2. P0 blocks the gate.
 ## Pipeline scales to the work
 
 ```
-tech-lead → senior-dev → [/review ×12] → qa-engineer → security-officer → devops → l3-support
+architect → senior-dev → [/review ×12] → qa-engineer → security-officer → devops → l3-support
 ```
 
 | Scale | Agents | Time | When |
@@ -256,7 +256,7 @@ great_cto ships a **four-layer memory system**. Different from generic memory pl
 
 **Cross-project learning via `/crystallize`**: after a P0 incident, agents write a structured knowledge extraction (KE) file. `/crystallize` promotes it to a global pattern after your approval. The pattern is then surfaced in **every agent's Step 0** at every future session, across all projects. A root cause that took 4 hours the first time takes 30 seconds the next time. **Verified: 94% MTTR reduction on second occurrence.**
 
-Six months in, the tech-lead stops re-inventing decisions already made. The L3 engineer skips 7 false-lead iterations and goes straight to the root cause.
+Six months in, the architect stops re-inventing decisions already made. The L3 engineer skips 7 false-lead iterations and goes straight to the root cause.
 
 ```
 .great_cto/                    ~/.great_cto/
@@ -304,7 +304,7 @@ The 7 SDLC agents are the backbone. For specialist work (mobile reviewers, ML en
 /template install react-performance      # one-line install
 ```
 
-Specialist agents are then callable via the `Agent` tool from `tech-lead` or `senior-dev`.
+Specialist agents are then callable via the `Agent` tool from `architect` or `senior-dev`.
 
 ---
 
@@ -324,7 +324,7 @@ Specialist agents are then callable via the `Agent` tool from `tech-lead` or `se
 <details>
 <summary><b>The math — indicative run-cost</b></summary>
 
-great_cto is **process**, not a team. It doesn't replace engineers — it replaces the slow, ad-hoc scaffolding around them (tech-lead reviews, QA planning, security checklists, release gates) on teams that don't yet have full-time specialists for each.
+great_cto is **process**, not a team. It doesn't replace engineers — it replaces the slow, ad-hoc scaffolding around them (architect reviews, QA planning, security checklists, release gates) on teams that don't yet have full-time specialists for each.
 
 Indicative Anthropic API spend on a typical product team (~20 pipeline runs/month):
 
@@ -394,7 +394,7 @@ Dependencies auto-trigger frameworks (Stripe → PCI-DSS, healthcare data → HI
 
 | Agent | Model | Role |
 |-------|-------|------|
-| tech-lead | Opus 4.7 | Architecture, ADRs, cost estimate |
+| architect | Opus 4.7 | Architecture, ADRs, cost estimate |
 | pm | Sonnet 4.6 | Gantt planning, dependency graph, gate:plan |
 | senior-dev | Sonnet 4.6 | TDD implementation |
 | qa-engineer | Haiku 4.5 | QA report, requirements traceability |
@@ -411,15 +411,15 @@ Advisor pattern: Opus 4.7 escalation for hard reasoning (architecture trade-offs
 
 | Artifact | Created by |
 |----------|-----------|
-| `docs/architecture/ARCH-*.md` | tech-lead — architecture + cost estimate + Well-Architected |
+| `docs/architecture/ARCH-*.md` | architect — architecture + cost estimate + Well-Architected |
 | `docs/plans/PLAN-*.md` | pm — Gantt plan, dependency graph, agent allocation |
-| `docs/decisions/ADR-*.md` | tech-lead, `/rfc` |
+| `docs/decisions/ADR-*.md` | architect, `/rfc` |
 | `docs/qa-reports/QA-*.md` | qa-engineer |
 | `docs/security/CSO-*.md` | security-officer |
 | `docs/releases/RELEASE-*.md` | devops |
 | `docs/board-reports/BOARD-*.md` | `/digest board` |
-| `.great_cto/brain.md` | `/start` → tech-lead → `/digest` (growing) |
-| `.great_cto/CODEBASE.md` | tech-lead (existing repos only) |
+| `.great_cto/brain.md` | `/start` → architect → `/digest` (growing) |
+| `.great_cto/CODEBASE.md` | architect (existing repos only) |
 | `.great_cto/HANDOFF.md` | PreCompact hook (automatic) |
 | `CHANGELOG.md` | devops (every deploy) |
 | `CODEOWNERS` | `/ownership` |
@@ -462,7 +462,7 @@ For a one-line typo, yes. That's why pipelines scale. `/start "fix typo in foote
 You don't have to. Start with `/audit` — it finds gaps in your existing repo and creates a task backlog. Use that even if you never run the full pipeline.
 
 **What if I disagree with the architecture?**
-Reject at gate 1. tech-lead iterates. Your two decisions are literally *approve/reject* — no commitment.
+Reject at gate 1. architect iterates. Your two decisions are literally *approve/reject* — no commitment.
 
 **An agent reported BLOCKED: permission denied (Bash/Write). Why?**
 Spawned agents inherit the parent session's permission mode. If you started the pipeline from **plan mode** (Shift+Tab toggles it), Write + Bash are blocked regardless of what the agent's frontmatter declares. Exit plan mode, or run `/permissions` and allow-list `Bash(*)` + `Write`, then re-run. The `PermissionDenied` hook logs each denial to `.great_cto/permission-denied.log` for forensics.

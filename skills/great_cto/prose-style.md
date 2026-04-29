@@ -97,6 +97,6 @@ When you write prose for a human reader (audit findings, QA reports, CSO reports
 
 - **security-officer, qa-engineer, project-auditor**: every finding requires RULE-H evidence pointer; every severity claim requires RULE-08 calibration.
 - **qa-engineer**: runs a warn-only grep against its own report for RULE-04/05 deny-phrases before emitting.
-- **senior-dev, tech-lead**: consulted on CHANGELOG / architecture-doc output.
+- **senior-dev, architect**: consulted on CHANGELOG / architecture-doc output.
 
 Upstream reference: https://github.com/yzhao062/agent-style (v0.3.1).

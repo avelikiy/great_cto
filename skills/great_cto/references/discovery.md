@@ -1,7 +1,7 @@
 ---
 name: discovery
 description: 4-6 question framework used when /start, /audit, /poc inputs are too sparse — disambiguates archetype, size, compliance before committing
-when_to_use: Phase 0 of any new feature when requirements are vague. Read by tech-lead at /start
+when_to_use: Phase 0 of any new feature when requirements are vague. Read by architect at /start
 applies_to:
   - _default
 ---
@@ -212,7 +212,7 @@ discovery-summary: |
 
 If Option B → also run `/poc "<the falsifiable hypothesis>"` after creating PROJECT.md.
 
-The `discovery-summary` field is read by `tech-lead` at ARCH time so it can preserve user intent in the architecture doc — not just the field values.
+The `discovery-summary` field is read by `architect` at ARCH time so it can preserve user intent in the architecture doc — not just the field values.
 
 ### Option C picked → write `.great_cto/DISCOVERY-NO-BUILD.md` instead
 

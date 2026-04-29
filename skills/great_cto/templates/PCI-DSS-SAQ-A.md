@@ -9,7 +9,7 @@ applies_to:
 # PCI-DSS-SAQ-A.md — Self-Assessment Questionnaire A (e-commerce, fully outsourced)
 
 > Mandatory artefact when `compliance: [pci-dss-saq-a]` in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate.
+> Required by `architect.md` compliance artefact gate.
 > SAQ-A applies to **card-not-present** merchants who fully outsource cardholder data functions to PCI-DSS-validated third parties (Stripe Elements, Stripe Checkout, redirected payment pages). The merchant **never electronically stores, processes, or transmits any cardholder data** on its systems.
 > Source: `skills/great_cto/templates/PCI-DSS-SAQ-A.md`.
 

@@ -39,7 +39,7 @@ continuing. Do not silently pass.
 
 POC mode allowed a 1-pager. Production requires a full ARCH.
 
-- Invoke `tech-lead` agent via Agent tool with instruction:
+- Invoke `architect` agent via Agent tool with instruction:
   "Expand POC-<slug> into a full ARCH document at
   `docs/architecture/ARCH-<slug>.md`. Use the POC hypothesis, criteria,
   and evidence as input. Include all standard sections (Problem, Decision
@@ -170,7 +170,7 @@ PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{p
 ```
 
 If `medium` or `large`, require `## Cost Model` section in the new ARCH.
-Invoke `tech-lead` to add it if absent.
+Invoke `architect` to add it if absent.
 
 ### Step 5 — Security officer review
 

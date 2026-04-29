@@ -27,7 +27,7 @@ SLUG="${1:-}"
 if [ -z "$SLUG" ]; then
   LATEST=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
   if [ -z "$LATEST" ]; then
-    echo "No ARCH doc found in docs/architecture/. Run tech-lead first to produce ARCH-<slug>.md."
+    echo "No ARCH doc found in docs/architecture/. Run architect first to produce ARCH-<slug>.md."
     exit 2
   fi
   SLUG=$(basename "$LATEST" .md | sed 's/^ARCH-//')
@@ -209,7 +209,7 @@ Threats rated Medium/Low that the team consciously accepts instead of mitigating
 
 ## Step 6 — Update ARCH with a pointer
 
-Append a `## Security` section to the ARCH doc that references the threat model. This is what tech-lead checks for at the ARCH gate (v1.0.94+).
+Append a `## Security` section to the ARCH doc that references the threat model. This is what architect checks for at the ARCH gate (v1.0.94+).
 
 ```bash
 if ! grep -q "^## Security" "$ARCH_FILE"; then
@@ -247,4 +247,4 @@ Next:
 
 End with one DONE or BLOCKED line per `skills/done-blocked`:
 - `DONE: /threat-model <slug> — <N> threats (crit=<x>, high=<y>). artefact: docs/threat-models/TM-<slug>.md. next: security-officer review at ARCH gate.`
-- `BLOCKED: /threat-model — ARCH doc incomplete. tried=reading ARCH-<slug>.md. failed_because=<what's missing>. need=<tech-lead to fill Assets/Dataflow section first>.`
+- `BLOCKED: /threat-model — ARCH doc incomplete. tried=reading ARCH-<slug>.md. failed_because=<what's missing>. need=<architect to fill Assets/Dataflow section first>.`

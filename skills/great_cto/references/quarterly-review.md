@@ -1,7 +1,7 @@
 ---
 name: quarterly-review
 description: Quarterly architecture review: step-back synthesis across ADRs/debt/god-nodes/drift — not the weekly /digest, the strategic ritual
-when_to_use: Quarterly review cadence. Read by /digest Q[1-4] and tech-lead
+when_to_use: Quarterly review cadence. Read by /digest Q[1-4] and architect
 applies_to:
   - _default
 ---
@@ -112,7 +112,7 @@ From RISK-REGISTER:
 ## Consumers
 
 - CTO (primary audience)
-- tech-lead (reads recommendations; drafts follow-up ADRs)
+- architect (reads recommendations; drafts follow-up ADRs)
 - Board narrative — pulls from Q-review for the "Risks on the horizon" section when both run
 
 ## Not in scope (deliberately)

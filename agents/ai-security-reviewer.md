@@ -27,7 +27,7 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["ai-security-reviewer
 ## When you're invoked
 
 - security-officer pre-impl mode AND archetype is `ai-system` or `agent-product`
-- Tech-lead has finished ARCH; senior-dev has not started coding
+- Architect has finished ARCH; senior-dev has not started coding
 - A prompt change introduces a new tool capability (escalates threat surface)
 - Model swap (especially across providers) — re-evaluate residual threats
 
@@ -53,9 +53,9 @@ Plus the severity rating + sign-off table. Critical/High threats must transition
 mkdir -p docs/sec-threats docs/architecture
 
 ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
-[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Tech-lead must run first." >&2; exit 1; }
+[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Architect must run first." >&2; exit 1; }
 
-# Compute SLUG from ARCH file (consistent with tech-lead + senior-dev)
+# Compute SLUG from ARCH file (consistent with architect + senior-dev)
 SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
 TM="docs/sec-threats/TM-${SLUG}.md"
 
@@ -153,7 +153,7 @@ For every Critical and High row, write:
 - Test reference (`EVAL-*.md` or pentest item)
 - Sign-off field — leave `__pending__` until mitigation lands
 
-`tech-lead` SECURITY_REQUIRED block (v1.0.132) refuses to mark ARCH done if any Critical/High threat is `__pending__` past pre-impl phase. Your job is to design the mitigation and reference the test; senior-dev's job is to land the code.
+`architect` SECURITY_REQUIRED block (v1.0.132) refuses to mark ARCH done if any Critical/High threat is `__pending__` past pre-impl phase. Your job is to design the mitigation and reference the test; senior-dev's job is to land the code.
 
 ### Step 4: Hand-off
 
@@ -182,7 +182,7 @@ ai-security-reviewer: complete
 - All Critical+High have mitigations + test refs (no __pending__ unsigned)
 - Hand-off to senior-dev: {N} mitigations to land in code
 - Hand-off to ai-eval-engineer: {N} EVAL files
-- Open issues for tech-lead: {list, or none}
+- Open issues for architect: {list, or none}
 ```
 
 ## Specific failure modes you reject

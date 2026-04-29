@@ -24,7 +24,7 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["web-store-reviewer"]
 ## When you're invoked
 
 - security-officer pre-impl mode AND `archetype: browser-extension`
-- Tech-lead has finished ARCH; manifest.json may or may not exist yet
+- Architect has finished ARCH; manifest.json may or may not exist yet
 - A new permission is being added to manifest.json (escalation review)
 - Pre-promotion (PoC → production): ensure Web Store will accept the extension
 
@@ -40,7 +40,7 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["web-store-reviewer"]
 mkdir -p docs/sec-threats docs/architecture
 
 ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
-[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Tech-lead must run first." >&2; exit 1; }
+[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Architect must run first." >&2; exit 1; }
 
 SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
 TM="docs/sec-threats/TM-${SLUG}.md"

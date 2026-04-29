@@ -33,7 +33,7 @@ Three rounds of skeptical self-review + an impartial arbiter, with a confidence 
 | `security-officer` | CSO audit P0/P1 | Yes |
 | `security-officer` | Secret in source/git, confirmed CVE | **No** — hard finding |
 | `qa-engineer` | Flaky-test verdict (is this a regression or flake?) | Yes |
-| `tech-lead` | ADR trade-off dispute (option A vs. B when both look reasonable) | Yes |
+| `architect` | ADR trade-off dispute (option A vs. B when both look reasonable) | Yes |
 | Any | P2/advisory | No |
 
 ## The 4-step pattern
@@ -131,7 +131,7 @@ Every caller logs triage results to `.great_cto/triage-log.jsonl` (append-only, 
 ```json
 {
   "timestamp": "2026-04-19T12:34:56Z",
-  "caller": "review|security-officer|qa-engineer|tech-lead",
+  "caller": "review|security-officer|qa-engineer|architect",
   "finding_id": "SEC-042",
   "file": "src/auth.c:142",
   "original_severity": "P0",
