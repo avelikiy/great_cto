@@ -4,6 +4,49 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.151 — 2026-04-29
+
+### New agent: PM (Project Manager)
+
+**`agents/pm.md`** + **`skills/great_cto/references/pm-planning.md`**
+
+New agent in the pipeline: **tech-lead → PM → (gate:plan) → senior-dev**.
+
+#### What PM does
+
+1. Reads the latest ARCH doc after `gate:arch` approval
+2. Extracts every task (SCHEMA/API/SVC/UI/INFRA/LLM/SEC/TEST/CSO) from the architecture
+3. Builds a dependency graph (text tree showing sequential vs. parallel)
+4. Estimates duration per task using the estimation table in `pm-planning.md` (by task type × mode)
+5. Applies buffer: PoC 0%, MVP +25%, Full +40%
+6. Identifies parallel-safe tasks (disjoint file ownership)
+7. Allocates agents: N concurrent senior-devs + qa-engineer + security-officer
+8. Generates a Mermaid Gantt diagram + ASCII fallback table
+9. Writes `docs/plans/PLAN-<slug>.md`
+10. Creates `gate:plan` — human approval required before any senior-dev starts
+11. Handles CTO adjustments: fewer agents, PoC mode, re-collapse parallel pools
+
+#### Project modes
+
+| Mode | Trigger | Task limit | Goal |
+|------|---------|------------|------|
+| `poc` | `project_size: nano` or `.great_cto/poc-mode.active` | ≤10 | ≤3 days |
+| `mvp` | `project_size: small` | ≤30 | ≤4 weeks |
+| `full` | `medium/large/enterprise` | unlimited | honest estimate |
+
+#### Skills
+
+PM uses: `pm-planning`, `pre-mortem`, `cost-model`, `anti-patterns` + archetype packs.
+AGENT_SKILLS matrix: 15 agents × 110 archetype entries (222 skill references, all resolving).
+
+#### Pipeline wiring
+
+- `agents/tech-lead.md` Step 7 Report: now mentions PM handoff + when to skip (nano)
+- `skills/great_cto/SKILL.md` Step 1b: PM inserted between gate:arch and senior-dev
+- `GATE:PLAN` described in SKILL.md with 72h expiry and adjustment protocol
+
+---
+
 ## v1.0.150 — 2026-04-29
 
 ### Fixed — project-auditor: deduplication, self-fix guard, risk/vendor scaffolding
