@@ -252,6 +252,24 @@ async function runInit(args: CliArgs): Promise<number> {
     const greatCtoDir = join(homedir(), ".great_cto");
     mkdirSync(greatCtoDir, { recursive: true });
 
+    // Create secrets.env template if missing — used by llm-router MCP server.
+    // Never overwrite an existing file (user may have real keys in there).
+    const { writeFileSync: wf } = await import("node:fs");
+    const secretsPath = join(greatCtoDir, "secrets.env");
+    if (!existsSync(secretsPath)) {
+      wf(secretsPath,
+        "# great_cto secrets — never commit this file\n" +
+        "# LLM router (optional, ~25% cost reduction on non-critical tasks):\n" +
+        "# Get a key at https://openrouter.ai/keys\n" +
+        "#OPENROUTER_API_KEY=sk-or-v1-...\n" +
+        "\n" +
+        "# Override default routing model (default: moonshotai/kimi-k2):\n" +
+        "#GREAT_CTO_ROUTER_MODEL=moonshotai/kimi-k2\n",
+        "utf-8"
+      );
+      log(`  ${dim("created ~/.great_cto/secrets.env (add OPENROUTER_API_KEY for LLM router)")}`);
+    }
+
     const skillSources = [
       { name: "anthropic-skills", url: "https://github.com/anthropics/skills.git" },
       { name: "personal-skills", url: "https://github.com/avelikiy/ai-agent-skills.git" },
