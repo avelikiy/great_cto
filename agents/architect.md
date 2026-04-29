@@ -605,9 +605,25 @@ ARCH PROOF CHECK:
   [ ] Cost estimate included (or "no new components")? [Y/N]
   [ ] Requirements Checklist has ≥1 item? [Y/N]
   [ ] USER-SPEC link added (if expert/step-by-step)? [Y/N or N/A]
+  [ ] ## Safeguards section present with ≥3 non-negotiable items? [Y/N]
+  [ ] Safeguards are archetype-appropriate (commerce → idempotency; ai → cost cap; etc.)? [Y/N]
 ```
 
 Any [N] → fix the ARCH doc now. Only create gate:arch after all checks pass.
+
+**Safeguards generation guidance** (when writing the `## Safeguards` section):
+
+Populate from three sources:
+1. **Archetype defaults** — read from `skills/great_cto/templates/ARCH-default.md § Safeguards` hints
+2. **Feature-specific** — ask: what would cause silent data corruption, security breach, or SLA violation here?
+3. **Known anti-patterns** — read `skills/great_cto/references/anti-patterns.md` for the current archetype
+
+At minimum include:
+- 1 data-integrity invariant (especially if feature touches money, state, or PII)
+- 1 security invariant (auth, secrets, error exposure)
+- 1 API-contract invariant (if feature changes a public interface)
+
+Mark each item `- [ ]` so senior-dev and security-officer can tick off during review.
 
 6. **Pre-handoff checklist** — verify before creating gate:arch:
 
