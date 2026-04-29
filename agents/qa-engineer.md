@@ -407,7 +407,7 @@ npm run test:e2e          # needs full stack
 
 **Fallback (no Agent tool available)**: run all sequentially as before:
 ```bash
-npm test 2>/dev/null || pytest 2>/dev/null || cargo test 2>/dev/null || go test ./... 2>/dev/null
+npm test 2>/dev/null || PYTHONUNBUFFERED=1 pytest --timeout=30 2>/dev/null || cargo test 2>/dev/null || go test ./... 2>/dev/null
 ```
 
 Runtime: ~1.5-2x faster for medium+ projects with both unit + integration + E2E + perf.
@@ -554,7 +554,7 @@ MAX_ATTEMPTS=3
 while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
   echo "QA attempt $ATTEMPT/$MAX_ATTEMPTS — $(date)"
   # Re-run the failing test suite
-  npm test 2>/dev/null || pytest 2>/dev/null || go test ./... 2>/dev/null
+  npm test 2>/dev/null || PYTHONUNBUFFERED=1 pytest --timeout=30 2>/dev/null || go test ./... 2>/dev/null
   EXIT_CODE=$?
   [ $EXIT_CODE -eq 0 ] && echo "PASS on attempt $ATTEMPT" && break
   [ $ATTEMPT -eq $MAX_ATTEMPTS ] && echo "FAIL after $MAX_ATTEMPTS attempts — filing bug"
