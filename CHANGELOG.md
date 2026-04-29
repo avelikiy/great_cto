@@ -4,6 +4,34 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.155 — 2026-04-29
+
+### Safeguards: non-negotiable invariants wired across the pipeline
+
+**`skills/great_cto/templates/ARCH-default.md`** — `## Safeguards` section added
+- 4 categories: Data integrity · Security · Performance · API contracts
+- Archetype hints: commerce, ai-system, web3, iot-embedded, regulated
+
+**`skills/great_cto/templates/ARCH-ai.md`** — AI-specific `## Safeguards` section added
+- LLM safety (input sanitisation, no PII in prompts, hard token cap, output filter)
+- Cost & abuse (per-user spend cap, BudgetTracker, anomaly threshold)
+- Data isolation (tenant_id scoping, tool output sanitisation)
+- Auditability (tool call logging, ≥3 EVAL-*.md eval gate)
+
+**`agents/architect.md`** — Proof Loop extended
+- 2 new checks: Safeguards section present + archetype-appropriate
+- Safeguards generation guidance section added (3 sources: archetype defaults, feature-specific, anti-patterns)
+
+**`agents/senior-dev.md`** — Safeguards pre-flight added (Step 0b)
+- Reads `## Safeguards` from ARCH doc before writing any code
+- Every unchecked `- [ ]` must be implemented or blocked — no silent skips
+
+**`agents/security-officer.md`** — Safeguards cross-check added (CSO Proof Loop 5c)
+- New Proof Loop item: `ARCH ## Safeguards cross-check: all items verified?`
+- Bash block verifies each `- [ ]` item; unimplemented → P1 minimum; ai isolation/cost-cap → P0
+
+---
+
 ## v1.0.154 — 2026-04-29
 
 ### Rename: tech-lead → architect + new skills/tools
