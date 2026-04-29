@@ -329,8 +329,14 @@ elif [ -f ~/.great_cto/secrets.env ] && grep -q '^OPENROUTER_API_KEY=' ~/.great_
 fi
 
 if [ -z "$ROUTER_KEY" ]; then
-  echo "  ℹ not configured — all tasks on Anthropic (fine, just pricier)"
-  echo "    To enable: echo 'OPENROUTER_API_KEY=sk-or-v1-...' >> .env.local (and restart session)"
+  echo "  ⚠ not configured — all tasks on Anthropic (fine, but pricier)"
+  echo "    To enable (pick one):"
+  echo "      Global key (shared across all projects — preferred):"
+  echo "        echo 'OPENROUTER_API_KEY=sk-or-v1-...' >> ~/.great_cto/secrets.env"
+  echo "      Per-project key (git-ignored):"
+  echo "        echo 'OPENROUTER_API_KEY=sk-or-v1-...' >> .env.local"
+  echo "    Then restart Claude Code session."
+  echo "    Get a key: https://openrouter.ai/keys"
 else
   # Quick ping to verify key is live + get usage
   USAGE_JSON=$(curl -s -m 5 -H "Authorization: Bearer $ROUTER_KEY" https://openrouter.ai/api/v1/auth/key 2>/dev/null)
