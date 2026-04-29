@@ -34,7 +34,7 @@ if [ "$1" = "trace" ]; then
     echo "=== Traceability: $TARGET ==="
     echo ""
     echo "--- Requirements (label: req) ---"
-    bd list --label req --label "$TARGET" 2>/dev/null || echo "  (none — tech-lead creates REQ tasks with --label req --label feature-<slug>)"
+    bd list --label req --label "$TARGET" 2>/dev/null || echo "  (none — architect creates REQ tasks with --label req --label feature-<slug>)"
     echo ""
     echo "--- Implementation (feature label, excluding req/test) ---"
     bd list --label "$TARGET" --json 2>/dev/null \

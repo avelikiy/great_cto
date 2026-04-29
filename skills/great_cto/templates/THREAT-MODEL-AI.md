@@ -10,7 +10,7 @@ applies_to:
 # TM-{slug}.md — Threat model for AI / agent project
 
 > **Mandatory for `archetype: ai-system | agent-product`.**
-> Required by `tech-lead.md` SECURITY_REQUIRED block + `senior-dev.md` Step 0b — cannot start coding without this file.
+> Required by `architect.md` SECURITY_REQUIRED block + `senior-dev.md` Step 0b — cannot start coding without this file.
 > Source: `skills/great_cto/templates/THREAT-MODEL-AI.md`. Pair with `ARCH-{slug}.md § Security`.
 
 ## Methodology
@@ -75,8 +75,8 @@ If your tool layer fetches URLs, runs code, queries databases, or hits external 
 
 | Threat # | Severity | Owner | Mitigation status | Sign-off |
 |---|---|---|---|---|
-| P-01 prompt-injection user input | Critical | tech-lead | designed | __pending__ |
-| P-02 RAG poisoning | High | tech-lead | designed | __pending__ |
+| P-01 prompt-injection user input | Critical | architect | designed | __pending__ |
+| P-02 RAG poisoning | High | architect | designed | __pending__ |
 | ... | | | | |
 
 `security-officer` (post-impl) reviews this table. Critical/High items must be `mitigated` (not `accepted`) before `gate:ship` releases.

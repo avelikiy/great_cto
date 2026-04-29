@@ -1,6 +1,6 @@
 # `skills/great_cto/templates/` — mandatory artefact templates
 
-> One template per compliance / technical artefact required by `tech-lead.md`, `senior-dev.md`, `qa-engineer.md` hard halts (v1.0.131 + v1.0.132).
+> One template per compliance / technical artefact required by `architect.md`, `senior-dev.md`, `qa-engineer.md` hard halts (v1.0.131 + v1.0.132).
 > Agents read these to know what shape an artefact should have. Users copy them into project repos under `docs/compliance/`, `docs/architecture/`, `docs/sec-threats/`, `tests/eval/`, or `docs/decisions/`.
 
 ## When each template gets copied
@@ -28,7 +28,7 @@
 
 ## How agents use these
 
-`tech-lead.md` SECURITY_REQUIRED block (v1.0.132) checks for the destination artefact and exits 1 if missing. If the user says "I don't know what shape this should take", tech-lead points them at the matching template.
+`architect.md` SECURITY_REQUIRED block (v1.0.132) checks for the destination artefact and exits 1 if missing. If the user says "I don't know what shape this should take", architect points them at the matching template.
 
 `senior-dev.md` Step 0b uses `## Security` section in ARCH and the `TM-*.md` file to inform implementation rules. Both come from these templates.
 
@@ -38,7 +38,7 @@
 
 ## What's NOT in this directory
 
-- ARCH templates for non-AI archetypes (web-service, mobile-app, library, …) — `tech-lead.md` has these inline because they're rarely customised
+- ARCH templates for non-AI archetypes (web-service, mobile-app, library, …) — `architect.md` has these inline because they're rarely customised
 - Threat model template for traditional surface (STRIDE) — `/sec threat` already generates this
 - Code-review checklists — `/review` 12-angle is built in
 - Per-pack templates (game-pack `## Performance budget` section, web3-pack `## Upgradeability matrix`) — those live inside the pack files in `skills/great_cto/packs/`

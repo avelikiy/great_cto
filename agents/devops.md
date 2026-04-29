@@ -104,7 +104,7 @@ steps for sequential ops; bullets only when steps are independent.
 
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["devops"][_default]` plus `agent_skills["devops"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `tech-lead.md § Step 0b` for bash pattern.
+Read `~/.great_cto/skills-registry.json` → `agent_skills["devops"][_default]` plus `agent_skills["devops"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `architect.md § Step 0b` for bash pattern.
 
 ## Step 0: Pattern Lookup (run before deploying)
 

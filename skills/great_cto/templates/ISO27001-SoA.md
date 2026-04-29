@@ -9,7 +9,7 @@ applies_to:
 # ISO27001-SoA.md — Statement of Applicability
 
 > Mandatory artefact when `compliance: [iso27001]` in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate.
+> Required by `architect.md` compliance artefact gate.
 > ISO/IEC 27001:2022 — clause 6.1.3(d). The Statement of Applicability declares which Annex A controls are applicable, which are excluded, and the justification.
 > Source: `skills/great_cto/templates/ISO27001-SoA.md`.
 

@@ -1,7 +1,7 @@
 ---
 name: pre-mortem
 description: Pre-mortem template: forward-looking failure analysis BEFORE risky work starts — distinct from ADR (decision), postmortem (past), threat model (adversarial)
-when_to_use: Risky changes (large/enterprise + web3/iot-embedded/regulated). Read by tech-lead before finalising ARCH
+when_to_use: Risky changes (large/enterprise + web3/iot-embedded/regulated). Read by architect before finalising ARCH
 applies_to:
   - web3
   - iot-embedded
@@ -15,7 +15,7 @@ applies_to:
 
 ## When to trigger
 
-tech-lead runs a pre-mortem as part of ARCH when any of these apply:
+architect runs a pre-mortem as part of ARCH when any of these apply:
 
 - `project_size: large` or `enterprise` → always
 - `archetype` is `web3`, `iot-embedded`, or `regulated` → always
@@ -69,14 +69,14 @@ It's now considered a failure. What happened?
 - R-NNN: <risk title> (<prob>, <impact>, source: PRE-<slug> #N)
 
 ## Post-ship review (fill after 90 days)
-_[To be filled by tech-lead at <ship-date + 90d>]_
+_[To be filled by architect at <ship-date + 90d>]_
 - Realized: <which scenarios actually happened>
 - Mitigated: <which mitigations worked>
 - Missed: <incidents not in the brainstorm — feed brain.md for next pre-mortem>
 - New risks discovered: <delta to register>
 ```
 
-## Brainstorming prompts (for tech-lead)
+## Brainstorming prompts (for architect)
 
 Surface non-obvious scenarios by asking these in order:
 
@@ -91,9 +91,9 @@ Surface non-obvious scenarios by asking these in order:
 
 ## Integration
 
-- **tech-lead**: generates PRE-*.md before finalizing ARCH; embeds ranked mitigations into ARCH "Risks" section; adds high-scoring scenarios as R- entries via risk register.
+- **architect**: generates PRE-*.md before finalizing ARCH; embeds ranked mitigations into ARCH "Risks" section; adds high-scoring scenarios as R- entries via risk register.
 - **security-officer**: when running gate:compliance or gate:security, reads the matching PRE-*.md and verifies that each "mitigation → gate" mapping is actually enforceable at that gate. If a mitigation is marked gate:qa but no test exists, CSO flags it.
-- **`/digest` (quarterly)**: for every PRE-*.md with a ship date > 90 days ago and no filled post-ship review, prompts tech-lead to complete it.
+- **`/digest` (quarterly)**: for every PRE-*.md with a ship date > 90 days ago and no filled post-ship review, prompts architect to complete it.
 
 ## Post-ship review — why it matters
 
@@ -101,7 +101,7 @@ The post-review closes the learning loop. Scenarios that *didn't* happen teach u
 
 ## Consumers
 
-- `tech-lead` — writes at ARCH time; updates post-ship review
+- `architect` — writes at ARCH time; updates post-ship review
 - `security-officer` — reads for mitigation-to-gate verification
 - `/digest` — quarterly review reminder
 - Risk register — sink for high-scoring scenarios

@@ -3,7 +3,7 @@ name: done-blocked
 description: Reusable reporting contract for any agent that hands work back to the pipeline. Forces ONE of two terminal statuses (DONE or BLOCKED) with a specific evidence shape. Stops vague "probably finished" and "kind of stuck" verdicts.
 when_to_use: |
   Apply to every terminal verdict an agent writes — the last line of a spawned agent run, the top of a report file, or the summary appended to a Beads task comment. Specifically:
-  - tech-lead ARCH doc completion → DONE or BLOCKED
+  - architect ARCH doc completion → DONE or BLOCKED
   - senior-dev task close → DONE or BLOCKED
   - qa-engineer QA report verdict → DONE (PASS) or BLOCKED (FAIL with evidence)
   - security-officer CSO audit verdict → DONE (APPROVED) or BLOCKED (findings)
@@ -56,7 +56,7 @@ BLOCKED: <one-sentence summary of the obstacle>
 
 5. **`need` names a specific unblock.** These are rejected:
    - "more information" → ask one specific question
-   - "help from another agent" → name the agent (tech-lead / security-officer / …)
+   - "help from another agent" → name the agent (architect / security-officer / …)
    - "CTO approval" → state the exact choice (approve gate X, pick option A vs B, waive check)
 
 ## Where the verdict goes
@@ -86,7 +86,7 @@ DONE: CSO audit passed — 0 P0, 2 P1 findings filed as Beads tasks.
 BLOCKED: senior-dev cannot claim task BD-42 — circular dependency with BD-38.
   tried: bd ready → BD-42 did not appear; bd dep tree BD-42 → shows BD-38 blocks BD-42, BD-42 blocks BD-38
   failed_because: both tasks depend on each other transitively (BD-42 → BD-38 → BD-39 → BD-42)
-  need: tech-lead to split BD-39 into two tasks so the cycle breaks
+  need: architect to split BD-39 into two tasks so the cycle breaks
 ```
 
 **Rejected — vague BLOCKED:**

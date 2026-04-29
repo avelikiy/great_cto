@@ -1,14 +1,14 @@
 ---
 name: cost-discipline
 description: Cost as engineering signal: unit economics, $ per request, cost-per-feature attribution, when to refactor for cost vs functionality
-when_to_use: Cost-conscious architectures (medium+ projects). Read by tech-lead Cost Model section
+when_to_use: Cost-conscious architectures (medium+ projects). Read by architect Cost Model section
 applies_to:
   - _default
 ---
 
 # Cost Discipline — reference
 
-The third axis of engineering health: economics. Reliability says "does it stay up?", delivery says "do we ship?", cost says "can we afford what we just shipped?" Read by `tech-lead` when sizing new features and by anyone responding to a `/cost` or `/inbox` cost alert.
+The third axis of engineering health: economics. Reliability says "does it stay up?", delivery says "do we ship?", cost says "can we afford what we just shipped?" Read by `architect` when sizing new features and by anyone responding to a `/cost` or `/inbox` cost alert.
 
 ## Why cost is a real engineering signal, not finance's problem
 

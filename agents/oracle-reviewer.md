@@ -27,7 +27,7 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["oracle-reviewer"][_d
 ## When you're invoked
 
 - security-officer pre-impl mode AND `archetype: web3` (subtype defi-protocol, bridge-protocol, lending, dex, aggregator)
-- Tech-lead has finished ARCH; senior-dev has not started Solidity coding
+- Architect has finished ARCH; senior-dev has not started Solidity coding
 - Adding new oracle dependency (Chainlink → Pyth, or new asset price feed)
 - L2 deployment decision (Base, Arbitrum, Optimism, Linea, ZKsync)
 
@@ -54,7 +54,7 @@ Plus severity rating + sign-off table. Critical/High threats must transition fro
 mkdir -p docs/sec-threats docs/architecture
 
 ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
-[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Tech-lead must run first." >&2; exit 1; }
+[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Architect must run first." >&2; exit 1; }
 
 SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
 TM="docs/sec-threats/TM-${SLUG}.md"

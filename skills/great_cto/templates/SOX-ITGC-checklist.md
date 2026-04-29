@@ -9,7 +9,7 @@ applies_to:
 # SOX-ITGC-checklist.md — IT General Controls (Sarbanes-Oxley §404)
 
 > Mandatory artefact when `compliance: [sox]` in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate.
+> Required by `architect.md` compliance artefact gate.
 > Applies to public US companies + foreign issuers. ITGCs cover IT systems supporting financial reporting per PCAOB AS 2201 / SAS 109.
 > Source: `skills/great_cto/templates/SOX-ITGC-checklist.md`.
 

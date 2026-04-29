@@ -1,7 +1,7 @@
 ---
 name: waivers
 description: Waiver protocol: silent gate-skips become tracked debt with explicit time-boxed WAIVER-<id>.md + follow-up task — no silent bypass
-when_to_use: Hotfix shipping with skipped gates. Read by security-officer + tech-lead
+when_to_use: Hotfix shipping with skipped gates. Read by security-officer + architect
 applies_to:
   - _default
 ---

@@ -10,7 +10,7 @@ applies_to:
 
 > **Reader:** the engineer who will ship the next Web Store update without getting flagged by the reviewers.
 > **Source:** `skills/great_cto/templates/ARCH-browser-extension.md`. Mandatory for `archetype: browser-extension`.
-> Required by `tech-lead.md` SECURITY_REQUIRED block. Cannot ship without `## Permissions Justification` + `## Web Store Pre-flight`.
+> Required by `architect.md` SECURITY_REQUIRED block. Cannot ship without `## Permissions Justification` + `## Web Store Pre-flight`.
 
 ## Decision (one sentence)
 {What the extension does for the user — no internal implementation language, the same sentence Web Store reviewers will read.}

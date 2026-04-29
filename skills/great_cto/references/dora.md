@@ -1,14 +1,14 @@
 ---
 name: dora
 description: DORA Four Keys reference: deployment frequency, lead time for changes, change failure rate, MTTR — definitions, instrumentation, baseline benchmarks
-when_to_use: Setting up DevOps metrics. Read by devops + tech-lead for engineering health signals
+when_to_use: Setting up DevOps metrics. Read by devops + architect for engineering health signals
 applies_to:
   - _default
 ---
 
 # DORA — reference
 
-Five metrics that, taken together, predict engineering health better than any single dashboard. Read by `tech-lead` and `qa-engineer` whenever Change Failure Rate spikes. The fifth — Deployment Rework Rate — was added to the DORA model in 2024.
+Five metrics that, taken together, predict engineering health better than any single dashboard. Read by `architect` and `qa-engineer` whenever Change Failure Rate spikes. The fifth — Deployment Rework Rate — was added to the DORA model in 2024.
 
 ## The five numbers
 
@@ -40,7 +40,7 @@ Only `feature` deploys count toward "real throughput."
 
 A team at Ostrovok (booking platform) saw incidents climbing and assumed the cause was code quality. They wrote more tests, slowed down reviews, and saw no improvement. When they finally measured DORA, the data showed Lead Time was 2 weeks — not a quality problem, a **release latency** problem. Long-lived branches were merging stale code that broke under newer assumptions. Automating the release pipeline cut Lead Time to 2 days, and incidents fell on their own.
 
-**Rule for tech-lead and qa-engineer:** when CFR rises, **do not jump to "more tests" or "stricter review."** Look at Lead Time first.
+**Rule for architect and qa-engineer:** when CFR rises, **do not jump to "more tests" or "stricter review."** Look at Lead Time first.
 
 | What you see | Likely cause | Action |
 |---|---|---|
@@ -62,7 +62,7 @@ A dashboard nobody acts on is decoration. The CFR signal in `/inbox` exists so t
 
 ## Gaming the metrics (watch for these in your own team)
 
-Metrics become lies the moment a team optimises for the number instead of the process. The 2024 DORA report lists four common manipulations — `/digest` runs automated guards against the two most detectable ones, but tech-lead should watch for all four:
+Metrics become lies the moment a team optimises for the number instead of the process. The 2024 DORA report lists four common manipulations — `/digest` runs automated guards against the two most detectable ones, but architect should watch for all four:
 
 | Manipulation | What it looks like | How to catch it |
 |---|---|---|
