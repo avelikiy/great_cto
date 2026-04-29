@@ -600,6 +600,25 @@ else
   echo "  ⚠ git: not a git repository — run: git init && git add . && git commit -m 'chore: initial commit'"
 fi
 
+# ── 4. LLM router (OPENROUTER_API_KEY) ───────────────────────────────────
+ROUTER_KEY=""
+[ -n "$OPENROUTER_API_KEY" ] && ROUTER_KEY="$OPENROUTER_API_KEY"
+[ -z "$ROUTER_KEY" ] && [ -f .env.local ] && ROUTER_KEY=$(grep '^OPENROUTER_API_KEY=' .env.local 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'"')
+[ -z "$ROUTER_KEY" ] && [ -f ~/.great_cto/secrets.env ] && ROUTER_KEY=$(grep '^OPENROUTER_API_KEY=' ~/.great_cto/secrets.env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'"')
+
+if [ -n "$ROUTER_KEY" ]; then
+  echo "  ✓ LLM router: OPENROUTER_API_KEY found (~25% cost saving active)"
+else
+  echo "  ℹ LLM router: not configured (optional)"
+  echo "    Add key to ~/.great_cto/secrets.env to save ~25% on non-critical tasks."
+  # Ensure secrets.env template exists for the user to fill in
+  if [ ! -f ~/.great_cto/secrets.env ]; then
+    mkdir -p ~/.great_cto
+    printf '# great_cto secrets\n#OPENROUTER_API_KEY=sk-or-v1-...\n' > ~/.great_cto/secrets.env
+    echo "    Created ~/.great_cto/secrets.env — add your key there."
+  fi
+fi
+
 echo "=== Pre-flight done ==="
 ```
 
