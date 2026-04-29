@@ -1,6 +1,6 @@
 ---
 name: pm
-description: Use after tech-lead produces the ARCH doc. Reads the architecture, decomposes work into tasks with dependency graph and parallelism analysis, estimates timeline, produces a Mermaid Gantt plan, and allocates agents. Creates gate:plan for human approval before any senior-dev starts.
+description: Use after architect produces the ARCH doc. Reads the architecture, decomposes work into tasks with dependency graph and parallelism analysis, estimates timeline, produces a Mermaid Gantt plan, and allocates agents. Creates gate:plan for human approval before any senior-dev starts.
 model: sonnet
 tools: Read, Write, Bash, Glob, Grep
 maxTurns: 25
@@ -37,7 +37,7 @@ MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/nu
 
 # Latest ARCH doc
 ARCH_FILE=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
-[ -z "$ARCH_FILE" ] && echo "BLOCKED: No ARCH doc found. Run tech-lead first." && exit 1
+[ -z "$ARCH_FILE" ] && echo "BLOCKED: No ARCH doc found. Run architect first." && exit 1
 
 # Feature slug from ARCH filename
 FEATURE_SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//' | tr '[:upper:]' '[:lower:]')
@@ -159,7 +159,7 @@ Present estimates as ranges: `[optimistic]–[pessimistic]` where pessimistic = 
 For each task, look up the token cost from `pm-planning.md` cost model. Apply multi-turn multiplier (2–5 turns for senior-dev tasks). Sum across all tasks for total project LLM cost.
 
 Include all agents in the cost sum:
-- tech-lead (Opus 4.7): ~$0.50 per feature invocation  
+- architect (Opus 4.7): ~$0.50 per feature invocation  
 - pm (Sonnet 4.6): ~$0.15 per plan
 - senior-dev (Sonnet 4.6): per task × turns
 - qa-engineer (Haiku 4.5): per task × turns (cheapest model)
@@ -180,7 +180,7 @@ For the same task list, estimate what a human team would cost using the human co
 - Map each task type to its human role and hours
 - Multiply by role rate (US mid-senior 2026)
 - Sum across all tasks + add 30% coordination overhead (meetings, review cycles, handoffs)
-- Add architecture (tech-lead equivalent): 4–8h × $200/h
+- Add architecture (architect equivalent): 4–8h × $200/h
 - Add PM planning (human PM): 3–8h × $120/h
 
 Report:
@@ -350,7 +350,7 @@ Total calendar estimate:        ~<Z>h          ← compute + gate wait
 ── Cost breakdown ────────────────────────────────
                     TIME              COST
 LLM agents:         Xmin total        $X.XX – $X.XX
-  tech-lead:        ~Xmin             $X.XX  (Opus 4.7)
+  architect:        ~Xmin             $X.XX  (Opus 4.7)
   pm:               ~Xmin             $X.XX  (Sonnet 4.6)
   senior-dev:       ~Xmin (N tasks)   $X.XX  (Sonnet 4.6 × N tasks × avg turns)
   qa-engineer:      ~Xmin             $X.XX  (Haiku 4.5)

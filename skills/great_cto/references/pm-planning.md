@@ -108,7 +108,7 @@ Always show: `Total LLM cost estimate: $X.XX (optimistic) – $X.XX (pessimistic
 
 | Role | Rate/h | Used for |
 |------|--------|----------|
-| Solutions Architect | $200 | tech-lead tasks (architecture, ADRs) |
+| Solutions Architect | $200 | architect tasks (architecture, ADRs) |
 | Senior Backend Dev | $150 | SCHEMA, API, SVC tasks |
 | Senior Frontend Dev | $130 | UI tasks |
 | ML / AI Engineer | $180 | LLM tasks |
@@ -134,7 +134,7 @@ Always show: `Total LLM cost estimate: $X.XX (optimistic) – $X.XX (pessimistic
 | Test suite (unit) | QA Engineer | 2–4h | $160–320 |
 | Test suite (integration) | QA Engineer | 4–8h | $320–640 |
 | Security review / CSO | Security Eng | 4–16h | $800–3,200 |
-| Architecture (tech-lead) | Architect | 4–8h | $800–1,600 |
+| Architecture (architect) | Architect | 4–8h | $800–1,600 |
 | PM planning (human PM) | PM | 3–8h | $360–960 |
 | QA report | QA Engineer | 2–4h | $160–320 |
 
@@ -307,7 +307,7 @@ task-1 → task-3 (parallel with task-2) → task-4
 | T3 | POST /users | API | senior-dev | Sonnet | T1 | 10min | $0.05×3t=$0.15 | $450–900 |
 | T4 | GET /users | API | senior-dev | Sonnet | T1 | 10min | $0.05×2t=$0.10 | $450–900 |
 | T5 | QA report | TEST | qa-engineer | Haiku | T3 T4 | 15min | $0.01×2t=$0.02 | $160–320 |
-| — | tech-lead | ARCH | tech-lead | Opus | — | 20min | $0.50 | $800–1,600 |
+| — | architect | ARCH | architect | Opus | — | 20min | $0.50 | $800–1,600 |
 | — | pm | PLAN | pm | Sonnet | gate:arch | 15min | $0.15 | $360–960 |
 
 `t` = agent turns
@@ -340,7 +340,7 @@ Minimum agents needed: 2 senior-dev + 1 qa-engineer
 **LLM time + cost breakdown:**
 | Agent | Time | Cost |
 |-------|------|------|
-| tech-lead | ~Xmin | $X.XX (Opus 4.7) |
+| architect | ~Xmin | $X.XX (Opus 4.7) |
 | pm | ~Xmin | $X.XX (Sonnet 4.6) |
 | senior-dev (N tasks) | ~Xmin | $X.XX (Sonnet 4.6) |
 | qa-engineer | ~Xmin | $X.XX (Haiku 4.5) |
