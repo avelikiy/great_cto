@@ -4,6 +4,59 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.148 — 2026-04-29
+
+### Fixed — PoC field-test: bd fallback, worktree graceful degradation, Python buffering, pytest-timeout
+
+Four gaps surfaced during a real-world Agent Company Factory PoC run.
+
+#### P0 — bd CLI without Dolt backend: silent degradation → explicit fallback
+
+`bd init` silently succeeds even when the Dolt binary is missing (CGO not compiled).
+All subsequent `bd list/add/create` calls fail without any user-visible error — the
+entire task-tracking pipeline breaks invisibly.
+
+**Fixes:**
+- `/start` Step 3: `bd init` now checks if backend actually works with `bd list --status open`. On failure: creates `.great_cto/tasks.md` (markdown fallback table) and prints a clear warning with fix instructions.
+- `/start` Step 5c (**new pre-flight block**): checks `bd`, worktree hooks, and git state. Outputs `⚠` lines surfaced in Step 6 confirmation. Never blocks — always warns.
+- `agents/senior-dev.md`: added explicit `**If bd unavailable**: write to .great_cto/tasks.md` note to step 11 (was already there, now more prominent).
+
+Fix for bd: `CGO_ENABLED=1 go install github.com/steveyegge/beads/cmd/bd@latest` or download pre-built from releases.
+
+#### P0 — senior-dev `isolation: worktree` hard-fails without hooks
+
+`Agent(subagent_type="senior-dev")` with `isolation: worktree` throws:
+`Cannot create agent worktree: not in a git repository and no WorktreeCreate hooks are configured`
+
+This kills every parallel implementation task even for valid git repos that simply
+haven't configured the hooks.
+
+**Fixes:**
+- `agents/senior-dev.md`: added `isolation-fallback: none` frontmatter.
+- Added **Worktree isolation** section explaining: if worktree fails → continue without isolation, prefix output with `⚠`, commit frequently as checkpoints.
+- Included copy-paste `settings.json` snippet for WorktreeCreate/WorktreeRemove hooks.
+- `/start` pre-flight (Step 5c) now checks for `WorktreeCreate` in settings.json and warns if missing.
+
+#### P1 — Python stdout buffering when tests run in background
+
+`pytest ... & ; sleep 5; tail /tmp/out.log` returns empty file — Python buffers
+stdout when not in a TTY. `tail` reads the empty buffer.
+
+**Fixes:**
+- `agents/senior-dev.md`: all pytest examples now use `PYTHONUNBUFFERED=1 pytest -x -v`.
+- Added background pattern: `PYTHONUNBUFFERED=1 pytest > /tmp/test-out.log 2>&1 &`.
+- `agents/senior-dev.md` and `agents/qa-engineer.md`: all `pytest 2>/dev/null` fallback invocations updated to `PYTHONUNBUFFERED=1 pytest --timeout=30 2>/dev/null`.
+
+#### P2 — No pytest-timeout in Python project bootstrap
+
+Tests can hang indefinitely (network calls, deadlocks, infinite loops in LLM agents).
+No default timeout means CI/CD pipelines and PoC runs block forever.
+
+**Fix:**
+- `agents/senior-dev.md` Stack Detection section: added Python project bootstrap snippet with `[tool.pytest.ini_options]` including `timeout = 30` and `timeout_method = "thread"`. Triggered when no `pyproject.toml`/`pytest.ini` exists.
+
+---
+
 ## v1.0.147 — 2026-04-28
 
 ### Fixed — sort correctness, integration tests, doctor check, /migrate command, hook extraction
