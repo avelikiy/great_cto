@@ -58,6 +58,37 @@ Agent 4 (Explore): Phase 4 — Architectural Debt
   Return: {god_files: [{path, lines}], circular_deps_count, fixme_count, observability_gaps: []}
 ```
 
+**Scaffold missing directories** — create standard doc dirs if absent (idempotent, never overwrite existing content):
+```bash
+# Risk register — read by /inbox, /audit, security-officer
+if [ ! -f docs/risks/RISK-REGISTER.md ]; then
+  mkdir -p docs/risks/closed
+  cat > docs/risks/RISK-REGISTER.md << 'RISKEOF'
+# Risk Register
+
+> Managed by great_cto. See `skills/great_cto/references/risk-register.md` for schema.
+> Do NOT edit header. Append risk rows below.
+
+## Active risks
+
+| ID | Title | Impact | Prob | Owner | Source | Status |
+|----|-------|--------|------|-------|--------|--------|
+
+## Closed risks
+
+See `docs/risks/closed/`.
+RISKEOF
+  echo "  scaffolded docs/risks/RISK-REGISTER.md"
+fi
+
+# Vendor register — read by security-officer quarterly review
+mkdir -p docs/vendors
+if [ ! -f docs/vendors/.gitkeep ]; then
+  touch docs/vendors/.gitkeep
+  echo "  scaffolded docs/vendors/ (add VENDOR-<slug>.md per third-party dependency)"
+fi
+```
+
 **Caching layer** — before spawning agents, check cache:
 ```bash
 CACHE_DIR=".great_cto/cache"
@@ -439,9 +470,12 @@ if [ "$ARCHETYPE" = "ai-system" ] || [ "$ARCHETYPE" = "agent-product" ]; then
   BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '$')
 
   if [ -z "$BUDGET" ] || [ "$BUDGET" = "0" ]; then
-    bd create "AI cost cap unset for $ARCHETYPE archetype" \
-      --priority P0 --label compliance --label cost \
-      --notes "PROJECT.md missing monthly-budget-llm-usd. ai-system / agent-product archetypes require explicit LLM spend cap. Fill in PROJECT.md ## Budget section." 2>/dev/null
+    # Dedup: skip if open task already exists for cost cap
+    if ! bd search "cost cap" 2>/dev/null | grep -qi "open\|in.progress"; then
+      bd create "AI cost cap unset for $ARCHETYPE archetype" \
+        --priority P0 --label compliance --label cost \
+        --notes "PROJECT.md missing monthly-budget-llm-usd. ai-system / agent-product archetypes require explicit LLM spend cap. Fill in PROJECT.md ## Budget section." 2>/dev/null
+    fi
     echo "⚠ P0: monthly-budget-llm-usd not set for $ARCHETYPE archetype"
   else
     # Look for cost telemetry: standard locations
@@ -465,14 +499,18 @@ if [ "$ARCHETYPE" = "ai-system" ] || [ "$ARCHETYPE" = "agent-product" ]; then
     PCT=$(echo "scale=0; $SPEND_THIS_MONTH * 100 / $BUDGET" | bc 2>/dev/null || echo 0)
 
     if [ "${PCT:-0}" -ge 100 ]; then
-      bd create "LLM spend exceeded budget ($SPEND_THIS_MONTH USD vs $BUDGET cap)" \
-        --priority P0 --label compliance --label cost \
-        --notes "Audit detected LLM spend over the declared monthly cap. Either raise budget after CTO sign-off or kill-switch the runaway path. See ARCH-*.md § Cost Model." 2>/dev/null
+      if ! bd search "LLM spend exceeded" 2>/dev/null | grep -qi "open\|in.progress"; then
+        bd create "LLM spend exceeded budget ($SPEND_THIS_MONTH USD vs $BUDGET cap)" \
+          --priority P0 --label compliance --label cost \
+          --notes "Audit detected LLM spend over the declared monthly cap. Either raise budget after CTO sign-off or kill-switch the runaway path. See ARCH-*.md § Cost Model." 2>/dev/null
+      fi
       echo "⚠ P0: LLM spend $SPEND_THIS_MONTH USD exceeds budget $BUDGET (${PCT}%)"
     elif [ "${PCT:-0}" -ge 80 ]; then
-      bd create "LLM spend approaching budget cap (${PCT}%)" \
-        --priority P1 --label cost \
-        --notes "Spend is at ${PCT}% of monthly cap. Investigate runaway sessions or raise cap." 2>/dev/null
+      if ! bd search "LLM spend approaching" 2>/dev/null | grep -qi "open\|in.progress"; then
+        bd create "LLM spend approaching budget cap (${PCT}%)" \
+          --priority P1 --label cost \
+          --notes "Spend is at ${PCT}% of monthly cap. Investigate runaway sessions or raise cap." 2>/dev/null
+      fi
       echo "P1: LLM spend at ${PCT}% of monthly cap"
     fi
   fi
@@ -758,25 +796,109 @@ export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 bd init 2>/dev/null || true
 ```
 
-Create one task per work packet. Tier = Priority:
+### Deduplication — MANDATORY before every bd create
+
+Re-running `/audit` on the same repo creates duplicate tickets. Before creating any task, check if an open task with a similar title already exists:
 
 ```bash
-# Tier 0 → P0
-bd create "SEC: CVE-XXXX in <dep> — update to <version>" --type task --priority 0
+# bd_create_if_new — create task only if no similar open task exists.
+# Usage: bd_create_if_new <keyword1> <keyword2> <full title> [bd create flags...]
+#
+# Strategy: search open tasks for ALL provided keywords. If ANY match found → skip.
+# Keywords should be the most distinctive words from the title (dep name, filename,
+# metric, etc.) — not generic words like "fix", "update", "add".
+
+bd_create_if_new() {
+  local KEYWORDS=()
+  local TITLE=""
+  local FLAGS=()
+  local PARSING_KEYWORDS=true
+
+  # Convention: args before "--" are keywords, "--" separates title, rest are flags
+  # Simplified: first N args with no spaces = keywords, then title string, then flags
+  # Real usage: pass keywords as first args until you hit the title (quoted string)
+  # See examples below.
+
+  # Simpler implementation — search for each keyword in open task titles:
+  local SEARCH_KEY="$1"; shift
+  TITLE="$1"; shift
+  FLAGS=("$@")
+
+  # Check if any open task contains the search keyword (case-insensitive)
+  if bd search "$SEARCH_KEY" 2>/dev/null | grep -qi "open\|in.progress"; then
+    echo "  SKIP (duplicate): '$TITLE' — open task already exists for '$SEARCH_KEY'"
+    return 0
+  fi
+
+  # No duplicate found — create the task
+  bd create "$TITLE" "${FLAGS[@]}" 2>/dev/null && \
+    echo "  CREATED: $TITLE" || \
+    echo "  bd create failed: $TITLE (bd may be unavailable)"
+}
+```
+
+**Example usage** (replace the raw `bd create` calls below with this pattern):
+
+```bash
+# ❌ Wrong — creates duplicate on re-run:
+bd create "SEC: hardcoded API key in test_all_pipelines.py:30" --type task --priority 0
+
+# ✅ Correct — idempotent:
+bd_create_if_new "test_all_pipelines" \
+  "SEC: hardcoded API key in test_all_pipelines.py:30" \
+  --type task --priority 0 --label security
+
+# ❌ Wrong:
+bd create "CHORE: Clean up TODO/FIXME comments" --type task --priority 3
+
+# ✅ Correct — use distinctive token (count doesn't matter across runs):
+bd_create_if_new "TODO/FIXME" \
+  "CHORE: Clean up TODO/FIXME comments" \
+  --type task --priority 3
+```
+
+### Self-fix guard — do NOT file a ticket for something you just fixed
+
+If during this audit run you auto-corrected an issue (e.g. updated PROJECT.md, fixed a comment, deleted dead code), do **not** create a Beads task for it. The fix is already applied.
+
+Pattern:
+```bash
+# ❌ Wrong — filed on self-fixed item:
+sed -i 's/fly.io/render.com/' .great_cto/PROJECT.md
+bd create "Update infra: fly.io → render.com in PROJECT.md" ...  # already done!
+
+# ✅ Correct:
+sed -i 's/fly.io/render.com/' .great_cto/PROJECT.md
+echo "  AUTO-FIXED: infra field updated to render.com (no ticket needed)"
+```
+
+Only file a ticket when the fix requires human action, a PR, or multi-step work that exceeds this audit run.
+
+### Task creation (with dedup)
+
+Create one task per work packet. Tier = Priority. Use `bd_create_if_new`:
+
+```bash
+# Tier 0 → P0 (distinctive keyword: dep name or file:line)
+bd_create_if_new "CVE-XXXX" "SEC: CVE-XXXX in <dep> — update to <version>" \
+  --type task --priority 0 --label security
 
 # Tier 1 → P1
-bd create "REFACTOR: Migrate Node.js 16→22 (EOL)" --type task --priority 1
+bd_create_if_new "Node.js-16" "REFACTOR: Migrate Node.js 16→22 (EOL)" \
+  --type task --priority 1
 
-# Tier 2 → P2
-bd create "REFACTOR: Split routes.ts into feature modules" --type task --priority 2
+# Tier 2 → P2 (use filename as keyword — stable across runs)
+bd_create_if_new "routes.ts" "REFACTOR: Split routes.ts into feature modules" \
+  --type task --priority 2
 
 # Tier 3 → P3
-bd create "CHORE: Clean up 47 TODO/FIXME comments" --type task --priority 3
+bd_create_if_new "TODO/FIXME" "CHORE: Clean up TODO/FIXME comments" \
+  --type task --priority 3
 ```
 
 Link work packets: `bd dep <task-id> depends-on <blocker-id>` where ordering matters.
 
-**If bd unavailable**: write tasks to `.great_cto/tasks.md` with same structure.
+**If bd unavailable**: write tasks to `.great_cto/tasks.md` — check for existing rows with same keyword before appending to avoid duplicates.
 
 ---
 
@@ -801,7 +923,7 @@ Artifacts:
   → docs/audit/AUDIT-<date>.md
   → docs/audit/REFACTOR-PLAN.md
 
-Beads: [total] tasks created
+Beads: [N created] tasks created, [M skipped — duplicates of existing open tasks]
 [if drift] ⚠ Type drift: <new-type> added to PROJECT.md. Run /start to reconfigure pipeline.
 
 Start with Tier 0? [yes/no]
