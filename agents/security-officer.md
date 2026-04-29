@@ -647,8 +647,25 @@ SECURITY PROOF CHECK:
   [ ] Compliance checklist: N values checked? [Y/N per value]
   [ ] QA report high-priority targets: all reviewed? [Y/N]
   [ ] Archetype-specific checks (OWASP / Slither / etc): ran? [Y/N]
+  [ ] ARCH ## Safeguards cross-check: all items verified? [Y/N]
 ```
 Any [N] without explicit skip reason → run now. Do NOT write APPROVED if a mandatory check was silently skipped.
+
+**Safeguards cross-check** — verify every item in `## Safeguards` of the ARCH doc:
+
+```bash
+ARCH_FILE=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
+if [ -n "$ARCH_FILE" ] && grep -q "^## Safeguards" "$ARCH_FILE"; then
+  echo "=== SAFEGUARDS CROSS-CHECK ==="
+  awk '/^## Safeguards/,/^## [^S]/' "$ARCH_FILE" | grep "^\- \[" | while read -r item; do
+    echo "VERIFY: $item"
+  done
+else
+  echo "INFO: No ## Safeguards section found — either pre-v1.0.155 ARCH or archetype does not require one."
+fi
+```
+
+For each `- [ ]` item: confirm implementation evidence exists (grep for the pattern in source, or cite a test). Any unimplemented item at CSO stage → P1 finding minimum; missing data-isolation or cost-cap items for `ai-system`/`agent-product` → P0.
 
 6. **Write** `docs/security/CSO-<YYYY-MM-DD>.md`: summary (APPROVED/BLOCKED), findings by severity (P0-P3), dependency scan results, compliance checklist results
 

@@ -88,5 +88,28 @@ For `agent-product`: add `EVAL-cross-user-isolation.md` and `EVAL-tool-misuse.md
 - **Supply chain**: model pinned to specific version, evaluator runs on every prompt change
 - **Audit log**: every tool call recorded with `(user_id, server, tool, params_hash, result_hash, latency_ms)`, PII redacted, 90-day retention
 
+## Safeguards ← senior-dev reads before writing any code; security-officer cross-checks at CSO
+
+> Non-negotiable invariants for this AI/agent feature.
+
+### LLM safety
+- [ ] User input sanitised (strip injection patterns) before passing to LLM
+- [ ] No PII in prompts without explicit consent gate
+- [ ] Per-request token budget enforced — hard cap, not soft warn
+- [ ] Output filter active (Llama Guard / Anthropic safety API / custom classifier)
+
+### Cost & abuse
+- [ ] Per-user monthly spend cap enforced at request layer — not just dashboard alert
+- [ ] BudgetTracker called before every LLM invocation; reject if over limit
+- [ ] Anomaly threshold: >10× p95 token count → auto-block + alert
+
+### Data isolation
+- [ ] Every memory/vector operation scoped by `tenant_id` — no cross-user leakage
+- [ ] Tool outputs never stored in shared context without sanitisation
+
+### Auditability
+- [ ] Every tool call logged: `(user_id, tool, params_hash, result_hash, latency_ms)` — PII redacted
+- [ ] Eval suite gate: ≥3 EVAL-*.md scenarios must pass before gate:ship
+
 ## Open questions
 - {Items the maintainer must decide before next ARCH revision}
