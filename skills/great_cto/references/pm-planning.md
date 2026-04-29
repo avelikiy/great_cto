@@ -6,44 +6,154 @@
 
 ## Project modes
 
-| Mode | Trigger | Depth | Timeline |
-|------|---------|-------|----------|
-| **PoC** | `project_size: nano` or `/poc` invocation | 3–10 tasks, 1 agent pool | 0.5–3 days |
-| **MVP** | `project_size: small` or `phase: planning` + deadline ≤ 4 weeks | 10–30 tasks, 2–4 agent pools | 1–4 weeks |
-| **Full** | `project_size: medium|large|enterprise` | 30+ tasks, N agent pools | weeks–months |
+> **Important:** In great_cto, all implementation work is done by LLM agents (senior-dev, qa-engineer,
+> security-officer), not humans. `team-size` in PROJECT.md = number of human approvers at gates, not
+> agent count. Parallel pools always run as concurrent LLM subagents — never serialised by team-size.
+> The only hard calendar blockers are `gate:*` checkpoints where a human must respond.
+
+| Mode | Trigger | Depth | LLM wall-clock | Calendar (incl. gates) |
+|------|---------|-------|----------------|------------------------|
+| **PoC** | `project_size: nano` or `/poc` invocation | 3–10 tasks, 1 agent pool | 0.5–4h | same-day |
+| **MVP** | `project_size: small` or explicit POC→MVP | 10–30 tasks, 2–4 agent pools | 2–8h | 1–3 days |
+| **Full** | `project_size: medium|large|enterprise` | 30+ tasks, N agent pools | 1–3 days | days–weeks |
 
 ---
 
 ## Estimation model
 
-### Task cost by type (wall-clock, single senior-dev agent)
+> **Unit: LLM agent wall-clock time** — how long a focused senior-dev subagent takes to complete
+> a task including reading context, writing code, running tests, and verifying output.
+> LLM agents are 5–10x faster than human developers on mechanical coding tasks.
+> Estimate task complexity, not human-equivalent effort.
+
+### Task cost by type (LLM agent wall-clock, single senior-dev subagent)
 
 | Task type | Signal | PoC | MVP | Full |
 |-----------|--------|-----|-----|------|
-| Schema / data model | new tables, migrations | 30 min | 1 h | 2–4 h |
-| API endpoint (CRUD) | REST/GraphQL, no auth | 20 min | 45 min | 2 h |
-| API endpoint (auth/billing) | payment, IAM path | 1 h | 3 h | 6 h |
-| Frontend component | React/Vue, no API | 15 min | 30 min | 1.5 h |
-| Frontend page (with API) | full data flow | 45 min | 2 h | 4 h |
-| Background job / worker | queue, retry logic | 30 min | 2 h | 4 h |
-| LLM integration (simple) | single prompt, no tools | 30 min | 1.5 h | 3 h |
-| LLM agent (tool-using) | multi-tool, eval harness | 2 h | 6 h | 12 h |
-| Infrastructure (basic) | Docker, CI, env | 20 min | 1 h | 3 h |
-| Infrastructure (cloud) | Terraform, IAM, VPC | 1 h | 4 h | 8 h |
-| Test suite (unit) | per-module | 15 min | 30 min | 1 h |
-| Test suite (integration) | multi-service | 30 min | 1.5 h | 3 h |
-| Security review / CSO | per archetype tier | 20 min | 45 min | 2 h |
-| QA report | per feature | 15 min | 30 min | 1 h |
+| Schema / data model | new tables, migrations | 5 min | 15 min | 30 min |
+| API endpoint (CRUD) | REST/GraphQL, no auth | 5 min | 10 min | 20 min |
+| API endpoint (auth/billing) | payment, IAM path | 15 min | 30 min | 60 min |
+| Frontend component | React/Vue, no API | 5 min | 10 min | 20 min |
+| Frontend page (with API) | full data flow | 10 min | 20 min | 45 min |
+| Background job / worker | queue, retry logic | 10 min | 20 min | 45 min |
+| LLM integration (simple) | single prompt, no tools | 10 min | 20 min | 40 min |
+| LLM agent (tool-using) | multi-tool, eval harness | 20 min | 45 min | 90 min |
+| Infrastructure (basic) | Docker, CI, env | 5 min | 15 min | 30 min |
+| Infrastructure (cloud) | Terraform, IAM, VPC | 15 min | 40 min | 90 min |
+| Test suite (unit) | per-module | 5 min | 10 min | 20 min |
+| Test suite (integration) | multi-service | 10 min | 25 min | 45 min |
+| Security review / CSO | per archetype tier | 10 min | 20 min | 45 min |
+| QA report | per feature | 5 min | 15 min | 30 min |
 
-**Buffer rules:**
+**Buffer rules (account for tool errors, retries, context loading):**
 - PoC: no buffer (speed over accuracy)
-- MVP: +25% (integration surprises)
-- Full: +40% (coordination, review cycles, debt)
+- MVP: +25% (integration surprises, file conflicts between agents)
+- Full: +40% (larger context, more coordination points)
 
-**Mandatory gates add flat time:**
-- `gate:arch` waiting for human: +0.5 h (async)
-- `gate:plan` waiting for human: +0.5 h (async)
-- `gate:ship` waiting for human: +0.5 h (async)
+**Gate wait time = human async review, not LLM time:**
+- `gate:arch` human review: +0.5–4h (depends on CTO availability)
+- `gate:plan` human review: +0.5–4h
+- `gate:ship` human review: +0.5–4h
+- Report gate wait separately from LLM compute time in all summaries.
+
+---
+
+## Token cost model
+
+> Always estimate LLM cost per task and total project cost. Use claude-sonnet-4-6 as default model.
+> Pricing (as of 2026): input $3/M tokens · output $15/M tokens · cache read $0.30/M tokens.
+> Prompt caching is active for agent system prompts (assume 80% cache hit rate for long agents).
+
+### Token estimates per task type (input + output, single agent invocation)
+
+| Task type | Input tokens | Output tokens | Cache hit on input | Cost (Sonnet 4.6) |
+|-----------|-------------|---------------|-------------------|-------------------|
+| Schema / data model | 8k | 1k | 70% | $0.04 |
+| API endpoint (CRUD) | 10k | 2k | 70% | $0.05 |
+| API endpoint (auth/billing) | 15k | 4k | 70% | $0.09 |
+| Frontend component | 8k | 2k | 70% | $0.05 |
+| Frontend page (with API) | 12k | 3k | 70% | $0.07 |
+| Background job / worker | 12k | 3k | 70% | $0.07 |
+| LLM integration (simple) | 10k | 2k | 70% | $0.05 |
+| LLM agent (tool-using) | 20k | 5k | 70% | $0.10 |
+| Infrastructure (basic) | 8k | 2k | 70% | $0.05 |
+| Infrastructure (cloud) | 15k | 4k | 70% | $0.09 |
+| Test suite (unit) | 10k | 3k | 70% | $0.07 |
+| Test suite (integration) | 15k | 5k | 70% | $0.11 |
+| Security review / CSO | 20k | 4k | 70% | $0.09 |
+| QA report | 12k | 3k | 70% | $0.07 |
+
+**Cost formula per task:**
+```
+cost = (input_tokens × 0.000003 × (1 - cache_hit × 0.9)) + (output_tokens × 0.000015)
+```
+
+**Multi-turn adjustment:** complex tasks spawn multiple agent turns; multiply base cost × turns (typically 2–5 turns per task for senior-dev).
+
+**Project total cost rule:**
+- PoC: aim for < $1 total
+- MVP: aim for < $5 total
+- Full: < $20 per feature; flag if > $50/feature
+
+Always show: `Total LLM cost estimate: $X.XX (optimistic) – $X.XX (pessimistic)` in the plan summary.
+
+---
+
+## Human equivalent cost model
+
+> Used for the LLM vs Human cost comparison in every PLAN doc.
+> Rates are mid-senior US market (2026). Adjust for local market by applying a multiplier.
+
+### Role rates (USD/hour)
+
+| Role | Rate/h | Used for |
+|------|--------|----------|
+| Solutions Architect | $200 | tech-lead tasks (architecture, ADRs) |
+| Senior Backend Dev | $150 | SCHEMA, API, SVC tasks |
+| Senior Frontend Dev | $130 | UI tasks |
+| ML / AI Engineer | $180 | LLM tasks |
+| DevOps Engineer | $120 | INFRA tasks |
+| QA Engineer | $80 | TEST tasks |
+| Security Engineer | $200 | CSO, SEC tasks |
+| Project Manager (human) | $120 | PM planning tasks |
+
+### Human hours per task type (mid estimate)
+
+| Task type | Role | Human hours | Human cost |
+|-----------|------|-------------|------------|
+| Schema / data model | Backend Dev | 2–4h | $300–600 |
+| API endpoint (CRUD) | Backend Dev | 3–6h | $450–900 |
+| API endpoint (auth/billing) | Backend Dev | 6–12h | $900–1,800 |
+| Frontend component | Frontend Dev | 2–4h | $260–520 |
+| Frontend page (with API) | Frontend Dev | 4–8h | $520–1,040 |
+| Background job / worker | Backend Dev | 4–8h | $600–1,200 |
+| LLM integration (simple) | ML Engineer | 4–8h | $720–1,440 |
+| LLM agent (tool-using) | ML Engineer | 12–24h | $2,160–4,320 |
+| Infrastructure (basic) | DevOps | 2–4h | $240–480 |
+| Infrastructure (cloud) | DevOps | 6–16h | $720–1,920 |
+| Test suite (unit) | QA Engineer | 2–4h | $160–320 |
+| Test suite (integration) | QA Engineer | 4–8h | $320–640 |
+| Security review / CSO | Security Eng | 4–16h | $800–3,200 |
+| Architecture (tech-lead) | Architect | 4–8h | $800–1,600 |
+| PM planning (human PM) | PM | 3–8h | $360–960 |
+| QA report | QA Engineer | 2–4h | $160–320 |
+
+### Cost comparison formula
+
+```
+llm_total     = sum(token_cost_per_task × avg_turns)
+human_total   = sum(human_hours_mid × role_rate)
+savings       = human_total / llm_total          # e.g. 800x
+savings_usd   = human_total - llm_total
+```
+
+**Expected savings range:**
+- PoC (≤10 tasks): LLM $0.50–2 vs Human $5,000–15,000 → ~3,000–10,000x
+- MVP (10–30 tasks): LLM $2–8 vs Human $15,000–50,000 → ~3,000–10,000x
+- Full feature: LLM $5–25 vs Human $30,000–150,000 → ~3,000–10,000x
+
+Note: human estimate includes coordination overhead (meetings, review cycles, handoffs).
+LLM estimate is pure token cost; human engineer wages are salary cost to employer (not revenue).
 
 ---
 
@@ -160,10 +270,17 @@ Security CSO                  │     │     │     │  ██ │     │
 poc | mvp | full
 
 ## Summary
-Total tasks: N  |  Parallel pools: N  |  Max concurrent agents: N
-Estimated duration: Xh (excluding human gate wait times)
-Gate wait budget: ~1.5h (3 gates × 0.5h async)
-Total elapsed: ~Xh
+
+| Metric | Value |
+|--------|-------|
+| Total tasks | N (incl. 2 gates) |
+| Parallel pools | N |
+| Max concurrent agents | N |
+| LLM compute time | Xmin–Xmin (critical path, excl. gates) |
+| Gate wait budget | ~6h (3 gates × 2h async) |
+| **LLM cost estimate** | **$X.XX – $X.XX** (optimistic / pessimistic) |
+| **Human equivalent** | **$X,XXX – $X,XXX** (mid-senior US rates) |
+| **Savings** | **~XXXx cheaper** |
 
 ## Dependency graph
 task-1 → task-2 → task-4
@@ -174,13 +291,17 @@ task-1 → task-3 (parallel with task-2) → task-4
 
 ## Task breakdown
 
-| ID | Task | Type | Agent | Deps | Est | Parallel-safe? |
-|----|------|------|-------|------|-----|----------------|
-| T1 | DB schema | impl | senior-dev | gate:arch | 1h | No (foundation) |
-| T2 | Auth service | impl | senior-dev | T1 | 2h | No |
-| T3 | POST /users | impl | senior-dev | T1 | 1h | Yes (with T4) |
-| T4 | GET /users | impl | senior-dev | T1 | 30m | Yes (with T3) |
-| T5 | QA | qa | qa-engineer | T3 T4 | 30m | No |
+| ID | Task | Type | Agent | Model | Deps | LLM time | Token cost | Human equiv |
+|----|------|------|-------|-------|------|----------|------------|-------------|
+| T1 | DB schema | SCHEMA | senior-dev | Sonnet | gate:arch | 15min | $0.04×3t=$0.12 | $300–600 |
+| T2 | Auth service | SVC | senior-dev | Sonnet | T1 | 30min | $0.09×4t=$0.36 | $900–1,800 |
+| T3 | POST /users | API | senior-dev | Sonnet | T1 | 10min | $0.05×3t=$0.15 | $450–900 |
+| T4 | GET /users | API | senior-dev | Sonnet | T1 | 10min | $0.05×2t=$0.10 | $450–900 |
+| T5 | QA report | TEST | qa-engineer | Haiku | T3 T4 | 15min | $0.01×2t=$0.02 | $160–320 |
+| — | tech-lead | ARCH | tech-lead | Opus | — | 20min | $0.50 | $800–1,600 |
+| — | pm | PLAN | pm | Sonnet | gate:arch | 15min | $0.15 | $360–960 |
+
+`t` = agent turns
 
 ## Agent pools
 
@@ -197,9 +318,24 @@ Minimum agents needed: 2 senior-dev + 1 qa-engineer
 | gate:plan | Plan approval | senior-dev Pool A + B |
 | gate:ship | QA + security pass | Deploy |
 
+## Cost comparison: LLM agents vs Human team
+
+| | Optimistic | Pessimistic |
+|--|-----------|-------------|
+| **LLM agents** | $X.XX | $X.XX |
+| **Human team** | $X,XXX | $X,XXX |
+| **Savings (ratio)** | ~XXXx | ~XXXx |
+| **Savings (USD)** | ~$X,XXX | ~$X,XXX |
+
+**LLM breakdown:** tech-lead $X.XX + pm $X.XX + senior-dev $X.XX (×N tasks) + qa-engineer $X.XX + security-officer $X.XX
+**Human breakdown:** architect X h × $200 + backend Xh × $150 + QA Xh × $80 + security Xh × $200 + devops Xh × $120
+
+> Rates: mid-senior US market 2026. Human hours include coordination overhead (meetings, review cycles, handoffs).
+> LLM cost = token cost only (no engineer salary, no benefits, no context-switching).
+
 ## Risks
 - T2 (auth) may expand if OAuth provider API changes → +50% buffer on T2
-- T5 (QA) may find regressions in T3/T4 → loop back estimated 30m
+- T5 (QA) may find regressions in T3/T4 → loop back estimated 30min
 
 ## Revision history
 v1 — <date> — initial plan
