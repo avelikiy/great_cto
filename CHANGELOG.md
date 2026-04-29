@@ -4,6 +4,44 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.149 — 2026-04-29
+
+### Fixed — LLM router infrastructure: secrets.env template, doctor hint, pre-flight check
+
+Root cause: `mcp__great_cto_llm_router__ask_kimi` always returned `"OPENROUTER_API_KEY not set"`
+even when users had the key. `~/.great_cto/secrets.env` was never created by the
+installer — so the MCP server's layered loader (env → .env.local → secrets.env) always
+fell through to None.
+
+The MCP server config passes `"OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"` — when the
+shell env var is unset, Claude Code passes empty string, which is falsy, so the server
+correctly falls through to file lookup. But since the file didn't exist, it got None →
+fallback.
+
+**Fixes:**
+
+1. **`packages/cli/src/main.ts`** — installer now creates `~/.great_cto/secrets.env`
+   template on first install (or when missing). Never overwrites an existing file.
+   Template contains commented instructions + key placeholder. Logged as:
+   `created ~/.great_cto/secrets.env (add OPENROUTER_API_KEY for LLM router)`
+
+2. **`commands/doctor.md` Check 8b** — "not configured" message upgraded from `ℹ` to `⚠`,
+   now shows both locations explicitly:
+   - Global: `echo 'OPENROUTER_API_KEY=...' >> ~/.great_cto/secrets.env` (preferred)
+   - Per-project: `echo 'OPENROUTER_API_KEY=...' >> .env.local`
+
+3. **`commands/start.md` Step 5c pre-flight** — added LLM router check block. Reads key
+   from all 3 locations. If missing: creates `~/.great_cto/secrets.env` template with
+   commented placeholder so user knows exactly where to add it.
+
+**How to activate now (existing installs):**
+```bash
+echo 'OPENROUTER_API_KEY=sk-or-v1-...' >> ~/.great_cto/secrets.env
+# Then restart Claude Code — no reinstall needed.
+```
+
+---
+
 ## v1.0.148 — 2026-04-29
 
 ### Fixed — PoC field-test: bd fallback, worktree graceful degradation, Python buffering, pytest-timeout
