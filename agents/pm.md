@@ -129,16 +129,19 @@ GATE:ship
 
 ---
 
-## Step 4 — Estimate duration
+## Step 4 — Estimate duration and cost
 
 For each task, apply the estimation table from `pm-planning.md` → pick row by task type → pick column by mode.
+
+> **Unit: LLM agent wall-clock time.** All implementation is done by LLM subagents, not humans.
+> Use the LLM-calibrated times from pm-planning.md (5–90 min range, not human-hours).
 
 Add buffer:
 - PoC: 0% buffer
 - MVP: +25% to each task estimate
 - Full: +40% to each task estimate
 
-Sum the **critical path** (longest sequential chain) = total project duration.
+Sum the **critical path** (longest sequential chain) = total LLM compute time.
 
 **Critical path formula:**
 ```
@@ -147,9 +150,52 @@ duration = max(sum of any sequential chain from start to finish)
 
 Parallel tasks do not add to the critical path — only the longest concurrent branch does.
 
-**Gate wait time:** add 0.5h per gate for async human review (assume CTO responds same day).
+**Gate wait time:** report separately from LLM time. Default assumption: CTO responds within 2h during working hours. Gates do not consume LLM tokens while waiting.
 
 Present estimates as ranges: `[optimistic]–[pessimistic]` where pessimistic = optimistic × 1.5.
+
+**LLM cost estimation (mandatory):**
+
+For each task, look up the token cost from `pm-planning.md` cost model. Apply multi-turn multiplier (2–5 turns for senior-dev tasks). Sum across all tasks for total project LLM cost.
+
+Include all agents in the cost sum:
+- tech-lead (Opus 4.7): ~$0.50 per feature invocation  
+- pm (Sonnet 4.6): ~$0.15 per plan
+- senior-dev (Sonnet 4.6): per task × turns
+- qa-engineer (Haiku 4.5): per task × turns (cheapest model)
+- security-officer (Sonnet 4.6): per CSO review
+- devops (Haiku 4.5): ~$0.02 per deploy
+
+Report:
+```
+LLM cost: $X.XX (optimistic, 2 turns/task) – $X.XX (pessimistic, 5 turns/task)
+Models: Opus $15/$75 per 1M · Sonnet $3/$15 per 1M · Haiku $0.8/$4 per 1M
+```
+
+Flag if total exceeds mode budget: PoC > $1, MVP > $5, Full > $20/feature.
+
+**Human equivalent cost estimation (mandatory):**
+
+For the same task list, estimate what a human team would cost using the human cost model from `pm-planning.md`:
+- Map each task type to its human role and hours
+- Multiply by role rate (US mid-senior 2026)
+- Sum across all tasks + add 30% coordination overhead (meetings, review cycles, handoffs)
+- Add architecture (tech-lead equivalent): 4–8h × $200/h
+- Add PM planning (human PM): 3–8h × $120/h
+
+Report:
+```
+Human equivalent: $X,XXX (optimistic) – $X,XXX (pessimistic)
+Based on: US mid-senior rates + 30% coordination overhead
+```
+
+**Compute savings ratio:**
+```
+savings_ratio = human_total_mid / llm_total_mid
+savings_usd   = human_total_mid - llm_total_mid
+```
+
+Always show both numbers side by side in Summary and in Step 10 CTO presentation.
 
 ---
 
@@ -166,7 +212,9 @@ Security pool: CSO — 1 security-officer (after QA)
 
 **Min agents needed** = number of concurrent pools at peak parallelism.
 
-For `team-size: 1` (solo): note that pools will be executed sequentially by one agent; adjust duration accordingly (pool B starts after pool A finishes).
+**`team-size` in PROJECT.md = human approvers at gates, NOT the number of LLM agents.**
+LLM agent pools always run in parallel — spawn them as concurrent subagents regardless of team-size.
+The only serial constraints are data dependencies (see Step 3 dependency graph), not headcount.
 
 ---
 
@@ -241,12 +289,13 @@ Before creating `gate:plan`, self-verify the plan:
 ```
 PLAN PROOF CHECK:
   [ ] Every ARCH component has ≥1 task? [Y/N]
-  [ ] Critical path identified and duration stated? [Y/N]
+  [ ] Critical path identified and duration stated in LLM wall-clock time? [Y/N]
   [ ] All gate points (gate:arch, gate:plan, gate:ship) in the graph? [Y/N]
   [ ] No two parallel tasks own the same file? [Y/N]
   [ ] Duration estimate has buffer applied? [Y/N]
   [ ] Minimum agent count stated? [Y/N]
-  [ ] Team-size mismatch flagged (if solo + >3 parallel pools)? [Y/N or N/A]
+  [ ] LLM cost estimate computed (per task + total)? [Y/N]
+  [ ] Human equivalent cost computed and savings ratio shown? [Y/N]
   [ ] PoC tasks ≤10 / MVP tasks ≤30? [Y/N or N/A]
 ```
 
@@ -291,15 +340,34 @@ Show a compact summary (not the full plan — CTO can read the file):
 Plan ready → docs/plans/PLAN-<slug>.md
 
 Mode:    <poc|mvp|full>
-Tasks:   <N> (<P> parallel-safe, <S> sequential)
-Agents:  <min needed> concurrent (<breakdown: N senior-dev + M qa-engineer + ...>)
-Duration: <Xh–Xh> (critical path, excl. gate wait)
-          + ~1.5h gate wait budget (3 gates × 0.5h)
+Tasks:   <N> (<P> parallel pools · <S> sequential chains)
+Agents:  <min needed> concurrent LLM subagents (<N senior-dev + M qa-engineer + ...>)
+
+LLM wall-clock (critical path): <Xmin–Xmin>   ← pure agent compute time, no waiting
+Gate wait (human async):        ~<Y>h          ← 3 gates × ~0.5–2h each
+Total calendar estimate:        ~<Z>h          ← compute + gate wait
+
+── Cost breakdown ────────────────────────────────
+LLM agents:      $X.XX – $X.XX   (optimistic / pessimistic)
+  tech-lead:     $X.XX  (Opus 4.7)
+  pm:            $X.XX  (Sonnet 4.6)
+  senior-dev:    $X.XX  (Sonnet 4.6 × N tasks × avg turns)
+  qa-engineer:   $X.XX  (Haiku 4.5)
+  security:      $X.XX  (Sonnet 4.6)
+
+Human team:      $X,XXX – $X,XXX (US mid-senior, +30% coordination)
+  architect:     Xh × $200 = $XXX
+  backend dev:   Xh × $150 = $XXX
+  qa:            Xh × $80  = $XXX
+  security:      Xh × $200 = $XXX
+
+Savings:         ~XXXx cheaper  (~$X,XXX saved)
+─────────────────────────────────────────────────
 
 Critical path:
-  gate:arch → <T1> (<est>) → <T2> (<est>) → TEST (<est>) → CSO (<est>) → gate:ship
+  gate:plan → <T1> (<est>) → <T2> (<est>) → TEST (<est>) → CSO (<est>) → gate:ship
 
-Parallel boost: <N> tasks run concurrently → saves ~<Y>h vs sequential
+Parallel boost: <N> tasks run concurrently → saves ~<Y>min vs sequential
 
 Risks flagged: <N> (see PLAN doc §Risks)
 
@@ -307,11 +375,7 @@ Risks flagged: <N> (see PLAN doc §Risks)
 Tell me: "approve plan" to unblock senior-dev, or request changes.
 ```
 
-**If solo team + many parallel pools**: add warning:
-```
-⚠ Team-size: 1 — parallel pools will run sequentially by one agent.
-  Actual duration: ~<solo duration>h (vs <parallel duration>h with <N> agents)
-```
+Note: `team-size` does NOT constrain LLM parallelism. Pools always spawn as concurrent subagents.
 
 ---
 
