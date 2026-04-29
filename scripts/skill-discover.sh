@@ -334,6 +334,25 @@ read -r -d '' AGENT_SKILLS <<'JSON' || true
   },
   "firmware-reviewer": {
     "_default":          ["THREAT-MODEL-AI", "NIS2-article21-controls"]
+  },
+  "pm": {
+    "_default":          ["pm-planning", "pre-mortem", "cost-model", "anti-patterns"],
+    "ai-system":         ["+agent-pack", "+ai-pack"],
+    "agent-product":     ["+agent-pack"],
+    "commerce":          ["+commerce-pack"],
+    "web3":              ["+web3-pack"],
+    "browser-extension": ["+browser-extension-pack"],
+    "game":              ["+game-pack"],
+    "regulated":         ["+enterprise-pack"],
+    "fintech":           ["+enterprise-pack"],
+    "iot-embedded":      ["+infra-pack"],
+    "data-platform":     ["+data-pack"],
+    "mobile-app":        ["+mobile-pack"],
+    "library":           ["+library-pack"],
+    "enterprise":        ["+enterprise-pack"],
+    "web-app":           ["+web-pack"],
+    "devtools":          ["+devtools-pack"],
+    "infra":             ["+infra-pack"]
   }
 JSON
 
