@@ -4,6 +4,44 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.152 — 2026-04-29
+
+### PM agent: LLM cost model + human comparison
+
+**`agents/pm.md`** + **`skills/great_cto/references/pm-planning.md`**
+
+PM agent now estimates projects in **LLM agent terms** (token cost) and shows a side-by-side
+comparison with human developer cost.
+
+#### What changed
+
+**`pm-planning.md` additions:**
+- Human equivalent cost model: role rates (architect $200/h, backend $150/h, QA $80/h, security $200/h, etc.)
+- Human hours per task type table (12 task types × optimistic/pessimistic range)
+- Cost comparison formula: `savings_ratio = human_total / llm_total`
+- Expected savings benchmarks: PoC ~3,000–10,000x, MVP ~3,000–10,000x
+- PLAN-*.md schema updated: task breakdown now includes `Token cost` + `Human equiv` columns
+- New `## Cost comparison` section in every PLAN document
+
+**`agents/pm.md`** Step 4 expanded:
+- LLM cost: per-agent breakdown (tech-lead Opus, pm/senior-dev/security Sonnet, qa/devops Haiku)
+- Human equivalent: task → role → hours → USD (mid-senior US, +30% coordination overhead)
+- Savings ratio computed and shown in both PLAN file and CTO summary
+
+**Step 10 CTO presentation** now includes:
+```
+── Cost breakdown ────────────────────────────────
+LLM agents:  $X.XX – $X.XX
+Human team:  $X,XXX – $X,XXX  (+30% coordination)
+Savings:     ~XXXx cheaper  (~$X,XXX saved)
+```
+
+**Proof Check** (Step 8) gains 2 new items:
+- LLM cost estimate computed (per task + total)?
+- Human equivalent cost + savings ratio shown?
+
+---
+
 ## v1.0.151 — 2026-04-29
 
 ### New agent: PM (Project Manager)
