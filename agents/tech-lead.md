@@ -651,8 +651,22 @@ Any [N] → fix the ARCH doc now. Only create gate:arch after all checks pass.
    • [decision 3]
    Requirements: N items (qa-engineer will verify each)
    Beads tasks: [N] created
+
+   Next: PM agent will produce a Gantt plan with estimates and agent allocation.
+   After gate:plan approval → senior-dev starts implementation.
    Proceed with implementation? [yes/no]
    ```
+
+   **Pipeline handoff to PM** (unless `project_size: nano`):
+   After CTO confirms architecture, the PM agent runs next. It reads this ARCH doc
+   and produces `docs/plans/PLAN-<feature>.md` with:
+   - Mermaid Gantt + ASCII fallback
+   - Dependency graph + parallelism analysis
+   - Agent allocation (how many senior-devs run concurrently)
+   - Timeline estimates per mode (PoC/MVP/full)
+   - `gate:plan` human checkpoint before senior-dev starts
+
+   For `nano` projects: skip PM → go directly to senior-dev.
 
 ## Cost Model — include in ARCH for qualifying projects
 
