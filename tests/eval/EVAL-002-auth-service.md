@@ -19,10 +19,10 @@ difficulty: security-gate
 - Type detection: `auth-service` → archetype `commerce`
 - Size: `medium` (new service, schema required)
 - Security gate: MANDATORY (commerce archetype)
-- Pipeline: tech-lead → senior-dev → qa → security-officer → devops
+- Pipeline: architect → senior-dev → qa → security-officer → devops
 - Compliance: `owasp` auto-added (commerce default)
 
-### tech-lead
+### architect
 - Checkpoint A cost estimate: medium | ~$4-6 | ~45min | +20% security gate
 - ARCH doc: REQ-001 (JWT issue/verify), REQ-002 (refresh rotation), REQ-003 (rate limiting), REQ-004 (password reset flow)
 - ADR: token storage strategy (httpOnly cookie vs Authorization header)

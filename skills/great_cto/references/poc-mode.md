@@ -1,7 +1,7 @@
 ---
 name: poc-mode
 description: POC/MVP mode: relaxed gates (no full ARCH, no full QA, no security audit), explicit kill-switch + graduation criteria to promote to production mode
-when_to_use: Throwaway prototypes and time-boxed POCs. Read by tech-lead at /poc + senior-dev when project_size=nano
+when_to_use: Throwaway prototypes and time-boxed POCs. Read by architect at /poc + senior-dev when project_size=nano
 applies_to:
   - _default
 ---
@@ -38,7 +38,7 @@ Column headers are the mode. ✓ = full; ○ = minimal/lite; ✗ = skip entirely
 
 | Step | production | mvp | poc |
 |---|:-:|:-:|:-:|
-| `tech-lead` ARCH document | ✓ full | ○ condensed | ○ **1-pager** (Problem / Decision / Risks only) |
+| `architect` ARCH document | ✓ full | ○ condensed | ○ **1-pager** (Problem / Decision / Risks only) |
 | Non-goals section required | ✓ | ✓ | ○ (POC file's Out-of-scope substitutes) |
 | Threat model (`TM-*.md`) | ✓ for security-critical archetypes | ○ required only for security-critical surfaces | ✗ |
 | ARCH `## Security` section | ✓ for security-critical archetypes | ○ inline note OK | ✗ |
@@ -103,7 +103,7 @@ MODE=${MODE:-production}
 
 Then branches on `$MODE`:
 
-- **`tech-lead`** — skip threat-model + cost-model + full ARCH sections;
+- **`architect`** — skip threat-model + cost-model + full ARCH sections;
   produce 1-pager instead. Note clearly at top: "POC ARCH — will be
   expanded by `/promote`."
 - **`senior-dev`** — skip coverage target; write one smoke test per
@@ -147,10 +147,10 @@ all-or-nothing. See `commands/promote.md` for the full flow.
 
 | Restored step | Agent / command |
 |---|---|
-| Full ARCH | `tech-lead` expands 1-pager |
+| Full ARCH | `architect` expands 1-pager |
 | Threat model (if archetype requires) | `/threat-model <slug>` |
 | SBOM | `/sbom` |
-| Cost model | `tech-lead` adds `## Cost Model` section |
+| Cost model | `architect` adds `## Cost Model` section |
 | Full CSO | `security-officer` |
 | Full QA | `qa-engineer` |
 | Blocking gates | `bd create gate:arch` + `gate:ship` |

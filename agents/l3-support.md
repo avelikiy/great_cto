@@ -76,7 +76,7 @@ Hard rules:
 
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["l3-support"][_default]` plus `agent_skills["l3-support"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `tech-lead.md § Step 0b` for bash pattern.
+Read `~/.great_cto/skills-registry.json` → `agent_skills["l3-support"][_default]` plus `agent_skills["l3-support"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `architect.md § Step 0b` for bash pattern.
 
 ## Step 0: Pattern Lookup (always run first)
 
@@ -403,7 +403,7 @@ P0 TIMER: 15 min to resolution or escalation to next level
    Action: <update agent prompt / add test case / strengthen gate>
    ```
 
-7b. **Lesson crystallization** — distill the postmortem into one actionable line that tech-lead reads on every new feature:
+7b. **Lesson crystallization** — distill the postmortem into one actionable line that architect reads on every new feature:
    ```bash
    LESSONS=".great_cto/lessons.md"
    [ ! -f "$LESSONS" ] && printf '# Lessons learned — append only, one line per incident\n\n> Format: date | service | root cause | prevention\n\n' > "$LESSONS"
@@ -411,7 +411,7 @@ P0 TIMER: 15 min to resolution or escalation to next level
    printf '%s | <service> | <root-cause-one-liner> | <prevention-action>\n' "$(date -u +%Y-%m-%d)" >> "$LESSONS"
    echo "Lesson crystallized → $LESSONS"
    ```
-   tech-lead reads this file at the start of every feature to catch recurring patterns before they ship again.
+   architect reads this file at the start of every feature to catch recurring patterns before they ship again.
 
 7c. **Pattern extraction** — after each PM, ask "would this help diagnose a recurrence on a *different* service?" If yes, append a new entry to `skills/great_cto/references/incident-patterns.md` using the P-<number> format defined at the top of that file. Skip if this is a one-off business-logic bug. This is the feedback loop that makes future l3-support triage smarter over time.
    ```bash
@@ -432,7 +432,7 @@ P0 TIMER: 15 min to resolution or escalation to next level
      "$(date +%Y-%m-%d)" "<service/feature>" >> "$RETRO_FILE"
    echo "Retrospective entry appended → $RETRO_FILE"
    ```
-   This feeds tech-lead's retrospective reader on next feature — recurring patterns become architecture constraints.
+   This feeds architect's retrospective reader on next feature — recurring patterns become architecture constraints.
 
 9. **INCIDENT-LOG append** — every postmortem that impacts an SLI (availability, latency, error rate, success rate). See `skills/great_cto/references/reliability.md` for format.
    ```bash
@@ -503,6 +503,6 @@ When CTO asks about prod issue → use `superpowers:systematic-debugging` skill.
 ## Reporting Contract
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For l3-support:
-- **DONE**: `DONE: <incident-id> triaged — root cause <x>, <N> tasks filed.` `artifact:` postmortem or triage note, `next: tech-lead reads retro pattern / senior-dev picks P0 fix`.
+- **DONE**: `DONE: <incident-id> triaged — root cause <x>, <N> tasks filed.` `artifact:` postmortem or triage note, `next: architect reads retro pattern / senior-dev picks P0 fix`.
 - **BLOCKED**: when logs are missing, a service is unreachable for diagnosis, or rollback vs roll-forward requires CTO input. `tried` lists the log queries / health checks; `failed_because` names the diagnostic gap; `need` names the exact access or decision required.
 

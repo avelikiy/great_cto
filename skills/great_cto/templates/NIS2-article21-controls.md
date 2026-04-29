@@ -9,7 +9,7 @@ applies_to:
 # NIS2-article21-controls.md — Cybersecurity risk management measures
 
 > Mandatory artefact when `compliance: [nis2]` in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate.
+> Required by `architect.md` compliance artefact gate.
 > NIS2 Directive (EU) 2022/2555. Applies to essential and important entities. Article 21 mandates cybersecurity risk-management measures.
 > Source: `skills/great_cto/templates/NIS2-article21-controls.md`.
 

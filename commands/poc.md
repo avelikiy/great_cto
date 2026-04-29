@@ -278,5 +278,5 @@ POC-<slug> — <title>
 6. **Promotion required** — POC code can NEVER become production without `/promote`.
 
 See `skills/great_cto/references/poc-mode.md` for the agent-side skip matrix
-(which steps tech-lead / senior-dev / qa-engineer / security-officer drop in
+(which steps architect / senior-dev / qa-engineer / security-officer drop in
 POC mode) and the promotion audit flow.

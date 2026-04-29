@@ -16,7 +16,7 @@ Deploy method: Hardhat deploy (not /ship).
 
 "build staking contract with 30-day time-lock and reward distribution"
 
-[tech-lead — Opus]
+[architect — Opus]
 Architecture ready → docs/architecture/ARCH-staking.md
 • ERC-20 + EIP-2612 permit for gasless approvals
 • Staking contract: checkpoint-based reward calculation (no loops)

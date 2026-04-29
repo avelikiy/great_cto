@@ -43,9 +43,9 @@ Worktree hooks setup (for the CTO to fix later): add to `~/.claude/settings.json
 
 ## Session Memory
 
-Before starting implementation, read tech-lead memory (use `memory_20250929`):
+Before starting implementation, read architect memory (use `memory_20250929`):
 ```
-memory read — look for tech-lead decisions for the current feature
+memory read — look for architect decisions for the current feature
 ```
 If found: apply the chosen pattern, constraints, and stack decisions without re-deriving them.
 If not found: read ARCH doc directly from `docs/architecture/ARCH-*.md`.
@@ -154,7 +154,7 @@ If main agent (orchestrator above senior-dev) used TodoWrite for tasks that shou
 
 ## Step 0b: Archetype security pre-conditions
 
-For security-critical archetypes, **refuse to start coding without the upstream artefacts in place**. Same enforcement model as Step 0a (Beads) — exit 1, not print-only. Each `BLOCKED:` here means tech-lead or security-officer didn't run; do not silently fill the gap by writing code.
+For security-critical archetypes, **refuse to start coding without the upstream artefacts in place**. Same enforcement model as Step 0a (Beads) — exit 1, not print-only. Each `BLOCKED:` here means architect or security-officer didn't run; do not silently fill the gap by writing code.
 
 ```bash
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
@@ -164,7 +164,7 @@ case "$ARCHETYPE" in
     LATEST_ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
     if [ -z "$LATEST_ARCH" ]; then
       echo "BLOCKED: $ARCHETYPE archetype requires an ARCH doc before implementation" >&2
-      echo "Likely cause: tech-lead did not run, or its run was truncated. Re-invoke /start (full pipeline) or call tech-lead manually." >&2
+      echo "Likely cause: architect did not run, or its run was truncated. Re-invoke /start (full pipeline) or call architect manually." >&2
       exit 1
     fi
     if ! grep -q "^## Security" "$LATEST_ARCH"; then
@@ -192,13 +192,13 @@ esac
 | `browser-extension` | `manifest_version: 3`. No `unsafe-eval`. host_permissions justified per URL pattern | manifest.json `manifest_version: 3` check before claiming task |
 | `iot-embedded` | Static stack only (no dynamic alloc in interrupt handlers). Watchdog on critical paths | Trace memory in plan |
 
-If the implementation plan does not address the relevant rule, push back to tech-lead before claiming the bd task.
+If the implementation plan does not address the relevant rule, push back to architect before claiming the bd task.
 
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
 Read `~/.great_cto/skills-registry.json` → `agent_skills["senior-dev"][_default]` plus `agent_skills["senior-dev"][<archetype>]` (additive `+` items). Each entry resolves to a path in the registry under tier1/tier2/tier3. Read the SKILL.md files for items genuinely relevant to your current task — you decide.
 
-For pattern + bash example see `tech-lead.md § Step 0b` and `references/skills-architecture.md`.
+For pattern + bash example see `architect.md § Step 0b` and `references/skills-architecture.md`.
 
 ## Step 0: Pattern Lookup (run before implementing)
 

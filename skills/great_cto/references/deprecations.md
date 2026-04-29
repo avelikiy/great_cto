@@ -1,7 +1,7 @@
 ---
 name: deprecations
 description: Deprecation calendar: explicit lifecycle for sunsetting frameworks/APIs/runtimes/vendors, prevents quarterly firefights from EOL surprises
-when_to_use: Stack-introduction time + quarterly review. Read by tech-lead before committing to a stack
+when_to_use: Stack-introduction time + quarterly review. Read by architect before committing to a stack
 applies_to:
   - _default
 ---
@@ -19,7 +19,7 @@ Single file. Chronological (earliest EOL first). Completed deprecations archived
 ```markdown
 # Deprecation Calendar
 
-> What we're sunsetting, when, why, how. Updated by tech-lead + security-officer.
+> What we're sunsetting, when, why, how. Updated by architect + security-officer.
 > Entries sorted by EOL date ascending.
 
 ## Active
@@ -52,7 +52,7 @@ Single file. Chronological (earliest EOL first). Completed deprecations archived
 | Trigger | Who | Auto/manual |
 |---------|-----|-------------|
 | Vendor announces EOL | security-officer (compliance review) or CTO | manual |
-| tech-lead at ARCH finds planned-use of deprecated thing | tech-lead | auto-link, not auto-create |
+| architect at ARCH finds planned-use of deprecated thing | architect | auto-link, not auto-create |
 | `/audit` detects dep with no releases > 24 months | `/audit` | auto-suggest entry |
 | `/audit` detects runtime/framework major bumped upstream | `/audit` | auto-suggest entry |
 | Forced EOL (CVE in abandoned lib, no patch) | security-officer | auto-create with `EOL: ASAP` |
@@ -61,7 +61,7 @@ Single file. Chronological (earliest EOL first). Completed deprecations archived
 
 When a deprecation entry has `EOL < 6 months remaining` AND status is not `migration N%` / `testing` / `done`:
 - `/audit` auto-creates RISK-REGISTER entry linking back
-- Risk priority defaults to M×H; tech-lead may adjust
+- Risk priority defaults to M×H; architect may adjust
 
 ## Auto-link to vendors
 
@@ -69,9 +69,9 @@ When the "What" field references an external vendor:
 - Cross-reference `docs/vendors/VENDOR-<slug>.md` (from v1.0.73)
 - Update vendor's "EOL announced" field in their doc
 
-## Tech-lead warning at ARCH time
+## Architect warning at ARCH time
 
-Before writing any ARCH doc, tech-lead greps DEPRECATION-CALENDAR for technologies mentioned in the plan:
+Before writing any ARCH doc, architect greps DEPRECATION-CALENDAR for technologies mentioned in the plan:
 ```bash
 for TECH in $STACK; do
   grep -l "$TECH" docs/deprecations/DEPRECATION-CALENDAR.md && \
@@ -88,7 +88,7 @@ Output goes into ARCH "Stack considerations" section:
 
 ## Consumers
 
-- tech-lead — consults before writing ARCH, warns in "Stack considerations"
+- architect — consults before writing ARCH, warns in "Stack considerations"
 - `/audit` — detects auto-suggestions, quarterly review
 - `/inbox` — shows upcoming EOLs (< 90d)
 - `/digest` quarterly — EOLs < 90d in next quarter called out

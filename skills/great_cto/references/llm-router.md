@@ -1,7 +1,7 @@
 ---
 name: llm-router
 description: LLM router config (OpenRouter / Kimi K2): when to delegate to cheaper models, fallback chains, observability, $/token tracking
-when_to_use: Cost-optimised AI workflows. Read by tech-lead + senior-dev when LLM-cost is material
+when_to_use: Cost-optimised AI workflows. Read by architect + senior-dev when LLM-cost is material
 applies_to:
   - ai-system
   - agent-product
@@ -76,7 +76,7 @@ GREAT_CTO_ROUTER_MODEL=deepseek/deepseek-chat
 | `qa-engineer` | POC-mode smoke generation, test-name brainstorming | production QA plan, bug triage, regression analysis |
 | `/digest` | (reserved, future) commit-log summarization for weekly report | cost/DORA calculations — deterministic, no LLM needed |
 
-**Never delegate**: `tech-lead` (architecture), `security-officer` (CSO),
+**Never delegate**: `architect` (architecture), `security-officer` (CSO),
 `devops` (deploy reasoning), `/audit` (depends on deterministic lints).
 
 ## Tool contract

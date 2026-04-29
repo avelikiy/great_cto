@@ -27,7 +27,7 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["pci-reviewer"][_defa
 ## When you're invoked
 
 - security-officer pre-impl mode AND `archetype: commerce`
-- Tech-lead has finished ARCH; senior-dev has not started coding
+- Architect has finished ARCH; senior-dev has not started coding
 - A new payment-related dependency is being added (escalation: re-evaluate scope)
 - PSP swap (Stripe → Adyen, etc.) — re-evaluate residual threats
 
@@ -54,7 +54,7 @@ Plus the severity rating + sign-off table. Critical/High threats must transition
 mkdir -p docs/sec-threats docs/architecture
 
 ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
-[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Tech-lead must run first." >&2; exit 1; }
+[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Architect must run first." >&2; exit 1; }
 
 SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
 TM="docs/sec-threats/TM-${SLUG}.md"

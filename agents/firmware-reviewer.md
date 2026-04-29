@@ -27,7 +27,7 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["firmware-reviewer"][
 ## When you're invoked
 
 - security-officer pre-impl mode AND `archetype: iot-embedded`
-- Tech-lead has finished ARCH; senior-dev has not started firmware coding
+- Architect has finished ARCH; senior-dev has not started firmware coding
 - Adding new wireless protocol (BLE, Wi-Fi, LoRa, Zigbee, Matter)
 - Targeting consumer market in EU/UK (ETSI EN 303 645 mandatory)
 
@@ -54,7 +54,7 @@ Plus severity rating + sign-off table.
 mkdir -p docs/sec-threats docs/architecture
 
 ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
-[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Tech-lead must run first." >&2; exit 1; }
+[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Architect must run first." >&2; exit 1; }
 
 SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
 TM="docs/sec-threats/TM-${SLUG}.md"

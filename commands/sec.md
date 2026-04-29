@@ -42,7 +42,7 @@ esac
 
 ## status subcommand — Security metrics aggregator
 
-Compute the five security-posture metrics from artefacts produced by `security-officer`, `tech-lead`, `devops`, and `/audit`. No external scanners, no new telemetry — only what already lives in the repo.
+Compute the five security-posture metrics from artefacts produced by `security-officer`, `architect`, `devops`, and `/audit`. No external scanners, no new telemetry — only what already lives in the repo.
 
 See `skills/great_cto/references/sec-metrics.md` for formula definitions and data-source documentation.
 

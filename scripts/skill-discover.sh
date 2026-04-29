@@ -214,21 +214,21 @@ JSON
 # this map based on its role + project archetype. Agent Step 0 consults the
 # matching list and decides which to Read.
 read -r -d '' AGENT_SKILLS <<'JSON' || true
-  "tech-lead": {
-    "_default":          ["pre-mortem", "risk-register", "vendors", "cost-model", "anti-patterns"],
-    "ai-system":         ["+ARCH-ai", "+ai-pack", "+secure-sdlc", "+THREAT-MODEL-AI", "+llm-router"],
-    "agent-product":     ["+ARCH-ai", "+agent-pack", "+secure-sdlc", "+THREAT-MODEL-AI"],
-    "commerce":          ["+ARCH-default", "+commerce-pack", "+secure-sdlc", "+PCI-DSS-SAQ-A"],
-    "web3":              ["+ARCH-defi-protocol", "+web3-pack", "+secure-sdlc"],
+  "architect": {
+    "_default":          ["pre-mortem", "risk-register", "vendors", "cost-model", "anti-patterns", "cost-discipline", "decision-log", "secure-sdlc"],
+    "ai-system":         ["+ARCH-ai", "+ai-pack", "+THREAT-MODEL-AI", "+llm-router"],
+    "agent-product":     ["+ARCH-ai", "+agent-pack", "+THREAT-MODEL-AI"],
+    "commerce":          ["+ARCH-default", "+commerce-pack", "+PCI-DSS-SAQ-A"],
+    "web3":              ["+ARCH-defi-protocol", "+web3-pack"],
     "browser-extension": ["+ARCH-browser-extension", "+browser-extension-pack"],
     "game":              ["+ARCH-game", "+game-pack"],
-    "regulated":         ["+ARCH-default", "+enterprise-pack", "+secure-sdlc", "+DORA-ICT-risk-assessment", "+NIS2-article21-controls"],
-    "fintech":           ["+ARCH-default", "+enterprise-pack", "+secure-sdlc", "+PCI-DSS-SAQ-D", "+DORA-ICT-risk-assessment"],
-    "iot-embedded":      ["+ARCH-default", "+infra-pack", "+secure-sdlc"],
+    "regulated":         ["+ARCH-default", "+enterprise-pack", "+DORA-ICT-risk-assessment", "+NIS2-article21-controls"],
+    "fintech":           ["+ARCH-default", "+enterprise-pack", "+PCI-DSS-SAQ-D", "+DORA-ICT-risk-assessment"],
+    "iot-embedded":      ["+ARCH-default", "+infra-pack"],
     "data-platform":     ["+ARCH-default", "+data-pack"],
     "mobile-app":        ["+ARCH-default", "+mobile-pack"],
     "library":           ["+ARCH-default", "+library-pack"],
-    "enterprise":        ["+ARCH-default", "+enterprise-pack", "+secure-sdlc"],
+    "enterprise":        ["+ARCH-default", "+enterprise-pack"],
     "web-app":           ["+ARCH-default", "+web-pack"],
     "marketing-site":    ["+ARCH-default", "+web-pack"],
     "devtools":          ["+ARCH-default", "+devtools-pack"],

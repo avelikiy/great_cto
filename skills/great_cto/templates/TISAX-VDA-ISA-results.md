@@ -9,7 +9,7 @@ applies_to:
 # TISAX-VDA-ISA-results.md — Trusted Information Security Assessment Exchange
 
 > Mandatory artefact when `compliance: [tisax]` in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate.
+> Required by `architect.md` compliance artefact gate.
 > Required for automotive supply chain (BMW, Mercedes, Volkswagen, Audi, etc.). Based on VDA ISA (Information Security Assessment) catalogue.
 > Source: `skills/great_cto/templates/TISAX-VDA-ISA-results.md`.
 

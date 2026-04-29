@@ -27,7 +27,7 @@ applies_to:
 | `qa-engineer` | Test blind spot found (bug escaped QA, found in production) |
 | `qa-engineer` | Advisor called more than once in a single QA run |
 | `security-officer` | New vulnerability class not covered by existing checklist |
-| `tech-lead` | ADR superseded within 30 days of creation |
+| `architect` | ADR superseded within 30 days of creation |
 | `project-auditor` | Same debt category found in two consecutive audits |
 | `senior-dev` | Advisor called AND root cause was absent from ARCH doc |
 

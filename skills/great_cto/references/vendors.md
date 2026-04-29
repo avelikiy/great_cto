@@ -1,7 +1,7 @@
 ---
 name: vendors
 description: Third-party vendor register: Stripe, Auth0, OpenAI, AWS regions, Datadog — fallback plans when vendor X has outage
-when_to_use: Vendor introduction time + ARCH review. Read by tech-lead
+when_to_use: Vendor introduction time + ARCH review. Read by architect
 applies_to:
   - _default
 ---
@@ -98,21 +98,21 @@ Source: <vendor status page URL>
 
 - **Quarterly** (by security-officer): check incident history, cert expirations, renewal dates, risk linkage, DORA classification accuracy, exit strategy freshness (must be re-verified if not tested in > 12 months)
 - **On-demand** when vendor has a public incident → append to incident history
-- **At ARCH time** (by tech-lead): when a new vendor is introduced → VENDOR doc created before ARCH merges
+- **At ARCH time** (by architect): when a new vendor is introduced → VENDOR doc created before ARCH merges
 
 ## Triggers — when to add a vendor
 
 | Trigger | Who | Timing |
 |---------|-----|--------|
-| New external SDK/API adopted in ARCH | tech-lead | before ARCH finalized |
+| New external SDK/API adopted in ARCH | architect | before ARCH finalized |
 | `/audit` detects vendor SDK in deps with no VENDOR-*.md | auto-suggest | advisory |
 | Vendor cert approaching expiry (< 90d) | security-officer | via `/digest` |
 | Vendor incident > 30min impacting us | l3-support | append to incident history |
-| Cost/scale threshold crossed (e.g. > $1k/month) | tech-lead or CTO | promote to `critical` if not already |
+| Cost/scale threshold crossed (e.g. > $1k/month) | architect or CTO | promote to `critical` if not already |
 
 ## Integration
 
-- **tech-lead (ARCH-time)**: for every external service referenced in ARCH, check `docs/vendors/VENDOR-<slug>.md` exists. If not → prompt CTO "New vendor <name>. Criticality? Create VENDOR doc?" Skip for `low` criticality.
+- **architect (ARCH-time)**: for every external service referenced in ARCH, check `docs/vendors/VENDOR-<slug>.md` exists. If not → prompt CTO "New vendor <name>. Criticality? Create VENDOR doc?" Skip for `low` criticality.
 - **security-officer (quarterly, via `/digest`)**: iterate all `VENDOR-*.md` at `critical` or `high`, verify cert validity, check renewal dates within 90 days, cross-reference incident history with risk register.
 - **`/audit`**: scan `package.json` / `requirements.txt` / env vars for known vendor SDKs (stripe, auth0, openai, twilio, sendgrid, aws-sdk, etc.) → list any without matching VENDOR doc as advisory findings.
 
@@ -122,7 +122,7 @@ Any `critical` vendor gets at least one risk-register entry by default — the i
 
 ## Consumers
 
-- `tech-lead` — checks at ARCH; adds vendor at decision time
+- `architect` — checks at ARCH; adds vendor at decision time
 - `security-officer` — quarterly review, cert monitoring
 - `/audit` — detects vendors in deps without VENDOR docs
 - `/digest` — renewal / cert expiry reminders

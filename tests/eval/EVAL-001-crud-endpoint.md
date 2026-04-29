@@ -18,9 +18,9 @@ difficulty: baseline
 - Discovery guard: NOT triggered (clear deliverable)
 - Type detection: `rest-api` → archetype `web-service`
 - Size: `small` (single endpoint, existing codebase)
-- Pipeline: tech-lead → senior-dev → qa
+- Pipeline: architect → senior-dev → qa
 
-### tech-lead
+### architect
 - Checkpoint A cost estimate: small | ~$1.00 | ~20min
 - ARCH doc created: `docs/architecture/ARCH-users-endpoint.md`
 - Contains: REQ-001 (GET /users/:id), REQ-002 (avatar URL handling)
@@ -28,7 +28,7 @@ difficulty: baseline
 - gate:arch created
 
 ### senior-dev
-- Reads memory (tech-lead session memory)
+- Reads memory (architect session memory)
 - Implements endpoint with TDD
 - Tests: GET /users/:id returns 200 + profile, 404 for unknown user
 

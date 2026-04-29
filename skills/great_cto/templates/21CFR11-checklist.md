@@ -9,7 +9,7 @@ applies_to:
 # 21CFR11-checklist.md — FDA 21 CFR Part 11 (electronic records & signatures)
 
 > Mandatory artefact when `compliance: [gxp]` or `compliance: [21cfr11]` in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate.
+> Required by `architect.md` compliance artefact gate.
 > Applies to systems that create, modify, maintain, archive, retrieve, or transmit electronic records subject to FDA regulations (pharma / medical device / clinical trials).
 > Source: `skills/great_cto/templates/21CFR11-checklist.md`.
 
