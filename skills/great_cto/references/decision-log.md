@@ -1,7 +1,7 @@
 ---
 name: decision-log
 description: ADR (Architecture Decision Record) catalogue: format, lifecycle (proposed → accepted → superseded), cross-references to RFCs
-when_to_use: Recording architecture decisions. Read by tech-lead + project-auditor
+when_to_use: Recording architecture decisions. Read by architect + project-auditor
 applies_to:
   - _default
 ---
@@ -14,7 +14,7 @@ When CTO says "log decision", "we decided X", or starts a message with "decision
 
 **Non-architectural decisions only** — process changes, vendor picks, waivers, reversible calls.
 
-Architectural decisions still go to individual ADR files (`docs/decisions/ADR-NNN.md`), handled by tech-lead. Do not duplicate ADRs in the Decision Log.
+Architectural decisions still go to individual ADR files (`docs/decisions/ADR-NNN.md`), handled by architect. Do not duplicate ADRs in the Decision Log.
 
 ## Append logic
 
@@ -54,7 +54,7 @@ No further action needed. The entry surfaces automatically in `/inbox` under "Re
 
 | If the decision is... | Put it in... |
 |-----------------------|--------------|
-| Structural/architectural (pattern, tech stack, module boundary) | ADR file via tech-lead |
+| Structural/architectural (pattern, tech stack, module boundary) | ADR file via architect |
 | Reversible process choice (vendor, workflow, tooling) | Decision Log |
 | Waiver ("we accept this risk", "we skip this check for now") | Decision Log |
 | Trade-off between two roughly equal options | Decision Log (can upgrade to ADR if later discovered structural) |

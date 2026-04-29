@@ -8,7 +8,7 @@ applies_to:
 
 # Gate Health — reference
 
-How to tell whether your quality gates are real gates or theater. Read by `tech-lead` when `/inbox` flags rubber-stamping, and by anyone calibrating a gate after a postmortem.
+How to tell whether your quality gates are real gates or theater. Read by `architect` when `/inbox` flags rubber-stamping, and by anyone calibrating a gate after a postmortem.
 
 ## The problem with gates
 
@@ -45,7 +45,7 @@ Postmortems include an "Agent Verdict Audit" table:
 
 | Agent | Verdict | Correct? | Why |
 |---|---|---|---|
-| Architect (tech-lead) | ARCH_READY | yes | scope was correct |
+| Architect (architect) | ARCH_READY | yes | scope was correct |
 | QA (qa-engineer) | PASS | no | missed concurrent-write race in test plan |
 | Security (security-officer) | PASS | yes | not a security issue |
 ```

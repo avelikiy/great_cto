@@ -15,7 +15,7 @@ Great CTO: Got it: trading-bot + ml-serving. Ready to build.
 
 "build order execution engine with position sizing and backtest harness"
 
-[tech-lead — Opus]
+[architect — Opus]
 Architecture ready → docs/architecture/ARCH-order-execution.md
 • Rust async execution engine with Tokio, Python model sidecar via gRPC
 • Kafka consumer for market data, PostgreSQL for trade history

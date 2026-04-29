@@ -1,7 +1,7 @@
 ---
 name: cost-model
 description: Cost model template for ARCH docs: pre-deploy estimate of runtime $ (compute + storage + egress + LLM tokens + vendor SaaS), unit economics, kill-switch thresholds
-when_to_use: Mandatory in ARCH doc for medium/large projects + ai-system/agent-product/commerce/regulated. Read by tech-lead
+when_to_use: Mandatory in ARCH doc for medium/large projects + ai-system/agent-product/commerce/regulated. Read by architect
 applies_to:
   - ai-system
   - agent-product
@@ -52,12 +52,12 @@ Cost model lives **inside each ARCH-*.md** as a section — not a separate file.
 
 ### Review cadence
 - Quarterly via `/digest` (compares actual vs estimate)
-- Alert if actual > estimate × 1.2 → tech-lead investigates
+- Alert if actual > estimate × 1.2 → architect investigates
 ```
 
 ## Data sources
 
-tech-lead pulls cost inputs from:
+architect pulls cost inputs from:
 - **Compute**: instance type × hours/month (730) × on-demand rate for the region
 - **Database**: instance class × hours + storage GB + IO
 - **Data transfer**: egress GB × per-GB rate (free between same-region services)
@@ -91,13 +91,13 @@ Not in scope: live FinOps integration. The plugin writes file-only records; a se
 
 ## Integration
 
-- **tech-lead**: writes Cost Model section into every qualifying ARCH-*.md; for each entry in the Runtime cost table, references the vendor register when a third-party service is involved
+- **architect**: writes Cost Model section into every qualifying ARCH-*.md; for each entry in the Runtime cost table, references the vendor register when a third-party service is involved
 - **`/audit`**: scans IaC files (`*.tf`, `*.yaml`, `helm/values.yaml`) for services deployed without a matching ARCH Cost Model section; advisory finding only (not blocking)
 - **`/digest` (quarterly)**: aggregates cost estimates across all ARCH docs; if `.great_cto/cost-actual.log` exists, computes delta; lists services > 20% over estimate for review
 
 ## Consumers
 
-- tech-lead — writes at ARCH time
+- architect — writes at ARCH time
 - `/audit` — detects cost-model gaps
 - `/digest` — quarterly reconciliation
 - Q-review (v1.0.75) — cost trajectory in executive narrative

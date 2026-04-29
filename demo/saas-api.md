@@ -16,7 +16,7 @@ MANDATORY security gate active (auth-service requires it).
 
 "build tenant isolation layer and JWT auth with refresh token rotation"
 
-[tech-lead — Opus]
+[architect — Opus]
 Architecture ready → docs/architecture/ARCH-tenant-auth.md
 • Row-level security in PostgreSQL for tenant isolation
 • JWT (15min) + refresh token rotation (7d), stored in Redis

@@ -98,7 +98,7 @@ Pick a feature small enough to land in 1 hour:
 ```
 
 **PASS criteria** (each must be checked):
-- [ ] tech-lead writes `docs/architecture/ARCH-<slug>.md`
+- [ ] architect writes `docs/architecture/ARCH-<slug>.md`
 - [ ] DECISION 1 gate fires asking for architecture approval
 - [ ] After approve: senior-dev implements, tests pass
 - [ ] qa-engineer report flags any test gaps

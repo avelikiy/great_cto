@@ -101,7 +101,7 @@ grep "\[GATE" .great_cto/tasks.md 2>/dev/null | grep -v "APPROVED\|BLOCKED\|CLOS
 
 **Agent verdict summary (last 7 entries per agent):**
 ```bash
-for AGENT in tech-lead qa-engineer security-officer devops; do
+for AGENT in architect qa-engineer security-officer devops; do
   LOG=".great_cto/verdicts/${AGENT}.log"
   [ -f "$LOG" ] || continue
   TOTAL=$(wc -l < "$LOG")
@@ -318,7 +318,7 @@ GATES
   [⚠ if any gate open >3 days: flag it]
 
 AGENT VERDICTS (cumulative)
-  tech-lead:        pass=[N] fail=[M] | last: <date> ARCH_READY
+  architect:        pass=[N] fail=[M] | last: <date> ARCH_READY
   qa-engineer:      pass=[N] fail=[M] | last: <date> PASS/FAIL
   security-officer: pass=[N] fail=[M] | last: <date> APPROVED/BLOCKED
   devops:           pass=[N] fail=[M] | last: <date> DEPLOYED/ROLLED_BACK
@@ -581,7 +581,7 @@ Burn history is consumed by `/burn` for derivative-based alerting (catch bad tre
 
 ## Pre-mortem post-review reminder
 
-Pre-mortems ship with an empty "Post-ship review" section that the tech-lead fills 90 days after launch. `/digest` scans for overdue reviews and surfaces them so the learning loop actually closes. See `skills/great_cto/references/pre-mortem.md`.
+Pre-mortems ship with an empty "Post-ship review" section that the architect fills 90 days after launch. `/digest` scans for overdue reviews and surfaces them so the learning loop actually closes. See `skills/great_cto/references/pre-mortem.md`.
 
 ```bash
 CUTOFF_90=$(date -v-90d +%Y-%m-%d 2>/dev/null || date -d "90 days ago" +%Y-%m-%d)
@@ -596,7 +596,7 @@ if [ -d "docs/pre-mortems" ]; then
 fi
 ```
 
-Any overdue pre-mortems feed into the digest output under "Pre-mortem reviews due" so the CTO prompts tech-lead to close them at the next ARCH session.
+Any overdue pre-mortems feed into the digest output under "Pre-mortem reviews due" so the CTO prompts architect to close them at the next ARCH session.
 
 ## Cost reconciliation (quarterly)
 
@@ -663,12 +663,12 @@ if [ ! -f "$BRAIN" ]; then
   PROJECT_NAME=$(grep "^# " .great_cto/PROJECT.md 2>/dev/null | head -1 | sed 's/# //' || basename "$PWD")
   cat > "$BRAIN" <<BRAIN_INIT
 # Project Brain — ${PROJECT_NAME}
-> Compiled truth. Updated by /digest. Read by tech-lead before designing.
+> Compiled truth. Updated by /digest. Read by architect before designing.
 
 ## Current Synthesis
 
 ### Architecture Patterns in Use
-<!-- Updated by tech-lead after each ARCH doc -->
+<!-- Updated by architect after each ARCH doc -->
 
 ### What Has Failed / Avoid
 <!-- Patterns from postmortems and blocked security audits -->

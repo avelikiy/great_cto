@@ -102,7 +102,7 @@ archetype default tier and upgrades on signal.
 
 | Agent | nano | small | medium | large | enterprise |
 |-------|------|-------|--------|-------|-----------|
-| tech-lead | — | ✅ | ✅ | ✅ | ✅ |
+| architect | — | ✅ | ✅ | ✅ | ✅ |
 | senior-dev | ✅ | ✅ | ✅ | ✅ | ✅ |
 | qa-engineer | — | ✅ lightweight | ✅ | ✅ | ✅ |
 | security-officer | — | if mandatory | ✅ if mandatory | ✅ | ✅ |
@@ -117,15 +117,15 @@ archetype default tier and upgrades on signal.
 | ai-prompt-architect | — | ✅ | ✅ | ✅ | ✅ | After threat model exists, when ARCH § LLM Scope identifies named LLM roles |
 | ai-eval-engineer | — | ✅ | ✅ | ✅ | ✅ | After ADR-PROMPT files exist; qa-engineer Step 0b delegates EVAL creation |
 
-Pipeline for `ai-system` / `agent-product`: tech-lead → ai-security-reviewer → ai-prompt-architect → ai-eval-engineer → senior-dev → qa-engineer → security-officer post-impl → devops.
+Pipeline for `ai-system` / `agent-product`: architect → ai-security-reviewer → ai-prompt-architect → ai-eval-engineer → senior-dev → qa-engineer → security-officer post-impl → devops.
 
 ### Browser-extension specialist subagent (v1.0.136+)
 
 | Subagent | When invoked | What it produces |
 |---|---|---|
-| web-store-reviewer | After tech-lead writes ARCH for browser-extension archetype; security-officer pre-impl delegates here | TM-{slug}.md with permissions audit, single-purpose check, CSP audit, three-worlds isolation review, cross-browser compat review; ARCH § Web Store Pre-flight checklist |
+| web-store-reviewer | After architect writes ARCH for browser-extension archetype; security-officer pre-impl delegates here | TM-{slug}.md with permissions audit, single-purpose check, CSP audit, three-worlds isolation review, cross-browser compat review; ARCH § Web Store Pre-flight checklist |
 
-Pipeline for `browser-extension`: tech-lead → web-store-reviewer → senior-dev → qa-engineer (re-checks manifest static rules) → security-officer post-impl → devops (Web Store unlisted/internal channel).
+Pipeline for `browser-extension`: architect → web-store-reviewer → senior-dev → qa-engineer (re-checks manifest static rules) → security-officer post-impl → devops (Web Store unlisted/internal channel).
 
 ### Commerce / Web3 / IoT specialist subagents (v1.0.143+)
 
@@ -135,11 +135,11 @@ Pipeline for `browser-extension`: tech-lead → web-store-reviewer → senior-de
 | oracle-reviewer | `web3` | security-officer pre-impl delegates here | TM with subtype block-ship gate (lending → flash-loan-sim, AMM → k-invariant, bridge → cross-chain integrity), oracle strategy (Chainlink + Pyth + TWAP), MEV protection, upgradeability decision matrix, L2 resilience, custody/multisig, bug bounty TVL tier |
 | firmware-reviewer | `iot-embedded` | security-officer pre-impl delegates here | TM with OTA strategy (signing + A/B partitions + auto-rollback + fleet rollout), ETSI EN 303 645 13 provisions, secure boot, HIL test design, wireless protocol security (BLE / Wi-Fi / Zigbee / Matter / LoRa), supply chain |
 
-Pipeline for `commerce`: tech-lead → pci-reviewer → senior-dev → qa-engineer (idempotency + PAN grep) → security-officer post-impl → devops (transaction monitoring canary).
+Pipeline for `commerce`: architect → pci-reviewer → senior-dev → qa-engineer (idempotency + PAN grep) → security-officer post-impl → devops (transaction monitoring canary).
 
-Pipeline for `web3`: tech-lead → oracle-reviewer → senior-dev → qa-engineer (Slither + Foundry fuzz) → security-officer post-impl → devops (timelock-gated proxy upgrade).
+Pipeline for `web3`: architect → oracle-reviewer → senior-dev → qa-engineer (Slither + Foundry fuzz) → security-officer post-impl → devops (timelock-gated proxy upgrade).
 
-Pipeline for `iot-embedded`: tech-lead → firmware-reviewer → senior-dev → qa-engineer (HIL/QEMU tests) → security-officer post-impl → devops (OTA staged rollout).
+Pipeline for `iot-embedded`: architect → firmware-reviewer → senior-dev → qa-engineer (HIL/QEMU tests) → security-officer post-impl → devops (OTA staged rollout).
 
 ## Parameters (override archetype defaults via PROJECT.md)
 

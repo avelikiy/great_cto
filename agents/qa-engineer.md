@@ -212,16 +212,16 @@ for extra in $QA_EXTRAS; do
     idempotency-proof|pci-scan) ;;                                       # commerce covered above
     cross-user-isolation|prompt-injection) ;;                            # agent-product covered above
     "") ;;
-    *) ;;  # other qa-extras may be archetype-agnostic; tech-lead enforces ARCH ## Security
+    *) ;;  # other qa-extras may be archetype-agnostic; architect enforces ARCH ## Security
   esac
 done
 ```
 
-If any gate fires `BLOCKED`, do not write a QA report claiming pass — exit 1 and let tech-lead / senior-dev fix the upstream gap.
+If any gate fires `BLOCKED`, do not write a QA report claiming pass — exit 1 and let architect / senior-dev fix the upstream gap.
 
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["qa-engineer"][_default]` plus `agent_skills["qa-engineer"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `tech-lead.md § Step 0b` for bash pattern.
+Read `~/.great_cto/skills-registry.json` → `agent_skills["qa-engineer"][_default]` plus `agent_skills["qa-engineer"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `architect.md § Step 0b` for bash pattern.
 
 ## Step 0: Pattern Lookup (run before testing)
 

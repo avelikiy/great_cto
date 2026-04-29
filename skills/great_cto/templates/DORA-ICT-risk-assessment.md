@@ -9,7 +9,7 @@ applies_to:
 # DORA-ICT-risk-assessment.md — EU Digital Operational Resilience Act
 
 > Mandatory artefact when `compliance: [dora]` in PROJECT.md.
-> Required by `tech-lead.md` compliance artefact gate — exits 1 if missing.
+> Required by `architect.md` compliance artefact gate — exits 1 if missing.
 > DORA applies to financial entities (banks, investment firms, insurers, crypto-asset service providers) operating in the EU. Source: Regulation (EU) 2022/2554.
 > Source: `skills/great_cto/templates/DORA-ICT-risk-assessment.md`.
 

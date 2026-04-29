@@ -1,7 +1,7 @@
 ---
 name: anti-patterns
 description: Catalog of recurring failure modes across architectures: god-objects, hidden coupling, premature abstraction, distributed monolith, eager caching, sync-over-async
-when_to_use: Pattern lookup at architecture time (tech-lead Step 0) and during code review
+when_to_use: Pattern lookup at architecture time (architect Step 0) and during code review
 applies_to:
   - _default
 ---
@@ -16,7 +16,7 @@ can detect and flag them mechanically, not argue aesthetics.
 Inspired by the anti-cliché blocklist pattern (ConardLi/web-design-skill). Applied here
 to architecture docs, threat models, SBOMs, postmortems, and gate verdicts.
 
-**How to use.** Agents that produce artefacts (`tech-lead`, `security-officer`,
+**How to use.** Agents that produce artefacts (`architect`, `security-officer`,
 `qa-engineer`, `l3-support`) read this file before drafting. Agents that consume gates
 (CTO via `/inbox`) can request `/audit lint` to scan all current artefacts against it.
 
