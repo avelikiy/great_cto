@@ -138,22 +138,31 @@ Always show: `Total LLM cost estimate: $X.XX (optimistic) – $X.XX (pessimistic
 | PM planning (human PM) | PM | 3–8h | $360–960 |
 | QA report | QA Engineer | 2–4h | $160–320 |
 
-### Cost comparison formula
+### Cost and time comparison formula
 
 ```
-llm_total     = sum(token_cost_per_task × avg_turns)
-human_total   = sum(human_hours_mid × role_rate)
-savings       = human_total / llm_total          # e.g. 800x
-savings_usd   = human_total - llm_total
+# Time
+llm_time_total   = sum(llm_minutes_per_task)              # wall-clock agent compute
+human_time_total = sum(human_hours_mid × 60) × 1.3       # +30% coordination overhead
+time_savings     = human_time_total / llm_time_total      # e.g. 80x faster
+
+# Cost
+llm_cost_total   = sum(token_cost_per_task × avg_turns)
+human_cost_total = sum(human_hours_mid × role_rate) × 1.3
+cost_savings     = human_cost_total / llm_cost_total      # e.g. 3,000x cheaper
+savings_usd      = human_cost_total - llm_cost_total
 ```
 
 **Expected savings range:**
-- PoC (≤10 tasks): LLM $0.50–2 vs Human $5,000–15,000 → ~3,000–10,000x
-- MVP (10–30 tasks): LLM $2–8 vs Human $15,000–50,000 → ~3,000–10,000x
-- Full feature: LLM $5–25 vs Human $30,000–150,000 → ~3,000–10,000x
 
-Note: human estimate includes coordination overhead (meetings, review cycles, handoffs).
-LLM estimate is pure token cost; human engineer wages are salary cost to employer (not revenue).
+| Mode | LLM time | Human time | Time savings | LLM cost | Human cost | Cost savings |
+|------|----------|------------|--------------|----------|------------|--------------|
+| PoC | 30–90 min | 40–120h | ~50–80x faster | $0.50–2 | $5K–15K | ~3,000–10,000x |
+| MVP | 2–6h | 200–600h | ~60–100x faster | $2–8 | $15K–50K | ~3,000–10,000x |
+| Full | 4–16h | 500h–2,000h | ~60–100x faster | $5–25 | $30K–150K | ~3,000–10,000x |
+
+Note: human estimate includes coordination overhead (+30%: meetings, review cycles, context-switching, handoffs).
+LLM estimate is pure token cost. No idle time, no context-switching penalty, no vacation, no meetings.
 
 ---
 
@@ -320,18 +329,40 @@ Minimum agents needed: 2 senior-dev + 1 qa-engineer
 
 ## Cost comparison: LLM agents vs Human team
 
-| | Optimistic | Pessimistic |
-|--|-----------|-------------|
-| **LLM agents** | $X.XX | $X.XX |
-| **Human team** | $X,XXX | $X,XXX |
-| **Savings (ratio)** | ~XXXx | ~XXXx |
-| **Savings (USD)** | ~$X,XXX | ~$X,XXX |
+|  | LLM agents | Human team |
+|--|-----------|------------|
+| **Total time** | ~Xmin (agent compute) | ~Xh (calendar, excl. nights/weekends) |
+| **Cost (optimistic)** | $X.XX | $X,XXX |
+| **Cost (pessimistic)** | $X.XX | $X,XXX |
+| **Time savings** | — | ~XXx faster |
+| **Cost savings** | — | ~XXXx cheaper · ~$X,XXX saved |
 
-**LLM breakdown:** tech-lead $X.XX + pm $X.XX + senior-dev $X.XX (×N tasks) + qa-engineer $X.XX + security-officer $X.XX
-**Human breakdown:** architect X h × $200 + backend Xh × $150 + QA Xh × $80 + security Xh × $200 + devops Xh × $120
+**LLM time + cost breakdown:**
+| Agent | Time | Cost |
+|-------|------|------|
+| tech-lead | ~Xmin | $X.XX (Opus 4.7) |
+| pm | ~Xmin | $X.XX (Sonnet 4.6) |
+| senior-dev (N tasks) | ~Xmin | $X.XX (Sonnet 4.6) |
+| qa-engineer | ~Xmin | $X.XX (Haiku 4.5) |
+| security-officer | ~Xmin | $X.XX (Sonnet 4.6) |
+| devops | ~Xmin | $X.XX (Haiku 4.5) |
+| **Total** | **~Xmin** | **$X.XX** |
 
-> Rates: mid-senior US market 2026. Human hours include coordination overhead (meetings, review cycles, handoffs).
-> LLM cost = token cost only (no engineer salary, no benefits, no context-switching).
+**Human time + cost breakdown:**
+| Role | Hours | Rate | Cost |
+|------|-------|------|------|
+| Solutions Architect | Xh | $200/h | $XXX |
+| Backend Dev | Xh | $150/h | $XXX |
+| Frontend Dev | Xh | $130/h | $XXX |
+| QA Engineer | Xh | $80/h | $XXX |
+| Security Eng | Xh | $200/h | $XXX |
+| DevOps | Xh | $120/h | $XXX |
+| Coordination overhead (+30%) | — | — | $XXX |
+| **Total** | **~Xh** | — | **$X,XXX** |
+
+> Rates: mid-senior US market 2026.
+> Human hours include coordination overhead (meetings, review cycles, context-switching, handoffs).
+> LLM cost = token cost only. No salary, no benefits, no idle time between tasks.
 
 ## Risks
 - T2 (auth) may expand if OAuth provider API changes → +50% buffer on T2

@@ -348,20 +348,23 @@ Gate wait (human async):        ~<Y>h          ← 3 gates × ~0.5–2h each
 Total calendar estimate:        ~<Z>h          ← compute + gate wait
 
 ── Cost breakdown ────────────────────────────────
-LLM agents:      $X.XX – $X.XX   (optimistic / pessimistic)
-  tech-lead:     $X.XX  (Opus 4.7)
-  pm:            $X.XX  (Sonnet 4.6)
-  senior-dev:    $X.XX  (Sonnet 4.6 × N tasks × avg turns)
-  qa-engineer:   $X.XX  (Haiku 4.5)
-  security:      $X.XX  (Sonnet 4.6)
+                    TIME              COST
+LLM agents:         Xmin total        $X.XX – $X.XX
+  tech-lead:        ~Xmin             $X.XX  (Opus 4.7)
+  pm:               ~Xmin             $X.XX  (Sonnet 4.6)
+  senior-dev:       ~Xmin (N tasks)   $X.XX  (Sonnet 4.6 × N tasks × avg turns)
+  qa-engineer:      ~Xmin             $X.XX  (Haiku 4.5)
+  security:         ~Xmin             $X.XX  (Sonnet 4.6)
 
-Human team:      $X,XXX – $X,XXX (US mid-senior, +30% coordination)
-  architect:     Xh × $200 = $XXX
-  backend dev:   Xh × $150 = $XXX
-  qa:            Xh × $80  = $XXX
-  security:      Xh × $200 = $XXX
+Human team:         ~Xh total         $X,XXX – $X,XXX
+  architect:        Xh                $XXX   ($200/h)
+  backend dev:      Xh                $XXX   ($150/h)
+  qa engineer:      Xh                $XXX   ($80/h)
+  security eng:     Xh                $XXX   ($200/h)
+  (+30% coordination overhead: meetings, review cycles, handoffs)
 
-Savings:         ~XXXx cheaper  (~$X,XXX saved)
+Savings:    time  Xh human → Xmin LLM  (~XXx faster)
+            cost  $X,XXX human → $X.XX LLM  (~XXXx cheaper · ~$X,XXX saved)
 ─────────────────────────────────────────────────
 
 Critical path:
