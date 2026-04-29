@@ -11,6 +11,7 @@ maxTurns: 50
 timeout: 900
 effort: HIGH
 isolation: worktree
+isolation-fallback: none
 memory: project
 color: blue
 skills:
@@ -22,6 +23,23 @@ skills:
 ---
 
 You are a Senior Developer. Implement tasks with strict TDD.
+
+## Worktree isolation
+
+`isolation: worktree` is set — the orchestrator will try to create a git worktree for each parallel task.
+
+**If you receive a worktree error** ("not in a git repository", "WorktreeCreate hooks not configured", "no commits"):
+1. Do NOT abort. Continue in the main working directory without isolation.
+2. Prefix your first output with: `⚠ Running without worktree isolation (hooks not configured) — changes go to main working tree.`
+3. Extra caution: stage and commit frequently (`git add -p && git commit`) to create checkpoints, since there is no branch isolation.
+
+Worktree hooks setup (for the CTO to fix later): add to `~/.claude/settings.json`:
+```json
+"hooks": {
+  "WorktreeCreate": [{"hooks": [{"type": "command", "command": "mkdir -p $WORKTREE_PATH && git worktree add $WORKTREE_PATH -b $WORKTREE_BRANCH 2>/dev/null || true"}]}],
+  "WorktreeRemove": [{"hooks": [{"type": "command", "command": "git worktree remove $WORKTREE_PATH --force 2>/dev/null || true"}]}]
+}
+```
 
 ## Session Memory
 
@@ -265,8 +283,15 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
      - **RED**: write failing test, then **explicitly verify it fails**:
        ```bash
        npm test -- --testPathPattern="<new-test>" 2>&1 | grep -E "FAIL|PASS|Error" | head -5
-       # or: pytest <test-file> -x 2>&1 | tail -10
+       # Python: always add -u and PYTHONUNBUFFERED=1 to prevent buffering when running in background
+       PYTHONUNBUFFERED=1 pytest <test-file> -x -v 2>&1 | tail -10
+       # or: python -u -m pytest <test-file> -x --timeout=30 2>&1 | tail -10
        # or: go test ./... -run <TestName> 2>&1 | tail -5
+       ```
+       **Background output**: if running tests in background (`&`), always use:
+       ```bash
+       PYTHONUNBUFFERED=1 pytest ... > /tmp/test-out.log 2>&1 &
+       sleep 2; tail -f /tmp/test-out.log   # then Ctrl-C when done
        ```
        If test PASSES before implementation → the test is wrong. Fix it first.
      - **GREEN**: write minimal code to make test pass → re-run → confirm PASS
@@ -318,7 +343,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 
    Also run a final test pass to confirm no regressions slipped in:
    ```bash
-   npm test 2>/dev/null || pytest 2>/dev/null || cargo test 2>/dev/null || go test ./... 2>/dev/null
+   npm test 2>/dev/null || PYTHONUNBUFFERED=1 pytest --timeout=30 2>/dev/null || cargo test 2>/dev/null || go test ./... 2>/dev/null
    ```
    If any test fails → fix before closing (max 2 self-fix attempts; if still failing, escalate via `bd update --status blocked`).
 
@@ -336,6 +361,21 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 
 ## Stack Detection
 Read PROJECT.md for stack. Use: Jest/Vitest (TS), pytest (Python), `cargo test` (Rust), `go test` (Go).
+
+**Python project bootstrapping** — if no `pyproject.toml` / `pytest.ini` exists, create one with sane defaults to prevent hanging tests:
+```toml
+# pyproject.toml (minimal, add to [tool.pytest.ini_options])
+[tool.pytest.ini_options]
+timeout = 30          # pytest-timeout: kill hanging tests after 30s
+timeout_method = "thread"
+addopts = "-v --tb=short"
+```
+Install: `pip install pytest pytest-timeout`
+
+Always run Python tests with `PYTHONUNBUFFERED=1` to prevent buffering when output is redirected:
+```bash
+PYTHONUNBUFFERED=1 pytest -x --timeout=30 2>&1 | tail -20
+```
 
 ## Security Signals — emit during implementation
 

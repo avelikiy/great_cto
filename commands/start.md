@@ -343,7 +343,13 @@ Notes:
 
 Initialize Beads:
 ```bash
-bd init 2>/dev/null || true
+# bd init with fallback: if Dolt backend unavailable, create tasks.md manually
+if bd init 2>/dev/null && bd list --status open >/dev/null 2>&1; then
+  echo "bd: OK"
+else
+  echo "bd: Dolt backend unavailable — using .great_cto/tasks.md fallback"
+  [ ! -f .great_cto/tasks.md ] && printf '# Tasks\n\n| id | title | status | owner |\n|----|-------|--------|-------|\n' > .great_cto/tasks.md
+fi
 ```
 
 **Seed brain.md** (always — even for nano projects):
@@ -533,6 +539,74 @@ Skip? Pipeline works fine on Anthropic only.
 ```
 
 See `skills/great_cto/references/llm-router.md` for full details.
+
+## Step 5c: Infrastructure pre-flight
+
+Run this block and show any warnings in the Step 6 confirmation. Do NOT block — just warn.
+
+```bash
+echo "=== Pre-flight checks ==="
+
+# ── 1. Beads (bd) — task tracking ─────────────────────────────────────────
+BD_OK=false
+if command -v bd >/dev/null 2>&1; then
+  # bd is installed — check if Dolt backend actually works (CGO requirement)
+  if bd list --status open >/dev/null 2>&1; then
+    BD_OK=true
+    echo "  ✓ bd: OK (Dolt backend active)"
+  else
+    echo "  ⚠ bd: installed but Dolt backend unavailable (missing CGO build)"
+    echo "    Task tracking will use .great_cto/tasks.md as fallback."
+    echo "    Fix: install pre-built bd binary from https://github.com/steveyegge/beads/releases"
+    echo "         or: CGO_ENABLED=1 go install github.com/steveyegge/beads/cmd/bd@latest"
+    # Create lightweight fallback task file if not exists
+    if [ ! -f .great_cto/tasks.md ]; then
+      printf '# Tasks\n\n| id | title | status | owner |\n|----|-------|--------|-------|\n' > .great_cto/tasks.md
+      echo "    Created .great_cto/tasks.md for manual tracking."
+    fi
+  fi
+else
+  echo "  ⚠ bd: not found — task tracking unavailable"
+  echo "    Install: go install github.com/steveyegge/beads/cmd/bd@latest (needs CGO)"
+  echo "    Fallback: .great_cto/tasks.md will be used for task tracking"
+  if [ ! -f .great_cto/tasks.md ]; then
+    printf '# Tasks\n\n| id | title | status | owner |\n|----|-------|--------|-------|\n' > .great_cto/tasks.md
+  fi
+fi
+
+# ── 2. Worktree hooks — required for senior-dev parallel isolation ─────────
+WORKTREE_OK=false
+SETTINGS_FILE="${CLAUDE_SETTINGS_PATH:-$HOME/.claude/settings.json}"
+if grep -q "WorktreeCreate" "$SETTINGS_FILE" 2>/dev/null; then
+  WORKTREE_OK=true
+  echo "  ✓ worktree hooks: configured (senior-dev can run in parallel)"
+else
+  echo "  ⚠ worktree hooks: NOT configured — senior-dev will run without isolation"
+  echo "    Parallel senior-dev tasks are safe but share the working directory."
+  echo "    Fix: add to ~/.claude/settings.json:"
+  printf '    "hooks": { "WorktreeCreate": [{"hooks": [{"type": "command", "command": "git worktree add <path> -b <branch>"}]}], "WorktreeRemove": [{"hooks": [{"type": "command", "command": "git worktree remove <path>"}]}] }\n'
+fi
+
+# ── 3. Git repo — required for worktrees and history ──────────────────────
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+  if [ "$COMMIT_COUNT" -eq 0 ]; then
+    echo "  ⚠ git: repo exists but has NO commits — worktrees need at least one commit"
+    echo "    Fix: git add . && git commit -m 'chore: initial commit'"
+  else
+    echo "  ✓ git: $COMMIT_COUNT commit(s)"
+  fi
+else
+  echo "  ⚠ git: not a git repository — run: git init && git add . && git commit -m 'chore: initial commit'"
+fi
+
+echo "=== Pre-flight done ==="
+```
+
+In Step 6 confirmation, if any warnings fired, append them as a `⚠ Pre-flight:` line. Example:
+```
+⚠ Pre-flight: bd backend unavailable (fallback: .great_cto/tasks.md) | worktree hooks missing (senior-dev non-isolated)
+```
 
 ## Step 6: Confirm
 
