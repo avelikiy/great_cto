@@ -194,6 +194,20 @@ esac
 
 If the implementation plan does not address the relevant rule, push back to architect before claiming the bd task.
 
+**Safeguards pre-flight** — before writing any code, read `## Safeguards` from the current ARCH doc:
+
+```bash
+ARCH_FILE=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
+if [ -n "$ARCH_FILE" ] && grep -q "^## Safeguards" "$ARCH_FILE"; then
+  echo "=== SAFEGUARDS (non-negotiable — read before coding) ==="
+  awk '/^## Safeguards/,/^## [^S]/' "$ARCH_FILE" | head -60
+else
+  echo "INFO: No ## Safeguards section in ARCH doc (pre-v1.0.155 doc). Proceed — but flag to architect."
+fi
+```
+
+For every unchecked `- [ ]` item: implement the invariant as part of this task, OR create a blocking bd task and note it in DONE message. Never skip a Safeguard item silently.
+
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
 Read `~/.great_cto/skills-registry.json` → `agent_skills["senior-dev"][_default]` plus `agent_skills["senior-dev"][<archetype>]` (additive `+` items). Each entry resolves to a path in the registry under tier1/tier2/tier3. Read the SKILL.md files for items genuinely relevant to your current task — you decide.
