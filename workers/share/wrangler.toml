@@ -6,6 +6,6 @@ compatibility_date = "2024-01-01"
 binding = "SHARE_BUCKET"
 bucket_name = "great-cto-share"
 
-[routes]
+[[routes]]
 pattern = "greatcto.systems/r/*"
 zone_name = "greatcto.systems"
