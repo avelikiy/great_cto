@@ -4,6 +4,20 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.158 — 2026-04-30
+
+### Light-theme redesign + new landing page
+
+Full Ghibli-inspired light-theme redesign — replaces the dark Linear/Notion aesthetic across all surfaces.
+
+- **New `site/`** — public landing page deployed to GitHub Pages (already wired via `.github/workflows/pages.yml`). Hero with hand-drawn SVG landscape (dawn variant), dashboard preview, "How it works" 3-step, six headline metrics, founder/VP-eng quotes, 17-agent table, terminal CTA. Pure static HTML/CSS — no build step.
+- **`packages/board/public/index.html`** — board admin rewritten in light theme. Sidebar with project switcher + nav (Tasks/Metrics/Share/Agents), Fraunces-serif headings, soft pastel landscape background, kanban columns with ring/half/filled status dots, redesigned Metrics page (3 hero + 4 secondary cards + agent utilization + activity feed), Share tab with toggle. All `/api/tasks`, `/api/metrics`, `/api/share`, `/api/sse` wiring preserved.
+- **`packages/board/public/share.html`** — public report on light landscape background, glass card with serif headline, three hero stats (Tasks shipped / LLM spend / vs FTE) + three secondary (AI time / QA pass rate / In progress), recently shipped list, paused state. Server template placeholders (`{{PROJECT}}`, `{{DATE}}`, `{{METRICS_JSON}}`, `{{TASKS_JSON}}`, `{{PAUSED}}`) unchanged — server.mjs and Cloudflare worker unaffected.
+
+Stack: vanilla HTML/CSS/JS — zero deps for client install.
+
+---
+
 ## v1.0.157 — 2026-04-30
 
 ### great_cto board — Kanban + CTO Dashboard + Shareable report URL
