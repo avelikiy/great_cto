@@ -9,149 +9,246 @@
 <meta property="og:description" content="AI agents shipped features, saved time and cost. See the breakdown." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
 :root {
-  --bg0: #0f0f0f;
-  --bg1: #161616;
-  --bg2: #1c1c1c;
-  --bg3: #242424;
-  --border: rgba(255,255,255,0.08);
-  --border-strong: rgba(255,255,255,0.14);
-  --text:  #f1f1f1;
-  --text2: #8b8b8b;
-  --text3: #b0b0b0;
-  --accent: #5e6ad2;
-  --green: #26b066;
-  --green-bg: rgba(38,176,102,.1);
-  --yellow: #f0b429;
-  --yellow-bg: rgba(240,180,41,.1);
-  --red: #e5484d;
-  --mono: 'JetBrains Mono', monospace;
-  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --bg-card: #ffffff;
+  --bg-muted: #f7f8fa;
+  --bg-strong: #ecedf0;
+  --border: rgba(15, 17, 21, 0.08);
+  --border-strong: rgba(15, 17, 21, 0.14);
+  --text:  #0f1115;
+  --text2: #5b6573;
+  --text3: #828b97;
+  --accent: #2540d4;
+  --accent-soft: #e8edff;
+  --status-review:   #16a34a;
+  --status-progress: #f59e0b;
+  --status-blocked:  #dc2626;
+  --serif: "Space Grotesk", "Inter", -apple-system, sans-serif;
+  --sans:  "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background: var(--bg0);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.6;
-  min-height: 100vh;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; min-height: 100%;
+  font-family: var(--sans); color: var(--text);
+  font-size: 14px; line-height: 1.5;
+  background: #f6f5f1;
   -webkit-font-smoothing: antialiased;
 }
+button { font-family: inherit; cursor: pointer; }
 
-/* ── Layout ─────────────────────────────────────────────────────────────────── */
-.wrap { max-width: 780px; margin: 0 auto; padding: 48px 24px 80px; }
+/* Page wrap — compact */
+.report-page {
+  position: relative;
+  width: 100%; min-height: 100vh;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 32px 20px;
+  overflow: hidden;
+}
+.report-bg {
+  position: absolute; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+.report-bg svg { width: 100%; height: 100%; display: block; }
 
-/* ── Header ─────────────────────────────────────────────────────────────────── */
-.header-top {
+.report-card {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 680px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(15, 17, 21, 0.15), 0 1px 3px rgba(15, 17, 21, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  padding: 28px 32px;
+}
+
+.report-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.report-brand {
   display: flex; align-items: center; gap: 8px;
-  font-size: 12px; font-family: var(--mono); color: var(--text2);
-  margin-bottom: 28px;
+  font-family: var(--serif); font-size: 18px; font-weight: 600;
+  color: var(--text); letter-spacing: -0.01em;
 }
-.header-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 4px; padding: 3px 8px;
-  font-size: 11px; font-family: var(--mono); color: var(--text3);
+.report-brand .star { color: var(--accent); font-size: 18px; }
+.report-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; font-family: var(--mono);
+  color: var(--status-review);
+  background: rgba(22, 163, 74, 0.10);
+  padding: 4px 9px; border-radius: 999px;
+  letter-spacing: 0.04em;
 }
-.header-badge-dot {
-  width: 6px; height: 6px;
-  background: var(--accent); border-radius: 50%;
+.report-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.report-title { display: flex; gap: 14px; margin-bottom: 24px; }
+.report-title .stripe {
+  width: 3px; background: var(--accent);
+  border-radius: 2px; flex-shrink: 0;
 }
-.header-sep { color: var(--bg3); }
+.report-title h1 {
+  font-family: var(--serif); font-weight: 600;
+  font-size: 26px; line-height: 1.15;
+  letter-spacing: -0.02em; margin: 0;
+}
+.report-title h1 em { font-style: normal; color: var(--accent); font-weight: 500; }
+.report-title .meta {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); margin-top: 6px;
+  letter-spacing: 0.04em;
+}
 
-.h1 { font-size: clamp(22px, 5vw, 36px); font-weight: 700; letter-spacing: -.02em; margin-bottom: 6px; }
-.h1-sub { font-size: 14px; color: var(--text2); }
+.section-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text3); margin: 0 0 10px;
+}
 
-/* ── Divider ────────────────────────────────────────────────────────────────── */
-.divider { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
-
-/* ── Stats grid ─────────────────────────────────────────────────────────────── */
-.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; margin-bottom: 40px; }
-.stat {
-  background: var(--bg1);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 14px 16px;
+.report-stats-hero {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-bottom: 8px;
+}
+.report-stat {
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 14px;
   position: relative; overflow: hidden;
 }
-.stat::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--stat-c, var(--accent));
-  border-radius: 6px 6px 0 0;
+.report-stat::before {
+  content: ""; position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: var(--accent);
 }
-.stat-v {
-  font-size: 28px; font-weight: 700;
-  font-family: var(--mono);
-  color: var(--stat-c, var(--text));
-  line-height: 1.1; margin-bottom: 3px;
-  letter-spacing: -.03em;
+.report-stat.green::before  { background: var(--status-review); }
+.report-stat.amber::before  { background: var(--status-progress); }
+.report-stat.red::before    { background: var(--status-blocked); }
+.report-stat.purple::before { background: #7c3aed; }
+.report-stat .num {
+  font-family: var(--serif); font-weight: 600;
+  font-size: 26px; line-height: 1;
+  letter-spacing: -0.02em;
 }
-.stat-l { font-size: 12px; color: var(--text3); font-weight: 500; margin-bottom: 2px; }
-.stat-s { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+.report-stat .num small {
+  font-size: 14px; color: var(--text2);
+  margin-left: 2px; font-weight: 500;
+}
+.report-stat .lbl {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text2); margin-top: 8px;
+}
+.report-stat .sub {
+  margin-top: 4px; font-size: 11px; color: var(--text2);
+}
 
-/* ── Section heading ────────────────────────────────────────────────────────── */
-.sec-hd {
-  font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .08em;
-  color: var(--text2); margin-bottom: 10px;
+.report-stats-sec {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-bottom: 18px;
+}
+.report-stats-sec .report-stat .num { font-size: 18px; font-family: var(--mono); font-weight: 500; }
+
+/* Compare card — AI vs humans */
+.compare-card {
+  background: linear-gradient(135deg, var(--accent-soft, #e8edff), #f7f8fa);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 18px;
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px;
+  align-items: center;
+}
+.compare-side { display: flex; flex-direction: column; gap: 2px; }
+.compare-side .lbl {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text2);
+}
+.compare-side .v {
+  font-family: var(--serif); font-weight: 600;
+  font-size: 22px; letter-spacing: -0.02em;
+  color: var(--text);
+}
+.compare-side .t { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.compare-side.right { text-align: right; align-items: flex-end; }
+.compare-vs {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); letter-spacing: 0.06em;
+}
+.compare-vs strong {
+  display: block; font-family: var(--serif);
+  font-size: 16px; color: var(--accent); font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
-/* ── Features ───────────────────────────────────────────────────────────────── */
-.features { display: flex; flex-direction: column; gap: 2px; margin-bottom: 40px; }
-.feat {
-  display: flex; align-items: baseline; gap: 10px;
-  padding: 8px 10px;
-  border-radius: 5px;
-  transition: background .1s;
-}
-.feat:hover { background: var(--bg2); }
-.feat-check {
-  width: 16px; height: 16px;
-  background: var(--green-bg);
-  border: 1px solid var(--green);
-  border-radius: 4px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.feat-check svg { color: var(--green); }
-.feat-title { flex: 1; font-size: 13px; color: var(--text); }
-.feat-note  { font-size: 11px; font-family: var(--mono); color: var(--text2); flex-shrink: 0; }
-
-/* ── Footer ─────────────────────────────────────────────────────────────────── */
-.footer {
-  text-align: center;
-  padding-top: 40px;
-  font-size: 12px;
-  color: var(--text2);
+.shipped-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 10px; align-items: baseline;
+  padding: 8px 0;
   border-top: 1px solid var(--border);
+  font-size: 13px;
 }
-.footer a { color: var(--text2); text-decoration: none; }
-.footer a:hover { color: var(--text3); }
+.shipped-row:first-of-type { border-top: none; }
+.shipped-check {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--status-review); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; margin-top: 2px;
+}
+.shipped-row .ttl { color: var(--text); }
+.shipped-row .ttl .sub {
+  color: var(--text3); display: block;
+  font-size: 11px; margin-top: 1px;
+}
+.shipped-row .when {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+}
 
-/* ── Paused ─────────────────────────────────────────────────────────────────── */
-.paused-page {
-  min-height: 100vh;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 10px;
+.report-foot {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
   text-align: center;
-  padding: 40px 20px;
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: 0.06em;
+  color: var(--text3);
+}
+.report-foot a { color: var(--accent); text-decoration: none; }
+
+/* Paused */
+.paused-card {
+  text-align: center;
+  padding: 64px 44px;
 }
 .paused-icon {
-  width: 40px; height: 40px;
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px;
+  width: 64px; height: 64px;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  background: var(--bg-muted);
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px; margin-bottom: 8px;
+  color: var(--text2);
 }
-.paused-title { font-size: 18px; font-weight: 600; color: var(--text3); }
-.paused-sub   { font-size: 13px; color: var(--text2); }
+.paused-card h1 {
+  font-family: var(--serif); font-weight: 600;
+  font-size: 26px; letter-spacing: -0.01em;
+  margin: 0 0 10px;
+}
+.paused-card p {
+  color: var(--text2); margin: 0 auto 28px;
+  max-width: 40ch;
+}
+.btn-back {
+  background: #fff; color: var(--accent);
+  border: 1px solid var(--border-strong);
+  padding: 12px 24px; border-radius: 999px;
+  font-weight: 500; font-size: 14px;
+  text-decoration: none; display: inline-block;
+}
+.btn-back:hover { background: var(--bg-muted); }
 </style>
 </head>
 <body>
@@ -164,76 +261,196 @@ const date    = '{{DATE}}';
 const paused  = {{PAUSED}};
 
 function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function checkIcon() {
-  return `<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
-}
+const LANDSCAPE_SVG = `<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="r-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a2547" />
+      <stop offset="55%" stop-color="#5a4a7a" />
+      <stop offset="85%" stop-color="#f4a87c" />
+      <stop offset="100%" stop-color="#ffd9b8" />
+    </linearGradient>
+    <radialGradient id="r-sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#fff4d9" stop-opacity="1" />
+      <stop offset="40%" stop-color="#fff4d9" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="r-sunhalo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#ffc89b" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="r-mtnFar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#b8c2d8" />
+      <stop offset="20%" stop-color="#3d4a6b" />
+      <stop offset="100%" stop-color="#3d4a6b" />
+    </linearGradient>
+    <linearGradient id="r-mist" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,220,200,0)" />
+      <stop offset="100%" stop-color="rgba(255,220,200,0.6)" />
+    </linearGradient>
+    <filter id="r-blur"><feGaussianBlur stdDeviation="8" /></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#r-sky)" />
+  <circle cx="1100" cy="540" r="260" fill="url(#r-sunhalo)" />
+  <circle cx="1100" cy="540" r="80" fill="url(#r-sun)" />
+  <g filter="url(#r-blur)" opacity="0.85">
+    <ellipse cx="200" cy="280" rx="180" ry="22" fill="#ffc4a8" />
+    <ellipse cx="600" cy="220" rx="240" ry="18" fill="#f5a890" />
+    <ellipse cx="1280" cy="320" rx="220" ry="24" fill="#ffc4a8" />
+    <ellipse cx="900" cy="380" rx="160" ry="14" fill="#e8b4c4" />
+  </g>
+  <path d="M 0,640 L 80,580 L 140,610 L 220,520 L 300,560 L 380,500 L 460,540 L 540,470 L 620,510 L 700,460 L 780,500 L 860,440 L 940,490 L 1020,450 L 1100,500 L 1180,470 L 1260,520 L 1340,490 L 1420,540 L 1500,510 L 1600,560 L 1600,900 L 0,900 Z" fill="url(#r-mtnFar)" opacity="0.92" />
+  <path d="M 0,720 L 100,680 L 200,700 L 320,640 L 440,680 L 560,620 L 680,670 L 800,610 L 920,660 L 1040,620 L 1160,680 L 1280,640 L 1400,690 L 1520,650 L 1600,700 L 1600,900 L 0,900 Z" fill="#2c3554" opacity="0.95" />
+  <rect x="0" y="700" width="1600" height="80" fill="url(#r-mist)" opacity="0.5" />
+  <path d="M 0,820 L 120,790 L 280,810 L 420,780 L 560,815 L 720,790 L 880,820 L 1040,795 L 1200,815 L 1360,790 L 1520,820 L 1600,800 L 1600,900 L 0,900 Z" fill="#1a2138" />
+</svg>`;
 
 if (paused) {
   document.getElementById('root').innerHTML = `
-    <div class="paused-page">
-      <div class="paused-icon">⏸</div>
-      <div class="paused-title">Report paused</div>
-      <div class="paused-sub">The owner has temporarily disabled this link.</div>
-      <div style="margin-top:16px;font-size:12px;color:var(--text2);">
-        Created by <a href="https://greatcto.systems" style="color:var(--text3);font-weight:600;">GreatCTO</a>
+    <div class="report-page">
+      <div class="report-bg">${LANDSCAPE_SVG}</div>
+      <div class="report-card paused-card">
+        <div class="paused-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6z M14 4h4v16h-4z"/></svg>
+        </div>
+        <h1>Report paused</h1>
+        <p>The owner has temporarily disabled this link. Reach out to them if you need updated metrics.</p>
+        <a class="btn-back" href="https://greatcto.systems">← Back to greatcto.systems</a>
+        <div class="report-foot" style="margin-top:40px;">
+          CREATED BY <a href="https://greatcto.systems">GREATCTO</a> · GREATCTO.SYSTEMS
+        </div>
       </div>
     </div>`;
 } else {
   const m = metrics || {};
-  const stats = [
-    { v: m.tasks?.done ?? '—',   l: 'Features shipped',    s: `+${m.velocity?.this_week ?? 0} this week`,   c: 'var(--green)'  },
-    { v: m.avg_completion_min ? `${m.avg_completion_min}m` : '—', l: 'Avg completion', s: 'vs human: hours–days', c: 'var(--accent)' },
-    { v: m.cost?.savings_x ? `${m.cost.savings_x}×` : '—', l: 'Cost savings',  s: m.cost?.human_usd ? `$${Number(m.cost.human_usd).toLocaleString()} saved` : 'no plans yet', c: 'var(--yellow)' },
-    { v: m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : '—', l: 'QA pass rate', s: `${m.qa?.passed??0} pass · ${m.qa?.failed??0} fail`, c: 'var(--green)' },
-    { v: m.security?.approved ?? '—', l: 'Security OK', s: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks', c: m.security?.blocked ? 'var(--yellow)' : 'var(--green)' },
-    { v: m.tasks?.in_progress ?? '—', l: 'In progress', s: `${m.tasks?.backlog??0} in backlog`, c: 'var(--accent)' },
+  const done = m.tasks?.done ?? 0;
+  const avgMin = m.avg_completion_min ?? 0;
+  const totalAiMin = done * avgMin;
+  function fmtTime(min) {
+    if (!min) return '—';
+    if (min < 60) return min + 'm';
+    const h = min / 60;
+    if (h < 24) return h.toFixed(h < 10 ? 1 : 0) + 'h';
+    return (h / 8).toFixed(1) + 'd';
+  }
+  const llmUsd = m.cost?.llm_usd ?? 0;
+  const humanUsd = m.cost?.human_usd ?? 0;
+  const savingsX = m.cost?.savings_x ?? 0;
+
+  const hero = [
+    {
+      v: done || '—',
+      sub: done ? 'done' : '',
+      lbl: 'Tasks shipped',
+      extra: `+${m.velocity?.this_week ?? 0} this week`,
+      cls: 'green',
+    },
+    {
+      v: totalAiMin ? fmtTime(totalAiMin) : '—',
+      sub: '',
+      lbl: 'AI time',
+      extra: avgMin ? `avg ${avgMin}m / task` : 'no data',
+      cls: 'amber',
+    },
+    {
+      v: llmUsd > 0 ? '$' + llmUsd.toFixed(0) : '—',
+      sub: '',
+      lbl: 'LLM cost',
+      extra: m.cost?.count ? `${m.cost.count} plans` : 'no plans',
+      cls: 'purple',
+    },
   ];
 
-  const done = tasks.filter(t => t.status === 'done' || t.status === 'closed');
+  const sec = [
+    { v: m.qa?.pass_rate != null ? m.qa.pass_rate + '%' : '—', lbl: 'QA pass rate', extra: `${m.qa?.passed ?? 0} pass · ${m.qa?.failed ?? 0} fail`, cls: 'green' },
+    { v: m.security?.approved ?? 0, lbl: 'Security approved', extra: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks' },
+    { v: m.tasks?.in_progress ?? 0, lbl: 'In progress', extra: `${m.tasks?.backlog ?? 0} in backlog` },
+  ];
+
+  const doneTasks = (tasks || []).filter(t => t.status === 'done' || t.status === 'closed');
 
   document.getElementById('root').innerHTML = `
-    <div class="wrap">
-      <div class="header-top">
-        <div class="header-badge">
-          <div class="header-badge-dot"></div>
-          great_cto
+    <div class="report-page">
+      <div class="report-bg">${LANDSCAPE_SVG}</div>
+      <div class="report-card">
+        <div class="report-head">
+          <div class="report-brand">
+            <span class="star">✱</span>
+            <span>greatcto</span>
+          </div>
+          <span class="report-status">
+            <span class="dot"></span> LIVE
+          </span>
         </div>
-        <span class="header-sep">/</span>
-        <span>AI Engineering Report</span>
-      </div>
 
-      <div class="h1">${esc(project)}</div>
-      <div class="h1-sub">${esc(date)} · Generated by great_cto agents</div>
+        <div class="report-title">
+          <div class="stripe"></div>
+          <div>
+            <h1>${esc(project)}</h1>
+            <div class="meta">${esc(date.toUpperCase())} · ENGINEERING REPORT</div>
+          </div>
+        </div>
 
-      <hr class="divider" />
-
-      <div class="stats">
-        ${stats.map(s => `
-          <div class="stat" style="--stat-c:${s.c}">
-            <div class="stat-v">${s.v}</div>
-            <div class="stat-l">${s.l}</div>
-            ${s.s ? `<div class="stat-s">${s.s}</div>` : ''}
-          </div>`).join('')}
-      </div>
-
-      ${done.length ? `
-        <div class="sec-hd">Recently shipped</div>
-        <div class="features">
-          ${done.map(t => `
-            <div class="feat">
-              <div class="feat-check">${checkIcon()}</div>
-              <div class="feat-title">${esc(t.title)}</div>
-              ${t.close_reason ? `<div class="feat-note">${esc(t.close_reason.substring(0,55))}…</div>` : ''}
+        <div class="section-label">HEADLINE</div>
+        <div class="report-stats-hero">
+          ${hero.map(s => `
+            <div class="report-stat ${s.cls || ''}">
+              <div class="num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
+              <div class="lbl">${s.lbl}</div>
+              ${s.extra ? `<div class="sub">${s.extra}</div>` : ''}
             </div>`).join('')}
-        </div>` : ''}
+        </div>
 
-      <div class="footer">
-        Created by <a href="https://greatcto.systems" target="_blank" style="color:var(--text3);font-weight:600;">GreatCTO</a>
-        &nbsp;·&nbsp; AI engineering infrastructure for dev teams
-        &nbsp;·&nbsp; <a href="https://github.com/avelikiy/great_cto" target="_blank">GitHub</a>
+        ${humanUsd > 0 ? `
+          <div class="compare-card">
+            <div class="compare-side">
+              <div class="lbl">AI agents</div>
+              <div class="v">$${llmUsd.toFixed(0)}</div>
+              <div class="t">${totalAiMin ? fmtTime(totalAiMin) : '—'} of compute</div>
+            </div>
+            <div class="compare-vs">
+              vs
+              <strong>${savingsX}× cheaper</strong>
+            </div>
+            <div class="compare-side right">
+              <div class="lbl">Human team</div>
+              <div class="v">$${Number(humanUsd).toLocaleString()}</div>
+              <div class="t">est. ${done * 4}h equivalent</div>
+            </div>
+          </div>` : ''}
+
+        <div class="report-stats-sec">
+          ${sec.map(s => `
+            <div class="report-stat ${s.cls || ''}">
+              <div class="num">${s.v}</div>
+              <div class="lbl">${s.lbl}</div>
+              ${s.extra ? `<div class="sub">${s.extra}</div>` : ''}
+            </div>`).join('')}
+        </div>
+
+        ${doneTasks.length ? `
+          <div class="section-label">RECENTLY SHIPPED</div>
+          ${doneTasks.map(t => {
+            const reason = t.close_reason ? esc(t.close_reason.substring(0, 70)) + (t.close_reason.length > 70 ? '…' : '') : '';
+            const when = t.closed_at ? new Date(t.closed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+            return `
+              <div class="shipped-row">
+                <span class="shipped-check">✓</span>
+                <span class="ttl">
+                  ${esc(t.title)}
+                  ${reason ? `<span class="sub">${reason}</span>` : ''}
+                </span>
+                <span class="when">${when}</span>
+              </div>`;
+          }).join('')}` : ''}
+
+        <div class="report-foot">
+          CREATED BY <a href="https://greatcto.systems" target="_blank">GREATCTO</a>
+          &nbsp;·&nbsp; AI engineering infrastructure for dev teams
+          &nbsp;·&nbsp; <a href="https://github.com/avelikiy/great_cto" target="_blank">GITHUB</a>
+        </div>
       </div>
     </div>`;
 }
