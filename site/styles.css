@@ -298,6 +298,57 @@ button { font-family: inherit; cursor: pointer; }
 .agents-table td.desc { color: var(--text2); }
 .agents-table tr:hover { background: var(--bg-muted); }
 
+/* ── Feature showcase ──────────────────────────────────────────────────── */
+.showcase {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  align-items: center;
+  margin-bottom: 96px;
+}
+.showcase:nth-child(odd) { direction: rtl; }
+.showcase:nth-child(odd) > * { direction: ltr; }
+.showcase:last-child { margin-bottom: 0; }
+.showcase .copy h3 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+}
+.showcase .copy h3 em { font-style: normal; color: var(--accent); font-weight: 500; }
+.showcase .copy p {
+  color: var(--text2);
+  font-size: 16px; line-height: 1.6;
+  margin: 0 0 16px;
+}
+.showcase .copy ul {
+  list-style: none; padding: 0; margin: 18px 0 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.showcase .copy li {
+  font-size: 14px; color: var(--text);
+  padding-left: 18px; position: relative;
+  line-height: 1.5;
+}
+.showcase .copy li::before {
+  content: "→";
+  position: absolute; left: 0;
+  color: var(--accent); font-weight: 600;
+}
+.showcase .visual {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(15, 17, 21, 0.18), 0 2px 4px rgba(15, 17, 21, 0.06);
+  background: #fff;
+}
+.showcase .visual img { width: 100%; display: block; }
+@media (max-width: 800px) {
+  .showcase, .showcase:nth-child(odd) { grid-template-columns: 1fr; direction: ltr; gap: 24px; }
+}
+
 .cta-block {
   background: #0f1115; border-radius: 16px;
   padding: 64px 48px; text-align: center;
