@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="color-scheme" content="dark" />
-<meta name="theme-color" content="#0a0e0c" />
+<meta name="color-scheme" content="light" />
 <title>great_cto board</title>
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -12,50 +11,45 @@
 <link rel="shortcut icon" href="/assets/favicon.ico" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js" integrity="sha384-k8o8HikHweyzW55Wd3wl18ovJj6vHVYNQeQbeSM0fxx+0WiH4TcccOG9uz8Xd2JR" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js" integrity="sha384-XQqX/4yiUGu+oyr87jvWzRuqBUK/adrY0DunhL+tID9m/9dwSpV8h9Fk/Sg6ifVQ" crossorigin="anonymous"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
 :root {
-  /* Dark emerald — matches landing greatcto.systems */
-  --bg-page: #0a0e0c;
-  --bg-panel: rgba(17, 22, 26, 0.85);
-  --bg-card: #11161a;
-  --bg-muted: #161c1f;
-  --bg-strong: #1e272c;
-  --bg-elevated: #1a2025;
+  --bg-page: transparent;
+  --bg-panel: rgba(255, 255, 255, 0.92);
+  --bg-card: #ffffff;
+  --bg-muted: #f7f8fa;
+  --bg-strong: #ecedf0;
 
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.12);
+  --border: rgba(15, 17, 21, 0.08);
+  --border-strong: rgba(15, 17, 21, 0.14);
 
-  --text:  #ecf2ee;
-  --text2: #8a9a92;
-  --text3: #4f5d57;
+  --text: #0f1115;
+  --text2: #5b6573;
+  --text3: #828b97;
 
-  --accent: #00d97e;
-  --accent-2: #34e69b;
-  --accent-soft: rgba(0, 217, 126, 0.10);
-  --accent-strong: rgba(0, 217, 126, 0.18);
+  --accent: #2540d4;
+  --accent-2: #6b81ff;
+  --accent-soft: #e8edff;
 
-  --status-backlog: #6b7280;
-  --status-todo: #9ca3af;
+  --status-backlog: #94a3b8;
+  --status-todo: #64748b;
   --status-progress: #f59e0b;
-  --status-review: #00d97e;
-  --status-done: #00d97e;
-  --status-blocked: #ff5466;
-  --status-gate: #a78bfa;
+  --status-review: #16a34a;
+  --status-done: #2563eb;
+  --status-blocked: #dc2626;
+  --status-gate: #7c3aed;
 
-  --p0-bg: rgba(255, 84, 102, 0.14);  --p0-fg: #fca5a5;
-  --p1-bg: rgba(255, 170, 60, 0.14);  --p1-fg: #fcd34d;
-  --p2-bg: rgba(240, 210, 78, 0.14);  --p2-fg: #fde68a;
-  --p3-bg: rgba(255, 255, 255, 0.05); --p3-fg: #9ca3af;
+  --p0-bg: #fee2e2; --p0-fg: #b91c1c;
+  --p1-bg: #ffedd5; --p1-fg: #c2410c;
+  --p2-bg: #fef3c7; --p2-fg: #92400e;
+  --p3-bg: #f1f5f9; --p3-fg: #475569;
 
-  --serif: "Geist", "Space Grotesk", "Inter", -apple-system, sans-serif;
-  --sans:  "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --mono:  "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --serif: "Fraunces", Georgia, serif;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30);
-  --shadow-card-hover: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 217, 126, 0.06);
+  --shadow-card: 0 1px 2px rgba(15, 17, 21, 0.04);
+  --shadow-card-hover: 0 1px 2px rgba(15, 17, 21, 0.06), 0 8px 24px rgba(15, 17, 21, 0.08);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
@@ -65,7 +59,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  background: var(--bg-card);
+  background: #fff;
 }
 button { font-family: inherit; cursor: pointer; }
 
@@ -75,17 +69,16 @@ button { font-family: inherit; cursor: pointer; }
   height: 100vh;
   overflow: hidden;
   display: flex;
-  background: var(--bg-page);
+  background: #ffffff;
 }
 .board-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
+  opacity: 0.28;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 50% 40% at 20% 0%, rgba(0, 217, 126, 0.05), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(0, 217, 126, 0.03), transparent 70%);
 }
+.board-bg svg { width: 100%; height: 100%; display: block; }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 .sidebar {
@@ -97,101 +90,16 @@ button { font-family: inherit; cursor: pointer; }
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
 }
-.sidebar-brand {
-  display: flex; align-items: center; gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.sidebar-brand .brand-mark {
-  width: 24px; height: 24px;
-  background: var(--bg-page);
-  border-radius: 5px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  border: 1px solid var(--border-strong);
-}
-.sidebar-brand .brand-mark svg { width: 22px; height: 22px; }
-.sidebar-brand .brand-name {
-  font-family: var(--serif); font-weight: 600;
-  font-size: 15px; letter-spacing: -0.01em;
-  color: var(--text);
-}
 .proj-switch {
   display: flex; align-items: center; gap: 8px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
-  position: relative;
-  user-select: none;
 }
 .proj-switch:hover { background: var(--bg-muted); }
 .proj-switch .star { color: var(--accent); font-size: 16px; }
 .proj-switch .name { font-weight: 600; font-size: 14px; flex: 1; }
-.proj-switch .chev {
-  color: var(--text3); width: 12px; height: 12px;
-  transition: transform 0.15s;
-}
-.proj-switch.open .chev { transform: rotate(180deg); }
-
-.proj-menu {
-  position: absolute;
-  top: calc(100% - 4px); left: 8px; right: 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 17, 21, 0.10);
-  padding: 4px;
-  z-index: 100;
-  display: none;
-  max-height: 360px;
-  overflow-y: auto;
-}
-.proj-switch.open .proj-menu { display: block; }
-.proj-menu-search {
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 8px; margin-bottom: 4px;
-  border-bottom: 1px solid var(--border);
-}
-.proj-menu-search input {
-  flex: 1; border: none; outline: none;
-  font-family: inherit; font-size: 12px;
-  color: var(--text); background: transparent;
-}
-.proj-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.proj-item:hover { background: var(--bg-muted); }
-.proj-item.active { background: var(--bg-strong); font-weight: 500; }
-.proj-item .star { color: var(--accent); font-size: 14px; }
-.proj-icon, .proj-switch .proj-icon, .crumbs .proj-icon {
-  display: inline-flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.proj-switch .proj-icon { width: 18px; height: 18px; }
-.proj-item .proj-icon { width: 22px; height: 22px; }
-.crumbs .proj-icon { width: 14px; height: 14px; margin-right: 2px; }
-.proj-item-info { flex: 1; min-width: 0; }
-.proj-item-info .name { font-weight: 500; font-size: 13px; }
-.proj-item-info .arch {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--text3);
-  letter-spacing: 0.04em;
-}
-.proj-item .check {
-  width: 14px; height: 14px;
-  color: var(--accent);
-}
-.proj-item:not(.active) .check { display: none; }
-.proj-menu-empty {
-  padding: 14px 10px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text3);
-}
+.proj-switch .chev { color: var(--text3); font-size: 11px; }
 
 .nav { padding: 12px 8px; flex: 1; }
 .nav-item {
@@ -250,31 +158,6 @@ button { font-family: inherit; cursor: pointer; }
 .crumbs .sep { color: var(--text3); }
 .crumbs .here { color: var(--text); font-weight: 500; }
 
-.search-box {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--bg-muted);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 10px;
-  width: 280px;
-  margin: 0 16px;
-  transition: border-color .12s, background .12s;
-}
-.search-box:focus-within { border-color: var(--accent); background: var(--bg-card); }
-.search-box svg { color: var(--text3); flex-shrink: 0; }
-.search-box input {
-  flex: 1; border: none; outline: none; background: transparent;
-  font-family: inherit; font-size: 13px;
-  color: var(--text); padding: 3px 0;
-}
-.search-box input::placeholder { color: var(--text3); }
-.search-box kbd {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--text3);
-  background: var(--bg-strong);
-  border-radius: 3px; padding: 1px 5px;
-}
-
 .topbar-actions { display: flex; align-items: center; gap: 6px; }
 .tab-row { display: flex; align-items: center; gap: 4px; margin-right: 12px; }
 .tab-btn {
@@ -322,7 +205,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .column {
   flex: 0 0 264px;
-  background: rgba(17, 22, 26, 0.7);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
@@ -356,54 +239,25 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
-  height: 140px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  overflow: hidden;
-}
-.card-desc {
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text2);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .card .id {
-  font-family: var(--mono); font-size: 10px;
+  font-family: var(--mono); font-size: 11px;
   letter-spacing: 0.04em; color: var(--text3);
-  flex-shrink: 0;
 }
 .card .title {
-  font-weight: 600; font-size: 13px;
-  line-height: 1.35;
+  font-weight: 600; font-size: 14px;
+  line-height: 1.35; margin-top: 4px;
   color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: break-word;
-  max-height: 2.7em;
-  flex: 1;
 }
-.card-row1 { align-items: flex-start; }
 .card-footer {
   display: flex; align-items: center; gap: 6px;
-  margin-top: auto;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  margin-top: 10px; flex-wrap: wrap;
 }
-.card-footer > * { flex-shrink: 0; }
 .card-time {
   margin-left: auto;
   font-family: var(--mono); font-size: 11px;
@@ -422,31 +276,6 @@ button { font-family: inherit; cursor: pointer; }
 .chip-p2 { background: var(--p2-bg); color: var(--p2-fg); }
 .chip-p3 { background: var(--p3-bg); color: var(--p3-fg); }
 .chip-gate { background: rgba(124, 58, 237, 0.12); color: var(--status-gate); }
-
-.card.card-gate {
-  border-color: rgba(124, 58, 237, 0.35);
-  background: linear-gradient(180deg, rgba(167, 139, 250, 0.10), var(--bg-card));
-  height: 176px;
-}
-.gate-actions {
-  display: flex; gap: 4px;
-  margin-top: 6px;
-}
-.gate-btn {
-  flex: 1;
-  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-  height: 24px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  font-family: inherit; font-size: 11px; font-weight: 500;
-  cursor: pointer;
-  background: var(--bg-card);
-  transition: background 0.12s, border-color 0.12s;
-}
-.gate-approve { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
-.gate-approve:hover { background: rgba(22, 163, 74, 0.08); border-color: var(--status-review); }
-.gate-reject { color: var(--status-blocked); border-color: rgba(220, 38, 38, 0.30); }
-.gate-reject:hover { background: rgba(220, 38, 38, 0.06); border-color: var(--status-blocked); }
 .chip-agent {
   background: var(--accent-soft); color: var(--accent);
   font-family: var(--mono);
@@ -475,7 +304,7 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute;
   top: 0; right: 0; bottom: 0;
   width: 480px;
-  background: var(--bg-card);
+  background: #fff;
   border-left: 1px solid var(--border);
   box-shadow: -12px 0 32px rgba(15, 17, 21, 0.08);
   z-index: 10;
@@ -505,44 +334,8 @@ button { font-family: inherit; cursor: pointer; }
 .side-close:hover { background: var(--bg-muted); color: var(--text); }
 .side-body { flex: 1; overflow: auto; padding: 18px; }
 .side-title {
-  font-family: var(--serif); font-weight: 600;
-  font-size: 20px;
-  letter-spacing: -0.02em;
-  margin-bottom: 12px;
-  color: var(--text);
-}
-.side-desc {
-  font-size: 14px; line-height: 1.6;
-  color: var(--text2);
-  margin-bottom: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.side-gate-actions {
-  display: flex; gap: 6px;
-  margin-bottom: 16px;
-}
-.side-gate-actions .gate-btn {
-  flex: 1;
-  height: 36px;
-  font-size: 13px; font-weight: 500;
-  padding: 0 14px;
-}
-.side-section {
-  margin-top: 18px;
-}
-.side-section-head {
-  font-family: var(--mono); font-size: 10px;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--text3); margin-bottom: 6px;
-}
-.side-section-body {
-  font-size: 13.5px; line-height: 1.55;
-  color: var(--text2);
-  white-space: pre-wrap;
-  word-break: break-word;
+  font-weight: 600; font-size: 18px;
+  letter-spacing: -0.01em; margin-bottom: 14px;
 }
 .props {
   display: grid;
@@ -576,389 +369,6 @@ button { font-family: inherit; cursor: pointer; }
   line-height: 1.55;
 }
 
-/* ── Memory page ──────────────────────────────────────────────────────────── */
-.memory-page {
-  flex: 1; display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 0; overflow: hidden;
-  height: 100%;
-}
-.memory-side {
-  background: rgba(17, 22, 26, 0.7);
-  backdrop-filter: blur(12px);
-  border-right: 1px solid var(--border);
-  padding: 18px 14px;
-  overflow-y: auto;
-}
-.memory-side-head {
-  font-family: var(--mono); font-size: 10px;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--text3);
-  padding: 0 10px 8px;
-}
-.mem-item {
-  display: flex; flex-direction: column; gap: 2px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-bottom: 2px;
-  border: 1px solid transparent;
-}
-.mem-item:hover { background: var(--bg-muted); }
-.mem-item.active { background: var(--accent-soft); border-color: rgba(37, 64, 212, 0.16); }
-.mem-item .layer-tag {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--accent); letter-spacing: 0.06em;
-  font-weight: 600;
-}
-.mem-item .name {
-  font-family: var(--mono); font-size: 12px;
-  color: var(--text);
-}
-.mem-item .desc {
-  font-size: 11.5px; color: var(--text2);
-  margin-top: 2px;
-}
-.mem-item .meta {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--text3); margin-top: 2px;
-}
-.mem-item.missing { opacity: 0.55; }
-.mem-item.missing .layer-tag { color: var(--text3); }
-
-.memory-content {
-  overflow-y: auto;
-  padding: 28px 32px;
-  background: rgba(17, 22, 26, 0.85);
-  backdrop-filter: blur(8px);
-}
-.memory-doc {
-  max-width: 880px;
-  margin: 0 auto;
-}
-.memory-doc h1 { font-family: var(--serif); font-weight: 600; font-size: 28px; letter-spacing: -0.02em; margin: 0 0 14px; color: var(--text); }
-.memory-doc h2 { font-family: var(--serif); font-weight: 600; font-size: 20px; margin: 28px 0 10px; color: var(--text); }
-.memory-doc h3 { font-family: var(--sans); font-weight: 600; font-size: 15px; margin: 18px 0 8px; color: var(--text); }
-.memory-doc p { font-size: 14px; line-height: 1.65; color: var(--text2); margin: 0 0 10px; }
-.memory-doc ul, .memory-doc ol { padding-left: 22px; margin: 0 0 12px; color: var(--text2); }
-.memory-doc li { line-height: 1.6; font-size: 14px; }
-.memory-doc code {
-  font-family: var(--mono); font-size: 12px;
-  background: var(--bg-muted);
-  padding: 1px 6px; border-radius: 3px;
-  color: var(--text);
-}
-.memory-doc pre {
-  font-family: var(--mono); font-size: 12px;
-  background: var(--bg-strong);
-  padding: 14px 16px;
-  border-radius: 8px;
-  overflow-x: auto;
-  margin: 12px 0;
-  line-height: 1.55;
-}
-.memory-doc pre code { background: none; padding: 0; }
-.memory-doc strong { color: var(--text); font-weight: 600; }
-.memory-doc table {
-  border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 13px;
-  width: 100%;
-}
-.memory-doc th, .memory-doc td {
-  text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-}
-.memory-doc th { font-weight: 600; color: var(--text); }
-.memory-doc-head {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-.memory-doc-head .layer-tag {
-  font-family: var(--mono); font-size: 11px;
-  background: var(--accent-soft); color: var(--accent);
-  padding: 4px 10px; border-radius: 4px;
-  letter-spacing: 0.06em; font-weight: 600;
-}
-.memory-doc-head .filename {
-  font-family: var(--mono); font-size: 13px;
-  color: var(--text);
-}
-.memory-doc-head .filesize {
-  margin-left: auto;
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text3);
-}
-.memory-empty {
-  text-align: center; padding: 60px 24px;
-  color: var(--text3); font-size: 13px;
-}
-
-/* ── Pipeline track ───────────────────────────────────────────────────────── */
-.pipeline-track {
-  display: flex; gap: 0;
-  align-items: stretch;
-  padding: 14px 16px;
-  background: rgba(17, 22, 26, 0.7);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow-x: auto;
-}
-.pl-stage {
-  flex: 1; min-width: 100px;
-  position: relative;
-  padding: 8px 10px 6px;
-  display: flex; flex-direction: column; gap: 4px;
-}
-.pl-stage::after {
-  content: ""; position: absolute;
-  right: -2px; top: 14px;
-  width: 4px; height: 4px;
-  border-top: 1.5px solid var(--border-strong);
-  border-right: 1.5px solid var(--border-strong);
-  transform: rotate(45deg);
-}
-.pl-stage:last-child::after { display: none; }
-.pl-stage .pl-name {
-  font-family: var(--mono); font-size: 11px;
-  letter-spacing: 0.04em; color: var(--text);
-  display: flex; align-items: center; gap: 6px;
-}
-.pl-stage .pl-name .dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--text3); flex-shrink: 0;
-}
-.pl-stage.idle .pl-name .dot { background: var(--text3); }
-.pl-stage.active .pl-name .dot { background: var(--status-progress); animation: pl-pulse 1.4s infinite; }
-.pl-stage.done .pl-name .dot { background: var(--status-review); }
-.pl-stage.failed .pl-name .dot { background: var(--status-blocked); }
-@keyframes pl-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); } }
-.pl-stage .pl-msg {
-  font-size: 11px; color: var(--text2);
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pl-stage .pl-meta {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--text3);
-}
-.pl-stage.idle .pl-msg, .pl-stage.idle .pl-meta { opacity: 0.55; }
-
-.dot-blue { background: var(--accent); }
-
-/* ── Cost panel ───────────────────────────────────────────────────────────── */
-.cost-panel { padding: 22px 24px; }
-.cost-summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 18px;
-}
-.cost-cell {
-  display: flex; flex-direction: column; gap: 2px;
-}
-.cost-cell .lbl {
-  font-family: var(--mono); font-size: 10px;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text2);
-}
-.cost-cell .v {
-  font-family: var(--serif); font-weight: 500;
-  font-size: 26px; letter-spacing: -0.02em;
-  color: var(--text); line-height: 1.1;
-}
-.cost-cell .v small { font-size: 14px; color: var(--text2); margin-left: 2px; font-weight: 400; }
-.cost-cell .sub { font-size: 11.5px; color: var(--text2); }
-.cost-cell.warn .v { color: var(--status-blocked); }
-.cost-cell.good .v { color: var(--status-review); }
-
-.cost-chart {
-  position: relative;
-  height: 140px;
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 12px;
-}
-.cost-bar {
-  flex: 1; min-width: 4px;
-  background: var(--accent-soft);
-  border-radius: 2px 2px 0 0;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-.cost-bar:hover { background: var(--accent); }
-.cost-bar.has-data { background: var(--accent); }
-.cost-bar .tip {
-  position: absolute;
-  bottom: calc(100% + 4px); left: 50%;
-  transform: translateX(-50%);
-  background: #0f1115; color: #fff;
-  padding: 4px 8px; border-radius: 4px;
-  font-family: var(--mono); font-size: 10px;
-  white-space: nowrap;
-  display: none;
-  pointer-events: none;
-  z-index: 5;
-}
-.cost-bar:hover .tip { display: block; }
-.cost-axis {
-  display: flex; justify-content: space-between;
-  font-family: var(--mono); font-size: 10px;
-  color: var(--text3);
-  margin-top: 4px;
-}
-.cost-budget-line {
-  position: absolute; left: 0; right: 0;
-  height: 1px;
-  background: var(--status-progress);
-  border-top: 1px dashed var(--status-progress);
-  pointer-events: none;
-}
-.cost-budget-line .label {
-  position: absolute; right: 4px; top: -16px;
-  font-family: var(--mono); font-size: 10px;
-  color: var(--status-progress);
-  background: var(--bg-card); padding: 0 4px;
-}
-.cost-empty {
-  text-align: center; padding: 30px 16px;
-  font-size: 13px; color: var(--text3);
-}
-
-/* ── Inbox page ───────────────────────────────────────────────────────────── */
-.inbox-page {
-  flex: 1; padding: 32px 32px 48px;
-  max-width: 1080px; width: 100%;
-  margin: 0 auto;
-}
-.inbox-greet {
-  font-family: var(--serif); font-weight: 600;
-  font-size: clamp(22px, 2.5vw, 30px);
-  letter-spacing: -0.02em;
-  margin-bottom: 24px;
-}
-.inbox-summary {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: 10px; margin-bottom: 28px;
-}
-.inbox-summary .pill-stat {
-  background: rgba(17, 22, 26, 0.7);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: flex; align-items: center; gap: 10px;
-}
-.inbox-summary .pill-stat .num {
-  font-family: var(--mono); font-weight: 600;
-  font-size: 24px; color: var(--text);
-}
-.inbox-summary .pill-stat .lbl {
-  font-family: var(--mono); font-size: 10px;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text2);
-}
-.inbox-summary .pill-stat .dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  margin-right: 4px;
-}
-
-.inbox-section { margin-bottom: 24px; }
-.inbox-section-head {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 10px;
-}
-.inbox-section-head .dot {
-  width: 8px; height: 8px; border-radius: 50%;
-}
-.inbox-section-head h3 {
-  font-family: var(--sans); font-weight: 600;
-  font-size: 14px; margin: 0; color: var(--text);
-}
-.inbox-section-head .inbox-count {
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text3); margin-left: 2px;
-}
-
-.dot-purple { background: var(--status-gate); }
-.dot-red    { background: var(--status-blocked); }
-.dot-orange { background: #f97316; }
-.dot-amber  { background: var(--status-progress); }
-
-.inbox-row {
-  display: grid;
-  grid-template-columns: 90px 1fr auto;
-  gap: 14px;
-  align-items: start;
-  padding: 12px 14px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 6px;
-  transition: box-shadow .12s, transform .12s;
-  cursor: pointer;
-  min-width: 0;
-}
-.inbox-row .id { padding-top: 2px; }
-.inbox-row:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
-.inbox-row .id {
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text3); letter-spacing: 0.04em;
-}
-.inbox-row .ttl {
-  font-size: 13.5px; color: var(--text);
-  font-weight: 500;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.inbox-row .ttl > :first-child {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.inbox-row .ttl .ttl-desc {
-  font-weight: 400;
-  font-size: 12.5px;
-  color: var(--text2);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
-}
-.inbox-row .ttl .meta {
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text3); margin-top: 4px;
-}
-.inbox-row .actions {
-  display: flex; gap: 4px; align-items: center;
-}
-.inbox-row .actions .gate-btn { height: 26px; padding: 0 10px; font-size: 11px; }
-.inbox-empty {
-  padding: 14px 16px;
-  background: var(--bg-muted);
-  border-radius: 8px;
-  font-size: 12px; color: var(--text3);
-  text-align: center;
-}
-
 /* ── Metrics page ─────────────────────────────────────────────────────────── */
 .metrics-page { padding: 24px 32px; }
 .mp-section-label {
@@ -971,7 +381,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 14px; margin-bottom: 24px;
 }
 .metric-card {
-  background: var(--bg-card); border: 1px solid var(--border);
+  background: #fff; border: 1px solid var(--border);
   border-radius: 12px; padding: 26px 24px;
   position: relative; overflow: hidden;
 }
@@ -1013,26 +423,12 @@ button { font-family: inherit; cursor: pointer; }
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
 }
 .mp-card {
-  background: var(--bg-card); border: 1px solid var(--border);
+  background: #fff; border: 1px solid var(--border);
   border-radius: 12px; padding: 22px;
 }
 .mp-card h3 {
   font-family: var(--sans); font-weight: 600;
   font-size: 15px; margin: 0 0 16px;
-}
-.mp-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
-.mp-card-head h3 { margin: 0; }
-.mp-card-meta {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--text3); letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.feed-cost {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  padding: 2px 6px; border-radius: 4px;
-  margin-right: 6px;
 }
 
 .bar-row {
@@ -1082,7 +478,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .share-card {
   width: 100%; max-width: 640px;
-  background: var(--bg-card);
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 32px;
@@ -1107,7 +503,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .toggle {
   width: 38px; height: 22px;
-  background: var(--bg-strong);
+  background: #cfd5dd;
   border-radius: 999px;
   position: relative; cursor: pointer;
   transition: background 0.15s;
@@ -1117,7 +513,7 @@ button { font-family: inherit; cursor: pointer; }
   content: "";
   position: absolute; top: 2px; left: 2px;
   width: 18px; height: 18px;
-  background: var(--bg-card);
+  background: #fff;
   border-radius: 50%;
   transition: transform 0.15s;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
@@ -1129,7 +525,7 @@ button { font-family: inherit; cursor: pointer; }
 .url-block {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 12px;
-  background: var(--bg-card);
+  background: #fff;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   margin-top: 16px;
@@ -1198,42 +594,61 @@ button { font-family: inherit; cursor: pointer; }
 </head>
 <body>
 <div class="board">
-  <!-- Subtle emerald glow background -->
-  <div class="board-bg" aria-hidden="true"></div>
+  <!-- Background landscape -->
+  <div class="board-bg">
+    <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="b-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1a2547" />
+          <stop offset="55%" stop-color="#5a4a7a" />
+          <stop offset="85%" stop-color="#f4a87c" />
+          <stop offset="100%" stop-color="#ffd9b8" />
+        </linearGradient>
+        <radialGradient id="b-sun" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stop-color="#fff4d9" stop-opacity="1" />
+          <stop offset="40%" stop-color="#fff4d9" stop-opacity="0.9" />
+          <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
+        </radialGradient>
+        <radialGradient id="b-sunhalo" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stop-color="#ffc89b" stop-opacity="0.5" />
+          <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
+        </radialGradient>
+        <linearGradient id="b-mtnFar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#b8c2d8" />
+          <stop offset="20%" stop-color="#3d4a6b" />
+          <stop offset="100%" stop-color="#3d4a6b" />
+        </linearGradient>
+        <linearGradient id="b-mist" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(255,220,200,0)" />
+          <stop offset="100%" stop-color="rgba(255,220,200,0.6)" />
+        </linearGradient>
+        <filter id="b-blur"><feGaussianBlur stdDeviation="8" /></filter>
+      </defs>
+      <rect width="1600" height="900" fill="url(#b-sky)" />
+      <circle cx="1100" cy="540" r="260" fill="url(#b-sunhalo)" />
+      <circle cx="1100" cy="540" r="80" fill="url(#b-sun)" />
+      <g filter="url(#b-blur)" opacity="0.85">
+        <ellipse cx="200" cy="280" rx="180" ry="22" fill="#ffc4a8" />
+        <ellipse cx="600" cy="220" rx="240" ry="18" fill="#f5a890" />
+        <ellipse cx="1280" cy="320" rx="220" ry="24" fill="#ffc4a8" />
+        <ellipse cx="900" cy="380" rx="160" ry="14" fill="#e8b4c4" />
+      </g>
+      <path d="M 0,640 L 80,580 L 140,610 L 220,520 L 300,560 L 380,500 L 460,540 L 540,470 L 620,510 L 700,460 L 780,500 L 860,440 L 940,490 L 1020,450 L 1100,500 L 1180,470 L 1260,520 L 1340,490 L 1420,540 L 1500,510 L 1600,560 L 1600,900 L 0,900 Z" fill="url(#b-mtnFar)" opacity="0.92" />
+      <path d="M 0,720 L 100,680 L 200,700 L 320,640 L 440,680 L 560,620 L 680,670 L 800,610 L 920,660 L 1040,620 L 1160,680 L 1280,640 L 1400,690 L 1520,650 L 1600,700 L 1600,900 L 0,900 Z" fill="#2c3554" opacity="0.95" />
+      <rect x="0" y="700" width="1600" height="80" fill="url(#b-mist)" opacity="0.5" />
+      <path d="M 0,820 L 120,790 L 280,810 L 420,780 L 560,815 L 720,790 L 880,820 L 1040,795 L 1200,815 L 1360,790 L 1520,820 L 1600,800 L 1600,900 L 0,900 Z" fill="#1a2138" />
+    </svg>
+  </div>
 
   <!-- Sidebar -->
   <aside class="sidebar">
-    <div class="sidebar-brand">
-      <span class="brand-mark">
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <g stroke="#00d97e" stroke-width="9" stroke-linecap="round">
-            <line x1="32" y1="14" x2="32" y2="50"/>
-            <line x1="16.4" y1="23" x2="47.6" y2="41"/>
-            <line x1="16.4" y1="41" x2="47.6" y2="23"/>
-          </g>
-        </svg>
-      </span>
-      <span class="brand-name">greatcto</span>
-    </div>
-    <div class="proj-switch" id="proj-switch" onclick="toggleProjMenu(event)">
-      <span class="proj-icon" id="proj-switch-icon"><span class="star">✱</span></span>
+    <div class="proj-switch">
+      <span class="star">✱</span>
       <span class="name" id="project-name">—</span>
-      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-      <div class="proj-menu" id="proj-menu" onclick="event.stopPropagation()">
-        <div class="proj-menu-search">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input id="proj-search" type="text" placeholder="Filter projects…" oninput="renderProjMenu(this.value)" />
-        </div>
-        <div id="proj-menu-list"></div>
-      </div>
+      <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
     </div>
     <nav class="nav">
-      <div class="nav-item active" data-tab="inbox" onclick="switchTab('inbox', this)">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-        <span>Inbox</span>
-        <span class="count" id="nav-inbox-count">0</span>
-      </div>
-      <div class="nav-item" data-tab="kanban" onclick="switchTab('kanban', this)">
+      <div class="nav-item active" data-tab="kanban" onclick="switchTab('kanban', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Tasks</span>
         <span class="count" id="nav-task-count">0</span>
@@ -1241,11 +656,6 @@ button { font-family: inherit; cursor: pointer; }
       <div class="nav-item" data-tab="dashboard" onclick="switchTab('dashboard', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18 M7 14l3-3 4 4 5-5"/></svg>
         <span>Metrics</span>
-      </div>
-      <div class="nav-item" data-tab="memory" onclick="switchTab('memory', this)">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span>Memory</span>
-        <span class="count" id="nav-memory-count">0</span>
       </div>
       <div class="nav-item" data-tab="share" onclick="switchTab('share', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8"/></svg>
@@ -1271,17 +681,17 @@ button { font-family: inherit; cursor: pointer; }
   <div class="workspace">
     <div class="topbar">
       <div class="crumbs">
-        <span class="proj-icon" id="crumb-icon"><span class="star">✱</span></span>
+        <span class="star">✱</span>
         <span id="crumb-project">—</span>
         <span class="sep">/</span>
         <span class="here" id="crumb-here">Board</span>
       </div>
-      <div class="search-box">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input id="search-input" type="text" placeholder="Search tasks, agents, labels…" oninput="onSearch(this.value)" />
-        <kbd>⌘K</kbd>
-      </div>
       <div class="topbar-actions">
+        <div class="tab-row">
+          <button class="tab-btn active" data-tab="kanban" onclick="switchTab('kanban', this)">Board</button>
+          <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard', this)">Metrics</button>
+          <button class="tab-btn" data-tab="share" onclick="switchTab('share', this)">Share</button>
+        </div>
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
         <button class="btn-new">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14 M5 12h14"/></svg>
@@ -1290,60 +700,10 @@ button { font-family: inherit; cursor: pointer; }
       </div>
     </div>
 
-    <!-- Inbox -->
-    <div class="panel active" id="panel-inbox">
-      <div class="inbox-page">
-        <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
-        <div class="inbox-summary" id="inbox-summary"></div>
-
-        <div class="inbox-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-blue"></span>
-            <h3>Active pipeline</h3>
-            <span class="inbox-count" id="pipeline-status">idle</span>
-          </div>
-          <div class="pipeline-track" id="pipeline-track"></div>
-        </div>
-        <div class="inbox-section" id="inbox-gates-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-purple"></span>
-            <h3>Pending decisions</h3>
-            <span class="inbox-count" id="inbox-gates-count">0</span>
-          </div>
-          <div id="inbox-gates"></div>
-        </div>
-        <div class="inbox-section" id="inbox-p0-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-red"></span>
-            <h3>P0 open</h3>
-            <span class="inbox-count" id="inbox-p0-count">0</span>
-          </div>
-          <div id="inbox-p0"></div>
-        </div>
-        <div class="inbox-section" id="inbox-blocked-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-orange"></span>
-            <h3>Blocked</h3>
-            <span class="inbox-count" id="inbox-blocked-count">0</span>
-          </div>
-          <div id="inbox-blocked"></div>
-        </div>
-        <div class="inbox-section" id="inbox-stale-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-amber"></span>
-            <h3>Stale (in progress &gt; 48h)</h3>
-            <span class="inbox-count" id="inbox-stale-count">0</span>
-          </div>
-          <div id="inbox-stale"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- Kanban -->
-    <div class="panel" id="panel-kanban">
+    <div class="panel active" id="panel-kanban">
       <div class="kanban" id="kanban-board"></div>
     </div>
-
 
     <!-- Metrics -->
     <div class="panel" id="panel-dashboard">
@@ -1351,39 +711,16 @@ button { font-family: inherit; cursor: pointer; }
         <div class="mp-section-label">This sprint</div>
         <div class="mp-hero" id="mp-hero"></div>
         <div class="mp-secondary" id="mp-secondary"></div>
-
-        <div class="mp-section-label" style="margin-top:24px">Cost · last 30 days</div>
-        <div class="mp-card cost-panel" id="cost-panel">
-          <div class="cost-empty">Loading…</div>
-        </div>
-
-        <div class="mp-row" style="margin-top:24px">
+        <div class="mp-row">
           <div class="mp-card">
             <h3>Agent utilization</h3>
             <div id="agent-list"></div>
           </div>
           <div class="mp-card">
-            <div class="mp-card-head">
-              <h3>Activity</h3>
-              <span class="mp-card-meta" id="activity-meta">last 24h</span>
-            </div>
+            <h3>Activity</h3>
             <div id="timeline"></div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Memory -->
-    <div class="panel" id="panel-memory">
-      <div class="memory-page">
-        <div class="memory-side">
-          <div class="memory-side-head">Project memory</div>
-          <div id="memory-layers"></div>
-          <div class="memory-side-head" style="margin-top:24px">Cross-project patterns</div>
-          <div id="memory-patterns"></div>
-        </div>
-        <div class="memory-content" id="memory-content">
-          <div class="empty">Pick a memory layer to view…</div>
+          <div id="inbox-gates"></div>
         </div>
       </div>
     </div>
@@ -1452,410 +789,7 @@ const PRIORITY_LABEL = ['Urgent','High','Medium','Low'];
 let allTasks = [];
 let metrics = {};
 let shareState = { enabled: false, url: null };
-let currentTab = 'inbox';
-let searchQuery = '';
-let allProjects = [];
-let currentProject = '';
-let inboxData = null;
-
-function greetByHour() {
-  const h = new Date().getHours();
-  if (h < 6) return 'Up late.';
-  if (h < 12) return 'Good morning.';
-  if (h < 18) return 'Good afternoon.';
-  return 'Good evening.';
-}
-
-function renderInbox(d) {
-  inboxData = d || {};
-  const s = d?.summary || { gates: 0, blocked: 0, p0: 0, stale: 0 };
-  document.getElementById('nav-inbox-count').textContent = s.gates + s.p0 + s.blocked;
-  document.getElementById('inbox-greet').textContent = `${greetByHour()} ${s.gates + s.p0 ? "Here's what needs your decision." : 'Nothing urgent — back to deep work.'}`;
-  document.getElementById('inbox-summary').innerHTML = `
-    <div class="pill-stat"><span class="dot dot-purple"></span><div><div class="num">${s.gates}</div><div class="lbl">Pending decisions</div></div></div>
-    <div class="pill-stat"><span class="dot dot-red"></span><div><div class="num">${s.p0}</div><div class="lbl">P0 open</div></div></div>
-    <div class="pill-stat"><span class="dot dot-orange"></span><div><div class="num">${s.blocked}</div><div class="lbl">Blocked</div></div></div>
-    <div class="pill-stat"><span class="dot dot-amber"></span><div><div class="num">${s.stale}</div><div class="lbl">Stale &gt; 48h</div></div></div>
-  `;
-  renderInboxList('inbox-gates', d?.pending_gates || [], 'inbox-gates-count', { showApprove: true, emptyMsg: 'No pending gates.' });
-  renderInboxList('inbox-p0', d?.p0_open || [], 'inbox-p0-count', { emptyMsg: 'No P0 issues. Nice.' });
-  renderInboxList('inbox-blocked', d?.blocked || [], 'inbox-blocked-count', { emptyMsg: 'Nothing blocked.' });
-  renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', { emptyMsg: 'No stale work.' });
-}
-
-function renderInboxList(rootId, items, countId, opts = {}) {
-  const root = document.getElementById(rootId);
-  const cnt = document.getElementById(countId);
-  if (cnt) cnt.textContent = items.length;
-  if (!items.length) {
-    root.innerHTML = `<div class="inbox-empty">${opts.emptyMsg || 'Empty.'}</div>`;
-    return;
-  }
-  root.innerHTML = items.map(t => {
-    const meta = [
-      t.agent ? `agent: ${esc(t.agent)}` : '',
-      t.priority != null ? PRIORITY_LABEL[t.priority] : '',
-      t.updated_at ? relTime(t.updated_at) : '',
-    ].filter(Boolean).join(' · ');
-    const actions = opts.showApprove
-      ? `<div class="actions" onclick="event.stopPropagation()">
-           <button class="gate-btn gate-approve" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">Approve</button>
-           <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject</button>
-         </div>`
-      : `<div class="actions"><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${t.status || ''}</span></div>`;
-    const desc = t.description ? `<span class="ttl-desc">${esc(t.description.slice(0, 140))}${t.description.length > 140 ? '…' : ''}</span>` : '';
-    return `
-      <div class="inbox-row" onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
-        <span class="id">${esc(t.id || '')}</span>
-        <span class="ttl">${esc(t.title)}${desc}<span class="meta">${meta}</span></span>
-        ${actions}
-      </div>`;
-  }).join('');
-}
-
-async function refreshInbox() {
-  const d = await api('/api/inbox');
-  if (d) renderInbox(d);
-  refreshPipeline();
-}
-
-async function refreshPipeline() {
-  const d = await api('/api/pipeline');
-  if (Array.isArray(d)) renderPipeline(d);
-}
-
-function renderPipeline(stages) {
-  const root = document.getElementById('pipeline-track');
-  const status = document.getElementById('pipeline-status');
-  if (!root) return;
-  const labels = {
-    'architect': 'architect',
-    'senior-dev': 'senior dev',
-    'reviewers': '12-angle review',
-    'qa-engineer': 'qa',
-    'security-officer': 'security',
-    'devops': 'devops',
-    'l3-support': 'l3 support',
-  };
-  const anyActive = stages.some(s => s.status === 'active');
-  const allIdle = stages.every(s => s.status === 'idle');
-  if (status) status.textContent = anyActive ? 'running' : (allIdle ? 'idle' : 'last run');
-  root.innerHTML = stages.map(s => {
-    const label = labels[s.stage] || s.stage;
-    const msg = s.last_message ? esc(s.last_message) : (s.status === 'idle' ? 'no runs yet' : '—');
-    const meta = s.age_min != null ? `${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'} ago` : '';
-    return `
-      <div class="pl-stage ${s.status}">
-        <div class="pl-name"><span class="dot"></span>${label}</div>
-        <div class="pl-msg">${msg}</div>
-        <div class="pl-meta">${meta || s.status}</div>
-      </div>`;
-  }).join('');
-}
-
-/* ── Cost panel ─────────────────────────────────────────────────────────── */
-async function refreshCost() {
-  const d = await api('/api/cost?days=30');
-  if (!d) return;
-  renderCost(d);
-}
-
-function renderCost(d) {
-  const root = document.getElementById('cost-panel');
-  if (!root) return;
-  const series = d.series || [];
-  const max = Math.max(0.01, ...series.map(s => s.llm));
-  const total = d.total_llm ?? 0;
-  const totalHuman = d.total_human ?? 0;
-  const projected = d.projected_monthly ?? 0;
-  const budget = d.monthly_budget;
-  const overBudget = !!d.over_budget;
-  const savings = d.savings_x ?? 0;
-
-  const summary = `
-    <div class="cost-summary">
-      <div class="cost-cell">
-        <div class="lbl">Last 30 days</div>
-        <div class="v">$${total.toFixed(2)}</div>
-        <div class="sub">${d.total_plans} plans · $${(d.daily_avg ?? 0).toFixed(2)}/day avg</div>
-      </div>
-      <div class="cost-cell ${overBudget ? 'warn' : (budget != null ? 'good' : '')}">
-        <div class="lbl">Projected month</div>
-        <div class="v">$${projected.toFixed(0)}</div>
-        <div class="sub">${budget != null ? (overBudget ? `over budget by $${(projected - budget).toFixed(0)}` : `${Math.round((projected/budget)*100)}% of $${budget} budget`) : 'set monthly-budget in PROJECT.md'}</div>
-      </div>
-      <div class="cost-cell good">
-        <div class="lbl">vs Human team</div>
-        <div class="v">$${Number(totalHuman).toLocaleString()}</div>
-        <div class="sub">${savings > 0 ? `${savings}× cheaper · saved $${(totalHuman - total).toFixed(0)}` : 'no human cost data'}</div>
-      </div>
-      <div class="cost-cell">
-        <div class="lbl">Daily burn</div>
-        <div class="v">$${(d.daily_avg ?? 0).toFixed(2)}<small>/day</small></div>
-        <div class="sub">${series.filter(s=>s.llm>0).length} active days</div>
-      </div>
-    </div>`;
-
-  // Chart
-  const chartH = 116; // px usable area (140 - 24 padding)
-  const bars = series.map(s => {
-    const h = max > 0 ? Math.max(2, Math.round((s.llm / max) * chartH)) : 2;
-    const tip = `${s.date} · $${s.llm.toFixed(2)}${s.plans ? ` · ${s.plans} plan${s.plans>1?'s':''}` : ''}${s.runs ? ` · ${s.runs} runs` : ''}`;
-    return `<div class="cost-bar ${s.llm > 0 ? 'has-data' : ''}" style="height:${h}px"><span class="tip">${esc(tip)}</span></div>`;
-  }).join('');
-
-  // Budget line position (% of max)
-  let budgetMarker = '';
-  if (budget != null) {
-    const dailyBudget = budget / 30;
-    if (dailyBudget < max) {
-      const pct = 100 - Math.round((dailyBudget / max) * 100);
-      budgetMarker = `<div class="cost-budget-line" style="top:${pct}%"><span class="label">$${dailyBudget.toFixed(2)}/day budget</span></div>`;
-    }
-  }
-
-  const firstDate = series[0]?.date || '';
-  const lastDate = series[series.length - 1]?.date || '';
-
-  root.innerHTML = `
-    ${summary}
-    <div class="cost-chart">${bars}${budgetMarker}</div>
-    <div class="cost-axis">
-      <span>${esc(firstDate)}</span>
-      <span style="font-family:var(--sans);color:var(--text2)">LLM spend per day</span>
-      <span>${esc(lastDate)}</span>
-    </div>`;
-}
-
-/* ── Memory browser ─────────────────────────────────────────────────────── */
-let memoryData = null;
-let activeMemKey = null;
-
-// Markdown rendering — marked@14 + DOMPurify@3 (CDN, SRI-locked)
-// Falls back to escaped <pre> if libs failed to load (offline / CSP block).
-if (typeof marked !== 'undefined') {
-  marked.setOptions({
-    gfm: true,            // GitHub-flavoured tables, autolinks
-    breaks: true,         // single \n → <br>
-    headerIds: false,
-    mangle: false,
-  });
-}
-function mdToHtml(md) {
-  if (!md) return '';
-  if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
-    // Fallback — show as preformatted text so content isn't lost
-    const esc = String(md).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return `<pre style="white-space:pre-wrap">${esc}</pre>`;
-  }
-  const raw = marked.parse(md);
-  return DOMPurify.sanitize(raw, {
-    USE_PROFILES: { html: true },
-    ADD_ATTR: ['target'],  // allow target=_blank on links
-  });
-}
-
-async function loadMemory() {
-  const d = await api('/api/memory');
-  memoryData = d || { layers: [], patterns: [] };
-  renderMemorySidebar();
-  document.getElementById('nav-memory-count').textContent =
-    (memoryData.layers || []).filter(l => l.exists).length + (memoryData.patterns || []).length;
-  // Auto-select first existing layer
-  if (!activeMemKey) {
-    const first = (memoryData.layers || []).find(l => l.exists);
-    if (first) selectMemory('layer:' + first.id);
-  }
-}
-
-function renderMemorySidebar() {
-  const layersEl = document.getElementById('memory-layers');
-  const patternsEl = document.getElementById('memory-patterns');
-  const layers = memoryData.layers || [];
-  const patterns = memoryData.patterns || [];
-
-  layersEl.innerHTML = layers.map(l => {
-    const key = 'layer:' + l.id;
-    const cls = (l.exists ? '' : 'missing ') + (activeMemKey === key ? 'active' : '');
-    return `
-      <div class="mem-item ${cls}" onclick="selectMemory('${key}')">
-        <span class="layer-tag">${l.layer}</span>
-        <span class="name">${l.name}</span>
-        <span class="desc">${esc(l.desc)}</span>
-        <span class="meta">${l.exists ? `${(l.size / 1024).toFixed(1)} KB` : 'not yet written'}</span>
-      </div>`;
-  }).join('') || '<div class="memory-empty">No memory files yet.</div>';
-
-  patternsEl.innerHTML = patterns.length ? patterns.map(p => {
-    const key = 'pattern:' + p.id;
-    const cls = activeMemKey === key ? 'active' : '';
-    return `
-      <div class="mem-item ${cls}" onclick="selectMemory('${key}')">
-        <span class="layer-tag">L4</span>
-        <span class="name">${esc(p.id)}</span>
-        <span class="desc">${esc(p.title.slice(0, 60))}</span>
-      </div>`;
-  }).join('') : '<div class="mem-item missing"><span class="layer-tag">L4</span><span class="name">No global patterns yet</span><span class="desc">Run /crystallize after a P0 incident</span></div>';
-}
-
-async function selectMemory(key) {
-  activeMemKey = key;
-  renderMemorySidebar();
-  const [type, id] = key.split(':');
-  const root = document.getElementById('memory-content');
-  if (type === 'layer') {
-    const layer = (memoryData.layers || []).find(l => l.id === id);
-    if (!layer || !layer.exists) {
-      root.innerHTML = `
-        <div class="memory-doc">
-          <div class="memory-doc-head">
-            <span class="layer-tag">${layer?.layer || ''}</span>
-            <span class="filename">${esc(layer?.name || id)}</span>
-          </div>
-          <div class="memory-empty">This memory file hasn't been written yet for this project.</div>
-        </div>`;
-      return;
-    }
-    root.innerHTML = `
-      <div class="memory-doc">
-        <div class="memory-doc-head">
-          <span class="layer-tag">${layer.layer}</span>
-          <span class="filename">${esc(layer.name)}</span>
-          <span class="filesize">${(layer.size / 1024).toFixed(1)} KB</span>
-        </div>
-        ${mdToHtml(layer.content || '')}
-      </div>`;
-  } else if (type === 'pattern') {
-    // Lazy fetch pattern content
-    const r = await fetch(`/api/memory`);
-    const d = await r.json();
-    const p = (d.patterns || []).find(x => x.id === id);
-    if (!p) { root.innerHTML = '<div class="memory-empty">Pattern not found.</div>'; return; }
-    const contentR = await fetch(`/api/memory-pattern?id=${encodeURIComponent(id)}`);
-    let content = '';
-    try { content = (await contentR.json()).content || ''; } catch {}
-    root.innerHTML = `
-      <div class="memory-doc">
-        <div class="memory-doc-head">
-          <span class="layer-tag">L4 · GLOBAL</span>
-          <span class="filename">${esc(p.name)}</span>
-        </div>
-        ${mdToHtml(content || '(could not load pattern content)')}
-      </div>`;
-  }
-}
-
-function toggleProjMenu(e) {
-  e?.stopPropagation();
-  const sw = document.getElementById('proj-switch');
-  const isOpen = sw.classList.toggle('open');
-  if (isOpen) {
-    document.getElementById('proj-search').focus();
-    renderProjMenu('');
-  }
-}
-function closeProjMenu() {
-  document.getElementById('proj-switch')?.classList.remove('open');
-}
-document.addEventListener('click', closeProjMenu);
-
-const ARCHETYPE_ICONS = {
-  'web-service':       { color: '#2540d4', d: 'M2 17l10 5 10-5 M2 12l10 5 10-5 M12 2L2 7l10 5 10-5-10-5z' },
-  'mobile-app':        { color: '#06b6d4', d: 'M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M12 18h.01' },
-  'ai-system':         { color: '#7c3aed', d: 'M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3 2.5 2.5 0 0 1 2.46-2.04z M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3 2.5 2.5 0 0 0-2.46-2.04z' },
-  'agent-product':     { color: '#a855f7', d: 'M12 8V4H8 M2 14h2 M20 14h2 M15 13v2 M9 13v2 M6 8h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z' },
-  'devtools':          { color: '#64748b', d: 'M4 17l6-6-6-6 M12 19h8' },
-  'browser-extension': { color: '#f59e0b', d: 'M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.726 1.097.726 1.762s-.256 1.292-.726 1.762l-1.568 1.568c-.23.23-.337.556-.289.878a8.001 8.001 0 0 1-15.456 1.572.5.5 0 0 1 .499-.498h2.286c.554 0 1-.448 1-1V14a3 3 0 1 1 6 0v.001c0 .552.446 1 1 1h2.286a.5.5 0 0 1 .497.498 8 8 0 0 1-1.572 4.55' },
-  'commerce':          { color: '#ec4899', d: 'M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M20 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6' },
-  'web3':              { color: '#10b981', d: 'M6 3l6 18 6-18 M6 3h12 M3 9l9 12 9-12' },
-  'iot-embedded':      { color: '#0ea5e9', d: 'M9 3v2 M15 3v2 M9 19v2 M15 19v2 M3 9h2 M3 15h2 M19 9h2 M19 15h2 M5 5h14a0 0 0 0 1 0 0v14a0 0 0 0 1 0 0H5a0 0 0 0 1 0 0V5a0 0 0 0 1 0 0z M9 9h6v6H9z' },
-  'regulated':         { color: '#dc2626', d: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
-  'data-platform':     { color: '#0891b2', d: 'M3 5c0-1.1 4-2 9-2s9 .9 9 2v14c0 1.1-4 2-9 2s-9-.9-9-2zM3 12c0 1.1 4 2 9 2s9-.9 9-2 M3 5c0 1.1 4 2 9 2s9-.9 9-2' },
-  'infra':             { color: '#475569', d: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z' },
-  'library':           { color: '#92400e', d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' },
-  'game':              { color: '#16a34a', d: 'M6 12h4 M8 10v4 M15 13h.01 M18 11h.01 M2 12c0-3.5 2.5-6 6.5-6h7c4 0 6.5 2.5 6.5 6 0 3.5-2.5 6-6.5 6h-7C4.5 18 2 15.5 2 12z' },
-  'fintech':           { color: '#22c55e', d: 'M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
-  'enterprise':        { color: '#3b82f6', d: 'M3 21h18 M5 21V7l8-4v18 M19 21V11l-6-4' },
-  'default':           { color: '#2540d4', d: 'M12 2 L13.4 9.4 L20 6.4 L15.4 12 L20 17.6 L13.4 14.6 L12 22 L10.6 14.6 L4 17.6 L8.6 12 L4 6.4 L10.6 9.4 Z' },
-};
-
-function archetypeIcon(arch, size = 14) {
-  const meta = ARCHETYPE_ICONS[arch] || ARCHETYPE_ICONS['default'];
-  const isFilled = arch === 'default' || !ARCHETYPE_ICONS[arch];
-  if (isFilled) {
-    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${meta.color}" xmlns="http://www.w3.org/2000/svg"><path d="${meta.d}"/></svg>`;
-  }
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${meta.color}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${meta.d}"/></svg>`;
-}
-
-function renderProjMenu(filter = '') {
-  const list = document.getElementById('proj-menu-list');
-  if (!list) return;
-  if (!allProjects.length) {
-    list.innerHTML = '<div class="proj-menu-empty">No projects registered yet</div>';
-    return;
-  }
-  const f = filter.toLowerCase();
-  const filtered = allProjects.filter(p =>
-    !f || (p.slug || '').toLowerCase().includes(f) ||
-    (p.archetype || '').toLowerCase().includes(f) ||
-    (p.description || '').toLowerCase().includes(f)
-  );
-  if (!filtered.length) {
-    list.innerHTML = '<div class="proj-menu-empty">No matches</div>';
-    return;
-  }
-  list.innerHTML = filtered.map(p => `
-    <div class="proj-item ${p.slug === currentProject ? 'active' : ''}" onclick="switchProject('${esc(p.slug)}')">
-      <span class="proj-icon">${archetypeIcon(p.archetype, 18)}</span>
-      <div class="proj-item-info">
-        <div class="name">${esc(p.slug)}</div>
-        <div class="arch">${esc(p.archetype || '')}${p.description ? ' · ' + esc(p.description.slice(0, 40)) : ''}</div>
-      </div>
-      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-    </div>`).join('');
-}
-
-function switchProject(slug) {
-  if (slug === currentProject) { closeProjMenu(); return; }
-  const url = new URL(window.location.href);
-  url.searchParams.set('project', slug);
-  window.location.href = url.toString();
-}
-
-function filterTasks(q) {
-  if (!q) return allTasks;
-  const ql = q.toLowerCase();
-  return allTasks.filter(t =>
-    (t.title || '').toLowerCase().includes(ql) ||
-    (t.id || '').toLowerCase().includes(ql) ||
-    (t.agent || '').toLowerCase().includes(ql) ||
-    (t.labels || []).some(l => l.toLowerCase().includes(ql)) ||
-    (t.status || '').toLowerCase().includes(ql)
-  );
-}
-
-function onSearch(q) {
-  searchQuery = q;
-  renderKanban(filterTasks(q));
-  document.getElementById('topbar-task-count').textContent =
-    `${filterTasks(q).length} ${q ? 'MATCH' : 'ISSUES'}`;
-  if (currentTab !== 'kanban') {
-    document.querySelector('.tab-btn[data-tab="kanban"]').click();
-  }
-}
-
-document.addEventListener('keydown', e => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-    e.preventDefault();
-    document.getElementById('search-input').focus();
-  }
-  if (e.key === 'Escape' && document.activeElement?.id === 'search-input') {
-    document.getElementById('search-input').value = '';
-    onSearch('');
-    document.activeElement.blur();
-  }
-});
+let currentTab = 'kanban';
 
 async function init() {
   const [tasks, met, share, projs, inbox] = await Promise.all([
@@ -1868,28 +802,17 @@ async function init() {
   allTasks = tasks || [];
   metrics = met || {};
   shareState = share || { enabled: false, url: null };
-  allProjects = projs || [];
 
   const proj = (allTasks[0]?.id || '').split('-')[0] || 'project';
-  currentProject = proj;
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;
   document.title = `${proj} · great_cto`;
-  // Resolve current project's archetype and apply icons
-  const me = (allProjects || []).find(p => p.slug === proj);
-  const arch = me?.archetype || 'default';
-  const swIcon = document.getElementById('proj-switch-icon');
-  const crIcon = document.getElementById('crumb-icon');
-  if (swIcon) swIcon.innerHTML = archetypeIcon(arch, 18);
-  if (crIcon) crIcon.innerHTML = archetypeIcon(arch, 14);
 
   renderInbox(inbox);
   renderKanban(allTasks);
   renderDashboard(metrics);
   renderShareState(shareState);
   updateNavCounts();
-  loadMemory();
-  refreshCost();
   connectSSE();
 }
 
@@ -1901,15 +824,8 @@ function connectSSE() {
   const es = new EventSource('/api/sse');
   es.addEventListener('tasks', e => {
     allTasks = JSON.parse(e.data);
-    renderKanban(filterTasks(searchQuery));
+    renderKanban(allTasks);
     updateNavCounts();
-    refreshInbox();
-  });
-  es.addEventListener('pipeline', e => {
-    try { renderPipeline(JSON.parse(e.data)); } catch {}
-  });
-  es.addEventListener('inbox', e => {
-    try { renderInbox(JSON.parse(e.data)); } catch {}
   });
   es.onopen = () => {
     const d = document.getElementById('live-dot');
@@ -1964,17 +880,12 @@ function cardHTML(t) {
   const pClass = `p${pIdx}`;
   const pLabel = PRIORITY_LABEL[pIdx];
   const labels = (t.labels || []).filter(l => l !== 'gate');
-  const isGate = !!t.is_gate || (t.labels || []).includes('gate');
-  // raw_status reflects bd's actual status (open/in_progress/closed/blocked) —
-  // mapStatus() returns 'gate' for gate-labeled cards regardless, so we need
-  // raw_status to know if the gate is still pending.
-  const rawStatus = t.raw_status || t.status;
-  const isOpenGate = isGate && rawStatus !== 'closed' && rawStatus !== 'blocked';
+  const isGate = (t.labels || []).includes('gate');
   const elapsed = (t.status === 'in_progress' && t.updated_at)
     ? `<span class="card-time">${relTime(t.updated_at)}</span>` : '';
   const descPreview = t.description ? `<div class="card-desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : '';
   return `
-    <div class="card ${isGate ? 'card-gate' : ''}">
+    <div class="card">
       <div class="id">${esc(t.id || '')}</div>
       <div class="card-row1" style="margin-top:4px">
         <div class="priority-dot ${pClass}" title="${pLabel}"></div>
@@ -2000,24 +911,6 @@ function cardHTML(t) {
           </button>
         </div>` : ''}
     </div>`;
-}
-
-async function gateAction(id, action) {
-  if (action === 'reject') {
-    const reason = prompt(`Reject ${id}. Reason (optional)?`);
-    if (reason === null) return;
-    var body = { action, reason };
-  } else {
-    body = { action };
-  }
-  const res = await api(`/api/gates/${encodeURIComponent(id)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res || res.error) {
-    alert('Gate action failed: ' + (res?.error || 'network error'));
-  }
 }
 
 /* ── Dashboard ──────────────────────────────────────────────────────────── */
@@ -2063,7 +956,7 @@ function renderDashboard(m) {
       <span class="pct">${Math.round(n/maxRuns*100)}%</span>
     </div>`).join('') : '<div class="empty">No agent runs yet</div>';
 
-  const verdicts = (m.verdicts || []).slice().reverse().slice(0, 10);
+  const verdicts = (m.verdicts || []).slice();
   document.getElementById('timeline').innerHTML = verdicts.length ? verdicts.map(v => {
     const vu = (v.verdict || '').toUpperCase();
     const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' : ['BLOCKED','FAILED','FAIL'].includes(vu) ? 'fail' : 'def';
@@ -2130,8 +1023,6 @@ function openSide(task) {
   const pLabel = PRIORITY_LABEL[pIdx];
   const dur = task.created_at && task.closed_at
     ? fmtDur(new Date(task.closed_at) - new Date(task.created_at)) : null;
-  const rawStatus = task.raw_status || task.status;
-  const isOpenGate = !!task.is_gate && rawStatus !== 'closed' && rawStatus !== 'blocked';
   const rows = [
     ['Status', `<span class="pill pill-${task.status || 'backlog'}">${(task.status || 'backlog').replace('_', ' ')}</span>`],
     ['Priority', `<span class="chip chip-p${pIdx}">${pLabel}</span>`],
@@ -2141,21 +1032,6 @@ function openSide(task) {
     task.closed_at ? ['Closed', fmtDate(task.closed_at)] : null,
     dur ? ['Duration', dur] : null,
   ].filter(Boolean);
-  const desc = task.description ? `<div class="side-desc">${esc(task.description)}</div>` : '';
-  const designSec = task.design ? `<div class="side-section"><div class="side-section-head">Design</div><div class="side-section-body">${esc(task.design)}</div></div>` : '';
-  const acceptanceSec = task.acceptance ? `<div class="side-section"><div class="side-section-head">Acceptance criteria</div><div class="side-section-body">${esc(task.acceptance)}</div></div>` : '';
-  const notesSec = task.notes ? `<div class="side-section"><div class="side-section-head">Notes</div><div class="side-section-body">${esc(task.notes)}</div></div>` : '';
-  const gateActions = isOpenGate ? `
-    <div class="side-gate-actions">
-      <button class="gate-btn gate-approve" onclick="gateAction('${esc(task.id)}', 'approve'); closeSide();">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Approve
-      </button>
-      <button class="gate-btn gate-reject" onclick="gateAction('${esc(task.id)}', 'reject'); closeSide();">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18 M6 6l12 12"/></svg>
-        Reject
-      </button>
-    </div>` : '';
   document.getElementById('side-body').innerHTML = `
     <div class="side-title">${esc(task.title)}</div>
     ${desc}
@@ -2163,10 +1039,7 @@ function openSide(task) {
     <div class="props">
       ${rows.map(([k, v]) => `<div class="prop-key">${k}</div><div class="prop-val">${v}</div>`).join('')}
     </div>
-    ${designSec}
-    ${acceptanceSec}
-    ${notesSec}
-    ${task.close_reason ? `<div class="result-box"><div class="side-section-head">Close reason</div>${esc(task.close_reason)}</div>` : ''}`;
+    ${task.close_reason ? `<div class="result-box">${esc(task.close_reason)}</div>` : ''}`;
   document.getElementById('side-panel').classList.add('open');
 }
 function closeSide() {
@@ -2185,7 +1058,7 @@ function switchTab(id, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`panel-${id}`).classList.add('active');
   // crumb
-  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', share: 'Share' };
+  const labels = { kanban: 'Board', dashboard: 'Metrics', share: 'Share' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';
   if (id === 'dashboard') {
     api('/api/metrics').then(m => { if (m) { metrics = m; renderDashboard(m); } });

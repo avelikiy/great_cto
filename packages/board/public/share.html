@@ -9,143 +9,118 @@
 <meta property="og:description" content="AI agents shipped features, saved time and cost. See the breakdown." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
 :root {
-  /* Dark emerald — matches landing greatcto.systems */
-  --bg-page:     #0a0e0c;
-  --bg-card:     #11161a;
-  --bg-muted:    #161c1f;
-  --bg-strong:   #1e272c;
-  --bg-elevated: #1a2025;
-  --border:      rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --text:  #ecf2ee;
-  --text2: #8a9a92;
-  --text3: #4f5d57;
-  --accent: #00d97e;
-  --accent-soft: rgba(0, 217, 126, 0.10);
-  --accent-strong: rgba(0, 217, 126, 0.18);
-  --status-review:   #00d97e;
+  --bg-card: #ffffff;
+  --bg-muted: #f7f8fa;
+  --bg-strong: #ecedf0;
+  --border: rgba(15, 17, 21, 0.08);
+  --border-strong: rgba(15, 17, 21, 0.14);
+  --text:  #0f1115;
+  --text2: #5b6573;
+  --text3: #828b97;
+  --accent: #2540d4;
+  --accent-soft: #e8edff;
+  --status-review:   #16a34a;
   --status-progress: #f59e0b;
-  --status-blocked:  #ff5466;
-  --serif: "Geist", "Space Grotesk", "Inter", -apple-system, sans-serif;
-  --sans:  "Geist", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono:  "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --status-blocked:  #dc2626;
+  --serif: "Fraunces", Georgia, serif;
+  --sans:  "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
   width: 100%; min-height: 100%;
   font-family: var(--sans); color: var(--text);
   font-size: 14px; line-height: 1.5;
-  background: var(--bg-page);
+  background: #f6f5f1;
   -webkit-font-smoothing: antialiased;
 }
 button { font-family: inherit; cursor: pointer; }
 
-/* Page wrap — compact */
+/* Page wrap */
 .report-page {
   position: relative;
   width: 100%; min-height: 100vh;
   display: flex; align-items: flex-start; justify-content: center;
-  padding: 32px 20px;
+  padding: 56px 24px;
   overflow: hidden;
 }
 .report-bg {
   position: absolute; inset: 0; z-index: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0, 217, 126, 0.10), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(0, 217, 126, 0.05), transparent 70%),
-    linear-gradient(180deg, #050807 0%, var(--bg-page) 100%);
 }
-.report-bg::after {
-  content: ""; position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, #000 30%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, #000 30%, transparent 80%);
-}
+.report-bg svg { width: 100%; height: 100%; display: block; }
 
 .report-card {
   position: relative; z-index: 1;
-  width: 100%; max-width: 680px;
-  background: rgba(17, 22, 26, 0.92);
+  width: 100%; max-width: 720px;
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px;
-  box-shadow: 0 16px 48px rgba(15, 17, 21, 0.15), 0 1px 3px rgba(15, 17, 21, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 28px 32px;
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(15, 17, 21, 0.18), 0 2px 4px rgba(15, 17, 21, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  padding: 40px 44px;
 }
 
 .report-head {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 14px;
+  margin-bottom: 32px;
+  padding-bottom: 18px;
   border-bottom: 1px solid var(--border);
 }
-.report-brand {
-  display: flex; align-items: center; gap: 9px;
-  font-family: var(--serif); font-size: 18px; font-weight: 600;
-  color: var(--text); letter-spacing: -0.01em;
+.report-head .left {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--text2); letter-spacing: 0.04em;
 }
-.report-brand .brand-mark {
-  width: 22px; height: 22px;
-  border-radius: 5px;
-  background: var(--bg-page);
-  border: 1px solid var(--border-strong);
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.report-brand .brand-mark svg { width: 18px; height: 18px; }
+.report-head .left .star { color: var(--accent); font-size: 14px; }
 .report-status {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 10px; font-family: var(--mono);
+  font-size: 11px; font-family: var(--mono);
   color: var(--status-review);
-  background: rgba(22, 163, 74, 0.10);
-  padding: 4px 9px; border-radius: 999px;
-  letter-spacing: 0.04em;
+  background: rgba(22, 163, 74, 0.08);
+  padding: 4px 10px; border-radius: 999px;
 }
 .report-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-.report-title { display: flex; gap: 14px; margin-bottom: 24px; }
+.report-title { display: flex; gap: 18px; margin-bottom: 36px; }
 .report-title .stripe {
-  width: 3px; background: var(--accent);
+  width: 4px; background: var(--accent);
   border-radius: 2px; flex-shrink: 0;
 }
 .report-title h1 {
-  font-family: var(--serif); font-weight: 600;
-  font-size: 28px; line-height: 1.15;
+  font-family: var(--serif); font-weight: 500;
+  font-size: 44px; line-height: 1.05;
   letter-spacing: -0.02em; margin: 0;
-  color: var(--text);
 }
-.report-title h1 em { font-style: normal; color: var(--accent); font-weight: 500; }
+.report-title h1 em { font-style: italic; color: var(--accent); font-weight: 400; }
 .report-title .meta {
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text3); margin-top: 6px;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--text2); margin-top: 12px;
   letter-spacing: 0.04em;
 }
 
 .section-label {
-  font-family: var(--mono); font-size: 10px;
+  font-family: var(--mono); font-size: 11px;
   letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--text3); margin: 0 0 10px;
+  color: var(--text3); margin: 0 0 14px;
 }
 
 .report-stats-hero {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 8px; margin-bottom: 8px;
+  gap: 12px; margin-bottom: 12px;
 }
 .report-stat {
-  background: var(--bg-elevated); border: 1px solid var(--border);
-  border-radius: 8px; padding: 14px 14px;
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 12px; padding: 22px 20px;
   position: relative; overflow: hidden;
 }
 .report-stat::before {
   content: ""; position: absolute;
-  top: 0; left: 0; right: 0; height: 2px;
+  top: 0; left: 0; right: 0; height: 3px;
   background: var(--accent);
 }
 .report-stat.green::before  { background: var(--status-review); }
@@ -154,92 +129,60 @@ button { font-family: inherit; cursor: pointer; }
 .report-stat.purple::before { background: #7c3aed; }
 .report-stat .num {
   font-family: var(--serif); font-weight: 500;
-  font-size: 32px; line-height: 1;
+  font-size: 40px; line-height: 1;
   letter-spacing: -0.02em;
-  color: var(--text);
 }
 .report-stat .num small {
-  font-size: 14px; color: var(--text2);
+  font-size: 22px; color: var(--text2);
   margin-left: 2px; font-weight: 400;
 }
 .report-stat .lbl {
-  font-family: var(--mono); font-size: 10px;
+  font-family: var(--mono); font-size: 11px;
   letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--text2); margin-top: 10px;
 }
 .report-stat .sub {
-  margin-top: 4px; font-size: 11px; color: var(--text2);
+  margin-top: 6px; font-size: 12px; color: var(--text2);
 }
 
 .report-stats-sec {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 8px; margin-bottom: 18px;
+  gap: 12px; margin-bottom: 32px;
 }
-.report-stats-sec .report-stat .num { font-size: 22px; font-family: var(--serif); font-weight: 500; }
-
-/* Compare card — AI vs humans */
-.compare-card {
-  background: linear-gradient(135deg, rgba(0,217,126,0.08), rgba(167,139,250,0.04));
-  border: 1px solid var(--accent-strong);
-  border-radius: 10px;
-  padding: 14px 16px; margin-bottom: 18px;
-  display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px;
-  align-items: center;
-}
-.compare-side { display: flex; flex-direction: column; gap: 2px; }
-.compare-side .lbl {
-  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--text2);
-}
-.compare-side .v {
-  font-family: var(--serif); font-weight: 500;
-  font-size: 26px; letter-spacing: -0.02em;
-  color: var(--text);
-}
-.compare-side .t { font-family: var(--mono); font-size: 11px; color: var(--text3); }
-.compare-side.right { text-align: right; align-items: flex-end; }
-.compare-vs {
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text3); letter-spacing: 0.06em;
-}
-.compare-vs strong {
-  display: block; font-family: var(--serif);
-  font-size: 16px; color: var(--accent); font-weight: 600;
-  letter-spacing: -0.01em;
-}
+.report-stats-sec .report-stat .num { font-size: 26px; font-family: var(--mono); font-weight: 500; }
 
 .shipped-row {
   display: grid;
-  grid-template-columns: 14px 1fr auto;
-  gap: 10px; align-items: baseline;
-  padding: 8px 0;
+  grid-template-columns: 18px 1fr auto;
+  gap: 12px; align-items: baseline;
+  padding: 12px 0;
   border-top: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 14px;
 }
 .shipped-row:first-of-type { border-top: none; }
 .shipped-check {
-  width: 14px; height: 14px;
+  width: 16px; height: 16px;
   border-radius: 50%;
   background: var(--status-review); color: #fff;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 9px; margin-top: 2px;
+  font-size: 10px; margin-top: 2px;
 }
 .shipped-row .ttl { color: var(--text); }
 .shipped-row .ttl .sub {
   color: var(--text3); display: block;
-  font-size: 11px; margin-top: 1px;
+  font-size: 12px; margin-top: 2px;
 }
 .shipped-row .when {
-  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
 }
 
 .report-foot {
-  margin-top: 22px;
-  padding-top: 14px;
+  margin-top: 36px;
+  padding-top: 18px;
   border-top: 1px solid var(--border);
   text-align: center;
   font-family: var(--mono);
-  font-size: 10px; letter-spacing: 0.06em;
+  font-size: 11px; letter-spacing: 0.06em;
   color: var(--text3);
 }
 .report-foot a { color: var(--accent); text-decoration: none; }
@@ -258,8 +201,8 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text2);
 }
 .paused-card h1 {
-  font-family: var(--serif); font-weight: 600;
-  font-size: 26px; letter-spacing: -0.01em;
+  font-family: var(--serif); font-weight: 500;
+  font-size: 32px; letter-spacing: -0.01em;
   margin: 0 0 10px;
 }
 .paused-card p {
@@ -267,7 +210,7 @@ button { font-family: inherit; cursor: pointer; }
   max-width: 40ch;
 }
 .btn-back {
-  background: var(--bg-elevated); color: var(--accent);
+  background: #fff; color: var(--accent);
   border: 1px solid var(--border-strong);
   padding: 12px 24px; border-radius: 999px;
   font-weight: 500; font-size: 14px;
@@ -289,8 +232,48 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Background uses pure CSS (radial-gradients + grid), no SVG needed.
-const LANDSCAPE_SVG = '';
+const LANDSCAPE_SVG = `<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="r-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a2547" />
+      <stop offset="55%" stop-color="#5a4a7a" />
+      <stop offset="85%" stop-color="#f4a87c" />
+      <stop offset="100%" stop-color="#ffd9b8" />
+    </linearGradient>
+    <radialGradient id="r-sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#fff4d9" stop-opacity="1" />
+      <stop offset="40%" stop-color="#fff4d9" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="r-sunhalo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#ffc89b" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="r-mtnFar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#b8c2d8" />
+      <stop offset="20%" stop-color="#3d4a6b" />
+      <stop offset="100%" stop-color="#3d4a6b" />
+    </linearGradient>
+    <linearGradient id="r-mist" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,220,200,0)" />
+      <stop offset="100%" stop-color="rgba(255,220,200,0.6)" />
+    </linearGradient>
+    <filter id="r-blur"><feGaussianBlur stdDeviation="8" /></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#r-sky)" />
+  <circle cx="1100" cy="540" r="260" fill="url(#r-sunhalo)" />
+  <circle cx="1100" cy="540" r="80" fill="url(#r-sun)" />
+  <g filter="url(#r-blur)" opacity="0.85">
+    <ellipse cx="200" cy="280" rx="180" ry="22" fill="#ffc4a8" />
+    <ellipse cx="600" cy="220" rx="240" ry="18" fill="#f5a890" />
+    <ellipse cx="1280" cy="320" rx="220" ry="24" fill="#ffc4a8" />
+    <ellipse cx="900" cy="380" rx="160" ry="14" fill="#e8b4c4" />
+  </g>
+  <path d="M 0,640 L 80,580 L 140,610 L 220,520 L 300,560 L 380,500 L 460,540 L 540,470 L 620,510 L 700,460 L 780,500 L 860,440 L 940,490 L 1020,450 L 1100,500 L 1180,470 L 1260,520 L 1340,490 L 1420,540 L 1500,510 L 1600,560 L 1600,900 L 0,900 Z" fill="url(#r-mtnFar)" opacity="0.92" />
+  <path d="M 0,720 L 100,680 L 200,700 L 320,640 L 440,680 L 560,620 L 680,670 L 800,610 L 920,660 L 1040,620 L 1160,680 L 1280,640 L 1400,690 L 1520,650 L 1600,700 L 1600,900 L 0,900 Z" fill="#2c3554" opacity="0.95" />
+  <rect x="0" y="700" width="1600" height="80" fill="url(#r-mist)" opacity="0.5" />
+  <path d="M 0,820 L 120,790 L 280,810 L 420,780 L 560,815 L 720,790 L 880,820 L 1040,795 L 1200,815 L 1360,790 L 1520,820 L 1600,800 L 1600,900 L 0,900 Z" fill="#1a2138" />
+</svg>`;
 
 if (paused) {
   document.getElementById('root').innerHTML = `
@@ -333,24 +316,24 @@ if (paused) {
       cls: 'green',
     },
     {
-      v: totalAiMin ? fmtTime(totalAiMin) : '—',
+      v: llmUsd > 0 ? '$' + llmUsd.toFixed(2) : '—',
       sub: '',
-      lbl: 'AI time',
-      extra: avgMin ? `avg ${avgMin}m / task` : 'no data',
+      lbl: 'LLM spend',
+      extra: humanUsd > 0 ? `vs humans: $${Number(humanUsd).toLocaleString()}` : 'no plans yet',
       cls: 'amber',
     },
     {
-      v: llmUsd > 0 ? '$' + llmUsd.toFixed(0) : '—',
-      sub: '',
-      lbl: 'LLM cost',
-      extra: m.cost?.count ? `${m.cost.count} plans` : 'no plans',
+      v: savingsX > 0 ? savingsX : '—',
+      sub: savingsX > 0 ? '×' : '',
+      lbl: 'vs FTE cost',
+      extra: savingsX > 0 ? `${savingsX}× cheaper than humans` : '—',
       cls: 'purple',
     },
   ];
 
   const sec = [
+    { v: totalAiMin ? fmtTime(totalAiMin) : '—', lbl: 'AI time', extra: avgMin ? `avg ${avgMin}m / task` : 'no data' },
     { v: m.qa?.pass_rate != null ? m.qa.pass_rate + '%' : '—', lbl: 'QA pass rate', extra: `${m.qa?.passed ?? 0} pass · ${m.qa?.failed ?? 0} fail`, cls: 'green' },
-    { v: m.security?.approved ?? 0, lbl: 'Security approved', extra: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks' },
     { v: m.tasks?.in_progress ?? 0, lbl: 'In progress', extra: `${m.tasks?.backlog ?? 0} in backlog` },
   ];
 
@@ -361,17 +344,9 @@ if (paused) {
       <div class="report-bg">${LANDSCAPE_SVG}</div>
       <div class="report-card">
         <div class="report-head">
-          <div class="report-brand">
-            <span class="brand-mark">
-              <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                <g stroke="#00d97e" stroke-width="9" stroke-linecap="round">
-                  <line x1="32" y1="14" x2="32" y2="50"/>
-                  <line x1="16.4" y1="23" x2="47.6" y2="41"/>
-                  <line x1="16.4" y1="41" x2="47.6" y2="23"/>
-                </g>
-              </svg>
-            </span>
-            <span>greatcto</span>
+          <div class="left">
+            <span class="star">✱</span>
+            <span>GREATCTO · ENGINEERING REPORT</span>
           </div>
           <span class="report-status">
             <span class="dot"></span> LIVE
@@ -382,7 +357,7 @@ if (paused) {
           <div class="stripe"></div>
           <div>
             <h1>${esc(project)}</h1>
-            <div class="meta">${esc(date.toUpperCase())} · ENGINEERING REPORT</div>
+            <div class="meta">${esc(date.toUpperCase())} · GENERATED BY GREAT_CTO AGENTS</div>
           </div>
         </div>
 
@@ -395,24 +370,6 @@ if (paused) {
               ${s.extra ? `<div class="sub">${s.extra}</div>` : ''}
             </div>`).join('')}
         </div>
-
-        ${humanUsd > 0 ? `
-          <div class="compare-card">
-            <div class="compare-side">
-              <div class="lbl">AI agents</div>
-              <div class="v">$${llmUsd.toFixed(0)}</div>
-              <div class="t">${totalAiMin ? fmtTime(totalAiMin) : '—'} of compute</div>
-            </div>
-            <div class="compare-vs">
-              vs
-              <strong>${savingsX}× cheaper</strong>
-            </div>
-            <div class="compare-side right">
-              <div class="lbl">Human team</div>
-              <div class="v">$${Number(humanUsd).toLocaleString()}</div>
-              <div class="t">est. ${done * 4}h equivalent</div>
-            </div>
-          </div>` : ''}
 
         <div class="report-stats-sec">
           ${sec.map(s => `

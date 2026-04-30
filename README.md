@@ -29,8 +29,13 @@ great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the fu
   <img src="docs/screenshots/board.png" alt="great_cto board — kanban + agents + live status" width="900" />
 </p>
 <p align="center">
-  <i>The board you actually check — <code>great-cto board</code> at <code>localhost:3141</code>.<br/>
-  Inbox · Kanban · Metrics · Memory · Public report.</i>
+  <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
+  <img src="https://img.shields.io/badge/version-1.0.158-blue" alt="Version" />
+  <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
+  <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
+  <img src="https://img.shields.io/badge/LLM_costs-down_60--80%25-success" alt="LLM cost savings" />
+  <img src="https://img.shields.io/badge/MTTR-down_94%25_after_first_incident-blue" alt="MTTR" />
 </p>
 
 ## Two decisions per feature
@@ -226,14 +231,19 @@ Specialist sub-agents from [davila7/claude-code-templates](https://github.com/da
 └──────────────────────────┘
 ```
 
-| Layer | Stack |
-|-------|-------|
-| Plugin runtime | Claude Code (Anthropic) |
-| Agents | Markdown agent specs + skill library |
-| Task tracker | [Beads](https://github.com/steveyegge/beads) (sqlite, git-native) |
-| Memory | Plain markdown files (no vector store) |
-| Board | Vanilla HTML/CSS/JS + Node http server, zero deps |
-| Public report | Cloudflare Worker (`/r/<hash>`) — toggleable |
+---
+
+## Links
+
+- GitHub: [avelikiy/great_cto](https://github.com/avelikiy/great_cto)
+- Discussions: [ask a question · share a setup · request a feature](https://github.com/avelikiy/great_cto/discussions)
+- Archetypes: [`skills/great_cto/ARCHETYPES.md`](skills/great_cto/ARCHETYPES.md)
+- Example projects: [`demo/saas-api.md`](demo/saas-api.md) · [`demo/smart-contract.md`](demo/smart-contract.md) · [`demo/trading-bot.md`](demo/trading-bot.md)
+- Production smoke test: [`docs/smoke-test.md`](docs/smoke-test.md) — 7-phase runbook to verify everything works on your real project
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md) · [Website](https://greatcto.systems)
+- Landing site source: [`site/`](site/) — deployed to GitHub Pages on push to `main`
+
+---
 
 ## Author
 
