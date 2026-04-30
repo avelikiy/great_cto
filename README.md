@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/avelikiy/great_cto/stargazers"><img src="https://img.shields.io/github/stars/avelikiy/great_cto?style=flat" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/version-1.0.157-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.158-blue" alt="Version" />
   <a href="https://www.npmjs.com/package/great-cto"><img src="https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <a href="https://claude.com/plugins"><img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet" alt="Claude Code" /></a>
@@ -488,6 +488,7 @@ Spawned agents inherit the parent session's permission mode. If you started the 
 - Example projects: [`demo/saas-api.md`](demo/saas-api.md) · [`demo/smart-contract.md`](demo/smart-contract.md) · [`demo/trading-bot.md`](demo/trading-bot.md)
 - Production smoke test: [`docs/smoke-test.md`](docs/smoke-test.md) — 7-phase runbook to verify everything works on your real project
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md) · [Website](https://greatcto.systems)
+- Landing site source: [`site/`](site/) — deployed to GitHub Pages on push to `main`
 
 ---
 
