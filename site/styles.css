@@ -26,9 +26,10 @@
   --p2-bg: #fef3c7; --p2-fg: #92400e;
   --p3-bg: #f1f5f9; --p3-fg: #475569;
 
-  --serif: "Fraunces", Georgia, serif;
-  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --display: "Space Grotesk", "Inter", -apple-system, sans-serif;
+  --serif:   "Space Grotesk", "Inter", -apple-system, sans-serif;
+  --sans:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --shadow-card: 0 1px 2px rgba(15, 17, 21, 0.04);
   --shadow-card-hover: 0 1px 2px rgba(15, 17, 21, 0.06), 0 8px 24px rgba(15, 17, 21, 0.08);
@@ -97,7 +98,7 @@ button { font-family: inherit; cursor: pointer; }
   text-wrap: balance;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
-.land-hero h1 em { font-style: italic; font-weight: 400; color: #ffe4c8; }
+.land-hero h1 em { font-style: normal; font-weight: 500; color: #ffe4c8; }
 .land-hero p {
   max-width: 56ch; margin: 0 auto 30px;
   font-size: 17px; line-height: 1.55;
@@ -211,7 +212,7 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: -0.02em; line-height: 1.1;
   margin: 0 0 12px;
 }
-.land-section h2 em { font-style: italic; font-weight: 400; color: var(--accent); }
+.land-section h2 em { font-style: normal; font-weight: 500; color: var(--accent); }
 .land-section .sub {
   color: var(--text2); font-size: 17px;
   max-width: 56ch; margin: 0 0 56px;
@@ -220,9 +221,10 @@ button { font-family: inherit; cursor: pointer; }
 .how-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
 .how-card { border-top: 1px solid var(--border-strong); padding-top: 24px; }
 .how-num {
-  font-family: var(--serif); font-style: italic; font-weight: 400;
-  font-size: 56px; line-height: 1;
+  font-family: var(--mono); font-weight: 500;
+  font-size: 48px; line-height: 1;
   color: var(--accent); margin-bottom: 18px;
+  letter-spacing: -0.02em;
 }
 .how-card h3 { font-family: var(--sans); font-weight: 600; font-size: 18px; margin: 0 0 8px; }
 .how-card p { color: var(--text2); margin: 0; line-height: 1.55; }
@@ -306,7 +308,7 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 500; letter-spacing: -0.02em;
   margin: 0 0 16px; color: #fff;
 }
-.cta-block h2 em { font-style: italic; color: #ffd9b8; }
+.cta-block h2 em { font-style: normal; font-weight: 500; color: #ffd9b8; }
 .cta-block p { color: rgba(255, 255, 255, 0.72); margin: 0 0 8px; font-size: 16px; }
 .cta-block .terminal {
   display: inline-flex; align-items: center; gap: 12px;
