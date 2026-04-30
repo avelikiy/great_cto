@@ -5,7 +5,7 @@ model: sonnet
 advisor-model: claude-opus-4-7
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
-tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch, advisor_20260301, memory_20250929
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi
 maxTurns: 40
 timeout: 900
 effort: HIGH
