@@ -1,0 +1,11 @@
+name = "great-cto-share"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[[r2_buckets]]
+binding = "SHARE_BUCKET"
+bucket_name = "great-cto-share"
+
+[routes]
+pattern = "greatcto.systems/r/*"
+zone_name = "greatcto.systems"
