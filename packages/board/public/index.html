@@ -5,285 +5,670 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="dark" />
 <title>great_cto board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
-  :root {
-    --bg: #0a0d12;
-    --bg2: #111620;
-    --bg3: #1a2030;
-    --border: #1e2a3a;
-    --text: #e2e8f0;
-    --text2: #64748b;
-    --text3: #94a3b8;
-    --accent: #3b82f6;
-    --green: #22c55e;
-    --yellow: #f59e0b;
-    --red: #ef4444;
-    --purple: #a855f7;
-    --orange: #f97316;
-    --mono: 'JetBrains Mono', 'Fira Code', monospace;
-    --radius: 8px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; min-height: 100vh; }
+/* ── Tokens ─────────────────────────────────────────────────────────────────── */
+:root {
+  --bg0: #0f0f0f;
+  --bg1: #161616;
+  --bg2: #1c1c1c;
+  --bg3: #242424;
+  --bg4: #2c2c2c;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+  --text:  #f1f1f1;
+  --text2: #8b8b8b;
+  --text3: #b0b0b0;
+  --accent: #5e6ad2;
+  --accent-hover: #6b77e5;
+  --green: #26b066;
+  --green-bg: rgba(38,176,102,.12);
+  --yellow: #f0b429;
+  --yellow-bg: rgba(240,180,41,.12);
+  --red: #e5484d;
+  --red-bg: rgba(229,72,77,.12);
+  --purple: #8b5cf6;
+  --purple-bg: rgba(139,92,246,.12);
+  --orange: #f97316;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --r: 5px;
+  --r-sm: 3px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  background: var(--bg0);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+}
 
-  /* Nav */
-  nav { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 20px; display: flex; align-items: center; gap: 0; height: 48px; position: sticky; top: 0; z-index: 100; }
-  .logo { font-family: var(--mono); font-size: 13px; color: var(--text3); margin-right: 24px; display: flex; align-items: center; gap: 6px; }
-  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
-  .project-name { color: var(--text); font-weight: 600; }
-  .tab { padding: 0 16px; height: 48px; display: flex; align-items: center; font-size: 13px; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; gap: 6px; }
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
-  .spacer { flex: 1; }
-  .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  .live-label { font-size: 11px; font-family: var(--mono); color: var(--green); }
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; height: 100vh; }
 
-  /* Panels */
-  .panel { display: none; padding: 20px; }
-  .panel.active { display: block; }
+/* ── Topbar ─────────────────────────────────────────────────────────────────── */
+.topbar {
+  height: 44px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px 0 16px;
+  gap: 0;
+  flex-shrink: 0;
+  user-select: none;
+}
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text3);
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+.breadcrumb-icon {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: white; font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.breadcrumb-sep { color: var(--bg4); font-size: 16px; font-weight: 300; }
+.breadcrumb-project { color: var(--text); font-weight: 600; }
 
-  /* Kanban */
-  .kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; min-height: calc(100vh - 100px); align-items: flex-start; }
-  .column { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); min-width: 240px; width: 240px; flex-shrink: 0; }
-  .col-header { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
-  .col-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-  .col-count { font-size: 11px; font-family: var(--mono); color: var(--text2); background: var(--bg3); border-radius: 10px; padding: 1px 6px; }
-  .col-body { padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 80px; }
+/* ── Tabs ───────────────────────────────────────────────────────────────────── */
+.tabs { display: flex; align-items: center; gap: 2px; }
+.tab {
+  height: 28px;
+  padding: 0 10px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px;
+  color: var(--text2);
+  cursor: pointer;
+  border-radius: var(--r);
+  transition: color .12s, background .12s;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tab svg { opacity: .7; }
+.tab:hover { color: var(--text3); background: var(--bg3); }
+.tab.active { color: var(--text); background: var(--bg3); }
+.tab.active svg { opacity: 1; }
 
-  /* Task cards */
-  .card { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px; cursor: pointer; transition: border-color .15s, transform .1s; }
-  .card:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .card-title { font-size: 13px; line-height: 1.4; margin-bottom: 6px; word-break: break-word; }
-  .card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .badge { font-size: 10px; font-family: var(--mono); padding: 1px 5px; border-radius: 3px; font-weight: 500; }
-  .badge-p0 { background: #7f1d1d; color: #fca5a5; }
-  .badge-p1 { background: #78350f; color: #fcd34d; }
-  .badge-p2 { background: #1e3a5f; color: #93c5fd; }
-  .badge-p3 { background: #1a2030; color: var(--text2); }
-  .badge-agent { background: var(--bg); color: var(--text3); border: 1px solid var(--border); }
-  .badge-gate { background: #3b0764; color: #d8b4fe; }
-  .badge-label { background: var(--bg); color: var(--text3); border: 1px solid var(--border); }
-  .card-time { font-size: 10px; color: var(--text2); font-family: var(--mono); margin-left: auto; }
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.live-indicator {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text2);
+}
+.live-dot {
+  width: 6px; height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+}
+.live-dot.pulse { animation: lp 2s infinite; }
+@keyframes lp { 0%,100%{opacity:1} 50%{opacity:.3} }
+.live-dot.error { background: var(--red); animation: none; }
 
-  /* Column accent lines */
-  .col-backlog .col-header { border-top: 3px solid var(--text2); border-radius: var(--radius) var(--radius) 0 0; }
-  .col-in_progress .col-header { border-top: 3px solid var(--accent); border-radius: var(--radius) var(--radius) 0 0; }
-  .col-done .col-header { border-top: 3px solid var(--green); border-radius: var(--radius) var(--radius) 0 0; }
-  .col-blocked .col-header { border-top: 3px solid var(--red); border-radius: var(--radius) var(--radius) 0 0; }
-  .col-gate .col-header { border-top: 3px solid var(--purple); border-radius: var(--radius) var(--radius) 0 0; }
+/* ── Content ────────────────────────────────────────────────────────────────── */
+.content { flex: 1; overflow: hidden; position: relative; }
+.panel { display: none; height: 100%; overflow: auto; }
+.panel.active { display: flex; flex-direction: column; }
 
-  /* Side panel */
-  .side { position: fixed; top: 0; right: -440px; width: 440px; height: 100vh; background: var(--bg2); border-left: 1px solid var(--border); transition: right .25s cubic-bezier(.4,0,.2,1); z-index: 200; display: flex; flex-direction: column; overflow: hidden; }
-  .side.open { right: 0; }
-  .side-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .side-id { font-family: var(--mono); font-size: 12px; color: var(--text2); }
-  .side-close { cursor: pointer; color: var(--text2); font-size: 18px; line-height: 1; padding: 4px; }
-  .side-close:hover { color: var(--text); }
-  .side-body { padding: 20px; overflow-y: auto; flex: 1; }
-  .side-title { font-size: 16px; font-weight: 600; line-height: 1.4; margin-bottom: 16px; }
-  .field { margin-bottom: 14px; }
-  .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text2); margin-bottom: 4px; }
-  .field-value { font-size: 13px; color: var(--text3); }
-  .close-reason { background: var(--bg3); border-radius: 6px; padding: 10px; font-size: 12px; color: var(--text3); font-family: var(--mono); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+/* ── Kanban ─────────────────────────────────────────────────────────────────── */
+.kanban-wrap {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 16px 16px 0;
+}
+.kanban {
+  display: flex;
+  gap: 8px;
+  height: 100%;
+  min-width: max-content;
+}
+.column {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  max-height: calc(100vh - 90px);
+}
+.col-header {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.col-indicator {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.col-gate    .col-indicator { background: var(--purple); }
+.col-backlog .col-indicator { background: var(--text2); opacity: .6; }
+.col-in_progress .col-indicator { background: var(--accent); }
+.col-done    .col-indicator { background: var(--green); }
+.col-blocked .col-indicator { background: var(--red); }
 
-  /* Dashboard */
-  .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
-  .stat-value { font-size: 32px; font-weight: 700; font-family: var(--mono); line-height: 1; margin-bottom: 4px; }
-  .stat-label { font-size: 12px; color: var(--text2); }
-  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 4px; font-family: var(--mono); }
-  .section-title { font-size: 13px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; margin-top: 24px; }
+.col-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: .01em;
+  flex: 1;
+}
+.col-count {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text2);
+  background: var(--bg3);
+  border-radius: var(--r-sm);
+  padding: 0 5px;
+  line-height: 18px;
+}
+.col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
-  /* Agent utilization bars */
-  .agent-list { display: flex; flex-direction: column; gap: 8px; }
-  .agent-row { display: flex; align-items: center; gap: 10px; }
-  .agent-name { font-family: var(--mono); font-size: 12px; color: var(--text3); width: 160px; flex-shrink: 0; }
-  .bar-wrap { flex: 1; background: var(--bg3); border-radius: 4px; height: 8px; overflow: hidden; }
-  .bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s ease; }
-  .agent-count { font-family: var(--mono); font-size: 11px; color: var(--text2); width: 30px; text-align: right; }
+/* ── Task cards ─────────────────────────────────────────────────────────────── */
+.card {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background .1s, border-color .1s;
+}
+.card:hover {
+  background: var(--bg2);
+  border-color: var(--border);
+}
+.card-row1 {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+.priority-dot {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.p0 { background: var(--red); }
+.p1 { background: var(--yellow); }
+.p2 { background: var(--accent); }
+.p3 { background: var(--bg4); border: 1px solid var(--border-strong); }
 
-  /* Verdicts timeline */
-  .timeline { display: flex; flex-direction: column; gap: 4px; }
-  .tl-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
-  .tl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-  .tl-dot.APPROVED, .tl-dot.DONE, .tl-dot.PASS { background: var(--green); }
-  .tl-dot.BLOCKED, .tl-dot.FAILED, .tl-dot.FAIL { background: var(--red); }
-  .tl-dot-default { background: var(--text2); }
-  .tl-agent { font-family: var(--mono); font-size: 11px; color: var(--text3); width: 130px; flex-shrink: 0; }
-  .tl-text { font-size: 12px; color: var(--text2); flex: 1; }
-  .tl-time { font-family: var(--mono); font-size: 10px; color: var(--text2); white-space: nowrap; }
+.card-title {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.45;
+  word-break: break-word;
+  flex: 1;
+}
+.card-footer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding-left: 15px;
+}
+.chip {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text2);
+  background: var(--bg3);
+  border-radius: var(--r-sm);
+  padding: 1px 5px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.chip-agent { color: var(--text3); }
+.chip-gate  { color: #c4b5fd; background: var(--purple-bg); }
+.chip-label { color: var(--text2); }
+.card-time  { margin-left: auto; font-size: 10px; font-family: var(--mono); color: var(--text2); }
 
-  /* Share panel */
-  .share-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; max-width: 520px; }
-  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  .toggle-label { font-size: 15px; font-weight: 600; }
-  .toggle-desc { font-size: 13px; color: var(--text2); margin-top: 2px; }
-  .toggle { position: relative; width: 44px; height: 24px; cursor: pointer; }
-  .toggle input { opacity: 0; width: 0; height: 0; }
-  .toggle-slider { position: absolute; inset: 0; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; transition: .2s; }
-  .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 2px; top: 2px; background: var(--text2); border-radius: 50%; transition: .2s; }
-  .toggle input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
-  .toggle input:checked + .toggle-slider::before { transform: translateX(20px); background: white; }
-  .url-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
-  .url-box { flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-family: var(--mono); font-size: 12px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .copy-btn { padding: 8px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text3); cursor: pointer; font-size: 12px; white-space: nowrap; transition: all .15s; }
-  .copy-btn:hover { border-color: var(--accent); color: var(--text); }
-  .share-note { font-size: 12px; color: var(--text2); margin-top: 16px; line-height: 1.6; }
-  .share-preview { margin-top: 20px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .share-preview iframe { width: 100%; height: 240px; border: none; transform: scale(.6); transform-origin: top left; width: 167%; height: 400px; pointer-events: none; }
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .status-tag { font-size: 11px; font-family: var(--mono); padding: 2px 8px; border-radius: 10px; }
-  .status-tag.on { background: #14532d; color: #86efac; }
-  .status-tag.off { background: var(--bg3); color: var(--text2); }
+/* ── Dashboard ──────────────────────────────────────────────────────────────── */
+.dash-inner { padding: 20px 20px; max-width: 1100px; }
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--stat-color, var(--accent));
+  border-radius: var(--r) var(--r) 0 0;
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: 600;
+  font-family: var(--mono);
+  color: var(--stat-color, var(--text));
+  line-height: 1.2;
+  margin-bottom: 3px;
+  letter-spacing: -.02em;
+}
+.stat-label { font-size: 12px; color: var(--text3); font-weight: 500; margin-bottom: 2px; }
+.stat-sub   { font-size: 11px; color: var(--text2); font-family: var(--mono); }
 
-  /* Empty state */
-  .empty { padding: 40px 20px; text-align: center; color: var(--text2); font-size: 13px; }
+.section-hd {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-bottom: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.section-hd:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* Agent bars */
+.agent-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px; }
+.agent-row  { display: flex; align-items: center; gap: 10px; height: 24px; }
+.agent-name {
+  font-size: 12px; font-family: var(--mono);
+  color: var(--text3); width: 150px; flex-shrink: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bar-wrap { flex: 1; background: var(--bg3); border-radius: 2px; height: 4px; overflow: hidden; }
+.bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s ease; }
+.agent-n { font-family: var(--mono); font-size: 11px; color: var(--text2); width: 28px; text-align: right; }
+
+/* Timeline */
+.timeline { display: flex; flex-direction: column; }
+.tl-row {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.tl-row:last-child { border-bottom: none; }
+.tl-status {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.tl-ok   { background: var(--green); }
+.tl-fail { background: var(--red); }
+.tl-def  { background: var(--bg4); border: 1px solid var(--border-strong); }
+.tl-agent { font-family: var(--mono); font-size: 11px; color: var(--text3); width: 130px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-text  { color: var(--text2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-time  { font-family: var(--mono); font-size: 10px; color: var(--text2); white-space: nowrap; flex-shrink: 0; }
+
+/* ── Share ──────────────────────────────────────────────────────────────────── */
+.share-inner { padding: 20px; display: flex; flex-direction: column; gap: 12px; max-width: 520px; }
+.share-card {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px;
+}
+.share-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.share-desc  { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
+.toggle-row  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.toggle-label-wrap .tl-main { font-size: 13px; font-weight: 500; }
+.toggle-label-wrap .tl-sub  { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+/* Toggle switch */
+.toggle { position: relative; width: 38px; height: 22px; cursor: pointer; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: var(--bg3);
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  transition: background .2s, border-color .2s;
+}
+.toggle-track::before {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  left: 2px; top: 2px;
+  background: var(--text2);
+  border-radius: 50%;
+  transition: transform .2s, background .2s;
+}
+.toggle input:checked + .toggle-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.toggle input:checked + .toggle-track::before {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+.url-block  { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+.url-text   { flex: 1; font-family: var(--mono); font-size: 12px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-btn {
+  padding: 5px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text3);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .12s, color .12s;
+  font-family: var(--font);
+}
+.icon-btn:hover { border-color: var(--border-strong); color: var(--text); }
+
+.share-meta { font-size: 11px; color: var(--text2); line-height: 1.7; font-family: var(--mono); }
+.share-meta strong { color: var(--text3); }
+
+.loader {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text2);
+  padding: 8px 0;
+}
+.spinner {
+  width: 13px; height: 13px;
+  border: 2px solid var(--bg4);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.share-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-family: var(--mono);
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+.share-badge.on  { background: var(--green-bg); color: #4ade80; }
+.share-badge.off { background: var(--bg3); color: var(--text2); }
+.share-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+/* ── Side panel ─────────────────────────────────────────────────────────────── */
+.side {
+  position: fixed; top: 0; right: -480px;
+  width: 480px; height: 100vh;
+  background: var(--bg1);
+  border-left: 1px solid var(--border-strong);
+  transition: right .22s cubic-bezier(.4,0,.2,1);
+  z-index: 300;
+  display: flex; flex-direction: column;
+}
+.side.open { right: 0; }
+.side-top {
+  padding: 0 16px;
+  height: 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.side-id {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text2);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 2px 6px;
+}
+.side-close {
+  width: 24px; height: 24px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text2); cursor: pointer; font-size: 14px;
+  transition: background .1s, color .1s;
+}
+.side-close:hover { background: var(--bg3); color: var(--text); }
+.side-body { flex: 1; overflow-y: auto; padding: 20px 20px; }
+.side-title { font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 20px; color: var(--text); }
+
+/* Properties grid */
+.props { display: grid; grid-template-columns: 110px 1fr; row-gap: 0; }
+.prop-key {
+  font-size: 12px; color: var(--text2);
+  padding: 7px 0 7px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+}
+.prop-val {
+  font-size: 12px; color: var(--text3);
+  padding: 7px 0 7px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 5px;
+  word-break: break-word;
+}
+.prop-key:last-of-type,
+.prop-val:last-of-type { border-bottom: none; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-family: var(--mono);
+}
+.pill-gate     { background: var(--purple-bg); color: #c4b5fd; }
+.pill-backlog  { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.pill-in_progress { background: rgba(94,106,210,.15); color: #818cf8; }
+.pill-done     { background: var(--green-bg); color: #4ade80; }
+.pill-blocked  { background: var(--red-bg); color: #f87171; }
+
+.result-box {
+  margin-top: 16px;
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px;
+  font-size: 12px; font-family: var(--mono);
+  color: var(--text3); line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 300px; overflow-y: auto;
+}
+
+/* ── Empty state ────────────────────────────────────────────────────────────── */
+.empty { padding: 48px 20px; text-align: center; color: var(--text2); font-size: 12px; }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 </style>
 </head>
 <body>
+<div class="app">
 
-<nav>
-  <div class="logo">
-    <div class="logo-dot"></div>
-    <span>great_cto</span>
-    <span style="color:var(--text2);">/</span>
-    <span class="project-name" id="project-name">—</span>
+<!-- Topbar -->
+<header class="topbar">
+  <div class="breadcrumb">
+    <div class="breadcrumb-icon" id="bc-icon">G</div>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-project" id="project-name">—</span>
   </div>
-  <div class="tab active" onclick="switchTab('kanban', this)">
-    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
-    Kanban
+
+  <div class="tabs">
+    <div class="tab active" data-tab="kanban" onclick="switchTab('kanban',this)">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+      Board
+    </div>
+    <div class="tab" data-tab="dashboard" onclick="switchTab('dashboard',this)">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Metrics
+    </div>
+    <div class="tab" data-tab="share" onclick="switchTab('share',this)">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      Share
+      <span id="share-nav-badge" class="share-badge off" style="margin-left:2px;">
+        <span class="share-badge-dot"></span>off
+      </span>
+    </div>
   </div>
-  <div class="tab" onclick="switchTab('dashboard', this)">
-    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    Dashboard
+
+  <div class="topbar-right">
+    <div class="live-indicator">
+      <div class="live-dot pulse" id="live-dot"></div>
+      <span id="live-label" style="font-size:11px;">live</span>
+    </div>
   </div>
-  <div class="tab" onclick="switchTab('share', this)">
-    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-    Share
-    <span id="share-status-nav" class="status-tag off" style="margin-left:4px;">off</span>
+</header>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- Board -->
+  <div class="panel active" id="panel-kanban">
+    <div class="kanban-wrap">
+      <div class="kanban" id="kanban-board"></div>
+    </div>
   </div>
-  <div class="spacer"></div>
-  <div style="display:flex;align-items:center;gap:8px;padding-right:4px;">
-    <div class="live-dot" id="live-dot"></div>
-    <span class="live-label" id="live-label">live</span>
+
+  <!-- Metrics -->
+  <div class="panel" id="panel-dashboard">
+    <div class="dash-inner">
+      <div class="dash-grid" id="stats-grid"></div>
+      <div class="section-hd">Agent utilization</div>
+      <div class="agent-list" id="agent-list"></div>
+      <div class="section-hd">Activity feed</div>
+      <div class="timeline" id="timeline"></div>
+    </div>
   </div>
-</nav>
 
-<!-- Kanban -->
-<div class="panel active" id="panel-kanban">
-  <div class="kanban" id="kanban-board"></div>
-</div>
+  <!-- Share -->
+  <div class="panel" id="panel-share">
+    <div class="share-inner">
+      <div class="share-card">
+        <div class="share-title">Public report</div>
+        <div class="share-desc">Generate a private URL for stakeholders — features shipped, cost savings, security posture, agent activity. No source code.</div>
 
-<!-- Dashboard -->
-<div class="panel" id="panel-dashboard">
-  <div class="dash-grid" id="stats-grid"></div>
+        <div class="toggle-row">
+          <div class="toggle-label-wrap">
+            <div class="tl-main">Enable shareable link</div>
+            <div class="tl-sub">Unguessable URL · valid 30 days</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="share-toggle" onchange="onShareToggle(this.checked)">
+            <div class="toggle-track"></div>
+          </label>
+        </div>
 
-  <div class="section-title">Agent runs</div>
-  <div class="agent-list" id="agent-list"></div>
+        <div id="share-loading" style="display:none;" class="loader">
+          <div class="spinner"></div> Publishing report…
+        </div>
 
-  <div class="section-title">Recent activity</div>
-  <div class="timeline" id="timeline"></div>
-</div>
+        <div id="share-url-section" style="display:none;">
+          <div class="url-block">
+            <div class="url-text" id="share-url-text">—</div>
+            <button class="icon-btn" onclick="copyUrl()">Copy</button>
+            <button class="icon-btn" onclick="openUrl()">Open ↗</button>
+          </div>
+        </div>
 
-<!-- Share -->
-<div class="panel" id="panel-share">
-  <div class="share-card">
-    <div class="toggle-row">
-      <div>
-        <div class="toggle-label">Public report URL</div>
-        <div class="toggle-desc">Generate a shareable link for stakeholders</div>
+        <div class="share-meta" style="margin-top:16px;">
+          <strong>Toggle off</strong> → link shows "Report paused". Data preserved — re-enable to restore same URL.
+        </div>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="share-toggle" onchange="onShareToggle(this.checked)">
-        <div class="toggle-slider"></div>
-      </label>
-    </div>
-
-    <div id="share-url-section" style="display:none;">
-      <div class="url-row">
-        <div class="url-box" id="share-url-text">—</div>
-        <button class="copy-btn" onclick="copyUrl()">Copy</button>
-        <button class="copy-btn" onclick="openUrl()">Open ↗</button>
-      </div>
-    </div>
-
-    <div id="share-loading" style="display:none;padding:12px 0;color:var(--text2);font-size:13px;">
-      <span class="spinner"></span>&nbsp; Publishing report…
-    </div>
-
-    <div class="share-note">
-      The report shows aggregated metrics — features shipped, cost savings, security posture, agent activity.
-      No source code. Link is private (unguessable hash). Valid 30 days.
-      <br><br>
-      <strong style="color:var(--text3);">Toggle off</strong> → link returns "Report paused". Data is preserved — re-enable to restore the same URL.
     </div>
   </div>
-</div>
+
+</div><!-- /content -->
+</div><!-- /app -->
 
 <!-- Side panel -->
 <div class="side" id="side-panel">
-  <div class="side-header">
-    <span class="side-id" id="side-id"></span>
-    <span class="side-close" onclick="closeSide()">✕</span>
+  <div class="side-top">
+    <span class="side-id" id="side-id">—</span>
+    <div class="side-close" onclick="closeSide()">✕</div>
   </div>
   <div class="side-body" id="side-body"></div>
 </div>
 
 <script>
+/* ── Config ─────────────────────────────────────────────────────────────────── */
 const COLUMNS = [
-  { id: 'gate',        label: 'Gates',       icon: '🔐' },
-  { id: 'backlog',     label: 'Backlog',      icon: '○' },
-  { id: 'in_progress', label: 'In Progress',  icon: '◐' },
-  { id: 'done',        label: 'Done',         icon: '●' },
-  { id: 'blocked',     label: 'Blocked',      icon: '✕' },
+  { id: 'gate',        label: 'Gates' },
+  { id: 'backlog',     label: 'Backlog' },
+  { id: 'in_progress', label: 'In Progress' },
+  { id: 'done',        label: 'Done' },
+  { id: 'blocked',     label: 'Blocked' },
 ];
+const PRIORITY_LABEL = ['P0','P1','P2','P3'];
+const PRIORITY_TIP   = ['Critical','High','Medium','Low'];
 
-const AGENT_ICONS = {
-  'architect': '🏗', 'senior-dev': '💻', 'qa-engineer': '🧪',
-  'security-officer': '🔒', 'devops': '🚀', 'pm': '📋',
-  'l3-support': '🚨', 'project-auditor': '🔍',
-};
-
-let allTasks = [];
-let metrics = {};
+let allTasks  = [];
+let metrics   = {};
 let shareState = { enabled: false, url: null };
 
-// ── Init ───────────────────────────────────────────────────────────────────────
-document.getElementById('project-name').textContent = location.hostname === 'localhost'
-  ? (document.title = window.__project || document.title) && (window.__project || '—')
-  : '—';
-
+/* ── Bootstrap ──────────────────────────────────────────────────────────────── */
 async function init() {
-  const [tasksRes, metricsRes, shareRes] = await Promise.all([
-    fetch('/api/tasks').then(r => r.json()).catch(() => []),
-    fetch('/api/metrics').then(r => r.json()).catch(() => ({})),
-    fetch('/api/share').then(r => r.json()).catch(() => ({ enabled: false })),
+  const [tasks, met, share] = await Promise.all([
+    api('/api/tasks'),
+    api('/api/metrics'),
+    api('/api/share'),
   ]);
-  allTasks = tasksRes;
-  metrics = metricsRes;
-  shareState = shareRes;
+  allTasks   = tasks  || [];
+  metrics    = met    || {};
+  shareState = share  || { enabled: false, url: null };
 
-  // Project name from tasks
-  if (allTasks[0]?.id) {
-    const proj = allTasks[0].id.split('-')[0];
+  const proj = (allTasks[0]?.id || '').split('-')[0] || null;
+  if (proj) {
     document.getElementById('project-name').textContent = proj;
-    document.title = `${proj} · great_cto board`;
+    document.getElementById('bc-icon').textContent = proj[0].toUpperCase();
+    document.title = `${proj} · great_cto`;
   }
 
   renderKanban(allTasks);
   renderDashboard(metrics);
-  renderShare(shareState);
+  renderShareState(shareState);
   connectSSE();
 }
 
-// ── SSE ────────────────────────────────────────────────────────────────────────
+function api(url, opts) {
+  return fetch(url, opts).then(r => r.json()).catch(() => null);
+}
+
+/* ── SSE ────────────────────────────────────────────────────────────────────── */
 function connectSSE() {
   const es = new EventSource('/api/sse');
   es.addEventListener('tasks', e => {
@@ -291,194 +676,208 @@ function connectSSE() {
     renderKanban(allTasks);
   });
   es.onopen = () => {
-    document.getElementById('live-dot').style.background = 'var(--green)';
+    const d = document.getElementById('live-dot');
+    d.className = 'live-dot pulse';
     document.getElementById('live-label').textContent = 'live';
   };
   es.onerror = () => {
-    document.getElementById('live-dot').style.background = 'var(--red)';
+    const d = document.getElementById('live-dot');
+    d.className = 'live-dot error';
     document.getElementById('live-label').textContent = 'offline';
-    setTimeout(connectSSE, 5000);
     es.close();
+    setTimeout(connectSSE, 5000);
   };
 }
 
-// ── Kanban ─────────────────────────────────────────────────────────────────────
+/* ── Kanban ─────────────────────────────────────────────────────────────────── */
 function renderKanban(tasks) {
   const board = document.getElementById('kanban-board');
-  board.innerHTML = '';
-  const byCol = {};
-  for (const col of COLUMNS) byCol[col.id] = [];
+  const byCol = Object.fromEntries(COLUMNS.map(c => [c.id, []]));
   for (const t of tasks) {
     if (byCol[t.status]) byCol[t.status].push(t);
     else byCol['backlog'].push(t);
   }
+  board.innerHTML = '';
   for (const col of COLUMNS) {
     const items = byCol[col.id];
-    const colEl = document.createElement('div');
-    colEl.className = `column col-${col.id}`;
-    colEl.innerHTML = `
+    const el = document.createElement('div');
+    el.className = `column col-${col.id}`;
+    el.innerHTML = `
       <div class="col-header">
-        <span class="col-title">${col.icon} ${col.label}</span>
+        <div class="col-indicator"></div>
+        <span class="col-title">${col.label}</span>
         <span class="col-count">${items.length}</span>
       </div>
-      <div class="col-body">${items.map(cardHTML).join('')}</div>
-    `;
-    board.appendChild(colEl);
-    colEl.querySelectorAll('.card').forEach((el, i) => {
-      el.addEventListener('click', () => openSide(items[i]));
+      <div class="col-body">${items.length ? items.map(cardHTML).join('') : '<div class="empty" style="padding:20px 8px;font-size:11px;">No tasks</div>'}</div>`;
+    board.appendChild(el);
+    el.querySelectorAll('.card').forEach((cardEl, i) => {
+      cardEl.addEventListener('click', () => openSide(items[i]));
     });
   }
 }
 
 function cardHTML(t) {
-  const pClass = ['badge-p0','badge-p1','badge-p2','badge-p3'][t.priority] || 'badge-p3';
-  const pLabel = ['P0','P1','P2','P3'][t.priority] || 'P?';
-  const agentIcon = AGENT_ICONS[t.agent] || '';
-  const elapsed = t.status === 'in_progress' && t.updated_at
+  const pClass  = `p${t.priority ?? 3}`;
+  const labels  = (t.labels || []).filter(l => l !== 'gate');
+  const isGate  = (t.labels || []).includes('gate');
+  const elapsed = (t.status === 'in_progress' && t.updated_at)
     ? `<span class="card-time">${relTime(t.updated_at)}</span>` : '';
-  const labels = (t.labels || []).filter(l => l !== 'gate')
-    .map(l => `<span class="badge badge-label">${l}</span>`).join('');
   return `
     <div class="card">
-      <div class="card-title">${esc(t.title)}</div>
-      <div class="card-meta">
-        <span class="badge ${pClass}">${pLabel}</span>
-        ${t.agent ? `<span class="badge badge-agent">${agentIcon} ${t.agent}</span>` : ''}
-        ${labels}
+      <div class="card-row1">
+        <div class="priority-dot ${pClass}" title="${PRIORITY_TIP[t.priority ?? 3]}"></div>
+        <div class="card-title">${esc(t.title)}</div>
+      </div>
+      <div class="card-footer">
+        ${isGate  ? `<span class="chip chip-gate">gate</span>` : ''}
+        ${t.agent ? `<span class="chip chip-agent">${t.agent}</span>` : ''}
+        ${labels.map(l => `<span class="chip chip-label">${l}</span>`).join('')}
         ${elapsed}
       </div>
     </div>`;
 }
 
-// ── Dashboard ──────────────────────────────────────────────────────────────────
+/* ── Dashboard ──────────────────────────────────────────────────────────────── */
 function renderDashboard(m) {
   const stats = [
-    { value: m.tasks?.done ?? '—', label: 'Done', sub: `${m.velocity?.this_week ?? 0} this week`, color: 'var(--green)' },
-    { value: m.tasks?.in_progress ?? '—', label: 'In progress', sub: `${m.tasks?.backlog ?? 0} in backlog`, color: 'var(--accent)' },
-    { value: m.avg_completion_min ? `${m.avg_completion_min}m` : '—', label: 'Avg completion', sub: 'vs human: hours–days', color: 'var(--yellow)' },
-    { value: m.cost?.savings_x ? `${m.cost.savings_x}×` : '—', label: 'Cost savings', sub: m.cost?.human_usd ? `~$${m.cost.human_usd.toLocaleString()} saved` : 'no plans yet', color: 'var(--purple)' },
-    { value: m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : '—', label: 'QA pass rate', sub: `${m.qa?.passed ?? 0} passed · ${m.qa?.failed ?? 0} failed`, color: 'var(--green)' },
-    { value: m.security?.approved ?? '—', label: 'Security approved', sub: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks', color: m.security?.blocked ? 'var(--red)' : 'var(--green)' },
+    { v: m.tasks?.done     ?? '—', label:'Done',             sub: `+${m.velocity?.this_week ?? 0} this week`, color:'var(--green)' },
+    { v: m.tasks?.in_progress ?? '—', label:'In progress',  sub: `${m.tasks?.backlog ?? 0} in backlog`,      color:'var(--accent)' },
+    { v: m.avg_completion_min ? `${m.avg_completion_min}m` : '—', label:'Avg time', sub:'human: hours–days', color:'var(--yellow)' },
+    { v: m.cost?.savings_x ? `${m.cost.savings_x}×` : '—', label:'Cost savings', sub: m.cost?.human_usd ? `$${m.cost.human_usd.toLocaleString()} saved` : 'no plans yet', color:'var(--purple)' },
+    { v: m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : '—', label:'QA pass rate', sub:`${m.qa?.passed ?? 0} pass · ${m.qa?.failed ?? 0} fail`, color:'var(--green)' },
+    { v: m.security?.approved ?? '—', label:'Security OK',  sub: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks', color: m.security?.blocked ? 'var(--red)' : 'var(--green)' },
   ];
   document.getElementById('stats-grid').innerHTML = stats.map(s => `
-    <div class="stat-card">
-      <div class="stat-value" style="color:${s.color}">${s.value}</div>
+    <div class="stat-card" style="--stat-color:${s.color}">
+      <div class="stat-value">${s.v}</div>
       <div class="stat-label">${s.label}</div>
       <div class="stat-sub">${s.sub}</div>
     </div>`).join('');
 
-  // Agent bars
-  const agents = m.agents || {};
+  const agents  = m.agents || {};
   const maxRuns = Math.max(...Object.values(agents), 1);
-  document.getElementById('agent-list').innerHTML = Object.entries(agents)
-    .sort((a, b) => b[1] - a[1])
-    .map(([a, n]) => `
+  document.getElementById('agent-list').innerHTML =
+    Object.entries(agents).sort((a,b)=>b[1]-a[1]).map(([a,n]) => `
       <div class="agent-row">
-        <div class="agent-name">${AGENT_ICONS[a] || '🤖'} ${a}</div>
+        <div class="agent-name">${a}</div>
         <div class="bar-wrap"><div class="bar" style="width:${(n/maxRuns*100).toFixed(0)}%"></div></div>
-        <div class="agent-count">${n}</div>
-      </div>`).join('') || '<div class="empty">No agent runs recorded yet</div>';
+        <div class="agent-n">${n}</div>
+      </div>`).join('') || '<div class="empty">No agent runs yet</div>';
 
-  // Timeline
   const verdicts = (m.verdicts || []).slice().reverse();
   document.getElementById('timeline').innerHTML = verdicts.map(v => {
-    const vclass = v.verdict ? v.verdict.toUpperCase() : '';
-    const dotClass = ['APPROVED','DONE','PASS'].includes(vclass) ? 'APPROVED' :
-                     ['BLOCKED','FAILED','FAIL'].includes(vclass) ? 'BLOCKED' : '';
+    const vu = (v.verdict || '').toUpperCase();
+    const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'tl-ok'
+              : ['BLOCKED','FAILED','FAIL'].includes(vu) ? 'tl-fail' : 'tl-def';
     return `
-      <div class="tl-item">
-        <div class="tl-dot ${dotClass}" style="${!dotClass ? 'background:var(--text2)' : ''}"></div>
+      <div class="tl-row">
+        <div class="tl-status ${cls}"></div>
         <div class="tl-agent">${v.agent}</div>
-        <div class="tl-text">${esc(v.raw.substring(30, 100))}</div>
+        <div class="tl-text">${esc((v.raw||'').substring(30,110))}</div>
         <div class="tl-time">${relTime(v.ts)}</div>
       </div>`;
-  }).join('') || '<div class="empty">No verdicts recorded yet</div>';
+  }).join('') || '<div class="empty">No activity yet</div>';
 }
 
-// ── Share ──────────────────────────────────────────────────────────────────────
-function renderShare(state) {
+/* ── Share ──────────────────────────────────────────────────────────────────── */
+function renderShareState(state) {
   shareState = state;
-  document.getElementById('share-toggle').checked = !!state.enabled;
-  const navTag = document.getElementById('share-status-nav');
-  navTag.textContent = state.enabled ? 'on' : 'off';
-  navTag.className = `status-tag ${state.enabled ? 'on' : 'off'}`;
-  document.getElementById('share-url-section').style.display = state.enabled && state.url ? 'block' : 'none';
+  const on  = !!state.enabled;
+  document.getElementById('share-toggle').checked = on;
+  const badge = document.getElementById('share-nav-badge');
+  badge.className = `share-badge ${on ? 'on' : 'off'}`;
+  badge.innerHTML = `<span class="share-badge-dot"></span>${on ? 'on' : 'off'}`;
+  const urlSec = document.getElementById('share-url-section');
+  urlSec.style.display = (on && state.url) ? 'block' : 'none';
   document.getElementById('share-url-text').textContent = state.url || '—';
 }
 
 async function onShareToggle(enabled) {
-  document.getElementById('share-loading').style.display = enabled ? 'flex' : 'none';
+  document.getElementById('share-loading').style.display  = enabled ? 'flex' : 'none';
   document.getElementById('share-url-section').style.display = 'none';
-  try {
-    const res = await fetch('/api/share', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    });
-    const state = await res.json();
-    if (state.error) { alert('Share error: ' + state.error); document.getElementById('share-toggle').checked = !enabled; }
-    else renderShare(state);
-  } catch (e) {
-    alert('Network error: ' + e.message);
-    document.getElementById('share-toggle').checked = !enabled;
-  }
+  const state = await api('/api/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
   document.getElementById('share-loading').style.display = 'none';
+  if (!state || state.error) {
+    alert(state?.error || 'Network error');
+    document.getElementById('share-toggle').checked = !enabled;
+    return;
+  }
+  renderShareState(state);
 }
 
 function copyUrl() {
+  const btn = event.currentTarget;
   navigator.clipboard.writeText(shareState.url || '').then(() => {
-    const btn = event.target; btn.textContent = 'Copied!';
+    btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy', 1500);
   });
 }
 function openUrl() { window.open(shareState.url, '_blank'); }
 
-// ── Side panel ─────────────────────────────────────────────────────────────────
+/* ── Side panel ─────────────────────────────────────────────────────────────── */
 function openSide(task) {
-  document.getElementById('side-id').textContent = task.id;
-  const pLabel = ['P0','P1','P2','P3'][task.priority] || '?';
+  document.getElementById('side-id').textContent = task.id || '—';
+  const pLabel = PRIORITY_LABEL[task.priority ?? 3];
+  const pTip   = PRIORITY_TIP[task.priority ?? 3];
   const dur = task.created_at && task.closed_at
     ? fmtDur(new Date(task.closed_at) - new Date(task.created_at)) : null;
-  const agentIcon = AGENT_ICONS[task.agent] || '🤖';
+
+  const rows = [
+    ['Status',   `<span class="pill pill-${task.status || 'backlog'}">${(task.status||'backlog').replace('_',' ')}</span>`],
+    ['Priority', `<span class="pill pill-backlog">${pLabel} · ${pTip}</span>`],
+    task.agent    ? ['Agent',   esc(task.agent)] : null,
+    task.labels?.length ? ['Labels', task.labels.map(l=>`<span class="chip">${l}</span>`).join(' ')] : null,
+    ['Created',  fmtDate(task.created_at)],
+    task.closed_at ? ['Closed', fmtDate(task.closed_at)] : null,
+    dur ? ['Duration', dur] : null,
+  ].filter(Boolean);
+
   document.getElementById('side-body').innerHTML = `
     <div class="side-title">${esc(task.title)}</div>
-    ${field('Status', `<span class="badge badge-${task.status}">${task.status.replace('_',' ')}</span>`)}
-    ${field('Priority', `<span class="badge badge-p${task.priority}">${pLabel}</span>`)}
-    ${task.agent ? field('Agent', `${agentIcon} ${task.agent}`) : ''}
-    ${task.labels?.length ? field('Labels', task.labels.map(l => `<span class="badge badge-label">${l}</span>`).join(' ')) : ''}
-    ${field('Created', fmtDate(task.created_at))}
-    ${task.closed_at ? field('Closed', fmtDate(task.closed_at)) : ''}
-    ${dur ? field('Duration', dur) : ''}
-    ${task.close_reason ? `<div class="field"><div class="field-label">Result</div><div class="close-reason">${esc(task.close_reason)}</div></div>` : ''}
-  `;
+    <div class="props">
+      ${rows.map(([k,v])=>`<div class="prop-key">${k}</div><div class="prop-val">${v}</div>`).join('')}
+    </div>
+    ${task.close_reason ? `<div class="result-box">${esc(task.close_reason)}</div>` : ''}`;
+
   document.getElementById('side-panel').classList.add('open');
 }
-function closeSide() { document.getElementById('side-panel').classList.remove('open'); }
+function closeSide() {
+  document.getElementById('side-panel').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSide(); });
 
-// ── Tabs ───────────────────────────────────────────────────────────────────────
+/* ── Tabs ───────────────────────────────────────────────────────────────────── */
 function switchTab(id, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById(`panel-${id}`).classList.add('active');
-  if (id === 'dashboard') { fetch('/api/metrics').then(r=>r.json()).then(m => { metrics=m; renderDashboard(m); }); }
+  if (id === 'dashboard') {
+    api('/api/metrics').then(m => { if (m) { metrics = m; renderDashboard(m); } });
+  }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function field(label, value) { return `<div class="field"><div class="field-label">${label}</div><div class="field-value">${value}</div></div>`; }
+/* ── Helpers ────────────────────────────────────────────────────────────────── */
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 function relTime(iso) {
   if (!iso) return '';
-  const d = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (d < 60) return `${Math.round(d)}s ago`;
-  if (d < 3600) return `${Math.round(d/60)}m ago`;
-  if (d < 86400) return `${Math.round(d/3600)}h ago`;
-  return `${Math.round(d/86400)}d ago`;
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s <   60) return `${Math.round(s)}s`;
+  if (s < 3600) return `${Math.round(s/60)}m`;
+  if (s < 86400)return `${Math.round(s/3600)}h`;
+  return `${Math.round(s/86400)}d`;
 }
 function fmtDate(iso) { return iso ? new Date(iso).toLocaleString() : '—'; }
 function fmtDur(ms) {
   const m = Math.round(ms/60000);
-  if (m < 60) return `${m} min`;
+  if (m < 60) return `${m}min`;
   return `${Math.floor(m/60)}h ${m%60}m`;
 }
 

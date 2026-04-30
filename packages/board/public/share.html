@@ -4,95 +4,237 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex, nofollow" />
-<title>{{PROJECT}} · AI Engineering Report · {{DATE}}</title>
-<meta property="og:title" content="{{PROJECT}} · AI Engineering Report" />
-<meta property="og:description" content="AI agents shipped features, saved time and money. See the breakdown." />
+<title>{{PROJECT}} · Engineering Report · {{DATE}}</title>
+<meta property="og:title" content="{{PROJECT}} · Engineering Report" />
+<meta property="og:description" content="AI agents shipped features, saved time and cost. See the breakdown." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
-  :root { --bg:#0a0d12; --bg2:#111620; --bg3:#1a2030; --border:#1e2a3a; --text:#e2e8f0; --text2:#64748b; --green:#22c55e; --accent:#3b82f6; --yellow:#f59e0b; --purple:#a855f7; --mono:'JetBrains Mono',monospace; }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
-  .container{max-width:800px;margin:0 auto;padding:40px 20px}
-  header{text-align:center;margin-bottom:40px}
-  .logo{font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:6px}
-  .dot{width:8px;height:8px;background:var(--accent);border-radius:50%}
-  h1{font-size:clamp(22px,4vw,32px);font-weight:700;margin-bottom:8px}
-  .subtitle{color:var(--text2);font-size:14px}
-  .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:40px}
-  .stat{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px 20px}
-  .stat-v{font-size:28px;font-weight:700;font-family:var(--mono);line-height:1;margin-bottom:4px}
-  .stat-l{font-size:12px;color:var(--text2)}
-  .stat-s{font-size:11px;color:var(--text2);margin-top:4px;font-family:var(--mono)}
-  h2{font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:12px}
-  .features{display:flex;flex-direction:column;gap:6px;margin-bottom:40px}
-  .feat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:10px}
-  .feat-icon{color:var(--green);font-size:14px}
-  .feat-title{flex:1;font-size:13px}
-  .feat-time{font-family:var(--mono);font-size:11px;color:var(--text2)}
-  footer{text-align:center;padding:40px 0 20px;font-size:12px;color:var(--text2)}
-  footer a{color:var(--text2);text-decoration:none}
-  footer a:hover{color:var(--text)}
-  .paused{text-align:center;padding:80px 20px}
-  .paused h2{font-size:20px;color:var(--text2);margin-bottom:8px;text-transform:none;letter-spacing:0}
-  .paused p{color:var(--text2);font-size:14px}
+:root {
+  --bg0: #0f0f0f;
+  --bg1: #161616;
+  --bg2: #1c1c1c;
+  --bg3: #242424;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+  --text:  #f1f1f1;
+  --text2: #8b8b8b;
+  --text3: #b0b0b0;
+  --accent: #5e6ad2;
+  --green: #26b066;
+  --green-bg: rgba(38,176,102,.1);
+  --yellow: #f0b429;
+  --yellow-bg: rgba(240,180,41,.1);
+  --red: #e5484d;
+  --mono: 'JetBrains Mono', monospace;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg0);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+.wrap { max-width: 780px; margin: 0 auto; padding: 48px 24px 80px; }
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+.header-top {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-family: var(--mono); color: var(--text2);
+  margin-bottom: 28px;
+}
+.header-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 8px;
+  font-size: 11px; font-family: var(--mono); color: var(--text3);
+}
+.header-badge-dot {
+  width: 6px; height: 6px;
+  background: var(--accent); border-radius: 50%;
+}
+.header-sep { color: var(--bg3); }
+
+.h1 { font-size: clamp(22px, 5vw, 36px); font-weight: 700; letter-spacing: -.02em; margin-bottom: 6px; }
+.h1-sub { font-size: 14px; color: var(--text2); }
+
+/* ── Divider ────────────────────────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+/* ── Stats grid ─────────────────────────────────────────────────────────────── */
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; margin-bottom: 40px; }
+.stat {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  position: relative; overflow: hidden;
+}
+.stat::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--stat-c, var(--accent));
+  border-radius: 6px 6px 0 0;
+}
+.stat-v {
+  font-size: 28px; font-weight: 700;
+  font-family: var(--mono);
+  color: var(--stat-c, var(--text));
+  line-height: 1.1; margin-bottom: 3px;
+  letter-spacing: -.03em;
+}
+.stat-l { font-size: 12px; color: var(--text3); font-weight: 500; margin-bottom: 2px; }
+.stat-s { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+
+/* ── Section heading ────────────────────────────────────────────────────────── */
+.sec-hd {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text2); margin-bottom: 10px;
+}
+
+/* ── Features ───────────────────────────────────────────────────────────────── */
+.features { display: flex; flex-direction: column; gap: 2px; margin-bottom: 40px; }
+.feat {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  transition: background .1s;
+}
+.feat:hover { background: var(--bg2); }
+.feat-check {
+  width: 16px; height: 16px;
+  background: var(--green-bg);
+  border: 1px solid var(--green);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.feat-check svg { color: var(--green); }
+.feat-title { flex: 1; font-size: 13px; color: var(--text); }
+.feat-note  { font-size: 11px; font-family: var(--mono); color: var(--text2); flex-shrink: 0; }
+
+/* ── Footer ─────────────────────────────────────────────────────────────────── */
+.footer {
+  text-align: center;
+  padding-top: 40px;
+  font-size: 12px;
+  color: var(--text2);
+  border-top: 1px solid var(--border);
+}
+.footer a { color: var(--text2); text-decoration: none; }
+.footer a:hover { color: var(--text3); }
+
+/* ── Paused ─────────────────────────────────────────────────────────────────── */
+.paused-page {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: 40px 20px;
+}
+.paused-icon {
+  width: 40px; height: 40px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; margin-bottom: 8px;
+}
+.paused-title { font-size: 18px; font-weight: 600; color: var(--text3); }
+.paused-sub   { font-size: 13px; color: var(--text2); }
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
 const metrics = {{METRICS_JSON}};
-const tasks = {{TASKS_JSON}};
+const tasks   = {{TASKS_JSON}};
 const project = '{{PROJECT}}';
-const date = '{{DATE}}';
-const paused = {{PAUSED}};
+const date    = '{{DATE}}';
+const paused  = {{PAUSED}};
 
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function checkIcon() {
+  return `<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
+}
 
 if (paused) {
   document.getElementById('root').innerHTML = `
-    <div class="container">
-      <div class="logo"><div class="dot"></div>great_cto</div>
-      <div class="paused">
-        <h2>Report paused</h2>
-        <p>The owner has temporarily disabled this link.</p>
+    <div class="paused-page">
+      <div class="paused-icon">⏸</div>
+      <div class="paused-title">Report paused</div>
+      <div class="paused-sub">The owner has temporarily disabled this link.</div>
+      <div style="margin-top:16px;font-size:12px;color:var(--text2);">
+        Powered by <a href="https://greatcto.systems" style="color:var(--text2);">great_cto</a>
       </div>
     </div>`;
 } else {
   const m = metrics || {};
   const stats = [
-    { v: m.tasks?.done ?? '—', l: 'Features shipped', s: `${m.velocity?.this_week ?? 0} this week`, c: 'var(--green)' },
-    { v: m.avg_completion_min ? `${m.avg_completion_min}m` : '—', l: 'Avg completion', s: 'LLM vs human: hours', c: 'var(--accent)' },
-    { v: m.cost?.savings_x ? `${m.cost.savings_x}×` : '—', l: 'Cost savings', s: m.cost?.human_usd ? `~$${Number(m.cost.human_usd).toLocaleString()} saved` : '', c: 'var(--yellow)' },
-    { v: m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : '—', l: 'QA pass rate', s: '', c: 'var(--green)' },
-    { v: m.security?.approved ?? '—', l: 'Security approved', s: m.security?.blocked ? `${m.security.blocked} blocked` : '', c: m.security?.blocked ? 'var(--yellow)' : 'var(--green)' },
-    { v: m.tasks?.in_progress ?? '—', l: 'In progress', s: `${m.tasks?.backlog ?? 0} in backlog`, c: 'var(--accent)' },
+    { v: m.tasks?.done ?? '—',   l: 'Features shipped',    s: `+${m.velocity?.this_week ?? 0} this week`,   c: 'var(--green)'  },
+    { v: m.avg_completion_min ? `${m.avg_completion_min}m` : '—', l: 'Avg completion', s: 'vs human: hours–days', c: 'var(--accent)' },
+    { v: m.cost?.savings_x ? `${m.cost.savings_x}×` : '—', l: 'Cost savings',  s: m.cost?.human_usd ? `$${Number(m.cost.human_usd).toLocaleString()} saved` : 'no plans yet', c: 'var(--yellow)' },
+    { v: m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : '—', l: 'QA pass rate', s: `${m.qa?.passed??0} pass · ${m.qa?.failed??0} fail`, c: 'var(--green)' },
+    { v: m.security?.approved ?? '—', l: 'Security OK', s: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks', c: m.security?.blocked ? 'var(--yellow)' : 'var(--green)' },
+    { v: m.tasks?.in_progress ?? '—', l: 'In progress', s: `${m.tasks?.backlog??0} in backlog`, c: 'var(--accent)' },
   ];
 
-  const featHTML = tasks.map(t => `
-    <div class="feat">
-      <span class="feat-icon">✓</span>
-      <span class="feat-title">${esc(t.title)}</span>
-      ${t.close_reason ? `<span class="feat-time">${esc(t.close_reason.substring(0,60))}</span>` : ''}
-    </div>`).join('');
+  const done = tasks.filter(t => t.status === 'done' || t.status === 'closed');
 
   document.getElementById('root').innerHTML = `
-    <div class="container">
-      <header>
-        <div class="logo"><div class="dot"></div>great_cto · AI Engineering Report</div>
-        <h1>${esc(project)}</h1>
-        <div class="subtitle">${esc(date)} · Generated by great_cto agents</div>
-      </header>
-
-      <div class="stats">
-        ${stats.map(s => `<div class="stat"><div class="stat-v" style="color:${s.c}">${s.v}</div><div class="stat-l">${s.l}</div>${s.s ? `<div class="stat-s">${s.s}</div>` : ''}</div>`).join('')}
+    <div class="wrap">
+      <div class="header-top">
+        <div class="header-badge">
+          <div class="header-badge-dot"></div>
+          great_cto
+        </div>
+        <span class="header-sep">/</span>
+        <span>AI Engineering Report</span>
       </div>
 
-      ${tasks.length ? `<h2>Recently shipped</h2><div class="features">${featHTML}</div>` : ''}
+      <div class="h1">${esc(project)}</div>
+      <div class="h1-sub">${esc(date)} · Generated by great_cto agents</div>
 
-      <footer>
-        Powered by <a href="https://greatcto.systems" target="_blank">great_cto</a> ·
-        AI engineering for solo founders and teams ·
-        <a href="https://github.com/avelikiy/great_cto" target="_blank">GitHub</a>
-      </footer>
+      <hr class="divider" />
+
+      <div class="stats">
+        ${stats.map(s => `
+          <div class="stat" style="--stat-c:${s.c}">
+            <div class="stat-v">${s.v}</div>
+            <div class="stat-l">${s.l}</div>
+            ${s.s ? `<div class="stat-s">${s.s}</div>` : ''}
+          </div>`).join('')}
+      </div>
+
+      ${done.length ? `
+        <div class="sec-hd">Recently shipped</div>
+        <div class="features">
+          ${done.map(t => `
+            <div class="feat">
+              <div class="feat-check">${checkIcon()}</div>
+              <div class="feat-title">${esc(t.title)}</div>
+              ${t.close_reason ? `<div class="feat-note">${esc(t.close_reason.substring(0,55))}…</div>` : ''}
+            </div>`).join('')}
+        </div>` : ''}
+
+      <div class="footer">
+        Powered by <a href="https://greatcto.systems" target="_blank">great_cto</a>
+        · AI engineering infrastructure
+        · <a href="https://github.com/avelikiy/great_cto" target="_blank">GitHub</a>
+      </div>
     </div>`;
 }
 </script>
