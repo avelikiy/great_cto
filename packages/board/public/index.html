@@ -262,9 +262,12 @@ body {
 .dash-inner { padding: 20px 20px; max-width: 1100px; }
 .dash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 28px;
+}
+@media (max-width: 600px) {
+  .dash-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .stat-card {
   background: var(--bg1);
@@ -292,7 +295,10 @@ body {
   letter-spacing: -.02em;
 }
 .stat-label { font-size: 12px; color: var(--text3); font-weight: 500; margin-bottom: 2px; }
-.stat-sub   { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+.stat-sub   { font-size: 11px; color: var(--text2); font-family: var(--mono); line-height: 1.7; }
+.stat-cost  { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;
+              font-size: 10px; font-family: var(--mono); color: var(--text2);
+              background: var(--bg3); border-radius: 3px; padding: 1px 6px; }
 
 .section-hd {
   font-size: 11px;
@@ -739,19 +745,25 @@ function cardHTML(t) {
 
 /* ── Dashboard ──────────────────────────────────────────────────────────────── */
 function renderDashboard(m) {
+  const llmUsd   = m.cost?.llm_usd  ?? 0;
+  const humanUsd = m.cost?.human_usd ?? 0;
+  const savingsX = m.cost?.savings_x ?? 0;
   const stats = [
-    { v: m.tasks?.done     ?? '—', label:'Done',             sub: `+${m.velocity?.this_week ?? 0} this week`, color:'var(--green)' },
-    { v: m.tasks?.in_progress ?? '—', label:'In progress',  sub: `${m.tasks?.backlog ?? 0} in backlog`,      color:'var(--accent)' },
-    { v: m.avg_completion_min ? `${m.avg_completion_min}m` : '—', label:'Avg time', sub:'human: hours–days', color:'var(--yellow)' },
-    { v: m.cost?.savings_x ? `${m.cost.savings_x}×` : '—', label:'Cost savings', sub: m.cost?.human_usd ? `$${m.cost.human_usd.toLocaleString()} saved` : 'no plans yet', color:'var(--purple)' },
-    { v: m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : '—', label:'QA pass rate', sub:`${m.qa?.passed ?? 0} pass · ${m.qa?.failed ?? 0} fail`, color:'var(--green)' },
-    { v: m.security?.approved ?? '—', label:'Security OK',  sub: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks', color: m.security?.blocked ? 'var(--red)' : 'var(--green)' },
+    { v: m.tasks?.done        ?? '—', label: 'Done',          sub: `+${m.velocity?.this_week ?? 0} this week`,         color: 'var(--green)'  },
+    { v: m.tasks?.in_progress ?? '—', label: 'In progress',   sub: `${m.tasks?.backlog ?? 0} in backlog`,              color: 'var(--accent)' },
+    { v: m.avg_completion_min ? `${m.avg_completion_min}m` : '—', label: 'Avg task time', sub: 'human equiv: hours–days', color: 'var(--yellow)' },
+    { v: llmUsd > 0 ? `$${llmUsd.toFixed(2)}` : '—',         label: 'LLM spend',        sub: savingsX > 0 ? `${savingsX}× cheaper than human` : 'no plans yet',
+      sub2: humanUsd > 0 ? `human equiv: $${humanUsd.toLocaleString()}` : null, color: 'var(--purple)' },
+    { v: m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : '—', label: 'QA pass rate',   sub: `${m.qa?.passed ?? 0} pass · ${m.qa?.failed ?? 0} fail`, color: 'var(--green)' },
+    { v: m.security?.approved ?? '—', label: 'Security OK',   sub: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks',
+      color: m.security?.blocked ? 'var(--red)' : 'var(--green)' },
   ];
   document.getElementById('stats-grid').innerHTML = stats.map(s => `
     <div class="stat-card" style="--stat-color:${s.color}">
       <div class="stat-value">${s.v}</div>
       <div class="stat-label">${s.label}</div>
       <div class="stat-sub">${s.sub}</div>
+      ${s.sub2 ? `<div class="stat-cost">${s.sub2}</div>` : ''}
     </div>`).join('');
 
   const agents  = m.agents || {};
@@ -764,16 +776,20 @@ function renderDashboard(m) {
         <div class="agent-n">${n}</div>
       </div>`).join('') || '<div class="empty">No agent runs yet</div>';
 
-  const verdicts = (m.verdicts || []).slice().reverse();
+  const verdicts = (m.verdicts || []).slice();
   document.getElementById('timeline').innerHTML = verdicts.map(v => {
     const vu = (v.verdict || '').toUpperCase();
     const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'tl-ok'
               : ['BLOCKED','FAILED','FAIL'].includes(vu) ? 'tl-fail' : 'tl-def';
+    // Extract readable text: skip timestamp prefix, take up to 80 chars
+    const raw = v.raw || '';
+    const afterColon = raw.indexOf(': ') !== -1 ? raw.slice(raw.indexOf(': ') + 2) : raw;
+    const text = afterColon.length > 80 ? afterColon.slice(0, 80) + '…' : afterColon;
     return `
       <div class="tl-row">
         <div class="tl-status ${cls}"></div>
         <div class="tl-agent">${v.agent}</div>
-        <div class="tl-text">${esc((v.raw||'').substring(30,110))}</div>
+        <div class="tl-text">${esc(text)}</div>
         <div class="tl-time">${relTime(v.ts)}</div>
       </div>`;
   }).join('') || '<div class="empty">No activity yet</div>';
