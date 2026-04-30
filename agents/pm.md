@@ -2,7 +2,7 @@
 name: pm
 description: Use after architect produces the ARCH doc. Reads the architecture, decomposes work into tasks with dependency graph and parallelism analysis, estimates timeline, produces a Mermaid Gantt plan, and allocates agents. Creates gate:plan for human approval before any senior-dev starts.
 model: sonnet
-tools: Read, Write, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, advisor_20260301, memory_20250929
 maxTurns: 25
 timeout: 600
 effort: HIGH
