@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="light" />
 <title>great_cto board</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
+<link rel="shortcut icon" href="/assets/favicon.ico" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -86,16 +90,93 @@ button { font-family: inherit; cursor: pointer; }
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
 }
+.sidebar-brand {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-brand .brand-mark {
+  width: 24px; height: 24px;
+  background: #1a2547;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-brand .brand-mark svg { width: 16px; height: 16px; }
+.sidebar-brand .brand-name {
+  font-family: var(--serif); font-weight: 600;
+  font-size: 15px; letter-spacing: -0.01em;
+  color: var(--text);
+}
 .proj-switch {
   display: flex; align-items: center; gap: 8px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+  position: relative;
+  user-select: none;
 }
 .proj-switch:hover { background: var(--bg-muted); }
 .proj-switch .star { color: var(--accent); font-size: 16px; }
 .proj-switch .name { font-weight: 600; font-size: 14px; flex: 1; }
-.proj-switch .chev { color: var(--text3); font-size: 11px; }
+.proj-switch .chev {
+  color: var(--text3); width: 12px; height: 12px;
+  transition: transform 0.15s;
+}
+.proj-switch.open .chev { transform: rotate(180deg); }
+
+.proj-menu {
+  position: absolute;
+  top: calc(100% - 4px); left: 8px; right: 8px;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 17, 21, 0.10);
+  padding: 4px;
+  z-index: 100;
+  display: none;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.proj-switch.open .proj-menu { display: block; }
+.proj-menu-search {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.proj-menu-search input {
+  flex: 1; border: none; outline: none;
+  font-family: inherit; font-size: 12px;
+  color: var(--text); background: transparent;
+}
+.proj-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.proj-item:hover { background: var(--bg-muted); }
+.proj-item.active { background: var(--bg-strong); font-weight: 500; }
+.proj-item .star { color: var(--accent); font-size: 14px; }
+.proj-item-info { flex: 1; min-width: 0; }
+.proj-item-info .name { font-weight: 500; font-size: 13px; }
+.proj-item-info .arch {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+}
+.proj-item .check {
+  width: 14px; height: 14px;
+  color: var(--accent);
+}
+.proj-item:not(.active) .check { display: none; }
+.proj-menu-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text3);
+}
 
 .nav { padding: 12px 8px; flex: 1; }
 .nav-item {
@@ -260,25 +341,44 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
+  height: 112px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
 }
 .card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .card .id {
-  font-family: var(--mono); font-size: 11px;
+  font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.04em; color: var(--text3);
+  flex-shrink: 0;
 }
 .card .title {
-  font-weight: 600; font-size: 14px;
-  line-height: 1.35; margin-top: 4px;
+  font-weight: 600; font-size: 13px;
+  line-height: 1.35;
   color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  max-height: 2.7em;
+  flex: 1;
 }
+.card-row1 { align-items: flex-start; }
 .card-footer {
   display: flex; align-items: center; gap: 6px;
-  margin-top: 10px; flex-wrap: wrap;
+  margin-top: auto;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
+.card-footer > * { flex-shrink: 0; }
 .card-time {
   margin-left: auto;
   font-family: var(--mono); font-size: 11px;
@@ -677,10 +777,25 @@ button { font-family: inherit; cursor: pointer; }
 
   <!-- Sidebar -->
   <aside class="sidebar">
-    <div class="proj-switch">
+    <div class="sidebar-brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 11 L35.5 30.6 L52.6 17 L40.6 32 L52.6 47 L35.5 33.4 L32 53 L28.5 33.4 L11.4 47 L23.4 32 L11.4 17 L28.5 30.6 Z" fill="#ffd9b8"/>
+        </svg>
+      </span>
+      <span class="brand-name">greatcto</span>
+    </div>
+    <div class="proj-switch" id="proj-switch" onclick="toggleProjMenu(event)">
       <span class="star">✱</span>
       <span class="name" id="project-name">—</span>
-      <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      <div class="proj-menu" id="proj-menu" onclick="event.stopPropagation()">
+        <div class="proj-menu-search">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input id="proj-search" type="text" placeholder="Filter projects…" oninput="renderProjMenu(this.value)" />
+        </div>
+        <div id="proj-menu-list"></div>
+      </div>
     </div>
     <nav class="nav">
       <div class="nav-item active" data-tab="kanban" onclick="switchTab('kanban', this)">
@@ -833,6 +948,57 @@ let metrics = {};
 let shareState = { enabled: false, url: null };
 let currentTab = 'kanban';
 let searchQuery = '';
+let allProjects = [];
+let currentProject = '';
+
+function toggleProjMenu(e) {
+  e?.stopPropagation();
+  const sw = document.getElementById('proj-switch');
+  const isOpen = sw.classList.toggle('open');
+  if (isOpen) {
+    document.getElementById('proj-search').focus();
+    renderProjMenu('');
+  }
+}
+function closeProjMenu() {
+  document.getElementById('proj-switch')?.classList.remove('open');
+}
+document.addEventListener('click', closeProjMenu);
+
+function renderProjMenu(filter = '') {
+  const list = document.getElementById('proj-menu-list');
+  if (!list) return;
+  if (!allProjects.length) {
+    list.innerHTML = '<div class="proj-menu-empty">No projects registered yet</div>';
+    return;
+  }
+  const f = filter.toLowerCase();
+  const filtered = allProjects.filter(p =>
+    !f || (p.slug || '').toLowerCase().includes(f) ||
+    (p.archetype || '').toLowerCase().includes(f) ||
+    (p.description || '').toLowerCase().includes(f)
+  );
+  if (!filtered.length) {
+    list.innerHTML = '<div class="proj-menu-empty">No matches</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(p => `
+    <div class="proj-item ${p.slug === currentProject ? 'active' : ''}" onclick="switchProject('${esc(p.slug)}')">
+      <span class="star">✱</span>
+      <div class="proj-item-info">
+        <div class="name">${esc(p.slug)}</div>
+        <div class="arch">${esc(p.archetype || '')}${p.description ? ' · ' + esc(p.description.slice(0, 40)) : ''}</div>
+      </div>
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>`).join('');
+}
+
+function switchProject(slug) {
+  if (slug === currentProject) { closeProjMenu(); return; }
+  const url = new URL(window.location.href);
+  url.searchParams.set('project', slug);
+  window.location.href = url.toString();
+}
 
 function filterTasks(q) {
   if (!q) return allTasks;

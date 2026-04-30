@@ -1,5 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" role="img" aria-label="greatcto">
-  <rect width="360" height="96" fill="#1a2547"/>
-  <path d="M48 22 L52.7 48.1 L75.5 30 L59.5 50 L75.5 70 L52.7 51.9 L48 78 L43.3 51.9 L20.5 70 L36.5 50 L20.5 30 L43.3 48.1 Z" fill="#ffd9b8"/>
-  <text x="98" y="64" font-family="Fraunces, Georgia, serif" font-weight="600" font-size="40" fill="#ffd9b8" letter-spacing="-0.01em">greatcto</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" role="img" aria-label="greatcto">
+  <path d="M28 14 L31.7 34.6 L49.7 20 L37 36 L49.7 52 L31.7 37.4 L28 58 L24.3 37.4 L6.3 52 L19 36 L6.3 20 L24.3 34.6 Z" fill="#ffd9b8"/>
+  <text x="64" y="48" font-family="Space Grotesk, Inter, sans-serif" font-weight="600" font-size="32" fill="#ffffff" letter-spacing="-0.01em">greatcto</text>
 </svg>
