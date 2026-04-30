@@ -7,7 +7,7 @@
 <title>great_cto board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
 :root {
   --bg-page: transparent;
@@ -40,7 +40,7 @@
   --p2-bg: #fef3c7; --p2-fg: #92400e;
   --p3-bg: #f1f5f9; --p3-fg: #475569;
 
-  --serif: "Fraunces", Georgia, serif;
+  --serif: "Space Grotesk", "Inter", -apple-system, sans-serif;
   --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
@@ -153,6 +153,31 @@ button { font-family: inherit; cursor: pointer; }
 .crumbs .star { color: var(--accent); }
 .crumbs .sep { color: var(--text3); }
 .crumbs .here { color: var(--text); font-weight: 500; }
+
+.search-box {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  width: 280px;
+  margin: 0 16px;
+  transition: border-color .12s, background .12s;
+}
+.search-box:focus-within { border-color: var(--accent); background: #fff; }
+.search-box svg { color: var(--text3); flex-shrink: 0; }
+.search-box input {
+  flex: 1; border: none; outline: none; background: transparent;
+  font-family: inherit; font-size: 13px;
+  color: var(--text); padding: 3px 0;
+}
+.search-box input::placeholder { color: var(--text3); }
+.search-box kbd {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3);
+  background: var(--bg-strong);
+  border-radius: 3px; padding: 1px 5px;
+}
 
 .topbar-actions { display: flex; align-items: center; gap: 6px; }
 .tab-row { display: flex; align-items: center; gap: 4px; margin-right: 12px; }
@@ -426,6 +451,20 @@ button { font-family: inherit; cursor: pointer; }
   font-family: var(--sans); font-weight: 600;
   font-size: 15px; margin: 0 0 16px;
 }
+.mp-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+.mp-card-head h3 { margin: 0; }
+.mp-card-meta {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3); letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.feed-cost {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 6px; border-radius: 4px;
+  margin-right: 6px;
+}
 
 .bar-row {
   display: grid; grid-template-columns: 130px 1fr 50px;
@@ -682,6 +721,11 @@ button { font-family: inherit; cursor: pointer; }
         <span class="sep">/</span>
         <span class="here" id="crumb-here">Board</span>
       </div>
+      <div class="search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input id="search-input" type="text" placeholder="Search tasks, agents, labels…" oninput="onSearch(this.value)" />
+        <kbd>⌘K</kbd>
+      </div>
       <div class="topbar-actions">
         <div class="tab-row">
           <button class="tab-btn active" data-tab="kanban" onclick="switchTab('kanban', this)">Board</button>
@@ -713,7 +757,10 @@ button { font-family: inherit; cursor: pointer; }
             <div id="agent-list"></div>
           </div>
           <div class="mp-card">
-            <h3>Activity</h3>
+            <div class="mp-card-head">
+              <h3>Activity</h3>
+              <span class="mp-card-meta" id="activity-meta">last 24h</span>
+            </div>
             <div id="timeline"></div>
           </div>
         </div>
@@ -785,6 +832,41 @@ let allTasks = [];
 let metrics = {};
 let shareState = { enabled: false, url: null };
 let currentTab = 'kanban';
+let searchQuery = '';
+
+function filterTasks(q) {
+  if (!q) return allTasks;
+  const ql = q.toLowerCase();
+  return allTasks.filter(t =>
+    (t.title || '').toLowerCase().includes(ql) ||
+    (t.id || '').toLowerCase().includes(ql) ||
+    (t.agent || '').toLowerCase().includes(ql) ||
+    (t.labels || []).some(l => l.toLowerCase().includes(ql)) ||
+    (t.status || '').toLowerCase().includes(ql)
+  );
+}
+
+function onSearch(q) {
+  searchQuery = q;
+  renderKanban(filterTasks(q));
+  document.getElementById('topbar-task-count').textContent =
+    `${filterTasks(q).length} ${q ? 'MATCH' : 'ISSUES'}`;
+  if (currentTab !== 'kanban') {
+    document.querySelector('.tab-btn[data-tab="kanban"]').click();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    document.getElementById('search-input').focus();
+  }
+  if (e.key === 'Escape' && document.activeElement?.id === 'search-input') {
+    document.getElementById('search-input').value = '';
+    onSearch('');
+    document.activeElement.blur();
+  }
+});
 
 async function init() {
   const [tasks, met, share] = await Promise.all([
@@ -816,7 +898,7 @@ function connectSSE() {
   const es = new EventSource('/api/sse');
   es.addEventListener('tasks', e => {
     allTasks = JSON.parse(e.data);
-    renderKanban(allTasks);
+    renderKanban(filterTasks(searchQuery));
     updateNavCounts();
   });
   es.onopen = () => {
@@ -935,7 +1017,7 @@ function renderDashboard(m) {
       <span class="pct">${Math.round(n/maxRuns*100)}%</span>
     </div>`).join('') : '<div class="empty">No agent runs yet</div>';
 
-  const verdicts = (m.verdicts || []).slice();
+  const verdicts = (m.verdicts || []).slice().reverse().slice(0, 10);
   document.getElementById('timeline').innerHTML = verdicts.length ? verdicts.map(v => {
     const vu = (v.verdict || '').toUpperCase();
     const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' : ['BLOCKED','FAILED','FAIL'].includes(vu) ? 'fail' : 'def';

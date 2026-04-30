@@ -200,11 +200,13 @@ function readVerdicts() {
       .split('\n').filter(Boolean);
     for (const line of lines) {
       const parts = line.split(' ');
+      const costMatch = line.match(/\bcost=\$?(\d+\.?\d*)\b/i);
       results.push({
         ts: parts[0],
         agent,
         verdict: parts[1] || '',
-        raw: line,
+        cost_usd: costMatch ? parseFloat(costMatch[1]) : null,
+        raw: line.replace(/\s*\bcost=\$?\d+\.?\d*\b/i, ''),
       });
     }
   }
