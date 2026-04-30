@@ -9,7 +9,7 @@
 <meta property="og:description" content="AI agents shipped features, saved time and cost. See the breakdown." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
 :root {
   --bg-card: #ffffff;
@@ -25,7 +25,7 @@
   --status-review:   #16a34a;
   --status-progress: #f59e0b;
   --status-blocked:  #dc2626;
-  --serif: "Fraunces", Georgia, serif;
+  --serif: "Space Grotesk", "Inter", -apple-system, sans-serif;
   --sans:  "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -39,12 +39,12 @@ html, body {
 }
 button { font-family: inherit; cursor: pointer; }
 
-/* Page wrap */
+/* Page wrap — compact */
 .report-page {
   position: relative;
   width: 100%; min-height: 100vh;
   display: flex; align-items: flex-start; justify-content: center;
-  padding: 56px 24px;
+  padding: 32px 20px;
   overflow: hidden;
 }
 .report-bg {
@@ -55,72 +55,73 @@ button { font-family: inherit; cursor: pointer; }
 
 .report-card {
   position: relative; z-index: 1;
-  width: 100%; max-width: 720px;
-  background: rgba(255, 255, 255, 0.95);
+  width: 100%; max-width: 680px;
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px;
-  box-shadow: 0 24px 64px rgba(15, 17, 21, 0.18), 0 2px 4px rgba(15, 17, 21, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(15, 17, 21, 0.15), 0 1px 3px rgba(15, 17, 21, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  padding: 40px 44px;
+  padding: 28px 32px;
 }
 
 .report-head {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 32px;
-  padding-bottom: 18px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
-.report-head .left {
+.report-brand {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--mono); font-size: 12px;
-  color: var(--text2); letter-spacing: 0.04em;
+  font-family: var(--serif); font-size: 18px; font-weight: 600;
+  color: var(--text); letter-spacing: -0.01em;
 }
-.report-head .left .star { color: var(--accent); font-size: 14px; }
+.report-brand .star { color: var(--accent); font-size: 18px; }
 .report-status {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 11px; font-family: var(--mono);
+  font-size: 10px; font-family: var(--mono);
   color: var(--status-review);
-  background: rgba(22, 163, 74, 0.08);
-  padding: 4px 10px; border-radius: 999px;
+  background: rgba(22, 163, 74, 0.10);
+  padding: 4px 9px; border-radius: 999px;
+  letter-spacing: 0.04em;
 }
 .report-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-.report-title { display: flex; gap: 18px; margin-bottom: 36px; }
+.report-title { display: flex; gap: 14px; margin-bottom: 24px; }
 .report-title .stripe {
-  width: 4px; background: var(--accent);
+  width: 3px; background: var(--accent);
   border-radius: 2px; flex-shrink: 0;
 }
 .report-title h1 {
-  font-family: var(--serif); font-weight: 500;
-  font-size: 44px; line-height: 1.05;
+  font-family: var(--serif); font-weight: 600;
+  font-size: 26px; line-height: 1.15;
   letter-spacing: -0.02em; margin: 0;
 }
-.report-title h1 em { font-style: italic; color: var(--accent); font-weight: 400; }
+.report-title h1 em { font-style: normal; color: var(--accent); font-weight: 500; }
 .report-title .meta {
-  font-family: var(--mono); font-size: 12px;
-  color: var(--text2); margin-top: 12px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); margin-top: 6px;
   letter-spacing: 0.04em;
 }
 
 .section-label {
-  font-family: var(--mono); font-size: 11px;
+  font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--text3); margin: 0 0 14px;
+  color: var(--text3); margin: 0 0 10px;
 }
 
 .report-stats-hero {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 12px; margin-bottom: 12px;
+  gap: 8px; margin-bottom: 8px;
 }
 .report-stat {
   background: #fff; border: 1px solid var(--border);
-  border-radius: 12px; padding: 22px 20px;
+  border-radius: 8px; padding: 14px 14px;
   position: relative; overflow: hidden;
 }
 .report-stat::before {
   content: ""; position: absolute;
-  top: 0; left: 0; right: 0; height: 3px;
+  top: 0; left: 0; right: 0; height: 2px;
   background: var(--accent);
 }
 .report-stat.green::before  { background: var(--status-review); }
@@ -128,61 +129,92 @@ button { font-family: inherit; cursor: pointer; }
 .report-stat.red::before    { background: var(--status-blocked); }
 .report-stat.purple::before { background: #7c3aed; }
 .report-stat .num {
-  font-family: var(--serif); font-weight: 500;
-  font-size: 40px; line-height: 1;
+  font-family: var(--serif); font-weight: 600;
+  font-size: 26px; line-height: 1;
   letter-spacing: -0.02em;
 }
 .report-stat .num small {
-  font-size: 22px; color: var(--text2);
-  margin-left: 2px; font-weight: 400;
+  font-size: 14px; color: var(--text2);
+  margin-left: 2px; font-weight: 500;
 }
 .report-stat .lbl {
-  font-family: var(--mono); font-size: 11px;
+  font-family: var(--mono); font-size: 9px;
   letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text2); margin-top: 10px;
+  color: var(--text2); margin-top: 8px;
 }
 .report-stat .sub {
-  margin-top: 6px; font-size: 12px; color: var(--text2);
+  margin-top: 4px; font-size: 11px; color: var(--text2);
 }
 
 .report-stats-sec {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 12px; margin-bottom: 32px;
+  gap: 8px; margin-bottom: 18px;
 }
-.report-stats-sec .report-stat .num { font-size: 26px; font-family: var(--mono); font-weight: 500; }
+.report-stats-sec .report-stat .num { font-size: 18px; font-family: var(--mono); font-weight: 500; }
+
+/* Compare card — AI vs humans */
+.compare-card {
+  background: linear-gradient(135deg, var(--accent-soft, #e8edff), #f7f8fa);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 18px;
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px;
+  align-items: center;
+}
+.compare-side { display: flex; flex-direction: column; gap: 2px; }
+.compare-side .lbl {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text2);
+}
+.compare-side .v {
+  font-family: var(--serif); font-weight: 600;
+  font-size: 22px; letter-spacing: -0.02em;
+  color: var(--text);
+}
+.compare-side .t { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.compare-side.right { text-align: right; align-items: flex-end; }
+.compare-vs {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); letter-spacing: 0.06em;
+}
+.compare-vs strong {
+  display: block; font-family: var(--serif);
+  font-size: 16px; color: var(--accent); font-weight: 600;
+  letter-spacing: -0.01em;
+}
 
 .shipped-row {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
-  gap: 12px; align-items: baseline;
-  padding: 12px 0;
+  grid-template-columns: 14px 1fr auto;
+  gap: 10px; align-items: baseline;
+  padding: 8px 0;
   border-top: 1px solid var(--border);
-  font-size: 14px;
+  font-size: 13px;
 }
 .shipped-row:first-of-type { border-top: none; }
 .shipped-check {
-  width: 16px; height: 16px;
+  width: 14px; height: 14px;
   border-radius: 50%;
   background: var(--status-review); color: #fff;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 10px; margin-top: 2px;
+  font-size: 9px; margin-top: 2px;
 }
 .shipped-row .ttl { color: var(--text); }
 .shipped-row .ttl .sub {
   color: var(--text3); display: block;
-  font-size: 12px; margin-top: 2px;
+  font-size: 11px; margin-top: 1px;
 }
 .shipped-row .when {
-  font-family: var(--mono); font-size: 11px; color: var(--text3);
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
 }
 
 .report-foot {
-  margin-top: 36px;
-  padding-top: 18px;
+  margin-top: 22px;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
   text-align: center;
   font-family: var(--mono);
-  font-size: 11px; letter-spacing: 0.06em;
+  font-size: 10px; letter-spacing: 0.06em;
   color: var(--text3);
 }
 .report-foot a { color: var(--accent); text-decoration: none; }
@@ -201,8 +233,8 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text2);
 }
 .paused-card h1 {
-  font-family: var(--serif); font-weight: 500;
-  font-size: 32px; letter-spacing: -0.01em;
+  font-family: var(--serif); font-weight: 600;
+  font-size: 26px; letter-spacing: -0.01em;
   margin: 0 0 10px;
 }
 .paused-card p {
@@ -316,24 +348,24 @@ if (paused) {
       cls: 'green',
     },
     {
-      v: llmUsd > 0 ? '$' + llmUsd.toFixed(2) : '—',
+      v: totalAiMin ? fmtTime(totalAiMin) : '—',
       sub: '',
-      lbl: 'LLM spend',
-      extra: humanUsd > 0 ? `vs humans: $${Number(humanUsd).toLocaleString()}` : 'no plans yet',
+      lbl: 'AI time',
+      extra: avgMin ? `avg ${avgMin}m / task` : 'no data',
       cls: 'amber',
     },
     {
-      v: savingsX > 0 ? savingsX : '—',
-      sub: savingsX > 0 ? '×' : '',
-      lbl: 'vs FTE cost',
-      extra: savingsX > 0 ? `${savingsX}× cheaper than humans` : '—',
+      v: llmUsd > 0 ? '$' + llmUsd.toFixed(0) : '—',
+      sub: '',
+      lbl: 'LLM cost',
+      extra: m.cost?.count ? `${m.cost.count} plans` : 'no plans',
       cls: 'purple',
     },
   ];
 
   const sec = [
-    { v: totalAiMin ? fmtTime(totalAiMin) : '—', lbl: 'AI time', extra: avgMin ? `avg ${avgMin}m / task` : 'no data' },
     { v: m.qa?.pass_rate != null ? m.qa.pass_rate + '%' : '—', lbl: 'QA pass rate', extra: `${m.qa?.passed ?? 0} pass · ${m.qa?.failed ?? 0} fail`, cls: 'green' },
+    { v: m.security?.approved ?? 0, lbl: 'Security approved', extra: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks' },
     { v: m.tasks?.in_progress ?? 0, lbl: 'In progress', extra: `${m.tasks?.backlog ?? 0} in backlog` },
   ];
 
@@ -344,9 +376,9 @@ if (paused) {
       <div class="report-bg">${LANDSCAPE_SVG}</div>
       <div class="report-card">
         <div class="report-head">
-          <div class="left">
+          <div class="report-brand">
             <span class="star">✱</span>
-            <span>GREATCTO · ENGINEERING REPORT</span>
+            <span>greatcto</span>
           </div>
           <span class="report-status">
             <span class="dot"></span> LIVE
@@ -357,7 +389,7 @@ if (paused) {
           <div class="stripe"></div>
           <div>
             <h1>${esc(project)}</h1>
-            <div class="meta">${esc(date.toUpperCase())} · GENERATED BY GREAT_CTO AGENTS</div>
+            <div class="meta">${esc(date.toUpperCase())} · ENGINEERING REPORT</div>
           </div>
         </div>
 
@@ -370,6 +402,24 @@ if (paused) {
               ${s.extra ? `<div class="sub">${s.extra}</div>` : ''}
             </div>`).join('')}
         </div>
+
+        ${humanUsd > 0 ? `
+          <div class="compare-card">
+            <div class="compare-side">
+              <div class="lbl">AI agents</div>
+              <div class="v">$${llmUsd.toFixed(0)}</div>
+              <div class="t">${totalAiMin ? fmtTime(totalAiMin) : '—'} of compute</div>
+            </div>
+            <div class="compare-vs">
+              vs
+              <strong>${savingsX}× cheaper</strong>
+            </div>
+            <div class="compare-side right">
+              <div class="lbl">Human team</div>
+              <div class="v">$${Number(humanUsd).toLocaleString()}</div>
+              <div class="t">est. ${done * 4}h equivalent</div>
+            </div>
+          </div>` : ''}
 
         <div class="report-stats-sec">
           ${sec.map(s => `

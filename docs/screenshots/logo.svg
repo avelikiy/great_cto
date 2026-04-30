@@ -1,9 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" role="img" aria-label="greatcto">
-  <rect width="360" height="96" rx="14" fill="#0a0e0c"/>
-  <g stroke="#00d97e" stroke-width="13" stroke-linecap="round">
-    <line x1="48" y1="22" x2="48" y2="78"/>
-    <line x1="23.5" y1="36.5" x2="72.5" y2="63.5"/>
-    <line x1="23.5" y1="63.5" x2="72.5" y2="36.5"/>
-  </g>
-  <text x="98" y="64" font-family="Geist, Inter, -apple-system, sans-serif" font-weight="600" font-size="40" fill="#ecf2ee" letter-spacing="-0.02em">greatcto</text>
+  <rect width="360" height="96" fill="#1a2547"/>
+  <path d="M48 22 L52.7 48.1 L75.5 30 L59.5 50 L75.5 70 L52.7 51.9 L48 78 L43.3 51.9 L20.5 70 L36.5 50 L20.5 30 L43.3 48.1 Z" fill="#ffd9b8"/>
+  <text x="98" y="64" font-family="Fraunces, Georgia, serif" font-weight="600" font-size="40" fill="#ffd9b8" letter-spacing="-0.01em">greatcto</text>
 </svg>
