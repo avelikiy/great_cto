@@ -4,6 +4,37 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.156 — 2026-04-30
+
+### Agent audit: tool gaps fixed + 3 new specialist subagents
+
+**Tool fixes (9 agents)**
+
+| Agent | Added tools |
+|---|---|
+| pm | `Edit`, `advisor_20260301`, `memory_20250929` |
+| ai-prompt-architect | `Edit`, `Bash`, `advisor_20260301` |
+| ai-eval-engineer | `Edit`, `WebFetch`, `WebSearch` |
+| l3-support | `Edit`, `advisor_20260301`, `memory_20250929` |
+| web-store-reviewer | `Bash`, `advisor_20260301` |
+| project-auditor | `Edit`, `advisor_20260301`, `memory_20250929` |
+| qa-engineer | `WebSearch` |
+| devops | `WebSearch`, `memory_20250929`, `mcp__great_cto_llm_router__ask_kimi` |
+| security-officer | `mcp__great_cto_llm_router__ask_kimi` |
+
+**Skill fixes (skill-discover.sh)**
+- `pm._default`: + `risk-register`
+- `ai-prompt-architect._default`: + `secure-sdlc`
+- `project-auditor._default`: + `vendors`, `cost-model`, `risk-register`
+
+**New subagents**
+
+- **`regulated-reviewer`** — pre-impl specialist for `regulated`/`fintech`. Covers DORA ICT (Art. 5 & 16), NIS2 Art. 21, ISO 27001 SoA, SOX ITGC (Access, Change Mgmt, Computer Ops, SoD), HIPAA PHI. Outputs `TM-*.md`. Blocks senior-dev on Critical/High findings.
+- **`performance-engineer`** — SLO contract design, k6 load tests, latency regression, N+1 detection, capacity planning. Outputs `docs/performance/PERF-*.md`. Active when `performance-sla:` set or archetype=data-platform/enterprise/commerce.
+- **`db-migration-reviewer`** — migration safety: lock duration analysis, zero-downtime patterns (CONCURRENTLY, nullable-first, shadow table), rollback verification, PII column detection. Outputs `docs/migrations/MIGRATE-*.md`. Blocks deploy if no rollback path.
+
+---
+
 ## v1.0.155 — 2026-04-29
 
 ### Safeguards: non-negotiable invariants wired across the pipeline

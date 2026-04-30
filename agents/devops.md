@@ -5,7 +5,7 @@ model: haiku
 advisor-model: claude-sonnet-4-6
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
-tools: Read, Write, Edit, Bash, Glob, Grep, advisor_20260301
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi
 maxTurns: 25
 timeout: 900
 effort: MEDIUM
