@@ -19,18 +19,22 @@ import { enableGreatCto } from "./settings.js";
 import { bootstrap } from "./bootstrap.js";
 
 interface CliArgs {
-  command: "init" | "help" | "version";
+  command: "init" | "help" | "version" | "board";
   dir: string;
   yes: boolean;
   dryRun: boolean;
   force: boolean;
   archetype: string | null;
   version: string | null;
+  boardPort: number;
+  boardNoOpen: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     command: "init",
+    boardPort: 3141,
+    boardNoOpen: false,
     dir: process.cwd(),
     yes: false,
     dryRun: false,
@@ -49,6 +53,9 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--force") args.force = true;
     else if (a === "--archetype") args.archetype = argv[++i] ?? null;
     else if (a === "--version-tag") args.version = argv[++i] ?? null;
+    else if (a === "--port") args.boardPort = parseInt(argv[++i] ?? "3141", 10);
+    else if (a === "--no-open") args.boardNoOpen = true;
+    else if (a === "board") args.command = "board";
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
     else if (a === "init" || a === "help" || a === "version") {
@@ -60,13 +67,50 @@ function parseArgs(argv: string[]): CliArgs {
   return args;
 }
 
+async function runBoard(args: CliArgs): Promise<number> {
+  const { join, dirname } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const { existsSync } = await import("node:fs");
+  const { spawn } = await import("node:child_process");
+
+  // Find board server: relative to this file (dist/) → packages/board/server.mjs
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(here, "..", "..", "board", "server.mjs"),           // from packages/cli/dist
+    join(here, "..", "board", "server.mjs"),                  // dev
+    join(here, "board", "server.mjs"),
+  ];
+  const serverPath = candidates.find(existsSync);
+  if (!serverPath) {
+    error("Board server not found. Try reinstalling: npx great-cto@latest");
+    return 1;
+  }
+
+  const nodeArgs = [serverPath];
+  if (args.boardNoOpen) nodeArgs.push("--no-open");
+
+  const child = spawn(process.execPath, nodeArgs, {
+    env: { ...process.env, BOARD_PORT: String(args.boardPort) },
+    stdio: "inherit",
+    detached: false,
+  });
+  child.on("exit", code => process.exit(code ?? 0));
+  return 0;
+}
+
 function printHelp(): void {
   log(`${bold("great-cto")} — one-command install for the great_cto Claude Code plugin
 
 ${bold("Usage:")}
-  npx great-cto init [options]
+  npx great-cto [init] [options]
+  npx great-cto board [--port 3141] [--no-open]
   npx great-cto help
   npx great-cto version
+
+${bold("Board:")}
+  great-cto board              Open Kanban + CTO Dashboard at localhost:3141
+  great-cto board --port 4000  Use a different port
+  great-cto board --no-open    Start server without opening browser
 
 ${bold("Options:")}
   -y, --yes              Skip confirmation prompts (non-interactive)
@@ -366,6 +410,15 @@ async function main(): Promise<void> {
   if (args.command === "help") {
     printHelp();
     process.exit(0);
+  }
+  if (args.command === "board") {
+    try {
+      const code = await runBoard(args);
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(1);
+    }
   }
   if (args.command === "version") {
     // Version resolved in index.mjs or from package.json at runtime
