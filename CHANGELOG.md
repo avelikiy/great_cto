@@ -4,6 +4,43 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.157 — 2026-04-30
+
+### great_cto board — Kanban + CTO Dashboard + Shareable report URL
+
+**New: `great-cto board` command**
+
+```bash
+great-cto board              # opens localhost:3141 in browser
+great-cto board --port 4000  # custom port
+great-cto board --no-open    # headless server
+```
+
+**`packages/board/server.mjs`** — local HTTP server
+- Reads Beads tasks via `bd list --json --all --include-gates`
+- `/api/tasks` → tasks with Kanban column mapping
+- `/api/metrics` → velocity, cost savings, QA/security stats, agent utilization
+- `/api/sse` → Server-Sent Events: live updates via `.beads/interactions.jsonl` watch
+- `/api/share` GET/POST → toggle shareable report URL on/off
+
+**`packages/board/public/index.html`** — self-contained SPA (zero deps)
+- **Kanban tab**: 5 columns (Gates · Backlog · In Progress · Done · Blocked), live SSE updates, click → side panel with task details + close reason
+- **Dashboard tab**: 6 stat cards (features shipped, avg completion, cost savings, QA%, security), agent utilization bars, verdict timeline
+- **Share tab**: toggle on/off, copy URL, private link management
+
+**`packages/board/public/share.html`** — shareable report template
+- Executive-friendly: project name, date, 6 metrics, recently shipped features
+- `{{PAUSED}}` placeholder → Worker serves paused state without deleting data
+- No source code, no private data — aggregated metrics only
+
+**`workers/share/index.js`** — Cloudflare Worker + R2
+- `POST /r/` → publish report, returns `{ url, hash, expires_at }`
+- `GET /r/{hash}` → serve HTML (or paused page if disabled)
+- `POST /r/{hash}` `{ enabled }` → toggle on/off (preserves data)
+- TTL 30 days, auto-delete from R2, `X-Robots-Tag: noindex`
+
+---
+
 ## v1.0.156 — 2026-04-30
 
 ### Agent audit: tool gaps fixed + 3 new specialist subagents
