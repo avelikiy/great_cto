@@ -306,7 +306,7 @@ read -r -d '' AGENT_SKILLS <<'JSON' || true
     "iot-embedded":      ["+infra-pack"]
   },
   "project-auditor": {
-    "_default":          ["agent-style", "knowledge-extraction", "onboarding", "anti-patterns", "decision-log"],
+    "_default":          ["agent-style", "knowledge-extraction", "onboarding", "anti-patterns", "decision-log", "vendors", "cost-model", "risk-register"],
     "ai-system":         ["+agent-pack", "+ai-pack"],
     "agent-product":     ["+agent-pack"],
     "commerce":          ["+commerce-pack"],
@@ -315,7 +315,7 @@ read -r -d '' AGENT_SKILLS <<'JSON' || true
     "regulated":         ["+enterprise-pack"]
   },
   "ai-prompt-architect": {
-    "_default":          ["ADR-PROMPT", "ai-pack", "agent-pack"]
+    "_default":          ["ADR-PROMPT", "ai-pack", "agent-pack", "secure-sdlc"]
   },
   "ai-eval-engineer": {
     "_default":          ["EVAL-template", "ai-pack", "agent-pack", "superpowers:test-driven-development"]
@@ -335,8 +335,23 @@ read -r -d '' AGENT_SKILLS <<'JSON' || true
   "firmware-reviewer": {
     "_default":          ["THREAT-MODEL-AI", "NIS2-article21-controls"]
   },
+  "regulated-reviewer": {
+    "_default":          ["THREAT-MODEL-AI", "enterprise-pack", "DORA-ICT-risk-assessment", "DORA-third-party-register", "NIS2-article21-controls", "ISO27001-SoA", "SOX-ITGC-checklist", "21CFR11-checklist"]
+  },
+  "performance-engineer": {
+    "_default":          ["reliability", "dora", "burn-rate"],
+    "data-platform":     ["+data-pack"],
+    "commerce":          ["+commerce-pack"],
+    "enterprise":        ["+enterprise-pack"]
+  },
+  "db-migration-reviewer": {
+    "_default":          ["secure-sdlc", "anti-patterns"],
+    "commerce":          ["+commerce-pack"],
+    "fintech":           ["+enterprise-pack"],
+    "regulated":         ["+enterprise-pack"]
+  },
   "pm": {
-    "_default":          ["pm-planning", "pre-mortem", "cost-model", "anti-patterns"],
+    "_default":          ["pm-planning", "pre-mortem", "cost-model", "risk-register", "anti-patterns"],
     "ai-system":         ["+agent-pack", "+ai-pack"],
     "agent-product":     ["+agent-pack"],
     "commerce":          ["+commerce-pack"],
