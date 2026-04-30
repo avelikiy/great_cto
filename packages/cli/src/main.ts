@@ -74,12 +74,24 @@ async function runBoard(args: CliArgs): Promise<number> {
   const { spawn } = await import("node:child_process");
 
   // Find board server: relative to this file (dist/) → packages/board/server.mjs
+  const { homedir } = await import("node:os");
+  const { readdirSync } = await import("node:fs");
   const here = dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    join(here, "..", "..", "board", "server.mjs"),           // from packages/cli/dist
-    join(here, "..", "board", "server.mjs"),                  // dev
-    join(here, "board", "server.mjs"),
+  const candidates: string[] = [
+    join(here, "..", "..", "board", "server.mjs"),           // from packages/cli/dist (dev)
+    join(here, "..", "board", "server.mjs"),                  // alt dev layout
+    join(here, "board", "server.mjs"),                        // flat layout
   ];
+  // Also search plugin cache (installed via npx great-cto)
+  const pluginBase = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
+  if (existsSync(pluginBase)) {
+    try {
+      const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort().reverse();
+      for (const v of versions.slice(0, 5)) {
+        candidates.push(join(pluginBase, v, "packages", "board", "server.mjs"));
+      }
+    } catch { /* ignore */ }
+  }
   const serverPath = candidates.find(existsSync);
   if (!serverPath) {
     error("Board server not found. Try reinstalling: npx great-cto@latest");
