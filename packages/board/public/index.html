@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<title>great_cto board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg-page: transparent;
+  --bg-panel: rgba(255, 255, 255, 0.92);
+  --bg-card: #ffffff;
+  --bg-muted: #f7f8fa;
+  --bg-strong: #ecedf0;
+
+  --border: rgba(15, 17, 21, 0.08);
+  --border-strong: rgba(15, 17, 21, 0.14);
+
+  --text: #0f1115;
+  --text2: #5b6573;
+  --text3: #828b97;
+
+  --accent: #2540d4;
+  --accent-2: #6b81ff;
+  --accent-soft: #e8edff;
+
+  --status-backlog: #94a3b8;
+  --status-todo: #64748b;
+  --status-progress: #f59e0b;
+  --status-review: #16a34a;
+  --status-done: #2563eb;
+  --status-blocked: #dc2626;
+  --status-gate: #7c3aed;
+
+  --p0-bg: #fee2e2; --p0-fg: #b91c1c;
+  --p1-bg: #ffedd5; --p1-fg: #c2410c;
+  --p2-bg: #fef3c7; --p2-fg: #92400e;
+  --p3-bg: #f1f5f9; --p3-fg: #475569;
+
+  --serif: "Fraunces", Georgia, serif;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --shadow-card: 0 1px 2px rgba(15, 17, 21, 0.04);
+  --shadow-card-hover: 0 1px 2px rgba(15, 17, 21, 0.06), 0 8px 24px rgba(15, 17, 21, 0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--sans);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  background: #fff;
+}
+button { font-family: inherit; cursor: pointer; }
+
+.board {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  background: #ffffff;
+}
+.board-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.28;
+  pointer-events: none;
+}
+.board-bg svg { width: 100%; height: 100%; display: block; }
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.sidebar {
+  position: relative; z-index: 1;
+  width: 240px; flex-shrink: 0;
+  background: var(--bg-panel);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.proj-switch {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.proj-switch:hover { background: var(--bg-muted); }
+.proj-switch .star { color: var(--accent); font-size: 16px; }
+.proj-switch .name { font-weight: 600; font-size: 14px; flex: 1; }
+.proj-switch .chev { color: var(--text3); font-size: 11px; }
+
+.nav { padding: 12px 8px; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  height: 32px; padding: 0 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+}
+.nav-item:hover { background: var(--bg-muted); }
+.nav-item.active { background: var(--bg-strong); font-weight: 500; }
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: -8px; top: 6px; bottom: 6px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+.nav-item .icon { width: 16px; height: 16px; color: var(--text2); flex-shrink: 0; }
+.nav-item.active .icon { color: var(--accent); }
+.nav-item .count { margin-left: auto; font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.nav-divider { height: 1px; background: var(--border); margin: 12px 8px; }
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+  display: flex; align-items: center; gap: 6px;
+}
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--status-review); }
+.live-dot.error { background: var(--status-blocked); }
+.live-dot.pulse { animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ── Workspace ────────────────────────────────────────────────────────────── */
+.workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; z-index: 1; }
+.topbar {
+  height: 48px;
+  background: var(--bg-panel);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px;
+  font-size: 13px;
+}
+.crumbs { display: flex; align-items: center; gap: 8px; color: var(--text2); }
+.crumbs .star { color: var(--accent); }
+.crumbs .sep { color: var(--text3); }
+.crumbs .here { color: var(--text); font-weight: 500; }
+
+.topbar-actions { display: flex; align-items: center; gap: 6px; }
+.tab-row { display: flex; align-items: center; gap: 4px; margin-right: 12px; }
+.tab-btn {
+  background: transparent; border: none;
+  padding: 6px 12px; border-radius: 6px;
+  font-size: 13px; color: var(--text2);
+}
+.tab-btn:hover { background: var(--bg-muted); color: var(--text); }
+.tab-btn.active { background: var(--bg-strong); color: var(--text); font-weight: 500; }
+
+.icon-btn {
+  background: transparent; border: 1px solid transparent;
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text2);
+}
+.icon-btn:hover { background: var(--bg-muted); color: var(--text); }
+
+.btn-new {
+  background: #0f1115; color: #fff; border: none;
+  height: 30px; padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-new:hover { background: #2a2d33; }
+
+.task-count {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); letter-spacing: 0.04em;
+  margin-right: 6px;
+}
+
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+.panel { flex: 1; overflow: auto; display: none; }
+.panel.active { display: flex; flex-direction: column; }
+
+/* ── Kanban ───────────────────────────────────────────────────────────────── */
+.kanban {
+  flex: 1; overflow: auto;
+  padding: 16px 20px 20px;
+  display: flex; gap: 12px;
+  align-items: flex-start;
+}
+.column {
+  flex: 0 0 264px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 100%;
+}
+.col-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 6px 8px;
+  font-size: 13px; font-weight: 600;
+}
+.col-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid currentColor;
+  background: transparent;
+}
+.col-dot.filled { background: currentColor; }
+.col-dot.half { background: conic-gradient(currentColor 50%, transparent 50%); }
+.col-count {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); margin-left: 2px; font-weight: 500;
+}
+.col-title { color: var(--text); }
+.col-actions { margin-left: auto; display: flex; gap: 2px; color: var(--text3); }
+.col-actions .icon-btn { width: 22px; height: 22px; }
+.col-body { display: flex; flex-direction: column; gap: 6px; }
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
+.card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.card .id {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.04em; color: var(--text3);
+}
+.card .title {
+  font-weight: 600; font-size: 14px;
+  line-height: 1.35; margin-top: 4px;
+  color: var(--text);
+}
+.card-footer {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 10px; flex-wrap: wrap;
+}
+.card-time {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3);
+}
+
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 20px; padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  background: var(--bg-strong); color: var(--text2);
+}
+.chip-p0 { background: var(--p0-bg); color: var(--p0-fg); }
+.chip-p1 { background: var(--p1-bg); color: var(--p1-fg); }
+.chip-p2 { background: var(--p2-bg); color: var(--p2-fg); }
+.chip-p3 { background: var(--p3-bg); color: var(--p3-fg); }
+.chip-gate { background: rgba(124, 58, 237, 0.12); color: var(--status-gate); }
+.chip-agent {
+  background: var(--accent-soft); color: var(--accent);
+  font-family: var(--mono);
+}
+
+.priority-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.priority-dot.p0 { background: var(--p0-fg); }
+.priority-dot.p1 { background: var(--p1-fg); }
+.priority-dot.p2 { background: var(--p2-fg); }
+.priority-dot.p3 { background: var(--p3-fg); }
+
+.card-row1 { display: flex; align-items: center; gap: 8px; }
+
+.empty {
+  padding: 20px 8px;
+  font-size: 12px;
+  color: var(--text3);
+  text-align: center;
+}
+
+/* ── Side panel ───────────────────────────────────────────────────────────── */
+.side {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 480px;
+  background: #fff;
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 32px rgba(15, 17, 21, 0.08);
+  z-index: 10;
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+.side.open { transform: translateX(0); }
+.side-top {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.side-id {
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  background: var(--bg-strong); color: var(--text);
+  padding: 4px 8px; border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+.side-close {
+  margin-left: auto; cursor: pointer;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  color: var(--text3);
+}
+.side-close:hover { background: var(--bg-muted); color: var(--text); }
+.side-body { flex: 1; overflow: auto; padding: 18px; }
+.side-title {
+  font-weight: 600; font-size: 18px;
+  letter-spacing: -0.01em; margin-bottom: 14px;
+}
+.props {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.prop-key { color: var(--text3); font-size: 12px; padding: 6px 0; font-family: var(--mono); letter-spacing: 0.04em; }
+.prop-val { font-size: 13px; padding: 6px 0; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+  background: var(--bg-strong); color: var(--text2);
+}
+.pill-gate        { background: rgba(124, 58, 237, 0.12); color: var(--status-gate); }
+.pill-backlog     { background: rgba(148, 163, 184, 0.18); color: var(--status-todo); }
+.pill-in_progress { background: rgba(245, 158, 11, 0.16);  color: var(--status-progress); }
+.pill-done        { background: rgba(37, 99, 235, 0.14);   color: var(--status-done); }
+.pill-blocked     { background: rgba(220, 38, 38, 0.12);   color: var(--status-blocked); }
+.result-box {
+  margin-top: 14px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text2);
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+/* ── Metrics page ─────────────────────────────────────────────────────────── */
+.metrics-page { padding: 24px 32px; }
+.mp-section-label {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text3); margin: 0 0 12px;
+}
+.mp-hero {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 14px; margin-bottom: 24px;
+}
+.metric-card {
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 12px; padding: 26px 24px;
+  position: relative; overflow: hidden;
+}
+.metric-card::before {
+  content: ""; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: var(--accent);
+}
+.metric-card.green::before { background: var(--status-review); }
+.metric-card.amber::before { background: var(--status-progress); }
+.metric-card.red::before   { background: var(--status-blocked); }
+.metric-card.purple::before { background: #7c3aed; }
+.metric-num {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 52px; line-height: 1;
+  letter-spacing: -0.02em;
+}
+.metric-num small {
+  font-size: 22px; color: var(--text2);
+  margin-left: 4px; font-weight: 400;
+}
+.metric-label {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text2); margin-top: 14px;
+}
+.metric-trend {
+  margin-top: 6px; font-size: 12px; color: var(--text2);
+}
+
+.mp-secondary {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 28px;
+}
+.mp-secondary .metric-card { padding: 18px; }
+.mp-secondary .metric-num { font-size: 30px; }
+
+.mp-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.mp-card {
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 12px; padding: 22px;
+}
+.mp-card h3 {
+  font-family: var(--sans); font-weight: 600;
+  font-size: 15px; margin: 0 0 16px;
+}
+
+.bar-row {
+  display: grid; grid-template-columns: 130px 1fr 50px;
+  align-items: center; gap: 12px;
+  margin-bottom: 10px; font-size: 12.5px;
+}
+.bar-row .name { font-family: var(--mono); color: var(--text); }
+.bar-row .rail {
+  height: 6px; background: var(--bg-strong);
+  border-radius: 999px; overflow: hidden;
+}
+.bar-row .fill {
+  height: 100%; background: var(--accent);
+  border-radius: 999px;
+}
+.bar-row .pct {
+  text-align: right; color: var(--text2);
+  font-family: var(--mono); font-size: 11px;
+}
+
+.feed-row {
+  display: grid;
+  grid-template-columns: 12px 110px 1fr auto;
+  gap: 12px; align-items: baseline;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.feed-row:first-child { border-top: none; }
+.feed-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%; margin-top: 4px;
+}
+.feed-dot.ok { background: var(--status-review); }
+.feed-dot.fail { background: var(--status-blocked); }
+.feed-dot.def { background: var(--text3); }
+.feed-row .agent { font-family: var(--mono); color: var(--text2); font-size: 12px; }
+.feed-row .msg { color: var(--text); }
+.feed-row .time { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+/* ── Share page ───────────────────────────────────────────────────────────── */
+.share-page {
+  padding: 32px;
+  display: flex; flex-direction: column;
+  align-items: center;
+}
+.share-card {
+  width: 100%; max-width: 640px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+}
+.share-card h2 {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 28px; letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+.share-card .sub { color: var(--text2); margin: 0 0 24px; }
+.share-toggle-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.share-toggle-row .label-grp { flex: 1; }
+.share-toggle-row .label-grp .l { font-weight: 600; font-size: 14px; }
+.share-toggle-row .label-grp .h { color: var(--text2); font-size: 12px; }
+
+.toggle {
+  width: 38px; height: 22px;
+  background: #cfd5dd;
+  border-radius: 999px;
+  position: relative; cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.toggle::after {
+  content: "";
+  position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.toggle.on { background: var(--accent); }
+.toggle.on::after { transform: translateX(16px); }
+.toggle input { display: none; }
+
+.url-block {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  margin-top: 16px;
+}
+.url-block .url-text {
+  flex: 1; font-family: var(--mono);
+  font-size: 12.5px; color: var(--text);
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-black {
+  background: #0f1115; color: #fff; border: none;
+  padding: 8px 14px; border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+}
+.btn-ghost-sm {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 8px 12px; border-radius: 999px;
+  font-size: 12px;
+}
+.share-note {
+  font-size: 13px; color: var(--text2);
+  margin-top: 16px; line-height: 1.55;
+}
+.share-note strong { color: var(--text); }
+
+.loader {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-muted);
+  border-radius: 10px;
+  font-size: 13px; color: var(--text2);
+  margin-top: 12px;
+}
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.share-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px;
+  padding: 2px 6px; border-radius: 999px;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.share-badge.on  { background: rgba(22, 163, 74, 0.12); color: var(--status-review); }
+.share-badge.off { background: var(--bg-strong); color: var(--text3); }
+.share-badge-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(15, 17, 21, 0.12); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(15, 17, 21, 0.22); border: 2px solid transparent; background-clip: content-box; }
+</style>
+</head>
+<body>
+<div class="board">
+  <!-- Background landscape -->
+  <div class="board-bg">
+    <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="b-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1a2547" />
+          <stop offset="55%" stop-color="#5a4a7a" />
+          <stop offset="85%" stop-color="#f4a87c" />
+          <stop offset="100%" stop-color="#ffd9b8" />
+        </linearGradient>
+        <radialGradient id="b-sun" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stop-color="#fff4d9" stop-opacity="1" />
+          <stop offset="40%" stop-color="#fff4d9" stop-opacity="0.9" />
+          <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
+        </radialGradient>
+        <radialGradient id="b-sunhalo" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stop-color="#ffc89b" stop-opacity="0.5" />
+          <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
+        </radialGradient>
+        <linearGradient id="b-mtnFar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#b8c2d8" />
+          <stop offset="20%" stop-color="#3d4a6b" />
+          <stop offset="100%" stop-color="#3d4a6b" />
+        </linearGradient>
+        <linearGradient id="b-mist" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(255,220,200,0)" />
+          <stop offset="100%" stop-color="rgba(255,220,200,0.6)" />
+        </linearGradient>
+        <filter id="b-blur"><feGaussianBlur stdDeviation="8" /></filter>
+      </defs>
+      <rect width="1600" height="900" fill="url(#b-sky)" />
+      <circle cx="1100" cy="540" r="260" fill="url(#b-sunhalo)" />
+      <circle cx="1100" cy="540" r="80" fill="url(#b-sun)" />
+      <g filter="url(#b-blur)" opacity="0.85">
+        <ellipse cx="200" cy="280" rx="180" ry="22" fill="#ffc4a8" />
+        <ellipse cx="600" cy="220" rx="240" ry="18" fill="#f5a890" />
+        <ellipse cx="1280" cy="320" rx="220" ry="24" fill="#ffc4a8" />
+        <ellipse cx="900" cy="380" rx="160" ry="14" fill="#e8b4c4" />
+      </g>
+      <path d="M 0,640 L 80,580 L 140,610 L 220,520 L 300,560 L 380,500 L 460,540 L 540,470 L 620,510 L 700,460 L 780,500 L 860,440 L 940,490 L 1020,450 L 1100,500 L 1180,470 L 1260,520 L 1340,490 L 1420,540 L 1500,510 L 1600,560 L 1600,900 L 0,900 Z" fill="url(#b-mtnFar)" opacity="0.92" />
+      <path d="M 0,720 L 100,680 L 200,700 L 320,640 L 440,680 L 560,620 L 680,670 L 800,610 L 920,660 L 1040,620 L 1160,680 L 1280,640 L 1400,690 L 1520,650 L 1600,700 L 1600,900 L 0,900 Z" fill="#2c3554" opacity="0.95" />
+      <rect x="0" y="700" width="1600" height="80" fill="url(#b-mist)" opacity="0.5" />
+      <path d="M 0,820 L 120,790 L 280,810 L 420,780 L 560,815 L 720,790 L 880,820 L 1040,795 L 1200,815 L 1360,790 L 1520,820 L 1600,800 L 1600,900 L 0,900 Z" fill="#1a2138" />
+    </svg>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="proj-switch">
+      <span class="star">✱</span>
+      <span class="name" id="project-name">—</span>
+      <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" data-tab="kanban" onclick="switchTab('kanban', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Tasks</span>
+        <span class="count" id="nav-task-count">0</span>
+      </div>
+      <div class="nav-item" data-tab="dashboard" onclick="switchTab('dashboard', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18 M7 14l3-3 4 4 5-5"/></svg>
+        <span>Metrics</span>
+      </div>
+      <div class="nav-item" data-tab="share" onclick="switchTab('share', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8"/></svg>
+        <span>Share</span>
+        <span id="share-nav-badge" class="share-badge off" style="margin-left:auto;">
+          <span class="share-badge-dot"></span>off
+        </span>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
+        <span>Agents</span>
+        <span class="count" id="nav-agent-count">0</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="live-dot pulse" id="live-dot"></span>
+      <span id="live-label">live · synced just now</span>
+    </div>
+  </aside>
+
+  <!-- Workspace -->
+  <div class="workspace">
+    <div class="topbar">
+      <div class="crumbs">
+        <span class="star">✱</span>
+        <span id="crumb-project">—</span>
+        <span class="sep">/</span>
+        <span class="here" id="crumb-here">Board</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="tab-row">
+          <button class="tab-btn active" data-tab="kanban" onclick="switchTab('kanban', this)">Board</button>
+          <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard', this)">Metrics</button>
+          <button class="tab-btn" data-tab="share" onclick="switchTab('share', this)">Share</button>
+        </div>
+        <span class="task-count" id="topbar-task-count">0 ISSUES</span>
+        <button class="btn-new">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14 M5 12h14"/></svg>
+          New issue
+        </button>
+      </div>
+    </div>
+
+    <!-- Kanban -->
+    <div class="panel active" id="panel-kanban">
+      <div class="kanban" id="kanban-board"></div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="panel" id="panel-dashboard">
+      <div class="metrics-page">
+        <div class="mp-section-label">This sprint</div>
+        <div class="mp-hero" id="mp-hero"></div>
+        <div class="mp-secondary" id="mp-secondary"></div>
+        <div class="mp-row">
+          <div class="mp-card">
+            <h3>Agent utilization</h3>
+            <div id="agent-list"></div>
+          </div>
+          <div class="mp-card">
+            <h3>Activity</h3>
+            <div id="timeline"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Share -->
+    <div class="panel" id="panel-share">
+      <div class="share-page">
+        <div class="share-card">
+          <h2>Share this project</h2>
+          <p class="sub">Generate a public, read-only report. Anyone with the link can see shipped work, metrics, and agent activity.</p>
+          <div class="share-toggle-row">
+            <div class="label-grp">
+              <div class="l">Public report</div>
+              <div class="h" id="share-help">Disabled. Only you can see this project.</div>
+            </div>
+            <div class="toggle" id="share-toggle-visual" onclick="toggleShare()">
+              <input type="checkbox" id="share-toggle">
+            </div>
+          </div>
+          <div id="share-loading" style="display:none;" class="loader">
+            <div class="spinner"></div> Publishing report…
+          </div>
+          <div id="share-url-section" style="display:none;">
+            <div class="url-block">
+              <div class="url-text" id="share-url-text">—</div>
+              <button class="btn-ghost-sm" onclick="openUrl()">Open ↗</button>
+              <button class="btn-black" onclick="copyUrl(event)">Copy</button>
+            </div>
+            <div class="share-note">
+              The report includes shipped tasks, recent activity, agent utilization, and the six headline metrics.
+              Open issues, code, and credentials are <strong>never</strong> exposed.
+            </div>
+          </div>
+          <div id="share-disabled-note" class="share-note">
+            When you turn this on, GreatCTO generates a static URL you can share with investors,
+            customers, or your board. Toggle it off any time to revoke access.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side panel -->
+    <div class="side" id="side-panel">
+      <div class="side-top">
+        <span class="side-id" id="side-id">—</span>
+        <div style="flex:1"></div>
+        <div class="side-close" onclick="closeSide()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6L6 18 M6 6l12 12"/></svg>
+        </div>
+      </div>
+      <div class="side-body" id="side-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLUMNS = [
+  { id: 'gate',        label: 'Gates',       color: '#7c3aed', dot: 'half' },
+  { id: 'backlog',     label: 'Backlog',     color: '#94a3b8', dot: 'ring' },
+  { id: 'in_progress', label: 'In Progress', color: '#f59e0b', dot: 'half' },
+  { id: 'done',        label: 'Done',        color: '#2563eb', dot: 'filled' },
+  { id: 'blocked',     label: 'Blocked',     color: '#dc2626', dot: 'filled' },
+];
+const PRIORITY_LABEL = ['Urgent','High','Medium','Low'];
+
+let allTasks = [];
+let metrics = {};
+let shareState = { enabled: false, url: null };
+let currentTab = 'kanban';
+
+async function init() {
+  const [tasks, met, share] = await Promise.all([
+    api('/api/tasks'),
+    api('/api/metrics'),
+    api('/api/share'),
+  ]);
+  allTasks = tasks || [];
+  metrics = met || {};
+  shareState = share || { enabled: false, url: null };
+
+  const proj = (allTasks[0]?.id || '').split('-')[0] || 'project';
+  document.getElementById('project-name').textContent = proj;
+  document.getElementById('crumb-project').textContent = proj;
+  document.title = `${proj} · great_cto`;
+
+  renderKanban(allTasks);
+  renderDashboard(metrics);
+  renderShareState(shareState);
+  updateNavCounts();
+  connectSSE();
+}
+
+function api(url, opts) {
+  return fetch(url, opts).then(r => r.json()).catch(() => null);
+}
+
+function connectSSE() {
+  const es = new EventSource('/api/sse');
+  es.addEventListener('tasks', e => {
+    allTasks = JSON.parse(e.data);
+    renderKanban(allTasks);
+    updateNavCounts();
+  });
+  es.onopen = () => {
+    const d = document.getElementById('live-dot');
+    d.className = 'live-dot pulse';
+    document.getElementById('live-label').textContent = 'live · synced just now';
+  };
+  es.onerror = () => {
+    document.getElementById('live-dot').className = 'live-dot error';
+    document.getElementById('live-label').textContent = 'offline · retrying';
+    es.close();
+    setTimeout(connectSSE, 5000);
+  };
+}
+
+function updateNavCounts() {
+  document.getElementById('nav-task-count').textContent = allTasks.length;
+  document.getElementById('topbar-task-count').textContent = `${allTasks.length} ISSUES`;
+  const agents = metrics.agents || {};
+  document.getElementById('nav-agent-count').textContent = Object.keys(agents).length;
+}
+
+/* ── Kanban ─────────────────────────────────────────────────────────────── */
+function renderKanban(tasks) {
+  const board = document.getElementById('kanban-board');
+  const byCol = Object.fromEntries(COLUMNS.map(c => [c.id, []]));
+  for (const t of tasks) {
+    if (byCol[t.status]) byCol[t.status].push(t);
+    else byCol['backlog'].push(t);
+  }
+  board.innerHTML = '';
+  for (const col of COLUMNS) {
+    const items = byCol[col.id];
+    const dotClass = col.dot === 'filled' ? 'filled' : col.dot === 'half' ? 'half' : '';
+    const el = document.createElement('div');
+    el.className = `column col-${col.id}`;
+    el.innerHTML = `
+      <div class="col-head">
+        <span class="col-dot ${dotClass}" style="color:${col.color}"></span>
+        <span class="col-title">${col.label}</span>
+        <span class="col-count">${items.length}</span>
+      </div>
+      <div class="col-body">${items.length ? items.map(cardHTML).join('') : '<div class="empty">No tasks</div>'}</div>`;
+    board.appendChild(el);
+    el.querySelectorAll('.card').forEach((cardEl, i) => {
+      cardEl.addEventListener('click', () => openSide(items[i]));
+    });
+  }
+}
+
+function cardHTML(t) {
+  const pIdx = t.priority ?? 3;
+  const pClass = `p${pIdx}`;
+  const pLabel = PRIORITY_LABEL[pIdx];
+  const labels = (t.labels || []).filter(l => l !== 'gate');
+  const isGate = (t.labels || []).includes('gate');
+  const elapsed = (t.status === 'in_progress' && t.updated_at)
+    ? `<span class="card-time">${relTime(t.updated_at)}</span>` : '';
+  return `
+    <div class="card">
+      <div class="id">${esc(t.id || '')}</div>
+      <div class="card-row1" style="margin-top:4px">
+        <div class="priority-dot ${pClass}" title="${pLabel}"></div>
+        <div class="title">${esc(t.title)}</div>
+      </div>
+      <div class="card-footer">
+        ${isGate ? `<span class="chip chip-gate">gate</span>` : ''}
+        ${t.agent ? `<span class="chip chip-agent">${esc(t.agent)}</span>` : ''}
+        ${labels.map(l => `<span class="chip">${esc(l)}</span>`).join('')}
+        <span class="chip chip-${pClass}">${pLabel}</span>
+        ${elapsed}
+      </div>
+    </div>`;
+}
+
+/* ── Dashboard ──────────────────────────────────────────────────────────── */
+function renderDashboard(m) {
+  const llmUsd = m.cost?.llm_usd ?? 0;
+  const humanUsd = m.cost?.human_usd ?? 0;
+  const savingsX = m.cost?.savings_x ?? 0;
+  const done = m.tasks?.done ?? 0;
+  const avgMin = m.avg_completion_min ?? 0;
+
+  const hero = [
+    { v: done || '—', sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
+    { v: llmUsd > 0 ? `$${llmUsd.toFixed(2)}` : '—', sub: '', label: 'LLM spend', trend: humanUsd > 0 ? `vs humans: $${Number(humanUsd).toLocaleString()}` : 'no plans yet', cls: 'amber' },
+    { v: savingsX > 0 ? savingsX : '—', sub: savingsX > 0 ? '×' : '', label: 'Cost savings vs FTE', trend: savingsX > 0 ? `${savingsX}× cheaper than human` : '—', cls: 'green' },
+  ];
+  document.getElementById('mp-hero').innerHTML = hero.map(s => `
+    <div class="metric-card ${s.cls || ''}">
+      <div class="metric-num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
+      <div class="metric-label">${s.label}</div>
+      <div class="metric-trend">${s.trend}</div>
+    </div>`).join('');
+
+  const secondary = [
+    { v: avgMin ? `${avgMin}` : '—', sub: avgMin ? 'm' : '', label: 'Avg cycle time' },
+    { v: m.qa?.pass_rate != null ? m.qa.pass_rate : '—', sub: m.qa?.pass_rate != null ? '%' : '', label: 'QA pass rate', cls: 'green' },
+    { v: m.security?.blocked ?? 0, sub: '', label: 'Open security blocks', cls: m.security?.blocked ? 'red' : 'green' },
+    { v: m.tasks?.in_progress ?? 0, sub: '', label: 'In progress', cls: 'amber' },
+  ];
+  document.getElementById('mp-secondary').innerHTML = secondary.map(s => `
+    <div class="metric-card ${s.cls || ''}">
+      <div class="metric-num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
+      <div class="metric-label">${s.label}</div>
+    </div>`).join('');
+
+  const agents = m.agents || {};
+  const maxRuns = Math.max(...Object.values(agents), 1);
+  const colors = ['#2540d4','#7c3aed','#16a34a','#f59e0b','#06b6d4','#2563eb','#64748b','#94a3b8'];
+  const agentKeys = Object.entries(agents).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('agent-list').innerHTML = agentKeys.length ? agentKeys.map(([a, n], i) => `
+    <div class="bar-row">
+      <span class="name">✱ ${esc(a)}</span>
+      <span class="rail"><span class="fill" style="width:${(n/maxRuns*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
+      <span class="pct">${Math.round(n/maxRuns*100)}%</span>
+    </div>`).join('') : '<div class="empty">No agent runs yet</div>';
+
+  const verdicts = (m.verdicts || []).slice();
+  document.getElementById('timeline').innerHTML = verdicts.length ? verdicts.map(v => {
+    const vu = (v.verdict || '').toUpperCase();
+    const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' : ['BLOCKED','FAILED','FAIL'].includes(vu) ? 'fail' : 'def';
+    const raw = v.raw || '';
+    const afterColon = raw.indexOf(': ') !== -1 ? raw.slice(raw.indexOf(': ') + 2) : raw;
+    const text = afterColon.length > 80 ? afterColon.slice(0, 80) + '…' : afterColon;
+    return `
+      <div class="feed-row">
+        <span class="feed-dot ${cls}"></span>
+        <span class="agent">✱ ${esc(v.agent)}</span>
+        <span class="msg">${esc(text)}</span>
+        <span class="time">${relTime(v.ts)}</span>
+      </div>`;
+  }).join('') : '<div class="empty">No activity yet</div>';
+}
+
+/* ── Share ──────────────────────────────────────────────────────────────── */
+function renderShareState(state) {
+  shareState = state;
+  const on = !!state.enabled;
+  const t = document.getElementById('share-toggle');
+  const tv = document.getElementById('share-toggle-visual');
+  t.checked = on;
+  tv.classList.toggle('on', on);
+  document.getElementById('share-help').textContent = on ? 'Anyone with the link can view.' : 'Disabled. Only you can see this project.';
+  const badge = document.getElementById('share-nav-badge');
+  badge.className = `share-badge ${on ? 'on' : 'off'}`;
+  badge.innerHTML = `<span class="share-badge-dot"></span>${on ? 'on' : 'off'}`;
+  document.getElementById('share-url-section').style.display = (on && state.url) ? 'block' : 'none';
+  document.getElementById('share-disabled-note').style.display = on ? 'none' : 'block';
+  document.getElementById('share-url-text').textContent = state.url || '—';
+}
+
+async function toggleShare() {
+  const enabled = !document.getElementById('share-toggle').checked;
+  document.getElementById('share-loading').style.display = enabled ? 'flex' : 'none';
+  document.getElementById('share-url-section').style.display = 'none';
+  const state = await api('/api/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  document.getElementById('share-loading').style.display = 'none';
+  if (!state || state.error) {
+    alert(state?.error || 'Network error');
+    return;
+  }
+  renderShareState(state);
+}
+
+function copyUrl(e) {
+  const btn = e.currentTarget;
+  navigator.clipboard.writeText(shareState.url || '').then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+function openUrl() { if (shareState.url) window.open(shareState.url, '_blank'); }
+
+/* ── Side panel ─────────────────────────────────────────────────────────── */
+function openSide(task) {
+  document.getElementById('side-id').textContent = task.id || '—';
+  const pIdx = task.priority ?? 3;
+  const pLabel = PRIORITY_LABEL[pIdx];
+  const dur = task.created_at && task.closed_at
+    ? fmtDur(new Date(task.closed_at) - new Date(task.created_at)) : null;
+  const rows = [
+    ['Status', `<span class="pill pill-${task.status || 'backlog'}">${(task.status || 'backlog').replace('_', ' ')}</span>`],
+    ['Priority', `<span class="chip chip-p${pIdx}">${pLabel}</span>`],
+    task.agent ? ['Agent', `<span class="chip chip-agent">${esc(task.agent)}</span>`] : null,
+    task.labels?.length ? ['Labels', task.labels.map(l => `<span class="chip">${esc(l)}</span>`).join(' ')] : null,
+    ['Created', fmtDate(task.created_at)],
+    task.closed_at ? ['Closed', fmtDate(task.closed_at)] : null,
+    dur ? ['Duration', dur] : null,
+  ].filter(Boolean);
+  document.getElementById('side-body').innerHTML = `
+    <div class="side-title">${esc(task.title)}</div>
+    <div class="props">
+      ${rows.map(([k, v]) => `<div class="prop-key">${k}</div><div class="prop-val">${v}</div>`).join('')}
+    </div>
+    ${task.close_reason ? `<div class="result-box">${esc(task.close_reason)}</div>` : ''}`;
+  document.getElementById('side-panel').classList.add('open');
+}
+function closeSide() {
+  document.getElementById('side-panel').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSide(); });
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+function switchTab(id, el) {
+  currentTab = id;
+  // sidebar nav
+  document.querySelectorAll('.nav-item[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  // top tabs
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  // panels
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${id}`).classList.add('active');
+  // crumb
+  const labels = { kanban: 'Board', dashboard: 'Metrics', share: 'Share' };
+  document.getElementById('crumb-here').textContent = labels[id] || 'Board';
+  if (id === 'dashboard') {
+    api('/api/metrics').then(m => { if (m) { metrics = m; renderDashboard(m); } });
+  }
+}
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function relTime(iso) {
+  if (!iso) return '';
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return `${Math.round(s)}s`;
+  if (s < 3600) return `${Math.round(s/60)}m`;
+  if (s < 86400) return `${Math.round(s/3600)}h`;
+  return `${Math.round(s/86400)}d`;
+}
+function fmtDate(iso) { return iso ? new Date(iso).toLocaleString() : '—'; }
+function fmtDur(ms) {
+  const m = Math.round(ms / 60000);
+  if (m < 60) return `${m}min`;
+  return `${Math.floor(m/60)}h ${m%60}m`;
+}
+
+init();
+</script>
+</body>
+</html>
