@@ -148,6 +148,13 @@ button { font-family: inherit; cursor: pointer; }
 }
 .land-dash-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
 .land-dash-bar .url-label { margin-left: 16px; font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.land-dash-iframe {
+  width: 100%;
+  height: 720px;
+  border: none;
+  display: block;
+  background: #fff;
+}
 .land-dash-body { display: grid; grid-template-columns: 200px 1fr; min-height: 380px; }
 .land-dash-side {
   border-right: 1px solid var(--border);
