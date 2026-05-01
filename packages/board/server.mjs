@@ -88,6 +88,84 @@ function broadcast(event, data) {
   }
 }
 
+function broadcastTasks(cwd) {
+  const msg = `event: tasks\ndata: ${JSON.stringify(getTasks(cwd))}\n\n`;
+  for (const res of sseClients) {
+    if (res._gctoCwd === cwd) {
+      try { res.write(msg); } catch { sseClients.delete(res); }
+    }
+  }
+}
+
+// ── Memory: 4-layer file contents ─────────────────────────────────────────────
+function readFileSafe(p) {
+  try { return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null; } catch { return null; }
+}
+function getMemory(cwd = process.cwd()) {
+  const layers = [
+    { id: 'project',  layer: 'L1', name: 'PROJECT.md',  desc: 'Archetype, size, compliance, owners',          path: path.join(cwd, '.great_cto', 'PROJECT.md') },
+    { id: 'codebase', layer: 'L2', name: 'CODEBASE.md', desc: 'God nodes, entry points, public API, routes',  path: path.join(cwd, '.great_cto', 'CODEBASE.md') },
+    { id: 'brain',    layer: 'L3', name: 'brain.md',    desc: 'Patterns in use, what failed, team patterns',  path: path.join(cwd, '.great_cto', 'brain.md') },
+    { id: 'lessons',  layer: 'L3', name: 'lessons.md',  desc: 'Per-project lessons',                          path: path.join(cwd, '.great_cto', 'lessons.md') },
+    { id: 'handoff',  layer: 'L3', name: 'HANDOFF.md',  desc: 'Auto-written on context compaction',           path: path.join(cwd, '.great_cto', 'HANDOFF.md') },
+  ];
+  const result = layers.map(l => ({
+    ...l,
+    content: readFileSafe(l.path),
+    exists: fs.existsSync(l.path),
+    size: fs.existsSync(l.path) ? fs.statSync(l.path).size : 0,
+  }));
+
+  // Cross-project global patterns (~/.great_cto/global-patterns/)
+  const gpDir = path.join(GREAT_CTO_DIR, 'global-patterns');
+  let patterns = [];
+  if (fs.existsSync(gpDir)) {
+    patterns = fs.readdirSync(gpDir)
+      .filter(f => f.startsWith('GP-') && f.endsWith('.md'))
+      .map(f => {
+        const fp = path.join(gpDir, f);
+        const content = readFileSafe(fp) || '';
+        const titleMatch = content.match(/^#\s+(.+)$/m);
+        return {
+          id: f.replace(/\.md$/, ''),
+          name: f,
+          title: titleMatch ? titleMatch[1] : f,
+          path: fp,
+          size: fs.statSync(fp).size,
+        };
+      });
+  }
+  return { layers: result, patterns, cwd };
+}
+
+// ── Inbox: what needs the user's decision right now ──────────────────────────
+function getInbox(cwd = process.cwd()) {
+  const tasks = getTasks(cwd);
+  const pendingGates = tasks.filter(t => t.is_gate && t.status !== 'done' && t.status !== 'closed');
+  const blocked = tasks.filter(t => t.status === 'blocked');
+  const p0 = tasks.filter(t => t.priority === 0 && t.status !== 'done' && t.status !== 'closed');
+  const inProgress = tasks.filter(t => t.status === 'in_progress');
+  const stale = inProgress.filter(t => {
+    if (!t.updated_at) return false;
+    const ageH = (Date.now() - new Date(t.updated_at).getTime()) / 3600_000;
+    return ageH > 48;
+  });
+  const sec = readSecStats(cwd);
+  return {
+    pending_gates: pendingGates.slice(0, 20),
+    blocked: blocked.slice(0, 10),
+    p0_open: p0.slice(0, 10),
+    stale_in_progress: stale.slice(0, 10),
+    security: { blocked: sec.blocked, approved: sec.approved },
+    summary: {
+      gates: pendingGates.length,
+      blocked: blocked.length,
+      p0: p0.length,
+      stale: stale.length,
+    },
+  };
+}
+
 // ── Beads data ─────────────────────────────────────────────────────────────────
 function bdList(cwd = process.cwd()) {
   try {
@@ -441,6 +519,69 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+  }
+
+  // Gate approval / rejection
+  if (pathname.startsWith('/api/gates/') && req.method === 'POST') {
+    const id = pathname.replace('/api/gates/', '');
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      const { action, reason } = JSON.parse(body || '{}');
+      if (!['approve', 'reject'].includes(action)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid action' }));
+        return;
+      }
+      try {
+        const status = action === 'approve' ? 'closed' : 'blocked';
+        const args = ['update', id, '--status', status];
+        if (reason) args.push('--notes', `[${action}] ${reason}`);
+        const r = spawnSync('bd', args, { cwd, encoding: 'utf8' });
+        if (r.status !== 0) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, id, action }));
+        // Broadcast updated tasks via SSE
+        broadcastTasks(cwd);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e.message || e) }));
+      }
+    });
+    return;
+  }
+
+  // Inbox — what needs your attention right now
+  if (pathname === '/api/inbox') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getInbox(cwd)));
+    return;
+  }
+
+  // Memory — 4-layer memory file contents
+  if (pathname === '/api/memory') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getMemory(cwd)));
+    return;
+  }
+
+  // Memory — single global pattern content
+  if (pathname === '/api/memory-pattern') {
+    const id = url.searchParams.get('id') || '';
+    if (!/^GP-[A-Za-z0-9_-]+$/.test(id)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'invalid id' }));
+      return;
+    }
+    const fp = path.join(GREAT_CTO_DIR, 'global-patterns', id + '.md');
+    const content = readFileSafe(fp);
+    res.writeHead(content == null ? 404 : 200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ content: content || null }));
+    return;
   }
 
   // Static files
