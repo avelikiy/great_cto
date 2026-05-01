@@ -1903,6 +1903,7 @@ function connectSSE() {
     allTasks = JSON.parse(e.data);
     renderKanban(filterTasks(searchQuery));
     updateNavCounts();
+    refreshInbox();
   });
   es.addEventListener('pipeline', e => {
     try { renderPipeline(JSON.parse(e.data)); } catch {}
