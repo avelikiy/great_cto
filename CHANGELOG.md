@@ -4,6 +4,49 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.159 — 2026-05-01
+
+### Board admin: Inbox + Memory + Cost panel + inline gate approval
+
+- **Inbox tab** (default home) — time-aware greeting, summary pills (gates / P0 / blocked / stale > 48h), pending decisions list with inline Approve/Reject buttons, "Active pipeline" 7-stage track (architect → senior-dev → reviewers → qa → security → devops → l3-support).
+- **Memory browser tab** — 4-layer memory viewer (PROJECT.md / CODEBASE.md / brain.md / lessons.md / HANDOFF.md) + cross-project global patterns (`~/.great_cto/global-patterns/`), inline minimal markdown renderer.
+- **Cost panel** in Metrics — 30-day daily-burn bar chart from `docs/plans/PLAN-*.md` mtime + verdict `cost=$X` tags. 4 summary cells: last-30d / projected-month / vs-human / daily-avg. Monthly-budget alert if projected > `monthly-budget` in PROJECT.md.
+- **Inline gate approval** — Approve/Reject buttons on gate-labelled Kanban cards, in Inbox rows, and in side-panel detail. POST `/api/gates/:id` with `bd update --status closed/blocked + --notes`, SSE rebroadcast.
+- **Per-archetype icons** in project switcher / breadcrumbs / dropdown — 16 archetypes mapped to lucide-style stroke icons with brand colors (web-service → layers, ai-system → brain, web3 → diamond, etc.).
+- **⌘K topbar search** — filters tasks across title / id / agent / labels / status, switches to Board tab when typing.
+- **Project switcher dropdown** — multi-project navigation with archetype + description, query filter.
+- **Task descriptions** in side-panel + card preview — gates show context before approval.
+
+### Public report: AI vs Human compare card
+
+- New compare panel: `AI agents $X vs Human team $Y · Nx cheaper` (explicit comparison).
+- Hero stats reordered: **Tasks shipped / AI time / LLM cost** (was: shipped / spend / FTE).
+- Compact paddings + brand mark unified with admin (`✱ greatcto` Space Grotesk 600).
+
+### Landing site (greatcto.systems)
+
+- New sections: **Two decisions per feature** pipeline schema · **12-angle code review** chip grid · **Memory + 94% MTTR** with 4-layer cards · **Pricing transparency** ($34/month breakdown).
+- Hero now embeds **live iframe** of the public report demo (proves the product works).
+- Font swap: Fraunces serif → **Space Grotesk** (technical/geometric across landing + admin + report).
+- Mobile responsive: H1 sizing, nav nowrap, CTA stack, dashboard preview hidden < 800px.
+- Brand: SVG logo (cream star + greatcto) + favicon family + apple-touch-icon.
+
+### README
+
+Compacted from 503 → 242 lines. Multica-style structure: hero / what is / two decisions / features / quick install / cost / vs comparison / collapsed details (memory / archetypes / MCP / triggers / limitations).
+
+### Server endpoints (`packages/board/server.mjs`)
+
+- `GET /api/inbox` — pending_gates / blocked / p0_open / stale_in_progress + summary
+- `GET /api/memory` + `GET /api/memory-pattern?id=GP-XXX`
+- `POST /api/gates/:id` — `{ action: "approve"|"reject", reason? }` → bd update + SSE
+- `GET /api/cost?days=N` — daily series, projected monthly, budget comparison
+- `GET /api/pipeline` — current 7-stage SDLC pipeline state
+- `getTasks` exposes `description / design / acceptance / notes` from bd
+- Verdict parser supports `cost=$X` tag (stripped from raw, exposed as `cost_usd`)
+
+---
+
 ## v1.0.158 — 2026-04-30
 
 ### Light-theme redesign + new landing page
