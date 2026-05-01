@@ -88,6 +88,203 @@ function broadcast(event, data) {
   }
 }
 
+function broadcastTasks(cwd) {
+  const msg = `event: tasks\ndata: ${JSON.stringify(getTasks(cwd))}\n\n`;
+  for (const res of sseClients) {
+    if (res._gctoCwd === cwd) {
+      try { res.write(msg); } catch { sseClients.delete(res); }
+    }
+  }
+}
+
+// ── Memory: 4-layer file contents ─────────────────────────────────────────────
+function readFileSafe(p) {
+  try { return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null; } catch { return null; }
+}
+function getMemory(cwd = process.cwd()) {
+  const layers = [
+    { id: 'project',  layer: 'L1', name: 'PROJECT.md',  desc: 'Archetype, size, compliance, owners',          path: path.join(cwd, '.great_cto', 'PROJECT.md') },
+    { id: 'codebase', layer: 'L2', name: 'CODEBASE.md', desc: 'God nodes, entry points, public API, routes',  path: path.join(cwd, '.great_cto', 'CODEBASE.md') },
+    { id: 'brain',    layer: 'L3', name: 'brain.md',    desc: 'Patterns in use, what failed, team patterns',  path: path.join(cwd, '.great_cto', 'brain.md') },
+    { id: 'lessons',  layer: 'L3', name: 'lessons.md',  desc: 'Per-project lessons',                          path: path.join(cwd, '.great_cto', 'lessons.md') },
+    { id: 'handoff',  layer: 'L3', name: 'HANDOFF.md',  desc: 'Auto-written on context compaction',           path: path.join(cwd, '.great_cto', 'HANDOFF.md') },
+  ];
+  const result = layers.map(l => ({
+    ...l,
+    content: readFileSafe(l.path),
+    exists: fs.existsSync(l.path),
+    size: fs.existsSync(l.path) ? fs.statSync(l.path).size : 0,
+  }));
+
+  // Cross-project global patterns (~/.great_cto/global-patterns/)
+  const gpDir = path.join(GREAT_CTO_DIR, 'global-patterns');
+  let patterns = [];
+  if (fs.existsSync(gpDir)) {
+    patterns = fs.readdirSync(gpDir)
+      .filter(f => f.startsWith('GP-') && f.endsWith('.md'))
+      .map(f => {
+        const fp = path.join(gpDir, f);
+        const content = readFileSafe(fp) || '';
+        const titleMatch = content.match(/^#\s+(.+)$/m);
+        return {
+          id: f.replace(/\.md$/, ''),
+          name: f,
+          title: titleMatch ? titleMatch[1] : f,
+          path: fp,
+          size: fs.statSync(fp).size,
+        };
+      });
+  }
+  return { layers: result, patterns, cwd };
+}
+
+// ── Pipeline state ────────────────────────────────────────────────────────────
+function getPipeline(cwd = process.cwd()) {
+  const stages = ['architect', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
+  const verdicts = readVerdicts();
+  const now = Date.now();
+  const ACTIVE_WINDOW = 30 * 60 * 1000;  // 30 min
+
+  // Map agents → most recent verdict
+  const lastByAgent = {};
+  for (const v of verdicts) {
+    const a = (v.agent || '').toLowerCase();
+    if (!lastByAgent[a] || lastByAgent[a].ts < v.ts) lastByAgent[a] = v;
+  }
+
+  // Tasks in_progress give us "active" agents
+  const tasks = getTasks(cwd);
+  const activeAgents = new Set(
+    tasks.filter(t => t.status === 'in_progress').map(t => (t.agent || '').toLowerCase()).filter(Boolean)
+  );
+
+  return stages.map(stage => {
+    // agent log file naming convention: shortened agent name
+    const aliases = {
+      'architect': ['architect'],
+      'senior-dev': ['senior-dev', 'senior_dev', 'backend', 'frontend'],
+      'reviewers': ['reviewer', 'review', 'code-reviewer'],
+      'qa-engineer': ['qa-engineer', 'qa'],
+      'security-officer': ['security-officer', 'security'],
+      'devops': ['devops', 'ops'],
+      'l3-support': ['l3-support', 'l3', 'support'],
+    };
+    const cands = aliases[stage] || [stage];
+    let last = null;
+    for (const c of cands) {
+      if (lastByAgent[c] && (!last || last.ts < lastByAgent[c].ts)) last = lastByAgent[c];
+    }
+    const isActive = cands.some(c => activeAgents.has(c));
+    const ageMs = last ? (now - new Date(last.ts).getTime()) : null;
+    const recent = ageMs != null && ageMs < ACTIVE_WINDOW;
+    let status = 'idle';
+    if (isActive || (recent && (last?.verdict || '').toUpperCase() === 'DONE' === false && recent)) status = 'active';
+    if (last && (last.verdict || '').toUpperCase().match(/BLOCKED|FAIL/)) status = 'failed';
+    if (last && !isActive && (last.verdict || '').toUpperCase().match(/APPROVED|DONE|PASS/)) status = 'done';
+    return {
+      stage,
+      status,
+      verdict: last?.verdict || null,
+      last_message: last ? (last.raw || '').slice(last.ts.length + 1).split(' ').slice(1).join(' ').slice(0, 80) : null,
+      ts: last?.ts || null,
+      age_min: ageMs != null ? Math.round(ageMs / 60000) : null,
+    };
+  });
+}
+
+// ── Cost history (daily LLM burn) ────────────────────────────────────────────
+function getCostHistory(cwd = process.cwd(), days = 30) {
+  // Build a map<dateISO, { llm, human, plans, verdictCost }>
+  const buckets = new Map();
+  const now = Date.now();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(now - i * 86400000);
+    const key = d.toISOString().slice(0, 10);
+    buckets.set(key, { date: key, llm: 0, human: 0, plans: 0, runs: 0 });
+  }
+
+  // Plans: file mtime as date
+  const plansDir = path.join(cwd, 'docs/plans');
+  if (fs.existsSync(plansDir)) {
+    for (const f of fs.readdirSync(plansDir).filter(x => x.endsWith('.md'))) {
+      const fp = path.join(plansDir, f);
+      const stat = fs.statSync(fp);
+      const dayKey = stat.mtime.toISOString().slice(0, 10);
+      if (!buckets.has(dayKey)) continue;
+      const content = fs.readFileSync(fp, 'utf8');
+      const llmMatch = content.match(/LLM.*?(\d+\.?\d*)\s*[-–]\s*\$?(\d+\.?\d*)/i);
+      const humanMatch = content.match(/Human.*?\$(\d[\d,]+)/i);
+      const b = buckets.get(dayKey);
+      if (llmMatch) b.llm += parseFloat(llmMatch[2]);
+      if (humanMatch) b.human += parseFloat(humanMatch[1].replace(/,/g, ''));
+      b.plans++;
+    }
+  }
+
+  // Verdicts: cost=$X tag (from ~/.great_cto/verdicts/)
+  const verdicts = readVerdicts();
+  for (const v of verdicts) {
+    if (v.cost_usd == null) continue;
+    const dayKey = (v.ts || '').slice(0, 10);
+    if (!buckets.has(dayKey)) continue;
+    const b = buckets.get(dayKey);
+    b.llm += v.cost_usd;
+    b.runs++;
+  }
+
+  const series = Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
+  const totalLlm = series.reduce((a, b) => a + b.llm, 0);
+  const totalHuman = series.reduce((a, b) => a + b.human, 0);
+  const totalPlans = series.reduce((a, b) => a + b.plans, 0);
+  // Read budget from PROJECT.md (monthly-budget: $X)
+  const projMd = readFileSafe(path.join(cwd, '.great_cto', 'PROJECT.md')) || '';
+  const budgetMatch = projMd.match(/monthly[-_]budget:\s*\$?(\d[\d,]+)/i);
+  const budget = budgetMatch ? parseFloat(budgetMatch[1].replace(/,/g, '')) : null;
+  // Burn projection: assume same daily rate, project to 30-day month
+  const dayRate = totalLlm / Math.max(1, days);
+  const projectedMonthly = Math.round(dayRate * 30 * 100) / 100;
+  return {
+    days,
+    series,
+    total_llm: Math.round(totalLlm * 100) / 100,
+    total_human: Math.round(totalHuman),
+    total_plans: totalPlans,
+    daily_avg: Math.round(dayRate * 100) / 100,
+    projected_monthly: projectedMonthly,
+    monthly_budget: budget,
+    over_budget: budget != null && projectedMonthly > budget,
+    savings_x: totalLlm > 0 ? Math.round(totalHuman / totalLlm) : 0,
+  };
+}
+
+// ── Inbox: what needs the user's decision right now ──────────────────────────
+function getInbox(cwd = process.cwd()) {
+  const tasks = getTasks(cwd);
+  const pendingGates = tasks.filter(t => t.is_gate && t.status !== 'done' && t.status !== 'closed');
+  const blocked = tasks.filter(t => t.status === 'blocked');
+  const p0 = tasks.filter(t => t.priority === 0 && t.status !== 'done' && t.status !== 'closed');
+  const inProgress = tasks.filter(t => t.status === 'in_progress');
+  const stale = inProgress.filter(t => {
+    if (!t.updated_at) return false;
+    const ageH = (Date.now() - new Date(t.updated_at).getTime()) / 3600_000;
+    return ageH > 48;
+  });
+  const sec = readSecStats(cwd);
+  return {
+    pending_gates: pendingGates.slice(0, 20),
+    blocked: blocked.slice(0, 10),
+    p0_open: p0.slice(0, 10),
+    stale_in_progress: stale.slice(0, 10),
+    security: { blocked: sec.blocked, approved: sec.approved },
+    summary: {
+      gates: pendingGates.length,
+      blocked: blocked.length,
+      p0: p0.length,
+      stale: stale.length,
+    },
+  };
+}
+
 // ── Beads data ─────────────────────────────────────────────────────────────────
 function bdList(cwd = process.cwd()) {
   try {
@@ -104,6 +301,10 @@ function getTasks(cwd = process.cwd()) {
   return all.map(t => ({
     id: t.id,
     title: t.title,
+    description: t.description || '',
+    notes: t.notes || '',
+    design: t.design || '',
+    acceptance: t.acceptance || '',
     status: mapStatus(t.status, t.labels),
     priority: t.priority,
     labels: t.labels || [],
@@ -200,11 +401,13 @@ function readVerdicts() {
       .split('\n').filter(Boolean);
     for (const line of lines) {
       const parts = line.split(' ');
+      const costMatch = line.match(/\bcost=\$?(\d+\.?\d*)\b/i);
       results.push({
         ts: parts[0],
         agent,
         verdict: parts[1] || '',
-        raw: line,
+        cost_usd: costMatch ? parseFloat(costMatch[1]) : null,
+        raw: line.replace(/\s*\bcost=\$?\d+\.?\d*\b/i, ''),
       });
     }
   }
@@ -439,6 +642,84 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+  }
+
+  // Gate approval / rejection
+  if (pathname.startsWith('/api/gates/') && req.method === 'POST') {
+    const id = pathname.replace('/api/gates/', '');
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      const { action, reason } = JSON.parse(body || '{}');
+      if (!['approve', 'reject'].includes(action)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid action' }));
+        return;
+      }
+      try {
+        const status = action === 'approve' ? 'closed' : 'blocked';
+        const args = ['update', id, '--status', status];
+        if (reason) args.push('--notes', `[${action}] ${reason}`);
+        const r = spawnSync('bd', args, { cwd, encoding: 'utf8' });
+        if (r.status !== 0) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, id, action }));
+        // Broadcast updated tasks via SSE
+        broadcastTasks(cwd);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e.message || e) }));
+      }
+    });
+    return;
+  }
+
+  // Inbox — what needs your attention right now
+  if (pathname === '/api/inbox') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getInbox(cwd)));
+    return;
+  }
+
+  // Memory — 4-layer memory file contents
+  if (pathname === '/api/memory') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getMemory(cwd)));
+    return;
+  }
+
+  // Pipeline — current stage states (idle / active / done / failed)
+  if (pathname === '/api/pipeline') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getPipeline(cwd)));
+    return;
+  }
+
+  // Cost history — daily LLM burn over N days
+  if (pathname === '/api/cost') {
+    const days = parseInt(url.searchParams.get('days') || '30', 10);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getCostHistory(cwd, days)));
+    return;
+  }
+
+  // Memory — single global pattern content
+  if (pathname === '/api/memory-pattern') {
+    const id = url.searchParams.get('id') || '';
+    if (!/^GP-[A-Za-z0-9_-]+$/.test(id)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'invalid id' }));
+      return;
+    }
+    const fp = path.join(GREAT_CTO_DIR, 'global-patterns', id + '.md');
+    const content = readFileSafe(fp);
+    res.writeHead(content == null ? 404 : 200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ content: content || null }));
+    return;
   }
 
   // Static files
