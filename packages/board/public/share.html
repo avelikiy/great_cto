@@ -94,8 +94,9 @@ button { font-family: inherit; cursor: pointer; }
 }
 .report-title h1 {
   font-family: var(--serif); font-weight: 600;
-  font-size: 26px; line-height: 1.15;
+  font-size: 28px; line-height: 1.15;
   letter-spacing: -0.02em; margin: 0;
+  color: var(--text);
 }
 .report-title h1 em { font-style: normal; color: var(--accent); font-weight: 500; }
 .report-title .meta {
@@ -129,18 +130,19 @@ button { font-family: inherit; cursor: pointer; }
 .report-stat.red::before    { background: var(--status-blocked); }
 .report-stat.purple::before { background: #7c3aed; }
 .report-stat .num {
-  font-family: var(--serif); font-weight: 600;
-  font-size: 26px; line-height: 1;
+  font-family: var(--serif); font-weight: 500;
+  font-size: 32px; line-height: 1;
   letter-spacing: -0.02em;
+  color: var(--text);
 }
 .report-stat .num small {
   font-size: 14px; color: var(--text2);
-  margin-left: 2px; font-weight: 500;
+  margin-left: 2px; font-weight: 400;
 }
 .report-stat .lbl {
-  font-family: var(--mono); font-size: 9px;
+  font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text2); margin-top: 8px;
+  color: var(--text2); margin-top: 10px;
 }
 .report-stat .sub {
   margin-top: 4px; font-size: 11px; color: var(--text2);
@@ -150,7 +152,7 @@ button { font-family: inherit; cursor: pointer; }
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 8px; margin-bottom: 18px;
 }
-.report-stats-sec .report-stat .num { font-size: 18px; font-family: var(--mono); font-weight: 500; }
+.report-stats-sec .report-stat .num { font-size: 22px; font-family: var(--serif); font-weight: 500; }
 
 /* Compare card — AI vs humans */
 .compare-card {
@@ -167,8 +169,8 @@ button { font-family: inherit; cursor: pointer; }
   text-transform: uppercase; color: var(--text2);
 }
 .compare-side .v {
-  font-family: var(--serif); font-weight: 600;
-  font-size: 22px; letter-spacing: -0.02em;
+  font-family: var(--serif); font-weight: 500;
+  font-size: 26px; letter-spacing: -0.02em;
   color: var(--text);
 }
 .compare-side .t { font-family: var(--mono); font-size: 11px; color: var(--text3); }
