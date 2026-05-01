@@ -7,9 +7,15 @@
 <meta name="description" content="GreatCTO replaces the entire CTO function with specialist agents — architect, security, QA, devops, and more — coordinated through a single board." />
 <meta property="og:title" content="GreatCTO — Your next 10 engineers won't be people" />
 <meta property="og:description" content="17 specialist agents, one board. The AI engineering org for solo founders → 50-eng teams." />
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
+<link rel="shortcut icon" href="/assets/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+<link rel="manifest" href="/site.webmanifest" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -74,28 +80,40 @@
   </div>
   <div class="landing-content">
     <nav class="land-nav">
-      <div class="land-nav-logo"><span class="star">✱</span><span>greatcto</span></div>
+      <a class="land-nav-logo" href="/" aria-label="greatcto"><img src="/assets/logo.svg" alt="greatcto" height="36" /></a>
       <div class="land-nav-right">
         <a class="land-nav-link" href="#how">How it works</a>
         <a class="land-nav-link" href="#agents">Agents</a>
-        <a class="land-nav-link" href="#pricing">Pricing</a>
         <a class="land-nav-link" href="https://github.com/avelikiy/great_cto">GitHub</a>
         <a class="land-nav-link solid" href="https://github.com/avelikiy/great_cto">Sign in</a>
       </div>
     </nav>
 
     <header class="land-hero">
-      <span class="land-hero-eyebrow">v0.14 · 17 specialist agents</span>
+      <span class="land-hero-eyebrow">v1.0.158 · 17 specialist agents</span>
       <h1>Your next 10 engineers <em>won't be people.</em></h1>
       <p>GreatCTO replaces the entire CTO function with specialist agents — architect, security, QA, devops, ops, and twelve more — coordinated through a single board you actually check.</p>
       <div class="land-cta-row">
         <a class="btn-primary" href="#cta">Get started →</a>
-        <a class="btn-ghost" href="#how">How it works</a>
+        <a class="btn-ghost" href="https://greatcto.systems/r/CsqYVXs1Vibac5yp" target="_blank">See live report ↗</a>
       </div>
-      <div class="land-works-with">WORKS WITH &nbsp; · &nbsp; CLAUDE CODE &nbsp; · &nbsp; CURSOR &nbsp; · &nbsp; AIDER &nbsp; · &nbsp; ZED</div>
+      <div class="land-works-with">WORKS WITH &nbsp; · &nbsp; CLAUDE CODE</div>
 
-      <!-- Dashboard preview -->
+      <!-- Live report preview -->
       <div class="land-dash" style="margin-top:32px;text-align:left;">
+        <div class="land-dash-bar">
+          <span class="dot" style="background:#ff5f57"></span>
+          <span class="dot" style="background:#febc2e"></span>
+          <span class="dot" style="background:#28c840"></span>
+          <span class="url-label">greatcto.systems/r/demo</span>
+          <a class="url-label" href="https://greatcto.systems/r/CsqYVXs1Vibac5yp" target="_blank" style="margin-left:auto;color:var(--accent);text-decoration:none;font-weight:500;">Open in new tab ↗</a>
+        </div>
+        <iframe class="land-dash-iframe" src="https://greatcto.systems/r/CsqYVXs1Vibac5yp" title="Live engineering report demo" loading="lazy"></iframe>
+      </div>
+
+      <div style="display:none">
+      <!-- Static fallback (now hidden — kept for graceful degrade) -->
+      <div>
         <div class="land-dash-bar">
           <span class="dot" style="background:#ff5f57"></span>
           <span class="dot" style="background:#febc2e"></span>
@@ -183,12 +201,31 @@
           </div>
         </div>
       </div>
+      </div><!-- /static-fallback hidden -->
     </header>
   </div>
 </section>
 
+<!-- Two decisions per feature -->
+<section class="land-section">
+  <div class="land-section-narrow">
+    <h2>Two decisions <em>per feature</em></h2>
+    <p class="sub">Everything else is automatic. The pipeline assembles itself based on what your project IS.</p>
+    <div class="pipeline">
+      <div class="pipeline-step"><div class="badge">/start</div><div class="name">architect</div><div class="sub">ARCH doc</div></div>
+      <div class="pipeline-arrow"></div>
+      <div class="pipeline-step decision"><div class="badge">decision 1</div><div class="name">approve arch</div><div class="sub">~30 sec</div></div>
+      <div class="pipeline-arrow"></div>
+      <div class="pipeline-step"><div class="badge">automatic</div><div class="name">12 reviews · QA · security</div><div class="sub">~45 min</div></div>
+      <div class="pipeline-arrow"></div>
+      <div class="pipeline-step decision"><div class="badge">decision 2</div><div class="name">ship it</div><div class="sub">~30 sec</div></div>
+    </div>
+    <p class="pipeline-note">Architecture, planning, implementation, code review, QA, security audit, deployment — agents handle it. <strong>You make two decisions per feature.</strong></p>
+  </div>
+</section>
+
 <!-- How it works -->
-<section class="land-section" id="how">
+<section class="land-section alt" id="how">
   <div class="land-section-narrow">
     <h2>How it <em>works</em></h2>
     <p class="sub">Three commands. The board does the rest.</p>
@@ -210,6 +247,98 @@
         <h3>Ship</h3>
         <p>You review the diff, merge the PR, hand off the share link to your investors.</p>
         <pre>$ npx great-cto ship</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12-angle code review -->
+<section class="land-section">
+  <div class="land-section-narrow">
+    <h2>Twelve <em>independent</em> review angles</h2>
+    <p class="sub">Not one giant prompt. Twelve focused passes, each with a P0/P1/P2 verdict. P0 blocks the gate.</p>
+    <div class="angles-grid">
+      <div class="angle-chip"><span class="num">01</span><span class="label">Performance</span></div>
+      <div class="angle-chip"><span class="num">02</span><span class="label">Security</span></div>
+      <div class="angle-chip"><span class="num">03</span><span class="label">Readability</span></div>
+      <div class="angle-chip"><span class="num">04</span><span class="label">SQL Safety</span></div>
+      <div class="angle-chip"><span class="num">05</span><span class="label">LLM Trust</span></div>
+      <div class="angle-chip"><span class="num">06</span><span class="label">Side Effects</span></div>
+      <div class="angle-chip"><span class="num">07</span><span class="label">Data Privacy</span></div>
+      <div class="angle-chip"><span class="num">08</span><span class="label">Error Handling</span></div>
+      <div class="angle-chip"><span class="num">09</span><span class="label">Concurrency</span></div>
+      <div class="angle-chip"><span class="num">10</span><span class="label">Dep Freshness</span></div>
+      <div class="angle-chip"><span class="num">11</span><span class="label">API Contracts</span></div>
+      <div class="angle-chip"><span class="num">12</span><span class="label">Design System</span></div>
+    </div>
+    <div class="angles-note">Catches what one-pass review misses: <strong>N+1 queries</strong>, <strong>prompt injection</strong>, <strong>SQL interpolation</strong>, <strong>auth bypass</strong>, <strong>race conditions</strong>, <strong>breaking API changes</strong>, <strong>hardcoded design tokens</strong>.</div>
+  </div>
+</section>
+
+<!-- Memory + cross-project learning -->
+<section class="land-section alt">
+  <div class="land-section-narrow">
+    <h2>Agents get smarter <em>every session</em></h2>
+    <p class="sub">Four-layer memory system. We synthesize, not record. Total local memory: ~10–50 KB per project.</p>
+    <div class="memory-grid">
+      <div class="memory-layer">
+        <div class="layer">L1 · PROJECT</div>
+        <h4>What this project is</h4>
+        <p>Archetype, size, compliance, team, owners.</p>
+        <code>.great_cto/PROJECT.md</code>
+      </div>
+      <div class="memory-layer">
+        <div class="layer">L2 · CODEBASE</div>
+        <h4>Where the seams are</h4>
+        <p>God nodes, entry points, public API, routes.</p>
+        <code>.great_cto/CODEBASE.md</code>
+      </div>
+      <div class="memory-layer">
+        <div class="layer">L3 · BRAIN</div>
+        <h4>What we learned</h4>
+        <p>Patterns in use, what has failed, team patterns.</p>
+        <code>.great_cto/brain.md</code>
+      </div>
+      <div class="memory-layer">
+        <div class="layer">L4 · CROSS-PROJECT</div>
+        <h4>Patterns that beat hours</h4>
+        <p>Detection orders that turn 4-hour investigations into seconds.</p>
+        <code>~/.great_cto/global-patterns/</code>
+      </div>
+    </div>
+    <div class="mttr-stat">
+      <div class="num">94%</div>
+      <div class="copy">
+        <h4>MTTR reduction on second occurrence</h4>
+        <p>After a P0 incident, agents extract a structured pattern. <code style="color:#ffd9b8;font-family:var(--mono);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px">/crystallize</code> promotes it to a global pattern after your approval. The pattern surfaces in every agent's Step 0 across all your projects. A root cause that took 4 hours the first time takes 30 seconds the next time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing transparency -->
+<section class="land-section">
+  <div class="land-section-narrow">
+    <h2>No <em>per-seat</em> fee</h2>
+    <p class="sub">You pay your own Anthropic API. We're an open-source plugin — there's no SaaS to subscribe to.</p>
+    <div class="pricing-card">
+      <div>
+        <div class="lead">~$34/month for a <em>typical team</em></div>
+        <div class="desc">Indicative LLM spend on ~20 pipeline runs/month based on Sonnet-4.x pricing. Your mileage varies with context size, model choice, and how often <code style="font-family:var(--mono);background:var(--bg-muted);padding:1px 5px;border-radius:3px;font-size:12px">deep</code> mode is invoked.</div>
+        <ul class="features">
+          <li>Free to install · MIT-licensed</li>
+          <li>Pay your own Anthropic / Kimi API tokens</li>
+          <li>No per-seat fee · no SaaS lock-in</li>
+          <li>Routes routine triage to Kimi K2 → 60–80% cost cut</li>
+        </ul>
+      </div>
+      <div class="pricing-table">
+        <div class="pricing-row head"><span>pipeline</span><span class="num">$ / run</span><span class="num">runs / mo</span></div>
+        <div class="pricing-row"><span class="name">quick — config / typo</span><span class="num">$0.10</span><span class="num">10</span></div>
+        <div class="pricing-row"><span class="name">quick — new endpoint</span><span class="num">$1</span><span class="num">6</span></div>
+        <div class="pricing-row"><span class="name">standard — feature</span><span class="num">$5</span><span class="num">3</span></div>
+        <div class="pricing-row"><span class="name">deep — cross-cutting</span><span class="num">$12</span><span class="num">1</span></div>
+        <div class="pricing-row total"><span>total / month</span><span></span><span class="total-num">~$34</span></div>
       </div>
     </div>
   </div>
