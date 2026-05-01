@@ -2,11 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>GreatCTO — Your next 10 engineers won't be people</title>
+<title>GreatCTO — Stop being the only person who can ship.</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="description" content="GreatCTO replaces the entire CTO function with specialist agents — architect, security, QA, devops, and more — coordinated through a single board." />
-<meta property="og:title" content="GreatCTO — Your next 10 engineers won't be people" />
-<meta property="og:description" content="17 specialist agents, one board. The AI engineering org for solo founders → 50-eng teams." />
+<meta name="theme-color" content="#0a0e0c" />
+<meta name="description" content="GreatCTO is 17 specialist agents that handle architecture, review, QA, security, and deploy — while you make two decisions per feature. Open source. Runs locally." />
+<meta property="og:title" content="GreatCTO — Stop being the only person who can ship" />
+<meta property="og:description" content="17 specialist agents. Two decisions per feature. Open source. ~$34/month." />
+<meta property="og:image" content="https://greatcto.systems/assets/og.png" />
+<meta property="og:type" content="website" />
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
@@ -15,446 +18,693 @@
 <link rel="manifest" href="/site.webmanifest" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-<!-- Hero with landscape -->
-<section class="landing-hero">
-  <div class="landing-bg">
-    <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#1a2547" />
-          <stop offset="55%" stop-color="#5a4a7a" />
-          <stop offset="85%" stop-color="#f4a87c" />
-          <stop offset="100%" stop-color="#ffd9b8" />
-        </linearGradient>
-        <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0%" stop-color="#fff4d9" stop-opacity="1" />
-          <stop offset="40%" stop-color="#fff4d9" stop-opacity="0.9" />
-          <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
-        </radialGradient>
-        <radialGradient id="sunhalo" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0%" stop-color="#ffc89b" stop-opacity="0.5" />
-          <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
-        </radialGradient>
-        <linearGradient id="mtnFar" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#b8c2d8" />
-          <stop offset="20%" stop-color="#3d4a6b" />
-          <stop offset="100%" stop-color="#3d4a6b" />
-        </linearGradient>
-        <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="rgba(255,220,200,0)" />
-          <stop offset="100%" stop-color="rgba(255,220,200,0.6)" />
-        </linearGradient>
-        <filter id="blur-cloud"><feGaussianBlur stdDeviation="8" /></filter>
-      </defs>
-      <rect width="1600" height="900" fill="url(#sky)" />
-      <circle cx="1100" cy="540" r="260" fill="url(#sunhalo)" />
-      <circle cx="1100" cy="540" r="80" fill="url(#sun)" />
-      <g filter="url(#blur-cloud)" opacity="0.85">
-        <ellipse cx="200" cy="280" rx="180" ry="22" fill="#ffc4a8" />
-        <ellipse cx="600" cy="220" rx="240" ry="18" fill="#f5a890" />
-        <ellipse cx="1280" cy="320" rx="220" ry="24" fill="#ffc4a8" />
-        <ellipse cx="900" cy="380" rx="160" ry="14" fill="#e8b4c4" />
-        <ellipse cx="350" cy="440" rx="280" ry="20" fill="#f5a890" opacity="0.7" />
-        <ellipse cx="1400" cy="480" rx="200" ry="16" fill="#e8b4c4" opacity="0.7" />
-      </g>
-      <g opacity="0.75">
-        <path d="M 100,300 Q 250,280 400,295 T 720,300 Q 800,310 700,318 T 300,322 Q 150,318 100,310 Z" fill="#ffc4a8" opacity="0.55" />
-        <path d="M 980,360 Q 1150,340 1320,355 T 1600,365 L 1600,378 Q 1400,388 1180,382 T 980,380 Z" fill="#f5a890" opacity="0.5" />
-      </g>
-      <g opacity="0.92">
-        <path d="M 0,640 L 80,580 L 140,610 L 220,520 L 300,560 L 380,500 L 460,540 L 540,470 L 620,510 L 700,460 L 780,500 L 860,440 L 940,490 L 1020,450 L 1100,500 L 1180,470 L 1260,520 L 1340,490 L 1420,540 L 1500,510 L 1600,560 L 1600,900 L 0,900 Z" fill="url(#mtnFar)" />
-        <path d="M 220,520 L 240,535 L 260,530 L 280,548 L 300,560 L 280,558 L 260,550 L 240,548 Z" fill="#b8c2d8" opacity="0.5" />
-        <path d="M 540,470 L 560,485 L 580,482 L 600,500 L 620,510 L 600,506 L 580,500 L 560,496 Z" fill="#b8c2d8" opacity="0.6" />
-        <path d="M 860,440 L 880,455 L 900,452 L 920,475 L 940,490 L 920,486 L 900,478 L 880,470 Z" fill="#b8c2d8" opacity="0.55" />
-      </g>
-      <path d="M 0,720 L 100,680 L 200,700 L 320,640 L 440,680 L 560,620 L 680,670 L 800,610 L 920,660 L 1040,620 L 1160,680 L 1280,640 L 1400,690 L 1520,650 L 1600,700 L 1600,900 L 0,900 Z" fill="#2c3554" opacity="0.95" />
-      <rect x="0" y="700" width="1600" height="80" fill="url(#mist)" opacity="0.5" />
-      <path d="M 0,820 L 120,790 L 280,810 L 420,780 L 560,815 L 720,790 L 880,820 L 1040,795 L 1200,815 L 1360,790 L 1520,820 L 1600,800 L 1600,900 L 0,900 Z" fill="#1a2138" />
-      <rect x="0" y="700" width="1600" height="200" fill="rgba(0,0,0,0.05)" />
-    </svg>
+<nav class="nav">
+  <a class="nav-logo" href="/" aria-label="greatcto">
+    <span class="logo-mark" aria-hidden="true">
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="14" fill="#0a0e0c"/>
+        <g stroke="#00d97e" stroke-width="9" stroke-linecap="round">
+          <line x1="32" y1="14" x2="32" y2="50"/>
+          <line x1="16.4" y1="23" x2="47.6" y2="41"/>
+          <line x1="16.4" y1="41" x2="47.6" y2="23"/>
+        </g>
+      </svg>
+    </span>
+    <span>greatcto</span>
+  </a>
+  <div class="nav-right">
+    <a href="#how" class="nav-link">How it works</a>
+    <a href="#board" class="nav-link">Board</a>
+    <a href="#review" class="nav-link">Review</a>
+    <a href="#memory" class="nav-link">Memory</a>
+    <a href="#pricing" class="nav-link">Pricing</a>
+    <a href="https://github.com/avelikiy/great_cto" class="nav-link">GitHub</a>
+    <a href="#install" class="cta">Install</a>
   </div>
-  <div class="landing-content">
-    <nav class="land-nav">
-      <a class="land-nav-logo" href="/" aria-label="greatcto"><img src="/assets/logo.svg" alt="greatcto" height="36" /></a>
-      <div class="land-nav-right">
-        <a class="land-nav-link" href="#how">How it works</a>
-        <a class="land-nav-link" href="#agents">Agents</a>
-        <a class="land-nav-link" href="https://github.com/avelikiy/great_cto">GitHub</a>
-        <a class="land-nav-link solid" href="https://github.com/avelikiy/great_cto">Sign in</a>
-      </div>
-    </nav>
+</nav>
 
-    <header class="land-hero">
-      <span class="land-hero-eyebrow">v1.0.158 · 17 specialist agents</span>
-      <h1>Your next 10 engineers <em>won't be people.</em></h1>
-      <p>GreatCTO replaces the entire CTO function with specialist agents — architect, security, QA, devops, ops, and twelve more — coordinated through a single board you actually check.</p>
-      <div class="land-cta-row">
-        <a class="btn-primary" href="#cta">Get started →</a>
-        <a class="btn-ghost" href="https://greatcto.systems/r/CsqYVXs1Vibac5yp" target="_blank">See live report ↗</a>
-      </div>
-      <div class="land-works-with">WORKS WITH &nbsp; · &nbsp; CLAUDE CODE</div>
+<!-- ─────────────────────── HERO ─────────────────────── -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-inner">
+    <span class="hero-eyebrow">
+      <span class="pulse"></span>
+      v1.0.159 · open source · MIT · Claude Code plugin
+    </span>
+    <h1>
+      Stop being the only person<br/>
+      who can <span style="color:var(--accent)">ship</span>.
+    </h1>
+    <p class="sub">
+      You're the CTO. You're also the bottleneck. <b>GreatCTO is 17 specialist agents</b> that handle architecture, review, QA, security, and deploy — while you make <b>two decisions per feature</b>.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#install">$ npx great-cto init</a>
+      <a class="btn btn-ghost" href="https://github.com/avelikiy/great_cto" target="_blank">View on GitHub ↗</a>
+    </div>
+    <div class="cta-micro">
+      no signup<span class="sep">·</span>runs locally<span class="sep">·</span>pay your own API
+    </div>
 
-      <!-- Live report preview -->
-      <div class="land-dash" style="margin-top:32px;text-align:left;">
-        <div class="land-dash-bar">
-          <span class="dot" style="background:#ff5f57"></span>
-          <span class="dot" style="background:#febc2e"></span>
-          <span class="dot" style="background:#28c840"></span>
-          <span class="url-label">greatcto.systems/r/demo</span>
-          <a class="url-label" href="https://greatcto.systems/r/CsqYVXs1Vibac5yp" target="_blank" style="margin-left:auto;color:var(--accent);text-decoration:none;font-weight:500;">Open in new tab ↗</a>
-        </div>
-        <iframe class="land-dash-iframe" src="https://greatcto.systems/r/CsqYVXs1Vibac5yp" title="Live engineering report demo" loading="lazy"></iframe>
+    <!-- Hero terminal preview -->
+    <div class="hero-terminal">
+      <div class="hero-terminal-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="label">~ /your-saas — claude code</span>
       </div>
+<div class="hero-terminal-body"><span class="prompt">$</span> /start <span class="you">"add Stripe subscriptions"</span>
+<span class="arrow">→</span> archetype: <span class="ok">commerce</span> <span class="dim">(Stripe dep → PCI-DSS triggered)</span>
+<span class="arrow">→</span> scale: <span class="ok">standard</span> <span class="dim">(5 agents, ~45min)</span>
+<span class="arrow">→</span> ARCH-stripe-subscriptions.md ready
 
-      <div style="display:none">
-      <!-- Static fallback (now hidden — kept for graceful degrade) -->
-      <div>
-        <div class="land-dash-bar">
-          <span class="dot" style="background:#ff5f57"></span>
-          <span class="dot" style="background:#febc2e"></span>
-          <span class="dot" style="background:#28c840"></span>
-          <span class="url-label">board.greatcto.systems</span>
-        </div>
-        <div class="land-dash-body">
-          <div class="land-dash-side">
-            <div class="proj"><span class="star">✱</span> greatcto-core</div>
-            <div class="item">Inbox</div>
-            <div class="item active">Tasks</div>
-            <div class="item">Metrics</div>
-            <div class="item">Reports</div>
-            <div class="item">Agents</div>
+<span class="key">>> DECISION 1: approve architecture?</span> <span class="you">approved</span>
+
+<span class="arrow">→</span> senior-dev    <span class="dim">TDD: 14 tests, 287 LOC</span>
+<span class="arrow">→</span> /review ×12  <span class="dim">P0:0  P1:1  P2:3</span>
+<span class="arrow">→</span> qa-engineer  <span class="dim">coverage 91% · </span><span class="ok">PASS</span>
+<span class="arrow">→</span> security     <span class="dim">PCI-DSS SAQ-A · </span><span class="ok">PASS</span>
+<span class="arrow">→</span> devops       <span class="dim">canary 5% → 20% → 100%</span>
+
+<span class="key">>> DECISION 2: ship?</span> <span class="you">ship it</span>
+<span class="arrow">→</span> <span class="ok">done.</span> RELEASE-2026-05-01.md</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── BEFORE / AFTER ─────────────────────── -->
+<section class="wrap">
+  <div class="eyebrow">The trade-off you shouldn't have to make</div>
+  <h2 class="h2">Move fast. Or move safely. <em>Pick one.</em></h2>
+  <p class="lede">— until now.</p>
+
+  <div class="split">
+    <div class="split-col before">
+      <h3>Before</h3>
+      <ul>
+        <li><span class="icon">☐</span><span>You write the feature</span></li>
+        <li><span class="icon">☐</span><span>You spot the SQL injection at 11pm</span></li>
+        <li><span class="icon">☐</span><span>You catch the missing webhook signature in code review</span></li>
+        <li><span class="icon">☐</span><span>You triage the production alert at 2am</span></li>
+        <li><span class="icon">☐</span><span>You write the postmortem</span></li>
+        <li><span class="icon">☐</span><span>You forget the lesson 3 months later</span></li>
+        <li><span class="icon">☐</span><span><b>Ship in 5 hours · burnout in 18 months</b></span></li>
+      </ul>
+    </div>
+
+    <div class="split-col after">
+      <h3>After</h3>
+      <ul>
+        <li><span class="icon">✓</span><span>You describe the feature in one sentence</span></li>
+        <li><span class="icon">✓</span><span>Architect drafts ARCH-doc — you approve in 30s</span></li>
+        <li><span class="icon">✓</span><span>12-angle review catches the SQL injection (P0, blocked)</span></li>
+        <li><span class="icon">✓</span><span>Security agent files CVE on stripe-js — fix proposed</span></li>
+        <li><span class="icon">✓</span><span>Pattern from last incident surfaces in agent's Step 0</span></li>
+        <li><span class="icon">✓</span><span>Cross-project memory makes Tuesday's fix Wednesday's prevention</span></li>
+        <li><span class="icon">✓</span><span><b>Ship in 45 minutes · sleep tonight</b></span></li>
+      </ul>
+      <div class="split-foot">
+        <span>That's not aspirational. That's last Tuesday on a real repo.</span>
+        <a href="https://greatcto.systems/r/CsqYVXs1Vibac5yp" target="_blank">See the actual log ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── HOW IT WORKS ─────────────────────── -->
+<section id="how" class="wrap">
+  <div class="eyebrow">How it works</div>
+  <h2 class="h2">Three commands. The system <em>does the rest.</em></h2>
+  <p class="lede">No prompt-engineering. No agent-orchestration tutorial. No YAML.</p>
+
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-num">01 · INSTALL</div>
+      <h3>Drop into any repo</h3>
+      <p>Detects archetype from manifests (15 signals → 14 archetypes), wires the gates, loads the right agents.</p>
+<div class="term"><span class="prompt">$</span> npx great-cto init
+<span class="ok">✓</span> archetype: web-service <span class="dim">(95% confidence)</span>
+<span class="ok">✓</span> security tier: standard
+<span class="ok">✓</span> 5 agents auto-loaded
+<span class="ok">✓</span> ready in 12 seconds</div>
+    </div>
+
+    <div class="how-card">
+      <div class="how-num">02 · START</div>
+      <h3>Describe the feature in one sentence</h3>
+      <p>Architect drafts the architecture doc. You approve, refine, or reject. That's decision one.</p>
+<div class="term"><span class="prompt">$</span> /start <span class="you">"add 2FA via TOTP"</span>
+<span class="dim">→ ARCH-2fa.md ready</span>
+<span class="dim">→ pipeline: standard | ~45min</span>
+
+<span class="key">>> DECISION 1: approve?</span> <span class="you">_</span></div>
+    </div>
+
+    <div class="how-card">
+      <div class="how-num">03 · REVIEW · QA · SECURITY</div>
+      <h3>12 angles fire in parallel</h3>
+      <p>Performance, security, SQL safety, concurrency, privacy, API contracts. Every finding rated. P0 blocks the gate.</p>
+<div class="term"><span class="ok">✓</span> Performance · Security · SQL safety
+<span class="ok">✓</span> Concurrency · Privacy · API contracts
+<span class="ok">✓</span> Coverage 91% · 0 highs · CSO PASS
+
+<span class="key">>> DECISION 2: ship?</span> <span class="you">_</span></div>
+    </div>
+
+    <div class="how-card">
+      <div class="how-num">04 · SHIP</div>
+      <h3>Canary or done</h3>
+      <p>5% → 20% → 100%. RELEASE doc auto-written. On-call notified. Memory updated for next time.</p>
+<div class="term"><span class="prompt">$</span> ship
+<span class="dim">→ canary 5% (3min)</span>
+<span class="dim">→ 20% (5min) → 100%</span>
+<span class="dim">→ RELEASE-2026-05-01.md</span>
+<span class="ok">→ done.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── SHOWCASE ─────────────────────── -->
+<section id="board" class="wrap">
+  <div class="eyebrow">The board you'll actually check</div>
+  <h2 class="h2">Three views. <em>Real data.</em><br/>Live updates from your repo.</h2>
+  <p class="lede"><code class="inline-code">great-cto board</code> at <code class="inline-code">localhost:3141</code>. Inbox · Kanban · Metrics · Memory · Public report. Vanilla HTML, zero deps — no Electron, no Tauri, no SaaS.</p>
+
+  <!-- 01 · Kanban -->
+  <div class="showcase">
+    <div class="showcase-text">
+      <div class="showcase-num">01 · KANBAN</div>
+      <h3>Five columns. Uniform cards. Inline gate approval.</h3>
+      <p>Gates · Backlog · In Progress · Done · Blocked. Cards are 140px fixed-height, priority-coded, agent-tagged. ⌘K search across title / id / agent / labels. Project switcher with per-archetype icons. Live SSE — agent updates appear in &lt;1s.</p>
+    </div>
+    <div class="mockup">
+      <div class="mockup-bar">
+        <span class="mb-dot r"></span><span class="mb-dot y"></span><span class="mb-dot g"></span>
+        <span class="mb-url">localhost:3141 — board</span>
+      </div>
+      <div class="mockup-board">
+        <div class="mb-side">
+          <div class="mb-brand"><span class="star">✱</span> greatcto</div>
+          <div class="mb-proj">stripe-saas <span class="chev">⌄</span></div>
+          <div class="mb-nav">
+            <div class="mn">Inbox <span>3</span></div>
+            <div class="mn active">Tasks <span>22</span></div>
+            <div class="mn">Metrics</div>
+            <div class="mn">Memory</div>
+            <div class="mn">Share</div>
           </div>
-          <div class="land-dash-main">
-            <div class="land-dash-col">
-              <div class="land-dash-col-head" style="color:#94a3b8">
-                <span class="col-dot"></span>
-                <span style="color:var(--text)">Backlog</span>
-                <span class="count">4</span>
-              </div>
-              <div class="land-dash-card">
-                <div class="id">GCT-32</div>
-                <div class="ttl">Investigate Postgres lock contention</div>
-                <div><span class="chip chip-p1">High</span></div>
-              </div>
-              <div class="land-dash-card">
-                <div class="id">GCT-31</div>
-                <div class="ttl">Spec out webhook retry policy</div>
-                <div><span class="chip chip-p2">Medium</span></div>
-              </div>
-            </div>
-            <div class="land-dash-col">
-              <div class="land-dash-col-head" style="color:#64748b">
-                <span class="col-dot"></span>
-                <span style="color:var(--text)">Todo</span>
-                <span class="count">5</span>
-              </div>
-              <div class="land-dash-card">
-                <div class="id">GCT-28</div>
-                <div class="ttl">Wire up SSO via Auth0</div>
-                <div><span class="chip chip-p1">High</span></div>
-              </div>
-              <div class="land-dash-card">
-                <div class="id">GCT-27</div>
-                <div class="ttl">Add idempotency keys to /charge</div>
-                <div><span class="chip chip-p0">Urgent</span></div>
+        </div>
+        <div class="mb-main">
+          <div class="mb-cols">
+            <div class="mb-col">
+              <div class="mb-col-head"><span class="mb-cdot purple"></span>Gates <span class="mb-cnt">2</span></div>
+              <div class="mb-card gate">
+                <div class="mb-id">SAAS-7q</div>
+                <div class="mb-title">gate:arch — Stripe subs</div>
+                <div class="mb-foot">
+                  <span class="mb-chip purple">gate</span>
+                  <span class="mb-chip blue">architect</span>
+                </div>
+                <div class="mb-actions">
+                  <button class="mb-btn approve">✓ Approve</button>
+                  <button class="mb-btn reject">✕ Reject</button>
+                </div>
               </div>
             </div>
-            <div class="land-dash-col">
-              <div class="land-dash-col-head" style="color:#f59e0b">
-                <span class="col-dot filled"></span>
-                <span style="color:var(--text)">In Progress</span>
-                <span class="count">3</span>
+            <div class="mb-col">
+              <div class="mb-col-head"><span class="mb-cdot grey"></span>Backlog <span class="mb-cnt">5</span></div>
+              <div class="mb-card">
+                <div class="mb-id">SAAS-32</div>
+                <div class="mb-title">Postgres lock contention</div>
+                <div class="mb-desc">3 spikes last week. Profile pg_stat_activity</div>
+                <div class="mb-foot"><span class="mb-chip">High</span></div>
               </div>
-              <div class="land-dash-card">
-                <div class="id">GCT-23</div>
-                <div class="ttl">Implement OAuth2 token refresh</div>
-                <div><span class="chip chip-p0">Urgent</span></div>
-              </div>
-              <div class="land-dash-card">
-                <div class="id">GCT-22</div>
-                <div class="ttl">Database connection pool tuning</div>
-                <div><span class="chip chip-p1">High</span></div>
+              <div class="mb-card">
+                <div class="mb-id">SAAS-31</div>
+                <div class="mb-title">Webhook retry policy</div>
+                <div class="mb-foot"><span class="mb-chip">Medium</span></div>
               </div>
             </div>
-            <div class="land-dash-col">
-              <div class="land-dash-col-head" style="color:#16a34a">
-                <span class="col-dot filled"></span>
-                <span style="color:var(--text)">In Review</span>
-                <span class="count">2</span>
+            <div class="mb-col">
+              <div class="mb-col-head"><span class="mb-cdot amber"></span>In progress <span class="mb-cnt">3</span></div>
+              <div class="mb-card">
+                <div class="mb-id">SAAS-23</div>
+                <div class="mb-title">OAuth2 token refresh</div>
+                <div class="mb-desc">Background refresh + 401 retry queue</div>
+                <div class="mb-foot">
+                  <span class="mb-chip blue">senior-dev</span>
+                  <span class="mb-chip red">Urgent</span>
+                  <span class="mb-time">38m</span>
+                </div>
               </div>
-              <div class="land-dash-card">
-                <div class="id">GCT-20</div>
-                <div class="ttl">Security audit — auth surface</div>
-                <div><span class="chip chip-p1">High</span></div>
+            </div>
+            <div class="mb-col">
+              <div class="mb-col-head"><span class="mb-cdot emerald"></span>Done <span class="mb-cnt">14</span></div>
+              <div class="mb-card">
+                <div class="mb-id">SAAS-18</div>
+                <div class="mb-title">PostgreSQL replica failover</div>
+                <div class="mb-foot">
+                  <span class="mb-chip blue">backend</span>
+                  <span class="mb-chip">High</span>
+                </div>
               </div>
-              <div class="land-dash-card">
-                <div class="id">GCT-19</div>
-                <div class="ttl">Image upload pipeline</div>
-                <div><span class="chip chip-p2">Medium</span></div>
+              <div class="mb-card">
+                <div class="mb-id">SAAS-17</div>
+                <div class="mb-title">Stripe webhook signature check</div>
+                <div class="mb-foot">
+                  <span class="mb-chip blue">security-officer</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      </div><!-- /static-fallback hidden -->
-    </header>
-  </div>
-</section>
-
-<!-- Two decisions per feature -->
-<section class="land-section">
-  <div class="land-section-narrow">
-    <h2>Two decisions <em>per feature</em></h2>
-    <p class="sub">Everything else is automatic. The pipeline assembles itself based on what your project IS.</p>
-    <div class="pipeline">
-      <div class="pipeline-step"><div class="badge">/start</div><div class="name">architect</div><div class="sub">ARCH doc</div></div>
-      <div class="pipeline-arrow"></div>
-      <div class="pipeline-step decision"><div class="badge">decision 1</div><div class="name">approve arch</div><div class="sub">~30 sec</div></div>
-      <div class="pipeline-arrow"></div>
-      <div class="pipeline-step"><div class="badge">automatic</div><div class="name">12 reviews · QA · security</div><div class="sub">~45 min</div></div>
-      <div class="pipeline-arrow"></div>
-      <div class="pipeline-step decision"><div class="badge">decision 2</div><div class="name">ship it</div><div class="sub">~30 sec</div></div>
-    </div>
-    <p class="pipeline-note">Architecture, planning, implementation, code review, QA, security audit, deployment — agents handle it. <strong>You make two decisions per feature.</strong></p>
-  </div>
-</section>
-
-<!-- How it works -->
-<section class="land-section alt" id="how">
-  <div class="land-section-narrow">
-    <h2>How it <em>works</em></h2>
-    <p class="sub">Three commands. The board does the rest.</p>
-    <div class="how-grid">
-      <div class="how-card">
-        <div class="how-num">01</div>
-        <h3>Initialize a project</h3>
-        <p>Drop into any repo and get a board, a backlog, and seventeen ready agents.</p>
-        <pre>$ npx great-cto init</pre>
-      </div>
-      <div class="how-card">
-        <div class="how-num">02</div>
-        <h3>Agents pick up work</h3>
-        <p>Architect drafts, frontend builds, QA tests, security audits, devops ships. Status updates in realtime.</p>
-        <pre>$ npx great-cto start</pre>
-      </div>
-      <div class="how-card">
-        <div class="how-num">03</div>
-        <h3>Ship</h3>
-        <p>You review the diff, merge the PR, hand off the share link to your investors.</p>
-        <pre>$ npx great-cto ship</pre>
-      </div>
     </div>
   </div>
-</section>
 
-<!-- 12-angle code review -->
-<section class="land-section">
-  <div class="land-section-narrow">
-    <h2>Twelve <em>independent</em> review angles</h2>
-    <p class="sub">Not one giant prompt. Twelve focused passes, each with a P0/P1/P2 verdict. P0 blocks the gate.</p>
-    <div class="angles-grid">
-      <div class="angle-chip"><span class="num">01</span><span class="label">Performance</span></div>
-      <div class="angle-chip"><span class="num">02</span><span class="label">Security</span></div>
-      <div class="angle-chip"><span class="num">03</span><span class="label">Readability</span></div>
-      <div class="angle-chip"><span class="num">04</span><span class="label">SQL Safety</span></div>
-      <div class="angle-chip"><span class="num">05</span><span class="label">LLM Trust</span></div>
-      <div class="angle-chip"><span class="num">06</span><span class="label">Side Effects</span></div>
-      <div class="angle-chip"><span class="num">07</span><span class="label">Data Privacy</span></div>
-      <div class="angle-chip"><span class="num">08</span><span class="label">Error Handling</span></div>
-      <div class="angle-chip"><span class="num">09</span><span class="label">Concurrency</span></div>
-      <div class="angle-chip"><span class="num">10</span><span class="label">Dep Freshness</span></div>
-      <div class="angle-chip"><span class="num">11</span><span class="label">API Contracts</span></div>
-      <div class="angle-chip"><span class="num">12</span><span class="label">Design System</span></div>
+  <!-- 02 · Metrics -->
+  <div class="showcase reverse">
+    <div class="showcase-text">
+      <div class="showcase-num">02 · METRICS</div>
+      <h3>The six numbers your CTO update needs.</h3>
+      <p>Tasks shipped · LLM spend · cost-savings vs FTE · cycle time · QA pass rate · security blocks. Plus per-agent utilization, real-time activity feed with cost per verdict, and a 30-day daily-burn chart with budget alerts.</p>
     </div>
-    <div class="angles-note">Catches what one-pass review misses: <strong>N+1 queries</strong>, <strong>prompt injection</strong>, <strong>SQL interpolation</strong>, <strong>auth bypass</strong>, <strong>race conditions</strong>, <strong>breaking API changes</strong>, <strong>hardcoded design tokens</strong>.</div>
+    <div class="mockup">
+      <div class="mockup-bar">
+        <span class="mb-dot r"></span><span class="mb-dot y"></span><span class="mb-dot g"></span>
+        <span class="mb-url">localhost:3141 — metrics</span>
+      </div>
+      <div class="mockup-pad">
+        <div class="mm-label">This sprint</div>
+        <div class="mm-hero">
+          <div class="mm-card emerald">
+            <div class="mm-num">14<small>shipped</small></div>
+            <div class="mm-lbl">Tasks done</div>
+            <div class="mm-trend"><span class="up">▲ 18%</span> vs prior</div>
+          </div>
+          <div class="mm-card amber">
+            <div class="mm-num">$47<small>/d</small></div>
+            <div class="mm-lbl">LLM spend</div>
+            <div class="mm-trend">vs humans: $12,400</div>
+          </div>
+          <div class="mm-card purple">
+            <div class="mm-num">12<small>×</small></div>
+            <div class="mm-lbl">vs FTE cost</div>
+            <div class="mm-trend"><span class="up">▲ stable</span></div>
+          </div>
+        </div>
+        <div class="mm-hero secondary">
+          <div class="mm-card mini"><div class="mm-num">78<small>m</small></div><div class="mm-lbl">Avg cycle</div></div>
+          <div class="mm-card mini emerald"><div class="mm-num">94<small>%</small></div><div class="mm-lbl">QA pass</div></div>
+          <div class="mm-card mini"><div class="mm-num">0</div><div class="mm-lbl">Open highs</div></div>
+          <div class="mm-card mini amber"><div class="mm-num">3</div><div class="mm-lbl">In progress</div></div>
+        </div>
+
+        <div class="mm-row">
+          <div class="mm-panel">
+            <div class="mm-panel-h">Agent utilization</div>
+            <div class="mm-bar"><span class="mm-bn">✱ architect</span><span class="mm-rail"><span class="mm-fill" style="width:92%"></span></span><span class="mm-pct">92%</span></div>
+            <div class="mm-bar"><span class="mm-bn">✱ backend</span><span class="mm-rail"><span class="mm-fill" style="width:81%"></span></span><span class="mm-pct">81%</span></div>
+            <div class="mm-bar"><span class="mm-bn">✱ security</span><span class="mm-rail"><span class="mm-fill" style="width:78%"></span></span><span class="mm-pct">78%</span></div>
+            <div class="mm-bar"><span class="mm-bn">✱ qa</span><span class="mm-rail"><span class="mm-fill" style="width:71%"></span></span><span class="mm-pct">71%</span></div>
+            <div class="mm-bar"><span class="mm-bn">✱ devops</span><span class="mm-rail"><span class="mm-fill" style="width:64%"></span></span><span class="mm-pct">64%</span></div>
+          </div>
+          <div class="mm-panel">
+            <div class="mm-panel-h">Activity <span class="meta">last 24h</span></div>
+            <div class="mm-feed-row"><span class="dot ok"></span><span class="ag">architect</span><span class="msg">RFC accepted, ready to implement</span><span class="t">5m</span></div>
+            <div class="mm-feed-row"><span class="dot ok"></span><span class="ag">qa</span><span class="msg">412 tests green, 87% coverage</span><span class="t">35m</span></div>
+            <div class="mm-feed-row"><span class="dot fail"></span><span class="ag">security</span><span class="msg">2 deps with high CVE filed</span><span class="t">1h</span></div>
+            <div class="mm-feed-row"><span class="dot ok"></span><span class="ag">devops</span><span class="msg">canary 5% — error rate flat</span><span class="t">1h</span></div>
+            <div class="mm-feed-row"><span class="dot ok"></span><span class="ag">architect</span><span class="msg">log refactor: structured JSON</span><span class="t">2h</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-</section>
 
-<!-- Memory + cross-project learning -->
-<section class="land-section alt">
-  <div class="land-section-narrow">
-    <h2>Agents get smarter <em>every session</em></h2>
-    <p class="sub">Four-layer memory system. We synthesize, not record. Total local memory: ~10–50 KB per project.</p>
-    <div class="memory-grid">
-      <div class="memory-layer">
-        <div class="layer">L1 · PROJECT</div>
-        <h4>What this project is</h4>
-        <p>Archetype, size, compliance, team, owners.</p>
-        <code>.great_cto/PROJECT.md</code>
-      </div>
-      <div class="memory-layer">
-        <div class="layer">L2 · CODEBASE</div>
-        <h4>Where the seams are</h4>
-        <p>God nodes, entry points, public API, routes.</p>
-        <code>.great_cto/CODEBASE.md</code>
-      </div>
-      <div class="memory-layer">
-        <div class="layer">L3 · BRAIN</div>
-        <h4>What we learned</h4>
-        <p>Patterns in use, what has failed, team patterns.</p>
-        <code>.great_cto/brain.md</code>
-      </div>
-      <div class="memory-layer">
-        <div class="layer">L4 · CROSS-PROJECT</div>
-        <h4>Patterns that beat hours</h4>
-        <p>Detection orders that turn 4-hour investigations into seconds.</p>
-        <code>~/.great_cto/global-patterns/</code>
-      </div>
+  <!-- 03 · Public report -->
+  <div class="showcase">
+    <div class="showcase-text">
+      <div class="showcase-num">03 · PUBLIC REPORT</div>
+      <h3>Shareable, read-only. Pause anytime.</h3>
+      <p>One toggle generates an unguessable URL. Headline metrics + AI-vs-human cost comparison + recently shipped list. Toggle off → "Report paused". Open issues, code, credentials are <strong>never</strong> exposed.</p>
     </div>
-    <div class="mttr-stat">
-      <div class="num">94%</div>
-      <div class="copy">
-        <h4>MTTR reduction on second occurrence</h4>
-        <p>After a P0 incident, agents extract a structured pattern. <code style="color:#ffd9b8;font-family:var(--mono);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px">/crystallize</code> promotes it to a global pattern after your approval. The pattern surfaces in every agent's Step 0 across all your projects. A root cause that took 4 hours the first time takes 30 seconds the next time.</p>
+    <div class="mockup">
+      <div class="mockup-bar">
+        <span class="mb-dot r"></span><span class="mb-dot y"></span><span class="mb-dot g"></span>
+        <span class="mb-url">greatcto.systems/r/CsqYVXs</span>
+      </div>
+      <div class="mockup-pad">
+        <div class="mr-head">
+          <div class="mr-brand"><span class="star">✱</span> greatcto</div>
+          <span class="mr-status"><span class="dot"></span> LIVE</span>
+        </div>
+        <div class="mr-title">
+          <div class="stripe"></div>
+          <div>
+            <h1>stripe-saas</h1>
+            <div class="meta">MAY 2026 · ENGINEERING REPORT</div>
+          </div>
+        </div>
+        <div class="mm-label">Headline</div>
+        <div class="mm-hero">
+          <div class="mm-card emerald"><div class="mm-num">14<small>done</small></div><div class="mm-lbl">Tasks shipped</div><div class="mm-trend">+9 this week</div></div>
+          <div class="mm-card amber"><div class="mm-num">23<small>h</small></div><div class="mm-lbl">AI time</div><div class="mm-trend">avg 78m / task</div></div>
+          <div class="mm-card purple"><div class="mm-num">$50</div><div class="mm-lbl">LLM cost</div><div class="mm-trend">5 plans</div></div>
+        </div>
+        <div class="mr-compare">
+          <div class="cs left">
+            <div class="cs-lbl">AI agents</div>
+            <div class="cs-v">$50</div>
+            <div class="cs-t">23h of compute</div>
+          </div>
+          <div class="cs-vs">vs<br/><strong>13× cheaper</strong></div>
+          <div class="cs right">
+            <div class="cs-lbl">Human team</div>
+            <div class="cs-v">$650</div>
+            <div class="cs-t">est. 56h equivalent</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Pricing transparency -->
-<section class="land-section">
-  <div class="land-section-narrow">
-    <h2>No <em>per-seat</em> fee</h2>
-    <p class="sub">You pay your own Anthropic API. We're an open-source plugin — there's no SaaS to subscribe to.</p>
-    <div class="pricing-card">
-      <div>
-        <div class="lead">~$34/month for a <em>typical team</em></div>
-        <div class="desc">Indicative LLM spend on ~20 pipeline runs/month based on Sonnet-4.x pricing. Your mileage varies with context size, model choice, and how often <code style="font-family:var(--mono);background:var(--bg-muted);padding:1px 5px;border-radius:3px;font-size:12px">deep</code> mode is invoked.</div>
-        <ul class="features">
-          <li>Free to install · MIT-licensed</li>
-          <li>Pay your own Anthropic / Kimi API tokens</li>
-          <li>No per-seat fee · no SaaS lock-in</li>
-          <li>Routes routine triage to Kimi K2 → 60–80% cost cut</li>
-        </ul>
-      </div>
-      <div class="pricing-table">
-        <div class="pricing-row head"><span>pipeline</span><span class="num">$ / run</span><span class="num">runs / mo</span></div>
-        <div class="pricing-row"><span class="name">quick — config / typo</span><span class="num">$0.10</span><span class="num">10</span></div>
-        <div class="pricing-row"><span class="name">quick — new endpoint</span><span class="num">$1</span><span class="num">6</span></div>
-        <div class="pricing-row"><span class="name">standard — feature</span><span class="num">$5</span><span class="num">3</span></div>
-        <div class="pricing-row"><span class="name">deep — cross-cutting</span><span class="num">$12</span><span class="num">1</span></div>
-        <div class="pricing-row total"><span>total / month</span><span></span><span class="total-num">~$34</span></div>
-      </div>
+<!-- ─────────────────────── 12 ANGLES ─────────────────────── -->
+<section id="review" class="wrap">
+  <div class="eyebrow">Why you ship without waking up at 2am</div>
+  <h2 class="h2">Twelve independent reviews.<br/><em>Each finds what the other eleven miss.</em></h2>
+  <p class="lede">Cursor and Copilot run one review pass. We run twelve. Every finding rated P0 / P1 / P2. P0 blocks the gate. You can't accidentally ship a SQL injection.</p>
+
+  <div class="angles">
+    <div class="angle">
+      <div class="angle-num">01 · PERFORMANCE</div>
+      <div class="angle-name">N+1, hot loops</div>
+      <div class="angle-ex">"GET /orders runs 47 queries for 1 page — N+1 in OrderService.list()"</div>
+      <span class="pill p1">P1</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">02 · SECURITY</div>
+      <div class="angle-name">Injection, IDOR, JWT</div>
+      <div class="angle-ex">"JWT verified but iss/aud claims not checked — token from any tenant valid"</div>
+      <span class="pill p0">P0</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">03 · READABILITY</div>
+      <div class="angle-name">Naming, complexity</div>
+      <div class="angle-ex">"32-line nested ternary in checkout.ts:284 — extract to function"</div>
+      <span class="pill p2">P2</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">04 · SQL SAFETY</div>
+      <div class="angle-name">Raw interpolation</div>
+      <div class="angle-ex">"Unparameterized ORDER BY in customers.ts:91 — injection vector"</div>
+      <span class="pill p0">P0</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">05 · LLM TRUST</div>
+      <div class="angle-name">Prompt injection</div>
+      <div class="angle-ex">"User input flows into system prompt without sanitization (RAG step 4)"</div>
+      <span class="pill p0">P0</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">06 · SIDE EFFECTS</div>
+      <div class="angle-name">Mutation in conditions</div>
+      <div class="angle-ex">"Mutation inside if() shadows logging — duplicate webhook events"</div>
+      <span class="pill p1">P1</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">07 · DATA PRIVACY</div>
+      <div class="angle-name">PII, GDPR/HIPAA</div>
+      <div class="angle-ex">"Email logged in request middleware:54 — GDPR Article 5(1)(c)"</div>
+      <span class="pill p1">P1</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">08 · ERROR HANDLING</div>
+      <div class="angle-name">Swallowed exceptions</div>
+      <div class="angle-ex">"try/catch around 3 unrelated failure modes — debugging blackhole"</div>
+      <span class="pill p1">P1</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">09 · CONCURRENCY</div>
+      <div class="angle-name">Races, deadlocks</div>
+      <div class="angle-ex">"Cache stampede on /pricing — 1.4s tail at p99 under load"</div>
+      <span class="pill p1">P1</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">10 · DEPS</div>
+      <div class="angle-name">CVEs, abandonment</div>
+      <div class="angle-ex">"lodash 4.17.21 has CVE-2026-1234 — bump to 4.17.22"</div>
+      <span class="pill p1">P1</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">11 · API CONTRACTS</div>
+      <div class="angle-name">Breaking changes</div>
+      <div class="angle-ex">"PATCH /users now requires 'role' field — breaks v1 clients"</div>
+      <span class="pill p0">P0</span>
+    </div>
+    <div class="angle">
+      <div class="angle-num">12 · DESIGN SYSTEM</div>
+      <div class="angle-name">Tokens, a11y</div>
+      <div class="angle-ex">"23 hex codes hardcoded — design tokens from src/theme.ts not used"</div>
+      <span class="pill p2">P2</span>
     </div>
   </div>
 </section>
 
-<!-- Six metrics -->
-<section class="land-section alt">
-  <div class="land-section-narrow">
-    <h2>Six metrics that <em>matter</em></h2>
-    <p class="sub">Less vanity. More signal. The board surfaces what would actually be in your CTO update.</p>
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-num">42<small>shipped</small></div>
-        <div class="metric-label">Tasks done · last 30d</div>
-        <div class="metric-trend"><span class="up">▲ 18%</span> vs prior period</div>
-      </div>
-      <div class="metric-card amber">
-        <div class="metric-num">$47<small>/day</small></div>
-        <div class="metric-label">LLM spend</div>
-        <div class="metric-trend"><span class="down">▼ 4%</span> after caching</div>
-      </div>
-      <div class="metric-card green">
-        <div class="metric-num">12<small>×</small></div>
-        <div class="metric-label">Throughput vs solo</div>
-        <div class="metric-trend"><span class="up">▲ stable</span></div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-num">78<small>min</small></div>
-        <div class="metric-label">Avg cycle time</div>
-        <div class="metric-trend"><span class="up">▲ 9% faster</span></div>
-      </div>
-      <div class="metric-card green">
-        <div class="metric-num">94<small>%</small></div>
-        <div class="metric-label">QA pass rate</div>
-        <div class="metric-trend">across 412 tests</div>
-      </div>
-      <div class="metric-card red">
-        <div class="metric-num">0<small>highs</small></div>
-        <div class="metric-label">Open security findings</div>
-        <div class="metric-trend">last audit Apr 26</div>
-      </div>
+<!-- ─────────────────────── MEMORY ─────────────────────── -->
+<section id="memory" class="wrap">
+  <div class="eyebrow">The part no other tool has</div>
+  <h2 class="h2">Your agents <em>get smarter</em> every Friday.</h2>
+  <p class="lede">Cursor forgets your project the moment you close the tab. GreatCTO synthesizes — into a 10–50 KB local memory that travels across sessions, machines, and projects.</p>
+
+  <div class="mem-grid">
+    <div class="mem-card">
+      <div class="mem-layer">L1 · PROJECT</div>
+      <h4>What this project IS</h4>
+      <p>Archetype, size, compliance frameworks, owners, team patterns. Set on first <code>/start</code>.</p>
+      <code>.great_cto/PROJECT.md</code>
+    </div>
+    <div class="mem-card">
+      <div class="mem-layer">L2 · CODEBASE</div>
+      <h4>Where the seams are</h4>
+      <p>God-nodes, entry points, public API surface, routing. Built in 30s by zero-dep bash — no LLM cost.</p>
+      <code>.great_cto/CODEBASE.md</code>
+    </div>
+    <div class="mem-card">
+      <div class="mem-layer">L3 · BRAIN</div>
+      <h4>What you've learned</h4>
+      <p>Patterns in use, what failed, decisions made. Synthesized weekly + after every postmortem.</p>
+      <code>.great_cto/brain.md</code>
+    </div>
+    <div class="mem-card">
+      <div class="mem-layer">L4 · CROSS-PROJECT</div>
+      <h4>Patterns that beat 4-hour debugs</h4>
+      <p>Promoted via <code>/crystallize</code> after a P0. Surfaces in every agent's Step 0 — across every project, forever.</p>
+      <code>~/.great_cto/global-patterns/</code>
+    </div>
+  </div>
+
+  <div class="mttr-callout">
+    <div class="mttr-num">94<small>%</small></div>
+    <div class="mttr-label">MTTR reduction · second occurrence</div>
+    <div class="mttr-body">After every P0 incident, agents extract the detection order that worked. Next time the same shape of problem hits — any project, any week, any engineer — the pattern surfaces in the agent's Step 0. <strong>A connection-pool exhaustion that cost you 4 hours in Q1? 30 seconds in Q3.</strong></div>
+  </div>
+</section>
+
+<!-- ─────────────────────── PRICING ─────────────────────── -->
+<section id="pricing" class="wrap">
+  <div class="eyebrow">Pricing</div>
+  <h2 class="h2"><em>$34</em>/month.<br/>That's the whole bill.</h2>
+  <p class="lede">GreatCTO is open source (MIT). You pay your own Anthropic API tokens. We don't see them. We don't bill you. Nothing to subscribe to.</p>
+
+  <div class="pricing-card">
+    <h3>Typical product team · 20 pipeline runs/month</h3>
+    <div class="pricing-table">
+      <div class="lbl">quick · config / typo</div>
+      <div class="num">$0.10</div>
+      <div class="num">× 10</div>
+      <div class="num">$1</div>
+
+      <div class="lbl">quick · new endpoint</div>
+      <div class="num">$1.00</div>
+      <div class="num">× 6</div>
+      <div class="num">$6</div>
+
+      <div class="lbl">standard · feature</div>
+      <div class="num">$5.00</div>
+      <div class="num">× 3</div>
+      <div class="num">$15</div>
+
+      <div class="lbl">deep · cross-cutting</div>
+      <div class="num">$12.00</div>
+      <div class="num">× 1</div>
+      <div class="num">$12</div>
+
+      <div class="lbl total">Total</div>
+      <div class="num"></div>
+      <div class="num"></div>
+      <div class="num total">~$34/mo</div>
+    </div>
+    <div class="pricing-extras">
+      <span>+</span> Routine triage auto-routed to Kimi K2 → <span>60–80% cost cut</span> on log clustering<br/>
+      <span>+</span> No per-seat. No SaaS. <span>No data leaves your laptop.</span>
+    </div>
+    <div class="pricing-compare">
+      <div class="name">Cursor Business</div><div>$40/seat/mo · ~$400/mo for a 10-eng team</div>
+      <div class="name">Devin</div><div>$500/mo flat</div>
+      <div class="name ours">GreatCTO</div><div class="ours">~$34/mo total · pay only when you ship</div>
     </div>
   </div>
 </section>
 
-<!-- Quotes -->
-<section class="land-section">
-  <div class="land-section-narrow">
-    <h2>Built for solo founders <em>→</em> 50-eng teams</h2>
-    <p class="sub">Same board, same agents, scales with you.</p>
-    <div class="quotes-grid">
-      <div class="quote-card">
-        <p>"It's the first time I've felt like I had a real CTO without having to hire one. The architect agent has caught three things my last contractor missed."</p>
-        <div class="quote-attr"><span class="quote-avatar"></span> Solo founder · seed-stage SaaS</div>
-      </div>
-      <div class="quote-card">
-        <p>"We're a team of nine and we run GreatCTO alongside our humans. The QA and security agents do the work nobody wants to do — and they don't forget."</p>
-        <div class="quote-attr"><span class="quote-avatar" style="background:linear-gradient(135deg,#ffd9b8,#ffc4a8)"></span> VP Eng · series A</div>
-      </div>
+<!-- ─────────────────────── AUDIENCE ─────────────────────── -->
+<section class="wrap">
+  <div class="eyebrow">Honesty section</div>
+  <h2 class="h2">Who is this <em>actually</em> for?</h2>
+
+  <div class="aud-grid">
+    <div class="aud-col yes">
+      <h4>✓ Perfect if you</h4>
+      <ul>
+        <li>Are a solo founder or technical CTO with 4–25 engineers</li>
+        <li>Use Claude Code daily</li>
+        <li>Ship to production weekly or faster</li>
+        <li>Are tired of being the bottleneck on every architecture call</li>
+        <li>Want to see what your code review actually catches</li>
+      </ul>
+    </div>
+    <div class="aud-col no">
+      <h4>✗ Not yet if you</h4>
+      <ul>
+        <li>Have a 50+ engineering team with established RFC + review process</li>
+        <li>Don't use Claude Code (yet — or ever)</li>
+        <li>Run a regulated bank (we're not PCI/HIPAA/SOC2 audited — yet)</li>
+        <li>Need a managed SaaS with 99.99% uptime SLA — this runs on your laptop</li>
+        <li>Don't have any process to replace (start with one human reviewer first)</li>
+      </ul>
     </div>
   </div>
 </section>
 
-<!-- Agents table -->
-<section class="land-section alt" id="agents">
-  <div class="land-section-narrow">
-    <h2>What's <em>inside</em></h2>
-    <p class="sub">Seventeen agents. Each does one thing well. Together they cover the whole CTO function.</p>
-    <table class="agents-table">
-      <thead>
-        <tr><th>Agent</th><th>Discipline</th><th>What they do</th></tr>
-      </thead>
-      <tbody>
-        <tr><td class="name">✱ architect</td><td class="role">Systems design</td><td class="desc">Plans services, data flow, RFCs. Writes ADRs.</td></tr>
-        <tr><td class="name">✱ security</td><td class="role">Threat & audit</td><td class="desc">Pen-test cadence, dep CVE triage, secret scanning.</td></tr>
-        <tr><td class="name">✱ qa</td><td class="role">Test discipline</td><td class="desc">Coverage gates, flake hunter, visual regression.</td></tr>
-        <tr><td class="name">✱ devops</td><td class="role">Build & deploy</td><td class="desc">CI/CD, k8s, infra-as-code, rollback drills.</td></tr>
-        <tr><td class="name">✱ ops</td><td class="role">Incident & on-call</td><td class="desc">Runbooks, paging policy, post-mortems.</td></tr>
-        <tr><td class="name">✱ frontend</td><td class="role">UI engineering</td><td class="desc">Component library, a11y, design tokens.</td></tr>
-        <tr><td class="name">✱ backend</td><td class="role">API & data</td><td class="desc">Schema, query plans, idempotency, queues.</td></tr>
-        <tr><td class="name">✱ docs</td><td class="role">Reference & changelog</td><td class="desc">Auto-regenerates on every release.</td></tr>
-        <tr><td class="name">✱ release</td><td class="role">Versioning</td><td class="desc">Semver, changelogs, release notes.</td></tr>
-        <tr><td class="name">✱ data</td><td class="role">Analytics & ETL</td><td class="desc">Pipelines, schema drift, dashboards.</td></tr>
-        <tr><td class="name">✱ growth</td><td class="role">A/B & funnels</td><td class="desc">Experiment design, statistical significance.</td></tr>
-        <tr><td class="name">✱ billing</td><td class="role">Revenue ops</td><td class="desc">Stripe, dunning, refund flows.</td></tr>
-        <tr><td class="name">✱ support</td><td class="role">Customer ops</td><td class="desc">Ticket triage, FAQ generation.</td></tr>
-        <tr><td class="name">✱ legal</td><td class="role">Policy & compliance</td><td class="desc">ToS, DPA, SOC2 evidence collection.</td></tr>
-        <tr><td class="name">✱ pm</td><td class="role">Roadmap</td><td class="desc">Quarterly OKRs, status reports.</td></tr>
-        <tr><td class="name">✱ recruiter</td><td class="role">Hiring (when needed)</td><td class="desc">JDs, screening, scorecards.</td></tr>
-        <tr><td class="name">✱ finance</td><td class="role">Burn & runway</td><td class="desc">Forecasts, vendor consolidation.</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
+<!-- ─────────────────────── QUICK START ─────────────────────── -->
+<section id="install" class="wrap">
+  <div class="eyebrow">Quick start</div>
+  <h2 class="h2">30 seconds. <em>No signup.</em><br/>No credit card.</h2>
 
-<!-- CTA -->
-<section class="land-section" id="cta">
-  <div class="land-section-narrow">
-    <div class="cta-block">
-      <h2>Start in <em>30 seconds</em></h2>
-      <p>Free to try. Pay only for the LLM tokens your agents use.</p>
-      <div class="terminal">
-        <span class="dollar">$</span>
-        <span>npx great-cto init</span>
-        <button class="copy" onclick="copyCmd(this)">COPY</button>
-      </div>
-      <div class="footnote">CREATED BY GREATCTO · GREATCTO.SYSTEMS</div>
+  <div class="qs-grid">
+    <div class="qs-card">
+      <div class="qs-head">01 · install</div>
+<div class="qs-body"><span class="prompt">$</span> npx great-cto init
+
+<span class="ok">✓</span> archetype detected
+<span class="ok">✓</span> 5 agents loaded
+<span class="ok">✓</span> ready in 12s</div>
+    </div>
+    <div class="qs-card">
+      <div class="qs-head">02 · start a feature</div>
+<div class="qs-body"><span class="prompt">$</span> /start <span class="you">"add 2FA"</span>
+
+<span class="dim">→ ARCH ready</span>
+<span class="key">→ DECISION 1?</span>
+<span class="prompt">$</span> <span class="you">approved</span>
+<span class="dim">→ 12 reviews running</span>
+<span class="dim">→ QA · Security · </span><span class="ok">✓</span></div>
+    </div>
+    <div class="qs-card">
+      <div class="qs-head">03 · ship</div>
+<div class="qs-body"><span class="key">→ DECISION 2: ship?</span>
+<span class="prompt">$</span> <span class="you">ship</span>
+
+<span class="dim">→ canary 5% → 100%</span>
+<span class="dim">→ RELEASE-doc</span>
+<span class="ok">→ done.</span></div>
     </div>
   </div>
 </section>
+
+<!-- ─────────────────────── FAQ ─────────────────────── -->
+<section class="wrap">
+  <div class="eyebrow">FAQ</div>
+  <h2 class="h2">The questions everyone asks <em>before installing</em>.</h2>
+
+  <div class="faq">
+    <div class="faq-item">
+      <div class="faq-q">Will it commit to my repo without me knowing?</div>
+      <div class="faq-a">No. Every commit goes through your local git. Two human gates per feature. You can audit every diff before approve.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">What if it makes a mistake on the architecture?</div>
+      <div class="faq-a">You reject the gate. Architect re-drafts with your reasoning. The conversation is in your terminal — same as a normal Claude Code session.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How is this different from Cursor / Aider?</div>
+      <div class="faq-a">Cursor writes code in the IDE. Aider edits files from CLI. GreatCTO sits one level above — it decides which agents to run, which gates to enforce, which compliance checks to load. The AI is the same; the process is different.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Does it work on existing codebases?</div>
+      <div class="faq-a">Yes. <code>/audit</code> reads the repo, builds <code>CODEBASE.md</code>, generates a backlog of gaps. Tested on JS/TS, Python, Rust, Go. ~2 minutes for 100k LOC.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">What about my secrets?</div>
+      <div class="faq-a">Nothing leaves your machine except Claude API calls (your tokens, your Anthropic account). The board, the memory, the patterns — all local files in <code>.great_cto/</code>. You can <code>.gitignore</code> them or commit them — your call.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Can I disable an agent I don't need?</div>
+      <div class="faq-a">Edit <code>.great_cto/PROJECT.md</code> → <code>agents: [...]</code>. Or override at runtime: <code>/start "feature" --agents=architect,senior-dev,qa</code>.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Will my engineers hate it?</div>
+      <div class="faq-a">It runs in their Claude Code session — same UX. They'll notice slower first runs (2 min for the audit) and faster ship times (45min vs 5h). The gate prompts ask them, not their manager. Less ceremony, not more.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">What happens if Anthropic changes pricing?</div>
+      <div class="faq-a">Routine triage already auto-routes to Kimi K2 (cheaper Sonnet-equivalent). You can pin a specific model in <code>PROJECT.md</code>. Worst case: it costs 2× for 6 weeks until we add the next provider. The plugin is MIT — you can fork.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── FINAL CTA ─────────────────────── -->
+<section class="final-cta">
+  <div class="final-cta-eyebrow">Enough reading.</div>
+  <h2>The bottleneck is you.<br/><span class="accent">Stop being it.</span></h2>
+  <div class="final-cta-row">
+    <span class="cmd"><span class="dim">$</span> npx great-cto init</span>
+    <button class="copy-btn" onclick="copyCmd(this)">Copy</button>
+  </div>
+  <div class="final-cta-micro">
+    60 seconds to install · 12 minutes to your first /start<br/>
+    Open source · MIT · made by an engineer who got tired of his own loops
+  </div>
+</section>
+
+<footer class="footer">
+  <div>© 2026 GreatCTO · MIT License</div>
+  <div class="footer-links">
+    <a href="https://github.com/avelikiy/great_cto">GitHub</a>
+    <a href="https://github.com/avelikiy/great_cto/blob/main/CHANGELOG.md">Changelog</a>
+    <a href="https://github.com/avelikiy/great_cto/discussions">Discussions</a>
+    <a href="https://www.npmjs.com/package/great-cto">npm</a>
+    <a href="https://greatcto.systems/r/CsqYVXs1Vibac5yp">Live demo</a>
+  </div>
+</footer>
 
 <script>
+// FAQ accordion
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.querySelector('.faq-q').addEventListener('click', () => item.classList.toggle('open'));
+});
+
+// Copy command
 function copyCmd(btn) {
   navigator.clipboard.writeText('npx great-cto init').then(() => {
-    btn.textContent = 'COPIED';
-    setTimeout(() => btn.textContent = 'COPY', 1500);
+    const orig = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => btn.textContent = orig, 1500);
   });
 }
 </script>
