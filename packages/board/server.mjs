@@ -306,6 +306,7 @@ function getTasks(cwd = process.cwd()) {
     design: t.design || '',
     acceptance: t.acceptance || '',
     status: mapStatus(t.status, t.labels),
+    raw_status: t.status,                     // bd-native status (open/in_progress/closed/blocked)
     priority: t.priority,
     labels: t.labels || [],
     owner: t.owner || '',
@@ -573,6 +574,8 @@ function watchBeads() {
             for (const res of sseClients) {
               if (res._gctoCwd === dir) {
                 res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(dir))}\n\n`);
+                res.write(`event: pipeline\ndata: ${JSON.stringify(getPipeline(dir))}\n\n`);
+                res.write(`event: inbox\ndata: ${JSON.stringify(getInbox(dir))}\n\n`);
               }
             }
           }
@@ -580,6 +583,36 @@ function watchBeads() {
       });
     } catch {}
   }
+}
+
+// Watch ~/.great_cto/verdicts/ — push pipeline updates whenever an agent
+// emits a verdict (any project gets the broadcast for its own cwd).
+function watchVerdicts() {
+  const verdictDir = path.join(GREAT_CTO_DIR, 'verdicts');
+  if (!fs.existsSync(verdictDir)) {
+    try { fs.mkdirSync(verdictDir, { recursive: true }); } catch { return; }
+  }
+  let pushTimer = null;
+  const broadcastPipeline = () => {
+    if (pushTimer) clearTimeout(pushTimer);
+    // debounce: collapse a burst of writes (multiple agents finishing within ~150ms)
+    pushTimer = setTimeout(() => {
+      for (const res of sseClients) {
+        const dir = res._gctoCwd || process.cwd();
+        try {
+          res.write(`event: pipeline\ndata: ${JSON.stringify(getPipeline(dir))}\n\n`);
+          res.write(`event: inbox\ndata: ${JSON.stringify(getInbox(dir))}\n\n`);
+        } catch { sseClients.delete(res); }
+      }
+    }, 150);
+  };
+  try {
+    fs.watch(verdictDir, () => broadcastPipeline());
+    // Also watch each existing log file (some agents append to existing)
+    for (const f of fs.readdirSync(verdictDir).filter(x => x.endsWith('.log'))) {
+      try { fs.watch(path.join(verdictDir, f), () => broadcastPipeline()); } catch {}
+    }
+  } catch {}
 }
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
@@ -741,6 +774,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`great_cto board → http://localhost:${PORT}`);
   watchBeads();
+  watchVerdicts();
 
   // Auto-open browser unless --no-open
   if (!process.argv.includes('--no-open')) {

@@ -4,6 +4,48 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.160 — 2026-05-01
+
+### Dark emerald theme across admin + report + landing
+
+Full visual redesign — admin board and public report flipped from light "Ghibli" theme to **dark emerald** matching the new `greatcto.systems` landing.
+
+- **Admin** (`packages/board/public/index.html`): Geist + Geist Mono fonts, `#0a0e0c` background with subtle radial-gradient emerald glows, all cards on `#11161a`, status pills + p0/p1/p2 colors mapped to dark equivalents. Removed Ghibli landscape SVG (replaced with pure CSS gradient).
+- **Report** (`packages/board/public/share.html`): same emerald palette, brand mark unified with admin (6-stroke bold asterisk SVG).
+- **Brand mark**: redrawn favicon + nav-logo as 6-stroke bold asterisk (was 12-pointed thin star — illegible at 16×16). Same path used in admin sidebar, report header, browser favicon.
+
+### Gate approval logic — `raw_status` fix
+
+Closed gates were still showing Approve/Reject buttons because `mapStatus()` returns `'gate'` for any gate-labeled card regardless of bd's actual status. `getTasks()` now exposes `raw_status` (the bd-native open/in_progress/closed/blocked field), and both `cardHTML` and `openSide()` use it to determine `isOpenGate`.
+
+### Pipeline SSE realtime
+
+`/api/sse` now streams `pipeline` and `inbox` events in addition to `tasks` whenever:
+- `.beads/interactions.jsonl` changes (per-project, debounced)
+- `~/.great_cto/verdicts/*.log` changes (any agent emitting a verdict)
+
+Client subscribes to all three event types — Active pipeline track + Inbox summary + Kanban update without polling.
+
+### Markdown rendering — marked.js + DOMPurify
+
+Replaced ~50-line hand-rolled `mdToHtml` regex parser with `marked@14.1.3` + `DOMPurify@3.1.7` (both SRI-pinned via CDN). Memory tab now renders proper GFM tables, autolinks, nested lists, code blocks. Falls back to escaped `<pre>` if CDN blocked.
+
+### Playwright e2e + CI
+
+`tests/ui/board.spec.mjs` — 11 specs covering sidebar, Inbox (gates / summary / 7-stage pipeline), Kanban (cards + descriptions), side panel, ⌘K search, Metrics (Cost panel + agent util + activity), Memory tab, Share toggle, full API contract.
+
+`tests/ui/setup-fixture.mjs` — bootstraps isolated bd-fixture project on port 3146, spawns server.mjs from this repo (not npm cache).
+
+`.github/workflows/ui-e2e.yml` — runs on PR + push to `packages/board/**` or `tests/ui/**`. Installs bd from source, runs Playwright with chromium, uploads trace + report on failure.
+
+### Landing site (greatcto.systems)
+
+- Removed live-iframe section + screenshot PNGs (light-theme PNGs clashed with dark page) → replaced with **DOM-rendered mockups** in the same emerald-dark palette. Pixel-perfect visual continuity, smaller payload, always in sync.
+- Migrated GH Pages → **Cloudflare Pages** (300+ edge nodes vs ~10, ~30ms TTFB vs ~80ms). `_headers` + `_redirects` shipped in repo for CF native config.
+- `great_cto-site` repo flipped to private (CF Pages serves private repos via GitHub App).
+
+---
+
 ## v1.0.159 — 2026-05-01
 
 ### Board admin: Inbox + Memory + Cost panel + inline gate approval

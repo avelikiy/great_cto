@@ -26,7 +26,11 @@ You don't have a CTO. Or you are the CTO — and you're the bottleneck. Every fe
 great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the full SDLC pipeline as 8 specialist agents — architecture, planning, implementation, 12-angle review, QA, security, deployment — coordinated through a board you actually check. You make two decisions per feature; everything else is automatic.
 
 <p align="center">
-  <img src="docs/screenshots/demo.gif" alt="/start → approve → ship" width="780" />
+  <img src="docs/screenshots/board.png" alt="great_cto board — kanban + agents + live status" width="900" />
+</p>
+<p align="center">
+  <i>The board you actually check — <code>great-cto board</code> at <code>localhost:3141</code>.<br/>
+  Inbox · Kanban · Metrics · Memory · Public report.</i>
 </p>
 
 ## Two decisions per feature
