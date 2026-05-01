@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="color-scheme" content="light" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0a0e0c" />
 <title>great_cto board</title>
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -11,45 +12,50 @@
 <link rel="shortcut icon" href="/assets/favicon.ico" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js" integrity="sha384-k8o8HikHweyzW55Wd3wl18ovJj6vHVYNQeQbeSM0fxx+0WiH4TcccOG9uz8Xd2JR" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js" integrity="sha384-XQqX/4yiUGu+oyr87jvWzRuqBUK/adrY0DunhL+tID9m/9dwSpV8h9Fk/Sg6ifVQ" crossorigin="anonymous"></script>
 <style>
 :root {
-  --bg-page: transparent;
-  --bg-panel: rgba(255, 255, 255, 0.92);
-  --bg-card: #ffffff;
-  --bg-muted: #f7f8fa;
-  --bg-strong: #ecedf0;
+  /* Dark emerald — matches landing greatcto.systems */
+  --bg-page: #0a0e0c;
+  --bg-panel: rgba(17, 22, 26, 0.85);
+  --bg-card: #11161a;
+  --bg-muted: #161c1f;
+  --bg-strong: #1e272c;
+  --bg-elevated: #1a2025;
 
-  --border: rgba(15, 17, 21, 0.08);
-  --border-strong: rgba(15, 17, 21, 0.14);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
 
-  --text: #0f1115;
-  --text2: #5b6573;
-  --text3: #828b97;
+  --text:  #ecf2ee;
+  --text2: #8a9a92;
+  --text3: #4f5d57;
 
-  --accent: #2540d4;
-  --accent-2: #6b81ff;
-  --accent-soft: #e8edff;
+  --accent: #00d97e;
+  --accent-2: #34e69b;
+  --accent-soft: rgba(0, 217, 126, 0.10);
+  --accent-strong: rgba(0, 217, 126, 0.18);
 
-  --status-backlog: #94a3b8;
-  --status-todo: #64748b;
+  --status-backlog: #6b7280;
+  --status-todo: #9ca3af;
   --status-progress: #f59e0b;
-  --status-review: #16a34a;
-  --status-done: #2563eb;
-  --status-blocked: #dc2626;
-  --status-gate: #7c3aed;
+  --status-review: #00d97e;
+  --status-done: #00d97e;
+  --status-blocked: #ff5466;
+  --status-gate: #a78bfa;
 
-  --p0-bg: #fee2e2; --p0-fg: #b91c1c;
-  --p1-bg: #ffedd5; --p1-fg: #c2410c;
-  --p2-bg: #fef3c7; --p2-fg: #92400e;
-  --p3-bg: #f1f5f9; --p3-fg: #475569;
+  --p0-bg: rgba(255, 84, 102, 0.14);  --p0-fg: #fca5a5;
+  --p1-bg: rgba(255, 170, 60, 0.14);  --p1-fg: #fcd34d;
+  --p2-bg: rgba(240, 210, 78, 0.14);  --p2-fg: #fde68a;
+  --p3-bg: rgba(255, 255, 255, 0.05); --p3-fg: #9ca3af;
 
-  --serif: "Space Grotesk", "Inter", -apple-system, sans-serif;
-  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --serif: "Geist", "Space Grotesk", "Inter", -apple-system, sans-serif;
+  --sans:  "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono:  "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  --shadow-card: 0 1px 2px rgba(15, 17, 21, 0.04);
-  --shadow-card-hover: 0 1px 2px rgba(15, 17, 21, 0.06), 0 8px 24px rgba(15, 17, 21, 0.08);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-card-hover: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 217, 126, 0.06);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
@@ -59,7 +65,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  background: #fff;
+  background: var(--bg-card);
 }
 button { font-family: inherit; cursor: pointer; }
 
@@ -69,16 +75,17 @@ button { font-family: inherit; cursor: pointer; }
   height: 100vh;
   overflow: hidden;
   display: flex;
-  background: #ffffff;
+  background: var(--bg-page);
 }
 .board-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
-  opacity: 0.28;
   pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 40% at 20% 0%, rgba(0, 217, 126, 0.05), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(0, 217, 126, 0.03), transparent 70%);
 }
-.board-bg svg { width: 100%; height: 100%; display: block; }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 .sidebar {
@@ -97,12 +104,13 @@ button { font-family: inherit; cursor: pointer; }
 }
 .sidebar-brand .brand-mark {
   width: 24px; height: 24px;
-  background: #1a2547;
+  background: var(--bg-page);
   border-radius: 5px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  border: 1px solid var(--border-strong);
 }
-.sidebar-brand .brand-mark svg { width: 16px; height: 16px; }
+.sidebar-brand .brand-mark svg { width: 22px; height: 22px; }
 .sidebar-brand .brand-name {
   font-family: var(--serif); font-weight: 600;
   font-size: 15px; letter-spacing: -0.01em;
@@ -128,7 +136,7 @@ button { font-family: inherit; cursor: pointer; }
 .proj-menu {
   position: absolute;
   top: calc(100% - 4px); left: 8px; right: 8px;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(15, 17, 21, 0.10);
@@ -252,7 +260,7 @@ button { font-family: inherit; cursor: pointer; }
   margin: 0 16px;
   transition: border-color .12s, background .12s;
 }
-.search-box:focus-within { border-color: var(--accent); background: #fff; }
+.search-box:focus-within { border-color: var(--accent); background: var(--bg-card); }
 .search-box svg { color: var(--text3); flex-shrink: 0; }
 .search-box input {
   flex: 1; border: none; outline: none; background: transparent;
@@ -314,7 +322,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .column {
   flex: 0 0 264px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(17, 22, 26, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
@@ -432,7 +440,7 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 5px;
   font-family: inherit; font-size: 11px; font-weight: 500;
   cursor: pointer;
-  background: #fff;
+  background: var(--bg-card);
   transition: background 0.12s, border-color 0.12s;
 }
 .gate-approve { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
@@ -467,7 +475,7 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute;
   top: 0; right: 0; bottom: 0;
   width: 480px;
-  background: #fff;
+  background: var(--bg-card);
   border-left: 1px solid var(--border);
   box-shadow: -12px 0 32px rgba(15, 17, 21, 0.08);
   z-index: 10;
@@ -576,7 +584,7 @@ button { font-family: inherit; cursor: pointer; }
   height: 100%;
 }
 .memory-side {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(17, 22, 26, 0.7);
   backdrop-filter: blur(12px);
   border-right: 1px solid var(--border);
   padding: 18px 14px;
@@ -621,7 +629,7 @@ button { font-family: inherit; cursor: pointer; }
 .memory-content {
   overflow-y: auto;
   padding: 28px 32px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(17, 22, 26, 0.85);
   backdrop-filter: blur(8px);
 }
 .memory-doc {
@@ -694,7 +702,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; gap: 0;
   align-items: stretch;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(17, 22, 26, 0.7);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow-x: auto;
@@ -822,7 +830,7 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute; right: 4px; top: -16px;
   font-family: var(--mono); font-size: 10px;
   color: var(--status-progress);
-  background: #fff; padding: 0 4px;
+  background: var(--bg-card); padding: 0 4px;
 }
 .cost-empty {
   text-align: center; padding: 30px 16px;
@@ -846,7 +854,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 10px; margin-bottom: 28px;
 }
 .inbox-summary .pill-stat {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(17, 22, 26, 0.7);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -895,7 +903,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 14px;
   align-items: start;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 6px;
@@ -963,7 +971,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 14px; margin-bottom: 24px;
 }
 .metric-card {
-  background: #fff; border: 1px solid var(--border);
+  background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 12px; padding: 26px 24px;
   position: relative; overflow: hidden;
 }
@@ -1005,7 +1013,7 @@ button { font-family: inherit; cursor: pointer; }
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
 }
 .mp-card {
-  background: #fff; border: 1px solid var(--border);
+  background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 12px; padding: 22px;
 }
 .mp-card h3 {
@@ -1074,7 +1082,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .share-card {
   width: 100%; max-width: 640px;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 32px;
@@ -1099,7 +1107,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .toggle {
   width: 38px; height: 22px;
-  background: #cfd5dd;
+  background: var(--bg-strong);
   border-radius: 999px;
   position: relative; cursor: pointer;
   transition: background 0.15s;
@@ -1109,7 +1117,7 @@ button { font-family: inherit; cursor: pointer; }
   content: "";
   position: absolute; top: 2px; left: 2px;
   width: 18px; height: 18px;
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 50%;
   transition: transform 0.15s;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
@@ -1121,7 +1129,7 @@ button { font-family: inherit; cursor: pointer; }
 .url-block {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 12px;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   margin-top: 16px;
@@ -1190,58 +1198,19 @@ button { font-family: inherit; cursor: pointer; }
 </head>
 <body>
 <div class="board">
-  <!-- Background landscape -->
-  <div class="board-bg">
-    <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="b-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#1a2547" />
-          <stop offset="55%" stop-color="#5a4a7a" />
-          <stop offset="85%" stop-color="#f4a87c" />
-          <stop offset="100%" stop-color="#ffd9b8" />
-        </linearGradient>
-        <radialGradient id="b-sun" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0%" stop-color="#fff4d9" stop-opacity="1" />
-          <stop offset="40%" stop-color="#fff4d9" stop-opacity="0.9" />
-          <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
-        </radialGradient>
-        <radialGradient id="b-sunhalo" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0%" stop-color="#ffc89b" stop-opacity="0.5" />
-          <stop offset="100%" stop-color="#ffc89b" stop-opacity="0" />
-        </radialGradient>
-        <linearGradient id="b-mtnFar" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#b8c2d8" />
-          <stop offset="20%" stop-color="#3d4a6b" />
-          <stop offset="100%" stop-color="#3d4a6b" />
-        </linearGradient>
-        <linearGradient id="b-mist" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="rgba(255,220,200,0)" />
-          <stop offset="100%" stop-color="rgba(255,220,200,0.6)" />
-        </linearGradient>
-        <filter id="b-blur"><feGaussianBlur stdDeviation="8" /></filter>
-      </defs>
-      <rect width="1600" height="900" fill="url(#b-sky)" />
-      <circle cx="1100" cy="540" r="260" fill="url(#b-sunhalo)" />
-      <circle cx="1100" cy="540" r="80" fill="url(#b-sun)" />
-      <g filter="url(#b-blur)" opacity="0.85">
-        <ellipse cx="200" cy="280" rx="180" ry="22" fill="#ffc4a8" />
-        <ellipse cx="600" cy="220" rx="240" ry="18" fill="#f5a890" />
-        <ellipse cx="1280" cy="320" rx="220" ry="24" fill="#ffc4a8" />
-        <ellipse cx="900" cy="380" rx="160" ry="14" fill="#e8b4c4" />
-      </g>
-      <path d="M 0,640 L 80,580 L 140,610 L 220,520 L 300,560 L 380,500 L 460,540 L 540,470 L 620,510 L 700,460 L 780,500 L 860,440 L 940,490 L 1020,450 L 1100,500 L 1180,470 L 1260,520 L 1340,490 L 1420,540 L 1500,510 L 1600,560 L 1600,900 L 0,900 Z" fill="url(#b-mtnFar)" opacity="0.92" />
-      <path d="M 0,720 L 100,680 L 200,700 L 320,640 L 440,680 L 560,620 L 680,670 L 800,610 L 920,660 L 1040,620 L 1160,680 L 1280,640 L 1400,690 L 1520,650 L 1600,700 L 1600,900 L 0,900 Z" fill="#2c3554" opacity="0.95" />
-      <rect x="0" y="700" width="1600" height="80" fill="url(#b-mist)" opacity="0.5" />
-      <path d="M 0,820 L 120,790 L 280,810 L 420,780 L 560,815 L 720,790 L 880,820 L 1040,795 L 1200,815 L 1360,790 L 1520,820 L 1600,800 L 1600,900 L 0,900 Z" fill="#1a2138" />
-    </svg>
-  </div>
+  <!-- Subtle emerald glow background -->
+  <div class="board-bg" aria-hidden="true"></div>
 
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-brand">
       <span class="brand-mark">
         <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <path d="M32 11 L35.5 30.6 L52.6 17 L40.6 32 L52.6 47 L35.5 33.4 L32 53 L28.5 33.4 L11.4 47 L23.4 32 L11.4 17 L28.5 30.6 Z" fill="#ffd9b8"/>
+          <g stroke="#00d97e" stroke-width="9" stroke-linecap="round">
+            <line x1="32" y1="14" x2="32" y2="50"/>
+            <line x1="16.4" y1="23" x2="47.6" y2="41"/>
+            <line x1="16.4" y1="41" x2="47.6" y2="23"/>
+          </g>
         </svg>
       </span>
       <span class="brand-name">greatcto</span>
@@ -1662,52 +1631,28 @@ function renderCost(d) {
 let memoryData = null;
 let activeMemKey = null;
 
+// Markdown rendering — marked@14 + DOMPurify@3 (CDN, SRI-locked)
+// Falls back to escaped <pre> if libs failed to load (offline / CSP block).
+if (typeof marked !== 'undefined') {
+  marked.setOptions({
+    gfm: true,            // GitHub-flavoured tables, autolinks
+    breaks: true,         // single \n → <br>
+    headerIds: false,
+    mangle: false,
+  });
+}
 function mdToHtml(md) {
   if (!md) return '';
-  // Escape HTML
-  let html = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  // Code blocks (fenced)
-  html = html.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (_, lang, code) =>
-    `<pre><code>${code.replace(/\n$/, '')}</code></pre>`);
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Headers
-  html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>')
-             .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
-             .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-             .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-             .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-             .replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  // Bold + italic
-  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
-  // Lists (group consecutive lines)
-  html = html.replace(/((?:^[-*] .+\n?)+)/gm, m => {
-    const items = m.trim().split('\n').map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
-    return `<ul>${items}</ul>`;
+  if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+    // Fallback — show as preformatted text so content isn't lost
+    const esc = String(md).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<pre style="white-space:pre-wrap">${esc}</pre>`;
+  }
+  const raw = marked.parse(md);
+  return DOMPurify.sanitize(raw, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ['target'],  // allow target=_blank on links
   });
-  html = html.replace(/((?:^\d+\. .+\n?)+)/gm, m => {
-    const items = m.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
-    return `<ol>${items}</ol>`;
-  });
-  // Tables (simple GFM)
-  html = html.replace(/(^\|.+\|\n\|[\s|:-]+\|\n(?:\|.+\|\n?)+)/gm, table => {
-    const lines = table.trim().split('\n');
-    const head = lines[0].split('|').slice(1, -1).map(c => `<th>${c.trim()}</th>`).join('');
-    const body = lines.slice(2).map(l => {
-      const cells = l.split('|').slice(1, -1).map(c => `<td>${c.trim()}</td>`).join('');
-      return `<tr>${cells}</tr>`;
-    }).join('');
-    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
-  });
-  // Paragraphs (split on blank lines, skip if already block-level)
-  html = html.split(/\n\n+/).map(block => {
-    const t = block.trim();
-    if (!t) return '';
-    if (/^<(h[1-6]|ul|ol|pre|table|p|div)/.test(t)) return t;
-    return `<p>${t.replace(/\n/g, '<br>')}</p>`;
-  }).join('\n');
-  return html;
 }
 
 async function loadMemory() {
@@ -1958,7 +1903,12 @@ function connectSSE() {
     allTasks = JSON.parse(e.data);
     renderKanban(filterTasks(searchQuery));
     updateNavCounts();
-    refreshInbox();
+  });
+  es.addEventListener('pipeline', e => {
+    try { renderPipeline(JSON.parse(e.data)); } catch {}
+  });
+  es.addEventListener('inbox', e => {
+    try { renderInbox(JSON.parse(e.data)); } catch {}
   });
   es.onopen = () => {
     const d = document.getElementById('live-dot');
@@ -2014,7 +1964,11 @@ function cardHTML(t) {
   const pLabel = PRIORITY_LABEL[pIdx];
   const labels = (t.labels || []).filter(l => l !== 'gate');
   const isGate = !!t.is_gate || (t.labels || []).includes('gate');
-  const isOpenGate = isGate && t.status !== 'done' && t.status !== 'closed' && t.status !== 'blocked';
+  // raw_status reflects bd's actual status (open/in_progress/closed/blocked) —
+  // mapStatus() returns 'gate' for gate-labeled cards regardless, so we need
+  // raw_status to know if the gate is still pending.
+  const rawStatus = t.raw_status || t.status;
+  const isOpenGate = isGate && rawStatus !== 'closed' && rawStatus !== 'blocked';
   const elapsed = (t.status === 'in_progress' && t.updated_at)
     ? `<span class="card-time">${relTime(t.updated_at)}</span>` : '';
   const descPreview = t.description ? `<div class="card-desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : '';
@@ -2175,7 +2129,8 @@ function openSide(task) {
   const pLabel = PRIORITY_LABEL[pIdx];
   const dur = task.created_at && task.closed_at
     ? fmtDur(new Date(task.closed_at) - new Date(task.created_at)) : null;
-  const isOpenGate = !!task.is_gate && task.status !== 'done' && task.status !== 'closed' && task.status !== 'blocked';
+  const rawStatus = task.raw_status || task.status;
+  const isOpenGate = !!task.is_gate && rawStatus !== 'closed' && rawStatus !== 'blocked';
   const rows = [
     ['Status', `<span class="pill pill-${task.status || 'backlog'}">${(task.status || 'backlog').replace('_', ' ')}</span>`],
     ['Priority', `<span class="chip chip-p${pIdx}">${pLabel}</span>`],
