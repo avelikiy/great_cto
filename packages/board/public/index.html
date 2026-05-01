@@ -397,6 +397,31 @@ button { font-family: inherit; cursor: pointer; }
 .chip-p2 { background: var(--p2-bg); color: var(--p2-fg); }
 .chip-p3 { background: var(--p3-bg); color: var(--p3-fg); }
 .chip-gate { background: rgba(124, 58, 237, 0.12); color: var(--status-gate); }
+
+.card.card-gate {
+  border-color: rgba(124, 58, 237, 0.35);
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.04), #fff);
+  height: 144px;
+}
+.gate-actions {
+  display: flex; gap: 4px;
+  margin-top: 6px;
+}
+.gate-btn {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-family: inherit; font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  background: #fff;
+  transition: background 0.12s, border-color 0.12s;
+}
+.gate-approve { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
+.gate-approve:hover { background: rgba(22, 163, 74, 0.08); border-color: var(--status-review); }
+.gate-reject { color: var(--status-blocked); border-color: rgba(220, 38, 38, 0.30); }
+.gate-reject:hover { background: rgba(220, 38, 38, 0.06); border-color: var(--status-blocked); }
 .chip-agent {
   background: var(--accent-soft); color: var(--accent);
   font-family: var(--mono);
@@ -488,6 +513,230 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text2);
   white-space: pre-wrap;
   line-height: 1.55;
+}
+
+/* ── Memory page ──────────────────────────────────────────────────────────── */
+.memory-page {
+  flex: 1; display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0; overflow: hidden;
+  height: 100%;
+}
+.memory-side {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid var(--border);
+  padding: 18px 14px;
+  overflow-y: auto;
+}
+.memory-side-head {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 10px 8px;
+}
+.mem-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+.mem-item:hover { background: var(--bg-muted); }
+.mem-item.active { background: var(--accent-soft); border-color: rgba(37, 64, 212, 0.16); }
+.mem-item .layer-tag {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--accent); letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.mem-item .name {
+  font-family: var(--mono); font-size: 12px;
+  color: var(--text);
+}
+.mem-item .desc {
+  font-size: 11.5px; color: var(--text2);
+  margin-top: 2px;
+}
+.mem-item .meta {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3); margin-top: 2px;
+}
+.mem-item.missing { opacity: 0.55; }
+.mem-item.missing .layer-tag { color: var(--text3); }
+
+.memory-content {
+  overflow-y: auto;
+  padding: 28px 32px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+}
+.memory-doc {
+  max-width: 880px;
+  margin: 0 auto;
+}
+.memory-doc h1 { font-family: var(--serif); font-weight: 600; font-size: 28px; letter-spacing: -0.02em; margin: 0 0 14px; color: var(--text); }
+.memory-doc h2 { font-family: var(--serif); font-weight: 600; font-size: 20px; margin: 28px 0 10px; color: var(--text); }
+.memory-doc h3 { font-family: var(--sans); font-weight: 600; font-size: 15px; margin: 18px 0 8px; color: var(--text); }
+.memory-doc p { font-size: 14px; line-height: 1.65; color: var(--text2); margin: 0 0 10px; }
+.memory-doc ul, .memory-doc ol { padding-left: 22px; margin: 0 0 12px; color: var(--text2); }
+.memory-doc li { line-height: 1.6; font-size: 14px; }
+.memory-doc code {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--bg-muted);
+  padding: 1px 6px; border-radius: 3px;
+  color: var(--text);
+}
+.memory-doc pre {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--bg-strong);
+  padding: 14px 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+  line-height: 1.55;
+}
+.memory-doc pre code { background: none; padding: 0; }
+.memory-doc strong { color: var(--text); font-weight: 600; }
+.memory-doc table {
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+  width: 100%;
+}
+.memory-doc th, .memory-doc td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.memory-doc th { font-weight: 600; color: var(--text); }
+.memory-doc-head {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.memory-doc-head .layer-tag {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--accent-soft); color: var(--accent);
+  padding: 4px 10px; border-radius: 4px;
+  letter-spacing: 0.06em; font-weight: 600;
+}
+.memory-doc-head .filename {
+  font-family: var(--mono); font-size: 13px;
+  color: var(--text);
+}
+.memory-doc-head .filesize {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3);
+}
+.memory-empty {
+  text-align: center; padding: 60px 24px;
+  color: var(--text3); font-size: 13px;
+}
+
+/* ── Inbox page ───────────────────────────────────────────────────────────── */
+.inbox-page {
+  flex: 1; padding: 32px 32px 48px;
+  max-width: 1080px; width: 100%;
+  margin: 0 auto;
+}
+.inbox-greet {
+  font-family: var(--serif); font-weight: 600;
+  font-size: clamp(22px, 2.5vw, 30px);
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+}
+.inbox-summary {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 10px; margin-bottom: 28px;
+}
+.inbox-summary .pill-stat {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.inbox-summary .pill-stat .num {
+  font-family: var(--mono); font-weight: 600;
+  font-size: 24px; color: var(--text);
+}
+.inbox-summary .pill-stat .lbl {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text2);
+}
+.inbox-summary .pill-stat .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 4px;
+}
+
+.inbox-section { margin-bottom: 24px; }
+.inbox-section-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.inbox-section-head .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.inbox-section-head h3 {
+  font-family: var(--sans); font-weight: 600;
+  font-size: 14px; margin: 0; color: var(--text);
+}
+.inbox-section-head .inbox-count {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); margin-left: 2px;
+}
+
+.dot-purple { background: var(--status-gate); }
+.dot-red    { background: var(--status-blocked); }
+.dot-orange { background: #f97316; }
+.dot-amber  { background: var(--status-progress); }
+
+.inbox-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: box-shadow .12s, transform .12s;
+  cursor: pointer;
+}
+.inbox-row:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
+.inbox-row .id {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); letter-spacing: 0.04em;
+}
+.inbox-row .ttl {
+  font-size: 13.5px; color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inbox-row .ttl .meta {
+  display: block;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); margin-top: 2px;
+}
+.inbox-row .actions {
+  display: flex; gap: 4px; align-items: center;
+}
+.inbox-row .actions .gate-btn { height: 26px; padding: 0 10px; font-size: 11px; }
+.inbox-empty {
+  padding: 14px 16px;
+  background: var(--bg-muted);
+  border-radius: 8px;
+  font-size: 12px; color: var(--text3);
+  text-align: center;
 }
 
 /* ── Metrics page ─────────────────────────────────────────────────────────── */
@@ -798,7 +1047,12 @@ button { font-family: inherit; cursor: pointer; }
       </div>
     </div>
     <nav class="nav">
-      <div class="nav-item active" data-tab="kanban" onclick="switchTab('kanban', this)">
+      <div class="nav-item active" data-tab="inbox" onclick="switchTab('inbox', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        <span>Inbox</span>
+        <span class="count" id="nav-inbox-count">0</span>
+      </div>
+      <div class="nav-item" data-tab="kanban" onclick="switchTab('kanban', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Tasks</span>
         <span class="count" id="nav-task-count">0</span>
@@ -806,6 +1060,11 @@ button { font-family: inherit; cursor: pointer; }
       <div class="nav-item" data-tab="dashboard" onclick="switchTab('dashboard', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18 M7 14l3-3 4 4 5-5"/></svg>
         <span>Metrics</span>
+      </div>
+      <div class="nav-item" data-tab="memory" onclick="switchTab('memory', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Memory</span>
+        <span class="count" id="nav-memory-count">0</span>
       </div>
       <div class="nav-item" data-tab="share" onclick="switchTab('share', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8"/></svg>
@@ -843,8 +1102,10 @@ button { font-family: inherit; cursor: pointer; }
       </div>
       <div class="topbar-actions">
         <div class="tab-row">
-          <button class="tab-btn active" data-tab="kanban" onclick="switchTab('kanban', this)">Board</button>
+          <button class="tab-btn active" data-tab="inbox" onclick="switchTab('inbox', this)">Inbox</button>
+          <button class="tab-btn" data-tab="kanban" onclick="switchTab('kanban', this)">Board</button>
           <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard', this)">Metrics</button>
+          <button class="tab-btn" data-tab="memory" onclick="switchTab('memory', this)">Memory</button>
           <button class="tab-btn" data-tab="share" onclick="switchTab('share', this)">Share</button>
         </div>
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
@@ -855,10 +1116,51 @@ button { font-family: inherit; cursor: pointer; }
       </div>
     </div>
 
+    <!-- Inbox -->
+    <div class="panel active" id="panel-inbox">
+      <div class="inbox-page">
+        <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
+        <div class="inbox-summary" id="inbox-summary"></div>
+        <div class="inbox-section" id="inbox-gates-section">
+          <div class="inbox-section-head">
+            <span class="dot dot-purple"></span>
+            <h3>Pending decisions</h3>
+            <span class="inbox-count" id="inbox-gates-count">0</span>
+          </div>
+          <div id="inbox-gates"></div>
+        </div>
+        <div class="inbox-section" id="inbox-p0-section">
+          <div class="inbox-section-head">
+            <span class="dot dot-red"></span>
+            <h3>P0 open</h3>
+            <span class="inbox-count" id="inbox-p0-count">0</span>
+          </div>
+          <div id="inbox-p0"></div>
+        </div>
+        <div class="inbox-section" id="inbox-blocked-section">
+          <div class="inbox-section-head">
+            <span class="dot dot-orange"></span>
+            <h3>Blocked</h3>
+            <span class="inbox-count" id="inbox-blocked-count">0</span>
+          </div>
+          <div id="inbox-blocked"></div>
+        </div>
+        <div class="inbox-section" id="inbox-stale-section">
+          <div class="inbox-section-head">
+            <span class="dot dot-amber"></span>
+            <h3>Stale (in progress &gt; 48h)</h3>
+            <span class="inbox-count" id="inbox-stale-count">0</span>
+          </div>
+          <div id="inbox-stale"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Kanban -->
-    <div class="panel active" id="panel-kanban">
+    <div class="panel" id="panel-kanban">
       <div class="kanban" id="kanban-board"></div>
     </div>
+
 
     <!-- Metrics -->
     <div class="panel" id="panel-dashboard">
@@ -879,6 +1181,21 @@ button { font-family: inherit; cursor: pointer; }
             <div id="timeline"></div>
           </div>
           <div id="inbox-gates"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memory -->
+    <div class="panel" id="panel-memory">
+      <div class="memory-page">
+        <div class="memory-side">
+          <div class="memory-side-head">Project memory</div>
+          <div id="memory-layers"></div>
+          <div class="memory-side-head" style="margin-top:24px">Cross-project patterns</div>
+          <div id="memory-patterns"></div>
+        </div>
+        <div class="memory-content" id="memory-content">
+          <div class="empty">Pick a memory layer to view…</div>
         </div>
       </div>
     </div>
@@ -947,10 +1264,212 @@ const PRIORITY_LABEL = ['Urgent','High','Medium','Low'];
 let allTasks = [];
 let metrics = {};
 let shareState = { enabled: false, url: null };
-let currentTab = 'kanban';
+let currentTab = 'inbox';
 let searchQuery = '';
 let allProjects = [];
 let currentProject = '';
+let inboxData = null;
+
+function greetByHour() {
+  const h = new Date().getHours();
+  if (h < 6) return 'Up late.';
+  if (h < 12) return 'Good morning.';
+  if (h < 18) return 'Good afternoon.';
+  return 'Good evening.';
+}
+
+function renderInbox(d) {
+  inboxData = d || {};
+  const s = d?.summary || { gates: 0, blocked: 0, p0: 0, stale: 0 };
+  document.getElementById('nav-inbox-count').textContent = s.gates + s.p0 + s.blocked;
+  document.getElementById('inbox-greet').textContent = `${greetByHour()} ${s.gates + s.p0 ? "Here's what needs your decision." : 'Nothing urgent — back to deep work.'}`;
+  document.getElementById('inbox-summary').innerHTML = `
+    <div class="pill-stat"><span class="dot dot-purple"></span><div><div class="num">${s.gates}</div><div class="lbl">Pending decisions</div></div></div>
+    <div class="pill-stat"><span class="dot dot-red"></span><div><div class="num">${s.p0}</div><div class="lbl">P0 open</div></div></div>
+    <div class="pill-stat"><span class="dot dot-orange"></span><div><div class="num">${s.blocked}</div><div class="lbl">Blocked</div></div></div>
+    <div class="pill-stat"><span class="dot dot-amber"></span><div><div class="num">${s.stale}</div><div class="lbl">Stale &gt; 48h</div></div></div>
+  `;
+  renderInboxList('inbox-gates', d?.pending_gates || [], 'inbox-gates-count', { showApprove: true, emptyMsg: 'No pending gates.' });
+  renderInboxList('inbox-p0', d?.p0_open || [], 'inbox-p0-count', { emptyMsg: 'No P0 issues. Nice.' });
+  renderInboxList('inbox-blocked', d?.blocked || [], 'inbox-blocked-count', { emptyMsg: 'Nothing blocked.' });
+  renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', { emptyMsg: 'No stale work.' });
+}
+
+function renderInboxList(rootId, items, countId, opts = {}) {
+  const root = document.getElementById(rootId);
+  const cnt = document.getElementById(countId);
+  if (cnt) cnt.textContent = items.length;
+  if (!items.length) {
+    root.innerHTML = `<div class="inbox-empty">${opts.emptyMsg || 'Empty.'}</div>`;
+    return;
+  }
+  root.innerHTML = items.map(t => {
+    const meta = [
+      t.agent ? `agent: ${esc(t.agent)}` : '',
+      t.priority != null ? PRIORITY_LABEL[t.priority] : '',
+      t.updated_at ? relTime(t.updated_at) : '',
+    ].filter(Boolean).join(' · ');
+    const actions = opts.showApprove
+      ? `<div class="actions" onclick="event.stopPropagation()">
+           <button class="gate-btn gate-approve" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">Approve</button>
+           <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject</button>
+         </div>`
+      : `<div class="actions"><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${t.status || ''}</span></div>`;
+    return `
+      <div class="inbox-row" onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
+        <span class="id">${esc(t.id || '')}</span>
+        <span class="ttl">${esc(t.title)}<span class="meta">${meta}</span></span>
+        ${actions}
+      </div>`;
+  }).join('');
+}
+
+async function refreshInbox() {
+  const d = await api('/api/inbox');
+  if (d) renderInbox(d);
+}
+
+/* ── Memory browser ─────────────────────────────────────────────────────── */
+let memoryData = null;
+let activeMemKey = null;
+
+function mdToHtml(md) {
+  if (!md) return '';
+  // Escape HTML
+  let html = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Code blocks (fenced)
+  html = html.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code>${code.replace(/\n$/, '')}</code></pre>`);
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Headers
+  html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>')
+             .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
+             .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+             .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+             .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+             .replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Bold + italic
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+  // Lists (group consecutive lines)
+  html = html.replace(/((?:^[-*] .+\n?)+)/gm, m => {
+    const items = m.trim().split('\n').map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
+    return `<ul>${items}</ul>`;
+  });
+  html = html.replace(/((?:^\d+\. .+\n?)+)/gm, m => {
+    const items = m.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
+    return `<ol>${items}</ol>`;
+  });
+  // Tables (simple GFM)
+  html = html.replace(/(^\|.+\|\n\|[\s|:-]+\|\n(?:\|.+\|\n?)+)/gm, table => {
+    const lines = table.trim().split('\n');
+    const head = lines[0].split('|').slice(1, -1).map(c => `<th>${c.trim()}</th>`).join('');
+    const body = lines.slice(2).map(l => {
+      const cells = l.split('|').slice(1, -1).map(c => `<td>${c.trim()}</td>`).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  });
+  // Paragraphs (split on blank lines, skip if already block-level)
+  html = html.split(/\n\n+/).map(block => {
+    const t = block.trim();
+    if (!t) return '';
+    if (/^<(h[1-6]|ul|ol|pre|table|p|div)/.test(t)) return t;
+    return `<p>${t.replace(/\n/g, '<br>')}</p>`;
+  }).join('\n');
+  return html;
+}
+
+async function loadMemory() {
+  const d = await api('/api/memory');
+  memoryData = d || { layers: [], patterns: [] };
+  renderMemorySidebar();
+  document.getElementById('nav-memory-count').textContent =
+    (memoryData.layers || []).filter(l => l.exists).length + (memoryData.patterns || []).length;
+  // Auto-select first existing layer
+  if (!activeMemKey) {
+    const first = (memoryData.layers || []).find(l => l.exists);
+    if (first) selectMemory('layer:' + first.id);
+  }
+}
+
+function renderMemorySidebar() {
+  const layersEl = document.getElementById('memory-layers');
+  const patternsEl = document.getElementById('memory-patterns');
+  const layers = memoryData.layers || [];
+  const patterns = memoryData.patterns || [];
+
+  layersEl.innerHTML = layers.map(l => {
+    const key = 'layer:' + l.id;
+    const cls = (l.exists ? '' : 'missing ') + (activeMemKey === key ? 'active' : '');
+    return `
+      <div class="mem-item ${cls}" onclick="selectMemory('${key}')">
+        <span class="layer-tag">${l.layer}</span>
+        <span class="name">${l.name}</span>
+        <span class="desc">${esc(l.desc)}</span>
+        <span class="meta">${l.exists ? `${(l.size / 1024).toFixed(1)} KB` : 'not yet written'}</span>
+      </div>`;
+  }).join('') || '<div class="memory-empty">No memory files yet.</div>';
+
+  patternsEl.innerHTML = patterns.length ? patterns.map(p => {
+    const key = 'pattern:' + p.id;
+    const cls = activeMemKey === key ? 'active' : '';
+    return `
+      <div class="mem-item ${cls}" onclick="selectMemory('${key}')">
+        <span class="layer-tag">L4</span>
+        <span class="name">${esc(p.id)}</span>
+        <span class="desc">${esc(p.title.slice(0, 60))}</span>
+      </div>`;
+  }).join('') : '<div class="mem-item missing"><span class="layer-tag">L4</span><span class="name">No global patterns yet</span><span class="desc">Run /crystallize after a P0 incident</span></div>';
+}
+
+async function selectMemory(key) {
+  activeMemKey = key;
+  renderMemorySidebar();
+  const [type, id] = key.split(':');
+  const root = document.getElementById('memory-content');
+  if (type === 'layer') {
+    const layer = (memoryData.layers || []).find(l => l.id === id);
+    if (!layer || !layer.exists) {
+      root.innerHTML = `
+        <div class="memory-doc">
+          <div class="memory-doc-head">
+            <span class="layer-tag">${layer?.layer || ''}</span>
+            <span class="filename">${esc(layer?.name || id)}</span>
+          </div>
+          <div class="memory-empty">This memory file hasn't been written yet for this project.</div>
+        </div>`;
+      return;
+    }
+    root.innerHTML = `
+      <div class="memory-doc">
+        <div class="memory-doc-head">
+          <span class="layer-tag">${layer.layer}</span>
+          <span class="filename">${esc(layer.name)}</span>
+          <span class="filesize">${(layer.size / 1024).toFixed(1)} KB</span>
+        </div>
+        ${mdToHtml(layer.content || '')}
+      </div>`;
+  } else if (type === 'pattern') {
+    // Lazy fetch pattern content
+    const r = await fetch(`/api/memory`);
+    const d = await r.json();
+    const p = (d.patterns || []).find(x => x.id === id);
+    if (!p) { root.innerHTML = '<div class="memory-empty">Pattern not found.</div>'; return; }
+    const contentR = await fetch(`/api/memory-pattern?id=${encodeURIComponent(id)}`);
+    let content = '';
+    try { content = (await contentR.json()).content || ''; } catch {}
+    root.innerHTML = `
+      <div class="memory-doc">
+        <div class="memory-doc-head">
+          <span class="layer-tag">L4 · GLOBAL</span>
+          <span class="filename">${esc(p.name)}</span>
+        </div>
+        ${mdToHtml(content || '(could not load pattern content)')}
+      </div>`;
+  }
+}
 
 function toggleProjMenu(e) {
   e?.stopPropagation();
@@ -1046,8 +1565,10 @@ async function init() {
   allTasks = tasks || [];
   metrics = met || {};
   shareState = share || { enabled: false, url: null };
+  allProjects = projs || [];
 
   const proj = (allTasks[0]?.id || '').split('-')[0] || 'project';
+  currentProject = proj;
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;
   document.title = `${proj} · great_cto`;
@@ -1057,6 +1578,7 @@ async function init() {
   renderDashboard(metrics);
   renderShareState(shareState);
   updateNavCounts();
+  loadMemory();
   connectSSE();
 }
 
@@ -1070,6 +1592,7 @@ function connectSSE() {
     allTasks = JSON.parse(e.data);
     renderKanban(filterTasks(searchQuery));
     updateNavCounts();
+    refreshInbox();
   });
   es.onopen = () => {
     const d = document.getElementById('live-dot');
@@ -1124,12 +1647,13 @@ function cardHTML(t) {
   const pClass = `p${pIdx}`;
   const pLabel = PRIORITY_LABEL[pIdx];
   const labels = (t.labels || []).filter(l => l !== 'gate');
-  const isGate = (t.labels || []).includes('gate');
+  const isGate = !!t.is_gate || (t.labels || []).includes('gate');
+  const isOpenGate = isGate && t.status !== 'done' && t.status !== 'closed' && t.status !== 'blocked';
   const elapsed = (t.status === 'in_progress' && t.updated_at)
     ? `<span class="card-time">${relTime(t.updated_at)}</span>` : '';
   const descPreview = t.description ? `<div class="card-desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : '';
   return `
-    <div class="card">
+    <div class="card ${isGate ? 'card-gate' : ''}">
       <div class="id">${esc(t.id || '')}</div>
       <div class="card-row1" style="margin-top:4px">
         <div class="priority-dot ${pClass}" title="${pLabel}"></div>
@@ -1155,6 +1679,24 @@ function cardHTML(t) {
           </button>
         </div>` : ''}
     </div>`;
+}
+
+async function gateAction(id, action) {
+  if (action === 'reject') {
+    const reason = prompt(`Reject ${id}. Reason (optional)?`);
+    if (reason === null) return;
+    var body = { action, reason };
+  } else {
+    body = { action };
+  }
+  const res = await api(`/api/gates/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res || res.error) {
+    alert('Gate action failed: ' + (res?.error || 'network error'));
+  }
 }
 
 /* ── Dashboard ──────────────────────────────────────────────────────────── */
@@ -1302,11 +1844,17 @@ function switchTab(id, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`panel-${id}`).classList.add('active');
   // crumb
-  const labels = { kanban: 'Board', dashboard: 'Metrics', share: 'Share' };
+  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', share: 'Share' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';
   if (id === 'dashboard') {
     api('/api/metrics').then(m => { if (m) { metrics = m; renderDashboard(m); } });
     refreshCost();
+  }
+  if (id === 'inbox') {
+    refreshInbox();
+  }
+  if (id === 'memory') {
+    loadMemory();
   }
   if (id === 'inbox') {
     refreshInbox();
