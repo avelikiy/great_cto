@@ -351,11 +351,21 @@ button { font-family: inherit; cursor: pointer; }
   padding: 10px 12px;
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
-  height: 112px;
+  height: 140px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   overflow: hidden;
+}
+.card-desc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -408,7 +418,7 @@ button { font-family: inherit; cursor: pointer; }
 .card.card-gate {
   border-color: rgba(124, 58, 237, 0.35);
   background: linear-gradient(180deg, rgba(124, 58, 237, 0.04), #fff);
-  height: 144px;
+  height: 176px;
 }
 .gate-actions {
   display: flex; gap: 4px;
@@ -487,8 +497,44 @@ button { font-family: inherit; cursor: pointer; }
 .side-close:hover { background: var(--bg-muted); color: var(--text); }
 .side-body { flex: 1; overflow: auto; padding: 18px; }
 .side-title {
-  font-weight: 600; font-size: 18px;
-  letter-spacing: -0.01em; margin-bottom: 14px;
+  font-family: var(--serif); font-weight: 600;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+.side-desc {
+  font-size: 14px; line-height: 1.6;
+  color: var(--text2);
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.side-gate-actions {
+  display: flex; gap: 6px;
+  margin-bottom: 16px;
+}
+.side-gate-actions .gate-btn {
+  flex: 1;
+  height: 36px;
+  font-size: 13px; font-weight: 500;
+  padding: 0 14px;
+}
+.side-section {
+  margin-top: 18px;
+}
+.side-section-head {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 6px;
+}
+.side-section-body {
+  font-size: 13.5px; line-height: 1.55;
+  color: var(--text2);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .props {
   display: grid;
@@ -643,6 +689,90 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text3); font-size: 13px;
 }
 
+/* ── Cost panel ───────────────────────────────────────────────────────────── */
+.cost-panel { padding: 22px 24px; }
+.cost-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.cost-cell {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.cost-cell .lbl {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text2);
+}
+.cost-cell .v {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 26px; letter-spacing: -0.02em;
+  color: var(--text); line-height: 1.1;
+}
+.cost-cell .v small { font-size: 14px; color: var(--text2); margin-left: 2px; font-weight: 400; }
+.cost-cell .sub { font-size: 11.5px; color: var(--text2); }
+.cost-cell.warn .v { color: var(--status-blocked); }
+.cost-cell.good .v { color: var(--status-review); }
+
+.cost-chart {
+  position: relative;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.cost-bar {
+  flex: 1; min-width: 4px;
+  background: var(--accent-soft);
+  border-radius: 2px 2px 0 0;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.cost-bar:hover { background: var(--accent); }
+.cost-bar.has-data { background: var(--accent); }
+.cost-bar .tip {
+  position: absolute;
+  bottom: calc(100% + 4px); left: 50%;
+  transform: translateX(-50%);
+  background: #0f1115; color: #fff;
+  padding: 4px 8px; border-radius: 4px;
+  font-family: var(--mono); font-size: 10px;
+  white-space: nowrap;
+  display: none;
+  pointer-events: none;
+  z-index: 5;
+}
+.cost-bar:hover .tip { display: block; }
+.cost-axis {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3);
+  margin-top: 4px;
+}
+.cost-budget-line {
+  position: absolute; left: 0; right: 0;
+  height: 1px;
+  background: var(--status-progress);
+  border-top: 1px dashed var(--status-progress);
+  pointer-events: none;
+}
+.cost-budget-line .label {
+  position: absolute; right: 4px; top: -16px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--status-progress);
+  background: #fff; padding: 0 4px;
+}
+.cost-empty {
+  text-align: center; padding: 30px 16px;
+  font-size: 13px; color: var(--text3);
+}
+
 /* ── Inbox page ───────────────────────────────────────────────────────────── */
 .inbox-page {
   flex: 1; padding: 32px 32px 48px;
@@ -707,7 +837,7 @@ button { font-family: inherit; cursor: pointer; }
   display: grid;
   grid-template-columns: 90px 1fr auto;
   gap: 14px;
-  align-items: center;
+  align-items: start;
   padding: 12px 14px;
   background: #fff;
   border: 1px solid var(--border);
@@ -715,7 +845,9 @@ button { font-family: inherit; cursor: pointer; }
   margin-bottom: 6px;
   transition: box-shadow .12s, transform .12s;
   cursor: pointer;
+  min-width: 0;
 }
+.inbox-row .id { padding-top: 2px; }
 .inbox-row:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
 .inbox-row .id {
   font-family: var(--mono); font-size: 11px;
@@ -723,16 +855,33 @@ button { font-family: inherit; cursor: pointer; }
 }
 .inbox-row .ttl {
   font-size: 13.5px; color: var(--text);
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inbox-row .ttl > :first-child {
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.inbox-row .ttl .ttl-desc {
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--text2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
 .inbox-row .ttl .meta {
-  display: block;
   font-family: var(--mono); font-size: 11px;
-  color: var(--text3); margin-top: 2px;
+  color: var(--text3); margin-top: 4px;
 }
 .inbox-row .actions {
   display: flex; gap: 4px; align-items: center;
@@ -1108,13 +1257,6 @@ button { font-family: inherit; cursor: pointer; }
         <kbd>⌘K</kbd>
       </div>
       <div class="topbar-actions">
-        <div class="tab-row">
-          <button class="tab-btn active" data-tab="inbox" onclick="switchTab('inbox', this)">Inbox</button>
-          <button class="tab-btn" data-tab="kanban" onclick="switchTab('kanban', this)">Board</button>
-          <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard', this)">Metrics</button>
-          <button class="tab-btn" data-tab="memory" onclick="switchTab('memory', this)">Memory</button>
-          <button class="tab-btn" data-tab="share" onclick="switchTab('share', this)">Share</button>
-        </div>
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
         <button class="btn-new">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14 M5 12h14"/></svg>
@@ -1128,6 +1270,15 @@ button { font-family: inherit; cursor: pointer; }
       <div class="inbox-page">
         <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
         <div class="inbox-summary" id="inbox-summary"></div>
+
+        <div class="inbox-section">
+          <div class="inbox-section-head">
+            <span class="dot dot-blue"></span>
+            <h3>Active pipeline</h3>
+            <span class="inbox-count" id="pipeline-status">idle</span>
+          </div>
+          <div class="pipeline-track" id="pipeline-track"></div>
+        </div>
         <div class="inbox-section" id="inbox-gates-section">
           <div class="inbox-section-head">
             <span class="dot dot-purple"></span>
@@ -1175,7 +1326,13 @@ button { font-family: inherit; cursor: pointer; }
         <div class="mp-section-label">This sprint</div>
         <div class="mp-hero" id="mp-hero"></div>
         <div class="mp-secondary" id="mp-secondary"></div>
-        <div class="mp-row">
+
+        <div class="mp-section-label" style="margin-top:24px">Cost · last 30 days</div>
+        <div class="mp-card cost-panel" id="cost-panel">
+          <div class="cost-empty">Loading…</div>
+        </div>
+
+        <div class="mp-row" style="margin-top:24px">
           <div class="mp-card">
             <h3>Agent utilization</h3>
             <div id="agent-list"></div>
@@ -1322,10 +1479,11 @@ function renderInboxList(rootId, items, countId, opts = {}) {
            <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject</button>
          </div>`
       : `<div class="actions"><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${t.status || ''}</span></div>`;
+    const desc = t.description ? `<span class="ttl-desc">${esc(t.description.slice(0, 140))}${t.description.length > 140 ? '…' : ''}</span>` : '';
     return `
       <div class="inbox-row" onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         <span class="id">${esc(t.id || '')}</span>
-        <span class="ttl">${esc(t.title)}<span class="meta">${meta}</span></span>
+        <span class="ttl">${esc(t.title)}${desc}<span class="meta">${meta}</span></span>
         ${actions}
       </div>`;
   }).join('');
@@ -1334,6 +1492,80 @@ function renderInboxList(rootId, items, countId, opts = {}) {
 async function refreshInbox() {
   const d = await api('/api/inbox');
   if (d) renderInbox(d);
+}
+
+/* ── Cost panel ─────────────────────────────────────────────────────────── */
+async function refreshCost() {
+  const d = await api('/api/cost?days=30');
+  if (!d) return;
+  renderCost(d);
+}
+
+function renderCost(d) {
+  const root = document.getElementById('cost-panel');
+  if (!root) return;
+  const series = d.series || [];
+  const max = Math.max(0.01, ...series.map(s => s.llm));
+  const total = d.total_llm ?? 0;
+  const totalHuman = d.total_human ?? 0;
+  const projected = d.projected_monthly ?? 0;
+  const budget = d.monthly_budget;
+  const overBudget = !!d.over_budget;
+  const savings = d.savings_x ?? 0;
+
+  const summary = `
+    <div class="cost-summary">
+      <div class="cost-cell">
+        <div class="lbl">Last 30 days</div>
+        <div class="v">$${total.toFixed(2)}</div>
+        <div class="sub">${d.total_plans} plans · $${(d.daily_avg ?? 0).toFixed(2)}/day avg</div>
+      </div>
+      <div class="cost-cell ${overBudget ? 'warn' : (budget != null ? 'good' : '')}">
+        <div class="lbl">Projected month</div>
+        <div class="v">$${projected.toFixed(0)}</div>
+        <div class="sub">${budget != null ? (overBudget ? `over budget by $${(projected - budget).toFixed(0)}` : `${Math.round((projected/budget)*100)}% of $${budget} budget`) : 'set monthly-budget in PROJECT.md'}</div>
+      </div>
+      <div class="cost-cell good">
+        <div class="lbl">vs Human team</div>
+        <div class="v">$${Number(totalHuman).toLocaleString()}</div>
+        <div class="sub">${savings > 0 ? `${savings}× cheaper · saved $${(totalHuman - total).toFixed(0)}` : 'no human cost data'}</div>
+      </div>
+      <div class="cost-cell">
+        <div class="lbl">Daily burn</div>
+        <div class="v">$${(d.daily_avg ?? 0).toFixed(2)}<small>/day</small></div>
+        <div class="sub">${series.filter(s=>s.llm>0).length} active days</div>
+      </div>
+    </div>`;
+
+  // Chart
+  const chartH = 116; // px usable area (140 - 24 padding)
+  const bars = series.map(s => {
+    const h = max > 0 ? Math.max(2, Math.round((s.llm / max) * chartH)) : 2;
+    const tip = `${s.date} · $${s.llm.toFixed(2)}${s.plans ? ` · ${s.plans} plan${s.plans>1?'s':''}` : ''}${s.runs ? ` · ${s.runs} runs` : ''}`;
+    return `<div class="cost-bar ${s.llm > 0 ? 'has-data' : ''}" style="height:${h}px"><span class="tip">${esc(tip)}</span></div>`;
+  }).join('');
+
+  // Budget line position (% of max)
+  let budgetMarker = '';
+  if (budget != null) {
+    const dailyBudget = budget / 30;
+    if (dailyBudget < max) {
+      const pct = 100 - Math.round((dailyBudget / max) * 100);
+      budgetMarker = `<div class="cost-budget-line" style="top:${pct}%"><span class="label">$${dailyBudget.toFixed(2)}/day budget</span></div>`;
+    }
+  }
+
+  const firstDate = series[0]?.date || '';
+  const lastDate = series[series.length - 1]?.date || '';
+
+  root.innerHTML = `
+    ${summary}
+    <div class="cost-chart">${bars}${budgetMarker}</div>
+    <div class="cost-axis">
+      <span>${esc(firstDate)}</span>
+      <span style="font-family:var(--sans);color:var(--text2)">LLM spend per day</span>
+      <span>${esc(lastDate)}</span>
+    </div>`;
 }
 
 /* ── Memory browser ─────────────────────────────────────────────────────── */
@@ -1622,6 +1854,7 @@ async function init() {
   renderShareState(shareState);
   updateNavCounts();
   loadMemory();
+  refreshCost();
   connectSSE();
 }
 
@@ -1852,6 +2085,7 @@ function openSide(task) {
   const pLabel = PRIORITY_LABEL[pIdx];
   const dur = task.created_at && task.closed_at
     ? fmtDur(new Date(task.closed_at) - new Date(task.created_at)) : null;
+  const isOpenGate = !!task.is_gate && task.status !== 'done' && task.status !== 'closed' && task.status !== 'blocked';
   const rows = [
     ['Status', `<span class="pill pill-${task.status || 'backlog'}">${(task.status || 'backlog').replace('_', ' ')}</span>`],
     ['Priority', `<span class="chip chip-p${pIdx}">${pLabel}</span>`],
@@ -1861,6 +2095,21 @@ function openSide(task) {
     task.closed_at ? ['Closed', fmtDate(task.closed_at)] : null,
     dur ? ['Duration', dur] : null,
   ].filter(Boolean);
+  const desc = task.description ? `<div class="side-desc">${esc(task.description)}</div>` : '';
+  const designSec = task.design ? `<div class="side-section"><div class="side-section-head">Design</div><div class="side-section-body">${esc(task.design)}</div></div>` : '';
+  const acceptanceSec = task.acceptance ? `<div class="side-section"><div class="side-section-head">Acceptance criteria</div><div class="side-section-body">${esc(task.acceptance)}</div></div>` : '';
+  const notesSec = task.notes ? `<div class="side-section"><div class="side-section-head">Notes</div><div class="side-section-body">${esc(task.notes)}</div></div>` : '';
+  const gateActions = isOpenGate ? `
+    <div class="side-gate-actions">
+      <button class="gate-btn gate-approve" onclick="gateAction('${esc(task.id)}', 'approve'); closeSide();">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Approve
+      </button>
+      <button class="gate-btn gate-reject" onclick="gateAction('${esc(task.id)}', 'reject'); closeSide();">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18 M6 6l12 12"/></svg>
+        Reject
+      </button>
+    </div>` : '';
   document.getElementById('side-body').innerHTML = `
     <div class="side-title">${esc(task.title)}</div>
     ${desc}
@@ -1868,7 +2117,10 @@ function openSide(task) {
     <div class="props">
       ${rows.map(([k, v]) => `<div class="prop-key">${k}</div><div class="prop-val">${v}</div>`).join('')}
     </div>
-    ${task.close_reason ? `<div class="result-box">${esc(task.close_reason)}</div>` : ''}`;
+    ${designSec}
+    ${acceptanceSec}
+    ${notesSec}
+    ${task.close_reason ? `<div class="result-box"><div class="side-section-head">Close reason</div>${esc(task.close_reason)}</div>` : ''}`;
   document.getElementById('side-panel').classList.add('open');
 }
 function closeSide() {
@@ -1892,12 +2144,6 @@ function switchTab(id, el) {
   if (id === 'dashboard') {
     api('/api/metrics').then(m => { if (m) { metrics = m; renderDashboard(m); } });
     refreshCost();
-  }
-  if (id === 'inbox') {
-    refreshInbox();
-  }
-  if (id === 'memory') {
-    loadMemory();
   }
   if (id === 'inbox') {
     refreshInbox();
