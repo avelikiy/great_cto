@@ -131,7 +131,22 @@ button { font-family: inherit; cursor: pointer; }
 .section-label {
   font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--text3); margin: 0 0 10px;
+  color: var(--text3); margin: 18px 0 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-label.warn { color: #fcd34d; }
+.section-label.warn svg { color: #fcd34d; }
+
+.headline-narrative {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 18px; line-height: 1.5;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  margin: 18px 0 22px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, rgba(0,217,126,0.05), transparent 80%);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 8px 8px 0;
 }
 
 .report-stats-hero {
@@ -217,6 +232,151 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 13px;
 }
 .shipped-row:first-of-type { border-top: none; }
+
+/* Risk surface */
+.risk-list { margin-bottom: 10px; }
+.risk-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 10px 14px;
+  background: rgba(252, 211, 77, 0.04);
+  border: 1px solid rgba(252, 211, 77, 0.18);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.risk-row.blocked { background: rgba(255, 84, 102, 0.04); border-color: rgba(255, 84, 102, 0.18); }
+.risk-row.p0      { background: rgba(255, 84, 102, 0.06); border-color: rgba(255, 84, 102, 0.22); }
+.risk-tag {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.06em; text-align: center;
+  padding: 3px 6px; border-radius: 4px;
+  background: rgba(252, 211, 77, 0.14); color: #fcd34d;
+}
+.risk-row.blocked .risk-tag,
+.risk-row.p0 .risk-tag { background: rgba(255, 84, 102, 0.18); color: #fca5a5; }
+.risk-ttl { color: var(--text); font-weight: 500; line-height: 1.35; }
+.risk-meta { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+/* Coming up */
+.coming-list { margin-bottom: 6px; }
+.coming-row {
+  display: grid;
+  grid-template-columns: 16px 60px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.coming-row:first-of-type { border-top: none; }
+.coming-arrow { color: var(--accent); font-weight: 500; }
+.coming-ttl { color: var(--text); }
+.coming-agent {
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--text2);
+  background: rgba(0, 217, 126, 0.06);
+  padding: 2px 7px; border-radius: 4px;
+}
+
+/* Priority badges */
+.badge {
+  font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: 0.04em; font-weight: 500;
+  padding: 2px 7px; border-radius: 4px;
+  text-align: center;
+}
+.pri-p0 { background: rgba(255, 84, 102, 0.14); color: #fca5a5; }
+.pri-p1 { background: rgba(255, 170, 60, 0.14); color: #fcd34d; }
+.pri-p2 { background: rgba(240, 210, 78, 0.14); color: #fde68a; }
+.pri-p3 { background: rgba(255, 255, 255, 0.05); color: #9ca3af; }
+
+/* Shipped categories */
+.ship-cat { margin-bottom: 8px; }
+.ship-cat-h {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 0 6px;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.1em;
+  border-top: 1px solid var(--border);
+}
+.ship-cat:first-of-type .ship-cat-h { border-top: none; padding-top: 4px; }
+.ship-cat-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.ship-cat-dot.security { background: #fca5a5; }
+.ship-cat-dot.infra    { background: #93c5fd; }
+.ship-cat-dot.feature  { background: var(--accent); }
+.ship-cat-dot.docs     { background: #c4b5fd; }
+.ship-cat-name { color: var(--text2); }
+.ship-cat-count { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-left: auto; }
+
+/* Agent breakdown */
+.agent-list { margin-bottom: 8px; }
+.agent-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 80px;
+  gap: 12px; align-items: center;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.agent-row .agent-name { font-family: var(--mono); color: var(--text); }
+.agent-row .agent-rail {
+  height: 4px; background: rgba(255,255,255,0.05);
+  border-radius: 2px; overflow: hidden;
+}
+.agent-row .agent-fill {
+  height: 100%; background: var(--accent);
+}
+.agent-row .agent-count {
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--text-2); text-align: right;
+}
+
+/* Trust footer */
+.trust-foot {
+  margin-top: 22px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--mono); font-size: 10.5px;
+  line-height: 1.6;
+}
+.trust-row {
+  display: grid; grid-template-columns: 80px 1fr;
+  gap: 12px; align-items: baseline;
+  padding: 4px 0;
+  color: var(--text-2);
+}
+.trust-row + .trust-row { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+.trust-k { color: var(--text-3); letter-spacing: 0.04em; text-transform: uppercase; font-size: 9.5px; }
+.trust-v code {
+  background: rgba(255,255,255,0.04);
+  padding: 1px 5px; border-radius: 3px;
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+.trust-v a { color: var(--accent); text-decoration: none; }
+.trust-v a:hover { text-decoration: underline; }
+
+/* Compare card — symmetrical time + cost */
+.compare-card .compare-vs { text-align: center; }
+.compare-card .compare-vs .vs-line {
+  font-family: var(--mono); font-size: 9.5px;
+  color: var(--text-3); letter-spacing: 0.06em;
+}
+.compare-card .compare-vs strong {
+  display: block; margin: 2px 0;
+  font-family: var(--serif); font-size: 16px;
+  font-weight: 600; color: var(--accent);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.compare-card .compare-vs .vs-time {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text2);
+}
 .shipped-check {
   width: 14px; height: 14px;
   border-radius: 50%;
@@ -310,19 +470,83 @@ if (paused) {
     </div>`;
 } else {
   const m = metrics || {};
-  const done = m.tasks?.done ?? 0;
-  const avgMin = m.avg_completion_min ?? 0;
-  const totalAiMin = done * avgMin;
+  const t_ = m.tasks || {};
+  const done = t_.done ?? 0;
+  const inProgress = t_.in_progress ?? 0;
+  const backlog = t_.backlog ?? 0;
+  const allTasks = tasks || [];
+  const doneTasks = allTasks.filter(t => t.status === 'done' || t.status === 'closed');
+  const openTasks = allTasks.filter(t => t.status !== 'done' && t.status !== 'closed' && t.status !== 'gate');
+
   function fmtTime(min) {
-    if (!min) return '—';
-    if (min < 60) return min + 'm';
+    if (!min || min <= 0) return '—';
+    if (min < 60) return Math.round(min) + 'm';
     const h = min / 60;
     if (h < 24) return h.toFixed(h < 10 ? 1 : 0) + 'h';
     return (h / 8).toFixed(1) + 'd';
   }
+
+  // Compute AI time from real (closed_at - created_at) per task — fallback to avg×done
+  let totalAiMin = doneTasks.reduce((sum, t) => {
+    if (t.created_at && t.closed_at) {
+      const ms = new Date(t.closed_at) - new Date(t.created_at);
+      if (ms > 0 && ms < 30 * 86400_000) return sum + ms / 60000;  // ignore > 30d outliers
+    }
+    return sum;
+  }, 0);
+  if (!totalAiMin && m.avg_completion_min) totalAiMin = m.avg_completion_min * done;
+
   const llmUsd = m.cost?.llm_usd ?? 0;
   const humanUsd = m.cost?.human_usd ?? 0;
   const savingsX = m.cost?.savings_x ?? 0;
+  // Human estimate: avg 4h per task (industry baseline for standard feature)
+  const humanH = done * 4;
+  const aiH = totalAiMin / 60;
+  const timeSpeedup = aiH > 0 && humanH > 0 ? (humanH / aiH).toFixed(1) : null;
+
+  // Categorize done tasks (heuristic from title prefix / labels / keywords)
+  function categorize(t) {
+    const ttl = (t.title || '').toLowerCase();
+    const labels = (t.labels || []).map(l => l.toLowerCase());
+    if (labels.includes('security') || /\b(sec|cve|auth|webhook signature|gdpr|csrf|injection)\b/.test(ttl)) return 'security';
+    if (labels.includes('infra')    || /\b(infra|deploy|postgres|redis|s3|docker|k8s|telemetry|ci|backup|pool|replica|rate limit)\b/.test(ttl)) return 'infra';
+    if (labels.includes('docs')     || /\b(docs?|readme|changelog)\b/.test(ttl)) return 'docs';
+    return 'feature';
+  }
+  const categories = { security: [], infra: [], feature: [], docs: [] };
+  doneTasks.forEach(t => categories[categorize(t)].push(t));
+
+  // Risk surface — open P0 + blocked + stale
+  const p0Open = openTasks.filter(t => t.priority === 0);
+  const blocked = openTasks.filter(t => t.status === 'blocked');
+  const stale = openTasks.filter(t => {
+    if (t.status !== 'in_progress' || !t.updated_at) return false;
+    const ageH = (Date.now() - new Date(t.updated_at).getTime()) / 3600_000;
+    return ageH > 48;
+  });
+  const riskItems = [...p0Open, ...blocked, ...stale.filter(t => !p0Open.includes(t) && !blocked.includes(t))].slice(0, 4);
+
+  // Coming up — top 3 backlog by priority
+  const coming = openTasks
+    .filter(t => t.status === 'backlog' || t.status === 'open')
+    .sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3))
+    .slice(0, 3);
+
+  // Agent breakdown
+  const agents = m.agents || {};
+  const totalAgentRuns = Object.values(agents).reduce((a, b) => a + b, 0);
+  const agentList = Object.entries(agents).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+  // Hero narrative — synthesize one sentence
+  const headline = (() => {
+    if (!done) return '';
+    const parts = [`${done} feature${done === 1 ? '' : 's'} shipped`];
+    if (llmUsd > 0) parts.push(`for $${llmUsd.toFixed(0)}`);
+    if (totalAiMin > 0) parts.push(`in ${fmtTime(totalAiMin)}`);
+    let line = parts.join(' ');
+    if (savingsX > 1) line += `. ${savingsX}× cheaper than a human team estimate.`;
+    return line;
+  })();
 
   const hero = [
     {
@@ -336,8 +560,9 @@ if (paused) {
       v: totalAiMin ? fmtTime(totalAiMin) : '—',
       sub: '',
       lbl: 'AI time',
-      extra: avgMin ? `avg ${avgMin}m / task` : 'no data',
+      extra: done ? `${(totalAiMin / Math.max(1, done)).toFixed(0)}m avg / task` : '—',
       cls: 'amber',
+      hide: !totalAiMin,
     },
     {
       v: llmUsd > 0 ? '$' + llmUsd.toFixed(0) : '—',
@@ -345,20 +570,39 @@ if (paused) {
       lbl: 'LLM cost',
       extra: m.cost?.count ? `${m.cost.count} plans` : 'no plans',
       cls: 'purple',
+      hide: !llmUsd,
     },
-  ];
+  ].filter(s => !s.hide);
 
   const sec = [
     { v: m.qa?.pass_rate != null ? m.qa.pass_rate + '%' : '—', lbl: 'QA pass rate', extra: `${m.qa?.passed ?? 0} pass · ${m.qa?.failed ?? 0} fail`, cls: 'green' },
     { v: m.security?.approved ?? 0, lbl: 'Security approved', extra: m.security?.blocked ? `${m.security.blocked} blocked` : 'no blocks' },
-    { v: m.tasks?.in_progress ?? 0, lbl: 'In progress', extra: `${m.tasks?.backlog ?? 0} in backlog` },
+    { v: inProgress, lbl: 'In progress', extra: `${backlog} in backlog` },
   ];
 
-  const doneTasks = (tasks || []).filter(t => t.status === 'done' || t.status === 'closed');
+  // Helpers for rendering rows
+  const PRI = ['Urgent', 'High', 'Medium', 'Low'];
+  function priChip(p) {
+    const cls = `pri-p${p ?? 3}`;
+    return `<span class="badge ${cls}">${PRI[p ?? 3]}</span>`;
+  }
+  function whenStr(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  function ageStr(iso) {
+    if (!iso) return '';
+    const h = (Date.now() - new Date(iso).getTime()) / 3600_000;
+    if (h < 1) return `${Math.round(h * 60)}m ago`;
+    if (h < 48) return `${Math.round(h)}h ago`;
+    return `${Math.round(h / 24)}d ago`;
+  }
+
+  const generatedAt = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
   document.getElementById('root').innerHTML = `
     <div class="report-page">
-      <div class="report-bg">${LANDSCAPE_SVG}</div>
+      <div class="report-bg"></div>
       <div class="report-card">
         <div class="report-head">
           <div class="report-brand">
@@ -386,6 +630,8 @@ if (paused) {
           </div>
         </div>
 
+        ${headline ? `<div class="headline-narrative">${esc(headline)}</div>` : ''}
+
         <div class="section-label">HEADLINE</div>
         <div class="report-stats-hero">
           ${hero.map(s => `
@@ -401,16 +647,17 @@ if (paused) {
             <div class="compare-side">
               <div class="lbl">AI agents</div>
               <div class="v">$${llmUsd.toFixed(0)}</div>
-              <div class="t">${totalAiMin ? fmtTime(totalAiMin) : '—'} of compute</div>
+              <div class="t">${aiH > 0 ? `${aiH.toFixed(aiH < 10 ? 1 : 0)}h of compute` : '—'}</div>
             </div>
             <div class="compare-vs">
-              vs
+              <div class="vs-line">vs</div>
               <strong>${savingsX}× cheaper</strong>
+              ${timeSpeedup ? `<div class="vs-time">${timeSpeedup}× faster</div>` : ''}
             </div>
             <div class="compare-side right">
               <div class="lbl">Human team</div>
               <div class="v">$${Number(humanUsd).toLocaleString()}</div>
-              <div class="t">est. ${done * 4}h equivalent</div>
+              <div class="t">est. ${humanH}h equivalent</div>
             </div>
           </div>` : ''}
 
@@ -423,21 +670,91 @@ if (paused) {
             </div>`).join('')}
         </div>
 
+        ${riskItems.length ? `
+          <div class="section-label warn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            What's at risk · ${riskItems.length} item${riskItems.length === 1 ? '' : 's'}
+          </div>
+          <div class="risk-list">
+            ${riskItems.map(t => {
+              const status = blocked.includes(t) ? 'blocked' : (stale.includes(t) ? 'stale' : 'p0');
+              const tag = status === 'blocked' ? 'BLOCKED' : (status === 'stale' ? 'STALE' : 'P0 OPEN');
+              return `
+                <div class="risk-row ${status}">
+                  <span class="risk-tag">${tag}</span>
+                  <span class="risk-ttl">${esc(t.title)}</span>
+                  <span class="risk-meta">${ageStr(t.updated_at || t.created_at)}</span>
+                </div>`;
+            }).join('')}
+          </div>` : ''}
+
+        ${coming.length ? `
+          <div class="section-label">Coming up · next ${coming.length} in pipeline</div>
+          <div class="coming-list">
+            ${coming.map(t => `
+              <div class="coming-row">
+                <span class="coming-arrow">▸</span>
+                ${priChip(t.priority)}
+                <span class="coming-ttl">${esc(t.title)}</span>
+                ${t.agent ? `<span class="coming-agent">${esc(t.agent)}</span>` : ''}
+              </div>`).join('')}
+          </div>` : ''}
+
         ${doneTasks.length ? `
-          <div class="section-label">RECENTLY SHIPPED</div>
-          ${doneTasks.map(t => {
-            const reason = t.close_reason ? esc(t.close_reason.substring(0, 70)) + (t.close_reason.length > 70 ? '…' : '') : '';
-            const when = t.closed_at ? new Date(t.closed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-            return `
-              <div class="shipped-row">
-                <span class="shipped-check">✓</span>
-                <span class="ttl">
-                  ${esc(t.title)}
-                  ${reason ? `<span class="sub">${reason}</span>` : ''}
-                </span>
-                <span class="when">${when}</span>
-              </div>`;
-          }).join('')}` : ''}
+          <div class="section-label">Recently shipped · ${doneTasks.length} item${doneTasks.length === 1 ? '' : 's'}</div>
+          ${['security', 'infra', 'feature', 'docs'].filter(c => categories[c].length).map(cat => `
+            <div class="ship-cat">
+              <div class="ship-cat-h">
+                <span class="ship-cat-dot ${cat}"></span>
+                <span class="ship-cat-name">${cat.toUpperCase()}</span>
+                <span class="ship-cat-count">${categories[cat].length}</span>
+              </div>
+              ${categories[cat].slice(0, 6).map(t => {
+                const reason = t.close_reason ? esc(t.close_reason.substring(0, 70)) + (t.close_reason.length > 70 ? '…' : '') : '';
+                return `
+                  <div class="shipped-row">
+                    <span class="shipped-check">✓</span>
+                    <span class="ttl">
+                      ${esc(t.title)}
+                      ${reason ? `<span class="sub">${reason}</span>` : ''}
+                    </span>
+                    <span class="when">${whenStr(t.closed_at)}</span>
+                  </div>`;
+              }).join('')}
+            </div>`).join('')}` : ''}
+
+        ${agentList.length ? `
+          <div class="section-label">Who did the work</div>
+          <div class="agent-list">
+            ${agentList.map(([name, count]) => {
+              const pct = totalAgentRuns > 0 ? (count / totalAgentRuns) * 100 : 0;
+              return `
+                <div class="agent-row">
+                  <span class="agent-name">✱ ${esc(name)}</span>
+                  <span class="agent-rail"><span class="agent-fill" style="width:${pct.toFixed(0)}%"></span></span>
+                  <span class="agent-count">${count} verdict${count === 1 ? '' : 's'}</span>
+                </div>`;
+            }).join('')}
+          </div>` : ''}
+
+        <div class="trust-foot">
+          <div class="trust-row">
+            <span class="trust-k">Generated</span>
+            <span class="trust-v">${esc(generatedAt)} · live data</span>
+          </div>
+          <div class="trust-row">
+            <span class="trust-k">Project</span>
+            <span class="trust-v">${esc(project)} · greatcto agents</span>
+          </div>
+          <div class="trust-row">
+            <span class="trust-k">Methodology</span>
+            <span class="trust-v">tasks + costs from <code>bd list</code> &amp; <code>docs/plans/PLAN-*.md</code> mtime &middot; <a href="https://github.com/avelikiy/great_cto" target="_blank">view source</a></span>
+          </div>
+          <div class="trust-row">
+            <span class="trust-k">Privacy</span>
+            <span class="trust-v">no source code, credentials, or PII exposed · owner can pause anytime</span>
+          </div>
+        </div>
 
         <div class="report-foot">
           CREATED BY <a href="https://greatcto.systems" target="_blank">GREATCTO</a>
