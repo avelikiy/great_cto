@@ -159,6 +159,13 @@ button { font-family: inherit; cursor: pointer; }
 .proj-item:hover { background: var(--bg-muted); }
 .proj-item.active { background: var(--bg-strong); font-weight: 500; }
 .proj-item .star { color: var(--accent); font-size: 14px; }
+.proj-icon, .proj-switch .proj-icon, .crumbs .proj-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.proj-switch .proj-icon { width: 18px; height: 18px; }
+.proj-item .proj-icon { width: 22px; height: 22px; }
+.crumbs .proj-icon { width: 14px; height: 14px; margin-right: 2px; }
 .proj-item-info { flex: 1; min-width: 0; }
 .proj-item-info .name { font-weight: 500; font-size: 13px; }
 .proj-item-info .arch {
@@ -1035,7 +1042,7 @@ button { font-family: inherit; cursor: pointer; }
       <span class="brand-name">greatcto</span>
     </div>
     <div class="proj-switch" id="proj-switch" onclick="toggleProjMenu(event)">
-      <span class="star">✱</span>
+      <span class="proj-icon" id="proj-switch-icon"><span class="star">✱</span></span>
       <span class="name" id="project-name">—</span>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       <div class="proj-menu" id="proj-menu" onclick="event.stopPropagation()">
@@ -1090,7 +1097,7 @@ button { font-family: inherit; cursor: pointer; }
   <div class="workspace">
     <div class="topbar">
       <div class="crumbs">
-        <span class="star">✱</span>
+        <span class="proj-icon" id="crumb-icon"><span class="star">✱</span></span>
         <span id="crumb-project">—</span>
         <span class="sep">/</span>
         <span class="here" id="crumb-here">Board</span>
@@ -1484,6 +1491,35 @@ function closeProjMenu() {
 }
 document.addEventListener('click', closeProjMenu);
 
+const ARCHETYPE_ICONS = {
+  'web-service':       { color: '#2540d4', d: 'M2 17l10 5 10-5 M2 12l10 5 10-5 M12 2L2 7l10 5 10-5-10-5z' },
+  'mobile-app':        { color: '#06b6d4', d: 'M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M12 18h.01' },
+  'ai-system':         { color: '#7c3aed', d: 'M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3 2.5 2.5 0 0 1 2.46-2.04z M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3 2.5 2.5 0 0 0-2.46-2.04z' },
+  'agent-product':     { color: '#a855f7', d: 'M12 8V4H8 M2 14h2 M20 14h2 M15 13v2 M9 13v2 M6 8h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z' },
+  'devtools':          { color: '#64748b', d: 'M4 17l6-6-6-6 M12 19h8' },
+  'browser-extension': { color: '#f59e0b', d: 'M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.726 1.097.726 1.762s-.256 1.292-.726 1.762l-1.568 1.568c-.23.23-.337.556-.289.878a8.001 8.001 0 0 1-15.456 1.572.5.5 0 0 1 .499-.498h2.286c.554 0 1-.448 1-1V14a3 3 0 1 1 6 0v.001c0 .552.446 1 1 1h2.286a.5.5 0 0 1 .497.498 8 8 0 0 1-1.572 4.55' },
+  'commerce':          { color: '#ec4899', d: 'M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M20 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6' },
+  'web3':              { color: '#10b981', d: 'M6 3l6 18 6-18 M6 3h12 M3 9l9 12 9-12' },
+  'iot-embedded':      { color: '#0ea5e9', d: 'M9 3v2 M15 3v2 M9 19v2 M15 19v2 M3 9h2 M3 15h2 M19 9h2 M19 15h2 M5 5h14a0 0 0 0 1 0 0v14a0 0 0 0 1 0 0H5a0 0 0 0 1 0 0V5a0 0 0 0 1 0 0z M9 9h6v6H9z' },
+  'regulated':         { color: '#dc2626', d: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
+  'data-platform':     { color: '#0891b2', d: 'M3 5c0-1.1 4-2 9-2s9 .9 9 2v14c0 1.1-4 2-9 2s-9-.9-9-2zM3 12c0 1.1 4 2 9 2s9-.9 9-2 M3 5c0 1.1 4 2 9 2s9-.9 9-2' },
+  'infra':             { color: '#475569', d: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z' },
+  'library':           { color: '#92400e', d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' },
+  'game':              { color: '#16a34a', d: 'M6 12h4 M8 10v4 M15 13h.01 M18 11h.01 M2 12c0-3.5 2.5-6 6.5-6h7c4 0 6.5 2.5 6.5 6 0 3.5-2.5 6-6.5 6h-7C4.5 18 2 15.5 2 12z' },
+  'fintech':           { color: '#22c55e', d: 'M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
+  'enterprise':        { color: '#3b82f6', d: 'M3 21h18 M5 21V7l8-4v18 M19 21V11l-6-4' },
+  'default':           { color: '#2540d4', d: 'M12 2 L13.4 9.4 L20 6.4 L15.4 12 L20 17.6 L13.4 14.6 L12 22 L10.6 14.6 L4 17.6 L8.6 12 L4 6.4 L10.6 9.4 Z' },
+};
+
+function archetypeIcon(arch, size = 14) {
+  const meta = ARCHETYPE_ICONS[arch] || ARCHETYPE_ICONS['default'];
+  const isFilled = arch === 'default' || !ARCHETYPE_ICONS[arch];
+  if (isFilled) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${meta.color}" xmlns="http://www.w3.org/2000/svg"><path d="${meta.d}"/></svg>`;
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${meta.color}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${meta.d}"/></svg>`;
+}
+
 function renderProjMenu(filter = '') {
   const list = document.getElementById('proj-menu-list');
   if (!list) return;
@@ -1503,7 +1539,7 @@ function renderProjMenu(filter = '') {
   }
   list.innerHTML = filtered.map(p => `
     <div class="proj-item ${p.slug === currentProject ? 'active' : ''}" onclick="switchProject('${esc(p.slug)}')">
-      <span class="star">✱</span>
+      <span class="proj-icon">${archetypeIcon(p.archetype, 18)}</span>
       <div class="proj-item-info">
         <div class="name">${esc(p.slug)}</div>
         <div class="arch">${esc(p.archetype || '')}${p.description ? ' · ' + esc(p.description.slice(0, 40)) : ''}</div>
@@ -1571,6 +1607,13 @@ async function init() {
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;
   document.title = `${proj} · great_cto`;
+  // Resolve current project's archetype and apply icons
+  const me = (allProjects || []).find(p => p.slug === proj);
+  const arch = me?.archetype || 'default';
+  const swIcon = document.getElementById('proj-switch-icon');
+  const crIcon = document.getElementById('crumb-icon');
+  if (swIcon) swIcon.innerHTML = archetypeIcon(arch, 18);
+  if (crIcon) crIcon.innerHTML = archetypeIcon(arch, 14);
 
   renderInbox(inbox);
   renderKanban(allTasks);
