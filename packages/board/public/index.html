@@ -1458,6 +1458,11 @@ let allProjects = [];
 let currentProject = '';
 let inboxData = null;
 
+// Returns ?project=slug query string for all API calls after init() sets currentProject
+function pqs() {
+  return currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+}
+
 function greetByHour() {
   const h = new Date().getHours();
   if (h < 6) return 'Up late.';
@@ -1514,13 +1519,13 @@ function renderInboxList(rootId, items, countId, opts = {}) {
 }
 
 async function refreshInbox() {
-  const d = await api('/api/inbox');
+  const d = await api(`/api/inbox${pqs()}`);
   if (d) renderInbox(d);
   refreshPipeline();
 }
 
 async function refreshPipeline() {
-  const d = await api('/api/pipeline');
+  const d = await api(`/api/pipeline${pqs()}`);
   if (Array.isArray(d)) renderPipeline(d);
 }
 
@@ -1555,7 +1560,7 @@ function renderPipeline(stages) {
 
 /* ── Cost panel ─────────────────────────────────────────────────────────── */
 async function refreshCost() {
-  const d = await api('/api/cost?days=30');
+  const d = await api(`/api/cost?days=30${currentProject ? '&project=' + encodeURIComponent(currentProject) : ''}`);
   if (!d) return;
   renderCost(d);
 }
@@ -1656,7 +1661,7 @@ function mdToHtml(md) {
 }
 
 async function loadMemory() {
-  const d = await api('/api/memory');
+  const d = await api(`/api/memory${pqs()}`);
   memoryData = d || { layers: [], patterns: [] };
   renderMemorySidebar();
   document.getElementById('nav-memory-count').textContent =
@@ -1858,19 +1863,28 @@ document.addEventListener('keydown', e => {
 });
 
 async function init() {
+  // Read ?project=slug from URL — set by switchProject() on reload
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlProject = urlParams.get('project') || '';
+  const qs = urlProject ? `?project=${encodeURIComponent(urlProject)}` : '';
+
   const [tasks, met, share, projs, inbox] = await Promise.all([
-    api('/api/tasks'),
-    api('/api/metrics'),
-    api('/api/share'),
+    api(`/api/tasks${qs}`),
+    api(`/api/metrics${qs}`),
+    api(`/api/share${qs}`),
     api('/api/projects'),
-    api('/api/inbox'),
+    api(`/api/inbox${qs}`),
   ]);
   allTasks = tasks || [];
   metrics = met || {};
   shareState = share || { enabled: false, url: null };
   allProjects = projs || [];
 
-  const proj = (allTasks[0]?.id || '').split('-')[0] || 'project';
+  // Prefer URL param slug; fall back to extracting from first task id
+  const proj = urlProject
+    || (allTasks[0]?.id || '').split('-')[0]
+    || (allProjects[0]?.slug)
+    || 'project';
   currentProject = proj;
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;
@@ -1899,7 +1913,7 @@ function api(url, opts) {
 }
 
 function connectSSE() {
-  const es = new EventSource('/api/sse');
+  const es = new EventSource(`/api/sse${pqs()}`);
   es.addEventListener('tasks', e => {
     allTasks = JSON.parse(e.data);
     renderKanban(filterTasks(searchQuery));
@@ -2189,7 +2203,7 @@ function switchTab(id, el) {
   const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', share: 'Share' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';
   if (id === 'dashboard') {
-    api('/api/metrics').then(m => { if (m) { metrics = m; renderDashboard(m); } });
+    api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
     refreshCost();
   }
   if (id === 'inbox') {
