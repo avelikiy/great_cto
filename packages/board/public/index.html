@@ -2025,7 +2025,7 @@ async function gateAction(id, action) {
   } else {
     body = { action };
   }
-  const res = await api(`/api/gates/${encodeURIComponent(id)}`, {
+  const res = await api(`/api/gates/${encodeURIComponent(id)}${pqs()}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
