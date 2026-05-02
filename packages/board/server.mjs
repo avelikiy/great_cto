@@ -55,8 +55,78 @@ function autoRegisterProject(dir) {
   }
   return meta;
 }
+
+// Discover great_cto projects across common dev folders + Claude Code's known
+// project list. Runs at server startup AND every /api/projects request, so any
+// project that ran /audit or /start (which writes .great_cto/PROJECT.md) gets
+// auto-registered without the user having to do anything.
+// Fully async — never blocks the event loop.
+async function discoverProjects() {
+  const fsAsync = fs.promises;
+  const HOME = os.homedir();
+  const seen = new Set();
+  const found = [];
+
+  async function scanDir(dir, depth) {
+    if (depth < 0 || seen.has(dir)) return;
+    seen.add(dir);
+    try {
+      // Check the dir itself first
+      try {
+        await fsAsync.access(path.join(dir, '.great_cto', 'PROJECT.md'));
+        found.push(dir);
+        return; // don't descend into a registered project
+      } catch {}
+      if (depth === 0) return;
+      // Scan children (skip dotfiles + heavyweight dirs)
+      const entries = await fsAsync.readdir(dir, { withFileTypes: true });
+      for (const e of entries) {
+        if (!e.isDirectory()) continue;
+        const name = e.name;
+        if (name.startsWith('.') || name === 'node_modules' || name === 'dist' ||
+            name === 'build' || name === 'target' || name === 'venv' || name === '__pycache__') continue;
+        await scanDir(path.join(dir, name), depth - 1);
+      }
+    } catch {} // permission denied — skip silently
+  }
+
+  // 1) Common dev folders — top-level scan, 1-level deep
+  const roots = [
+    path.join(HOME, 'work'),
+    path.join(HOME, 'dev'),
+    path.join(HOME, 'development'),
+    path.join(HOME, 'code'),
+    path.join(HOME, 'projects'),
+    path.join(HOME, 'src'),
+    path.join(HOME, 'Documents', 'projects'),
+    HOME,
+  ];
+  for (const root of roots) {
+    try { await fsAsync.access(root); await scanDir(root, 1); } catch {}
+  }
+
+  // 2) Claude Code's known project list (~/.claude/projects/<encoded-path>/)
+  try {
+    const ccProj = path.join(HOME, '.claude', 'projects');
+    await fsAsync.access(ccProj);
+    const entries = await fsAsync.readdir(ccProj);
+    for (const dir of entries) {
+      // Claude encodes paths as -Users-foo-projects-bar — decode to /Users/foo/projects/bar
+      const decoded = '/' + dir.replace(/^-+/, '').replace(/-/g, '/');
+      try {
+        await fsAsync.access(path.join(decoded, '.great_cto', 'PROJECT.md'));
+        found.push(decoded);
+      } catch {}
+    }
+  } catch {}
+
+  // Auto-register everything found
+  for (const dir of found) autoRegisterProject(dir);
+  return found.length;
+}
+
 function listProjects() {
-  // Auto-register cwd if it has PROJECT.md
+  // Auto-register cwd if it has PROJECT.md (cheap)
   autoRegisterProject(process.cwd());
   const reg = readProjectsRegistry();
   // Filter out projects whose paths no longer exist
@@ -773,6 +843,11 @@ const server = http.createServer(async (req, res) => {
 // ── Start ──────────────────────────────────────────────────────────────────────
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`great_cto board → http://localhost:${PORT}`);
+  // Discover all great_cto projects on disk asynchronously — don't block
+  // the listening event so /api/tasks is available immediately.
+  discoverProjects().then(n => {
+    if (n > 0) console.log(`  → discovered ${n} project${n === 1 ? '' : 's'} with .great_cto/PROJECT.md`);
+  }).catch(() => {}); // non-fatal
   watchBeads();
   watchVerdicts();
 
