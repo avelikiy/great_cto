@@ -520,6 +520,18 @@ button { font-family: inherit; cursor: pointer; }
   white-space: pre-wrap;
   word-break: break-word;
 }
+.side-desc-empty {
+  color: var(--text3, #9ca3af);
+  font-style: italic;
+  font-size: 13px;
+}
+.side-desc-empty code {
+  font-style: normal;
+  background: var(--bg-muted);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
 .side-gate-actions {
   display: flex; gap: 6px;
   margin-bottom: 16px;
@@ -1255,7 +1267,7 @@ button { font-family: inherit; cursor: pointer; }
         </span>
       </div>
       <div class="nav-divider"></div>
-      <div class="nav-item">
+      <div class="nav-item nav-item-agents" onclick="switchTab('dashboard', document.querySelector('.nav-item[data-tab=&quot;dashboard&quot;]')); setTimeout(() => document.getElementById('agent-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);" style="cursor:pointer;">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
         <span>Agents</span>
         <span class="count" id="nav-agent-count">0</span>
@@ -1822,11 +1834,52 @@ function renderProjMenu(filter = '') {
     </div>`).join('');
 }
 
-function switchProject(slug) {
+async function switchProject(slug) {
   if (slug === currentProject) { closeProjMenu(); return; }
+  closeProjMenu();
+  // Update URL without full reload
   const url = new URL(window.location.href);
   url.searchParams.set('project', slug);
-  window.location.href = url.toString();
+  window.history.replaceState({}, '', url.toString());
+  // Show "loading" feedback while we refetch
+  const lbl = document.getElementById('live-label');
+  if (lbl) lbl.textContent = `loading ${slug}…`;
+  // Close existing SSE so it doesn't push the wrong project's data
+  if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} window._gctoSSE = null; }
+  currentProject = slug;
+  // Optimistic UI clear
+  allTasks = [];
+  renderKanban([]);
+  updateNavCounts();
+  // Refetch project-scoped data in parallel (no /api/projects, no full HTML reload)
+  const [tasks, met, share, inbox] = await Promise.all([
+    api(`/api/tasks${pqs()}`),
+    api(`/api/metrics${pqs()}`),
+    api(`/api/share${pqs()}`),
+    api(`/api/inbox${pqs()}`),
+  ]);
+  allTasks = tasks || [];
+  metrics = met || {};
+  shareState = share || { enabled: false, url: null };
+  document.getElementById('project-name').textContent = slug;
+  document.getElementById('crumb-project').textContent = slug;
+  document.title = `${slug} · great_cto`;
+  const me = (allProjects || []).find(p => p.slug === slug);
+  const arch = me?.archetype || 'default';
+  const swIcon = document.getElementById('proj-switch-icon');
+  const crIcon = document.getElementById('crumb-icon');
+  if (swIcon) swIcon.innerHTML = archetypeIcon(arch, 18);
+  if (crIcon) crIcon.innerHTML = archetypeIcon(arch, 14);
+  renderInbox(inbox);
+  renderKanban(allTasks);
+  renderDashboard(metrics);
+  renderShareState(shareState);
+  updateNavCounts();
+  loadMemory();
+  refreshCost();
+  refreshPipeline();
+  connectSSE();
+  if (lbl) lbl.textContent = 'live · synced just now';
 }
 
 function filterTasks(q) {
@@ -1914,7 +1967,9 @@ function api(url, opts) {
 }
 
 function connectSSE() {
+  if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} }
   const es = new EventSource(`/api/sse${pqs()}`);
+  window._gctoSSE = es;
   es.addEventListener('tasks', e => {
     allTasks = JSON.parse(e.data);
     renderKanban(filterTasks(searchQuery));
@@ -2156,7 +2211,9 @@ function openSide(task) {
     task.closed_at ? ['Closed', fmtDate(task.closed_at)] : null,
     dur ? ['Duration', dur] : null,
   ].filter(Boolean);
-  const desc = task.description ? `<div class="side-desc">${esc(task.description)}</div>` : '';
+  const desc = task.description
+    ? `<div class="side-desc">${esc(task.description)}</div>`
+    : `<div class="side-desc side-desc-empty">No description — only the title above. Run <code>bd update ${esc(task.id)} -d "…"</code> to add one.</div>`;
   const designSec = task.design ? `<div class="side-section"><div class="side-section-head">Design</div><div class="side-section-body">${esc(task.design)}</div></div>` : '';
   const acceptanceSec = task.acceptance ? `<div class="side-section"><div class="side-section-head">Acceptance criteria</div><div class="side-section-body">${esc(task.acceptance)}</div></div>` : '';
   const notesSec = task.notes ? `<div class="side-section"><div class="side-section-head">Notes</div><div class="side-section-body">${esc(task.notes)}</div></div>` : '';
