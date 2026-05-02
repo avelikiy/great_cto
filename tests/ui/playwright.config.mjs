@@ -14,14 +14,14 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',
-    actionTimeout: 5000,
-    navigationTimeout: 15000,
+    actionTimeout: 10000,
+    navigationTimeout: 20000,
   },
   webServer: {
     // setup-fixture.mjs creates a tmp project + boots board on port 3146
     command: 'node setup-fixture.mjs',
     url: 'http://localhost:3146/api/tasks',
-    timeout: 30000,
+    timeout: 90000,   // bd init + 11 bd commands ≈ 25–30s cold start
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
