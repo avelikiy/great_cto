@@ -19,7 +19,7 @@ import { enableGreatCto } from "./settings.js";
 import { bootstrap } from "./bootstrap.js";
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board";
+  command: "init" | "help" | "version" | "board" | "register";
   dir: string;
   yes: boolean;
   dryRun: boolean;
@@ -56,6 +56,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--port") args.boardPort = parseInt(argv[++i] ?? "3141", 10);
     else if (a === "--no-open") args.boardNoOpen = true;
     else if (a === "board") args.command = "board";
+    else if (a === "register") args.command = "register";
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
     else if (a === "init" || a === "help" || a === "version") {
@@ -65,6 +66,47 @@ function parseArgs(argv: string[]): CliArgs {
 
   args.dir = resolve(args.dir);
   return args;
+}
+
+async function runRegister(args: CliArgs): Promise<number> {
+  const { join } = await import("node:path");
+  const { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } = await import("node:fs");
+  const { homedir } = await import("node:os");
+
+  const cwd = args.dir;
+  const projectMd = join(cwd, ".great_cto", "PROJECT.md");
+  if (!existsSync(projectMd)) {
+    error(`No .great_cto/PROJECT.md found in ${cwd}`);
+    log("Run /audit or /start first inside a Claude Code session to bootstrap the project.");
+    return 1;
+  }
+
+  const text = readFileSync(projectMd, "utf8");
+  const get = (k: string) => (text.match(new RegExp(`^${k}:\\s*(.+)$`, "m")) || [])[1]?.trim() || "";
+  const meta = {
+    slug: get("project") || cwd.split("/").pop() || "project",
+    archetype: get("archetype") || "web-service",
+    description: get("description") || "",
+    path: cwd,
+    added_at: new Date().toISOString(),
+  };
+
+  const dir = join(homedir(), ".great_cto");
+  mkdirSync(dir, { recursive: true });
+  const f = join(dir, "projects.json");
+  let reg: { projects: Array<typeof meta> } = { projects: [] };
+  if (existsSync(f)) {
+    try { reg = JSON.parse(readFileSync(f, "utf8")); } catch {}
+  }
+  if (reg.projects.find(p => p.path === meta.path)) {
+    log(`✓ Already registered: ${meta.slug} (${cwd})`);
+    return 0;
+  }
+  reg.projects.push(meta);
+  writeFileSync(f, JSON.stringify(reg, null, 2));
+  log(`✓ Registered: ${meta.slug} (${meta.archetype})`);
+  log(`  → will appear in great-cto board project switcher`);
+  return 0;
 }
 
 async function runBoard(args: CliArgs): Promise<number> {
@@ -116,6 +158,7 @@ function printHelp(): void {
 ${bold("Usage:")}
   npx great-cto [init] [options]
   npx great-cto board [--port 3141] [--no-open]
+  npx great-cto register [--dir PATH]
   npx great-cto help
   npx great-cto version
 
@@ -123,6 +166,11 @@ ${bold("Board:")}
   great-cto board              Open Kanban + CTO Dashboard at localhost:3141
   great-cto board --port 4000  Use a different port
   great-cto board --no-open    Start server without opening browser
+
+${bold("Register:")}
+  great-cto register           Add this repo to ~/.great_cto/projects.json
+                               (auto-discovered after /audit or /start, but
+                                run this if the project doesn't appear in board)
 
 ${bold("Options:")}
   -y, --yes              Skip confirmation prompts (non-interactive)
@@ -426,6 +474,15 @@ async function main(): Promise<void> {
   if (args.command === "board") {
     try {
       const code = await runBoard(args);
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(1);
+    }
+  }
+  if (args.command === "register") {
+    try {
+      const code = await runRegister(args);
       process.exit(code);
     } catch (e) {
       error((e as Error).message);
