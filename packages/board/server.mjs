@@ -210,7 +210,7 @@ function getMemory(cwd = process.cwd()) {
 
 // ── Pipeline state ────────────────────────────────────────────────────────────
 function getPipeline(cwd = process.cwd()) {
-  const stages = ['architect', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
+  const stages = ['architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
   const verdicts = readVerdicts();
   const now = Date.now();
   const ACTIVE_WINDOW = 30 * 60 * 1000;  // 30 min
@@ -232,6 +232,7 @@ function getPipeline(cwd = process.cwd()) {
     // agent log file naming convention: shortened agent name
     const aliases = {
       'architect': ['architect'],
+      'pm': ['pm', 'product-manager', 'project-manager', 'planner'],
       'senior-dev': ['senior-dev', 'senior_dev', 'backend', 'frontend'],
       'reviewers': ['reviewer', 'review', 'code-reviewer'],
       'qa-engineer': ['qa-engineer', 'qa'],
@@ -330,7 +331,10 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
 // ── Inbox: what needs the user's decision right now ──────────────────────────
 function getInbox(cwd = process.cwd()) {
   const tasks = getTasks(cwd);
-  const pendingGates = tasks.filter(t => t.is_gate && t.status !== 'done' && t.status !== 'closed');
+  // Use raw_status here: mapStatus() rewrites status to 'gate' for any task with the
+  // 'gate' label, regardless of bd-native state. Filtering on the mapped value would
+  // leave closed/blocked gates in the inbox forever.
+  const pendingGates = tasks.filter(t => t.is_gate && t.raw_status !== 'closed' && t.raw_status !== 'blocked');
   const blocked = tasks.filter(t => t.status === 'blocked');
   const p0 = tasks.filter(t => t.priority === 0 && t.status !== 'done' && t.status !== 'closed');
   const inProgress = tasks.filter(t => t.status === 'in_progress');
@@ -404,6 +408,7 @@ function mapStatus(status, labels = []) {
 function detectAgent(task) {
   const title = (task.title || '').toLowerCase();
   if (title.includes('architect') || title.includes('arch')) return 'architect';
+  if (title.includes('pm:') || title.includes('product-manager') || title.includes('plan ')) return 'pm';
   if (title.includes('senior') || title.includes('impl') || title.includes('feat') || title.includes('fix')) return 'senior-dev';
   if (title.includes('qa') || title.includes('test')) return 'qa-engineer';
   if (title.includes('sec') || title.includes('cso')) return 'security-officer';
