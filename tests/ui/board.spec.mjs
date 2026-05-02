@@ -70,13 +70,13 @@ test.describe('great_cto admin — top-20 e2e', () => {
     await expect(firstGate.locator('.gate-approve')).toHaveText(/Approve/);
   });
 
-  // ── 6. Inbox — Active pipeline 7 stages ───────────────────────────────────
-  test('06 pipeline track renders 7 stages with labels', async ({ page }) => {
+  // ── 6. Inbox — Active pipeline 8 stages ───────────────────────────────────
+  test('06 pipeline track renders 8 stages with labels', async ({ page }) => {
     await page.locator('.nav-item[data-tab="inbox"]').click();
     await expect(page.locator('#pipeline-track .pl-stage').first()).toBeVisible();
     const stages = page.locator('#pipeline-track .pl-stage');
-    await expect(stages).toHaveCount(7);
-    const expectedLabels = ['architect', 'senior dev', '12-angle', 'qa', 'security', 'devops', 'l3 support'];
+    await expect(stages).toHaveCount(8);
+    const expectedLabels = ['architect', 'pm', 'senior dev', '12-angle', 'qa', 'security', 'devops', 'l3 support'];
     for (const label of expectedLabels) {
       await expect(page.locator('#pipeline-track')).toContainText(label, { ignoreCase: true });
     }
@@ -270,7 +270,7 @@ test.describe('great_cto admin — top-20 e2e', () => {
 
     const pipeline = await (await request.get('/api/pipeline')).json();
     expect(Array.isArray(pipeline)).toBe(true);
-    expect(pipeline.length).toBe(7);
+    expect(pipeline.length).toBe(8);
     expect(pipeline[0]).toHaveProperty('stage');
     expect(pipeline[0]).toHaveProperty('status');
 
