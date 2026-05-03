@@ -1412,7 +1412,7 @@ button { font-family: inherit; cursor: pointer; }
       <span class="brand-name">greatcto</span>
     </div>
     <div class="proj-switch" id="proj-switch" onclick="toggleProjMenu(event)">
-      <span class="proj-icon" id="proj-switch-icon"><span class="star">✱</span></span>
+      <span class="proj-icon" id="proj-switch-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
       <span class="name" id="project-name">—</span>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       <div class="proj-menu" id="proj-menu" onclick="event.stopPropagation()">
@@ -1467,7 +1467,7 @@ button { font-family: inherit; cursor: pointer; }
   <div class="workspace">
     <div class="topbar">
       <div class="crumbs">
-        <span class="proj-icon" id="crumb-icon"><span class="star">✱</span></span>
+        <span class="proj-icon" id="crumb-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
         <span id="crumb-project">—</span>
         <span class="sep">/</span>
         <span class="here" id="crumb-here">Board</span>
@@ -1553,8 +1553,13 @@ button { font-family: inherit; cursor: pointer; }
         <div class="mp-card cost-panel" id="cost-panel">
           <div class="cost-empty">Loading…</div>
         </div>
+      </div>
+    </div>
 
-        <div class="mp-section-label" style="margin-top:24px">Agent cost estimate</div>
+    <!-- Agents -->
+    <div class="panel" id="panel-agents">
+      <div class="metrics-page">
+        <div class="mp-section-label">Agent cost estimate</div>
         <div class="mp-card" id="agent-cost-panel">
           <div class="cost-empty">Loading…</div>
         </div>
@@ -2136,7 +2141,7 @@ let _gPrefix = false;
 let _gPrefixTimer = null;
 const _hotkeyTabMap = {
   'i': 'inbox', 'k': 'kanban', 'd': 'dashboard',
-  'm': 'memory', 's': 'share', 'a': 'dashboard', // a = agents = dashboard
+  'm': 'memory', 's': 'share', 'a': 'agents',
 };
 function showHotkeyHelp() {
   let modal = document.getElementById('hotkey-modal');
@@ -2613,7 +2618,7 @@ function renderDashboard(m) {
   const agentKeys = Object.entries(agents).sort((a,b)=>b[1]-a[1]);
   document.getElementById('agent-list').innerHTML = agentKeys.length ? agentKeys.map(([a, n], i) => `
     <div class="bar-row">
-      <span class="name">✱ ${esc(a)}</span>
+      <span class="name">${esc(a)}</span>
       <span class="rail"><span class="fill" style="width:${(n/maxRuns*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
       <span class="pct">${Math.round(n/maxRuns*100)}%</span>
     </div>`).join('') : '<div class="empty">No agent runs yet</div>';
@@ -2626,7 +2631,7 @@ function renderDashboard(m) {
       const maxCost = Math.max(...agentsCost.map(a => a.llm_usd), 0.0001);
       costPanel.innerHTML = agentsCost.map((a, i) => `
         <div class="agent-cost-row">
-          <span class="name">✱ ${esc(a.agent)}</span>
+          <span class="name">${esc(a.agent)}</span>
           <span class="rail"><span class="fill" style="width:${(a.llm_usd/maxCost*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
           <span class="amt">$${a.llm_usd.toFixed(4)}</span>
         </div>`).join('');
@@ -2645,7 +2650,7 @@ function renderDashboard(m) {
     return `
       <div class="feed-row">
         <span class="feed-dot ${cls}"></span>
-        <span class="agent">✱ ${esc(v.agent)}</span>
+        <span class="agent">${esc(v.agent)}</span>
         <span class="msg">${esc(text)}</span>
         <span class="time">${relTime(v.ts)}</span>
       </div>`;
@@ -2769,28 +2774,23 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSide();
 
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
 function switchTab(id, el) {
-  // 'agents' is a virtual tab — maps to dashboard panel + scrolls to agent-list
-  const panelId = id === 'agents' ? 'dashboard' : id;
-  currentTab = panelId;
-  // sidebar nav — mark 'agents' nav active when agents clicked, otherwise match data-tab
+  currentTab = id;
+  // sidebar nav
   document.querySelectorAll('.nav-item[data-tab]').forEach(t => {
-    const match = id === 'agents' ? t.dataset.tab === 'agents' : t.dataset.tab === id;
-    t.classList.toggle('active', match);
+    t.classList.toggle('active', t.dataset.tab === id);
   });
   // top tabs
-  document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === panelId));
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
   // panels
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(`panel-${panelId}`).classList.add('active');
-  if (id === 'agents') {
-    setTimeout(() => document.getElementById('agent-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
-  }
+  const panelEl = document.getElementById(`panel-${id}`);
+  if (panelEl) panelEl.classList.add('active');
   // crumb
-  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', share: 'Share' };
+  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', agents: 'Agents', share: 'Share', memory: 'Memory' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';
-  if (id === 'dashboard') {
+  if (id === 'dashboard' || id === 'agents') {
     api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
-    refreshCost();
+    if (id === 'dashboard') refreshCost();
   }
   if (id === 'inbox') {
     refreshInbox();
