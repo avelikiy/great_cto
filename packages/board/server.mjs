@@ -55,16 +55,103 @@ function autoRegisterProject(dir) {
   }
   return meta;
 }
+
+// Discover great_cto projects across common dev folders + Claude Code's known
+// project list. Runs at server startup AND every /api/projects request, so any
+// project that ran /audit or /start (which writes .great_cto/PROJECT.md) gets
+// auto-registered without the user having to do anything.
+// Fully async — never blocks the event loop.
+async function discoverProjects() {
+  const fsAsync = fs.promises;
+  const HOME = os.homedir();
+  const seen = new Set();
+  const found = [];
+
+  async function scanDir(dir, depth) {
+    if (depth < 0 || seen.has(dir)) return;
+    seen.add(dir);
+    try {
+      // Check the dir itself first
+      try {
+        await fsAsync.access(path.join(dir, '.great_cto', 'PROJECT.md'));
+        found.push(dir);
+        return; // don't descend into a registered project
+      } catch {}
+      if (depth === 0) return;
+      // Scan children (skip dotfiles + heavyweight dirs)
+      const entries = await fsAsync.readdir(dir, { withFileTypes: true });
+      for (const e of entries) {
+        if (!e.isDirectory()) continue;
+        const name = e.name;
+        if (name.startsWith('.') || name === 'node_modules' || name === 'dist' ||
+            name === 'build' || name === 'target' || name === 'venv' || name === '__pycache__') continue;
+        await scanDir(path.join(dir, name), depth - 1);
+      }
+    } catch {} // permission denied — skip silently
+  }
+
+  // 1) Common dev folders — top-level scan, 1-level deep
+  const roots = [
+    path.join(HOME, 'work'),
+    path.join(HOME, 'dev'),
+    path.join(HOME, 'development'),
+    path.join(HOME, 'code'),
+    path.join(HOME, 'projects'),
+    path.join(HOME, 'src'),
+    path.join(HOME, 'Documents', 'projects'),
+    HOME,
+  ];
+  for (const root of roots) {
+    try { await fsAsync.access(root); await scanDir(root, 1); } catch {}
+  }
+
+  // 2) Claude Code's known project list (~/.claude/projects/<encoded-path>/)
+  try {
+    const ccProj = path.join(HOME, '.claude', 'projects');
+    await fsAsync.access(ccProj);
+    const entries = await fsAsync.readdir(ccProj);
+    for (const dir of entries) {
+      // Claude encodes paths as -Users-foo-projects-bar — decode to /Users/foo/projects/bar
+      const decoded = '/' + dir.replace(/^-+/, '').replace(/-/g, '/');
+      try {
+        await fsAsync.access(path.join(decoded, '.great_cto', 'PROJECT.md'));
+        found.push(decoded);
+      } catch {}
+    }
+  } catch {}
+
+  // Auto-register everything found
+  for (const dir of found) autoRegisterProject(dir);
+  return found.length;
+}
+
 function listProjects() {
-  // Auto-register cwd if it has PROJECT.md
+  // Auto-register cwd if it has PROJECT.md (cheap)
   autoRegisterProject(process.cwd());
   const reg = readProjectsRegistry();
   // Filter out projects whose paths no longer exist
   reg.projects = reg.projects.filter(p => fs.existsSync(p.path));
   // Re-read metadata in case archetype/description changed
+  // Enrich with last_activity (mtime of .beads/interactions.jsonl) so the UI
+  // can sort projects by recent activity instead of slug-alpha.
   return reg.projects.map(p => {
     const fresh = readProjectMd(p.path);
-    return fresh ? { ...p, ...fresh } : p;
+    let lastActivity = null;
+    try {
+      const interactionsFile = path.join(p.path, '.beads', 'interactions.jsonl');
+      if (fs.existsSync(interactionsFile)) {
+        lastActivity = fs.statSync(interactionsFile).mtime.toISOString();
+      }
+    } catch {}
+    return { ...(fresh ? { ...p, ...fresh } : p), last_activity: lastActivity };
+  }).sort((a, b) => {
+    // Recent activity first; projects with no activity sink to the bottom (alphabetic)
+    const ax = a.last_activity || '';
+    const bx = b.last_activity || '';
+    if (ax && bx) return bx.localeCompare(ax);
+    if (ax) return -1;
+    if (bx) return 1;
+    return (a.slug || '').localeCompare(b.slug || '');
   });
 }
 function resolveProjectCwd(slugOrPath) {
@@ -140,7 +227,7 @@ function getMemory(cwd = process.cwd()) {
 
 // ── Pipeline state ────────────────────────────────────────────────────────────
 function getPipeline(cwd = process.cwd()) {
-  const stages = ['architect', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
+  const stages = ['architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
   const verdicts = readVerdicts();
   const now = Date.now();
   const ACTIVE_WINDOW = 30 * 60 * 1000;  // 30 min
@@ -162,6 +249,7 @@ function getPipeline(cwd = process.cwd()) {
     // agent log file naming convention: shortened agent name
     const aliases = {
       'architect': ['architect'],
+      'pm': ['pm', 'product-manager', 'project-manager', 'planner'],
       'senior-dev': ['senior-dev', 'senior_dev', 'backend', 'frontend'],
       'reviewers': ['reviewer', 'review', 'code-reviewer'],
       'qa-engineer': ['qa-engineer', 'qa'],
@@ -260,7 +348,10 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
 // ── Inbox: what needs the user's decision right now ──────────────────────────
 function getInbox(cwd = process.cwd()) {
   const tasks = getTasks(cwd);
-  const pendingGates = tasks.filter(t => t.is_gate && t.status !== 'done' && t.status !== 'closed');
+  // Use raw_status here: mapStatus() rewrites status to 'gate' for any task with the
+  // 'gate' label, regardless of bd-native state. Filtering on the mapped value would
+  // leave closed/blocked gates in the inbox forever.
+  const pendingGates = tasks.filter(t => t.is_gate && t.raw_status !== 'closed' && t.raw_status !== 'blocked');
   const blocked = tasks.filter(t => t.status === 'blocked');
   const p0 = tasks.filter(t => t.priority === 0 && t.status !== 'done' && t.status !== 'closed');
   const inProgress = tasks.filter(t => t.status === 'in_progress');
@@ -286,14 +377,33 @@ function getInbox(cwd = process.cwd()) {
 }
 
 // ── Beads data ─────────────────────────────────────────────────────────────────
+// Cache bdList output per cwd for BD_CACHE_TTL_MS. Invalidated when the project's
+// .beads/interactions.jsonl changes (the file watcher in watchBeads() calls
+// bdCacheInvalidate(cwd) before broadcasting). This avoids spawning `bd list`
+// on every API call when 5+ projects are open in tabs.
+const BD_CACHE_TTL_MS = 2000;
+const bdCache = new Map(); // cwd → { ts, data }
+
+function bdCacheInvalidate(cwd) { bdCache.delete(cwd); }
+
 function bdList(cwd = process.cwd()) {
+  const cached = bdCache.get(cwd);
+  if (cached && Date.now() - cached.ts < BD_CACHE_TTL_MS) return cached.data;
   try {
     const result = spawnSync('bd', ['list', '--json', '--all', '--include-gates'], {
       encoding: 'utf8', timeout: 8000, cwd
     });
-    if (result.status !== 0) return [];
-    return JSON.parse(result.stdout || '[]');
-  } catch { return []; }
+    if (result.status !== 0) {
+      bdCache.set(cwd, { ts: Date.now(), data: [] });
+      return [];
+    }
+    const data = JSON.parse(result.stdout || '[]');
+    bdCache.set(cwd, { ts: Date.now(), data });
+    return data;
+  } catch {
+    bdCache.set(cwd, { ts: Date.now(), data: [] });
+    return [];
+  }
 }
 
 function getTasks(cwd = process.cwd()) {
@@ -334,6 +444,7 @@ function mapStatus(status, labels = []) {
 function detectAgent(task) {
   const title = (task.title || '').toLowerCase();
   if (title.includes('architect') || title.includes('arch')) return 'architect';
+  if (title.includes('pm:') || title.includes('product-manager') || title.includes('plan ')) return 'pm';
   if (title.includes('senior') || title.includes('impl') || title.includes('feat') || title.includes('fix')) return 'senior-dev';
   if (title.includes('qa') || title.includes('test')) return 'qa-engineer';
   if (title.includes('sec') || title.includes('cso')) return 'security-officer';
@@ -570,6 +681,7 @@ function watchBeads() {
           const newSize = fs.statSync(interactionsFile).size;
           if (newSize !== lastSize) {
             lastSize = newSize;
+            bdCacheInvalidate(dir);
             // Broadcast to clients watching this project
             for (const res of sseClients) {
               if (res._gctoCwd === dir) {
@@ -699,6 +811,7 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
           return;
         }
+        bdCacheInvalidate(cwd);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, id, action }));
         // Broadcast updated tasks via SSE
@@ -773,6 +886,11 @@ const server = http.createServer(async (req, res) => {
 // ── Start ──────────────────────────────────────────────────────────────────────
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`great_cto board → http://localhost:${PORT}`);
+  // Discover all great_cto projects on disk asynchronously — don't block
+  // the listening event so /api/tasks is available immediately.
+  discoverProjects().then(n => {
+    if (n > 0) console.log(`  → discovered ${n} project${n === 1 ? '' : 's'} with .great_cto/PROJECT.md`);
+  }).catch(() => {}); // non-fatal
   watchBeads();
   watchVerdicts();
 

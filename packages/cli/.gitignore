@@ -1,4 +1,1 @@
-node_modules/
-dist/
-*.tgz
-.DS_Store
+/node_modules/

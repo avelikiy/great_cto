@@ -1,0 +1,664 @@
+// Stack detection: scan cwd for technology signals.
+// Zero-dependency — pure file reads + JSON parse.
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+export function detect(dir) {
+    const signals = {};
+    const stack = new Set();
+    const languages = new Set();
+    function sig(name, file) {
+        if (!signals[name])
+            signals[name] = [];
+        signals[name].push(file);
+    }
+    // ── package.json (Node/TS) ────────────────────────────────
+    const pkgPath = join(dir, "package.json");
+    let pkg = {};
+    if (existsSync(pkgPath)) {
+        sig("node", "package.json");
+        stack.add("nodejs");
+        languages.add("javascript");
+        try {
+            pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+            const allDeps = {
+                ...(pkg.dependencies ?? {}),
+                ...(pkg.devDependencies ?? {}),
+                ...(pkg.peerDependencies ?? {}),
+            };
+            const has = (name) => name in allDeps;
+            if (has("typescript") || existsSync(join(dir, "tsconfig.json"))) {
+                stack.add("typescript");
+                languages.add("typescript");
+            }
+            // Frameworks
+            if (has("next")) {
+                stack.add("next.js");
+                sig("framework-next", "package.json");
+            }
+            if (has("react") || has("react-dom"))
+                stack.add("react");
+            if (has("vue") || has("nuxt"))
+                stack.add("vue");
+            if (has("@angular/core"))
+                stack.add("angular");
+            if (has("svelte") || has("@sveltejs/kit"))
+                stack.add("svelte");
+            if (has("astro"))
+                stack.add("astro");
+            if (has("express"))
+                stack.add("express");
+            if (has("fastify"))
+                stack.add("fastify");
+            if (has("@nestjs/core"))
+                stack.add("nestjs");
+            if (has("hono"))
+                stack.add("hono");
+            // Mobile
+            if (has("react-native")) {
+                stack.add("react-native");
+                sig("mobile", "package.json");
+            }
+            if (has("expo"))
+                stack.add("expo");
+            if (has("@tauri-apps/api") || has("@tauri-apps/cli")) {
+                stack.add("tauri");
+                sig("desktop", "tauri");
+            }
+            if (has("@capacitor/core")) {
+                stack.add("capacitor");
+                sig("mobile", "capacitor");
+            }
+            // AI / agents
+            if (has("openai")) {
+                stack.add("openai-sdk");
+                sig("ai", "openai");
+            }
+            if (has("@anthropic-ai/sdk")) {
+                stack.add("anthropic-sdk");
+                sig("ai", "anthropic-sdk");
+            }
+            if (has("langchain") || has("@langchain/core")) {
+                stack.add("langchain");
+                sig("ai", "langchain");
+            }
+            if (has("@langchain/langgraph")) {
+                stack.add("langgraph");
+                sig("agent", "langgraph");
+            }
+            if (has("crewai")) {
+                stack.add("crewai");
+                sig("agent", "crewai");
+            }
+            if (has("llamaindex")) {
+                stack.add("llamaindex");
+                sig("ai", "llamaindex");
+            }
+            if (has("@modelcontextprotocol/sdk")) {
+                stack.add("mcp");
+                sig("ai", "mcp");
+            }
+            if (has("ollama")) {
+                stack.add("ollama");
+                sig("ai", "ollama");
+            }
+            if (has("@mastra/core")) {
+                stack.add("mastra");
+                sig("agent", "mastra");
+            }
+            if (has("ai")) {
+                stack.add("vercel-ai-sdk");
+                sig("ai", "vercel-ai-sdk");
+            }
+            // Payments / commerce
+            if (has("stripe") || has("@stripe/stripe-js")) {
+                stack.add("stripe");
+                sig("commerce", "stripe");
+            }
+            if (has("@shopify/shopify-api")) {
+                stack.add("shopify");
+                sig("commerce", "shopify");
+            }
+            if (has("braintree")) {
+                stack.add("braintree");
+                sig("commerce", "braintree");
+            }
+            if (has("@adyen/api-library")) {
+                stack.add("adyen");
+                sig("commerce", "adyen");
+            }
+            if (has("@paddle/paddle-node-sdk")) {
+                stack.add("paddle");
+                sig("commerce", "paddle");
+            }
+            if (has("@lemonsqueezy/lemonsqueezy.js")) {
+                stack.add("lemonsqueezy");
+                sig("commerce", "lemonsqueezy");
+            }
+            if (has("polar-sh")) {
+                stack.add("polar");
+                sig("commerce", "polar");
+            }
+            // Auth
+            if (has("next-auth") || has("@auth/core"))
+                stack.add("auth");
+            if (has("@clerk/nextjs") || has("@clerk/clerk-sdk-node"))
+                stack.add("clerk");
+            if (has("@supabase/supabase-js"))
+                stack.add("supabase");
+            if (has("lucia")) {
+                stack.add("lucia");
+            }
+            if (has("@workos-inc/node")) {
+                stack.add("workos");
+            }
+            // Databases / ORMs
+            if (has("prisma") || has("@prisma/client"))
+                stack.add("prisma");
+            if (has("drizzle-orm"))
+                stack.add("drizzle");
+            if (has("kysely"))
+                stack.add("kysely");
+            if (has("typeorm"))
+                stack.add("typeorm");
+            if (has("mongodb") || has("mongoose"))
+                stack.add("mongodb");
+            if (has("pg") || has("postgres"))
+                stack.add("postgres");
+            if (has("@neondatabase/serverless")) {
+                stack.add("neon");
+                sig("edge", "neon");
+            }
+            if (has("@planetscale/database")) {
+                stack.add("planetscale");
+                sig("edge", "planetscale");
+            }
+            if (has("@libsql/client")) {
+                stack.add("turso");
+                sig("edge", "turso");
+            }
+            if (has("mysql") || has("mysql2"))
+                stack.add("mysql");
+            if (has("redis") || has("ioredis"))
+                stack.add("redis");
+            if (has("duckdb") || has("@duckdb/node-api")) {
+                stack.add("duckdb");
+                sig("data", "duckdb");
+            }
+            // Testing
+            if (has("jest") || has("vitest") || has("mocha") || has("@playwright/test") || has("playwright")) {
+                sig("tests", "package.json");
+            }
+            // Library detection (npm package intended for distribution)
+            // Signals: has "main" or "exports", NOT "private:true", NOT a typical app structure
+            const isPublishable = !pkg.private && (pkg.main || pkg.exports || pkg.module || pkg.type === "module");
+            const hasAppStructure = existsSync(join(dir, "pages")) ||
+                existsSync(join(dir, "app")) ||
+                existsSync(join(dir, "src/pages")) ||
+                existsSync(join(dir, "src/app")) ||
+                existsSync(join(dir, "public/index.html"));
+            const hasBin = !!pkg.bin;
+            if (isPublishable && !hasAppStructure) {
+                stack.add("library");
+                sig("library", "package.json");
+            }
+            if (hasBin) {
+                stack.add("cli");
+                sig("library", "bin");
+            }
+        }
+        catch { /* ignore malformed */ }
+    }
+    // ── Python ────────────────────────────────────────────────
+    if (existsSync(join(dir, "requirements.txt")) ||
+        existsSync(join(dir, "pyproject.toml")) ||
+        existsSync(join(dir, "setup.py"))) {
+        sig("python", "pyproject/requirements/setup");
+        stack.add("python");
+        languages.add("python");
+        try {
+            const reqs = existsSync(join(dir, "requirements.txt"))
+                ? readFileSync(join(dir, "requirements.txt"), "utf-8")
+                : "";
+            const pyproject = existsSync(join(dir, "pyproject.toml"))
+                ? readFileSync(join(dir, "pyproject.toml"), "utf-8")
+                : "";
+            const all = reqs + "\n" + pyproject;
+            const ihas = (s) => all.toLowerCase().includes(s);
+            if (ihas("django")) {
+                stack.add("django");
+                sig("framework-django", "python");
+            }
+            if (ihas("fastapi")) {
+                stack.add("fastapi");
+                sig("framework-fastapi", "python");
+            }
+            if (ihas("flask"))
+                stack.add("flask");
+            if (ihas("openai"))
+                stack.add("openai-sdk");
+            if (ihas("anthropic"))
+                stack.add("anthropic-sdk");
+            if (ihas("langchain")) {
+                stack.add("langchain");
+                sig("ai", "langchain");
+            }
+            if (ihas("langgraph")) {
+                stack.add("langgraph");
+                sig("agent", "langgraph");
+            }
+            if (ihas("crewai")) {
+                stack.add("crewai");
+                sig("agent", "crewai");
+            }
+            if (ihas("autogen-agentchat") || ihas("pyautogen")) {
+                stack.add("autogen");
+                sig("agent", "autogen");
+            }
+            if (ihas("dspy-ai")) {
+                stack.add("dspy");
+                sig("ai", "dspy");
+            }
+            if (ihas("vllm")) {
+                stack.add("vllm");
+                sig("ai", "vllm");
+            }
+            if (ihas("ollama")) {
+                stack.add("ollama");
+                sig("ai", "ollama");
+            }
+            if (ihas("ragas") || ihas("deepeval")) {
+                stack.add("llm-eval");
+                sig("ai", "llm-eval");
+            }
+            if (ihas("llama-index") || ihas("llamaindex"))
+                stack.add("llamaindex");
+            if (ihas("torch") || ihas("tensorflow") || ihas("scikit-learn")) {
+                stack.add("ml");
+                sig("ml", "python");
+            }
+            if (ihas("opencv") || ihas("ultralytics") || ihas("detectron2")) {
+                stack.add("computer-vision");
+                sig("ai", "computer-vision");
+            }
+            if (ihas("pandas") || ihas("dask") || ihas("airflow") || ihas("prefect") || ihas("dagster")) {
+                stack.add("data-pipeline");
+                sig("data", "python");
+            }
+            if (ihas("polars")) {
+                stack.add("polars");
+                sig("data", "polars");
+            }
+            if (ihas("duckdb")) {
+                stack.add("duckdb");
+                sig("data", "duckdb");
+            }
+            if (ihas("pyiceberg")) {
+                stack.add("iceberg");
+                sig("data", "iceberg");
+            }
+            if (ihas("dbt-core") || ihas("dbt-")) {
+                stack.add("dbt");
+                sig("data", "dbt");
+            }
+            if (ihas("stripe")) {
+                stack.add("stripe");
+                sig("commerce", "stripe");
+            }
+            // Library detection — Python package intended for distribution
+            // Signal: has setup.py / pyproject.toml [project] or [tool.poetry] without 'private = true'
+            const isPyLib = pyproject.includes("[project]") || pyproject.includes("[tool.poetry]") ||
+                existsSync(join(dir, "setup.py"));
+            const hasPyApp = existsSync(join(dir, "manage.py")) ||
+                existsSync(join(dir, "main.py")) ||
+                existsSync(join(dir, "app.py")) ||
+                existsSync(join(dir, "wsgi.py"));
+            if (isPyLib && !hasPyApp) {
+                stack.add("library");
+                sig("library", "python");
+            }
+        }
+        catch { /* ignore */ }
+    }
+    // ── Flutter / Dart ────────────────────────────────────────
+    if (existsSync(join(dir, "pubspec.yaml"))) {
+        sig("flutter", "pubspec.yaml");
+        stack.add("flutter");
+        languages.add("dart");
+        try {
+            const pubspec = readFileSync(join(dir, "pubspec.yaml"), "utf-8").toLowerCase();
+            if (pubspec.includes("flutter:"))
+                sig("mobile", "flutter");
+            if (pubspec.includes("flutter_bloc"))
+                stack.add("bloc");
+            if (pubspec.includes("riverpod"))
+                stack.add("riverpod");
+        }
+        catch { /* ignore */ }
+    }
+    // ── Go ────────────────────────────────────────────────────
+    if (existsSync(join(dir, "go.mod"))) {
+        sig("go", "go.mod");
+        stack.add("go");
+        languages.add("go");
+        try {
+            const gomod = readFileSync(join(dir, "go.mod"), "utf-8");
+            if (gomod.includes("stripe-go"))
+                stack.add("stripe");
+            if (gomod.includes("openai-go"))
+                stack.add("openai-sdk");
+            if (gomod.includes("anthropic-sdk-go"))
+                stack.add("anthropic-sdk");
+            if (gomod.includes("gin-gonic/gin"))
+                stack.add("gin");
+            if (gomod.includes("labstack/echo"))
+                stack.add("echo");
+            if (gomod.includes("go-chi/chi"))
+                stack.add("chi");
+            // Library detection: no main package + intended as module
+            const hasMainGo = existsSync(join(dir, "main.go")) || existsSync(join(dir, "cmd"));
+            if (!hasMainGo) {
+                stack.add("library");
+                sig("library", "go");
+            }
+        }
+        catch { /* ignore */ }
+    }
+    // ── Rust ──────────────────────────────────────────────────
+    if (existsSync(join(dir, "Cargo.toml"))) {
+        sig("rust", "Cargo.toml");
+        stack.add("rust");
+        languages.add("rust");
+        try {
+            const cargo = readFileSync(join(dir, "Cargo.toml"), "utf-8");
+            if (cargo.includes("actix-web") || cargo.includes("axum") || cargo.includes("rocket")) {
+                sig("web-rust", "Cargo.toml");
+            }
+            if (cargo.includes("embassy")) {
+                stack.add("embassy");
+                sig("embedded", "embassy");
+            }
+            // Library detection: [lib] section without [[bin]]
+            const hasLib = cargo.includes("[lib]") || (!cargo.includes("[[bin]]") && cargo.includes("[package]"));
+            const hasBin = cargo.includes("[[bin]]") || existsSync(join(dir, "src/main.rs"));
+            if (hasLib && !hasBin) {
+                stack.add("library");
+                sig("library", "rust");
+            }
+        }
+        catch { /* ignore */ }
+    }
+    // ── Java / Kotlin ─────────────────────────────────────────
+    if (existsSync(join(dir, "pom.xml"))) {
+        sig("java", "pom.xml");
+        stack.add("java");
+        languages.add("java");
+    }
+    if (existsSync(join(dir, "build.gradle")) || existsSync(join(dir, "build.gradle.kts"))) {
+        sig("gradle", "build.gradle");
+        stack.add("gradle");
+        if (existsSync(join(dir, "build.gradle.kts")))
+            languages.add("kotlin");
+        else
+            languages.add("java");
+    }
+    // ── Swift / iOS ───────────────────────────────────────────
+    if (existsSync(join(dir, "Package.swift"))) {
+        sig("swift", "Package.swift");
+        stack.add("swift");
+        languages.add("swift");
+    }
+    if (safeGlob(dir, /\.xcodeproj$/)) {
+        sig("ios", "xcodeproj");
+        stack.add("ios");
+    }
+    // ── Infra ─────────────────────────────────────────────────
+    if (safeGlob(dir, /\.tf$/)) {
+        sig("infra", "terraform");
+        stack.add("terraform");
+    }
+    if (existsSync(join(dir, "Pulumi.yaml")) || existsSync(join(dir, "Pulumi.yml"))) {
+        sig("infra", "pulumi");
+        stack.add("pulumi");
+    }
+    if (existsSync(join(dir, "cdk.json"))) {
+        sig("infra", "aws-cdk");
+        stack.add("aws-cdk");
+    }
+    if (existsSync(join(dir, "Chart.yaml")) || existsSync(join(dir, "values.yaml"))) {
+        sig("infra", "helm");
+        stack.add("helm");
+    }
+    if (existsSync(join(dir, "helmfile.yaml")) || existsSync(join(dir, "helmfile.yml"))) {
+        sig("infra", "helmfile");
+        stack.add("helmfile");
+    }
+    if (safeGlob(dir, /kustomization\.ya?ml$/)) {
+        sig("infra", "kustomize");
+        stack.add("kubernetes");
+    }
+    if (existsSync(join(dir, "argocd")) || safeGlob(dir, /argocd-application\.ya?ml$/)) {
+        sig("infra", "argocd");
+        stack.add("argocd");
+    }
+    if (existsSync(join(dir, "Dockerfile")) || existsSync(join(dir, "docker-compose.yml"))) {
+        sig("docker", "Dockerfile");
+        stack.add("docker");
+    }
+    if (existsSync(join(dir, "dbt_project.yml"))) {
+        sig("data", "dbt");
+        stack.add("dbt");
+        stack.add("data-pipeline");
+    }
+    if (existsSync(join(dir, "dagster.yaml")) || existsSync(join(dir, "workspace.yaml"))) {
+        sig("data", "dagster");
+        stack.add("dagster");
+        stack.add("data-pipeline");
+    }
+    // ── Smart contracts ──────────────────────────────────────
+    if (existsSync(join(dir, "hardhat.config.js")) ||
+        existsSync(join(dir, "hardhat.config.ts")) ||
+        existsSync(join(dir, "foundry.toml"))) {
+        sig("web3", "smart-contract");
+        stack.add("web3");
+        stack.add("solidity");
+        languages.add("solidity");
+    }
+    if (safeGlob(dir, /\.sol$/)) {
+        sig("web3", "solidity-files");
+        stack.add("solidity");
+    }
+    // ── Browser extension (MV2/MV3) ──────────────────────────
+    // manifest.json at repo root with "manifest_version" → Chrome/Firefox/Edge extension
+    const manifestPath = join(dir, "manifest.json");
+    if (existsSync(manifestPath)) {
+        try {
+            const m = JSON.parse(readFileSync(manifestPath, "utf-8"));
+            if (m.manifest_version === 2 || m.manifest_version === 3) {
+                sig("browser-extension", `manifest_version=${m.manifest_version}`);
+                stack.add("browser-extension");
+                if (m.manifest_version === 3)
+                    stack.add("mv3");
+            }
+        }
+        catch { /* not a browser-ext manifest */ }
+    }
+    // WXT framework signal
+    if (existsSync(join(dir, "wxt.config.ts")) || existsSync(join(dir, "wxt.config.js"))) {
+        sig("browser-extension", "wxt");
+        stack.add("browser-extension");
+        stack.add("wxt");
+    }
+    // Plasmo framework signal
+    if (existsSync(join(dir, ".plasmo"))) {
+        sig("browser-extension", "plasmo");
+        stack.add("browser-extension");
+        stack.add("plasmo");
+    }
+    // ── Game engines ─────────────────────────────────────────
+    // Unity: ProjectSettings/ + Assets/
+    if (existsSync(join(dir, "ProjectSettings")) && existsSync(join(dir, "Assets"))) {
+        sig("game", "unity");
+        stack.add("unity");
+        stack.add("game");
+        languages.add("csharp");
+    }
+    // Unreal: any .uproject file
+    if (safeGlob(dir, /\.uproject$/)) {
+        sig("game", "unreal");
+        stack.add("unreal");
+        stack.add("game");
+        languages.add("cpp");
+    }
+    // Godot: project.godot
+    if (existsSync(join(dir, "project.godot"))) {
+        sig("game", "godot");
+        stack.add("godot");
+        stack.add("game");
+        languages.add("gdscript");
+    }
+    // Phaser / Cocos / PlayCanvas (web-game frameworks via package.json deps)
+    {
+        const allDeps = {
+            ...(pkg.dependencies ?? {}),
+            ...(pkg.devDependencies ?? {}),
+        };
+        if ("phaser" in allDeps) {
+            stack.add("phaser");
+            stack.add("game");
+            sig("game", "phaser");
+        }
+        if ("cocos2d" in allDeps) {
+            stack.add("cocos");
+            stack.add("game");
+            sig("game", "cocos");
+        }
+        if ("playcanvas" in allDeps) {
+            stack.add("playcanvas");
+            stack.add("game");
+            sig("game", "playcanvas");
+        }
+    }
+    // ── DevTools / API platform ──────────────────────────────
+    // OpenAPI / Swagger spec at root or in api/ dir
+    const openapiPaths = ["openapi.yaml", "openapi.yml", "openapi.json", "swagger.yaml", "swagger.json",
+        "api/openapi.yaml", "api/openapi.yml", "api/openapi.json"];
+    for (const p of openapiPaths) {
+        if (existsSync(join(dir, p))) {
+            sig("devtools", `openapi:${p}`);
+            stack.add("openapi-spec");
+            break;
+        }
+    }
+    // GraphQL schema at root
+    if (existsSync(join(dir, "schema.graphql")) || existsSync(join(dir, "schema.gql"))) {
+        sig("devtools", "graphql-schema");
+        stack.add("graphql-schema");
+    }
+    // Stainless config (multi-SDK generation)
+    if (existsSync(join(dir, "stainless.yml")) || existsSync(join(dir, "stainless.yaml"))) {
+        sig("devtools", "stainless");
+        stack.add("stainless");
+        stack.add("multi-sdk");
+    }
+    // Multi-language SDK presence: sdks/ or clients/ with multiple language sub-dirs
+    const sdkRoots = ["sdks", "clients", "packages/sdk", "packages/clients"];
+    for (const root of sdkRoots) {
+        const rootPath = join(dir, root);
+        if (existsSync(rootPath)) {
+            try {
+                const sub = readdirSync(rootPath).filter((e) => {
+                    try {
+                        return statSync(join(rootPath, e)).isDirectory();
+                    }
+                    catch {
+                        return false;
+                    }
+                });
+                // ≥3 sub-dirs that look like language names → multi-SDK platform
+                const langPattern = /^(python|node|typescript|javascript|go|ruby|java|kotlin|php|rust|csharp|dotnet|swift|elixir)$/i;
+                const hits = sub.filter((s) => langPattern.test(s));
+                if (hits.length >= 3) {
+                    sig("devtools", `multi-sdk:${root}:${hits.join(",")}`);
+                    stack.add("multi-sdk");
+                    break;
+                }
+            }
+            catch { /* ignore */ }
+        }
+    }
+    // Mintlify docs (signal of devtools / API platform docs-as-product)
+    if (existsSync(join(dir, "mint.json")) || existsSync(join(dir, "docs.json"))) {
+        sig("devtools", "mintlify");
+        stack.add("docs-platform");
+    }
+    // Aggregate signal: OpenAPI + multi-SDK ⇒ explicit devtools-api flag
+    if (stack.has("openapi-spec") && stack.has("multi-sdk")) {
+        stack.add("devtools-api");
+    }
+    // ── Embedded ─────────────────────────────────────────────
+    if (existsSync(join(dir, "platformio.ini")) ||
+        existsSync(join(dir, "sdkconfig")) ||
+        existsSync(join(dir, "Kconfig"))) {
+        sig("embedded", "platformio/sdk");
+        stack.add("embedded");
+    }
+    if (existsSync(join(dir, "west.yml")) || existsSync(join(dir, "zephyr"))) {
+        sig("embedded", "zephyr");
+        stack.add("embedded");
+        stack.add("zephyr");
+    }
+    if (existsSync(join(dir, "CMakePresets.json")) && existsSync(join(dir, "components"))) {
+        sig("embedded", "esp-idf");
+        stack.add("embedded");
+        stack.add("esp-idf");
+    }
+    // ── Package manager ──────────────────────────────────────
+    let packageManager = null;
+    if (existsSync(join(dir, "pnpm-lock.yaml")))
+        packageManager = "pnpm";
+    else if (existsSync(join(dir, "yarn.lock")))
+        packageManager = "yarn";
+    else if (existsSync(join(dir, "bun.lockb")) || existsSync(join(dir, "bun.lock")))
+        packageManager = "bun";
+    else if (existsSync(join(dir, "package-lock.json")))
+        packageManager = "npm";
+    // ── CI / tests ───────────────────────────────────────────
+    const hasTests = !!signals["tests"] ||
+        existsSync(join(dir, "pytest.ini")) ||
+        existsSync(join(dir, "tox.ini")) ||
+        safeGlob(dir, /^(tests?|spec|__tests__)$/, "dir");
+    const hasCI = existsSync(join(dir, ".github", "workflows")) ||
+        existsSync(join(dir, ".gitlab-ci.yml")) ||
+        existsSync(join(dir, ".circleci")) ||
+        existsSync(join(dir, "azure-pipelines.yml"));
+    const hasExistingGreatCto = existsSync(join(dir, ".great_cto", "PROJECT.md")) ||
+        existsSync(join(dir, ".great_cto", "SKILL.md"));
+    return {
+        stack: Array.from(stack).sort(),
+        languages: Array.from(languages).sort(),
+        signals,
+        packageManager,
+        hasTests,
+        hasCI,
+        hasExistingGreatCto,
+    };
+}
+// ── helpers ──────────────────────────────────────────────────
+function safeGlob(dir, pattern, kind = "file") {
+    try {
+        const entries = readdirSync(dir);
+        for (const e of entries) {
+            const p = join(dir, e);
+            try {
+                const st = statSync(p);
+                if (kind === "file" && st.isFile() && pattern.test(e))
+                    return true;
+                if (kind === "dir" && st.isDirectory() && pattern.test(e))
+                    return true;
+            }
+            catch { /* unreadable entry */ }
+        }
+    }
+    catch { /* unreadable dir */ }
+    return false;
+}
