@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: /sync-test\.spec\.m?js$/,
+  testMatch: /(sync|resume)-test\.spec\.m?js$/,
   fullyParallel: false,
   workers: 1,
   retries: 0,
