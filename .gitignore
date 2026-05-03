@@ -25,3 +25,4 @@ packages/cli/*.tgz
 
 # Misc
 *.log
+site/.previews/
