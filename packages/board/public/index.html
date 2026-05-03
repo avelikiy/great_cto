@@ -605,6 +605,100 @@ button { font-family: inherit; cursor: pointer; }
   font-family: ui-monospace, monospace; color: var(--text);
 }
 .hk-foot { margin-top: 12px; font-size: 11px; color: var(--text3, #9ca3af); text-align: center; }
+
+/* ── New issue modal ──────────────────────────────────────────────────── */
+#new-issue-modal {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+}
+.ni-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(2px);
+}
+.ni-card {
+  position: relative; background: var(--bg-elevated, #161a1f);
+  color: var(--text); border: 1px solid var(--border-strong, #2a2d33);
+  border-radius: 10px; width: 480px; max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px); overflow: auto;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.6);
+  animation: ni-pop 140ms ease-out;
+}
+@keyframes ni-pop {
+  from { transform: translateY(8px) scale(0.985); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+.ni-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.ni-header h3 { font-size: 14px; font-weight: 600; margin: 0; }
+.ni-close {
+  background: transparent; border: 0; color: var(--text-3, #9ca3af);
+  cursor: pointer; padding: 4px; display: flex; border-radius: 4px;
+}
+.ni-close:hover { background: var(--bg-muted, rgba(255,255,255,0.06)); color: var(--text); }
+.ni-form {
+  padding: 16px 18px 18px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.ni-field {
+  display: flex; flex-direction: column; gap: 6px;
+  flex: 1;
+}
+.ni-label {
+  font-size: 11px; color: var(--text-3, #9ca3af);
+  text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+}
+.ni-field input[type="text"],
+.ni-field textarea,
+.ni-field select {
+  background: var(--bg-page, #0a0e0c);
+  border: 1px solid var(--border, #2a2d33);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit; font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 120ms;
+}
+.ni-field input[type="text"]:focus,
+.ni-field textarea:focus,
+.ni-field select:focus {
+  border-color: var(--accent, #00d97e);
+}
+.ni-field textarea {
+  resize: vertical; min-height: 80px; font-family: inherit;
+}
+.ni-row { display: flex; gap: 12px; }
+.ni-checkbox {
+  flex-direction: row; align-items: center; gap: 8px;
+  font-size: 13px; cursor: pointer;
+}
+.ni-checkbox input { margin: 0; cursor: pointer; }
+.ni-checkbox span { color: var(--text-2); }
+.ni-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  margin-top: 4px;
+}
+.ni-btn {
+  border: 1px solid transparent; border-radius: 6px;
+  padding: 7px 14px; font: inherit; font-size: 13px;
+  cursor: pointer; transition: all 120ms;
+}
+.ni-btn-ghost {
+  background: transparent; color: var(--text-2);
+  border-color: var(--border);
+}
+.ni-btn-ghost:hover { background: var(--bg-muted, rgba(255,255,255,0.05)); color: var(--text); }
+.ni-btn-primary {
+  background: var(--accent, #00d97e);
+  color: #0a0e0c; font-weight: 500;
+}
+.ni-btn-primary:hover { background: #00ee8a; }
+.ni-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+@media (max-width: 600px) {
+  .ni-row { flex-direction: column; gap: 14px; }
+}
 .side-gate-actions {
   display: flex; gap: 6px;
   margin-bottom: 16px;
@@ -1479,7 +1573,7 @@ button { font-family: inherit; cursor: pointer; }
       </div>
       <div class="topbar-actions">
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
-        <button class="btn-new">
+        <button class="btn-new" onclick="openNewIssueModal()">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14 M5 12h14"/></svg>
           New issue
         </button>
@@ -2873,6 +2967,118 @@ function fmtDur(ms) {
   if (m < 60) return `${m}min`;
   return `${Math.floor(m/60)}h ${m%60}m`;
 }
+
+/* ── New issue modal ──────────────────────────────────────────────────── */
+function openNewIssueModal() {
+  let modal = document.getElementById('new-issue-modal');
+  if (modal) { modal.remove(); modal = null; }
+  modal = document.createElement('div');
+  modal.id = 'new-issue-modal';
+  modal.innerHTML = `
+    <div class="ni-backdrop" onclick="closeNewIssueModal()"></div>
+    <div class="ni-card" role="dialog" aria-modal="true" aria-labelledby="ni-title">
+      <div class="ni-header">
+        <h3 id="ni-title">New issue</h3>
+        <button class="ni-close" onclick="closeNewIssueModal()" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6L6 18 M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form class="ni-form" onsubmit="submitNewIssue(event)">
+        <label class="ni-field">
+          <span class="ni-label">Title</span>
+          <input id="ni-input-title" type="text" required placeholder="Short summary, e.g. Fix login redirect" autofocus />
+        </label>
+        <label class="ni-field">
+          <span class="ni-label">Description</span>
+          <textarea id="ni-input-desc" rows="4" placeholder="Optional — Markdown supported"></textarea>
+        </label>
+        <div class="ni-row">
+          <label class="ni-field">
+            <span class="ni-label">Priority</span>
+            <select id="ni-input-priority">
+              <option value="2" selected>P2 — normal</option>
+              <option value="0">P0 — urgent</option>
+              <option value="1">P1 — high</option>
+              <option value="3">P3 — low</option>
+            </select>
+          </label>
+          <label class="ni-field">
+            <span class="ni-label">Agent</span>
+            <select id="ni-input-agent">
+              <option value="">(unassigned)</option>
+              <option value="architect">architect</option>
+              <option value="pm">pm</option>
+              <option value="senior-dev">senior-dev</option>
+              <option value="code-reviewer">code-reviewer</option>
+              <option value="qa-engineer">qa-engineer</option>
+              <option value="security-officer">security-officer</option>
+              <option value="devops">devops</option>
+              <option value="l3-support">l3-support</option>
+            </select>
+          </label>
+        </div>
+        <label class="ni-field ni-checkbox">
+          <input id="ni-input-gate" type="checkbox" />
+          <span>This is a gate (requires human approval)</span>
+        </label>
+        <div class="ni-actions">
+          <button type="button" class="ni-btn ni-btn-ghost" onclick="closeNewIssueModal()">Cancel</button>
+          <button type="submit" class="ni-btn ni-btn-primary" id="ni-submit">Create issue</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => document.getElementById('ni-input-title')?.focus(), 30);
+}
+
+function closeNewIssueModal() {
+  document.getElementById('new-issue-modal')?.remove();
+}
+
+async function submitNewIssue(e) {
+  e.preventDefault();
+  const title = document.getElementById('ni-input-title').value.trim();
+  const description = document.getElementById('ni-input-desc').value.trim();
+  const priority = parseInt(document.getElementById('ni-input-priority').value, 10);
+  const agent = document.getElementById('ni-input-agent').value;
+  const isGate = document.getElementById('ni-input-gate').checked;
+  const submitBtn = document.getElementById('ni-submit');
+
+  if (!title) return;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creating…';
+
+  const labels = isGate ? ['gate'] : [];
+  const finalTitle = isGate && !title.toLowerCase().startsWith('gate:') ? `gate: ${title}` : title;
+
+  try {
+    const res = await api(`/api/tasks${pqs()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: finalTitle, description, priority, agent, labels }),
+    });
+    if (res?.ok) {
+      showToast(`Created <strong>${esc(res.id || '')}</strong>`, 'ok');
+      closeNewIssueModal();
+      // SSE will refresh the UI; also force-refresh inbox if a gate
+      if (isGate) api(`/api/inbox${pqs()}`).then(d => d && renderInbox(d));
+    } else {
+      showToast(res?.error || 'Failed to create issue', 'fail');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create issue';
+    }
+  } catch (err) {
+    showToast(String(err.message || err), 'fail');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create issue';
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('new-issue-modal')) {
+    closeNewIssueModal();
+  }
+});
 
 init();
 </script>
