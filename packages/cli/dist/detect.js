@@ -73,7 +73,7 @@ export function detect(dir) {
                 stack.add("openai-sdk");
                 sig("ai", "openai");
             }
-            if (has("@anthropic-ai/sdk")) {
+            if (has("@anthropic-ai/sdk") || has("@anthropic-ai/claude-code")) {
                 stack.add("anthropic-sdk");
                 sig("ai", "anthropic-sdk");
             }
@@ -109,6 +109,39 @@ export function detect(dir) {
                 stack.add("vercel-ai-sdk");
                 sig("ai", "vercel-ai-sdk");
             }
+            // Vector databases (when paired with LLM SDK → agent-product)
+            if (has("@pinecone-database/pinecone")) {
+                stack.add("pinecone");
+                sig("vectordb", "pinecone");
+            }
+            if (has("weaviate-ts-client") || has("weaviate-client")) {
+                stack.add("weaviate");
+                sig("vectordb", "weaviate");
+            }
+            if (has("chromadb")) {
+                stack.add("chroma");
+                sig("vectordb", "chroma");
+            }
+            if (has("@qdrant/js-client-rest")) {
+                stack.add("qdrant");
+                sig("vectordb", "qdrant");
+            }
+            if (has("@google/generative-ai") || has("@google-ai/generativelanguage")) {
+                stack.add("google-ai");
+                sig("ai", "gemini");
+            }
+            if (has("@aws-sdk/client-bedrock-runtime")) {
+                stack.add("aws-bedrock");
+                sig("ai", "bedrock");
+            }
+            if (has("cohere-ai")) {
+                stack.add("cohere");
+                sig("ai", "cohere");
+            }
+            if (has("replicate")) {
+                stack.add("replicate");
+                sig("ai", "replicate");
+            }
             // Payments / commerce
             if (has("stripe") || has("@stripe/stripe-js")) {
                 stack.add("stripe");
@@ -137,6 +170,41 @@ export function detect(dir) {
             if (has("polar-sh")) {
                 stack.add("polar");
                 sig("commerce", "polar");
+            }
+            // Fintech (banking, ACH, regulated payments)
+            if (has("plaid")) {
+                stack.add("plaid");
+                sig("fintech", "plaid");
+            }
+            if (has("@wise-api/api-client") || has("wise")) {
+                stack.add("wise");
+                sig("fintech", "wise");
+            }
+            if (has("dwolla-v2")) {
+                stack.add("dwolla");
+                sig("fintech", "dwolla");
+            }
+            if (has("@teller/teller")) {
+                stack.add("teller");
+                sig("fintech", "teller");
+            }
+            // Stripe Connect/Issuing → fintech (not just commerce)
+            if (has("stripe") && (pkg.name?.includes("bank") || pkg.name?.includes("card"))) {
+                sig("fintech", "stripe-connect");
+                stack.add("fintech");
+            }
+            // Healthcare / FHIR
+            if (has("fhir") || has("fhir.js") || has("@types/fhir")) {
+                stack.add("fhir");
+                sig("healthcare", "fhir");
+            }
+            if (has("@smile-cdr/fhirts")) {
+                stack.add("fhir");
+                sig("healthcare", "smile-cdr");
+            }
+            if (has("hl7")) {
+                stack.add("hl7");
+                sig("healthcare", "hl7");
             }
             // Auth
             if (has("next-auth") || has("@auth/core"))
@@ -190,16 +258,30 @@ export function detect(dir) {
             }
             // Library detection (npm package intended for distribution)
             // Signals: has "main" or "exports", NOT "private:true", NOT a typical app structure
+            // Negative signal: any backend framework dep → likely a server, not a library
+            const SERVER_FRAMEWORKS = ["express", "fastify", "nestjs", "@nestjs/core", "hono", "koa", "@hapi/hapi", "restify", "polka"];
+            const hasServerFramework = SERVER_FRAMEWORKS.some((f) => has(f));
+            const FULLSTACK_FRAMEWORKS = ["next", "nuxt", "@remix-run/node", "@sveltejs/kit", "astro", "gatsby"];
+            const hasFullstack = FULLSTACK_FRAMEWORKS.some((f) => has(f));
             const isPublishable = !pkg.private && (pkg.main || pkg.exports || pkg.module || pkg.type === "module");
             const hasAppStructure = existsSync(join(dir, "pages")) ||
                 existsSync(join(dir, "app")) ||
                 existsSync(join(dir, "src/pages")) ||
                 existsSync(join(dir, "src/app")) ||
-                existsSync(join(dir, "public/index.html"));
+                existsSync(join(dir, "public/index.html")) ||
+                existsSync(join(dir, "routes")) ||
+                existsSync(join(dir, "src/routes")) ||
+                existsSync(join(dir, "api"));
             const hasBin = !!pkg.bin;
-            if (isPublishable && !hasAppStructure) {
+            // Strong library signal: explicit publishConfig or files field listing dist
+            const hasExplicitLibConfig = !!pkg.publishConfig || (Array.isArray(pkg.files) && !hasServerFramework);
+            if (isPublishable && !hasAppStructure && !hasServerFramework && !hasFullstack) {
                 stack.add("library");
                 sig("library", "package.json");
+            }
+            else if (hasExplicitLibConfig && !hasServerFramework && !hasFullstack) {
+                stack.add("library");
+                sig("library", "publishConfig");
             }
             if (hasBin) {
                 stack.add("cli");
@@ -633,6 +715,63 @@ export function detect(dir) {
         existsSync(join(dir, "azure-pipelines.yml"));
     const hasExistingGreatCto = existsSync(join(dir, ".great_cto", "PROJECT.md")) ||
         existsSync(join(dir, ".great_cto", "SKILL.md"));
+    // ── Code-structure signals (Wave 1) ──────────────────────
+    const hasRoutesDir = existsSync(join(dir, "routes")) ||
+        existsSync(join(dir, "app")) ||
+        existsSync(join(dir, "pages")) ||
+        existsSync(join(dir, "src/api")) ||
+        existsSync(join(dir, "src/routes")) ||
+        existsSync(join(dir, "src/pages")) ||
+        existsSync(join(dir, "src/app")) ||
+        existsSync(join(dir, "api"));
+    const hasCliEntry = existsSync(join(dir, "bin")) ||
+        existsSync(join(dir, "src/cli.ts")) ||
+        existsSync(join(dir, "src/cli.js")) ||
+        existsSync(join(dir, "src/main.ts")) && pkg.bin != null ||
+        existsSync(join(dir, "cmd"));
+    const hasPublicHtml = existsSync(join(dir, "public/index.html")) ||
+        existsSync(join(dir, "index.html")) ||
+        existsSync(join(dir, "src/index.html"));
+    const hasServerEntry = existsSync(join(dir, "server.ts")) || existsSync(join(dir, "server.js")) ||
+        existsSync(join(dir, "server.mjs")) ||
+        existsSync(join(dir, "src/server.ts")) || existsSync(join(dir, "src/server.js")) ||
+        existsSync(join(dir, "app.ts")) || existsSync(join(dir, "app.js")) ||
+        existsSync(join(dir, "src/app.ts")) || existsSync(join(dir, "src/app.js"));
+    const hasMonorepo = existsSync(join(dir, "pnpm-workspace.yaml")) ||
+        existsSync(join(dir, "lerna.json")) ||
+        existsSync(join(dir, "nx.json")) ||
+        existsSync(join(dir, "turbo.json")) ||
+        existsSync(join(dir, "rush.json"));
+    if (hasMonorepo)
+        sig("monorepo", "workspace-config");
+    if (hasRoutesDir)
+        sig("structure", "routes-dir");
+    if (hasCliEntry)
+        sig("structure", "cli-entry");
+    if (hasServerEntry)
+        sig("structure", "server-entry");
+    // ── npm-scripts heuristics (Wave 1) ──────────────────────
+    const scripts = pkg.scripts || {};
+    const scriptHints = {
+        hasStart: !!scripts.start,
+        hasDev: !!scripts.dev,
+        hasBuild: !!scripts.build,
+        hasPublish: !!scripts.prepublishOnly || !!scripts.publish,
+    };
+    if (scriptHints.hasPublish && pkg.publishConfig?.access === "public") {
+        sig("library", "publishConfig");
+        stack.add("library");
+    }
+    // server-ish scripts AND server entry → web-service indicator
+    if ((scriptHints.hasStart || scriptHints.hasDev) && hasServerEntry) {
+        sig("structure", "web-service-shape");
+    }
+    // ── Project size estimate (Wave 3 lite) ──────────────────
+    const projectSize = estimateProjectSize(dir);
+    // ── README mining (Wave 2) ───────────────────────────────
+    const readmeKeywords = mineReadmeKeywords(dir);
+    for (const kw of readmeKeywords)
+        sig(`readme:${kw}`, "README");
     return {
         stack: Array.from(stack).sort(),
         languages: Array.from(languages).sort(),
@@ -641,9 +780,106 @@ export function detect(dir) {
         hasTests,
         hasCI,
         hasExistingGreatCto,
+        codeStructure: {
+            hasRoutesDir,
+            hasCliEntry,
+            hasPublicHtml,
+            hasServerEntry,
+            hasMonorepo,
+        },
+        scripts: scriptHints,
+        projectSize,
+        readmeKeywords,
     };
 }
 // ── helpers ──────────────────────────────────────────────────
+/**
+ * Estimate project size from file count (no LOC, to stay fast).
+ * Skips node_modules, .git, dist, build, .next, target, vendor.
+ */
+function estimateProjectSize(dir) {
+    const SKIP = new Set(["node_modules", ".git", "dist", "build", ".next", ".nuxt",
+        "target", "vendor", ".venv", "venv", "__pycache__", ".cache",
+        "coverage", ".turbo", ".vercel", ".wrangler"]);
+    const SOURCE_EXTS = /\.(ts|tsx|js|jsx|mjs|cjs|py|rs|go|java|kt|swift|rb|php|c|cpp|h|hpp|cs|sol|sql|css|scss|html|md)$/;
+    let count = 0;
+    const MAX = 5000; // hard cap to keep scan O(seconds)
+    function walk(d, depth) {
+        if (count > MAX || depth > 6)
+            return;
+        try {
+            const entries = readdirSync(d);
+            for (const e of entries) {
+                if (count > MAX)
+                    return;
+                if (e.startsWith(".") && depth === 0 && e !== ".github")
+                    continue;
+                if (SKIP.has(e))
+                    continue;
+                const p = join(d, e);
+                try {
+                    const st = statSync(p);
+                    if (st.isDirectory())
+                        walk(p, depth + 1);
+                    else if (st.isFile() && SOURCE_EXTS.test(e))
+                        count++;
+                }
+                catch { /* unreadable */ }
+            }
+        }
+        catch { /* unreadable */ }
+    }
+    walk(dir, 0);
+    if (count < 10)
+        return "nano";
+    if (count < 50)
+        return "small";
+    if (count < 250)
+        return "medium";
+    if (count < 1000)
+        return "large";
+    return "enterprise";
+}
+/**
+ * Extract a small set of categorical keywords from README.md.
+ * Used as a *hint* — not a primary signal.
+ */
+function mineReadmeKeywords(dir) {
+    const kws = new Set();
+    const path = ["README.md", "readme.md", "README.rst", "README"]
+        .map((f) => join(dir, f))
+        .find((p) => existsSync(p));
+    if (!path)
+        return [];
+    let text = "";
+    try {
+        text = readFileSync(path, "utf-8").slice(0, 4000).toLowerCase();
+    }
+    catch {
+        return [];
+    }
+    // Categorical hints — broad strokes, intentionally conservative
+    const buckets = {
+        "ai": ["llm", "gpt", "claude", "anthropic", "openai", "embedding", "rag", "agent ", "agentic"],
+        "agent": ["multi-agent", " agent ", "autonomous", "orchestrat"],
+        "commerce": ["payment", "checkout", "stripe", "subscription", "billing"],
+        "fintech": ["bank", "ach", "fintech", "account number", "ledger", "kyc", "aml"],
+        "healthcare": ["health", "patient", "medical", "fhir", "hipaa", "phi", "ehr"],
+        "web3": ["smart contract", "ethereum", "solidity", "defi", "nft", "wallet"],
+        "iot": ["embedded", "firmware", "iot ", "esp32", "esp8266", "arduino"],
+        "browser-extension": ["chrome extension", "browser extension", "manifest_version"],
+        "library": ["installation", "## install", "## usage", "publish", "npm install"],
+        "cli": ["command-line", "command line", "cli ", "$ npx ", "subcommand"],
+        "data": ["pipeline", "etl ", "warehouse", "dbt", "airflow", "dataset"],
+        "game": ["game ", "gameplay", "player", "level design"],
+        "regulated": ["pci", "hipaa", "soc2", "iso 27001", "gdpr", "compliance"],
+    };
+    for (const [bucket, terms] of Object.entries(buckets)) {
+        if (terms.some((t) => text.includes(t)))
+            kws.add(bucket);
+    }
+    return Array.from(kws).sort();
+}
 function safeGlob(dir, pattern, kind = "file") {
     try {
         const entries = readdirSync(dir);
