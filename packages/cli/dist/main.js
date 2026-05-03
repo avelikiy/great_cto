@@ -17,6 +17,7 @@ import { install, findInstalledVersions } from "./installer.js";
 import { enableGreatCto } from "./settings.js";
 import { bootstrap } from "./bootstrap.js";
 import { resolveTelemetryConsent, sendInstallPing } from "./telemetry.js";
+import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,6 +45,8 @@ function parseArgs(argv) {
         archetype: null,
         version: null,
         noTelemetry: false,
+        useLlm: false,
+        noLlm: false,
     };
     const rest = [];
     for (let i = 0; i < argv.length; i++) {
@@ -68,6 +71,10 @@ function parseArgs(argv) {
             args.boardNoOpen = true;
         else if (a === "--no-telemetry")
             args.noTelemetry = true;
+        else if (a === "--use-llm")
+            args.useLlm = true;
+        else if (a === "--no-llm")
+            args.noLlm = true;
         else if (a === "board")
             args.command = "board";
         else if (a === "register")
@@ -191,11 +198,17 @@ ${bold("Options:")}
       --dry-run          Show what would be done without doing it
       --force            Reinstall even if already present
       --archetype NAME   Override detected archetype
-                         (${cyan("web-service|mobile-app|ai-system|agent-product|commerce|web3|")}
-                          ${cyan("data-platform|infra|library|iot-embedded|regulated|")}
-                          ${cyan("devtools|browser-extension|game")})
+                         (${cyan("web-service|mobile-app|ai-system|agent-product|commerce|fintech|")}
+                          ${cyan("healthcare|web3|data-platform|infra|library|cli-tool|")}
+                          ${cyan("iot-embedded|regulated|devtools|browser-extension|game")})
       --version-tag VER  Pin to specific great_cto version (default: latest)
       --dir PATH         Run against a different directory (default: cwd)
+      --use-llm          Force LLM (Anthropic Haiku) archetype suggestion
+                         even when heuristic confidence is high
+      --no-llm           Skip LLM suggestion (run heuristic only)
+                         Or set ${cyan("GREATCTO_NO_LLM=1")}
+      --no-telemetry     Skip anonymous install ping
+                         Or set ${cyan("GREATCTO_NO_TELEMETRY=1")}
   -h, --help             Show this help
   -v, --version          Show great-cto CLI version
 
@@ -253,6 +266,61 @@ async function runInit(args) {
         rationale = pick.rationale;
         alternatives = pick.alternatives;
         confidence = pick.confidence;
+    }
+    // ── 2b. LLM fallback for low-confidence detections (Wave 4) ──────
+    if (!args.archetype) {
+        const llmDecision = shouldUseLlmFallback({
+            heuristicConfidence: confidence,
+            forceUse: args.useLlm,
+            forceSkip: args.noLlm,
+        });
+        if (llmDecision.use) {
+            const apiKey = process.env.ANTHROPIC_API_KEY;
+            if (apiKey) {
+                log(`  ${dim("→ low confidence — asking Anthropic Haiku for second opinion...")}`);
+                const llm = await suggestArchetypeFromLlm({
+                    dir: args.dir,
+                    detection,
+                    heuristicArchetype: archetype,
+                    apiKey,
+                });
+                if (llm) {
+                    if (llm.conflictsWithHeuristic) {
+                        log("");
+                        log(`  ${bold("AI suggests:")} ${cyan(llm.archetype)} ${dim(`(${llm.confidence})`)}`);
+                        log(`  ${dim("AI rationale:")} ${llm.rationale}`);
+                        log(`  ${bold("Heuristic says:")} ${cyan(archetype)} ${dim(`(${confidence})`)}`);
+                        if (!args.yes) {
+                            const accept = await confirm(`Use AI suggestion ${cyan(llm.archetype)} instead of ${cyan(archetype)}?`, true);
+                            if (accept) {
+                                archetype = llm.archetype;
+                                rationale = `(AI) ${llm.rationale}`;
+                                confidence = llm.confidence;
+                                if (!alternatives.includes(archetype)) {
+                                    alternatives = [archetype, ...alternatives.filter((a) => a !== archetype)].slice(0, 3);
+                                }
+                            }
+                        }
+                        else {
+                            // --yes: silently take AI suggestion only if it bumps confidence
+                            if (llm.confidence !== "low") {
+                                archetype = llm.archetype;
+                                rationale = `(AI) ${llm.rationale}`;
+                                confidence = llm.confidence;
+                            }
+                        }
+                    }
+                    else if (llm.confidence !== "low") {
+                        // AI agrees → bump confidence, refine rationale
+                        confidence = llm.confidence;
+                        rationale = `${rationale} (AI confirmed: ${llm.rationale})`;
+                    }
+                }
+                else {
+                    log(`  ${dim("(LLM call failed, keeping heuristic)")}`);
+                }
+            }
+        }
     }
     const compliance = suggestCompliance(detection, archetype);
     log(`  ${dim("archetype:")} ${cyan(archetype)} ${dim(`(confidence: ${confidence})`)}`);
