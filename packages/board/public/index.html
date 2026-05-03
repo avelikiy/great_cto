@@ -1275,6 +1275,117 @@ button { font-family: inherit; cursor: pointer; }
   background: currentColor;
 }
 
+/* ── Filter bar ───────────────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  background: var(--bg-panel);
+  position: sticky; top: 0; z-index: 5;
+}
+.filter-bar:empty { display: none; }
+.fchip {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px; padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  background: var(--bg-strong); color: var(--text2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.fchip:hover { background: var(--bg-elevated); color: var(--text); border-color: var(--border-strong); }
+.fchip.active { background: var(--accent); color: #fff; border-color: transparent; }
+.fchip-agent.active { background: #2540d4; }
+.fchip-priority.active { background: #f59e0b; color: #000; }
+.fchip-label.active { background: var(--accent); }
+.fchip-clear { background: transparent; color: var(--text3); border-color: transparent; }
+.fchip-clear:hover { background: var(--bg-strong); color: var(--status-blocked); }
+.filter-section-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text3); padding: 0 4px;
+}
+
+/* ── Status picker (inline card edit) ─────────────────────────────────────── */
+.card-status-edit {
+  display: inline-flex; align-items: center; gap: 3px;
+  cursor: pointer;
+  position: relative;
+}
+.card-status-edit .pill { font-size: 10px; height: 18px; padding: 0 7px; }
+.card-status-chev {
+  color: var(--text3); transition: color 0.12s;
+  display: inline-flex; align-items: center;
+}
+.card-status-edit:hover .card-status-chev { color: var(--text); }
+.status-picker {
+  position: absolute;
+  bottom: calc(100% + 4px); left: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  z-index: 500;
+  padding: 4px;
+  min-width: 130px;
+}
+.sp-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text);
+  background: transparent; border: none;
+  width: 100%; text-align: left;
+  cursor: pointer;
+}
+.sp-item:hover { background: var(--bg-muted); }
+.sp-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.priority-dot { cursor: pointer; }
+.priority-dot:hover { transform: scale(1.5); transition: transform 0.1s; }
+
+/* ── Agent cost bar ───────────────────────────────────────────────────────── */
+.agent-cost-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 70px;
+  align-items: center; gap: 12px;
+  margin-bottom: 10px; font-size: 12.5px;
+}
+.agent-cost-row .name { font-family: var(--mono); color: var(--text); }
+.agent-cost-row .rail { height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
+.agent-cost-row .fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.agent-cost-row .amt { text-align: right; color: var(--text2); font-family: var(--mono); font-size: 11px; }
+
+/* ── Task timeline ────────────────────────────────────────────────────────── */
+.tl-event {
+  display: flex; gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.tl-event:first-child { border-top: none; }
+.tl-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent-soft);
+  border: 2px solid var(--accent);
+  margin-top: 4px; flex-shrink: 0;
+}
+.tl-content { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; }
+.tl-actor { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent); }
+.tl-action { color: var(--text2); }
+.tl-change {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--bg-strong); color: var(--text);
+  padding: 1px 6px; border-radius: 3px;
+}
+.tl-ts { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.side-section-head { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; margin-top: 16px; }
+
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgba(15, 17, 21, 0.12); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
@@ -1426,6 +1537,7 @@ button { font-family: inherit; cursor: pointer; }
 
     <!-- Kanban -->
     <div class="panel" id="panel-kanban">
+      <div id="filter-bar" class="filter-bar"></div>
       <div class="kanban" id="kanban-board"></div>
     </div>
 
@@ -1439,6 +1551,11 @@ button { font-family: inherit; cursor: pointer; }
 
         <div class="mp-section-label" style="margin-top:24px">Cost · last 30 days</div>
         <div class="mp-card cost-panel" id="cost-panel">
+          <div class="cost-empty">Loading…</div>
+        </div>
+
+        <div class="mp-section-label" style="margin-top:24px">Agent cost estimate</div>
+        <div class="mp-card" id="agent-cost-panel">
           <div class="cost-empty">Loading…</div>
         </div>
 
@@ -1526,6 +1643,7 @@ button { font-family: inherit; cursor: pointer; }
         </div>
       </div>
       <div class="side-body" id="side-body"></div>
+      <div id="side-timeline" style="padding:0 18px 18px"></div>
     </div>
   </div>
 </div>
@@ -1548,6 +1666,7 @@ let searchQuery = '';
 let allProjects = [];
 let currentProject = '';
 let inboxData = null;
+let activeFilters = { agents: new Set(), priorities: new Set(), labels: new Set() };
 
 // Returns ?project=slug query string for all API calls after init() sets currentProject
 function pqs() {
@@ -1961,6 +2080,7 @@ async function switchProject(slug) {
   if (swIcon) swIcon.innerHTML = archetypeIcon(arch, 18);
   if (crIcon) crIcon.innerHTML = archetypeIcon(arch, 14);
   renderInbox(inbox);
+  renderFilterBar();
   renderKanban(allTasks);
   renderDashboard(metrics);
   renderShareState(shareState);
@@ -1973,15 +2093,27 @@ async function switchProject(slug) {
 }
 
 function filterTasks(q) {
-  if (!q) return allTasks;
-  const ql = q.toLowerCase();
-  return allTasks.filter(t =>
-    (t.title || '').toLowerCase().includes(ql) ||
-    (t.id || '').toLowerCase().includes(ql) ||
-    (t.agent || '').toLowerCase().includes(ql) ||
-    (t.labels || []).some(l => l.toLowerCase().includes(ql)) ||
-    (t.status || '').toLowerCase().includes(ql)
-  );
+  let tasks = allTasks;
+  if (q) {
+    const ql = q.toLowerCase();
+    tasks = tasks.filter(t =>
+      (t.title || '').toLowerCase().includes(ql) ||
+      (t.id || '').toLowerCase().includes(ql) ||
+      (t.agent || '').toLowerCase().includes(ql) ||
+      (t.labels || []).some(l => l.toLowerCase().includes(ql)) ||
+      (t.status || '').toLowerCase().includes(ql)
+    );
+  }
+  if (activeFilters.agents.size) {
+    tasks = tasks.filter(t => activeFilters.agents.has(t.agent));
+  }
+  if (activeFilters.priorities.size) {
+    tasks = tasks.filter(t => activeFilters.priorities.has(PRIORITY_LABEL[t.priority ?? 3]));
+  }
+  if (activeFilters.labels.size) {
+    tasks = tasks.filter(t => (t.labels || []).some(l => activeFilters.labels.has(l)));
+  }
+  return tasks;
 }
 
 function onSearch(q) {
@@ -2127,6 +2259,7 @@ async function init() {
   if (crIcon) crIcon.innerHTML = archetypeIcon(arch, 14);
 
   renderInbox(inbox);
+  renderFilterBar();
   renderKanban(allTasks);
   renderDashboard(metrics);
   renderShareState(shareState);
@@ -2201,8 +2334,90 @@ function updateNavCounts() {
   document.getElementById('nav-agent-count').textContent = Object.keys(agents).length;
 }
 
+/* ── Filter bar ─────────────────────────────────────────────────────────── */
+function renderFilterBar() {
+  const bar = document.getElementById('filter-bar');
+  if (!bar) return;
+
+  // Collect unique values from allTasks
+  const agentSet = new Set();
+  const labelSet = new Set();
+  const priorityExists = new Set();
+  for (const t of allTasks) {
+    if (t.agent) agentSet.add(t.agent);
+    for (const l of (t.labels || [])) {
+      if (l !== 'gate') labelSet.add(l);
+    }
+    if (t.priority != null) priorityExists.add(PRIORITY_LABEL[t.priority]);
+  }
+
+  const hasAny = activeFilters.agents.size || activeFilters.priorities.size || activeFilters.labels.size;
+
+  let html = '';
+
+  if (agentSet.size) {
+    html += `<span class="filter-section-label">Agent:</span>`;
+    for (const a of [...agentSet].sort()) {
+      const active = activeFilters.agents.has(a) ? 'active' : '';
+      html += `<button class="fchip fchip-agent ${active}" onclick="toggleFilter('agents','${esc(a)}')">${esc(a)}</button>`;
+    }
+  }
+
+  const priorityOrder = ['Urgent','High','Medium','Low'];
+  const existingPriorities = priorityOrder.filter(p => priorityExists.has(p));
+  if (existingPriorities.length) {
+    html += `<span class="filter-section-label" style="margin-left:6px">Priority:</span>`;
+    for (const p of existingPriorities) {
+      const active = activeFilters.priorities.has(p) ? 'active' : '';
+      html += `<button class="fchip fchip-priority ${active}" onclick="toggleFilter('priorities','${esc(p)}')">${esc(p)}</button>`;
+    }
+  }
+
+  if (labelSet.size) {
+    html += `<span class="filter-section-label" style="margin-left:6px">Label:</span>`;
+    for (const l of [...labelSet].sort()) {
+      const active = activeFilters.labels.has(l) ? 'active' : '';
+      html += `<button class="fchip fchip-label ${active}" onclick="toggleFilter('labels','${esc(l)}')">${esc(l)}</button>`;
+    }
+  }
+
+  if (hasAny) {
+    html += `<button class="fchip fchip-clear" onclick="clearFilters()">✕ Clear all</button>`;
+  }
+
+  bar.innerHTML = html;
+
+  // Update task count in topbar
+  const filtered = filterTasks(searchQuery);
+  const countEl = document.getElementById('topbar-task-count');
+  if (countEl) {
+    if (hasAny || searchQuery) {
+      countEl.textContent = `${filtered.length} FILTERED`;
+    } else {
+      countEl.textContent = `${allTasks.length} ISSUES`;
+    }
+  }
+}
+
+function toggleFilter(type, value) {
+  if (activeFilters[type].has(value)) {
+    activeFilters[type].delete(value);
+  } else {
+    activeFilters[type].add(value);
+  }
+  renderFilterBar();
+  renderKanban(filterTasks(searchQuery));
+}
+
+function clearFilters() {
+  activeFilters = { agents: new Set(), priorities: new Set(), labels: new Set() };
+  renderFilterBar();
+  renderKanban(filterTasks(searchQuery));
+}
+
 /* ── Kanban ─────────────────────────────────────────────────────────────── */
 function renderKanban(tasks) {
+  renderFilterBar();
   const board = document.getElementById('kanban-board');
   const byCol = Object.fromEntries(COLUMNS.map(c => [c.id, []]));
   for (const t of tasks) {
@@ -2243,11 +2458,13 @@ function cardHTML(t) {
   const elapsed = (t.status === 'in_progress' && t.updated_at)
     ? `<span class="card-time">${relTime(t.updated_at)}</span>` : '';
   const descPreview = t.description ? `<div class="card-desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : '';
+  const statusColor = { backlog:'var(--text3)', in_progress:'var(--status-progress)', done:'var(--status-done)', blocked:'var(--status-blocked)', gate:'var(--status-gate)' };
+  const statusDotColor = statusColor[t.status] || 'var(--text3)';
   return `
     <div class="card ${isGate ? 'card-gate' : ''}">
       <div class="id">${esc(t.id || '')}</div>
       <div class="card-row1" style="margin-top:4px">
-        <div class="priority-dot ${pClass}" title="${pLabel}"></div>
+        <div class="priority-dot ${pClass}" title="${pLabel} — click to cycle" onclick="event.stopPropagation(); cycleTaskPriority('${esc(t.id)}', ${pIdx})"></div>
         <div class="title">${esc(t.title)}</div>
       </div>
       ${descPreview}
@@ -2255,7 +2472,10 @@ function cardHTML(t) {
         ${isGate ? `<span class="chip chip-gate">gate</span>` : ''}
         ${t.agent ? `<span class="chip chip-agent">${esc(t.agent)}</span>` : ''}
         ${labels.map(l => `<span class="chip">${esc(l)}</span>`).join('')}
-        <span class="chip chip-${pClass}">${pLabel}</span>
+        <div class="card-status-edit" onclick="event.stopPropagation(); openStatusPicker('${esc(t.id)}', this)">
+          <span class="pill pill-${t.status || 'backlog'}" style="font-size:10px;height:18px;padding:0 7px">${(t.status || 'backlog').replace('_',' ')}</span>
+          <span class="card-status-chev"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+        </div>
         ${elapsed}
       </div>
       ${isOpenGate ? `
@@ -2287,6 +2507,67 @@ async function gateAction(id, action) {
   });
   if (!res || res.error) {
     alert('Gate action failed: ' + (res?.error || 'network error'));
+  }
+}
+
+/* ── Inline status / priority edit ─────────────────────────────────────── */
+const STATUS_OPTIONS = [
+  { value: 'open',        label: 'Backlog',     color: 'var(--text3)' },
+  { value: 'in_progress', label: 'In Progress', color: 'var(--status-progress)' },
+  { value: 'blocked',     label: 'Blocked',     color: 'var(--status-blocked)' },
+  { value: 'closed',      label: 'Done',        color: 'var(--status-done)' },
+];
+
+function openStatusPicker(id, el) {
+  // Remove any existing picker
+  document.querySelectorAll('.status-picker').forEach(p => p.remove());
+  const picker = document.createElement('div');
+  picker.className = 'status-picker';
+  picker.innerHTML = STATUS_OPTIONS.map(s => `
+    <button class="sp-item" onclick="updateTaskStatus('${esc(id)}', '${s.value}')">
+      <span class="sp-dot" style="background:${s.color}"></span>
+      ${s.label}
+    </button>`).join('');
+  el.style.position = 'relative';
+  el.appendChild(picker);
+  // Close on outside click (next tick so this click doesn't immediately close it)
+  setTimeout(() => {
+    document.addEventListener('click', function closeIt(e) {
+      if (!picker.contains(e.target)) {
+        picker.remove();
+        document.removeEventListener('click', closeIt);
+      }
+    });
+  }, 0);
+}
+
+async function updateTaskStatus(id, status) {
+  document.querySelectorAll('.status-picker').forEach(p => p.remove());
+  const res = await api(`/api/tasks/${encodeURIComponent(id)}/status${pqs()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, project: currentProject }),
+  });
+  if (!res || res.error) {
+    showToast('Status update failed: ' + (res?.error || 'network error'), 'error');
+  }
+}
+
+function cycleTaskPriority(id, current) {
+  const next = (current + 1) % 4;
+  updateTaskPriority(id, next);
+}
+
+async function updateTaskPriority(id, priority) {
+  const res = await api(`/api/tasks/${encodeURIComponent(id)}/priority${pqs()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ priority }),
+  });
+  if (!res || res.error) {
+    showToast('Priority update failed: ' + (res?.error || 'network error'), 'error');
+  } else {
+    showToast(`Priority → <strong>${esc(PRIORITY_LABEL[priority])}</strong>`, 'info', 1500);
   }
 }
 
@@ -2332,6 +2613,23 @@ function renderDashboard(m) {
       <span class="rail"><span class="fill" style="width:${(n/maxRuns*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
       <span class="pct">${Math.round(n/maxRuns*100)}%</span>
     </div>`).join('') : '<div class="empty">No agent runs yet</div>';
+
+  // Agent cost breakdown
+  const agentsCost = m.agents_cost || [];
+  const costPanel = document.getElementById('agent-cost-panel');
+  if (costPanel) {
+    if (agentsCost.length) {
+      const maxCost = Math.max(...agentsCost.map(a => a.llm_usd), 0.0001);
+      costPanel.innerHTML = agentsCost.map((a, i) => `
+        <div class="agent-cost-row">
+          <span class="name">✱ ${esc(a.agent)}</span>
+          <span class="rail"><span class="fill" style="width:${(a.llm_usd/maxCost*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
+          <span class="amt">$${a.llm_usd.toFixed(4)}</span>
+        </div>`).join('');
+    } else {
+      costPanel.innerHTML = '<div class="cost-empty">No agent cost data — tasks need estimated_minutes set.</div>';
+    }
+  }
 
   const verdicts = (m.verdicts || []).slice().reverse().slice(0, 10);
   document.getElementById('timeline').innerHTML = verdicts.length ? verdicts.map(v => {
@@ -2440,6 +2738,25 @@ function openSide(task) {
     ${notesSec}
     ${task.close_reason ? `<div class="result-box"><div class="side-section-head">Close reason</div>${esc(task.close_reason)}</div>` : ''}`;
   document.getElementById('side-panel').classList.add('open');
+  // Clear and load timeline
+  const tlEl = document.getElementById('side-timeline');
+  if (tlEl) tlEl.innerHTML = '';
+  api(`/api/tasks/${encodeURIComponent(task.id)}/history${pqs()}`).then(h => {
+    if (!h || !h.events?.length) return;
+    const tlEl2 = document.getElementById('side-timeline');
+    if (!tlEl2) return;
+    tlEl2.innerHTML = `
+      <div class="side-section-head">Activity</div>
+      ${h.events.map(e => `<div class="tl-event">
+        <span class="tl-dot"></span>
+        <div class="tl-content">
+          <span class="tl-actor">${esc(e.actor || 'system')}</span>
+          <span class="tl-action">${esc(e.action || 'updated')}</span>
+          ${e.from && e.to ? `<span class="tl-change">${esc(e.from)} → ${esc(e.to)}</span>` : ''}
+          <span class="tl-ts">${fmtDate(e.ts)}</span>
+        </div>
+      </div>`).join('')}`;
+  });
 }
 function closeSide() {
   document.getElementById('side-panel').classList.remove('open');
