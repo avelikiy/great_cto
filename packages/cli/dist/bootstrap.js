@@ -25,7 +25,7 @@ export function bootstrap(dir, detection, archetype, compliance, detectionMeta) 
 
 primary: ${archetype}
 archetype: ${archetype}
-project_size: medium
+project_size: ${detection.projectSize}
 stack: ${stackLine}
 languages: ${detection.languages.join(", ") || "to be defined"}
 package-manager: ${detection.packageManager ?? "none"}

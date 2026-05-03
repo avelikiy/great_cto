@@ -15,6 +15,16 @@ function mkDetection(stack = [], extras = {}) {
     hasTests: false,
     hasCI: false,
     hasExistingGreatCto: false,
+    codeStructure: {
+      hasRoutesDir: false,
+      hasCliEntry: false,
+      hasPublicHtml: false,
+      hasServerEntry: false,
+      hasMonorepo: false,
+    },
+    scripts: { hasStart: false, hasDev: false, hasBuild: false, hasPublish: false },
+    projectSize: "nano",
+    readmeKeywords: [],
     ...extras,
   };
 }
@@ -40,9 +50,9 @@ test("Solidity → web3", () => {
   assert.ok(pick.rationale.includes("Solidity"));
 });
 
-test("MCP SDK → ai-system", () => {
+test("MCP SDK → agent-product (MCP is an agent protocol, not just AI wrapper)", () => {
   const pick = pickArchetype(mkDetection(["mcp", "nodejs", "typescript"]));
-  assert.equal(pick.primary, "ai-system");
+  assert.equal(pick.primary, "agent-product");
   assert.ok(pick.rationale.includes("MCP"));
 });
 
@@ -144,4 +154,111 @@ test("Stripe in stack forces pci-dss regardless of archetype", () => {
   // edge case: user overrides archetype but Stripe is there
   const comp = suggestCompliance(mkDetection(["stripe"]), "web-service");
   assert.ok(comp.includes("pci-dss"));
+});
+
+// ── Wave 1: code structure + scripts ───────────────────────────────────────
+
+test("Express + routes/ dir → web-service (not library) even if 'library' in stack", () => {
+  const pick = pickArchetype(mkDetection(["express", "nodejs", "library"], {
+    codeStructure: { hasRoutesDir: true, hasCliEntry: false, hasPublicHtml: false, hasServerEntry: true, hasMonorepo: false },
+    scripts: { hasStart: true, hasDev: true, hasBuild: false, hasPublish: false },
+  }));
+  assert.equal(pick.primary, "web-service");
+});
+
+test("plain nodejs + bin entry → cli-tool", () => {
+  const pick = pickArchetype(mkDetection(["nodejs", "cli", "library"], {
+    codeStructure: { hasRoutesDir: false, hasCliEntry: true, hasPublicHtml: false, hasServerEntry: false, hasMonorepo: false },
+  }));
+  assert.equal(pick.primary, "cli-tool");
+});
+
+test("library wins when no web-service shape and explicit library marker", () => {
+  const pick = pickArchetype(mkDetection(["nodejs", "library"], {
+    codeStructure: { hasRoutesDir: false, hasCliEntry: false, hasPublicHtml: false, hasServerEntry: false, hasMonorepo: false },
+  }));
+  assert.equal(pick.primary, "library");
+});
+
+// ── Wave 2: agent-product, fintech, healthcare ─────────────────────────────
+
+test("LangChain + Pinecone → agent-product (RAG-style)", () => {
+  const pick = pickArchetype(mkDetection(["langchain", "pinecone", "openai-sdk", "nodejs"]));
+  assert.equal(pick.primary, "agent-product");
+  assert.ok(pick.confidence === "high" || pick.confidence === "medium");
+});
+
+test("LangGraph alone → agent-product", () => {
+  const pick = pickArchetype(mkDetection(["langgraph", "nodejs"]));
+  assert.equal(pick.primary, "agent-product");
+});
+
+test("CrewAI → agent-product", () => {
+  const pick = pickArchetype(mkDetection(["crewai", "python"]));
+  assert.equal(pick.primary, "agent-product");
+});
+
+test("Anthropic SDK alone (no vector DB, no agent FW) → ai-system", () => {
+  const pick = pickArchetype(mkDetection(["anthropic-sdk", "nodejs"]));
+  assert.equal(pick.primary, "ai-system");
+});
+
+test("Plaid → fintech (not commerce)", () => {
+  const pick = pickArchetype(mkDetection(["plaid", "nodejs", "express"]));
+  assert.equal(pick.primary, "fintech");
+});
+
+test("FHIR → healthcare", () => {
+  const pick = pickArchetype(mkDetection(["fhir", "nodejs"]));
+  assert.equal(pick.primary, "healthcare");
+});
+
+test("HL7 → healthcare", () => {
+  const pick = pickArchetype(mkDetection(["hl7", "python"]));
+  assert.equal(pick.primary, "healthcare");
+});
+
+// ── Compliance: new archetypes ─────────────────────────────────────────────
+
+test("fintech archetype → pci-dss + sox + kyc-aml", () => {
+  const comp = suggestCompliance(mkDetection(["plaid"]), "fintech");
+  assert.ok(comp.includes("pci-dss"));
+  assert.ok(comp.includes("sox"));
+  assert.ok(comp.includes("kyc-aml"));
+});
+
+test("healthcare archetype → hipaa + hitech", () => {
+  const comp = suggestCompliance(mkDetection(["fhir"]), "healthcare");
+  assert.ok(comp.includes("hipaa"));
+  assert.ok(comp.includes("hitech"));
+});
+
+test("agent-product → eu-ai-act + owasp-llm", () => {
+  const comp = suggestCompliance(mkDetection(["langgraph"]), "agent-product");
+  assert.ok(comp.includes("eu-ai-act"));
+  assert.ok(comp.includes("owasp-llm-top-10"));
+});
+
+test("Plaid in stack forces kyc-aml + sox even on web-service archetype", () => {
+  const comp = suggestCompliance(mkDetection(["plaid"]), "web-service");
+  assert.ok(comp.includes("kyc-aml"));
+  assert.ok(comp.includes("sox"));
+});
+
+test("FHIR in stack forces hipaa even outside healthcare archetype", () => {
+  const comp = suggestCompliance(mkDetection(["fhir"]), "web-service");
+  assert.ok(comp.includes("hipaa"));
+});
+
+// ── Tie-break priority ─────────────────────────────────────────────────────
+
+test("fintech beats commerce when both Stripe + Plaid present", () => {
+  const pick = pickArchetype(mkDetection(["stripe", "plaid", "nodejs"]));
+  assert.equal(pick.primary, "fintech");
+});
+
+test("agent-product beats ai-system on tied score", () => {
+  // forge a tie scenario: low scores but agent-product priority higher
+  const pick = pickArchetype(mkDetection(["mcp", "anthropic-sdk", "nodejs"]));
+  assert.equal(pick.primary, "agent-product");
 });
