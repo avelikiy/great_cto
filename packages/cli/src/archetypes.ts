@@ -11,7 +11,10 @@ export type Archetype =
   | "data-platform"
   | "infra"
   | "library"
+  | "cli-tool"
   | "commerce"
+  | "fintech"
+  | "healthcare"
   | "web3"
   | "iot-embedded"
   | "regulated"
@@ -96,9 +99,17 @@ const RULES: Rule[] = [
     archetype: "commerce",
     score: (d) => {
       let s = 0;
-      if (d.stack.includes("stripe")) s += 5;
-      if (d.stack.includes("shopify")) s += 5;
-      if (d.stack.includes("braintree")) s += 5;
+      // Don't score commerce if fintech signals are stronger (Plaid etc.)
+      if (d.stack.includes("plaid") || d.stack.includes("dwolla") || d.stack.includes("teller")) return 0;
+      if (d.stack.includes("stripe")) s += 7;
+      if (d.stack.includes("shopify")) s += 7;
+      if (d.stack.includes("braintree")) s += 6;
+      if (d.stack.includes("adyen")) s += 6;
+      if (d.stack.includes("paddle")) s += 5;
+      if (d.stack.includes("lemonsqueezy")) s += 5;
+      // Add small bonus when paired with web framework (real e-commerce, not just SDK)
+      if (s > 0 && (d.stack.includes("next.js") || d.stack.includes("nuxt") ||
+                    d.stack.includes("remix") || d.stack.includes("sveltekit"))) s += 1;
       return s;
     },
     reason: (d) => {
@@ -106,6 +117,8 @@ const RULES: Rule[] = [
       if (d.stack.includes("stripe")) payments.push("Stripe");
       if (d.stack.includes("shopify")) payments.push("Shopify");
       if (d.stack.includes("braintree")) payments.push("Braintree");
+      if (d.stack.includes("adyen")) payments.push("Adyen");
+      if (d.stack.includes("paddle")) payments.push("Paddle");
       return `payments SDK detected: ${payments.join(", ")} — PCI-DSS gate mandatory`;
     },
   },
@@ -129,29 +142,131 @@ const RULES: Rule[] = [
     reason: (_d) => "platformio.ini / sdkconfig detected — embedded firmware archetype",
   },
 
+  // ── agent-product (LLM + vector DB OR multi-agent framework) ────
+  // Higher score than ai-system: this is an autonomous-agent product, not a wrapper
+  {
+    archetype: "agent-product",
+    score: (d) => {
+      const llms = ["anthropic-sdk", "openai-sdk", "google-ai", "aws-bedrock", "cohere"];
+      const vdbs = ["pinecone", "weaviate", "chroma", "qdrant"];
+      const agents = ["langgraph", "crewai", "autogen", "mastra", "mcp"];
+      const hasLlm = llms.some((s) => d.stack.includes(s));
+      const hasVdb = vdbs.some((s) => d.stack.includes(s));
+      const hasAgentFw = agents.some((s) => d.stack.includes(s));
+      let s = 0;
+      if (hasLlm && hasVdb) s += 7;     // RAG-style agent
+      if (hasAgentFw) s += 6;           // explicit agent framework
+      if (hasLlm && hasAgentFw) s += 2; // bonus
+      // README mining hint
+      if (d.readmeKeywords.includes("agent") || d.readmeKeywords.includes("ai")) s += 1;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("langgraph")) bits.push("LangGraph");
+      if (d.stack.includes("crewai")) bits.push("CrewAI");
+      if (d.stack.includes("autogen")) bits.push("AutoGen");
+      if (d.stack.includes("mastra")) bits.push("Mastra");
+      if (d.stack.includes("mcp")) bits.push("MCP SDK");
+      const vdb = ["pinecone","weaviate","chroma","qdrant"].filter((s) => d.stack.includes(s));
+      if (vdb.length) bits.push(`vector DB (${vdb.join(",")})`);
+      return `agent-product detected — ${bits.join(", ")} — agent-eval + isolation + prompt-injection gates required`;
+    },
+  },
+
   // ── ai-system ────────────────────────────────────
+  // Lower score than agent-product: an LLM-using app without vector DB / agent FW
   {
     archetype: "ai-system",
     score: (d) => {
       let s = 0;
       if (d.stack.includes("anthropic-sdk")) s += 4;
       if (d.stack.includes("openai-sdk")) s += 3;
-      if (d.stack.includes("langchain")) s += 4;
-      if (d.stack.includes("llamaindex")) s += 4;
-      if (d.stack.includes("mcp")) s += 5;
-      if (d.stack.includes("ml")) s += 3;
+      if (d.stack.includes("google-ai")) s += 3;
+      if (d.stack.includes("aws-bedrock")) s += 3;
+      if (d.stack.includes("cohere")) s += 2;
+      if (d.stack.includes("replicate")) s += 2;
+      if (d.stack.includes("langchain")) s += 3;
+      if (d.stack.includes("llamaindex")) s += 3;
+      if (d.stack.includes("vercel-ai-sdk")) s += 3;
+      if (d.stack.includes("ml")) s += 2;
+      // Don't double-score if already an agent-product
+      const agents = ["langgraph", "crewai", "autogen", "mastra", "mcp"];
+      if (agents.some((a) => d.stack.includes(a))) s = Math.max(0, s - 2);
+      const vdbs = ["pinecone","weaviate","chroma","qdrant"];
+      if (vdbs.some((v) => d.stack.includes(v))) s = Math.max(0, s - 2);
       return s;
     },
     reason: (d) => {
       const bits: string[] = [];
-      if (d.stack.includes("mcp")) bits.push("MCP SDK");
       if (d.stack.includes("anthropic-sdk")) bits.push("Anthropic SDK");
       if (d.stack.includes("openai-sdk")) bits.push("OpenAI SDK");
+      if (d.stack.includes("google-ai")) bits.push("Gemini");
+      if (d.stack.includes("aws-bedrock")) bits.push("AWS Bedrock");
       if (d.stack.includes("langchain")) bits.push("LangChain");
       if (d.stack.includes("llamaindex")) bits.push("LlamaIndex");
+      if (d.stack.includes("vercel-ai-sdk")) bits.push("Vercel AI SDK");
       if (d.stack.includes("ml")) bits.push("ML stack");
-      return `AI/LLM tooling detected (${bits.join(", ")}) — security gate mandatory for prompt injection + output sanitization`;
+      return `AI/LLM tooling detected (${bits.join(", ")}) — prompt injection + output sanitization gates`;
     },
+  },
+
+  // ── fintech (Plaid, banking integrations) ────────
+  {
+    archetype: "fintech",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("plaid")) s += 10;
+      if (d.stack.includes("wise")) s += 9;
+      if (d.stack.includes("dwolla")) s += 9;
+      if (d.stack.includes("teller")) s += 9;
+      if (d.stack.includes("fintech")) s += 7;
+      if (d.readmeKeywords.includes("fintech")) s += 2;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("plaid")) bits.push("Plaid");
+      if (d.stack.includes("wise")) bits.push("Wise");
+      if (d.stack.includes("dwolla")) bits.push("Dwolla");
+      if (d.stack.includes("teller")) bits.push("Teller");
+      return `fintech integration: ${bits.join(", ")} — SOX, PCI, KYC/AML compliance gates`;
+    },
+  },
+
+  // ── healthcare (FHIR/HL7/PHI) ───────────────────
+  {
+    archetype: "healthcare",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("fhir")) s += 7;
+      if (d.stack.includes("hl7")) s += 6;
+      if (d.readmeKeywords.includes("healthcare")) s += 3;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("fhir")) bits.push("FHIR");
+      if (d.stack.includes("hl7")) bits.push("HL7");
+      return `healthcare data tooling: ${bits.join(", ")} — HIPAA/PHI handling gates required`;
+    },
+  },
+
+  // ── cli-tool (explicit CLI: bin field + cli entry) ─
+  {
+    archetype: "cli-tool",
+    score: (d) => {
+      let s = 0;
+      // Explicit cli marker from detect.ts (bin field present)
+      if (d.stack.includes("cli")) s += 6;
+      if (d.codeStructure.hasCliEntry) s += 2;
+      if (d.readmeKeywords.includes("cli")) s += 1;
+      // Penalize if web framework present (CLI + web is rare)
+      const webFw = ["next.js","express","fastify","nestjs","django","fastapi","flask","hono","koa"];
+      if (webFw.some((w) => d.stack.includes(w))) s = Math.max(0, s - 4);
+      return s;
+    },
+    reason: (_d) => "package.json bin field + CLI entry detected — argument-parsing, exit-code, --help gates",
   },
 
   // ── mobile-app ───────────────────────────────────
@@ -177,8 +292,24 @@ const RULES: Rule[] = [
   // ── data-platform ────────────────────────────────
   {
     archetype: "data-platform",
-    score: (d) => (d.stack.includes("data-pipeline") ? 4 : 0),
-    reason: (_d) => "data pipeline tooling detected (pandas/airflow/prefect)",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("data-pipeline")) s += 6;
+      if (d.stack.includes("dbt")) s += 3;
+      if (d.stack.includes("dagster")) s += 3;
+      if (d.stack.includes("polars")) s += 2;
+      if (d.stack.includes("iceberg")) s += 3;
+      if (d.stack.includes("duckdb")) s += 2;
+      if (d.readmeKeywords.includes("data")) s += 1;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("data-pipeline")) bits.push("pandas/airflow/prefect");
+      if (d.stack.includes("dbt")) bits.push("dbt");
+      if (d.stack.includes("dagster")) bits.push("dagster");
+      return `data pipeline tooling: ${bits.join(", ") || "detected"}`;
+    },
   },
 
   // ── infra ────────────────────────────────────────
@@ -212,34 +343,60 @@ const RULES: Rule[] = [
     archetype: "web-service",
     score: (d) => {
       let s = 0;
-      const webFrameworks = [
-        "next.js", "react", "vue", "angular", "svelte", "astro",
-        "express", "fastify", "nestjs", "hono",
-        "django", "fastapi", "flask",
-      ];
-      for (const fw of webFrameworks) if (d.stack.includes(fw)) s += 1;
-      if (s > 0) s += 2; // baseline bonus for any web framework
+      const serverFrameworks = ["express", "fastify", "nestjs", "hono", "koa",
+                                 "django", "fastapi", "flask", "gin", "echo", "chi"];
+      const fullstackFw = ["next.js", "nuxt", "remix", "sveltekit", "astro"];
+      const uiOnly = ["react", "vue", "angular", "svelte"];
+      for (const fw of serverFrameworks) if (d.stack.includes(fw)) s += 3;
+      for (const fw of fullstackFw) if (d.stack.includes(fw)) s += 4;
+      // UI-only: weaker signal (could be a library)
+      for (const fw of uiOnly) if (d.stack.includes(fw)) s += 1;
+      if (s > 0) s += 1; // baseline web bonus
+
+      // Code-structure boost
+      if (d.codeStructure.hasRoutesDir) s += 2;
+      if (d.codeStructure.hasServerEntry) s += 2;
+      if (d.scripts.hasStart || d.scripts.hasDev) s += 1;
+
+      // Penalize if explicitly a library (publishConfig/cli)
+      if (d.stack.includes("library") && !d.codeStructure.hasRoutesDir && !d.codeStructure.hasServerEntry) {
+        s = Math.max(0, s - 3);
+      }
       return s;
     },
     reason: (d) => {
       const fw = d.stack.find((t) =>
-        ["next.js", "react", "vue", "angular", "svelte", "astro", "express", "fastify", "nestjs", "hono", "django", "fastapi", "flask"].includes(t),
+        ["next.js", "express", "fastify", "nestjs", "hono", "koa",
+         "django", "fastapi", "flask", "gin", "echo"].includes(t),
       );
-      return `web framework detected: ${fw ?? "unknown"}`;
+      const extras: string[] = [];
+      if (d.codeStructure.hasRoutesDir) extras.push("routes/");
+      if (d.codeStructure.hasServerEntry) extras.push("server entry");
+      return `web framework detected: ${fw ?? "unknown"}${extras.length ? " + " + extras.join(", ") : ""}`;
     },
   },
 
   // ── library (no app framework, just code) ────────
-  // Detection priority: explicit "library" or "cli" stack signal from detect.ts (high confidence)
-  // Fallback: plain runtime + no web/mobile/infra framework (low confidence)
+  // Strong signal: detect.ts marked "library" + no web/server structure
   {
     archetype: "library",
     score: (d) => {
-      // Strong signal: detect.ts found library indicators
-      if (d.stack.includes("library") || d.stack.includes("cli")) {
-        return 7;
-      }
-      // Weaker signal: no app framework detected
+      const isExplicitLib = d.stack.includes("library");
+      const isExplicitCli = d.stack.includes("cli");
+      // Don't claim library if web-service shape is obvious
+      const looksLikeWebService = d.codeStructure.hasRoutesDir || d.codeStructure.hasServerEntry;
+      if (looksLikeWebService) return 0;
+      // Don't claim library if data-pipeline / ml signals dominate
+      if (d.stack.includes("data-pipeline") || d.stack.includes("ml")) return 0;
+      // Don't claim library if a domain-specific archetype is clearly present
+      const domainSignals = ["plaid","wise","dwolla","fhir","hl7","stripe","shopify","solidity",
+                              "embedded","unity","unreal","godot","react-native","expo"];
+      if (domainSignals.some((s) => d.stack.includes(s))) return 0;
+
+      if (isExplicitLib && !isExplicitCli) return 7;
+      if (isExplicitLib && isExplicitCli) return 4; // cli-tool rule will outscore
+
+      // Weaker signal: plain runtime + no app framework
       const hasApp = d.stack.some((t) =>
         ["next.js", "django", "fastapi", "flask", "express", "fastify", "nestjs", "hono",
          "react-native", "expo", "tauri", "capacitor", "flutter",
@@ -254,19 +411,37 @@ const RULES: Rule[] = [
       return 0;
     },
     reason: (d) => {
-      if (d.stack.includes("library") || d.stack.includes("cli")) {
-        return "package.json/pyproject/Cargo.toml indicates a publishable library or CLI";
+      if (d.stack.includes("library")) {
+        return "package.json/pyproject/Cargo.toml indicates a publishable library";
       }
       return "no web/mobile/infra framework detected — looks like a library/SDK";
     },
   },
 ];
 
+// Tie-break priority — when two rules score equally, prefer the one
+// higher in this list (more specific / domain-bound first).
+const TIE_BREAK_PRIORITY: Archetype[] = [
+  "browser-extension", "iot-embedded", "web3", "game",
+  "agent-product", "fintech", "healthcare",
+  "commerce", "ai-system", "devtools",
+  "data-platform", "infra", "mobile-app",
+  "cli-tool", "web-service", "library", "regulated", "greenfield",
+];
+
+function priorityIndex(a: Archetype): number {
+  const i = TIE_BREAK_PRIORITY.indexOf(a);
+  return i < 0 ? TIE_BREAK_PRIORITY.length : i;
+}
+
 export function pickArchetype(d: DetectionResult): ArchetypePick {
   const scored = RULES
     .map((r) => ({ archetype: r.archetype, score: r.score(d), reason: r.reason(d) }))
     .filter((r) => r.score > 0)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return priorityIndex(a.archetype) - priorityIndex(b.archetype);
+    });
 
   if (scored.length === 0) {
     return {
@@ -280,30 +455,70 @@ export function pickArchetype(d: DetectionResult): ArchetypePick {
   const top = scored[0]!;
   const nextBest = scored[1]?.score ?? 0;
   const gap = top.score - nextBest;
+  // Confidence: high when score≥6 and gap≥3; medium ≥4; else low
   const confidence: ArchetypePick["confidence"] =
-    top.score >= 5 && gap >= 2 ? "high" :
-    top.score >= 3 ? "medium" : "low";
+    top.score >= 6 && gap >= 3 ? "high" :
+    top.score >= 4 && gap >= 1 ? "medium" : "low";
+
+  // Dedupe alternatives, keep top 3
+  const seen = new Set<Archetype>([top.archetype]);
+  const alternatives: Archetype[] = [];
+  for (const r of scored.slice(1)) {
+    if (!seen.has(r.archetype)) {
+      seen.add(r.archetype);
+      alternatives.push(r.archetype);
+      if (alternatives.length >= 3) break;
+    }
+  }
 
   return {
     primary: top.archetype,
     confidence,
     rationale: top.reason,
-    alternatives: scored.slice(1, 4).map((r) => r.archetype),
+    alternatives,
   };
 }
 
-// Compliance hints — auto-suggested based on stack.
+// Compliance hints — auto-suggested based on stack and README.
 export function suggestCompliance(d: DetectionResult, archetype: Archetype): string[] {
   const c = new Set<string>();
+
+  // ── archetype defaults ───────────────────────────
   if (archetype === "commerce") { c.add("pci-dss"); c.add("gdpr"); }
-  if (archetype === "ai-system") { c.add("eu-ai-act"); }
+  if (archetype === "fintech") { c.add("pci-dss"); c.add("sox"); c.add("kyc-aml"); c.add("gdpr"); }
+  if (archetype === "healthcare") { c.add("hipaa"); c.add("gdpr"); c.add("hitech"); }
+  if (archetype === "ai-system" || archetype === "agent-product") {
+    c.add("eu-ai-act");
+    // Add OWASP LLM only if it's truly an agent product
+    if (archetype === "agent-product") c.add("owasp-llm-top-10");
+  }
   if (archetype === "web3") { c.add("soc2"); }
-  if (archetype === "iot-embedded") { c.add("iso27001"); }
+  if (archetype === "iot-embedded") { c.add("iso27001"); c.add("etsi-en-303-645"); }
   if (archetype === "browser-extension") { c.add("csp"); c.add("mv3-security"); c.add("gdpr"); }
   if (archetype === "game") { c.add("coppa"); c.add("age-rating"); c.add("accessibility"); }
   if (archetype === "devtools") { c.add("openssf"); c.add("api-stability"); c.add("soc2-type-2"); c.add("gdpr"); }
-  if (d.stack.includes("stripe")) c.add("pci-dss");
-  // Reasonable default for any web service storing user data
-  if (archetype === "web-service") c.add("gdpr");
+  if (archetype === "web-service") c.add("gdpr"); // baseline for user data
+  if (archetype === "cli-tool") { /* CLI tools usually don't have compliance load */ }
+
+  // ── stack-derived (cross-archetype) ──────────────
+  if (d.stack.includes("stripe") || d.stack.includes("braintree") ||
+      d.stack.includes("adyen") || d.stack.includes("paddle")) {
+    c.add("pci-dss");
+  }
+  if (d.stack.includes("plaid") || d.stack.includes("dwolla") ||
+      d.stack.includes("teller") || d.stack.includes("wise")) {
+    c.add("kyc-aml");
+    c.add("sox");
+  }
+  if (d.stack.includes("fhir") || d.stack.includes("hl7")) {
+    c.add("hipaa");
+    c.add("hitech");
+  }
+
+  // ── README-derived ───────────────────────────────
+  if (d.readmeKeywords.includes("regulated")) c.add("compliance-required");
+  if (d.readmeKeywords.includes("healthcare")) c.add("hipaa");
+  if (d.readmeKeywords.includes("fintech")) c.add("sox");
+
   return Array.from(c).sort();
 }
