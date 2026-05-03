@@ -490,6 +490,21 @@ function getMetrics(cwd = process.cwd()) {
     agentRuns[v.agent] = (agentRuns[v.agent] || 0) + 1;
   }
 
+  // Agent cost breakdown: proxy cost = estimated_minutes / 60 * 0.02 per task
+  const agentCostMap = {};
+  for (const t of tasks) {
+    if (!t.agent) continue;
+    const mins = (t.estimated_minutes || 0);
+    const cost = mins / 60 * 0.02;
+    if (!agentCostMap[t.agent]) agentCostMap[t.agent] = { agent: t.agent, llm_usd: 0, tasks_done: 0 };
+    agentCostMap[t.agent].llm_usd += cost;
+    if (t.status === 'done') agentCostMap[t.agent].tasks_done += 1;
+  }
+  const agentsCost = Object.values(agentCostMap)
+    .map(a => ({ ...a, llm_usd: Math.round(a.llm_usd * 10000) / 10000 }))
+    .filter(a => a.llm_usd > 0)
+    .sort((a, b) => b.llm_usd - a.llm_usd);
+
   return {
     tasks: { total: tasks.length, done: done.length, in_progress: inProgress.length, backlog: backlog.length },
     velocity: { this_week: doneThisWeek.length, this_month: doneThisMonth.length },
@@ -498,6 +513,7 @@ function getMetrics(cwd = process.cwd()) {
     qa: qaStats,
     security: secStats,
     agents: agentRuns,
+    agents_cost: agentsCost,
     verdicts: verdicts.slice(-20),
     recent_done: done.slice(-10).reverse(),
   };
@@ -850,6 +866,105 @@ const server = http.createServer(async (req, res) => {
     const days = parseInt(url.searchParams.get('days') || '30', 10);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getCostHistory(cwd, days)));
+    return;
+  }
+
+  // Task status update
+  if (pathname.match(/^\/api\/tasks\/[^/]+\/status$/) && req.method === 'POST') {
+    const id = pathname.split('/')[3];
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { status } = JSON.parse(body || '{}');
+        const validStatuses = ['open', 'in_progress', 'blocked', 'closed'];
+        if (!validStatuses.includes(status)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'invalid status' }));
+          return;
+        }
+        const r = spawnSync('bd', ['update', id, '--status', status], { cwd, encoding: 'utf8' });
+        if (r.status !== 0) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
+          return;
+        }
+        bdCacheInvalidate(cwd);
+        broadcastTasks(cwd);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e.message || e) }));
+      }
+    });
+    return;
+  }
+
+  // Task priority update
+  if (pathname.match(/^\/api\/tasks\/[^/]+\/priority$/) && req.method === 'POST') {
+    const id = pathname.split('/')[3];
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { priority } = JSON.parse(body || '{}');
+        if (priority == null || priority < 0 || priority > 3) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'invalid priority' }));
+          return;
+        }
+        const r = spawnSync('bd', ['update', id, '--priority', String(priority)], { cwd, encoding: 'utf8' });
+        if (r.status !== 0) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
+          return;
+        }
+        bdCacheInvalidate(cwd);
+        broadcastTasks(cwd);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e.message || e) }));
+      }
+    });
+    return;
+  }
+
+  // Task history / timeline from interactions.jsonl
+  if (pathname.match(/^\/api\/tasks\/[^/]+\/history$/) && req.method === 'GET') {
+    const taskId = pathname.split('/')[3];
+    const interactionsFile = path.join(cwd, '.beads', 'interactions.jsonl');
+    if (!fs.existsSync(interactionsFile)) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ events: [] }));
+      return;
+    }
+    try {
+      const lines = fs.readFileSync(interactionsFile, 'utf8').split('\n').filter(Boolean);
+      const events = [];
+      for (const line of lines) {
+        try {
+          const obj = JSON.parse(line);
+          if (obj.id === taskId) {
+            events.push({
+              ts: obj.ts || obj.created_at || null,
+              actor: obj.actor || obj.agent || null,
+              action: obj.action || obj.type || 'updated',
+              from: obj.from || null,
+              to: obj.to || null,
+              notes: obj.notes || null,
+            });
+          }
+        } catch {}
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ events }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(e.message || e) }));
+    }
     return;
   }
 
