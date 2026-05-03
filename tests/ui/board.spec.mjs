@@ -216,13 +216,16 @@ test.describe('great_cto admin — top-20 e2e', () => {
   });
 
   // ── 18. Metrics — agent utilization + activity feed ───────────────────────
-  test('18 metrics has agent bars + activity feed rows', async ({ page }) => {
-    await page.locator('.nav-item[data-tab="dashboard"]').click();
+  test('18 agents tab has agent bars + activity feed rows', async ({ page }) => {
+    await page.locator('.nav-item[data-tab="agents"]').click();
     await page.waitForTimeout(300);
-    // Agent rows OR empty state
-    const agentList = page.locator('#agent-list');
+    // Agent panel visible
+    const agentsPanel = page.locator('#panel-agents');
+    await expect(agentsPanel).toBeVisible();
+    // Agent list and timeline live in agents panel
+    const agentList = page.locator('#panel-agents #agent-list');
     await expect(agentList).toBeVisible();
-    const timeline = page.locator('#timeline');
+    const timeline = page.locator('#panel-agents #timeline');
     await expect(timeline).toBeVisible();
   });
 
