@@ -313,12 +313,29 @@ button { font-family: inherit; cursor: pointer; }
 
 /* Agent breakdown */
 .agent-list { margin-bottom: 8px; }
+.agent-header-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 72px 82px 52px;
+  gap: 10px; align-items: center;
+  padding: 4px 0 6px;
+  font-size: 10px; font-family: var(--mono);
+  letter-spacing: 0.08em; color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+}
+.agent-header-row .agent-llm-h,
+.agent-header-row .agent-human-h,
+.agent-header-row .agent-tasks-h { text-align: right; }
 .agent-row {
   display: grid;
   grid-template-columns: 110px 1fr 80px;
   gap: 12px; align-items: center;
   padding: 6px 0;
   font-size: 12px;
+}
+.agent-row.rich {
+  grid-template-columns: 110px 1fr 72px 82px 52px;
+  gap: 10px;
 }
 .agent-row .agent-name { font-family: var(--mono); color: var(--text); }
 .agent-row .agent-rail {
@@ -332,6 +349,33 @@ button { font-family: inherit; cursor: pointer; }
   font-family: var(--mono); font-size: 10.5px;
   color: var(--text-2); text-align: right;
 }
+.agent-row.rich .agent-time {
+  display: flex; align-items: center; gap: 8px;
+}
+.agent-row.rich .agent-rail { flex: 1; }
+.agent-time-v { font-family: var(--mono); font-size: 11px; color: var(--text2); white-space: nowrap; }
+.agent-llm, .agent-human, .agent-tasks {
+  font-family: var(--mono); font-size: 11px;
+  text-align: right; color: var(--text2);
+}
+.agent-llm { color: #a78bfa; }
+.agent-human { color: #fb923c; }
+.agent-total-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 72px 82px 52px;
+  gap: 10px; align-items: center;
+  padding: 6px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  font-size: 12px; font-weight: 600;
+}
+.agent-total-row .agent-name { font-family: var(--mono); color: var(--text); }
+.agent-total-row .agent-time { display: flex; }
+.agent-total-row .agent-llm,
+.agent-total-row .agent-human,
+.agent-total-row .agent-tasks { font-family: var(--mono); font-size: 11px; text-align: right; font-weight: 600; }
+.agent-total-row .agent-llm { color: #a78bfa; }
+.agent-total-row .agent-human { color: #fb923c; }
 
 /* Trust footer */
 .trust-foot {
@@ -532,10 +576,22 @@ if (paused) {
     .sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3))
     .slice(0, 3);
 
-  // Agent breakdown
+  // Agent breakdown — from agents_cost (includes time + cost) or fall back to verdicts counts
+  const agentsCost = (m.agents_cost || []).filter(a => a.tasks_total > 0);
   const agents = m.agents || {};
   const totalAgentRuns = Object.values(agents).reduce((a, b) => a + b, 0);
   const agentList = Object.entries(agents).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+  // Totals for compare card (use agents_cost data if available, else fallback to existing cost)
+  const totalLlmFromAgents = agentsCost.reduce((s, a) => s + a.llm_usd, 0);
+  const totalHumanFromAgents = agentsCost.reduce((s, a) => s + a.human_usd, 0);
+  const totalTimeMin = agentsCost.reduce((s, a) => s + a.time_min, 0);
+  // Use whichever cost source has data
+  const effectiveLlmUsd   = llmUsd   > 0 ? llmUsd   : totalLlmFromAgents;
+  const effectiveHumanUsd = humanUsd > 0 ? humanUsd : totalHumanFromAgents;
+  const effectiveSavings  = effectiveLlmUsd > 0 && effectiveHumanUsd > 0
+    ? (effectiveHumanUsd / effectiveLlmUsd).toFixed(0) + '×' : null;
+  const effectiveAiH = totalAiMin > 0 ? totalAiMin / 60 : totalTimeMin / 60;
 
   // Hero narrative — synthesize one sentence
   const headline = (() => {
@@ -642,24 +698,37 @@ if (paused) {
             </div>`).join('')}
         </div>
 
-        ${humanUsd > 0 ? `
+        ${(effectiveLlmUsd > 0 || effectiveHumanUsd > 0) ? `
           <div class="compare-card">
             <div class="compare-side">
               <div class="lbl">AI agents</div>
-              <div class="v">$${llmUsd.toFixed(0)}</div>
-              <div class="t">${aiH > 0 ? `${aiH.toFixed(aiH < 10 ? 1 : 0)}h of compute` : '—'}</div>
+              <div class="v">$${effectiveLlmUsd.toFixed(2)}</div>
+              <div class="t">${effectiveAiH > 0 ? `${effectiveAiH.toFixed(effectiveAiH < 10 ? 1 : 0)}h active time` : '—'}</div>
             </div>
             <div class="compare-vs">
               <div class="vs-line">vs</div>
-              <strong>${savingsX}× cheaper</strong>
+              ${effectiveSavings ? `<strong>${effectiveSavings} cheaper</strong>` : '<strong>vs</strong>'}
               ${timeSpeedup ? `<div class="vs-time">${timeSpeedup}× faster</div>` : ''}
             </div>
             <div class="compare-side right">
-              <div class="lbl">Human team</div>
-              <div class="v">$${Number(humanUsd).toLocaleString()}</div>
-              <div class="t">est. ${humanH}h equivalent</div>
+              <div class="lbl">Human team est.</div>
+              <div class="v">$${effectiveHumanUsd > 0 ? Number(effectiveHumanUsd.toFixed(0)).toLocaleString() : Number((humanH * 150).toFixed(0)).toLocaleString()}</div>
+              <div class="t">at $150/hr · ${humanH}h equivalent</div>
             </div>
-          </div>` : ''}
+          </div>` : `
+          <div class="compare-card">
+            <div class="compare-side">
+              <div class="lbl">Human team est.</div>
+              <div class="v">$${Number((humanH * 150).toFixed(0)).toLocaleString()}</div>
+              <div class="t">at $150/hr · ${humanH}h equivalent</div>
+            </div>
+            <div class="compare-vs"><div class="vs-line">replaced by</div><strong>AI agents</strong></div>
+            <div class="compare-side right">
+              <div class="lbl">AI agents</div>
+              <div class="v">${effectiveAiH > 0 ? effectiveAiH.toFixed(1) + 'h' : done + ' tasks'}</div>
+              <div class="t">automated</div>
+            </div>
+          </div>`}
 
         <div class="report-stats-sec">
           ${sec.map(s => `
@@ -723,7 +792,44 @@ if (paused) {
               }).join('')}
             </div>`).join('')}` : ''}
 
-        ${agentList.length ? `
+        ${agentsCost.length ? `
+          <div class="section-label">Agent breakdown · time &amp; cost</div>
+          <div class="agent-list">
+            <div class="agent-header-row">
+              <span class="agent-name-h">Agent</span>
+              <span class="agent-time-h">Time</span>
+              <span class="agent-llm-h">LLM cost</span>
+              <span class="agent-human-h">Human equiv.</span>
+              <span class="agent-tasks-h">Tasks</span>
+            </div>
+            ${(() => {
+              const maxTime = Math.max(...agentsCost.map(a => a.time_min), 1);
+              return agentsCost.map(a => {
+                const pct = (a.time_min / maxTime * 100).toFixed(0);
+                const timeStr = a.time_min >= 60
+                  ? `${(a.time_min/60).toFixed(a.time_min < 600 ? 1 : 0)}h`
+                  : `${a.time_min}m`;
+                return `
+                  <div class="agent-row rich">
+                    <span class="agent-name">✱ ${esc(a.agent)}</span>
+                    <span class="agent-time">
+                      <span class="agent-rail"><span class="agent-fill" style="width:${pct}%"></span></span>
+                      <span class="agent-time-v">${timeStr}</span>
+                    </span>
+                    <span class="agent-llm">$${a.llm_usd.toFixed(2)}</span>
+                    <span class="agent-human">$${a.human_usd.toFixed(0)}</span>
+                    <span class="agent-tasks">${a.tasks_done}/${a.tasks_total}</span>
+                  </div>`;
+              }).join('');
+            })()}
+            <div class="agent-total-row">
+              <span class="agent-name">Total</span>
+              <span class="agent-time"><span class="agent-time-v">${totalTimeMin >= 60 ? (totalTimeMin/60).toFixed(1)+'h' : totalTimeMin+'m'}</span></span>
+              <span class="agent-llm">$${agentsCost.reduce((s,a)=>s+a.llm_usd,0).toFixed(2)}</span>
+              <span class="agent-human">$${agentsCost.reduce((s,a)=>s+a.human_usd,0).toFixed(0)}</span>
+              <span class="agent-tasks">${agentsCost.reduce((s,a)=>s+a.tasks_done,0)}/${agentsCost.reduce((s,a)=>s+a.tasks_total,0)}</span>
+            </div>
+          </div>` : agentList.length ? `
           <div class="section-label">Who did the work</div>
           <div class="agent-list">
             ${agentList.map(([name, count]) => {

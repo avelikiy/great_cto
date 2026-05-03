@@ -1451,7 +1451,7 @@ button { font-family: inherit; cursor: pointer; }
         </span>
       </div>
       <div class="nav-divider"></div>
-      <div class="nav-item nav-item-agents" onclick="switchTab('dashboard', document.querySelector('.nav-item[data-tab=&quot;dashboard&quot;]')); setTimeout(() => document.getElementById('agent-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);" style="cursor:pointer;">
+      <div class="nav-item nav-item-agents" data-tab="agents" onclick="switchTab('agents', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
         <span>Agents</span>
         <span class="count" id="nav-agent-count">0</span>
@@ -2496,9 +2496,9 @@ async function gateAction(id, action) {
   if (action === 'reject') {
     const reason = prompt(`Reject ${id}. Reason (optional)?`);
     if (reason === null) return;
-    var body = { action, reason };
+    var body = { action, reason, project: currentProject };
   } else {
-    body = { action };
+    body = { action, project: currentProject };
   }
   const res = await api(`/api/gates/${encodeURIComponent(id)}${pqs()}`, {
     method: 'POST',
@@ -2507,7 +2507,11 @@ async function gateAction(id, action) {
   });
   if (!res || res.error) {
     alert('Gate action failed: ' + (res?.error || 'network error'));
+    return;
   }
+  showToast(`Gate <strong>${esc(id)}</strong> ${action === 'approve' ? '✓ approved' : '✗ rejected'}`, action === 'approve' ? 'success' : 'error', 3000);
+  // Force inbox refresh immediately
+  api(`/api/inbox${pqs()}`).then(d => d && renderInbox(d));
 }
 
 /* ── Inline status / priority edit ─────────────────────────────────────── */
@@ -2765,14 +2769,22 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSide();
 
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
 function switchTab(id, el) {
-  currentTab = id;
-  // sidebar nav
-  document.querySelectorAll('.nav-item[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  // 'agents' is a virtual tab — maps to dashboard panel + scrolls to agent-list
+  const panelId = id === 'agents' ? 'dashboard' : id;
+  currentTab = panelId;
+  // sidebar nav — mark 'agents' nav active when agents clicked, otherwise match data-tab
+  document.querySelectorAll('.nav-item[data-tab]').forEach(t => {
+    const match = id === 'agents' ? t.dataset.tab === 'agents' : t.dataset.tab === id;
+    t.classList.toggle('active', match);
+  });
   // top tabs
-  document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === panelId));
   // panels
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(`panel-${id}`).classList.add('active');
+  document.getElementById(`panel-${panelId}`).classList.add('active');
+  if (id === 'agents') {
+    setTimeout(() => document.getElementById('agent-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  }
   // crumb
   const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', share: 'Share' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';

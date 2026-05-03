@@ -415,7 +415,7 @@ function getTasks(cwd = process.cwd()) {
     notes: t.notes || '',
     design: t.design || '',
     acceptance: t.acceptance || '',
-    status: mapStatus(t.status, t.labels),
+    status: mapStatus(t.status, t.labels, t.issue_type),
     raw_status: t.status,                     // bd-native status (open/in_progress/closed/blocked)
     priority: t.priority,
     labels: t.labels || [],
@@ -425,13 +425,16 @@ function getTasks(cwd = process.cwd()) {
     closed_at: t.closed_at || null,
     close_reason: t.close_reason || '',
     comment_count: t.comment_count || 0,
-    is_gate: (t.labels || []).includes('gate'),
+    // Gate detection: explicit 'gate' label OR bd decision type OR title contains 'gate:'
+    is_gate: (t.labels || []).includes('gate')
+          || t.issue_type === 'decision'
+          || (t.title || '').toLowerCase().startsWith('gate:'),
     agent: detectAgent(t),
   }));
 }
 
-function mapStatus(status, labels = []) {
-  if ((labels || []).includes('gate')) return 'gate';
+function mapStatus(status, labels = [], issue_type = '') {
+  if ((labels || []).includes('gate') || issue_type === 'decision') return 'gate';
   switch (status) {
     case 'open': return 'backlog';
     case 'in_progress': return 'in_progress';
@@ -490,20 +493,39 @@ function getMetrics(cwd = process.cwd()) {
     agentRuns[v.agent] = (agentRuns[v.agent] || 0) + 1;
   }
 
-  // Agent cost breakdown: proxy cost = estimated_minutes / 60 * 0.02 per task
+  // Agent cost + time breakdown.
+  // Time source priority: 1) closed_at-created_at on done tasks, 2) estimated_minutes, 3) default 30min
+  // LLM cost proxy: $0.02 per AI-hour (rough Sonnet 4 average for a typical task at ~2k tokens/min)
+  // Human cost baseline: $150/hr (mid-level engineer fully-loaded)
+  const HUMAN_RATE_PER_HR = 150;
+  const LLM_RATE_PER_HR   = 0.02;
+  const DEFAULT_TASK_MIN  = 30;  // fallback when no timing data
   const agentCostMap = {};
   for (const t of tasks) {
     if (!t.agent) continue;
-    const mins = (t.estimated_minutes || 0);
-    const cost = mins / 60 * 0.02;
-    if (!agentCostMap[t.agent]) agentCostMap[t.agent] = { agent: t.agent, llm_usd: 0, tasks_done: 0 };
-    agentCostMap[t.agent].llm_usd += cost;
+    let mins = 0;
+    if (t.created_at && t.closed_at) {
+      const ms = new Date(t.closed_at).getTime() - new Date(t.created_at).getTime();
+      if (ms > 0 && ms < 30 * 86400_000) mins = ms / 60000;
+    }
+    if (!mins) mins = t.estimated_minutes || DEFAULT_TASK_MIN;
+    const llmCost   = mins / 60 * LLM_RATE_PER_HR;
+    const humanCost = mins / 60 * HUMAN_RATE_PER_HR;
+    if (!agentCostMap[t.agent]) agentCostMap[t.agent] = { agent: t.agent, llm_usd: 0, human_usd: 0, time_min: 0, tasks_total: 0, tasks_done: 0 };
+    agentCostMap[t.agent].llm_usd   += llmCost;
+    agentCostMap[t.agent].human_usd += humanCost;
+    agentCostMap[t.agent].time_min  += mins;
+    agentCostMap[t.agent].tasks_total += 1;
     if (t.status === 'done') agentCostMap[t.agent].tasks_done += 1;
   }
   const agentsCost = Object.values(agentCostMap)
-    .map(a => ({ ...a, llm_usd: Math.round(a.llm_usd * 10000) / 10000 }))
-    .filter(a => a.llm_usd > 0)
-    .sort((a, b) => b.llm_usd - a.llm_usd);
+    .map(a => ({
+      ...a,
+      llm_usd:   Math.round(a.llm_usd   * 100) / 100,
+      human_usd: Math.round(a.human_usd * 100) / 100,
+      time_min:  Math.round(a.time_min),
+    }))
+    .sort((a, b) => b.time_min - a.time_min);
 
   return {
     tasks: { total: tasks.length, done: done.length, in_progress: inProgress.length, backlog: backlog.length },
@@ -811,7 +833,10 @@ const server = http.createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
-      const { action, reason } = JSON.parse(body || '{}');
+      const parsed = JSON.parse(body || '{}');
+      const { action, reason } = parsed;
+      // Allow project override via body (fallback when ?project= not in URL)
+      const gateCwd = parsed.project ? resolveProjectCwd(parsed.project) : cwd;
       if (!['approve', 'reject'].includes(action)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'invalid action' }));
@@ -821,13 +846,13 @@ const server = http.createServer(async (req, res) => {
         const status = action === 'approve' ? 'closed' : 'blocked';
         const args = ['update', id, '--status', status];
         if (reason) args.push('--notes', `[${action}] ${reason}`);
-        const r = spawnSync('bd', args, { cwd, encoding: 'utf8' });
+        const r = spawnSync('bd', args, { cwd: gateCwd, encoding: 'utf8' });
         if (r.status !== 0) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
           return;
         }
-        bdCacheInvalidate(cwd);
+        bdCacheInvalidate(gateCwd);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, id, action }));
         // Broadcast updated tasks via SSE
