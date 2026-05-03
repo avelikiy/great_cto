@@ -17,6 +17,22 @@ import { pickArchetype, suggestCompliance } from "./archetypes.js";
 import { install, findInstalledVersions } from "./installer.js";
 import { enableGreatCto } from "./settings.js";
 import { bootstrap } from "./bootstrap.js";
+import { resolveTelemetryConsent, sendInstallPing } from "./telemetry.js";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+function getCliVersion(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    // dist/main.js → ../package.json
+    const pkgPath = join(here, "..", "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: string };
+    return pkg.version || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 interface CliArgs {
   command: "init" | "help" | "version" | "board" | "register";
@@ -28,6 +44,7 @@ interface CliArgs {
   version: string | null;
   boardPort: number;
   boardNoOpen: boolean;
+  noTelemetry: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -41,6 +58,7 @@ function parseArgs(argv: string[]): CliArgs {
     force: false,
     archetype: null,
     version: null,
+    noTelemetry: false,
   };
 
   const rest: string[] = [];
@@ -55,6 +73,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--version-tag") args.version = argv[++i] ?? null;
     else if (a === "--port") args.boardPort = parseInt(argv[++i] ?? "3141", 10);
     else if (a === "--no-open") args.boardNoOpen = true;
+    else if (a === "--no-telemetry") args.noTelemetry = true;
     else if (a === "board") args.command = "board";
     else if (a === "register") args.command = "register";
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
@@ -447,6 +466,17 @@ async function runInit(args: CliArgs): Promise<number> {
   if (!bs.created) {
     log(`  ${dim("PROJECT.md already exists at")} ${bs.projectMdPath} ${dim("— kept as-is")}`);
   }
+
+  // ── telemetry (opt-in, fire-and-forget) ─────────────────
+  try {
+    const consent = resolveTelemetryConsent(args.noTelemetry);
+    // Don't await — finish CLI banner first; ping flies in background
+    void sendInstallPing({
+      cliVersion: getCliVersion(),
+      archetype: archetype as string,
+      consent,
+    });
+  } catch { /* never block install on telemetry */ }
 
   // ── done ─────────────────────────────────────────────────
   log("");
