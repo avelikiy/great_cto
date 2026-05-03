@@ -132,9 +132,26 @@ function listProjects() {
   // Filter out projects whose paths no longer exist
   reg.projects = reg.projects.filter(p => fs.existsSync(p.path));
   // Re-read metadata in case archetype/description changed
+  // Enrich with last_activity (mtime of .beads/interactions.jsonl) so the UI
+  // can sort projects by recent activity instead of slug-alpha.
   return reg.projects.map(p => {
     const fresh = readProjectMd(p.path);
-    return fresh ? { ...p, ...fresh } : p;
+    let lastActivity = null;
+    try {
+      const interactionsFile = path.join(p.path, '.beads', 'interactions.jsonl');
+      if (fs.existsSync(interactionsFile)) {
+        lastActivity = fs.statSync(interactionsFile).mtime.toISOString();
+      }
+    } catch {}
+    return { ...(fresh ? { ...p, ...fresh } : p), last_activity: lastActivity };
+  }).sort((a, b) => {
+    // Recent activity first; projects with no activity sink to the bottom (alphabetic)
+    const ax = a.last_activity || '';
+    const bx = b.last_activity || '';
+    if (ax && bx) return bx.localeCompare(ax);
+    if (ax) return -1;
+    if (bx) return 1;
+    return (a.slug || '').localeCompare(b.slug || '');
   });
 }
 function resolveProjectCwd(slugOrPath) {
@@ -360,14 +377,33 @@ function getInbox(cwd = process.cwd()) {
 }
 
 // ── Beads data ─────────────────────────────────────────────────────────────────
+// Cache bdList output per cwd for BD_CACHE_TTL_MS. Invalidated when the project's
+// .beads/interactions.jsonl changes (the file watcher in watchBeads() calls
+// bdCacheInvalidate(cwd) before broadcasting). This avoids spawning `bd list`
+// on every API call when 5+ projects are open in tabs.
+const BD_CACHE_TTL_MS = 2000;
+const bdCache = new Map(); // cwd → { ts, data }
+
+function bdCacheInvalidate(cwd) { bdCache.delete(cwd); }
+
 function bdList(cwd = process.cwd()) {
+  const cached = bdCache.get(cwd);
+  if (cached && Date.now() - cached.ts < BD_CACHE_TTL_MS) return cached.data;
   try {
     const result = spawnSync('bd', ['list', '--json', '--all', '--include-gates'], {
       encoding: 'utf8', timeout: 8000, cwd
     });
-    if (result.status !== 0) return [];
-    return JSON.parse(result.stdout || '[]');
-  } catch { return []; }
+    if (result.status !== 0) {
+      bdCache.set(cwd, { ts: Date.now(), data: [] });
+      return [];
+    }
+    const data = JSON.parse(result.stdout || '[]');
+    bdCache.set(cwd, { ts: Date.now(), data });
+    return data;
+  } catch {
+    bdCache.set(cwd, { ts: Date.now(), data: [] });
+    return [];
+  }
 }
 
 function getTasks(cwd = process.cwd()) {
@@ -645,6 +681,7 @@ function watchBeads() {
           const newSize = fs.statSync(interactionsFile).size;
           if (newSize !== lastSize) {
             lastSize = newSize;
+            bdCacheInvalidate(dir);
             // Broadcast to clients watching this project
             for (const res of sseClients) {
               if (res._gctoCwd === dir) {
@@ -774,6 +811,7 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
           return;
         }
+        bdCacheInvalidate(cwd);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, id, action }));
         // Broadcast updated tasks via SSE

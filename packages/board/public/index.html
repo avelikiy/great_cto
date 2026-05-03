@@ -532,6 +532,79 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 3px;
   font-size: 12px;
 }
+.side-desc.md { white-space: normal; }
+.side-desc.md h1 { font-size: 16px; margin: 8px 0 6px; font-weight: 600; }
+.side-desc.md h2 { font-size: 14px; margin: 10px 0 4px; font-weight: 600; color: var(--text); }
+.side-desc.md h3 { font-size: 13px; margin: 8px 0 3px; font-weight: 600; color: var(--text); }
+.side-desc.md h4 { font-size: 12px; margin: 6px 0 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text2); }
+.side-desc.md p { margin: 0 0 8px; }
+.side-desc.md ul { padding-left: 18px; margin: 4px 0 8px; }
+.side-desc.md li { margin: 2px 0; }
+.side-desc.md code {
+  background: var(--bg-muted); padding: 1px 4px;
+  border-radius: 3px; font-size: 12px; font-family: ui-monospace, monospace;
+}
+.side-desc.md pre.md-pre {
+  background: var(--bg-muted); padding: 8px 10px;
+  border-radius: 4px; overflow-x: auto; font-size: 12px;
+  margin: 6px 0;
+}
+.side-desc.md pre.md-pre code { background: none; padding: 0; }
+.side-desc.md a { color: var(--accent); text-decoration: none; }
+.side-desc.md a:hover { text-decoration: underline; }
+.side-desc.md strong { color: var(--text); font-weight: 600; }
+.side-id-row { display: inline-flex; align-items: center; gap: 6px; }
+.side-id-copy {
+  cursor: pointer; opacity: 0.5; transition: opacity 0.15s;
+  display: inline-flex; align-items: center; padding: 2px;
+  background: none; border: none; color: inherit;
+}
+.side-id-copy:hover { opacity: 1; }
+#toast-host {
+  position: fixed; right: 16px; bottom: 16px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 6px;
+  pointer-events: none;
+}
+.toast {
+  background: #1f2937; color: #fff;
+  padding: 8px 14px; border-radius: 6px;
+  font-size: 13px; min-width: 200px; max-width: 360px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: auto;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast-success { background: #14532d; border-left: 3px solid #22c55e; }
+.toast-error { background: #7f1d1d; border-left: 3px solid #ef4444; }
+.toast-info { background: #1e3a5f; border-left: 3px solid #3b82f6; }
+.toast code { background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px; }
+.pl-stage { cursor: pointer; transition: background 0.12s; }
+.pl-stage:hover { background: var(--bg-muted); border-radius: 4px; }
+.card-selected { outline: 2px solid var(--accent, #3b82f6); outline-offset: -1px; }
+#hotkey-modal {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+}
+.hk-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+}
+.hk-card {
+  position: relative; background: var(--bg, #0f172a);
+  color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 20px 24px; min-width: 360px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+}
+.hk-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.hk-table { border-collapse: collapse; width: 100%; }
+.hk-table td { padding: 4px 8px; font-size: 13px; }
+.hk-table td:first-child { text-align: right; white-space: nowrap; color: var(--text2); }
+.hk-table kbd {
+  background: var(--bg-muted); border: 1px solid var(--border);
+  border-radius: 3px; padding: 1px 5px; font-size: 11px;
+  font-family: ui-monospace, monospace; color: var(--text);
+}
+.hk-foot { margin-top: 12px; font-size: 11px; color: var(--text3, #9ca3af); text-align: center; }
 .side-gate-actions {
   display: flex; gap: 6px;
   margin-bottom: 16px;
@@ -1441,7 +1514,12 @@ button { font-family: inherit; cursor: pointer; }
     <!-- Side panel -->
     <div class="side" id="side-panel">
       <div class="side-top">
-        <span class="side-id" id="side-id">—</span>
+        <span class="side-id-row">
+          <span class="side-id" id="side-id">—</span>
+          <button class="side-id-copy" id="side-id-copy" title="Copy task ID" onclick="copyToClipboard(document.getElementById('side-id').textContent)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </span>
         <div style="flex:1"></div>
         <div class="side-close" onclick="closeSide()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6L6 18 M6 6l12 12"/></svg>
@@ -1548,6 +1626,7 @@ function renderPipeline(stages) {
   if (!root) return;
   const labels = {
     'architect': 'architect',
+    'pm': 'pm',
     'senior-dev': 'senior dev',
     'reviewers': '12-angle review',
     'qa-engineer': 'qa',
@@ -1563,12 +1642,23 @@ function renderPipeline(stages) {
     const msg = s.last_message ? esc(s.last_message) : (s.status === 'idle' ? 'no runs yet' : '—');
     const meta = s.age_min != null ? `${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'} ago` : '';
     return `
-      <div class="pl-stage ${s.status}">
+      <div class="pl-stage ${s.status}" title="Click to filter Kanban by ${esc(s.stage)}" onclick="drillToStage('${esc(s.stage)}')">
         <div class="pl-name"><span class="dot"></span>${label}</div>
         <div class="pl-msg">${msg}</div>
         <div class="pl-meta">${meta || s.status}</div>
       </div>`;
   }).join('');
+}
+
+// Drill-down: click a pipeline stage → switch to Kanban + filter by that agent
+function drillToStage(stage) {
+  const search = document.getElementById('search-input');
+  if (search) {
+    search.value = stage;
+    onSearch(stage);
+  }
+  switchTab('kanban', document.querySelector('.nav-item[data-tab="kanban"]'));
+  showToast(`Filtered by <code>${esc(stage)}</code> — clear search to reset`, 'info', 2500);
 }
 
 /* ── Cost panel ─────────────────────────────────────────────────────────── */
@@ -1900,19 +1990,104 @@ function onSearch(q) {
   document.getElementById('topbar-task-count').textContent =
     `${filterTasks(q).length} ${q ? 'MATCH' : 'ISSUES'}`;
   if (currentTab !== 'kanban') {
-    document.querySelector('.tab-btn[data-tab="kanban"]').click();
+    // Prefer top tab-btn if present, fall back to sidebar nav-item
+    const tabBtn = document.querySelector('.tab-btn[data-tab="kanban"]');
+    const navBtn = document.querySelector('.nav-item[data-tab="kanban"]');
+    if (tabBtn) tabBtn.click();
+    else if (navBtn) navBtn.click();
+    else switchTab('kanban', navBtn);
   }
 }
 
+// Linear-style 2-key sequence shortcuts (g+i, g+k, g+d, g+m, g+s, g+a)
+let _gPrefix = false;
+let _gPrefixTimer = null;
+const _hotkeyTabMap = {
+  'i': 'inbox', 'k': 'kanban', 'd': 'dashboard',
+  'm': 'memory', 's': 'share', 'a': 'dashboard', // a = agents = dashboard
+};
+function showHotkeyHelp() {
+  let modal = document.getElementById('hotkey-modal');
+  if (modal) { modal.remove(); return; }
+  modal = document.createElement('div');
+  modal.id = 'hotkey-modal';
+  modal.innerHTML = `
+    <div class="hk-backdrop" onclick="document.getElementById('hotkey-modal').remove()"></div>
+    <div class="hk-card">
+      <div class="hk-title">Keyboard shortcuts</div>
+      <table class="hk-table">
+        <tr><td><kbd>⌘</kbd>+<kbd>K</kbd></td><td>Focus search</td></tr>
+        <tr><td><kbd>g</kbd> <kbd>i</kbd></td><td>Go to Inbox</td></tr>
+        <tr><td><kbd>g</kbd> <kbd>k</kbd></td><td>Go to Kanban</td></tr>
+        <tr><td><kbd>g</kbd> <kbd>d</kbd></td><td>Go to Dashboard</td></tr>
+        <tr><td><kbd>g</kbd> <kbd>m</kbd></td><td>Go to Memory</td></tr>
+        <tr><td><kbd>g</kbd> <kbd>s</kbd></td><td>Go to Share</td></tr>
+        <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Next / prev card on Kanban</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>Open selected card</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Close panel / clear search</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
+      </table>
+      <div class="hk-foot">Click outside to close</div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+let _selectedCardIdx = -1;
+function moveCardSelection(delta) {
+  const cards = Array.from(document.querySelectorAll('#panel-kanban .card'));
+  if (!cards.length) return;
+  _selectedCardIdx = Math.max(0, Math.min(cards.length - 1, _selectedCardIdx + delta));
+  cards.forEach((c, i) => c.classList.toggle('card-selected', i === _selectedCardIdx));
+  cards[_selectedCardIdx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function openSelectedCard() {
+  const cards = document.querySelectorAll('#panel-kanban .card');
+  if (_selectedCardIdx >= 0 && cards[_selectedCardIdx]) cards[_selectedCardIdx].click();
+}
 document.addEventListener('keydown', e => {
+  // Don't intercept while typing in input/textarea
+  const inField = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
     document.getElementById('search-input').focus();
+    return;
   }
   if (e.key === 'Escape' && document.activeElement?.id === 'search-input') {
     document.getElementById('search-input').value = '';
     onSearch('');
     document.activeElement.blur();
+    return;
+  }
+  if (inField) return;
+
+  // ? help
+  if (e.key === '?' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); showHotkeyHelp(); return; }
+
+  // 2-key 'g X' sequence
+  if (_gPrefix) {
+    const tab = _hotkeyTabMap[e.key.toLowerCase()];
+    if (tab) {
+      e.preventDefault();
+      const navEl = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+      if (navEl) navEl.click();
+      else switchTab(tab, document.querySelector(`.nav-item[data-tab="${tab}"]`));
+    }
+    _gPrefix = false;
+    clearTimeout(_gPrefixTimer);
+    return;
+  }
+  if (e.key === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    _gPrefix = true;
+    clearTimeout(_gPrefixTimer);
+    _gPrefixTimer = setTimeout(() => { _gPrefix = false; }, 1200);
+    return;
+  }
+
+  // j/k card navigation (only on kanban)
+  if (currentTab === 'kanban') {
+    if (e.key === 'j') { e.preventDefault(); moveCardSelection(1); return; }
+    if (e.key === 'k') { e.preventDefault(); moveCardSelection(-1); return; }
+    if (e.key === 'Enter') { e.preventDefault(); openSelectedCard(); return; }
   }
 });
 
@@ -1971,12 +2146,37 @@ function connectSSE() {
   const es = new EventSource(`/api/sse${pqs()}`);
   window._gctoSSE = es;
   es.addEventListener('tasks', e => {
-    allTasks = JSON.parse(e.data);
+    const newTasks = JSON.parse(e.data);
+    // Detect status transitions for toast feed
+    if (allTasks.length) {
+      const prevById = new Map(allTasks.map(t => [t.id, t]));
+      for (const t of newTasks) {
+        const p = prevById.get(t.id);
+        if (p && p.status !== t.status) {
+          const tone = t.status === 'done' || t.status === 'closed' ? 'success'
+            : t.status === 'blocked' ? 'error' : 'info';
+          showToast(`<strong>${esc(t.id)}</strong> ${esc(p.status)} → ${esc(t.status)}`, tone, 3500);
+        }
+      }
+    }
+    allTasks = newTasks;
     renderKanban(filterTasks(searchQuery));
     updateNavCounts();
   });
   es.addEventListener('pipeline', e => {
-    try { renderPipeline(JSON.parse(e.data)); } catch {}
+    try {
+      const stages = JSON.parse(e.data);
+      // Toast for new verdicts (active → done within 60s window)
+      for (const s of stages) {
+        if (s.verdict && s.age_min != null && s.age_min < 1) {
+          const v = String(s.verdict).toUpperCase();
+          const tone = v.match(/APPROVED|DONE|PASS/) ? 'success'
+            : v.match(/BLOCKED|FAIL/) ? 'error' : 'info';
+          showToast(`<strong>${esc(s.stage)}</strong> · ${esc(v)}`, tone, 3500);
+        }
+      }
+      renderPipeline(stages);
+    } catch {}
   });
   es.addEventListener('inbox', e => {
     try { renderInbox(JSON.parse(e.data)); } catch {}
@@ -2212,7 +2412,7 @@ function openSide(task) {
     dur ? ['Duration', dur] : null,
   ].filter(Boolean);
   const desc = task.description
-    ? `<div class="side-desc">${esc(task.description)}</div>`
+    ? `<div class="side-desc md">${mdRender(task.description)}</div>`
     : `<div class="side-desc side-desc-empty">No description — only the title above. Run <code>bd update ${esc(task.id)} -d "…"</code> to add one.</div>`;
   const designSec = task.design ? `<div class="side-section"><div class="side-section-head">Design</div><div class="side-section-body">${esc(task.design)}</div></div>` : '';
   const acceptanceSec = task.acceptance ? `<div class="side-section"><div class="side-section-head">Acceptance criteria</div><div class="side-section-body">${esc(task.acceptance)}</div></div>` : '';
@@ -2274,6 +2474,61 @@ function switchTab(id, el) {
 /* ── Helpers ────────────────────────────────────────────────────────────── */
 function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+// Minimal markdown renderer for task descriptions. Supports H1-H4, **bold**,
+// *italic*, `code`, ```fenced```, lists, links — enough for typical bd notes.
+// Always escapes input first so output is XSS-safe.
+function mdRender(src) {
+  if (!src) return '';
+  let html = esc(src);
+  // Fenced code (```...```)
+  html = html.replace(/```([\s\S]*?)```/g, (_, c) => `<pre class="md-pre"><code>${c}</code></pre>`);
+  // Headings
+  html = html.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>')
+             .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+             .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+             .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+  // Inline code
+  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // Bold / italic
+  html = html.replace(/\*\*([^\*\n]+)\*\*/g, '<strong>$1</strong>')
+             .replace(/(^|[^\*])\*([^\*\n]+)\*/g, '$1<em>$2</em>');
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // Bullet lists (group consecutive `- ` lines into <ul>)
+  html = html.replace(/(?:^|\n)((?:[-*]\s+.+\n?)+)/g, (m, block) => {
+    const items = block.trim().split('\n').map(l => l.replace(/^[-*]\s+/, '')).map(t => `<li>${t}</li>`).join('');
+    return `\n<ul>${items}</ul>`;
+  });
+  // Paragraph breaks (double newline)
+  html = html.replace(/\n{2,}/g, '</p><p>');
+  return `<p>${html}</p>`.replace(/<p>(<(h[1-4]|ul|pre)[^>]*>)/g, '$1').replace(/(<\/(h[1-4]|ul|pre)>)<\/p>/g, '$1');
+}
+// Toast notifications. Shown briefly in bottom-right.
+function showToast(msg, type = 'info', ttl = 4000) {
+  let host = document.getElementById('toast-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toast-host';
+    document.body.appendChild(host);
+  }
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = msg;
+  host.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 250);
+  }, ttl);
+}
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(`Copied <code>${esc(text)}</code>`, 'success', 1800);
+  } catch {
+    showToast('Copy failed', 'error');
+  }
 }
 function relTime(iso) {
   if (!iso) return '';
