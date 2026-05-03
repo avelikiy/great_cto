@@ -8,7 +8,7 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "great-cto-telemetry"
-database_id = "REPLACE_WITH_D1_ID_AFTER_CREATE"
+database_id = "b847fd59-b198-46c7-86a5-eb0055d085d3"
 
 # Custom routes on greatcto.systems
 [[routes]]
