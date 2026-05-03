@@ -611,6 +611,87 @@ function readSecStats(cwd = process.cwd()) {
 }
 
 // ── Share state (per project) ──────────────────────────────────────────────────
+// ── decisions.md (global ADR log) ──────────────────────────────────────────
+// Append-only architectural decisions log. Triggered on gate approve/reject.
+// One line per decision; pure markdown so users can `cat` / `grep` / view in
+// their editor without tooling.
+function decisionsLogPath() {
+  return path.join(GREAT_CTO_DIR, 'decisions.md');
+}
+
+function appendDecisionLog({ ts, project, action, id, title, reason }) {
+  const file = decisionsLogPath();
+  try { fs.mkdirSync(GREAT_CTO_DIR, { recursive: true }); } catch {}
+  // Initialize header if file doesn't exist
+  if (!fs.existsSync(file)) {
+    const header =
+`# great_cto — decisions log
+
+Append-only architectural decisions across all projects. One line per
+gate approve/reject. Agents and humans can grep this for "have we decided
+this before?" lookups.
+
+Format: \`- [TIMESTAMP] [PROJECT] [APPROVED|REJECTED] gate-id — title — reason\`
+
+`;
+    fs.writeFileSync(file, header);
+  }
+  const verdict = action === 'approve' ? 'APPROVED' : 'REJECTED';
+  const safeTitle = (title || '').replace(/\n/g, ' ').slice(0, 120);
+  const safeReason = (reason || '').replace(/\n/g, ' ').slice(0, 200);
+  const line = `- [${ts}] [${project}] [${verdict}] ${id} — ${safeTitle}${safeReason ? ` — ${safeReason}` : ''}\n`;
+  fs.appendFileSync(file, line);
+}
+
+function readDecisionsLog(limit = 20) {
+  const file = decisionsLogPath();
+  if (!fs.existsSync(file)) return [];
+  try {
+    const text = fs.readFileSync(file, 'utf-8');
+    const lines = text.split('\n').filter(l => l.startsWith('- ['));
+    // Newest last → reverse and take last `limit`
+    return lines.slice(-limit).reverse().map(line => {
+      // Parse: - [TS] [PROJECT] [VERDICT] id — title — reason
+      const m = line.match(/^- \[([^\]]+)\] \[([^\]]+)\] \[([^\]]+)\] ([^\s]+)\s+—\s+(.+?)(?:\s+—\s+(.+))?$/);
+      if (!m) return null;
+      return { ts: m[1], project: m[2], verdict: m[3], id: m[4], title: m[5], reason: m[6] || '' };
+    }).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// ── Resume — what happened recently for this project ─────────────────────
+// Returns a compact bundle for the "Resume" inbox card:
+//   - last 3 verdicts (APPROVED / DONE / etc.)
+//   - open gates (already in inbox, but cheap to include for one-shot fetch)
+//   - 3 most-recent WIP tasks (in_progress, sorted by updated_at desc)
+//   - last 5 decisions from the global log filtered to this project
+function getResume(cwd = process.cwd()) {
+  const tasks = getTasks(cwd);
+  const verdicts = readVerdicts()
+    .filter(v => ['APPROVED','DONE','PASS','BLOCKED','FAIL','REJECTED'].includes((v.verdict || '').toUpperCase()))
+    .slice(-3)
+    .reverse();
+  const openGates = tasks
+    .filter(t => t.is_gate && t.raw_status !== 'closed' && t.raw_status !== 'blocked')
+    .slice(0, 5);
+  const wip = tasks
+    .filter(t => t.raw_status === 'in_progress' || t.status === 'in_progress')
+    .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
+    .slice(0, 3);
+  const slug = path.basename(cwd);
+  const projectDecisions = readDecisionsLog(50)
+    .filter(d => d.project === slug || d.project === path.basename(cwd))
+    .slice(0, 5);
+  return {
+    recent_verdicts: verdicts,
+    open_gates: openGates,
+    wip_tasks: wip,
+    decisions: projectDecisions,
+  };
+}
+
 function shareStatePath(cwd = process.cwd()) {
   // Use slug from PROJECT.md if available, else basename of cwd
   const meta = readProjectMd(cwd);
@@ -869,6 +950,24 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         bdCacheInvalidate(gateCwd);
+
+        // Append to global decisions log (~/.great_cto/decisions.md)
+        try {
+          const projectSlug = parsed.project || path.basename(gateCwd);
+          // Look up gate title for nicer log entry
+          const allTasks = getTasks(gateCwd);
+          const gateTask = allTasks.find(t => t.id === id);
+          const title = gateTask?.title || id;
+          appendDecisionLog({
+            ts: new Date().toISOString(),
+            project: projectSlug,
+            action,
+            id,
+            title,
+            reason: reason || '',
+          });
+        } catch { /* best-effort, don't fail gate on log error */ }
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, id, action }));
         // Broadcast updated tasks via SSE
@@ -885,6 +984,21 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/inbox') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getInbox(cwd)));
+    return;
+  }
+
+  // Resume — pick up where you left off (last verdicts + WIP + recent decisions)
+  if (pathname === '/api/resume') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getResume(cwd)));
+    return;
+  }
+
+  // Decisions log — global ADR-style log across all projects
+  if (pathname === '/api/decisions') {
+    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(readDecisionsLog(limit)));
     return;
   }
 

@@ -1054,6 +1054,79 @@ button { font-family: inherit; cursor: pointer; }
   margin-right: 4px;
 }
 
+/* ── Resume card ──────────────────────────────────────────────────────── */
+.resume-card {
+  background: linear-gradient(135deg, rgba(0, 217, 126, 0.04), rgba(17, 22, 26, 0.7));
+  border: 1px solid rgba(0, 217, 126, 0.18);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 28px;
+  backdrop-filter: blur(8px);
+}
+.resume-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 14px;
+}
+.resume-icon {
+  display: inline-flex; color: var(--accent);
+}
+.resume-title {
+  font-family: var(--sans); font-weight: 600;
+  font-size: 13px; color: var(--text);
+}
+.resume-meta {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text3);
+}
+.resume-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.resume-col-head {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.resume-list {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.resume-list .resume-item {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text2);
+  cursor: pointer;
+  padding: 4px 0;
+  display: flex; gap: 6px; align-items: flex-start;
+  transition: color 100ms;
+}
+.resume-list .resume-item:hover { color: var(--text); }
+.resume-list .resume-item .ri-tag {
+  flex-shrink: 0;
+  font-family: var(--mono); font-size: 9px;
+  padding: 2px 5px; border-radius: 3px;
+  letter-spacing: 0.04em;
+  background: rgba(255,255,255,0.05);
+  color: var(--text3);
+  margin-top: 1px;
+}
+.resume-list .resume-item .ri-tag.ok { color: var(--accent); background: rgba(0,217,126,0.08); }
+.resume-list .resume-item .ri-tag.fail { color: var(--p1); background: rgba(255,80,80,0.08); }
+.resume-list .resume-item .ri-text {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.resume-list .empty {
+  font-size: 12px; color: var(--text3); font-style: italic;
+}
+@media (max-width: 880px) {
+  .resume-grid { grid-template-columns: 1fr; gap: 12px; }
+}
+
 .inbox-section { margin-bottom: 24px; }
 .inbox-section-head {
   display: flex; align-items: center; gap: 8px;
@@ -1586,6 +1659,31 @@ button { font-family: inherit; cursor: pointer; }
         <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
         <div class="inbox-summary" id="inbox-summary"></div>
 
+        <!-- Resume — pick up where you left off -->
+        <div class="resume-card" id="resume-card" style="display:none">
+          <div class="resume-head">
+            <span class="resume-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 12 7 8 11 12 15 8 19 12"/><polyline points="3 18 7 14 11 18 15 14 19 18"/></svg>
+            </span>
+            <span class="resume-title">Pick up where you left off</span>
+            <span class="resume-meta" id="resume-meta">last 24h</span>
+          </div>
+          <div class="resume-grid">
+            <div class="resume-col">
+              <div class="resume-col-head">In progress</div>
+              <div id="resume-wip" class="resume-list"></div>
+            </div>
+            <div class="resume-col">
+              <div class="resume-col-head">Recent verdicts</div>
+              <div id="resume-verdicts" class="resume-list"></div>
+            </div>
+            <div class="resume-col">
+              <div class="resume-col-head">Decisions</div>
+              <div id="resume-decisions" class="resume-list"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="inbox-section">
           <div class="inbox-section-head">
             <span class="dot dot-blue"></span>
@@ -1830,6 +1928,62 @@ async function refreshInbox() {
   const d = await api(`/api/inbox${pqs()}`);
   if (d) renderInbox(d);
   refreshPipeline();
+  refreshResume();
+}
+
+async function refreshResume() {
+  const d = await api(`/api/resume${pqs()}`);
+  if (d) renderResume(d);
+}
+
+function renderResume(d) {
+  const card = document.getElementById('resume-card');
+  if (!card) return;
+  const wip = d.wip_tasks || [];
+  const verdicts = d.recent_verdicts || [];
+  const decisions = d.decisions || [];
+  const totalItems = wip.length + verdicts.length + decisions.length;
+  card.style.display = totalItems > 0 ? 'block' : 'none';
+  if (totalItems === 0) return;
+
+  // WIP column
+  const wipEl = document.getElementById('resume-wip');
+  wipEl.innerHTML = wip.length ? wip.map(t => {
+    const tag = (t.agent || 'wip').slice(0, 12);
+    return `<div class="resume-item" onclick="openSideById('${esc(t.id)}')">
+      <span class="ri-tag">${esc(tag)}</span>
+      <span class="ri-text" title="${esc(t.title)}">${esc(t.title)}</span>
+    </div>`;
+  }).join('') : '<div class="empty">Nothing in progress</div>';
+
+  // Verdicts column
+  const vEl = document.getElementById('resume-verdicts');
+  vEl.innerHTML = verdicts.length ? verdicts.map(v => {
+    const vu = (v.verdict || '').toUpperCase();
+    const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' :
+                ['BLOCKED','FAIL','REJECTED'].includes(vu) ? 'fail' : '';
+    const raw = v.raw || '';
+    const after = raw.indexOf(': ') !== -1 ? raw.slice(raw.indexOf(': ') + 2) : raw;
+    return `<div class="resume-item">
+      <span class="ri-tag ${cls}">${esc(v.agent || 'agent')}</span>
+      <span class="ri-text" title="${esc(after)}">${esc(after.slice(0, 80))}</span>
+    </div>`;
+  }).join('') : '<div class="empty">No recent verdicts</div>';
+
+  // Decisions column
+  const dEl = document.getElementById('resume-decisions');
+  dEl.innerHTML = decisions.length ? decisions.map(d => {
+    const cls = d.verdict === 'APPROVED' ? 'ok' : 'fail';
+    return `<div class="resume-item">
+      <span class="ri-tag ${cls}">${esc(d.verdict.toLowerCase())}</span>
+      <span class="ri-text" title="${esc(d.title)}">${esc(d.title)}</span>
+    </div>`;
+  }).join('') : '<div class="empty">No decisions logged yet</div>';
+}
+
+function openSideById(id) {
+  const t = (allTasks || []).find(x => x.id === id);
+  if (t) openSide(t);
 }
 
 async function refreshPipeline() {
