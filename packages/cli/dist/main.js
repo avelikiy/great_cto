@@ -16,6 +16,22 @@ import { pickArchetype, suggestCompliance } from "./archetypes.js";
 import { install, findInstalledVersions } from "./installer.js";
 import { enableGreatCto } from "./settings.js";
 import { bootstrap } from "./bootstrap.js";
+import { resolveTelemetryConsent, sendInstallPing } from "./telemetry.js";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+function getCliVersion() {
+    try {
+        const here = dirname(fileURLToPath(import.meta.url));
+        // dist/main.js → ../package.json
+        const pkgPath = join(here, "..", "package.json");
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+        return pkg.version || "unknown";
+    }
+    catch {
+        return "unknown";
+    }
+}
 function parseArgs(argv) {
     const args = {
         command: "init",
@@ -27,6 +43,7 @@ function parseArgs(argv) {
         force: false,
         archetype: null,
         version: null,
+        noTelemetry: false,
     };
     const rest = [];
     for (let i = 0; i < argv.length; i++) {
@@ -49,6 +66,8 @@ function parseArgs(argv) {
             args.boardPort = parseInt(argv[++i] ?? "3141", 10);
         else if (a === "--no-open")
             args.boardNoOpen = true;
+        else if (a === "--no-telemetry")
+            args.noTelemetry = true;
         else if (a === "board")
             args.command = "board";
         else if (a === "register")
@@ -427,6 +446,17 @@ async function runInit(args) {
     if (!bs.created) {
         log(`  ${dim("PROJECT.md already exists at")} ${bs.projectMdPath} ${dim("— kept as-is")}`);
     }
+    // ── telemetry (opt-in, fire-and-forget) ─────────────────
+    try {
+        const consent = resolveTelemetryConsent(args.noTelemetry);
+        // Don't await — finish CLI banner first; ping flies in background
+        void sendInstallPing({
+            cliVersion: getCliVersion(),
+            archetype: archetype,
+            consent,
+        });
+    }
+    catch { /* never block install on telemetry */ }
     // ── done ─────────────────────────────────────────────────
     log("");
     log(green(bold("✓ great_cto is ready.")));

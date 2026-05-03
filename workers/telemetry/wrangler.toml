@@ -1,0 +1,24 @@
+name = "great-cto-telemetry"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+# D1 database for install events. Create via:
+#   npx wrangler d1 create great-cto-telemetry
+# Then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "great-cto-telemetry"
+database_id = "REPLACE_WITH_D1_ID_AFTER_CREATE"
+
+# Custom routes on greatcto.systems
+[[routes]]
+pattern = "greatcto.systems/api/install"
+zone_name = "greatcto.systems"
+
+[[routes]]
+pattern = "greatcto.systems/api/stats"
+zone_name = "greatcto.systems"
+
+[[routes]]
+pattern = "greatcto.systems/api/stats/widget"
+zone_name = "greatcto.systems"
