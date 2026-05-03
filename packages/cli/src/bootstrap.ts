@@ -79,6 +79,18 @@ compliance: [${complianceLine}]
 > \`compliance:\` list drives which checklists security-officer runs.
 > See ARCHETYPES.md "Parameter Values" for supported keys.
 
+## Memory & Query Rule
+
+> Before reading source files, agents should query memory layers in this order:
+> 1. **\`.great_cto/lessons.md\`** — project-specific lessons learned
+> 2. **\`~/.great_cto/decisions.md\`** — global decisions log (ADR-style, all projects)
+> 3. **\`~/.great_cto/verdicts/\`** — past agent verdicts (APPROVED/BLOCKED with rationale)
+> 4. Only then read source files for the actual implementation
+>
+> This prevents re-deriving solved problems and surfaces "we decided this last
+> sprint" insights. Agents update these layers via gate approvals (auto) and
+> by appending to \`lessons.md\` after retrospectives.
+
 ## Goals
 
 - <add your primary goal here>
