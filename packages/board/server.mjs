@@ -705,33 +705,49 @@ function generateShareHTML(tasks, metrics, cwd = process.cwd()) {
 
 // ── File watcher ───────────────────────────────────────────────────────────────
 function watchBeads() {
-  // Watch every registered project's interactions.jsonl
+  // Watch every registered project's beads files.
+  // Note: bd create only writes to dolt DB, NOT interactions.jsonl. So we must
+  // watch BOTH: (a) interactions.jsonl for status/priority changes (from bd
+  // update/close), and (b) the dolt manifest/journal for new-issue detection.
   const projects = listProjects();
   const dirs = projects.map(p => p.path);
   if (!dirs.includes(process.cwd())) dirs.push(process.cwd());
-  for (const dir of dirs) {
-    const interactionsFile = path.join(dir, '.beads', 'interactions.jsonl');
-    if (!fs.existsSync(interactionsFile)) continue;
-    let lastSize = fs.statSync(interactionsFile).size;
-    try {
-      fs.watch(interactionsFile, () => {
+
+  const broadcast = (dir) => {
+    bdCacheInvalidate(dir);
+    for (const res of sseClients) {
+      if (res._gctoCwd === dir) {
         try {
-          const newSize = fs.statSync(interactionsFile).size;
-          if (newSize !== lastSize) {
-            lastSize = newSize;
-            bdCacheInvalidate(dir);
-            // Broadcast to clients watching this project
-            for (const res of sseClients) {
-              if (res._gctoCwd === dir) {
-                res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(dir))}\n\n`);
-                res.write(`event: pipeline\ndata: ${JSON.stringify(getPipeline(dir))}\n\n`);
-                res.write(`event: inbox\ndata: ${JSON.stringify(getInbox(dir))}\n\n`);
-              }
-            }
-          }
+          res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(dir))}\n\n`);
+          res.write(`event: pipeline\ndata: ${JSON.stringify(getPipeline(dir))}\n\n`);
+          res.write(`event: inbox\ndata: ${JSON.stringify(getInbox(dir))}\n\n`);
         } catch {}
-      });
-    } catch {}
+      }
+    }
+  };
+
+  // Debounce per-dir: dolt writes can fire 3-5 events in <50ms during a single
+  // bd command. Collapse them into one broadcast 200ms after the last event.
+  const debouncers = new Map();
+  const schedule = (dir) => {
+    if (debouncers.has(dir)) clearTimeout(debouncers.get(dir));
+    debouncers.set(dir, setTimeout(() => {
+      debouncers.delete(dir);
+      broadcast(dir);
+    }, 200));
+  };
+
+  for (const dir of dirs) {
+    // (a) interactions.jsonl — captures bd update/close
+    const interactionsFile = path.join(dir, '.beads', 'interactions.jsonl');
+    if (fs.existsSync(interactionsFile)) {
+      try { fs.watch(interactionsFile, () => schedule(dir)); } catch {}
+    }
+    // (b) dolt embeddeddolt directory (recursive) — captures bd create
+    const doltDir = path.join(dir, '.beads', 'embeddeddolt');
+    if (fs.existsSync(doltDir)) {
+      try { fs.watch(doltDir, { recursive: true }, () => schedule(dir)); } catch {}
+    }
   }
 }
 
@@ -796,7 +812,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname === '/api/tasks') {
+  if (pathname === '/api/tasks' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getTasks(cwd)));
     return;
@@ -891,6 +907,59 @@ const server = http.createServer(async (req, res) => {
     const days = parseInt(url.searchParams.get('days') || '30', 10);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getCostHistory(cwd, days)));
+    return;
+  }
+
+  // Create new task
+  if (pathname === '/api/tasks' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { title, description, priority, agent, labels } = JSON.parse(body || '{}');
+        if (!title || !title.trim()) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'title required' }));
+          return;
+        }
+        // Build bd create args
+        const args = ['create', title.trim()];
+        if (description) args.push('-d', description);
+        if (priority != null && priority >= 0 && priority <= 3) args.push('--priority', `P${priority}`);
+
+        const r = spawnSync('bd', args, { cwd, encoding: 'utf8' });
+        if (r.status !== 0) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: r.stderr || 'bd create failed' }));
+          return;
+        }
+        // Extract created issue id
+        const idMatch = (r.stdout || '').match(/Created issue:\s*(\S+)/);
+        const id = idMatch ? idMatch[1] : null;
+
+        // Apply optional labels and agent (assignee) if provided
+        if (id) {
+          const updateArgs = ['update', id];
+          let needUpdate = false;
+          if (agent) { updateArgs.push('--assignee', agent); needUpdate = true; }
+          const lbls = Array.isArray(labels) ? labels : (labels ? [labels] : []);
+          for (const lbl of lbls) {
+            if (lbl) { updateArgs.push('--add-label', lbl); needUpdate = true; }
+          }
+          // If agent is provided also add it as a label so the pipeline picks it up
+          if (agent && !lbls.includes(agent)) { updateArgs.push('--add-label', agent); needUpdate = true; }
+          if (needUpdate) spawnSync('bd', updateArgs, { cwd, encoding: 'utf8' });
+        }
+
+        bdCacheInvalidate(cwd);
+        broadcastTasks(cwd);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, id }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e.message || e) }));
+      }
+    });
     return;
   }
 
