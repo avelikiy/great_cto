@@ -8,11 +8,14 @@ export type Archetype =
   | "mobile-app"
   | "ai-system"
   | "agent-product"
+  | "mlops"
   | "data-platform"
+  | "streaming"
   | "infra"
   | "library"
   | "cli-tool"
   | "commerce"
+  | "marketplace"
   | "fintech"
   | "healthcare"
   | "web3"
@@ -21,6 +24,8 @@ export type Archetype =
   | "devtools"
   | "browser-extension"
   | "game"
+  | "cms"
+  | "enterprise-saas"
   | "greenfield";
 
 export interface ArchetypePick {
@@ -234,6 +239,161 @@ const RULES: Rule[] = [
     },
   },
 
+  // ── marketplace (two-sided platform — Stripe Connect / KYC) ────
+  // Stronger than commerce when payouts to sellers + KYC providers detected
+  {
+    archetype: "marketplace",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("stripe-connect")) s += 9;
+      if (d.stack.includes("adyen-marketpay")) s += 9;
+      if (d.stack.includes("persona")) s += 5;
+      if (d.stack.includes("onfido")) s += 5;
+      if (d.stack.includes("sumsub")) s += 5;
+      if (d.readmeKeywords.includes("marketplace") || d.readmeKeywords.includes("two-sided")) s += 4;
+      if (d.readmeKeywords.includes("seller") && d.readmeKeywords.includes("buyer")) s += 3;
+      // Don't score if pure single-merchant commerce
+      if (s > 0 && d.stack.includes("stripe") && !d.stack.includes("stripe-connect")) s += 1;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("stripe-connect")) bits.push("Stripe Connect");
+      if (d.stack.includes("adyen-marketpay")) bits.push("Adyen MarketPay");
+      if (d.stack.includes("persona") || d.stack.includes("onfido") || d.stack.includes("sumsub")) bits.push("KYC vendor");
+      return `marketplace / two-sided platform (${bits.join(", ")}) — multi-party payouts + seller KYC + 1099-K + DSA`;
+    },
+  },
+
+  // ── enterprise-saas (B2B multi-tenant, SSO/SAML/SCIM, audit) ──
+  {
+    archetype: "enterprise-saas",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("workos")) s += 8;        // SSO/SCIM-as-a-service
+      if (d.stack.includes("auth0")) s += 6;
+      if (d.stack.includes("okta")) s += 6;
+      if (d.stack.includes("clerk")) s += 4;
+      if (d.stack.includes("samlify")) s += 6;
+      if (d.stack.includes("passport-saml")) s += 6;
+      if (d.stack.includes("scim")) s += 5;
+      if (d.readmeKeywords.includes("multi-tenant") || d.readmeKeywords.includes("multitenant")) s += 4;
+      if (d.readmeKeywords.includes("enterprise") || d.readmeKeywords.includes("b2b")) s += 3;
+      if (d.readmeKeywords.includes("sso") || d.readmeKeywords.includes("saml")) s += 3;
+      // Stripe billing + multi-tenant signals = SaaS
+      if (s > 0 && d.stack.includes("stripe")) s += 1;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("workos")) bits.push("WorkOS");
+      if (d.stack.includes("auth0")) bits.push("Auth0");
+      if (d.stack.includes("okta")) bits.push("Okta");
+      if (d.stack.includes("samlify") || d.stack.includes("passport-saml")) bits.push("SAML lib");
+      if (d.stack.includes("scim")) bits.push("SCIM");
+      return `enterprise B2B SaaS (${bits.join(", ")}) — multi-tenant isolation + SSO + audit log + SOC2 mandatory`;
+    },
+  },
+
+  // ── mlops (model training & lifecycle, distinct from inference) ─
+  {
+    archetype: "mlops",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("mlflow")) s += 7;
+      if (d.stack.includes("wandb")) s += 6;
+      if (d.stack.includes("dvc")) s += 6;
+      if (d.stack.includes("kubeflow")) s += 7;
+      if (d.stack.includes("bentoml")) s += 5;
+      if (d.stack.includes("seldon")) s += 5;
+      if (d.stack.includes("kserve")) s += 5;
+      if (d.stack.includes("sagemaker")) s += 5;
+      if (d.stack.includes("vertex-ai")) s += 5;
+      if (d.stack.includes("ray")) s += 4;
+      if (d.stack.includes("torch") || d.stack.includes("tensorflow")) s += 2;
+      if (d.readmeKeywords.includes("training") && d.readmeKeywords.includes("model")) s += 3;
+      // De-prioritize if pure inference (LLM API only)
+      if (s > 0 && d.stack.includes("anthropic-sdk") && !d.stack.includes("torch") && !d.stack.includes("mlflow")) s -= 2;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("mlflow")) bits.push("MLflow");
+      if (d.stack.includes("wandb")) bits.push("W&B");
+      if (d.stack.includes("dvc")) bits.push("DVC");
+      if (d.stack.includes("kubeflow")) bits.push("Kubeflow");
+      if (d.stack.includes("bentoml")) bits.push("BentoML");
+      if (d.stack.includes("torch")) bits.push("PyTorch");
+      if (d.stack.includes("tensorflow")) bits.push("TensorFlow");
+      return `MLOps stack detected (${bits.join(", ")}) — dataset versioning + drift detection + model registry + EU AI Act high-risk gates`;
+    },
+  },
+
+  // ── streaming (event-driven / Kafka / Flink — distinct from batch data-platform) ─
+  {
+    archetype: "streaming",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("kafkajs")) s += 7;
+      if (d.stack.includes("kafka-node")) s += 6;
+      if (d.stack.includes("rdkafka")) s += 7;
+      if (d.stack.includes("kinesis")) s += 6;
+      if (d.stack.includes("pulsar")) s += 6;
+      if (d.stack.includes("flink")) s += 7;
+      if (d.stack.includes("beam")) s += 6;
+      if (d.stack.includes("debezium")) s += 7;
+      if (d.stack.includes("nats")) s += 5;
+      if (d.stack.includes("rabbitmq")) s += 4;
+      if (d.readmeKeywords.includes("streaming") || d.readmeKeywords.includes("event-driven")) s += 2;
+      if (d.readmeKeywords.includes("cdc") || d.readmeKeywords.includes("real-time")) s += 2;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("kafkajs") || d.stack.includes("rdkafka") || d.stack.includes("kafka-node")) bits.push("Kafka");
+      if (d.stack.includes("kinesis")) bits.push("Kinesis");
+      if (d.stack.includes("pulsar")) bits.push("Pulsar");
+      if (d.stack.includes("flink")) bits.push("Flink");
+      if (d.stack.includes("beam")) bits.push("Beam");
+      if (d.stack.includes("debezium")) bits.push("Debezium CDC");
+      return `streaming / event-driven stack (${bits.join(", ")}) — exactly-once + backpressure + DLQ + schema evolution gates`;
+    },
+  },
+
+  // ── cms / content platform (headless CMS, publishing, SEO) ────
+  {
+    archetype: "cms",
+    score: (d) => {
+      let s = 0;
+      if (d.stack.includes("sanity")) s += 7;
+      if (d.stack.includes("contentful")) s += 7;
+      if (d.stack.includes("strapi")) s += 7;
+      if (d.stack.includes("payload")) s += 6;
+      if (d.stack.includes("ghost")) s += 6;
+      if (d.stack.includes("gatsby")) s += 5;
+      if (d.stack.includes("eleventy")) s += 5;
+      if (d.stack.includes("hugo")) s += 5;
+      if (d.stack.includes("astro") && d.readmeKeywords.includes("blog")) s += 4;
+      if (d.stack.includes("next.js") && d.readmeKeywords.includes("blog")) s += 3;
+      if (d.readmeKeywords.includes("cms") || d.readmeKeywords.includes("publishing") || d.readmeKeywords.includes("blog")) s += 2;
+      // De-prioritize if it's clearly an enterprise SaaS app
+      if (s > 0 && (d.stack.includes("workos") || d.stack.includes("samlify"))) s -= 3;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("sanity")) bits.push("Sanity");
+      if (d.stack.includes("contentful")) bits.push("Contentful");
+      if (d.stack.includes("strapi")) bits.push("Strapi");
+      if (d.stack.includes("payload")) bits.push("Payload");
+      if (d.stack.includes("ghost")) bits.push("Ghost");
+      if (d.stack.includes("gatsby")) bits.push("Gatsby");
+      if (d.stack.includes("eleventy")) bits.push("Eleventy");
+      if (d.stack.includes("hugo")) bits.push("Hugo");
+      return `CMS / publishing stack (${bits.join(", ")}) — schema.org + Core Web Vitals + DMCA + UGC moderation gates`;
+    },
+  },
+
   // ── healthcare (FHIR/HL7/PHI) ───────────────────
   {
     archetype: "healthcare",
@@ -423,9 +583,10 @@ const RULES: Rule[] = [
 // higher in this list (more specific / domain-bound first).
 const TIE_BREAK_PRIORITY: Archetype[] = [
   "browser-extension", "iot-embedded", "web3", "game",
-  "agent-product", "fintech", "healthcare",
-  "commerce", "ai-system", "devtools",
-  "data-platform", "infra", "mobile-app",
+  "agent-product", "fintech", "healthcare", "marketplace",
+  "mlops", "streaming",
+  "commerce", "enterprise-saas", "ai-system", "devtools",
+  "data-platform", "cms", "infra", "mobile-app",
   "cli-tool", "web-service", "library", "regulated", "greenfield",
 ];
 
@@ -499,6 +660,22 @@ export function suggestCompliance(d: DetectionResult, archetype: Archetype): str
   if (archetype === "devtools") { c.add("openssf"); c.add("api-stability"); c.add("soc2-type-2"); c.add("gdpr"); }
   if (archetype === "web-service") c.add("gdpr"); // baseline for user data
   if (archetype === "cli-tool") { /* CLI tools usually don't have compliance load */ }
+  if (archetype === "marketplace") {
+    c.add("pci-dss"); c.add("kyc-aml"); c.add("gdpr");
+    c.add("dsa-eu"); c.add("p2b-eu"); c.add("1099-k");
+  }
+  if (archetype === "enterprise-saas") {
+    c.add("soc2-type-2"); c.add("iso27001"); c.add("gdpr"); c.add("ccpa");
+  }
+  if (archetype === "mlops") {
+    c.add("eu-ai-act"); c.add("nist-ai-rmf"); c.add("iso42001");
+  }
+  if (archetype === "streaming") {
+    c.add("gdpr"); // event retention rules
+  }
+  if (archetype === "cms") {
+    c.add("dmca"); c.add("wcag-2.2"); c.add("gdpr"); c.add("dsa-eu");
+  }
 
   // ── stack-derived (cross-archetype) ──────────────
   if (d.stack.includes("stripe") || d.stack.includes("braintree") ||
