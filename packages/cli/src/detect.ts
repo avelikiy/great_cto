@@ -153,6 +153,44 @@ export function detect(dir: string): DetectionResult {
       if (has("@supabase/supabase-js")) stack.add("supabase");
       if (has("lucia")) { stack.add("lucia"); }
       if (has("@workos-inc/node")) { stack.add("workos"); }
+      if (has("auth0") || has("@auth0/nextjs-auth0") || has("@auth0/auth0-react")) stack.add("auth0");
+      if (has("@okta/okta-auth-js") || has("@okta/oidc-middleware")) stack.add("okta");
+      if (has("samlify")) stack.add("samlify");
+      if (has("passport-saml") || has("@node-saml/passport-saml")) stack.add("passport-saml");
+      if (has("@scim2/core") || has("scim2") || has("scim-patch")) stack.add("scim");
+
+      // Marketplace / KYC providers
+      if (has("@stripe/connect-iframe-loader") || (has("stripe") && (pkg.name?.includes("market") || pkg.name?.includes("connect")))) {
+        stack.add("stripe-connect"); sig("marketplace", "stripe-connect");
+      }
+      if (has("@adyen/marketpay")) stack.add("adyen-marketpay");
+      if (has("persona-react") || has("persona-sdk")) stack.add("persona");
+      if (has("@onfido/api") || has("onfido-sdk-ui")) stack.add("onfido");
+      if (has("@sumsub/websdk-react")) stack.add("sumsub");
+
+      // CMS / publishing
+      if (has("@sanity/client") || has("next-sanity") || has("sanity")) stack.add("sanity");
+      if (has("contentful") || has("@contentful/rich-text-react-renderer")) stack.add("contentful");
+      if (has("strapi") || has("@strapi/strapi")) stack.add("strapi");
+      if (has("payload") || has("@payloadcms/payload")) stack.add("payload");
+      if (has("@tryghost/content-api") || has("ghost")) stack.add("ghost");
+      if (has("gatsby")) stack.add("gatsby");
+      if (has("@11ty/eleventy")) stack.add("eleventy");
+
+      // Streaming / messaging
+      if (has("kafkajs") || has("@confluentinc/kafka-javascript")) stack.add("kafkajs");
+      if (has("kafka-node")) stack.add("kafka-node");
+      if (has("node-rdkafka")) stack.add("rdkafka");
+      if (has("@aws-sdk/client-kinesis")) stack.add("kinesis");
+      if (has("pulsar-client")) stack.add("pulsar");
+      if (has("apache-flink-statefun")) stack.add("flink");
+      if (has("@google-cloud/dataflow")) stack.add("beam");
+      if (has("debezium")) stack.add("debezium");
+      if (has("nats") || has("nats.ws")) stack.add("nats");
+      if (has("amqplib") || has("amqp-connection-manager")) stack.add("rabbitmq");
+
+      // MLOps (Python deps detected via pyproject.toml; here we cover Node bridges + Python signal flag)
+      // Most MLOps stacks are Python — detected through pyproject.toml block separately.
 
       // Databases / ORMs
       if (has("prisma") || has("@prisma/client")) stack.add("prisma");
@@ -245,6 +283,23 @@ export function detect(dir: string): DetectionResult {
         stack.add("ml");
         sig("ml", "python");
       }
+      // MLOps lifecycle (training / registry / serving)
+      if (ihas("mlflow")) { stack.add("mlflow"); sig("mlops", "mlflow"); }
+      if (ihas("wandb")) { stack.add("wandb"); sig("mlops", "wandb"); }
+      if (ihas("dvc")) { stack.add("dvc"); sig("mlops", "dvc"); }
+      if (ihas("kubeflow") || ihas("kfp")) { stack.add("kubeflow"); sig("mlops", "kubeflow"); }
+      if (ihas("bentoml")) { stack.add("bentoml"); sig("mlops", "bentoml"); }
+      if (ihas("seldon-core")) { stack.add("seldon"); sig("mlops", "seldon"); }
+      if (ihas("kserve")) { stack.add("kserve"); sig("mlops", "kserve"); }
+      if (ihas("sagemaker")) { stack.add("sagemaker"); sig("mlops", "sagemaker"); }
+      if (ihas("google-cloud-aiplatform") || ihas("vertex")) { stack.add("vertex-ai"); sig("mlops", "vertex"); }
+      if (ihas("ray[")) { stack.add("ray"); sig("mlops", "ray"); }
+      // Streaming (Python)
+      if (ihas("confluent-kafka") || ihas("kafka-python")) { stack.add("kafkajs"); sig("streaming", "kafka-py"); }
+      if (ihas("pyflink") || ihas("apache-flink")) { stack.add("flink"); sig("streaming", "flink-py"); }
+      if (ihas("apache-beam")) { stack.add("beam"); sig("streaming", "beam-py"); }
+      if (ihas("nats-py")) { stack.add("nats"); sig("streaming", "nats-py"); }
+      if (ihas("debezium")) { stack.add("debezium"); sig("streaming", "debezium"); }
       if (ihas("opencv") || ihas("ultralytics") || ihas("detectron2")) {
         stack.add("computer-vision");
         sig("ai", "computer-vision");
@@ -267,7 +322,16 @@ export function detect(dir: string): DetectionResult {
                        existsSync(join(dir, "main.py")) ||
                        existsSync(join(dir, "app.py")) ||
                        existsSync(join(dir, "wsgi.py"));
-      if (isPyLib && !hasPyApp) {
+      // Python CLI signal: pyproject [project.scripts] OR setup.py with entry_points={'console_scripts'}
+      const hasPyCliEntry =
+        pyproject.includes("[project.scripts]") ||
+        pyproject.includes("[tool.poetry.scripts]") ||
+        (existsSync(join(dir, "setup.py")) && readFileSync(join(dir, "setup.py"), "utf-8").includes("console_scripts"));
+      if (hasPyCliEntry) {
+        stack.add("python-cli");
+        sig("cli", "python-script");
+      }
+      if (isPyLib && !hasPyApp && !hasPyCliEntry) {
         stack.add("library");
         sig("library", "python");
       }
