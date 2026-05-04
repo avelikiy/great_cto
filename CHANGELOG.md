@@ -4,6 +4,26 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.180 — 2026-05-04
+
+### 5 new archetypes — 17 → 22 archetypes / 24 → 29 specialist agents
+
+Added 5 of the most-requested missing pipelines (analysis identified them as top-5 gaps with combined coverage of 25-40% of real-world projects).
+
+- **`enterprise-saas`** + `enterprise-saas-reviewer` — multi-tenant B2B SaaS. Covers tenant isolation (RLS / schema-per-tenant / DB-per-tenant), SSO + SAML + SCIM, immutable audit log, data residency, tier / entitlements, admin impersonation safety, SOC2 Type 2 readiness. Detects via `workos`, `auth0`, `okta`, `samlify`, `passport-saml`, `@scim2/core` + multi-tenant README keywords.
+- **`mlops`** + `mlops-reviewer` — model training & lifecycle (distinct from `ai-system` inference). Covers dataset lineage (DVC / LakeFS), training cost budgets, model registry (MLflow / W&B), drift detection (Evidently / WhyLabs), bias / fairness audit, shadow + canary serving, EU AI Act high-risk classification + Article 9 / 13 docs. Detects via `mlflow`, `wandb`, `dvc`, `kubeflow`, `bentoml`, `seldon`, `kserve`, `sagemaker`, `vertex-ai`, `ray`.
+- **`streaming`** + `streaming-reviewer` — event-driven / real-time (distinct from batch `data-platform`). Covers exactly-once semantics, idempotency proofs, ordering, backpressure, DLQ + poison-message handling, Schema Registry compat, stateful checkpoint storage, p99 latency budgets, CDC fidelity. Detects via `kafkajs`, `rdkafka`, `kinesis`, `pulsar`, `flink`, `beam`, `debezium`.
+- **`marketplace`** + `marketplace-reviewer` — two-sided platform (distinct from single-merchant `commerce`). Covers Stripe Connect / Adyen MarketPay payouts, seller KYC + KYB (Persona / Onfido / Sumsub), OFAC + sanctions screening, marketplace facilitator tax (Wayfair v. SD), 1099-K, escrow, dispute mediation, EU DSA + P2B Regulation. Detects via `stripe-connect`, `adyen-marketpay`, `persona`, `onfido`, `sumsub` + marketplace README keywords.
+- **`cms`** + `cms-reviewer` — content / publishing platform. Covers schema.org structured data, Core Web Vitals (LCP / INP / CLS), DMCA workflow + registered agent, UGC moderation (CSAM hash + NCMEC), image pipeline (AVIF / WebP), SEO hygiene, WCAG 2.2 AA, EU DSA Article 16. Detects via `sanity`, `contentful`, `strapi`, `payload`, `ghost`, `gatsby`, `eleventy`.
+
+Total agents: **24 → 29**. Total archetypes: **17 → 22**. New archetype detection signals added to `detect.ts` + Rule scoring in `archetypes.ts` with TIE_BREAK_PRIORITY updated. New compliance keywords integrated into `suggestCompliance()`.
+
+### Landing — 5 new `/for/<archetype>` pages
+
+Generated via existing `site/for/_generate.mjs` template — `enterprise-saas`, `mlops`, `streaming`, `marketplace`, `cms`. Same structure: hero → before/after split → 4 specialist agents → install CTA. All 22 cards on landing now link to dedicated pages.
+
+---
+
 ## v1.0.170 — 2026-05-04
 
 ### 7 new specialist reviewers — coverage 71 → 88 average
