@@ -6,7 +6,7 @@
 
 **Stop being the only person who can ship.**
 
-You're the CTO. You're also the bottleneck. **GreatCTO is 17 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+You're the CTO. You're also the bottleneck. **GreatCTO is 24 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![Stars](https://img.shields.io/github/stars/avelikiy/great_cto?style=flat)](https://github.com/avelikiy/great_cto/stargazers)
@@ -19,11 +19,11 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 17 specialist agents**
 
 ## What is great_cto?
 
-great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the full SDLC pipeline as **17 specialist agents** — architect, planning, implementation, 12-angle review, QA, security, deployment, support — coordinated through a board you actually check. You make two decisions per feature; everything else is automatic.
+great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the full SDLC pipeline as **24 specialist agents** — architect, planning, implementation, 12-angle review, QA, security, deployment, support — coordinated through a board you actually check. You make two decisions per feature; everything else is automatic.
 
 | Layer | What it does |
 |-------|--------------|
-| **17 specialist agents** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer |
+| **24 specialist agents** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer |
 | **17 archetypes** | web-service · agent-product · ai-system · commerce · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · devtools · infra · regulated |
 | **Auto-detected** | Scans `package.json`, `pyproject.toml`, `Cargo.toml`, README, code structure → picks archetype + compliance gates in 2 sec. Anthropic Haiku second-opinion (~$0.001) when confidence is low. |
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — auto-attached per archetype. |
@@ -100,23 +100,23 @@ Each archetype activates its own specialist agents and compliance checklists.
 
 | Archetype | Default tier | Specialist agents auto-loaded | Compliance |
 |-----------|--------------|-------------------------------|------------|
-| `web-service` | baseline | — | gdpr |
-| `agent-product` | **deep** | ai-prompt-architect, ai-eval-engineer, ai-security-reviewer | eu-ai-act · owasp-llm-top-10 |
-| `ai-system` | **standard** | ai-prompt-architect, ai-eval-engineer, ai-security-reviewer | eu-ai-act |
-| `commerce` | standard | pci-reviewer | pci-dss · gdpr |
-| `fintech` | **deep** | pci-reviewer, regulated-reviewer | pci-dss · sox · kyc-aml · gdpr |
+| `web-service` | baseline | — | gdpr · owasp-api-top-10 |
+| `agent-product` | **deep** | ai-prompt-architect · ai-eval-engineer · ai-security-reviewer | eu-ai-act · owasp-llm-top-10 |
+| `ai-system` | **standard** | ai-prompt-architect · ai-eval-engineer · ai-security-reviewer | eu-ai-act |
+| `commerce` | standard | pci-reviewer | pci-dss · gdpr · sca-psd2 |
+| `fintech` | **deep** | pci-reviewer · regulated-reviewer | pci-dss · sox · kyc-aml · gdpr · dora |
 | `healthcare` | **deep** | regulated-reviewer | hipaa · hitech · gdpr |
-| `mobile-app` | baseline | mobile-store-reviewer (on store-deploy) | store-policy |
-| `cli-tool` | baseline | — | — |
-| `library` | baseline | — | — |
+| `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
+| `cli-tool` | baseline | cli-reviewer | — |
+| `library` | baseline | library-reviewer | openssf · sbom |
 | `browser-extension` | standard | web-store-reviewer | csp · mv3-security · gdpr |
-| `game` | baseline | — | coppa · age-rating · accessibility |
-| `web3` | **deep** | oracle-reviewer (Chainlink/Pyth/MEV) | soc2 |
-| `iot-embedded` | standard | firmware-reviewer | iso27001 · etsi-en-303-645 |
-| `data-platform` | baseline | — | gdpr |
-| `devtools` | baseline | — | openssf · soc2-type-2 · gdpr |
-| `infra` | baseline | — | soc2 |
-| `regulated` | **deep** | regulated-reviewer (SOC2/HIPAA/GDPR/SOX/DORA/NIS2) | custom |
+| `game` | standard | game-reviewer | coppa · age-rating · accessibility |
+| `web3` | **deep** | oracle-reviewer | soc2 · audit-prep |
+| `iot-embedded` | standard | firmware-reviewer | iso27001 · etsi-en-303-645 · cra |
+| `data-platform` | standard | data-platform-reviewer | gdpr · data-residency · lineage |
+| `devtools` | standard | devtools-reviewer | openssf · soc2-type-2 · slsa-l3 |
+| `infra` | standard | infra-reviewer · db-migration-reviewer | soc2 · cis-benchmarks |
+| `regulated` | **deep** | regulated-reviewer | soc2 · hipaa · sox · dora · nis2 · iso27001 |
 
 Override at any time: `npx great-cto init --archetype <name>` or edit `.great_cto/PROJECT.md`. The CLI also offers an Anthropic Haiku second-opinion (~$0.001) when heuristic confidence is low — set `ANTHROPIC_API_KEY` to enable, opt out with `--no-llm`.
 

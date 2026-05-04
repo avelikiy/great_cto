@@ -4,6 +4,36 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v1.0.170 — 2026-05-04
+
+### 7 new specialist reviewers — coverage 71 → 88 average
+
+Added dedicated pre-implementation reviewers for archetypes that previously fell back to generic agents. Each follows the same pattern as `pci-reviewer` / `regulated-reviewer`: outputs `docs/sec-threats/TM-{slug}.md`, signs off Critical/High mitigations before senior-dev claims tasks.
+
+- **`mobile-store-reviewer`** — App Store / Play Store policy, IAP receipt validation, privacy nutrition labels, universal-link verification. Fixes README ↔ reality drift (was promised, didn't exist).
+- **`library-reviewer`** — semver enforcement via api-extractor / cargo-public-api / pyright, backward-compat matrix, CHANGELOG discipline, OpenSSF Scorecard ≥ 7.
+- **`infra-reviewer`** — tfsec / checkov / cdk-nag pre-apply, IAM least-privilege via Access Analyzer, public-S3 hard-block, KMS rotation, rollback-path enforcement, drift detection.
+- **`cli-reviewer`** — shell-injection sweep (argv arrays only), destructive-op gate (--yes / interactive confirm), CLI UX checklist (--help / --json / NO_COLOR / exit codes), cross-platform path handling.
+- **`game-reviewer`** — COPPA under-13 detection, ESRB / PEGI / IARC alignment, loot-box odds disclosure (BE / NL banned, DE / China explicit), WCAG 2.2 + game-a11y guidelines.
+- **`data-platform-reviewer`** — PII inventory + classification, retention codification, OpenLineage / dbt docs lineage, SAR / Article 17 erasure scripts, Spark / Airflow / dbt log redaction, cross-border SCC declaration.
+- **`devtools-reviewer`** — Sigstore signing + SLSA L3 provenance, telemetry-leak sweep (no paths / no usernames / no source), reproducible builds, auto-update signature verification.
+
+Total agents: **17 → 24** (8 universal + 16 specialist).
+
+### Landing — dedicated `/for/<archetype>` for all 17 archetypes
+
+Previously only `/for/agent-product`, `/for/fintech`, `/for/healthcare` existed; remaining 14 cards on landing rendered as non-clickable `<div>` even though they implied detail pages. Generated via `site/for/_generate.mjs` from a single template + per-archetype data array — covers `web-service`, `ai-system`, `commerce`, `mobile-app`, `cli-tool`, `library`, `browser-extension`, `game`, `web3`, `data-platform`, `devtools`, `iot-embedded`, `infra`, `regulated`. Each page: hero → before/after split (5 archetype-specific bugs) → 4 specialist agents → install CTA.
+
+### Public-repo cleanup
+
+Removed `workers/` (Cloudflare Workers — infra stays private), `tests/ui/` and `tests/e2e/` (internal tooling), `enforcement/` (moved `prose-deny.txt` → `agents/_shared/`), `demo/`, `docs/marketplace/`, `docs/design/`, `docs/README-old.md`. Kept `tests/eval/` (LLM golden-set) and `tests/fixtures/` (archetype detection examples). Expanded `.gitignore` to prevent `node_modules`, `dist`, `.wrangler` re-commit.
+
+### Stats widget removed from landing
+
+Removed `installs/week`, `installs/month`, `total installs`, `npm DL/week` widget — early stage, numbers detract from message.
+
+---
+
 ## v1.0.160 — 2026-05-01
 
 ### Dark emerald theme across admin + report + landing
