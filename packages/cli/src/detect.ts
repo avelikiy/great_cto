@@ -322,7 +322,16 @@ export function detect(dir: string): DetectionResult {
                        existsSync(join(dir, "main.py")) ||
                        existsSync(join(dir, "app.py")) ||
                        existsSync(join(dir, "wsgi.py"));
-      if (isPyLib && !hasPyApp) {
+      // Python CLI signal: pyproject [project.scripts] OR setup.py with entry_points={'console_scripts'}
+      const hasPyCliEntry =
+        pyproject.includes("[project.scripts]") ||
+        pyproject.includes("[tool.poetry.scripts]") ||
+        (existsSync(join(dir, "setup.py")) && readFileSync(join(dir, "setup.py"), "utf-8").includes("console_scripts"));
+      if (hasPyCliEntry) {
+        stack.add("python-cli");
+        sig("cli", "python-script");
+      }
+      if (isPyLib && !hasPyApp && !hasPyCliEntry) {
         stack.add("library");
         sig("library", "python");
       }
