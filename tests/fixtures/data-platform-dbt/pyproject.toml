@@ -1,0 +1,4 @@
+[project]
+name = "data-platform-fixture"
+version = "0.1.0"
+dependencies = ["dbt-core>=1.7", "dbt-snowflake>=1.7", "duckdb>=1.0", "pandas>=2.0"]

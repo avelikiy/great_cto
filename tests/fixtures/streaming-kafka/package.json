@@ -1,0 +1,16 @@
+{
+  "name": "streaming-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/consumer.js"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "@confluentinc/kafka-javascript": "^0.2.0",
+    "debezium": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

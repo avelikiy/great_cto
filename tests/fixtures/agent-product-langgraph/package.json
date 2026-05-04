@@ -1,0 +1,17 @@
+{
+  "name": "agent-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/agent.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.0",
+    "@langchain/langgraph": "^0.2.0",
+    "@pinecone-database/pinecone": "^3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.7.0"
+  }
+}
