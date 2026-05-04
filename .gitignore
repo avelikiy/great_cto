@@ -26,3 +26,9 @@ packages/cli/*.tgz
 # Misc
 *.log
 site/.previews/
+
+# Playwright test artifacts in root
+initial-load.png
+t*.png
+.playwright-mcp/
+.wrangler/

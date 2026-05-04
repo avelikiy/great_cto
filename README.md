@@ -31,7 +31,9 @@ great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the fu
 | **Board** | `great-cto board` opens 6 views at `localhost:3141` — Inbox · Kanban · Metrics · Agents · Memory · Public report. Live SSE updates. |
 
 <p align="center">
-  <img src="docs/screenshots/board.png" alt="great_cto board — kanban + agents + live status" width="900" />
+  <img src="docs/screenshots/board.png" alt="great_cto kanban — 5 columns, inline gate approval, live SSE" width="900" />
+  <br/>
+  <em>Kanban — 5 columns, inline status edit, live SSE updates from <code>bd</code> CLI.</em>
 </p>
 
 ## Two decisions per feature
