@@ -13,6 +13,14 @@
 # Bundled npm artefacts — CLI package compiles on demand.
 packages/cli/node_modules/
 packages/cli/*.tgz
+packages/cli/dist/
+
+# Wrangler build cache (all workers)
+.wrangler/
+workers/**/.wrangler/
+
+# Generic node_modules safety net
+node_modules/
 
 # DORA baseline — local trend log, not committed.
 .great_cto/dora-baseline.log
