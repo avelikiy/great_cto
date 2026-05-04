@@ -44,3 +44,4 @@ tests/ui/
 tests/ui/node_modules/
 tests/ui/test-results/
 workers/**
+packages/cli/dist/

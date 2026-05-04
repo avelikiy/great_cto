@@ -1,0 +1,4 @@
+[project]
+name = "mlops-fixture"
+version = "0.1.0"
+dependencies = ["torch>=2.0", "mlflow>=2.10", "dvc>=3.0", "wandb>=0.16", "scikit-learn>=1.3"]

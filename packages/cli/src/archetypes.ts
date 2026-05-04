@@ -82,8 +82,8 @@ const RULES: Rule[] = [
     score: (d) => {
       let s = 0;
       if (d.stack.includes("devtools-api")) s += 7;
-      if (d.stack.includes("openapi-spec")) s += 4;
-      if (d.stack.includes("graphql-schema")) s += 3;
+      if (d.stack.includes("openapi-spec")) s += 8;
+      if (d.stack.includes("graphql-schema")) s += 6;
       if (d.stack.includes("multi-sdk")) s += 4;
       if (d.stack.includes("stainless")) s += 4;
       if (d.stack.includes("docs-platform")) s += 2;
@@ -419,6 +419,8 @@ const RULES: Rule[] = [
       let s = 0;
       // Explicit cli marker from detect.ts (bin field present)
       if (d.stack.includes("cli")) s += 6;
+      // Python CLI via [project.scripts] / console_scripts entry
+      if (d.stack.includes("python-cli")) s += 7;
       if (d.codeStructure.hasCliEntry) s += 2;
       if (d.readmeKeywords.includes("cli")) s += 1;
       // Penalize if web framework present (CLI + web is rare)

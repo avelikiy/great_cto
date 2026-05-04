@@ -1,0 +1,19 @@
+{
+  "name": "marketplace-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "stripe": "^17.0.0",
+    "@stripe/connect-iframe-loader": "^1.0.0",
+    "persona-react": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

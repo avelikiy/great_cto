@@ -1,0 +1,5 @@
+stages:
+  train:
+    cmd: python train.py
+    deps: [data/]
+    outs: [models/]

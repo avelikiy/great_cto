@@ -1,0 +1,17 @@
+{
+  "name": "healthcare-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "@types/fhir": "^0.0.41",
+    "fhir.js": "^0.0.21"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.7.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "web3-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "forge test",
+    "build": "forge build"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.0"
+  }
+}
