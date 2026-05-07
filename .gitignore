@@ -27,6 +27,9 @@ packages/cli/*.tgz
 *.log
 site/.previews/
 
+# Catalog submission tracking — local progress, not committed
+scripts/.catalog-state
+
 # Playwright / UI test artifacts
 initial-load.png
 t*.png

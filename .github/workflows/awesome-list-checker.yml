@@ -1,0 +1,63 @@
+name: Awesome-list health check
+
+# Weekly check that great_cto entries are still present in awesome-lists.
+# Opens a GitHub issue if any list dropped us, so we know to re-PR.
+#
+# Add new lists to MATRIX as we get accepted into them.
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'   # Monday 08:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        list:
+          - name: awesome-claude-code
+            url: https://raw.githubusercontent.com/davila7/claude-code-templates/main/README.md
+          - name: awesome-mcp-servers
+            url: https://raw.githubusercontent.com/punkpeye/awesome-mcp-servers/main/README.md
+          - name: awesome-ai-agents
+            url: https://raw.githubusercontent.com/e2b-dev/awesome-ai-agents/main/README.md
+
+    steps:
+      - name: Check listing
+        id: check
+        run: |
+          STATUS=$(curl -sL --max-time 30 "${{ matrix.list.url }}" | grep -ic "great[_-]cto\|great-cto" || true)
+          echo "found=$STATUS" >> $GITHUB_OUTPUT
+          if [ "$STATUS" -eq 0 ]; then
+            echo "::warning::Not listed in ${{ matrix.list.name }}"
+          else
+            echo "✓ Listed in ${{ matrix.list.name }} ($STATUS mention(s))"
+          fi
+
+      - name: Open issue if missing
+        if: steps.check.outputs.found == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'awesome-list-missing'
+            });
+            const exists = issues.find(i => i.title.includes('${{ matrix.list.name }}'));
+            if (!exists) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Missing from ${{ matrix.list.name }}',
+                body: 'Weekly health check found great_cto is no longer listed in [${{ matrix.list.name }}](${{ matrix.list.url }}). Open a PR to re-list.',
+                labels: ['awesome-list-missing', 'distribution']
+              });
+            }

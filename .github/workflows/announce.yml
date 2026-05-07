@@ -1,0 +1,153 @@
+name: Announce Release
+
+# Posts release announcements to multiple channels in parallel:
+#   - Twitter/X (via API)
+#   - Discord (via webhook)
+#   - Slack (via webhook)
+#   - Mastodon (via API)
+#   - Bluesky (via AT Protocol)
+#
+# Each step is `continue-on-error: true` so missing secrets don't break the workflow.
+# Only the channels with configured secrets will actually post.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to announce (e.g., v1.0.183)'
+        required: true
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set release info
+        id: info
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            echo "url=${{ github.event.release.html_url }}" >> $GITHUB_OUTPUT
+            echo "name=${{ github.event.release.name }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "url=https://github.com/${{ github.repository }}/releases/tag/${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "name=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      # ---------- Twitter / X ----------
+      - name: Tweet release
+        if: ${{ env.TWITTER_API_KEY != '' }}
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+        continue-on-error: true
+        uses: nearform-actions/github-action-notify-twitter@master
+        with:
+          message: |
+            🚀 great_cto ${{ steps.info.outputs.version }} released!
+
+            29 specialist agents · 22 archetypes · live board
+
+            ${{ steps.info.outputs.url }}
+
+            #ClaudeCode #AI #DevTools
+          twitter-app-key: ${{ secrets.TWITTER_API_KEY }}
+          twitter-app-secret: ${{ secrets.TWITTER_API_SECRET }}
+          twitter-access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          twitter-access-token-secret: ${{ secrets.TWITTER_ACCESS_SECRET }}
+
+      # ---------- Discord ----------
+      - name: Post to Discord
+        if: ${{ env.DISCORD_WEBHOOK != '' }}
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        continue-on-error: true
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"🚀 great_cto ${{ steps.info.outputs.version }}\",
+                \"description\": \"New release published\",
+                \"url\": \"${{ steps.info.outputs.url }}\",
+                \"color\": 5814783
+              }]
+            }" \
+            "$DISCORD_WEBHOOK"
+
+      # ---------- Slack ----------
+      - name: Post to Slack
+        if: ${{ env.SLACK_WEBHOOK != '' }}
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        continue-on-error: true
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"🚀 *great_cto ${{ steps.info.outputs.version }}* released — ${{ steps.info.outputs.url }}\"
+            }" \
+            "$SLACK_WEBHOOK"
+
+      # ---------- Mastodon (fosstodon.org) ----------
+      - name: Post to Mastodon
+        if: ${{ env.MASTODON_TOKEN != '' }}
+        env:
+          MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
+          MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
+        continue-on-error: true
+        run: |
+          curl -X POST "https://${MASTODON_INSTANCE:-fosstodon.org}/api/v1/statuses" \
+            -H "Authorization: Bearer $MASTODON_TOKEN" \
+            -F "status=🚀 great_cto ${{ steps.info.outputs.version }} released! 29 AI agents that ship from idea to prod. ${{ steps.info.outputs.url }} #ClaudeCode #AI #OpenSource"
+
+      # ---------- Bluesky ----------
+      - name: Post to Bluesky
+        if: ${{ env.BLUESKY_HANDLE != '' && env.BLUESKY_PASSWORD != '' }}
+        env:
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_PASSWORD: ${{ secrets.BLUESKY_PASSWORD }}
+          VERSION: ${{ steps.info.outputs.version }}
+          URL: ${{ steps.info.outputs.url }}
+        continue-on-error: true
+        run: |
+          # Authenticate
+          SESSION=$(curl -s -X POST https://bsky.social/xrpc/com.atproto.server.createSession \
+            -H "Content-Type: application/json" \
+            -d "{\"identifier\":\"$BLUESKY_HANDLE\",\"password\":\"$BLUESKY_PASSWORD\"}")
+          ACCESS_JWT=$(echo "$SESSION" | jq -r .accessJwt)
+          DID=$(echo "$SESSION" | jq -r .did)
+
+          # Post
+          curl -X POST https://bsky.social/xrpc/com.atproto.repo.createRecord \
+            -H "Authorization: Bearer $ACCESS_JWT" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"repo\": \"$DID\",
+              \"collection\": \"app.bsky.feed.post\",
+              \"record\": {
+                \"text\": \"🚀 great_cto $VERSION released! 29 AI agents that ship from idea to prod. $URL\",
+                \"createdAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+              }
+            }"
+
+      # ---------- Summary ----------
+      - name: Summary
+        run: |
+          echo "## Release announcement: ${{ steps.info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Channels attempted (only those with configured secrets actually post):" >> $GITHUB_STEP_SUMMARY
+          echo "- Twitter/X" >> $GITHUB_STEP_SUMMARY
+          echo "- Discord" >> $GITHUB_STEP_SUMMARY
+          echo "- Slack" >> $GITHUB_STEP_SUMMARY
+          echo "- Mastodon" >> $GITHUB_STEP_SUMMARY
+          echo "- Bluesky" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Configure missing secrets in repo Settings → Secrets and variables → Actions" >> $GITHUB_STEP_SUMMARY
