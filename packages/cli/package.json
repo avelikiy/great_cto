@@ -63,6 +63,7 @@
   "scripts": {
     "build": "tsc",
     "test": "npm run build && node --test tests/*.test.mjs",
+    "test:e2e": "npm run build && node ../../tests/run-archetype-e2e.mjs",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

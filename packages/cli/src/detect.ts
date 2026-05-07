@@ -159,6 +159,14 @@ export function detect(dir: string): DetectionResult {
       if (has("passport-saml") || has("@node-saml/passport-saml")) stack.add("passport-saml");
       if (has("@scim2/core") || has("scim2") || has("scim-patch")) stack.add("scim");
 
+      // Compliance automation (regulated industry — vanta/drata/secureframe are decisive signals)
+      if (has("vanta") || has("@vanta/agent")) { stack.add("compliance-automation"); sig("regulated", "vanta"); }
+      if (has("drata-cli") || has("@drata/sdk")) { stack.add("compliance-automation"); sig("regulated", "drata"); }
+      if (has("secureframe") || has("@secureframe/node")) { stack.add("compliance-automation"); sig("regulated", "secureframe"); }
+      if (has("tugboat-logic")) { stack.add("compliance-automation"); sig("regulated", "tugboat-logic"); }
+      // Audit log packages
+      if (has("audit-log") || has("node-audit-logger") || has("winston-audit")) { stack.add("audit-log"); sig("regulated", "audit-log"); }
+
       // Marketplace / KYC providers
       if (has("@stripe/connect-iframe-loader") || (has("stripe") && (pkg.name?.includes("market") || pkg.name?.includes("connect")))) {
         stack.add("stripe-connect"); sig("marketplace", "stripe-connect");
@@ -692,6 +700,16 @@ export function detect(dir: string): DetectionResult {
   // ── Project size estimate (Wave 3 lite) ──────────────────
   const projectSize = estimateProjectSize(dir);
 
+  // ── Compliance / regulated-industry docs (Wave 2 supplement) ──
+  const complianceFiles = ["ISMS.md", "isms.md", "risk-register.md", "DORA.md", "NIS2.md",
+                           "bcp.md", "BCP.md", "control-matrix.md", "security-policy.md"];
+  if (complianceFiles.some((f) => existsSync(join(dir, f))) ||
+      existsSync(join(dir, "compliance")) ||
+      existsSync(join(dir, "controls"))) {
+    stack.add("compliance-docs");
+    sig("regulated", "compliance-docs");
+  }
+
   // ── README mining (Wave 2) ───────────────────────────────
   const readmeKeywords = mineReadmeKeywords(dir);
   for (const kw of readmeKeywords) sig(`readme:${kw}`, "README");
@@ -782,7 +800,10 @@ function mineReadmeKeywords(dir: string): string[] {
     "cli":         ["command-line", "command line", "cli ", "$ npx ", "subcommand"],
     "data":        ["pipeline", "etl ", "warehouse", "dbt", "airflow", "dataset"],
     "game":        ["game ", "gameplay", "player", "level design"],
-    "regulated":   ["pci", "hipaa", "soc2", "iso 27001", "gdpr", "compliance"],
+    "regulated":   ["dora ict", "nis2", "fedramp", "fisma", "cmmc", "sox compliance",
+                    "sarbanes", "regulated entity", "regulated industry",
+                    "compliance automation", "audit trail", "iso 27001",
+                    "pci compliance", "soc 2 type", "compliance officer"],
   };
   for (const [bucket, terms] of Object.entries(buckets)) {
     if (terms.some((t) => text.includes(t))) kws.add(bucket);
