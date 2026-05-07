@@ -33,7 +33,12 @@ node_modules/
 
 # Misc
 *.log
-site/.previews/
+
+# Marketing / landing site — local only, never committed
+site/
+
+# Content drafts (Hashnode articles, social copy) — local only, never committed
+content/
 
 # Playwright / UI test artifacts
 initial-load.png
