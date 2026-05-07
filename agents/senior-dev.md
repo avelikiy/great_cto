@@ -11,7 +11,7 @@ maxTurns: 50
 timeout: 900
 effort: HIGH
 isolation: worktree
-isolation-fallback: none
+isolation-fallback: cwd
 memory: project
 color: blue
 skills:
