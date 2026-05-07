@@ -158,21 +158,31 @@ Present estimates as ranges: `[optimistic]–[pessimistic]` where pessimistic = 
 
 For each task, look up the token cost from `pm-planning.md` cost model. Apply multi-turn multiplier (2–5 turns for senior-dev tasks). Sum across all tasks for total project LLM cost.
 
-Include all agents in the cost sum:
-- architect (Opus 4.7): ~$0.50 per feature invocation  
-- pm (Sonnet 4.6): ~$0.15 per plan
-- senior-dev (Sonnet 4.6): per task × turns
-- qa-engineer (Haiku 4.5): per task × turns (cheapest model)
-- security-officer (Sonnet 4.6): per CSO review
-- devops (Haiku 4.5): ~$0.02 per deploy
+Pricing (2026 rate card, $/1M tokens — input/output):
+- **Opus 4.7**: $15 / $75
+- **Sonnet 4.6**: $3 / $15
+- **Haiku 4.5**: $0.80 / $4
+
+Per-agent cost (full feature invocation, 1 run, real measured median):
+- architect (Opus): ~$2–4 per feature  (60K tokens × $15/$75 mix, ~5–10min compute)
+- pm (Sonnet): ~$0.30–0.60 per plan  (45K tokens, 2–3 turns)
+- senior-dev (Sonnet): ~$0.50–1.20 per task × turns  (40K tokens × 2–5 turns)
+- qa-engineer (Haiku): ~$0.05–0.15 per task × turns
+- security-officer (Sonnet): ~$0.40–0.80 per CSO review
+- devops (Haiku): ~$0.10–0.30 per deploy  (NOT $0.02 — full pipeline includes log analysis)
+- pci-reviewer / oracle-reviewer / regulated-reviewer (Sonnet): ~$0.40–0.80 per threat-model
+- ai-security-reviewer (Sonnet): ~$0.40–0.80 per threat-model
+
+> ⚠ Do NOT cite legacy figures like "architect ~$0.50" or "devops ~$0.02" — those underestimated 4–8×. Use the ranges above; they reflect real production runs (e.g. neobank pipeline: architect 390s/$2.50, pci-reviewer 298s/$0.65).
 
 Report:
 ```
 LLM cost: $X.XX (optimistic, 2 turns/task) – $X.XX (pessimistic, 5 turns/task)
-Models: Opus $15/$75 per 1M · Sonnet $3/$15 per 1M · Haiku $0.8/$4 per 1M
+  architect: $X — pm: $X — senior-dev: $X (×N tasks) — reviewers: $X — qa: $X — devops: $X
+Models: Opus $15/$75 per 1M · Sonnet $3/$15 per 1M · Haiku $0.80/$4 per 1M
 ```
 
-Flag if total exceeds mode budget: PoC > $1, MVP > $5, Full > $20/feature.
+Flag if total exceeds mode budget: PoC > $5, MVP > $25, Full > $100/feature.
 
 **Human equivalent cost estimation (mandatory):**
 

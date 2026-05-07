@@ -112,15 +112,19 @@ The first sentence of any ARCH doc names the reader and the decision. No throat-
 
 ---
 
-## Step 0a: Discovery hard-gate (AI archetypes)
+## Step 0a: Discovery hard-gate (high-risk archetypes)
 
-Before pattern lookup or any architecture work — verify Discovery completed for AI projects. Skipping this is the failure mode that gives users a 60-minute "free-form Q&A" instead of a real pipeline.
+Before pattern lookup or any architecture work — verify Discovery completed for archetypes where assumed defaults are dangerous (compliance scope, money movement, PII, healthcare). Skipping this is the failure mode that gives users a 60-minute "free-form Q&A" instead of a real pipeline, OR an architecture document that invents the team size, budget, and geography.
 
 ```bash
 ARCH=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
 DISCOVERY=$(grep "^discovery:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
 MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+COST_CAP=$(grep "^cost-cap-usd-month:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
+GEO=$(grep "^geo:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
 
+# Tier 1: AI-archetypes — Discovery is non-negotiable (eval set, kill-switch, EU AI Act trigger)
 case "$ARCH" in
   ai-system|agent-product)
     if [ "$DISCOVERY" != "completed" ] && [ "$DISCOVERY" != "skipped" ]; then
@@ -131,6 +135,29 @@ case "$ARCH" in
     fi
     if [ -z "$MODE" ]; then
       echo "BLOCKED: ai-system / agent-product requires 'mode: poc|mvp|production' in PROJECT.md"
+      exit 1
+    fi
+    ;;
+esac
+
+# Tier 2: high-compliance archetypes — minimum-fields gate (mode + team + cost + geo)
+# Without these, architect would invent assumptions (e.g. "US-only", "$5k/mo", "team of 6") that
+# silently propagate to ARCH doc and downstream pipeline.
+case "$ARCH" in
+  fintech|healthcare|regulated|enterprise-saas|commerce|web3)
+    MISSING=""
+    [ -z "$MODE" ] && MISSING="$MISSING mode"
+    [ -z "$TEAM_SIZE" ] && MISSING="$MISSING team-size"
+    [ -z "$COST_CAP" ] && MISSING="$MISSING cost-cap-usd-month"
+    [ -z "$GEO" ] && MISSING="$MISSING geo"
+    if [ -n "$MISSING" ] && [ "$DISCOVERY" != "completed" ] && [ "$DISCOVERY" != "skipped" ]; then
+      echo "BLOCKED: $ARCH archetype requires these PROJECT.md fields:$MISSING"
+      echo ""
+      echo "These four shape every downstream decision (compliance scope, parallelism in pm, infra sizing in arch)."
+      echo "Architect will not invent defaults — re-run /start which asks them in one batch (Step 2.5)."
+      echo ""
+      echo "Override: set 'discovery: skipped' in PROJECT.md to proceed with explicitly-default values"
+      echo "(mode=mvp, team-size=1, cost-cap-usd-month=500, geo=us-only)."
       exit 1
     fi
     ;;
