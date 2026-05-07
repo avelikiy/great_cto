@@ -185,16 +185,20 @@ const RULES: Rule[] = [
     archetype: "ai-system",
     score: (d) => {
       let s = 0;
-      if (d.stack.includes("anthropic-sdk")) s += 4;
-      if (d.stack.includes("openai-sdk")) s += 3;
-      if (d.stack.includes("google-ai")) s += 3;
-      if (d.stack.includes("aws-bedrock")) s += 3;
-      if (d.stack.includes("cohere")) s += 2;
-      if (d.stack.includes("replicate")) s += 2;
-      if (d.stack.includes("langchain")) s += 3;
-      if (d.stack.includes("llamaindex")) s += 3;
-      if (d.stack.includes("vercel-ai-sdk")) s += 3;
+      if (d.stack.includes("anthropic-sdk")) s += 6;
+      if (d.stack.includes("openai-sdk")) s += 5;
+      if (d.stack.includes("google-ai")) s += 5;
+      if (d.stack.includes("aws-bedrock")) s += 5;
+      if (d.stack.includes("cohere")) s += 4;
+      if (d.stack.includes("replicate")) s += 4;
+      if (d.stack.includes("langchain")) s += 5;
+      if (d.stack.includes("llamaindex")) s += 5;
+      if (d.stack.includes("vercel-ai-sdk")) s += 5;
       if (d.stack.includes("ml")) s += 2;
+      // Combo bonus: using multiple AI providers/frameworks together
+      const aiCount = ["anthropic-sdk","openai-sdk","google-ai","aws-bedrock","cohere","replicate","langchain","llamaindex","vercel-ai-sdk"]
+        .filter(x => d.stack.includes(x)).length;
+      if (aiCount >= 2) s += 3;
       // Don't double-score if already an agent-product
       const agents = ["langgraph", "crewai", "autogen", "mastra", "mcp"];
       if (agents.some((a) => d.stack.includes(a))) s = Math.max(0, s - 2);
@@ -365,11 +369,11 @@ const RULES: Rule[] = [
     archetype: "cms",
     score: (d) => {
       let s = 0;
-      if (d.stack.includes("sanity")) s += 7;
-      if (d.stack.includes("contentful")) s += 7;
-      if (d.stack.includes("strapi")) s += 7;
-      if (d.stack.includes("payload")) s += 6;
-      if (d.stack.includes("ghost")) s += 6;
+      if (d.stack.includes("sanity")) s += 9;
+      if (d.stack.includes("contentful")) s += 9;
+      if (d.stack.includes("strapi")) s += 9;
+      if (d.stack.includes("payload")) s += 8;
+      if (d.stack.includes("ghost")) s += 8;
       if (d.stack.includes("gatsby")) s += 5;
       if (d.stack.includes("eleventy")) s += 5;
       if (d.stack.includes("hugo")) s += 5;
