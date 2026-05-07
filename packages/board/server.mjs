@@ -406,8 +406,60 @@ function bdList(cwd = process.cwd()) {
   }
 }
 
+// Fallback: parse .great_cto/tasks.md when Beads isn't initialized.
+// Format: `- [ ] TASK-001: Title [agent] [~42min]\n  Description: ...\n  Depends: ...`
+function parseTasksMd(cwd) {
+  const fp = path.join(cwd, '.great_cto', 'tasks.md');
+  if (!fs.existsSync(fp)) return [];
+  try {
+    const text = fs.readFileSync(fp, 'utf8');
+    const tasks = [];
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^-\s+\[([ x])\]\s+([A-Z]+-\d+):\s+(.+?)(?:\s+\[([\w-]+)\])?(?:\s+\[~?([^\]]+)\])?\s*$/);
+      if (!m) continue;
+      const [, done, id, title, agent, est] = m;
+      // Collect indented description lines until next blank or task
+      let desc = '';
+      for (let j = i + 1; j < lines.length; j++) {
+        if (/^\s+\S/.test(lines[j])) { desc += lines[j].trim() + ' '; }
+        else break;
+      }
+      const isGate = /^gate:/i.test(title) || (title || '').toLowerCase().includes('gate');
+      tasks.push({
+        id,
+        title: title.trim(),
+        description: desc.trim(),
+        notes: '',
+        design: '',
+        acceptance: '',
+        status: done === 'x' ? 'done' : (isGate ? 'gate' : 'backlog'),
+        raw_status: done === 'x' ? 'closed' : 'open',
+        priority: 2,
+        labels: agent ? [agent] : [],
+        owner: agent || '',
+        created_at: null,
+        updated_at: null,
+        closed_at: null,
+        close_reason: '',
+        comment_count: 0,
+        is_gate: isGate,
+        agent: agent || '',
+        estimated_minutes: est ? parseInt(est) || null : null,
+        source: 'tasks.md',
+      });
+    }
+    return tasks;
+  } catch { return []; }
+}
+
 function getTasks(cwd = process.cwd()) {
   const all = bdList(cwd);
+  // Fallback to tasks.md when no Beads tasks (project not initialized with bd)
+  if (all.length === 0) {
+    const mdTasks = parseTasksMd(cwd);
+    if (mdTasks.length > 0) return mdTasks;
+  }
   return all.map(t => ({
     id: t.id,
     title: t.title,
@@ -890,6 +942,36 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/projects') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(listProjects()));
+    return;
+  }
+
+  // Manually register a project at an arbitrary path (e.g. /tmp/...).
+  // Body: { path: "/tmp/neobank-test" }
+  if (pathname === '/api/projects/register' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { path: projPath } = JSON.parse(body || '{}');
+        if (!projPath || !fs.existsSync(projPath)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'path missing or does not exist' }));
+        }
+        // Auto-create PROJECT.md stub if missing — required for autoRegisterProject
+        const greatCtoDir = path.join(projPath, '.great_cto');
+        const projectMd = path.join(greatCtoDir, 'PROJECT.md');
+        if (!fs.existsSync(projectMd)) {
+          fs.mkdirSync(greatCtoDir, { recursive: true });
+          fs.writeFileSync(projectMd, `# PROJECT — ${path.basename(projPath)}\n\nname: ${path.basename(projPath)}\narchetype: unknown\nphase: discovery\n`);
+        }
+        autoRegisterProject(projPath);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, path: projPath, slug: path.basename(projPath) }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
     return;
   }
 
