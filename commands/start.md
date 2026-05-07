@@ -294,6 +294,8 @@ incident-owner: l3-support
 2. `docs/decisions/` — ADRs, DECISION-LOG.md — architecture choices and rationale
 3. Source code — only when editing or layers 1–2 don't answer the question
 > Run `/resume` at session start. Run `/save` before ending. Agents follow this order automatically.
+## Meta
+plugin-version: 1.0.181
 ```
 
 Notes:
@@ -464,16 +466,45 @@ fi
 
 ## Step 4: Auto-install domain agents from catalog
 
+The plugin ships specialist reviewer agents for each archetype. Auto-enable the domain-specific ones:
+
+| Archetype | Domain agents to activate |
+|-----------|--------------------------|
+| `ai-system` | `great_cto-ai-security-reviewer`, `great_cto-ai-prompt-architect`, `great_cto-ai-eval-engineer` |
+| `agent-product` | `great_cto-ai-security-reviewer`, `great_cto-ai-eval-engineer` |
+| `commerce` | `great_cto-pci-reviewer` |
+| `fintech` | `great_cto-pci-reviewer`, `great_cto-regulated-reviewer` |
+| `healthcare` | `great_cto-regulated-reviewer` |
+| `regulated` | `great_cto-regulated-reviewer` |
+| `enterprise-saas` | `great_cto-enterprise-saas-reviewer` |
+| `web3` | `great_cto-oracle-reviewer` |
+| `iot-embedded` | `great_cto-firmware-reviewer` |
+| `browser-extension` | `great_cto-web-store-reviewer` |
+| `mobile-app` | `great_cto-mobile-store-reviewer` |
+| `data-platform` | `great_cto-data-platform-reviewer` |
+| `mlops` | `great_cto-mlops-reviewer` |
+| `streaming` | `great_cto-streaming-reviewer` |
+| `marketplace` | `great_cto-marketplace-reviewer` |
+| `cms` | `great_cto-cms-reviewer` |
+| `infra` | `great_cto-infra-reviewer` |
+| `library` | `great_cto-library-reviewer` |
+| `cli-tool` | `great_cto-cli-reviewer` |
+| `game` | `great_cto-game-reviewer` |
+| `devtools` | `great_cto-devtools-reviewer` |
+
+All 30 agents are already installed via SessionStart hook. This step just reminds the CTO which ones apply to their archetype.
+
+Report: "Domain agents for `<archetype>`: <list of 1-3 relevant names>. All 30 agents available via `@great_cto-<name>`."
+
+Then also search external catalog for additional domain agents:
 ```bash
 CATALOG=~/.great_cto/catalog/cli-tool/components/agents
 find "$CATALOG" -name "*.md" 2>/dev/null | sort | xargs grep -il "<keyword>" | head -5
 ```
 
-For each match: copy to `~/.claude/agents/<name>.md`.
+For each match: copy to `~/.claude/agents/<name>.md`. Report count only: "+N from catalog"
 
-Silent — don't mention individual files. Report count only: "Domain agents: +N installed from catalog"
-
-If catalog unavailable: skip silently, note "Domain agents: catalog unavailable — SessionStart hook will retry on the next session."
+If catalog unavailable: skip silently.
 
 ## Step 5: Set up weekly automation
 
