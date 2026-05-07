@@ -289,6 +289,11 @@ incident-owner: l3-support
 ## Gates
 - architecture
 - deploy
+## Context Query Order (3-Layer Rule)
+1. `.great_cto/` — PROJECT.md, logs, brain.md, verdicts — what was decided, what's pending
+2. `docs/decisions/` — ADRs, DECISION-LOG.md — architecture choices and rationale
+3. Source code — only when editing or layers 1–2 don't answer the question
+> Run `/resume` at session start. Run `/save` before ending. Agents follow this order automatically.
 ```
 
 Notes:
@@ -399,6 +404,12 @@ if [ ! -f "docs/decisions/DECISION-LOG.md" ]; then
 DLOGEOF
   echo "DECISION-LOG.md initialized → docs/decisions/DECISION-LOG.md"
 fi
+```
+
+**Create session logs directory** (for `/save` and `/resume`):
+```bash
+mkdir -p .great_cto/logs
+echo "logs/: initialized → .great_cto/logs/"
 ```
 
 **Team size → initialize ownership scaffold** (if team-size ≥ 5):
