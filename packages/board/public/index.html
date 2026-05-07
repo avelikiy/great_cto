@@ -126,7 +126,9 @@ button { font-family: inherit; cursor: pointer; }
 }
 .proj-switch:hover { background: var(--bg-muted); }
 .proj-switch .star { color: var(--accent); font-size: 16px; }
-.proj-switch .name { font-weight: 600; font-size: 14px; flex: 1; }
+.proj-switch .name { font-weight: 600; font-size: 14px; }
+.proj-switch .sw-meta { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.proj-switch .sw-arch { font-size: 10px; color: var(--text3); font-weight: 400; letter-spacing: 0.03em; }
 .proj-switch .chev {
   color: var(--text3); width: 12px; height: 12px;
   transition: transform 0.15s;
@@ -1327,6 +1329,41 @@ button { font-family: inherit; cursor: pointer; }
 .feed-row .time { font-family: var(--mono); font-size: 11px; color: var(--text3); }
 
 /* ── Share page ───────────────────────────────────────────────────────────── */
+/* ── Logs tab ───────────────────────────────────────────── */
+.logs-page { display: flex; flex-direction: column; height: 100%; }
+.logs-header { padding: 20px 24px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 16px; }
+.logs-header h2 { margin: 0; font-size: 18px; }
+.logs-hint { font-size: 12px; color: var(--text3); }
+.logs-hint code { font-family: var(--mono); background: var(--bg-strong); padding: 1px 5px; border-radius: 3px; }
+.logs-layout { display: flex; flex: 1; overflow: hidden; }
+.logs-list { width: 280px; min-width: 220px; border-right: 1px solid var(--border); overflow-y: auto; padding: 8px 0; flex-shrink: 0; }
+.logs-detail { flex: 1; overflow-y: auto; padding: 24px 28px; }
+.log-item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.log-item:hover { background: var(--bg-muted); }
+.log-item.active { background: var(--bg-strong); border-left: 2px solid var(--accent); }
+.log-item .log-date { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.log-item .log-title { font-size: 13px; font-weight: 500; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-item .log-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.log-detail-head { margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.log-detail-head h3 { margin: 0 0 4px; font-size: 17px; }
+.log-detail-head .log-detail-meta { font-size: 12px; color: var(--text3); }
+.log-section { margin-bottom: 18px; }
+.log-section-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.log-bullets { list-style: none; padding: 0; margin: 0; }
+.log-bullets li { padding: 3px 0 3px 12px; position: relative; font-size: 13px; color: var(--text2); }
+.log-bullets li::before { content: '·'; position: absolute; left: 0; color: var(--accent); }
+.log-empty { font-size: 13px; color: var(--text3); font-style: italic; }
+
+/* ── Agents installed list ─────────────────────────────── */
+.agents-installed { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
+.agent-card { background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.agent-card .ac-name { font-size: 12px; font-weight: 600; font-family: var(--mono); color: var(--accent); }
+.agent-card .ac-desc { font-size: 11px; color: var(--text3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agent-card .ac-meta { font-size: 10px; color: var(--text3); margin-top: 5px; display: flex; gap: 8px; }
+.agent-card .ac-model { background: var(--bg-strong); padding: 1px 5px; border-radius: 3px; }
+.agent-card .ac-used { color: var(--status-review); }
+.agent-card .ac-never { color: var(--text3); font-style: italic; }
+
 .share-page {
   padding: 32px;
   display: flex; flex-direction: column;
@@ -1580,7 +1617,10 @@ button { font-family: inherit; cursor: pointer; }
     </div>
     <div class="proj-switch" id="proj-switch" onclick="toggleProjMenu(event)">
       <span class="proj-icon" id="proj-switch-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-      <span class="name" id="project-name">—</span>
+      <div class="sw-meta">
+        <span class="name" id="project-name">—</span>
+        <span class="sw-arch" id="proj-switch-arch"></span>
+      </div>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       <div class="proj-menu" id="proj-menu" onclick="event.stopPropagation()">
         <div class="proj-menu-search">
@@ -1616,6 +1656,11 @@ button { font-family: inherit; cursor: pointer; }
         <span id="share-nav-badge" class="share-badge off" style="margin-left:auto;">
           <span class="share-badge-dot"></span>off
         </span>
+      </div>
+      <div class="nav-item" data-tab="logs" onclick="switchTab('logs', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+        <span>Logs</span>
+        <span class="count" id="nav-logs-count">0</span>
       </div>
       <div class="nav-divider"></div>
       <div class="nav-item nav-item-agents" data-tab="agents" onclick="switchTab('agents', this)">
@@ -1749,6 +1794,20 @@ button { font-family: inherit; cursor: pointer; }
     </div>
 
     <!-- Agents -->
+    <!-- Session Logs -->
+    <div class="panel" id="panel-logs">
+      <div class="logs-page">
+        <div class="logs-header">
+          <h2>Session logs</h2>
+          <span class="logs-hint">Written by <code>/save</code> · Restored by <code>/resume</code></span>
+        </div>
+        <div class="logs-layout">
+          <div class="logs-list" id="logs-list"><div class="empty">Loading…</div></div>
+          <div class="logs-detail" id="logs-detail"><div class="empty">Select a session to view</div></div>
+        </div>
+      </div>
+    </div>
+
     <div class="panel" id="panel-agents">
       <div class="metrics-page">
         <div class="mp-section-label">Agent cost estimate</div>
@@ -1769,6 +1828,11 @@ button { font-family: inherit; cursor: pointer; }
             <div id="timeline"></div>
           </div>
           <div id="inbox-gates"></div>
+        </div>
+
+        <div class="mp-section-label" style="margin-top:28px">Installed specialist agents <span id="agents-installed-count" style="color:var(--text3);font-size:11px"></span></div>
+        <div class="agents-installed" id="agents-installed-grid">
+          <div class="cost-empty">Loading…</div>
         </div>
       </div>
     </div>
@@ -2332,6 +2396,8 @@ async function switchProject(slug) {
   const crIcon = document.getElementById('crumb-icon');
   if (swIcon) swIcon.innerHTML = archetypeIcon(arch, 18);
   if (crIcon) crIcon.innerHTML = archetypeIcon(arch, 14);
+  const swArch = document.getElementById('proj-switch-arch');
+  if (swArch) swArch.textContent = arch !== 'default' ? arch : '';
   renderInbox(inbox);
   renderFilterBar();
   renderKanban(allTasks);
@@ -2510,6 +2576,8 @@ async function init() {
   const crIcon = document.getElementById('crumb-icon');
   if (swIcon) swIcon.innerHTML = archetypeIcon(arch, 18);
   if (crIcon) crIcon.innerHTML = archetypeIcon(arch, 14);
+  const swArch = document.getElementById('proj-switch-arch');
+  if (swArch) swArch.textContent = arch !== 'default' ? arch : '';
 
   renderInbox(inbox);
   renderFilterBar();
@@ -3034,18 +3102,89 @@ function switchTab(id, el) {
   const panelEl = document.getElementById(`panel-${id}`);
   if (panelEl) panelEl.classList.add('active');
   // crumb
-  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', agents: 'Agents', share: 'Share', memory: 'Memory' };
+  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', agents: 'Agents', share: 'Share', memory: 'Memory', logs: 'Logs' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';
   if (id === 'dashboard' || id === 'agents') {
     api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
     if (id === 'dashboard') refreshCost();
+    if (id === 'agents') refreshAgentsInstalled();
   }
-  if (id === 'inbox') {
-    refreshInbox();
+  if (id === 'inbox') refreshInbox();
+  if (id === 'memory') loadMemory();
+  if (id === 'logs') refreshLogs();
+}
+
+/* ── Session Logs ───────────────────────────────────────────────────────── */
+let allLogs = [];
+async function refreshLogs() {
+  const data = await api(`/api/logs${pqs()}`);
+  if (!data) return;
+  allLogs = data.logs || [];
+  const countEl = document.getElementById('nav-logs-count');
+  if (countEl) countEl.textContent = allLogs.length;
+  renderLogsList();
+  if (allLogs.length > 0) renderLogDetail(allLogs[0]);
+}
+
+function renderLogsList() {
+  const el = document.getElementById('logs-list');
+  if (!el) return;
+  if (!allLogs.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px 16px">No session logs yet.<br><small style="color:var(--text3)">Run /save to create one.</small></div>';
+    return;
   }
-  if (id === 'memory') {
-    loadMemory();
-  }
+  el.innerHTML = allLogs.map((log, i) => `
+    <div class="log-item ${i === 0 ? 'active' : ''}" onclick="selectLog(${i}, this)">
+      <div class="log-date">${esc(log.date)}${log.time ? ' · ' + esc(log.time) : ''}</div>
+      <div class="log-title">${esc(log.title)}</div>
+      <div class="log-meta">${log.done.length} done · ${log.pending.length} pending${log.duration ? ' · ' + esc(log.duration) : ''}</div>
+    </div>`).join('');
+}
+
+function selectLog(idx, el) {
+  document.querySelectorAll('.log-item').forEach(e => e.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderLogDetail(allLogs[idx]);
+}
+
+function renderLogDetail(log) {
+  const el = document.getElementById('logs-detail');
+  if (!el || !log) return;
+  el.innerHTML = `
+    <div class="log-detail-head">
+      <h3>${esc(log.title)}</h3>
+      <div class="log-detail-meta">${esc(log.date)}${log.time ? ' at ' + esc(log.time) : ''}${log.duration ? ' · ' + esc(log.duration) : ''}</div>
+    </div>
+    <div class="log-section">
+      <div class="log-section-label">Done</div>
+      ${log.done.length ? `<ul class="log-bullets">${log.done.map(d => `<li>${esc(d)}</li>`).join('')}</ul>` : '<div class="log-empty">nothing recorded</div>'}
+    </div>
+    <div class="log-section">
+      <div class="log-section-label">Pending</div>
+      ${log.pending.length ? `<ul class="log-bullets">${log.pending.map(d => `<li>${esc(d)}</li>`).join('')}</ul>` : '<div class="log-empty">nothing pending</div>'}
+    </div>`;
+}
+
+/* ── Agents installed ───────────────────────────────────────────────────── */
+async function refreshAgentsInstalled() {
+  const data = await api('/api/agents-installed');
+  if (!data) return;
+  const agents = data.agents || [];
+  const countEl = document.getElementById('agents-installed-count');
+  if (countEl) countEl.textContent = `(${agents.length})`;
+  const grid = document.getElementById('agents-installed-grid');
+  if (!grid) return;
+  if (!agents.length) { grid.innerHTML = '<div class="cost-empty">No great_cto agents found in ~/.claude/agents/</div>'; return; }
+  grid.innerHTML = agents.map(a => {
+    const lastUsedStr = a.lastUsed
+      ? `<span class="ac-used">last used: ${esc(a.lastUsed.slice(0,10))}</span>`
+      : `<span class="ac-never">never used</span>`;
+    return `<div class="agent-card">
+      <div class="ac-name">${esc(a.name)}</div>
+      <div class="ac-desc" title="${esc(a.description)}">${esc(a.description || '—')}</div>
+      <div class="ac-meta"><span class="ac-model">${esc(a.model)}</span>${lastUsedStr}</div>
+    </div>`;
+  }).join('');
 }
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
