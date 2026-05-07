@@ -43,14 +43,26 @@
     "startup-tools",
     "solo-founder"
   ],
-  "homepage": "https://github.com/avelikiy/great_cto",
+  "homepage": "https://greatcto.systems",
   "license": "MIT",
-  "author": "avelikiy",
+  "author": {
+    "name": "Alexander Velikiy",
+    "url": "https://hashnode.com/@Greatcto"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/avelikiy/great_cto.git",
     "directory": "packages/cli"
   },
+  "bugs": {
+    "url": "https://github.com/avelikiy/great_cto/issues"
+  },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/avelikiy"
+    }
+  ],
   "bin": {
     "great-cto": "index.mjs"
   },

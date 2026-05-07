@@ -40,6 +40,9 @@ site/
 # Content drafts (Hashnode articles, social copy) — local only, never committed
 content/
 
+# Catalog submission tracking — local progress, not committed
+scripts/.catalog-state
+
 # Playwright / UI test artifacts
 initial-load.png
 t*.png
