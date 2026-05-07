@@ -9,9 +9,15 @@
 You're the CTO. You're also the bottleneck. **GreatCTO is 29 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
+[![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
+[![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![Stars](https://img.shields.io/github/stars/avelikiy/great_cto?style=flat)](https://github.com/avelikiy/great_cto/stargazers)
+[![Issues](https://img.shields.io/github/issues/avelikiy/great_cto)](https://github.com/avelikiy/great_cto/issues)
+[![Last commit](https://img.shields.io/github/last-commit/avelikiy/great_cto)](https://github.com/avelikiy/great_cto/commits/main)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
+[![Socket](https://socket.dev/api/badge/npm/package/great-cto)](https://socket.dev/npm/package/great-cto)
+[![Snyk](https://snyk.io/advisor/npm-package/great-cto/badge.svg)](https://snyk.io/advisor/npm-package/great-cto)
 
 [Website](https://greatcto.systems) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
 
