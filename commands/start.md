@@ -232,6 +232,21 @@ Pipeline: <agent1> → <agent2> → ... [~<time>]
 
 Wait for CTO reply before writing PROJECT.md. Show **user-facing scale** (`quick`/`standard`/`deep`) in this summary even though PROJECT.md stores internal size.
 
+### Step 2.5 — Mandatory minimum questions (run BEFORE creating PROJECT.md)
+
+Even when archetype is detected with high confidence, the following 4 fields are ALWAYS required for the architect not to invent assumptions. Use the `AskUserQuestion` tool to ask them in **one batch** (one tool call, four questions):
+
+1. **Mode** — `PoC` / `MVP` / `production`?  Drives gates, security depth, runbooks.
+2. **Team size** — `solo` / `small (2–5)` / `medium (6–15)` / `large (15+)`?  Drives parallelism in pm planning.
+3. **Cost cap (infra)** — monthly USD ceiling, e.g. `500`, `5000`, `none`. Used by architect to size services.
+4. **Geographic scope** — `US-only` / `EU` / `global`?  Drives compliance (GDPR, data residency).
+
+Skip this batch ONLY if:
+- The CTO already answered them in the original `/start` argument (parse for the patterns: "MVP", "team of N", "$Xk/mo", "EU customers", etc.), OR
+- The CTO explicitly says "skip questions" / "you decide" / "go" — in which case write `mode: mvp, team-size: 1, cost-cap: 500, geo: us-only` as defaults and add `discovery-defaults-applied: true` to PROJECT.md so architect knows assumptions are unconfirmed.
+
+After answers come back, store them in PROJECT.md fields: `mode`, `team-size`, `cost-cap-usd-month`, `geo`, `discovery: completed`.
+
 **Handle override replies** (accept both user-facing and legacy vocab):
 - "go" / "yes" / "start" → proceed with detected values
 - "existing" / "yes existing" → set `greenfield: false`
