@@ -1191,6 +1191,80 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Session logs — list .great_cto/logs/session-*.md for the current project
+  if (pathname === '/api/logs') {
+    const logsDir = path.join(cwd, '.great_cto', 'logs');
+    let logs = [];
+    try {
+      const files = fs.readdirSync(logsDir)
+        .filter(f => f.startsWith('session-') && f.endsWith('.md'))
+        .sort().reverse().slice(0, 30);
+      logs = files.map(f => {
+        const fp = path.join(logsDir, f);
+        const raw = readFileSafe(fp) || '';
+        // Parse frontmatter date/time/duration
+        const dateM = raw.match(/^date:\s*(.+)$/m);
+        const timeM = raw.match(/^time:\s*(.+)$/m);
+        const durM  = raw.match(/^duration:\s*(.+)$/m);
+        // Parse session title from H1
+        const titleM = raw.match(/^#\s+Session:\s*(.+)$/m);
+        // Extract Done bullets
+        const doneM = raw.match(/## Done\n([\s\S]*?)(?=\n##|$)/);
+        const done = doneM ? doneM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
+        // Extract Pending bullets
+        const pendM = raw.match(/## Pending\n([\s\S]*?)(?=\n##|$)/);
+        const pending = pendM ? pendM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
+        return {
+          file: f,
+          date: dateM?.[1]?.trim() || f.slice(8, 18),
+          time: timeM?.[1]?.trim() || '',
+          duration: durM?.[1]?.trim() || '',
+          title: titleM?.[1]?.trim() || f.replace(/^session-\d{4}-\d{2}-\d{2}-/, '').replace('.md', ''),
+          done,
+          pending,
+          raw,
+        };
+      });
+    } catch {}
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ logs }));
+    return;
+  }
+
+  // Installed agents — list ~/.claude/agents/great_cto-*.md with last-used from verdicts
+  if (pathname === '/api/agents-installed') {
+    const agentsDir = path.join(os.homedir(), '.claude', 'agents');
+    let agents = [];
+    try {
+      const files = fs.readdirSync(agentsDir)
+        .filter(f => f.startsWith('great_cto-') && f.endsWith('.md'))
+        .sort();
+      // Read verdict logs to get last-used per agent
+      const verdicts = readVerdicts();
+      const lastUsed = new Map();
+      for (const v of verdicts) {
+        if (v.agent && !lastUsed.has(v.agent)) lastUsed.set(v.agent, v.ts);
+      }
+      agents = files.map(f => {
+        const name = f.replace(/^great_cto-/, '').replace(/\.md$/, '');
+        const fp = path.join(agentsDir, f);
+        const raw = readFileSafe(fp) || '';
+        // Extract description from YAML frontmatter
+        const descM = raw.match(/^description:\s*"?([^"\n]+)"?/m);
+        const modelM = raw.match(/^model:\s*(\S+)/m);
+        return {
+          name,
+          description: descM?.[1]?.trim() || '',
+          model: modelM?.[1]?.trim() || 'sonnet',
+          lastUsed: lastUsed.get(name) || null,
+        };
+      });
+    } catch {}
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ agents, total: agents.length }));
+    return;
+  }
+
   // Static files
   let filePath = pathname === '/' ? '/index.html' : pathname;
   const fullPath = path.join(PUBLIC, filePath);
