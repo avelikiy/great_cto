@@ -1,0 +1,55 @@
+.DS_Store
+*.swp
+*.swo
+
+# Local Claude Code / great_cto project memory.
+# This is the per-project state directory that `npx great-cto init` creates.
+# Each user generates their own based on their stack; not committed.
+.great_cto/
+
+# Claude Code runtime state — per-session, developer-specific, never committed.
+.claude/
+
+# Bundled npm artefacts — CLI package compiles on demand.
+packages/cli/node_modules/
+packages/cli/*.tgz
+packages/cli/dist/
+
+# Wrangler build cache (all workers)
+.wrangler/
+workers/**/.wrangler/
+
+# Generic node_modules safety net
+node_modules/
+
+# DORA baseline — local trend log, not committed.
+.great_cto/dora-baseline.log
+
+# SLO burn history — local snapshot series, not committed.
+.great_cto/slo-burn-history.log
+
+# Cost history — local cost log, not committed (may contain contract values).
+.great_cto/cost-history.log
+
+# Misc
+*.log
+
+# Marketing / landing site — local only, never committed
+site/
+
+# Content drafts (Hashnode articles, social copy) — local only, never committed
+content/
+
+# Catalog submission tracking — local progress, not committed
+scripts/.catalog-state
+
+# Playwright / UI test artifacts
+initial-load.png
+t*.png
+.playwright-mcp/
+.wrangler/
+tests/ui/
+tests/ui/node_modules/
+tests/ui/test-results/
+workers/**
+packages/cli/dist/

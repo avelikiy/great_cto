@@ -1,0 +1,38 @@
+name: Publish to JSR
+
+# Mirrors npm publish to JSR (JavaScript Registry).
+# JSR auto-generates docs from JSDoc comments + improves discovery.
+# https://jsr.io/docs/publishing-packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish-jsr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for JSR OIDC publishing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: packages/cli
+        run: npm ci
+
+      - name: Build
+        working-directory: packages/cli
+        run: npm run build
+
+      - name: Publish to JSR
+        working-directory: packages/cli
+        run: npx jsr publish --allow-dirty
+        continue-on-error: true   # JSR config may not exist yet — don't block npm publish
