@@ -32,14 +32,65 @@ function writeProjectsRegistry(reg) {
   fs.mkdirSync(GREAT_CTO_DIR, { recursive: true });
   fs.writeFileSync(PROJECTS_FILE, JSON.stringify(reg, null, 2));
 }
+// Map legacy / informal archetype names to canonical archetype slugs.
+// This lets the board correctly badge old PROJECT.md files (mobile, saas-platform,
+// ai-agent, etc.) without forcing users to rewrite them.
+const ARCHETYPE_ALIASES = {
+  'mobile': 'mobile-app',
+  'mobile-android': 'mobile-app',
+  'mobile-ios': 'mobile-app',
+  'saas-platform': 'enterprise-saas',
+  'saas': 'enterprise-saas',
+  'ai-agent': 'agent-product',
+  'agent': 'agent-product',
+  'rag-system': 'ai-system',
+  'llm-app': 'ai-system',
+  'trading-system': 'fintech',
+  'financial-platform': 'fintech',
+  'neobroker': 'fintech',
+  'neobank': 'fintech',
+  'ml-platform': 'mlops',
+  'ml-training': 'mlops',
+  'ml-serving': 'mlops',
+  'web-fullstack': 'web-service',
+  'web-app': 'web-service',
+  'api': 'web-service',
+  'backend': 'web-service',
+  'cli': 'cli-tool',
+  'sdk': 'library',
+  'npm-library': 'library',
+};
+
+function normalizeArchetype(raw) {
+  if (!raw) return '';
+  // Strip backticks, quotes, surrounding whitespace
+  const clean = raw.replace(/[`'"]/g, '').trim().toLowerCase();
+  // Take first token if comma/plus-separated (e.g. "trading-system + financial-platform")
+  const first = clean.split(/[,+]/)[0].trim();
+  return ARCHETYPE_ALIASES[first] || first;
+}
+
+function extractArchetype(text) {
+  // 1. Canonical: `archetype: foo`
+  let m = text.match(/^archetype:\s*(.+)$/m);
+  if (m) return normalizeArchetype(m[1]);
+  // 2. Legacy yaml-like: `primary: foo`
+  m = text.match(/^primary:\s*(.+)$/m);
+  if (m) return normalizeArchetype(m[1]);
+  // 3. Markdown list (bullet): `- Primary: \`foo\`` or `- primary: foo + bar`
+  m = text.match(/^[-*]\s*Primary:\s*(.+)$/im);
+  if (m) return normalizeArchetype(m[1]);
+  return '';
+}
+
 function readProjectMd(dir) {
   const p = path.join(dir, '.great_cto', 'PROJECT.md');
   if (!fs.existsSync(p)) return null;
   const text = fs.readFileSync(p, 'utf8');
   const get = k => (text.match(new RegExp(`^${k}:\\s*(.+)$`, 'm')) || [])[1]?.trim() || '';
   return {
-    slug: get('project') || path.basename(dir),
-    archetype: get('archetype') || 'web-service',
+    slug: get('project') || get('name') || path.basename(dir),
+    archetype: extractArchetype(text) || 'unknown',
     description: get('description') || '',
     path: dir,
     added_at: new Date().toISOString(),
