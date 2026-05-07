@@ -416,6 +416,53 @@ const RULES: Rule[] = [
     },
   },
 
+  // ── regulated (compliance-first: DORA/NIS2/SOX/FedRAMP — not fintech/healthcare) ──
+  {
+    archetype: "regulated",
+    score: (d) => {
+      let s = 0;
+      // Compliance automation SaaS installed → near-certain regulated industry
+      if (d.stack.includes("compliance-automation")) s += 10;
+      // Compliance documentation structure
+      if (d.stack.includes("compliance-docs")) s += 7;
+      // Audit log package
+      if (d.stack.includes("audit-log")) s += 5;
+      // README regulatory signals
+      const kws = d.readmeKeywords;
+      if (kws.includes("regulated")) s += 5;
+      // FedRAMP / FISMA / CMMC → US federal regulated
+      const fedSignals = ["fedramp", "fisma", "cmmc"];
+      if (fedSignals.some((k) => kws.includes(k))) s += 8;
+      // DORA ICT / NIS2 → EU regulated
+      if (kws.includes("dora ict") || kws.includes("nis2")) s += 6;
+      // SOX compliance (non-fintech context)
+      if (kws.includes("sox compliance") || kws.includes("sarbanes")) {
+        if (!d.stack.includes("plaid") && !d.stack.includes("fintech")) s += 5;
+      }
+      // Generic compliance/audit signals without stronger domain archetype
+      if (kws.includes("compliance automation") || kws.includes("audit trail")) s += 4;
+      if (kws.includes("iso 27001") || kws.includes("soc 2 type")) s += 3;
+      // Hard exclude: fintech and healthcare have their own dedicated archetypes
+      if (d.stack.includes("plaid") || d.stack.includes("wise") || d.stack.includes("fhir")) s = 0;
+      return s;
+    },
+    reason: (d) => {
+      const bits: string[] = [];
+      if (d.stack.includes("compliance-automation")) bits.push("compliance automation (Vanta/Drata/Secureframe)");
+      if (d.stack.includes("compliance-docs")) bits.push("ISMS/risk-register/compliance docs");
+      if (d.stack.includes("audit-log")) bits.push("audit log package");
+      const kws = d.readmeKeywords;
+      if (kws.includes("regulated")) bits.push("regulated-industry README");
+      if (kws.includes("fedramp")) bits.push("FedRAMP");
+      if (kws.includes("fisma")) bits.push("FISMA");
+      if (kws.includes("cmmc")) bits.push("CMMC");
+      if (kws.includes("dora ict")) bits.push("DORA ICT");
+      if (kws.includes("nis2")) bits.push("NIS2");
+      if (kws.includes("sox compliance") || kws.includes("sarbanes")) bits.push("SOX");
+      return `regulated-industry signals (${bits.join(", ")}) — DORA/NIS2/SOX/FedRAMP compliance gates required`;
+    },
+  },
+
   // ── cli-tool (explicit CLI: bin field + cli entry) ─
   {
     archetype: "cli-tool",
@@ -593,7 +640,7 @@ const TIE_BREAK_PRIORITY: Archetype[] = [
   "mlops", "streaming",
   "commerce", "enterprise-saas", "ai-system", "devtools",
   "data-platform", "cms", "infra", "mobile-app",
-  "cli-tool", "web-service", "library", "regulated", "greenfield",
+  "regulated", "cli-tool", "web-service", "library", "greenfield",
 ];
 
 function priorityIndex(a: Archetype): number {
@@ -664,6 +711,14 @@ export function suggestCompliance(d: DetectionResult, archetype: Archetype): str
   if (archetype === "browser-extension") { c.add("csp"); c.add("mv3-security"); c.add("gdpr"); }
   if (archetype === "game") { c.add("coppa"); c.add("age-rating"); c.add("accessibility"); }
   if (archetype === "devtools") { c.add("openssf"); c.add("api-stability"); c.add("soc2-type-2"); c.add("gdpr"); }
+  if (archetype === "regulated") {
+    c.add("iso27001"); c.add("gdpr"); c.add("compliance-required");
+    // FedRAMP/CMMC if US federal signals present
+    const kws = d.readmeKeywords;
+    if (kws.includes("fedramp") || kws.includes("fisma") || kws.includes("cmmc")) c.add("fedramp");
+    if (kws.includes("dora ict") || kws.includes("nis2")) { c.add("dora-ict"); c.add("nis2"); }
+    if (kws.includes("sox compliance") || kws.includes("sarbanes")) c.add("sox");
+  }
   if (archetype === "web-service") c.add("gdpr"); // baseline for user data
   if (archetype === "cli-tool") { /* CLI tools usually don't have compliance load */ }
   if (archetype === "marketplace") {
