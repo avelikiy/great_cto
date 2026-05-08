@@ -93,7 +93,7 @@ great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the fu
 You:  /start "add Stripe subscriptions — monthly and annual plans"
 
 great_cto:
-  → archetype: commerce | scale: standard | ~45min
+  → archetype: commerce | scale: standard | LLM agent: ~45min  (human team: 2–3 days)
   → compliance: pci-dss + gdpr (auto-attached)
   → ARCH-stripe-subscriptions.md ready  →  DECISION 1: approve architecture?
 
@@ -229,11 +229,13 @@ Pay your own Anthropic API tokens. **No per-seat fee. No SaaS lock-in.** Routine
 architect → pm → senior-dev → [/review ×12] → qa-engineer → security-officer → devops → l3-support
 ```
 
-| Scale | Agents | Time | When |
-|-------|--------|------|------|
-| `quick` | 1–3 | 5–20min | Hotfix, typo, new endpoint, small feature |
-| `standard` | 5 | ~45min | **Default** — standard feature, new service |
-| `deep` | 7+ | 90min+ | Cross-cutting, regulated domain, arch migration |
+| Scale | Agents | LLM-agent time | Human-team equivalent | When |
+|-------|--------|----------------|-----------------------|------|
+| `quick` | 1–3 | 5–20min | 2–4h | Hotfix, typo, new endpoint, small feature |
+| `standard` | 5 | ~45min | 2–3 days | **Default** — standard feature, new service |
+| `deep` | 7+ | 90min+ | 1–2 weeks | Cross-cutting, regulated domain, arch migration |
+
+> _LLM-agent time_ is wall-clock from `/start` to ship-ready PR with the pipeline running on Sonnet 4.6. _Human-team equivalent_ assumes one mid-level engineer at ~6 productive hours/day including reviews, meetings, and context switches.
 
 `/start` detects the scale automatically. Override at any time: `"make it deep"`, `"this is just a quick fix"`.
 
