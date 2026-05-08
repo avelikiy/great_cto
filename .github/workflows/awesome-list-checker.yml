@@ -17,16 +17,25 @@ jobs:
       issues: write
       contents: read
 
+    # Lists chosen for great_cto fit:
+    #   - awesome-ai-sdks: e2b-dev's framework/SDK list — perfect fit (PR #185 submitted 2026-05)
+    #   - awesome-claude-code (hesreallyhim): does NOT accept PRs (web-form-only),
+    #     but worth tracking for visibility — manual submission needed
+    #   - awesome-claude-code-plugins: code-bundling list, not external-link friendly,
+    #     skip from auto-tracking
+    #
+    # Removed (wrong fits):
+    #   - awesome-mcp-servers — we're a plugin that bundles an MCP, not an MCP server
+    #   - awesome-ai-agents (e2b-dev) — that list is for autonomous agents themselves,
+    #     not frameworks/SDKs (use awesome-ai-sdks instead)
     strategy:
       fail-fast: false
       matrix:
         list:
+          - name: awesome-ai-sdks
+            url: https://raw.githubusercontent.com/e2b-dev/awesome-ai-sdks/main/README.md
           - name: awesome-claude-code
-            url: https://raw.githubusercontent.com/davila7/claude-code-templates/main/README.md
-          - name: awesome-mcp-servers
-            url: https://raw.githubusercontent.com/punkpeye/awesome-mcp-servers/main/README.md
-          - name: awesome-ai-agents
-            url: https://raw.githubusercontent.com/e2b-dev/awesome-ai-agents/main/README.md
+            url: https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/README.md
 
     steps:
       - name: Check listing
