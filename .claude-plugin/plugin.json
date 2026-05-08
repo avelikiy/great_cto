@@ -2,7 +2,7 @@
   "name": "great_cto",
   "id": "great_cto",
   "description": "Engineering process for solo founders and teams up to 50 engineers. Agents do architecture, code review, QA, and security. You make two decisions per feature.",
-  "version": "1.0.184",
+  "version": "1.1.0",
   "author": {
     "name": "Great CTO",
     "url": "https://github.com/avelikiy/great_cto"
@@ -100,6 +100,17 @@
             "statusMessage": "Safety check..."
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/secret-scan.mjs\" 2>&1; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Scanning for secrets..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -111,6 +122,25 @@
             "command": "INPUT=$(cat 2>/dev/null); FILE=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))\" 2>/dev/null); TOOL=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))\" 2>/dev/null); if [ -n \"$FILE\" ]; then mkdir -p .great_cto 2>/dev/null; printf '%s %s %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$TOOL\" \"$FILE\" >> .great_cto/agent-writes.log 2>/dev/null; fi; true",
             "timeout": 3,
             "statusMessage": null
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/format-check.mjs\" 2>/dev/null; true",
+            "timeout": 12,
+            "statusMessage": null
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/session-end.mjs\" 2>/dev/null; true",
+            "timeout": 8,
+            "statusMessage": "Saving session summary..."
           }
         ]
       }
@@ -122,6 +152,12 @@
           {
             "type": "command",
             "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); python3 \"${PLUGIN_DIR}/scripts/hooks/user-prompt-submit.py\" 2>/dev/null; true",
+            "timeout": 3,
+            "statusMessage": null
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/cost-guard.mjs\" 2>&1 1>/dev/null; true",
             "timeout": 3,
             "statusMessage": null
           }
