@@ -192,21 +192,23 @@ ok "CHANGELOG has $(wc -l < "$NOTES_FILE" | tr -d ' ') lines of release notes fo
 
 step "3. Commit"
 
-if [ "$SKIP_BUMP" = "1" ]; then
-  ok "no commit needed (bump already in tree)"
+# IMPORTANT: --skip-bump means "version already bumped manually", NOT
+# "skip the commit step". Whether we ran bump-version.sh or not, if the
+# working tree has uncommitted changes (which it always does at this
+# point: bump just edited 4 files, OR user prepared changes manually),
+# we MUST commit them or the tag will point at the wrong commit.
+if [ -z "$(git status --porcelain)" ]; then
+  warn "no changes to commit — tag will point at current HEAD ($(git rev-parse --short HEAD))"
 else
-  if [ -z "$(git status --porcelain)" ]; then
-    warn "no changes to commit (bump-version.sh produced no diff?)"
-  else
-    # Use the first non-empty line of the CHANGELOG section as the commit subject
-    SUBJECT_LINE=$(grep -m1 -E '^### ' "$NOTES_FILE" | sed 's/^### //' | head -c 80 || echo "")
-    [ -z "$SUBJECT_LINE" ] && SUBJECT_LINE="release"
-    COMMIT_MSG="feat(v$NEW): $SUBJECT_LINE"
+  # Use the first non-empty line of the CHANGELOG section as the commit subject
+  SUBJECT_LINE=$(grep -m1 -E '^### ' "$NOTES_FILE" | sed 's/^### //' | head -c 80 || echo "")
+  [ -z "$SUBJECT_LINE" ] && SUBJECT_LINE="release"
+  COMMIT_MSG="feat(v$NEW): $SUBJECT_LINE"
 
-    color_dim "    commit message: $COMMIT_MSG"; echo ""
-    run "git add -A && git commit -m \"$COMMIT_MSG\""
-    ok "committed"
-  fi
+  color_dim "    $(git status --porcelain | wc -l | tr -d ' ') file(s) staged"; echo ""
+  color_dim "    commit message: $COMMIT_MSG"; echo ""
+  run "git add -A && git commit -m \"$COMMIT_MSG\""
+  ok "committed"
 fi
 
 # --- step 4: tag -------------------------------------------------------------
