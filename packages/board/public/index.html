@@ -2140,8 +2140,8 @@ function renderCost(d) {
       </div>
       <div class="cost-cell good">
         <div class="lbl">vs Human team</div>
-        <div class="v">$${Number(totalHuman).toLocaleString()}</div>
-        <div class="sub">${savings > 0 ? `${savings}× cheaper · saved $${(totalHuman - total).toFixed(0)}` : 'no human cost data'}</div>
+        <div class="v">$${fmtMoney(totalHuman)}</div>
+        <div class="sub">${savings > 0 ? `${savings}× cheaper · saved $${fmtMoney(totalHuman - total)}` : 'no human cost data'}</div>
       </div>
       <div class="cost-cell">
         <div class="lbl">Daily burn</div>
@@ -2944,7 +2944,7 @@ function renderDashboard(m) {
       sub: '',
       label: 'LLM spend',
       trend: humanUsd > 0
-        ? `vs humans: $${Number(humanUsd).toLocaleString()}${fromTasks ? ' (est. from tasks)' : ''}`
+        ? `vs humans: $${fmtMoney(humanUsd)}${fromTasks ? ' (est. from tasks)' : ''}`
         : 'no plans or tasks yet',
       cls: 'amber',
     },
@@ -3304,6 +3304,13 @@ function relTime(iso) {
   return `${Math.round(s/86400)}d`;
 }
 function fmtDate(iso) { return iso ? new Date(iso).toLocaleString() : '—'; }
+// Money formatting — uses non-breaking thin space (U+202F) as thousands separator
+// to avoid the comma-as-decimal confusion ($195,960 reads as "195.96" in EU/RU
+// locales). Matches SI standard. Returns "1 234" not "1,234".
+function fmtMoney(n) {
+  const s = String(Math.round(Number(n) || 0));
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
 function fmtDur(ms) {
   const m = Math.round(ms / 60000);
   if (m < 60) return `${m}min`;
