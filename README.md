@@ -6,7 +6,9 @@
 
 **Stop being the only person who can ship.**
 
-You're the CTO. You're also the bottleneck. **GreatCTO is 29 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+You're the CTO. You're also the bottleneck. **GreatCTO is 30 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+
+> **v2.1.0** · 30 agents · 22 archetypes · 24 security rules · 9 hooks · ~$34/mo per project · 47-min PoCs · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -19,9 +21,36 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 29 specialist agents**
 [![Socket](https://socket.dev/api/badge/npm/package/great-cto)](https://socket.dev/npm/package/great-cto)
 [![Snyk](https://snyk.io/advisor/npm-package/great-cto/badge.svg)](https://snyk.io/advisor/npm-package/great-cto)
 
-[Website](https://greatcto.systems) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
+![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?logo=typescript&logoColor=white)
+![Python](https://img.shields.io/badge/-Python-3776AB?logo=python&logoColor=white)
+![Go](https://img.shields.io/badge/-Go-00ADD8?logo=go&logoColor=white)
+![Rust](https://img.shields.io/badge/-Rust-000000?logo=rust&logoColor=white)
+![Node.js](https://img.shields.io/badge/-Node.js-339933?logo=node.js&logoColor=white)
+![Java](https://img.shields.io/badge/-Java-ED8B00?logo=openjdk&logoColor=white)
+![Solidity](https://img.shields.io/badge/-Solidity-363636?logo=solidity&logoColor=white)
+
+[Website](https://greatcto.systems) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md) · [Blog](https://velikiy.hashnode.dev)
 
 </div>
+
+## What's new
+
+### v2.1.0 — built-in security scan (May 2026)
+- `npx great-cto scan ./` — OWASP LLM Top 10 + 24 rules + SARIF for GitHub Code Scanning
+- 5 scanners: prompt-injection · secrets-in-prompts · SSRF-in-tools · RAG poisoning · cost-runaway
+- Merged from standalone `@great-cto/agentshield` package — one install, one version
+
+### v1.2.0 — continuous learning loop (May 2026)
+- New `continuous-learner` agent (Haiku, ~$0.05/run) auto-extracts session patterns
+- Two-tier memory: project-local `lessons.md` → cross-project `~/.great_cto/decisions.md`
+- Quality gates: max 3 lessons per session, archetype-tagged, threshold-based promotion (≥3 distinct projects)
+
+### v1.1.0 — Claude Code hooks (May 2026)
+- 4 new hooks: `secret-scan` (PreToolUse) · `format-check` (PostToolUse) · `cost-guard` (UserPromptSubmit) · `session-end`
+- 13-pattern secret detection catalog (AWS, Stripe, GitHub, OpenAI, Anthropic, PEM, JWT)
+- All hooks honor `GREAT_CTO_DISABLE_<NAME>=1` opt-out
+
+[Full changelog →](CHANGELOG.md)
 
 ## What is great_cto?
 
@@ -139,8 +168,8 @@ We're not an editor — we orchestrate the process around your editor. Use Curso
 
 | | great_cto | Cursor | Copilot Workspace | Claude Projects |
 |---|---|---|---|---|
-| Multi-agent SDLC pipeline | ✓ 17 specialists | ✕ | ✕ | ✕ |
-| Auto archetype detection | ✓ 17 types | ✕ | ✕ | ✕ |
+| Multi-agent SDLC pipeline | ✓ 30 specialists | ✕ | ✕ | ✕ |
+| Auto archetype detection | ✓ 22 types | ✕ | ✕ | ✕ |
 | Compliance gates (PCI / HIPAA / SOX / EU AI Act) | ✓ | ✕ | ✕ | ✕ |
 | Persistent memory | ✓ decisions.md + verdicts | ⚠ chat-only | ✕ | ✓ chat scope |
 | Multi-project view | ✓ | ✕ | ✕ | ⚠ |
@@ -240,13 +269,39 @@ Specialist sub-agents from [davila7/claude-code-templates](https://github.com/da
 - **Not deterministic** — LLM-generated outputs. Every gate verdict should be sanity-checked; `/inbox` surfaces rubber-stamping drift.
 - **Not certification-audited** — PCI/HIPAA/SOC2 archetype scaffolds are starting points, not certifications.
 
+## FAQ
+
+**Does it work without an internet connection?**
+Agents themselves run locally as Claude Code subagents. Only Claude API calls reach Anthropic. No code, telemetry, or memory is sent anywhere else.
+
+**Is my source code used to train models?**
+No. The Claude API is zero-retention by default for paying customers. great_cto adds nothing — your code stays yours.
+
+**What if I already have CI/CD?**
+great_cto runs *before* CI. Catches issues at architecture, review, and pre-merge. Use both — they're complementary, not competing.
+
+**Cursor / Copilot / Aider support?**
+Currently Claude Code only. Cross-harness support (`AGENTS.md`-based) is on the v2.x roadmap.
+
+**Can I disable hooks if they're getting in the way?**
+Every hook honors `GREAT_CTO_DISABLE_<NAME>=1` env vars (e.g. `GREAT_CTO_DISABLE_SECRET_SCAN=1`). Per-file opt-out via `// agentshield:ignore` for security scans.
+
+**How do you keep token costs down?**
+Three layers — (1) Haiku-by-default for cheap agents, (2) [Kimi K2 router](https://github.com/avelikiy/great_cto/blob/main/agents/llm-router.md) for triage (60-80% savings), (3) `cost-guard` hook warns before expensive prompts. See `/cost` for live spend.
+
+**What happens to my data when I uninstall?**
+Plugin state lives in `~/.great_cto/` (global decisions) and `.great_cto/` (per-project). Both are plain markdown — `rm -rf` clears everything. No external services to deauthorize.
+
+**Why not auto-pilot? Why "two decisions per feature"?**
+LLMs are powerful but lose product judgment on ambiguous specs. Keeping a human at gate:plan and gate:ship catches the 5% of bad calls that account for 95% of cost. See [ADR-015 — Learning loop architecture](docs/architecture/ADR-015-learning-loop-architecture.md).
+
 ## Architecture
 
 ```
 ┌──────────────────────────┐    ┌──────────────────┐
 │   Claude Code session    │───→│  great_cto       │
 │   (you run /start here)  │    │  pipeline +      │
-└──────────────────────────┘    │  17 agents       │
+└──────────────────────────┘    │  30 agents       │
               │                 └────────┬─────────┘
               ↓                          ↓
 ┌──────────────────────────┐    ┌──────────────────┐
@@ -279,6 +334,49 @@ Specialist sub-agents from [davila7/claude-code-templates](https://github.com/da
 
 **Why great_cto exists.** Same code reviews, same architecture questions, same security audits — across multiple companies, the same loops. Delegating helped. Process helped. But the bottleneck was always the senior engineer making the call. When Claude Code shipped, I started automating my own loops, one agent at a time. great_cto is the result — every rule in this system appeared in response to a real problem in a real production system.
 
+## ⭐ Star this repo
+
+If great_cto saved you time on a project, please star the repo — it helps other solo founders and small teams find it.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=avelikiy/great_cto&type=Date)](https://star-history.com/#avelikiy/great_cto&Date)
+
+## 💬 Community & support
+
+| Channel | What |
+|---|---|
+| 🐛 [Issues](https://github.com/avelikiy/great_cto/issues) | Bugs, feature requests, archetype proposals |
+| 💡 [Discussions](https://github.com/avelikiy/great_cto/discussions) | Ask questions, share patterns, show & tell |
+| 📝 [Blog](https://velikiy.hashnode.dev) | Deep-dives on architecture, learning loop, cost calibration |
+| 🐦 [@Greatcto on Hashnode](https://hashnode.com/@Greatcto) | Release notes, articles, AI-CTO series |
+| 📦 [npm](https://www.npmjs.com/package/great-cto) · [JSR](https://jsr.io/@avelikiy/great-cto) | Package registries |
+| 🔒 [Security](SECURITY.md) | Responsible disclosure for hook/scanner CVEs |
+
+## Roadmap
+
+- **v2.2** — telemetry on lesson quality (track which lessons agents cite vs ignore)
+- **v2.3** — auto-promotion: high-impact decisions → reusable skills (`~/.great_cto/global-skills/`)
+- **v3.0** — cross-harness support (`AGENTS.md` for Cursor / Codex / OpenCode / Gemini)
+
+[Vote on the next feature →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
+
+## Contributing
+
+Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Good first issues are labeled [`good-first-issue`](https://github.com/avelikiy/great_cto/issues?q=is%3Aopen+label%3Agood-first-issue).
+
+Especially needed:
+- New archetype scaffolds (suggest via Discussions)
+- Translations: `docs/<lang>/README.md` for non-English audiences
+- Real-world case studies — if great_cto shipped you something, share the numbers
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+**Built by [@avelikiy](https://github.com/avelikiy) · [@Greatcto](https://hashnode.com/@Greatcto) on Hashnode**
+*Stop being the only person who can ship.*
+
+</div>
