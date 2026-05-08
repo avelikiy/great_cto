@@ -35,6 +35,14 @@ PHASE=$(grep "^phase:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || e
 TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "1")
 MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "")
 
+# Past lessons — calibrate cost/time estimates against actuals
+if [ -f .great_cto/lessons.md ]; then
+  COST_LESSONS=$(grep -B1 -A4 "shape: B" .great_cto/lessons.md 2>/dev/null | head -20)
+  [ -n "$COST_LESSONS" ] && echo "=== COST OUTLIER LESSONS (apply to estimates) ==="
+  [ -n "$COST_LESSONS" ] && echo "$COST_LESSONS"
+fi
+[ -f ~/.great_cto/decisions.md ] && grep -B1 -A4 "archetypes:.*$ARCHETYPE" ~/.great_cto/decisions.md 2>/dev/null | head -20
+
 # Latest ARCH doc
 ARCH_FILE=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
 [ -z "$ARCH_FILE" ] && echo "BLOCKED: No ARCH doc found. Run architect first." && exit 1

@@ -45,6 +45,39 @@ MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 MODE=${MODE:-production}
 ```
 
+## Read past lessons FIRST
+
+Before any architecture decision, consult prior lessons. Cross-project decisions
+take priority over project-local ones (they have higher confidence).
+
+```bash
+ARCH=$(grep -E '^archetype:|^primary:' .great_cto/PROJECT.md 2>/dev/null | head -1 | awk '{print $2}')
+
+# 1. Cross-project decisions (≥3-occurrence patterns, validated across projects)
+if [ -f ~/.great_cto/decisions.md ]; then
+  echo "=== CROSS-PROJECT DECISIONS (filter: archetype=$ARCH) ==="
+  awk -v arch="$ARCH" '
+    /^---/ { in_fm = !in_fm; next }
+    in_fm && /^archetypes:/ { match_arch = index($0, arch) > 0 }
+    /^## pattern:/ { print_block = match_arch }
+    print_block { print }
+  ' ~/.great_cto/decisions.md | head -60
+fi
+
+# 2. Project-local lessons (fresh observations from this project's history)
+if [ -f .great_cto/lessons.md ]; then
+  echo "=== PROJECT LESSONS ==="
+  tail -100 .great_cto/lessons.md
+fi
+```
+
+**How to use what you read:**
+- A relevant cross-project pattern with `confidence: high` → **apply by default**, justify any deviation in the ARCH doc
+- A relevant project-local lesson → **factor into your decision**, cite if you follow or override it
+- No relevant lessons → proceed normally
+
+This prevents repeating mistakes the system has already learned. See `docs/LEARNING.md`.
+
 ## POC-mode behaviour
 
 If `$MODE` is `poc`, produce a **1-pager ARCH** only: Problem / Decision / Risks.
