@@ -70,6 +70,26 @@ MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 MODE=${MODE:-production}
 ```
 
+## Consult prior lessons before implementing
+
+Before claiming a task, scan past lessons for known anti-patterns or proven
+approaches in the current archetype:
+
+```bash
+ARCH=$(grep -E '^archetype:|^primary:' .great_cto/PROJECT.md 2>/dev/null | head -1 | awk '{print $2}')
+
+# Cross-project patterns (high-confidence)
+[ -f ~/.great_cto/decisions.md ] && grep -B1 -A8 "archetypes:.*$ARCH" ~/.great_cto/decisions.md 2>/dev/null | head -40
+
+# Local lessons (this project)
+[ -f .great_cto/lessons.md ] && tail -50 .great_cto/lessons.md
+```
+
+If a lesson directly applies to your current task, **apply the pattern** and
+note it in your commit message: `Implements <task>; applied pattern <slug> (lesson 2026-05-08)`.
+
+Skip this step in POC mode if no `lessons.md` exists yet.
+
 ## POC-mode behaviour
 
 If `$MODE` is `poc`, relax TDD: write **one smoke test per hypothesis success

@@ -3,8 +3,12 @@
  * SessionEnd hook.
  *
  * Phase 1 (v1.1.0): captures session summary into .great_cto/logs/.
- * Phase 2 (v1.2.0): will additionally trigger the continuous-learner agent
- *                   to extract structured lessons from the session transcript.
+ * Phase 2 (v1.2.0): additionally registers this project in
+ *                   ~/.great_cto/projects/<slug>/lessons.md (symlink) so
+ *                   lessons-merge.mjs can consolidate cross-project patterns.
+ *                   Continuous-learner is triggered by the user via /learn
+ *                   or by the next /save (since SessionEnd hook runs in a
+ *                   sandbox without access to the agent fleet).
  *
  * Hook protocol:
  *   stdin:  { session_id, reason }    (Claude Code SessionEnd payload)
@@ -14,12 +18,17 @@
  * Opt-out: GREAT_CTO_DISABLE_SESSION_LEARNING=1
  *
  * @see docs/HOOKS.md
+ * @see docs/LEARNING.md
  */
 
-import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { readFileSync, mkdirSync, writeFileSync, existsSync, symlinkSync, unlinkSync } from 'node:fs';
+import { spawnSync, spawn } from 'node:child_process';
+import { homedir } from 'node:os';
+import { join, resolve, basename } from 'node:path';
 
 const LOG_DIR = '.great_cto/logs';
+const HOME = homedir();
+const GLOBAL_PROJECTS_DIR = join(HOME, '.great_cto', 'projects');
 
 function readStdin() {
   try { return readFileSync(0, 'utf8'); } catch { return ''; }
@@ -123,6 +132,36 @@ For now, this is just a snapshot.
   if (!existsSync(filename)) {
     try { writeFileSync(filename, content); } catch { /* never block */ }
   }
+
+  // --- Cross-project lessons registration (Phase 2) ---
+  // Register this project in ~/.great_cto/projects/<slug>/ via symlink to
+  // its lessons.md, so lessons-merge.mjs can consolidate across projects.
+  try {
+    if (existsSync('.great_cto/lessons.md')) {
+      mkdirSync(GLOBAL_PROJECTS_DIR, { recursive: true });
+      const projectSlug = basename(process.cwd()).replace(/[^a-zA-Z0-9_-]/g, '-');
+      const projectDir = join(GLOBAL_PROJECTS_DIR, projectSlug);
+      mkdirSync(projectDir, { recursive: true });
+
+      const linkPath = join(projectDir, 'lessons.md');
+      const target = resolve('.great_cto/lessons.md');
+
+      // Refresh symlink (target may have moved across runs)
+      try { unlinkSync(linkPath); } catch { /* ok if doesn't exist */ }
+      try { symlinkSync(target, linkPath); } catch { /* ok if FS doesn't support */ }
+    }
+
+    // Trigger lessons-merge in background (best-effort; failures silenced)
+    const mergeScript = resolve(import.meta.dirname || '.', '..', 'lessons-merge.mjs');
+    if (existsSync(mergeScript)) {
+      const child = spawn('node', [mergeScript], {
+        detached: true,
+        stdio: 'ignore',
+        timeout: 5_000,
+      });
+      child.unref();
+    }
+  } catch { /* never block session end */ }
 
   return process.exit(0);
 }
