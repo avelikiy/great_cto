@@ -1,0 +1,149 @@
+# Cost runaway / Excessive Resource Consumption (OWASP LLM06:2025).
+# Patterns that lead to surprise bill-shock: missing limits, recursion,
+# unbounded loops, no rate-limiting on LLM-calling endpoints.
+
+- id: CR-001
+  scanner: cost-runaway
+  title: LLM call inside an unbounded loop
+  severity: high
+  owasp: "LLM06:2025 — Excessive Resource Consumption"
+  description: |
+    A while/for loop with no explicit termination condition or
+    iteration cap calls an LLM API on each iteration. A single bad
+    input can run up thousands of dollars before being noticed.
+  remediation: |
+    Add an iteration cap (max 10..50 typically). Track total token
+    spend per request and break if it exceeds a budget.
+  patterns:
+    - 'while\s*\(\s*true\s*\)[\s\S]{0,300}(?:openai|anthropic|claude|completion|chat)\.(?:create|complete)'
+    - 'while True:[\s\S]{0,300}(?:openai|anthropic)\.(?:chat|messages)'
+    - 'for\s*\(\s*;\s*;\s*\)[\s\S]{0,300}(?:openai|anthropic|claude)\.'
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.py"
+
+- id: CR-002
+  scanner: cost-runaway
+  title: Public endpoint calls LLM without rate-limiting
+  severity: high
+  owasp: "LLM06:2025 — Excessive Resource Consumption"
+  description: |
+    A public-facing endpoint (Express route, FastAPI handler, etc.)
+    invokes an LLM with no rate-limiting middleware visible. An
+    attacker can drain your quota with a script.
+  remediation: |
+    Add rate-limiting per IP or per user. Authentication alone is
+    insufficient: a logged-in user can still issue thousands of
+    requests. Consider per-user daily token caps too.
+  patterns:
+    - '(?:app|router)\.(?:post|get)\s*\(\s*[`"\047]/[^"\047]*[`"\047]\s*,\s*async[\s\S]{0,300}(?:openai|anthropic)\.(?:chat|messages|completions)'
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+  negate:
+    - "rateLimit"
+    - "rate_limit"
+    - "rateLimiter"
+    - "express-rate-limit"
+    - "agentshield:ignore"
+
+- id: CR-003
+  scanner: cost-runaway
+  title: Recursive agent call without depth limit
+  severity: critical
+  description: |
+    An agent (or tool that triggers another agent invocation)
+    appears to call itself recursively without a depth counter.
+    Infinite loops here directly translate to runaway cost AND
+    runaway risk (the agent can lose track of intent).
+  remediation: |
+    Pass a depth parameter and decrement it. Hard-fail at depth
+    > 5 (typically). Log every nested call for debugging.
+  patterns:
+    - 'function\s+(\w+Agent)\s*\([^)]*\)[\s\S]{0,500}\1\s*\('
+    - 'def\s+(\w+_agent)\s*\([^)]*\)[\s\S]{0,500}\1\s*\('
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.py"
+  negate:
+    - "depth"
+    - "max_depth"
+    - "maxDepth"
+    - "iteration"
+
+- id: CR-004
+  scanner: cost-runaway
+  title: max_tokens / max_output_tokens not specified
+  severity: medium
+  description: |
+    Calls to chat/completion APIs do not specify a token cap.
+    Defaults vary (4096..8192) and can produce unexpectedly long
+    responses on certain inputs, especially with reasoning models.
+  remediation: |
+    Always set max_tokens / max_output_tokens explicitly to match
+    your UX budget (256 for chat replies, 2048 for code, etc.).
+  patterns:
+    - '(?:openai|anthropic|claude)\.(?:chat|messages)\.create\(\s*\{(?:[^}]|\{[^}]*\}){0,500}\}\s*\)'
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.py"
+  negate:
+    - "max_tokens"
+    - "maxTokens"
+    - "max_output_tokens"
+    - "agentshield:ignore"
+
+- id: CR-005
+  scanner: cost-runaway
+  title: Streaming LLM response without abort signal handling
+  severity: low
+  description: |
+    A streaming LLM call doesn't pass an AbortSignal. If the user
+    closes the connection or navigates away, generation continues
+    server-side and you pay for tokens nobody reads.
+  remediation: |
+    Pass `signal: req.signal` (Express) or equivalent abort signal.
+    Cancel the LLM call when the client disconnects.
+  patterns:
+    - '\.stream\(\s*\{[^}]*\bmodel\s*:[^}]*\}\s*\)'
+    - 'create\(\s*\{[^}]*stream\s*:\s*true[^}]*\}\s*\)'
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+  negate:
+    - "signal:"
+    - "AbortSignal"
+    - "agentshield:ignore"
+
+- id: CR-006
+  scanner: cost-runaway
+  title: Most expensive model used for trivial task
+  severity: low
+  description: |
+    Code calls the most expensive model (gpt-4 / gpt-4-turbo /
+    claude-opus / claude-3-opus) for a task that obviously doesn't
+    need it (string parsing, classification, summarization of <1k
+    tokens). This is almost always 10x overspending.
+  remediation: |
+    Default to a cheaper tier (gpt-4o-mini / haiku / o1-mini) and
+    only escalate to the expensive tier when offline eval shows it
+    matters for that task.
+  patterns:
+    - '(?:model|model_name)\s*[:=]\s*[`"\047](?:gpt-4(?!o-mini)|gpt-4-turbo|claude-3-opus|claude-opus-[34]|o1)'
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.py"
+  negate:
+    - "agentshield:ignore"
+    - "// requires-flagship"
+    - "# requires-flagship"
