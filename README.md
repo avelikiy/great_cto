@@ -6,9 +6,9 @@
 
 **Stop being the only person who can ship.**
 
-You're the CTO. You're also the bottleneck. **GreatCTO is 30 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
-> **v2.1.0** · 30 agents · 22 archetypes · 24 security rules · 9 hooks · ~$34/mo per project · 47-min PoCs · MIT
+> **v2.2.0** · 33 agents · 25 archetypes · 24 security rules · 9 hooks · ~$34/mo per project · 47-min PoCs · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -37,6 +37,13 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 30 specialist agents**
 
 ## What's new
 
+### v2.2.0 — 3 new archetypes: edtech, gov-public, insurance (May 2026)
+- `edtech` archetype + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + state student-privacy laws (SOPIPA-CA, NY 2-D)
+- `gov-public` archetype + `gov-reviewer` — FedRAMP boundary scoping, NIST 800-53 control mapping, Section 508, PIA generation, CJIS, StateRAMP
+- `insurance` archetype + `insurance-reviewer` — NAIC 50-state filing matrix, Solvency II, IFRS 17, ACORD, actuarial ASOP 41/56, anti-discrimination pricing analysis
+- 9 new detection signals (LMS libs, gov design systems, ACORD/NAIC schemas)
+- 9 new test cases (3 per archetype) — 50/50 archetype tests passing
+
 ### v2.1.0 — built-in security scan (May 2026)
 - `npx great-cto scan ./` — OWASP LLM Top 10 + 24 rules + SARIF for GitHub Code Scanning
 - 5 scanners: prompt-injection · secrets-in-prompts · SSRF-in-tools · RAG poisoning · cost-runaway
@@ -56,12 +63,12 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 30 specialist agents**
 
 ## What is great_cto?
 
-great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the full SDLC pipeline as **29 specialist agents** — architect, planning, implementation, 12-angle review, QA, security, deployment, support — coordinated through a board you actually check. You make two decisions per feature; everything else is automatic.
+great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the full SDLC pipeline as **33 specialist agents** — architect, planning, implementation, 12-angle review, QA, security, deployment, support — coordinated through a board you actually check. You make two decisions per feature; everything else is automatic.
 
 | Layer | What it does |
 |-------|--------------|
-| **29 specialist agents** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer |
-| **22 archetypes** | web-service · agent-product · ai-system · mlops · commerce · marketplace · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · streaming · devtools · infra · cms · enterprise-saas · regulated |
+| **33 specialist agents** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
+| **25 archetypes** | web-service · agent-product · ai-system · mlops · commerce · marketplace · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · streaming · devtools · infra · cms · enterprise-saas · regulated · edtech · gov-public · insurance |
 | **Auto-detected** | Scans `package.json`, `pyproject.toml`, `Cargo.toml`, README, code structure → picks archetype + compliance gates in 2 sec. Anthropic Haiku second-opinion (~$0.001) when confidence is low. |
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — auto-attached per archetype. |
 | **Memory** | 4 layers — `PROJECT.md` (archetype) · `lessons.md` (per-project retros) · `~/.great_cto/decisions.md` (every gate approval, queryable across projects) · `verdicts/` (every agent verdict). |
@@ -131,7 +138,7 @@ Multi-project switcher — one board, every client. Cross-project decisions log 
 
 Everything else (`/audit` · `/digest` · `/sec` · `/cost` · `/release` · `/crystallize`) runs automatically or only when you need it. See [`docs/COMMANDS.md`](docs/COMMANDS.md) for the full reference.
 
-## 22 archetypes auto-detected
+## 25 archetypes auto-detected
 
 Each archetype activates its own specialist agents and compliance checklists.
 
@@ -159,6 +166,9 @@ Each archetype activates its own specialist agents and compliance checklists.
 | `cms` | standard | cms-reviewer | dmca · wcag-2.2-aa · dsa-eu · gdpr |
 | `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa |
 | `regulated` | **deep** | regulated-reviewer | soc2 · hipaa · sox · dora · nis2 · iso27001 |
+| `edtech` | **deep** | edtech-reviewer | coppa · ferpa · gdpr-k · wcag-2.2-aa · section-508 · sopipa-ca |
+| `gov-public` | **deep** | gov-reviewer | fedramp · nist-800-53 · fisma · section-508 · pia · ato · cjis · stateramp |
+| `insurance` | **deep** | insurance-reviewer | naic · solvency-ii · ifrs-17 · gdpr · ccpa · anti-discrimination-pricing · actuarial-asops |
 
 Override at any time: `npx great-cto init --archetype <name>` or edit `.great_cto/PROJECT.md`. The CLI also offers an Anthropic Haiku second-opinion (~$0.001) when heuristic confidence is low — set `ANTHROPIC_API_KEY` to enable, opt out with `--no-llm`.
 
@@ -170,8 +180,8 @@ We're not an editor — we orchestrate the process around your editor. Use Curso
 
 | | great_cto | Cursor | Copilot Workspace | Claude Projects |
 |---|---|---|---|---|
-| Multi-agent SDLC pipeline | ✓ 30 specialists | ✕ | ✕ | ✕ |
-| Auto archetype detection | ✓ 22 types | ✕ | ✕ | ✕ |
+| Multi-agent SDLC pipeline | ✓ 33 specialists | ✕ | ✕ | ✕ |
+| Auto archetype detection | ✓ 25 types | ✕ | ✕ | ✕ |
 | Compliance gates (PCI / HIPAA / SOX / EU AI Act) | ✓ | ✕ | ✕ | ✕ |
 | Persistent memory | ✓ decisions.md + verdicts | ⚠ chat-only | ✕ | ✓ chat scope |
 | Multi-project view | ✓ | ✕ | ✕ | ⚠ |
@@ -303,7 +313,7 @@ LLMs are powerful but lose product judgment on ambiguous specs. Keeping a human 
 ┌──────────────────────────┐    ┌──────────────────┐
 │   Claude Code session    │───→│  great_cto       │
 │   (you run /start here)  │    │  pipeline +      │
-└──────────────────────────┘    │  30 agents       │
+└──────────────────────────┘    │  33 agents       │
               │                 └────────┬─────────┘
               ↓                          ↓
 ┌──────────────────────────┐    ┌──────────────────┐

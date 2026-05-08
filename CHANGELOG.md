@@ -4,6 +4,59 @@ All notable changes to great_cto are documented here.
 
 ---
 
+
+## v2.2.0 — 2026-05-08
+
+### 3 new archetypes — `edtech`, `gov-public`, `insurance` + 3 specialist reviewers
+
+Adds three high-value archetypes covering markets underserved by existing tooling.
+
+**`edtech`** — education technology with child-safety obligations
+- Detection: `canvas-lms`, `moodle-api`, `schoology-sdk`, `google-classroom`, `lti`, `scorm`, `clever-sdk` + README keywords (`student`, `classroom`, `k-12`, `coppa`, `ferpa`, `parental consent`)
+- Reviewer agent: `agents/edtech-reviewer.md` — COPPA verifiable parental consent (5 FTC-approved methods), FERPA student-data handling, GDPR-K geo-detection (13/14/15/16 per member-state), Section 508 + WCAG 2.2 AA accessibility, state student-privacy laws (SOPIPA-CA, NY 2-D)
+- Compliance auto-attached: `coppa`, `ferpa`, `gdpr-k`, `wcag-2.2-aa`, `section-508`, `sopipa-ca`
+
+**`gov-public`** — government / civic tech with FedRAMP/NIST burden
+- Detection: `login-gov-sdk`, `id-me-sdk`, `usds-design-system`, `uswds`, `uk-gov-design-system`, `gov-uk-frontend` + README keywords (`fedramp`, `fisma`, `nist 800-53`, `section 508`, `ato`, `government`, `federal`, `agency`)
+- Reviewer agent: `agents/gov-reviewer.md` — FedRAMP authorization-boundary scoping (Moderate/High/Tailored), NIST 800-53 Rev 5 control mapping (18 control families), FISMA, Section 508 + VPAT prep, PIA draft for E-Government Act §208, CJIS for law-enforcement, StateRAMP
+- Compliance auto-attached: `fedramp`, `nist-800-53`, `fisma`, `section-508`, `pia`, `ato`, `cjis`, `stateramp`
+
+**`insurance`** — InsurTech with multi-state regulatory burden
+- Detection: `acord-standards`, `naic-schemas`, `drools-rules`, `solvency2-calc`, `guidewire-cloud`, `duck-creek`, `majesco-sdk` + README keywords (`policy`, `underwriting`, `premium`, `claim`, `actuarial`, `naic`, `insurtech`, `solvency`)
+- Reviewer agent: `agents/insurance-reviewer.md` — NAIC 50-state filing matrix, Solvency II SCR/MCR/ORSA, IFRS 17 contract measurement (GMM/PAA/VFA), ACORD message validation, ASOP 41/56 actuarial documentation, anti-discrimination pricing analysis (disparate impact, ZIP-code proxies), bordereau reporting for reinsurance, NYDFS 23 NYCRR 500 if NY-in-scope
+- Compliance auto-attached: `naic`, `solvency-ii`, `ifrs-17`, `gdpr`, `ccpa`, `anti-discrimination-pricing`, `actuarial-asops`, `state-doi`
+
+### Detection logic
+
+- `packages/cli/src/archetypes.ts` — 3 new `Archetype` types, 3 new scoring rules, updated `TIE_BREAK_PRIORITY`, expanded `suggestCompliance()` with 3 new mapping blocks
+- `packages/cli/tests/archetypes.test.mjs` — 9 new tests (3 per archetype) — 50/50 archetype tests passing
+
+### Plugin wiring
+
+- `.claude-plugin/plugin.json` — SessionStart sync list extended with `edtech-reviewer`, `gov-reviewer`, `insurance-reviewer` (now 33 agents synced on session start)
+
+### Board UI
+
+- `packages/board/public/index.html` — 3 unique SVG icons in `ARCHETYPE_ICONS`:
+  - `edtech` — graduation cap (`#0ea5e9` cyan)
+  - `gov-public` — capitol building (`#1e3a8a` navy)
+  - `insurance` — protective shield (`#d97706` amber)
+
+### Documentation
+
+- README — archetype count 22 → 25, agent count 30 → 33, comparison-table + ASCII diagram updated
+- 3 new landing pages generated via `site/for/_generate.mjs` (local-only, gitignored)
+
+### Test status
+
+```
+141 / 141 tests passing
+  CLI suite (incl. archetype tests): 112 / 112  (+9 new)
+  Hooks suite:                        29 /  29
+```
+
+---
+
 ## v2.1.0 — 2026-05-08
 
 ### Merged `agentshield` into `great-cto/cli` (refactor)
