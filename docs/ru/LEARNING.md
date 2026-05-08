@@ -1,6 +1,6 @@
 # Continuous Learning
 
-> **Язык:** [English](../LEARNING.md) · **Русский** · [简体中文](../zh-CN/LEARNING.md) · [日本語](../ja/LEARNING.md) · [한국어](../ko/LEARNING.md) · [Español](../es/LEARNING.md)
+> **Язык:** [English](../LEARNING.md) · **Русский** · [简体中文](../zh-CN/LEARNING.md) · [繁體中文](../zh-TW/LEARNING.md) · [日本語](../ja/LEARNING.md) · [한국어](../ko/LEARNING.md) · [Español](../es/LEARNING.md) · [Português (BR)](../pt-BR/LEARNING.md)
 
 great_cto v1.2.0 добавил **двухуровневый цикл обучения**, который автоматически извлекает паттерны из каждой сессии и переиспользует их в будущих.
 

@@ -1,6 +1,6 @@
 # 持续学习 (Continuous Learning)
 
-> **语言:** [English](../LEARNING.md) · [Русский](../ru/LEARNING.md) · **简体中文** · [日本語](../ja/LEARNING.md) · [한국어](../ko/LEARNING.md) · [Español](../es/LEARNING.md)
+> **语言:** [English](../LEARNING.md) · [Русский](../ru/LEARNING.md) · **简体中文** · [繁體中文](../zh-TW/LEARNING.md) · [日本語](../ja/LEARNING.md) · [한국어](../ko/LEARNING.md) · [Español](../es/LEARNING.md) · [Português (BR)](../pt-BR/LEARNING.md)
 >
 > ⚠️ 此为机器翻译摘要。完整详情和 ADR 链接请参见 [English original](../LEARNING.md).
 

@@ -19,7 +19,7 @@ Eres el CTO. También eres el cuello de botella. **GreatCTO son 30 agentes espec
 
 [Sitio web](https://greatcto.systems) · [Demo en vivo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discusiones](https://github.com/avelikiy/great_cto/discussions) · [Blog](https://velikiy.hashnode.dev)
 
-**Idioma:** [English](../../README.md) · [Русский](../ru/README.md) · [简体中文](../zh-CN/README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) · **Español**
+**Idioma:** [English](../../README.md) · [Русский](../ru/README.md) · [简体中文](../zh-CN/README.md) · [繁體中文](../zh-TW/README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) · **Español** · [Português (BR)](../pt-BR/README.md)
 
 </div>
 

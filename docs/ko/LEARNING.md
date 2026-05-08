@@ -1,6 +1,6 @@
 # 지속 학습 (Continuous Learning)
 
-> **언어:** [English](../LEARNING.md) · [Русский](../ru/LEARNING.md) · [简体中文](../zh-CN/LEARNING.md) · [日本語](../ja/LEARNING.md) · **한국어** · [Español](../es/LEARNING.md)
+> **언어:** [English](../LEARNING.md) · [Русский](../ru/LEARNING.md) · [简体中文](../zh-CN/LEARNING.md) · [繁體中文](../zh-TW/LEARNING.md) · [日本語](../ja/LEARNING.md) · **한국어** · [Español](../es/LEARNING.md) · [Português (BR)](../pt-BR/LEARNING.md)
 >
 > ⚠️ 기계 번역 요약입니다. 전체 세부 정보 및 ADR 링크는 [English original](../LEARNING.md) 참조.
 

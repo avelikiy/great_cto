@@ -19,7 +19,7 @@
 
 [웹사이트](https://greatcto.systems) · [데모](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [블로그](https://velikiy.hashnode.dev)
 
-**언어:** [English](../../README.md) · [Русский](../ru/README.md) · [简体中文](../zh-CN/README.md) · [日本語](../ja/README.md) · **한국어** · [Español](../es/README.md)
+**언어:** [English](../../README.md) · [Русский](../ru/README.md) · [简体中文](../zh-CN/README.md) · [繁體中文](../zh-TW/README.md) · [日本語](../ja/README.md) · **한국어** · [Español](../es/README.md) · [Português (BR)](../pt-BR/README.md)
 
 </div>
 
