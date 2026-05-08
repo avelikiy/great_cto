@@ -6,6 +6,32 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.3.2 — 2026-05-08
+
+### Memory panel — surfaces all 11 layers
+
+Previously the Memory tab showed only 5 files (PROJECT / CODEBASE / brain /
+lessons / HANDOFF) plus global patterns. After dogfooding it became clear
+several documented memory layers were invisible:
+
+**Project-local additions** (`.great_cto/`):
+- `ARCHETYPES.md` — archetype catalogue synced from plugin (L1)
+- `SKILL.md` — pipeline skill definition (L1)
+- `local.md` — project-local notes, gitignored (L3)
+
+**Cross-project additions** (`~/.great_cto/`):
+- `decisions.md` — append-only ADR log written on every gate approval (L4)
+- `preferences.md` — user-level CTO preferences / defaults (L4)
+- `lessons.md` — cross-project lessons promoted from project-local L3 (L4)
+
+The sidebar now groups files into two sections — `PROJECT-LOCAL · .great_cto/`
+and `CROSS-PROJECT · ~/.great_cto/` — so it's clear which scope each file
+lives at. Files that don't exist yet stay listed with "not yet written"
+hints so users see what `/audit`, `/learn`, `/crystallize` etc. would
+produce.
+
+---
+
 ## v2.3.1 — 2026-05-08
 
 ### Board admin polish — metrics, bars, logs
