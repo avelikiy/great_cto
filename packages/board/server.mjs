@@ -240,12 +240,21 @@ function readFileSafe(p) {
   try { return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null; } catch { return null; }
 }
 function getMemory(cwd = process.cwd()) {
+  const home = os.homedir();
   const layers = [
-    { id: 'project',  layer: 'L1', name: 'PROJECT.md',  desc: 'Archetype, size, compliance, owners',          path: path.join(cwd, '.great_cto', 'PROJECT.md') },
-    { id: 'codebase', layer: 'L2', name: 'CODEBASE.md', desc: 'God nodes, entry points, public API, routes',  path: path.join(cwd, '.great_cto', 'CODEBASE.md') },
-    { id: 'brain',    layer: 'L3', name: 'brain.md',    desc: 'Patterns in use, what failed, team patterns',  path: path.join(cwd, '.great_cto', 'brain.md') },
-    { id: 'lessons',  layer: 'L3', name: 'lessons.md',  desc: 'Per-project lessons',                          path: path.join(cwd, '.great_cto', 'lessons.md') },
-    { id: 'handoff',  layer: 'L3', name: 'HANDOFF.md',  desc: 'Auto-written on context compaction',           path: path.join(cwd, '.great_cto', 'HANDOFF.md') },
+    // Project-local (.great_cto/) — L1 archetype + L2 codebase + L3 retros
+    { id: 'project',     scope: 'project', layer: 'L1', name: 'PROJECT.md',    desc: 'Archetype, size, compliance, owners',           path: path.join(cwd, '.great_cto', 'PROJECT.md') },
+    { id: 'archetypes',  scope: 'project', layer: 'L1', name: 'ARCHETYPES.md', desc: 'Archetype catalogue used by /start + agents',   path: path.join(cwd, '.great_cto', 'ARCHETYPES.md') },
+    { id: 'skill',       scope: 'project', layer: 'L1', name: 'SKILL.md',      desc: 'Pipeline skill — synced from plugin',           path: path.join(cwd, '.great_cto', 'SKILL.md') },
+    { id: 'codebase',    scope: 'project', layer: 'L2', name: 'CODEBASE.md',   desc: 'God nodes, entry points, public API, routes',   path: path.join(cwd, '.great_cto', 'CODEBASE.md') },
+    { id: 'brain',       scope: 'project', layer: 'L3', name: 'brain.md',      desc: 'Patterns in use, what failed, team patterns',   path: path.join(cwd, '.great_cto', 'brain.md') },
+    { id: 'lessons',     scope: 'project', layer: 'L3', name: 'lessons.md',    desc: 'Per-project lessons (extracted by /learn)',     path: path.join(cwd, '.great_cto', 'lessons.md') },
+    { id: 'handoff',     scope: 'project', layer: 'L3', name: 'HANDOFF.md',    desc: 'Auto-written on context compaction',            path: path.join(cwd, '.great_cto', 'HANDOFF.md') },
+    { id: 'local',       scope: 'project', layer: 'L3', name: 'local.md',      desc: 'Project-local notes (gitignored)',              path: path.join(cwd, '.great_cto', 'local.md') },
+    // Cross-project (~/.great_cto/) — L4 global memory shared across all projects
+    { id: 'g-decisions', scope: 'global',  layer: 'L4', name: 'decisions.md',  desc: 'Append-only ADR log — every gate approval',     path: path.join(home, '.great_cto', 'decisions.md') },
+    { id: 'g-prefs',     scope: 'global',  layer: 'L4', name: 'preferences.md',desc: 'User-level CTO preferences (style, defaults)',  path: path.join(home, '.great_cto', 'preferences.md') },
+    { id: 'g-lessons',   scope: 'global',  layer: 'L4', name: 'lessons.md',    desc: 'Cross-project lessons promoted from L3',        path: path.join(home, '.great_cto', 'lessons.md') },
   ];
   const result = layers.map(l => ({
     ...l,
