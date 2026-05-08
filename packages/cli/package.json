@@ -1,0 +1,89 @@
+{
+  "name": "great-cto",
+  "version": "2.2.0",
+  "description": "One command install for the great_cto Claude Code plugin. Auto-detects your stack, picks the right archetype, bootstraps PROJECT.md.",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "claude-code-subagents",
+    "claude-code-commands",
+    "claude-code-skills",
+    "claude",
+    "anthropic",
+    "plugin",
+    "ai-agents",
+    "agentic-coding",
+    "agentic-engineering",
+    "multi-agent",
+    "multi-agent-systems",
+    "orchestration",
+    "automation",
+    "mcp",
+    "sdlc",
+    "agent",
+    "ai",
+    "llm",
+    "cli",
+    "installer",
+    "cto",
+    "great-cto",
+    "archetype",
+    "compliance",
+    "gdpr",
+    "pci-dss",
+    "soc2",
+    "hipaa",
+    "iso27001",
+    "code-review",
+    "devops",
+    "security",
+    "tdd",
+    "test-driven-development",
+    "architecture",
+    "startup-tools",
+    "solo-founder"
+  ],
+  "homepage": "https://greatcto.systems",
+  "license": "MIT",
+  "author": {
+    "name": "Alexander Velikiy",
+    "url": "https://hashnode.com/@Greatcto"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/avelikiy/great_cto.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/avelikiy/great_cto/issues"
+  },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/avelikiy"
+    }
+  ],
+  "bin": {
+    "great-cto": "index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "dist/",
+    "agentshield-rules/",
+    "README.md"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test tests/*.test.mjs tests/**/*.test.mjs",
+    "test:e2e": "npm run build && node ../../tests/run-archetype-e2e.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}
