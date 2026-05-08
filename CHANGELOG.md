@@ -6,6 +6,20 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.3.3 — 2026-05-08
+
+### Money formatting — space separator instead of comma
+
+Cost tiles previously rendered `$195,960` via `toLocaleString()` — but the
+comma is read as a decimal separator in EU/RU/many other locales, so users
+saw "195.96" and reported it as a bug. Switched to SI / ISO 80000-1 standard:
+non-breaking thin space (U+202F) as thousands separator → `$195 960`.
+
+Affects: `vs Human team` tile, "saved $X" sub-text, "vs humans" trend line
+on the LLM SPEND hero tile.
+
+---
+
 ## v2.3.2 — 2026-05-08
 
 ### Memory panel — surfaces all 11 layers
