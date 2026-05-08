@@ -276,3 +276,89 @@ test("agent-product beats ai-system on tied score", () => {
   const pick = pickArchetype(mkDetection(["mcp", "anthropic-sdk", "nodejs"]));
   assert.equal(pick.primary, "agent-product");
 });
+
+// ── Wave 3: edtech, gov-public, insurance (added in v2.2.0) ──────────
+
+// edtech tests
+
+test("Canvas LMS + LTI → edtech", () => {
+  const pick = pickArchetype(mkDetection(
+    ["canvas-lms", "lti", "nodejs"],
+    { readmeKeywords: ["k-12", "student"] },
+  ));
+  assert.equal(pick.primary, "edtech");
+});
+
+test("Moodle API + COPPA mention → edtech (high confidence)", () => {
+  const pick = pickArchetype(mkDetection(
+    ["moodle-api", "python"],
+    { readmeKeywords: ["coppa", "student", "classroom"] },
+  ));
+  assert.equal(pick.primary, "edtech");
+  assert.ok(pick.confidence === "high" || pick.confidence === "medium");
+});
+
+test("Plain web app with K-12 keyword → edtech", () => {
+  const pick = pickArchetype(mkDetection(
+    ["nodejs", "next.js"],
+    { readmeKeywords: ["k-12", "teacher", "grade book", "ferpa"] },
+  ));
+  assert.equal(pick.primary, "edtech");
+});
+
+// gov-public tests
+
+test("login.gov SDK + USWDS → gov-public", () => {
+  const pick = pickArchetype(mkDetection(
+    ["login-gov-sdk", "uswds", "nodejs"],
+    { readmeKeywords: ["fedramp"] },
+  ));
+  assert.equal(pick.primary, "gov-public");
+});
+
+test("FedRAMP + NIST 800-53 in README → gov-public (high)", () => {
+  const pick = pickArchetype(mkDetection(
+    ["nodejs", "express"],
+    { readmeKeywords: ["fedramp", "nist 800-53", "ato", "section 508"] },
+  ));
+  assert.equal(pick.primary, "gov-public");
+  assert.ok(pick.confidence === "high");
+});
+
+test("UK gov.uk Design System → gov-public", () => {
+  const pick = pickArchetype(mkDetection(
+    ["uk-gov-design-system", "nodejs"],
+    { readmeKeywords: ["government"] },
+  ));
+  assert.equal(pick.primary, "gov-public");
+});
+
+// insurance tests
+
+test("ACORD standards + NAIC → insurance", () => {
+  const pick = pickArchetype(mkDetection(
+    ["acord-standards", "naic-schemas", "java"],
+    { readmeKeywords: ["underwriting", "policy"] },
+  ));
+  assert.equal(pick.primary, "insurance");
+});
+
+test("Guidewire Cloud + actuarial keywords → insurance (high)", () => {
+  const pick = pickArchetype(mkDetection(
+    ["guidewire-cloud", "java"],
+    { readmeKeywords: ["actuarial", "policy", "premium", "claim"] },
+  ));
+  assert.equal(pick.primary, "insurance");
+  assert.ok(pick.confidence === "high");
+});
+
+test("Plain Stripe is commerce, not insurance, even with insurer keyword", () => {
+  // Insurance must have stronger signal than just one keyword to override commerce
+  const pick = pickArchetype(mkDetection(
+    ["stripe", "nodejs"],
+    { readmeKeywords: ["insurance"] }, // single keyword
+  ));
+  // Should NOT promote to insurance — too weak. Commerce wins.
+  assert.notEqual(pick.primary, "insurance");
+});
+

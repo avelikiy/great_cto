@@ -26,6 +26,9 @@ export type Archetype =
   | "game"
   | "cms"
   | "enterprise-saas"
+  | "edtech"
+  | "gov-public"
+  | "insurance"
   | "greenfield";
 
 export interface ArchetypePick {
@@ -641,13 +644,151 @@ const RULES: Rule[] = [
       return "no web/mobile/infra framework detected — looks like a library/SDK";
     },
   },
+
+  // ── edtech (education technology — COPPA / FERPA / WCAG-AA child safety) ──
+  // Distinct from cms (general content) and healthcare (PHI). Drives age-gate,
+  // parental-consent, and accessibility patterns.
+  {
+    archetype: "edtech",
+    score: (d) => {
+      let s = 0;
+      const lmsLibs = ["canvas-lms", "moodle-api", "schoology-sdk", "blackboard-rest",
+                       "google-classroom", "khan-academy-cli", "learnosity",
+                       "kahoot-api", "h5p", "scorm", "lti", "lti-1.3"];
+      lmsLibs.forEach((l) => { if (d.stack.includes(l)) s += 6; });
+
+      // Auth/identity providers commonly used in edtech
+      if (d.stack.includes("clever-sdk")) s += 6;
+      if (d.stack.includes("classlink-sso")) s += 4;
+
+      const kws = d.readmeKeywords;
+      const eduKeywords = ["student", "classroom", "teacher", "k-12", "k12",
+                           "lms", "learning management", "grade book", "gradebook",
+                           "enrollment", "transcript", "pupil", "tutoring", "edtech"];
+      const matchedKws = eduKeywords.filter((k) => kws.includes(k));
+      if (matchedKws.length >= 2) s += 5;
+      else if (matchedKws.length === 1) s += 2;
+
+      // Strong signal: COPPA / FERPA explicitly mentioned
+      if (kws.includes("coppa") || kws.includes("ferpa")) s += 6;
+      if (kws.includes("parental consent") || kws.includes("age gate")) s += 4;
+
+      return s;
+    },
+    reason: (d) => {
+      const kws = d.readmeKeywords;
+      const bits: string[] = [];
+      const lmsLibs = ["canvas-lms", "moodle-api", "schoology-sdk", "google-classroom", "lti", "scorm"];
+      lmsLibs.forEach((l) => { if (d.stack.includes(l)) bits.push(l); });
+      if (kws.includes("coppa")) bits.push("COPPA mention");
+      if (kws.includes("ferpa")) bits.push("FERPA mention");
+      if (kws.includes("k-12") || kws.includes("k12")) bits.push("K-12 keyword");
+      if (kws.includes("student")) bits.push("student-data keyword");
+      return `edtech detected (${bits.join(", ") || "education domain signals"}) — COPPA/FERPA/WCAG-AA child-safety gates required`;
+    },
+  },
+
+  // ── gov-public (government / civic-tech — FedRAMP / NIST 800-53 / Section 508) ──
+  // Severe regulatory burden. Distinct from regulated (which is more EU-focused
+  // DORA/NIS2). gov-public targets US federal/state + UK gov.uk patterns.
+  {
+    archetype: "gov-public",
+    score: (d) => {
+      let s = 0;
+      const govLibs = ["login-gov-sdk", "id-me-sdk", "idme-sdk",
+                       "usds-design-system", "uswds", "uk-gov-design-system",
+                       "gov-uk-frontend", "verify-gov-uk",
+                       "usajobs-sdk", "data-gov", "irs-modernized-efile"];
+      govLibs.forEach((l) => { if (d.stack.includes(l)) s += 6; });
+
+      const kws = d.readmeKeywords;
+      const govKeywords = ["fedramp", "fisma", "nist 800-53", "nist-800-53",
+                           "section 508", "section-508", "ato", "civic tech",
+                           "government", "municipal", "federal", "agency",
+                           "gov.uk", "usds", "data.gov", "usa.gov", "irs", "ssa",
+                           "department of", "stateramp", "cjis"];
+      const matchedKws = govKeywords.filter((k) => kws.includes(k));
+      if (matchedKws.length >= 2) s += 6;
+      else if (matchedKws.length === 1) s += 3;
+
+      // Very strong signals
+      if (kws.includes("fedramp") || kws.includes("fisma")) s += 4;
+      if (kws.includes("section 508") || kws.includes("section-508")) s += 3;
+      if (kws.includes("ato")) s += 3;
+
+      return s;
+    },
+    reason: (d) => {
+      const kws = d.readmeKeywords;
+      const bits: string[] = [];
+      if (d.stack.includes("login-gov-sdk")) bits.push("login.gov");
+      if (d.stack.includes("usds-design-system") || d.stack.includes("uswds")) bits.push("USWDS");
+      if (d.stack.includes("uk-gov-design-system") || d.stack.includes("gov-uk-frontend")) bits.push("gov.uk Design System");
+      if (kws.includes("fedramp")) bits.push("FedRAMP mention");
+      if (kws.includes("nist-800-53") || kws.includes("nist 800-53")) bits.push("NIST 800-53 mention");
+      if (kws.includes("section 508") || kws.includes("section-508")) bits.push("Section 508 mention");
+      return `gov-public detected (${bits.join(", ") || "government domain signals"}) — FedRAMP/NIST 800-53/Section 508 gates required`;
+    },
+  },
+
+  // ── insurance (insurtech — NAIC / Solvency II / actuarial / claims fraud) ──
+  // Fintech-adjacent but distinct: multi-state filings, anti-discrimination
+  // pricing, actuarial model auditability, claims fraud detection.
+  {
+    archetype: "insurance",
+    score: (d) => {
+      let s = 0;
+      const insuranceLibs = ["acord-standards", "naic-schemas", "drools-rules",
+                             "solvency2-calc", "openexposure", "ms-actuarial",
+                             "lloyds-vendor-api", "verisk-sdk", "ccc-one-sdk",
+                             "guidewire-cloud", "duck-creek", "majesco-sdk",
+                             "ebix", "aplus-pas"];
+      insuranceLibs.forEach((l) => { if (d.stack.includes(l)) s += 6; });
+
+      const kws = d.readmeKeywords;
+      const insuranceKeywords = ["policy", "underwriting", "premium", "claim",
+                                 "actuarial", "reinsurance", "naic", "solvency",
+                                 "broker", "carrier", "mga", "mgu", "tpa",
+                                 "insurance", "insurtech", "insurer", "insured",
+                                 "deductible", "coverage", "bordereau"];
+      const matchedKws = insuranceKeywords.filter((k) => kws.includes(k));
+      if (matchedKws.length >= 3) s += 6;
+      else if (matchedKws.length === 2) s += 3;
+      else if (matchedKws.length === 1) s += 1;
+
+      // Very strong signals — NAIC/Solvency/IFRS 17 explicit
+      if (kws.includes("naic") || kws.includes("solvency ii") || kws.includes("solvency-ii")) s += 5;
+      if (kws.includes("ifrs 17") || kws.includes("ifrs-17")) s += 4;
+      if (kws.includes("insurtech")) s += 4;
+
+      // Don't double-score: if also matches commerce/fintech, subtract
+      // since insurance is distinct domain (not generic fintech)
+      if (d.stack.includes("stripe") && !insuranceLibs.some((l) => d.stack.includes(l))) {
+        s = Math.max(0, s - 2);
+      }
+
+      return s;
+    },
+    reason: (d) => {
+      const kws = d.readmeKeywords;
+      const bits: string[] = [];
+      const insuranceLibs = ["acord-standards", "naic-schemas", "guidewire-cloud", "duck-creek", "majesco-sdk"];
+      insuranceLibs.forEach((l) => { if (d.stack.includes(l)) bits.push(l); });
+      if (kws.includes("naic")) bits.push("NAIC mention");
+      if (kws.includes("solvency ii") || kws.includes("solvency-ii")) bits.push("Solvency II mention");
+      if (kws.includes("actuarial")) bits.push("actuarial keyword");
+      if (kws.includes("underwriting")) bits.push("underwriting keyword");
+      if (kws.includes("insurtech")) bits.push("insurtech keyword");
+      return `insurance detected (${bits.join(", ") || "insurance domain signals"}) — NAIC/Solvency II/actuarial-audit gates required`;
+    },
+  },
 ];
 
 // Tie-break priority — when two rules score equally, prefer the one
 // higher in this list (more specific / domain-bound first).
 const TIE_BREAK_PRIORITY: Archetype[] = [
   "browser-extension", "iot-embedded", "web3", "game",
-  "agent-product", "fintech", "healthcare", "marketplace",
+  "agent-product", "fintech", "insurance", "healthcare", "edtech", "gov-public", "marketplace",
   "mlops", "streaming",
   "commerce", "enterprise-saas", "ai-system", "devtools",
   "data-platform", "cms", "infra", "mobile-app",
@@ -747,6 +888,30 @@ export function suggestCompliance(d: DetectionResult, archetype: Archetype): str
   }
   if (archetype === "cms") {
     c.add("dmca"); c.add("wcag-2.2"); c.add("gdpr"); c.add("dsa-eu");
+  }
+  if (archetype === "edtech") {
+    c.add("coppa"); c.add("ferpa"); c.add("gdpr-k");
+    c.add("wcag-2.2-aa"); c.add("section-508");
+    // State student-privacy laws
+    c.add("sopipa-ca");
+  }
+  if (archetype === "gov-public") {
+    c.add("fedramp"); c.add("nist-800-53"); c.add("fisma");
+    c.add("section-508"); c.add("pia");
+    // CJIS only if law-enforcement keywords present
+    const kws = d.readmeKeywords;
+    if (kws.includes("cjis") || kws.includes("law enforcement") || kws.includes("criminal justice")) {
+      c.add("cjis");
+    }
+    // StateRAMP if state-level
+    if (kws.includes("stateramp") || kws.includes("state government")) c.add("stateramp");
+    c.add("ato"); // Authority to Operate
+  }
+  if (archetype === "insurance") {
+    c.add("naic"); c.add("solvency-ii"); c.add("ifrs-17");
+    c.add("gdpr"); c.add("ccpa");
+    c.add("anti-discrimination-pricing"); c.add("actuarial-asops");
+    c.add("state-doi"); // Department of Insurance per US state
   }
 
   // ── stack-derived (cross-archetype) ──────────────

@@ -4,6 +4,219 @@ All notable changes to great_cto are documented here.
 
 ---
 
+
+## v2.2.0 — 2026-05-08
+
+### 3 new archetypes — `edtech`, `gov-public`, `insurance` + 3 specialist reviewers
+
+Adds three high-value archetypes covering markets underserved by existing tooling.
+
+**`edtech`** — education technology with child-safety obligations
+- Detection: `canvas-lms`, `moodle-api`, `schoology-sdk`, `google-classroom`, `lti`, `scorm`, `clever-sdk` + README keywords (`student`, `classroom`, `k-12`, `coppa`, `ferpa`, `parental consent`)
+- Reviewer agent: `agents/edtech-reviewer.md` — COPPA verifiable parental consent (5 FTC-approved methods), FERPA student-data handling, GDPR-K geo-detection (13/14/15/16 per member-state), Section 508 + WCAG 2.2 AA accessibility, state student-privacy laws (SOPIPA-CA, NY 2-D)
+- Compliance auto-attached: `coppa`, `ferpa`, `gdpr-k`, `wcag-2.2-aa`, `section-508`, `sopipa-ca`
+
+**`gov-public`** — government / civic tech with FedRAMP/NIST burden
+- Detection: `login-gov-sdk`, `id-me-sdk`, `usds-design-system`, `uswds`, `uk-gov-design-system`, `gov-uk-frontend` + README keywords (`fedramp`, `fisma`, `nist 800-53`, `section 508`, `ato`, `government`, `federal`, `agency`)
+- Reviewer agent: `agents/gov-reviewer.md` — FedRAMP authorization-boundary scoping (Moderate/High/Tailored), NIST 800-53 Rev 5 control mapping (18 control families), FISMA, Section 508 + VPAT prep, PIA draft for E-Government Act §208, CJIS for law-enforcement, StateRAMP
+- Compliance auto-attached: `fedramp`, `nist-800-53`, `fisma`, `section-508`, `pia`, `ato`, `cjis`, `stateramp`
+
+**`insurance`** — InsurTech with multi-state regulatory burden
+- Detection: `acord-standards`, `naic-schemas`, `drools-rules`, `solvency2-calc`, `guidewire-cloud`, `duck-creek`, `majesco-sdk` + README keywords (`policy`, `underwriting`, `premium`, `claim`, `actuarial`, `naic`, `insurtech`, `solvency`)
+- Reviewer agent: `agents/insurance-reviewer.md` — NAIC 50-state filing matrix, Solvency II SCR/MCR/ORSA, IFRS 17 contract measurement (GMM/PAA/VFA), ACORD message validation, ASOP 41/56 actuarial documentation, anti-discrimination pricing analysis (disparate impact, ZIP-code proxies), bordereau reporting for reinsurance, NYDFS 23 NYCRR 500 if NY-in-scope
+- Compliance auto-attached: `naic`, `solvency-ii`, `ifrs-17`, `gdpr`, `ccpa`, `anti-discrimination-pricing`, `actuarial-asops`, `state-doi`
+
+### Detection logic
+
+- `packages/cli/src/archetypes.ts` — 3 new `Archetype` types, 3 new scoring rules, updated `TIE_BREAK_PRIORITY`, expanded `suggestCompliance()` with 3 new mapping blocks
+- `packages/cli/tests/archetypes.test.mjs` — 9 new tests (3 per archetype) — 50/50 archetype tests passing
+
+### Plugin wiring
+
+- `.claude-plugin/plugin.json` — SessionStart sync list extended with `edtech-reviewer`, `gov-reviewer`, `insurance-reviewer` (now 33 agents synced on session start)
+
+### Board UI
+
+- `packages/board/public/index.html` — 3 unique SVG icons in `ARCHETYPE_ICONS`:
+  - `edtech` — graduation cap (`#0ea5e9` cyan)
+  - `gov-public` — capitol building (`#1e3a8a` navy)
+  - `insurance` — protective shield (`#d97706` amber)
+
+### Documentation
+
+- README — archetype count 22 → 25, agent count 30 → 33, comparison-table + ASCII diagram updated
+- 3 new landing pages generated via `site/for/_generate.mjs` (local-only, gitignored)
+
+### Test status
+
+```
+141 / 141 tests passing
+  CLI suite (incl. archetype tests): 112 / 112  (+9 new)
+  Hooks suite:                        29 /  29
+```
+
+---
+
+## v2.1.0 — 2026-05-08
+
+### Merged `agentshield` into `great-cto/cli` (refactor)
+
+The standalone `@great-cto/agentshield` package (introduced in v2.0.0) is now a built-in `scan` subcommand of `great-cto`. Removes the need for a separate npm org / JSR scope / publish workflow while preserving every feature.
+
+**New CLI subcommands:**
+- `npx great-cto scan ./` — AI-specific security scan (OWASP LLM Top 10 + 24 rules)
+- `npx great-cto scan --severity high --json` — CI-friendly output
+- `npx great-cto scan --sarif file.sarif` — GitHub Code Scanning integration
+- `npx great-cto list-rules` — print rule catalog
+
+**Migration:**
+- `packages/agentshield/src/*` → `packages/cli/src/agentshield/`
+- `packages/agentshield/rules/*.yaml` → `packages/cli/agentshield-rules/`
+- `packages/agentshield/tests/*` → `packages/cli/tests/agentshield/`
+- Deleted: `packages/agentshield/`, `.github/workflows/publish-agentshield.yml`, tag `agentshield-v0.1.0`
+
+**Why:** maintenance ceremony of a separate package wasn't justified for the v2.0 launch — single install / single version is cleaner. Functionality unchanged. `agents/ai-security-reviewer.md` updated to invoke `npx great-cto scan` instead.
+
+---
+
+## v2.0.0 — 2026-05-08
+
+### Phase 3 of v2 plan — `@great-cto/agentshield` AI-security scanner (later merged into v2.1.0)
+
+Standalone npm package for AI-specific security scanning. Pure regex over text, zero deps, boots in <1s. Works with any LLM SDK (Claude/OpenAI/Anthropic/etc.).
+
+**5 scanners, 24 rules:**
+- `prompt-injection` (PI-001..005, OWASP LLM01) — template-literal injection, Python f-string injection, tool URL injection, override-language detection, eval-on-output
+- `secrets-in-prompts` (SP-001..004) — hardcoded API keys, DB connection strings, .env piped to model, CONFIDENTIAL markers
+- `ssrf-in-tools` (SS-001..004, OWASP LLM07) — URL fetch without allowlist, file-path without sandbox, exec/spawn user-controlled, file:// gopher:// scheme bypass
+- `rag-poisoning` (RAG-001..005, OWASP LLM01-indirect) — retrieved chunks in system prompt, no source provenance, user ingest, embeddings without truncation, unbounded topK
+- `cost-runaway` (CR-001..006, OWASP LLM06) — LLM in unbounded loop, public endpoint without rate-limit, recursive agents, missing max_tokens, missing AbortSignal, flagship-model for trivial tasks
+
+**Output formats:** Human-readable (color-coded), JSON, SARIF 2.1.0 for GitHub Code Scanning. 10/10 scanner tests pass.
+
+**Note:** v2.0.0 was the last release of the standalone package. Merged into `great-cto/cli` at v2.1.0 — see migration above.
+
+---
+
+## v1.2.0 — 2026-05-08
+
+### Phase 2 of v2 plan — continuous learning loop
+
+Two-tier memory system that captures session patterns and re-uses them across sessions and projects.
+
+**New agent — `agents/continuous-learner.md`** (Haiku, ~$0.05/run)
+Reads session transcript + git + verdicts + cost log; extracts ≤3 lessons matching one of 5 shapes (reviewer-catch, cost-outlier, repeated-mistake, discovery-miss, tool-decision); writes to `.great_cto/lessons.md`. Strict quality gates: silence > noise.
+
+**New command — `commands/learn.md`** (slash command `/learn`)
+Manual trigger for focused extraction (`/learn cost`, `/learn security`, `/learn architecture`).
+
+**New script — `scripts/lessons-merge.mjs`**
+Aggregates `~/.great_cto/projects/*/lessons.md` by pattern slug. Promotes any pattern with ≥3 distinct projects to `~/.great_cto/decisions.md`. Tracks already-promoted slugs; supports `--dry-run` and `--force`. 8/8 tests pass.
+
+**Updated agents to read `lessons.md` + `decisions.md` at session start:**
+- `architect.md` — reads `~/.great_cto/decisions.md` + `lessons.md` FIRST before any architecture decision; filtered by archetype
+- `senior-dev.md` — consults lessons for known anti-patterns before claiming a task; cites in commit messages
+- `pm.md` — calibrates cost estimates against cost-outlier lessons (shape B)
+
+**Updated `scripts/hooks/session-end.mjs`** — now registers project as symlink in `~/.great_cto/projects/<slug>/` and spawns `lessons-merge` in background after each session.
+
+**ADRs:**
+- ADR-015 — learning loop architecture (two-tier rationale, threshold=3, Haiku rationale, subagent vs inline)
+- ADR-016 — privacy guardrails (what learner MUST NOT capture, default-local)
+- ADR-017 — skill candidate promotion criteria (locked spec for v1.4.0)
+
+**User-facing docs:** `docs/LEARNING.md` — config, opt-out, inspection, reset.
+
+---
+
+## v1.1.0 — 2026-05-08
+
+### Phase 1 of v2 plan — Claude Code hooks foundation
+
+Four new hooks fill gaps in existing Claude Code lifecycle coverage.
+
+**`scripts/hooks/secret-scan.mjs`** (PreToolUse for Edit/Write/MultiEdit)
+Blocks writes containing AWS Access Key IDs, AWS Secret Keys, GitHub PATs (classic + fine-grained + OAuth), Stripe live/restricted keys, OpenAI keys, Anthropic keys, Google API keys, Slack tokens, PEM private keys, JWT bearers. 13-pattern catalog, severity-tiered (block vs warn), test/fixtures allowlist, opt-out via `GREAT_CTO_DISABLE_SECRET_SCAN=1` env or `# great_cto:allow-secrets` comment.
+
+**`scripts/hooks/format-check.mjs`** (PostToolUse for Write/Edit/MultiEdit)
+Auto-format on save: prettier (JS/TS/JSON/MD/YAML), ruff/black (Python), gofmt (Go), rustfmt (Rust). Non-blocking — logs failures to `.great_cto/format.log`.
+
+**`scripts/hooks/cost-guard.mjs`** (UserPromptSubmit)
+Cost-cap awareness: warns when prompt triggers expensive operation (`/start`, `/audit`, "architect this", large refactor). Reads `cost-cap-usd-month` from `PROJECT.md` and recent spend from `cost-history.log`.
+
+**`scripts/hooks/session-end.mjs`** (SessionEnd)
+Phase 1 stub: writes session snapshot to `.great_cto/logs/session-*-end.md`. Phase 2 (v1.2.0) plugs in continuous-learner.
+
+**ADRs:**
+- ADR-013 — hook execution model (Node.mjs over bash, blocking rules)
+- ADR-014 — secret detection patterns (what, why, allowlist rationale)
+
+**User-facing docs:** `docs/HOOKS.md` — full reference of every hook.
+
+All hooks honor `GREAT_CTO_DISABLE_<NAME>=1` opt-out env vars. Tests: 21 hook tests passing.
+
+---
+
+## v1.0.184 — 2026-05-07
+
+### JSR mirror + expanded README badges
+
+- Added `packages/cli/jsr.json` — enables JSR auto-publish on tag (mirrors npm)
+- New badges on README: JSR, npm downloads, GitHub issues, last commit, Socket.dev, Snyk Advisor
+- Released `@avelikiy/great-cto@1.0.184` on JSR (live at https://jsr.io/@avelikiy/great-cto)
+- New workflow `.github/workflows/jsr-publish.yml` — auto-publish to JSR on every `v*` tag
+
+---
+
+## v1.0.183 — 2026-05-07
+
+### Mandatory minimum-discovery + corrected LLM cost estimates
+
+**Hard-gate for high-risk archetypes** — Architect now refuses to proceed without 4 mandatory answers (mode, team-size, cost-cap, geo) for `fintech`, `healthcare`, `regulated`, `enterprise-saas`, `commerce`, `web3`. Prevents silent assumptions like "$4,500/mo Aurora multi-region for a hackathon prototype" (real bug caught during neobank PoC test).
+
+**Mandatory discovery in `/start`** — added Step 2.5 (4-question batch) before PROJECT.md write, even when archetype is detected with high confidence. Skip via explicit `--skip-questions` flag (writes `discovery-defaults-applied: true` to PROJECT.md as audit trail).
+
+**Updated LLM cost estimates** in `pm.md` with measured 2026 rates:
+- architect: $2–4 (was $0.50, severely underestimated)
+- pci-reviewer / regulated-reviewer / oracle-reviewer / ai-security-reviewer: $0.40–0.80 (new)
+- devops: $0.10–0.30 (was $0.02)
+- senior-dev: $0.50–1.20 per task
+- Mode budgets revised: PoC > $5, MVP > $25, Full > $100 (was $1/$5/$20)
+
+Pricing table added: Opus $15/$75, Sonnet $3/$15, Haiku $0.80/$4 per 1M tokens.
+
+---
+
+## v1.0.182 — 2026-05-07
+
+### Pipeline-blocker fixes (board + senior-dev)
+
+Discovered during full-pipeline neobank PoC test that exposed multiple blockers.
+
+**Senior-dev fallback** — fixed `isolation-fallback: none` → `cwd` so the agent works on non-git projects (`/tmp/` test dirs). Eliminated tool-denial errors when worktree creation fails.
+
+**Board task sync** — added `parseTasksMd()` parser + Beads-fallback chain. Board now reads both `.great_cto/tasks.md` markdown format AND Beads JSON, fixing zero-tasks-displayed bug for projects without Beads initialized.
+
+**Project registration** — added `POST /api/projects/register {path}` endpoint. Board can now discover projects outside `~/development/` (e.g. `/tmp/neobank-test`).
+
+**Archetype extraction** — implemented 3-pattern regex fallback (`archetype:` → `primary:` → `- Primary:`) + 20+ alias normalizer. Fixed all-projects-defaulting-to-`web-service` bug. Default changed from `'web-service'` to `'unknown'`.
+
+**Archetype icons** — added 11 unique SVG icons in board's project switcher: `enterprise-saas`, `cms`, `cli-tool`, `marketplace`, `streaming`, `healthcare`, `mlops`, `devtools`, `data-engineering`, `greenfield`, `unknown`. Each with distinct color and symbol.
+
+---
+
+## v1.0.181 — 2026-05-07
+
+### Board logs tab + agents status + archetype badge + plugin polish
+
+- Board: added `/api/logs` endpoint + new "Logs" tab in UI (live SSE stream from `.great_cto/agent-writes.log`)
+- Board: agent status grid shows idle/running/blocked/done with last-active timestamp
+- Board: archetype badge on each project card
+- Plugin: `/save` and `/resume` commands shipped as built-ins; PROJECT.md template gained 3-Layer Query Rule for context-efficient memory usage
+- Plugin: minor SessionStart resilience fixes for nonexistent helper files
+
+---
+
 ## v1.0.180 — 2026-05-04
 
 ### 5 new archetypes — 17 → 22 archetypes / 24 → 29 specialist agents
