@@ -8,7 +8,7 @@
 
 你是 CTO,也是瓶頸。**GreatCTO 是 30 個專業代理**,負責架構、程式碼審查、QA、安全和部署 — 而你只需要做出**每個功能兩個決定**。
 
-> **v2.1.0** · 30 代理 · 22 專案類型 · 24 安全規則 · 9 鉤子 · 每專案 ~$34/月 · 47 分鐘出 PoC · MIT
+> **v2.2.0** · 33 代理 · 25 專案類型 · 24 安全規則 · 9 鉤子 · 每專案 ~$34/月 · 47 分鐘出 PoC · MIT
 
 > ⚠️ 此為機器翻譯,需要本地化審核。如發現問題請提交 PR。 [English original](../../README.md).
 
@@ -44,12 +44,12 @@
 
 ## 什麼是 great_cto?
 
-great_cto 是一個 [Claude Code 外掛](https://claude.com/plugins),它將完整的 SDLC 流程作為 **30 個專業代理** 執行 — 架構師、規劃、實作、12 角度審查、QA、安全、部署、支援 — 透過你真正會檢視的看板進行協調。每個功能你做兩個決定;其餘的都自動完成。
+great_cto 是一個 [Claude Code 外掛](https://claude.com/plugins),它將完整的 SDLC 流程作為 **33 個專業代理** 執行 — 架構師、規劃、實作、12 角度審查、QA、安全、部署、支援 — 透過你真正會檢視的看板進行協調。每個功能你做兩個決定;其餘的都自動完成。
 
 | 層級 | 作用 |
 |------|------|
-| **30 個專業代理** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · continuous-learner |
-| **22 專案類型** | web-service · agent-product · ai-system · mlops · commerce · marketplace · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · streaming · devtools · infra · cms · enterprise-saas · regulated |
+| **33 個專業代理** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
+| **25 專案類型** | web-service · agent-product · ai-system · mlops · commerce · marketplace · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · streaming · devtools · infra · cms · enterprise-saas · regulated · edtech · gov-public · insurance |
 | **自動偵測** | 掃描 `package.json`, `pyproject.toml`, `Cargo.toml`, README, 程式碼結構 → 在 2 秒內選擇專案類型 + 合規閘門。當信心度低時,Anthropic Haiku 提供二次意見 (~$0.001)。 |
 | **合規** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — 按專案類型自動附加。 |
 | **記憶體** | 4 層 — `PROJECT.md` (專案類型) · `lessons.md` (專案回顧) · `~/.great_cto/decisions.md` (每個閘門核准,可跨專案查詢) · `verdicts/` (每個代理判定)。 |
@@ -119,7 +119,7 @@ great-cto board   # localhost:3141
 
 其餘 (`/audit` · `/digest` · `/sec` · `/cost` · `/release` · `/crystallize`) 自動執行或僅在需要時執行。完整參考見 [`docs/COMMANDS.md`](../COMMANDS.md)。
 
-## 22 個自動偵測的專案類型
+## 25 個自動偵測的專案類型
 
 每種專案類型都會啟動其專業代理和合規清單。
 
@@ -147,6 +147,9 @@ great-cto board   # localhost:3141
 | `cms` | standard | cms-reviewer | dmca · wcag-2.2-aa · dsa-eu · gdpr |
 | `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa |
 | `regulated` | **deep** | regulated-reviewer | soc2 · hipaa · sox · dora · nis2 · iso27001 |
+| `edtech` | **deep** | edtech-reviewer | coppa · ferpa · gdpr-k · wcag-2.2-aa · section-508 · sopipa-ca |
+| `gov-public` | **deep** | gov-reviewer | fedramp · nist-800-53 · fisma · section-508 · pia · ato · cjis · stateramp |
+| `insurance` | **deep** | insurance-reviewer | naic · solvency-ii · ifrs-17 · gdpr · ccpa · anti-discrimination-pricing · actuarial-asops |
 
 隨時覆寫: `npx great-cto init --archetype <name>` 或編輯 `.great_cto/PROJECT.md`。當啟發式信心度低時, CLI 還提供 Anthropic Haiku 二次意見 (~$0.001) — 設定 `ANTHROPIC_API_KEY` 啟用,透過 `--no-llm` 退出。
 
@@ -156,8 +159,8 @@ great-cto board   # localhost:3141
 
 | | great_cto | Cursor | Copilot Workspace | Claude Projects |
 |---|---|---|---|---|
-| 多代理 SDLC 流程 | ✓ 30 個專家 | ✕ | ✕ | ✕ |
-| 自動專案類型偵測 | ✓ 22 種 | ✕ | ✕ | ✕ |
+| 多代理 SDLC 流程 | ✓ 33 個專家 | ✕ | ✕ | ✕ |
+| 自動專案類型偵測 | ✓ 25 種 | ✕ | ✕ | ✕ |
 | 合規閘門 (PCI / HIPAA / SOX / EU AI Act) | ✓ | ✕ | ✕ | ✕ |
 | 持久記憶體 | ✓ decisions.md + verdicts | ⚠ 僅聊天 | ✕ | ✓ 聊天範圍 |
 | 多專案檢視 | ✓ | ✕ | ✕ | ⚠ |

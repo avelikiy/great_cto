@@ -8,7 +8,7 @@
 
 Você é o CTO. Você também é o gargalo. **GreatCTO são 30 agentes especialistas** que cuidam de arquitetura, code review, QA, segurança e deploy — enquanto você toma **duas decisões por feature**.
 
-> **v2.1.0** · 30 agentes · 22 arquétipos · 24 regras de segurança · 9 hooks · ~$34/mês por projeto · PoCs em 47 minutos · MIT
+> **v2.2.0** · 33 agentes · 25 arquétipos · 24 regras de segurança · 9 hooks · ~$34/mês por projeto · PoCs em 47 minutos · MIT
 
 > ⚠️ Esta tradução foi gerada por máquina. Revisão por falante nativo é bem-vinda — abra um PR. [English original](../../README.md).
 
@@ -48,8 +48,8 @@ great_cto é um [plugin do Claude Code](https://claude.com/plugins) que executa 
 
 | Camada | O que faz |
 |--------|-----------|
-| **30 especialistas** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · continuous-learner |
-| **22 arquétipos** | web-service · agent-product · ai-system · mlops · commerce · marketplace · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · streaming · devtools · infra · cms · enterprise-saas · regulated |
+| **33 especialistas** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
+| **25 arquétipos** | web-service · agent-product · ai-system · mlops · commerce · marketplace · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · streaming · devtools · infra · cms · enterprise-saas · regulated · edtech · gov-public · insurance |
 | **Auto-detectado** | Escaneia `package.json`, `pyproject.toml`, `Cargo.toml`, README, estrutura do código → escolhe arquétipo + gates de compliance em 2 seg. Segunda opinião do Anthropic Haiku (~$0.001) quando confiança é baixa. |
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · LGPD · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — anexado automaticamente por arquétipo. |
 | **Memória** | 4 camadas — `PROJECT.md` (arquétipo) · `lessons.md` (retros do projeto) · `~/.great_cto/decisions.md` (toda aprovação de gate, consultável entre projetos) · `verdicts/` (todo veredito de agente). |
@@ -117,7 +117,7 @@ Switcher multi-projeto — um board, todos os clientes.
 
 O resto (`/audit` · `/digest` · `/sec` · `/cost` · `/release` · `/crystallize`) roda automaticamente ou apenas quando você precisa. Veja [`docs/COMMANDS.md`](../COMMANDS.md) para referência completa.
 
-## 22 arquétipos auto-detectados
+## 25 arquétipos auto-detectados
 
 Cada arquétipo ativa seus próprios agentes especialistas e checklists de compliance.
 
@@ -145,6 +145,9 @@ Cada arquétipo ativa seus próprios agentes especialistas e checklists de compl
 | `cms` | standard | cms-reviewer | dmca · wcag-2.2-aa · dsa-eu · gdpr |
 | `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa · lgpd |
 | `regulated` | **deep** | regulated-reviewer | soc2 · hipaa · sox · dora · nis2 · iso27001 · lgpd |
+| `edtech` | **deep** | edtech-reviewer | coppa · ferpa · gdpr-k · wcag-2.2-aa · section-508 · sopipa-ca · lgpd |
+| `gov-public` | **deep** | gov-reviewer | fedramp · nist-800-53 · fisma · section-508 · pia · ato · cjis · stateramp |
+| `insurance` | **deep** | insurance-reviewer | naic · solvency-ii · ifrs-17 · gdpr · ccpa · lgpd · anti-discrimination-pricing · actuarial-asops |
 
 Sobrescreva a qualquer momento: `npx great-cto init --archetype <name>` ou edite `.great_cto/PROJECT.md`. O CLI também oferece segunda opinião do Anthropic Haiku (~$0.001) quando a confiança heurística é baixa — defina `ANTHROPIC_API_KEY` para ativar, opt-out com `--no-llm`.
 
@@ -154,8 +157,8 @@ Não somos um editor — nós orquestramos o processo ao redor do seu editor. Us
 
 | | great_cto | Cursor | Copilot Workspace | Claude Projects |
 |---|---|---|---|---|
-| Pipeline SDLC multi-agente | ✓ 30 especialistas | ✕ | ✕ | ✕ |
-| Auto-detecção de arquétipo | ✓ 22 tipos | ✕ | ✕ | ✕ |
+| Pipeline SDLC multi-agente | ✓ 33 especialistas | ✕ | ✕ | ✕ |
+| Auto-detecção de arquétipo | ✓ 25 tipos | ✕ | ✕ | ✕ |
 | Gates de compliance (PCI / HIPAA / SOX / EU AI Act / LGPD) | ✓ | ✕ | ✕ | ✕ |
 | Memória persistente | ✓ decisions.md + verdicts | ⚠ só chat | ✕ | ✓ escopo do chat |
 | Visão multi-projeto | ✓ | ✕ | ✕ | ⚠ |
