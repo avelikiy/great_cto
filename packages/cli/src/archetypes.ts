@@ -153,15 +153,18 @@ const RULES: Rule[] = [
     archetype: "agent-product",
     score: (d) => {
       const llms = ["anthropic-sdk", "openai-sdk", "google-ai", "aws-bedrock", "cohere"];
+      const llmFrameworks = ["langchain", "llamaindex"];   // RAG-capable LLM frameworks
       const vdbs = ["pinecone", "weaviate", "chroma", "qdrant"];
       const agents = ["langgraph", "crewai", "autogen", "mastra", "mcp"];
       const hasLlm = llms.some((s) => d.stack.includes(s));
+      const hasLlmFw = llmFrameworks.some((s) => d.stack.includes(s));
       const hasVdb = vdbs.some((s) => d.stack.includes(s));
       const hasAgentFw = agents.some((s) => d.stack.includes(s));
       let s = 0;
-      if (hasLlm && hasVdb) s += 7;     // RAG-style agent
-      if (hasAgentFw) s += 6;           // explicit agent framework
-      if (hasLlm && hasAgentFw) s += 2; // bonus
+      // RAG-style agent: any LLM (raw SDK or framework) + vector DB
+      if ((hasLlm || hasLlmFw) && hasVdb) s += 7;
+      if (hasAgentFw) s += 6;                        // explicit agent framework
+      if ((hasLlm || hasLlmFw) && hasAgentFw) s += 2; // bonus
       // README mining hint
       if (d.readmeKeywords.includes("agent") || d.readmeKeywords.includes("ai")) s += 1;
       return s;
@@ -203,7 +206,15 @@ const RULES: Rule[] = [
       const agents = ["langgraph", "crewai", "autogen", "mastra", "mcp"];
       if (agents.some((a) => d.stack.includes(a))) s = Math.max(0, s - 2);
       const vdbs = ["pinecone","weaviate","chroma","qdrant"];
-      if (vdbs.some((v) => d.stack.includes(v))) s = Math.max(0, s - 2);
+      const hasVdb = vdbs.some((v) => d.stack.includes(v));
+      if (hasVdb) s = Math.max(0, s - 2);
+      // Strong RAG signal — LangChain/LlamaIndex + VDB is almost certainly
+      // an agent-product (RAG-style), not a generic ai-system. The +5 score
+      // these frameworks contribute (above) is appropriate when there's no
+      // VDB; with a VDB it overcounts. Apply an additional deduction so
+      // agent-product wins the tie. See test "LangChain + Pinecone → agent-product".
+      const hasLlmFw = ["langchain", "llamaindex"].some((s) => d.stack.includes(s));
+      if (hasVdb && hasLlmFw) s = Math.max(0, s - 5);
       return s;
     },
     reason: (d) => {

@@ -188,6 +188,20 @@ test("LangChain + Pinecone → agent-product (RAG-style)", () => {
   assert.ok(pick.confidence === "high" || pick.confidence === "medium");
 });
 
+// Regression tests for the LangChain/LlamaIndex + VDB → agent-product fix
+// (see packages/cli/src/archetypes.ts ai-system rule, "Strong RAG signal" deduction)
+
+test("LlamaIndex + Chroma + Anthropic → agent-product (RAG-style, alt framework)", () => {
+  const pick = pickArchetype(mkDetection(["llamaindex", "chroma", "anthropic-sdk", "python"]));
+  assert.equal(pick.primary, "agent-product");
+});
+
+test("LangChain + Pinecone without explicit LLM SDK → still agent-product", () => {
+  // langchain itself is the LLM access layer here — no anthropic/openai SDK in deps
+  const pick = pickArchetype(mkDetection(["langchain", "pinecone", "python"]));
+  assert.equal(pick.primary, "agent-product");
+});
+
 test("LangGraph alone → agent-product", () => {
   const pick = pickArchetype(mkDetection(["langgraph", "nodejs"]));
   assert.equal(pick.primary, "agent-product");
