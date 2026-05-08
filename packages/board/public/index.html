@@ -1300,8 +1300,10 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 999px; overflow: hidden;
 }
 .bar-row .fill {
+  display: block;
   height: 100%; background: var(--accent);
   border-radius: 999px;
+  min-width: 2px;
 }
 .bar-row .pct {
   text-align: right; color: var(--text2);
@@ -1561,8 +1563,8 @@ button { font-family: inherit; cursor: pointer; }
   margin-bottom: 10px; font-size: 12.5px;
 }
 .agent-cost-row .name { font-family: var(--mono); color: var(--text); }
-.agent-cost-row .rail { height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
-.agent-cost-row .fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.agent-cost-row .rail { display: block; height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
+.agent-cost-row .fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; min-width: 2px; }
 .agent-cost-row .amt { text-align: right; color: var(--text2); font-family: var(--mono); font-size: 11px; }
 
 /* ── Task timeline ────────────────────────────────────────────────────────── */
@@ -2918,10 +2920,27 @@ function renderDashboard(m) {
   const done = m.tasks?.done ?? 0;
   const avgMin = m.avg_completion_min ?? 0;
 
+  const fromTasks = m.cost?.source === 'tasks';
   const hero = [
     { v: done || '—', sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
-    { v: llmUsd > 0 ? `$${llmUsd.toFixed(2)}` : '—', sub: '', label: 'LLM spend', trend: humanUsd > 0 ? `vs humans: $${Number(humanUsd).toLocaleString()}` : 'no plans yet', cls: 'amber' },
-    { v: savingsX > 0 ? savingsX : '—', sub: savingsX > 0 ? '×' : '', label: 'Cost savings vs FTE', trend: savingsX > 0 ? `${savingsX}× cheaper than human` : '—', cls: 'green' },
+    {
+      v: llmUsd > 0 ? `$${llmUsd.toFixed(2)}` : '—',
+      sub: '',
+      label: 'LLM spend',
+      trend: humanUsd > 0
+        ? `vs humans: $${Number(humanUsd).toLocaleString()}${fromTasks ? ' (est. from tasks)' : ''}`
+        : 'no plans or tasks yet',
+      cls: 'amber',
+    },
+    {
+      v: savingsX > 0 ? savingsX : '—',
+      sub: savingsX > 0 ? '×' : '',
+      label: 'Cost savings vs FTE',
+      trend: savingsX > 0
+        ? `${savingsX}× cheaper than human${fromTasks ? ' (rough est.)' : ''}`
+        : 'add docs/plans/PLAN-*.md for precise figures',
+      cls: 'green',
+    },
   ];
   document.getElementById('mp-hero').innerHTML = hero.map(s => `
     <div class="metric-card ${s.cls || ''}">
@@ -2932,7 +2951,7 @@ function renderDashboard(m) {
 
   const secondary = [
     { v: avgMin ? `${avgMin}` : '—', sub: avgMin ? 'm' : '', label: 'Avg cycle time' },
-    { v: m.qa?.pass_rate != null ? m.qa.pass_rate : '—', sub: m.qa?.pass_rate != null ? '%' : '', label: 'QA pass rate', cls: 'green' },
+    { v: m.qa?.pass_rate != null ? m.qa.pass_rate : '—', sub: m.qa?.pass_rate != null ? '%' : '', label: m.qa?.pass_rate != null ? 'QA pass rate' : 'QA — run /qa', cls: 'green' },
     { v: m.security?.blocked ?? 0, sub: '', label: 'Open security blocks', cls: m.security?.blocked ? 'red' : 'green' },
     { v: m.tasks?.in_progress ?? 0, sub: '', label: 'In progress', cls: 'amber' },
   ];
@@ -3144,12 +3163,12 @@ function renderLogsList() {
   const el = document.getElementById('logs-list');
   if (!el) return;
   if (!allLogs.length) {
-    el.innerHTML = '<div class="empty" style="padding:20px 16px">No session logs yet.<br><small style="color:var(--text3)">Run /save to create one.</small></div>';
+    el.innerHTML = '<div class="empty" style="padding:20px 16px">No session logs and no agent activity yet.<br><small style="color:var(--text3)">Run <code>/save</code> after a session, or invoke any agent.</small></div>';
     return;
   }
   el.innerHTML = allLogs.map((log, i) => `
     <div class="log-item ${i === 0 ? 'active' : ''}" onclick="selectLog(${i}, this)">
-      <div class="log-date">${esc(log.date)}${log.time ? ' · ' + esc(log.time) : ''}</div>
+      <div class="log-date">${esc(log.date)}${log.time ? ' · ' + esc(log.time) : ''}${log.source === 'verdicts' ? ' <span style="color:var(--text3);font-size:10px">· auto</span>' : ''}</div>
       <div class="log-title">${esc(log.title)}</div>
       <div class="log-meta">${log.done.length} done · ${log.pending.length} pending${log.duration ? ' · ' + esc(log.duration) : ''}</div>
     </div>`).join('');
@@ -3167,7 +3186,7 @@ function renderLogDetail(log) {
   el.innerHTML = `
     <div class="log-detail-head">
       <h3>${esc(log.title)}</h3>
-      <div class="log-detail-meta">${esc(log.date)}${log.time ? ' at ' + esc(log.time) : ''}${log.duration ? ' · ' + esc(log.duration) : ''}</div>
+      <div class="log-detail-meta">${esc(log.date)}${log.time ? ' at ' + esc(log.time) : ''}${log.duration ? ' · ' + esc(log.duration) : ''}${log.source === 'verdicts' ? ' · <span style="color:var(--accent)">auto-synthesized from verdicts</span>' : ''}</div>
     </div>
     <div class="log-section">
       <div class="log-section-label">Done</div>

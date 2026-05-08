@@ -362,6 +362,7 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
 
   // Verdicts: cost=$X tag (from ~/.great_cto/verdicts/)
   const verdicts = readVerdicts();
+  let hasRealCostData = false;
   for (const v of verdicts) {
     if (v.cost_usd == null) continue;
     const dayKey = (v.ts || '').slice(0, 10);
@@ -369,6 +370,42 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
     const b = buckets.get(dayKey);
     b.llm += v.cost_usd;
     b.runs++;
+    hasRealCostData = true;
+  }
+  // Plans loop (above) sets hasRealCostData if any plan had llm/human numbers
+  for (const b of buckets.values()) if (b.plans > 0) { hasRealCostData = true; break; }
+
+  // Fallback: estimate per-task cost on the day a task was closed when neither
+  // plan files nor verdict cost lines exist. Same model as getMetrics:
+  // $0.02/AI-hr, $150/human-hr, default 30 min if no timing data.
+  // Only engages when there's no real cost data anywhere — otherwise we'd
+  // double-count buckets that DO have plan/verdict data alongside buckets that
+  // don't. All-or-nothing keeps the series internally consistent.
+  if (!hasRealCostData) {
+    const HUMAN_RATE_PER_HR = 150;
+    const LLM_RATE_PER_HR   = 0.02;
+    const DEFAULT_TASK_MIN  = 30;
+    try {
+      const tasks = getTasks(cwd);
+      for (const t of tasks) {
+        if (!t.closed_at) continue;
+        // Only count tasks with an assigned agent — same rule as getMetrics()
+        // agents_cost so the LLM SPEND tile and LAST 30 DAYS tile agree.
+        if (!t.agent) continue;
+        const dayKey = new Date(t.closed_at).toISOString().slice(0, 10);
+        if (!buckets.has(dayKey)) continue;
+        let mins = 0;
+        if (t.created_at) {
+          const ms = new Date(t.closed_at).getTime() - new Date(t.created_at).getTime();
+          if (ms > 0 && ms < 30 * 86400_000) mins = ms / 60000;
+        }
+        if (!mins) mins = t.estimated_minutes || DEFAULT_TASK_MIN;
+        const b = buckets.get(dayKey);
+        b.llm   += mins / 60 * LLM_RATE_PER_HR;
+        b.human += mins / 60 * HUMAN_RATE_PER_HR;
+        b.runs++;
+      }
+    } catch { /* getTasks failure is non-fatal */ }
   }
 
   const series = Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -630,11 +667,26 @@ function getMetrics(cwd = process.cwd()) {
     }))
     .sort((a, b) => b.time_min - a.time_min);
 
+  // Fallback: when no docs/plans/*.md cost data exists, derive cost from
+  // tasks (agentCostMap) — every project with bd tasks gets meaningful tiles
+  // even before a single PLAN-*.md is written.
+  const taskLlmTotal   = agentsCost.reduce((s, a) => s + a.llm_usd, 0);
+  const taskHumanTotal = agentsCost.reduce((s, a) => s + a.human_usd, 0);
+  const cost = (costData.llm_usd > 0 || costData.human_usd > 0)
+    ? costData
+    : {
+        llm_usd:   Math.round(taskLlmTotal   * 100) / 100,
+        human_usd: Math.round(taskHumanTotal),
+        savings_x: taskLlmTotal > 0 ? Math.round(taskHumanTotal / taskLlmTotal) : 0,
+        count:     0,
+        source:    'tasks',  // hint to UI: "estimated from tasks, no plans yet"
+      };
+
   return {
     tasks: { total: tasks.length, done: done.length, in_progress: inProgress.length, backlog: backlog.length },
     velocity: { this_week: doneThisWeek.length, this_month: doneThisMonth.length },
     avg_completion_min: Math.round(avgCompletionMs / 60000),
-    cost: costData,
+    cost,
     qa: qaStats,
     security: secStats,
     agents: agentRuns,
@@ -694,8 +746,9 @@ function readQAStats(cwd = process.cwd()) {
   if (!fs.existsSync(qaDir)) return { pass_rate: null, passed: 0, failed: 0 };
   for (const file of fs.readdirSync(qaDir).filter(f => f.endsWith('.md'))) {
     const content = fs.readFileSync(path.join(qaDir, file), 'utf8');
-    if (/verdict.*pass/i.test(content)) passed++;
-    else if (/verdict.*fail/i.test(content)) failed++;
+    // Accept any of:  "verdict: pass" / "**Verdict:** PASS" / "Status: PASSED" / "✅ pass" / "result: ✓"
+    if (/(?:verdict|status|result)\s*[:=]?\s*[*_`]*\s*(?:✅|✓|pass(?:ed)?)/i.test(content)) passed++;
+    else if (/(?:verdict|status|result)\s*[:=]?\s*[*_`]*\s*(?:❌|✗|fail(?:ed)?|block(?:ed)?)/i.test(content)) failed++;
   }
   const total = passed + failed;
   return { pass_rate: total ? Math.round((passed / total) * 100) : null, passed, failed };
@@ -1324,7 +1377,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Session logs — list .great_cto/logs/session-*.md for the current project
+  // Session logs — list .great_cto/logs/session-*.md for the current project.
+  // When no /save logs exist, synthesize day-grouped entries from verdicts so
+  // the panel is useful immediately — every project with agent activity gets
+  // a meaningful log even before the first /save.
   if (pathname === '/api/logs') {
     const logsDir = path.join(cwd, '.great_cto', 'logs');
     let logs = [];
@@ -1335,20 +1391,17 @@ const server = http.createServer(async (req, res) => {
       logs = files.map(f => {
         const fp = path.join(logsDir, f);
         const raw = readFileSafe(fp) || '';
-        // Parse frontmatter date/time/duration
         const dateM = raw.match(/^date:\s*(.+)$/m);
         const timeM = raw.match(/^time:\s*(.+)$/m);
         const durM  = raw.match(/^duration:\s*(.+)$/m);
-        // Parse session title from H1
         const titleM = raw.match(/^#\s+Session:\s*(.+)$/m);
-        // Extract Done bullets
         const doneM = raw.match(/## Done\n([\s\S]*?)(?=\n##|$)/);
         const done = doneM ? doneM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
-        // Extract Pending bullets
         const pendM = raw.match(/## Pending\n([\s\S]*?)(?=\n##|$)/);
         const pending = pendM ? pendM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
         return {
           file: f,
+          source: 'save',
           date: dateM?.[1]?.trim() || f.slice(8, 18),
           time: timeM?.[1]?.trim() || '',
           duration: durM?.[1]?.trim() || '',
@@ -1359,6 +1412,45 @@ const server = http.createServer(async (req, res) => {
         };
       });
     } catch {}
+
+    // Fallback: synthesize from verdicts grouped by day
+    if (!logs.length) {
+      try {
+        const verdicts = readVerdicts();
+        // Filter to verdicts referencing this project (best-effort: include all
+        // when project-tagging not available)
+        const byDay = new Map();
+        for (const v of verdicts) {
+          const day = (v.ts || '').slice(0, 10);
+          if (!day) continue;
+          if (!byDay.has(day)) byDay.set(day, { ok: [], fail: [], earliest: v.ts, latest: v.ts });
+          const b = byDay.get(day);
+          const verdictUp = (v.verdict || '').toUpperCase();
+          const isOk = ['OK','APPROVED','DONE','PASS','PASSED'].includes(verdictUp);
+          const isFail = ['FAIL','FAILED','BLOCKED','REJECTED'].includes(verdictUp);
+          const summary = `${v.agent}: ${v.verdict || 'event'}${v.raw ? ` — ${v.raw.replace(/\s+/g,' ').slice(0,140)}` : ''}`;
+          if (isFail) b.fail.push(summary);
+          else b.ok.push(summary);
+          if (v.ts < b.earliest) b.earliest = v.ts;
+          if (v.ts > b.latest)   b.latest   = v.ts;
+        }
+        logs = Array.from(byDay.entries())
+          .sort(([a],[b]) => b.localeCompare(a))
+          .slice(0, 30)
+          .map(([day, b]) => ({
+            file: `auto-${day}`,
+            source: 'verdicts',
+            date: day,
+            time: (b.earliest || '').slice(11, 16),
+            duration: '',
+            title: `Auto-log · ${b.ok.length + b.fail.length} agent run${(b.ok.length+b.fail.length)===1?'':'s'}`,
+            done: b.ok.slice(0, 50),
+            pending: b.fail.slice(0, 50),
+            raw: '_Auto-generated from ~/.great_cto/verdicts/. Run `/save` to create a curated session log._',
+          }));
+      } catch {}
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ logs }));
     return;

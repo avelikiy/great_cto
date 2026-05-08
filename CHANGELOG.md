@@ -6,6 +6,58 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.3.1 — 2026-05-08
+
+### Board admin polish — metrics, bars, logs
+
+Bugfixes after v2.3.0 dogfooding on a real fintech project.
+
+**Metrics tiles populate from tasks when no PLAN-\*.md / verdict-cost data exists**
+- `LLM SPEND`, `COST SAVINGS VS FTE`, `LAST 30 DAYS`, `VS HUMAN TEAM`, `DAILY BURN`,
+  `PROJECTED MONTH` previously showed `—` / `$0` until a `docs/plans/PLAN-*.md`
+  was written. Now derived from `bd` tasks with assigned agents using the same
+  $0.02/AI-hr × $150/human-hr model as `agents_cost`.
+- Tile labels surface the source: `(est. from tasks)` / `(rough est.)` so the
+  fallback is transparent. Real plan-derived data still wins when present.
+
+**Cost-history bug: multiple tasks closed on the same day**
+- `getCostHistory` had a `b.runs === 0` guard meant to prevent double-count,
+  but it also skipped subsequent tasks closing the same day. On a project with
+  15 tasks closed on 2026-04-09, only 1 was counted → `LAST 30 DAYS` showed
+  $4.48 instead of the correct $5.72. Fixed: fallback engages all-or-nothing
+  across the whole series, no per-bucket guard.
+
+**Agent utilization & cost bars rendering empty**
+- `<span class="fill">` lacked `display: block`, so inline `<span>` ignored
+  the `width: N%` set by JS — bars rendered as empty rails. Fixed: added
+  `display: block` + `min-width: 2px` so even sub-1% bars stay visible.
+
+**Logs panel synthesizes from verdicts when no /save logs exist**
+- Previously empty until first `/save` invocation. Now falls back to
+  day-grouped entries built from `~/.great_cto/verdicts/*.log` — every
+  project with agent activity gets useful Logs immediately.
+- Auto-entries marked `· auto` in the list and "auto-synthesized from
+  verdicts" in the detail view.
+
+**QA pass-rate regex broadened**
+- Old regex `verdict.*pass` only matched a narrow format. Now accepts any of
+  "verdict / status / result" + "✅ / ✓ / pass / passed" (and the equivalents
+  for fail / blocked).
+
+### Time-estimate phrasing — LLM-agent vs human-team
+
+Throughout README and landing the time estimates now distinguish:
+- **LLM-agent time** — wall-clock from `/start` to ship-ready PR (e.g. ~45min)
+- **Human-team equivalent** — one mid-level engineer at ~6 productive hrs/day
+  including reviews, meetings, context switches (e.g. 2–3 days)
+
+Updated:
+- README "scale" table — added LLM-agent time + human-team equivalent columns
+- README `/start` example — `LLM agent: ~45min  (human team: 2–3 days)`
+- Landing hero terminal, before/after split, FAQ — same framing throughout
+
+---
+
 ## v2.3.0 — 2026-05-08
 
 ### Agent workforce management — Phase 5 of v2 plan
