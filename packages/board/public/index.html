@@ -806,6 +806,15 @@ button { font-family: inherit; cursor: pointer; }
 }
 .mem-item.missing { opacity: 0.55; }
 .mem-item.missing .layer-tag { color: var(--text3); }
+.mem-group-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  padding: 14px 12px 6px;
+  text-transform: uppercase;
+}
+.mem-group-label:first-child { padding-top: 4px; }
 
 .memory-content {
   overflow-y: auto;
@@ -2219,7 +2228,10 @@ function renderMemorySidebar() {
   const layers = memoryData.layers || [];
   const patterns = memoryData.patterns || [];
 
-  layersEl.innerHTML = layers.map(l => {
+  // Group by scope: project-local first, then global cross-project
+  const projectLayers = layers.filter(l => l.scope !== 'global');
+  const globalLayers  = layers.filter(l => l.scope === 'global');
+  const renderRow = l => {
     const key = 'layer:' + l.id;
     const cls = (l.exists ? '' : 'missing ') + (activeMemKey === key ? 'active' : '');
     return `
@@ -2229,7 +2241,11 @@ function renderMemorySidebar() {
         <span class="desc">${esc(l.desc)}</span>
         <span class="meta">${l.exists ? `${(l.size / 1024).toFixed(1)} KB` : 'not yet written'}</span>
       </div>`;
-  }).join('') || '<div class="memory-empty">No memory files yet.</div>';
+  };
+  layersEl.innerHTML = (
+    (projectLayers.length ? `<div class="mem-group-label">PROJECT-LOCAL · .great_cto/</div>` + projectLayers.map(renderRow).join('') : '') +
+    (globalLayers.length  ? `<div class="mem-group-label">CROSS-PROJECT · ~/.great_cto/</div>` + globalLayers.map(renderRow).join('')  : '')
+  ) || '<div class="memory-empty">No memory files yet.</div>';
 
   patternsEl.innerHTML = patterns.length ? patterns.map(p => {
     const key = 'pattern:' + p.id;
