@@ -1,0 +1,99 @@
+# SSRF in agent tools.
+# Tools that fetch URLs without host allowlist allow the model (or a
+# prompt-injection payload) to scan internal networks, hit cloud
+# metadata endpoints, etc.
+
+- id: SS-001
+  scanner: ssrf-in-tools
+  title: Tool fetches URL parameter without host allowlist
+  severity: critical
+  owasp: "LLM07:2025 — Insecure Plugin Design"
+  description: |
+    A tool function accepts a URL string as input and fetches it
+    without checking the host against an allowlist. The model can
+    instruct the tool to fetch http://169.254.169.254/ (AWS metadata),
+    http://localhost:6379 (internal Redis), etc.
+  remediation: |
+    Add an allowlist check before fetch:
+      const ALLOW = ["api.github.com", "stripe.com"];
+      const u = new URL(url);
+      if (!ALLOW.includes(u.hostname)) throw new Error("blocked");
+  patterns:
+    - 'tool[\s\S]{0,400}fetch\(\s*(?:url|targetUrl|target_url|input\.url)\s*[,)]'
+    - 'def\s+\w+\s*\([^)]*url[^)]*\)\s*[\s\S]{0,200}requests\.(?:get|post)\(\s*url'
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.py"
+  negate:
+    - "ALLOWED_HOSTS"
+    - "URL_ALLOWLIST"
+    - "agentshield:ignore"
+
+- id: SS-002
+  scanner: ssrf-in-tools
+  title: Tool reads file at user-supplied path
+  severity: high
+  owasp: "LLM07:2025 — Insecure Plugin Design"
+  description: |
+    A tool reads a file path from input without sandboxing. The model
+    can instruct it to read /etc/passwd, ~/.ssh/id_rsa,
+    ~/.aws/credentials, etc.
+  remediation: |
+    Restrict the tool to a sandbox directory:
+      const safe = path.resolve("./sandbox", input.path);
+      if (!safe.startsWith(path.resolve("./sandbox"))) throw new Error("path escape");
+  patterns:
+    - 'tool[\s\S]{0,400}readFileSync\(\s*(?:path|filePath|input\.path|args\.path)\s*[,)]'
+    - 'def\s+\w+\s*\([^)]*path[^)]*\)\s*[\s\S]{0,200}open\(\s*path\s*[,)]'
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.py"
+  negate:
+    - 'path\.resolve\([^)]*sandbox'
+    - "agentshield:ignore"
+
+- id: SS-003
+  scanner: ssrf-in-tools
+  title: Tool exec/spawn with user-controlled command
+  severity: critical
+  description: |
+    A tool spawns a subprocess where the command or its arguments
+    come from model output. This is RCE.
+  remediation: |
+    Never construct shell commands from model output. Define a fixed
+    set of commands and dispatch by name only. Use array argv,
+    not shell strings.
+  patterns:
+    - '(?:tool|action)[\s\S]{0,400}(?:exec|spawn|execSync|spawnSync)\(\s*(?:cmd|command|input\.command|input\.cmd)'
+    - '(?:tool|action)[\s\S]{0,400}subprocess\.(?:run|Popen|call)\(\s*(?:cmd|command|input\.command).*shell\s*=\s*True'
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.py"
+
+- id: SS-004
+  scanner: ssrf-in-tools
+  title: Tool URL pattern allows file:// or gopher:// schemes
+  severity: high
+  description: |
+    A URL allowlist that filters by hostname but accepts any scheme
+    can be bypassed via file:///etc/passwd or gopher:// for SSRF
+    against legacy services.
+  remediation: |
+    Reject any URL where the protocol is not in
+    ["http:", "https:"] before further validation.
+  patterns:
+    - 'new URL\([^)]*\)[\s\S]{0,150}fetch\('
+  file_globs:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/*.mjs"
+  negate:
+    - "u\\.protocol"
+    - "url\\.protocol"
+    - "agentshield:ignore"
