@@ -54,7 +54,3 @@ tests/ui/test-results/
 workers/**
 packages/cli/dist/
 
-# agentshield package — built artifacts and deps
-packages/agentshield/dist/
-packages/agentshield/node_modules/
-packages/agentshield/package-lock.json

@@ -14,13 +14,24 @@ import type { Rule, ScannerName } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** Default location: ../rules relative to dist/rules-loader.js */
+/**
+ * Default location: `agentshield-rules/` at the cli-package root.
+ * Search order accommodates both compiled and direct invocation:
+ *   - dist/agentshield/rules-loader.js  →  ../../agentshield-rules
+ *   - src/agentshield/rules-loader.ts   →  ../../agentshield-rules (no compile)
+ *   - legacy standalone layout         →  ../rules (kept for safety)
+ */
 function defaultRulesDir(): string {
-  // Try package-relative path first (dist/../rules)
-  const pkgRules = join(__dirname, '..', 'rules');
-  if (existsSync(pkgRules)) return pkgRules;
-  // Fallback: src-relative (when running uncompiled)
-  return join(__dirname, '..', '..', 'rules');
+  const candidates = [
+    join(__dirname, '..', '..', 'agentshield-rules'),
+    join(__dirname, '..', '..', '..', 'agentshield-rules'),
+    join(__dirname, '..', 'rules'),
+    join(__dirname, '..', '..', 'rules'),
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return candidates[0]!;
 }
 
 export function loadRules(rulesDir: string = defaultRulesDir()): Rule[] {
