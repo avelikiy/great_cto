@@ -31,6 +31,8 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 30 specialist agents**
 
 [Website](https://greatcto.systems) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md) · [Blog](https://velikiy.hashnode.dev)
 
+**Language:** **English** · [Русский](docs/ru/README.md) · [简体中文](docs/zh-CN/README.md) · [日本語](docs/ja/README.md) · [한국어](docs/ko/README.md) · [Español](docs/es/README.md)
+
 </div>
 
 ## What's new
