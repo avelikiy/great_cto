@@ -1,0 +1,73 @@
+{
+  "name": "@great-cto/agentshield",
+  "version": "0.1.0",
+  "description": "AI-specific security scanner for agent products. Detects prompt injection vectors, secrets in prompts, SSRF in tool definitions, RAG poisoning, and cost-runaway patterns. Standalone CLI + library + SARIF output for GitHub Code Scanning.",
+  "keywords": [
+    "ai-security",
+    "claude",
+    "anthropic",
+    "openai",
+    "llm-security",
+    "prompt-injection",
+    "ssrf",
+    "rag",
+    "owasp-llm-top-10",
+    "agent-security",
+    "static-analysis",
+    "sarif",
+    "claude-code",
+    "great-cto"
+  ],
+  "homepage": "https://greatcto.systems/agentshield",
+  "license": "MIT",
+  "author": {
+    "name": "Alexander Velikiy",
+    "url": "https://hashnode.com/@Greatcto"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/avelikiy/great_cto.git",
+    "directory": "packages/agentshield"
+  },
+  "bugs": {
+    "url": "https://github.com/avelikiy/great_cto/issues?q=label%3Aagentshield"
+  },
+  "funding": [
+    { "type": "github", "url": "https://github.com/sponsors/avelikiy" }
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./sarif": {
+      "import": "./dist/sarif.js",
+      "types": "./dist/sarif.d.ts"
+    }
+  },
+  "bin": {
+    "agentshield": "./cli.mjs"
+  },
+  "files": [
+    "cli.mjs",
+    "dist/",
+    "rules/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}

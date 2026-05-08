@@ -1,0 +1,79 @@
+name: Publish @great-cto/agentshield
+
+# Publishes the standalone scanner package to npm + JSR.
+# Triggered:
+#   - on tags matching `agentshield-v*` (independent versioning from main package)
+#   - manually via workflow_dispatch
+#
+# OIDC trusted publishing — no token secrets needed.
+
+on:
+  push:
+    tags:
+      - 'agentshield-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 0.1.0)'
+        required: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        working-directory: packages/agentshield
+        run: npm ci || npm install
+      - name: Build + test
+        working-directory: packages/agentshield
+        run: npm run build && npm test
+
+  publish-npm:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install
+        working-directory: packages/agentshield
+        run: npm ci || npm install
+      - name: Build
+        working-directory: packages/agentshield
+        run: npm run build
+      - name: Publish to npm
+        working-directory: packages/agentshield
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-jsr:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        working-directory: packages/agentshield
+        run: npm ci || npm install
+      - name: Build
+        working-directory: packages/agentshield
+        run: npm run build
+      - name: Publish to JSR
+        working-directory: packages/agentshield
+        run: npx jsr publish --allow-dirty
+        continue-on-error: true   # JSR scope may not exist yet

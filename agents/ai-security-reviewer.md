@@ -99,6 +99,29 @@ For each of the 6 sections, follow this loop:
 
 ### Step 2: AI-specific deep dives
 
+#### Static scan via agentshield (always run, fast)
+
+Before manual review, run the static scanner to catch low-hanging fruit
+(prompt injection, secrets in prompts, SSRF, RAG poisoning, cost-runaway):
+
+```bash
+# One-liner — npx pulls latest @great-cto/agentshield
+npx -y @great-cto/agentshield@latest scan ./ --severity high --json > /tmp/agentshield.json 2>/dev/null
+
+# Findings per scanner
+jq -r '.findings | group_by(.rule.scanner) | map({scanner: .[0].rule.scanner, count: length}) | .[] | "\(.scanner): \(.count)"' /tmp/agentshield.json
+```
+
+For every CRITICAL or HIGH finding, write a corresponding entry in TM-{slug}.md
+(threat model). Cite the rule id (e.g. `PI-001`) and file:line. Use these as
+**inputs** to the manual review below — agentshield catches obvious patterns;
+your job is to catch what regex-based scanners miss.
+
+If the scan emits SARIF, attach to the security audit:
+```bash
+npx -y @great-cto/agentshield@latest scan ./ --sarif docs/security/agentshield-{slug}.sarif
+```
+
 #### Prompt-injection inventory (always run)
 
 For each "untrusted=yes" input source from ARCH § Trust Boundaries, identify **3 attack vectors**:
