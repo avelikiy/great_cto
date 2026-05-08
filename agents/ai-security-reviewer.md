@@ -101,12 +101,13 @@ For each of the 6 sections, follow this loop:
 
 #### Static scan via agentshield (always run, fast)
 
-Before manual review, run the static scanner to catch low-hanging fruit
-(prompt injection, secrets in prompts, SSRF, RAG poisoning, cost-runaway):
+Before manual review, run the integrated AI-security scanner to catch
+low-hanging fruit (prompt injection, secrets in prompts, SSRF, RAG poisoning,
+cost-runaway). Built into the great-cto CLI:
 
 ```bash
-# One-liner — npx pulls latest @great-cto/agentshield
-npx -y @great-cto/agentshield@latest scan ./ --severity high --json > /tmp/agentshield.json 2>/dev/null
+# One-liner — runs OWASP LLM Top 10 patterns + 24 rules
+npx -y great-cto scan ./ --severity high --json > /tmp/agentshield.json 2>/dev/null
 
 # Findings per scanner
 jq -r '.findings | group_by(.rule.scanner) | map({scanner: .[0].rule.scanner, count: length}) | .[] | "\(.scanner): \(.count)"' /tmp/agentshield.json
@@ -114,12 +115,17 @@ jq -r '.findings | group_by(.rule.scanner) | map({scanner: .[0].rule.scanner, co
 
 For every CRITICAL or HIGH finding, write a corresponding entry in TM-{slug}.md
 (threat model). Cite the rule id (e.g. `PI-001`) and file:line. Use these as
-**inputs** to the manual review below — agentshield catches obvious patterns;
+**inputs** to the manual review below — the static scan catches obvious patterns;
 your job is to catch what regex-based scanners miss.
 
-If the scan emits SARIF, attach to the security audit:
+Emit SARIF for GitHub Code Scanning + audit attachment:
 ```bash
-npx -y @great-cto/agentshield@latest scan ./ --sarif docs/security/agentshield-{slug}.sarif
+npx -y great-cto scan ./ --sarif docs/security/agentshield-{slug}.sarif
+```
+
+Also useful: list the rule catalog so you know what's been auto-checked:
+```bash
+npx -y great-cto list-rules
 ```
 
 #### Prompt-injection inventory (always run)
