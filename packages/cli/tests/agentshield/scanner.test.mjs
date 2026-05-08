@@ -1,6 +1,6 @@
-// Tests for @great-cto/agentshield scanner.
+// Tests for the agentshield scanner (now integrated into great-cto/cli).
 //
-// Run: npm test  (in packages/agentshield/)
+// Run from packages/cli/:  npm test
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,11 +9,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PKG_ROOT = resolve(__dirname, '..');
-const FIXTURES = join(PKG_ROOT, 'tests', 'fixtures');
+const PKG_ROOT = resolve(__dirname, '..', '..');                     // packages/cli
+const FIXTURES = join(__dirname, 'fixtures');                        // tests/agentshield/fixtures
 
-// Lazy import compiled module
-const { scan, scanFile, loadRules } = await import('../dist/index.js');
+// Lazy import compiled module from cli's dist/
+const { scan, scanFile, loadRules } = await import('../../dist/agentshield/index.js');
 
 test('rules catalog loads without errors', () => {
   const rules = loadRules();
@@ -85,14 +85,14 @@ test('scanFile returns structured findings', () => {
 });
 
 test('CLI: list-rules exits 0 with output', () => {
-  const cli = join(PKG_ROOT, 'cli.mjs');
+  const cli = join(PKG_ROOT, 'index.mjs');
   const r = spawnSync('node', [cli, 'list-rules'], { encoding: 'utf8' });
   assert.equal(r.status, 0);
   assert.match(r.stdout, /rule\(s\) loaded/);
 });
 
 test('CLI: scan vulnerable fixture exits 1', () => {
-  const cli = join(PKG_ROOT, 'cli.mjs');
+  const cli = join(PKG_ROOT, 'index.mjs');
   const r = spawnSync('node', [cli, 'scan', join(FIXTURES, 'vulnerable-app.ts'), '--quiet', '--json'], {
     encoding: 'utf8',
   });
@@ -102,7 +102,7 @@ test('CLI: scan vulnerable fixture exits 1', () => {
 });
 
 test('CLI: scan clean fixture exits 0', () => {
-  const cli = join(PKG_ROOT, 'cli.mjs');
+  const cli = join(PKG_ROOT, 'index.mjs');
   const r = spawnSync('node', [cli, 'scan', join(FIXTURES, 'clean-app.ts'),
     '--severity', 'high', '--quiet', '--json'], {
     encoding: 'utf8',
@@ -111,7 +111,7 @@ test('CLI: scan clean fixture exits 0', () => {
 });
 
 test('SARIF output is valid JSON', async () => {
-  const { toSarif } = await import('../dist/sarif.js');
+  const { toSarif } = await import('../../dist/agentshield/sarif.js');
   const report = scan(FIXTURES, { files: [join(FIXTURES, 'vulnerable-app.ts')] });
   const sarif = toSarif(report);
   const json = JSON.stringify(sarif);

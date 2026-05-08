@@ -36,7 +36,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules";
   dir: string;
   yes: boolean;
   dryRun: boolean;
@@ -83,6 +83,8 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--no-llm") args.noLlm = true;
     else if (a === "board") args.command = "board";
     else if (a === "register") args.command = "register";
+    else if (a === "scan") args.command = "scan";
+    else if (a === "list-rules") args.command = "list-rules";
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
     else if (a === "init" || a === "help" || a === "version") {
@@ -92,6 +94,138 @@ function parseArgs(argv: string[]): CliArgs {
 
   args.dir = resolve(args.dir);
   return args;
+}
+
+/**
+ * `great-cto scan [path]` — AI-specific security scanner (formerly @great-cto/agentshield).
+ *
+ * Detects OWASP LLM Top 10 patterns: prompt injection vectors, secrets in
+ * prompts, SSRF in tool definitions, RAG poisoning, cost-runaway loops.
+ *
+ * Flags (parsed from raw argv since they're scan-specific):
+ *   --severity <lvl>   info|low|medium|high|critical (default: info)
+ *   --scanner <name>   prompt-injection | secrets-in-prompts | ssrf-in-tools |
+ *                      rag-poisoning | cost-runaway (repeatable)
+ *   --sarif <file>     emit SARIF 2.1.0 to file
+ *   --json             emit JSON to stdout
+ *   --quiet            suppress human-readable output
+ *   --max <n>          stop after N findings
+ *   --exclude <regex>  add path exclude (repeatable)
+ *
+ * Exit codes:
+ *   0 = no findings (or all below severity threshold)
+ *   1 = findings at/above threshold (CI-friendly)
+ *   2 = scan failed
+ */
+async function runScan(args: CliArgs, rawArgv: string[]): Promise<number> {
+  const { writeFileSync } = await import("node:fs");
+  const { resolve: resolvePath } = await import("node:path");
+
+  // Lazy import compiled scanner — keeps cold start fast for `init` flow.
+  let scan: typeof import("./agentshield/scanner.js").scan;
+  let toSarif: typeof import("./agentshield/sarif.js").toSarif;
+  try {
+    ({ scan } = await import("./agentshield/scanner.js"));
+    ({ toSarif } = await import("./agentshield/sarif.js"));
+  } catch (e) {
+    error(`scan: failed to load scanner: ${(e as Error).message}`);
+    return 2;
+  }
+
+  // Parse scan-specific flags from raw argv
+  const flag = (n: string) => rawArgv.includes(`--${n}`);
+  const value = (n: string, def?: string) => {
+    const i = rawArgv.indexOf(`--${n}`);
+    return i >= 0 && i < rawArgv.length - 1 ? rawArgv[i + 1] : def;
+  };
+
+  const scanners = rawArgv
+    .map((a, i) => (a === "--scanner" ? rawArgv[i + 1] : null))
+    .filter(Boolean) as string[];
+  const exclude = rawArgv
+    .map((a, i) => (a === "--exclude" ? rawArgv[i + 1] : null))
+    .filter(Boolean) as string[];
+
+  // Path: first non-flag arg after `scan`, default cwd
+  const scanIdx = rawArgv.indexOf("scan");
+  let root = ".";
+  for (let i = scanIdx + 1; i < rawArgv.length; i++) {
+    if (rawArgv[i] && !rawArgv[i]!.startsWith("--")) { root = rawArgv[i]!; break; }
+  }
+
+  const opts = {
+    scanners: scanners.length > 0 ? (scanners as any) : undefined,
+    minSeverity: value("severity", "info") as any,
+    exclude: exclude.length > 0 ? exclude : undefined,
+    maxFindings: value("max") ? parseInt(value("max")!, 10) : undefined,
+  };
+
+  const sarifPath = value("sarif");
+  const wantsJson = flag("json");
+  const quiet = flag("quiet");
+
+  const report = scan(resolvePath(root), opts as any);
+
+  if (sarifPath) {
+    writeFileSync(sarifPath, JSON.stringify(toSarif(report), null, 2));
+    if (!quiet) console.error(`✓ SARIF written → ${sarifPath}`);
+  }
+
+  if (wantsJson) {
+    console.log(JSON.stringify(report, null, 2));
+  } else if (!quiet) {
+    const COLORS: Record<string, string> = {
+      critical: "\x1b[1;31m", high: "\x1b[31m", medium: "\x1b[33m",
+      low: "\x1b[36m", info: "\x1b[2m", reset: "\x1b[0m",
+    };
+    const useColor = process.stdout.isTTY;
+    const c = (sev: string, s: string) => (useColor ? `${COLORS[sev] || ""}${s}${COLORS.reset}` : s);
+
+    console.error(`\ngreat-cto scan ${getCliVersion()} — scanned ${report.filesScanned} file(s) in ${report.durationMs}ms\n`);
+    if (report.errors.length > 0) {
+      console.error(`\x1b[33m⚠ ${report.errors.length} error(s):\x1b[0m`);
+      for (const e of report.errors) console.error(`    ${e}`);
+      console.error("");
+    }
+    if (report.findings.length === 0) {
+      console.error("\x1b[32m✓ No findings.\x1b[0m\n");
+    } else {
+      for (const f of report.findings) {
+        const tag = c(f.rule.severity, `[${f.rule.severity.toUpperCase()}]`);
+        console.error(`${tag} ${f.rule.id}  ${f.location.file}:${f.location.line}`);
+        console.error(`        ${f.rule.title}`);
+        console.error(`        ${c("info", f.location.snippet)}`);
+        if (f.rule.owasp) console.error(`        ${c("info", f.rule.owasp)}`);
+        console.error("");
+      }
+      const counts: Record<string, number> = {};
+      for (const f of report.findings) counts[f.rule.severity] = (counts[f.rule.severity] || 0) + 1;
+      const order = ["critical", "high", "medium", "low", "info"];
+      const parts = order.filter((s) => counts[s]).map((s) => c(s, `${counts[s]} ${s}`));
+      console.error(`\x1b[1m${report.findings.length} finding(s)\x1b[0m  —  ${parts.join(", ")}\n`);
+    }
+  }
+
+  return report.findings.length > 0 ? 1 : 0;
+}
+
+/**
+ * `great-cto list-rules` — print the rule catalog.
+ */
+async function runListRules(): Promise<number> {
+  let loadRules: typeof import("./agentshield/rules-loader.js").loadRules;
+  try {
+    ({ loadRules } = await import("./agentshield/rules-loader.js"));
+  } catch (e) {
+    error(`list-rules: failed: ${(e as Error).message}`);
+    return 2;
+  }
+  const rules = loadRules();
+  for (const r of rules) {
+    console.log(`${r.id.padEnd(8)} ${r.severity.padEnd(8)} ${r.scanner.padEnd(20)} ${r.title}`);
+  }
+  console.log(`\n${rules.length} rule(s) loaded.`);
+  return 0;
 }
 
 async function runRegister(args: CliArgs): Promise<number> {
@@ -185,6 +319,8 @@ ${bold("Usage:")}
   npx great-cto [init] [options]
   npx great-cto board [--port 3141] [--no-open]
   npx great-cto register [--dir PATH]
+  npx great-cto scan [path] [--severity LVL] [--scanner NAME] [--sarif FILE]
+  npx great-cto list-rules
   npx great-cto help
   npx great-cto version
 
@@ -197,6 +333,15 @@ ${bold("Register:")}
   great-cto register           Add this repo to ~/.great_cto/projects.json
                                (auto-discovered after /audit or /start, but
                                 run this if the project doesn't appear in board)
+
+${bold("Scan (AI-security):")}
+  great-cto scan                       AI-specific scan of cwd (OWASP LLM Top 10)
+  great-cto scan ./src --severity high Filter by minimum severity
+  great-cto scan --scanner ssrf-in-tools  Run only one scanner
+  great-cto scan --sarif out.sarif     Emit SARIF for GitHub Code Scanning
+  great-cto scan --json                JSON output for CI pipelines
+  great-cto list-rules                 Print rule catalog
+  ${dim("(exits 1 if findings ≥ severity threshold; CI-friendly)")}
 
 ${bold("Options:")}
   -y, --yes              Skip confirmation prompts (non-interactive)
@@ -564,11 +709,30 @@ async function runInit(args: CliArgs): Promise<number> {
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+  const rawArgv = process.argv.slice(2);
+  const args = parseArgs(rawArgv);
 
   if (args.command === "help") {
     printHelp();
     process.exit(0);
+  }
+  if (args.command === "scan") {
+    try {
+      const code = await runScan(args, rawArgv);
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
+    }
+  }
+  if (args.command === "list-rules") {
+    try {
+      const code = await runListRules();
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
+    }
   }
   if (args.command === "board") {
     try {
