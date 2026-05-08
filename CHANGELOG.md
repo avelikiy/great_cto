@@ -5,6 +5,80 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v2.3.0 — 2026-05-08
+
+### Agent workforce management — Phase 5 of v2 plan
+
+Reframes great_cto from "dev pipeline tool" to "management layer for your AI
+engineering team". Adds three commands covering the agent lifecycle.
+
+**`/agent-review [name]`** — performance scorecard for LLM agents
+- List mode (no args): table of all agents with invocations / pass-rate / cost / last-seen
+- Detail mode (\`<name>\`): full scorecard with verdicts breakdown, cost outliers,
+  top 3-5 failure modes, prompt-tuning suggestions, comparison to previous window
+- Flags: \`--top-cost\` (sort), \`--idle\` (retire candidates), \`--since 90d\` (window)
+- Saves scorecard to \`~/.great_cto/agent-reviews/<name>-<date>.md\` for trend analysis
+- Uses Haiku via Task tool for failure-mode clustering (~\$0.05 per detail review)
+
+**`/agent-retire <name>`** — graceful deprecation flow
+- \`--list-candidates\`: show agents with 0 invocations in last 90 days
+- Confirmation prompt requires typing the agent name (prevents fat-finger)
+- Archives \`agents/<name>.md\` → \`agents/_retired/<name>.md\` with retirement marker
+- Removes from \`plugin.json\` SessionStart sync list automatically
+- Logs to \`~/.great_cto/decisions.md\` with reason + reversibility note
+- **Preserves verdicts** in \`~/.great_cto/verdicts/<name>.log\` for audit trail
+- Reversible: \`mv agents/_retired/<name>.md agents/<name>.md\` + restore plugin.json
+- Built-in safeguard for core pipeline agents (architect, pm, senior-dev, etc.)
+
+**`/cost feature <slug>`** — ROI per shipped feature
+- Total LLM cost broken down by agent (invocations, cost, avg/inv)
+- Comparison to human-equivalent at \$150/hr × 12h estimate (override via env vars)
+- ROI multiplier (e.g. "195x")
+- Cross-reference: top 5 similar features in same archetype (mean cost benchmark)
+
+**`/cost agent <name>`** — lighter per-agent cost summary
+- Total invocations, total cost, avg/invocation
+- Pointer to full \`/agent-review <name>\` for detailed analysis
+
+### Wired in plugin.json
+
+SessionStart sync list extended with \`agent-review\` and \`agent-retire\`
+slash commands (now 22 commands synced to \`~/.claude/commands/\`).
+
+### Strategic positioning shift
+
+Previous: "GreatCTO is 33 specialist agents that handle architecture, review,
+QA, security, and deploy" — a *dev pipeline tool*.
+
+New: "GreatCTO is the management layer for your AI engineering team —
+hire (\`/template install\`), review (\`/agent-review\`), route (cost-per-feature),
+retire (\`/agent-retire\`)." Sets up clear differentiation vs Cursor/Aider
+and creates a defensible positioning ("AI engineering ops").
+
+### Files
+
+\`\`\`
+commands/agent-review.md       NEW   ~150 lines
+commands/agent-retire.md       NEW   ~140 lines
+commands/cost.md               EDIT  +110 lines (feature + agent subcommands)
+.claude-plugin/plugin.json     EDIT  sync list +2 commands
+README.md                      EDIT  Three-commands table + What's new
+\`\`\`
+
+No new automated tests — these are slash commands tested via manual
+smoke tests on real session data.
+
+### Deferred to Phase 6
+
+- \`/agent-discover\` (L, 30h) — marketplace integration with template-broker
+- Multi-model routing (L, 40h) — needs careful eval framework first
+- Agent A/B testing harness (M, 25h) — needs prompt-versioning infrastructure
+- Token economy / caching dashboard (M, 25h) — needs Anthropic API caching telemetry
+- Agent drift detection (M, 20h) — month-over-month verdict quality compare
+
+---
+
 ## v2.2.0 — 2026-05-08
 
 ### 3 new archetypes — `edtech`, `gov-public`, `insurance` + 3 specialist reviewers

@@ -8,7 +8,7 @@
 
 You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
-> **v2.2.0** · 33 agents · 25 archetypes · 24 security rules · 9 hooks · ~$34/mo per project · 47-min PoCs · MIT
+> **v2.3.0** · 33 agents · 25 archetypes · 24 security rules · 9 hooks · agent workforce mgmt (review/retire/cost-per-feature) · ~$34/mo per project · 47-min PoCs · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -26,6 +26,13 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents**
 </div>
 
 ## What's new
+
+### v2.3.0 — Agent workforce management (May 2026)
+- `/agent-review [name]` — performance scorecard for LLM agents (verdicts, cost, failure modes, prompt-tuning suggestions). Like a 1:1 but for AI workforce.
+- `/agent-retire <name>` — graceful agent deprecation (archive prompt, remove from sync list, preserve verdicts for audit)
+- `/cost feature <slug>` — ROI per shipped feature (per-agent breakdown + comparison to human equivalent)
+- `/cost agent <name>` — quick per-agent cost summary
+- New positioning: GreatCTO is the management layer for your AI engineering team — hire (`/template install`), review (`/agent-review`), route (cost-per-feature), retire (`/agent-retire`)
 
 ### v2.2.0 — 3 new archetypes: edtech, gov-public, insurance (May 2026)
 - `edtech` archetype + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + state student-privacy laws (SOPIPA-CA, NY 2-D)
@@ -125,6 +132,14 @@ Multi-project switcher — one board, every client. Cross-project decisions log 
 | `/start "description"` | Run the full SDLC pipeline — detects archetype, generates architecture doc, implements with TDD, reviews, QA, security, deploys |
 | `/review` | 12 independent code-review angles on the current branch |
 | `/inbox` | Open gates, blocked tasks, P0 incidents, security alerts — everything that needs your decision now |
+
+### Agent workforce management (v2.3.0)
+
+| Command | What it does |
+|---------|--------------|
+| `/agent-review [name]` | Performance scorecard for one or all agents — verdicts, cost, failure modes, prompt-tuning suggestions |
+| `/agent-retire <name>` | Gracefully retire an unused agent (archive prompt, remove from sync list, preserve audit trail) |
+| `/cost feature <slug>` | ROI per shipped feature — per-agent breakdown + human-equivalent comparison |
 
 Everything else (`/audit` · `/digest` · `/sec` · `/cost` · `/release` · `/crystallize`) runs automatically or only when you need it. See [`docs/COMMANDS.md`](docs/COMMANDS.md) for the full reference.
 

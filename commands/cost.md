@@ -1,10 +1,181 @@
 ---
-description: "Cost & capacity health — LLM router savings, run-rate, cost-per-deploy, WoW/MoM delta, headroom vs budget, top movers. Pairs with /digest (delivery+DORA) and /burn (reliability)."
-argument-hint: "[period_days] — default 30. Examples: /cost 7 | /cost 30 | /cost 90"
+description: "Cost & capacity health — LLM router savings, run-rate, cost-per-deploy, ROI per shipped feature, WoW/MoM delta. Pairs with /digest (delivery+DORA) and /burn (reliability)."
+argument-hint: "[period_days] | feature <slug> | agent <name> — default: /cost 30. Examples: /cost 7 | /cost feature stripe-subscriptions | /cost agent architect"
 user-invocable: true
 allowed-tools: Read, Bash, Glob, Grep
 model: haiku
 ---
+
+You are the Cost & Capacity aggregator. Multiple modes:
+
+1. **`/cost [days]` — Aggregate health** (default mode)
+   - LLM router savings — measured Kimi-vs-Sonnet differential from `.great_cto/llm-router-usage.log`
+   - Infra cost — monthly run-rate, cost-per-deploy, WoW/MoM drift, headroom vs budget, top movers
+2. **`/cost feature <slug>`** — ROI per shipped feature (NEW in v2.3.0)
+   - Total LLM cost broken down by agent
+   - Comparison to human-equivalent at $150/hr
+   - ROI multiplier
+   - Cross-reference to similar past features in same archetype
+3. **`/cost agent <name>`** — Per-agent cost (NEW in v2.3.0)
+   - Same as `/agent-review <name>` but cost-focused
+
+## Mode dispatch
+
+```bash
+source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+
+# Detect mode from first arg
+case "${1:-}" in
+  feature)
+    SLUG="${2:-}"
+    [ -z "$SLUG" ] && { echo "Usage: /cost feature <slug>"; exit 2; }
+    # → jump to "Feature mode" section below
+    MODE=feature
+    ;;
+  agent)
+    AGENT="${2:-}"
+    [ -z "$AGENT" ] && { echo "Usage: /cost agent <name>"; exit 2; }
+    # → jump to "Agent mode" section below
+    MODE=agent
+    ;;
+  *)
+    MODE=aggregate
+    PERIOD=${1:-30}
+    case "$PERIOD" in ''|*[!0-9]*) echo "Usage: /cost [period_days] | feature <slug> | agent <name>"; exit 2 ;; esac
+    ;;
+esac
+
+COST_LOG=.great_cto/cost-history.log
+DEPLOYS_LOG=.great_cto/deploys.log
+```
+
+## Feature mode — `/cost feature <slug>`
+
+Compute total cost of shipping a feature, broken down by agent + ROI vs human equivalent.
+
+```bash
+if [ "$MODE" = "feature" ]; then
+  echo "## Cost: $SLUG"
+  echo ""
+
+  if [ ! -f "$COST_LOG" ]; then
+    echo "_No cost history yet — feature ROI requires at least one shipped feature._"
+    exit 0
+  fi
+
+  # Filter cost-history.log entries tagged with this feature slug
+  # Format: <timestamp> agent=<name> feature=<slug> cost_usd=<n> [other tags]
+  ENTRIES=$(grep -E "feature=$SLUG\b" "$COST_LOG" 2>/dev/null)
+
+  if [ -z "$ENTRIES" ]; then
+    echo "_No cost entries tagged with feature=$SLUG. Either:_"
+    echo "1. Feature not yet implemented (run \`/start \"feature description\"\`)"
+    echo "2. Feature uses different slug — check \`docs/architecture/ARCH-*.md\` filenames"
+    echo ""
+    echo "Available features in cost log:"
+    grep -oE "feature=[^ ]+" "$COST_LOG" | sort -u | head -10
+    exit 0
+  fi
+
+  # Aggregate by agent
+  echo "### Per-agent breakdown"
+  echo ""
+  echo "| Agent | Invocations | Cost | Avg/inv |"
+  echo "|-------|------------:|-----:|--------:|"
+  echo "$ENTRIES" | awk '
+    {
+      for (i=1;i<=NF;i++) {
+        if ($i ~ /^agent=/) { gsub(/agent=/, "", $i); agent = $i }
+        if ($i ~ /^cost[-_]?usd[=:]/) { gsub(/cost[-_]?usd[=:]/, "", $i); cost = $i+0 }
+      }
+      sum[agent] += cost
+      count[agent]++
+    }
+    END {
+      for (a in sum) printf "| %s | %d | $%.2f | $%.2f |\n", a, count[a], sum[a], sum[a]/count[a]
+    }
+  ' | sort
+
+  TOTAL=$(echo "$ENTRIES" | awk '
+    { for (i=1;i<=NF;i++) if ($i ~ /^cost[-_]?usd[=:]/) { gsub(/cost[-_]?usd[=:]/, "", $i); sum += $i+0 } }
+    END { printf "%.2f", sum }
+  ')
+
+  echo "| **Total** | | **\$$TOTAL** | |"
+  echo ""
+
+  # Human-equivalent comparison
+  ARCHETYPE=$(grep -E "^archetype:|^primary:" .great_cto/PROJECT.md 2>/dev/null | head -1 | awk '{print $2}')
+  # Default: assume 12 hours human equivalent for standard feature
+  HUMAN_HOURS=${HUMAN_HOURS:-12}
+  HUMAN_RATE=${HUMAN_RATE:-150}
+  HUMAN_COST=$(echo "scale=0; $HUMAN_HOURS * $HUMAN_RATE" | bc)
+  ROI=$(echo "scale=1; $HUMAN_COST / $TOTAL" | bc)
+
+  echo "### vs Human equivalent"
+  echo ""
+  echo "- Estimated effort: ${HUMAN_HOURS}h × \$${HUMAN_RATE}/hr = **\$${HUMAN_COST}**"
+  echo "- AI cost: **\$${TOTAL}**"
+  echo "- **ROI: ${ROI}x**"
+  echo ""
+  echo "_Override estimates: \`HUMAN_HOURS=20 HUMAN_RATE=200 /cost feature $SLUG\`_"
+
+  # Comparison to mean for archetype
+  if [ -n "$ARCHETYPE" ]; then
+    echo ""
+    echo "### Compared to other features in archetype=$ARCHETYPE"
+    grep "feature=" "$COST_LOG" | grep -v "feature=$SLUG" | awk '
+      {
+        for (i=1;i<=NF;i++) {
+          if ($i ~ /^feature=/) { gsub(/feature=/, "", $i); feat = $i }
+          if ($i ~ /^cost[-_]?usd[=:]/) { gsub(/cost[-_]?usd[=:]/, "", $i); cost = $i+0 }
+        }
+        sum[feat] += cost
+      }
+      END {
+        for (f in sum) printf "- %s: $%.2f\n", f, sum[f]
+      }
+    ' | sort -t '$' -k2 -n | head -5
+  fi
+  exit 0
+fi
+```
+
+## Agent mode — `/cost agent <name>`
+
+Quick per-agent cost summary (lighter than /agent-review):
+
+```bash
+if [ "$MODE" = "agent" ]; then
+  echo "## Cost: $AGENT"
+  echo ""
+
+  if [ ! -f "$COST_LOG" ]; then
+    echo "_No cost history yet._"
+    exit 0
+  fi
+
+  ENTRIES=$(grep -E "agent=$AGENT\b" "$COST_LOG" 2>/dev/null)
+  COUNT=$(echo "$ENTRIES" | grep -c .)
+
+  if [ "$COUNT" = "0" ]; then
+    echo "_No cost entries for agent=$AGENT._"
+    exit 0
+  fi
+
+  TOTAL=$(echo "$ENTRIES" | awk '{ for (i=1;i<=NF;i++) if ($i ~ /^cost[-_]?usd[=:]/) { gsub(/cost[-_]?usd[=:]/, "", $i); sum += $i+0 } } END { printf "%.2f", sum }')
+  AVG=$(echo "scale=2; $TOTAL / $COUNT" | bc)
+
+  echo "- Total invocations: $COUNT"
+  echo "- Total cost: \$$TOTAL"
+  echo "- Avg cost/invocation: \$$AVG"
+  echo ""
+  echo "_For full performance review: \`/agent-review $AGENT\`_"
+  exit 0
+fi
+```
+
+## Aggregate mode (default — original behaviour)
 
 You are the Cost & Capacity aggregator. Two parts:
 
