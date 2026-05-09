@@ -28,7 +28,7 @@ Exit code: `0` clean, `1` errors, `2` invalid invocation.
 | ID | Severity | Description |
 |---|---|---|
 | **STR-001** | error | At least one `## ` heading after frontmatter |
-| **STR-002** | warn | File ≤ 50 KB (context-window safety) |
+| **STR-002** | warn | File ≤ 64 KB (context-window safety; v2.7.0 raised from 50 KB) |
 
 ### Phase task tracking (PHASE-*) — pipeline agents only
 
