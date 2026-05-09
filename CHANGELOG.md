@@ -6,6 +6,78 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.4.0 — 2026-05-09
+
+### Multi-platform support — works in Codex, Cursor, Aider, Continue, Claude Code
+
+great_cto is no longer Claude-Code-only. The npm package becomes the universal
+adapter that works with **any** AI-coding tool that supports either AGENTS.md
+(de-facto cross-platform standard) or MCP (Model Context Protocol). Four new
+subcommands ship together:
+
+**`great-cto adapt --platform [claude|codex|cursor|aider|continue|all]`**
+- Generates platform-native config files derived from `.great_cto/PROJECT.md`
+- AGENTS.md (cross-tool spec used by Codex CLI + most others)
+- CLAUDE.md (Claude Code)
+- .cursorrules + .cursor/rules/great-cto.mdc (Cursor)
+- .aider.conf.yml + CONVENTIONS.md (Aider)
+- .continue/rules.md (Continue)
+- All variants share the same AGENTS.md core, so editing PROJECT.md updates
+  every consumer with one re-run
+
+**`great-cto ci`** — single-command CI gate
+- Runs scan + archetype-validate + budget-check
+- Auto-emits GitHub Actions \`::error\` annotations when \`\$GITHUB_ACTIONS=true\`
+  → findings appear inline on PR diffs
+- Optional SARIF (\`--sarif\`) for GitHub Security tab
+- Optional JUnit XML (\`--junit\`) for test reporters
+- Exit codes: 0 clean, 1 findings, 2 setup error
+- Drop-in for any GitHub Actions workflow:
+  \`\`\`yaml
+  - run: npx great-cto@latest ci ./ --sarif results.sarif
+  - uses: github/codeql-action/upload-sarif@v3
+    with: { sarif_file: results.sarif }
+  \`\`\`
+
+**`great-cto mcp`** — MCP server (stdio mode)
+- Exposes 5 tools: \`scan\`, \`list_rules\`, \`detect_archetype\`,
+  \`estimate_cost\`, \`query_decisions\`
+- Hand-rolled JSON-RPC over stdio (no SDK dependency, ~200 LOC)
+- Compatible with Claude Desktop, Cursor, Continue, any MCP-aware host
+- Add to Claude Desktop config:
+  \`\`\`json
+  { "mcpServers": { "great-cto": { "command": "npx", "args": ["great-cto", "mcp"] } } }
+  \`\`\`
+
+**`great-cto serve`** — webhook receiver (preview)
+- Endpoints: \`POST /webhook/github\`, \`POST /webhook/generic\`,
+  \`GET /events\`, \`GET /healthz\`
+- Persists events to \`~/.great_cto/webhook-events.log\` (JSONL)
+- Foundation for v2.5.0 — full GitHub PR scan-on-open, Sentry alert routing,
+  signature verification, retry/DLQ. **v2.4.0 is scaffolding only**.
+
+### Strategic shift
+
+This release reframes great_cto from "Claude Code plugin" to "universal AI
+engineering management layer". The Claude Code plugin remains the richest
+consumer, but Cursor (~4M MAU), Codex CLI, and Aider users now get the same
+archetype detection, security scanning, ADR query, and cost estimation
+through MCP — without installing Claude Code.
+
+### Pipeline tests
+
+\`scripts/test-pipeline.sh\` extended from 41 → **48 checks** (added 7 covering
+new subcommands). Still runs in ~12 sec.
+
+### Files
+
+- New: \`packages/cli/src/{adapt,ci,mcp,serve}.ts\` (~900 LOC)
+- New: \`docs/plans/PLAN-npm-multi-platform.md\` (architectural plan)
+- Updated: \`packages/cli/src/main.ts\` (subcommand dispatch + help)
+- Updated: \`scripts/test-pipeline.sh\` (7 new checks)
+
+---
+
 ## v2.3.4 — 2026-05-08
 
 ### `scripts/test-pipeline.sh` — automated pre-merge gate
