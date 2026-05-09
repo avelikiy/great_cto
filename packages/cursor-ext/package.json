@@ -20,12 +20,12 @@
   ],
   "keywords": [
     "great-cto",
-    "agents",
     "mcp",
     "ai-security",
-    "scan",
-    "owasp-llm"
+    "owasp-llm",
+    "claude-code"
   ],
+  "icon": "icon.png",
   "activationEvents": [
     "onStartupFinished"
   ],

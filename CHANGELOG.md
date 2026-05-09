@@ -6,6 +6,46 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.4 — 2026-05-09
+
+### Cross-platform host detection — env-var-first
+
+v2.5.3 used filesystem-only detection (`~/.claude` / `~/.codex` / etc). Bug:
+power users have multiple tools installed simultaneously, and the order of
+filesystem checks then determined which host "won" — wrong answer when the
+user is currently running in tool A but has tool B also installed.
+
+**Fix:** detection now uses runtime env vars first (set by the host process
+that actually invoked the skill), filesystem markers only as fallback when
+env is empty (manual invocation, CI):
+
+| Host | Detection signal |
+|---|---|
+| Claude Code | `$CLAUDECODE=1` or `$CLAUDE_CODE_ENTRYPOINT` |
+| OpenAI Codex CLI | `$CODEX_HOME` or `$CODEX_SESSION` |
+| Cursor | `$CURSOR_TRACE_ID` or `$TERM_PROGRAM=Cursor` |
+| Aider | `$AIDER_VERSION` |
+| Continue | `$CONTINUE_GLOBAL_DIR` |
+| Generic | (none of the above) |
+
+Verified: real Claude Code session (with both `~/.claude` and `~/.codex` on
+disk) now correctly resolves to `HOST=claude-code` via `$CLAUDECODE=1`.
+
+### Cursor extension polish
+
+- Added 128×128 marketplace icon (converted from `docs/screenshots/logo.svg`)
+- Trimmed keywords from 6 → 5 (marketplace only indexes first 5)
+- VSIX now 12.56 KB (was 7.11 KB) with icon embedded
+- Ready for `vsce publish` once the publisher account + PAT are configured
+
+### Strategic note
+
+v2.5.4 closes the cross-platform gap: every supported host now resolves
+correctly to its native classification, so dependency checks, brainstorming
+fallbacks, and platform-specific behaviours all fire as designed.
+
+---
+
 ## v2.5.3 — 2026-05-09
 
 ### Codex / Cursor / Aider compatibility — host detection + Beads write-test
