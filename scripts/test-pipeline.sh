@@ -173,6 +173,28 @@ else
 
   check "SARIF output is valid JSON / 2.1.0 schema" \
     bash -c "$CLI scan $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --sarif /tmp/gctest-l2.sarif >/dev/null 2>&1; node -e \"const j=JSON.parse(require('fs').readFileSync('/tmp/gctest-l2.sarif','utf8')); if (j.version!=='2.1.0' || !j.runs?.[0]?.results?.length) process.exit(1)\""
+
+  # New v2.4.0 subcommands
+  check "ci on vulnerable fixture exits 1 (--fail-on critical)" \
+    bash -c "$CLI ci $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --fail-on critical --quiet >/dev/null 2>&1; [ \$? = '1' ]"
+
+  check "ci on clean fixture exits 0" \
+    bash -c "$CLI ci $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/clean-app.ts --fail-on critical --quiet >/dev/null 2>&1"
+
+  check "ci emits GitHub Actions annotations (\$GITHUB_ACTIONS=true)" \
+    bash -c "GITHUB_ACTIONS=true $CLI ci $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --fail-on critical --quiet 2>/dev/null | grep -q '^::error '"
+
+  check "mcp server initialize returns protocolVersion 2024-11-05" \
+    bash -c "( echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}'; sleep 0.3 ) | $CLI mcp 2>/dev/null | grep -q '\"protocolVersion\":\"2024-11-05\"'"
+
+  check "mcp tools/list returns 5 tools" \
+    bash -c "n=\$(( echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}'; echo '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}'; sleep 0.3 ) | $CLI mcp 2>/dev/null | tail -1 | python3 -c 'import sys,json; print(len(json.load(sys.stdin)[\"result\"][\"tools\"]))'); [ \"\$n\" = '5' ]"
+
+  check "adapt --dry-run for codex previews AGENTS.md" \
+    bash -c "tmp=\$(mktemp -d); mkdir -p \$tmp/.great_cto; printf 'primary: fintech\\ncompliance: pci-dss\\n' > \$tmp/.great_cto/PROJECT.md; cd \$tmp && $CLI adapt --platform codex --dry-run 2>&1 | grep -q 'AGENTS.md'"
+
+  check "adapt --platform aider writes .aider.conf.yml + CONVENTIONS.md" \
+    bash -c "tmp=\$(mktemp -d); mkdir -p \$tmp/.great_cto; printf 'primary: fintech\\ncompliance: pci-dss\\n' > \$tmp/.great_cto/PROJECT.md; cd \$tmp && $CLI adapt --platform aider >/dev/null 2>&1 && [ -f .aider.conf.yml ] && [ -f CONVENTIONS.md ] && [ -f AGENTS.md ]"
 fi
 
 # =============================================================================
@@ -212,7 +234,10 @@ fi
 section "L4 — Board API (~30s)"
 BOARD_PID=""
 cleanup_board() {
-  [ -n "$BOARD_PID" ] && kill "$BOARD_PID" 2>/dev/null || true
+  if [ -n "$BOARD_PID" ]; then
+    kill "$BOARD_PID" 2>/dev/null || true
+    wait "$BOARD_PID" 2>/dev/null || true
+  fi
   pkill -f "packages/board/server" 2>/dev/null || true
 }
 trap cleanup_board EXIT
