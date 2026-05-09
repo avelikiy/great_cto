@@ -17,7 +17,7 @@ import { pickArchetype, suggestCompliance } from "./archetypes.js";
 import { install, findInstalledVersions } from "./installer.js";
 import { enableGreatCto } from "./settings.js";
 import { bootstrap } from "./bootstrap.js";
-import { resolveTelemetryConsent, sendInstallPing } from "./telemetry.js";
+import { resolveTelemetryConsent, sendInstallPing, sendUsagePing } from "./telemetry.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -744,6 +744,19 @@ async function runInit(args: CliArgs): Promise<number> {
   return 0;
 }
 
+/**
+ * Exit with telemetry ping for a subcommand. Fire-and-forget — we wait up
+ * to 200ms for the ping to land before exiting so it doesn't get killed by
+ * process termination. Honours all telemetry opt-out signals.
+ */
+async function exitWithTelemetry(subcommand: string, code: number): Promise<never> {
+  try {
+    const promise = sendUsagePing({ cliVersion: getCliVersion(), subcommand, exitCode: code });
+    await Promise.race([promise, new Promise(r => setTimeout(r, 200))]);
+  } catch { /* never block exit */ }
+  process.exit(code);
+}
+
 async function main(): Promise<void> {
   const rawArgv = process.argv.slice(2);
   const args = parseArgs(rawArgv);
@@ -792,7 +805,7 @@ async function main(): Promise<void> {
     try {
       const { runCi, parseCiArgs } = await import("./ci.js");
       const code = await runCi(parseCiArgs(rawArgv));
-      process.exit(code);
+      await exitWithTelemetry("ci", code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -805,7 +818,7 @@ async function main(): Promise<void> {
       const portArg = rawArgv.indexOf("--port");
       const port = portArg >= 0 ? parseInt(rawArgv[portArg + 1] ?? "8765", 10) : 8765;
       const code = await runMcp({ mode: sse ? "sse" : "stdio", port, version: getCliVersion() });
-      process.exit(code);
+      await exitWithTelemetry("mcp", code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -826,7 +839,7 @@ async function main(): Promise<void> {
         dryRun: rawArgv.includes("--dry-run"),
         cwd: args.dir,
       });
-      process.exit(code);
+      await exitWithTelemetry("adapt", code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -840,7 +853,7 @@ async function main(): Promise<void> {
         noLog: rawArgv.includes("--no-log"),
         insecure: rawArgv.includes("--insecure"),
       });
-      process.exit(code);
+      await exitWithTelemetry("serve", code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -855,7 +868,7 @@ async function main(): Promise<void> {
         process.exit(2);
       }
       const code = await runWebhookCli(parsed);
-      process.exit(code);
+      await exitWithTelemetry("webhook", code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -869,7 +882,7 @@ async function main(): Promise<void> {
         process.exit(2);
       }
       const code = await runReport(parsed);
-      process.exit(code);
+      await exitWithTelemetry("report", code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
