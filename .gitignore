@@ -60,3 +60,6 @@ packages/cursor-ext/out/
 packages/cursor-ext/node_modules/
 packages/cursor-ext/*.vsix
 packages/cursor-ext/package-lock.json
+
+# Launch + outreach drafts — local only, never push to public repo
+docs/launch/
