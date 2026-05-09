@@ -178,9 +178,13 @@ const RULES = [
   {
     id: 'STR-002',
     severity: SEVERITY.warn,
-    desc: 'file size ≤ 50 KB (context-window safety)',
+    desc: 'file size ≤ 64 KB (context-window safety)',
     test(file) {
-      const max = 50 * 1024;
+      // 64 KB ≈ 16K tokens — comfortable headroom in any 200K context window
+      // and still catches genuine prompt bloat. Was 50 KB in v2.6.0; raised
+      // in v2.7.0 after architect.md (55 KB) tripped a false-positive: its
+      // Workflow section legitimately covers 25 archetype branches.
+      const max = 64 * 1024;
       if (file.bytes > max) {
         return [`file ${file.bytes} bytes exceeds ${max} byte threshold (context-window risk)`];
       }
