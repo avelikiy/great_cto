@@ -343,9 +343,10 @@ else
       bash -c "scopes=\$(curl -sf http://127.0.0.1:3141/api/memory | python3 -c 'import sys,json; m=json.load(sys.stdin); print(\" \".join(set(l.get(\"scope\",\"\") for l in m[\"logs\" if \"logs\" in m else \"layers\"])))'); echo \"\$scopes\" | grep -q project && echo \"\$scopes\" | grep -q global"
 
     # Math invariant — only applies to task-estimation source (both rates
-    # hardcoded: $0.02/AI-hr ÷ $150/human-hr = 7500x). PLAN and verdict
-    # sources use real measured numbers and have project-specific ratios.
-    check "metrics math: human/llm ratio ≈ 7500× when source=tasks" \
+    # hardcoded: $0.30/AI-hr ÷ $150/human-hr = 500x in v2.5.9+; was 7500x
+    # earlier with the unrealistic $0.02/hr default). PLAN sources use
+    # real measured numbers and have project-specific ratios.
+    check "metrics math: human/llm ratio ≈ 500× when source=tasks" \
       bash -c "curl -sf 'http://127.0.0.1:3141/api/projects' | python3 -c '
 import sys,json,urllib.request
 projs = json.load(sys.stdin)
@@ -358,11 +359,10 @@ for p in projs:
     if cost[\"llm_usd\"] <= 0: continue
     if cost.get(\"source\") != \"tasks\": continue
     ratio = cost[\"human_usd\"] / cost[\"llm_usd\"]
-    # Tolerance widened to 7000-7800: per-agent cents rounding (server.mjs:682)
-    # produces drift in either direction depending on how many sub-cent LLM
-    # values get rounded up vs down before summing. The exact ideal is 7500x
-    # (150/0.02); empirical range across discovered projects is ~7200–7700.
-    assert 7000 <= ratio <= 7800, f\"task-source ratio drift: {ratio}\"
+    # Default rates: \$0.30/AI-hr (Sonnet+Haiku mix) vs \$150/human-hr (mid-level
+    # fully-loaded) → exactly 500x. Empirical drift from per-agent rounding
+    # is < 5%. Tolerance 470-530 covers all observed projects.
+    assert 470 <= ratio <= 530, f\"task-source ratio drift: {ratio} (expected ~500)\"
     sys.exit(0)
 sys.exit(0)  # no task-source data → vacuously pass
 '"
