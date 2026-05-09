@@ -41,3 +41,17 @@ tests/ui/test-results/
 workers/**
 packages/cli/dist/
 
+
+# Cursor extension build artifacts
+packages/cursor-ext/out/
+packages/cursor-ext/node_modules/
+packages/cursor-ext/*.vsix
+packages/cursor-ext/package-lock.json
+
+# Launch + outreach drafts — local only, never push to public repo
+docs/launch/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
