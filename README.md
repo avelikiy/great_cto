@@ -4,9 +4,11 @@
 
 # great_cto
 
-**Stop being the only person who can ship.**
+**Solo-CTO mode. Stop being the only person who can ship.**
 
-You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+
+**Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — if you have 2+ engineers and need shared dashboards / multi-seat auth / per-developer audit logs, look at Cursor Business or GitHub Copilot Workspace.
 
 > **v2.3.0** · 33 agents · 25 archetypes · 24 security rules · 9 hooks · agent workforce mgmt (review/retire/cost-per-feature) · ~$34/mo per project · 47-min PoCs · MIT
 
@@ -32,7 +34,7 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents**
 - `/agent-retire <name>` — graceful agent deprecation (archive prompt, remove from sync list, preserve verdicts for audit)
 - `/cost feature <slug>` — ROI per shipped feature (per-agent breakdown + comparison to human equivalent)
 - `/cost agent <name>` — quick per-agent cost summary
-- New positioning: GreatCTO is the management layer for your AI engineering team — hire (`/template install`), review (`/agent-review`), route (cost-per-feature), retire (`/agent-retire`)
+- New positioning: GreatCTO is the management layer between you and your AI agent fleet — hire (`/template install`), review (`/agent-review`), route (cost-per-feature), retire (`/agent-retire`). You're the manager; the agents are the org chart.
 
 ### v2.2.0 — 3 new archetypes: edtech, gov-public, insurance (May 2026)
 - `edtech` archetype + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + state student-privacy laws (SOPIPA-CA, NY 2-D)
@@ -413,6 +415,40 @@ jobs:
 [avelikiy](https://github.com/avelikiy) — Chief AI & Technology Officer / Founder. CTO building AI-native trading and fintech platforms (0→1, 1→N). Specializing in high-load financial systems where technology directly impacts PnL, risk, and unit economics.
 
 **Why great_cto exists.** Same code reviews, same architecture questions, same security audits — across multiple companies, the same loops. Delegating helped. Process helped. But the bottleneck was always the senior engineer making the call. When Claude Code shipped, I started automating my own loops, one agent at a time. great_cto is the result — every rule in this system appeared in response to a real problem in a real production system.
+
+## ⭐ Star this repo
+
+If great_cto saved you time on a project, please star the repo — it helps other solo CTOs and indie hackers find it.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=avelikiy/great_cto&type=Date)](https://star-history.com/#avelikiy/great_cto&Date)
+
+## 💬 Community & support
+
+| Channel | What |
+|---|---|
+| 🐛 [Issues](https://github.com/avelikiy/great_cto/issues) | Bugs, feature requests, archetype proposals |
+| 💡 [Discussions](https://github.com/avelikiy/great_cto/discussions) | Ask questions, share patterns, show & tell |
+| 📝 [Blog](https://velikiy.hashnode.dev) | Deep-dives on architecture, learning loop, cost calibration |
+| 🐦 [@Greatcto on Hashnode](https://hashnode.com/@Greatcto) | Release notes, articles, AI-CTO series |
+| 📦 [npm](https://www.npmjs.com/package/great-cto) · [JSR](https://jsr.io/@avelikiy/great-cto) | Package registries |
+| 🔒 [Security](SECURITY.md) | Responsible disclosure for hook/scanner CVEs |
+
+## Roadmap
+
+- **v2.2** — telemetry on lesson quality (track which lessons agents cite vs ignore)
+- **v2.3** — auto-promotion: high-impact decisions → reusable skills (`~/.great_cto/global-skills/`)
+- **v3.0** — cross-harness support (`AGENTS.md` for Cursor / Codex / OpenCode / Gemini)
+
+[Vote on the next feature →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
+
+## Contributing
+
+Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Good first issues are labeled [`good-first-issue`](https://github.com/avelikiy/great_cto/issues?q=is%3Aopen+label%3Agood-first-issue).
+
+Especially needed:
+- New archetype scaffolds (suggest via Discussions)
+- Translations: `docs/<lang>/README.md` for non-English audiences
+- Real-world case studies — if great_cto shipped you something, share the numbers
 
 ## License
 
