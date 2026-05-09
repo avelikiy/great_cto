@@ -10,7 +10,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist age
 
 **Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — if you have 2+ engineers and need shared dashboards / multi-seat auth / per-developer audit logs, look at Cursor Business or GitHub Copilot Workspace.
 
-> **v2.3.0** · 33 agents · 25 archetypes · 24 security rules · 9 hooks · agent workforce mgmt (review/retire/cost-per-feature) · ~$34/mo per project · 47-min PoCs · MIT
+> **v2.5.8** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code · Cursor · Codex · Aider · Continue** · MCP server · webhooks · CI gate · per-stage Beads tasks · ~$34/mo per project · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -28,6 +28,30 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist age
 </div>
 
 ## What's new
+
+### v2.5.x patch series — production hardening (May 2026)
+- **v2.5.8**: full QA pass — closed 10 bugs (`docs/qa/runs/2026-05-09/REPORT.md`). Highlights: cost pipeline now reflects real LLM spend (`/api/cost`, `/api/metrics.cost` were permanently zero); board returns graceful `409 beads_not_initialized` instead of raw 500; phantom agents bucketed under `unknown`; `PORT` env-var honored; canonical verdict format with `cost=$X` tag (`scripts/log-verdict.sh` + `agents/_shared/verdict-format.md`); sub-agent sandbox / cwd policy documented (`agents/_shared/sandbox-cwd-policy.md`); `validate.py` regex fix for hyphenated commands; CI hardening — dead Playwright workflow removed, plugin-cache cleanup `--keep 3` in SessionStart
+- **v2.5.7**: per-stage Beads task lifecycle (architect / pm / senior-dev / qa / security / perf / devops / l3 each create + close their own tasks via `scripts/phase-task.sh`); cost-history off-by-one fix (30 → 31 buckets, inclusive window)
+- **v2.5.6**: 6 Cursor-dogfooding UX fixes (CLI hint for slash-only commands · `init` $HOME refusal · clearer `.great_cto/` exists message · `ci` archetype-drift resolution paths · agent-product detection broadened · README API schema)
+- **v2.5.5**: critical fix — `/inbox` and `/digest` "Prompt is too long" (commands trimmed 30→2.6KB, 46→4KB; bash logic moved to `scripts/cmd-data/`); closed-gate `mapStatus` bug (P0 counter included done gates)
+- **v2.5.4**: env-var-first host detection (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / `$AIDER_VERSION` / `$CONTINUE_GLOBAL_DIR`); Cursor extension VSIX with marketplace icon
+- **v2.5.3**: Codex compat — host-aware DEPS check, Beads write-test (catches false-positive empty DB)
+- **v2.5.2**: subcommand telemetry (track which v2.4+ commands users adopt)
+- **v2.5.1**: critical fix — `scan`/`ci` missed findings on relative paths (broken glob-to-regex affected all v2.0+)
+
+### v2.5.0 — Production webhooks + MCP SSE + reports + Cursor extension (May 2026)
+- HMAC-verified webhook receiver: GitHub / Sentry / generic (`great-cto serve`)
+- Outbound dispatcher with exponential-backoff retry + DLQ → Slack / Discord / PagerDuty
+- MCP SSE mode for multi-client / remote use
+- HTML/JSON cost+compliance reports (`great-cto report cost --period 30d`)
+- Cursor extension scaffold in `packages/cursor-ext/` — vsce-ready
+- ADR-001 multi-tenant board (architectural decision, deferred to v2.6+)
+
+### v2.4.0 — Multi-platform support: Codex, Cursor, Aider, Continue (May 2026)
+- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — single source of truth → platform-native configs
+- `great-cto mcp` — MCP server (stdio + SSE) exposing 5 tools to any MCP host
+- `great-cto ci` — single-command CI gate (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
+- `great-cto serve` — webhook receiver scaffolding
 
 ### v2.3.0 — Agent workforce management (May 2026)
 - `/agent-review [name]` — performance scorecard for LLM agents (verdicts, cost, failure modes, prompt-tuning suggestions). Like a 1:1 but for AI workforce.
