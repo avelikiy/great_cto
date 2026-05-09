@@ -36,7 +36,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve";
   dir: string;
   yes: boolean;
   dryRun: boolean;
@@ -85,6 +85,10 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "register") args.command = "register";
     else if (a === "scan") args.command = "scan";
     else if (a === "list-rules") args.command = "list-rules";
+    else if (a === "ci") args.command = "ci";
+    else if (a === "mcp") args.command = "mcp";
+    else if (a === "adapt") args.command = "adapt";
+    else if (a === "serve") args.command = "serve";
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
     else if (a === "init" || a === "help" || a === "version") {
@@ -321,6 +325,10 @@ ${bold("Usage:")}
   npx great-cto register [--dir PATH]
   npx great-cto scan [path] [--severity LVL] [--scanner NAME] [--sarif FILE]
   npx great-cto list-rules
+  npx great-cto ci [path] [--fail-on LVL] [--sarif F] [--junit F]
+  npx great-cto mcp [--sse --port N]
+  npx great-cto adapt --platform [claude|codex|cursor|aider|continue|all]
+  npx great-cto serve [--port 3142]
   npx great-cto help
   npx great-cto version
 
@@ -342,6 +350,32 @@ ${bold("Scan (AI-security):")}
   great-cto scan --json                JSON output for CI pipelines
   great-cto list-rules                 Print rule catalog
   ${dim("(exits 1 if findings ≥ severity threshold; CI-friendly)")}
+
+${bold("CI gate:")}
+  great-cto ci                         Single-command CI gate (scan + archetype check)
+  great-cto ci --fail-on critical      Exit 1 only on critical findings (default)
+  great-cto ci --sarif out.sarif       Emit SARIF (uploadable to GitHub Security)
+  great-cto ci --junit out.xml         Emit JUnit XML for test reporters
+  ${dim("(auto-detects \$GITHUB_ACTIONS → emits ::error:: annotations)")}
+
+${bold("MCP server (cross-platform):")}
+  great-cto mcp                        Stdio MCP server — works in Claude Desktop /
+                                       Cursor / Continue / any MCP host
+  great-cto mcp --sse --port 8765      SSE mode for remote / multi-client (TODO v2.5)
+  ${dim("Tools exposed: scan, list_rules, detect_archetype, estimate_cost, query_decisions")}
+
+${bold("Platform adapter (multi-tool support):")}
+  great-cto adapt --platform claude    Generate AGENTS.md + CLAUDE.md
+  great-cto adapt --platform codex     Generate AGENTS.md (OpenAI Codex CLI)
+  great-cto adapt --platform cursor    Generate .cursorrules + .cursor/rules/*.mdc
+  great-cto adapt --platform aider     Generate .aider.conf.yml + CONVENTIONS.md
+  great-cto adapt --platform continue  Generate .continue/rules.md
+  great-cto adapt --platform all       All of the above
+  ${dim("Idempotent — re-run after editing .great_cto/PROJECT.md")}
+
+${bold("Webhook server (preview):")}
+  great-cto serve --port 3142          Webhook receiver (logs to ~/.great_cto/webhook-events.log)
+  ${dim("Endpoints: POST /webhook/github, POST /webhook/generic, GET /events, GET /healthz")}
 
 ${bold("Options:")}
   -y, --yes              Skip confirmation prompts (non-interactive)
@@ -750,6 +784,63 @@ async function main(): Promise<void> {
     } catch (e) {
       error((e as Error).message);
       process.exit(1);
+    }
+  }
+  if (args.command === "ci") {
+    try {
+      const { runCi, parseCiArgs } = await import("./ci.js");
+      const code = await runCi(parseCiArgs(rawArgv));
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
+    }
+  }
+  if (args.command === "mcp") {
+    try {
+      const { runMcp } = await import("./mcp.js");
+      const sse = rawArgv.includes("--sse");
+      const portArg = rawArgv.indexOf("--port");
+      const port = portArg >= 0 ? parseInt(rawArgv[portArg + 1] ?? "8765", 10) : 8765;
+      const code = await runMcp({ mode: sse ? "sse" : "stdio", port, version: getCliVersion() });
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
+    }
+  }
+  if (args.command === "adapt") {
+    try {
+      const { runAdapt } = await import("./adapt.js");
+      const platArg = rawArgv.indexOf("--platform");
+      const platform = (platArg >= 0 ? rawArgv[platArg + 1] : "all") as any;
+      const valid = ["claude", "codex", "cursor", "aider", "continue", "all"];
+      if (!valid.includes(platform)) {
+        error(`adapt: --platform must be one of ${valid.join(", ")} (got: ${platform})`);
+        process.exit(2);
+      }
+      const code = await runAdapt({
+        platform,
+        dryRun: rawArgv.includes("--dry-run"),
+        cwd: args.dir,
+      });
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
+    }
+  }
+  if (args.command === "serve") {
+    try {
+      const { runServe } = await import("./serve.js");
+      const code = await runServe({
+        port: args.boardPort === 3141 ? 3142 : args.boardPort,
+        noLog: rawArgv.includes("--no-log"),
+      });
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
     }
   }
   if (args.command === "version") {
