@@ -28,19 +28,56 @@ Load in order (later overrides earlier):
 2. `.great_cto/PROJECT.md` — project config
 3. `.great_cto/local.md` — local machine overrides (gitignored)
 
+**Detect host platform** — great_cto runs in multiple AI-coding tools. Some
+deps are Claude-specific and don't apply elsewhere:
+
+```bash
+HOST="generic"
+[ -d ~/.claude ] && HOST="claude-code"
+[ -d ~/.codex ] && HOST="codex"
+[ -d ~/.cursor ] && [ "$HOST" = "generic" ] && HOST="cursor"
+[ -d ~/.config/aider ] && [ "$HOST" = "generic" ] && HOST="aider"
+echo "HOST:$HOST"
+```
+
 **Dependency check** (run once, only if `.great_cto/deps-ok` does not exist):
 ```bash
 MISSING=""
-bd help >/dev/null 2>&1 || MISSING="$MISSING beads"
-# Check superpowers via a known skill file
-ls ~/.claude/skills/superpowers/ >/dev/null 2>&1 || MISSING="$MISSING superpowers"
-if [ -n "$MISSING" ]; then
-  echo "DEPS_MISSING:$MISSING"
+HARD_MISSING=""
+
+# Beads is required everywhere (gate tracking + verdict log)
+bd help >/dev/null 2>&1 || HARD_MISSING="$HARD_MISSING beads"
+
+# Superpowers is Claude-Code-specific. Soft-warn elsewhere.
+if [ "$HOST" = "claude-code" ]; then
+  if ! ls ~/.claude/skills/superpowers/SKILL.md >/dev/null 2>&1 \
+     && ! ls ~/.claude/plugins/cache/local/superpowers/*/skills/*/SKILL.md >/dev/null 2>&1; then
+    MISSING="$MISSING superpowers"
+  fi
+fi
+
+if [ -n "$HARD_MISSING" ]; then
+  echo "DEPS_MISSING_HARD:$HARD_MISSING"
+elif [ -n "$MISSING" ]; then
+  echo "DEPS_MISSING_SOFT:$MISSING (host=$HOST)"
+  touch .great_cto/deps-ok  # mark OK — soft deps are fallback-able
 else
   touch .great_cto/deps-ok
 fi
 ```
-If DEPS_MISSING → tell CTO once: "Missing plugins:$MISSING — install from plugin marketplace before building." Then continue normally (fallbacks are in place).
+
+Resolution rules:
+- **DEPS_MISSING_HARD** → installation issue, must fix before pipeline can run.
+  Tell CTO: "Beads CLI not on PATH — install from https://github.com/steveyegge/beads. Pipeline gates will fall back to `.great_cto/tasks.md` until fixed."
+- **DEPS_MISSING_SOFT** → optional dep. Tell CTO once: "Optional plugin missing:
+  $MISSING (host=$HOST). Brainstorm/plan steps will use simplified flow.
+  Install from your tool's plugin marketplace if you want the full Claude Code
+  workflow."
+- **DEPS_OK** → silent.
+
+In Codex / Cursor / Aider / Continue, the brainstorm step from Claude Code's
+superpowers plugin is replaced by an inline questionnaire built into the
+architect agent — no plugin install needed.
 
 **Cache directory init** (run once per project):
 ```bash
@@ -52,10 +89,42 @@ fi
 ```
 
 **Beads init check** (run once per project, only if `.great_cto/beads-ok` does not exist):
+
+The previous version used `bd list` which returns success even with no local
+DB — false positive that hides missing init. Use a structural check instead:
+
 ```bash
-bd list 2>/dev/null | head -1 && echo "BEADS_OK" || echo "BEADS_UNINIT"
+# Real check: does the .beads/ dir exist + does bd ready succeed?
+# bd ready requires a usable DB and fails cleanly if uninitialized.
+if [ -d .beads ] && bd ready >/dev/null 2>&1; then
+  touch .great_cto/beads-ok
+  echo "BEADS_OK"
+else
+  echo "BEADS_UNINIT"
+fi
 ```
-If BEADS_UNINIT → run `bd init` automatically (no user prompt needed — it's always safe). Then `touch .great_cto/beads-ok`. If `bd init` fails → tell CTO clearly: "Beads not available — gate tracking, task management, and verdict logging will use `.great_cto/tasks.md` fallback. Install Beads for full pipeline features: https://github.com/steveyegge/beads"
+
+If BEADS_UNINIT:
+1. Run `bd init` automatically (safe — only writes `.beads/` and adds gitignore line)
+2. **Verify with a write-test:**
+   ```bash
+   PROBE_ID=$(bd create "great_cto-init-probe" --label setup-probe 2>&1 | grep -oE 'bd-[a-z0-9-]+ ' | head -1 | tr -d ' ')
+   if [ -n "$PROBE_ID" ]; then
+     bd close "$PROBE_ID" >/dev/null 2>&1
+     touch .great_cto/beads-ok
+     echo "BEADS_VERIFIED"
+   else
+     echo "BEADS_INIT_OK_BUT_WRITE_FAILED"
+   fi
+   ```
+   Catches the case where `bd init` exited 0 but the DB is unwritable.
+3. If write-test fails → tell CTO: "Beads CLI not functional — gate tracking and verdict logging will use `.great_cto/tasks.md` fallback. Install Beads for full pipeline: https://github.com/steveyegge/beads"
+
+**Side effects of `bd init`:** creates `.beads/` (the SQLite DB), appends to
+`.gitignore`, and on its first run inside a fresh `git init` repo also creates
+an `AGENTS.md` template. None of these are great_cto's responsibility — they
+ship from Beads. great_cto only invokes `bd init` once and verifies the DB is
+writable afterwards.
 
 All agents check for `bd` availability before each call. If unavailable, they fall back to `.great_cto/tasks.md`. This is degraded but functional — no agent will fail silently.
 
@@ -243,7 +312,11 @@ If clarify needed → ask **ONE question only** (use the question from the table
 
 Do NOT ask if the request is reasonably clear. When in doubt — proceed. Architect will surface gaps.
 
-**Step 0b — Brainstorm:** Use `superpowers:brainstorming` skill to explore requirements before any architecture work.
+**Step 0b — Brainstorm:** Explore requirements before architecture. Per host:
+- **Claude Code with superpowers:** invoke `superpowers:brainstorming` skill
+- **Claude Code without superpowers / Codex / Cursor / Aider / Continue:**
+  the architect agent runs an inline 5-question discovery (problem, users,
+  success metric, constraints, non-goals) directly — no external skill needed
 - If Skill tool fails with "Unknown skill" → spawn Agent(general-purpose) with prompt: "Brainstorm requirements for: <feature>. Output: goals, user flows, edge cases, open questions."
 - Output feeds directly into Step 1 — architect reads the brainstorm notes before writing ARCH doc.
 
