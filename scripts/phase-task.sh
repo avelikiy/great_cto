@@ -156,13 +156,21 @@ phase_close() {
   done
 
   if [ "$HAS_BD" = "1" ]; then
+    # --force: phase tasks may be linked to an open gate as dependency.
+    # The phase represents "agent X did its work" — that fact stands
+    # regardless of whether the gate aggregation is still open. The gate
+    # itself closes separately when the CTO approves.
     case "$verdict" in
       ok|done|pass|approved)
-        bd close "$id" >/dev/null 2>&1 || true ;;
+        bd close --force "$id" >/dev/null 2>&1 \
+          || bd close "$id" >/dev/null 2>&1 \
+          || true ;;
       fail|blocked|rejected)
         bd update "$id" --status blocked ${notes:+--notes "$notes"} >/dev/null 2>&1 || true ;;
       *)
-        bd close "$id" >/dev/null 2>&1 || true ;;
+        bd close --force "$id" >/dev/null 2>&1 \
+          || bd close "$id" >/dev/null 2>&1 \
+          || true ;;
     esac
   else
     # Fallback: mark in tasks.md

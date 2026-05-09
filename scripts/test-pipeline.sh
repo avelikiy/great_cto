@@ -370,6 +370,73 @@ sys.exit(0)  # no task-source data → vacuously pass
 fi
 
 # =============================================================================
+# L4b — Phase task lifecycle (v2.5.7+ phase-task.sh)
+# =============================================================================
+section "L4b — Phase task lifecycle (~10s)"
+if [ "$SKIP_L4" = "1" ]; then
+  skipped "L4b (--skip-l4)"
+elif ! command -v bd >/dev/null; then
+  skipped "L4b (no bd CLI)"
+else
+  PT="$ROOT/scripts/phase-task.sh"
+  # bd rejects directory names containing dots (`tmp.XXXX` from mktemp).
+  # Use a stable safe path.
+  TMP="/tmp/gctest-phasetask-$$"
+  rm -rf "$TMP" && mkdir -p "$TMP"
+  cd "$TMP" && git init -q && bd init -q >/dev/null 2>&1
+
+  GATE=$(bd create "gate:test" --label gate 2>&1 | grep -oE '[a-z][a-zA-Z0-9_-]+-[a-z0-9]+' | head -1)
+
+  check "phase-task open creates labelled task with correct prefix" \
+    bash -c "
+      cd '$TMP'
+      ID=\$(bash '$PT' open architect test-feature --parent '$GATE')
+      [ -n \"\$ID\" ] && bd show \"\$ID\" >/dev/null 2>&1
+    "
+
+  check "phase-task open is idempotent — same id on re-open" \
+    bash -c "
+      cd '$TMP'
+      A=\$(bash '$PT' open architect test-feature)
+      B=\$(bash '$PT' open architect test-feature)
+      [ \"\$A\" = \"\$B\" ]
+    "
+
+  check "phase-task close --verdict ok closes despite open gate dependency" \
+    bash -c "
+      cd '$TMP'
+      ID=\$(bash '$PT' open senior-dev test-feature --parent '$GATE')
+      bash '$PT' start \"\$ID\" >/dev/null
+      bash '$PT' close \"\$ID\" --verdict ok >/dev/null
+      bd show \"\$ID\" 2>&1 | grep -iE 'closed' >/dev/null
+    "
+
+  check "phase-task close --verdict fail marks blocked" \
+    bash -c "
+      cd '$TMP'
+      ID=\$(bash '$PT' open qa-engineer test-feature)
+      bash '$PT' close \"\$ID\" --verdict fail --notes 'test failure' >/dev/null
+      bd show \"\$ID\" 2>&1 | grep -iE 'blocked' >/dev/null
+    "
+
+  check "full 8-stage pipeline → 8 closed phase tasks" \
+    bash -c "
+      tmp=/tmp/gctest-pipeline-\$\$ ; rm -rf \"\$tmp\" && mkdir -p \"\$tmp\" && cd \"\$tmp\" && git init -q && bd init -q >/dev/null 2>&1
+      gate=\$(bd create 'gate' --label gate 2>&1 | grep -oE '[a-z][a-zA-Z0-9_-]+-[a-z0-9]+' | head -1)
+      for a in architect pm senior-dev code-reviewer qa-engineer security-officer performance-engineer devops; do
+        tid=\$(bash '$PT' open \$a feat --parent \$gate)
+        bash '$PT' close \"\$tid\" --verdict ok >/dev/null
+      done
+      n=\$(bd list --status closed 2>&1 | grep -cE '^✓ [a-z]' | tr -d ' ')
+      rm -rf \"\$tmp\"
+      [ \"\$n\" -ge 8 ]
+    "
+
+  cd "$ROOT"
+  rm -rf "$TMP"
+fi
+
+# =============================================================================
 # L5 — Plugin sync
 # =============================================================================
 section "L5 — Plugin sync (~30s)"

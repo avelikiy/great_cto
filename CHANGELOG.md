@@ -6,6 +6,41 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.10 — 2026-05-09
+
+### `phase-task.sh` close fix + 5 new pipeline tests + validation checklist
+
+**Bug:** `bd close <id>` refuses when the task has an open dependency
+(e.g. linked to gate via `bd dep add`). The phase-task helper was using
+plain `bd close` → all phase tasks remained `in_progress` after the
+agent finished. Pipeline UI showed tasks but wrong status.
+
+**Fix:** `phase-task.sh` close path now uses `bd close --force` (with
+fallback to plain close for older Beads). Phase task represents "agent
+X did its work" — that fact stands regardless of gate aggregation.
+
+**Validation:** `scripts/test-pipeline.sh` adds **L4b — Phase task
+lifecycle** with 5 checks:
+- Helper creates labelled task
+- Open is idempotent (re-open returns same id)
+- Close --verdict ok closes despite open gate dependency
+- Close --verdict fail marks blocked
+- 8-stage simulation produces 8 closed phase tasks
+
+Total: 55 → **60** pipeline tests.
+
+**Manual checklist:** `docs/validation/PHASE-TASKS-CHECKLIST.md` documents
+the 3 real-session validation paths users should run before trusting v2.5.7+
+in production:
+- Test 1: happy path (`/start "feature"` → 6+ phase tasks closed)
+- Test 2: QA fail/remediate cycle (blocked + new task on rerun)
+- Test 3: bd-unavailable fallback (writes to `.great_cto/tasks.md`)
+
+Plus failure-mode table for diagnosing "phase tasks not appearing" symptoms
+(usually agent prompt too long → instruction context-trimmed).
+
+---
+
 ## v2.5.9 — 2026-05-09
 
 ### Honest cost ratio — 7500× → 500× (LLM rate corrected)
