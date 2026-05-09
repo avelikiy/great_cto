@@ -1444,6 +1444,14 @@ const server = http.createServer(async (req, res) => {
   // Task history / timeline from interactions.jsonl
   if (pathname.match(/^\/api\/tasks\/[^/]+\/history$/) && req.method === 'GET') {
     const taskId = pathname.split('/')[3];
+    // 404 for unknown task IDs so the UI can distinguish "task does not exist"
+    // from "task exists but has no history yet".
+    const allTasks = getTasks(cwd);
+    if (!allTasks.some(t => t.id === taskId)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'task_not_found', id: taskId }));
+      return;
+    }
     const interactionsFile = path.join(cwd, '.beads', 'interactions.jsonl');
     if (!fs.existsSync(interactionsFile)) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
