@@ -168,8 +168,29 @@ const RULES: Rule[] = [
       if ((hasLlm || hasLlmFw) && hasVdb) s += 7;
       if (hasAgentFw) s += 6;                        // explicit agent framework
       if ((hasLlm || hasLlmFw) && hasAgentFw) s += 2; // bonus
-      // README mining hint
-      if (d.readmeKeywords.includes("agent") || d.readmeKeywords.includes("ai")) s += 1;
+
+      // Project-shape signals (agent-runtime archetypes that don't depend
+      // on a specific framework — e.g. a deterministic local agent runtime
+      // built from scratch). Each signal is weak; multiple together strong.
+      const kws = d.readmeKeywords.map((k) => k.toLowerCase());
+      const agentRuntimeKws = [
+        "agent", "agent-runtime", "agent_runtime", "agentic",
+        "tool-calling", "tool-use", "tool_use", "tool-registry",
+        "planner", "agent-loop", "agent-runtime", "deterministic-agent",
+        "plan-step", "planstep", "tool-allowlist", "agent-budget",
+        "mcp-server", "mcp-client", "mcp",
+      ];
+      const matchedAgentKws = agentRuntimeKws.filter((k) => kws.includes(k));
+      if (matchedAgentKws.length >= 3) s += 5;     // strong shape signal
+      else if (matchedAgentKws.length === 2) s += 3;
+      else if (matchedAgentKws.length === 1) s += 1;
+
+      // Stack-name patterns: agent-runtime / agent-product (the user
+      // explicitly named their library/package after agent or runtime).
+      // Detected via signals — d.stack includes the package name as a token.
+      const stackJoined = d.stack.join(" ").toLowerCase();
+      if (/(?:^| )agent[-_](?:runtime|product|loop|kit|sdk)/.test(stackJoined)) s += 2;
+
       return s;
     },
     reason: (d) => {

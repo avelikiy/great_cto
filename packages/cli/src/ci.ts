@@ -137,7 +137,12 @@ async function archetypeCheck(cwd: string, quiet: boolean): Promise<{ ok: boolea
     if (result.primary !== declared) {
       return {
         ok: false,
-        msg: `archetype drift: declared=${declared}, detected=${result.primary} (${result.confidence})`,
+        msg:
+          `archetype drift: declared=${declared}, detected=${result.primary} (${result.confidence}). ` +
+          `Either:\n` +
+          `      • run 'npx great-cto adapt --platform <yours>' to refresh configs after intentional change, or\n` +
+          `      • run 'npx great-cto init --force --archetype ${result.primary}' to align PROJECT.md with the codebase, or\n` +
+          `      • pass '--no-archetype' to ci to skip this check (e.g. during transitional refactors)`,
       };
     }
     return { ok: true, msg: `archetype confirmed: ${declared}` };

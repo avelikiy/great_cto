@@ -6,6 +6,77 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.6 — 2026-05-09
+
+### Cursor + Codex UX hardening — six operational issues from real-user dogfooding
+
+Codex test report against great_cto running in Cursor surfaced six UX issues
+that were technically "working as designed" but read as broken. All addressed:
+
+**1. CLI shows hint when slash-only commands are tried as `npx great-cto X`**
+- Previously `npx great-cto start "build feature"` failed with cryptic
+  "unknown argument" errors. Users reasonably expected slash commands to
+  also work via CLI.
+- Now: trying any of `start / audit / inbox / digest / review / doctor /
+  burn / save / resume / learn / agent-review / agent-retire / rfc /
+  release / ownership / oncall / sec / poc / promote / crystallize / migrate`
+  via CLI prints a clear redirect:
+  ```
+  error: 'start' is a chat slash command, not a CLI subcommand.
+  To run it, open Claude Code, Cursor, or any AI assistant with great_cto
+  installed and type:  /start [args]
+  The CLI surface only exposes: init · scan · ci · mcp · adapt · serve · ...
+  ```
+
+**2. `init` refuses to run in `$HOME` (no project context)**
+- First-time users tried `npx great-cto init` from `~` (no project), got
+  greenfield/low-confidence detection. Looked broken.
+- Now: explicit refusal with `cd /path/to/project` instructions:
+  ```
+  error: refusing to initialize great_cto in $HOME (/Users/foo).
+  great_cto is meant to run inside a project repository, not your home directory.
+  ```
+
+**3. `init` clearer message when `.great_cto/` exists**
+- Previously: "Aborted." — looked like an error.
+- Now: explains exactly which command achieves what:
+  ```
+  .great_cto/ already exists in this directory.
+  To preserve existing config: nothing to do, you're already initialized.
+  To start fresh: back up .great_cto/ first, then re-run with --force:
+      npx great-cto init --force
+  To override the detected archetype without re-init:
+      npx great-cto init --force --archetype agent-product
+  ```
+- Also: user-initiated abort now exits 0 (not 1) — it's not a failure.
+
+**4. `ci` archetype-drift error includes resolution paths**
+- Previously: `archetype drift: declared=greenfield, detected=ai-system`
+- Now: tells user exactly how to resolve:
+  ```
+  archetype drift: declared=greenfield, detected=ai-system (high). Either:
+    • run 'npx great-cto adapt --platform <yours>' to refresh configs
+    • run 'npx great-cto init --force --archetype ai-system' to align PROJECT.md
+    • pass '--no-archetype' to ci to skip this check
+  ```
+
+**5. README documents board API schema explicitly**
+- Codex smoke scripts assumed `/api/projects` returned `{projects: [...]}`
+  — actually returns array directly. Same for `/api/tasks`.
+- New "Board API surface" section in README with the exact return shape
+  for every endpoint plus a Python/curl gotcha example.
+
+**6. `agent-product` archetype detection broadened**
+- Codex's hand-built agent runtime (no LangChain, no vector DB, just
+  `agent_runtime/`, `tools.py`, `planner.py`) was classified as greenfield.
+- Detection now also weighs project-shape signals: `agent-runtime`,
+  `tool-calling`, `tool-use`, `planner`, `tool-allowlist`, `mcp-server`,
+  `mcp-client`, `agent-loop`, `deterministic-agent`, etc. (3+ matches → +5,
+  2 → +3, 1 → +1). Plus pattern `agent-(runtime|product|loop|kit|sdk)`
+  in stack names → +2.
+
+---
+
 ## v2.5.5 — 2026-05-09
 
 ### Critical: `/inbox` and `/digest` failed with "Prompt is too long"
