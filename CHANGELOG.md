@@ -6,6 +6,49 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.2 — 2026-05-09
+
+### Subcommand telemetry — measure what users actually use
+
+Anonymous opt-in usage ping for the v2.4+ subcommands (`ci`, `mcp`, `adapt`,
+`serve`, `webhook`, `report`). Sends only:
+- `install_id` (random UUID, set on first install)
+- `cli_version`
+- subcommand name
+- exit code
+
+**Does NOT send:** paths, flags (which often contain user input), repo
+identifiers, or any code content.
+
+Honours all existing opt-out signals: `GREATCTO_NO_TELEMETRY=1`, `--no-telemetry`,
+or `{ "telemetry": false }` in `~/.great_cto/config.json`.
+
+Goal: validate which v2.4/2.5 features users actually adopt before scoping
+v2.6. Without this we're building blind.
+
+### Distribution materials
+
+New `docs/launch/` directory with prepared submissions:
+- `hn-launch.md` — Show HN post draft (title + body)
+- `reddit-launch.md` — three variants for r/ClaudeAI, r/cursor, r/programming
+- `awesome-lists.md` — submission text for 4 lists (mcp-servers, cursor,
+  llm-security, claude-code) with priority order
+- `design-partners.md` — 14-day outreach plan with templates and success metrics
+- `packages/cursor-ext/great-cto-cursor-2.5.0.vsix` — packaged Cursor extension
+  ready for marketplace upload (`vsce publish`)
+
+### Strategic note
+
+v2.5.0 → v2.5.2 closed the loop on the multi-platform pivot:
+- v2.5.0 added the features (webhooks, SSE, reports, Cursor stub, ADR)
+- v2.5.1 fixed a critical bug in the security scanner found by E2E testing
+- v2.5.2 added measurement + distribution prep so we know whether anyone
+  uses any of it
+
+Next: launch (HN + Reddit + Cursor marketplace + design partners).
+
+---
+
 ## v2.5.1 — 2026-05-09
 
 ### Critical bugfix: scan/ci missed findings on relative paths

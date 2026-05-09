@@ -142,3 +142,47 @@ export async function sendInstallPing(opts: {
     // never block install on telemetry failure
   }
 }
+
+/**
+ * Subcommand-usage ping. Fire-and-forget. Used to track which v2.4+ commands
+ * (ci / mcp / adapt / serve / report / webhook) actually get used in the wild.
+ *
+ * Sends only:
+ *   - install_id (random UUID, set on first install)
+ *   - cli_version
+ *   - subcommand name
+ *   - exit code (0 / 1 / 2)
+ *
+ * No paths, no flags (since flags often contain user input), no archetype.
+ * Honours the same opt-out signals as install ping.
+ */
+export async function sendUsagePing(opts: {
+  cliVersion: string;
+  subcommand: string;
+  exitCode: number;
+}): Promise<void> {
+  if (process.env.GREATCTO_NO_TELEMETRY === "1") return;
+  const cfg = readConfig();
+  if (cfg.telemetry === false) return;
+  if (!cfg.install_id) return;  // never ping without an established install_id
+
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TELEMETRY_TIMEOUT_MS);
+    await fetch(`${TELEMETRY_ENDPOINT.replace("/install", "/usage")}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": `great-cto-cli/${opts.cliVersion}` },
+      body: JSON.stringify({
+        install_id: cfg.install_id,
+        cli_version: opts.cliVersion,
+        subcommand: opts.subcommand,
+        exit_code: opts.exitCode,
+        ts: new Date().toISOString(),
+      }),
+      signal: ctrl.signal,
+    }).catch(() => {});
+    clearTimeout(timer);
+  } catch {
+    // best-effort
+  }
+}
