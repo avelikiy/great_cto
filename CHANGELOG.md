@@ -6,6 +6,35 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.3.4 — 2026-05-08
+
+### `scripts/test-pipeline.sh` — automated pre-merge gate
+
+Single command that runs Levels 1–5 of the pipeline test plan in ~10 sec:
+
+```
+scripts/test-pipeline.sh             # all 41 checks (L1 → L5)
+scripts/test-pipeline.sh --quick     # L1 + L2 only (~5 sec, 12 checks)
+scripts/test-pipeline.sh --skip-l4   # skip board (no port)
+scripts/test-pipeline.sh --verbose   # show command output on failure
+```
+
+**Levels covered:**
+- **L1** — npm test (112 unit), archetype regression (28 cases), syntax checks
+- **L2** — CLI smoke: `--version`, `list-rules` (24 rules), scan fixtures, SARIF
+- **L3** — All 4 hooks (secret-scan, format-check, cost-guard, session-end)
+- **L4** — All 11 board API endpoints, math invariants (7500× ratio sanity),
+  11 memory layers, 34 installed agents
+- **L5** — Plugin sync: 22 commands + 34 agents present, plugin.json valid
+
+Exit code = number of failed checks. Coloured output. Per-check ✓/✗ and a
+failure list at the end with `--verbose` hint.
+
+Use this in pre-commit hook, CI, or by hand before any release. Replaces
+ad-hoc "check that it works" with a structured 41-point gate.
+
+---
+
 ## v2.3.3 — 2026-05-08
 
 ### Money formatting — space separator instead of comma

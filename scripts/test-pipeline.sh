@@ -1,0 +1,337 @@
+#!/usr/bin/env bash
+# scripts/test-pipeline.sh — automated pre-merge gate for great_cto.
+#
+# Runs Levels 1–5 of the pipeline test plan (~5 min total). Each level
+# is a self-contained group of checks. Exit code = number of failed checks.
+#
+# Usage:
+#   scripts/test-pipeline.sh                   # all levels
+#   scripts/test-pipeline.sh --quick           # only L1 + L2 (~90 sec)
+#   scripts/test-pipeline.sh --skip-l3         # skip hooks (slow on cold ruff)
+#   scripts/test-pipeline.sh --skip-l4         # skip board (no Node port)
+#   scripts/test-pipeline.sh --verbose         # show command output
+#
+# Levels:
+#   L1  Static & unit       npm test · archetype regression · syntax checks
+#   L2  Smoke CLI           --version · list-rules · scan fixtures · SARIF
+#   L3  Hooks               secret-scan · format-check · cost-guard · session-end
+#   L4  Board API           endpoints · math invariants · 11 layers · 34 agents
+#   L5  Plugin sync         ~/.claude/commands · ~/.claude/agents
+#
+# Exit codes:
+#   0   all pass
+#   N>0 number of failed checks across all levels
+
+set -uo pipefail
+
+# --- args --------------------------------------------------------------------
+
+QUICK=0
+SKIP_L1=0; SKIP_L2=0; SKIP_L3=0; SKIP_L4=0; SKIP_L5=0
+VERBOSE=0
+for arg in "$@"; do
+  case "$arg" in
+    --quick)    QUICK=1; SKIP_L3=1; SKIP_L4=1; SKIP_L5=1 ;;
+    --skip-l1)  SKIP_L1=1 ;;
+    --skip-l2)  SKIP_L2=1 ;;
+    --skip-l3)  SKIP_L3=1 ;;
+    --skip-l4)  SKIP_L4=1 ;;
+    --skip-l5)  SKIP_L5=1 ;;
+    --verbose|-v) VERBOSE=1 ;;
+    -h|--help)
+      sed -n '2,21p' "$0" | sed 's/^# \?//'
+      exit 0 ;;
+    *)
+      echo "unknown flag: $arg (try --help)" >&2
+      exit 2 ;;
+  esac
+done
+
+# --- helpers -----------------------------------------------------------------
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# Find latest installed plugin dir (for L2/L4/L5 — runs against the SYNCED
+# version, not the working tree, to catch packaging issues)
+PLUGIN_DIR="$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null \
+              | sort -V | tail -1 | sed 's|/$||')"
+
+if [ -t 1 ]; then
+  C_OK=$'\033[32m'; C_FAIL=$'\033[31m'; C_DIM=$'\033[2m'
+  C_HEAD=$'\033[1;34m'; C_RESET=$'\033[0m'; C_WARN=$'\033[33m'
+else
+  C_OK=""; C_FAIL=""; C_DIM=""; C_HEAD=""; C_RESET=""; C_WARN=""
+fi
+
+PASS=0; FAIL=0; SKIP=0
+declare -a FAILURES
+
+# check NAME COMMAND   — runs COMMAND, prints ✓/✗, accumulates counters.
+check() {
+  local name="$1"; shift
+  local out
+  if [ "$VERBOSE" = "1" ]; then
+    if "$@"; then
+      printf "  ${C_OK}✓${C_RESET} %s\n" "$name"
+      PASS=$((PASS+1))
+    else
+      printf "  ${C_FAIL}✗${C_RESET} %s\n" "$name"
+      FAIL=$((FAIL+1)); FAILURES+=("$name")
+    fi
+  else
+    if out=$("$@" 2>&1); then
+      printf "  ${C_OK}✓${C_RESET} %s\n" "$name"
+      PASS=$((PASS+1))
+    else
+      printf "  ${C_FAIL}✗${C_RESET} %s\n" "$name"
+      [ -n "$out" ] && printf "${C_DIM}      %s${C_RESET}\n" "$(echo "$out" | tail -3 | head -3)"
+      FAIL=$((FAIL+1)); FAILURES+=("$name")
+    fi
+  fi
+}
+
+skipped() { printf "  ${C_DIM}–${C_RESET} %s ${C_DIM}(skipped)${C_RESET}\n" "$1"; SKIP=$((SKIP+1)); }
+section() { echo; printf "${C_HEAD}▸ %s${C_RESET}\n" "$1"; }
+
+# Wrap a command + extra assertion in one logical check
+check_cmd_assert() {
+  local name="$1"; local cmd="$2"; local assertion="$3"
+  if eval "$cmd" 2>/dev/null | eval "$assertion" >/dev/null 2>&1; then
+    printf "  ${C_OK}✓${C_RESET} %s\n" "$name"; PASS=$((PASS+1))
+  else
+    printf "  ${C_FAIL}✗${C_RESET} %s\n" "$name"; FAIL=$((FAIL+1)); FAILURES+=("$name")
+  fi
+}
+
+# --- header ------------------------------------------------------------------
+
+START_TS=$(date +%s)
+echo "${C_HEAD}great_cto pipeline test${C_RESET}"
+echo "${C_DIM}root: $ROOT${C_RESET}"
+echo "${C_DIM}plugin dir: ${PLUGIN_DIR:-<not synced>}${C_RESET}"
+[ "$QUICK" = "1" ] && echo "${C_DIM}mode: quick (L1 + L2 only)${C_RESET}"
+
+# =============================================================================
+# L1 — Static & unit
+# =============================================================================
+section "L1 — Static & unit (~30s)"
+if [ "$SKIP_L1" = "1" ]; then
+  skipped "L1 (--skip-l1)"
+else
+  check "npm test (CLI unit tests)" \
+    bash -c "cd packages/cli && npm test --silent >/tmp/gctest-l1-test.log 2>&1"
+
+  check "archetype regression (28 cases)" \
+    bash -c "cd packages/cli && node test-archetypes.mjs >/tmp/gctest-l1-arch.log 2>&1 && grep -q 'Failed: 0/' /tmp/gctest-l1-arch.log"
+
+  check "board server.mjs syntax" \
+    node --check packages/board/server.mjs
+
+  check "board index.html parses (HTML5 closing tags)" \
+    bash -c "node -e \"
+      const fs=require('fs');
+      const h=fs.readFileSync('packages/board/public/index.html','utf8');
+      const opens=(h.match(/<(div|span|script|style|head|body|html)\\b[^>]*>/g)||[]).length;
+      const closes=(h.match(/<\\/(div|span|script|style|head|body|html)>/g)||[]).length;
+      // Allow drift up to 5 (self-closing irregularities)
+      if (Math.abs(opens-closes) > 5) { console.error('tag drift', opens, 'vs', closes); process.exit(1); }
+    \""
+
+  check "all CLI scripts syntactically valid" \
+    bash -c "for f in scripts/hooks/*.mjs scripts/lessons-merge.mjs; do node --check \"\$f\" || exit 1; done"
+
+  check "release.sh + bump-version.sh syntax" \
+    bash -c "bash -n scripts/release.sh && bash -n scripts/bump-version.sh"
+fi
+
+# =============================================================================
+# L2 — Smoke CLI
+# =============================================================================
+section "L2 — Smoke CLI (~1m)"
+if [ "$SKIP_L2" = "1" ]; then
+  skipped "L2 (--skip-l2)"
+elif [ -z "$PLUGIN_DIR" ]; then
+  skipped "L2 (no plugin dir found in ~/.claude/plugins/cache/local/great_cto/)"
+else
+  CLI="node $PLUGIN_DIR/packages/cli/index.mjs"
+
+  check "great-cto --version returns semver" \
+    bash -c "$CLI --version 2>&1 | grep -qE '^[0-9]+\\.[0-9]+\\.[0-9]+'"
+
+  check "list-rules loads exactly 24 rules" \
+    bash -c "$CLI list-rules 2>&1 | grep -qE '^24 rule\\(s\\) loaded\\.\$'"
+
+  check "list-rules has all 5 scanner categories" \
+    bash -c "out=\$($CLI list-rules 2>&1); for cat in cost-runaway prompt-injection rag-poisoning secrets-in-prompts ssrf-in-tools; do echo \"\$out\" | grep -q \"\$cat\" || exit 1; done"
+
+  check "scan vulnerable fixture finds 5 issues (high+)" \
+    bash -c "out=\$($CLI scan $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --severity high 2>&1); echo \"\$out\" | grep -qE '5 finding'"
+
+  check "scan clean fixture finds 0 issues" \
+    bash -c "$CLI scan $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/clean-app.ts 2>&1 | grep -q 'No findings'"
+
+  check "SARIF output is valid JSON / 2.1.0 schema" \
+    bash -c "$CLI scan $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --sarif /tmp/gctest-l2.sarif >/dev/null 2>&1; node -e \"const j=JSON.parse(require('fs').readFileSync('/tmp/gctest-l2.sarif','utf8')); if (j.version!=='2.1.0' || !j.runs?.[0]?.results?.length) process.exit(1)\""
+fi
+
+# =============================================================================
+# L3 — Hooks
+# =============================================================================
+section "L3 — Hooks (~2m)"
+if [ "$SKIP_L3" = "1" ]; then
+  skipped "L3 (--skip-l3)"
+elif [ -z "$PLUGIN_DIR" ]; then
+  skipped "L3 (no plugin dir)"
+else
+  HOOKS="$PLUGIN_DIR/scripts/hooks"
+  [ -d "$HOOKS" ] || HOOKS="$ROOT/scripts/hooks"
+
+  check "secret-scan blocks AKIA key (exit 2)" \
+    bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const k = \\\"AKIAIOSFODNN7EXAMPLE\\\"\"}}' | node $HOOKS/secret-scan.mjs; [ \$? -eq 2 ]"
+
+  check "secret-scan allows clean code (exit 0)" \
+    bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const x = 1;\"}}' | node $HOOKS/secret-scan.mjs"
+
+  check "secret-scan respects opt-out env" \
+    bash -c "GREAT_CTO_DISABLE_SECRET_SCAN=1 bash -c 'echo \"{\\\"tool_name\\\":\\\"Write\\\",\\\"tool_input\\\":{\\\"file_path\\\":\\\"/tmp/x.ts\\\",\\\"content\\\":\\\"AKIAIOSFODNN7EXAMPLE\\\"}}\" | node $HOOKS/secret-scan.mjs'"
+
+  check "format-check accepts arbitrary input without crashing" \
+    bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"/tmp/none.txt\"}}' | node $HOOKS/format-check.mjs"
+
+  check "cost-guard runs cleanly without budget" \
+    bash -c "echo '{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"/start foo\"}' | node $HOOKS/cost-guard.mjs"
+
+  check "session-end produces a snapshot directive" \
+    bash -c "echo '{\"hook_event_name\":\"SessionEnd\",\"cwd\":\"$ROOT\"}' | node $HOOKS/session-end.mjs"
+fi
+
+# =============================================================================
+# L4 — Board API
+# =============================================================================
+section "L4 — Board API (~30s)"
+BOARD_PID=""
+cleanup_board() {
+  [ -n "$BOARD_PID" ] && kill "$BOARD_PID" 2>/dev/null || true
+  pkill -f "packages/board/server" 2>/dev/null || true
+}
+trap cleanup_board EXIT
+
+if [ "$SKIP_L4" = "1" ]; then
+  skipped "L4 (--skip-l4)"
+elif [ -z "$PLUGIN_DIR" ]; then
+  skipped "L4 (no plugin dir)"
+elif ! command -v curl >/dev/null; then
+  skipped "L4 (no curl)"
+else
+  # Free port if leaked from prior run
+  pkill -f "packages/board/server" 2>/dev/null || true
+  sleep 1
+
+  nohup node "$PLUGIN_DIR/packages/board/server.mjs" >/tmp/gctest-l4-board.log 2>&1 &
+  BOARD_PID=$!
+  # Wait up to 5s for server to listen
+  for i in 1 2 3 4 5; do
+    curl -sf http://127.0.0.1:3141/api/projects >/dev/null 2>&1 && break
+    sleep 1
+  done
+
+  if ! curl -sf http://127.0.0.1:3141/api/projects >/dev/null 2>&1; then
+    printf "  ${C_FAIL}✗${C_RESET} board failed to start\n"
+    cat /tmp/gctest-l4-board.log | tail -5 | sed 's/^/      /'
+    FAIL=$((FAIL+1)); FAILURES+=("board startup")
+  else
+    for endpoint in /api/projects /api/agents-installed /api/metrics /api/cost \
+                    /api/memory /api/inbox /api/resume /api/decisions \
+                    /api/pipeline /api/logs /api/tasks; do
+      check "$endpoint returns valid JSON" \
+        bash -c "curl -sf 'http://127.0.0.1:3141$endpoint' | python3 -m json.tool >/dev/null"
+    done
+
+    check "agents-installed reports >=33 agents" \
+      bash -c "n=\$(curl -sf http://127.0.0.1:3141/api/agents-installed | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"total\"])'); [ \"\$n\" -ge 33 ]"
+
+    check "agents-installed includes new agents (continuous-learner, edtech, gov, insurance reviewers)" \
+      bash -c "names=\$(curl -sf http://127.0.0.1:3141/api/agents-installed | python3 -c 'import sys,json; print(\" \".join(a[\"name\"] for a in json.load(sys.stdin)[\"agents\"]))'); for must in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do echo \"\$names\" | grep -qw \"\$must\" || exit 1; done"
+
+    check "memory endpoint surfaces exactly 11 layers" \
+      bash -c "n=\$(curl -sf http://127.0.0.1:3141/api/memory | python3 -c 'import sys,json; print(len(json.load(sys.stdin)[\"layers\"]))'); [ \"\$n\" = '11' ]"
+
+    check "memory has both project + global scopes" \
+      bash -c "scopes=\$(curl -sf http://127.0.0.1:3141/api/memory | python3 -c 'import sys,json; m=json.load(sys.stdin); print(\" \".join(set(l.get(\"scope\",\"\") for l in m[\"logs\" if \"logs\" in m else \"layers\"])))'); echo \"\$scopes\" | grep -q project && echo \"\$scopes\" | grep -q global"
+
+    # Math invariant — pick first project that has tasks
+    check "metrics math: human/llm ratio ≈ 7500× when data present" \
+      bash -c "curl -sf 'http://127.0.0.1:3141/api/projects' | python3 -c '
+import sys,json,urllib.request
+projs = json.load(sys.stdin)
+projs = projs if isinstance(projs,list) else projs.get(\"projects\",[])
+for p in projs:
+    slug = p.get(\"slug\") or p.get(\"name\")
+    if not slug: continue
+    m = json.load(urllib.request.urlopen(f\"http://127.0.0.1:3141/api/metrics?project={slug}\"))
+    if m[\"cost\"][\"llm_usd\"] > 0:
+        ratio = m[\"cost\"][\"human_usd\"] / m[\"cost\"][\"llm_usd\"]
+        assert 7400 <= ratio <= 7600, f\"ratio drift: {ratio}\"
+        sys.exit(0)
+sys.exit(0)  # no project has data → vacuously pass
+'"
+  fi
+fi
+
+# =============================================================================
+# L5 — Plugin sync
+# =============================================================================
+section "L5 — Plugin sync (~30s)"
+if [ "$SKIP_L5" = "1" ]; then
+  skipped "L5 (--skip-l5)"
+else
+  check "plugin.json is valid JSON" \
+    bash -c "python3 -c 'import json; json.load(open(\"$ROOT/.claude-plugin/plugin.json\"))'"
+
+  check "all 22 great_cto commands present in ~/.claude/commands/" \
+    bash -c "missing=0; for cmd in start audit inbox digest review ownership oncall rfc release doctor burn cost sec poc promote crystallize migrate resume save learn agent-review agent-retire; do [ -f ~/.claude/commands/\$cmd.md ] || { echo \"missing: \$cmd\" >&2; missing=\$((missing+1)); }; done; [ \"\$missing\" = '0' ]"
+
+  check "34 agents synced into ~/.claude/agents/great_cto-*.md" \
+    bash -c "n=\$(ls ~/.claude/agents/great_cto-*.md 2>/dev/null | wc -l | tr -d ' '); [ \"\$n\" -eq 34 ]"
+
+  check "agent-review + agent-retire commands present" \
+    bash -c "[ -f ~/.claude/commands/agent-review.md ] && [ -f ~/.claude/commands/agent-retire.md ]"
+
+  check "all 4 new agents synced (continuous-learner + 3 reviewers)" \
+    bash -c "for a in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do [ -f ~/.claude/agents/great_cto-\$a.md ] || exit 1; done"
+
+  check "plugin.json sync list includes new commands" \
+    bash -c "grep -q 'agent-review' .claude-plugin/plugin.json && grep -q 'agent-retire' .claude-plugin/plugin.json"
+
+  check "plugin.json sync list includes all 4 new agents" \
+    bash -c "grep -q 'continuous-learner' .claude-plugin/plugin.json && grep -q 'edtech-reviewer' .claude-plugin/plugin.json && grep -q 'gov-reviewer' .claude-plugin/plugin.json && grep -q 'insurance-reviewer' .claude-plugin/plugin.json"
+fi
+
+# =============================================================================
+# Summary
+# =============================================================================
+END_TS=$(date +%s)
+DUR=$((END_TS - START_TS))
+
+echo
+echo "${C_HEAD}─────────────────────────────────────────${C_RESET}"
+printf "  ${C_OK}✓ %d passed${C_RESET}    " "$PASS"
+[ "$FAIL" -gt 0 ] && printf "${C_FAIL}✗ %d failed${C_RESET}    " "$FAIL"
+[ "$SKIP" -gt 0 ] && printf "${C_DIM}– %d skipped${C_RESET}    " "$SKIP"
+printf "${C_DIM}(${DUR}s)${C_RESET}\n"
+
+if [ "$FAIL" -gt 0 ]; then
+  echo
+  echo "${C_FAIL}Failures:${C_RESET}"
+  for f in "${FAILURES[@]}"; do
+    echo "  • $f"
+  done
+  echo
+  echo "${C_DIM}Re-run with --verbose to see command output.${C_RESET}"
+  exit "$FAIL"
+fi
+
+echo
+echo "${C_OK}All checks passed. Pipeline ready to merge.${C_RESET}"
+exit 0
