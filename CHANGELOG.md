@@ -6,6 +6,55 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.9 — 2026-05-09
+
+### Honest cost ratio — 7500× → 500× (LLM rate corrected)
+
+User report: COST SAVINGS VS FTE tile showed `7638×` — not believable. The
+underlying constant `LLM_RATE_PER_HR = $0.02` was a placeholder that didn't
+reflect actual Sonnet 4.6 / Haiku 4.5 economics.
+
+**Cost model audit:**
+- Sonnet 4.6: $3/1M input + $15/1M output → typical agent task ($0.165) /
+  30 min → **$0.33/AI-hour**
+- Haiku 4.5: $1/1M input + $5/1M output → ~$0.055/task → **$0.11/AI-hour**
+- Mixed pipeline (architect Sonnet, qa Haiku, etc.): **~$0.30/AI-hour**
+
+**Fix:** default `LLM_RATE_PER_HR` raised from $0.02 → $0.30. Ratio drops
+from 7500× (hype-tier) to 500× — still a huge advantage, but defensible.
+
+**New env var overrides:**
+- `GREATCTO_LLM_RATE_PER_HR=0.50` (e.g. all-Sonnet pipeline)
+- `GREATCTO_HUMAN_RATE_PER_HR=200` (SF senior engineer fully-loaded)
+
+### Verdict-cost overlay — supplementary, not headline
+
+Earlier code preferred sum-of-verdict-costs over time-based estimate when
+verdicts had `cost=$X` tags. Problem: verdict data is often synthetic
+test fixtures or partial coverage (only some agents log cost), which
+produced `25,864×` ratios on test projects with $0.05 fake values.
+
+**Fix:** time-based estimate is now the canonical headline number. Real
+verdict cost is exposed as `cost.real_llm_usd` (and per-agent
+`agents_cost[].real_llm_usd`) for transparency, but doesn't drive the
+savings ratio. v2.6.0+ may re-engage the overlay when coverage ≥50% AND
+implied hourly rate ≥$0.05/hr.
+
+### UI: honest tile sub-text
+
+`Cost savings vs FTE` tile now reads:
+
+> `500× faster, est. at $0.30/AI-hr · $150/human-hr`
+
+instead of the generic "X× cheaper than human (rough est.)".
+
+### Tests
+
+Pipeline assertion `metrics math: human/llm ratio ≈ 7500×` updated to
+`≈ 500×` (470-530 tolerance for per-agent rounding drift). 55/55 pass.
+
+---
+
 ## v2.5.8 — 2026-05-09
 
 ### CI hardening + plugin cache hygiene
@@ -53,9 +102,74 @@ ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null \
 After SessionStart on a 9-version install, only 3 newest remain.
 Verified: 9 → 3 (drops oldest 6) on a synthetic test.
 
+### Full QA pass — 10 bugs fixed (label `qa-2026-05`)
+
+A full QA run against v2.5.7 (per `docs/qa/TEST-PLAN-FULL.md`) found 10
+bugs across pipelines, board API, metrics, and reports. All 10 closed in
+this release. Full report: `docs/qa/runs/2026-05-09/REPORT.md`. E2E trace:
+`docs/qa/runs/2026-05-09/E2E-SAAS-PIPELINE.md`.
+
+**Cost pipeline (P1)** — cost dashboard was permanently zero in production:
+- `/api/cost` skipped every verdict because real verdicts didn't carry a
+  `cost=$X` tag. (QA-006)
+- `/api/metrics.cost` only used PLAN files or task-estimate sources;
+  verdict cost was ignored entirely. (QA-007)
+- **Fix:** `scripts/log-verdict.sh` — canonical helper writing verdict line
+  with mandatory `cost=$X` tag and tee'ing `<ts> <agent> <usd>` to
+  `cost-history.log` as fallback source. `getMetrics()` now picks among 3
+  sources by priority: plans → verdicts (new) → task estimate; each path
+  tags `source` so the UI distinguishes real from estimated.
+- **Doc:** `agents/_shared/verdict-format.md`.
+- **Verified:** $0.50 + $1.25 + $0.30 → `/api/cost.total_llm = $2.05, runs = 3`.
+
+**Board UX (P1)** — admin UI returned raw 500 from `bd` for predictable cases:
+- `POST /api/tasks` and `POST /api/gates/<id>` failed with `no beads
+  database found` when project lacked `.beads/`. (QA-002, QA-004)
+- **Fix:** `checkBeadsAvailable(cwd)` helper returns
+  `409 { error: "beads_not_initialized", message, cwd, hint }` so the UI
+  can show "Initialize this project" instead of an opaque error.
+
+**Metrics integrity (P2)** — agent attribution and runtime config:
+- `/api/metrics.agents` listed phantom agents like `test-agent`, `backend`
+  pulled from verdict text without cross-checking the installed list. A
+  typo created a phantom forever. (QA-008)
+  - **Fix:** `getCanonicalAgents()` reads `~/.claude/agents/great_cto-*.md`
+    once per 30s; unknown names bucketed under `unknown`.
+- `/api/tasks/<bad-id>/history` returned 200 with `{events: []}` for any
+  string. (QA-005)
+  - **Fix:** pre-check via `getTasks(cwd)`; non-existent IDs return
+    `404 { error: "task_not_found", id }`.
+- `PORT` env-var was hardcoded — only `BOARD_PORT` was respected. (QA-009)
+  - **Fix:** `PORT = BOARD_PORT || PORT || 3141`.
+
+**Structural validation (P1)** — `validate.py:97` regex `[a-z\s]+?`
+choked on hyphenated commands (`agent-review`, `agent-retire`), falsely
+reporting all 22 commands as missing from the SessionStart sync list.
+(QA-001) — **Fix:** regex changed to `([a-z][a-z0-9\s\-]*?);\s*do`.
+
+**Sub-agent sandbox (P1)** — closed as documented design constraint, not
+a fixable bug. (QA-010)
+- Claude Code sub-agents launched via the `Agent` tool are isolated by
+  design; `additionalDirectories` does not propagate.
+- **Doc:** `agents/_shared/sandbox-cwd-policy.md` — full constraint
+  explanation + workarounds (inline-mode, settings.local.json pre-grant).
+- **Template:** `.claude-plugin/settings.example.json` for users who need
+  `additionalDirectories`, with caveat about subagent isolation.
+- **`commands/start.md`** — pre-flight `cwd` check; CTO must confirm the
+  cwd is the intended project root before pipeline starts. Prevents the
+  silent "agents wrote nothing because path was wrong" failure.
+
+**`/api/memory ?project=<slug>`** (QA-003) — closed as already-supported.
+The existing global cwd resolver at `server.mjs:1065` already routes
+`?project=` to the registered project's path.
+
 ### Other changes
 
 - `docs/plans/PLAN-v2.5.8-ci-hardening.md` — plan for this release
+- `docs/qa/TEST-PLAN-FULL.md` — comprehensive plan for full QA passes
+- E2E pipeline trace on a SaaS fixture (architect → enterprise-saas-reviewer
+  → pm → senior-dev → qa-engineer → security-officer) verified end-to-end
+  with all artefacts persisted and verdict trail complete.
 
 ---
 

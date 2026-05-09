@@ -10,7 +10,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist age
 
 **Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — if you have 2+ engineers and need shared dashboards / multi-seat auth / per-developer audit logs, look at Cursor Business or GitHub Copilot Workspace.
 
-> **v2.5.7** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code · Cursor · Codex · Aider · Continue** · MCP server · webhooks · CI gate · per-stage Beads tasks · ~$34/mo per project · MIT
+> **v2.5.8** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code · Cursor · Codex · Aider · Continue** · MCP server · webhooks · CI gate · per-stage Beads tasks · ~$34/mo per project · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -40,6 +40,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist age
 ## What's new
 
 ### v2.5.x patch series — production hardening (May 2026)
+- **v2.5.8**: full QA pass — closed 10 bugs (`docs/qa/runs/2026-05-09/REPORT.md`). Highlights: cost pipeline now reflects real LLM spend (`/api/cost`, `/api/metrics.cost` were permanently zero); board returns graceful `409 beads_not_initialized` instead of raw 500; phantom agents bucketed under `unknown`; `PORT` env-var honored; canonical verdict format with `cost=$X` tag (`scripts/log-verdict.sh` + `agents/_shared/verdict-format.md`); sub-agent sandbox / cwd policy documented (`agents/_shared/sandbox-cwd-policy.md`); `validate.py` regex fix for hyphenated commands; CI hardening — dead Playwright workflow removed, plugin-cache cleanup `--keep 3` in SessionStart
 - **v2.5.7**: per-stage Beads task lifecycle (architect / pm / senior-dev / qa / security / perf / devops / l3 each create + close their own tasks via `scripts/phase-task.sh`); cost-history off-by-one fix (30 → 31 buckets, inclusive window)
 - **v2.5.6**: 6 Cursor-dogfooding UX fixes (CLI hint for slash-only commands · `init` $HOME refusal · clearer `.great_cto/` exists message · `ci` archetype-drift resolution paths · agent-product detection broadened · README API schema)
 - **v2.5.5**: critical fix — `/inbox` and `/digest` "Prompt is too long" (commands trimmed 30→2.6KB, 46→4KB; bash logic moved to `scripts/cmd-data/`); closed-gate `mapStatus` bug (P0 counter included done gates)
