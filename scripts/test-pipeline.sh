@@ -144,8 +144,8 @@ else
   check "release.sh + bump-version.sh syntax" \
     bash -c "bash -n scripts/release.sh && bash -n scripts/bump-version.sh"
 
-  # Board API regression suite (closes QA-002…QA-009)
-  check "board API regression tests (10 cases)" \
+  # Board API regression suite (closes QA-002…QA-009 + v2.7.0 logs parser)
+  check "board API regression tests (12 cases)" \
     bash -c "pytest tests/board/ --tb=line -q >/tmp/gctest-l1-board.log 2>&1 && grep -qE '^[0-9]+ passed' /tmp/gctest-l1-board.log"
 
   # v2.6.0+: agent prompt structural linter

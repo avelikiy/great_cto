@@ -1571,12 +1571,33 @@ const server = http.createServer(async (req, res) => {
         const durM  = raw.match(/^duration:\s*(.+)$/m);
         const titleM = raw.match(/^#\s+Session:\s*(.+)$/m);
         const doneM = raw.match(/## Done\n([\s\S]*?)(?=\n##|$)/);
-        const done = doneM ? doneM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
+        let done = doneM ? doneM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
         const pendM = raw.match(/## Pending\n([\s\S]*?)(?=\n##|$)/);
-        const pending = pendM ? pendM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
+        let pending = pendM ? pendM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
+
+        // v2.7.0: SessionEnd hook auto-captures use a different schema
+        // (## Git / ## Beads / ## Cost). When no /save format found,
+        // synthesise done/pending bullets from those sections so the
+        // panel still has content.
+        let source = 'save';
+        if (!done.length && !pending.length) {
+          source = 'auto';
+          const gitM   = raw.match(/## Git\n([\s\S]*?)(?=\n##|$)/);
+          const beadsM = raw.match(/## Beads\n([\s\S]*?)(?=\n##|$)/);
+          const costM  = raw.match(/## Cost[^\n]*\n([\s\S]*?)(?=\n##|$)/);
+          const bullets = (sec) => sec ? sec[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
+          // Done = factual snapshot (Git + Cost)
+          done = [...bullets(gitM)];
+          if (costM) {
+            const costLines = costM[1].trim().split('\n').filter(l => l && !l.startsWith('```') && !l.includes('(no cost log)'));
+            if (costLines.length) done.push(`Cost: ${costLines.join(' · ')}`);
+          }
+          // Pending = open work (Beads)
+          pending = [...bullets(beadsM)];
+        }
         return {
           file: f,
-          source: 'save',
+          source,
           date: dateM?.[1]?.trim() || f.slice(8, 18),
           time: timeM?.[1]?.trim() || '',
           duration: durM?.[1]?.trim() || '',
