@@ -155,6 +155,49 @@ step "board /api/metrics returns 200" \
 step "board /api/cost returns valid JSON" \
   bash -c "curl -sf 'http://127.0.0.1:$PORT/api/cost' | python3 -c 'import sys,json; json.load(sys.stdin)'"
 
+# --- step 7: adapt --platform <host> for all 5 hosts ----------------------
+# Verifies the cross-host promise: same plugin → platform-native configs.
+# We don't try to BOOT Cursor/Codex/Aider/Continue in CI (no headless mode
+# for commercial hosts), but we DO assert each `adapt` run produces the
+# right files in the right places, and that the YAML/JSON ones parse.
+
+echo
+echo "▸ step 7 — adapt to all 5 hosts"
+
+for HOST in claude codex cursor aider continue; do
+  ADAPT_DIR="$(mktemp -d)/adapt-$HOST"
+  mkdir -p "$ADAPT_DIR/.great_cto"
+  cat > "$ADAPT_DIR/.great_cto/PROJECT.md" <<EOF
+archetype: cli
+description: Canary fixture for $HOST
+size: small
+EOF
+  (cd "$ADAPT_DIR" && HOME="$CANARY_HOME" "${CLI[@]}" adapt --platform "$HOST" > /tmp/canary-adapt-$HOST.out 2>&1)
+  case "$HOST" in
+    claude)
+      step "claude: AGENTS.md + CLAUDE.md created" \
+        bash -c "test -f '$ADAPT_DIR/AGENTS.md' && test -f '$ADAPT_DIR/CLAUDE.md'"
+      ;;
+    codex)
+      step "codex: AGENTS.md created" \
+        bash -c "test -f '$ADAPT_DIR/AGENTS.md'"
+      ;;
+    cursor)
+      step "cursor: .cursorrules + .cursor/rules/*.mdc created" \
+        bash -c "test -f '$ADAPT_DIR/.cursorrules' && test -f '$ADAPT_DIR/.cursor/rules/great-cto.mdc'"
+      ;;
+    aider)
+      step "aider: .aider.conf.yml is valid YAML + CONVENTIONS.md exists" \
+        bash -c "test -f '$ADAPT_DIR/.aider.conf.yml' && test -f '$ADAPT_DIR/CONVENTIONS.md' && python3 -c 'import yaml,sys; yaml.safe_load(open(\"$ADAPT_DIR/.aider.conf.yml\"))'"
+      ;;
+    continue)
+      step "continue: .continue/rules.md created" \
+        bash -c "test -f '$ADAPT_DIR/.continue/rules.md'"
+      ;;
+  esac
+  rm -rf "$(dirname "$ADAPT_DIR")" 2>/dev/null
+done
+
 # --- summary ----------------------------------------------------------------
 
 echo
