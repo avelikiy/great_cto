@@ -6,6 +6,55 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.5 — 2026-05-09
+
+### Critical: `/inbox` and `/digest` failed with "Prompt is too long"
+
+`commands/inbox.md` was 30 KB, `commands/digest.md` was 46 KB — those entire
+files get sent to the LLM as the slash-command prompt. With any reasonable
+session context already loaded, both commands hit Anthropic's prompt limit
+before doing any work. Users saw `API Error: Prompt is too long`.
+
+**Fix:** moved all bash data-collection logic to two helper scripts:
+
+- `scripts/cmd-data/inbox-data.sh` (23 KB) — emits labelled sections
+  (OPEN_GATES / STALE_GATES / P0_OPEN / BLOCKED / RECENT_ACTIVITY /
+  SLO_BURN / DORA_CFR / GATE_DRIFT / COST_ALERT / ON_CALL / RFC_OVERDUE)
+- `scripts/cmd-data/digest-data.sh` (32 KB) — emits DORA / RELIABILITY /
+  DELIVERY / TEAM / COST / OPS / AGENTS sections with delta arrows
+
+`commands/inbox.md` and `commands/digest.md` now just describe the helper's
+output contract and how to format it (2.6 KB and 4.0 KB respectively —
+**12× smaller**). The agent invokes the helper, parses sections, formats
+the response.
+
+### Codex bugfix: closed gates appeared as P0_open in `/api/inbox`
+
+`packages/board/server.mjs` `mapStatus()` checked the `gate` label before
+checking the `closed` status:
+
+```js
+if (labels.includes('gate') || issue_type === 'decision') return 'gate';
+case 'closed': return 'done';
+```
+
+Effect: a closed gate task got `status: 'gate', raw_status: 'closed'`. The
+P0/Pending-decisions/Active-pipeline aggregates that filter on `status !==
+'done'` then counted those closed gates as still-open work — Codex test
+report showed 3 closed gates appearing as `P0 open: 3`.
+
+**Fix:** terminal status (`closed`, `blocked`) takes precedence over gate
+classification:
+
+```js
+if (status === 'closed') return 'done';
+if (status === 'blocked') return 'blocked';
+if (labels.includes('gate') || issue_type === 'decision') return 'gate';
+// ...
+```
+
+---
+
 ## v2.5.4 — 2026-05-09
 
 ### Cross-platform host detection — env-var-first

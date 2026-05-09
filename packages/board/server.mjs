@@ -583,12 +583,17 @@ function getTasks(cwd = process.cwd()) {
 }
 
 function mapStatus(status, labels = [], issue_type = '') {
+  // Terminal status takes precedence over the 'gate' classification.
+  // Otherwise closed gate tasks would still appear as 'gate' status, which
+  // breaks Pending-decisions / P0-open / Active-pipeline aggregates that
+  // consider "anything mapped to gate" still actionable.
+  // Reported by Codex against /api/inbox showing 3 closed gates as P0 open.
+  if (status === 'closed') return 'done';
+  if (status === 'blocked') return 'blocked';
   if ((labels || []).includes('gate') || issue_type === 'decision') return 'gate';
   switch (status) {
     case 'open': return 'backlog';
     case 'in_progress': return 'in_progress';
-    case 'closed': return 'done';
-    case 'blocked': return 'blocked';
     default: return 'backlog';
   }
 }
