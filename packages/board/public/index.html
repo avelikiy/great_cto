@@ -2953,7 +2953,9 @@ function renderDashboard(m) {
       sub: savingsX > 0 ? '×' : '',
       label: 'Cost savings vs FTE',
       trend: savingsX > 0
-        ? `${savingsX}× cheaper than human${fromTasks ? ' (rough est.)' : ''}`
+        ? (fromTasks
+            ? `${savingsX}× faster, est. at $0.30/AI-hr · $150/human-hr`
+            : `${savingsX}× cheaper (from PLAN-*.md figures)`)
         : 'add docs/plans/PLAN-*.md for precise figures',
       cls: 'green',
     },

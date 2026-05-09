@@ -395,8 +395,10 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   // double-count buckets that DO have plan/verdict data alongside buckets that
   // don't. All-or-nothing keeps the series internally consistent.
   if (!hasRealCostData) {
-    const HUMAN_RATE_PER_HR = 150;
-    const LLM_RATE_PER_HR   = 0.02;
+    // Same cost model as getMetrics — see comment there for derivation.
+    // Defaults are realistic for a Sonnet+Haiku mixed pipeline.
+    const HUMAN_RATE_PER_HR = parseFloat(process.env.GREATCTO_HUMAN_RATE_PER_HR || '150');
+    const LLM_RATE_PER_HR   = parseFloat(process.env.GREATCTO_LLM_RATE_PER_HR || '0.30');
     const DEFAULT_TASK_MIN  = 30;
     try {
       const tasks = getTasks(cwd);
@@ -680,11 +682,27 @@ function getMetrics(cwd = process.cwd()) {
   }
 
   // Agent cost + time breakdown.
-  // Time source priority: 1) closed_at-created_at on done tasks, 2) estimated_minutes, 3) default 30min
-  // LLM cost proxy: $0.02 per AI-hour (rough Sonnet 4 average for a typical task at ~2k tokens/min)
-  // Human cost baseline: $150/hr (mid-level engineer fully-loaded)
-  const HUMAN_RATE_PER_HR = 150;
-  const LLM_RATE_PER_HR   = 0.02;
+  //
+  // Cost model derivation (LLM_RATE_PER_HR):
+  //   Sonnet 4.6:  input $3/1M, output $15/1M.
+  //     Typical agent task: ~30K in + 5K out → ~$0.165 per task.
+  //     At 30 min/task → ~$0.33/hour.
+  //   Haiku 4.5:   input $1/1M, output $5/1M.
+  //     Same task shape → ~$0.055 → ~$0.11/hour.
+  //   Mixed pipeline (architect Sonnet, qa Haiku, ...): ~$0.30/hour avg.
+  //
+  // Previous default of $0.02/hour produced an unbelievable 7500× ratio in
+  // the UI. v2.5.9: realistic default $0.30/hour gives ~500× — still a
+  // huge advantage, but defensible.
+  //
+  // Override via env var:
+  //   GREATCTO_LLM_RATE_PER_HR=0.50   (e.g. all-Sonnet pipeline)
+  //   GREATCTO_HUMAN_RATE_PER_HR=200  (e.g. SF senior engineer fully-loaded)
+  //
+  // When verdict logs contain real `cost=$X` tags, those override the
+  // time-based estimate per agent (see "real cost overlay" loop below).
+  const HUMAN_RATE_PER_HR = parseFloat(process.env.GREATCTO_HUMAN_RATE_PER_HR || '150');
+  const LLM_RATE_PER_HR   = parseFloat(process.env.GREATCTO_LLM_RATE_PER_HR || '0.30');
   const DEFAULT_TASK_MIN  = 30;  // fallback when no timing data
   const agentCostMap = {};
   for (const t of tasks) {
@@ -697,12 +715,34 @@ function getMetrics(cwd = process.cwd()) {
     if (!mins) mins = t.estimated_minutes || DEFAULT_TASK_MIN;
     const llmCost   = mins / 60 * LLM_RATE_PER_HR;
     const humanCost = mins / 60 * HUMAN_RATE_PER_HR;
-    if (!agentCostMap[t.agent]) agentCostMap[t.agent] = { agent: t.agent, llm_usd: 0, human_usd: 0, time_min: 0, tasks_total: 0, tasks_done: 0 };
+    if (!agentCostMap[t.agent]) agentCostMap[t.agent] = { agent: t.agent, llm_usd: 0, human_usd: 0, time_min: 0, tasks_total: 0, tasks_done: 0, real_llm_usd: 0 };
     agentCostMap[t.agent].llm_usd   += llmCost;
     agentCostMap[t.agent].human_usd += humanCost;
     agentCostMap[t.agent].time_min  += mins;
     agentCostMap[t.agent].tasks_total += 1;
     if (t.status === 'done') agentCostMap[t.agent].tasks_done += 1;
+  }
+  // Real cost overlay — sum verdict cost=$X tags per agent. We expose this
+  // as a separate field (`real_llm_usd`) for transparency, but DON'T
+  // overwrite the time-based estimate. Reason: verdict data is often
+  // synthetic test fixtures or partial (only some agents log cost), which
+  // would distort the savings ratio with implausibly low numbers.
+  //
+  // Heuristic for trusted production verdicts (future): require >= 50%
+  // of agent runs to have cost_usd, AND sum/time hourly rate >= $0.05/hr.
+  // Until that's implemented, time-based estimate is the canonical number.
+  for (const v of verdicts) {
+    if (v.cost_usd == null) continue;
+    if (!agentCostMap[v.agent]) continue;
+    agentCostMap[v.agent].real_llm_usd += v.cost_usd;
+  }
+  for (const a of Object.values(agentCostMap)) {
+    a.cost_source = 'estimate';   // time-based is canonical
+    if (a.real_llm_usd > 0) {
+      a.real_llm_usd = Math.round(a.real_llm_usd * 10000) / 10000;
+    } else {
+      delete a.real_llm_usd;
+    }
   }
   const agentsCost = Object.values(agentCostMap)
     .map(a => ({
@@ -713,34 +753,46 @@ function getMetrics(cwd = process.cwd()) {
     }))
     .sort((a, b) => b.time_min - a.time_min);
 
-  // Cost source priority:
-  //   1) PLAN-*.md files (real planned cost) — costData
-  //   2) Verdict cost tags (real per-run cost — written by scripts/log-verdict.sh)
-  //   3) Task-based estimation (every project gets meaningful tiles even without plans)
+  // Cost source priority (v2.5.9 — flipped to put time-based estimate
+  // before verdict-totals; verdict cost data is often synthetic test
+  // fixtures or partial coverage, which produced unbelievable 25,000×
+  // ratios in earlier versions):
+  //
+  //   1) PLAN-*.md files (real planned cost figures) — costData
+  //   2) Task-based estimation (canonical — uses realistic $0.30/$150 rates)
+  //   3) Verdict totals expose as `real_llm_usd` for transparency, NOT
+  //      used as the headline number unless plans / tasks are absent
   const taskLlmTotal   = agentsCost.reduce((s, a) => s + a.llm_usd, 0);
   const taskHumanTotal = agentsCost.reduce((s, a) => s + a.human_usd, 0);
   const verdictLlmTotal = verdicts.reduce((s, v) => s + (v.cost_usd || 0), 0);
 
   let cost;
   if (costData.llm_usd > 0 || costData.human_usd > 0) {
-    cost = costData;
-  } else if (verdictLlmTotal > 0) {
-    // Pair real LLM cost with task-based human baseline so savings_x stays meaningful.
-    cost = {
-      llm_usd:   Math.round(verdictLlmTotal * 100) / 100,
-      human_usd: Math.round(taskHumanTotal),
-      savings_x: verdictLlmTotal > 0 ? Math.round(taskHumanTotal / verdictLlmTotal) : 0,
-      count:     verdicts.filter(v => v.cost_usd != null).length,
-      source:    'verdicts',
-    };
-  } else {
+    cost = { ...costData, real_llm_usd: verdictLlmTotal > 0 ? Math.round(verdictLlmTotal * 10000) / 10000 : null };
+  } else if (taskLlmTotal > 0) {
     cost = {
       llm_usd:   Math.round(taskLlmTotal   * 100) / 100,
       human_usd: Math.round(taskHumanTotal),
-      savings_x: taskLlmTotal > 0 ? Math.round(taskHumanTotal / taskLlmTotal) : 0,
+      savings_x: Math.round(taskHumanTotal / taskLlmTotal),
       count:     0,
       source:    'tasks',
+      real_llm_usd: verdictLlmTotal > 0 ? Math.round(verdictLlmTotal * 10000) / 10000 : null,
     };
+  } else if (verdictLlmTotal > 0) {
+    // Last-resort: no tasks, only verdict data. Pair with a token human
+    // baseline (verdict count × DEFAULT_TASK_MIN × $150/hr) so the ratio
+    // stays meaningful.
+    const verdictHuman = verdicts.length * (30 / 60) * HUMAN_RATE_PER_HR;
+    cost = {
+      llm_usd:   Math.round(verdictLlmTotal * 100) / 100,
+      human_usd: Math.round(verdictHuman),
+      savings_x: Math.round(verdictHuman / verdictLlmTotal),
+      count:     verdicts.filter(v => v.cost_usd != null).length,
+      source:    'verdicts',
+      real_llm_usd: Math.round(verdictLlmTotal * 10000) / 10000,
+    };
+  } else {
+    cost = { llm_usd: 0, human_usd: 0, savings_x: 0, count: 0, source: 'none', real_llm_usd: null };
   }
 
   return {
