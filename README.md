@@ -132,6 +132,33 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 
 **Requires:** [Claude Code](https://claude.com/claude-code) · Node 18.17+ · [Beads](https://github.com/steveyegge/beads) · [Superpowers](https://github.com/obra/superpowers)
 
+## Showcase: from idea to passing tests in $2.39
+
+> A real run, fully traced, end-to-end. No mocking, no curated demo.
+
+A solo CTO has a stdlib-only Python CLI tool. They want to add `qacli convert <input> --output json` (CSV→JSON subcommand). They run `/start` and walk away. Three iterations later, they have:
+
+- 7 source files (~150 LOC stdlib-only)
+- ARCH + ADR (argparse vs click vs typer, decision recorded)
+- Threat model with 3 mitigations (path traversal, streaming row cap, stdout/stderr discipline)
+- PM plan (5 tasks + Mermaid Gantt + cost estimate)
+- 18 pytest regression tests, **76% coverage** on the CLI
+- Two security review cycles — second one cleared `gate:ship`
+- 8 Beads tasks all closed, every step verdict-tagged with cost
+
+**Total LLM spend: $2.39 across 3 iterations.** Human-equivalent estimate from PM agent: ~$5,460.
+
+The most valuable signal: in iteration 1, the security-officer caught two real defects that QA passed:
+
+- `convert.py:32` did `rows = list(stream_csv(...))` — defeated the streaming guarantee. Filed → senior-dev fixed in iter 2 → re-verified by 200k-row memory profile (peak RSS: **14.5 MB on 13 MB input** — Python runtime overhead, no scaling with input).
+- `--base-dir` containment from threat model §2 wasn't implemented. `qacli convert /etc/passwd` succeeded for any readable file. Filed → fixed → re-verified.
+
+This is the multi-reviewer model doing what the marketing claims: catching what a single agent misses, before merge, with no human in the review loop.
+
+**Full trace:** [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md) — every verdict, every cost line, every fix-loop iteration.
+
+**Living regression suite:** [`tests/board/test_api_regressions.py`](tests/board/test_api_regressions.py) — 10 tests covering every closed bug from the QA pass. Goes red in CI if any of them comes back.
+
 ## The board you'll actually check
 
 ```bash
