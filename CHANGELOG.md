@@ -6,6 +6,46 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.3 — 2026-05-09
+
+### Codex / Cursor / Aider compatibility — host detection + Beads write-test
+
+Findings from a real Codex installation test:
+
+**Issue 1: `DEPS_MISSING: superpowers` on non-Claude hosts**
+- The dependency check in `SKILL.md` searched `~/.claude/skills/superpowers/`
+  unconditionally. In Codex, Cursor, Aider, Continue this directory doesn't
+  exist — emit'ed false-alarm "missing dependency" warning.
+- **Fix:** added host detection (`HOST` = claude-code | codex | cursor | aider |
+  generic, derived from filesystem markers like `~/.codex`, `~/.cursor`,
+  etc.). The superpowers check now runs only on Claude Code. On other hosts,
+  the brainstorming step uses an inline 5-question discovery built into the
+  architect agent — no plugin dependency.
+- **New diagnostic levels:** `DEPS_MISSING_HARD` (Beads — required everywhere)
+  vs `DEPS_MISSING_SOFT` (superpowers — Claude Code only). Soft missing
+  doesn't block, just warns once.
+
+**Issue 2: weak Beads check returned BEADS_OK on empty dir**
+- Old: `bd list 2>/dev/null | head -1` returns success on empty dir because
+  `bd list` outputs nothing and exits 0. False positive — `bd init` never
+  runs even when no DB exists.
+- **Fix:** new check is `[ -d .beads ] && bd ready >/dev/null 2>&1`. `bd ready`
+  requires a usable DB and fails cleanly when uninitialized. Also added a
+  **post-init write-test:** `bd create` a probe issue, capture the ID via
+  `grep -oE 'bd-[a-z0-9-]+ '`, then `bd close` it. Catches the case where
+  `bd init` exited 0 but the DB ended up unwritable (read-only filesystem,
+  permission errors, etc.).
+
+### Strategic note
+
+great_cto v2.5.0 claimed cross-platform support but the SKILL.md still had
+Claude-Code-isms baked into the bootstrap. v2.5.3 closes the gap — Codex
+users get DEPS_OK (clean start) instead of a confusing DEPS_MISSING warning.
+
+Tested in `~/development/Test` against Codex per real-user dogfooding report.
+
+---
+
 ## v2.5.2 — 2026-05-09
 
 ### Subcommand telemetry — measure what users actually use
