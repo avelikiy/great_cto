@@ -8,7 +8,7 @@
 
 You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
-> **v2.3.0** · 33 agents · 25 archetypes · 24 security rules · 9 hooks · agent workforce mgmt (review/retire/cost-per-feature) · ~$34/mo per project · 47-min PoCs · MIT
+> **v2.5.2** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code / Cursor / Codex / Aider / Continue** · MCP server · webhooks · CI gate · ~$34/mo per project · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -36,6 +36,20 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents**
 </div>
 
 ## What's new
+
+### v2.5.0 — Production webhooks + MCP SSE + reports + Cursor extension (May 2026)
+- HMAC-verified webhook receiver: GitHub / Sentry / generic (`great-cto serve`)
+- Outbound dispatcher with exponential-backoff retry + DLQ → Slack / Discord / PagerDuty
+- MCP SSE mode for multi-client / remote use
+- HTML/JSON cost+compliance reports (`great-cto report cost --period 30d`)
+- Cursor extension scaffold in `packages/cursor-ext/` — vsce-ready
+- ADR-001 multi-tenant board (architectural decision, deferred to v2.6+)
+
+### v2.4.0 — Multi-platform support: Codex, Cursor, Aider, Continue (May 2026)
+- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — single source of truth → platform-native configs
+- `great-cto mcp` — MCP server (stdio + SSE) exposing 5 tools to any MCP host
+- `great-cto ci` — single-command CI gate (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
+- `great-cto serve` — webhook receiver scaffolding
 
 ### v2.3.0 — Agent workforce management (May 2026)
 - `/agent-review [name]` — performance scorecard for LLM agents (verdicts, cost, failure modes, prompt-tuning suggestions). Like a 1:1 but for AI workforce.
@@ -265,7 +279,45 @@ Powers the live counter at [greatcto.systems](https://greatcto.systems).
 
 ## MCP integrations
 
-Native support for [Model Context Protocol](https://modelcontextprotocol.io/) servers. Optional — pipeline runs without them.
+Native support for [Model Context Protocol](https://modelcontextprotocol.io/). Works two ways:
+
+### Use great_cto from any MCP host
+
+`great-cto mcp` exposes 5 tools — `scan` (24 OWASP LLM rules), `list_rules`, `detect_archetype`, `estimate_cost`, `query_decisions` (ADR search). Add to your host config and you can call them from chat.
+
+**Claude Desktop** — add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "great-cto": {
+      "command": "npx",
+      "args": ["-y", "great-cto@latest", "mcp"]
+    }
+  }
+}
+```
+
+**Cursor** — add to `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` globally):
+
+```json
+{
+  "mcpServers": {
+    "great-cto": {
+      "command": "npx",
+      "args": ["-y", "great-cto@latest", "mcp"]
+    }
+  }
+}
+```
+
+**Continue / any MCP host** — same shape. For multi-client / remote use:
+
+```bash
+great-cto mcp --sse --port 8765    # HTTP+SSE for multi-client
+```
+
+### Internal MCPs used by great_cto agents
 
 | MCP | Used by | What it enables |
 |-----|---------|-----------------|
@@ -275,6 +327,55 @@ Native support for [Model Context Protocol](https://modelcontextprotocol.io/) se
 | Your own | any agent | Add to `.claude-plugin/plugin.json` → `mcpServers` |
 
 Specialist sub-agents from [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) (419 agents + 336 commands) are callable via the `Agent` tool. Install with `/template install <name>`.
+
+## Cross-platform support
+
+great_cto v2.4+ works in **any** AI-coding tool, not just Claude Code. Generate platform-native config from a single source of truth:
+
+```bash
+npx great-cto adapt --platform claude    # CLAUDE.md + AGENTS.md
+npx great-cto adapt --platform codex     # AGENTS.md (OpenAI Codex CLI)
+npx great-cto adapt --platform cursor    # .cursorrules + .cursor/rules/*.mdc
+npx great-cto adapt --platform aider     # .aider.conf.yml + CONVENTIONS.md
+npx great-cto adapt --platform continue  # .continue/rules.md
+npx great-cto adapt --platform all       # all of the above
+```
+
+All variants share AGENTS.md as the cross-tool standard, so editing `.great_cto/PROJECT.md` (archetype + compliance) updates every consumer with one re-run.
+
+| Tool | Native config | MCP support |
+|---|---|---|
+| Claude Code | CLAUDE.md (plugin layer with 34 agents) | ✓ via Claude Desktop |
+| Cursor | .cursorrules + .cursor/rules/ | ✓ |
+| OpenAI Codex CLI | AGENTS.md | ✓ |
+| Aider | .aider.conf.yml + CONVENTIONS.md | partial |
+| Continue | .continue/rules.md | ✓ |
+
+A native VS Code / Cursor extension is in `packages/cursor-ext/` — adds command-palette entries for scan / CI / report and a status-bar shield icon.
+
+## CI integration
+
+Drop into any GitHub Actions workflow:
+
+```yaml
+name: AI security scan
+on: [pull_request]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npx great-cto@latest ci ./ --sarif results.sarif
+        env:
+          GREATCTO_NO_TELEMETRY: "1"
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: results.sarif }
+```
+
+`great-cto ci` auto-detects `$GITHUB_ACTIONS` and emits `::error file=...,line=N::` annotations inline on PR diffs. Exit codes: 0 clean / 1 findings / 2 setup error.
 
 ## Fully automatic triggers
 
