@@ -3186,7 +3186,7 @@ function renderLogsList() {
   }
   el.innerHTML = allLogs.map((log, i) => `
     <div class="log-item ${i === 0 ? 'active' : ''}" onclick="selectLog(${i}, this)">
-      <div class="log-date">${esc(log.date)}${log.time ? ' · ' + esc(log.time) : ''}${log.source === 'verdicts' ? ' <span style="color:var(--text3);font-size:10px">· auto</span>' : ''}</div>
+      <div class="log-date">${esc(log.date)}${log.time ? ' · ' + esc(log.time) : ''}${log.source === 'verdicts' || log.source === 'auto' ? ' <span style="color:var(--text3);font-size:10px">· auto</span>' : ''}</div>
       <div class="log-title">${esc(log.title)}</div>
       <div class="log-meta">${log.done.length} done · ${log.pending.length} pending${log.duration ? ' · ' + esc(log.duration) : ''}</div>
     </div>`).join('');
@@ -3204,7 +3204,7 @@ function renderLogDetail(log) {
   el.innerHTML = `
     <div class="log-detail-head">
       <h3>${esc(log.title)}</h3>
-      <div class="log-detail-meta">${esc(log.date)}${log.time ? ' at ' + esc(log.time) : ''}${log.duration ? ' · ' + esc(log.duration) : ''}${log.source === 'verdicts' ? ' · <span style="color:var(--accent)">auto-synthesized from verdicts</span>' : ''}</div>
+      <div class="log-detail-meta">${esc(log.date)}${log.time ? ' at ' + esc(log.time) : ''}${log.duration ? ' · ' + esc(log.duration) : ''}${log.source === 'verdicts' ? ' · <span style="color:var(--accent)">auto-synthesized from verdicts</span>' : log.source === 'auto' ? ' · <span style="color:var(--accent)">auto-captured by SessionEnd hook</span>' : ''}</div>
     </div>
     <div class="log-section">
       <div class="log-section-label">Done</div>
