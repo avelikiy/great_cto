@@ -58,21 +58,40 @@ function* walk(root: string, exclude: RegExp[]): Generator<string> {
 
 function fileMatchesGlobs(file: string, globs: string[] | undefined): boolean {
   if (!globs || globs.length === 0) return true;
-  // Tiny glob → regex. Convert globs in two passes:
-  //   1. Replace ** and * with sentinel placeholders.
-  //   2. Escape remaining regex metachars.
-  //   3. Replace placeholders with their regex equivalents.
+  // Normalize path separators for cross-platform matching
+  const normalized = file.replace(/\\/g, '/');
   return globs.some((g) => {
-    const pattern = g
-      .replace(/\*\*/g, '')   // ** → SOH
-      .replace(/\*/g, '')     // *  → STX
-      .replace(/\?/g, '')     // ?  → ETX
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(//g, '.*')
-      .replace(//g, '[^/]*')
-      .replace(//g, '.');
+    // Token-based glob → regex conversion. Walks character-by-character to
+    // avoid the substitution-order pitfalls of multiple replace passes.
+    // Treats `**/` as "zero or more path segments" — so `**/*.ts` matches
+    // both `foo.ts` (root) and `src/lib/foo.ts` (nested).
+    let re = '';
+    for (let i = 0; i < g.length; i++) {
+      const c = g[i]!;
+      if (c === '*' && g[i + 1] === '*') {
+        // ** consumes the trailing /, so `**/x` becomes `(?:.*\/)?x` not `.*\/x`
+        if (g[i + 2] === '/') {
+          re += '(?:.*\\/)?';
+          i += 2;
+        } else {
+          re += '.*';
+          i++;
+        }
+      } else if (c === '*') {
+        re += '[^/]*';
+      } else if (c === '?') {
+        re += '.';
+      } else if ('.+^${}()|[]\\'.includes(c)) {
+        re += '\\' + c;
+      } else if (c === '/') {
+        re += '/';
+      } else {
+        re += c;
+      }
+    }
     try {
-      return new RegExp(pattern).test(file);
+      // Match suffix — `src/foo.ts` matches `**/*.ts` regardless of cwd
+      return new RegExp('(?:^|/)' + re + '$').test(normalized);
     } catch {
       return false;
     }
