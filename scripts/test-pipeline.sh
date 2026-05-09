@@ -195,6 +195,63 @@ else
 
   check "adapt --platform aider writes .aider.conf.yml + CONVENTIONS.md" \
     bash -c "tmp=\$(mktemp -d); mkdir -p \$tmp/.great_cto; printf 'primary: fintech\\ncompliance: pci-dss\\n' > \$tmp/.great_cto/PROJECT.md; cd \$tmp && $CLI adapt --platform aider >/dev/null 2>&1 && [ -f .aider.conf.yml ] && [ -f CONVENTIONS.md ] && [ -f AGENTS.md ]"
+
+  # v2.5.0 subcommands
+  check "webhook list returns config path" \
+    bash -c "$CLI webhook list 2>&1 | grep -q 'config:'"
+
+  check "report cost --format json returns valid JSON with summary" \
+    bash -c "$CLI report cost --period 30d --format json 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"type\"]==\"cost\"; assert \"summary\" in d; assert \"savings_x\" in d[\"summary\"]'"
+
+  check "report cost --format html emits valid HTML5" \
+    bash -c "$CLI report cost --period 30d --format html 2>/dev/null | head -1 | grep -q '<!doctype html>'"
+
+  check "report agents --format json returns agent records" \
+    bash -c "$CLI report agents --period 30d --format json 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"type\"]==\"agents\"; assert \"agents\" in d'"
+
+  check "mcp --sse server starts and /healthz returns valid JSON" \
+    bash -c "
+      $CLI mcp --sse --port 8766 >/dev/null 2>&1 &
+      MCP_PID=\$!
+      sleep 1
+      out=\$(curl -sf http://127.0.0.1:8766/healthz 2>/dev/null)
+      kill \$MCP_PID 2>/dev/null
+      wait \$MCP_PID 2>/dev/null
+      echo \"\$out\" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"transport\"]==\"sse\"'
+    "
+
+  # HMAC tests use canonical name 'github'. Backup/restore any existing config.
+  check "serve enforces HMAC: invalid signature returns 401" \
+    bash -c "
+      cfg=~/.great_cto/webhooks.json
+      [ -f \$cfg ] && cp \$cfg \$cfg.gctest-bak
+      $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
+      $CLI serve --port 3144 >/dev/null 2>&1 &
+      SRV_PID=\$!
+      sleep 1
+      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H 'X-Hub-Signature-256: sha256=baad' -d '{}' http://127.0.0.1:3144/webhook/github)
+      kill \$SRV_PID 2>/dev/null
+      wait \$SRV_PID 2>/dev/null
+      [ -f \$cfg.gctest-bak ] && mv \$cfg.gctest-bak \$cfg || $CLI webhook remove github >/dev/null 2>&1
+      [ \"\$code\" = '401' ]
+    "
+
+  check "serve enforces HMAC: valid signature returns 200" \
+    bash -c "
+      cfg=~/.great_cto/webhooks.json
+      [ -f \$cfg ] && cp \$cfg \$cfg.gctest-bak
+      $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
+      $CLI serve --port 3145 >/dev/null 2>&1 &
+      SRV_PID=\$!
+      sleep 1
+      payload='{\"action\":\"opened\",\"number\":1,\"repository\":{\"full_name\":\"x/y\"}}'
+      sig=\$(echo -n \"\$payload\" | openssl dgst -sha256 -hmac 'testsecret123' | awk '{print \"sha256=\"\$2}')
+      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H \"X-Hub-Signature-256: \$sig\" -d \"\$payload\" http://127.0.0.1:3145/webhook/github)
+      kill \$SRV_PID 2>/dev/null
+      wait \$SRV_PID 2>/dev/null
+      [ -f \$cfg.gctest-bak ] && mv \$cfg.gctest-bak \$cfg || $CLI webhook remove github >/dev/null 2>&1
+      [ \"\$code\" = '200' ]
+    "
 fi
 
 # =============================================================================
