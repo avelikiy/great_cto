@@ -1,0 +1,80 @@
+{
+  "name": "great-cto-cursor",
+  "displayName": "great_cto for Cursor",
+  "description": "AI-engineering management layer — runs scan, generates AGENTS.md/.cursorrules, exposes MCP tools",
+  "version": "2.5.0",
+  "publisher": "avelikiy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/avelikiy/great_cto.git",
+    "directory": "packages/cursor-ext"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "AI",
+    "Linters"
+  ],
+  "keywords": [
+    "great-cto",
+    "agents",
+    "mcp",
+    "ai-security",
+    "scan",
+    "owasp-llm"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "greatCto.adaptCursor",
+        "title": "great_cto: Generate Cursor config (.cursorrules + AGENTS.md)"
+      },
+      {
+        "command": "greatCto.scan",
+        "title": "great_cto: Scan workspace for AI/LLM security issues"
+      },
+      {
+        "command": "greatCto.ci",
+        "title": "great_cto: Run pre-merge CI gate"
+      },
+      {
+        "command": "greatCto.report",
+        "title": "great_cto: Generate cost report (HTML)"
+      }
+    ],
+    "configuration": {
+      "title": "great_cto",
+      "properties": {
+        "greatCto.npmCommand": {
+          "type": "string",
+          "default": "npx great-cto@latest",
+          "description": "Command used to invoke the great-cto CLI. Override if you have a pinned local install."
+        },
+        "greatCto.scanSeverity": {
+          "type": "string",
+          "enum": ["info", "low", "medium", "high", "critical"],
+          "default": "high",
+          "description": "Minimum severity reported by the scan command."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx vsce package",
+    "publish": "npx vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
