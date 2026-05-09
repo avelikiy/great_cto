@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = parseInt(process.env.BOARD_PORT || '3141', 10);
+const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
 const PUBLIC = path.join(__dirname, 'public');
 const GREAT_CTO_DIR = path.join(os.homedir(), '.great_cto');
 const SHARE_STATE_FILE = path.join(GREAT_CTO_DIR, 'board-share.json');
@@ -487,6 +487,28 @@ const bdCache = new Map(); // cwd → { ts, data }
 
 function bdCacheInvalidate(cwd) { bdCache.delete(cwd); }
 
+// Check whether `bd` is initialized in the given cwd. Returns null on success,
+// or a structured error object suitable for a 409 Conflict response.
+// Used to give the admin UI a clean signal ("project not initialized") rather
+// than a 500 with a raw stderr dump.
+function checkBeadsAvailable(cwd) {
+  // Quick filesystem check first — beads stores its DB under .beads/.
+  // Some installs use ~/.beads or env-var BEADS_DIR; respect those too.
+  const candidates = [
+    path.join(cwd, '.beads'),
+    process.env.BEADS_DIR,
+  ].filter(Boolean);
+  if (candidates.some(p => { try { return fs.existsSync(p); } catch { return false; } })) {
+    return null;  // looks initialized
+  }
+  return {
+    error: 'beads_not_initialized',
+    message: `No .beads/ directory found in ${cwd}. Initialize with 'bd init' or set BEADS_DIR.`,
+    cwd,
+    hint: "Run 'bd init' in the project root, then retry.",
+  };
+}
+
 function bdList(cwd = process.cwd()) {
   const cached = bdCache.get(cwd);
   if (cached && Date.now() - cached.ts < BD_CACHE_TTL_MS) return cached.data;
@@ -645,10 +667,16 @@ function getMetrics(cwd = process.cwd()) {
   const qaStats = readQAStats(cwd);
   const secStats = readSecStats(cwd);
 
-  // Agent utilization from verdicts
+  // Agent utilization from verdicts.
+  // Filter against canonical list of installed agents (~/.claude/agents/great_cto-*.md)
+  // so a typo in a verdict line does not produce a phantom agent in the dashboard.
+  // Unknown agent names are bucketed under `unknown` (visible but flagged).
+  const canonicalAgents = getCanonicalAgents();
   const agentRuns = {};
   for (const v of verdicts) {
-    agentRuns[v.agent] = (agentRuns[v.agent] || 0) + 1;
+    if (!v.agent) continue;
+    const key = canonicalAgents.has(v.agent) ? v.agent : 'unknown';
+    agentRuns[key] = (agentRuns[key] || 0) + 1;
   }
 
   // Agent cost + time breakdown.
@@ -727,6 +755,27 @@ function getMetrics(cwd = process.cwd()) {
     verdicts: verdicts.slice(-20),
     recent_done: done.slice(-10).reverse(),
   };
+}
+
+// Canonical list of installed agents from ~/.claude/agents/great_cto-*.md.
+// Cached with a 30s TTL to avoid stat'ing on every metrics request.
+let _canonicalAgentsCache = { agents: null, ts: 0 };
+function getCanonicalAgents() {
+  const now = Date.now();
+  if (_canonicalAgentsCache.agents && now - _canonicalAgentsCache.ts < 30_000) {
+    return _canonicalAgentsCache.agents;
+  }
+  const agentsDir = path.join(os.homedir(), '.claude', 'agents');
+  const set = new Set();
+  try {
+    for (const f of fs.readdirSync(agentsDir)) {
+      if (f.startsWith('great_cto-') && f.endsWith('.md')) {
+        set.add(f.replace(/^great_cto-/, '').replace(/\.md$/, ''));
+      }
+    }
+  } catch { /* dir missing — empty set is fine */ }
+  _canonicalAgentsCache = { agents: set, ts: now };
+  return set;
 }
 
 function readVerdicts() {
@@ -1179,6 +1228,12 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'invalid action' }));
         return;
       }
+      const beadsErr = checkBeadsAvailable(gateCwd);
+      if (beadsErr) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(beadsErr));
+        return;
+      }
       try {
         const status = action === 'approve' ? 'closed' : 'blocked';
         const args = ['update', id, '--status', status];
@@ -1274,6 +1329,12 @@ const server = http.createServer(async (req, res) => {
         if (!title || !title.trim()) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'title required' }));
+          return;
+        }
+        const beadsErr = checkBeadsAvailable(cwd);
+        if (beadsErr) {
+          res.writeHead(409, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(beadsErr));
           return;
         }
         // Build bd create args
