@@ -68,3 +68,5 @@ docs/launch/
 .dolt/
 *.db
 .beads-credential-key
+tests/**/__pycache__/
+*.pyc
