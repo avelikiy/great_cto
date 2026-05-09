@@ -36,7 +36,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "chat-only-hint";
   dir: string;
   yes: boolean;
   dryRun: boolean;
@@ -91,6 +91,20 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "serve") args.command = "serve";
     else if (a === "webhook") args.command = "webhook";
     else if (a === "report") args.command = "report";
+    // Slash-commands surfaced as CLI subcommands so users get a clear hint
+    // instead of a confusing usage error. These work only in the chat plugin.
+    else if (
+      a === "start" || a === "audit" || a === "inbox" || a === "digest" ||
+      a === "review" || a === "doctor" || a === "burn" || a === "save" ||
+      a === "resume" || a === "learn" || a === "agent-review" || a === "agent-retire" ||
+      a === "rfc" || a === "release" || a === "ownership" || a === "oncall" ||
+      a === "sec" || a === "poc" || a === "promote" || a === "crystallize" ||
+      a === "migrate"
+    ) {
+      args.command = "chat-only-hint";
+      // Stash which command they tried so we can quote it back
+      (args as unknown as { _slashTried: string })._slashTried = a;
+    }
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
     else if (a === "init" || a === "help" || a === "version") {
@@ -418,16 +432,46 @@ async function runInit(args: CliArgs): Promise<number> {
   banner();
 
   // ── 1. detect ────────────────────────────────────────────
+  // Guard: refuse to init in $HOME or other "obviously not a project" locations.
+  // Most projects have at least one of: package.json / pyproject.toml /
+  // Cargo.toml / go.mod / .git / src/. Without any signal we'd default to
+  // greenfield with low confidence, which leaves users confused.
+  const HOME = process.env.HOME || process.env.USERPROFILE || "";
+  if (args.dir === HOME) {
+    error(`refusing to initialize great_cto in $HOME (${HOME}).`);
+    log("");
+    log(`great_cto is meant to run inside a project repository, not your home directory.`);
+    log(`If you're testing the install, ${cyan("cd")} into a real repo first:`);
+    log("");
+    log(`    ${cyan("cd /path/to/your/project")}`);
+    log(`    ${cyan("npx great-cto init")}`);
+    log("");
+    log(`Or create an empty test project:`);
+    log("");
+    log(`    ${cyan("mkdir /tmp/test-greatcto && cd /tmp/test-greatcto && git init")}`);
+    log(`    ${cyan("npx great-cto init")}`);
+    return 2;
+  }
+
   step(1, 5, `scanning ${args.dir}`);
   const detection = detect(args.dir);
   if (detection.hasExistingGreatCto) {
     warn(".great_cto/ already exists in this directory.");
-    warn("If you're re-initializing, back it up first or run with --force.");
+    log("");
+    log(`To preserve existing config: nothing to do, you're already initialized.`);
+    log(`To start fresh: back up ${cyan(".great_cto/")} first, then re-run with ${cyan("--force")}:`);
+    log("");
+    log(`    ${cyan("npx great-cto init --force")}`);
+    log("");
+    log(`To override the detected archetype without re-init:`);
+    log("");
+    log(`    ${cyan("npx great-cto init --force --archetype agent-product")}`);
+    log("");
     if (!args.yes && !args.force) {
-      const ok = await confirm("Continue anyway?", false);
+      const ok = await confirm("Continue anyway? (existing PROJECT.md will be kept as-is)", false);
       if (!ok) {
-        log("Aborted.");
-        return 1;
+        log(yellow("Aborted. (Not an error — your existing config is intact.)"));
+        return 0;  // exit 0 — user-initiated abort is not a failure
       }
     }
   }
@@ -873,6 +917,22 @@ async function main(): Promise<void> {
       error((e as Error).message);
       process.exit(2);
     }
+  }
+  if (args.command === "chat-only-hint") {
+    const tried = (args as unknown as { _slashTried?: string })._slashTried || "<command>";
+    error(`'${tried}' is a chat slash command, not a CLI subcommand.`);
+    log("");
+    log(`To run it, open Claude Code, Cursor, or any AI assistant that has`);
+    log(`great_cto installed and type:`);
+    log("");
+    log(`    ${cyan("/" + tried)} ${dim("[args]")}`);
+    log("");
+    log(`The CLI surface (this command) only exposes:`);
+    log(`  ${cyan("init")} · ${cyan("scan")} · ${cyan("list-rules")} · ${cyan("ci")} · ${cyan("mcp")} ·`);
+    log(`  ${cyan("adapt")} · ${cyan("serve")} · ${cyan("webhook")} · ${cyan("report")} · ${cyan("board")} · ${cyan("register")}`);
+    log("");
+    log(`Run ${cyan("npx great-cto --help")} for the full CLI reference.`);
+    process.exit(2);
   }
   if (args.command === "report") {
     try {

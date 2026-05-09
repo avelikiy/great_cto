@@ -266,6 +266,93 @@ Native support for [Model Context Protocol](https://modelcontextprotocol.io/) se
 
 Specialist sub-agents from [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) (419 agents + 336 commands) are callable via the `Agent` tool. Install with `/template install <name>`.
 
+## Cross-platform support
+
+great_cto v2.4+ works in **any** AI-coding tool, not just Claude Code. Generate platform-native config from a single source of truth:
+
+```bash
+npx great-cto adapt --platform claude    # CLAUDE.md + AGENTS.md
+npx great-cto adapt --platform codex     # AGENTS.md (OpenAI Codex CLI)
+npx great-cto adapt --platform cursor    # .cursorrules + .cursor/rules/*.mdc
+npx great-cto adapt --platform aider     # .aider.conf.yml + CONVENTIONS.md
+npx great-cto adapt --platform continue  # .continue/rules.md
+npx great-cto adapt --platform all       # all of the above
+```
+
+All variants share AGENTS.md as the cross-tool standard, so editing `.great_cto/PROJECT.md` (archetype + compliance) updates every consumer with one re-run.
+
+| Tool | Native config | MCP support |
+|---|---|---|
+| Claude Code | CLAUDE.md (plugin layer with 34 agents) | ✓ via Claude Desktop |
+| Cursor | .cursorrules + .cursor/rules/ | ✓ |
+| OpenAI Codex CLI | AGENTS.md | ✓ |
+| Aider | .aider.conf.yml + CONVENTIONS.md | partial |
+| Continue | .continue/rules.md | ✓ |
+
+A native VS Code / Cursor extension is in `packages/cursor-ext/` — adds command-palette entries for scan / CI / report and a status-bar shield icon.
+
+## Board API surface
+
+The board (`great-cto board` → http://localhost:3141) exposes a JSON API for
+external integrations / smoke tests. **All list endpoints return raw arrays
+or top-level fields, not wrapped objects** — design for direct iteration:
+
+| Endpoint | Method | Returns |
+|---|---|---|
+| `/api/projects` | GET | `Project[]` — array of `{slug, archetype, path, ...}` |
+| `/api/tasks?project=<slug>` | GET | `Task[]` — array of `{id, title, status, ...}` |
+| `/api/agents-installed` | GET | `{agents: [...], total: N}` |
+| `/api/metrics?project=<slug>` | GET | `{tasks, velocity, cost, qa, security, agents, agents_cost}` |
+| `/api/cost?project=<slug>&days=30` | GET | `{series, total_llm, total_human, ...}` |
+| `/api/memory?project=<slug>` | GET | `{layers: [...11], patterns: [...]}` |
+| `/api/inbox?project=<slug>` | GET | `{open_gates, p0_open, blocked, recent_activity, ...}` |
+| `/api/logs?project=<slug>` | GET | `{logs: [...]}` |
+| `/api/decisions?limit=20` | GET | `Decision[]` |
+| `/api/pipeline?project=<slug>` | GET | `Stage[]` — 8 SDLC stages with status |
+| `/api/healthz` | GET | `{ok: true}` |
+
+**Common gotcha:** `/api/projects` and `/api/tasks` return **arrays directly**,
+not `{projects: [...]}` wrappers. Smoke scripts that test `data.projects`
+will see `undefined` and falsely report empty data. Use:
+
+```python
+import urllib.request, json
+data = json.load(urllib.request.urlopen("http://127.0.0.1:3141/api/projects"))
+assert isinstance(data, list), "endpoint returns array directly"
+print(f"projects: {len(data)}")
+```
+
+```bash
+curl -sf http://127.0.0.1:3141/api/tasks?project=Test | jq 'length'
+```
+
+For a full reference: `packages/board/server.mjs` — every route is a top-level
+`if (pathname === '/api/...')` block.
+
+## CI integration
+
+Drop into any GitHub Actions workflow:
+
+```yaml
+name: AI security scan
+on: [pull_request]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npx great-cto@latest ci ./ --sarif results.sarif
+        env:
+          GREATCTO_NO_TELEMETRY: "1"
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: results.sarif }
+```
+
+`great-cto ci` auto-detects `$GITHUB_ACTIONS` and emits `::error file=...,line=N::` annotations inline on PR diffs. Exit codes: 0 clean / 1 findings / 2 setup error.
+
 ## Fully automatic triggers
 
 | Trigger | What happens |
