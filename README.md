@@ -6,9 +6,9 @@
 
 **Stop being the only person who can ship.**
 
-You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+You're the CTO. You're also the bottleneck. **GreatCTO is 34 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
-> **v2.5.2** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code / Cursor / Codex / Aider / Continue** · MCP server · webhooks · CI gate · ~$34/mo per project · MIT
+> **v2.5.7** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code · Cursor · Codex · Aider · Continue** · MCP server · webhooks · CI gate · per-stage Beads tasks · ~$34/mo per project · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -36,6 +36,15 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents**
 </div>
 
 ## What's new
+
+### v2.5.x patch series — production hardening (May 2026)
+- **v2.5.7**: per-stage Beads task lifecycle (architect / pm / senior-dev / qa / security / perf / devops / l3 each create + close their own tasks via `scripts/phase-task.sh`); cost-history off-by-one fix (30 → 31 buckets, inclusive window)
+- **v2.5.6**: 6 Cursor-dogfooding UX fixes (CLI hint for slash-only commands · `init` $HOME refusal · clearer `.great_cto/` exists message · `ci` archetype-drift resolution paths · agent-product detection broadened · README API schema)
+- **v2.5.5**: critical fix — `/inbox` and `/digest` "Prompt is too long" (commands trimmed 30→2.6KB, 46→4KB; bash logic moved to `scripts/cmd-data/`); closed-gate `mapStatus` bug (P0 counter included done gates)
+- **v2.5.4**: env-var-first host detection (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / `$AIDER_VERSION` / `$CONTINUE_GLOBAL_DIR`); Cursor extension VSIX with marketplace icon
+- **v2.5.3**: Codex compat — host-aware DEPS check, Beads write-test (catches false-positive empty DB)
+- **v2.5.2**: subcommand telemetry (track which v2.4+ commands users adopt)
+- **v2.5.1**: critical fix — `scan`/`ci` missed findings on relative paths (broken glob-to-regex affected all v2.0+)
 
 ### v2.5.0 — Production webhooks + MCP SSE + reports + Cursor extension (May 2026)
 - HMAC-verified webhook receiver: GitHub / Sentry / generic (`great-cto serve`)
@@ -84,11 +93,13 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 33 specialist agents**
 
 ## What is great_cto?
 
-great_cto is a [Claude Code plugin](https://claude.com/plugins) that runs the full SDLC pipeline as **33 specialist agents** — architect, planning, implementation, 12-angle review, QA, security, deployment, support — coordinated through a board you actually check. You make two decisions per feature; everything else is automatic.
+great_cto is the orchestration layer that runs the full SDLC pipeline as **34 specialist agents** — architect, planning, implementation, 12-angle review, QA, security, deployment, support — coordinated through a board you actually check. You make two decisions per feature; everything else is automatic.
+
+It started as a Claude Code plugin and **v2.4+ added cross-platform support** — the same archetype/compliance/scan/MCP machinery now runs in Cursor, OpenAI Codex CLI, Aider, and Continue via AGENTS.md + MCP. See [Cross-platform support](#cross-platform-support) below.
 
 | Layer | What it does |
 |-------|--------------|
-| **33 specialist agents** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
+| **34 specialist agents** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
 | **25 archetypes** | web-service · agent-product · ai-system · mlops · commerce · marketplace · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · streaming · devtools · infra · cms · enterprise-saas · regulated · edtech · gov-public · insurance |
 | **Auto-detected** | Scans `package.json`, `pyproject.toml`, `Cargo.toml`, README, code structure → picks archetype + compliance gates in 2 sec. Anthropic Haiku second-opinion (~$0.001) when confidence is low. |
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — auto-attached per archetype. |
@@ -205,17 +216,20 @@ Dedicated landing pages: [agent-product](https://greatcto.systems/for/agent-prod
 
 ## How is this different?
 
-We're not an editor — we orchestrate the process around your editor. Use Cursor, Copilot, or Claude Code inside the loop if you want.
+We're **not an editor** — we orchestrate the process around whichever AI assistant you already use. great_cto v2.4+ runs *inside* Claude Code, Cursor, OpenAI Codex CLI, Aider, and Continue (one config, generated by `npx great-cto adapt --platform <yours>`). Use whichever tool you prefer; the pipeline, gates, and compliance machinery stay the same.
 
 | | great_cto | Cursor | Copilot Workspace | Claude Projects |
 |---|---|---|---|---|
-| Multi-agent SDLC pipeline | ✓ 33 specialists | ✕ | ✕ | ✕ |
+| Multi-agent SDLC pipeline | ✓ 34 specialists | ✕ | ✕ | ✕ |
+| **Works in 5 AI assistants** | ✓ Claude Code · Cursor · Codex · Aider · Continue | one IDE | one IDE | one product |
 | Auto archetype detection | ✓ 25 types | ✕ | ✕ | ✕ |
 | Compliance gates (PCI / HIPAA / SOX / EU AI Act) | ✓ | ✕ | ✕ | ✕ |
 | Persistent memory | ✓ decisions.md + verdicts | ⚠ chat-only | ✕ | ✓ chat scope |
 | Multi-project view | ✓ | ✕ | ✕ | ⚠ |
 | 12-angle code review | ✓ | ⚠ single-pass | ⚠ single-pass | ✕ |
-| Public sharable reports | ✓ | ✕ | ✕ | ✕ |
+| AI-security scanner (24 OWASP LLM rules) | ✓ built-in | ✕ | ✕ | ✕ |
+| MCP server | ✓ stdio + SSE | ✕ | ✕ | ✕ |
+| CI gate (SARIF + GH annotations) | ✓ | ✕ | ✕ | ✕ |
 | Open source | ✓ MIT | ✕ | ✕ | ✕ |
 | Runs locally | ✓ | ⚠ partial | ✕ | ✕ |
 | Pay your own API | ✓ | ✕ | ✕ | ✕ |
@@ -469,7 +483,7 @@ LLMs are powerful but lose product judgment on ambiguous specs. Keeping a human 
 ┌──────────────────────────┐    ┌──────────────────┐
 │   Claude Code session    │───→│  great_cto       │
 │   (you run /start here)  │    │  pipeline +      │
-└──────────────────────────┘    │  33 agents       │
+└──────────────────────────┘    │  34 agents       │
               │                 └────────┬─────────┘
               ↓                          ↓
 ┌──────────────────────────┐    ┌──────────────────┐
