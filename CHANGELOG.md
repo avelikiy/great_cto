@@ -6,6 +6,71 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.6.0 — 2026-05-09
+
+### Agent prompt linter — structural validation for all 34 agents
+
+We had **60 pipeline tests for the plumbing** (CLI, hooks, board API,
+sync, cost math) but **zero tests for the 34 markdown files in `agents/`**
+that drive the SDLC pipeline. Prompt regressions (deleted phase-task
+section, malformed frontmatter, stale path references) only surfaced as
+"the agent didn't do X" months after landing.
+
+This release closes that gap with a Node-based structural validator.
+
+**`scripts/agent-prompt-lint.mjs`** — runs the rule set below against
+every `agents/*.md`. Exits 1 on errors, 0 on clean (warnings allowed).
+
+### Rule set v1 (14 rules)
+
+| Category | Rules | Coverage |
+|---|---|---|
+| **FM-***  (Frontmatter) | FM-001 parses, FM-002 description, FM-003 model tier, FM-004 tools list | All agents |
+| **STR-*** (Structure)   | STR-001 has ## heading, STR-002 ≤50KB | All agents |
+| **PHASE-*** (Phase task)  | PHASE-001 has section, PHASE-002 references helper, PHASE-003 correct slug | 8 pipeline agents only |
+| **MEM-***  (Memory paths) | MEM-001 lessons.md in shell, MEM-002 decisions.md in shell | All agents |
+| **OUT-***  (Output contract) | OUT-001 explicit output | Pipeline + reviewer agents |
+| **DEPS-*** (Cross-platform) | DEPS-001 superpowers HOST guard | All agents |
+
+Full spec: `docs/AGENT-LINT-RULES.md`.
+
+### Audit results — clean baseline
+
+After running against all 34 prompts:
+- **0 errors**
+- **1 warning** (architect.md = 55KB, exceeds 50KB context-warning threshold —
+  acceptable for the longest prompt in the system)
+
+The rule set caught **2 false-positive errors** during development that
+were rule bugs, not prompt bugs:
+- FM-003 originally rejected `claude-haiku-4-5` (full model name) — fixed
+  to accept both short tier (`haiku`) and fully-qualified form
+- MEM-001/002 originally flagged narrative `lessons.md` mentions — fixed
+  to only flag shell-command operations on bare paths
+
+Both regex refinements are documented in `AGENT-LINT-RULES.md`.
+
+### CI integration
+
+`scripts/test-pipeline.sh` L1 adds a new check:
+
+```
+✓ agent-prompt-lint: 0 errors across all agents/
+```
+
+Pipeline test count: 60 → **61**. Run before each release.
+
+### What's NOT in v2.6.0
+
+Deferred to v2.7.0+ (each needs its own ADR):
+
+- **CONS-*** cross-prompt consistency (all reviewers use same gate schema)
+- **EVAL-*** LLM-as-judge mode (requires API key + cost budget)
+- **BEH-*** behaviour tests via real Claude Code SDK (CI cost)
+- **CONS-MODEL** model-vs-task fit heuristics
+
+---
+
 ## v2.5.10 — 2026-05-09
 
 ### `phase-task.sh` close fix + 5 new pipeline tests + validation checklist

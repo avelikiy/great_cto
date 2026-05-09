@@ -1,0 +1,430 @@
+#!/usr/bin/env node
+/**
+ * scripts/agent-prompt-lint.mjs — structural validator for agents/*.md.
+ *
+ * Catches regressions in agent prompt content before they reach users:
+ *   - Frontmatter schema drift (model/tools/timeout fields)
+ *   - Missing "Phase task tracking" section in pipeline agents (v2.5.7+)
+ *   - Stale path references (lessons.md, decisions.md)
+ *   - File size blowups that risk context-window truncation
+ *
+ * See docs/plans/PLAN-v2.6.0-agent-prompt-linter.md for full rule list.
+ *
+ * Usage:
+ *   node scripts/agent-prompt-lint.mjs              # lint all agents/
+ *   node scripts/agent-prompt-lint.mjs --json       # machine-readable
+ *   node scripts/agent-prompt-lint.mjs <file.md>    # lint one file
+ *
+ * Exit codes:
+ *   0  clean
+ *   1  errors (must fix)
+ *   2  invalid invocation
+ */
+
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// ── Pipeline agents — subject to PHASE rules ────────────────────────────────
+
+const PIPELINE_AGENTS = new Set([
+  'architect', 'pm', 'senior-dev',
+  'qa-engineer', 'security-officer', 'performance-engineer',
+  'devops', 'l3-support',
+]);
+
+// Agents that ship from external plugins or are exempt from pipeline rules
+const PIPELINE_EXEMPT = new Set([
+  'code-reviewer',          // ships from superpowers
+  'continuous-learner',     // session-end utility
+  'ai-prompt-architect',
+  'ai-eval-engineer',
+  'ai-security-reviewer',
+  'project-auditor',
+  'pm',                     // skipped — usually invoked from architect, no own phase
+]);
+
+// Reviewer agents — single-purpose, exempt from PHASE rules but subject to all others
+const REVIEWER_PATTERN = /-reviewer\.md$/;
+
+// ── Severity levels ─────────────────────────────────────────────────────────
+
+const SEVERITY = { error: 'error', warn: 'warn' };
+
+// ── Rule definitions ────────────────────────────────────────────────────────
+
+const RULES = [
+  // ── Frontmatter ──
+  {
+    id: 'FM-001',
+    severity: SEVERITY.error,
+    desc: 'YAML frontmatter parses',
+    test(file) {
+      const fm = parseFrontmatter(file.text);
+      if (!fm) return ['no `---` frontmatter found at start of file'];
+      try {
+        parseYamlBlock(fm.body);
+      } catch (e) {
+        return [`frontmatter not valid YAML: ${e.message}`];
+      }
+      return [];
+    },
+  },
+  {
+    id: 'FM-002',
+    severity: SEVERITY.error,
+    desc: 'description field present and ≥ 20 chars',
+    test(file) {
+      const meta = file.frontmatter || {};
+      const desc = meta.description;
+      if (!desc) return ['frontmatter missing `description`'];
+      if (typeof desc !== 'string') return ['`description` must be a string'];
+      if (desc.length < 20) return [`\`description\` too short (${desc.length} chars; min 20)`];
+      return [];
+    },
+  },
+  {
+    id: 'FM-003',
+    severity: SEVERITY.error,
+    desc: 'model field references a known Claude model tier',
+    test(file) {
+      const meta = file.frontmatter || {};
+      const model = meta.model;
+      if (!model) return ['frontmatter missing `model`'];
+      const m = String(model).toLowerCase();
+      // Accept short tier (haiku|sonnet|opus) or fully-qualified
+      // (claude-haiku-4-5, claude-sonnet-4-6, claude-opus-4-7, etc.)
+      if (/^(haiku|sonnet|opus)$/.test(m)) return [];
+      if (/^claude-(haiku|sonnet|opus)-\d+(-\d+)?$/.test(m)) return [];
+      return [`model must be a known tier (haiku/sonnet/opus or claude-<tier>-N-N), got: ${model}`];
+    },
+  },
+  {
+    id: 'FM-004',
+    severity: SEVERITY.error,
+    desc: 'tools field is a non-empty list',
+    test(file) {
+      const meta = file.frontmatter || {};
+      const tools = meta.tools;
+      if (!tools) return ['frontmatter missing `tools`'];
+      // Frontmatter may be parsed as either array or comma-string — accept both
+      if (typeof tools === 'string') {
+        const list = tools.split(',').map(s => s.trim()).filter(Boolean);
+        if (list.length === 0) return ['`tools` is empty'];
+      } else if (Array.isArray(tools)) {
+        if (tools.length === 0) return ['`tools` is an empty list'];
+      } else {
+        return [`\`tools\` must be a list or comma-string, got: ${typeof tools}`];
+      }
+      return [];
+    },
+  },
+
+  // ── Structure ──
+  {
+    id: 'STR-001',
+    severity: SEVERITY.error,
+    desc: 'has at least one ## heading after frontmatter',
+    test(file) {
+      const body = file.bodyAfterFrontmatter || '';
+      if (!/^## /m.test(body)) return ['no `## ` heading found in body'];
+      return [];
+    },
+  },
+  {
+    id: 'STR-002',
+    severity: SEVERITY.warn,
+    desc: 'file size ≤ 50 KB (context-window safety)',
+    test(file) {
+      const max = 50 * 1024;
+      if (file.bytes > max) {
+        return [`file ${file.bytes} bytes exceeds ${max} byte threshold (context-window risk)`];
+      }
+      return [];
+    },
+  },
+
+  // ── Phase task protocol (v2.5.7+) ──
+  {
+    id: 'PHASE-001',
+    severity: SEVERITY.error,
+    desc: 'pipeline agents have "Phase task tracking" section',
+    appliesTo(file) { return PIPELINE_AGENTS.has(file.slug); },
+    test(file) {
+      const body = file.text;
+      if (!/##\s+Phase task tracking/i.test(body)) {
+        return ['pipeline agent missing `## Phase task tracking` section (added in v2.5.7)'];
+      }
+      return [];
+    },
+  },
+  {
+    id: 'PHASE-002',
+    severity: SEVERITY.error,
+    desc: 'phase-task block references the helper script',
+    appliesTo(file) { return PIPELINE_AGENTS.has(file.slug); },
+    test(file) {
+      // Find the Phase task tracking section and verify it invokes the helper
+      const m = file.text.match(/##\s+Phase task tracking[\s\S]*?(?=\n##\s|$)/i);
+      if (!m) return [];  // PHASE-001 catches this
+      const section = m[0];
+      if (!/phase-task\.sh/.test(section)) {
+        return ['phase-task section does not reference `phase-task.sh` helper'];
+      }
+      if (!/bash\s+["$].*PT|bash\s+\$PT/.test(section) && !/\$\(bash\s+["$].*PT.*open/.test(section)) {
+        // Loose check — the section should at least show how to invoke
+        if (!/\$\(bash.*open/.test(section)) {
+          return ['phase-task section does not show `bash $PT open <agent>` invocation pattern'];
+        }
+      }
+      return [];
+    },
+  },
+  {
+    id: 'PHASE-003',
+    severity: SEVERITY.error,
+    desc: 'phase-task open uses correct agent slug',
+    appliesTo(file) { return PIPELINE_AGENTS.has(file.slug); },
+    test(file) {
+      const m = file.text.match(/##\s+Phase task tracking[\s\S]*?(?=\n##\s|$)/i);
+      if (!m) return [];
+      const section = m[0];
+      // The first arg to `open` should be the agent slug (file's stem)
+      // Allow either explicit slug or AGENT_NAME_HERE placeholder (will be templated)
+      const expected = file.slug;
+      const openMatch = section.match(/open\s+([A-Za-z][A-Za-z0-9_-]*)/);
+      if (!openMatch) {
+        return [`phase-task block missing \`open <agent>\` example`];
+      }
+      const used = openMatch[1];
+      if (used === 'AGENT_NAME_HERE' || used === '<agent>' || used === '<agent-name>') {
+        return [];  // template placeholder is fine
+      }
+      if (used !== expected) {
+        return [`phase-task open uses '${used}' but file is for '${expected}'`];
+      }
+      return [];
+    },
+  },
+
+  // ── Memory paths ──
+  // Only flag references that look like *file-path usage* in shell commands
+  // (cat, grep, tail, [ -f, >, etc.) — narrative mentions in prose are fine.
+  {
+    id: 'MEM-001',
+    severity: SEVERITY.warn,
+    desc: 'lessons.md in shell commands uses canonical path',
+    test(file) {
+      // Match shell commands operating on bare lessons.md without a path prefix
+      const re = /(?:cat|tail|head|grep|less|more|wc|less|sed|awk|\[\s*-[fFsr]\s*|>>|^>\s|<<|`\s)\s+lessons\.md\b/gm;
+      const matches = file.text.match(re);
+      if (matches && matches.length > 0) {
+        return [`${matches.length} shell command(s) on bare \`lessons.md\` — should be \`.great_cto/lessons.md\` or \`~/.great_cto/lessons.md\``];
+      }
+      return [];
+    },
+  },
+  {
+    id: 'MEM-002',
+    severity: SEVERITY.warn,
+    desc: 'decisions.md in shell commands uses canonical path',
+    test(file) {
+      const re = /(?:cat|tail|head|grep|less|more|wc|less|sed|awk|\[\s*-[fFsr]\s*|>>|^>\s|<<|`\s)\s+decisions\.md\b/gm;
+      const matches = file.text.match(re);
+      if (matches && matches.length > 0) {
+        return [`${matches.length} shell command(s) on bare \`decisions.md\` — should be \`~/.great_cto/decisions.md\``];
+      }
+      return [];
+    },
+  },
+
+  // ── Output contracts ──
+  {
+    id: 'OUT-001',
+    severity: SEVERITY.warn,
+    desc: 'agent defines an explicit output (file path or contract)',
+    appliesTo(file) {
+      return PIPELINE_AGENTS.has(file.slug) || REVIEWER_PATTERN.test(file.basename);
+    },
+    test(file) {
+      // Heuristic: must mention writing to docs/, .great_cto/, or "output:" contract
+      const body = file.text;
+      const hasFileOutput = /docs\/[a-z-]+\/[A-Z]+-/.test(body) || /\.great_cto\/[a-z]/.test(body);
+      const hasContract = /^\s*(?:Output|Returns?|Produces?|Writes?):/im.test(body);
+      if (!hasFileOutput && !hasContract) {
+        return ['no explicit output (file path like `docs/xxx/YYY-*.md` or `Output:` contract)'];
+      }
+      return [];
+    },
+  },
+
+  // ── Cross-platform ──
+  {
+    id: 'DEPS-001',
+    severity: SEVERITY.warn,
+    desc: 'superpowers references in body guarded by HOST=claude-code',
+    test(file) {
+      // Skip frontmatter — `tools: [- superpowers:foo]` is a tool dep,
+      // managed by the DEPS_MISSING_SOFT layer in SKILL.md, not by the
+      // agent prompt itself.
+      const body = file.bodyAfterFrontmatter || file.text;
+      if (!/superpowers/i.test(body)) return [];
+      if (/HOST.*claude-code|claude-code.*superpowers|host=claude-code/i.test(body)) return [];
+      if (/fallback|inline|without superpowers|non-Claude/i.test(body)) return [];
+      return ['body references `superpowers` without HOST=claude-code guard or fallback note (breaks Codex/Cursor users)'];
+    },
+  },
+];
+
+// ── Frontmatter parser (minimal — accepts list-or-string for `tools`) ───────
+
+function parseFrontmatter(text) {
+  if (!text.startsWith('---\n')) return null;
+  const end = text.indexOf('\n---\n', 4);
+  if (end === -1) return null;
+  return {
+    body: text.slice(4, end),
+    after: text.slice(end + 5),
+  };
+}
+
+function parseYamlBlock(yaml) {
+  // Hand-rolled: only flat key:value, list-of-strings via `- item` or `[a, b]`
+  const out = {};
+  let key = null;
+  let listMode = false;
+  for (const rawLine of yaml.split('\n')) {
+    const line = rawLine.replace(/\r$/, '');
+    if (!line.trim()) continue;
+    if (line.startsWith('#')) continue;
+
+    if (listMode && /^\s+-\s+/.test(line)) {
+      out[key].push(line.replace(/^\s+-\s+/, '').trim().replace(/^["']|["']$/g, ''));
+      continue;
+    }
+    listMode = false;
+
+    const m = line.match(/^([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.*)$/);
+    if (!m) {
+      if (line.startsWith(' ')) continue;  // continuation, skip
+      throw new Error(`unparseable line: ${line.slice(0, 60)}`);
+    }
+    const [, k, v] = m;
+    if (v === '' || v === null) {
+      // List or block follows
+      out[k] = [];
+      key = k;
+      listMode = true;
+    } else if (v.startsWith('[') && v.endsWith(']')) {
+      // Inline list
+      out[k] = v.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+    } else {
+      // Scalar — strip quotes
+      out[k] = v.replace(/^["']|["']$/g, '');
+    }
+  }
+  return out;
+}
+
+// ── Linter engine ───────────────────────────────────────────────────────────
+
+function lintFile(path) {
+  const text = readFileSync(path, 'utf8');
+  const bytes = statSync(path).size;
+  const basename = path.split('/').pop();
+  const slug = basename.replace(/\.md$/, '');
+
+  const fm = parseFrontmatter(text);
+  let frontmatter = null;
+  let bodyAfterFrontmatter = text;
+  if (fm) {
+    bodyAfterFrontmatter = fm.after;
+    try {
+      frontmatter = parseYamlBlock(fm.body);
+    } catch {
+      // FM-001 catches this; leave frontmatter=null
+    }
+  }
+
+  const file = {
+    path, basename, slug, text, bytes, frontmatter, bodyAfterFrontmatter,
+  };
+
+  const findings = [];
+  for (const rule of RULES) {
+    if (rule.appliesTo && !rule.appliesTo(file)) continue;
+    const violations = rule.test(file);
+    for (const msg of violations) {
+      findings.push({ rule: rule.id, severity: rule.severity, desc: rule.desc, message: msg });
+    }
+  }
+  return { path, basename, slug, findings };
+}
+
+// ── Main ────────────────────────────────────────────────────────────────────
+
+function main() {
+  const args = process.argv.slice(2);
+  const wantJson = args.includes('--json');
+  const targets = args.filter(a => !a.startsWith('-'));
+
+  const root = dirname(fileURLToPath(import.meta.url));
+  const repoRoot = resolve(root, '..');
+  const agentsDir = join(repoRoot, 'agents');
+
+  let files;
+  if (targets.length > 0) {
+    files = targets.map(t => resolve(t));
+  } else {
+    try {
+      files = readdirSync(agentsDir)
+        .filter(f => f.endsWith('.md'))
+        .map(f => join(agentsDir, f))
+        .sort();
+    } catch (e) {
+      console.error(`agent-prompt-lint: failed to read ${agentsDir}: ${e.message}`);
+      process.exit(2);
+    }
+  }
+
+  const results = files.map(lintFile);
+  const errors = results.flatMap(r => r.findings.filter(f => f.severity === 'error').map(f => ({ ...f, path: r.path })));
+  const warns = results.flatMap(r => r.findings.filter(f => f.severity === 'warn').map(f => ({ ...f, path: r.path })));
+  const ok = results.filter(r => r.findings.length === 0).length;
+
+  if (wantJson) {
+    console.log(JSON.stringify({
+      total: results.length, ok,
+      errors: errors.length, warnings: warns.length,
+      results: results.map(r => ({
+        file: r.basename,
+        findings: r.findings,
+      })),
+    }, null, 2));
+  } else {
+    console.error(`Linting ${results.length} agent prompts in ${agentsDir}...\n`);
+    for (const r of results) {
+      const errs = r.findings.filter(f => f.severity === 'error');
+      const wrns = r.findings.filter(f => f.severity === 'warn');
+      const sym = errs.length > 0 ? '✗' : (wrns.length > 0 ? '⚠' : '✓');
+      const colorReset = '\x1b[0m';
+      const color = errs.length > 0 ? '\x1b[31m' : (wrns.length > 0 ? '\x1b[33m' : '\x1b[32m');
+      console.error(`  ${color}${sym}${colorReset} ${r.basename}`);
+      for (const f of r.findings) {
+        console.error(`      ${f.rule} (${f.severity}): ${f.message}`);
+      }
+    }
+    console.error(`\n──────────────────────────────────────`);
+    console.error(`  ✓ ${ok} ok · ⚠ ${warns.length} warnings · ✗ ${errors.length} errors\n`);
+    if (errors.length > 0) {
+      console.error('Failures (must fix):');
+      for (const e of errors) {
+        console.error(`  - ${e.path.replace(repoRoot + '/', '')} (${e.rule}): ${e.message}`);
+      }
+    }
+  }
+
+  process.exit(errors.length > 0 ? 1 : 0);
+}
+
+main();
