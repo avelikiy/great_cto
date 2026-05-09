@@ -57,6 +57,14 @@ language mentions of `lessons.md` are fine.
 |---|---|---|
 | **OUT-001** | warn | Defines explicit output (file path or `Output:` contract) |
 
+### Cross-prompt consistency (CONS-*) — added v2.7.0
+
+| ID | Severity | Description |
+|---|---|---|
+| **CONS-MODEL** | warn | Agent uses a model tier appropriate for its role (see [ADR-002](adr/ADR-002-model-tier-policy.md)) |
+| **CONS-OUTPUT** | warn | Reviewer (`*-reviewer.md`) declares an output file pattern (`docs/<dir>/<PREFIX>-{slug}.md`) |
+| **CONS-SIGNOFF** | warn | Reviewer references sign-off / gate / HANDOFF semantics |
+
 ### Cross-platform (DEPS-*)
 
 | ID | Severity | Description |
@@ -65,15 +73,15 @@ language mentions of `lessons.md` are fine.
 
 ## Roadmap
 
-Future rules (v2.7.0+):
+Future rules (v3.0+):
 
-- **CONS-*** — cross-prompt consistency (e.g. all reviewers use the same
-  gate-decision schema, archetype-specific reviewers reference matching
-  compliance gates from `archetypes.ts`)
+- **CONS-MODEL → error** — promote to error after one minor cycle of
+  warn-level catalogue + fixes
 - **EVAL-*** — LLM-as-judge eval mode (requires API key, opt-in)
 - **BEH-*** — behaviour tests via real Claude Code SDK (needs CI budget)
-- **CONS-MODEL** — model-vs-task fit (haiku for cheap utility, sonnet for
-  reasoning, opus for cross-cutting decisions)
+- **CONS-ARCHETYPE** — archetype-specific reviewers reference matching
+  compliance gates from `archetypes.ts` (e.g. `pci-reviewer` ↔ `commerce`,
+  `gov-reviewer` ↔ `gov-public`)
 
 ## Adding a new rule
 

@@ -47,6 +47,50 @@ const PIPELINE_EXEMPT = new Set([
 // Reviewer agents — single-purpose, exempt from PHASE rules but subject to all others
 const REVIEWER_PATTERN = /-reviewer\.md$/;
 
+// ── Model-tier policy (CONS-MODEL, v2.7.0) ──────────────────────────────────
+// Maps each agent slug to allowed model tiers. See ADR-002-model-tier-policy.md.
+//
+//   opus    — deep cross-cutting reasoning (architect, ADRs)
+//   sonnet  — balanced default for code/review (most agents)
+//   haiku   — cheap repeatable utility (logging, summaries, fixed-shape output)
+//
+// `*` matches any reviewer that isn't explicitly listed.
+const MODEL_TIER_POLICY = {
+  // pipeline — deep reasoning preferred
+  'architect':            ['opus', 'sonnet'],
+  'senior-dev':           ['sonnet', 'opus'],
+  'security-officer':     ['sonnet', 'opus'],
+  'pm':                   ['sonnet', 'haiku'],
+  'performance-engineer': ['sonnet', 'haiku'],
+  'l3-support':           ['sonnet', 'haiku'],
+  // utility — cheap is correct
+  'devops':               ['sonnet', 'haiku'],
+  'qa-engineer':          ['sonnet', 'haiku'],
+  'continuous-learner':   ['haiku'],
+  'ai-eval-engineer':     ['sonnet', 'haiku'],
+  'project-auditor':      ['sonnet', 'opus'],
+  // AI subsystem
+  'ai-prompt-architect':  ['sonnet', 'opus'],
+  'ai-security-reviewer': ['sonnet', 'opus'],
+  // reviewers — sonnet is the default; only flag opus/haiku
+  '*-reviewer':           ['sonnet'],
+};
+
+function expectedTiersFor(slug, basename) {
+  if (MODEL_TIER_POLICY[slug]) return MODEL_TIER_POLICY[slug];
+  if (REVIEWER_PATTERN.test(basename)) return MODEL_TIER_POLICY['*-reviewer'];
+  return null;  // unknown agent — no policy
+}
+
+function modelToTier(model) {
+  const m = String(model).toLowerCase();
+  const short = m.match(/^(haiku|sonnet|opus)$/);
+  if (short) return short[1];
+  const fq = m.match(/^claude-(haiku|sonnet|opus)-/);
+  if (fq) return fq[1];
+  return null;
+}
+
 // ── Severity levels ─────────────────────────────────────────────────────────
 
 const SEVERITY = { error: 'error', warn: 'warn' };
@@ -255,6 +299,51 @@ const RULES = [
         return ['no explicit output (file path like `docs/xxx/YYY-*.md` or `Output:` contract)'];
       }
       return [];
+    },
+  },
+
+  // ── Cross-prompt consistency (CONS-*, v2.7.0) ──
+  {
+    id: 'CONS-MODEL',
+    severity: SEVERITY.warn,
+    desc: 'agent uses a model tier appropriate for its role (see ADR-002)',
+    test(file) {
+      const meta = file.frontmatter || {};
+      if (!meta.model) return [];  // FM-003 catches missing model
+      const tier = modelToTier(meta.model);
+      if (!tier) return [];  // FM-003 catches unparseable
+      const expected = expectedTiersFor(file.slug, file.basename);
+      if (!expected) return [];  // unknown agent — no policy
+      if (!expected.includes(tier)) {
+        return [`model tier '${tier}' not in policy for '${file.slug}' (expected: ${expected.join('|')}). See ADR-002.`];
+      }
+      return [];
+    },
+  },
+  {
+    id: 'CONS-OUTPUT',
+    severity: SEVERITY.warn,
+    desc: 'reviewer declares an output file pattern (TM-/MIGRATE-/PERF-/etc.)',
+    appliesTo(file) { return REVIEWER_PATTERN.test(file.basename); },
+    test(file) {
+      // Reviewers must reference a docs/<dir>/<PREFIX>-{slug-or-name}.md output.
+      // Allows TM-, MIGRATE-, PERF-, ARCH- variants.
+      const re = /docs\/[a-z-]+\/[A-Z][A-Z0-9-]+-(?:\$\{?SLUG\}?|\{slug\}|extension-\{slug\}|[a-z][a-z0-9-]*)\.md/;
+      if (!re.test(file.text)) {
+        return [`reviewer missing explicit output file pattern (e.g. \`docs/sec-threats/TM-{slug}.md\`)`];
+      }
+      return [];
+    },
+  },
+  {
+    id: 'CONS-SIGNOFF',
+    severity: SEVERITY.warn,
+    desc: 'reviewer references sign-off / gate semantics',
+    appliesTo(file) { return REVIEWER_PATTERN.test(file.basename); },
+    test(file) {
+      // Reviewer must mention sign-off / gate so handoff to senior-dev is unambiguous
+      if (/sign[- ]?off|signs off|gate:|hand[- ]?off|HANDOFF/i.test(file.text)) return [];
+      return ['reviewer body missing `sign-off` / `gate:` / `HANDOFF` semantics — handoff to senior-dev unclear'];
     },
   },
 

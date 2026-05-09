@@ -6,6 +6,57 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.7.0 — 2026-05-09
+
+### Cross-prompt consistency rules + model-tier policy
+
+v2.6.0 shipped a structural linter (14 rules) that catches frontmatter
+drift, missing sections, and stale paths. v2.7.0 closes the next gap:
+**semantic consistency across the 18 reviewer agents and 8 pipeline
+agents**.
+
+Three new linter rules (all `warn` for soft-launch, promoted to `error`
+in v3.0):
+
+| Rule | What it locks in |
+|---|---|
+| **CONS-MODEL** | model tier matches the agent's role (architect ∈ {opus, sonnet}, continuous-learner ∈ {haiku}, …) |
+| **CONS-OUTPUT** | every reviewer declares a `docs/<dir>/<PREFIX>-{slug}.md` output file |
+| **CONS-SIGNOFF** | every reviewer references `sign-off` / `gate:` / `HANDOFF` semantics |
+
+The policy lives in `MODEL_TIER_POLICY` (single source of truth) inside
+`scripts/agent-prompt-lint.mjs`. New agents added without a tier
+assignment get a warning at PR time instead of leaking opus-cost into
+production.
+
+Why this matters:
+- **Cost control** — prevents `continuous-learner` accidentally on opus
+  ($5/run for a task that takes haiku 30¢).
+- **Quality floor** — prevents `architect` accidentally on haiku
+  (shallow ADRs, missed cross-cutting concerns).
+- **Reviewer contract** — board API + senior-dev handoff break silently
+  if a reviewer skips its TM-{slug}.md output. Now caught at lint time.
+
+Pipeline: 61 → 62 tests (linter rule count: 14 → 17). 0 errors, 1
+pre-existing warning across all 34 agents — clean baseline.
+
+### ADR
+- **[ADR-002](docs/adr/ADR-002-model-tier-policy.md)** — model-tier
+  policy with per-role tier table + cost analysis + migration path.
+
+### Files
+- `scripts/agent-prompt-lint.mjs` — +3 rules + `MODEL_TIER_POLICY` map
+- `docs/adr/ADR-002-model-tier-policy.md` — new
+- `docs/AGENT-LINT-RULES.md` — CONS-* section + updated roadmap
+
+### Roadmap deferred to v3.0
+- **CONS-MODEL → error** after one minor cycle of warn-level catalogue
+- **CONS-ARCHETYPE** — archetype-specific reviewer ↔ `archetypes.ts` mapping
+- **EVAL-*** — LLM-as-judge (requires API key, opt-in)
+- **BEH-*** — behaviour tests via real Claude Code SDK (CI cost)
+
+---
+
 ## v2.6.0 — 2026-05-09
 
 ### Agent prompt linter — structural validation for all 34 agents
