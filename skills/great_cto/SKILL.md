@@ -29,14 +29,33 @@ Load in order (later overrides earlier):
 3. `.great_cto/local.md` — local machine overrides (gitignored)
 
 **Detect host platform** — great_cto runs in multiple AI-coding tools. Some
-deps are Claude-specific and don't apply elsewhere:
+deps are Claude-specific and don't apply elsewhere. Detection uses runtime
+env vars (set by the host process) first, filesystem markers second:
 
 ```bash
 HOST="generic"
-[ -d ~/.claude ] && HOST="claude-code"
-[ -d ~/.codex ] && HOST="codex"
-[ -d ~/.cursor ] && [ "$HOST" = "generic" ] && HOST="cursor"
-[ -d ~/.config/aider ] && [ "$HOST" = "generic" ] && HOST="aider"
+
+# Runtime env vars (most reliable — set by the host actually invoking us)
+if [ -n "$CLAUDECODE" ] || [ -n "$CLAUDE_CODE_ENTRYPOINT" ]; then
+  HOST="claude-code"
+elif [ -n "$CODEX_HOME" ] || [ -n "$CODEX_SESSION" ]; then
+  HOST="codex"
+elif [ -n "$CURSOR_TRACE_ID" ] || [ "${TERM_PROGRAM:-}" = "Cursor" ]; then
+  HOST="cursor"
+elif [ -n "$AIDER_VERSION" ]; then
+  HOST="aider"
+elif [ -n "$CONTINUE_GLOBAL_DIR" ]; then
+  HOST="continue"
+else
+  # Fallback to filesystem markers when env is empty (manual invocation, CI, ...).
+  # Order matters: pick the most specific signal that exists.
+  if [ -d ~/.claude/plugins ] || [ -d ~/.claude/skills ]; then HOST="claude-code"
+  elif [ -d ~/.codex ]; then HOST="codex"
+  elif [ -d ~/.cursor ]; then HOST="cursor"
+  elif [ -d ~/.config/aider ]; then HOST="aider"
+  elif [ -d ~/.continue ]; then HOST="continue"
+  fi
+fi
 echo "HOST:$HOST"
 ```
 
