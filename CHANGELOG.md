@@ -6,6 +6,59 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.8 — 2026-05-09
+
+### CI hardening + plugin cache hygiene
+
+Three operational warts visible to anyone browsing the repo, all addressed.
+
+**1. Removed dead `UI e2e (Playwright)` workflow**
+
+`tests/ui/` is fully gitignored — never committed to the repo. The
+`ui-e2e.yml` workflow tried to install deps from a non-existent
+`tests/ui/package.json` and failed on every push. **Result before:** ✗
+red badge on every release. **Now:** workflow deleted (zero noise).
+
+When real e2e tests get committed, a fresh workflow can be added with
+correct cache paths.
+
+**2. `tests/structural/validate.py` already passing**
+
+Recent runs (post v2.5.7 commits) show ✓ — the CMD-loop sync is now
+correct for all 22 commands. Earlier failures were the validator
+**correctly** flagging missing entries; we addressed those by listing
+new commands in the SessionStart bash one-liner.
+
+**3. Plugin cache cleanup — `--keep 3` policy in SessionStart**
+
+Users updating via `npx great-cto@latest` accumulate plugin caches at
+`~/.claude/plugins/cache/local/great_cto/{1.0.x, 2.0.0, 2.1.0, ...}`.
+SessionStart syncs the latest but never cleaned up — typical install had
+7+ stale dirs (~70 MB).
+
+The SessionStart bash one-liner now ends with:
+
+```bash
+ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null \
+  | sort -V \
+  | awk -v k=3 '{a[NR]=$0} END {for (i=1; i<=NR-k; i++) print a[i]}' \
+  | xargs -I{} rm -rf {} 2>/dev/null || true
+```
+
+- `sort -V` — semver-aware ordering
+- `awk` (BSD/GNU portable) instead of GNU-only `head -n -3`
+- `|| true` — cleanup failure never breaks SessionStart
+- Keeps the 3 most recent (rollback-safe)
+
+After SessionStart on a 9-version install, only 3 newest remain.
+Verified: 9 → 3 (drops oldest 6) on a synthetic test.
+
+### Other changes
+
+- `docs/plans/PLAN-v2.5.8-ci-hardening.md` — plan for this release
+
+---
+
 ## v2.5.7 — 2026-05-09
 
 ### Pipeline phase tasks — agents now create per-stage Beads tasks

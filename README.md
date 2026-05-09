@@ -4,9 +4,11 @@
 
 # great_cto
 
-**Stop being the only person who can ship.**
+**Solo-CTO mode. Stop being the only person who can ship.**
 
-You're the CTO. You're also the bottleneck. **GreatCTO is 34 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+
+**Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — if you have 2+ engineers and need shared dashboards / multi-seat auth / per-developer audit logs, look at Cursor Business or GitHub Copilot Workspace.
 
 > **v2.5.7** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code · Cursor · Codex · Aider · Continue** · MCP server · webhooks · CI gate · per-stage Beads tasks · ~$34/mo per project · MIT
 
@@ -65,7 +67,7 @@ You're the CTO. You're also the bottleneck. **GreatCTO is 34 specialist agents**
 - `/agent-retire <name>` — graceful agent deprecation (archive prompt, remove from sync list, preserve verdicts for audit)
 - `/cost feature <slug>` — ROI per shipped feature (per-agent breakdown + comparison to human equivalent)
 - `/cost agent <name>` — quick per-agent cost summary
-- New positioning: GreatCTO is the management layer for your AI engineering team — hire (`/template install`), review (`/agent-review`), route (cost-per-feature), retire (`/agent-retire`)
+- New positioning: GreatCTO is the management layer between you and your AI agent fleet — hire (`/template install`), review (`/agent-review`), route (cost-per-feature), retire (`/agent-retire`). You're the manager; the agents are the org chart.
 
 ### v2.2.0 — 3 new archetypes: edtech, gov-public, insurance (May 2026)
 - `edtech` archetype + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + state student-privacy laws (SOPIPA-CA, NY 2-D)
@@ -518,7 +520,7 @@ LLMs are powerful but lose product judgment on ambiguous specs. Keeping a human 
 
 ## ⭐ Star this repo
 
-If great_cto saved you time on a project, please star the repo — it helps other solo founders and small teams find it.
+If great_cto saved you time on a project, please star the repo — it helps other solo CTOs and indie hackers find it.
 
 [![Star History Chart](https://api.star-history.com/svg?repos=avelikiy/great_cto&type=Date)](https://star-history.com/#avelikiy/great_cto&Date)
 
