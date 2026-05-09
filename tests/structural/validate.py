@@ -94,7 +94,7 @@ def extract_cmd_loop(plugin_data: dict[str, Any]) -> list[str]:
     for group in start:
         for hook in group.get("hooks", []):
             cmd = hook.get("command", "")
-            match = re.search(r"for CMD in ([a-z\s]+?);", cmd)
+            match = re.search(r"for CMD in ([a-z][a-z0-9\s\-]*?);\s*do", cmd)
             if match:
                 commands.extend(match.group(1).split())
     return commands
