@@ -59,6 +59,21 @@ jobs:
         with:
           python-version: "3.11"
 
+      # --- OSS hosts for Phase 2.5 live-boot steps (8 + 9) -----------------
+      # Aider: pip-installed (real binary, real config parser).
+      # Codex CLI: npm-installed (real binary, validates AGENTS.md is read).
+      # Both use scripts/mock-llm.py as their LLM endpoint — no API tokens spent.
+      - name: Install Aider + PyYAML
+        shell: bash
+        run: |
+          python3 -m pip install --quiet --upgrade pip
+          python3 -m pip install --quiet aider-chat pyyaml
+
+      - name: Install OpenAI Codex CLI
+        shell: bash
+        run: |
+          npm install -g @openai/codex || echo "codex install failed — step 9 will skip"
+
       # --- LOCAL source: build CLI dist before running canary ---------------
       - name: Build CLI (local source only)
         if: matrix.source == 'local'

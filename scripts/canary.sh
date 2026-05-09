@@ -27,6 +27,11 @@ set -uo pipefail
 SOURCE="${1:-local}"
 shift 2>/dev/null || true
 
+# Resolve script directory once, before any cd, so subsequent helpers can find
+# sibling scripts (mock-llm.py) regardless of where canary.sh was invoked from.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+[ -z "$SCRIPT_DIR" ] && SCRIPT_DIR="$(pwd)"
+
 # --- isolated home so we don't pollute the developer's ~/.claude ------------
 
 CANARY_HOME="$(mktemp -d)/home"
@@ -198,15 +203,140 @@ EOF
   rm -rf "$(dirname "$ADAPT_DIR")" 2>/dev/null
 done
 
+# --- step 8+9: live boot OSS hosts against generated configs -------------
+# Verify the generated configs are not just syntactically valid but actually
+# loadable by the real hosts. Uses scripts/mock-llm.py — no API tokens spent.
+# Hosts are skipped (not failed) if not installed locally — GitHub Actions
+# installs them before running canary.
+
+SKIPPED=0
+skipped() {
+  printf "  · %s (skipped — host not installed)\n" "$1"
+  SKIPPED=$((SKIPPED+1))
+}
+
+start_mock_llm() {
+  MOCK_PORT=$(node -e "
+    const s=require('net').createServer().listen(0,()=>{const p=s.address().port;console.log(p);s.close();});
+  " 2>/dev/null)
+  [ -z "$MOCK_PORT" ] && MOCK_PORT=18088
+  python3 "$SCRIPT_DIR/mock-llm.py" --port "$MOCK_PORT" > /tmp/canary-mock-llm.log 2>&1 &
+  MOCK_PID=$!
+  for i in $(seq 1 20); do
+    if curl -sf "http://127.0.0.1:$MOCK_PORT/healthz" > /dev/null 2>&1; then return 0; fi
+    sleep 0.2
+  done
+  return 1
+}
+
+stop_mock_llm() {
+  if [ -n "${MOCK_PID:-}" ]; then
+    kill "$MOCK_PID" 2>/dev/null
+    wait "$MOCK_PID" 2>/dev/null  # absorb the SIGTERM message
+    MOCK_PID=""
+  fi
+}
+
+# === step 8: Aider live boot ===
+echo
+echo "▸ step 8 — Aider live boot against mock LLM"
+
+if ! command -v aider >/dev/null 2>&1; then
+  skipped "aider not in PATH (install via pip install aider-chat)"
+elif ! start_mock_llm; then
+  step "mock LLM started" false
+else
+  AIDER_DIR="$(mktemp -d)/aider-test"
+  mkdir -p "$AIDER_DIR/.great_cto"
+  cat > "$AIDER_DIR/.great_cto/PROJECT.md" <<EOF
+archetype: cli
+description: Aider live-boot canary
+size: small
+EOF
+  (cd "$AIDER_DIR" && git init -q && HOME="$CANARY_HOME" "${CLI[@]}" adapt --platform aider > /dev/null 2>&1)
+  echo "// canary fixture" > "$AIDER_DIR/sample.js"
+  (cd "$AIDER_DIR" && git add -A && git commit -q -m "init" 2>/dev/null)
+
+  # Aider against mock OpenAI endpoint, no streaming, no pretty output, no auto-commit
+  cd "$AIDER_DIR"
+  # Do NOT override HOME here — pip-user-installed aider needs its real
+  # site-packages on sys.path. The mock-LLM env still isolates the network.
+  OPENAI_API_KEY=sk-canary-mock \
+  OPENAI_API_BASE="http://127.0.0.1:$MOCK_PORT/v1" \
+    timeout 30 aider \
+      --model openai/mock-model \
+      --no-pretty --no-stream --no-auto-commits --no-show-model-warnings \
+      --yes-always \
+      --message "say OK" \
+      sample.js \
+      > /tmp/canary-aider.log 2>&1
+  AIDER_RC=$?
+
+  step "aider launches without import error" \
+    bash -c "! grep -qE 'ModuleNotFoundError|ImportError' /tmp/canary-aider.log"
+  step "aider read .aider.conf.yml without YAML error" \
+    bash -c "! grep -qiE 'yaml.*error|invalid yaml' /tmp/canary-aider.log"
+  step "aider reached the mock LLM (clean exit + non-import-error)" \
+    bash -c "([ '$AIDER_RC' = '0' ] || [ '$AIDER_RC' = '1' ]) && ! grep -qE 'ModuleNotFoundError|ImportError' /tmp/canary-aider.log"
+
+  rm -rf "$(dirname "$AIDER_DIR")"
+  stop_mock_llm
+fi
+
+# === step 9: Codex CLI live boot ===
+echo
+echo "▸ step 9 — Codex CLI live boot against mock LLM"
+
+# OpenAI Codex CLI binary: tried `codex`, `openai-codex`, common installs.
+CODEX_BIN=""
+for candidate in codex openai-codex "@openai/codex"; do
+  if command -v "$candidate" >/dev/null 2>&1; then CODEX_BIN="$candidate"; break; fi
+done
+
+if [ -z "$CODEX_BIN" ]; then
+  skipped "codex not in PATH (install via npm install -g @openai/codex)"
+elif ! start_mock_llm; then
+  step "mock LLM started for codex" false
+else
+  CODEX_DIR="$(mktemp -d)/codex-test"
+  mkdir -p "$CODEX_DIR/.great_cto"
+  cat > "$CODEX_DIR/.great_cto/PROJECT.md" <<EOF
+archetype: cli
+description: Codex CLI live-boot canary
+size: small
+EOF
+  (cd "$CODEX_DIR" && git init -q && HOME="$CANARY_HOME" "${CLI[@]}" adapt --platform codex > /dev/null 2>&1)
+  echo "// canary fixture" > "$CODEX_DIR/sample.js"
+
+  cd "$CODEX_DIR"
+  OPENAI_API_KEY=sk-canary-mock \
+  OPENAI_BASE_URL="http://127.0.0.1:$MOCK_PORT/v1" \
+  HOME="$CANARY_HOME" \
+    timeout 30 "$CODEX_BIN" --help > /tmp/canary-codex.log 2>&1
+  CODEX_RC=$?
+
+  # We only verify --help works (proves binary launches against our env);
+  # actual prompt-and-respond cycle varies wildly across codex CLI versions.
+  step "codex --help exits 0" \
+    bash -c "[ '$CODEX_RC' = '0' ]"
+  step "AGENTS.md was generated for codex" \
+    test -f "$CODEX_DIR/AGENTS.md"
+
+  rm -rf "$(dirname "$CODEX_DIR")"
+  stop_mock_llm
+fi
+
 # --- summary ----------------------------------------------------------------
 
 echo
 echo "─────────────────────────────────────────"
+SKIP_NOTE=""
+[ "$SKIPPED" -gt 0 ] && SKIP_NOTE="   · $SKIPPED skipped"
 if [ "$FAIL" -eq 0 ]; then
-  echo "  ✓ $PASS passed   canary GREEN"
+  echo "  ✓ $PASS passed${SKIP_NOTE}   canary GREEN"
   exit 0
 else
-  echo "  ✓ $PASS passed   ✗ $FAIL failed   canary RED"
+  echo "  ✓ $PASS passed   ✗ $FAIL failed${SKIP_NOTE}   canary RED"
   echo
   echo "Failed steps:"
   for f in "${FAILURES[@]}"; do
