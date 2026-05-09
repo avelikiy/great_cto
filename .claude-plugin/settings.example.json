@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Example .claude/settings.local.json for great_cto users.",
+    "Copy to <project>/.claude/settings.local.json (NOT this directory) to",
+    "grant the local Claude Code session additional directory access.",
+    "",
+    "NOTE: additionalDirectories does NOT propagate to sub-agents spawned",
+    "via the Agent tool — see agents/_shared/sandbox-cwd-policy.md.",
+    "Run 'claude' from INSIDE the project root for the most reliable flow."
+  ],
+  "permissions": {
+    "additionalDirectories": [
+      "../shared-utils",
+      "~/code/sibling-project"
+    ],
+    "allow": [
+      "Bash(bd:*)",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(python3:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)",
+      "Bash(curl http://*)"
+    ]
+  },
+  "env": {
+    "GREAT_CTO_DISABLE_SESSION_LEARNING": "0"
+  }
+}

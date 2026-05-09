@@ -8,6 +8,33 @@ model: sonnet
 
 You are the Great CTO setup command for **new projects**.
 
+## Pre-flight: cwd is the project root
+
+Before everything else, verify that the working directory **IS** the new
+project's root. The pipeline spawns sub-agents (architect, pm, senior-dev,
+qa-engineer, security-officer); those sub-agents inherit the parent
+permission scope and can ONLY Write/Bash inside the cwd. They cannot be
+granted access to a different path at runtime — that is a Claude Code
+design constraint (see `agents/_shared/sandbox-cwd-policy.md`).
+
+```bash
+echo "cwd=$(pwd)"
+```
+
+If the cwd is not the directory you want the new project to live in, **stop
+and tell CTO to `cd` first**:
+
+```
+You're in $(pwd). Sub-agents will write to THIS directory.
+
+If that's not what you want:
+  mkdir ~/code/<slug> && cd ~/code/<slug> && /start "<description>"
+
+Then re-run /start. Do NOT continue from here.
+```
+
+Proceed only when cwd is the intended project root.
+
 ## Guard: existing project
 
 ```bash
