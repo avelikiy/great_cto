@@ -18,6 +18,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist age
 [![Stars](https://img.shields.io/github/stars/avelikiy/great_cto?style=flat)](https://github.com/avelikiy/great_cto/stargazers)
 [![Issues](https://img.shields.io/github/issues/avelikiy/great_cto)](https://github.com/avelikiy/great_cto/issues)
 [![Last commit](https://img.shields.io/github/last-commit/avelikiy/great_cto)](https://github.com/avelikiy/great_cto/commits/main)
+[![Daily Canary](https://img.shields.io/github/actions/workflow/status/avelikiy/great_cto/daily-canary.yml?branch=main&label=daily%20canary&logo=github)](https://github.com/avelikiy/great_cto/actions/workflows/daily-canary.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 [![Socket](https://socket.dev/api/badge/npm/package/great-cto)](https://socket.dev/npm/package/great-cto)
