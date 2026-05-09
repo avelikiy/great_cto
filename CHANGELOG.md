@@ -6,6 +6,66 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.7 — 2026-05-09
+
+### Pipeline phase tasks — agents now create per-stage Beads tasks
+
+Codex Test review surfaced that great_cto's `/start` flow created only
+**epic + gates** in Beads. None of the actual work stages (architect,
+senior-dev, QA, security, code review, devops) were tracked. Effect:
+the board UI showed "27 tasks shipped" but zero visibility into what
+agent did what.
+
+**Fix:** new helper `scripts/phase-task.sh` provides 4 actions:
+- `open <agent> <feature>` — creates a labelled phase task (idempotent —
+  re-running returns the existing id, so the protocol is safe to retry)
+- `start <id>` — moves to in_progress
+- `close <id> --verdict ok|fail|blocked` — closes or marks blocked
+- `latest <agent>` — most-recent open phase task for that agent
+
+Each pipeline agent prompt (architect / pm / senior-dev / qa-engineer /
+security-officer / performance-engineer / devops / l3-support — 8 agents)
+now includes a "Phase task tracking (mandatory)" section that invokes
+the helper at start + end of its phase.
+
+Falls back to `.great_cto/tasks.md` when Beads is unavailable. Never
+blocks the actual phase work — observability is best-effort.
+
+After this change, the board's `/api/tasks` shows real per-stage
+progress: `architect: stripe-subs` (closed), `senior-dev: stripe-subs`
+(in_progress), `qa-engineer: stripe-subs` (open) — instead of just the
+two gates.
+
+### Cost-history off-by-one window bug
+
+`getCostHistory(days=30)` built only 30 buckets covering `[today-29 ...
+today]` instead of the inclusive `[today-30 ... today]` window users
+expected. On a project where a batch of tasks closed exactly 30 days
+back, those tasks fell out of the history overnight (visible jump in
+`active_days` from 5 → 4 + `total_runs` from 16 → 10 between sessions).
+
+**Fix:** loop `<= days` instead of `< days` → 31 buckets, includes
+day-30. Verified math invariants: `total_llm/30 ≈ daily_avg`,
+`daily_avg*30 ≈ projected_monthly`, sum(series.llm) === total_llm.
+
+### Test runtime: production-readiness plan
+
+`Test/docs/plans/PLAN-runtime-production-readiness.md` — concrete v0.4.0
+plan for the Codex-reviewed agent runtime. Two pieces (~3h LLM-agent /
+~1.5 weeks human):
+
+1. **Typed tool result schema** — `ToolResult` + `ToolMetadata` (cost,
+   tokens, cached, truncated, source). Backwards-compat adapter for
+   legacy `Callable[[str], str]` tools.
+2. **OpenTelemetry tracing hooks** — span hierarchy (run → plan →
+   execute → tool.\<name>) with canonical attributes (`agent.*`, `tool.*`).
+   Default off; opt-in via `init_tracing()`.
+
+Memory / policy engine / eval harness / async deferred — each needs its
+own ADR before implementation.
+
+---
+
 ## v2.5.6 — 2026-05-09
 
 ### Cursor + Codex UX hardening — six operational issues from real-user dogfooding

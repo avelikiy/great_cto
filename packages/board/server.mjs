@@ -342,10 +342,14 @@ function getPipeline(cwd = process.cwd()) {
 
 // ── Cost history (daily LLM burn) ────────────────────────────────────────────
 function getCostHistory(cwd = process.cwd(), days = 30) {
-  // Build a map<dateISO, { llm, human, plans, verdictCost }>
+  // Build a map<dateISO, { llm, human, plans, verdictCost }>.
+  // Inclusive window: `days=30` means [today-30 ... today] = 31 buckets.
+  // Previous behaviour (days buckets only) created a one-day gap on the
+  // far edge — tasks closed exactly on `today - days` fell out of the
+  // history while still being valid "last 30 days" data per user expectation.
   const buckets = new Map();
   const now = Date.now();
-  for (let i = 0; i < days; i++) {
+  for (let i = 0; i <= days; i++) {
     const d = new Date(now - i * 86400000);
     const key = d.toISOString().slice(0, 10);
     buckets.set(key, { date: key, llm: 0, human: 0, plans: 0, runs: 0 });
