@@ -388,13 +388,15 @@ npx great-cto adapt --platform all       # all of the above
 
 All variants share AGENTS.md as the cross-tool standard, so editing `.great_cto/PROJECT.md` (archetype + compliance) updates every consumer with one re-run.
 
-| Tool | Native config | MCP support |
-|---|---|---|
-| Claude Code | CLAUDE.md (plugin layer with 34 agents) | ✓ via Claude Desktop |
-| Cursor | .cursorrules + .cursor/rules/ | ✓ |
-| OpenAI Codex CLI | AGENTS.md | ✓ |
-| Aider | .aider.conf.yml + CONVENTIONS.md | partial |
-| Continue | .continue/rules.md | ✓ |
+| Tool | Native config | MCP support | Daily verified |
+|---|---|---|---|
+| Claude Code | CLAUDE.md + AGENTS.md (34-agent plugin layer) | ✓ via Claude Desktop | ✓ canary step 7 |
+| OpenAI Codex CLI | AGENTS.md | ✓ | ✓ canary step 7 |
+| Cursor | .cursorrules + .cursor/rules/*.mdc + AGENTS.md | ✓ | ✓ canary step 7 |
+| Aider | .aider.conf.yml (YAML-validated) + CONVENTIONS.md + AGENTS.md | partial | ✓ canary step 7 |
+| Continue | .continue/rules.md + AGENTS.md | ✓ | ✓ canary step 7 |
+
+The "Daily verified" column links to `scripts/canary.sh` step 7, which runs in [GitHub Actions every 06:00 UTC](.github/workflows/daily-canary.yml) on Ubuntu × macOS × Node 18.17/20/22 against both the working tree and the published npm artifact. If `adapt --platform <host>` ever stops generating the listed files (or `.aider.conf.yml` becomes invalid YAML), the daily canary opens an issue automatically. See the **Daily Canary** badge at the top of this README for live status.
 
 A native VS Code / Cursor extension is in `packages/cursor-ext/` — adds command-palette entries for scan / CI / report and a status-bar shield icon.
 
