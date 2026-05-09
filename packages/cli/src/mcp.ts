@@ -287,6 +287,83 @@ async function handle(req: JsonRpcRequest): Promise<JsonRpcResponse | null> {
   }
 }
 
+// ── SSE transport ──────────────────────────────────────────────────────────
+
+async function runSse(port: number, version: string): Promise<number> {
+  const { createServer } = await import("node:http");
+
+  // Each connection gets a unique session id and an open SSE stream.
+  // Inbound JSON-RPC arrives via POST /message?sessionId=<id>; responses are
+  // pushed back over the SSE stream. This matches the standard MCP SSE
+  // transport (https://spec.modelcontextprotocol.io/specification/transports).
+  const sessions = new Map<string, import("node:http").ServerResponse>();
+
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+
+    if (req.method === "GET" && url.pathname === "/sse") {
+      const sessionId = `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      // Initial endpoint event — tells client where to POST messages
+      res.write(`event: endpoint\ndata: /message?sessionId=${sessionId}\n\n`);
+      sessions.set(sessionId, res);
+      req.on("close", () => sessions.delete(sessionId));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/message") {
+      const sessionId = url.searchParams.get("sessionId") ?? "";
+      const sse = sessions.get(sessionId);
+      if (!sse) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "unknown sessionId" }));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      req.on("data", c => chunks.push(Buffer.from(c)));
+      req.on("end", async () => {
+        const body = Buffer.concat(chunks).toString("utf8");
+        try {
+          const reqJson = JSON.parse(body) as JsonRpcRequest;
+          const reply = await handle(reqJson);
+          if (reply) {
+            sse.write(`event: message\ndata: ${JSON.stringify(reply)}\n\n`);
+          }
+          res.writeHead(202).end();
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: (e as Error).message }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/healthz") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, version, sessions: sessions.size, transport: "sse" }));
+      return;
+    }
+
+    res.writeHead(404).end();
+  });
+
+  return new Promise<number>(resolve => {
+    server.listen(port, "127.0.0.1", () => {
+      process.stderr.write(`great-cto mcp v${version} (sse) → http://localhost:${port}/sse\n`);
+      process.stderr.write(`  GET  /sse                       open event stream\n`);
+      process.stderr.write(`  POST /message?sessionId=...     send JSON-RPC\n`);
+      process.stderr.write(`  GET  /healthz                   liveness\n`);
+    });
+    process.on("SIGINT", () => { server.close(); resolve(0); });
+    process.on("SIGTERM", () => { server.close(); resolve(0); });
+  });
+}
+
 // ── stdio transport ────────────────────────────────────────────────────────
 
 async function runStdio(): Promise<number> {
@@ -328,8 +405,7 @@ export async function runMcp(args: McpArgs): Promise<number> {
   SERVER_INFO.version = args.version;
 
   if (args.mode === "sse") {
-    process.stderr.write("great-cto mcp: SSE mode not yet implemented (use --stdio)\n");
-    return 2;
+    return runSse(args.port, args.version);
   }
 
   // Notify clients we're ready (some hosts log this)

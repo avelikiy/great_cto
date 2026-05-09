@@ -6,6 +6,104 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.0 — 2026-05-09
+
+### Production-grade webhooks + MCP SSE + reports + Cursor extension
+
+Five major additions extending the multi-platform foundation laid in v2.4.0.
+Single biggest release since v2.0.
+
+**1. Webhooks production-grade — HMAC + retry + DLQ + outbound**
+
+- HMAC-SHA256 verification on incoming webhooks (constant-time comparison via
+  \`crypto.timingSafeEqual\`)
+- Three native handlers: GitHub (\`X-Hub-Signature-256\`), Sentry
+  (\`X-Sentry-Signature-256\`), generic (configurable)
+- Outbound dispatcher with exponential-backoff retry (1s → 4s → 16s → 64s,
+  4 attempts) and dead-letter queue at \`~/.great_cto/webhook-dlq.log\`
+- Format adapters: Slack incoming-webhook, Discord, PagerDuty Events API v2,
+  generic JSON POST
+- Config persisted at \`~/.great_cto/webhooks.json\`
+- New subcommand:
+  \`\`\`bash
+  great-cto webhook list
+  great-cto webhook add-incoming github --secret <hmac>
+  great-cto webhook add-outgoing ops-slack --url <slack-url> --format slack \\
+                                            --triggers pr.opened,incident.p0
+  great-cto webhook test ops-slack
+  great-cto webhook remove ops-slack
+  \`\`\`
+- Insecure mode (\`great-cto serve --insecure\` or
+  \`GREATCTO_WEBHOOK_INSECURE=1\`) only for local development
+- Server endpoints: \`/webhook/github\`, \`/webhook/sentry\`,
+  \`/webhook/generic\`, \`/events\`, \`/dlq\`, \`/healthz\`
+
+**2. MCP SSE mode — multi-client / remote**
+
+\`great-cto mcp --sse --port 8765\` runs a long-running HTTP server with the
+standard MCP SSE transport:
+
+- \`GET /sse\` opens an event stream and emits the per-session endpoint
+- \`POST /message?sessionId=<id>\` accepts inbound JSON-RPC
+- Multiple clients can connect concurrently
+- Same 5 tools as stdio mode (\`scan\`, \`list_rules\`, \`detect_archetype\`,
+  \`estimate_cost\`, \`query_decisions\`)
+
+**3. \`great-cto report\` — shareable HTML/JSON artifacts**
+
+Three report types, two output formats. HTML output is fully self-contained
+(no external CSS/JS) — emailable, attachable, hostable as GitHub Pages:
+
+\`\`\`bash
+great-cto report cost --period 30d > cost.html       # CFO-friendly
+great-cto report agents --period 7d --format json    # CI / scripts
+great-cto report compliance --archetype fintech      # board / audit
+\`\`\`
+
+Embeds inline SVG charts (no JS dependencies). Dark mode via
+\`prefers-color-scheme\`.
+
+**4. Cursor extension stub — \`packages/cursor-ext/\`**
+
+VS Code / Cursor extension scaffold (TypeScript + vsce-ready). Four commands
+in the command palette:
+
+| Command | Action |
+|---|---|
+| \`great_cto: Generate Cursor config\` | \`great-cto adapt --platform cursor\` |
+| \`great_cto: Scan workspace\` | \`great-cto scan\` in terminal |
+| \`great_cto: Run pre-merge CI gate\` | \`great-cto ci .\` |
+| \`great_cto: Generate cost report\` | \`great-cto report cost\` → opens HTML |
+
+Status-bar shield icon for one-click scan. Extension is a thin wrapper —
+shells out to npx so updates flow through npm.
+\`packages/cursor-ext/README.md\` documents marketplace publish flow.
+
+**5. ADR-001: Multi-tenant board — path to managed SaaS**
+
+\`docs/adr/ADR-001-multi-tenant-board.md\` lays out the architectural
+decision (deferred to v2.6.0+) for going multi-tenant: DB-per-tenant
+SQLite for self-hosted, RLS-Postgres for managed SaaS, OAuth-only auth,
+proposed pricing tiers ($20/seat Starter → $50/seat Growth → custom
+Enterprise). Implementation guarded by demand validation gates.
+
+### Pipeline tests
+
+\`scripts/test-pipeline.sh\` extended from 48 → **55 checks** (added 7 covering
+webhook config, HMAC verification, MCP SSE, all 3 report types). Full run
+in ~16 sec.
+
+### Strategic note
+
+v2.5.0 cements great_cto as **"AI orchestration layer for any AI-coding
+tool"**. Cursor extension closes the loop on the 4M-MAU Cursor user base.
+Webhooks transform the local board into a control plane that reacts to
+external events (GitHub PRs, Sentry alerts) and broadcasts notifications
+(Slack, PagerDuty). Reports give CFO/compliance officers a read-only window
+into AI engineering ROI without cloning a single repo.
+
+---
+
 ## v2.4.0 — 2026-05-09
 
 ### Multi-platform support — works in Codex, Cursor, Aider, Continue, Claude Code

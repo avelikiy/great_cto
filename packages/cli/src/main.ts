@@ -36,7 +36,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report";
   dir: string;
   yes: boolean;
   dryRun: boolean;
@@ -89,6 +89,8 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "mcp") args.command = "mcp";
     else if (a === "adapt") args.command = "adapt";
     else if (a === "serve") args.command = "serve";
+    else if (a === "webhook") args.command = "webhook";
+    else if (a === "report") args.command = "report";
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
     else if (a === "init" || a === "help" || a === "version") {
@@ -836,7 +838,37 @@ async function main(): Promise<void> {
       const code = await runServe({
         port: args.boardPort === 3141 ? 3142 : args.boardPort,
         noLog: rawArgv.includes("--no-log"),
+        insecure: rawArgv.includes("--insecure"),
       });
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
+    }
+  }
+  if (args.command === "webhook") {
+    try {
+      const { runWebhookCli, parseWebhookArgs } = await import("./webhook-cli.js");
+      const parsed = parseWebhookArgs(rawArgv);
+      if (!parsed) {
+        error("usage: great-cto webhook list | add-incoming <name> --secret <s> | add-outgoing <name> --url <u> --format <f> --triggers <t1,t2> | remove <name> | test <name>");
+        process.exit(2);
+      }
+      const code = await runWebhookCli(parsed);
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
+    }
+  }
+  if (args.command === "report") {
+    try {
+      const { runReport, parseReportArgs } = await import("./report.js");
+      const parsed = parseReportArgs(rawArgv, args.dir);
+      if (!parsed) {
+        process.exit(2);
+      }
+      const code = await runReport(parsed);
       process.exit(code);
     } catch (e) {
       error((e as Error).message);
