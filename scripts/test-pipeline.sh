@@ -143,6 +143,10 @@ else
 
   check "release.sh + bump-version.sh syntax" \
     bash -c "bash -n scripts/release.sh && bash -n scripts/bump-version.sh"
+
+  # v2.6.0+: agent prompt structural linter
+  check "agent-prompt-lint: 0 errors across all agents/" \
+    bash -c "node scripts/agent-prompt-lint.mjs --json 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(1 if d[\"errors\"] > 0 else 0)'"
 fi
 
 # =============================================================================
