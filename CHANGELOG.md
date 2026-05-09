@@ -6,6 +6,37 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.5.1 — 2026-05-09
+
+### Critical bugfix: scan/ci missed findings on relative paths
+
+`great-cto scan ./vulnerable.ts` and `great-cto ci ./vulnerable.ts` returned
+**0 findings** when the path was relative — even on the canonical fixture
+that should produce 5 findings. Absolute paths worked correctly. Discovered
+during E2E testing of v2.5.0.
+
+**Root cause:** `fileMatchesGlobs()` in `scanner.ts` used a sentinel-based
+multi-pass replace to convert globs to regex (`**` → SOH → `.*`). The pattern
+for `**/*.ts` produced `.*/[^/]*\.ts` which **requires** a slash. Files at
+the root of cwd (`vulnerable.ts`) have no slash → pattern rejects them →
+all rules skipped → 0 findings.
+
+**Fix:** rewrote glob-to-regex with token-based walker. `**/` now correctly
+becomes `(?:.*\/)?` (zero-or-more path segments) so `vulnerable.ts` matches
+`**/*.ts`. Regex anchored to suffix (`(?:^|/)<pattern>$`) for correctness.
+
+This bug existed since v2.0.0 (when AgentShield merged into the CLI). All
+prior versions affected. Recommend immediate upgrade.
+
+### Impact
+
+Anyone running `npx great-cto scan` or `npx great-cto ci` on a relative
+path containing files at the cwd root saw false-clean results. CI workflows
+that ran `great-cto ci ./` before this release silently passed even with
+critical findings.
+
+---
+
 ## v2.5.0 — 2026-05-09
 
 ### Production-grade webhooks + MCP SSE + reports + Cursor extension
