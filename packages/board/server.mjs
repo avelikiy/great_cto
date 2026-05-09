@@ -685,20 +685,35 @@ function getMetrics(cwd = process.cwd()) {
     }))
     .sort((a, b) => b.time_min - a.time_min);
 
-  // Fallback: when no docs/plans/*.md cost data exists, derive cost from
-  // tasks (agentCostMap) — every project with bd tasks gets meaningful tiles
-  // even before a single PLAN-*.md is written.
+  // Cost source priority:
+  //   1) PLAN-*.md files (real planned cost) — costData
+  //   2) Verdict cost tags (real per-run cost — written by scripts/log-verdict.sh)
+  //   3) Task-based estimation (every project gets meaningful tiles even without plans)
   const taskLlmTotal   = agentsCost.reduce((s, a) => s + a.llm_usd, 0);
   const taskHumanTotal = agentsCost.reduce((s, a) => s + a.human_usd, 0);
-  const cost = (costData.llm_usd > 0 || costData.human_usd > 0)
-    ? costData
-    : {
-        llm_usd:   Math.round(taskLlmTotal   * 100) / 100,
-        human_usd: Math.round(taskHumanTotal),
-        savings_x: taskLlmTotal > 0 ? Math.round(taskHumanTotal / taskLlmTotal) : 0,
-        count:     0,
-        source:    'tasks',  // hint to UI: "estimated from tasks, no plans yet"
-      };
+  const verdictLlmTotal = verdicts.reduce((s, v) => s + (v.cost_usd || 0), 0);
+
+  let cost;
+  if (costData.llm_usd > 0 || costData.human_usd > 0) {
+    cost = costData;
+  } else if (verdictLlmTotal > 0) {
+    // Pair real LLM cost with task-based human baseline so savings_x stays meaningful.
+    cost = {
+      llm_usd:   Math.round(verdictLlmTotal * 100) / 100,
+      human_usd: Math.round(taskHumanTotal),
+      savings_x: verdictLlmTotal > 0 ? Math.round(taskHumanTotal / verdictLlmTotal) : 0,
+      count:     verdicts.filter(v => v.cost_usd != null).length,
+      source:    'verdicts',
+    };
+  } else {
+    cost = {
+      llm_usd:   Math.round(taskLlmTotal   * 100) / 100,
+      human_usd: Math.round(taskHumanTotal),
+      savings_x: taskLlmTotal > 0 ? Math.round(taskHumanTotal / taskLlmTotal) : 0,
+      count:     0,
+      source:    'tasks',
+    };
+  }
 
   return {
     tasks: { total: tasks.length, done: done.length, in_progress: inProgress.length, backlog: backlog.length },
@@ -734,6 +749,27 @@ function readVerdicts() {
       });
     }
   }
+
+  // Fallback: enrich verdicts that lack cost_usd from .great_cto/cost-history.log.
+  // Format: "<ISO-ts> <agent> <cost_usd>" per line (written by scripts/log-verdict.sh).
+  // Match by ts (minute precision) + agent to avoid double-counting.
+  const histPath = path.join(GREAT_CTO_DIR, 'cost-history.log');
+  if (fs.existsSync(histPath)) {
+    const costByKey = new Map();
+    const lines = fs.readFileSync(histPath, 'utf8').split('\n').filter(Boolean);
+    for (const line of lines) {
+      const m = line.match(/^(\S+)\s+(\S+)\s+(\d+\.?\d*)/);
+      if (!m) continue;
+      const key = `${m[1].slice(0, 16)}|${m[2]}`;  // minute + agent
+      costByKey.set(key, parseFloat(m[3]));
+    }
+    for (const v of results) {
+      if (v.cost_usd != null) continue;
+      const key = `${(v.ts || '').slice(0, 16)}|${v.agent}`;
+      if (costByKey.has(key)) v.cost_usd = costByKey.get(key);
+    }
+  }
+
   return results.sort((a, b) => a.ts.localeCompare(b.ts));
 }
 
