@@ -353,6 +353,44 @@ All variants share AGENTS.md as the cross-tool standard, so editing `.great_cto/
 
 A native VS Code / Cursor extension is in `packages/cursor-ext/` — adds command-palette entries for scan / CI / report and a status-bar shield icon.
 
+## Board API surface
+
+The board (`great-cto board` → http://localhost:3141) exposes a JSON API for
+external integrations / smoke tests. **All list endpoints return raw arrays
+or top-level fields, not wrapped objects** — design for direct iteration:
+
+| Endpoint | Method | Returns |
+|---|---|---|
+| `/api/projects` | GET | `Project[]` — array of `{slug, archetype, path, ...}` |
+| `/api/tasks?project=<slug>` | GET | `Task[]` — array of `{id, title, status, ...}` |
+| `/api/agents-installed` | GET | `{agents: [...], total: N}` |
+| `/api/metrics?project=<slug>` | GET | `{tasks, velocity, cost, qa, security, agents, agents_cost}` |
+| `/api/cost?project=<slug>&days=30` | GET | `{series, total_llm, total_human, ...}` |
+| `/api/memory?project=<slug>` | GET | `{layers: [...11], patterns: [...]}` |
+| `/api/inbox?project=<slug>` | GET | `{open_gates, p0_open, blocked, recent_activity, ...}` |
+| `/api/logs?project=<slug>` | GET | `{logs: [...]}` |
+| `/api/decisions?limit=20` | GET | `Decision[]` |
+| `/api/pipeline?project=<slug>` | GET | `Stage[]` — 8 SDLC stages with status |
+| `/api/healthz` | GET | `{ok: true}` |
+
+**Common gotcha:** `/api/projects` and `/api/tasks` return **arrays directly**,
+not `{projects: [...]}` wrappers. Smoke scripts that test `data.projects`
+will see `undefined` and falsely report empty data. Use:
+
+```python
+import urllib.request, json
+data = json.load(urllib.request.urlopen("http://127.0.0.1:3141/api/projects"))
+assert isinstance(data, list), "endpoint returns array directly"
+print(f"projects: {len(data)}")
+```
+
+```bash
+curl -sf http://127.0.0.1:3141/api/tasks?project=Test | jq 'length'
+```
+
+For a full reference: `packages/board/server.mjs` — every route is a top-level
+`if (pathname === '/api/...')` block.
+
 ## CI integration
 
 Drop into any GitHub Actions workflow:
