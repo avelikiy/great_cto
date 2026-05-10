@@ -800,7 +800,9 @@ async function runInit(args: CliArgs): Promise<number> {
 async function exitWithTelemetry(subcommand: string, code: number): Promise<never> {
   try {
     const promise = sendUsagePing({ cliVersion: getCliVersion(), subcommand, exitCode: code });
-    await Promise.race([promise, new Promise(r => setTimeout(r, 200))]);
+    // 1.2s — enough for transcontinental hop to CF Worker (typical ≤500ms)
+    // while still bounded so we never block exit on a flaky network.
+    await Promise.race([promise, new Promise(r => setTimeout(r, 1200))]);
   } catch { /* never block exit */ }
   process.exit(code);
 }
@@ -816,7 +818,7 @@ async function main(): Promise<void> {
   if (args.command === "scan") {
     try {
       const code = await runScan(args, rawArgv);
-      process.exit(code);
+      await exitWithTelemetry("scan", code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
