@@ -39,6 +39,12 @@ tests/ui/
 tests/ui/node_modules/
 tests/ui/test-results/
 workers/**
+# But keep telemetry worker source committed (deployed via wrangler from repo)
+!workers/telemetry/
+!workers/telemetry/*.ts
+!workers/telemetry/*.toml
+!workers/telemetry/*.sql
+!workers/telemetry/*.md
 packages/cli/dist/
 
 
