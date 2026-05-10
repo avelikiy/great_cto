@@ -38,6 +38,10 @@ Eres el CTO. También eres el cuello de botella. **GreatCTO son 30 agentes espec
 
 great_cto es un [plugin de Claude Code](https://claude.com/plugins) que ejecuta el pipeline completo SDLC como **30 agentes especialistas** — arquitecto, planificación, implementación, revisión de 12 ángulos, QA, seguridad, deploy, soporte — coordinados a través de un board que realmente revisas. Tomas dos decisiones por feature; todo lo demás es automático.
 
+<p align="center">
+  <img src="../screenshots/board.png" alt="great_cto kanban — 5 columnas, aprobación de gates inline, SSE en vivo" width="900" />
+</p>
+
 | Capa | Qué hace |
 |------|----------|
 | **33 especialistas** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
@@ -46,10 +50,6 @@ great_cto es un [plugin de Claude Code](https://claude.com/plugins) que ejecuta 
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — adjuntado automáticamente por arquetipo. |
 | **Memoria** | 4 capas — `PROJECT.md` (arquetipo) · `lessons.md` (retros por proyecto) · `~/.great_cto/decisions.md` (cada aprobación de gate, consultable entre proyectos) · `verdicts/` (cada veredicto de agente). |
 | **Board** | `great-cto board` abre 6 vistas en `localhost:3141` — Inbox · Kanban · Metrics · Agents · Memory · Reporte público. Updates en vivo vía SSE. |
-
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto kanban — 5 columnas, aprobación de gates inline, SSE en vivo" width="900" />
-</p>
 
 ## Dos decisiones por feature
 

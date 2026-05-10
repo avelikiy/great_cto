@@ -55,6 +55,12 @@ great_cto is the orchestration layer that runs the full SDLC pipeline as **34 sp
 
 It started as a Claude Code plugin and **v2.4+ added cross-platform support** — the same archetype/compliance/scan/MCP machinery now runs in Cursor, OpenAI Codex CLI, Aider, and Continue via AGENTS.md + MCP. See [Cross-platform support](#cross-platform-support) below.
 
+<p align="center">
+  <img src="docs/screenshots/board.png" alt="great_cto kanban — 5 columns, inline gate approval, live SSE" width="900" />
+  <br/>
+  <em>Kanban — 5 columns, inline status edit, live SSE updates from <code>bd</code> CLI.</em>
+</p>
+
 | Layer | What it does |
 |-------|--------------|
 | **34 specialist agents** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
@@ -63,12 +69,6 @@ It started as a Claude Code plugin and **v2.4+ added cross-platform support** �
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — auto-attached per archetype. |
 | **Memory** | 4 layers — `PROJECT.md` (archetype) · `lessons.md` (per-project retros) · `~/.great_cto/decisions.md` (every gate approval, queryable across projects) · `verdicts/` (every agent verdict). |
 | **Board** | `great-cto board` opens 6 views at `localhost:3141` — Inbox · Kanban · Metrics · Agents · Memory · Public report. Live SSE updates. |
-
-<p align="center">
-  <img src="docs/screenshots/board.png" alt="great_cto kanban — 5 columns, inline gate approval, live SSE" width="900" />
-  <br/>
-  <em>Kanban — 5 columns, inline status edit, live SSE updates from <code>bd</code> CLI.</em>
-</p>
 
 ## Two decisions per feature
 
@@ -295,6 +295,8 @@ Verify what we'd send without sending:
 GREAT_CTO_TELEMETRY=on GREAT_CTO_TELEMETRY_DRYRUN=1 great-cto scan ./
 # stderr: [telemetry] would-send: {…canonical event JSON…}
 ```
+
+**What we do with the data:** weekly aggregate report committed to [`docs/insights/`](docs/insights/) every Monday by GitHub Actions. Decisions (what to deprecate, what to polish, when to drop legacy Node) are grounded in those reports — see [`scripts/weekly-telemetry.sh`](scripts/weekly-telemetry.sh) for the canonical 5 queries we run.
 
 Right to be forgotten — see [`docs/PRIVACY.md#right-to-be-forgotten`](docs/PRIVACY.md#right-to-be-forgotten).
 Source code: [`packages/cli/src/telemetry.ts`](packages/cli/src/telemetry.ts) +

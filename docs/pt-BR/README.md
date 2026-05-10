@@ -38,6 +38,10 @@ Você é o CTO. Você também é o gargalo. **GreatCTO são 30 agentes especiali
 
 great_cto é um [plugin do Claude Code](https://claude.com/plugins) que executa o pipeline SDLC completo como **30 agentes especialistas** — arquiteto, planejamento, implementação, code review de 12 ângulos, QA, segurança, deploy, suporte — coordenados através de um board que você realmente checa. Você toma duas decisões por feature; o resto é automático.
 
+<p align="center">
+  <img src="../screenshots/board.png" alt="great_cto kanban — 5 colunas, gate approval inline, SSE ao vivo" width="900" />
+</p>
+
 | Camada | O que faz |
 |--------|-----------|
 | **33 especialistas** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
@@ -46,10 +50,6 @@ great_cto é um [plugin do Claude Code](https://claude.com/plugins) que executa 
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · LGPD · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — anexado automaticamente por arquétipo. |
 | **Memória** | 4 camadas — `PROJECT.md` (arquétipo) · `lessons.md` (retros do projeto) · `~/.great_cto/decisions.md` (toda aprovação de gate, consultável entre projetos) · `verdicts/` (todo veredito de agente). |
 | **Board** | `great-cto board` abre 6 visões em `localhost:3141` — Inbox · Kanban · Metrics · Agents · Memory · Public report. Updates ao vivo via SSE. |
-
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto kanban — 5 colunas, gate approval inline, SSE ao vivo" width="900" />
-</p>
 
 ## Duas decisões por feature
 

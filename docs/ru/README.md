@@ -38,6 +38,12 @@
 
 great_cto — это [плагин для Claude Code](https://claude.com/plugins), который запускает полный SDLC-пайплайн в виде **30 специализированных агентов** — архитектор, планирование, имплементация, ревью под 12 углов, QA, безопасность, деплой, поддержка — координируемых через борд, в который ты реально заглядываешь. Ты принимаешь два решения на фичу; всё остальное — автоматически.
 
+<p align="center">
+  <img src="../screenshots/board.png" alt="great_cto kanban — 5 колонок, inline-аппрув гейтов, live SSE" width="900" />
+  <br/>
+  <em>Kanban — 5 колонок, inline-редактирование статуса, live-обновления через SSE из <code>bd</code> CLI.</em>
+</p>
+
 | Слой | Что делает |
 |-------|--------------|
 | **33 специалистов** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
@@ -46,12 +52,6 @@ great_cto — это [плагин для Claude Code](https://claude.com/plugin
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — авто-подтягивается под архетип. |
 | **Память** | 4 уровня — `PROJECT.md` (архетип) · `lessons.md` (ретро по проекту) · `~/.great_cto/decisions.md` (каждое решение через гейт, с поиском между проектами) · `verdicts/` (каждый вердикт агента). |
 | **Борд** | `great-cto board` открывает 6 представлений на `localhost:3141` — Inbox · Kanban · Metrics · Agents · Memory · Публичный отчёт. Live-обновления через SSE. |
-
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto kanban — 5 колонок, inline-аппрув гейтов, live SSE" width="900" />
-  <br/>
-  <em>Kanban — 5 колонок, inline-редактирование статуса, live-обновления через SSE из <code>bd</code> CLI.</em>
-</p>
 
 ## Два решения на фичу
 
