@@ -57,8 +57,19 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 `great-cto board` opens an admin UI at `http://localhost:3141` — Kanban with realtime SSE updates, per-agent cost tile, pipeline status across 8 stages, and a 30-day cost history that pairs LLM spend with the human-equivalent baseline.
 
 <p align="center">
-  <img src="docs/screenshots/board-architecture.png" alt="great_cto board screenshot" width="900" />
+  <img src="docs/screenshots/board.png" alt="Kanban board with realtime SSE updates" width="900" />
 </p>
+
+<table>
+<tr>
+<td width="50%"><a href="docs/screenshots/metrics.png"><img src="docs/screenshots/metrics.png" alt="Metrics — cost, velocity, savings_x" width="100%" /></a><br/><sub><b>Metrics</b> — LLM cost, human-equivalent baseline, savings_x ratio</sub></td>
+<td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
+</tr>
+<tr>
+<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 34 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 34 specialists with last-used + run counts</sub></td>
+<td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 layers + crystallized incident patterns</sub></td>
+</tr>
+</table>
 
 | Tile | What you see |
 |---|---|
