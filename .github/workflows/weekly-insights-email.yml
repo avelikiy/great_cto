@@ -1,0 +1,84 @@
+name: Weekly Telemetry Insights (email)
+
+# Runs every Monday at 06:00 UTC. Generates the weekly telemetry report
+# from D1 and emails it to the maintainer. NEVER commits to the public
+# repo — output stays in /tmp inside the runner.
+#
+# Why email (not commit, not Slack, not Issue):
+#   1. Private by default — pre-PMF numbers stay out of competitor reach.
+#   2. Lands in maintainer's inbox where he already reviews things.
+#   3. Zero infrastructure to add (no Slack workspace, no Discord webhook).
+#   4. Markdown renders well in modern email clients (Gmail, etc).
+#
+# Required repo secrets:
+#   CLOUDFLARE_API_TOKEN    — D1: Read scope on great-cto-telemetry
+#   CLOUDFLARE_ACCOUNT_ID   — 8b4c82576661609fadcac6ae8a5b2708
+#   SMTP_USERNAME           — full Gmail address (alexander.velikiy@gmail.com)
+#   SMTP_PASSWORD           — Gmail App Password (NOT regular password —
+#                             16-char token from myaccount.google.com/apppasswords)
+#   INSIGHTS_RECIPIENT      — alexander.velikiy@gmail.com
+#
+# Setup guide: docs/INSIGHTS-EMAIL-SETUP.md
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # 06:00 UTC every Monday
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "ISO year-week (e.g., 2026-W19) — leave blank for last completed week"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  email-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "20"
+
+      - name: Install wrangler
+        run: npm install -g wrangler@4
+
+      - name: Generate weekly insights to /tmp
+        env:
+          CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WEEK_INPUT:            ${{ inputs.week }}
+        run: |
+          set -euo pipefail
+          if [ -n "${WEEK_INPUT:-}" ]; then
+            bash scripts/weekly-telemetry.sh --week "$WEEK_INPUT" --dry-run > /tmp/insights.md
+            WEEK="$WEEK_INPUT"
+          else
+            WEEK=$(date -u -d 'last week' '+%G-W%V')
+            bash scripts/weekly-telemetry.sh --dry-run > /tmp/insights.md
+          fi
+          echo "WEEK=$WEEK" >> "$GITHUB_ENV"
+          echo "REPORT_BYTES=$(wc -c < /tmp/insights.md)" >> "$GITHUB_ENV"
+          echo "--- preview (first 30 lines) ---"
+          head -30 /tmp/insights.md
+
+      - name: Send email
+        uses: dawidd6/action-send-mail@611879133a9569642c41be66f4a323286e9b8a3b # v4.0.0
+        with:
+          server_address: smtp.gmail.com
+          server_port:    587
+          secure:         false
+          username:       ${{ secrets.SMTP_USERNAME }}
+          password:       ${{ secrets.SMTP_PASSWORD }}
+          from:           great_cto insights <${{ secrets.SMTP_USERNAME }}>
+          to:             ${{ secrets.INSIGHTS_RECIPIENT }}
+          subject:        "great_cto · weekly insights · ${{ env.WEEK }}"
+          body:           file:///tmp/insights.md
+          convert_markdown: true
+          # No attachments — body markdown is sufficient and renders inline.
+          # No reply-to redirect — replies go back to your own SMTP_USERNAME.
