@@ -1,0 +1,16 @@
+name = "great-cto-telemetry"
+main = "index.ts"
+compatibility_date = "2026-05-10"
+workers_dev = true
+
+# D1 database for raw events (30-day TTL via daily cron).
+# Created via: wrangler d1 create great-cto-telemetry
+# After creation, set the database_id below from the wrangler output.
+[[d1_databases]]
+binding = "DB"
+database_name = "great-cto-telemetry"
+database_id = "REPLACE_ME"
+
+# Daily cleanup cron — drops events older than 30 days.
+[triggers]
+crons = ["0 3 * * *"]   # 03:00 UTC daily
