@@ -8,7 +8,7 @@
 
 당신은 CTO이자 병목입니다. **GreatCTO는 30개의 전문가 에이전트**가 아키텍처, 리뷰, QA, 보안, 배포를 처리합니다 — 당신은 **기능당 두 가지 결정**만 내리면 됩니다.
 
-> **v2.2.0** · 33 에이전트 · 25 아키타입 · 24 보안 규칙 · 9 훅 · 프로젝트당 ~$34/월 · 47분 PoC · MIT
+> **v2.7.0** · 34 에이전트 · 25 아키타입 · 24 보안 규칙 · 9 훅 · **Claude Code · Cursor · Codex · Aider · Continue** 에서 작동 · MCP 서버 · webhooks · CI gate · 프로젝트당 ~$34/월 · MIT
 
 > ⚠️ 이 번역은 기계 번역입니다. 현지화 검토가 필요합니다. 문제가 있으면 PR을 보내주세요. [English original](../../README.md).
 
@@ -24,6 +24,51 @@
 </div>
 
 ## 새로운 소식
+
+### v2.7.0 — 에이전트 프롬프트 일관성 + 모델 티어 정책 (2026년 5월)
+- 3개의 새 린터 규칙: `CONS-MODEL` (에이전트 모델이 역할에 맞음) · `CONS-OUTPUT` (reviewer는 출력 파일 선언) · `CONS-SIGNOFF` (sign-off / gate 시맨틱)
+- ADR-002 — 통합된 모델 티어 선택 정책 (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet)
+- 버그 수정: SessionEnd 자동 캡처 로그가 이제 보드 관리 화면에 올바르게 렌더링됨
+- 린트 기준선: 34 에이전트 · 0 오류 · 0 경고
+
+### v2.6.0 — 에이전트 프롬프트 구조 린터 (2026년 5월)
+- `scripts/agent-prompt-lint.mjs` — `agents/` 의 34개 markdown 파일 모두에 대한 14개 규칙
+- 탐지: frontmatter 드리프트 (model/tools), 누락된 phase-task 섹션, 오래된 메모리 경로, 파일 크기 폭증
+- L1 파이프라인 테스트에서 실행: 릴리즈 전 0 오류
+
+### v2.5.x 패치 시리즈 — 프로덕션 강화 (2026년 5월)
+- **v2.5.10**: 의존 작업의 `bd close --force` 를 통한 phase-task 종료
+- **v2.5.9**: 정직한 비용 경제학 — $0.30/AI-시간 · $150/사람-시간 · 500× 비율 (7638× 를 보여주던 버그 수정)
+- **v2.5.8**: QA 통과 — 10개 버그 종료; 비용 파이프라인이 실제 LLM 지출을 반영
+- **v2.5.7**: per-stage Beads 작업 라이프사이클 — 각 에이전트가 `scripts/phase-task.sh` 로 자체 작업을 생성+종료
+- **v2.5.6**: Cursor dogfooding 후 6개 UX 수정
+- **v2.5.5**: 크리티컬 수정 — `/inbox` 와 `/digest` 의 "Prompt is too long"
+- **v2.5.4**: env-var-first 호스트 감지 (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / …)
+- **v2.5.1**: 크리티컬 수정 — `scan`/`ci` 가 상대 경로에서 결과를 놓치는 문제
+
+### v2.5.0 — 프로덕션 webhooks + MCP SSE + 리포트 + Cursor extension (2026년 5월)
+- HMAC 검증 webhook 수신기: GitHub / Sentry / generic (`great-cto serve`)
+- 지수 백오프 + DLQ 가 있는 아웃바운드 디스패처 → Slack / Discord / PagerDuty
+- 멀티 클라이언트 / 원격 사용을 위한 MCP SSE 모드
+- HTML/JSON 비용+컴플라이언스 리포트 (`great-cto report cost --period 30d`)
+- `packages/cursor-ext/` 의 Cursor extension scaffold — vsce-ready
+
+### v2.4.0 — 멀티플랫폼 지원: Codex, Cursor, Aider, Continue (2026년 5월)
+- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — 단일 진실의 원천 → 플랫폼 네이티브 설정
+- `great-cto mcp` — MCP 서버 (stdio + SSE) 가 5개 도구를 모든 MCP 호스트에 노출
+- `great-cto ci` — 단일 명령 CI gate (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
+- `great-cto serve` — webhook receiver scaffolding
+
+### v2.3.0 — 에이전트 워크포스 관리 (2026년 5월)
+- `/agent-review [name]` — LLM 에이전트의 성능 스코어카드 (verdicts, cost, failure modes, 프롬프트 튜닝 제안)
+- `/agent-retire <name>` — 에이전트의 우아한 폐기 (프롬프트 아카이브, sync list 제거, 감사용 verdicts 보존)
+- `/cost feature <slug>` — 출시된 기능의 ROI (per-agent 분석 + 인간과 비교)
+- 새로운 포지셔닝: GreatCTO 는 당신과 AI 에이전트 함대 사이의 관리 레이어
+
+### v2.2.0 — 3개의 새 아키타입: edtech, gov-public, insurance (2026년 5월)
+- `edtech` + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + 미국 주별 학생 프라이버시 법
+- `gov-public` + `gov-reviewer` — FedRAMP, NIST 800-53, Section 508, PIA, CJIS, StateRAMP
+- `insurance` + `insurance-reviewer` — NAIC 50주 신고, Solvency II, IFRS 17, ACORD, ASOP 41/56
 
 ### v2.1.0 — 내장 보안 스캐너 (2026년 5월)
 - `npx great-cto scan ./` — OWASP LLM Top 10 + 24 규칙 + GitHub Code Scanning용 SARIF

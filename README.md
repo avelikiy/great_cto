@@ -10,7 +10,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist age
 
 **Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — if you have 2+ engineers and need shared dashboards / multi-seat auth / per-developer audit logs, look at Cursor Business or GitHub Copilot Workspace.
 
-> **v2.5.8** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code · Cursor · Codex · Aider · Continue** · MCP server · webhooks · CI gate · per-stage Beads tasks · ~$34/mo per project · MIT
+> **v2.7.0** · 34 agents · 25 archetypes · 24 OWASP LLM rules · 9 hooks · works in **Claude Code · Cursor · Codex · Aider · Continue** · MCP server · webhooks · CI gate · per-stage Beads tasks · ~$34/mo per project · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -29,6 +29,17 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist age
 </div>
 
 ## What's new
+
+### v2.7.0 — cross-prompt consistency + model-tier policy (May 2026)
+- 3 new linter rules: `CONS-MODEL` (agent model matches role) · `CONS-OUTPUT` (reviewers declare output file) · `CONS-SIGNOFF` (sign-off / gate semantics)
+- ADR-002 — unified model-tier selection policy (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet)
+- Bug fix: SessionEnd auto-capture logs now render correctly in board admin (previously showed "0 done · 0 pending")
+- Lint baseline: 34 agents · 0 errors · 0 warnings
+
+### v2.6.0 — structural linter for agent prompts (May 2026)
+- `scripts/agent-prompt-lint.mjs` — 14 rules across all 34 markdown files in `agents/`
+- Catches: frontmatter drift (model/tools), missing phase-task sections, stale memory paths, file-size blowups
+- Runs in L1 pipeline tests: 0 errors before any release
 
 ### v2.5.x patch series — production hardening (May 2026)
 - **v2.5.8**: full QA pass — closed 10 bugs (`docs/qa/runs/2026-05-09/REPORT.md`). Highlights: cost pipeline now reflects real LLM spend (`/api/cost`, `/api/metrics.cost` were permanently zero); board returns graceful `409 beads_not_initialized` instead of raw 500; phantom agents bucketed under `unknown`; `PORT` env-var honored; canonical verdict format with `cost=$X` tag (`scripts/log-verdict.sh` + `agents/_shared/verdict-format.md`); sub-agent sandbox / cwd policy documented (`agents/_shared/sandbox-cwd-policy.md`); `validate.py` regex fix for hyphenated commands; CI hardening — dead Playwright workflow removed, plugin-cache cleanup `--keep 3` in SessionStart
@@ -298,14 +309,38 @@ Agents query memory **before** reading source files — solved problems stay sol
 
 ## Privacy & telemetry
 
-Anonymous opt-in install ping (one per `npx great-cto init`):
+**Telemetry is OFF by default.** No data leaves your machine until you opt in.
+Full policy: [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
-- Random UUID install_id, CLI version, archetype, Node version, OS.
-- **No paths, code, repo names, or PII.**
-- Stored in `~/.great_cto/config.json` so the same install isn't double-counted.
-- Disable any time: `--no-telemetry`, `GREATCTO_NO_TELEMETRY=1`, or `{ "telemetry": false }` in config.
+When opted in, we collect one anonymous event per command run, ≤ 256 bytes:
 
-Powers the live counter at [greatcto.systems](https://greatcto.systems).
+```json
+{ "ts":"…", "version":"…", "command":"scan", "archetype":"cli",
+  "node":"…", "os":"…", "exit_code":0, "duration_ms":1234, "anon_id":"a3f2dd91" }
+```
+
+- **No paths, no source code, no repo names, no API keys, no IP.**
+- `anon_id` = `sha256(user@hostname)[:8]` — stable per machine, not reversible.
+- Honors [`DO_NOT_TRACK=1`](https://consoledonottrack.com) (industry standard).
+- Auto-skipped in CI (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, etc.).
+
+Opt in (any one):
+
+```bash
+npx great-cto telemetry on            # persistent
+GREAT_CTO_TELEMETRY=on great-cto …    # one-shot per shell
+```
+
+Verify what we'd send without sending:
+
+```bash
+GREAT_CTO_TELEMETRY=on GREAT_CTO_TELEMETRY_DRYRUN=1 great-cto scan ./
+# stderr: [telemetry] would-send: {…canonical event JSON…}
+```
+
+Right to be forgotten — see [`docs/PRIVACY.md#right-to-be-forgotten`](docs/PRIVACY.md#right-to-be-forgotten).
+Source code: [`packages/cli/src/telemetry.ts`](packages/cli/src/telemetry.ts) +
+[`workers/telemetry/index.ts`](workers/telemetry/index.ts).
 
 ## MCP integrations
 

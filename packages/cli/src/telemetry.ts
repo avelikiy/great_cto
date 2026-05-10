@@ -1,188 +1,264 @@
-// Anonymous opt-in telemetry.
+// Anonymous opt-IN telemetry — default OFF.
 //
-// What we send: random install_id (UUID), version, archetype, node version,
-// platform, and timestamp. Nothing personal — no email, paths, code, or repo
-// names. The install_id is generated once and stored in ~/.great_cto/config.json.
+// See docs/PRIVACY.md for the full policy. Short version:
+//   - Default: disabled (opt-in)
+//   - Honors DO_NOT_TRACK=1 (industry standard, https://consoledonottrack.com)
+//   - Skipped automatically in CI environments
+//   - No paths, no code, no PII — just {ts, version, command, archetype, node, os, exit, duration_ms, anon_id}
+//   - anon_id is sha256(user@hostname) truncated to 8 hex chars; not reversible
 //
-// What we DON'T send: project paths, code, file names, environment variables,
-// shell history, IP-derived geolocation (CF only logs country at the edge).
+// Opt-in (any one):
+//   GREAT_CTO_TELEMETRY=on               (env var)
+//   ~/.great_cto/telemetry.json: { "enabled": true }
+//   npx great-cto telemetry on
 //
-// Opt-out:
-//   - GREATCTO_NO_TELEMETRY=1 env var (highest priority)
-//   - --no-telemetry CLI flag
-//   - User declines the first-run prompt
-//   - Manually edit ~/.great_cto/config.json: { "telemetry": false }
+// Opt-out (overrides everything):
+//   DO_NOT_TRACK=1                       (highest priority)
+//   GREAT_CTO_TELEMETRY=off
+//   GREAT_CTO_DISABLE_TELEMETRY=1        (legacy alias from v2.x)
+//   GREATCTO_NO_TELEMETRY=1              (legacy alias from v2.x)
+//   ~/.great_cto/telemetry.json: { "enabled": false }
 //
-// Endpoint: https://greatcto.systems/api/install (Cloudflare Worker → D1)
-// Source:   workers/telemetry/index.js
+// Endpoint:  https://telemetry.greatcto.systems/v1/event  (Cloudflare Worker → D1)
+// Worker:    workers/telemetry/index.ts
+// Schema v1: see docs/PRIVACY.md "What we collect"
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import * as crypto from "node:crypto";
-import { dim, log } from "./ui.js";
 
-const TELEMETRY_ENDPOINT = "https://greatcto.systems/api/install";
-const TELEMETRY_TIMEOUT_MS = 1500;
+const TELEMETRY_ENDPOINT = process.env.GREAT_CTO_TELEMETRY_ENDPOINT
+  || "https://telemetry.greatcto.systems/v1/event";
+const TELEMETRY_TIMEOUT_MS = 1000;
 
-interface Config {
+// Allowlist — anything else is dropped client-side and server-side.
+const ALLOWED_COMMANDS = new Set([
+  "init", "scan", "ci", "list-rules", "board", "register",
+  "adapt", "mcp", "report", "serve", "webhook",
+  "version", "help", "telemetry",
+]);
+
+// Allowlist for archetype field. Match the 25 documented + "none" + "unknown".
+const ALLOWED_ARCHETYPES = new Set([
+  "none", "unknown", "greenfield",
+  "enterprise-saas", "agent-product", "ai-system", "mlops",
+  "cli-tool", "cli", "library", "sdk", "devtools",
+  "fintech", "regulated", "compliance",
+  "iot-embedded", "web3", "marketplace", "cms", "edtech",
+  "gov-public", "insurance", "data-platform", "streaming",
+  "mobile-app", "infra", "web-service", "agent",
+]);
+
+interface TelemetryConfig {
+  enabled?: boolean;
+  // Legacy fields kept readable so users on old configs aren't broken:
   install_id?: string;
-  telemetry?: boolean;       // explicit user choice (true/false), undefined = ask
-  telemetry_asked?: boolean; // we showed the prompt at least once
+  telemetry?: boolean;
 }
 
 function configPath(): string {
+  return path.join(os.homedir(), ".great_cto", "telemetry.json");
+}
+
+function legacyConfigPath(): string {
   return path.join(os.homedir(), ".great_cto", "config.json");
 }
 
-function readConfig(): Config {
+function readConfig(): TelemetryConfig {
+  // Try new file first.
+  try { return JSON.parse(fs.readFileSync(configPath(), "utf8")) as TelemetryConfig; }
+  catch { /* fall through */ }
+  // Fall back to legacy config.json (read-only — never write to it).
   try {
-    const raw = fs.readFileSync(configPath(), "utf8");
-    return JSON.parse(raw) as Config;
-  } catch {
-    return {};
-  }
+    const legacy = JSON.parse(fs.readFileSync(legacyConfigPath(), "utf8")) as TelemetryConfig;
+    return { enabled: legacy.telemetry, install_id: legacy.install_id };
+  } catch { return {}; }
 }
 
-function writeConfig(cfg: Config): void {
+function writeConfig(cfg: TelemetryConfig): void {
   const file = configPath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n");
 }
 
-function ensureInstallId(cfg: Config): string {
-  if (cfg.install_id && /^[0-9a-f-]{36}$/i.test(cfg.install_id)) return cfg.install_id;
-  const id = crypto.randomUUID();
-  cfg.install_id = id;
-  writeConfig(cfg);
-  return id;
+/** Detect CI / automation environments — never send from these. */
+function isCI(): boolean {
+  const flags = ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "BUILDKITE",
+                 "JENKINS_URL", "TF_BUILD", "DRONE", "TRAVIS", "APPVEYOR",
+                 "BITBUCKET_BUILD_NUMBER", "TEAMCITY_VERSION", "CODEBUILD_BUILD_ID"];
+  return flags.some(f => process.env[f] != null && process.env[f] !== "");
 }
 
-/**
- * Decide whether telemetry is enabled for this run. May write to config.json
- * the first time the user is prompted. Pure-read in subsequent runs.
- *
- * Resolution order:
- *  1. GREATCTO_NO_TELEMETRY=1 env var → false
- *  2. --no-telemetry flag (passed in `cliFlag`) → false
- *  3. Stored config.telemetry → that value
- *  4. Default to enabled (true) if non-interactive (e.g. CI), else show notice
- */
-export function resolveTelemetryConsent(cliFlag: boolean): boolean {
+/** Compute anon_id deterministically per machine, never reversible. */
+export function computeAnonId(): string {
+  const seed = `great_cto/${os.userInfo().username || "?"}/${os.hostname() || "?"}`;
+  return crypto.createHash("sha256").update(seed).digest("hex").slice(0, 8);
+}
+
+/** Resolve telemetry-enabled state. Pure function, no side effects. */
+export function isTelemetryEnabled(cliFlag = false): boolean {
+  // Opt-out wins, in priority order:
+  if (process.env.DO_NOT_TRACK === "1" || process.env.DO_NOT_TRACK === "true") return false;
+  if (process.env.GREAT_CTO_TELEMETRY === "off") return false;
+  if (process.env.GREAT_CTO_DISABLE_TELEMETRY === "1") return false;
   if (process.env.GREATCTO_NO_TELEMETRY === "1") return false;
   if (cliFlag) return false;
+  if (isCI()) return false;
 
+  // Opt-in checks:
+  if (process.env.GREAT_CTO_TELEMETRY === "on") return true;
   const cfg = readConfig();
-  if (typeof cfg.telemetry === "boolean") return cfg.telemetry;
+  if (cfg.enabled === true) return true;
+  if (cfg.telemetry === true) return true;  // legacy
 
-  // First-run notice. We default to enabled (privacy-respecting opt-out) but
-  // show a clear notice with how to disable. Kept short; full details in README.
-  log("");
-  log(dim("─ Anonymous telemetry ────────────────────────────────"));
-  log(dim("  great_cto sends one anonymous ping per install:"));
-  log(dim("  install_id, version, archetype, Node version, OS."));
-  log(dim("  No paths, no code, no PII. Disable any time:"));
-  log(dim("    great-cto --no-telemetry  · or set GREATCTO_NO_TELEMETRY=1"));
-  log(dim("    or edit ~/.great_cto/config.json: { \"telemetry\": false }"));
-  log(dim("──────────────────────────────────────────────────────"));
-  log("");
-
-  cfg.telemetry = true;
-  cfg.telemetry_asked = true;
-  ensureInstallId(cfg);
-  writeConfig(cfg);
-  return true;
+  // Default: opt-out.
+  return false;
 }
 
 interface TelemetryEvent {
-  install_id: string;
-  cli_version: string;
-  archetype: string;
-  node_version: string;
-  platform: NodeJS.Platform;
-  arch: string;
   ts: string;
+  version: string;
+  command: string;
+  archetype: string;
+  node: string;
+  os: NodeJS.Platform;
+  exit_code: number;
+  duration_ms: number;
+  anon_id: string;
 }
 
-/**
- * Best-effort telemetry ping. Non-blocking, fire-and-forget. Never throws.
- * Returns a promise that resolves once the request completes or times out.
- */
+function sanitize(opts: {
+  cliVersion: string;
+  command: string;
+  archetype?: string;
+  exitCode?: number;
+  durationMs?: number;
+}): TelemetryEvent | null {
+  const command = opts.command.toLowerCase();
+  if (!ALLOWED_COMMANDS.has(command)) return null;
+
+  const archetypeRaw = (opts.archetype || "none").toLowerCase().trim();
+  const archetype = ALLOWED_ARCHETYPES.has(archetypeRaw) ? archetypeRaw : "unknown";
+
+  return {
+    ts: new Date().toISOString(),
+    version: opts.cliVersion,
+    command,
+    archetype,
+    node: process.version.replace(/^v/, ""),
+    os: process.platform,
+    exit_code: typeof opts.exitCode === "number" ? opts.exitCode : 0,
+    duration_ms: typeof opts.durationMs === "number" ? Math.max(0, Math.round(opts.durationMs)) : 0,
+    anon_id: computeAnonId(),
+  };
+}
+
+/** Fire-and-forget POST. Never blocks. Never throws. Never logs unless DRYRUN. */
+async function send(evt: TelemetryEvent): Promise<void> {
+  if (process.env.GREAT_CTO_TELEMETRY_DRYRUN === "1") {
+    process.stderr.write(`[telemetry] would-send: ${JSON.stringify(evt)}\n`);
+    return;
+  }
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TELEMETRY_TIMEOUT_MS);
+    await fetch(TELEMETRY_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(evt),
+      signal: ctrl.signal,
+    }).catch(() => { /* offline ok */ });
+    clearTimeout(timer);
+  } catch { /* best-effort */ }
+}
+
+// --- Public API ------------------------------------------------------------
+
+/** First-run/install ping. Sent only when enabled. Idempotent across runs. */
 export async function sendInstallPing(opts: {
   cliVersion: string;
   archetype: string;
   consent: boolean;
 }): Promise<void> {
   if (!opts.consent) return;
-
-  const cfg = readConfig();
-  const install_id = ensureInstallId(cfg);
-
-  const evt: TelemetryEvent = {
-    install_id,
-    cli_version: opts.cliVersion,
-    archetype: opts.archetype,
-    node_version: process.version,
-    platform: process.platform,
-    arch: process.arch,
-    ts: new Date().toISOString(),
-  };
-
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TELEMETRY_TIMEOUT_MS);
-    await fetch(TELEMETRY_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": `great-cto-cli/${opts.cliVersion}` },
-      body: JSON.stringify(evt),
-      signal: ctrl.signal,
-    }).catch(() => {});
-    clearTimeout(timer);
-  } catch {
-    // never block install on telemetry failure
-  }
+  if (!isTelemetryEnabled()) return;
+  const evt = sanitize({ cliVersion: opts.cliVersion, command: "init", archetype: opts.archetype });
+  if (!evt) return;
+  await send(evt);
 }
 
-/**
- * Subcommand-usage ping. Fire-and-forget. Used to track which v2.4+ commands
- * (ci / mcp / adapt / serve / report / webhook) actually get used in the wild.
- *
- * Sends only:
- *   - install_id (random UUID, set on first install)
- *   - cli_version
- *   - subcommand name
- *   - exit code (0 / 1 / 2)
- *
- * No paths, no flags (since flags often contain user input), no archetype.
- * Honours the same opt-out signals as install ping.
- */
+/** Per-command usage ping. Sent only when enabled. Fire-and-forget. */
 export async function sendUsagePing(opts: {
   cliVersion: string;
   subcommand: string;
   exitCode: number;
+  durationMs?: number;
+  archetype?: string;
 }): Promise<void> {
-  if (process.env.GREATCTO_NO_TELEMETRY === "1") return;
-  const cfg = readConfig();
-  if (cfg.telemetry === false) return;
-  if (!cfg.install_id) return;  // never ping without an established install_id
+  if (!isTelemetryEnabled()) return;
+  const evt = sanitize({
+    cliVersion: opts.cliVersion,
+    command: opts.subcommand,
+    archetype: opts.archetype,
+    exitCode: opts.exitCode,
+    durationMs: opts.durationMs,
+  });
+  if (!evt) return;
+  await send(evt);
+}
 
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TELEMETRY_TIMEOUT_MS);
-    await fetch(`${TELEMETRY_ENDPOINT.replace("/install", "/usage")}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": `great-cto-cli/${opts.cliVersion}` },
-      body: JSON.stringify({
-        install_id: cfg.install_id,
-        cli_version: opts.cliVersion,
-        subcommand: opts.subcommand,
-        exit_code: opts.exitCode,
-        ts: new Date().toISOString(),
-      }),
-      signal: ctrl.signal,
-    }).catch(() => {});
-    clearTimeout(timer);
-  } catch {
-    // best-effort
+/**
+ * Legacy shim — preserved for backwards compatibility with callers in main.ts
+ * that pass `--no-telemetry`. With opt-IN default, consent resolution is
+ * trivial: enabled iff isTelemetryEnabled() returns true.
+ */
+export function resolveTelemetryConsent(cliFlag: boolean): boolean {
+  return isTelemetryEnabled(cliFlag);
+}
+
+// --- `npx great-cto telemetry <on|off|status|whoami>` subcommand -----------
+
+export function telemetrySubcommand(arg?: string): { exitCode: number; output: string } {
+  const action = (arg || "status").toLowerCase();
+  switch (action) {
+    case "on": {
+      const cfg = readConfig();
+      cfg.enabled = true;
+      writeConfig(cfg);
+      return { exitCode: 0, output:
+        `✓ telemetry enabled (config: ${configPath()})\n` +
+        `  Anonymous events go to ${TELEMETRY_ENDPOINT}\n` +
+        `  See docs/PRIVACY.md for the full data schema.\n` };
+    }
+    case "off": {
+      const cfg = readConfig();
+      cfg.enabled = false;
+      writeConfig(cfg);
+      return { exitCode: 0, output:
+        `✓ telemetry disabled (config: ${configPath()})\n` };
+    }
+    case "status": {
+      const enabled = isTelemetryEnabled();
+      const reason = enabled
+        ? "enabled (sending events to " + TELEMETRY_ENDPOINT + ")"
+        : isCI()
+          ? "disabled (CI environment detected)"
+          : process.env.DO_NOT_TRACK === "1"
+            ? "disabled (DO_NOT_TRACK=1)"
+            : "disabled (default; run 'great-cto telemetry on' to enable)";
+      return { exitCode: 0, output:
+        `telemetry: ${reason}\n` +
+        `anon_id  : ${computeAnonId()}\n` +
+        `endpoint : ${TELEMETRY_ENDPOINT}\n` +
+        `config   : ${configPath()}\n` };
+    }
+    case "whoami": {
+      return { exitCode: 0, output: computeAnonId() + "\n" };
+    }
+    default: {
+      return { exitCode: 2, output:
+        `usage: great-cto telemetry <on|off|status|whoami>\n` };
+    }
   }
 }
