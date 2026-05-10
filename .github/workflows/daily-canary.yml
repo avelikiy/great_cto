@@ -89,9 +89,13 @@ jobs:
           if [ "${{ matrix.source }}" = "local" ]; then
             bash scripts/canary.sh local
           else
-            # NPM source: download canary script standalone (no checkout needed).
+            # NPM source: download canary script + sibling mock-llm.py
+            # (steps 8 & 9 invoke "$SCRIPT_DIR/mock-llm.py" so it must live
+            # next to canary.sh).
             curl -sf -o /tmp/canary.sh \
               https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/canary.sh
+            curl -sf -o /tmp/mock-llm.py \
+              https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/mock-llm.py
             chmod +x /tmp/canary.sh
             bash /tmp/canary.sh npm
           fi
