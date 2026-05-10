@@ -9,7 +9,7 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "great-cto-telemetry"
-database_id = "REPLACE_ME"
+database_id = "b847fd59-b198-46c7-86a5-eb0055d085d3"
 
 # Daily cleanup cron — drops events older than 30 days.
 [triggers]
