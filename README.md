@@ -307,41 +307,6 @@ We synthesize, not record. Total local memory ~10–50 KB per project, indexed a
 
 Agents query memory **before** reading source files — solved problems stay solved. Cross-project: a "JWT auth" decision in project A surfaces in project B when relevant. After a P0 incident, agents extract a structured pattern and `/crystallize` promotes it globally — **94% MTTR reduction on second occurrence**.
 
-## Privacy & telemetry
-
-**Telemetry is OFF by default.** No data leaves your machine until you opt in.
-Full policy: [`docs/PRIVACY.md`](docs/PRIVACY.md).
-
-When opted in, we collect one anonymous event per command run, ≤ 256 bytes:
-
-```json
-{ "ts":"…", "version":"…", "command":"scan", "archetype":"cli",
-  "node":"…", "os":"…", "exit_code":0, "duration_ms":1234, "anon_id":"a3f2dd91" }
-```
-
-- **No paths, no source code, no repo names, no API keys, no IP.**
-- `anon_id` = `sha256(user@hostname)[:8]` — stable per machine, not reversible.
-- Honors [`DO_NOT_TRACK=1`](https://consoledonottrack.com) (industry standard).
-- Auto-skipped in CI (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, etc.).
-
-Opt in (any one):
-
-```bash
-npx great-cto telemetry on            # persistent
-GREAT_CTO_TELEMETRY=on great-cto …    # one-shot per shell
-```
-
-Verify what we'd send without sending:
-
-```bash
-GREAT_CTO_TELEMETRY=on GREAT_CTO_TELEMETRY_DRYRUN=1 great-cto scan ./
-# stderr: [telemetry] would-send: {…canonical event JSON…}
-```
-
-Right to be forgotten — see [`docs/PRIVACY.md#right-to-be-forgotten`](docs/PRIVACY.md#right-to-be-forgotten).
-Source code: [`packages/cli/src/telemetry.ts`](packages/cli/src/telemetry.ts) +
-[`workers/telemetry/index.ts`](workers/telemetry/index.ts).
-
 ## MCP integrations
 
 Native support for [Model Context Protocol](https://modelcontextprotocol.io/) servers. Optional — pipeline runs without them.

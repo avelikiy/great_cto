@@ -129,7 +129,9 @@ labelled `privacy-discrepancy` — we treat that as P0 and ship a fix same-day.
 
 - Raw events: **30 days** in Cloudflare D1, then auto-deleted by a daily Worker cron.
 - Aggregates (daily counts per `command × archetype × os`): retained indefinitely, no `anon_id`.
-- Public dashboard: only aggregates. No way to look up an individual user's history.
+- Reviewed weekly by the maintainer to inform product decisions. Aggregates
+  are **not currently published publicly** — they may be in the future once
+  weekly active users exceed 100, and only as anonymous counts (never `anon_id`).
 
 ## Right to be forgotten
 
