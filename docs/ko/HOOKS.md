@@ -1,6 +1,6 @@
 # 훅 (Hooks)
 
-> **언어:** [English](../HOOKS.md) · [Русский](../ru/HOOKS.md) · [简体中文](../zh-CN/HOOKS.md) · [日本語](../ja/HOOKS.md) · **한국어** · [Español](../es/HOOKS.md)
+> **언어:** [English](../HOOKS.md) · [Русский](../ru/HOOKS.md) · [简体中文](../zh-CN/HOOKS.md) · [繁體中文](../zh-TW/HOOKS.md) · [日本語](../ja/HOOKS.md) · **한국어** · [Español](../es/HOOKS.md) · [Português (BR)](../pt-BR/HOOKS.md)
 >
 > ⚠️ 기계 번역 요약입니다. 전체 세부 정보 및 ADR 링크는 [English original](../HOOKS.md) 참조.
 

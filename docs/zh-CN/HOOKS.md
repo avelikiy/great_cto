@@ -1,6 +1,6 @@
 # 钩子 (Hooks)
 
-> **语言:** [English](../HOOKS.md) · [Русский](../ru/HOOKS.md) · **简体中文** · [日本語](../ja/HOOKS.md) · [한국어](../ko/HOOKS.md) · [Español](../es/HOOKS.md)
+> **语言:** [English](../HOOKS.md) · [Русский](../ru/HOOKS.md) · **简体中文** · [繁體中文](../zh-TW/HOOKS.md) · [日本語](../ja/HOOKS.md) · [한국어](../ko/HOOKS.md) · [Español](../es/HOOKS.md) · [Português (BR)](../pt-BR/HOOKS.md)
 >
 > ⚠️ 此为机器翻译摘要。完整详情和 ADR 链接请参见 [English original](../HOOKS.md).
 

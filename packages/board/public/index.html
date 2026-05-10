@@ -1838,7 +1838,6 @@ button { font-family: inherit; cursor: pointer; }
             </div>
             <div id="timeline"></div>
           </div>
-          <div id="inbox-gates"></div>
         </div>
 
         <div class="mp-section-label" style="margin-top:28px">Installed specialist agents <span id="agents-installed-count" style="color:var(--text3);font-size:11px"></span></div>
@@ -2648,6 +2647,7 @@ function connectSSE() {
     allTasks = newTasks;
     renderKanban(filterTasks(searchQuery));
     updateNavCounts();
+    refreshInbox();
   });
   es.addEventListener('pipeline', e => {
     try {

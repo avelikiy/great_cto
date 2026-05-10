@@ -2,7 +2,7 @@
 
 great_cto использует [хуки Claude Code](https://docs.anthropic.com/en/docs/claude-code/hooks) для автоматического обеспечения политик и захвата состояния.
 
-> **Язык:** [English](../HOOKS.md) · **Русский** · [简体中文](../zh-CN/HOOKS.md) · [日本語](../ja/HOOKS.md) · [한국어](../ko/HOOKS.md) · [Español](../es/HOOKS.md)
+> **Язык:** [English](../HOOKS.md) · **Русский** · [简体中文](../zh-CN/HOOKS.md) · [繁體中文](../zh-TW/HOOKS.md) · [日本語](../ja/HOOKS.md) · [한국어](../ko/HOOKS.md) · [Español](../es/HOOKS.md) · [Português (BR)](../pt-BR/HOOKS.md)
 
 ## Что подключено
 
