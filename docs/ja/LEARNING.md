@@ -1,6 +1,6 @@
 # 継続学習 (Continuous Learning)
 
-> **言語:** [English](../LEARNING.md) · [Русский](../ru/LEARNING.md) · [简体中文](../zh-CN/LEARNING.md) · **日本語** · [한국어](../ko/LEARNING.md) · [Español](../es/LEARNING.md)
+> **言語:** [English](../LEARNING.md) · [Русский](../ru/LEARNING.md) · [简体中文](../zh-CN/LEARNING.md) · [繁體中文](../zh-TW/LEARNING.md) · **日本語** · [한국어](../ko/LEARNING.md) · [Español](../es/LEARNING.md) · [Português (BR)](../pt-BR/LEARNING.md)
 >
 > ⚠️ 機械翻訳の要約です。完全な詳細と ADR リンクは [English original](../LEARNING.md) を参照。
 

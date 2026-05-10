@@ -1,6 +1,6 @@
 # Hooks
 
-> **Idioma:** [English](../HOOKS.md) · [Русский](../ru/HOOKS.md) · [简体中文](../zh-CN/HOOKS.md) · [日本語](../ja/HOOKS.md) · [한국어](../ko/HOOKS.md) · **Español**
+> **Idioma:** [English](../HOOKS.md) · [Русский](../ru/HOOKS.md) · [简体中文](../zh-CN/HOOKS.md) · [繁體中文](../zh-TW/HOOKS.md) · [日本語](../ja/HOOKS.md) · [한국어](../ko/HOOKS.md) · **Español** · [Português (BR)](../pt-BR/HOOKS.md)
 >
 > ⚠️ Resumen traducido por máquina. Para detalles completos y enlaces a ADRs, ver [English original](../HOOKS.md).
 

@@ -31,65 +31,16 @@ Você é o CTO. Você também é o gargalo. **GreatCTO são 30 agentes especiali
 - Bug fix: logs de auto-captura do SessionEnd agora renderizam corretamente no admin do board
 - Baseline do linter: 34 agentes · 0 erros · 0 warnings
 
-### v2.6.0 — linter estrutural de prompts de agentes (maio 2026)
-- `scripts/agent-prompt-lint.mjs` — 14 regras para todos os 34 arquivos markdown em `agents/`
-- Detecta: drift de frontmatter (model/tools), seções phase-task ausentes, paths de memória desatualizados, blowup de tamanho de arquivo
-- Roda nos testes L1 do pipeline: 0 erros antes do release
-
-### v2.5.x patch series — production hardening (maio 2026)
-- **v2.5.10**: fechamento de phase-task via `bd close --force` para tasks dependentes
-- **v2.5.9**: economia honesta — $0.30/AI-hr · $150/human-hr · ratio 500× (corrigido bug que mostrava 7638×)
-- **v2.5.8**: QA pass — 10 bugs fechados; pipeline de custo reflete spend real do LLM
-- **v2.5.7**: ciclo de vida per-stage de Beads tasks — cada agente cria+fecha suas próprias tasks via `scripts/phase-task.sh`
-- **v2.5.6**: 6 fixes de UX após dogfooding em Cursor
-- **v2.5.5**: fix crítico — `/inbox` e `/digest` "Prompt is too long"
-- **v2.5.4**: detecção env-var-first do host (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / …)
-- **v2.5.1**: fix crítico — `scan`/`ci` perdiam findings em paths relativos
-
-### v2.5.0 — webhooks de produção + MCP SSE + relatórios + Cursor extension (maio 2026)
-- Receiver de webhook verificado por HMAC: GitHub / Sentry / generic (`great-cto serve`)
-- Dispatcher outbound com backoff exponencial + DLQ → Slack / Discord / PagerDuty
-- Modo MCP SSE para uso multi-cliente / remoto
-- Relatórios HTML/JSON de custo+compliance (`great-cto report cost --period 30d`)
-- Scaffold de Cursor extension em `packages/cursor-ext/` — vsce-ready
-
-### v2.4.0 — suporte multi-plataforma: Codex, Cursor, Aider, Continue (maio 2026)
-- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — fonte única de verdade → configs nativos da plataforma
-- `great-cto mcp` — servidor MCP (stdio + SSE) expondo 5 ferramentas para qualquer host MCP
-- `great-cto ci` — CI gate em comando único (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
-- `great-cto serve` — scaffolding de webhook receiver
-
-### v2.3.0 — gestão de workforce de agentes (maio 2026)
-- `/agent-review [name]` — scorecard de performance para agentes LLM (verdicts, cost, failure modes, sugestões de tuning de prompt)
-- `/agent-retire <name>` — descontinuação graciosa de agente (arquiva prompt, remove da sync list, preserva verdicts para auditoria)
-- `/cost feature <slug>` — ROI por feature entregue (breakdown per-agent + comparação com humano)
-- Novo posicionamento: GreatCTO é a camada de gestão entre você e sua frota de agentes IA
-
-### v2.2.0 — 3 novos arquétipos: edtech, gov-public, insurance (maio 2026)
-- `edtech` + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + leis estaduais de privacidade estudantil dos EUA
-- `gov-public` + `gov-reviewer` — FedRAMP, NIST 800-53, Section 508, PIA, CJIS, StateRAMP
-- `insurance` + `insurance-reviewer` — NAIC 50-state filing, Solvency II, IFRS 17, ACORD, ASOP 41/56
-
-### v2.1.0 — scanner de segurança integrado (maio 2026)
-- `npx great-cto scan ./` — OWASP LLM Top 10 + 24 regras + SARIF para GitHub Code Scanning
-- 5 scanners: prompt-injection · secrets-in-prompts · SSRF-in-tools · RAG poisoning · cost-runaway
-- Mesclado do pacote standalone `@great-cto/agentshield` — uma instalação, uma versão
-
-### v1.2.0 — loop de aprendizado contínuo (maio 2026)
-- Novo agente `continuous-learner` (Haiku, ~$0.05/execução) extrai padrões de sessão automaticamente
-- Memória de dois níveis: `lessons.md` local do projeto → `~/.great_cto/decisions.md` cross-projeto
-- Quality gates: máx 3 lições por sessão, tagueado por arquétipo, promoção por threshold (≥3 projetos distintos)
-
-### v1.1.0 — hooks do Claude Code (maio 2026)
-- 4 hooks novos: `secret-scan` (PreToolUse) · `format-check` (PostToolUse) · `cost-guard` (UserPromptSubmit) · `session-end`
-- Catálogo de 13 padrões para detecção de secrets (AWS, Stripe, GitHub, OpenAI, Anthropic, PEM, JWT)
-- Todos os hooks suportam opt-out via `GREAT_CTO_DISABLE_<NAME>=1`
 
 [Changelog completo →](../../CHANGELOG.md)
 
 ## O que é great_cto?
 
 great_cto é um [plugin do Claude Code](https://claude.com/plugins) que executa o pipeline SDLC completo como **30 agentes especialistas** — arquiteto, planejamento, implementação, code review de 12 ângulos, QA, segurança, deploy, suporte — coordenados através de um board que você realmente checa. Você toma duas decisões por feature; o resto é automático.
+
+<p align="center">
+  <img src="../screenshots/board.png" alt="great_cto kanban — 5 colunas, gate approval inline, SSE ao vivo" width="900" />
+</p>
 
 | Camada | O que faz |
 |--------|-----------|
@@ -99,10 +50,6 @@ great_cto é um [plugin do Claude Code](https://claude.com/plugins) que executa 
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · LGPD · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — anexado automaticamente por arquétipo. |
 | **Memória** | 4 camadas — `PROJECT.md` (arquétipo) · `lessons.md` (retros do projeto) · `~/.great_cto/decisions.md` (toda aprovação de gate, consultável entre projetos) · `verdicts/` (todo veredito de agente). |
 | **Board** | `great-cto board` abre 6 visões em `localhost:3141` — Inbox · Kanban · Metrics · Agents · Memory · Public report. Updates ao vivo via SSE. |
-
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto kanban — 5 colunas, gate approval inline, SSE ao vivo" width="900" />
-</p>
 
 ## Duas decisões por feature
 

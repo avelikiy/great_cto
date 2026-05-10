@@ -1,6 +1,6 @@
 # Aprendizaje continuo (Continuous Learning)
 
-> **Idioma:** [English](../LEARNING.md) · [Русский](../ru/LEARNING.md) · [简体中文](../zh-CN/LEARNING.md) · [日本語](../ja/LEARNING.md) · [한국어](../ko/LEARNING.md) · **Español**
+> **Idioma:** [English](../LEARNING.md) · [Русский](../ru/LEARNING.md) · [简体中文](../zh-CN/LEARNING.md) · [繁體中文](../zh-TW/LEARNING.md) · [日本語](../ja/LEARNING.md) · [한국어](../ko/LEARNING.md) · **Español** · [Português (BR)](../pt-BR/LEARNING.md)
 >
 > ⚠️ Resumen traducido por máquina. Para detalles completos y enlaces a ADRs, ver [English original](../LEARNING.md).
 
