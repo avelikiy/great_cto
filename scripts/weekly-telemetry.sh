@@ -192,7 +192,7 @@ render() {
 
 **Window:** $WEEK_START → $WEEK_END (UTC)
 **Source:** \`great-cto-telemetry\` D1 · \`workers/telemetry/index.ts\`
-**Generator:** \`scripts/weekly-telemetry.sh\` (auto-PR via \`.github/workflows/weekly-insights.yml\`)
+**Generator:** \`scripts/weekly-telemetry.sh\` (mailed by \`.github/workflows/weekly-insights-email.yml\`)
 
 ## Headline
 
