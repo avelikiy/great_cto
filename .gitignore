@@ -76,3 +76,6 @@ docs/launch/
 .beads-credential-key
 tests/**/__pycache__/
 *.pyc
+
+# Telemetry insights — internal review only, not published publicly until WAU >= 100
+docs/insights/
