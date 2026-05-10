@@ -31,65 +31,18 @@
 - Bug fix: SessionEnd auto-capture логи теперь рендерятся в board admin (раньше показывались как «0 done · 0 pending»)
 - Линт-baseline: 34 агента · 0 ошибок · 0 предупреждений
 
-### v2.6.0 — структурный линтер промптов агентов (май 2026)
-- `scripts/agent-prompt-lint.mjs` — 14 правил для всех 34 markdown-файлов в `agents/`
-- Ловит: дрейф frontmatter (model/tools), пропущенные phase-task секции, устаревшие пути памяти, blowup размера файлов
-- Запускается в L1 пайплайн-тестах: 0 ошибок до релиза
-
-### v2.5.x patch series — production hardening (май 2026)
-- **v2.5.10**: phase-task закрытие через `bd close --force` для зависимых задач
-- **v2.5.9**: честная экономика — $0.30/AI-час · $150/human-час · 500× ratio (исправлен bug, дававший 7638×)
-- **v2.5.8**: QA pass — закрыты 10 багов; cost pipeline отражает реальный LLM spend; `409 beads_not_initialized` вместо raw 500
-- **v2.5.7**: per-stage Beads task lifecycle — каждый агент создаёт+закрывает свои задачи через `scripts/phase-task.sh`
-- **v2.5.6**: 6 UX-фиксов после dogfooding в Cursor
-- **v2.5.5**: критфикс — `/inbox` и `/digest` "Prompt is too long"
-- **v2.5.4**: env-var-first host detection (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / …)
-- **v2.5.1**: критфикс — `scan`/`ci` пропускали находки на относительных путях
-
-### v2.5.0 — production webhooks + MCP SSE + отчёты + Cursor extension (май 2026)
-- HMAC-проверенный webhook-приёмник: GitHub / Sentry / generic (`great-cto serve`)
-- Outbound dispatcher с экспоненциальным backoff + DLQ → Slack / Discord / PagerDuty
-- MCP SSE для multi-client / удалённого использования
-- HTML/JSON отчёты по cost+compliance (`great-cto report cost --period 30d`)
-- Cursor extension scaffold в `packages/cursor-ext/` — vsce-ready
-
-### v2.4.0 — мультиплатформа: Codex, Cursor, Aider, Continue (май 2026)
-- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — единый источник истины → платформо-специфичные конфиги
-- `great-cto mcp` — MCP-сервер (stdio + SSE) с 5 инструментами для любого MCP-хоста
-- `great-cto ci` — single-command CI gate (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
-- `great-cto serve` — webhook receiver scaffolding
-
-### v2.3.0 — менеджмент агентского workforce (май 2026)
-- `/agent-review [name]` — performance scorecard для LLM-агентов (вердикты, cost, failure modes, предложения по тюнингу промпта)
-- `/agent-retire <name>` — graceful деприкейт агента (архив промпта, удаление из sync list, сохранение вердиктов для аудита)
-- `/cost feature <slug>` — ROI на отгруженную фичу (per-agent breakdown + сравнение с человеком)
-- Новое позиционирование: GreatCTO — это менеджерский слой между тобой и флотом AI-агентов
-
-### v2.2.0 — 3 новых архетипа: edtech, gov-public, insurance (май 2026)
-- `edtech` + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + state student-privacy laws
-- `gov-public` + `gov-reviewer` — FedRAMP, NIST 800-53, Section 508, PIA, CJIS, StateRAMP
-- `insurance` + `insurance-reviewer` — NAIC 50-state filing, Solvency II, IFRS 17, ACORD, ASOP 41/56
-
-### v2.1.0 — встроенный сканер безопасности (май 2026)
-- `npx great-cto scan ./` — OWASP LLM Top 10 + 24 правила + SARIF для GitHub Code Scanning
-- 5 сканеров: prompt-injection · secrets-in-prompts · SSRF-in-tools · RAG poisoning · cost-runaway
-- Объединено из отдельного пакета `@great-cto/agentshield` — одна установка, одна версия
-
-### v1.2.0 — цикл непрерывного обучения (май 2026)
-- Новый агент `continuous-learner` (Haiku, ~$0.05/запуск) автоматически извлекает паттерны из сессий
-- Двухуровневая память: проектная `lessons.md` → межпроектная `~/.great_cto/decisions.md`
-- Quality gates: максимум 3 урока за сессию, тегирование по архетипу, продвижение по порогу (≥3 разных проекта)
-
-### v1.1.0 — хуки Claude Code (май 2026)
-- 4 новых хука: `secret-scan` (PreToolUse) · `format-check` (PostToolUse) · `cost-guard` (UserPromptSubmit) · `session-end`
-- Каталог из 13 паттернов для детекции секретов (AWS, Stripe, GitHub, OpenAI, Anthropic, PEM, JWT)
-- Все хуки уважают opt-out через `GREAT_CTO_DISABLE_<NAME>=1`
 
 [Полный changelog →](../../CHANGELOG.md)
 
 ## Что такое great_cto?
 
 great_cto — это [плагин для Claude Code](https://claude.com/plugins), который запускает полный SDLC-пайплайн в виде **30 специализированных агентов** — архитектор, планирование, имплементация, ревью под 12 углов, QA, безопасность, деплой, поддержка — координируемых через борд, в который ты реально заглядываешь. Ты принимаешь два решения на фичу; всё остальное — автоматически.
+
+<p align="center">
+  <img src="../screenshots/board.png" alt="great_cto kanban — 5 колонок, inline-аппрув гейтов, live SSE" width="900" />
+  <br/>
+  <em>Kanban — 5 колонок, inline-редактирование статуса, live-обновления через SSE из <code>bd</code> CLI.</em>
+</p>
 
 | Слой | Что делает |
 |-------|--------------|
@@ -99,12 +52,6 @@ great_cto — это [плагин для Claude Code](https://claude.com/plugin
 | **Compliance** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — авто-подтягивается под архетип. |
 | **Память** | 4 уровня — `PROJECT.md` (архетип) · `lessons.md` (ретро по проекту) · `~/.great_cto/decisions.md` (каждое решение через гейт, с поиском между проектами) · `verdicts/` (каждый вердикт агента). |
 | **Борд** | `great-cto board` открывает 6 представлений на `localhost:3141` — Inbox · Kanban · Metrics · Agents · Memory · Публичный отчёт. Live-обновления через SSE. |
-
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto kanban — 5 колонок, inline-аппрув гейтов, live SSE" width="900" />
-  <br/>
-  <em>Kanban — 5 колонок, inline-редактирование статуса, live-обновления через SSE из <code>bd</code> CLI.</em>
-</p>
 
 ## Два решения на фичу
 

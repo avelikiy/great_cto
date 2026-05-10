@@ -1,6 +1,6 @@
 # フック (Hooks)
 
-> **言語:** [English](../HOOKS.md) · [Русский](../ru/HOOKS.md) · [简体中文](../zh-CN/HOOKS.md) · **日本語** · [한국어](../ko/HOOKS.md) · [Español](../es/HOOKS.md)
+> **言語:** [English](../HOOKS.md) · [Русский](../ru/HOOKS.md) · [简体中文](../zh-CN/HOOKS.md) · [繁體中文](../zh-TW/HOOKS.md) · **日本語** · [한국어](../ko/HOOKS.md) · [Español](../es/HOOKS.md) · [Português (BR)](../pt-BR/HOOKS.md)
 >
 > ⚠️ 機械翻訳の要約です。完全な詳細と ADR リンクは [English original](../HOOKS.md) を参照。
 

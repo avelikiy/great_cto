@@ -13,6 +13,14 @@
 # Bundled npm artefacts — CLI package compiles on demand.
 packages/cli/node_modules/
 packages/cli/*.tgz
+packages/cli/dist/
+
+# Wrangler build cache (all workers)
+.wrangler/
+workers/**/.wrangler/
+
+# Generic node_modules safety net
+node_modules/
 
 # DORA baseline — local trend log, not committed.
 .great_cto/dora-baseline.log
@@ -25,7 +33,12 @@ packages/cli/*.tgz
 
 # Misc
 *.log
-site/.previews/
+
+# Marketing / landing site — local only, never committed
+site/
+
+# Content drafts (Hashnode articles, social copy) — local only, never committed
+content/
 
 # Catalog submission tracking — local progress, not committed
 scripts/.catalog-state
@@ -66,3 +79,13 @@ tests/**/__pycache__/
 
 # Telemetry insights — internal review only, not published publicly until WAU >= 100
 docs/insights/
+
+# Internal QA/maintainer process — kept locally for reference, not committed.
+# Removed from public history on 2026-05-10 via git filter-repo (option K).
+# Recover historical content via:  git checkout legacy/pre-cleanup-2026-05-10
+docs/qa/
+docs/INSIGHTS-EMAIL-SETUP.md
+tests/board/
+tests/eval/
+docs/marketing/
+scripts/hashnode-publish.mjs
