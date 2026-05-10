@@ -8,7 +8,7 @@
 
 Ты — CTO. Ты же и узкое место. **GreatCTO — это 30 специализированных агентов**, которые занимаются архитектурой, ревью, QA, безопасностью и деплоем — пока ты принимаешь **два решения на фичу**.
 
-> **v2.2.0** · 33 агента · 25 архетипов · 24 правила безопасности · 9 хуков · ~$34/мес на проект · PoC за 47 минут · MIT
+> **v2.7.0** · 34 агента · 25 архетипов · 24 правила безопасности · 9 хуков · работает в **Claude Code · Cursor · Codex · Aider · Continue** · MCP-сервер · webhooks · CI gate · per-stage Beads tasks · ~$34/мес на проект · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -24,6 +24,51 @@
 </div>
 
 ## Что нового
+
+### v2.7.0 — консистентность промптов агентов + model-tier policy (май 2026)
+- 3 новых правила линтера: `CONS-MODEL` (модель агента соответствует роли) · `CONS-OUTPUT` (reviewers объявляют output-файл) · `CONS-SIGNOFF` (sign-off / gate semantics)
+- ADR-002 — единая policy выбора tier модели (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet)
+- Bug fix: SessionEnd auto-capture логи теперь рендерятся в board admin (раньше показывались как «0 done · 0 pending»)
+- Линт-baseline: 34 агента · 0 ошибок · 0 предупреждений
+
+### v2.6.0 — структурный линтер промптов агентов (май 2026)
+- `scripts/agent-prompt-lint.mjs` — 14 правил для всех 34 markdown-файлов в `agents/`
+- Ловит: дрейф frontmatter (model/tools), пропущенные phase-task секции, устаревшие пути памяти, blowup размера файлов
+- Запускается в L1 пайплайн-тестах: 0 ошибок до релиза
+
+### v2.5.x patch series — production hardening (май 2026)
+- **v2.5.10**: phase-task закрытие через `bd close --force` для зависимых задач
+- **v2.5.9**: честная экономика — $0.30/AI-час · $150/human-час · 500× ratio (исправлен bug, дававший 7638×)
+- **v2.5.8**: QA pass — закрыты 10 багов; cost pipeline отражает реальный LLM spend; `409 beads_not_initialized` вместо raw 500
+- **v2.5.7**: per-stage Beads task lifecycle — каждый агент создаёт+закрывает свои задачи через `scripts/phase-task.sh`
+- **v2.5.6**: 6 UX-фиксов после dogfooding в Cursor
+- **v2.5.5**: критфикс — `/inbox` и `/digest` "Prompt is too long"
+- **v2.5.4**: env-var-first host detection (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / …)
+- **v2.5.1**: критфикс — `scan`/`ci` пропускали находки на относительных путях
+
+### v2.5.0 — production webhooks + MCP SSE + отчёты + Cursor extension (май 2026)
+- HMAC-проверенный webhook-приёмник: GitHub / Sentry / generic (`great-cto serve`)
+- Outbound dispatcher с экспоненциальным backoff + DLQ → Slack / Discord / PagerDuty
+- MCP SSE для multi-client / удалённого использования
+- HTML/JSON отчёты по cost+compliance (`great-cto report cost --period 30d`)
+- Cursor extension scaffold в `packages/cursor-ext/` — vsce-ready
+
+### v2.4.0 — мультиплатформа: Codex, Cursor, Aider, Continue (май 2026)
+- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — единый источник истины → платформо-специфичные конфиги
+- `great-cto mcp` — MCP-сервер (stdio + SSE) с 5 инструментами для любого MCP-хоста
+- `great-cto ci` — single-command CI gate (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
+- `great-cto serve` — webhook receiver scaffolding
+
+### v2.3.0 — менеджмент агентского workforce (май 2026)
+- `/agent-review [name]` — performance scorecard для LLM-агентов (вердикты, cost, failure modes, предложения по тюнингу промпта)
+- `/agent-retire <name>` — graceful деприкейт агента (архив промпта, удаление из sync list, сохранение вердиктов для аудита)
+- `/cost feature <slug>` — ROI на отгруженную фичу (per-agent breakdown + сравнение с человеком)
+- Новое позиционирование: GreatCTO — это менеджерский слой между тобой и флотом AI-агентов
+
+### v2.2.0 — 3 новых архетипа: edtech, gov-public, insurance (май 2026)
+- `edtech` + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + state student-privacy laws
+- `gov-public` + `gov-reviewer` — FedRAMP, NIST 800-53, Section 508, PIA, CJIS, StateRAMP
+- `insurance` + `insurance-reviewer` — NAIC 50-state filing, Solvency II, IFRS 17, ACORD, ASOP 41/56
 
 ### v2.1.0 — встроенный сканер безопасности (май 2026)
 - `npx great-cto scan ./` — OWASP LLM Top 10 + 24 правила + SARIF для GitHub Code Scanning

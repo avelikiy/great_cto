@@ -8,7 +8,7 @@
 
 你是 CTO，也是瓶颈。**GreatCTO 是 30 个专业代理**，负责架构、代码审查、QA、安全和部署 — 而你只需要做出**每个特性两个决定**。
 
-> **v2.2.0** · 33 代理 · 25 项目类型 · 24 安全规则 · 9 钩子 · 每项目 ~$34/月 · 47 分钟出 PoC · MIT
+> **v2.7.0** · 34 代理 · 25 项目类型 · 24 安全规则 · 9 钩子 · 在 **Claude Code · Cursor · Codex · Aider · Continue** 中工作 · MCP 服务器 · webhooks · CI gate · 每项目 ~$34/月 · MIT
 
 > ⚠️ 此翻译为机器翻译,需要本地化审核。如发现问题请提交 PR。 [English original](../../README.md).
 
@@ -24,6 +24,51 @@
 </div>
 
 ## 更新日志
+
+### v2.7.0 — 代理提示一致性 + 模型层级策略 (2026 年 5 月)
+- 3 条新 lint 规则: `CONS-MODEL` (代理模型与角色匹配) · `CONS-OUTPUT` (reviewers 声明输出文件) · `CONS-SIGNOFF` (sign-off / gate 语义)
+- ADR-002 — 统一的模型层级选择策略 (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet)
+- Bug 修复: SessionEnd 自动捕获日志现在能正确渲染到 board 管理界面
+- Lint 基准: 34 个代理 · 0 错误 · 0 警告
+
+### v2.6.0 — 代理提示结构化 linter (2026 年 5 月)
+- `scripts/agent-prompt-lint.mjs` — 针对 `agents/` 中所有 34 个 markdown 文件的 14 条规则
+- 检测: frontmatter 漂移 (model/tools)、缺失的 phase-task 章节、过时的内存路径、文件大小膨胀
+- 在 L1 流水线测试中运行: 发布前 0 错误
+
+### v2.5.x 补丁系列 — 生产环境加固 (2026 年 5 月)
+- **v2.5.10**: 通过 `bd close --force` 关闭依赖任务的 phase-task
+- **v2.5.9**: 诚实的成本经济学 — $0.30/AI-小时 · $150/人-小时 · 500× 比率 (修复了产生 7638× 的 bug)
+- **v2.5.8**: QA 全面通过 — 关闭 10 个 bug;成本流水线反映真实 LLM 支出
+- **v2.5.7**: per-stage Beads 任务生命周期 — 每个代理通过 `scripts/phase-task.sh` 创建+关闭自己的任务
+- **v2.5.6**: Cursor dogfooding 后的 6 个 UX 修复
+- **v2.5.5**: 关键修复 — `/inbox` 和 `/digest` 的 "Prompt is too long"
+- **v2.5.4**: env-var-first 主机检测 (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / …)
+- **v2.5.1**: 关键修复 — `scan`/`ci` 在相对路径上漏掉发现
+
+### v2.5.0 — 生产 webhooks + MCP SSE + 报告 + Cursor extension (2026 年 5 月)
+- HMAC 验证的 webhook 接收器: GitHub / Sentry / generic (`great-cto serve`)
+- 带指数退避 + DLQ 的出站调度器 → Slack / Discord / PagerDuty
+- 用于多客户端/远程使用的 MCP SSE 模式
+- HTML/JSON 成本+合规报告 (`great-cto report cost --period 30d`)
+- `packages/cursor-ext/` 中的 Cursor extension scaffold — vsce-ready
+
+### v2.4.0 — 多平台支持: Codex, Cursor, Aider, Continue (2026 年 5 月)
+- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — 单一可信源 → 平台原生配置
+- `great-cto mcp` — MCP 服务器 (stdio + SSE) 向任何 MCP 主机公开 5 个工具
+- `great-cto ci` — 单命令 CI gate (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
+- `great-cto serve` — webhook receiver scaffolding
+
+### v2.3.0 — 代理工作团队管理 (2026 年 5 月)
+- `/agent-review [name]` — LLM 代理性能评分卡 (verdicts, cost, failure modes, 提示调优建议)
+- `/agent-retire <name>` — 优雅的代理弃用 (归档提示, 从同步列表移除, 保留审计 verdicts)
+- `/cost feature <slug>` — 已交付功能的 ROI (per-agent 细分 + 与人工对比)
+- 新定位: GreatCTO 是你与 AI 代理舰队之间的管理层
+
+### v2.2.0 — 3 个新项目类型: edtech, gov-public, insurance (2026 年 5 月)
+- `edtech` + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + 美国各州学生隐私法
+- `gov-public` + `gov-reviewer` — FedRAMP, NIST 800-53, Section 508, PIA, CJIS, StateRAMP
+- `insurance` + `insurance-reviewer` — NAIC 50 州合规, Solvency II, IFRS 17, ACORD, ASOP 41/56
 
 ### v2.1.0 — 内置安全扫描 (2026 年 5 月)
 - `npx great-cto scan ./` — OWASP LLM Top 10 + 24 条规则 + 用于 GitHub Code Scanning 的 SARIF

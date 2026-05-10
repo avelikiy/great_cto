@@ -8,7 +8,7 @@
 
 Você é o CTO. Você também é o gargalo. **GreatCTO são 30 agentes especialistas** que cuidam de arquitetura, code review, QA, segurança e deploy — enquanto você toma **duas decisões por feature**.
 
-> **v2.2.0** · 33 agentes · 25 arquétipos · 24 regras de segurança · 9 hooks · ~$34/mês por projeto · PoCs em 47 minutos · MIT
+> **v2.7.0** · 34 agentes · 25 arquétipos · 24 regras de segurança · 9 hooks · funciona em **Claude Code · Cursor · Codex · Aider · Continue** · servidor MCP · webhooks · CI gate · ~$34/mês por projeto · MIT
 
 > ⚠️ Esta tradução foi gerada por máquina. Revisão por falante nativo é bem-vinda — abra um PR. [English original](../../README.md).
 
@@ -24,6 +24,51 @@ Você é o CTO. Você também é o gargalo. **GreatCTO são 30 agentes especiali
 </div>
 
 ## Novidades
+
+### v2.7.0 — consistência cross-prompt + política de tier de modelo (maio 2026)
+- 3 novas regras de linter: `CONS-MODEL` (modelo do agente combina com o papel) · `CONS-OUTPUT` (reviewers declaram arquivo de output) · `CONS-SIGNOFF` (semântica de sign-off / gate)
+- ADR-002 — política unificada de seleção de tier de modelo (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet)
+- Bug fix: logs de auto-captura do SessionEnd agora renderizam corretamente no admin do board
+- Baseline do linter: 34 agentes · 0 erros · 0 warnings
+
+### v2.6.0 — linter estrutural de prompts de agentes (maio 2026)
+- `scripts/agent-prompt-lint.mjs` — 14 regras para todos os 34 arquivos markdown em `agents/`
+- Detecta: drift de frontmatter (model/tools), seções phase-task ausentes, paths de memória desatualizados, blowup de tamanho de arquivo
+- Roda nos testes L1 do pipeline: 0 erros antes do release
+
+### v2.5.x patch series — production hardening (maio 2026)
+- **v2.5.10**: fechamento de phase-task via `bd close --force` para tasks dependentes
+- **v2.5.9**: economia honesta — $0.30/AI-hr · $150/human-hr · ratio 500× (corrigido bug que mostrava 7638×)
+- **v2.5.8**: QA pass — 10 bugs fechados; pipeline de custo reflete spend real do LLM
+- **v2.5.7**: ciclo de vida per-stage de Beads tasks — cada agente cria+fecha suas próprias tasks via `scripts/phase-task.sh`
+- **v2.5.6**: 6 fixes de UX após dogfooding em Cursor
+- **v2.5.5**: fix crítico — `/inbox` e `/digest` "Prompt is too long"
+- **v2.5.4**: detecção env-var-first do host (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / …)
+- **v2.5.1**: fix crítico — `scan`/`ci` perdiam findings em paths relativos
+
+### v2.5.0 — webhooks de produção + MCP SSE + relatórios + Cursor extension (maio 2026)
+- Receiver de webhook verificado por HMAC: GitHub / Sentry / generic (`great-cto serve`)
+- Dispatcher outbound com backoff exponencial + DLQ → Slack / Discord / PagerDuty
+- Modo MCP SSE para uso multi-cliente / remoto
+- Relatórios HTML/JSON de custo+compliance (`great-cto report cost --period 30d`)
+- Scaffold de Cursor extension em `packages/cursor-ext/` — vsce-ready
+
+### v2.4.0 — suporte multi-plataforma: Codex, Cursor, Aider, Continue (maio 2026)
+- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — fonte única de verdade → configs nativos da plataforma
+- `great-cto mcp` — servidor MCP (stdio + SSE) expondo 5 ferramentas para qualquer host MCP
+- `great-cto ci` — CI gate em comando único (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
+- `great-cto serve` — scaffolding de webhook receiver
+
+### v2.3.0 — gestão de workforce de agentes (maio 2026)
+- `/agent-review [name]` — scorecard de performance para agentes LLM (verdicts, cost, failure modes, sugestões de tuning de prompt)
+- `/agent-retire <name>` — descontinuação graciosa de agente (arquiva prompt, remove da sync list, preserva verdicts para auditoria)
+- `/cost feature <slug>` — ROI por feature entregue (breakdown per-agent + comparação com humano)
+- Novo posicionamento: GreatCTO é a camada de gestão entre você e sua frota de agentes IA
+
+### v2.2.0 — 3 novos arquétipos: edtech, gov-public, insurance (maio 2026)
+- `edtech` + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + leis estaduais de privacidade estudantil dos EUA
+- `gov-public` + `gov-reviewer` — FedRAMP, NIST 800-53, Section 508, PIA, CJIS, StateRAMP
+- `insurance` + `insurance-reviewer` — NAIC 50-state filing, Solvency II, IFRS 17, ACORD, ASOP 41/56
 
 ### v2.1.0 — scanner de segurança integrado (maio 2026)
 - `npx great-cto scan ./` — OWASP LLM Top 10 + 24 regras + SARIF para GitHub Code Scanning

@@ -8,7 +8,7 @@
 
 あなたは CTO で、ボトルネックでもある。**GreatCTO は 30 のスペシャリスト・エージェント**が、アーキテクチャ・レビュー・QA・セキュリティ・デプロイを担当 — あなたは**機能ごとに 2 つの決定**だけを下す。
 
-> **v2.2.0** · 33 エージェント · 25 アーキタイプ · 24 セキュリティルール · 9 フック · プロジェクトあたり ~$34/月 · 47 分で PoC · MIT
+> **v2.7.0** · 34 エージェント · 25 アーキタイプ · 24 セキュリティルール · 9 フック · **Claude Code · Cursor · Codex · Aider · Continue** で動作 · MCP サーバー · webhooks · CI gate · プロジェクトあたり ~$34/月 · MIT
 
 > ⚠️ この翻訳は機械翻訳です。ローカルレビューが必要です。問題があれば PR を送ってください。 [English original](../../README.md).
 
@@ -24,6 +24,51 @@
 </div>
 
 ## 新着情報
+
+### v2.7.0 — エージェントプロンプトの一貫性 + モデルティアポリシー (2026 年 5 月)
+- 3 つの新しいリンタールール: `CONS-MODEL` (エージェントのモデルが役割に一致) · `CONS-OUTPUT` (reviewer は出力ファイルを宣言) · `CONS-SIGNOFF` (sign-off / gate セマンティクス)
+- ADR-002 — モデルティア選択の統一ポリシー (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet)
+- バグ修正: SessionEnd 自動キャプチャログがボード管理画面に正しくレンダリングされるように
+- リント基準: 34 エージェント · 0 エラー · 0 警告
+
+### v2.6.0 — エージェントプロンプトの構造リンター (2026 年 5 月)
+- `scripts/agent-prompt-lint.mjs` — `agents/` 内 34 markdown ファイル全ての 14 ルールチェック
+- 検出: frontmatter ドリフト (model/tools)、phase-task セクション欠落、古いメモリパス、ファイルサイズ肥大化
+- L1 パイプラインテストで実行: リリース前にエラー 0
+
+### v2.5.x パッチシリーズ — production hardening (2026 年 5 月)
+- **v2.5.10**: 依存関係のあるタスクで `bd close --force` を使った phase-task クローズ
+- **v2.5.9**: 正直なコスト計算 — $0.30/AI-時間 · $150/人時 · 500× 比 (7638× を出していたバグを修正)
+- **v2.5.8**: QA パス — 10 件のバグをクローズ; コストパイプラインが実 LLM 支出を反映
+- **v2.5.7**: per-stage Beads タスクライフサイクル — 各エージェントが `scripts/phase-task.sh` で自身のタスクを作成・クローズ
+- **v2.5.6**: Cursor ドッグフーディング後の 6 件の UX 修正
+- **v2.5.5**: クリティカル修正 — `/inbox` と `/digest` の "Prompt is too long"
+- **v2.5.4**: env-var-first ホスト検出 (`$CLAUDECODE` / `$CODEX_SESSION` / `$CURSOR_TRACE_ID` / …)
+- **v2.5.1**: クリティカル修正 — `scan`/`ci` が相対パスで検出を見落としていた
+
+### v2.5.0 — production webhooks + MCP SSE + レポート + Cursor extension (2026 年 5 月)
+- HMAC 検証付き webhook レシーバー: GitHub / Sentry / generic (`great-cto serve`)
+- 指数バックオフ + DLQ → Slack / Discord / PagerDuty のアウトバウンドディスパッチャー
+- マルチクライアント / リモート使用のための MCP SSE モード
+- HTML/JSON コスト+コンプライアンスレポート (`great-cto report cost --period 30d`)
+- `packages/cursor-ext/` の Cursor extension scaffold — vsce-ready
+
+### v2.4.0 — マルチプラットフォームサポート: Codex, Cursor, Aider, Continue (2026 年 5 月)
+- `great-cto adapt --platform [claude|codex|cursor|aider|continue|all]` — 単一の信頼できる情報源 → プラットフォームネイティブ設定
+- `great-cto mcp` — MCP サーバー (stdio + SSE) で 5 つのツールを任意の MCP ホストに公開
+- `great-cto ci` — シングルコマンド CI gate (scan + archetype check + GitHub Actions annotations + SARIF + JUnit XML)
+- `great-cto serve` — webhook receiver scaffolding
+
+### v2.3.0 — エージェントワークフォース管理 (2026 年 5 月)
+- `/agent-review [name]` — LLM エージェントのパフォーマンススコアカード (verdicts, cost, failure modes, プロンプトチューニング提案)
+- `/agent-retire <name>` — エージェントの優雅な廃止 (プロンプトのアーカイブ、sync list からの削除、監査用 verdicts の保持)
+- `/cost feature <slug>` — 出荷したフィーチャーの ROI (per-agent breakdown + 人間との比較)
+- 新しいポジショニング: GreatCTO はあなたと AI エージェント艦隊の間の管理レイヤー
+
+### v2.2.0 — 3 つの新しいアーキタイプ: edtech, gov-public, insurance (2026 年 5 月)
+- `edtech` + `edtech-reviewer` — COPPA/FERPA/GDPR-K + WCAG 2.2 AA + 米州学生プライバシー法
+- `gov-public` + `gov-reviewer` — FedRAMP, NIST 800-53, Section 508, PIA, CJIS, StateRAMP
+- `insurance` + `insurance-reviewer` — NAIC 50 州フィリング, Solvency II, IFRS 17, ACORD, ASOP 41/56
 
 ### v2.1.0 — 組み込みセキュリティスキャン (2026 年 5 月)
 - `npx great-cto scan ./` — OWASP LLM Top 10 + 24 ルール + GitHub Code Scanning 用 SARIF
