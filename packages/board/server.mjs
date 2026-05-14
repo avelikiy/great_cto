@@ -479,7 +479,14 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
     projected_monthly: projectedMonthly,
     monthly_budget: budget,
     over_budget: budget != null && projectedMonthly > budget,
-    savings_x: totalLlm > 0 ? Math.round(totalHuman / totalLlm) : 0,
+    // savings_x semantics:
+    //   null  → cannot compute (no human estimate available — distinct from "no savings")
+    //   0+    → real ratio, total_human / total_llm
+    // Pre-fix this returned 0 in both cases, conflating "no human estimate"
+    // with "human cost is identical to LLM cost" — misleading on dashboards.
+    savings_x: (totalLlm > 0 && totalHuman > 0)
+      ? Math.round(totalHuman / totalLlm)
+      : null,
   };
 }
 
@@ -874,12 +881,30 @@ function readVerdicts() {
     const lines = fs.readFileSync(path.join(verdictDir, file), 'utf8')
       .split('\n').filter(Boolean);
     for (const line of lines) {
-      const parts = line.split(' ');
+      // Two formats agents emit in the wild:
+      //   space-separated:  "<ts> <verdict> <details> cost=$X"
+      //   pipe-separated:   "<ts> | <agent> | <verdict> | <details> | cost=$X"
+      // Pre-2026-05: parts[1] always took the 2nd whitespace token, which
+      // for the pipe form is "|", breaking /api/pipeline status mapping
+      // (verdicts displayed as "|" instead of APPROVED/DONE/BLOCKED).
+      // Now we detect the pipe form and parse it differently.
+      let ts, verdict;
+      if (line.includes(' | ')) {
+        const pipeParts = line.split('|').map(s => s.trim());
+        ts = pipeParts[0].trim();
+        // Pipe form: [ts, agent, verdict, details, cost]
+        // Verdict is at index 2 (after ts and agent name).
+        verdict = pipeParts[2] || '';
+      } else {
+        const parts = line.split(' ');
+        ts = parts[0];
+        verdict = parts[1] || '';
+      }
       const costMatch = line.match(/\bcost=\$?(\d+\.?\d*)\b/i);
       results.push({
-        ts: parts[0],
+        ts,
         agent,
-        verdict: parts[1] || '',
+        verdict,
         cost_usd: costMatch ? parseFloat(costMatch[1]) : null,
         raw: line.replace(/\s*\bcost=\$?\d+\.?\d*\b/i, ''),
       });
