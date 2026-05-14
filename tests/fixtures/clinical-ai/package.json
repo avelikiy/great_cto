@@ -1,0 +1,13 @@
+{
+  "name": "clinical-ai-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "tsx src/server.ts" },
+  "dependencies": {
+    "express": "^4.19.0",
+    "@types/fhir": "^0.0.41",
+    "fhir.js": "^0.0.21",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": { "typescript": "^5.4.0" }
+}

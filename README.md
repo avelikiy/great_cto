@@ -6,7 +6,7 @@
 
 **Solo-CTO mode. Stop being the only person who can ship.**
 
-You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
 **Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
 
@@ -26,7 +26,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 34 specialist age
 
 It started as a Claude Code plugin and **v2.4+ added cross-platform support** — the same archetype/compliance/scan/MCP machinery now runs in Cursor, OpenAI Codex CLI, Aider, and Continue via AGENTS.md + MCP.
 
-You describe what you want (`/start "build a billing endpoint"`). 34 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 26 archetype-specific reviewers — orchestrate the SDLC: archetype detection → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
+You describe what you want (`/start "build a billing endpoint"`). 49 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 26 archetype-specific reviewers and **15 new domain reviewers** (voice-AI · clinical-AI + FDA SaMD · HR-AI · API platform · lending · clinical trials · bio-data · robotics · EM-fintech · climate MRV · biosecurity · drug-discovery ML · GLP · lab automation) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
 
 The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; a deep cross-cutting feature runs through 7+ agents over an hour. **You confirm two gates** (plan, ship). Everything else is automatic.
 
@@ -66,7 +66,7 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 <td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
 </tr>
 <tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 34 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 34 specialists with last-used + run counts</sub></td>
+<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 49 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 49 specialists with last-used + run counts</sub></td>
 <td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 layers + crystallized incident patterns</sub></td>
 </tr>
 </table>
@@ -75,7 +75,7 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 |---|---|
 | Tasks | Backlog → in-progress → done, drag to update via `/api/tasks/<id>/status` |
 | Cost (30d) | LLM $ vs human-equivalent $; flag if `savings_x < 100×` |
-| Agent fleet | 34 agents with last-used + per-agent run count |
+| Agent fleet | 49 agents with last-used + per-agent run count |
 | Inbox | Pending gates, P0 incidents, blocked tasks (auto-sorted) |
 | Pipeline | 8-stage SDLC with status (architect → pm → senior-dev → … → devops) |
 
@@ -119,10 +119,10 @@ Pay your own Anthropic API tokens. **No per-seat fee. No SaaS lock-in.** Routine
 
 | | great_cto | Cursor | Copilot Workspace | Claude Projects |
 |---|---|---|---|---|
-| Multi-agent SDLC pipeline | ✓ 34 specialists | ✕ | ✕ | ✕ |
+| Multi-agent SDLC pipeline | ✓ 49 specialists | ✕ | ✕ | ✕ |
 | Works in 5 AI assistants | ✓ Claude Code · Cursor · Codex · Aider · Continue | one IDE | one IDE | one product |
-| Auto archetype detection | ✓ 25 types | ✕ | ✕ | ✕ |
-| Compliance gates (PCI / HIPAA / SOX / EU AI Act) | ✓ | ✕ | ✕ | ✕ |
+| Auto archetype detection | ✓ 25 types + 10 domain packs | ✕ | ✕ | ✕ |
+| Compliance gates (PCI / HIPAA / SOX / EU AI Act / TCPA / FDA SaMD / NYC LL 144 / FCRA / ICH-GCP / ISO TS 15066) | ✓ | ✕ | ✕ | ✕ |
 | AI-security scanner (24 OWASP LLM rules) | ✓ built-in | ✕ | ✕ | ✕ |
 | Persistent memory | ✓ decisions.md + verdicts | ⚠ chat-only | ✕ | ✓ chat scope |
 | Open source · runs locally · pay your own API | ✓ | ✕ | ✕ | ✕ |
@@ -143,6 +143,25 @@ Each archetype activates its own specialist agents and compliance checklists. To
 | `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
 
 Full table (25 archetypes) + how detection works: [docs/ARCHETYPES.md](docs/ARCHETYPES.md).
+
+## 10 domain packs (v2.8 — overlay reviewers)
+
+Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-specific signals (deps, README terms). Each pack adds its own reviewer(s), threat-model template, EVAL suite, and human gates — independent of base archetype.
+
+| Pack | Reviewers | Triggers | Human gates added |
+|---|---|---|---|
+| `voice-pack` | voice-ai-reviewer | twilio · livekit · deepgram · elevenlabs · ivr · tts/stt | `gate:voice-compliance` |
+| `clinical-pack` | ai-clinical · fda | EHR · PHI · SaMD · clinical decision support · scribe | `gate:samd-class` · `gate:clinical-validation` · `gate:ide-approval` |
+| `hr-ai-pack` | hr-ai | recruit · hiring · resume · ats · workforce scheduling · AEDT | `gate:aedt-audit` |
+| `api-platform-pack` | api-platform | OpenAPI · GraphQL · webhook · developer portal · public API | `gate:api-contract` |
+| `lending-pack` | lending-credit | plaid · loan · BNPL · FCRA · NMLS · adverse action | `gate:fair-lending` |
+| `clinical-trials-pack` | clinical-trials · bio-data | FHIR · HL7 · DICOM · CTMS · EDC · eConsent · CDISC | `gate:irb-ready` · `gate:part11-validation` · `gate:deidentification` |
+| `robotics-pack` | robotics-safety | ROS 2 · MoveIt · cobot · surgical robot · AMR / drone | `gate:hara-signoff` · `gate:functional-safety-test` |
+| `em-fintech-pack` | em-fintech | India · Nigeria · Brazil · UPI · PIX · M-Pesa · GCash · RBI · CBN | `gate:license-strategy` |
+| `climate-pack` | climate-mrv · biosecurity | GHG · Scope 1-3 · Verra · CBAM · DURC · IGSC · cloud lab | `gate:mrv-methodology` · `gate:durc-signoff` · `gate:open-weights-release` |
+| `drug-discovery-pack` | drug-discovery-ml · GLP · lab-automation | ChEMBL · AlphaFold · RFdiffusion · LIMS · SiLA2 | `gate:model-card-signoff` · `gate:csv-validation` · `gate:iq-oq-pq` |
+
+→ **19 new human-gate types** + 38 reference EVAL suites + 15 TM templates. See [skills/great_cto/ARCHETYPES.md](skills/great_cto/ARCHETYPES.md) for full overlay matrix.
 
 ## Showcase: from idea to passing tests in $2.39
 
@@ -229,11 +248,11 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 34 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 49 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
-**v2.7.0** (May 2026) — cross-prompt consistency linter (3 new rules: `CONS-MODEL`, `CONS-OUTPUT`, `CONS-SIGNOFF`); ADR-002 model-tier policy (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet); 34 agents · 0 lint errors · 0 warnings.
+**v2.7.0** (May 2026) — cross-prompt consistency linter (3 new rules: `CONS-MODEL`, `CONS-OUTPUT`, `CONS-SIGNOFF`); ADR-002 model-tier policy (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet); 49 agents · 0 lint errors · 0 warnings.
 
 [Full changelog →](CHANGELOG.md)
 

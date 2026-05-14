@@ -239,3 +239,55 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `openssf` | OpenSSF Scorecard ≥ 7, npm provenance, PyPI Trusted Publishing, signed releases |
 | `api-stability` | OpenAPI / GraphQL spec linting, no breaking changes in MINOR/PATCH, deprecation channel |
 | `soc2-type-2` | SOC 2 Type II: 6+ months continuous evidence collection, access reviews, change management |
+
+## Domain Overlays (Wave 1-3 specialised reviewers)
+
+> Overlay packs ride on top of existing archetypes via `applies_to + applies_when` instead of creating new archetypes. Loaded automatically when ARCH or PROJECT.md mentions the trigger signals listed below.
+
+| Pack | Reviewer(s) | Triggers on | Base archetypes | Human gates added |
+|---|---|---|---|---|
+| `voice-pack` | voice-ai-reviewer | twilio, vonage, livekit, deepgram, elevenlabs, ivr, telephony, tts/stt | ai-system, agent-product | gate:voice-compliance |
+| `clinical-pack` | ai-clinical-reviewer + fda-reviewer | clinical, patient, EHR/EMR, PHI, diagnosis, SaMD, CDS, scribe, telehealth-AI | ai-system, agent-product, regulated | gate:samd-class, gate:clinical-validation, gate:ide-approval |
+| `hr-ai-pack` | hr-ai-reviewer | recruit, hiring, candidate, resume, interview, ATS, performance review, workforce scheduling | ai-system, agent-product, enterprise | gate:aedt-audit |
+| `api-platform-pack` | api-platform-reviewer | public API, partner API, REST, GraphQL, gRPC, webhook, SDK, OpenAPI, dev portal | devtools, library, ai-system, agent-product, web-service | gate:api-contract |
+| `lending-pack` | lending-credit-reviewer | loan, lending, credit, BNPL, payroll advance, EWA, FCRA, ECOA, NMLS | commerce, regulated, ai-system | gate:fair-lending |
+| `clinical-trials-pack` | clinical-trials-reviewer + bio-data-reviewer | clinical trial, CTMS, EDC, eCOA, ePRO, eConsent, FHIR, HL7, OMOP, DICOM, genomics | regulated, ai-system, data-platform | gate:irb-ready, gate:part11-validation, gate:deidentification |
+| `robotics-pack` | robotics-safety-reviewer (+fda for surgical) | robot, cobot, manipulator, AMR/AGV, autonomous, surgical robot, ROS 2, drone | iot-embedded, ai-system, agent-product, regulated | gate:hara-signoff, gate:functional-safety-test |
+| `em-fintech-pack` | emerging-markets-fintech-reviewer | India, Nigeria, Brazil, Indonesia, Philippines, Mexico, M-Pesa, UPI, PIX, GCash, RBI, CBN, BSP, OJK, MAS | commerce, regulated, web-service | gate:license-strategy |
+| `climate-pack` | climate-mrv-reviewer + biosecurity-reviewer | carbon, GHG, MRV, Scope 1/2/3, Verra, Gold Standard, SBTi, CDP, CSRD, CBAM, OR synbio dual-use signals | data-platform, ai-system, regulated | gate:mrv-methodology, gate:durc-signoff, gate:open-weights-release |
+| `drug-discovery-pack` | drug-discovery-ml-reviewer + glp-glab-reviewer + lab-automation-reviewer | drug discovery, binding affinity, ADMET, generative chemistry/protein, AlphaFold, RFdiffusion, GLP, LIMS, ELN, lab automation | ai-system, regulated, data-platform, iot-embedded | gate:model-card-signoff, gate:csv-validation, gate:iq-oq-pq |
+
+### Activation logic
+
+Overlays are loaded by `architect` when running discovery:
+
+1. Read ARCH-{slug}.md + PROJECT.md
+2. For each pack, run its trigger regex (defined in `skills/great_cto/packs/*-pack.md` and the corresponding reviewer agent's `Step 0`).
+3. If signals present → invoke reviewer(s) → write `TM-{type}-{slug}.md` → emit HANDOFF → block `senior-dev` until human-gates listed above are cleared.
+
+### Human-gate summary (per overlay)
+
+13 new gate types added by Wave 1-3 overlays, layered on top of existing `gate:plan` / `gate:ship` / `gate:promote`:
+
+| Gate | Set by | Cleared by | Triggered when |
+|---|---|---|---|
+| `gate:voice-compliance` | voice-ai-reviewer | regulatory lead | voice pack active |
+| `gate:samd-class` | fda-reviewer | regulatory + clinical lead | SaMD signal |
+| `gate:clinical-validation` | ai-clinical-reviewer | clinical lead | clinical-AI scope |
+| `gate:ide-approval` | fda-reviewer | regulatory + sponsor | PMA path, clinical trial scope |
+| `gate:aedt-audit` | hr-ai-reviewer | independent auditor | NYC LL 144 in scope (annual) |
+| `gate:api-contract` | api-platform-reviewer | architect + DX-lead | before v1 GA |
+| `gate:fair-lending` | lending-credit-reviewer | compliance + statistician | every credit-model release |
+| `gate:irb-ready` | clinical-trials-reviewer | clinical lead + regulatory | before IRB submission |
+| `gate:part11-validation` | clinical-trials-reviewer | independent QA lead | before production go-live |
+| `gate:deidentification` | bio-data-reviewer | statistical expert | when Expert Determination is used |
+| `gate:hara-signoff` | robotics-safety-reviewer | licensed safety engineer | every robotics release affecting hazard surface |
+| `gate:functional-safety-test` | robotics-safety-reviewer | QA-lead | surgical / autonomous / high-risk |
+| `gate:license-strategy` | emerging-markets-fintech-reviewer | legal + compliance | per jurisdiction served |
+| `gate:mrv-methodology` | climate-mrv-reviewer | climate-lead + verifier | methodology choice — cannot change retroactively |
+| `gate:durc-signoff` | biosecurity-reviewer | IRE + biosec expert | DURC / PEPP applicable |
+| `gate:open-weights-release` | biosecurity-reviewer | responsible-scaling board | generative bio-model release |
+| `gate:model-card-signoff` | drug-discovery-ml-reviewer | ML lead + clinical lead | before wet-lab spend |
+| `gate:csv-validation` | glp-glab-reviewer | independent QA lead | before GLP/GMP production |
+| `gate:iq-oq-pq` | lab-automation-reviewer | engineering + QA | per instrument qualification |
+

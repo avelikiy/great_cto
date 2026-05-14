@@ -1,0 +1,5 @@
+{
+  "archetype": "fintech",
+  "packs": ["lending-pack"],
+  "skipIfFails": false
+}

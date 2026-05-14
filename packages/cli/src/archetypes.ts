@@ -191,6 +191,16 @@ const RULES: Rule[] = [
       const stackJoined = d.stack.join(" ").toLowerCase();
       if (/(?:^| )agent[-_](?:runtime|product|loop|kit|sdk)/.test(stackJoined)) s += 2;
 
+      // Voice-AI agent: telephony provider + STT + TTS + LLM = autonomous voice agent
+      const voiceProviders = ["twilio", "vonage", "livekit"];
+      const sttProviders = ["deepgram"];
+      const ttsProviders = ["elevenlabs", "hume"];
+      const hasVoice = voiceProviders.some((s) => d.stack.includes(s));
+      const hasStt = sttProviders.some((s) => d.stack.includes(s));
+      const hasTts = ttsProviders.some((s) => d.stack.includes(s));
+      if (hasVoice && hasLlm && (hasStt || hasTts)) s += 7;   // strong: full voice-agent stack
+      else if (hasVoice && hasLlm) s += 4;                     // medium: voice + LLM
+
       return s;
     },
     reason: (d) => {
@@ -202,7 +212,9 @@ const RULES: Rule[] = [
       if (d.stack.includes("mcp")) bits.push("MCP SDK");
       const vdb = ["pinecone","weaviate","chroma","qdrant"].filter((s) => d.stack.includes(s));
       if (vdb.length) bits.push(`vector DB (${vdb.join(",")})`);
-      return `agent-product detected — ${bits.join(", ")} — agent-eval + isolation + prompt-injection gates required`;
+      const voice = ["twilio","vonage","livekit","deepgram","elevenlabs","hume"].filter((s) => d.stack.includes(s));
+      if (voice.length) bits.push(`voice stack (${voice.join(",")})`);
+      return `agent-product detected — ${bits.join(", ") || "agent signals"} — agent-eval + isolation + prompt-injection gates required`;
     },
   },
 
@@ -265,6 +277,11 @@ const RULES: Rule[] = [
       if (d.stack.includes("dwolla")) s += 9;
       if (d.stack.includes("teller")) s += 9;
       if (d.stack.includes("fintech")) s += 7;
+      // Emerging-markets payment providers
+      if (d.stack.includes("razorpay")) s += 9;
+      if (d.stack.includes("paystack")) s += 9;
+      if (d.stack.includes("flutterwave")) s += 9;
+      if (d.stack.includes("mercadopago")) s += 9;
       if (d.readmeKeywords.includes("fintech")) s += 2;
       return s;
     },
@@ -274,6 +291,10 @@ const RULES: Rule[] = [
       if (d.stack.includes("wise")) bits.push("Wise");
       if (d.stack.includes("dwolla")) bits.push("Dwolla");
       if (d.stack.includes("teller")) bits.push("Teller");
+      if (d.stack.includes("razorpay")) bits.push("Razorpay (India)");
+      if (d.stack.includes("paystack")) bits.push("Paystack (Nigeria)");
+      if (d.stack.includes("flutterwave")) bits.push("Flutterwave (Africa)");
+      if (d.stack.includes("mercadopago")) bits.push("MercadoPago (LATAM)");
       return `fintech integration: ${bits.join(", ")} — SOX, PCI, KYC/AML compliance gates`;
     },
   },
