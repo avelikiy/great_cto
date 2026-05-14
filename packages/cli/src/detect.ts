@@ -136,6 +136,11 @@ export function detect(dir: string): DetectionResult {
       if (has("@wise-api/api-client") || has("wise")) { stack.add("wise"); sig("fintech", "wise"); }
       if (has("dwolla-v2")) { stack.add("dwolla"); sig("fintech", "dwolla"); }
       if (has("@teller/teller")) { stack.add("teller"); sig("fintech", "teller"); }
+      // Emerging-markets payment providers (Wave-1 pack signals)
+      if (has("razorpay") || has("razorpay-node")) { stack.add("razorpay"); sig("fintech", "razorpay"); }
+      if (has("@paystackhq/paystack-node") || has("paystack")) { stack.add("paystack"); sig("fintech", "paystack"); }
+      if (has("@flutterwave/flutterwave-node-v3") || has("flutterwave")) { stack.add("flutterwave"); sig("fintech", "flutterwave"); }
+      if (has("mercadopago")) { stack.add("mercadopago"); sig("fintech", "mercadopago"); }
       // Stripe Connect/Issuing → fintech (not just commerce)
       if (has("stripe") && (pkg.name?.includes("bank") || pkg.name?.includes("card"))) {
         sig("fintech", "stripe-connect");
@@ -146,6 +151,27 @@ export function detect(dir: string): DetectionResult {
       if (has("fhir") || has("fhir.js") || has("@types/fhir")) { stack.add("fhir"); sig("healthcare", "fhir"); }
       if (has("@smile-cdr/fhirts")) { stack.add("fhir"); sig("healthcare", "smile-cdr"); }
       if (has("hl7")) { stack.add("hl7"); sig("healthcare", "hl7"); }
+      if (has("dicom-parser") || has("cornerstone-core") || has("dcmjs")) { stack.add("dicom"); sig("healthcare", "dicom"); }
+
+      // Voice / telephony (Wave-1 pack signals)
+      if (has("twilio") || has("@twilio/voice-sdk")) { stack.add("twilio"); sig("voice", "twilio"); }
+      if (has("@vonage/server-sdk") || has("nexmo")) { stack.add("vonage"); sig("voice", "vonage"); }
+      if (has("livekit-server-sdk") || has("livekit-client")) { stack.add("livekit"); sig("voice", "livekit"); }
+      if (has("@deepgram/sdk")) { stack.add("deepgram"); sig("voice", "deepgram"); }
+      if (has("elevenlabs") || has("@elevenlabs/elevenlabs-js")) { stack.add("elevenlabs"); sig("voice", "elevenlabs"); }
+      if (has("hume") || has("hume-ai")) { stack.add("hume"); sig("voice", "hume"); }
+
+      // HR / recruiting (Wave-1 pack signals)
+      if (has("greenhouse-io") || has("@greenhouse/api")) { stack.add("greenhouse"); sig("hr", "greenhouse"); }
+      if (has("lever-api")) { stack.add("lever"); sig("hr", "lever"); }
+      if (has("ashby-api")) { stack.add("ashby"); sig("hr", "ashby"); }
+
+      // API platform (Wave-1 pack signals)
+      if (has("fastify")) stack.add("fastify");
+      if (has("@trpc/server") || has("@trpc/client")) stack.add("trpc");
+      if (has("@apollo/server") || has("apollo-server")) stack.add("graphql");
+      if (has("graphql") || has("graphql-yoga")) stack.add("graphql");
+      if (has("openapi3-ts") || has("@apidevtools/swagger-parser")) stack.add("openapi");
 
       // Auth
       if (has("next-auth") || has("@auth/core")) stack.add("auth");
@@ -807,6 +833,56 @@ function mineReadmeKeywords(dir: string): string[] {
   };
   for (const [bucket, terms] of Object.entries(buckets)) {
     if (terms.some((t) => text.includes(t))) kws.add(bucket);
+  }
+
+  // Wave 1-3 pack-trigger raw terms — emitted verbatim so packs.ts
+  // can substring-match them. Keep in sync with packs.ts SIGNALS.keywords.
+  // Single tokens + multi-word phrases supported.
+  const packTerms = [
+    // voice-pack
+    "voice", "telephony", "ivr", "tts", "stt", "speech-to-text", "text-to-speech",
+    "outbound call", "inbound call", "voice agent",
+    // clinical-pack + clinical-trials-pack
+    "clinical", "patient", "ehr", "emr", "phi", "diagnosis", "diagnos", "triage",
+    "radiolog", "patholog", "samd", "scribe", "telehealth-ai", "medical record",
+    "cds", "clinical decision support",
+    "clinical trial", "ctms", "edc", "epro", "econsent", "esource",
+    "randomization", "rtsm", "irt", "decentralized trial", "ind submission",
+    "21 cfr 11", "cdisc", "sdtm", "adam", "irb",
+    // hr-ai-pack
+    "recruit", "hiring", "candidate", "resume", "interview", "ats", "talent acquisition",
+    "performance review", "workforce scheduling", "employee evaluation", "aedt",
+    // api-platform-pack
+    "public api", "partner api", "developer portal", "api key", "webhook", "sdk",
+    "rest api", "graphql api", "openapi",
+    // lending-pack
+    "loan", "lending", "credit decision", "underwrit", "bnpl", "buy now pay later",
+    "buy-now-pay-later", "payroll advance", "ewa", "line of credit", "fico",
+    "credit score", "fcra", "nmls", "financing", "adverse action",
+    // robotics-pack
+    "robot", "cobot", "manipulator", "end-effector", "amr", "agv", "autonomous mobile",
+    "surgical robot", "ros 2", "ros2", "drone", "uav",
+    // em-fintech-pack
+    "india", "nigeria", "brazil", "indonesia", "philippines", "mexico", "kenya",
+    "m-pesa", "mpesa", "upi", "pix", "gcash", "ovo", "dana", "rbi", "cbn", "bsp",
+    "ojk", "mas", "bcb", "condusef", "cross-border", "remittance", "local rails",
+    // climate-pack
+    "carbon", "emission", "ghg", "mrv", "scope 1", "scope 2", "scope 3", "verra",
+    "gold standard", "puro", "sbti", "cdp", "csrd", "cbam", "ghgrp", "offset",
+    "credit retir", "removal", "biogenic",
+    "dna synthesis", "gene synthesis", "oligonucleotide", "protein design",
+    "esm", "alphafold", "rfdiffusion", "pathogen", "select agent", "gain-of-function",
+    "dual-use", "bsl-3", "bsl-4", "biocontainment", "bwc", "p3co", "igsc", "cloud lab",
+    // drug-discovery-pack
+    "drug discovery", "binding affinity", "admet", "toxicity prediction",
+    "generative chem", "generative protein", "antibody design", "mrna design",
+    "virtual screening", "docking", "fep", "chembl", "bindingdb", "pdbbind",
+    "glp", "gmp", "gxp", "preclinical", "lims", "eln", "annex 11", "alcoa",
+    "lab automation", "robotic biology", "liquid handler", "hamilton", "tecan",
+    "beckman", "opentrons", "plate reader", "sequencer", "hplc", "mass spec", "sila",
+  ];
+  for (const term of packTerms) {
+    if (text.includes(term)) kws.add(term);
   }
   return Array.from(kws).sort();
 }

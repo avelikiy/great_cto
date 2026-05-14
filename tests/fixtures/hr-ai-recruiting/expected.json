@@ -1,0 +1,5 @@
+{
+  "archetype": "ai-system",
+  "packs": ["hr-ai-pack"],
+  "skipIfFails": false
+}

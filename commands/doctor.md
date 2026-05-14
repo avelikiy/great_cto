@@ -427,6 +427,56 @@ fi
 - `/doctor --skills-refresh` → force re-scan all 4 tiers
 - (default) → show summary only as part of Check 8c
 
+## Check 8d — Domain pack overlay health (v2.8+)
+
+Verifies that pack overlays auto-attached at /start match the project's stack/README signals, and that each attached pack has its reviewer agent + TM template + EVAL suite + human-gate registry intact.
+
+```bash
+echo ""
+echo "─────────────────────────"
+echo "Check 8d — Domain pack overlays"
+echo ""
+
+if [ ! -f "$REGISTRY" ] && [ ! -d skills/great_cto/packs ]; then
+  echo "  skipped (no packs registry visible)"
+else
+  PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+  if [ -n "$PLUGIN_DIR" ] && [ -f "$PLUGIN_DIR/packages/cli/dist/packs.js" ]; then
+    MATCHED=$(node -e "
+const { detect } = await import('$PLUGIN_DIR/packages/cli/dist/detect.js');
+const { suggestPacks } = await import('$PLUGIN_DIR/packages/cli/dist/packs.js');
+const m = suggestPacks(detect('.'));
+for (const p of m) console.log(p.pack + '|' + p.reviewers.join(',') + '|' + p.humanGates.join(','));
+" 2>/dev/null)
+
+    if [ -z "$MATCHED" ]; then
+      echo "  no domain packs auto-detected (base archetype-only pipeline)"
+    else
+      echo "  Auto-detected domain pack overlays:"
+      echo "$MATCHED" | while IFS='|' read -r pack reviewers gates; do
+        echo "    • $pack"
+        echo "       reviewers: $reviewers"
+        echo "       gates:     $gates"
+        MISSING=""
+        [ -f "$PLUGIN_DIR/skills/great_cto/packs/${pack}.md" ] || MISSING="${MISSING} pack-file"
+        for r in $(echo "$reviewers" | tr ',' ' '); do
+          [ -f "$PLUGIN_DIR/agents/${r}.md" ] || MISSING="${MISSING} agent:${r}"
+        done
+        [ -n "$MISSING" ] && echo "       ⚠ MISSING:$MISSING"
+      done
+      RV_COUNT=$(ls "$PLUGIN_DIR"/agents/*-reviewer.md 2>/dev/null | wc -l | tr -d ' ')
+      echo "  Reviewer agents available in plugin: ${RV_COUNT:-?}"
+    fi
+  else
+    echo "  ⚠ pack detector not loadable — plugin may need rebuild (npm run build in packages/cli)"
+  fi
+fi
+```
+
+**Flags**:
+- `/doctor --packs` → expand pack detection with signal-by-signal trace (verbose)
+- (default) → show summary
+
 ## Check 9 — Auto-remediation (--fix mode)
 
 If `FIX_MODE=true`, perform safe, non-destructive fixes. Skip silently otherwise.

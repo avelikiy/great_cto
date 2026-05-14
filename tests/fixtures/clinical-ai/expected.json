@@ -1,0 +1,5 @@
+{
+  "archetype": "healthcare",
+  "packs": ["clinical-pack", "clinical-trials-pack"],
+  "skipIfFails": false
+}

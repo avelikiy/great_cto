@@ -340,6 +340,45 @@ Modes:
 
 This is the **biggest single UX win** of the v2.8 cost-control suite: the CTO sees exactly what they're spending **before** any agent runs, and has one keystroke to switch to cheap mode. No 34-agent admin UI to configure.
 
+## Step 2d: Auto-attach domain packs (v2.8+)
+
+After archetype + size are decided, run the pack detector to attach overlay packs. Packs ride on top of the base archetype and add their own reviewer agents, threat-model templates, EVAL suites, and human gates — regardless of the base archetype's defaults.
+
+```bash
+PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+PACKS=""
+if [ -n "$PLUGIN_DIR" ] && [ -f "$PLUGIN_DIR/packages/cli/dist/packs.js" ]; then
+  PACKS=$(node -e "
+const { detect } = await import('$PLUGIN_DIR/packages/cli/dist/detect.js');
+const { suggestPacks } = await import('$PLUGIN_DIR/packages/cli/dist/packs.js');
+for (const p of suggestPacks(detect('.'))) console.log(p.pack);
+" 2>/dev/null | sort -u | tr '\n' ',' | sed 's/,$//')
+fi
+```
+
+If `PACKS` is non-empty, write it to PROJECT.md as `packs: voice-pack, clinical-pack, …`. Each pack listed there triggers its reviewer chain at architect time and adds its human gates to the gate registry.
+
+**Available packs (v2.8):**
+
+| Pack | When auto-attached | Adds |
+|---|---|---|
+| `voice-pack` | telephony provider in stack (twilio/vonage/livekit/deepgram/elevenlabs/hume) OR voice/IVR/TTS/STT in README | voice-ai-reviewer + gate:voice-compliance |
+| `clinical-pack` | FHIR/HL7 in stack OR clinical/PHI/SaMD/CDS in README | ai-clinical + fda reviewer + gate:samd-class + gate:clinical-validation |
+| `hr-ai-pack` | greenhouse/lever/ashby/workday OR recruit/hiring/resume/AEDT in README | hr-ai-reviewer + gate:aedt-audit |
+| `api-platform-pack` | fastify/trpc/graphql/openapi in stack OR public-API/webhook/SDK in README | api-platform-reviewer + gate:api-contract |
+| `lending-pack` | plaid in stack OR loan/BNPL/FCRA/NMLS/adverse-action in README | lending-credit-reviewer + gate:fair-lending |
+| `clinical-trials-pack` | FHIR/HL7/DICOM OR CTMS/EDC/eConsent/CDISC in README | clinical-trials + bio-data reviewer + gate:irb-ready + gate:part11-validation |
+| `robotics-pack` | ROS 2 / MoveIt OR robot/cobot/surgical in README | robotics-safety-reviewer + gate:hara-signoff + gate:functional-safety-test |
+| `em-fintech-pack` | razorpay/paystack/flutterwave/mercadopago OR India/Nigeria/Brazil/UPI/PIX/M-Pesa in README | em-fintech-reviewer + gate:license-strategy |
+| `climate-pack` | GHG/Verra/CBAM in README OR synbio dual-use (gene synthesis, AlphaFold, IGSC, DURC) | climate-mrv + biosecurity reviewers + gate:mrv-methodology + gate:durc-signoff |
+| `drug-discovery-pack` | rdkit/ChEMBL/AlphaFold OR LIMS/SiLA2/GLP in README | drug-discovery-ml + glp + lab-automation reviewers + gate:model-card-signoff + gate:csv-validation + gate:iq-oq-pq |
+
+**Manual override:** CTO can edit `packs:` in PROJECT.md at any time to opt in/out. To force-add a pack the detector missed, add the pack name and re-run `/audit` to refresh the reviewer chain.
+
+**Reference docs:**
+- Full overlay matrix: `skills/great_cto/ARCHETYPES.md` § Domain Overlays
+- Per-pack deep knowledge: `skills/great_cto/references/iso-ts-15066-force-limits.md`, `em-fintech-jurisdictions.md`, `durc-classification.md`, `glp-raw-data.md`
+
 ## Step 3: Create PROJECT.md
 
 ```bash
@@ -356,6 +395,7 @@ Write `.great_cto/PROJECT.md`:
 primary: <primary-type>
 archetype: <archetype from TYPE_MAP.md>
 secondary: <type2>, <type3>
+packs: <auto-attached packs from Step 2c, comma-separated; empty if none>
 greenfield: <true|false>
 approval-level: <auto|gates-only|strict|expert|step-by-step>
 phase: implementation

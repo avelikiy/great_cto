@@ -1,0 +1,14 @@
+{
+  "name": "api-platform-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "tsx src/server.ts" },
+  "dependencies": {
+    "fastify": "^4.0.0",
+    "@trpc/server": "^11.0.0",
+    "@apollo/server": "^4.0.0",
+    "openapi3-ts": "^4.0.0",
+    "graphql": "^16.0.0"
+  },
+  "devDependencies": { "typescript": "^5.4.0" }
+}

@@ -1,0 +1,5 @@
+{
+  "archetype": "web-service",
+  "packs": ["api-platform-pack"],
+  "skipIfFails": false
+}
