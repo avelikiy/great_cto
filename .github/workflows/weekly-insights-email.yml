@@ -2,36 +2,30 @@ name: Weekly Telemetry Insights (email)
 
 # Runs every Monday at 06:00 UTC. Two responsibilities:
 #
-#   1. Smoke-test the telemetry pipeline end-to-end (HTTP → Worker → D1).
-#      Even when 0 real events arrive, we verify the pipe is alive so the
-#      first real user's event won't silently disappear into a broken Worker.
+#   1. Smoke-test the telemetry pipeline (HTTP → Worker → D1). Worker
+#      exposes /v1/_smoke which does INSERT+SELECT+DELETE in one request
+#      using its own D1 binding — no admin token required by caller.
 #
-#   2. Generate the weekly insights report and decide whether to email it:
+#   2. Generate the weekly insights report (via Worker /v1/report — also
+#      no auth) and decide whether to email it:
 #      - >= EVENT_THRESHOLD real events    → send full data report
 #      - smoke test failed                 → send "🚨 pipeline broken" alert
-#      - first Monday of month, < threshold → send "alive ping" (so the
-#        maintainer knows the workflow itself is still running)
+#      - first Monday of month, < threshold → send "alive ping"
 #      - otherwise                         → SKIP email (avoid noise)
 #
-# The threshold prevents "_(no data)_" emails every Monday for 6 months
+# Threshold prevents "_(no data)_" emails every Monday for 6+ months
 # before the user base reaches a level where weekly stats mean anything.
 #
-# Why email (not commit, not Slack, not Issue):
+# Why email (not commit, not Slack):
 #   1. Private by default — pre-PMF numbers stay out of competitor reach.
 #   2. Lands in maintainer's inbox where he already reviews things.
-#   3. Zero infrastructure to add (no Slack workspace, no Discord webhook).
-#   4. Markdown renders well in modern email clients (Gmail, etc).
+#   3. Zero infrastructure to add.
 #
-# Required repo secrets:
-#   CLOUDFLARE_API_TOKEN    — D1: Read+Edit scope on great-cto-telemetry
-#                             (Edit needed for smoke test cleanup DELETE)
-#   CLOUDFLARE_ACCOUNT_ID   — 8b4c82576661609fadcac6ae8a5b2708
+# Required repo secrets (NO CF token needed anymore — Worker endpoints
+# are public per PRIVACY.md aggregate-only promise):
 #   SMTP_USERNAME           — Gmail address
-#   SMTP_PASSWORD           — Gmail App Password (16-char token,
-#                             from myaccount.google.com/apppasswords)
+#   SMTP_PASSWORD           — Gmail App Password
 #   INSIGHTS_RECIPIENT      — destination email
-#
-# Setup guide: docs/INSIGHTS-EMAIL-SETUP.md (private — gitignored)
 
 on:
   schedule:
@@ -63,143 +57,65 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "20"
-
-      - name: Install wrangler
-        run: npm install -g wrangler@4
-
       # ─── PIPELINE SMOKE TEST ─────────────────────────────────────────────
-      # POST a synthetic event with a unique anon_id derived from the GitHub
-      # run id, verify it lands in D1 within 5 sec, then DELETE it so the
-      # smoke event never pollutes weekly stats.
-      - name: Smoke test pipeline (HTTP → Worker → D1)
+      # Worker /v1/_smoke endpoint does INSERT+SELECT+DELETE atomically using
+      # its own D1 binding. No CF admin token needed by caller.
+      - name: Smoke test pipeline (POST /v1/_smoke)
         id: smoke
-        env:
-          CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        # IMPORTANT: this step must NEVER exit non-zero. All failure modes are
-        # captured in smoke_status output so the email layer can report them.
-        # Workflow continues regardless — broken pipeline becomes an email,
-        # not a workflow failure (which would be invisible without notifications).
         continue-on-error: true
         run: |
-          set +e   # No early-exit on subcommand failure — capture everything
-          set -u
-
+          set +e
           SMOKE_ANON=$(printf '%08x' $(( ${{ github.run_id }} % 4294967295 )))
           echo "smoke_anon=$SMOKE_ANON" >> "$GITHUB_OUTPUT"
-          SMOKE_TS="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
 
-          # ─── Step 1/3: POST event ──────────────────────────────────────
-          echo "▸ POST synthetic event with anon_id=$SMOKE_ANON"
-          HTTP=$(curl -sS -o /tmp/smoke-resp.json -w '%{http_code}' \
-            -X POST "$WORKER_URL/v1/event" \
-            -H "Content-Type: application/json" \
-            -d "{\"ts\":\"$SMOKE_TS\",\"version\":\"2.7.0\",\"command\":\"telemetry\",\"archetype\":\"none\",\"node\":\"20.0.0\",\"os\":\"linux\",\"exit_code\":0,\"duration_ms\":1,\"anon_id\":\"$SMOKE_ANON\"}")
-          echo "  HTTP $HTTP · resp: $(cat /tmp/smoke-resp.json)"
-          if [ "$HTTP" != "200" ]; then
-            echo "smoke_status=worker_post_failed" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          HTTP=$(curl -sS -o /tmp/smoke.json -w '%{http_code}' \
+            -X POST "$WORKER_URL/v1/_smoke?anon=$SMOKE_ANON")
+          echo "▸ HTTP $HTTP · response:"
+          cat /tmp/smoke.json; echo
 
-          # Allow eventual consistency (D1 is fast but not instant).
-          sleep 3
-
-          # ─── Step 2/3: Verify event landed in D1 ───────────────────────
-          # Use Cloudflare REST API directly (more diagnostic than wrangler).
-          # DB UUID from workers/telemetry/wrangler.toml.
-          DB_ID=b847fd59-b198-46c7-86a5-eb0055d085d3
-          echo "▸ Query D1 via REST API for the smoke event"
-          curl -sS -o /tmp/smoke-d1.json -w 'HTTP %{http_code}\n' \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -X POST \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$DB_ID/query" \
-            -d "{\"sql\":\"SELECT COUNT(*) AS c FROM events WHERE anon_id='$SMOKE_ANON';\"}"
-          echo "  D1 response:"
-          head -c 500 /tmp/smoke-d1.json; echo
-
-          # Parse via jq — handles both success and error shapes without
-          # multi-line python (which breaks YAML indentation in workflows).
-          COUNT=$(jq -r 'if .success == true then (.result[0].results[0].c // "ERR") else "ERR" end' /tmp/smoke-d1.json 2>/dev/null || echo "ERR")
-          if [ "$COUNT" = "ERR" ]; then
-            echo "  parse/error path — D1 response was:"
-            jq -r '.errors // .' /tmp/smoke-d1.json 2>/dev/null | head -5 || head -c 300 /tmp/smoke-d1.json
-          fi
-          echo "  found: $COUNT row(s)"
-
-          if [ "$COUNT" = "1" ]; then
+          if [ "$HTTP" = "200" ] && jq -e '.ok == true' /tmp/smoke.json >/dev/null 2>&1; then
             echo "smoke_status=ok" >> "$GITHUB_OUTPUT"
-          elif [ "$COUNT" = "ERR" ]; then
-            # D1 query failed — could be auth scope, network, or D1 outage.
-            # Worker POST returned 200, so the pipe LIKELY works; we just
-            # can't verify from this side. Treat as soft warning, not alert.
-            echo "smoke_status=d1_query_blocked" >> "$GITHUB_OUTPUT"
-          else
+          elif [ "$HTTP" = "200" ]; then
             echo "smoke_status=d1_write_missing" >> "$GITHUB_OUTPUT"
+          else
+            echo "smoke_status=worker_post_failed" >> "$GITHUB_OUTPUT"
           fi
-
-          # ─── Step 3/3: Cleanup (best-effort) ───────────────────────────
-          echo "▸ Cleanup smoke event"
-          curl -sS -o /tmp/smoke-cleanup.json -w 'HTTP %{http_code}\n' \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -X POST \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$DB_ID/query" \
-            -d "{\"sql\":\"DELETE FROM events WHERE anon_id='$SMOKE_ANON';\"}" || true
-          head -c 200 /tmp/smoke-cleanup.json; echo
-
           exit 0
 
       # ─── REPORT GENERATION ───────────────────────────────────────────────
+      # Worker /v1/report endpoint queries D1 via binding and returns aggregate
+      # JSON. weekly-telemetry.sh renders markdown. No CF token needed.
       - name: Generate weekly insights + count events
         id: report
         env:
-          CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          WEEK_INPUT:            ${{ inputs.week }}
-        # Same hardening as smoke step: never fail the workflow. If D1 access
-        # is blocked (token scope), we degrade gracefully to events=0 so the
-        # threshold logic can still fire the alive-ping path.
+          WEEK_INPUT: ${{ inputs.week }}
         continue-on-error: true
         run: |
           set +e
           set -u
 
           if [ -n "${WEEK_INPUT:-}" ]; then
-            bash scripts/weekly-telemetry.sh --week "$WEEK_INPUT" --dry-run > /tmp/insights.md 2>/tmp/wt-stderr.log
             WEEK="$WEEK_INPUT"
           else
             WEEK=$(date -u -d 'last week' '+%G-W%V')
-            bash scripts/weekly-telemetry.sh --dry-run > /tmp/insights.md 2>/tmp/wt-stderr.log
           fi
           echo "week=$WEEK" >> "$GITHUB_OUTPUT"
 
-          # Count events for the week via REST API (same auth surface as
-          # smoke step). If token lacks D1 scope, EVENTS becomes 0 and
-          # the threshold logic naturally chooses skip / alive ping.
-          DB_ID=b847fd59-b198-46c7-86a5-eb0055d085d3
-          curl -sS -o /tmp/count.json \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -X POST \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$DB_ID/query" \
-            -d "{\"sql\":\"SELECT COUNT(*) AS c FROM events WHERE received_at >= datetime('now','-7 days') AND command != 'telemetry';\"}"
+          bash scripts/weekly-telemetry.sh --week "$WEEK" --dry-run > /tmp/insights.md 2>/tmp/wt-stderr.log
+          if [ $? -ne 0 ]; then
+            echo "▸ weekly-telemetry.sh failed:"
+            cat /tmp/wt-stderr.log
+            echo "events=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-          EVENTS=$(jq -r 'if .success == true then (.result[0].results[0].c // 0) else 0 end' /tmp/count.json 2>/dev/null || echo 0)
-          # Defensive: if EVENTS is empty / non-numeric, force 0.
+          # Pull headline total directly from /v1/report (no markdown parsing)
+          EVENTS=$(curl -sS "$WORKER_URL/v1/report?week=$WEEK" \
+            | jq -r '.headline.total_events // 0' 2>/dev/null || echo 0)
           case "$EVENTS" in ''|*[!0-9]*) EVENTS=0 ;; esac
 
           echo "events=$EVENTS" >> "$GITHUB_OUTPUT"
           echo "▸ events in window: $EVENTS · threshold: ${{ env.EVENT_THRESHOLD }}"
-
-          if [ "$EVENTS" = "0" ] && ! jq -e '.success == true' /tmp/count.json >/dev/null 2>&1; then
-            echo "  ⚠️  D1 query failed (token may lack D1: Read scope):"
-            jq -r '.errors // .' /tmp/count.json 2>/dev/null | head -3
-          fi
-
           echo "--- preview (first 25 lines) ---"
           head -25 /tmp/insights.md
           exit 0
