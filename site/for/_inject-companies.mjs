@@ -70,16 +70,24 @@ function companiesForArchetype(archetype) {
   return list.slice(0, 20);
 }
 
+function domainOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return ''; }
+}
+function logoTag(c) {
+  const d = domainOf(c.url);
+  if (!d) return '';
+  return `<img class="co-logo" src="https://logo.clearbit.com/${d}?size=64" alt="" loading="lazy" onerror="this.style.display='none'" />`;
+}
+
 function companiesSection(slug) {
   const cos = companiesForArchetype(slug);
   if (cos.length === 0) return '';
-  const pioneerCount = cos.filter(c => c.pioneer).length;
   const cards = cos.map(c => {
-    const stars = c.pioneer ? '<span class="co-star" title="Pioneer Fund portfolio">★</span>' : '';
     const stage = c.stage ? `<span class="co-stage">${c.stage}</span>` : '';
     const country = c.country ? `<span class="co-country">${c.country}</span>` : '';
     return `<a class="co-card" href="${c.url}" rel="nofollow noopener" target="_blank">
-        <div class="co-head"><span class="co-name">${c.name}</span>${stars}</div>
+        <div class="co-head">${logoTag(c)}<span class="co-name">${c.name}</span></div>
         <div class="co-tag">${c.tagline}</div>
         <div class="co-meta">${stage}${country}</div>
       </a>`;
@@ -88,7 +96,7 @@ function companiesSection(slug) {
 <section class="wrap" id="companies">
   <div class="eyebrow">Real-world examples</div>
   <h2 class="h2">Companies operating as <em>${slug}</em>.</h2>
-  <p class="lede">${cos.length} startups in this space${pioneerCount ? ` — ${pioneerCount} from <a href="https://www.pioneerfund.vc/portfolio" rel="nofollow noopener">Pioneer Fund</a> portfolio (★)` : ''}. Click any card.</p>
+  <p class="lede">${cos.length} startups in this space. Click any card.</p>
   <div class="co-grid">
       ${cards}
   </div>
@@ -135,8 +143,10 @@ for (const f of files) {
     const re = new RegExp(`${MARKER_START}[\\s\\S]*?${MARKER_END}`);
     html = html.replace(re, '');
   }
-  // Skip files that ALREADY have co-card from _generate.mjs (no injection needed)
-  if (html.includes('id="companies"') && !html.includes(MARKER_START)) {
+  // Skip files that ALREADY have packs/companies sections from _generate.mjs
+  // (no injection needed — generator handles them inline). Check for either
+  // section id since some archetypes have packs but no companies (e.g. insurance).
+  if ((html.includes('id="companies"') || html.includes('id="packs"')) && !html.includes(MARKER_START)) {
     skipped++;
     continue;
   }
