@@ -20,6 +20,7 @@ how to opt in, how to opt out, and how to verify what's being sent.
 | Skips automatically in CI | Yes (detected via `CI=true`, `GITHUB_ACTIONS`, etc.) |
 | Where data goes | `https://telemetry.greatcto.systems/v1/event` (Cloudflare Worker) |
 | Server logs IP addresses | No — Cloudflare gives us the IP, we drop it before write |
+| Country / region collected | No — Cloudflare exposes country via `cf-ipcountry`; the worker deliberately ignores it |
 | Personal info collected | None |
 | Project content collected | None |
 | Source for transparency | `packages/cli/src/telemetry.ts` + `workers/telemetry/index.ts` |
@@ -67,6 +68,7 @@ These are not in the schema and the worker rejects events containing them.
 - ❌ **Verdicts or cost data** (`.great_cto/verdicts/` stays on your disk, never leaves).
 - ❌ **API keys / secrets** (we don't read env vars beyond opt-out signals).
 - ❌ **IP addresses** (Cloudflare provides them in `cf.connectingIP`; the worker drops the field before D1 insert).
+- ❌ **Geolocation / country / region** — Cloudflare automatically derives country from IP and provides it via the `cf-ipcountry` request header. The worker deliberately does **not** read this header. No geographic data is collected, derived, or stored.
 - ❌ **User-agent fingerprints** (the only request header we read is `Content-Type`).
 - ❌ **Email / username / real name**.
 - ❌ **Repo URL or git remote**.
