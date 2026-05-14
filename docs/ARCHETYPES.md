@@ -55,6 +55,26 @@ In-depth pages on what each archetype gets and why:
 - [fintech](https://greatcto.systems/for/fintech)
 - [healthcare](https://greatcto.systems/for/healthcare)
 
+## Domain packs (v2.8 — overlay reviewers)
+
+10 packs ride **on top of** archetypes. CLI detects pack-specific signals (deps, README terms) — packs add their own reviewer(s), threat-model template, EVAL suite, and human gates.
+
+| Pack | Triggers | Reviewers | Gates |
+|---|---|---|---|
+| voice-pack | twilio · livekit · deepgram · elevenlabs · ivr · tts/stt | voice-ai-reviewer | gate:voice-compliance |
+| clinical-pack | EHR · PHI · SaMD · CDS · scribe · telehealth-AI | ai-clinical · fda | gate:samd-class · gate:clinical-validation · gate:ide-approval |
+| hr-ai-pack | recruit · hiring · resume · ats · AEDT | hr-ai | gate:aedt-audit |
+| api-platform-pack | OpenAPI · GraphQL · webhook · developer portal | api-platform | gate:api-contract |
+| lending-pack | plaid · loan · BNPL · FCRA · NMLS | lending-credit | gate:fair-lending |
+| clinical-trials-pack | FHIR · HL7 · DICOM · CTMS · EDC · eConsent · CDISC | clinical-trials · bio-data | gate:irb-ready · gate:part11-validation · gate:deidentification |
+| robotics-pack | ROS 2 · MoveIt · cobot · surgical robot · drone | robotics-safety | gate:hara-signoff · gate:functional-safety-test |
+| em-fintech-pack | India · Nigeria · Brazil · UPI · PIX · M-Pesa · RBI · CBN | em-fintech | gate:license-strategy |
+| climate-pack | GHG · Scope 1-3 · Verra · CBAM · DURC · IGSC | climate-mrv · biosecurity | gate:mrv-methodology · gate:durc-signoff · gate:open-weights-release |
+| drug-discovery-pack | ChEMBL · AlphaFold · LIMS · SiLA2 · GLP | drug-discovery-ml · GLP · lab-automation | gate:model-card-signoff · gate:csv-validation · gate:iq-oq-pq |
+
+→ 15 new reviewer agents · 38 EVAL templates · 19 new human-gate types.
+Full overlay matrix + activation logic: [skills/great_cto/ARCHETYPES.md](../skills/great_cto/ARCHETYPES.md#domain-overlays-wave-1-3-specialised-reviewers).
+
 ## Adding a new archetype
 
 Open a [Discussion](https://github.com/avelikiy/great_cto/discussions/categories/archetype-proposals) with:

@@ -68,6 +68,26 @@ if ! grep -q "^project_size:" "$PROJECT_FILE" 2>/dev/null; then
   PATCH="${PATCH}project_size: small\n"
 fi
 
+# packs (v2.8+) — opt-in to domain pack overlays
+if ! grep -q "^packs:" "$PROJECT_FILE" 2>/dev/null; then
+  PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+  DETECTED=""
+  if [ -n "$PLUGIN_DIR" ] && [ -f "$PLUGIN_DIR/packages/cli/dist/packs.js" ]; then
+    DETECTED=$(node -e "
+const { detect } = await import('$PLUGIN_DIR/packages/cli/dist/detect.js');
+const { suggestPacks } = await import('$PLUGIN_DIR/packages/cli/dist/packs.js');
+console.log(suggestPacks(detect('.')).map(p => p.pack).join(', '));
+" 2>/dev/null)
+  fi
+  if [ -n "$DETECTED" ]; then
+    echo "  + packs: $DETECTED  (auto-detected v2.8 domain overlays — opens human gates per pack)"
+    PATCH="${PATCH}packs: ${DETECTED}\n"
+  else
+    echo "  + packs:   (added — empty; auto-detector found no domain overlay signals)"
+    PATCH="${PATCH}packs: \n"
+  fi
+fi
+
 if [ -z "$PATCH" ]; then
   echo "  ✓ PROJECT.md is up to date — no fields missing"
   exit 0
@@ -96,11 +116,14 @@ echo "  ✓ Patch applied"
 ```bash
 echo ""
 echo "=== Updated PROJECT.md (relevant fields) ==="
-grep -E "^archetype|^security_tier|^project_size" "$PROJECT_FILE" 2>/dev/null
+grep -E "^archetype|^security_tier|^project_size|^packs:" "$PROJECT_FILE" 2>/dev/null
 
 echo ""
 echo "Next steps:"
 echo "  1. Review added fields in $PROJECT_FILE and adjust values as needed."
-echo "  2. Run /doctor to confirm all checks pass."
-echo "  3. Run /audit if archetype detection should be re-run."
+echo "  2. If packs were detected: review which reviewers + human gates each pack adds"
+echo "     (see skills/great_cto/ARCHETYPES.md § Domain Overlays). Remove any pack"
+echo "     you don't want by editing the packs: line."
+echo "  3. Run /doctor to confirm all checks pass (including Check 8d — pack overlays)."
+echo "  4. Run /audit if archetype detection should be re-run."
 ```

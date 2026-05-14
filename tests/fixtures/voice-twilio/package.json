@@ -1,0 +1,15 @@
+{
+  "name": "voice-agent-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "tsx src/server.ts" },
+  "dependencies": {
+    "express": "^4.19.0",
+    "twilio": "^5.0.0",
+    "livekit-server-sdk": "^2.0.0",
+    "@deepgram/sdk": "^3.0.0",
+    "elevenlabs": "^1.0.0",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": { "typescript": "^5.4.0" }
+}

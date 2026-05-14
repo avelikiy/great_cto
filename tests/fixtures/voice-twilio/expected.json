@@ -1,0 +1,5 @@
+{
+  "archetype": "agent-product",
+  "packs": ["voice-pack"],
+  "skipIfFails": false
+}

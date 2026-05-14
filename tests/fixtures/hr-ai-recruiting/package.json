@@ -1,0 +1,12 @@
+{
+  "name": "hr-ai-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "tsx src/server.ts" },
+  "dependencies": {
+    "express": "^4.19.0",
+    "openai": "^4.0.0",
+    "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": { "typescript": "^5.4.0" }
+}
