@@ -608,6 +608,49 @@ button { font-family: inherit; cursor: pointer; }
 }
 .hk-foot { margin-top: 12px; font-size: 11px; color: var(--text3, #9ca3af); text-align: center; }
 
+/* ── Resume detail modal (clickable verdicts + decisions) ───────────── */
+#resume-detail-modal {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+}
+.rdm-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+.rdm-card {
+  position: relative; background: var(--bg, #0f172a);
+  color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 18px 22px; min-width: 480px; max-width: 720px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+}
+.rdm-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.rdm-head .rdm-agent { font-weight: 600; }
+.rdm-head .rdm-verdict.ok { color: #4ade80; }
+.rdm-head .rdm-verdict.fail { color: #f87171; }
+.rdm-head .rdm-ts { color: var(--text2); font-size: 11px; margin-left: auto; }
+.rdm-raw {
+  background: var(--bg-muted); padding: 8px 10px; border-radius: 4px;
+  font-family: ui-monospace, monospace; font-size: 12px;
+  white-space: pre-wrap; word-break: break-all;
+  border: 1px solid var(--border);
+  max-height: 200px; overflow-y: auto;
+}
+.rdm-artefacts { margin-top: 12px; }
+.rdm-artefacts-title { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.rdm-artefact {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin: 2px 4px 2px 0; padding: 4px 8px;
+  background: var(--bg-muted); border: 1px solid var(--border);
+  border-radius: 4px; font-size: 12px; cursor: pointer;
+  text-decoration: none; color: var(--text);
+  font-family: ui-monospace, monospace;
+}
+.rdm-artefact:hover { background: var(--bg-hover, rgba(255,255,255,0.08)); }
+.rdm-artefact .rdm-art-kind {
+  font-size: 10px; padding: 1px 4px; border-radius: 3px;
+  background: var(--accent-bg, rgba(59,130,246,0.2)); color: var(--accent, #3b82f6);
+}
+.rdm-foot { margin-top: 12px; font-size: 11px; color: var(--text3, #9ca3af); }
+.resume-item { cursor: pointer; }
+.resume-item:hover { background: var(--bg-muted); border-radius: 4px; }
+
 /* ── New issue modal ──────────────────────────────────────────────────── */
 #new-issue-modal {
   position: fixed; inset: 0; z-index: 10000;
@@ -2031,29 +2074,139 @@ function renderResume(d) {
     </div>`;
   }).join('') : '<div class="empty">Nothing in progress</div>';
 
-  // Verdicts column
+  // Verdicts column — clickable, opens detail modal with extracted artefact links
   const vEl = document.getElementById('resume-verdicts');
-  vEl.innerHTML = verdicts.length ? verdicts.map(v => {
+  vEl.innerHTML = verdicts.length ? verdicts.map((v, i) => {
     const vu = (v.verdict || '').toUpperCase();
     const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' :
                 ['BLOCKED','FAIL','REJECTED'].includes(vu) ? 'fail' : '';
     const raw = v.raw || '';
     const after = raw.indexOf(': ') !== -1 ? raw.slice(raw.indexOf(': ') + 2) : raw;
-    return `<div class="resume-item">
+    window.__resumeVerdicts = verdicts;
+    return `<div class="resume-item" onclick="showVerdictDetail(${i})" role="button" tabindex="0">
       <span class="ri-tag ${cls}">${esc(v.agent || 'agent')}</span>
       <span class="ri-text" title="${esc(after)}">${esc(after.slice(0, 80))}</span>
     </div>`;
   }).join('') : '<div class="empty">No recent verdicts</div>';
 
-  // Decisions column
+  // Decisions column — clickable, opens linked gate task via openSideById
   const dEl = document.getElementById('resume-decisions');
   dEl.innerHTML = decisions.length ? decisions.map(d => {
     const cls = d.verdict === 'APPROVED' ? 'ok' : 'fail';
-    return `<div class="resume-item">
+    const id = d.id || d.task_id || '';
+    const handler = id ? `openSideById('${esc(id)}')` : `showDecisionDetail(${JSON.stringify(d).replace(/"/g, '&quot;')})`;
+    return `<div class="resume-item" onclick="${handler}" role="button" tabindex="0">
       <span class="ri-tag ${cls}">${esc(d.verdict.toLowerCase())}</span>
       <span class="ri-text" title="${esc(d.title)}">${esc(d.title)}</span>
     </div>`;
   }).join('') : '<div class="empty">No decisions logged yet</div>';
+}
+
+// Parse "key=value" tokens from raw verdict text. Common keys: feature,
+// task, arch, plan, tm, qa, sec, deploy, runbook, files, cost, reason.
+// Returns { feature, task, artefacts: [{kind, path}], cost, etc. }
+function parseVerdictRaw(raw) {
+  if (!raw) return { artefacts: [] };
+  const out = { artefacts: [] };
+  // Extract simple key=value tokens (no spaces in value)
+  const re = /(\w+)=([^\s]+)/g;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    const k = m[1].toLowerCase();
+    const v = m[2].replace(/^["']|["']$/g, '');
+    // Look-alike paths → push to artefacts; everything else → flat metadata
+    if (/\.(md|txt|yml|yaml|json|ts|tsx|js|mjs|py)$/i.test(v) || /^docs\/|^src\/|^tests\//i.test(v)) {
+      out.artefacts.push({ kind: k, path: v });
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+// Show a detail modal for a verdict from the resume panel
+function showVerdictDetail(idx) {
+  const v = (window.__resumeVerdicts || [])[idx];
+  if (!v) return;
+  const parsed = parseVerdictRaw(v.raw || '');
+  const vu = (v.verdict || '').toUpperCase();
+  const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' :
+              ['BLOCKED','FAIL','REJECTED'].includes(vu) ? 'fail' : '';
+
+  // Render artefacts as clickable buttons. We don't have a backend file
+  // viewer, so we link to the file in the user's editor via vscode://
+  // (works for VS Code, Cursor, Windsurf — Anthropic's primary
+  // developer audience). User can also copy the path.
+  const cwd = (window.currentProjectPath || '').replace(/\/$/, '');
+  const artefactsHtml = parsed.artefacts.length
+    ? parsed.artefacts.map(a => {
+        const fullPath = cwd ? `${cwd}/${a.path}` : a.path;
+        const vscodeUrl = `vscode://file/${fullPath}`;
+        return `<a class="rdm-artefact" href="${esc(vscodeUrl)}" title="Open ${esc(fullPath)} in editor">
+          <span class="rdm-art-kind">${esc(a.kind)}</span>
+          <span>${esc(a.path)}</span>
+        </a>`;
+      }).join('')
+    : '<span style="color: var(--text3); font-size: 12px;">No artefacts referenced in this verdict</span>';
+
+  // Format additional metadata (cost, feature, etc.) as small chips
+  const metaKeys = ['feature', 'task', 'cost'];
+  const meta = metaKeys
+    .filter(k => parsed[k])
+    .map(k => `<span class="rdm-artefact"><span class="rdm-art-kind">${esc(k)}</span><span>${esc(parsed[k])}</span></span>`)
+    .join('');
+
+  const existing = document.getElementById('resume-detail-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'resume-detail-modal';
+  modal.innerHTML = `
+    <div class="rdm-backdrop" onclick="document.getElementById('resume-detail-modal').remove()"></div>
+    <div class="rdm-card" role="dialog" aria-modal="true">
+      <div class="rdm-head">
+        <span class="ri-tag ${cls}">${esc(v.agent || 'agent')}</span>
+        <span class="rdm-verdict ${cls}">${esc(v.verdict || '')}</span>
+        <span class="rdm-ts">${esc(v.ts || '')}</span>
+      </div>
+      <div class="rdm-raw">${esc(v.raw || '(no raw text)')}</div>
+      ${meta ? `<div class="rdm-artefacts"><div class="rdm-artefacts-title">Metadata</div>${meta}</div>` : ''}
+      <div class="rdm-artefacts">
+        <div class="rdm-artefacts-title">Artefacts (click to open in editor)</div>
+        ${artefactsHtml}
+      </div>
+      <div class="rdm-foot">Press <kbd style="background:var(--bg-muted);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;">Esc</kbd> or click outside to close</div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const closeOnEsc = (e) => {
+    if (e.key === 'Escape') {
+      modal.remove();
+      document.removeEventListener('keydown', closeOnEsc);
+    }
+  };
+  document.addEventListener('keydown', closeOnEsc);
+}
+
+// Show a decision detail modal (used when decision has no bd task id)
+function showDecisionDetail(d) {
+  const cls = d.verdict === 'APPROVED' ? 'ok' : 'fail';
+  const existing = document.getElementById('resume-detail-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'resume-detail-modal';
+  modal.innerHTML = `
+    <div class="rdm-backdrop" onclick="document.getElementById('resume-detail-modal').remove()"></div>
+    <div class="rdm-card" role="dialog" aria-modal="true">
+      <div class="rdm-head">
+        <span class="ri-tag ${cls}">${esc(d.verdict)}</span>
+        <span class="rdm-agent">${esc(d.title || '(untitled)')}</span>
+        <span class="rdm-ts">${esc(d.ts || '')}</span>
+      </div>
+      ${d.reason ? `<div class="rdm-raw">${esc(d.reason)}</div>` : ''}
+      <div class="rdm-foot">Press Esc or click outside to close</div>
+    </div>
+  `;
+  document.body.appendChild(modal);
 }
 
 function openSideById(id) {
