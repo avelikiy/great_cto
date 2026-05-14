@@ -4,6 +4,43 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.8.2 — 2026-05-14
+
+### Board UX + new `/board` slash command
+
+**New: `/board` slash command** (PR #33)
+
+Closes a UX gap: previously the only way to open the admin dashboard
+was running `great-cto board` in a terminal. Now `/board` from Claude
+Code:
+- Detects if board already running (0.1s curl check)
+- Starts it via `nohup ... & disown` if not (survives command exit)
+- Opens browser via `open` (macOS) / `xdg-open` (Linux)
+- Logs to `~/.great_cto/board.log`
+- Flags: `--port N` `--no-open` `--restart`
+
+**Board UI: clickable "Pick up where you left off" rows** (PR #34)
+
+Recent Verdicts + Decisions columns are now interactive. Click a row →
+opens a detail modal with:
+- Agent · verdict · timestamp header
+- Raw verdict line (monospace, preserved)
+- Parsed metadata chips (feature, task, cost)
+- Artefact buttons (`arch=`, `plan=`, `tm=`, `qa=`, etc.) → click opens
+  the path via `vscode://file/` URL scheme (works for VS Code, Cursor,
+  Windsurf, Claude Code)
+
+Decisions rows route to the linked bd task side-panel when known.
+
+Esc or backdrop click closes the modal.
+
+**Notes:**
+- No breaking changes
+- All 45 automated tests + 36 archetype fixtures + 456 pack assertions
+  still pass (537 verified contracts)
+
+---
+
 ## v2.8.1 — 2026-05-14
 
 ### Bug fixes + test pyramid expansion
