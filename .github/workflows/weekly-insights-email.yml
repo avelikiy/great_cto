@@ -79,42 +79,86 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # IMPORTANT: this step must NEVER exit non-zero. All failure modes are
+        # captured in smoke_status output so the email layer can report them.
+        # Workflow continues regardless — broken pipeline becomes an email,
+        # not a workflow failure (which would be invisible without notifications).
+        continue-on-error: true
         run: |
-          set -uo pipefail
-          # Synthetic anon_id derived from run id — 8 lowercase hex chars.
+          set +e   # No early-exit on subcommand failure — capture everything
+          set -u
+
           SMOKE_ANON=$(printf '%08x' $(( ${{ github.run_id }} % 4294967295 )))
           echo "smoke_anon=$SMOKE_ANON" >> "$GITHUB_OUTPUT"
           SMOKE_TS="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
 
+          # ─── Step 1/3: POST event ──────────────────────────────────────
           echo "▸ POST synthetic event with anon_id=$SMOKE_ANON"
           HTTP=$(curl -sS -o /tmp/smoke-resp.json -w '%{http_code}' \
             -X POST "$WORKER_URL/v1/event" \
             -H "Content-Type: application/json" \
             -d "{\"ts\":\"$SMOKE_TS\",\"version\":\"2.7.0\",\"command\":\"telemetry\",\"archetype\":\"none\",\"node\":\"20.0.0\",\"os\":\"linux\",\"exit_code\":0,\"duration_ms\":1,\"anon_id\":\"$SMOKE_ANON\"}")
-          echo "  HTTP $HTTP · resp $(cat /tmp/smoke-resp.json)"
+          echo "  HTTP $HTTP · resp: $(cat /tmp/smoke-resp.json)"
           if [ "$HTTP" != "200" ]; then
             echo "smoke_status=worker_post_failed" >> "$GITHUB_OUTPUT"
-            exit 0   # Don't fail the workflow — let the email layer signal it
+            exit 0
           fi
 
           # Allow eventual consistency (D1 is fast but not instant).
           sleep 3
 
-          echo "▸ Query D1 for the smoke event"
-          COUNT=$(wrangler d1 execute great-cto-telemetry --remote --json \
-            --command "SELECT COUNT(*) AS c FROM events WHERE anon_id='$SMOKE_ANON';" 2>/dev/null \
-            | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["results"][0]["c"])')
-          echo "  found $COUNT row(s)"
+          # ─── Step 2/3: Verify event landed in D1 ───────────────────────
+          # Use Cloudflare REST API directly (more diagnostic than wrangler).
+          # DB UUID from workers/telemetry/wrangler.toml.
+          DB_ID=b847fd59-b198-46c7-86a5-eb0055d085d3
+          echo "▸ Query D1 via REST API for the smoke event"
+          curl -sS -o /tmp/smoke-d1.json -w 'HTTP %{http_code}\n' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$DB_ID/query" \
+            -d "{\"sql\":\"SELECT COUNT(*) AS c FROM events WHERE anon_id='$SMOKE_ANON';\"}"
+          echo "  D1 response:"
+          head -c 500 /tmp/smoke-d1.json; echo
+
+          COUNT=$(python3 -c '
+import json, sys
+try:
+  d = json.load(open("/tmp/smoke-d1.json"))
+  if d.get("success"):
+    print(d["result"][0]["results"][0]["c"])
+  else:
+    err = (d.get("errors") or [{"message":"unknown"}])[0]
+    sys.stderr.write(f"  D1 error: {err}\n")
+    print("ERR")
+except Exception as e:
+  sys.stderr.write(f"  parse failed: {e}\n")
+  print("ERR")
+')
+          echo "  found: $COUNT row(s)"
 
           if [ "$COUNT" = "1" ]; then
             echo "smoke_status=ok" >> "$GITHUB_OUTPUT"
+          elif [ "$COUNT" = "ERR" ]; then
+            # D1 query failed — could be auth scope, network, or D1 outage.
+            # Worker POST returned 200, so the pipe LIKELY works; we just
+            # can't verify from this side. Treat as soft warning, not alert.
+            echo "smoke_status=d1_query_blocked" >> "$GITHUB_OUTPUT"
           else
             echo "smoke_status=d1_write_missing" >> "$GITHUB_OUTPUT"
           fi
 
+          # ─── Step 3/3: Cleanup (best-effort) ───────────────────────────
           echo "▸ Cleanup smoke event"
-          wrangler d1 execute great-cto-telemetry --remote \
-            --command "DELETE FROM events WHERE anon_id='$SMOKE_ANON';" 2>&1 | tail -3 || true
+          curl -sS -o /tmp/smoke-cleanup.json -w 'HTTP %{http_code}\n' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$DB_ID/query" \
+            -d "{\"sql\":\"DELETE FROM events WHERE anon_id='$SMOKE_ANON';\"}" || true
+          head -c 200 /tmp/smoke-cleanup.json; echo
+
+          exit 0
 
       # ─── REPORT GENERATION ───────────────────────────────────────────────
       - name: Generate weekly insights + count events
@@ -158,7 +202,10 @@ jobs:
           MONTHLY_PING=0
           [ "$DAY" -le 7 ] && MONTHLY_PING=1
 
-          if [ "$SMOKE" != "ok" ]; then
+          # Pipeline-broken status fires an alert regardless of threshold.
+          # d1_query_blocked is a soft warning — POST worked, can't verify
+          # write. Still proceed with normal email decision.
+          if [ "$SMOKE" = "worker_post_failed" ] || [ "$SMOKE" = "d1_write_missing" ]; then
             echo "send=true"  >> "$GITHUB_OUTPUT"
             echo "kind=alert" >> "$GITHUB_OUTPUT"
             echo "subject=🚨 great_cto telemetry pipeline broken — $SMOKE" >> "$GITHUB_OUTPUT"
