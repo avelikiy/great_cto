@@ -6,6 +6,38 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.7.1 — 2026-05-14
+
+### `/help`, welcome banner, and heavy-context-safe `/digest` + `/inbox`
+
+Three small UX fixes prompted by first-install feedback:
+
+1. **New `/help` command.** A compact reference card listing all 22
+   commands grouped by area (Daily / Pipeline / Ops / Memory / Agents),
+   plus the admin board URL (`http://localhost:3141`) and the
+   "first-time? run /start" pointer. Topic routing supported:
+   `/help commands`, `/help board`, `/help agents`. Static card lives at
+   `docs/help-card.md` so the slash command body stays tiny — works even
+   on heavy-context sessions.
+
+2. **Welcome banner on first install.** SessionStart hook now calls
+   `scripts/hooks/welcome.sh` which prints a one-time banner with the
+   command groups, the admin board URL, and a `/help` pointer. Marker
+   file `~/.great_cto/.welcomed-<MAJ.MIN>` makes it idempotent — silent
+   on every subsequent session, re-prints after a minor version bump.
+
+3. **`/digest` and `/inbox` no longer trip `Prompt is too long`.** The
+   old flow piped 300 lines of helper output straight into the model's
+   prompt via `bash ... | head -300`. On sessions with large tool/skill
+   lists, that pushed total tokens over the limit. New flow writes
+   helper output to `.great_cto/cache/{digest,inbox}-out.txt` and tells
+   the agent to `Read` the file — agent controls paging, prompt stays
+   bounded.
+
+No agent or pipeline changes. Pure UX.
+
+---
+
 ## v2.7.0 — 2026-05-09
 
 ### Cross-prompt consistency rules + model-tier policy
