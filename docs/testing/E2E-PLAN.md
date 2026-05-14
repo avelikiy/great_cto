@@ -6,18 +6,20 @@ Updated: 2026-05-10
 
 | # | Test | Status | File | Runtime |
 |---|---|---|---|---|
-| 3 | Cost dashboard correctness | 🟢 implemented | `tests/cost-correctness.test.mjs` | ~3s |
+| 2 | Board admin gate approval | 🟢 implemented | `tests/board-gate.test.mjs` | ~25s |
+| 3 | Cost dashboard correctness | 🟢 implemented | `tests/cost-correctness.test.mjs` | ~1.5s |
 | 4 | Archetype + compliance attachment | 🟢 implemented (extended) | `tests/run-archetype-e2e.mjs` | ~5s |
-| 2 | Board admin gate approval | 🟡 scaffolded | `tests/board-gate.test.mjs` | ~30s |
 | 1 | Full pipeline E2E | 🔴 spec only | TBD | 3–5min |
 | 5 | Cross-session resume | 🔴 spec only | TBD | 1–2min |
 
 ## Run all
 
 ```bash
-node --test tests/cost-correctness.test.mjs
+node --test tests/cost-correctness.test.mjs tests/board-gate.test.mjs
 node tests/run-archetype-e2e.mjs
 ```
+
+**Requires:** `bd` CLI installed (board-gate test only — skips gracefully if `bd --version` fails).
 
 ## Test #1 — Full pipeline E2E (spec only)
 
@@ -47,24 +49,20 @@ node tests/run-archetype-e2e.mjs
 
 ---
 
-## Test #2 — Board admin gate approval (scaffolded)
+## Test #2 — Board admin gate approval ✅ implemented
 
-**Status:** Scaffolded. Needs UI assertion library (Playwright recommended).
+**File:** `tests/board-gate.test.mjs` (5 cases, ~25s)
 
-**Workflow:**
-```
-1. start board → open localhost:3141
-2. seed pending gate via .great_cto/gates/plan.pending
-3. assert: kanban shows card in "Waiting" column
-4. assert: gate panel shows ARCH doc preview
-5. POST /api/gates/plan/approve { decision: 'approved' }
-6. assert: SSE event /events fires within 500ms
-7. assert: .great_cto/gates/plan.approved file written
-8. assert: card moves to "In Progress" column
-9. assert: .great_cto/decisions.md got new entry
-```
+**What it asserts:**
+1. `POST /api/gates/<id>` with `action=approve` → bd task status=`closed`
+2. `POST /api/gates/<id>` with `action=reject` → bd task status=`blocked`
+3. Approval appends to `~/.great_cto/decisions.md` (audit trail with id, action, reason)
+4. SSE stream (`/api/sse`) broadcasts an `event: tasks` payload after approval
+5. Invalid action (e.g. `'maybe'`) returns HTTP 400
 
-**Blocker:** none — can be implemented with `fetch` for API and `EventSource` for SSE. Skipping UI DOM checks keeps it dependency-free.
+**Approach taken:** dropped Playwright dependency. Test exercises the API layer + SSE stream directly via `fetch` + `ReadableStream.getReader()`. Validates the human-in-the-loop contract without needing DOM assertions.
+
+**Why this matters:** the gate-approval flow is the core UX of great_cto — if `bd update`, decisions.md append, or SSE broadcast silently break, the kanban becomes a read-only museum. This test catches all three break-modes.
 
 ---
 
