@@ -203,10 +203,71 @@ fi
 ## Read budget config
 
 ```bash
-# Monthly budget from PROJECT.md — optional. If absent, headroom is n/a.
+# Monthly budget from PROJECT.md — per-project override (legacy).
 MONTHLY_BUDGET=$(grep "^monthly-budget:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '$')
 ALERT_THRESHOLD=$(grep "^budget-alert-threshold:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '%')
 ALERT_THRESHOLD=${ALERT_THRESHOLD:-80}
+
+# Global caps from ~/.great_cto/config.json (v2.8+) — daily / monthly bill-shock
+# protection. Used by scripts/hooks/cost-guard.mjs and surfaced here for
+# visibility. Format: { "daily_max_usd": 5, "monthly_max_usd": 100, "enforce": "warn" | "block" }
+GLOBAL_CFG="$HOME/.great_cto/config.json"
+DAILY_CAP=""; GLOBAL_MONTHLY_CAP=""; ENFORCE_MODE="warn"
+if [ -f "$GLOBAL_CFG" ]; then
+  DAILY_CAP=$(jq -r '.daily_max_usd // empty' "$GLOBAL_CFG" 2>/dev/null)
+  GLOBAL_MONTHLY_CAP=$(jq -r '.monthly_max_usd // empty' "$GLOBAL_CFG" 2>/dev/null)
+  ENFORCE_MODE=$(jq -r '.enforce // "warn"' "$GLOBAL_CFG" 2>/dev/null)
+fi
+# Global monthly takes precedence over per-project legacy cap.
+MONTHLY_BUDGET="${GLOBAL_MONTHLY_CAP:-$MONTHLY_BUDGET}"
+```
+
+## Daily cap section (v2.8+ — emit FIRST so it's visible above the fold)
+
+```bash
+if [ -n "$DAILY_CAP" ] || [ -n "$MONTHLY_BUDGET" ]; then
+  echo "## Bill-shock protection"
+  echo ""
+
+  TODAY=$(date -u +%Y-%m-%d)
+  MONTH=$(date -u +%Y-%m)
+
+  # Today's spend
+  TODAY_SPENT=$(awk -v d="$TODAY" '
+    $0 ~ "^" d {
+      for (i=1; i<=NF; i++) if ($i ~ /^cost_usd=/) { split($i,a,"="); s+=a[2] }
+    }
+    END { printf "%.2f", s+0 }
+  ' "$COST_LOG" 2>/dev/null)
+
+  # Month's spend
+  MONTH_SPENT=$(awk -v m="$MONTH" '
+    $0 ~ "^" m {
+      for (i=1; i<=NF; i++) if ($i ~ /^cost_usd=/) { split($i,a,"="); s+=a[2] }
+    }
+    END { printf "%.2f", s+0 }
+  ' "$COST_LOG" 2>/dev/null)
+
+  if [ -n "$DAILY_CAP" ]; then
+    REMAIN_DAY=$(awk "BEGIN{printf \"%.2f\", $DAILY_CAP - $TODAY_SPENT}")
+    PCT_DAY=$(awk "BEGIN{printf \"%.0f\", 100 * $TODAY_SPENT / $DAILY_CAP}")
+    BAR_DAY=$(awk "BEGIN{n=int(($TODAY_SPENT*10)/$DAILY_CAP); for(i=0;i<10;i++) printf (i<n ? \"▓\" : \"░\")}")
+    echo "  Today  $BAR_DAY  \$$TODAY_SPENT / \$$DAILY_CAP  (${PCT_DAY}% used, \$$REMAIN_DAY left)"
+  fi
+
+  if [ -n "$MONTHLY_BUDGET" ]; then
+    REMAIN_MO=$(awk "BEGIN{printf \"%.2f\", $MONTHLY_BUDGET - $MONTH_SPENT}")
+    PCT_MO=$(awk "BEGIN{printf \"%.0f\", 100 * $MONTH_SPENT / $MONTHLY_BUDGET}")
+    BAR_MO=$(awk "BEGIN{n=int(($MONTH_SPENT*10)/$MONTHLY_BUDGET); for(i=0;i<10;i++) printf (i<n ? \"▓\" : \"░\")}")
+    echo "  Month  $BAR_MO  \$$MONTH_SPENT / \$$MONTHLY_BUDGET  (${PCT_MO}% used, \$$REMAIN_MO left)"
+  fi
+
+  echo "  Mode:  $ENFORCE_MODE  $([ "$ENFORCE_MODE" = "block" ] && echo "(hard cap)" || echo "(warning only)")"
+  echo ""
+  echo "  ▸ Configure: \`~/.great_cto/config.json\` keys: \`daily_max_usd\` \`monthly_max_usd\` \`enforce\`"
+  echo "  ▸ One-shot bump: \`GREAT_CTO_BUMP_CAP=10\` then re-run"
+  echo ""
+fi
 ```
 
 ## LLM router savings (lead the report with this)
