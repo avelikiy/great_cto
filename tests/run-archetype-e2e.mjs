@@ -1,5 +1,10 @@
 // E2E archetype detection test using the REAL detect() + pickArchetype() pipeline.
-// Iterates over tests/fixtures/*/, runs detect on each, asserts expected archetype.
+// Iterates over tests/fixtures/*/, runs detect on each, asserts expected archetype
+// AND that suggestCompliance() returns the minimum required compliance set for
+// each archetype. This second assertion is the "reviewer attachment" guarantee
+// from the E2E plan (test #4) — without it, a regression in compliance rules
+// could silently drop, e.g., HIPAA from a healthcare project.
+//
 // Run: node tests/run-archetype-e2e.mjs
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -11,6 +16,25 @@ const FIXTURES_DIR = join(__dirname, 'fixtures');
 
 const { detect } = await import('../packages/cli/dist/detect.js');
 const { pickArchetype, suggestCompliance } = await import('../packages/cli/dist/archetypes.js');
+
+// Minimum-required compliance per archetype. The actual output may include
+// more (e.g. fintech often pulls gdpr too); this map asserts the MUST-HAVE
+// subset that defines correct reviewer attachment for that domain.
+// If a fixture's archetype isn't here, we skip the compliance check (still
+// validates archetype detection, just doesn't gate on compliance).
+const REQUIRED_COMPLIANCE = {
+  'fintech':         ['pci-dss', 'sox', 'kyc-aml'],
+  'healthcare':      ['hipaa'],
+  'mlops':           ['eu-ai-act'],
+  'agent-product':   ['eu-ai-act', 'owasp-llm-top-10'],
+  'ai-system':       ['eu-ai-act'],
+  'enterprise-saas': ['soc2-type-2', 'iso27001'],
+  'iot-embedded':    ['etsi-en-303-645'],
+  'game':            ['coppa', 'age-rating'],
+  'regulated':       ['compliance-required'],
+  'marketplace':     ['kyc-aml', 'pci-dss'],
+  'cms':             ['gdpr', 'dmca'],
+};
 
 const fixtures = readdirSync(FIXTURES_DIR)
   .filter((n) => !n.startsWith('_') && !n.startsWith('.'))
@@ -73,6 +97,20 @@ for (const fixture of fixtures) {
   const stackPreview = det.stack.slice(0, 4).join(',');
   console.log(`${symbol} ${fixture.padEnd(36)} → ${result.primary.padEnd(20)} [${result.confidence}]  comp: ${compliance.slice(0, 3).join(',') || '-'}`);
   console.log(`  ${' '.repeat(36)}   stack: ${stackPreview}${det.stack.length > 4 ? `, +${det.stack.length - 4} more` : ''}`);
+
+  // Compliance attachment check — fails if the archetype is in our map and
+  // any required compliance key is missing.
+  const required = REQUIRED_COMPLIANCE[result.primary];
+  if (ok && required) {
+    const missing = required.filter(c => !compliance.includes(c));
+    if (missing.length > 0) {
+      console.log(`  ${' '.repeat(36)}   \x1b[31m✗ missing compliance: ${missing.join(', ')}\x1b[0m`);
+      fail++;
+      failures.push({ fixture, expected, got: result.primary,
+        rationale: `archetype OK but compliance is missing [${missing.join(', ')}] — got [${compliance.join(', ') || 'empty'}]` });
+      continue;
+    }
+  }
 
   if (ok) pass++;
   else { fail++; failures.push({ fixture, expected, got: result.primary, rationale: result.rationale }); }
