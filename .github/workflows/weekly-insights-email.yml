@@ -1,8 +1,20 @@
 name: Weekly Telemetry Insights (email)
 
-# Runs every Monday at 06:00 UTC. Generates the weekly telemetry report
-# from D1 and emails it to the maintainer. NEVER commits to the public
-# repo — output stays in /tmp inside the runner.
+# Runs every Monday at 06:00 UTC. Two responsibilities:
+#
+#   1. Smoke-test the telemetry pipeline end-to-end (HTTP → Worker → D1).
+#      Even when 0 real events arrive, we verify the pipe is alive so the
+#      first real user's event won't silently disappear into a broken Worker.
+#
+#   2. Generate the weekly insights report and decide whether to email it:
+#      - >= EVENT_THRESHOLD real events    → send full data report
+#      - smoke test failed                 → send "🚨 pipeline broken" alert
+#      - first Monday of month, < threshold → send "alive ping" (so the
+#        maintainer knows the workflow itself is still running)
+#      - otherwise                         → SKIP email (avoid noise)
+#
+# The threshold prevents "_(no data)_" emails every Monday for 6 months
+# before the user base reaches a level where weekly stats mean anything.
 #
 # Why email (not commit, not Slack, not Issue):
 #   1. Private by default — pre-PMF numbers stay out of competitor reach.
@@ -11,14 +23,15 @@ name: Weekly Telemetry Insights (email)
 #   4. Markdown renders well in modern email clients (Gmail, etc).
 #
 # Required repo secrets:
-#   CLOUDFLARE_API_TOKEN    — D1: Read scope on great-cto-telemetry
+#   CLOUDFLARE_API_TOKEN    — D1: Read+Edit scope on great-cto-telemetry
+#                             (Edit needed for smoke test cleanup DELETE)
 #   CLOUDFLARE_ACCOUNT_ID   — 8b4c82576661609fadcac6ae8a5b2708
-#   SMTP_USERNAME           — full Gmail address (alexander.velikiy@gmail.com)
-#   SMTP_PASSWORD           — Gmail App Password (NOT regular password —
-#                             16-char token from myaccount.google.com/apppasswords)
-#   INSIGHTS_RECIPIENT      — alexander.velikiy@gmail.com
+#   SMTP_USERNAME           — Gmail address
+#   SMTP_PASSWORD           — Gmail App Password (16-char token,
+#                             from myaccount.google.com/apppasswords)
+#   INSIGHTS_RECIPIENT      — destination email
 #
-# Setup guide: docs/INSIGHTS-EMAIL-SETUP.md
+# Setup guide: docs/INSIGHTS-EMAIL-SETUP.md (private — gitignored)
 
 on:
   schedule:
@@ -29,14 +42,23 @@ on:
         description: "ISO year-week (e.g., 2026-W19) — leave blank for last completed week"
         required: false
         type: string
+      force_send:
+        description: "Send email regardless of threshold (use for testing)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+env:
+  WORKER_URL: https://telemetry.greatcto.systems
+  EVENT_THRESHOLD: "10"   # Minimum events to trigger a data report
+
 jobs:
   email-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -48,7 +70,55 @@ jobs:
       - name: Install wrangler
         run: npm install -g wrangler@4
 
-      - name: Generate weekly insights to /tmp
+      # ─── PIPELINE SMOKE TEST ─────────────────────────────────────────────
+      # POST a synthetic event with a unique anon_id derived from the GitHub
+      # run id, verify it lands in D1 within 5 sec, then DELETE it so the
+      # smoke event never pollutes weekly stats.
+      - name: Smoke test pipeline (HTTP → Worker → D1)
+        id: smoke
+        env:
+          CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -uo pipefail
+          # Synthetic anon_id derived from run id — 8 lowercase hex chars.
+          SMOKE_ANON=$(printf '%08x' $(( ${{ github.run_id }} % 4294967295 )))
+          echo "smoke_anon=$SMOKE_ANON" >> "$GITHUB_OUTPUT"
+          SMOKE_TS="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+
+          echo "▸ POST synthetic event with anon_id=$SMOKE_ANON"
+          HTTP=$(curl -sS -o /tmp/smoke-resp.json -w '%{http_code}' \
+            -X POST "$WORKER_URL/v1/event" \
+            -H "Content-Type: application/json" \
+            -d "{\"ts\":\"$SMOKE_TS\",\"version\":\"2.7.0\",\"command\":\"telemetry\",\"archetype\":\"none\",\"node\":\"20.0.0\",\"os\":\"linux\",\"exit_code\":0,\"duration_ms\":1,\"anon_id\":\"$SMOKE_ANON\"}")
+          echo "  HTTP $HTTP · resp $(cat /tmp/smoke-resp.json)"
+          if [ "$HTTP" != "200" ]; then
+            echo "smoke_status=worker_post_failed" >> "$GITHUB_OUTPUT"
+            exit 0   # Don't fail the workflow — let the email layer signal it
+          fi
+
+          # Allow eventual consistency (D1 is fast but not instant).
+          sleep 3
+
+          echo "▸ Query D1 for the smoke event"
+          COUNT=$(wrangler d1 execute great-cto-telemetry --remote --json \
+            --command "SELECT COUNT(*) AS c FROM events WHERE anon_id='$SMOKE_ANON';" 2>/dev/null \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["results"][0]["c"])')
+          echo "  found $COUNT row(s)"
+
+          if [ "$COUNT" = "1" ]; then
+            echo "smoke_status=ok" >> "$GITHUB_OUTPUT"
+          else
+            echo "smoke_status=d1_write_missing" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "▸ Cleanup smoke event"
+          wrangler d1 execute great-cto-telemetry --remote \
+            --command "DELETE FROM events WHERE anon_id='$SMOKE_ANON';" 2>&1 | tail -3 || true
+
+      # ─── REPORT GENERATION ───────────────────────────────────────────────
+      - name: Generate weekly insights + count events
+        id: report
         env:
           CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -62,12 +132,111 @@ jobs:
             WEEK=$(date -u -d 'last week' '+%G-W%V')
             bash scripts/weekly-telemetry.sh --dry-run > /tmp/insights.md
           fi
-          echo "WEEK=$WEEK" >> "$GITHUB_ENV"
-          echo "REPORT_BYTES=$(wc -c < /tmp/insights.md)" >> "$GITHUB_ENV"
-          echo "--- preview (first 30 lines) ---"
-          head -30 /tmp/insights.md
+          echo "week=$WEEK" >> "$GITHUB_OUTPUT"
+
+          # Direct D1 query for total real events in last 7 days
+          # (filter out our smoke pattern just in case cleanup missed).
+          EVENTS=$(wrangler d1 execute great-cto-telemetry --remote --json \
+            --command "SELECT COUNT(*) AS c FROM events WHERE received_at >= datetime('now','-7 days') AND command != 'telemetry';" 2>/dev/null \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["results"][0]["c"])')
+          echo "events=$EVENTS" >> "$GITHUB_OUTPUT"
+          echo "▸ events in window: $EVENTS · threshold: ${{ env.EVENT_THRESHOLD }}"
+
+          echo "--- preview (first 25 lines) ---"
+          head -25 /tmp/insights.md
+
+      # ─── DECIDE: send / skip / alert ─────────────────────────────────────
+      - name: Decide email policy
+        id: decide
+        env:
+          SMOKE: ${{ steps.smoke.outputs.smoke_status }}
+          EVENTS: ${{ steps.report.outputs.events }}
+          FORCE: ${{ inputs.force_send }}
+        run: |
+          set -euo pipefail
+          DAY=$(date -u +%-d)   # day of month, no leading zero
+          MONTHLY_PING=0
+          [ "$DAY" -le 7 ] && MONTHLY_PING=1
+
+          if [ "$SMOKE" != "ok" ]; then
+            echo "send=true"  >> "$GITHUB_OUTPUT"
+            echo "kind=alert" >> "$GITHUB_OUTPUT"
+            echo "subject=🚨 great_cto telemetry pipeline broken — $SMOKE" >> "$GITHUB_OUTPUT"
+          elif [ "$FORCE" = "true" ]; then
+            echo "send=true" >> "$GITHUB_OUTPUT"
+            echo "kind=forced" >> "$GITHUB_OUTPUT"
+            echo "subject=great_cto · weekly insights · ${{ steps.report.outputs.week }} (force)" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENTS" -ge "${{ env.EVENT_THRESHOLD }}" ]; then
+            echo "send=true" >> "$GITHUB_OUTPUT"
+            echo "kind=data" >> "$GITHUB_OUTPUT"
+            echo "subject=great_cto · weekly insights · ${{ steps.report.outputs.week }} · $EVENTS events" >> "$GITHUB_OUTPUT"
+          elif [ "$MONTHLY_PING" = "1" ]; then
+            echo "send=true" >> "$GITHUB_OUTPUT"
+            echo "kind=alive" >> "$GITHUB_OUTPUT"
+            echo "subject=great_cto · monthly alive ping · pipeline OK · $EVENTS events this week" >> "$GITHUB_OUTPUT"
+          else
+            echo "send=false" >> "$GITHUB_OUTPUT"
+            echo "kind=skip" >> "$GITHUB_OUTPUT"
+            echo "▸ Skipping email: $EVENTS events < threshold ${{ env.EVENT_THRESHOLD }} and not first week of month."
+          fi
+
+      # ─── ALIVE PING: tiny markdown ──────────────────────────────────────
+      - name: Prepare alive-ping body
+        if: steps.decide.outputs.kind == 'alive'
+        run: |
+          cat > /tmp/insights.md <<EOF
+          # great_cto telemetry — monthly alive ping
+
+          - Week: **${{ steps.report.outputs.week }}**
+          - Events this week: **${{ steps.report.outputs.events }}**
+          - Smoke test: **✅ pipeline OK** (HTTP → Worker → D1, smoke anon_id=${{ steps.smoke.outputs.smoke_anon }})
+          - Threshold for full report: **${{ env.EVENT_THRESHOLD }} events** (not yet reached)
+
+          No action needed. The pipeline is alive and ready when real users opt in. You'll get the next email when either:
+
+          1. Events crosses the threshold of ${{ env.EVENT_THRESHOLD }} per week, or
+          2. Pipeline smoke test fails (would surface here as 🚨), or
+          3. First Monday of the next month (this same alive ping).
+
+          ---
+
+          *Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) by .github/workflows/weekly-insights-email.yml*
+          EOF
+
+      # ─── ALERT BODY (pipeline broken) ───────────────────────────────────
+      - name: Prepare alert body
+        if: steps.decide.outputs.kind == 'alert'
+        run: |
+          cat > /tmp/insights.md <<EOF
+          # 🚨 great_cto telemetry pipeline broken
+
+          The weekly health check failed at step: **${{ steps.smoke.outputs.smoke_status }}**
+
+          - **worker_post_failed** — POST to \`$WORKER_URL/v1/event\` did not return 200.
+            Worker may be down, schema validation regressed, or DNS broken.
+          - **d1_write_missing** — POST succeeded but the event never appeared in D1.
+            Possible: D1 outage, binding misconfigured, or race condition we should investigate.
+
+          ## Triage
+
+          1. Check workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          2. Reproduce locally:
+             \`\`\`
+             curl -X POST $WORKER_URL/v1/health
+             curl -X POST $WORKER_URL/v1/event -H 'Content-Type: application/json' -d '{...}'
+             \`\`\`
+          3. Roll back recent Worker deploy if regression suspected:
+             \`\`\`
+             cd workers/telemetry && wrangler rollback
+             \`\`\`
+
+          ## Side info — last 7d data
+
+          $(head -25 /tmp/insights.md 2>/dev/null || echo "(report generation also failed)")
+          EOF
 
       - name: Send email
+        if: steps.decide.outputs.send == 'true'
         uses: dawidd6/action-send-mail@611879133a9569642c41be66f4a323286e9b8a3b # v4.0.0
         with:
           server_address: smtp.gmail.com
@@ -77,8 +246,16 @@ jobs:
           password:       ${{ secrets.SMTP_PASSWORD }}
           from:           great_cto insights <${{ secrets.SMTP_USERNAME }}>
           to:             ${{ secrets.INSIGHTS_RECIPIENT }}
-          subject:        "great_cto · weekly insights · ${{ env.WEEK }}"
+          subject:        ${{ steps.decide.outputs.subject }}
           body:           file:///tmp/insights.md
           convert_markdown: true
-          # No attachments — body markdown is sufficient and renders inline.
-          # No reply-to redirect — replies go back to your own SMTP_USERNAME.
+
+      - name: Summary
+        run: |
+          echo "## Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Smoke: \`${{ steps.smoke.outputs.smoke_status }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Events (7d): \`${{ steps.report.outputs.events }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Threshold: \`${{ env.EVENT_THRESHOLD }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Decision: \`${{ steps.decide.outputs.kind }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Email sent: \`${{ steps.decide.outputs.send }}\`" >> "$GITHUB_STEP_SUMMARY"
