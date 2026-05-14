@@ -356,6 +356,12 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   }
 
   // Plans: file mtime as date
+  // Cost extraction from LLM-written plan docs is intentionally lenient about
+  // shape — agents emit "LLM time: ~5 min · ~$0.30" as often as the old
+  // "LLM cost: 5–10 min" range form. We match a $-amount near the word
+  // "LLM" and another near "Human", and FIRE the sanity check below to
+  // reject pathological pairs (the 7,638× regression — total_human present
+  // but total_llm fell to zero because the LLM regex was too strict).
   const plansDir = path.join(cwd, 'docs/plans');
   if (fs.existsSync(plansDir)) {
     for (const f of fs.readdirSync(plansDir).filter(x => x.endsWith('.md'))) {
@@ -364,11 +370,29 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
       const dayKey = stat.mtime.toISOString().slice(0, 10);
       if (!buckets.has(dayKey)) continue;
       const content = fs.readFileSync(fp, 'utf8');
-      const llmMatch = content.match(/LLM.*?(\d+\.?\d*)\s*[-–]\s*\$?(\d+\.?\d*)/i);
-      const humanMatch = content.match(/Human.*?\$(\d[\d,]+)/i);
+      // Anchor LLM/Human at START of line (with optional markdown emphasis)
+      // so we never mis-match cases like:
+      //   "**Cost**: $0.50 LLM | $240 human"  ← would have grabbed $240 as LLM
+      // The label MUST be the first non-emphasis token on the line. Examples
+      // that correctly match:
+      //   "**LLM**: $0.50–1.20"
+      //   "LLM time: ~$0.30"
+      //   "- **LLM cost:** $0.75 – $1.85"
+      // Examples correctly skipped:
+      //   "**Cost**: $0.50–1.20 LLM | $240–360 human" (LLM mid-line)
+      //   "Savings = Human/LLM"                       (LLM mid-line)
+      const llmMatch   = content.match(/^[\s*_>\-]*LLM[^\n]*?\$(\d+\.?\d*)/im);
+      const humanMatch = content.match(/^[\s*_>\-]*Human[^\n]*?\$(\d[\d,]*\.?\d*)/im);
       const b = buckets.get(dayKey);
-      if (llmMatch) b.llm += parseFloat(llmMatch[2]);
+      if (llmMatch) b.llm += parseFloat(llmMatch[1]);
       if (humanMatch) b.human += parseFloat(humanMatch[1].replace(/,/g, ''));
+      // SANITY GUARD: if Human matched but LLM regex missed, suppress Human
+      // for THIS plan rather than emit an implausible ratio. This is the
+      // production safety net for the 7,638× bug class.
+      if (humanMatch && !llmMatch && b.human > 0) {
+        // Reverse the suppression — drop the bogus single-sided Human entry.
+        b.human -= parseFloat(humanMatch[1].replace(/,/g, ''));
+      }
       b.plans++;
     }
   }
@@ -424,9 +448,20 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   }
 
   const series = Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
-  const totalLlm = series.reduce((a, b) => a + b.llm, 0);
-  const totalHuman = series.reduce((a, b) => a + b.human, 0);
+  let totalLlm = series.reduce((a, b) => a + b.llm, 0);
+  let totalHuman = series.reduce((a, b) => a + b.human, 0);
   const totalPlans = series.reduce((a, b) => a + b.plans, 0);
+
+  // SANITY GUARD — anti-7,638× regression. If ratio > 1000×, one of the
+  // numbers is wrong. Almost always: total_llm collapsed to ~0 because plan
+  // parsing missed the LLM value, while total_human matched a "$7,500 saved"
+  // marketing line. Better to under-report than show an implausible 7,500×
+  // savings on the dashboard. Caller can still see the raw `series`.
+  if (totalLlm > 0 && totalHuman > 0 && (totalHuman / totalLlm) > 1000) {
+    totalHuman = 0;
+    for (const b of series) b.human = 0;
+  }
+
   // Read budget from PROJECT.md (monthly-budget: $X)
   const projMd = readFileSafe(path.join(cwd, '.great_cto', 'PROJECT.md')) || '';
   const budgetMatch = projMd.match(/monthly[-_]budget:\s*\$?(\d[\d,]+)/i);

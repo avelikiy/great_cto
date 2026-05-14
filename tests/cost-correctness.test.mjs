@@ -231,3 +231,67 @@ test('cost: malformed verdict lines do not crash /api/cost', async () => {
     cleanup(home, project);
   }
 });
+
+test('cost: rejects mid-line "LLM" reference (the $240 regression bug)', async () => {
+  // This is the bug a real LLM-written PLAN doc triggered:
+  //   "**Cost**: $0.50–1.20 LLM | $240–360 human equivalent"
+  // The old regex /LLM[^\n]*?\$(\d+\.?\d*)/i grabbed $240 as LLM cost because
+  // it found "LLM" mid-line and then the NEXT $-amount, which was the human
+  // number. Anchored regex (line-start) now rejects mid-line labels.
+  const { home, project } = makeProject();
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Set up project with a docs/plans dir containing the trap content
+  const plansDir = join(project, 'docs', 'plans');
+  mkdirSync(plansDir, { recursive: true });
+  const trapPlan = `# PLAN
+
+## Quick summary
+- **Cost**: $0.50–1.20 LLM | $240–360 human equivalent
+- **Duration**: 15 min
+
+## Tasks
+1. Build endpoint
+`;
+  writeFileSync(join(plansDir, 'PLAN-trap.md'), trapPlan);
+
+  const port = pickPort();
+  const board = spawnBoard(project, home, port);
+  try {
+    await waitForBoard(port);
+    const data = await fetchJson(port, '/api/cost?days=1');
+    // No anchored LLM label, no anchored Human label → both should be zero
+    assert.equal(data.total_llm, 0,
+      `mid-line "LLM" should not match. Got total_llm=$${data.total_llm}`);
+    assert.equal(data.total_human, 0,
+      `mid-line "human" should not match. Got total_human=$${data.total_human}`);
+  } finally {
+    killBoardTree(board);
+    cleanup(home, project);
+  }
+});
+
+test('cost: ratio guard suppresses implausible human/LLM ratios', async () => {
+  // Even if the LLM parser succeeds with a tiny value, the human parser
+  // matching a "$7,500 saved" line should NOT produce a 7,500× ratio.
+  const { home, project } = makeProject();
+  const plansDir = join(project, 'docs', 'plans');
+  mkdirSync(plansDir, { recursive: true });
+  writeFileSync(join(plansDir, 'PLAN-implausible.md'),
+    `# PLAN\n\n**LLM**: $0.01 (one cent, comically low)\n**Human**: $50,000 saved (5 weeks)\n`);
+
+  const port = pickPort();
+  const board = spawnBoard(project, home, port);
+  try {
+    await waitForBoard(port);
+    const data = await fetchJson(port, '/api/cost?days=1');
+    // LLM matches $0.01. Human matches $50,000 → ratio = 5,000,000× → suppressed.
+    assert.ok(data.total_llm > 0 && data.total_llm < 1,
+      `expected tiny but non-zero total_llm, got $${data.total_llm}`);
+    assert.equal(data.total_human, 0,
+      `total_human should be suppressed when ratio > 1000×. Got $${data.total_human}`);
+  } finally {
+    killBoardTree(board);
+    cleanup(home, project);
+  }
+});
