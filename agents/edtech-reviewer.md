@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: lightblue
 skills:
+  - superpowers:receiving-code-review
   - prose-style
 applies_to: [edtech]
 ---

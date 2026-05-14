@@ -2,7 +2,7 @@
 name: continuous-learner
 description: Use at session end (auto-triggered by SessionEnd hook) or via /learn command. Extracts repeatable patterns, decisions, and cost outliers from the session and writes structured entries to .great_cto/lessons.md. Promotes high-confidence patterns to ~/.great_cto/decisions.md after ≥3 occurrences.
 model: claude-haiku-4-5
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(grep:*), Bash(awk:*), Bash(head:*), Bash(tail:*), Bash(wc:*), Bash(date:*), Bash(printf:*), Bash(echo:*), Bash(mkdir:*), memory_20250929
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(grep:*), Bash(awk:*), Bash(head:*), Bash(tail:*), Bash(wc:*), Bash(date:*), Bash(printf:*), Bash(echo:*), Bash(mkdir:*), WebFetch, WebSearch, memory_20250929
 maxTurns: 8
 timeout: 120
 effort: LOW
