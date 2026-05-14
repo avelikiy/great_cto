@@ -226,6 +226,139 @@ BEFORE processing the event body. Store seen keys in Redis for 24h.
 
 // ── X1: senior-dev TDD-cycle smoke ──────────────────────────────────────────
 
+// ── BH-1: verdict='|' parsing regression ────────────────────────────────────
+
+test('BH-1: pipe-separated verdict lines parse to real verdict (not "|")', async () => {
+  // Pre-2026-05-14 the readVerdicts() parser took parts[1] from split(' ')
+  // for ALL verdict log formats. Pipe-form lines like:
+  //   "2026-05-09T13:09:58Z | architect | APPROVED | feature=x | cost=$0.30"
+  // produced verdict='|' (the second whitespace token), breaking the
+  // pipeline-status display for any agent writing in pipe form.
+  //
+  // Bug found 2026-05-14 while probing production board on great_cto repo
+  // itself — 3 of 8 stages showed verdict='|'. Fixed in same commit.
+  //
+  // This test seeds both formats and asserts the parser handles both.
+
+  const home = mkdtempSync(join(tmpdir(), 'bh1-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh1-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+
+    const today = new Date().toISOString().slice(0, 10);
+    // Pipe form — common from continuous-learner and review-style agents
+    writeFileSync(join(home, '.great_cto', 'verdicts', 'pm.log'),
+      `${today}T10:00:00Z | pm | PLAN_READY | feature=test | cost=$0.30\n`);
+    // Space form — canonical
+    writeFileSync(join(home, '.great_cto', 'verdicts', 'architect.log'),
+      `${today}T11:00:00Z APPROVED feature=test cost=$0.40\n`);
+
+    // Start board against this seeded state
+    const port = 34100 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      // Wait for board ready
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      const r = await fetch(`http://127.0.0.1:${port}/api/pipeline`);
+      const stages = await r.json();
+      const pm = stages.find(s => s.stage === 'pm');
+      const arch = stages.find(s => s.stage === 'architect');
+
+      assert.ok(pm, 'pm stage missing from /api/pipeline');
+      assert.notEqual(pm.verdict, '|',
+        `pm pipe-form verdict should parse as "PLAN_READY", got '${pm.verdict}' (parser regression)`);
+      assert.equal(pm.verdict, 'PLAN_READY',
+        `pm pipe-form parsed wrong: got '${pm.verdict}', want 'PLAN_READY'`);
+
+      assert.equal(arch.verdict, 'APPROVED',
+        `architect space-form parsed wrong: got '${arch.verdict}', want 'APPROVED'`);
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+// ── BH-2: savings_x distinguishes unknown from zero ─────────────────────────
+
+test('BH-2: savings_x is null (not 0) when human estimate is missing', async () => {
+  // Pre-2026-05-14 /api/cost returned savings_x=0 in two distinct cases:
+  //   (a) total_llm > 0 but total_human == 0 (no human estimate)
+  //   (b) total_llm > 0 and total_human is genuinely 0 (LLM cost only)
+  // Conflating these on the dashboard misleads users — looks like "no
+  // savings" when it should be "n/a, no human estimate".
+  //
+  // Now: savings_x is null when EITHER total is zero — UI can show "—".
+
+  const home = mkdtempSync(join(tmpdir(), 'bh2-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh2-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+
+    const today = new Date().toISOString().slice(0, 10);
+    writeFileSync(join(home, '.great_cto', 'verdicts', 'architect.log'),
+      `${today}T10:00:00Z APPROVED feature=test cost=$0.42\n`);
+    // No plans, no human estimate
+
+    const port = 34200 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      const r = await fetch(`http://127.0.0.1:${port}/api/cost?days=1`);
+      const data = await r.json();
+
+      assert.ok(data.total_llm > 0, 'precondition: LLM cost should be > 0');
+      assert.equal(data.total_human, 0, 'precondition: no human estimate');
+      assert.equal(data.savings_x, null,
+        `savings_x should be null when total_human=0 (was: ${data.savings_x}). ` +
+        `null means "no estimate", 0 would mean "estimated zero savings" — distinct.`);
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
 test('X1 TDD: senior-dev RED → GREEN cycle works on a tiny stub', async () => {
   // We don't drive a real LLM here (that's X6/multi-archetype). Instead,
   // verify the TDD-cycle scaffolding works: scenario where impl is missing
