@@ -41,9 +41,6 @@ site/**/*.html
 # Hand-written pages not produced by site/_build.mjs — track these explicitly.
 # Add new exceptions here when a page is authored by hand rather than generated.
 !site/index.html
-!site/for/agent-product.html
-!site/for/fintech.html
-!site/for/healthcare.html
 site/assets/
 site/site.webmanifest
 site/sitemap.xml
