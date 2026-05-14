@@ -38,6 +38,7 @@ node_modules/
 # Source files (generators, data, CSS) tracked; generated HTML + binary assets are
 # deployment artefacts and remain local-only (regenerate via `node site/_build.mjs`).
 site/**/*.html
+!site/index.html
 site/assets/
 site/site.webmanifest
 site/sitemap.xml
