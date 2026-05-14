@@ -285,6 +285,61 @@ After answers come back, store them in PROJECT.md fields: `mode`, `team-size`, `
 
 Do NOT output scoring tables. Do NOT explain pipeline in detail unless CTO asks.
 
+## Step 2c: Cost pre-flight — bill-shock protection (v2.8+)
+
+Before running the architect (first paid agent), surface the estimated pipeline cost so the CTO can make an informed go/no-go decision **before** burning tokens. This is the "Pay-what-you-want" pattern: show the cost, the cap, the remaining budget, and three options (standard / cheap / cancel). It pairs with the hard-cap enforcement in `scripts/hooks/cost-guard.mjs`.
+
+**Estimate by pipeline tier:**
+
+| Pipeline tier (Step 2b) | Estimated cost USD | Estimated wall time |
+|---|---|---|
+| `quick` / `nano` (config fix, typo) | $0.10 – $0.50 (est $0.25) | ~3 min |
+| `quick` / `small` (new endpoint) | $0.50 – $1.50 (est $1.00) | ~10 min |
+| `standard` / `medium` (feature) | $3 – $8 (est $5) | ~30 min |
+| `deep` / `large` (cross-cutting) | $8 – $20 (est $12) | ~60 min |
+| `deep` / `enterprise` (regulated) | $15 – $40 (est $25) | ~90 min |
+
+**Read current cap state** (silently, never block):
+
+```bash
+GLOBAL_CFG="$HOME/.great_cto/config.json"
+DAILY_CAP=""; ENFORCE="warn"
+if [ -f "$GLOBAL_CFG" ]; then
+  DAILY_CAP=$(jq -r '.daily_max_usd // empty' "$GLOBAL_CFG" 2>/dev/null)
+  ENFORCE=$(jq -r '.enforce // "warn"' "$GLOBAL_CFG" 2>/dev/null)
+fi
+TODAY=$(date -u +%Y-%m-%d)
+TODAY_SPENT=$(awk -v d="$TODAY" '$0 ~ "^"d { for(i=1;i<=NF;i++) if($i~/^cost_usd=/){split($i,a,"=");s+=a[2]} } END{printf "%.2f",s+0}' .great_cto/cost-history.log 2>/dev/null)
+```
+
+**Print panel (always — even if no cap, just shows estimate):**
+
+```
+📋 PLAN ESTIMATE
+────────────────────────────────────────
+Pipeline:        <tier> / <archetype>
+Specialist:      <archetype>-reviewer auto-loaded
+Estimated cost:  $<est>   (range: $<lo>–$<hi>)
+Today's spend:   $<TODAY_SPENT> / $<DAILY_CAP>  ($<remaining> left)
+ETA:             ~<minutes> min
+
+Modes:
+  [y]   standard    — full pipeline (≈$<est>)
+  [c]   cheap mode  — route routine triage to Kimi K2 (~−60% cost, ~+15% time)
+  [n]   cancel
+```
+
+**If `DAILY_CAP` is unset:** show only the estimate row, omit budget rows, omit cheap-mode option (still available via env var but don't prompt).
+
+**Then PAUSE.** Wait for CTO's `y` / `c` / `n`. Do NOT proceed automatically. If they pick `c`, export `GREAT_CTO_CHEAP_MODE=1` (the LLM router reads this and routes more agents to Kimi). If they pick `n`, exit gracefully (no PROJECT.md, no architect).
+
+**Skip the panel ONLY if:**
+- `GREAT_CTO_NO_PREFLIGHT=1` is set (CI / scripted runs)
+- The user clearly said "go ahead" / "skip estimate" / "just run it" in the description
+- size is `nano` AND estimate < $0.50 (panel adds more friction than it saves)
+
+This is the **biggest single UX win** of the v2.8 cost-control suite: the CTO sees exactly what they're spending **before** any agent runs, and has one keystroke to switch to cheap mode. No 34-agent admin UI to configure.
+
 ## Step 3: Create PROJECT.md
 
 ```bash
