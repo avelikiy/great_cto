@@ -34,8 +34,14 @@ node_modules/
 # Misc
 *.log
 
-# Marketing / landing site — local only, never committed
-site/
+# Marketing / landing site
+# Source files (generators, data, CSS) tracked; generated HTML + binary assets are
+# deployment artefacts and remain local-only (regenerate via `node site/_build.mjs`).
+site/**/*.html
+site/assets/
+site/site.webmanifest
+site/sitemap.xml
+site/robots.txt
 
 # Content drafts (Hashnode articles, social copy) — local only, never committed
 content/
@@ -94,3 +100,4 @@ tests/eval/test_*.py
 # tracked: tests/eval/EVAL-*.md (reference templates shipped with the plugin)
 docs/marketing/
 scripts/hashnode-publish.mjs
+site/.previews/
