@@ -9,6 +9,7 @@ effort: HIGH
 memory: project
 color: orange
 skills:
+  - superpowers:receiving-code-review
   - prose-style
   - skeptical-triage
   - beads

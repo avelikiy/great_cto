@@ -2,7 +2,7 @@
 name: ai-eval-engineer
 description: Builds and maintains the eval pipeline for ai-system / agent-product archetypes. Outputs tests/eval/EVAL-*.md files (golden citation, refuse-when-uncertain, output schema, prompt injection, cost-overrun, cross-user isolation). Runs regression on every prompt or model change. Detects drift.
 model: haiku
-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch
+tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, memory_20250929, advisor_20260301
 maxTurns: 30
 timeout: 600
 effort: MEDIUM

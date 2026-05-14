@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: yellow
 skills:
+  - superpowers:receiving-code-review
   - prose-style
 applies_to: [web-service, commerce, enterprise, data-platform, fintech, regulated, web-app]
 ---

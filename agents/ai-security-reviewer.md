@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: red
 skills:
+  - superpowers:receiving-code-review
   - prose-style
   - skeptical-triage
   - beads

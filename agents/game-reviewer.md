@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: pink
 skills:
+  - superpowers:receiving-code-review
   - prose-style
   - skeptical-triage
   - beads
