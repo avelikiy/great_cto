@@ -1655,9 +1655,18 @@ a.arch-card.arch-link:hover .arch-cta { opacity: 1; }
   border-color: #00d97e;
   transform: translateY(-1px);
 }
-.co-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 4px; }
+.co-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; min-height: 24px; }
 .co-name { font-weight: 600; font-size: 14px; color: #fff; }
-.co-star { color: #00d97e; font-size: 13px; }
+.co-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+/* legacy — kept so old cached HTML degrades gracefully */
+.co-star { display: none; }
 .co-tag { font-size: 12.5px; color: rgba(255,255,255,0.65); line-height: 1.35; margin-bottom: 8px; min-height: 34px; }
 .co-meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 11px; color: rgba(255,255,255,0.5); }
 .co-stage, .co-country {

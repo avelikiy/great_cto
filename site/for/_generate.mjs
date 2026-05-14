@@ -73,16 +73,30 @@ const ARCHETYPE_PACK_AFFINITY = {
   'mobile-app':      ['voice-pack', 'lending-pack'],
 };
 
+// Extract registrable domain from a URL (e.g. https://stripe.com/foo → stripe.com).
+// Used to drive Clearbit-style auto-discovered logo URLs.
+function domainOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return ''; }
+}
+
+function logoTag(c) {
+  const d = domainOf(c.url);
+  if (!d) return '';
+  // Clearbit Logo API — free, no key, ~70% coverage for known companies.
+  // onerror hides the broken image so the card falls back to name-only.
+  const src = `https://logo.clearbit.com/${d}?size=64`;
+  return `<img class="co-logo" src="${src}" alt="" loading="lazy" onerror="this.style.display='none'" />`;
+}
+
 function companiesSection(slug) {
   const cos = companiesForArchetype(slug);
   if (cos.length === 0) return '';
-  const pioneerCount = cos.filter(c => c.pioneer).length;
   const cards = cos.map(c => {
-    const stars = c.pioneer ? '<span class="co-star" title="Pioneer Fund portfolio">★</span>' : '';
     const stage = c.stage ? `<span class="co-stage">${c.stage}</span>` : '';
     const country = c.country ? `<span class="co-country">${c.country}</span>` : '';
     return `<a class="co-card" href="${c.url}" rel="nofollow noopener" target="_blank">
-        <div class="co-head"><span class="co-name">${c.name}</span>${stars}</div>
+        <div class="co-head">${logoTag(c)}<span class="co-name">${c.name}</span></div>
         <div class="co-tag">${c.tagline}</div>
         <div class="co-meta">${stage}${country}</div>
       </a>`;
@@ -91,7 +105,7 @@ function companiesSection(slug) {
 <section class="wrap" id="companies">
   <div class="eyebrow">Real-world examples</div>
   <h2 class="h2">Companies operating as <em>${slug}</em>.</h2>
-  <p class="lede">${cos.length} startups in this space${pioneerCount ? ` — ${pioneerCount} from <a href="https://www.pioneerfund.vc/portfolio" rel="nofollow noopener">Pioneer Fund</a> portfolio (★)` : ''}. Click for full pack mapping.</p>
+  <p class="lede">${cos.length} startups in this space. Click for full pack mapping.</p>
   <div class="co-grid">
       ${cards}
   </div>
