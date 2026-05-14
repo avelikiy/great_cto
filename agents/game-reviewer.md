@@ -5,7 +5,7 @@ model: sonnet
 advisor-model: claude-opus-4-7
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
-tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301
+tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(npm:*), advisor_20260301
 maxTurns: 18
 timeout: 600
 effort: HIGH

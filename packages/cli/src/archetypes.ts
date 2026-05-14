@@ -957,3 +957,128 @@ export function suggestCompliance(d: DetectionResult, archetype: Archetype): str
 
   return Array.from(c).sort();
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Typed archetype → pipeline configuration
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Single source of truth for "which agents review which archetype" and
+// "which human gates fire for which archetype at which project size".
+// Previously this lived only in agent prompts — making the connection
+// invisible to code and impossible to verify in tests. See
+// docs/analysis/2026-05-14-pipeline-gaps.md (gaps A3 + G4) for the
+// rationale.
+
+export type ProjectSize = "nano" | "small" | "medium" | "large" | "enterprise";
+
+export type StandardGate =
+  | "plan"        // after architect, before senior-dev
+  | "arch"        // alt to plan (strict mode)
+  | "code"        // after senior-dev (rare)
+  | "qa"          // after qa-engineer
+  | "security"    // after security-officer
+  | "compliance"  // for regulated/fintech/healthcare
+  | "ship"        // final go/no-go
+  | "cost"        // AI archetypes — forecast burn approval (gap G2 closure)
+  | "oracle-review"     // web3 — added per gap G1
+  | "edtech-review"     // edtech
+  | "gov-review"        // gov-public
+  | "insurance-review"; // insurance
+
+/**
+ * Which review agents fire for each archetype. The reviewer name maps to
+ * `agents/<name>.md` in the great_cto plugin. Naming aliases exist for
+ * historical reasons (pci-reviewer covers fintech, firmware-reviewer
+ * covers iot-embedded, etc.) — documented in
+ * docs/agents/REVIEWER-NAMING.md (gap A2 closure).
+ *
+ * `greenfield` has no reviewers — pipeline runs in nano mode only.
+ */
+export const REVIEWERS_BY_ARCHETYPE: Record<Archetype, string[]> = {
+  "web-service":       ["security-officer"],
+  "mobile-app":        ["mobile-store-reviewer", "security-officer"],
+  "ai-system":         ["ai-security-reviewer", "ai-prompt-architect", "ai-eval-engineer"],
+  "agent-product":     ["ai-security-reviewer", "ai-prompt-architect", "ai-eval-engineer"],
+  "mlops":             ["mlops-reviewer", "ai-security-reviewer"],
+  "data-platform":     ["data-platform-reviewer"],
+  "streaming":         ["streaming-reviewer"],
+  "infra":             ["infra-reviewer"],
+  "library":           ["library-reviewer"],
+  "cli-tool":          ["cli-reviewer"],
+  "commerce":          ["pci-reviewer", "security-officer"],
+  "marketplace":       ["marketplace-reviewer", "pci-reviewer"],
+  "fintech":           ["pci-reviewer", "regulated-reviewer"],
+  "healthcare":        ["security-officer"],    // TODO: ship healthcare-reviewer (gap A1)
+  "web3":              ["oracle-reviewer"],
+  "iot-embedded":      ["firmware-reviewer"],
+  "regulated":         ["regulated-reviewer"],
+  "devtools":          ["devtools-reviewer"],
+  "browser-extension": ["web-store-reviewer"],
+  "game":              ["game-reviewer"],
+  "cms":               ["cms-reviewer"],
+  "enterprise-saas":   ["enterprise-saas-reviewer"],
+  "edtech":            ["edtech-reviewer"],
+  "gov-public":        ["gov-reviewer", "security-officer"],
+  "insurance":         ["insurance-reviewer", "regulated-reviewer"],
+  "greenfield":        [],
+};
+
+/**
+ * Which human gates the pipeline opens for each archetype at the medium
+ * project_size. Smaller sizes skip gates (see `gatesFor()` below); larger
+ * sizes may add compliance.
+ *
+ * NOTE: nano → only [plan]. Enterprise → always adds compliance.
+ */
+export const GATES_BY_ARCHETYPE: Record<Archetype, StandardGate[]> = {
+  "web-service":       ["plan", "qa", "ship"],
+  "mobile-app":        ["plan", "qa", "ship"],
+  "ai-system":         ["plan", "cost", "qa", "security", "ship"],
+  "agent-product":     ["plan", "cost", "qa", "security", "ship"],
+  "mlops":             ["plan", "cost", "qa", "security", "ship"],
+  "data-platform":     ["plan", "qa", "ship"],
+  "streaming":         ["plan", "qa", "ship"],
+  "infra":             ["plan", "qa", "ship"],
+  "library":           ["plan", "qa", "ship"],
+  "cli-tool":          ["plan", "qa", "ship"],
+  "commerce":          ["plan", "qa", "security", "ship", "compliance"],
+  "marketplace":       ["plan", "qa", "security", "ship", "compliance"],
+  "fintech":           ["plan", "qa", "security", "ship", "compliance"],
+  "healthcare":        ["plan", "qa", "security", "ship", "compliance"],
+  "web3":              ["plan", "qa", "oracle-review", "security", "ship"],
+  "iot-embedded":      ["plan", "qa", "security", "ship"],
+  "regulated":         ["plan", "qa", "security", "ship", "compliance"],
+  "devtools":          ["plan", "qa", "ship"],
+  "browser-extension": ["plan", "qa", "ship"],
+  "game":              ["plan", "qa", "ship"],
+  "cms":               ["plan", "qa", "ship"],
+  "enterprise-saas":   ["plan", "qa", "security", "ship", "compliance"],
+  "edtech":            ["plan", "qa", "edtech-review", "security", "ship", "compliance"],
+  "gov-public":        ["plan", "qa", "gov-review", "security", "ship", "compliance"],
+  "insurance":         ["plan", "qa", "insurance-review", "security", "ship", "compliance"],
+  "greenfield":        ["plan"],
+};
+
+/**
+ * Returns the subset of gates the pipeline will actually open for a
+ * given archetype + project_size. Used by the orchestrator before
+ * opening any gate to skip unnecessary human checkpoints on smaller
+ * projects (e.g. nano always skips QA).
+ */
+export function gatesFor(archetype: Archetype, size: ProjectSize): StandardGate[] {
+  const all = GATES_BY_ARCHETYPE[archetype] ?? [];
+  if (size === "nano") return all.filter((g) => g === "plan");
+  if (size === "small") return all.filter((g) => g === "plan" || g === "ship");
+  if (size === "medium") return all;
+  // large + enterprise → ensure compliance is included
+  return all.includes("compliance") ? all : [...all, "compliance"];
+}
+
+/**
+ * Returns the ordered list of reviewers for an archetype. Empty for
+ * `greenfield`. Used by the orchestrator to spawn the right
+ * archetype-specific review stages after senior-dev.
+ */
+export function reviewersFor(archetype: Archetype): string[] {
+  return REVIEWERS_BY_ARCHETYPE[archetype] ?? [];
+}
