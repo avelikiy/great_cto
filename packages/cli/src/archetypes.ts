@@ -1008,7 +1008,7 @@ export const REVIEWERS_BY_ARCHETYPE: Record<Archetype, string[]> = {
   "commerce":          ["pci-reviewer", "security-officer"],
   "marketplace":       ["marketplace-reviewer", "pci-reviewer"],
   "fintech":           ["pci-reviewer", "regulated-reviewer"],
-  "healthcare":        ["security-officer"],    // TODO: ship healthcare-reviewer (gap A1)
+  "healthcare":        ["healthcare-reviewer", "security-officer"],
   "web3":              ["oracle-reviewer"],
   "iot-embedded":      ["firmware-reviewer"],
   "regulated":         ["regulated-reviewer"],
