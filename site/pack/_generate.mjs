@@ -24,12 +24,18 @@ const CSS_VER = '2026050414';
 const companiesData = JSON.parse(readFileSync(join(__dirname, '..', 'data', 'companies.json'), 'utf-8'));
 const allCompanies = companiesData.companies;
 
+const STAGE_RANK = { 'public': 0, 'subsidiary': 1, 'growth': 2, 'series-e': 3, 'series-f': 3, 'series-d': 4, 'series-c': 5, 'series-b': 6, 'series-a': 7, 'seed': 8, 'open-source': 9, 'acquired': 10, 'private': 11 };
 function companiesForPack(packName) {
   const list = Object.entries(allCompanies)
     .filter(([_id, c]) => (c.packs || []).includes(packName))
     .map(([id, c]) => ({ id, ...c }));
-  list.sort((a, b) => (b.pioneer ? 1 : 0) - (a.pioneer ? 1 : 0));
-  return list.slice(0, 24);
+  list.sort((a, b) => {
+    const sa = STAGE_RANK[a.stage] ?? 99;
+    const sb = STAGE_RANK[b.stage] ?? 99;
+    if (sa !== sb) return sa - sb;
+    return a.name.localeCompare(b.name);
+  });
+  return list.slice(0, 30);
 }
 
 const packs = [
