@@ -1,0 +1,11 @@
+{
+  "name": "em-fintech-india-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "tsx src/server.ts" },
+  "dependencies": {
+    "express": "^4.19.0",
+    "razorpay": "^2.9.0"
+  },
+  "devDependencies": { "typescript": "^5.4.0" }
+}

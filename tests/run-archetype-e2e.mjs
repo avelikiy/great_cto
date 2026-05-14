@@ -16,6 +16,7 @@ const FIXTURES_DIR = join(__dirname, 'fixtures');
 
 const { detect } = await import('../packages/cli/dist/detect.js');
 const { pickArchetype, suggestCompliance } = await import('../packages/cli/dist/archetypes.js');
+const { suggestPacks } = await import('../packages/cli/dist/packs.js');
 
 // Minimum-required compliance per archetype. The actual output may include
 // more (e.g. fintech often pulls gdpr too); this map asserts the MUST-HAVE
@@ -50,13 +51,14 @@ console.log('└─────────────────────�
 
 for (const fixture of fixtures) {
   const dir = join(FIXTURES_DIR, fixture);
-  let expected = null, skipIfFails = false;
+  let expected = null, skipIfFails = false, expectedPacks = null;
 
   // Existing fixtures use expected/manifest.json; new ones use expected.json
   try {
     const ej = JSON.parse(readFileSync(join(dir, 'expected.json'), 'utf-8'));
     expected = ej.archetype;
     skipIfFails = !!ej.skipIfFails;
+    expectedPacks = Array.isArray(ej.packs) ? ej.packs : null;
   } catch {
     try {
       const m = JSON.parse(readFileSync(join(dir, 'expected', 'manifest.json'), 'utf-8'));
@@ -110,6 +112,22 @@ for (const fixture of fixtures) {
         rationale: `archetype OK but compliance is missing [${missing.join(', ')}] — got [${compliance.join(', ') || 'empty'}]` });
       continue;
     }
+  }
+
+  // Pack attachment check — overlay packs must match if expected.json
+  // declares them. Detector may match additional packs (broader signals) —
+  // that is allowed; we only fail on MISSING expected packs.
+  if (ok && expectedPacks) {
+    const matchedPacks = suggestPacks(det).map(p => p.pack);
+    const missingPacks = expectedPacks.filter(p => !matchedPacks.includes(p));
+    if (missingPacks.length > 0) {
+      console.log(`  ${' '.repeat(36)}   \x1b[31m✗ missing packs: ${missingPacks.join(', ')}\x1b[0m   (got [${matchedPacks.join(', ') || 'none'}])`);
+      fail++;
+      failures.push({ fixture, expected, got: result.primary,
+        rationale: `archetype OK but packs missing [${missingPacks.join(', ')}] — got [${matchedPacks.join(', ') || 'none'}]` });
+      continue;
+    }
+    console.log(`  ${' '.repeat(36)}   packs: ${matchedPacks.join(', ')}`);
   }
 
   if (ok) pass++;

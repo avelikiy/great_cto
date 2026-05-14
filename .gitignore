@@ -86,6 +86,11 @@ docs/insights/
 docs/qa/
 docs/INSIGHTS-EMAIL-SETUP.md
 tests/board/
-tests/eval/
+tests/eval/fixtures/
+tests/eval/*.json
+tests/eval/*.jsonl
+tests/eval/*.csv
+tests/eval/test_*.py
+# tracked: tests/eval/EVAL-*.md (reference templates shipped with the plugin)
 docs/marketing/
 scripts/hashnode-publish.mjs
