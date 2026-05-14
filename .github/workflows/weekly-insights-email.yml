@@ -160,27 +160,49 @@ jobs:
           CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WEEK_INPUT:            ${{ inputs.week }}
+        # Same hardening as smoke step: never fail the workflow. If D1 access
+        # is blocked (token scope), we degrade gracefully to events=0 so the
+        # threshold logic can still fire the alive-ping path.
+        continue-on-error: true
         run: |
-          set -euo pipefail
+          set +e
+          set -u
+
           if [ -n "${WEEK_INPUT:-}" ]; then
-            bash scripts/weekly-telemetry.sh --week "$WEEK_INPUT" --dry-run > /tmp/insights.md
+            bash scripts/weekly-telemetry.sh --week "$WEEK_INPUT" --dry-run > /tmp/insights.md 2>/tmp/wt-stderr.log
             WEEK="$WEEK_INPUT"
           else
             WEEK=$(date -u -d 'last week' '+%G-W%V')
-            bash scripts/weekly-telemetry.sh --dry-run > /tmp/insights.md
+            bash scripts/weekly-telemetry.sh --dry-run > /tmp/insights.md 2>/tmp/wt-stderr.log
           fi
           echo "week=$WEEK" >> "$GITHUB_OUTPUT"
 
-          # Direct D1 query for total real events in last 7 days
-          # (filter out our smoke pattern just in case cleanup missed).
-          EVENTS=$(wrangler d1 execute great-cto-telemetry --remote --json \
-            --command "SELECT COUNT(*) AS c FROM events WHERE received_at >= datetime('now','-7 days') AND command != 'telemetry';" 2>/dev/null \
-            | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["results"][0]["c"])')
+          # Count events for the week via REST API (same auth surface as
+          # smoke step). If token lacks D1 scope, EVENTS becomes 0 and
+          # the threshold logic naturally chooses skip / alive ping.
+          DB_ID=b847fd59-b198-46c7-86a5-eb0055d085d3
+          curl -sS -o /tmp/count.json \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$DB_ID/query" \
+            -d "{\"sql\":\"SELECT COUNT(*) AS c FROM events WHERE received_at >= datetime('now','-7 days') AND command != 'telemetry';\"}"
+
+          EVENTS=$(jq -r 'if .success == true then (.result[0].results[0].c // 0) else 0 end' /tmp/count.json 2>/dev/null || echo 0)
+          # Defensive: if EVENTS is empty / non-numeric, force 0.
+          case "$EVENTS" in ''|*[!0-9]*) EVENTS=0 ;; esac
+
           echo "events=$EVENTS" >> "$GITHUB_OUTPUT"
           echo "▸ events in window: $EVENTS · threshold: ${{ env.EVENT_THRESHOLD }}"
 
+          if [ "$EVENTS" = "0" ] && ! jq -e '.success == true' /tmp/count.json >/dev/null 2>&1; then
+            echo "  ⚠️  D1 query failed (token may lack D1: Read scope):"
+            jq -r '.errors // .' /tmp/count.json 2>/dev/null | head -3
+          fi
+
           echo "--- preview (first 25 lines) ---"
           head -25 /tmp/insights.md
+          exit 0
 
       # ─── DECIDE: send / skip / alert ─────────────────────────────────────
       - name: Decide email policy
