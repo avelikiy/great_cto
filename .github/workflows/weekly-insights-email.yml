@@ -121,20 +121,13 @@ jobs:
           echo "  D1 response:"
           head -c 500 /tmp/smoke-d1.json; echo
 
-          COUNT=$(python3 -c '
-import json, sys
-try:
-  d = json.load(open("/tmp/smoke-d1.json"))
-  if d.get("success"):
-    print(d["result"][0]["results"][0]["c"])
-  else:
-    err = (d.get("errors") or [{"message":"unknown"}])[0]
-    sys.stderr.write(f"  D1 error: {err}\n")
-    print("ERR")
-except Exception as e:
-  sys.stderr.write(f"  parse failed: {e}\n")
-  print("ERR")
-')
+          # Parse via jq — handles both success and error shapes without
+          # multi-line python (which breaks YAML indentation in workflows).
+          COUNT=$(jq -r 'if .success == true then (.result[0].results[0].c // "ERR") else "ERR" end' /tmp/smoke-d1.json 2>/dev/null || echo "ERR")
+          if [ "$COUNT" = "ERR" ]; then
+            echo "  parse/error path — D1 response was:"
+            jq -r '.errors // .' /tmp/smoke-d1.json 2>/dev/null | head -5 || head -c 300 /tmp/smoke-d1.json
+          fi
           echo "  found: $COUNT row(s)"
 
           if [ "$COUNT" = "1" ]; then
