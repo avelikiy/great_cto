@@ -211,6 +211,36 @@ Drop into any GitHub Actions workflow:
 
 `great-cto ci` auto-detects `$GITHUB_ACTIONS` and emits `::error file=...,line=N::` annotations inline on PR diffs. Exit codes: 0 clean / 1 findings / 2 setup error.
 
+## Test pyramid
+
+great_cto's own pipeline is exercised by a layered test suite. **All free-tier tests run in <2 min**; real-LLM tests run on-demand via OpenRouter.
+
+| Layer | What it tests | Count | Cost |
+|---|---|---|---|
+| **Structural** | Archetype detection on 36 fixtures (25 base + 10 packs) · pack-registry integrity · agent-prompt integrity | 36 fixtures + 456 pack assertions + 13 prompt checks | $0 |
+| **State machine** | Board cost dashboard · gate approval flow · pipeline state · resume across restart · multi-platform parity · pipeline contracts | 38 cases | $0 |
+| **Real LLM (single archetype)** | Full pipeline for one archetype through Sonnet 4 | 1 run | ~$0.17 |
+| **Real LLM (all archetypes)** | 25 archetypes × 4 stages = 100 calls (with `OR_DOWNSTREAM=1`: 25 × 8 = 200 calls) | 25 runs | $4–$9 |
+| **Pack overlays** | 10 v2.8.0 domain packs through 5-stage pipeline with planted vulnerability stubs | 10 runs | ~$1.84 |
+| **Reviewer regressions** | 9 reviewer agents × planted vuln → assert BLOCKED | 9 runs | ~$0.10 |
+
+Run individual suites:
+
+```bash
+# Structural + state machine (~2 min, $0)
+node --test tests/*.test.mjs
+node tests/run-archetype-e2e.mjs
+node tests/run-packs-e2e.mjs
+
+# Real LLM (requires OPENROUTER_API_KEY)
+node tests/openrouter-multi-archetype.mjs           # 25 archetypes × 4 stages
+OR_DOWNSTREAM=1 node tests/openrouter-multi-archetype.mjs  # × 8 stages
+node tests/openrouter-pack-overlays.mjs             # 10 packs
+node tests/openrouter-reviewer-regressions.mjs      # 9 reviewers
+```
+
+See [docs/testing/](docs/testing/) for analysis docs from each run.
+
 ## MCP
 
 Native [MCP](https://modelcontextprotocol.io/) server — call great_cto's tools (`scan`, `list_rules`, `detect_archetype`, `estimate_cost`, `query_decisions`) from Claude Desktop, Cursor, Continue, or any MCP host:
