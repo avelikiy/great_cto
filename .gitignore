@@ -34,18 +34,10 @@ node_modules/
 # Misc
 *.log
 
-# Marketing / landing site
-# Source files (generators, data, CSS) tracked; generated HTML + binary assets are
-# deployment artefacts and remain local-only (regenerate via `node site/_build.mjs`).
-site/**/*.html
-# Only site/index.html is hand-written; everything else under site/for/, site/pack/,
-# and the aggregates (packs.html, companies.html, agents.html) is produced by
-# `node site/_build.mjs` from tracked sources (site/data/, site/**/*.mjs).
-!site/index.html
-site/assets/
-site/site.webmanifest
-site/sitemap.xml
-site/robots.txt
+# Marketing / landing site — lives in private avelikiy/great_cto-site repo.
+# Custom domain greatcto.systems is served from there via Cloudflare Pages.
+# This repo's site/ working directory is local-only (developer scratch / mirror).
+site/
 
 # Content drafts (Hashnode articles, social copy) — local only, never committed
 content/
