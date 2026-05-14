@@ -121,7 +121,7 @@ const packsHtml = `<!doctype html>
 </section>
 
 <section class="wrap">
-  <div class="eyebrow">v2.8 — Pioneer Fund coverage</div>
+  <div class="eyebrow">v2.8 — domain pack overlays</div>
   <h2 class="h2">10 packs · 15 specialist reviewers · 19 human gate types · 38 EVAL templates.</h2>
   <div class="pack-grid">
       ${packsCards}
@@ -196,22 +196,30 @@ for (const c of companiesList) {
   if (c.open_source) countPerStage['open-source']++;
 }
 
+function domainOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return ''; }
+}
+function logoTag(c) {
+  const d = domainOf(c.url);
+  if (!d) return '';
+  return `<img class="co-logo" src="https://logo.clearbit.com/${d}?size=64" alt="" loading="lazy" onerror="this.style.display='none'" />`;
+}
+
 const companyCardsAll = companiesList.map(c => {
-  const stars = c.pioneer ? '<span class="co-star" title="Pioneer Fund portfolio">★</span>' : '';
   const oss = c.open_source ? '<span class="co-stage" title="Open source" style="color:#00d97e">OSS</span>' : '';
   const stage = c.stage ? `<span class="co-stage">${c.stage}</span>` : '';
   const country = c.country ? `<span class="co-country">${c.country}</span>` : '';
   const packs = (c.packs || []).join(' ');
   const archs = (c.archetypes || []).join(' ');
   const region = REGION_MAP[c.country] || 'other';
-  // Bucket stage for filtering
   let stageBucket = 'other';
   if (c.stage === 'public') stageBucket = 'public';
   else if (c.stage === 'growth') stageBucket = 'growth';
   else if (['series-c','series-d','series-e','series-f'].includes(c.stage)) stageBucket = 'series-c+';
   else if (['seed','series-a','series-b'].includes(c.stage)) stageBucket = 'seed-stage';
-  return `<a class="co-card" data-packs="${packs}" data-archs="${archs}" data-region="${region}" data-stage="${stageBucket}" data-pioneer="${c.pioneer ? 1 : 0}" data-oss="${c.open_source ? 1 : 0}" href="${c.url}" rel="nofollow noopener" target="_blank">
-      <div class="co-head"><span class="co-name">${c.name}</span>${stars}</div>
+  return `<a class="co-card" data-packs="${packs}" data-archs="${archs}" data-region="${region}" data-stage="${stageBucket}" data-oss="${c.open_source ? 1 : 0}" href="${c.url}" rel="nofollow noopener" target="_blank">
+      <div class="co-head">${logoTag(c)}<span class="co-name">${c.name}</span></div>
       <div class="co-tag">${c.tagline}</div>
       <div class="co-meta">${oss}${stage}${country}</div>
     </a>`;
@@ -233,10 +241,10 @@ const companiesHtml = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>${companiesList.length}+ Companies in GreatCTO archetypes — Pioneer Fund + YC + global</title>
+<title>${companiesList.length}+ Companies in GreatCTO archetypes — global catalog</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#0a0e0c" />
-<meta name="description" content="${companiesList.length} startups operating across 25 archetypes + 10 domain packs. ${pioneerCount} from Pioneer Fund portfolio (★). Voice AI, clinical AI, HR-AI, lending, climate MRV, drug discovery — filter by pack." />
+<meta name="description" content="${companiesList.length} startups operating across 25 archetypes + 10 domain packs. Voice AI, clinical AI, HR-AI, lending, climate MRV, drug discovery — filter by pack, region, and stage." />
 <link rel="canonical" href="https://greatcto.systems/companies.html" />
 <meta name="robots" content="index, follow, max-image-preview:large" />
 
@@ -244,12 +252,12 @@ const companiesHtml = `<!doctype html>
 <meta property="og:url" content="https://greatcto.systems/companies.html" />
 <meta property="og:site_name" content="GreatCTO" />
 <meta property="og:title" content="${companiesList.length}+ companies across GreatCTO archetypes" />
-<meta property="og:description" content="${pioneerCount} Pioneer Fund portfolio + YC + global startups. Filter by 10 domain packs." />
+<meta property="og:description" content="Global startup catalog filtered by archetype, pack, region, and stage." />
 <meta property="og:image" content="https://greatcto.systems/assets/og-board.png" />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${companiesList.length}+ companies across GreatCTO archetypes" />
-<meta name="twitter:description" content="${pioneerCount} Pioneer Fund portfolio + YC + global. Filter by 10 packs." />
+<meta name="twitter:description" content="Global startup catalog. Filter by pack, region, and stage." />
 <meta name="twitter:image" content="https://greatcto.systems/assets/og-board.png" />
 
 <script type="application/ld+json">${JSON.stringify(companiesItemListSchema)}</script>
@@ -287,9 +295,9 @@ const companiesHtml = `<!doctype html>
 <section class="hero">
   <div class="hero-bg"></div>
   <div class="hero-inner">
-    <span class="hero-eyebrow"><span class="pulse"></span>${companiesList.length}+ companies · ${pioneerCount} Pioneer Fund ★</span>
+    <span class="hero-eyebrow"><span class="pulse"></span>${companiesList.length}+ global companies</span>
     <h1>Companies operating in <em>GreatCTO</em> archetypes.</h1>
-    <p class="sub">Real-world startups across 25 archetypes + 10 domain packs. ${pioneerCount} verified from <a href="https://www.pioneerfund.vc/portfolio" rel="nofollow noopener">Pioneer Fund</a> portfolio. Filter below.</p>
+    <p class="sub">Real-world startups across 25 archetypes + 10 domain packs. Filter by pack, region, and stage.</p>
   </div>
 </section>
 
@@ -313,7 +321,6 @@ const companiesHtml = `<!doctype html>
     <div class="index-filter-bar" data-group="stage">
       <button class="index-filter-chip active" data-filter="all">All</button>
       ${filterStages.map(s => `<button class="index-filter-chip" data-filter="${s}">${s} (${countPerStage[s] || 0})</button>`).join('\n      ')}
-      <button class="index-filter-chip" data-filter="pioneer">Pioneer Fund ★ (${pioneerCount})</button>
     </div>
   </div>
   <div class="co-count" id="co-count">${companiesList.length} companies shown</div>
@@ -347,8 +354,7 @@ const companiesHtml = `<!doctype html>
       const okPack = active.pack === 'all' || (c.dataset.packs || '').split(' ').includes(active.pack);
       const okRegion = active.region === 'all' || c.dataset.region === active.region;
       let okStage = true;
-      if (active.stage === 'pioneer') okStage = c.dataset.pioneer === '1';
-      else if (active.stage === 'open-source') okStage = c.dataset.oss === '1';
+      if (active.stage === 'open-source') okStage = c.dataset.oss === '1';
       else if (active.stage !== 'all') okStage = c.dataset.stage === active.stage;
       const visible = okPack && okRegion && okStage;
       c.style.display = visible ? '' : 'none';
@@ -395,7 +401,7 @@ const companiesHtml = `<!doctype html>
 </html>`;
 
 writeFileSync(join(__dirname, 'companies.html'), companiesHtml);
-console.log(`✓ wrote companies.html (${companiesList.length} entries, ${pioneerCount} Pioneer ★)`);
+console.log(`✓ wrote companies.html (${companiesList.length} entries)`);
 
 // ── 3. /agents.html — agents catalog ────────────────────────────────────────
 const AGENTS_DIR = join(ROOT, 'agents');

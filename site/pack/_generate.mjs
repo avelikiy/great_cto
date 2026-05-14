@@ -38,6 +38,16 @@ function companiesForPack(packName) {
   return list.slice(0, 30);
 }
 
+function domainOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return ''; }
+}
+function logoTag(c) {
+  const d = domainOf(c.url);
+  if (!d) return '';
+  return `<img class="co-logo" src="https://logo.clearbit.com/${d}?size=64" alt="" loading="lazy" onerror="this.style.display='none'" />`;
+}
+
 const packs = [
   {
     slug: 'voice-pack',
@@ -414,11 +424,10 @@ const tpl = (p) => {
   };
 
   const companyCards = cos.map(c => {
-    const stars = c.pioneer ? '<span class="co-star" title="Pioneer Fund portfolio">★</span>' : '';
     const stage = c.stage ? `<span class="co-stage">${c.stage}</span>` : '';
     const country = c.country ? `<span class="co-country">${c.country}</span>` : '';
     return `<a class="co-card" href="${c.url}" rel="nofollow noopener" target="_blank">
-        <div class="co-head"><span class="co-name">${c.name}</span>${stars}</div>
+        <div class="co-head">${logoTag(c)}<span class="co-name">${c.name}</span></div>
         <div class="co-tag">${c.tagline}</div>
         <div class="co-meta">${stage}${country}</div>
       </a>`;
@@ -554,7 +563,7 @@ const tpl = (p) => {
 ${cos.length > 0 ? `
 <section class="wrap" id="companies">
   <div class="eyebrow">Real-world examples</div>
-  <h2 class="h2">${cos.length} companies in this space${pioneerCount ? ` — ${pioneerCount} from <a href="https://www.pioneerfund.vc/portfolio" rel="nofollow noopener">Pioneer Fund</a> portfolio (★)` : ''}.</h2>
+  <h2 class="h2">${cos.length} companies in this space.</h2>
   <div class="co-grid">
       ${companyCards}
   </div>
