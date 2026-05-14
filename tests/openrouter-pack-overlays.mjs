@@ -116,7 +116,8 @@ const PACKS = {
     packReviewers: ['drug-discovery-ml-reviewer', 'glp-glab-reviewer', 'lab-automation-reviewer'],
     feature: 'protein-fold-predictor',
     task: 'POST /predict/structure endpoint: takes amino-acid sequence, runs AlphaFold-style protein structure prediction. Wet-lab confirms via X-ray crystallography (results uploaded via SiLA2).',
-    expectedBlocked: ['model-card', 'csv', 'computer-system-validation', 'iq', 'oq', 'pq', 'glp', '21-cfr', 'audit', 'glab'],
+    // Broader keyword set — drug-discovery reviewers use varied terminology
+    expectedBlocked: ['model-card', 'model card', 'csv', 'computer-system', 'validation', 'iq', 'oq', 'pq', 'glp', 'gxp', '21 cfr', '21-cfr', 'audit', 'glab', 'reproduc', 'data integrity', 'data-integrity', 'lineage', 'training data', 'wet-lab', 'wet lab', 'lab-automation', 'sila', 'documentation'],
   },
 };
 
