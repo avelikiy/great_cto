@@ -27,13 +27,21 @@ const PACK_META = {
   'drug-discovery-pack':   { name: 'Drug Discovery',     desc: 'ChEMBL versioning, applicability domain, ALCOA+, SiLA2, IQ/OQ/PQ',                                href: '/pack/drug-discovery-pack.html' },
 };
 
-// Return companies that match a given archetype, ordered by Pioneer ★ first.
-function companiesForArchetype(archetype) {
+// Return companies in this archetype space. Ordered by stage maturity (public →
+// growth → series → seed → open-source) then alphabetical. Pioneer ★ shown as
+// a card badge — not the primary sort, so the visual story is global coverage.
+const STAGE_RANK = { 'public': 0, 'subsidiary': 1, 'growth': 2, 'series-e': 3, 'series-f': 3, 'series-d': 4, 'series-c': 5, 'series-b': 6, 'series-a': 7, 'seed': 8, 'open-source': 9, 'acquired': 10, 'private': 11 };
+function companiesForArchetype(archetype, limit = 20) {
   const list = Object.entries(allCompanies)
     .filter(([_id, c]) => (c.archetypes || []).includes(archetype))
     .map(([id, c]) => ({ id, ...c }));
-  list.sort((a, b) => (b.pioneer ? 1 : 0) - (a.pioneer ? 1 : 0));
-  return list.slice(0, 20);
+  list.sort((a, b) => {
+    const sa = STAGE_RANK[a.stage] ?? 99;
+    const sb = STAGE_RANK[b.stage] ?? 99;
+    if (sa !== sb) return sa - sb;
+    return a.name.localeCompare(b.name);
+  });
+  return list.slice(0, limit);
 }
 
 // Packs that an archetype is most likely to overlay with.
