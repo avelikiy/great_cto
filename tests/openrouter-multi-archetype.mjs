@@ -57,12 +57,6 @@ const ARCHETYPES = {
     reviewer: 'mlops-reviewer',
     projectMd: 'archetype: mlops\nprimary: mlops\nproject_size: small\ncompliance:\n  - eu-ai-act\n  - iso42001\n',
   },
-  'web3': {
-    feature: 'chainlink-price-oracle-adapter',
-    task: 'Solidity 0.8 contract that reads ETH/USD price from Chainlink AggregatorV3Interface, with staleness check (revert if last update > 1 hour) and decimals normalization.',
-    reviewer: 'oracle-reviewer',
-    projectMd: 'archetype: web3\nprimary: web3\nproject_size: small\ncompliance:\n  - soc2\n',
-  },
   'enterprise-saas': {
     feature: 'tenant-onboarding',
     task: 'POST /tenants endpoint that creates a new tenant with isolated DB schema, SCIM-provisioned admin user, and Stripe Customer for billing. Multi-tenant row-level security via postgres RLS.',
@@ -86,6 +80,118 @@ const ARCHETYPES = {
     task: 'GET /patient/:id/export returns FHIR JSON bundle for a patient. Requires JWT scope phi:export. All access logged to immutable audit table with reason field.',
     reviewer: 'healthcare-reviewer',
     projectMd: 'archetype: healthcare\nprimary: healthcare\nproject_size: small\ncompliance:\n  - hipaa\n  - hitech\n  - gdpr\n',
+  },
+
+  // ── Recent missing (Wave 2-4) ───────────────────────────────────────────
+  'cli-tool': {
+    feature: 'env-vars-loader',
+    task: 'Build a Node CLI that reads .env file from disk and prints parsed variables as JSON. Support --help, --version, --json, NO_COLOR env. Exit 0 success / 2 file-not-found.',
+    reviewer: 'cli-reviewer',
+    projectMd: 'archetype: cli-tool\nprimary: cli-tool\nproject_size: nano\ncompliance: []\n',
+  },
+  'streaming': {
+    feature: 'order-events-cdc',
+    task: 'Debezium-style CDC from Postgres orders table to Kafka topic order-events. Idempotent producer with transactional outbox. Schema Registry compatibility BACKWARD. Avro schema.',
+    reviewer: 'streaming-reviewer',
+    projectMd: 'archetype: streaming\nprimary: streaming\nproject_size: small\ncompliance:\n  - gdpr\n',
+  },
+  'marketplace': {
+    feature: 'seller-onboarding-payout',
+    task: 'POST /sellers — accepts seller signup (name, address, tax_id), runs Stripe Connect onboarding, creates platform-managed Connect account. 7-day hold-and-release escrow on first payout.',
+    reviewer: 'marketplace-reviewer',
+    projectMd: 'archetype: marketplace\nprimary: marketplace\nproject_size: small\ncompliance:\n  - pci-dss\n  - kyc-aml\n  - gdpr\n  - 1099-k\n  - dsa-eu\n  - p2b-eu\n',
+  },
+  'cms': {
+    feature: 'image-upload-with-srcset',
+    task: 'POST /upload accepts image file, generates AVIF + WebP variants with responsive srcset, strips EXIF metadata, stores to S3 with cache-control. Returns schema.org Article markup.',
+    reviewer: 'cms-reviewer',
+    projectMd: 'archetype: cms\nprimary: cms\nproject_size: small\ncompliance:\n  - dmca\n  - dsa-eu\n  - gdpr\n  - wcag-2.2\n',
+  },
+  'edtech': {
+    feature: 'student-roster-import',
+    task: 'CSV bulk-import endpoint for student records (name, age, grade, parent_email). Auto-detect minors (<13) → trigger COPPA parental consent flow. Section 508-compliant errors (no color-only signalling).',
+    reviewer: 'edtech-reviewer',
+    projectMd: 'archetype: edtech\nprimary: edtech\nproject_size: small\ncompliance:\n  - coppa\n  - ferpa\n  - gdpr-k\n  - section-508\n  - sopipa-ca\n  - wcag-2.2-aa\n',
+  },
+  'insurance': {
+    feature: 'quote-pricing-engine',
+    task: 'POST /quote — accepts (state, age, vehicle, zip), returns auto insurance premium. Pricing must be explainable (audit log of factors used). State-specific multipliers from filed rate tables.',
+    reviewer: 'insurance-reviewer',
+    projectMd: 'archetype: insurance\nprimary: insurance\nproject_size: small\ncompliance:\n  - naic\n  - solvency-ii\n  - ifrs-17\n  - actuarial-asops\n  - anti-discrimination-pricing\n  - state-doi\n  - gdpr\n',
+  },
+
+  // ── Base / Wave 1 missing (12) ──────────────────────────────────────────
+  'mobile-app': {
+    feature: 'iap-receipt-validation',
+    task: 'Server endpoint POST /iap/verify — validates an Apple/Google in-app purchase receipt by calling vendor verify-endpoint, then unlocks the user feature. Handle replay (idempotency by transaction_id).',
+    reviewer: 'mobile-store-reviewer',
+    projectMd: 'archetype: mobile-app\nprimary: mobile-app\nproject_size: small\ncompliance:\n  - gdpr\n  - app-store-policy\n  - play-store-policy\n',
+  },
+  'ai-system': {
+    feature: 'chat-with-citation',
+    task: 'POST /chat — LLM endpoint that answers questions over a corpus of company docs. Each answer must include citation block (doc_id + offset). Token budget enforced per-user per-day.',
+    reviewer: 'ai-security-reviewer',
+    projectMd: 'archetype: ai-system\nprimary: ai-system\nproject_size: small\ncompliance:\n  - eu-ai-act\n  - owasp-llm-top-10\n',
+  },
+  'data-platform': {
+    feature: 'dbt-model-with-contract',
+    task: 'Build a dbt model dim_users that materializes user master data from raw.user_events. Define schema.yml with model contract + freshness 24h + uniqueness on user_id. Add 3 column tests.',
+    reviewer: 'data-platform-reviewer',
+    projectMd: 'archetype: data-platform\nprimary: data-platform\nproject_size: small\ncompliance:\n  - gdpr\n',
+  },
+  'infra': {
+    feature: 'terraform-s3-bucket',
+    task: 'Terraform module that provisions an S3 bucket with server-side encryption (KMS), versioning, lifecycle rules (30d→IA, 90d→Glacier), and a bucket-policy DENY for public-read.',
+    reviewer: 'infra-reviewer',
+    projectMd: 'archetype: infra\nprimary: infra\nproject_size: small\ncompliance:\n  - cis-aws\n  - gdpr\n',
+  },
+  'library': {
+    feature: 'npm-utility-extract',
+    task: 'New public NPM package @org/parse-date — exports parseISO(s: string): Date | null. Includes README, TypeScript types, CHANGELOG. Semver 0.1.0 initial.',
+    reviewer: 'library-reviewer',
+    projectMd: 'archetype: library\nprimary: library\nproject_size: nano\ncompliance:\n  - openssf\n  - sbom\n',
+  },
+  'web3': {
+    feature: 'chainlink-price-oracle-adapter',
+    task: 'Solidity 0.8 contract reading ETH/USD from Chainlink AggregatorV3Interface. Staleness check (revert if updatedAt > 1h ago). Decimal normalization. Negative-price revert.',
+    reviewer: 'oracle-reviewer',
+    projectMd: 'archetype: web3\nprimary: web3\nproject_size: small\ncompliance:\n  - soc2\n',
+  },
+  'iot-embedded': {
+    feature: 'zephyr-ota-update',
+    task: 'Zephyr RTOS firmware update routine: download new image to slot B, verify cryptographic signature (Ed25519), reboot via mcuboot, rollback on first-boot failure. Watchdog enabled throughout.',
+    reviewer: 'firmware-reviewer',
+    projectMd: 'archetype: iot-embedded\nprimary: iot-embedded\nproject_size: small\ncompliance:\n  - etsi-en-303-645\n  - iso27001\n',
+  },
+  'regulated': {
+    feature: 'change-mgmt-approval-flow',
+    task: 'Add formal change-management workflow: every prod deploy requires (a) RFC document, (b) approval from a different person (4-eyes), (c) audit log entry. SOX ITGC compliant.',
+    reviewer: 'regulated-reviewer',
+    projectMd: 'archetype: regulated\nprimary: regulated\nproject_size: medium\ncompliance:\n  - sox\n  - iso27001\n  - dora\n  - nis2\n',
+  },
+  'commerce': {
+    feature: 'stripe-refund-flow',
+    task: 'POST /refunds — accepts (charge_id, amount, reason). Validates against original charge. Calls Stripe refund API. Handles chargeback time-lock (no refund after dispute opened). Logs to immutable audit.',
+    reviewer: 'pci-reviewer',
+    projectMd: 'archetype: commerce\nprimary: commerce\nproject_size: small\ncompliance:\n  - pci-dss\n  - gdpr\n',
+  },
+  'devtools': {
+    feature: 'cli-plugin-skeleton',
+    task: 'CLI plugin published to npm with Sigstore signing on release. SLSA Level 3 provenance via GitHub Actions OIDC. No path/username/source-code in telemetry. Reproducible build.',
+    reviewer: 'devtools-reviewer',
+    projectMd: 'archetype: devtools\nprimary: devtools\nproject_size: small\ncompliance:\n  - openssf-scorecard\n  - sbom\n  - sigstore\n',
+  },
+  'browser-extension': {
+    feature: 'page-summarizer-mv3',
+    task: 'Chrome MV3 extension that adds a "summarize page" button. Content script reads page text, sends to background service worker, calls LLM, displays summary in popup. host_permissions: <all_urls>. CSP-compliant.',
+    reviewer: 'web-store-reviewer',
+    projectMd: 'archetype: browser-extension\nprimary: browser-extension\nproject_size: small\ncompliance:\n  - chrome-web-store-policy\n  - mv3-csp\n',
+  },
+  'game': {
+    feature: 'lootbox-with-odds-disclosure',
+    task: 'Unity in-game loot box: player spends 100 coins, receives random reward by rarity (60% common / 30% rare / 10% legendary). Odds shown to player BEFORE purchase. Spend limits per session for <18 users.',
+    reviewer: 'game-reviewer',
+    projectMd: 'archetype: game\nprimary: game\nproject_size: small\ncompliance:\n  - coppa\n  - esrb\n  - loot-box-odds-disclosure\n  - age-rating\n',
   },
 };
 
