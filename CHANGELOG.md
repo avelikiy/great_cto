@@ -4,7 +4,38 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.8.1 — 2026-05-14
 
+### Bug fixes + test pyramid expansion
+
+**Bug fixes (production board):**
+- **BH-1**: `readVerdicts()` now correctly parses pipe-separated verdict log
+  lines (`<ts> | agent | APPROVED | …`). Previously `verdict='|'` was returned
+  for the pipe form, breaking `/api/pipeline` status display for any agent
+  writing in that format. 3 of 8 stages on the live board were affected.
+- **BH-2**: `/api/cost.savings_x` now returns `null` when there's no human
+  estimate, distinguishing "no estimate available" from "computed zero
+  savings". UI can show `—` for the null case.
+
+**Test coverage expansion (+18 cases, +2 files):**
+- `tests/openrouter-pack-overlays.mjs` (NEW) — 10/10 v2.8.0 domain packs
+  validated through 5-stage real-LLM pipeline ($1.84/run)
+- `tests/packs-integration.test.mjs` (NEW, 5 cases) — pack-registry
+  consistency (reviewer files, gate naming, harness ↔ registry parity)
+- `tests/pipeline-contracts.test.mjs` (+2 BH regressions)
+- `tests/openrouter-multi-archetype.mjs` extended with optional 8-stage
+  flow via `OR_DOWNSTREAM=1` (qa-engineer → security-officer → devops →
+  l3-support added after archetype-reviewer)
+
+**Test pyramid (full coverage):**
+- 45 automated cases (cost / gate / pipeline / resume / parity / contracts /
+  agent-integrity / pack-integrity) at $0
+- 36 archetype-detection fixtures + 456 pack assertions at $0
+- Real-LLM tiers: $0.10 reviewers → $1.84 packs → $4-9 full archetype pipeline
+
+**README:** added "Test pyramid" section documenting 537 verified contracts.
+
+---
 
 ## v2.8.0 — 2026-05-14
 
