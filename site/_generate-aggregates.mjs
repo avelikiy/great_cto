@@ -158,22 +158,62 @@ writeFileSync(join(__dirname, 'packs.html'), packsHtml);
 console.log(`✓ wrote packs.html (${packs.length} cards)`);
 
 // ── 2. /companies.html — full company catalog ───────────────────────────────
+const STAGE_RANK_AGG = { 'public': 0, 'subsidiary': 1, 'growth': 2, 'series-e': 3, 'series-f': 3, 'series-d': 4, 'series-c': 5, 'series-b': 6, 'series-a': 7, 'seed': 8, 'open-source': 9, 'acquired': 10, 'private': 11 };
+const REGION_MAP = {
+  'US': 'us', 'CA': 'us',
+  'GB': 'europe', 'FR': 'europe', 'DE': 'europe', 'NL': 'europe', 'SE': 'europe', 'CH': 'europe', 'IT': 'europe', 'CZ': 'europe', 'GR': 'europe', 'DK': 'europe', 'IE': 'europe', 'NO': 'europe',
+  'IN': 'asia', 'SG': 'asia', 'ID': 'asia', 'PH': 'asia', 'VN': 'asia', 'JP': 'asia', 'CN': 'asia', 'KR': 'asia',
+  'BR': 'latam', 'MX': 'latam', 'AR': 'latam', 'CO': 'latam', 'UY': 'latam',
+  'NG': 'africa', 'RW': 'africa', 'EG': 'africa', 'ZA': 'africa', 'KE': 'africa', 'SN': 'africa', 'CM': 'africa',
+  'AE': 'mena', 'SA': 'mena',
+  'AU': 'oceania', 'NZ': 'oceania',
+};
+
 const companiesList = Object.entries(allCompanies).map(([id, c]) => ({ id, ...c }));
-companiesList.sort((a, b) => (b.pioneer ? 1 : 0) - (a.pioneer ? 1 : 0));
+companiesList.sort((a, b) => {
+  const sa = STAGE_RANK_AGG[a.stage] ?? 99;
+  const sb = STAGE_RANK_AGG[b.stage] ?? 99;
+  if (sa !== sb) return sa - sb;
+  return a.name.localeCompare(b.name);
+});
 const pioneerCount = companiesList.filter(c => c.pioneer).length;
+const openSourceCount = companiesList.filter(c => c.open_source).length;
 
 const filterPacks = ['all', 'voice-pack', 'clinical-pack', 'hr-ai-pack', 'api-platform-pack', 'lending-pack', 'clinical-trials-pack', 'robotics-pack', 'em-fintech-pack', 'climate-pack', 'drug-discovery-pack'];
+const filterRegions = ['us', 'europe', 'asia', 'latam', 'africa', 'mena'];
+const filterStages = ['public', 'growth', 'series-c+', 'seed-stage', 'open-source'];
+
+// Count per filter for display
+const countPerRegion = {};
+const countPerStage = { 'public': 0, 'growth': 0, 'series-c+': 0, 'seed-stage': 0, 'open-source': 0 };
+for (const c of companiesList) {
+  const r = REGION_MAP[c.country] || 'other';
+  countPerRegion[r] = (countPerRegion[r] || 0) + 1;
+  if (c.stage === 'public') countPerStage['public']++;
+  else if (c.stage === 'growth') countPerStage['growth']++;
+  else if (['series-c','series-d','series-e','series-f'].includes(c.stage)) countPerStage['series-c+']++;
+  else if (['seed','series-a','series-b'].includes(c.stage)) countPerStage['seed-stage']++;
+  if (c.open_source) countPerStage['open-source']++;
+}
 
 const companyCardsAll = companiesList.map(c => {
   const stars = c.pioneer ? '<span class="co-star" title="Pioneer Fund portfolio">★</span>' : '';
+  const oss = c.open_source ? '<span class="co-stage" title="Open source" style="color:#00d97e">OSS</span>' : '';
   const stage = c.stage ? `<span class="co-stage">${c.stage}</span>` : '';
   const country = c.country ? `<span class="co-country">${c.country}</span>` : '';
   const packs = (c.packs || []).join(' ');
   const archs = (c.archetypes || []).join(' ');
-  return `<a class="co-card" data-packs="${packs}" data-archs="${archs}" data-pioneer="${c.pioneer ? 1 : 0}" href="${c.url}" rel="nofollow noopener" target="_blank">
+  const region = REGION_MAP[c.country] || 'other';
+  // Bucket stage for filtering
+  let stageBucket = 'other';
+  if (c.stage === 'public') stageBucket = 'public';
+  else if (c.stage === 'growth') stageBucket = 'growth';
+  else if (['series-c','series-d','series-e','series-f'].includes(c.stage)) stageBucket = 'series-c+';
+  else if (['seed','series-a','series-b'].includes(c.stage)) stageBucket = 'seed-stage';
+  return `<a class="co-card" data-packs="${packs}" data-archs="${archs}" data-region="${region}" data-stage="${stageBucket}" data-pioneer="${c.pioneer ? 1 : 0}" data-oss="${c.open_source ? 1 : 0}" href="${c.url}" rel="nofollow noopener" target="_blank">
       <div class="co-head"><span class="co-name">${c.name}</span>${stars}</div>
       <div class="co-tag">${c.tagline}</div>
-      <div class="co-meta">${stage}${country}</div>
+      <div class="co-meta">${oss}${stage}${country}</div>
     </a>`;
 }).join('\n      ');
 
@@ -254,11 +294,29 @@ const companiesHtml = `<!doctype html>
 </section>
 
 <section class="wrap">
-  <div class="eyebrow">Filter by pack</div>
-  <div class="index-filter-bar" id="filter-bar">
-    ${filterPacks.map(f => `<button class="index-filter-chip${f === 'all' ? ' active' : ''}" data-filter="${f}">${f === 'all' ? `All (${companiesList.length})` : f}</button>`).join('\n    ')}
-    <button class="index-filter-chip" data-filter="pioneer">Pioneer Fund ★ (${pioneerCount})</button>
+  <div class="eyebrow">Filter — combine any three</div>
+  <div class="index-filter-group">
+    <div class="index-filter-label">Pack</div>
+    <div class="index-filter-bar" data-group="pack">
+      ${filterPacks.map(f => `<button class="index-filter-chip${f === 'all' ? ' active' : ''}" data-filter="${f}">${f === 'all' ? `All (${companiesList.length})` : f}</button>`).join('\n      ')}
+    </div>
   </div>
+  <div class="index-filter-group">
+    <div class="index-filter-label">Region</div>
+    <div class="index-filter-bar" data-group="region">
+      <button class="index-filter-chip active" data-filter="all">All</button>
+      ${filterRegions.map(r => `<button class="index-filter-chip" data-filter="${r}">${r.toUpperCase()} (${countPerRegion[r] || 0})</button>`).join('\n      ')}
+    </div>
+  </div>
+  <div class="index-filter-group">
+    <div class="index-filter-label">Stage / type</div>
+    <div class="index-filter-bar" data-group="stage">
+      <button class="index-filter-chip active" data-filter="all">All</button>
+      ${filterStages.map(s => `<button class="index-filter-chip" data-filter="${s}">${s} (${countPerStage[s] || 0})</button>`).join('\n      ')}
+      <button class="index-filter-chip" data-filter="pioneer">Pioneer Fund ★ (${pioneerCount})</button>
+    </div>
+  </div>
+  <div class="co-count" id="co-count">${companiesList.length} companies shown</div>
   <div class="co-grid" id="co-grid">
       ${companyCardsAll}
   </div>
@@ -277,34 +335,59 @@ const companiesHtml = `<!doctype html>
 
 <script>
 (function () {
-  const bar = document.getElementById('filter-bar');
+  const bars = document.querySelectorAll('.index-filter-bar');
   const grid = document.getElementById('co-grid');
+  const counter = document.getElementById('co-count');
   const cards = Array.from(grid.querySelectorAll('.co-card'));
-  bar.addEventListener('click', (e) => {
-    const btn = e.target.closest('.index-filter-chip');
-    if (!btn) return;
-    bar.querySelectorAll('.index-filter-chip').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const f = btn.dataset.filter;
+  const active = { pack: 'all', region: 'all', stage: 'all' };
+
+  function applyFilters() {
     let shown = 0;
     cards.forEach(c => {
-      const matches = f === 'all'
-        ? true
-        : f === 'pioneer'
-        ? c.dataset.pioneer === '1'
-        : (c.dataset.packs || '').split(' ').includes(f);
-      c.style.display = matches ? '' : 'none';
-      if (matches) shown++;
+      const okPack = active.pack === 'all' || (c.dataset.packs || '').split(' ').includes(active.pack);
+      const okRegion = active.region === 'all' || c.dataset.region === active.region;
+      let okStage = true;
+      if (active.stage === 'pioneer') okStage = c.dataset.pioneer === '1';
+      else if (active.stage === 'open-source') okStage = c.dataset.oss === '1';
+      else if (active.stage !== 'all') okStage = c.dataset.stage === active.stage;
+      const visible = okPack && okRegion && okStage;
+      c.style.display = visible ? '' : 'none';
+      if (visible) shown++;
     });
-    // Update URL hash for shareable filter
-    history.replaceState(null, '', f === 'all' ? '#' : '#filter=' + f);
-  });
-  // Honor incoming hash filter
-  const m = location.hash.match(/^#filter=([\\w-]+)/);
-  if (m) {
-    const btn = bar.querySelector('[data-filter="' + m[1] + '"]');
-    if (btn) btn.click();
+    counter.textContent = shown + ' compan' + (shown === 1 ? 'y' : 'ies') + ' shown';
+    const hashParts = [];
+    if (active.pack !== 'all') hashParts.push('pack=' + active.pack);
+    if (active.region !== 'all') hashParts.push('region=' + active.region);
+    if (active.stage !== 'all') hashParts.push('stage=' + active.stage);
+    history.replaceState(null, '', hashParts.length ? '#' + hashParts.join('&') : location.pathname);
   }
+
+  bars.forEach(bar => {
+    bar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.index-filter-chip');
+      if (!btn) return;
+      bar.querySelectorAll('.index-filter-chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      active[bar.dataset.group] = btn.dataset.filter;
+      applyFilters();
+    });
+  });
+
+  // Honor incoming hash filter (?pack=voice-pack&region=europe&stage=public)
+  const hash = location.hash.replace(/^#/, '');
+  hash.split('&').forEach(part => {
+    const [k, v] = part.split('=');
+    if (active[k] !== undefined && v) {
+      active[k] = v;
+      const bar = document.querySelector('.index-filter-bar[data-group="' + k + '"]');
+      if (bar) {
+        bar.querySelectorAll('.index-filter-chip').forEach(b => b.classList.remove('active'));
+        const btn = bar.querySelector('[data-filter="' + v + '"]');
+        if (btn) btn.classList.add('active');
+      }
+    }
+  });
+  if (hash) applyFilters();
 })();
 </script>
 

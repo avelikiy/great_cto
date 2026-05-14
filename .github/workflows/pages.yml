@@ -19,6 +19,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build site
+        # site/**/*.html is .gitignored — must be regenerated on every deploy
+        # from tracked source files (site/data/*.json, site/**/*.mjs).
+        run: node site/_build.mjs
+
+      - name: Sanity check — required pages exist
+        run: |
+          for f in site/index.html site/packs.html site/companies.html site/agents.html site/sitemap.xml; do
+            [ -s "$f" ] || { echo "MISSING: $f"; exit 1; }
+          done
+          echo "✓ critical pages built ($(ls site/for/*.html | wc -l) archetype, $(ls site/pack/*.html | wc -l) pack)"
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
         with:
