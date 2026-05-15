@@ -15,7 +15,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist age
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 
-[Website](https://greatcto.systems) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
+[Website](https://greatcto.systems) · [📐 Architecture](https://greatcto.systems/architecture) · [📜 One real run](https://greatcto.systems/proof) · [📊 MTTR methodology](docs/benchmarks/MTTR.md) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
 
 [Русский](docs/ru/README.md) · [简体中文](docs/zh-CN/README.md) · [日本語](docs/ja/README.md) · [한국어](docs/ko/README.md) · [Español](docs/es/README.md)
 
