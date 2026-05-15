@@ -3702,7 +3702,10 @@ const fleetState = {
   agents: [],
   summary: null,
   legacy_count: 0,
-  filters: { domain: 'all', activity: 'all', health: 'all' },
+  // Default: hide never-run / retired agents. 35 installed → ~10 actually
+  // doing work on most projects; showing all 35 by default is noise.
+  // User flips activity to `all` to see the full installation.
+  filters: { domain: 'all', activity: 'used', health: 'all' },
   search: '',
   sort: 'runs_30d',
   drawerSlug: null,
@@ -3761,7 +3764,7 @@ const FACET_GROUPS = [
   {
     key: 'activity', legend: 'Activity',
     options: [
-      ['all', 'all'], ['active', 'active'], ['idle', 'idle ≥30d'], ['never', 'never run'], ['retired', 'retired'],
+      ['used', 'used'], ['all', 'all'], ['active', 'active'], ['idle', 'idle ≥30d'], ['never', 'never run'], ['retired', 'retired'],
     ],
   },
   {
@@ -3801,6 +3804,8 @@ function applyFleetFilters(agents) {
   return agents.filter(a => {
     if (q && !a.slug.toLowerCase().includes(q) && !(a.description || '').toLowerCase().includes(q)) return false;
     if (domain !== 'all' && a.domain !== domain) return false;
+    // `used` = has at least one verdict, not retired. Default filter.
+    if (activity === 'used'    && (a.runs_total === 0 || a.retired)) return false;
     if (activity === 'active'  && a.runs_30d === 0) return false;
     if (activity === 'idle'    && (a.runs_30d > 0 || a.runs_total === 0)) return false;
     if (activity === 'never'   && a.runs_total > 0) return false;
@@ -4093,7 +4098,7 @@ function wireFleetKeyboard() {
     renderFleetList();
   });
   document.getElementById('fleet-reset-filters')?.addEventListener('click', () => {
-    fleetState.filters = { domain: 'all', activity: 'all', health: 'all' };
+    fleetState.filters = { domain: 'all', activity: 'used', health: 'all' };
     fleetState.search = '';
     const input = document.getElementById('fleet-search');
     if (input) input.value = '';
