@@ -1408,7 +1408,7 @@ button { font-family: inherit; cursor: pointer; }
 .log-bullets li::before { content: '·'; position: absolute; left: 0; color: var(--accent); }
 .log-empty { font-size: 13px; color: var(--text3); font-style: italic; }
 
-/* ── Agents installed list ─────────────────────────────── */
+/* ── Agents installed list (legacy — kept for fallback) ───────────────── */
 .agents-installed { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
 .agent-card { background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .agent-card .ac-name { font-size: 12px; font-weight: 600; font-family: var(--mono); color: var(--accent); }
@@ -1417,6 +1417,247 @@ button { font-family: inherit; cursor: pointer; }
 .agent-card .ac-model { background: var(--bg-strong); padding: 1px 5px; border-radius: 3px; }
 .agent-card .ac-used { color: var(--status-review); }
 .agent-card .ac-never { color: var(--text3); font-style: italic; }
+
+/* ── Agents fleet view (DESIGN-agents-fleet-view §3) ───────────────────
+   Semantic tokens — every value resolves to an existing primitive or a
+   low-alpha tint of one. Zero new fonts, zero new hues. */
+:root {
+  --agent-ok:        var(--status-review);
+  --agent-idle:      var(--text2);
+  --agent-failing:   var(--status-blocked);
+  --agent-retired:   var(--text3);
+  --agent-unused:    var(--text3);
+  --rail-ok-bg:      rgba(0, 217, 126, 0.12);
+  --rail-fail-bg:    rgba(255, 84, 102, 0.12);
+  --surface-drawer:  #0f1411;
+  --drawer-shadow:   0 16px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Fleet summary — uses existing .metric-card; nothing new */
+
+/* Fleet controls — search + facets row */
+.fleet-controls { display: flex; flex-direction: column; gap: 12px; }
+.fleet-search { display: flex; align-items: center; gap: 8px; }
+.fleet-search input[type="search"] {
+  flex: 1; max-width: 320px;
+  background: var(--bg-muted); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 13px;
+  padding: 8px 12px; border-radius: 6px;
+}
+.fleet-search input[type="search"]:focus {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+  border-color: transparent;
+}
+.fleet-search .search-hint { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.fleet-search .search-hint kbd {
+  background: var(--bg-muted); border: 1px solid var(--border);
+  border-radius: 3px; padding: 1px 5px; font-size: 10px;
+}
+
+.fleet-facets { display: flex; flex-direction: column; gap: 6px; }
+.fleet-facets fieldset {
+  border: none; padding: 0; margin: 0;
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.fleet-facets legend {
+  font-size: 11px; color: var(--text3); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-right: 6px; min-width: 60px;
+}
+.facet-chip {
+  background: var(--bg-muted); border: 1px solid var(--border);
+  color: var(--text2); font-size: 12px; font-family: var(--mono);
+  padding: 4px 10px; border-radius: 12px; cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.facet-chip:hover { color: var(--text); border-color: var(--border-strong); }
+.facet-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.facet-chip[aria-checked="true"] {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: var(--accent-strong);
+}
+.facet-chip[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+.fleet-sort {
+  display: flex; gap: 8px; align-items: center;
+  font-size: 11px; color: var(--text3);
+}
+.fleet-sort select {
+  background: var(--bg-muted); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 4px 8px; border-radius: 6px;
+}
+.fleet-sort button {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text2); font-size: 11px; font-family: var(--mono);
+  padding: 4px 8px; border-radius: 6px;
+}
+.fleet-sort button:hover { color: var(--text); border-color: var(--border-strong); }
+
+/* Agent row — faceted-list line */
+.fleet-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.agent-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 16px; align-items: center;
+  width: 100%; min-height: 44px;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text); text-align: left; font: inherit;
+  padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.agent-row:hover { background: var(--bg-muted); border-color: var(--border); }
+.agent-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.agent-row[aria-current="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-strong);
+}
+.agent-row.retired { opacity: 0.55; }
+.agent-row .ar-status {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--agent-idle); flex-shrink: 0;
+}
+.agent-row.status-ok      .ar-status { background: var(--agent-ok); }
+.agent-row.status-failing .ar-status { background: var(--agent-failing); }
+.agent-row.status-idle    .ar-status { background: var(--agent-idle); }
+.agent-row.status-unused  .ar-status { background: var(--agent-unused); }
+.agent-row.status-retired .ar-status { background: var(--agent-retired); }
+.agent-row .ar-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.agent-row .ar-name { font-family: var(--mono); font-size: 13px; color: var(--text); }
+.agent-row .ar-meta { font-size: 11px; color: var(--text3); display: flex; gap: 10px; flex-wrap: wrap; }
+.agent-row .ar-meta .ar-domain {
+  background: var(--bg-muted); padding: 1px 6px; border-radius: 3px;
+  color: var(--text2); font-family: var(--mono); font-size: 10px;
+}
+.agent-row .ar-rail {
+  width: 80px; height: 4px;
+  background: var(--rail-ok-bg); border-radius: 2px; overflow: hidden;
+}
+.agent-row.status-failing .ar-rail { background: var(--rail-fail-bg); }
+.agent-row .ar-rail-fill {
+  display: block; height: 100%;
+  background: var(--agent-ok);
+}
+.agent-row.status-failing .ar-rail-fill { background: var(--agent-failing); }
+.agent-row .ar-chev {
+  color: var(--text3); font-size: 14px; padding: 0 4px;
+}
+
+/* Status pill — used in drawer header */
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-family: var(--mono);
+  padding: 2px 8px; border-radius: 10px;
+  background: var(--bg-muted); border: 1px solid var(--border);
+}
+.status-pill .pill-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--agent-idle);
+}
+.status-pill.tone-ok      { color: var(--agent-ok);      border-color: var(--accent-strong); }
+.status-pill.tone-ok      .pill-dot { background: var(--agent-ok); }
+.status-pill.tone-failing { color: var(--agent-failing); }
+.status-pill.tone-failing .pill-dot { background: var(--agent-failing); }
+.status-pill.tone-idle    { color: var(--agent-idle); }
+.status-pill.tone-idle    .pill-dot { background: var(--agent-idle); }
+.status-pill.tone-retired { color: var(--agent-retired); }
+.status-pill.tone-retired .pill-dot { background: var(--agent-retired); }
+.status-pill.tone-unused  { color: var(--agent-unused); }
+.status-pill.tone-unused  .pill-dot { background: var(--agent-unused); }
+
+/* Drill-in drawer */
+.agent-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 480px; max-width: 90vw;
+  background: var(--surface-drawer);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--drawer-shadow);
+  display: flex; flex-direction: column;
+  z-index: 10;
+  transform: translateX(100%);
+  transition: transform 200ms ease-out;
+}
+.agent-drawer[open] { transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) {
+  .agent-drawer { transition: none; }
+}
+.agent-drawer-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+}
+.agent-drawer-header h3 {
+  font-family: var(--mono); font-size: 14px;
+  color: var(--text); flex: 1; margin: 0;
+}
+.agent-drawer-close {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text2); font-size: 18px; line-height: 1;
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.agent-drawer-close:hover { color: var(--text); border-color: var(--border-strong); }
+.agent-drawer-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.agent-drawer-body {
+  flex: 1; overflow-y: auto; padding: 16px 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.agent-drawer-body .mp-card { padding: 12px 14px; }
+.agent-drawer-body h4 {
+  font-size: 11px; text-transform: uppercase;
+  color: var(--text3); letter-spacing: 0.05em;
+  margin: 0 0 8px;
+}
+.agent-summary-grid {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
+  font-size: 12px;
+}
+.agent-summary-grid dt { color: var(--text3); font-family: var(--mono); }
+.agent-summary-grid dd { color: var(--text); font-family: var(--mono); margin: 0; }
+.run-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.run-row {
+  display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px;
+  font-size: 11px; font-family: var(--mono); color: var(--text2);
+  padding: 4px 0;
+}
+.run-row .rr-verdict.ok      { color: var(--agent-ok); }
+.run-row .rr-verdict.fail    { color: var(--agent-failing); }
+.run-row .rr-verdict.neutral { color: var(--text2); }
+.run-row .rr-raw { color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.failure-list { list-style: none; margin: 0; padding: 0; }
+.failure-list li {
+  display: flex; gap: 10px; padding: 4px 0;
+  font-family: var(--mono); font-size: 12px;
+}
+.failure-list .fm-key   { flex: 1; color: var(--text); }
+.failure-list .fm-count { color: var(--agent-failing); }
+.failure-list .fm-last  { color: var(--text3); font-size: 11px; }
+.agent-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.agent-actions button {
+  background: var(--bg-muted); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 6px 12px; border-radius: 6px;
+}
+.agent-actions button:hover { border-color: var(--border-strong); }
+.agent-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.agent-actions button.danger { color: var(--agent-failing); }
+.agent-actions button.danger:hover { border-color: var(--agent-failing); }
+.agent-actions button[disabled] { opacity: 0.4; cursor: not-allowed; }
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 9;
+  background: rgba(0, 0, 0, 0.2);
+  opacity: 0; pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+.drawer-backdrop[open] { opacity: 1; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .drawer-backdrop { transition: none; }
+}
+
+@media (max-width: 1023px) {
+  .agent-drawer { width: 100%; max-width: 100%; border-left: none; }
+}
 
 .share-page {
   padding: 32px;
@@ -1862,31 +2103,80 @@ button { font-family: inherit; cursor: pointer; }
       </div>
     </div>
 
-    <div class="panel" id="panel-agents">
+    <div class="panel" id="panel-agents" role="tabpanel" aria-labelledby="tab-agents">
       <div class="metrics-page">
-        <div class="mp-section-label">Agent cost estimate</div>
-        <div class="mp-card" id="agent-cost-panel">
-          <div class="cost-empty">Loading…</div>
-        </div>
-
-        <div class="mp-row" style="margin-top:24px">
-          <div class="mp-card">
-            <h3>Agent utilization</h3>
-            <div id="agent-list"></div>
+        <!-- §3.1 Fleet summary -->
+        <section aria-label="Fleet summary">
+          <div class="mp-section-label">Fleet</div>
+          <div class="mp-row" id="fleet-summary">
+            <div class="cost-empty">Loading…</div>
           </div>
+        </section>
+
+        <!-- §3.1 Fleet controls -->
+        <section aria-label="Fleet controls" style="margin-top:20px">
+          <div class="mp-card fleet-controls">
+            <div class="fleet-search">
+              <input type="search" id="fleet-search" placeholder="Filter agents (press / to focus)" aria-label="Filter agents by slug" />
+              <span class="search-hint"><kbd>/</kbd> focus · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close</span>
+            </div>
+            <div class="fleet-facets" id="fleet-facets">
+              <!-- populated via renderFleetFacets() -->
+            </div>
+            <div class="fleet-sort">
+              <label for="fleet-sort-by">Sort by</label>
+              <select id="fleet-sort-by">
+                <option value="runs_30d">runs (30d)</option>
+                <option value="last_run">last run</option>
+                <option value="success_rate">success rate</option>
+                <option value="savings_x">savings ×</option>
+                <option value="llm_usd_30d_est">LLM spend (30d)</option>
+                <option value="slug">slug A→Z</option>
+              </select>
+              <button type="button" id="fleet-reset-filters">Reset filters</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- §3.1 Fleet list -->
+        <section aria-label="Agent fleet" aria-live="polite" style="margin-top:20px">
+          <div class="mp-card">
+            <ul class="fleet-list" id="fleet-list" role="list">
+              <li class="cost-empty">Loading…</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Legacy non-canonical sources note — kept per §9 #6 -->
+        <section aria-label="Legacy agents" id="legacy-agents-section" style="margin-top:20px" hidden>
           <div class="mp-card">
             <div class="mp-card-head">
-              <h3>Activity</h3>
-              <span class="mp-card-meta" id="activity-meta">last 24h</span>
+              <h3 style="font-size:13px">Legacy / non-canonical sources</h3>
+              <span class="mp-card-meta" id="legacy-agents-count"></span>
             </div>
-            <div id="timeline"></div>
+            <div style="font-size:12px;color:var(--text3);margin-top:6px">
+              Verdicts logged under agent names not in <code>~/.claude/agents/great_cto-*.md</code>
+              (older log files, custom scripts). Listed in <code>m.legacy_agent_runs</code>; cleanup is a
+              one-time housekeeping task.
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div class="mp-section-label" style="margin-top:28px">Installed specialist agents <span id="agents-installed-count" style="color:var(--text3);font-size:11px"></span></div>
-        <div class="agents-installed" id="agents-installed-grid">
-          <div class="cost-empty">Loading…</div>
-        </div>
+        <!-- Drill-in drawer (§3.2) — populated on row click -->
+        <div class="drawer-backdrop" id="agent-drawer-backdrop" aria-hidden="true"></div>
+        <aside class="agent-drawer" id="agent-drawer"
+               role="dialog" aria-modal="false" aria-hidden="true"
+               aria-labelledby="agent-drawer-title">
+          <div class="agent-drawer-header">
+            <h3 id="agent-drawer-title">Agent profile</h3>
+            <span id="agent-drawer-pill"></span>
+            <button type="button" class="agent-drawer-close" id="agent-drawer-close"
+                    aria-label="Close agent profile">×</button>
+          </div>
+          <div class="agent-drawer-body" id="agent-drawer-body">
+            <div class="cost-empty">Loading…</div>
+          </div>
+        </aside>
       </div>
     </div>
 
@@ -3404,26 +3694,422 @@ function renderLogDetail(log) {
     </div>`;
 }
 
-/* ── Agents installed ───────────────────────────────────────────────────── */
+/* ── Agents fleet view (DESIGN-agents-fleet-view §3) ────────────────────
+   Single source of state per refresh; UI re-derived via renderFleetList().
+   Drawer uses hash routing (#agents/<slug>) per §9 #9 (hash-based picked). */
+
+const fleetState = {
+  agents: [],
+  summary: null,
+  legacy_count: 0,
+  filters: { domain: 'all', activity: 'all', health: 'all' },
+  search: '',
+  sort: 'runs_30d',
+  drawerSlug: null,
+};
+
 async function refreshAgentsInstalled() {
   const data = await api('/api/agents-installed');
   if (!data) return;
-  const agents = data.agents || [];
-  const countEl = document.getElementById('agents-installed-count');
-  if (countEl) countEl.textContent = `(${agents.length})`;
-  const grid = document.getElementById('agents-installed-grid');
-  if (!grid) return;
-  if (!agents.length) { grid.innerHTML = '<div class="cost-empty">No great_cto agents found in ~/.claude/agents/</div>'; return; }
-  grid.innerHTML = agents.map(a => {
-    const lastUsedStr = a.lastUsed
-      ? `<span class="ac-used">last used: ${esc(a.lastUsed.slice(0,10))}</span>`
-      : `<span class="ac-never">never used</span>`;
-    return `<div class="agent-card">
-      <div class="ac-name">${esc(a.name)}</div>
-      <div class="ac-desc" title="${esc(a.description)}">${esc(a.description || '—')}</div>
-      <div class="ac-meta"><span class="ac-model">${esc(a.model)}</span>${lastUsedStr}</div>
-    </div>`;
+  fleetState.agents = data.agents || [];
+  fleetState.summary = data.summary || null;
+  // legacy_agent_count comes from /api/metrics — pull from cached metrics if present
+  fleetState.legacy_count = (typeof metrics !== 'undefined' && metrics && metrics.legacy_agent_count) || 0;
+  renderFleetSummary();
+  renderFleetFacets();
+  renderFleetList();
+  renderLegacyAgentsSection();
+  // If the URL hash names a drawer, open it (post-load).
+  const m = (location.hash || '').match(/^#agents\/([a-z0-9-]+)$/i);
+  if (m) openAgentDrawer(m[1], { fromHash: true });
+}
+
+function renderFleetSummary() {
+  const el = document.getElementById('fleet-summary');
+  if (!el) return;
+  const s = fleetState.summary;
+  if (!s) { el.innerHTML = '<div class="cost-empty">No data yet</div>'; return; }
+  const tiles = [
+    { v: s.installed, label: 'Installed agents', cls: '' },
+    { v: s.active_30d, label: 'Active last 30d', cls: 'green', trend: s.active_30d > 0 ? '' : 'no activity yet' },
+    {
+      v: s.retire_candidates,
+      label: 'Retire candidates',
+      cls: s.retire_candidates > s.installed * 0.5 ? 'amber' : '',
+      trend: s.retire_candidates > 0 ? 'click to filter' : 'fleet is lean',
+      onClick: 'setFleetFilter("activity", "never")',
+    },
+    { v: '$' + (s.llm_usd_30d ?? 0).toFixed(2), label: 'LLM spend 30d', cls: '', trend: s.failing_7d ? `${s.failing_7d} failing` : '' },
+  ];
+  el.innerHTML = tiles.map(t => `
+    <div class="metric-card ${t.cls}" ${t.onClick ? `role="button" tabindex="0" onclick='${t.onClick}' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();${t.onClick}}'` : ''}>
+      <div class="metric-num">${esc(String(t.v))}</div>
+      <div class="metric-label">${esc(t.label)}</div>
+      ${t.trend ? `<div class="metric-trend">${esc(t.trend)}</div>` : ''}
+    </div>`).join('');
+}
+
+const FACET_GROUPS = [
+  {
+    key: 'domain', legend: 'Domain',
+    options: [
+      ['all', 'all'], ['arch', 'arch'], ['pm', 'pm'], ['qa', 'qa'],
+      ['security', 'security'], ['ops', 'ops'], ['domain', 'domain'],
+      ['memory', 'memory'], ['other', 'other'],
+    ],
+  },
+  {
+    key: 'activity', legend: 'Activity',
+    options: [
+      ['all', 'all'], ['active', 'active'], ['idle', 'idle ≥30d'], ['never', 'never run'], ['retired', 'retired'],
+    ],
+  },
+  {
+    key: 'health', legend: 'Health',
+    options: [
+      ['all', 'all'], ['ok', 'ok'], ['failing', 'failing ≥3 in 7d'],
+    ],
+  },
+];
+
+function renderFleetFacets() {
+  const el = document.getElementById('fleet-facets');
+  if (!el) return;
+  el.innerHTML = FACET_GROUPS.map(g => `
+    <fieldset>
+      <legend>${esc(g.legend)}</legend>
+      ${g.options.map(([val, label]) => {
+        const checked = fleetState.filters[g.key] === val;
+        return `<button type="button" class="facet-chip"
+                role="checkbox" aria-checked="${checked}"
+                data-facet="${esc(g.key)}" data-value="${esc(val)}"
+                onclick="setFleetFilter('${esc(g.key)}', '${esc(val)}')">
+                ${esc(label)}</button>`;
+      }).join('')}
+    </fieldset>`).join('');
+}
+
+function setFleetFilter(key, value) {
+  fleetState.filters[key] = value;
+  renderFleetFacets();
+  renderFleetList();
+}
+
+function applyFleetFilters(agents) {
+  const { domain, activity, health } = fleetState.filters;
+  const q = (fleetState.search || '').toLowerCase().trim();
+  return agents.filter(a => {
+    if (q && !a.slug.toLowerCase().includes(q) && !(a.description || '').toLowerCase().includes(q)) return false;
+    if (domain !== 'all' && a.domain !== domain) return false;
+    if (activity === 'active'  && a.runs_30d === 0) return false;
+    if (activity === 'idle'    && (a.runs_30d > 0 || a.runs_total === 0)) return false;
+    if (activity === 'never'   && a.runs_total > 0) return false;
+    if (activity === 'retired' && !a.retired) return false;
+    if (activity !== 'retired' && a.retired) return false;
+    if (health === 'ok'        && a.health === 'failing') return false;
+    if (health === 'failing'   && a.health !== 'failing') return false;
+    return true;
+  });
+}
+
+function sortFleet(agents) {
+  const sort = fleetState.sort;
+  const dir = sort === 'slug' ? 1 : -1;
+  return [...agents].sort((a, b) => {
+    let av = a[sort], bv = b[sort];
+    if (av == null) av = sort === 'slug' ? 'zzz' : -1;
+    if (bv == null) bv = sort === 'slug' ? 'zzz' : -1;
+    if (av < bv) return -1 * dir;
+    if (av > bv) return  1 * dir;
+    return a.slug.localeCompare(b.slug);
+  });
+}
+
+function renderFleetList() {
+  const el = document.getElementById('fleet-list');
+  if (!el) return;
+  const filtered = sortFleet(applyFleetFilters(fleetState.agents));
+  if (!filtered.length) {
+    el.innerHTML = '<li class="empty" style="padding:20px;text-align:center;color:var(--text3)">No agents match these filters.</li>';
+    return;
+  }
+  el.innerHTML = filtered.map(a => {
+    const rate = a.success_rate;
+    const rateLabel = rate != null ? `${rate}% ok` : 'no verdicts';
+    const lastRunStr = a.last_run ? agoStr(a.last_run) : 'never run';
+    const savingsStr = a.savings_x != null ? `${a.savings_x}× savings` : '';
+    const runsStr = `${a.runs_30d} run${a.runs_30d === 1 ? '' : 's'} 30d`;
+    return `<li>
+      <button class="agent-row status-${esc(a.health)}${a.retired ? ' retired' : ''}"
+              role="button" data-slug="${esc(a.slug)}"
+              aria-label="${esc(a.slug)} · ${esc(a.health)} · ${rateLabel} · ${esc(lastRunStr)}"
+              onclick="openAgentDrawer('${esc(a.slug)}')"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();openAgentDrawer('${esc(a.slug)}')}">
+        <span class="ar-status" aria-hidden="true"></span>
+        <span class="ar-body">
+          <span class="ar-name">${esc(a.slug)}</span>
+          <span class="ar-meta">
+            <span class="ar-domain">${esc(a.domain)}</span>
+            <span>${esc(runsStr)}</span>
+            <span>${esc(rateLabel)}</span>
+            <span>last: ${esc(lastRunStr)}</span>
+            ${savingsStr ? `<span>${esc(savingsStr)}</span>` : ''}
+            ${a.retired ? '<span style="color:var(--agent-retired)">retired</span>' : ''}
+          </span>
+        </span>
+        <span class="ar-rail" aria-hidden="true">
+          ${rate != null ? `<span class="ar-rail-fill" style="width:${rate}%"></span>` : ''}
+        </span>
+        <span class="ar-chev" aria-hidden="true">›</span>
+      </button>
+    </li>`;
   }).join('');
+}
+
+function renderLegacyAgentsSection() {
+  const sec = document.getElementById('legacy-agents-section');
+  const cnt = document.getElementById('legacy-agents-count');
+  if (!sec) return;
+  if (fleetState.legacy_count > 0) {
+    sec.hidden = false;
+    if (cnt) cnt.textContent = `${fleetState.legacy_count} runs`;
+  } else {
+    sec.hidden = true;
+  }
+}
+
+function agoStr(iso) {
+  if (!iso) return '—';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return 'just now';
+  const m = ms / 60000, h = m / 60, d = h / 24;
+  if (m < 1) return 'just now';
+  if (m < 60) return `${Math.round(m)}m ago`;
+  if (h < 48) return `${Math.round(h)}h ago`;
+  return `${Math.round(d)}d ago`;
+}
+
+/* ── Agent drawer (§3.2 drill-in) ──────────────────────────────────────── */
+
+let _drawerLastFocus = null;
+
+async function openAgentDrawer(slug, opts = {}) {
+  const drawer  = document.getElementById('agent-drawer');
+  const backdrop = document.getElementById('agent-drawer-backdrop');
+  const body    = document.getElementById('agent-drawer-body');
+  const title   = document.getElementById('agent-drawer-title');
+  const pill    = document.getElementById('agent-drawer-pill');
+  if (!drawer || !body) return;
+
+  // Remember the row that opened us so Esc returns focus there.
+  if (!opts.fromHash) {
+    _drawerLastFocus = document.activeElement;
+  }
+
+  fleetState.drawerSlug = slug;
+  // Highlight active row.
+  document.querySelectorAll('.agent-row').forEach(r => {
+    r.setAttribute('aria-current', r.dataset.slug === slug ? 'true' : 'false');
+  });
+
+  // Update URL hash without scroll.
+  if (location.hash !== `#agents/${slug}`) {
+    history.replaceState(null, '', `#agents/${slug}`);
+  }
+
+  drawer.setAttribute('open', '');
+  drawer.setAttribute('aria-hidden', 'false');
+  backdrop.setAttribute('open', '');
+  backdrop.setAttribute('aria-hidden', 'false');
+  title.textContent = slug;
+  pill.innerHTML = '';
+  body.innerHTML = '<div class="cost-empty">Loading…</div>';
+
+  // Move focus into the drawer after the open transition.
+  setTimeout(() => {
+    document.getElementById('agent-drawer-close')?.focus();
+  }, 50);
+
+  const profile = await api(`/api/agents/${encodeURIComponent(slug)}`);
+  if (!profile || profile.error) {
+    body.innerHTML = `<div class="cost-empty">Agent <code>${esc(slug)}</code> not found.</div>`;
+    return;
+  }
+  if (fleetState.drawerSlug !== slug) return; // drawer swapped while loading
+  renderAgentProfile(profile);
+}
+
+function closeAgentDrawer() {
+  const drawer   = document.getElementById('agent-drawer');
+  const backdrop = document.getElementById('agent-drawer-backdrop');
+  if (!drawer) return;
+  drawer.removeAttribute('open');
+  drawer.setAttribute('aria-hidden', 'true');
+  backdrop.removeAttribute('open');
+  backdrop.setAttribute('aria-hidden', 'true');
+  fleetState.drawerSlug = null;
+  // Strip hash.
+  if (location.hash.startsWith('#agents/')) {
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  // Restore focus to the triggering row.
+  if (_drawerLastFocus && document.contains(_drawerLastFocus)) {
+    _drawerLastFocus.focus();
+  }
+  document.querySelectorAll('.agent-row').forEach(r => r.setAttribute('aria-current', 'false'));
+}
+
+function renderAgentProfile(p) {
+  const body  = document.getElementById('agent-drawer-body');
+  const title = document.getElementById('agent-drawer-title');
+  const pill  = document.getElementById('agent-drawer-pill');
+  if (!body) return;
+  title.textContent = p.slug;
+  pill.innerHTML = `<span class="status-pill tone-${esc(p.health)}">
+    <span class="pill-dot" aria-hidden="true"></span>${esc(p.retired ? 'retired' : p.health)}
+  </span>`;
+
+  const savings = p.savings_x != null ? `${p.savings_x}× ($${(p.llm_usd_30d_est ?? 0).toFixed(2)} vs $${(p.human_usd_30d_est ?? 0).toLocaleString()})` : '—';
+  const realCost = p.llm_usd_30d_real != null ? `· measured $${p.llm_usd_30d_real.toFixed(4)}` : '';
+
+  body.innerHTML = `
+    <div class="mp-card">
+      <h4>Summary</h4>
+      <dl class="agent-summary-grid">
+        <dt>domain</dt>      <dd>${esc(p.domain)}</dd>
+        <dt>model</dt>       <dd>${esc(p.model)}</dd>
+        ${p.applies_to.length ? `<dt>applies_to</dt><dd>${esc(p.applies_to.join(', '))}</dd>` : ''}
+        <dt>runs total</dt>  <dd>${p.runs_total} · ${p.runs_30d} in 30d</dd>
+        <dt>success</dt>     <dd>${p.success_rate != null ? `${p.success_rate}% (${p.ok_30d}/${p.ok_30d + p.fail_30d})` : 'no verdicts in 30d'}</dd>
+        <dt>last run</dt>    <dd>${p.last_run ? esc(p.last_run.slice(0, 16).replace('T', ' ') + ' · ' + agoStr(p.last_run)) : 'never'}</dd>
+        <dt>savings</dt>     <dd>${esc(savings)} ${esc(realCost)}</dd>
+      </dl>
+      ${p.description ? `<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">${esc(p.description)}</div>` : ''}
+    </div>
+
+    <div class="mp-card">
+      <h4>Recent runs <span style="color:var(--text3);font-weight:normal">(last ${p.recent_runs.length})</span></h4>
+      ${p.recent_runs.length ? `
+        <ul class="run-list" role="list">
+          ${p.recent_runs.map(r => {
+            const tone = isSuccessVerdict(r.verdict) ? 'ok' : (isFailureVerdict(r.verdict) ? 'fail' : 'neutral');
+            return `<li class="run-row">
+              <span>${esc((r.ts || '').slice(5, 16).replace('T', ' '))}</span>
+              <span class="rr-verdict ${tone}">${esc(r.verdict || '—')}</span>
+              <span class="rr-raw" title="${esc(r.raw)}">${esc(r.raw)}</span>
+              <span>${r.cost_usd != null ? '$' + r.cost_usd.toFixed(4) : ''}</span>
+            </li>`;
+          }).join('')}
+        </ul>` : '<div class="cost-empty">No recent runs.</div>'}
+    </div>
+
+    <div class="mp-card">
+      <h4>Failure modes <span style="color:var(--text3);font-weight:normal">(30d)</span></h4>
+      ${p.failure_modes.length ? `
+        <ul class="failure-list" role="list">
+          ${p.failure_modes.map(f => `<li>
+            <span class="fm-key">${esc(f.key)}</span>
+            <span class="fm-count">×${f.count}</span>
+            <span class="fm-last">${esc(agoStr(f.last_seen))}</span>
+          </li>`).join('')}
+        </ul>` : '<div class="cost-empty">No failures clustered in 30d. Quiet agent.</div>'}
+    </div>
+
+    <div class="mp-card">
+      <h4>Actions</h4>
+      <div class="agent-actions">
+        ${p.retired
+          ? `<button type="button" onclick="restoreAgentAction('${esc(p.slug)}')">Restore agent</button>`
+          : `<button type="button" class="danger" onclick="retireAgentAction('${esc(p.slug)}')">Retire agent</button>`}
+        <button type="button" disabled title="Opening external files is not yet wired up">Open prompt file</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">
+        File: <code>${esc(p.file_path)}</code>
+      </div>
+    </div>`;
+}
+
+function isSuccessVerdict(v) { return /^(APPROVED|OK|DONE|PASS|PASSED)$/i.test(v || ''); }
+function isFailureVerdict(v) { return /^(BLOCKED|FAIL|FAILED|REJECTED)$/i.test(v || ''); }
+
+async function retireAgentAction(slug) {
+  // §9 #2 picked: reversible sidecar. confirm() is a v1 affordance; spec
+  // recommends native <dialog> with focus trap — flagged for v2.
+  if (!confirm(`Retire ${slug}?\n\nThe agent file stays in place; a .retired sidecar marker hides it from the active fleet. Reversible via Restore.`)) return;
+  const r = await fetch(`/api/agents/${encodeURIComponent(slug)}/retire`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+  }).then(r => r.json()).catch(e => ({ error: String(e) }));
+  if (r.error) {
+    showToast(`Retire failed: ${r.error}`, 'error', 2500);
+    return;
+  }
+  showToast(`Retired ${slug}`, 'info', 1500);
+  await refreshAgentsInstalled();
+  // Re-open drawer to show the new retired state.
+  openAgentDrawer(slug, { fromHash: true });
+}
+
+async function restoreAgentAction(slug) {
+  const r = await fetch(`/api/agents/${encodeURIComponent(slug)}/restore`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+  }).then(r => r.json()).catch(e => ({ error: String(e) }));
+  if (r.error) {
+    showToast(`Restore failed: ${r.error}`, 'error', 2500);
+    return;
+  }
+  showToast(`Restored ${slug}`, 'info', 1500);
+  await refreshAgentsInstalled();
+  openAgentDrawer(slug, { fromHash: true });
+}
+
+/* Keyboard map (§4.2):
+   "/" focuses search · Esc closes drawer · Enter on row is wired on the
+   button element. Wire global handlers once at startup. */
+function wireFleetKeyboard() {
+  document.addEventListener('keydown', (e) => {
+    // "/" to focus search, only when /agents panel is active and not already typing
+    if (e.key === '/' && currentTab === 'agents'
+        && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+      const input = document.getElementById('fleet-search');
+      if (input) { e.preventDefault(); input.focus(); input.select(); }
+    }
+    // Esc closes drawer
+    if (e.key === 'Escape' && fleetState.drawerSlug) {
+      e.preventDefault();
+      closeAgentDrawer();
+    }
+  });
+  // Search input live filter
+  const input = document.getElementById('fleet-search');
+  if (input) {
+    input.addEventListener('input', (e) => {
+      fleetState.search = e.target.value;
+      renderFleetList();
+    });
+  }
+  // Sort + reset
+  document.getElementById('fleet-sort-by')?.addEventListener('change', (e) => {
+    fleetState.sort = e.target.value;
+    renderFleetList();
+  });
+  document.getElementById('fleet-reset-filters')?.addEventListener('click', () => {
+    fleetState.filters = { domain: 'all', activity: 'all', health: 'all' };
+    fleetState.search = '';
+    const input = document.getElementById('fleet-search');
+    if (input) input.value = '';
+    renderFleetFacets();
+    renderFleetList();
+  });
+  // Drawer close button + backdrop click
+  document.getElementById('agent-drawer-close')?.addEventListener('click', closeAgentDrawer);
+  document.getElementById('agent-drawer-backdrop')?.addEventListener('click', closeAgentDrawer);
+}
+
+// Wire once after DOM is ready (already past <head> when this script loads).
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', wireFleetKeyboard);
+} else {
+  wireFleetKeyboard();
 }
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
