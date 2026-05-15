@@ -1412,10 +1412,17 @@ const server = http.createServer(async (req, res) => {
     const id = pathname.replace('/api/gates/', '');
     let body = '';
     req.on('data', c => body += c);
-    req.on('end', () => {
-      const parsed = JSON.parse(body || '{}');
+    req.on('end', async () => {
+      // BH-14a: catch JSON parse error explicitly → 400 (was 500/uncaught)
+      let parsed;
+      try {
+        parsed = JSON.parse(body || '{}');
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+        return;
+      }
       const { action, reason } = parsed;
-      // Allow project override via body (fallback when ?project= not in URL)
       const gateCwd = parsed.project ? resolveProjectCwd(parsed.project) : cwd;
       if (!['approve', 'reject'].includes(action)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1428,22 +1435,20 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify(beadsErr));
         return;
       }
-      try {
+      // BH-16 fix: serialise gate writes through bd-write queue.
+      // Without this, concurrent approve+reject on the same gate produced
+      // TWO appendDecisionLog entries (one wrong) — log says approved AND
+      // rejected. bdWriteSerialised guarantees one-at-a-time semantics.
+      const result = await bdWriteSerialised(() => {
         const status = action === 'approve' ? 'closed' : 'blocked';
         const args = ['update', id, '--status', status];
         if (reason) args.push('--notes', `[${action}] ${reason}`);
         const r = spawnSync('bd', args, { cwd: gateCwd, encoding: 'utf8', timeout: 5000 });
-        if (r.status !== 0) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
-          return;
-        }
+        if (r.status !== 0) return { error: r.stderr || 'bd update failed' };
         bdCacheInvalidate(gateCwd);
-
-        // Append to global decisions log (~/.great_cto/decisions.md)
+        // Append to global decisions log — still inside the lock window
         try {
           const projectSlug = parsed.project || path.basename(gateCwd);
-          // Look up gate title for nicer log entry
           const allTasks = getTasks(gateCwd);
           const gateTask = allTasks.find(t => t.id === id);
           const title = gateTask?.title || id;
@@ -1455,16 +1460,17 @@ const server = http.createServer(async (req, res) => {
             title,
             reason: reason || '',
           });
-        } catch { /* best-effort, don't fail gate on log error */ }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, id, action }));
-        // Broadcast updated tasks via SSE
-        broadcastTasks(cwd);
-      } catch (e) {
+        } catch { /* best-effort */ }
+        return { ok: true };
+      });
+      if (!result || result.error) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: String(e.message || e) }));
+        res.end(JSON.stringify({ error: (result && result.error) || 'bd update failed' }));
+        return;
       }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, id, action }));
+      broadcastTasks(cwd);
     });
     return;
   }
@@ -1632,34 +1638,41 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Task status update
+  // Task status update — BH-14/BH-16 fixes: JSON parse 400, write serialisation
   if (pathname.match(/^\/api\/tasks\/[^/]+\/status$/) && req.method === 'POST') {
     const id = pathname.split('/')[3];
     let body = '';
     req.on('data', c => body += c);
-    req.on('end', () => {
+    req.on('end', async () => {
+      let parsed;
       try {
-        const { status } = JSON.parse(body || '{}');
-        const validStatuses = ['open', 'in_progress', 'blocked', 'closed'];
-        if (!validStatuses.includes(status)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'invalid status' }));
-          return;
-        }
-        const r = spawnSync('bd', ['update', id, '--status', status], { cwd, encoding: 'utf8', timeout: 5000 });
-        if (r.status !== 0) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
-          return;
-        }
-        bdCacheInvalidate(cwd);
-        broadcastTasks(cwd);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
+        parsed = JSON.parse(body || '{}');
       } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: String(e.message || e) }));
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+        return;
       }
+      const { status } = parsed;
+      const validStatuses = ['open', 'in_progress', 'blocked', 'closed'];
+      if (!validStatuses.includes(status)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_status', message: `status must be one of: ${validStatuses.join(', ')}`, received: status }));
+        return;
+      }
+      const result = await bdWriteSerialised(() => {
+        const r = spawnSync('bd', ['update', id, '--status', status], { cwd, encoding: 'utf8', timeout: 5000 });
+        if (r.status !== 0) return { error: r.stderr || 'bd update failed' };
+        bdCacheInvalidate(cwd);
+        return { ok: true };
+      });
+      if (!result || result.error) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (result && result.error) || 'bd update failed' }));
+        return;
+      }
+      broadcastTasks(cwd);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
     });
     return;
   }
@@ -1669,28 +1682,35 @@ const server = http.createServer(async (req, res) => {
     const id = pathname.split('/')[3];
     let body = '';
     req.on('data', c => body += c);
-    req.on('end', () => {
+    req.on('end', async () => {
+      let parsed;
       try {
-        const { priority } = JSON.parse(body || '{}');
-        if (priority == null || priority < 0 || priority > 3) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'invalid priority' }));
-          return;
-        }
-        const r = spawnSync('bd', ['update', id, '--priority', String(priority)], { cwd, encoding: 'utf8', timeout: 5000 });
-        if (r.status !== 0) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
-          return;
-        }
-        bdCacheInvalidate(cwd);
-        broadcastTasks(cwd);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
+        parsed = JSON.parse(body || '{}');
       } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: String(e.message || e) }));
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+        return;
       }
+      const { priority } = parsed;
+      if (priority == null || typeof priority !== 'number' || priority < 0 || priority > 3) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_priority', message: 'priority must be an integer in [0, 3]', received: priority }));
+        return;
+      }
+      const result = await bdWriteSerialised(() => {
+        const r = spawnSync('bd', ['update', id, '--priority', String(priority)], { cwd, encoding: 'utf8', timeout: 5000 });
+        if (r.status !== 0) return { error: r.stderr || 'bd update failed' };
+        bdCacheInvalidate(cwd);
+        return { ok: true };
+      });
+      if (!result || result.error) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (result && result.error) || 'bd update failed' }));
+        return;
+      }
+      broadcastTasks(cwd);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
     });
     return;
   }
