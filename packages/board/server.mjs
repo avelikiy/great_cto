@@ -714,14 +714,28 @@ function getMetrics(cwd = process.cwd()) {
   // Agent utilization from verdicts.
   // Filter against canonical list of installed agents (~/.claude/agents/great_cto-*.md)
   // so a typo in a verdict line does not produce a phantom agent in the dashboard.
-  // Unknown agent names are bucketed under `unknown` (visible but flagged).
+  //
+  // Previously: non-canonical agents bucketed into `unknown` — which became
+  // the TOP agent in production dashboards because legacy verdict log files
+  // (backend.log, frontend.log, docs.log, ops.log, qa.log, security.log,
+  // test-agent.log) from older great_cto versions were all aggregated there.
+  // That hid real agent activity under a misleading label.
+  //
+  // Now: non-canonical agents are tracked separately (legacy_agent_runs)
+  // and surfaced as a single summary count, NOT individually polluting the
+  // agent-runs map. Users see honest specialist metrics + a cleanup hint.
   const canonicalAgents = getCanonicalAgents();
   const agentRuns = {};
+  const legacyAgentRuns = {};
   for (const v of verdicts) {
     if (!v.agent) continue;
-    const key = canonicalAgents.has(v.agent) ? v.agent : 'unknown';
-    agentRuns[key] = (agentRuns[key] || 0) + 1;
+    if (canonicalAgents.has(v.agent)) {
+      agentRuns[v.agent] = (agentRuns[v.agent] || 0) + 1;
+    } else {
+      legacyAgentRuns[v.agent] = (legacyAgentRuns[v.agent] || 0) + 1;
+    }
   }
+  const legacyAgentCount = Object.values(legacyAgentRuns).reduce((a, b) => a + b, 0);
 
   // Agent cost + time breakdown.
   //
@@ -846,6 +860,8 @@ function getMetrics(cwd = process.cwd()) {
     security: secStats,
     agents: agentRuns,
     agents_cost: agentsCost,
+    legacy_agent_runs: legacyAgentRuns,
+    legacy_agent_count: legacyAgentCount,
     verdicts: verdicts.slice(-20),
     recent_done: done.slice(-10).reverse(),
   };
@@ -1403,7 +1419,13 @@ const server = http.createServer(async (req, res) => {
 
   // Decisions log — global ADR-style log across all projects
   if (pathname === '/api/decisions') {
-    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    // Clamp `limit` to [1, 200]. Same defensive pattern as /api/cost?days
+    // — handle ?limit=abc / ?limit=0 / ?limit=-5 / ?limit=999 deterministically.
+    const rawLimit = url.searchParams.get('limit');
+    const parsed = rawLimit != null ? parseInt(rawLimit, 10) : 20;
+    const limit = Number.isFinite(parsed) && parsed > 0
+      ? Math.min(parsed, 200)
+      : 20;
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(readDecisionsLog(limit)));
     return;
@@ -1423,9 +1445,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Cost history — daily LLM burn over N days
+  // Cost history — daily LLM burn over N days.
+  // Clamp `days` to [1, 365] to defend against:
+  //   ?days=abc       → NaN → default 30 (parseInt fallback to 30)
+  //   ?days=999       → 1000-bucket response (memory + payload bloat)
+  //   ?days=-5        → empty series, daily_avg = null in UI
+  //   ?days=0         → division-by-zero in daily_avg calc
+  // 365 is enough for "last year" views; anything bigger should use
+  // a different endpoint / batch query path.
   if (pathname === '/api/cost') {
-    const days = parseInt(url.searchParams.get('days') || '30', 10);
+    const rawDays = url.searchParams.get('days');
+    const parsed = rawDays != null ? parseInt(rawDays, 10) : 30;
+    const days = Number.isFinite(parsed) && parsed > 0
+      ? Math.min(parsed, 365)
+      : 30;
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getCostHistory(cwd, days)));
     return;

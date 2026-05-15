@@ -359,6 +359,142 @@ test('BH-2: savings_x is null (not 0) when human estimate is missing', async () 
   }
 });
 
+// ── BH-3: legacy agent bucket separation ────────────────────────────────────
+
+test('BH-3: non-canonical agents go to legacy_agent_runs, not the main agent map', async () => {
+  // Previously: non-canonical verdict files (backend.log, frontend.log,
+  // docs.log, ops.log, qa.log, security.log) were bucketed under
+  // agents['unknown']. That became the TOP entry in /api/metrics.agents,
+  // hiding real specialist activity. Now they go into a separate
+  // legacy_agent_runs field, surfaced honestly.
+
+  const home = mkdtempSync(join(tmpdir(), 'bh3-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh3-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+
+    const today = new Date().toISOString().slice(0, 10);
+    // 1 canonical agent verdict
+    writeFileSync(join(home, '.great_cto', 'verdicts', 'architect.log'),
+      `${today}T10:00:00Z APPROVED feature=test cost=$0.42\n`);
+    // 2 NON-canonical (legacy) verdicts
+    writeFileSync(join(home, '.great_cto', 'verdicts', 'backend.log'),
+      `${today}T10:00:00Z DONE feature=test cost=$0.10\n`);
+    writeFileSync(join(home, '.great_cto', 'verdicts', 'frontend.log'),
+      `${today}T11:00:00Z DONE feature=test cost=$0.10\n`);
+
+    const port = 34300 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      // Wait for board ready
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      const r = await fetch(`http://127.0.0.1:${port}/api/metrics`);
+      const data = await r.json();
+      const agents = data.agents || {};
+      const legacy = data.legacy_agent_runs || {};
+
+      // Architect should appear in canonical agents
+      // (only if architect is in ~/.claude/agents/great_cto-* — may not be
+      // in test home, so this is conditional)
+      // The KEY contract: 'unknown' should NOT appear as an entry in agents
+      assert.ok(!('unknown' in agents),
+        `'unknown' key should NOT appear in canonical agents map. ` +
+        `Got keys: ${Object.keys(agents).join(', ')}`);
+
+      // legacy_agent_count must be defined (even if 0)
+      assert.equal(typeof data.legacy_agent_count, 'number',
+        'legacy_agent_count must be a number');
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+// ── BH-4: query-param clamping (days, limit) ───────────────────────────────
+
+test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () => {
+  // Pre-fix: ?days=999 returned 1000 buckets (memory bloat);
+  //          ?days=abc returned 0 buckets + daily_avg=null;
+  //          ?days=-5 returned 0 buckets silently.
+  // Post-fix: clamp to [1, 365]; non-numeric → default 30.
+
+  const home = mkdtempSync(join(tmpdir(), 'bh4a-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh4a-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+
+    const port = 34400 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      // ?days=999 → clamped to 365 (366 buckets = 365 + today)
+      const big = await (await fetch(`http://127.0.0.1:${port}/api/cost?days=999`)).json();
+      assert.ok(big.series.length <= 366,
+        `?days=999 should clamp series to ≤366, got ${big.series.length}`);
+
+      // ?days=abc → fallback to default 30 → 31 buckets
+      const bad = await (await fetch(`http://127.0.0.1:${port}/api/cost?days=abc`)).json();
+      assert.equal(bad.series.length, 31,
+        `?days=abc should fallback to 30 → 31 buckets, got ${bad.series.length}`);
+
+      // ?days=-5 → fallback to default 30 → 31 buckets
+      const neg = await (await fetch(`http://127.0.0.1:${port}/api/cost?days=-5`)).json();
+      assert.equal(neg.series.length, 31,
+        `?days=-5 should fallback to 30 → 31 buckets, got ${neg.series.length}`);
+
+      // daily_avg should always be a finite number (no null/NaN)
+      for (const data of [big, bad, neg]) {
+        assert.ok(Number.isFinite(data.daily_avg),
+          `daily_avg must be a finite number, got ${data.daily_avg}`);
+      }
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
 test('X1 TDD: senior-dev RED → GREEN cycle works on a tiny stub', async () => {
   // We don't drive a real LLM here (that's X6/multi-archetype). Instead,
   // verify the TDD-cycle scaffolding works: scenario where impl is missing
