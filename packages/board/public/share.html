@@ -530,6 +530,8 @@ if (paused) {
 
   function fmtTime(min) {
     if (!min || min <= 0) return '—';
+    // BH-A5: sub-minute tasks rounded to "0m" — show seconds instead.
+    if (min < 1) return Math.max(1, Math.round(min * 60)) + 's';
     if (min < 60) return Math.round(min) + 'm';
     const h = min / 60;
     if (h < 24) return h.toFixed(h < 10 ? 1 : 0) + 'h';
@@ -552,7 +554,12 @@ if (paused) {
   // Human estimate: avg 4h per task (industry baseline for standard feature)
   const humanH = done * 4;
   const aiH = totalAiMin / 60;
-  const timeSpeedup = aiH > 0 && humanH > 0 ? (humanH / aiH).toFixed(1) : null;
+  // BH-A5: when AI time < 5 min total, the human/ai ratio explodes into
+  // 28,800× nonsense (sub-second tasks). Clamp + suppress to keep the page
+  // credible. Threshold = 5 min total AI work, or > 1000× ratio.
+  const rawSpeedup = aiH > 0 && humanH > 0 ? humanH / aiH : 0;
+  const timeSpeedup = (totalAiMin >= 5 && rawSpeedup > 0 && rawSpeedup < 1000)
+    ? rawSpeedup.toFixed(rawSpeedup < 10 ? 1 : 0) : null;
 
   // Categorize done tasks (heuristic from title prefix / labels / keywords)
   function categorize(t) {
@@ -627,7 +634,7 @@ if (paused) {
       v: totalAiMin ? fmtTime(totalAiMin) : '—',
       sub: '',
       lbl: 'AI time',
-      extra: done ? `${(totalAiMin / Math.max(1, done)).toFixed(0)}m avg / task` : '—',
+      extra: done && totalAiMin > 0 ? `${fmtTime(totalAiMin / Math.max(1, done))} avg / task` : '—',
       cls: 'amber',
       hide: !totalAiMin,
     },
@@ -714,7 +721,7 @@ if (paused) {
             <div class="compare-side">
               <div class="lbl">AI agents</div>
               <div class="v">$${effectiveLlmUsd.toFixed(2)}</div>
-              <div class="t">${effectiveAiH > 0 ? `${effectiveAiH.toFixed(effectiveAiH < 10 ? 1 : 0)}h active time` : '—'}</div>
+              <div class="t">${(totalAiMin || totalTimeMin) > 0 ? `${fmtTime(totalAiMin || totalTimeMin)} active time` : '—'}</div>
             </div>
             <div class="compare-vs">
               <div class="vs-line">vs</div>
@@ -736,7 +743,7 @@ if (paused) {
             <div class="compare-vs"><div class="vs-line">replaced by</div><strong>AI agents</strong></div>
             <div class="compare-side right">
               <div class="lbl">AI agents</div>
-              <div class="v">${effectiveAiH > 0 ? effectiveAiH.toFixed(1) + 'h' : done + ' tasks'}</div>
+              <div class="v">${(totalAiMin || totalTimeMin) > 0 ? fmtTime(totalAiMin || totalTimeMin) : done + ' tasks'}</div>
               <div class="t">automated</div>
             </div>
           </div>`}
