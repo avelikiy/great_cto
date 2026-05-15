@@ -2,8 +2,6 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-# great_cto
-
 **Solo-CTO mode. Stop being the only person who can ship.**
 
 You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
