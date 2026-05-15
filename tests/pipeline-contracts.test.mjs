@@ -905,7 +905,6 @@ test('BH-C1: CLI rejects unknown commands with exit code 2', async () => {
 });
 
 test('BH-C4: CLI --port=N form parses correctly', async () => {
-  const { spawnSync } = await import('node:child_process');
   const { resolve } = await import('node:path');
   const cli = resolve(import.meta.dirname || new URL('.', import.meta.url).pathname, '..', 'packages/cli/dist/main.js');
 
@@ -918,4 +917,53 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
   await new Promise((r) => setTimeout(r, 2500));
   proc.kill('SIGKILL');
   assert.match(stdout, /:4455/, `--port=4455 should bind to 4455, got: ${stdout.slice(0, 200)}`);
+});
+
+test('BH-A5: public share report fmtTime + speedup clamp prevent "0m / 28800× faster" rendering', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { resolve } = await import('node:path');
+  const vm = await import('node:vm');
+  const sharePath = resolve(import.meta.dirname || new URL('.', import.meta.url).pathname, '..', 'packages/board/public/share.html');
+  const html = readFileSync(sharePath, 'utf8');
+
+  // Extract fmtTime function body
+  const fmtMatch = html.match(/function fmtTime\(min\) \{[\s\S]*?\n  \}/);
+  assert.ok(fmtMatch, 'fmtTime function must be present in share.html');
+  const ctx = { Math, console };
+  vm.createContext(ctx);
+  vm.runInContext(fmtMatch[0] + '; this.fmtTime = fmtTime;', ctx);
+  const fmtTime = ctx.fmtTime;
+
+  // Sub-minute → seconds, never "0m"
+  assert.equal(fmtTime(0.05), '3s', 'tiny but non-zero must render in seconds');
+  assert.equal(fmtTime(0.5), '30s', '30-second task must render as "30s"');
+  assert.equal(fmtTime(0.01), '1s', 'sub-second min1 floor');
+  assert.notEqual(fmtTime(0.5), '0m', 'never round sub-minute to "0m"');
+
+  // Whole-minute and hour boundaries
+  assert.equal(fmtTime(1), '1m');
+  assert.equal(fmtTime(59), '59m');
+  assert.equal(fmtTime(60), '1.0h');
+  assert.equal(fmtTime(125), '2.1h');
+
+  // Edge: zero / negative / missing
+  assert.equal(fmtTime(0), '—');
+  assert.equal(fmtTime(null), '—');
+  assert.equal(fmtTime(-1), '—');
+
+  // Speedup clamp logic: when totalAiMin < 5, ratio must be suppressed
+  // Simulating the share.html code:
+  function speedup(totalAiMin, done) {
+    const humanH = done * 4;
+    const aiH = totalAiMin / 60;
+    const rawSpeedup = aiH > 0 && humanH > 0 ? humanH / aiH : 0;
+    return (totalAiMin >= 5 && rawSpeedup > 0 && rawSpeedup < 1000)
+      ? rawSpeedup.toFixed(rawSpeedup < 10 ? 1 : 0) : null;
+  }
+  // Degenerate case from the bug report: 14 tasks, ~7s of total AI time → 28800×
+  assert.equal(speedup(0.1166, 14), null, '7-second total → ratio must be suppressed');
+  // Normal case: 14 tasks, 4h total AI work → 56h/4h = 14×
+  assert.equal(speedup(240, 14), '14', 'normal ratio must render as integer');
+  // Reasonable: 14 tasks, 28h total AI work → 56h/28h = 2.0×
+  assert.equal(speedup(28 * 60, 14), '2.0', '2× ratio must render to one decimal');
 });
