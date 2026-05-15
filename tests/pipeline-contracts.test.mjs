@@ -495,6 +495,95 @@ test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () =>
   }
 });
 
+// ── BH-6 / BH-7 / BH-8: POST /api/tasks input validation ──────────────────
+
+test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', async () => {
+  // Bug-hunt 2026-05-15 found 3 ways to crash POST /api/tasks:
+  //   BH-6: invalid JSON body → 500 (parser exception bubbled up)
+  //   BH-7: 10K-char title → 500 (bd argv too long; needed cap)
+  //   BH-8: priority=99 → 200 silently ignored (typo "11" meant "P1"
+  //          dropped on the floor — user thinks it worked)
+  // Each is now an explicit 400 with a structured error.
+
+  // Build a real bd-initialised project so /api/tasks can reach the handler
+  const home = mkdtempSync(join(tmpdir(), 'bh-tasks-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh-tasks-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+    const init = spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8' });
+    if (init.status !== 0) {
+      console.log('  skipped: bd not available');
+      return;
+    }
+
+    const port = 34500 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      // Wait for board ready
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      const post = async (body) =>
+        fetch(`http://127.0.0.1:${port}/api/tasks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+
+      // BH-6: invalid JSON → 400
+      const r1 = await post('not-valid-json{');
+      assert.equal(r1.status, 400,
+        `BH-6: invalid JSON should yield HTTP 400, got ${r1.status}`);
+      const e1 = await r1.json();
+      assert.equal(e1.error, 'invalid_json',
+        `BH-6: error code should be 'invalid_json', got '${e1.error}'`);
+
+      // BH-7: too-long title → 400
+      const longTitle = 'a'.repeat(600);
+      const r2 = await post(JSON.stringify({ title: longTitle }));
+      assert.equal(r2.status, 400,
+        `BH-7: 600-char title should yield HTTP 400, got ${r2.status}`);
+      const e2 = await r2.json();
+      assert.equal(e2.error, 'title_too_long',
+        `BH-7: error code should be 'title_too_long', got '${e2.error}'`);
+
+      // BH-8: priority=99 → 400
+      const r3 = await post(JSON.stringify({ title: 'ok', priority: 99 }));
+      assert.equal(r3.status, 400,
+        `BH-8: priority=99 should yield HTTP 400, got ${r3.status}`);
+      const e3 = await r3.json();
+      assert.equal(e3.error, 'invalid_priority',
+        `BH-8: error code should be 'invalid_priority', got '${e3.error}'`);
+
+      // Sanity: valid input still works (priority=2 OK, normal title OK)
+      const r4 = await post(JSON.stringify({ title: 'a valid task', priority: 2 }));
+      assert.equal(r4.status, 200,
+        `Valid input should still succeed, got HTTP ${r4.status}`);
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
 test('X1 TDD: senior-dev RED → GREEN cycle works on a tiny stub', async () => {
   // We don't drive a real LLM here (that's X6/multi-archetype). Instead,
   // verify the TDD-cycle scaffolding works: scenario where impl is missing
