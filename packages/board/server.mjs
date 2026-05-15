@@ -920,7 +920,15 @@ function getMetrics(cwd = process.cwd()) {
 
   return {
     tasks: { total: tasks.length, done: done.length, in_progress: inProgress.length, backlog: backlog.length },
-    velocity: { this_week: doneThisWeek.length, this_month: doneThisMonth.length },
+    // BH-22 fix: these are ROLLING windows (last 7 days, last 30 days from
+    // 'now') — not calendar week/month. Old keys this_week/this_month are
+    // kept for backward compat but the canonical names are last_7d/last_30d.
+    velocity: {
+      last_7d: doneThisWeek.length,
+      last_30d: doneThisMonth.length,
+      this_week: doneThisWeek.length,    // alias, deprecated — remove in v3.0
+      this_month: doneThisMonth.length,  // alias, deprecated — remove in v3.0
+    },
     avg_completion_min: Math.round(medianCompletionMs / 60000),
     cycle_time_stat: 'median_30d',
     cost,

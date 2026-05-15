@@ -3093,9 +3093,24 @@ function renderDashboard(m) {
 
   const fromTasks = m.cost?.source === 'tasks';
   const windowDays = m.cost?.window_days;
-  const llmTrend = humanUsd > 0
-    ? `vs humans: $${fmtMoney(humanUsd)}${fromTasks ? ` (est. from tasks · ${windowDays ?? 30}d)` : ''}`
-    : 'no plans or tasks yet';
+  const realLlmUsd = m.cost?.real_llm_usd;
+  // BH-21: hero tile shows the time-based estimate (llm_usd) but verdict
+  // logs may have a different REAL total (real_llm_usd). When they differ
+  // by >10%, surface both so users don't think the dashboard hides numbers.
+  let llmTrend;
+  if (humanUsd > 0) {
+    llmTrend = `vs humans: $${fmtMoney(humanUsd)}${fromTasks ? ` (est. from tasks · ${windowDays ?? 30}d)` : ''}`;
+  } else if (realLlmUsd != null && realLlmUsd > 0 && Math.abs(realLlmUsd - llmUsd) / Math.max(llmUsd, 0.01) > 0.1) {
+    llmTrend = `actual from verdicts: $${realLlmUsd.toFixed(2)}`;
+  } else {
+    llmTrend = 'no plans or tasks yet';
+  }
+  // Append actual-verdict suffix to trend whenever it materially differs
+  // from the time-based estimate.
+  if (humanUsd > 0 && realLlmUsd != null && realLlmUsd > 0 &&
+      Math.abs(realLlmUsd - llmUsd) / Math.max(llmUsd, 0.01) > 0.1) {
+    llmTrend += ` · actual: $${realLlmUsd.toFixed(2)}`;
+  }
   const hero = [
     { v: done || '—', sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
     {

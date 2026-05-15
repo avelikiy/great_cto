@@ -770,6 +770,82 @@ test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', asy
   }
 });
 
+// ── BH-22: velocity rolling-window honest labels ────────────────────────────
+
+test('BH-22: /api/metrics.velocity exposes last_7d + last_30d (honest labels)', async () => {
+  // Pre-fix: velocity only had this_week/this_month keys but the math is
+  //          rolling 7/30 days from now, not calendar week/month.
+  // Post-fix: added last_7d/last_30d keys; old keys kept as deprecated aliases.
+
+  const home = mkdtempSync(join(tmpdir(), 'bh22-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh22-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+
+    const port = 35600 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      const r = await (await fetch(`http://127.0.0.1:${port}/api/metrics`)).json();
+      const v = r.velocity;
+      assert.equal(typeof v.last_7d, 'number', 'velocity.last_7d must exist (honest label)');
+      assert.equal(typeof v.last_30d, 'number', 'velocity.last_30d must exist');
+      // Backward-compat aliases — keep until v3.0
+      assert.equal(v.this_week, v.last_7d, 'this_week alias must equal last_7d');
+      assert.equal(v.this_month, v.last_30d, 'this_month alias must equal last_30d');
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+// ── BH-26: great-cto report CLI accepts --type flag ─────────────────────────
+
+test('BH-26: great-cto report parseReportArgs accepts --type flag', async () => {
+  const mod = await import('../packages/cli/dist/report.js');
+  const cwd = '/tmp';
+
+  // Positional
+  const p1 = mod.parseReportArgs(['great-cto', 'report', 'cost'], cwd);
+  assert.ok(p1, 'positional should parse');
+  assert.equal(p1.type, 'cost');
+
+  // --type=X
+  const p2 = mod.parseReportArgs(['great-cto', 'report', '--type=agents'], cwd);
+  assert.ok(p2, '--type=X should parse');
+  assert.equal(p2.type, 'agents');
+
+  // --type X
+  const p3 = mod.parseReportArgs(['great-cto', 'report', '--type', 'compliance'], cwd);
+  assert.ok(p3, '--type X should parse');
+  assert.equal(p3.type, 'compliance');
+
+  // Invalid
+  const p4 = mod.parseReportArgs(['great-cto', 'report', 'frobnicated'], cwd);
+  assert.equal(p4, null, 'invalid type should yield null');
+});
+
 test('X1 TDD: senior-dev RED → GREEN cycle works on a tiny stub', async () => {
   // We don't drive a real LLM here (that's X6/multi-archetype). Instead,
   // verify the TDD-cycle scaffolding works: scenario where impl is missing
