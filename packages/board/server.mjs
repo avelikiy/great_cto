@@ -1469,11 +1469,48 @@ const server = http.createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
+      // Validation hardening (2026-05-15): bug-hunt found 3 ways to crash this
+      // endpoint or silently drop bad input:
+      //   - invalid JSON body → 500 (parser exception in catch → 500)
+      //   - 10K-char title → 500 (bd argv too long)
+      //   - priority=99 → 200 (silently ignored, user thinks it worked)
+      // Each is now an explicit 400 with structured error.
+      let parsed;
       try {
-        const { title, description, priority, agent, labels } = JSON.parse(body || '{}');
-        if (!title || !title.trim()) {
+        parsed = JSON.parse(body || '{}');
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+        return;
+      }
+      try {
+        const { title, description, priority, agent, labels } = parsed;
+        if (!title || typeof title !== 'string' || !title.trim()) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'title required' }));
+          return;
+        }
+        // Title length bound: bd issue titles practically cap around 200 chars;
+        // 500 is a safe ceiling that catches obvious junk while allowing
+        // long-form summaries when warranted.
+        if (title.length > 500) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: 'title_too_long',
+            message: `Title is ${title.length} chars; max 500 allowed.`,
+            length: title.length,
+          }));
+          return;
+        }
+        // Priority must be in P0–P3 if specified. Silent ignore was hiding
+        // typos like priority=11 (probably meant P1).
+        if (priority != null && (typeof priority !== 'number' || priority < 0 || priority > 3)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: 'invalid_priority',
+            message: 'priority must be an integer in [0, 3] (P0–P3).',
+            received: priority,
+          }));
           return;
         }
         const beadsErr = checkBeadsAvailable(cwd);
