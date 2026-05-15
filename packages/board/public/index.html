@@ -2096,7 +2096,7 @@ function renderResume(d) {
     const id = d.id || d.task_id || '';
     const handler = id ? `openSideById('${esc(id)}')` : `showDecisionDetail(${JSON.stringify(d).replace(/"/g, '&quot;')})`;
     return `<div class="resume-item" onclick="${handler}" role="button" tabindex="0">
-      <span class="ri-tag ${cls}">${esc(d.verdict.toLowerCase())}</span>
+      <span class="ri-tag ${cls}">${esc((d.verdict || '').toLowerCase())}</span>
       <span class="ri-text" title="${esc(d.title)}">${esc(d.title)}</span>
     </div>`;
   }).join('') : '<div class="empty">No decisions logged yet</div>';
@@ -3403,7 +3403,15 @@ async function refreshAgentsInstalled() {
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
 function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // BH-18: also escape " and ' — esc() is used inside HTML attributes
+  // (title="${esc(t.title)}") and JS string literals built from data, so
+  // an unescaped quote in a task title would break out of the attribute.
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 // Minimal markdown renderer for task descriptions. Supports H1-H4, **bold**,
 // *italic*, `code`, ```fenced```, lists, links — enough for typical bd notes.

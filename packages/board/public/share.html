@@ -490,7 +490,13 @@ const date    = '{{DATE}}';
 const paused  = {{PAUSED}};
 
 function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // BH-18: also escape " and ' — see index.html:esc.
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Background uses pure CSS (radial-gradients + grid), no SVG needed.

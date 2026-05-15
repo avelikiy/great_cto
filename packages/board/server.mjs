@@ -730,7 +730,12 @@ function detectAgent(task) {
 // ── Metrics ────────────────────────────────────────────────────────────────────
 function getMetrics(cwd = process.cwd()) {
   const tasks = getTasks(cwd);
-  const done = tasks.filter(t => t.status === 'done');
+  // BH-20: resolved gates (approve→closed, reject→blocked) get mapped to
+  // status='done' by mapStatus(). Those are governance decisions, not shipped
+  // features — counting them inflates velocity / tasks-shipped on the report.
+  // Exclude is_gate from done; backlog/in_progress filters remain unchanged
+  // because pending gates were already excluded via mapStatus('gate').
+  const done = tasks.filter(t => t.status === 'done' && !t.is_gate);
   const inProgress = tasks.filter(t => t.status === 'in_progress');
   const backlog = tasks.filter(t => t.status === 'backlog');
 
@@ -1034,7 +1039,10 @@ function readPlanCosts(cwd = process.cwd()) {
     const llmMatch = content.match(/LLM.*?(\d+\.?\d*)\s*[-–]\s*\$?(\d+\.?\d*)/i);
     const humanMatch = content.match(/Human.*?\$(\d[\d,]+)/i);
     if (llmMatch) totalLlmUsd += parseFloat(llmMatch[2]);
-    if (humanMatch) totalHumanUsd += parseFloat(humanMatch[1].replace(',', ''));
+    // BH-17: /g — replace() with a string only strips the FIRST comma, so
+    // "$1,234,567" silently truncated to 1234. getCostHistory at :413 already
+    // uses /,/g; this was the divergent twin.
+    if (humanMatch) totalHumanUsd += parseFloat(humanMatch[1].replace(/,/g, ''));
     count++;
   }
   return {
@@ -1238,11 +1246,17 @@ function generateShareHTML(tasks, metrics, cwd = process.cwd()) {
   const done = tasks.filter(t => t.status === 'done' || t.status === 'closed');
   const shareTemplate = fs.readFileSync(path.join(PUBLIC, 'share.html'), 'utf8');
   // Use replaceAll: placeholders appear multiple times (title + script var)
+  // BH-14: substitute {{PAUSED}} before publish. Worker can still flip the
+  // stored pause flag independently (POST /r/<hash> {enabled:false} from
+  // toggleShare), but we ship valid JS — `const paused = false;` —
+  // instead of the literal placeholder, so the report renders even if the
+  // worker forgets to post-process.
   return shareTemplate
     .replaceAll('{{PROJECT}}', projectName)
     .replaceAll('{{DATE}}', date)
     .replaceAll('{{METRICS_JSON}}', JSON.stringify(metrics))
-    .replaceAll('{{TASKS_JSON}}', JSON.stringify(done.slice(-20)));
+    .replaceAll('{{TASKS_JSON}}', JSON.stringify(done.slice(-20)))
+    .replaceAll('{{PAUSED}}', 'false');
 }
 
 // ── File watcher ───────────────────────────────────────────────────────────────
@@ -1369,26 +1383,57 @@ const server = http.createServer(async (req, res) => {
 
   // Manually register a project at an arbitrary path (e.g. /tmp/...).
   // Body: { path: "/tmp/neobank-test" }
+  //
+  // Security (BH-15, 2026-05-15): this endpoint creates files + registers
+  // projects, so it MUST reject cross-origin requests. The board listens on
+  // 127.0.0.1 but a malicious page the user visits can still issue
+  // text/plain POSTs (simple CORS request — no preflight) to localhost.
+  // Two gates:
+  //   1) Origin (or Referer) header must match our own host:port.
+  //   2) Target path must live inside the user's HOME — no /tmp, no /etc.
   if (pathname === '/api/projects/register' && req.method === 'POST') {
+    const origin = req.headers.origin || req.headers.referer || '';
+    const expectedOrigin = `http://localhost:${PORT}`;
+    const expectedOrigin2 = `http://127.0.0.1:${PORT}`;
+    const originOk = !origin
+      || origin === expectedOrigin
+      || origin === expectedOrigin2
+      || origin.startsWith(expectedOrigin + '/')
+      || origin.startsWith(expectedOrigin2 + '/');
+    if (!originOk) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'origin not allowed' }));
+    }
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
       try {
         const { path: projPath } = JSON.parse(body || '{}');
-        if (!projPath || !fs.existsSync(projPath)) {
+        if (!projPath || typeof projPath !== 'string') {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ error: 'path missing or does not exist' }));
+          return res.end(JSON.stringify({ error: 'path missing' }));
+        }
+        const resolved = path.resolve(projPath);
+        const home = os.homedir();
+        // Whitelist: must be inside HOME. Blocks /tmp/evil, /etc/cron.d, etc.
+        if (!resolved.startsWith(home + path.sep) && resolved !== home) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'path must live inside HOME' }));
+        }
+        if (!fs.existsSync(resolved)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'path does not exist' }));
         }
         // Auto-create PROJECT.md stub if missing — required for autoRegisterProject
-        const greatCtoDir = path.join(projPath, '.great_cto');
+        const greatCtoDir = path.join(resolved, '.great_cto');
         const projectMd = path.join(greatCtoDir, 'PROJECT.md');
         if (!fs.existsSync(projectMd)) {
           fs.mkdirSync(greatCtoDir, { recursive: true });
-          fs.writeFileSync(projectMd, `# PROJECT — ${path.basename(projPath)}\n\nname: ${path.basename(projPath)}\narchetype: unknown\nphase: discovery\n`);
+          fs.writeFileSync(projectMd, `# PROJECT — ${path.basename(resolved)}\n\nname: ${path.basename(resolved)}\narchetype: unknown\nphase: discovery\n`);
         }
-        autoRegisterProject(projPath);
+        autoRegisterProject(resolved);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, path: projPath, slug: path.basename(projPath) }));
+        res.end(JSON.stringify({ ok: true, path: resolved, slug: path.basename(resolved) }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));
@@ -1419,10 +1464,22 @@ const server = http.createServer(async (req, res) => {
       let body = '';
       req.on('data', c => body += c);
       req.on('end', async () => {
-        const { enabled } = JSON.parse(body || '{}');
-        const state = await toggleShare(enabled, cwd);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(state));
+        // BH-16: malformed JSON used to throw inside an async handler,
+        // turning into an unhandled rejection and hanging the request.
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'invalid JSON' }));
+        }
+        try {
+          const state = await toggleShare(parsed.enabled, cwd);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(state));
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
       });
       return;
     }
@@ -1434,7 +1491,13 @@ const server = http.createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
-      const parsed = JSON.parse(body || '{}');
+      // BH-16: tolerate malformed JSON.
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); }
+      catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'invalid JSON' }));
+      }
       const { action, reason } = parsed;
       // Allow project override via body (fallback when ?project= not in URL)
       const gateCwd = parsed.project ? resolveProjectCwd(parsed.project) : cwd;
