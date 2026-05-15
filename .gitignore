@@ -93,4 +93,7 @@ tests/eval/*.csv
 tests/eval/test_*.py
 # tracked: tests/eval/EVAL-*.md (reference templates shipped with the plugin)
 docs/marketing/
+# Marketing pipeline — moved to private avelikiy/great_cto-site repo.
+# Never commit marketing/ contents to this public repo.
+marketing/
 scripts/hashnode-publish.mjs
