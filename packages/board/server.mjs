@@ -740,12 +740,19 @@ function getMetrics(cwd = process.cwd()) {
   const doneThisWeek = done.filter(t => t.closed_at && (now - new Date(t.closed_at).getTime()) < week);
   const doneThisMonth = done.filter(t => t.closed_at && (now - new Date(t.closed_at).getTime()) < 30 * 24 * 60 * 60 * 1000);
 
-  // Avg completion time (ms)
+  // Cycle time (median, last 30 days, cap individual cycles at 30 days).
+  // Previously: arithmetic mean over ALL tasks ever, no cap — stuck tasks
+  // (created months earlier, finally closed) pulled the average into the
+  // tens of thousands of minutes. Median + 30d cap matches how the cost
+  // tile bounds cycles ([server.mjs:816](server.mjs:816)).
+  const cycleCap = 30 * 86400_000;
   const completionTimes = done
-    .filter(t => t.created_at && t.closed_at)
-    .map(t => new Date(t.closed_at).getTime() - new Date(t.created_at).getTime());
-  const avgCompletionMs = completionTimes.length
-    ? completionTimes.reduce((a, b) => a + b, 0) / completionTimes.length
+    .filter(t => t.created_at && t.closed_at && (now - new Date(t.closed_at).getTime()) < cycleCap)
+    .map(t => new Date(t.closed_at).getTime() - new Date(t.created_at).getTime())
+    .filter(ms => ms > 0 && ms < cycleCap)
+    .sort((a, b) => a - b);
+  const medianCompletionMs = completionTimes.length
+    ? completionTimes[Math.floor(completionTimes.length / 2)]
     : 0;
 
   // Verdicts (global verdicts log lives in ~/.great_cto/verdicts/)
@@ -807,13 +814,19 @@ function getMetrics(cwd = process.cwd()) {
   const HUMAN_RATE_PER_HR = parseFloat(process.env.GREATCTO_HUMAN_RATE_PER_HR || '150');
   const LLM_RATE_PER_HR   = parseFloat(process.env.GREATCTO_LLM_RATE_PER_HR || '0.30');
   const DEFAULT_TASK_MIN  = 30;  // fallback when no timing data
+  // Window: count only tasks closed in the last 30 days (or still in progress).
+  // Previously: lifetime — produced LLM-spend tile ($1749) wildly out of step
+  // with the "Last 30 days" panel ($6.42) shown directly below it. Now both
+  // sit on the same 30-day window so the dashboard numbers reconcile.
+  const costWindowMs = 30 * 86400_000;
   const agentCostMap = {};
   for (const t of tasks) {
     if (!t.agent) continue;
+    if (t.closed_at && (now - new Date(t.closed_at).getTime()) > costWindowMs) continue;
     let mins = 0;
     if (t.created_at && t.closed_at) {
       const ms = new Date(t.closed_at).getTime() - new Date(t.created_at).getTime();
-      if (ms > 0 && ms < 30 * 86400_000) mins = ms / 60000;
+      if (ms > 0 && ms < costWindowMs) mins = ms / 60000;
     }
     if (!mins) mins = t.estimated_minutes || DEFAULT_TASK_MIN;
     const llmCost   = mins / 60 * LLM_RATE_PER_HR;
@@ -873,10 +886,17 @@ function getMetrics(cwd = process.cwd()) {
   if (costData.llm_usd > 0 || costData.human_usd > 0) {
     cost = { ...costData, real_llm_usd: verdictLlmTotal > 0 ? Math.round(verdictLlmTotal * 10000) / 10000 : null };
   } else if (taskLlmTotal > 0) {
+    // savings_x intentionally NULL for source='tasks': it would always equal
+    // HUMAN_RATE_PER_HR / LLM_RATE_PER_HR (e.g. 500) because both legs share
+    // the same task-minute base. That's the rate ratio, not measured savings —
+    // putting it on a dashboard tile misleads. Only plans/verdicts have an
+    // independent human number worth comparing.
     cost = {
       llm_usd:   Math.round(taskLlmTotal   * 100) / 100,
       human_usd: Math.round(taskHumanTotal),
-      savings_x: Math.round(taskHumanTotal / taskLlmTotal),
+      savings_x: null,
+      rate_ratio: Math.round(HUMAN_RATE_PER_HR / LLM_RATE_PER_HR),
+      window_days: 30,
       count:     0,
       source:    'tasks',
       real_llm_usd: verdictLlmTotal > 0 ? Math.round(verdictLlmTotal * 10000) / 10000 : null,
@@ -901,7 +921,8 @@ function getMetrics(cwd = process.cwd()) {
   return {
     tasks: { total: tasks.length, done: done.length, in_progress: inProgress.length, backlog: backlog.length },
     velocity: { this_week: doneThisWeek.length, this_month: doneThisMonth.length },
-    avg_completion_min: Math.round(avgCompletionMs / 60000),
+    avg_completion_min: Math.round(medianCompletionMs / 60000),
+    cycle_time_stat: 'median_30d',
     cost,
     qa: qaStats,
     security: secStats,
