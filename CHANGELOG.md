@@ -4,6 +4,83 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.8.3 — 2026-05-15
+
+### 10 production bug fixes + monitoring observability
+
+All discovered via systematic bug-hunting of the live admin board. Each
+has a regression test. No breaking changes.
+
+**Server hardening (BH-3 through BH-16)**
+
+- **BH-3**: `unknown` agent (15 runs) no longer dominates `/api/metrics`.
+  Non-canonical verdict logs (`backend.log`, `frontend.log`, etc.) now
+  bucketed separately into `legacy_agent_runs` so real specialists
+  (`architect: 8`) become the top entry, as intended.
+- **BH-4**: `/api/cost?days=999` clamped to 365 (was 1000 buckets,
+  memory bloat); `?days=abc` / `?days=-5` fall back to 30. Same pattern
+  applied to `/api/decisions?limit`.
+- **BH-5**: `?project=<unknown>` now sets explicit
+  `X-Project-Fallback: requested='<slug>' served='cwd'` response
+  header. Previously silent fallback meant users couldn't tell if they
+  were viewing the right project's data.
+- **BH-6/7/8**: `POST /api/tasks` validates input — invalid JSON → 400
+  (was 500), title > 500 chars → 400 (was 500 from bd argv overflow),
+  `priority=99` → 400 (was 200 silently ignored, hiding typos like
+  `priority: 11` meant for `P1`).
+- **BH-10**: 5 `bd` write spawnSync calls now have `timeout: 5000ms`.
+  Previously a hung `bd` blocked the server thread indefinitely.
+- **BH-12**: serialised all `bd` writes through `bdWriteSerialised()`
+  promise queue. Concurrent writes used to deadlock on stale
+  `.beads/.lock`; now 10 parallel POSTs succeed cleanly.
+- **BH-14**: `/status`, `/priority`, `/gates` endpoints now catch
+  JSON.parse errors → 400 (was 500). Structured error bodies (`error`,
+  `received`, `message` fields).
+- **BH-16**: concurrent `approve+reject` on the same gate no longer
+  double-writes `decisions.md` (audit log corruption). Wrapped in
+  `bdWriteSerialised`.
+
+**Cost dashboard cleanup**
+
+- Metrics + report use 30-day windows (was inconsistent: 7d sometimes,
+  all-time elsewhere).
+- Suppressed tautological "savings" when LLM cost equals human cost
+  (no actual savings to report).
+- Dropped global-verdict fallback in `getMetrics()` that produced
+  cross-project pollution.
+
+**Observability**
+
+- New `/api/metrics.server.{sse_clients, bd_cache_entries}` counters.
+- `X-Project-Resolved` response header (`'cwd' | 'path' | 'slug' |
+  'fallback'`) exposes routing decisions on the wire.
+- New `docs/operations/MONITORING.md` — diagnostic recipes, healthy
+  ranges, stale-lock recovery procedure.
+
+**Frontend — clickable resume rows (PR #34, already in 2.8.2)**
+
+(No additional UI changes in this release.)
+
+**Test pyramid**
+
+- 51 automated tests (was 45 in v2.8.2) — +6 BH regression cases.
+- 36 archetype detection fixtures + 456 pack assertions still pass.
+- **543 verified contracts total.**
+
+### Upgrade
+
+```bash
+npx great-cto@2.8.3 init     # new install
+# or
+npx great-cto@latest init    # if you typically pin to latest
+```
+
+Restart Claude Code afterwards. The board's `X-Project-Fallback` header
++ `legacy_agent_runs` field are additive; existing clients see no
+breaking change.
+
+---
+
 ## v2.8.2 — 2026-05-14
 
 ### Board UX + new `/board` slash command
