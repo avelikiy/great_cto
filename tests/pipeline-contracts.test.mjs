@@ -688,6 +688,88 @@ test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', asy
   }
 });
 
+// ── BH-14: /api/tasks/<id>/status validation ───────────────────────────────
+
+test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', async () => {
+  // Pre-fix: invalid JSON in body → 500 (parser exception in catch).
+  //          missing/null/invalid status → 400 (already correct).
+  // Post-fix: invalid JSON → 400 with error='invalid_json'.
+
+  const bdProbe = spawnSync('bd', ['--version'], { encoding: 'utf8' });
+  if (bdProbe.status !== 0) return; // skip when bd unavailable
+
+  const home = mkdtempSync(join(tmpdir(), 'bh14-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh14-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+    spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8', timeout: 5000 });
+
+    const port = 35500 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      // Create a task to update later
+      const createRes = await fetch(`http://127.0.0.1:${port}/api/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'BH-14 status update probe' }),
+      });
+      const taskId = (await createRes.json()).id;
+      assert.ok(taskId, 'precondition: task creation must succeed');
+
+      const post = async (body) =>
+        fetch(`http://127.0.0.1:${port}/api/tasks/${taskId}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+
+      // Bad JSON → 400 with error=invalid_json
+      const r1 = await post('not-valid-json{');
+      assert.equal(r1.status, 400, 'bad JSON should yield 400');
+      const e1 = await r1.json();
+      assert.equal(e1.error, 'invalid_json', `expected error=invalid_json, got '${e1.error}'`);
+
+      // Invalid status → 400 with error=invalid_status
+      const r2 = await post(JSON.stringify({ status: 'frobnicated' }));
+      assert.equal(r2.status, 400, 'invalid status should yield 400');
+      const e2 = await r2.json();
+      assert.equal(e2.error, 'invalid_status', `expected error=invalid_status, got '${e2.error}'`);
+
+      // Empty status → 400
+      const r3 = await post(JSON.stringify({ status: '' }));
+      assert.equal(r3.status, 400, 'empty status should yield 400');
+
+      // Valid status → 200
+      const r4 = await post(JSON.stringify({ status: 'in_progress' }));
+      assert.equal(r4.status, 200, `valid status should yield 200, got ${r4.status}`);
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
 test('X1 TDD: senior-dev RED → GREEN cycle works on a tiny stub', async () => {
   // We don't drive a real LLM here (that's X6/multi-archetype). Instead,
   // verify the TDD-cycle scaffolding works: scenario where impl is missing
