@@ -584,6 +584,110 @@ test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', asy
   }
 });
 
+// ── BH-5: project resolution headers ────────────────────────────────────────
+
+test('BH-5: X-Project-Resolved + X-Project-Fallback headers explain routing', async () => {
+  // Pre-fix: ?project=<unknown> silently returned cwd's data — user
+  // couldn't tell projectX-data from projectY-data on the wire.
+  // Now: response headers explicitly disclose resolution path.
+
+  const home = mkdtempSync(join(tmpdir(), 'bh5-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh5-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+
+    const port = 35100 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      // No project param → resolved=cwd
+      const r1 = await fetch(`http://127.0.0.1:${port}/api/inbox`);
+      assert.equal(r1.headers.get('x-project-resolved'), 'cwd',
+        `no project param should yield resolved=cwd, got '${r1.headers.get('x-project-resolved')}'`);
+
+      // Unknown project slug → resolved=fallback + X-Project-Fallback present
+      const r2 = await fetch(`http://127.0.0.1:${port}/api/inbox?project=nonexistent-xyz`);
+      assert.equal(r2.headers.get('x-project-resolved'), 'fallback',
+        `unknown slug should yield resolved=fallback`);
+      const fallback = r2.headers.get('x-project-fallback');
+      assert.ok(fallback && fallback.includes('nonexistent-xyz'),
+        `X-Project-Fallback should mention requested slug, got '${fallback}'`);
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+// ── BH-13: observability — sseClients counter surfaced ──────────────────────
+
+test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', async () => {
+  // Observability hook so users (and monitoring) can spot SSE leaks.
+
+  const home = mkdtempSync(join(tmpdir(), 'bh13-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'bh13-proj-'));
+  try {
+    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto'), { recursive: true });
+    writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+
+    const port = 35300 + Math.floor(Math.random() * 100);
+    const board = spawn('node', [
+      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      'board', '--port', String(port), '--no-open',
+    ], {
+      cwd: project, env: { ...process.env, HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    });
+
+    try {
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
+          if (r.ok || r.status === 404) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      const r = await (await fetch(`http://127.0.0.1:${port}/api/metrics`)).json();
+      assert.ok(r.server, '/api/metrics should include "server" observability section');
+      assert.equal(typeof r.server.sse_clients, 'number',
+        'server.sse_clients must be a number');
+      assert.equal(typeof r.server.bd_cache_entries, 'number',
+        'server.bd_cache_entries must be a number');
+      assert.ok(r.server.sse_clients >= 0,
+        'sse_clients should be >= 0');
+    } finally {
+      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
+      try { board.kill('SIGKILL'); } catch {}
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
 test('X1 TDD: senior-dev RED → GREEN cycle works on a tiny stub', async () => {
   // We don't drive a real LLM here (that's X6/multi-archetype). Instead,
   // verify the TDD-cycle scaffolding works: scenario where impl is missing
