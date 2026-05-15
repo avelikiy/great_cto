@@ -216,6 +216,31 @@ function resolveProjectCwd(slugOrPath) {
   return found ? found.path : process.cwd();
 }
 
+/**
+ * Same as resolveProjectCwd but returns { cwd, resolved, fallback? } so
+ * callers know whether resolution was authoritative or fell back to the
+ * server's working directory. Used by HTTP handlers to set an explicit
+ * `X-Project-Fallback` response header (BH-5 fix, 2026-05-15).
+ *
+ * resolved values:
+ *   'cwd'      — no project param passed; using server cwd as documented
+ *   'path'     — absolute / tilde path passed and used directly
+ *   'slug'     — slug found in registry
+ *   'fallback' — slug requested but NOT in registry; using cwd as fallback.
+ *                Caller should warn the user (header + log).
+ */
+function resolveProjectInfo(slugOrPath) {
+  if (!slugOrPath) return { cwd: process.cwd(), resolved: 'cwd' };
+  if (slugOrPath.startsWith('/')) return { cwd: slugOrPath, resolved: 'path' };
+  if (slugOrPath.startsWith('~')) {
+    return { cwd: slugOrPath.replace(/^~/, os.homedir()), resolved: 'path' };
+  }
+  const reg = readProjectsRegistry();
+  const found = reg.projects.find(p => p.slug === slugOrPath);
+  if (found) return { cwd: found.path, resolved: 'slug' };
+  return { cwd: process.cwd(), resolved: 'fallback', requested: slugOrPath };
+}
+
 // ── SSE clients ────────────────────────────────────────────────────────────────
 const sseClients = new Set();
 
@@ -553,6 +578,28 @@ function checkBeadsAvailable(cwd) {
   };
 }
 
+// ── bd write serialisation (BH-12, 2026-05-15) ─────────────────────────────
+//
+// bd uses Dolt-embedded DB with file-level locking. Concurrent `bd create`
+// or `bd update` calls compete for the lock; if one crashes mid-write, it
+// leaves a stale `.beads/.lock` that blocks ALL subsequent operations
+// until manually removed.
+//
+// Server-level fix: serialise bd write operations through this single
+// promise chain. Reads (`bd list`) are unaffected — Dolt's read path
+// doesn't take the write lock.
+//
+// Adds ~100ms per write under burst load; no-op under normal usage.
+let _bdWriteChain = Promise.resolve();
+function bdWriteSerialised(fn) {
+  const next = _bdWriteChain.then(() => fn()).catch((e) => {
+    console.error('[bd-write-serialised] error:', e?.message || e);
+    return null;
+  });
+  _bdWriteChain = next.then(() => undefined).catch(() => undefined);
+  return next;
+}
+
 function bdList(cwd = process.cwd()) {
   const cached = bdCache.get(cwd);
   if (cached && Date.now() - cached.ts < BD_CACHE_TTL_MS) return cached.data;
@@ -864,6 +911,12 @@ function getMetrics(cwd = process.cwd()) {
     legacy_agent_count: legacyAgentCount,
     verdicts: verdicts.slice(-20),
     recent_done: done.slice(-10).reverse(),
+    // Observability counters (BH-13, 2026-05-15): surface internal queues
+    // so users + monitoring can spot leaks / runaway state.
+    server: {
+      sse_clients: sseClients.size,
+      bd_cache_entries: bdCache.size,
+    },
   };
 }
 
@@ -1254,10 +1307,23 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
   const proj = url.searchParams.get('project');
-  const cwd = resolveProjectCwd(proj);
+  // BH-5 fix: surface project resolution as a response header. Previously
+  // ?project=<unknown> silently returned cwd's data — user thought they
+  // were viewing projectX but saw projectY. Now: X-Project-Fallback header
+  // tells the client what happened.
+  const projInfo = resolveProjectInfo(proj);
+  const cwd = projInfo.cwd;
+  if (projInfo.resolved === 'fallback') {
+    res.setHeader('X-Project-Fallback', `requested='${projInfo.requested}' served='cwd'`);
+    res.setHeader('X-Project-Resolved', 'fallback');
+  } else {
+    res.setHeader('X-Project-Resolved', projInfo.resolved);
+  }
 
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
+  // Expose our debug headers to browsers (CORS hides custom headers by default)
+  res.setHeader('Access-Control-Expose-Headers', 'X-Project-Fallback, X-Project-Resolved');
 
   // SSE
   if (pathname === '/api/sse') {
@@ -1366,7 +1432,7 @@ const server = http.createServer(async (req, res) => {
         const status = action === 'approve' ? 'closed' : 'blocked';
         const args = ['update', id, '--status', status];
         if (reason) args.push('--notes', `[${action}] ${reason}`);
-        const r = spawnSync('bd', args, { cwd: gateCwd, encoding: 'utf8' });
+        const r = spawnSync('bd', args, { cwd: gateCwd, encoding: 'utf8', timeout: 5000 });
         if (r.status !== 0) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
@@ -1468,7 +1534,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/tasks' && req.method === 'POST') {
     let body = '';
     req.on('data', c => body += c);
-    req.on('end', () => {
+    req.on('end', async () => {
       // Validation hardening (2026-05-15): bug-hunt found 3 ways to crash this
       // endpoint or silently drop bad input:
       //   - invalid JSON body → 500 (parser exception in catch → 500)
@@ -1524,34 +1590,40 @@ const server = http.createServer(async (req, res) => {
         if (description) args.push('-d', description);
         if (priority != null && priority >= 0 && priority <= 3) args.push('--priority', `P${priority}`);
 
-        const r = spawnSync('bd', args, { cwd, encoding: 'utf8' });
-        if (r.status !== 0) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: r.stderr || 'bd create failed' }));
-          return;
-        }
-        // Extract created issue id
-        const idMatch = (r.stdout || '').match(/Created issue:\s*(\S+)/);
-        const id = idMatch ? idMatch[1] : null;
+        // BH-12 fix: serialise bd writes through global write chain.
+        // Concurrent POST /api/tasks calls used to race on bd's file lock —
+        // one crash would leave a stale .beads/.lock that froze ALL writes.
+        const result = await bdWriteSerialised(() => {
+          const r = spawnSync('bd', args, { cwd, encoding: 'utf8', timeout: 5000 });
+          if (r.status !== 0) return { error: r.stderr || 'bd create failed' };
+          const idMatch = (r.stdout || '').match(/Created issue:\s*(\S+)/);
+          const id = idMatch ? idMatch[1] : null;
 
-        // Apply optional labels and agent (assignee) if provided
-        if (id) {
-          const updateArgs = ['update', id];
-          let needUpdate = false;
-          if (agent) { updateArgs.push('--assignee', agent); needUpdate = true; }
-          const lbls = Array.isArray(labels) ? labels : (labels ? [labels] : []);
-          for (const lbl of lbls) {
-            if (lbl) { updateArgs.push('--add-label', lbl); needUpdate = true; }
+          // Apply optional labels + agent within the same lock window
+          if (id) {
+            const updateArgs = ['update', id];
+            let needUpdate = false;
+            if (agent) { updateArgs.push('--assignee', agent); needUpdate = true; }
+            const lbls = Array.isArray(labels) ? labels : (labels ? [labels] : []);
+            for (const lbl of lbls) {
+              if (lbl) { updateArgs.push('--add-label', lbl); needUpdate = true; }
+            }
+            if (agent && !lbls.includes(agent)) { updateArgs.push('--add-label', agent); needUpdate = true; }
+            if (needUpdate) spawnSync('bd', updateArgs, { cwd, encoding: 'utf8', timeout: 5000 });
           }
-          // If agent is provided also add it as a label so the pipeline picks it up
-          if (agent && !lbls.includes(agent)) { updateArgs.push('--add-label', agent); needUpdate = true; }
-          if (needUpdate) spawnSync('bd', updateArgs, { cwd, encoding: 'utf8' });
+          return { id };
+        });
+
+        if (!result || result.error) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (result && result.error) || 'bd create failed' }));
+          return;
         }
 
         bdCacheInvalidate(cwd);
         broadcastTasks(cwd);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, id }));
+        res.end(JSON.stringify({ ok: true, id: result.id }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: String(e.message || e) }));
@@ -1574,7 +1646,7 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: 'invalid status' }));
           return;
         }
-        const r = spawnSync('bd', ['update', id, '--status', status], { cwd, encoding: 'utf8' });
+        const r = spawnSync('bd', ['update', id, '--status', status], { cwd, encoding: 'utf8', timeout: 5000 });
         if (r.status !== 0) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
@@ -1605,7 +1677,7 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: 'invalid priority' }));
           return;
         }
-        const r = spawnSync('bd', ['update', id, '--priority', String(priority)], { cwd, encoding: 'utf8' });
+        const r = spawnSync('bd', ['update', id, '--priority', String(priority)], { cwd, encoding: 'utf8', timeout: 5000 });
         if (r.status !== 0) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: r.stderr || 'bd update failed' }));
