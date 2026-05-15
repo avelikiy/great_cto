@@ -97,15 +97,10 @@ const listJson = execSync(`cd ${ROOT} && bd list --json --all`, { encoding: "utf
 const issues = JSON.parse(listJson);
 console.log(`[seed-demo] created ${issues.length} issues`);
 
-// Close all tasks with backdated timestamps
+// Close all tasks (bd close transitions to 'closed' which the board treats as done)
 for (let i = 0; i < issues.length; i++) {
   const issue = issues[i];
-  const meta = TASKS[i];
-  const closedAt = new Date(Date.now() - meta.days_ago * 86400_000);
-  const createdAt = new Date(closedAt.getTime() - meta.dur_h * 3600_000);
-  execSync(`cd ${ROOT} && bd update ${issue.id} --status done 2>&1 | tail -1`, { stdio: "pipe" });
-  // bd doesn't expose direct closed_at backdating via CLI; rely on update timestamp.
-  // For the AI-time display, the share renderer can fall back to plan estimates.
+  execSync(`cd ${ROOT} && bd close ${issue.id} 2>&1 | tail -1`, { stdio: "pipe" });
 }
 
 // --- verdicts log -------------------------------------------------------
