@@ -3085,33 +3085,43 @@ async function updateTaskPriority(id, priority) {
 function renderDashboard(m) {
   const llmUsd = m.cost?.llm_usd ?? 0;
   const humanUsd = m.cost?.human_usd ?? 0;
-  const savingsX = m.cost?.savings_x ?? 0;
+  const savingsX = m.cost?.savings_x;
+  const rateRatio = m.cost?.rate_ratio;
   const done = m.tasks?.done ?? 0;
   const avgMin = m.avg_completion_min ?? 0;
+  const cycleStat = m.cycle_time_stat === 'median_30d' ? 'Median cycle (30d)' : 'Avg cycle time';
 
   const fromTasks = m.cost?.source === 'tasks';
+  const windowDays = m.cost?.window_days;
+  const llmTrend = humanUsd > 0
+    ? `vs humans: $${fmtMoney(humanUsd)}${fromTasks ? ` (est. from tasks · ${windowDays ?? 30}d)` : ''}`
+    : 'no plans or tasks yet';
   const hero = [
     { v: done || '—', sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
     {
       v: llmUsd > 0 ? `$${llmUsd.toFixed(2)}` : '—',
       sub: '',
       label: 'LLM spend',
-      trend: humanUsd > 0
-        ? `vs humans: $${fmtMoney(humanUsd)}${fromTasks ? ' (est. from tasks)' : ''}`
-        : 'no plans or tasks yet',
+      trend: llmTrend,
       cls: 'amber',
     },
-    {
-      v: savingsX > 0 ? savingsX : '—',
-      sub: savingsX > 0 ? '×' : '',
-      label: 'Cost savings vs FTE',
-      trend: savingsX > 0
-        ? (fromTasks
-            ? `${savingsX}× faster, est. at $0.30/AI-hr · $150/human-hr`
-            : `${savingsX}× cheaper (from PLAN-*.md figures)`)
-        : 'add docs/plans/PLAN-*.md for precise figures',
-      cls: 'green',
-    },
+    (savingsX != null && savingsX > 0)
+      ? {
+          v: savingsX,
+          sub: '×',
+          label: 'Cost savings vs FTE',
+          trend: `${savingsX}× cheaper (from PLAN-*.md figures)`,
+          cls: 'green',
+        }
+      : {
+          v: '—',
+          sub: '',
+          label: 'Cost savings vs FTE',
+          trend: fromTasks && rateRatio
+            ? `rate ratio ${rateRatio}× (no measured savings — add docs/plans/PLAN-*.md)`
+            : 'add docs/plans/PLAN-*.md for precise figures',
+          cls: '',
+        },
   ];
   document.getElementById('mp-hero').innerHTML = hero.map(s => `
     <div class="metric-card ${s.cls || ''}">
@@ -3121,7 +3131,7 @@ function renderDashboard(m) {
     </div>`).join('');
 
   const secondary = [
-    { v: avgMin ? `${avgMin}` : '—', sub: avgMin ? 'm' : '', label: 'Avg cycle time' },
+    { v: avgMin ? `${avgMin}` : '—', sub: avgMin ? 'm' : '', label: cycleStat },
     { v: m.qa?.pass_rate != null ? m.qa.pass_rate : '—', sub: m.qa?.pass_rate != null ? '%' : '', label: m.qa?.pass_rate != null ? 'QA pass rate' : 'QA — run /qa', cls: 'green' },
     { v: m.security?.blocked ?? 0, sub: '', label: 'Open security blocks', cls: m.security?.blocked ? 'red' : 'green' },
     { v: m.tasks?.in_progress ?? 0, sub: '', label: 'In progress', cls: 'amber' },

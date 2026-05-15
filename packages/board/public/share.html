@@ -589,7 +589,12 @@ if (paused) {
   // Use whichever cost source has data
   const effectiveLlmUsd   = llmUsd   > 0 ? llmUsd   : totalLlmFromAgents;
   const effectiveHumanUsd = humanUsd > 0 ? humanUsd : totalHumanFromAgents;
-  const effectiveSavings  = effectiveLlmUsd > 0 && effectiveHumanUsd > 0
+  // Skip the savings ratio when source='tasks': both legs share the same
+  // task-minute base, so the ratio is just HUMAN_RATE/LLM_RATE (e.g. 500×) —
+  // a rate-config readout, not measured savings. Only show for plans/verdicts
+  // where human cost is an independent number.
+  const savingsTrustworthy = m.cost?.source && m.cost.source !== 'tasks';
+  const effectiveSavings  = savingsTrustworthy && effectiveLlmUsd > 0 && effectiveHumanUsd > 0
     ? (effectiveHumanUsd / effectiveLlmUsd).toFixed(0) + '×' : null;
   const effectiveAiH = totalAiMin > 0 ? totalAiMin / 60 : totalTimeMin / 60;
 
@@ -829,18 +834,6 @@ if (paused) {
               <span class="agent-human">$${agentsCost.reduce((s,a)=>s+a.human_usd,0).toFixed(0)}</span>
               <span class="agent-tasks">${agentsCost.reduce((s,a)=>s+a.tasks_done,0)}/${agentsCost.reduce((s,a)=>s+a.tasks_total,0)}</span>
             </div>
-          </div>` : agentList.length ? `
-          <div class="section-label">Who did the work</div>
-          <div class="agent-list">
-            ${agentList.map(([name, count]) => {
-              const pct = totalAgentRuns > 0 ? (count / totalAgentRuns) * 100 : 0;
-              return `
-                <div class="agent-row">
-                  <span class="agent-name">✱ ${esc(name)}</span>
-                  <span class="agent-rail"><span class="agent-fill" style="width:${pct.toFixed(0)}%"></span></span>
-                  <span class="agent-count">${count} verdict${count === 1 ? '' : 's'}</span>
-                </div>`;
-            }).join('')}
           </div>` : ''}
 
         <div class="trust-foot">
