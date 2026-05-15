@@ -1,0 +1,46 @@
+name: ✨ Feature request
+description: Suggest a new archetype, reviewer agent, stack adapter, or capability
+title: "[feat] "
+labels: [feature-request, needs-triage]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of feature
+      options:
+        - New archetype (e.g. crypto-defi, voice-ai)
+        - New domain reviewer (e.g. FDA SaMD, robotics safety)
+        - New stack adapter (e.g. Gemini CLI, OpenCode)
+        - New skill (reusable agent behavior)
+        - New board feature (dashboard / metrics / API)
+        - i18n locale
+        - Other (specify below)
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete user problem does this solve? Don't describe the solution — describe the pain.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: One paragraph. Reference the CONTRIBUTING.md pattern if applicable (e.g. "follows pattern 2 — new domain reviewer").
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider? Why did you reject them?
+  - type: checkboxes
+    id: willingness
+    attributes:
+      label: Willing to implement?
+      options:
+        - label: I'd like to submit a PR for this
+        - label: I can review someone else's PR
+        - label: Asking for someone else to implement
