@@ -1,0 +1,62 @@
+name: 🐛 Bug report
+description: Something doesn't work as documented
+title: "[bug] "
+labels: [bug, needs-triage]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: great_cto version
+      description: Run `great-cto --version`
+      placeholder: "2.8.3"
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Coding-agent CLI you're using
+      multiple: false
+      options:
+        - Claude Code
+        - OpenAI Codex CLI
+        - Cursor Agent
+        - Aider
+        - Continue
+        - Cline
+        - other (specify below)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS + Node version
+      description: e.g. macOS 15.1 + Node 22.10
+      placeholder: "macOS 15.1 + Node 22.10"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproducer
+      description: 3-5 shell commands from a fresh shell that get to the failure
+      placeholder: |
+        npx great-cto init
+        cd test-project
+        great-cto board --no-open
+        # error happens here
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: What did you expect? What actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste the relevant log output (last ~30 lines). Redact tokens / paths if sensitive.
+      render: text

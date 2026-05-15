@@ -1679,7 +1679,7 @@ button { font-family: inherit; cursor: pointer; }
       <div class="proj-menu" id="proj-menu" onclick="event.stopPropagation()">
         <div class="proj-menu-search">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input id="proj-search" type="text" placeholder="Filter projects…" oninput="renderProjMenu(this.value)" />
+          <input id="proj-search" type="text" placeholder="Filter projects…" aria-label="Filter projects" oninput="renderProjMenu(this.value)" />
         </div>
         <div id="proj-menu-list"></div>
       </div>
@@ -1740,7 +1740,7 @@ button { font-family: inherit; cursor: pointer; }
       </div>
       <div class="search-box">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input id="search-input" type="text" placeholder="Search tasks, agents, labels…" oninput="onSearch(this.value)" />
+        <input id="search-input" type="text" placeholder="Search tasks, agents, labels…" aria-label="Search tasks, agents, and labels" oninput="onSearch(this.value)" />
         <kbd>⌘K</kbd>
       </div>
       <div class="topbar-actions">
@@ -2162,7 +2162,8 @@ function showVerdictDetail(idx) {
   modal.id = 'resume-detail-modal';
   modal.innerHTML = `
     <div class="rdm-backdrop" onclick="document.getElementById('resume-detail-modal').remove()"></div>
-    <div class="rdm-card" role="dialog" aria-modal="true">
+    <div class="rdm-card" role="dialog" aria-modal="true" aria-labelledby="rdm-title-verdict">
+      <h2 id="rdm-title-verdict" class="sr-only" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">Verdict detail: ${esc(v.agent || 'agent')} ${esc(v.verdict || '')}</h2>
       <div class="rdm-head">
         <span class="ri-tag ${cls}">${esc(v.agent || 'agent')}</span>
         <span class="rdm-verdict ${cls}">${esc(v.verdict || '')}</span>
@@ -2196,7 +2197,8 @@ function showDecisionDetail(d) {
   modal.id = 'resume-detail-modal';
   modal.innerHTML = `
     <div class="rdm-backdrop" onclick="document.getElementById('resume-detail-modal').remove()"></div>
-    <div class="rdm-card" role="dialog" aria-modal="true">
+    <div class="rdm-card" role="dialog" aria-modal="true" aria-labelledby="rdm-title-decision">
+      <h2 id="rdm-title-decision" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">Decision detail: ${esc(d.title || d.verdict)}</h2>
       <div class="rdm-head">
         <span class="ri-tag ${cls}">${esc(d.verdict)}</span>
         <span class="rdm-agent">${esc(d.title || '(untitled)')}</span>
@@ -2207,6 +2209,14 @@ function showDecisionDetail(d) {
     </div>
   `;
   document.body.appendChild(modal);
+  // BH-A3: Esc-to-close was advertised in the footer but never wired up.
+  const closeOnEsc = (e) => {
+    if (e.key === 'Escape') {
+      modal.remove();
+      document.removeEventListener('keydown', closeOnEsc);
+    }
+  };
+  document.addEventListener('keydown', closeOnEsc);
 }
 
 function openSideById(id) {
