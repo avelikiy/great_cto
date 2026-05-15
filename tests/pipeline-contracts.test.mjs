@@ -884,3 +884,38 @@ test('X1 TDD: senior-dev RED → GREEN cycle works on a tiny stub', async () => 
     rmSync(project, { recursive: true, force: true });
   }
 });
+
+test('BH-C1: CLI rejects unknown commands with exit code 2', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { resolve } = await import('node:path');
+  const cli = resolve(import.meta.dirname || new URL('.', import.meta.url).pathname, '..', 'packages/cli/dist/main.js');
+
+  // Unknown bareword
+  const r1 = spawnSync('node', [cli, 'frobnicated'], { encoding: 'utf8' });
+  assert.equal(r1.status, 2, `unknown bareword should exit 2, got ${r1.status}`);
+  assert.match(r1.stderr + r1.stdout, /unknown command/i);
+
+  // Unknown long flag
+  const r2 = spawnSync('node', [cli, '--foo'], { encoding: 'utf8' });
+  assert.equal(r2.status, 2, `unknown flag should exit 2, got ${r2.status}`);
+
+  // Known command (--help) still exit 0
+  const r3 = spawnSync('node', [cli, '--help'], { encoding: 'utf8' });
+  assert.equal(r3.status, 0, `--help should exit 0, got ${r3.status}`);
+});
+
+test('BH-C4: CLI --port=N form parses correctly', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { resolve } = await import('node:path');
+  const cli = resolve(import.meta.dirname || new URL('.', import.meta.url).pathname, '..', 'packages/cli/dist/main.js');
+
+  // Boot board with --port=N form, capture first line, then kill
+  const { spawn } = await import('node:child_process');
+  const proc = spawn('node', [cli, 'board', '--port=4455', '--no-open'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  proc.stdout.on('data', (b) => { stdout += b.toString(); });
+  proc.stderr.on('data', (b) => { stdout += b.toString(); });
+  await new Promise((r) => setTimeout(r, 2500));
+  proc.kill('SIGKILL');
+  assert.match(stdout, /:4455/, `--port=4455 should bind to 4455, got: ${stdout.slice(0, 200)}`);
+});
