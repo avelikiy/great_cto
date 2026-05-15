@@ -422,15 +422,39 @@ export async function runReport(args: ReportArgs): Promise<number> {
 export function parseReportArgs(rawArgv: string[], cwd: string): ReportArgs | null {
   const idx = rawArgv.indexOf("report");
   if (idx === -1) return null;
-  const type = rawArgv[idx + 1] as ReportType;
-  if (!["cost", "agents", "compliance"].includes(type)) {
-    console.error(`great-cto report: type must be cost|agents|compliance (got: ${type ?? "<missing>"})`);
+
+  // Accept both: positional `great-cto report cost`
+  //              flag form  `great-cto report --type cost`
+  //              flag eq    `great-cto report --type=cost`
+  // BH-26 (2026-05-15): previously only positional worked; --type=X failed
+  // with a misleading "got: --type=cost" error.
+  const flag = (n: string, def?: string): string | undefined => {
+    // --name=value form
+    const eq = rawArgv.find((a) => a.startsWith(`--${n}=`));
+    if (eq) return eq.slice(`--${n}=`.length);
+    // --name value form
+    const i = rawArgv.indexOf(`--${n}`);
+    if (i >= 0 && i < rawArgv.length - 1 && !rawArgv[i + 1].startsWith("-")) {
+      return rawArgv[i + 1];
+    }
+    return def;
+  };
+
+  // Prefer --type flag if provided, else positional arg after `report`.
+  let type = flag("type") as ReportType | undefined;
+  if (!type) {
+    const positional = rawArgv[idx + 1];
+    if (positional && !positional.startsWith("-")) type = positional as ReportType;
+  }
+
+  if (!type || !["cost", "agents", "compliance"].includes(type)) {
+    console.error(
+      `great-cto report: type must be cost|agents|compliance (got: ${type ?? "<missing>"})\n` +
+      `Usage: great-cto report <type> [--format html|json|md] [--period 30d] [--archetype X]\n` +
+      `       great-cto report --type <type>`
+    );
     return null;
   }
-  const flag = (n: string, def?: string) => {
-    const i = rawArgv.indexOf(`--${n}`);
-    return i >= 0 && i < rawArgv.length - 1 ? rawArgv[i + 1] : def;
-  };
   return {
     type,
     format: (flag("format", "html") as ReportFormat),
