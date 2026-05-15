@@ -4,6 +4,75 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.8.4 — 2026-05-15
+
+### 10 more bugs fixed (security + analytics) since v2.8.3
+
+Continued bug-hunting after v2.8.3. **2 Critical, 3 High, 5 Medium.**
+No breaking changes.
+
+**🔴 Critical (security)**
+
+- **Localhost CSRF on /api/projects/register** (BH-23, PR #43) —
+  `CORS: *` + text/plain simple-request let any web page register
+  attacker-controlled paths under HOME. Now: Origin check + path
+  must live inside HOME + 403 on bad origin.
+- **`{{PAUSED}}` literal placeholder shipped to share-report cloud
+  worker** (BH-22, PR #43) — SyntaxError if worker forgot to
+  post-process. Now: replaced at server before publish, never
+  serialised as literal.
+
+**🟠 High (data integrity)**
+
+- **Attribute-XSS via task titles** (BH-26, PR #43) — `esc()` didn't
+  escape `"` or `'`, so a malicious task title could break out of
+  `href="..."` / `title="..."` attributes. Now: esc() handles all
+  five HTML special chars.
+- **Silent 1000× cost truncation in PLAN-*.md parsing** (BH-25,
+  PR #43) — `.replace(',', '')` (no `/g` flag) silently turned
+  `"$1,234,567"` into `1234`. Cost reports under-reported by 3
+  orders of magnitude. Now: `/g` flag.
+- **/api/share crashed on malformed JSON** (BH-24, PR #43) — bare
+  `JSON.parse` in async handler caused unhandled rejection + hung
+  request. Now: catch → 400 with structured error (matches PR #40
+  pattern for /tasks, /status, /gates).
+
+**🟡 Medium**
+
+- **Resume render crashed on null verdict** (BH-27, PR #43) —
+  `d.verdict.toLowerCase()` lacked null guard. Now: safe-coerce.
+- **Gate tasks inflated velocity** (BH-28, PR #43) —
+  closed-gate tasks counted as "shipped tasks" in velocity tile.
+  Now: excluded from done.length / velocity counts.
+- **Dashboard hid actual verdict cost behind time-based estimate**
+  (BH-21, PR #44) — hero tile showed `$2.44` (estimate) but verdict
+  logs had `$6.42` (actual). Now: hero trend shows
+  `actual: $X.XX` when divergence > 10%.
+- **`velocity.this_week` misleading label** (BH-22, PR #44) — math
+  is rolling 7d/30d, not calendar week. Now: explicit `last_7d` /
+  `last_30d` keys; old aliases kept until v3.0.
+- **`great-cto report --type=X` rejected with misleading error**
+  (BH-26, PR #44) — only positional form worked. Now: positional +
+  `--type X` + `--type=X` all accepted.
+
+**Test pyramid**
+
+- 53 automated tests (was 51 in v2.8.3) — +2 BH-22/26 regressions.
+- 36 archetype detection fixtures + 456 pack assertions still pass.
+- **545 verified contracts total.**
+
+### Upgrade
+
+```bash
+npx great-cto@2.8.4 init
+```
+
+Restart Claude Code afterwards. No breaking changes; `velocity.last_7d`
+is additive; `esc()` enhancement only changes HTML output (no API
+surface).
+
+---
+
 ## v2.8.3 — 2026-05-15
 
 ### 10 production bug fixes + monitoring observability

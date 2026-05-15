@@ -35,7 +35,8 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "chat-only-hint";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "chat-only-hint" | "unknown";
+  unknownToken?: string;
   dir: string;
   positional: string[];
   yes: boolean;
@@ -76,6 +77,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--archetype") args.archetype = argv[++i] ?? null;
     else if (a === "--version-tag") args.version = argv[++i] ?? null;
     else if (a === "--port") args.boardPort = parseInt(argv[++i] ?? "3141", 10);
+    else if (a.startsWith("--port=")) args.boardPort = parseInt(a.slice("--port=".length), 10);
     else if (a === "--no-open") args.boardNoOpen = true;
     else if (a === "--use-llm") args.useLlm = true;
     else if (a === "--no-llm") args.noLlm = true;
@@ -107,6 +109,14 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
     else if (a === "init" || a === "help" || a === "version") {
       args.command = a as CliArgs["command"];
+    } else if (!a.startsWith("-") && args.command === "init" && i === 0) {
+      // First positional that isn't a recognised subcommand → unknown
+      args.command = "unknown";
+      args.unknownToken = a;
+    } else if (a.startsWith("--") && args.command === "init") {
+      // Unknown long flag in init position → unknown
+      args.command = "unknown";
+      args.unknownToken = a;
     } else rest.push(a);
   }
 
@@ -781,6 +791,13 @@ async function main(): Promise<void> {
   if (args.command === "help") {
     printHelp();
     process.exit(0);
+  }
+  if (args.command === "unknown") {
+    const tok = (args as CliArgs).unknownToken ?? "<arg>";
+    error(`great-cto: unknown command or flag '${tok}'`);
+    log("");
+    log(`Run ${cyan("great-cto --help")} for usage.`);
+    process.exit(2);
   }
   if (args.command === "scan") {
     try {

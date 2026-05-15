@@ -4,6 +4,8 @@
 
 **Solo-CTO mode. Stop being the only person who can ship.**
 
+**Local-first, open-source alternative to Devin / Cursor Background Agents / Claude Code for engineering teams** — except you bring your own coding agent (Claude Code · Codex · Cursor · Aider · Continue · Cline) and great_cto orchestrates **49 specialist agents** around it: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 26 archetype-specific reviewers.
+
 You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
 **Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
@@ -15,7 +17,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist age
 
 [Website](https://greatcto.systems) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
 
-[Русский](docs/ru/README.md) · [简体中文](docs/zh-CN/README.md) · [日本語](docs/ja/README.md) · [한국어](docs/ko/README.md) · [Español](docs/es/README.md)
+[Русский](docs/ru/README.md) · [简体中文](docs/zh-CN/README.md) · [繁體中文](docs/zh-TW/README.md) · [日本語](docs/ja/README.md) · [한국어](docs/ko/README.md) · [Español](docs/es/README.md) · [Português](docs/pt-BR/README.md) · [Deutsch](docs/de/README.md) · [Français](docs/fr/README.md)
 
 </div>
 
@@ -38,6 +40,24 @@ The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; 
 ```
 
 Architects, planners, reviewers, QA, security, DevOps run automatically between those two human checkpoints. **Memory persists** between sessions: every gate verdict appends to `~/.great_cto/decisions.md`, every retrospective appends to per-project `lessons.md`, and `/crystallize` promotes high-impact patterns to a global library agents query before re-solving.
+
+## How great_cto compares
+
+|  | **great_cto** | Devin | Cursor Background Agents | Aider | Cline | Claude Code (alone) |
+|---|---|---|---|---|---|---|
+| Open source | ✅ MIT | ❌ closed | ❌ closed | ✅ Apache-2.0 | ✅ Apache-2.0 | ❌ closed plugin model |
+| Self-host | ✅ runs locally | ❌ Cognition cloud | ❌ Cursor cloud | ✅ | ✅ | ✅ |
+| BYOK / multi-model | ✅ Claude · Codex · Cursor · Aider · Continue · Cline | ❌ proprietary | ⚠️ Cursor stack only | ✅ many | ✅ many | ❌ Anthropic only |
+| Specialist agents | **49** (architect · PM · 12-angle review · QA · security · devops · 26 archetype reviewers · 15 domain reviewers) | 1 generalist | 1 background loop | 1 chat loop | 1 chat loop | 1 generalist |
+| SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop | edit loop | edit loop | edit loop |
+| Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ none | ❌ | ❌ | ❌ |
+| Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only | ❌ | ⚠️ thread only | ⚠️ thread only |
+| Cost tracking | ✅ per-agent + 30d history + savings_x | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Compliance archetypes | ✅ 26 (fintech · healthcare · gov · clinical-AI + FDA SaMD · GLP · biosecurity · …) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Pricing | free (you pay your LLM provider) | $500/mo | $20/mo + Cursor sub | free | free | $20/mo |
+| Setup | `npx great-cto init` | sign up | Cursor + Slack | `pip install aider-chat` | VS Code extension | install CLI |
+
+great_cto is **not** another coding-agent loop — it's the **orchestration layer above** the coding agent you already use. Think "specialist team that reviews and gates the work" rather than "another assistant that types code."
 
 ## Quick install
 
