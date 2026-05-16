@@ -4,6 +4,81 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.9.0 — 2026-05-16
+
+### Telemetry opt-IN promo (aggressive but honest)
+
+Telemetry remains **opt-IN by default**. The change in this release is **how the
+question is asked**.
+
+**Before:** users could opt in via `GREAT_CTO_TELEMETRY=on` or by editing
+`~/.great_cto/telemetry.json` — but nothing in `init` told them this was
+possible. Total telemetry-opted-in users: 3.
+
+**Now:** at the end of a successful interactive `init`, we ask once, with a
+fully transparent preview of the exact payload that would be sent:
+
+```
+Help great_cto learn from how you use it?
+
+Anonymous usage data (default: off). Helps cross-project
+lessons promote to a global pattern library.
+
+Here is exactly what would be sent — one event per command:
+
+  {
+    "version": "2.9.0",
+    "command": "init",
+    "archetype": "fintech",
+    "node": "22.19.0",
+    "os": "darwin",
+    "exit_code": 0,
+    "duration_ms": 1234,
+    "anon_id": "852b0564"   // 8 hex chars, not reversible
+  }
+
+No code, no repo names, no file paths, no PII.
+Toggle anytime: npx great-cto telemetry off
+
+Enable anonymous telemetry? [y/N]
+```
+
+### Honest defaults
+
+- Default answer: **N**. The prompt makes opt-IN visible, not pre-checked.
+- The prompt **never re-asks**: once the user decides (yes OR no), the answer
+  is persisted to `~/.great_cto/telemetry.json` and we move on. No nag.
+- Skipped automatically when: `--yes`/`-y` flag, non-TTY, CI environment,
+  `DO_NOT_TRACK=1` set, or user previously decided either way.
+
+### Reversible
+
+```bash
+npx great-cto telemetry on       # opt in
+npx great-cto telemetry off      # opt out
+npx great-cto telemetry status   # check current state + endpoint + anon_id
+npx great-cto telemetry whoami   # print your 8-hex anon_id
+```
+
+Subcommand was already in `telemetry.ts` but not wired to the main dispatch
+table — fixed in this release.
+
+### Install-ping coverage
+
+When telemetry is enabled (either via the new prompt or via env var), every
+`init` run now fires one install-ping. Lets us count re-runs after upgrades
+toward WAU/MAU — previously only fired the very first time a user opted in.
+
+### What is NOT changing
+
+- Default is still off. We did not flip to opt-OUT.
+- Payload schema unchanged: `{ts, version, command, archetype, node, os,
+  exit_code, duration_ms, anon_id}`. No PII added.
+- `DO_NOT_TRACK=1` still wins over everything.
+- Existing opt-in users (3) keep their state untouched.
+
+---
+
 ## v2.8.4 — 2026-05-15
 
 ### 10 more bugs fixed (security + analytics) since v2.8.3

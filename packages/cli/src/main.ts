@@ -18,9 +18,17 @@ import { install, findInstalledVersions } from "./installer.js";
 import { enableGreatCto } from "./settings.js";
 import { bootstrap } from "./bootstrap.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
-import { readFileSync } from "node:fs";
+import {
+  isTelemetryEnabled,
+  sendInstallPing,
+  sendUsagePing,
+  telemetrySubcommand,
+  computeAnonId,
+} from "./telemetry.js";
+import { readFileSync, writeFileSync, mkdirSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 
 function getCliVersion(): string {
   try {
@@ -35,7 +43,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "telemetry" | "chat-only-hint" | "unknown";
   unknownToken?: string;
   dir: string;
   positional: string[];
@@ -91,6 +99,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "serve") args.command = "serve";
     else if (a === "webhook") args.command = "webhook";
     else if (a === "report") args.command = "report";
+    else if (a === "telemetry") args.command = "telemetry";
     // Slash-commands surfaced as CLI subcommands so users get a clear hint
     // instead of a confusing usage error. These work only in the chat plugin.
     else if (
@@ -393,6 +402,13 @@ ${bold("Claude Code adapter:")}
   great-cto adapt                      Generate AGENTS.md + CLAUDE.md
   great-cto adapt --dry-run            Preview what would be written
   ${dim("Idempotent — re-run after editing .great_cto/PROJECT.md")}
+
+${bold("Telemetry (opt-IN, off by default):")}
+  great-cto telemetry status           Show current state + endpoint + anon_id
+  great-cto telemetry on               Enable anonymous usage events
+  great-cto telemetry off              Disable (also: DO_NOT_TRACK=1)
+  great-cto telemetry whoami           Print your anon_id (8 hex chars)
+  ${dim("Privacy: docs/PRIVACY.md · no code, no repo names, no PII")}
 
 ${bold("Webhook server (preview):")}
   great-cto serve --port 3142          Webhook receiver (logs to ~/.great_cto/webhook-events.log)
@@ -768,6 +784,22 @@ async function runInit(args: CliArgs): Promise<number> {
   log("");
   log(green(bold("✓ great_cto is ready.")));
   log("");
+
+  // ── 6. opt-IN telemetry prompt ───────────────────────────
+  // Aggressive opt-IN promo (Option A from telemetry strategy).
+  // Shows up only when interactive + not CI + not already decided + DO_NOT_TRACK unset.
+  await promoteTelemetryOptIn({ archetype: archetype as string, cliVersion: getCliVersion(), yes: args.yes });
+
+  // If telemetry is enabled (either via prior opt-in or env var), fire a fresh
+  // install-ping so re-runs of `init` (after upgrades) count toward WAU/MAU.
+  if (isTelemetryEnabled()) {
+    await sendInstallPing({
+      cliVersion: getCliVersion(),
+      archetype: archetype as string,
+      consent: true,
+    }).catch(() => { /* never block init on telemetry */ });
+  }
+
   log(bold("Next steps:"));
   log(`  1. ${dim("Restart Claude Code to pick up the plugin.")}`);
   log(`  2. ${dim("Edit")} ${cyan(".great_cto/PROJECT.md")} ${dim("to refine goals and compliance.")}`);
@@ -778,6 +810,87 @@ async function runInit(args: CliArgs): Promise<number> {
   log(dim("Docs: https://github.com/avelikiy/great_cto"));
   log("");
   return 0;
+}
+
+// ── Telemetry opt-IN prompt ────────────────────────────────────────────────
+// Shows after a successful init when interactive. NOT shown if:
+//   - --yes / -y was used (skip-confirmation mode)
+//   - DO_NOT_TRACK=1 (respect honest signal)
+//   - Already opted in or explicitly opted out (no nag)
+//   - CI environment
+//   - Non-TTY stdin (piped install)
+async function promoteTelemetryOptIn(opts: {
+  archetype: string;
+  cliVersion: string;
+  yes: boolean;
+}): Promise<void> {
+  // Skip prompts in non-interactive mode.
+  if (opts.yes) return;
+  if (!process.stdin.isTTY) return;
+  if (process.env.DO_NOT_TRACK === "1" || process.env.DO_NOT_TRACK === "true") return;
+  if (process.env.CI || process.env.GITHUB_ACTIONS) return;
+
+  // If user already made a decision (either way), respect it — don't re-ask.
+  const cfgFile = join(homedir(), ".great_cto", "telemetry.json");
+  if (fsExistsSync(cfgFile)) {
+    try {
+      const cfg = JSON.parse(readFileSync(cfgFile, "utf8")) as { enabled?: boolean };
+      if (cfg.enabled === true || cfg.enabled === false) return;
+    } catch { /* malformed — ask again */ }
+  }
+
+  // The honest, brand-aligned ask.
+  log(dim("─".repeat(60)));
+  log(bold("Help great_cto learn from how you use it?"));
+  log("");
+  log(dim("Anonymous usage data (default: off). Helps cross-project"));
+  log(dim("lessons promote to a global pattern library."));
+  log("");
+  log(dim("Here is exactly what would be sent — one event per command:"));
+  log("");
+  log(gray(`  {`));
+  log(gray(`    "version": "${opts.cliVersion}",`));
+  log(gray(`    "command": "init",`));
+  log(gray(`    "archetype": "${opts.archetype}",`));
+  log(gray(`    "node": "${process.version.replace(/^v/, "")}",`));
+  log(gray(`    "os": "${process.platform}",`));
+  log(gray(`    "exit_code": 0,`));
+  log(gray(`    "duration_ms": 1234,`));
+  log(gray(`    "anon_id": "${computeAnonId()}"   ${dim("// 8 hex chars, not reversible")}`));
+  log(gray(`  }`));
+  log("");
+  log(dim("No code, no repo names, no file paths, no PII."));
+  log(dim("Toggle anytime: " + cyan("npx great-cto telemetry off")));
+  log(dim("Privacy: " + cyan("github.com/avelikiy/great_cto/blob/main/docs/PRIVACY.md")));
+  log("");
+
+  const yes = await confirm(bold("Enable anonymous telemetry?"), false);
+  log("");
+
+  // Persist the decision either way so we never re-ask.
+  try {
+    const dir = join(homedir(), ".great_cto");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "telemetry.json"),
+      JSON.stringify({ enabled: yes, decided_at: new Date().toISOString() }, null, 2) + "\n",
+    );
+  } catch { /* best-effort */ }
+
+  if (yes) {
+    log(green(`✓ Telemetry enabled. Thank you.`));
+    log(dim(`  See your anon_id anytime: ${cyan("npx great-cto telemetry whoami")}`));
+    log("");
+    // Send the first event — the install-ping itself.
+    await sendInstallPing({
+      cliVersion: opts.cliVersion,
+      archetype: opts.archetype,
+      consent: true,
+    });
+  } else {
+    log(dim(`Telemetry off. ${cyan("npx great-cto telemetry on")} to change later.`));
+    log("");
+  }
 }
 
 async function main(): Promise<void> {
@@ -794,6 +907,12 @@ async function main(): Promise<void> {
     log("");
     log(`Run ${cyan("great-cto --help")} for usage.`);
     process.exit(2);
+  }
+  if (args.command === "telemetry") {
+    const sub = rawArgv[rawArgv.indexOf("telemetry") + 1];
+    const { exitCode, output } = telemetrySubcommand(sub);
+    process.stdout.write(output);
+    process.exit(exitCode);
   }
   if (args.command === "scan") {
     try {
