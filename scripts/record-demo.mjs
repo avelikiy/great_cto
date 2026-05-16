@@ -1,24 +1,26 @@
 #!/usr/bin/env node
 /**
- * Record a 15-second demo of the great_cto admin board for landing-page hero.
+ * Record a 21-second demo of the great_cto admin board.
  *
  * Prereq: `node scripts/seed-demo.mjs` (seeds /tmp/great_cto-demo with 14 tasks).
  *
  * Output:
  *   site/assets/demo.webm    — recorded raw (Chromium native)
  *   site/assets/demo.mp4     — H.264 transcode (Safari/iOS)
- *   site/assets/demo-poster.jpg — first frame
+ *   site/assets/demo-poster.jpg — frame at 1.8s
  *
- * Storyboard (15s total):
- *   0–3s   Overview (hero tiles: 14 / $50 / 13× cheaper)
- *   3–6s   Hover into pipeline track + overlay "12-angle review"
- *   6–9s   Open a task side-panel + overlay "human gate approval"
- *   9–12s  Scroll to Agent utilization + overlay "agent breakdown"
- *  12–15s  Return to top + overlay "$650 → $50 · 13× cheaper"
+ * Storyboard — 7 tabs × 3s each:
+ *   0–3s    Inbox       "Resume where you stopped"
+ *   3–6s    Kanban      "14 tasks · 5 columns · live SSE"
+ *   6–9s    Dashboard   "$50 spent · 13× cheaper than human"
+ *   9–12s   Memory      "4 layers · every Friday smarter"
+ *   12–15s  Share       "Public report — one click"
+ *   15–18s  Logs        "Every verdict logged"
+ *   18–21s  Agents      "34 specialists · real-time activity"
  */
 import { chromium } from "playwright";
 import { spawn, execSync } from "node:child_process";
-import { mkdirSync, existsSync, renameSync, readdirSync, statSync, unlinkSync } from "node:fs";
+import { mkdirSync, renameSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -45,7 +47,6 @@ boardProc.stdout.on("data", (b) => {
 });
 boardProc.stderr.on("data", (b) => process.stderr.write(`[board] ${b}`));
 
-// Wait for board
 const deadline = Date.now() + 15000;
 while (!boardReady && Date.now() < deadline) await sleep(200);
 if (!boardReady) {
@@ -59,91 +60,89 @@ console.log(`[record-demo] board up at ${BOARD_URL}`);
 const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({
   viewport: { width: 1440, height: 900 },
-  deviceScaleFactor: 2,           // retina-sharp output
+  deviceScaleFactor: 2,
   recordVideo: { dir: VIDEO_DIR, size: { width: 1440, height: 900 } },
 });
 const page = await ctx.newPage();
 
-// Inject an overlay helper into every page
-await page.addInitScript(() => {
-  window.__overlay = (text, durationMs = 2500) => {
+console.log("[record-demo] navigating");
+await page.goto(BOARD_URL, { waitUntil: "domcontentloaded" });
+await sleep(1200); // let SPA render
+
+// Overlay helper — injected per scene (addInitScript gets stomped by SPA)
+async function showOverlay(text, durationMs = 2600) {
+  await page.evaluate(({ text, durationMs }) => {
     const el = document.createElement("div");
     el.textContent = text;
     el.style.cssText = `
-      position: fixed; top: 32px; left: 50%; transform: translateX(-50%);
-      background: rgba(10,12,20,0.92); color: #00d97e; border: 1px solid #00d97e;
-      padding: 10px 22px; border-radius: 999px; font-size: 18px;
-      font-family: -apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;
-      font-weight: 600; letter-spacing: 0.4px; z-index: 99999;
-      opacity: 0; transition: opacity 280ms ease;
-      box-shadow: 0 8px 32px rgba(0,217,126,0.35);
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(10,12,20,0.94); color: #00d97e;
+      border: 1px solid rgba(0,217,126,0.55);
+      padding: 12px 26px; border-radius: 999px;
+      font-size: 19px; font-weight: 600; letter-spacing: 0.3px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      z-index: 99999; pointer-events: none;
+      opacity: 0; transition: opacity 220ms ease;
+      box-shadow: 0 10px 36px rgba(0,217,126,0.32);
     `;
     document.body.appendChild(el);
     requestAnimationFrame(() => { el.style.opacity = "1"; });
     setTimeout(() => {
       el.style.opacity = "0";
-      setTimeout(() => el.remove(), 350);
+      setTimeout(() => el.remove(), 260);
     }, durationMs);
-  };
-});
-
-console.log("[record-demo] navigating");
-await page.goto(BOARD_URL, { waitUntil: "domcontentloaded" });
-// Wait for hero stats to render
-await page.waitForSelector("#tasks-shipped, .hero-num, .num", { timeout: 8000 }).catch(() => {});
-await sleep(800);
-
-// --- Scene 1: overview (0–3s) ------------------------------------------
-console.log("[record-demo] scene 1: overview");
-await page.evaluate(() => window.__overlay && window.__overlay("14 tasks · $50 LLM · 13× cheaper", 2800));
-await sleep(3000);
-
-// --- Scene 2: pipeline (3–6s) ------------------------------------------
-console.log("[record-demo] scene 2: pipeline");
-const pipelineEl = await page.$("#pipeline-track, .pipeline, [class*='pipeline']");
-if (pipelineEl) {
-  await pipelineEl.scrollIntoViewIfNeeded();
-  await sleep(400);
-  const stages = await page.$$("#pipeline-track .stage, .pipeline-stage, [class*='stage']");
-  if (stages.length > 0) await stages[Math.min(3, stages.length - 1)].hover().catch(() => {});
+  }, { text, durationMs });
 }
-await page.evaluate(() => window.__overlay && window.__overlay("12-angle review pipeline", 2800));
-await sleep(3000);
 
-// --- Scene 3: open task side panel (6–9s) ------------------------------
-console.log("[record-demo] scene 3: task / gate");
-const taskRow = await page.$(".task-row, .ts-item, [data-task-id], .resume-item");
-if (taskRow) await taskRow.click({ force: true }).catch(() => {});
-await sleep(600);
-await page.evaluate(() => window.__overlay && window.__overlay("human gate approval", 2400));
-await sleep(2400);
-// close any opened panel
-await page.keyboard.press("Escape").catch(() => {});
-await sleep(200);
+// Click a tab + wait for content to render
+async function clickTab(tabName) {
+  const selector = `[data-tab="${tabName}"]`;
+  await page.click(selector, { force: true });
+  await sleep(450); // let tab content paint
+}
 
-// --- Scene 4: agent utilization (9–12s) --------------------------------
-console.log("[record-demo] scene 4: agents");
-await page.evaluate(() => {
-  const target = document.querySelector("[id*='agent'], [class*='agent-util'], h2,h3");
-  target?.scrollIntoView({ behavior: "smooth", block: "center" });
-});
-await sleep(600);
-await page.evaluate(() => window.__overlay && window.__overlay("49 agents · real-time activity", 2600));
-await sleep(2600);
+// ----- Scenes (7 × 3s = 21s) -------------------------------------------
 
-// --- Scene 5: back to top with savings callout (12–15s) ----------------
-console.log("[record-demo] scene 5: savings");
-await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
-await sleep(500);
-await page.evaluate(() => window.__overlay && window.__overlay("$650 → $50  ·  13× cheaper", 3000));
-await sleep(2800);
+console.log("[record-demo] scene 1/7: Inbox");
+await clickTab("inbox");
+await showOverlay("Resume where you stopped");
+await sleep(2700);
+
+console.log("[record-demo] scene 2/7: Kanban");
+await clickTab("kanban");
+await showOverlay("14 tasks · 5 columns · live");
+await sleep(2700);
+
+console.log("[record-demo] scene 3/7: Dashboard (Metrics)");
+await clickTab("dashboard");
+await showOverlay("$50 spent · 13× cheaper than human");
+await sleep(2700);
+
+console.log("[record-demo] scene 4/7: Memory");
+await clickTab("memory");
+await showOverlay("4 layers · every Friday smarter");
+await sleep(2700);
+
+console.log("[record-demo] scene 5/7: Share");
+await clickTab("share");
+await showOverlay("Public report — one click");
+await sleep(2700);
+
+console.log("[record-demo] scene 6/7: Logs");
+await clickTab("logs");
+await showOverlay("Every verdict logged");
+await sleep(2700);
+
+console.log("[record-demo] scene 7/7: Agents");
+await clickTab("agents");
+await showOverlay("34 specialists · real-time");
+await sleep(2900);
 
 // ----- Wrap up ----------------------------------------------------------
 console.log("[record-demo] closing");
-await ctx.close();    // ← flushes video
+await ctx.close();
 await browser.close();
 
-// Move recorded webm into site/assets/
 const webms = readdirSync(VIDEO_DIR).filter(f => f.endsWith(".webm"))
   .map(f => ({ f, mtime: statSync(join(VIDEO_DIR, f)).mtimeMs }))
   .sort((a, b) => b.mtime - a.mtime);
@@ -153,7 +152,6 @@ const dstWebm = join(OUT_DIR, "demo.webm");
 renameSync(srcWebm, dstWebm);
 console.log(`[record-demo] webm → ${dstWebm}`);
 
-// Transcode to mp4 (H.264) and create poster
 const dstMp4 = join(OUT_DIR, "demo.mp4");
 const dstPoster = join(OUT_DIR, "demo-poster.jpg");
 console.log("[record-demo] transcoding mp4 + poster");
@@ -161,12 +159,12 @@ execSync(
   `ffmpeg -y -i "${dstWebm}" -c:v libx264 -preset slow -crf 26 -pix_fmt yuv420p -movflags +faststart -an "${dstMp4}"`,
   { stdio: ["ignore", "ignore", "inherit"] }
 );
+// Poster at 1.8s — first frame is blank during fade-in
 execSync(
-  `ffmpeg -y -i "${dstWebm}" -frames:v 1 -q:v 2 "${dstPoster}"`,
+  `ffmpeg -y -ss 1.8 -i "${dstWebm}" -frames:v 1 -q:v 2 "${dstPoster}"`,
   { stdio: ["ignore", "ignore", "inherit"] }
 );
 
-// Kill board
 try { process.kill(-boardProc.pid, "SIGKILL"); } catch {}
 
 const sizes = {
