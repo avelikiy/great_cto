@@ -2218,10 +2218,13 @@ button { font-family: inherit; cursor: pointer; }
               <div class="url-text" id="share-url-text">—</div>
               <button class="btn-ghost-sm" onclick="openUrl()">Open ↗</button>
               <button class="btn-black" onclick="copyUrl(event)">Copy</button>
+              <button class="btn-ghost-sm" onclick="republishShare()" title="Publish a new report with current data — generates a new URL">↻ Republish</button>
             </div>
+            <div class="share-meta" id="share-meta" style="font-size:11px;color:var(--text3);margin-top:8px;font-family:var(--mono);"></div>
             <div class="share-note">
               The report includes shipped tasks, recent activity, agent utilization, and the six headline metrics.
               Open issues, code, and credentials are <strong>never</strong> exposed.
+              <br/><strong>Republish</strong> generates a fresh snapshot with current data (new URL — share the latest one).
             </div>
           </div>
           <div id="share-disabled-note" class="share-note">
@@ -2882,12 +2885,13 @@ async function switchProject(slug) {
   if (crIcon) crIcon.innerHTML = archetypeIcon(arch, 14);
   const swArch = document.getElementById('proj-switch-arch');
   if (swArch) swArch.textContent = arch !== 'default' ? arch : '';
-  renderInbox(inbox);
-  renderFilterBar();
-  renderKanban(allTasks);
-  renderDashboard(metrics);
-  renderShareState(shareState);
+  // Update sidebar counters FIRST — independent of render chain (BH-fix).
   updateNavCounts();
+  try { renderInbox(inbox); } catch (e) { console.warn('renderInbox failed', e); }
+  try { renderFilterBar(); } catch (e) { console.warn('renderFilterBar failed', e); }
+  try { renderKanban(allTasks); } catch (e) { console.warn('renderKanban failed', e); }
+  try { renderDashboard(metrics); } catch (e) { console.warn('renderDashboard failed', e); }
+  try { renderShareState(shareState); } catch (e) { console.warn('renderShareState failed', e); }
   loadMemory();
   refreshCost();
   refreshPipeline();
@@ -3063,12 +3067,14 @@ async function init() {
   const swArch = document.getElementById('proj-switch-arch');
   if (swArch) swArch.textContent = arch !== 'default' ? arch : '';
 
-  renderInbox(inbox);
-  renderFilterBar();
-  renderKanban(allTasks);
-  renderDashboard(metrics);
-  renderShareState(shareState);
+  // Update sidebar counters FIRST — independent of render chain.
+  // If a render below throws, counters still reflect actual state.
   updateNavCounts();
+  try { renderInbox(inbox); } catch (e) { console.warn('renderInbox failed', e); }
+  try { renderFilterBar(); } catch (e) { console.warn('renderFilterBar failed', e); }
+  try { renderKanban(allTasks); } catch (e) { console.warn('renderKanban failed', e); }
+  try { renderDashboard(metrics); } catch (e) { console.warn('renderDashboard failed', e); }
+  try { renderShareState(shareState); } catch (e) { console.warn('renderShareState failed', e); }
   loadMemory();
   refreshCost();
   refreshPipeline();
@@ -3098,8 +3104,9 @@ function connectSSE() {
       }
     }
     allTasks = newTasks;
-    renderKanban(filterTasks(searchQuery));
+    // Sidebar counter FIRST, independent of render
     updateNavCounts();
+    try { renderKanban(filterTasks(searchQuery)); } catch (e) { console.warn('SSE renderKanban failed', e); }
     refreshInbox();
   });
   es.addEventListener('pipeline', e => {
@@ -3517,6 +3524,36 @@ function renderShareState(state) {
   document.getElementById('share-url-section').style.display = (on && state.url) ? 'block' : 'none';
   document.getElementById('share-disabled-note').style.display = on ? 'none' : 'block';
   document.getElementById('share-url-text').textContent = state.url || '—';
+  const metaEl = document.getElementById('share-meta');
+  if (metaEl && on && state.published_at) {
+    const dt = new Date(state.published_at);
+    const ago = Math.floor((Date.now() - dt.getTime()) / 60000);
+    const agoStr = ago < 1 ? 'just now'
+                 : ago < 60 ? `${ago}m ago`
+                 : ago < 1440 ? `${Math.floor(ago/60)}h ago`
+                 : `${Math.floor(ago/1440)}d ago`;
+    const stale = ago > 60 * 24 ? ' · ⚠ data is stale — click ↻ Republish' : '';
+    metaEl.textContent = `Published ${agoStr} (${dt.toLocaleString()})${stale}`;
+  } else if (metaEl) {
+    metaEl.textContent = '';
+  }
+}
+
+async function republishShare() {
+  const btn = event?.currentTarget;
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Republishing…'; }
+  const state = await api('/api/share' + (typeof pqs === 'function' ? pqs() : ''), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: true, force: true }),
+  });
+  if (btn) { btn.disabled = false; btn.textContent = '↻ Republish'; }
+  if (!state || state.error) {
+    alert(state?.error || 'Republish failed');
+    return;
+  }
+  renderShareState(state);
+  showToast('Republished with fresh data', 'success', 3000);
 }
 
 async function toggleShare() {
