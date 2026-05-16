@@ -2425,7 +2425,7 @@ function showVerdictDetail(idx) {
 
   // Render artefacts as clickable buttons. We don't have a backend file
   // viewer, so we link to the file in the user's editor via vscode://
-  // (works for VS Code, Cursor, Windsurf — Anthropic's primary
+  // (works for Claude Code — Anthropic's primary
   // developer audience). User can also copy the path.
   const cwd = (window.currentProjectPath || '').replace(/\/$/, '');
   const artefactsHtml = parsed.artefacts.length

@@ -92,33 +92,7 @@ docs/sec-threats/TM-{slug}.md, sections 1-N as listed below.
 
 ---
 
-### 3. Add a new stack adapter
-
-When to use: support a new coding-agent CLI besides Claude Code / Codex / Cursor / Aider / Continue / Cline (e.g. Gemini CLI, Hermes, OpenCode).
-
-**File:** `packages/cli/src/adapters/{slug}.ts`
-**Pattern:**
-```ts
-import type { Adapter } from "./types";
-
-export const geminiCliAdapter: Adapter = {
-  slug: "gemini-cli",
-  binaries: ["gemini"],
-  configFile: ".gemini/config.json",
-  writeConfig(ctx) {
-    // Translate ctx.agents/skills/hooks into Gemini's native config shape.
-    // Use only the shared AGENTS.md as source of truth.
-  },
-  detect() {
-    return commandExists("gemini") && hasFile(".gemini/config.json");
-  },
-};
-```
-**Test:** add a `tests/fixtures/{slug}/` fixture with the binary mocked + an expected config snapshot.
-
----
-
-### 4. Add a new skill
+### 3. Add a new skill
 
 When to use: a single, reusable behavior used by 2+ agents (e.g. `well-architected`, `discovery`, `pre-mortem`).
 
@@ -143,7 +117,7 @@ outputs: A bullet list per pillar (operational excellence, security, reliability
 
 ---
 
-### 5. Add a new language to the README switcher
+### 4. Add a new language to the README switcher
 
 When to use: you can produce a quality translation for a market we don't cover.
 
@@ -158,13 +132,13 @@ Then add to the language switcher row in the main [README.md](README.md):
 
 ---
 
-### 6. Report a bug
+### 5. Report a bug
 
 **File:** open a GitHub issue using the `bug-report` template.
 
 Required for fast triage:
 - great_cto version (`great-cto --version`)
-- Coding-agent CLI you're using (`claude --version` / `codex --version` / `cursor-agent --version` / ...)
+- Claude Code version (`claude --version`)
 - Reproducer: 3-5 shell commands that get a fresh shell to the failure
 - Expected vs actual output
 
@@ -172,7 +146,7 @@ Tagged `needs-triage`; we usually respond within 48h.
 
 ---
 
-### 7. Fix a typo / improve docs
+### 6. Fix a typo / improve docs
 
 Just open a PR. No tests required for `docs/**`, `*.md`, or `README.md`. CI will skip the heavy jobs.
 
@@ -197,7 +171,6 @@ We sign commits via `git config commit.gpgsign` — not required for contributor
 **Yes please:**
 - New archetypes for verticals we don't cover (`crypto-defi`, `voice-ai`, `local-llm-app`, …)
 - New domain reviewers (FDA SaMD, robotics safety, climate MRV, …)
-- New stack adapters (Gemini CLI, Hermes, OpenCode, Qwen, …)
 - i18n READMEs (any locale with a native-speaker translator)
 - Bug fixes with regression tests
 - Performance fixes with before/after numbers
