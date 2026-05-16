@@ -4,7 +4,7 @@
 
 **Solo-CTO mode. Stop being the only person who can ship.**
 
-**Local-first, open-source alternative to Devin / Cursor Background Agents / Claude Code for engineering teams** — except you bring your own coding agent (Claude Code · Codex · Cursor · Aider · Continue · Cline) and great_cto orchestrates **49 specialist agents** around it: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 26 archetype-specific reviewers.
+**Local-first, open-source alternative to Devin / Claude Code for engineering teams** — except you bring your own coding agent (Claude Code) and great_cto orchestrates **49 specialist agents** around it: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 26 archetype-specific reviewers.
 
 You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
@@ -22,8 +22,6 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist age
 </div>
 
 ## What is great_cto?
-
-It started as a Claude Code plugin and **v2.4+ added cross-platform support** — the same archetype/compliance/scan/MCP machinery now runs in Cursor, OpenAI Codex CLI, Aider, and Continue via AGENTS.md + MCP.
 
 You describe what you want (`/start "build a billing endpoint"`). 49 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 26 archetype-specific reviewers and **15 new domain reviewers** (voice-AI · clinical-AI + FDA SaMD · HR-AI · API platform · lending · clinical trials · bio-data · robotics · EM-fintech · climate MRV · biosecurity · drug-discovery ML · GLP · lab automation) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
 
@@ -43,19 +41,19 @@ Architects, planners, reviewers, QA, security, DevOps run automatically between 
 
 ## How great_cto compares
 
-|  | **great_cto** | Devin | Cursor Background Agents | Aider | Cline | Claude Code (alone) |
-|---|---|---|---|---|---|---|
-| Open source | ✅ MIT | ❌ closed | ❌ closed | ✅ Apache-2.0 | ✅ Apache-2.0 | ❌ closed plugin model |
-| Self-host | ✅ runs locally | ❌ Cognition cloud | ❌ Cursor cloud | ✅ | ✅ | ✅ |
-| BYOK / multi-model | ✅ Claude · Codex · Cursor · Aider · Continue · Cline | ❌ proprietary | ⚠️ Cursor stack only | ✅ many | ✅ many | ❌ Anthropic only |
-| Specialist agents | **49** (architect · PM · 12-angle review · QA · security · devops · 26 archetype reviewers · 15 domain reviewers) | 1 generalist | 1 background loop | 1 chat loop | 1 chat loop | 1 generalist |
-| SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop | edit loop | edit loop | edit loop |
-| Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ none | ❌ | ❌ | ❌ |
-| Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only | ❌ | ⚠️ thread only | ⚠️ thread only |
-| Cost tracking | ✅ per-agent + 30d history + savings_x | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Compliance archetypes | ✅ 26 (fintech · healthcare · gov · clinical-AI + FDA SaMD · GLP · biosecurity · …) | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Pricing | free (you pay your LLM provider) | $500/mo | $20/mo + Cursor sub | free | free | $20/mo |
-| Setup | `npx great-cto init` | sign up | Cursor + Slack | `pip install aider-chat` | VS Code extension | install CLI |
+|  | **great_cto** | Devin | Claude Code (alone) |
+|---|---|---|---|
+| Open source | ✅ MIT | ❌ closed | ❌ closed plugin model |
+| Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
+| BYOK / multi-model | ✅ Claude Code | ❌ proprietary | ❌ Anthropic only |
+| Specialist agents | **49** (architect · PM · 12-angle review · QA · security · devops · 26 archetype reviewers · 15 domain reviewers) | 1 generalist | 1 generalist |
+| SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
+| Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
+| Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
+| Cost tracking | ✅ per-agent + 30d history + savings_x | ❌ | ❌ |
+| Compliance archetypes | ✅ 26 (fintech · healthcare · gov · clinical-AI + FDA SaMD · GLP · biosecurity · …) | ❌ | ❌ |
+| Pricing | free (you pay your LLM provider) | $500/mo | $20/mo |
+| Setup | `npx great-cto init` | sign up | install CLI |
 
 great_cto is **not** another coding-agent loop — it's the **orchestration layer above** the coding agent you already use. Think "specialist team that reviews and gates the work" rather than "another assistant that types code."
 
@@ -134,16 +132,15 @@ Pay your own Anthropic API tokens. **No per-seat fee. No SaaS lock-in.** Routine
 
 ## How is this different?
 
-| | great_cto | Cursor | Copilot Workspace | Claude Projects |
-|---|---|---|---|---|
-| Multi-agent SDLC pipeline | ✓ 49 specialists | ✕ | ✕ | ✕ |
-| Works in 5 AI assistants | ✓ Claude Code · Cursor · Codex · Aider · Continue | one IDE | one IDE | one product |
-| Auto archetype detection | ✓ 25 types + 10 domain packs | ✕ | ✕ | ✕ |
-| Compliance gates (PCI / HIPAA / SOX / EU AI Act / TCPA / FDA SaMD / NYC LL 144 / FCRA / ICH-GCP / ISO TS 15066) | ✓ | ✕ | ✕ | ✕ |
-| AI-security scanner (24 OWASP LLM rules) | ✓ built-in | ✕ | ✕ | ✕ |
-| Persistent memory | ✓ decisions.md + verdicts | ⚠ chat-only | ✕ | ✓ chat scope |
-| Open source · runs locally · pay your own API | ✓ | ✕ | ✕ | ✕ |
-| **Pricing** | **$0 + your API** | $20/mo | $39/mo | $20/mo |
+| | great_cto | Devin | Claude Code (alone) |
+|---|---|---|---|
+| Multi-agent SDLC pipeline | ✓ 49 specialists | ✕ | ✕ |
+| Auto archetype detection | ✓ 25 types + 10 domain packs | ✕ | ✕ |
+| Compliance gates (PCI / HIPAA / SOX / EU AI Act / TCPA / FDA SaMD / NYC LL 144 / FCRA / ICH-GCP / ISO TS 15066) | ✓ | ✕ | ✕ |
+| AI-security scanner (24 OWASP LLM rules) | ✓ built-in | ✕ | ✕ |
+| Persistent memory | ✓ decisions.md + verdicts | ⚠ thread only | ⚠ thread only |
+| Open source · runs locally · pay your own API | ✓ | ✕ | ✕ |
+| **Pricing** | **$0 + your API** | $500/mo | $20/mo |
 
 ## 25 archetypes auto-detected
 
@@ -195,27 +192,6 @@ The most valuable signal: in iteration 1, the security-officer caught two real d
 
 Full trace: [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md).
 
-## Cross-platform support
-
-Generate platform-native config from one source of truth:
-
-```bash
-npx great-cto adapt --platform claude     # CLAUDE.md + AGENTS.md
-npx great-cto adapt --platform cursor     # .cursorrules + .cursor/rules/*.mdc
-npx great-cto adapt --platform codex      # AGENTS.md
-npx great-cto adapt --platform aider      # .aider.conf.yml + CONVENTIONS.md
-npx great-cto adapt --platform continue   # .continue/rules.md
-npx great-cto adapt --platform all
-```
-
-| Tool | Native config | Daily verified |
-|---|---|---|
-| Claude Code | CLAUDE.md + AGENTS.md (34-agent plugin layer) | ✓ |
-| Cursor | .cursorrules + .cursor/rules/*.mdc + AGENTS.md | ✓ |
-| OpenAI Codex CLI | AGENTS.md | ✓ |
-| Aider | .aider.conf.yml + CONVENTIONS.md + AGENTS.md | ✓ |
-| Continue | .continue/rules.md + AGENTS.md | ✓ |
-
 ## CI integration
 
 Drop into any GitHub Actions workflow:
@@ -261,7 +237,7 @@ See [docs/testing/](docs/testing/) for analysis docs from each run.
 
 ## MCP
 
-Native [MCP](https://modelcontextprotocol.io/) server — call great_cto's tools (`scan`, `list_rules`, `detect_archetype`, `estimate_cost`, `query_decisions`) from Claude Desktop, Cursor, Continue, or any MCP host:
+Native [MCP](https://modelcontextprotocol.io/) server — call great_cto's tools (`scan`, `list_rules`, `detect_archetype`, `estimate_cost`, `query_decisions`) from Claude Desktop or any MCP host:
 
 ```json
 { "mcpServers": { "great-cto": { "command": "npx", "args": ["-y", "great-cto@latest", "mcp"] } } }
@@ -271,7 +247,7 @@ Full setup + internal MCPs (Grafana, LLM router, Beads): [docs/MCP.md](docs/MCP.
 
 ## Limitations & non-goals
 
-- **Not for teams** — solo-CTO is the product. 2+ engineers? Try Cursor Business / Copilot Workspace.
+- **Not for teams** — solo-CTO is the product. 2+ engineers? You've outgrown it.
 - **Not a replacement for senior engineers** — codifies process; doesn't make architectural judgement calls without one.
 - **Not a CI/CD system** — gates run locally / in-session. You still need GitHub Actions for actual merge.
 - **Not certification-audited** — PCI/HIPAA/SOC2 archetype scaffolds are starting points, not certifications.
@@ -280,8 +256,6 @@ Full setup + internal MCPs (Grafana, LLM router, Beads): [docs/MCP.md](docs/MCP.
 ## FAQ (top 5)
 
 **Is my source code used to train models?** No. Claude API zero-retention by default for paying customers. great_cto adds nothing.
-
-**Cursor / Aider / Codex support?** All five via `adapt --platform <host>`.
 
 **How do you keep token costs down?** Haiku-by-default + Kimi K2 router for triage (60–80% savings) + cost-guard hook.
 
