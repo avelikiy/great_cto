@@ -1482,9 +1482,11 @@ async function publishReport(html) {
   });
 }
 
-async function toggleShare(enable, cwd = process.cwd()) {
+async function toggleShare(enable, cwd = process.cwd(), force = false) {
   const state = getShareState(cwd);
-  if (enable && !state.enabled) {
+  // (enable && !state.enabled) → first publish
+  // (enable && state.enabled && force) → re-publish with fresh data (new URL)
+  if (enable && (!state.enabled || force)) {
     // Generate and publish
     const html = generateShareHTML(getTasks(cwd), getMetrics(cwd), cwd);
     try {
@@ -1752,7 +1754,7 @@ const server = http.createServer(async (req, res) => {
           return res.end(JSON.stringify({ error: 'invalid_json' }));
         }
         try {
-          const state = await toggleShare(parsed.enabled, cwd);
+          const state = await toggleShare(parsed.enabled, cwd, !!parsed.force);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(state));
         } catch (e) {
