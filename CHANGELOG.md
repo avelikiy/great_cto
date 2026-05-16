@@ -268,6 +268,54 @@ Full overlay matrix: [skills/great_cto/ARCHETYPES.md](skills/great_cto/ARCHETYPE
 
 ---
 
+## v2.8.0 — 2026-05-14
+
+### 10 domain packs + 15 new reviewers (Pioneer Fund portfolio coverage)
+
+Major expansion of domain coverage. Overlay packs activate on top of the
+existing 25 archetypes when CLI detects pack-specific signals.
+
+**New reviewer agents (15):**
+- `voice-ai-reviewer` — TCPA, STIR/SHAKEN, state recording-consent, EU AI Act Art. 50, deepfake laws
+- `ai-clinical-reviewer` + `fda-reviewer` — GMLP-10, PCCP, SaMD classification (510(k) / De Novo / PMA), IEC 62304, ISO 14971
+- `hr-ai-reviewer` — NYC LL 144 AEDT, EEOC, Illinois AIVIA, Colorado SB 205, EU AI Act Annex III
+- `api-platform-reviewer` — rate-limit, OAuth 2.1, webhooks (HMAC + replay), idempotency, RFC 8594 Sunset
+- `lending-credit-reviewer` — ECOA / Reg B, FCRA, NMLS state matrix, MLA, BISG fair-lending
+- `clinical-trials-reviewer` + `bio-data-reviewer` — ICH-GCP E6(R3), 21 CFR Part 11, CDISC, FHIR R5, OMOP, DICOM, de-id
+- `robotics-safety-reviewer` — ISO 10218 / ISO TS 15066 (cobot) / IEC 61508 (SIL), HARA, SROS2, sim-to-real
+- `emerging-markets-fintech-reviewer` — India DPDP/RBI, Nigeria CBN, Brazil BCB/LGPD, MAS, OJK, BSP + local rails
+- `climate-mrv-reviewer` + `biosecurity-reviewer` — GHG Protocol, Verra/Gold Standard, CBAM, NIH DURC, IGSC HSP v2
+- `drug-discovery-ml-reviewer` + `glp-glab-reviewer` + `lab-automation-reviewer` — ChEMBL/BindingDB versioning, AD bounds, ALCOA+, SiLA2, IQ/OQ/PQ
+
+**Pack auto-detection:**
+- `packages/cli/src/packs.ts` — `suggestPacks(detection)` returns matched packs
+- 26 new stack signals in `detect.ts` (twilio, livekit, deepgram, elevenlabs, hume, razorpay, paystack, flutterwave, mercadopago, fastify, trpc, graphql, openapi, dicom, ros 2 via package.xml)
+- 80+ pack-specific README terms emitted as raw tokens
+
+**Pipeline integration:**
+- 19 new human-gate types (gate:voice-compliance, gate:samd-class, gate:aedt-audit, gate:fair-lending, gate:hara-signoff, gate:durc-signoff, gate:model-card-signoff, …)
+- 15 TM-template files (skills/great_cto/templates/TM-*.md)
+- 10 pack-overlay files (skills/great_cto/packs/*-pack.md)
+- 15 new `/commands` (/voice-compliance, /samd-classify, /aedt-bias-audit, /api-contract-review, /fair-lending-audit, /part11-audit, /biodata-conformance, /hara, /em-fintech-review, /carbon-mrv, /dna-screen, /drug-ml-review, /glp-audit, /iq-oq-pq, /clinical-compliance)
+
+**Reference EVAL suites (38):**
+- tests/eval/EVAL-*.md — golden-set templates for each pack's critical scenarios
+- Cross-referenced to TM templates + human gates + reviewer agents
+
+**Testing:**
+- 10 new fixture dirs (tests/fixtures/voice-twilio, clinical-ai, clinical-trial-edc, hr-ai-recruiting, api-platform-stripe, lending-bnpl, robotics-ros2, em-fintech-india, climate-mrv-verra, drug-discovery-rdkit)
+- E2E archetype suite extended with `packs` assertion — 36/36 fixtures pass with correct archetype + pack attachment
+- 2 new structural validators: `test_new_reviewers.py`, `test_eval_pack_mapping.py`
+- 181 total tests passing across CLI unit + E2E + structural
+
+**Coverage:** ~90% of Pioneer Fund Future of Health portfolio + ~65% of total Pioneer portfolio (voice-AI, clinical, HR-AI, lending, API platform, clinical trials, robotics, EM-fintech, climate/biosec, drug-discovery patterns).
+
+Full overlay matrix: [skills/great_cto/ARCHETYPES.md](skills/great_cto/ARCHETYPES.md#domain-overlays-wave-1-3-specialised-reviewers).
+
+49 agents · 0 lint errors · 0 warnings.
+
+---
+
 ## v2.7.1 — 2026-05-14
 
 ### `/help`, welcome banner, and heavy-context-safe `/digest` + `/inbox`
