@@ -352,7 +352,7 @@ ${bold("Usage:")}
   npx great-cto list-rules
   npx great-cto ci [path] [--fail-on LVL] [--sarif F] [--junit F]
   npx great-cto mcp [--sse --port N]
-  npx great-cto adapt --platform [claude|codex|cursor|aider|continue|all]
+  npx great-cto adapt [--dry-run]
   npx great-cto serve [--port 3142]
   npx great-cto help
   npx great-cto version
@@ -384,18 +384,14 @@ ${bold("CI gate:")}
   ${dim("(auto-detects \$GITHUB_ACTIONS → emits ::error:: annotations)")}
 
 ${bold("MCP server (cross-platform):")}
-  great-cto mcp                        Stdio MCP server — works in Claude Desktop /
-                                       Cursor / Continue / any MCP host
+  great-cto mcp                        Stdio MCP server — works in Claude Code /
+                                       Claude Desktop / any MCP host
   great-cto mcp --sse --port 8765      SSE mode for remote / multi-client (TODO v2.5)
   ${dim("Tools exposed: scan, list_rules, detect_archetype, estimate_cost, query_decisions")}
 
-${bold("Platform adapter (multi-tool support):")}
-  great-cto adapt --platform claude    Generate AGENTS.md + CLAUDE.md
-  great-cto adapt --platform codex     Generate AGENTS.md (OpenAI Codex CLI)
-  great-cto adapt --platform cursor    Generate .cursorrules + .cursor/rules/*.mdc
-  great-cto adapt --platform aider     Generate .aider.conf.yml + CONVENTIONS.md
-  great-cto adapt --platform continue  Generate .continue/rules.md
-  great-cto adapt --platform all       All of the above
+${bold("Claude Code adapter:")}
+  great-cto adapt                      Generate AGENTS.md + CLAUDE.md
+  great-cto adapt --dry-run            Preview what would be written
   ${dim("Idempotent — re-run after editing .great_cto/PROJECT.md")}
 
 ${bold("Webhook server (preview):")}
@@ -861,15 +857,8 @@ async function main(): Promise<void> {
   if (args.command === "adapt") {
     try {
       const { runAdapt } = await import("./adapt.js");
-      const platArg = rawArgv.indexOf("--platform");
-      const platform = (platArg >= 0 ? rawArgv[platArg + 1] : "all") as any;
-      const valid = ["claude", "codex", "cursor", "aider", "continue", "all"];
-      if (!valid.includes(platform)) {
-        error(`adapt: --platform must be one of ${valid.join(", ")} (got: ${platform})`);
-        process.exit(2);
-      }
       const code = await runAdapt({
-        platform,
+        platform: "claude",
         dryRun: rawArgv.includes("--dry-run"),
         cwd: args.dir,
       });
