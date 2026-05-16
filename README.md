@@ -4,9 +4,9 @@
 
 **Solo-CTO mode. Stop being the only person who can ship.**
 
-**Local-first, open-source alternative to Devin / Claude Code for engineering teams** — except you bring your own coding agent (Claude Code) and great_cto orchestrates **49 specialist agents** around it: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 26 archetype-specific reviewers.
+**The engineering OS for Claude Code** — open-source, local-first alternative to Devin. great_cto orchestrates **50 specialist agents** around your Claude Code: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 26 archetype reviewers and **15 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · edtech · gov · gaming · enterprise · insurance).
 
-You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+You're the solo CTO. You're also the bottleneck. **GreatCTO is 50 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
 **Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
 
@@ -23,7 +23,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 49 specialist age
 
 ## What is great_cto?
 
-You describe what you want (`/start "build a billing endpoint"`). 49 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 26 archetype-specific reviewers and **15 new domain reviewers** (voice-AI · clinical-AI + FDA SaMD · HR-AI · API platform · lending · clinical trials · bio-data · robotics · EM-fintech · climate MRV · biosecurity · drug-discovery ML · GLP · lab automation) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
+You describe what you want (`/start "build a billing endpoint"`). 50 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 26 archetype reviewers and **15 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · **edtech · gov · gaming · enterprise · insurance**) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
 
 The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; a deep cross-cutting feature runs through 7+ agents over an hour. **You confirm two gates** (plan, ship). Everything else is automatic.
 
@@ -46,12 +46,12 @@ Architects, planners, reviewers, QA, security, DevOps run automatically between 
 | Open source | ✅ MIT | ❌ closed | ❌ closed plugin model |
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | BYOK / multi-model | ✅ Claude Code | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **49** (architect · PM · 12-angle review · QA · security · devops · 26 archetype reviewers · 15 domain reviewers) | 1 generalist | 1 generalist |
+| Specialist agents | **50** (architect · PM · 12-angle review · QA · security · devops · 26 archetype reviewers · 15 domain packs) | 1 generalist | 1 generalist |
 | SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
 | Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
 | Cost tracking | ✅ per-agent + 30d history + savings_x | ❌ | ❌ |
-| Compliance archetypes | ✅ 26 (fintech · healthcare · gov · clinical-AI + FDA SaMD · GLP · biosecurity · …) | ❌ | ❌ |
+| Compliance frameworks | ✅ 30+ (PCI · HIPAA · SOX · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …) | ❌ | ❌ |
 | Pricing | free (you pay your LLM provider) | $500/mo | $20/mo |
 | Setup | `npx great-cto init` | sign up | install CLI |
 
@@ -81,7 +81,7 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 <td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
 </tr>
 <tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 49 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 49 specialists with last-used + run counts</sub></td>
+<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 50 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 50 specialists with last-used + run counts</sub></td>
 <td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 layers + crystallized incident patterns</sub></td>
 </tr>
 </table>
@@ -90,7 +90,7 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 |---|---|
 | Tasks | Backlog → in-progress → done, drag to update via `/api/tasks/<id>/status` |
 | Cost (30d) | LLM $ vs human-equivalent $; flag if `savings_x < 100×` |
-| Agent fleet | 49 agents with last-used + per-agent run count |
+| Agent fleet | 50 agents with last-used + per-agent run count |
 | Inbox | Pending gates, P0 incidents, blocked tasks (auto-sorted) |
 | Pipeline | 8-stage SDLC with status (architect → pm → senior-dev → … → devops) |
 
@@ -130,18 +130,6 @@ Plus: `/audit` (existing-codebase scan), `/cost` (LLM router savings), `/sec` (s
 
 Pay your own Anthropic API tokens. **No per-seat fee. No SaaS lock-in.** Routine triage auto-routes to Kimi K2 (Sonnet-equivalent at ~5× lower cost) → 60–80% reduction on log clustering.
 
-## How is this different?
-
-| | great_cto | Devin | Claude Code (alone) |
-|---|---|---|---|
-| Multi-agent SDLC pipeline | ✓ 49 specialists | ✕ | ✕ |
-| Auto archetype detection | ✓ 25 types + 10 domain packs | ✕ | ✕ |
-| Compliance gates (PCI / HIPAA / SOX / EU AI Act / TCPA / FDA SaMD / NYC LL 144 / FCRA / ICH-GCP / ISO TS 15066) | ✓ | ✕ | ✕ |
-| AI-security scanner (24 OWASP LLM rules) | ✓ built-in | ✕ | ✕ |
-| Persistent memory | ✓ decisions.md + verdicts | ⚠ thread only | ⚠ thread only |
-| Open source · runs locally · pay your own API | ✓ | ✕ | ✕ |
-| **Pricing** | **$0 + your API** | $500/mo | $20/mo |
-
 ## 25 archetypes auto-detected
 
 Each archetype activates its own specialist agents and compliance checklists. Top 7:
@@ -158,39 +146,24 @@ Each archetype activates its own specialist agents and compliance checklists. To
 
 Full table (25 archetypes) + how detection works: [docs/ARCHETYPES.md](docs/ARCHETYPES.md).
 
-## 10 domain packs (v2.8 — overlay reviewers)
+## 15 domain packs — overlay reviewers
 
 Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-specific signals (deps, README terms). Each pack adds its own reviewer(s), threat-model template, EVAL suite, and human gates — independent of base archetype.
 
-| Pack | Reviewers | Triggers | Human gates added |
-|---|---|---|---|
-| `voice-pack` | voice-ai-reviewer | twilio · livekit · deepgram · elevenlabs · ivr · tts/stt | `gate:voice-compliance` |
-| `clinical-pack` | ai-clinical · fda | EHR · PHI · SaMD · clinical decision support · scribe | `gate:samd-class` · `gate:clinical-validation` · `gate:ide-approval` |
-| `hr-ai-pack` | hr-ai | recruit · hiring · resume · ats · workforce scheduling · AEDT | `gate:aedt-audit` |
-| `api-platform-pack` | api-platform | OpenAPI · GraphQL · webhook · developer portal · public API | `gate:api-contract` |
-| `lending-pack` | lending-credit | plaid · loan · BNPL · FCRA · NMLS · adverse action | `gate:fair-lending` |
-| `clinical-trials-pack` | clinical-trials · bio-data | FHIR · HL7 · DICOM · CTMS · EDC · eConsent · CDISC | `gate:irb-ready` · `gate:part11-validation` · `gate:deidentification` |
-| `robotics-pack` | robotics-safety | ROS 2 · MoveIt · cobot · surgical robot · AMR / drone | `gate:hara-signoff` · `gate:functional-safety-test` |
-| `em-fintech-pack` | em-fintech | India · Nigeria · Brazil · UPI · PIX · M-Pesa · GCash · RBI · CBN | `gate:license-strategy` |
-| `climate-pack` | climate-mrv · biosecurity | GHG · Scope 1-3 · Verra · CBAM · DURC · IGSC · cloud lab | `gate:mrv-methodology` · `gate:durc-signoff` · `gate:open-weights-release` |
-| `drug-discovery-pack` | drug-discovery-ml · GLP · lab-automation | ChEMBL · AlphaFold · RFdiffusion · LIMS · SiLA2 | `gate:model-card-signoff` · `gate:csv-validation` · `gate:iq-oq-pq` |
+| Category | Packs |
+|---|---|
+| **AI verticals** | `voice-pack` · `clinical-pack` · `hr-ai-pack` · `drug-discovery-pack` |
+| **Fintech / regulated** | `lending-pack` · `em-fintech-pack` · `insurance-pack` · `enterprise-pack` |
+| **High-compliance** | `clinical-trials-pack` · `gov-pack` · `edtech-pack` · `climate-pack` |
+| **Engineering** | `api-platform-pack` · `robotics-pack` · `game-pack` |
 
-→ **19 new human-gate types** + 38 reference EVAL suites + 15 TM templates. See [skills/great_cto/ARCHETYPES.md](skills/great_cto/ARCHETYPES.md) for full overlay matrix.
+→ **22 human-gate types** + 50+ reference EVAL suites + 19 TM templates. Browse all 15 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
 
-## Showcase: from idea to passing tests in $2.39
+## One real run, fully traced
 
-A real run, fully traced, end-to-end. Solo CTO has a stdlib-only Python CLI tool and wants to add `qacli convert <input> --output json`. Three iterations later:
+A Python CLI feature shipped through the full pipeline: **$2.39 LLM spend** vs ~$5,460 human-equivalent. Security caught two real defects QA had passed (`list(stream_csv())` defeated streaming → 14.5 MB peak RSS on 13 MB input). Multi-reviewer model catching what single agents miss, before merge.
 
-- 7 source files, 18 pytest tests, 76% coverage
-- ARCH + ADR + threat model + PM plan + QA report + security sign-off
-- Two security review cycles — second one cleared `gate:ship`
-- 8 Beads tasks closed, every step verdict-tagged with cost
-
-**Total LLM spend: $2.39 across 3 iterations.** Human-equivalent estimate from PM agent: ~$5,460.
-
-The most valuable signal: in iteration 1, the security-officer caught two real defects QA passed (`list(stream_csv())` defeated streaming guarantee → 14.5 MB peak RSS on 13 MB input verified by memory profile). Multi-reviewer model catching what single agents miss, before merge, no human in the review loop.
-
-Full trace: [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md).
+Full trace + artefacts: [greatcto.systems/proof](https://greatcto.systems/proof) · raw: [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md).
 
 ## CI integration
 
@@ -207,33 +180,7 @@ Drop into any GitHub Actions workflow:
 
 ## Test pyramid
 
-great_cto's own pipeline is exercised by a layered test suite. **All free-tier tests run in <2 min**; real-LLM tests run on-demand via OpenRouter.
-
-| Layer | What it tests | Count | Cost |
-|---|---|---|---|
-| **Structural** | Archetype detection on 36 fixtures (25 base + 10 packs) · pack-registry integrity · agent-prompt integrity | 36 fixtures + 456 pack assertions + 13 prompt checks | $0 |
-| **State machine** | Board cost dashboard · gate approval flow · pipeline state · resume across restart · multi-platform parity · pipeline contracts | 38 cases | $0 |
-| **Real LLM (single archetype)** | Full pipeline for one archetype through Sonnet 4 | 1 run | ~$0.17 |
-| **Real LLM (all archetypes)** | 25 archetypes × 4 stages = 100 calls (with `OR_DOWNSTREAM=1`: 25 × 8 = 200 calls) | 25 runs | $4–$9 |
-| **Pack overlays** | 10 v2.8.0 domain packs through 5-stage pipeline with planted vulnerability stubs | 10 runs | ~$1.84 |
-| **Reviewer regressions** | 9 reviewer agents × planted vuln → assert BLOCKED | 9 runs | ~$0.10 |
-
-Run individual suites:
-
-```bash
-# Structural + state machine (~2 min, $0)
-node --test tests/*.test.mjs
-node tests/run-archetype-e2e.mjs
-node tests/run-packs-e2e.mjs
-
-# Real LLM (requires OPENROUTER_API_KEY)
-node tests/openrouter-multi-archetype.mjs           # 25 archetypes × 4 stages
-OR_DOWNSTREAM=1 node tests/openrouter-multi-archetype.mjs  # × 8 stages
-node tests/openrouter-pack-overlays.mjs             # 10 packs
-node tests/openrouter-reviewer-regressions.mjs      # 9 reviewers
-```
-
-See [docs/testing/](docs/testing/) for analysis docs from each run.
+Layered test suite — **structural + state-machine tier runs in <2 min for $0** (`node --test tests/*.test.mjs`); real-LLM tier (25 archetypes × 4-8 stages + 15 packs + 9 reviewers) runs on-demand via OpenRouter for ~$5–10. Full breakdown: [docs/testing/](docs/testing/).
 
 ## MCP
 
@@ -267,19 +214,19 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 49 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
-**v2.7.0** (May 2026) — cross-prompt consistency linter (3 new rules: `CONS-MODEL`, `CONS-OUTPUT`, `CONS-SIGNOFF`); ADR-002 model-tier policy (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet); 49 agents · 0 lint errors · 0 warnings.
+**v2.8.6** (May 2026) — Claude Code-only release · **15 domain packs** (added edtech / gov / gaming / enterprise / insurance) · 4-layer journey visualization on [/packs.html](https://greatcto.systems/packs.html) · 50 specialist agents · landing page streamlined (14 → 9 sections).
 
 [Full changelog →](CHANGELOG.md)
 
 ## Roadmap
 
-- **v2.8** — lesson-quality tracking (which lessons agents cite vs ignore)
-- **v2.9** — auto-promotion: high-impact decisions → reusable skills
-- **v3.0** — clean release-only commit history
+- **v2.9** — lesson-quality tracking (which lessons agents cite vs ignore)
+- **v2.10** — auto-promotion: high-impact decisions → reusable skills
+- **v3.0** — Claude Agent SDK headless mode (CI / scheduled / webhook-triggered pipelines)
 
 [Vote on the next feature →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
 
