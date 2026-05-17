@@ -1971,9 +1971,9 @@ button { font-family: inherit; cursor: pointer; }
         </span>
       </div>
       <div class="nav-divider"></div>
-      <div class="nav-item" id="nav-item-leash" data-tab="leash" onclick="switchTab('leash', this)" style="display:none;">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/><path d="M3 3l18 18"/></svg>
-        <span>Leash</span>
+      <div class="nav-item" id="nav-item-leash" data-tab="leash" onclick="switchTab('leash', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Security</span>
         <span id="nav-leash-badge" class="share-badge off" style="margin-left:auto;">
           <span class="share-badge-dot"></span>off
         </span>
@@ -2326,11 +2326,43 @@ button { font-family: inherit; cursor: pointer; }
     <div class="panel" id="panel-leash">
       <div class="share-page">
         <div class="share-card">
-          <h2>Leash <span style="color:var(--text3);font-size:13px;font-weight:400">· runtime governance for LLM agents</span></h2>
+          <h2>Security <span style="color:var(--text3);font-size:13px;font-weight:400">· runtime governance for LLM agents</span></h2>
           <p class="sub">Cost ceiling, tamper-evident audit log, kill switch, human-in-the-loop gates. Powered by the open-source <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">llm-leash</a> firewall.</p>
 
-          <div id="leash-not-installed" style="display:none;margin-top:14px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
-            <strong>Not installed.</strong> Run <code>great-cto leash install</code> in this project to enable budget caps, audit logging and the kill switch. Once installed, this tab will activate automatically.
+          <div id="leash-not-installed" style="display:none;margin-top:14px">
+            <div style="padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
+              <strong>llm-leash is not installed.</strong>
+              <p style="color:var(--text2);margin:8px 0 12px 0">
+                Without it, agents can run unbounded API costs, leave no tamper-evident audit trail, and have no remote kill switch. Install once — works for every project on this machine.
+              </p>
+              <div style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:10px 12px;border-radius:6px;color:var(--text1);margin-bottom:12px">
+                $ great-cto leash install
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-black" onclick="navigator.clipboard.writeText('great-cto leash install'); this.textContent='Copied ✓'; setTimeout(()=>this.textContent='Copy install command', 1500)">Copy install command</button>
+                <a class="btn-ghost-sm" href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="text-decoration:none">Learn more →</a>
+                <button class="btn-ghost-sm" onclick="loadLeash()">Re-check</button>
+              </div>
+            </div>
+
+            <div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+              <div class="kpi" style="opacity:0.55">
+                <div class="kpi-label">Hard $ cap</div>
+                <div class="kpi-value" style="font-size:14px;font-weight:500">budget runaway stops &lt; 300 ms</div>
+              </div>
+              <div class="kpi" style="opacity:0.55">
+                <div class="kpi-label">Audit log</div>
+                <div class="kpi-value" style="font-size:14px;font-weight:500">JSONL, SHA-256 hash-chained, SOC 2-ready</div>
+              </div>
+              <div class="kpi" style="opacity:0.55">
+                <div class="kpi-label">HITL gates</div>
+                <div class="kpi-value" style="font-size:14px;font-weight:500">human approval on irreversible tool calls</div>
+              </div>
+              <div class="kpi" style="opacity:0.55">
+                <div class="kpi-label">Kill switch</div>
+                <div class="kpi-value" style="font-size:14px;font-weight:500">stop all in-flight LLM calls remotely</div>
+              </div>
+            </div>
           </div>
 
           <div id="leash-installed" style="display:none">
@@ -4001,7 +4033,7 @@ function switchTab(id, el) {
   const panelEl = document.getElementById(`panel-${id}`);
   if (panelEl) panelEl.classList.add('active');
   // crumb
-  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', agents: 'Agents', share: 'Share', memory: 'Memory', logs: 'Logs', notifications: 'Notifications', leash: 'Leash' };
+  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', agents: 'Agents', share: 'Share', memory: 'Memory', logs: 'Logs', notifications: 'Notifications', leash: 'Security' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';
   if (id === 'dashboard' || id === 'agents') {
     api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
@@ -4130,30 +4162,29 @@ async function leashHitlDecide(id, decision) {
   }
 }
 
-/* Show/hide the Leash sidebar entry on app load. Called from init flow. */
+/* Update the Security sidebar entry's badge — the tab is always visible
+   (renamed from "Leash" → "Security" on 2026-05-17 because security is a
+   top-level concern the user should see even when nothing's installed). */
 async function initLeashTab() {
+  const nav = document.getElementById('nav-item-leash');
+  const badge = document.getElementById('nav-leash-badge');
+  if (!nav || !badge) return;
   try {
     const s = await fetch('/api/leash/status' + pqs()).then(r => r.json());
-    const nav = document.getElementById('nav-item-leash');
-    const badge = document.getElementById('nav-leash-badge');
-    if (!nav) return;
     if (s.available) {
-      nav.style.display = '';
-      if (badge) {
-        badge.className = 'share-badge on';
-        badge.innerHTML = '<span class="share-badge-dot"></span>on';
-      }
+      badge.className = 'share-badge on';
+      badge.innerHTML = '<span class="share-badge-dot"></span>on';
     } else if (s.enabled) {
-      // Enabled in config but not reachable — show tab in degraded state
-      nav.style.display = '';
-      if (badge) {
-        badge.className = 'share-badge off';
-        badge.innerHTML = '<span class="share-badge-dot"></span>down';
-      }
+      badge.className = 'share-badge off';
+      badge.innerHTML = '<span class="share-badge-dot"></span>down';
     } else {
-      nav.style.display = 'none';
+      badge.className = 'share-badge off';
+      badge.innerHTML = '<span class="share-badge-dot"></span>setup';
     }
-  } catch { /* swallow — tab stays hidden */ }
+  } catch {
+    badge.className = 'share-badge off';
+    badge.innerHTML = '<span class="share-badge-dot"></span>setup';
+  }
 }
 
 /* ── Session Logs ───────────────────────────────────────────────────────── */
