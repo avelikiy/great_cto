@@ -23,6 +23,7 @@ import {
   postHitlDecision,
 } from './leash-adapter.mjs';
 import { getSecurityStatus } from './security-status.mjs';
+import { startProxy, stopProxy, isProxyRunning } from './leash-proxy-control.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -2319,8 +2320,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Toggle leash on/off — writes ~/.great_cto/leash.json `enabled` field.
-  // Body: { "enabled": true|false }. Returns the new config snapshot.
+  // Toggle leash on/off — fully turns the firewall on or off:
+  //   1. Persists `enabled` field in ~/.great_cto/leash.json
+  //   2. If enabled=true  → starts the HTTP proxy in the background
+  //      If enabled=false → SIGTERM-stops the running proxy
+  // Body: { "enabled": true|false }
+  // Returns: { ok, enabled, proxy: {running, pid, ...} }
   if (pathname === '/api/leash/toggle' && req.method === 'POST') {
     let body = '';
     req.on('data', (c) => { body += c; });
@@ -2332,6 +2337,7 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: 'enabled (boolean) required' }));
           return;
         }
+        // 1. Persist config
         const cfgPath = path.join(os.homedir(), '.great_cto', 'leash.json');
         fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
         let cfg = {};
@@ -2339,8 +2345,16 @@ const server = http.createServer(async (req, res) => {
         catch { cfg = {}; }
         cfg.enabled = enabled;
         fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+        // 2. Drive the proxy lifecycle
+        const action = enabled ? startProxy(cfg) : stopProxy(cfg);
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, enabled }));
+        res.end(JSON.stringify({
+          ok: action.ok !== false,
+          enabled,
+          proxy: { ...isProxyRunning(cfg), action },
+        }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: String(e) }));
