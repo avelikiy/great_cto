@@ -19,6 +19,31 @@ CREATE INDEX IF NOT EXISTS idx_events_received ON events(received_at);
 CREATE INDEX IF NOT EXISTS idx_events_command  ON events(command);
 CREATE INDEX IF NOT EXISTS idx_events_anon     ON events(anon_id);
 
+-- Leads (email signups from greatcto.systems landing pages).
+-- Storage of email is intentional and explicit (user submitted it).
+-- Honoured deletion on /v1/leads/forget?email=. Forwarded to email provider on
+-- ingest (Loops/Resend/Beehiiv — see DEPLOY.md). property=greatcto today;
+-- room for coreal.io / <private-project>.cash later.
+CREATE TABLE IF NOT EXISTS leads (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  received_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  email       TEXT NOT NULL,
+  property    TEXT NOT NULL,                 -- greatcto | coreal | <private-project>
+  source      TEXT NOT NULL,                 -- lp/agentic-sdlc | lp/architecture | …
+  referrer    TEXT,
+  utm_source  TEXT,
+  utm_medium  TEXT,
+  utm_campaign TEXT,
+  utm_content TEXT,
+  utm_term    TEXT,
+  ip_hash     TEXT,                          -- 8-hex SHA256(ip||day) — rate-limit only
+  forwarded   INTEGER NOT NULL DEFAULT 0,    -- 1 once email provider confirmed
+  unsubscribed INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_leads_email    ON leads(email);
+CREATE INDEX IF NOT EXISTS idx_leads_property ON leads(property);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_unique ON leads(email, property);
+
 -- Aggregated daily stats (retained indefinitely, no anon_id).
 CREATE TABLE IF NOT EXISTS daily_stats (
   date       TEXT NOT NULL,                 -- YYYY-MM-DD

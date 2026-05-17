@@ -108,6 +108,48 @@ wrangler d1 execute great-cto-telemetry --remote \
 
 # Right-to-be-forgotten (manual):
 curl -s "$WORKER_URL/v1/forget?anon_id=<8-hex-chars>"
+
+# Unsubscribe / delete a lead:
+curl -s "$WORKER_URL/v1/leads/forget?email=user@example.com"
+```
+
+## Leads endpoint (added 2026-05-17)
+
+Landing pages on greatcto.systems POST email signups to `/v1/leads`.
+Stored in D1 `leads` table; best-effort forwarded to an email provider if
+secrets are configured.
+
+```bash
+# Apply the new leads table (idempotent — IF NOT EXISTS):
+wrangler d1 execute great-cto-telemetry --remote --file=schema.sql
+
+# Email-provider configuration (Resend, transactional only — we own the audience in D1):
+wrangler secret put EMAIL_PROVIDER   # set to: resend
+wrangler secret put EMAIL_API_KEY    # Resend API key (send-only is enough)
+wrangler secret put EMAIL_FROM       # e.g. "GreatCTO <hi@updates.greatcto.systems>" (must be on verified domain)
+# Optional welcome-email overrides:
+wrangler secret put EMAIL_WELCOME_SUBJECT
+wrangler secret put EMAIL_WELCOME_HTML
+
+# EMAIL_LIST_ID is NOT needed — Resend Audiences are not used. D1 `leads` is
+# the source of truth. Weekly digest is sent by site-repo cron script:
+#   marketing/scripts/send-weekly-digest.mjs --week=YYYY-WW
+
+# Before the worker can actually send to arbitrary recipients (not just your
+# own verified email), verify the From-domain at https://resend.com/domains
+# — Resend prints the exact SPF + DKIM + DMARC records; add them to
+# Cloudflare DNS for greatcto.systems. Until then, the worker will fail with
+# "you can only send to your own email" — which is fine for smoke-tests.
+
+# Smoke-test:
+curl -s -X POST "$WORKER_URL/v1/leads" -H 'Content-Type: application/json' -d '{
+  "email":"smoke@example.com","property":"greatcto","source":"lp/agentic-sdlc"
+}' | jq .
+# → {"ok":true,"forwarded":false}  (or true if provider configured)
+
+# Inspect:
+wrangler d1 execute great-cto-telemetry --remote \
+  --command="SELECT received_at,email,property,source,forwarded FROM leads ORDER BY id DESC LIMIT 20"
 ```
 
 ## Cost expectation (Cloudflare free tier)
