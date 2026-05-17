@@ -1060,15 +1060,23 @@ function startAlertCron() {
   const FIVE_MIN = 5 * 60 * 1000;
   const ONE_HOUR = 60 * 60 * 1000;
 
-  // incident.p0: any open P0 task (priority=0, not done/closed)
+  // incident.p0: open P0 task with recent activity (last 24h).
+  // Older P0s are existing backlog — surfacing them via email is spam.
+  // If you want to be reminded about stale P0s, that's gate.stale's job.
+  const RECENT_WINDOW_MS = 24 * 3600_000;
   setInterval(() => {
     try {
       const projects = listProjects();
+      const now = Date.now();
       for (const proj of projects) {
         const tasks = getTasks(proj.path);
-        const p0 = tasks.filter(t =>
-          t.priority === 0 && t.raw_status !== 'closed' && t.raw_status !== 'done'
-        );
+        const p0 = tasks.filter(t => {
+          if (t.priority !== 0) return false;
+          if (t.raw_status === 'closed' || t.raw_status === 'done') return false;
+          const updatedTs = new Date(t.updated_at || t.created_at || 0).getTime();
+          // Only fresh activity — silent on old backlog P0s
+          return updatedTs > 0 && (now - updatedTs) < RECENT_WINDOW_MS;
+        });
         for (const t of p0) {
           const dedupeKey = `incident.p0:${proj.slug}:${t.id}`;
           fireEmailAlert('incident.p0', dedupeKey, {
@@ -1122,7 +1130,9 @@ function startAlertCron() {
     } catch (e) { console.warn('cron gate.blocked failed:', e.message); }
   }, FIVE_MIN);
 
-  // gate.stale: any gate task in_progress >2h
+  // gate.stale: gate task open between 2h and 7 days.
+  // Lower bound: 2h is the soonest you'd want a nudge.
+  // Upper bound: gates open >7d are abandoned, not stale — don't keep nagging.
   setInterval(() => {
     try {
       const projects = listProjects();
@@ -1132,7 +1142,7 @@ function startAlertCron() {
         for (const g of gates) {
           const created = new Date(g.created_at || g.updated_at || 0).getTime();
           const ageHr = (Date.now() - created) / 3600_000;
-          if (ageHr < 2) continue;
+          if (ageHr < 2 || ageHr > 24 * 7) continue;
           const dedupeKey = `gate.stale:${proj.slug}:${g.id}`;
           fireEmailAlert('gate.stale', dedupeKey, {
             title: `${proj.slug} — ${g.title.slice(0, 60)} pending ${ageHr.toFixed(1)}h`,
