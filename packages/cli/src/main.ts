@@ -18,7 +18,7 @@ import { install, findInstalledVersions } from "./installer.js";
 import { enableGreatCto } from "./settings.js";
 import { bootstrap } from "./bootstrap.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
-import { readFileSync, writeFileSync, mkdirSync, existsSync as fsExistsSync } from "node:fs";
+import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -765,6 +765,9 @@ async function runInit(args: CliArgs): Promise<number> {
     log(`  ${dim("PROJECT.md already exists at")} ${bs.projectMdPath} ${dim("— kept as-is")}`);
   }
 
+  // ── 6. install pre-push git hook ─────────────────────────
+  installPrePushHook(args.dir);
+
   // ── done ─────────────────────────────────────────────────
   log("");
   log(green(bold("✓ great_cto is ready.")));
@@ -780,6 +783,38 @@ async function runInit(args: CliArgs): Promise<number> {
   log(dim("Docs: https://github.com/avelikiy/great_cto"));
   log("");
   return 0;
+}
+
+/**
+ * Copy scripts/hooks/pre-push.sh from the installed plugin into the project's
+ * .git/hooks/pre-push so that future pushes are scanned for private project
+ * name leaks. Best-effort — never throws.
+ */
+function installPrePushHook(projectDir: string): void {
+  try {
+    const gitHooksDir = join(projectDir, ".git", "hooks");
+    if (!fsExistsSync(gitHooksDir)) return; // not a git repo — skip silently
+
+    const dest = join(gitHooksDir, "pre-push");
+    if (fsExistsSync(dest)) {
+      log(`  ${dim("pre-push hook already present — skipped")}`);
+      return;
+    }
+
+    // Locate source: dist/main.js → ../../scripts/hooks/pre-push.sh
+    const here = dirname(fileURLToPath(import.meta.url));
+    const src = join(here, "..", "..", "scripts", "hooks", "pre-push.sh");
+    if (!fsExistsSync(src)) {
+      warn("pre-push hook source not found — skipping hook installation");
+      return;
+    }
+
+    copyFileSync(src, dest);
+    chmodSync(dest, 0o755);
+    success("installed pre-push hook (blocks private project name leaks)");
+  } catch {
+    // Best-effort: hook failure must never block init
+  }
 }
 
 async function main(): Promise<void> {
