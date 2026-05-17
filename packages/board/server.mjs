@@ -2505,6 +2505,25 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Proxy through to the leash console's /api/stats. Returns the canonical
+  // /admin/stats shape: active_sessions, total_spend_usd, top_sessions[],
+  // hitl_pending, hitl_backend, policy_rules, pii_redactor_enabled.
+  if (pathname === '/api/leash/console-stats') {
+    try {
+      const cfg = readLeashConfig(cwd);
+      const consoleUrl = cfg.console_url || 'http://localhost:8801';
+      const upstream = await fetch(consoleUrl.replace(/\/$/, '') + '/api/stats', {
+        signal: AbortSignal.timeout(3000),
+      }).then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...upstream }));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+    }
+    return;
+  }
+
   if (pathname === '/api/leash/status') {
     try {
       const avail = getLeashAvailability(cwd);
