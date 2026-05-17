@@ -33,7 +33,8 @@
 | Memory | Plain markdown files (no vector store, no embedding DB) |
 | Board | Vanilla HTML/CSS/JS + Node http server, zero deps |
 | Public report | Cloudflare Worker (`/r/<hash>`) — toggleable |
-| Telemetry | Cloudflare Worker + D1 (`/v1/event`, opt-in, default OFF) |
+| Email alerts | Cloudflare Worker (`/notify`) + Resend, opt-in via board UI |
+| Telemetry | **none** — see [PRIVACY.md](PRIVACY.md) |
 
 ## Memory layers
 
