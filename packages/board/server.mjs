@@ -992,8 +992,12 @@ function writeAlertsFired(map) {
 }
 
 /**
- * Fire an email alert via Resend if a hook with the given trigger is
- * enabled. Idempotent per dedupeKey — same key won't email twice.
+ * Fire an email alert through the greatcto.systems/notify relay (Cloudflare
+ * Worker → Resend). Idempotent per dedupeKey — same key won't email twice.
+ *
+ * Reads ~/.great_cto/notifications.json for the user's verified email + per-
+ * trigger enable flags. Silent no-op if not configured / not verified / event
+ * not in the user's selected triggers.
  *
  * @param {string} eventName   e.g. "incident.p0", "gate.stale"
  * @param {string} dedupeKey   unique per event instance (e.g. "great_cto:GC-42")
@@ -1001,69 +1005,38 @@ function writeAlertsFired(map) {
  */
 async function fireEmailAlert(eventName, dedupeKey, payload) {
   try {
-    const cfgPath = path.join(GREAT_CTO_DIR, 'webhooks.json');
-    if (!fs.existsSync(cfgPath)) return;
-    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-    const hook = (cfg.outgoing || []).find(h =>
-      h.format === 'resend' && h.enabled !== false &&
-      (h.triggers || []).includes(eventName)
-    );
-    if (!hook || !hook.apiKey || !hook.to) return;
+    const stateFile = path.join(GREAT_CTO_DIR, 'notifications.json');
+    if (!fs.existsSync(stateFile)) return;
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    if (!state.enabled || !state.verified || !state.to) return;
+    if (!(state.triggers || []).includes(eventName)) return;
 
-    // Dedupe
+    // Dedupe — never email the same instance twice
     const fired = readAlertsFired();
     if (fired[dedupeKey]) return;
 
-    // Build HTML — same template as webhook-dispatch.ts formatResend.
-    const accent = payload.level === 'critical' ? '#dc2626'
-                 : payload.level === 'error'    ? '#ea580c'
-                 : payload.level === 'warning'  ? '#d97706'
-                 : '#00d97e';
-    const emoji = payload.level === 'critical' ? '🚨'
-                : payload.level === 'error'    ? '❌'
-                : payload.level === 'warning'  ? '⏸️'
-                : 'ℹ️';
-    const esc = (s) => String(s).replace(/[&<>"']/g, c =>
-      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const project = payload.project || 'great_cto';
-    const kv = payload.kv || {};
-    const tableRows = Object.entries(kv)
-      .map(([k, v]) => `<tr><td style="padding:6px 12px;color:#6b7280;font-size:12px;font-family:ui-monospace,monospace;text-transform:uppercase;letter-spacing:.05em">${esc(k)}</td><td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:500">${esc(v)}</td></tr>`)
-      .join('');
-
-    const html = `<!doctype html><html><body style="margin:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827">
-<div style="max-width:560px;margin:32px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
-  <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;background:#0a0e0c;color:#ffffff">
-    <div style="font-size:11px;font-family:ui-monospace,monospace;letter-spacing:.1em;color:#9ca3af">${esc(project.toUpperCase())} · GREATCTO</div>
-    <div style="font-size:20px;font-weight:600;margin-top:6px;color:${accent}">${emoji} ${esc(payload.title)}</div>
-  </div>
-  ${payload.body ? `<div style="padding:20px 24px;font-size:14px;line-height:1.55;color:#374151">${esc(payload.body).replace(/\n/g,'<br>')}</div>` : ''}
-  ${tableRows ? `<table style="width:100%;border-top:1px solid #e5e7eb;border-collapse:collapse">${tableRows}</table>` : ''}
-  ${payload.link ? `<div style="padding:24px;text-align:center;border-top:1px solid #e5e7eb">
-    <a href="${esc(payload.link)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px">${esc(payload.action || 'View in board')}</a>
-  </div>` : ''}
-  <div style="padding:14px 24px;background:#f9fafb;font-size:11px;color:#9ca3af;font-family:ui-monospace,monospace">
-    Sent by great_cto · ${esc(eventName)} · ${new Date().toISOString()}
-  </div>
-</div></body></html>`;
-
-    const res = await fetch('https://api.resend.com/emails', {
+    const relay = process.env.GREATCTO_NOTIFY_URL || 'https://greatcto.systems';
+    const res = await fetch(`${relay}/notify`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${hook.apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: hook.from || 'GreatCTO <notifications@greatcto.systems>',
-        to: hook.to.split(',').map(s => s.trim()).filter(Boolean),
-        subject: `${emoji} ${payload.title}`,
-        html,
+        to: state.to,
+        title: payload.title,
+        body: payload.body,
+        level: payload.level || 'info',
+        project: payload.project || 'great_cto',
+        link: payload.link,
+        action: payload.action,
+        kv: payload.kv || {},
+        event: eventName,
       }),
     });
     if (!res.ok) {
-      console.warn(`fireEmailAlert ${eventName}: HTTP ${res.status}`);
+      const txt = await res.text().catch(() => '');
+      console.warn(`fireEmailAlert ${eventName}: relay HTTP ${res.status} ${txt.slice(0, 200)}`);
       return;
     }
+
     // Mark fired (keep last 500 keys to avoid file bloat)
     fired[dedupeKey] = new Date().toISOString();
     const keys = Object.keys(fired);
@@ -2003,93 +1976,137 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── /api/notifications — Resend email channel + 5 alert toggles ───────────
-  // Stores in the same ~/.great_cto/webhooks.json as `great-cto webhook ...`.
-  // The board UI and CLI read/write the same file — single source of truth.
+  // ── /api/notifications — email alerts via greatcto.systems/notify relay ──
+  // No API keys to manage — user enters only their email + verifies via
+  // 6-digit code sent by our Cloudflare Worker. The Worker rate-limits to
+  // 100 emails/24h per verified email.
+  //
+  // Local state in ~/.great_cto/notifications.json:
+  //   { "to": "user@example.com", "verified": true, "enabled": true,
+  //     "triggers": ["incident.p0", ...] }
   if (pathname === '/api/notifications') {
-    const cfgPath = path.join(GREAT_CTO_DIR, 'webhooks.json');
-    let cfg = { incoming: [], outgoing: [] };
-    try { cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')); }
-    catch { /* file may not exist yet */ }
+    const NOTIFY_RELAY = process.env.GREATCTO_NOTIFY_URL || 'https://greatcto.systems';
+    const stateFile = path.join(GREAT_CTO_DIR, 'notifications.json');
     const KNOWN_TRIGGERS = ['incident.p0', 'gate.stale', 'gate.blocked', 'cost.threshold', 'digest.weekly'];
+    let state = { to: '', verified: false, enabled: false, triggers: [] };
+    try { Object.assign(state, JSON.parse(fs.readFileSync(stateFile, 'utf8'))); } catch {}
+
+    function saveState() {
+      if (!fs.existsSync(GREAT_CTO_DIR)) fs.mkdirSync(GREAT_CTO_DIR, { recursive: true });
+      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+    }
+
     if (req.method === 'GET') {
-      const hook = (cfg.outgoing || []).find(h => h.format === 'resend');
-      const apiKeyEnv = !!process.env.RESEND_API_KEY;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      // Don't leak apiKey to UI — return only a "hasKey" flag.
       res.end(JSON.stringify({
-        enabled: !!(hook && hook.enabled !== false),
-        to: hook?.to ?? '',
-        from: hook?.from ?? '',
-        hasKey: !!(hook?.apiKey || apiKeyEnv),
-        triggers: hook?.triggers ?? [],
+        to: state.to || '',
+        verified: !!state.verified,
+        enabled: !!state.enabled,
+        triggers: state.triggers || [],
         known_triggers: KNOWN_TRIGGERS,
+        relay: NOTIFY_RELAY,
       }));
       return;
     }
     if (req.method === 'POST') {
       let body = '';
       req.on('data', c => body += c);
-      req.on('end', () => {
+      req.on('end', async () => {
         let parsed;
         try { parsed = JSON.parse(body || '{}'); }
         catch {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ error: 'invalid_json' }));
+          res.writeHead(400); return res.end(JSON.stringify({ error: 'invalid_json' }));
         }
         const action = parsed.action || 'save';
-        const existing = (cfg.outgoing || []).find(h => h.format === 'resend');
-        if (action === 'save') {
-          const next = {
-            name: 'resend-email',
-            format: 'resend',
-            url: 'https://api.resend.com/emails',
-            triggers: Array.isArray(parsed.triggers) ? parsed.triggers.filter(t => KNOWN_TRIGGERS.includes(t)) : [],
-            to: String(parsed.to || ''),
-            from: String(parsed.from || 'GreatCTO <notifications@greatcto.systems>'),
-            apiKey: parsed.apiKey || existing?.apiKey || '',  // keep existing if not re-entered
-            enabled: parsed.enabled !== false,
-          };
-          if (!next.to)     { res.writeHead(400); return res.end(JSON.stringify({ error: 'to_required' })); }
-          if (!next.apiKey) { res.writeHead(400); return res.end(JSON.stringify({ error: 'apiKey_required' })); }
-          cfg.outgoing = (cfg.outgoing || []).filter(h => h.format !== 'resend');
-          cfg.outgoing.push(next);
+
+        // ── verify: ask the worker to send a 6-digit code to <to> ──
+        if (action === 'verify') {
+          const to = String(parsed.to || '').trim().toLowerCase();
+          if (!to) { res.writeHead(400); return res.end(JSON.stringify({ error: 'to_required' })); }
           try {
-            if (!fs.existsSync(path.dirname(cfgPath))) fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
-            fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
-          } catch (e) {
-            res.writeHead(500); return res.end(JSON.stringify({ error: e.message }));
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ ok: true }));
-        }
-        if (action === 'test') {
-          if (!existing || !existing.apiKey || !existing.to) {
-            res.writeHead(400); return res.end(JSON.stringify({ error: 'configure_first' }));
-          }
-          // Fire a synthetic event directly via fetch (skip the dispatch retry queue
-          // for fast user feedback). Returns the Resend response.
-          const emoji = '🧪';
-          const html = `<!doctype html><html><body style="font-family:system-ui;padding:24px"><h2>${emoji} GreatCTO test alert</h2><p>If you see this, your Resend integration works. ✅</p><p style="color:#666;font-size:12px">Sent ${new Date().toISOString()}</p></body></html>`;
-          fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${existing.apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              from: existing.from || 'GreatCTO <notifications@greatcto.systems>',
-              to: existing.to.split(',').map(s => s.trim()).filter(Boolean),
-              subject: `${emoji} GreatCTO test alert`,
-              html,
-            }),
-          }).then(async r => {
+            const r = await fetch(`${NOTIFY_RELAY}/notify/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ to }),
+            });
             const j = await r.json().catch(() => null);
-            res.writeHead(r.ok ? 200 : 502, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: r.ok, status: r.status, response: j }));
-          }).catch(err => {
-            res.writeHead(502, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-          });
-          return;
+            // Persist email (still unverified) so the UI can show the pending state
+            state.to = to;
+            state.verified = false;
+            saveState();
+            res.writeHead(r.ok ? 200 : (r.status || 502), { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify(j || { error: 'relay_unreachable' }));
+          } catch (e) {
+            res.writeHead(502); return res.end(JSON.stringify({ error: e.message }));
+          }
         }
+
+        // ── confirm: send the user-typed code to the worker, mark verified on 200 ──
+        if (action === 'confirm') {
+          const to = String(parsed.to || state.to || '').trim().toLowerCase();
+          const code = String(parsed.code || '').trim();
+          if (!to)   { res.writeHead(400); return res.end(JSON.stringify({ error: 'to_required' })); }
+          if (!code) { res.writeHead(400); return res.end(JSON.stringify({ error: 'code_required' })); }
+          try {
+            const r = await fetch(`${NOTIFY_RELAY}/notify/confirm`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ to, code }),
+            });
+            const j = await r.json().catch(() => null);
+            if (r.ok) {
+              state.to = to;
+              state.verified = true;
+              saveState();
+            }
+            res.writeHead(r.ok ? 200 : (r.status || 502), { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify(j || { error: 'relay_unreachable' }));
+          } catch (e) {
+            res.writeHead(502); return res.end(JSON.stringify({ error: e.message }));
+          }
+        }
+
+        // ── save: persist triggers + enabled flag locally ──
+        if (action === 'save') {
+          const triggers = Array.isArray(parsed.triggers)
+            ? parsed.triggers.filter(t => KNOWN_TRIGGERS.includes(t))
+            : (state.triggers || []);
+          state.triggers = triggers;
+          if (parsed.enabled != null) state.enabled = !!parsed.enabled;
+          saveState();
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ ok: true, verified: state.verified, enabled: state.enabled }));
+        }
+
+        // ── test: fire a synthetic alert through the relay ──
+        if (action === 'test') {
+          if (!state.verified || !state.to) {
+            res.writeHead(400); return res.end(JSON.stringify({ error: 'verify_first' }));
+          }
+          try {
+            const r = await fetch(`${NOTIFY_RELAY}/notify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: state.to,
+                title: '🧪 GreatCTO test alert',
+                body: 'If you see this, the email alert pipeline is working end-to-end (board → Cloudflare worker → Resend → inbox).',
+                level: 'info',
+                project: 'great_cto',
+                link: 'http://localhost:3141/#notifications',
+                action: 'Open Notifications tab',
+                kv: { test: 'ok', sent_at: new Date().toISOString() },
+                event: 'test',
+              }),
+            });
+            const j = await r.json().catch(() => null);
+            res.writeHead(r.ok ? 200 : (r.status || 502), { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ ok: r.ok, response: j }));
+          } catch (e) {
+            res.writeHead(502); return res.end(JSON.stringify({ error: e.message }));
+          }
+        }
+
         res.writeHead(400); return res.end(JSON.stringify({ error: 'unknown_action' }));
       });
       return;

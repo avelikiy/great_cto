@@ -2253,31 +2253,45 @@ button { font-family: inherit; cursor: pointer; }
       <div class="share-page">
         <div class="share-card">
           <h2>Email alerts</h2>
-          <p class="sub">Get notified via Resend when something needs your attention — even when you're away from the board. Configure once, edit anytime.</p>
+          <p class="sub">Get notified when something needs your attention — even when you're away from the board. Verify your email once, pick what to receive, done. No API keys, no extra signup.</p>
 
           <div class="share-toggle-row">
             <div class="label-grp">
               <div class="l">Email alerts</div>
-              <div class="h" id="notif-help">Disabled. Save settings below to enable.</div>
+              <div class="h" id="notif-help">Verify your email below to enable.</div>
             </div>
             <div class="toggle" id="notif-toggle-visual" onclick="toggleNotifications()">
               <input type="checkbox" id="notif-toggle">
             </div>
           </div>
 
-          <div class="url-block" style="flex-wrap:wrap;gap:10px;align-items:stretch">
-            <div style="flex:1 1 320px;min-width:280px">
-              <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-family:var(--mono);letter-spacing:.05em">RECIPIENT EMAIL</div>
-              <input id="notif-to" type="email" placeholder="you@example.com" style="width:100%;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:14px" />
-            </div>
-            <div style="flex:1 1 320px;min-width:280px">
-              <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-family:var(--mono);letter-spacing:.05em">RESEND API KEY</div>
-              <input id="notif-key" type="password" placeholder="re_..." style="width:100%;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:14px" />
-              <div id="notif-key-hint" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+          <!-- Step 1: enter email + send code -->
+          <div id="notif-step-email">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-family:var(--mono);letter-spacing:.05em">RECIPIENT EMAIL</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input id="notif-to" type="email" placeholder="you@example.com" style="flex:1 1 280px;min-width:240px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:14px" />
+              <button class="btn-black" onclick="sendVerifyCode()">Send code</button>
             </div>
           </div>
 
-          <div class="share-note" style="margin-top:18px">
+          <!-- Step 2: enter code -->
+          <div id="notif-step-code" style="display:none;margin-top:14px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-family:var(--mono);letter-spacing:.05em">VERIFICATION CODE (CHECK <span id="notif-code-target">YOUR INBOX</span>)</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input id="notif-code" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456" style="flex:1 1 200px;min-width:140px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:18px;font-family:var(--mono);letter-spacing:.2em;text-align:center" />
+              <button class="btn-black" onclick="confirmVerifyCode()">Verify</button>
+              <button class="btn-ghost-sm" onclick="sendVerifyCode()">Resend code</button>
+            </div>
+          </div>
+
+          <!-- Step 3: verified -->
+          <div id="notif-step-verified" style="display:none;margin-top:14px;padding:10px 14px;background:rgba(0,217,126,0.08);border:1px solid rgba(0,217,126,0.30);border-radius:8px;display:none;align-items:center;gap:10px;font-size:13.5px">
+            <span style="color:var(--accent);font-size:18px">✓</span>
+            <span><strong id="notif-verified-email">—</strong> verified · alerts delivered through <code>greatcto.systems/notify</code></span>
+            <button class="btn-ghost-sm" style="margin-left:auto" onclick="changeEmail()">Change</button>
+          </div>
+
+          <div class="share-note" style="margin-top:24px">
             <strong style="color:var(--text1)">Which alerts to send</strong>
           </div>
           <div id="notif-triggers" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:13.5px">
@@ -2296,8 +2310,7 @@ button { font-family: inherit; cursor: pointer; }
           <div id="notif-status" style="margin-top:14px;font-size:13px;font-family:var(--mono)"></div>
 
           <div class="share-note" style="margin-top:24px">
-            Backed by <code>~/.great_cto/webhooks.json</code> — also editable via <code>great-cto webhook add-outgoing resend …</code>.
-            API key is stored locally and never sent to greatcto.systems. Resend free tier: 3 000 emails/mo.
+            Free — up to 100 emails per day per verified email. Delivered through our <code>greatcto.systems/notify</code> relay; your inbox address never leaves your machine without your verification. Local state in <code>~/.great_cto/notifications.json</code>.
           </div>
         </div>
       </div>
@@ -3624,7 +3637,7 @@ async function republishShare() {
   showToast('Republished with fresh data', 'success', 3000);
 }
 
-/* ── Notifications (email alerts via Resend) ─────────────────────────────── */
+/* ── Notifications (email alerts via greatcto.systems/notify relay) ──────── */
 let notifState = null;
 
 async function loadNotifications() {
@@ -3632,26 +3645,39 @@ async function loadNotifications() {
   if (!data) return;
   notifState = data;
   const toEl = document.getElementById('notif-to');
-  const keyEl = document.getElementById('notif-key');
   const tEl = document.getElementById('notif-toggle');
   const tvEl = document.getElementById('notif-toggle-visual');
   if (toEl) toEl.value = data.to || '';
-  if (keyEl) {
-    keyEl.value = '';
-    keyEl.placeholder = data.hasKey ? '••• saved · re-enter to change' : 're_...';
-  }
-  const hint = document.getElementById('notif-key-hint');
-  if (hint) hint.textContent = data.hasKey
-    ? 'API key saved locally. Leave blank to keep it.'
-    : 'Get yours at resend.com/api-keys';
   if (tEl) tEl.checked = !!data.enabled;
   if (tvEl) tvEl.classList.toggle('on', !!data.enabled);
-  document.getElementById('notif-help').textContent = data.enabled
-    ? 'Active. Selected events will be emailed.'
-    : 'Disabled. Save settings below to enable.';
+  document.getElementById('notif-help').textContent = data.verified
+    ? (data.enabled ? 'Active. Selected events will be emailed.' : 'Email verified — flip the toggle to enable.')
+    : 'Verify your email below to enable.';
+
+  // Show the right step
+  const stepEmail = document.getElementById('notif-step-email');
+  const stepCode = document.getElementById('notif-step-code');
+  const stepVerified = document.getElementById('notif-step-verified');
+  if (data.verified) {
+    stepEmail.style.display = 'none';
+    stepCode.style.display = 'none';
+    stepVerified.style.display = 'flex';
+    document.getElementById('notif-verified-email').textContent = data.to;
+  } else if (data.to) {
+    // Email entered but not verified — show "enter code" step
+    stepEmail.style.display = 'block';
+    stepCode.style.display = 'block';
+    stepVerified.style.display = 'none';
+    document.getElementById('notif-code-target').textContent = data.to.toUpperCase();
+  } else {
+    stepEmail.style.display = 'block';
+    stepCode.style.display = 'none';
+    stepVerified.style.display = 'none';
+  }
+
   const badge = document.getElementById('nav-notifications-badge');
   if (badge) {
-    const on = !!data.enabled;
+    const on = !!(data.enabled && data.verified);
     badge.className = `share-badge ${on ? 'on' : 'off'}`;
     badge.innerHTML = `<span class="share-badge-dot"></span>${on ? 'on' : 'off'}`;
   }
@@ -3662,27 +3688,71 @@ async function loadNotifications() {
   });
 }
 
-async function saveNotifications() {
-  const to = document.getElementById('notif-to').value.trim();
-  const key = document.getElementById('notif-key').value.trim();
-  const enabled = document.getElementById('notif-toggle').checked;
-  const triggers = [...document.querySelectorAll('#notif-triggers input[data-trigger]:checked')]
-    .map(cb => cb.dataset.trigger);
-  if (!to) {
-    setNotifStatus('Enter a recipient email first.', 'error');
+async function sendVerifyCode() {
+  const to = document.getElementById('notif-to').value.trim().toLowerCase();
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    setNotifStatus('Enter a valid email address.', 'error');
     return;
   }
-  if (!notifState?.hasKey && !key) {
-    setNotifStatus('Paste your Resend API key (re_...) first.', 'error');
-    return;
-  }
-  setNotifStatus('Saving…');
-  const payload = { action: 'save', to, enabled, triggers };
-  if (key) payload.apiKey = key;  // omit to keep existing
+  setNotifStatus('Sending verification code…');
   const r = await fetch('/api/notifications', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ action: 'verify', to }),
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) {
+    setNotifStatus(`Send failed: ${j?.error || j?.detail || r.status}`, 'error');
+    return;
+  }
+  setNotifStatus(`✓ Code sent to ${to}. Check your inbox (look in spam if needed).`, 'success');
+  document.getElementById('notif-step-code').style.display = 'block';
+  document.getElementById('notif-code-target').textContent = to.toUpperCase();
+  document.getElementById('notif-code').focus();
+}
+
+async function confirmVerifyCode() {
+  const code = document.getElementById('notif-code').value.trim();
+  const to = document.getElementById('notif-to').value.trim().toLowerCase();
+  if (!/^\d{6}$/.test(code)) {
+    setNotifStatus('Code must be 6 digits.', 'error');
+    return;
+  }
+  setNotifStatus('Verifying…');
+  const r = await fetch('/api/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'confirm', to, code }),
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) {
+    setNotifStatus(`Verify failed: ${j?.error || r.status}`, 'error');
+    return;
+  }
+  setNotifStatus('✓ Email verified. Pick which alerts to receive and click Save.', 'success');
+  loadNotifications();  // refresh — will switch UI to verified state
+}
+
+function changeEmail() {
+  document.getElementById('notif-step-verified').style.display = 'none';
+  document.getElementById('notif-step-email').style.display = 'block';
+  document.getElementById('notif-to').value = '';
+  document.getElementById('notif-to').focus();
+}
+
+async function saveNotifications() {
+  if (!notifState?.verified) {
+    setNotifStatus('Verify your email first.', 'error');
+    return;
+  }
+  const enabled = document.getElementById('notif-toggle').checked;
+  const triggers = [...document.querySelectorAll('#notif-triggers input[data-trigger]:checked')]
+    .map(cb => cb.dataset.trigger);
+  setNotifStatus('Saving…');
+  const r = await fetch('/api/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'save', enabled, triggers }),
   });
   const j = await r.json().catch(() => null);
   if (!r.ok) {
@@ -3690,10 +3760,14 @@ async function saveNotifications() {
     return;
   }
   setNotifStatus('✓ Saved', 'success');
-  loadNotifications();  // refresh
+  loadNotifications();
 }
 
 async function testNotifications() {
+  if (!notifState?.verified) {
+    setNotifStatus('Verify your email first.', 'error');
+    return;
+  }
   setNotifStatus('Sending test email…');
   const r = await fetch('/api/notifications', {
     method: 'POST',
@@ -3702,7 +3776,7 @@ async function testNotifications() {
   });
   const j = await r.json().catch(() => null);
   if (!r.ok || !j?.ok) {
-    setNotifStatus(`Test failed: ${j?.error || j?.response?.message || r.status}`, 'error');
+    setNotifStatus(`Test failed: ${j?.error || j?.response?.error || j?.response?.detail || r.status}`, 'error');
     return;
   }
   setNotifStatus('✓ Test sent. Check your inbox.', 'success');
