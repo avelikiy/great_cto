@@ -1689,6 +1689,12 @@ button { font-family: inherit; cursor: pointer; }
 .share-toggle-row .label-grp .l { font-weight: 600; font-size: 14px; }
 .share-toggle-row .label-grp .h { color: var(--text2); font-size: 12px; }
 
+.notif-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; }
+.notif-row:hover { border-color: var(--accent); }
+.notif-row .emoji { font-size: 16px; flex-shrink: 0; }
+.notif-row strong { color: var(--text1); margin-right: 4px; }
+.notif-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
 .toggle {
   width: 38px; height: 22px;
   background: var(--bg-strong);
@@ -1956,6 +1962,13 @@ button { font-family: inherit; cursor: pointer; }
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
         <span>Logs</span>
         <span class="count" id="nav-logs-count">0</span>
+      </div>
+      <div class="nav-item" data-tab="notifications" onclick="switchTab('notifications', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span>Notifications</span>
+        <span id="nav-notifications-badge" class="share-badge off" style="margin-left:auto;">
+          <span class="share-badge-dot"></span>off
+        </span>
       </div>
       <div class="nav-divider"></div>
       <div class="nav-item nav-item-agents" data-tab="agents" onclick="switchTab('agents', this)">
@@ -2230,6 +2243,61 @@ button { font-family: inherit; cursor: pointer; }
           <div id="share-disabled-note" class="share-note">
             When you turn this on, GreatCTO generates a static URL you can share with investors,
             customers, or your board. Toggle it off any time to revoke access.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="panel" id="panel-notifications">
+      <div class="share-page">
+        <div class="share-card">
+          <h2>Email alerts</h2>
+          <p class="sub">Get notified via Resend when something needs your attention — even when you're away from the board. Configure once, edit anytime.</p>
+
+          <div class="share-toggle-row">
+            <div class="label-grp">
+              <div class="l">Email alerts</div>
+              <div class="h" id="notif-help">Disabled. Save settings below to enable.</div>
+            </div>
+            <div class="toggle" id="notif-toggle-visual" onclick="toggleNotifications()">
+              <input type="checkbox" id="notif-toggle">
+            </div>
+          </div>
+
+          <div class="url-block" style="flex-wrap:wrap;gap:10px;align-items:stretch">
+            <div style="flex:1 1 320px;min-width:280px">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-family:var(--mono);letter-spacing:.05em">RECIPIENT EMAIL</div>
+              <input id="notif-to" type="email" placeholder="you@example.com" style="width:100%;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:14px" />
+            </div>
+            <div style="flex:1 1 320px;min-width:280px">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-family:var(--mono);letter-spacing:.05em">RESEND API KEY</div>
+              <input id="notif-key" type="password" placeholder="re_..." style="width:100%;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:14px" />
+              <div id="notif-key-hint" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+            </div>
+          </div>
+
+          <div class="share-note" style="margin-top:18px">
+            <strong style="color:var(--text1)">Which alerts to send</strong>
+          </div>
+          <div id="notif-triggers" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:13.5px">
+            <label class="notif-row"><input type="checkbox" data-trigger="incident.p0"> <span class="emoji">🚨</span><strong>P0 incident</strong> — production failure, ack-grade</label>
+            <label class="notif-row"><input type="checkbox" data-trigger="gate.stale"> <span class="emoji">⏸️</span><strong>Gate stale &gt; 2h</strong> — ship gate waiting for your approval</label>
+            <label class="notif-row"><input type="checkbox" data-trigger="gate.blocked"> <span class="emoji">🛡️</span><strong>Security BLOCKED</strong> — security-officer rejected a merge</label>
+            <label class="notif-row"><input type="checkbox" data-trigger="cost.threshold"> <span class="emoji">💸</span><strong>Budget alert</strong> — LLM spend &gt; 80% / 100% of monthly cap</label>
+            <label class="notif-row"><input type="checkbox" data-trigger="digest.weekly"> <span class="emoji">📊</span><strong>Weekly digest</strong> — Friday 09:00 DORA recap</label>
+          </div>
+
+          <div class="cta-row" style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-black" onclick="saveNotifications()">Save settings</button>
+            <button class="btn-ghost-sm" onclick="testNotifications()">Send test email</button>
+          </div>
+
+          <div id="notif-status" style="margin-top:14px;font-size:13px;font-family:var(--mono)"></div>
+
+          <div class="share-note" style="margin-top:24px">
+            Backed by <code>~/.great_cto/webhooks.json</code> — also editable via <code>great-cto webhook add-outgoing resend …</code>.
+            API key is stored locally and never sent to greatcto.systems. Resend free tier: 3 000 emails/mo.
           </div>
         </div>
       </div>
@@ -3556,6 +3624,104 @@ async function republishShare() {
   showToast('Republished with fresh data', 'success', 3000);
 }
 
+/* ── Notifications (email alerts via Resend) ─────────────────────────────── */
+let notifState = null;
+
+async function loadNotifications() {
+  const data = await api('/api/notifications');
+  if (!data) return;
+  notifState = data;
+  const toEl = document.getElementById('notif-to');
+  const keyEl = document.getElementById('notif-key');
+  const tEl = document.getElementById('notif-toggle');
+  const tvEl = document.getElementById('notif-toggle-visual');
+  if (toEl) toEl.value = data.to || '';
+  if (keyEl) {
+    keyEl.value = '';
+    keyEl.placeholder = data.hasKey ? '••• saved · re-enter to change' : 're_...';
+  }
+  const hint = document.getElementById('notif-key-hint');
+  if (hint) hint.textContent = data.hasKey
+    ? 'API key saved locally. Leave blank to keep it.'
+    : 'Get yours at resend.com/api-keys';
+  if (tEl) tEl.checked = !!data.enabled;
+  if (tvEl) tvEl.classList.toggle('on', !!data.enabled);
+  document.getElementById('notif-help').textContent = data.enabled
+    ? 'Active. Selected events will be emailed.'
+    : 'Disabled. Save settings below to enable.';
+  const badge = document.getElementById('nav-notifications-badge');
+  if (badge) {
+    const on = !!data.enabled;
+    badge.className = `share-badge ${on ? 'on' : 'off'}`;
+    badge.innerHTML = `<span class="share-badge-dot"></span>${on ? 'on' : 'off'}`;
+  }
+  // Check the selected trigger boxes
+  const selected = new Set(data.triggers || []);
+  document.querySelectorAll('#notif-triggers input[data-trigger]').forEach(cb => {
+    cb.checked = selected.has(cb.dataset.trigger);
+  });
+}
+
+async function saveNotifications() {
+  const to = document.getElementById('notif-to').value.trim();
+  const key = document.getElementById('notif-key').value.trim();
+  const enabled = document.getElementById('notif-toggle').checked;
+  const triggers = [...document.querySelectorAll('#notif-triggers input[data-trigger]:checked')]
+    .map(cb => cb.dataset.trigger);
+  if (!to) {
+    setNotifStatus('Enter a recipient email first.', 'error');
+    return;
+  }
+  if (!notifState?.hasKey && !key) {
+    setNotifStatus('Paste your Resend API key (re_...) first.', 'error');
+    return;
+  }
+  setNotifStatus('Saving…');
+  const payload = { action: 'save', to, enabled, triggers };
+  if (key) payload.apiKey = key;  // omit to keep existing
+  const r = await fetch('/api/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) {
+    setNotifStatus(`Save failed: ${j?.error || r.status}`, 'error');
+    return;
+  }
+  setNotifStatus('✓ Saved', 'success');
+  loadNotifications();  // refresh
+}
+
+async function testNotifications() {
+  setNotifStatus('Sending test email…');
+  const r = await fetch('/api/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'test' }),
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j?.ok) {
+    setNotifStatus(`Test failed: ${j?.error || j?.response?.message || r.status}`, 'error');
+    return;
+  }
+  setNotifStatus('✓ Test sent. Check your inbox.', 'success');
+}
+
+function toggleNotifications() {
+  const t = document.getElementById('notif-toggle');
+  t.checked = !t.checked;
+  document.getElementById('notif-toggle-visual').classList.toggle('on', t.checked);
+}
+
+function setNotifStatus(text, tone) {
+  const el = document.getElementById('notif-status');
+  if (!el) return;
+  const color = tone === 'error' ? '#ff6b6b' : tone === 'success' ? 'var(--accent)' : 'var(--text2)';
+  el.style.color = color;
+  el.textContent = text;
+}
+
 async function toggleShare() {
   const enabled = !document.getElementById('share-toggle').checked;
   document.getElementById('share-loading').style.display = enabled ? 'flex' : 'none';
@@ -3678,6 +3844,7 @@ function switchTab(id, el) {
   if (id === 'inbox') refreshInbox();
   if (id === 'memory') loadMemory();
   if (id === 'logs') refreshLogs();
+  if (id === 'notifications') loadNotifications();
 }
 
 /* ── Session Logs ───────────────────────────────────────────────────────── */

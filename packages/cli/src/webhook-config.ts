@@ -26,10 +26,14 @@ export interface IncomingHook {
 export interface OutgoingHook {
   name: string;
   url: string;
-  format: "slack" | "discord" | "pagerduty" | "generic";
+  format: "slack" | "discord" | "pagerduty" | "generic" | "resend";
   triggers: string[];    // event names that fire this dispatcher
   headers?: Record<string, string>;  // optional extra HTTP headers
   enabled?: boolean;
+  // Resend-specific (only used when format === "resend"):
+  to?: string;           // recipient email(s), comma-separated
+  apiKey?: string;       // Resend API key (re_...)
+  from?: string;         // sender email (default: notifications@greatcto.systems)
 }
 
 export interface WebhookConfig {

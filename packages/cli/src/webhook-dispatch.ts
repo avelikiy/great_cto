@@ -11,6 +11,7 @@
 //   - slack: posts as Slack incoming-webhook JSON ({text, blocks?})
 //   - discord: Discord webhook JSON ({content, embeds?})
 //   - pagerduty: Events API v2 ({routing_key, event_action, payload})
+//   - resend: HTML email via Resend API ({from, to, subject, html})
 //   - generic: arbitrary JSON POST
 
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
@@ -53,6 +54,69 @@ function formatDiscord(ev: DispatchEvent): unknown {
   };
 }
 
+function emojiForLevel(level: DispatchEvent["level"]): string {
+  return level === "critical" ? "🚨"
+       : level === "error"    ? "❌"
+       : level === "warning"  ? "⏸️"
+       : "ℹ️";
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
+/**
+ * Build the Resend API payload — POSTed to https://api.resend.com/emails
+ * with Authorization: Bearer <api_key>.
+ *
+ * Body fields from meta:
+ *   - project, link (CTA URL), action (CTA label)
+ *   - kv: Record<string,string> for the metric table
+ *   - severity (optional override for color)
+ */
+function formatResend(ev: DispatchEvent, hook: OutgoingHook): unknown {
+  const accent = ev.level === "critical" ? "#dc2626"
+               : ev.level === "error"    ? "#ea580c"
+               : ev.level === "warning"  ? "#d97706"
+               : "#00d97e";
+  const emoji = emojiForLevel(ev.level);
+  const meta = (ev.meta ?? {}) as Record<string, unknown>;
+  const project = typeof meta.project === "string" ? meta.project : "great_cto";
+  const link = typeof meta.link === "string" ? meta.link : "";
+  const action = typeof meta.action === "string" ? meta.action : "View in board";
+  const kv = (meta.kv ?? {}) as Record<string, string>;
+
+  const tableRows = Object.entries(kv)
+    .map(([k, v]) => `<tr><td style="padding:6px 12px;color:#6b7280;font-size:12px;font-family:ui-monospace,monospace;text-transform:uppercase;letter-spacing:.05em">${escapeHtml(k)}</td><td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:500">${escapeHtml(v)}</td></tr>`)
+    .join("");
+
+  const html = `<!doctype html><html><body style="margin:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827">
+<div style="max-width:560px;margin:32px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+  <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;background:#0a0e0c;color:#ffffff">
+    <div style="font-size:11px;font-family:ui-monospace,monospace;letter-spacing:.1em;color:#9ca3af">${escapeHtml(project.toUpperCase())} · GREATCTO</div>
+    <div style="font-size:20px;font-weight:600;margin-top:6px;color:${accent}">${emoji} ${escapeHtml(ev.title)}</div>
+  </div>
+  ${ev.body ? `<div style="padding:20px 24px;font-size:14px;line-height:1.55;color:#374151">${escapeHtml(ev.body).replace(/\n/g, "<br>")}</div>` : ""}
+  ${tableRows ? `<table style="width:100%;border-top:1px solid #e5e7eb;border-collapse:collapse">${tableRows}</table>` : ""}
+  ${link ? `<div style="padding:24px;text-align:center;border-top:1px solid #e5e7eb">
+    <a href="${escapeHtml(link)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px">${escapeHtml(action)}</a>
+  </div>` : ""}
+  <div style="padding:14px 24px;background:#f9fafb;font-size:11px;color:#9ca3af;font-family:ui-monospace,monospace">
+    Sent by great_cto · ${escapeHtml(ev.name)} · ${new Date().toISOString()}<br>
+    Unsubscribe: edit ~/.great_cto/webhooks.json or the Notifications tab in the board
+  </div>
+</div></body></html>`;
+
+  const to = (hook.to ?? "").split(",").map(s => s.trim()).filter(Boolean);
+  return {
+    from: hook.from ?? "GreatCTO <notifications@greatcto.systems>",
+    to,
+    subject: `${emoji} ${ev.title}`,
+    html,
+  };
+}
+
 function formatPagerDuty(ev: DispatchEvent, routingKey: string): unknown {
   // PagerDuty Events API v2
   const severity = ev.level === "critical" ? "critical"
@@ -80,6 +144,7 @@ function buildPayload(hook: OutgoingHook, ev: DispatchEvent): unknown {
       const key = hook.headers?.routing_key ?? "";
       return formatPagerDuty(ev, key);
     }
+    case "resend":    return formatResend(ev, hook);
     case "generic":
     default:          return { event: ev.name, ...ev };
   }
@@ -101,7 +166,16 @@ async function deliver(
     // Don't leak routing_key as HTTP header — PagerDuty wants it in body
     delete headers.routing_key;
 
-    const res = await fetch(hook.url, { method: "POST", headers, body });
+    // Resend: Bearer auth + URL override (config can leave url blank).
+    let url = hook.url;
+    if (hook.format === "resend") {
+      if (!hook.apiKey) throw new Error("resend: apiKey is required");
+      if (!hook.to)     throw new Error("resend: 'to' email is required");
+      headers["Authorization"] = `Bearer ${hook.apiKey}`;
+      if (!url) url = "https://api.resend.com/emails";
+    }
+
+    const res = await fetch(url, { method: "POST", headers, body });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} ${res.statusText}`);
     }

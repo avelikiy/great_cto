@@ -973,6 +973,276 @@ function getCanonicalAgents() {
   return set;
 }
 
+// ── Email alerts (Resend) ─────────────────────────────────────────────────
+// Dispatch model: read webhooks.json on every fire (idempotent if disabled
+// or no Resend hook configured). Each trigger has a dedupe key persisted to
+// ~/.great_cto/alerts-fired.json so we don't email the same event twice.
+
+const ALERTS_FIRED_PATH = path.join(GREAT_CTO_DIR, 'alerts-fired.json');
+
+function readAlertsFired() {
+  try { return JSON.parse(fs.readFileSync(ALERTS_FIRED_PATH, 'utf8')); } catch { return {}; }
+}
+
+function writeAlertsFired(map) {
+  try {
+    if (!fs.existsSync(GREAT_CTO_DIR)) fs.mkdirSync(GREAT_CTO_DIR, { recursive: true });
+    fs.writeFileSync(ALERTS_FIRED_PATH, JSON.stringify(map, null, 2));
+  } catch {/* best-effort */}
+}
+
+/**
+ * Fire an email alert via Resend if a hook with the given trigger is
+ * enabled. Idempotent per dedupeKey — same key won't email twice.
+ *
+ * @param {string} eventName   e.g. "incident.p0", "gate.stale"
+ * @param {string} dedupeKey   unique per event instance (e.g. "great_cto:GC-42")
+ * @param {object} payload     { title, body, level, project, link, action, kv }
+ */
+async function fireEmailAlert(eventName, dedupeKey, payload) {
+  try {
+    const cfgPath = path.join(GREAT_CTO_DIR, 'webhooks.json');
+    if (!fs.existsSync(cfgPath)) return;
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    const hook = (cfg.outgoing || []).find(h =>
+      h.format === 'resend' && h.enabled !== false &&
+      (h.triggers || []).includes(eventName)
+    );
+    if (!hook || !hook.apiKey || !hook.to) return;
+
+    // Dedupe
+    const fired = readAlertsFired();
+    if (fired[dedupeKey]) return;
+
+    // Build HTML — same template as webhook-dispatch.ts formatResend.
+    const accent = payload.level === 'critical' ? '#dc2626'
+                 : payload.level === 'error'    ? '#ea580c'
+                 : payload.level === 'warning'  ? '#d97706'
+                 : '#00d97e';
+    const emoji = payload.level === 'critical' ? '🚨'
+                : payload.level === 'error'    ? '❌'
+                : payload.level === 'warning'  ? '⏸️'
+                : 'ℹ️';
+    const esc = (s) => String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const project = payload.project || 'great_cto';
+    const kv = payload.kv || {};
+    const tableRows = Object.entries(kv)
+      .map(([k, v]) => `<tr><td style="padding:6px 12px;color:#6b7280;font-size:12px;font-family:ui-monospace,monospace;text-transform:uppercase;letter-spacing:.05em">${esc(k)}</td><td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:500">${esc(v)}</td></tr>`)
+      .join('');
+
+    const html = `<!doctype html><html><body style="margin:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827">
+<div style="max-width:560px;margin:32px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+  <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;background:#0a0e0c;color:#ffffff">
+    <div style="font-size:11px;font-family:ui-monospace,monospace;letter-spacing:.1em;color:#9ca3af">${esc(project.toUpperCase())} · GREATCTO</div>
+    <div style="font-size:20px;font-weight:600;margin-top:6px;color:${accent}">${emoji} ${esc(payload.title)}</div>
+  </div>
+  ${payload.body ? `<div style="padding:20px 24px;font-size:14px;line-height:1.55;color:#374151">${esc(payload.body).replace(/\n/g,'<br>')}</div>` : ''}
+  ${tableRows ? `<table style="width:100%;border-top:1px solid #e5e7eb;border-collapse:collapse">${tableRows}</table>` : ''}
+  ${payload.link ? `<div style="padding:24px;text-align:center;border-top:1px solid #e5e7eb">
+    <a href="${esc(payload.link)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px">${esc(payload.action || 'View in board')}</a>
+  </div>` : ''}
+  <div style="padding:14px 24px;background:#f9fafb;font-size:11px;color:#9ca3af;font-family:ui-monospace,monospace">
+    Sent by great_cto · ${esc(eventName)} · ${new Date().toISOString()}
+  </div>
+</div></body></html>`;
+
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${hook.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: hook.from || 'GreatCTO <notifications@greatcto.systems>',
+        to: hook.to.split(',').map(s => s.trim()).filter(Boolean),
+        subject: `${emoji} ${payload.title}`,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      console.warn(`fireEmailAlert ${eventName}: HTTP ${res.status}`);
+      return;
+    }
+    // Mark fired (keep last 500 keys to avoid file bloat)
+    fired[dedupeKey] = new Date().toISOString();
+    const keys = Object.keys(fired);
+    if (keys.length > 500) {
+      const trimmed = {};
+      keys.slice(-500).forEach(k => trimmed[k] = fired[k]);
+      writeAlertsFired(trimmed);
+    } else {
+      writeAlertsFired(fired);
+    }
+    console.log(`fireEmailAlert: sent ${eventName} (${dedupeKey})`);
+  } catch (e) {
+    console.warn(`fireEmailAlert ${eventName} failed:`, e.message);
+  }
+}
+
+// ── Cron: scan gates / cost / weekly digest ───────────────────────────────
+// Runs every 5 minutes once the server boots. Each check is idempotent
+// thanks to alerts-fired.json dedupe.
+function startAlertCron() {
+  const FIVE_MIN = 5 * 60 * 1000;
+  const ONE_HOUR = 60 * 60 * 1000;
+
+  // incident.p0: any open P0 task (priority=0, not done/closed)
+  setInterval(() => {
+    try {
+      const projects = listProjects();
+      for (const proj of projects) {
+        const tasks = getTasks(proj.path);
+        const p0 = tasks.filter(t =>
+          t.priority === 0 && t.raw_status !== 'closed' && t.raw_status !== 'done'
+        );
+        for (const t of p0) {
+          const dedupeKey = `incident.p0:${proj.slug}:${t.id}`;
+          fireEmailAlert('incident.p0', dedupeKey, {
+            title: `P0 — ${t.title.slice(0, 70)} (${proj.slug})`,
+            body: `A P0 incident is open and needs your attention.\n\n${t.description || ''}`.slice(0, 600),
+            level: 'critical',
+            project: proj.slug,
+            link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}#inbox`,
+            action: 'Claim P0 in board',
+            kv: {
+              id: t.id,
+              title: t.title.slice(0, 80),
+              status: t.status,
+              opened: t.created_at ? new Date(t.created_at).toISOString().slice(0, 16) : 'now',
+            },
+          });
+        }
+      }
+    } catch (e) { console.warn('cron incident.p0 failed:', e.message); }
+  }, FIVE_MIN);
+
+  // gate.blocked: new BLOCKED verdict from security-officer
+  setInterval(() => {
+    try {
+      const verdicts = readVerdicts();
+      const recent = verdicts.filter(v => {
+        if (v.agent !== 'security-officer') return false;
+        if (!isFailure(v.verdict) && !/BLOCKED/i.test(v.verdict || '')) return false;
+        if (!v.ts) return false;
+        return (Date.now() - new Date(v.ts).getTime()) < 24 * 3600_000;
+      });
+      for (const v of recent) {
+        const dedupeKey = `gate.blocked:${v.ts}:${(v.task || v.reason || '').slice(0, 40)}`;
+        fireEmailAlert('gate.blocked', dedupeKey, {
+          title: `Security BLOCKED — ${(v.reason || v.task || 'unknown').slice(0, 70)}`,
+          body: `security-officer rejected a gate. Review the verdict and address the finding before re-submitting.\n\nReason: ${v.reason || '(see verdicts log)'}`,
+          level: 'error',
+          project: v.project || 'great_cto',
+          link: `http://localhost:3141/#logs`,
+          action: 'Review verdict',
+          kv: {
+            agent: v.agent,
+            verdict: v.verdict,
+            ts: v.ts,
+            reason: (v.reason || '').slice(0, 120),
+          },
+        });
+      }
+    } catch (e) { console.warn('cron gate.blocked failed:', e.message); }
+  }, FIVE_MIN);
+
+  // gate.stale: any gate task in_progress >2h
+  setInterval(() => {
+    try {
+      const projects = listProjects();
+      for (const proj of projects) {
+        const tasks = getTasks(proj.path);
+        const gates = tasks.filter(t => t.is_gate && t.raw_status !== 'closed' && t.raw_status !== 'blocked');
+        for (const g of gates) {
+          const created = new Date(g.created_at || g.updated_at || 0).getTime();
+          const ageHr = (Date.now() - created) / 3600_000;
+          if (ageHr < 2) continue;
+          const dedupeKey = `gate.stale:${proj.slug}:${g.id}`;
+          fireEmailAlert('gate.stale', dedupeKey, {
+            title: `${proj.slug} — ${g.title.slice(0, 60)} pending ${ageHr.toFixed(1)}h`,
+            body: `A gate has been waiting for your approval for ${ageHr.toFixed(1)} hours.\n\nGate: ${g.id}\nProject: ${proj.slug}`,
+            level: 'warning',
+            project: proj.slug,
+            link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}#inbox`,
+            action: 'Approve in board',
+            kv: { gate: g.id, agent: g.agent || 'unknown', age: `${ageHr.toFixed(1)}h` },
+          });
+        }
+      }
+    } catch (e) { console.warn('cron gate.stale failed:', e.message); }
+  }, FIVE_MIN);
+
+  // cost.threshold: monthly LLM spend at 80% / 100% of budget
+  setInterval(() => {
+    try {
+      const projects = listProjects();
+      for (const proj of projects) {
+        const m = getMetrics(proj.path);
+        const meta = readProjectMd(proj.path) || {};
+        const budget = parseFloat(meta['monthly-budget']?.replace?.(/[$\s]/g, '') || '0');
+        if (!budget) continue;
+        const spent = m.cost?.real_llm_usd || m.cost?.llm_usd || 0;
+        const pct = (spent / budget) * 100;
+        const month = new Date().toISOString().slice(0, 7);
+        for (const threshold of [80, 100]) {
+          if (pct < threshold) continue;
+          const dedupeKey = `cost.threshold:${proj.slug}:${month}:${threshold}`;
+          fireEmailAlert('cost.threshold', dedupeKey, {
+            title: `${proj.slug} — $${spent.toFixed(2)} LLM spend, ${pct.toFixed(0)}% of $${budget} monthly budget`,
+            body: threshold === 100
+              ? `Budget exceeded. Consider routing more agents to Haiku/Kimi or raising the cap in PROJECT.md.`
+              : `Approaching budget limit. Review top-cost runs before crossing 100%.`,
+            level: threshold === 100 ? 'critical' : 'warning',
+            project: proj.slug,
+            link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}#dashboard`,
+            action: 'Open cost dashboard',
+            kv: {
+              spent: `$${spent.toFixed(2)}`,
+              budget: `$${budget}`,
+              percent: `${pct.toFixed(0)}%`,
+              month,
+            },
+          });
+        }
+      }
+    } catch (e) { console.warn('cron cost.threshold failed:', e.message); }
+  }, ONE_HOUR);
+
+  // digest.weekly: Friday 09:00 UTC ± server tick
+  setInterval(() => {
+    try {
+      const now = new Date();
+      // Friday = 5, hour 9, dedupe by ISO-week
+      if (now.getUTCDay() !== 5 || now.getUTCHours() !== 9) return;
+      const isoWeek = `${now.getUTCFullYear()}-W${Math.ceil((now.getUTCDate() + new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).getUTCDay()) / 7)}`;
+      const projects = listProjects();
+      for (const proj of projects) {
+        const m = getMetrics(proj.path);
+        const dedupeKey = `digest.weekly:${proj.slug}:${isoWeek}`;
+        fireEmailAlert('digest.weekly', dedupeKey, {
+          title: `${proj.slug} weekly — ${m.tasks?.done || 0} shipped, $${(m.cost?.llm_usd || 0).toFixed(2)} spent`,
+          body: `Your week at a glance.`,
+          level: 'info',
+          project: proj.slug,
+          link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}#dashboard`,
+          action: 'Open dashboard',
+          kv: {
+            'tasks shipped': String(m.tasks?.done || 0),
+            'this week': `+${m.velocity?.this_week ?? 0}`,
+            'LLM spend': `$${(m.cost?.llm_usd || 0).toFixed(2)}`,
+            'human equiv': `$${(m.cost?.human_usd || 0).toFixed(0)}`,
+            'savings_x': m.cost?.savings_x ? `${m.cost.savings_x}×` : '—',
+            'QA pass rate': m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : 'no runs',
+          },
+        });
+      }
+    } catch (e) { console.warn('cron digest.weekly failed:', e.message); }
+  }, FIVE_MIN);
+
+  console.log('Alert cron started: gate.stale (5min), cost.threshold (1h), digest.weekly (Fri 09:00)');
+}
+
 function readVerdicts() {
   const verdictDir = path.join(GREAT_CTO_DIR, 'verdicts');
   const results = [];
@@ -1733,6 +2003,99 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── /api/notifications — Resend email channel + 5 alert toggles ───────────
+  // Stores in the same ~/.great_cto/webhooks.json as `great-cto webhook ...`.
+  // The board UI and CLI read/write the same file — single source of truth.
+  if (pathname === '/api/notifications') {
+    const cfgPath = path.join(GREAT_CTO_DIR, 'webhooks.json');
+    let cfg = { incoming: [], outgoing: [] };
+    try { cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')); }
+    catch { /* file may not exist yet */ }
+    const KNOWN_TRIGGERS = ['incident.p0', 'gate.stale', 'gate.blocked', 'cost.threshold', 'digest.weekly'];
+    if (req.method === 'GET') {
+      const hook = (cfg.outgoing || []).find(h => h.format === 'resend');
+      const apiKeyEnv = !!process.env.RESEND_API_KEY;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      // Don't leak apiKey to UI — return only a "hasKey" flag.
+      res.end(JSON.stringify({
+        enabled: !!(hook && hook.enabled !== false),
+        to: hook?.to ?? '',
+        from: hook?.from ?? '',
+        hasKey: !!(hook?.apiKey || apiKeyEnv),
+        triggers: hook?.triggers ?? [],
+        known_triggers: KNOWN_TRIGGERS,
+      }));
+      return;
+    }
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'invalid_json' }));
+        }
+        const action = parsed.action || 'save';
+        const existing = (cfg.outgoing || []).find(h => h.format === 'resend');
+        if (action === 'save') {
+          const next = {
+            name: 'resend-email',
+            format: 'resend',
+            url: 'https://api.resend.com/emails',
+            triggers: Array.isArray(parsed.triggers) ? parsed.triggers.filter(t => KNOWN_TRIGGERS.includes(t)) : [],
+            to: String(parsed.to || ''),
+            from: String(parsed.from || 'GreatCTO <notifications@greatcto.systems>'),
+            apiKey: parsed.apiKey || existing?.apiKey || '',  // keep existing if not re-entered
+            enabled: parsed.enabled !== false,
+          };
+          if (!next.to)     { res.writeHead(400); return res.end(JSON.stringify({ error: 'to_required' })); }
+          if (!next.apiKey) { res.writeHead(400); return res.end(JSON.stringify({ error: 'apiKey_required' })); }
+          cfg.outgoing = (cfg.outgoing || []).filter(h => h.format !== 'resend');
+          cfg.outgoing.push(next);
+          try {
+            if (!fs.existsSync(path.dirname(cfgPath))) fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+            fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+          } catch (e) {
+            res.writeHead(500); return res.end(JSON.stringify({ error: e.message }));
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ ok: true }));
+        }
+        if (action === 'test') {
+          if (!existing || !existing.apiKey || !existing.to) {
+            res.writeHead(400); return res.end(JSON.stringify({ error: 'configure_first' }));
+          }
+          // Fire a synthetic event directly via fetch (skip the dispatch retry queue
+          // for fast user feedback). Returns the Resend response.
+          const emoji = '🧪';
+          const html = `<!doctype html><html><body style="font-family:system-ui;padding:24px"><h2>${emoji} GreatCTO test alert</h2><p>If you see this, your Resend integration works. ✅</p><p style="color:#666;font-size:12px">Sent ${new Date().toISOString()}</p></body></html>`;
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${existing.apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: existing.from || 'GreatCTO <notifications@greatcto.systems>',
+              to: existing.to.split(',').map(s => s.trim()).filter(Boolean),
+              subject: `${emoji} GreatCTO test alert`,
+              html,
+            }),
+          }).then(async r => {
+            const j = await r.json().catch(() => null);
+            res.writeHead(r.ok ? 200 : 502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: r.ok, status: r.status, response: j }));
+          }).catch(err => {
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          });
+          return;
+        }
+        res.writeHead(400); return res.end(JSON.stringify({ error: 'unknown_action' }));
+      });
+      return;
+    }
+  }
+
   if (pathname === '/api/share') {
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2326,6 +2689,7 @@ server.listen(PORT, '127.0.0.1', () => {
     if (n > 0) console.log(`  → discovered ${n} project${n === 1 ? '' : 's'} with .great_cto/PROJECT.md`);
   }).catch(() => {}); // non-fatal
   watchBeads();
+  startAlertCron();
   watchVerdicts();
 
   // Auto-open browser unless --no-open
