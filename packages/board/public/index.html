@@ -2428,6 +2428,76 @@ button { font-family: inherit; cursor: pointer; }
             </div>
           </div>
         </div>
+
+        <!-- ── Pre-push hook card ─────────────────────────────────────── -->
+        <div class="share-card" style="margin-top:18px">
+          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+            <h2 style="margin:0">Pre-push hook <span style="color:var(--text3);font-size:13px;font-weight:400">· blocks private-project leaks before git push</span></h2>
+            <span id="prepush-badge" class="share-badge off" style="margin-left:auto"><span class="share-badge-dot"></span>—</span>
+          </div>
+          <p class="sub">Scans every push for hardcoded project names and personal filesystem paths. Source: <code>scripts/hooks/pre-push.sh</code>. Installed per repo as <code>.git/hooks/pre-push</code>.</p>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
+            <div class="kpi">
+              <div class="kpi-label">Status</div>
+              <div class="kpi-value" id="prepush-status" style="font-size:15px">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Blocks · all-time</div>
+              <div class="kpi-value" id="prepush-total">0</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Blocks · last 30 d</div>
+              <div class="kpi-value" id="prepush-30d">0</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Last block</div>
+              <div class="kpi-value" id="prepush-last" style="font-size:13px;font-family:var(--mono)">never</div>
+            </div>
+          </div>
+
+          <div id="prepush-stale" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(255,179,0,0.08);border:1px solid rgba(255,179,0,0.30);border-radius:6px;font-size:13px">
+            ⚠ Installed hook differs from the canonical version in the plugin.
+            Run <code>great-cto init --force</code> (or copy <code>scripts/hooks/pre-push.sh</code>) to refresh.
+          </div>
+          <div id="prepush-missing" style="display:none;margin-top:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:13px">
+            Hook not installed. Run <code>great-cto init</code> in this repo to install it, or copy
+            <code>scripts/hooks/pre-push.sh</code> into <code>.git/hooks/pre-push</code> manually.
+          </div>
+        </div>
+
+        <!-- ── Secret-scan hook card ───────────────────────────────────── -->
+        <div class="share-card" style="margin-top:18px">
+          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+            <h2 style="margin:0">Secret scanner <span style="color:var(--text3);font-size:13px;font-weight:400">· blocks API keys / PEMs / JWTs at edit time</span></h2>
+            <span id="secscan-badge" class="share-badge on" style="margin-left:auto"><span class="share-badge-dot"></span>active</span>
+          </div>
+          <p class="sub">PreToolUse hook that intercepts Edit / Write / MultiEdit and blocks hardcoded secrets (AWS keys, GitHub PATs, Stripe / OpenAI / Anthropic keys, PEM private keys, JWTs). Source: <code>scripts/hooks/secret-scan.mjs</code>.</p>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
+            <div class="kpi">
+              <div class="kpi-label">Blocks · all-time</div>
+              <div class="kpi-value" id="secscan-blocks">0</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Warns · all-time</div>
+              <div class="kpi-value" id="secscan-warns">0</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Events · 30 d</div>
+              <div class="kpi-value" id="secscan-30d">0</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Last block</div>
+              <div class="kpi-value" id="secscan-last" style="font-size:13px;font-family:var(--mono)">never</div>
+            </div>
+          </div>
+
+          <div id="secscan-rules" style="margin-top:14px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-family:var(--mono);letter-spacing:.05em">TOP RULES · LAST 30 DAYS</div>
+            <div id="secscan-rules-list" style="font-size:13px;color:var(--text2)">No events recorded.</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -4055,37 +4125,45 @@ let _leashPoll = null;
 
 async function loadLeash() {
   try {
-    const s = await fetch('/api/leash/status' + pqs()).then(r => r.json());
+    // Single aggregator call covers all three security cards
+    const security = await fetch('/api/security' + pqs()).then(r => r.json());
+
+    // ── llm-leash card ────────────────────────────────────────────────────
+    const s = security.leash || {};
     const notInstalled = document.getElementById('leash-not-installed');
     const installed = document.getElementById('leash-installed');
     if (!s.available) {
       notInstalled.style.display = 'block';
       installed.style.display = 'none';
-      return;
+    } else {
+      notInstalled.style.display = 'none';
+      installed.style.display = 'block';
+
+      const st = s.state || {};
+      document.getElementById('leash-spent').textContent = '$' + (st.spent_usd ?? 0).toFixed(2);
+      document.getElementById('leash-cap').textContent = st.cap_usd ? '/ $' + Number(st.cap_usd).toFixed(2) : '/ no cap';
+      const pct = st.cap_usd ? Math.min(100, (st.spent_usd / st.cap_usd) * 100) : 0;
+      const bar = document.getElementById('leash-spent-bar');
+      bar.style.width = pct + '%';
+      bar.style.background = pct > 90 ? '#e53935' : pct > 70 ? '#ffb300' : 'var(--accent)';
+      document.getElementById('leash-calls').textContent = st.calls_total ?? 0;
+      document.getElementById('leash-blocked').textContent = st.calls_blocked ?? 0;
+      document.getElementById('leash-hitl-count').textContent = st.hitl_pending ?? 0;
+      document.getElementById('leash-version').textContent = s.installed_version || '—';
+      document.getElementById('leash-audit-path').textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
+
+      // HITL queue + audit (still leash-specific endpoints)
+      const hitl = await fetch('/api/leash/hitl' + pqs()).then(r => r.json()).catch(() => ({ items: [] }));
+      renderLeashHitl(hitl.items || []);
+      const audit = await fetch('/api/leash/audit?limit=50' + pqs().replace('?', '&')).then(r => r.json()).catch(() => ({ records: [] }));
+      renderLeashAudit(audit.records || []);
     }
-    notInstalled.style.display = 'none';
-    installed.style.display = 'block';
 
-    const st = s.state || {};
-    document.getElementById('leash-spent').textContent = '$' + (st.spent_usd ?? 0).toFixed(2);
-    document.getElementById('leash-cap').textContent = st.cap_usd ? '/ $' + Number(st.cap_usd).toFixed(2) : '/ no cap';
-    const pct = st.cap_usd ? Math.min(100, (st.spent_usd / st.cap_usd) * 100) : 0;
-    const bar = document.getElementById('leash-spent-bar');
-    bar.style.width = pct + '%';
-    bar.style.background = pct > 90 ? '#e53935' : pct > 70 ? '#ffb300' : 'var(--accent)';
-    document.getElementById('leash-calls').textContent = st.calls_total ?? 0;
-    document.getElementById('leash-blocked').textContent = st.calls_blocked ?? 0;
-    document.getElementById('leash-hitl-count').textContent = st.hitl_pending ?? 0;
-    document.getElementById('leash-version').textContent = s.installed_version || '—';
-    document.getElementById('leash-audit-path').textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
+    // ── pre-push hook card ────────────────────────────────────────────────
+    renderPrePushCard(security.pre_push || {});
 
-    // HITL queue
-    const hitl = await fetch('/api/leash/hitl' + pqs()).then(r => r.json()).catch(() => ({ items: [] }));
-    renderLeashHitl(hitl.items || []);
-
-    // Audit
-    const audit = await fetch('/api/leash/audit?limit=50' + pqs().replace('?', '&')).then(r => r.json()).catch(() => ({ records: [] }));
-    renderLeashAudit(audit.records || []);
+    // ── secret-scan card ──────────────────────────────────────────────────
+    renderSecretScanCard(security.secret_scan || {});
   } catch (e) {
     console.warn('loadLeash failed', e);
   }
@@ -4096,6 +4174,73 @@ async function loadLeash() {
     if (currentTab !== 'leash') { clearInterval(_leashPoll); _leashPoll = null; return; }
     loadLeash();
   }, 10000);
+}
+
+function renderPrePushCard(p) {
+  const badge = document.getElementById('prepush-badge');
+  const status = document.getElementById('prepush-status');
+  const missing = document.getElementById('prepush-missing');
+  const stale = document.getElementById('prepush-stale');
+
+  if (p.installed) {
+    if (p.stale) {
+      badge.className = 'share-badge off';
+      badge.innerHTML = '<span class="share-badge-dot"></span>stale';
+      status.textContent = 'installed · stale';
+      missing.style.display = 'none';
+      stale.style.display = 'block';
+    } else {
+      badge.className = 'share-badge on';
+      badge.innerHTML = '<span class="share-badge-dot"></span>active';
+      status.textContent = 'installed';
+      missing.style.display = 'none';
+      stale.style.display = 'none';
+    }
+  } else {
+    badge.className = 'share-badge off';
+    badge.innerHTML = '<span class="share-badge-dot"></span>missing';
+    status.textContent = 'not installed';
+    missing.style.display = 'block';
+    stale.style.display = 'none';
+  }
+
+  document.getElementById('prepush-total').textContent = p.blocks_total ?? 0;
+  document.getElementById('prepush-30d').textContent = p.blocks_30d ?? 0;
+  const last = p.last_block?.ts;
+  document.getElementById('prepush-last').textContent = last ? formatRelative(last) : 'never';
+}
+
+function renderSecretScanCard(s) {
+  document.getElementById('secscan-blocks').textContent = s.blocks_total ?? 0;
+  document.getElementById('secscan-warns').textContent = s.warns_total ?? 0;
+  document.getElementById('secscan-30d').textContent = s.events_30d ?? 0;
+  const last = s.last_block?.ts;
+  document.getElementById('secscan-last').textContent = last ? formatRelative(last) : 'never';
+
+  const rules = s.by_rule_30d || {};
+  const entries = Object.entries(rules).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const el = document.getElementById('secscan-rules-list');
+  if (!entries.length) {
+    el.textContent = 'No events recorded.';
+  } else {
+    el.innerHTML = entries.map(([rule, count]) =>
+      `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span>${esc(rule)}</span><span style="color:var(--text3);font-family:var(--mono)">${count}</span></div>`
+    ).join('');
+  }
+}
+
+function formatRelative(iso) {
+  try {
+    const ms = Date.now() - Date.parse(iso);
+    const min = Math.floor(ms / 60000);
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min}m ago`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 30) return `${d}d ago`;
+    return new Date(iso).toISOString().slice(0, 10);
+  } catch { return iso; }
 }
 
 function renderLeashHitl(items) {
@@ -4162,21 +4307,24 @@ async function leashHitlDecide(id, decision) {
   }
 }
 
-/* Update the Security sidebar entry's badge — the tab is always visible
-   (renamed from "Leash" → "Security" on 2026-05-17 because security is a
-   top-level concern the user should see even when nothing's installed). */
+/* Update the Security sidebar entry's badge. Logic: green "on" only when
+   ALL three pillars are healthy (leash available + pre-push installed +
+   secret-scan effectively always on). Yellow "partial" when at least leash
+   or pre-push is up. "setup" when nothing is configured. */
 async function initLeashTab() {
   const nav = document.getElementById('nav-item-leash');
   const badge = document.getElementById('nav-leash-badge');
   if (!nav || !badge) return;
   try {
-    const s = await fetch('/api/leash/status' + pqs()).then(r => r.json());
-    if (s.available) {
+    const s = await fetch('/api/security' + pqs()).then(r => r.json());
+    const leashOk = !!s.leash?.available;
+    const prepushOk = !!s.pre_push?.installed && !s.pre_push?.stale;
+    if (leashOk && prepushOk) {
       badge.className = 'share-badge on';
       badge.innerHTML = '<span class="share-badge-dot"></span>on';
-    } else if (s.enabled) {
+    } else if (leashOk || prepushOk) {
       badge.className = 'share-badge off';
-      badge.innerHTML = '<span class="share-badge-dot"></span>down';
+      badge.innerHTML = '<span class="share-badge-dot"></span>partial';
     } else {
       badge.className = 'share-badge off';
       badge.innerHTML = '<span class="share-badge-dot"></span>setup';
