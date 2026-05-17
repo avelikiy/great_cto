@@ -2388,27 +2388,57 @@ button { font-family: inherit; cursor: pointer; }
             </div>
           </div>
 
-          <!-- Console iframe — visible when proxy is running -->
-          <div id="leash-console-wrap" style="display:none;margin-top:18px">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-              <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">LIVE CONSOLE</span>
-              <a id="leash-console-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent);text-decoration:none">Open in new tab →</a>
-              <button class="btn-ghost-sm" style="margin-left:auto" onclick="document.getElementById(\'leash-console-frame\').src = document.getElementById(\'leash-console-frame\').src">↻ Refresh</button>
+          <!-- Live data — rendered native, styled like the rest of the board -->
+          <div id="leash-live" style="display:none;margin-top:18px">
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">LIVE METRICS</span>
+              <span id="leash-live-meta" style="font-size:12px;color:var(--text3);font-family:var(--mono)"></span>
+              <a id="leash-live-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent);text-decoration:none">Open native console →</a>
             </div>
-            <iframe id="leash-console-frame"
-                    style="width:100%;height:780px;border:1px solid var(--border);border-radius:8px;background:#fff"
-                    title="llm-leash console"
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe>
-            <div style="margin-top:6px;font-size:11px;color:var(--text3)">
-              Served by <code>llm-leash-console</code> running locally · proxies <code id="leash-console-proxy-url">—</code>
+
+            <!-- KPI grid -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+              <div class="kpi"><div class="kpi-label">Active sessions</div><div class="kpi-value" id="leash-k-sessions">0</div></div>
+              <div class="kpi"><div class="kpi-label">Cumulative spend</div><div class="kpi-value" id="leash-k-spend">$0.00</div></div>
+              <div class="kpi"><div class="kpi-label">HITL pending</div><div class="kpi-value" id="leash-k-hitl">0</div></div>
+              <div class="kpi"><div class="kpi-label">Policy rules</div><div class="kpi-value" id="leash-k-rules">0</div></div>
+              <div class="kpi"><div class="kpi-label">PII redactor</div><div class="kpi-value" id="leash-k-pii">off</div></div>
+            </div>
+
+            <!-- Top spenders -->
+            <div style="margin-top:18px">
+              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">TOP SPENDERS</div>
+              <div id="leash-top-spenders" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No sessions yet.</div>
+              </div>
+            </div>
+
+            <!-- Per-agent (rolling, computed from audit) -->
+            <div style="margin-top:18px">
+              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">PER-AGENT SPEND <span style="text-transform:none;letter-spacing:0;color:var(--text3)">· rolling, derived from audit</span></div>
+              <div id="leash-per-agent" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No agent activity yet.</div>
+              </div>
+            </div>
+
+            <!-- Recent events -->
+            <div style="margin-top:18px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">RECENT EVENTS</span>
+                <span style="font-size:12px;color:var(--text3)">· live tail of audit-pipeline.jsonl</span>
+                <button class="btn-ghost-sm" style="margin-left:auto" onclick="loadLeash()">↻ Refresh</button>
+              </div>
+              <div id="leash-events" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No events yet.</div>
+              </div>
             </div>
           </div>
 
-          <!-- Console not running fallback -->
+          <!-- Console process not reachable fallback -->
           <div id="leash-console-down" style="display:none;margin-top:18px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
-            <strong>llm-leash-console isn\'t running.</strong>
+            <strong>Live metrics unavailable.</strong>
             <p style="color:var(--text2);margin:8px 0 12px 0">
-              Start it in a terminal to see live spend, top spenders, per-agent rolling cost, HITL queue and event tail:
+              The leash console process isn\'t running. Start it once in a terminal:
             </p>
             <div style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:10px 12px;border-radius:6px;color:var(--text1);margin-bottom:8px">
               $ llm-leash-console --proxy <span id="leash-console-down-proxy">http://localhost:8765</span> --listen 127.0.0.1:8801
@@ -4066,39 +4096,59 @@ async function loadLeash() {
     renderLeashToggle(s);
 
     const notInstalled = document.getElementById('leash-not-installed');
-    const consoleWrap = document.getElementById('leash-console-wrap');
+    const live = document.getElementById('leash-live');
     const consoleDown = document.getElementById('leash-console-down');
     const auditPath = document.getElementById('leash-audit-path');
     if (auditPath) auditPath.textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
 
     if (!s.install_exists) {
       notInstalled.style.display = 'block';
-      consoleWrap.style.display = 'none';
+      live.style.display = 'none';
       consoleDown.style.display = 'none';
       return;
     }
     notInstalled.style.display = 'none';
 
-    if (s.proxy_running) {
-      const consoleUrl = s.config?.console_url || 'http://localhost:8801';
-      const reachable = await fetch(consoleUrl, { mode: 'no-cors' }).then(() => true).catch(() => false);
-      if (reachable) {
-        // Show iframe, hide down-fallback
-        const frame = document.getElementById('leash-console-frame');
-        if (frame.src !== consoleUrl) frame.src = consoleUrl;
-        document.getElementById('leash-console-link').href = consoleUrl;
-        document.getElementById('leash-console-proxy-url').textContent = s.config?.proxy_url || consoleUrl;
-        consoleWrap.style.display = 'block';
-        consoleDown.style.display = 'none';
-      } else {
-        consoleWrap.style.display = 'none';
-        consoleDown.style.display = 'block';
-        document.getElementById('leash-console-down-proxy').textContent = s.config?.proxy_url || 'http://localhost:8765';
-      }
-    } else {
-      consoleWrap.style.display = 'none';
+    if (!s.proxy_running) {
+      live.style.display = 'none';
       consoleDown.style.display = 'none';
+      return;
     }
+
+    // Fetch live data through our backend (which proxies leash-console /api/stats)
+    const stats = await fetch('/api/leash/console-stats' + pqs()).then(r => r.json()).catch(() => ({ ok: false }));
+    if (!stats.ok) {
+      live.style.display = 'none';
+      consoleDown.style.display = 'block';
+      document.getElementById('leash-console-down-proxy').textContent = s.config?.proxy_url || 'http://localhost:8765';
+      return;
+    }
+    consoleDown.style.display = 'none';
+    live.style.display = 'block';
+
+    // Header meta (proxy + audit-log inline)
+    const meta = document.getElementById('leash-live-meta');
+    if (meta) meta.textContent = `proxy ${stats.proxy_url || s.config?.proxy_url || '—'}`;
+    const link = document.getElementById('leash-live-link');
+    if (link) link.href = s.config?.console_url || 'http://localhost:8801';
+
+    // KPI tiles
+    document.getElementById('leash-k-sessions').textContent = stats.active_sessions ?? 0;
+    document.getElementById('leash-k-spend').textContent = '$' + Number(stats.total_spend_usd || 0).toFixed(4);
+    document.getElementById('leash-k-hitl').textContent = stats.hitl_pending ?? 0;
+    document.getElementById('leash-k-rules').textContent = stats.policy_rules ?? 0;
+    const pii = document.getElementById('leash-k-pii');
+    pii.textContent = stats.pii_redactor_enabled ? 'on' : 'off';
+    pii.style.color = stats.pii_redactor_enabled ? 'var(--accent)' : 'var(--text3)';
+
+    // Top spenders
+    renderLeashTopSpenders(stats.top_sessions || []);
+
+    // Per-agent + recent events (computed from audit JSONL)
+    const audit = await fetch('/api/leash/audit?limit=100' + pqs().replace('?', '&')).then(r => r.json()).catch(() => ({ records: [] }));
+    const records = audit.records || [];
+    renderLeashPerAgent(records);
+    renderLeashEvents(records.slice(0, 30));
   } catch (e) {
     console.warn('loadLeash failed', e);
   }
@@ -4107,7 +4157,84 @@ async function loadLeash() {
   _leashPoll = setInterval(() => {
     if (currentTab !== 'leash') { clearInterval(_leashPoll); _leashPoll = null; return; }
     loadLeash();
-  }, 10000);
+  }, 5000);
+}
+
+function renderLeashTopSpenders(items) {
+  const el = document.getElementById('leash-top-spenders');
+  if (!items.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No sessions yet.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+      <div>SESSION_ID</div><div>COST (USD)</div>
+    </div>
+    ${items.slice(0, 10).map(it => `
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border)">
+        <div><code style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:2px 6px;border-radius:4px;color:var(--text1)">${esc(it.session_id || '?')}</code></div>
+        <div style="font-family:var(--mono);color:var(--text1)">$${Number(it.cost_usd || 0).toFixed(4)}</div>
+      </div>`).join('')}`;
+}
+
+function renderLeashPerAgent(records) {
+  const el = document.getElementById('leash-per-agent');
+  // Aggregate audit records by agent name
+  const agents = {};
+  for (const r of records) {
+    const name = r.agent || r.agent_name || r.actor || '—';
+    if (!agents[name]) agents[name] = { calls: 0, cost: 0 };
+    agents[name].calls += 1;
+    if (typeof r.cost_usd === 'number') agents[name].cost += r.cost_usd;
+  }
+  const rows = Object.entries(agents).sort((a, b) => b[1].cost - a[1].cost);
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No agent activity yet.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+      <div>AGENT</div><div>CALLS</div><div>COST (USD)</div>
+    </div>
+    ${rows.map(([name, a]) => `
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:14px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center">
+        <div style="color:var(--text1)">${esc(name)}</div>
+        <div style="font-family:var(--mono);color:var(--text2);text-align:right">${a.calls}</div>
+        <div style="font-family:var(--mono);color:var(--text1);text-align:right">$${a.cost.toFixed(4)}</div>
+      </div>`).join('')}`;
+}
+
+function renderLeashEvents(records) {
+  const el = document.getElementById('leash-events');
+  if (!records.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No events yet.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:78px 100px 1fr 110px 180px 80px;gap:10px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+      <div>TIME</div><div>KIND</div><div>SESSION</div><div>AGENT</div><div>PROVIDER / MODEL</div><div style="text-align:right">COST</div>
+    </div>
+    <div style="max-height:380px;overflow:auto">
+      ${records.map(r => {
+        const ts = (r.ts || r.timestamp || '').slice(11, 19) || '—';
+        const kind = r.kind || (r.cost_usd != null ? 'model_call' : 'event');
+        const sid = r.session_id || r.session || '—';
+        const agent = r.agent || r.agent_name || '—';
+        const provider = r.provider || '';
+        const model = r.model || '';
+        const pm = provider && model ? `${provider} / ${model}` : (model || provider || '—');
+        const cost = typeof r.cost_usd === 'number' ? '$' + r.cost_usd.toFixed(4) : '';
+        const kindColor = kind === 'model_call' ? 'var(--accent)' : 'var(--text3)';
+        return `<div style="display:grid;grid-template-columns:78px 100px 1fr 110px 180px 80px;gap:10px;padding:6px 14px;font-size:12px;border-top:1px solid var(--border);font-family:var(--mono);align-items:center">
+          <div style="color:var(--text3)">${esc(ts)}</div>
+          <div><span style="display:inline-block;padding:1px 8px;border-radius:10px;background:rgba(0,217,126,.08);color:${kindColor};font-size:11px">${esc(kind)}</span></div>
+          <div style="color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(sid)}</div>
+          <div style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(agent)}</div>
+          <div style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(pm)}</div>
+          <div style="color:var(--text1);text-align:right">${esc(cost)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 function renderLeashToggle(s) {
