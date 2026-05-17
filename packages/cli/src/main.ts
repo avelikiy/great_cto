@@ -109,8 +109,14 @@ function parseArgs(argv: string[]): CliArgs {
     }
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
-    else if (a === "init" || a === "help" || a === "version") {
-      args.command = a as CliArgs["command"];
+    else if (a === "init" || a === "install" || a === "help" || a === "version") {
+      // `install` is an alias for `init`. Both run the same flow; only
+      // difference: `install` upgrades llm-leash to latest on every run,
+      // while `init` is silent-skip when already installed.
+      args.command = (a === "install" ? "init" : a) as CliArgs["command"];
+      if (a === "install") {
+        (args as unknown as { _fromInstall: boolean })._fromInstall = true;
+      }
     } else if (!a.startsWith("-") && args.command === "init" && i === 0) {
       // First positional that isn't a recognised subcommand → unknown
       args.command = "unknown";
@@ -347,7 +353,8 @@ function printHelp(): void {
   log(`${bold("great-cto")} — one-command install for the great_cto Claude Code plugin
 
 ${bold("Usage:")}
-  npx great-cto [init] [options]
+  npx great-cto install [options]    Same as init; also upgrades llm-leash
+  npx great-cto [init] [options]     Detect + bootstrap; installs llm-leash if absent
   npx great-cto board [--port 3141] [--no-open]
   npx great-cto register [--dir PATH]
   npx great-cto scan [path] [--severity LVL] [--scanner NAME] [--sarif FILE]
@@ -769,10 +776,12 @@ async function runInit(args: CliArgs): Promise<number> {
   // ── 6. install pre-push git hook ─────────────────────────
   installPrePushHook(args.dir);
 
-  // ── 7. install llm-leash (runtime governance) ────────────
-  // Idempotent — silent skip if already installed. Best-effort —
-  // missing git/python doesn't fail init.
-  await tryInstallLeash();
+  // ── 7. install / update llm-leash (runtime governance) ───
+  // `init` is idempotent (silent skip when present). `install` always
+  // upgrades to the latest commit on llm-leash main. Both best-effort:
+  // missing git/python doesn't fail the flow.
+  const fromInstall = (args as unknown as { _fromInstall?: boolean })._fromInstall === true;
+  await tryInstallLeash(fromInstall);
 
   // ── done ─────────────────────────────────────────────────
   log("");
@@ -825,24 +834,29 @@ function installPrePushHook(projectDir: string): void {
 
 /**
  * Best-effort llm-leash install — runs after bootstrap so every great-cto
- * init turns on runtime governance for free. Idempotent (skips when already
- * installed) and never throws.
+ * init turns on runtime governance for free.
  *
- * Opt out via env: GREAT_CTO_SKIP_LEASH=1
+ *   forceUpdate=false  (called from `init`)    — silent-skip if installed
+ *   forceUpdate=true   (called from `install`) — git pull + reinstall
+ *
+ * Never throws. Opt out via env: GREAT_CTO_SKIP_LEASH=1
  */
-async function tryInstallLeash(): Promise<void> {
+async function tryInstallLeash(forceUpdate: boolean = false): Promise<void> {
   if (process.env.GREAT_CTO_SKIP_LEASH === "1") {
     log(`  ${dim("skipped llm-leash install (GREAT_CTO_SKIP_LEASH=1)")}`);
     return;
   }
   try {
     const { runLeash } = await import("./leash.js");
-    // Quiet status check first — if already installed, leash install is a no-op
-    // but emits a "already cloned" warning we want to suppress here.
     const { existsSync } = await import("node:fs");
     const installRoot = join(homedir(), ".great_cto", "llm-leash");
     if (existsSync(installRoot)) {
-      log(`  ${dim("llm-leash already installed — skipped")}`);
+      if (forceUpdate) {
+        log(`  ${dim("updating llm-leash to latest …")}`);
+        await runLeash(["update"]);
+      } else {
+        log(`  ${dim("llm-leash already installed — skipped")}`);
+      }
       return;
     }
     log(`  ${dim("installing llm-leash (runtime governance) …")}`);

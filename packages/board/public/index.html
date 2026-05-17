@@ -2329,6 +2329,16 @@ button { font-family: inherit; cursor: pointer; }
           <h2>Security <span style="color:var(--text3);font-size:13px;font-weight:400">· runtime governance for LLM agents</span></h2>
           <p class="sub">Cost ceiling, tamper-evident audit log, kill switch, human-in-the-loop gates. Powered by the open-source <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">llm-leash</a> firewall.</p>
 
+          <div class="share-toggle-row">
+            <div class="label-grp">
+              <div class="l">Runtime governance</div>
+              <div class="h" id="leash-toggle-help">Enable to route LLM calls through the firewall.</div>
+            </div>
+            <div class="toggle" id="leash-toggle-visual" onclick="toggleLeash()">
+              <input type="checkbox" id="leash-toggle">
+            </div>
+          </div>
+
           <div id="leash-not-installed" style="display:none;margin-top:14px">
             <div style="padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
               <strong>llm-leash is not installed.</strong>
@@ -4130,6 +4140,26 @@ async function loadLeash() {
 
     // ── llm-leash card ────────────────────────────────────────────────────
     const s = security.leash || {};
+
+    // Reflect enabled-state in the toggle UI
+    const toggleInput = document.getElementById('leash-toggle');
+    const toggleVisual = document.getElementById('leash-toggle-visual');
+    const toggleHelp = document.getElementById('leash-toggle-help');
+    if (toggleInput && toggleVisual) {
+      const isOn = !!s.enabled;
+      toggleInput.checked = isOn;
+      toggleVisual.classList.toggle('on', isOn);
+      if (toggleHelp) {
+        if (!s.install_exists) {
+          toggleHelp.textContent = 'Install llm-leash first to enable.';
+        } else if (isOn) {
+          toggleHelp.textContent = 'Active — all LLM calls go through the firewall.';
+        } else {
+          toggleHelp.textContent = 'Disabled — calls bypass the firewall. Re-enable any time.';
+        }
+      }
+    }
+
     const notInstalled = document.getElementById('leash-not-installed');
     const installed = document.getElementById('leash-installed');
     if (!s.available) {
@@ -4277,6 +4307,34 @@ function renderLeashAudit(records) {
     const what = esc(r.model || r.tool || r.kind || '');
     return `<div><span style="color:var(--text3)">${esc(ts)}</span> <span style="color:${color}">${esc(decision)}</span> ${what}${cost}</div>`;
   }).join('');
+}
+
+async function toggleLeash() {
+  const input = document.getElementById('leash-toggle');
+  const visual = document.getElementById('leash-toggle-visual');
+  const next = !input.checked;
+  // Optimistic UI
+  input.checked = next;
+  visual.classList.toggle('on', next);
+  try {
+    const r = await fetch('/api/leash/toggle' + pqs(), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: next })
+    }).then(r => r.json());
+    if (!r.ok) {
+      // Roll back UI on server error
+      input.checked = !next;
+      visual.classList.toggle('on', !next);
+      alert('Toggle failed: ' + (r.error || 'unknown'));
+    } else {
+      loadLeash();
+      initLeashTab();
+    }
+  } catch (e) {
+    input.checked = !next;
+    visual.classList.toggle('on', !next);
+    alert('Toggle failed: ' + e);
+  }
 }
 
 async function leashFireKill() {
