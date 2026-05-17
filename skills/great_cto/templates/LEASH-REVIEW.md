@@ -62,6 +62,28 @@ Add one row per tool the agent exposes. Cross-reference `agent-pack.md § Irreve
 - **Drift test:** `leash test-policy fixtures/*.json` in CI? `yes` / `no`
 - **Notable ALLOW patterns:** {list — should be minimal and specific}
 
+## 6a. Policy rules inventory (v2.7+ GA)
+
+Mark every rule the project has consciously decided to ENABLE or SKIP. Default for `ai-system` / `agent-product` projects is the full GA set; `SKIP` requires a written rationale per row.
+
+| Rule | Tier | Enabled? | Notes |
+|---|---|---|---|
+| `SecretsRule` | cheap | required | Detects AWS keys / GitHub PATs / Stripe / OpenAI / Anthropic / PEMs / JWTs in prompts and outputs |
+| `PresidioRule` | cheap | required | PII redaction (SSN, credit card, email, phone, custom patterns) |
+| `ArtifactLeakageRule` (v2.7 GA) | cheap | required | Detects file paths, internal repo names, secret-file references leaking via LLM output |
+| `BehavioralBaselineRule` (v2.3) | cheap | recommended | Anomaly detection on token-spike / new-model / new-tool patterns; needs SQLite or in-memory baseline store |
+| `LocalLLMGuardRule` (v2.9) | expensive | **recommended default** | Local LLM (Ollama / vLLM / LM Studio) for semantic threat detection — ~$0 / ~100 ms. Front-runs `LLMGuardRule`. |
+| `LLMGuardRule` (v2.2) | expensive | optional fallback | Cloud Haiku-based semantic guard, ~$1/1k escalations, ~500 ms. Use only if LocalLLMGuard cannot serve. |
+| `LlamaFirewallRule` | expensive | optional | External scanner integration via `external.py` adapter |
+
+For each row that's `SKIP`, fill the rationale: {row → why omitted}.
+
+**Cascade design** (two-stage):
+- Cheap rules fire on every call (~ms each)
+- If any cheap rule signals `warn` or `hitl`, expensive tier escalates
+- LocalLLMGuard runs first in expensive tier; if it abstains/fails, falls through to cloud LLMGuard
+- Cost: ~$0.10/1k escalations at 90% local-hit rate (vs $1/1k Haiku-only)
+
 ## 7. PII redaction rules
 
 Built-in (always on):
@@ -75,6 +97,21 @@ Custom (domain-specific):
 - [ ] {other — list each}
 
 Redaction happens **before** audit-log write? `yes` (required) / `no` (blocker).
+
+## 7a. Eval pipeline integration (v2.8+)
+
+llm-leash ships a Layer-5 eval pipeline (`python -m llm_leash.eval`) that
+benchmarks any Rule against a labelled dataset and tracks precision /
+recall / F1 / FP-rate / p50 / p95 latency over time.
+
+- **Dataset used:** `tests/fixtures/eval/jailbreaks_v1.jsonl` (107 cases as of v2.10) OR project-specific golden set
+- **CI hook:** nightly drift-compare workflow runs? `yes` / `no` / `not-required`
+- **Failure thresholds:** F1 drop > {X} pp triggers Slack page; FP-rate > {Y}% triggers warning
+- **Custom rules:** {list project-specific Rules and the dataset they're evaluated against}
+
+If the project ships its own Rules, the LEASH reviewer requires at least
+one eval file under `tests/eval/EVAL-leash-rules.md` describing the
+acceptance bar and the dataset shape.
 
 ## 8. Metrics + alerts
 

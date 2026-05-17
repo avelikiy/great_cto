@@ -2433,7 +2433,12 @@ button { font-family: inherit; cursor: pointer; }
               </div>
             </div>
 
-            <div class="share-note" style="margin-top:18px">
+            <div style="margin-top:18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button class="btn-ghost-sm" onclick="leashUpdate(this)" id="leash-update-btn">↻ Check for updates</button>
+              <span id="leash-update-status" style="color:var(--text3);font-size:12px;font-family:var(--mono)"></span>
+            </div>
+
+            <div class="share-note" style="margin-top:14px">
               Config: <code>.great_cto/leash.json</code> · Audit log: <code id="leash-audit-path">~/.leash/audit.jsonl</code> · Updates auto-pulled from <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> on session start.
             </div>
           </div>
@@ -4358,6 +4363,33 @@ async function toggleLeash() {
     input.checked = !next;
     visual.classList.toggle('on', !next);
     alert('Toggle failed: ' + e);
+  }
+}
+
+async function leashUpdate(btn) {
+  const status = document.getElementById('leash-update-status');
+  btn.disabled = true;
+  btn.textContent = '↻ Updating…';
+  status.textContent = 'git pull + pip install …';
+  try {
+    const r = await fetch('/api/leash/update' + pqs(), { method: 'POST' }).then(r => r.json());
+    if (!r.ok) {
+      status.textContent = '✗ ' + (r.error || 'failed');
+      status.style.color = '#e53935';
+    } else if (!r.changed) {
+      status.textContent = `✓ already at latest (${r.after})`;
+      status.style.color = 'var(--accent)';
+    } else {
+      status.textContent = `✓ ${r.before} → ${r.after}` + (r.pip_ok ? '' : ' (pip warning)');
+      status.style.color = 'var(--accent)';
+    }
+    setTimeout(() => loadLeash(), 800);
+  } catch (e) {
+    status.textContent = '✗ ' + e;
+    status.style.color = '#e53935';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Check for updates';
   }
 }
 
