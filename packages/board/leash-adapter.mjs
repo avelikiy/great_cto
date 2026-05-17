@@ -20,6 +20,7 @@ import path from 'path';
 import os from 'os';
 import { spawnSync } from 'child_process';
 import http from 'http';
+import { isProxyRunning } from './leash-proxy-control.mjs';
 
 const DEFAULTS = {
   enabled: false,
@@ -72,12 +73,16 @@ export function getLeashAvailability(cwd = process.cwd()) {
       if (r.status === 0) installedVersion = r.stdout.toString().trim();
     }
   } catch { /* ignore */ }
+  const runStatus = isProxyRunning(cfg);
   return {
     enabled: cfg.enabled,
     available: cfg.enabled && (auditExists || installExists),
     audit_exists: auditExists,
     install_exists: installExists,
     installed_version: installedVersion,
+    proxy_running: runStatus.running,
+    proxy_pid: runStatus.pid || null,
+    proxy_source: runStatus.source || null,
     config: {
       audit_path: cfg.audit_path,
       proxy_url: cfg.proxy_url,

@@ -4141,21 +4141,28 @@ async function loadLeash() {
     // ── llm-leash card ────────────────────────────────────────────────────
     const s = security.leash || {};
 
-    // Reflect enabled-state in the toggle UI
+    // Reflect enabled-state + actual proxy process status in the toggle UI.
+    // The toggle is "on" only when BOTH config says enabled AND the proxy
+    // process is alive — that's what the user actually cares about.
     const toggleInput = document.getElementById('leash-toggle');
     const toggleVisual = document.getElementById('leash-toggle-visual');
     const toggleHelp = document.getElementById('leash-toggle-help');
     if (toggleInput && toggleVisual) {
-      const isOn = !!s.enabled;
+      const isOn = !!s.enabled && !!s.proxy_running;
       toggleInput.checked = isOn;
       toggleVisual.classList.toggle('on', isOn);
       if (toggleHelp) {
         if (!s.install_exists) {
           toggleHelp.textContent = 'Install llm-leash first to enable.';
+        } else if (s.enabled && !s.proxy_running) {
+          toggleHelp.textContent = 'Enabled in config but proxy is not running. Toggle off then on to restart.';
+        } else if (!s.enabled && s.proxy_running) {
+          toggleHelp.textContent = 'Proxy running but disabled in config — stopping…';
         } else if (isOn) {
-          toggleHelp.textContent = 'Active — all LLM calls go through the firewall.';
+          const pid = s.proxy_pid ? ` (pid ${s.proxy_pid})` : '';
+          toggleHelp.textContent = `Active — proxy is up${pid}, all LLM calls go through the firewall.`;
         } else {
-          toggleHelp.textContent = 'Disabled — calls bypass the firewall. Re-enable any time.';
+          toggleHelp.textContent = 'Disabled — proxy stopped, calls bypass the firewall. Re-enable any time.';
         }
       }
     }
@@ -4312,24 +4319,29 @@ function renderLeashAudit(records) {
 async function toggleLeash() {
   const input = document.getElementById('leash-toggle');
   const visual = document.getElementById('leash-toggle-visual');
+  const help = document.getElementById('leash-toggle-help');
   const next = !input.checked;
   // Optimistic UI
   input.checked = next;
   visual.classList.toggle('on', next);
+  if (help) help.textContent = next ? 'Starting proxy…' : 'Stopping proxy…';
   try {
     const r = await fetch('/api/leash/toggle' + pqs(), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: next })
     }).then(r => r.json());
-    if (!r.ok) {
-      // Roll back UI on server error
+
+    const proxyOk = next ? r.proxy?.running === true : r.proxy?.running !== true;
+    if (!r.ok || !proxyOk) {
+      // Roll back UI on server error or proxy lifecycle failure
       input.checked = !next;
       visual.classList.toggle('on', !next);
-      alert('Toggle failed: ' + (r.error || 'unknown'));
-    } else {
-      loadLeash();
-      initLeashTab();
+      const reason = r.proxy?.action?.error || r.error || 'unknown';
+      alert(`Toggle failed: ${reason}`);
     }
+    // Always re-pull the truth from the server (sets help text correctly)
+    loadLeash();
+    initLeashTab();
   } catch (e) {
     input.checked = !next;
     visual.classList.toggle('on', !next);
