@@ -2319,6 +2319,36 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Toggle leash on/off — writes ~/.great_cto/leash.json `enabled` field.
+  // Body: { "enabled": true|false }. Returns the new config snapshot.
+  if (pathname === '/api/leash/toggle' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      try {
+        const { enabled } = JSON.parse(body || '{}');
+        if (typeof enabled !== 'boolean') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'enabled (boolean) required' }));
+          return;
+        }
+        const cfgPath = path.join(os.homedir(), '.great_cto', 'leash.json');
+        fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+        let cfg = {};
+        try { if (fs.existsSync(cfgPath)) cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')); }
+        catch { cfg = {}; }
+        cfg.enabled = enabled;
+        fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, enabled }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e) }));
+      }
+    });
+    return;
+  }
+
   if (pathname === '/api/leash/status') {
     try {
       const avail = getLeashAvailability(cwd);
