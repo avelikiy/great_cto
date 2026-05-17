@@ -1,0 +1,31 @@
+name = "great-cto-worker"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Routes — the worker is mounted on greatcto.systems for these paths.
+# /r/* and /notify/* both route here.
+routes = [
+  { pattern = "greatcto.systems/r/*", zone_name = "greatcto.systems" },
+  { pattern = "greatcto.systems/notify", zone_name = "greatcto.systems" },
+  { pattern = "greatcto.systems/notify/*", zone_name = "greatcto.systems" },
+]
+
+# KV namespace — stores share reports + verified emails + verification codes.
+# Create once:
+#   wrangler kv namespace create STATE
+# Then paste the resulting id below.
+[[kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_WITH_KV_ID_FROM_DASHBOARD"
+
+# Plain (non-secret) variable — sender shown in From: header.
+# If your domain isn't verified in Resend yet, use the sandbox sender:
+#   "GreatCTO <onboarding@resend.dev>"
+# Once greatcto.systems is verified (https://resend.com/domains):
+#   "GreatCTO <notifications@greatcto.systems>"
+[vars]
+RESEND_FROM = "GreatCTO <onboarding@resend.dev>"
+
+# Secret — must be set via dashboard or:
+#   wrangler secret put RESEND_API_KEY
+# (do NOT commit the key)
