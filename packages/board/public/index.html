@@ -4326,10 +4326,22 @@ async function toggleLeash() {
   visual.classList.toggle('on', next);
   if (help) help.textContent = next ? 'Starting proxy…' : 'Stopping proxy…';
   try {
-    const r = await fetch('/api/leash/toggle' + pqs(), {
+    const resp = await fetch('/api/leash/toggle' + pqs(), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: next })
-    }).then(r => r.json());
+    });
+    // Defensive parse: if the board server is an old version that returns
+    // "Not found" plain-text, surface a friendly hint instead of a JSON
+    // SyntaxError.
+    let r;
+    try {
+      r = await resp.json();
+    } catch {
+      if (resp.status === 404) {
+        throw new Error('endpoint not found — restart the board (kill the process, run `great-cto board` again)');
+      }
+      throw new Error(`HTTP ${resp.status} — non-JSON response`);
+    }
 
     const proxyOk = next ? r.proxy?.running === true : r.proxy?.running !== true;
     if (!r.ok || !proxyOk) {
