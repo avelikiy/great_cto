@@ -2845,6 +2845,13 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // API requests get a JSON 404 so frontends can JSON.parse() the response
+  // without crashing. Static-file 404s stay plain text.
+  if (pathname.startsWith('/api/')) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found', path: pathname, hint: 'Endpoint missing — restart the board after a great-cto update.' }));
+    return;
+  }
   res.writeHead(404);
   res.end('Not found');
 });
