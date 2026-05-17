@@ -187,6 +187,35 @@ Verify `.leash/policy.yaml` has explicit ALLOW patterns for every tool the
 agent should use, and DEFAULT-DENY for everything else. A drift test in CI
 (`leash test-policy fixtures/*.json`) prevents silent loosening.
 
+### Step 6a: Policy rules inventory (v2.7+ GA)
+
+Verify the project enables the full GA rule set. Any `SKIP` requires a
+written rationale per row in `LEASH-{slug}.md § 6a`.
+
+Default required: `SecretsRule`, `PresidioRule` (PII), `ArtifactLeakageRule`.
+Default recommended: `BehavioralBaselineRule`, `LocalLLMGuardRule`.
+
+**LocalLLMGuardRule (v2.9) is the recommended semantic guard for any
+cost-sensitive deployment.** It runs against a local Ollama (or vLLM /
+LM Studio / transformers) and front-runs the cloud `LLMGuardRule`. At
+90% local-hit rate it cuts expensive-tier cost ~10x (Haiku-only $1/1k →
+mixed ~$0.10/1k) and p50 from 500 ms to 110 ms. Cloud `LLMGuardRule`
+should only appear as a fallback OR the project must justify why a local
+backend isn't feasible (e.g. embedded device with no local LLM, or strict
+regulatory ban on running classifier on customer data).
+
+Run the eval pipeline against the project's golden set:
+
+```bash
+cd "$LEASH_REPO"
+python -m llm_leash.eval --dataset tests/fixtures/eval/jailbreaks_v1.jsonl \
+  --rule-factory tests.eval.fixtures.factories:local_guard_factory
+```
+
+If F1 < 0.75 on the GA dataset → **High** finding (the chosen rules aren't
+fit for this threat surface; either tighten thresholds or escalate to
+LLMGuardRule cloud).
+
 ### Step 7: Severity table + sign-off
 
 | Severity | Definition |

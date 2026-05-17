@@ -2363,6 +2363,47 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Trigger `great-cto leash update` — git pull + pip reinstall. Synchronous
+  // (we wait), so the UI can show before/after SHA. Caps at 5 minutes.
+  if (pathname === '/api/leash/update' && req.method === 'POST') {
+    try {
+      const installRoot = path.join(os.homedir(), '.great_cto', 'llm-leash');
+      if (!fs.existsSync(installRoot)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'llm-leash not installed' }));
+        return;
+      }
+      const before = spawnSync('git', ['-C', installRoot, 'rev-parse', '--short', 'HEAD'], {
+        stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000,
+      }).stdout?.toString().trim();
+      const pull = spawnSync('git', ['-C', installRoot, 'pull', '--ff-only', 'origin', 'main'], {
+        stdio: ['ignore', 'pipe', 'pipe'], timeout: 60_000,
+      });
+      if (pull.status !== 0) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'git pull failed', detail: pull.stderr?.toString() }));
+        return;
+      }
+      const after = spawnSync('git', ['-C', installRoot, 'rev-parse', '--short', 'HEAD'], {
+        stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000,
+      }).stdout?.toString().trim();
+      // pip reinstall only if SHA moved (saves ~10 s on no-op updates)
+      let pip_ok = true;
+      if (before !== after) {
+        const pip = spawnSync('python3', ['-m', 'pip', 'install', '-e', installRoot, '--upgrade', '--quiet'], {
+          stdio: ['ignore', 'pipe', 'pipe'], timeout: 240_000,
+        });
+        pip_ok = pip.status === 0;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, before, after, changed: before !== after, pip_ok }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: String(e) }));
+    }
+    return;
+  }
+
   if (pathname === '/api/leash/status') {
     try {
       const avail = getLeashAvailability(cwd);
