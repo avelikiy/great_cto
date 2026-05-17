@@ -29,6 +29,7 @@ const DEFAULTS = {
   proxy_url: 'http://localhost:8765',
   hitl_url: 'http://localhost:8765/hitl',
   metrics_url: 'http://localhost:9000/metrics',
+  console_url: 'http://localhost:8801',   // llm-leash-console (v2.1+)
   cli_path: 'leash',
   install_root: path.join(os.homedir(), '.great_cto', 'llm-leash'),
 };
@@ -87,6 +88,7 @@ export function getLeashAvailability(cwd = process.cwd()) {
       audit_path: cfg.audit_path,
       proxy_url: cfg.proxy_url,
       metrics_url: cfg.metrics_url,
+      console_url: cfg.console_url,
       install_root: cfg.install_root,
     },
   };

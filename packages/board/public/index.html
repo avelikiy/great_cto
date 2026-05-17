@@ -1963,7 +1963,7 @@ button { font-family: inherit; cursor: pointer; }
         <span>Logs</span>
         <span class="count" id="nav-logs-count">0</span>
       </div>
-      <div class="nav-item" data-tab="notifications" onclick="switchTab('notifications', this)">
+      <div class="nav-item" data-tab="notifications" onclick="switchTab('notifications', this); loadNotifHistory()">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         <span>Notifications</span>
         <span id="nav-notifications-badge" class="share-badge off" style="margin-left:auto;">
@@ -2318,6 +2318,37 @@ button { font-family: inherit; cursor: pointer; }
 
           <div class="share-note" style="margin-top:24px">
             Free — up to 100 emails per day per verified email. Delivered through our <code>greatcto.systems/notify</code> relay; your inbox address never leaves your machine without your verification. Local state in <code>~/.great_cto/notifications.json</code>.
+          </div>
+        </div>
+
+        <!-- ── Browser push card ───────────────────────────────────────── -->
+        <div class="share-card" style="margin-top:16px" id="push-card">
+          <h2>Browser push</h2>
+          <p class="sub">Native desktop notifications — works even when the board tab is in the background. No email required. Uses Web Push (VAPID) — keys stay local.</p>
+          <div class="share-toggle-row">
+            <div class="label-grp">
+              <div class="l">Browser notifications</div>
+              <div id="push-help" class="h">Click to enable desktop push notifications.</div>
+            </div>
+            <div class="toggle" id="push-toggle-visual" onclick="togglePush()">
+              <input type="checkbox" id="push-toggle">
+            </div>
+          </div>
+          <div id="push-status" style="margin-top:10px;font-size:12.5px;font-family:var(--mono);color:var(--text3)"></div>
+          <div class="share-note" style="margin-top:16px">
+            Push subscriptions are stored locally in <code>~/.great_cto/push-subscriptions.json</code>. Notifications fire for the same 5 triggers as email alerts.
+          </div>
+        </div>
+
+        <!-- ── In-app notification history ─────────────────────────────── -->
+        <div class="share-card" style="margin-top:16px">
+          <h2>Recent notifications</h2>
+          <p class="sub">Last 100 alerts fired this session. Also accessible via the notification drawer (bell icon).</p>
+          <div id="notif-history-inline" style="display:flex;flex-direction:column;gap:0;margin-top:12px;
+            border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">
+            <div id="notif-history-empty" style="padding:20px 16px;color:var(--text3);text-align:center">
+              No notifications yet this session.
+            </div>
           </div>
         </div>
       </div>
@@ -3417,6 +3448,15 @@ function connectSSE() {
   });
   es.addEventListener('inbox', e => {
     try { renderInbox(JSON.parse(e.data)); } catch {}
+  });
+  es.addEventListener('notification', e => {
+    try {
+      const notif = JSON.parse(e.data);
+      const tone = notif.level === 'error' ? 'error'
+        : notif.level === 'success' ? 'success' : 'info';
+      showToast(`<strong>${esc(notif.title)}</strong> — ${esc(notif.body)}`, tone, 5000);
+      prependNotifLive(notif);
+    } catch(err) { console.warn('SSE notification error', err); }
   });
   es.onopen = () => {
     const d = document.getElementById('live-dot');
@@ -5124,7 +5164,220 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ── Notification drawer & in-app history ────────────────────────────────
+let _notifHistory = [];
+let _unreadCount = 0;
+
+function openNotifDrawer() {
+  document.getElementById('notif-drawer').style.right = '0';
+  document.getElementById('notif-drawer-overlay').style.display = 'block';
+  loadNotifHistory();
+}
+function closeNotifDrawer() {
+  document.getElementById('notif-drawer').style.right = '-400px';
+  document.getElementById('notif-drawer-overlay').style.display = 'none';
+}
+async function loadNotifHistory() {
+  try {
+    const r = await fetch('/api/notif-history');
+    if (!r.ok) return;
+    _notifHistory = await r.json();
+    renderNotifDrawer();
+    const unread = _notifHistory.filter(n => !n.read).length;
+    updateNotifBadge(unread);
+    renderNotifHistoryInline();
+  } catch(e) {}
+}
+function _notifLevelIcon(level) {
+  return { info: 'ℹ️', warning: '⚠️', error: '🚨', success: '✅' }[level] || '🔔';
+}
+function renderNotifDrawer() {
+  const list = document.getElementById('notif-drawer-list');
+  const empty = document.getElementById('notif-drawer-empty');
+  if (!list) return;
+  if (!_notifHistory.length) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = 'flex';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  list.innerHTML = _notifHistory.map(n => `
+    <div class="notif-item${n.read ? '' : ' unread'}" data-id="${esc(n.id)}"
+      style="padding:12px 16px;border-bottom:1px solid var(--border);
+      ${n.read ? '' : 'background:rgba(59,130,246,0.06);'}">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:15px;flex-shrink:0;margin-top:1px">${_notifLevelIcon(n.level)}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:${n.read ? '400' : '600'};color:var(--text1);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.title)}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;line-height:1.4">${esc(n.body)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)">
+            ${n.project ? `<span style="color:var(--accent);margin-right:6px">${esc(n.project)}</span>` : ''}
+            ${new Date(n.ts).toLocaleString()}
+          </div>
+        </div>
+        ${n.read ? '' : '<span style="width:7px;height:7px;background:#3b82f6;border-radius:50%;flex-shrink:0;margin-top:5px"></span>'}
+      </div>
+    </div>`).join('');
+}
+function renderNotifHistoryInline() {
+  const el = document.getElementById('notif-history-inline');
+  const empty = document.getElementById('notif-history-empty');
+  if (!el) return;
+  if (!_notifHistory.length) {
+    if (empty) { empty.style.display = 'block'; el.querySelectorAll('.notif-inline-row').forEach(e => e.remove()); }
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  el.innerHTML = _notifHistory.slice(0, 20).map(n => `
+    <div class="notif-inline-row" style="padding:10px 14px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:10px;${n.read ? '' : 'background:rgba(59,130,246,0.05);'}">
+      <span style="font-size:14px">${_notifLevelIcon(n.level)}</span>
+      <div style="flex:1;min-width:0">
+        <span style="font-size:13px;font-weight:${n.read?'400':'600'}">${esc(n.title)}</span>
+        <span style="font-size:12px;color:var(--text3);margin-left:8px">${esc(n.body)}</span>
+      </div>
+      <span style="font-size:11px;color:var(--text3);font-family:var(--mono);flex-shrink:0">
+        ${new Date(n.ts).toLocaleTimeString()}
+      </span>
+    </div>`).join('');
+}
+function updateNotifBadge(count) {
+  _unreadCount = count;
+  const badge = document.getElementById('nav-notifications-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.className = 'share-badge on';
+    badge.innerHTML = `<span class="share-badge-dot"></span>${count}`;
+  } else {
+    badge.className = 'share-badge off';
+    badge.innerHTML = '<span class="share-badge-dot"></span>off';
+  }
+}
+async function markAllNotifsRead() {
+  try {
+    await fetch('/api/notif-history/read', { method: 'POST',
+      headers: {'Content-Type':'application/json'}, body: '{}' });
+    _notifHistory.forEach(n => n.read = true);
+    renderNotifDrawer();
+    renderNotifHistoryInline();
+    updateNotifBadge(0);
+  } catch(e) {}
+}
+function prependNotifLive(notif) {
+  _notifHistory.unshift(notif);
+  if (_notifHistory.length > 100) _notifHistory.length = 100;
+  updateNotifBadge(_unreadCount + 1);
+  renderNotifDrawer();
+  renderNotifHistoryInline();
+}
+
+// ── Web Push (VAPID) ─────────────────────────────────────────────────────
+let _swReg = null;
+let _pushEnabled = false;
+
+async function initPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    const card = document.getElementById('push-card');
+    if (card) card.style.display = 'none';
+    return;
+  }
+  try {
+    _swReg = await navigator.serviceWorker.register('/sw.js');
+    const sub = await _swReg.pushManager.getSubscription();
+    _pushEnabled = !!sub;
+    _updatePushUI();
+  } catch(e) {
+    const s = document.getElementById('push-status');
+    if (s) s.textContent = `Service worker: ${e.message}`;
+  }
+}
+function _updatePushUI() {
+  const toggle = document.getElementById('push-toggle');
+  const help = document.getElementById('push-help');
+  const vis = document.getElementById('push-toggle-visual');
+  if (toggle) toggle.checked = _pushEnabled;
+  if (help) help.textContent = _pushEnabled
+    ? 'Browser notifications are active.'
+    : 'Click to enable desktop push notifications.';
+  if (vis) vis.classList.toggle('active', _pushEnabled);
+}
+async function togglePush() {
+  if (_pushEnabled) await _disablePush(); else await _enablePush();
+}
+async function _enablePush() {
+  const status = document.getElementById('push-status');
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      if (status) status.textContent = 'Permission denied — allow notifications in browser settings.';
+      return;
+    }
+    if (!_swReg) _swReg = await navigator.serviceWorker.register('/sw.js');
+    const kr = await fetch('/api/push/vapid-key');
+    const { publicKey } = await kr.json();
+    const raw = atob(publicKey.replace(/-/g, '+').replace(/_/g, '/'));
+    const key = Uint8Array.from(raw, c => c.charCodeAt(0));
+    const sub = await _swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    await fetch('/api/push/subscribe', { method: 'POST',
+      headers: {'Content-Type':'application/json'}, body: JSON.stringify(sub.toJSON()) });
+    _pushEnabled = true;
+    _updatePushUI();
+    if (status) status.textContent = '';
+    showToast('Browser notifications enabled ✓', 'success', 3000);
+  } catch(e) {
+    if (status) status.textContent = `Error: ${e.message}`;
+  }
+}
+async function _disablePush() {
+  const status = document.getElementById('push-status');
+  try {
+    if (_swReg) {
+      const sub = await _swReg.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/push/subscribe', { method: 'DELETE',
+          headers: {'Content-Type':'application/json'}, body: JSON.stringify({ endpoint: sub.endpoint }) });
+        await sub.unsubscribe();
+      }
+    }
+    _pushEnabled = false;
+    _updatePushUI();
+    if (status) status.textContent = '';
+    showToast('Browser notifications disabled', 'info', 3000);
+  } catch(e) {
+    if (status) status.textContent = `Error: ${e.message}`;
+  }
+}
+
 init();
+initPush();
+loadNotifHistory();
 </script>
+
+<!-- ── Notification drawer ──────────────────────────────────────────────── -->
+<div id="notif-drawer" style="position:fixed;top:0;right:-400px;width:380px;height:100vh;
+  background:var(--bg1);border-left:1px solid var(--border);z-index:9999;
+  transition:right .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;
+  box-shadow:-4px 0 32px rgba(0,0,0,.5)">
+  <div style="padding:14px 16px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+      style="width:16px;height:16px;color:var(--text2)">
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+    </svg>
+    <span style="font-weight:600;font-size:14px;flex:1;color:var(--text1)">Notifications</span>
+    <button class="btn-ghost-sm" onclick="markAllNotifsRead()"
+      style="font-size:12px">Mark all read</button>
+    <button onclick="closeNotifDrawer()" style="background:none;border:none;cursor:pointer;
+      color:var(--text3);font-size:22px;line-height:1;padding:0 4px;margin-left:4px">&times;</button>
+  </div>
+  <div id="notif-drawer-list" style="flex:1;overflow-y:auto"></div>
+  <div id="notif-drawer-empty" style="display:flex;flex:1;align-items:center;
+    justify-content:center;flex-direction:column;gap:8px;color:var(--text3);font-size:13px">
+    <span style="font-size:36px">🔔</span>No notifications yet
+  </div>
+</div>
+<div id="notif-drawer-overlay" onclick="closeNotifDrawer()"
+  style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4)"></div>
 </body>
 </html>
