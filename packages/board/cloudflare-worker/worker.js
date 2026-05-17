@@ -198,14 +198,23 @@ async function startVerify(req, env) {
   const r = await sendResend(env, {
     to,
     subject: `🔐 GreatCTO — your verification code: ${code}`,
-    html: `<!doctype html><html><body style="margin:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827">
-<div style="max-width:480px;margin:48px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;text-align:center">
-  <div style="font-size:11px;font-family:ui-monospace,monospace;letter-spacing:.1em;color:#9ca3af">GREATCTO · EMAIL ALERTS</div>
-  <h1 style="font-size:22px;margin:14px 0;color:#111">Verify your email</h1>
-  <p style="color:#374151;font-size:14px;line-height:1.55">Enter this 6-digit code in the GreatCTO board to start receiving alerts:</p>
-  <div style="font-family:ui-monospace,monospace;font-size:36px;font-weight:700;letter-spacing:.2em;color:#00d97e;margin:24px 0;padding:18px;background:#f3f4f6;border-radius:10px">${code}</div>
-  <p style="color:#9ca3af;font-size:12px">Code expires in 10 minutes. If you didn't request this, ignore this email.</p>
-</div></body></html>`,
+    html: `<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+</head><body style="margin:0;background:#0a0c14;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;color:#e5e7eb">
+<div style="max-width:480px;margin:48px auto;background:#0f1419;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:36px 32px;text-align:center">
+  <div style="display:inline-flex;align-items:center;gap:8px;font-size:10px;font-family:'Geist Mono','JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;color:#9ca3af;text-transform:uppercase">
+    <span style="display:inline-block;width:6px;height:6px;background:#00d97e;border-radius:50%;box-shadow:0 0 6px rgba(0,217,126,0.6)"></span>
+    GREATCTO · EMAIL ALERTS
+  </div>
+  <h1 style="font-size:22px;margin:18px 0 8px;color:#ffffff;font-weight:600;letter-spacing:-0.01em">Verify your email</h1>
+  <p style="color:#9aa0a6;font-size:13.5px;line-height:1.6;margin:0 0 24px">Enter this 6-digit code in the GreatCTO board's <strong style="color:#e5e7eb">Notifications</strong> tab to start receiving alerts.</p>
+  <div style="font-family:'Geist Mono','JetBrains Mono',ui-monospace,monospace;font-size:38px;font-weight:700;letter-spacing:.22em;color:#00d97e;margin:24px 0;padding:22px;background:rgba(0,217,126,0.06);border:1px solid rgba(0,217,126,0.25);border-radius:10px">${code}</div>
+  <p style="color:#6b7280;font-size:11.5px;font-family:'Geist Mono',ui-monospace,monospace;letter-spacing:.04em;margin:0">Code expires in 10 minutes · If you didn't request this, ignore this email.</p>
+</div>
+<div style="text-align:center;padding:16px;font-size:11px;color:#4b5563;font-family:'Geist Mono',ui-monospace,monospace">greatcto.systems</div>
+</body></html>`,
   });
   if (!r.ok) return json({ error: "send_failed", detail: r.error }, 502);
   return json({ ok: true });
@@ -251,34 +260,73 @@ async function notifyStatus(url, env) {
 
 function renderAlertHtml(payload) {
   const { event, level, title, body, project, link, action, kv } = payload;
-  const accent = level === "critical" ? "#dc2626"
-               : level === "error"    ? "#ea580c"
-               : level === "warning"  ? "#d97706"
+  const accent = level === "critical" ? "#f87171"
+               : level === "error"    ? "#fb923c"
+               : level === "warning"  ? "#fbbf24"
                : "#00d97e";
+  const accentBg = level === "critical" ? "rgba(248,113,113,0.10)"
+                 : level === "error"    ? "rgba(251,146,60,0.10)"
+                 : level === "warning"  ? "rgba(251,191,36,0.10)"
+                 : "rgba(0,217,126,0.10)";
+  const accentBorder = level === "critical" ? "rgba(248,113,113,0.30)"
+                     : level === "error"    ? "rgba(251,146,60,0.30)"
+                     : level === "warning"  ? "rgba(251,191,36,0.30)"
+                     : "rgba(0,217,126,0.30)";
+  const dot = level === "critical" ? "#f87171"
+            : level === "error"    ? "#fb923c"
+            : level === "warning"  ? "#fbbf24"
+            : "#00d97e";
   const emoji = level === "critical" ? "🚨"
               : level === "error"    ? "❌"
               : level === "warning"  ? "⏸️"
               : "ℹ️";
-  const rows = Object.entries(kv || {})
-    .map(([k, v]) => `<tr><td style="padding:6px 12px;color:#6b7280;font-size:12px;font-family:ui-monospace,monospace;text-transform:uppercase;letter-spacing:.05em">${escapeHtml(k)}</td><td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:500">${escapeHtml(v)}</td></tr>`)
+
+  // Render kv as horizontal "tiles" matching the board's metric cards.
+  const tiles = Object.entries(kv || {})
+    .map(([k, v]) => `<tr><td style="padding:14px 24px;border-bottom:1px solid rgba(255,255,255,0.06)"><div style="font-size:10px;font-family:'Geist Mono','JetBrains Mono',ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;color:#6b7280;margin-bottom:4px">${escapeHtml(k)}</div><div style="font-size:14px;font-weight:500;color:#e5e7eb;font-family:'Geist Mono','JetBrains Mono',ui-monospace,monospace">${escapeHtml(v)}</div></td></tr>`)
     .join("");
 
-  return `<!doctype html><html><body style="margin:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827">
-<div style="max-width:560px;margin:32px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
-  <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;background:#0a0e0c;color:#ffffff">
-    <div style="font-size:11px;font-family:ui-monospace,monospace;letter-spacing:.1em;color:#9ca3af">${escapeHtml((project || "great_cto").toUpperCase())} · GREATCTO</div>
-    <div style="font-size:20px;font-weight:600;margin-top:6px;color:${accent}">${emoji} ${escapeHtml(title || "")}</div>
+  return `<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>${escapeHtml(title || "GreatCTO alert")}</title>
+</head><body style="margin:0;padding:0;background:#0a0c14;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;color:#e5e7eb;-webkit-font-smoothing:antialiased">
+<div style="max-width:560px;margin:32px auto;background:#0f1419;border:1px solid rgba(255,255,255,0.08);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+
+  <!-- Header: eyebrow + title (matches board's section header style) -->
+  <div style="padding:24px 28px;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,rgba(255,255,255,0.02) 0%,transparent 100%)">
+    <div style="display:flex;align-items:center;gap:8px;font-size:10px;font-family:'Geist Mono','JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;color:#6b7280;text-transform:uppercase;margin-bottom:10px">
+      <span style="display:inline-block;width:6px;height:6px;background:${dot};border-radius:50%;box-shadow:0 0 8px ${dot}"></span>
+      <span>${escapeHtml(project || "great_cto")}</span>
+      <span style="color:#374151">·</span>
+      <span>${escapeHtml((event || "alert").toUpperCase())}</span>
+    </div>
+    <h1 style="font-size:21px;font-weight:600;letter-spacing:-0.01em;margin:0;color:#ffffff;line-height:1.3">${emoji} ${escapeHtml(title || "")}</h1>
   </div>
-  ${body ? `<div style="padding:20px 24px;font-size:14px;line-height:1.55;color:#374151">${escapeHtml(body).replace(/\n/g, "<br>")}</div>` : ""}
-  ${rows ? `<table style="width:100%;border-top:1px solid #e5e7eb;border-collapse:collapse">${rows}</table>` : ""}
-  ${link ? `<div style="padding:24px;text-align:center;border-top:1px solid #e5e7eb">
-    <a href="${escapeHtml(link)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px">${escapeHtml(action || "View in board")}</a>
+
+  ${body ? `<div style="padding:22px 28px;font-size:14px;line-height:1.65;color:#9aa0a6">${escapeHtml(body).replace(/\n/g, "<br>")}</div>` : ""}
+
+  ${tiles ? `<table style="width:100%;border-collapse:collapse;border-top:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.01)">${tiles}</table>` : ""}
+
+  ${link ? `<div style="padding:28px;text-align:center;border-top:1px solid rgba(255,255,255,0.06)">
+    <a href="${escapeHtml(link)}" style="display:inline-block;background:${accent};color:#0a0c14;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;letter-spacing:-0.005em;box-shadow:0 4px 16px ${accentBg}">${escapeHtml(action || "View in board")}</a>
   </div>` : ""}
-  <div style="padding:14px 24px;background:#f9fafb;font-size:11px;color:#9ca3af;font-family:ui-monospace,monospace">
-    Sent by great_cto · ${escapeHtml(event || "alert")} · ${new Date().toISOString()}<br>
-    Manage alerts in the GreatCTO board: <a href="http://localhost:3141#notifications" style="color:#9ca3af">Notifications tab</a>
+
+  <!-- Footer: meta line, like board's status bar -->
+  <div style="padding:14px 28px;background:rgba(255,255,255,0.02);border-top:1px solid rgba(255,255,255,0.06);font-size:11px;font-family:'Geist Mono','JetBrains Mono',ui-monospace,monospace;color:#4b5563;letter-spacing:.02em">
+    <div style="margin-bottom:4px">Sent ${escapeHtml(new Date().toISOString().replace("T", " ").slice(0, 19))} UTC</div>
+    <div>Manage alerts in <a href="http://localhost:3141/#notifications" style="color:#6b7280;text-decoration:underline">board → Notifications</a></div>
   </div>
-</div></body></html>`;
+
+</div>
+
+<!-- Brand row, matches landing footer -->
+<div style="text-align:center;padding:18px 0 32px;font-size:11px;font-family:'Geist Mono','JetBrains Mono',ui-monospace,monospace;color:#374151;letter-spacing:.04em">
+  GREATCTO · the engineering OS for Claude Code
+</div>
+
+</body></html>`;
 }
 
 async function sendAlert(req, env) {
