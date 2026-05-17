@@ -2390,12 +2390,6 @@ button { font-family: inherit; cursor: pointer; }
 
           <!-- Live data — rendered native, styled like the rest of the board -->
           <div id="leash-live" style="display:none;margin-top:18px">
-            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-              <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">LIVE METRICS</span>
-              <span id="leash-live-meta" style="font-size:12px;color:var(--text3);font-family:var(--mono)"></span>
-              <a id="leash-live-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent);text-decoration:none">Open native console →</a>
-            </div>
-
             <!-- KPI grid -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
               <div class="kpi"><div class="kpi-label">Active sessions</div><div class="kpi-value" id="leash-k-sessions">0</div></div>
@@ -4125,12 +4119,6 @@ async function loadLeash() {
     }
     consoleDown.style.display = 'none';
     live.style.display = 'block';
-
-    // Header meta (proxy + audit-log inline)
-    const meta = document.getElementById('leash-live-meta');
-    if (meta) meta.textContent = `proxy ${stats.proxy_url || s.config?.proxy_url || '—'}`;
-    const link = document.getElementById('leash-live-link');
-    if (link) link.href = s.config?.console_url || 'http://localhost:8801';
 
     // KPI tiles
     document.getElementById('leash-k-sessions').textContent = stats.active_sessions ?? 0;
