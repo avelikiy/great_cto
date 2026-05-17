@@ -36,7 +36,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "leash" | "chat-only-hint" | "unknown";
   unknownToken?: string;
   dir: string;
   positional: string[];
@@ -92,6 +92,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "serve") args.command = "serve";
     else if (a === "webhook") args.command = "webhook";
     else if (a === "report") args.command = "report";
+    else if (a === "leash") args.command = "leash";
     // Slash-commands surfaced as CLI subcommands so users get a clear hint
     // instead of a confusing usage error. These work only in the chat plugin.
     else if (
@@ -929,6 +930,18 @@ async function main(): Promise<void> {
       }
       const code = await runWebhookCli(parsed);
       process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(2);
+    }
+  }
+  if (args.command === "leash") {
+    try {
+      const { runLeash } = await import("./leash.js");
+      // rawArgv[0] is "leash" — pass the rest as subcommand + flags
+      const leashArgs = rawArgv.slice(rawArgv.indexOf("leash") + 1);
+      const result = await runLeash(leashArgs);
+      process.exit(result.exitCode);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);

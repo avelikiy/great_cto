@@ -1971,6 +1971,13 @@ button { font-family: inherit; cursor: pointer; }
         </span>
       </div>
       <div class="nav-divider"></div>
+      <div class="nav-item" id="nav-item-leash" data-tab="leash" onclick="switchTab('leash', this)" style="display:none;">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/><path d="M3 3l18 18"/></svg>
+        <span>Leash</span>
+        <span id="nav-leash-badge" class="share-badge off" style="margin-left:auto;">
+          <span class="share-badge-dot"></span>off
+        </span>
+      </div>
       <div class="nav-item nav-item-agents" data-tab="agents" onclick="switchTab('agents', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
         <span>Agents</span>
@@ -2311,6 +2318,82 @@ button { font-family: inherit; cursor: pointer; }
 
           <div class="share-note" style="margin-top:24px">
             Free — up to 100 emails per day per verified email. Delivered through our <code>greatcto.systems/notify</code> relay; your inbox address never leaves your machine without your verification. Local state in <code>~/.great_cto/notifications.json</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-leash">
+      <div class="share-page">
+        <div class="share-card">
+          <h2>Leash <span style="color:var(--text3);font-size:13px;font-weight:400">· runtime governance for LLM agents</span></h2>
+          <p class="sub">Cost ceiling, tamper-evident audit log, kill switch, human-in-the-loop gates. Powered by the open-source <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">llm-leash</a> firewall.</p>
+
+          <div id="leash-not-installed" style="display:none;margin-top:14px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
+            <strong>Not installed.</strong> Run <code>great-cto leash install</code> in this project to enable budget caps, audit logging and the kill switch. Once installed, this tab will activate automatically.
+          </div>
+
+          <div id="leash-installed" style="display:none">
+            <!-- Top-line status -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
+              <div class="kpi">
+                <div class="kpi-label">Today's spend</div>
+                <div class="kpi-value"><span id="leash-spent">$0.00</span> <span id="leash-cap" style="color:var(--text3);font-size:13px;font-weight:400">/ —</span></div>
+                <div class="progress-bar"><div id="leash-spent-bar" class="progress-fill" style="width:0%"></div></div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Calls today</div>
+                <div class="kpi-value" id="leash-calls">0</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Blocked</div>
+                <div class="kpi-value" id="leash-blocked">0</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">HITL pending</div>
+                <div class="kpi-value" id="leash-hitl-count">0</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Installed</div>
+                <div class="kpi-value" style="font-size:14px;font-family:var(--mono)" id="leash-version">—</div>
+              </div>
+            </div>
+
+            <!-- Kill switch -->
+            <div style="margin-top:24px;padding:14px;background:rgba(229,57,53,0.06);border:1px solid rgba(229,57,53,0.30);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div style="flex:1 1 240px">
+                <strong>Kill switch</strong>
+                <div style="color:var(--text3);font-size:12px">Stops all in-flight LLM calls in &lt; 300 ms.</div>
+              </div>
+              <button class="btn-black" style="background:#e53935;border-color:#e53935;color:#fff" onclick="leashFireKill()">🛑 Kill all</button>
+            </div>
+
+            <!-- HITL queue -->
+            <div style="margin-top:24px">
+              <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+                <strong>HITL queue</strong>
+                <span style="color:var(--text3);font-size:12px">human approval required</span>
+                <button class="btn-ghost-sm" style="margin-left:auto" onclick="loadLeash()">↻ refresh</button>
+              </div>
+              <div id="leash-hitl-list" style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+                <div class="empty" style="padding:14px;color:var(--text3)">No pending requests.</div>
+              </div>
+            </div>
+
+            <!-- Audit feed -->
+            <div style="margin-top:24px">
+              <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+                <strong>Audit feed</strong>
+                <span style="color:var(--text3);font-size:12px">JSONL, hash-chained · last 50</span>
+              </div>
+              <div id="leash-audit" style="font-family:var(--mono);font-size:11px;line-height:1.6;max-height:340px;overflow:auto;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text2)">
+                Loading…
+              </div>
+            </div>
+
+            <div class="share-note" style="margin-top:18px">
+              Config: <code>.great_cto/leash.json</code> · Audit log: <code id="leash-audit-path">~/.leash/audit.jsonl</code> · Updates auto-pulled from <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> on session start.
+            </div>
           </div>
         </div>
       </div>
@@ -3151,6 +3234,7 @@ async function init() {
   // Update sidebar counters FIRST — independent of render chain.
   // If a render below throws, counters still reflect actual state.
   updateNavCounts();
+  try { initLeashTab(); } catch (e) { console.warn('initLeashTab failed', e); }
   try { renderInbox(inbox); } catch (e) { console.warn('renderInbox failed', e); }
   try { renderFilterBar(); } catch (e) { console.warn('renderFilterBar failed', e); }
   try { renderKanban(allTasks); } catch (e) { console.warn('renderKanban failed', e); }
@@ -3917,7 +4001,7 @@ function switchTab(id, el) {
   const panelEl = document.getElementById(`panel-${id}`);
   if (panelEl) panelEl.classList.add('active');
   // crumb
-  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', agents: 'Agents', share: 'Share', memory: 'Memory', logs: 'Logs' };
+  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', agents: 'Agents', share: 'Share', memory: 'Memory', logs: 'Logs', notifications: 'Notifications', leash: 'Leash' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';
   if (id === 'dashboard' || id === 'agents') {
     api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
@@ -3928,6 +4012,148 @@ function switchTab(id, el) {
   if (id === 'memory') loadMemory();
   if (id === 'logs') refreshLogs();
   if (id === 'notifications') loadNotifications();
+  if (id === 'leash') loadLeash();
+}
+
+/* ── Leash (llm-leash runtime governance) ──────────────────────────────────
+   Tab is hidden until /api/leash/status returns available:true. Polls budget
+   + audit + HITL every 10 s while the panel is active. */
+
+let _leashPoll = null;
+
+async function loadLeash() {
+  try {
+    const s = await fetch('/api/leash/status' + pqs()).then(r => r.json());
+    const notInstalled = document.getElementById('leash-not-installed');
+    const installed = document.getElementById('leash-installed');
+    if (!s.available) {
+      notInstalled.style.display = 'block';
+      installed.style.display = 'none';
+      return;
+    }
+    notInstalled.style.display = 'none';
+    installed.style.display = 'block';
+
+    const st = s.state || {};
+    document.getElementById('leash-spent').textContent = '$' + (st.spent_usd ?? 0).toFixed(2);
+    document.getElementById('leash-cap').textContent = st.cap_usd ? '/ $' + Number(st.cap_usd).toFixed(2) : '/ no cap';
+    const pct = st.cap_usd ? Math.min(100, (st.spent_usd / st.cap_usd) * 100) : 0;
+    const bar = document.getElementById('leash-spent-bar');
+    bar.style.width = pct + '%';
+    bar.style.background = pct > 90 ? '#e53935' : pct > 70 ? '#ffb300' : 'var(--accent)';
+    document.getElementById('leash-calls').textContent = st.calls_total ?? 0;
+    document.getElementById('leash-blocked').textContent = st.calls_blocked ?? 0;
+    document.getElementById('leash-hitl-count').textContent = st.hitl_pending ?? 0;
+    document.getElementById('leash-version').textContent = s.installed_version || '—';
+    document.getElementById('leash-audit-path').textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
+
+    // HITL queue
+    const hitl = await fetch('/api/leash/hitl' + pqs()).then(r => r.json()).catch(() => ({ items: [] }));
+    renderLeashHitl(hitl.items || []);
+
+    // Audit
+    const audit = await fetch('/api/leash/audit?limit=50' + pqs().replace('?', '&')).then(r => r.json()).catch(() => ({ records: [] }));
+    renderLeashAudit(audit.records || []);
+  } catch (e) {
+    console.warn('loadLeash failed', e);
+  }
+
+  // Poll while panel is active
+  if (_leashPoll) clearInterval(_leashPoll);
+  _leashPoll = setInterval(() => {
+    if (currentTab !== 'leash') { clearInterval(_leashPoll); _leashPoll = null; return; }
+    loadLeash();
+  }, 10000);
+}
+
+function renderLeashHitl(items) {
+  const el = document.getElementById('leash-hitl-list');
+  if (!items.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3)">No pending requests.</div>';
+    return;
+  }
+  el.innerHTML = items.map(it => {
+    const id = esc(it.id || it.hash || '?');
+    const tool = esc(it.tool || it.kind || 'unknown');
+    const args = esc(typeof it.args === 'string' ? it.args : JSON.stringify(it.args || {}));
+    return `<div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <code style="font-family:var(--mono);font-size:11px;color:var(--text3)">${id.slice(0, 8)}</code>
+      <strong>${tool}</strong>
+      <span style="color:var(--text2);font-size:12px;flex:1 1 200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${args}</span>
+      <button class="btn-ghost-sm" onclick="leashHitlDecide('${id}', 'approve')">✓ approve</button>
+      <button class="btn-ghost-sm" style="color:#e53935" onclick="leashHitlDecide('${id}', 'reject')">✗ reject</button>
+    </div>`;
+  }).join('');
+}
+
+function renderLeashAudit(records) {
+  const el = document.getElementById('leash-audit');
+  if (!records.length) {
+    el.textContent = 'No audit records yet.';
+    return;
+  }
+  el.innerHTML = records.map(r => {
+    const ts = (r.ts || r.timestamp || '').replace('T', ' ').slice(0, 19);
+    const decision = r.decision || 'allow';
+    const color = decision === 'block' ? '#e53935' : decision === 'hitl' ? '#ffb300' : 'var(--accent)';
+    const cost = typeof r.cost_usd === 'number' ? ' $' + r.cost_usd.toFixed(4) : '';
+    const what = esc(r.model || r.tool || r.kind || '');
+    return `<div><span style="color:var(--text3)">${esc(ts)}</span> <span style="color:${color}">${esc(decision)}</span> ${what}${cost}</div>`;
+  }).join('');
+}
+
+async function leashFireKill() {
+  if (!confirm('Kill all in-flight LLM calls? This is non-reversible for the current request batch.')) return;
+  try {
+    const r = await fetch('/api/leash/kill' + pqs(), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'board-ui:' + new Date().toISOString() })
+    }).then(r => r.json());
+    if (r.ok) {
+      loadLeash();
+    } else {
+      alert('Kill failed: ' + (r.output || 'unknown error'));
+    }
+  } catch (e) {
+    alert('Kill failed: ' + e);
+  }
+}
+
+async function leashHitlDecide(id, decision) {
+  try {
+    await fetch(`/api/leash/hitl/${encodeURIComponent(id)}/${decision}${pqs()}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }
+    });
+    loadLeash();
+  } catch (e) {
+    alert('HITL decision failed: ' + e);
+  }
+}
+
+/* Show/hide the Leash sidebar entry on app load. Called from init flow. */
+async function initLeashTab() {
+  try {
+    const s = await fetch('/api/leash/status' + pqs()).then(r => r.json());
+    const nav = document.getElementById('nav-item-leash');
+    const badge = document.getElementById('nav-leash-badge');
+    if (!nav) return;
+    if (s.available) {
+      nav.style.display = '';
+      if (badge) {
+        badge.className = 'share-badge on';
+        badge.innerHTML = '<span class="share-badge-dot"></span>on';
+      }
+    } else if (s.enabled) {
+      // Enabled in config but not reachable — show tab in degraded state
+      nav.style.display = '';
+      if (badge) {
+        badge.className = 'share-badge off';
+        badge.innerHTML = '<span class="share-badge-dot"></span>down';
+      }
+    } else {
+      nav.style.display = 'none';
+    }
+  } catch { /* swallow — tab stays hidden */ }
 }
 
 /* ── Session Logs ───────────────────────────────────────────────────────── */
