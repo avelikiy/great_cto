@@ -22,6 +22,7 @@ import {
   fireKillSwitch,
   postHitlDecision,
 } from './leash-adapter.mjs';
+import { getSecurityStatus } from './security-status.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -2305,6 +2306,18 @@ const server = http.createServer(async (req, res) => {
   //   POST /api/leash/hitl/:id/:decision    — approve|reject pending item
   // Every endpoint degrades to "available: false" if leash isn't installed —
   // the UI hides the tab in that case.
+
+  // Aggregator — leash + pre-push hook + secret-scan hook
+  if (pathname === '/api/security') {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getSecurityStatus(cwd)));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(e) }));
+    }
+    return;
+  }
 
   if (pathname === '/api/leash/status') {
     try {

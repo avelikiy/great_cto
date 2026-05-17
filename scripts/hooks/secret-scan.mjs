@@ -20,7 +20,35 @@
  * @see docs/architecture/ADR-014-secret-detection-patterns.md
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+const STATS_LOG = join(homedir(), '.great_cto', 'secret-scan-stats.jsonl');
+
+/**
+ * Append one event line so the board's Security tab can show counters.
+ * Best-effort — never throws, never blocks the hook decision.
+ */
+function logEvent(kind, filePath, findings) {
+  try {
+    mkdirSync(join(homedir(), '.great_cto'), { recursive: true });
+    appendFileSync(STATS_LOG, JSON.stringify({
+      ts: new Date().toISOString(),
+      kind,                                  // 'block' | 'warn'
+      file: redactPath(filePath),
+      rule: findings[0]?.name || 'unknown',
+      detected: [...new Set(findings.map((f) => f.name))],
+    }) + '\n');
+  } catch { /* ignore */ }
+}
+
+function redactPath(p) {
+  if (!p) return null;
+  // Strip $HOME so we don't leak the username into the stats log
+  const home = homedir();
+  return p.startsWith(home) ? p.replace(home, '~') : p;
+}
 
 // --- Pattern catalogue --------------------------------------------------------
 
@@ -147,6 +175,7 @@ function main() {
 
   if (blockers.length > 0) {
     const names = [...new Set(blockers.map((f) => f.name))].join(', ');
+    logEvent('block', filePath, blockers);
     process.stderr.write(
       `[great_cto:secret-scan] BLOCKED — detected: ${names}\n` +
       `  file: ${filePath || '(unknown)'}\n` +
@@ -158,6 +187,7 @@ function main() {
 
   if (warns.length > 0) {
     const names = [...new Set(warns.map((f) => f.name))].join(', ');
+    logEvent('warn', filePath, warns);
     process.stderr.write(
       `[great_cto:secret-scan] WARN — possible: ${names} in ${filePath}\n`
     );

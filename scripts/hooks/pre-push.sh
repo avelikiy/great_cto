@@ -128,6 +128,18 @@ if [[ "$FOUND" -eq 1 ]]; then
   echo -e "${YELLOW}Push blocked.${NC} Remove private project references before pushing."
   echo "Use <private-project> as placeholder in commits/docs."
   echo "To bypass (emergency only): git push --no-verify"
+  # Log the block so the board's Security tab can surface counters.
+  # Best-effort, swallows any I/O error so we never override the exit code.
+  {
+    STATS_DIR="$HOME/.great_cto"
+    mkdir -p "$STATS_DIR" 2>/dev/null
+    REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)
+    BRANCH=$(git branch --show-current 2>/dev/null)
+    TS=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+    printf '{"ts":"%s","kind":"block","repo":"%s","branch":"%s"}\n' \
+      "$TS" "${REPO:-unknown}" "${BRANCH:-unknown}" \
+      >> "$STATS_DIR/pre-push-stats.jsonl" 2>/dev/null
+  } || true
   exit 1
 fi
 
