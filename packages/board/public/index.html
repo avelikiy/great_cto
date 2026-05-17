@@ -2370,6 +2370,7 @@ button { font-family: inherit; cursor: pointer; }
             </div>
           </div>
 
+          <!-- Not installed onboarding -->
           <div id="leash-not-installed" style="display:none;margin-top:14px">
             <div style="padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
               <strong>llm-leash is not installed.</strong>
@@ -2377,171 +2378,46 @@ button { font-family: inherit; cursor: pointer; }
                 Without it, agents can run unbounded API costs, leave no tamper-evident audit trail, and have no remote kill switch. Install once — works for every project on this machine.
               </p>
               <div style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:10px 12px;border-radius:6px;color:var(--text1);margin-bottom:12px">
-                $ great-cto leash install
+                $ great-cto install
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn-black" onclick="navigator.clipboard.writeText('great-cto leash install'); this.textContent='Copied ✓'; setTimeout(()=>this.textContent='Copy install command', 1500)">Copy install command</button>
+                <button class="btn-black" onclick="navigator.clipboard.writeText('great-cto install'); this.textContent='Copied ✓'; setTimeout(()=>this.textContent='Copy install command', 1500)">Copy install command</button>
                 <a class="btn-ghost-sm" href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="text-decoration:none">Learn more →</a>
                 <button class="btn-ghost-sm" onclick="loadLeash()">Re-check</button>
               </div>
             </div>
+          </div>
 
-            <div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-              <div class="kpi" style="opacity:0.55">
-                <div class="kpi-label">Hard $ cap</div>
-                <div class="kpi-value" style="font-size:14px;font-weight:500">budget runaway stops &lt; 300 ms</div>
-              </div>
-              <div class="kpi" style="opacity:0.55">
-                <div class="kpi-label">Audit log</div>
-                <div class="kpi-value" style="font-size:14px;font-weight:500">JSONL, SHA-256 hash-chained, SOC 2-ready</div>
-              </div>
-              <div class="kpi" style="opacity:0.55">
-                <div class="kpi-label">HITL gates</div>
-                <div class="kpi-value" style="font-size:14px;font-weight:500">human approval on irreversible tool calls</div>
-              </div>
-              <div class="kpi" style="opacity:0.55">
-                <div class="kpi-label">Kill switch</div>
-                <div class="kpi-value" style="font-size:14px;font-weight:500">stop all in-flight LLM calls remotely</div>
-              </div>
+          <!-- Console iframe — visible when proxy is running -->
+          <div id="leash-console-wrap" style="display:none;margin-top:18px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+              <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">LIVE CONSOLE</span>
+              <a id="leash-console-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent);text-decoration:none">Open in new tab →</a>
+              <button class="btn-ghost-sm" style="margin-left:auto" onclick="document.getElementById(\'leash-console-frame\').src = document.getElementById(\'leash-console-frame\').src">↻ Refresh</button>
+            </div>
+            <iframe id="leash-console-frame"
+                    style="width:100%;height:780px;border:1px solid var(--border);border-radius:8px;background:#fff"
+                    title="llm-leash console"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe>
+            <div style="margin-top:6px;font-size:11px;color:var(--text3)">
+              Served by <code>llm-leash-console</code> running locally · proxies <code id="leash-console-proxy-url">—</code>
             </div>
           </div>
 
-          <div id="leash-installed" style="display:none">
-            <!-- Top-line status -->
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
-              <div class="kpi">
-                <div class="kpi-label">Today's spend</div>
-                <div class="kpi-value"><span id="leash-spent">$0.00</span> <span id="leash-cap" style="color:var(--text3);font-size:13px;font-weight:400">/ —</span></div>
-                <div class="progress-bar"><div id="leash-spent-bar" class="progress-fill" style="width:0%"></div></div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">Calls today</div>
-                <div class="kpi-value" id="leash-calls">0</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">Blocked</div>
-                <div class="kpi-value" id="leash-blocked">0</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">HITL pending</div>
-                <div class="kpi-value" id="leash-hitl-count">0</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">Installed</div>
-                <div class="kpi-value" style="font-size:14px;font-family:var(--mono)" id="leash-version">—</div>
-              </div>
+          <!-- Console not running fallback -->
+          <div id="leash-console-down" style="display:none;margin-top:18px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
+            <strong>llm-leash-console isn\'t running.</strong>
+            <p style="color:var(--text2);margin:8px 0 12px 0">
+              Start it in a terminal to see live spend, top spenders, per-agent rolling cost, HITL queue and event tail:
+            </p>
+            <div style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:10px 12px;border-radius:6px;color:var(--text1);margin-bottom:8px">
+              $ llm-leash-console --proxy <span id="leash-console-down-proxy">http://localhost:8765</span> --listen 127.0.0.1:8801
             </div>
-
-            <!-- Kill switch -->
-            <div style="margin-top:24px;padding:14px;background:rgba(229,57,53,0.06);border:1px solid rgba(229,57,53,0.30);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-              <div style="flex:1 1 240px">
-                <strong>Kill switch</strong>
-                <div style="color:var(--text3);font-size:12px">Stops all in-flight LLM calls in &lt; 300 ms.</div>
-              </div>
-              <button class="btn-black" style="background:#e53935;border-color:#e53935;color:#fff" onclick="leashFireKill()">🛑 Kill all</button>
-            </div>
-
-            <!-- HITL queue -->
-            <div style="margin-top:24px">
-              <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
-                <strong>HITL queue</strong>
-                <span style="color:var(--text3);font-size:12px">human approval required</span>
-                <button class="btn-ghost-sm" style="margin-left:auto" onclick="loadLeash()">↻ refresh</button>
-              </div>
-              <div id="leash-hitl-list" style="display:flex;flex-direction:column;gap:8px;font-size:13px">
-                <div class="empty" style="padding:14px;color:var(--text3)">No pending requests.</div>
-              </div>
-            </div>
-
-            <!-- Audit feed -->
-            <div style="margin-top:24px">
-              <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
-                <strong>Audit feed</strong>
-                <span style="color:var(--text3);font-size:12px">JSONL, hash-chained · last 50</span>
-              </div>
-              <div id="leash-audit" style="font-family:var(--mono);font-size:11px;line-height:1.6;max-height:340px;overflow:auto;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text2)">
-                Loading…
-              </div>
-            </div>
-
-            <div style="margin-top:18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <button class="btn-ghost-sm" onclick="leashUpdate(this)" id="leash-update-btn">↻ Check for updates</button>
-              <span id="leash-update-status" style="color:var(--text3);font-size:12px;font-family:var(--mono)"></span>
-            </div>
-
-            <div class="share-note" style="margin-top:14px">
-              Config: <code>.great_cto/leash.json</code> · Audit log: <code id="leash-audit-path">~/.leash/audit.jsonl</code> · Updates auto-pulled from <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> on session start.
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Pre-push hook card ─────────────────────────────────────── -->
-        <div class="share-card" style="margin-top:18px">
-          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-            <h2 style="margin:0">Pre-push hook <span style="color:var(--text3);font-size:13px;font-weight:400">· blocks private-project leaks before git push</span></h2>
-            <span id="prepush-badge" class="share-badge off" style="margin-left:auto"><span class="share-badge-dot"></span>—</span>
-          </div>
-          <p class="sub">Scans every push for hardcoded project names and personal filesystem paths. Source: <code>scripts/hooks/pre-push.sh</code>. Installed per repo as <code>.git/hooks/pre-push</code>.</p>
-
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
-            <div class="kpi">
-              <div class="kpi-label">Status</div>
-              <div class="kpi-value" id="prepush-status" style="font-size:15px">—</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Blocks · all-time</div>
-              <div class="kpi-value" id="prepush-total">0</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Blocks · last 30 d</div>
-              <div class="kpi-value" id="prepush-30d">0</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Last block</div>
-              <div class="kpi-value" id="prepush-last" style="font-size:13px;font-family:var(--mono)">never</div>
-            </div>
+            <button class="btn-ghost-sm" onclick="loadLeash()">Re-check</button>
           </div>
 
-          <div id="prepush-stale" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(255,179,0,0.08);border:1px solid rgba(255,179,0,0.30);border-radius:6px;font-size:13px">
-            ⚠ Installed hook differs from the canonical version in the plugin.
-            Run <code>great-cto init --force</code> (or copy <code>scripts/hooks/pre-push.sh</code>) to refresh.
-          </div>
-          <div id="prepush-missing" style="display:none;margin-top:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:13px">
-            Hook not installed. Run <code>great-cto init</code> in this repo to install it, or copy
-            <code>scripts/hooks/pre-push.sh</code> into <code>.git/hooks/pre-push</code> manually.
-          </div>
-        </div>
-
-        <!-- ── Secret-scan hook card ───────────────────────────────────── -->
-        <div class="share-card" style="margin-top:18px">
-          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-            <h2 style="margin:0">Secret scanner <span style="color:var(--text3);font-size:13px;font-weight:400">· blocks API keys / PEMs / JWTs at edit time</span></h2>
-            <span id="secscan-badge" class="share-badge on" style="margin-left:auto"><span class="share-badge-dot"></span>active</span>
-          </div>
-          <p class="sub">PreToolUse hook that intercepts Edit / Write / MultiEdit and blocks hardcoded secrets (AWS keys, GitHub PATs, Stripe / OpenAI / Anthropic keys, PEM private keys, JWTs). Source: <code>scripts/hooks/secret-scan.mjs</code>.</p>
-
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
-            <div class="kpi">
-              <div class="kpi-label">Blocks · all-time</div>
-              <div class="kpi-value" id="secscan-blocks">0</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Warns · all-time</div>
-              <div class="kpi-value" id="secscan-warns">0</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Events · 30 d</div>
-              <div class="kpi-value" id="secscan-30d">0</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Last block</div>
-              <div class="kpi-value" id="secscan-last" style="font-size:13px;font-family:var(--mono)">never</div>
-            </div>
-          </div>
-
-          <div id="secscan-rules" style="margin-top:14px">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-family:var(--mono);letter-spacing:.05em">TOP RULES · LAST 30 DAYS</div>
-            <div id="secscan-rules-list" style="font-size:13px;color:var(--text2)">No events recorded.</div>
+          <div class="share-note" style="margin-top:14px">
+            Config: <code>.great_cto/leash.json</code> · Audit log: <code id="leash-audit-path">~/.leash/audit.jsonl</code> · Auto-pulled from <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> on session start.
           </div>
         </div>
       </div>
@@ -4172,85 +4048,61 @@ function switchTab(id, el) {
   if (id === 'leash') loadLeash();
 }
 
-/* ── Leash (llm-leash runtime governance) ──────────────────────────────────
-   Tab is hidden until /api/leash/status returns available:true. Polls budget
-   + audit + HITL every 10 s while the panel is active. */
+/* ── Security tab (llm-leash runtime governance) ───────────────────────────
+   Minimal UX:
+   - Toggle (on/off) that drives proxy lifecycle via /api/leash/toggle
+   - Iframe embedding llm-leash-console (live spend / agents / events)
+   - Fallback cards when leash isn't installed OR console isn't running
+
+   Stats come directly from the leash console process — we don't reimplement
+   them. Poll every 10s to refresh toggle state + console availability. */
 
 let _leashPoll = null;
 
 async function loadLeash() {
   try {
-    // Single aggregator call covers all three security cards
     const security = await fetch('/api/security' + pqs()).then(r => r.json());
-
-    // ── llm-leash card ────────────────────────────────────────────────────
     const s = security.leash || {};
-
-    // Reflect enabled-state + actual proxy process status in the toggle UI.
-    // The toggle is "on" only when BOTH config says enabled AND the proxy
-    // process is alive — that's what the user actually cares about.
-    const toggleInput = document.getElementById('leash-toggle');
-    const toggleVisual = document.getElementById('leash-toggle-visual');
-    const toggleHelp = document.getElementById('leash-toggle-help');
-    if (toggleInput && toggleVisual) {
-      const isOn = !!s.enabled && !!s.proxy_running;
-      toggleInput.checked = isOn;
-      toggleVisual.classList.toggle('on', isOn);
-      if (toggleHelp) {
-        if (!s.install_exists) {
-          toggleHelp.textContent = 'Install llm-leash first to enable.';
-        } else if (s.enabled && !s.proxy_running) {
-          toggleHelp.textContent = 'Enabled in config but proxy is not running. Toggle off then on to restart.';
-        } else if (!s.enabled && s.proxy_running) {
-          toggleHelp.textContent = 'Proxy running but disabled in config — stopping…';
-        } else if (isOn) {
-          const pid = s.proxy_pid ? ` (pid ${s.proxy_pid})` : '';
-          toggleHelp.textContent = `Active — proxy is up${pid}, all LLM calls go through the firewall.`;
-        } else {
-          toggleHelp.textContent = 'Disabled — proxy stopped, calls bypass the firewall. Re-enable any time.';
-        }
-      }
-    }
+    renderLeashToggle(s);
 
     const notInstalled = document.getElementById('leash-not-installed');
-    const installed = document.getElementById('leash-installed');
-    if (!s.available) {
+    const consoleWrap = document.getElementById('leash-console-wrap');
+    const consoleDown = document.getElementById('leash-console-down');
+    const auditPath = document.getElementById('leash-audit-path');
+    if (auditPath) auditPath.textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
+
+    if (!s.install_exists) {
       notInstalled.style.display = 'block';
-      installed.style.display = 'none';
-    } else {
-      notInstalled.style.display = 'none';
-      installed.style.display = 'block';
-
-      const st = s.state || {};
-      document.getElementById('leash-spent').textContent = '$' + (st.spent_usd ?? 0).toFixed(2);
-      document.getElementById('leash-cap').textContent = st.cap_usd ? '/ $' + Number(st.cap_usd).toFixed(2) : '/ no cap';
-      const pct = st.cap_usd ? Math.min(100, (st.spent_usd / st.cap_usd) * 100) : 0;
-      const bar = document.getElementById('leash-spent-bar');
-      bar.style.width = pct + '%';
-      bar.style.background = pct > 90 ? '#e53935' : pct > 70 ? '#ffb300' : 'var(--accent)';
-      document.getElementById('leash-calls').textContent = st.calls_total ?? 0;
-      document.getElementById('leash-blocked').textContent = st.calls_blocked ?? 0;
-      document.getElementById('leash-hitl-count').textContent = st.hitl_pending ?? 0;
-      document.getElementById('leash-version').textContent = s.installed_version || '—';
-      document.getElementById('leash-audit-path').textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
-
-      // HITL queue + audit (still leash-specific endpoints)
-      const hitl = await fetch('/api/leash/hitl' + pqs()).then(r => r.json()).catch(() => ({ items: [] }));
-      renderLeashHitl(hitl.items || []);
-      const audit = await fetch('/api/leash/audit?limit=50' + pqs().replace('?', '&')).then(r => r.json()).catch(() => ({ records: [] }));
-      renderLeashAudit(audit.records || []);
+      consoleWrap.style.display = 'none';
+      consoleDown.style.display = 'none';
+      return;
     }
+    notInstalled.style.display = 'none';
 
-    // ── pre-push hook card ────────────────────────────────────────────────
-    renderPrePushCard(security.pre_push || {});
-
-    // ── secret-scan card ──────────────────────────────────────────────────
-    renderSecretScanCard(security.secret_scan || {});
+    if (s.proxy_running) {
+      const consoleUrl = s.config?.console_url || 'http://localhost:8801';
+      const reachable = await fetch(consoleUrl, { mode: 'no-cors' }).then(() => true).catch(() => false);
+      if (reachable) {
+        // Show iframe, hide down-fallback
+        const frame = document.getElementById('leash-console-frame');
+        if (frame.src !== consoleUrl) frame.src = consoleUrl;
+        document.getElementById('leash-console-link').href = consoleUrl;
+        document.getElementById('leash-console-proxy-url').textContent = s.config?.proxy_url || consoleUrl;
+        consoleWrap.style.display = 'block';
+        consoleDown.style.display = 'none';
+      } else {
+        consoleWrap.style.display = 'none';
+        consoleDown.style.display = 'block';
+        document.getElementById('leash-console-down-proxy').textContent = s.config?.proxy_url || 'http://localhost:8765';
+      }
+    } else {
+      consoleWrap.style.display = 'none';
+      consoleDown.style.display = 'none';
+    }
   } catch (e) {
     console.warn('loadLeash failed', e);
   }
 
-  // Poll while panel is active
   if (_leashPoll) clearInterval(_leashPoll);
   _leashPoll = setInterval(() => {
     if (currentTab !== 'leash') { clearInterval(_leashPoll); _leashPoll = null; return; }
@@ -4258,107 +4110,29 @@ async function loadLeash() {
   }, 10000);
 }
 
-function renderPrePushCard(p) {
-  const badge = document.getElementById('prepush-badge');
-  const status = document.getElementById('prepush-status');
-  const missing = document.getElementById('prepush-missing');
-  const stale = document.getElementById('prepush-stale');
+function renderLeashToggle(s) {
+  const toggleInput = document.getElementById('leash-toggle');
+  const toggleVisual = document.getElementById('leash-toggle-visual');
+  const toggleHelp = document.getElementById('leash-toggle-help');
+  if (!toggleInput || !toggleVisual) return;
 
-  if (p.installed) {
-    if (p.stale) {
-      badge.className = 'share-badge off';
-      badge.innerHTML = '<span class="share-badge-dot"></span>stale';
-      status.textContent = 'installed · stale';
-      missing.style.display = 'none';
-      stale.style.display = 'block';
-    } else {
-      badge.className = 'share-badge on';
-      badge.innerHTML = '<span class="share-badge-dot"></span>active';
-      status.textContent = 'installed';
-      missing.style.display = 'none';
-      stale.style.display = 'none';
-    }
+  const isOn = !!s.enabled && !!s.proxy_running;
+  toggleInput.checked = isOn;
+  toggleVisual.classList.toggle('on', isOn);
+  if (!toggleHelp) return;
+
+  if (!s.install_exists) {
+    toggleHelp.textContent = 'Install llm-leash first to enable.';
+  } else if (s.enabled && !s.proxy_running) {
+    toggleHelp.textContent = 'Enabled in config but proxy is not running. Toggle off then on to restart.';
+  } else if (!s.enabled && s.proxy_running) {
+    toggleHelp.textContent = 'Proxy running but disabled in config — stopping…';
+  } else if (isOn) {
+    const pid = s.proxy_pid ? ` (pid ${s.proxy_pid})` : '';
+    toggleHelp.textContent = `Active — proxy is up${pid}, all LLM calls go through the firewall.`;
   } else {
-    badge.className = 'share-badge off';
-    badge.innerHTML = '<span class="share-badge-dot"></span>missing';
-    status.textContent = 'not installed';
-    missing.style.display = 'block';
-    stale.style.display = 'none';
+    toggleHelp.textContent = 'Disabled — proxy stopped, calls bypass the firewall. Re-enable any time.';
   }
-
-  document.getElementById('prepush-total').textContent = p.blocks_total ?? 0;
-  document.getElementById('prepush-30d').textContent = p.blocks_30d ?? 0;
-  const last = p.last_block?.ts;
-  document.getElementById('prepush-last').textContent = last ? formatRelative(last) : 'never';
-}
-
-function renderSecretScanCard(s) {
-  document.getElementById('secscan-blocks').textContent = s.blocks_total ?? 0;
-  document.getElementById('secscan-warns').textContent = s.warns_total ?? 0;
-  document.getElementById('secscan-30d').textContent = s.events_30d ?? 0;
-  const last = s.last_block?.ts;
-  document.getElementById('secscan-last').textContent = last ? formatRelative(last) : 'never';
-
-  const rules = s.by_rule_30d || {};
-  const entries = Object.entries(rules).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const el = document.getElementById('secscan-rules-list');
-  if (!entries.length) {
-    el.textContent = 'No events recorded.';
-  } else {
-    el.innerHTML = entries.map(([rule, count]) =>
-      `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span>${esc(rule)}</span><span style="color:var(--text3);font-family:var(--mono)">${count}</span></div>`
-    ).join('');
-  }
-}
-
-function formatRelative(iso) {
-  try {
-    const ms = Date.now() - Date.parse(iso);
-    const min = Math.floor(ms / 60000);
-    if (min < 1) return 'just now';
-    if (min < 60) return `${min}m ago`;
-    const h = Math.floor(min / 60);
-    if (h < 24) return `${h}h ago`;
-    const d = Math.floor(h / 24);
-    if (d < 30) return `${d}d ago`;
-    return new Date(iso).toISOString().slice(0, 10);
-  } catch { return iso; }
-}
-
-function renderLeashHitl(items) {
-  const el = document.getElementById('leash-hitl-list');
-  if (!items.length) {
-    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3)">No pending requests.</div>';
-    return;
-  }
-  el.innerHTML = items.map(it => {
-    const id = esc(it.id || it.hash || '?');
-    const tool = esc(it.tool || it.kind || 'unknown');
-    const args = esc(typeof it.args === 'string' ? it.args : JSON.stringify(it.args || {}));
-    return `<div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <code style="font-family:var(--mono);font-size:11px;color:var(--text3)">${id.slice(0, 8)}</code>
-      <strong>${tool}</strong>
-      <span style="color:var(--text2);font-size:12px;flex:1 1 200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${args}</span>
-      <button class="btn-ghost-sm" onclick="leashHitlDecide('${id}', 'approve')">✓ approve</button>
-      <button class="btn-ghost-sm" style="color:#e53935" onclick="leashHitlDecide('${id}', 'reject')">✗ reject</button>
-    </div>`;
-  }).join('');
-}
-
-function renderLeashAudit(records) {
-  const el = document.getElementById('leash-audit');
-  if (!records.length) {
-    el.textContent = 'No audit records yet.';
-    return;
-  }
-  el.innerHTML = records.map(r => {
-    const ts = (r.ts || r.timestamp || '').replace('T', ' ').slice(0, 19);
-    const decision = r.decision || 'allow';
-    const color = decision === 'block' ? '#e53935' : decision === 'hitl' ? '#ffb300' : 'var(--accent)';
-    const cost = typeof r.cost_usd === 'number' ? ' $' + r.cost_usd.toFixed(4) : '';
-    const what = esc(r.model || r.tool || r.kind || '');
-    return `<div><span style="color:var(--text3)">${esc(ts)}</span> <span style="color:${color}">${esc(decision)}</span> ${what}${cost}</div>`;
-  }).join('');
 }
 
 async function toggleLeash() {
@@ -4366,7 +4140,6 @@ async function toggleLeash() {
   const visual = document.getElementById('leash-toggle-visual');
   const help = document.getElementById('leash-toggle-help');
   const next = !input.checked;
-  // Optimistic UI
   input.checked = next;
   visual.classList.toggle('on', next);
   if (help) help.textContent = next ? 'Starting proxy…' : 'Stopping proxy…';
@@ -4375,28 +4148,21 @@ async function toggleLeash() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: next })
     });
-    // Defensive parse: if the board server is an old version that returns
-    // "Not found" plain-text, surface a friendly hint instead of a JSON
-    // SyntaxError.
     let r;
-    try {
-      r = await resp.json();
-    } catch {
+    try { r = await resp.json(); }
+    catch {
       if (resp.status === 404) {
-        throw new Error('endpoint not found — restart the board (kill the process, run `great-cto board` again)');
+        throw new Error('endpoint not found — restart the board');
       }
       throw new Error(`HTTP ${resp.status} — non-JSON response`);
     }
-
     const proxyOk = next ? r.proxy?.running === true : r.proxy?.running !== true;
     if (!r.ok || !proxyOk) {
-      // Roll back UI on server error or proxy lifecycle failure
       input.checked = !next;
       visual.classList.toggle('on', !next);
       const reason = r.proxy?.action?.error || r.error || 'unknown';
       alert(`Toggle failed: ${reason}`);
     }
-    // Always re-pull the truth from the server (sets help text correctly)
     loadLeash();
     initLeashTab();
   } catch (e) {
@@ -4406,79 +4172,19 @@ async function toggleLeash() {
   }
 }
 
-async function leashUpdate(btn) {
-  const status = document.getElementById('leash-update-status');
-  btn.disabled = true;
-  btn.textContent = '↻ Updating…';
-  status.textContent = 'git pull + pip install …';
-  try {
-    const r = await fetch('/api/leash/update' + pqs(), { method: 'POST' }).then(r => r.json());
-    if (!r.ok) {
-      status.textContent = '✗ ' + (r.error || 'failed');
-      status.style.color = '#e53935';
-    } else if (!r.changed) {
-      status.textContent = `✓ already at latest (${r.after})`;
-      status.style.color = 'var(--accent)';
-    } else {
-      status.textContent = `✓ ${r.before} → ${r.after}` + (r.pip_ok ? '' : ' (pip warning)');
-      status.style.color = 'var(--accent)';
-    }
-    setTimeout(() => loadLeash(), 800);
-  } catch (e) {
-    status.textContent = '✗ ' + e;
-    status.style.color = '#e53935';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '↻ Check for updates';
-  }
-}
-
-async function leashFireKill() {
-  if (!confirm('Kill all in-flight LLM calls? This is non-reversible for the current request batch.')) return;
-  try {
-    const r = await fetch('/api/leash/kill' + pqs(), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: 'board-ui:' + new Date().toISOString() })
-    }).then(r => r.json());
-    if (r.ok) {
-      loadLeash();
-    } else {
-      alert('Kill failed: ' + (r.output || 'unknown error'));
-    }
-  } catch (e) {
-    alert('Kill failed: ' + e);
-  }
-}
-
-async function leashHitlDecide(id, decision) {
-  try {
-    await fetch(`/api/leash/hitl/${encodeURIComponent(id)}/${decision}${pqs()}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }
-    });
-    loadLeash();
-  } catch (e) {
-    alert('HITL decision failed: ' + e);
-  }
-}
-
-/* Update the Security sidebar entry's badge. Logic: green "on" only when
-   ALL three pillars are healthy (leash available + pre-push installed +
-   secret-scan effectively always on). Yellow "partial" when at least leash
-   or pre-push is up. "setup" when nothing is configured. */
 async function initLeashTab() {
   const nav = document.getElementById('nav-item-leash');
   const badge = document.getElementById('nav-leash-badge');
   if (!nav || !badge) return;
   try {
     const s = await fetch('/api/security' + pqs()).then(r => r.json());
-    const leashOk = !!s.leash?.available;
-    const prepushOk = !!s.pre_push?.installed && !s.pre_push?.stale;
-    if (leashOk && prepushOk) {
+    const leashOn = !!s.leash?.enabled && !!s.leash?.proxy_running;
+    if (leashOn) {
       badge.className = 'share-badge on';
       badge.innerHTML = '<span class="share-badge-dot"></span>on';
-    } else if (leashOk || prepushOk) {
+    } else if (s.leash?.install_exists) {
       badge.className = 'share-badge off';
-      badge.innerHTML = '<span class="share-badge-dot"></span>partial';
+      badge.innerHTML = '<span class="share-badge-dot"></span>off';
     } else {
       badge.className = 'share-badge off';
       badge.innerHTML = '<span class="share-badge-dot"></span>setup';
