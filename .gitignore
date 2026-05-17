@@ -100,3 +100,4 @@ docs/marketing/
 marketing/
 scripts/hashnode-publish.mjs
 site/.previews/
+tmp/
