@@ -1,30 +1,25 @@
-name = "great-cto-worker"
+name = "great-cto-notify"
 main = "worker.js"
 compatibility_date = "2025-01-01"
+account_id = "8b4c82576661609fadcac6ae8a5b2708"
 
-# Routes — the worker is mounted on greatcto.systems for these paths.
-# /r/* and /notify/* both route here.
+# Routes — this worker handles ONLY /notify*.
+# Existing `great-cto-share` worker keeps owning /r/* (separate, R2-backed).
 routes = [
-  { pattern = "greatcto.systems/r/*", zone_name = "greatcto.systems" },
   { pattern = "greatcto.systems/notify", zone_name = "greatcto.systems" },
   { pattern = "greatcto.systems/notify/*", zone_name = "greatcto.systems" },
 ]
 
-# KV namespace — stores share reports + verified emails + verification codes.
-# Create once:
-#   wrangler kv namespace create STATE
-# Then paste the resulting id below.
+# KV namespace — stores verified emails + verification codes.
+# Created by: wrangler kv namespace create STATE
 [[kv_namespaces]]
 binding = "STATE"
-id = "REPLACE_WITH_KV_ID_FROM_DASHBOARD"
+id = "87d114d92bfc4bd6b04bab367de5e2b6"
 
 # Plain (non-secret) variable — sender shown in From: header.
-# If your domain isn't verified in Resend yet, use the sandbox sender:
-#   "GreatCTO <onboarding@resend.dev>"
-# Once greatcto.systems is verified (https://resend.com/domains):
-#   "GreatCTO <notifications@greatcto.systems>"
+# Domain greatcto.systems verified in Resend → use the brand sender.
 [vars]
-RESEND_FROM = "GreatCTO <onboarding@resend.dev>"
+RESEND_FROM = "GreatCTO <notifications@updates.greatcto.systems>"
 
 # Secret — must be set via dashboard or:
 #   wrangler secret put RESEND_API_KEY

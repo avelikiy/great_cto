@@ -3160,6 +3160,15 @@ async function init() {
   refreshCost();
   refreshPipeline();
   connectSSE();
+
+  // Deep-link: ?task=<id> opens the side panel for that task (from email alerts).
+  const urlTask = urlParams.get('task');
+  if (urlTask) {
+    // Slight delay so the inbox/kanban render completes first
+    setTimeout(() => {
+      try { openSideById(urlTask); } catch (e) { console.warn('deep-link openSideById failed', e); }
+    }, 100);
+  }
 }
 
 function api(url, opts) {

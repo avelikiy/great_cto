@@ -1076,7 +1076,7 @@ function startAlertCron() {
             body: `A P0 incident is open and needs your attention.\n\n${t.description || ''}`.slice(0, 600),
             level: 'critical',
             project: proj.slug,
-            link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}#inbox`,
+            link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}&task=${encodeURIComponent(t.id)}#inbox`,
             action: 'Claim P0 in board',
             kv: {
               id: t.id,
@@ -1102,12 +1102,14 @@ function startAlertCron() {
       });
       for (const v of recent) {
         const dedupeKey = `gate.blocked:${v.ts}:${(v.task || v.reason || '').slice(0, 40)}`;
+        const taskParam = v.task ? `&task=${encodeURIComponent(v.task)}` : '';
+        const projParam = v.project ? `?project=${encodeURIComponent(v.project)}${taskParam}` : '';
         fireEmailAlert('gate.blocked', dedupeKey, {
           title: `Security BLOCKED — ${(v.reason || v.task || 'unknown').slice(0, 70)}`,
           body: `security-officer rejected a gate. Review the verdict and address the finding before re-submitting.\n\nReason: ${v.reason || '(see verdicts log)'}`,
           level: 'error',
           project: v.project || 'great_cto',
-          link: `http://localhost:3141/#logs`,
+          link: `http://localhost:3141/${projParam}#logs`,
           action: 'Review verdict',
           kv: {
             agent: v.agent,
@@ -1137,7 +1139,7 @@ function startAlertCron() {
             body: `A gate has been waiting for your approval for ${ageHr.toFixed(1)} hours.\n\nGate: ${g.id}\nProject: ${proj.slug}`,
             level: 'warning',
             project: proj.slug,
-            link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}#inbox`,
+            link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}&task=${encodeURIComponent(g.id)}#inbox`,
             action: 'Approve in board',
             kv: { gate: g.id, agent: g.agent || 'unknown', age: `${ageHr.toFixed(1)}h` },
           });
