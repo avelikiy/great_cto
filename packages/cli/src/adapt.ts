@@ -96,6 +96,44 @@ Configure Claude Code to launch:
 npx great-cto mcp
 \`\`\`
 
+## Subagent routing (do not default to general-purpose)
+
+When dispatching the **Agent** tool, pick the right \`subagent_type\` based on
+what's being changed. \`general-purpose\` is a fallback, **not** the default —
+using it for pattern-matched work silently skips specialist review.
+
+| Trigger (file pattern OR topic in prompt) | Use \`subagent_type:\` |
+|---|---|
+| \`migrations/\`, \`schema.sql\`, ORM migration files | \`db-migration-reviewer\` |
+| \`auth/\`, OAuth/SAML/JWT, login flow, password reset | \`security-officer\` |
+| Payment endpoints, \`stripe.\`, webhooks, refund flow | \`pci-reviewer\` |
+| Prompts in \`prompts/\`, RAG, tool definitions, LLM-facing strings | \`ai-security-reviewer\` |
+| Eval suites, golden citation tests, prompt regression | \`ai-eval-engineer\` |
+| Play Store, App Store, iOS/Android release | \`mobile-store-reviewer\` |
+| API contract: OpenAPI, GraphQL schema, webhook signatures | \`api-platform-reviewer\` |
+| Voice/IVR/telephony, Twilio, recording-consent, TCPA | \`voice-ai-reviewer\` |
+| Clinical / SaMD / FDA / FHIR / PHI | \`ai-clinical-reviewer\`, \`fda-reviewer\` |
+| Lending, ECOA, FCRA, NMLS, adverse action | \`lending-credit-reviewer\` |
+| HR-AI, hiring, AEDT, resume screening | \`hr-ai-reviewer\` |
+| Infra-as-code: Terraform / Helm / CDK / Pulumi | \`infra-reviewer\` |
+| Performance regression, hot path, p99 budgets | \`performance-engineer\` |
+| Browser extension manifest, MV3 permissions | \`web-store-reviewer\` |
+| New feature implementation (TDD) | \`senior-dev\` |
+| Architecture decisions, ADRs, scaling questions | \`architect\` |
+| Planning a feature into tasks (Beads), dependency graph | \`pm\` |
+| QA report after impl, coverage + acceptance | \`qa-engineer\` |
+| Deploy / canary / rollback / SLO | \`devops\` |
+| Production incident triage, P0 postmortem | \`l3-support\` |
+| Pattern extraction from session, retro to \`lessons.md\` | \`continuous-learner\` |
+
+Rule of thumb: if a file pattern or topic matches above, use that specialist
+**before** falling back to \`general-purpose\`. Specialist agents catch
+domain-specific bugs (race conditions in migrations, prompt-injection vectors,
+TCPA violations) that a generalist won't flag.
+
+When in doubt, run two agents in parallel: the specialist + general-purpose,
+and reconcile their outputs.
+
 ## Style + conventions
 
 - Tests **before** implementation (RED → GREEN → REFACTOR). Coverage 80%+ default.

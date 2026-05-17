@@ -192,6 +192,20 @@ Native [MCP](https://modelcontextprotocol.io/) server — call great_cto's tools
 
 Full setup + internal MCPs (Grafana, LLM router, Beads): [docs/MCP.md](docs/MCP.md).
 
+## Email alerts (zero-setup)
+
+Five things that need you to act in <2h get emailed automatically — even when you're away from the board:
+
+| Trigger | When |
+|---|---|
+| 🚨 **P0 incident** | A P0 task opens in any project |
+| ⏸️ **Gate stale > 2h** | A `gate:ship` is waiting on you for hours |
+| 🛡️ **Security BLOCKED** | `security-officer` rejected a merge |
+| 💸 **Budget alert** | Monthly LLM spend crosses 80% / 100% of budget |
+| 📊 **Weekly digest** | Friday 09:00 — shipped, spent, savings, QA |
+
+**Setup**: board → **Notifications** tab → enter email → enter the 6-digit code we send → pick triggers. No Resend signup, no API keys — delivery routed through `greatcto.systems/notify` (free, 100 emails/24h per verified email).
+
 ## Limitations & non-goals
 
 - **Not for teams** — solo-CTO is the product. 2+ engineers? You've outgrown it.
@@ -218,7 +232,9 @@ The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are mark
 
 ## What's new
 
-**v2.8.6** (May 2026) — Claude Code-only release · **15 domain packs** (added edtech / gov / gaming / enterprise / insurance) · 4-layer journey visualization on [/packs.html](https://greatcto.systems/packs.html) · 50 specialist agents · landing page streamlined (14 → 9 sections).
+**v2.9.1** (May 2026) — **zero-setup email alerts** (5 trigger types · 100/24h free via `greatcto.systems/notify` relay · no Resend signup) · **session-start auto-attach reviewers** (scans recent diff → flags the right specialist `subagent_type` so the 24 reviewers stop sitting idle) · `subagent_type` routing table in `CLAUDE.md` / `AGENTS.md`.
+
+**v2.8.6** — Claude Code-only release · **15 domain packs** (added edtech / gov / gaming / enterprise / insurance) · 4-layer journey visualization on [/packs.html](https://greatcto.systems/packs.html) · 50 specialist agents.
 
 [Full changelog →](CHANGELOG.md)
 
