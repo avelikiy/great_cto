@@ -4,6 +4,47 @@ All notable changes to great_cto are documented here.
 
 ---
 
+
+## v2.9.3 — 2026-05-17
+
+### Web Push + in-app notification history
+
+`great-cto board` now ships two new notification channels alongside the
+existing email-alert relay.
+
+**Browser push (Web Push / VAPID)**
+
+- Zero-dep VAPID implementation using Node built-ins only (`node:crypto`,
+  `node:https`) — no extra npm packages.
+- P-256 ECDH key pair auto-generated on first start, stored in
+  `~/.great_cto/vapid-keys.json`. Push subscriptions persist to
+  `~/.great_cto/push-subscriptions.json`.
+- Service Worker (`/sw.js`) receives empty-body pushes, fetches the latest
+  unread notification from the server, and shows a native desktop alert.
+- New endpoints: `GET /api/push/vapid-key`, `POST /api/push/subscribe`,
+  `DELETE /api/push/subscribe`.
+- Toggle in board → Notifications → **Browser push** card.
+- Fires for the same 5 triggers as email (incident.p0, gate.stale,
+  gate.blocked, cost.threshold, digest.weekly).
+
+**In-app notification history**
+
+- Ring-buffer of the last 100 alerts, persisted to
+  `~/.great_cto/notif-history.json` across restarts.
+- SSE broadcasts a `notification` event to all connected board tabs — new
+  alerts appear as toasts instantly without a page refresh.
+- Notification drawer slides in from the nav "Notifications" item —
+  shows title, body, timestamp, project, unread dot, and a Mark all read button.
+- Inline history table inside the Notifications panel (last 20 entries).
+- New endpoints: `GET /api/notif-history`, `POST /api/notif-history/read`.
+
+**Other**
+
+- `leash-adapter.mjs`: added `console_url` default for llm-leash-console v2.1+.
+- Security tab simplified — governance toggle + leash-console iframe.
+
+---
+
 ## v2.9.0 — 2026-05-16
 
 ### Telemetry opt-IN promo (aggressive but honest)
