@@ -769,6 +769,11 @@ async function runInit(args: CliArgs): Promise<number> {
   // ── 6. install pre-push git hook ─────────────────────────
   installPrePushHook(args.dir);
 
+  // ── 7. install llm-leash (runtime governance) ────────────
+  // Idempotent — silent skip if already installed. Best-effort —
+  // missing git/python doesn't fail init.
+  await tryInstallLeash();
+
   // ── done ─────────────────────────────────────────────────
   log("");
   log(green(bold("✓ great_cto is ready.")));
@@ -815,6 +820,35 @@ function installPrePushHook(projectDir: string): void {
     success("installed pre-push hook (blocks private project name leaks)");
   } catch {
     // Best-effort: hook failure must never block init
+  }
+}
+
+/**
+ * Best-effort llm-leash install — runs after bootstrap so every great-cto
+ * init turns on runtime governance for free. Idempotent (skips when already
+ * installed) and never throws.
+ *
+ * Opt out via env: GREAT_CTO_SKIP_LEASH=1
+ */
+async function tryInstallLeash(): Promise<void> {
+  if (process.env.GREAT_CTO_SKIP_LEASH === "1") {
+    log(`  ${dim("skipped llm-leash install (GREAT_CTO_SKIP_LEASH=1)")}`);
+    return;
+  }
+  try {
+    const { runLeash } = await import("./leash.js");
+    // Quiet status check first — if already installed, leash install is a no-op
+    // but emits a "already cloned" warning we want to suppress here.
+    const { existsSync } = await import("node:fs");
+    const installRoot = join(homedir(), ".great_cto", "llm-leash");
+    if (existsSync(installRoot)) {
+      log(`  ${dim("llm-leash already installed — skipped")}`);
+      return;
+    }
+    log(`  ${dim("installing llm-leash (runtime governance) …")}`);
+    await runLeash(["install"]);
+  } catch {
+    warn("llm-leash install failed — run `great-cto leash install` manually later");
   }
 }
 
