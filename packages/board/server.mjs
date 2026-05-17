@@ -13,6 +13,15 @@ import path from 'path';
 import { execSync, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import os from 'os';
+import {
+  readLeashConfig,
+  getLeashAvailability,
+  readLeashAudit,
+  readLeashState,
+  readHitlPending,
+  fireKillSwitch,
+  postHitlDecision,
+} from './leash-adapter.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -2285,6 +2294,80 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getCostHistory(cwd, days)));
     return;
+  }
+
+  // ── /api/leash ────────────────────────────────────────────────────────────
+  // Façade over llm-leash (https://github.com/avelikiy/llm-leash):
+  //   GET  /api/leash/status                — installation + budget snapshot
+  //   GET  /api/leash/audit?limit=N&since=  — tail audit JSONL
+  //   GET  /api/leash/hitl                  — pending human-in-the-loop items
+  //   POST /api/leash/kill                  — fire kill switch (board UI button)
+  //   POST /api/leash/hitl/:id/:decision    — approve|reject pending item
+  // Every endpoint degrades to "available: false" if leash isn't installed —
+  // the UI hides the tab in that case.
+
+  if (pathname === '/api/leash/status') {
+    try {
+      const avail = getLeashAvailability(cwd);
+      const state = avail.available ? readLeashState(cwd) : null;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ...avail, state }));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ available: false, error: String(e) }));
+    }
+    return;
+  }
+
+  if (pathname === '/api/leash/audit') {
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10) || 100, 1000);
+    const sinceMs = parseInt(url.searchParams.get('since') || '0', 10) || 0;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ records: readLeashAudit(cwd, limit, sinceMs) }));
+    return;
+  }
+
+  if (pathname === '/api/leash/hitl' && req.method === 'GET') {
+    readHitlPending(cwd)
+      .then((items) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ items }));
+      })
+      .catch((e) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ items: [], error: String(e) }));
+      });
+    return;
+  }
+
+  if (pathname === '/api/leash/kill' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let reason = 'board-ui';
+      try { reason = JSON.parse(body || '{}').reason || reason; } catch { /* ignore */ }
+      const result = fireKillSwitch(cwd, reason);
+      res.writeHead(result.ok ? 200 : 500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    });
+    return;
+  }
+
+  {
+    const m = pathname.match(/^\/api\/leash\/hitl\/([^/]+)\/(approve|reject)$/);
+    if (m && req.method === 'POST') {
+      const [, itemId, decision] = m;
+      postHitlDecision(cwd, itemId, decision)
+        .then((r) => {
+          res.writeHead(r.status || 200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(r.body || {}));
+        })
+        .catch((e) => {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: String(e) }));
+        });
+      return;
+    }
   }
 
   // Create new task

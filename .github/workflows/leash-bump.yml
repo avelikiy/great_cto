@@ -1,0 +1,126 @@
+# Daily: check if avelikiy/llm-leash main has new commits.
+# If yes, open a PR that bumps the pinned SHA in:
+#   - skills/great_cto/templates/LEASH-REVIEW.md (reference link)
+#   - packages/cli/src/leash.ts (LEASH_PINNED_SHA constant, if set)
+#   - .great_cto/leash-pinned.txt (used by reproducible installs)
+#
+# The PR is auto-mergeable once CI passes. Humans review the diff between
+# pinned SHAs only when llm-leash major-bumps (see CHANGELOG).
+#
+# Runs at 09:00 UTC daily and on manual dispatch.
+
+name: leash-bump
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Open PR even if SHA unchanged"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve current pinned SHA
+        id: current
+        run: |
+          if [ -f .great_cto/leash-pinned.txt ]; then
+            CURRENT=$(cat .great_cto/leash-pinned.txt | tr -d '[:space:]')
+          else
+            CURRENT="unset"
+          fi
+          echo "sha=$CURRENT" >> $GITHUB_OUTPUT
+
+      - name: Resolve latest llm-leash SHA
+        id: latest
+        run: |
+          LATEST=$(curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'User-Agent: great-cto-leash-bump' \
+            https://api.github.com/repos/avelikiy/llm-leash/commits/main \
+            | jq -r '.sha' \
+            | cut -c1-40)
+          if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
+            echo "::error::failed to fetch latest llm-leash SHA"
+            exit 1
+          fi
+          echo "sha=$LATEST" >> $GITHUB_OUTPUT
+          echo "short=${LATEST:0:7}" >> $GITHUB_OUTPUT
+
+      - name: Decide whether to bump
+        id: decide
+        run: |
+          if [ "${{ steps.current.outputs.sha }}" = "${{ steps.latest.outputs.sha }}" ] \
+             && [ "${{ github.event.inputs.force }}" != "true" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update pinned SHA
+        if: steps.decide.outputs.skip == 'false'
+        run: |
+          mkdir -p .great_cto
+          echo "${{ steps.latest.outputs.sha }}" > .great_cto/leash-pinned.txt
+
+      - name: Fetch changelog excerpt
+        if: steps.decide.outputs.skip == 'false'
+        id: notes
+        run: |
+          # Best-effort: pull last 10 commit messages between the two SHAs
+          CURRENT="${{ steps.current.outputs.sha }}"
+          LATEST="${{ steps.latest.outputs.sha }}"
+          if [ "$CURRENT" != "unset" ]; then
+            COMPARE_URL="https://api.github.com/repos/avelikiy/llm-leash/compare/${CURRENT}...${LATEST}"
+            LOG=$(curl -fsSL -H 'Accept: application/vnd.github+json' "$COMPARE_URL" \
+              | jq -r '.commits[]?.commit.message' \
+              | head -10 \
+              | sed 's/^/- /' || echo "(compare API failed — review manually)")
+          else
+            LOG="(initial pin)"
+          fi
+          {
+            echo "log<<EOF"
+            echo "$LOG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.decide.outputs.skip == 'false'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/bump-llm-leash-${{ steps.latest.outputs.short }}
+          delete-branch: true
+          title: "chore: bump llm-leash → ${{ steps.latest.outputs.short }}"
+          commit-message: "chore: bump llm-leash pinned SHA → ${{ steps.latest.outputs.short }}"
+          body: |
+            Automated bump by `.github/workflows/leash-bump.yml`.
+
+            **Previous pin:** `${{ steps.current.outputs.sha }}`
+            **New pin:** `${{ steps.latest.outputs.sha }}`
+
+            ## Commits since last bump
+
+            ${{ steps.notes.outputs.log }}
+
+            ## Review checklist
+
+            - [ ] Inspect breaking changes in [compare view](https://github.com/avelikiy/llm-leash/compare/${{ steps.current.outputs.sha }}...${{ steps.latest.outputs.sha }})
+            - [ ] If major version bump, ai-leash-reviewer must re-evaluate threat model
+            - [ ] If proxy wire-protocol changed, board's `leash-adapter.mjs` may need updates
+            - [ ] Once merged, run `great-cto leash update` on a sample project to verify
+          labels: |
+            dependencies
+            automated
+            llm-leash
