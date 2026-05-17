@@ -1,6 +1,6 @@
 {
   "name": "great-cto",
-  "version": "2.9.2",
+  "version": "2.9.3",
   "description": "One command install for the great_cto Claude Code plugin. Auto-detects your stack, picks the right archetype, bootstraps PROJECT.md.",
   "keywords": [
     "claude-code",
@@ -70,6 +70,7 @@
     "index.mjs",
     "dist/",
     "agentshield-rules/",
+    "postinstall.mjs",
     "README.md"
   ],
   "type": "module",
@@ -77,6 +78,7 @@
     "build": "tsc",
     "test": "npm run build && node --test tests/*.test.mjs tests/**/*.test.mjs",
     "test:e2e": "npm run build && node ../../tests/run-archetype-e2e.mjs",
+    "postinstall": "node postinstall.mjs",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
