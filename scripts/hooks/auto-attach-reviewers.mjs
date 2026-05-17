@@ -8,9 +8,9 @@
  *
  * Why this exists
  * ---------------
- * In real sessions (see <private-project> post-mortem 2026-05-17), users dispatch
- * Agent calls with `subagent_type: general-purpose` and never invoke the 24
- * specialist reviewers — even when migrations / auth / payment code changed.
+ * In real sessions, users dispatch Agent calls with
+ * `subagent_type: general-purpose` and never invoke the 24 specialist
+ * reviewers — even when migrations / auth / payment code changed.
  * This hook makes the right reviewers visible at session start, so Claude
  * picks the matching `subagent_type` proactively without `/start`.
  *
