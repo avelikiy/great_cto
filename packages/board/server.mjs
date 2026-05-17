@@ -24,6 +24,14 @@ import {
 } from './leash-adapter.mjs';
 import { getSecurityStatus } from './security-status.mjs';
 import { startProxy, stopProxy, isProxyRunning } from './leash-proxy-control.mjs';
+import {
+  getVapidKeys,
+  sendWebPush,
+  loadSubscriptions,
+  addSubscription,
+  removeSubscription,
+} from './push-adapter.mjs';
+import crypto from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -32,6 +40,10 @@ const GREAT_CTO_DIR = path.join(os.homedir(), '.great_cto');
 const SHARE_STATE_FILE = path.join(GREAT_CTO_DIR, 'board-share.json');
 const PROJECTS_FILE = path.join(GREAT_CTO_DIR, 'projects.json');
 const SHARE_ENDPOINT = 'https://greatcto.systems/r/';
+const VAPID_KEYS_FILE = path.join(GREAT_CTO_DIR, 'vapid-keys.json');
+const PUSH_SUBS_FILE = path.join(GREAT_CTO_DIR, 'push-subscriptions.json');
+const NOTIF_HISTORY_FILE = path.join(GREAT_CTO_DIR, 'notif-history.json');
+const VAPID_SUBJECT = 'mailto:hi@updates.greatcto.systems';
 
 // ── Project registry ───────────────────────────────────────────────────────────
 function readProjectsRegistry() {
@@ -270,6 +282,53 @@ function broadcastTasks(cwd) {
     }
   }
 }
+
+// ── In-app notification history ────────────────────────────────────────────────
+// Persisted to ~/.great_cto/notif-history.json. Capped at 100 entries.
+// Each entry: { id, event, title, body, level, project, ts, read }
+const MAX_NOTIF_HISTORY = 100;
+let notifHistory = [];
+
+function loadNotifHistory() {
+  try {
+    if (fs.existsSync(NOTIF_HISTORY_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(NOTIF_HISTORY_FILE, 'utf8'));
+      if (Array.isArray(parsed)) notifHistory = parsed;
+    }
+  } catch { /* start fresh on corrupt file */ }
+}
+
+function saveNotifHistory() {
+  try {
+    fs.mkdirSync(GREAT_CTO_DIR, { recursive: true });
+    fs.writeFileSync(NOTIF_HISTORY_FILE, JSON.stringify(notifHistory, null, 2));
+  } catch { /* best-effort */ }
+}
+
+/**
+ * Record a notification, broadcast via SSE, and persist.
+ * Called alongside fireEmailAlert / firePushAlert at every trigger point.
+ */
+function addNotification(event, payload) {
+  const notif = {
+    id: crypto.randomUUID(),
+    event,
+    title: payload.title,
+    body: payload.body,
+    level: payload.level || 'info',
+    project: payload.project || '',
+    ts: new Date().toISOString(),
+    read: false,
+  };
+  notifHistory.unshift(notif);
+  if (notifHistory.length > MAX_NOTIF_HISTORY) notifHistory.length = MAX_NOTIF_HISTORY;
+  broadcast('notification', notif);
+  saveNotifHistory();
+  return notif;
+}
+
+// Load history at server start
+loadNotifHistory();
 
 // ── Memory: 4-layer file contents ─────────────────────────────────────────────
 function readFileSafe(p) {
@@ -1064,6 +1123,33 @@ async function fireEmailAlert(eventName, dedupeKey, payload) {
   }
 }
 
+/**
+ * Fire Web Push notifications to all registered browser subscriptions.
+ * Uses the same alerts-fired.json dedupe map as fireEmailAlert (keyed as
+ * "push:<dedupeKey>") so a single event never sends duplicate pushes.
+ * Expired subscriptions (HTTP 410) are removed automatically.
+ */
+async function firePushAlert(eventName, dedupeKey, payload) {
+  try {
+    const subs = loadSubscriptions(PUSH_SUBS_FILE);
+    if (!subs.length) return;
+    const vapidKeys = getVapidKeys(VAPID_KEYS_FILE);
+    const fired = readAlertsFired();
+    const pushKey = `push:${dedupeKey}`;
+    if (fired[pushKey]) return;
+    for (const sub of subs) {
+      try { await sendWebPush(sub, vapidKeys, VAPID_SUBJECT); }
+      catch (e) {
+        // 410 = subscription expired — browser unsubscribed, clean up
+        if (e.statusCode === 410) removeSubscription(PUSH_SUBS_FILE, sub.endpoint);
+        else console.warn(`firePushAlert send failed for ${sub.endpoint}:`, e.message);
+      }
+    }
+    fired[pushKey] = new Date().toISOString();
+    writeAlertsFired(fired);
+  } catch (e) { console.warn('firePushAlert failed:', e.message); }
+}
+
 // ── Cron: scan gates / cost / weekly digest ───────────────────────────────
 // Runs every 5 minutes once the server boots. Each check is idempotent
 // thanks to alerts-fired.json dedupe.
@@ -1090,7 +1176,7 @@ function startAlertCron() {
         });
         for (const t of p0) {
           const dedupeKey = `incident.p0:${proj.slug}:${t.id}`;
-          fireEmailAlert('incident.p0', dedupeKey, {
+          const p0Payload = {
             title: `P0 — ${t.title.slice(0, 70)} (${proj.slug})`,
             body: `A P0 incident is open and needs your attention.\n\n${t.description || ''}`.slice(0, 600),
             level: 'critical',
@@ -1103,7 +1189,10 @@ function startAlertCron() {
               status: t.status,
               opened: t.created_at ? new Date(t.created_at).toISOString().slice(0, 16) : 'now',
             },
-          });
+          };
+          fireEmailAlert('incident.p0', dedupeKey, p0Payload);
+          addNotification('incident.p0', p0Payload);
+          firePushAlert('incident.p0', dedupeKey, p0Payload);
         }
       }
     } catch (e) { console.warn('cron incident.p0 failed:', e.message); }
@@ -1123,7 +1212,7 @@ function startAlertCron() {
         const dedupeKey = `gate.blocked:${v.ts}:${(v.task || v.reason || '').slice(0, 40)}`;
         const taskParam = v.task ? `&task=${encodeURIComponent(v.task)}` : '';
         const projParam = v.project ? `?project=${encodeURIComponent(v.project)}${taskParam}` : '';
-        fireEmailAlert('gate.blocked', dedupeKey, {
+        const blockedPayload = {
           title: `Security BLOCKED — ${(v.reason || v.task || 'unknown').slice(0, 70)}`,
           body: `security-officer rejected a gate. Review the verdict and address the finding before re-submitting.\n\nReason: ${v.reason || '(see verdicts log)'}`,
           level: 'error',
@@ -1136,7 +1225,10 @@ function startAlertCron() {
             ts: v.ts,
             reason: (v.reason || '').slice(0, 120),
           },
-        });
+        };
+        fireEmailAlert('gate.blocked', dedupeKey, blockedPayload);
+        addNotification('gate.blocked', blockedPayload);
+        firePushAlert('gate.blocked', dedupeKey, blockedPayload);
       }
     } catch (e) { console.warn('cron gate.blocked failed:', e.message); }
   }, FIVE_MIN);
@@ -1155,7 +1247,7 @@ function startAlertCron() {
           const ageHr = (Date.now() - created) / 3600_000;
           if (ageHr < 2 || ageHr > 24 * 7) continue;
           const dedupeKey = `gate.stale:${proj.slug}:${g.id}`;
-          fireEmailAlert('gate.stale', dedupeKey, {
+          const stalePayload = {
             title: `${proj.slug} — ${g.title.slice(0, 60)} pending ${ageHr.toFixed(1)}h`,
             body: `A gate has been waiting for your approval for ${ageHr.toFixed(1)} hours.\n\nGate: ${g.id}\nProject: ${proj.slug}`,
             level: 'warning',
@@ -1163,7 +1255,10 @@ function startAlertCron() {
             link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}&task=${encodeURIComponent(g.id)}#inbox`,
             action: 'Approve in board',
             kv: { gate: g.id, agent: g.agent || 'unknown', age: `${ageHr.toFixed(1)}h` },
-          });
+          };
+          fireEmailAlert('gate.stale', dedupeKey, stalePayload);
+          addNotification('gate.stale', stalePayload);
+          firePushAlert('gate.stale', dedupeKey, stalePayload);
         }
       }
     } catch (e) { console.warn('cron gate.stale failed:', e.message); }
@@ -1184,7 +1279,7 @@ function startAlertCron() {
         for (const threshold of [80, 100]) {
           if (pct < threshold) continue;
           const dedupeKey = `cost.threshold:${proj.slug}:${month}:${threshold}`;
-          fireEmailAlert('cost.threshold', dedupeKey, {
+          const costPayload = {
             title: `${proj.slug} — $${spent.toFixed(2)} LLM spend, ${pct.toFixed(0)}% of $${budget} monthly budget`,
             body: threshold === 100
               ? `Budget exceeded. Consider routing more agents to Haiku/Kimi or raising the cap in PROJECT.md.`
@@ -1199,7 +1294,10 @@ function startAlertCron() {
               percent: `${pct.toFixed(0)}%`,
               month,
             },
-          });
+          };
+          fireEmailAlert('cost.threshold', dedupeKey, costPayload);
+          addNotification('cost.threshold', costPayload);
+          firePushAlert('cost.threshold', dedupeKey, costPayload);
         }
       }
     } catch (e) { console.warn('cron cost.threshold failed:', e.message); }
@@ -1216,7 +1314,7 @@ function startAlertCron() {
       for (const proj of projects) {
         const m = getMetrics(proj.path);
         const dedupeKey = `digest.weekly:${proj.slug}:${isoWeek}`;
-        fireEmailAlert('digest.weekly', dedupeKey, {
+        const weeklyPayload = {
           title: `${proj.slug} weekly — ${m.tasks?.done || 0} shipped, $${(m.cost?.llm_usd || 0).toFixed(2)} spent`,
           body: `Your week at a glance.`,
           level: 'info',
@@ -1231,7 +1329,10 @@ function startAlertCron() {
             'savings_x': m.cost?.savings_x ? `${m.cost.savings_x}×` : '—',
             'QA pass rate': m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : 'no runs',
           },
-        });
+        };
+        fireEmailAlert('digest.weekly', dedupeKey, weeklyPayload);
+        addNotification('digest.weekly', weeklyPayload);
+        firePushAlert('digest.weekly', dedupeKey, weeklyPayload);
       }
     } catch (e) { console.warn('cron digest.weekly failed:', e.message); }
   }, FIVE_MIN);
@@ -2883,6 +2984,85 @@ const server = http.createServer(async (req, res) => {
     const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
     res.writeHead(200, { 'Content-Type': mime[ext] || 'text/plain' });
     res.end(fs.readFileSync(fullPath));
+    return;
+  }
+
+  // ── /api/push — Web Push subscription management ────────────────────────
+  // GET  /api/push/vapid-key → { publicKey } (base64url, for browser subscribe)
+  // POST /api/push/subscribe → body: { endpoint, keys: { p256dh, auth } }
+  // DELETE /api/push/subscribe → body: { endpoint }
+  if (pathname === '/api/push/vapid-key' && req.method === 'GET') {
+    const keys = getVapidKeys(VAPID_KEYS_FILE);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ publicKey: keys.publicKey }));
+  }
+
+  if (pathname === '/api/push/subscribe' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const sub = JSON.parse(body || '{}');
+        if (!sub.endpoint) { res.writeHead(400); return res.end(JSON.stringify({ error: 'endpoint_required' })); }
+        addSubscription(PUSH_SUBS_FILE, sub);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: true }));
+      } catch {
+        res.writeHead(400); return res.end(JSON.stringify({ error: 'invalid_json' }));
+      }
+    });
+    return;
+  }
+
+  if (pathname === '/api/push/subscribe' && req.method === 'DELETE') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { endpoint } = JSON.parse(body || '{}');
+        if (!endpoint) { res.writeHead(400); return res.end(JSON.stringify({ error: 'endpoint_required' })); }
+        removeSubscription(PUSH_SUBS_FILE, endpoint);
+        res.writeHead(204);
+        return res.end();
+      } catch {
+        res.writeHead(400); return res.end(JSON.stringify({ error: 'invalid_json' }));
+      }
+    });
+    return;
+  }
+
+  // ── /api/notif-history — in-app notification history ─────────────────────
+  // GET  /api/notif-history?unread=1&limit=N → JSON array (newest first)
+  // POST /api/notif-history/read → body: { id? } (omit id = mark all read)
+  if (pathname === '/api/notif-history' && req.method === 'GET') {
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
+    const unreadOnly = url.searchParams.get('unread') === '1';
+    let items = notifHistory.slice(0, limit);
+    if (unreadOnly) items = items.filter(n => !n.read);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(items));
+  }
+
+  if (pathname === '/api/notif-history/read' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { id } = JSON.parse(body || '{}');
+        if (id) {
+          const n = notifHistory.find(n => n.id === id);
+          if (n) n.read = true;
+        } else {
+          // Mark all read
+          for (const n of notifHistory) n.read = true;
+        }
+        saveNotifHistory();
+        res.writeHead(204);
+        return res.end();
+      } catch {
+        res.writeHead(400); return res.end(JSON.stringify({ error: 'invalid_json' }));
+      }
+    });
     return;
   }
 
