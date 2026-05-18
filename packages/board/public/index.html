@@ -2357,8 +2357,8 @@ button { font-family: inherit; cursor: pointer; }
               <div class="l">Browser notifications</div>
               <div id="push-help" class="h">Click to enable desktop push notifications.</div>
             </div>
-            <div class="toggle" id="push-toggle-visual" onclick="togglePush()">
-              <input type="checkbox" id="push-toggle">
+            <div class="toggle" id="push-toggle-visual" onclick="togglePush(event)">
+              <input type="checkbox" id="push-toggle" onclick="event.stopPropagation()">
             </div>
           </div>
           <div id="push-status" style="margin-top:10px;font-size:12.5px;font-family:var(--mono);color:var(--text3)"></div>
@@ -2534,7 +2534,7 @@ button { font-family: inherit; cursor: pointer; }
           </div>
 
           <div class="share-note" style="margin-top:14px">
-            Config: <code>.great_cto/leash.json</code> · Audit log: <code id="leash-audit-path">~/.leash/audit.jsonl</code> · Auto-pulled from <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> on session start.
+            Config: <code id="leash-config-source">—</code> · Audit log: <code id="leash-audit-path">~/.leash/audit.jsonl</code> · Auto-pulled from <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> on session start.
           </div>
         </div>
       </div>
@@ -4201,6 +4201,24 @@ async function loadLeash() {
     const subs = document.querySelectorAll('.leash-sub');
     const auditPath = document.getElementById('leash-audit-path');
     if (auditPath) auditPath.textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
+    // Show the actual config file(s) that loaded — global, project, or both
+    const cfgEl = document.getElementById('leash-config-source');
+    if (cfgEl) {
+      const sources = s.config?.sources || [];
+      const home = '/Users/' + (navigator.userAgent.includes('Mac') ? '' : '');  // approximate
+      const shortened = sources.map(p => p.replace(/^\/Users\/[^\/]+/, '~').replace(/^\/home\/[^\/]+/, '~'));
+      if (shortened.length === 0) {
+        cfgEl.textContent = '(no leash.json found — using defaults)';
+        cfgEl.style.color = 'var(--text3)';
+      } else if (shortened.length === 1) {
+        cfgEl.textContent = shortened[0];
+        cfgEl.style.color = '';
+      } else {
+        cfgEl.textContent = shortened.join(' + ');
+        cfgEl.title = 'project leash.json overrides global';
+        cfgEl.style.color = '';
+      }
+    }
 
     if (!s.install_exists) {
       notInstalled.style.display = 'block';
@@ -4326,9 +4344,14 @@ function syncLeashScopeOptions(s) {
   }
 }
 
-function onLeashScopeChange() {
+function onLeashScopeChange(forceAll) {
   const sel = document.getElementById('leash-scope');
-  _leashState.scope = sel.value;
+  if (forceAll === true) {
+    _leashState.scope = 'all';
+    if (sel) sel.value = 'all';
+  } else {
+    _leashState.scope = sel?.value || '';
+  }
   localStorage.setItem('leash:scope', _leashState.scope);
   loadLeash();
 }
@@ -4474,15 +4497,50 @@ function renderLeashPerAgent(records) {
       </div>`).join('')}`;
 }
 
-function renderLeashBudgets(stats) {
+async function renderLeashBudgets(stats) {
   const el = document.getElementById('leash-budgets-table');
   if (!el) return;
-  const caps = stats.per_agent_caps || {};
   const defaultLabel = document.getElementById('leash-budgets-default');
-  if (defaultLabel) defaultLabel.textContent = `default cap: $${Number(stats.default_cap_usd || 0).toFixed(2)}`;
-  const rows = Object.entries(caps);
+
+  // Fetch from /api/leash/budgets which honours ?project= scoping (filters
+  // global per_agent_caps to agents observed in this project's audit).
+  const scopeQuery = _leashState.scope ? `&project=${encodeURIComponent(_leashState.scope)}` : '';
+  const sep = pqs() ? '&' : '?';
+  let payload = { ok: false };
+  try {
+    payload = await fetch(`/api/leash/budgets${pqs()}${scopeQuery.replace('&', sep)}`).then(r => r.json());
+  } catch { /* keep ok=false */ }
+
+  const allCaps = payload.all_per_agent_caps || stats.per_agent_caps || {};
+  const filteredCaps = payload.per_agent_caps || {};
+  const observed = payload.observed_agents || [];
+  const tenant = payload.tenant_filter || stats.tenant_filter || null;
+  const defaultCap = stats.default_cap_usd || payload.default_cap_usd || 0;
+
+  if (defaultLabel) {
+    const scopeText = tenant ? ` · scope: ${tenant}` : ' · scope: all projects';
+    const showAllToggle = tenant
+      ? ` · <a href="#" onclick="event.preventDefault(); onLeashScopeChange(true)" style="color:var(--accent);text-decoration:none">show global caps →</a>`
+      : '';
+    defaultLabel.innerHTML = `default cap: $${Number(defaultCap).toFixed(2)}${scopeText}${showAllToggle}`;
+  }
+
+  // When tenant filter active: show union of (observed agents) + (their caps).
+  // Agents that called the proxy but have no cap → "(none)" placeholder so the
+  // operator can still set a cap from this view.
+  let rows;
+  if (tenant) {
+    const all = new Set([...observed, ...Object.keys(filteredCaps)]);
+    rows = [...all].sort().map((name) => [name, filteredCaps[name] ?? null]);
+  } else {
+    rows = Object.entries(allCaps).sort(([a], [b]) => a.localeCompare(b));
+  }
+
   if (!rows.length) {
-    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No per-agent caps set. Add one below.</div>';
+    const msg = tenant
+      ? `No agents have called the proxy yet under tenant "${esc(tenant)}". Add a cap below or switch to "all projects".`
+      : 'No per-agent caps set. Add one below.';
+    el.innerHTML = `<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">${msg}</div>`;
     return;
   }
   el.innerHTML = `
@@ -4491,8 +4549,8 @@ function renderLeashBudgets(stats) {
     </div>
     ${rows.map(([name, cap]) => `
       <div style="display:grid;grid-template-columns:1fr 140px 80px 80px;gap:8px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center">
-        <div style="color:var(--text1);font-family:var(--mono)">${esc(name)}</div>
-        <div><input type="number" min="0" step="0.5" value="${Number(cap)}" id="leash-cap-${esc(name)}" style="width:120px;padding:5px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-family:var(--mono);font-size:12px;text-align:right" /></div>
+        <div style="color:var(--text1);font-family:var(--mono)">${esc(name)}${cap == null ? ' <span style="color:var(--text3);font-size:11px">(no cap)</span>' : ''}</div>
+        <div><input type="number" min="0" step="0.5" value="${cap == null ? '' : Number(cap)}" placeholder="—" id="leash-cap-${esc(name)}" style="width:120px;padding:5px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-family:var(--mono);font-size:12px;text-align:right" /></div>
         <div><button class="btn-black" style="padding:4px 10px;font-size:12px" onclick="saveLeashCap('${esc(name)}')">save</button></div>
         <div><button class="btn-ghost-sm" style="color:#e53935" onclick="saveLeashCap('${esc(name)}', null)">clear</button></div>
       </div>`).join('')}`;
@@ -5415,6 +5473,7 @@ function prependNotifLive(notif) {
 // ── Web Push (VAPID) ─────────────────────────────────────────────────────
 let _swReg = null;
 let _pushEnabled = false;
+let _pushBusy = false;  // lock — prevents double-click race
 
 async function initPush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -5440,10 +5499,17 @@ function _updatePushUI() {
   if (help) help.textContent = _pushEnabled
     ? 'Browser notifications are active.'
     : 'Click to enable desktop push notifications.';
-  if (vis) vis.classList.toggle('active', _pushEnabled);
+  if (vis) vis.classList.toggle('on', _pushEnabled);
 }
-async function togglePush() {
-  if (_pushEnabled) await _disablePush(); else await _enablePush();
+async function togglePush(e) {
+  if (e) e.stopPropagation();
+  if (_pushBusy) return;
+  _pushBusy = true;
+  try {
+    if (_pushEnabled) await _disablePush(); else await _enablePush();
+  } finally {
+    _pushBusy = false;
+  }
 }
 async function _enablePush() {
   const status = document.getElementById('push-status');
