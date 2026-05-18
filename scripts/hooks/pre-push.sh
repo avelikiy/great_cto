@@ -87,15 +87,26 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
 
-  # Determine range — if remote_sha is all zeros this is a new branch
+  # Determine range — if remote_sha is all zeros this is a new branch or new tag
   if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
-    # New branch: scan all commits reachable from local_sha but not in any remote branch
-    range="${local_sha}"
-    commit_range="$(git rev-list --remotes --not "${local_sha}" 2>/dev/null | head -1)"
-    if [[ -n "$commit_range" ]]; then
-      range="${commit_range}..${local_sha}"
+    if [[ "$remote_ref" == refs/tags/* ]]; then
+      # New tag: only scan commits not yet on any remote branch (i.e. genuinely new work).
+      # Tags pointing to already-pushed commits produce an empty range — nothing to scan.
+      range="$(git rev-list --remotes --not "${local_sha}" 2>/dev/null | head -1)"
+      if [[ -n "$range" ]]; then
+        range="${range}..${local_sha}"
+      else
+        # Tag points to a commit already on a remote — nothing new to scan.
+        continue
+      fi
     else
-      range="${local_sha}"
+      # New branch: scan all commits reachable from local_sha but not in any remote branch
+      commit_range="$(git rev-list --remotes --not "${local_sha}" 2>/dev/null | head -1)"
+      if [[ -n "$commit_range" ]]; then
+        range="${commit_range}..${local_sha}"
+      else
+        range="${local_sha}"
+      fi
     fi
   else
     range="${remote_sha}..${local_sha}"
