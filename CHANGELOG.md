@@ -5,6 +5,21 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.9.5 — 2026-05-18
+
+### Bug fixes
+
+- **board/push toggle** — visual state now correctly reflects subscription
+  status: fixed CSS class (`active` → `on`) so the toggle moves when clicked.
+  Added `_pushBusy` lock to prevent async double-fire on rapid clicks.
+  Added `stopPropagation` on inner checkbox to prevent bubbled duplicate calls.
+- **board/security** — per-project tenant filtering for Budgets panel;
+  corrected config file path displayed in footer.
+- **plugin.json** — replaced `null` matcher / statusMessage values with empty
+  strings to pass `claude plugin validate` (contributed by @ajayd942).
+
+---
+
 ## v2.9.3 — 2026-05-17
 
 ### Web Push + in-app notification history
