@@ -2152,8 +2152,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/metrics') {
+    let days = parseInt(url.searchParams.get('days') || '30', 10);
+    if (!Number.isFinite(days) || days < 1) days = 30;
+    if (days > 365) days = 365;
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(getMetrics(cwd)));
+    res.end(JSON.stringify(getMetrics(cwd, days)));
     return;
   }
 
