@@ -947,9 +947,13 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   // Heuristic for trusted production verdicts (future): require >= 50%
   // of agent runs to have cost_usd, AND sum/time hourly rate >= $0.05/hr.
   // Until that's implemented, time-based estimate is the canonical number.
+  // Window verdicts by timestamp — same window as agents_cost / tasks.
+  // Without this, "AI spend" stayed at lifetime $93 even when period=7D
+  // showed only 12 tasks worth ~$0.30 — making savings ratios nonsensical.
   for (const v of verdicts) {
     if (v.cost_usd == null) continue;
     if (!agentCostMap[v.agent]) continue;
+    if (v.ts && (now - new Date(v.ts).getTime()) > costWindowMs) continue;
     agentCostMap[v.agent].real_llm_usd += v.cost_usd;
   }
   for (const a of Object.values(agentCostMap)) {
@@ -980,7 +984,12 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   //      used as the headline number unless plans / tasks are absent
   const taskLlmTotal   = agentsCost.reduce((s, a) => s + a.llm_usd, 0);
   const taskHumanTotal = agentsCost.reduce((s, a) => s + a.human_usd, 0);
-  const verdictLlmTotal = verdicts.reduce((s, v) => s + (v.cost_usd || 0), 0);
+  // Filter verdicts to the same window for consistent total
+  const verdictLlmTotal = verdicts.reduce((s, v) => {
+    if (v.cost_usd == null) return s;
+    if (v.ts && (now - new Date(v.ts).getTime()) > costWindowMs) return s;
+    return s + v.cost_usd;
+  }, 0);
 
   let cost;
   if (costData.llm_usd > 0 || costData.human_usd > 0) {
