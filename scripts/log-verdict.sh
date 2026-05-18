@@ -14,8 +14,13 @@
 #   scripts/log-verdict.sh architect APPROVED 0.50 feature=tenant-onboarding arch=docs/architecture/ARCH.md
 #
 # Writes:
-#   .great_cto/verdicts/<agent>.log   ← line with `cost=$<usd>` tag
-#   .great_cto/cost-history.log       ← `<ts> <agent> <cost_usd>` (parsed by board fallback)
+#   .great_cto/verdicts/<agent>.log   ← project-local, includes project=<slug> tag
+#   .great_cto/cost-history.log       ← <ts> <agent> <cost_usd> for fallback parsing
+#
+# Project attribution:
+#   - Reads project slug from .great_cto/PROJECT.md when available
+#   - Falls back to basename of cwd
+#   - Tag `project=<slug>` is appended so global aggregators can still attribute
 #
 # Exit: 0 on success, 1 on bad args.
 
@@ -40,18 +45,23 @@ fi
 
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 PROJ_DIR="${GREAT_CTO_DIR:-.great_cto}"
-GLOBAL_DIR="$HOME/.great_cto"
+
+# Determine project slug: PROJECT.md `slug:` field → basename of cwd
+PROJECT_SLUG=""
+if [ -f "$PROJ_DIR/PROJECT.md" ]; then
+  PROJECT_SLUG=$(grep -E '^slug:\s*' "$PROJ_DIR/PROJECT.md" 2>/dev/null | head -1 | sed -E 's/^slug:\s*//;s/[[:space:]]+$//' || true)
+fi
+[ -z "$PROJECT_SLUG" ] && PROJECT_SLUG=$(basename "$(pwd)")
 
 # Emit verdict line. Format kept compatible with existing parser (server.mjs:725-733).
 LINE="$TS | $AGENT | $VERDICT"
 [ -n "$META" ] && LINE="$LINE | $META"
-LINE="$LINE | cost=\$$COST"
+LINE="$LINE | project=$PROJECT_SLUG | cost=\$$COST"
 
-# Write to project-local (canonical, git-tracked) AND user-global (board reads
-# from ~/.great_cto/verdicts/ for cross-project aggregation — see GREAT_CTO_DIR
-# in packages/board/server.mjs:20).
-for D in "$PROJ_DIR" "$GLOBAL_DIR"; do
-  mkdir -p "$D/verdicts"
-  echo "$LINE" >> "$D/verdicts/$AGENT.log"
-  echo "$TS $AGENT $COST" >> "$D/cost-history.log"
-done
+# Write to PROJECT-LOCAL ONLY. Previously also wrote to ~/.great_cto/verdicts/
+# for cross-project aggregation, but that polluted every project's "AI spend"
+# with sum of ALL projects' costs. The board now reads from per-project dirs;
+# global is reserved for cron jobs that aggregate across projects.
+mkdir -p "$PROJ_DIR/verdicts"
+echo "$LINE" >> "$PROJ_DIR/verdicts/$AGENT.log"
+echo "$TS $AGENT $COST" >> "$PROJ_DIR/cost-history.log"
