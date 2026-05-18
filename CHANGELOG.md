@@ -5,6 +5,19 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.12.0 — 2026-05-18
+
+### llm-leash v2.27 integration
+
+- **HITL admin API fix** — board now calls the correct endpoints: `GET /admin/hitl/pending`, `POST /admin/hitl/{id}/approve`, `POST /admin/hitl/{id}/reject` (was using wrong `/hitl/…` paths from before v2.20)
+- **Admin token support** — set `admin_token` in `.great_cto/leash.json` or `LEASH_ADMIN_TOKEN` env; all admin API calls include `Authorization: Bearer …` automatically
+- **Rate Limits tab** — new subtab in the Security panel shows live rate-limit counters and limits from `GET /admin/rate-limits` (v2.27+); renders usage bars with amber/red thresholds
+- **Native per-tenant caps** — `/api/leash/per-tenant-status` now tries `GET /admin/stats` → `per_tenant_caps` first; falls back to local `~/.great_cto/per-tenant-caps.json` for older installs. Source label ("native v2.27" vs "local fallback") shown in UI
+- **`readLeashRateLimits()`** and **`readLeashNativeCaps()`** exported from `leash-adapter.mjs`
+
+---
+
+
 ## v2.11.0 — 2026-05-18
 
 ### Cost per feature
