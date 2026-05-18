@@ -2947,19 +2947,34 @@ function drillToStage(stage) {
 }
 
 /* ── Cost panel ─────────────────────────────────────────────────────────── */
+let _costFetchSeq = 0;
 async function refreshCost() {
+  // Token guard: prevents race when an older fetch (e.g. 30d from init)
+  // resolves AFTER a newer fetch (90d from period chip click) and overwrites
+  // the UI with stale data.
+  const seq = ++_costFetchSeq;
+  const periodAtRequest = currentPeriod;
   const d = await api(`/api/cost${pqsd()}`);
+  if (seq !== _costFetchSeq) return;  // a newer fetch superseded us
   if (!d) return;
   renderCost(d);
-  // Update cost panel header to reflect current period
   const lbl = document.getElementById('mp-cost-label');
-  if (lbl) lbl.textContent = `Cost · last ${periodLabel(currentPeriod)}`;
+  if (lbl) lbl.textContent = `Cost · last ${periodLabel(periodAtRequest)}`;
+}
+
+let _metricsFetchSeq = 0;
+async function _refreshMetricsRaced(url) {
+  const seq = ++_metricsFetchSeq;
+  const m = await api(url);
+  if (seq !== _metricsFetchSeq) return null;
+  return m;
 }
 
 async function refreshMetricsForPeriod() {
   const lbl = document.getElementById('mp-sprint-label');
   if (lbl) lbl.textContent = `Last ${periodLabel(currentPeriod)}`;
-  const m = await api(`/api/metrics${pqsd()}`);
+  // Use seq-guarded fetch so stale init/SSE fetches can't overwrite us
+  const m = await _refreshMetricsRaced(`/api/metrics${pqsd()}`);
   if (m) renderDashboard(m);
   refreshCost();
 }
