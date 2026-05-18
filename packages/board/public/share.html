@@ -478,6 +478,172 @@ button { font-family: inherit; cursor: pointer; }
   text-decoration: none; display: inline-block;
 }
 .btn-back:hover { background: var(--bg-muted); }
+
+/* ═══════ NEW VISUAL COMPONENTS ═══════════════════════════════════════════ */
+
+/* 1) HERO BIG — large headline number with sparkline */
+.hero-big {
+  background: linear-gradient(135deg, rgba(0,217,126,0.06), rgba(0,0,0,0));
+  border: 1px solid var(--accent-strong);
+  border-radius: 14px;
+  padding: 24px 24px 18px;
+  margin-bottom: 18px;
+  position: relative; overflow: hidden;
+}
+.hero-big::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 20% 0%, rgba(0,217,126,0.10), transparent 60%);
+  pointer-events: none;
+}
+.hero-big .hero-row {
+  display: flex; align-items: flex-end; gap: 24px;
+  position: relative; z-index: 1;
+  flex-wrap: wrap;
+}
+.hero-big .hero-left { flex: 0 0 auto; }
+.hero-big .hero-num {
+  font-family: var(--serif); font-weight: 600;
+  font-size: 92px; line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--text);
+  background: linear-gradient(180deg, #ecf2ee 0%, #8a9a92 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-big .hero-lbl {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text2); margin-top: 6px;
+}
+.hero-big .hero-sub {
+  font-size: 13px; color: var(--text2); margin-top: 8px;
+}
+.hero-big .hero-sub .delta-up { color: var(--status-review); font-weight: 600; }
+.hero-big .hero-spark {
+  flex: 1 1 200px; min-width: 200px;
+  height: 56px; opacity: 0.9;
+}
+
+/* 2) COST BAR CHART — visual horizontal bars */
+.cost-bars {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+.cost-bars .cost-headline {
+  text-align: center; margin-bottom: 14px;
+}
+.cost-bars .cost-headline .big {
+  font-family: var(--serif); font-weight: 600;
+  font-size: 36px; letter-spacing: -0.02em;
+  color: var(--accent);
+  line-height: 1;
+}
+.cost-bars .cost-headline .lbl {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text2); margin-top: 6px;
+}
+.cost-bar-row {
+  display: grid;
+  grid-template-columns: 78px 1fr 80px;
+  gap: 12px; align-items: center;
+  padding: 8px 0;
+}
+.cost-bar-row .cb-name {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text2);
+}
+.cost-bar-row .cb-rail {
+  height: 22px; background: rgba(255,255,255,0.04);
+  border-radius: 4px; overflow: hidden; position: relative;
+}
+.cost-bar-row .cb-fill {
+  height: 100%; border-radius: 4px;
+  transition: width .6s cubic-bezier(.2,.7,.3,1);
+}
+.cost-bar-row.human .cb-fill {
+  background: linear-gradient(90deg, #ff5466, #ff8c66);
+}
+.cost-bar-row.ai .cb-fill {
+  background: linear-gradient(90deg, #00d97e, #34d399);
+}
+.cost-bar-row .cb-val {
+  font-family: var(--mono); font-size: 13px;
+  color: var(--text); text-align: right;
+  font-weight: 500;
+}
+
+/* 3) ACTIVITY HEATMAP — GitHub-style 30-day grid */
+.activity-heatmap {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+}
+.activity-heatmap .ah-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.activity-heatmap .ah-title {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text2);
+}
+.activity-heatmap .ah-legend {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 9px;
+  color: var(--text3); letter-spacing: 0.06em;
+}
+.activity-heatmap .ah-legend-cells {
+  display: flex; gap: 2px;
+}
+.ah-cell {
+  width: 10px; height: 10px; border-radius: 2px;
+  background: rgba(255,255,255,0.04);
+}
+.ah-cell.l1 { background: rgba(0,217,126,0.18); }
+.ah-cell.l2 { background: rgba(0,217,126,0.36); }
+.ah-cell.l3 { background: rgba(0,217,126,0.58); }
+.ah-cell.l4 { background: rgba(0,217,126,0.92); }
+.ah-grid {
+  display: grid; grid-template-columns: repeat(30, 1fr);
+  gap: 3px;
+}
+.ah-grid .ah-cell {
+  width: 100%; aspect-ratio: 1 / 1; max-width: 16px;
+}
+
+/* 4) AGENT BUBBLES — bubble chart instead of table */
+.agent-bubbles-wrap {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 16px 8px;
+  margin-bottom: 18px;
+}
+.agent-bubbles-wrap .ab-title {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text2); margin-bottom: 10px;
+  display: flex; justify-content: space-between;
+}
+.agent-bubbles-wrap .ab-svg { width: 100%; height: auto; display: block; }
+.agent-bubbles-wrap .ab-bubble text { font-family: var(--mono); }
+.agent-bubbles-wrap .ab-bubble-name { fill: #fff; font-weight: 500; }
+.agent-bubbles-wrap .ab-bubble-meta { fill: rgba(255,255,255,0.7); }
+.agent-bubbles-wrap .ab-foot {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3); padding: 8px 4px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+
 </style>
 </head>
 <body>
@@ -674,6 +840,129 @@ if (paused) {
 
   const generatedAt = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
+  // ─── Visual helpers ──────────────────────────────────────────────────────
+  // Bucket done tasks by day (last 30 days) using closed_at
+  function bucketByDay(tasks, days) {
+    const buckets = new Array(days).fill(0);
+    const now = Date.now();
+    const dayMs = 86400_000;
+    tasks.forEach(t => {
+      const iso = t.closed_at || t.updated_at;
+      if (!iso) return;
+      const age = Math.floor((now - new Date(iso).getTime()) / dayMs);
+      if (age >= 0 && age < days) buckets[days - 1 - age] += 1;
+    });
+    return buckets;
+  }
+
+  // SVG sparkline from numeric series
+  function sparklineSvg(values, w, h, color) {
+    if (!values.length) return '';
+    const max = Math.max(1, ...values);
+    const stepX = w / Math.max(1, values.length - 1);
+    const pts = values.map((v, i) => {
+      const x = i * stepX;
+      const y = h - (v / max) * (h - 4) - 2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const areaPts = `0,${h} ${pts} ${w},${h}`;
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+      <defs>
+        <linearGradient id="sparkGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%"  stop-color="${color}" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <polygon points="${areaPts}" fill="url(#sparkGrad)"/>
+      <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  // Activity heatmap: 30-day strip, intensity by count
+  function heatmapCells(buckets) {
+    const max = Math.max(1, ...buckets);
+    return buckets.map(c => {
+      if (c === 0) return '<div class="ah-cell"></div>';
+      const ratio = c / max;
+      let level = 1;
+      if (ratio > 0.75) level = 4;
+      else if (ratio > 0.5) level = 3;
+      else if (ratio > 0.25) level = 2;
+      return `<div class="ah-cell l${level}" title="${c} task${c===1?'':'s'}"></div>`;
+    }).join('');
+  }
+
+  // Agent bubble chart — pack circles in a row, larger = more time
+  function agentBubblesSvg(agents) {
+    if (!agents.length) return '';
+    const W = 600, H = 200;
+    const sorted = [...agents].sort((a,b) => b.time_min - a.time_min);
+    const maxTime = Math.max(1, sorted[0].time_min);
+    // Color palette by agent category
+    function colorFor(name) {
+      const n = (name || '').toLowerCase();
+      if (n.includes('security') || n.includes('compliance')) return '#ff5466';
+      if (n.includes('qa') || n.includes('test'))             return '#f59e0b';
+      if (n.includes('architect') || n.includes('pm'))        return '#7c3aed';
+      if (n.includes('design'))                                return '#06b6d4';
+      if (n.includes('reviewer'))                              return '#a78bfa';
+      return '#00d97e';
+    }
+    // Radii proportional to sqrt(time) — area, not linear
+    const minR = 22, maxR = 60;
+    const radii = sorted.map(a => {
+      const ratio = Math.sqrt(a.time_min / maxTime);
+      return minR + (maxR - minR) * ratio;
+    });
+    // Simple horizontal packing
+    const padding = 8;
+    const totalW = radii.reduce((s, r) => s + 2 * r, 0) + padding * (radii.length - 1);
+    const scale = totalW > W ? W / totalW : 1;
+    let cx = 0;
+    const positions = radii.map(r => {
+      const scaledR = r * scale;
+      cx += scaledR;
+      const pos = { cx, r: scaledR };
+      cx += scaledR + padding * scale;
+      return pos;
+    });
+    // Center horizontally
+    const usedW = cx - padding * scale;
+    const offsetX = (W - usedW) / 2;
+    return `<svg class="ab-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      ${sorted.map((a, i) => {
+        const p = positions[i];
+        const color = colorFor(a.agent);
+        const cx = p.cx + offsetX;
+        const cy = H / 2;
+        const t = a.time_min >= 60
+          ? (a.time_min/60).toFixed(a.time_min < 600 ? 1 : 0) + 'h'
+          : a.time_min + 'm';
+        const fontN = Math.max(9, Math.min(13, p.r / 4));
+        const fontM = Math.max(8, Math.min(11, p.r / 5));
+        // Truncate name to fit
+        const name = a.agent.length > 14 ? a.agent.slice(0, 12) + '…' : a.agent;
+        return `<g class="ab-bubble">
+          <circle cx="${cx}" cy="${cy}" r="${p.r}" fill="${color}" fill-opacity="0.18" stroke="${color}" stroke-opacity="0.55" stroke-width="1.5"/>
+          <text class="ab-bubble-name" x="${cx}" y="${cy - 2}" text-anchor="middle" font-size="${fontN}">${esc(name)}</text>
+          <text class="ab-bubble-meta" x="${cx}" y="${cy + fontN + 2}" text-anchor="middle" font-size="${fontM}">${t}</text>
+        </g>`;
+      }).join('')}
+    </svg>`;
+  }
+
+  // Compute datasets
+  const dailyDone = bucketByDay(doneTasks, 30);
+  const last7Done = dailyDone.slice(-7).reduce((s,v)=>s+v, 0);
+  const heatmapHtml = heatmapCells(dailyDone);
+  const sparkHtml = sparklineSvg(dailyDone, 280, 56, '#00d97e');
+  const bubblesHtml = agentBubblesSvg(agentsCost);
+
+  // Cost bar chart proportions
+  const costMax = Math.max(effectiveHumanUsd, effectiveLlmUsd, 1);
+  const humanPct = (effectiveHumanUsd / costMax) * 100;
+  const aiPct = Math.max(1.5, (effectiveLlmUsd / costMax) * 100); // min 1.5% so the bar is visible
+
   document.getElementById('root').innerHTML = `
     <div class="report-page">
       <div class="report-bg"></div>
@@ -706,47 +995,59 @@ if (paused) {
 
         ${headline ? `<div class="headline-narrative">${esc(headline)}</div>` : ''}
 
-        <div class="section-label">HEADLINE</div>
-        <div class="report-stats-hero">
-          ${hero.map(s => `
-            <div class="report-stat ${s.cls || ''}">
-              <div class="num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
-              <div class="lbl">${s.lbl}</div>
-              ${s.extra ? `<div class="sub">${s.extra}</div>` : ''}
-            </div>`).join('')}
+        <!-- HERO BIG — large number + sparkline -->
+        <div class="hero-big">
+          <div class="hero-row">
+            <div class="hero-left">
+              <div class="hero-num">${done || '—'}</div>
+              <div class="hero-lbl">Features shipped</div>
+              <div class="hero-sub">
+                ${last7Done > 0
+                  ? `<span class="delta-up">↑ +${last7Done}</span> in the last 7 days`
+                  : `<span style="color:var(--text3)">no shipments in the last 7 days</span>`}
+              </div>
+            </div>
+            <div class="hero-spark">${sparkHtml}</div>
+          </div>
         </div>
 
+        <!-- COST BAR CHART — visual horizontal bars -->
         ${(effectiveLlmUsd > 0 || effectiveHumanUsd > 0) ? `
-          <div class="compare-card">
-            <div class="compare-side">
-              <div class="lbl">AI agents</div>
-              <div class="v">$${effectiveLlmUsd.toFixed(2)}</div>
-              <div class="t">${(totalAiMin || totalTimeMin) > 0 ? `${fmtTime(totalAiMin || totalTimeMin)} active time` : '—'}</div>
+          <div class="cost-bars">
+            <div class="cost-headline">
+              <div class="big">${effectiveSavings ? `${effectiveSavings} cheaper` : (timeSpeedup ? `${timeSpeedup}× faster` : 'AI replaces team')}</div>
+              <div class="lbl">${effectiveSavings ? 'AI vs human team' : (timeSpeedup ? 'AI vs human time' : '')}</div>
             </div>
-            <div class="compare-vs">
-              <div class="vs-line">vs</div>
-              ${effectiveSavings ? `<strong>${effectiveSavings} cheaper</strong>` : '<strong>vs</strong>'}
-              ${timeSpeedup ? `<div class="vs-time">${timeSpeedup}× faster</div>` : ''}
+            <div class="cost-bar-row human">
+              <div class="cb-name">Humans</div>
+              <div class="cb-rail"><div class="cb-fill" style="width:${humanPct.toFixed(1)}%"></div></div>
+              <div class="cb-val">$${Number((effectiveHumanUsd > 0 ? effectiveHumanUsd : humanH * 150).toFixed(0)).toLocaleString()}</div>
             </div>
-            <div class="compare-side right">
-              <div class="lbl">Human team est.</div>
-              <div class="v">$${effectiveHumanUsd > 0 ? Number(effectiveHumanUsd.toFixed(0)).toLocaleString() : Number((humanH * 150).toFixed(0)).toLocaleString()}</div>
-              <div class="t">at $150/hr · ${humanH}h equivalent</div>
+            <div class="cost-bar-row ai">
+              <div class="cb-name">AI</div>
+              <div class="cb-rail"><div class="cb-fill" style="width:${aiPct.toFixed(1)}%"></div></div>
+              <div class="cb-val">$${effectiveLlmUsd.toFixed(2)}</div>
             </div>
-          </div>` : `
-          <div class="compare-card">
-            <div class="compare-side">
-              <div class="lbl">Human team est.</div>
-              <div class="v">$${Number((humanH * 150).toFixed(0)).toLocaleString()}</div>
-              <div class="t">at $150/hr · ${humanH}h equivalent</div>
-            </div>
-            <div class="compare-vs"><div class="vs-line">replaced by</div><strong>AI agents</strong></div>
-            <div class="compare-side right">
-              <div class="lbl">AI agents</div>
-              <div class="v">${(totalAiMin || totalTimeMin) > 0 ? fmtTime(totalAiMin || totalTimeMin) : done + ' tasks'}</div>
-              <div class="t">automated</div>
-            </div>
-          </div>`}
+          </div>` : ''}
+
+        <!-- ACTIVITY HEATMAP — last 30 days -->
+        <div class="activity-heatmap">
+          <div class="ah-head">
+            <span class="ah-title">Daily activity · 30 days</span>
+            <span class="ah-legend">
+              less
+              <span class="ah-legend-cells">
+                <span class="ah-cell"></span>
+                <span class="ah-cell l1"></span>
+                <span class="ah-cell l2"></span>
+                <span class="ah-cell l3"></span>
+                <span class="ah-cell l4"></span>
+              </span>
+              more
+            </span>
+          </div>
+          <div class="ah-grid">${heatmapHtml}</div>
+        </div>
 
         <div class="report-stats-sec">
           ${sec.map(s => `
@@ -811,41 +1112,16 @@ if (paused) {
             </div>`).join('')}` : ''}
 
         ${agentsCost.length ? `
-          <div class="section-label">Agent breakdown · time &amp; cost</div>
-          <div class="agent-list">
-            <div class="agent-header-row">
-              <span class="agent-name-h">Agent</span>
-              <span class="agent-time-h">Time</span>
-              <span class="agent-llm-h">LLM cost</span>
-              <span class="agent-human-h">Human equiv.</span>
-              <span class="agent-tasks-h">Tasks</span>
+          <div class="agent-bubbles-wrap">
+            <div class="ab-title">
+              <span>Agent breakdown · time spent</span>
+              <span>${agentsCost.length} agent${agentsCost.length === 1 ? '' : 's'}</span>
             </div>
-            ${(() => {
-              const maxTime = Math.max(...agentsCost.map(a => a.time_min), 1);
-              return agentsCost.map(a => {
-                const pct = (a.time_min / maxTime * 100).toFixed(0);
-                const timeStr = a.time_min >= 60
-                  ? `${(a.time_min/60).toFixed(a.time_min < 600 ? 1 : 0)}h`
-                  : `${a.time_min}m`;
-                return `
-                  <div class="agent-row rich">
-                    <span class="agent-name">✱ ${esc(a.agent)}</span>
-                    <span class="agent-time">
-                      <span class="agent-rail"><span class="agent-fill" style="width:${pct}%"></span></span>
-                      <span class="agent-time-v">${timeStr}</span>
-                    </span>
-                    <span class="agent-llm">$${a.llm_usd.toFixed(2)}</span>
-                    <span class="agent-human">$${a.human_usd.toFixed(0)}</span>
-                    <span class="agent-tasks">${a.tasks_done}/${a.tasks_total}</span>
-                  </div>`;
-              }).join('');
-            })()}
-            <div class="agent-total-row">
-              <span class="agent-name">Total</span>
-              <span class="agent-time"><span class="agent-time-v">${totalTimeMin >= 60 ? (totalTimeMin/60).toFixed(1)+'h' : totalTimeMin+'m'}</span></span>
-              <span class="agent-llm">$${agentsCost.reduce((s,a)=>s+a.llm_usd,0).toFixed(2)}</span>
-              <span class="agent-human">$${agentsCost.reduce((s,a)=>s+a.human_usd,0).toFixed(0)}</span>
-              <span class="agent-tasks">${agentsCost.reduce((s,a)=>s+a.tasks_done,0)}/${agentsCost.reduce((s,a)=>s+a.tasks_total,0)}</span>
+            ${bubblesHtml}
+            <div class="ab-foot">
+              <span>Total: ${totalTimeMin >= 60 ? (totalTimeMin/60).toFixed(1)+'h' : totalTimeMin+'m'}</span>
+              <span>LLM $${agentsCost.reduce((s,a)=>s+a.llm_usd,0).toFixed(2)} · Human $${agentsCost.reduce((s,a)=>s+a.human_usd,0).toFixed(0)}</span>
+              <span>${agentsCost.reduce((s,a)=>s+a.tasks_done,0)}/${agentsCost.reduce((s,a)=>s+a.tasks_total,0)} tasks</span>
             </div>
           </div>` : ''}
 
