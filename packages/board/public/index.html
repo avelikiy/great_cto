@@ -2285,13 +2285,13 @@ button { font-family: inherit; cursor: pointer; }
               <div class="url-text" id="share-url-text">—</div>
               <button class="btn-ghost-sm" onclick="openUrl()">Open ↗</button>
               <button class="btn-black" onclick="copyUrl(event)">Copy</button>
-              <button class="btn-ghost-sm" onclick="republishShare()" title="Publish a new report with current data — generates a new URL">↻ Republish</button>
+
             </div>
             <div class="share-meta" id="share-meta" style="font-size:11px;color:var(--text3);margin-top:8px;font-family:var(--mono);"></div>
             <div class="share-note">
               The report includes shipped tasks, recent activity, agent utilization, and the six headline metrics.
               Open issues, code, and credentials are <strong>never</strong> exposed.
-              <br/><strong>Republish</strong> generates a fresh snapshot with current data (new URL — share the latest one).
+              <br/>The report updates automatically every day at 09:00 UTC and after each gate approval.
             </div>
           </div>
           <div id="share-disabled-note" class="share-note">
