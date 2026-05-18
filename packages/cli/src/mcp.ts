@@ -153,6 +153,120 @@ function toolQueryDecisions(args: { query?: string; limit?: number }): any {
   };
 }
 
+// ── Board tools — call the running board HTTP API ─────────────────────────
+// Board port: $GREAT_CTO_PORT (default 3141).
+
+const BOARD_PORT = parseInt(process.env.GREAT_CTO_PORT ?? "3141", 10);
+const BOARD_BASE = `http://127.0.0.1:${BOARD_PORT}`;
+
+async function boardFetch(path: string): Promise<any> {
+  try {
+    const res = await fetch(`${BOARD_BASE}${path}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  } catch (e) {
+    throw new Error(
+      `Board unreachable at ${BOARD_BASE} — run \`great-cto board\` first. (${(e as Error).message})`
+    );
+  }
+}
+
+function boardPqs(project?: string): string {
+  return project ? `?project=${encodeURIComponent(project)}` : "";
+}
+
+async function toolProjectStatus(args: { project?: string }): Promise<string> {
+  const qs = boardPqs(args.project);
+  const [inbox, metrics] = await Promise.all([
+    boardFetch(`/api/inbox${qs}`),
+    boardFetch(`/api/metrics${qs}`),
+  ]);
+  const s = inbox.summary ?? {};
+  const lines = [
+    `## Project status${args.project ? ` — ${args.project}` : ""}`,
+    "",
+    `**Open gates:** ${s.gates ?? 0}`,
+    `**Blocked tasks:** ${s.blocked ?? 0}`,
+    `**P0 incidents:** ${s.p0 ?? 0}`,
+    `**Stale in-progress:** ${s.stale ?? 0}`,
+  ];
+  if ((inbox.pending_gates ?? []).length > 0) {
+    lines.push("", "### Gates awaiting approval");
+    for (const g of (inbox.pending_gates as any[]).slice(0, 5)) {
+      lines.push(`- **${g.id}** ${g.title} _(${g.status})_`);
+    }
+  }
+  if ((inbox.blocked ?? []).length > 0) {
+    lines.push("", "### Blocked tasks");
+    for (const b of (inbox.blocked as any[]).slice(0, 5)) {
+      lines.push(`- **${b.id}** ${b.title}`);
+    }
+  }
+  if (metrics) {
+    lines.push("", `**Tasks:** ${metrics.done ?? 0}/${metrics.total ?? 0} done`);
+  }
+  return lines.join("\n");
+}
+
+async function toolCostSummary(args: { days?: number; project?: string }): Promise<string> {
+  const days = Math.min(365, Math.max(1, args.days ?? 30));
+  const qs = boardPqs(args.project);
+  const d = await boardFetch(`/api/cost${qs}${qs ? "&" : "?"}days=${days}`);
+  const lines = [
+    `## Cost summary${args.project ? ` — ${args.project}` : ""} (last ${days} days)`,
+    "",
+    `**Total LLM spend:** $${(d.total_llm ?? 0).toFixed(2)}`,
+    `**Daily burn:** $${(d.daily_avg ?? 0).toFixed(2)}/day`,
+    `**Projected monthly:** $${(d.projected_monthly ?? 0).toFixed(0)}`,
+  ];
+  if (d.monthly_budget) {
+    const status = d.over_budget ? "⚠️ OVER BUDGET" : "✅ within budget";
+    lines.push(`**Budget:** $${d.monthly_budget}/month — ${status}`);
+  }
+  if (d.savings_x) lines.push(`**vs Human team:** ${d.savings_x}× cheaper`);
+  if ((d.by_feature ?? []).length > 0) {
+    lines.push("", "### Top features by AI spend");
+    for (const f of (d.by_feature as any[]).slice(0, 8)) {
+      lines.push(`- **${f.feature}**: $${f.llm.toFixed(2)} (${f.runs} runs)`);
+    }
+  }
+  return lines.join("\n");
+}
+
+async function toolPipelineStages(args: { project?: string }): Promise<string> {
+  const stages = await boardFetch(`/api/pipeline${boardPqs(args.project)}`);
+  const lines = [
+    `## Pipeline stages${args.project ? ` — ${args.project}` : ""}`,
+    "",
+    "| Stage | Status | Verdict | Last run |",
+    "|---|---|---|---|",
+  ];
+  for (const s of stages ?? []) {
+    lines.push(
+      `| ${s.stage} | ${s.status ?? "idle"} | ${s.verdict ?? "—"} | ${(s.last_ts ?? "—").slice(0, 16)} |`
+    );
+  }
+  return lines.join("\n");
+}
+
+async function toolRecentVerdicts(args: { limit?: number; project?: string }): Promise<string> {
+  const limit = Math.min(50, Math.max(1, args.limit ?? 10));
+  const data = await boardFetch(`/api/metrics${boardPqs(args.project)}`);
+  const verdicts = ((data.verdicts ?? []) as any[]).slice(-limit).reverse();
+  if (verdicts.length === 0) return "No recent verdicts found.";
+  const lines = [
+    `## Recent verdicts${args.project ? ` — ${args.project}` : ""} (last ${verdicts.length})`,
+    "",
+    "| Time | Agent | Verdict | Cost |",
+    "|---|---|---|---|",
+  ];
+  for (const v of verdicts) {
+    const cost = v.cost_usd != null ? `$${(v.cost_usd as number).toFixed(2)}` : "—";
+    lines.push(`| ${(v.ts ?? "").slice(0, 16)} | ${v.agent ?? "—"} | ${v.verdict ?? "—"} | ${cost} |`);
+  }
+  return lines.join("\n");
+}
+
 // ── Tool dispatch table ────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -225,6 +339,61 @@ const TOOLS = [
       },
     },
     handler: toolQueryDecisions,
+  },
+  // ── Board tools (require running board at $GREAT_CTO_PORT / 3141) ────────
+  {
+    name: "project_status",
+    description:
+      "Get current pipeline status from the great_cto board: open gates awaiting approval, blocked tasks, P0 incidents, and in-progress work. " +
+      "Use this before starting expensive agent tasks to check for blockers. Requires `great-cto board` running.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Project slug (optional, defaults to board's active project)" },
+      },
+    },
+    handler: toolProjectStatus,
+  },
+  {
+    name: "cost_summary",
+    description:
+      "Get AI agent LLM spend from the board: total cost, daily burn rate, projected monthly cost, budget status, " +
+      "and cost broken down by feature. Use to check budget before spawning resource-intensive agents. Requires `great-cto board` running.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "Window in days: 1, 7, 30, 90, 365 (default: 30)" },
+        project: { type: "string", description: "Project slug (optional)" },
+      },
+    },
+    handler: toolCostSummary,
+  },
+  {
+    name: "pipeline_stages",
+    description:
+      "Get full pipeline stage list with status (idle/done/failed) and last agent verdict. " +
+      "Shows which stage the current feature is at and what each agent last decided. Requires `great-cto board` running.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Project slug (optional)" },
+      },
+    },
+    handler: toolPipelineStages,
+  },
+  {
+    name: "recent_verdicts",
+    description:
+      "Get the most recent agent verdict lines from the board: timestamps, agent names, verdict values (APPROVED/DONE/BLOCKED), and costs. " +
+      "Quick recap of what agents have done recently. Requires `great-cto board` running.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "number", description: "Number of verdicts to return (1–50, default: 10)" },
+        project: { type: "string", description: "Project slug (optional)" },
+      },
+    },
+    handler: toolRecentVerdicts,
   },
 ];
 

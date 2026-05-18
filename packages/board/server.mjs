@@ -1399,6 +1399,73 @@ function startAlertCron() {
     } catch (e) { console.warn('cron digest.weekly failed:', e.message); }
   }, FIVE_MIN);
 
+  // digest.daily: morning summary (Mon–Fri, 08:00 UTC).
+  // Covers yesterday's activity: spend, features shipped, blocked gates.
+  // Idempotent via date-keyed dedupe so re-starts don't re-send.
+  setInterval(() => {
+    try {
+      const now = new Date();
+      // Mon=1 … Fri=5 only; skip weekends
+      if (now.getUTCDay() === 0 || now.getUTCDay() === 6) return;
+      if (now.getUTCHours() !== 8) return;
+      const isoDay = now.toISOString().slice(0, 10);
+      const yesterday = new Date(now.getTime() - 86400_000).toISOString().slice(0, 10);
+      const projects = listProjects();
+      for (const proj of projects) {
+        const dedupeKey = `digest.daily:${proj.slug}:${isoDay}`;
+        // Pull last 2 days so "yesterday" is always in the window
+        const cost = getCostHistory(proj.path, 2);
+        const yBucket = (cost.series || []).find(s => s.date === yesterday);
+        const ySpend = yBucket ? yBucket.llm : 0;
+        // Feature breakdown for yesterday
+        const topFeatures = (cost.by_feature || []).slice(0, 3);
+        // Inbox for blocked + gates
+        const inbox = (() => { try { return getInbox(proj.path); } catch { return {}; } })();
+        const blocked = inbox.summary?.blocked ?? 0;
+        const gates = inbox.summary?.gates ?? 0;
+        // Tasks closed yesterday
+        const tasks = (() => { try { return getTasks(proj.path); } catch { return []; } })();
+        const doneYesterday = tasks.filter(t => {
+          if (!t.closed_at) return false;
+          return t.closed_at.slice(0, 10) === yesterday;
+        }).length;
+        // Skip digest if nothing happened yesterday
+        if (ySpend === 0 && doneYesterday === 0 && blocked === 0 && gates === 0) continue;
+        const kvObj = {
+          date: yesterday,
+          'AI spend': `$${ySpend.toFixed(2)}`,
+          'tasks shipped': String(doneYesterday),
+          'blocked': String(blocked),
+          'open gates': String(gates),
+        };
+        if (topFeatures.length > 0) {
+          kvObj['top feature'] = `${topFeatures[0].feature} ($${topFeatures[0].llm.toFixed(2)})`;
+        }
+        const bodyLines = [
+          `Yesterday: $${ySpend.toFixed(2)} AI spend · ${doneYesterday} task${doneYesterday !== 1 ? 's' : ''} shipped`,
+        ];
+        if (blocked > 0) bodyLines.push(`⚠️ ${blocked} blocked task${blocked !== 1 ? 's' : ''} need attention`);
+        if (gates > 0) bodyLines.push(`🔒 ${gates} gate${gates !== 1 ? 's' : ''} awaiting approval`);
+        if (topFeatures.length > 0) {
+          bodyLines.push('', 'Top AI spend by feature:');
+          for (const f of topFeatures) bodyLines.push(`  • ${f.feature}: $${f.llm.toFixed(2)}`);
+        }
+        const dailyPayload = {
+          title: `${proj.slug} — ${yesterday} · $${ySpend.toFixed(2)} AI · ${doneYesterday} shipped`,
+          body: bodyLines.join('\n'),
+          level: blocked > 0 || gates > 0 ? 'warning' : 'info',
+          project: proj.slug,
+          link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}#dashboard`,
+          action: 'Open board',
+          kv: kvObj,
+        };
+        fireEmailAlert('digest.daily', dedupeKey, dailyPayload);
+        addNotification('digest.daily', dailyPayload);
+        firePushAlert('digest.daily', dedupeKey, dailyPayload);
+      }
+    } catch (e) { console.warn('cron digest.daily failed:', e.message); }
+  }, FIVE_MIN);
+
   // report.daily: republish share reports every day at 09:00 UTC
   setInterval(() => {
     try {
@@ -1419,7 +1486,7 @@ function startAlertCron() {
     } catch (e) { console.warn('cron report.daily failed:', e.message); }
   }, FIVE_MIN);
 
-  console.log('Alert cron started: gate.stale (5min), cost.threshold (1h), digest.weekly (Fri 09:00), report.daily (09:00)');
+  console.log('Alert cron started: gate.stale (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00)');
 }
 
 function readVerdicts(cwd = null) {
