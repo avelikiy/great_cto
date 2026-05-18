@@ -3918,12 +3918,8 @@ async function loadNotifications() {
     stepVerified.style.display = 'none';
   }
 
-  const badge = document.getElementById('nav-notifications-badge');
-  if (badge) {
-    const on = !!(data.enabled && data.verified);
-    badge.className = `share-badge ${on ? 'on' : 'off'}`;
-    badge.innerHTML = `<span class="share-badge-dot"></span>${on ? 'on' : 'off'}`;
-  }
+  _emailChannelActive = !!(data.enabled && data.verified);
+  _refreshNavNotifBadge();
   // Check the selected trigger boxes
   const selected = new Set(data.triggers || []);
   document.querySelectorAll('#notif-triggers input[data-trigger]').forEach(cb => {
@@ -5365,6 +5361,7 @@ document.addEventListener('keydown', (e) => {
 // ── Notification drawer & in-app history ────────────────────────────────
 let _notifHistory = [];
 let _unreadCount = 0;
+let _emailChannelActive = false;  // true when email enabled + verified
 
 function openNotifDrawer() {
   document.getElementById('notif-drawer').style.right = '0';
@@ -5440,17 +5437,24 @@ function renderNotifHistoryInline() {
       </span>
     </div>`).join('');
 }
-function updateNotifBadge(count) {
-  _unreadCount = count;
+function _refreshNavNotifBadge() {
   const badge = document.getElementById('nav-notifications-badge');
   if (!badge) return;
-  if (count > 0) {
+  const anyChannelOn = _emailChannelActive || _pushEnabled;
+  if (_unreadCount > 0) {
     badge.className = 'share-badge on';
-    badge.innerHTML = `<span class="share-badge-dot"></span>${count}`;
+    badge.innerHTML = `<span class="share-badge-dot"></span>${_unreadCount}`;
+  } else if (anyChannelOn) {
+    badge.className = 'share-badge on';
+    badge.innerHTML = '<span class="share-badge-dot"></span>on';
   } else {
     badge.className = 'share-badge off';
     badge.innerHTML = '<span class="share-badge-dot"></span>off';
   }
+}
+function updateNotifBadge(count) {
+  _unreadCount = count;
+  _refreshNavNotifBadge();
 }
 async function markAllNotifsRead() {
   try {
@@ -5500,6 +5504,7 @@ function _updatePushUI() {
     ? 'Browser notifications are active.'
     : 'Click to enable desktop push notifications.';
   if (vis) vis.classList.toggle('on', _pushEnabled);
+  _refreshNavNotifBadge();  // sync nav badge with push state
 }
 async function togglePush(e) {
   if (e) e.stopPropagation();
