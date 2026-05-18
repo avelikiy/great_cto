@@ -925,20 +925,16 @@ function getMetrics(cwd = process.cwd()) {
   // with the "Last 30 days" panel ($6.42) shown directly below it. Now both
   // sit on the same 30-day window so the dashboard numbers reconcile.
   const costWindowMs = 30 * 86400_000;
-  // Per-task cap: 8h. Tasks created→closed gap is wall-clock, which includes
-  // idle time (task sat in backlog for days). Anything > 8h is dominated by
-  // idle, not work — cap to keep agents_cost.time_min sane.
-  const TASK_TIME_CAP_MIN = 8 * 60;
+  // AI active time per task: use estimated_minutes if set, else DEFAULT_TASK_MIN (30m).
+  // We deliberately DO NOT use wall-clock (closed_at - created_at) because that
+  // includes idle time — tasks that sit in backlog for days before being closed
+  // in a single commit would inflate "AI time" to weeks/months. This is the only
+  // honest model without per-agent-run timing data from verdicts.
   const agentCostMap = {};
   for (const t of tasks) {
     if (!t.agent) continue;
     if (t.closed_at && (now - new Date(t.closed_at).getTime()) > costWindowMs) continue;
-    let mins = 0;
-    if (t.created_at && t.closed_at) {
-      const ms = new Date(t.closed_at).getTime() - new Date(t.created_at).getTime();
-      if (ms > 0) mins = Math.min(ms / 60000, TASK_TIME_CAP_MIN);
-    }
-    if (!mins) mins = t.estimated_minutes || DEFAULT_TASK_MIN;
+    const mins = t.estimated_minutes || DEFAULT_TASK_MIN;
     const llmCost   = mins / 60 * LLM_RATE_PER_HR;
     const humanCost = mins / 60 * HUMAN_RATE_PER_HR;
     if (!agentCostMap[t.agent]) agentCostMap[t.agent] = { agent: t.agent, llm_usd: 0, human_usd: 0, time_min: 0, tasks_total: 0, tasks_done: 0, real_llm_usd: 0 };
