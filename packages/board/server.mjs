@@ -592,7 +592,7 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   // parsing missed the LLM value, while total_human matched a "$7,500 saved"
   // marketing line. Better to under-report than show an implausible 7,500×
   // savings on the dashboard. Caller can still see the raw `series`.
-  if (totalLlm > 0 && totalHuman > 0 && (totalHuman / totalLlm) > 1000) {
+  if (totalLlm > 0 && totalHuman > 0 && totalPlans > 0 && (totalHuman / totalLlm) > 1000) {
     totalHuman = 0;
     for (const b of series) b.human = 0;
   }
