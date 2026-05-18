@@ -724,7 +724,9 @@ if (paused) {
   // 28,800× nonsense (sub-second tasks). Clamp + suppress to keep the page
   // credible. Threshold = 5 min total AI work, or > 1000× ratio.
   const rawSpeedup = aiH > 0 && humanH > 0 ? humanH / aiH : 0;
-  const timeSpeedup = (totalAiMin >= 5 && rawSpeedup > 0 && rawSpeedup < 1000)
+  // "faster" only makes sense when AI is faster than the human estimate (ratio >= 1.5).
+  // Sub-1 ratios mean AI was slower — never label that as "faster".
+  const timeSpeedup = (totalAiMin >= 5 && rawSpeedup >= 1.5 && rawSpeedup < 1000)
     ? rawSpeedup.toFixed(rawSpeedup < 10 ? 1 : 0) : null;
 
   // Categorize done tasks (heuristic from title prefix / labels / keywords)
@@ -1015,8 +1017,28 @@ if (paused) {
         ${(effectiveLlmUsd > 0 || effectiveHumanUsd > 0) ? `
           <div class="cost-bars">
             <div class="cost-headline">
-              <div class="big">${effectiveSavings ? `${effectiveSavings} cheaper` : (timeSpeedup ? `${timeSpeedup}× faster` : 'AI replaces team')}</div>
-              <div class="lbl">${effectiveSavings ? 'AI vs human team' : (timeSpeedup ? 'AI vs human time' : '')}</div>
+              ${(() => {
+                // Compute a reliable cost ratio (always positive when both sides are > 0)
+                const costRatio = (effectiveHumanUsd > 0 && effectiveLlmUsd > 0)
+                  ? effectiveHumanUsd / effectiveLlmUsd : 0;
+                const costRatioStr = costRatio >= 2
+                  ? Math.round(costRatio).toLocaleString() + '×'
+                  : null;
+                if (effectiveSavings) {
+                  return `<div class="big">${effectiveSavings} cheaper</div>
+                          <div class="lbl">AI vs human team</div>`;
+                }
+                if (costRatioStr) {
+                  return `<div class="big">${costRatioStr} cheaper</div>
+                          <div class="lbl">AI vs human cost</div>`;
+                }
+                if (timeSpeedup) {
+                  return `<div class="big">${timeSpeedup}× faster</div>
+                          <div class="lbl">AI vs human time</div>`;
+                }
+                return `<div class="big">AI replaces team</div>
+                        <div class="lbl">cost &amp; time breakdown</div>`;
+              })()}
             </div>
             <div class="cost-bar-row human">
               <div class="cb-name">Humans</div>
