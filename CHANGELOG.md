@@ -5,6 +5,48 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.11.0 — 2026-05-18
+
+### Cost per feature
+- **"Top features by AI spend"** section in the cost panel — bar list showing
+  which features consumed the most LLM budget. Sourced from `feature=X` tags
+  in verdict lines (agents that use `log-verdict.sh` get this for free).
+- `/api/cost` now returns `by_feature: [{feature, llm, runs}]` sorted desc,
+  top 10. Available via API for integrations.
+
+### MCP — 4 new board tools
+`great-cto mcp` now exposes **9 tools** total (was 5). New board tools:
+
+| Tool | What it does |
+|---|---|
+| `project_status` | Open gates, blocked tasks, P0 incidents |
+| `cost_summary` | LLM spend, daily burn, top features |
+| `pipeline_stages` | Pipeline stage list with status + last verdict |
+| `recent_verdicts` | Last N agent verdicts with timestamps and costs |
+
+Board tools require `great-cto board` running. Configure via `GREAT_CTO_PORT`
+(default 3141). Claude Code agents can now call `cost_summary()` before
+spawning expensive tasks to check the budget.
+
+### Daily digest notification
+- New cron fires **Mon–Fri at 08:00 UTC** via the existing email + push
+  infrastructure.
+- Summary: yesterday's AI spend, tasks shipped, blocked tasks, open gates,
+  and top-3 features by cost.
+- Skips days with zero activity — no noise on quiet weekends.
+- Idempotent via date-keyed dedupe (won't re-send on board restart).
+
+### Per-project verdict attribution
+- `log-verdict.sh` now writes verdicts to `<project>/.great_cto/verdicts/`
+  only (dropped global `~/.great_cto/verdicts/` write).
+- Adds `project=<slug>` tag to every verdict line for cross-project queries.
+- `readVerdicts(cwd)` prefers per-project dir; falls back to global lines
+  tagged with the matching slug. Fixes "all projects show $93" bug.
+- `scripts/migrate-verdicts-to-projects.mjs` — one-shot migration for
+  historical global verdicts (dry-run by default, `--apply` to write).
+
+---
+
 ## v2.9.8 — 2026-05-18
 
 ### Board dashboard
