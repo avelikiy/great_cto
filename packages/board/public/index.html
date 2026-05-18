@@ -2949,23 +2949,22 @@ function drillToStage(stage) {
 /* ── Cost panel ─────────────────────────────────────────────────────────── */
 let _costFetchSeq = 0;
 async function refreshCost() {
-  // Token guard: prevents race when an older fetch (e.g. 30d from init)
-  // resolves AFTER a newer fetch (90d from period chip click) and overwrites
-  // the UI with stale data.
   const seq = ++_costFetchSeq;
   const periodAtRequest = currentPeriod;
-  // Update label IMMEDIATELY so it never mismatches the chip selection
   const headerLbl = document.getElementById('mp-cost-label');
   if (headerLbl) headerLbl.textContent = `Cost · last ${periodLabel(periodAtRequest)}`;
-  // Show loading state in the panel during fetch
   const root = document.getElementById('cost-panel');
   if (root && !root.dataset.loaded) {
     root.innerHTML = '<div class="cost-empty">Loading…</div>';
   } else if (root) {
     root.style.opacity = '0.5';
   }
-  const d = await api(`/api/cost${pqsd()}`);
-  if (seq !== _costFetchSeq) return;  // a newer fetch superseded us
+  // Cache-bust: ensures the browser never serves a stale cached response.
+  // Without this, the same URL (eg /api/cost?days=7) is served from disk
+  // cache on second click even when the server has fresh data.
+  const url = `/api/cost${pqsd()}&_t=${Date.now()}`;
+  const d = await api(url);
+  if (seq !== _costFetchSeq) return;
   if (!d) {
     if (root) root.style.opacity = '';
     return;
@@ -3944,12 +3943,15 @@ function renderDashboard(m) {
   const maxRuns = Math.max(...Object.values(agents), 1);
   const colors = ['#2540d4','#7c3aed','#16a34a','#f59e0b','#06b6d4','#2563eb','#64748b','#94a3b8'];
   const agentKeys = Object.entries(agents).sort((a,b)=>b[1]-a[1]);
-  document.getElementById('agent-list').innerHTML = agentKeys.length ? agentKeys.map(([a, n], i) => `
-    <div class="bar-row">
-      <span class="name">${esc(a)}</span>
-      <span class="rail"><span class="fill" style="width:${(n/maxRuns*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
-      <span class="pct">${Math.round(n/maxRuns*100)}%</span>
-    </div>`).join('') : '<div class="empty">No agent runs yet</div>';
+  const agentListEl = document.getElementById('agent-list');
+  if (agentListEl) {
+    agentListEl.innerHTML = agentKeys.length ? agentKeys.map(([a, n], i) => `
+      <div class="bar-row">
+        <span class="name">${esc(a)}</span>
+        <span class="rail"><span class="fill" style="width:${(n/maxRuns*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
+        <span class="pct">${Math.round(n/maxRuns*100)}%</span>
+      </div>`).join('') : '<div class="empty">No agent runs yet</div>';
+  }
 
   // Agent cost breakdown
   const agentsCost = m.agents_cost || [];
@@ -3969,20 +3971,23 @@ function renderDashboard(m) {
   }
 
   const verdicts = (m.verdicts || []).slice().reverse().slice(0, 10);
-  document.getElementById('timeline').innerHTML = verdicts.length ? verdicts.map(v => {
-    const vu = (v.verdict || '').toUpperCase();
-    const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' : ['BLOCKED','FAILED','FAIL'].includes(vu) ? 'fail' : 'def';
-    const raw = v.raw || '';
-    const afterColon = raw.indexOf(': ') !== -1 ? raw.slice(raw.indexOf(': ') + 2) : raw;
-    const text = afterColon.length > 80 ? afterColon.slice(0, 80) + '…' : afterColon;
-    return `
-      <div class="feed-row">
-        <span class="feed-dot ${cls}"></span>
-        <span class="agent">${esc(v.agent)}</span>
-        <span class="msg">${esc(text)}</span>
-        <span class="time">${relTime(v.ts)}</span>
-      </div>`;
-  }).join('') : '<div class="empty">No activity yet</div>';
+  const timelineEl = document.getElementById('timeline');
+  if (timelineEl) {
+    timelineEl.innerHTML = verdicts.length ? verdicts.map(v => {
+      const vu = (v.verdict || '').toUpperCase();
+      const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' : ['BLOCKED','FAILED','FAIL'].includes(vu) ? 'fail' : 'def';
+      const raw = v.raw || '';
+      const afterColon = raw.indexOf(': ') !== -1 ? raw.slice(raw.indexOf(': ') + 2) : raw;
+      const text = afterColon.length > 80 ? afterColon.slice(0, 80) + '…' : afterColon;
+      return `
+        <div class="feed-row">
+          <span class="feed-dot ${cls}"></span>
+          <span class="agent">${esc(v.agent)}</span>
+          <span class="msg">${esc(text)}</span>
+          <span class="time">${relTime(v.ts)}</span>
+        </div>`;
+    }).join('') : '<div class="empty">No activity yet</div>';
+  }
 }
 
 /* ── Share ──────────────────────────────────────────────────────────────── */
@@ -4321,7 +4326,11 @@ function switchTab(id, el) {
    Poll every 5 s while panel is active. */
 
 let _leashPoll = null;
-const _leashState = { sub: 'review', period: localStorage.getItem('leash:period') || 'all', scope: localStorage.getItem('leash:scope') || '' };
+const _leashState = {
+  sub: localStorage.getItem('leash:sub') || 'review',
+  period: localStorage.getItem('leash:period') || 'all',
+  scope: localStorage.getItem('leash:scope') || '',
+};
 
 const _LEASH_PERIODS = ['5m', '15m', '1h', '6h', '24h', '7d', '30d', 'all'];
 
@@ -4466,6 +4475,7 @@ async function loadLeash() {
 
 function showLeashSubtab(name) {
   _leashState.sub = name;
+  try { localStorage.setItem('leash:sub', name); } catch { /* private mode */ }
   document.querySelectorAll('.leash-subtab').forEach(b => b.classList.toggle('active', b.dataset.subtab === name));
   document.querySelectorAll('.leash-sub').forEach(d => {
     d.style.display = d.id === `leash-sub-${name}` ? 'block' : 'none';
