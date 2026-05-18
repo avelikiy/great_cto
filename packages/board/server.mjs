@@ -2166,7 +2166,7 @@ const server = http.createServer(async (req, res) => {
     let days = parseInt(url.searchParams.get('days') || '30', 10);
     if (!Number.isFinite(days) || days < 1) days = 30;
     if (days > 365) days = 365;
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(getMetrics(cwd, days)));
     return;
   }
@@ -2474,7 +2474,7 @@ const server = http.createServer(async (req, res) => {
     const days = Number.isFinite(parsed) && parsed > 0
       ? Math.min(parsed, 365)
       : 30;
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(getCostHistory(cwd, days)));
     return;
   }
