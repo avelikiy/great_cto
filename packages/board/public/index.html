@@ -4059,7 +4059,8 @@ async function toggleShare() {
   const enabled = !document.getElementById('share-toggle').checked;
   document.getElementById('share-loading').style.display = enabled ? 'flex' : 'none';
   document.getElementById('share-url-section').style.display = 'none';
-  const state = await api('/api/share', {
+  // BUG FIX: scope publish to the currently-selected project, not server's cwd
+  const state = await api('/api/share' + (typeof pqs === 'function' ? pqs() : ''), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
