@@ -5,6 +5,17 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.9.6 — 2026-05-18
+
+### Bug fixes & improvements
+
+- **board/notifications** — bell icon in topbar now opens the notification
+  drawer. Red badge shows unread count. Previously the drawer had no trigger.
+- **board/nav badge** — nav Notifications badge correctly shows `on` when
+  email or push channel is active (was always `off` when no unread items).
+
+---
+
 ## v2.9.5 — 2026-05-18
 
 ### Bug fixes
