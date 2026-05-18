@@ -2974,14 +2974,13 @@ function setPeriod(days) {
   refreshMetricsForPeriod();
 }
 
-// Initialize chip clicks on first load
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize chip clicks (called from init flow at bottom of script)
+function initPeriodChips() {
   document.querySelectorAll('.period-chip').forEach(c => {
     c.addEventListener('click', () => setPeriod(parseInt(c.dataset.period, 10)));
-    if (parseInt(c.dataset.period, 10) === currentPeriod) c.classList.add('active');
-    else c.classList.remove('active');
+    c.classList.toggle('active', parseInt(c.dataset.period, 10) === currentPeriod);
   });
-});
+}
 
 function renderCost(d) {
   const root = document.getElementById('cost-panel');
@@ -2998,7 +2997,7 @@ function renderCost(d) {
   const summary = `
     <div class="cost-summary">
       <div class="cost-cell">
-        <div class="lbl">Last 30 days</div>
+        <div class="lbl">Last ${typeof periodLabel === 'function' ? periodLabel(currentPeriod).replace(/ /g, ' ') : '30 days'}</div>
         <div class="v">$${total.toFixed(2)}</div>
         <div class="sub">${d.total_plans} plans · $${(d.daily_avg ?? 0).toFixed(2)}/day avg</div>
       </div>
@@ -4604,9 +4603,35 @@ function renderLeashThreats(records) {
     </div>`;
 }
 
-function renderLeashPerAgent(records) {
+/**
+ * Per-agent table. Uses leash v2.14 /api/agents (canonical aggregation with
+ * first_seen / last_seen / current_cap_usd) when available. Falls back to a
+ * client-side audit aggregation when the endpoint isn't reachable (older
+ * leash versions or leash-console down).
+ *
+ * Records param is kept as the offline-fallback dataset; we ignore it when
+ * the canonical fetch succeeds.
+ */
+async function renderLeashPerAgent(records) {
   const el = document.getElementById('leash-per-agent');
   if (!el) return;
+
+  // Try canonical /api/agents first.
+  const scopeQuery = _leashState.scope ? `&project=${encodeURIComponent(_leashState.scope)}` : '';
+  const sep = pqs() ? '&' : '?';
+  const period = _leashState.period || '24h';
+  let canonical = null;
+  try {
+    const resp = await fetch(`/api/leash/agents?period=${encodeURIComponent(period)}${pqs() ? pqs() + '&' : (sep === '?' ? '?' : '?')}${(_leashState.scope ? 'project=' + encodeURIComponent(_leashState.scope) : '')}`).then(r => r.json());
+    if (resp.ok && Array.isArray(resp.agents)) canonical = resp;
+  } catch { /* fall through */ }
+
+  if (canonical) {
+    renderLeashPerAgentCanonical(el, canonical, period);
+    return;
+  }
+
+  // ── Fallback: client-side aggregation from audit records (legacy path) ──
   const agents = {};
   for (const r of records) {
     const name = r.agent_name || r.agent || r.actor || '—';
@@ -4628,7 +4653,55 @@ function renderLeashPerAgent(records) {
         <div style="color:var(--text1)">${esc(name)}</div>
         <div style="font-family:var(--mono);color:var(--text2);text-align:right">${a.calls}</div>
         <div style="font-family:var(--mono);color:var(--text1);text-align:right">$${a.cost.toFixed(4)}</div>
-      </div>`).join('')}`;
+      </div>`).join('')}
+    <div style="padding:6px 14px;font-size:10px;color:var(--text3);font-family:var(--mono);border-top:1px solid var(--border)">source: client-side audit aggregation · leash &lt; v2.14 or console unreachable</div>`;
+}
+
+function renderLeashPerAgentCanonical(el, payload, period) {
+  const rows = payload.agents || [];
+  if (!rows.length) {
+    const hint = payload.tenant_filter
+      ? `No agents observed under tenant "${esc(payload.tenant_filter)}" in the last ${period}. Switch the scope chip to "all projects" to see proxy-wide agents.`
+      : `No agents in the last ${period}.`;
+    el.innerHTML = `<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">${hint}</div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 70px 90px 80px 130px;gap:10px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+      <div>AGENT</div>
+      <div style="text-align:right">CALLS</div>
+      <div style="text-align:right">COST</div>
+      <div style="text-align:right" title="Current per-agent budget cap">CAP</div>
+      <div style="text-align:right" title="last_seen — most recent call">LAST SEEN</div>
+    </div>
+    ${rows.map(a => {
+      const last = a.last_seen ? formatLeashAgo(a.last_seen) : '—';
+      const cap = a.current_cap_usd == null ? '—' : '$' + Number(a.current_cap_usd).toFixed(2);
+      const capColor = a.current_cap_usd == null ? 'var(--text3)' : (a.cost_usd > a.current_cap_usd * 0.8 ? '#ffb300' : 'var(--text2)');
+      return `<div style="display:grid;grid-template-columns:1fr 70px 90px 80px 130px;gap:10px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center">
+        <div style="color:var(--text1)" title="first seen: ${esc(a.first_seen || '?')}">${esc(a.name || '?')}</div>
+        <div style="font-family:var(--mono);color:var(--text2);text-align:right">${a.calls ?? 0}</div>
+        <div style="font-family:var(--mono);color:var(--text1);text-align:right">$${Number(a.cost_usd || 0).toFixed(4)}</div>
+        <div style="font-family:var(--mono);color:${capColor};text-align:right">${cap}</div>
+        <div style="font-family:var(--mono);color:var(--text3);text-align:right;font-size:11px">${esc(last)}</div>
+      </div>`;
+    }).join('')}
+    <div style="padding:6px 14px;font-size:10px;color:var(--text3);font-family:var(--mono);border-top:1px solid var(--border)">source: leash /api/agents · ${rows.length} of ${payload.all_count ?? rows.length} agents · scope: ${payload.tenant_filter || 'all'}</div>`;
+}
+
+function formatLeashAgo(iso) {
+  try {
+    const ms = Date.now() - Date.parse(iso);
+    if (!Number.isFinite(ms) || ms < 0) return iso;
+    const min = Math.floor(ms / 60000);
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min}m ago`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 30) return `${d}d ago`;
+    return iso.slice(0, 10);
+  } catch { return iso; }
 }
 
 /* Detection quality (v2.23): F1 vs 7-day baseline. KPI tile + drift table. */
@@ -5795,10 +5868,8 @@ async function _disablePush() {
 init();
 initPush();
 loadNotifHistory();
-// Apply persisted period to chips + labels on first paint
-document.querySelectorAll('.period-chip').forEach(c => {
-  c.classList.toggle('active', parseInt(c.dataset.period, 10) === currentPeriod);
-});
+initPeriodChips();  // attaches click handlers + highlights active chip
+// Apply persisted period to labels on first paint
 const _sprintLbl = document.getElementById('mp-sprint-label');
 if (_sprintLbl) _sprintLbl.textContent = `Last ${periodLabel(currentPeriod)}`;
 const _costLbl = document.getElementById('mp-cost-label');

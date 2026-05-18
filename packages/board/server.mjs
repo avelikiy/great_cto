@@ -2623,6 +2623,55 @@ const server = http.createServer(async (req, res) => {
 
   // Continuous-eval drift status (leash v2.23):
   //   /api/eval/status?drift_threshold=0.05 → per-rule F1 vs 7-day baseline.
+  // Per-agent canonical aggregation (leash v2.14):
+  //   GET /api/leash/agents?period=24h&project=<slug>
+  // Upstream /api/agents has NO tenant filter — it aggregates across all
+  // sessions on the proxy. When the caller scopes to a tenant we intersect
+  // with the agents observed in our audit window for that tenant_id.
+  //
+  // Compared to the previous client-side aggregation in renderLeashPerAgent
+  // this surfaces three extra fields (first_seen / last_seen / current_cap_usd)
+  // and scales to large audit logs because the heavy lifting is on leash.
+  if (pathname === '/api/leash/agents') {
+    try {
+      const cfg = readLeashConfig(cwd);
+      const consoleUrl = cfg.console_url || 'http://localhost:8801';
+      const period = url.searchParams.get('period') || '24h';
+      const tenant = resolveProjectParam(url, cwd);
+      const upstream = await fetch(`${consoleUrl.replace(/\/$/, '')}/api/agents?period=${encodeURIComponent(period)}`, {
+        signal: AbortSignal.timeout(3000),
+      }).then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+
+      let agents = Array.isArray(upstream.agents) ? upstream.agents : [];
+      let observed = [];
+      if (tenant) {
+        const periodSecs = { '5m': 300, '15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800, '30d': 2592000, 'all': null }[period] ?? 86400;
+        const sinceMs = periodSecs ? Date.now() - periodSecs * 1000 : 0;
+        const records = readLeashAudit(cwd, 5000, sinceMs, tenant);
+        const seen = new Set();
+        for (const r of records) {
+          const name = r.agent_name || r.agent || r.actor;
+          if (name) seen.add(name);
+        }
+        observed = [...seen].sort();
+        agents = agents.filter((a) => seen.has(a.name));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        period,
+        tenant_filter: tenant,
+        agents,
+        observed_agents: observed,
+        all_count: (upstream.agents || []).length,
+      }));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+    }
+    return;
+  }
+
   if (pathname === '/api/leash/eval-status') {
     try {
       const cfg = readLeashConfig(cwd);
@@ -3228,7 +3277,11 @@ const server = http.createServer(async (req, res) => {
   if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
     const ext = path.extname(fullPath);
     const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
-    res.writeHead(200, { 'Content-Type': mime[ext] || 'text/plain' });
+    // HTML must never cache — board UI is iterated daily and stale layouts
+    // hide new features (period selector, push toggle, etc.) until hard refresh
+    const headers = { 'Content-Type': mime[ext] || 'text/plain' };
+    if (ext === '.html' || ext === '.js') headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+    res.writeHead(200, headers);
     res.end(fs.readFileSync(fullPath));
     return;
   }
