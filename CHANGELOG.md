@@ -5,6 +5,17 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.12.1 — 2026-05-18
+
+### Security tab UI/UX overhaul
+
+- **Live activity feed** — top of the Security panel now shows the last 5 leash events with a pulsing dot; auto-refreshes on the existing 5s poll (no extra network cost)
+- **All-clear empty state** — zero-threat KPI tiles show `✓ all clear` instead of bare `0`
+- **Hero HIGH tile** — HIGH severity tile is now 2× wider and larger (36px value, `2fr` grid column) for at-a-glance severity awareness
+- **Collapsible config** — "Config & data sources" block hidden under a `<details>` element; advanced users can expand it
+
+---
+
 ## v2.12.0 — 2026-05-18
 
 ### llm-leash v2.27 integration
