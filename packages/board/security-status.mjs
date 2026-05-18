@@ -29,10 +29,18 @@ const SECRET_SCAN_LOG = path.join(GREAT_CTO_HOME, 'secret-scan-stats.jsonl');
 
 /**
  * Aggregate security status. Synchronous + fast — board polls this every 5–10 s.
+ *
+ * `tenant` (optional, propagated from /api/security?project=...) scopes the
+ * leash sub-payload to one project:
+ *   undefined → adapter falls back to the project of cwd
+ *   null      → no filter ("all projects")
+ *   string    → filter to that tenant_id
+ *
+ * pre_push and secret_scan stats are global per machine and ignore tenant.
  */
-export function getSecurityStatus(cwd = process.cwd()) {
+export function getSecurityStatus(cwd = process.cwd(), tenant) {
   return {
-    leash: getLeashSummary(cwd),
+    leash: getLeashSummary(cwd, tenant),
     pre_push: getPrePushSummary(cwd),
     secret_scan: getSecretScanSummary(),
     generated_at: new Date().toISOString(),
@@ -41,11 +49,13 @@ export function getSecurityStatus(cwd = process.cwd()) {
 
 // ── leash ────────────────────────────────────────────────────────────────────
 
-function getLeashSummary(cwd) {
+function getLeashSummary(cwd, tenant) {
   try {
     const avail = getLeashAvailability(cwd);
-    const state = avail.available ? readLeashState(cwd) : null;
-    return { ...avail, state };
+    // Resolve tenant filter: if caller passed `undefined`, default to project of cwd
+    const filter = (tenant === undefined) ? avail.project_tenant_id : tenant;
+    const state = avail.available ? readLeashState(cwd, filter) : null;
+    return { ...avail, state, tenant_filter: filter };
   } catch (e) {
     return { available: false, error: String(e) };
   }

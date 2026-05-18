@@ -21,6 +21,7 @@ import {
   readHitlPending,
   fireKillSwitch,
   postHitlDecision,
+  readProjectTenantId,
 } from './leash-adapter.mjs';
 import { getSecurityStatus } from './security-status.mjs';
 import { startProxy, stopProxy, isProxyRunning } from './leash-proxy-control.mjs';
@@ -44,6 +45,37 @@ const VAPID_KEYS_FILE = path.join(GREAT_CTO_DIR, 'vapid-keys.json');
 const PUSH_SUBS_FILE = path.join(GREAT_CTO_DIR, 'push-subscriptions.json');
 const NOTIF_HISTORY_FILE = path.join(GREAT_CTO_DIR, 'notif-history.json');
 const VAPID_SUBJECT = 'mailto:hi@updates.greatcto.systems';
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the ?project= query param into a tenant filter:
+ *   ?project=foo       → 'foo'
+ *   ?project=all|*     → null  (no filter)
+ *   ?project= empty    → null
+ *   omitted            → readProjectTenantId(cwd)  (default = active project)
+ */
+/**
+ * Escape a single value for inclusion in a CSV cell.
+ * Quotes the value if it contains comma / quote / newline.
+ */
+function csvCell(v) {
+  if (v == null) return '';
+  const s = typeof v === 'string' ? v : JSON.stringify(v);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function resolveProjectParam(urlObj, cwd) {
+  const raw = urlObj.searchParams.get('project');
+  if (raw == null) {
+    // Not specified — fall back to the tenant tied to the current cwd
+    try { return readProjectTenantId(cwd); }
+    catch { return null; }
+  }
+  if (raw === 'all' || raw === '*' || raw === '') return null;
+  return raw;
+}
 
 // ── Project registry ───────────────────────────────────────────────────────────
 function readProjectsRegistry() {
@@ -2412,8 +2444,15 @@ const server = http.createServer(async (req, res) => {
   // Aggregator — leash + pre-push hook + secret-scan hook
   if (pathname === '/api/security') {
     try {
+      // ?project=<slug>  filter to one tenant
+      // ?project=all     no filter (system-admin "all projects")
+      // omitted          fall back to project of cwd
+      const projectParam = url.searchParams.get('project');
+      const tenant = (typeof projectParam === 'string')
+        ? (projectParam === 'all' || projectParam === '*' ? null : projectParam)
+        : undefined;   // undefined → adapter resolves from cwd
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(getSecurityStatus(cwd)));
+      res.end(JSON.stringify(getSecurityStatus(cwd, tenant)));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(e) }));
@@ -2526,10 +2565,11 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/api/leash/status') {
     try {
+      const tenant = resolveProjectParam(url, cwd);
       const avail = getLeashAvailability(cwd);
-      const state = avail.available ? readLeashState(cwd) : null;
+      const state = avail.available ? readLeashState(cwd, tenant) : null;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ...avail, state }));
+      res.end(JSON.stringify({ ...avail, state, tenant_filter: tenant }));
     } catch (e) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ available: false, error: String(e) }));
@@ -2540,20 +2580,22 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/leash/audit') {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10) || 100, 1000);
     const sinceMs = parseInt(url.searchParams.get('since') || '0', 10) || 0;
+    const tenant = resolveProjectParam(url, cwd);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ records: readLeashAudit(cwd, limit, sinceMs) }));
+    res.end(JSON.stringify({ records: readLeashAudit(cwd, limit, sinceMs, tenant), tenant_filter: tenant }));
     return;
   }
 
   if (pathname === '/api/leash/hitl' && req.method === 'GET') {
-    readHitlPending(cwd)
+    const tenant = resolveProjectParam(url, cwd);
+    readHitlPending(cwd, tenant)
       .then((items) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ items }));
+        res.end(JSON.stringify({ items, tenant_filter: tenant }));
       })
       .catch((e) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ items: [], error: String(e) }));
+        res.end(JSON.stringify({ items: [], error: String(e), tenant_filter: tenant }));
       });
     return;
   }
@@ -2563,11 +2605,88 @@ const server = http.createServer(async (req, res) => {
     req.on('data', (c) => { body += c; });
     req.on('end', () => {
       let reason = 'board-ui';
-      try { reason = JSON.parse(body || '{}').reason || reason; } catch { /* ignore */ }
-      const result = fireKillSwitch(cwd, reason);
+      let sessionId = null;
+      try {
+        const j = JSON.parse(body || '{}');
+        reason = j.reason || reason;
+        sessionId = j.session_id || null;
+      } catch { /* ignore */ }
+      const result = fireKillSwitch(cwd, reason, sessionId);
       res.writeHead(result.ok ? 200 : 500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     });
+    return;
+  }
+
+  // GET  /api/leash/budgets — proxy to leash console /api/budgets (caps editor)
+  // POST /api/leash/budgets/:agent  body {cap_usd: number|null}
+  if (pathname === '/api/leash/budgets' && req.method === 'GET') {
+    try {
+      const cfg = readLeashConfig(cwd);
+      const consoleUrl = cfg.console_url || 'http://localhost:8801';
+      const up = await fetch(consoleUrl.replace(/\/$/, '') + '/api/budgets', { signal: AbortSignal.timeout(3000) })
+        .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...up }));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+    }
+    return;
+  }
+  {
+    const m = pathname.match(/^\/api\/leash\/budgets\/([^/]+)$/);
+    if (m && req.method === 'POST') {
+      const [, agentName] = m;
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', async () => {
+        try {
+          const cfg = readLeashConfig(cwd);
+          const consoleUrl = cfg.console_url || 'http://localhost:8801';
+          const up = await fetch(consoleUrl.replace(/\/$/, '') + `/api/budgets/${encodeURIComponent(agentName)}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body, signal: AbortSignal.timeout(3000),
+          });
+          res.writeHead(up.status, { 'Content-Type': 'application/json' });
+          res.end(await up.text());
+        } catch (e) {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+        }
+      });
+      return;
+    }
+  }
+
+  // GET /api/leash/export?kind=threats|audit&period=…&project=… → CSV/JSON download
+  if (pathname === '/api/leash/export') {
+    const kind = url.searchParams.get('kind') || 'audit';
+    const period = url.searchParams.get('period') || 'all';
+    const tenant = resolveProjectParam(url, cwd);
+    const secs = { '5m': 300, '15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800, '30d': 2592000, 'all': null }[period];
+    const sinceMs = secs ? Date.now() - secs * 1000 : 0;
+    const records = readLeashAudit(cwd, 5000, sinceMs, tenant);
+    const scopeLabel = tenant || 'all';
+    if (kind === 'threats') {
+      const threats = records.filter((r) => r.kind === 'policy_decision' || r.kind === 'secrets_detected');
+      const header = ['ts', 'kind', 'rule_id', 'action', 'agent_name', 'session_id', 'tenant_id', 'reason'];
+      const rows = threats.map((r) => header.map((h) => csvCell(r[h]))).join('\n');
+      const filename = `leash-threats-${scopeLabel}-${period}-${Date.now()}.csv`;
+      res.writeHead(200, {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      });
+      res.end(header.join(',') + '\n' + rows);
+      return;
+    }
+    // default: audit JSON
+    const filename = `leash-audit-${scopeLabel}-${period}-${Date.now()}.json`;
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    res.end(JSON.stringify({ scope: scopeLabel, period, records }, null, 2));
     return;
   }
 
