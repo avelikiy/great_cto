@@ -2433,12 +2433,12 @@ button { font-family: inherit; cursor: pointer; }
 
           <!-- Sub-tabs (Review / Sessions / Threats / Agents / Budgets / Export) -->
           <div id="leash-subtabs" style="display:none;margin-top:14px;border-bottom:1px solid var(--border);padding-bottom:0;display:flex;gap:4px;flex-wrap:wrap">
-            <button class="leash-subtab active" data-subtab="review"  onclick="switchLeashSubtab(\'review\')">Review <span class="badge" id="lst-review-badge">0</span></button>
-            <button class="leash-subtab"        data-subtab="sessions" onclick="switchLeashSubtab(\'sessions\')">Sessions <span class="badge" id="lst-sessions-badge">0</span></button>
-            <button class="leash-subtab"        data-subtab="threats"  onclick="switchLeashSubtab(\'threats\')">Threats <span class="badge" id="lst-threats-badge">0</span></button>
-            <button class="leash-subtab"        data-subtab="agents"   onclick="switchLeashSubtab(\'agents\')">Agents</button>
-            <button class="leash-subtab"        data-subtab="budgets"  onclick="switchLeashSubtab(\'budgets\')">Budgets</button>
-            <button class="leash-subtab"        data-subtab="export"   onclick="switchLeashSubtab(\'export\')">Export</button>
+            <button class="leash-subtab active" data-subtab="review"  onclick="switchLeashSubtab('review')">Review <span class="badge" id="lst-review-badge">0</span></button>
+            <button class="leash-subtab"        data-subtab="sessions" onclick="switchLeashSubtab('sessions')">Sessions <span class="badge" id="lst-sessions-badge">0</span></button>
+            <button class="leash-subtab"        data-subtab="threats"  onclick="switchLeashSubtab('threats')">Threats <span class="badge" id="lst-threats-badge">0</span></button>
+            <button class="leash-subtab"        data-subtab="agents"   onclick="switchLeashSubtab('agents')">Agents</button>
+            <button class="leash-subtab"        data-subtab="budgets"  onclick="switchLeashSubtab('budgets')">Budgets</button>
+            <button class="leash-subtab"        data-subtab="export"   onclick="switchLeashSubtab('export')">Export</button>
           </div>
 
           <!-- ───── Review sub-tab ──────────────────────────────────────── -->
@@ -2467,7 +2467,7 @@ button { font-family: inherit; cursor: pointer; }
               <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No sessions yet.</div>
             </div>
             <div style="margin-top:6px;font-size:11px;color:var(--text3)">
-              A <strong>session</strong> is an end-to-end agent run identified by <code>X-LLM-Leash-Session-Id</code>. Zero-cost rows are sessions that connected but haven\'t incurred LLM cost yet.
+              A <strong>session</strong> is an end-to-end agent run identified by <code>X-LLM-Leash-Session-Id</code>. Zero-cost rows are sessions that connected but haven't incurred LLM cost yet.
             </div>
           </div>
 
@@ -2515,8 +2515,8 @@ button { font-family: inherit; cursor: pointer; }
               Download filtered threat events or full audit log for offline analysis or SOC 2 evidence submission. Scope respects the project + period filters above.
             </p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn-black" onclick="exportLeash(\'threats\')">↓ Export threats CSV</button>
-              <button class="btn-black" onclick="exportLeash(\'audit\')">↓ Export audit JSON</button>
+              <button class="btn-black" onclick="exportLeash('threats')">↓ Export threats CSV</button>
+              <button class="btn-black" onclick="exportLeash('audit')">↓ Export audit JSON</button>
               <span id="leash-export-meta" style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-left:6px;align-self:center"></span>
             </div>
           </div>
@@ -2525,7 +2525,7 @@ button { font-family: inherit; cursor: pointer; }
           <div id="leash-console-down" style="display:none;margin-top:18px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
             <strong>Live metrics unavailable.</strong>
             <p style="color:var(--text2);margin:8px 0 12px 0">
-              The leash console process isn\'t running. Start it once in a terminal:
+              The leash console process isn't running. Start it once in a terminal:
             </p>
             <div style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:10px 12px;border-radius:6px;color:var(--text1);margin-bottom:8px">
               $ llm-leash-console --proxy <span id="leash-console-down-proxy">http://localhost:8765</span> --listen 127.0.0.1:8801
