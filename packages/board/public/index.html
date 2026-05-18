@@ -3735,60 +3735,62 @@ async function updateTaskPriority(id, priority) {
 /* ── Dashboard ──────────────────────────────────────────────────────────── */
 function renderDashboard(m) {
   const llmUsd = m.cost?.llm_usd ?? 0;
-  const humanUsd = m.cost?.human_usd ?? 0;
-  const savingsX = m.cost?.savings_x;
-  const rateRatio = m.cost?.rate_ratio;
+  const realLlmUsd = m.cost?.real_llm_usd ?? 0;
+  const planSavingsX = m.cost?.savings_x;
   const done = m.tasks?.done ?? 0;
   const avgMin = m.avg_completion_min ?? 0;
   const cycleStat = m.cycle_time_stat === 'median_30d' ? 'Median cycle (30d)' : 'Avg cycle time';
 
-  const fromTasks = m.cost?.source === 'tasks';
-  const windowDays = m.cost?.window_days;
-  const realLlmUsd = m.cost?.real_llm_usd;
-  // BH-21: hero tile shows the time-based estimate (llm_usd) but verdict
-  // logs may have a different REAL total (real_llm_usd). When they differ
-  // by >10%, surface both so users don't think the dashboard hides numbers.
-  let llmTrend;
-  if (humanUsd > 0) {
-    llmTrend = `vs humans: $${fmtMoney(humanUsd)}${fromTasks ? ` (est. from tasks · ${windowDays ?? 30}d)` : ''}`;
-  } else if (realLlmUsd != null && realLlmUsd > 0 && Math.abs(realLlmUsd - llmUsd) / Math.max(llmUsd, 0.01) > 0.1) {
-    llmTrend = `actual from verdicts: $${realLlmUsd.toFixed(2)}`;
-  } else {
-    llmTrend = 'no plans or tasks yet';
-  }
-  // Append actual-verdict suffix to trend whenever it materially differs
-  // from the time-based estimate.
-  if (humanUsd > 0 && realLlmUsd != null && realLlmUsd > 0 &&
-      Math.abs(realLlmUsd - llmUsd) / Math.max(llmUsd, 0.01) > 0.1) {
-    llmTrend += ` · actual: $${realLlmUsd.toFixed(2)}`;
-  }
+  // Honest cost model (matches share report):
+  // AI spend  = real LLM tokens from verdicts (preferred), else time-based estimate
+  // Human est = done × 4h per feature × $150/hr (industry baseline)
+  // Savings   = humanEst / aiSpend (trustworthy when AI = real tokens, independent of human rate)
+  const aiSpend = realLlmUsd > 0 ? realLlmUsd : llmUsd;
+  const humanEst = done * 4 * 150;
+  const savingsX = (aiSpend > 0 && humanEst > 0)
+    ? Math.round(humanEst / aiSpend)
+    : null;
+
+  const llmTrend = realLlmUsd > 0
+    ? `actual LLM tokens · est ${llmUsd > 0 ? '$' + fmtMoney(llmUsd) : '—'}`
+    : (llmUsd > 0 ? `time-based estimate (no verdict data yet)` : 'no plans or tasks yet');
+
   const hero = [
     { v: done || '—', sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
     {
-      v: llmUsd > 0 ? `$${llmUsd.toFixed(2)}` : '—',
+      v: aiSpend > 0 ? `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}` : '—',
       sub: '',
-      label: 'LLM spend',
+      label: 'AI spend',
       trend: llmTrend,
       cls: 'amber',
     },
-    (savingsX != null && savingsX > 0)
+    (savingsX != null && savingsX > 1)
       ? {
-          v: savingsX,
+          v: savingsX.toLocaleString(),
           sub: '×',
           label: 'Cost savings vs FTE',
-          trend: `${savingsX}× cheaper (from PLAN-*.md figures)`,
+          trend: `human est. $${humanEst.toLocaleString()} (${done}× 4h × $150)`,
           cls: 'green',
         }
       : {
           v: '—',
           sub: '',
           label: 'Cost savings vs FTE',
-          trend: fromTasks && rateRatio
-            ? `rate ratio ${rateRatio}× (no measured savings — add docs/plans/PLAN-*.md)`
-            : 'add docs/plans/PLAN-*.md for precise figures',
+          trend: done > 0 ? 'no spend recorded yet' : 'no tasks done yet',
           cls: '',
         },
   ];
+
+  // Prefer planSavingsX when available (from PLAN-*.md) — explicit override
+  if (planSavingsX != null && planSavingsX > 0) {
+    hero[2] = {
+      v: planSavingsX,
+      sub: '×',
+      label: 'Cost savings vs FTE',
+      trend: `from PLAN-*.md figures`,
+      cls: 'green',
+    };
+  }
   document.getElementById('mp-hero').innerHTML = hero.map(s => `
     <div class="metric-card ${s.cls || ''}">
       <div class="metric-num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
@@ -4376,8 +4378,9 @@ function onLeashScopeChange(forceAll) {
 // ── classifiers ──
 
 function classifyLeashRisk(records) {
-  // Approximate the v2.14 _risk_level rules locally so we work today against v2.13.
-  const HIGH_RULES = /^(artifact_leakage|secrets|local_llm_guard|llm_guard|llamafirewall|blocked_shell|blocked_sql|behavioral_baseline)$/i;
+  // Mirror upstream _risk_level (leash v2.23). HIGH = critical-rule × (block|hitl).
+  // Keep this in sync with src/llm_leash/console/server.py _HIGH_RULES.
+  const HIGH_RULES = /^(artifact_leakage|secrets|local_llm_guard|llm_guard|llamafirewall|blocked_shell|blocked_sql|behavioral_baseline|tool_result_scanner|exfil_chain_detector|enumeration_detector)$/i;
   const HIGH_ACTIONS = /^(block|hitl)$/i;
   let high = 0, medium = 0, low = 0, hitl = 0;
   for (const r of records) {
