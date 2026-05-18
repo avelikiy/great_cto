@@ -2614,7 +2614,11 @@ button { font-family: inherit; cursor: pointer; }
           </div>
 
           <div class="share-note" style="margin-top:14px">
-            Config: <code id="leash-config-source">—</code> · Audit log: <code id="leash-audit-path">~/.leash/audit.jsonl</code> · Auto-pulled from <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> on session start.
+            <div style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text3)">
+              <div><strong style="color:var(--text2)">Config:</strong> <code id="leash-config-source">—</code> <span style="color:var(--text3)">— proxy + console URLs only; never queried for live data</span></div>
+              <div><strong style="color:var(--text2)">Live data sources:</strong> <span id="leash-data-sources">—</span></div>
+              <div style="margin-top:4px"><span style="color:var(--text3)">Auto-pulled from</span> <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> <span style="color:var(--text3)">on session start.</span></div>
+            </div>
           </div>
         </div>
       </div>
@@ -4378,11 +4382,10 @@ async function loadLeash() {
     const subs = document.querySelectorAll('.leash-sub');
     const auditPath = document.getElementById('leash-audit-path');
     if (auditPath) auditPath.textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
-    // Show the actual config file(s) that loaded — global, project, or both
+    // Show the actual config file(s) that loaded — global, project, or both.
     const cfgEl = document.getElementById('leash-config-source');
     if (cfgEl) {
       const sources = s.config?.sources || [];
-      const home = '/Users/' + (navigator.userAgent.includes('Mac') ? '' : '');  // approximate
       const shortened = sources.map(p => p.replace(/^\/Users\/[^\/]+/, '~').replace(/^\/home\/[^\/]+/, '~'));
       if (shortened.length === 0) {
         cfgEl.textContent = '(no leash.json found — using defaults)';
@@ -4395,6 +4398,24 @@ async function loadLeash() {
         cfgEl.title = 'project leash.json overrides global';
         cfgEl.style.color = '';
       }
+    }
+
+    // Honest about WHERE each piece of live data comes from. The board uses
+    // a mix of (a) leash console HTTP endpoints for canonical aggregations
+    // and (b) the audit JSONL file for things the console doesn't break
+    // down per-tenant (per-tenant spend, recent threat detail timeline,
+    // operator-feedback fallback).
+    const srcEl = document.getElementById('leash-data-sources');
+    if (srcEl) {
+      const consoleUrl = s.config?.console_url || 'http://localhost:8801';
+      const proxyUrl = s.config?.proxy_url || 'http://localhost:8765';
+      const auditPath = (s.config?.audit_path || '').replace(/^\/Users\/[^\/]+/, '~').replace(/^\/home\/[^\/]+/, '~');
+      const pieces = [
+        `<code>${esc(consoleUrl)}/api/*</code> <span style="color:var(--text3)">(KPI, top spenders, agents, rule feedback, drift)</span>`,
+        `<code>${esc(proxyUrl)}/admin/*</code> <span style="color:var(--text3)">(kill switch, HITL approve / reject, per-agent caps, tenant pause)</span>`,
+        `<code>${esc(auditPath)}</code> <span style="color:var(--text3)">(recent events timeline + per-tenant spend; fallback when console down)</span>`,
+      ];
+      srcEl.innerHTML = pieces.join('<br>');
     }
 
     if (!s.install_exists) {
