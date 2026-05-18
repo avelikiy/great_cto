@@ -416,7 +416,7 @@ function getMemory(cwd = process.cwd()) {
 // ── Pipeline state ────────────────────────────────────────────────────────────
 function getPipeline(cwd = process.cwd()) {
   const stages = ['architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
-  const verdicts = readVerdicts();
+  const verdicts = readVerdicts(cwd);
   const now = Date.now();
   const ACTIVE_WINDOW = 30 * 60 * 1000;  // 30 min
 
@@ -526,7 +526,7 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   }
 
   // Verdicts: cost=$X tag (from ~/.great_cto/verdicts/)
-  const verdicts = readVerdicts();
+  const verdicts = readVerdicts(cwd);
   let hasRealCostData = false;
   for (const v of verdicts) {
     if (v.cost_usd == null) continue;
@@ -856,7 +856,7 @@ function getMetrics(cwd = process.cwd(), days = 30) {
     : 0;
 
   // Verdicts (global verdicts log lives in ~/.great_cto/verdicts/)
-  const verdicts = readVerdicts();
+  const verdicts = readVerdicts(cwd);
 
   // Cost from plans (per-project)
   const costData = readPlanCosts(cwd);
@@ -1406,8 +1406,21 @@ function startAlertCron() {
   console.log('Alert cron started: gate.stale (5min), cost.threshold (1h), digest.weekly (Fri 09:00), report.daily (09:00)');
 }
 
-function readVerdicts() {
-  const verdictDir = path.join(GREAT_CTO_DIR, 'verdicts');
+function readVerdicts(cwd = null) {
+  // Per-project verdicts directory (<cwd>/.great_cto/verdicts/) when present.
+  // Global ~/.great_cto/verdicts/ is SHARED across all projects — using it
+  // for per-project AI spend gives the same total to every project, which
+  // is misleading. So:
+  //   1. cwd present + project-local dir exists → use that (honest, scoped)
+  //   2. cwd present + no local dir            → return empty so caller falls
+  //                                              back to time-based estimate
+  //   3. cwd absent (cron jobs, fleet)         → use global
+  const projectVerdictDir = cwd ? path.join(cwd, '.great_cto', 'verdicts') : null;
+  const useProjectDir = projectVerdictDir
+    && fs.existsSync(projectVerdictDir)
+    && fs.readdirSync(projectVerdictDir).filter(f => f.endsWith('.log')).length > 0;
+  if (cwd && !useProjectDir) return [];
+  const verdictDir = useProjectDir ? projectVerdictDir : path.join(GREAT_CTO_DIR, 'verdicts');
   const results = [];
   if (!fs.existsSync(verdictDir)) return results;
   for (const file of fs.readdirSync(verdictDir)) {
@@ -1851,7 +1864,7 @@ function readDecisionsLog(limit = 20) {
 //   - last 5 decisions from the global log filtered to this project
 function getResume(cwd = process.cwd()) {
   const tasks = getTasks(cwd);
-  const verdicts = readVerdicts()
+  const verdicts = readVerdicts(cwd)
     .filter(v => ['APPROVED','DONE','PASS','BLOCKED','FAIL','REJECTED'].includes((v.verdict || '').toUpperCase()))
     .slice(-3)
     .reverse();
@@ -2698,6 +2711,71 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
     }
     return;
+  }
+
+  // ── Per-tenant caps workaround (leash v2.23 has no native per-tenant cap) ──
+  // GET  /api/leash/per-tenant-caps           list configured caps (no spend lookup)
+  // GET  /api/leash/per-tenant-status         caps + spend + lock state; may fire pause
+  // POST /api/leash/per-tenant-caps/:tenant   {cap_usd: N|null}
+  // POST /api/leash/per-tenant-unlock/:tenant clear a stuck lock
+  if (pathname === '/api/leash/per-tenant-caps' && req.method === 'GET') {
+    const { listCaps } = await import('./per-tenant-caps.mjs');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ caps: listCaps() }));
+    return;
+  }
+
+  if (pathname === '/api/leash/per-tenant-status' && req.method === 'GET') {
+    try {
+      const { getStatus } = await import('./per-tenant-caps.mjs');
+      const enforce = url.searchParams.get('enforce') !== '0';
+      const payload = await getStatus(cwd, enforce);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...payload }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+    }
+    return;
+  }
+
+  {
+    const m = pathname.match(/^\/api\/leash\/per-tenant-caps\/([^/]+)$/);
+    if (m && req.method === 'POST') {
+      const [, tenant] = m;
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', async () => {
+        try {
+          const { setCap } = await import('./per-tenant-caps.mjs');
+          const parsed = JSON.parse(body || '{}');
+          const result = setCap(tenant, parsed.cap_usd);
+          res.writeHead(result ? 200 : 500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: !!result, caps: result }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+        }
+      });
+      return;
+    }
+  }
+
+  {
+    const m = pathname.match(/^\/api\/leash\/per-tenant-unlock\/([^/]+)$/);
+    if (m && req.method === 'POST') {
+      const [, tenant] = m;
+      try {
+        const { clearLock } = await import('./per-tenant-caps.mjs');
+        clearLock(tenant);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, tenant }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+      }
+      return;
+    }
   }
 
   if (pathname === '/api/leash/status') {
