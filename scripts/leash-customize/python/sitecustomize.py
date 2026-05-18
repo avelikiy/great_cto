@@ -6,6 +6,7 @@ client carries the leash identity headers without the app having to opt in.
 
 Env vars consumed (set by ~/.great_cto/env.sh after wire):
   LEASH_TENANT_ID       → X-LLM-Leash-Tenant-Id
+  LEASH_AGENT_NAME      → X-LLM-Leash-Agent-Name  (set per-agent in agent .md env setup)
   LEASH_SESSION_PREFIX  → first segment of an auto-generated session id
   LEASH_SESSION_ID      → exact session id override (skips auto-gen)
   ANTHROPIC_BASE_URL    → SDK already picks this up; we never overwrite it
@@ -53,6 +54,9 @@ def _leash_headers() -> dict[str, str]:
     tenant = os.environ.get("LEASH_TENANT_ID")
     if tenant:
         out["X-LLM-Leash-Tenant-Id"] = tenant
+    agent_name = os.environ.get("LEASH_AGENT_NAME")
+    if agent_name:
+        out["X-LLM-Leash-Agent-Name"] = agent_name
     out["X-LLM-Leash-Session-Id"] = _resolve_session_id()
     return out
 
