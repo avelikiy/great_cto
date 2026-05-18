@@ -24,7 +24,8 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 source "$SCRIPT_DIR/_lib.sh"
 
 REPORT=${REPORT:-/tmp/run-all.md}
-ONLY=${ONLY:-0,1,2,3,4}
+# Default: every section. Override with comma-list e.g. ONLY=0,4 or ONLY=4b
+ONLY=${ONLY:-0,1,2,3,4,4b}
 QUIET=${QUIET:-0}
 
 # Format the wanted sections as a regex for grep
@@ -36,6 +37,7 @@ SECTIONS=(
   "2:detection:run-section-2-detection.sh"
   "3:budgets:run-section-3-budgets.sh"
   "4:frontend:run-section-4-frontend.sh"
+  "4b:playwright:run-section-4b-playwright.sh"
 )
 
 declare -a STATUS_LINES

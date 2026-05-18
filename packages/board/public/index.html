@@ -2567,6 +2567,25 @@ button { font-family: inherit; cursor: pointer; }
               <input id="leash-budget-add-cap" type="number" min="0" step="0.5" placeholder="cap USD" style="padding:6px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:13px;font-family:var(--mono);width:110px" />
               <button class="btn-black" onclick="addLeashBudgetCap()">+ add cap</button>
             </div>
+
+            <!-- Per-tenant caps (workaround for missing native v2.23 feature) -->
+            <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border)">
+              <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
+                <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">PER-TENANT CAPS</span>
+                <span style="font-size:11px;color:var(--text3)">· workaround · spent &gt; cap fires /admin/tenant/{t}/pause</span>
+              </div>
+              <div id="leash-tenant-caps-table" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Loading…</div>
+              </div>
+              <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <input id="leash-tenant-add-name" type="text" placeholder="tenant_id (e.g. billing-api)" style="padding:6px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:13px;font-family:var(--mono);min-width:220px" />
+                <input id="leash-tenant-add-cap" type="number" min="0" step="0.5" placeholder="daily cap USD" style="padding:6px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:13px;font-family:var(--mono);width:140px" />
+                <button class="btn-black" onclick="addLeashTenantCap()">+ add tenant cap</button>
+              </div>
+              <div style="margin-top:8px;font-size:11px;color:var(--text3)">
+                Stored in <code>~/.great_cto/per-tenant-caps.json</code>. Enforcement is best-effort: when today's spend ≥ cap the board calls <code>POST /admin/tenant/&lt;t&gt;/pause</code> to kill all active sessions of that tenant. Locks live in <code>~/.great_cto/per-tenant-locks.json</code>; use the <em>unlock</em> button to clear.
+              </div>
+            </div>
           </div>
 
           <!-- ───── Export sub-tab ──────────────────────────────────────── -->
@@ -4444,6 +4463,7 @@ async function loadLeash() {
     renderLeashPerAgent(records);
     // ── Budgets sub-tab ──
     renderLeashBudgets(stats);
+    renderLeashTenantCaps();
     // Cache records so feedback callback can re-render threats with FP cols
     window._lastLeashRecords = records;
 
@@ -4922,6 +4942,94 @@ async function addLeashBudgetCap() {
   await saveLeashCap(agent, cap);
   document.getElementById('leash-budget-add-agent').value = '';
   document.getElementById('leash-budget-add-cap').value = '';
+}
+
+/* ── Per-tenant caps (workaround) ─────────────────────────────────────── */
+
+async function renderLeashTenantCaps() {
+  const el = document.getElementById('leash-tenant-caps-table');
+  if (!el) return;
+  let payload = { ok: false };
+  try {
+    payload = await fetch('/api/leash/per-tenant-status' + pqs()).then(r => r.json());
+  } catch { /* keep ok:false */ }
+
+  const tenants = payload.tenants || [];
+  if (!tenants.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No per-tenant caps configured. Add one below.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 120px 110px 90px 120px 90px 100px;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+      <div>TENANT</div>
+      <div style="text-align:right">SPENT TODAY</div>
+      <div style="text-align:right">CAP</div>
+      <div style="text-align:right">%</div>
+      <div style="text-align:right">STATUS</div>
+      <div></div>
+      <div></div>
+    </div>
+    ${tenants.map(t => {
+      const isLocked = t.status === 'locked';
+      const statusColor = t.status === 'over' || isLocked ? '#e53935' : t.status === 'warn' ? '#ffb300' : t.status === 'no-cap' ? 'var(--text3)' : 'var(--accent)';
+      const capVal = t.cap_usd == null ? '' : Number(t.cap_usd);
+      const capDisplay = t.cap_usd == null ? '—' : '$' + Number(t.cap_usd).toFixed(2);
+      const ratioDisplay = t.cap_usd ? (t.ratio * 100).toFixed(0) + '%' : '—';
+      const statusLabel = t.status.toUpperCase();
+      const inputId = `leash-tenant-cap-${esc(t.tenant)}`;
+      const unlockBtn = isLocked
+        ? `<button class="btn-ghost-sm" style="color:var(--accent);padding:4px 10px;font-size:11px" onclick="unlockLeashTenant('${esc(t.tenant)}')">unlock</button>`
+        : '';
+      const saveBtn = t.cap_usd != null
+        ? `<button class="btn-black" style="padding:4px 10px;font-size:12px" onclick="saveLeashTenantCap('${esc(t.tenant)}')">save</button>`
+        : `<button class="btn-black" style="padding:4px 10px;font-size:12px" onclick="saveLeashTenantCap('${esc(t.tenant)}')">set cap</button>`;
+      const clearBtn = t.cap_usd != null
+        ? `<button class="btn-ghost-sm" style="color:#e53935" onclick="saveLeashTenantCap('${esc(t.tenant)}', null)">clear</button>`
+        : '';
+      return `<div style="display:grid;grid-template-columns:1fr 120px 110px 90px 120px 90px 100px;gap:8px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center;font-family:var(--mono)" title="${esc(isLocked ? 'locked since ' + (t.locked_at || '') : '')}">
+        <div style="color:var(--text1)">${esc(t.tenant)}</div>
+        <div style="color:var(--text1);text-align:right">$${Number(t.spent_usd || 0).toFixed(4)}</div>
+        <div><input type="number" min="0" step="0.5" value="${capVal}" placeholder="—" id="${inputId}" style="width:90px;padding:5px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-family:var(--mono);font-size:12px;text-align:right" /></div>
+        <div style="color:${statusColor};text-align:right">${ratioDisplay}</div>
+        <div style="color:${statusColor};text-align:right;font-size:11px">${statusLabel}</div>
+        <div>${saveBtn}</div>
+        <div>${clearBtn}${unlockBtn}</div>
+      </div>`;
+    }).join('')}`;
+}
+
+async function saveLeashTenantCap(tenant, capOverride) {
+  let cap = capOverride;
+  if (cap === undefined) {
+    const inp = document.getElementById('leash-tenant-cap-' + tenant);
+    cap = inp ? Number(inp.value) : null;
+  }
+  try {
+    await fetch('/api/leash/per-tenant-caps/' + encodeURIComponent(tenant) + pqs(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cap_usd: cap }),
+    });
+    renderLeashTenantCaps();
+  } catch (e) { alert('Save failed: ' + e); }
+}
+
+async function addLeashTenantCap() {
+  const tenant = document.getElementById('leash-tenant-add-name').value.trim();
+  const cap = Number(document.getElementById('leash-tenant-add-cap').value);
+  if (!tenant || !Number.isFinite(cap)) { alert('tenant_id + cap USD required'); return; }
+  await saveLeashTenantCap(tenant, cap);
+  document.getElementById('leash-tenant-add-name').value = '';
+  document.getElementById('leash-tenant-add-cap').value = '';
+}
+
+async function unlockLeashTenant(tenant) {
+  if (!confirm(`Clear the lock for tenant "${tenant}"? New requests will resume next call.`)) return;
+  try {
+    await fetch('/api/leash/per-tenant-unlock/' + encodeURIComponent(tenant) + pqs(), { method: 'POST' });
+    renderLeashTenantCaps();
+  } catch (e) { alert('Unlock failed: ' + e); }
 }
 
 async function killLeashSession(sessionId) {
