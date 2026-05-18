@@ -278,6 +278,22 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .topbar-actions { display: flex; align-items: center; gap: 6px; }
+.btn-bell {
+  position: relative; background: transparent;
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 8px; cursor: pointer; color: var(--text2);
+  display: flex; align-items: center; transition: border-color .15s, color .15s;
+}
+.btn-bell:hover { border-color: var(--border-strong); color: var(--text); }
+.btn-bell-badge {
+  position: absolute; top: -5px; right: -5px;
+  background: var(--accent); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 1;
+  min-width: 16px; height: 16px; border-radius: 8px;
+  display: none; align-items: center; justify-content: center;
+  padding: 0 3px;
+}
+.btn-bell-badge.visible { display: flex; }
 .tab-row { display: flex; align-items: center; gap: 4px; margin-right: 12px; }
 .tab-btn {
   background: transparent; border: none;
@@ -2033,6 +2049,10 @@ button { font-family: inherit; cursor: pointer; }
       </div>
       <div class="topbar-actions">
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
+        <button class="btn-bell" id="topbar-bell" onclick="openNotifDrawer()" title="Notifications">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="btn-bell-badge" id="topbar-bell-badge"></span>
+        </button>
         <button class="btn-new" onclick="openNewIssueModal()">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14 M5 12h14"/></svg>
           New issue
@@ -5455,6 +5475,16 @@ function _refreshNavNotifBadge() {
 function updateNotifBadge(count) {
   _unreadCount = count;
   _refreshNavNotifBadge();
+  // topbar bell badge
+  const bb = document.getElementById('topbar-bell-badge');
+  if (bb) {
+    if (count > 0) {
+      bb.textContent = count > 99 ? '99+' : count;
+      bb.classList.add('visible');
+    } else {
+      bb.classList.remove('visible');
+    }
+  }
 }
 async function markAllNotifsRead() {
   try {
