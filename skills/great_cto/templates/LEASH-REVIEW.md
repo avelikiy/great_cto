@@ -62,7 +62,7 @@ Add one row per tool the agent exposes. Cross-reference `agent-pack.md § Irreve
 - **Drift test:** `leash test-policy fixtures/*.json` in CI? `yes` / `no`
 - **Notable ALLOW patterns:** {list — should be minimal and specific}
 
-## 6a. Policy rules inventory (v2.7+ GA)
+## 6a. Policy rules inventory (v2.23 GA)
 
 Mark every rule the project has consciously decided to ENABLE or SKIP. Default for `ai-system` / `agent-product` projects is the full GA set; `SKIP` requires a written rationale per row.
 
@@ -71,7 +71,10 @@ Mark every rule the project has consciously decided to ENABLE or SKIP. Default f
 | `SecretsRule` | cheap | required | Detects AWS keys / GitHub PATs / Stripe / OpenAI / Anthropic / PEMs / JWTs in prompts and outputs |
 | `PresidioRule` | cheap | required | PII redaction (SSN, credit card, email, phone, custom patterns) |
 | `ArtifactLeakageRule` (v2.7 GA) | cheap | required | Detects file paths, internal repo names, secret-file references leaking via LLM output |
+| `ToolResultScanner` (v2.19) | cheap | **required** | OWASP LLM01 — indirect prompt injection in tool-result content. 7 detectors (injection markers, role confusion, hidden channels, exfil phrases, zero-width chars, script mixing, long base64 blobs). The #1 unaddressed attack vector for agentic systems. |
 | `BehavioralBaselineRule` (v2.3) | cheap | recommended | Anomaly detection on token-spike / new-model / new-tool patterns; needs SQLite or in-memory baseline store |
+| `ExfilChainDetector` (v2.21) | cheap | recommended | Session-correlated: catches sensitive→encode→exfil sequence in a 60s window. Needs `window_store=`. |
+| `EnumerationDetector` (v2.21) | cheap | recommended | Rapid same-tool repetition (≥10× in 30s → warn). Useful against reconnaissance / scraping. |
 | `LocalLLMGuardRule` (v2.9) | expensive | **recommended default** | Local LLM (Ollama / vLLM / LM Studio) for semantic threat detection — ~$0 / ~100 ms. Front-runs `LLMGuardRule`. |
 | `LLMGuardRule` (v2.2) | expensive | optional fallback | Cloud Haiku-based semantic guard, ~$1/1k escalations, ~500 ms. Use only if LocalLLMGuard cannot serve. |
 | `LlamaFirewallRule` | expensive | optional | External scanner integration via `external.py` adapter |
@@ -83,6 +86,20 @@ For each row that's `SKIP`, fill the rationale: {row → why omitted}.
 - If any cheap rule signals `warn` or `hitl`, expensive tier escalates
 - LocalLLMGuard runs first in expensive tier; if it abstains/fails, falls through to cloud LLMGuard
 - Cost: ~$0.10/1k escalations at 90% local-hit rate (vs $1/1k Haiku-only)
+
+**Engine choice** (v2.20):
+- `PolicyEngine` (default): first rule to fire wins.
+- `EnsemblePolicyEngine`: weighted multi-rule aggregation. Reduces FP by requiring corroboration, catches weak signals via summation. Opt-in via `Firewall(engine=EnsemblePolicyEngine(...))`. Recommended for prod fintech / healthcare where FP cost is high.
+
+**Operator feedback loop** (v2.22 — required for prod):
+- Every HITL approve/reject is now an audited `HitlDecisionEvent` linked to the original `policy_decision` by `rule_id`.
+- `GET /api/feedback/rules?period=...` aggregates per-rule fires + operator decisions → **FP-rate** per rule.
+- Review the FP-rate weekly: rules with > 30 % approve-rate are noisy and should be tightened.
+
+**Continuous eval + drift** (v2.23 — required for prod):
+- `llm-leash eval-record --dataset tests/fixtures/eval/jailbreaks_v1.jsonl` runs per-rule eval and appends F1 to `~/.leash/eval-history.jsonl`.
+- Schedule daily (cron or GitHub Actions). Exits 1 on drift > 5pp vs 7-day baseline.
+- `/api/eval/status` surfaces drifting rules to operators before incidents.
 
 ## 7. PII redaction rules
 

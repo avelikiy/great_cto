@@ -2477,6 +2477,13 @@ button { font-family: inherit; cursor: pointer; }
               <div class="kpi"><div class="kpi-label">Spend since proxy boot</div><div class="kpi-value" id="leash-k-spend">$0.00</div></div>
               <div class="kpi"><div class="kpi-label">Policy rules</div><div class="kpi-value" id="leash-k-rules">0</div></div>
               <div class="kpi"><div class="kpi-label">PII redactor</div><div class="kpi-value" id="leash-k-pii">off</div></div>
+              <div class="kpi" id="leash-k-quality-tile" style="border-left:3px solid var(--accent)"><div class="kpi-label">Detection quality</div><div class="kpi-value" id="leash-k-quality">—</div><div style="font-size:10px;color:var(--text3);margin-top:2px" id="leash-k-quality-hint">F1 vs 7-day baseline</div></div>
+            </div>
+
+            <!-- Detection quality drift detail (v2.23). Hidden when there are no drifting rules. -->
+            <div id="leash-quality-detail" style="display:none;margin-top:14px">
+              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">RULES DRIFTING</div>
+              <div id="leash-quality-table" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
             </div>
           </div>
 
@@ -4305,6 +4312,18 @@ async function loadLeash() {
     renderLeashPerAgent(records);
     // ── Budgets sub-tab ──
     renderLeashBudgets(stats);
+    // Cache records so feedback callback can re-render threats with FP cols
+    window._lastLeashRecords = records;
+
+    // ── v2.22 + v2.23 — operator feedback + drift quality (parallel fetch,
+    // best-effort: endpoints exist only on leash ≥ v2.22). ──
+    Promise.all([
+      fetch('/api/leash/feedback?period=7d' + pqs().replace('?', '&')).then(r => r.json()).catch(() => ({ ok: false })),
+      fetch('/api/leash/eval-status' + pqs()).then(r => r.json()).catch(() => ({ ok: false })),
+    ]).then(([feedback, evalStatus]) => {
+      renderLeashQuality(evalStatus);
+      renderLeashRulePerformance(feedback);
+    });
 
     // Export meta
     const meta = document.getElementById('leash-export-meta');
@@ -4444,19 +4463,32 @@ function renderLeashThreats(records) {
   if (!rules.length) {
     rulesEl.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No threats in this period.</div>';
   } else {
+    // v2.22: enrich each row with operator feedback if available
+    const fb = _leashRuleFeedback || {};
     rulesEl.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px 60px;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
-        <div>RULE</div><div style="text-align:right">BLOCK</div><div style="text-align:right">REDACT</div><div style="text-align:right">HITL</div><div style="text-align:right">WARN</div><div style="text-align:right">TOTAL</div>
+      <div style="display:grid;grid-template-columns:1fr 50px 50px 50px 50px 50px 70px 80px;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+        <div>RULE</div><div style="text-align:right">BLOCK</div><div style="text-align:right">REDACT</div><div style="text-align:right">HITL</div><div style="text-align:right">WARN</div><div style="text-align:right">TOTAL</div><div style="text-align:right" title="HITL approvals / rejections (7d)">APPR / REJ</div><div style="text-align:right" title="FP-rate from operator feedback (7d)">FP RATE</div>
       </div>
-      ${rules.map(r => `
-        <div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px 60px;gap:8px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center;font-family:var(--mono)">
+      ${rules.map(r => {
+        const fbr = fb[r.rule] || null;
+        const appr = fbr?.approved_after_hitl ?? null;
+        const rej = fbr?.rejected_after_hitl ?? null;
+        const fp = fbr?.fp_rate_est;
+        const fpColor = fp == null ? 'var(--text3)' : fp >= 0.3 ? '#e53935' : fp >= 0.1 ? '#ffb300' : 'var(--accent)';
+        const fpLabel = fp == null ? '—' : (fp * 100).toFixed(0) + '%';
+        const apprRejStr = (appr == null && rej == null) ? '—' : `${appr ?? 0} / ${rej ?? 0}`;
+        const apprRejTitle = fbr?.recommendation ? `recommendation: ${fbr.recommendation}` : '';
+        return `<div style="display:grid;grid-template-columns:1fr 50px 50px 50px 50px 50px 70px 80px;gap:8px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center;font-family:var(--mono)">
           <div style="color:var(--text1)">${esc(r.rule)}</div>
           <div style="color:${r.block ? '#e53935' : 'var(--text3)'};text-align:right">${r.block || ''}</div>
           <div style="color:${r.redact ? '#ffb300' : 'var(--text3)'};text-align:right">${r.redact || ''}</div>
           <div style="color:${r.hitl ? '#ffb300' : 'var(--text3)'};text-align:right">${r.hitl || ''}</div>
           <div style="color:${r.warn ? 'var(--text2)' : 'var(--text3)'};text-align:right">${r.warn || ''}</div>
           <div style="color:var(--text1);text-align:right">${r.total}</div>
-        </div>`).join('')}`;
+          <div style="color:var(--text2);text-align:right" title="${esc(apprRejTitle)}">${apprRejStr}</div>
+          <div style="color:${fpColor};text-align:right;font-weight:500">${fpLabel}</div>
+        </div>`;
+      }).join('')}`;
   }
 
   // detail (last 30)
@@ -4515,6 +4547,90 @@ function renderLeashPerAgent(records) {
         <div style="font-family:var(--mono);color:var(--text2);text-align:right">${a.calls}</div>
         <div style="font-family:var(--mono);color:var(--text1);text-align:right">$${a.cost.toFixed(4)}</div>
       </div>`).join('')}`;
+}
+
+/* Detection quality (v2.23): F1 vs 7-day baseline. KPI tile + drift table. */
+function renderLeashQuality(payload) {
+  const tile = document.getElementById('leash-k-quality-tile');
+  const value = document.getElementById('leash-k-quality');
+  const hint = document.getElementById('leash-k-quality-hint');
+  const detail = document.getElementById('leash-quality-detail');
+  const table = document.getElementById('leash-quality-table');
+  if (!value) return;
+
+  if (!payload || payload.ok === false || !Array.isArray(payload.rules) || !payload.rules.length) {
+    // No eval data yet (cron hasn't run) — keep KPI neutral, hide detail.
+    value.textContent = '—';
+    if (hint) hint.textContent = 'no eval data yet';
+    if (tile) tile.style.borderLeftColor = 'var(--text3)';
+    if (detail) detail.style.display = 'none';
+    return;
+  }
+
+  const total = payload.rules.length;
+  const drifting = payload.rules.filter(r => r.drift_flag);
+  const driftCount = drifting.length;
+
+  if (driftCount === 0) {
+    value.textContent = `0 / ${total}`;
+    value.style.color = 'var(--accent)';
+    if (hint) hint.textContent = 'no rules drifting';
+    if (tile) tile.style.borderLeftColor = 'var(--accent)';
+    if (detail) detail.style.display = 'none';
+    return;
+  }
+
+  value.textContent = `${driftCount} / ${total}`;
+  value.style.color = driftCount > total / 3 ? '#e53935' : '#ffb300';
+  if (hint) hint.textContent = `${driftCount === 1 ? 'rule drifting' : 'rules drifting'} vs 7-day baseline`;
+  if (tile) tile.style.borderLeftColor = driftCount > total / 3 ? '#e53935' : '#ffb300';
+
+  if (detail && table) {
+    detail.style.display = 'block';
+    table.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 90px 90px 90px;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+        <div>RULE</div><div style="text-align:right">LATEST F1</div><div style="text-align:right">BASELINE</div><div style="text-align:right">Δ</div>
+      </div>
+      ${drifting.map(r => {
+        const f1 = (r.latest?.f1 ?? r.latest_f1 ?? 0).toFixed(3);
+        const base = (r.baseline_f1 ?? 0).toFixed(3);
+        const delta = (r.f1_delta ?? 0);
+        const deltaColor = delta <= -0.05 ? '#e53935' : delta < 0 ? '#ffb300' : 'var(--accent)';
+        return `<div style="display:grid;grid-template-columns:1fr 90px 90px 90px;gap:8px;padding:8px 14px;font-size:12px;border-top:1px solid var(--border);font-family:var(--mono);align-items:center">
+          <div style="color:var(--text1)">${esc(r.rule_id || '?')}</div>
+          <div style="color:var(--text1);text-align:right">${f1}</div>
+          <div style="color:var(--text2);text-align:right">${base}</div>
+          <div style="color:${deltaColor};text-align:right">${delta > 0 ? '+' : ''}${(delta * 100).toFixed(1)}pp</div>
+        </div>`;
+      }).join('')}`;
+  }
+}
+
+/* Rule performance / FP-rate (v2.22): rendered as columns inside the Threats
+   by-rule table via a global side-store. The Threats renderer reads it on
+   every render. */
+let _leashRuleFeedback = {};
+function renderLeashRulePerformance(payload) {
+  if (!payload || payload.ok === false || !Array.isArray(payload.rules)) {
+    _leashRuleFeedback = {};
+    return;
+  }
+  const map = {};
+  for (const r of payload.rules) {
+    map[r.rule_id] = r;
+  }
+  _leashRuleFeedback = map;
+  // Re-render threats sub-tab so the new columns appear without waiting
+  // for the next poll tick.
+  try {
+    const tab = document.getElementById('leash-sub-threats');
+    if (tab && tab.style.display !== 'none') {
+      // _lastLeashRecords cached at end of loadLeash for re-render
+      if (Array.isArray(window._lastLeashRecords)) {
+        renderLeashThreats(window._lastLeashRecords);
+      }
+    }
+  } catch { /* ignore */ }
 }
 
 async function renderLeashBudgets(stats) {

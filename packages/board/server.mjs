@@ -822,7 +822,10 @@ function detectAgent(task) {
 }
 
 // ── Metrics ────────────────────────────────────────────────────────────────────
-function getMetrics(cwd = process.cwd()) {
+function getMetrics(cwd = process.cwd(), days = 30) {
+  // `days` controls the window for cost/agents_cost and for "shipped in window".
+  // Tasks shipped within the window are returned in `tasks.done_in_window`.
+  // Full lifetime `tasks.done` is still returned for backwards compatibility.
   const tasks = getTasks(cwd);
   // BH-28: resolved gates (approve→closed, reject→blocked) get mapped to
   // status='done' by mapStatus(). Those are governance decisions, not shipped
@@ -911,11 +914,11 @@ function getMetrics(cwd = process.cwd()) {
   const HUMAN_RATE_PER_HR = parseFloat(process.env.GREATCTO_HUMAN_RATE_PER_HR || '150');
   const LLM_RATE_PER_HR   = parseFloat(process.env.GREATCTO_LLM_RATE_PER_HR || '0.30');
   const DEFAULT_TASK_MIN  = 30;  // fallback when no timing data
-  // Window: count only tasks closed in the last 30 days (or still in progress).
+  // Window: count only tasks closed in the last `days` (or still in progress).
   // Previously: lifetime — produced LLM-spend tile ($1749) wildly out of step
   // with the "Last 30 days" panel ($6.42) shown directly below it. Now both
-  // sit on the same 30-day window so the dashboard numbers reconcile.
-  const costWindowMs = 30 * 86400_000;
+  // sit on the same N-day window so the dashboard numbers reconcile.
+  const costWindowMs = days * 86400_000;
   // AI active time per task: use estimated_minutes if set, else DEFAULT_TASK_MIN (30m).
   // We deliberately DO NOT use wall-clock (closed_at - created_at) because that
   // includes idle time — tasks that sit in backlog for days before being closed
@@ -1015,8 +1018,18 @@ function getMetrics(cwd = process.cwd()) {
     cost = { llm_usd: 0, human_usd: 0, savings_x: 0, count: 0, source: 'none', real_llm_usd: null };
   }
 
+  // Count tasks completed in selected window (for period-scoped reports)
+  const doneInWindow = done.filter(t => t.closed_at && (now - new Date(t.closed_at).getTime()) <= costWindowMs);
+
   return {
-    tasks: { total: tasks.length, done: done.length, in_progress: inProgress.length, backlog: backlog.length },
+    window_days: days,
+    tasks: {
+      total: tasks.length,
+      done: done.length,
+      done_in_window: doneInWindow.length,
+      in_progress: inProgress.length,
+      backlog: backlog.length,
+    },
     // BH-22 fix: these are ROLLING windows (last 7 days, last 30 days from
     // 'now') — not calendar week/month. Old keys this_week/this_month are
     // kept for backward compat but the canonical names are last_7d/last_30d.
