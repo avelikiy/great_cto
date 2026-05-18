@@ -704,26 +704,10 @@ if (paused) {
     return (h / 8).toFixed(1) + 'd';
   }
 
-  // Compute AI active time — primary source: verdicts (actual work),
-  // fallback: wall-clock (created_at → closed_at, capped per-task).
-  //
-  // CAUTION: wall-clock includes idle time (tasks sitting open for days
-  // before being closed in a single commit). Per-task cap of 8h keeps
-  // long-lived tasks from inflating the total to hundreds of "AI days".
-  const verdictTimeMin = (m.agents_cost || []).reduce((s, a) => s + (a.time_min || 0), 0);
-  let totalAiMin = verdictTimeMin;
-  if (!totalAiMin) {
-    totalAiMin = doneTasks.reduce((sum, t) => {
-      if (t.created_at && t.closed_at) {
-        const ms = new Date(t.closed_at) - new Date(t.created_at);
-        // Cap per-task at 8h to filter out wall-clock idle-time noise.
-        // Anything longer is dominated by "task sat in backlog", not work.
-        if (ms > 0) return sum + Math.min(ms / 60000, 8 * 60);
-      }
-      return sum;
-    }, 0);
-  }
-  if (!totalAiMin && m.avg_completion_min) totalAiMin = m.avg_completion_min * done;
+  // AI active time = sum of per-agent estimates from server (uses
+  // estimated_minutes or 30min default per task). Server already excludes
+  // wall-clock noise — see getMetrics() in server.mjs.
+  const totalAiMin = (m.agents_cost || []).reduce((s, a) => s + (a.time_min || 0), 0);
 
   const llmUsd = m.cost?.llm_usd ?? 0;
   const humanUsd = m.cost?.human_usd ?? 0;
@@ -778,26 +762,40 @@ if (paused) {
   const totalLlmFromAgents = agentsCost.reduce((s, a) => s + a.llm_usd, 0);
   const totalHumanFromAgents = agentsCost.reduce((s, a) => s + a.human_usd, 0);
   const totalTimeMin = agentsCost.reduce((s, a) => s + a.time_min, 0);
-  // Use whichever cost source has data
-  const effectiveLlmUsd   = llmUsd   > 0 ? llmUsd   : totalLlmFromAgents;
-  const effectiveHumanUsd = humanUsd > 0 ? humanUsd : totalHumanFromAgents;
-  // Skip the savings ratio when source='tasks': both legs share the same
-  // task-minute base, so the ratio is just HUMAN_RATE/LLM_RATE (e.g. 500×) —
-  // a rate-config readout, not measured savings. Only show for plans/verdicts
-  // where human cost is an independent number.
-  const savingsTrustworthy = m.cost?.source && m.cost.source !== 'tasks';
+  // AI cost: prefer real LLM token cost (from verdicts/plans), fall back to estimate
+  const realLlmUsd = m.cost?.real_llm_usd ?? 0;
+  const effectiveLlmUsd = realLlmUsd > 0
+    ? realLlmUsd
+    : (llmUsd > 0 ? llmUsd : totalLlmFromAgents);
+  // Human cost: industry baseline $150/hr × 4h per task = $600 per feature
+  const HUMAN_PER_TASK_USD = 4 * 150;  // 4 hours × $150/hr
+  const effectiveHumanUsd = done > 0
+    ? done * HUMAN_PER_TASK_USD
+    : (humanUsd > 0 ? humanUsd : totalHumanFromAgents);
+  // Savings ratio is trustworthy when:
+  // (a) AI cost = real LLM tokens (not derived from the same task-min base as human), OR
+  // (b) Cost source explicitly comes from plans/verdicts (independent measurement)
+  const savingsTrustworthy = realLlmUsd > 0 || (m.cost?.source && m.cost.source !== 'tasks');
   const effectiveSavings  = savingsTrustworthy && effectiveLlmUsd > 0 && effectiveHumanUsd > 0
-    ? (effectiveHumanUsd / effectiveLlmUsd).toFixed(0) + '×' : null;
+    ? Math.round(effectiveHumanUsd / effectiveLlmUsd).toLocaleString() + '×' : null;
   const effectiveAiH = totalAiMin > 0 ? totalAiMin / 60 : totalTimeMin / 60;
 
-  // Hero narrative — synthesize one sentence
+  // Hero narrative — focus on cost difference, not time
   const headline = (() => {
     if (!done) return '';
     const parts = [`${done} feature${done === 1 ? '' : 's'} shipped`];
-    if (llmUsd > 0) parts.push(`for $${llmUsd.toFixed(0)}`);
-    if (totalAiMin > 0) parts.push(`in ${fmtTime(totalAiMin)}`);
+    // AI spend (prefer real LLM token cost from verdicts)
+    const realLlm = m.cost?.real_llm_usd ?? 0;
+    const aiCostDisplay = realLlm > 0
+      ? `$${realLlm < 10 ? realLlm.toFixed(2) : realLlm.toFixed(0)}`
+      : (llmUsd > 0 ? `$${llmUsd < 10 ? llmUsd.toFixed(2) : llmUsd.toFixed(0)}` : null);
+    if (aiCostDisplay) parts.push(`for ${aiCostDisplay} in LLM tokens`);
     let line = parts.join(' ');
-    if (savingsX > 1) line += `. ${savingsX}× cheaper than a human team estimate.`;
+    // Human equivalent: standard 4h per feature × $150/hr
+    const humanCost = done * 4 * 150;
+    if (aiCostDisplay && humanCost > 0) {
+      line += `. Human team estimate: $${humanCost.toLocaleString()}.`;
+    }
     return line;
   })();
 
