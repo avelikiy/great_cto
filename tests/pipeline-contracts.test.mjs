@@ -243,16 +243,16 @@ test('BH-1: pipe-separated verdict lines parse to real verdict (not "|")', async
   const home = mkdtempSync(join(tmpdir(), 'bh1-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh1-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
     const today = new Date().toISOString().slice(0, 10);
     // Pipe form — common from continuous-learner and review-style agents
-    writeFileSync(join(home, '.great_cto', 'verdicts', 'pm.log'),
+    writeFileSync(join(project, '.great_cto', 'verdicts', 'pm.log'),
       `${today}T10:00:00Z | pm | PLAN_READY | feature=test | cost=$0.30\n`);
     // Space form — canonical
-    writeFileSync(join(home, '.great_cto', 'verdicts', 'architect.log'),
+    writeFileSync(join(project, '.great_cto', 'verdicts', 'architect.log'),
       `${today}T11:00:00Z APPROVED feature=test cost=$0.40\n`);
 
     // Start board against this seeded state
@@ -313,12 +313,12 @@ test('BH-2: savings_x is null (not 0) when human estimate is missing', async () 
   const home = mkdtempSync(join(tmpdir(), 'bh2-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh2-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
     const today = new Date().toISOString().slice(0, 10);
-    writeFileSync(join(home, '.great_cto', 'verdicts', 'architect.log'),
+    writeFileSync(join(project, '.great_cto', 'verdicts', 'architect.log'),
       `${today}T10:00:00Z APPROVED feature=test cost=$0.42\n`);
     // No plans, no human estimate
 
@@ -371,18 +371,18 @@ test('BH-3: non-canonical agents go to legacy_agent_runs, not the main agent map
   const home = mkdtempSync(join(tmpdir(), 'bh3-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh3-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
     const today = new Date().toISOString().slice(0, 10);
     // 1 canonical agent verdict
-    writeFileSync(join(home, '.great_cto', 'verdicts', 'architect.log'),
+    writeFileSync(join(project, '.great_cto', 'verdicts', 'architect.log'),
       `${today}T10:00:00Z APPROVED feature=test cost=$0.42\n`);
     // 2 NON-canonical (legacy) verdicts
-    writeFileSync(join(home, '.great_cto', 'verdicts', 'backend.log'),
+    writeFileSync(join(project, '.great_cto', 'verdicts', 'backend.log'),
       `${today}T10:00:00Z DONE feature=test cost=$0.10\n`);
-    writeFileSync(join(home, '.great_cto', 'verdicts', 'frontend.log'),
+    writeFileSync(join(project, '.great_cto', 'verdicts', 'frontend.log'),
       `${today}T11:00:00Z DONE feature=test cost=$0.10\n`);
 
     const port = 34300 + Math.floor(Math.random() * 100);
@@ -442,7 +442,7 @@ test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () =>
   const home = mkdtempSync(join(tmpdir(), 'bh4a-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh4a-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
@@ -509,7 +509,7 @@ test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', asy
   const home = mkdtempSync(join(tmpdir(), 'bh-tasks-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh-tasks-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
     const init = spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8' });
@@ -594,7 +594,7 @@ test('BH-5: X-Project-Resolved + X-Project-Fallback headers explain routing', as
   const home = mkdtempSync(join(tmpdir(), 'bh5-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh5-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
@@ -647,7 +647,7 @@ test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', asy
   const home = mkdtempSync(join(tmpdir(), 'bh13-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh13-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
@@ -701,7 +701,7 @@ test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', asy
   const home = mkdtempSync(join(tmpdir(), 'bh14-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh14-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
     spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8', timeout: 5000 });
@@ -780,7 +780,7 @@ test('BH-22: /api/metrics.velocity exposes last_7d + last_30d (honest labels)', 
   const home = mkdtempSync(join(tmpdir(), 'bh22-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh22-proj-'));
   try {
-    mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
+    mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 

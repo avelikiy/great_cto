@@ -2699,13 +2699,43 @@ const server = http.createServer(async (req, res) => {
         const periodSecs = { '5m': 300, '15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800, '30d': 2592000, 'all': null }[period] ?? 86400;
         const sinceMs = periodSecs ? Date.now() - periodSecs * 1000 : 0;
         const records = readLeashAudit(cwd, 5000, sinceMs, tenant);
-        const seen = new Set();
+        // Tally per-agent from this tenant's audit slice so we can synthesise
+        // rows for agents that have called THIS project but not yet appeared
+        // in the proxy's global state (e.g. just-seeded test fixtures, or
+        // agents whose previous calls used a different tenant header).
+        const tally = new Map();
         for (const r of records) {
           const name = r.agent_name || r.agent || r.actor;
-          if (name) seen.add(name);
+          if (!name) continue;
+          if (!tally.has(name)) tally.set(name, { calls: 0, cost: 0, first: r.ts, last: r.ts });
+          const t = tally.get(name);
+          t.calls += 1;
+          if (typeof r.cost_usd === 'number') t.cost += r.cost_usd;
+          if (r.ts && r.ts < t.first) t.first = r.ts;
+          if (r.ts && r.ts > t.last) t.last = r.ts;
         }
-        observed = [...seen].sort();
-        agents = agents.filter((a) => seen.has(a.name));
+        observed = [...tally.keys()].sort();
+
+        // Union: tenant-observed audit rows + global proxy state. Prefer the
+        // proxy-state numbers when both exist (canonical), otherwise project
+        // the audit-derived counts so the row still appears.
+        const upstreamByName = Object.fromEntries(agents.map((a) => [a.name, a]));
+        const merged = [];
+        for (const name of observed) {
+          const u = upstreamByName[name];
+          const t = tally.get(name);
+          merged.push(u
+            ? { ...u, calls: u.calls ?? t.calls, cost_usd: u.cost_usd ?? Number(t.cost.toFixed(6)) }
+            : {
+                name,
+                calls: t.calls,
+                cost_usd: Number(t.cost.toFixed(6)),
+                first_seen: t.first,
+                last_seen: t.last,
+                current_cap_usd: null,
+              });
+        }
+        agents = merged.sort((a, b) => (b.cost_usd || 0) - (a.cost_usd || 0));
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
