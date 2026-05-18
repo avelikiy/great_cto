@@ -295,3 +295,37 @@ test('cost: ratio guard suppresses implausible human/LLM ratios', async () => {
     cleanup(home, project);
   }
 });
+
+test('cost: by_feature aggregates verdict feature= tags', async () => {
+  // Verdicts with feature= tags should be aggregated into by_feature array.
+  const today = new Date().toISOString().slice(0, 10);
+  const { home, project } = makeProject({
+    verdicts: {
+      'architect':   `${today}T10:00:00Z APPROVED feature=auth cost=$0.30\n${today}T11:00:00Z APPROVED feature=auth cost=$0.20\n`,
+      'senior-dev':  `${today}T12:00:00Z DONE feature=billing cost=$0.50\n`,
+      'qa-engineer': `${today}T13:00:00Z DONE feature=auth cost=$0.10\n`,
+    },
+  });
+  const port = pickPort();
+  const board = spawnBoard(project, home, port);
+  try {
+    await waitForBoard(port);
+    const data = await fetchJson(port, '/api/cost?days=7');
+
+    assert.ok(Array.isArray(data.by_feature), 'by_feature must be an array');
+    // auth: 0.30 + 0.20 + 0.10 = 0.60 (3 runs)
+    const auth = data.by_feature.find(f => f.feature === 'auth');
+    assert.ok(auth, 'auth feature missing from by_feature');
+    assert.ok(Math.abs(auth.llm - 0.60) < 0.02, `auth.llm expected 0.60, got ${auth.llm}`);
+    assert.equal(auth.runs, 3, `auth.runs expected 3, got ${auth.runs}`);
+    // billing: 0.50 (1 run)
+    const billing = data.by_feature.find(f => f.feature === 'billing');
+    assert.ok(billing, 'billing feature missing from by_feature');
+    assert.ok(Math.abs(billing.llm - 0.50) < 0.02, `billing.llm expected 0.50, got ${billing.llm}`);
+    // sorted desc by cost — auth (0.60) before billing (0.50)
+    assert.equal(data.by_feature[0].feature, 'auth', 'by_feature should be sorted desc by llm');
+  } finally {
+    killBoardTree(board);
+    cleanup(home, project);
+  }
+});
