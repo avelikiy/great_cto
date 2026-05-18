@@ -5,6 +5,15 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.9.7 — 2026-05-18
+
+### Improvements
+
+- **board/share** — public report now auto-republishes on every gate approval
+  and daily at 09:00 UTC. Manual "Republish" button removed.
+
+---
+
 ## v2.9.6 — 2026-05-18
 
 ### Bug fixes & improvements
