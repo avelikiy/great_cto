@@ -2626,8 +2626,39 @@ const server = http.createServer(async (req, res) => {
       const consoleUrl = cfg.console_url || 'http://localhost:8801';
       const up = await fetch(consoleUrl.replace(/\/$/, '') + '/api/budgets', { signal: AbortSignal.timeout(3000) })
         .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+      // Leash admin /admin/budget is a single-machine global state — caps
+      // live there regardless of which project asked. When the caller scopes
+      // to a project (?project=<slug>, default = cwd tenant) we filter the
+      // returned per_agent_caps to agents that have actually called the
+      // proxy with that tenant_id in the audit log. ?project=all returns
+      // the unfiltered global list.
+      const tenant = resolveProjectParam(url, cwd);
+      let perAgentCaps = up.per_agent_caps || {};
+      let observedAgents = [];
+      if (tenant) {
+        // Scan a generous audit window so even rarely-used agents surface.
+        const records = readLeashAudit(cwd, 5000, 0, tenant);
+        const seen = new Set();
+        for (const r of records) {
+          const name = r.agent_name || r.agent || r.actor;
+          if (name) seen.add(name);
+        }
+        observedAgents = [...seen].sort();
+        const filtered = {};
+        for (const [name, cap] of Object.entries(perAgentCaps)) {
+          if (seen.has(name)) filtered[name] = cap;
+        }
+        perAgentCaps = filtered;
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, ...up }));
+      res.end(JSON.stringify({
+        ok: true,
+        ...up,
+        per_agent_caps: perAgentCaps,
+        all_per_agent_caps: up.per_agent_caps || {},
+        observed_agents: observedAgents,
+        tenant_filter: tenant,
+      }));
     } catch (e) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
