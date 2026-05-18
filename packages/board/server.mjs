@@ -528,6 +528,8 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   // Verdicts: cost=$X tag (from ~/.great_cto/verdicts/)
   const verdicts = readVerdicts(cwd);
   let hasRealCostData = false;
+  // feature=X aggregation — answers "how much did stripe-webhook cost?"
+  const featureMap = new Map(); // feature → { llm, runs }
   for (const v of verdicts) {
     if (v.cost_usd == null) continue;
     const dayKey = (v.ts || '').slice(0, 10);
@@ -536,6 +538,15 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
     b.llm += v.cost_usd;
     b.runs++;
     hasRealCostData = true;
+    // Extract feature= tag from raw verdict line
+    const featMatch = v.raw && v.raw.match(/\bfeature=([^\s|]+)/);
+    if (featMatch) {
+      const feat = featMatch[1];
+      const f = featureMap.get(feat) || { llm: 0, runs: 0 };
+      f.llm += v.cost_usd;
+      f.runs++;
+      featureMap.set(feat, f);
+    }
   }
   // Plans loop (above) sets hasRealCostData if any plan had llm/human numbers
   for (const b of buckets.values()) if (b.plans > 0) { hasRealCostData = true; break; }
@@ -606,6 +617,11 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
     savings_x: (totalLlm > 0 && totalHuman > 0)
       ? Math.round(totalHuman / totalLlm)
       : null,
+    // Top features by LLM spend — sorted desc, top 10
+    by_feature: Array.from(featureMap.entries())
+      .map(([feature, f]) => ({ feature, llm: Math.round(f.llm * 100) / 100, runs: f.runs }))
+      .sort((a, b) => b.llm - a.llm)
+      .slice(0, 10),
   };
 }
 
