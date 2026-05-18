@@ -58,8 +58,8 @@ async function api(port, path, init) {
 function makeProject() {
   const home = mkdtempSync(join(tmpdir(), 'gcto-pipe-home-'));
   const project = mkdtempSync(join(tmpdir(), 'gcto-pipe-proj-'));
-  mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
-  mkdirSync(join(project, '.great_cto'), { recursive: true });
+  // Verdicts are per-project: write to <project>/.great_cto/verdicts/
+  mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
   mkdirSync(join(project, 'docs', 'arch'), { recursive: true });
   mkdirSync(join(project, 'docs', 'plans'), { recursive: true });
   mkdirSync(join(project, 'docs', 'threat-models'), { recursive: true });
@@ -94,14 +94,15 @@ function bdClose(project, id) {
   if (r.status !== 0) throw new Error(`bd close ${id} failed: ${r.stderr}`);
 }
 
-function seedVerdict(home, agent, ts, verdict, details, costUsd) {
+function seedVerdict(project, agent, ts, verdict, details, costUsd) {
   // readVerdicts() in board/server.mjs parses by splitting on whitespace and
   // taking parts[1] as the verdict — so the canonical format is:
   //   <ISO-ts> <VERDICT> <details...> cost=$<USD>
   // (Some production logs use pipe-separated "ts | agent | verdict | …" but
   // that parses to verdict='|' under the current parser. We use the canonical
   // space form so getPipeline() can correctly resolve status=done.)
-  const file = join(home, '.great_cto', 'verdicts', `${agent}.log`);
+  // Verdicts are now per-project; write to <project>/.great_cto/verdicts/
+  const file = join(project, '.great_cto', 'verdicts', `${agent}.log`);
   const line = `${ts} ${verdict} ${details} cost=$${costUsd.toFixed(2)}\n`;
   appendFileSync(file, line);
 }
@@ -144,7 +145,7 @@ test('pipeline: full 8-stage simulation reports each stage as done', { skip: !BD
     { agent: 'l3-support',       ts: isoMinusMin(1),  cost: 0.05, verdict: 'DONE'     },
   ];
   for (const s of stages) {
-    seedVerdict(home, s.agent, s.ts, s.verdict, `feature=stripe-webhook stage=${s.agent}`, s.cost);
+    seedVerdict(project, s.agent, s.ts, s.verdict, `feature=stripe-webhook stage=${s.agent}`, s.cost);
   }
 
   const port = pickPort();
@@ -246,8 +247,8 @@ test('pipeline: failed verdict marks stage as failed (not done)', { skip: !BD_AV
   const isoMinusMin = (m) => new Date(now.getTime() - m * 60 * 1000).toISOString();
 
   // architect APPROVED, but security-officer BLOCKED → pipeline stuck
-  seedVerdict(home, 'architect',         isoMinusMin(20), 'APPROVED', 'feature=test', 0.42);
-  seedVerdict(home, 'security-officer',  isoMinusMin(2),  'BLOCKED',  'feature=test criticals=1', 0.28);
+  seedVerdict(project, 'architect',         isoMinusMin(20), 'APPROVED', 'feature=test', 0.42);
+  seedVerdict(project, 'security-officer',  isoMinusMin(2),  'BLOCKED',  'feature=test criticals=1', 0.28);
 
   const port = pickPort();
   const board = spawnBoard(project, home, port);
@@ -278,7 +279,7 @@ test('pipeline: cumulative cost across multiple feature runs', { skip: !BD_AVAIL
   for (let f = 0; f < features.length; f++) {
     for (const agent of ['architect', 'senior-dev', 'qa-engineer']) {
       const cost = 0.30 + (f * 0.05);
-      seedVerdict(home, agent, isoMinusMin(5 - f), 'APPROVED', `feature=${features[f]}`, cost);
+      seedVerdict(project, agent, isoMinusMin(5 - f), 'APPROVED', `feature=${features[f]}`, cost);
       expected += cost;
     }
   }

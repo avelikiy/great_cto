@@ -6,7 +6,7 @@
 // reconstructs the correct state from disk alone.
 //
 // Persistence sources tested:
-//   - ~/.great_cto/verdicts/*.log  (agent verdicts → recent_verdicts)
+//   - <project>/.great_cto/verdicts/*.log  (agent verdicts → recent_verdicts)
 //   - bd's .beads/ database        (gates → open_gates, WIP → wip_tasks)
 //   - ~/.great_cto/decisions.md    (approval history → decisions)
 //
@@ -54,8 +54,8 @@ async function api(port, path, init) {
 function makeProject() {
   const home = mkdtempSync(join(tmpdir(), 'gcto-resume-home-'));
   const project = mkdtempSync(join(tmpdir(), 'gcto-resume-proj-'));
-  mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
-  mkdirSync(join(project, '.great_cto'), { recursive: true });
+  // Verdicts are per-project: write to <project>/.great_cto/verdicts/
+  mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
   writeFileSync(join(project, '.great_cto', 'PROJECT.md'),
     'archetype: web-service\nprimary: web-service\n');
   const init = spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8' });
@@ -81,8 +81,9 @@ function bdCreate(project, title, opts = {}) {
   return id;
 }
 
-function seedVerdict(home, agent, ts, verdict, details, costUsd) {
-  const file = join(home, '.great_cto', 'verdicts', `${agent}.log`);
+function seedVerdict(project, agent, ts, verdict, details, costUsd) {
+  // Verdicts are now per-project; write to <project>/.great_cto/verdicts/
+  const file = join(project, '.great_cto', 'verdicts', `${agent}.log`);
   appendFileSync(file, `${ts} ${verdict} ${details} cost=$${costUsd.toFixed(2)}\n`);
 }
 
@@ -111,9 +112,9 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
 
   // ── Phase 1: seed a partially-completed pipeline ──
   // 3 agents have produced verdicts; 1 gate is open; 2 tasks are in_progress
-  seedVerdict(home, 'architect',     minutesAgo(45), 'APPROVED', 'feature=billing-api', 0.42);
-  seedVerdict(home, 'pm',            minutesAgo(30), 'APPROVED', 'feature=billing-api', 0.18);
-  seedVerdict(home, 'senior-dev',    minutesAgo(15), 'DONE',     'feature=billing-api', 1.20);
+  seedVerdict(project, 'architect',     minutesAgo(45), 'APPROVED', 'feature=billing-api', 0.42);
+  seedVerdict(project, 'pm',            minutesAgo(30), 'APPROVED', 'feature=billing-api', 0.18);
+  seedVerdict(project, 'senior-dev',    minutesAgo(15), 'DONE',     'feature=billing-api', 1.20);
 
   const gateShipId = bdCreate(project, 'gate: ship billing-api v1', { label: 'gate' });
   const wipId1 = bdCreate(project, 'wire stripe webhook handler', { status: 'in_progress' });

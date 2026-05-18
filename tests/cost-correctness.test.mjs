@@ -50,11 +50,11 @@ async function fetchJson(port, path) {
 function makeProject({ verdicts = {}, projectMd = 'archetype: web-service\n' } = {}) {
   const home = mkdtempSync(join(tmpdir(), 'gcto-cost-home-'));
   const project = mkdtempSync(join(tmpdir(), 'gcto-cost-proj-'));
-  mkdirSync(join(home, '.great_cto', 'verdicts'), { recursive: true });
-  mkdirSync(join(project, '.great_cto'), { recursive: true });
+  // Verdicts are per-project: write to <project>/.great_cto/verdicts/
+  mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
   writeFileSync(join(project, '.great_cto', 'PROJECT.md'), projectMd);
   for (const [agent, content] of Object.entries(verdicts)) {
-    writeFileSync(join(home, '.great_cto', 'verdicts', `${agent}.log`), content);
+    writeFileSync(join(project, '.great_cto', 'verdicts', `${agent}.log`), content);
   }
   return { home, project };
 }
