@@ -41,11 +41,13 @@ export function readLeashConfig(cwd = process.cwd()) {
   const projectCfg = path.join(cwd, '.great_cto', 'leash.json');
   const globalCfg = path.join(os.homedir(), '.great_cto', 'leash.json');
   let cfg = { ...DEFAULTS };
+  const loaded = [];
   for (const p of [globalCfg, projectCfg]) {
     try {
       if (fs.existsSync(p)) {
         const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
         cfg = { ...cfg, ...parsed };
+        loaded.push(p);
       }
     } catch { /* ignore corrupt config */ }
   }
@@ -55,6 +57,9 @@ export function readLeashConfig(cwd = process.cwd()) {
       cfg[k] = path.join(os.homedir(), cfg[k].slice(2));
     }
   }
+  // Self-describe which files actually contributed (in load order).
+  // Last entry wins on conflicting keys.
+  cfg._config_sources = loaded;
   return cfg;
 }
 
@@ -131,6 +136,7 @@ export function getLeashAvailability(cwd = process.cwd()) {
       metrics_url: cfg.metrics_url,
       console_url: cfg.console_url,
       install_root: cfg.install_root,
+      sources: cfg._config_sources || [],
     },
   };
 }
