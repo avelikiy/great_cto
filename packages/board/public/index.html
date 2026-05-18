@@ -2519,8 +2519,9 @@ button { font-family: inherit; cursor: pointer; }
             <button class="leash-subtab"        data-subtab="sessions" onclick="switchLeashSubtab('sessions')">Sessions <span class="badge" id="lst-sessions-badge">0</span></button>
             <button class="leash-subtab"        data-subtab="threats"  onclick="switchLeashSubtab('threats')">Threats <span class="badge" id="lst-threats-badge">0</span></button>
             <button class="leash-subtab"        data-subtab="agents"   onclick="switchLeashSubtab('agents')">Agents</button>
-            <button class="leash-subtab"        data-subtab="budgets"  onclick="switchLeashSubtab('budgets')">Budgets</button>
-            <button class="leash-subtab"        data-subtab="export"   onclick="switchLeashSubtab('export')">Export</button>
+            <button class="leash-subtab"        data-subtab="budgets"     onclick="switchLeashSubtab('budgets')">Budgets</button>
+            <button class="leash-subtab"        data-subtab="rate-limits" onclick="switchLeashSubtab('rate-limits')">Rate Limits</button>
+            <button class="leash-subtab"        data-subtab="export"      onclick="switchLeashSubtab('export')">Export</button>
           </div>
 
           <!-- ───── Review sub-tab ──────────────────────────────────────── -->
@@ -2596,11 +2597,11 @@ button { font-family: inherit; cursor: pointer; }
               <button class="btn-black" onclick="addLeashBudgetCap()">+ add cap</button>
             </div>
 
-            <!-- Per-tenant caps (workaround for missing native v2.23 feature) -->
+            <!-- Per-tenant caps (native in v2.27 via /admin/stats; local fallback for older) -->
             <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border)">
               <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
                 <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">PER-TENANT CAPS</span>
-                <span style="font-size:11px;color:var(--text3)">· workaround · spent &gt; cap fires /admin/tenant/{t}/pause</span>
+                <span style="font-size:11px;color:var(--text3)" id="per-tenant-source-label">· spent &gt; cap fires /admin/tenant/{t}/pause</span>
               </div>
               <div id="leash-tenant-caps-table" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
                 <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Loading…</div>
@@ -2613,6 +2614,18 @@ button { font-family: inherit; cursor: pointer; }
               <div style="margin-top:8px;font-size:11px;color:var(--text3)">
                 Stored in <code>~/.great_cto/per-tenant-caps.json</code>. Enforcement is best-effort: when today's spend ≥ cap the board calls <code>POST /admin/tenant/&lt;t&gt;/pause</code> to kill all active sessions of that tenant. Locks live in <code>~/.great_cto/per-tenant-locks.json</code>; use the <em>unlock</em> button to clear.
               </div>
+            </div>
+          </div>
+
+          <!-- ───── Rate Limits sub-tab ─────────────────────────────────── -->
+          <div class="leash-sub" id="leash-sub-rate-limits" style="display:none;margin-top:14px">
+            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+              <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">RATE LIMITS</span>
+              <span style="font-size:12px;color:var(--text3)">llm-leash v2.27+</span>
+              <button onclick="loadRateLimits()" style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">Refresh</button>
+            </div>
+            <div id="leash-rate-limits-body" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Loading…</div>
             </div>
           </div>
 
@@ -4574,6 +4587,59 @@ function showLeashSubtab(name) {
 }
 function switchLeashSubtab(name) {
   showLeashSubtab(name);
+  if (name === 'rate-limits') loadRateLimits();
+}
+
+async function loadRateLimits() {
+  const el = document.getElementById('leash-rate-limits-body');
+  if (!el) return;
+  try {
+    const resp = await fetch('/api/leash/rate-limits' + pqs()).then(r => r.json());
+    if (!resp.ok || !resp.data) {
+      el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Rate-limits API not available. Requires llm-leash v2.27+.</div>';
+      return;
+    }
+    const d = resp.data;
+    const rows = [];
+    // d may be { global: {...}, per_agent: {...}, per_tenant: {...} }
+    function renderGroup(label, obj) {
+      if (!obj || typeof obj !== 'object') return;
+      rows.push(`<tr><td colspan="4" style="padding:6px 10px 2px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-top:1px solid var(--border)">${esc(label)}</td></tr>`);
+      for (const [key, val] of Object.entries(obj)) {
+        const lim = typeof val === 'object' ? val : { limit: val };
+        const used = lim.used ?? lim.count ?? '—';
+        const limit = lim.limit ?? lim.max ?? '—';
+        const window = lim.window_s ? `${lim.window_s}s` : (lim.window ?? '—');
+        const pct = (typeof used === 'number' && typeof limit === 'number' && limit > 0)
+          ? Math.round(used / limit * 100) : null;
+        const bar = pct !== null ? `<div style="height:4px;border-radius:2px;background:var(--border);margin-top:3px"><div style="height:4px;border-radius:2px;width:${Math.min(pct,100)}%;background:${pct>=90?'#e53935':pct>=70?'#ffb300':'#4caf50'}"></div></div>` : '';
+        rows.push(`<tr>
+          <td style="padding:5px 10px;font-size:12px">${esc(key)}</td>
+          <td style="padding:5px 10px;font-size:12px;text-align:right">${esc(String(used))}</td>
+          <td style="padding:5px 10px;font-size:12px;text-align:right">${esc(String(limit))}</td>
+          <td style="padding:5px 10px;font-size:12px;color:var(--text3)">${esc(window)}${bar}</td>
+        </tr>`);
+      }
+    }
+    renderGroup('global', d.global);
+    renderGroup('per-agent', d.per_agent);
+    renderGroup('per-tenant', d.per_tenant);
+    // Fallback: flat object
+    if (!d.global && !d.per_agent && !d.per_tenant) {
+      renderGroup('limits', d);
+    }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+      <thead><tr style="font-size:11px;color:var(--text3)">
+        <th style="padding:6px 10px;text-align:left">Key</th>
+        <th style="padding:6px 10px;text-align:right">Used</th>
+        <th style="padding:6px 10px;text-align:right">Limit</th>
+        <th style="padding:6px 10px;text-align:left">Window</th>
+      </tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
+  } catch (e) {
+    el.innerHTML = `<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Error loading rate limits: ${esc(String(e?.message || e))}</div>`;
+  }
 }
 
 function onLeashPeriodChange(p) {
@@ -5024,6 +5090,14 @@ async function renderLeashTenantCaps() {
   try {
     payload = await fetch('/api/leash/per-tenant-status' + pqs()).then(r => r.json());
   } catch { /* keep ok:false */ }
+
+  // Show source label (native v2.27 or local fallback)
+  const srcLabel = document.getElementById('per-tenant-source-label');
+  if (srcLabel) {
+    srcLabel.textContent = payload.source === 'native'
+      ? '· native v2.27 (/admin/stats)'
+      : '· local fallback · spent > cap fires /admin/tenant/{t}/pause';
+  }
 
   const tenants = payload.tenants || [];
   if (!tenants.length) {
