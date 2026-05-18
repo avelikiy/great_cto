@@ -6,7 +6,7 @@ great_cto has native support for [Model Context Protocol](https://modelcontextpr
 
 ## Use great_cto from any MCP host
 
-`great-cto mcp` exposes 5 tools to any compatible host:
+`great-cto mcp` exposes 9 tools to any compatible host:
 
 | Tool | What it does |
 |---|---|
@@ -15,6 +15,22 @@ great_cto has native support for [Model Context Protocol](https://modelcontextpr
 | `detect_archetype` | Heuristic + optional Haiku second-opinion archetype detector |
 | `estimate_cost` | Pipeline cost estimate for a given task description |
 | `query_decisions` | Search the global ADR log (`~/.great_cto/decisions.md`) |
+| `project_status` | **Board** — open gates, blocked tasks, P0 incidents (requires running board) |
+| `cost_summary` | **Board** — LLM spend, daily burn, top features by cost (requires running board) |
+| `pipeline_stages` | **Board** — stage list with status + last verdict (requires running board) |
+| `recent_verdicts` | **Board** — last N agent verdicts with timestamps and costs (requires running board) |
+
+The board tools (`project_status`, `cost_summary`, `pipeline_stages`, `recent_verdicts`) require `great-cto board` to be running. They read from the board's HTTP API (default port 3141). Set `GREAT_CTO_PORT` env var to override.
+
+**Typical agent usage:**
+```
+# Before spawning expensive work, check budget:
+cost_summary(days=7)
+
+# Before approving a task, check pipeline state:
+project_status()
+pipeline_stages()
+```
 
 ### Claude Desktop
 
