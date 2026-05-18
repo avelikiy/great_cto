@@ -59,6 +59,19 @@ compliance: [${complianceLine}]
 > \`compliance:\` list drives which checklists security-officer runs.
 > See ARCHETYPES.md "Parameter Values" for supported keys.
 
+## Leash
+
+leash:
+  tenant_id: ${slugifyTenant(title)}
+  daily_cap_usd: 10
+  session_prefix: gcto
+
+> \`leash.tenant_id\` is sent as \`X-LLM-Leash-Tenant-Id\` on every LLM call
+> through the proxy. Board's Security tab scopes stats to the active project
+> via this id. Change here if multiple repos share the same logical project.
+> \`session_prefix\` is prepended to auto-generated session ids so logs are
+> easy to filter across machines.
+
 ## Memory & Query Rule
 
 > Before reading source files, agents should query memory layers in this order:
@@ -100,6 +113,23 @@ when you actually start work:
     writeFileSync(projectMd, content, "utf-8");
     success(`created .great_cto/PROJECT.md ${dim(`(archetype: ${archetype})`)}`);
     return { projectMdPath: projectMd, created: true, skippedReason: null };
+}
+/**
+ * Slugify a project title into a tenant-id safe for HTTP headers and audit
+ * logs. Rules: lowercase, ASCII alnum + dash, collapse, trim, max 48 chars.
+ *
+ * Examples:
+ *   "billing-api"      → "billing-api"
+ *   "@acme/web-app"    → "acme-web-app"
+ *   "  Foo  Bar 2026"  → "foo-bar-2026"
+ */
+export function slugifyTenant(title) {
+    return title
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 48) || "default";
 }
 function inferProjectTitle(dir) {
     // Prefer package.json name, then directory basename.
