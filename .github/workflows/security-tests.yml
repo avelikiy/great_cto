@@ -1,0 +1,157 @@
+# Run the full Security testing suite from tests/security/run-all.sh.
+#
+# Sections 0 + 2.A + 4 (contract tests) work in CI without a live llm-leash
+# proxy — they just exercise the board's API surface and check static
+# assertions against the installed plugin. Sections 1, 2.B/2.C, 3 need a
+# live proxy and so default to `skipped` in CI.
+#
+# Triggered:
+#   • on every push to main / pr to main
+#   • on schedule (nightly 05:30 UTC)
+#   • on manual dispatch (with optional ONLY=... input)
+
+name: security-tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tests/security/**"
+      - "packages/board/**"
+      - "scripts/leash-customize/**"
+      - ".github/workflows/security-tests.yml"
+  pull_request:
+    paths:
+      - "tests/security/**"
+      - "packages/board/**"
+      - "scripts/leash-customize/**"
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Sections to run (comma list, e.g. 0,4 or 0,1,2,3,4)"
+        required: false
+        default: "0,2,4"
+      live_proxy:
+        description: "Start a leash-proxy + board for the live sections"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install jq
+        run: sudo apt-get update -qq && sudo apt-get install -y jq
+
+      - name: Install llm-leash (light — just CLI + console for §2.A/§4)
+        if: ${{ github.event.inputs.live_proxy != 'true' }}
+        run: |
+          git clone --depth=1 https://github.com/avelikiy/llm-leash.git "$RUNNER_TEMP/llm-leash"
+          mkdir -p "$HOME/.great_cto"
+          ln -sfn "$RUNNER_TEMP/llm-leash" "$HOME/.great_cto/llm-leash"
+          pip install --quiet -e "$RUNNER_TEMP/llm-leash"
+
+      - name: Bootstrap leash config + audit file
+        run: |
+          mkdir -p "$HOME/.leash" "$HOME/.great_cto"
+          touch "$HOME/.leash/audit.jsonl"
+          cat > "$HOME/.great_cto/leash.json" <<'JSON'
+          {
+            "enabled": true,
+            "install_root": "${HOME}/.great_cto/llm-leash",
+            "audit_path": "${HOME}/.leash/audit.jsonl",
+            "proxy_url": "http://localhost:8765",
+            "console_url": "http://localhost:8801",
+            "daily_cap_usd": 50
+          }
+          JSON
+          # PROJECT.md leash: block (for tenant detection by board)
+          mkdir -p .great_cto
+          cat >> .great_cto/PROJECT.md <<'MD'
+
+          ## Leash
+
+          leash:
+            tenant_id: great-cto
+            daily_cap_usd: 10
+            session_prefix: gcto
+
+          MD
+
+      - name: Optional — start leash-proxy + console for live sections
+        if: ${{ github.event.inputs.live_proxy == 'true' }}
+        run: |
+          nohup llm-leash-proxy --listen 127.0.0.1:8765 --audit-log "$HOME/.leash/audit.jsonl" --budget-usd 50 > /tmp/proxy.log 2>&1 &
+          nohup llm-leash-console --proxy http://localhost:8765 --listen 127.0.0.1:8801 > /tmp/console.log 2>&1 &
+          # Wait for both to listen
+          for i in $(seq 1 30); do
+            if curl -sS http://localhost:8765/admin/stats >/dev/null 2>&1 \
+               && curl -sS http://localhost:8801/api/stats   >/dev/null 2>&1; then
+              echo "proxy + console up"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Start board
+        run: |
+          # Tiny no-op stub for project registry; the board reads ~/.great_cto/projects.json
+          mkdir -p "$HOME/.great_cto"
+          cat > "$HOME/.great_cto/projects.json" <<JSON
+          [{"slug":"great-cto","archetype":"greenfield","path":"$(pwd)","added_at":"2026-01-01T00:00:00Z","last_activity":null}]
+          JSON
+          nohup node packages/board/server.mjs --port 3141 --no-open > /tmp/board.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sS http://localhost:3141/api/security >/dev/null 2>&1; then
+              echo "board up"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run security test suite
+        env:
+          ONLY: ${{ github.event.inputs.only || '0,2,4' }}
+        run: |
+          set +e
+          bash tests/security/run-all.sh
+          rc=$?
+          set -e
+          # Always upload the report; non-zero exit is fine here
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          if [ $rc -ne 0 ]; then
+            echo "::warning::security-tests reported $rc — see report artefact"
+          fi
+          exit $rc
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-test-reports
+          path: |
+            /tmp/run-all.md
+            /tmp/section-*.md
+            /tmp/board.log
+            /tmp/proxy.log
+            /tmp/console.log
+          retention-days: 30
+          if-no-files-found: warn
