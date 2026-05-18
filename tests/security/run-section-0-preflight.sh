@@ -45,7 +45,7 @@ fi
 
 # Process state
 n_proxy=$(ps aux | grep -v grep | grep -cE "(llm-leash-proxy|leash\.proxy)" || true)
-n_board=$(ps aux | grep -v grep | grep -c "node.*board/server.mjs" || true)
+n_board=$(ps aux | grep -v grep | grep -cE "node.*(board/)?server\.mjs" || true)
 [ "$n_proxy" -ge 1 ] && pass "$OUT" "leash-proxy process running" "n=$n_proxy" || fail "$OUT" "leash-proxy process running" "n=$n_proxy"
 [ "$n_board" -ge 1 ] && pass "$OUT" "board server running" "n=$n_board" || fail "$OUT" "board server running" "n=$n_board"
 [ "$n_proxy" -le 2 ] || fail "$OUT" "leash-proxy uniqueness" "n=$n_proxy (>2 means stale dupes)"

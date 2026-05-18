@@ -127,9 +127,17 @@ jobs:
             sleep 1
           done
 
+      - name: Install Playwright (chromium-only)
+        if: ${{ contains(github.event.inputs.only || '0,2,4,4b', '4b') }}
+        run: |
+          cd tests/security/playwright
+          npm install --no-audit --no-fund --silent
+          npx playwright install --with-deps chromium
+          touch node_modules/.installed
+
       - name: Run security test suite
         env:
-          ONLY: ${{ github.event.inputs.only || '0,2,4' }}
+          ONLY: ${{ github.event.inputs.only || '0,2,4,4b' }}
         run: |
           set +e
           bash tests/security/run-all.sh
@@ -153,5 +161,7 @@ jobs:
             /tmp/board.log
             /tmp/proxy.log
             /tmp/console.log
+            /tmp/playwright-report/**
+            tests/security/playwright/test-results/**
           retention-days: 30
           if-no-files-found: warn
