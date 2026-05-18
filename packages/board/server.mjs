@@ -540,40 +540,31 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   // Plans loop (above) sets hasRealCostData if any plan had llm/human numbers
   for (const b of buckets.values()) if (b.plans > 0) { hasRealCostData = true; break; }
 
-  // Fallback: estimate per-task cost on the day a task was closed when neither
-  // plan files nor verdict cost lines exist. Same model as getMetrics:
-  // $0.02/AI-hr, $150/human-hr, default 30 min if no timing data.
-  // Only engages when there's no real cost data anywhere — otherwise we'd
-  // double-count buckets that DO have plan/verdict data alongside buckets that
-  // don't. All-or-nothing keeps the series internally consistent.
-  if (!hasRealCostData) {
-    // Same cost model as getMetrics — see comment there for derivation.
-    // Defaults are realistic for a Sonnet+Haiku mixed pipeline.
-    const HUMAN_RATE_PER_HR = parseFloat(process.env.GREATCTO_HUMAN_RATE_PER_HR || '150');
-    const LLM_RATE_PER_HR   = parseFloat(process.env.GREATCTO_LLM_RATE_PER_HR || '0.30');
-    const DEFAULT_TASK_MIN  = 30;
-    try {
-      const tasks = getTasks(cwd);
-      for (const t of tasks) {
-        if (!t.closed_at) continue;
-        // Only count tasks with an assigned agent — same rule as getMetrics()
-        // agents_cost so the LLM SPEND tile and LAST 30 DAYS tile agree.
-        if (!t.agent) continue;
-        const dayKey = new Date(t.closed_at).toISOString().slice(0, 10);
-        if (!buckets.has(dayKey)) continue;
-        let mins = 0;
-        if (t.created_at) {
-          const ms = new Date(t.closed_at).getTime() - new Date(t.created_at).getTime();
-          if (ms > 0 && ms < 30 * 86400_000) mins = ms / 60000;
-        }
-        if (!mins) mins = t.estimated_minutes || DEFAULT_TASK_MIN;
-        const b = buckets.get(dayKey);
-        b.llm   += mins / 60 * LLM_RATE_PER_HR;
-        b.human += mins / 60 * HUMAN_RATE_PER_HR;
+  // Human cost: ALWAYS compute as `closed_tasks_per_day × 4h × $150/hr`.
+  // This is the industry-baseline per-feature estimate and is INDEPENDENT
+  // of LLM cost source — so even when AI cost comes from real verdict data,
+  // human comparison is meaningful. Fallback LLM estimate engages only when
+  // no real cost data exists anywhere (verdicts or PLAN files).
+  const HUMAN_PER_TASK_USD = 4 * 150;  // 4 hours × $150/hr
+  const LLM_RATE_PER_HR   = parseFloat(process.env.GREATCTO_LLM_RATE_PER_HR || '0.30');
+  const DEFAULT_TASK_MIN  = 30;
+  try {
+    const tasks = getTasks(cwd);
+    for (const t of tasks) {
+      if (!t.closed_at) continue;
+      if (!t.agent) continue;
+      const dayKey = new Date(t.closed_at).toISOString().slice(0, 10);
+      if (!buckets.has(dayKey)) continue;
+      const b = buckets.get(dayKey);
+      b.human += HUMAN_PER_TASK_USD;
+      // Only add LLM estimate when we have no real cost data anywhere
+      if (!hasRealCostData) {
+        const mins = t.estimated_minutes || DEFAULT_TASK_MIN;
+        b.llm += mins / 60 * LLM_RATE_PER_HR;
         b.runs++;
       }
-    } catch { /* getTasks failure is non-fatal */ }
-  }
+    }
+  } catch { /* getTasks failure is non-fatal */ }
 
   const series = Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
   let totalLlm = series.reduce((a, b) => a + b.llm, 0);
@@ -2582,6 +2573,46 @@ const server = http.createServer(async (req, res) => {
       const cfg = readLeashConfig(cwd);
       const consoleUrl = cfg.console_url || 'http://localhost:8801';
       const upstream = await fetch(consoleUrl.replace(/\/$/, '') + '/api/stats', {
+        signal: AbortSignal.timeout(3000),
+      }).then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...upstream }));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+    }
+    return;
+  }
+
+  // Operator feedback loop (leash v2.22):
+  //   /api/feedback/rules?period=7d → per-rule FP-rate from HITL decisions.
+  // We forward `?period=` straight through; ?project= is informational only —
+  // upstream aggregates across all tenants, the UI filters client-side.
+  if (pathname === '/api/leash/feedback') {
+    try {
+      const cfg = readLeashConfig(cwd);
+      const consoleUrl = cfg.console_url || 'http://localhost:8801';
+      const period = url.searchParams.get('period') || '7d';
+      const upstream = await fetch(`${consoleUrl.replace(/\/$/, '')}/api/feedback/rules?period=${encodeURIComponent(period)}`, {
+        signal: AbortSignal.timeout(3000),
+      }).then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...upstream }));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: String(e?.message || e) }));
+    }
+    return;
+  }
+
+  // Continuous-eval drift status (leash v2.23):
+  //   /api/eval/status?drift_threshold=0.05 → per-rule F1 vs 7-day baseline.
+  if (pathname === '/api/leash/eval-status') {
+    try {
+      const cfg = readLeashConfig(cwd);
+      const consoleUrl = cfg.console_url || 'http://localhost:8801';
+      const threshold = url.searchParams.get('drift_threshold') || '0.05';
+      const upstream = await fetch(`${consoleUrl.replace(/\/$/, '')}/api/eval/status?drift_threshold=${encodeURIComponent(threshold)}`, {
         signal: AbortSignal.timeout(3000),
       }).then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
       res.writeHead(200, { 'Content-Type': 'application/json' });
