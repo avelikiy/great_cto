@@ -298,6 +298,7 @@ function resolveProjectInfo(slugOrPath) {
 
 // ── SSE clients ────────────────────────────────────────────────────────────────
 const sseClients = new Set();
+const _reportRepublishDedupeSet = new Set(); // dedupe daily report republish
 
 function broadcast(event, data) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -1369,7 +1370,27 @@ function startAlertCron() {
     } catch (e) { console.warn('cron digest.weekly failed:', e.message); }
   }, FIVE_MIN);
 
-  console.log('Alert cron started: gate.stale (5min), cost.threshold (1h), digest.weekly (Fri 09:00)');
+  // report.daily: republish share reports every day at 09:00 UTC
+  setInterval(() => {
+    try {
+      const now = new Date();
+      if (now.getUTCHours() !== 9) return;
+      const isoDay = now.toISOString().slice(0, 10); // dedupe by date
+      const projects = listProjects();
+      for (const proj of projects) {
+        const state = getShareState(proj.path);
+        if (!state.enabled) continue;
+        const dedupeKey = `report.daily:${proj.slug}:${isoDay}`;
+        if (_reportRepublishDedupeSet.has(dedupeKey)) continue;
+        _reportRepublishDedupeSet.add(dedupeKey);
+        toggleShare(true, proj.path, true)
+          .then(() => console.log(`report.daily: republished ${proj.slug}`))
+          .catch(e => console.warn(`report.daily: ${proj.slug} failed: ${e.message}`));
+      }
+    } catch (e) { console.warn('cron report.daily failed:', e.message); }
+  }, FIVE_MIN);
+
+  console.log('Alert cron started: gate.stale (5min), cost.threshold (1h), digest.weekly (Fri 09:00), report.daily (09:00)');
 }
 
 function readVerdicts() {
@@ -2366,6 +2387,15 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, id, action }));
       broadcastTasks(cwd);
+      // Auto-republish share report when a gate is approved (fire-and-forget)
+      if (action === 'approve') {
+        const shareState = getShareState(gateCwd);
+        if (shareState.enabled) {
+          toggleShare(true, gateCwd, true)
+            .then(() => console.log(`report: auto-republished after gate approve (${id})`))
+            .catch(e => console.warn(`report: republish after gate failed: ${e.message}`));
+        }
+      }
     });
     return;
   }
