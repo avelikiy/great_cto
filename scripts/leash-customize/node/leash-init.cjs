@@ -9,6 +9,7 @@
  *
  * Env vars consumed (set by ~/.great_cto/env.sh after wire):
  *   LEASH_TENANT_ID       → X-LLM-Leash-Tenant-Id
+ *   LEASH_AGENT_NAME      → X-LLM-Leash-Agent-Name  (set per-agent in agent .md env setup)
  *   LEASH_SESSION_PREFIX  → first segment of an auto-generated session id
  *   LEASH_SESSION_ID      → exact session id override
  *   ANTHROPIC_BASE_URL    → SDK already picks this up; we never overwrite it
@@ -44,6 +45,8 @@ function leashHeaders() {
   const out = {};
   const tenant = process.env.LEASH_TENANT_ID;
   if (tenant) out['X-LLM-Leash-Tenant-Id'] = tenant;
+  const agentName = process.env.LEASH_AGENT_NAME;
+  if (agentName) out['X-LLM-Leash-Agent-Name'] = agentName;
   out['X-LLM-Leash-Session-Id'] = resolveSessionId();
   return out;
 }

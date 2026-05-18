@@ -90,6 +90,7 @@ Use `advisor_20260301` (max 1 call) when facing a genuine architectural trade-of
 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+export LEASH_AGENT_NAME=senior-dev  # tags all SDK calls from this agent for per-agent leash budgets
 MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 MODE=${MODE:-production}
 ```
