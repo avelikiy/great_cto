@@ -9,7 +9,14 @@
  *
  * Writes (via child process / HTTP):
  *   - `leash kill --all` to stop in-flight LLM calls (<300 ms propagation)
- *   - POST to leash HITL endpoint for human approve / reject decisions
+ *   - POST to leash admin HITL endpoint for human approve / reject decisions
+ *
+ * Admin API (llm-leash v2.27+):
+ *   GET  /admin/hitl/pending           — pending HITL items
+ *   POST /admin/hitl/{id}/approve      — approve a pending item
+ *   POST /admin/hitl/{id}/reject       — reject a pending item
+ *   GET  /admin/rate-limits            — current rate-limit config & counters
+ *   GET  /admin/stats                  — includes per_tenant_caps (v2.27+)
  *
  * Zero npm deps. All errors swallowed and surfaced as `{ available: false }`
  * so the board never crashes if leash isn't installed.
@@ -27,11 +34,13 @@ const DEFAULTS = {
   audit_path: path.join(os.homedir(), '.leash', 'audit.jsonl'),
   state_path: path.join(os.homedir(), '.leash', 'state.json'),
   proxy_url: 'http://localhost:8765',
-  hitl_url: 'http://localhost:8765/hitl',
+  // hitl_url removed — admin HITL paths are derived from proxy_url + /admin/hitl/*
   metrics_url: 'http://localhost:9000/metrics',
   console_url: 'http://localhost:8801',   // llm-leash-console (v2.1+)
   cli_path: 'leash',
   install_root: path.join(os.homedir(), '.great_cto', 'llm-leash'),
+  // admin_token: read from LEASH_ADMIN_TOKEN env or leash.json; null = no auth (default install)
+  admin_token: null,
 };
 
 /**
@@ -57,6 +66,10 @@ export function readLeashConfig(cwd = process.cwd()) {
       cfg[k] = path.join(os.homedir(), cfg[k].slice(2));
     }
   }
+  // LEASH_ADMIN_TOKEN env overrides config file (useful for CI / headless board)
+  const envToken = process.env.LEASH_ADMIN_TOKEN;
+  if (envToken) cfg.admin_token = envToken;
+
   // Self-describe which files actually contributed (in load order).
   // Last entry wins on conflicting keys.
   cfg._config_sources = loaded;
@@ -223,14 +236,15 @@ export function readLeashState(cwd = process.cwd(), tenant = null) {
 
 /**
  * Read pending HITL items. Two strategies:
- *   1. Read leash HITL API at /hitl/pending (preferred)
+ *   1. GET /admin/hitl/pending (llm-leash v2.27+ admin API — preferred)
  *   2. Scan audit for `decision: hitl, status: pending`
  */
 export async function readHitlPending(cwd = process.cwd(), tenant = null) {
   const cfg = readLeashConfig(cwd);
-  // Try HTTP first
+  const baseUrl = (cfg.proxy_url || 'http://localhost:8765').replace(/\/$/, '');
+  // Try admin HTTP API first (v2.27+)
   try {
-    const items = await httpGetJson(`${cfg.hitl_url}/pending`, 1500);
+    const items = await httpGetJson(`${baseUrl}/admin/hitl/pending`, 1500, _adminHeaders(cfg));
     if (Array.isArray(items)) {
       return tenant ? items.filter((it) => it.tenant_id === tenant) : items;
     }
@@ -284,21 +298,67 @@ function httpJson(url, method, body, timeoutMs) {
 }
 
 /**
- * Post HITL decision (approve | reject) for a pending item.
+ * Post HITL decision for a pending item.
+ * llm-leash v2.27 API: POST /admin/hitl/{id}/approve  or  /admin/hitl/{id}/reject
  */
 export async function postHitlDecision(cwd, itemId, decision) {
   const cfg = readLeashConfig(cwd);
   if (!['approve', 'reject'].includes(decision)) {
     throw new Error(`invalid decision: ${decision}`);
   }
-  return await httpPostJson(`${cfg.hitl_url}/${encodeURIComponent(itemId)}`, { decision }, 3000);
+  const baseUrl = (cfg.proxy_url || 'http://localhost:8765').replace(/\/$/, '');
+  const url = `${baseUrl}/admin/hitl/${encodeURIComponent(itemId)}/${decision}`;
+  return await httpPostJson(url, {}, 3000, _adminHeaders(cfg));
+}
+
+/**
+ * Read current rate-limit config and counters from llm-leash v2.27+.
+ * GET /admin/rate-limits
+ * Returns raw response object or null if unavailable.
+ */
+export async function readLeashRateLimits(cwd = process.cwd()) {
+  const cfg = readLeashConfig(cwd);
+  const baseUrl = (cfg.proxy_url || 'http://localhost:8765').replace(/\/$/, '');
+  try {
+    return await httpGetJson(`${baseUrl}/admin/rate-limits`, 2000, _adminHeaders(cfg));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read native per-tenant caps from llm-leash v2.27+ /admin/stats.
+ * Returns { per_tenant_caps: { <tenant>: { cap_usd, spent_usd, ... } } } or null.
+ * Callers fall back to local per-tenant-caps.mjs when this returns null.
+ */
+export async function readLeashNativeCaps(cwd = process.cwd()) {
+  const cfg = readLeashConfig(cwd);
+  const baseUrl = (cfg.proxy_url || 'http://localhost:8765').replace(/\/$/, '');
+  try {
+    const stats = await httpGetJson(`${baseUrl}/admin/stats`, 2000, _adminHeaders(cfg));
+    if (stats && stats.per_tenant_caps) return stats.per_tenant_caps;
+  } catch { /* fall through */ }
+  return null;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-function httpGetJson(url, timeoutMs) {
+/** Build Authorization header if admin_token is configured. */
+function _adminHeaders(cfg) {
+  return cfg.admin_token ? { Authorization: `Bearer ${cfg.admin_token}` } : {};
+}
+
+function httpGetJson(url, timeoutMs, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.get(url, { timeout: timeoutMs }, (res) => {
+    const u = new URL(url);
+    const req = http.request({
+      method: 'GET',
+      hostname: u.hostname,
+      port: u.port,
+      path: u.pathname + u.search,
+      headers: { Accept: 'application/json', ...extraHeaders },
+      timeout: timeoutMs,
+    }, (res) => {
       let buf = '';
       res.on('data', (c) => { buf += c; });
       res.on('end', () => {
@@ -307,10 +367,11 @@ function httpGetJson(url, timeoutMs) {
     });
     req.on('timeout', () => { req.destroy(new Error('timeout')); });
     req.on('error', reject);
+    req.end();
   });
 }
 
-function httpPostJson(url, body, timeoutMs) {
+function httpPostJson(url, body, timeoutMs, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const data = JSON.stringify(body);
@@ -319,7 +380,11 @@ function httpPostJson(url, body, timeoutMs) {
       hostname: u.hostname,
       port: u.port,
       path: u.pathname + u.search,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data),
+        ...extraHeaders,
+      },
       timeout: timeoutMs,
     }, (res) => {
       let buf = '';
