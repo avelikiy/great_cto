@@ -1986,6 +1986,43 @@ button { font-family: inherit; cursor: pointer; }
 .tl-ts { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text3); }
 .side-section-head { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; margin-top: 16px; }
 
+/* ── Security tab: hero KPI tile + activity feed ──────────────────────────── */
+.kpi-hero .kpi-value-hero { font-size: 36px; line-height: 1.1; font-weight: 500; }
+.kpi-hero .kpi-label { font-size: 13px; font-weight: 500; }
+.kpi-empty .kpi-value { color: var(--accent); font-size: 22px; }
+.kpi-empty .kpi-value::after {
+  content: ' all clear'; font-size: 11px; color: var(--text3); font-weight: 400;
+}
+@media (max-width: 900px) {
+  .leash-kpi-grid { grid-template-columns: 1fr 1fr !important; }
+  .kpi-hero { grid-column: span 2; }
+}
+
+.leash-feed-row {
+  display: grid;
+  grid-template-columns: 14px 70px 1fr 80px 80px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+}
+.leash-feed-row:first-child { border-top: none; }
+.leash-feed-dot { width: 8px; height: 8px; border-radius: 50%; }
+.leash-feed-dot.ok    { background: #4caf50; }
+.leash-feed-dot.warn  { background: #ffb300; }
+.leash-feed-dot.block { background: #e53935; }
+.leash-feed-time { color: var(--text3); font-size: 11px; }
+.leash-feed-rule { color: var(--text1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leash-feed-cost { color: var(--text2); text-align: right; }
+.leash-feed-decision { text-align: right; font-size: 11px; }
+.leash-feed-decision.ok    { color: #4caf50; }
+.leash-feed-decision.warn  { color: #ffb300; }
+.leash-feed-decision.block { color: #e53935; }
+@keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 rgba(76,175,80,.6);} 100% { box-shadow: 0 0 0 6px rgba(76,175,80,0);} }
+#leash-feed-pulse.live { background: #4caf50; animation: pulse-glow 1.5s ease-out 1; }
+
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgba(15, 17, 21, 0.12); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
@@ -2526,12 +2563,40 @@ button { font-family: inherit; cursor: pointer; }
 
           <!-- ───── Review sub-tab ──────────────────────────────────────── -->
           <div class="leash-sub" id="leash-sub-review" style="display:block;margin-top:14px">
+
+            <!-- Live activity feed — last 5 audit events, polled every 5s -->
+            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
+              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">LIVE ACTIVITY</div>
+              <div id="leash-feed-pulse" style="width:6px;height:6px;border-radius:50%;background:#666;transition:background .3s"></div>
+              <div style="font-size:11px;color:var(--text3);margin-left:auto" id="leash-feed-status">—</div>
+            </div>
+            <div id="leash-feed" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:18px;min-height:60px">
+              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Waiting for events…</div>
+            </div>
+
             <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">THREATS PREVENTED</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-              <div class="kpi" style="border-left:3px solid #e53935"><div class="kpi-label">HIGH risk averted</div><div class="kpi-value" id="leash-r-high">0</div><div style="font-size:10px;color:var(--text3);margin-top:2px">block/hitl on critical rule</div></div>
-              <div class="kpi" style="border-left:3px solid #ffb300"><div class="kpi-label">MEDIUM handled</div><div class="kpi-value" id="leash-r-medium">0</div><div style="font-size:10px;color:var(--text3);margin-top:2px">redact / soft signal</div></div>
-              <div class="kpi" style="border-left:3px solid var(--text3)"><div class="kpi-label">LOW notices</div><div class="kpi-value" id="leash-r-low">0</div><div style="font-size:10px;color:var(--text3);margin-top:2px">warns &amp; advisory</div></div>
-              <div class="kpi" style="border-left:3px solid #ffb300"><div class="kpi-label">HITL queue</div><div class="kpi-value" id="leash-r-hitl">0</div><div style="font-size:10px;color:var(--text3);margin-top:2px">awaiting human approval</div></div>
+            <!-- HIGH tile spans 2 columns; MEDIUM/LOW/HITL each take 1 -->
+            <div class="leash-kpi-grid" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px">
+              <div class="kpi kpi-hero" id="leash-tile-high" style="border-left:3px solid #e53935">
+                <div class="kpi-label">HIGH risk averted</div>
+                <div class="kpi-value kpi-value-hero" id="leash-r-high">0</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">block/hitl on critical rule</div>
+              </div>
+              <div class="kpi" id="leash-tile-medium" style="border-left:3px solid #ffb300">
+                <div class="kpi-label">MEDIUM</div>
+                <div class="kpi-value" id="leash-r-medium">0</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">redact / soft</div>
+              </div>
+              <div class="kpi" id="leash-tile-low" style="border-left:3px solid var(--text3)">
+                <div class="kpi-label">LOW</div>
+                <div class="kpi-value" id="leash-r-low">0</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">warns &amp; advisory</div>
+              </div>
+              <div class="kpi" id="leash-tile-hitl" style="border-left:3px solid #ffb300">
+                <div class="kpi-label">HITL queue</div>
+                <div class="kpi-value" id="leash-r-hitl">0</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">awaiting approval</div>
+              </div>
             </div>
 
             <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin:18px 0 8px 0">PROXY LIVE STATE</div>
@@ -2654,13 +2719,17 @@ button { font-family: inherit; cursor: pointer; }
             <button class="btn-ghost-sm" onclick="loadLeash()">Re-check</button>
           </div>
 
-          <div class="share-note" style="margin-top:14px">
-            <div style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text3)">
+          <details class="share-note" style="margin-top:14px">
+            <summary style="font-size:11px;color:var(--text3);cursor:pointer;user-select:none;padding:4px 0">
+              Config &amp; data sources
+              <span style="margin-left:6px;color:var(--text3);font-size:10px">(advanced)</span>
+            </summary>
+            <div style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text3);margin-top:8px">
               <div><strong style="color:var(--text2)">Config:</strong> <code id="leash-config-source">—</code> <span style="color:var(--text3)">— proxy + console URLs only; never queried for live data</span></div>
               <div><strong style="color:var(--text2)">Live data sources:</strong> <span id="leash-data-sources">—</span></div>
               <div style="margin-top:4px"><span style="color:var(--text3)">Auto-pulled from</span> <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> <span style="color:var(--text3)">on session start.</span></div>
             </div>
-          </div>
+          </details>
         </div>
       </div>
     </div>
@@ -4529,10 +4598,14 @@ async function loadLeash() {
     pii.style.color = stats.pii_redactor_enabled ? 'var(--accent)' : 'var(--text3)';
 
     const risk = classifyLeashRisk(records);
-    document.getElementById('leash-r-high').textContent = risk.high;
-    document.getElementById('leash-r-medium').textContent = risk.medium;
-    document.getElementById('leash-r-low').textContent = risk.low;
-    document.getElementById('leash-r-hitl').textContent = stats.hitl_pending ?? risk.hitl;
+    const hitlCount = stats.hitl_pending ?? risk.hitl;
+    setLeashKpi('leash-tile-high',   'leash-r-high',   risk.high);
+    setLeashKpi('leash-tile-medium', 'leash-r-medium', risk.medium);
+    setLeashKpi('leash-tile-low',    'leash-r-low',    risk.low);
+    setLeashKpi('leash-tile-hitl',   'leash-r-hitl',   hitlCount);
+
+    // Live activity feed (last 5 events) — uses same records, no extra fetch
+    renderLeashActivityFeed(records);
 
     // Sub-tab badges
     document.getElementById('lst-review-badge').textContent = stats.hitl_pending ?? 0;
@@ -4682,6 +4755,77 @@ function onLeashScopeChange(forceAll) {
   }
   localStorage.setItem('leash:scope', _leashState.scope);
   loadLeash();
+}
+
+// ── Security tab UI helpers ──
+
+/**
+ * Render a KPI tile with empty-state styling when value is 0.
+ * Zero → green check ✓ + "all clear" hint; non-zero → normal number.
+ */
+function setLeashKpi(tileId, valueId, value) {
+  const tile = document.getElementById(tileId);
+  const v = document.getElementById(valueId);
+  if (!tile || !v) return;
+  const n = Number(value) || 0;
+  if (n === 0) {
+    tile.classList.add('kpi-empty');
+    v.textContent = '✓';
+  } else {
+    tile.classList.remove('kpi-empty');
+    v.textContent = String(n);
+  }
+}
+
+/**
+ * Render last 5 audit events as a compact live feed.
+ * Pulses the indicator dot when new events arrive (compared to last render).
+ */
+let _leashFeedLastTs = null;
+function renderLeashActivityFeed(records) {
+  const el = document.getElementById('leash-feed');
+  const pulse = document.getElementById('leash-feed-pulse');
+  const status = document.getElementById('leash-feed-status');
+  if (!el) return;
+
+  const items = (records || []).slice(0, 5);
+
+  if (!items.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No LLM calls yet in this period. Proxy is listening — make a call to see it here.</div>';
+    if (status) status.textContent = 'idle';
+    if (pulse) pulse.style.background = '#666';
+    return;
+  }
+
+  // Detect new events for pulse animation
+  const newestTs = items[0].ts || items[0].timestamp || '';
+  if (_leashFeedLastTs && newestTs !== _leashFeedLastTs && pulse) {
+    pulse.classList.remove('live');
+    void pulse.offsetWidth; // restart animation
+    pulse.classList.add('live');
+  }
+  _leashFeedLastTs = newestTs;
+  if (pulse) pulse.style.background = '#4caf50';
+  if (status) status.textContent = `${items.length} recent · auto-refresh 5s`;
+
+  el.innerHTML = items.map((r) => {
+    const decision = String(r.decision || 'ok').toLowerCase();
+    let kind = 'ok';
+    if (decision === 'block' || decision === 'kill') kind = 'block';
+    else if (decision === 'hitl' || decision === 'redact' || decision === 'warn') kind = 'warn';
+    const ts = r.ts || r.timestamp;
+    const time = ts ? new Date(ts).toLocaleTimeString([], { hour12: false }) : '—';
+    const model = r.model || r.kind || 'llm';
+    const rule = r.rule ? ` · ${r.rule}` : '';
+    const cost = typeof r.cost_usd === 'number' ? `$${r.cost_usd.toFixed(4)}` : '—';
+    return `<div class="leash-feed-row">
+      <div class="leash-feed-dot ${kind}"></div>
+      <div class="leash-feed-time">${esc(time)}</div>
+      <div class="leash-feed-rule">${esc(model)}${esc(rule)}</div>
+      <div class="leash-feed-cost">${esc(cost)}</div>
+      <div class="leash-feed-decision ${kind}">${esc(decision)}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── classifiers ──
