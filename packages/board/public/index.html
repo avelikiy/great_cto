@@ -2954,12 +2954,27 @@ async function refreshCost() {
   // the UI with stale data.
   const seq = ++_costFetchSeq;
   const periodAtRequest = currentPeriod;
+  // Update label IMMEDIATELY so it never mismatches the chip selection
+  const headerLbl = document.getElementById('mp-cost-label');
+  if (headerLbl) headerLbl.textContent = `Cost · last ${periodLabel(periodAtRequest)}`;
+  // Show loading state in the panel during fetch
+  const root = document.getElementById('cost-panel');
+  if (root && !root.dataset.loaded) {
+    root.innerHTML = '<div class="cost-empty">Loading…</div>';
+  } else if (root) {
+    root.style.opacity = '0.5';
+  }
   const d = await api(`/api/cost${pqsd()}`);
   if (seq !== _costFetchSeq) return;  // a newer fetch superseded us
-  if (!d) return;
+  if (!d) {
+    if (root) root.style.opacity = '';
+    return;
+  }
   renderCost(d);
-  const lbl = document.getElementById('mp-cost-label');
-  if (lbl) lbl.textContent = `Cost · last ${periodLabel(periodAtRequest)}`;
+  if (root) {
+    root.style.opacity = '';
+    root.dataset.loaded = '1';
+  }
 }
 
 let _metricsFetchSeq = 0;
@@ -2986,6 +3001,12 @@ function setPeriod(days) {
   document.querySelectorAll('.period-chip').forEach(c => {
     c.classList.toggle('active', parseInt(c.dataset.period, 10) === days);
   });
+  // Update BOTH labels immediately on click — so user never sees a mismatch
+  // between the active chip and the section headers, even before fetch returns
+  const sprintLbl = document.getElementById('mp-sprint-label');
+  if (sprintLbl) sprintLbl.textContent = `Last ${periodLabel(days)}`;
+  const costLbl = document.getElementById('mp-cost-label');
+  if (costLbl) costLbl.textContent = `Cost · last ${periodLabel(days)}`;
   refreshMetricsForPeriod();
 }
 

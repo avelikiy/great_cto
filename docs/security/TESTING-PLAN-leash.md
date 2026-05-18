@@ -6,12 +6,41 @@
 
 ## How to use this plan
 
-| Need | Run |
-|---|---|
-| **Smoke** before each release | §0 + §1.5 + §2.A + §3.A + §4.A — ~15 min |
-| **Full pass** before major release | every section — ~90 min |
-| **Per-rule regression** | §2 only, daily via `leash-eval-drift` workflow |
-| **One-off bug repro** | jump to the relevant § |
+### Quickstart — run the whole thing automatically
+
+```bash
+# Everything (every section). Exit 0 = all pass.
+bash tests/security/run-all.sh
+
+# Pick sections — comma list. Useful for fast feedback in CI.
+ONLY=0,4 bash tests/security/run-all.sh
+
+# Quiet mode (suppress per-section log to stderr, only print final summary).
+QUIET=1 bash tests/security/run-all.sh
+
+# Read the report bundle.
+less /tmp/run-all.md
+```
+
+The CI workflow `.github/workflows/security-tests.yml` runs sections **0, 2.A, 4** on every PR + nightly. Sections **1, 3** (and 2.B/2.C) need a live proxy + outbound LLM calls, so they run only on manual dispatch with `live_proxy=true`.
+
+| Need | Run | Time |
+|---|---|---|
+| **Smoke** before each release | `ONLY=0,4 bash tests/security/run-all.sh` | ~5 sec |
+| **Full local pass** | `bash tests/security/run-all.sh` | ~60 sec (no LLM cost — uses fixtures) |
+| **Per-rule regression** | §2 only, daily via `leash-eval-drift` workflow | runs in CI |
+| **One-off bug repro** | run a single section script, e.g. `bash tests/security/run-section-3-budgets.sh /tmp/sec3.md` | varies |
+
+### What each section script writes
+
+| Script | Output report | Section in this doc |
+|---|---|---|
+| `run-section-0-preflight.sh OUT.md` | tools/processes/endpoints reachable | §0 |
+| `run-section-1-tenant.sh OUT.md` | tenant headers + multi-tenant isolation | §1 |
+| `run-section-2-detection.sh OUT.md` | eval-record + per-rule + FP-bait + drift contract | §2 |
+| `run-section-3-budgets.sh OUT.md` | cap → block → kill → unkill | §3 |
+| `run-section-4-frontend.sh OUT.md` | board API contracts (toggle/scope/agents/budgets/export/kill/feedback) | §4 |
+| `run-all.sh` | concatenated bundle `/tmp/run-all.md` + per-section files | all |
 
 Every test has an **acceptance criterion** that must be met to pass. Failures
 become rows in `docs/qa-reports/QA-leash-<date>.md` with a screenshot or log
