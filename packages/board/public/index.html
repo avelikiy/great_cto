@@ -2994,12 +2994,18 @@ function renderCost(d) {
   const overBudget = !!d.over_budget;
   const savings = d.savings_x ?? 0;
 
+  // Active days = days with non-zero LLM spend. Dividing by full window
+  // (e.g. 90d) makes the per-day rate look 12× lower than reality when work
+  // only happened on a few days. Active-days is the honest denominator.
+  const activeDays = series.filter(s => s.llm > 0).length;
+  const dailyAvgActive = activeDays > 0 ? (total / activeDays) : 0;
+  const periodStr = typeof periodLabel === 'function' ? periodLabel(currentPeriod) : '30 days';
   const summary = `
     <div class="cost-summary">
       <div class="cost-cell">
-        <div class="lbl">Last ${typeof periodLabel === 'function' ? periodLabel(currentPeriod).replace(/ /g, ' ') : '30 days'}</div>
+        <div class="lbl">Last ${periodStr}</div>
         <div class="v">$${total.toFixed(2)}</div>
-        <div class="sub">${d.total_plans} plans · $${(d.daily_avg ?? 0).toFixed(2)}/day avg</div>
+        <div class="sub">${d.total_plans} plans · $${dailyAvgActive.toFixed(2)}/active day</div>
       </div>
       <div class="cost-cell ${overBudget ? 'warn' : (budget != null ? 'good' : '')}">
         <div class="lbl">Projected month</div>
@@ -3013,8 +3019,8 @@ function renderCost(d) {
       </div>
       <div class="cost-cell">
         <div class="lbl">Daily burn</div>
-        <div class="v">$${(d.daily_avg ?? 0).toFixed(2)}<small>/day</small></div>
-        <div class="sub">${series.filter(s=>s.llm>0).length} active days</div>
+        <div class="v">$${dailyAvgActive.toFixed(2)}<small>/day</small></div>
+        <div class="sub">${activeDays} active days</div>
       </div>
     </div>`;
 
@@ -3840,7 +3846,7 @@ function renderDashboard(m) {
     : null;
 
   const llmTrend = realLlmUsd > 0
-    ? `actual LLM tokens · est ${llmUsd > 0 ? '$' + fmtMoney(llmUsd) : '—'}`
+    ? `real tokens spent (from verdicts)`
     : (llmUsd > 0 ? `time-based estimate (no verdict data yet)` : 'no plans or tasks yet');
 
   const hero = [
