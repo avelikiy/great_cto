@@ -1,6 +1,10 @@
 /**
- * per-tenant-caps.mjs — workaround for missing native per-tenant budget caps
- * in llm-leash v2.23.
+ * per-tenant-caps.mjs — local per-tenant budget cap enforcement.
+ *
+ * llm-leash v2.27+ ships native `per_tenant_caps` in /admin/stats. The board
+ * reads those via readLeashNativeCaps() and shows them in the Security tab.
+ * This module is kept as a local fallback for installs that are older or that
+ * need offline / air-gapped enforcement without a running proxy.
  *
  * Storage: ~/.great_cto/per-tenant-caps.json
  *   { "<tenant>": { "cap_usd": <number>, "updated_at": "<iso>" } }
@@ -13,11 +17,6 @@
  * ~/.great_cto/per-tenant-locks.json with an ISO timestamp so /api/...
  * can show "locked since X" until the operator clears it.
  *
- * Why a workaround?
- *   llm-leash's /admin/budget is per-agent and process-global. There's no
- *   primitive that says "this tenant gets $N/day across all its agents".
- *   When upstream adds it (tracked in their roadmap), we delete this file.
- *
  * Zero npm deps. Every function returns a plain object; errors swallowed.
  */
 
@@ -25,7 +24,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import { readLeashAudit, readLeashConfig } from './leash-adapter.mjs';
+import { readLeashAudit, readLeashConfig, readLeashNativeCaps } from './leash-adapter.mjs';
 
 const HOME = os.homedir();
 const CAPS_FILE = path.join(HOME, '.great_cto', 'per-tenant-caps.json');
@@ -203,4 +202,33 @@ export async function getStatus(cwd = process.cwd(), enforce = true) {
     caps_file: CAPS_FILE,
     locks_file: LOCKS_FILE,
   };
+}
+
+/**
+ * Fetch native per-tenant caps from llm-leash v2.27+ /admin/stats.
+ * Returns { source: 'native', tenants: [...] } when the proxy exposes them,
+ * or { source: 'local', tenants: [...] } falling back to getStatus().
+ *
+ * Shape of each tenant entry matches getStatus() so callers need no branching.
+ */
+export async function getStatusWithNativeFallback(cwd = process.cwd(), enforce = true) {
+  try {
+    const native = await readLeashNativeCaps(cwd);
+    if (native && typeof native === 'object' && Object.keys(native).length > 0) {
+      // Native format from v2.27: { <tenant>: { cap_usd, spent_usd, period, ... } }
+      const tenants = Object.entries(native).map(([tenant, info]) => {
+        const cap_usd = info.cap_usd ?? null;
+        const spent_usd = typeof info.spent_usd === 'number' ? Number(info.spent_usd.toFixed(6)) : 0;
+        const ratio = cap_usd && cap_usd > 0 ? spent_usd / cap_usd : 0;
+        let status = 'ok';
+        if (ratio >= 1) status = 'over';
+        else if (ratio >= 0.8) status = 'warn';
+        if (!cap_usd) status = 'no-cap';
+        return { tenant, cap_usd, spent_usd, ratio: Number(ratio.toFixed(3)), status, locked_at: null, pause_fired: null };
+      }).sort((a, b) => (b.spent_usd || 0) - (a.spent_usd || 0));
+      return { source: 'native', tenants, caps_file: null, locks_file: null };
+    }
+  } catch { /* fall through to local */ }
+  const local = await getStatus(cwd, enforce);
+  return { source: 'local', ...local };
 }

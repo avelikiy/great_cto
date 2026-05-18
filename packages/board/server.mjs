@@ -2608,14 +2608,16 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── /api/leash ────────────────────────────────────────────────────────────
-  // Façade over llm-leash (https://github.com/avelikiy/llm-leash):
+  // Façade over llm-leash v2.27+ (https://github.com/avelikiy/llm-leash):
   //   GET  /api/leash/status                — installation + budget snapshot
   //   GET  /api/leash/audit?limit=N&since=  — tail audit JSONL
-  //   GET  /api/leash/hitl                  — pending human-in-the-loop items
+  //   GET  /api/leash/hitl                  — pending HITL items (admin API)
   //   POST /api/leash/kill                  — fire kill switch (board UI button)
   //   POST /api/leash/hitl/:id/:decision    — approve|reject pending item
-  // Every endpoint degrades to "available: false" if leash isn't installed —
-  // the UI hides the tab in that case.
+  //   GET  /api/leash/rate-limits           — rate-limit config + counters (v2.27+)
+  //   GET  /api/leash/per-tenant-status     — tenant cap status (native v2.27 or local)
+  // Every endpoint degrades gracefully if leash isn't installed.
+  // Admin endpoints use LEASH_ADMIN_TOKEN (or admin_token in leash.json) when set.
 
   // Aggregator — leash + pre-push hook + secret-scan hook
   if (pathname === '/api/security') {
@@ -2858,7 +2860,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Per-tenant caps workaround (leash v2.23 has no native per-tenant cap) ──
+  // GET /api/leash/rate-limits — proxy to leash v2.27+ /admin/rate-limits
+  if (pathname === '/api/leash/rate-limits' && req.method === 'GET') {
+    try {
+      const { readLeashRateLimits } = await import('./leash-adapter.mjs');
+      const data = await readLeashRateLimits(cwd);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: data !== null, data: data || null }));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: String(e?.message || e), data: null }));
+    }
+    return;
+  }
+
+  // ── Per-tenant caps (local workaround + native v2.27 fallback) ──
   // GET  /api/leash/per-tenant-caps           list configured caps (no spend lookup)
   // GET  /api/leash/per-tenant-status         caps + spend + lock state; may fire pause
   // POST /api/leash/per-tenant-caps/:tenant   {cap_usd: N|null}
@@ -2872,9 +2888,9 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/api/leash/per-tenant-status' && req.method === 'GET') {
     try {
-      const { getStatus } = await import('./per-tenant-caps.mjs');
+      const { getStatusWithNativeFallback } = await import('./per-tenant-caps.mjs');
       const enforce = url.searchParams.get('enforce') !== '0';
-      const payload = await getStatus(cwd, enforce);
+      const payload = await getStatusWithNativeFallback(cwd, enforce);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, ...payload }));
     } catch (e) {
