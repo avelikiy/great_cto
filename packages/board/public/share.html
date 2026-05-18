@@ -687,9 +687,9 @@ if (paused) {
 } else {
   const m = metrics || {};
   const t_ = m.tasks || {};
-  // Prefer window-scoped count to match board dashboard (period-aware).
-  // Falls back to lifetime done if API didn't include the window field.
-  const done = t_.done_in_window ?? t_.done ?? 0;
+  // Share report uses LIFETIME counts — this is a marketing artifact, not an
+  // internal dashboard. Board UI has its own period selector (1D/7D/30D/...).
+  const done = t_.done ?? 0;
   const inProgress = t_.in_progress ?? 0;
   const backlog = t_.backlog ?? 0;
   const allTasks = tasks || [];

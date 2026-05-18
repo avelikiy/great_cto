@@ -1912,7 +1912,9 @@ async function toggleShare(enable, cwd = process.cwd(), force = false) {
   // (enable && state.enabled && force) → re-publish with fresh data (new URL)
   if (enable && (!state.enabled || force)) {
     // Generate and publish
-    const html = generateShareHTML(getTasks(cwd), getMetrics(cwd), cwd);
+    // Share report is a marketing artifact — show LIFETIME numbers, not a
+    // rolling window. 365 days × 100 = effectively-lifetime cap for any project.
+    const html = generateShareHTML(getTasks(cwd), getMetrics(cwd, 36500), cwd);
     try {
       const result = await publishReport(html);
       const newState = { enabled: true, url: result.url, hash: result.hash, published_at: new Date().toISOString() };
