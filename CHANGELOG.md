@@ -5,6 +5,49 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.9.8 — 2026-05-18
+
+### Board dashboard
+
+- **Period selector** — 1D / 7D / 30D / 90D / 1Y chip toolbar above the
+  sprint metrics. Choice persists in localStorage. All hero tiles, cost
+  panel, and chart re-scope to the chosen window.
+- **Honest cost model** — "AI spend" tile shows real LLM tokens from
+  verdict logs (was: time-based estimate). "Cost savings vs FTE" uses
+  human estimate = tasks × 4h × $150/hr (industry baseline).
+- **Active-day denominator** — daily-avg / daily-burn now divide by days
+  with actual spend (was: divided by full window, making 90D look 12×
+  cheaper than 30D for the same work).
+- **Race condition fix** — sequence-guarded fetches for `/api/metrics` and
+  `/api/cost` so stale init responses can't overwrite newer period clicks.
+- **Cache-Control headers** — HTML/JS served with `no-cache` to prevent
+  stale board UI between iterations.
+
+### Share report (public link)
+
+- **Lifetime numbers** — share reports always show lifetime totals (this
+  is a marketing/social-proof artifact, not an internal dashboard).
+- **Visual upgrade**:
+  - Hero big number (92px serif) + 30-day sparkline
+  - Cost bar chart (humans red, AI green) + big "Nx cheaper" headline
+  - 30-day activity heatmap (GitHub-style)
+  - Agent bubble chart (size=time, color by category)
+- **Auto-republish** — fires after every gate approval and daily at 09:00
+  UTC. Manual "Republish" button removed.
+- **Per-project scope fix** — toggle now correctly publishes data for the
+  selected project (previously fell back to server cwd).
+
+### Backend
+
+- `/api/metrics?days=N` — accepts 1–365 day window
+- `getMetrics()` returns `tasks.done_in_window` for period-scoped reports
+- Verdict cost totals (`real_llm_usd`) now filtered by window timestamp
+- Cost history always computes human cost (was: skipped when verdict data
+  existed, leaving "vs Human team" at $0)
+- Per-task time cap at 8h to filter wall-clock idle noise from agents_cost
+
+---
+
 ## v2.9.7 — 2026-05-18
 
 ### Improvements
