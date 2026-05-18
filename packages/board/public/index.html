@@ -1319,6 +1319,30 @@ button { font-family: inherit; cursor: pointer; }
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 14px; margin-bottom: 24px;
 }
+.period-toolbar {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
+}
+.period-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; color: var(--text3);
+}
+.period-chips {
+  display: flex; gap: 4px;
+  background: var(--bg-muted); border: 1px solid var(--border);
+  border-radius: 8px; padding: 3px;
+}
+.period-chip {
+  background: transparent; border: none; color: var(--text2);
+  padding: 5px 12px; border-radius: 5px;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.05em; cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.period-chip:hover { color: var(--text); }
+.period-chip.active {
+  background: var(--accent); color: var(--bg-page);
+}
 .metric-card {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 12px; padding: 26px 24px;
@@ -2144,11 +2168,21 @@ button { font-family: inherit; cursor: pointer; }
     <!-- Metrics -->
     <div class="panel" id="panel-dashboard">
       <div class="metrics-page">
-        <div class="mp-section-label">This sprint</div>
+        <div class="period-toolbar">
+          <span class="period-label">PERIOD</span>
+          <div class="period-chips" id="period-chips">
+            <button class="period-chip" data-period="1">1D</button>
+            <button class="period-chip" data-period="7">7D</button>
+            <button class="period-chip active" data-period="30">30D</button>
+            <button class="period-chip" data-period="90">90D</button>
+            <button class="period-chip" data-period="365">1Y</button>
+          </div>
+        </div>
+        <div class="mp-section-label" id="mp-sprint-label">Last 30 days</div>
         <div class="mp-hero" id="mp-hero"></div>
         <div class="mp-secondary" id="mp-secondary"></div>
 
-        <div class="mp-section-label" style="margin-top:24px">Cost · last 30 days</div>
+        <div class="mp-section-label" id="mp-cost-label" style="margin-top:24px">Cost · last 30 days</div>
         <div class="mp-card cost-panel" id="cost-panel">
           <div class="cost-empty">Loading…</div>
         </div>
@@ -2606,10 +2640,27 @@ let allProjects = [];
 let currentProject = '';
 let inboxData = null;
 let activeFilters = { agents: new Set(), priorities: new Set(), labels: new Set() };
+// Period selector for dashboard (1/7/30/90/365 days). Persists in localStorage.
+let currentPeriod = parseInt(localStorage.getItem('gcto.period') || '30', 10) || 30;
 
 // Returns ?project=slug query string for all API calls after init() sets currentProject
 function pqs() {
   return currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+}
+// Combined query string: ?project=X&days=Y (for metrics/cost APIs)
+function pqsd() {
+  const parts = [];
+  if (currentProject) parts.push(`project=${encodeURIComponent(currentProject)}`);
+  parts.push(`days=${currentPeriod}`);
+  return '?' + parts.join('&');
+}
+function periodLabel(days) {
+  if (days === 1) return '24 hours';
+  if (days === 7) return '7 days';
+  if (days === 30) return '30 days';
+  if (days === 90) return '90 days';
+  if (days === 365) return '1 year';
+  return `${days} days`;
 }
 
 function greetByHour() {
@@ -2897,10 +2948,40 @@ function drillToStage(stage) {
 
 /* ── Cost panel ─────────────────────────────────────────────────────────── */
 async function refreshCost() {
-  const d = await api(`/api/cost?days=30${currentProject ? '&project=' + encodeURIComponent(currentProject) : ''}`);
+  const d = await api(`/api/cost${pqsd()}`);
   if (!d) return;
   renderCost(d);
+  // Update cost panel header to reflect current period
+  const lbl = document.getElementById('mp-cost-label');
+  if (lbl) lbl.textContent = `Cost · last ${periodLabel(currentPeriod)}`;
 }
+
+async function refreshMetricsForPeriod() {
+  const lbl = document.getElementById('mp-sprint-label');
+  if (lbl) lbl.textContent = `Last ${periodLabel(currentPeriod)}`;
+  const m = await api(`/api/metrics${pqsd()}`);
+  if (m) renderDashboard(m);
+  refreshCost();
+}
+
+function setPeriod(days) {
+  currentPeriod = days;
+  localStorage.setItem('gcto.period', String(days));
+  // Highlight active chip
+  document.querySelectorAll('.period-chip').forEach(c => {
+    c.classList.toggle('active', parseInt(c.dataset.period, 10) === days);
+  });
+  refreshMetricsForPeriod();
+}
+
+// Initialize chip clicks on first load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.period-chip').forEach(c => {
+    c.addEventListener('click', () => setPeriod(parseInt(c.dataset.period, 10)));
+    if (parseInt(c.dataset.period, 10) === currentPeriod) c.classList.add('active');
+    else c.classList.remove('active');
+  });
+});
 
 function renderCost(d) {
   const root = document.getElementById('cost-panel');
@@ -3199,7 +3280,7 @@ async function switchProject(slug) {
   // Refetch project-scoped data in parallel (no /api/projects, no full HTML reload)
   const [tasks, met, share, inbox] = await Promise.all([
     api(`/api/tasks${pqs()}`),
-    api(`/api/metrics${pqs()}`),
+    api(`/api/metrics${pqsd()}`),
     api(`/api/share${pqs()}`),
     api(`/api/inbox${pqs()}`),
   ]);
@@ -3744,7 +3825,8 @@ function renderDashboard(m) {
   const llmUsd = m.cost?.llm_usd ?? 0;
   const realLlmUsd = m.cost?.real_llm_usd ?? 0;
   const planSavingsX = m.cost?.savings_x;
-  const done = m.tasks?.done ?? 0;
+  // Prefer window-scoped count when API provides it (matches selected period)
+  const done = m.tasks?.done_in_window ?? m.tasks?.done ?? 0;
   const avgMin = m.avg_completion_min ?? 0;
   const cycleStat = m.cycle_time_stat === 'median_30d' ? 'Median cycle (30d)' : 'Avg cycle time';
 
@@ -5713,6 +5795,14 @@ async function _disablePush() {
 init();
 initPush();
 loadNotifHistory();
+// Apply persisted period to chips + labels on first paint
+document.querySelectorAll('.period-chip').forEach(c => {
+  c.classList.toggle('active', parseInt(c.dataset.period, 10) === currentPeriod);
+});
+const _sprintLbl = document.getElementById('mp-sprint-label');
+if (_sprintLbl) _sprintLbl.textContent = `Last ${periodLabel(currentPeriod)}`;
+const _costLbl = document.getElementById('mp-cost-label');
+if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}`;
 </script>
 
 <!-- ── Notification drawer ──────────────────────────────────────────────── -->
