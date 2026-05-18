@@ -525,9 +525,16 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
     }
   }
 
+  // hasRealCostData: true only when actual dollar figures exist — from plan
+  // files with parseable $ amounts OR from verdicts with cost_usd tags.
+  // A plan FILE existing (b.plans > 0) without a $ match does NOT count —
+  // that was the original BH-26 bug: plans without $ data blocked task
+  // estimates, causing /api/cost and /api/metrics to diverge.
+  let hasRealCostData = false;
+  for (const b of buckets.values()) { if (b.llm > 0) { hasRealCostData = true; break; } }
+
   // Verdicts: cost=$X tag (from ~/.great_cto/verdicts/)
   const verdicts = readVerdicts(cwd);
-  let hasRealCostData = false;
   // feature=X aggregation — answers "how much did stripe-webhook cost?"
   const featureMap = new Map(); // feature → { llm, runs }
   for (const v of verdicts) {
@@ -548,8 +555,6 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
       featureMap.set(feat, f);
     }
   }
-  // Plans loop (above) sets hasRealCostData if any plan had llm/human numbers
-  for (const b of buckets.values()) if (b.plans > 0) { hasRealCostData = true; break; }
 
   // Human cost: ALWAYS compute as `closed_tasks_per_day × 4h × $150/hr`.
   // This is the industry-baseline per-feature estimate and is INDEPENDENT
