@@ -59,6 +59,45 @@ export function readLeashConfig(cwd = process.cwd()) {
 }
 
 /**
+ * Read project's tenant_id from PROJECT.md. Falls back to a slug derived from
+ * cwd basename so older projects (created before the leash: block landed)
+ * still slot into a stable tenant bucket.
+ *
+ * Returns null if cwd is plainly not a great_cto project (no .great_cto dir).
+ */
+export function readProjectTenantId(cwd = process.cwd()) {
+  const projectMd = path.join(cwd, '.great_cto', 'PROJECT.md');
+  if (!fs.existsSync(path.join(cwd, '.great_cto'))) return null;
+  try {
+    if (fs.existsSync(projectMd)) {
+      const md = fs.readFileSync(projectMd, 'utf8');
+      // Match nested `tenant_id:` under the `leash:` block (YAML-ish, 2-space indent)
+      const m = md.match(/^leash:\s*\n(?:\s+[a-z_]+:.*\n)*\s+tenant_id:\s*([A-Za-z0-9_-]+)/m);
+      if (m) return m[1];
+    }
+  } catch { /* fall through to derived slug */ }
+  // Derive from basename — keep in sync with bootstrap.ts slugifyTenant()
+  const base = path.basename(cwd) || 'default';
+  return base
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'default';
+}
+
+/**
+ * Resolve the tenant filter for a request.
+ *   `null` → no filter (system-wide / "show all projects")
+ *   string → filter audit/leaks by tenant_id == that value
+ */
+export function resolveTenantFilter(cwd, explicit) {
+  if (explicit === 'all' || explicit === '*') return null;
+  if (typeof explicit === 'string' && explicit.length > 0) return explicit;
+  return readProjectTenantId(cwd);
+}
+
+/**
  * Is leash installed and reachable? Returns rich status object.
  */
 export function getLeashAvailability(cwd = process.cwd()) {
@@ -75,6 +114,7 @@ export function getLeashAvailability(cwd = process.cwd()) {
     }
   } catch { /* ignore */ }
   const runStatus = isProxyRunning(cfg);
+  const tenant = readProjectTenantId(cwd);
   return {
     enabled: cfg.enabled,
     available: cfg.enabled && (auditExists || installExists),
@@ -84,6 +124,7 @@ export function getLeashAvailability(cwd = process.cwd()) {
     proxy_running: runStatus.running,
     proxy_pid: runStatus.pid || null,
     proxy_source: runStatus.source || null,
+    project_tenant_id: tenant,
     config: {
       audit_path: cfg.audit_path,
       proxy_url: cfg.proxy_url,
@@ -97,14 +138,17 @@ export function getLeashAvailability(cwd = process.cwd()) {
 /**
  * Read last N records from the JSONL audit log. Fast: reverse-streams.
  * Records have shape (per llm-leash audit spec):
- *   { ts, kind, model, tokens_in, tokens_out, cost_usd, decision, rule, hash, prev_hash }
+ *   { ts, kind, model, tokens_in, tokens_out, cost_usd, decision, rule, hash, prev_hash, tenant_id, session_id, agent_name }
+ *
+ * `tenant` filters records by `tenant_id` field. Pass null to disable filter
+ * (system-admin "all projects" view). Records without a tenant_id are
+ * INCLUDED only when no filter is requested (they came from un-tagged
+ * clients — usually pre-integration sessions).
  */
-export function readLeashAudit(cwd = process.cwd(), limit = 100, sinceMs = 0) {
+export function readLeashAudit(cwd = process.cwd(), limit = 100, sinceMs = 0, tenant = null) {
   const cfg = readLeashConfig(cwd);
   if (!fs.existsSync(cfg.audit_path)) return [];
   try {
-    // Cheap implementation — full read, reverse. JSONL is line-delimited.
-    // Caller bounds with `limit`; for huge logs we'd use a streaming tail.
     const raw = fs.readFileSync(cfg.audit_path, 'utf8');
     const lines = raw.split('\n').filter(Boolean);
     const out = [];
@@ -112,6 +156,7 @@ export function readLeashAudit(cwd = process.cwd(), limit = 100, sinceMs = 0) {
       try {
         const rec = JSON.parse(lines[i]);
         if (sinceMs && Date.parse(rec.ts || rec.timestamp || 0) < sinceMs) break;
+        if (tenant && rec.tenant_id !== tenant) continue;
         out.push(rec);
       } catch { /* skip malformed line */ }
     }
@@ -125,12 +170,12 @@ export function readLeashAudit(cwd = process.cwd(), limit = 100, sinceMs = 0) {
  * Compute live budget state from audit log (fallback when leash state.json absent).
  * Sums cost_usd for the current calendar day (UTC).
  */
-export function computeBudgetFromAudit(cwd = process.cwd()) {
+export function computeBudgetFromAudit(cwd = process.cwd(), tenant = null) {
   const cfg = readLeashConfig(cwd);
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
   const sinceMs = startOfDay.getTime();
-  const records = readLeashAudit(cwd, 10000, sinceMs);
+  const records = readLeashAudit(cwd, 10000, sinceMs, tenant);
   let spent_usd = 0;
   let calls = 0;
   let blocked = 0;
@@ -154,15 +199,20 @@ export function computeBudgetFromAudit(cwd = process.cwd()) {
 /**
  * Prefer leash state.json (authoritative). Fall back to computeBudgetFromAudit.
  */
-export function readLeashState(cwd = process.cwd()) {
+export function readLeashState(cwd = process.cwd(), tenant = null) {
   const cfg = readLeashConfig(cwd);
-  try {
-    if (fs.existsSync(cfg.state_path)) {
-      const raw = fs.readFileSync(cfg.state_path, 'utf8');
-      return { source: 'state.json', ...JSON.parse(raw) };
-    }
-  } catch { /* fall through */ }
-  return { source: 'audit-fallback', ...computeBudgetFromAudit(cwd) };
+  // state.json from `leash status --json` is global per-machine. When a tenant
+  // filter is requested we MUST recompute from audit — state.json doesn't
+  // break the totals down per tenant.
+  if (!tenant) {
+    try {
+      if (fs.existsSync(cfg.state_path)) {
+        const raw = fs.readFileSync(cfg.state_path, 'utf8');
+        return { source: 'state.json', tenant: null, ...JSON.parse(raw) };
+      }
+    } catch { /* fall through */ }
+  }
+  return { source: 'audit-fallback', tenant, ...computeBudgetFromAudit(cwd, tenant) };
 }
 
 /**
@@ -170,23 +220,31 @@ export function readLeashState(cwd = process.cwd()) {
  *   1. Read leash HITL API at /hitl/pending (preferred)
  *   2. Scan audit for `decision: hitl, status: pending`
  */
-export async function readHitlPending(cwd = process.cwd()) {
+export async function readHitlPending(cwd = process.cwd(), tenant = null) {
   const cfg = readLeashConfig(cwd);
   // Try HTTP first
   try {
     const items = await httpGetJson(`${cfg.hitl_url}/pending`, 1500);
-    if (Array.isArray(items)) return items;
+    if (Array.isArray(items)) {
+      return tenant ? items.filter((it) => it.tenant_id === tenant) : items;
+    }
   } catch { /* fall through */ }
-  // Fallback: scan audit
-  const recs = readLeashAudit(cwd, 1000);
+  // Fallback: scan audit (already tenant-filtered)
+  const recs = readLeashAudit(cwd, 1000, 0, tenant);
   return recs.filter((r) => r.decision === 'hitl' && r.status === 'pending');
 }
 
 /**
- * Fire kill switch. Returns { ok, output }.
+ * Fire kill switch. If `sessionId` is given, kills only that session via the
+ * leash admin API; otherwise kills all in-flight sessions. Returns { ok, output }.
  */
-export function fireKillSwitch(cwd = process.cwd(), reason = 'board-ui') {
+export function fireKillSwitch(cwd = process.cwd(), reason = 'board-ui', sessionId = null) {
   const cfg = readLeashConfig(cwd);
+  if (sessionId) {
+    // Per-session kill via admin HTTP API (no admin token needed for default install)
+    const url = (cfg.proxy_url || 'http://localhost:8765').replace(/\/$/, '') + `/admin/kill/${encodeURIComponent(sessionId)}`;
+    return httpJson(url, 'POST', { reason }, 5000);
+  }
   const r = spawnSync(cfg.cli_path, ['kill', '--all', '--reason', reason], {
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 5000,
@@ -195,6 +253,28 @@ export function fireKillSwitch(cwd = process.cwd(), reason = 'board-ui') {
     ok: r.status === 0,
     output: (r.stdout?.toString() || '') + (r.stderr?.toString() || ''),
   };
+}
+
+function httpJson(url, method, body, timeoutMs) {
+  // Synchronous-style wrapper that returns a promise-shaped object the caller
+  // can consume with `result.ok`. We use a fire-and-forget request here so the
+  // board endpoint doesn't have to await — kill via HTTP is best-effort.
+  try {
+    const u = new URL(url);
+    const data = JSON.stringify(body || {});
+    const req = http.request({
+      method, hostname: u.hostname, port: u.port,
+      path: u.pathname + u.search,
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      timeout: timeoutMs,
+    });
+    req.on('error', () => { /* swallow — leash may not be running */ });
+    req.write(data);
+    req.end();
+    return { ok: true, output: `kill request sent to ${url}` };
+  } catch (e) {
+    return { ok: false, output: String(e?.message || e) };
+  }
 }
 
 /**
