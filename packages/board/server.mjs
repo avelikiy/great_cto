@@ -1407,27 +1407,53 @@ function startAlertCron() {
 }
 
 function readVerdicts(cwd = null) {
-  // Per-project verdicts directory (<cwd>/.great_cto/verdicts/) when present.
-  // Global ~/.great_cto/verdicts/ is SHARED across all projects — using it
-  // for per-project AI spend gives the same total to every project, which
-  // is misleading. So:
-  //   1. cwd present + project-local dir exists → use that (honest, scoped)
-  //   2. cwd present + no local dir            → return empty so caller falls
-  //                                              back to time-based estimate
-  //   3. cwd absent (cron jobs, fleet)         → use global
+  // Verdict attribution model:
+  //   1. cwd given → read project-local <cwd>/.great_cto/verdicts/
+  //      PLUS any global verdict line tagged `project=<slug>` matching cwd
+  //   2. cwd absent (cron jobs, fleet view) → read ALL global verdicts
+  //
+  // Project slug resolution: PROJECT.md `slug:` field, else basename(cwd).
+  let projectSlug = null;
+  if (cwd) {
+    try {
+      const md = fs.readFileSync(path.join(cwd, '.great_cto', 'PROJECT.md'), 'utf8');
+      const m = md.match(/^slug:\s*(.+)$/m);
+      projectSlug = m ? m[1].trim() : path.basename(cwd);
+    } catch { projectSlug = path.basename(cwd); }
+  }
+  // First read project-local verdicts when scoped
   const projectVerdictDir = cwd ? path.join(cwd, '.great_cto', 'verdicts') : null;
   const useProjectDir = projectVerdictDir
     && fs.existsSync(projectVerdictDir)
     && fs.readdirSync(projectVerdictDir).filter(f => f.endsWith('.log')).length > 0;
-  if (cwd && !useProjectDir) return [];
-  const verdictDir = useProjectDir ? projectVerdictDir : path.join(GREAT_CTO_DIR, 'verdicts');
+  // For cwd-scoped reads, we collect from BOTH local AND tagged global lines
+  const verdictDirs = [];
+  if (useProjectDir) verdictDirs.push(projectVerdictDir);
+  if (!cwd) {
+    // Unscoped: read everything global
+    verdictDirs.push(path.join(GREAT_CTO_DIR, 'verdicts'));
+  }
   const results = [];
-  if (!fs.existsSync(verdictDir)) return results;
-  for (const file of fs.readdirSync(verdictDir)) {
+  // For scoped reads, also iterate global and filter by project= tag
+  const globalDir = path.join(GREAT_CTO_DIR, 'verdicts');
+  if (cwd && projectSlug && fs.existsSync(globalDir)) {
+    verdictDirs.push({ dir: globalDir, filterByProjectTag: projectSlug });
+  }
+  for (const entry of verdictDirs) {
+    const verdictDir = typeof entry === 'string' ? entry : entry.dir;
+    const projectTagFilter = typeof entry === 'string' ? null : entry.filterByProjectTag;
+    if (!fs.existsSync(verdictDir)) continue;
+    for (const file of fs.readdirSync(verdictDir)) {
     const agent = file.replace('.log', '');
     const lines = fs.readFileSync(path.join(verdictDir, file), 'utf8')
       .split('\n').filter(Boolean);
     for (const line of lines) {
+      // When reading global with a project filter, only include lines tagged
+      // with this project's slug.
+      if (projectTagFilter) {
+        const tagMatch = line.match(/\bproject=([^\s|]+)/);
+        if (!tagMatch || tagMatch[1] !== projectTagFilter) continue;
+      }
       // Two formats agents emit in the wild:
       //   space-separated:  "<ts> <verdict> <details> cost=$X"
       //   pipe-separated:   "<ts> | <agent> | <verdict> | <details> | cost=$X"
@@ -1457,6 +1483,7 @@ function readVerdicts(cwd = null) {
       });
     }
   }
+  }  // end verdictDirs loop
 
   // Fallback: enrich verdicts that lack cost_usd from .great_cto/cost-history.log.
   // Format: "<ISO-ts> <agent> <cost_usd>" per line (written by scripts/log-verdict.sh).
