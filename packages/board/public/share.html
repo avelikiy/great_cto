@@ -704,14 +704,25 @@ if (paused) {
     return (h / 8).toFixed(1) + 'd';
   }
 
-  // Compute AI time from real (closed_at - created_at) per task — fallback to avg×done
-  let totalAiMin = doneTasks.reduce((sum, t) => {
-    if (t.created_at && t.closed_at) {
-      const ms = new Date(t.closed_at) - new Date(t.created_at);
-      if (ms > 0 && ms < 30 * 86400_000) return sum + ms / 60000;  // ignore > 30d outliers
-    }
-    return sum;
-  }, 0);
+  // Compute AI active time — primary source: verdicts (actual work),
+  // fallback: wall-clock (created_at → closed_at, capped per-task).
+  //
+  // CAUTION: wall-clock includes idle time (tasks sitting open for days
+  // before being closed in a single commit). Per-task cap of 8h keeps
+  // long-lived tasks from inflating the total to hundreds of "AI days".
+  const verdictTimeMin = (m.agents_cost || []).reduce((s, a) => s + (a.time_min || 0), 0);
+  let totalAiMin = verdictTimeMin;
+  if (!totalAiMin) {
+    totalAiMin = doneTasks.reduce((sum, t) => {
+      if (t.created_at && t.closed_at) {
+        const ms = new Date(t.closed_at) - new Date(t.created_at);
+        // Cap per-task at 8h to filter out wall-clock idle-time noise.
+        // Anything longer is dominated by "task sat in backlog", not work.
+        if (ms > 0) return sum + Math.min(ms / 60000, 8 * 60);
+      }
+      return sum;
+    }, 0);
+  }
   if (!totalAiMin && m.avg_completion_min) totalAiMin = m.avg_completion_min * done;
 
   const llmUsd = m.cost?.llm_usd ?? 0;
