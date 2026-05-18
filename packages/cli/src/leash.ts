@@ -16,7 +16,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { log, success, warn, error, cyan, dim, bold } from "./ui.js";
 
 const REPO_URL = "https://github.com/avelikiy/llm-leash.git";
@@ -61,6 +62,8 @@ export async function runLeash(argv: string[]): Promise<LeashSubcommandResult> {
       return killAll();
     case "uninstall":
       return uninstall();
+    case "wire":
+      return wire(argv.includes("--unwire"));
     default:
       error(`great-cto leash: unknown subcommand '${sub}'`);
       printHelp();
@@ -78,6 +81,8 @@ function printHelp() {
   log("  " + cyan("status") + "        installed version vs GitHub latest, last audit-log entry");
   log("  " + cyan("start") + "         start the HTTP proxy on :8765 (env-var deployment)");
   log("  " + cyan("kill") + "          fire kill switch — stops all in-flight LLM calls (<300 ms)");
+  log("  " + cyan("wire") + "          install Python sitecustomize + Node --require wrappers");
+  log("  " + dim("              ") + "so anthropic/openai SDK clients auto-send tenant + session headers");
   log("  " + cyan("uninstall") + "     remove ~/.great_cto/llm-leash (config left intact)");
   log("");
   log(dim("  Config: " + CONFIG_PATH));
@@ -260,6 +265,74 @@ function uninstall(): LeashSubcommandResult {
   if (r.status === 0) success(`removed ${INSTALL_ROOT}`);
   log(dim(`config left intact at ${CONFIG_PATH}`));
   return { exitCode: r.status ?? 0 };
+}
+
+/**
+ * `great-cto leash wire` — install Python sitecustomize + Node --require
+ * wrappers into ~/.great_cto/leash-customize/ so every Anthropic / OpenAI
+ * client constructed in any child process inherits X-LLM-Leash-Tenant-Id
+ * and X-LLM-Leash-Session-Id headers automatically.
+ *
+ * Idempotent. Pass --unwire to remove. Leaves PROJECT.md untouched —
+ * tenant_id is already in PROJECT.md after great-cto init.
+ *
+ * Mark file ~/.great_cto/leash-customize/.wired so SessionStart hook
+ * knows it should expand .great_cto/env.sh with PYTHONSTARTUP / NODE_OPTIONS.
+ */
+async function wire(unwire: boolean): Promise<LeashSubcommandResult> {
+  const customizeDir = join(homedir(), ".great_cto", "leash-customize");
+  const markerFile = join(customizeDir, ".wired");
+
+  if (unwire) {
+    try {
+      const { rmSync } = await import("node:fs");
+      rmSync(customizeDir, { recursive: true, force: true });
+      success("removed leash header wrappers");
+      log(dim("re-source .great_cto/env.sh or open a new shell to clear PYTHONSTARTUP / NODE_OPTIONS"));
+    } catch (e) {
+      warn(`could not remove: ${(e as Error).message}`);
+    }
+    return { exitCode: 0 };
+  }
+
+  // Locate the source files inside the plugin: dist/main.js → ../../scripts/leash-customize/
+  const here = dirname(fileURLToPath(import.meta.url));
+  const srcDir = join(here, "..", "..", "scripts", "leash-customize");
+  if (!existsSync(srcDir)) {
+    error(`source dir not found: ${srcDir}`);
+    log("This usually means the plugin install is incomplete. Try `great-cto install` again.");
+    return { exitCode: 1 };
+  }
+
+  try {
+    const { mkdirSync, copyFileSync, writeFileSync, statSync } = await import("node:fs");
+    mkdirSync(join(customizeDir, "python"), { recursive: true });
+    mkdirSync(join(customizeDir, "node"), { recursive: true });
+    copyFileSync(
+      join(srcDir, "python", "sitecustomize.py"),
+      join(customizeDir, "python", "sitecustomize.py"),
+    );
+    copyFileSync(
+      join(srcDir, "node", "leash-init.cjs"),
+      join(customizeDir, "node", "leash-init.cjs"),
+    );
+    writeFileSync(
+      markerFile,
+      `wired_at=${new Date().toISOString()}\nplugin_src=${srcDir}\n`,
+    );
+    // sanity-check
+    statSync(join(customizeDir, "python", "sitecustomize.py"));
+    statSync(join(customizeDir, "node", "leash-init.cjs"));
+    success(`wired leash header wrappers → ${customizeDir}`);
+    log("");
+    log("Next: in any project where you want auto-tagging,");
+    log(`  source .great_cto/env.sh   ${dim("# sets PYTHONSTARTUP + NODE_OPTIONS + LEASH_TENANT_ID")}`);
+    log("Then launch your agent — Anthropic/OpenAI clients pick up the headers automatically.");
+    return { exitCode: 0 };
+  } catch (e) {
+    error(`wire failed: ${(e as Error).message}`);
+    return { exitCode: 1 };
+  }
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
