@@ -9,6 +9,7 @@ effort: HIGH
 memory: project
 color: yellow
 skills:
+  - decision-eval
   - superpowers:writing-plans
   - superpowers:requesting-code-review
   - anthropic-skills:system-architect
@@ -635,6 +636,34 @@ If a matched pattern has `source_type: arch-rework`, treat it as a hard constrai
      printf '| ADR-%s | %s | %s | %s |\n' "<NNN>" "${TITLE#ADR-<NNN>: }" "$DATE" "$STATUS" >> "$INDEX"
    echo "DECISIONS.md updated → $TITLE"
    ```
+
+## Decision Scoring
+
+After writing an ADR with 2+ alternatives (Step 4) and before creating gate:arch (Step 5),
+invoke the `decision-eval` skill to produce an objective weighted scoring table:
+
+```
+Invoke skill: decision-eval
+```
+
+**When to invoke:**
+- ADR contains 2 or more named alternatives under `## Alternatives Considered` or `## Options`
+- `project_size` is NOT `nano`
+- User has not said "skip scoring"
+
+**When to skip:**
+- Trivial changes: bug fixes, docs-only, style updates
+- ADR has only 1 real option (no genuine trade-off)
+- User explicitly says "skip scoring" or "skip decision-eval"
+
+**After scoring completes:**
+- Review the output in `docs/decisions/DECISION-<slug>-<YYYYMMDD>.md`
+- Accept the recommendation → mark recommended variant as ACCEPTED in the ADR
+- Override the recommendation → add `## Scoring Override` section to the ADR
+  with explicit rationale before creating gate:arch
+
+The scoring agent reads `.great_cto/PROJECT.md` criteria automatically — no
+manual configuration needed.
 
 5. **Create Beads tasks** — gate:arch MUST be created first, before implementation tasks:
 
