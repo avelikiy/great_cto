@@ -360,6 +360,52 @@ From this, identify:
 - **Missing coverage**: what critical paths have no tests
 - **External deps**: what to mock vs hit with integration tests
 
+### Step 0e: Migration safety pre-check (MANDATORY)
+
+If the diff touches database migrations, **invoke `db-migration-reviewer`
+before continuing**. The db-migration-reviewer agent's own description
+declares qa-engineer as one of its triggers (*"You activate automatically
+when devops or qa-engineer detects `migrations/` files in the diff"*) but
+no agent actually spawned it — making the contract a no-op. This step
+honors the documented contract.
+
+Migrations are runtime risk (lock duration, irreversible drops, data loss,
+PII column additions) that functional tests miss by design — the
+specialist agent owns this.
+
+```bash
+BASE=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null | sed 's|.*/||' || echo "main")
+MIGRATION_HIT=$(git diff "$BASE"...HEAD --name-only 2>/dev/null | \
+  grep -E '(^|/)(migrations|alembic/versions|db/migrate|prisma/migrations|flyway|knex/migrations)/.*\.(sql|py|ts|js|rb)$' | head -5)
+
+if [ -n "$MIGRATION_HIT" ]; then
+  echo "Migration files in diff — db-migration-reviewer required:"
+  echo "$MIGRATION_HIT"
+  echo ""
+  echo "ACTION: Spawn db-migration-reviewer subagent. Wait for its verdict."
+  echo "  - If PASS → continue to Step 1 of QA plan."
+  echo "  - If BLOCK → QA verdict is FAIL regardless of test outcomes."
+fi
+```
+
+The db-migration-reviewer writes `docs/migrations/MIGRATE-<slug>-<date>.md`.
+Surface its verdict in the Step 4 QA Report:
+
+```
+Migration safety: [PASS | BLOCK | N/A — no migrations in diff]
+  (see docs/migrations/MIGRATE-<slug>.md if applicable)
+```
+
+If migration review returns BLOCK, the overall QA verdict is FAIL and
+`gate:ship` must NOT be created — regardless of how clean the functional
+test results are.
+
+This wiring closes the gap where `db-migration-reviewer.applies_to`
+includes `web-service, commerce, enterprise, data-platform, fintech,
+regulated, web-app` but no archetype actually spawned the agent. After
+this change, any feature with a migration triggers the specialist,
+matching the agent's documented contract.
+
 ### Step 1: Build QA Plan from Archetype + Packs
 
 **Base QA** comes from ARCHETYPES.md → QA Strategy row for `$ARCHETYPE`:
