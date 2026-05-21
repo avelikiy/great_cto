@@ -6,9 +6,9 @@
  * Phase 2 (v1.2.0): additionally registers this project in
  *                   ~/.great_cto/projects/<slug>/lessons.md (symlink) so
  *                   lessons-merge.mjs can consolidate cross-project patterns.
- *                   Continuous-learner is triggered by the user via /learn
- *                   or by the next /save (since SessionEnd hook runs in a
- *                   sandbox without access to the agent fleet).
+ * Phase 3 (v1.3.0): auto-triggers continuous-learner agent at session end
+ *                   when GREAT_CTO_AUTO_LEARN=1 is set. Off by default to
+ *                   avoid surprising existing users.
  *
  * Hook protocol:
  *   stdin:  { session_id, reason }    (Claude Code SessionEnd payload)
@@ -16,6 +16,7 @@
  *   exit:   0 always (never block session shutdown)
  *
  * Opt-out: GREAT_CTO_DISABLE_SESSION_LEARNING=1
+ * Auto-learn: GREAT_CTO_AUTO_LEARN=1 (opt-in, default off)
  *
  * @see docs/HOOKS.md
  * @see docs/LEARNING.md
@@ -75,6 +76,41 @@ function captureCostHint() {
   } catch { return ''; }
 }
 
+/**
+ * Spawn the continuous-learner agent in detached, best-effort mode.
+ * Never throws — session end must not be blocked.
+ *
+ * Enabled only when GREAT_CTO_AUTO_LEARN=1.
+ * Silently skipped when claude CLI is not found.
+ * Writes .great_cto/.last-auto-learn on success.
+ */
+function spawnLearner() {
+  if (process.env.GREAT_CTO_AUTO_LEARN !== '1') return;
+
+  try {
+    // Locate the claude CLI — prefer PATH resolution
+    const which = spawnSync('which', ['claude'], { encoding: 'utf8', timeout: 3_000 });
+    if (which.status !== 0 || !which.stdout.trim()) return; // claude CLI not found — silent skip
+
+    const child = spawn(
+      'claude',
+      ['--agent', 'continuous-learner'],
+      {
+        detached: true,
+        stdio: 'ignore',
+        timeout: 90_000,
+      },
+    );
+    child.unref();
+
+    // Write marker file with ISO timestamp on successful spawn
+    try {
+      mkdirSync('.great_cto', { recursive: true });
+      writeFileSync('.great_cto/.last-auto-learn', new Date().toISOString() + '\n');
+    } catch { /* never block */ }
+  } catch { /* never block session end */ }
+}
+
 function main() {
   if (process.env.GREAT_CTO_DISABLE_SESSION_LEARNING === '1') return process.exit(0);
 
@@ -117,15 +153,14 @@ reason: ${reason}
 ${costHint || '(no cost log)'}
 \`\`\`
 
-## Phase 2 placeholder
+## Auto-learning
 
-When v1.2.0 ships with continuous-learner, this hook will additionally:
-- Read the session transcript
-- Extract repeated patterns / decisions / cost outliers
-- Append structured entries to .great_cto/lessons.md
-- Promote skill-candidates after ≥3 occurrences to ~/.great_cto/decisions.md
+continuous-learner runs automatically at session end when GREAT_CTO_AUTO_LEARN=1.
+It reads this snapshot, extracts repeatable patterns, and appends to .great_cto/lessons.md.
+Promote skill-candidates after ≥3 occurrences to ~/.great_cto/decisions.md.
 
-For now, this is just a snapshot.
+To enable: export GREAT_CTO_AUTO_LEARN=1
+To disable: unset GREAT_CTO_AUTO_LEARN (or set to anything other than 1)
 `;
 
   // Don't overwrite if a /save log already exists for this session.
@@ -162,6 +197,9 @@ For now, this is just a snapshot.
       child.unref();
     }
   } catch { /* never block session end */ }
+
+  // --- Auto-trigger continuous-learner (Phase 3) ---
+  spawnLearner();
 
   return process.exit(0);
 }
