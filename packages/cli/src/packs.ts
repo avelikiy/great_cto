@@ -1,6 +1,7 @@
 // Domain pack detection — overlay packs that ride on top of base archetypes.
 // Wave 1-3 (2026-05): voice, clinical, hr-ai, api-platform, lending, clinical-trials,
 // robotics, em-fintech, climate, drug-discovery.
+// Wave 4 (2026-05): digital-health (wearable, mental-health, nutrition AI, physician HITL).
 //
 // A pack is a regulatory/domain overlay that triggers one or more specialist
 // reviewers (agents/{name}-reviewer.md) when its signals appear in stack,
@@ -19,7 +20,8 @@ export type PackName =
   | "robotics-pack"
   | "em-fintech-pack"
   | "climate-pack"
-  | "drug-discovery-pack";
+  | "drug-discovery-pack"
+  | "digital-health-pack";
 
 export interface PackMatch {
   pack: PackName;
@@ -41,6 +43,7 @@ const PACK_REVIEWERS: Record<PackName, string[]> = {
   "em-fintech-pack":       ["emerging-markets-fintech-reviewer"],
   "climate-pack":          ["climate-mrv-reviewer", "biosecurity-reviewer"],
   "drug-discovery-pack":   ["drug-discovery-ml-reviewer", "glp-glab-reviewer", "lab-automation-reviewer"],
+  "digital-health-pack":   ["digital-health-reviewer", "ai-clinical-reviewer", "healthcare-reviewer"],
 };
 
 const PACK_GATES: Record<PackName, string[]> = {
@@ -54,6 +57,7 @@ const PACK_GATES: Record<PackName, string[]> = {
   "em-fintech-pack":       ["gate:license-strategy"],
   "climate-pack":          ["gate:mrv-methodology", "gate:durc-signoff", "gate:open-weights-release"],
   "drug-discovery-pack":   ["gate:model-card-signoff", "gate:csv-validation", "gate:iq-oq-pq"],
+  "digital-health-pack":   ["gate:wellness-vs-samd", "gate:hitl-design", "gate:wearable-api-access", "gate:supplement-safety", "gate:mental-health-protocol"],
 };
 
 // Trigger signals — stack tokens OR README keywords.
@@ -107,6 +111,25 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
               // GLP / lab-automation triggers
               "glp", "gmp", "gxp", "preclinical", "lims", "eln", "annex 11", "alcoa",
               "lab automation", "cloud lab", "robotic biology", "liquid handler", "hamilton", "tecan", "beckman", "opentrons", "plate reader", "sequencer", "hplc", "mass spec", "sila"],
+  },
+  "digital-health-pack": {
+    stack: ["healthkit", "health-connect", "garmin-connect-iq", "samsung-health", "fitbit", "polar", "withings", "oura", "whoop"],
+    keywords: [
+      // wearable / biometric
+      "wearable", "apple watch", "apple health", "healthkit", "health connect", "garmin", "samsung health",
+      "google fit", "fitbit", "heart rate", "hrv", "heart rate variability", "spo2", "sleep tracking",
+      "sleep stages", "biometric sensor", "stress score", "activity tracking", "ecg wearable",
+      // mental health / wellness AI
+      "mental health", "mental wellness", "wellbeing", "mindfulness ai", "stress detection",
+      "burnout detection", "mood tracking", "anxiety ai", "depression ai", "phq-9", "gad-7",
+      "digital therapeutics", "dtx", "cbt app", "dbt app", "therapy ai",
+      // fitness / nutrition AI
+      "personalised training", "personalized training", "fitness ai", "nutrition ai",
+      "supplement recommendation", "supplement ai", "diet ai", "meal plan ai", "macro ai",
+      // HITL clinical
+      "physician review", "physician hitl", "doctor in the loop", "clinical review workflow",
+      "remote patient monitoring", "rpm", "teleconsultation",
+    ],
   },
 };
 

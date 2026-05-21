@@ -84,6 +84,11 @@
 | ISO 27001, ISMS, information security management system, Statement of Applicability, SoA, Annex A, ISMS scope | `iso27001-scope` |
 | TISAX, automotive supplier, VDA ISA, BMW supplier, Mercedes supplier, Volkswagen supplier, prototype protection, AL1, AL2, AL3 | `automotive-supplier` |
 | voice agent, voice AI, VAPI, ElevenLabs conversational, Retell AI, voice bot, telephony AI, real-time voice, call center AI | `voice-agent` |
+| digital health, mHealth, wearable app, fitness AI, wellness AI, personalised training, heart rate AI, HRV, sleep tracking AI, mental health app, mental wellness, wellbeing app, stress detection, burnout AI, mindfulness AI | `digital-health` |
+| wearable integration, Apple Watch, Apple HealthKit, Garmin, Samsung Health, Google Fit, Health Connect, Polar, Fitbit, Whoop, Oura Ring, biometric sync, sensor telemetry | `wearable-platform` |
+| nutrition AI, supplement recommendation, personalised nutrition, diet AI, macros AI, meal plan AI, supplement stack | `nutrition-ai` |
+| physician HITL, doctor in the loop, clinical review workflow, physician review, human-in-the-loop healthcare, teleconsultation AI, remote patient monitoring, RPM | `clinical-hitl` |
+| digital therapeutics, DTx, prescription digital therapeutics, evidence-based app therapy, CBT app, DBT app, exposure therapy app | `digital-therapeutics` |
 | edge app, Cloudflare Workers, Deno Deploy, Vercel Edge, Fastly Compute, edge function, edge-first, edge runtime | `edge-app` |
 | multimodal, vision + text, audio + text, GPT-4o app, Claude vision, Gemini multimodal, multi-modal AI, image understanding app | `multimodal-app` |
 | API platform, public API, developer API, REST platform, OpenAPI-first, API-as-a-product | `api-platform` |
@@ -173,6 +178,11 @@
 | `stack-migration` | `web-service` | qa-extras: [snapshot-regression, dual-runtime] |   |
 | `monorepo` | `web-service` | qa-extras: [affected-only-test] |  |
 | `video-streaming` | `web-service` | qa-extras: [webrtc-security, cdn-latency] |  |
+| `digital-health` | `agent-product` | compliance: [hipaa, gdpr-art9, eu-ai-act, ftc-health-breach], packs: [digital-health-pack, ai-pack], qa-extras: [hitl-boundary, supplement-safety, refuse-to-diagnose, safe-messaging, gdpr-consent-revocation] | security gate: standard → deep on any clinical signal |
+| `wearable-platform` | `agent-product` | compliance: [gdpr-art9, ccpa-spi, healthkit-policy, health-connect-policy], packs: [digital-health-pack], qa-extras: [data-minimisation, platform-policy-compliance, wearable-api-access] |  |
+| `nutrition-ai` | `ai-system` | compliance: [ftc-claims, dshea, gdpr-art9], packs: [digital-health-pack], qa-extras: [supplement-safety, drug-interaction-check, refuse-to-diagnose] |  |
+| `clinical-hitl` | `agent-product` | compliance: [hipaa, gdpr-art9, eu-ai-act-annex3], packs: [digital-health-pack, clinical-pack], qa-extras: [hitl-boundary, hitl-sla, physician-credentialing] | security gate: deep; min-size: large |
+| `digital-therapeutics` | `regulated` | compliance: [21cfr11, hipaa, gdpr-art9, eu-ai-act-annex3, iso14971], packs: [digital-health-pack, clinical-pack], qa-extras: [rct-equivalence, clinical-validation, refuse-to-diagnose] | min-size: enterprise; security gate: deep |
 
 ## How /start Uses This Table
 

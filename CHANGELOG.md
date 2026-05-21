@@ -5,6 +5,32 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.14.0 — 2026-05-21
+
+### Digital health pipeline — wearable · mental health AI · nutrition AI · physician HITL
+
+- **`digital-health-reviewer` agent** — new specialist reviewer for mHealth / digital health products. Covers FDA General Wellness vs SaMD classification, HIPAA applicability matrix (consumer wellness vs employer/provider deployment), GDPR Article 9 special-category health data (DPIA required), CCPA/CPRA Sensitive Personal Information tier, wearable platform API rules (Apple HealthKit, Google Health Connect, Garmin, Samsung Health), drug-supplement interaction safety gates, physician HITL workflow design (trigger matrix, SLA, escalation path), mental health crisis protocol (AFSP Safe Messaging compliance, 988/116-123 crisis routing), EU AI Act Annex III healthcare classification. Outputs `TM-digital-health-{slug}.md`.
+- **`digital-health-pack`** — new domain pack: chains `digital-health-reviewer` → `ai-clinical-reviewer` (on SaMD signal) → `healthcare-reviewer` (on HIPAA scope). Adds 5 human gates: `gate:wellness-vs-samd`, `gate:hitl-design`, `gate:wearable-api-access`, `gate:supplement-safety`, `gate:mental-health-protocol`. Ships 8 EVAL suites (hitl-boundary, supplement-safety, safe-messaging, refuse-to-diagnose, etc.) and a wearable integration checklist for senior-dev pre-ship.
+- **`packs.ts`** — registered `digital-health-pack` with detection signals: wearable stack tokens (`healthkit`, `health-connect`, `samsung-health`, `fitbit`, etc.) and README keywords (`wearable`, `apple watch`, `mental health`, `garmin`, `samsung health`, `fitness ai`, `nutrition ai`, `supplement recommendation`, `personalised training`, `physician review`, `physician hitl`, `wellbeing`, `mindfulness ai`, and 20+ more).
+- **`TYPE_MAP.md`** — added 6 new type entries: `digital-health`, `wearable-platform`, `nutrition-ai`, `clinical-hitl`, `digital-therapeutics`, each mapping to `agent-product` or `regulated` archetype with appropriate compliance tags and pack overlays.
+- **`SKILL.md`** — added routing row for wearable/mental health/nutrition/physician HITL triggers → `digital-health-reviewer`.
+- **`adapt.ts`** — routing table updated with digital-health-reviewer dispatch row.
+- **Tests** — `tests/packs.test.mjs` (17 tests): pack trigger detection, reviewer chain composition, gate firing, false-positive guard for generic web projects.
+- **README** — updated to 51 agents · 16 domain packs · 27 archetype reviewers.
+
+---
+
+## v2.13.0 — 2026-05-21
+
+### AI-native self-improvement loop
+
+- **Self-improving loop** — `session-end` hook now auto-triggers `continuous-learner` agent when `GREAT_CTO_AUTO_LEARN=1`; writes `.great_cto/.last-auto-learn` marker on each run
+- **Decision scoring** — new `decision-scorer` agent (Sonnet) scores architectural alternatives across 5 weighted dimensions; `decision-eval` skill wires it into the `architect` workflow automatically after 2+ ADR variants
+- **Evals Runner (CI)** — `tests/eval/runner.mjs` runs 38 EVAL-*.md scenario files through a two-agent LLM judge (Sonnet actor → Opus judge) using `ANTHROPIC_API_KEY`; GitHub Actions workflow fires on every PR touching `agents/**` or `tests/eval/**`
+- **`/crystallize` skill** — distils repeating patterns from session logs into draft `skills/{domain}/SKILL.md` files; session-end hook suggests running it every 10 sessions; `knowledge-extractor` agent (Opus) does the deep clustering analysis
+
+---
+
 ## v2.12.1 — 2026-05-18
 
 ### Security tab UI/UX overhaul

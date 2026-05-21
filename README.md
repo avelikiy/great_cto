@@ -4,7 +4,7 @@
 
 **Solo-CTO mode. Stop being the only person who can ship.**
 
-**The engineering OS for Claude Code** — open-source, local-first alternative to Devin. great_cto orchestrates **50 specialist agents** around your Claude Code: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 26 archetype reviewers and **15 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · edtech · gov · gaming · enterprise · insurance).
+**The engineering OS for Claude Code** — open-source, local-first alternative to Devin. great_cto orchestrates **51 specialist agents** around your Claude Code: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 27 archetype reviewers and **16 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · digital-health · edtech · gov · gaming · enterprise · insurance).
 
 You're the solo CTO. You're also the bottleneck. **GreatCTO is 50 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
@@ -23,7 +23,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 50 specialist age
 
 ## What is great_cto?
 
-You describe what you want (`/start "build a billing endpoint"`). 50 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 26 archetype reviewers and **15 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · **edtech · gov · gaming · enterprise · insurance**) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
+You describe what you want (`/start "build a billing endpoint"`). 51 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 27 archetype reviewers and **16 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · **digital-health · edtech · gov · gaming · enterprise · insurance**) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
 
 The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; a deep cross-cutting feature runs through 7+ agents over an hour. **You confirm two gates** (plan, ship). Everything else is automatic.
 
@@ -46,7 +46,7 @@ Architects, planners, reviewers, QA, security, DevOps run automatically between 
 | Open source | ✅ MIT | ❌ closed | ❌ closed plugin model |
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | BYOK / multi-model | ✅ Claude Code | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **50** (architect · PM · 12-angle review · QA · security · devops · 26 archetype reviewers · 15 domain packs) | 1 generalist | 1 generalist |
+| Specialist agents | **50** (architect · PM · 12-angle review · QA · security · devops · 26 archetype reviewers · 16 domain packs) | 1 generalist | 1 generalist |
 | SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
 | Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
@@ -146,18 +146,19 @@ Each archetype activates its own specialist agents and compliance checklists. To
 
 Full table (25 archetypes) + how detection works: [docs/ARCHETYPES.md](docs/ARCHETYPES.md).
 
-## 15 domain packs — overlay reviewers
+## 16 domain packs — overlay reviewers
 
 Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-specific signals (deps, README terms). Each pack adds its own reviewer(s), threat-model template, EVAL suite, and human gates — independent of base archetype.
 
 | Category | Packs |
 |---|---|
 | **AI verticals** | `voice-pack` · `clinical-pack` · `hr-ai-pack` · `drug-discovery-pack` |
+| **Digital health** | `digital-health-pack` _(wearable telemetry · mental-health AI · nutrition AI · physician HITL)_ |
 | **Fintech / regulated** | `lending-pack` · `em-fintech-pack` · `insurance-pack` · `enterprise-pack` |
 | **High-compliance** | `clinical-trials-pack` · `gov-pack` · `edtech-pack` · `climate-pack` |
 | **Engineering** | `api-platform-pack` · `robotics-pack` · `game-pack` |
 
-→ **22 human-gate types** + 50+ reference EVAL suites + 19 TM templates. Browse all 15 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
+→ **27 human-gate types** + 50+ reference EVAL suites + 20 TM templates. Browse all 16 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
 
 ## One real run, fully traced
 
@@ -234,7 +235,7 @@ The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are mark
 
 **v2.9.1** (May 2026) — **zero-setup email alerts** (5 trigger types · 100/24h free via `greatcto.systems/notify` relay · no Resend signup) · **session-start auto-attach reviewers** (scans recent diff → flags the right specialist `subagent_type` so the 24 reviewers stop sitting idle) · `subagent_type` routing table in `CLAUDE.md` / `AGENTS.md`.
 
-**v2.8.6** — Claude Code-only release · **15 domain packs** (added edtech / gov / gaming / enterprise / insurance) · 4-layer journey visualization on [/packs.html](https://greatcto.systems/packs.html) · 50 specialist agents.
+**v2.8.6** — Claude Code-only release · **16 domain packs** (added edtech / gov / gaming / enterprise / insurance) · 4-layer journey visualization on [/packs.html](https://greatcto.systems/packs.html) · 50 specialist agents.
 
 [Full changelog →](CHANGELOG.md)
 

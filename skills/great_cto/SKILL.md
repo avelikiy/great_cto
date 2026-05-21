@@ -31,6 +31,7 @@ pipeline gets bypassed.
 | API contract: OpenAPI, GraphQL schema, webhook signatures | `api-platform-reviewer` |
 | Voice/IVR/telephony, Twilio, recording-consent, TCPA | `voice-ai-reviewer` |
 | Clinical / SaMD / FDA / FHIR / PHI / HIPAA | `ai-clinical-reviewer`, `fda-reviewer` |
+| Wearable telemetry, HealthKit, Health Connect, Garmin, Samsung Health, fitness AI, mental health AI, nutrition AI, supplement AI, physician HITL | `digital-health-reviewer` |
 | Lending, ECOA, FCRA, NMLS, adverse action | `lending-credit-reviewer` |
 | HR-AI, hiring, AEDT, resume screening, NYC LL 144 | `hr-ai-reviewer` |
 | EdTech: COPPA, FERPA, GDPR-K, Section 508 | `edtech-reviewer` |
