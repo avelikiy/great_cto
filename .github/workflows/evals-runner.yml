@@ -1,8 +1,12 @@
 # Automated LLM-judge runner for EVAL-*.md scenario files.
 #
-# Fires on every PR that touches agents/ or tests/eval/, and on manual dispatch.
-# Samples 5 EVAL files per PR run to keep costs low (~$0 with the free model).
-# If OPENROUTER_API_KEY secret is absent the job skips gracefully (no PR failure).
+# Two-agent pattern:
+#   Actor  (claude-sonnet-4-5) — simulates great_cto agent behaviour per test case
+#   Judge  (claude-opus-4-5)   — evaluates actor response against expected criteria
+#
+# Fires on every PR touching agents/ or tests/eval/, and on manual dispatch.
+# PRs sample 5 EVAL files to keep costs low (~$0.10-0.20 per run).
+# If ANTHROPIC_API_KEY secret is absent the job skips gracefully (no PR failure).
 
 name: Evals Runner
 
@@ -18,10 +22,14 @@ on:
         description: 'Number of EVAL files to sample (0 = all)'
         required: false
         default: '5'
-      eval_model:
-        description: 'OpenRouter model to use'
+      actor_model:
+        description: 'Actor model (simulates agent behaviour)'
         required: false
-        default: 'meta-llama/llama-3.1-8b-instruct:free'
+        default: 'claude-sonnet-4-5'
+      judge_model:
+        description: 'Judge model (evaluates actor response)'
+        required: false
+        default: 'claude-opus-4-5'
 
 permissions:
   contents: read
@@ -40,13 +48,13 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Check OPENROUTER_API_KEY
+      - name: Check ANTHROPIC_API_KEY
         id: key-check
         env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          if [ -z "$OPENROUTER_API_KEY" ]; then
-            echo "::warning::OPENROUTER_API_KEY secret is not set — skipping LLM judge run."
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::ANTHROPIC_API_KEY secret is not set — skipping LLM judge run."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -56,7 +64,6 @@ jobs:
         id: sample
         if: steps.key-check.outputs.skip == 'false'
         run: |
-          # PR runs → 5 files; manual dispatch uses the input (0 = all)
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "size=5" >> "$GITHUB_OUTPUT"
           else
@@ -67,8 +74,9 @@ jobs:
         id: eval
         if: steps.key-check.outputs.skip == 'false'
         env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          EVAL_MODEL: ${{ github.event.inputs.eval_model || 'meta-llama/llama-3.1-8b-instruct:free' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_ACTOR_MODEL: ${{ github.event.inputs.actor_model || 'claude-sonnet-4-5' }}
+          EVAL_JUDGE_MODEL: ${{ github.event.inputs.judge_model || 'claude-opus-4-5' }}
         run: |
           SAMPLE="${{ steps.sample.outputs.size }}"
           if [ "$SAMPLE" = "0" ]; then
@@ -103,7 +111,6 @@ jobs:
               ? fs.readFileSync(outputPath, 'utf8').slice(0, 4000)
               : '(no eval output captured)';
 
-            // Parse results.jsonl for a quick summary of failing evals
             let failingSummary = '';
             if (fs.existsSync(resultsPath)) {
               const lines = fs.readFileSync(resultsPath, 'utf8').trim().split('\n');
@@ -119,16 +126,15 @@ jobs:
             }
 
             const today = new Date().toISOString().slice(0, 10);
-            const title = `eval regression detected — ${today}`;
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title,
+              title: `eval regression detected — ${today}`,
               body: [
-                'The Evals Runner detected one or more EVAL files where the LLM judge',
-                'pass rate fell below the configured threshold.',
+                'The Evals Runner (Sonnet actor / Opus judge) detected one or more EVAL files',
+                'where the pass rate fell below the configured threshold.',
                 '',
                 failingSummary,
                 '## Runner output',
@@ -140,7 +146,7 @@ jobs:
                 '- Inspect the `evals-results` artifact attached to the workflow run',
                 '- Review failing EVAL scenarios and expected behaviours',
                 '- If a legitimate regression: fix the underlying agent logic',
-                '- If a false-positive from the judge model: re-run with `workflow_dispatch` using a stronger model',
+                '- Re-run with `workflow_dispatch` to use different actor/judge models',
                 '',
                 `Workflow run: ${runUrl}`,
               ].join('\n'),

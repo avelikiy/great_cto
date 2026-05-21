@@ -152,9 +152,9 @@ test('parseEvalFile: clinical format — threshold 0.95', () => {
 
 // ── --dry-run flag ────────────────────────────────────────────────────────────
 
-test('--dry-run: exits 0 without OPENROUTER_API_KEY', () => {
+test('--dry-run: exits 0 without ANTHROPIC_API_KEY', () => {
   const result = spawnSync(process.execPath, [RUNNER, '--dry-run'], {
-    env: { ...process.env, OPENROUTER_API_KEY: '' },
+    env: { ...process.env, ANTHROPIC_API_KEY: '' },
     encoding: 'utf8',
     timeout: 15_000,
   });
@@ -167,7 +167,7 @@ test('--dry-run: exits 0 without OPENROUTER_API_KEY', () => {
 
 test('--dry-run: prints file list without API calls', () => {
   const result = spawnSync(process.execPath, [RUNNER, '--dry-run'], {
-    env: { ...process.env, OPENROUTER_API_KEY: '' },
+    env: { ...process.env, ANTHROPIC_API_KEY: '' },
     encoding: 'utf8',
     timeout: 15_000,
   });
@@ -178,10 +178,10 @@ test('--dry-run: prints file list without API calls', () => {
 
 // ── Missing API key (non-dry-run) ─────────────────────────────────────────────
 
-test('missing OPENROUTER_API_KEY exits 1 with clear message', () => {
+test('missing ANTHROPIC_API_KEY exits 1 with clear message', () => {
   // Strip the key from env
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([k]) => k !== 'OPENROUTER_API_KEY')
+    Object.entries(process.env).filter(([k]) => k !== 'ANTHROPIC_API_KEY')
   );
   const result = spawnSync(process.execPath, [RUNNER], {
     env,
@@ -191,8 +191,8 @@ test('missing OPENROUTER_API_KEY exits 1 with clear message', () => {
   assert.equal(result.status, 1, `Expected exit 1, got ${result.status}`);
   const combined = result.stdout + result.stderr;
   assert.ok(
-    combined.includes('OPENROUTER_API_KEY'),
-    `Expected error about OPENROUTER_API_KEY. Got: ${combined.slice(0, 300)}`
+    combined.includes('ANTHROPIC_API_KEY'),
+    `Expected error about ANTHROPIC_API_KEY. Got: ${combined.slice(0, 300)}`
   );
 });
 
