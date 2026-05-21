@@ -22,10 +22,14 @@
  * @see docs/LEARNING.md
  */
 
-import { readFileSync, mkdirSync, writeFileSync, existsSync, symlinkSync, unlinkSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync, symlinkSync, unlinkSync, readdirSync } from 'node:fs';
 import { spawnSync, spawn } from 'node:child_process';
 import { homedir } from 'node:os';
-import { join, resolve, basename } from 'node:path';
+import { join, resolve, basename, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { checkCrystallizeHint } from '../crystallize-hint.mjs';
+
+export { checkCrystallizeHint };
 
 const LOG_DIR = '.great_cto/logs';
 const HOME = homedir();
@@ -74,6 +78,19 @@ function captureCostHint() {
     const lines = txt.trim().split('\n');
     return lines.slice(-5).join('\n');
   } catch { return ''; }
+}
+
+/**
+ * Count current session-*-end.md files in .great_cto/logs/.
+ * Returns 0 on any error (non-existent dir, permission denied, etc.).
+ *
+ * @returns {number}
+ */
+function countSessionLogs() {
+  try {
+    const files = readdirSync(LOG_DIR);
+    return files.filter(f => /^session-.*-end\.md$/.test(f)).length;
+  } catch { return 0; }
 }
 
 /**
@@ -163,9 +180,14 @@ To enable: export GREAT_CTO_AUTO_LEARN=1
 To disable: unset GREAT_CTO_AUTO_LEARN (or set to anything other than 1)
 `;
 
+  // Append crystallize hint if session count warrants it.
+  // Count BEFORE writing this file so the threshold math is consistent.
+  const sessionCount = countSessionLogs();
+  const crystallizeHint = checkCrystallizeHint(sessionCount);
+
   // Don't overwrite if a /save log already exists for this session.
   if (!existsSync(filename)) {
-    try { writeFileSync(filename, content); } catch { /* never block */ }
+    try { writeFileSync(filename, content + crystallizeHint); } catch { /* never block */ }
   }
 
   // --- Cross-project lessons registration (Phase 2) ---

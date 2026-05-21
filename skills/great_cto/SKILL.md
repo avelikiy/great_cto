@@ -50,6 +50,7 @@ pipeline gets bypassed.
 | Deploy / canary / rollback / SLO | `devops` |
 | Production incident triage, P0 postmortem | `l3-support` |
 | Pattern extraction from session → `lessons.md` | `continuous-learner` |
+| Crystallize sessions → new skills | `continuous-learner` → `knowledge-extractor` | `/crystallize` |
 
 **Rule of thumb**: if a file pattern OR topic in the user's request matches
 one of the rows above, dispatch that specialist **first**. Reach for
@@ -343,6 +344,7 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 | "show report" / "show QA" / "show security" | Find latest matching file: `ls docs/qa-reports/ docs/security/ docs/architecture/ 2>/dev/null \| sort \| tail -1` → read and display |
 | "update agents" | `/update` command |
 | "capture this process" / "save as skill" | `/capture` — interview → SKILL.md |
+| `/crystallize` / "crystallize" / "extract knowledge" / "what have we learned?" / "turn lessons into skills" | Dispatch `crystallize` skill |
 | "revisit ADR" / "reconsider ADR-NNN" | `/revisit` — re-evaluate ADR against current state |
 | "digest" / "weekly summary" / "show metrics" / "DORA" | `/digest` — velocity, DORA metrics, tech debt, recommendations |
 | "review code" / "code review" / "check the PR" | `/review` — 3-angle code review (perf / security / readability) |
