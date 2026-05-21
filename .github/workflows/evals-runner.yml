@@ -1,0 +1,148 @@
+# Automated LLM-judge runner for EVAL-*.md scenario files.
+#
+# Fires on every PR that touches agents/ or tests/eval/, and on manual dispatch.
+# Samples 5 EVAL files per PR run to keep costs low (~$0 with the free model).
+# If OPENROUTER_API_KEY secret is absent the job skips gracefully (no PR failure).
+
+name: Evals Runner
+
+on:
+  pull_request:
+    paths:
+      - 'agents/**'
+      - 'tests/eval/**'
+      - '.github/workflows/evals-runner.yml'
+  workflow_dispatch:
+    inputs:
+      sample:
+        description: 'Number of EVAL files to sample (0 = all)'
+        required: false
+        default: '5'
+      eval_model:
+        description: 'OpenRouter model to use'
+        required: false
+        default: 'meta-llama/llama-3.1-8b-instruct:free'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  eval-judge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check OPENROUTER_API_KEY
+        id: key-check
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::warning::OPENROUTER_API_KEY secret is not set — skipping LLM judge run."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine sample size
+        id: sample
+        if: steps.key-check.outputs.skip == 'false'
+        run: |
+          # PR runs → 5 files; manual dispatch uses the input (0 = all)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "size=5" >> "$GITHUB_OUTPUT"
+          else
+            echo "size=${{ github.event.inputs.sample || '5' }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run eval judge
+        id: eval
+        if: steps.key-check.outputs.skip == 'false'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          EVAL_MODEL: ${{ github.event.inputs.eval_model || 'meta-llama/llama-3.1-8b-instruct:free' }}
+        run: |
+          SAMPLE="${{ steps.sample.outputs.size }}"
+          if [ "$SAMPLE" = "0" ]; then
+            node tests/eval/runner.mjs 2>&1 | tee /tmp/eval-output.txt
+          else
+            node tests/eval/runner.mjs --sample "$SAMPLE" 2>&1 | tee /tmp/eval-output.txt
+          fi
+          EXIT=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT" >> "$GITHUB_OUTPUT"
+          exit $EXIT
+
+      - name: Upload results artifact
+        if: steps.key-check.outputs.skip == 'false' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-results-${{ github.run_id }}
+          path: |
+            tests/eval/results.jsonl
+            /tmp/eval-output.txt
+          retention-days: 90
+
+      - name: Open issue on eval regression
+        if: steps.key-check.outputs.skip == 'false' && steps.eval.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const outputPath = '/tmp/eval-output.txt';
+            const resultsPath = 'tests/eval/results.jsonl';
+
+            const output = fs.existsSync(outputPath)
+              ? fs.readFileSync(outputPath, 'utf8').slice(0, 4000)
+              : '(no eval output captured)';
+
+            // Parse results.jsonl for a quick summary of failing evals
+            let failingSummary = '';
+            if (fs.existsSync(resultsPath)) {
+              const lines = fs.readFileSync(resultsPath, 'utf8').trim().split('\n');
+              const failing = lines
+                .map(l => { try { return JSON.parse(l); } catch { return null; } })
+                .filter(r => r && r.belowThreshold);
+              if (failing.length > 0) {
+                failingSummary = '\n## Failing EVAL files\n\n' +
+                  failing.map(r =>
+                    `- **${r.eval}** (pack: ${r.pack}): ${(r.rate * 100).toFixed(0)}% < threshold \`${r.thresholdRaw}\``
+                  ).join('\n') + '\n';
+              }
+            }
+
+            const today = new Date().toISOString().slice(0, 10);
+            const title = `eval regression detected — ${today}`;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: [
+                'The Evals Runner detected one or more EVAL files where the LLM judge',
+                'pass rate fell below the configured threshold.',
+                '',
+                failingSummary,
+                '## Runner output',
+                '```',
+                output,
+                '```',
+                '',
+                '## Actions',
+                '- Inspect the `evals-results` artifact attached to the workflow run',
+                '- Review failing EVAL scenarios and expected behaviours',
+                '- If a legitimate regression: fix the underlying agent logic',
+                '- If a false-positive from the judge model: re-run with `workflow_dispatch` using a stronger model',
+                '',
+                `Workflow run: ${runUrl}`,
+              ].join('\n'),
+              labels: ['eval-regression', 'automated'],
+            });
