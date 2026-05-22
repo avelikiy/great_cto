@@ -73,7 +73,7 @@ export const JURISDICTION_SIGNALS: Record<
   "eu": {
     keywords: [
       // Legal / regulatory terms
-      "gdpr", "dsgvo", "rgpd", "data protection officer", "dpo",
+      "gdpr", "dsgvo", "rgpd", "data protection officer",
       "right to erasure", "right to be forgotten", "data subject request",
       "article 6", "article 9", "legitimate interest", "lawful basis",
       "privacy by design", "privacy notice", "cookie consent",
@@ -104,7 +104,7 @@ export const JURISDICTION_SIGNALS: Record<
   },
   "uk": {
     keywords: [
-      "uk gdpr", "ico", "information commissioner", "dpa 2018",
+      "uk gdpr", "information commissioner", "dpa 2018",
       "uk users", "uk customers", "united kingdom", "british users",
       "fca consumer duty", "uk ai regulation",
     ],
@@ -129,7 +129,7 @@ export const JURISDICTION_SIGNALS: Record<
   "au": {
     keywords: [
       "privacy act 1988", "australian privacy principles", "app principles",
-      "oaic", "australia users", "australian users", "cdr",
+      "oaic", "australia users", "australian users",
       "consumer data right", "notifiable data breach", "ndb scheme",
       "australia data residency",
     ],
@@ -138,7 +138,7 @@ export const JURISDICTION_SIGNALS: Record<
     keywords: [
       "pdpa", "pdpc", "singapore users", "singaporean users",
       "mas guidelines", "mas tpm", "singpass", "myinfo",
-      "singapore data residency", "sg data",
+      "singapore data residency",
     ],
   },
 };
