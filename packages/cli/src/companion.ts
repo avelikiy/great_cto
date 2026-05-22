@@ -20,6 +20,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { dim, success, log, warn } from "./ui.js";
 import { enablePlugin } from "./settings.js";
+import { semverDescending } from "./semver.js";
 
 export interface CompanionPlugin {
   /** Human name shown in log output */
@@ -68,7 +69,7 @@ function isAlreadyInstalled(name: string): string | null {
 }
 
 /** Detect the latest semver tag from a remote repo without cloning. */
-function detectLatestTag(repoUrl: string): string | null {
+export function detectLatestTag(repoUrl: string): string | null {
   try {
     const out = execFileSync("git", ["ls-remote", "--tags", repoUrl], {
       encoding: "utf-8",
@@ -79,15 +80,7 @@ function detectLatestTag(repoUrl: string): string | null {
       .split("\n")
       .map((line) => line.match(/refs\/tags\/v?([0-9]+\.[0-9]+\.[0-9]+)(?!\^)/)?.[1])
       .filter((t): t is string => !!t)
-      .sort((a, b) => {
-        const pa = a.split(".").map(Number);
-        const pb = b.split(".").map(Number);
-        for (let i = 0; i < 3; i++) {
-          const d = (pb[i] ?? 0) - (pa[i] ?? 0);
-          if (d !== 0) return d;
-        }
-        return 0;
-      });
+      .sort(semverDescending);
     return tags[0] ?? null;
   } catch {
     return null;

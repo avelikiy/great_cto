@@ -6,12 +6,12 @@
  *   plugin: "superpowers" | "beads" | undefined → all
  */
 
-import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { COMPANION_PLUGINS, type CompanionPlugin, installCompanionPlugin } from "./companion.js";
+import { COMPANION_PLUGINS, type CompanionPlugin, installCompanionPlugin, detectLatestTag } from "./companion.js";
 import { applyOverlays } from "./overlay.js";
+import { semverDescending } from "./semver.js";
 
 export interface UpgradeResult {
   name: string;
@@ -25,17 +25,6 @@ function getPluginCacheDir(name: string): string {
   return join(homedir(), ".claude", "plugins", "cache", "local", name);
 }
 
-/** Compare two semver strings descending (highest first). */
-function semverDescending(a: string, b: string): number {
-  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
-  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < 3; i++) {
-    const d = (pb[i] ?? 0) - (pa[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
-}
-
 /** Returns the highest installed semver version for a plugin, or null. */
 function getInstalledVersion(name: string): string | null {
   const base = getPluginCacheDir(name);
@@ -45,33 +34,6 @@ function getInstalledVersion(name: string): string | null {
       .filter((v) => v.trim() !== "")
       .sort(semverDescending);
     return versions.length > 0 ? versions[0]! : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Detect the highest semver tag from a remote repo without cloning. */
-function detectLatestTag(repoUrl: string): string | null {
-  try {
-    const out = execFileSync("git", ["ls-remote", "--tags", repoUrl], {
-      encoding: "utf-8",
-      timeout: 15_000,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const tags = out
-      .split("\n")
-      .map((line) => line.match(/refs\/tags\/v?([0-9]+\.[0-9]+\.[0-9]+)(?!\^)/)?.[1])
-      .filter((t): t is string => !!t)
-      .sort((a, b) => {
-        const pa = a.split(".").map(Number);
-        const pb = b.split(".").map(Number);
-        for (let i = 0; i < 3; i++) {
-          const d = (pb[i] ?? 0) - (pa[i] ?? 0);
-          if (d !== 0) return d;
-        }
-        return 0;
-      });
-    return tags[0] ?? null;
   } catch {
     return null;
   }
@@ -96,26 +58,29 @@ export async function upgradePlugin(plugin: CompanionPlugin): Promise<UpgradeRes
     return { name, status: "already_latest", fromVersion: currentVersion, toVersion: latestVersion };
   }
 
-  // Remove the old version directory before re-cloning
-  if (currentVersion) {
-    const oldDir = join(getPluginCacheDir(name), currentVersion);
+  // Remove ALL existing version directories so installCompanionPlugin's
+  // isAlreadyInstalled guard always returns null and the clone proceeds fresh.
+  const cacheDir = getPluginCacheDir(name);
+  if (existsSync(cacheDir)) {
     try {
-      rmSync(oldDir, { recursive: true, force: true });
+      const existingVersions = readdirSync(cacheDir).filter((v) => v.trim() !== "");
+      for (const v of existingVersions) {
+        rmSync(join(cacheDir, v), { recursive: true, force: true });
+      }
     } catch (e) {
       return {
         name,
         status: "skipped",
-        fromVersion: currentVersion,
+        fromVersion: currentVersion ?? "—",
         toVersion: latestVersion,
-        reason: `failed to remove old version: ${(e as Error).message}`,
+        reason: `failed to remove old versions: ${(e as Error).message}`,
       };
     }
   }
 
   // Re-install via companion installer (handles clone + settings enable).
-  // `installCompanionPlugin` may return "already_present" if another version dir
-  // exists despite the rmSync above (e.g., orphan dirs from a prior failed upgrade).
-  // Treat both "installed" and "already_present" as success — the plugin is present.
+  // All version dirs were removed above, so isAlreadyInstalled returns null
+  // and the clone always proceeds fresh.
   const result = installCompanionPlugin(plugin);
 
   if (result.status === "skipped") {
