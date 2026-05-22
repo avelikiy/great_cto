@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { DetectionResult } from "./detect.js";
 import type { Archetype } from "./archetypes.js";
 import { dim, success, warn } from "./ui.js";
+import { suggestJurisdictions } from "./jurisdictions.js";
 
 export interface BootstrapResult {
   projectMdPath: string;
@@ -33,6 +34,10 @@ export function bootstrap(
   const title = inferProjectTitle(dir);
   const stackLine = detection.stack.length > 0 ? detection.stack.join(", ") : "to be defined";
   const complianceLine = compliance.length > 0 ? compliance.join(", ") : "none";
+  const jurisdictionMatches = suggestJurisdictions(detection);
+  const jurisdictionLine = jurisdictionMatches.length > 0
+    ? jurisdictionMatches.map((m) => m.jurisdiction).join(", ")
+    : "unknown";
   const teamSize = 1;                 // MVP default — user edits later
   const approvalLevel = "gates-only"; // default per README
 
@@ -75,9 +80,12 @@ approval-level: ${approvalLevel}
 ## Compliance
 
 compliance: [${complianceLine}]
+jurisdiction: [${jurisdictionLine}]
 
 > \`compliance:\` list drives which checklists security-officer runs.
-> See ARCHETYPES.md "Parameter Values" for supported keys.
+> \`jurisdiction:\` is auto-detected from README geo/legal signals — edit if wrong.
+> Supported codes: eu · us · us-ca · uk · in · br · au · sg
+> See docs/jurisdiction-compliance.md for what each code activates.
 
 ## Leash
 
