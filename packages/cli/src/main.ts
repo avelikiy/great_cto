@@ -38,7 +38,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "leash" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "leash" | "upgrade" | "chat-only-hint" | "unknown";
   unknownToken?: string;
   dir: string;
   positional: string[];
@@ -95,6 +95,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "webhook") args.command = "webhook";
     else if (a === "report") args.command = "report";
     else if (a === "leash") args.command = "leash";
+    else if (a === "upgrade") args.command = "upgrade";
     // Slash-commands surfaced as CLI subcommands so users get a clear hint
     // instead of a confusing usage error. These work only in the chat plugin.
     else if (
@@ -365,6 +366,7 @@ ${bold("Usage:")}
   npx great-cto mcp [--sse --port N]
   npx great-cto adapt [--dry-run]
   npx great-cto serve [--port 3142]
+  npx great-cto upgrade [superpowers|beads]  Re-clone companions to latest tag + re-apply overlays
   npx great-cto help
   npx great-cto version
 
@@ -377,6 +379,12 @@ ${bold("Register:")}
   great-cto register           Add this repo to ~/.great_cto/projects.json
                                (auto-discovered after /audit or /start, but
                                 run this if the project doesn't appear in board)
+
+${bold("Upgrade:")}
+  great-cto upgrade              Upgrade superpowers + beads to latest, re-apply critic overlays
+  great-cto upgrade superpowers  Upgrade superpowers only
+  great-cto upgrade beads        Upgrade beads only
+  ${dim("(Safe to run any time — idempotent if already on latest)")}
 
 ${bold("Scan (AI-security):")}
   great-cto scan                       AI-specific scan of cwd (OWASP LLM Top 10)
@@ -690,6 +698,11 @@ async function runInit(args: CliArgs): Promise<number> {
         warn(`  install manually: claude plugin install github.com/obra/${r.name === "superpowers" ? "superpowers" : ""} or github.com/steveyegge/beads`);
       }
     }
+    // Apply bundled critic overlays (idempotent — skips already-applied changes)
+    try {
+      const { applyOverlays } = await import("./overlay.js");
+      applyOverlays();
+    } catch { /* best-effort — overlay failure must not block init */ }
   }
 
   // ── 4c. bootstrap skills catalog (v1.0.140+) ─────────────
@@ -888,6 +901,40 @@ async function tryInstallLeash(forceUpdate: boolean = false): Promise<void> {
   }
 }
 
+async function runUpgrade(rawArgv: string[]): Promise<number> {
+  const { upgradePlugin, upgradeAll } = await import("./upgrade.js");
+  const { COMPANION_PLUGINS } = await import("./companion.js");
+
+  // Optional positional: great-cto upgrade [plugin-name]
+  const upgradeIdx = rawArgv.indexOf("upgrade");
+  const pluginArg = upgradeIdx >= 0 ? rawArgv[upgradeIdx + 1] : undefined;
+  const targetPlugin = pluginArg && !pluginArg.startsWith("--") ? pluginArg : undefined;
+
+  let results;
+  if (targetPlugin) {
+    const plugin = COMPANION_PLUGINS.find((p) => p.name === targetPlugin);
+    if (!plugin) {
+      error(`unknown plugin '${targetPlugin}'. Valid: ${COMPANION_PLUGINS.map((p) => p.name).join(", ")}`);
+      return 2;
+    }
+    results = [await upgradePlugin(plugin)];
+  } else {
+    results = await upgradeAll();
+  }
+
+  for (const r of results) {
+    if (r.status === "upgraded") {
+      success(`${r.name} ${r.fromVersion} → ${r.toVersion}`);
+    } else if (r.status === "already_latest") {
+      log(`  ${dim(`${r.name} ${r.toVersion} already at latest (overlays re-applied)`)}`);
+    } else {
+      warn(`${r.name} skipped — ${r.reason ?? "unknown reason"}`);
+    }
+  }
+
+  return 0;
+}
+
 async function main(): Promise<void> {
   const rawArgv = process.argv.slice(2);
   const args = parseArgs(rawArgv);
@@ -1015,6 +1062,15 @@ async function main(): Promise<void> {
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
+    }
+  }
+  if (args.command === "upgrade") {
+    try {
+      const code = await runUpgrade(rawArgv);
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(1);
     }
   }
   if (args.command === "chat-only-hint") {
