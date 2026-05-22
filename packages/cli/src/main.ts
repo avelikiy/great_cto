@@ -1070,7 +1070,7 @@ async function main(): Promise<void> {
       process.exit(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(1);
+      process.exit(2);
     }
   }
   if (args.command === "chat-only-hint") {
