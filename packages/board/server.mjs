@@ -1152,6 +1152,20 @@ async function fireEmailAlert(eventName, dedupeKey, payload) {
     const fired = readAlertsFired();
     if (fired[dedupeKey]) return;
 
+    // Mark fired optimistically BEFORE the async fetch so that concurrent
+    // calls for other projects (same cron tick) see this key immediately
+    // and don't fire duplicate sends. Also prevents infinite retry on relay
+    // errors — a failed send is still recorded so the next 5-min tick skips.
+    fired[dedupeKey] = new Date().toISOString();
+    const keys = Object.keys(fired);
+    if (keys.length > 500) {
+      const trimmed = {};
+      keys.slice(-500).forEach(k => trimmed[k] = fired[k]);
+      writeAlertsFired(trimmed);
+    } else {
+      writeAlertsFired(fired);
+    }
+
     const relay = process.env.GREATCTO_NOTIFY_URL || 'https://greatcto.systems';
     const res = await fetch(`${relay}/notify`, {
       method: 'POST',
@@ -1172,17 +1186,6 @@ async function fireEmailAlert(eventName, dedupeKey, payload) {
       const txt = await res.text().catch(() => '');
       console.warn(`fireEmailAlert ${eventName}: relay HTTP ${res.status} ${txt.slice(0, 200)}`);
       return;
-    }
-
-    // Mark fired (keep last 500 keys to avoid file bloat)
-    fired[dedupeKey] = new Date().toISOString();
-    const keys = Object.keys(fired);
-    if (keys.length > 500) {
-      const trimmed = {};
-      keys.slice(-500).forEach(k => trimmed[k] = fired[k]);
-      writeAlertsFired(trimmed);
-    } else {
-      writeAlertsFired(fired);
     }
     console.log(`fireEmailAlert: sent ${eventName} (${dedupeKey})`);
   } catch (e) {
@@ -1371,13 +1374,19 @@ function startAlertCron() {
   }, ONE_HOUR);
 
   // digest.weekly: Friday 09:00 UTC ± server tick
-  setInterval(() => {
+  setInterval(async () => {
     try {
       const now = new Date();
       // Friday = 5, hour 9, dedupe by ISO-week
       if (now.getUTCDay() !== 5 || now.getUTCHours() !== 9) return;
-      const isoWeek = `${now.getUTCFullYear()}-W${Math.ceil((now.getUTCDate() + new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).getUTCDay()) / 7)}`;
+      // Correct ISO-8601 week number (getUTCDate is day-of-month, not day-of-year)
+      const thu = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      thu.setUTCDate(thu.getUTCDate() + 4 - (thu.getUTCDay() || 7));
+      const isoWeek = `${thu.getUTCFullYear()}-W${Math.ceil(((thu - new Date(Date.UTC(thu.getUTCFullYear(), 0, 1))) / 86400000 + 1) / 7)}`;
       const projects = listProjects();
+      // Sequential loop — each project awaits so file writes complete before the
+      // next project reads alerts-fired.json. Prevents the race condition where
+      // all N projects read an empty map simultaneously and all fire.
       for (const proj of projects) {
         const m = getMetrics(proj.path);
         const dedupeKey = `digest.weekly:${proj.slug}:${isoWeek}`;
@@ -1397,9 +1406,9 @@ function startAlertCron() {
             'QA pass rate': m.qa?.pass_rate != null ? `${m.qa.pass_rate}%` : 'no runs',
           },
         };
-        fireEmailAlert('digest.weekly', dedupeKey, weeklyPayload);
+        await fireEmailAlert('digest.weekly', dedupeKey, weeklyPayload);
         addNotification('digest.weekly', weeklyPayload);
-        firePushAlert('digest.weekly', dedupeKey, weeklyPayload);
+        await firePushAlert('digest.weekly', dedupeKey, weeklyPayload);
       }
     } catch (e) { console.warn('cron digest.weekly failed:', e.message); }
   }, FIVE_MIN);
@@ -1407,7 +1416,7 @@ function startAlertCron() {
   // digest.daily: morning summary (Mon–Fri, 08:00 UTC).
   // Covers yesterday's activity: spend, features shipped, blocked gates.
   // Idempotent via date-keyed dedupe so re-starts don't re-send.
-  setInterval(() => {
+  setInterval(async () => {
     try {
       const now = new Date();
       // Mon=1 … Fri=5 only; skip weekends
@@ -1464,9 +1473,9 @@ function startAlertCron() {
           action: 'Open board',
           kv: kvObj,
         };
-        fireEmailAlert('digest.daily', dedupeKey, dailyPayload);
+        await fireEmailAlert('digest.daily', dedupeKey, dailyPayload);
         addNotification('digest.daily', dailyPayload);
-        firePushAlert('digest.daily', dedupeKey, dailyPayload);
+        await firePushAlert('digest.daily', dedupeKey, dailyPayload);
       }
     } catch (e) { console.warn('cron digest.daily failed:', e.message); }
   }, FIVE_MIN);
