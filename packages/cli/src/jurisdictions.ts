@@ -73,7 +73,7 @@ export const JURISDICTION_SIGNALS: Record<
   "eu": {
     keywords: [
       // Legal / regulatory terms
-      "gdpr", "dsgvo", "rgpd", "data protection officer",
+      "gdpr", "dsgvo", "rgpd", "data protection officer", "dpo",
       "right to erasure", "right to be forgotten", "data subject request",
       "article 6", "article 9", "legitimate interest", "lawful basis",
       "privacy by design", "privacy notice", "cookie consent",
