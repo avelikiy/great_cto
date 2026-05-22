@@ -1997,6 +1997,16 @@ button { font-family: inherit; cursor: pointer; }
   .leash-kpi-grid { grid-template-columns: 1fr 1fr !important; }
   .kpi-hero { grid-column: span 2; }
 }
+@media (max-width:720px) {
+  .leash-kpi-grid { grid-template-columns: 1fr 1fr !important; }
+  #leash-sub-review table { font-size: 11px; }
+  .leash-subtab { font-size: 11px; padding: 4px 8px; }
+  #leash-sample-modal > div { width: 98% !important; max-height: 85vh !important; }
+}
+@media (max-width:480px) {
+  .leash-kpi-grid { grid-template-columns: 1fr !important; }
+  .chip-filter-bar { flex-direction: column; align-items: stretch; }
+}
 
 .leash-feed-row {
   display: grid;
@@ -2555,6 +2565,7 @@ button { font-family: inherit; cursor: pointer; }
             <button class="leash-subtab active" data-subtab="review"  onclick="switchLeashSubtab('review')">Review <span class="badge" id="lst-review-badge">0</span></button>
             <button class="leash-subtab"        data-subtab="sessions" onclick="switchLeashSubtab('sessions')">Sessions <span class="badge" id="lst-sessions-badge">0</span></button>
             <button class="leash-subtab"        data-subtab="threats"  onclick="switchLeashSubtab('threats')">Threats <span class="badge" id="lst-threats-badge">0</span></button>
+            <button class="leash-subtab"        data-subtab="issues"   onclick="switchLeashSubtab('issues')">Issues <span class="badge" id="lst-issues-badge">0</span></button>
             <button class="leash-subtab"        data-subtab="agents"   onclick="switchLeashSubtab('agents')">Agents</button>
             <button class="leash-subtab"        data-subtab="budgets"     onclick="switchLeashSubtab('budgets')">Budgets</button>
             <button class="leash-subtab"        data-subtab="rate-limits" onclick="switchLeashSubtab('rate-limits')">Rate Limits</button>
@@ -2579,23 +2590,32 @@ button { font-family: inherit; cursor: pointer; }
             <div class="leash-kpi-grid" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px">
               <div class="kpi kpi-hero" id="leash-tile-high" style="border-left:3px solid #e53935">
                 <div class="kpi-label">HIGH risk averted</div>
-                <div class="kpi-value kpi-value-hero" id="leash-r-high">0</div>
+                <div class="kpi-value kpi-value-hero" id="leash-r-high">0</div><span id="leash-delta-high" style="font-size:11px;margin-left:6px;color:var(--text3)"></span>
                 <div style="font-size:10px;color:var(--text3);margin-top:2px">block/hitl on critical rule</div>
               </div>
               <div class="kpi" id="leash-tile-medium" style="border-left:3px solid #ffb300">
                 <div class="kpi-label">MEDIUM</div>
-                <div class="kpi-value" id="leash-r-medium">0</div>
+                <div class="kpi-value" id="leash-r-medium">0</div><span id="leash-delta-medium" style="font-size:11px;margin-left:6px;color:var(--text3)"></span>
                 <div style="font-size:10px;color:var(--text3);margin-top:2px">redact / soft</div>
               </div>
               <div class="kpi" id="leash-tile-low" style="border-left:3px solid var(--text3)">
                 <div class="kpi-label">LOW</div>
-                <div class="kpi-value" id="leash-r-low">0</div>
+                <div class="kpi-value" id="leash-r-low">0</div><span id="leash-delta-low" style="font-size:11px;margin-left:6px;color:var(--text3)"></span>
                 <div style="font-size:10px;color:var(--text3);margin-top:2px">warns &amp; advisory</div>
               </div>
               <div class="kpi" id="leash-tile-hitl" style="border-left:3px solid #ffb300">
                 <div class="kpi-label">HITL queue</div>
                 <div class="kpi-value" id="leash-r-hitl">0</div>
                 <div style="font-size:10px;color:var(--text3);margin-top:2px">awaiting approval</div>
+              </div>
+              <button id="leash-hitl-mute" onclick="leashToggleAudio()" title="Toggle HITL audio alert"
+                style="font-size:18px;background:none;border:none;cursor:pointer;padding:0 4px">🔔</button>
+            </div>
+            <div class="leash-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:12px">
+              <div class="kpi" id="leash-tile-forecast" style="border-left:3px solid #4caf50;grid-column:span 2">
+                <div class="kpi-label">Spend rate (est.)</div>
+                <div class="kpi-value" id="leash-r-forecast">—</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px" id="leash-r-forecast-ttc"></div>
               </div>
             </div>
 
@@ -2628,6 +2648,13 @@ button { font-family: inherit; cursor: pointer; }
 
           <!-- ───── Threats sub-tab ─────────────────────────────────────── -->
           <div class="leash-sub" id="leash-sub-threats" style="display:none;margin-top:14px">
+            <div class="chip-filter-bar" id="leash-chip-bar" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+              <input id="leash-filter-input" placeholder='rule:injection tenant:prod action:block  (or free text)'
+                style="flex:1;min-width:200px;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"
+                oninput="leashFilterUpdate(this.value)" />
+              <div id="leash-active-chips" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+              <button onclick="leashFilterClear()" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text3)">✕ clear</button>
+            </div>
             <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">THREATS PREVENTED · by rule</div>
             <div id="leash-threats-rules" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
               <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No threats in this period.</div>
@@ -2637,6 +2664,28 @@ button { font-family: inherit; cursor: pointer; }
             <div id="leash-threats-detail" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
               <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No events.</div>
             </div>
+          </div>
+
+          <!-- ───── Issues sub-tab ─────────────────────────────────────── -->
+          <div class="leash-sub" id="leash-sub-issues" style="display:none;margin-top:14px">
+            <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+              <select id="leash-issues-filter" onchange="refreshLeashIssues()" style="padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">
+                <option value="open">Open</option>
+                <option value="muted">Muted</option>
+                <option value="resolved">Resolved</option>
+              </select>
+              <button onclick="refreshLeashIssues()" style="font-size:11px;padding:4px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ Refresh</button>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead><tr style="color:var(--text3);border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:4px 6px">Rule</th>
+                <th style="text-align:left;padding:4px 6px">Count</th>
+                <th style="text-align:left;padding:4px 6px">First seen</th>
+                <th style="text-align:left;padding:4px 6px">Last seen</th>
+                <th style="text-align:left;padding:4px 6px">Actions</th>
+              </tr></thead>
+              <tbody id="leash-issues-tbody"><tr><td colspan="5" style="padding:16px;text-align:center;color:var(--text3)">Loading…</td></tr></tbody>
+            </table>
           </div>
 
           <!-- ───── Agents sub-tab ──────────────────────────────────────── -->
@@ -2696,6 +2745,12 @@ button { font-family: inherit; cursor: pointer; }
 
           <!-- ───── Export sub-tab ──────────────────────────────────────── -->
           <div class="leash-sub" id="leash-sub-export" style="display:none;margin-top:14px">
+            <div style="margin-bottom:14px;padding:12px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">
+              <strong style="font-size:13px">SOC 2 Evidence Pack</strong>
+              <p style="margin:6px 0;font-size:12px;color:var(--text3)">Generate a SOC 2 Type II evidence bundle from your audit log using <code>llm-leash soc2</code>.</p>
+              <button onclick="leashGenerateSoc2()" style="padding:6px 14px;background:var(--accent);color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">Generate SOC 2 Report</button>
+              <span id="leash-soc2-status" style="margin-left:10px;font-size:12px;color:var(--text3)"></span>
+            </div>
             <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">EXPORT AUDIT DATA</div>
             <p style="color:var(--text2);font-size:13px;margin:0 0 12px 0">
               Download filtered threat events or full audit log for offline analysis or SOC 2 evidence submission. Scope respects the project + period filters above.
@@ -4603,6 +4658,21 @@ async function loadLeash() {
     setLeashKpi('leash-tile-medium', 'leash-r-medium', risk.medium);
     setLeashKpi('leash-tile-low',    'leash-r-low',    risk.low);
     setLeashKpi('leash-tile-hitl',   'leash-r-hitl',   hitlCount);
+    leashCheckHitlAudio(hitlCount);
+    leashUpdateDeltas(records);
+
+    // GAP-8: cost forecast from last-5-min event rate
+    (function() {
+      const events = window._leashAuditCache ?? records;
+      const now = Date.now();
+      const recent = events.filter(e => (now - new Date(e.ts ?? e.timestamp ?? 0).getTime()) < 5*60*1000);
+      const spend = recent.reduce((s,e) => s + (e.cost_usd ?? 0), 0);
+      const ratePerMin = spend / 5;
+      const el = document.getElementById('leash-r-forecast');
+      const ttcEl = document.getElementById('leash-r-forecast-ttc');
+      if (el) el.textContent = ratePerMin > 0 ? `$${(ratePerMin*60).toFixed(4)}/hr` : '—';
+      if (ttcEl) ttcEl.textContent = ratePerMin > 0 ? `based on last 5 min` : 'no recent spend';
+    })();
 
     // Live activity feed (last 5 events) — uses same records, no extra fetch
     renderLeashActivityFeed(records);
@@ -4661,6 +4731,206 @@ function showLeashSubtab(name) {
 function switchLeashSubtab(name) {
   showLeashSubtab(name);
   if (name === 'rate-limits') loadRateLimits();
+  if (name === 'issues') refreshLeashIssues();
+}
+
+// GAP-5: keyboard navigation in Security tab
+(function() {
+  let _leashRows = [], _leashIdx = -1;
+  document.addEventListener('keydown', function(e) {
+    const secTab = document.querySelector('[data-tab="security"]');
+    if (!secTab || !secTab.classList.contains('active')) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === '?') {
+      alert('Security tab shortcuts:\n  j/k — next/prev row\n  e — expand selected\n  Esc — close modal\n  Ctrl+K — search');
+      return;
+    }
+    if (e.key === 'Escape') {
+      document.getElementById('leash-sample-modal').style.display = 'none';
+      document.getElementById('leash-search-modal') && (document.getElementById('leash-search-modal').style.display = 'none');
+      return;
+    }
+    _leashRows = Array.from(document.querySelectorAll('.leash-audit-row'));
+    if (!_leashRows.length) return;
+    if (e.key === 'j') { _leashIdx = Math.min(_leashIdx + 1, _leashRows.length - 1); _leashRows[_leashIdx]?.scrollIntoView({block:'nearest'}); _leashRows.forEach((r,i) => r.style.outline = i===_leashIdx?'1px solid var(--accent)':''); }
+    if (e.key === 'k') { _leashIdx = Math.max(_leashIdx - 1, 0); _leashRows[_leashIdx]?.scrollIntoView({block:'nearest'}); _leashRows.forEach((r,i) => r.style.outline = i===_leashIdx?'1px solid var(--accent)':''); }
+    if (e.key === 'e' && _leashIdx >= 0) _leashRows[_leashIdx]?.click();
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); leashSearchOpen(); }
+  });
+})();
+
+// GAP-9: HITL audio alert
+let _leashAudioMuted = localStorage.getItem('leash-audio-muted') === '1';
+let _leashLastHitlCount = 0;
+function leashToggleAudio() {
+  _leashAudioMuted = !_leashAudioMuted;
+  localStorage.setItem('leash-audio-muted', _leashAudioMuted ? '1' : '0');
+  document.getElementById('leash-hitl-mute').textContent = _leashAudioMuted ? '🔕' : '🔔';
+}
+function leashPlayHitlAlert() {
+  if (_leashAudioMuted) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [440, 554].forEach((freq, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq; g.gain.value = 0.15;
+      o.start(ctx.currentTime + i*0.15);
+      o.stop(ctx.currentTime + i*0.15 + 0.12);
+    });
+  } catch(e) {}
+}
+function leashCheckHitlAudio(count) {
+  if (count > _leashLastHitlCount) leashPlayHitlAlert();
+  _leashLastHitlCount = count;
+}
+
+// GAP-2: Cmd-K global search
+function leashSearchOpen() {
+  const m = document.getElementById('leash-search-modal');
+  m.style.display = 'flex';
+  setTimeout(() => document.getElementById('leash-search-input')?.focus(), 50);
+}
+function leashSearchClose() {
+  document.getElementById('leash-search-modal').style.display = 'none';
+}
+let _leashSearchTimer;
+async function leashSearchQuery(q) {
+  clearTimeout(_leashSearchTimer);
+  if (!q.trim()) { document.getElementById('leash-search-results').innerHTML = ''; return; }
+  _leashSearchTimer = setTimeout(async () => {
+    const r = await fetch(`/api/leash/search?q=${encodeURIComponent(q)}`).then(r=>r.json()).catch(()=>({results:[]}));
+    const el = document.getElementById('leash-search-results');
+    if (!r.results?.length) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">No results</div>'; return; }
+    el.innerHTML = r.results.map(res =>
+      `<div style="padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px" onclick="leashSearchClose()">
+        <span style="color:var(--accent)">${esc(res.type??'event')}</span>
+        <span style="margin-left:8px">${esc(res.summary??res.id??'')}</span>
+        <span style="float:right;color:var(--text3);font-size:11px">${esc(res.ts??'')}</span>
+      </div>`
+    ).join('');
+  }, 200);
+}
+
+// GAP-3: chip filter bar
+let _leashFilterQuery = '';
+function leashFilterUpdate(val) {
+  _leashFilterQuery = val;
+  const chips = document.getElementById('leash-active-chips');
+  if (!chips) return;
+  const parts = val.trim().split(/\s+/).filter(p => p.includes(':'));
+  chips.innerHTML = parts.map(p => `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:var(--bg1);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text)">${esc(p)}</span>`).join('');
+  if (Array.isArray(window._lastLeashRecords)) renderLeashThreats(window._lastLeashRecords);
+}
+function leashFilterClear() {
+  _leashFilterQuery = '';
+  const inp = document.getElementById('leash-filter-input');
+  if (inp) inp.value = '';
+  const chips = document.getElementById('leash-active-chips');
+  if (chips) chips.innerHTML = '';
+  if (Array.isArray(window._lastLeashRecords)) renderLeashThreats(window._lastLeashRecords);
+}
+
+// GAP-1: Issues refresh
+async function refreshLeashIssues() {
+  const status = document.getElementById('leash-issues-filter')?.value ?? 'open';
+  const r = await fetch(`/api/leash/issues?status=${status}`).then(r=>r.json()).catch(()=>[]);
+  document.getElementById('lst-issues-badge').textContent = Array.isArray(r) ? r.filter(i=>i.status==='open').length : 0;
+  const tbody = document.getElementById('leash-issues-tbody');
+  if (!tbody) return;
+  if (!r?.length) { tbody.innerHTML = '<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--text3)">No issues</td></tr>'; return; }
+  tbody.innerHTML = r.map(issue => `
+    <tr class="leash-audit-row" style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 6px"><code style="font-size:11px">${esc(issue.rule_id??'')}</code></td>
+      <td style="padding:5px 6px">${issue.count??1}</td>
+      <td style="padding:5px 6px;color:var(--text3)">${esc((issue.first_seen??'').slice(0,16))}</td>
+      <td style="padding:5px 6px;color:var(--text3)">${esc((issue.last_seen??'').slice(0,16))}</td>
+      <td style="padding:5px 6px">
+        <button onclick="leashIssueAction('${esc(issue.id)}','mute')" style="font-size:10px;padding:2px 6px;margin-right:4px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;cursor:pointer">Mute</button>
+        <button onclick="leashIssueAction('${esc(issue.id)}','resolve')" style="font-size:10px;padding:2px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;cursor:pointer">Resolve</button>
+      </td>
+    </tr>`).join('');
+}
+async function leashIssueAction(id, action) {
+  await fetch(`/api/leash/issues/${id}/${action}`, {method:'POST'}).catch(()=>{});
+  refreshLeashIssues();
+}
+
+// GAP-6: session timeline
+async function leashOpenTimeline(sessionId) {
+  const drawer = document.getElementById('leash-timeline-drawer');
+  const title = document.getElementById('leash-timeline-title');
+  const eventsEl = document.getElementById('leash-timeline-events');
+  drawer.style.display = 'block';
+  title.textContent = `Session: ${sessionId}`;
+  eventsEl.innerHTML = '<div style="color:var(--text3)">Loading…</div>';
+  const events = await fetch(`/api/leash/sessions/${encodeURIComponent(sessionId)}/timeline`).then(r=>r.json()).catch(()=>[]);
+  if (!events.length) { eventsEl.innerHTML = '<div style="color:var(--text3)">No events</div>'; return; }
+  const COLOR = { policy_decision:'#ffb300', tool_result_scan:'#4caf50', response_scan:'#2196f3' };
+  eventsEl.innerHTML = events.map(e => `
+    <div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="width:6px;border-radius:3px;background:${COLOR[e.type]??'var(--text3)'};flex-shrink:0"></div>
+      <div>
+        <div style="font-weight:500;color:${COLOR[e.type]??'var(--text)'}">${esc(e.type??'event')}</div>
+        <div style="color:var(--text3);margin-top:2px">${esc((e.ts??e.timestamp??'').slice(11,19))} · ${esc(e.rule_id??e.action??'')}</div>
+        ${e.sample_text ? `<pre style="margin:4px 0 0;font-size:11px;color:var(--text3);white-space:pre-wrap">${esc(e.sample_text.slice(0,200))}</pre>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+// GAP-7: HITL sanitized diff
+let _leashCurrentHitlId = null, _leashHitlPreview = null;
+async function leashOpenHitlDiff(id) {
+  _leashCurrentHitlId = id;
+  document.getElementById('leash-hitl-diff-id').textContent = id;
+  document.getElementById('leash-hitl-diff-modal').style.display = 'flex';
+  document.getElementById('leash-hitl-diff-content').textContent = 'Loading…';
+  _leashHitlPreview = await fetch(`/api/leash/hitl/${id}/preview`).then(r=>r.json()).catch(()=>null);
+  leashDiffTab('original');
+}
+function leashDiffTab(tab) {
+  document.querySelectorAll('.leash-diff-tab').forEach(b => b.style.borderBottomColor = b.textContent.toLowerCase()===tab?'var(--accent)':'transparent');
+  const el = document.getElementById('leash-hitl-diff-content');
+  if (!_leashHitlPreview) { el.textContent = 'Preview unavailable'; return; }
+  el.textContent = tab==='original' ? (_leashHitlPreview.original??'') : tab==='sanitized' ? (_leashHitlPreview.sanitized??'') : (_leashHitlPreview.diff??'');
+}
+async function leashHitlApproveSanitized() {
+  if (!_leashCurrentHitlId) return;
+  await fetch(`/api/leash/hitl/${_leashCurrentHitlId}/approve_sanitized`, {method:'POST'});
+  document.getElementById('leash-hitl-diff-modal').style.display = 'none';
+  setTimeout(() => loadLeash?.(), 500);
+}
+
+// GAP-15: SOC 2 export
+async function leashGenerateSoc2() {
+  const btn = event.target; btn.disabled = true; btn.textContent = 'Generating…';
+  const st = document.getElementById('leash-soc2-status');
+  try {
+    const r = await fetch('/api/leash/soc2', {method:'POST'});
+    const d = await r.json();
+    if (d.ok) { st.textContent = `✓ Saved to ${d.outDir}`; st.style.color='#4caf50'; }
+    else { st.textContent = `✗ ${d.error}`; st.style.color='#e53935'; }
+  } catch(e) { st.textContent = `✗ ${e.message}`; st.style.color='#e53935'; }
+  btn.disabled = false; btn.textContent = 'Generate SOC 2 Report';
+}
+
+// GAP-10: delta badges (compare last hour vs 24h ago same window)
+function leashUpdateDeltas(events) {
+  const now = Date.now();
+  const h1 = events.filter(e => (now - new Date(e.ts??e.timestamp??0).getTime()) < 3600000);
+  const h25 = events.filter(e => {
+    const age = now - new Date(e.ts??e.timestamp??0).getTime();
+    return age > 23*3600000 && age < 25*3600000;
+  });
+  ['high','medium','low'].forEach(level => {
+    const cur = h1.filter(e => (e.risk_level??e.level??'').toLowerCase() === level).length;
+    const prev = h25.filter(e => (e.risk_level??e.level??'').toLowerCase() === level).length;
+    const el = document.getElementById(`leash-delta-${level}`);
+    if (!el || prev === 0) return;
+    const pct = Math.round((cur - prev) / prev * 100);
+    el.textContent = pct > 0 ? `▲ +${pct}%` : pct < 0 ? `▼ ${pct}%` : '—';
+    el.style.color = pct > 10 ? '#e53935' : pct < -10 ? '#4caf50' : 'var(--text3)';
+  });
 }
 
 async function loadRateLimits() {
@@ -4868,14 +5138,15 @@ function renderLeashSessions(items) {
     return;
   }
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
-      <div>SESSION_ID</div><div>COST (USD)</div><div></div>
+    <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:10px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+      <div>SESSION_ID</div><div>COST (USD)</div><div></div><div></div>
     </div>
     ${items.slice(0, 20).map(it => `
-      <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center">
+      <div class="leash-audit-row" style="display:grid;grid-template-columns:1fr auto auto auto;gap:10px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center;cursor:pointer" onclick="leashOpenTimeline('${esc(it.session_id || '')}')">
         <div><code style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:2px 6px;border-radius:4px;color:var(--text1)">${esc(it.session_id || '?')}</code></div>
         <div style="font-family:var(--mono);color:var(--text1);text-align:right">$${Number(it.cost_usd || 0).toFixed(4)}</div>
-        <div><button class="btn-ghost-sm" style="color:#e53935" onclick="killLeashSession('${esc(it.session_id || '')}')">kill</button></div>
+        <div><button class="btn-ghost-sm" style="font-size:10px;color:var(--text3)" onclick="event.stopPropagation();leashOpenTimeline('${esc(it.session_id || '')}')">timeline</button></div>
+        <div><button class="btn-ghost-sm" style="color:#e53935" onclick="event.stopPropagation();killLeashSession('${esc(it.session_id || '')}')">kill</button></div>
       </div>`).join('')}`;
 }
 
@@ -4944,10 +5215,12 @@ function renderLeashThreats(records) {
         const riskLabel = risk.high ? 'HIGH' : risk.medium ? 'MED' : 'LOW';
         const riskColor = risk.high ? '#e53935' : risk.medium ? '#ffb300' : 'var(--text3)';
         const reason = r.reason || (r.detectors ? `detectors: ${r.detectors.join(', ')}` : '');
-        return `<div style="display:grid;grid-template-columns:70px 70px 1fr 70px 120px 1fr;gap:8px;padding:6px 14px;font-size:12px;font-family:var(--mono);border-top:1px solid var(--border);align-items:center">
+        const hasSample = !!(r.sample_text);
+        const sampleJs = hasSample ? `document.getElementById('leash-sample-title').textContent='${esc(r.rule_id||'secrets')} · ${esc(action)}';document.getElementById('leash-sample-text').textContent=${JSON.stringify(r.sample_text||'')};document.getElementById('leash-sample-modal').style.display='flex'` : '';
+        return `<div class="leash-audit-row" style="display:grid;grid-template-columns:70px 70px 1fr 70px 120px 1fr;gap:8px;padding:6px 14px;font-size:12px;font-family:var(--mono);border-top:1px solid var(--border);align-items:center${hasSample?';cursor:pointer':''}" ${hasSample?`onclick="${sampleJs}"`:''}>
           <div style="color:var(--text3)">${esc(ts)}</div>
           <div><span style="display:inline-block;padding:1px 7px;border-radius:8px;background:rgba(229,57,53,.08);color:${riskColor};font-size:10px">${riskLabel}</span></div>
-          <div style="color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.rule_id || 'secrets')}</div>
+          <div style="color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.rule_id || 'secrets')}${hasSample?' <span style="font-size:9px;color:var(--accent)">[sample]</span>':''}</div>
           <div style="color:var(--text2)">${esc(action)}</div>
           <div style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.agent_name || '—')}</div>
           <div style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(reason)}</div>
@@ -6350,5 +6623,61 @@ if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}
 </div>
 <div id="notif-drawer-overlay" onclick="closeNotifDrawer()"
   style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4)"></div>
+
+<!-- GAP-4: sample_text drill-down modal -->
+<div id="leash-sample-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:680px;width:90%;max-height:70vh;overflow:auto;padding:20px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+      <strong id="leash-sample-title" style="font-size:13px">Finding</strong>
+      <button onclick="document.getElementById('leash-sample-modal').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px">✕</button>
+    </div>
+    <pre id="leash-sample-text" style="font-size:12px;white-space:pre-wrap;word-break:break-word;color:var(--text);background:var(--bg2);padding:12px;border-radius:4px"></pre>
+  </div>
+</div>
+
+<!-- GAP-2: Cmd-K global search modal -->
+<div id="leash-search-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;align-items:flex-start;justify-content:center;padding-top:80px">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:min(560px,94%);box-shadow:0 8px 32px rgba(0,0,0,.4)">
+    <div style="padding:12px 16px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text3)">🔍</span>
+      <input id="leash-search-input" placeholder="Search audit events, sessions, agents…" autofocus
+        style="flex:1;background:none;border:none;outline:none;color:var(--text);font-size:14px"
+        oninput="leashSearchQuery(this.value)" onkeydown="if(event.key==='Escape')leashSearchClose()" />
+      <kbd style="font-size:11px;color:var(--text3)">Esc</kbd>
+    </div>
+    <div id="leash-search-results" style="max-height:360px;overflow-y:auto;padding:8px 0"></div>
+  </div>
+</div>
+
+<!-- GAP-6: session timeline drawer -->
+<div id="leash-timeline-drawer" style="display:none;position:fixed;right:0;top:0;bottom:0;width:520px;background:var(--bg);border-left:1px solid var(--border);z-index:8000;overflow-y:auto;padding:20px">
+  <div style="display:flex;justify-content:space-between;margin-bottom:14px">
+    <strong id="leash-timeline-title" style="font-size:13px">Session timeline</strong>
+    <button onclick="document.getElementById('leash-timeline-drawer').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px">✕</button>
+  </div>
+  <div id="leash-timeline-events" style="font-size:12px"></div>
+</div>
+
+<!-- GAP-7: HITL sanitized-diff modal -->
+<div id="leash-hitl-diff-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9500;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:min(700px,96%);max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+      <strong style="font-size:13px">HITL Review: <span id="leash-hitl-diff-id"></span></strong>
+      <button onclick="document.getElementById('leash-hitl-diff-modal').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div style="display:flex;border-bottom:1px solid var(--border)">
+      <button class="leash-diff-tab active" onclick="leashDiffTab('original')" style="padding:8px 16px;background:none;border:none;cursor:pointer;font-size:12px;border-bottom:2px solid var(--accent)">Original</button>
+      <button class="leash-diff-tab" onclick="leashDiffTab('sanitized')" style="padding:8px 16px;background:none;border:none;cursor:pointer;font-size:12px">Sanitized</button>
+      <button class="leash-diff-tab" onclick="leashDiffTab('diff')" style="padding:8px 16px;background:none;border:none;cursor:pointer;font-size:12px">Diff</button>
+    </div>
+    <div style="overflow-y:auto;padding:16px;flex:1">
+      <pre id="leash-hitl-diff-content" style="font-size:12px;white-space:pre-wrap;word-break:break-word;margin:0"></pre>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="leashHitlApproveSanitized()" style="padding:6px 16px;background:#4caf50;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">Approve sanitized</button>
+      <button onclick="document.getElementById('leash-hitl-diff-modal').style.display='none'" style="padding:6px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:12px">Cancel</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
