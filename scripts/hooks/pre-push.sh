@@ -134,6 +134,25 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 
 done
 
+# ---------------------------------------------------------------------------
+# Token-economy: enforce that artifact summaries are fresh
+# ---------------------------------------------------------------------------
+if [[ -f "scripts/generate-summary.mjs" ]] && command -v node >/dev/null 2>&1; then
+  if ! node scripts/generate-summary.mjs --check >/dev/null 2>&1; then
+    STALE_OUTPUT=$(node scripts/generate-summary.mjs --check 2>&1 || true)
+    echo ""
+    echo -e "${YELLOW}Stale artifact summaries detected.${NC}"
+    echo "$STALE_OUTPUT" | grep '⚠ stale' | head -5
+    echo ""
+    echo "Fix: node scripts/generate-summary.mjs --all"
+    echo "Then re-commit and push."
+    echo "(To skip: GREAT_CTO_SKIP_SUMMARY_CHECK=1 git push)"
+    if [[ "${GREAT_CTO_SKIP_SUMMARY_CHECK:-0}" != "1" ]]; then
+      exit 1
+    fi
+  fi
+fi
+
 if [[ "$FOUND" -eq 1 ]]; then
   echo ""
   echo -e "${YELLOW}Push blocked.${NC} Remove private project references before pushing."
