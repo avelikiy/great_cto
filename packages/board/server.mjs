@@ -3114,6 +3114,132 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ── leash v2.28–v2.30 endpoints ────────────────────────────────────────────
+  // Generic authenticated fetch to leash admin API
+  const leashFetch = async (apiPath, leash, opts = {}) => {
+    const base = (leash.config && leash.config.proxy_url) ? leash.config.proxy_url : 'http://localhost:4444';
+    const tok  = process.env.LEASH_ADMIN_TOKEN || (leash.config && leash.config.admin_token) || '';
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers ?? {}) };
+    if (tok) headers['X-Admin-Token'] = tok;
+    const r = await fetch(`${base.replace(/\/$/, '')}${apiPath}`, { ...opts, headers });
+    return r.json();
+  };
+
+  // GET /api/leash/issues — issue grouping (leash v2.28)
+  // Collapses repeated rule fires into grouped issues with count/first-last-seen/status
+  if (pathname === '/api/leash/issues' && req.method === 'GET') {
+    const leash = await getLeashAvailability(cwd);
+    if (!leash.available) { res.end(JSON.stringify([])); return; }
+    const sp = new URL(req.url,'http://x').searchParams;
+    const upstream = await leashFetch(`/api/issues?${sp.toString()}`, leash).catch(() => null);
+    res.end(JSON.stringify(upstream ?? []));
+    return;
+  }
+
+  // POST /api/leash/issues/:id/mute
+  // POST /api/leash/issues/:id/resolve
+  // POST /api/leash/issues/:id/reopen
+  {
+    const m = pathname.match(/^\/api\/leash\/issues\/([^/]+)\/(mute|resolve|reopen)$/);
+    if (m && req.method === 'POST') {
+      const leash = await getLeashAvailability(cwd);
+      if (!leash.available) { res.writeHead(503); res.end(JSON.stringify({ok:false})); return; }
+      const result = await leashFetch(`/api/issues/${m[1]}/${m[2]}`, leash, { method:'POST' }).catch(e=>({ok:false,error:e.message}));
+      res.end(JSON.stringify(result));
+      return;
+    }
+  }
+
+  // GET /api/leash/search?q= — Cmd-K global search (leash v2.28)
+  if (pathname === '/api/leash/search' && req.method === 'GET') {
+    const leash = await getLeashAvailability(cwd);
+    if (!leash.available) { res.end(JSON.stringify({results:[]})); return; }
+    const q = new URL(req.url,'http://x').searchParams.get('q') ?? '';
+    const result = await leashFetch(`/api/search?q=${encodeURIComponent(q)}`, leash).catch(() => ({results:[]}));
+    res.end(JSON.stringify(result));
+    return;
+  }
+
+  // GET /api/leash/sessions/:id/timeline — session event swimlane (leash v2.29)
+  {
+    const m = pathname.match(/^\/api\/leash\/sessions\/([^/]+)\/timeline$/);
+    if (m && req.method === 'GET') {
+      const leash = await getLeashAvailability(cwd);
+      if (!leash.available) { res.end(JSON.stringify([])); return; }
+      const events = await leashFetch(`/api/sessions/${m[1]}/timeline`, leash).catch(() => []);
+      res.end(JSON.stringify(events));
+      return;
+    }
+  }
+
+  // GET /api/leash/hitl/:id/preview — sanitized diff for HITL review (leash v2.29)
+  {
+    const m = pathname.match(/^\/api\/leash\/hitl\/([^/]+)\/preview$/);
+    if (m && req.method === 'GET') {
+      const leash = await getLeashAvailability(cwd);
+      if (!leash.available) { res.writeHead(404); res.end(JSON.stringify({ok:false})); return; }
+      const preview = await leashFetch(`/api/hitl/${m[1]}/preview`, leash).catch(() => null);
+      res.end(JSON.stringify(preview ?? {}));
+      return;
+    }
+  }
+
+  // POST /api/leash/hitl/:id/approve_sanitized — approve with sanitized prompt (leash v2.29)
+  {
+    const m = pathname.match(/^\/api\/leash\/hitl\/([^/]+)\/approve_sanitized$/);
+    if (m && req.method === 'POST') {
+      const leash = await getLeashAvailability(cwd);
+      if (!leash.available) { res.writeHead(503); res.end(JSON.stringify({ok:false})); return; }
+      const result = await leashFetch(`/api/hitl/${m[1]}/approve_sanitized`, leash, { method:'POST' }).catch(e=>({ok:false,error:e.message}));
+      res.end(JSON.stringify(result));
+      return;
+    }
+  }
+
+  // GET /api/leash/kpi/sparklines — 24h trend SVG sparklines (leash v2.30)
+  if (pathname === '/api/leash/kpi/sparklines' && req.method === 'GET') {
+    const leash = await getLeashAvailability(cwd);
+    if (!leash.available) { res.end(JSON.stringify({})); return; }
+    const sparklines = await leashFetch('/api/kpi/sparklines', leash).catch(() => ({}));
+    res.end(JSON.stringify(sparklines));
+    return;
+  }
+
+  // GET /api/leash/topology — agent↔model↔tool topology SVG (leash v2.30)
+  if (pathname === '/api/leash/topology' && req.method === 'GET') {
+    const leash = await getLeashAvailability(cwd);
+    if (!leash.available) { res.writeHead(404); res.end(''); return; }
+    // Leash returns rendered SVG blob — proxy content-type as-is
+    const leashBase = (leash.config && leash.config.proxy_url) ? leash.config.proxy_url : 'http://localhost:4444';
+    const adminTok = process.env.LEASH_ADMIN_TOKEN || (leash.config && leash.config.admin_token) || '';
+    const headers = { 'Accept': 'image/svg+xml,application/json' };
+    if (adminTok) headers['X-Admin-Token'] = adminTok;
+    try {
+      const r = await fetch(`${leashBase.replace(/\/$/, '')}/api/topology`, { headers });
+      const ct = r.headers.get('content-type') ?? 'application/json';
+      res.setHeader('content-type', ct);
+      const buf = await r.arrayBuffer();
+      res.end(Buffer.from(buf));
+    } catch { res.writeHead(503); res.end(''); }
+    return;
+  }
+
+  // POST /api/leash/soc2 — generate SOC 2 evidence pack (leash v1.3+)
+  if (pathname === '/api/leash/soc2' && req.method === 'POST') {
+    const leash = await getLeashAvailability(cwd);
+    if (!leash.available) { res.writeHead(503); res.end(JSON.stringify({ok:false,error:'leash not running'})); return; }
+    const auditLog = path.join(os.homedir(), '.great_cto', 'llm-leash', 'audit.jsonl');
+    const outDir   = path.join(os.homedir(), '.great_cto', 'soc2-export', `run-${Date.now()}`);
+    try {
+      const { execFileSync } = await import('node:child_process');
+      execFileSync('llm-leash', ['soc2', auditLog, '--out', outDir], { timeout: 30000 });
+      res.end(JSON.stringify({ ok: true, outDir }));
+    } catch(e) {
+      res.end(JSON.stringify({ ok: false, error: e.message }));
+    }
+    return;
+  }
+
   // Create new task
   if (pathname === '/api/tasks' && req.method === 'POST') {
     let body = '';
