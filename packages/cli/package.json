@@ -1,6 +1,6 @@
 {
   "name": "great-cto",
-  "version": "2.17.0",
+  "version": "2.18.0",
   "description": "One command install for the great_cto Claude Code plugin. Auto-detects your stack, picks the right archetype, bootstraps PROJECT.md.",
   "keywords": [
     "claude-code",
@@ -69,6 +69,7 @@
   "files": [
     "index.mjs",
     "dist/",
+    "assets/",
     "agentshield-rules/",
     "postinstall.mjs",
     "README.md"
