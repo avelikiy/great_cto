@@ -7,9 +7,13 @@ import { dim, success, warn } from "./ui.js";
 export function getSettingsPath() {
     return join(homedir(), ".claude", "settings.json");
 }
-export function enableGreatCto() {
+/**
+ * Enable a plugin key in ~/.claude/settings.json.
+ * Idempotent — no-op if the key is already present.
+ * Takes an optional backup of the existing file before writing.
+ */
+export function enablePlugin(pluginKey) {
     const path = getSettingsPath();
-    const pluginKey = "great_cto@local";
     const backupPath = existsSync(path) ? `${path}.bak-${Date.now()}` : null;
     mkdirSync(dirname(path), { recursive: true });
     // Read existing
@@ -52,4 +56,8 @@ export function enableGreatCto() {
         success(`created ~/.claude/settings.json with ${pluginKey} enabled`);
     }
     return { settingsPath: path, enabled: true, alreadyEnabled: false, backupPath };
+}
+/** Convenience alias — kept for backward compatibility with existing callers. */
+export function enableGreatCto() {
+    return enablePlugin("great_cto@local");
 }

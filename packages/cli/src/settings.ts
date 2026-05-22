@@ -17,9 +17,13 @@ export function getSettingsPath(): string {
   return join(homedir(), ".claude", "settings.json");
 }
 
-export function enableGreatCto(): EnableResult {
+/**
+ * Enable a plugin key in ~/.claude/settings.json.
+ * Idempotent — no-op if the key is already present.
+ * Takes an optional backup of the existing file before writing.
+ */
+export function enablePlugin(pluginKey: string): EnableResult {
   const path = getSettingsPath();
-  const pluginKey = "great_cto@local";
   const backupPath = existsSync(path) ? `${path}.bak-${Date.now()}` : null;
 
   mkdirSync(dirname(path), { recursive: true });
@@ -68,4 +72,9 @@ export function enableGreatCto(): EnableResult {
   }
 
   return { settingsPath: path, enabled: true, alreadyEnabled: false, backupPath };
+}
+
+/** Convenience alias — kept for backward compatibility with existing callers. */
+export function enableGreatCto(): EnableResult {
+  return enablePlugin("great_cto@local");
 }

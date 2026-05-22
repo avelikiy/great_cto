@@ -7,6 +7,7 @@
 //   4. confirm with user (unless -y)
 //   5. install plugin (git clone)
 //   6. enable in ~/.claude/settings.json
+//   6b. install companion plugins (superpowers + beads)
 //   7. bootstrap .great_cto/PROJECT.md
 //   8. print next steps
 
@@ -16,6 +17,7 @@ import { detect } from "./detect.js";
 import { pickArchetype, suggestCompliance } from "./archetypes.js";
 import { install, findInstalledVersions } from "./installer.js";
 import { enableGreatCto } from "./settings.js";
+import { installAllCompanions } from "./companion.js";
 import { bootstrap } from "./bootstrap.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, existsSync as fsExistsSync } from "node:fs";
@@ -668,6 +670,26 @@ async function runInit(args: CliArgs): Promise<number> {
         log(`  ${dim(`cleaned ${cleaned} legacy command file(s) from ~/.claude/commands (pre-1.0.104 unmarked)`)}`);
       }
     } catch { /* best-effort — don't block install */ }
+  }
+
+  // ── 4b-companion. install superpowers + beads ────────────
+  // These are required companion plugins. Auto-install so users don't need
+  // a separate manual step after reading "Requires:" in the README.
+  // Idempotent — silently skips if already present.
+  {
+    log("");
+    step(4, 5, "installing companion plugins (superpowers + beads)");
+    const companions = installAllCompanions();
+    for (const r of companions) {
+      if (r.status === "installed") {
+        log(`  ${dim(`${r.name} ${r.version} installed`)}`);
+      } else if (r.status === "already_present") {
+        log(`  ${dim(`${r.name} ${r.version} already installed`)}`);
+      } else {
+        warn(`  ${r.name} skipped — ${r.reason ?? "unknown reason"}`);
+        warn(`  install manually: claude plugin install github.com/obra/${r.name === "superpowers" ? "superpowers" : ""} or github.com/steveyegge/beads`);
+      }
+    }
   }
 
   // ── 4c. bootstrap skills catalog (v1.0.140+) ─────────────
