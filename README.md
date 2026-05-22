@@ -160,6 +160,25 @@ Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-
 
 → **27 human-gate types** + 50+ reference EVAL suites + 20 TM templates. Browse all 16 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
 
+### Jurisdiction Detection
+
+GreatCTO auto-detects applicable compliance frameworks from project geography signals:
+
+| Jurisdiction | Signals | Frameworks | Reviewer |
+|---|---|---|---|
+| `eu` | gdpr · eu users · nis2 · eu ai act | GDPR · EU AI Act · NIS2 | `gdpr-reviewer` |
+| `us-ca` | ccpa · cpra · do not sell | CCPA / CPRA | `us-privacy-reviewer` |
+| `uk` | uk gdpr · information commissioner · dpa 2018 | UK GDPR · DPA 2018 | `gdpr-reviewer` |
+| `in` | dpdpa · india users · rbi data localisation | DPDPA 2023 · RBI | `dpdpa-reviewer` |
+| `br` | lgpd · anpd · brazil users | LGPD | `gdpr-reviewer` |
+| `au` | privacy act 1988 · oaic | Privacy Act 1988 · CDR | `us-privacy-reviewer` |
+| `sg` | pdpa · pdpc · mas guidelines | PDPA · MAS TRM | `us-privacy-reviewer` |
+
+Set or override in `.great_cto/PROJECT.md`:
+```yaml
+jurisdiction: [eu, us-ca]
+```
+
 ## One real run, fully traced
 
 A Python CLI feature shipped through the full pipeline: **$2.39 LLM spend** vs ~$5,460 human-equivalent. Security caught two real defects QA had passed (`list(stream_csv())` defeated streaming → 14.5 MB peak RSS on 13 MB input). Multi-reviewer model catching what single agents miss, before merge.

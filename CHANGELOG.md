@@ -4,6 +4,25 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.15.0 — 2026-05-22
+
+### Added — Jurisdiction Detection
+
+Third detection axis alongside `archetype` and `packs`: auto-detects applicable
+compliance frameworks from project geography signals in README.
+
+- **`packages/cli/src/jurisdictions.ts`** — new module: `JurisdictionCode` (8 codes),
+  `JURISDICTION_SIGNALS`, `suggestJurisdictions()`, `suggestJurisdictionReviewers()`,
+  `suggestJurisdictionGates()`, `listJurisdictions()`
+- **`detect.ts`** — geo/legal keyword terms added to `mineReadmeKeywords()` (80+ terms)
+- **`bootstrap.ts`** — `jurisdiction:` field auto-populated in PROJECT.md
+- **`agents/gdpr-reviewer.md`** — GDPR Art.5/6/9/25/32/35 + EU AI Act + NIS2
+- **`agents/us-privacy-reviewer.md`** — CCPA/CPRA + US state privacy matrix (VA/TX/FL/CO/CT)
+- **`agents/dpdpa-reviewer.md`** — DPDPA 2023 + IT Act + RBI data localisation
+- 20 new tests in `packages/cli/tests/jurisdictions.test.mjs`
+
+---
+
 
 ## v2.14.0 — 2026-05-21
 
