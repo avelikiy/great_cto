@@ -2569,6 +2569,7 @@ button { font-family: inherit; cursor: pointer; }
             <button class="leash-subtab"        data-subtab="agents"   onclick="switchLeashSubtab('agents')">Agents</button>
             <button class="leash-subtab"        data-subtab="budgets"     onclick="switchLeashSubtab('budgets')">Budgets</button>
             <button class="leash-subtab"        data-subtab="rate-limits" onclick="switchLeashSubtab('rate-limits')">Rate Limits</button>
+            <button class="leash-subtab"        data-subtab="policy"      onclick="switchLeashSubtab('policy')">Policy</button>
             <button class="leash-subtab"        data-subtab="export"      onclick="switchLeashSubtab('export')">Export</button>
           </div>
 
@@ -2744,6 +2745,39 @@ button { font-family: inherit; cursor: pointer; }
           </div>
 
           <!-- ───── Export sub-tab ──────────────────────────────────────── -->
+          <!-- ───── Policy sub-tab (GAP-16: OPA/Rego config) ─────────────── -->
+          <div class="leash-sub" id="leash-sub-policy" style="display:none;margin-top:14px">
+            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:12px">OPA / REGO POLICY CONFIG</div>
+            <p style="font-size:13px;color:var(--text2);margin:0 0 16px 0">Configure Open Policy Agent integration. Settings are written to <code style="font-size:11px">proxy.toml → [opa]</code>. Restart the proxy after saving.</p>
+            <div id="leash-policy-form" style="display:grid;gap:12px;max-width:520px">
+              <label style="font-size:12px">
+                <div style="color:var(--text3);margin-bottom:4px">OPA endpoint URL</div>
+                <input id="leash-opa-endpoint" placeholder="http://localhost:8181/v1/data/leash/allow"
+                  style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px" />
+              </label>
+              <label style="font-size:12px">
+                <div style="color:var(--text3);margin-bottom:4px">Policy path (optional, for subprocess backend)</div>
+                <input id="leash-opa-policy-path" placeholder="/etc/leash/policy.rego"
+                  style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px" />
+              </label>
+              <label style="font-size:12px">
+                <div style="color:var(--text3);margin-bottom:4px">Backend mode</div>
+                <select id="leash-opa-backend" style="padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">
+                  <option value="http">http — call running OPA server</option>
+                  <option value="subprocess">subprocess — spawn opa eval per request</option>
+                </select>
+              </label>
+              <label style="font-size:12px;display:flex;gap:8px;align-items:center">
+                <input type="checkbox" id="leash-opa-enabled" checked style="width:14px;height:14px" />
+                <span>Enable OPA policy enforcement</span>
+              </label>
+              <div style="display:flex;gap:10px;align-items:center">
+                <button onclick="leashSaveOpaConfig()" style="padding:6px 16px;background:var(--accent);color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">Save to proxy.toml</button>
+                <span id="leash-opa-status" style="font-size:12px;color:var(--text3)"></span>
+              </div>
+            </div>
+          </div>
+
           <div class="leash-sub" id="leash-sub-export" style="display:none;margin-top:14px">
             <div style="margin-bottom:14px;padding:12px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">
               <strong style="font-size:13px">SOC 2 Evidence Pack</strong>
@@ -5368,23 +5402,79 @@ function renderLeashQuality(payload) {
 
   if (detail && table) {
     detail.style.display = 'block';
-    table.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 90px 90px 90px;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
-        <div>RULE</div><div style="text-align:right">LATEST F1</div><div style="text-align:right">BASELINE</div><div style="text-align:right">Δ</div>
+    // GAP-14: store rules globally for compare modal
+    window._leashEvalRules = payload.rules;
+    const compareBar = `<div id="leash-compare-bar" style="display:none;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center">
+      <span id="leash-compare-selected-label" style="font-size:12px;color:var(--text3)">0 selected</span>
+      <button onclick="leashOpenCompareModal()" id="leash-compare-btn" disabled
+        style="padding:4px 12px;background:var(--accent);color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;opacity:0.5">Compare →</button>
+    </div>`;
+    table.innerHTML = compareBar + `
+      <div style="display:grid;grid-template-columns:24px 1fr 90px 90px 90px;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
+        <div></div><div>RULE</div><div style="text-align:right">LATEST F1</div><div style="text-align:right">BASELINE</div><div style="text-align:right">Δ</div>
       </div>
       ${drifting.map(r => {
         const f1 = (r.latest?.f1 ?? r.latest_f1 ?? 0).toFixed(3);
         const base = (r.baseline_f1 ?? 0).toFixed(3);
         const delta = (r.f1_delta ?? 0);
         const deltaColor = delta <= -0.05 ? '#e53935' : delta < 0 ? '#ffb300' : 'var(--accent)';
-        return `<div style="display:grid;grid-template-columns:1fr 90px 90px 90px;gap:8px;padding:8px 14px;font-size:12px;border-top:1px solid var(--border);font-family:var(--mono);align-items:center">
+        return `<div style="display:grid;grid-template-columns:24px 1fr 90px 90px 90px;gap:8px;padding:8px 14px;font-size:12px;border-top:1px solid var(--border);font-family:var(--mono);align-items:center">
+          <input type="checkbox" class="leash-rule-check" data-rule="${esc(r.rule_id||'?')}" onchange="leashCompareSelectionChanged()" style="width:13px;height:13px;cursor:pointer" />
           <div style="color:var(--text1)">${esc(r.rule_id || '?')}</div>
           <div style="color:var(--text1);text-align:right">${f1}</div>
           <div style="color:var(--text2);text-align:right">${base}</div>
           <div style="color:${deltaColor};text-align:right">${delta > 0 ? '+' : ''}${(delta * 100).toFixed(1)}pp</div>
         </div>`;
       }).join('')}`;
+    // show compare bar
+    document.getElementById('leash-compare-bar') && (document.getElementById('leash-compare-bar').style.display = 'flex');
   }
+}
+
+// GAP-14: rule comparison modal helpers
+function leashCompareSelectionChanged() {
+  const checked = Array.from(document.querySelectorAll('.leash-rule-check:checked'));
+  const label = document.getElementById('leash-compare-selected-label');
+  const btn = document.getElementById('leash-compare-btn');
+  if (label) label.textContent = `${checked.length} selected (max 4)`;
+  if (btn) {
+    const ok = checked.length >= 2 && checked.length <= 4;
+    btn.disabled = !ok; btn.style.opacity = ok ? '1' : '0.5';
+  }
+  // uncheck oldest if >4
+  if (checked.length > 4) checked[0].checked = false;
+}
+function leashOpenCompareModal() {
+  const checked = Array.from(document.querySelectorAll('.leash-rule-check:checked')).map(c => c.dataset.rule);
+  const rules = (window._leashEvalRules ?? []).filter(r => checked.includes(r.rule_id));
+  if (rules.length < 2) return;
+  const modal = document.getElementById('leash-compare-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  // render bar chart as SVG
+  const W = 460, H = 180, BAR_H = 22, GAP = 8;
+  const metrics = [
+    { key: r => r.latest?.f1 ?? r.latest_f1 ?? 0, label: 'F1' },
+    { key: r => 1 - (r.fp_rate_est ?? 0), label: '1-FPR' },
+  ];
+  const COLORS = ['#4fc3f7','#81c784','#ffb74d','#f06292'];
+  let svg = `<svg width="${W}" height="${rules.length * (BAR_H+GAP) * metrics.length + 40}" xmlns="http://www.w3.org/2000/svg">`;
+  let y = 30;
+  for (const m of metrics) {
+    svg += `<text x="0" y="${y-8}" font-size="10" fill="var(--text3)" font-family="monospace">${m.label}</text>`;
+    for (let i = 0; i < rules.length; i++) {
+      const r = rules[i]; const val = Math.min(1, Math.max(0, m.key(r)));
+      const bw = Math.round(val * (W - 120));
+      svg += `<rect x="110" y="${y}" width="${bw}" height="${BAR_H}" rx="3" fill="${COLORS[i]}" opacity="0.85"/>`;
+      svg += `<text x="105" y="${y+14}" font-size="10" fill="var(--text2)" font-family="monospace" text-anchor="end">${esc(r.rule_id??'').slice(0,14)}</text>`;
+      svg += `<text x="${110+bw+4}" y="${y+14}" font-size="10" fill="var(--text)" font-family="monospace">${val.toFixed(3)}</text>`;
+      y += BAR_H + GAP;
+    }
+    y += 16;
+  }
+  svg += '</svg>';
+  const content = document.getElementById('leash-compare-content');
+  if (content) content.innerHTML = svg;
 }
 
 /* Rule performance / FP-rate (v2.22): rendered as columns inside the Threats
@@ -6679,5 +6769,46 @@ if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}
     </div>
   </div>
 </div>
+
+<!-- GAP-14: Rule comparison modal -->
+<div id="leash-compare-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9600;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:min(540px,96%);max-height:80vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+      <strong style="font-size:13px">Rule comparison</strong>
+      <button onclick="document.getElementById('leash-compare-modal').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div id="leash-compare-content" style="padding:18px;overflow-x:auto"></div>
+    <div style="padding:10px 18px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">F1 = precision+recall harmonic mean · 1-FPR = 1 minus false-positive rate</div>
+  </div>
+</div>
+
+<script>
+// GAP-16: OPA config load + save
+(async function leashLoadOpaConfig() {
+  const r = await fetch('/api/leash/opa-config').then(r=>r.json()).catch(()=>null);
+  if (!r?.ok) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+  set('leash-opa-endpoint', r.endpoint);
+  set('leash-opa-policy-path', r.policy_path);
+  set('leash-opa-backend', r.backend || 'http');
+  const cb = document.getElementById('leash-opa-enabled');
+  if (cb) cb.checked = r.enabled !== false;
+})();
+
+async function leashSaveOpaConfig() {
+  const st = document.getElementById('leash-opa-status');
+  const payload = {
+    endpoint: document.getElementById('leash-opa-endpoint')?.value ?? '',
+    policy_path: document.getElementById('leash-opa-policy-path')?.value ?? '',
+    backend: document.getElementById('leash-opa-backend')?.value ?? 'http',
+    enabled: document.getElementById('leash-opa-enabled')?.checked ?? true,
+  };
+  if (st) st.textContent = 'Saving…';
+  try {
+    const r = await fetch('/api/leash/opa-config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }).then(r=>r.json());
+    if (st) { st.textContent = r.ok ? '✓ Saved — restart proxy to apply' : `✗ ${r.error}`; st.style.color = r.ok ? '#4caf50' : '#e53935'; }
+  } catch(e) { if (st) { st.textContent = `✗ ${e.message}`; st.style.color='#e53935'; } }
+}
+</script>
 </body>
 </html>

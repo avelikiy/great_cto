@@ -3240,6 +3240,43 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── GAP-16: OPA/Rego config read + write ────────────────────────────────────
+  // GET  /api/leash/opa-config   → {endpoint,policy_path,backend,enabled}
+  // POST /api/leash/opa-config   body: same fields → writes [opa] block in proxy.toml
+  if (pathname === '/api/leash/opa-config' && req.method === 'GET') {
+    const tomlPath = path.join(os.homedir(), '.great_cto', 'llm-leash', 'proxy.toml');
+    try {
+      if (!fs.existsSync(tomlPath)) { res.end(JSON.stringify({ ok: true, exists: false, endpoint: '', policy_path: '', backend: 'http', enabled: false })); return; }
+      const raw = fs.readFileSync(tomlPath, 'utf8');
+      const opaBlock = raw.match(/\[opa\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? '';
+      const get = (key) => opaBlock.match(new RegExp(`^${key}\\s*=\\s*["']?([^"'\n]+)["']?`, 'm'))?.[1]?.trim() ?? '';
+      res.end(JSON.stringify({ ok: true, exists: true,
+        endpoint: get('endpoint'), policy_path: get('policy_path'),
+        backend: get('backend') || 'http', enabled: get('enabled') !== 'false' }));
+    } catch(e) { res.end(JSON.stringify({ ok: false, error: e.message })); }
+    return;
+  }
+  if (pathname === '/api/leash/opa-config' && req.method === 'POST') {
+    let body = ''; req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { endpoint = '', policy_path = '', backend = 'http', enabled = true } = JSON.parse(body || '{}');
+        const tomlPath = path.join(os.homedir(), '.great_cto', 'llm-leash', 'proxy.toml');
+        fs.mkdirSync(path.dirname(tomlPath), { recursive: true });
+        let raw = fs.existsSync(tomlPath) ? fs.readFileSync(tomlPath, 'utf8') : '';
+        const newBlock = `\n[opa]\nenabled = ${enabled}\nendpoint = "${endpoint}"\npolicy_path = "${policy_path}"\nbackend = "${backend}"\n`;
+        if (/\[opa\]/.test(raw)) {
+          raw = raw.replace(/\[opa\]([\s\S]*?)(?=\n\[|$)/, newBlock);
+        } else {
+          raw += newBlock;
+        }
+        fs.writeFileSync(tomlPath, raw);
+        res.end(JSON.stringify({ ok: true }));
+      } catch(e) { res.end(JSON.stringify({ ok: false, error: e.message })); }
+    });
+    return;
+  }
+
   // Create new task
   if (pathname === '/api/tasks' && req.method === 'POST') {
     let body = '';
