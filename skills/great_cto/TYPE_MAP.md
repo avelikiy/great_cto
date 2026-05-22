@@ -184,6 +184,19 @@
 | `clinical-hitl` | `agent-product` | compliance: [hipaa, gdpr-art9, eu-ai-act-annex3], packs: [digital-health-pack, clinical-pack], qa-extras: [hitl-boundary, hitl-sla, physician-credentialing] | security gate: deep; min-size: large |
 | `digital-therapeutics` | `regulated` | compliance: [21cfr11, hipaa, gdpr-art9, eu-ai-act-annex3, iso14971], packs: [digital-health-pack, clinical-pack], qa-extras: [rct-equivalence, clinical-validation, refuse-to-diagnose] | min-size: enterprise; security gate: deep |
 
+## Jurisdiction Compliance Rows
+
+Jurisdiction tags are derived from `detect.ts` output and written into PROJECT.md as `jurisdiction: [...]`. The orchestrator reads this list and routes to the appropriate reviewer alongside the primary archetype reviewer.
+
+| Jurisdiction tag | Archetype scope | Compliance added | Reviewer dispatched |
+|-----------------|-----------------|------------------|---------------------|
+| `eu-facing` | any archetype | `jurisdiction: [eu]` | `gdpr-reviewer` — gdpr, eu-ai-act, nis2 |
+| `us-ca-facing` | any archetype | `jurisdiction: [us-ca]` | `us-privacy-reviewer` — ccpa, cpra |
+| `india-facing` | any archetype | `jurisdiction: [in]` | `dpdpa-reviewer` — dpdpa, rbi-localisation |
+| `multi-jurisdiction` | any archetype | `jurisdiction: [eu, us-ca]` | `gdpr-reviewer` + `us-privacy-reviewer` — gdpr, ccpa, eu-ai-act |
+| `brazil-facing` | any archetype | `jurisdiction: [br]` | `gdpr-reviewer` — lgpd |
+| `uk-facing` | any archetype | `jurisdiction: [uk]` | `gdpr-reviewer` — uk-gdpr, fca |
+
 ## How /start Uses This Table
 
 1. `/start` detects specific type (e.g. `voice-agent`) using keyword matching

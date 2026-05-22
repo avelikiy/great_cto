@@ -884,6 +884,54 @@ function mineReadmeKeywords(dir: string): string[] {
   for (const term of packTerms) {
     if (text.includes(term)) kws.add(term);
   }
+  // Jurisdiction geo/legal terms — emitted verbatim so jurisdictions.ts
+  // can exact-match them. Keep in sync with JURISDICTION_SIGNALS in jurisdictions.ts.
+  const jurisdictionTerms = [
+    // EU
+    "gdpr", "dsgvo", "rgpd", "data protection officer", "dpo",
+    "right to erasure", "right to be forgotten", "data subject request",
+    "article 6", "article 9", "legitimate interest", "lawful basis",
+    "privacy by design", "privacy notice", "cookie consent",
+    "eu ai act", "eu users", "eu customers", "european union",
+    "eu data residency", "eu-west", "eu-central",
+    "nis2", "dora ict risk", "dora compliance",
+    "german users", "french users", "dutch users", "austrian",
+    "italian users", "spanish users", "polish users",
+    // US
+    "ftc", "ftc act", "us users", "us customers", "united states",
+    "american users", "coppa", "hipaa", "us privacy law",
+    "virginia cdpa", "texas tdpsa", "florida fdbr",
+    "colorado cpa", "connecticut ctdpa", "us state privacy",
+    // US-CA
+    "ccpa", "cpra", "california consumer privacy",
+    "california privacy rights", "cppa", "california residents",
+    "california users", "do not sell", "opt-out of sale",
+    // UK
+    "uk gdpr", "information commissioner", "dpa 2018",
+    "uk users", "uk customers", "united kingdom", "british users",
+    "fca consumer duty", "uk ai regulation",
+    // IN
+    "dpdpa", "digital personal data protection", "india data",
+    "india users", "indian users", "bharat", "meity",
+    "rbi data localisation", "rbi circular", "npci", "sebi",
+    "india data residency",
+    // BR
+    "lgpd", "lei 13709", "anpd", "brazil users", "brazil customers",
+    "brazilian users", "brasil", "data encarregado", "dpo brazil",
+    "lgpd compliance",
+    // AU
+    "privacy act 1988", "australian privacy principles", "app principles",
+    "oaic", "australia users", "australian users",
+    "consumer data right", "notifiable data breach", "ndb scheme",
+    "australia data residency",
+    // SG
+    "pdpa", "pdpc", "singapore users", "singaporean users",
+    "mas guidelines", "mas tpm", "singpass", "myinfo",
+    "singapore data residency",
+  ];
+  for (const term of jurisdictionTerms) {
+    if (text.includes(term)) kws.add(term);
+  }
   return Array.from(kws).sort();
 }
 
