@@ -4,7 +4,7 @@
 
 **Solo-CTO mode. Stop being the only person who can ship.**
 
-**The engineering OS for Claude Code** — open-source, local-first alternative to Devin. great_cto orchestrates **51 specialist agents** around your Claude Code: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 27 archetype reviewers and **16 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · digital-health · edtech · gov · gaming · enterprise · insurance).
+**The engineering OS for Claude Code** — open-source, local-first alternative to Devin. great_cto orchestrates **57 specialist agents** around your Claude Code: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 30 archetype reviewers (including gdpr-reviewer, us-privacy-reviewer, dpdpa-reviewer) and **16 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · digital-health · edtech · gov · gaming · enterprise · insurance).
 
 You're the solo CTO. You're also the bottleneck. **GreatCTO is 50 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
 
@@ -23,7 +23,7 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 50 specialist age
 
 ## What is great_cto?
 
-You describe what you want (`/start "build a billing endpoint"`). 51 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 27 archetype reviewers and **16 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · **digital-health · edtech · gov · gaming · enterprise · insurance**) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
+You describe what you want (`/start "build a billing endpoint"`). 57 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 30 archetype reviewers and **16 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · **digital-health · edtech · gov · gaming · enterprise · insurance**) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
 
 The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; a deep cross-cutting feature runs through 7+ agents over an hour. **You confirm two gates** (plan, ship). Everything else is automatic.
 
@@ -46,12 +46,12 @@ Architects, planners, reviewers, QA, security, DevOps run automatically between 
 | Open source | ✅ MIT | ❌ closed | ❌ closed plugin model |
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | BYOK / multi-model | ✅ Claude Code | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **50** (architect · PM · 12-angle review · QA · security · devops · 26 archetype reviewers · 16 domain packs) | 1 generalist | 1 generalist |
+| Specialist agents | **57** (architect · PM · 12-angle review · QA · security · devops · 30 archetype reviewers · 16 domain packs) | 1 generalist | 1 generalist |
 | SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
 | Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
 | Cost tracking | ✅ per-agent + 30d history + savings_x | ❌ | ❌ |
-| Compliance frameworks | ✅ 30+ (PCI · HIPAA · SOX · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …) | ❌ | ❌ |
+| Compliance frameworks | ✅ 33+ (PCI · HIPAA · SOX · GDPR · CCPA · DPDPA · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …) | ❌ | ❌ |
 | Pricing | free (you pay your LLM provider) | $500/mo | $20/mo |
 | Setup | `npx great-cto init` | sign up | install CLI |
 
@@ -67,6 +67,21 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 
 **Requires:** [Claude Code](https://claude.com/claude-code) · Node 18.17+ · [Beads](https://github.com/steveyegge/beads) · [Superpowers](https://github.com/obra/superpowers)
 
+## Jurisdiction detection
+
+`npx great-cto init` scans your project for geo and legal signals — domain TLDs, locale configs, README keywords, legal folder names — and auto-detects which jurisdictions apply:
+
+| Jurisdiction | Triggered by | Compliance agents loaded |
+|---|---|---|
+| EU | `.eu` TLD, `gdpr`, `dsgvo`, locale `de/fr/pl/…` | `gdpr-reviewer` |
+| US-CA | `ccpa`, `california`, `.ca.gov` | `us-privacy-reviewer` |
+| UK | `.co.uk`, `ico`, `uk-gdpr` | `gdpr-reviewer` |
+| IN | `.in` TLD, `dpdpa`, `pdp bill` | `dpdpa-reviewer` |
+| BR | `.com.br`, `lgpd` | `gdpr-reviewer` (closest equivalent) |
+| AU, SG | `.com.au`, `.sg`, `pdpa` | `us-privacy-reviewer` |
+
+Detected jurisdiction is written to `PROJECT.md` as `jurisdiction: [EU, US-CA]` and gates the appropriate reviewer on every feature.
+
 ## The board you'll actually check
 
 `great-cto board` opens an admin UI at `http://localhost:3141` — Kanban with realtime SSE updates, per-agent cost tile, pipeline status across 8 stages, and a 30-day cost history that pairs LLM spend with the human-equivalent baseline.
@@ -81,7 +96,7 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 <td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
 </tr>
 <tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 50 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 50 specialists with last-used + run counts</sub></td>
+<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 57 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 57 specialists with last-used + run counts</sub></td>
 <td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 layers + crystallized incident patterns</sub></td>
 </tr>
 </table>
@@ -90,7 +105,7 @@ The CLI scans your repo, picks the right archetype, wires compliance gates autom
 |---|---|
 | Tasks | Backlog → in-progress → done, drag to update via `/api/tasks/<id>/status` |
 | Cost (30d) | LLM $ vs human-equivalent $; flag if `savings_x < 100×` |
-| Agent fleet | 50 agents with last-used + per-agent run count |
+| Agent fleet | 57 agents with last-used + per-agent run count |
 | Inbox | Pending gates, P0 incidents, blocked tasks (auto-sorted) |
 | Pipeline | 8-stage SDLC with status (architect → pm → senior-dev → … → devops) |
 
