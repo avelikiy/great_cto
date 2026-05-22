@@ -39,6 +39,18 @@ The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; 
 
 Architects, planners, reviewers, QA, security, DevOps run automatically between those two human checkpoints. **Memory persists** between sessions: every gate verdict appends to `~/.great_cto/decisions.md`, every retrospective appends to per-project `lessons.md`, and `/crystallize` promotes high-impact patterns to a global library agents query before re-solving.
 
+## Critics before the plan
+
+The most expensive bugs aren't in the code — they're in decisions made before coding starts. Three critic agents run before the Plan stage, at the three positions where a mistake costs the most:
+
+| Critic | Catches |
+|---|---|
+| **Architecture critic** | Coupling that rules out multi-tenancy later · "obvious" O(n²) on real-scale data · circular dependencies between bounded contexts |
+| **Spec critic** | "We solved the wrong problem" — the worst class of bug, because no unit test will catch it · misaligned acceptance criteria · scope that was never agreed on |
+| **Schema critic** | `NOT NULL` without a default on a 50M-row table (deadlock in 10min after deploy) · missing `CONCURRENTLY` on index creation · irreversible migrations with no rollback path |
+
+Previously critics only activated starting from Plan. Now the pipeline catches architectural and spec-level mistakes before implementation begins — when reverting costs hours, not days.
+
 ## How great_cto compares
 
 |  | **great_cto** | Devin | Claude Code (alone) |
@@ -65,7 +77,9 @@ npx great-cto init
 
 The CLI scans your repo, picks the right archetype, wires compliance gates automatically. Works on new or existing projects. Restart Claude Code afterwards.
 
-**Requires:** [Claude Code](https://claude.com/claude-code) · Node 18.17+ · [Beads](https://github.com/steveyegge/beads) · [Superpowers](https://github.com/obra/superpowers)
+**Requires:** [Claude Code](https://claude.com/claude-code) · Node 18.17+
+
+Superpowers and Beads companion plugins install automatically — no manual setup needed.
 
 ## Jurisdiction detection
 
@@ -267,17 +281,20 @@ The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are mark
 
 ## What's new
 
-**v2.9.1** (May 2026) — **zero-setup email alerts** (5 trigger types · 100/24h free via `greatcto.systems/notify` relay · no Resend signup) · **session-start auto-attach reviewers** (scans recent diff → flags the right specialist `subagent_type` so the 24 reviewers stop sitting idle) · `subagent_type` routing table in `CLAUDE.md` / `AGENTS.md`.
+**v2.17.0** (May 2026) — **companion plugins auto-install** (Superpowers + Beads install automatically on `npx great-cto install` — no more manual setup) · **Architecture / Spec / Schema critics** before the Plan stage — catch the three most expensive mistake types before implementation begins · **llm-leash board: 16 new features** (Cmd-K command palette · Issues subtab · Session timeline · Topology graph · HITL diff · OPA config · SOC2 export · Rule comparison) · **8-jurisdiction detection** auto-activates the right regulatory reviewer (EU · US-CA · UK · IN · BR · AU · SG · CA).
 
-**v2.8.6** — Claude Code-only release · **16 domain packs** (added edtech / gov / gaming / enterprise / insurance) · 4-layer journey visualization on [/packs.html](https://greatcto.systems/packs.html) · 50 specialist agents.
+**v2.9.1** — **zero-setup email alerts** (5 trigger types · weekly digest · no Resend signup) · **session-start auto-attach reviewers**.
+
+**v2.8.6** — **16 domain packs** (edtech · gov · gaming · enterprise · insurance) · 4-layer journey visualization.
 
 [Full changelog →](CHANGELOG.md)
 
 ## Roadmap
 
-- **v2.9** — lesson-quality tracking (which lessons agents cite vs ignore)
-- **v2.10** — auto-promotion: high-impact decisions → reusable skills
-- **v3.0** — Claude Agent SDK headless mode (CI / scheduled / webhook-triggered pipelines)
+- **Evals runner in CI** — run golden-set eval suites on every PR, catch prompt regressions automatically
+- **Self-improving loop** — agents that learn from verdicts and improve their own prompts over time
+- **Decision scoring** — track which gate decisions turned out to be right; surface patterns
+- **/crystallize** — promote high-impact lessons to reusable skills the whole pipeline can query
 
 [Vote on the next feature →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
 
