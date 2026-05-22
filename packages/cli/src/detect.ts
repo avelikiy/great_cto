@@ -906,6 +906,7 @@ function mineReadmeKeywords(dir: string): string[] {
     "ccpa", "cpra", "california consumer privacy",
     "california privacy rights", "cppa", "california residents",
     "california users", "do not sell", "opt-out of sale",
+    "data subject rights california", "dsr california",
     // UK
     "uk gdpr", "information commissioner", "dpa 2018",
     "uk users", "uk customers", "united kingdom", "british users",
