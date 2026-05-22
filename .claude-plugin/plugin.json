@@ -126,6 +126,11 @@
             "type": "command",
             "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/format-check.mjs\" 2>/dev/null; true",
             "timeout": 12
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/summary-enforce.mjs\" 2>/dev/null; true",
+            "timeout": 5
           }
         ]
       }

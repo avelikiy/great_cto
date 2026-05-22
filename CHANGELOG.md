@@ -4,6 +4,52 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased — 2026-05-22
+
+### Added — Token economy Phase 1: artifact summaries
+
+First phase of the token-economy initiative (`docs/plans/PLAN-token-economy-2026-q2.md`).
+Cuts pipeline tokens by 30-50% by giving downstream agents pre-generated structured
+summaries of artifacts instead of the full multi-thousand-token documents.
+
+- **`scripts/generate-summary.mjs`** — Generates `.summary.md` (≤ 250 tokens) for every
+  `ARCH-*.md` / `PLAN-*.md` / `ADR-*.md` / `PHASE-*.md` / `QA-*.md` / `SEC-*.md` /
+  `TM-*.md` / `RELEASE-*.md` / `PERF-*.md`. Uses Anthropic Haiku → OpenRouter (Kimi K2) →
+  deterministic heuristic. Idempotent: skips files where summary is newer than source.
+  CLI: `--all`, `--check`, `--force`, `--verbose`.
+- **`scripts/hooks/summary-enforce.mjs`** — PostToolUse hook that auto-generates the
+  paired `.summary.md` whenever an artifact is written/edited. Non-blocking,
+  fire-and-forget. Opt-out via `GREAT_CTO_DISABLE_SUMMARY=1`.
+- **`scripts/hooks/pre-push.sh`** — Now blocks pushes with stale summaries. Bypass via
+  `GREAT_CTO_SKIP_SUMMARY_CHECK=1`.
+- **`agents/_shared/artifact-summary-contract.md`** — Contract for producers + consumers.
+  Consumers MUST read `.summary.md` first; full doc only on need.
+- **`tests/hooks/summary-enforce.test.mjs`** — 13 tests covering classify, idempotency,
+  --check exit codes, hook filtering, no recursive summarization.
+
+Expected savings on canonical pipeline: 30-50% LLM tokens per feature.
+
+---
+
+## v2.18.0 — 2026-05-22
+
+### Added — bd upgrade + Bundled Adversarial Critics
+
+**`great-cto upgrade [plugin]`** — force re-clone companion plugins (superpowers, beads) to
+their latest semver tag, then re-apply critic overlays. Safe to run any time — idempotent
+if already on latest.
+
+- **`packages/cli/src/upgrade.ts`** — `upgradePlugin()`, `upgradeAll()`
+- **`packages/cli/src/overlay.ts`** — `applyOverlays()`, `copyCriticFiles()`, `patchSkillFiles()`
+  — idempotent critic installer called on every `init` and `upgrade`
+- **`packages/cli/assets/skills/`** — 4 adversarial critic prompt files bundled as package assets:
+  - `brainstorming/spec-critic-prompt.md` — attacks specs before planning
+  - `writing-plans/arch-critic-prompt.md` — attacks file structure before tasks are written
+  - `finishing-a-development-branch/schema-critic-prompt.md` — attacks DB migrations before ship
+  - `finishing-a-development-branch/api-critic-prompt.md` — attacks API changes before ship
+
+---
+
 ## v2.15.0 — 2026-05-22
 
 ### Added — Jurisdiction Detection
