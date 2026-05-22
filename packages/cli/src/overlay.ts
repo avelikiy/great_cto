@@ -16,6 +16,7 @@ import {
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { semverDescending } from "./semver.js";
 
 export interface OverlayResult {
   superpowersDir: string | null;
@@ -164,17 +165,6 @@ export function getAssetsDir(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   // dist/overlay.js → ../assets/skills/
   return join(here, "..", "assets", "skills");
-}
-
-/** Compare two semver strings descending (highest first). */
-function semverDescending(a: string, b: string): number {
-  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
-  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < 3; i++) {
-    const d = (pb[i] ?? 0) - (pa[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
 }
 
 /**
