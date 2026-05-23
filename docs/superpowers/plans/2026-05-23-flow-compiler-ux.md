@@ -269,7 +269,7 @@ _routing:
 - [ ] **Step 3: Build**
 
 ```bash
-cd /Users/avelikiy/development/great_cto && npm run build 2>&1 | tail -5
+cd <repo> && npm run build 2>&1 | tail -5
 ```
 Expected: no errors
 
@@ -378,7 +378,7 @@ test("cli-tool → baseline cost, no compliance gate", () => {
 - [ ] **Step 2: Run tests**
 
 ```bash
-cd /Users/avelikiy/development/great_cto && npm run build && node --test tests/flow.test.mjs
+cd <repo> && npm run build && node --test tests/flow.test.mjs
 ```
 Expected: 6 passing
 
@@ -467,9 +467,9 @@ Also update the early return (when PROJECT.md already exists) to return `flow: n
 - [ ] **Step 4: Build + verify FLOW.md is created**
 
 ```bash
-cd /Users/avelikiy/development/great_cto && npm run build
+cd <repo> && npm run build
 mkdir -p /tmp/flow-test && cd /tmp/flow-test && git init -q
-node /Users/avelikiy/development/great_cto/packages/cli/dist/main.js init -y
+node <repo>/packages/cli/dist/main.js init -y
 cat .great_cto/FLOW.md
 ```
 
@@ -478,8 +478,8 @@ Expected: FLOW.md exists with `# Delivery Flow`, `## Agents`, `## Human gates`, 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/avelikiy/development/great_cto add packages/cli/src/bootstrap.ts
-git -C /Users/avelikiy/development/great_cto commit -m "feat: write FLOW.md on init — compiled delivery flow artifact"
+git -C <repo> add packages/cli/src/bootstrap.ts
+git -C <repo> commit -m "feat: write FLOW.md on init — compiled delivery flow artifact"
 ```
 
 ---
@@ -559,12 +559,12 @@ Replace with:
 - [ ] **Step 3: Build and do a quick smoke test**
 
 ```bash
-cd /Users/avelikiy/development/great_cto && npm run build
+cd <repo> && npm run build
 mkdir -p /tmp/flow-test2 && cd /tmp/flow-test2 && git init -q
 cat > package.json << 'EOF'
 {"name":"test-fintech","dependencies":{"stripe":"^14.0.0"}}
 EOF
-node /Users/avelikiy/development/great_cto/packages/cli/dist/main.js init -y
+node <repo>/packages/cli/dist/main.js init -y
 ```
 
 Expected output includes:
@@ -579,7 +579,7 @@ Compiled flow: E-commerce · (or similar based on stripe detection)
 - [ ] **Step 4: Run full test suite**
 
 ```bash
-cd /Users/avelikiy/development/great_cto && npm test 2>&1 | tail -10
+cd <repo> && npm test 2>&1 | tail -10
 ```
 Expected: all tests pass (162+ passing)
 
@@ -687,7 +687,7 @@ At the top of the `## Releases` section in `CHANGELOG.md`, add:
 - [ ] **Step 3: Full test run**
 
 ```bash
-cd /Users/avelikiy/development/great_cto && npm test 2>&1 | tail -15
+cd <repo> && npm test 2>&1 | tail -15
 ```
 Expected: all tests pass (168+ passing — 162 existing + 6 new flow tests)
 
