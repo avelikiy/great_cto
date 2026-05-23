@@ -101,13 +101,33 @@ Before claiming a task, scan past lessons for known anti-patterns or proven
 approaches in the current archetype:
 
 ```bash
-ARCH=$(grep -E '^archetype:|^primary:' .great_cto/PROJECT.md 2>/dev/null | head -1 | awk '{print $2}')
+# TASK must be set to the current Beads task title before this block runs.
+# e.g.  TASK=$(cat .great_cto/tasks.md | grep "in_progress" | head -1 | sed 's/.*title: //')
 
-# Cross-project patterns (high-confidence)
-[ -f ~/.great_cto/decisions.md ] && grep -B1 -A8 "archetypes:.*$ARCH" ~/.great_cto/decisions.md 2>/dev/null | head -40
+# Locate memory-filter script (plugin install path or local dev path)
+_MF=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/memory-filter.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_MF" ] && _MF="scripts/memory-filter.mjs"
 
-# Local lessons (this project)
-[ -f .great_cto/lessons.md ] && tail -50 .great_cto/lessons.md
+# Cross-project patterns — filtered to top-3 relevant to TASK
+if [ -f ~/.great_cto/decisions.md ]; then
+  if [ -f "$_MF" ] && [ "${GREAT_CTO_DISABLE_MEMORY_FILTER:-0}" != "1" ]; then
+    echo "=== RELEVANT DECISIONS ==="
+    node "$_MF" "$TASK" ~/.great_cto/decisions.md --k=3 2>/dev/null
+  else
+    ARCH=$(grep -E '^archetype:|^primary:' .great_cto/PROJECT.md 2>/dev/null | head -1 | awk '{print $2}')
+    grep -B1 -A8 "archetypes:.*$ARCH" ~/.great_cto/decisions.md 2>/dev/null | head -40
+  fi
+fi
+
+# Local lessons — filtered to top-3 relevant to TASK
+if [ -f .great_cto/lessons.md ]; then
+  if [ -f "$_MF" ] && [ "${GREAT_CTO_DISABLE_MEMORY_FILTER:-0}" != "1" ]; then
+    echo "=== RELEVANT LESSONS ==="
+    node "$_MF" "$TASK" .great_cto/lessons.md --k=3 2>/dev/null
+  else
+    tail -50 .great_cto/lessons.md
+  fi
+fi
 ```
 
 If a lesson directly applies to your current task, **apply the pattern** and
