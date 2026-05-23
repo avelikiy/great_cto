@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="186" viewBox="0 0 900 186">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#484f58"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="186" rx="10" fill="#0d1117"/>
+
+  <!-- Divider between two rows -->
+  <line x1="20" y1="87" x2="880" y2="87" stroke="#21262d" stroke-width="1"/>
+
+  <!-- === ROW LABELS === -->
+  <text x="20" y="19" fill="#484f58" font-size="10" font-weight="600"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        letter-spacing="1.5">SETUP · ONCE PER PROJECT</text>
+  <text x="20" y="101" fill="#484f58" font-size="10" font-weight="600"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        letter-spacing="1.5">PER FEATURE · IN CLAUDE CODE</text>
+
+  <!-- =========== ROW 1: SETUP =========== -->
+
+  <!-- your repo -->
+  <rect x="20" y="27" width="84" height="38" rx="5" fill="#21262d" stroke="#30363d"/>
+  <text x="62" y="51" fill="#8b949e" font-size="12"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">your repo</text>
+
+  <!-- arrow + command -->
+  <line x1="106" y1="46" x2="162" y2="46" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="134" y="39" fill="#484f58" font-size="9.5"
+        font-family="ui-monospace,'Cascadia Code','Fira Code',monospace"
+        text-anchor="middle">npx great-cto init</text>
+
+  <!-- Flow Compiler (highlight box) -->
+  <rect x="164" y="23" width="136" height="46" rx="5" fill="#0a2a18" stroke="#00d97e" stroke-width="1.5"/>
+  <text x="232" y="46" fill="#00d97e" font-size="12.5" font-weight="700"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">⚡ Flow Compiler</text>
+  <text x="232" y="62" fill="#39d353" font-size="10"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">stack · jurisdiction · agents</text>
+
+  <!-- arrow -->
+  <line x1="302" y1="46" x2="340" y2="46" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- FLOW.md -->
+  <rect x="342" y="27" width="104" height="38" rx="5" fill="#21262d" stroke="#30363d"/>
+  <text x="394" y="48" fill="#8b949e" font-size="12"
+        font-family="ui-monospace,'Cascadia Code','Fira Code',monospace"
+        text-anchor="middle">FLOW.md</text>
+  <text x="394" y="61" fill="#484f58" font-size="10"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">agents · gates · cost</text>
+
+  <!-- =========== ROW 2: PER FEATURE =========== -->
+
+  <!-- /start command -->
+  <rect x="20" y="111" width="122" height="46" rx="5" fill="#21262d" stroke="#30363d"/>
+  <text x="81" y="131" fill="#8b949e" font-size="12"
+        font-family="ui-monospace,'Cascadia Code','Fira Code',monospace"
+        text-anchor="middle">/start</text>
+  <text x="81" y="148" fill="#484f58" font-size="10"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">"describe feature"</text>
+
+  <!-- arrow -->
+  <line x1="144" y1="134" x2="174" y2="134" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- gate:plan (amber) -->
+  <rect x="176" y="107" width="120" height="54" rx="5" fill="#2a2200" stroke="#f0b429" stroke-width="1.5"/>
+  <text x="236" y="130" fill="#f0b429" font-size="12.5" font-weight="700"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">🟡 gate:plan</text>
+  <text x="236" y="148" fill="#c9a227" font-size="10"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">← you approve</text>
+
+  <!-- arrow -->
+  <line x1="298" y1="134" x2="328" y2="134" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- 57 agents (center dark block) -->
+  <rect x="330" y="111" width="272" height="46" rx="5" fill="#161b22" stroke="#30363d"/>
+  <text x="466" y="131" fill="#c9d1d9" font-size="12" font-weight="600"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">57 agents — fully automatic</text>
+  <text x="466" y="148" fill="#6e7681" font-size="10"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">architect · senior-dev · review · qa · security · devops</text>
+
+  <!-- arrow -->
+  <line x1="604" y1="134" x2="634" y2="134" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- gate:ship (green) -->
+  <rect x="636" y="107" width="120" height="54" rx="5" fill="#001a0d" stroke="#00d97e" stroke-width="1.5"/>
+  <text x="696" y="130" fill="#00d97e" font-size="12.5" font-weight="700"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">🟢 gate:ship</text>
+  <text x="696" y="148" fill="#39d353" font-size="10"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">← you approve</text>
+
+  <!-- arrow -->
+  <line x1="758" y1="134" x2="788" y2="134" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Deployed -->
+  <rect x="790" y="115" width="96" height="38" rx="5" fill="#0a2a18" stroke="#00d97e"/>
+  <text x="838" y="139" fill="#00d97e" font-size="12.5" font-weight="600"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">✓ Deployed</text>
+
+</svg>
