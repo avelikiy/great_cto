@@ -4,11 +4,15 @@
 
 # great_cto
 
-**유일하게 배포할 수 있는 사람이 되는 것을 그만두세요.**
+**프로젝트와 운영 지역을 설명하세요. GreatCTO가 올바른 SDLC 파이프라인을 자동으로 컴파일합니다.**
 
-당신은 CTO이자 병목입니다. **GreatCTO는 30개의 전문가 에이전트**가 아키텍처, 리뷰, QA, 보안, 배포를 처리합니다 — 당신은 **기능당 두 가지 결정**만 내리면 됩니다.
+`npx great-cto init`이 스택을 스캔하고, 관할권을 감지하고, **Delivery Flow**를 컴파일합니다 — 프로젝트에 필요한 정확한 에이전트, 컴플라이언스 프레임워크, 휴먼 게이트. 두 개의 체크포인트(플랜과 배포)만 승인하면 됩니다. 나머지는 모두 자동입니다.
 
-> **v2.7.0** · 34 에이전트 · 25 아키타입 · 24 보안 규칙 · 9 훅 · **Claude Code · Cursor · Codex · Aider · Continue** 에서 작동 · MCP 서버 · webhooks · CI gate · 프로젝트당 ~$34/월 · MIT
+**단독 엔지니어링 조직을 위해 만들어졌습니다.** 인디 해커, 솔로 창업자, 모든 것을 혼자 운영하는 기술 CTO.
+
+<sub>내부 구성: 57개 전문가 에이전트 · 25개 제품 아키타입 · 11개 도메인 팩 · 33개 이상 컴플라이언스 프레임워크 · 12개 관할권 오버레이.</sub>
+
+> **v2.21.0** · 57 에이전트 · 25 아키타입 · 12 관할권 · **Claude Code · Cursor · Codex · Aider · Continue** 에서 작동 · MCP 서버 · webhooks · CI gate · 기능당 ~$8–$18 · MIT
 
 > ⚠️ 이 번역은 기계 번역입니다. 현지화 검토가 필요합니다. 문제가 있으면 PR을 보내주세요. [English original](../../README.md).
 
@@ -36,7 +40,19 @@
 
 ## great_cto란?
 
-great_cto는 [Claude Code 플러그인](https://claude.com/plugins) 으로, 전체 SDLC 파이프라인을 **30개의 전문가 에이전트**로 실행합니다 — 아키텍트, 계획, 구현, 12각도 리뷰, QA, 보안, 배포, 지원 — 당신이 실제로 확인하는 보드를 통해 조율됩니다. 기능당 두 가지 결정만 내리고; 나머지는 모두 자동.
+어떤 저장소에서든 `npx great-cto init`을 실행하세요. GreatCTO는 스택을 스캔하고, 인프라와 README 신호에서 관할권을 감지하고, **Delivery Flow**를 컴파일합니다 — 프로젝트에 필요한 정확한 에이전트, 컴플라이언스 프레임워크, 휴먼 게이트:
+
+```
+$ npx great-cto init
+
+Compiled flow: Fintech · EU + UK
+  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
+  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
+  Compliance: gdpr, pci-dss, dora
+  Cost:       ~$8–$18 per feature cycle
+```
+
+이후 `/start "환불 엔드포인트 구축"`으로 컴파일된 파이프라인을 처음부터 끝까지 실행합니다.
 
 <p align="center">
   <img src="../screenshots/board.png" alt="great_cto kanban — 5 컬럼, 인라인 게이트 승인, 실시간 SSE" width="900" />
@@ -239,6 +255,6 @@ MIT — [LICENSE](../../LICENSE) 참조.
 <div align="center">
 
 **[@avelikiy](https://github.com/avelikiy) · [@Greatcto on Hashnode](https://hashnode.com/@Greatcto) 가 만들었습니다**
-*유일하게 배포할 수 있는 사람이 되는 것을 그만두세요.*
+*프로젝트와 운영 지역을 설명하세요. GreatCTO가 올바른 SDLC 파이프라인을 자동으로 컴파일합니다.*
 
 </div>

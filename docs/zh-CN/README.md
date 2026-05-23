@@ -4,11 +4,15 @@
 
 # great_cto
 
-**别再做唯一能发布版本的人了。**
+**描述你的项目和运营地区。GreatCTO 自动编译正确的 SDLC 流水线。**
 
-你是 CTO，也是瓶颈。**GreatCTO 是 30 个专业代理**，负责架构、代码审查、QA、安全和部署 — 而你只需要做出**每个特性两个决定**。
+`npx great-cto init` 扫描你的技术栈，检测管辖区，并编译 **Delivery Flow** — 项目所需的确切代理、合规框架和人工审批门。你批准两个检查点：计划和发布。其他一切自动运行。
 
-> **v2.7.0** · 34 代理 · 25 项目类型 · 24 安全规则 · 9 钩子 · 在 **Claude Code · Cursor · Codex · Aider · Continue** 中工作 · MCP 服务器 · webhooks · CI gate · 每项目 ~$34/月 · MIT
+**专为单人工程组织打造。** 独立开发者、单人创始人和独立管理一切的技术 CTO。
+
+<sub>底层：57 个专业代理 · 25 个产品原型 · 11 个领域包 · 33+ 个合规框架 · 12 个管辖区覆盖。</sub>
+
+> **v2.21.0** · 57 代理 · 25 项目类型 · 12 管辖区 · 在 **Claude Code · Cursor · Codex · Aider · Continue** 中工作 · MCP 服务器 · webhooks · CI gate · 每功能 ~$8–$18 · MIT
 
 > ⚠️ 此翻译为机器翻译,需要本地化审核。如发现问题请提交 PR。 [English original](../../README.md).
 
@@ -36,7 +40,19 @@
 
 ## 什么是 great_cto?
 
-great_cto 是一个 [Claude Code 插件](https://claude.com/plugins),它将完整的 SDLC 流程作为 **33 个专业代理** 运行 — 架构师、规划、实现、12 角度审查、QA、安全、部署、支持 — 通过你真正会查看的看板进行协调。每个特性你做两个决定;其余的都自动完成。
+在任意仓库中运行 `npx great-cto init`。GreatCTO 扫描你的技术栈，从基础设施和 README 信号中检测管辖区，并编译 **Delivery Flow** — 项目所需的确切代理、合规框架和人工审批门：
+
+```
+$ npx great-cto init
+
+Compiled flow: Fintech · EU + UK
+  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
+  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
+  Compliance: gdpr, pci-dss, dora
+  Cost:       ~$8–$18 per feature cycle
+```
+
+之后，`/start "构建退款接口"` 端到端运行编译好的流水线。
 
 <p align="center">
   <img src="../screenshots/board.png" alt="great_cto kanban — 5 列, 内联门审批, 实时 SSE" width="900" />
@@ -352,6 +368,6 @@ MIT — 见 [LICENSE](../../LICENSE)。
 <div align="center">
 
 **由 [@avelikiy](https://github.com/avelikiy) · [@Greatcto](https://hashnode.com/@Greatcto) on Hashnode 构建**
-*别再做唯一能发布版本的人了。*
+*描述你的项目和运营地区。GreatCTO 自动编译正确的 SDLC 流水线。*
 
 </div>

@@ -4,11 +4,15 @@
 
 # great_cto
 
-**別再做唯一能發布版本的人了。**
+**描述你的專案和運營地區。GreatCTO 自動編譯正確的 SDLC 流水線。**
 
-你是 CTO,也是瓶頸。**GreatCTO 是 30 個專業代理**,負責架構、程式碼審查、QA、安全和部署 — 而你只需要做出**每個功能兩個決定**。
+`npx great-cto init` 掃描你的技術棧，偵測管轄區，並編譯 **Delivery Flow** — 專案所需的確切代理、合規框架和人工審核門。你批准兩個檢查點：計劃和發布。其他一切自動執行。
 
-> **v2.7.0** · 34 代理 · 25 專案類型 · 24 安全規則 · 9 鉤子 · 在 **Claude Code · Cursor · Codex · Aider · Continue** 中工作 · MCP 伺服器 · webhooks · CI gate · 每專案 ~$34/月 · MIT
+**專為單人工程組織打造。** 獨立開發者、單人創辦人和獨立管理一切的技術 CTO。
+
+<sub>底層：57 個專業代理 · 25 個產品原型 · 11 個領域包 · 33+ 個合規框架 · 12 個管轄區覆蓋。</sub>
+
+> **v2.21.0** · 57 代理 · 25 專案類型 · 12 管轄區 · 在 **Claude Code · Cursor · Codex · Aider · Continue** 中工作 · MCP 伺服器 · webhooks · CI gate · 每功能 ~$8–$18 · MIT
 
 > ⚠️ 此為機器翻譯,需要本地化審核。如發現問題請提交 PR。 [English original](../../README.md).
 
@@ -36,7 +40,19 @@
 
 ## 什麼是 great_cto?
 
-great_cto 是一個 [Claude Code 外掛](https://claude.com/plugins),它將完整的 SDLC 流程作為 **33 個專業代理** 執行 — 架構師、規劃、實作、12 角度審查、QA、安全、部署、支援 — 透過你真正會檢視的看板進行協調。每個功能你做兩個決定;其餘的都自動完成。
+在任意儲存庫中執行 `npx great-cto init`。GreatCTO 掃描你的技術棧，從基礎設施和 README 訊號中偵測管轄區，並編譯 **Delivery Flow** — 專案所需的確切代理、合規框架和人工審核門：
+
+```
+$ npx great-cto init
+
+Compiled flow: Fintech · EU + UK
+  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
+  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
+  Compliance: gdpr, pci-dss, dora
+  Cost:       ~$8–$18 per feature cycle
+```
+
+之後，`/start "建立退款端點"` 端到端執行已編譯的流水線。
 
 <p align="center">
   <img src="../screenshots/board.png" alt="great_cto kanban — 5 欄, 內聯閘門核准, 即時 SSE" width="900" />
@@ -252,6 +268,6 @@ MIT — 見 [LICENSE](../../LICENSE)。
 <div align="center">
 
 **由 [@avelikiy](https://github.com/avelikiy) · [@Greatcto](https://hashnode.com/@Greatcto) on Hashnode 建構**
-*別再做唯一能發布版本的人了。*
+*描述你的專案和運營地區。GreatCTO 自動編譯正確的 SDLC 流水線。*
 
 </div>

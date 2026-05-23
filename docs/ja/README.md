@@ -4,11 +4,15 @@
 
 # great_cto
 
-**リリースできる唯一の人間でいるのをやめよう。**
+**プロジェクトと運用地域を説明してください。GreatCTOが最適なSDLCパイプラインを自動でコンパイルします。**
 
-あなたは CTO で、ボトルネックでもある。**GreatCTO は 30 のスペシャリスト・エージェント**が、アーキテクチャ・レビュー・QA・セキュリティ・デプロイを担当 — あなたは**機能ごとに 2 つの決定**だけを下す。
+`npx great-cto init`がスタックをスキャンし、管轄区域を検出し、**Delivery Flow**をコンパイルします — プロジェクトに必要な正確なエージェント、コンプライアンスフレームワーク、ヒューマンゲート。あなたは2つのチェックポイント（プランとリリース）を承認するだけ。残りはすべて自動です。
 
-> **v2.7.0** · 34 エージェント · 25 アーキタイプ · 24 セキュリティルール · 9 フック · **Claude Code · Cursor · Codex · Aider · Continue** で動作 · MCP サーバー · webhooks · CI gate · プロジェクトあたり ~$34/月 · MIT
+**ひとり体制のエンジニアリング組織向け。** インディーハッカー、ソロファウンダー、すべてを自分で担うテクニカルCTO。
+
+<sub>内部構成：57の専門エージェント · 25のプロダクトアーキタイプ · 11のドメインパック · 33以上のコンプライアンスフレームワーク · 12の管轄区域オーバーレイ。</sub>
+
+> **v2.21.0** · 57 エージェント · 25 アーキタイプ · 12 管轄区域 · **Claude Code · Cursor · Codex · Aider · Continue** で動作 · MCP サーバー · webhooks · CI gate · 機能あたり ~$8–$18 · MIT
 
 > ⚠️ この翻訳は機械翻訳です。ローカルレビューが必要です。問題があれば PR を送ってください。 [English original](../../README.md).
 
@@ -36,7 +40,19 @@
 
 ## great_cto とは?
 
-great_cto は [Claude Code プラグイン](https://claude.com/plugins) で、完全な SDLC パイプラインを **30 のスペシャリスト・エージェント**として実行します — アーキテクト、計画、実装、12 角度レビュー、QA、セキュリティ、デプロイ、サポート — あなたが実際に確認するボードを通じて連携。機能ごとに 2 つの決定を下し、それ以外はすべて自動化。
+任意のリポジトリで `npx great-cto init` を実行してください。GreatCTOはスタックをスキャンし、インフラとREADMEのシグナルから管轄区域を検出し、**Delivery Flow**をコンパイルします — プロジェクトに必要な正確なエージェント、コンプライアンスフレームワーク、ヒューマンゲート：
+
+```
+$ npx great-cto init
+
+Compiled flow: Fintech · EU + UK
+  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
+  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
+  Compliance: gdpr, pci-dss, dora
+  Cost:       ~$8–$18 per feature cycle
+```
+
+その後、`/start "返金エンドポイントを構築"` でコンパイル済みパイプラインをエンドツーエンドで実行します。
 
 <p align="center">
   <img src="../screenshots/board.png" alt="great_cto kanban — 5 列、インラインゲート承認、ライブ SSE" width="900" />
@@ -239,6 +255,6 @@ MIT — [LICENSE](../../LICENSE) を参照。
 <div align="center">
 
 **[@avelikiy](https://github.com/avelikiy) · [@Greatcto on Hashnode](https://hashnode.com/@Greatcto) によって構築**
-*リリースできる唯一の人間でいるのをやめよう。*
+*プロジェクトと運用地域を説明してください。GreatCTOが最適なSDLCパイプラインを自動でコンパイルします。*
 
 </div>

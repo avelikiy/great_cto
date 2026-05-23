@@ -4,11 +4,15 @@
 
 # great_cto
 
-**Перестань быть единственным, кто может выпустить релиз.**
+**Опишите проект и где он работает. GreatCTO автоматически собирает нужный SDLC-пайплайн.**
 
-Ты — CTO. Ты же и узкое место. **GreatCTO — это 30 специализированных агентов**, которые занимаются архитектурой, ревью, QA, безопасностью и деплоем — пока ты принимаешь **два решения на фичу**.
+`npx great-cto init` сканирует стек, определяет юрисдикцию и собирает **Delivery Flow** — точный набор агентов, compliance-фреймворков и human gates для вашего проекта. Вы одобряете два чекпоинта: план и деплой. Всё остальное — автоматически.
 
-> **v2.7.0** · 34 агента · 25 архетипов · 24 правила безопасности · 9 хуков · работает в **Claude Code · Cursor · Codex · Aider · Continue** · MCP-сервер · webhooks · CI gate · per-stage Beads tasks · ~$34/мес на проект · MIT
+**Создано для одиночной инженерной организации.** Инди-хакеры, соло-основатели и технические CTO, которые сами управляют всем.
+
+<sub>Под капотом: 57 специализированных агентов · 25 продуктовых архетипов · 11 доменных паков · 33+ compliance-фреймворков · 12 юрисдикционных оверлеев.</sub>
+
+> **v2.21.0** · 57 агентов · 25 архетипов · 12 юрисдикций · работает в **Claude Code · Cursor · Codex · Aider · Continue** · MCP-сервер · webhooks · CI gate · per-stage Beads tasks · ~$8–$18/фичу · MIT
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
@@ -36,7 +40,19 @@
 
 ## Что такое great_cto?
 
-great_cto — это [плагин для Claude Code](https://claude.com/plugins), который запускает полный SDLC-пайплайн в виде **30 специализированных агентов** — архитектор, планирование, имплементация, ревью под 12 углов, QA, безопасность, деплой, поддержка — координируемых через борд, в который ты реально заглядываешь. Ты принимаешь два решения на фичу; всё остальное — автоматически.
+Запусти `npx great-cto init` в любом репозитории. GreatCTO сканирует стек, определяет юрисдикцию по инфраструктурным и README-сигналам и собирает **Delivery Flow** — точный набор агентов, compliance-фреймворков и human gates для вашего проекта:
+
+```
+$ npx great-cto init
+
+Compiled flow: Fintech · EU + UK
+  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
+  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
+  Compliance: gdpr, pci-dss, dora
+  Cost:       ~$8–$18 per feature cycle
+```
+
+После этого `/start "собрать эндпоинт возврата"` запускает скомпилированный пайплайн от начала до конца.
 
 <p align="center">
   <img src="../screenshots/board.png" alt="great_cto kanban — 5 колонок, inline-аппрув гейтов, live SSE" width="900" />
@@ -362,6 +378,6 @@ MIT — см. [LICENSE](../../LICENSE).
 <div align="center">
 
 **Сделано [@avelikiy](https://github.com/avelikiy) · [@Greatcto](https://hashnode.com/@Greatcto) на Hashnode**
-*Перестань быть единственным, кто может выпустить релиз.*
+*Опишите проект и где он работает. GreatCTO автоматически собирает нужный SDLC-пайплайн.*
 
 </div>

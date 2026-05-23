@@ -4,11 +4,15 @@
 
 # great_cto
 
-**Deja de ser la única persona que puede hacer release.**
+**Describe tu proyecto y dónde opera. GreatCTO compila el pipeline SDLC correcto automáticamente.**
 
-Eres el CTO. También eres el cuello de botella. **GreatCTO son 30 agentes especialistas** que se encargan de la arquitectura, revisión, QA, seguridad y deploy — mientras tú tomas **dos decisiones por feature**.
+`npx great-cto init` escanea tu stack, detecta la jurisdicción y compila un **Delivery Flow** — el conjunto exacto de agentes, frameworks de compliance y human gates que necesita tu proyecto. Apruebas dos checkpoints: el plan y el deploy. Todo lo demás es automático.
 
-> **v2.7.0** · 34 agentes · 25 arquetipos · 24 reglas de seguridad · 9 hooks · funciona en **Claude Code · Cursor · Codex · Aider · Continue** · servidor MCP · webhooks · CI gate · ~$34/mes por proyecto · MIT
+**Diseñado para la organización de ingeniería unipersonal.** Indie hackers, fundadores en solitario y CTOs técnicos que gestionan todo ellos mismos.
+
+<sub>Bajo el capó: 57 agentes especialistas · 25 arquetipos de producto · 11 domain packs · 33+ frameworks de compliance · 12 overlays de jurisdicción.</sub>
+
+> **v2.21.0** · 57 agentes · 25 arquetipos · 12 jurisdicciones · funciona en **Claude Code · Cursor · Codex · Aider · Continue** · servidor MCP · webhooks · CI gate · ~$8–$18 por feature · MIT
 
 > ⚠️ Esta traducción es automática. Necesita revisión por hablante nativo. Si encuentras errores, abre un PR. [English original](../../README.md).
 
@@ -36,7 +40,19 @@ Eres el CTO. También eres el cuello de botella. **GreatCTO son 30 agentes espec
 
 ## ¿Qué es great_cto?
 
-great_cto es un [plugin de Claude Code](https://claude.com/plugins) que ejecuta el pipeline completo SDLC como **30 agentes especialistas** — arquitecto, planificación, implementación, revisión de 12 ángulos, QA, seguridad, deploy, soporte — coordinados a través de un board que realmente revisas. Tomas dos decisiones por feature; todo lo demás es automático.
+Ejecuta `npx great-cto init` en cualquier repo. GreatCTO escanea tu stack, detecta la jurisdicción a partir de señales de infra y README, y compila un **Delivery Flow** — el conjunto exacto de agentes, frameworks de compliance y human gates que necesita tu proyecto:
+
+```
+$ npx great-cto init
+
+Compiled flow: Fintech · EU + UK
+  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
+  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
+  Compliance: gdpr, pci-dss, dora
+  Cost:       ~$8–$18 per feature cycle
+```
+
+Desde ahí, `/start "construir un endpoint de reembolso"` ejecuta el pipeline compilado de extremo a extremo.
 
 <p align="center">
   <img src="../screenshots/board.png" alt="great_cto kanban — 5 columnas, aprobación de gates inline, SSE en vivo" width="900" />
@@ -239,6 +255,6 @@ MIT — ver [LICENSE](../../LICENSE).
 <div align="center">
 
 **Construido por [@avelikiy](https://github.com/avelikiy) · [@Greatcto on Hashnode](https://hashnode.com/@Greatcto)**
-*Deja de ser la única persona que puede hacer release.*
+*Describe tu proyecto y dónde opera. GreatCTO compila el pipeline SDLC correcto automáticamente.*
 
 </div>
