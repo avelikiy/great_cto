@@ -2,13 +2,13 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Solo-CTO mode. Stop being the only person who can ship.**
+**Describe your project and where it operates. GreatCTO compiles the right SDLC pipeline automatically.**
 
-**The engineering OS for Claude Code** — open-source, local-first alternative to Devin. great_cto orchestrates **57 specialist agents** around your Claude Code: architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, plus 30 archetype reviewers (including gdpr-reviewer, us-privacy-reviewer, dpdpa-reviewer) and **16 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · digital-health · edtech · gov · gaming · enterprise · insurance).
-
-You're the solo CTO. You're also the bottleneck. **GreatCTO is 50 specialist agents** that handle architecture, review, QA, security, and deploy — while you make **two decisions per feature**.
+`npx great-cto init` scans your stack, detects jurisdiction, and compiles a **Delivery Flow** — the exact agents, compliance frameworks, and human gates your project needs. You approve two checkpoints: the plan and the ship decision. Everything else runs automatically.
 
 **Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
+
+<sub>Under the hood: 57 specialist agents · 25 product archetypes · 11 domain packs · 33+ compliance frameworks · 12 jurisdiction overlays.</sub>
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -23,9 +23,19 @@ You're the solo CTO. You're also the bottleneck. **GreatCTO is 50 specialist age
 
 ## What is great_cto?
 
-You describe what you want (`/start "build a billing endpoint"`). 57 specialist agents — architect, PM, senior-dev, code-reviewer, qa-engineer, security-officer, devops, l3-support, plus 30 archetype reviewers and **16 domain packs** (voice-AI · clinical · HR-AI · API platform · lending · clinical trials · robotics · EM-fintech · climate · drug-discovery · **digital-health · edtech · gov · gaming · enterprise · insurance**) — orchestrate the SDLC: archetype detection → pack overlay → architecture + ADRs → threat model → plan + Beads tasks → TDD impl → 12-angle review → QA → security gate → deploy.
+Run `npx great-cto init` in any repo. GreatCTO scans your stack, detects jurisdiction from infra and README signals, and compiles a **Delivery Flow** — the exact set of agents, compliance frameworks, and human gates your project needs:
 
-The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; a deep cross-cutting feature runs through 7+ agents over an hour. **You confirm two gates** (plan, ship). Everything else is automatic.
+```
+$ npx great-cto init
+
+Compiled flow: Fintech · EU + UK
+  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
+  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
+  Compliance: gdpr, pci-dss, psd2-sca, dora
+  Cost:       ~$8–$18 per feature cycle
+```
+
+From there, `/start "build a refund endpoint"` runs the compiled pipeline end-to-end. The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; a deep cross-cutting feature runs through 7+ agents over an hour. **You confirm two gates** (plan, ship). Everything else is automatic.
 
 ## Two decisions per feature
 
