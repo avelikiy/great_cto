@@ -4,6 +4,17 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.21.0 — 2026-05-23
+
+### Flow Compiler UX
+
+- **Compiled flow summary** — `npx great-cto init` now prints a user-facing "Compiled flow:" block (product title + jurisdiction, agents, gates, compliance, cost range) instead of internal debug steps. Internals (`archetype`, `pack`, `jurisdiction`) become routing implementation details, not user-facing choices.
+- **FLOW.md artifact** — every `great-cto init` writes `.great_cto/FLOW.md` — a single file agents read to orchestrate the SDLC pipeline (agents, gates, compliance, cost, `_routing` block for power users / debugging).
+- **flow.ts module** — new pure `compileFlow()` function composes `reviewersFor`, `gatesFor`, `suggestPackReviewers`, `suggestJurisdictionReviewers` into one `FlowResult`. No breaking changes to existing modules.
+- **README repositioning** — hero section leads with "describe project → get pipeline" value prop. Ingredient counts (57 agents, 25 archetypes, etc.) moved to `<sub>` line.
+
+---
+
 ## v2.20.0 — 2026-05-23
 
 ### Added — Detection v2: 12 jurisdictions, infra signals, word-boundary matching, pack hints
