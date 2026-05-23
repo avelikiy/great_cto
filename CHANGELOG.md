@@ -4,7 +4,7 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased — 2026-05-23
+## v2.19.0 — 2026-05-23
 
 ### Added — Token economy Phase 1+2: artifact summaries + memory filter
 
