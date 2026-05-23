@@ -19,6 +19,7 @@ import { install, findInstalledVersions } from "./installer.js";
 import { enableGreatCto } from "./settings.js";
 import { installAllCompanions } from "./companion.js";
 import { bootstrap } from "./bootstrap.js";
+import { compileFlow } from "./flow.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -581,24 +582,34 @@ async function runInit(args: CliArgs): Promise<number> {
 
   const compliance = suggestCompliance(detection, archetype as never);
 
-  log(`  ${dim("archetype:")} ${cyan(archetype)} ${dim(`(confidence: ${confidence})`)}`);
-  log(`  ${dim("rationale:")} ${rationale}`);
-  if (alternatives.length > 0) {
-    log(`  ${dim("alternatives:")} ${alternatives.join(", ")}`);
-  }
-  log(`  ${dim("suggested compliance:")} ${compliance.length > 0 ? compliance.join(", ") : "none"}`);
+  // Compile flow — used for user-facing summary AND written to FLOW.md by bootstrap()
+  const compiledFlow = compileFlow(
+    archetype as never,
+    (detection.projectSize ?? "medium") as never,
+    detection,
+    compliance,
+    confidence,
+  );
 
-  // v1.0.144+: ask user to confirm archetype if confidence is low
-  // OR if alternatives are present and not user-specified
+  // ── User-facing "Compiled flow" summary ──────────────────────────────────
+  log("");
+  log(`${bold("Compiled flow:")} ${cyan(compiledFlow.title)}`);
+  log(`  ${dim("Agents:")}     ${compiledFlow.agents.join(" · ")}`);
+  log(`  ${dim("Gates:")}      ${compiledFlow.gates.join(" · ")}`);
+  if (compiledFlow.compliance.length > 0) {
+    log(`  ${dim("Compliance:")} ${compiledFlow.compliance.join(", ")}`);
+  }
+  log(`  ${dim("Cost:")}       ~$${compiledFlow.costRange.low}–$${compiledFlow.costRange.high} per feature cycle`);
+  log("");
+
+  // Low-confidence notice — show only when actionable
   if (!args.yes && !args.archetype && (confidence === "low" || (confidence === "medium" && alternatives.length >= 2))) {
-    log("");
-    log(`${bold("⚠ Archetype detection confidence:")} ${cyan(confidence)}`);
-    log(`  Top candidate: ${cyan(archetype)} — ${dim(rationale)}`);
+    log(`  ${yellow("⚠")} ${dim(`Detected as ${cyan(archetype)} (${confidence} confidence).`)}`);
     if (alternatives.length > 0) {
-      log(`  Alternatives:  ${alternatives.map(a => cyan(a)).join(", ")}`);
+      log(`  ${dim("Alternatives: " + alternatives.join(", "))}`);
     }
-    log(`  ${dim("If wrong, override with: --archetype " + (alternatives[0] ?? "<name>"))}`);
-    log(`  ${dim("Or edit .great_cto/PROJECT.md after install — agents read 'archetype:' field.")}`);
+    log(`  ${dim("Override: npx great-cto init --archetype <name>")}`);
+    log("");
   }
 
   // Confirmation
