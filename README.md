@@ -2,53 +2,96 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Describe your project. Get the right pipeline.**
+**Your AI engineering team for ~$34/month.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 
-[Website](https://greatcto.systems) · [📐 Architecture](https://greatcto.systems/architecture) · [📜 One real run](https://greatcto.systems/proof) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
+[Website](https://greatcto.systems) · [One real run →](https://greatcto.systems/proof) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
 
 [Русский](docs/ru/README.md) · [简体中文](docs/zh-CN/README.md) · [繁體中文](docs/zh-TW/README.md) · [日本語](docs/ja/README.md) · [한국어](docs/ko/README.md) · [Español](docs/es/README.md) · [Português](docs/pt-BR/README.md) · [Deutsch](docs/de/README.md) · [Français](docs/fr/README.md)
 
 </div>
 
+---
+
+## The problem
+
+You're a solo CTO. You write the code, review the code, deploy the code. Nobody's catching:
+
+- The GDPR clause you missed in the payment flow
+- The N+1 query that shows up in prod at 10× scale
+- The auth middleware hole you'll read about in a bug report
+
+Hiring a senior engineer to review: **$15,000/month.** Doing it yourself: **risk.**
+
+## What you get
+
+57 specialist agents — architect, 12-angle reviewer, QA, security officer, devops — wired into a gated pipeline tuned to your stack and jurisdiction.
+
+**You make two decisions per feature.** Everything else runs automatically.
+
+## By the numbers
+
+| | |
+|---|---|
+| LLM cost (one real feature, traced) | **$2.39** |
+| Human-equivalent for the same work | **~$5,460** |
+| Defects caught that QA had missed | **2** |
+| Monthly cost (20 pipeline runs) | **~$34** |
+| Specialist agents | **57** |
+| Archetypes auto-detected | **25** |
+| Jurisdictions | **12** (GDPR · HIPAA · PCI-DSS · SOX · and more) |
+
+→ [Full trace with all artefacts](https://greatcto.systems/proof)
+
 ## How it works
 
-```mermaid
-graph LR
-    A["Your repo"] -->|"npx great-cto init"| B["Flow Compiler"]
-    B -->|"stack + jurisdiction"| C[".great_cto/FLOW.md"]
-    C --> D["Claude Code"]
-    D -->|"/start 'feature'"| E["🟡 gate:plan"]
-    E -->|"you approve"| F["Agents build · review · QA · security"]
-    F --> G["🟢 gate:ship"]
-    G -->|"you approve"| H["Deployed ✓"]
-    style B fill:#0a2a18,stroke:#00d97e,color:#00d97e
-    style E fill:#2a2800,stroke:#f0b429,color:#f0b429
-    style G fill:#002a1a,stroke:#00d97e,color:#00d97e
-```
+<p align="center">
+  <img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 57 agents → gate:ship → Deployed" width="900" />
+</p>
 
-1. **`npx great-cto init`** — scans your stack and README, detects jurisdiction, writes `.great_cto/FLOW.md` with the exact agents, gates, and compliance frameworks for your project
-2. **`/start "describe the feature"`** — architecture, spec, and schema critics run before any code. You review the plan at `gate:plan`.
-3. **Automated SDLC** — senior-dev implements with TDD, 12-angle review, QA, security, devops run automatically. You approve ship at `gate:ship`.
+**`npx great-cto init`** — scans your stack and README, detects jurisdiction (GDPR? HIPAA? PCI?), writes `.great_cto/FLOW.md` with the exact agents, gates, and compliance frameworks for your project.
 
-**Built for the one-person engineering org.** Indie hackers, solo founders, technical CTOs running everything themselves. *Not for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
+**`/start "describe the feature"`** — critics review the architecture and spec before any code is written. You review the plan at `gate:plan`.
 
-## Three projects — three pipelines
+**Agents run automatically** — senior-dev implements with TDD, 12-angle review, QA, security, devops. You approve ship at `gate:ship`.
 
-Same command, different output based on what you're building:
+## Three projects — three different pipelines
+
+Same command. Output depends on what you're building and where it runs:
 
 | | **Fintech startup · EU** | **Healthcare portal · US** | **CLI tool** |
 |---|---|---|---|
-| Agents | `pci-reviewer` · `gdpr-reviewer` · `regulated-reviewer` | `fda-reviewer` · `healthcare-reviewer` · `security-officer` | `cli-reviewer` |
-| Gates | `gate:gdpr-dpia` · `gate:plan` · `gate:ship` | `gate:clinical-validation` · `gate:plan` · `gate:ship` | `gate:plan` |
+| Specialist agents | `pci-reviewer` · `gdpr-reviewer` · `regulated-reviewer` | `fda-reviewer` · `healthcare-reviewer` · `security-officer` | `cli-reviewer` |
+| Human gates | `gate:gdpr-dpia` · `gate:plan` · `gate:ship` | `gate:clinical-validation` · `gate:plan` · `gate:ship` | `gate:plan` |
 | Compliance | GDPR · PCI-DSS · SOX | HIPAA · HITECH | — |
 | Cost / cycle | ~$8–18 | ~$8–18 | ~$0.5–3 |
 
 → Try the interactive picker: [greatcto.systems/#flow-picker](https://greatcto.systems/#flow-picker)
+
+## The dashboard you'll actually check
+
+`great-cto board` opens at `http://localhost:3141` — Kanban with realtime SSE, per-agent cost tile, pipeline status, 30-day LLM spend vs human-equivalent baseline.
+
+<p align="center">
+  <img src="docs/screenshots/board.png" alt="Kanban board with realtime SSE updates" width="900" />
+</p>
+
+<table>
+<tr>
+<td width="50%"><a href="docs/screenshots/metrics.png"><img src="docs/screenshots/metrics.png" alt="Metrics — cost, velocity, savings_x" width="100%" /></a><br/><sub><b>Metrics</b> — LLM cost, human-equivalent baseline, savings_x ratio</sub></td>
+<td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
+</tr>
+<tr>
+<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 57 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 57 specialists with last-used + run counts</sub></td>
+<td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 layers + crystallized incident patterns</sub></td>
+</tr>
+</table>
+
+**Built for the one-person engineering org.** Indie hackers, solo founders, technical CTOs running everything themselves. *Not for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
 
 ## Install
 
@@ -131,35 +174,6 @@ Word-boundary matching prevents false positives (`"india"` doesn't match `"india
 ```yaml
 jurisdiction: [eu, us-ca]
 ```
-
-## The board you'll actually check
-
-`great-cto board` opens an admin UI at `http://localhost:3141` — Kanban with realtime SSE updates, per-agent cost tile, pipeline status across 8 stages, and a 30-day cost history that pairs LLM spend with the human-equivalent baseline.
-
-<p align="center">
-  <img src="docs/screenshots/board.png" alt="Kanban board with realtime SSE updates" width="900" />
-</p>
-
-<table>
-<tr>
-<td width="50%"><a href="docs/screenshots/metrics.png"><img src="docs/screenshots/metrics.png" alt="Metrics — cost, velocity, savings_x" width="100%" /></a><br/><sub><b>Metrics</b> — LLM cost, human-equivalent baseline, savings_x ratio</sub></td>
-<td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 57 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 57 specialists with last-used + run counts</sub></td>
-<td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 layers + crystallized incident patterns</sub></td>
-</tr>
-</table>
-
-| Tile | What you see |
-|---|---|
-| Tasks | Backlog → in-progress → done, drag to update via `/api/tasks/<id>/status` |
-| Cost (30d) | LLM $ vs human-equivalent $; flag if `savings_x < 100×` |
-| Agent fleet | 57 agents with last-used + per-agent run count |
-| Inbox | Pending gates, P0 incidents, blocked tasks (auto-sorted) |
-| Pipeline | 8-stage SDLC with status (architect → pm → senior-dev → … → devops) |
-
-Full API surface: [docs/BOARD-API.md](docs/BOARD-API.md).
 
 ## Three commands you use every day
 
