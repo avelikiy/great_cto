@@ -83,16 +83,20 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 
 ## Jurisdiction detection
 
-`npx great-cto init` scans your project for geo and legal signals — domain TLDs, locale configs, README keywords, legal folder names — and auto-detects which jurisdictions apply:
+`npx great-cto init` scans three signal sources — README keywords, infra region strings (Terraform, `.env` `AWS_REGION=`, docker-compose `TZ=`), and `package.json` homepage TLD — and auto-detects which of **12 jurisdictions** apply:
 
-| Jurisdiction | Triggered by | Compliance agents loaded |
+| Jurisdiction | Example signals | Compliance agents |
 |---|---|---|
-| EU | `.eu` TLD, `gdpr`, `dsgvo`, locale `de/fr/pl/…` | `gdpr-reviewer` |
-| US-CA | `ccpa`, `california`, `.ca.gov` | `us-privacy-reviewer` |
-| UK | `.co.uk`, `ico`, `uk-gdpr` | `gdpr-reviewer` |
-| IN | `.in` TLD, `dpdpa`, `pdp bill` | `dpdpa-reviewer` |
-| BR | `.com.br`, `lgpd` | `gdpr-reviewer` (closest equivalent) |
-| AU, SG | `.com.au`, `.sg`, `pdpa` | `us-privacy-reviewer` |
+| EU | `gdpr`, `eu users`, `eu-west-1`, `.de` TLD | `gdpr-reviewer` |
+| US-CA | `ccpa`, `cpra`, `california residents` | `us-privacy-reviewer` |
+| UK | `uk gdpr`, `information commissioner`, `.co.uk` | `gdpr-reviewer` |
+| IN | `dpdpa`, `india users`, `rbi data localisation` | `dpdpa-reviewer` |
+| BR | `lgpd`, `anpd`, `brazil users` | `gdpr-reviewer` |
+| AU / SG | `privacy act 1988`, `pdpa`, `.com.au`, `.sg` | `us-privacy-reviewer` |
+| CA | `pipeda`, `quebec law 25`, `ca-central-1` | `us-privacy-reviewer` |
+| JP | `appi`, `japan users`, `ap-northeast-1`, `japaneast` | `us-privacy-reviewer` |
+| CN | `pipl`, `mlps`, `china users`, `cn-north-1` | `gdpr-reviewer` |
+| KR | `pipa korea`, `isms-p`, `ap-northeast-2` | `us-privacy-reviewer` |
 
 Detected jurisdiction is written to `PROJECT.md` as `jurisdiction: [EU, US-CA]` and gates the appropriate reviewer on every feature.
 
@@ -191,19 +195,24 @@ Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-
 
 ### Jurisdiction Detection
 
-GreatCTO auto-detects applicable compliance frameworks from project geography signals:
+GreatCTO auto-detects applicable compliance frameworks from three signal sources: README keywords, infra region strings (Terraform / `.env` `AWS_REGION=` / docker-compose `TZ=`), and `package.json` homepage TLD. **12 jurisdictions** covered:
 
-| Jurisdiction | Signals | Frameworks | Reviewer |
+| Jurisdiction | Signals (README + infra) | Frameworks | Reviewer |
 |---|---|---|---|
-| `eu` | gdpr · eu users · nis2 · eu ai act | GDPR · EU AI Act · NIS2 | `gdpr-reviewer` |
-| `us-ca` | ccpa · cpra · do not sell | CCPA / CPRA | `us-privacy-reviewer` |
+| `eu` | gdpr · eu users · nis2 · eu ai act · `eu-west-*` · `.de` TLD | GDPR · EU AI Act · NIS2 · ePrivacy | `gdpr-reviewer` |
+| `us-ca` | ccpa · cpra · california residents · do not sell | CCPA / CPRA | `us-privacy-reviewer` |
 | `uk` | uk gdpr · information commissioner · dpa 2018 | UK GDPR · DPA 2018 | `gdpr-reviewer` |
 | `in` | dpdpa · india users · rbi data localisation | DPDPA 2023 · RBI | `dpdpa-reviewer` |
 | `br` | lgpd · anpd · brazil users | LGPD | `gdpr-reviewer` |
-| `au` | privacy act 1988 · oaic | Privacy Act 1988 · CDR | `us-privacy-reviewer` |
-| `sg` | pdpa · pdpc · mas guidelines | PDPA · MAS TRM | `us-privacy-reviewer` |
+| `au` | privacy act 1988 · oaic · notifiable data breach | Privacy Act 1988 · CDR | `us-privacy-reviewer` |
+| `sg` | pdpa · pdpc · mas guidelines · singpass | PDPA · MAS TRM | `us-privacy-reviewer` |
+| `ca` | pipeda · quebec law 25 · casl · canadian users · `ca-central-*` | PIPEDA · Quebec Law 25 · CASL · OSFI B-10 | `us-privacy-reviewer` |
+| `jp` | appi · japan users · my number · `ap-northeast-1` · `japaneast` | APPI 2022 · PPC Guidelines · FISC | `us-privacy-reviewer` |
+| `cn` | pipl · mlps · china users · `cn-north-*` · `cn-east-*` | PIPL 2021 · DSL 2021 · MLPS 2.0 · CBDT | `gdpr-reviewer` |
+| `kr` | pipa korea · isms-p · kisa · korea users · `ap-northeast-2` | PIPA · ISMS-P · FSC regulations | `us-privacy-reviewer` |
+| `us` | ftc · us users · virginia cdpa · texas tdpsa | FTC Act · US state privacy laws | `us-privacy-reviewer` |
 
-Set or override in `.great_cto/PROJECT.md`:
+Word-boundary matching prevents false positives (`"india"` doesn't match `"indiana"`). Set or override in `.great_cto/PROJECT.md`:
 ```yaml
 jurisdiction: [eu, us-ca]
 ```
@@ -281,7 +290,11 @@ The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are mark
 
 ## What's new
 
-**v2.17.0** (May 2026) — **companion plugins auto-install** (Superpowers + Beads install automatically on `npx great-cto install` — no more manual setup) · **Architecture / Spec / Schema critics** before the Plan stage — catch the three most expensive mistake types before implementation begins · **llm-leash board: 16 new features** (Cmd-K command palette · Issues subtab · Session timeline · Topology graph · HITL diff · OPA config · SOC2 export · Rule comparison) · **8-jurisdiction detection** auto-activates the right regulatory reviewer (EU · US-CA · UK · IN · BR · AU · SG · CA).
+**v2.20.0** (May 2026) — **Detection v2**: **12-jurisdiction coverage** (added CA · JP · CN · KR with full legal framework + human gates) · **infra-signal detection** (Terraform region strings, `.env` `AWS_REGION=`, docker-compose `TZ=`, `package.json` homepage TLD) · **word-boundary matching** (no more "india" → "indiana" false positives) · **pack hints** for niche archetypes (`suggestedPacks` surfaces robotics/climate/clinical-trials/hr-ai/em-fintech packs when confidence is low). Token savings: –87.7% per pipeline run (v2.19.0 context-architecture redesign).
+
+**v2.19.0** (May 2026) — **Token economy Phase 1+2**: artifact summaries (≤250 tokens, auto-generated) + task-aware memory filter (top-k relevant entries per task). –87.7% tokens per pipeline run.
+
+**v2.17.0** (May 2026) — **companion plugins auto-install** · **Architecture / Spec / Schema critics** before Plan stage · **llm-leash board: 16 new features** (Cmd-K command palette · Issues subtab · Session timeline · Topology graph · HITL diff · OPA config · SOC2 export · Rule comparison).
 
 **v2.9.1** — **zero-setup email alerts** (5 trigger types · weekly digest · no Resend signup) · **session-start auto-attach reviewers**.
 
