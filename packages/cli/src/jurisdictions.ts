@@ -19,7 +19,11 @@ export type JurisdictionCode =
   | "in"       // DPDPA 2023 · IT Act · RBI
   | "br"       // LGPD
   | "au"       // Privacy Act 1988 · CDR
-  | "sg";      // PDPA · MAS
+  | "sg"       // PDPA · MAS
+  | "ca"       // PIPEDA · Quebec Law 25 (Bill 64 / Law 25)
+  | "jp"       // APPI 2022 · PPC
+  | "cn"       // PIPL 2021 · DSL · MLPS 2.0
+  | "kr";      // PIPA · ISMS-P
 
 export interface JurisdictionMatch {
   jurisdiction: JurisdictionCode;
@@ -40,6 +44,10 @@ const JURISDICTION_REVIEWERS: Record<JurisdictionCode, string[]> = {
   "br":    ["gdpr-reviewer"],          // LGPD mirrors GDPR — same reviewer covers
   "au":    ["us-privacy-reviewer"],    // Privacy Act 1988 — covered by privacy reviewer
   "sg":    ["us-privacy-reviewer"],    // PDPA — covered by privacy reviewer
+  "ca":    ["us-privacy-reviewer"],    // PIPEDA + Quebec Law 25
+  "jp":    ["us-privacy-reviewer"],    // APPI — covered by privacy reviewer
+  "cn":    ["gdpr-reviewer"],          // PIPL structure mirrors GDPR concepts
+  "kr":    ["us-privacy-reviewer"],    // PIPA — covered by privacy reviewer
 };
 
 const JURISDICTION_GATES: Record<JurisdictionCode, string[]> = {
@@ -51,6 +59,10 @@ const JURISDICTION_GATES: Record<JurisdictionCode, string[]> = {
   "br":    ["gate:lgpd-dpia"],
   "au":    ["gate:au-privacy-act-assessment"],
   "sg":    ["gate:pdpa-dpo"],
+  "ca":    ["gate:pipeda-pia", "gate:quebec-law25-consent"],
+  "jp":    ["gate:appi-third-party-transfer", "gate:appi-ppc-registration"],
+  "cn":    ["gate:pipl-consent-framework", "gate:mlps-classification", "gate:pipl-data-localisation"],
+  "kr":    ["gate:pipa-isms-p", "gate:pipa-consent-framework"],
 };
 
 const JURISDICTION_LAWS: Record<JurisdictionCode, string[]> = {
@@ -62,6 +74,10 @@ const JURISDICTION_LAWS: Record<JurisdictionCode, string[]> = {
   "br":    ["LGPD (Lei 13.709/2018)", "ANPD resolutions", "Marco Civil da Internet"],
   "au":    ["Privacy Act 1988 (Cth)", "Australian Privacy Principles (APPs)", "CDR (if fintech)", "OAIC enforcement"],
   "sg":    ["PDPA 2012 (amended 2021)", "MAS TRM Guidelines (if fintech)", "PDPC Advisory Guidelines"],
+  "ca":    ["PIPEDA (Personal Information Protection and Electronic Documents Act)", "Quebec Law 25 / Bill 64", "CASL (if email marketing)", "OSFI B-10 (if fintech)"],
+  "jp":    ["APPI 2022 (Act on Protection of Personal Information)", "PPC Guidelines", "My Number Act (if govt-adjacent)", "FISC (if fintech)"],
+  "cn":    ["PIPL 2021 (Personal Information Protection Law)", "DSL 2021 (Data Security Law)", "MLPS 2.0 (Cybersecurity Classified Protection)", "CBDT (cross-border data transfer rules)", "CAC regulations"],
+  "kr":    ["PIPA (Personal Information Protection Act)", "ISMS-P certification (mandatory for large platforms)", "Network Act", "FSC regulations (if fintech)"],
 };
 
 // ── Signal dictionary ─────────────────────────────────────────────────────
@@ -141,18 +157,98 @@ export const JURISDICTION_SIGNALS: Record<
       "singapore data residency",
     ],
   },
+  "ca": {
+    keywords: [
+      // Privacy law
+      "pipeda", "quebec law 25", "bill 64", "privacy commissioner",
+      "opc canada", "casl", "canadian users", "canada users",
+      "canadian customers", "canadian residents",
+      // Fintech
+      "osfi", "fintrac", "aml canada",
+      // Infra
+      "ca-central", "ca-west", "canada-central",
+    ],
+  },
+  "jp": {
+    keywords: [
+      // Privacy law
+      "appi", "personal information protection commission", "ppc japan",
+      "japan users", "japanese users", "japan customers",
+      "my number", "individual number act",
+      // Fintech
+      "fsa japan", "jfsa", "fisc",
+      // Infra
+      "ap-northeast-1", "ap-northeast-3", "japan east", "japan west",
+      "japaneast", "japanwest",
+    ],
+  },
+  "cn": {
+    keywords: [
+      // Privacy / data laws
+      "pipl", "personal information protection law", "data security law",
+      "dsl 2021", "mlps", "classified protection", "cybersecurity law",
+      "cac", "cyberspace administration", "cbdt",
+      "china users", "chinese users", "mainland china",
+      // Cross-border
+      "cross-border data transfer china", "security assessment cac",
+      "standard contract cac", "personal information export",
+      // Fintech
+      "pboc", "nfra", "cbirc", "csrc", "alipay", "wechatpay",
+      // Infra
+      "cn-north", "cn-northwest", "cn-east", "cn-south",
+      "china-east", "china-north", "chinaeast", "chinanorth",
+    ],
+  },
+  "kr": {
+    keywords: [
+      // Privacy / data laws
+      "pipa korea", "pipa", "personal information protection act korea",
+      "pipc", "privacy commissioner korea",
+      "korea users", "korean users", "south korea users",
+      "isms-p", "kisa", "k-isms",
+      // Fintech
+      "fsc korea", "fss korea", "kftc",
+      // Infra
+      "ap-northeast-2", "korea central", "korea south",
+      "koreacentral", "koreasouth",
+    ],
+  },
 };
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
+/**
+ * Word-boundary aware keyword match.
+ * Handles both single tokens ("gdpr") and multi-word phrases ("eu ai act").
+ * Multi-word phrases matched as substrings (spaces already serve as boundaries).
+ * Single tokens matched with word-boundary regex to avoid "india" → "indiana".
+ */
+function matchesKeyword(text: string, kw: string): boolean {
+  if (kw.includes(" ")) {
+    // Multi-word phrase: substring match is fine (space = implicit boundary)
+    return text.includes(kw);
+  }
+  // Single token: require word boundaries
+  try {
+    return new RegExp(`(?<![a-z0-9_-])${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9_-])`).test(text);
+  } catch {
+    return text.includes(kw);
+  }
+}
+
 /** Return jurisdictions whose signals match the detection result. */
 export function suggestJurisdictions(d: DetectionResult): JurisdictionMatch[] {
   const matches: JurisdictionMatch[] = [];
-  const kwLower = d.readmeKeywords.map((k) => k.toLowerCase());
+  // Combine README keywords + infra keywords (both already lowercased)
+  const allKeywords = [
+    ...d.readmeKeywords.map((k) => k.toLowerCase()),
+    ...(d.infraKeywords ?? []).map((k) => k.toLowerCase()),
+  ];
+  const combined = allKeywords.join(" ");
 
   for (const code of Object.keys(JURISDICTION_SIGNALS) as JurisdictionCode[]) {
     const { keywords } = JURISDICTION_SIGNALS[code];
-    const matchedKeywords = keywords.filter((kw) => kwLower.includes(kw));
+    const matchedKeywords = keywords.filter((kw) => matchesKeyword(combined, kw));
     if (matchedKeywords.length === 0) continue;
 
     matches.push({

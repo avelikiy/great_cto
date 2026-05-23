@@ -7,8 +7,8 @@ import {
   listJurisdictions,
 } from "../dist/jurisdictions.js";
 
-function mkDetection(readmeKeywords = []) {
-  return { stack: [], readmeKeywords };
+function mkDetection(readmeKeywords = [], infraKeywords = []) {
+  return { stack: [], readmeKeywords, infraKeywords };
 }
 
 test("eu: 'gdpr' keyword triggers EU jurisdiction", () => {
@@ -127,10 +127,113 @@ test("no-match: generic SaaS project triggers no jurisdiction", () => {
   assert.equal(suggestJurisdictions(d).length, 0);
 });
 
-test("listJurisdictions returns all 8 codes sorted", () => {
+test("ca: 'pipeda' triggers Canada jurisdiction", () => {
+  const d = mkDetection(["pipeda"]);
+  const ca = suggestJurisdictions(d).find((m) => m.jurisdiction === "ca");
+  assert.ok(ca, "ca should be detected from 'pipeda' keyword");
+  assert.ok(ca.humanGates.includes("gate:pipeda-pia"), "gate:pipeda-pia must be included");
+  assert.ok(ca.humanGates.includes("gate:quebec-law25-consent"), "gate:quebec-law25-consent must be included");
+  assert.ok(ca.laws.some((l) => l.includes("PIPEDA")), "laws must mention PIPEDA");
+});
+
+test("ca: 'canadian users' triggers Canada jurisdiction", () => {
+  assert.ok(suggestJurisdictions(mkDetection(["canadian users"])).find((m) => m.jurisdiction === "ca"));
+});
+
+test("ca: infra ca-central-1 region triggers Canada jurisdiction", () => {
+  const d = mkDetection([], ["ca-central"]);
+  assert.ok(suggestJurisdictions(d).find((m) => m.jurisdiction === "ca"), "ca-central region should trigger ca");
+});
+
+test("jp: 'appi' triggers Japan jurisdiction", () => {
+  const d = mkDetection(["appi"]);
+  const jp = suggestJurisdictions(d).find((m) => m.jurisdiction === "jp");
+  assert.ok(jp, "jp should be detected from 'appi' keyword");
+  assert.ok(jp.humanGates.includes("gate:appi-third-party-transfer"));
+  assert.ok(jp.humanGates.includes("gate:appi-ppc-registration"));
+  assert.ok(jp.laws.some((l) => l.includes("APPI")), "laws must mention APPI");
+});
+
+test("jp: 'japan users' triggers Japan jurisdiction", () => {
+  assert.ok(suggestJurisdictions(mkDetection(["japan users"])).find((m) => m.jurisdiction === "jp"));
+});
+
+test("jp: infra ap-northeast-1 triggers Japan jurisdiction", () => {
+  const d = mkDetection([], ["ap-northeast-1"]);
+  assert.ok(suggestJurisdictions(d).find((m) => m.jurisdiction === "jp"), "ap-northeast-1 should trigger jp");
+});
+
+test("cn: 'pipl' triggers China jurisdiction", () => {
+  const d = mkDetection(["pipl"]);
+  const cn = suggestJurisdictions(d).find((m) => m.jurisdiction === "cn");
+  assert.ok(cn, "cn should be detected from 'pipl' keyword");
+  assert.ok(cn.humanGates.includes("gate:pipl-consent-framework"));
+  assert.ok(cn.humanGates.includes("gate:mlps-classification"));
+  assert.ok(cn.humanGates.includes("gate:pipl-data-localisation"));
+  assert.ok(cn.laws.some((l) => l.includes("PIPL")), "laws must mention PIPL");
+});
+
+test("cn: 'china users' triggers China jurisdiction", () => {
+  assert.ok(suggestJurisdictions(mkDetection(["china users"])).find((m) => m.jurisdiction === "cn"));
+});
+
+test("cn: 'mlps' triggers China jurisdiction", () => {
+  assert.ok(suggestJurisdictions(mkDetection(["mlps"])).find((m) => m.jurisdiction === "cn"));
+});
+
+test("cn: infra cn-north region triggers China jurisdiction", () => {
+  const d = mkDetection([], ["cn-north"]);
+  assert.ok(suggestJurisdictions(d).find((m) => m.jurisdiction === "cn"), "cn-north should trigger cn");
+});
+
+test("kr: 'pipa korea' triggers South Korea jurisdiction", () => {
+  const d = mkDetection(["pipa korea"]);
+  const kr = suggestJurisdictions(d).find((m) => m.jurisdiction === "kr");
+  assert.ok(kr, "kr should be detected from 'pipa korea' keyword");
+  assert.ok(kr.humanGates.includes("gate:pipa-isms-p"));
+  assert.ok(kr.humanGates.includes("gate:pipa-consent-framework"));
+  assert.ok(kr.laws.some((l) => l.includes("PIPA")), "laws must mention PIPA");
+});
+
+test("kr: 'isms-p' triggers South Korea jurisdiction", () => {
+  assert.ok(suggestJurisdictions(mkDetection(["isms-p"])).find((m) => m.jurisdiction === "kr"));
+});
+
+test("kr: 'korea users' triggers South Korea jurisdiction", () => {
+  assert.ok(suggestJurisdictions(mkDetection(["korea users"])).find((m) => m.jurisdiction === "kr"));
+});
+
+test("kr: infra ap-northeast-2 triggers South Korea jurisdiction", () => {
+  const d = mkDetection([], ["ap-northeast-2"]);
+  assert.ok(suggestJurisdictions(d).find((m) => m.jurisdiction === "kr"), "ap-northeast-2 should trigger kr");
+});
+
+test("word-boundary: 'india' does NOT match Indiana references", () => {
+  const d = mkDetection(["indianapolis", "indiana state"]);
+  const matches = suggestJurisdictions(d);
+  assert.ok(!matches.find((m) => m.jurisdiction === "in"), "indiana/indianapolis must not trigger India jurisdiction");
+});
+
+test("word-boundary: 'pipa' in 'pipa korea' matches kr but not standalone 'pipa' matching kr with phrase", () => {
+  // 'pipa korea' is a phrase match → works; bare 'pipa' token should also work with word boundary
+  const d = mkDetection([], ["pipa"]);
+  const matches = suggestJurisdictions(d);
+  // pipa alone is a signal — verify it hits kr (not just pipa korea)
+  // Note: bare 'pipa' without 'korea' is still in kr signals list
+  assert.ok(matches.find((m) => m.jurisdiction === "kr"), "bare 'pipa' token should trigger kr via word-boundary match");
+});
+
+test("infra-keywords: infraKeywords supplement readmeKeywords", () => {
+  const d = mkDetection([], ["eu-west", "ap-northeast-2"]);
+  const matches = suggestJurisdictions(d);
+  assert.ok(matches.find((m) => m.jurisdiction === "eu"), "eu-west infra signal should trigger eu");
+  assert.ok(matches.find((m) => m.jurisdiction === "kr"), "ap-northeast-2 infra signal should trigger kr");
+});
+
+test("listJurisdictions returns all 12 codes sorted", () => {
   const codes = listJurisdictions();
-  assert.equal(codes.length, 8);
-  for (const code of ["au", "br", "eu", "in", "sg", "uk", "us", "us-ca"]) {
+  assert.equal(codes.length, 12);
+  for (const code of ["au", "br", "ca", "cn", "eu", "in", "jp", "kr", "sg", "uk", "us", "us-ca"]) {
     assert.ok(codes.includes(code), `${code} should be in listJurisdictions`);
   }
   assert.deepEqual(codes, [...codes].sort());

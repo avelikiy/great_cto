@@ -36,6 +36,8 @@ export interface ArchetypePick {
   confidence: "high" | "medium" | "low";
   rationale: string;
   alternatives: Archetype[];
+  /** Suggested packs inferred from README/infra keywords when confidence is low/medium */
+  suggestedPacks?: string[];
 }
 
 interface Rule {
@@ -879,12 +881,47 @@ export function pickArchetype(d: DetectionResult): ArchetypePick {
     }
   }
 
+  // ── Pack hints for low/medium confidence or niche stacks ────────────────
+  // Surfaces domain-specific packs that the archetype alone doesn't capture.
+  const suggestedPacks = confidence !== "high"
+    ? inferPackHints(d)
+    : inferPackHints(d).filter((p) => isNichePack(p)); // always surface niche packs
+
   return {
     primary: top.archetype,
     confidence,
     rationale: top.reason,
     alternatives,
+    ...(suggestedPacks.length > 0 ? { suggestedPacks } : {}),
   };
+}
+
+/** Niche packs that should surface even at high confidence */
+function isNichePack(pack: string): boolean {
+  return ["robotics-pack", "climate-pack", "drug-discovery-pack",
+          "clinical-trials-pack", "em-fintech-pack"].includes(pack);
+}
+
+/**
+ * Infer likely domain packs from README/infra keywords when the archetype
+ * scorer doesn't have a dedicated high-confidence rule for the domain.
+ */
+function inferPackHints(d: DetectionResult): string[] {
+  const hints: string[] = [];
+  const kws = new Set([...d.readmeKeywords, ...(d.infraKeywords ?? [])]);
+  const has = (...terms: string[]) => terms.some((t) => kws.has(t));
+
+  if (has("robot", "ros2", "ros 2", "cobot", "drone", "uav")) hints.push("robotics-pack");
+  if (has("carbon", "ghg", "mrv", "emission", "verra", "sbti")) hints.push("climate-pack");
+  if (has("clinical", "ctms", "edc", "cdisc", "randomization", "irb")) hints.push("clinical-trials-pack");
+  if (has("drug discovery", "binding affinity", "admet", "chembl", "alphafold")) hints.push("drug-discovery-pack");
+  if (has("recruit", "hiring", "candidate", "ats", "aedt")) hints.push("hr-ai-pack");
+  if (has("loan", "lending", "bnpl", "underwrit", "fcra")) hints.push("lending-pack");
+  if (has("voice", "telephony", "ivr", "stt", "tts", "outbound call")) hints.push("voice-pack");
+  if (has("india", "upi", "rbi", "mpesa", "gcash", "pix", "cross-border", "remittance")) hints.push("em-fintech-pack");
+  if (has("public api", "api key", "developer portal", "openapi")) hints.push("api-platform-pack");
+
+  return hints;
 }
 
 // Compliance hints — auto-suggested based on stack and README.

@@ -31,10 +31,13 @@ export interface DetectionResult {
   projectSize: "nano" | "small" | "medium" | "large" | "enterprise";
   // Wave 2: README mining (best-effort, optional)
   readmeKeywords: string[];
+  // Wave 2b: infra signals — terraform regions, .env, docker-compose TZ, package homepage TLD
+  infraKeywords: string[];
 }
 
 interface Pkg {
   name?: string;
+  homepage?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
@@ -740,6 +743,10 @@ export function detect(dir: string): DetectionResult {
   const readmeKeywords = mineReadmeKeywords(dir);
   for (const kw of readmeKeywords) sig(`readme:${kw}`, "README");
 
+  // ── Infra signals (Wave 2b) — terraform/env/docker/homepage ──
+  const infraKeywords = mineInfraKeywords(dir, pkg);
+  for (const kw of infraKeywords) sig(`infra:${kw}`, "infra");
+
   return {
     stack: Array.from(stack).sort(),
     languages: Array.from(languages).sort(),
@@ -758,6 +765,7 @@ export function detect(dir: string): DetectionResult {
     scripts: scriptHints,
     projectSize,
     readmeKeywords,
+    infraKeywords,
   };
 }
 
@@ -929,10 +937,152 @@ function mineReadmeKeywords(dir: string): string[] {
     "pdpa", "pdpc", "singapore users", "singaporean users",
     "mas guidelines", "mas tpm", "singpass", "myinfo",
     "singapore data residency",
+    // CA
+    "pipeda", "quebec law 25", "bill 64", "opc canada", "casl",
+    "canadian users", "canada users", "canadian customers", "canadian residents",
+    "osfi", "fintrac", "ca-central", "ca-west", "canada-central",
+    // JP
+    "appi", "personal information protection commission", "ppc japan",
+    "japan users", "japanese users", "japan customers",
+    "fsa japan", "jfsa", "fisc",
+    "ap-northeast-1", "ap-northeast-3", "japan east", "japan west",
+    // CN
+    "pipl", "personal information protection law", "data security law",
+    "mlps", "classified protection", "cyberspace administration",
+    "china users", "chinese users", "mainland china",
+    "pboc", "cn-north", "cn-east", "cn-south", "china-east", "china-north",
+    // KR
+    "pipa korea", "pipa", "personal information protection act korea",
+    "pipc", "isms-p", "kisa", "k-isms",
+    "korea users", "korean users", "south korea users",
+    "fsc korea", "ap-northeast-2", "korea central", "korea south",
   ];
   for (const term of jurisdictionTerms) {
     if (text.includes(term)) kws.add(term);
   }
+  return Array.from(kws).sort();
+}
+
+/**
+ * Mine infra-level jurisdiction signals that README often omits:
+ * - Terraform/Pulumi/CDK region strings (eu-west-1, ap-northeast-2, …)
+ * - .env.example / .env.sample / .env.test AWS_REGION / AZURE_LOCATION / GCP_REGION
+ * - docker-compose.yml TZ= environment variables
+ * - package.json homepage TLD (.de, .fr, .jp, .cn, .kr, .ca, …)
+ *
+ * Returns a flat list of canonical keyword strings that jurisdiction.ts can match.
+ */
+function mineInfraKeywords(dir: string, pkg: Pkg | null): string[] {
+  const kws = new Set<string>();
+
+  // ── 1. package.json homepage TLD → jurisdiction keyword ──────────────────
+  const homepageTldMap: Record<string, string> = {
+    ".de": "german users", ".at": "austrian", ".fr": "french users",
+    ".nl": "dutch users", ".es": "spanish users", ".it": "italian users",
+    ".pl": "polish users", ".eu": "eu users",
+    ".co.uk": "uk users", ".uk": "uk users",
+    ".ca": "canadian users",
+    ".jp": "japan users",
+    ".cn": "china users",
+    ".kr": "korea users",
+    ".com.br": "brazil users", ".br": "brazil users",
+    ".com.au": "australia users", ".au": "australia users",
+    ".sg": "singapore users",
+    ".in": "india users",
+  };
+  const homepage = (pkg?.homepage ?? "").toLowerCase();
+  if (homepage) {
+    for (const [tld, kw] of Object.entries(homepageTldMap)) {
+      if (homepage.includes(tld)) kws.add(kw);
+    }
+  }
+
+  // ── 2. .env / docker-compose TZ= → jurisdiction ──────────────────────────
+  const tzRegionMap: Array<[RegExp, string]> = [
+    [/tz=europe\//i, "eu users"],
+    [/tz=america\/toronto|tz=canada/i, "canadian users"],
+    [/tz=asia\/tokyo/i, "japan users"],
+    [/tz=asia\/shanghai|tz=asia\/beijing|tz=prc|tz=asia\/hong_kong/i, "china users"],
+    [/tz=asia\/seoul/i, "korea users"],
+    [/tz=asia\/kolkata|tz=asia\/calcutta/i, "india users"],
+    [/tz=america\/sao_paulo/i, "brazil users"],
+    [/tz=australia\//i, "australia users"],
+    [/tz=asia\/singapore/i, "singapore users"],
+    [/tz=europe\/london/i, "uk users"],
+  ];
+  const envFiles = [".env.example", ".env.sample", ".env.test", ".env.local.example",
+                    "docker-compose.yml", "docker-compose.yaml",
+                    "docker-compose.dev.yml", "docker-compose.prod.yml"];
+  for (const f of envFiles) {
+    const p = join(dir, f);
+    if (!existsSync(p)) continue;
+    try {
+      const txt = readFileSync(p, "utf-8").slice(0, 8000).toLowerCase();
+      // AWS_REGION / AZURE_LOCATION / GCP_REGION / REGION
+      const awsRegion = txt.match(/(?:aws_region|region)\s*=\s*["']?([a-z0-9-]+)/g) ?? [];
+      for (const m of awsRegion) {
+        const val = m.split(/=\s*["']?/)[1] ?? "";
+        if (/^eu-/.test(val) || /^europe/.test(val)) kws.add("eu users");
+        if (/^ca-/.test(val) || val.includes("canada")) kws.add("canadian users");
+        if (/^ap-northeast-1$|^ap-northeast-3$/.test(val)) kws.add("japan users");
+        if (/^ap-northeast-2$/.test(val)) kws.add("korea users");
+        if (/^cn-/.test(val) || val.includes("china")) kws.add("china users");
+        if (/^ap-south-1$/.test(val) || val.includes("india")) kws.add("india users");
+        if (/^ap-southeast-1$/.test(val)) kws.add("singapore users");
+        if (/^ap-southeast-2$/.test(val)) kws.add("australia users");
+        if (/^sa-east/.test(val)) kws.add("brazil users");
+        if (/^us-/.test(val) || /^us_/.test(val)) kws.add("us users");
+        if (val.includes("uk") || val.includes("europe") && val.includes("west")) kws.add("uk users");
+      }
+      for (const [re, kw] of tzRegionMap) {
+        if (re.test(txt)) kws.add(kw);
+      }
+    } catch { /* unreadable */ }
+  }
+
+  // ── 3. Terraform / Pulumi / CloudFormation region strings ─────────────────
+  const tfFiles: string[] = [];
+  function collectTf(d: string, depth: number): void {
+    if (depth > 4) return;
+    const SKIP = new Set(["node_modules", ".git", "dist", ".terraform"]);
+    try {
+      for (const e of readdirSync(d)) {
+        if (SKIP.has(e)) continue;
+        const p = join(d, e);
+        try {
+          const st = statSync(p);
+          if (st.isDirectory()) { collectTf(p, depth + 1); continue; }
+          if (/\.(tf|yaml|yml|json)$/.test(e) && st.size < 200_000) tfFiles.push(p);
+        } catch { /* skip */ }
+        if (tfFiles.length > 40) return;
+      }
+    } catch { /* skip */ }
+  }
+  collectTf(dir, 0);
+
+  const regionPatterns: Array<[RegExp, string]> = [
+    [/\beu-west-\d|eu-central-\d|eu-north-\d|eu-south-\d|europe-west\d|europe-north\d|westeurope|northeurope|germanywestcentral|francecentral\b/i, "eu users"],
+    [/\bca-central-\d|canadacentral|canadaeast\b/i, "canadian users"],
+    [/\bap-northeast-1\b|\bjapan-east\b|\bjapaneast\b|\bjapanwest\b/i, "japan users"],
+    [/\bap-northeast-2\b|\bkoreacentral\b|\bkoreasouth\b/i, "korea users"],
+    [/\bcn-north-\d|\bcn-east-\d|\bcn-northwest-\d|\bchinanorth\b|\bchinaeast\b/i, "china users"],
+    [/\bap-south-\d|\bcentralindia\b|\bsouthindia\b|\bwestindia\b/i, "india users"],
+    [/\bap-southeast-1\b|\bsoutheastasia\b/i, "singapore users"],
+    [/\bap-southeast-2\b|\baustralia\b|\baustraliasoutheast\b|\baustraliaeast\b/i, "australia users"],
+    [/\bsa-east-\d|\bbrazilsouth\b|\bbrazilsoutheast\b/i, "brazil users"],
+    [/\buksouth\b|\bukwest\b|\buk-south\b/i, "uk users"],
+    [/\bus-east-\d|\bus-west-\d|\beastus\b|\bwestus\b|\bcentralus\b/i, "us users"],
+  ];
+
+  for (const p of tfFiles) {
+    try {
+      const txt = readFileSync(p, "utf-8").slice(0, 50_000);
+      for (const [re, kw] of regionPatterns) {
+        if (re.test(txt)) kws.add(kw);
+      }
+    } catch { /* skip */ }
+  }
+
   return Array.from(kws).sort();
 }
 
