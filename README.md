@@ -2,40 +2,68 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Describe your project and where it operates. GreatCTO compiles the right SDLC pipeline automatically.**
-
-`npx great-cto init` scans your stack, detects jurisdiction, and compiles a **Delivery Flow** — the exact agents, compliance frameworks, and human gates your project needs. You approve two checkpoints: the plan and the ship decision. Everything else runs automatically.
-
-**Built for the one-person engineering org.** Indie hackers, solo founders, and technical CTOs running everything themselves. *Not built for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
-
-<sub>Under the hood: 57 specialist agents · 25 product archetypes · 11 domain packs · 33+ compliance frameworks · 12 jurisdiction overlays.</sub>
+**Describe your project. Get the right pipeline.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 
-[Website](https://greatcto.systems) · [📐 Architecture](https://greatcto.systems/architecture) · [📜 One real run](https://greatcto.systems/proof) · [📊 MTTR methodology](docs/benchmarks/MTTR.md) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
+[Website](https://greatcto.systems) · [📐 Architecture](https://greatcto.systems/architecture) · [📜 One real run](https://greatcto.systems/proof) · [Live demo](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Discussions](https://github.com/avelikiy/great_cto/discussions) · [Changelog](CHANGELOG.md)
 
 [Русский](docs/ru/README.md) · [简体中文](docs/zh-CN/README.md) · [繁體中文](docs/zh-TW/README.md) · [日本語](docs/ja/README.md) · [한국어](docs/ko/README.md) · [Español](docs/es/README.md) · [Português](docs/pt-BR/README.md) · [Deutsch](docs/de/README.md) · [Français](docs/fr/README.md)
 
 </div>
 
-## What is great_cto?
+## How it works
 
-Run `npx great-cto init` in any repo. GreatCTO scans your stack, detects jurisdiction from infra and README signals, and compiles a **Delivery Flow** — the exact set of agents, compliance frameworks, and human gates your project needs:
-
+```mermaid
+graph LR
+    A["Your repo"] -->|"npx great-cto init"| B["Flow Compiler"]
+    B -->|"stack + jurisdiction"| C[".great_cto/FLOW.md"]
+    C --> D["Claude Code"]
+    D -->|"/start 'feature'"| E["🟡 gate:plan"]
+    E -->|"you approve"| F["Agents build · review · QA · security"]
+    F --> G["🟢 gate:ship"]
+    G -->|"you approve"| H["Deployed ✓"]
+    style B fill:#0a2a18,stroke:#00d97e,color:#00d97e
+    style E fill:#2a2800,stroke:#f0b429,color:#f0b429
+    style G fill:#002a1a,stroke:#00d97e,color:#00d97e
 ```
-$ npx great-cto init
 
-Compiled flow: Fintech · EU + UK
-  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
-  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
-  Compliance: gdpr, pci-dss, psd2-sca, dora
-  Cost:       ~$8–$18 per feature cycle
+1. **`npx great-cto init`** — scans your stack and README, detects jurisdiction, writes `.great_cto/FLOW.md` with the exact agents, gates, and compliance frameworks for your project
+2. **`/start "describe the feature"`** — architecture, spec, and schema critics run before any code. You review the plan at `gate:plan`.
+3. **Automated SDLC** — senior-dev implements with TDD, 12-angle review, QA, security, devops run automatically. You approve ship at `gate:ship`.
+
+**Built for the one-person engineering org.** Indie hackers, solo founders, technical CTOs running everything themselves. *Not for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
+
+## Three projects — three pipelines
+
+Same command, different output based on what you're building:
+
+| | **Fintech startup · EU** | **Healthcare portal · US** | **CLI tool** |
+|---|---|---|---|
+| Agents | `pci-reviewer` · `gdpr-reviewer` · `regulated-reviewer` | `fda-reviewer` · `healthcare-reviewer` · `security-officer` | `cli-reviewer` |
+| Gates | `gate:gdpr-dpia` · `gate:plan` · `gate:ship` | `gate:clinical-validation` · `gate:plan` · `gate:ship` | `gate:plan` |
+| Compliance | GDPR · PCI-DSS · SOX | HIPAA · HITECH | — |
+| Cost / cycle | ~$8–18 | ~$8–18 | ~$0.5–3 |
+
+→ Try the interactive picker: [greatcto.systems/#flow-picker](https://greatcto.systems/#flow-picker)
+
+## Install
+
+```bash
+npx great-cto init
 ```
 
-From there, `/start "build a refund endpoint"` runs the compiled pipeline end-to-end. The pipeline scales to the work: a 1-line typo fix runs through 1 agent in 30s; a deep cross-cutting feature runs through 7+ agents over an hour. **You confirm two gates** (plan, ship). Everything else is automatic.
+Restart Claude Code after init. **Requires:** [Claude Code](https://claude.com/claude-code) · Node 18.17+
+
+Superpowers and Beads companion plugins install automatically — no manual setup needed.
+
+---
+
+<details>
+<summary>📖 Full documentation — two gates · critics · 57 agents · 25 archetypes · 12 jurisdictions · 33+ compliance frameworks · board · cost · MCP</summary>
 
 ## Two decisions per feature
 
@@ -78,18 +106,6 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 | Setup | `npx great-cto init` | sign up | install CLI |
 
 great_cto is **not** another coding-agent loop — it's the **orchestration layer above** the coding agent you already use. Think "specialist team that reviews and gates the work" rather than "another assistant that types code."
-
-## Quick install
-
-```bash
-npx great-cto init
-```
-
-The CLI scans your repo, picks the right archetype, wires compliance gates automatically. Works on new or existing projects. Restart Claude Code afterwards.
-
-**Requires:** [Claude Code](https://claude.com/claude-code) · Node 18.17+
-
-Superpowers and Beads companion plugins install automatically — no manual setup needed.
 
 ## Jurisdiction detection
 
@@ -282,15 +298,13 @@ The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are mark
 
 ## What's new
 
+**v2.21.0** (May 2026) — **Flow Compiler UX**: `npx great-cto init` now prints a **Compiled flow** with agents, gates, compliance, and cost estimate per feature cycle. Writes `.great_cto/FLOW.md` — agents read it to know exactly how to orchestrate your SDLC.
+
 **v2.20.0** (May 2026) — **Detection v2**: **12-jurisdiction coverage** (added CA · JP · CN · KR with full legal framework + human gates) · **infra-signal detection** (Terraform region strings, `.env` `AWS_REGION=`, docker-compose `TZ=`, `package.json` homepage TLD) · **word-boundary matching** (no more "india" → "indiana" false positives) · **pack hints** for niche archetypes (`suggestedPacks` surfaces robotics/climate/clinical-trials/hr-ai/em-fintech packs when confidence is low). Token savings: –87.7% per pipeline run (v2.19.0 context-architecture redesign).
 
 **v2.19.0** (May 2026) — **Token economy Phase 1+2**: artifact summaries (≤250 tokens, auto-generated) + task-aware memory filter (top-k relevant entries per task). –87.7% tokens per pipeline run.
 
 **v2.17.0** (May 2026) — **companion plugins auto-install** · **Architecture / Spec / Schema critics** before Plan stage · **llm-leash board: 16 new features** (Cmd-K command palette · Issues subtab · Session timeline · Topology graph · HITL diff · OPA config · SOC2 export · Rule comparison).
-
-**v2.9.1** — **zero-setup email alerts** (5 trigger types · weekly digest · no Resend signup) · **session-start auto-attach reviewers**.
-
-**v2.8.6** — **16 domain packs** (edtech · gov · gaming · enterprise · insurance) · 4-layer journey visualization.
 
 [Full changelog →](CHANGELOG.md)
 
@@ -302,6 +316,8 @@ The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are mark
 - **/crystallize** — promote high-impact lessons to reusable skills the whole pipeline can query
 
 [Vote on the next feature →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
+
+</details>
 
 ## Author
 
