@@ -4,30 +4,36 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased — 2026-05-22
+## Unreleased — 2026-05-23
 
-### Added — Token economy Phase 1: artifact summaries
+### Added — Token economy Phase 1+2: artifact summaries + memory filter
 
-First phase of the token-economy initiative (`docs/plans/PLAN-token-economy-2026-q2.md`).
-Cuts pipeline tokens by 30-50% by giving downstream agents pre-generated structured
-summaries of artifacts instead of the full multi-thousand-token documents.
+Two-phase token-economy initiative (`docs/plans/PLAN-token-economy-2026-q2.md`).
+Combined expected savings: 35-55% LLM tokens per agent start.
+
+**Phase 1 — Artifact summaries (30-50% savings on artifact reads)**
 
 - **`scripts/generate-summary.mjs`** — Generates `.summary.md` (≤ 250 tokens) for every
   `ARCH-*.md` / `PLAN-*.md` / `ADR-*.md` / `PHASE-*.md` / `QA-*.md` / `SEC-*.md` /
   `TM-*.md` / `RELEASE-*.md` / `PERF-*.md`. Uses Anthropic Haiku → OpenRouter (Kimi K2) →
-  deterministic heuristic. Idempotent: skips files where summary is newer than source.
-  CLI: `--all`, `--check`, `--force`, `--verbose`.
-- **`scripts/hooks/summary-enforce.mjs`** — PostToolUse hook that auto-generates the
-  paired `.summary.md` whenever an artifact is written/edited. Non-blocking,
-  fire-and-forget. Opt-out via `GREAT_CTO_DISABLE_SUMMARY=1`.
-- **`scripts/hooks/pre-push.sh`** — Now blocks pushes with stale summaries. Bypass via
-  `GREAT_CTO_SKIP_SUMMARY_CHECK=1`.
-- **`agents/_shared/artifact-summary-contract.md`** — Contract for producers + consumers.
-  Consumers MUST read `.summary.md` first; full doc only on need.
-- **`tests/hooks/summary-enforce.test.mjs`** — 13 tests covering classify, idempotency,
-  --check exit codes, hook filtering, no recursive summarization.
+  deterministic heuristic. Idempotent. CLI: `--all`, `--check`, `--force`.
+- **`scripts/hooks/summary-enforce.mjs`** — PostToolUse hook: auto-generates `.summary.md`
+  whenever an artifact is written. Fire-and-forget. Opt-out: `GREAT_CTO_DISABLE_SUMMARY=1`.
+- **`scripts/hooks/pre-push.sh`** — Blocks pushes with stale summaries.
+  Bypass: `GREAT_CTO_SKIP_SUMMARY_CHECK=1`.
+- **`agents/_shared/artifact-summary-contract.md`** — Producer/consumer contract.
+- **13 tests** in `tests/hooks/summary-enforce.test.mjs`.
 
-Expected savings on canonical pipeline: 30-50% LLM tokens per feature.
+**Phase 2 — Task-aware memory filter (≥25% savings on agent startup context)**
+
+- **`scripts/memory-filter.mjs`** — Filters `lessons.md` / `decisions.md` to the top-k
+  entries most relevant to the current task. Same provider chain as Phase 1.
+  Cost: < $0.0001/call. Latency: ~50ms heuristic, ~200ms Haiku.
+  CLI: `node scripts/memory-filter.mjs "<task>" <file> [--k=5] [--heuristic] [--stats]`.
+- **`agents/_shared/memory-filter-prompt.md`** — Prompt contract + integration table.
+- **`agents/architect.md`** — Replaces `tail -100` / `awk|head -60` with filtered injection.
+- **`agents/senior-dev.md`** — Replaces `tail -50` / `grep|head -40` with filtered injection.
+- **18 tests** in `tests/memory-filter.test.mjs`. Opt-out: `GREAT_CTO_DISABLE_MEMORY_FILTER=1`.
 
 ---
 
