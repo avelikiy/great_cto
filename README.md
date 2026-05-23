@@ -325,7 +325,7 @@ The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are mark
 
 **v2.19.0** (May 2026) — **Token economy Phase 1+2**: artifact summaries (≤250 tokens, auto-generated) + task-aware memory filter (top-k relevant entries per task). –87.7% tokens per pipeline run.
 
-**v2.17.0** (May 2026) — **companion plugins auto-install** · **Architecture / Spec / Schema critics** before Plan stage · **llm-leash board: 16 new features** (Cmd-K command palette · Issues subtab · Session timeline · Topology graph · HITL diff · OPA config · SOC2 export · Rule comparison).
+**v2.17.0** (May 2026) — **companion plugins auto-install** · **Architecture / Spec / Schema critics** before Plan stage.
 
 [Full changelog →](CHANGELOG.md)
 

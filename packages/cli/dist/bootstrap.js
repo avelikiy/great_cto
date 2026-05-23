@@ -4,12 +4,13 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { dim, success, warn } from "./ui.js";
 import { suggestJurisdictions } from "./jurisdictions.js";
+import { compileFlow, renderFlowMd } from "./flow.js";
 export function bootstrap(dir, detection, archetype, compliance, detectionMeta) {
     const greatCtoDir = join(dir, ".great_cto");
     const projectMd = join(greatCtoDir, "PROJECT.md");
     if (existsSync(projectMd)) {
         warn(`.great_cto/PROJECT.md already exists — not overwriting.`);
-        return { projectMdPath: projectMd, created: false, skippedReason: "already exists" };
+        return { projectMdPath: projectMd, created: false, skippedReason: "already exists", flow: null };
     }
     mkdirSync(greatCtoDir, { recursive: true });
     const title = inferProjectTitle(dir);
@@ -67,18 +68,6 @@ jurisdiction: [${jurisdictionLine}]
 > Supported codes: eu · us · us-ca · uk · in · br · au · sg
 > See docs/jurisdiction-compliance.md for what each code activates.
 
-## Leash
-
-leash:
-  tenant_id: ${slugifyTenant(title)}
-  daily_cap_usd: 10
-  session_prefix: gcto
-
-> \`leash.tenant_id\` is sent as \`X-LLM-Leash-Tenant-Id\` on every LLM call
-> through the proxy. Board's Security tab scopes stats to the active project
-> via this id. Change here if multiple repos share the same logical project.
-> \`session_prefix\` is prepended to auto-generated session ids so logs are
-> easy to filter across machines.
 
 ## Memory & Query Rule
 
@@ -120,7 +109,14 @@ when you actually start work:
 `;
     writeFileSync(projectMd, content, "utf-8");
     success(`created .great_cto/PROJECT.md ${dim(`(archetype: ${archetype})`)}`);
-    return { projectMdPath: projectMd, created: true, skippedReason: null };
+    // Write FLOW.md — compiled delivery flow for agents and user
+    const confidence = detectionMeta?.confidence ?? "medium";
+    const size = (detection.projectSize ?? "medium");
+    const flow = compileFlow(archetype, size, detection, compliance, confidence);
+    const flowMdPath = join(greatCtoDir, "FLOW.md");
+    const generatedAt = new Date().toISOString().slice(0, 10);
+    writeFileSync(flowMdPath, renderFlowMd(flow, generatedAt), "utf-8");
+    return { projectMdPath: projectMd, created: true, skippedReason: null, flow };
 }
 /**
  * Slugify a project title into a tenant-id safe for HTTP headers and audit

@@ -58,7 +58,6 @@ Never let a Beads error block the actual phase work.
 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
-export LEASH_AGENT_NAME=l3-support  # tags all SDK calls from this agent for per-agent leash budgets
 ```
 
 ## Grafana Setup

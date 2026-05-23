@@ -303,33 +303,9 @@ button { font-family: inherit; cursor: pointer; }
 .tab-btn:hover { background: var(--bg-muted); color: var(--text); }
 .tab-btn.active { background: var(--bg-strong); color: var(--text); font-weight: 500; }
 
-/* Security sub-tabs — leash console look */
-.leash-subtab {
-  background: transparent; border: none; cursor: pointer;
-  padding: 8px 14px; margin-bottom: -1px;
-  font-size: 13px; color: var(--text2);
-  border-bottom: 2px solid transparent;
-  display: inline-flex; align-items: center; gap: 6px;
-}
-.leash-subtab:hover { color: var(--text); }
-.leash-subtab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
-.leash-subtab .badge {
-  display: inline-block; min-width: 18px; height: 18px;
-  padding: 0 6px; border-radius: 10px;
-  background: var(--bg2); color: var(--text3);
-  font-size: 11px; font-family: var(--mono); line-height: 18px; text-align: center;
-}
-.leash-subtab.active .badge { background: var(--accent); color: #000; }
 
+}
 /* Period chip-bar — slim version of tab-btn */
-.leash-chip {
-  background: transparent; border: 1px solid var(--border);
-  padding: 3px 10px; border-radius: 12px; cursor: pointer;
-  font-size: 11px; color: var(--text2); font-family: var(--mono);
-}
-.leash-chip:hover { color: var(--text); border-color: var(--text3); }
-.leash-chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
-
 .icon-btn {
   background: transparent; border: 1px solid transparent;
   width: 30px; height: 30px;
@@ -1994,45 +1970,14 @@ button { font-family: inherit; cursor: pointer; }
   content: ' all clear'; font-size: 11px; color: var(--text3); font-weight: 400;
 }
 @media (max-width: 900px) {
-  .leash-kpi-grid { grid-template-columns: 1fr 1fr !important; }
-  .kpi-hero { grid-column: span 2; }
+.kpi-hero { grid-column: span 2; }
 }
 @media (max-width:720px) {
-  .leash-kpi-grid { grid-template-columns: 1fr 1fr !important; }
-  #leash-sub-review table { font-size: 11px; }
-  .leash-subtab { font-size: 11px; padding: 4px 8px; }
-  #leash-sample-modal > div { width: 98% !important; max-height: 85vh !important; }
 }
 @media (max-width:480px) {
-  .leash-kpi-grid { grid-template-columns: 1fr !important; }
-  .chip-filter-bar { flex-direction: column; align-items: stretch; }
+.chip-filter-bar { flex-direction: column; align-items: stretch; }
 }
-
-.leash-feed-row {
-  display: grid;
-  grid-template-columns: 14px 70px 1fr 80px 80px;
-  gap: 10px;
-  align-items: center;
-  padding: 6px 12px;
-  font-size: 12px;
-  border-top: 1px solid var(--border);
-  font-family: var(--mono);
-}
-.leash-feed-row:first-child { border-top: none; }
-.leash-feed-dot { width: 8px; height: 8px; border-radius: 50%; }
-.leash-feed-dot.ok    { background: #4caf50; }
-.leash-feed-dot.warn  { background: #ffb300; }
-.leash-feed-dot.block { background: #e53935; }
-.leash-feed-time { color: var(--text3); font-size: 11px; }
-.leash-feed-rule { color: var(--text1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.leash-feed-cost { color: var(--text2); text-align: right; }
-.leash-feed-decision { text-align: right; font-size: 11px; }
-.leash-feed-decision.ok    { color: #4caf50; }
-.leash-feed-decision.warn  { color: #ffb300; }
-.leash-feed-decision.block { color: #e53935; }
 @keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 rgba(76,175,80,.6);} 100% { box-shadow: 0 0 0 6px rgba(76,175,80,0);} }
-#leash-feed-pulse.live { background: #4caf50; animation: pulse-glow 1.5s ease-out 1; }
-
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgba(15, 17, 21, 0.12); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
@@ -2113,13 +2058,6 @@ button { font-family: inherit; cursor: pointer; }
         </span>
       </div>
       <div class="nav-divider"></div>
-      <div class="nav-item" id="nav-item-leash" data-tab="leash" onclick="switchTab('leash', this)">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <span>Security</span>
-        <span id="nav-leash-badge" class="share-badge off" style="margin-left:auto;">
-          <span class="share-badge-dot"></span>off
-        </span>
-      </div>
       <div class="nav-item nav-item-agents" data-tab="agents" onclick="switchTab('agents', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
         <span>Agents</span>
@@ -2510,338 +2448,7 @@ button { font-family: inherit; cursor: pointer; }
       </div>
     </div>
 
-    <div class="panel" id="panel-leash">
-      <div class="share-page">
-        <div class="share-card">
-          <h2>Security <span style="color:var(--text3);font-size:13px;font-weight:400">· runtime governance for LLM agents</span></h2>
-          <p class="sub">Cost ceiling, tamper-evident audit log, kill switch, human-in-the-loop gates. Powered by the open-source <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">llm-leash</a> firewall.</p>
-
-          <div class="share-toggle-row">
-            <div class="label-grp">
-              <div class="l">Runtime governance</div>
-              <div class="h" id="leash-toggle-help">Enable to route LLM calls through the firewall.</div>
-            </div>
-            <div class="toggle" id="leash-toggle-visual" onclick="toggleLeash()">
-              <input type="checkbox" id="leash-toggle">
-            </div>
-          </div>
-
-          <!-- Not installed onboarding -->
-          <div id="leash-not-installed" style="display:none;margin-top:14px">
-            <div style="padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
-              <strong>llm-leash is not installed.</strong>
-              <p style="color:var(--text2);margin:8px 0 12px 0">
-                Without it, agents can run unbounded API costs, leave no tamper-evident audit trail, and have no remote kill switch. Install once — works for every project on this machine.
-              </p>
-              <div style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:10px 12px;border-radius:6px;color:var(--text1);margin-bottom:12px">
-                $ great-cto install
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn-black" onclick="navigator.clipboard.writeText('great-cto install'); this.textContent='Copied ✓'; setTimeout(()=>this.textContent='Copy install command', 1500)">Copy install command</button>
-                <a class="btn-ghost-sm" href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="text-decoration:none">Learn more →</a>
-                <button class="btn-ghost-sm" onclick="loadLeash()">Re-check</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Scope + period controls — visible whenever leash is reachable -->
-          <div id="leash-controls" style="display:none;margin-top:14px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12px">
-            <div>
-              <span style="color:var(--text3)">SHOWING</span>
-              <select id="leash-scope" onchange="onLeashScopeChange()" style="margin-left:6px;padding:4px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-family:var(--mono);font-size:12px">
-                <option value="">— project of cwd —</option>
-                <option value="all">all projects</option>
-              </select>
-              <span id="leash-scope-active" style="margin-left:8px;color:var(--text3);font-family:var(--mono)"></span>
-            </div>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-              <span style="color:var(--text3)">PERIOD</span>
-              <div id="leash-period-chips" style="display:inline-flex;gap:4px"></div>
-            </div>
-          </div>
-
-          <!-- Sub-tabs (Review / Sessions / Threats / Agents / Budgets / Export) -->
-          <div id="leash-subtabs" style="display:none;margin-top:14px;border-bottom:1px solid var(--border);padding-bottom:0;display:flex;gap:4px;flex-wrap:wrap">
-            <button class="leash-subtab active" data-subtab="review"  onclick="switchLeashSubtab('review')">Review <span class="badge" id="lst-review-badge">0</span></button>
-            <button class="leash-subtab"        data-subtab="sessions" onclick="switchLeashSubtab('sessions')">Sessions <span class="badge" id="lst-sessions-badge">0</span></button>
-            <button class="leash-subtab"        data-subtab="threats"  onclick="switchLeashSubtab('threats')">Threats <span class="badge" id="lst-threats-badge">0</span></button>
-            <button class="leash-subtab"        data-subtab="issues"   onclick="switchLeashSubtab('issues')">Issues <span class="badge" id="lst-issues-badge">0</span></button>
-            <button class="leash-subtab"        data-subtab="agents"   onclick="switchLeashSubtab('agents')">Agents</button>
-            <button class="leash-subtab"        data-subtab="budgets"     onclick="switchLeashSubtab('budgets')">Budgets</button>
-            <button class="leash-subtab"        data-subtab="rate-limits" onclick="switchLeashSubtab('rate-limits')">Rate Limits</button>
-            <button class="leash-subtab"        data-subtab="policy"      onclick="switchLeashSubtab('policy')">Policy</button>
-            <button class="leash-subtab"        data-subtab="export"      onclick="switchLeashSubtab('export')">Export</button>
-          </div>
-
-          <!-- ───── Review sub-tab ──────────────────────────────────────── -->
-          <div class="leash-sub" id="leash-sub-review" style="display:block;margin-top:14px">
-
-            <!-- Live activity feed — last 5 audit events, polled every 5s -->
-            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
-              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">LIVE ACTIVITY</div>
-              <div id="leash-feed-pulse" style="width:6px;height:6px;border-radius:50%;background:#666;transition:background .3s"></div>
-              <div style="font-size:11px;color:var(--text3);margin-left:auto" id="leash-feed-status">—</div>
-            </div>
-            <div id="leash-feed" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:18px;min-height:60px">
-              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Waiting for events…</div>
-            </div>
-
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">THREATS PREVENTED</div>
-            <!-- HIGH tile spans 2 columns; MEDIUM/LOW/HITL each take 1 -->
-            <div class="leash-kpi-grid" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px">
-              <div class="kpi kpi-hero" id="leash-tile-high" style="border-left:3px solid #e53935">
-                <div class="kpi-label">HIGH risk averted</div>
-                <div class="kpi-value kpi-value-hero" id="leash-r-high">0</div><span id="leash-delta-high" style="font-size:11px;margin-left:6px;color:var(--text3)"></span>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px">block/hitl on critical rule</div>
-              </div>
-              <div class="kpi" id="leash-tile-medium" style="border-left:3px solid #ffb300">
-                <div class="kpi-label">MEDIUM</div>
-                <div class="kpi-value" id="leash-r-medium">0</div><span id="leash-delta-medium" style="font-size:11px;margin-left:6px;color:var(--text3)"></span>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px">redact / soft</div>
-              </div>
-              <div class="kpi" id="leash-tile-low" style="border-left:3px solid var(--text3)">
-                <div class="kpi-label">LOW</div>
-                <div class="kpi-value" id="leash-r-low">0</div><span id="leash-delta-low" style="font-size:11px;margin-left:6px;color:var(--text3)"></span>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px">warns &amp; advisory</div>
-              </div>
-              <div class="kpi" id="leash-tile-hitl" style="border-left:3px solid #ffb300">
-                <div class="kpi-label">HITL queue</div>
-                <div class="kpi-value" id="leash-r-hitl">0</div>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px">awaiting approval</div>
-              </div>
-              <button id="leash-hitl-mute" onclick="leashToggleAudio()" title="Toggle HITL audio alert"
-                style="font-size:18px;background:none;border:none;cursor:pointer;padding:0 4px">🔔</button>
-            </div>
-            <div class="leash-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:12px">
-              <div class="kpi" id="leash-tile-forecast" style="border-left:3px solid #4caf50;grid-column:span 2">
-                <div class="kpi-label">Spend rate (est.)</div>
-                <div class="kpi-value" id="leash-r-forecast">—</div>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px" id="leash-r-forecast-ttc"></div>
-              </div>
-            </div>
-
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin:18px 0 8px 0">PROXY LIVE STATE</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
-              <div class="kpi"><div class="kpi-label">Active sessions</div><div class="kpi-value" id="leash-k-sessions">0</div></div>
-              <div class="kpi"><div class="kpi-label">Spend since proxy boot</div><div class="kpi-value" id="leash-k-spend">$0.00</div></div>
-              <div class="kpi"><div class="kpi-label">Policy rules</div><div class="kpi-value" id="leash-k-rules">0</div></div>
-              <div class="kpi"><div class="kpi-label">PII redactor</div><div class="kpi-value" id="leash-k-pii">off</div></div>
-              <div class="kpi" id="leash-k-quality-tile" style="border-left:3px solid var(--accent)"><div class="kpi-label">Detection quality</div><div class="kpi-value" id="leash-k-quality">—</div><div style="font-size:10px;color:var(--text3);margin-top:2px" id="leash-k-quality-hint">F1 vs 7-day baseline</div></div>
-            </div>
-
-            <!-- Detection quality drift detail (v2.23). Hidden when there are no drifting rules. -->
-            <div id="leash-quality-detail" style="display:none;margin-top:14px">
-              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">RULES DRIFTING</div>
-              <div id="leash-quality-table" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
-            </div>
-          </div>
-
-          <!-- ───── Sessions sub-tab ────────────────────────────────────── -->
-          <div class="leash-sub" id="leash-sub-sessions" style="display:none;margin-top:14px">
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">ACTIVE SESSIONS · by spend since proxy boot</div>
-            <div id="leash-sessions-table" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No sessions yet.</div>
-            </div>
-            <div style="margin-top:6px;font-size:11px;color:var(--text3)">
-              A <strong>session</strong> is an end-to-end agent run identified by <code>X-LLM-Leash-Session-Id</code>. Zero-cost rows are sessions that connected but haven't incurred LLM cost yet.
-            </div>
-          </div>
-
-          <!-- ───── Threats sub-tab ─────────────────────────────────────── -->
-          <div class="leash-sub" id="leash-sub-threats" style="display:none;margin-top:14px">
-            <div class="chip-filter-bar" id="leash-chip-bar" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-              <input id="leash-filter-input" placeholder='rule:injection tenant:prod action:block  (or free text)'
-                style="flex:1;min-width:200px;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"
-                oninput="leashFilterUpdate(this.value)" />
-              <div id="leash-active-chips" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-              <button onclick="leashFilterClear()" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text3)">✕ clear</button>
-            </div>
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">THREATS PREVENTED · by rule</div>
-            <div id="leash-threats-rules" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No threats in this period.</div>
-            </div>
-
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin:18px 0 8px 0">THREAT DETAIL · last events</div>
-            <div id="leash-threats-detail" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No events.</div>
-            </div>
-          </div>
-
-          <!-- ───── Issues sub-tab ─────────────────────────────────────── -->
-          <div class="leash-sub" id="leash-sub-issues" style="display:none;margin-top:14px">
-            <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
-              <select id="leash-issues-filter" onchange="refreshLeashIssues()" style="padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">
-                <option value="open">Open</option>
-                <option value="muted">Muted</option>
-                <option value="resolved">Resolved</option>
-              </select>
-              <button onclick="refreshLeashIssues()" style="font-size:11px;padding:4px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ Refresh</button>
-            </div>
-            <table style="width:100%;border-collapse:collapse;font-size:12px">
-              <thead><tr style="color:var(--text3);border-bottom:1px solid var(--border)">
-                <th style="text-align:left;padding:4px 6px">Rule</th>
-                <th style="text-align:left;padding:4px 6px">Count</th>
-                <th style="text-align:left;padding:4px 6px">First seen</th>
-                <th style="text-align:left;padding:4px 6px">Last seen</th>
-                <th style="text-align:left;padding:4px 6px">Actions</th>
-              </tr></thead>
-              <tbody id="leash-issues-tbody"><tr><td colspan="5" style="padding:16px;text-align:center;color:var(--text3)">Loading…</td></tr></tbody>
-            </table>
-          </div>
-
-          <!-- ───── Agents sub-tab ──────────────────────────────────────── -->
-          <div class="leash-sub" id="leash-sub-agents" style="display:none;margin-top:14px">
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">PER-AGENT SPEND</div>
-            <div id="leash-per-agent" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No agent activity yet.</div>
-            </div>
-          </div>
-
-          <!-- ───── Budgets sub-tab ─────────────────────────────────────── -->
-          <div class="leash-sub" id="leash-sub-budgets" style="display:none;margin-top:14px">
-            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
-              <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">PER-AGENT BUDGET CAPS</span>
-              <span style="font-size:12px;color:var(--text3)" id="leash-budgets-default">default cap: $—</span>
-            </div>
-            <div id="leash-budgets-table" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Loading…</div>
-            </div>
-            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              <input id="leash-budget-add-agent" type="text" placeholder="agent_name" style="padding:6px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:13px;font-family:var(--mono);min-width:180px" />
-              <input id="leash-budget-add-cap" type="number" min="0" step="0.5" placeholder="cap USD" style="padding:6px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:13px;font-family:var(--mono);width:110px" />
-              <button class="btn-black" onclick="addLeashBudgetCap()">+ add cap</button>
-            </div>
-
-            <!-- Per-tenant caps (native in v2.27 via /admin/stats; local fallback for older) -->
-            <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border)">
-              <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
-                <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">PER-TENANT CAPS</span>
-                <span style="font-size:11px;color:var(--text3)" id="per-tenant-source-label">· spent &gt; cap fires /admin/tenant/{t}/pause</span>
-              </div>
-              <div id="leash-tenant-caps-table" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-                <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Loading…</div>
-              </div>
-              <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                <input id="leash-tenant-add-name" type="text" placeholder="tenant_id (e.g. billing-api)" style="padding:6px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:13px;font-family:var(--mono);min-width:220px" />
-                <input id="leash-tenant-add-cap" type="number" min="0" step="0.5" placeholder="daily cap USD" style="padding:6px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:13px;font-family:var(--mono);width:140px" />
-                <button class="btn-black" onclick="addLeashTenantCap()">+ add tenant cap</button>
-              </div>
-              <div style="margin-top:8px;font-size:11px;color:var(--text3)">
-                Stored in <code>~/.great_cto/per-tenant-caps.json</code>. Enforcement is best-effort: when today's spend ≥ cap the board calls <code>POST /admin/tenant/&lt;t&gt;/pause</code> to kill all active sessions of that tenant. Locks live in <code>~/.great_cto/per-tenant-locks.json</code>; use the <em>unlock</em> button to clear.
-              </div>
-            </div>
-          </div>
-
-          <!-- ───── Rate Limits sub-tab ─────────────────────────────────── -->
-          <div class="leash-sub" id="leash-sub-rate-limits" style="display:none;margin-top:14px">
-            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
-              <span style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em">RATE LIMITS</span>
-              <span style="font-size:12px;color:var(--text3)">llm-leash v2.27+</span>
-              <button onclick="loadRateLimits()" style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">Refresh</button>
-            </div>
-            <div id="leash-rate-limits-body" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-              <div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Loading…</div>
-            </div>
-          </div>
-
-          <!-- ───── Export sub-tab ──────────────────────────────────────── -->
-          <!-- ───── Policy sub-tab (GAP-16: OPA/Rego config) ─────────────── -->
-          <div class="leash-sub" id="leash-sub-policy" style="display:none;margin-top:14px">
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:12px">OPA / REGO POLICY CONFIG</div>
-            <p style="font-size:13px;color:var(--text2);margin:0 0 16px 0">Configure Open Policy Agent integration. Settings are written to <code style="font-size:11px">proxy.toml → [opa]</code>. Restart the proxy after saving.</p>
-            <div id="leash-policy-form" style="display:grid;gap:12px;max-width:520px">
-              <label style="font-size:12px">
-                <div style="color:var(--text3);margin-bottom:4px">OPA endpoint URL</div>
-                <input id="leash-opa-endpoint" placeholder="http://localhost:8181/v1/data/leash/allow"
-                  style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px" />
-              </label>
-              <label style="font-size:12px">
-                <div style="color:var(--text3);margin-bottom:4px">Policy path (optional, for subprocess backend)</div>
-                <input id="leash-opa-policy-path" placeholder="/etc/leash/policy.rego"
-                  style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px" />
-              </label>
-              <label style="font-size:12px">
-                <div style="color:var(--text3);margin-bottom:4px">Backend mode</div>
-                <select id="leash-opa-backend" style="padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">
-                  <option value="http">http — call running OPA server</option>
-                  <option value="subprocess">subprocess — spawn opa eval per request</option>
-                </select>
-              </label>
-              <label style="font-size:12px;display:flex;gap:8px;align-items:center">
-                <input type="checkbox" id="leash-opa-enabled" checked style="width:14px;height:14px" />
-                <span>Enable OPA policy enforcement</span>
-              </label>
-              <div style="display:flex;gap:10px;align-items:center">
-                <button onclick="leashSaveOpaConfig()" style="padding:6px 16px;background:var(--accent);color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">Save to proxy.toml</button>
-                <span id="leash-opa-status" style="font-size:12px;color:var(--text3)"></span>
-              </div>
-            </div>
-          </div>
-
-          <div class="leash-sub" id="leash-sub-export" style="display:none;margin-top:14px">
-            <div style="margin-bottom:14px;padding:12px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">
-              <strong style="font-size:13px">SOC 2 Evidence Pack</strong>
-              <p style="margin:6px 0;font-size:12px;color:var(--text3)">Generate a SOC 2 Type II evidence bundle from your audit log using <code>llm-leash soc2</code>.</p>
-              <button onclick="leashGenerateSoc2()" style="padding:6px 14px;background:var(--accent);color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">Generate SOC 2 Report</button>
-              <span id="leash-soc2-status" style="margin-left:10px;font-size:12px;color:var(--text3)"></span>
-            </div>
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;margin-bottom:8px">EXPORT AUDIT DATA</div>
-            <p style="color:var(--text2);font-size:13px;margin:0 0 12px 0">
-              Download filtered threat events or full audit log for offline analysis or SOC 2 evidence submission. Scope respects the project + period filters above.
-            </p>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn-black" onclick="exportLeash('threats')">↓ Export threats CSV</button>
-              <button class="btn-black" onclick="exportLeash('audit')">↓ Export audit JSON</button>
-              <span id="leash-export-meta" style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-left:6px;align-self:center"></span>
-            </div>
-          </div>
-
-          <!-- Console process not reachable fallback -->
-          <div id="leash-console-down" style="display:none;margin-top:18px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13.5px">
-            <strong>Live metrics unavailable.</strong>
-            <p style="color:var(--text2);margin:8px 0 12px 0">
-              The leash console process isn't running. Start it once in a terminal:
-            </p>
-            <div style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:10px 12px;border-radius:6px;color:var(--text1);margin-bottom:8px">
-              $ llm-leash-console --proxy <span id="leash-console-down-proxy">http://localhost:8765</span> --listen 127.0.0.1:8801
-            </div>
-            <button class="btn-ghost-sm" onclick="loadLeash()">Re-check</button>
-          </div>
-
-          <details class="share-note" style="margin-top:14px">
-            <summary style="font-size:11px;color:var(--text3);cursor:pointer;user-select:none;padding:4px 0">
-              Config &amp; data sources
-              <span style="margin-left:6px;color:var(--text3);font-size:10px">(advanced)</span>
-            </summary>
-            <div style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text3);margin-top:8px">
-              <div><strong style="color:var(--text2)">Config:</strong> <code id="leash-config-source">—</code> <span style="color:var(--text3)">— proxy + console URLs only; never queried for live data</span></div>
-              <div><strong style="color:var(--text2)">Live data sources:</strong> <span id="leash-data-sources">—</span></div>
-              <div style="margin-top:4px"><span style="color:var(--text3)">Auto-pulled from</span> <a href="https://github.com/avelikiy/llm-leash" target="_blank" rel="noopener" style="color:var(--accent)">github.com/avelikiy/llm-leash</a> <span style="color:var(--text3)">on session start.</span></div>
-            </div>
-          </details>
-        </div>
-      </div>
-    </div>
-
-    <!-- Side panel -->
-    <div class="side" id="side-panel">
-      <div class="side-top">
-        <span class="side-id-row">
-          <span class="side-id" id="side-id">—</span>
-          <button class="side-id-copy" id="side-id-copy" title="Copy task ID" onclick="copyToClipboard(document.getElementById('side-id').textContent)">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          </button>
-        </span>
-        <div style="flex:1"></div>
-        <div class="side-close" onclick="closeSide()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6L6 18 M6 6l12 12"/></svg>
-        </div>
-      </div>
-      <div class="side-body" id="side-body"></div>
-      <div id="side-timeline" style="padding:0 18px 18px"></div>
-    </div>
-  </div>
-</div>
+    
 
 <script>
 const COLUMNS = [
@@ -4549,7 +4156,6 @@ function switchTab(id, el) {
   const panelEl = document.getElementById(`panel-${id}`);
   if (panelEl) panelEl.classList.add('active');
   // crumb
-  const labels = { inbox: 'Inbox', kanban: 'Board', dashboard: 'Metrics', agents: 'Agents', share: 'Share', memory: 'Memory', logs: 'Logs', notifications: 'Notifications', leash: 'Security' };
   document.getElementById('crumb-here').textContent = labels[id] || 'Board';
   if (id === 'dashboard' || id === 'agents') {
     api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
@@ -4560,249 +4166,29 @@ function switchTab(id, el) {
   if (id === 'memory') loadMemory();
   if (id === 'logs') refreshLogs();
   if (id === 'notifications') loadNotifications();
-  if (id === 'leash') loadLeash();
 }
 
-/* ── Security tab (llm-leash runtime governance) ───────────────────────────
+/* ── Security tab (great_cto runtime governance) ───────────────────────────
    Sub-tabs: Review / Sessions / Threats / Agents / Budgets / Export.
    Scope: ?project=<slug> (defaults to current project of cwd) or "all".
    Period: chip-bar 5m/15m/1h/6h/24h/7d/30d/all, persists in localStorage.
    Poll every 5 s while panel is active. */
 
-let _leashPoll = null;
-const _leashState = {
-  sub: localStorage.getItem('leash:sub') || 'review',
-  period: localStorage.getItem('leash:period') || 'all',
-  scope: localStorage.getItem('leash:scope') || '',
 };
 
 const _LEASH_PERIODS = ['5m', '15m', '1h', '6h', '24h', '7d', '30d', 'all'];
 
-async function loadLeash() {
-  try {
-    // Build period chips (idempotent)
-    const chips = document.getElementById('leash-period-chips');
-    if (chips && !chips.dataset.ready) {
-      chips.innerHTML = _LEASH_PERIODS.map(p =>
-        `<button class="leash-chip ${p === _leashState.period ? 'active' : ''}" data-period="${p}" onclick="onLeashPeriodChange('${p}')">${p}</button>`
-      ).join('');
-      chips.dataset.ready = '1';
-    }
 
-    const scopeQuery = _leashState.scope ? `&project=${encodeURIComponent(_leashState.scope)}` : '';
-    const security = await fetch('/api/security' + pqs() + scopeQuery.replace('&', pqs() ? '&' : '?')).then(r => r.json());
-    const s = security.leash || {};
-    renderLeashToggle(s);
-
-    // Populate scope dropdown once: include observed project_tenant_id + 'all'
-    syncLeashScopeOptions(s);
-
-    const notInstalled = document.getElementById('leash-not-installed');
-    const subtabs = document.getElementById('leash-subtabs');
-    const controls = document.getElementById('leash-controls');
-    const subs = document.querySelectorAll('.leash-sub');
-    const auditPath = document.getElementById('leash-audit-path');
-    if (auditPath) auditPath.textContent = s.config?.audit_path || '~/.leash/audit.jsonl';
-    // Show the actual config file(s) that loaded — global, project, or both.
-    const cfgEl = document.getElementById('leash-config-source');
-    if (cfgEl) {
-      const sources = s.config?.sources || [];
-      const shortened = sources.map(p => p.replace(/^\/Users\/[^\/]+/, '~').replace(/^\/home\/[^\/]+/, '~'));
-      if (shortened.length === 0) {
-        cfgEl.textContent = '(no leash.json found — using defaults)';
-        cfgEl.style.color = 'var(--text3)';
-      } else if (shortened.length === 1) {
-        cfgEl.textContent = shortened[0];
-        cfgEl.style.color = '';
-      } else {
-        cfgEl.textContent = shortened.join(' + ');
-        cfgEl.title = 'project leash.json overrides global';
-        cfgEl.style.color = '';
-      }
-    }
-
-    // Honest about WHERE each piece of live data comes from. The board uses
-    // a mix of (a) leash console HTTP endpoints for canonical aggregations
-    // and (b) the audit JSONL file for things the console doesn't break
-    // down per-tenant (per-tenant spend, recent threat detail timeline,
-    // operator-feedback fallback).
-    const srcEl = document.getElementById('leash-data-sources');
-    if (srcEl) {
-      const consoleUrl = s.config?.console_url || 'http://localhost:8801';
-      const proxyUrl = s.config?.proxy_url || 'http://localhost:8765';
-      const auditPath = (s.config?.audit_path || '').replace(/^\/Users\/[^\/]+/, '~').replace(/^\/home\/[^\/]+/, '~');
-      const pieces = [
-        `<code>${esc(consoleUrl)}/api/*</code> <span style="color:var(--text3)">(KPI, top spenders, agents, rule feedback, drift)</span>`,
-        `<code>${esc(proxyUrl)}/admin/*</code> <span style="color:var(--text3)">(kill switch, HITL approve / reject, per-agent caps, tenant pause)</span>`,
-        `<code>${esc(auditPath)}</code> <span style="color:var(--text3)">(recent events timeline + per-tenant spend; fallback when console down)</span>`,
-      ];
-      srcEl.innerHTML = pieces.join('<br>');
-    }
-
-    if (!s.install_exists) {
-      notInstalled.style.display = 'block';
-      subtabs.style.display = 'none';
-      controls.style.display = 'none';
-      subs.forEach(d => d.style.display = 'none');
-      return;
-    }
-    notInstalled.style.display = 'none';
-
-    if (!s.proxy_running) {
-      subtabs.style.display = 'none';
-      controls.style.display = 'none';
-      subs.forEach(d => d.style.display = 'none');
-      return;
-    }
-
-    // Proxy is up — show controls + sub-tabs, drive current sub-tab content
-    controls.style.display = 'flex';
-    subtabs.style.display = 'flex';
-    showLeashSubtab(_leashState.sub);
-
-    // Load shared data: stats + audit window
-    const [stats, auditResp] = await Promise.all([
-      fetch('/api/leash/console-stats' + pqs() + scopeQuery.replace('&', pqs() ? '&' : '?')).then(r => r.json()).catch(() => ({ ok: false })),
-      fetch(`/api/leash/audit?limit=500${pqs() ? pqs() + '&' : '?'}${(_leashState.scope ? 'project=' + encodeURIComponent(_leashState.scope) + '&' : '')}`).then(r => r.json()).catch(() => ({ records: [] })),
-    ]);
-
-    if (!stats.ok) {
-      // Console-stats endpoint depends on leash-console process, fall back to audit-only
-      stats.active_sessions = '—';
-      stats.total_spend_usd = 0;
-      stats.policy_rules = '—';
-      stats.pii_redactor_enabled = false;
-      stats.top_sessions = [];
-      stats.hitl_pending = 0;
-    }
-
-    const records = filterRecordsByPeriod(auditResp.records || [], _leashState.period);
-
-    // ── KPI tiles & risk counters (Review) ──
-    document.getElementById('leash-k-sessions').textContent = stats.active_sessions ?? 0;
-    document.getElementById('leash-k-spend').textContent = '$' + Number(stats.total_spend_usd || 0).toFixed(4);
-    document.getElementById('leash-k-rules').textContent = stats.policy_rules ?? '—';
-    const pii = document.getElementById('leash-k-pii');
-    pii.textContent = stats.pii_redactor_enabled ? 'on' : 'off';
-    pii.style.color = stats.pii_redactor_enabled ? 'var(--accent)' : 'var(--text3)';
-
-    const risk = classifyLeashRisk(records);
-    const hitlCount = stats.hitl_pending ?? risk.hitl;
-    setLeashKpi('leash-tile-high',   'leash-r-high',   risk.high);
-    setLeashKpi('leash-tile-medium', 'leash-r-medium', risk.medium);
-    setLeashKpi('leash-tile-low',    'leash-r-low',    risk.low);
-    setLeashKpi('leash-tile-hitl',   'leash-r-hitl',   hitlCount);
-    leashCheckHitlAudio(hitlCount);
-    leashUpdateDeltas(records);
-
-    // GAP-8: cost forecast from last-5-min event rate
-    (function() {
-      const events = window._leashAuditCache ?? records;
-      const now = Date.now();
-      const recent = events.filter(e => (now - new Date(e.ts ?? e.timestamp ?? 0).getTime()) < 5*60*1000);
-      const spend = recent.reduce((s,e) => s + (e.cost_usd ?? 0), 0);
-      const ratePerMin = spend / 5;
-      const el = document.getElementById('leash-r-forecast');
-      const ttcEl = document.getElementById('leash-r-forecast-ttc');
-      if (el) el.textContent = ratePerMin > 0 ? `$${(ratePerMin*60).toFixed(4)}/hr` : '—';
-      if (ttcEl) ttcEl.textContent = ratePerMin > 0 ? `based on last 5 min` : 'no recent spend';
-    })();
-
-    // Live activity feed (last 5 events) — uses same records, no extra fetch
-    renderLeashActivityFeed(records);
-
-    // Sub-tab badges
-    document.getElementById('lst-review-badge').textContent = stats.hitl_pending ?? 0;
-    document.getElementById('lst-sessions-badge').textContent = (stats.top_sessions || []).length;
-    document.getElementById('lst-threats-badge').textContent = risk.high + risk.medium + risk.low;
-
-    // ── Sessions sub-tab ──
-    renderLeashSessions(stats.top_sessions || []);
-    // ── Threats sub-tab ──
-    renderLeashThreats(records);
-    // ── Agents sub-tab ──
-    renderLeashPerAgent(records);
-    // ── Budgets sub-tab ──
-    renderLeashBudgets(stats);
-    renderLeashTenantCaps();
-    // Cache records so feedback callback can re-render threats with FP cols
-    window._lastLeashRecords = records;
-
-    // ── v2.22 + v2.23 — operator feedback + drift quality (parallel fetch,
-    // best-effort: endpoints exist only on leash ≥ v2.22). ──
-    Promise.all([
-      fetch('/api/leash/feedback?period=7d' + pqs().replace('?', '&')).then(r => r.json()).catch(() => ({ ok: false })),
-      fetch('/api/leash/eval-status' + pqs()).then(r => r.json()).catch(() => ({ ok: false })),
-    ]).then(([feedback, evalStatus]) => {
-      renderLeashQuality(evalStatus);
-      renderLeashRulePerformance(feedback);
-    });
-
-    // Export meta
-    const meta = document.getElementById('leash-export-meta');
-    if (meta) {
-      meta.textContent = `scope: ${_leashState.scope || s.project_tenant_id || '(default)'} · period: ${_leashState.period} · ${records.length} records`;
-    }
-  } catch (e) {
-    console.warn('loadLeash failed', e);
-  }
-
-  if (_leashPoll) clearInterval(_leashPoll);
-  _leashPoll = setInterval(() => {
-    if (currentTab !== 'leash') { clearInterval(_leashPoll); _leashPoll = null; return; }
-    loadLeash();
-  }, 5000);
-}
 
 function showLeashSubtab(name) {
-  _leashState.sub = name;
-  try { localStorage.setItem('leash:sub', name); } catch { /* private mode */ }
-  document.querySelectorAll('.leash-subtab').forEach(b => b.classList.toggle('active', b.dataset.subtab === name));
-  document.querySelectorAll('.leash-sub').forEach(d => {
-    d.style.display = d.id === `leash-sub-${name}` ? 'block' : 'none';
+  document.querySelectorAll('` ? 'block' : 'none';
   });
 }
-function switchLeashSubtab(name) {
-  showLeashSubtab(name);
-  if (name === 'rate-limits') loadRateLimits();
-  if (name === 'issues') refreshLeashIssues();
-}
-
-// GAP-5: keyboard navigation in Security tab
-(function() {
-  let _leashRows = [], _leashIdx = -1;
-  document.addEventListener('keydown', function(e) {
-    const secTab = document.querySelector('[data-tab="security"]');
-    if (!secTab || !secTab.classList.contains('active')) return;
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === '?') {
-      alert('Security tab shortcuts:\n  j/k — next/prev row\n  e — expand selected\n  Esc — close modal\n  Ctrl+K — search');
-      return;
-    }
-    if (e.key === 'Escape') {
-      document.getElementById('leash-sample-modal').style.display = 'none';
-      document.getElementById('leash-search-modal') && (document.getElementById('leash-search-modal').style.display = 'none');
-      return;
-    }
-    _leashRows = Array.from(document.querySelectorAll('.leash-audit-row'));
-    if (!_leashRows.length) return;
-    if (e.key === 'j') { _leashIdx = Math.min(_leashIdx + 1, _leashRows.length - 1); _leashRows[_leashIdx]?.scrollIntoView({block:'nearest'}); _leashRows.forEach((r,i) => r.style.outline = i===_leashIdx?'1px solid var(--accent)':''); }
-    if (e.key === 'k') { _leashIdx = Math.max(_leashIdx - 1, 0); _leashRows[_leashIdx]?.scrollIntoView({block:'nearest'}); _leashRows.forEach((r,i) => r.style.outline = i===_leashIdx?'1px solid var(--accent)':''); }
-    if (e.key === 'e' && _leashIdx >= 0) _leashRows[_leashIdx]?.click();
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); leashSearchOpen(); }
-  });
+);
 })();
 
 // GAP-9: HITL audio alert
-let _leashAudioMuted = localStorage.getItem('leash-audio-muted') === '1';
-let _leashLastHitlCount = 0;
-function leashToggleAudio() {
-  _leashAudioMuted = !_leashAudioMuted;
-  localStorage.setItem('leash-audio-muted', _leashAudioMuted ? '1' : '0');
-  document.getElementById('leash-hitl-mute').textContent = _leashAudioMuted ? '🔕' : '🔔';
 }
-function leashPlayHitlAlert() {
-  if (_leashAudioMuted) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     [440, 554].forEach((freq, i) => {
@@ -4814,30 +4200,14 @@ function leashPlayHitlAlert() {
     });
   } catch(e) {}
 }
-function leashCheckHitlAudio(count) {
-  if (count > _leashLastHitlCount) leashPlayHitlAlert();
-  _leashLastHitlCount = count;
 }
 
 // GAP-2: Cmd-K global search
-function leashSearchOpen() {
-  const m = document.getElementById('leash-search-modal');
   m.style.display = 'flex';
-  setTimeout(() => document.getElementById('leash-search-input')?.focus(), 50);
 }
-function leashSearchClose() {
-  document.getElementById('leash-search-modal').style.display = 'none';
 }
-let _leashSearchTimer;
-async function leashSearchQuery(q) {
-  clearTimeout(_leashSearchTimer);
-  if (!q.trim()) { document.getElementById('leash-search-results').innerHTML = ''; return; }
-  _leashSearchTimer = setTimeout(async () => {
-    const r = await fetch(`/api/leash/search?q=${encodeURIComponent(q)}`).then(r=>r.json()).catch(()=>({results:[]}));
-    const el = document.getElementById('leash-search-results');
     if (!r.results?.length) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">No results</div>'; return; }
     el.innerHTML = r.results.map(res =>
-      `<div style="padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px" onclick="leashSearchClose()">
         <span style="color:var(--accent)">${esc(res.type??'event')}</span>
         <span style="margin-left:8px">${esc(res.summary??res.id??'')}</span>
         <span style="float:right;color:var(--text3);font-size:11px">${esc(res.ts??'')}</span>
@@ -4847,58 +4217,22 @@ async function leashSearchQuery(q) {
 }
 
 // GAP-3: chip filter bar
-let _leashFilterQuery = '';
-function leashFilterUpdate(val) {
-  _leashFilterQuery = val;
-  const chips = document.getElementById('leash-active-chips');
   if (!chips) return;
   const parts = val.trim().split(/\s+/).filter(p => p.includes(':'));
   chips.innerHTML = parts.map(p => `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:var(--bg1);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text)">${esc(p)}</span>`).join('');
-  if (Array.isArray(window._lastLeashRecords)) renderLeashThreats(window._lastLeashRecords);
 }
-function leashFilterClear() {
-  _leashFilterQuery = '';
-  const inp = document.getElementById('leash-filter-input');
   if (inp) inp.value = '';
-  const chips = document.getElementById('leash-active-chips');
   if (chips) chips.innerHTML = '';
-  if (Array.isArray(window._lastLeashRecords)) renderLeashThreats(window._lastLeashRecords);
 }
 
 // GAP-1: Issues refresh
-async function refreshLeashIssues() {
-  const status = document.getElementById('leash-issues-filter')?.value ?? 'open';
-  const r = await fetch(`/api/leash/issues?status=${status}`).then(r=>r.json()).catch(()=>[]);
-  document.getElementById('lst-issues-badge').textContent = Array.isArray(r) ? r.filter(i=>i.status==='open').length : 0;
-  const tbody = document.getElementById('leash-issues-tbody');
-  if (!tbody) return;
-  if (!r?.length) { tbody.innerHTML = '<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--text3)">No issues</td></tr>'; return; }
-  tbody.innerHTML = r.map(issue => `
-    <tr class="leash-audit-row" style="border-bottom:1px solid var(--border)">
-      <td style="padding:5px 6px"><code style="font-size:11px">${esc(issue.rule_id??'')}</code></td>
-      <td style="padding:5px 6px">${issue.count??1}</td>
-      <td style="padding:5px 6px;color:var(--text3)">${esc((issue.first_seen??'').slice(0,16))}</td>
-      <td style="padding:5px 6px;color:var(--text3)">${esc((issue.last_seen??'').slice(0,16))}</td>
-      <td style="padding:5px 6px">
-        <button onclick="leashIssueAction('${esc(issue.id)}','mute')" style="font-size:10px;padding:2px 6px;margin-right:4px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;cursor:pointer">Mute</button>
-        <button onclick="leashIssueAction('${esc(issue.id)}','resolve')" style="font-size:10px;padding:2px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;cursor:pointer">Resolve</button>
-      </td>
-    </tr>`).join('');
-}
-async function leashIssueAction(id, action) {
-  await fetch(`/api/leash/issues/${id}/${action}`, {method:'POST'}).catch(()=>{});
-  refreshLeashIssues();
+
 }
 
 // GAP-6: session timeline
-async function leashOpenTimeline(sessionId) {
-  const drawer = document.getElementById('leash-timeline-drawer');
-  const title = document.getElementById('leash-timeline-title');
-  const eventsEl = document.getElementById('leash-timeline-events');
   drawer.style.display = 'block';
   title.textContent = `Session: ${sessionId}`;
   eventsEl.innerHTML = '<div style="color:var(--text3)">Loading…</div>';
-  const events = await fetch(`/api/leash/sessions/${encodeURIComponent(sessionId)}/timeline`).then(r=>r.json()).catch(()=>[]);
   if (!events.length) { eventsEl.innerHTML = '<div style="color:var(--text3)">No events</div>'; return; }
   const COLOR = { policy_decision:'#ffb300', tool_result_scan:'#4caf50', response_scan:'#2196f3' };
   eventsEl.innerHTML = events.map(e => `
@@ -4913,34 +4247,13 @@ async function leashOpenTimeline(sessionId) {
 }
 
 // GAP-7: HITL sanitized diff
-let _leashCurrentHitlId = null, _leashHitlPreview = null;
-async function leashOpenHitlDiff(id) {
-  _leashCurrentHitlId = id;
-  document.getElementById('leash-hitl-diff-id').textContent = id;
-  document.getElementById('leash-hitl-diff-modal').style.display = 'flex';
-  document.getElementById('leash-hitl-diff-content').textContent = 'Loading…';
-  _leashHitlPreview = await fetch(`/api/leash/hitl/${id}/preview`).then(r=>r.json()).catch(()=>null);
-  leashDiffTab('original');
 }
-function leashDiffTab(tab) {
-  document.querySelectorAll('.leash-diff-tab').forEach(b => b.style.borderBottomColor = b.textContent.toLowerCase()===tab?'var(--accent)':'transparent');
-  const el = document.getElementById('leash-hitl-diff-content');
-  if (!_leashHitlPreview) { el.textContent = 'Preview unavailable'; return; }
-  el.textContent = tab==='original' ? (_leashHitlPreview.original??'') : tab==='sanitized' ? (_leashHitlPreview.sanitized??'') : (_leashHitlPreview.diff??'');
 }
-async function leashHitlApproveSanitized() {
-  if (!_leashCurrentHitlId) return;
-  await fetch(`/api/leash/hitl/${_leashCurrentHitlId}/approve_sanitized`, {method:'POST'});
-  document.getElementById('leash-hitl-diff-modal').style.display = 'none';
-  setTimeout(() => loadLeash?.(), 500);
 }
 
 // GAP-15: SOC 2 export
-async function leashGenerateSoc2() {
   const btn = event.target; btn.disabled = true; btn.textContent = 'Generating…';
-  const st = document.getElementById('leash-soc2-status');
   try {
-    const r = await fetch('/api/leash/soc2', {method:'POST'});
     const d = await r.json();
     if (d.ok) { st.textContent = `✓ Saved to ${d.outDir}`; st.style.color='#4caf50'; }
     else { st.textContent = `✗ ${d.error}`; st.style.color='#e53935'; }
@@ -4949,7 +4262,6 @@ async function leashGenerateSoc2() {
 }
 
 // GAP-10: delta badges (compare last hour vs 24h ago same window)
-function leashUpdateDeltas(events) {
   const now = Date.now();
   const h1 = events.filter(e => (now - new Date(e.ts??e.timestamp??0).getTime()) < 3600000);
   const h25 = events.filter(e => {
@@ -4959,7 +4271,6 @@ function leashUpdateDeltas(events) {
   ['high','medium','low'].forEach(level => {
     const cur = h1.filter(e => (e.risk_level??e.level??'').toLowerCase() === level).length;
     const prev = h25.filter(e => (e.risk_level??e.level??'').toLowerCase() === level).length;
-    const el = document.getElementById(`leash-delta-${level}`);
     if (!el || prev === 0) return;
     const pct = Math.round((cur - prev) / prev * 100);
     el.textContent = pct > 0 ? `▲ +${pct}%` : pct < 0 ? `▼ ${pct}%` : '—';
@@ -4968,12 +4279,10 @@ function leashUpdateDeltas(events) {
 }
 
 async function loadRateLimits() {
-  const el = document.getElementById('leash-rate-limits-body');
   if (!el) return;
   try {
-    const resp = await fetch('/api/leash/rate-limits' + pqs()).then(r => r.json());
     if (!resp.ok || !resp.data) {
-      el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Rate-limits API not available. Requires llm-leash v2.27+.</div>';
+      el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">Rate-limits API not available. Requires great_cto v2.27+.</div>';
       return;
     }
     const d = resp.data;
@@ -5019,46 +4328,13 @@ async function loadRateLimits() {
   }
 }
 
-function onLeashPeriodChange(p) {
-  _leashState.period = p;
-  localStorage.setItem('leash:period', p);
-  document.querySelectorAll('.leash-chip').forEach(c => c.classList.toggle('active', c.dataset.period === p));
-  loadLeash();
-}
-
-function syncLeashScopeOptions(s) {
-  const sel = document.getElementById('leash-scope');
-  const active = document.getElementById('leash-scope-active');
-  if (!sel) return;
-  // Build options if not present yet (or project changed)
-  const projectTenant = s.project_tenant_id || '';
-  const wantKey = `${projectTenant}|${s.tenant_filter || ''}`;
-  if (sel.dataset.builtFor !== wantKey) {
-    sel.innerHTML = '';
-    const optDefault = new Option(`— ${projectTenant || 'no project'} (this cwd) —`, '');
-    sel.add(optDefault);
-    const optAll = new Option('all projects', 'all');
-    sel.add(optAll);
-    sel.dataset.builtFor = wantKey;
-  }
   // Reflect persisted scope
-  sel.value = _leashState.scope || '';
   if (active) {
-    const effective = _leashState.scope === 'all' ? 'all' : (s.tenant_filter || projectTenant || '—');
     active.textContent = `→ ${effective}`;
   }
 }
-
-function onLeashScopeChange(forceAll) {
-  const sel = document.getElementById('leash-scope');
-  if (forceAll === true) {
-    _leashState.scope = 'all';
-    if (sel) sel.value = 'all';
-  } else {
-    _leashState.scope = sel?.value || '';
+ else {
   }
-  localStorage.setItem('leash:scope', _leashState.scope);
-  loadLeash();
 }
 
 // ── Security tab UI helpers ──
@@ -5085,11 +4361,7 @@ function setLeashKpi(tileId, valueId, value) {
  * Render last 5 audit events as a compact live feed.
  * Pulses the indicator dot when new events arrive (compared to last render).
  */
-let _leashFeedLastTs = null;
 function renderLeashActivityFeed(records) {
-  const el = document.getElementById('leash-feed');
-  const pulse = document.getElementById('leash-feed-pulse');
-  const status = document.getElementById('leash-feed-status');
   if (!el) return;
 
   const items = (records || []).slice(0, 5);
@@ -5103,12 +4375,10 @@ function renderLeashActivityFeed(records) {
 
   // Detect new events for pulse animation
   const newestTs = items[0].ts || items[0].timestamp || '';
-  if (_leashFeedLastTs && newestTs !== _leashFeedLastTs && pulse) {
     pulse.classList.remove('live');
     void pulse.offsetWidth; // restart animation
     pulse.classList.add('live');
   }
-  _leashFeedLastTs = newestTs;
   if (pulse) pulse.style.background = '#4caf50';
   if (status) status.textContent = `${items.length} recent · auto-refresh 5s`;
 
@@ -5122,12 +4392,6 @@ function renderLeashActivityFeed(records) {
     const model = r.model || r.kind || 'llm';
     const rule = r.rule ? ` · ${r.rule}` : '';
     const cost = typeof r.cost_usd === 'number' ? `$${r.cost_usd.toFixed(4)}` : '—';
-    return `<div class="leash-feed-row">
-      <div class="leash-feed-dot ${kind}"></div>
-      <div class="leash-feed-time">${esc(time)}</div>
-      <div class="leash-feed-rule">${esc(model)}${esc(rule)}</div>
-      <div class="leash-feed-cost">${esc(cost)}</div>
-      <div class="leash-feed-decision ${kind}">${esc(decision)}</div>
     </div>`;
   }).join('');
 }
@@ -5135,8 +4399,6 @@ function renderLeashActivityFeed(records) {
 // ── classifiers ──
 
 function classifyLeashRisk(records) {
-  // Mirror upstream _risk_level (leash v2.23). HIGH = critical-rule × (block|hitl).
-  // Keep this in sync with src/llm_leash/console/server.py _HIGH_RULES.
   const HIGH_RULES = /^(artifact_leakage|secrets|local_llm_guard|llm_guard|llamafirewall|blocked_shell|blocked_sql|behavioral_baseline|tool_result_scanner|exfil_chain_detector|enumeration_detector)$/i;
   const HIGH_ACTIONS = /^(block|hitl)$/i;
   let high = 0, medium = 0, low = 0, hitl = 0;
@@ -5164,46 +4426,23 @@ function filterRecordsByPeriod(records, period) {
 
 // ── renderers ──
 
-function renderLeashSessions(items) {
-  const el = document.getElementById('leash-sessions-table');
-  if (!el) return;
-  if (!items.length) {
-    el.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No sessions yet.</div>';
-    return;
-  }
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:10px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
       <div>SESSION_ID</div><div>COST (USD)</div><div></div><div></div>
     </div>
     ${items.slice(0, 20).map(it => `
-      <div class="leash-audit-row" style="display:grid;grid-template-columns:1fr auto auto auto;gap:10px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center;cursor:pointer" onclick="leashOpenTimeline('${esc(it.session_id || '')}')">
         <div><code style="font-family:var(--mono);font-size:12px;background:var(--bg1);padding:2px 6px;border-radius:4px;color:var(--text1)">${esc(it.session_id || '?')}</code></div>
         <div style="font-family:var(--mono);color:var(--text1);text-align:right">$${Number(it.cost_usd || 0).toFixed(4)}</div>
-        <div><button class="btn-ghost-sm" style="font-size:10px;color:var(--text3)" onclick="event.stopPropagation();leashOpenTimeline('${esc(it.session_id || '')}')">timeline</button></div>
         <div><button class="btn-ghost-sm" style="color:#e53935" onclick="event.stopPropagation();killLeashSession('${esc(it.session_id || '')}')">kill</button></div>
       </div>`).join('')}`;
 }
 
-function renderLeashThreats(records) {
-  const threats = records.filter(r => r.kind === 'policy_decision' || r.kind === 'secrets_detected');
-  // by_rule × action
-  const byKey = {};
-  for (const r of threats) {
-    const rule = r.rule_id || (r.kind === 'secrets_detected' ? 'secrets' : 'unknown');
-    const action = (r.action || 'unknown').toLowerCase();
-    const key = rule;
-    if (!byKey[key]) byKey[key] = { rule, block: 0, redact: 0, hitl: 0, warn: 0, total: 0 };
-    byKey[key][action] = (byKey[key][action] || 0) + 1;
-    byKey[key].total += 1;
-  }
   const rules = Object.values(byKey).sort((a, b) => b.total - a.total);
 
-  const rulesEl = document.getElementById('leash-threats-rules');
   if (!rules.length) {
     rulesEl.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No threats in this period.</div>';
   } else {
     // v2.22: enrich each row with operator feedback if available
-    const fb = _leashRuleFeedback || {};
     rulesEl.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 50px 50px 50px 50px 50px 70px 80px;gap:8px;padding:10px 14px;font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.05em;border-bottom:1px solid var(--border)">
         <div>RULE</div><div style="text-align:right">BLOCK</div><div style="text-align:right">REDACT</div><div style="text-align:right">HITL</div><div style="text-align:right">WARN</div><div style="text-align:right">TOTAL</div><div style="text-align:right" title="HITL approvals / rejections (7d)">APPR / REJ</div><div style="text-align:right" title="FP-rate from operator feedback (7d)">FP RATE</div>
@@ -5231,7 +4470,6 @@ function renderLeashThreats(records) {
   }
 
   // detail (last 30)
-  const detailEl = document.getElementById('leash-threats-detail');
   const detailRows = threats.slice(0, 30);
   if (!detailRows.length) {
     detailEl.innerHTML = '<div class="empty" style="padding:14px;color:var(--text3);font-size:13px">No events.</div>';
@@ -5250,8 +4488,6 @@ function renderLeashThreats(records) {
         const riskColor = risk.high ? '#e53935' : risk.medium ? '#ffb300' : 'var(--text3)';
         const reason = r.reason || (r.detectors ? `detectors: ${r.detectors.join(', ')}` : '');
         const hasSample = !!(r.sample_text);
-        const sampleJs = hasSample ? `document.getElementById('leash-sample-title').textContent='${esc(r.rule_id||'secrets')} · ${esc(action)}';document.getElementById('leash-sample-text').textContent=${JSON.stringify(r.sample_text||'')};document.getElementById('leash-sample-modal').style.display='flex'` : '';
-        return `<div class="leash-audit-row" style="display:grid;grid-template-columns:70px 70px 1fr 70px 120px 1fr;gap:8px;padding:6px 14px;font-size:12px;font-family:var(--mono);border-top:1px solid var(--border);align-items:center${hasSample?';cursor:pointer':''}" ${hasSample?`onclick="${sampleJs}"`:''}>
           <div style="color:var(--text3)">${esc(ts)}</div>
           <div><span style="display:inline-block;padding:1px 7px;border-radius:8px;background:rgba(229,57,53,.08);color:${riskColor};font-size:10px">${riskLabel}</span></div>
           <div style="color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.rule_id || 'secrets')}${hasSample?' <span style="font-size:9px;color:var(--accent)">[sample]</span>':''}</div>
@@ -5264,25 +4500,19 @@ function renderLeashThreats(records) {
 }
 
 /**
- * Per-agent table. Uses leash v2.14 /api/agents (canonical aggregation with
  * first_seen / last_seen / current_cap_usd) when available. Falls back to a
  * client-side audit aggregation when the endpoint isn't reachable (older
- * leash versions or leash-console down).
  *
  * Records param is kept as the offline-fallback dataset; we ignore it when
  * the canonical fetch succeeds.
  */
 async function renderLeashPerAgent(records) {
-  const el = document.getElementById('leash-per-agent');
   if (!el) return;
 
   // Try canonical /api/agents first.
-  const scopeQuery = _leashState.scope ? `&project=${encodeURIComponent(_leashState.scope)}` : '';
   const sep = pqs() ? '&' : '?';
-  const period = _leashState.period || '24h';
   let canonical = null;
   try {
-    const resp = await fetch(`/api/leash/agents?period=${encodeURIComponent(period)}${pqs() ? pqs() + '&' : (sep === '?' ? '?' : '?')}${(_leashState.scope ? 'project=' + encodeURIComponent(_leashState.scope) : '')}`).then(r => r.json());
     if (resp.ok && Array.isArray(resp.agents)) canonical = resp;
   } catch { /* fall through */ }
 
@@ -5314,7 +4544,6 @@ async function renderLeashPerAgent(records) {
         <div style="font-family:var(--mono);color:var(--text2);text-align:right">${a.calls}</div>
         <div style="font-family:var(--mono);color:var(--text1);text-align:right">$${a.cost.toFixed(4)}</div>
       </div>`).join('')}
-    <div style="padding:6px 14px;font-size:10px;color:var(--text3);font-family:var(--mono);border-top:1px solid var(--border)">source: client-side audit aggregation · leash &lt; v2.14 or console unreachable</div>`;
 }
 
 function renderLeashPerAgentCanonical(el, payload, period) {
@@ -5346,7 +4575,6 @@ function renderLeashPerAgentCanonical(el, payload, period) {
         <div style="font-family:var(--mono);color:var(--text3);text-align:right;font-size:11px">${esc(last)}</div>
       </div>`;
     }).join('')}
-    <div style="padding:6px 14px;font-size:10px;color:var(--text3);font-family:var(--mono);border-top:1px solid var(--border)">source: leash /api/agents · ${rows.length} of ${payload.all_count ?? rows.length} agents · scope: ${payload.tenant_filter || 'all'}</div>`;
 }
 
 function formatLeashAgo(iso) {
@@ -5366,11 +4594,6 @@ function formatLeashAgo(iso) {
 
 /* Detection quality (v2.23): F1 vs 7-day baseline. KPI tile + drift table. */
 function renderLeashQuality(payload) {
-  const tile = document.getElementById('leash-k-quality-tile');
-  const value = document.getElementById('leash-k-quality');
-  const hint = document.getElementById('leash-k-quality-hint');
-  const detail = document.getElementById('leash-quality-detail');
-  const table = document.getElementById('leash-quality-table');
   if (!value) return;
 
   if (!payload || payload.ok === false || !Array.isArray(payload.rules) || !payload.rules.length) {
@@ -5403,10 +4626,6 @@ function renderLeashQuality(payload) {
   if (detail && table) {
     detail.style.display = 'block';
     // GAP-14: store rules globally for compare modal
-    window._leashEvalRules = payload.rules;
-    const compareBar = `<div id="leash-compare-bar" style="display:none;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center">
-      <span id="leash-compare-selected-label" style="font-size:12px;color:var(--text3)">0 selected</span>
-      <button onclick="leashOpenCompareModal()" id="leash-compare-btn" disabled
         style="padding:4px 12px;background:var(--accent);color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;opacity:0.5">Compare →</button>
     </div>`;
     table.innerHTML = compareBar + `
@@ -5419,7 +4638,6 @@ function renderLeashQuality(payload) {
         const delta = (r.f1_delta ?? 0);
         const deltaColor = delta <= -0.05 ? '#e53935' : delta < 0 ? '#ffb300' : 'var(--accent)';
         return `<div style="display:grid;grid-template-columns:24px 1fr 90px 90px 90px;gap:8px;padding:8px 14px;font-size:12px;border-top:1px solid var(--border);font-family:var(--mono);align-items:center">
-          <input type="checkbox" class="leash-rule-check" data-rule="${esc(r.rule_id||'?')}" onchange="leashCompareSelectionChanged()" style="width:13px;height:13px;cursor:pointer" />
           <div style="color:var(--text1)">${esc(r.rule_id || '?')}</div>
           <div style="color:var(--text1);text-align:right">${f1}</div>
           <div style="color:var(--text2);text-align:right">${base}</div>
@@ -5427,15 +4645,10 @@ function renderLeashQuality(payload) {
         </div>`;
       }).join('')}`;
     // show compare bar
-    document.getElementById('leash-compare-bar') && (document.getElementById('leash-compare-bar').style.display = 'flex');
   }
 }
 
 // GAP-14: rule comparison modal helpers
-function leashCompareSelectionChanged() {
-  const checked = Array.from(document.querySelectorAll('.leash-rule-check:checked'));
-  const label = document.getElementById('leash-compare-selected-label');
-  const btn = document.getElementById('leash-compare-btn');
   if (label) label.textContent = `${checked.length} selected (max 4)`;
   if (btn) {
     const ok = checked.length >= 2 && checked.length <= 4;
@@ -5444,11 +4657,7 @@ function leashCompareSelectionChanged() {
   // uncheck oldest if >4
   if (checked.length > 4) checked[0].checked = false;
 }
-function leashOpenCompareModal() {
-  const checked = Array.from(document.querySelectorAll('.leash-rule-check:checked')).map(c => c.dataset.rule);
-  const rules = (window._leashEvalRules ?? []).filter(r => checked.includes(r.rule_id));
   if (rules.length < 2) return;
-  const modal = document.getElementById('leash-compare-modal');
   if (!modal) return;
   modal.style.display = 'flex';
   // render bar chart as SVG
@@ -5473,49 +4682,36 @@ function leashOpenCompareModal() {
     y += 16;
   }
   svg += '</svg>';
-  const content = document.getElementById('leash-compare-content');
   if (content) content.innerHTML = svg;
 }
 
 /* Rule performance / FP-rate (v2.22): rendered as columns inside the Threats
    by-rule table via a global side-store. The Threats renderer reads it on
    every render. */
-let _leashRuleFeedback = {};
 function renderLeashRulePerformance(payload) {
   if (!payload || payload.ok === false || !Array.isArray(payload.rules)) {
-    _leashRuleFeedback = {};
     return;
   }
   const map = {};
   for (const r of payload.rules) {
     map[r.rule_id] = r;
   }
-  _leashRuleFeedback = map;
   // Re-render threats sub-tab so the new columns appear without waiting
   // for the next poll tick.
   try {
-    const tab = document.getElementById('leash-sub-threats');
     if (tab && tab.style.display !== 'none') {
-      // _lastLeashRecords cached at end of loadLeash for re-render
-      if (Array.isArray(window._lastLeashRecords)) {
-        renderLeashThreats(window._lastLeashRecords);
       }
     }
   } catch { /* ignore */ }
 }
 
 async function renderLeashBudgets(stats) {
-  const el = document.getElementById('leash-budgets-table');
   if (!el) return;
-  const defaultLabel = document.getElementById('leash-budgets-default');
 
-  // Fetch from /api/leash/budgets which honours ?project= scoping (filters
   // global per_agent_caps to agents observed in this project's audit).
-  const scopeQuery = _leashState.scope ? `&project=${encodeURIComponent(_leashState.scope)}` : '';
   const sep = pqs() ? '&' : '?';
   let payload = { ok: false };
   try {
-    payload = await fetch(`/api/leash/budgets${pqs()}${scopeQuery.replace('&', sep)}`).then(r => r.json());
   } catch { /* keep ok=false */ }
 
   const allCaps = payload.all_per_agent_caps || stats.per_agent_caps || {};
@@ -5557,7 +4753,6 @@ async function renderLeashBudgets(stats) {
     ${rows.map(([name, cap]) => `
       <div style="display:grid;grid-template-columns:1fr 140px 80px 80px;gap:8px;padding:8px 14px;font-size:13px;border-top:1px solid var(--border);align-items:center">
         <div style="color:var(--text1);font-family:var(--mono)">${esc(name)}${cap == null ? ' <span style="color:var(--text3);font-size:11px">(no cap)</span>' : ''}</div>
-        <div><input type="number" min="0" step="0.5" value="${cap == null ? '' : Number(cap)}" placeholder="—" id="leash-cap-${esc(name)}" style="width:120px;padding:5px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-family:var(--mono);font-size:12px;text-align:right" /></div>
         <div><button class="btn-black" style="padding:4px 10px;font-size:12px" onclick="saveLeashCap('${esc(name)}')">save</button></div>
         <div><button class="btn-ghost-sm" style="color:#e53935" onclick="saveLeashCap('${esc(name)}', null)">clear</button></div>
       </div>`).join('')}`;
@@ -5566,36 +4761,27 @@ async function renderLeashBudgets(stats) {
 async function saveLeashCap(agentName, capOverride) {
   let cap = capOverride;
   if (cap === undefined) {
-    const inp = document.getElementById(`leash-cap-${agentName}`);
     cap = inp ? Number(inp.value) : null;
   }
   try {
-    const resp = await fetch(`/api/leash/budgets/${encodeURIComponent(agentName)}${pqs()}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cap_usd: cap }),
     });
     if (!resp.ok) alert('Save failed: HTTP ' + resp.status);
-    loadLeash();
   } catch (e) { alert('Save failed: ' + e); }
 }
 
 async function addLeashBudgetCap() {
-  const agent = document.getElementById('leash-budget-add-agent').value.trim();
-  const cap = Number(document.getElementById('leash-budget-add-cap').value);
   if (!agent || !Number.isFinite(cap)) { alert('agent_name + cap USD required'); return; }
   await saveLeashCap(agent, cap);
-  document.getElementById('leash-budget-add-agent').value = '';
-  document.getElementById('leash-budget-add-cap').value = '';
 }
 
 /* ── Per-tenant caps (workaround) ─────────────────────────────────────── */
 
 async function renderLeashTenantCaps() {
-  const el = document.getElementById('leash-tenant-caps-table');
   if (!el) return;
   let payload = { ok: false };
   try {
-    payload = await fetch('/api/leash/per-tenant-status' + pqs()).then(r => r.json());
   } catch { /* keep ok:false */ }
 
   // Show source label (native v2.27 or local fallback)
@@ -5629,7 +4815,6 @@ async function renderLeashTenantCaps() {
       const capDisplay = t.cap_usd == null ? '—' : '$' + Number(t.cap_usd).toFixed(2);
       const ratioDisplay = t.cap_usd ? (t.ratio * 100).toFixed(0) + '%' : '—';
       const statusLabel = t.status.toUpperCase();
-      const inputId = `leash-tenant-cap-${esc(t.tenant)}`;
       const unlockBtn = isLocked
         ? `<button class="btn-ghost-sm" style="color:var(--accent);padding:4px 10px;font-size:11px" onclick="unlockLeashTenant('${esc(t.tenant)}')">unlock</button>`
         : '';
@@ -5654,11 +4839,9 @@ async function renderLeashTenantCaps() {
 async function saveLeashTenantCap(tenant, capOverride) {
   let cap = capOverride;
   if (cap === undefined) {
-    const inp = document.getElementById('leash-tenant-cap-' + tenant);
     cap = inp ? Number(inp.value) : null;
   }
   try {
-    await fetch('/api/leash/per-tenant-caps/' + encodeURIComponent(tenant) + pqs(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cap_usd: cap }),
@@ -5668,18 +4851,13 @@ async function saveLeashTenantCap(tenant, capOverride) {
 }
 
 async function addLeashTenantCap() {
-  const tenant = document.getElementById('leash-tenant-add-name').value.trim();
-  const cap = Number(document.getElementById('leash-tenant-add-cap').value);
   if (!tenant || !Number.isFinite(cap)) { alert('tenant_id + cap USD required'); return; }
   await saveLeashTenantCap(tenant, cap);
-  document.getElementById('leash-tenant-add-name').value = '';
-  document.getElementById('leash-tenant-add-cap').value = '';
 }
 
 async function unlockLeashTenant(tenant) {
   if (!confirm(`Clear the lock for tenant "${tenant}"? New requests will resume next call.`)) return;
   try {
-    await fetch('/api/leash/per-tenant-unlock/' + encodeURIComponent(tenant) + pqs(), { method: 'POST' });
     renderLeashTenantCaps();
   } catch (e) { alert('Unlock failed: ' + e); }
 }
@@ -5688,30 +4866,22 @@ async function killLeashSession(sessionId) {
   if (!sessionId) return;
   if (!confirm(`Kill session "${sessionId}"? In-flight LLM calls abort within ~300 ms.`)) return;
   try {
-    const r = await fetch(`/api/leash/kill${pqs()}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, reason: 'board-ui' }),
     }).then(r => r.json());
     if (!r.ok) alert('Kill failed: ' + (r.output || r.error || 'unknown'));
-    loadLeash();
   } catch (e) { alert('Kill failed: ' + e); }
 }
 
 function exportLeash(kind) {
-  const scope = _leashState.scope || '';
-  const period = _leashState.period;
   const params = new URLSearchParams();
   if (scope) params.set('project', scope);
   params.set('period', period);
   params.set('kind', kind);
   // Open in new tab — backend streams the file
-  window.open(`/api/leash/export?${params.toString()}`, '_blank');
 }
 
 function renderLeashToggle(s) {
-  const toggleInput = document.getElementById('leash-toggle');
-  const toggleVisual = document.getElementById('leash-toggle-visual');
-  const toggleHelp = document.getElementById('leash-toggle-help');
   if (!toggleInput || !toggleVisual) return;
 
   const isOn = !!s.enabled && !!s.proxy_running;
@@ -5720,7 +4890,7 @@ function renderLeashToggle(s) {
   if (!toggleHelp) return;
 
   if (!s.install_exists) {
-    toggleHelp.textContent = 'Install llm-leash first to enable.';
+    toggleHelp.textContent = 'Install great_cto first to enable.';
   } else if (s.enabled && !s.proxy_running) {
     toggleHelp.textContent = 'Enabled in config but proxy is not running. Toggle off then on to restart.';
   } else if (!s.enabled && s.proxy_running) {
@@ -5732,35 +4902,7 @@ function renderLeashToggle(s) {
     toggleHelp.textContent = 'Disabled — proxy stopped, calls bypass the firewall. Re-enable any time.';
   }
 }
-
-async function toggleLeash() {
-  const input = document.getElementById('leash-toggle');
-  const visual = document.getElementById('leash-toggle-visual');
-  const help = document.getElementById('leash-toggle-help');
-  const next = !input.checked;
-  input.checked = next;
-  visual.classList.toggle('on', next);
-  if (help) help.textContent = next ? 'Starting proxy…' : 'Stopping proxy…';
-  try {
-    const resp = await fetch('/api/leash/toggle' + pqs(), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: next })
-    });
-    let r;
-    try { r = await resp.json(); }
-    catch {
-      if (resp.status === 404) throw new Error('endpoint not found — restart the board');
-      throw new Error(`HTTP ${resp.status} — non-JSON response`);
-    }
-    const proxyOk = next ? r.proxy?.running === true : r.proxy?.running !== true;
-    if (!r.ok || !proxyOk) {
-      input.checked = !next;
-      visual.classList.toggle('on', !next);
-      alert(`Toggle failed: ${r.proxy?.action?.error || r.error || 'unknown'}`);
-    }
-    loadLeash();
-    initLeashTab();
-  } catch (e) {
+ catch (e) {
     input.checked = !next;
     visual.classList.toggle('on', !next);
     alert('Toggle failed: ' + e);
@@ -5768,16 +4910,11 @@ async function toggleLeash() {
 }
 
 async function initLeashTab() {
-  const nav = document.getElementById('nav-item-leash');
-  const badge = document.getElementById('nav-leash-badge');
   if (!nav || !badge) return;
   try {
     const s = await fetch('/api/security' + pqs()).then(r => r.json());
-    const leashOn = !!s.leash?.enabled && !!s.leash?.proxy_running;
-    if (leashOn) {
       badge.className = 'share-badge on';
       badge.innerHTML = '<span class="share-badge-dot"></span>on';
-    } else if (s.leash?.install_exists) {
       badge.className = 'share-badge off';
       badge.innerHTML = '<span class="share-badge-dot"></span>off';
     } else {
@@ -6715,97 +5852,60 @@ if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}
   style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4)"></div>
 
 <!-- GAP-4: sample_text drill-down modal -->
-<div id="leash-sample-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:680px;width:90%;max-height:70vh;overflow:auto;padding:20px">
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-      <strong id="leash-sample-title" style="font-size:13px">Finding</strong>
-      <button onclick="document.getElementById('leash-sample-modal').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px">✕</button>
     </div>
-    <pre id="leash-sample-text" style="font-size:12px;white-space:pre-wrap;word-break:break-word;color:var(--text);background:var(--bg2);padding:12px;border-radius:4px"></pre>
   </div>
 </div>
 
 <!-- GAP-2: Cmd-K global search modal -->
-<div id="leash-search-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;align-items:flex-start;justify-content:center;padding-top:80px">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:min(560px,94%);box-shadow:0 8px 32px rgba(0,0,0,.4)">
     <div style="padding:12px 16px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--border)">
       <span style="color:var(--text3)">🔍</span>
-      <input id="leash-search-input" placeholder="Search audit events, sessions, agents…" autofocus
         style="flex:1;background:none;border:none;outline:none;color:var(--text);font-size:14px"
-        oninput="leashSearchQuery(this.value)" onkeydown="if(event.key==='Escape')leashSearchClose()" />
       <kbd style="font-size:11px;color:var(--text3)">Esc</kbd>
     </div>
-    <div id="leash-search-results" style="max-height:360px;overflow-y:auto;padding:8px 0"></div>
   </div>
 </div>
 
 <!-- GAP-6: session timeline drawer -->
-<div id="leash-timeline-drawer" style="display:none;position:fixed;right:0;top:0;bottom:0;width:520px;background:var(--bg);border-left:1px solid var(--border);z-index:8000;overflow-y:auto;padding:20px">
   <div style="display:flex;justify-content:space-between;margin-bottom:14px">
-    <strong id="leash-timeline-title" style="font-size:13px">Session timeline</strong>
-    <button onclick="document.getElementById('leash-timeline-drawer').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px">✕</button>
   </div>
-  <div id="leash-timeline-events" style="font-size:12px"></div>
 </div>
 
 <!-- GAP-7: HITL sanitized-diff modal -->
-<div id="leash-hitl-diff-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9500;align-items:center;justify-content:center">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:min(700px,96%);max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
-      <strong style="font-size:13px">HITL Review: <span id="leash-hitl-diff-id"></span></strong>
-      <button onclick="document.getElementById('leash-hitl-diff-modal').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px">✕</button>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--border)">
-      <button class="leash-diff-tab active" onclick="leashDiffTab('original')" style="padding:8px 16px;background:none;border:none;cursor:pointer;font-size:12px;border-bottom:2px solid var(--accent)">Original</button>
-      <button class="leash-diff-tab" onclick="leashDiffTab('sanitized')" style="padding:8px 16px;background:none;border:none;cursor:pointer;font-size:12px">Sanitized</button>
-      <button class="leash-diff-tab" onclick="leashDiffTab('diff')" style="padding:8px 16px;background:none;border:none;cursor:pointer;font-size:12px">Diff</button>
     </div>
     <div style="overflow-y:auto;padding:16px;flex:1">
-      <pre id="leash-hitl-diff-content" style="font-size:12px;white-space:pre-wrap;word-break:break-word;margin:0"></pre>
     </div>
     <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
-      <button onclick="leashHitlApproveSanitized()" style="padding:6px 16px;background:#4caf50;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">Approve sanitized</button>
-      <button onclick="document.getElementById('leash-hitl-diff-modal').style.display='none'" style="padding:6px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:12px">Cancel</button>
     </div>
   </div>
 </div>
 
 <!-- GAP-14: Rule comparison modal -->
-<div id="leash-compare-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9600;align-items:center;justify-content:center">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:min(540px,96%);max-height:80vh;overflow:auto">
     <div style="display:flex;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
       <strong style="font-size:13px">Rule comparison</strong>
-      <button onclick="document.getElementById('leash-compare-modal').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px">✕</button>
     </div>
-    <div id="leash-compare-content" style="padding:18px;overflow-x:auto"></div>
     <div style="padding:10px 18px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">F1 = precision+recall harmonic mean · 1-FPR = 1 minus false-positive rate</div>
   </div>
 </div>
 
 <script>
 // GAP-16: OPA config load + save
-(async function leashLoadOpaConfig() {
-  const r = await fetch('/api/leash/opa-config').then(r=>r.json()).catch(()=>null);
   if (!r?.ok) return;
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
-  set('leash-opa-endpoint', r.endpoint);
-  set('leash-opa-policy-path', r.policy_path);
-  set('leash-opa-backend', r.backend || 'http');
-  const cb = document.getElementById('leash-opa-enabled');
   if (cb) cb.checked = r.enabled !== false;
 })();
 
-async function leashSaveOpaConfig() {
-  const st = document.getElementById('leash-opa-status');
   const payload = {
-    endpoint: document.getElementById('leash-opa-endpoint')?.value ?? '',
-    policy_path: document.getElementById('leash-opa-policy-path')?.value ?? '',
-    backend: document.getElementById('leash-opa-backend')?.value ?? 'http',
-    enabled: document.getElementById('leash-opa-enabled')?.checked ?? true,
   };
   if (st) st.textContent = 'Saving…';
   try {
-    const r = await fetch('/api/leash/opa-config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }).then(r=>r.json());
     if (st) { st.textContent = r.ok ? '✓ Saved — restart proxy to apply' : `✗ ${r.error}`; st.style.color = r.ok ? '#4caf50' : '#e53935'; }
   } catch(e) { if (st) { st.textContent = `✗ ${e.message}`; st.style.color='#e53935'; } }
 }
