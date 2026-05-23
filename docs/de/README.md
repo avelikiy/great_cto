@@ -5,9 +5,9 @@
 
 ---
 
-**Lokal-first, Open-Source-Alternative zu Devin / Cursor Background Agents / Claude Code für Engineering-Teams** — bring deinen eigenen Coding-Agent mit (Claude Code · Codex · Cursor · Aider · Continue · Cline), und great_cto orchestriert **49 Spezialagenten** drumherum: Architect, PM, Senior-Dev, Code-Reviewer, QA-Engineer, Security-Officer, DevOps, plus 26 archetyp-spezifische Reviewer.
+**Beschreibe dein Projekt und wo es betrieben wird. GreatCTO kompiliert automatisch die richtige SDLC-Pipeline.**
 
-Du bist der Solo-CTO. Du bist auch der Engpass. **GreatCTO ist 49 Spezialagenten**, die Architektur, Review, QA, Security und Deploy übernehmen — während du **zwei Entscheidungen pro Feature** triffst.
+`npx great-cto init` scannt deinen Stack, erkennt die Jurisdiktion und kompiliert einen **Delivery Flow** — die genauen Agenten, Compliance-Frameworks und Human Gates, die dein Projekt benötigt. Du genehmigst zwei Checkpoints: den Plan und das Deployment. Alles andere läuft automatisch.
 
 ## Schnellinstallation
 
