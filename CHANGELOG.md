@@ -4,6 +4,44 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.20.0 — 2026-05-23
+
+### Added — Detection v2: 12 jurisdictions, infra signals, word-boundary matching, pack hints
+
+**Jurisdiction coverage: 8 → 12**
+
+- **Canada (CA)** — PIPEDA · Quebec Law 25 / Bill 64 · CASL · OSFI B-10 (fintech).
+  Gates: `gate:pipeda-pia`, `gate:quebec-law25-consent`.
+- **Japan (JP)** — APPI 2022 · PPC Guidelines · My Number Act · FISC (fintech).
+  Gates: `gate:appi-third-party-transfer`, `gate:appi-ppc-registration`.
+- **China (CN)** — PIPL 2021 · DSL 2021 · MLPS 2.0 · CBDT · CAC regulations.
+  Gates: `gate:pipl-consent-framework`, `gate:mlps-classification`, `gate:pipl-data-localisation`.
+- **South Korea (KR)** — PIPA · ISMS-P certification · Network Act · FSC.
+  Gates: `gate:pipa-isms-p`, `gate:pipa-consent-framework`.
+
+**Infra-signal detection (`mineInfraKeywords`)**
+
+- Scans Terraform / YAML / JSON files (depth ≤ 4) for AWS/GCP/Azure region strings.
+- Reads `.env.example` / `docker-compose.yml` for `AWS_REGION=` and `TZ=` timezone hints.
+- Maps `package.json` `homepage` TLD (`.de` → eu, `.jp` → jp, `.cn` → cn, `.kr` → kr, `.ca` → ca, etc.).
+- `infraKeywords[]` added to `DetectionResult`; consumed by `suggestJurisdictions()`.
+
+**Word-boundary matching (`matchesKeyword`)**
+
+- Single-token keywords use lookbehind / lookahead regex.
+- Prevents false positives: `"india"` no longer matches `"indiana"` / `"indianapolis"`.
+
+**Pack hints for niche archetypes (`inferPackHints`)**
+
+- `suggestedPacks?: string[]` added to `ArchetypePick`.
+- Surfaces specialist packs for low-signal niche domains: `robotics-pack`, `climate-pack`,
+  `clinical-trials-pack`, `drug-discovery-pack`, `hr-ai-pack`, `lending-pack`,
+  `voice-pack`, `em-fintech-pack`, `api-platform-pack`.
+
+**Tests: 179/179 pass** (37 jurisdiction tests, +19 new covering CA/JP/CN/KR + infra signals + word-boundary cases)
+
+---
+
 ## v2.19.0 — 2026-05-23
 
 ### Added — Token economy Phase 1+2: artifact summaries + memory filter
