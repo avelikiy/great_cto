@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="400" viewBox="0 0 840 400">
+  <style>
+    /* 10-second looping cycle. Each line appears at its time, all fade out together. */
+    /* Format: 0%,START%{opacity:0}  APPEAR%,78%{opacity:1}  83%,100%{opacity:0} */
+    @keyframes l0  { 0%,4%{opacity:0}  5.5%,78%{opacity:1}  83%,100%{opacity:0} }
+    @keyframes l1  { 0%,9%{opacity:0}  10.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l2  { 0%,13%{opacity:0} 14.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l3  { 0%,16%{opacity:0} 17.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l4  { 0%,19%{opacity:0} 20.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l5  { 0%,22%{opacity:0} 23.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l6  { 0%,28%{opacity:0} 29.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l7  { 0%,32%{opacity:0} 33.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l8  { 0%,35%{opacity:0} 36.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l9  { 0%,38%{opacity:0} 39.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l10 { 0%,41%{opacity:0} 42.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l11 { 0%,46%{opacity:0} 47.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l12 { 0%,50%{opacity:0} 51.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes l13 { 0%,55%{opacity:0} 56.5%,78%{opacity:1} 83%,100%{opacity:0} }
+    @keyframes blink { 50% { opacity:0 } }
+
+    .l0  { animation: l0  10s infinite both }
+    .l1  { animation: l1  10s infinite both }
+    .l2  { animation: l2  10s infinite both }
+    .l3  { animation: l3  10s infinite both }
+    .l4  { animation: l4  10s infinite both }
+    .l5  { animation: l5  10s infinite both }
+    .l6  { animation: l6  10s infinite both }
+    .l7  { animation: l7  10s infinite both }
+    .l8  { animation: l8  10s infinite both }
+    .l9  { animation: l9  10s infinite both }
+    .l10 { animation: l10 10s infinite both }
+    .l11 { animation: l11 10s infinite both }
+    .l12 { animation: l12 10s infinite both }
+    .l13 { animation: l13 10s infinite both }
+    .cursor { animation: blink 0.8s step-end infinite }
+  </style>
+
+  <!-- Terminal background -->
+  <rect width="840" height="400" rx="10" fill="#0d1117"/>
+
+  <!-- Title bar -->
+  <rect width="840" height="40" rx="10" fill="#1c2128"/>
+  <rect y="30" width="840" height="10" fill="#1c2128"/>
+
+  <!-- Window dots -->
+  <circle cx="20" cy="20" r="6" fill="#ff5f57"/>
+  <circle cx="40" cy="20" r="6" fill="#febc2e"/>
+  <circle cx="60" cy="20" r="6" fill="#28c840"/>
+
+  <!-- Window title -->
+  <text x="420" y="26" text-anchor="middle" fill="#6e7681" font-size="13"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif">
+    neobank-api — bash
+  </text>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TERMINAL CONTENT
+       font: Menlo 13px monospace, ~7.8px per char
+       x=24 left padding, line-height=22px, first line y=68
+       ═══════════════════════════════════════════════════════════ -->
+
+  <!-- l0 · t=0.4s · $ npx great-cto init -->
+  <text class="l0" x="24" y="68" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#00d97e">$</tspan><tspan fill="#e6edf3"> npx great-cto init</tspan>
+  </text>
+
+  <!-- l1 · t=0.9s · program name -->
+  <text class="l1" x="24" y="90" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace" fill="#6e7681">
+    great-cto
+  </text>
+
+  <!-- l2 · t=1.3s · [1/5] scanning -->
+  <text class="l2" x="24" y="112" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">[1/5]</tspan><tspan fill="#6e7681"> scanning /projects/neobank-api</tspan>
+  </text>
+
+  <!-- l3 · t=1.6s · stack -->
+  <text class="l3" x="24" y="134" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">  stack:</tspan><tspan fill="#8b949e"> fintech, nestjs, nodejs, plaid, stripe</tspan>
+  </text>
+
+  <!-- l4 · t=1.9s · languages -->
+  <text class="l4" x="24" y="156" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">  languages:</tspan><tspan fill="#8b949e"> javascript</tspan>
+  </text>
+
+  <!-- l5 · t=2.2s · [2/5] picking archetype -->
+  <text class="l5" x="24" y="178" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">[2/5]</tspan><tspan fill="#6e7681"> picking archetype</tspan>
+  </text>
+
+  <!-- BLANK LINE gap ~196 (implied by y jump to 212) -->
+
+  <!-- l6 · t=2.8s · Compiled flow — HERO MOMENT, bold green -->
+  <text class="l6" x="24" y="212" font-size="14" font-weight="bold"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#00d97e">Compiled flow:</tspan><tspan fill="#e6edf3"> Fintech · EU</tspan>
+  </text>
+
+  <!-- l7 · t=3.2s · Agents -->
+  <text class="l7" x="24" y="234" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">  Agents:    </tspan>
+    <tspan fill="#c9d1d9"> architect · gdpr-reviewer · pci-reviewer · senior-dev</tspan>
+  </text>
+
+  <!-- l8 · t=3.5s · Gates -->
+  <text class="l8" x="24" y="256" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">  Gates:     </tspan>
+    <tspan fill="#c9d1d9"> gate:gdpr-dpia · gate:plan · gate:ship</tspan>
+  </text>
+
+  <!-- l9 · t=3.8s · Compliance -->
+  <text class="l9" x="24" y="278" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">  Compliance:</tspan>
+    <tspan fill="#c9d1d9"> gdpr, kyc-aml, pci-dss, sox</tspan>
+  </text>
+
+  <!-- l10 · t=4.1s · Cost (amber highlight) -->
+  <text class="l10" x="24" y="300" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">  Cost:      </tspan>
+    <tspan fill="#f0b429"> ~$8–$18 per feature cycle</tspan>
+  </text>
+
+  <!-- BLANK LINE gap ~314 -->
+
+  <!-- l11 · t=4.6s · [5/5] bootstrapping -->
+  <text class="l11" x="24" y="324" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#484f58">[5/5]</tspan>
+    <tspan fill="#6e7681"> bootstrapping .great_cto/</tspan>
+  </text>
+
+  <!-- l12 · t=5.0s · success message -->
+  <text class="l12" x="24" y="346" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#00d97e">✓</tspan>
+    <tspan fill="#8b949e"> great_cto is ready.  Open Claude Code</tspan>
+    <tspan fill="#484f58"> → /start "add payment retry logic"</tspan>
+  </text>
+
+  <!-- BLANK LINE gap ~360 -->
+
+  <!-- l13 · t=5.5s · new prompt with blinking cursor -->
+  <text class="l13" x="24" y="374" font-size="13"
+        font-family="Menlo,Consolas,'Courier New',monospace">
+    <tspan fill="#00d97e">$ </tspan><tspan class="cursor" fill="#00d97e">█</tspan>
+  </text>
+
+</svg>
