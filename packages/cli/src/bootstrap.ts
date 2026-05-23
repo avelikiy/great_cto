@@ -4,14 +4,17 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DetectionResult } from "./detect.js";
-import type { Archetype } from "./archetypes.js";
+import type { Archetype, ProjectSize } from "./archetypes.js";
 import { dim, success, warn } from "./ui.js";
 import { suggestJurisdictions } from "./jurisdictions.js";
+import { compileFlow, renderFlowMd, type FlowResult } from "./flow.js";
 
 export interface BootstrapResult {
   projectMdPath: string;
   created: boolean;
   skippedReason: string | null;
+  /** Compiled delivery flow — null when PROJECT.md already existed (not overwriting). */
+  flow: FlowResult | null;
 }
 
 export function bootstrap(
@@ -26,7 +29,7 @@ export function bootstrap(
 
   if (existsSync(projectMd)) {
     warn(`.great_cto/PROJECT.md already exists — not overwriting.`);
-    return { projectMdPath: projectMd, created: false, skippedReason: "already exists" };
+    return { projectMdPath: projectMd, created: false, skippedReason: "already exists", flow: null };
   }
 
   mkdirSync(greatCtoDir, { recursive: true });
@@ -141,7 +144,16 @@ when you actually start work:
 
   writeFileSync(projectMd, content, "utf-8");
   success(`created .great_cto/PROJECT.md ${dim(`(archetype: ${archetype})`)}`);
-  return { projectMdPath: projectMd, created: true, skippedReason: null };
+
+  // Write FLOW.md — compiled delivery flow for agents and user
+  const confidence = detectionMeta?.confidence ?? "medium";
+  const size = (detection.projectSize ?? "medium") as ProjectSize;
+  const flow = compileFlow(archetype, size, detection, compliance, confidence);
+  const flowMdPath = join(greatCtoDir, "FLOW.md");
+  const generatedAt = new Date().toISOString().slice(0, 10);
+  writeFileSync(flowMdPath, renderFlowMd(flow, generatedAt), "utf-8");
+
+  return { projectMdPath: projectMd, created: true, skippedReason: null, flow };
 }
 
 /**
