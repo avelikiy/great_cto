@@ -85,20 +85,26 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 
 `npx great-cto init` scans three signal sources — README keywords, infra region strings (Terraform, `.env` `AWS_REGION=`, docker-compose `TZ=`), and `package.json` homepage TLD — and auto-detects which of **12 jurisdictions** apply:
 
-| Jurisdiction | Example signals | Compliance agents |
-|---|---|---|
-| EU | `gdpr`, `eu users`, `eu-west-1`, `.de` TLD | `gdpr-reviewer` |
-| US-CA | `ccpa`, `cpra`, `california residents` | `us-privacy-reviewer` |
-| UK | `uk gdpr`, `information commissioner`, `.co.uk` | `gdpr-reviewer` |
-| IN | `dpdpa`, `india users`, `rbi data localisation` | `dpdpa-reviewer` |
-| BR | `lgpd`, `anpd`, `brazil users` | `gdpr-reviewer` |
-| AU / SG | `privacy act 1988`, `pdpa`, `.com.au`, `.sg` | `us-privacy-reviewer` |
-| CA | `pipeda`, `quebec law 25`, `ca-central-1` | `us-privacy-reviewer` |
-| JP | `appi`, `japan users`, `ap-northeast-1`, `japaneast` | `us-privacy-reviewer` |
-| CN | `pipl`, `mlps`, `china users`, `cn-north-1` | `gdpr-reviewer` |
-| KR | `pipa korea`, `isms-p`, `ap-northeast-2` | `us-privacy-reviewer` |
+| Jurisdiction | Signals (README + infra) | Frameworks | Reviewer |
+|---|---|---|---|
+| `eu` | gdpr · eu users · nis2 · eu ai act · `eu-west-*` · `.de` TLD | GDPR · EU AI Act · NIS2 · ePrivacy | `gdpr-reviewer` |
+| `us-ca` | ccpa · cpra · california residents · do not sell | CCPA / CPRA | `us-privacy-reviewer` |
+| `uk` | uk gdpr · information commissioner · dpa 2018 | UK GDPR · DPA 2018 | `gdpr-reviewer` |
+| `in` | dpdpa · india users · rbi data localisation | DPDPA 2023 · RBI | `dpdpa-reviewer` |
+| `br` | lgpd · anpd · brazil users | LGPD | `gdpr-reviewer` |
+| `au` | privacy act 1988 · oaic · notifiable data breach | Privacy Act 1988 · CDR | `us-privacy-reviewer` |
+| `sg` | pdpa · pdpc · mas guidelines · singpass | PDPA · MAS TRM | `us-privacy-reviewer` |
+| `ca` | pipeda · quebec law 25 · casl · canadian users · `ca-central-*` | PIPEDA · Quebec Law 25 · CASL · OSFI B-10 | `us-privacy-reviewer` |
+| `jp` | appi · japan users · my number · `ap-northeast-1` · `japaneast` | APPI 2022 · PPC Guidelines · FISC | `us-privacy-reviewer` |
+| `cn` | pipl · mlps · china users · `cn-north-*` · `cn-east-*` | PIPL 2021 · DSL 2021 · MLPS 2.0 · CBDT | `gdpr-reviewer` |
+| `kr` | pipa korea · isms-p · kisa · korea users · `ap-northeast-2` | PIPA · ISMS-P · FSC regulations | `us-privacy-reviewer` |
+| `us` | ftc · us users · virginia cdpa · texas tdpsa | FTC Act · US state privacy laws | `us-privacy-reviewer` |
 
-Detected jurisdiction is written to `PROJECT.md` as `jurisdiction: [EU, US-CA]` and gates the appropriate reviewer on every feature.
+Word-boundary matching prevents false positives (`"india"` doesn't match `"indiana"`). Detected jurisdiction is written to `PROJECT.md` as `jurisdiction: [eu, us-ca]` and gates the appropriate reviewer on every feature. Override manually:
+
+```yaml
+jurisdiction: [eu, us-ca]
+```
 
 ## The board you'll actually check
 
@@ -192,30 +198,6 @@ Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-
 | **Engineering** | `api-platform-pack` · `robotics-pack` · `game-pack` |
 
 → **27 human-gate types** + 50+ reference EVAL suites + 20 TM templates. Browse all 16 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
-
-### Jurisdiction Detection
-
-GreatCTO auto-detects applicable compliance frameworks from three signal sources: README keywords, infra region strings (Terraform / `.env` `AWS_REGION=` / docker-compose `TZ=`), and `package.json` homepage TLD. **12 jurisdictions** covered:
-
-| Jurisdiction | Signals (README + infra) | Frameworks | Reviewer |
-|---|---|---|---|
-| `eu` | gdpr · eu users · nis2 · eu ai act · `eu-west-*` · `.de` TLD | GDPR · EU AI Act · NIS2 · ePrivacy | `gdpr-reviewer` |
-| `us-ca` | ccpa · cpra · california residents · do not sell | CCPA / CPRA | `us-privacy-reviewer` |
-| `uk` | uk gdpr · information commissioner · dpa 2018 | UK GDPR · DPA 2018 | `gdpr-reviewer` |
-| `in` | dpdpa · india users · rbi data localisation | DPDPA 2023 · RBI | `dpdpa-reviewer` |
-| `br` | lgpd · anpd · brazil users | LGPD | `gdpr-reviewer` |
-| `au` | privacy act 1988 · oaic · notifiable data breach | Privacy Act 1988 · CDR | `us-privacy-reviewer` |
-| `sg` | pdpa · pdpc · mas guidelines · singpass | PDPA · MAS TRM | `us-privacy-reviewer` |
-| `ca` | pipeda · quebec law 25 · casl · canadian users · `ca-central-*` | PIPEDA · Quebec Law 25 · CASL · OSFI B-10 | `us-privacy-reviewer` |
-| `jp` | appi · japan users · my number · `ap-northeast-1` · `japaneast` | APPI 2022 · PPC Guidelines · FISC | `us-privacy-reviewer` |
-| `cn` | pipl · mlps · china users · `cn-north-*` · `cn-east-*` | PIPL 2021 · DSL 2021 · MLPS 2.0 · CBDT | `gdpr-reviewer` |
-| `kr` | pipa korea · isms-p · kisa · korea users · `ap-northeast-2` | PIPA · ISMS-P · FSC regulations | `us-privacy-reviewer` |
-| `us` | ftc · us users · virginia cdpa · texas tdpsa | FTC Act · US state privacy laws | `us-privacy-reviewer` |
-
-Word-boundary matching prevents false positives (`"india"` doesn't match `"indiana"`). Set or override in `.great_cto/PROJECT.md`:
-```yaml
-jurisdiction: [eu, us-ca]
-```
 
 ## One real run, fully traced
 
