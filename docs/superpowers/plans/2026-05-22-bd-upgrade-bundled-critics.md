@@ -905,9 +905,9 @@ Locate the exact line with `grep -n "chat-only-hint" packages/cli/src/main.ts | 
 Replace the `command` type union in the `CliArgs` interface to add `"upgrade"`:
 
 ```typescript
-// Find: | "leash" | "chat-only-hint" | "unknown";
+// Find: | "chat-only-hint" | "unknown";
 // Replace with:
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "leash" | "upgrade" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "chat-only-hint" | "unknown";
 ```
 
 Locate the `upgrade` insertion point with `grep -n '"board"' packages/cli/src/main.ts | head -3`.
@@ -920,10 +920,8 @@ Add the upgrade case immediately after the `board` case in `parseArgs`:
 
 - [ ] **Step 2: Add upgrade to the help text**
 
-In `printHelp()`, add to the usage section (after the `leash` line):
 
 ```typescript
-// ADD after: npx great-cto leash
   npx great-cto upgrade [superpowers|beads]   Re-clone companions to latest tag + re-apply overlays
 ```
 
@@ -981,8 +979,7 @@ async function runUpgrade(rawArgv: string[]): Promise<number> {
 
 - [ ] **Step 4: Add upgrade dispatch in main()**
 
-Locate the `leash` dispatch block with: `grep -n '"leash"' packages/cli/src/main.ts | grep "command ==="`.
-Add the upgrade dispatch immediately after the closing brace of the `leash` block:
+Add the upgrade dispatch block:
 
 ```typescript
   if (args.command === "upgrade") {

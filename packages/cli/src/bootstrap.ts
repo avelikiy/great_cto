@@ -90,18 +90,6 @@ jurisdiction: [${jurisdictionLine}]
 > Supported codes: eu · us · us-ca · uk · in · br · au · sg
 > See docs/jurisdiction-compliance.md for what each code activates.
 
-## Leash
-
-leash:
-  tenant_id: ${slugifyTenant(title)}
-  daily_cap_usd: 10
-  session_prefix: gcto
-
-> \`leash.tenant_id\` is sent as \`X-LLM-Leash-Tenant-Id\` on every LLM call
-> through the proxy. Board's Security tab scopes stats to the active project
-> via this id. Change here if multiple repos share the same logical project.
-> \`session_prefix\` is prepended to auto-generated session ids so logs are
-> easy to filter across machines.
 
 ## Memory & Query Rule
 

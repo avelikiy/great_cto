@@ -50,7 +50,6 @@ Never let a Beads error block the actual phase work.
 
 ```bash
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
-export LEASH_AGENT_NAME=pm  # tags all SDK calls from this agent for per-agent leash budgets
 
 # Project metadata
 PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")

@@ -4,6 +4,21 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.22.0 — 2026-05-23
+
+### Remove runtime governance proxy integration
+
+- **Removed** Security board tab and all proxy UI (sessions, spend, threats, HITL, rate limits)
+- **Removed** `great-cto leash` CLI subcommand and `tryInstallLeash()` auto-install
+- **Removed** postinstall auto-clone of governance proxy
+- **Removed** leash-related env vars (`LEASH_TENANT_ID`, `LEASH_SESSION_PREFIX`, `NODE_OPTIONS`) from session init hook and PROJECT.md template
+- **Removed** `LEASH_AGENT_NAME` env export from all built-in agent definitions
+- **Removed** ai-leash-reviewer agent from routing table
+- **Simplified** `postinstall.mjs` to a no-op placeholder
+- Zero breaking changes to core init / board / agents pipeline
+
+---
+
 ## v2.21.0 — 2026-05-23
 
 ### Flow Compiler UX
@@ -153,24 +168,7 @@ compliance frameworks from project geography signals in README.
 
 ## v2.12.1 — 2026-05-18
 
-### Security tab UI/UX overhaul
-
-- **Live activity feed** — top of the Security panel now shows the last 5 leash events with a pulsing dot; auto-refreshes on the existing 5s poll (no extra network cost)
-- **All-clear empty state** — zero-threat KPI tiles show `✓ all clear` instead of bare `0`
-- **Hero HIGH tile** — HIGH severity tile is now 2× wider and larger (36px value, `2fr` grid column) for at-a-glance severity awareness
-- **Collapsible config** — "Config & data sources" block hidden under a `<details>` element; advanced users can expand it
-
 ---
-
-## v2.12.0 — 2026-05-18
-
-### llm-leash v2.27 integration
-
-- **HITL admin API fix** — board now calls the correct endpoints: `GET /admin/hitl/pending`, `POST /admin/hitl/{id}/approve`, `POST /admin/hitl/{id}/reject` (was using wrong `/hitl/…` paths from before v2.20)
-- **Admin token support** — set `admin_token` in `.great_cto/leash.json` or `LEASH_ADMIN_TOKEN` env; all admin API calls include `Authorization: Bearer …` automatically
-- **Rate Limits tab** — new subtab in the Security panel shows live rate-limit counters and limits from `GET /admin/rate-limits` (v2.27+); renders usage bars with amber/red thresholds
-- **Native per-tenant caps** — `/api/leash/per-tenant-status` now tries `GET /admin/stats` → `per_tenant_caps` first; falls back to local `~/.great_cto/per-tenant-caps.json` for older installs. Source label ("native v2.27" vs "local fallback") shown in UI
-- **`readLeashRateLimits()`** and **`readLeashNativeCaps()`** exported from `leash-adapter.mjs`
 
 ---
 
@@ -330,8 +328,6 @@ existing email-alert relay.
 
 **Other**
 
-- `leash-adapter.mjs`: added `console_url` default for llm-leash-console v2.1+.
-- Security tab simplified — governance toggle + leash-console iframe.
 
 ---
 

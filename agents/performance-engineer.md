@@ -74,7 +74,6 @@ fi
 
 ```bash
 source .great_cto/env.sh 2>/dev/null || true
-export LEASH_AGENT_NAME=performance-engineer  # tags all SDK calls from this agent for per-agent leash budgets
 ARCH_FILE=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
 [ -z "$ARCH_FILE" ] && { echo "BLOCKED: no ARCH doc" >&2; exit 1; }
 SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//')

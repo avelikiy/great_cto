@@ -39,7 +39,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "leash" | "upgrade" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "register" | "scan" | "list-rules" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "chat-only-hint" | "unknown";
   unknownToken?: string;
   dir: string;
   positional: string[];
@@ -95,7 +95,6 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "serve") args.command = "serve";
     else if (a === "webhook") args.command = "webhook";
     else if (a === "report") args.command = "report";
-    else if (a === "leash") args.command = "leash";
     else if (a === "upgrade") args.command = "upgrade";
     // Slash-commands surfaced as CLI subcommands so users get a clear hint
     // instead of a confusing usage error. These work only in the chat plugin.
@@ -114,9 +113,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a.startsWith("--dir=")) args.dir = a.slice("--dir=".length);
     else if (a === "--dir") args.dir = argv[++i] ?? args.dir;
     else if (a === "init" || a === "install" || a === "help" || a === "version") {
-      // `install` is an alias for `init`. Both run the same flow; only
-      // difference: `install` upgrades llm-leash to latest on every run,
-      // while `init` is silent-skip when already installed.
+      // `install` is an alias for `init`. Both run the same flow.
       args.command = (a === "install" ? "init" : a) as CliArgs["command"];
       if (a === "install") {
         (args as unknown as { _fromInstall: boolean })._fromInstall = true;
@@ -357,8 +354,8 @@ function printHelp(): void {
   log(`${bold("great-cto")} — one-command install for the great_cto Claude Code plugin
 
 ${bold("Usage:")}
-  npx great-cto install [options]    Same as init; also upgrades llm-leash
-  npx great-cto [init] [options]     Detect + bootstrap; installs llm-leash if absent
+  npx great-cto install [options]    Same as init
+  npx great-cto [init] [options]     Detect + bootstrap
   npx great-cto board [--port 3141] [--no-open]
   npx great-cto register [--dir PATH]
   npx great-cto scan [path] [--severity LVL] [--scanner NAME] [--sarif FILE]
@@ -822,13 +819,6 @@ async function runInit(args: CliArgs): Promise<number> {
   // ── 6. install pre-push git hook ─────────────────────────
   installPrePushHook(args.dir);
 
-  // ── 7. install / update llm-leash (runtime governance) ───
-  // `init` is idempotent (silent skip when present). `install` always
-  // upgrades to the latest commit on llm-leash main. Both best-effort:
-  // missing git/python doesn't fail the flow.
-  const fromInstall = (args as unknown as { _fromInstall?: boolean })._fromInstall === true;
-  await tryInstallLeash(fromInstall);
-
   // ── done ─────────────────────────────────────────────────
   log("");
   log(green(bold("✓ great_cto is ready.")));
@@ -878,39 +868,6 @@ function installPrePushHook(projectDir: string): void {
   }
 }
 
-/**
- * Best-effort llm-leash install — runs after bootstrap so every great-cto
- * init turns on runtime governance for free.
- *
- *   forceUpdate=false  (called from `init`)    — silent-skip if installed
- *   forceUpdate=true   (called from `install`) — git pull + reinstall
- *
- * Never throws. Opt out via env: GREAT_CTO_SKIP_LEASH=1
- */
-async function tryInstallLeash(forceUpdate: boolean = false): Promise<void> {
-  if (process.env.GREAT_CTO_SKIP_LEASH === "1") {
-    log(`  ${dim("skipped llm-leash install (GREAT_CTO_SKIP_LEASH=1)")}`);
-    return;
-  }
-  try {
-    const { runLeash } = await import("./leash.js");
-    const { existsSync } = await import("node:fs");
-    const installRoot = join(homedir(), ".great_cto", "llm-leash");
-    if (existsSync(installRoot)) {
-      if (forceUpdate) {
-        log(`  ${dim("updating llm-leash to latest …")}`);
-        await runLeash(["update"]);
-      } else {
-        log(`  ${dim("llm-leash already installed — skipped")}`);
-      }
-      return;
-    }
-    log(`  ${dim("installing llm-leash (runtime governance) …")}`);
-    await runLeash(["install"]);
-  } catch {
-    warn("llm-leash install failed — run `great-cto leash install` manually later");
-  }
-}
 
 async function runUpgrade(rawArgv: string[]): Promise<number> {
   const { upgradePlugin, upgradeAll } = await import("./upgrade.js");
@@ -1058,18 +1015,6 @@ async function main(): Promise<void> {
       }
       const code = await runWebhookCli(parsed);
       process.exit(code);
-    } catch (e) {
-      error((e as Error).message);
-      process.exit(2);
-    }
-  }
-  if (args.command === "leash") {
-    try {
-      const { runLeash } = await import("./leash.js");
-      // rawArgv[0] is "leash" — pass the rest as subcommand + flags
-      const leashArgs = rawArgv.slice(rawArgv.indexOf("leash") + 1);
-      const result = await runLeash(leashArgs);
-      process.exit(result.exitCode);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
