@@ -5,6 +5,48 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.26.0 — 2026-05-28
+
+### PM discovery pipeline: PRD, OST, discover, outcome roadmap, prioritisation
+
+Five patterns from phuryn/pm-skills that complete the pre-development
+Discovery → PRD → architect pipeline previously missing from great_cto.
+
+**New commands**
+- `/prd` — structured 8-section Product Requirements Document workflow.
+  Accepts problem statement, gathers context (max 4 questions), generates
+  PRD with Executive Summary / Background / Objectives+Metrics / Users /
+  User Stories P0-P2 / Non-Goals / Constraints / Success Criteria.
+  Writes `docs/requirements/PRD-<slug>.md`.
+- `/discover` — full product discovery cycle. Maps 3–7 customer
+  opportunities, ranks by Opportunity Score, generates ≥3 solutions per
+  opportunity, designs experiments. Writes
+  `docs/discovery/OST-<slug>.md`.
+
+**New skills**
+- `opportunity-solution-tree` — Teresa Torres OST framework.
+  4-level structure: Desired Outcome → Opportunities → Solutions →
+  Experiments. Opportunity Score = Importance × (1 − Satisfaction).
+  Assumption priority: Value → Usability → Feasibility → Viability.
+- `outcome-roadmap` — transforms output-focused feature lists to outcome
+  statements. Formula: `Enable [segment] to [outcome] so that [impact]`.
+  "So what?" chain method for deriving outcomes from features.
+
+**Agent enhancements**
+- `agents/pm.md` — added Step 0a: feature prioritisation when multiple
+  features compete. Framework selection table: Opportunity Score / ICE /
+  RICE / MoSCoW with formulas. Detects output-focused roadmaps and
+  applies outcome-roadmap skill before task decomposition.
+- `skills/pre-mortem/SKILL.md` — added Step 4b: Tigers / Paper Tigers /
+  Elephants risk classification. Tigers classified as Launch-Blocking /
+  Fast-Follow / Track with owner + due date. Pre-mortem template updated
+  with all three blocks.
+
+**Discovery → PRD pipeline position:**
+`/discover` → `/prd` → `/architect` → `/pm` → senior-dev
+
+---
+
 ## v2.25.0 — 2026-05-28
 
 ### agent-workflows patterns: triage gate, structured findings, hand-off rules
