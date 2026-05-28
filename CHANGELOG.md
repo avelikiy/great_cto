@@ -4,6 +4,27 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.22.2 — 2026-05-28
+
+### Fix board JS syntax errors after leash removal
+
+- **Fixed** orphaned leash JS fragments (802 lines) left after Security tab removal — caused `SyntaxError` in browser
+- **Fixed** broken `import {` block in `server.mjs` (missing closing `} from './leash-adapter.mjs'`) that prevented board from starting
+- **Fixed** broken `<input>` element in Cmd-K search modal (raw style attribute visible as text in header)
+- **Fixed** board version-sorting bug — server was loading from old cached v2.9.5 instead of v2.22.1 due to lexicographic sort
+- Board JS now passes `node --check` syntax validation with 0 errors
+
+---
+
+## v2.22.1 — 2026-05-28
+
+### Publish cleanup
+
+- Removed stale `dist/leash.js` from npm package (leftover compiled artifact from deleted `leash.ts`)
+- No functional changes vs v2.22.0
+
+---
+
 ## v2.22.0 — 2026-05-23
 
 ### Remove runtime governance proxy integration
