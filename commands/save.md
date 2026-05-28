@@ -53,6 +53,7 @@ Write `$LOG_FILE`:
 date: <YYYY-MM-DD>
 time: <HH:MM>
 duration: <estimated from conversation length — "~30 min" / "~2 h">
+concepts: [<keyword1>, <keyword2>, <keyword3>]
 ---
 
 # Session: <description>
@@ -81,6 +82,43 @@ duration: <estimated from conversation length — "~30 min" / "~2 h">
 
 <git log --oneline --since="8 hours ago" output, or "no commits this session">
 ```
+
+**Concepts field rules** (enables `/recall` search):
+- Extract 3–6 lowercased keywords that best describe what was worked on
+- Prefer specific terms over generic: `"quota-check"` not `"monitoring"`, `"side-panel"` not `"ui"`
+- Include: main feature slug, key library/tool names, archetype if relevant
+- Examples: `[quota, oauth, board, side-panel]` · `[orchestrator, toml, 3-state-completion]` · `[substantiveness, explicit-gate, ai-security-reviewer]`
+- These are the only index entries for `/recall` — choose them to be findable in 6 months
+
+## Step 3b — Update brain.md tiers (optional, 60 seconds)
+
+After writing the session log, optionally promote insights to `.great_cto/brain.md`:
+
+**EPISODIC tier** — always update with a 1-2 sentence session summary:
+```
+### <YYYY-MM-DD> — <slug>
+<1-2 sentence outcome>
+Key decisions: <brief>
+```
+Rotate: keep only the 5 most recent episodic entries. Drop the oldest when adding the 6th.
+
+**SEMANTIC tier** — promote if a fact was confirmed for the 2nd time this session:
+- Architectural fact stated the same way in 2+ sessions → append to `## SEMANTIC → Architecture`
+- Tech choice made explicitly → append to `## SEMANTIC → Tech Choices`
+- New constraint confirmed → append to `## SEMANTIC → Constraints`
+
+**PROCEDURAL tier** — promote if a workflow was repeated (not first time):
+- Release procedure used again → verify entry exists, update if steps changed
+- Debug pattern used 2nd time → add named procedure entry
+
+**WORKING tier** — always overwrite with current state:
+```
+Active task: <current task or "—">
+Current focus: <what you're doing>
+Blockers: <known blockers or "—">
+```
+
+Skip brain.md update if the session was trivial (< 30 min, no architectural decisions).
 
 ## Step 4 — Update tasks.md (if open tasks changed)
 
