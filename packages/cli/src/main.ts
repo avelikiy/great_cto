@@ -21,7 +21,7 @@ import { installAllCompanions } from "./companion.js";
 import { bootstrap } from "./bootstrap.js";
 import { compileFlow } from "./flow.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
-import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, existsSync as fsExistsSync } from "node:fs";
+import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -307,24 +307,26 @@ async function runRegister(args: CliArgs): Promise<number> {
   return 0;
 }
 
-async function runBoard(args: CliArgs): Promise<number> {
-  const { join, dirname } = await import("node:path");
-  const { fileURLToPath } = await import("node:url");
-  const { existsSync } = await import("node:fs");
-  const { spawn } = await import("node:child_process");
+// ── Board server lifecycle helpers ───────────────────────────────────────────
 
-  // Find board server: relative to this file (dist/) → packages/board/server.mjs
-  const { homedir } = await import("node:os");
-  const { readdirSync } = await import("node:fs");
+/** Absolute path to the board PID file (persists across CLI invocations). */
+function boardPidFilePath(): string {
+  return join(homedir(), ".great_cto", "board.pid");
+}
+
+/**
+ * Locate the board server.mjs — checks dev layouts then plugin cache versions
+ * in descending order, returning the first path that exists.
+ */
+function findBoardServerPath(): string | undefined {
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates: string[] = [
-    join(here, "..", "..", "board", "server.mjs"),           // from packages/cli/dist (dev)
-    join(here, "..", "board", "server.mjs"),                  // alt dev layout
-    join(here, "board", "server.mjs"),                        // flat layout
+    join(here, "..", "..", "board", "server.mjs"),  // packages/cli/dist (dev)
+    join(here, "..", "board", "server.mjs"),         // alt dev layout
+    join(here, "board", "server.mjs"),               // flat layout
   ];
-  // Also search plugin cache (installed via npx great-cto)
   const pluginBase = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
-  if (existsSync(pluginBase)) {
+  if (fsExistsSync(pluginBase)) {
     try {
       const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort().reverse();
       for (const v of versions.slice(0, 5)) {
@@ -332,7 +334,91 @@ async function runBoard(args: CliArgs): Promise<number> {
       }
     } catch { /* ignore */ }
   }
-  const serverPath = candidates.find(existsSync);
+  return candidates.find(fsExistsSync);
+}
+
+/**
+ * Kill the board server recorded in the PID file.
+ * Returns true if a live process was terminated.
+ */
+async function killExistingBoard(): Promise<boolean> {
+  const pidFile = boardPidFilePath();
+  if (!fsExistsSync(pidFile)) return false;
+  const raw = readFileSync(pidFile, "utf8").trim();
+  const pid = parseInt(raw, 10);
+  if (!pid || isNaN(pid)) {
+    try { unlinkSync(pidFile); } catch { /* ignore */ }
+    return false;
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+    await new Promise<void>(r => setTimeout(r, 400));
+    try { process.kill(pid, "SIGKILL"); } catch { /* already dead — fine */ }
+    try { unlinkSync(pidFile); } catch { /* ignore */ }
+    return true;
+  } catch {
+    // process was already gone
+    try { unlinkSync(pidFile); } catch { /* ignore */ }
+    return false;
+  }
+}
+
+/**
+ * If the board server is running (PID file present + process alive), kill it
+ * and relaunch with the latest installed version in the background.
+ * Called by runInit() after a new plugin version is installed.
+ */
+async function restartBoardAfterUpgrade(port: number): Promise<void> {
+  const { spawn } = await import("node:child_process");
+  const pidFile = boardPidFilePath();
+  if (!fsExistsSync(pidFile)) return; // board wasn't running — nothing to do
+
+  const raw = readFileSync(pidFile, "utf8").trim();
+  const oldPid = parseInt(raw, 10);
+  if (!oldPid || isNaN(oldPid)) return;
+
+  // Check if the process is actually alive (signal 0 = existence check)
+  try { process.kill(oldPid, 0); } catch { return; }
+
+  log(`  ${dim(`↺  board server (pid ${oldPid}) running with old version — restarting…`)}`);
+
+  await killExistingBoard();
+
+  const serverPath = findBoardServerPath();
+  if (!serverPath) {
+    warn("board server not found after upgrade — start it manually with: great-cto board");
+    return;
+  }
+
+  // Launch detached so it outlives this init process; --no-open because the
+  // browser tab is already open pointing at the same port.
+  const child = spawn(process.execPath, [serverPath, "--no-open"], {
+    env: { ...process.env, BOARD_PORT: String(port) },
+    stdio: "ignore",
+    detached: true,
+  });
+  child.unref();
+
+  try {
+    mkdirSync(join(homedir(), ".great_cto"), { recursive: true });
+    writeFileSync(pidFile, String(child.pid));
+  } catch { /* ignore */ }
+
+  log(`  ${green("✓")} board restarted → http://localhost:${port}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function runBoard(args: CliArgs): Promise<number> {
+  const { spawn } = await import("node:child_process");
+
+  // Stop any existing board server (e.g. old version left over after upgrade)
+  const killed = await killExistingBoard();
+  if (killed) {
+    log(`  ${dim("stopped previous board server")}`);
+  }
+
+  const serverPath = findBoardServerPath();
   if (!serverPath) {
     error("Board server not found. Try reinstalling: npx great-cto@latest");
     return 1;
@@ -346,7 +432,18 @@ async function runBoard(args: CliArgs): Promise<number> {
     stdio: "inherit",
     detached: false,
   });
-  child.on("exit", code => process.exit(code ?? 0));
+
+  // Write PID so future invocations (including init upgrades) can find us
+  try {
+    mkdirSync(join(homedir(), ".great_cto"), { recursive: true });
+    writeFileSync(boardPidFilePath(), String(child.pid));
+  } catch { /* best-effort */ }
+
+  child.on("exit", code => {
+    try { unlinkSync(boardPidFilePath()); } catch { /* ignore */ }
+    process.exit(code ?? 0);
+  });
+
   return 0;
 }
 
@@ -641,6 +738,10 @@ async function runInit(args: CliArgs): Promise<number> {
   if (installResult.alreadyInstalled) {
     log(`  ${dim("version")} ${installResult.version} ${dim("already installed at")} ${installResult.pluginDir}`);
     log(`  ${dim("(use --force to reinstall)")}`);
+  } else {
+    // New version installed — restart board server if it was running so it
+    // picks up the updated server.mjs immediately (no manual restart needed).
+    await restartBoardAfterUpgrade(args.boardPort);
   }
 
   // ── 4. enable in settings ────────────────────────────────

@@ -5,6 +5,26 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.30.0 — 2026-05-28
+
+### Board server auto-restart on upgrade
+
+`npx great-cto init` now automatically restarts the board server when a new
+version is installed and the server was already running. No more stale admin
+panel after upgrades.
+
+**How it works:**
+
+- `great-cto board` writes a PID file to `~/.great_cto/board.pid` on start
+  and removes it on exit.
+- Before spawning a new server process, `board` kills any process recorded in
+  the PID file — so `great-cto board` always starts fresh with the latest code.
+- `npx great-cto init` (after installing a new version) checks if the board is
+  running, kills the old process, and relaunches detached with `--no-open`
+  so the existing browser tab keeps working at the same port.
+
+---
+
 ## v2.27.0 — 2026-05-28
 
 ### Claude Code quota warning at SessionStart
