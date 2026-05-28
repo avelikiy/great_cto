@@ -195,13 +195,34 @@ Use `advisor_20260301` (max 1 call) for genuine ambiguity — e.g., whether a sp
 
 ---
 
+## Step 6b: 3-stage finding filter (run before assembling findings table)
+
+For each candidate finding from Steps 1–5, apply this decision tree:
+
+**Stage 1 — Gate (explicit evidence required)**
+Is the control gap confirmed in the ARCH doc or PROJECT.md?
+- Yes: specific section or field is missing / contradicted → proceed to Stage 2
+- No: generic concern ("SOX usually requires X") without evidence this project is affected → record in `## Controls not assessed` section only. Default = no finding.
+
+**Stage 2 — Attribution (regulation + article)**
+Map to exactly one framework control: DORA Art. 5/16 / NIS2 Art. 21 control N / ISO 27001 Annex A.X.Y / SOX ITGC domain / HIPAA safeguard. A finding without a specific article reference is an observation, not a finding.
+
+**Stage 3 — Signal strength**
+```
+Signal 3 (explicit):   control is absent and confirmed required for this archetype + jurisdiction
+Signal 2 (strong):     control is partially implemented — gap is specific and named
+Signal 1 (weak):       control may apply but applicability is ambiguous for this project
+```
+Signal 1 → record as `Medium / Info` only; do NOT block senior-dev on Signal 1 gaps alone.
+Use `advisor_20260301` (Step 6) to resolve Signal 1 ambiguity before assigning Signal 2+.
+
 ## Step 7: Severity + sign-off + hand-off
 
 **Severity matrix:**
-- **Critical**: missing control that directly enables a regulatory violation (DORA major incident undefined, SOX SoD gap on financial data, PHI in logs)
-- **High**: control documented but untested, or partial gap in mandatory control
-- **Medium**: control planned but not yet implemented
-- **Low / Info**: best practice not followed, no direct regulatory consequence
+- **Critical**: Signal 3 + missing control directly enables a regulatory violation (DORA major incident undefined, SOX SoD gap on financial data, PHI in logs)
+- **High**: Signal 2 + control documented but untested, or partial gap in mandatory control
+- **Medium**: Signal 1–2 + control planned but not yet implemented, or applicability uncertain
+- **Low / Info**: best practice not followed, no direct regulatory consequence, or Signal 1 with no confirmed applicability
 
 Write threat model to `docs/sec-threats/TM-${SLUG}.md`:
 

@@ -64,20 +64,42 @@ Read in order:
 
 ### Step 1: Eval scenario inventory
 
-Cross-reference ARCH F-rows + TM threats + ADR-PROMPT hand-off → list of EVAL files to ensure exist:
+Cross-reference ARCH F-rows + TM threats + ADR-PROMPT hand-off → list of EVAL files to ensure exist.
 
-| Source | Scenario | EVAL file |
-|---|---|---|
-| ARCH F5 (Hallucination) | golden citation | `EVAL-citation.md` |
-| ARCH F-refuse | refuse when uncertain | `EVAL-refuse-when-uncertain.md` |
-| ARCH F-schema | output schema stability | `EVAL-output-schema.md` |
-| TM § 1 prompt-injection | jailbreak corpus | `EVAL-prompt-injection.md` |
-| TM § 4 cost-runaway | budget cap stop | `EVAL-budget-overrun.md` |
-| (agent-product only) TM § 5 | cross-user isolation | `EVAL-cross-user-isolation.md` |
-| (agent-product only) ARCH F3 | tool misuse | `EVAL-tool-misuse.md` |
+For each candidate scenario, apply the **3-stage filter** before adding it to the inventory:
+
+**Stage 1 — Gate (explicit failure mode required)**
+Is there a specific failure mode in ARCH § Failure Modes or TM threat that names this scenario?
+- Yes → proceed to Stage 2
+- No → "it would be good to test X in general" is not enough; skip. Default = no EVAL file. Generic evals that don't trace to a named failure mode are test theatre.
+
+**Stage 2 — Attribution (category)**
+Map to one category: citation accuracy / refusal behaviour / output schema / prompt injection / budget overrun / cross-user isolation / tool misuse. Uncategorised scenarios cannot be assigned a pass threshold.
+
+**Stage 3 — Signal strength (determines priority)**
+```
+Signal 3 (explicit):   failure mode appears in ARCH F-table with "Tested in: —" (not yet covered)
+Signal 2 (strong):     TM threat is Critical/High and has no EVAL reference
+Signal 1 (weak):       mentioned in ADR-PROMPT hand-off comment but not in ARCH or TM
+```
+Signal 3 → create EVAL immediately (blocks qa-engineer PASS if missing).
+Signal 2 → create EVAL before senior-dev ships.
+Signal 1 → create EVAL in next iteration (not a current-sprint blocker).
+
+**Inventory table format:**
+
+| Source | Scenario | Category | Signal | EVAL file | Priority |
+|---|---|---|---|---|---|
+| ARCH F5 | Hallucination — golden citation | citation accuracy | 3 | `EVAL-citation.md` | now |
+| ARCH F-refuse | Refuse when uncertain | refusal behaviour | 3 | `EVAL-refuse-when-uncertain.md` | now |
+| ARCH F-schema | Output schema stability | output schema | 3 | `EVAL-output-schema.md` | now |
+| TM § 1 | Prompt injection via user input | prompt injection | 2 | `EVAL-prompt-injection.md` | before ship |
+| TM § 4 | Budget cap stop | budget overrun | 2 | `EVAL-budget-overrun.md` | before ship |
+| (agent-product only) TM § 5 | Cross-user isolation | cross-user isolation | 3 | `EVAL-cross-user-isolation.md` | now |
+| (agent-product only) ARCH F3 | Tool misuse | tool misuse | 2 | `EVAL-tool-misuse.md` | before ship |
 
 **Minimums** (enforced by qa-engineer Step 0b):
-- `ai-system` — at least 3 EVAL files
+- `ai-system` — at least 3 EVAL files (Signal 3 scenarios covered)
 - `agent-product` — at least 5 EVAL files (must include cross-user-isolation + prompt-injection)
 
 ### Step 2: Per-scenario test case design
