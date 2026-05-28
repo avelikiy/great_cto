@@ -592,6 +592,32 @@ PY
 fi
 ```
 
+## Check 9b — Validation hierarchy reference
+
+When agents run checks (QA, security, linting, accessibility), they must follow this priority order. **Halt on critical failure at any layer** — do not proceed to lower-priority layers when a higher one blocks.
+
+```
+Validation priority order:
+  1. Security    — OWASP findings, secrets in code, auth gaps, injection vectors
+                   ↳ HALT if P0 found. Nothing else matters until security is clean.
+  2. Schema      — API contracts, DB migrations, type safety, serialization
+                   ↳ HALT if schema is broken. Tests will give false results.
+  3. Tests       — unit, integration, e2e
+                   ↳ HALT if failing. QA report is meaningless without green tests.
+  4. Lint        — type errors, style violations, unused imports
+                   ↳ Block gate:ship on type errors; warn on style.
+  5. Performance — p99 regression, N+1 queries, blocking calls, bundle size
+                   ↳ Block on >20% regression vs baseline; warn otherwise.
+  6. UX / A11y   — WCAG 2.2 AA, keyboard nav, contrast, screen reader
+                   ↳ Block on critical A11y (P0); warn on P1/P2.
+  7. SEO         — structured data, sitemap, canonical, CWV
+                   ↳ Advisory only — never blocks gate:ship.
+```
+
+**Agents must state which layer blocked** in their verdict:
+- ✅ `"Layer 3 (Tests): 2 failures in auth.test.ts:88 — gate:ship blocked"`
+- ❌ `"Some tests failed"` — no layer, no file reference, not actionable
+
 ## Summary (diagnosis mode, when --fix not passed)
 
 ```bash

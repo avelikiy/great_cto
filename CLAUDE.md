@@ -57,3 +57,22 @@ install pings, or analytics calls. See `docs/PRIVACY.md` for policy.
 
 See `skills/great_cto/SKILL.md` for subagent routing table.
 Auto-attach reviewers fire from `scripts/hooks/auto-attach-reviewers.mjs`.
+
+---
+
+## Request classifier
+
+When the model receives a request, classify it first — the class determines which agents run and whether a gate is needed.
+
+| Class | Signal words / patterns | Pipeline |
+|-------|------------------------|---------|
+| **QUESTION** | "what is", "how does", "explain", "why", "what's the difference" | Answer inline — no agents |
+| **SURVEY** | "show me", "list", "what files", "status", "what's pending", "show report" | Read-only — Explore or Bash only |
+| **SIMPLE CODE** | "fix", "typo", "rename", "minor", "patch", single file implied | Fast path: senior-dev → gate:ship |
+| **COMPLEX CODE** | "implement", "build", "add feature", "refactor", "migrate" | Full pipeline: arch → pm → senior-dev → qa+cso → devops |
+| **DESIGN** | "design", "architect", "plan", "RFC", "ADR", "how should we" | Architect agent → gate:arch → optional pm |
+| **SLASH CMD** | Message starts with `/` | Route to matching command in `commands/` |
+| **INCIDENT** | "broken", "down", "prod issue", "incident", "P0", "alert" | l3-support immediately, no pipeline |
+| **COORDINATE** | "parallelize", "orchestrate", "3+ streams", complex dependency graph | coordinator agent |
+
+**Auto-routing rule**: classify BEFORE choosing an agent. If the class is ambiguous between SIMPLE CODE and COMPLEX CODE, prefer COMPLEX CODE — the cost of under-engineering exceeds the cost of a gate pause.

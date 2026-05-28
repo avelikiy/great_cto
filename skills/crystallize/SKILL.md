@@ -6,6 +6,7 @@ when_to_use: |
   - CTO says /crystallize, "crystallize", or "extract knowledge"
   - Session count in .great_cto/logs/ reaches a multiple of 10 (auto-suggest)
   - User asks "what have we learned?" or "turn lessons into skills"
+effort: high
 allowed-tools: Read, Write, Glob, Grep, Bash, Agent
 paths:
   - ".great_cto/logs/**"

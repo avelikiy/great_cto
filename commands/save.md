@@ -133,3 +133,42 @@ Next session: run `/resume` to restore this context instantly.
 - Pending should always have **at least one item** — if everything is done, the pending item is "ship / merge / deploy"
 - Do NOT dump raw code or long diffs — just the summary
 - Tone: crisp, factual, no fluff
+
+---
+
+## Context compression protocol
+
+Long sessions accumulate noise. Apply compression at three levels before writing the session log:
+
+### Level 1 — Micro-compact (tool outputs)
+
+After each tool call, compress the raw output to a single insight line. Do not paste full Bash output into the session log.
+
+- ❌ `"git log output: abc123 feat: add streaming abc456 fix: null check..."` 
+- ✅ `"2 commits: streaming archetype + null-check fix"`
+
+### Level 2 — Phase summary (completed work stage)
+
+When a pipeline phase completes (architect done, QA done, devops done), compress that phase to ≤3 bullets in the session log:
+- What was produced (artifact path)
+- One decision made (with rationale)
+- One blocker resolved or one open question surfaced
+
+### Level 3 — Session checkpoint (major transition)
+
+When the session crosses a gate (gate:arch approved, gate:ship approved) or major pivot, write a checkpoint entry:
+
+```
+**Checkpoint** [gate:arch approved at 14:32]
+  Before: research phase, 3 open questions
+  After: ARCH-stripe-subscriptions.md committed, all questions resolved
+  Decision: use Stripe Connect over custom split — regulatory compliance overhead
+```
+
+### Compression rules
+
+1. **Compress phases, not facts** — the WHY and the WHAT are preserved; dead ends are dropped
+2. **Preserve file:line references** — `src/auth/session.ts:42` survives compression; "some auth file" does not
+3. **Dead ends get one line**: `"tried X, failed because Y — do not retry"`
+4. **Verbose stack traces**: keep only root cause + fix, drop full trace
+5. **Cost**: each compression saves 3–10k tokens on `/resume` — it's worth the 30 seconds
