@@ -10,7 +10,7 @@
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 [![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
 
-<img src="docs/screenshots/screencast.svg" alt="npx great-cto init — animated terminal screencast" width="840" />
+<img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 57 agents → gate:ship → Deployed" width="900" />
 
 ```bash
 npx great-cto init
@@ -55,10 +55,6 @@ Hiring a senior engineer to review: **$15,000/month.** Doing it yourself: **risk
 → [Full trace with all artefacts](https://greatcto.systems/proof)
 
 ## How it works
-
-<p align="center">
-  <img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 57 agents → gate:ship → Deployed" width="900" />
-</p>
 
 **`npx great-cto init`** — scans your stack and README, detects jurisdiction (GDPR? HIPAA? PCI?), writes `.great_cto/FLOW.md` with the exact agents, gates, and compliance frameworks for your project.
 

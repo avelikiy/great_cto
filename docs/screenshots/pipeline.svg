@@ -1,113 +1,146 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="186" viewBox="0 0 900 186">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="240" viewBox="0 0 900 240">
   <defs>
     <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
       <polygon points="0 0,8 3,0 6" fill="#484f58"/>
     </marker>
+    <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-amber" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
 
   <!-- Background -->
-  <rect width="900" height="186" rx="10" fill="#0d1117"/>
+  <rect width="900" height="240" rx="10" fill="#0d1117"/>
 
   <!-- Divider between two rows -->
-  <line x1="20" y1="87" x2="880" y2="87" stroke="#21262d" stroke-width="1"/>
+  <line x1="20" y1="105" x2="880" y2="105" stroke="#21262d" stroke-width="1"/>
+
+  <!-- Bottom divider before tagline -->
+  <line x1="20" y1="196" x2="880" y2="196" stroke="#161b22" stroke-width="1"/>
 
   <!-- === ROW LABELS === -->
-  <text x="20" y="19" fill="#484f58" font-size="10" font-weight="600"
+  <text x="20" y="22" fill="#484f58" font-size="10" font-weight="600"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         letter-spacing="1.5">SETUP · ONCE PER PROJECT</text>
-  <text x="20" y="101" fill="#484f58" font-size="10" font-weight="600"
+  <text x="20" y="118" fill="#484f58" font-size="10" font-weight="600"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         letter-spacing="1.5">PER FEATURE · IN CLAUDE CODE</text>
 
   <!-- =========== ROW 1: SETUP =========== -->
 
   <!-- your repo -->
-  <rect x="20" y="27" width="84" height="38" rx="5" fill="#21262d" stroke="#30363d"/>
-  <text x="62" y="51" fill="#8b949e" font-size="12"
+  <rect x="20" y="32" width="84" height="50" rx="5" fill="#21262d" stroke="#30363d"/>
+  <text x="62" y="55" fill="#6e7681" font-size="11"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
-        text-anchor="middle">your repo</text>
+        text-anchor="middle">your</text>
+  <text x="62" y="70" fill="#8b949e" font-size="11"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">repo</text>
 
   <!-- arrow + command -->
-  <line x1="106" y1="46" x2="162" y2="46" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="134" y="39" fill="#484f58" font-size="9.5"
+  <line x1="106" y1="57" x2="162" y2="57" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="134" y="50" fill="#484f58" font-size="9.5"
         font-family="ui-monospace,'Cascadia Code','Fira Code',monospace"
         text-anchor="middle">npx great-cto init</text>
 
   <!-- Flow Compiler (highlight box) -->
-  <rect x="164" y="23" width="136" height="46" rx="5" fill="#0a2a18" stroke="#00d97e" stroke-width="1.5"/>
-  <text x="232" y="46" fill="#00d97e" font-size="12.5" font-weight="700"
+  <rect x="164" y="28" width="136" height="58" rx="5" fill="#0a2a18" stroke="#00d97e" stroke-width="1.5" filter="url(#glow-green)"/>
+  <text x="232" y="52" fill="#00d97e" font-size="12.5" font-weight="700"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">⚡ Flow Compiler</text>
-  <text x="232" y="62" fill="#39d353" font-size="10"
+  <text x="232" y="68" fill="#39d353" font-size="10"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">stack · jurisdiction · agents</text>
+  <text x="232" y="80" fill="#1a5c30" font-size="9.5"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">25 archetypes · 12 jurisdictions</text>
 
   <!-- arrow -->
-  <line x1="302" y1="46" x2="340" y2="46" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="302" y1="57" x2="340" y2="57" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- FLOW.md -->
-  <rect x="342" y="27" width="104" height="38" rx="5" fill="#21262d" stroke="#30363d"/>
-  <text x="394" y="48" fill="#8b949e" font-size="12"
+  <rect x="342" y="32" width="104" height="50" rx="5" fill="#21262d" stroke="#30363d"/>
+  <text x="394" y="53" fill="#8b949e" font-size="12"
         font-family="ui-monospace,'Cascadia Code','Fira Code',monospace"
         text-anchor="middle">FLOW.md</text>
-  <text x="394" y="61" fill="#484f58" font-size="10"
+  <text x="394" y="67" fill="#484f58" font-size="10"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">agents · gates · cost</text>
 
   <!-- =========== ROW 2: PER FEATURE =========== -->
 
   <!-- /start command -->
-  <rect x="20" y="111" width="122" height="46" rx="5" fill="#21262d" stroke="#30363d"/>
-  <text x="81" y="131" fill="#8b949e" font-size="12"
+  <rect x="20" y="124" width="122" height="54" rx="5" fill="#21262d" stroke="#30363d"/>
+  <text x="81" y="145" fill="#8b949e" font-size="12"
         font-family="ui-monospace,'Cascadia Code','Fira Code',monospace"
         text-anchor="middle">/start</text>
-  <text x="81" y="148" fill="#484f58" font-size="10"
+  <text x="81" y="162" fill="#484f58" font-size="9.5"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">"describe feature"</text>
 
   <!-- arrow -->
-  <line x1="144" y1="134" x2="174" y2="134" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="144" y1="151" x2="174" y2="151" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- gate:plan (amber) -->
-  <rect x="176" y="107" width="120" height="54" rx="5" fill="#2a2200" stroke="#f0b429" stroke-width="1.5"/>
-  <text x="236" y="130" fill="#f0b429" font-size="12.5" font-weight="700"
+  <rect x="176" y="119" width="120" height="64" rx="5" fill="#2a2200" stroke="#f0b429" stroke-width="1.5" filter="url(#glow-amber)"/>
+  <text x="236" y="141" fill="#f0b429" font-size="12.5" font-weight="700"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">🟡 gate:plan</text>
-  <text x="236" y="148" fill="#c9a227" font-size="10"
+  <text x="236" y="158" fill="#c9a227" font-size="10"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">← you approve</text>
+  <text x="236" y="175" fill="#6b4d00" font-size="9.5"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">arch + spec critics first</text>
 
   <!-- arrow -->
-  <line x1="298" y1="134" x2="328" y2="134" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="298" y1="151" x2="328" y2="151" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- 57 agents (center dark block) -->
-  <rect x="330" y="111" width="272" height="46" rx="5" fill="#161b22" stroke="#30363d"/>
-  <text x="466" y="131" fill="#c9d1d9" font-size="12" font-weight="600"
+  <rect x="330" y="124" width="272" height="54" rx="5" fill="#161b22" stroke="#30363d"/>
+  <text x="466" y="145" fill="#c9d1d9" font-size="12" font-weight="600"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">57 agents — fully automatic</text>
-  <text x="466" y="148" fill="#6e7681" font-size="10"
+  <text x="466" y="162" fill="#6e7681" font-size="10"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">architect · senior-dev · review · qa · security · devops</text>
 
   <!-- arrow -->
-  <line x1="604" y1="134" x2="634" y2="134" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="604" y1="151" x2="634" y2="151" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- gate:ship (green) -->
-  <rect x="636" y="107" width="120" height="54" rx="5" fill="#001a0d" stroke="#00d97e" stroke-width="1.5"/>
-  <text x="696" y="130" fill="#00d97e" font-size="12.5" font-weight="700"
+  <rect x="636" y="119" width="120" height="64" rx="5" fill="#001a0d" stroke="#00d97e" stroke-width="1.5" filter="url(#glow-green)"/>
+  <text x="696" y="141" fill="#00d97e" font-size="12.5" font-weight="700"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">🟢 gate:ship</text>
-  <text x="696" y="148" fill="#39d353" font-size="10"
+  <text x="696" y="158" fill="#39d353" font-size="10"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">← you approve</text>
+  <text x="696" y="175" fill="#003d1a" font-size="9.5"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">qa + security passed</text>
 
   <!-- arrow -->
-  <line x1="758" y1="134" x2="788" y2="134" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="758" y1="151" x2="788" y2="151" stroke="#484f58" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Deployed -->
-  <rect x="790" y="115" width="96" height="38" rx="5" fill="#0a2a18" stroke="#00d97e"/>
-  <text x="838" y="139" fill="#00d97e" font-size="12.5" font-weight="600"
+  <rect x="790" y="128" width="96" height="46" rx="5" fill="#0a2a18" stroke="#00d97e"/>
+  <text x="838" y="148" fill="#00d97e" font-size="12.5" font-weight="600"
         font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
         text-anchor="middle">✓ Deployed</text>
+  <text x="838" y="164" fill="#39d353" font-size="9.5"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">~$2 LLM cost</text>
+
+  <!-- =========== TAGLINE =========== -->
+  <text x="450" y="220" fill="#484f58" font-size="12"
+        font-family="ui-sans-serif,system-ui,-apple-system,Helvetica,Arial,sans-serif"
+        text-anchor="middle">
+    <tspan fill="#6e7681">You make </tspan><tspan fill="#c9d1d9" font-weight="600">2 decisions.</tspan><tspan fill="#6e7681">  57 agents do the rest.</tspan><tspan fill="#484f58">  ~$2 LLM · ~$5,460 human-equivalent.</tspan>
+  </text>
 
 </svg>
