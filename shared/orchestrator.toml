@@ -1,0 +1,43 @@
+# great_cto orchestrator contract
+# Machine-readable rules for multi-agent coordination.
+# Prose in coordinator.md and CLAUDE.md can be argued around; booleans cannot.
+# Loaded at SubagentStart — agents that skip reading this violate the contract silently.
+
+[parallelism]
+# Require a Decomposition Matrix table before any Large task starts.
+# Format: stream | write-zone | depends-on | why-parallel-safe
+decomposition_matrix_required = true
+
+# Inline subagent dispatch (claude -p "...") is forbidden.
+# Only Agent tool calls with subagent_type specified are permitted.
+inline_subagents_allowed = false
+
+# Maximum number of concurrent implementation streams.
+# Research and verification streams are not counted toward this limit.
+max_parallel_streams = 5
+
+[authorization]
+# The coordinator must emit the exact phrase below before the DISPATCH phase.
+# No exceptions — even when the caller says "just do it".
+spawn_phrase_required = true
+spawn_phrase = "I explicitly authorize spawning parallel subagents"
+
+[completion]
+# Every work packet must record all three states before it can be marked DONE.
+# completion_event alone is not sufficient — agents return without delivering.
+three_state_completion = true
+
+# completion_event : the agent returned (subagent call resolved)
+# artifact         : the expected file/output actually exists and is non-empty
+# acceptance       : the artifact was verified against the acceptance criterion
+
+# Require written evidence that acceptance was checked.
+acceptance_evidence_required = true
+
+[ownership]
+# An agent may not write to files outside its WPL owned-files list.
+# Overlap detected at dispatch time → force sequential, add WPL dependency.
+strict_file_ownership = true
+
+# Minimum: must check for ownership overlap before dispatching ≥2 implementation agents.
+overlap_check_required = true

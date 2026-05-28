@@ -56,40 +56,53 @@ Assign each work packet to one of three classes:
 
 ### Phase 3 — DISPATCH
 
+> **Authorization gate**: before sending the first agent, emit this exact phrase:
+> `I explicitly authorize spawning parallel subagents`
+> This is a machine-readable signal (checked by `shared/orchestrator.toml`).
+> No phrase → no dispatch. Even if the CTO says "just do it" — the phrase must appear in the run transcript.
+
 Send each agent with a **complete, self-contained brief**. The worker has zero memory of this conversation.
 
-#### Worker Brief Template (mandatory)
+#### Worker Contract (mandatory — replaces ad-hoc brief)
 
-Every dispatched agent must receive ALL of these:
+Every dispatched agent must receive a **structured Worker Contract**. Fill all fields. Leaving a field blank is a contract violation.
 
 ```
-## Context
-Original request: <exact CTO request verbatim>
-Your role: <what this agent does — one sentence>
-Your owned files: <list every file this agent may write — others are read-only>
+## WORKER CONTRACT — <stream name>
 
-## Decisions already made
-<bullet list of decisions that must NOT be re-derived — include ADR refs if applicable>
+### Identity
+Task ID (Beads):    <bd create output — e.g. T-042>
+Stream #:           <N of M>
+Agent type:         <subagent_type from routing table>
 
-## Work completed before you
-<what previous agents produced — file paths + key findings>
+### Scope
+Original request:   <exact CTO request verbatim — copy, don't paraphrase>
+Your role:          <what this agent does — one sentence>
+Owned files:        <exhaustive list of files this agent MAY write — all others are read-only>
 
-## Current plan state
-<which phase this is, what runs after you, what you are unblocking>
+### Context
+Decisions made:     <bullet list — must NOT be re-derived; cite ADR or reasoning>
+Prior work output:  <file paths + key findings from agents that ran before this one>
+Plan state:         <which phase, what runs after you, what you are unblocking>
 
-## Your task
-<specific deliverable — use file:line references, not "check X and fix it">
+### Deliverable
+Your task:          <specific deliverable — file:line references, exact change wanted>
+Verify command:     <command that must exit 0 after your work — tests, lint, etc.>
 
-## Acceptance criterion
-<one verifiable outcome — test pass, file exists, output matches format>
+### Completion
+Acceptance criterion: <one verifiable outcome — test pass, file exists, output matches format>
+Stop rule:          <when to stop if you discover scope exceeds this contract — escalate, don't expand>
 
-## Do NOT
+### Do NOT
 - Touch files not in your owned list
 - Re-derive decisions listed above
-- Return "it looks good" — always produce a concrete artifact or verdict
+- Return "it looks good" — produce a concrete artifact or verdict
+- Expand scope without emitting SCOPE_EXCEEDED and stopping
 ```
 
 **Never Delegate Understanding**: if you write "based on your findings, fix the bug" — that is a failed brief. Every brief must include what you've already understood: file paths, line numbers, exact changes wanted.
+
+**Scope escalation guard**: if a worker discovers that completing its task would require touching files outside its owned list, or that the task is larger than classified, it must emit `SCOPE_EXCEEDED: <reason>` and stop. The coordinator re-classifies and updates the WPL — never auto-expands scope.
 
 #### Fork vs Spawn
 
@@ -150,14 +163,36 @@ Deduplicate overlapping findings. When two agents reach different conclusions ab
 
 ### Phase 6 — VERIFY
 
-After synthesis, spawn a verification agent that:
-1. Reads all artifacts produced
-2. Checks each acceptance criterion from the WPL
-3. Runs tests or other objective checks (never just reads code)
-4. Produces a binary verdict: ALL_PASS or BLOCKED:<what failed>
+After synthesis, spawn a verification agent that checks all **three completion states** for every work packet:
 
-If ALL_PASS → close the coordination run, surface to CTO.
-If BLOCKED → surface specific failures, do not close.
+```
+## 3-State Completion Check — <feature>
+
+For each work packet, all three states must be TRUE before DONE is recorded:
+
+| Packet | completion_event | artifact | acceptance | Status |
+|--------|-----------------|----------|------------|--------|
+| <name> | ✅ agent returned | ✅ <file> exists, non-empty | ✅ criterion: <test/check passed> | DONE |
+| <name> | ✅ agent returned | ❌ file missing | — | BLOCKED |
+| <name> | ✅ agent returned | ✅ file exists | ❌ tests fail | BLOCKED |
+```
+
+State definitions:
+- **completion_event**: the Agent tool call resolved (the agent returned). Necessary but not sufficient.
+- **artifact**: the expected file, output, or side effect physically exists and is non-empty. "I created it" is not evidence.
+- **acceptance**: the artifact was checked against the acceptance criterion from the Worker Contract. A command ran. A test passed. An output was diffed.
+
+Rules:
+1. `completion_event = TRUE` but `artifact = FALSE` → the agent returned without delivering. BLOCKED.
+2. `artifact = TRUE` but `acceptance = FALSE` → the artifact was not verified. BLOCKED.
+3. All three TRUE → packet is DONE. Record evidence (command output, file hash, test result) in the synthesis report.
+
+Only when ALL packets reach `acceptance = TRUE`:
+→ emit `ALL_PASS`, close the coordination run, surface to CTO.
+
+If any packet is BLOCKED:
+→ surface specific failure (which state failed, what evidence was missing)
+→ re-dispatch only the blocked packet, do not restart the run.
 
 ---
 
