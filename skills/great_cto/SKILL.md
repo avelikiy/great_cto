@@ -2,6 +2,7 @@
 name: great_cto
 description: Use when the CTO describes a feature, task, or project goal. Orchestrates the full SDLC pipeline automatically based on project type.
 when_to_use: "Always active when .great_cto/PROJECT.md exists. Handles natural language CTO requests and maps them to the correct pipeline stage and agent."
+effort: high
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent
 paths:
   - ".great_cto/**"
@@ -59,6 +60,40 @@ pipeline gets bypassed.
 one of the rows above, dispatch that specialist **first**. Reach for
 `general-purpose` only when nothing matches. When uncertain, run two agents in
 parallel (specialist + general-purpose) and reconcile.
+
+## Agent dispatch semantics
+
+When spawning workers, choose the right dispatch mode:
+
+### Fork (context-inheriting)
+Use when: parallel read-only research, quick scoped lookup, second opinion on a finding.
+- Inherits full parent context — no need to re-brief background knowledge
+- Short directive prompt (≤5 sentences): "Read X, answer Y"
+- Set `background: true` for truly parallel forks
+- **Don't peek mid-flight**: do not call `TaskOutput` before the fork finishes — you'll get partial results
+- **Don't race**: if two forks could write to the same Beads task, serialize their close calls
+
+### Spawn (fresh specialist)
+Use when: independent implementation task, domain specialist work, isolated verification.
+- Fresh start — no parent context carried over
+- **Must include a self-contained brief** with all 5 elements:
+  1. Original request (verbatim)
+  2. Decisions already made (do not re-derive)
+  3. Work completed before this agent (file paths + key findings)
+  4. Current plan state (what runs after, what this unblocks)
+  5. Owned files (explicit list — all others are read-only)
+- Always specify `subagent_type:` — never default to `general-purpose` for specialist work
+
+### Never Delegate Understanding
+A brief that says "based on your findings, fix the bug" is a failed brief.
+Include what you already know: **file paths, line numbers, exact changes**.
+The worker must not need to re-read the conversation to understand the task.
+
+### Concurrency safety
+- **Reads**: always parallel — no limit
+- **Writes**: parallel ONLY if owned files are disjoint (no overlap)
+- **Shared file + parallel write** = guaranteed lost work; make sequential instead
+- **Verification** (tests, audits): parallel after all writes complete
 
 ## Environment Bootstrap
 

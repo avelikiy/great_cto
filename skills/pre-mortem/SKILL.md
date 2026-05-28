@@ -7,6 +7,7 @@ when_to_use: |
   - pm, while breaking work into tasks (Pre-mortem section in PLAN-*.md)
   - security-officer, when threat-modeling
   - any time the feature is irreversible or high-blast-radius
+effort: medium
 allowed-tools: Read, Write
 paths:
   - "docs/plans/**"
