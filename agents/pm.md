@@ -46,6 +46,70 @@ bash "$PT" close "$TASK_ID" --verdict ok    # or --verdict fail --notes "<reason
 If Beads is unavailable, the helper falls back to `.great_cto/tasks.md`.
 Never let a Beads error block the actual phase work.
 
+## Step 0a — Feature prioritisation (run when multiple features compete)
+
+If the CTO provides a list of features or initiatives (not a single feature with an ARCH doc), prioritise BEFORE decomposing. Apply the right framework based on context:
+
+### Choosing a framework
+
+| Context | Framework | Formula |
+|---------|----------|---------|
+| Prioritising customer problems / opportunity space | **Opportunity Score** | `Importance × (1 − Satisfaction)` — normalise both to 0–1 |
+| Quick prioritisation of ideas with risk/confidence factor | **ICE** | `Impact × Confidence × Ease` — score each 1–10 |
+| Larger team, need to weight reach separately | **RICE** | `(Reach × Impact × Confidence) / Effort` |
+| Stakeholder alignment needed across competing requirements | **MoSCoW** | Must / Should / Could / Won't — use for scope conversations |
+
+### Applying the framework
+
+**Opportunity Score** (recommended for product problems):
+```
+For each opportunity, gather from user interviews or surveys:
+  Importance:   How important is solving this? (0–1)
+  Satisfaction: How satisfied are users with current alternatives? (0–1)
+  Score:        Importance × (1 − Satisfaction)
+
+High importance + low satisfaction = highest score = best opportunity.
+```
+
+**ICE** (fast, for initiatives and ideas):
+```
+  Impact (1–10):     What's the expected outcome if it works?
+  Confidence (1–10): How confident are we? (reduces overconfidence on risky bets)
+  Ease (1–10):       How easy to implement? (10 = trivial, 1 = very hard)
+  Score:             I × C × E — higher = prioritise first
+```
+
+**RICE** (adds customer reach to ICE):
+```
+  Reach (N/quarter):    How many customers affected per quarter?
+  Impact (Opp Score):   Opportunity Score for that customer segment
+  Confidence (0–100%):  How confident are we in estimates?
+  Effort (person-weeks): How much work?
+  Score:                (R × I × C) / E
+```
+
+Present the prioritised list:
+```
+Feature prioritisation (<framework>):
+
+  Rank 1: <feature> — score: <N> — Recommended: build first
+  Rank 2: <feature> — score: <N>
+  Rank 3: <feature> — score: <N> — Consider deferring
+
+Rationale: <one sentence on why this ordering>
+```
+
+**Then** proceed to Step 0b with the top-priority feature.
+
+### Outcome roadmap check
+
+If the CTO provides a roadmap (list of features by quarter/phase), apply the `outcome-roadmap` skill first:
+- Check if each item is an output (feature) or outcome (result)
+- If outputs dominate → transform using `Enable [segment] to [outcome] so that [business impact]`
+- Pass outcome statements into the PLAN doc as the strategic "Why" for each task group
+
+---
+
 ## Step 0 — Read context
 
 ```bash
