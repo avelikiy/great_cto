@@ -3,6 +3,7 @@
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import type { DetectionResult } from "./detect.js";
 import type { Archetype, ProjectSize } from "./archetypes.js";
 import { dim, success, warn } from "./ui.js";
@@ -169,6 +170,56 @@ when you actually start work:
 
   writeFileSync(projectMd, content, "utf-8");
   success(`created .great_cto/PROJECT.md ${dim(`(archetype: ${archetype})`)}`);
+
+  // Write ~/.great_cto/guardrails.yml example if it doesn't exist yet.
+  // This is the user-level agentshield config — applies across all projects.
+  const globalGreatCtoDir = join(homedir(), ".great_cto");
+  const guardrailsPath = join(globalGreatCtoDir, "guardrails.yml");
+  if (!existsSync(guardrailsPath)) {
+    mkdirSync(globalGreatCtoDir, { recursive: true });
+    const guardrailsContent = `# ~/.great_cto/guardrails.yml
+# User-defined agentshield rules. Loaded and merged with built-in rules on every scan.
+# Rules use the same YAML format as agentshield-rules/*.yaml.
+#
+# action field (user rules only):
+#   block  — scan fails (treated as critical finding; blocks gate:ship)
+#   audit  — finding reported but scan continues (warning only)
+#   redact — same as audit; marks pattern for future content redaction
+#
+# Example rule — customize with your org's patterns:
+#
+# - id: UG-001
+#   scanner: secrets-in-prompts
+#   title: Internal API token pattern
+#   severity: critical
+#   description: |
+#     Detects hardcoded internal API tokens matching the org pattern mytoken_*.
+#   remediation: |
+#     Move to environment variable. Reference via process.env.MY_TOKEN.
+#   patterns:
+#     - 'mytoken_[a-z0-9]{32}'
+#   action: block
+#
+# - id: UG-002
+#   scanner: prompt-injection
+#   title: Audit use of customer data in prompts
+#   severity: high
+#   description: |
+#     Flags when customer PII fields (email, phone, address) are embedded in prompts.
+#   remediation: |
+#     Replace PII with anonymized tokens before embedding in prompts.
+#   patterns:
+#     - 'customer\.(email|phone|address|ssn)'
+#   action: audit
+#   file_globs:
+#     - "**/*.ts"
+#     - "**/*.py"
+#
+# Add your own rules below:
+`;
+    writeFileSync(guardrailsPath, guardrailsContent, "utf-8");
+    success(`created ~/.great_cto/guardrails.yml ${dim("(user-level agentshield rules — edit to add org-specific patterns)")}`);
+  }
 
   // Write FLOW.md — compiled delivery flow for agents and user
   const confidence = detectionMeta?.confidence ?? "medium";

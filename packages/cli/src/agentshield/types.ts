@@ -14,6 +14,9 @@ export type ScannerName =
   | 'rag-poisoning'
   | 'cost-runaway';
 
+/** Action taken when a user-defined guardrail rule matches. */
+export type GuardrailAction = 'block' | 'audit' | 'redact';
+
 export interface Rule {
   /** kebab-case stable id, e.g. "PI-001" or "RAG-005" */
   id: string;
@@ -35,6 +38,16 @@ export interface Rule {
   file_globs?: string[];
   /** patterns that, if also present, suppress the finding (false-positive guards) */
   negate?: string[];
+  /**
+   * User-defined guardrail action (from ~/.great_cto/guardrails.yml).
+   * Built-in rules leave this undefined; user rules set it explicitly.
+   * - block:  scan fails (same as finding with critical severity)
+   * - audit:  finding is reported but does not fail the scan
+   * - redact: reported as audit (content redaction is a runtime concern)
+   */
+  action?: GuardrailAction;
+  /** True for rules loaded from ~/.great_cto/guardrails.yml */
+  userDefined?: boolean;
 }
 
 export interface Location {

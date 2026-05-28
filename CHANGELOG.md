@@ -4,6 +4,31 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.24.0 — 2026-05-28
+
+### OpenSRE patterns: l3-support upgrade + user guardrails
+
+Inspired by [Tracer-Cloud/opensre](https://github.com/Tracer-Cloud/opensre) (Apache 2.0).
+
+#### l3-support agent upgrades
+
+- **Added** Alert Source → Tool Routing table: when an alert fires from grafana/datadog/cloudwatch/EKS/PostgreSQL/RabbitMQ/etc., the agent now calls the matching integration tools first and in parallel — eliminates the "start from scratch" investigation pattern
+- **Added** Root Cause Taxonomy: structured 8-category classification (database / infrastructure / code_bug / configuration / network / performance / healthy / unknown) applied at triage time and carried through to postmortems, Beads tasks, and lessons.md
+- **Added** Structured RCA output to postmortem template: `validated_claims`, `non_validated_claims`, `validity_score` (0.0–1.0), `investigation_path`, `breakthrough_tool`, `dead_ends` — machine-readable postmortems
+- **Added** Parallel tool execution mandate: explicit instruction to call all primary integration tools simultaneously in each investigation round
+- **Updated** lessons.md format: now includes `category` and `validity_score` fields per entry
+
+#### agentshield: user-configurable guardrails
+
+- **Added** user-defined guardrail rules via `~/.great_cto/guardrails.yml` — loaded and merged with built-in rules on every scan
+- **Added** `action: block | audit | redact` field to user rules (inspired by OpenSRE guardrails engine)
+- **Added** `loadUserRules()` and `userGuardrailsPath()` exports from agentshield public API
+- **Added** `~/.great_cto/guardrails.yml` template generation during `great-cto init` with inline documentation and examples
+- **Added** `userDefined: boolean` flag on Rule type to distinguish user vs built-in rules
+- **Added** 4 new tests covering user guardrails: load/parse/merge/error-resilience (189/189 passing)
+
+---
+
 ## v2.23.0 — 2026-05-28
 
 ### Spec Driven Development integration
