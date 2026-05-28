@@ -14,16 +14,6 @@ import { execSync, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import os from 'os';
 import {
-  readLeashConfig,
-  getLeashAvailability,
-  readLeashAudit,
-  readLeashState,
-  readHitlPending,
-  fireKillSwitch,
-  postHitlDecision,
-  readProjectTenantId,
-
-import {
   getVapidKeys,
   sendWebPush,
   loadSubscriptions,
