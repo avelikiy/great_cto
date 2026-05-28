@@ -2,7 +2,7 @@
   "name": "great_cto",
   "id": "great_cto",
   "description": "Engineering process for solo founders and teams up to 50 engineers. Agents do architecture, code review, QA, and security. You make two decisions per feature.",
-  "version": "2.28.0",
+  "version": "2.29.0",
   "author": {
     "name": "Great CTO",
     "url": "https://github.com/avelikiy/great_cto"

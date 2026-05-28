@@ -691,7 +691,31 @@ fi
 
 For each `- [ ]` item: confirm implementation evidence exists (grep for the pattern in source, or cite a test). Any unimplemented item at CSO stage → P1 finding minimum; missing data-isolation or cost-cap items for `ai-system`/`agent-product` → P0.
 
-6. **Write** `docs/security/CSO-<YYYY-MM-DD>.md`: summary (APPROVED/BLOCKED), findings by severity (P0-P3), dependency scan results, compliance checklist results
+5b3. **Evidence gate (mandatory before writing any finding)**
+
+Before any candidate finding enters the CSO report, run this 3-step check:
+
+```
+Step 1 — Gate (explicit evidence required):
+  Is there direct proof this vulnerability exists in THIS codebase?
+  → Yes: file:line OR CVE confirmed for THIS library version → proceed
+  → No: generic concern ("auth looks weak"), version unconfirmed → move to Observations
+  Default = no finding. Inferences without direct evidence are Observations, not Findings.
+
+Step 2 — Attribution:
+  Which vulnerability class? (OWASP Top 10 / CWE / compliance control)
+  Map to a specific category before assigning severity — prevents severity inflation.
+
+Step 3 — Signal strength:
+  3 = explicit: tool output confirms + file:line present + version confirmed affected
+  2 = strong implicit: tool flags it, file:line present, version likely affected
+  1 = weak implicit: pattern match only, no tool confirmation, version unclear
+  Signal < 2 → demote severity by one level (Critical→High, High→Medium).
+```
+
+Observations (signal < 2 or no direct evidence): record in a separate `## Observations` section of the CSO report. Do NOT file Beads tasks for observations — they are informational only.
+
+6. **Write** `docs/security/CSO-<YYYY-MM-DD>.md`: summary (APPROVED/BLOCKED), **verdict quality**, findings by severity (P0-P3) with signal strength, dependency scan results, compliance checklist results, observations section
 
    **Log agent verdict** (for postmortem traceability):
    ```bash
@@ -879,6 +903,22 @@ done
 ```
 
 Review output: append to the CSO quarterly report — "Vendors reviewed: N | Certs expiring <90d: M | Renewals upcoming: K | New risks identified: L". Any cert expiring within 30 days → create a P1 Beads task for renewal-prep.
+
+## Verdict quality rubric (include in every CSO report)
+
+Self-assess and declare one of three levels at the top of the CSO report:
+
+| Level | Criteria |
+|-------|----------|
+| `boilerplate` | Findings are generic ("dependency versions look outdated", "auth could be stronger") with no file:line cited; checklist completed by assumption rather than evidence. A boilerplate CSO report BLOCKS gate:ship — it provides no security signal. |
+| `moderate` | At least one finding has a file:line or CVE with confirmed version; compliance checklist completed with grep evidence; but not every P0/P1 has a reproduction path. |
+| `substantive` | Every P0/P1 has: file:line + signal strength (2 or 3) + tool confirmation + confirmation the finding is not a false positive. Compliance checklist has `grep` or scan evidence per item. Observations section documents what was not found and why. |
+
+If you cannot reach `moderate` quality (no direct evidence found for any finding), emit:
+```
+verdict_quality: boilerplate
+BLOCKED: insufficient evidence — re-run with Bash access or after senior-dev provides scan artifacts.
+```
 
 ## Reporting Contract
 

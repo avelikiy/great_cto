@@ -545,15 +545,42 @@ QA PROOF CHECK:
 Any item marked [N] that was NOT explicitly skipped (with reason) → run it now before writing the report.
 Do NOT write PASS if an item in the plan was silently skipped.
 
+### Step 3b: Evidence gate (mandatory before filing any finding)
+
+Before writing any bug or test failure into the report, run this check for each candidate finding:
+
+```
+Gate (explicit evidence required):
+  Does this finding have a direct, reproducible trigger?
+  → Yes (file:line + command/assertion that fails) → file as Finding
+  → No (inferred, "could be", "might") → move to Observations section only
+     Add: "confidence: inferred — not filed as bug"
+```
+
+**Default = no finding.** Raise P0/P1 only when:
+1. A specific file path and line number (or test assertion) confirms the issue
+2. The failure reproduces at least once explicitly (not "it might fail under load")
+
+Generic observations ("test coverage seems low in auth module") → `Observations` section, not `Bugs found`. The distinction matters: Beads P0/P1 tasks block the pipeline; observations are informational.
+
 ### Step 4: Write Report
 
 `docs/qa-reports/QA-<YYYY-MM-DD>.md`:
 - Summary: PASS / FAIL
+- **Verdict quality: `boilerplate` | `moderate` | `substantive`** — self-assess using the rubric below
 - Requirements traceability: N/M covered (list MISSING/PARTIAL items)
 - Critical paths: result per path (not just "E2E passed")
 - Coverage delta: before vs after this feature
 - Performance metrics: absolute value AND delta vs baseline (flag regressions)
 - Bugs found table (ID, severity, description, path)
+- Observations (inferred concerns without direct evidence — not filed as bugs)
+
+**Verdict quality rubric:**
+- `boilerplate` — findings are generic ("tests pass", "no obvious issues") with no specific file/line cited; could apply to any project unchanged
+- `moderate` — found at least one specific test failure OR one coverage gap with a file path, but reproducible trigger or fix path is incomplete
+- `substantive` — every P0/P1 finding has: file:line + reproduction command + exact assertion that fails; coverage delta is measured (not estimated); performance numbers are absolute values with baseline comparison
+
+A `boilerplate` QA report is a pipeline failure — it provides no signal. If you cannot reach `moderate`, list what blocked you and emit BLOCKED.
 
 ### Step 4b: Auto-retry on soft failures (max 3 attempts)
 

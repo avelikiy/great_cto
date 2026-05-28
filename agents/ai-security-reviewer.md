@@ -88,16 +88,34 @@ Read the pack for archetype-specific gates:
 
 ### Step 1: Threat elicitation per section
 
-For each of the 6 sections, follow this loop:
+For each of the 6 sections, apply this **3-stage decision tree** per candidate threat:
 
-1. **Identify vector** — pull from ARCH § Trust Boundaries + § LLM Scope. Each "untrusted=yes" boundary is at least one entry in the threat model.
-2. **Score severity** — `Probability × Impact` matrix. Critical = high prob + critical impact (full system compromise / data exfil / regulatory breach). High = full data exposure to single user. Medium = partial info disclosure. Low = nuisance.
-3. **Design mitigation** — concrete control mapped to:
+**Stage 1 — Gate (explicit evidence required)**
+Does explicit evidence for this threat exist in the ARCH / codebase?
+- Yes: "untrusted=yes" boundary present in ARCH Trust Boundaries, or specific code path identified → proceed to Stage 2
+- No: generic concern ("LLMs can be injected") without a specific vector in this system → record in `## Observations` only. Default = no threat entry. Patterns that apply to every LLM system without a project-specific hook are not threat model entries.
+
+**Stage 2 — Attribution (category)**
+Map to exactly one of the 6 TM sections: Prompt Injection / Output Exfiltration / SSRF-Tool Abuse / Cost Runaway / Cross-user Isolation / Supply Chain. If a threat spans two sections, pick the primary impact category.
+
+**Stage 3 — Signal strength (calibrate severity)**
+```
+Signal 3 (explicit):   specific attack vector identified in ARCH + concrete payload known
+Signal 2 (strong):     attack class applies, vector exists in ARCH, payload requires research
+Signal 1 (weak):       pattern plausible but no specific vector in this system
+```
+Signal 1 → severity floor is Medium (cannot be Critical or High without direct evidence).
+Signal 2 → High if impact is data exfil or financial; Medium otherwise.
+Signal 3 → use full `Probability × Impact` matrix.
+
+Then for each confirmed threat (Signal ≥ 2):
+
+4. **Design mitigation** — concrete control mapped to:
    - A code change (e.g. "input sanitisation in `app/middleware/sanitize.py`")
    - A test (e.g. "covered by `EVAL-prompt-injection.md`")
    - An infra control (e.g. "Llama Guard 3 deployed on a10 GPU pre-output")
    - A pack pattern (e.g. "agent-pack.md § MCP Server Trust Pattern")
-4. **Tag the corresponding gate** — every Critical/High threat blocks `gate:ship` until mitigation lands; that's enforced post-impl by security-officer.
+5. **Tag the corresponding gate** — every Critical/High threat (Signal ≥ 2) blocks `gate:ship` until mitigation lands; that's enforced post-impl by security-officer.
 
 ### Step 2: AI-specific deep dives
 
