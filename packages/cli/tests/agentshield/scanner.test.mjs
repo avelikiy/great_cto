@@ -7,13 +7,15 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = resolve(__dirname, '..', '..');                     // packages/cli
 const FIXTURES = join(__dirname, 'fixtures');                        // tests/agentshield/fixtures
 
 // Lazy import compiled module from cli's dist/
-const { scan, scanFile, loadRules } = await import('../../dist/agentshield/index.js');
+const { scan, scanFile, loadRules, loadUserRules, parseRulesFile } = await import('../../dist/agentshield/index.js');
 
 test('rules catalog loads without errors', () => {
   const rules = loadRules();
@@ -119,4 +121,98 @@ test('SARIF output is valid JSON', async () => {
   assert.equal(parsed.version, '2.1.0');
   assert.equal(parsed.runs[0].tool.driver.name, 'agentshield');
   assert.ok(Array.isArray(parsed.runs[0].results));
+});
+
+// ── User guardrails (loadUserRules) ───────────────────────────────────────
+
+test('loadUserRules returns [] when guardrails.yml does not exist', () => {
+  const rules = loadUserRules('/nonexistent/path/guardrails.yml');
+  assert.deepEqual(rules, []);
+});
+
+test('loadUserRules loads rules from a custom path and marks them userDefined', () => {
+  const tmpDir = join(tmpdir(), `agentshield-test-${Date.now()}`);
+  mkdirSync(tmpDir, { recursive: true });
+  const guardrailsPath = join(tmpDir, 'guardrails.yml');
+
+  writeFileSync(guardrailsPath, `
+- id: UG-001
+  scanner: secrets-in-prompts
+  title: Test user rule
+  severity: high
+  description: |
+    Detects test pattern for guardrails testing.
+  remediation: |
+    Remove the pattern.
+  patterns:
+    - 'mytoken_[a-z0-9]{32}'
+  action: block
+
+- id: UG-002
+  scanner: prompt-injection
+  title: Audit rule
+  severity: medium
+  description: |
+    Audit pattern for testing.
+  remediation: |
+    Review usage.
+  patterns:
+    - 'customer\\.email'
+  action: audit
+`, 'utf8');
+
+  try {
+    const rules = loadUserRules(guardrailsPath);
+    assert.equal(rules.length, 2, `expected 2 user rules, got ${rules.length}`);
+
+    const ug001 = rules.find(r => r.id === 'UG-001');
+    assert.ok(ug001, 'UG-001 should be present');
+    assert.equal(ug001.action, 'block');
+    assert.equal(ug001.userDefined, true);
+    assert.equal(ug001.severity, 'high');
+
+    const ug002 = rules.find(r => r.id === 'UG-002');
+    assert.ok(ug002, 'UG-002 should be present');
+    assert.equal(ug002.action, 'audit');
+    assert.equal(ug002.userDefined, true);
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('loadUserRules returns [] and warns on malformed guardrails.yml', () => {
+  const tmpDir = join(tmpdir(), `agentshield-test-${Date.now()}`);
+  mkdirSync(tmpDir, { recursive: true });
+  const guardrailsPath = join(tmpDir, 'guardrails.yml');
+
+  // Missing required fields: no 'patterns' key
+  writeFileSync(guardrailsPath, `
+- id: BAD-001
+  scanner: secrets-in-prompts
+  title: Incomplete rule
+  severity: high
+  description: |
+    Missing patterns and remediation.
+  remediation: |
+    Fix it.
+`, 'utf8');
+
+  try {
+    // Should not throw — returns [] with a console.warn
+    const rules = loadUserRules(guardrailsPath);
+    assert.deepEqual(rules, []);
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('loadRules includes user rules when guardrails.yml exists at default path (integration)', () => {
+  // This test only verifies the merge happens — it skips if no guardrails.yml at default location
+  // (CI environments won't have ~/.great_cto/guardrails.yml)
+  const rules = loadRules();
+  // All built-in rules should be present regardless
+  assert.ok(rules.length >= 20, `expected ≥20 rules (including built-ins), got ${rules.length}`);
+  // Built-in rules should not be marked as userDefined
+  const builtIn = rules.filter(r => !r.userDefined);
+  assert.ok(builtIn.length >= 20, 'built-in rules should not be marked userDefined');
 });

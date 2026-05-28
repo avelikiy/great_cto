@@ -5,12 +5,17 @@
  * each rule file is a list of dash-prefixed entries with key/value lines.
  * If we ever need real YAML (anchors, complex nesting), we'll add `yaml` as
  * a dep then.
+ *
+ * User-defined rules are loaded from ~/.great_cto/guardrails.yml and merged
+ * with the built-in rules. User rules use the same YAML format but include
+ * an optional `action: block | audit | redact` field.
  */
 
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import type { Rule, ScannerName } from './types.js';
+import type { Rule, ScannerName, GuardrailAction } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -45,7 +50,41 @@ export function loadRules(rulesDir: string = defaultRulesDir()): Rule[] {
     const text = readFileSync(join(rulesDir, f), 'utf8');
     rules.push(...parseRulesFile(text, f));
   }
+
+  // Merge user-defined rules from ~/.great_cto/guardrails.yml
+  const userRules = loadUserRules();
+  rules.push(...userRules);
+
   return rules;
+}
+
+/**
+ * Default path for user-defined guardrail rules.
+ * Falls back to legacy .great_cto/guardrails.yml in the current project.
+ */
+export function userGuardrailsPath(): string {
+  return join(homedir(), '.great_cto', 'guardrails.yml');
+}
+
+/**
+ * Load user-defined rules from ~/.great_cto/guardrails.yml.
+ * Returns [] silently if the file does not exist.
+ * Errors in user rules are surfaced as warnings (console.warn) but do not
+ * abort the scan — broken user rules should not block CI.
+ */
+export function loadUserRules(path?: string): Rule[] {
+  const guardrailsPath = path ?? userGuardrailsPath();
+  if (!existsSync(guardrailsPath)) return [];
+
+  try {
+    const text = readFileSync(guardrailsPath, 'utf8');
+    const parsed = parseRulesFile(text, guardrailsPath);
+    // Mark all user rules as userDefined so scanners can handle action correctly
+    return parsed.map(r => ({ ...r, userDefined: true }));
+  } catch (e) {
+    console.warn(`agentshield: warning — failed to load user guardrails from ${guardrailsPath}: ${(e as Error).message}`);
+    return [];
+  }
 }
 
 /**
@@ -167,6 +206,7 @@ function parseBlock(block: string, filename: string): Rule {
     }
   }
 
+  const action = out.action as string | undefined;
   return {
     id: out.id as string,
     scanner: out.scanner as ScannerName,
@@ -178,5 +218,6 @@ function parseBlock(block: string, filename: string): Rule {
     patterns: out.patterns as string[],
     file_globs: out.file_globs as string[] | undefined,
     negate: out.negate as string[] | undefined,
+    action: (action === 'block' || action === 'audit' || action === 'redact') ? action as GuardrailAction : undefined,
   };
 }

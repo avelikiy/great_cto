@@ -12,7 +12,7 @@
  */
 
 export { scan, scanFile } from './scanner.js';
-export { loadRules, parseRulesFile } from './rules-loader.js';
+export { loadRules, parseRulesFile, loadUserRules, userGuardrailsPath } from './rules-loader.js';
 export type {
   Rule,
   Finding,
@@ -21,5 +21,6 @@ export type {
   ScannerName,
   ScanOptions,
   ScanReport,
+  GuardrailAction,
 } from './types.js';
 export { SEVERITY_ORDER, severityRank } from './types.js';

@@ -84,6 +84,51 @@ echo "Grafana MCP: $GRAFANA_OK | gcx CLI: $GCX_OK"
 Setup guide: `mcp-servers/grafana.md`
 LogQL patterns + PromQL SLI queries + gcx reference: `skills/great_cto/references/grafana-ops.md`
 
+## Alert Source → Tool Routing
+
+When an alert fires from a known source, **call that source's tools first and in parallel**
+before branching to secondary integrations. Exhaust the primary integration before pivoting.
+
+| Alert source | Primary tools (call first) | Secondary tools (if primary inconclusive) |
+|---|---|---|
+| `grafana` / `alertmanager` | `mcp__grafana__query_loki`, `mcp__grafana__search_alerts`, `mcp__grafana__get_panel` | CloudWatch, EKS |
+| `datadog` | Datadog logs + metrics via Bash/WebSearch for DDog API | Grafana Loki |
+| `cloudwatch` | CloudWatch Logs + Metrics Bash queries | EC2 health, RDS |
+| `eks` / `kubernetes` | `kubectl get events`, `kubectl logs`, `kubectl describe pod` | CloudWatch, Grafana |
+| `argocd` | ArgoCD app status + Kubernetes events | EKS pod logs |
+| `sentry` | Sentry issue details, Sentry event trace | Error log files |
+| `postgresql` / `mysql` | DB slow query log, `pg_stat_activity`, `SHOW PROCESSLIST` | Application logs |
+| `rabbitmq` / `kafka` | Queue backlog, consumer lag, dead-letter count | App error logs |
+| `airflow` | DAG run status, task logs, failed task details | Airflow metrics |
+| `vercel` / `railway` | Deployment logs, function logs, health endpoint | Error log files |
+| `betterstack` / `signoz` | Integration-native log query | Grafana Loki |
+| `mongodb` / `redis` | Connection pool stats, slow ops log | App logs |
+| generic / unknown | Grafana alerts first, then file logs | All available |
+
+**Parallel call rule**: Within one investigation round, call all primary tools simultaneously —
+do NOT wait for one to finish before calling the next. This is the single biggest MTTR reducer.
+
+**Never fabricate tool output.** If a tool returns an error or empty result, try another tool
+from the same integration before pivoting to secondary. Only when all primary tools are
+exhausted move to secondary.
+
+## Root Cause Taxonomy
+
+Every incident must be classified into one of these categories. Choose the most specific one.
+
+| Category | Description | Common signals |
+|---|---|---|
+| `database` | DB query failure, deadlock, pool exhaustion, replication lag | Slow queries, connection refused, lock timeout |
+| `infrastructure` | Host crash, OOM kill, disk full, network partition, DNS | Node NotReady, OOMKilled, ENOSPC |
+| `code_bug` | Logic error, unhandled exception, null reference, type mismatch | Stack traces, 500s, assertion failures |
+| `configuration` | Wrong env var, missing secret, misconfigured resource limit | App startup failure, auth 401/403 |
+| `network` | Timeout between services, DNS failure, TLS cert expired, rate-limit | Connection timeout, 502/503, ECONNREFUSED |
+| `performance` | Memory/CPU spike, GC pressure, slow query, cache miss storm | p99 spike, 504, queue backup |
+| `healthy` | False positive alert; all evidence points to normal behavior | Alert fired but metrics normal |
+| `unknown` | Insufficient evidence to classify; note specific gaps | List what tools were exhausted |
+
+Add the category to: postmortem Root Cause section, Beads task label, and lessons.md entry.
+
 ## Writing Style
 
 Postmortems (`docs/postmortems/PM-*.md`) follow `skills/great_cto/references/agent-style.md`.
@@ -212,7 +257,7 @@ echo "=== Pattern lookup complete — apply matching patterns above BEFORE Steps
      | grep -iE "error|critical|fatal|exception|panic|timeout|OOM|killed" | tail -50
    ```
 
-3. **Quick diagnostics** (run in parallel with log check):
+3. **Quick diagnostics** (run ALL checks in parallel — do not wait for one before starting the next):
    ```bash
    # Service reachability
    APP_PORT=$(grep "port:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "3000")
@@ -289,6 +334,10 @@ If `$GRAFANA_OK=false`: skip silently. File-based Step 2 handles detection.
    - **P0**: service DOWN, error rate > p0-threshold, data loss, OOM kill, security breach
    - **P1**: latency > p1-threshold, partial degradation (some endpoints failing), DB slow
    - **P2**: memory leak trend, deprecation warnings, single non-critical endpoint 5xx
+
+   **Classify root cause category** (from taxonomy above) at triage time — even as a hypothesis.
+   Update the category label on the Beads task and refine it as evidence accumulates.
+   Do not close a P0/P1 task with `category: unknown` unless all tools in the routing table above were exhausted.
 
 5. **Create Beads tasks**: `bd create "PROD: <desc>" --type bug --priority <0-3> --label production`
 
@@ -387,31 +436,52 @@ P0 TIMER: 15 min to resolution or escalation to next level
    Date: <YYYY-MM-DD>
    MTTR: <minutes from detection to resolution>
    Severity: P0 / P1
+   Root cause category: database | infrastructure | code_bug | configuration | network | performance | healthy | unknown
+   Validity score: 0.0–1.0  ← confidence in the root cause based on evidence quality
 
    ## Summary
    <2-3 sentences: what happened, scope, impact>
 
    ## Timeline
-   - HH:MM — incident detected
-   - HH:MM — L1 alert sent
-   - HH:MM — root cause identified (Angle N)
-   - HH:MM — hotfix deployed
-   - HH:MM — service restored
+   - HH:MM UTC — incident detected
+   - HH:MM UTC — L1 alert sent
+   - HH:MM UTC — root cause identified (Angle N, category: <taxonomy>)
+   - HH:MM UTC — hotfix deployed
+   - HH:MM UTC — service restored
 
    ## Root Cause
-   <one clear sentence from the 4-angle synthesis>
+   <one clear sentence: what failed + why + when. Active voice. Name the component, timestamp, and mechanism.>
+
+   ## Evidence
+
+   ### Validated claims
+   *(Facts confirmed by tool output — include tool name, timestamp, exact value)*
+   - "<tool>" returned: <specific value, error message, or metric with timestamp>
+   - "<tool>" showed: <log line / query result / alert that confirms hypothesis>
+
+   ### Non-validated claims
+   *(Hypotheses you could not confirm — tool returned empty, unavailable, or ambiguous)*
+   - <hypothesis> — could not confirm because <tool> returned <error/empty/ambiguous>
+   - <hypothesis> — would require <specific access or data> to validate
 
    ## Impact
    - Users affected: N
    - Duration: X min
    - Data loss: yes/no
+   - SLI impact: <which SLI, magnitude>
 
    ## Fix
-   <what was changed>
+   <what was changed — specific commit, config change, or runbook action>
 
    ## Prevention
-   - <action item 1>
-   - <action item 2>
+   - <action item 1 — owner + due date>
+   - <action item 2 — owner + due date>
+
+   ## Investigation path
+   - Primary tools tried: <list from alert routing table>
+   - Tool that revealed root cause: <name + what it showed>
+   - Dead ends: <tools that returned false negatives — explain why they missed it>
+   - Iterations to root cause: <N>
 
    ## Agent Verdict Audit
    > Was each agent's pre-deploy verdict correct given what we now know?
@@ -427,12 +497,19 @@ P0 TIMER: 15 min to resolution or escalation to next level
    Action: <update agent prompt / add test case / strengthen gate>
    ```
 
+   **Validity score guidance**:
+   - `0.9–1.0`: root cause directly observed in tool output (log line, error message, metric spike)
+   - `0.7–0.8`: strong circumstantial evidence from 2+ tools pointing the same direction
+   - `0.5–0.6`: one tool supports the hypothesis; others inconclusive
+   - `<0.5`: hypothesis only; mark `category: unknown` and surface to senior-dev for deeper investigation
+
 7b. **Lesson crystallization** — distill the postmortem into one actionable line that architect reads on every new feature:
    ```bash
    LESSONS=".great_cto/lessons.md"
-   [ ! -f "$LESSONS" ] && printf '# Lessons learned — append only, one line per incident\n\n> Format: date | service | root cause | prevention\n\n' > "$LESSONS"
+   [ ! -f "$LESSONS" ] && printf '# Lessons learned — append only, one line per incident\n\n> Format: date | service | category | root cause | prevention | validity\n\n' > "$LESSONS"
    # Append the distilled lesson. Fill <placeholders> from the postmortem you just wrote.
-   printf '%s | <service> | <root-cause-one-liner> | <prevention-action>\n' "$(date -u +%Y-%m-%d)" >> "$LESSONS"
+   # category: database | infrastructure | code_bug | configuration | network | performance | unknown
+   printf '%s | <service> | <category> | <root-cause-one-liner> | <prevention-action> | <validity-score>\n' "$(date -u +%Y-%m-%d)" >> "$LESSONS"
    echo "Lesson crystallized → $LESSONS"
    ```
    architect reads this file at the start of every feature to catch recurring patterns before they ship again.
