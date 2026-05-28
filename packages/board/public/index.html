@@ -2448,7 +2448,30 @@ button { font-family: inherit; cursor: pointer; }
       </div>
     </div>
 
-    
+    <!-- Task side panel — slide-over detail view, opened by openSide() -->
+    <div id="side-panel" class="side" role="dialog" aria-modal="true" aria-labelledby="side-id">
+      <div class="side-top">
+        <span class="side-id-row">
+          <span class="side-id" id="side-id">—</span>
+          <button class="side-id-copy" title="Copy ID" onclick="
+            navigator.clipboard.writeText(document.getElementById('side-id').textContent).then(()=>{
+              const b=this; b.style.opacity='1';
+              setTimeout(()=>b.style.opacity='',1200);
+            })">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </button>
+        </span>
+        <button class="side-close" onclick="closeSide()" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="side-body" id="side-body"></div>
+      <div id="side-timeline" style="padding:0 18px 18px"></div>
+    </div>
 
 <script>
 const COLUMNS = [
