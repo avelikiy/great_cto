@@ -5,6 +5,39 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.27.0 — 2026-05-28
+
+### Claude Code quota warning at SessionStart
+
+Adds `scripts/hooks/quota-check.mjs` — a lightweight hook that checks
+Claude Code subscription quota at the start of every session and warns
+before the user launches a heavy pipeline that would hit a rate limit
+mid-run.
+
+**What it does:**
+- Reads `~/.claude/.credentials.json` (Claude Code OAuth token)
+- Fetches `api.anthropic.com/api/oauth/usage` (undocumented endpoint,
+  same one used by ai-usagebar / claudebar)
+- Outputs a quota block only when thresholds are exceeded:
+  - ⚡ 70%+ → warn, prefer fast-path for large features
+  - 🔴 85%+ → alert, fast-path only (skip ARCH doc)
+  - 🛑 95%+ → critical, do NOT start heavy pipeline
+- Shows per-window pacing (ahead/on-track/under vs elapsed time)
+- Shows Sonnet 7-day sub-quota separately (Sonnet has its own cap)
+- Shows extra (pay-as-you-go) spend when ≥ 50% of monthly limit
+- Auto-refreshes expired OAuth tokens via platform.claude.com
+- 5-minute cache in `~/.great_cto/quota-cache.json` — parallel agents
+  share one fetch, no API hammering
+- Silent exit when credentials absent (API-key users unaffected)
+
+**Where it appears:** between `=== STATUS ===` and `=== PATTERNS ===`
+in the SessionStart output.
+
+**Source inspiration:** akitaonrails/ai-usagebar (Rust). API endpoints,
+auth flow, and response schema ported to Node.js (60 lines, no deps).
+
+---
+
 ## v2.26.0 — 2026-05-28
 
 ### PM discovery pipeline: PRD, OST, discover, outcome roadmap, prioritisation
