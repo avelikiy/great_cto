@@ -4,6 +4,68 @@ All notable changes to great_cto are documented here.
 
 ---
 
+
+## v2.25.0 — 2026-05-28
+
+### agent-workflows patterns: triage gate, structured findings, hand-off rules
+
+Inspired by [franklioxygen/agent-workflows](https://github.com/franklioxygen/agent-workflows).
+
+#### Triage Gate — depth-based pipeline selection
+
+- **Added** Triage Gate section to `CLAUDE.md` request classifier — classifies SIMPLE CODE (Tiny/Small/Medium) and COMPLEX CODE (Small/Medium/Large) before pipeline runs
+- **Added** Escalation guard: if scope grows during work → stop and reclassify; do not continue with under-powered process
+
+#### Reproduction Requirement — bug-fix gate
+
+- **Added** Reproduction Requirement to `agents/coordinator.md` — before any implementation agent edits code for a bug fix, must establish: failing automated test, failing repro command, or explicit infeasibility note. "It would take effort" is NOT infeasible.
+- Blocks implementation packet until repro packet completes
+
+#### Baseline Establishment — refactoring gate
+
+- **Added** Baseline Establishment to `agents/coordinator.md` — run full validation set (tests + lint + build) before refactoring edits; record pass/fail. Separates new regressions from pre-existing failures.
+
+#### Structured Findings Format — review output standard
+
+- **Added** Structured Findings Format to `skills/great_cto/SKILL.md` — Critical/Major/Minor/Nit severity tiers with Location/Problem/Why it matters/Recommended fix/Status fields
+- **Added** mandatory Summary block (APPROVED/BLOCKED verdict) to all review output
+- Critical + Major findings block merge and gate:ship
+
+#### Workflow Hand-off Rules
+
+- **Added** explicit hand-off transition table to `agents/coordinator.md` — INCIDENT→BUG-FIX, BUG-FIX→Feature, SIMPLE→COMPLEX, Cleanup→Refactoring, etc.
+- Silent workflow class switches are explicitly prohibited; always notify CTO with reason
+
+#### Per-workflow Safety Rules
+
+- **Added** `shared/safety-rules.md` — five safety rule variants: Standard Coding, Review-Only, Behavior-Preserving, Cleanup, Incident Response
+- Each rule matched to the workflow class that should use it
+
+#### Scope Escalation Guards
+
+- **Added** scope escalation guard to coordinator anti-patterns: "scope creep is low risk" → stop + reclassify
+
+#### Minimal Loading Discipline
+
+- **Added** per-class loading rules to `skills/great_cto/memory-index.md` — load only what the active workflow needs; per-class breakdown (QUESTION, SIMPLE CODE Tiny, INCIDENT)
+
+### ag-kit patterns: coordinator, skillify, memory index (v2.24.1 content shipped in v2.25.0)
+
+- **Added** `agents/coordinator.md` — multi-agent orchestrator with DECOMPOSE→CLASSIFY→DISPATCH→MONITOR→SYNTHESIZE→VERIFY lifecycle, Work Packet List format, Fork vs Spawn semantics
+- **Added** `commands/skillify.md` — interactive 6-question interview to capture repeating patterns as SKILL.md files
+- **Added** `skills/great_cto/memory-index.md` — 200-line cross-session knowledge index template with 3-level compression protocol
+- **Added** Request classifier section to `CLAUDE.md` — 8-class routing (QUESTION/SURVEY/SIMPLE CODE/COMPLEX CODE/DESIGN/SLASH CMD/INCIDENT/COORDINATE)
+- **Updated** dispatch semantics in `skills/great_cto/SKILL.md` — Fork vs Spawn, Never Delegate Understanding, concurrency safety
+- **Updated** context compression protocol in `commands/save.md` — micro-compact, phase summary, checkpoint levels
+- **Updated** validation hierarchy reference in `commands/doctor.md` — 7-layer priority (Security → Schema → Tests → Lint → Performance → UX/A11y → SEO)
+- **Updated** all 13 SKILL.md files — added `effort: low | medium | high` frontmatter field
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.24.0 — 2026-05-28
 
 ### OpenSRE patterns: l3-support upgrade + user guardrails
