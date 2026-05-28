@@ -116,6 +116,16 @@ Classify into one of three depths:
             rollout risk, backward compat constraints.
             → Full pipeline: arch → pm → senior-dev → qa+cso → devops.
             Two gates: gate:arch + gate:ship.
+
+            ⚠️  Decomposition Matrix required before any implementation starts.
+            Coordinator must produce this table (or block until it exists):
+
+            | Stream | Write-zone (files/dirs) | Depends on | Why parallel-safe |
+            |--------|------------------------|------------|-------------------|
+            | <name> | <owned files>          | <stream #> | <no shared state> |
+
+            If two streams share any file → force sequential, add dependency.
+            Reference: shared/orchestrator.toml [parallelism] section.
 ```
 
 **Default rule**: when depth is ambiguous, choose the deeper level — skipping a gate is recoverable, skipping architecture review on a Large change is not.
