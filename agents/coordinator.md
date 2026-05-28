@@ -199,6 +199,69 @@ If overlap → force sequential, add dependency in WPL before dispatching.
 
 ---
 
+## Reproduction Requirement (bug-fix class)
+
+Before any implementation agent edits code for a bug fix, one of the following must exist:
+
+1. **Failing automated test** that captures the bug (preferred)
+2. **Failing command or script** that reproduces the failure
+3. **Clear manual repro steps** with evidence of the current failure (screenshot, log excerpt)
+4. **Explicit infeasibility note** — only when bug depends on production data, third-party state, or infrastructure that cannot be simulated locally. "It would take effort" is NOT a valid infeasibility reason.
+
+If none of the above is established: **block the implementation packet**. Create a Research packet first to establish reproduction. Mark the implementation packet as `depends-on: repro-packet` in the WPL.
+
+This requirement applies to:
+- Any work packet classified as bug-fix implementation
+- Any INCIDENT class request that produces follow-up code changes
+
+---
+
+## Baseline Establishment (refactoring class)
+
+Before any implementation agent edits code for a refactoring task:
+
+1. Run the full validation set relevant to the affected code:
+   - Tests (unit + integration)
+   - Type checks
+   - Lint / format checks
+   - Build / package checks
+2. Record what **passes** and what **fails** (pre-existing failures)
+3. Pass the baseline report to the implementation agent as "Work completed before you"
+
+**Why**: after the refactoring, failures that existed before your change must not be attributed to you. New failures = regressions you introduced. Without a baseline, this separation is impossible.
+
+Baseline format for the WPL:
+```
+Baseline (pre-refactor):
+  Tests: 189 pass / 0 fail
+  Lint: clean
+  Build: ok
+  Pre-existing failures: none
+```
+
+---
+
+## Workflow Hand-off Rules
+
+When a task changes its nature during execution, do not continue with the current workflow. Hand off explicitly.
+
+| From | To | When |
+|------|----|------|
+| **INCIDENT** | **BUG-FIX** | After mitigation and evidence capture — remaining work is a normal code fix |
+| **BUG-FIX** | **COMPLEX CODE (Feature)** | Diagnosis reveals a design or product-decision problem, not a narrow defect |
+| **SIMPLE CODE** | **COMPLEX CODE** | Discovery of cross-file risk, migration impact, API impact, or scope growth during implementation |
+| **COMPLEX CODE** | **DESIGN** | Implementation reveals the task needs architecture review before proceeding |
+| **Cleanup / Tech Debt** | **Refactoring** | Cleanup resolves into a behavior-preserving structural change on a specific area |
+| **Cleanup / Refactoring** | **COMPLEX CODE (Feature)** | Work requires a behavior change, public contract change, or design decision |
+| **Code Review** | **BUG-FIX / Feature** | User explicitly asks to fix findings; findings reveal a bug or design flaw |
+
+**Hand-off protocol**: when switching, complete or pause the current packet at a clean checkpoint, then:
+1. State the hand-off reason: what was discovered, why the current class is no longer appropriate
+2. Update the WPL: mark current packet PAUSED or DONE, add new packets with the correct class
+3. Notify CTO with exact reason — do not auto-switch classes silently
+
+---
+
 ## Anti-patterns to reject
 
 These patterns silently destroy coordination quality. Reject them explicitly:
@@ -211,6 +274,10 @@ These patterns silently destroy coordination quality. Reject them explicitly:
 | "Check if everything looks ok" | No verifiable criterion | "Tests must pass / file must exist / output must match" |
 | Restarting full run when one packet blocks | Kills parallel work already done | Re-dispatch only the blocked packet |
 | Spawning without subagent_type | Defaults to general-purpose, skips specialist review | Always specify subagent_type |
+| Editing code without reproduction (bug-fix) | Fix may address wrong root cause | Establish failing test/repro first — see Reproduction Requirement |
+| Refactoring without baseline | Can't distinguish regressions from pre-existing failures | Run full validation set before any edits — see Baseline Establishment |
+| Silently changing workflow class | CTO loses visibility into scope changes | Always hand off explicitly — see Workflow Hand-off Rules |
+| "Scope creep is low risk" | Tasks grow unbounded, parallelism breaks | Scope escalation guard: stop and reclassify when task exceeds original classification |
 
 ---
 

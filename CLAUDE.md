@@ -76,3 +76,46 @@ When the model receives a request, classify it first — the class determines wh
 | **COORDINATE** | "parallelize", "orchestrate", "3+ streams", complex dependency graph | coordinator agent |
 
 **Auto-routing rule**: classify BEFORE choosing an agent. If the class is ambiguous between SIMPLE CODE and COMPLEX CODE, prefer COMPLEX CODE — the cost of under-engineering exceeds the cost of a gate pause.
+
+---
+
+## Triage Gate — depth inside each class
+
+After classifying a request, apply the triage gate to select how much process to run. This prevents running the full pipeline on trivial changes.
+
+### SIMPLE CODE — depth levels
+
+```
+Classify into one of three depths:
+
+  Tiny    — single expression / typo / rename within one function.
+            → Fix inline, no plan, no Beads task. 30 s turnaround.
+
+  Small   — 1-file change, clear scope, no behavior risk.
+            → senior-dev direct, no architect. Gate: gate:ship only.
+
+  Medium  — 2-5 files, some behavior risk, needs validation.
+            → senior-dev → qa-engineer. Gate: gate:ship.
+```
+
+Escalation check: if you discover ambiguity, cross-file risk, data model/API/permission impact while working → stop, reclassify as COMPLEX CODE.
+
+### COMPLEX CODE — depth levels
+
+```
+Classify into one of three depths:
+
+  Small   — well-understood scope, ≤5 files, low ambiguity.
+            → architect (brief) → senior-dev → gate:ship.
+            Skip pm decomposition if < 3 work streams.
+
+  Medium  — cross-file, some design decisions needed.
+            → architect → pm → senior-dev → qa+cso → gate:ship.
+
+  Large   — significant ambiguity, migrations, cross-cutting concerns,
+            rollout risk, backward compat constraints.
+            → Full pipeline: arch → pm → senior-dev → qa+cso → devops.
+            Two gates: gate:arch + gate:ship.
+```
+
+**Default rule**: when depth is ambiguous, choose the deeper level — skipping a gate is recoverable, skipping architecture review on a Large change is not.

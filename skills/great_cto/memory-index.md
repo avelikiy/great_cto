@@ -21,6 +21,14 @@
 4. `~/.great_cto/verdicts/` (past agent verdicts with rationale)
 5. Source files (only after the above)
 
+**Minimal loading discipline** — load only what the active workflow needs:
+- Read `SKILL.md` sections relevant to the current agent class (not the whole file)
+- Load specialist skill files only when their topic matches the current task
+- Do NOT pre-load every agent file "just in case" — each file costs ~1-3k tokens
+- For QUESTION / SURVEY class: memory index + source files only; skip pipeline skills
+- For SIMPLE CODE (Tiny/Small): skip architect/pm skills; senior-dev + validation hierarchy only
+- For INCIDENT: load l3-support.md + shared/safety-rules.md#incident; skip all reviewer skills
+
 **Compress phases, not facts** — when updating, preserve:
 - ✅ WHY a decision was made
 - ✅ File:line references for important patterns
@@ -39,6 +47,11 @@
 | Approval levels | auto / gates-only / strict / expert / step-by-step | `skills/great_cto/SKILL.md §Approval Level` |
 | Coordinator | Multi-agent lifecycle: DECOMPOSE→CLASSIFY→DISPATCH→MONITOR→SYNTHESIZE→VERIFY | `agents/coordinator.md` |
 | Memory system | This file. 200-line index → topic files | `skills/great_cto/memory-index.md` |
+| Triage gate | Depth classification inside SIMPLE/COMPLEX CODE (Tiny→Large); escalation guards | `CLAUDE.md §Triage Gate` |
+| Safety rules | Per-workflow safety rules (Coding/Review-Only/Behavior-Preserving/Cleanup/Incident) | `shared/safety-rules.md` |
+| Findings format | Structured review output: Critical/Major/Minor/Nit + APPROVED/BLOCKED verdict | `skills/great_cto/SKILL.md §Structured Findings Format` |
+| Reproduction req | Bug-fix gate: failing test OR repro steps required before code edit | `agents/coordinator.md §Reproduction Requirement` |
+| Hand-off rules | Workflow class transitions: INCIDENT→BUG-FIX, BUG-FIX→Feature, etc. | `agents/coordinator.md §Workflow Hand-off Rules` |
 
 ---
 
@@ -46,6 +59,11 @@
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Triage gate: depth-based pipeline selection | Prevents running full pipeline on Tiny/Small fixes; escalation guard ensures reclassification | 2026-05-28 |
+| Reproduction requirement before bug-fix edits | Prevents fixing wrong root cause; "it's hard" ≠ infeasible | 2026-05-28 |
+| Structured findings format mandatory for reviews | Free-form prose findings fail pipeline contracts; Critical/Major block merge | 2026-05-28 |
+| Baseline establishment before refactoring | Separates regressions from pre-existing failures | 2026-05-28 |
+| Explicit hand-off protocol between workflow classes | Silent class switches cause scope creep and lost CTO visibility | 2026-05-28 |
 | User guardrails global (`~/.great_cto/guardrails.yml`) | Applies org-wide patterns across all projects | 2026-05-28 |
 | Malformed guardrails: warn not abort | Broken rules must not block CI | 2026-05-28 |
 | Root cause taxonomy required at triage time | Enables pattern detection before postmortem | 2026-05-28 |
