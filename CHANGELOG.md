@@ -4,6 +4,40 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.23.0 — 2026-05-28
+
+### Spec Driven Development integration
+
+Inspired by [FredAntB/Spec-Driven-Development](https://github.com/FredAntB/Spec-Driven-Development).
+
+#### New: `/spec` command
+
+- **Added** `/spec` command — SDD interview workflow that generates `requirements.md`, `design.md`, and `tasks.md` before any code is written
+- Interview is conversational: one question at a time, not a form
+- Four required answers: what the project does, tech stack, deployment target, AI tools used
+- **Gate enforced**: no file generated until all four answers are in hand
+- **Retrofit mode**: `/spec retrofit` scans existing codebase and infers specs from what already exists
+- After generation: auto-updates `CONTEXT.md` and runs `great-cto adapt`
+
+#### New: Cross-AI config generation (`great-cto adapt`)
+
+- **Added** `ai_tools:` field to `PROJECT.md` template — declare all AI coding tools used on the project
+- `great-cto adapt` now generates configs for **all declared AI tools** from the same source of truth:
+  - `AGENTS.md` + `CLAUDE.md` — Claude Code (existing)
+  - `.cursorrules` — Cursor AI (new)
+  - `.github/copilot-instructions.md` — GitHub Copilot (new)
+  - `.windsurfrules` — Windsurf (new)
+  - `.aider.conf.yml` — Aider (new)
+- **Added** "Project Constitution" block to all generated configs — universal hard constraints that prevent AI agents from contradicting each other
+
+#### New: `CONTEXT.md` session resume file
+
+- **Added** `CONTEXT.md` generation during `great-cto init`
+- Standard resume block: current task, last session date, session log table, open questions
+- All AI tools read `CONTEXT.md` at session start — enables seamless handoff between Claude Code, Cursor, Copilot, etc.
+
+---
+
 ## v2.22.2 — 2026-05-28
 
 ### Fix board JS syntax errors after leash removal
