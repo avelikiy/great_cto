@@ -1,5 +1,5 @@
 // Archetype decision: detected stack → archetype recommendation.
-// Mirrors great_cto's 13 archetypes in skills/great_cto/ARCHETYPES.md.
+// Mirrors great_cto's 25 archetypes (+ greenfield fallback) in skills/great_cto/ARCHETYPES.md.
 
 import type { DetectionResult } from "./detect.js";
 
