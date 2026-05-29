@@ -13,7 +13,7 @@
 #
 # Levels:
 #   L1  Static & unit       npm test · archetype regression · syntax checks
-#   L2  Smoke CLI           --version · list-rules · scan fixtures · SARIF
+#   L2  Smoke CLI           --version · ci gate · mcp tools/list
 #   L3  Hooks               secret-scan · format-check · cost-guard · session-end
 #   L4  Board API           endpoints · math invariants · 11 layers · 34 agents
 #   L5  Plugin sync         ~/.claude/commands · ~/.claude/agents
@@ -167,36 +167,17 @@ else
   check "great-cto --version returns semver" \
     bash -c "$CLI --version 2>&1 | grep -qE '^[0-9]+\\.[0-9]+\\.[0-9]+'"
 
-  check "list-rules loads exactly 24 rules" \
-    bash -c "$CLI list-rules 2>&1 | grep -qE '^24 rule\\(s\\) loaded\\.\$'"
+  check "ci with no PROJECT.md passes (exit 0)" \
+    bash -c "tmp=\$(mktemp -d); $CLI ci \$tmp --quiet >/dev/null 2>&1; rc=\$?; rm -rf \$tmp; [ \$rc = '0' ]"
 
-  check "list-rules has all 5 scanner categories" \
-    bash -c "out=\$($CLI list-rules 2>&1); for cat in cost-runaway prompt-injection rag-poisoning secrets-in-prompts ssrf-in-tools; do echo \"\$out\" | grep -q \"\$cat\" || exit 1; done"
-
-  check "scan vulnerable fixture finds 5 issues (high+)" \
-    bash -c "out=\$($CLI scan $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --severity high 2>&1); echo \"\$out\" | grep -qE '5 finding'"
-
-  check "scan clean fixture finds 0 issues" \
-    bash -c "$CLI scan $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/clean-app.ts 2>&1 | grep -q 'No findings'"
-
-  check "SARIF output is valid JSON / 2.1.0 schema" \
-    bash -c "$CLI scan $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --sarif /tmp/gctest-l2.sarif >/dev/null 2>&1; node -e \"const j=JSON.parse(require('fs').readFileSync('/tmp/gctest-l2.sarif','utf8')); if (j.version!=='2.1.0' || !j.runs?.[0]?.results?.length) process.exit(1)\""
-
-  # New v2.4.0 subcommands
-  check "ci on vulnerable fixture exits 1 (--fail-on critical)" \
-    bash -c "$CLI ci $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --fail-on critical --quiet >/dev/null 2>&1; [ \$? = '1' ]"
-
-  check "ci on clean fixture exits 0" \
-    bash -c "$CLI ci $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/clean-app.ts --fail-on critical --quiet >/dev/null 2>&1"
-
-  check "ci emits GitHub Actions annotations (\$GITHUB_ACTIONS=true)" \
-    bash -c "GITHUB_ACTIONS=true $CLI ci $PLUGIN_DIR/packages/cli/tests/agentshield/fixtures/vulnerable-app.ts --fail-on critical --quiet 2>/dev/null | grep -q '^::error '"
+  check "ci --no-archetype --no-budget passes (exit 0)" \
+    bash -c "tmp=\$(mktemp -d); $CLI ci \$tmp --no-archetype --no-budget --quiet >/dev/null 2>&1; rc=\$?; rm -rf \$tmp; [ \$rc = '0' ]"
 
   check "mcp server initialize returns protocolVersion 2024-11-05" \
     bash -c "( echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}'; sleep 0.3 ) | $CLI mcp 2>/dev/null | grep -q '\"protocolVersion\":\"2024-11-05\"'"
 
-  check "mcp tools/list returns 5 tools" \
-    bash -c "n=\$(( echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}'; echo '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}'; sleep 0.3 ) | $CLI mcp 2>/dev/null | tail -1 | python3 -c 'import sys,json; print(len(json.load(sys.stdin)[\"result\"][\"tools\"]))'); [ \"\$n\" = '5' ]"
+  check "mcp tools/list returns 7 tools" \
+    bash -c "n=\$(( echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}'; echo '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}'; sleep 0.3 ) | $CLI mcp 2>/dev/null | tail -1 | python3 -c 'import sys,json; print(len(json.load(sys.stdin)[\"result\"][\"tools\"]))'); [ \"\$n\" = '7' ]"
 
   check "adapt --dry-run for codex previews AGENTS.md" \
     bash -c "tmp=\$(mktemp -d); mkdir -p \$tmp/.great_cto; printf 'primary: fintech\\ncompliance: pci-dss\\n' > \$tmp/.great_cto/PROJECT.md; cd \$tmp && $CLI adapt --platform codex --dry-run 2>&1 | grep -q 'AGENTS.md'"

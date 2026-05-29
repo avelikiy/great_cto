@@ -5,6 +5,36 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.32.0 — 2026-05-29
+
+### Removed: AgentShield scanner
+
+The bundled AgentShield static scanner has been fully removed. It was an
+AI-security pattern scanner (OWASP LLM Top 10) that shipped its own CLI
+commands, MCP tools, rule files, and SARIF/JUnit output. Pre-implementation
+threat modelling is now owned entirely by the `ai-security-reviewer` agent,
+which is a better fit for the gated-pipeline model.
+
+**Breaking — removed CLI surface:**
+- `great-cto scan` command (+ `--severity` / `--scanner` flags)
+- `great-cto list-rules` command
+- `scan` and `list_rules` MCP tools (MCP now exposes **7 tools**:
+  `detect_archetype`, `estimate_cost`, `query_decisions`, `project_status`,
+  `cost_summary`, `pipeline_stages`, `recent_verdicts`)
+- The `~/.great_cto/guardrails.yml` file is no longer created on bootstrap
+- `agentshield-rules/` rule files dropped from the published npm package
+
+**`great-cto ci` survives** — the command now runs archetype-drift and
+budget checks only (`--no-archetype` / `--no-budget` to skip). Existing CI
+pipelines keep working but no longer fail on security findings.
+
+**Unchanged:** the `secret-scan` pre-commit hook is a separate subsystem and
+is unaffected. Per-file opt-out remains `// great_cto:allow-secrets`; the
+whole hook honours `GREAT_CTO_DISABLE_SECRET_SCAN=1`.
+
+---
+
+
 ## v2.31.0 — 2026-05-29
 
 ### Opus 4.8 upgrade

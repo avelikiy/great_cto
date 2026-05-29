@@ -119,34 +119,26 @@ Then for each confirmed threat (Signal ≥ 2):
 
 ### Step 2: AI-specific deep dives
 
-#### Static scan via agentshield (always run, fast)
+#### Quick pattern pass (always run, fast)
 
-Before manual review, run the integrated AI-security scanner to catch
-low-hanging fruit (prompt injection, secrets in prompts, SSRF, RAG poisoning,
-cost-runaway). Built into the great-cto CLI:
+Before manual review, do a fast grep-based sweep for the obvious OWASP LLM
+Top 10 footguns. These are starting points, not a substitute for the manual
+review below — your job is to catch what regex can't.
 
 ```bash
-# One-liner — runs OWASP LLM Top 10 patterns + 24 rules
-npx -y great-cto scan ./ --severity high --json > /tmp/agentshield.json 2>/dev/null
+# Secrets / API keys embedded near prompt construction
+grep -rnE "(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|api[_-]?key\s*[:=])" --include='*.{ts,js,py,go}' ./ | head
 
-# Findings per scanner
-jq -r '.findings | group_by(.rule.scanner) | map({scanner: .[0].rule.scanner, count: length}) | .[] | "\(.scanner): \(.count)"' /tmp/agentshield.json
+# SSRF-prone fetches in tool/agent definitions (user-controlled URL → fetch)
+grep -rnE "(fetch|requests\.get|axios\.get|urllib)\(" --include='*.{ts,js,py}' ./ | head
+
+# String-concatenated prompts (injection surface) and unbounded loops (cost runaway)
+grep -rnE "(prompt\s*\+=|f\"\"\"|while\s*\(?\s*true)" --include='*.{ts,js,py}' ./ | head
 ```
 
-For every CRITICAL or HIGH finding, write a corresponding entry in TM-{slug}.md
-(threat model). Cite the rule id (e.g. `PI-001`) and file:line. Use these as
-**inputs** to the manual review below — the static scan catches obvious patterns;
-your job is to catch what regex-based scanners miss.
-
-Emit SARIF for GitHub Code Scanning + audit attachment:
-```bash
-npx -y great-cto scan ./ --sarif docs/security/agentshield-{slug}.sarif
-```
-
-Also useful: list the rule catalog so you know what's been auto-checked:
-```bash
-npx -y great-cto list-rules
-```
+For every confirmed CRITICAL or HIGH issue, write a corresponding entry in
+TM-{slug}.md (threat model), citing file:line. Use these as **inputs** to the
+manual review below.
 
 #### Prompt-injection inventory (always run)
 
