@@ -222,22 +222,39 @@ for (const fixture of fixtures) {
 
 // ── Standalone checks: pack registry completeness ────────────────────────────
 console.log(`${C.bold}${C.cyan}━━ Pack registry completeness${C.reset}`);
+const EXPECTED_PACK_COUNT = 11;
 const allPacks = listPacks();
 console.log(`  ${ok(`listPacks() returns ${allPacks.length} packs`)} ${dim(allPacks.join(', '))}`);
 totalAssertions++;
-if (allPacks.length !== 10) { totalFailures++; }
+if (allPacks.length !== EXPECTED_PACK_COUNT) {
+  console.log(`  ${fail(`expected ${EXPECTED_PACK_COUNT} packs, got ${allPacks.length}`)}`);
+  totalFailures++;
+}
 
-// Every pack must have ≥1 fixture or be documented why not
+// Every pack must have ≥1 fixture OR be on the documented-exception allowlist.
+// digital-health-pack is registered (reviewers + overlay) but not yet fully
+// wired: its gates are not in ARCHETYPES.md and it has no EVAL suite, so a
+// fixture would assert against artifacts that don't exist yet. Tracked as a
+// pending feature-completion task; remove from this set once wired.
+const PACKS_WITHOUT_FIXTURES = new Set(['digital-health-pack']);
 const fixturePacks = new Set();
 for (const f of fixtures) {
   const ej = JSON.parse(readFileSync(join(FIXTURES, f, 'expected.json'), 'utf-8'));
   for (const p of ej.packs ?? []) fixturePacks.add(p);
 }
-const uncoveredPacks = allPacks.filter((p) => !fixturePacks.has(p));
+const uncoveredPacks = allPacks.filter(
+  (p) => !fixturePacks.has(p) && !PACKS_WITHOUT_FIXTURES.has(p),
+);
+const allowlistedUncovered = allPacks.filter(
+  (p) => !fixturePacks.has(p) && PACKS_WITHOUT_FIXTURES.has(p),
+);
+if (allowlistedUncovered.length) {
+  console.log(`  ${warn(`packs without fixtures (allowlisted, pending wiring): ${allowlistedUncovered.join(', ')}`)}`);
+}
 if (uncoveredPacks.length) {
-  console.log(`  ${warn(`packs without fixtures: ${uncoveredPacks.join(', ')}`)}`);
+  console.log(`  ${fail(`packs without fixtures: ${uncoveredPacks.join(', ')}`)}`);
 } else {
-  console.log(`  ${ok('every pack has ≥1 fixture')}`);
+  console.log(`  ${ok('every pack has a fixture or documented exception')}`);
 }
 totalAssertions++;
 if (uncoveredPacks.length > 0) {
