@@ -171,6 +171,7 @@ for (const fixture of fixtures) {
     'em-fintech-pack': ['TM-emfin'],
     'climate-pack': ['TM-climate', 'TM-biosec'],
     'drug-discovery-pack': ['TM-drugml', 'TM-glp', 'TM-labauto'],
+    'digital-health-pack': ['TM-digital-health'],
   };
   for (const pm of matched) {
     for (const tmSlug of (PACK_TM_MAP[pm.pack] || [])) {
@@ -232,11 +233,8 @@ if (allPacks.length !== EXPECTED_PACK_COUNT) {
 }
 
 // Every pack must have ≥1 fixture OR be on the documented-exception allowlist.
-// digital-health-pack is registered (reviewers + overlay) but not yet fully
-// wired: its gates are not in ARCHETYPES.md and it has no EVAL suite, so a
-// fixture would assert against artifacts that don't exist yet. Tracked as a
-// pending feature-completion task; remove from this set once wired.
-const PACKS_WITHOUT_FIXTURES = new Set(['digital-health-pack']);
+// Empty = every registered pack is exercised by at least one fixture.
+const PACKS_WITHOUT_FIXTURES = new Set();
 const fixturePacks = new Set();
 for (const f of fixtures) {
   const ej = JSON.parse(readFileSync(join(FIXTURES, f, 'expected.json'), 'utf-8'));

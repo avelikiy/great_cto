@@ -277,6 +277,34 @@ If SaMD path: block on `gate:samd-class` until regulatory lead confirms classifi
 If HITL physician workflow: block on `gate:hitl-design` until architect + clinical lead approve HITL SLA + escalation path.
 Standard: block on `gate:ship` until security-officer signs off.
 
+### 7. Sign off
+
+```yaml
+<!-- HANDOFF -->
+digital-health-reviewer-verdict: signed-off | blocked
+wellness-vs-samd: general-wellness | samd-class-I | samd-class-II+ | undetermined
+critical-findings: <count>
+must-implement-before-senior-dev:
+  - Intended-use statement (general-wellness vs SaMD) in product spec
+  - Zero-PHI-to-LLM aggregation layer for raw sensor data
+  - HITL risk classifier (LOW/MEDIUM/HIGH/CRITICAL) + physician review SLAs
+  - Drug-supplement interaction check + NIH dose-limit guard
+  - Mental-health crisis escalation path (if behavioural-health component)
+  - Wearable API permission justification (minimum-necessary per data type)
+  - GDPR Art. 9 explicit consent + consent-revocation deletion path
+human-gates:
+  - gate:wellness-vs-samd       # regulatory lead confirms classification
+  - gate:hitl-design            # architect + clinical lead approve HITL SLA
+  - gate:wearable-api-access    # product lead confirms platform agreements
+  - gate:supplement-safety      # drug-interaction + dose guard implemented
+  - gate:mental-health-protocol # crisis escalation tested (if applicable)
+  - gate:samd-class             # if SaMD classification ≥ Class II
+  - gate:ship                   # security-officer + HIPAA/PHI verification
+fda-handoff: yes (SaMD ≥ Class II) | no
+clinical-handoff: yes (SaMD signal) | no
+healthcare-handoff: yes (HIPAA / PHI scope) | no
+```
+
 ---
 
 ## Quick-check: Wearable Integration Patterns

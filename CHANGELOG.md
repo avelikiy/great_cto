@@ -5,6 +5,36 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.33.0 — 2026-05-29
+
+### Fixed: digital-health-pack was non-functional + fully wired it
+
+`digital-health-pack` (Wave 4) was registered in the pack registry but only
+half-wired, so it could never actually auto-attach:
+
+- **Detection bug (user-facing):** `detect.ts` `mineReadmeKeywords` only emitted
+  Wave 1-3 pack-trigger terms, so none of digital-health's keywords (wearable,
+  HRV, HealthKit, mental health, supplement AI, physician HITL, RPM, …) were
+  ever surfaced — the pack was undetectable from any README. Added all Wave 4
+  terms, kept in sync with `packs.ts` SIGNALS.keywords.
+- **Gates:** registered the 5 pack gates (`gate:wellness-vs-samd`,
+  `gate:hitl-design`, `gate:wearable-api-access`, `gate:supplement-safety`,
+  `gate:mental-health-protocol`) in `ARCHETYPES.md` Domain Overlays + the
+  human-gate summary (corrected the stale "13 gates / Wave 1-3" labels).
+- **Reviewers:** added the missing `<!-- HANDOFF -->` block to
+  `digital-health-reviewer`; added `applies_to` + HANDOFF to
+  `healthcare-reviewer`.
+- **Threat model:** new `TM-digital-health.md` template.
+- **EVAL:** added `EVAL-digital-health-hitl-boundary`,
+  `EVAL-digital-health-supplement-safety`,
+  `EVAL-digital-health-mental-health-crisis`.
+- **Test coverage:** new `digital-health-wearable` e2e fixture; removed the
+  pack from the packs-e2e documented-exception allowlist. Every registered
+  pack now has a fixture (11/11), packs-e2e 531/531 assertions pass.
+
+---
+
+
 ## v2.32.0 — 2026-05-29
 
 ### Removed: AgentShield scanner
