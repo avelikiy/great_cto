@@ -235,17 +235,36 @@ issue, tracked apart from this ADR.
 
 ## Phased rollout
 
-1. **Phase 0 (now):** manual DCDSV remains the default. This ADR + a
-   `dynamic-workflows` capability note in `coordinator.md` documenting the
-   mapping. No behavior change.
-2. **Phase 1 (opt-in):** when `HOST=claude-code` **and** workflows are
-   enabled **and** the CTO says "workflow", the coordinator generates the
-   DISPATCH script from the WPL instead of hand-dispatching. Manual DCDSV is
-   the fallback on every other host or when disabled.
-3. **Phase 2 (template):** extract great_cto's invariants
-   (`assertDisjoint`, 3-state `accept()`, model-tier routing) into a saved,
-   reusable workflow under `.claude/workflows/great-cto-large-dispatch` so the
-   safety rules are not re-derived per run.
+1. **Phase 0 (now):** manual DCDSV remains the default. This ADR documents the
+   validated mapping. No behavior change.
+2. **Phase 2 (template) — do this FIRST when revisiting:** extract great_cto's
+   invariants (`assertDisjoint`, 3-state verify, model-tier routing, WPL inlined
+   as a literal — never via `args`) into a saved, reusable workflow under
+   `.claude/workflows/great-cto-large-dispatch`. A vetted template beats per-run
+   generation, which the validation proved error-prone.
+3. **Phase 1 (wiring) — only if the template proves out:** when
+   `HOST=claude-code` **and** workflows are enabled **and** the CTO says
+   "workflow", the coordinator invokes the vetted template with the WPL instead
+   of hand-dispatching. Manual DCDSV is the fallback on every other host or when
+   disabled.
+
+### Decision (2026-05-29): stay at Phase 0; defer Phase 1 + Phase 2 until GA
+
+After validation, the explicit decision is to **stop at Phase 0** and build no
+orchestration code yet. Rationale:
+
+- Dynamic workflows are **research preview** — the `agent()`/`parallel()`/`meta`
+  surface may shift; any wiring or template written now is rework debt.
+- The validation showed per-run *generated* scripts are error-prone (2/6
+  correct, `args` gotcha, criterion bug). Productionizing generation into the
+  coordinator would entrench that fragility before a vetted template exists.
+- Cross-AI cost (two execution paths) and concurrent repo churn argue against a
+  coordinator rewrite now.
+
+We lose nothing by waiting: the design, the validated API, and the
+verify-phase lesson are captured here. **Revisit trigger:** dynamic workflows
+exit research preview → re-verify the API in this ADR, then do Phase 2 (template)
+before Phase 1 (wiring).
 
 ## Consequences
 
