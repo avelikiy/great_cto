@@ -7,8 +7,11 @@
  *
  * Hook protocol (Claude Code):
  *   stdin:  { tool_name, file_path, content?, new_string?, edits? }
- *   stdout: nothing (silent on success)
- *   exit:   0 = allow, 2 = block (Claude Code denies the tool)
+ *   stdout: silent on success; on block, a PreToolUse hookSpecificOutput
+ *           JSON with permissionDecision="deny" + permissionDecisionReason
+ *   exit:   0 = allow, 2 = block. Exit 2 is kept as a fail-safe alongside the
+ *           structured deny so the write is blocked even on a Claude Code build
+ *           that does not parse permissionDecision.
  *
  * Patterns are intentionally conservative — false positives are far worse than
  * the rare miss, since false positives block legitimate work.
@@ -176,12 +179,23 @@ function main() {
   if (blockers.length > 0) {
     const names = [...new Set(blockers.map((f) => f.name))].join(', ');
     logEvent('block', filePath, blockers);
-    process.stderr.write(
-      `[great_cto:secret-scan] BLOCKED — detected: ${names}\n` +
-      `  file: ${filePath || '(unknown)'}\n` +
-      `  Move secret to env var or .env (gitignored), or opt out with\n` +
-      `  GREAT_CTO_DISABLE_SECRET_SCAN=1 / "# great_cto:allow-secrets" comment.\n`
-    );
+    const reason =
+      `detected ${names} in ${filePath || '(unknown)'}. ` +
+      `Move the secret to an env var or a gitignored .env file, or opt out with ` +
+      `GREAT_CTO_DISABLE_SECRET_SCAN=1 or a "# great_cto:allow-secrets" comment.`;
+    // Structured decision (Claude Code ≥ 2.1 PreToolUse hookSpecificOutput):
+    // surfaces `reason` to the model/user in a structured way. We ALSO exit 2
+    // below — a deliberate fail-safe so the write is blocked even on a Claude
+    // Code build that ignores permissionDecision. Both signals say "deny", so
+    // they can never disagree.
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: `great_cto secret-scan blocked the write — ${reason}`,
+      },
+    }) + '\n');
+    process.stderr.write(`[great_cto:secret-scan] BLOCKED — ${reason}\n`);
     return process.exit(2);
   }
 

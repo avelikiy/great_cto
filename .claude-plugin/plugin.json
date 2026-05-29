@@ -138,17 +138,20 @@
           {
             "type": "command",
             "command": "INPUT=$(cat 2>/dev/null); FILE=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))\" 2>/dev/null); TOOL=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))\" 2>/dev/null); if [ -n \"$FILE\" ]; then mkdir -p .great_cto 2>/dev/null; printf '%s %s %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$TOOL\" \"$FILE\" >> .great_cto/agent-writes.log 2>/dev/null; fi; true",
-            "timeout": 3
+            "timeout": 3,
+            "async": true
           },
           {
             "type": "command",
             "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/format-check.mjs\" 2>/dev/null; true",
-            "timeout": 12
+            "timeout": 12,
+            "async": true
           },
           {
             "type": "command",
             "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/summary-enforce.mjs\" 2>/dev/null; true",
-            "timeout": 5
+            "timeout": 5,
+            "async": true
           }
         ]
       },
@@ -159,7 +162,8 @@
             "type": "command",
             "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/tool-failure.mjs\" 2>/dev/null || true",
             "timeout": 3,
-            "statusMessage": "Capturing tool failure..."
+            "statusMessage": "Capturing tool failure...",
+            "async": true
           }
         ]
       }
