@@ -142,7 +142,7 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 | Open source | ✅ MIT | ❌ closed | ❌ closed plugin model |
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | BYOK / multi-model | ✅ Claude Code | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **57** (architect · PM · 12-angle review · QA · security · devops · 30 archetype reviewers · 16 domain packs) | 1 generalist | 1 generalist |
+| Specialist agents | **57** (architect · PM · 12-angle review · QA · security · devops · 42 reviewers across archetypes, packs & jurisdictions) | 1 generalist | 1 generalist |
 | SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
 | Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
@@ -228,7 +228,7 @@ Each archetype activates its own specialist agents and compliance checklists. To
 
 Full table (25 archetypes) + how detection works: [docs/ARCHETYPES.md](docs/ARCHETYPES.md).
 
-## 16 domain packs — overlay reviewers
+## 11 domain packs — overlay reviewers
 
 Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-specific signals (deps, README terms). Each pack adds its own reviewer(s), threat-model template, EVAL suite, and human gates — independent of base archetype.
 
@@ -236,11 +236,11 @@ Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-
 |---|---|
 | **AI verticals** | `voice-pack` · `clinical-pack` · `hr-ai-pack` · `drug-discovery-pack` |
 | **Digital health** | `digital-health-pack` _(wearable telemetry · mental-health AI · nutrition AI · physician HITL)_ |
-| **Fintech / regulated** | `lending-pack` · `em-fintech-pack` · `insurance-pack` · `enterprise-pack` |
-| **High-compliance** | `clinical-trials-pack` · `gov-pack` · `edtech-pack` · `climate-pack` |
-| **Engineering** | `api-platform-pack` · `robotics-pack` · `game-pack` |
+| **Fintech / regulated** | `lending-pack` · `em-fintech-pack` |
+| **High-compliance** | `clinical-trials-pack` · `climate-pack` |
+| **Engineering** | `api-platform-pack` · `robotics-pack` |
 
-→ **27 human-gate types** + 50+ reference EVAL suites + 20 TM templates. Browse all 16 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
+→ **24 human-gate types** + 46 reference EVAL suites. Browse all 11 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
 
 ## One real run, fully traced
 
@@ -263,11 +263,11 @@ Drop into any GitHub Actions workflow:
 
 ## Test pyramid
 
-Layered test suite — **structural + state-machine tier runs in <2 min for $0** (`node --test tests/*.test.mjs`); real-LLM tier (25 archetypes × 4-8 stages + 15 packs + 9 reviewers) runs on-demand via OpenRouter for ~$5–10. Full breakdown: [docs/testing/](docs/testing/).
+Layered test suite — **structural + state-machine tier runs in <2 min for $0** (`node --test tests/*.test.mjs`); real-LLM tier (25 archetypes × 4-8 stages + 11 packs + 9 reviewers) runs on-demand via OpenRouter for ~$5–10. Full breakdown: [docs/testing/](docs/testing/).
 
 ## MCP
 
-Native [MCP](https://modelcontextprotocol.io/) server — call great_cto's tools (`scan`, `list_rules`, `detect_archetype`, `estimate_cost`, `query_decisions`) from Claude Desktop or any MCP host:
+Native [MCP](https://modelcontextprotocol.io/) server — **9 tools** callable from Claude Desktop or any MCP host. Local (no board needed): `scan` · `list_rules` · `detect_archetype` · `estimate_cost` · `query_decisions`. Board-backed: `project_status` · `cost_summary` · `pipeline_stages` · `recent_verdicts`.
 
 ```json
 { "mcpServers": { "great-cto": { "command": "npx", "args": ["-y", "great-cto@latest", "mcp"] } } }
@@ -311,7 +311,7 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 50 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 57 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
