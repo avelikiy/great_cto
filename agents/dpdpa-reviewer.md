@@ -7,6 +7,7 @@ description: |
   consent obligations, Data Fiduciary duties, Data Principal rights,
   cross-border transfer restrictions, and RBI data localisation for fintech.
 model: sonnet
+tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 applies_to: [ai-system, agent-product, enterprise-saas, fintech, mobile-app]
 triggers:
   - jurisdiction: in

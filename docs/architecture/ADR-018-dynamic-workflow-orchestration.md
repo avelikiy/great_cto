@@ -1,6 +1,6 @@
 # ADR-018 — Dynamic-workflow orchestration for the coordinator
 
-**Status:** Proposed
+**Status:** Accepted (mapping validated against live runtime — Claude Code v2.1.156)
 **Date:** 2026-05-29
 **Deciders:** great_cto core
 **Related:** ADR-002 (model-tier policy), coordinator agent (DCDSV lifecycle), `shared/orchestrator.toml`
@@ -92,44 +92,60 @@ truth; the workflow is one of two ways to *execute* a DISPATCH.
 The existing Work Packet List table is the generation spec. Each column maps
 to a script construct:
 
-| WPL column | Script construct |
+| WPL column | Script construct (**real API**, validated 2026-05-29) |
 |---|---|
-| `Class` (Research / Implementation / Verification) | **phase** the spawn belongs to (research → implement → verify ordering) |
-| `Owned files` | a `writeZone` argument the script asserts is disjoint before the implement phase; overlap → serialize |
-| `Depends on` | `await` ordering — a packet's spawn is gated on its dependency's resolved result |
-| `Agent` (subagent_type) | the subagent `type` passed to the spawn call |
-| `Acceptance criterion` | a **verify-phase** agent whose result must satisfy the criterion (3-state `acceptance`) |
+| `Class` (Research / Implementation / Verification) | `phase(title)` group + a matching `meta.phases[]` entry |
+| `Owned files` | an author-written `assertDisjoint(zones)` JS check run before the implement stage; overlap → serialize. **Not** a runtime guarantee — the script enforces it. |
+| `Depends on` | `await` ordering, or `pipeline(items, stageA, stageB)` for per-item chains without a barrier |
+| `Agent` (subagent_type) | `agent(prompt, { agentType })` — note the option is **`agentType`**, not `type` |
+| `Acceptance criterion` | a verify-stage `agent(..., { schema })` whose StructuredOutput must satisfy the criterion (3-state `acceptance`) |
 
-Generated shape (illustrative — exact runtime API names are pinned by the
-Claude Code version at generation time, not by this ADR):
+Generated shape (**validated against the live runtime** — these are the real
+function names, confirmed by running the audit workflow in the Validation
+section below):
 
 ```javascript
-// Generated from: Decomposition Matrix + WPL for "<feature>"
+export const meta = {                         // required, pure literal
+  name: 'large-dispatch-<feature>',
+  description: '<one line>',
+  phases: [{ title: 'Research' }, { title: 'Implement' }, { title: 'Verify' }],
+}
 // great_cto invariants encoded as code, not trusted to the runtime:
-//   - strict_file_ownership: writeZones asserted disjoint before implement
-//   - three_state_completion: every packet checked for event+artifact+acceptance
-//   - model-tier policy (ADR-002): cheap stages routed to haiku/sonnet
+//   - strict_file_ownership: assertDisjoint() before implement (author-written)
+//   - three_state_completion: verify stage checks event+artifact+acceptance
+//   - model-tier policy (ADR-002): cheap stages routed via the `model` opt
 
-const research = await Promise.all([
-  spawn({ type: "Explore",  prompt: WPL[1].brief, model: "haiku" }),
-  spawn({ type: "Explore",  prompt: WPL[2].brief, model: "haiku" }),
-]);
+phase('Research')
+const research = await parallel([
+  () => agent(WPL[1].brief, { agentType: 'Explore', model: 'haiku', phase: 'Research' }),
+  () => agent(WPL[2].brief, { agentType: 'Explore', model: 'haiku', phase: 'Research' }),
+])
 
-assertDisjoint([WPL[3].writeZone, WPL[4].writeZone]);   // ownership gate
+assertDisjoint([WPL[3].writeZone, WPL[4].writeZone])   // ownership gate (plain JS)
 
-const impl = await Promise.all([
-  spawn({ type: "senior-dev", prompt: brief(WPL[3], research), model: "sonnet" }),
-  spawn({ type: "senior-dev", prompt: brief(WPL[4], research), model: "sonnet" }),
-]);
+phase('Implement')
+const impl = await parallel([
+  () => agent(brief(WPL[3], research), { agentType: 'senior-dev', model: 'sonnet', phase: 'Implement' }),
+  () => agent(brief(WPL[4], research), { agentType: 'senior-dev', model: 'sonnet', phase: 'Implement' }),
+])
 
-// Verification phase = 3-state completion + adversarial cross-check
-const verify = await Promise.all([
-  spawn({ type: "qa-engineer",      prompt: accept(WPL[5], impl), model: "haiku"  }),
-  spawn({ type: "security-officer", prompt: accept(WPL[6], impl), model: "sonnet" }),
-]);
+phase('Verify')                                // 3-state + adversarial cross-check
+const verify = await parallel([
+  () => agent(accept(WPL[5], impl), { agentType: 'qa-engineer',      model: 'haiku',  schema: VERDICT, phase: 'Verify' }),
+  () => agent(accept(WPL[6], impl), { agentType: 'security-officer', model: 'sonnet', schema: VERDICT, phase: 'Verify' }),
+])
 
-return synthesize(research, impl, verify);   // only this returns to context
+return synthesize(research, impl, verify)      // only this returns to context
 ```
+
+**API corrections vs the original draft** (now folded in above):
+- The spawner is **`agent(prompt, opts)`**, not `spawn({...})`. Prompt is the
+  first positional arg; `agentType`/`model`/`schema`/`label`/`phase` are opts.
+- Parallelism uses **`parallel(thunks[])`** (barrier) or **`pipeline(items, …stages)`**
+  (no barrier) — not raw `Promise.all`. Thunks are `() => agent(...)`, not bare promises.
+- A **`meta`** export (pure literal) is mandatory and declares the phases.
+- Structured results come from the **`schema`** opt (forces a StructuredOutput
+  tool call); the validated object is returned directly — no parsing.
 
 ### How each `orchestrator.toml` rule is preserved
 
@@ -164,33 +180,58 @@ with a self-contained report, and each segment is independently resumable.
 - Does **not** move Beads tracking into the script (runtime has no shell).
   Beads lifecycle stays in the wrapping conversation.
 
-## Validation status
+## Validation status — VALIDATED (2026-05-29)
 
-This ADR's central claim — that the WPL maps 1:1 to the orchestration-script
-API — has **not yet been validated against a live run**. The exact spawn/await
-API names are deliberately unpinned until confirmed by `View raw script` on a
-real workflow.
+The WPL→script mapping was validated by running a real dynamic workflow on
+great_cto itself (Claude Code v2.1.156, Opus 4.8 session). The workflow audited
+all 57 `agents/*.md` files for three frontmatter criteria across **6 parallel
+haiku subagents** with structured output.
 
-**Blocker (2026-05-29):** dynamic workflows require **Claude Code ≥ v2.1.154**.
-The validation environment is on **v2.1.114**, so the runtime is absent and the
-`workflow` keyword does not trigger. The feature is also **user-initiated** —
-the keyword trigger and `/effort ultracode` are session-input-level, so an
-agent cannot self-trigger a run; a human must launch the validation prompt.
+**Run evidence:** 6 agents · 633K subagent tokens · 64 tool calls · 16.1s
+wall-clock · returned a validated `{count, violations[]}` object straight to
+context. The runtime, per-stage `model: 'haiku'` routing, `parallel()` barrier,
+`phase()` grouping, and `schema` StructuredOutput all worked as the mapping
+predicted. Real API names are folded into the script example above.
 
-**Validation recipe (run once on v2.1.154+):** this doubles as real cleanup —
-great_cto's lint currently reports 7 errors (FM-002/FM-004) in
-`dpdpa-reviewer`, `gdpr-reviewer`, `us-privacy-reviewer`, `coordinator`.
+### Two runtime gotchas worth pinning
 
-```text
-Run a workflow to audit every file in agents/ for: (1) advisor-model drift
-off claude-opus-4-8, (2) missing `tools` frontmatter field, (3) description
-shorter than 20 chars. Report a table of file → violations.
-```
+1. **`args` arrives as a string.** Passing an array via the Workflow `args`
+   field serialized it to a string; `files.slice()` then returned a string and
+   `batch.map` threw `TypeError: batch.map is not a function` (run failed in
+   19 ms, 0 agents). **Fix:** embed the work-list as a script literal, or
+   `JSON.parse(args)` defensively. great_cto's generated scripts must **not**
+   pass the WPL through `args` — inline it.
+2. **`agent()` not `spawn()`**, **`agentType` not `type`**, thunks not promises.
+   See the API-corrections list above.
 
-At the approval prompt choose **View raw script** (or `Ctrl+G`), then record in
-this ADR: the real spawn function name, how subagent type+prompt+model are
-passed, and how results are awaited/collected. Only then move Status
-`Proposed → Accepted`.
+### The validation also proved *why* the verify phase is mandatory
+
+The single-pass haiku audit returned 6 findings. Ground-truth `grep` (acting as
+the verify phase) showed only **2 were correct**:
+
+| Workflow finding | Truth | Failure mode |
+|---|---|---|
+| devops advisor = sonnet-4-6 | ❌ false positive | intentional sonnet advisor; criterion conflated "≠ opus-4-8" with "drift" |
+| qa-engineer advisor = sonnet-4-6 | ❌ false positive | same |
+| l3-support description < 20 chars | ❌ false positive | haiku miscount (its own `detail` admitted confusion) |
+| knowledge-extractor missing tools | ❌ false positive | has `allowed-tools`; criterion mis-read |
+| **dpdpa-reviewer missing tools** | ✅ true | — |
+| **us-privacy-reviewer missing tools** | ✅ true | — |
+| gdpr-reviewer missing tools | ⚠️ **false negative** | genuinely missing; the batch agent skipped it |
+
+**4 false positives + 1 false negative out of 6.** A cheap single-pass fan-out
+over-flags and misses. This is direct empirical support for the ADR's core
+design choice: the verify phase (adversarial cross-check / independent
+ground-truth) is **not optional** — it is what converts a noisy fan-out into a
+trustworthy result. great_cto's generated scripts MUST include it, and
+criterion design must target the *exact* drift value (e.g. `claude-opus-4-7`),
+not a negation (`≠ claude-opus-4-8`), to avoid flagging intentional choices.
+
+**Real findings actioned:** `tools:` field added to `dpdpa-reviewer`,
+`gdpr-reviewer`, `us-privacy-reviewer` (FM-004). Remaining lint noise
+(`coordinator` uses `allowed-tools`; 3 privacy reviewers use a `description: |`
+block scalar the linter mis-parses as FM-002) is a separate linter-parser
+issue, tracked apart from this ADR.
 
 ## Phased rollout
 
@@ -220,9 +261,11 @@ passed, and how results are awaited/collected. Only then move Status
   substantiveness/explicit-gate reviewer patterns (v2.29.0).
 
 ### Negative / risks
-- **Research-preview dependency** — API surface may change; this ADR pins the
-  *mapping*, not exact function names. Status stays **Proposed** until the
-  feature leaves preview.
+- **Research-preview dependency** — the mapping and the real API names are now
+  validated (see Validation status), but the feature is still in research
+  preview, so the `agent()`/`parallel()`/`meta` surface may shift. Accepted
+  **with that caveat**; re-verify the script example when the feature exits
+  preview.
 - **Cross-AI divergence** — Codex/Cursor users get manual DCDSV only. Two
   code paths to maintain. Mitigated by keeping DCDSV as the canonical spec.
 - **Prompt-injection blast radius** — Opus 4.8 regressed on agentic
