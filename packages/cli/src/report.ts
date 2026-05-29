@@ -65,9 +65,13 @@ function readAllVerdicts(): VerdictRow[] {
 }
 
 function periodToCutoff(period: string): string {
+  // "all" intentionally returns "" → every verdict passes the `ts >= cutoff`
+  // filter (no lower bound).
+  if (period === "all") return "";
+  // Malformed input (e.g. "30" without the "d", "1w") must NOT silently fall
+  // through to all-time — fall back to the documented 30d default instead.
   const m = period.match(/^(\d+)d$/);
-  if (!m) return "";
-  const days = parseInt(m[1]!, 10);
+  const days = m ? parseInt(m[1]!, 10) : 30;
   return new Date(Date.now() - days * 86_400_000).toISOString();
 }
 
