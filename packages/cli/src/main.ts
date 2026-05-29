@@ -932,8 +932,11 @@ async function main(): Promise<void> {
   if (args.command === "serve") {
     try {
       const { runServe } = await import("./serve.js");
+      const explicitPort = rawArgv.some((a) => a === "--port" || a.startsWith("--port="));
       const code = await runServe({
-        port: args.boardPort === 3141 ? 3142 : args.boardPort,
+        // serve defaults to 3142 (board uses 3141). Honor an explicit --port
+        // of any value, including 3141 — only fall back to 3142 when unset.
+        port: explicitPort ? args.boardPort : 3142,
         noLog: rawArgv.includes("--no-log"),
         insecure: rawArgv.includes("--insecure"),
       });

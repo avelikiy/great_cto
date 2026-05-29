@@ -62,7 +62,10 @@ function isAlreadyInstalled(name: string): string | null {
   if (!existsSync(base)) return null;
   try {
     const versions = readdirSync(base).filter((v) => /\S/.test(v));
-    return versions.length > 0 ? versions[0]! : null;
+    if (versions.length === 0) return null;
+    // Return the highest version, not filesystem order — matches
+    // upgrade.ts/installer.ts which both sort before picking.
+    return versions.sort(semverDescending)[0]!;
   } catch {
     return null;
   }

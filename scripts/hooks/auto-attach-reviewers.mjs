@@ -21,7 +21,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const cwd = process.cwd();
@@ -105,7 +105,6 @@ function recentlyInvokedReviewers() {
   try {
     const verdictDir = join(process.env.HOME || "~", ".great_cto", "verdicts");
     if (!existsSync(verdictDir)) return new Set();
-    const { readdirSync, readFileSync, statSync } = require("node:fs");
     const day24Ago = Date.now() - 24 * 3600 * 1000;
     const seen = new Set();
     for (const f of readdirSync(verdictDir)) {

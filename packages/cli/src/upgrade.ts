@@ -48,6 +48,21 @@ export async function upgradePlugin(plugin: CompanionPlugin): Promise<UpgradeRes
 
   const currentVersion = getInstalledVersion(name);
   const latestTag = detectLatestTag(repoUrl);
+
+  // Could not reach the remote (offline / rate-limited / git error).
+  // If we already have a working install, keep it — never delete a good
+  // version because of a transient network failure (upgrade is documented
+  // as idempotent and safe to run any time).
+  if (latestTag === null && currentVersion) {
+    return {
+      name,
+      status: "skipped",
+      fromVersion: currentVersion,
+      toVersion: currentVersion,
+      reason: "could not reach remote to check latest version — kept existing install",
+    };
+  }
+
   const latestVersion = latestTag ?? "main";
 
   // Already on latest — just re-apply overlays in case they were missing
