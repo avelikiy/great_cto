@@ -5,6 +5,35 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.33.1 — 2026-05-29
+
+### Fixed: 3 SessionStart config bugs in plugin.json
+
+Closes the remaining 3 bug-hunt findings that were tracked in
+`docs/PENDING-v2.32.1.md` (the other 5 — hooks + CLI — already shipped in
+v2.33.0 via commit `448ad48`). All three live in the `SessionStart` hook
+command in `.claude-plugin/plugin.json`:
+
+- **#6 — `&;` broke SessionStart under bash/sh.** Six `&;` sequences
+  (background + stray `;`) are accepted by zsh but rejected by bash/sh with
+  a syntax error that aborted the *entire* hook (no agent/command sync, no
+  PROJECT/brain load). Replaced all six `&;` → `&`. `bash -n` now passes.
+- **#4 — broken model-override path.** `bash "\/scripts/apply-model-override.sh"`
+  (stray backslash, missing `${PLUGIN_DIR}`) never resolved, so
+  `~/.great_cto/config: agent-model` was silently ignored. Fixed to
+  `"${PLUGIN_DIR}/scripts/apply-model-override.sh"`.
+- **#2 — 5 routed agents never synced.** `gdpr-reviewer`,
+  `us-privacy-reviewer`, `dpdpa-reviewer`, `digital-health-reviewer`, and
+  `coordinator` were absent from the agent copy-list, so they were never
+  written to `~/.claude/agents/` and dispatch silently failed. Appended them.
+
+This completes the v2.32.0 bug-hunt (9 findings, all verified and closed).
+Version files re-synced together (plugin.json + package.json + jsr.json) —
+the original v2.32.0 drift came from a partial bump.
+
+---
+
+
 ## v2.33.0 — 2026-05-29
 
 ### Fixed: digital-health-pack was non-functional + fully wired it
