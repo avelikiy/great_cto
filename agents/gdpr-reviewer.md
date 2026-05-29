@@ -7,6 +7,7 @@ description: |
   GDPR Art.5/6/9/25/32/35, Data Protection Impact Assessment,
   EU AI Act risk classification, and NIS2 Article 21 controls.
 model: sonnet
+tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 applies_to: [ai-system, agent-product, regulated, enterprise-saas, healthcare, fintech]
 triggers:
   - jurisdiction: eu

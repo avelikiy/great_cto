@@ -3,10 +3,10 @@
 
 _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, set ANTHROPIC_API_KEY._
 
+- The spawner is **`agent(prompt, opts)`**, not `spawn({...})`. Prompt is the
+- Parallelism uses **`parallel(thunks[])`** (barrier) or **`pipeline(items, …stages)`**
+- A **`meta`** export (pure literal) is mandatory and declares the phases.
+- Structured results come from the **`schema`** opt (forces a StructuredOutput
 - Does **not** replace single-domain or Small/Medium pipelines — those keep
-- Does **not** auto-enable `ultracode`. Session-wide xhigh is a CTO choice,
-- Does **not** move Beads tracking into the script (runtime has no shell).
-- Context stays clean — only the final synthesis returns, not every worker's
-- Resumability — interrupted Large runs replay cached results instead of
 
 - **Full doc:** docs/architecture/ADR-018-dynamic-workflow-orchestration.md
