@@ -240,7 +240,7 @@ Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-
 | **High-compliance** | `clinical-trials-pack` · `climate-pack` |
 | **Engineering** | `api-platform-pack` · `robotics-pack` |
 
-→ **24 human-gate types** + 46 reference EVAL suites. Browse all 11 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
+→ **24 human-gate types** + 38 reference EVAL suites + 15 TM templates. Browse all 11 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
 
 ## One real run, fully traced
 
