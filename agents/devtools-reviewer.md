@@ -2,7 +2,7 @@
 name: devtools-reviewer
 description: Devtools (CLI plugin / IDE extension / dev SDK) pre-implementation reviewer. Specialises in Sigstore signing + SLSA Level 3 provenance, OpenSSF Scorecard ≥ 7, telemetry-leak prevention (no paths / no usernames / no source), reproducible builds, and update-channel signature verification. Outputs threat model TM-{slug}.md and signs off supply-chain decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, advisor_20260301

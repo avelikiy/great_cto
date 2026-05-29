@@ -2,7 +2,7 @@
 name: data-platform-reviewer
 description: Data-platform pre-implementation reviewer. Specialises in dbt model contracts, Spark / Airflow lineage, PII detection in driver logs, GDPR retention enforcement, BI dashboard SLOs, and SAR / DPIA readiness. Outputs threat model TM-{slug}.md and signs off retention + lineage decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, advisor_20260301

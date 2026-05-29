@@ -2,7 +2,7 @@
 name: lab-automation-reviewer
 description: Lab-automation / cloud-lab pre-implementation reviewer. Specialises in SiLA2 / OPC-UA device integrations, LIMS chain-of-custody, sample barcode traceability, instrument qualification (IQ/OQ/PQ), reagent lot tracking, scheduling + collision avoidance on robotic platforms, recovery from instrument errors, and protocol-language safety (Strateos / Emerald / Synthace). Outputs threat model TM-labauto-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, advisor_20260301

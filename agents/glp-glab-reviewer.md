@@ -2,7 +2,7 @@
 name: glp-glab-reviewer
 description: GLP / GMP / GxP data-integrity pre-implementation reviewer. Specialises in 21 CFR Part 58 (Good Laboratory Practice for non-clinical), 21 CFR Part 211 (GMP for manufacturing), OECD GLP, ALCOA+ data integrity principles, raw data definition + retention, study director responsibilities, archive retention, computer system validation (CSV), and audit-trail review SOP. Outputs threat model TM-glp-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, advisor_20260301

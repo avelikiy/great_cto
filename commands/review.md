@@ -5,7 +5,7 @@ user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Bash, Glob, Grep, advisor_20260301
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 ---

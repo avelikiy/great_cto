@@ -52,7 +52,7 @@ The policy is encoded in `MODEL_TIER_POLICY` in `scripts/agent-prompt-lint.mjs`
 Anthropic tier pricing per 1M input tokens:
 - `haiku`  ≈ $1
 - `sonnet` ≈ $3
-- `opus`   ≈ $15
+- `opus`   ≈ $5  (Opus 4.7/4.8 rate; was $15 in the Opus 4.5 era)
 
 For a typical pipeline run (architect + pm + senior-dev + qa + security +
 devops):

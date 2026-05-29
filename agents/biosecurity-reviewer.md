@@ -2,7 +2,7 @@
 name: biosecurity-reviewer
 description: Biosecurity / dual-use research pre-implementation reviewer. Specialises in NIH DURC policy + P3CO framework, IGSC DNA-synthesis screening (Harmonized Screening Protocol v2), Australia Group export controls, Biological Weapons Convention (BWC) compliance, AI x biology dual-use risk (LLM-assisted pathogen design, gain-of-function pattern detection), and select-agent regulations (42 CFR 73). Outputs threat model TM-biosec-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301

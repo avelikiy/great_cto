@@ -2,7 +2,7 @@
 name: robotics-safety-reviewer
 description: Robotics / physical AI safety pre-implementation reviewer. Specialises in ISO 10218-1/-2 (industrial), ISO/TS 15066 (cobot force/pressure limits), ISO 13482 (service robots), IEC 61508 functional safety (SIL levels), ROS 2 DDS-security profiles, hazard analysis (HARA), e-stop verification, sim-to-real validation gap, and surgical-robot overlay with FDA 21 CFR 880 (hands off to fda-reviewer). Outputs threat model TM-robot-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301

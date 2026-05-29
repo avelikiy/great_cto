@@ -2,7 +2,7 @@
 name: emerging-markets-fintech-reviewer
 description: Emerging-markets fintech pre-implementation reviewer. Specialises in India DPDP Act 2023 + RBI tokenization + UPI rails; Nigeria NDPR + CBN; Singapore MAS PSA; Philippines BSP; Indonesia OJK; Vietnam data-localization; Brazil LGPD + PIX; Mexico CONDUSEF. Plus data-localization matrix, local-rails abstraction (UPI / PIX / M-Pesa / GCash / OVO / DANA), FX controls, sanctions screening (OFAC / EU / UN). Outputs threat model TM-emfin-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301

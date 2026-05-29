@@ -2,7 +2,7 @@
 name: ai-security-reviewer
 description: AI-specific pre-implementation threat modelling for ai-system / agent-product archetypes. Specialises in OWASP LLM Top 10 (prompt injection, output exfiltration, SSRF in tool layer, supply chain, cost runaway, cross-user isolation, model jailbreak, RAG poisoning). Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(npm:*), advisor_20260301

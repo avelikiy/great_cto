@@ -2,7 +2,7 @@
 name: firmware-reviewer
 description: IoT/embedded specialist pre-implementation reviewer. Specialises in OTA update strategy, ETSI EN 303 645 compliance, secure boot validation, hardware-in-the-loop test design, power profiling, watchdog patterns, RTOS/firmware-specific patterns (Zephyr, ESP-IDF, FreeRTOS, embassy). Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(npm:*), advisor_20260301

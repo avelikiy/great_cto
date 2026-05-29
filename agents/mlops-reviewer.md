@@ -2,7 +2,7 @@
 name: mlops-reviewer
 description: MLOps / model lifecycle pre-implementation reviewer. Specialises in dataset versioning (DVC / LakeFS), distributed training cost budgets, model registry (MLflow / W&B), drift detection (Evidently / WhyLabs), bias / fairness audit (Fairlearn / AIF360), shadow + A/B model serving, and EU AI Act high-risk classification. Outputs threat model TM-{slug}.md and signs off training-pipeline + serving-strategy decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, advisor_20260301

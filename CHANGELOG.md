@@ -5,6 +5,44 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.31.0 — 2026-05-29
+
+### Opus 4.8 upgrade
+
+Anthropic released [Claude Opus 4.8](https://www.anthropic.com/claude/opus)
+on 2026-05-28 (API id `claude-opus-4-8`). It is the new flagship for deep
+reasoning — better coding at the default effort level (similar token spend to
+Opus 4.7) and a 1M-token context window.
+
+**Model bumped `claude-opus-4-7` → `claude-opus-4-8`** in:
+- `architect` (`model:` pin) — cross-cutting reasoning + ADR generation
+- 41 reviewer/specialist agents + `commands/review.md` (`advisor-model:` pin)
+
+**Tier aliases unchanged.** Every `model: sonnet` / `model: haiku` agent keeps
+its alias and auto-resolves — only the explicitly pinned Opus references moved.
+
+**No cost change** — Opus 4.8 standard pricing is $5 in / $25 out per MTok,
+identical to Opus 4.7. (Fast mode, if used, is $10 / $50 at ~2.5× speed.)
+
+**Pricing docs corrected:** `agents/pm.md` and `ADR-002` carried a stale
+`$15 / $75` Opus rate from the Opus 4.5 era. Updated to the current `$5 / $25`
+so PM cost estimates and the model-tier policy reflect reality.
+
+**Sonnet 4.6 + Haiku 4.5 unchanged** (no new versions released).
+
+### ⚠️ Security note — prompt-injection regression
+
+Anthropic's Opus 4.8 model card reports a regression in agentic
+prompt-injection robustness: **9.6% attack-success rate vs 6.0% on Opus 4.7**
+when processing untrusted inputs. great_cto's `ai-security-reviewer` and the
+advisor escalation path both run on Opus, so when reviewing pipelines that
+feed untrusted external content into tool-calling agents, treat
+input-sandboxing and output-validation as higher priority than before. No
+code change in this release — flagged for awareness.
+
+---
+
+
 ## v2.30.0 — 2026-05-28
 
 ### Board server auto-restart on upgrade

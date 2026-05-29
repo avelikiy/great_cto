@@ -2,7 +2,7 @@
 name: cms-reviewer
 description: CMS / content-platform pre-implementation reviewer. Specialises in schema.org structured data, Core Web Vitals (LCP / INP / CLS), DMCA §512 safe-harbor workflow, UGC moderation (CSAM / NCMEC reporting / spam / hate-speech), image optimization (AVIF / WebP / responsive srcset), sitemap.xml + robots.txt + canonical hygiene, EU DSA Article 16 notice-and-action, and WCAG 2.2 AA. Outputs threat model TM-{slug}.md and signs off SEO + a11y + content-policy decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(npm:*), advisor_20260301

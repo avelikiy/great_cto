@@ -2,7 +2,7 @@
 name: enterprise-saas-reviewer
 description: B2B / enterprise-SaaS pre-implementation reviewer. Specialises in multi-tenant isolation (row-level security / schema-per-tenant / DB-per-tenant decision), SSO (SAML / OIDC / SCIM), immutable audit logs, data-residency, tier-based feature flags, admin-impersonation safety, and SOC2 Type 2 readiness. Outputs threat model TM-{slug}.md and signs off tenant-isolation decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, advisor_20260301

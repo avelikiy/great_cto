@@ -2,7 +2,7 @@
 name: drug-discovery-ml-reviewer
 description: AI / ML drug-discovery pre-implementation reviewer. Specialises in model cards for binding affinity / ADMET / toxicity prediction, retrospective validation on held-out targets, applicability-domain analysis, uncertainty quantification, dataset provenance + version pinning (ChEMBL / BindingDB / PDBbind), Tanimoto-similarity leakage detection, and wet-lab → dry-lab feedback loop discipline. Outputs threat model TM-drugml-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301

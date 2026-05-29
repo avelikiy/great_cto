@@ -137,7 +137,7 @@ const RULES = [
       if (!model) return ['frontmatter missing `model`'];
       const m = String(model).toLowerCase();
       // Accept short tier (haiku|sonnet|opus) or fully-qualified
-      // (claude-haiku-4-5, claude-sonnet-4-6, claude-opus-4-7, etc.)
+      // (claude-haiku-4-5, claude-sonnet-4-6, claude-opus-4-8, etc.)
       if (/^(haiku|sonnet|opus)$/.test(m)) return [];
       if (/^claude-(haiku|sonnet|opus)-\d+(-\d+)?$/.test(m)) return [];
       return [`model must be a known tier (haiku/sonnet/opus or claude-<tier>-N-N), got: ${model}`];
