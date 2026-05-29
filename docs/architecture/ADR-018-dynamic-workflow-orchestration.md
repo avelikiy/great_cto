@@ -164,6 +164,34 @@ with a self-contained report, and each segment is independently resumable.
 - Does **not** move Beads tracking into the script (runtime has no shell).
   Beads lifecycle stays in the wrapping conversation.
 
+## Validation status
+
+This ADR's central claim — that the WPL maps 1:1 to the orchestration-script
+API — has **not yet been validated against a live run**. The exact spawn/await
+API names are deliberately unpinned until confirmed by `View raw script` on a
+real workflow.
+
+**Blocker (2026-05-29):** dynamic workflows require **Claude Code ≥ v2.1.154**.
+The validation environment is on **v2.1.114**, so the runtime is absent and the
+`workflow` keyword does not trigger. The feature is also **user-initiated** —
+the keyword trigger and `/effort ultracode` are session-input-level, so an
+agent cannot self-trigger a run; a human must launch the validation prompt.
+
+**Validation recipe (run once on v2.1.154+):** this doubles as real cleanup —
+great_cto's lint currently reports 7 errors (FM-002/FM-004) in
+`dpdpa-reviewer`, `gdpr-reviewer`, `us-privacy-reviewer`, `coordinator`.
+
+```text
+Run a workflow to audit every file in agents/ for: (1) advisor-model drift
+off claude-opus-4-8, (2) missing `tools` frontmatter field, (3) description
+shorter than 20 chars. Report a table of file → violations.
+```
+
+At the approval prompt choose **View raw script** (or `Ctrl+G`), then record in
+this ADR: the real spawn function name, how subagent type+prompt+model are
+passed, and how results are awaited/collected. Only then move Status
+`Proposed → Accepted`.
+
 ## Phased rollout
 
 1. **Phase 0 (now):** manual DCDSV remains the default. This ADR + a
