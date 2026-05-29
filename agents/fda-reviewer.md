@@ -2,7 +2,7 @@
 name: fda-reviewer
 description: FDA / SaMD (Software as Medical Device) pre-implementation reviewer. Specialises in IMDRF SaMD classification (Class I/II/III), 510(k) vs De Novo vs PMA path selection, predicate analysis, IEC 62304 software lifecycle, ISO 14971 risk management, IEC 82304 health software, EU MDR/IVDR, and Investigational Device Exemption (IDE) gating. Outputs threat model TM-samd-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301

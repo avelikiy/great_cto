@@ -2,7 +2,7 @@
 name: game-reviewer
 description: Game / interactive-entertainment pre-implementation reviewer. Specialises in COPPA under-13 compliance, ESRB / PEGI / IARC age-rating alignment, IAP age-gates and spending limits, loot-box odds disclosure (BE / NL / DE / China), accessibility (WCAG 2.2 + game a11y guidelines), and PII-in-analytics gates. Outputs threat model TM-{slug}.md and signs off age-rating + COPPA decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(npm:*), advisor_20260301

@@ -2,7 +2,7 @@
 name: pci-reviewer
 description: Commerce-specific pre-implementation reviewer. Specialises in PCI-DSS scope reduction (SAQ-A vs SAQ-D), idempotency proof, webhook signature validation, refund/dispute flow, Strong Customer Authentication (SCA / PSD2 EU), PSP failover. Outputs threat model TM-{slug}.md and signs off scope decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(npm:*), advisor_20260301

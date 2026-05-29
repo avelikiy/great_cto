@@ -2,7 +2,7 @@
 name: bio-data-reviewer
 description: Biomedical data platform pre-implementation reviewer. Specialises in FHIR R5 / HL7 v2 conformance, OMOP CDM, OHDSI, genomics formats (VCF / BAM / CRAM / FASTQ), DICOM SR, de-identification (Safe Harbor + Expert Determination, ≤0.04 re-id risk), GA4GH Data Use Ontology, dbGaP submission, and consent-tier enforcement. Outputs threat model TM-biodata-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, advisor_20260301

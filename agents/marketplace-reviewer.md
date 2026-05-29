@@ -2,7 +2,7 @@
 name: marketplace-reviewer
 description: Two-sided marketplace pre-implementation reviewer. Specialises in Stripe Connect / Adyen MarketPay payouts, seller KYC (Persona / Onfido / Sumsub), marketplace facilitator tax (US Wayfair v. SD), 1099-K reporting, escrow / hold-and-release, dispute mediation, two-sided fee model, EU DSA + P2B Regulation compliance. Outputs threat model TM-{slug}.md and signs off payout-flow + seller-onboarding decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(npm:*), advisor_20260301

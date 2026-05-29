@@ -2,7 +2,7 @@
 name: lending-credit-reviewer
 description: Lending / consumer + SMB credit pre-implementation reviewer. Specialises in ECOA / Reg B adverse-action notices (30-day rule, ≤4 principal reasons), FCRA permissible purpose + dispute flow, NMLS state lending license matrix, Military Lending Act 36% APR cap, UDAAP, CFPB §1033 open-banking, fair-lending disparate-impact + disparate-treatment analysis. Outputs threat model TM-lending-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301

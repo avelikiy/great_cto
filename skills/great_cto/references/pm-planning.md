@@ -340,7 +340,7 @@ Minimum agents needed: 2 senior-dev + 1 qa-engineer
 **LLM time + cost breakdown:**
 | Agent | Time | Cost |
 |-------|------|------|
-| architect | ~Xmin | $X.XX (Opus 4.7) |
+| architect | ~Xmin | $X.XX (Opus 4.8) |
 | pm | ~Xmin | $X.XX (Sonnet 4.6) |
 | senior-dev (N tasks) | ~Xmin | $X.XX (Sonnet 4.6) |
 | qa-engineer | ~Xmin | $X.XX (Haiku 4.5) |

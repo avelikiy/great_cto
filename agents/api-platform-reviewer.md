@@ -2,7 +2,7 @@
 name: api-platform-reviewer
 description: API platform / dev-API pre-implementation reviewer. Specialises in rate-limit design (token-bucket / sliding-window per tier), OAuth 2.1 + PKCE scope hygiene, webhook signing (HMAC-SHA256 + replay-window + retry policy), idempotency keys, RFC 8594 Sunset header, deprecation policy ≥6 months, SLA (p50/p99/availability), API versioning strategy, and usage-metering correctness. Outputs threat model TM-api-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, advisor_20260301

@@ -2,7 +2,7 @@
 name: clinical-trials-reviewer
 description: Clinical-trial platform pre-implementation reviewer. Specialises in ICH-GCP E6(R3), 21 CFR Part 11 (electronic records + audit trail + e-signatures), CDISC SDTM/ADaM data standards, IRB workflow, informed consent versioning, AE/SAE 24h reporting, MHRA + EMA equivalents, and decentralized/virtual trial considerations. Outputs threat model TM-trial-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301

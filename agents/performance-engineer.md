@@ -2,7 +2,7 @@
 name: performance-engineer
 description: Performance specialist. Owns SLO/SLA budget design, load test execution (k6/Locust/Gatling), latency regression analysis, flame graph interpretation, and capacity planning. Runs after senior-dev, before QA. Writes docs/performance/PERF-{slug}.md. Activated when performance-sla is set in PROJECT.md, or archetype is data-platform / enterprise / commerce.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301

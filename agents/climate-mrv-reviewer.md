@@ -2,7 +2,7 @@
 name: climate-mrv-reviewer
 description: Climate measurement-reporting-verification (MRV) pre-implementation reviewer. Specialises in GHG Protocol Scope 1/2/3, ISO 14064-1/-2/-3, Verra VCS / Gold Standard / Puro.earth methodology compliance, SBTi targets, CDP disclosure, EU CBAM, EPA GHGRP, double-counting prevention, attestation signatures, and MRV data lineage. Outputs threat model TM-climate-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-7
+advisor-model: claude-opus-4-8
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, advisor_20260301

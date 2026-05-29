@@ -255,12 +255,12 @@ Present estimates as ranges: `[optimistic]–[pessimistic]` where pessimistic = 
 For each task, look up the token cost from `pm-planning.md` cost model. Apply multi-turn multiplier (2–5 turns for senior-dev tasks). Sum across all tasks for total project LLM cost.
 
 Pricing (2026 rate card, $/1M tokens — input/output):
-- **Opus 4.7**: $15 / $75
+- **Opus 4.8**: $5 / $25
 - **Sonnet 4.6**: $3 / $15
 - **Haiku 4.5**: $0.80 / $4
 
 Per-agent cost (full feature invocation, 1 run, real measured median):
-- architect (Opus): ~$2–4 per feature  (60K tokens × $15/$75 mix, ~5–10min compute)
+- architect (Opus): ~$1–2 per feature  (60K tokens × $5/$25 mix, ~5–10min compute)
 - pm (Sonnet): ~$0.30–0.60 per plan  (45K tokens, 2–3 turns)
 - senior-dev (Sonnet): ~$0.50–1.20 per task × turns  (40K tokens × 2–5 turns)
 - qa-engineer (Haiku): ~$0.05–0.15 per task × turns
@@ -456,7 +456,7 @@ Total calendar estimate:        ~<Z>h          ← compute + gate wait
 ── Cost breakdown ────────────────────────────────
                     TIME              COST
 LLM agents:         Xmin total        $X.XX – $X.XX
-  architect:        ~Xmin             $X.XX  (Opus 4.7)
+  architect:        ~Xmin             $X.XX  (Opus 4.8)
   pm:               ~Xmin             $X.XX  (Sonnet 4.6)
   senior-dev:       ~Xmin (N tasks)   $X.XX  (Sonnet 4.6 × N tasks × avg turns)
   qa-engineer:      ~Xmin             $X.XX  (Haiku 4.5)
