@@ -843,7 +843,7 @@ function mineReadmeKeywords(dir: string): string[] {
     if (terms.some((t) => text.includes(t))) kws.add(bucket);
   }
 
-  // Wave 1-3 pack-trigger raw terms — emitted verbatim so packs.ts
+  // Wave 1-4 pack-trigger raw terms — emitted verbatim so packs.ts
   // can substring-match them. Keep in sync with packs.ts SIGNALS.keywords.
   // Single tokens + multi-word phrases supported.
   const packTerms = [
@@ -888,6 +888,19 @@ function mineReadmeKeywords(dir: string): string[] {
     "glp", "gmp", "gxp", "preclinical", "lims", "eln", "annex 11", "alcoa",
     "lab automation", "robotic biology", "liquid handler", "hamilton", "tecan",
     "beckman", "opentrons", "plate reader", "sequencer", "hplc", "mass spec", "sila",
+    // digital-health-pack (Wave 4) — keep in sync with packs.ts SIGNALS.keywords
+    "wearable", "apple watch", "apple health", "healthkit", "health connect",
+    "garmin", "samsung health", "google fit", "fitbit", "heart rate", "hrv",
+    "heart rate variability", "spo2", "sleep tracking", "sleep stages",
+    "biometric sensor", "stress score", "activity tracking", "ecg wearable",
+    "mental health", "mental wellness", "wellbeing", "mindfulness ai",
+    "stress detection", "burnout detection", "mood tracking", "anxiety ai",
+    "depression ai", "phq-9", "gad-7", "digital therapeutics", "dtx",
+    "cbt app", "dbt app", "therapy ai", "personalised training",
+    "personalized training", "fitness ai", "nutrition ai",
+    "supplement recommendation", "supplement ai", "diet ai", "meal plan ai",
+    "macro ai", "physician review", "physician hitl", "doctor in the loop",
+    "clinical review workflow", "remote patient monitoring", "rpm", "teleconsultation",
   ];
   for (const term of packTerms) {
     if (text.includes(term)) kws.add(term);

@@ -240,7 +240,7 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `api-stability` | OpenAPI / GraphQL spec linting, no breaking changes in MINOR/PATCH, deprecation channel |
 | `soc2-type-2` | SOC 2 Type II: 6+ months continuous evidence collection, access reviews, change management |
 
-## Domain Overlays (Wave 1-3 specialised reviewers)
+## Domain Overlays (Wave 1-4 specialised reviewers)
 
 > Overlay packs ride on top of existing archetypes via `applies_to + applies_when` instead of creating new archetypes. Loaded automatically when ARCH or PROJECT.md mentions the trigger signals listed below.
 
@@ -256,6 +256,7 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `em-fintech-pack` | emerging-markets-fintech-reviewer | India, Nigeria, Brazil, Indonesia, Philippines, Mexico, M-Pesa, UPI, PIX, GCash, RBI, CBN, BSP, OJK, MAS | commerce, regulated, web-service | gate:license-strategy |
 | `climate-pack` | climate-mrv-reviewer + biosecurity-reviewer | carbon, GHG, MRV, Scope 1/2/3, Verra, Gold Standard, SBTi, CDP, CSRD, CBAM, OR synbio dual-use signals | data-platform, ai-system, regulated | gate:mrv-methodology, gate:durc-signoff, gate:open-weights-release |
 | `drug-discovery-pack` | drug-discovery-ml-reviewer + glp-glab-reviewer + lab-automation-reviewer | drug discovery, binding affinity, ADMET, generative chemistry/protein, AlphaFold, RFdiffusion, GLP, LIMS, ELN, lab automation | ai-system, regulated, data-platform, iot-embedded | gate:model-card-signoff, gate:csv-validation, gate:iq-oq-pq |
+| `digital-health-pack` | digital-health-reviewer + ai-clinical-reviewer + healthcare-reviewer | wearable, biometric, HealthKit, Health Connect, Garmin, Samsung Health, Fitbit, Whoop, Oura, HRV, sleep tracking, mental health AI, nutrition/supplement AI, physician HITL, RPM, DTx | ai-system, agent-product, regulated, mobile-app | gate:wellness-vs-samd, gate:hitl-design, gate:wearable-api-access, gate:supplement-safety, gate:mental-health-protocol |
 
 ### Activation logic
 
@@ -267,7 +268,7 @@ Overlays are loaded by `architect` when running discovery:
 
 ### Human-gate summary (per overlay)
 
-13 new gate types added by Wave 1-3 overlays, layered on top of existing `gate:plan` / `gate:ship` / `gate:promote`:
+24 new gate types added by Wave 1-4 overlays, layered on top of existing `gate:plan` / `gate:ship` / `gate:promote`:
 
 | Gate | Set by | Cleared by | Triggered when |
 |---|---|---|---|
@@ -290,4 +291,9 @@ Overlays are loaded by `architect` when running discovery:
 | `gate:model-card-signoff` | drug-discovery-ml-reviewer | ML lead + clinical lead | before wet-lab spend |
 | `gate:csv-validation` | glp-glab-reviewer | independent QA lead | before GLP/GMP production |
 | `gate:iq-oq-pq` | lab-automation-reviewer | engineering + QA | per instrument qualification |
+| `gate:wellness-vs-samd` | digital-health-reviewer | architect + regulatory lead | after wellness-vs-SaMD classification |
+| `gate:hitl-design` | digital-health-reviewer | architect + clinical lead | HITL physician workflow in scope |
+| `gate:wearable-api-access` | digital-health-reviewer | product lead | wearable platform API integration |
+| `gate:supplement-safety` | digital-health-reviewer | senior-dev + medical advisor | supplement / nutrition recommendation feature |
+| `gate:mental-health-protocol` | digital-health-reviewer | clinical lead + QA | mental-health / behavioural-health component |
 
