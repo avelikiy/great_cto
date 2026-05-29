@@ -10,11 +10,13 @@
 //   sse              — long-running HTTP/SSE for remote / multi-client access
 //
 // Tools exposed:
-//   scan              OWASP LLM Top 10 + 24 rules → findings
-//   list_rules        full rule catalogue
 //   detect_archetype  archetype + compliance for a path
 //   estimate_cost     LLM/human time for a task
 //   query_decisions   search ~/.great_cto/decisions.md
+//   project_status    board project state
+//   cost_summary      board cost rollup
+//   pipeline_stages   board pipeline stage breakdown
+//   recent_verdicts   board recent agent verdicts
 //
 // Protocol: minimal MCP 2024-11-05 implementation. We hand-roll because
 // adding @modelcontextprotocol/sdk would balloon install size for what is
@@ -45,43 +47,6 @@ const SERVER_INFO = {
 };
 
 // ── Tool implementations ────────────────────────────────────────────────────
-
-async function toolScan(args: { path?: string; severity?: string; scanner?: string[] }): Promise<any> {
-  const { scan } = await import("./agentshield/scanner.js");
-  const path = args.path ?? ".";
-  const report = scan(resolve(path), {
-    minSeverity: (args.severity ?? "info") as any,
-    scanners: args.scanner as any,
-  } as any);
-  return {
-    files_scanned: report.filesScanned,
-    duration_ms: report.durationMs,
-    findings: report.findings.map((f: any) => ({
-      rule_id: f.rule.id,
-      severity: f.rule.severity,
-      title: f.rule.title,
-      owasp: f.rule.owasp,
-      file: f.location.file,
-      line: f.location.line,
-      snippet: f.location.snippet,
-    })),
-  };
-}
-
-async function toolListRules(): Promise<any> {
-  const { loadRules } = await import("./agentshield/rules-loader.js");
-  const rules = loadRules();
-  return {
-    count: rules.length,
-    rules: rules.map((r: any) => ({
-      id: r.id,
-      severity: r.severity,
-      scanner: r.scanner,
-      title: r.title,
-      owasp: r.owasp ?? null,
-    })),
-  };
-}
 
 async function toolDetectArchetype(args: { path?: string }): Promise<any> {
   const { detect } = await import("./detect.js");
@@ -270,37 +235,6 @@ async function toolRecentVerdicts(args: { limit?: number; project?: string }): P
 // ── Tool dispatch table ────────────────────────────────────────────────────
 
 const TOOLS = [
-  {
-    name: "scan",
-    description:
-      "Scan code for AI/LLM-specific security issues (OWASP LLM Top 10, 24 rules). Returns findings with severity, file, line, OWASP mapping.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "File or directory to scan (default: cwd)" },
-        severity: {
-          type: "string",
-          enum: ["info", "low", "medium", "high", "critical"],
-          description: "Minimum severity to report",
-        },
-        scanner: {
-          type: "array",
-          items: {
-            type: "string",
-            enum: ["prompt-injection", "secrets-in-prompts", "ssrf-in-tools", "rag-poisoning", "cost-runaway"],
-          },
-          description: "Limit to specific scanner categories",
-        },
-      },
-    },
-    handler: toolScan,
-  },
-  {
-    name: "list_rules",
-    description: "List all 24 AgentShield security rules with severity and OWASP LLM Top 10 mapping.",
-    inputSchema: { type: "object", properties: {} },
-    handler: toolListRules,
-  },
   {
     name: "detect_archetype",
     description:

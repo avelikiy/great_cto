@@ -20,7 +20,7 @@ All five hosts work via `npx great-cto adapt --platform <host>` — Claude Code,
 
 ## Can I disable hooks if they're getting in the way?
 
-Every hook honors `GREAT_CTO_DISABLE_<NAME>=1` env vars (e.g. `GREAT_CTO_DISABLE_SECRET_SCAN=1`). Per-file opt-out via `// agentshield:ignore` for security scans.
+Every hook honors `GREAT_CTO_DISABLE_<NAME>=1` env vars (e.g. `GREAT_CTO_DISABLE_SECRET_SCAN=1`). Per-file opt-out via `// great_cto:allow-secrets` for the secret-scan hook.
 
 ## How do you keep token costs down?
 

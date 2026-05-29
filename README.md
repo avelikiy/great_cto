@@ -267,7 +267,7 @@ Layered test suite — **structural + state-machine tier runs in <2 min for $0**
 
 ## MCP
 
-Native [MCP](https://modelcontextprotocol.io/) server — **9 tools** callable from Claude Desktop or any MCP host. Local (no board needed): `scan` · `list_rules` · `detect_archetype` · `estimate_cost` · `query_decisions`. Board-backed: `project_status` · `cost_summary` · `pipeline_stages` · `recent_verdicts`.
+Native [MCP](https://modelcontextprotocol.io/) server — **7 tools** callable from Claude Desktop or any MCP host. Local (no board needed): `detect_archetype` · `estimate_cost` · `query_decisions`. Board-backed: `project_status` · `cost_summary` · `pipeline_stages` · `recent_verdicts`.
 
 ```json
 { "mcpServers": { "great-cto": { "command": "npx", "args": ["-y", "great-cto@latest", "mcp"] } } }
@@ -303,7 +303,7 @@ Five things that need you to act in <2h get emailed automatically — even when 
 
 **How do you keep token costs down?** Haiku-by-default + Kimi K2 router for triage (60–80% savings) + cost-guard hook.
 
-**Can I disable hooks?** Every hook honors `GREAT_CTO_DISABLE_<NAME>=1`. Per-file opt-out: `// agentshield:ignore`.
+**Can I disable hooks?** Every hook honors `GREAT_CTO_DISABLE_<NAME>=1`. Per-file secret-scan opt-out: `// great_cto:allow-secrets`.
 
 **What if I'm not solo?** great_cto is built for the one-person engineering org. If you have 2+ engineers and need shared boards / multi-seat auth, you've outgrown it.
 

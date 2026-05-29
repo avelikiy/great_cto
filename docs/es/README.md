@@ -208,7 +208,7 @@ great_cto corre *antes* de CI. Detecta problemas en arquitectura, revisión y pr
 Actualmente solo Claude Code. El soporte cross-harness (basado en `AGENTS.md`) está en el roadmap de v2.x.
 
 **¿Puedo desactivar los hooks si me estorban?**
-Cada hook respeta variables de entorno `GREAT_CTO_DISABLE_<NAME>=1` (ej. `GREAT_CTO_DISABLE_SECRET_SCAN=1`). Opt-out por archivo vía `// agentshield:ignore` para escaneos de seguridad.
+Cada hook respeta variables de entorno `GREAT_CTO_DISABLE_<NAME>=1` (ej. `GREAT_CTO_DISABLE_SECRET_SCAN=1`). Opt-out por archivo vía `// great_cto:allow-secrets` para el hook secret-scan.
 
 **¿Cómo mantienen los costos de tokens bajos?**
 Tres capas — (1) Haiku por defecto para agentes baratos, (2) [Kimi K2 router](https://github.com/avelikiy/great_cto/blob/main/agents/llm-router.md) para triage (60-80% ahorros), (3) hook `cost-guard` advierte antes de prompts caros. Ver `/cost` para gasto en vivo.

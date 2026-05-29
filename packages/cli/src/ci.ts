@@ -1,116 +1,29 @@
 // great-cto ci — single-command CI gate.
 //
-// Runs scan + budget-check + archetype-validate with output formats matching
-// CI conventions. Designed to be the only great_cto invocation in a CI step.
+// Runs archetype-validate + budget-check. Designed to be the only great_cto
+// invocation in a CI step.
 //
 // Outputs:
 //   - human-readable to stderr (always)
-//   - GitHub Actions annotations (auto when $GITHUB_ACTIONS is set, or --annotations)
-//   - SARIF 2.1.0 JSON (--sarif <path>) — uploadable to GitHub Security tab
-//   - JUnit XML (--junit <path>) — for test reporters / pipeline UIs
 //
 // Exit codes:
 //   0 = clean, all gates pass
-//   1 = findings at/above --fail-on threshold (CI should fail)
-//   2 = scan/setup error (not a finding — infrastructure problem)
+//   1 = archetype drift (CI should fail)
+//   2 = setup error (not a finding — infrastructure problem)
 //
 // Example workflow:
 //   - run: npx great-cto@latest ci ./
 //     env:
 //       GREAT_CTO_NO_TELEMETRY: "1"
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export interface CiArgs {
   path: string;
-  severity: "info" | "low" | "medium" | "high" | "critical";
-  failOn: "low" | "medium" | "high" | "critical";
-  sarifPath: string | null;
-  junitPath: string | null;
-  annotations: boolean;
   noBudget: boolean;
   noArchetype: boolean;
   quiet: boolean;
-}
-
-const SEVERITY_ORDER: Record<string, number> = {
-  info: 0,
-  low: 1,
-  medium: 2,
-  high: 3,
-  critical: 4,
-};
-
-function severityAtLeast(sev: string, threshold: string): boolean {
-  return (SEVERITY_ORDER[sev] ?? 0) >= (SEVERITY_ORDER[threshold] ?? 0);
-}
-
-/**
- * Emit GitHub Actions annotation lines. These appear inline on PR diffs.
- * Format: ::error file=path,line=N,col=M,title=T::message
- *         ::warning file=...
- *         ::notice file=...
- */
-function emitGitHubAnnotation(finding: any): void {
-  const sev = finding.rule.severity;
-  const level = sev === "critical" || sev === "high" ? "error"
-              : sev === "medium" ? "warning" : "notice";
-  const file = finding.location.file;
-  const line = finding.location.line;
-  const title = `${finding.rule.id}: ${finding.rule.title}`;
-  const message = finding.rule.owasp
-    ? `${finding.rule.title} (${finding.rule.owasp})`
-    : finding.rule.title;
-  // Escape GHA-special characters
-  const escape = (s: string) =>
-    s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
-  console.log(`::${level} file=${escape(file)},line=${line},title=${escape(title)}::${escape(message)}`);
-}
-
-/**
- * Emit JUnit XML report. One <testcase> per scanned file, fails recorded as
- * <failure> elements. Format compatible with most CI test reporters.
- */
-function buildJunitXml(report: any): string {
-  const findingsByFile = new Map<string, any[]>();
-  for (const f of report.findings) {
-    const arr = findingsByFile.get(f.location.file) || [];
-    arr.push(f);
-    findingsByFile.set(f.location.file, arr);
-  }
-  const totalTests = Math.max(report.filesScanned, findingsByFile.size);
-  const failures = report.findings.length;
-
-  const escape = (s: string) =>
-    String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&apos;");
-
-  const cases = Array.from(findingsByFile.entries())
-    .map(([file, findings]) => {
-      const failureBody = findings
-        .map(f => `      <failure type="${escape(f.rule.severity)}" message="${escape(f.rule.id + ': ' + f.rule.title)}">
-${escape(f.location.snippet || '')}
-${escape(f.rule.owasp || '')}
-      </failure>`)
-        .join("\n");
-      return `    <testcase classname="agentshield" name="${escape(file)}" time="0">
-${failureBody}
-    </testcase>`;
-    })
-    .join("\n");
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="great-cto ci" tests="${totalTests}" failures="${failures}" errors="0" time="${(report.durationMs / 1000).toFixed(3)}">
-${cases}
-  </testsuite>
-</testsuites>
-`;
 }
 
 /**
@@ -169,74 +82,31 @@ function budgetCheck(cwd: string, quiet: boolean): { ok: boolean; msg: string } 
 
 export async function runCi(args: CiArgs): Promise<number> {
   const startTs = Date.now();
-  const inGitHubActions = process.env.GITHUB_ACTIONS === "true";
-  const wantAnnotations = args.annotations || inGitHubActions;
 
   if (!args.quiet) {
-    console.error(`\ngreat-cto ci — gate threshold: ${args.failOn}, scan: ${args.severity}+`);
+    console.error(`\ngreat-cto ci — archetype + budget gate`);
     console.error(`  path: ${resolve(args.path)}`);
-    if (inGitHubActions) console.error(`  env: GitHub Actions detected — emitting annotations`);
     console.error("");
   }
 
-  // 1. Scan
-  let scan: typeof import("./agentshield/scanner.js").scan;
-  let toSarif: typeof import("./agentshield/sarif.js").toSarif;
-  try {
-    ({ scan } = await import("./agentshield/scanner.js"));
-    ({ toSarif } = await import("./agentshield/sarif.js"));
-  } catch (e) {
-    console.error(`ci: failed to load scanner: ${(e as Error).message}`);
-    return 2;
-  }
-
-  const report = scan(resolve(args.path), {
-    minSeverity: args.severity,
-  } as any);
-
-  // 2. Archetype check
+  // 1. Archetype check
   let archResult = { ok: true, msg: "skipped" };
   if (!args.noArchetype) {
     archResult = await archetypeCheck(args.path, args.quiet);
   }
 
-  // 3. Budget check (warn-only)
+  // 2. Budget check (warn-only)
   let budgetResult = { ok: true, msg: "skipped" };
   if (!args.noBudget) {
     budgetResult = budgetCheck(args.path, args.quiet);
   }
 
-  // 4. Emit annotations
-  if (wantAnnotations) {
-    for (const f of report.findings) {
-      if (severityAtLeast(f.rule.severity, args.failOn)) {
-        emitGitHubAnnotation(f);
-      }
-    }
-  }
-
-  // 5. Emit SARIF
-  if (args.sarifPath) {
-    writeFileSync(args.sarifPath, JSON.stringify(toSarif(report), null, 2));
-    if (!args.quiet) console.error(`  ✓ SARIF → ${args.sarifPath}`);
-  }
-
-  // 6. Emit JUnit XML
-  if (args.junitPath) {
-    writeFileSync(args.junitPath, buildJunitXml(report));
-    if (!args.quiet) console.error(`  ✓ JUnit XML → ${args.junitPath}`);
-  }
-
-  // 7. Summary
-  const blockingFindings = report.findings.filter((f: any) =>
-    severityAtLeast(f.rule.severity, args.failOn)
-  );
-  const passed = blockingFindings.length === 0 && archResult.ok;
+  // 3. Summary
+  const passed = archResult.ok;
 
   if (!args.quiet) {
     const dur = ((Date.now() - startTs) / 1000).toFixed(1);
     console.error("");
-    console.error(`  scan:       ${report.findings.length} finding(s) (${blockingFindings.length} at/above ${args.failOn})`);
     console.error(`  archetype:  ${archResult.ok ? "✓" : "✗"} ${archResult.msg}`);
     console.error(`  budget:     ${budgetResult.msg}`);
     console.error(`  duration:   ${dur}s`);
@@ -245,15 +115,6 @@ export async function runCi(args: CiArgs): Promise<number> {
       console.error("\x1b[32m✓ great-cto ci: passed\x1b[0m");
     } else {
       console.error("\x1b[31m✗ great-cto ci: failed\x1b[0m");
-      if (blockingFindings.length) {
-        console.error(`  ${blockingFindings.length} finding(s) at/above ${args.failOn}:`);
-        for (const f of blockingFindings.slice(0, 10)) {
-          console.error(`    [${f.rule.severity}] ${f.rule.id} — ${f.location.file}:${f.location.line}`);
-        }
-        if (blockingFindings.length > 10) {
-          console.error(`    ... +${blockingFindings.length - 10} more`);
-        }
-      }
       if (!archResult.ok) console.error(`  ${archResult.msg}`);
     }
   }
@@ -266,10 +127,6 @@ export async function runCi(args: CiArgs): Promise<number> {
  */
 export function parseCiArgs(rawArgv: string[]): CiArgs {
   const flag = (n: string) => rawArgv.includes(`--${n}`);
-  const value = (n: string, def?: string) => {
-    const i = rawArgv.indexOf(`--${n}`);
-    return i >= 0 && i < rawArgv.length - 1 ? rawArgv[i + 1] : def;
-  };
 
   const ciIdx = rawArgv.indexOf("ci");
   let path = ".";
@@ -282,11 +139,6 @@ export function parseCiArgs(rawArgv: string[]): CiArgs {
 
   return {
     path,
-    severity: (value("severity", "high") as CiArgs["severity"]),
-    failOn: (value("fail-on", "critical") as CiArgs["failOn"]),
-    sarifPath: value("sarif") ?? null,
-    junitPath: value("junit") ?? null,
-    annotations: flag("annotations"),
     noBudget: flag("no-budget"),
     noArchetype: flag("no-archetype"),
     quiet: flag("quiet"),
