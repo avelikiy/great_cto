@@ -126,7 +126,8 @@ MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/nu
 # Goal ancestry (Paperclip pattern) — injected into every bd create call
 # Gives every downstream agent the WHY without reading HANDOFF.md
 COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "")
-GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$COMPLIANCE" ] && echo " [compliance:${COMPLIANCE}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
+_COMP_CLEAN=$(echo "$COMPLIANCE" | sed 's/^\[none\]$//;s/^\[none, *\]//;s/, *\[none\]//')
+GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$_COMP_CLEAN" ] && echo " [compliance:${_COMP_CLEAN}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
 
 # Past lessons — calibrate cost/time estimates against actuals
 if [ -f .great_cto/lessons.md ]; then
