@@ -117,11 +117,16 @@ source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.lo
 
 # Project metadata
 PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
-ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-app")
+ARCHETYPE=$(grep "^archetype:\|^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1 || echo "web-app")
 APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
 PHASE=$(grep "^phase:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "implementation")
 TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "1")
 MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "")
+
+# Goal ancestry (Paperclip pattern) — injected into every bd create call
+# Gives every downstream agent the WHY without reading HANDOFF.md
+COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "")
+GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$COMPLIANCE" ] && echo " [compliance:${COMPLIANCE}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
 
 # Past lessons — calibrate cost/time estimates against actuals
 if [ -f .great_cto/lessons.md ]; then
@@ -422,6 +427,7 @@ Always create the gate — no approval_level skips it:
 if ! bd search "gate:plan" 2>/dev/null | grep -qi "open\|in.progress"; then
   GATE_ID=$(bd create "gate:plan — ${FEATURE_SLUG} implementation plan review" \
     --type task --priority 0 --label gate \
+    --context "$GOAL_ANCESTRY" \
     --notes "Review PLAN doc at docs/plans/PLAN-${FEATURE_SLUG}.md. Approve to unblock senior-dev. Check: task count, parallelism, agent allocation, estimates. Modify the plan directly if needed before approving." \
     2>/dev/null | grep -oE '[a-z0-9]{3,}' | head -1 || echo "bd-unavailable")
   echo "gate:plan created → $GATE_ID"
@@ -435,6 +441,25 @@ if [ "$GATE_ID" = "bd-unavailable" ] || ! command -v bd >/dev/null 2>&1; then
   echo "  gate:plan written to .great_cto/tasks.md (bd unavailable)"
 fi
 ```
+
+---
+
+## Step 9b — Emit goal ancestry for downstream agents
+
+Every worker brief dispatched from this plan **must** carry the full goal context.
+Pass `GOAL_ANCESTRY` as the `--context` flag whenever creating Beads tasks, and
+include it verbatim in the first line of every Worker Contract (see coordinator.md).
+
+```bash
+# This string is set in Step 1. Include in every bd create call:
+#   bd create "<task title>" --context "$GOAL_ANCESTRY" ...
+# Workers read it to understand archetype, compliance, and feature scope
+# without needing to re-read HANDOFF.md or PROJECT.md from scratch.
+echo "Goal ancestry active: $GOAL_ANCESTRY"
+```
+
+When a downstream agent (senior-dev, qa-engineer, security-officer) creates their
+own subtasks, they should inherit and forward `GOAL_ANCESTRY` unchanged.
 
 ---
 

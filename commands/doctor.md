@@ -215,6 +215,34 @@ if command -v bd >/dev/null 2>&1; then
   echo "  total open: $TOTAL_OPEN | in_progress: $IN_PROG | P0: $P0_OPEN | P1: $P1_OPEN"
   [ "$P0_OPEN" -gt 0 ] && echo "  ⚠⚠⚠ P0 OPEN — run /inbox"
   [ "$IN_PROG" = "0" ] && [ "$TOTAL_OPEN" -gt 0 ] && echo "  ⚠ backlog stalled (nothing in_progress) — run /backlog or /start"
+
+  # Heartbeat watchdog (Paperclip pattern): detect stuck in_progress tasks
+  # A task in_progress > 48h without a verdict update = stuck agent
+  STUCK_THRESHOLD_HOURS=48
+  STUCK_THRESHOLD_SECS=$((STUCK_THRESHOLD_HOURS * 3600))
+  STUCK_COUNT=0
+  if [ "$IN_PROG" -gt 0 ]; then
+    bd list --status in_progress 2>/dev/null | while IFS= read -r task_line; do
+      TASK_ID=$(echo "$task_line" | grep -oE '^[a-z0-9-]+' | head -1)
+      [ -z "$TASK_ID" ] && continue
+      # Check last verdict for this task ID
+      LAST_VERDICT=$(grep "$TASK_ID" .great_cto/verdicts/*.log 2>/dev/null | tail -1)
+      if [ -n "$LAST_VERDICT" ]; then
+        VERDICT_TS=$(echo "$LAST_VERDICT" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}')
+        VERDICT_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$VERDICT_TS" +%s 2>/dev/null || date -d "$VERDICT_TS" +%s 2>/dev/null || echo 0)
+        AGE_SECS=$(( NOW_EPOCH - VERDICT_EPOCH ))
+        if [ "$AGE_SECS" -gt "$STUCK_THRESHOLD_SECS" ]; then
+          echo "  🔴 STUCK: $TASK_ID in_progress > ${STUCK_THRESHOLD_HOURS}h with no verdict update"
+          STUCK_COUNT=$((STUCK_COUNT+1))
+        fi
+      fi
+    done
+  fi
+  # Also check tool-failures.log for recent high-frequency failures (watchdog signal)
+  if [ -f .great_cto/tool-failures.log ]; then
+    RECENT_FAILS=$(awk -v cutoff="$(date -u -v-1H '+%Y-%m-%dT%H:%M' 2>/dev/null || date -u -d '1 hour ago' '+%Y-%m-%dT%H:%M' 2>/dev/null)" '$0 > cutoff' .great_cto/tool-failures.log 2>/dev/null | wc -l | tr -d ' ')
+    [ "${RECENT_FAILS:-0}" -gt 5 ] && echo "  ⚠ ${RECENT_FAILS} tool failures in last hour — possible stuck/looping agent (check /recall tool-failure)"
+  fi
 else
   echo "  ✗ bd not installed"
 fi
