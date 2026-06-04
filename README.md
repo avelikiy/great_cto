@@ -8,6 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
+[![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
 [![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
 
 <img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 57 agents → gate:ship → Deployed" width="900" />
@@ -94,7 +95,7 @@ Same command. Output depends on what you're building and where it runs:
 </tr>
 </table>
 
-**Built for the one-person engineering org.** Indie hackers, solo founders, technical CTOs running everything themselves. *Not for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
+**Built for the one-person engineering org.** Indie hackers, solo founders, technical CTOs running everything themselves — on Claude Code or OpenAI Codex. *Not for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
 
 ## Install
 
@@ -102,7 +103,20 @@ Same command. Output depends on what you're building and where it runs:
 npx great-cto init
 ```
 
-Restart Claude Code after init. **Requires:** [Claude Code](https://claude.com/claude-code) · Node 18.17+
+Restart your AI host after init. **Requires:** Node 18.17+ and one of:
+
+| Host | Install flag | Status |
+|---|---|---|
+| [Claude Code](https://claude.com/claude-code) | _(default)_ | ✅ full support |
+| [OpenAI Codex](https://openai.com/codex) | `--host codex` | ✅ hooks + MCP + agents |
+
+```bash
+# Claude Code (default)
+npx great-cto init
+
+# OpenAI Codex Desktop / CLI
+npx great-cto init --host codex
+```
 
 Superpowers and Beads companion plugins install automatically — no manual setup needed.
 
@@ -141,7 +155,8 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 |---|---|---|---|
 | Open source | ✅ MIT | ❌ closed | ❌ closed plugin model |
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
-| BYOK / multi-model | ✅ Claude Code | ❌ proprietary | ❌ Anthropic only |
+| Host | ✅ Claude Code + Codex | ❌ Cognition cloud | ✅ Claude Code |
+| BYOK / multi-model | ✅ Claude Code · Codex | ❌ proprietary | ❌ Anthropic only |
 | Specialist agents | **57** (architect · PM · 12-angle review · QA · security · devops · 42 reviewers across archetypes, packs & jurisdictions) | 1 generalist | 1 generalist |
 | SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
 | Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
@@ -267,7 +282,7 @@ Layered test suite — **structural + state-machine tier runs in <2 min for $0**
 
 ## MCP
 
-Native [MCP](https://modelcontextprotocol.io/) server — **7 tools** callable from Claude Desktop or any MCP host. Local (no board needed): `detect_archetype` · `estimate_cost` · `query_decisions`. Board-backed: `project_status` · `cost_summary` · `pipeline_stages` · `recent_verdicts`.
+Native [MCP](https://modelcontextprotocol.io/) server — **7 tools** callable from Claude Desktop, Codex, or any MCP host. Local (no board needed): `detect_archetype` · `estimate_cost` · `query_decisions`. Board-backed: `project_status` · `cost_summary` · `pipeline_stages` · `recent_verdicts`.
 
 ```json
 { "mcpServers": { "great-cto": { "command": "npx", "args": ["-y", "great-cto@latest", "mcp"] } } }
