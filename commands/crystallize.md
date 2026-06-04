@@ -45,6 +45,7 @@ case "$ARG" in
   approve)   SUBCOMMAND=approve; GP_ID="$2" ;;
   reject)    SUBCOMMAND=reject;  GP_ID="$2"; REASON="${@:3}" ;;
   rollback)  SUBCOMMAND=rollback; GP_ID="$2" ;;
+  propose)   SUBCOMMAND=propose; GP_ID="$2" ;;   # NEW: Sprint 3 — PR-gate
   prune)     SUBCOMMAND=prune ;;
   status)    SUBCOMMAND=status ;;
   *)         SUBCOMMAND=review ;;  # default: show pending KEs + proposals
@@ -471,6 +472,150 @@ printf '%s ROLLBACK %s target=%s commit=%s\n' "$TODAY" "$GP_ID" "$TARGET_AGENT" 
   >> "$METRICS_DIR/crystallize.log"
 
 echo "DONE: $GP_ID rolled back."
+```
+
+---
+
+## Subcommand: propose GP-NNNN
+
+**Sprint 3 — PR-gate for crystallize** (Hermes self-evolution pattern).
+
+Creates a git branch `evolve/<agent>-<timestamp>`, applies the proposed agent
+change, runs the EVAL suite for that agent to measure before/after improvement,
+then opens a GitHub PR with the diff and score. Human review is mandatory —
+this command never merges.
+
+```bash
+GP_FILE=$(ls "$GP_DIR"/"${GP_ID}"-*.md 2>/dev/null | head -1)
+[ -z "$GP_FILE" ] && echo "ERROR: No GP file for $GP_ID" && exit 1
+
+# Read the proposal details
+TARGET_AGENT=$(grep "^target_agents:" "$GP_FILE" 2>/dev/null | sed 's/target_agents: \[//;s/\]//' | tr -d ' ' | cut -d, -f1)
+TARGET_FILE=$(grep "^proposed-fix:" "$GP_FILE" 2>/dev/null | grep -oE '[a-zA-Z/_-]+\.md' | head -1)
+[ -z "$TARGET_AGENT" ] && echo "ERROR: No target_agents in $GP_FILE" && exit 1
+
+# Plugin source dir (the committed source, not the cache)
+REPO_DIR=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+AGENT_SRC="$REPO_DIR/agents/${TARGET_AGENT}.md"
+[ ! -f "$AGENT_SRC" ] && echo "ERROR: agent file not found: $AGENT_SRC" && exit 1
+```
+
+### 1. Measure baseline EVAL score (before)
+
+```bash
+EVAL_PATTERN="EVAL-${TARGET_AGENT}"
+EVAL_COUNT=$(ls "$REPO_DIR/tests/eval/${EVAL_PATTERN}"*.md 2>/dev/null | wc -l | tr -d ' ')
+
+if [ "$EVAL_COUNT" -gt 0 ] && [ -n "$ANTHROPIC_API_KEY" ]; then
+  echo "Running baseline eval for $TARGET_AGENT ($EVAL_COUNT files)..."
+  BEFORE_SCORE=$(cd "$REPO_DIR" && node tests/eval/runner.mjs \
+    --filter "$EVAL_PATTERN" --dry-run 2>/dev/null | grep "pass rate" | \
+    grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "no-eval")
+  echo "Baseline score: ${BEFORE_SCORE:-no-eval}"
+else
+  BEFORE_SCORE="no-eval"
+  [ "$EVAL_COUNT" -eq 0 ] && echo "No EVAL files found for $TARGET_AGENT — run /gen-evals $TARGET_AGENT first for scored PRs"
+fi
+```
+
+### 2. Create evolve branch and apply change
+
+```bash
+BRANCH="evolve/${TARGET_AGENT}-$(date +%Y%m%d-%H%M)"
+cd "$REPO_DIR"
+git checkout -b "$BRANCH" 2>&1
+
+# The proposed change is described in the GP file — apply it
+# For shape F (recurring tool failure), the proposed-fix: field has file:line
+PROPOSED_FIX=$(grep "^Proposed-fix\|proposed-fix\|proposed_fix" "$GP_FILE" | head -1 | sed 's/.*: //')
+echo ""
+echo "Proposed fix from $GP_ID:"
+echo "  $PROPOSED_FIX"
+echo ""
+echo "Apply the proposed change to $AGENT_SRC now."
+echo "(Edit the file to implement the fix described above.)"
+echo ""
+echo "When done, press Enter to continue..."
+```
+
+You (the agent) must now apply the proposed change to `$AGENT_SRC`. Read the
+`proposed-fix:` field from the GP file and make the minimal targeted edit
+described. Do not expand scope — only the change stated in the GP.
+
+### 3. Measure AFTER score
+
+```bash
+if [ -n "$ANTHROPIC_API_KEY" ] && [ "$EVAL_COUNT" -gt 0 ]; then
+  echo "Running post-change eval..."
+  AFTER_SCORE=$(cd "$REPO_DIR" && node tests/eval/runner.mjs \
+    --filter "$EVAL_PATTERN" --dry-run 2>/dev/null | grep "pass rate" | \
+    grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "no-eval")
+else
+  AFTER_SCORE="no-eval"
+fi
+echo "Before: ${BEFORE_SCORE} → After: ${AFTER_SCORE}"
+```
+
+### 4. Commit and open PR
+
+```bash
+git add "agents/${TARGET_AGENT}.md"
+git commit -m "$(cat <<CMSG
+evolve(${TARGET_AGENT}): apply ${GP_ID} — ${PROPOSED_FIX%%:*}
+
+Pattern: $(grep '^## pattern:' "$GP_FILE" | sed 's/## pattern: //')
+Confidence: $(grep '^confidence:' "$GP_FILE" | awk '{print $2}')
+Occurrences: $(grep '^occurrences:' "$GP_FILE" | awk '{print $2}')
+Eval before: ${BEFORE_SCORE} → after: ${AFTER_SCORE}
+GP source: $GP_FILE
+CMSG
+)"
+
+# Open PR (requires gh CLI)
+PR_BODY="## Crystallize PR — $GP_ID
+
+### Proposed change
+\`\`\`
+$PROPOSED_FIX
+\`\`\`
+
+### Pattern
+$(grep -A5 '^## pattern:' "$GP_FILE" | head -6)
+
+### Eval scores
+| Agent | Before | After | Delta |
+|-------|--------|-------|-------|
+| $TARGET_AGENT | ${BEFORE_SCORE} | ${AFTER_SCORE} | $([ "$BEFORE_SCORE" != "no-eval" ] && echo "computed" || echo "no EVAL files — run /gen-evals $TARGET_AGENT") |
+
+### Evidence
+$(grep -A10 '^Evidence\|^\*\*Evidence' "$GP_FILE" | head -10)
+
+### Review checklist
+- [ ] Change is minimal and targeted (no scope creep)
+- [ ] Agent still passes its core responsibility after change
+- [ ] Proposed fix matches the pattern evidence
+- [ ] EVAL scores improved or held (or no EVAL files exist yet)
+
+**Gate: human approve required. Never merge this automatically.**
+
+🤖 Generated by \`/crystallize propose $GP_ID\`"
+
+git push -u origin "$BRANCH" 2>&1
+gh pr create \
+  --title "evolve(${TARGET_AGENT}): $GP_ID" \
+  --body "$PR_BODY" \
+  --label "evolve,needs-review" 2>&1 || \
+  echo "gh CLI unavailable — push succeeded, open PR manually from branch $BRANCH"
+
+printf '%s PROPOSED %s target=%s before=%s after=%s branch=%s\n' \
+  "$(date +%Y-%m-%d)" "$GP_ID" "$TARGET_AGENT" \
+  "${BEFORE_SCORE}" "${AFTER_SCORE}" "$BRANCH" \
+  >> "$METRICS_DIR/crystallize.log"
+
+echo ""
+echo "DONE: Branch $BRANCH → PR opened. Human review required before merge."
+echo "To reject: /crystallize reject $GP_ID <reason>"
+echo "To approve and merge: review the PR, then: /crystallize approve $GP_ID"
 ```
 
 ---

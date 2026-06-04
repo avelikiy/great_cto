@@ -43,6 +43,33 @@ A candidate is **accepted** only if:
 - ✅ Is **transferable** to other projects in the same archetype
 - ✅ Confidence is `medium` or `high`
 
+## Step 0 — Failure trace analysis (run FIRST, before narrative context)
+
+Read **structured failure signals** — ground truth that doesn't need interpretation.
+
+```bash
+# Tool failures from PostToolUse hook (JSON lines: {ts, tool, input, error})
+tail -50 .great_cto/tool-failures.log 2>/dev/null
+
+# Agent verdicts — all agents, recent
+cat .great_cto/verdicts/*.log 2>/dev/null | tail -30
+
+# Cross-session failure history
+tail -30 ~/.great_cto/tool-failures.log 2>/dev/null
+```
+
+**Cluster analysis:** group failures by `(tool, error_prefix)` — first 60 chars of
+`error`. Same `(tool, error_prefix)` appearing ≥2 times = **recurring failure** →
+qualifies for Pattern shape F.
+
+For each recurring cluster:
+1. Grep `agents/` + `scripts/hooks/` to find which agent/hook dispatches that tool
+2. Find the specific instruction or command that generates the failing call
+3. Propose a **concrete fix**: `file:line — what to change — why it prevents the failure`
+
+Verdicts with status BLOCKED or FAIL on the same agent + same finding type = systematic
+gap → Pattern shape F candidate.
+
 ## Step 1 — Gather session data (run in parallel)
 
 ```bash
@@ -96,6 +123,14 @@ Look for these specific shapes (high-signal):
 - Evidence: ADR or commit message documenting choice between alternatives
 - Lesson: "For use case X, pick library Y over Z because measured outcome W"
 
+### Pattern shape F: "Recurring tool failure" ← NEW (Hermes trace-analysis)
+- Evidence: `tool-failures.log` shows same `(tool, error_prefix)` ≥2 times across any sessions
+- Lesson: must include `proposed-fix:` field with file:line pointing to the agent
+  instruction or hook command that causes the failure, and the exact change needed
+- Example: `Bash` tool failing `PermissionDenied /Users/...` repeatedly →
+  `agents/senior-dev.md:42 — replace hardcoded path with $HOME variable`
+- This is the highest-signal shape: structured data, reproducible, directly actionable
+
 ## Step 3 — Write structured lesson entries
 
 For each accepted candidate, append to `.great_cto/lessons.md`:
@@ -126,6 +161,8 @@ shape: A|B|C|D|E
 - cost: <USD if relevant>
 
 **Skill-candidate:** <name if pattern repeated ≥3 times across sessions, else "n/a">
+
+**Proposed-fix:** <for shape F only: "agents/foo.md:42 — change X to Y" | "n/a" for other shapes>
 ```
 
 ## Step 4 — Promote to global decisions (cross-project)
