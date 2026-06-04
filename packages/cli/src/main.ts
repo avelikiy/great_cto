@@ -52,6 +52,7 @@ interface CliArgs {
   boardNoOpen: boolean;
   useLlm: boolean;        // --use-llm: force LLM even on high confidence
   noLlm: boolean;         // --no-llm: skip LLM even on low confidence
+  host: "claude-code" | "codex" | null;  // --host codex: install for Codex instead of Claude Code
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -67,6 +68,7 @@ function parseArgs(argv: string[]): CliArgs {
     version: null,
     useLlm: false,
     noLlm: false,
+    host: null,
     positional: [],
   };
 
@@ -85,6 +87,8 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--no-open") args.boardNoOpen = true;
     else if (a === "--use-llm") args.useLlm = true;
     else if (a === "--no-llm") args.noLlm = true;
+    else if (a === "--host") { const v = argv[++i] ?? ""; args.host = (v === "codex" || v === "claude-code") ? v : null; }
+    else if (a.startsWith("--host=")) { const v = a.slice("--host=".length); args.host = (v === "codex" || v === "claude-code") ? v : null; }
     else if (a === "board") args.command = "board";
     else if (a === "register") args.command = "register";
     else if (a === "ci") args.command = "ci";
@@ -400,7 +404,118 @@ ${bold("Links:")}
 `);
 }
 
+async function runInitCodex(args: CliArgs): Promise<number> {
+  const { homedir } = await import("node:os");
+  const home = homedir();
+
+  log(bold("great-cto · Codex host install"));
+  log("");
+  log(`Installing great_cto for ${cyan("OpenAI Codex")} (Desktop + CLI).`);
+  log(`This writes hook, MCP, and agent config to your Codex skill directory.`);
+  log("");
+
+  if (args.dryRun) {
+    log(yellow("dry-run: showing what would be written."));
+    log(`  would write: ${home}/.codex/skills/great_cto/hooks.json`);
+    log(`  would write: ${home}/.codex/skills/great_cto/scripts/  (hook .mjs files)`);
+    log(`  would update: .codex/great_cto.toml  (merge into ~/.codex/config.toml)`);
+    return 0;
+  }
+
+  const { mkdirSync, copyFileSync, existsSync, writeFileSync } = await import("node:fs");
+  const { join, dirname } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+
+  // ── 1. locate the plugin source ──────────────────────────
+  // Works whether invoked via npx (global cache) or a local build.
+  // - npx run: dist/main.js → dist/ → ../ → package root → scripts/hooks/
+  // - dev run from packages/cli/: same as above
+  // - repo dev with ts-node: src/main.ts → src/ → ../ → packages/cli/ → ../../scripts/hooks/
+  const here = dirname(fileURLToPath(import.meta.url));
+  const hooksSearchPaths = [
+    join(here, "..", "scripts", "hooks"),          // npm install: dist/../scripts/hooks
+    join(here, "..", "..", "scripts", "hooks"),     // monorepo: packages/cli/dist/../../scripts
+    join(here, "..", "..", "..", "scripts", "hooks"), // ts-node: src/../../../scripts
+  ];
+  const hooksDir = hooksSearchPaths.find(p => existsSync(p));
+  if (!hooksDir) {
+    error("Could not locate scripts/hooks/. Try: npx great-cto@latest --host codex");
+    return 1;
+  }
+
+  // ── 2. install skill dir ──────────────────────────────────
+  const skillDir = join(home, ".codex", "skills", "great_cto");
+  const skillScriptsDir = join(skillDir, "scripts", "hooks");
+  mkdirSync(skillScriptsDir, { recursive: true });
+  log(dim(`  skill dir: ${skillDir}`));
+
+  // Copy hook scripts
+  const HOOKS_TO_COPY = [
+    "quota-check.mjs",
+    "secret-scan.mjs",
+    "cost-guard.mjs",
+    "orchestrator-check.mjs",
+    "format-check.mjs",
+    "tool-failure.mjs",
+    "summary-enforce.mjs",
+  ];
+  let copied = 0;
+  for (const hook of HOOKS_TO_COPY) {
+    const src = join(hooksDir, hook);
+    const dst = join(skillScriptsDir, hook);
+    if (existsSync(src)) {
+      copyFileSync(src, dst);
+      copied++;
+    }
+  }
+  log(`  ${green("✓")} ${copied} hook scripts → ${skillScriptsDir}`);
+
+  // Write hooks.json into the skill dir
+  const { getCodexHooksJson } = await import("./adapt.js");
+  const hooksJson = getCodexHooksJson(skillDir);
+  writeFileSync(join(skillDir, "hooks.json"), hooksJson);
+  log(`  ${green("✓")} wrote ~/.codex/skills/great_cto/hooks.json`);
+
+  // ── 3. write project-scoped config fragment ───────────────
+  const configFrag = join(args.dir, ".codex", "great_cto.toml");
+  mkdirSync(dirname(configFrag), { recursive: true });
+  writeFileSync(configFrag, [
+    `# great_cto Codex integration — generated ${new Date().toISOString().slice(0, 10)}`,
+    `# Add these sections to ~/.codex/config.toml`,
+    ``,
+    `[features]`,
+    `hooks = true`,
+    ``,
+    `[mcp_servers.great_cto]`,
+    `command = "npx"`,
+    `args = ["great-cto@latest", "mcp"]`,
+    `startup_timeout_sec = 60`,
+    ``,
+    `[mcp_servers.great_cto.env]`,
+    `CODEX_SKILL_DIR = "${skillDir}"`,
+    ``,
+    `[hooks_files]`,
+    `paths = ["${join(skillDir, "hooks.json")}"]`,
+  ].join("\n") + "\n");
+  log(`  ${green("✓")} wrote .codex/great_cto.toml`);
+
+  log("");
+  log(bold("Next steps:"));
+  log(`  1. Merge ${cyan(".codex/great_cto.toml")} sections into ${cyan("~/.codex/config.toml")}`);
+  log(`  2. Add ${cyan(args.dir)} to trusted projects in config.toml if not already:`);
+  log(`     ${dim(`[projects."${args.dir}"]`)}`);
+  log(`     ${dim(`trust_level = "trusted"`)}`);
+  log(`  3. Restart Codex Desktop / CLI to activate hooks and MCP server.`);
+  log(`  4. Verify: run ${cyan("great-cto mcp")} in a terminal — should list great_cto tools.`);
+  log("");
+  log(`${green("✓")} Codex host install complete.`);
+  return 0;
+}
+
 async function runInit(args: CliArgs): Promise<number> {
+  // Route to Codex-specific install if --host codex
+  if (args.host === "codex") return runInitCodex(args);
+
   banner();
 
   // ── 1. detect ────────────────────────────────────────────
