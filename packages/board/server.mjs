@@ -3093,6 +3093,56 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Heartbeat watchdog (Paperclip pattern) ──────────────────────────────
+  // GET /api/heartbeat → { stuck: [{id,title,agent,age_h}], budgets: {agent→cap},
+  //                        goal_ancestry: string, tool_failure_rate_1h: number }
+  if (pathname === '/api/heartbeat') {
+    const tasks = getTasks(cwd);
+    const nowMs = Date.now();
+    const STUCK_H = 48;
+    const stuck = tasks
+      .filter(t => t.status === 'in_progress')
+      .map(t => {
+        const startedAt = t.startedAt ? new Date(t.startedAt).getTime() : null;
+        const ageH = startedAt ? (nowMs - startedAt) / 3600000 : null;
+        return { id: t.id, title: t.title, agent: t.agent, age_h: ageH ? Math.round(ageH) : null };
+      })
+      .filter(t => t.age_h !== null && t.age_h > STUCK_H);
+
+    // Per-agent budgets from PROJECT.md
+    const projectMdPath = path.join(cwd, '.great_cto', 'PROJECT.md');
+    let budgets = {};
+    let goalAncestry = null;
+    try {
+      const projectTxt = fs.readFileSync(projectMdPath, 'utf8');
+      const sectionMatch = projectTxt.match(/^agent-budget:\s*\n((?:[ \t]+\S[^\n]*\n?)*)/m);
+      if (sectionMatch) {
+        for (const line of sectionMatch[1].split('\n')) {
+          const m = line.match(/^\s+([a-z][a-z0-9-]*):\s*(\d+(?:\.\d+)?)/);
+          if (m) budgets[m[1]] = parseFloat(m[2]);
+        }
+      }
+      // Goal ancestry
+      const archetype = (projectTxt.match(/^(?:archetype|primary):\s*(\S+)/m) || [])[1] || null;
+      const compliance = (projectTxt.match(/^compliance:\s*(.+)$/m) || [])[1] || null;
+      const phase = (projectTxt.match(/^phase:\s*(\S+)/m) || [])[1] || null;
+      const complianceClean = compliance && !/^\[?none\]?$/i.test(compliance.trim()) ? compliance.trim() : null;
+      if (archetype) goalAncestry = `[archetype:${archetype}]${complianceClean ? ` [compliance:${complianceClean}]` : ''}${phase ? ` [phase:${phase}]` : ''}`;
+    } catch { /* project not found */ }
+
+    // Tool failure rate in last hour
+    let toolFailureRate1h = 0;
+    try {
+      const failLog = fs.readFileSync(path.join(cwd, '.great_cto', 'tool-failures.log'), 'utf8');
+      const cutoff = new Date(nowMs - 3600000).toISOString();
+      toolFailureRate1h = failLog.split('\n').filter(l => l > cutoff && l.trim()).length;
+    } catch { /* no log */ }
+
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ stuck, budgets, goal_ancestry: goalAncestry, tool_failure_rate_1h: toolFailureRate1h }));
+    return;
+  }
+
   // API requests get a JSON 404 so frontends can JSON.parse() the response
   // without crashing. Static-file 404s stay plain text.
   if (pathname.startsWith('/api/')) {

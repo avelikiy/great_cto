@@ -85,6 +85,42 @@ function readProjectCap() {
   } catch { return null; }
 }
 
+/**
+ * Cascading budget (Paperclip pattern): per-agent limits from PROJECT.md.
+ *
+ * PROJECT.md syntax:
+ *   agent-budget:
+ *     architect: 4
+ *     senior-dev: 2
+ *     qa-engineer: 0.5
+ *
+ * Returns { agentName → maxUsd } or {} if section absent.
+ * The caller detects which agent is being invoked from the prompt.
+ */
+function readPerAgentBudgets() {
+  try {
+    const txt = readFileSync('.great_cto/PROJECT.md', 'utf8');
+    const sectionMatch = txt.match(/^agent-budget:\s*\n((?:[ \t]+\S[^\n]*\n?)*)/m);
+    if (!sectionMatch) return {};
+    const budgets = {};
+    for (const line of sectionMatch[1].split('\n')) {
+      const m = line.match(/^\s+([a-z][a-z0-9-]*):\s*(\d+(?:\.\d+)?)/);
+      if (m) budgets[m[1]] = parseFloat(m[2]);
+    }
+    return budgets;
+  } catch { return {}; }
+}
+
+function detectAgent(prompt) {
+  if (/\barchitect\b/i.test(prompt)) return 'architect';
+  if (/\bsenior[-_]dev\b|\/start\b/i.test(prompt)) return 'senior-dev';
+  if (/\bqa[-_]engineer\b|\/review\b/i.test(prompt)) return 'qa-engineer';
+  if (/\bsecurity[-_]officer\b|\/sec\b/i.test(prompt)) return 'security-officer';
+  if (/\bpm\b|\/plan\b/i.test(prompt)) return 'pm';
+  if (/\bdevops\b|\/deploy\b/i.test(prompt)) return 'devops';
+  return null;
+}
+
 // Parse cost-history.log entries. Returns { spentToday, spentMonth, spentAll }.
 // Each line: "<iso-ts> agent=X feature=Y cost_usd=N ..."
 function readCostHistory() {
@@ -134,6 +170,19 @@ function main() {
   const dailyCap = config.daily_max_usd ?? null;
   const monthlyCap = config.monthly_max_usd ?? projectCap ?? null;
   const enforce = config.enforce ?? 'warn';   // 'warn' | 'block'
+
+  // Cascading budget: per-agent cap from PROJECT.md `agent-budget:` section
+  const agentBudgets = readPerAgentBudgets();
+  const agentName = detectAgent(prompt);
+  const agentCap = agentName ? (agentBudgets[agentName] ?? null) : null;
+  if (agentCap !== null && cost.est > agentCap) {
+    const msg = `[great_cto:cost-guard] per-agent budget: ${agentName} cap=$${agentCap} estimated=$${cost.lo}–$${cost.hi}`;
+    process.stderr.write(msg + '\n');
+    if (enforce === 'block') {
+      process.stderr.write(`[great_cto:cost-guard] BLOCKED — ${agentName} would exceed its per-agent budget ($${agentCap}). Raise agent-budget.${agentName} in PROJECT.md or use GREAT_CTO_BUMP_CAP.\n`);
+      return process.exit(2);
+    }
+  }
 
   // One-shot manual bump (e.g., dev exceeds cap intentionally for one run)
   const bump = parseFloat(process.env.GREAT_CTO_BUMP_CAP || '0') || 0;

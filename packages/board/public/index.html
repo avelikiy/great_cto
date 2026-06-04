@@ -1481,6 +1481,11 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Agents installed list (legacy — kept for fallback) ───────────────── */
 .agents-installed { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
+/* Agent budget bars (Paperclip cascading budget pattern) */
+.ab-title { font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+.ab-row { display: flex; justify-content: space-between; padding: 2px 0; }
+.ab-name { font-family: var(--mono, monospace); color: var(--accent); }
+.ab-cap { color: var(--text3); }
 .agent-card { background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .agent-card .ac-name { font-size: 12px; font-weight: 600; font-family: var(--mono); color: var(--accent); }
 .agent-card .ac-desc { font-size: 11px; color: var(--text3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2128,6 +2133,11 @@ button { font-family: inherit; cursor: pointer; }
           </div>
         </div>
 
+        <!-- Goal ancestry banner (Paperclip pattern) — shows archetype+compliance+phase -->
+        <div id="goal-ancestry-banner" style="display:none;font-family:var(--mono,monospace);font-size:11px;color:var(--text3,#6b7280);background:var(--bg-muted);padding:6px 10px;border-radius:6px;margin-bottom:10px;letter-spacing:0.3px;"></div>
+        <!-- Tool failure rate watchdog warning -->
+        <div id="tool-failure-rate" style="display:none;font-size:12px;color:var(--status-blocked,#f87171);background:rgba(248,113,113,0.08);padding:6px 10px;border-radius:6px;margin-bottom:10px;"></div>
+
         <div class="inbox-section">
           <div class="inbox-section-head">
             <span class="dot dot-blue"></span>
@@ -2229,6 +2239,11 @@ button { font-family: inherit; cursor: pointer; }
 
         <!-- §3.1 Fleet controls -->
         <section aria-label="Fleet controls" style="margin-top:20px">
+          <!-- Agent budgets (Paperclip cascading budget pattern) -->
+          <div id="agent-budgets" style="display:none;background:var(--bg-muted);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;">
+            <!-- populated by renderAgentBudgets() from /api/heartbeat -->
+          </div>
+
           <div class="mp-card fleet-controls">
             <div class="fleet-search">
               <input type="search" id="fleet-search" placeholder="Filter agents (press / to focus)" aria-label="Filter agents by slug" />
@@ -2575,6 +2590,56 @@ async function refreshInbox() {
   if (d) renderInbox(d);
   refreshPipeline();
   refreshResume();
+  refreshHeartbeat();
+}
+
+async function refreshHeartbeat() {
+  const h = await api(`/api/heartbeat${pqs()}`);
+  if (!h) return;
+
+  // Goal ancestry banner
+  const bannerEl = document.getElementById('goal-ancestry-banner');
+  if (bannerEl && h.goal_ancestry) {
+    bannerEl.textContent = h.goal_ancestry;
+    bannerEl.style.display = 'block';
+  } else if (bannerEl) {
+    bannerEl.style.display = 'none';
+  }
+
+  // Tool failure rate warning
+  const failEl = document.getElementById('tool-failure-rate');
+  if (failEl) {
+    if (h.tool_failure_rate_1h > 5) {
+      failEl.textContent = `⚠ ${h.tool_failure_rate_1h} tool failures in last hour — possible stuck agent`;
+      failEl.style.display = 'block';
+    } else {
+      failEl.style.display = 'none';
+    }
+  }
+
+  // Stuck tasks already covered by inbox-stale, but surface count in pipeline-status
+  if (h.stuck && h.stuck.length > 0) {
+    const ps = document.getElementById('pipeline-status');
+    if (ps && !ps.textContent.includes('stuck')) {
+      ps.textContent += ` · ${h.stuck.length} stuck >48h`;
+      ps.style.color = 'var(--status-blocked, #f87171)';
+    }
+  }
+
+  // Per-agent budget bars in agents tab
+  renderAgentBudgets(h.budgets || {});
+}
+
+function renderAgentBudgets(budgets) {
+  const el = document.getElementById('agent-budgets');
+  if (!el) return;
+  const entries = Object.entries(budgets);
+  if (entries.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `<div class="ab-title">Per-agent budgets (PROJECT.md)</div>` +
+    entries.map(([agent, cap]) =>
+      `<div class="ab-row"><span class="ab-name">${esc(agent)}</span><span class="ab-cap">$${cap}/run</span></div>`
+    ).join('');
 }
 
 async function refreshResume() {
