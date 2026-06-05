@@ -30,6 +30,13 @@ jobs:
           python-version: "3.12"
       - name: Validate plugin contracts
         run: python3 tests/structural/validate.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Docs reference in sync with agents/commands
+        run: node scripts/gen-docs-reference.mjs --check
+      - name: Docs reference generator tests
+        run: node --test tests/docs/*.test.mjs
 
   archetype-e2e:
     name: Archetype detection e2e (23 fixtures)
