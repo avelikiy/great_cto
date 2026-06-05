@@ -36,8 +36,9 @@ PRIVATE_PATH_PATTERN='/Users/avelikiy/development/[A-Za-z][A-Za-z0-9_-]*'
 
 # Files/paths to exclude from blob scanning (test fixtures, docs examples, etc.)
 EXCLUDE_PATHS=(
-  "scripts/hooks/pre-push.sh"    # this file legitimately contains the terms
-  "/tmp/redact-"                 # redaction config files (not in repo)
+  "scripts/hooks/pre-push.sh"        # this file legitimately contains the terms
+  "tests/hooks/pre-push.test.mjs"    # hook test fixtures legitimately use the terms
+  "/tmp/redact-"                     # redaction config files (not in repo)
 )
 
 RED='\033[0;31m'
@@ -87,26 +88,29 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
 
-  # Determine range — if remote_sha is all zeros this is a new branch or new tag
+  # Determine range — if remote_sha is all zeros this is a new branch or new tag.
   if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
-    if [[ "$remote_ref" == refs/tags/* ]]; then
-      # New tag: only scan commits not yet on any remote branch (i.e. genuinely new work).
-      # Tags pointing to already-pushed commits produce an empty range — nothing to scan.
-      range="$(git rev-list --remotes --not "${local_sha}" 2>/dev/null | head -1)"
-      if [[ -n "$range" ]]; then
-        range="${range}..${local_sha}"
-      else
-        # Tag points to a commit already on a remote — nothing new to scan.
-        continue
-      fi
+    # New branch/tag: scan ONLY commits reachable from local_sha that are not yet
+    # on any remote-tracking branch — i.e. the genuinely new work being pushed.
+    #
+    # Bug fix (v2.37.1): previously used `git rev-list --remotes --not <local>`,
+    # which is reversed (it lists commits on remotes NOT in local) and, on a branch
+    # that descends from an already-pushed branch, returns empty → fell back to
+    # `range=<local_sha>` → `git log <local_sha>` scanned the ENTIRE history,
+    # false-flagging private terms in old commits. Correct query is
+    # `git rev-list <local_sha> --not --remotes` (positive ref first).
+    new_commits="$(git rev-list "${local_sha}" --not --remotes 2>/dev/null || true)"
+    if [[ -z "$new_commits" ]]; then
+      # Nothing new (commit already on a remote, e.g. a tag on pushed history) — skip.
+      continue
+    fi
+    oldest_new="$(printf '%s\n' "$new_commits" | tail -n 1)"
+    base="$(git rev-parse --verify --quiet "${oldest_new}^" 2>/dev/null || true)"
+    if [[ -n "$base" ]]; then
+      range="${base}..${local_sha}"
     else
-      # New branch: scan all commits reachable from local_sha but not in any remote branch
-      commit_range="$(git rev-list --remotes --not "${local_sha}" 2>/dev/null | head -1)"
-      if [[ -n "$commit_range" ]]; then
-        range="${commit_range}..${local_sha}"
-      else
-        range="${local_sha}"
-      fi
+      # Root commit (no parent — brand-new repo's first push): scan just this commit.
+      range="${local_sha}"
     fi
   else
     range="${remote_sha}..${local_sha}"
