@@ -33,11 +33,44 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["ai-eval-engineer"][_
 ## What you produce
 
 For each scenario: `tests/eval/EVAL-{slug}.md` from `skills/great_cto/templates/EVAL-template.md`. Each has:
-- ≥ 5 test cases with input + expected behaviour + pass criteria
-- Pass threshold (default 5/5; document any 4/5 with justification)
+- ≥ 5 **tuning** cases (`## Cases (tuning)`) + ≥ 3 **holdout** cases (`## Holdout cases`) — input + expected + pass criteria
+- Pass threshold (default 5/5; document any 4/5 with justification) — applies to each split
 - How-to-run command
 - Cross-references to ARCH § Failure Modes and TM § Sections
 - Revision history with model version + result
+
+## Tuning / holdout split + promotion gate (v2.x — SIA pattern)
+
+Every EVAL file is split into two sets, mirroring SIA's `data/public` vs `data/private`:
+
+- **`## Cases (tuning)`** — visible to `ai-prompt-architect`. Used to iterate the prompt. A plain
+  `## Cases` heading is also parsed as tuning (backward-compatible with legacy EVAL files).
+- **`## Holdout cases`** — gate-only. NEVER surfaced to the prompt author while iterating.
+  Prevents the prompt from overfitting to cases its author can read.
+
+**The promotion gate** blocks any prompt revision that regresses on the holdout split:
+
+```bash
+# 1. Baseline: run holdout on the CURRENT prompt, save results
+git stash   # or checkout the pre-change prompt
+ANTHROPIC_API_KEY=... node tests/eval/runner.mjs --split holdout
+cp tests/eval/results.jsonl tests/eval/baseline.holdout.jsonl
+
+# 2. Candidate: run holdout on the NEW prompt
+git stash pop
+ANTHROPIC_API_KEY=... node tests/eval/runner.mjs --split holdout
+cp tests/eval/results.jsonl tests/eval/candidate.holdout.jsonl
+
+# 3. Gate: promote only if no regression on holdout (exit 0 = promote, 1 = block)
+node scripts/eval-gate.mjs \
+  --baseline tests/eval/baseline.holdout.jsonl \
+  --candidate tests/eval/candidate.holdout.jsonl \
+  --split holdout --epsilon 0.0
+```
+
+The gate (`scripts/eval-gate.mjs`) blocks if the candidate (a) drops below `baseline.rate - epsilon`
+on any shared holdout eval, or (b) falls below an eval's own pass threshold. This is the closed-loop
+guarantee: **a learned prompt improvement cannot ship until re-run and measured on held-out cases.**
 
 Plus a runner: `tests/eval/run.sh` or `tests/eval/test_evals.py` that executes all EVAL files and produces a single pass/fail summary for CI.
 
