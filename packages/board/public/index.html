@@ -3471,6 +3471,7 @@ async function init() {
   loadMemory();
   refreshCost();
   refreshPipeline();
+  refreshAgentsInstalled();  // preload fleet so Agents tab is instant
   connectSSE();
 
   // Deep-link: ?task=<id> opens the side panel for that task (from email alerts).
@@ -4382,7 +4383,7 @@ const FACET_GROUPS = [
   {
     key: 'activity', legend: 'Activity',
     options: [
-      ['used', 'used'], ['all', 'all'], ['active', 'active'], ['idle', 'idle ≥30d'], ['never', 'never run'], ['retired', 'retired'],
+      ['all', 'all'], ['used', 'used'], ['active', 'active'], ['idle', 'idle ≥30d'], ['never', 'never run'], ['retired', 'retired'],
     ],
   },
   {
