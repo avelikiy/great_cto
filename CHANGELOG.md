@@ -5,6 +5,39 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v2.37.0 — 2026-06-05
+
+### Self-improvement loop (SIA-inspired)
+
+Closes the agent-prompt self-improvement loop, porting the generation→evaluate→gate
+cycle from [hexo-ai/sia](https://github.com/hexo-ai/sia). A learned prompt improvement
+can no longer ship until it is re-run and proven on a held-out eval set.
+
+- **Tuning / holdout eval split** — `tests/eval/runner.mjs` parses `## Cases (tuning)`
+  (visible to ai-prompt-architect) vs `## Holdout cases` (gate-only, anti-overfit),
+  with a new `--split all|tuning|holdout` flag. Backward-compatible: a plain `## Cases`
+  heading is treated as tuning.
+- **Promotion gate** — `scripts/eval-gate.mjs` blocks any candidate prompt that
+  regresses on the holdout split or falls below an eval's own threshold (exit 0/1/2).
+- **Closed prompt-evolution loop** — `scripts/prompt-evolve.mjs` + `/prompt-evolve`
+  command: lesson → candidate prompt → holdout gate → PROMOTE/REJECT, with an auditable
+  per-agent generation ledger (`.great_cto/prompt-evolution/<agent>.jsonl`).
+- **Evolutionary memory** — `scripts/agent-changelog.mjs` renders a per-agent generational
+  changelog (lesson + held-out eval delta + provenance), surfaced in `/agent-review`.
+- **Sandbox hardening** — `scripts/lib/guards.mjs` (`safeReadFile` size-cap, `truncate`,
+  `withTimeout`) wired into `scripts/memory-filter.mjs`; `scripts/sandbox-eval.sh` runs a
+  candidate prompt's holdout evals in an isolated, timeout-bounded throwaway copy.
+- **CI** — `evals-runner.yml` gains a no-API `unit` job (runner + gate + evolve + guards
+  tests) that gates the paid judge run. 71 new/updated unit tests.
+- **Docs** — `ai-eval-engineer`, `gen-evals` (now emits 70/30 tuning/holdout), EVAL-template.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.33.1 — 2026-05-29
 
 ### Fixed: 3 SessionStart config bugs in plugin.json
