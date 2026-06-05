@@ -63,8 +63,14 @@ Based on the agent definition, generate $COUNT realistic, adversarial test cases
 - `senior-dev`: touching files outside owned-files list, breaking existing tests, re-deriving decided choices
 - `pm`: decomposing incorrectly, missing dependency, wrong agent assignment
 
-Generate cases in a structured `## Cases` table followed by a pass threshold.
+Generate cases in structured tables followed by a pass threshold.
 Threshold = 80% default (16/20), adjust down to 70% for adversarial-heavy sets.
+
+**Split the cases into tuning + holdout (SIA `data/public` vs `data/private`):**
+- ~70% of cases → `## Cases (tuning)` — visible to ai-prompt-architect for iteration.
+- ~30% of cases (min 3) → `## Holdout cases` — gate-only, used by `scripts/eval-gate.mjs`
+  to block prompt revisions that regress. Put the **hardest adversarial cases** in holdout —
+  they are the most valuable overfit detector and must stay unseen during prompt tuning.
 
 ## Step 4 — Write EVAL file(s)
 
@@ -85,17 +91,24 @@ where `<slug>` is a 2-4 word kebab description of the scenario cluster.
 ## Scenario
 <2-3 sentences describing what this cluster tests and why it matters>
 
-## Cases
+## Cases (tuning)
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
 | 1 | <input description> | <expected behaviour — rubric-based> | <pass criterion> |
 ...
 
+## Holdout cases
+| # | Scenario | Expected | Pass |
+|---|---|---|---|
+| H1 | <hardest adversarial input — kept unseen> | <expected behaviour> | <pass criterion> |
+...
+
 ## Pass threshold
-<N>/<total>.
+<N>/<total>. (applies to each split)
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-<agent-name>-<slug>`
+`node tests/eval/runner.mjs --filter EVAL-<agent-name>-<slug> --split holdout`  # gate evidence
 
 ## Cross-refs
 - Agent: <agent-name> · Shape: <A-F from continuous-learner shapes>

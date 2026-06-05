@@ -36,7 +36,23 @@ permissions:
   issues: write
 
 jobs:
+  # Cheap, deterministic guard — no API key needed. Runs the runner + gate unit tests
+  # (parser, tuning/holdout split, promotion-gate logic). Must pass before the paid judge run.
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests (eval runner + promotion gate)
+        run: node --test 'tests/eval/*.test.mjs'
+
   eval-judge:
+    needs: unit
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

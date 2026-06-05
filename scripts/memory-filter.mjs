@@ -23,6 +23,7 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, basename } from "node:path";
+import { safeReadFile } from "./lib/guards.mjs";
 
 // ─── Provider config (mirrors generate-summary.mjs) ──────────────────────────
 const ANTHROPIC_API   = "https://api.anthropic.com/v1/messages";
@@ -324,7 +325,14 @@ Examples:
     process.exit(0);
   }
 
-  const content = readFileSync(filePath, "utf-8").trim();
+  // Size-guard (SIA _safe_read_file): refuse to load a runaway/poisoned memory
+  // file into an LLM context. Returns null when oversized → degrade gracefully.
+  const raw = safeReadFile(filePath);
+  if (raw === null) {
+    process.env.GREAT_CTO_DEBUG && console.warn(`[memory-filter] ${filePath} skipped (too large or unreadable)`);
+    process.exit(0);
+  }
+  const content = raw.trim();
   if (!content) process.exit(0);
 
   const result = await filterMemory(taskTitle, content, { k, heuristicOnly: heuristic });

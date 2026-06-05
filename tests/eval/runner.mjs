@@ -27,22 +27,80 @@ const RESULTS_PATH = join(EVAL_DIR, 'results.jsonl');
 
 // ── CLI args ────────────────────────────────────────────────────────────────
 
-function parseArgs() {
-  const argv = process.argv.slice(2);
+export function parseArgs(argv = process.argv.slice(2)) {
   let sample = 0;
   let dryRun = false;
+  let split = 'all'; // all | tuning | holdout
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--sample' && argv[i + 1]) {
       sample = parseInt(argv[++i], 10);
       if (isNaN(sample) || sample < 0) sample = 0;
     } else if (argv[i] === '--dry-run') {
       dryRun = true;
+    } else if (argv[i] === '--split' && argv[i + 1]) {
+      const v = argv[++i].toLowerCase();
+      if (['all', 'tuning', 'holdout'].includes(v)) split = v;
     }
   }
-  return { sample, dryRun };
+  return { sample, dryRun, split };
+}
+
+/** Selects the case list for a parsed EVAL file given a split filter. */
+export function selectCases(parsed, split = 'all') {
+  if (split === 'tuning') return parsed.tuningCases ?? [];
+  if (split === 'holdout') return parsed.holdoutCases ?? [];
+  return parsed.cases ?? [];
 }
 
 // ── EVAL file parser ─────────────────────────────────────────────────────────
+
+/**
+ * Splits markdown into `## `-delimited sections. Robust against a missing
+ * trailing heading (unlike the `\Z`-based lookahead used elsewhere).
+ * Returns [{ heading, body }]. Content before the first `## ` is ignored.
+ */
+export function splitSections(content) {
+  const sections = [];
+  let cur = null;
+  for (const line of String(content).split('\n')) {
+    const m = line.match(/^##\s+(.*\S)\s*$/);
+    if (m) {
+      if (cur) sections.push(cur);
+      cur = { heading: m[1].trim(), body: [] };
+    } else if (cur) {
+      cur.body.push(line);
+    }
+  }
+  if (cur) sections.push(cur);
+  return sections.map(s => ({ heading: s.heading, body: s.body.join('\n') }));
+}
+
+/**
+ * Parses a markdown table body into case objects, skipping the column-header
+ * and separator rows. Columns: (#, Test/Input, Expected, Pass).
+ */
+export function parseCasesTable(tableText) {
+  const out = [];
+  const rows = tableText.split('\n').filter(l => l.trim().startsWith('|'));
+  const dataRows = rows.filter(l => !l.match(/\|\s*[-:]+\s*\|/));
+  let headerParsed = false;
+  for (const row of dataRows) {
+    if (!headerParsed) {
+      headerParsed = true;
+      continue; // skip column header row
+    }
+    const cols = row.split('|').map(s => s.trim()).filter((_, i, a) => i > 0 && i < a.length - 1);
+    if (cols.length >= 3) {
+      out.push({
+        num: cols[0],
+        test: cols[1] || '',
+        expected: cols[2] || '',
+        pass: cols[3] || '',
+      });
+    }
+  }
+  return out;
+}
 
 /**
  * Parses a single EVAL-*.md file into a structured object.
@@ -58,40 +116,31 @@ export function parseEvalFile(content, filename) {
     const scenarioMatch = content.match(/^##\s+Scenario\s*\n([\s\S]*?)(?=^##|\Z)/m);
     const scenario = scenarioMatch ? scenarioMatch[1].trim() : '';
 
-    // Cases table — look for a ## Cases (or ## Cases (≥ N per release)) section
-    const casesSectionMatch = content.match(/^##\s+Cases[^\n]*\n([\s\S]*?)(?=^##|\Z)/m);
+    // Cases tables — scan ALL case-bearing sections and assign each a split.
+    //   ## Cases / ## Cases (≥ N per release) / ## Cases (tuning)  → split "tuning" (visible to prompt author)
+    //   ## Holdout / ## Holdout cases / ## Cases (holdout)         → split "holdout" (gate-only, prevents overfit)
+    // SIA discipline: data/public (tuning) vs data/private (holdout). A prompt revision
+    // may only ship if it does NOT regress on the holdout split.
     const cases = [];
-    if (casesSectionMatch) {
-      const tableText = casesSectionMatch[1];
-      const rows = tableText.split('\n').filter(l => l.trim().startsWith('|'));
-      // Skip header row and separator row (contains ---)
-      const dataRows = rows.filter(l => !l.match(/\|\s*[-:]+\s*\|/));
-      // First row is the header
-      let headerParsed = false;
-      for (const row of dataRows) {
-        if (!headerParsed) {
-          headerParsed = true;
-          continue; // skip column header row
-        }
-        const cols = row.split('|').map(s => s.trim()).filter((_, i, a) => i > 0 && i < a.length - 1);
-        if (cols.length >= 3) {
-          // Columns vary: (#, Test/Scenario/Input, Expected/Threshold, Pass)
-          cases.push({
-            num: cols[0],
-            test: cols[1] || '',
-            expected: cols[2] || '',
-            pass: cols[3] || '',
-          });
-        }
+    for (const section of splitSections(content)) {
+      const h = section.heading.toLowerCase();
+      const isHoldout = /^holdout\b/.test(h) || /\bholdout\b/.test(h);
+      const isCases = /^cases\b/.test(h) || isHoldout;
+      if (!isCases) continue;
+      const split = isHoldout ? 'holdout' : 'tuning';
+      for (const c of parseCasesTable(section.body)) {
+        cases.push({ ...c, split });
       }
     }
+    const tuningCases = cases.filter(c => c.split === 'tuning');
+    const holdoutCases = cases.filter(c => c.split === 'holdout');
 
     // Pass threshold — ## Pass threshold section
     const thresholdMatch = content.match(/^##\s+Pass threshold\s*\n([\s\S]*?)(?=^##|\Z)/m);
     const thresholdRaw = thresholdMatch ? thresholdMatch[1].trim() : '';
     const threshold = parseThreshold(thresholdRaw);
 
-    return { pack, scenario, cases, thresholdRaw, threshold };
+    return { pack, scenario, cases, tuningCases, holdoutCases, thresholdRaw, threshold };
   } catch (err) {
     console.warn(`[WARN] Failed to parse ${filename}: ${err.message}`);
     return null;
@@ -204,7 +253,7 @@ function parseJudgeVerdict(reply) {
 
 // ── Runner core ──────────────────────────────────────────────────────────────
 
-async function runEvalFile({ evalPath, evalName, apiKey, actorModel, judgeModel, dryRun }) {
+async function runEvalFile({ evalPath, evalName, apiKey, actorModel, judgeModel, dryRun, split = 'all' }) {
   let content;
   try {
     content = readFileSync(evalPath, 'utf8');
@@ -215,13 +264,14 @@ async function runEvalFile({ evalPath, evalName, apiKey, actorModel, judgeModel,
 
   const parsed = parseEvalFile(content, evalName);
   if (!parsed) return null;
-  if (parsed.cases.length === 0) {
-    console.warn(`[WARN] No cases found in ${evalName}, skipping.`);
+  const selectedCases = selectCases(parsed, split);
+  if (selectedCases.length === 0) {
+    if (split === 'all') console.warn(`[WARN] No cases found in ${evalName}, skipping.`);
     return null;
   }
 
   if (dryRun) {
-    console.log(`  [dry-run] ${evalName} — ${parsed.cases.length} cases, pack=${parsed.pack}, threshold="${parsed.thresholdRaw}"`);
+    console.log(`  [dry-run] ${evalName} — ${selectedCases.length} cases (split=${split}), pack=${parsed.pack}, threshold="${parsed.thresholdRaw}"`);
     return null;
   }
 
@@ -229,7 +279,7 @@ async function runEvalFile({ evalPath, evalName, apiKey, actorModel, judgeModel,
   let skipped = 0;
   const caseResults = [];
 
-  for (const c of parsed.cases) {
+  for (const c of selectedCases) {
     if (!c.test || !c.expected) {
       skipped++;
       caseResults.push({ num: c.num, verdict: 'SKIP', reason: 'empty test or expected' });
@@ -264,13 +314,14 @@ async function runEvalFile({ evalPath, evalName, apiKey, actorModel, judgeModel,
     }
   }
 
-  const judged = parsed.cases.length - skipped;
+  const judged = selectedCases.length - skipped;
   const rate = judged > 0 ? passed / judged : 0;
 
   return {
     eval: evalName.replace(/\.md$/, ''),
     pack: parsed.pack,
-    cases: parsed.cases.length,
+    split,
+    cases: selectedCases.length,
     judged,
     passed,
     skipped,
@@ -328,7 +379,7 @@ function printSummary(results) {
 // ── main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { sample, dryRun } = parseArgs();
+  const { sample, dryRun, split } = parseArgs();
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!dryRun && !apiKey) {
@@ -383,6 +434,7 @@ async function main() {
   console.log(`  Actor:  ${actorModel}`);
   console.log(`  Judge:  ${judgeModel}`);
   console.log(`  Files:  ${evalFiles.length}${sample > 0 ? ` (sample of ${sample})` : ''}`);
+  console.log(`  Split:  ${split}`);
   console.log(`  Output: ${RESULTS_PATH}\n`);
 
   // Clear previous results for this run (truncate)
@@ -398,6 +450,7 @@ async function main() {
       actorModel,
       judgeModel,
       dryRun: false,
+      split,
     });
 
     if (!result) {
@@ -409,6 +462,7 @@ async function main() {
     const jsonlEntry = {
       eval: result.eval,
       pack: result.pack,
+      split: result.split,
       cases: result.cases,
       judged: result.judged,
       passed: result.passed,
