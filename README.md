@@ -324,6 +324,12 @@ Five things that need you to act in <2h get emailed automatically — even when 
 
 Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
+## Documentation
+
+📚 **[Full documentation hub →](docs/README.md)** — organized by [Diátaxis](https://diataxis.fr/):
+**[Getting Started](docs/tutorials/getting-started.md)** · How-to guides ·
+[Agents](docs/reference/agents.md) & [Commands](docs/reference/commands.md) reference · [Architecture](docs/ARCHITECTURE.md) · [FAQ](docs/FAQ.md).
+
 ## Architecture
 
 The plugin runs inside Claude Code (or any MCP-capable host); 57 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
