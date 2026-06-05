@@ -3287,6 +3287,7 @@ async function switchProject(slug) {
   loadMemory();
   refreshCost();
   refreshPipeline();
+  refreshAgentsInstalled();   // reload agents with verdicts for the new project
   connectSSE();
   if (lbl) lbl.textContent = 'live · synced just now';
 }
@@ -4315,17 +4316,24 @@ const fleetState = {
   // Default: hide never-run / retired agents. 35 installed → ~10 actually
   // doing work on most projects; showing all 35 by default is noise.
   // User flips activity to `all` to see the full installation.
-  filters: { domain: 'all', activity: 'used', health: 'all' },
+  filters: { domain: 'all', activity: 'all', health: 'all' },
   search: '',
   sort: 'runs_30d',
   drawerSlug: null,
 };
 
 async function refreshAgentsInstalled() {
-  const data = await api('/api/agents-installed');
+  const data = await api(`/api/agents-installed${pqs()}`);
   if (!data) return;
   fleetState.agents = data.agents || [];
   fleetState.summary = data.summary || null;
+  // If this project has no verdicts at all, show all agents (not just 'used').
+  // Prevents blank panel on fresh projects.
+  const hasAnyRuns = (data.summary?.active_30d ?? 0) > 0 ||
+                     (fleetState.agents || []).some(a => a.runs_total > 0);
+  if (!hasAnyRuns && fleetState.filters.activity === 'used') {
+    fleetState.filters = { ...fleetState.filters, activity: 'all' };
+  }
   // legacy_agent_count comes from /api/metrics — pull from cached metrics if present
   fleetState.legacy_count = (typeof metrics !== 'undefined' && metrics && metrics.legacy_agent_count) || 0;
   renderFleetSummary();
@@ -4708,7 +4716,7 @@ function wireFleetKeyboard() {
     renderFleetList();
   });
   document.getElementById('fleet-reset-filters')?.addEventListener('click', () => {
-    fleetState.filters = { domain: 'all', activity: 'used', health: 'all' };
+    fleetState.filters = { domain: 'all', activity: 'all', health: 'all' };
     fleetState.search = '';
     const input = document.getElementById('fleet-search');
     if (input) input.value = '';
