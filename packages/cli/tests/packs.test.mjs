@@ -140,3 +140,48 @@ test("digital-health-pack: generic web project does NOT trigger pack", () => {
   const match = packs.find(p => p.pack === "digital-health-pack");
   assert.equal(match, undefined, "digital-health-pack should NOT fire for generic web projects");
 });
+
+// ── US-market Phase 1: sec-cyber-pack ──────────────────────────────────────
+
+test("sec-cyber-pack: triggers on '10-k' + 'material incident'", () => {
+  const m = suggestPacks(mkDetection([], ["10-k", "material incident"])).find(p => p.pack === "sec-cyber-pack");
+  assert.ok(m, "sec-cyber-pack should fire");
+  assert.ok(m.reviewers.includes("sec-cyber-disclosure-reviewer"));
+  assert.ok(m.humanGates.includes("gate:cyber-disclosure-readiness"));
+});
+
+test("sec-cyber-pack: triggers on pagerduty stack token", () => {
+  const m = suggestPacks(mkDetection(["pagerduty"], [])).find(p => p.pack === "sec-cyber-pack");
+  assert.ok(m, "sec-cyber-pack should fire on pagerduty");
+});
+
+test("sec-cyber-pack: generic blog does NOT trigger", () => {
+  const m = suggestPacks(mkDetection(["next.js"], ["blog", "marketing"])).find(p => p.pack === "sec-cyber-pack");
+  assert.equal(m, undefined);
+});
+
+// ── US-market Phase 1: adtech-privacy-pack ─────────────────────────────────
+
+test("adtech-privacy-pack: triggers on 'meta pixel'", () => {
+  const m = suggestPacks(mkDetection([], ["meta pixel"])).find(p => p.pack === "adtech-privacy-pack");
+  assert.ok(m, "adtech-privacy-pack should fire");
+  assert.ok(m.reviewers.includes("adtech-privacy-reviewer"));
+  assert.ok(m.reviewers.includes("us-privacy-reviewer"));
+  assert.ok(m.humanGates.includes("gate:tracking-consent"));
+});
+
+test("adtech-privacy-pack: triggers on fbevents stack token", () => {
+  const m = suggestPacks(mkDetection(["fbevents"], [])).find(p => p.pack === "adtech-privacy-pack");
+  assert.ok(m, "adtech-privacy-pack should fire on fbevents");
+});
+
+test("adtech-privacy-pack: triggers on 'session replay'", () => {
+  const m = suggestPacks(mkDetection([], ["session replay"])).find(p => p.pack === "adtech-privacy-pack");
+  assert.ok(m, "adtech-privacy-pack should fire on session replay");
+});
+
+test("listPacks includes the two US-market packs", () => {
+  const packs = listPacks();
+  assert.ok(packs.includes("sec-cyber-pack"));
+  assert.ok(packs.includes("adtech-privacy-pack"));
+});

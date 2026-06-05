@@ -21,7 +21,9 @@ export type PackName =
   | "em-fintech-pack"
   | "climate-pack"
   | "drug-discovery-pack"
-  | "digital-health-pack";
+  | "digital-health-pack"
+  | "sec-cyber-pack"
+  | "adtech-privacy-pack";
 
 export interface PackMatch {
   pack: PackName;
@@ -44,6 +46,8 @@ const PACK_REVIEWERS: Record<PackName, string[]> = {
   "climate-pack":          ["climate-mrv-reviewer", "biosecurity-reviewer"],
   "drug-discovery-pack":   ["drug-discovery-ml-reviewer", "glp-glab-reviewer", "lab-automation-reviewer"],
   "digital-health-pack":   ["digital-health-reviewer", "ai-clinical-reviewer", "healthcare-reviewer"],
+  "sec-cyber-pack":        ["sec-cyber-disclosure-reviewer"],
+  "adtech-privacy-pack":   ["adtech-privacy-reviewer", "us-privacy-reviewer"],
 };
 
 const PACK_GATES: Record<PackName, string[]> = {
@@ -58,6 +62,8 @@ const PACK_GATES: Record<PackName, string[]> = {
   "climate-pack":          ["gate:mrv-methodology", "gate:durc-signoff", "gate:open-weights-release"],
   "drug-discovery-pack":   ["gate:model-card-signoff", "gate:csv-validation", "gate:iq-oq-pq"],
   "digital-health-pack":   ["gate:wellness-vs-samd", "gate:hitl-design", "gate:wearable-api-access", "gate:supplement-safety", "gate:mental-health-protocol"],
+  "sec-cyber-pack":        ["gate:cyber-disclosure-readiness"],
+  "adtech-privacy-pack":   ["gate:tracking-consent"],
 };
 
 // Trigger signals — stack tokens OR README keywords.
@@ -129,6 +135,25 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
       // HITL clinical
       "physician review", "physician hitl", "doctor in the loop", "clinical review workflow",
       "remote patient monitoring", "rpm", "teleconsultation",
+    ],
+  },
+  "sec-cyber-pack": {
+    stack: ["pagerduty", "opsgenie", "statuspage", "splunk", "datadog-siem", "sentinel", "wazuh"],
+    keywords: [
+      "public company", "publicly traded", "10-k", "10k", "8-k", "8k", "s-1", "ipo",
+      "sec filing", "investor relations", "material incident", "materiality",
+      "incident response", "incident disclosure", "breach notification", "siem",
+      "security operations", "soc 2 incident", "circia", "cisa reporting",
+    ],
+  },
+  "adtech-privacy-pack": {
+    stack: ["fbevents", "facebook-pixel", "meta-pixel", "gtag", "ga4", "google-tag-manager", "gtm", "tiktok-pixel", "fullstory", "hotjar", "logrocket", "mouseflow", "smartlook"],
+    keywords: [
+      "meta pixel", "facebook pixel", "fbevents", "conversions api", "capi",
+      "google analytics", "ga4", "google tag manager", "tiktok pixel", "ad pixel",
+      "tracking pixel", "session replay", "session recording", "heatmap",
+      "fullstory", "hotjar", "logrocket", "retargeting", "behavioral advertising",
+      "vppa", "cipa", "wiretap", "my health my data", "mhmda", "consumer health data",
     ],
   },
 };
