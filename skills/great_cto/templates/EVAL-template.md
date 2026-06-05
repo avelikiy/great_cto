@@ -26,7 +26,10 @@ applies_to:
 - Test data: `{path to fixture file}`
 - Expected runtime: `{seconds per case × N cases}`
 
-## Cases (≥ 5 per scenario)
+## Cases (tuning) (≥ 5 per scenario)
+
+> **Tuning split** — visible to ai-prompt-architect. Use these to iterate the prompt.
+> Cases under a plain `## Cases` heading are also treated as tuning (backward-compatible).
 
 | Case # | Input | Expected behaviour | Pass criteria |
 |---|---|---|---|
@@ -36,8 +39,21 @@ applies_to:
 | 4 | {input snippet} | {expected behaviour} | {pass criteria} |
 | 5 | {input snippet} | {expected behaviour} | {pass criteria} |
 
+## Holdout cases (≥ 3 per scenario)
+
+> **Holdout split** — the promotion gate's evidence. NEVER shown to the prompt author
+> while iterating; prevents overfitting to the visible set (SIA `data/private` discipline).
+> A prompt revision may ship only if it does **not** regress here:
+> `node tests/eval/runner.mjs --split holdout` then `node scripts/eval-gate.mjs`.
+
+| Case # | Input | Expected behaviour | Pass criteria |
+|---|---|---|---|
+| H1 | {held-out input} | {expected behaviour} | {pass criteria} |
+| H2 | {held-out input} | {expected behaviour} | {pass criteria} |
+| H3 | {held-out input} | {expected behaviour} | {pass criteria} |
+
 ## Pass threshold
-{e.g. 5/5 cases pass; OR 9/10 with documented justification for the 1 fail}
+{e.g. 5/5 cases pass; OR 9/10 with documented justification for the 1 fail. Applies to each split.}
 
 ## How to run
 ```bash

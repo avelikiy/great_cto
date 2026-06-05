@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold } from './runner.mjs';
+import { parseEvalFile, parseThreshold, splitSections, parseCasesTable, parseArgs, selectCases } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -227,4 +227,83 @@ test('parseEvalFile: result has all required fields for JSONL', () => {
   assert.equal(typeof reparsed.rate, 'number', 'rate field must be a number');
   assert.equal(typeof reparsed.ts, 'string', 'ts field must be a string (ISO date)');
   assert.ok(reparsed.ts.match(/^\d{4}-\d{2}-\d{2}T/), 'ts must be ISO format');
+});
+
+// ── Phase 1: tuning / holdout split (SIA public/private discipline) ───────────
+
+const SPLIT_EVAL = `# EVAL-split-test.md
+
+> Pack: test-pack · Reviewer: test-reviewer
+
+## Scenario
+Tests that tuning and holdout cases are parsed into separate splits.
+
+## Cases (tuning)
+| # | Test | Expected | Pass |
+|---|---|---|---|
+| 1 | Visible case one | refuses | ok |
+| 2 | Visible case two | cites source | ok |
+
+## Holdout cases
+| # | Test | Expected | Pass |
+|---|---|---|---|
+| 3 | Hidden case one | refuses | ok |
+
+## Pass threshold
+3/3.
+`;
+
+test('splitSections: returns headings and bodies, robust to trailing section', () => {
+  const secs = splitSections(SPLIT_EVAL);
+  const headings = secs.map(s => s.heading);
+  assert.ok(headings.includes('Scenario'));
+  assert.ok(headings.includes('Cases (tuning)'));
+  assert.ok(headings.includes('Holdout cases'));
+  assert.ok(headings.includes('Pass threshold'));
+});
+
+test('parseCasesTable: parses rows skipping header + separator', () => {
+  const body = '\n| # | Test | Expected | Pass |\n|---|---|---|---|\n| 1 | a | b | c |\n';
+  const cases = parseCasesTable(body);
+  assert.equal(cases.length, 1);
+  assert.equal(cases[0].test, 'a');
+});
+
+test('parseEvalFile: splits tuning vs holdout cases', () => {
+  const r = parseEvalFile(SPLIT_EVAL, 'EVAL-split-test.md');
+  assert.equal(r.cases.length, 3, 'combined cases');
+  assert.equal(r.tuningCases.length, 2, 'tuning cases');
+  assert.equal(r.holdoutCases.length, 1, 'holdout cases');
+  assert.equal(r.holdoutCases[0].test, 'Hidden case one');
+});
+
+test('parseEvalFile: every case carries a split tag', () => {
+  const r = parseEvalFile(SPLIT_EVAL, 'EVAL-split-test.md');
+  assert.ok(r.cases.every(c => c.split === 'tuning' || c.split === 'holdout'));
+});
+
+test('parseEvalFile: legacy single ## Cases → all tuning, no holdout', () => {
+  const r = parseEvalFile(SAMPLE_EVAL, 'EVAL-sample-test.md');
+  assert.equal(r.tuningCases.length, 3);
+  assert.equal(r.holdoutCases.length, 0);
+  assert.ok(r.cases.every(c => c.split === 'tuning'));
+});
+
+test('selectCases: filters by split', () => {
+  const r = parseEvalFile(SPLIT_EVAL, 'EVAL-split-test.md');
+  assert.equal(selectCases(r, 'tuning').length, 2);
+  assert.equal(selectCases(r, 'holdout').length, 1);
+  assert.equal(selectCases(r, 'all').length, 3);
+});
+
+test('parseArgs: --split holdout parsed', () => {
+  assert.equal(parseArgs(['--split', 'holdout']).split, 'holdout');
+});
+
+test('parseArgs: invalid --split falls back to all', () => {
+  assert.equal(parseArgs(['--split', 'bogus']).split, 'all');
+});
+
+test('parseArgs: default split is all', () => {
+  assert.equal(parseArgs([]).split, 'all');
 });

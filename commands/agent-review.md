@@ -167,6 +167,18 @@ Identify any invocation that cost > 2x the agent's mean. List with: timestamp, p
 ### Recommendations
 Based on observed failures, suggest 2-3 concrete prompt-tuning interventions. Be specific (e.g. "Add to system prompt: 'always quote cost-cap from PROJECT.md before suggesting AWS services'") rather than vague.
 
+### Evolutionary changelog (self-improvement history)
+Render the agent's generational changelog from the prompt-evolution ledger — every
+`/prompt-evolve` generation with its driving lesson and held-out eval delta. This is the
+provenance of the current prompt: which lessons shaped it, what was tried and rejected.
+
+```bash
+node scripts/agent-changelog.mjs --agent "$AGENT_NAME" 2>/dev/null || echo "_No evolution history (run /prompt-evolve $AGENT_NAME)._"
+```
+
+Include the table and "Current prompt provenance" block. If a past generation was
+**rejected**, call it out — it is direct evidence of a regression the gate caught.
+
 ### Trend vs previous $SINCE_DAYS days
 Cost: <delta% (was \$<previous>)>
 Quality: <delta% (was <previous>%)>
