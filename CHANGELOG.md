@@ -6,6 +6,30 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.37.1 — 2026-06-05
+
+### Fixed
+
+- **pre-push hook: new-branch leak scan no longer scans entire history.**
+  `scripts/hooks/pre-push.sh` computed the scan range with
+  `git rev-list --remotes --not <local_sha>` (reversed — lists commits on remotes
+  *not* in local). On a branch that descends from already-pushed history this
+  returned empty and fell back to `range=<local_sha>`, making `git log <local_sha>`
+  scan the **whole repo history** — false-flagging private project names in old
+  commits and blocking legitimate pushes (worked around with `--no-verify`).
+  Now uses `git rev-list <local_sha> --not --remotes` and scans only the genuinely
+  new commits (`base..local_sha`). Real leaks in new commits/diffs are still blocked.
+  Added `tests/hooks/pre-push.test.mjs` (3 integration tests).
+  Note: existing repos keep their already-installed hook (installer skips if present)
+  — re-sync manually with `cp scripts/hooks/pre-push.sh .git/hooks/pre-push`.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.37.0 — 2026-06-05
 
 ### Self-improvement loop (SIA-inspired)
