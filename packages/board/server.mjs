@@ -1696,7 +1696,7 @@ function isFailure(verdict) {
   return /^(BLOCKED|FAIL|FAILED|REJECTED)$/i.test(verdict || '');
 }
 
-function getAgentsFleet() {
+function getAgentsFleet(projectCwd) {
   const agents = [];
   let files = [];
   try {
@@ -1705,7 +1705,7 @@ function getAgentsFleet() {
       .sort();
   } catch { /* dir missing → empty fleet */ }
 
-  const verdicts = readVerdicts();
+  const verdicts = readVerdicts(projectCwd);
   const now = Date.now();
   const day30Ms = 30 * 86400_000;
   const day7Ms = 7 * 86400_000;
@@ -2938,7 +2938,7 @@ const server = http.createServer(async (req, res) => {
   // renders these into the .agent-row list with no further server round-trips.
   if (pathname === '/api/agents-installed') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(getAgentsFleet()));
+    res.end(JSON.stringify(getAgentsFleet(cwd)));
     return;
   }
 
