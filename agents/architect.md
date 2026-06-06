@@ -790,19 +790,31 @@ Mark each item `- [ ]` so senior-dev and security-officer can tick off during re
    ```
    Rule: one item per testable requirement. If CTO request was vague, decompose into concrete, verifiable behaviors. This list is the contract between design and QA.
 
-   **Mirror REQs into bd for traceability** — after writing REQ-N items to the ARCH doc, create a bd task per REQ and wire each relevant impl task as its dependent:
+   **Mirror the chain into bd for traceability (governance Phase 4)** — model
+   `requirement → use-case → task → test` as beads relationships so `/trace` can do impact
+   analysis and flag coverage gaps. Edge rule: a downstream node **depends on** its upstream
+   rationale (`bd dep add <downstream> <upstream>`).
    ```bash
    FEATURE_SLUG=$(echo "<feature>" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-   # For each REQ-N in the checklist, capture the bd id:
+   # 1. One req node per REQ-N in the Requirements Checklist:
    #   REQ_ID=$(bd create "REQ-1: <text>" --type task --priority 1 \
    #     --label req --label "feature-$FEATURE_SLUG" --json 2>/dev/null \
    #     | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
-   # Then wire impl tasks to the REQs they implement:
-   #   bd dep add <impl-id> <req-id>      ← impl blocks on req (impl implements req)
-   # Verify with:
-   #   bd dep tree <req-id> --direction=up    # shows impls depending on this req (impact)
+   # 2. One uc node per User Success Criterion (USC-N), wired to the REQ it serves:
+   #   UC_ID=$(bd create "UC-1: <user-facing behaviour>" --type task --priority 1 \
+   #     --label uc --label "feature-$FEATURE_SLUG" --json 2>/dev/null | python3 -c "...id...")
+   #   bd dep add "$UC_ID" "$REQ_ID"      ← uc depends on (implements) req
+   # 3. Wire each impl task to the use-case it delivers:
+   #   bd dep add <impl-id> "$UC_ID"      ← task depends on uc
+   #   (no USC layer? wire the impl straight to the REQ: bd dep add <impl-id> "$REQ_ID")
+   # qa-engineer later adds the test layer: bd dep add <test-id> <impl-id>.
+   # Verify the chain + gaps:
+   #   /trace <req-id>                     # rationale + impact for one node
+   #   /trace feature-$FEATURE_SLUG        # coverage audit (untested REQ / UC w/o task / …)
    ```
-   Label convention: every task for this feature carries `--label feature-<slug>`. REQs also carry `--label req`. This lets `/review trace feature-<slug>` filter cleanly.
+   Label convention: every node carries `--label feature-<slug>`; REQs add `--label req`,
+   use-cases `--label uc`, tests `--label test`. Plain impl tasks carry only the feature label.
+   This lets `/trace feature-<slug>` classify each node into its layer and find broken links.
 
    **If bd unavailable**: skip silently — the REQ checklist in the ARCH doc is the fallback trace.
 
