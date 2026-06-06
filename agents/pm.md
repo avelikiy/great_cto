@@ -394,6 +394,46 @@ echo "Plan written: $PLAN_FILE"
 
 ---
 
+## Step 7b — Emit one IMPL-BRIEF per implementation task (governance Phase 3)
+
+For every senior-dev task in the breakdown table, emit a per-task implementation brief.
+It pins what the implementer **may** touch, what they **must not**, and the
+API-CONTRACT / TEST-SPEC / ACCEPTANCE — so scope creep is caught mechanically, not in
+review. senior-dev reads it before coding (Step 4) and runs the scope check before commit.
+
+```bash
+mkdir -p docs/impl-briefs
+TMPL="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/skills/great_cto/templates/IMPL-BRIEF-template.md"
+[ -f "$TMPL" ] || TMPL="$(pwd)/skills/great_cto/templates/IMPL-BRIEF-template.md"
+```
+
+For each task `<id>` from the breakdown table:
+1. Copy the template to `docs/impl-briefs/IMPL-BRIEF-<id>.md`.
+2. Fill **Files to modify** (allowlist) and **Files NOT to modify** (denylist) by reading:
+   - the ARCH `## Components` owner column + `## Non-goals` / `## Out of scope` (off-limits),
+   - the parallelism analysis — any file owned by a *concurrent* task goes on the denylist
+     (this is the "no two parallel tasks own the same file" Proof-Check rule, made explicit
+     per implementer),
+   - `.great_cto/CODEBASE.md` god-nodes (touch only with a named reason).
+3. Copy the relevant slice of the ARCH `## API contracts` into **API-CONTRACT**, the task's
+   test cases into **TEST-SPEC**, and narrow the ARCH Definition of Done into **ACCEPTANCE**.
+4. Validate the brief is well-formed before moving on:
+   ```bash
+   node scripts/lib/impl-brief.mjs validate docs/impl-briefs/IMPL-BRIEF-<id>.md
+   ```
+   Exit 2 → fill the missing section (API-CONTRACT / TEST-SPEC / files / acceptance) and re-run.
+
+```bash
+echo "IMPL-BRIEFs written: docs/impl-briefs/IMPL-BRIEF-*.md (one per task)"
+```
+
+> Lean rule: for `poc`/`nano` modes, a single-file task may carry a 5-line brief — but the
+> **Files NOT to modify** list and ACCEPTANCE checklist are never skipped; they are the
+> guardrail. If architect already emitted briefs (large/regulated features), validate and
+> extend rather than overwrite.
+
+---
+
 ## Step 8 — Pre-plan Proof Check
 
 Before creating `gate:plan`, self-verify the plan:
@@ -404,6 +444,7 @@ PLAN PROOF CHECK:
   [ ] Critical path identified and duration stated in LLM wall-clock time? [Y/N]
   [ ] All gate points (gate:arch, gate:plan, gate:ship) in the graph? [Y/N]
   [ ] No two parallel tasks own the same file? [Y/N]
+  [ ] One IMPL-BRIEF per task emitted + `impl-brief.mjs validate` clean? [Y/N]
   [ ] Duration estimate has buffer applied? [Y/N]
   [ ] Minimum agent count stated? [Y/N]
   [ ] LLM cost estimate computed (per task + total)? [Y/N]
