@@ -29,6 +29,7 @@ export type Archetype =
   | "edtech"
   | "gov-public"
   | "insurance"
+  | "defense-govcon"
   | "greenfield";
 
 export interface ArchetypePick {
@@ -775,6 +776,25 @@ const RULES: Rule[] = [
     },
   },
 
+  // ── defense-govcon (US defense contractor — CMMC / NIST 800-171 / DFARS) ──
+  // Distinct from gov-public: the buyer is DoD and the obligation is protecting
+  // Controlled Unclassified Information (CUI) under DFARS 252.204-7012 + CMMC 2.0,
+  // with export controls (ITAR/EAR) and supply-chain bans (Section 889).
+  {
+    archetype: "defense-govcon",
+    score: (d) => {
+      let s = 0;
+      const kws = d.readmeKeywords;
+      // detect.ts "defense" bucket fires on cmmc / nist 800-171 / dfars / cui / itar / section 889.
+      // These are unambiguous DoD-contractor signals — more specific than generic
+      // gov-public (fedramp/government), so weight high enough to outrank it.
+      if (kws.includes("defense")) s += 12;
+      return s;
+    },
+    reason: (_d) =>
+      "US defense-contractor signals (CMMC / NIST 800-171 / DFARS 252.204-7012 / CUI / ITAR / Section 889) — CMMC assessment + CUI protection gates required",
+  },
+
   // ── insurance (insurtech — NAIC / Solvency II / actuarial / claims fraud) ──
   // Fintech-adjacent but distinct: multi-state filings, anti-discrimination
   // pricing, actuarial model auditability, claims fraud detection.
@@ -832,7 +852,7 @@ const RULES: Rule[] = [
 // higher in this list (more specific / domain-bound first).
 const TIE_BREAK_PRIORITY: Archetype[] = [
   "browser-extension", "iot-embedded", "web3", "game",
-  "agent-product", "fintech", "insurance", "healthcare", "edtech", "gov-public", "marketplace",
+  "agent-product", "fintech", "insurance", "healthcare", "edtech", "defense-govcon", "gov-public", "marketplace",
   "mlops", "streaming",
   "commerce", "enterprise-saas", "ai-system", "devtools",
   "data-platform", "cms", "infra", "mobile-app",
@@ -992,6 +1012,10 @@ export function suggestCompliance(d: DetectionResult, archetype: Archetype): str
     c.add("anti-discrimination-pricing"); c.add("actuarial-asops");
     c.add("state-doi"); // Department of Insurance per US state
   }
+  if (archetype === "defense-govcon") {
+    c.add("cmmc-2.0"); c.add("nist-800-171"); c.add("dfars-252.204-7012");
+    c.add("itar"); c.add("ear"); c.add("section-889"); c.add("fedramp");
+  }
 
   // ── stack-derived (cross-archetype) ──────────────
   if (d.stack.includes("stripe") || d.stack.includes("braintree") ||
@@ -1041,7 +1065,8 @@ export type StandardGate =
   | "oracle-review"     // web3 — added per gap G1
   | "edtech-review"     // edtech
   | "gov-review"        // gov-public
-  | "insurance-review"; // insurance
+  | "insurance-review"  // insurance
+  | "cmmc-assessment";  // defense-govcon — CMMC level + CUI scope sign-off
 
 /**
  * Which review agents fire for each archetype. The reviewer name maps to
@@ -1078,6 +1103,7 @@ export const REVIEWERS_BY_ARCHETYPE: Record<Archetype, string[]> = {
   "edtech":            ["edtech-reviewer"],
   "gov-public":        ["gov-reviewer", "security-officer"],
   "insurance":         ["insurance-reviewer", "regulated-reviewer"],
+  "defense-govcon":    ["cmmc-reviewer", "gov-reviewer", "security-officer"],
   "greenfield":        [],
 };
 
@@ -1114,6 +1140,7 @@ export const GATES_BY_ARCHETYPE: Record<Archetype, StandardGate[]> = {
   "edtech":            ["plan", "qa", "edtech-review", "security", "ship", "compliance"],
   "gov-public":        ["plan", "qa", "gov-review", "security", "ship", "compliance"],
   "insurance":         ["plan", "qa", "insurance-review", "security", "ship", "compliance"],
+  "defense-govcon":    ["plan", "qa", "cmmc-assessment", "security", "ship", "compliance"],
   "greenfield":        ["plan"],
 };
 
