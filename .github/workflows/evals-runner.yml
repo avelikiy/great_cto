@@ -49,7 +49,7 @@ jobs:
         with:
           node-version: '22'
       - name: Unit tests (eval runner + promotion gate)
-        run: node --test 'tests/eval/*.test.mjs'
+        run: node --test 'tests/eval/*.test.mjs' 'tests/lib/*.test.mjs'
 
   eval-judge:
     needs: unit
