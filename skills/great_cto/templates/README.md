@@ -26,6 +26,7 @@
 | `compliance: [pci-dss-saq-a]` | `PCI-DSS-SAQ-A.md` | `docs/compliance/` |
 | `compliance: [pci-dss]` (full scope) | `PCI-DSS-SAQ-D.md` | `docs/compliance/` |
 | every senior-dev task (pm Step 7b) | `IMPL-BRIEF-template.md` (×N, one per task) | `docs/impl-briefs/IMPL-BRIEF-{task-id}.md` |
+| `/audit` or `/migrate` finds gate gaps in a legacy repo | `GAP-REGISTER-template.yaml` + `GAP-WAVE-PLAN-template.yaml` | `docs/governance/` |
 
 ## How agents use these
 
@@ -38,6 +39,8 @@
 `project-auditor.md` Phase 4 (planned v1.0.133) reads `monthly-budget-llm-usd` from PROJECT.md and the `## Cost Model` section of `ARCH-ai.md` to detect cost-cap violations.
 
 `pm.md` Step 7b emits one `IMPL-BRIEF-{task-id}.md` per task (governance Phase 3) — files-to-modify / files-NOT-to-modify / API-CONTRACT / TEST-SPEC / ACCEPTANCE. `senior-dev.md` Step 4 reads it before coding and Step 6b runs `node scripts/lib/impl-brief.mjs check <brief> <changed-files…>` to refuse a commit that touches a denylisted file. `validate` / `check` make the brief machine-enforceable, not just prose.
+
+`/audit` and `/migrate` emit `GAP-REGISTER.yaml` + `GAP-WAVE-PLAN.yaml` (governance Phase 5) when a legacy repo would fail strict-mode gates cold. `scripts/lib/gap-waves.mjs plan` schedules gaps into waves (criticals first) and prints the interim `/exception create` commands that keep gates green while each deferred gap stays tracked + expiring — the sanctioned path from "fails every strict gate" to "fully gated".
 
 ## What's NOT in this directory
 
