@@ -24,6 +24,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, basename } from "node:path";
 import { safeReadFile } from "./lib/guards.mjs";
+import { registerDrops, formatRecallFooter } from "./lib/ccr.mjs";
 
 // ─── Provider config (mirrors generate-summary.mjs) ──────────────────────────
 const ANTHROPIC_API   = "https://api.anthropic.com/v1/messages";
@@ -277,11 +278,16 @@ async function filterMemory(taskTitle, memoryContent, opts = {}) {
   }
 
   const filtered = result.entries.map((e) => e.full).join("\n\n");
+  // Entries that were filtered out — surfaced to CCR so they're recoverable
+  // (lossless-on-demand), not silently lost.
+  const keptSet = new Set(result.entries.map((e) => e.full));
+  const dropped = entries.filter((e) => !keptSet.has(e.full));
   return {
     filtered,
     mode: result.mode,
     count: result.entries.length,
     total: entries.length,
+    dropped,
   };
 }
 
@@ -339,6 +345,18 @@ Examples:
 
   if (result.filtered) {
     process.stdout.write(result.filtered);
+
+    // CCR: register what we filtered out so it's recoverable (lossless-on-demand).
+    // Best-effort — never let CCR break memory-filter. Opt out with --no-ccr.
+    if (!args.includes("--no-ccr") && Array.isArray(result.dropped) && result.dropped.length > 0) {
+      try {
+        const stubs = registerDrops(result.dropped, { source: "memory-filter", query: taskTitle });
+        const footer = formatRecallFooter(stubs);
+        if (footer) process.stdout.write(footer);
+      } catch (e) {
+        process.env.GREAT_CTO_DEBUG && console.warn(`[memory-filter] CCR register skipped: ${e?.message ?? e}`);
+      }
+    }
     process.stdout.write("\n");
   }
 
