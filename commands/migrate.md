@@ -111,6 +111,26 @@ printf "\n# --- migrated by /migrate on $(date +%Y-%m-%d) ---\n%b" "$PATCH" >> "
 echo "  ✓ Patch applied"
 ```
 
+## Step 3b — Gate-gap wave plan when the migration raises the bar (governance Phase 5)
+
+A migration can *tighten* what gates demand — e.g. it sets `security_tier` higher, adds a
+`packs:` overlay with new reviewers, or bumps `project_size` so strict-mode gates now apply.
+The repo that passed yesterday may fail the new strict gate cold. Don't relax the new setting
+to make it pass — schedule the catch-up:
+
+```bash
+if grep -qE "^security_tier:|^packs:|^project_size:" "$PROJECT_FILE" 2>/dev/null; then
+  echo ""
+  echo "Migration may have raised gate requirements. To adopt them incrementally:"
+  echo "  1. List the now-failing checks as gaps → docs/governance/GAP-REGISTER.yaml + .json"
+  echo "     (template: skills/great_cto/templates/GAP-REGISTER-template.yaml)"
+  echo "  2. node scripts/lib/gap-waves.mjs plan docs/governance/GAP-REGISTER.json --current-wave 1"
+  echo "  3. For each deferred gap it flags, run the printed '/exception create …' so strict"
+  echo "     gates stay green while the gap is tracked + expiring (never a silent bypass)."
+  echo "  Criticals go in wave 1 and get no exception."
+fi
+```
+
 ## Step 4 — Verify
 
 ```bash

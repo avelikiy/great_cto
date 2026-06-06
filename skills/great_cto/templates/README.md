@@ -25,6 +25,7 @@
 | `compliance: [sox]` | `SOX-ITGC-checklist.md` | `docs/compliance/` |
 | `compliance: [pci-dss-saq-a]` | `PCI-DSS-SAQ-A.md` | `docs/compliance/` |
 | `compliance: [pci-dss]` (full scope) | `PCI-DSS-SAQ-D.md` | `docs/compliance/` |
+| `/audit` or `/migrate` finds gate gaps in a legacy repo | `GAP-REGISTER-template.yaml` + `GAP-WAVE-PLAN-template.yaml` | `docs/governance/` |
 
 ## How agents use these
 
@@ -35,6 +36,8 @@
 `qa-engineer.md` Step 0b validates `tests/eval/EVAL-*.md` count against archetype thresholds — `EVAL-template.md` is what each scenario file looks like.
 
 `project-auditor.md` Phase 4 (planned v1.0.133) reads `monthly-budget-llm-usd` from PROJECT.md and the `## Cost Model` section of `ARCH-ai.md` to detect cost-cap violations.
+
+`/audit` and `/migrate` emit `GAP-REGISTER.yaml` + `GAP-WAVE-PLAN.yaml` (governance Phase 5) when a legacy repo would fail strict-mode gates cold. `scripts/lib/gap-waves.mjs plan` schedules gaps into waves (criticals first) and prints the interim `/exception create` commands that keep gates green while each deferred gap stays tracked + expiring — the sanctioned path from "fails every strict gate" to "fully gated".
 
 ## What's NOT in this directory
 
