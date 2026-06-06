@@ -8,6 +8,35 @@ All notable changes to great_cto are documented here.
 
 
 
+## v2.39.0 — 2026-06-06
+
+### NaCl-inspired governance: impl-brief + traceability + gap-closure waves (Phases 3–5)
+
+Completes the governance contour started in v2.38.x (Phase 1 signed exceptions · Phase 2
+strict-mode evidence-blocking gates). All logic is machine-checkable with `$0`, no new
+runtime deps, lean (no Neo4j). 63 new unit tests (120 lib total).
+
+**Phase 3 — impl-brief handoff bundle.** Each senior-dev task ships a per-task brief that
+pins files-to-modify (allowlist) / **files NOT to modify** (denylist) / API-CONTRACT /
+TEST-SPEC / ACCEPTANCE, so scope creep is caught mechanically, not in review prose.
+- `skills/great_cto/templates/IMPL-BRIEF-template.md` + `scripts/lib/impl-brief.mjs`
+  (`parseBrief` / `validateBrief` / `checkScope` — glob `**`, denylist = hard fail). CLI
+  `check <brief> <changed-files…>` exits 1 on a denylist hit.
+- pm Step 7b emits + validates; senior-dev Step 4 reads, Step 6b refuses an out-of-scope
+  commit (override = signed exception); architect derives the denylist from ARCH Non-goals.
+
+**Phase 4 — requirement → use-case → task → test traceability + `/trace`.** NaCl's graph
+value (impact analysis + coverage gaps) modelled on beads relationships.
+- `scripts/lib/trace.mjs` (`traceUp` rationale / `traceDown` impact / `coverageGaps`) +
+  `/trace <id> | feature <slug>`; `/review trace` is now a thin alias for the one engine.
+- architect mirrors REQ + UC into bd and wires `task→uc→req`; qa-engineer wires `test→impl`.
+
+**Phase 5 — gap-closure waves.** Adopt strict gates on a legacy repo incrementally instead
+of blocking cold: enumerate gaps, schedule into waves (criticals never deferred), hold each
+deferred gap green with an interim **signed, expiring** exception — never a silent bypass.
+- `scripts/lib/gap-waves.mjs` (`planWaves` / `interimExceptionsNeeded` / `validateRegister`) +
+  `GAP-REGISTER` / `GAP-WAVE-PLAN` templates; `/audit` step 4b + `/migrate` step 3b emit them.
+
 ## v2.38.0 — 2026-06-06
 
 ### Context compression layer (headroom-inspired, native)
