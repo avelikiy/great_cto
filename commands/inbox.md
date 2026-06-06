@@ -37,6 +37,21 @@ Sections (only present when relevant, separated by blank lines):
 `## DORA_CFR`, `## GATE_DRIFT`, `## COST_ALERT`, `## ON_CALL`,
 `## RFC_OVERDUE`.
 
+## Step 2b — Strict-mode governance (signed exceptions)
+
+Surface the audited gate-bypass trail so nothing expires silently. Active exceptions are
+sanctioned overrides; expired/revoked ones are debt to remediate.
+
+```bash
+PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+node "$PD/scripts/lib/exceptions.mjs" list 2>/dev/null || node scripts/lib/exceptions.mjs list 2>/dev/null || true
+```
+
+Render any `✗` (expired/revoked/tampered) exceptions as **⚠️ High** ("signed exception
+EXC-… expired — remediate the work it covered or re-sign"). Active ones expiring within 7
+days → **🔔 Medium**. If a release is imminent, also run `gate-check.mjs gate:ship` and show
+any blocking tasks. See `/exception`.
+
 ## Step 3 — Render
 
 Priority-sorted list, one emoji prefix per row:
