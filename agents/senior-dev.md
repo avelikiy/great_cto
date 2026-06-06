@@ -335,6 +335,20 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    git checkout -b feat/<beads-id>-<short-description>
    ```
 4. **Read context** (mandatory before writing a single line of code):
+   - **IMPL-BRIEF for this task** (governance Phase 3 — read FIRST, it scopes everything below):
+     ```bash
+     TASK_ID="<the bd id you claimed in step 2>"
+     BRIEF="docs/impl-briefs/IMPL-BRIEF-${TASK_ID}.md"
+     if [ -f "$BRIEF" ]; then
+       node scripts/lib/impl-brief.mjs validate "$BRIEF" || echo "WARN: brief malformed — ask pm to fix before coding"
+       cat "$BRIEF"
+     else
+       echo "NO_IMPL_BRIEF — task not scoped by pm. Proceed from ARCH, but treat ARCH Non-goals as the denylist and do not widen scope."
+     fi
+     ```
+     Honour it: implement **only** files under `## Files to modify`; never touch anything under
+     `## Files NOT to modify`. If the work genuinely needs an off-limits file, **stop** — go back
+     to pm/architect or open a signed exception (`/exception create`). Never silently widen scope.
    - Codebase map (if existing repo): `cat .great_cto/CODEBASE.md 2>/dev/null | head -40` — god nodes = highest-coupling modules, change carefully
    - Architecture doc: `ls docs/architecture/ARCH-*.md | sort -V | tail -1`
    - ADRs: `ls docs/decisions/ADR-*.md 2>/dev/null | sort | tail -3`
@@ -375,6 +389,19 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
      - **GREEN**: write minimal code to make test pass → re-run → confirm PASS
      - **REFACTOR**: clean up → confirm still PASS, no coverage regression
 6. **Quality check**: all tests pass, no lint errors, coverage ≥80%, no hardcoded secrets
+6b. **Scope check against the IMPL-BRIEF** (governance Phase 3 — before staging):
+   ```bash
+   BRIEF="docs/impl-briefs/IMPL-BRIEF-${TASK_ID}.md"
+   if [ -f "$BRIEF" ]; then
+     CHANGED=$(git diff --name-only HEAD; git diff --cached --name-only; git ls-files --others --exclude-standard)
+     node scripts/lib/impl-brief.mjs check "$BRIEF" $(echo "$CHANGED" | sort -u)
+   fi
+   ```
+   - **Exit 1 (denylist hit)** → a file you changed is on `## Files NOT to modify`. Do NOT commit.
+     Revert that file, or — if the change is genuinely required — open a signed exception
+     (`/exception create --gate gate:ship --scope "<task-id>" --reason "<why>"`) and note its id in the PR.
+   - **Warnings (off-allowlist files)** → either add the file to the brief's `## Files to modify`
+     (with a reason) or revert it. An unexplained out-of-scope file is scope creep.
 7. **Commit** with conventional commit format:
    ```bash
    git add -p  # stage intentionally, not git add .
@@ -418,6 +445,15 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    ```
    - Any MISSING → do NOT close the task. Implement the missing item, run tests, then re-run Proof Loop.
    - All covered → proceed to close.
+
+   Then verify the IMPL-BRIEF **ACCEPTANCE** checklist (governance Phase 3) — every box must
+   hold before close, including the scope-clean line:
+   ```bash
+   BRIEF="docs/impl-briefs/IMPL-BRIEF-${TASK_ID}.md"
+   [ -f "$BRIEF" ] && sed -n '/## ACCEPTANCE/,/^## /p' "$BRIEF"
+   ```
+   Any unchecked acceptance item → not done. The scope-clean item is satisfied by the Step 6b
+   `impl-brief.mjs check` (clean, or covered by a signed exception).
 
    Also run a final test pass to confirm no regressions slipped in:
    ```bash
