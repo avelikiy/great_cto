@@ -7,6 +7,41 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.38.0 — 2026-06-06
+
+### Context compression layer (headroom-inspired, native)
+
+Cut the tokens agents read from logs / tool-outputs / JSON / memory — **without losing
+answers** — using deterministic, $0 compressors (no LLM, no native dependency). Concepts
+borrowed from [chopratejas/headroom](https://github.com/chopratejas/headroom), built native
+to keep great_cto lean and local-first.
+
+- **Compressors** (`scripts/lib/compress/`) — ContentRouter auto-detects type and applies:
+  `log-template` (collapse repeats to sample + count, keep FATAL/ERROR/stack verbatim),
+  `json-minify` (+ optional array crush, safe fallback on non-JSON), `line-importance`
+  (keep severity + stack, elide boilerplate to budget). `compress(text,{type,budget,crush})`
+  + CLI. Real numbers: CI log 31,475→155 chars (99.5%), JSON 43% minify / 98% crush, noisy
+  test run 86% with the FAIL preserved.
+- **CCR — Compressed Context with Retrieval** (`scripts/lib/ccr.mjs`, `/ccr`) — anything
+  dropped/compressed is stored locally (`.great_cto/ccr/`, content-addressed, ~500-item GC)
+  and recoverable on demand. `memory-filter` now registers what it filters out and appends a
+  recall footer → **lossless-on-demand**, so we compress aggressively without risk.
+- **Agent wiring** — `l3-support` (logs) and `qa-engineer` (test/build output) compress before
+  reasoning via the shared `agents/_shared/compress-prompt.md` contract.
+- **Fidelity gate** — `EVAL-compression-fidelity` (tuning+holdout) runs through the v2.37.0
+  eval loop: a compressor ships only if the key fact survives on the holdout split.
+- CI: evals-runner unit job now also runs `tests/lib`. 30 new unit tests.
+
+### Fixed
+- `ccr store` flag parsing (a `--source` value was mistaken for content); now reads stdin too.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.37.1 — 2026-06-05
 
 ### Fixed
