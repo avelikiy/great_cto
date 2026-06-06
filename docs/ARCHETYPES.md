@@ -1,4 +1,4 @@
-# 25 archetypes auto-detected
+# 26 archetypes auto-detected
 
 [← back to README](../README.md)
 
@@ -31,6 +31,7 @@ Each archetype activates its own specialist agents and compliance checklists.
 | `edtech` | **deep** | edtech-reviewer | coppa · ferpa · gdpr-k · wcag-2.2-aa · section-508 · sopipa-ca |
 | `gov-public` | **deep** | gov-reviewer | fedramp · nist-800-53 · fisma · section-508 · pia · ato · cjis · stateramp |
 | `insurance` | **deep** | insurance-reviewer | naic · solvency-ii · ifrs-17 · gdpr · ccpa · anti-discrimination-pricing · actuarial-asops |
+| `defense-govcon` | **deep** | cmmc-reviewer · gov-reviewer | cmmc-2.0 · nist-800-171 · dfars-252.204-7012 · itar · ear · section-889 · fedramp |
 
 ## How detection works
 
