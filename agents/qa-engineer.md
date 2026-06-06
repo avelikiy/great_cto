@@ -530,7 +530,7 @@ Any MISSING → P1 bug filed. Any PARTIAL → P2 bug filed.
 
 If no ARCH file or no Requirements Checklist → note "No requirements checklist found — traceability skipped."
 
-**Mirror COVERED REQs into bd as TEST tasks** — for every REQ marked COVERED, create a test task and wire it via `bd dep add TEST IMPL` (test blocks on impl). This completes the REQ → IMPL → TEST chain for `/review trace`:
+**Mirror COVERED REQs into bd as TEST tasks** — for every REQ marked COVERED, create a test task and wire it via `bd dep add TEST IMPL` (test depends on impl). This completes the requirement → use-case → task → **test** chain so `/trace` (governance Phase 4) reports no `task has no test` / `untested requirement` gaps:
 ```bash
 FEATURE_SLUG=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1 | sed 's|.*ARCH-||;s|\.md$||' | tr '[:upper:]' '[:lower:]')
 # For each COVERED REQ-N (pseudocode — one call per covered REQ):
@@ -543,7 +543,9 @@ FEATURE_SLUG=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1 | 
 #   [ -n "$TEST_ID" ] && [ -n "$IMPL_ID" ] && bd dep add "$TEST_ID" "$IMPL_ID"
 #   bd close "$TEST_ID" "Covered by: <evidence>"   # test exists and passes
 ```
-**If bd unavailable**: skip silently — the QA report markdown already lists REQ → Evidence inline.
+After wiring, audit the chain: `/trace feature-$FEATURE_SLUG` — any remaining gap (a REQ that
+never reaches a test, a UC with no task) is either a missing test to add or a hole to flag in
+the QA report. **If bd unavailable**: skip silently — the QA report markdown already lists REQ → Evidence inline.
 
 ### Step 3d: Proof Loop — verify QA plan was fully executed
 

@@ -14,7 +14,10 @@ You are a senior engineering team conducting a 12-angle code review. Each angle 
 
 ## Trace mode (early branch — exits before review runs)
 
-If `$1 = trace` → render the traceability tree for the supplied bd task id or feature slug, then stop. Delegates tree rendering to `bd dep tree` (native).
+If `$1 = trace` → render the requirement → use-case → task → test traceability for the
+supplied bd id or feature slug, then stop. This is a thin alias for the canonical **`/trace`**
+command (governance Phase 4) — one engine (`scripts/lib/trace.mjs`): layered rationale +
+impact + coverage gaps, not a raw `bd dep tree` dump.
 
 ```bash
 if [ "$1" = "trace" ]; then
@@ -22,45 +25,22 @@ if [ "$1" = "trace" ]; then
 
   TARGET="${2:-}"
   if [ -z "$TARGET" ]; then
-    echo "Usage: /review trace <bd-id|feature-slug>"
-    echo "Examples:"
-    echo "  /review trace bd-xyz              # tree rooted at this task"
-    echo "  /review trace feature-checkout    # list REQs / IMPLs / TESTs for feature"
+    echo "Usage: /review trace <bd-id|feature-slug>   (alias of /trace)"
+    echo "  /review trace bd-xyz              # rationale + impact for this node"
+    echo "  /review trace feature-checkout    # coverage audit for the feature"
     exit 0
   fi
 
-  # Case A: feature slug → list everything with that label, grouped by type
+  PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+  TRACE() { node "$PD/scripts/lib/trace.mjs" "$@" 2>/dev/null || node scripts/lib/trace.mjs "$@"; }
+
+  # feature-<slug> → coverage audit; otherwise node-centric trace.
   if echo "$TARGET" | grep -q "^feature-"; then
-    echo "=== Traceability: $TARGET ==="
-    echo ""
-    echo "--- Requirements (label: req) ---"
-    bd list --label req --label "$TARGET" 2>/dev/null || echo "  (none — architect creates REQ tasks with --label req --label feature-<slug>)"
-    echo ""
-    echo "--- Implementation (feature label, excluding req/test) ---"
-    bd list --label "$TARGET" --json 2>/dev/null \
-      | python3 -c "import json,sys; [print('○', t['id'], '·', t.get('title','')) for t in json.load(sys.stdin) if 'req' not in t.get('labels',[]) and 'test' not in t.get('labels',[])]" 2>/dev/null \
-      || echo "  (none)"
-    echo ""
-    echo "--- Tests (label: test) ---"
-    bd list --label test --label "$TARGET" 2>/dev/null || echo "  (none)"
-    echo ""
-    # Coverage summary
-    TOTAL_REQS=$(bd list --label req --label "$TARGET" --json 2>/dev/null | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
-    CLOSED_REQS=$(bd list --label req --label "$TARGET" --status closed --json 2>/dev/null | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
-    echo "Coverage: $CLOSED_REQS/$TOTAL_REQS REQs closed"
-    exit 0
+    TRACE feature "${TARGET#feature-}"
+  else
+    TRACE "$TARGET"
   fi
-
-  # Case B: specific task id — use native bd dep tree both directions
-  echo "=== Trace from $TARGET ==="
-  bd show "$TARGET" --short 2>/dev/null || { echo "Task $TARGET not found in bd."; exit 1; }
-  echo ""
-  echo "--- Upstream (what $TARGET depends on) ---"
-  bd dep tree "$TARGET" --direction=down 2>/dev/null || echo "  (none)"
-  echo ""
-  echo "--- Downstream (what depends on $TARGET — impact analysis) ---"
-  bd dep tree "$TARGET" --direction=up 2>/dev/null || echo "  (none)"
-  exit 0
+  exit $?
 fi
 ```
 
