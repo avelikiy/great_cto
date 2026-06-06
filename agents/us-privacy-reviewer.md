@@ -8,6 +8,8 @@ description: |
   detection finds us or us-ca signals.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
+maxTurns: 30
+timeout: 900
 applies_to: [ai-system, agent-product, enterprise-saas, commerce, fintech, mobile-app]
 triggers:
   - jurisdiction: us

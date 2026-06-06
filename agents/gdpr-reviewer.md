@@ -8,6 +8,8 @@ description: |
   EU AI Act risk classification, and NIS2 Article 21 controls.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
+maxTurns: 30
+timeout: 900
 applies_to: [ai-system, agent-product, regulated, enterprise-saas, healthcare, fintech]
 triggers:
   - jurisdiction: eu

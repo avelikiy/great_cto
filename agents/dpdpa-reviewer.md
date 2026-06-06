@@ -8,6 +8,8 @@ description: |
   cross-border transfer restrictions, and RBI data localisation for fintech.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
+maxTurns: 30
+timeout: 900
 applies_to: [ai-system, agent-product, enterprise-saas, fintech, mobile-app]
 triggers:
   - jurisdiction: in
