@@ -905,6 +905,24 @@ function mineReadmeKeywords(dir: string): string[] {
     "supplement recommendation", "supplement ai", "diet ai", "meal plan ai",
     "macro ai", "physician review", "physician hitl", "doctor in the loop",
     "clinical review workflow", "remote patient monitoring", "rpm", "teleconsultation",
+    // US-market packs — keep in sync with packs.ts SIGNALS.keywords
+    // sec-cyber-pack
+    "public company", "publicly traded", "10-k", "10k", "8-k", "8k", "s-1", "ipo",
+    "sec filing", "investor relations", "material incident", "materiality",
+    "incident response", "incident disclosure", "breach notification", "siem",
+    "security operations", "circia", "cisa reporting",
+    // adtech-privacy-pack
+    "meta pixel", "facebook pixel", "fbevents", "conversions api", "capi",
+    "google analytics", "ga4", "google tag manager", "tiktok pixel", "ad pixel",
+    "tracking pixel", "session replay", "session recording", "heatmap",
+    "fullstory", "hotjar", "logrocket", "retargeting", "behavioral advertising",
+    "vppa", "cipa", "wiretap", "my health my data", "mhmda", "consumer health data",
+    // us-ai-pack
+    "nist ai rmf", "ai rmf", "ai risk management", "colorado ai act", "sb 205",
+    "algorithmic discrimination", "consequential decision", "high-risk ai",
+    "automated decision", "ai impact assessment", "utah ai", "traiga",
+    "ai transparency", "ab 2013", "sb 942", "training data transparency",
+    "ai disclosure", "generative ai disclosure", "deepfake disclosure", "ai governance",
   ];
   for (const term of packTerms) {
     if (text.includes(term)) kws.add(term);

@@ -185,3 +185,26 @@ test("listPacks includes the two US-market packs", () => {
   assert.ok(packs.includes("sec-cyber-pack"));
   assert.ok(packs.includes("adtech-privacy-pack"));
 });
+
+// ── US-market Phase 3: us-ai-pack ──────────────────────────────────────────
+
+test("us-ai-pack: triggers on 'colorado ai act'", () => {
+  const m = suggestPacks(mkDetection([], ["colorado ai act"])).find(p => p.pack === "us-ai-pack");
+  assert.ok(m, "us-ai-pack should fire");
+  assert.ok(m.reviewers.includes("us-ai-reviewer"));
+  assert.ok(m.humanGates.includes("gate:ai-governance"));
+});
+
+test("us-ai-pack: triggers on 'nist ai rmf' and 'consequential decision'", () => {
+  assert.ok(suggestPacks(mkDetection([], ["nist ai rmf"])).find(p => p.pack === "us-ai-pack"));
+  assert.ok(suggestPacks(mkDetection([], ["consequential decision"])).find(p => p.pack === "us-ai-pack"));
+});
+
+test("us-ai-pack: generic web project does NOT trigger", () => {
+  const m = suggestPacks(mkDetection(["next.js"], ["blog", "marketing"])).find(p => p.pack === "us-ai-pack");
+  assert.equal(m, undefined);
+});
+
+test("listPacks includes us-ai-pack", () => {
+  assert.ok(listPacks().includes("us-ai-pack"));
+});
