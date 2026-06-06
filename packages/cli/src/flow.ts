@@ -75,6 +75,7 @@ const GATE_LABEL: Record<StandardGate, string> = {
   "edtech-review":    "gate:edtech-review",
   "gov-review":       "gate:gov-review",
   "insurance-review": "gate:insurance-review",
+  "cmmc-assessment":  "gate:cmmc-assessment",
 };
 
 // Cost (low, high) per feature cycle by archetype tier

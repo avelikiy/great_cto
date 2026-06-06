@@ -838,6 +838,10 @@ function mineReadmeKeywords(dir: string): string[] {
                     "sarbanes", "regulated entity", "regulated industry",
                     "compliance automation", "audit trail", "iso 27001",
                     "pci compliance", "soc 2 type", "compliance officer"],
+    "defense":     ["cmmc", "nist 800-171", "nist sp 800-171", "dfars", "252.204-7012",
+                    "controlled unclassified", "cui ", " cui", "itar", "ear99",
+                    "section 889", "defense contractor", "dod contract", "govcon",
+                    "facility clearance", "fcl ", "sprs", "cui marking"],
   };
   for (const [bucket, terms] of Object.entries(buckets)) {
     if (terms.some((t) => text.includes(t))) kws.add(bucket);

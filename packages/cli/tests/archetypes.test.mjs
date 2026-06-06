@@ -362,3 +362,33 @@ test("Plain Stripe is commerce, not insurance, even with insurer keyword", () =>
   assert.notEqual(pick.primary, "insurance");
 });
 
+
+// ── US-market Phase 2: defense-govcon archetype ─────────────────────────────
+
+test("defense-govcon: CMMC/CUI signals pick defense-govcon", () => {
+  const pick = pickArchetype(mkDetection([], { readmeKeywords: ["defense"] }));
+  assert.equal(pick.primary, "defense-govcon");
+});
+
+test("defense-govcon: beats gov-public when both fedramp + defense present", () => {
+  const pick = pickArchetype(mkDetection([], { readmeKeywords: ["defense", "fedramp", "government"] }));
+  assert.equal(pick.primary, "defense-govcon", "defense-govcon outranks gov-public on tie-break");
+});
+
+test("defense-govcon: compliance includes CMMC + NIST 800-171 + DFARS", () => {
+  const c = suggestCompliance(mkDetection([], { readmeKeywords: ["defense"] }), "defense-govcon");
+  assert.ok(c.includes("cmmc-2.0"));
+  assert.ok(c.includes("nist-800-171"));
+  assert.ok(c.includes("dfars-252.204-7012"));
+  assert.ok(c.includes("section-889"));
+});
+
+test("defense-govcon: reviewers include cmmc-reviewer", async () => {
+  const { reviewersFor } = await import("../dist/archetypes.js");
+  assert.ok(reviewersFor("defense-govcon").includes("cmmc-reviewer"));
+});
+
+test("defense-govcon: gates include cmmc-assessment", async () => {
+  const { gatesFor } = await import("../dist/archetypes.js");
+  assert.ok(gatesFor("defense-govcon", "enterprise").includes("cmmc-assessment"));
+});

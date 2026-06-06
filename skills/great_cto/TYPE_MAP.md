@@ -170,6 +170,7 @@
 | `gxp-system` | `regulated` | compliance: [21cfr11] | min-size: enterprise |
 | `iso27001-scope` | `regulated` | compliance: [iso27001] | min-size: enterprise |
 | `automotive-supplier` | `regulated` | compliance: [tisax] | min-size: enterprise |
+| `defense-cui-system` | `defense-govcon` | compliance: [cmmc-2.0, nist-800-171, dfars-252.204-7012, itar, section-889], reviewers: [cmmc-reviewer] | min-size: enterprise; security gate: deep |
 | `api-platform` | `devtools` | compliance: [openssf, api-stability, soc2-type-2, gdpr], qa-extras: [openapi-lint, contract-test, deprecation-channel], packs: [devtools-pack] |  |
 | `sdk-platform` | `devtools` | compliance: [openssf, api-stability, semver], qa-extras: [cross-version-compat, multi-language-parity], packs: [devtools-pack] |  |
 | `developer-tools` | `devtools` | compliance: [openssf, soc2-type-2], qa-extras: [docs-as-product, dx-survey], packs: [devtools-pack] |  |
