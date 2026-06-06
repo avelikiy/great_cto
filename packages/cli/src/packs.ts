@@ -23,7 +23,8 @@ export type PackName =
   | "drug-discovery-pack"
   | "digital-health-pack"
   | "sec-cyber-pack"
-  | "adtech-privacy-pack";
+  | "adtech-privacy-pack"
+  | "us-ai-pack";
 
 export interface PackMatch {
   pack: PackName;
@@ -48,6 +49,7 @@ const PACK_REVIEWERS: Record<PackName, string[]> = {
   "digital-health-pack":   ["digital-health-reviewer", "ai-clinical-reviewer", "healthcare-reviewer"],
   "sec-cyber-pack":        ["sec-cyber-disclosure-reviewer"],
   "adtech-privacy-pack":   ["adtech-privacy-reviewer", "us-privacy-reviewer"],
+  "us-ai-pack":            ["us-ai-reviewer"],
 };
 
 const PACK_GATES: Record<PackName, string[]> = {
@@ -64,6 +66,7 @@ const PACK_GATES: Record<PackName, string[]> = {
   "digital-health-pack":   ["gate:wellness-vs-samd", "gate:hitl-design", "gate:wearable-api-access", "gate:supplement-safety", "gate:mental-health-protocol"],
   "sec-cyber-pack":        ["gate:cyber-disclosure-readiness"],
   "adtech-privacy-pack":   ["gate:tracking-consent"],
+  "us-ai-pack":            ["gate:ai-governance"],
 };
 
 // Trigger signals — stack tokens OR README keywords.
@@ -154,6 +157,16 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
       "tracking pixel", "session replay", "session recording", "heatmap",
       "fullstory", "hotjar", "logrocket", "retargeting", "behavioral advertising",
       "vppa", "cipa", "wiretap", "my health my data", "mhmda", "consumer health data",
+    ],
+  },
+  "us-ai-pack": {
+    stack: [],
+    keywords: [
+      "nist ai rmf", "ai rmf", "ai risk management", "colorado ai act", "sb 205",
+      "algorithmic discrimination", "consequential decision", "high-risk ai",
+      "automated decision", "ai impact assessment", "utah ai", "traiga",
+      "ai transparency", "ab 2013", "sb 942", "training data transparency",
+      "ai disclosure", "generative ai disclosure", "deepfake disclosure", "ai governance",
     ],
   },
 };
