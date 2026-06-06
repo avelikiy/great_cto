@@ -1011,6 +1011,7 @@ export function suggestCompliance(d: DetectionResult, archetype: Archetype): str
     c.add("gdpr"); c.add("ccpa");
     c.add("anti-discrimination-pricing"); c.add("actuarial-asops");
     c.add("state-doi"); // Department of Insurance per US state
+    c.add("naic-ai-model-bulletin"); c.add("colorado-sb-21-169"); // US insurance-AI rules
   }
   if (archetype === "defense-govcon") {
     c.add("cmmc-2.0"); c.add("nist-800-171"); c.add("dfars-252.204-7012");

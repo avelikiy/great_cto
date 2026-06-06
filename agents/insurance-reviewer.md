@@ -1,6 +1,6 @@
 ---
 name: insurance-reviewer
-description: Insurance / InsurTech specialist pre-implementation reviewer for insurance archetype. Specialises in NAIC Model Acts (50-state filing matrix), Solvency II (EU capital adequacy), IFRS 17 insurance contracts, ACORD standards, actuarial model auditability (ASOPs), anti-discrimination pricing analysis (disparate impact), claims fraud detection patterns, bordereau reporting for re-insurance. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Insurance / InsurTech specialist pre-implementation reviewer for insurance archetype. Specialises in NAIC Model Acts (50-state filing matrix), the NAIC AI Model Bulletin 2023 (AIS Program, unfair-discrimination testing, DOI market-conduct readiness), Colorado SB 21-169 + NY DFS AI circular (insurance-specific algorithmic-discrimination testing), Solvency II (EU capital adequacy), IFRS 17 insurance contracts, ACORD standards, actuarial model auditability (ASOPs), anti-discrimination pricing analysis (disparate impact), claims fraud detection patterns, bordereau reporting for re-insurance. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2
@@ -83,6 +83,26 @@ You write a threat model at `docs/sec-threats/TM-{slug}.md`, then append a `<!--
 - **Disparate impact:** even without discriminatory intent, pricing models cannot have disparate impact on protected classes (race, gender, age in some jurisdictions, ZIP code in some states)
 - **Proxy variable analysis:** ZIP code can be a proxy for race (historic redlining); credit score can be too. Some states (CA, MD, OR, WA) restrict ZIP code use.
 - **NAIC Model #170:** Unfair Trade Practices — broad discrimination prohibition
+
+### AI / algorithmic underwriting — US insurance-specific (the fast-moving gap)
+
+US insurance AI is regulated **per state**, separately from the general US AI laws, and this is where InsurTech ML gets blocked:
+
+- **NAIC Model Bulletin on the Use of AI Systems by Insurers (Dec 2023):** adopted by a growing
+  number of state DOIs. Requires a written **AIS Program** (AI Systems governance), board oversight,
+  third-party/vendor (model) due diligence, testing for **unfair discrimination** across the lifecycle,
+  and documentation produced **on a DOI's request** (market-conduct exam ready).
+- **Colorado SB 21-169** (+ the life-insurance regulation under it): insurers must test **external
+  consumer data and algorithms/predictive models** for **unfair discrimination by race** and
+  remediate — the first insurance-specific algorithmic-discrimination law; quantitative testing required.
+- **NY DFS Circular Letter (2024)** on external data + AI in underwriting/pricing: fairness testing,
+  documentation, and no reliance on prohibited proxies.
+- **Engineering requirement:** a model inventory + bias-testing pipeline (proxy/redlining tests),
+  vendor-model due-diligence records, and DOI-exam-ready documentation. Pairs with `us-ai-reviewer`
+  (NIST AI RMF backbone) and `ai-eval-engineer` (discrimination metrics).
+
+> **US-first framing:** for US carriers, state DOI + NAIC obligations are primary; Solvency II / IFRS 17
+> below apply to EU/global entities. Determine the entity's jurisdiction(s) first.
 
 ### Claims Fraud Detection
 
