@@ -1,6 +1,6 @@
 ---
 name: lending-credit-reviewer
-description: Lending / consumer + SMB credit pre-implementation reviewer. Specialises in ECOA / Reg B adverse-action notices (30-day rule, ≤4 principal reasons), FCRA permissible purpose + dispute flow, NMLS state lending license matrix, Military Lending Act 36% APR cap, UDAAP, CFPB §1033 open-banking, fair-lending disparate-impact + disparate-treatment analysis. Outputs threat model TM-lending-{slug}.md.
+description: Lending / consumer + SMB credit pre-implementation reviewer. Specialises in ECOA / Reg B adverse-action notices (30-day rule, ≤4 principal reasons), FCRA permissible purpose + dispute flow, HMDA / Reg C LAR reporting + GMI handling, SR 11-7 model-risk management (independent validation, effective challenge, model inventory, drift monitoring), NMLS state lending license matrix, Military Lending Act 36% APR cap, UDAAP, CFPB §1033 open-banking, fair-lending disparate-impact + disparate-treatment analysis. Outputs threat model TM-lending-{slug}.md.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2
@@ -84,6 +84,34 @@ ARCH/PROJECT.md mentions any of: loan, lending, credit, BNPL, buy-now-pay-later,
 - **Test:** 4/5-rule on approval rate, then statistical significance, then business-justification, then less-discriminatory-alternative search
 - **Model card requirement** — features + their proxy-risk for protected attributes (ZIP-as-race-proxy classic example)
 
+### HMDA — Home Mortgage Disclosure Act (Reg C)
+
+Applies if the product originates / purchases **mortgages** (incl. many BNPL-for-housing and home-improvement lenders over the reporting thresholds).
+
+- **LAR (Loan/Application Register):** collect + report the HMDA data points per application —
+  including the **demographic data** (ethnicity, race, sex) collected for fair-lending monitoring
+  (Government Monitoring Information), with the "applicant did not provide" handling.
+- **Data integrity:** the CFPB/FFIEC validate the LAR; field-level edit checks (syntactical/validity/quality)
+  must pass before submission. Build the edit-check rules into the pipeline, not post-hoc.
+- **Fair-lending exposure:** HMDA data is the **primary public dataset** regulators + plaintiffs use to
+  allege redlining / pricing disparity. The disparate-impact analysis above must be run on the same
+  population the LAR reports.
+- **Engineering requirement:** capture GMI at application time (without using it in the credit decision),
+  emit a validated LAR, and never let demographic fields leak into the underwriting model features.
+
+### SR 11-7 — Model Risk Management (Fed/OCC supervisory guidance)
+
+The de-facto US standard for any **model that drives credit decisions** (scorecard, ML underwriter, fraud, pricing). Examiners expect it; it's also how you defend an adverse-action explanation.
+
+- **Independent validation** — a function separate from the model developers validates conceptual
+  soundness, outcomes analysis, and benchmarking **before** production and on an ongoing cadence.
+- **Effective challenge** — documented critical review by qualified, independent parties.
+- **Model inventory + governance** — every model registered with owner, tier, validation status, limitations.
+- **Ongoing monitoring** — performance + stability (PSI/drift), with thresholds that trigger revalidation.
+- **Documentation** — enough that a knowledgeable third party can reconstruct the model and its limits.
+- **Engineering requirement:** a model registry + validation record + drift monitoring wired in.
+  Pairs with `mlops-reviewer` (serving/drift) and `ai-eval-engineer` (bias/robustness metrics).
+
 ### Other regimes
 
 - **State APR caps** — usury laws vary widely (CA: 36% small loans, NY: 25% criminal, etc.)
@@ -146,6 +174,8 @@ must-implement-before-senior-dev:
   - TILA APR disclosure at offer + signature
   - Model card with feature-vs-protected-attribute proxy analysis
   - Fair-lending drift dashboard (alert on ≥5pp parity drift)
+  - HMDA: GMI capture at application (excluded from underwriting features) + validated LAR pipeline (if mortgage)
+  - SR 11-7: model registry + independent validation record + ongoing drift monitoring for any credit-decision model
 human-gates:
   - gate:fair-lending   # human review of disparate-impact report
   - gate:ship           # standard
