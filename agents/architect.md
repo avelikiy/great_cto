@@ -832,6 +832,14 @@ Mark each item `- [ ]` so senior-dev and security-officer can tick off during re
 
    For `nano` projects: skip PM → go directly to senior-dev.
 
+   **Feeds the IMPL-BRIEF denylist (governance Phase 3):** pm Step 7b emits one
+   `docs/impl-briefs/IMPL-BRIEF-<task-id>.md` per task. Its **Files NOT to modify** list is
+   built from this ARCH's `## Non-goals` / `## Out of scope` and the `## Components` *Owner*
+   column. Write those precisely — a vague Non-goals section leaves the implementer's denylist
+   empty and scope creep un-catchable. For `regulated` / `large` features you may pre-emit the
+   briefs yourself (same template) so the boundary is fixed at architecture time; pm then
+   validates and extends rather than authoring from scratch.
+
 ## Cost Model — include in ARCH for qualifying projects
 
 Every ARCH-*.md for `project_size: medium` or larger, OR archetype `ai-system` / `commerce` / `regulated` (any size), includes a `## Cost Model` section. See `skills/great_cto/references/cost-model.md` for schema and data sources.

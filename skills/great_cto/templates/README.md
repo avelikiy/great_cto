@@ -25,6 +25,7 @@
 | `compliance: [sox]` | `SOX-ITGC-checklist.md` | `docs/compliance/` |
 | `compliance: [pci-dss-saq-a]` | `PCI-DSS-SAQ-A.md` | `docs/compliance/` |
 | `compliance: [pci-dss]` (full scope) | `PCI-DSS-SAQ-D.md` | `docs/compliance/` |
+| every senior-dev task (pm Step 7b) | `IMPL-BRIEF-template.md` (×N, one per task) | `docs/impl-briefs/IMPL-BRIEF-{task-id}.md` |
 
 ## How agents use these
 
@@ -35,6 +36,8 @@
 `qa-engineer.md` Step 0b validates `tests/eval/EVAL-*.md` count against archetype thresholds — `EVAL-template.md` is what each scenario file looks like.
 
 `project-auditor.md` Phase 4 (planned v1.0.133) reads `monthly-budget-llm-usd` from PROJECT.md and the `## Cost Model` section of `ARCH-ai.md` to detect cost-cap violations.
+
+`pm.md` Step 7b emits one `IMPL-BRIEF-{task-id}.md` per task (governance Phase 3) — files-to-modify / files-NOT-to-modify / API-CONTRACT / TEST-SPEC / ACCEPTANCE. `senior-dev.md` Step 4 reads it before coding and Step 6b runs `node scripts/lib/impl-brief.mjs check <brief> <changed-files…>` to refuse a commit that touches a denylisted file. `validate` / `check` make the brief machine-enforceable, not just prose.
 
 ## What's NOT in this directory
 
