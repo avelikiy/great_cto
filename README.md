@@ -11,7 +11,7 @@
 [![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
 [![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
 
-<img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 57 agents → gate:ship → Deployed" width="900" />
+<img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 61 agents → gate:ship → Deployed" width="900" />
 
 ```bash
 npx great-cto init
@@ -37,7 +37,7 @@ Hiring a senior engineer to review: **$15,000/month.** Doing it yourself: **risk
 
 ## What you get
 
-57 specialist agents — architect, 12-angle reviewer, QA, security officer, devops — wired into a gated pipeline tuned to your stack and jurisdiction.
+61 specialist agents — architect, 12-angle reviewer, QA, security officer, devops — wired into a gated pipeline tuned to your stack and jurisdiction.
 
 **You make two decisions per feature.** Everything else runs automatically.
 
@@ -49,8 +49,8 @@ Hiring a senior engineer to review: **$15,000/month.** Doing it yourself: **risk
 | Human-equivalent for the same work | **~$5,460** |
 | Defects caught that QA had missed | **2** |
 | Monthly cost (20 pipeline runs) | **~$34** |
-| Specialist agents | **57** |
-| Archetypes auto-detected | **25** |
+| Specialist agents | **61** |
+| Archetypes auto-detected | **26** |
 | Jurisdictions | **12** (GDPR · HIPAA · PCI-DSS · SOX · and more) |
 
 → [Full trace with all artefacts](https://greatcto.systems/proof)
@@ -90,7 +90,7 @@ Same command. Output depends on what you're building and where it runs:
 <td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
 </tr>
 <tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 57 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 57 specialists with last-used + run counts</sub></td>
+<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 61 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 61 specialists with last-used + run counts</sub></td>
 <td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 layers + crystallized incident patterns</sub></td>
 </tr>
 </table>
@@ -123,7 +123,7 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — two gates · critics · 57 agents · 25 archetypes · 12 jurisdictions · 33+ compliance frameworks · board · cost · MCP</summary>
+<summary>📖 Full documentation — two gates · critics · 61 agents · 26 archetypes · 12 jurisdictions · 45+ compliance frameworks · board · cost · MCP</summary>
 
 ## Two decisions per feature
 
@@ -227,7 +227,7 @@ Plus: `/audit` (existing-codebase scan), `/cost` (LLM router savings), `/sec` (s
 
 Pay your own Anthropic API tokens. **No per-seat fee. No SaaS lock-in.** Routine triage auto-routes to Kimi K2 (Sonnet-equivalent at ~5× lower cost) → 60–80% reduction on log clustering.
 
-## 25 archetypes auto-detected
+## 26 archetypes auto-detected
 
 Each archetype activates its own specialist agents and compliance checklists. Top 7:
 
@@ -240,10 +240,13 @@ Each archetype activates its own specialist agents and compliance checklists. To
 | `library` | baseline | library-reviewer | openssf · sbom |
 | `cli-tool` | baseline | cli-reviewer | — |
 | `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
+| `defense-govcon` | **deep** | cmmc-reviewer · gov-reviewer | cmmc-2.0 · nist-800-171 · dfars · itar · section-889 |
 
-Full table (25 archetypes) + how detection works: [docs/ARCHETYPES.md](docs/ARCHETYPES.md).
+Full table (26 archetypes) + how detection works: [docs/ARCHETYPES.md](docs/ARCHETYPES.md).
 
-## 11 domain packs — overlay reviewers
+**Deep US coverage** — beyond GDPR/PCI/HIPAA, great_cto now reviews against SEC cyber-disclosure (8-K Item 1.05), CMMC 2.0 / NIST 800-171 for defense contractors, US AI governance (NIST AI RMF · Colorado SB 205 · Utah/Texas AI), web-tracking litigation (VPPA · CIPA · Washington MHMDA), and HMDA / SR 11-7 model risk for lending.
+
+## 14 domain packs — overlay reviewers
 
 Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-specific signals (deps, README terms). Each pack adds its own reviewer(s), threat-model template, EVAL suite, and human gates — independent of base archetype.
 
@@ -254,8 +257,9 @@ Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-
 | **Fintech / regulated** | `lending-pack` · `em-fintech-pack` |
 | **High-compliance** | `clinical-trials-pack` · `climate-pack` |
 | **Engineering** | `api-platform-pack` · `robotics-pack` |
+| **US market** | `sec-cyber-pack` _(SEC 8-K disclosure)_ · `adtech-privacy-pack` _(VPPA · CIPA · MHMDA)_ · `us-ai-pack` _(NIST AI RMF · Colorado SB 205)_ |
 
-→ **24 human-gate types** + 38 reference EVAL suites + 15 TM templates. Browse all 11 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
+→ **28 human-gate types** + 53 reference EVAL suites + 15 TM templates. Browse all 14 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
 
 ## One real run, fully traced
 
@@ -278,7 +282,7 @@ Drop into any GitHub Actions workflow:
 
 ## Test pyramid
 
-Layered test suite — **structural + state-machine tier runs in <2 min for $0** (`node --test tests/*.test.mjs`); real-LLM tier (25 archetypes × 4-8 stages + 11 packs + 9 reviewers) runs on-demand via OpenRouter for ~$5–10. Full breakdown: [docs/testing/](docs/testing/).
+Layered test suite — **structural + state-machine tier runs in <2 min for $0** (`node --test tests/*.test.mjs`); real-LLM tier (26 archetypes × 4-8 stages + 14 packs + 13 reviewers) runs on-demand via OpenRouter for ~$5–10. Full breakdown: [docs/testing/](docs/testing/).
 
 ## MCP
 
@@ -332,7 +336,7 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 57 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 61 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
