@@ -400,6 +400,23 @@ Threshold: p95 < 200ms, 0 PCI findings
 
 ### Step 3: Execute
 
+**Compress test/build output before reasoning** (deterministic, $0). Test runs and build
+logs are mostly passing-noise with a few failures buried in them. Pipe the output through the
+compressor so the `AssertionError` / `FAIL` / stack frames survive while thousands of passing
+lines collapse — then reason on the compressed view:
+
+```bash
+PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+_C="$PD/scripts/lib/compress/index.mjs"; [ -f "$_C" ] || _C="scripts/lib/compress/index.mjs"
+_CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
+RAW="$(npm test 2>&1)"                                  # or pytest / cargo test / go test
+CCR_ID=$(printf '%s' "$RAW" | node "$_CCR" store --source qa-output)   # full output, recoverable
+printf '%s' "$RAW" | node "$_C" --budget 10000 --stats                 # keeps FAIL + stack, elides passes
+# need the full run?  node "$_CCR" recall "$CCR_ID"   (or /ccr <id>)
+```
+
+Full contract: `agents/_shared/compress-prompt.md`. Use this for any large test/build/lint output.
+
 **Parallel groups** — run independent test types in parallel, dependent tests sequentially:
 
 **Group A (parallel — independent tests)** — spawn sub-agents via Agent tool:

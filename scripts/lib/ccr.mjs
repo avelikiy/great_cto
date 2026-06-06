@@ -135,9 +135,16 @@ export function formatRecallFooter(stubs) {
 function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   if (cmd === 'store') {
-    const content = rest.find((a) => !a.startsWith('--')) || '';
-    const si = rest.indexOf('--source');
-    const source = si >= 0 ? rest[si + 1] : 'cli';
+    // Content from the first positional arg, or stdin (so you can pipe a big blob).
+    // Parse flags first so a flag value (e.g. --source X) isn't mistaken for content.
+    let content, source = 'cli';
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '--source') { source = rest[++i]; }
+      else if (!rest[i].startsWith('--') && content === undefined) { content = rest[i]; }
+    }
+    if (content === undefined) {
+      try { content = readFileSync(0, 'utf8'); } catch { content = ''; }
+    }
     const r = store(content, { source });
     process.stdout.write(`${r.id}\n`);
   } else if (cmd === 'recall') {
