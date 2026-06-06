@@ -361,6 +361,19 @@ Spawn `great_cto-project-auditor` with this context (vary by MODE):
 > 4. **Create Beads tasks** for each gap found:
 >    `bd create "<gap description>" --type task --priority <0-3>`
 >    Priority 0 = blocks deploy. Priority 1 = important. Priority 2 = nice to have.
+> 4b. **Gate-gap wave plan** (governance Phase 5) — when the gaps above would make a
+>    strict-mode gate (`gate-check.mjs`) refuse on day one (a legacy repo rarely passes cold),
+>    do NOT tell the CTO to weaken the gate. Schedule incremental remediation instead:
+>    - Map each gate-blocking gap to a register row (id · gate · severity · summary) — copy
+>      `skills/great_cto/templates/GAP-REGISTER-template.yaml` → `docs/governance/GAP-REGISTER.yaml`,
+>      and emit the same gaps as JSON to `docs/governance/GAP-REGISTER.json` for the planner.
+>    - Generate the wave schedule (criticals → wave 1, rest by severity):
+>      `node scripts/lib/gap-waves.mjs plan docs/governance/GAP-REGISTER.json --per-wave 5 --current-wave 1`
+>      Write the result into `docs/governance/GAP-WAVE-PLAN.yaml` (template alongside).
+>    - For every **deferred** gap the planner flags, create the interim signed exception it
+>      prints (`/exception create --gate … --scope "GAP-n" --reason "gap-wave N: tracked" …`)
+>      and record its EXC-id in the register's `exception:` field — keeps the gate green while
+>      the gap is tracked + expiring, never a silent bypass. Criticals are never deferred.
 > 5. **Write .great_cto/PROJECT.md** (overwrite if exists):
 >    Use detected stack, type, and team size (estimate from git log authors).
 >    Set review_mode: auto unless security-critical type (then: strict).
