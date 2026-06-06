@@ -99,8 +99,24 @@ Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approv
 **Checkpoint A — BEFORE running audit** (after step 2-4 context reading, before step 5 compliance checklist):
 Show audit plan: compliance frameworks to check (from `compliance:` params + packs), secrets scan scope, dependency audit tools, high-priority targets from QA report. CTO approves or comments. Comments → adjust scope → re-checkpoint.
 
+**Strict-mode gate check (mandatory, before any gate:ship APPROVED)** — `gate:ship` refuses
+to pass while any task is in a terminal-fail state `{blocked, failed, unverified, not_run}`,
+unless a **valid signed exception** covers it. This is evidence-blocking, not "explained-away":
+
+```bash
+PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+node "$PD/scripts/lib/gate-check.mjs" gate:ship 2>/dev/null || node scripts/lib/gate-check.mjs gate:ship
+# exit 0 → may approve (any covered tasks are printed with their exception id)
+# exit 1 → DO NOT write APPROVED. Fix the task, or the CTO mints a signed exception:
+#          /exception create --gate gate:ship --scope "<task-id>" --reason "<why>" --days N
+```
+
+Never write `APPROVED` for `gate:ship` while `gate-check` exits 1 and no signed exception
+covers the blocking task. The only sanctioned overrides are signed exceptions (audited,
+expiring) — see `/exception`. (`bd` unavailable → gate-check is a no-op; fall back to manual.)
+
 **Checkpoint B — AFTER writing CSO report** (after step 6 report, before step 7 close/block gate:ship):
-Show decision: APPROVED/BLOCKED, findings by severity, compliance results. CTO approves → close or block gate:ship. Comments → re-scan specific area → re-checkpoint.
+Show decision: APPROVED/BLOCKED, findings by severity, compliance results, **strict-mode gate-check result + any sanctioning exceptions**. CTO approves → close or block gate:ship. Comments → re-scan specific area → re-checkpoint.
 
 Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoints).
 
