@@ -131,3 +131,15 @@ test('CLI: recall unknown id exits 1', () => {
   });
   assert.equal(res.status, 1);
 });
+
+test('CLI: store reads stdin when no positional content (pipeable)', () => {
+  const root = tmp();
+  const env = { ...process.env, GREAT_CTO_CCR_ROOT: root };
+  const s = spawnSync(process.execPath, [SCRIPT, 'store', '--source', 'pipe'], {
+    env, encoding: 'utf8', input: 'piped log blob with FATAL inside',
+  });
+  assert.equal(s.status, 0);
+  const id = s.stdout.trim();
+  const r = spawnSync(process.execPath, [SCRIPT, 'recall', id], { env, encoding: 'utf8' });
+  assert.ok(r.stdout.includes('piped log blob with FATAL inside'));
+});
