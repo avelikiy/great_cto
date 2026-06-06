@@ -54,6 +54,24 @@ Never let a Beads error block the actual phase work.
   move on — do not block the incident on missing config.
   See `skills/great_cto/references/llm-router.md` for when to use vs skip.
 
+- **Compress large logs before reasoning** (deterministic, $0): never paste a raw
+  multi-thousand-line log into your context. Store the raw (recoverable) and reason on the
+  compressed view — log-template collapses repeats but **keeps every FATAL/ERROR/stack line
+  verbatim**, so you don't miss the needle:
+
+  ```bash
+  PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+  _C="$PD/scripts/lib/compress/index.mjs"; [ -f "$_C" ] || _C="scripts/lib/compress/index.mjs"
+  _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
+  RAW="$(kubectl logs deploy/api --since=1h)"      # or journalctl / docker logs / a log file
+  CCR_ID=$(printf '%s' "$RAW" | node "$_CCR" store --source l3-log)   # full original, recoverable
+  printf '%s' "$RAW" | node "$_C" --budget 12000 --stats              # compressed view to reason on
+  # need a detail the compressed view elided?  node "$_CCR" recall "$CCR_ID"   (or /ccr <id>)
+  ```
+
+  Full contract: `agents/_shared/compress-prompt.md`. This is what lets you triage a 200k-token
+  log on a tight budget without losing the FATAL.
+
 ## Environment Setup
 
 ```bash
