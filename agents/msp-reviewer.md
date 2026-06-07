@@ -76,6 +76,32 @@ You write a threat model at `docs/sec-threats/TM-msp-{slug}.md`, then append a `
   not blind speed. Destructive changes (deletes, migrations, decommission) require a verified
   backup / DR point first.
 
+### What APPROVED looks like (do NOT over-block the correct pattern)
+
+A change or access design that **already has the required controls is the goal — APPROVE it.**
+The block is scoped to *missing* controls and the named anti-patterns (fleet-wide auto-push,
+standing admin, destructive-without-DR, cross-tenant), **not** to patching or access management
+themselves. Specifically, APPROVE when the design shows:
+
+- **Staged rollout done right** — canary ring → health gate → auto-halt-and-rollback on
+  regression, with a pre-change snapshot and a tested rollback per change. A correctly staged,
+  reversible patch is exactly the target state; blocking it is a false positive.
+- **JIT least-privilege provisioning done right** — time-boxed, least-privilege, single-tenant-
+  scoped grants with MFA and auto-deprovision, no standing admin. This is the secure pattern, not a
+  finding.
+- **Read-only monitoring** that only raises alerts to a human and makes no change / holds no
+  privileged write access.
+
+Reserve BLOCKED for a real Critical/High gap. Over-firing on a well-controlled design trains
+operators to ignore the gate — precision matters as much as recall.
+
+### Regulated-client compliance backdrop
+
+- Beyond SOC 2, an MSP serving regulated clients inherits their frameworks: **NIST SP 800-171** +
+  **CMMC** (US defense / CUI), **ISO/IEC 27001**, **FedRAMP** (US government workloads), and
+  **HIPAA** (healthcare clients). Map the client's regime; the MSP's controls must satisfy the
+  strictest one in scope, and the autopilot's change/access logs feed those audits too.
+
 ## Workflow
 
 ### Step 0 — Read inputs
