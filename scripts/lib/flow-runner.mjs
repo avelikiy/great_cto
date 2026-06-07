@@ -84,6 +84,9 @@ const DEMO_INPUTS = {
   'carrier-vet:vet-carrier': { dotNumber: '123456', authorityStatus: 'active', insuranceOnFile: true, safetyRating: 'Satisfactory' },
   'um-criteria:check-criteria': { service: '72148', icd10: 'M54.5', priorConservativeTherapyWeeks: 8 },
   'sar-filing:file-sar': { bsaOfficerApproved: true, subject: { name: 'Test Subject' }, suspiciousActivity: { type: 'structuring', amountUsd: 25000, dateRange: '2026-01' }, filingInstitution: { name: 'Demo Bank' } },
+  'hs-classify:classify-hs': { description: 'cotton knit t-shirt' },
+  'itgc-test:run-test': { controlType: 'logical-access', evidence: { terminatedUsersWithAccess: 0, sharedAdminAccounts: 0, mfaEnabled: true, accessReviewDate: '2026-05-01' } },
+  'meddra-code:code-term': { verbatim: 'bad headache' },
 };
 
 /**

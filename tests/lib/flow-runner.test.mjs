@@ -23,12 +23,31 @@ test('call: stub is deterministic (same input → same output)', async () => {
   assert.deepEqual(a.data, b.data);
 });
 
-test('hasLiveAdapter: all 17 live connectors are wired; ocr is not yet', () => {
+test('hasLiveAdapter: all 22 live connectors are wired; ocr is not yet', () => {
   for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue', 'e-signature', 'bank-feed',
     'sanctions-screen', 'rmm', 'tax-engine',
     'threat-intel', 'fraud-score', 'aus', 'primary-source', 'comms-outreach', 'carrier-vet',
-    'um-criteria', 'sar-filing']) assert.equal(hasLiveAdapter(id), true, id);
+    'um-criteria', 'sar-filing',
+    'hs-classify', 'customs-entry', 'itgc-test', 'meddra-code', 'safety-report']) assert.equal(hasLiveAdapter(id), true, id);
   assert.equal(hasLiveAdapter('ocr'), false);
+});
+
+test('Wave-9 adapters: customs / audit / pharma close their verticals with a real decision', async () => {
+  // customs — HS classification + the broker-gated CBP entry write
+  const hs = await import('../../scripts/lib/connectors/hs-classify.mjs');
+  assert.match((await hs.call('classify-hs', { description: 'cotton knit t-shirt' })).data.hsCode, /^6109/);
+  const ce = await import('../../scripts/lib/connectors/customs-entry.mjs');
+  assert.equal((await ce.call('file-entry', { brokerSignedOff: false })).blocked, true);
+  // audit — a terminated user retaining access is a high-severity exception that escalates
+  const it = await import('../../scripts/lib/connectors/itgc-test.mjs');
+  const r = await it.call('run-test', { controlType: 'logical-access', evidence: { terminatedUsersWithAccess: 4, sharedAdminAccounts: 1, mfaEnabled: false } });
+  assert.equal(r.data.result, 'exception');
+  assert.equal(r.data.requiresPartnerSignoff, true);
+  // pharma — MedDRA codes a serious term and forces medical review; E2B is QPPV-gated
+  const md = await import('../../scripts/lib/connectors/meddra-code.mjs');
+  assert.equal((await md.call('code-term', { verbatim: 'heart attack' })).data.requiresMedicalReview, true);
+  const sr = await import('../../scripts/lib/connectors/safety-report.mjs');
+  assert.equal((await sr.call('submit-e2b', { qppvApproved: false })).blocked, true);
 });
 
 test('dispatcher owns mode: a live-adapter result is always mode:live (keeps adapterMode)', async () => {
