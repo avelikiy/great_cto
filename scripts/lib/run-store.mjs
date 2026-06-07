@@ -90,7 +90,7 @@ export async function startRun(vertical, { mode = 'stub', payload = {}, tenant =
 }
 
 /** Approve the pending gate: resume the run, execute the irreversible write, persist. Multi-gate aware. */
-export async function approve(id, who, note = '') {
+export async function approve(id, who, note = '', reason = '') {
   const run = getRun(id);
   if (!run) throw new Error(`run ${id} not found`);
   if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
@@ -105,23 +105,74 @@ export async function approve(id, who, note = '') {
   const signedGate = run.pausedAt; // the gate we just resumed past
   // annotate the now-approved gate with who signed it
   const gs = resume.steps.find((s) => s.gate && s.status === 'approved');
-  if (gs) { gs.approvedBy = who; gs.note = note || undefined; }
+  if (gs) { gs.approvedBy = who; gs.note = note || undefined; gs.reason = reason || undefined; }
   // splice the resume trace in where the run paused
   run.steps = run.steps.slice(0, run.pausedAtIndex).concat(resume.steps);
   run.status = statusFromTrace(resume);
   const g = gateStep(resume);
   run.pausedAt = resume.pausedAt; run.pausedAtIndex = resume.pausedAtIndex;
   run.signer = g ? g.human : null; run.gateDoes = g ? g.does : null;
-  run.audit.push({ at: now(), event: 'approved', gate: signedGate, by: who, note: note || undefined, newStatus: run.status });
+  run.audit.push({ at: now(), event: 'approved', gate: signedGate, by: who, note: note || undefined, reason: reason || undefined, newStatus: run.status });
   return save(run);
 }
 
 /** Reject the pending gate: nothing irreversible runs. */
-export async function reject(id, who, note = '') {
+export async function reject(id, who, note = '', reason = '') {
   const run = getRun(id);
   if (!run) throw new Error(`run ${id} not found`);
   if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
   run.status = 'rejected';
-  run.audit.push({ at: now(), event: 'rejected', gate: run.pausedAt, by: who, note: note || undefined });
+  run.disposition = reason || 'rejected';
+  run.audit.push({ at: now(), event: 'rejected', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined });
   return save(run);
+}
+
+/** Escalate the pending gate to a senior — stays in the queue, flagged. */
+export async function escalate(id, who, note = '', reason = '') {
+  const run = getRun(id);
+  if (!run) throw new Error(`run ${id} not found`);
+  if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
+  run.escalated = true; run.escalatedBy = who; run.escalateReason = reason || undefined;
+  run.audit.push({ at: now(), event: 'escalated', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined });
+  return save(run); // status stays awaiting-approval so a senior can sign
+}
+
+/** Send back for more information — nothing irreversible runs; recoverable, not a hard reject. */
+export async function sendBack(id, who, note = '', reason = '') {
+  const run = getRun(id);
+  if (!run) throw new Error(`run ${id} not found`);
+  if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
+  run.status = 'sent-back';
+  run.disposition = reason || 'needs-info';
+  run.audit.push({ at: now(), event: 'sent-back', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined });
+  return save(run);
+}
+
+/** Aggregate KPIs over the runs an operator/admin can see (the analytics surface). */
+export function stats({ tenant } = {}) {
+  const runs = listRuns({ tenant });
+  const by = (k) => runs.reduce((m, r) => ((m[r[k] || '—'] = (m[r[k] || '—'] || 0) + 1), m), {});
+  const ev = (name) => runs.reduce((n, r) => n + (r.audit || []).filter((a) => a.event === name).length, 0);
+  const completed = runs.filter((r) => r.status === 'completed').length;
+  const decided = ev('approved') + ev('rejected');
+  // time-to-decision (start → first approve/reject), minutes
+  const ttd = [];
+  for (const r of runs) {
+    const start = r.createdAt && new Date(r.createdAt).getTime();
+    const dec = (r.audit || []).find((a) => a.event === 'approved' || a.event === 'rejected');
+    if (start && dec) ttd.push((new Date(dec.at).getTime() - start) / 60000);
+  }
+  const avgTtd = ttd.length ? +(ttd.reduce((a, b) => a + b, 0) / ttd.length).toFixed(1) : null;
+  const awaiting = runs.filter((r) => r.status === 'awaiting-approval');
+  const slaBreaches = awaiting.filter((r) => (Date.now() - new Date(r.createdAt).getTime()) / 60000 >= 240).length;
+  return {
+    total: runs.length,
+    byStatus: by('status'),
+    byVertical: by('vertical'),
+    approved: ev('approved'), rejected: ev('rejected'), escalated: ev('escalated'), sentBack: ev('sent-back'),
+    completed,
+    approvalRate: decided ? +(ev('approved') / decided * 100).toFixed(1) : null,
+    escalationRate: runs.length ? +((ev('escalated') / runs.length) * 100).toFixed(1) : null,
+    awaiting: awaiting.length, slaBreaches, avgTimeToDecisionMin: avgTtd,
+  };
 }

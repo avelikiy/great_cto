@@ -21,7 +21,7 @@ import {
   removeSubscription,
 } from './push-adapter.mjs';
 import crypto from 'node:crypto';
-import { startRun as apStartRun, approve as apApprove, reject as apReject, listRuns as apListRuns, getRun as apGetRun } from '../../scripts/lib/run-store.mjs';
+import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun } from '../../scripts/lib/run-store.mjs';
 import { ROLES, getRole, roleAllows } from '../../scripts/lib/roles.mjs';
 import { createInvite, listInvites, resolveInvite, acceptInvite, revokeInvite } from '../../scripts/lib/operators.mjs';
 
@@ -3161,6 +3161,13 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ roles: ROLES }));
     return;
   }
+  if (pathname === '/api/autopilot/stats' && req.method === 'GET') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
+    const tenant = auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || undefined);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(apStats({ tenant })));
+    return;
+  }
   // Operator onboarding: the admin mints invites; the operator resolves one to bootstrap, scoped.
   if (pathname === '/api/autopilot/invite-resolve' && req.method === 'GET') {
     const inv = acceptInvite(url.searchParams.get('token'));
@@ -3212,7 +3219,7 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(r || { error: 'not found' }));
     return;
   }
-  if ((pathname === '/api/autopilot/start' || pathname === '/api/autopilot/approve' || pathname === '/api/autopilot/reject') && req.method === 'POST') {
+  if (['/api/autopilot/start', '/api/autopilot/approve', '/api/autopilot/reject', '/api/autopilot/escalate', '/api/autopilot/send-back'].includes(pathname) && req.method === 'POST') {
     let body = '';
     req.on('data', (c) => { body += c; });
     req.on('end', async () => {
@@ -3230,10 +3237,12 @@ const server = http.createServer(async (req, res) => {
           const existing = apGetRun(p.id);
           if (existing && !roleAllows(role, existing.vertical)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${role}' is not authorised to sign ${existing.vertical} cases` })); return; }
         }
-        let run;
+        let run; const who = p.by || 'board user';
         if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: auth.viaInvite ? auth.tenant : (p.tenant || 'default') });
-        else if (pathname === '/api/autopilot/approve') run = await apApprove(p.id, p.by || 'board user', p.note || '');
-        else run = await apReject(p.id, p.by || 'board user', p.note || '');
+        else if (pathname === '/api/autopilot/approve') run = await apApprove(p.id, who, p.note || '', p.reason || '');
+        else if (pathname === '/api/autopilot/reject') run = await apReject(p.id, who, p.note || '', p.reason || '');
+        else if (pathname === '/api/autopilot/escalate') run = await apEscalate(p.id, who, p.note || '', p.reason || '');
+        else run = await apSendBack(p.id, who, p.note || '', p.reason || '');
         // Push the signer: a new case (or the next gate of a multi-gate flow) is in their queue.
         if (run && run.status === 'awaiting-approval') {
           firePushAlert('autopilot.gate', `ap:${run.id}:${run.pausedAt}`, {

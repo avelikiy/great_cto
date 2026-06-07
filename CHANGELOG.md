@@ -4,6 +4,29 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.52.0 — 2026-06-07
+
+### Console: the queue→platform jump (analytics · structured dispositions · escalation)
+
+Implements Wave A of `docs/plans/PLAN-console-gap-roadmap.md` — a gap analysis vs the operator
+consoles of the startups in our verticals (Cohere, Anterior, Hummingbird, Sardine, Unit21, Checkr,
+Sierra, Decagon, Scytale, Descartes …). Our console was best-in-class as a *signing surface* but a
+*queue, not a platform*. This closes the three most-cited gaps:
+
+- **Analytics dashboard** — aggregate KPIs over real run data (total · completed · awaiting ·
+  approval rate · escalation rate · avg time→decision · SLA breaches · rejected/escalated/sent-back),
+  role- and tenant-scoped. *"Is the autopilot taking work off your desk?"*
+- **Structured dispositions + reason codes** — every decision carries a controlled reason
+  (meets-criteria · below-confidence-floor · policy-exception · insufficient-documentation ·
+  fraud-suspected · …), recorded in the audit trail. No more un-aggregatable free text.
+- **Escalation as a first-class state** — `↑ Escalate` (route to a senior; stays in the queue,
+  flagged) and `↩ Send back` (needs-info; recoverable, nothing irreversible runs) alongside
+  approve/reject. New `/api/autopilot/stats`, `/escalate`, `/send-back`.
+
+Roadmap (Waves B–D) captures the rest: AI recommendation+confidence, override logging, regulatory-
+deadline SLAs, evidence-linked explainability, AI-drafted narrative, QA sampling, bulk actions.
+283 lib tests.
+
 ## v2.51.0 — 2026-06-07
 
 ### The admin onboards operators — scoped invite links
