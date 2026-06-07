@@ -4,6 +4,29 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.43.0 — 2026-06-07
+
+### The permission is never the wound — irreversible-action gating + accountable owner
+
+Inspired by Oleksandr Torlo's *"The Permission Was the Wound"* (2026): the real danger of an agent
+isn't going rogue — it's doing *exactly what it's permitted*, irreversibly, at machine speed, with no
+human hesitation. GreatCTO already pauses at human checkpoints; this release makes the boundary an
+**enforced runtime invariant**, not just a convention.
+
+- **`reversible` + `blastRadius` on every flow step** — each step is tagged reversible (read / draft /
+  check) or not (money move, claim submission, e-signing, fleet change, tax filing), with a
+  low/medium/high blast radius.
+- **The runtime refuses to execute an irreversible action autonomously** (`flow-runner.mjs`) — an
+  irreversible step with no prior human checkpoint is **blocked** (`blocked-unsafe`); one that *is*
+  protected runs only after the gate is signed (in a whole-flow dry-run it's recorded as `gated`, never
+  auto-fired). The volume runs straight-through; the point of no return always waits for a person.
+- **`validateFlow()` + `--validate`** — enforces the invariant (irreversible ⟹ preceded by a human
+  gate) and that every autopilot names an **accountable owner**. All six verticals ship green.
+- **Accountable owner per autopilot** — one named human answers for what it does, closing the
+  "confused deputy / the AI did it" gap. Surfaced in the run trace and on each autopilot page.
+- **Site** — autopilot pages now flag the irreversible steps (always behind the checkpoint) and show
+  the accountable owner. 7 new tests (30 in the flow-runner suite, 220 lib total).
+
 ## v2.42.0 — 2026-06-07
 
 ### Every autopilot executes on a live connector — all 6 verticals (Phase 4 complete)

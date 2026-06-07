@@ -3,19 +3,74 @@
   "autopilot": "Legal-document autopilot",
   "tagline": "Drafts and redlines contracts, NDAs and filings — a licensed attorney signs anything that's advice.",
   "audience": "CEO / General Counsel",
+  "owner": "Supervising attorney",
   "marketSizeUsd": "20–25B",
   "problem": "Routine transactional legal work (NDAs, contracts, filings) is expensive and slow, but the unauthorized-practice-of-law line makes naive automation risky.",
   "outcome": "Standard documents drafted and e-signed straight-through; advice-shaped output gated to a licensed attorney; privilege and retention preserved.",
   "qualityScore": 94.75,
   "steps": [
-    { "does": "Intake the request and matter documents", "agent": "intake", "tools": ["doc-store", "matter-mgmt"] },
-    { "does": "Draft / redline from the clause library for the captured jurisdiction", "agent": "drafter", "tools": ["clause-library", "jurisdiction-db"] },
-    { "does": "Classify information vs advice, check conflicts, privilege and jurisdiction scope", "agent": "compliance", "tools": ["conflict-db", "jurisdiction-db"], "reviewer": "legal-reviewer" },
-    { "does": "A licensed attorney signs off any advice-shaped output before it reaches the client", "human": "Licensed attorney of record", "gate": "gate:attorney-signoff" },
-    { "does": "E-sign permitted documents with intent + tamper-evident audit trail (excluded docs blocked)", "agent": "signer", "tools": ["e-signature"] },
-    { "does": "File the matter under retention with legal-hold awareness", "agent": "monitor", "tools": ["matter-mgmt"] }
+    {
+      "does": "Intake the request and matter documents",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "doc-store",
+        "matter-mgmt"
+      ]
+    },
+    {
+      "does": "Draft / redline from the clause library for the captured jurisdiction",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "drafter",
+      "tools": [
+        "clause-library",
+        "jurisdiction-db"
+      ]
+    },
+    {
+      "does": "Classify information vs advice, check conflicts, privilege and jurisdiction scope",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "conflict-db",
+        "jurisdiction-db"
+      ],
+      "reviewer": "legal-reviewer"
+    },
+    {
+      "does": "A licensed attorney signs off any advice-shaped output before it reaches the client",
+      "human": "Licensed attorney of record",
+      "gate": "gate:attorney-signoff"
+    },
+    {
+      "does": "E-sign permitted documents with intent + tamper-evident audit trail (excluded docs blocked)",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "signer",
+      "tools": [
+        "e-signature"
+      ]
+    },
+    {
+      "does": "File the matter under retention with legal-hold awareness",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "matter-mgmt"
+      ]
+    }
   ],
   "reviewer": "legal-reviewer",
   "manifest": "docs/autopilot/autopilot.json",
-  "startups": ["Crosby", "Harvey", "Robin AI", "Ironclad", "Spellbook"]
+  "startups": [
+    "Crosby",
+    "Harvey",
+    "Robin AI",
+    "Ironclad",
+    "Spellbook"
+  ]
 }

@@ -3,19 +3,73 @@
   "autopilot": "Bookkeeping & close autopilot",
   "tagline": "Books entries, reconciles and closes the month — segregation of duties enforced, a controller signs the close.",
   "audience": "CFO / Controller",
+  "owner": "Controller",
   "marketSizeUsd": "50–80B",
   "problem": "Bookkeeping and the monthly close are labour-heavy and control-sensitive; an autonomous mistake is a misstated financial statement and broken internal control.",
   "outcome": "Standard entries booked straight-through with segregation of duties; an immutable balanced ledger; non-standard revenue and the period-close lock escalated to a controller.",
   "qualityScore": 93.5,
   "steps": [
-    { "does": "Ingest transactions from the bank feed and revenue system", "agent": "intake", "tools": ["bank-feed", "revenue-system"] },
-    { "does": "Draft balanced journal entries (≤ materiality) into an append-only ledger", "agent": "bookkeeper", "tools": ["gl-erp"] },
-    { "does": "Enforce SoD, ASC 606 revenue, cutoff and reconciliation; flag non-standard items", "agent": "compliance", "tools": ["close-tool"], "reviewer": "accounting-reviewer" },
-    { "does": "A controller signs off non-standard entries, non-standard revenue and the period-close lock", "human": "Controller / accountant", "gate": "gate:financial-close" },
-    { "does": "Post approved entries and reconcile accounts", "agent": "poster", "tools": ["gl-erp", "close-tool"] },
-    { "does": "Produce close package and variance / flux analysis for review", "agent": "reporter", "tools": ["gl-erp"] }
+    {
+      "does": "Ingest transactions from the bank feed and revenue system",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "bank-feed",
+        "revenue-system"
+      ]
+    },
+    {
+      "does": "Draft balanced journal entries (≤ materiality) into an append-only ledger",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "bookkeeper",
+      "tools": [
+        "gl-erp"
+      ]
+    },
+    {
+      "does": "Enforce SoD, ASC 606 revenue, cutoff and reconciliation; flag non-standard items",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "close-tool"
+      ],
+      "reviewer": "accounting-reviewer"
+    },
+    {
+      "does": "A controller signs off non-standard entries, non-standard revenue and the period-close lock",
+      "human": "Controller / accountant",
+      "gate": "gate:financial-close"
+    },
+    {
+      "does": "Post approved entries and reconcile accounts",
+      "reversible": false,
+      "blastRadius": "medium",
+      "agent": "poster",
+      "tools": [
+        "gl-erp",
+        "close-tool"
+      ]
+    },
+    {
+      "does": "Produce close package and variance / flux analysis for review",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "reporter",
+      "tools": [
+        "gl-erp"
+      ]
+    }
   ],
   "reviewer": "accounting-reviewer",
   "manifest": "docs/autopilot/autopilot.json",
-  "startups": ["Rillet", "Basis", "Digits", "Puzzle", "Truewind"]
+  "startups": [
+    "Rillet",
+    "Basis",
+    "Digits",
+    "Puzzle",
+    "Truewind"
+  ]
 }
