@@ -1,0 +1,74 @@
+{
+  "vertical": "cro",
+  "autopilot": "Clinical-trial-ops autopilot",
+  "tagline": "Screens patients and runs monitoring — the PI / medical monitor signs eligibility and safety calls.",
+  "audience": "Sponsor / CRO operations lead",
+  "owner": "Principal investigator / medical monitor",
+  "marketSizeUsd": "20–28B US",
+  "problem": "Trial operations — eligibility screening, source-data verification, reg-doc assembly — are slow, manual and Part 11 / GCP-validated, gating the cost and speed of every study.",
+  "outcome": "Patients are screened and matched, data abstracted and deviations flagged, and reg packages assembled straight-through; the PI / medical monitor signs eligibility and safety decisions.",
+  "qualityScore": 87,
+  "steps": [
+    {
+      "does": "Ingest the protocol and patient records from the EHR",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "ctms",
+        "ehr-fhir"
+      ]
+    },
+    {
+      "does": "Screen and match eligible patients and abstract source data",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "screen",
+      "tools": [
+        "eligibility-match",
+        "edc"
+      ]
+    },
+    {
+      "does": "Flag protocol deviations and assemble the monitoring / regulatory package",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "edc",
+        "reg-docs"
+      ]
+    },
+    {
+      "does": "The PI / medical monitor signs eligibility and any safety determination",
+      "human": "Principal investigator / medical monitor",
+      "gate": "gate:pi-signoff"
+    },
+    {
+      "does": "Enroll the patient and submit the regulatory documents (Part 11)",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "execute",
+      "tools": [
+        "reg-docs"
+      ]
+    },
+    {
+      "does": "Monitor safety signals and maintain the eTMF",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "ctms"
+      ]
+    }
+  ],
+  "reviewer": "clinical-trials-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Triomics",
+    "QuantHealth",
+    "Unlearn.ai",
+    "Tempus"
+  ]
+}

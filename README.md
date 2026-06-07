@@ -45,12 +45,22 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 | 📒 **[Bookkeeping & close](https://greatcto.systems/autopilots/accounting.html)** | Books, reconciles & closes the month; a controller signs the close | $50–80B | Rillet · Basis · Digits |
 | 🧾 **[Tax-prep](https://greatcto.systems/autopilots/tax.html)** | Prepares returns & classifies positions; a credentialed preparer signs before filing | $30–35B | Black Ore · April · Column Tax |
 | 🛒 **[Source-to-pay](https://greatcto.systems/autopilots/procurement.html)** | Onboards suppliers, matches invoices, releases payments — screened for sanctions & fraud | $200B+ | Tacto · Zip · AskLio |
+| ✅ **[Prior-authorization](https://greatcto.systems/autopilots/prior-auth.html)** | Auth request + chart → approval or a clean determination; a medical director signs every denial | $35–56B | Cohere Health · Anterior · Develop Health |
+| 🛡️ **[KYC/AML](https://greatcto.systems/autopilots/aml.html)** | Onboards, screens & monitors customers; a BSA Officer signs every SAR | $61B | Diligent AI · Alloy · Sardine |
+| 🔐 **[Managed-SOC](https://greatcto.systems/autopilots/soc.html)** | Triages & investigates every alert 24/7; a SOC analyst signs any containment | $4–6B | 7AI · Dropzone · Prophet Security |
+| ☂️ **[Claims & underwriting](https://greatcto.systems/autopilots/insurance.html)** | Adjudicates claims & prices risk; a licensed adjuster/underwriter signs the call | $36–38B | Shift · Akur8 · Avallon |
+| 🏠 **[Mortgage-underwriting](https://greatcto.systems/autopilots/mortgage.html)** | Processes & underwrites to clear-to-close; a DE underwriter signs | $40B+ | Tidalwave · Zest AI · Blend |
+| 🔑 **[Title & escrow](https://greatcto.systems/autopilots/title.html)** | Title search, escrow & closing; a licensed officer signs the title & the wire | $16.2B | Propy · Qualia · Titl |
+| 🪪 **[Provider-credentialing](https://greatcto.systems/autopilots/credentialing.html)** | Primary-source verifies & enrolls a provider; the committee signs privileging | $1.2B+ | Medallion · Verifiable · CertifyOS |
+| 💰 **[Debt-collection](https://greatcto.systems/autopilots/collections.html)** | Compliant outreach & payment plans; a manager signs escalation & settlements | $13.5–16B | CollectWise · InDebted · Tesorio |
+| 🚚 **[Freight-brokerage](https://greatcto.systems/autopilots/freight.html)** | Matches loads to vetted carriers & books; a licensed broker signs binding rates | $19–125B | HappyRobot · FleetWorks · Vooma |
+| 🧪 **[Clinical-trial-ops](https://greatcto.systems/autopilots/cro.html)** | Screens patients & runs monitoring; the PI / medical monitor signs eligibility | $20–28B | Triomics · QuantHealth · Tempus |
 
 → [All autopilots](https://greatcto.systems/autopilots.html) · run `/flow <vertical>` to see any flow in your terminal
 
 **Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
 controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. **9 live connectors run across all six autopilots** — FHIR, ICD-10 (NLM),
+carries liability. **9 live connectors** run on real data and are reused across the autopilots — FHIR, ICD-10 (NLM),
 NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, and a US federal tax engine. They're
 keyless by default (public source or deterministic real generation) and POST to the real provider
 the moment you add credentials.
@@ -67,7 +77,7 @@ run.
 **refuses to execute an irreversible action autonomously** — money moves, claim submission, e-signing,
 fleet changes and tax filing run *only* after a named human signs the checkpoint. Each autopilot also
 declares an **accountable owner** — one person answers for what it does. `flow-runner.mjs <vertical>
---validate` enforces the invariant; all six ship green.
+--validate` enforces the invariant; all sixteen autopilots ship green.
 
 ## By the numbers
 

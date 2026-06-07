@@ -4,6 +4,35 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.44.0 — 2026-06-07
+
+### 10 new service-autopilots — 16 verticals total
+
+Research-backed expansion (US market, 2024–2026) beyond the original 6. Each new vertical pairs a
+large displaceable-labor pool with a **legally-required named human who signs the risky call** — the
+exact shape the v2.43.0 safety engine is built for. All sixteen ship green on `--validate`.
+
+The 10 new autopilots (flow + connectors + compliance reviewer + page):
+
+- **prior-auth** — Prior-authorization ($35–56B); medical director signs every denial.
+- **aml** — KYC/AML compliance ($61B); BSA Officer signs every SAR. Reuses live **sanctions-screen**.
+- **soc** — Managed-SOC / MDR (~$4–6B); SOC analyst authorizes containment.
+- **insurance** — Claims & underwriting (~$36–38B); licensed adjuster/underwriter signs.
+- **mortgage** — Mortgage underwriting (~$40B origination cost); DE underwriter signs clear-to-close.
+- **title** — Title & escrow ($16.2B); licensed officer signs the title + authorizes the wire. Reuses live **e-signature**.
+- **credentialing** — Provider credentialing; credentialing committee signs privileging.
+- **collections** — Debt collection ($13.5–16B); manager/attorney signs escalation + settlements.
+- **freight** — Freight brokerage ($19–125B); FMCSA-licensed broker signs binding rates.
+- **cro** — Clinical-trial ops (~$20–28B US); PI / medical monitor signs eligibility + safety. Reuses live **ehr-fhir**.
+
+- **33 new connectors** in the catalog (65 total), reusing live ones (sanctions-screen, e-signature,
+  ehr-fhir, payment-rails…) so several new verticals run live on day one.
+- **7 new compliance reviewers** (prior-auth, aml-bsa, soc-mdr, title-escrow, credentialing,
+  collections, freight-broker); insurance / mortgage / cro reuse existing reviewers.
+- Every flow carries the v2.43.0 safety invariant — irreversible step behind a human gate + an
+  accountable owner. Site shows all 16 with live/stub connector badges, irreversible flags, owner.
+- 250 lib tests (flow-count 6→16). Plan: `docs/plans/PLAN-vertical-expansion-10.md`.
+
 ## v2.43.0 — 2026-06-07
 
 ### The permission is never the wound — irreversible-action gating + accountable owner
