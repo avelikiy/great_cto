@@ -4,6 +4,26 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.51.0 — 2026-06-07
+
+### The admin onboards operators — scoped invite links
+
+The CTO/admin gets full access and **invites a licensed operator into an industry**: pick a role
+(which fixes the vertical scope) + a tenant + a name → mint an **invite link** to send them. The
+operator opens the link and is locked to that role + tenant — no role picker, no Build board.
+
+- **Invite store** (`scripts/lib/operators.mjs`) — `createInvite` mints a token; `resolve / accept /
+  revoke` lifecycle. Rejects unknown / admin roles.
+- **The token is the operator's credential** — resolved **server-side and authoritative**: an
+  operator can't escalate by passing `role=admin` (the token wins). Verified: an operator sees only
+  their vertical even with `role=admin` in the request; a non-admin can't create invites (403).
+- **Admin Team panel** in the console — create an operator (role + tenant + name) → copy the invite
+  link · list invites with status (pending/accepted) · revoke. The whole panel is admin-only.
+- **Operator session** — `?invite=<token>` (saved in localStorage) → "Signed in as … · <role> ·
+  tenant" banner, queue scoped to their vertical(s) + tenant, sign-out link.
+- New endpoints: `POST /api/autopilot/invite`, `GET /api/autopilot/invites`,
+  `GET /api/autopilot/invite-resolve`, `DELETE /api/autopilot/invite`. 280 lib tests (4 new).
+
 ## v2.50.0 — 2026-06-07
 
 ### The console is the operators' app — role-based access + case-detail drawer
