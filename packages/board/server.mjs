@@ -34,6 +34,25 @@ function apAuth(token, fallbackRole, fallbackTenant) {
   return { role: fallbackRole || 'admin', tenant: fallbackTenant, viaInvite: false };
 }
 
+// Best-effort: email the invite link to the operator via the notify relay. Returns true on a 2xx.
+// The relay may only accept the board owner's verified address — if so this returns false and the
+// admin falls back to copy-link. Set GREATCTO_NOTIFY_URL to point at a transactional relay.
+async function sendInviteEmail(to, link, roleLabel, name) {
+  try {
+    const relay = process.env.GREATCTO_NOTIFY_URL || 'https://greatcto.systems';
+    const res = await fetch(`${relay}/notify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        title: `You're invited to GreatCTO as ${roleLabel}`,
+        body: `${name ? name + ', y' : 'Y'}ou've been added as ${roleLabel}. Open your autopilot work-queue:`,
+        level: 'info', project: 'great_cto', link, action: 'Open my queue', event: 'autopilot.invite',
+      }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
 const PUBLIC = path.join(__dirname, 'public');
@@ -3184,13 +3203,17 @@ const server = http.createServer(async (req, res) => {
   }
   if (pathname === '/api/autopilot/invite' && req.method === 'POST') {
     let body = ''; req.on('data', (c) => { body += c; });
-    req.on('end', () => {
+    req.on('end', async () => {
       let p; try { p = JSON.parse(body || '{}'); } catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return; }
       const auth = apAuth(p.token, p.role);
       if (auth.role !== 'admin') { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'only the admin can invite operators' })); return; }
       try {
         const invite = createInvite({ role: p.operatorRole, tenant: p.tenant || 'default', name: p.name || '', email: p.email || '', createdBy: 'admin' });
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ invite }));
+        const proto = (req.headers['x-forwarded-proto'] || 'http').split(',')[0];
+        const link = `${proto}://${req.headers.host}/autopilot.html?invite=${invite.token}`;
+        let emailed = false;
+        if (p.email) emailed = await sendInviteEmail(p.email, link, invite.roleLabel, invite.name).catch(() => false);
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ invite, link, emailed }));
       } catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) })); }
     });
     return;

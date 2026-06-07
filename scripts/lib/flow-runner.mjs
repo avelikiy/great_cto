@@ -30,6 +30,19 @@ function defaultOp(connectorId) {
   return spec && spec.capabilities[0];
 }
 
+// Extract the risk indicators a connector returns, so the runtime can derive an AI recommendation
+// for the human (block / escalate / approve) from what the connectors actually found.
+const SIGNAL_KEYS = ['hit', 'blocked', 'excluded', 'refer', 'met', 'confidence', 'decision', 'severity',
+  'band', 'recommendation', 'requiresMdReview', 'requiresMedicalReview', 'requiresBrokerReview',
+  'requiresPartnerSignoff', 'allowed', 'escalate', 'exceeds', 'edit', 'vetted'];
+function riskSignal(r) {
+  if (!r) return undefined;
+  const src = { ...(r.data && typeof r.data === 'object' ? r.data : {}), blocked: r.blocked };
+  const s = {};
+  for (const k of SIGNAL_KEYS) if (src[k] !== undefined) s[k] = src[k];
+  return Object.keys(s).length ? s : undefined;
+}
+
 /** Does a human checkpoint (a gate / a named human) appear strictly before step index i? */
 function hasGateBefore(steps, i) {
   for (let j = 0; j < i; j++) if (steps[j].gate || steps[j].human) return true;
@@ -147,7 +160,7 @@ export async function runFlow(flow, { mode = 'stub', payload = {}, stopAtGate = 
       const op = defaultOp(t);
       if (!op) { toolCalls.push({ connector: t, op: null, ok: false, error: 'unknown connector' }); continue; }
       const r = await call(t, op, { ...DEMO_INPUTS[`${t}:${op}`], ...payload }, { mode });
-      toolCalls.push({ connector: t, op, ok: !!r.ok, mode: r.mode, error: r.error });
+      toolCalls.push({ connector: t, op, ok: !!r.ok, mode: r.mode, error: r.error, signal: riskSignal(r) });
     }
     trace.steps.push({ i, does: s.does, agent: s.agent, status: 'done', blastRadius: blast, toolCalls });
   }
