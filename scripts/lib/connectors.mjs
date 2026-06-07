@@ -37,7 +37,7 @@ export const CONNECTORS = Object.freeze({
 
   // ── accounting ──
   'gl-erp':          { label: 'General ledger / ERP',  verticals: ['accounting'],  capabilities: ['post-entry', 'lock-period'], realProviders: ['QuickBooks', 'NetSuite', 'Xero'], status: 'stub' },
-  'bank-feed':       { label: 'Bank feed',             verticals: ['accounting', 'tax'], capabilities: ['fetch-transactions'], realProviders: ['Plaid', 'MX'], status: 'stub' },
+  'bank-feed':       { label: 'Bank feed',             verticals: ['accounting', 'tax'], capabilities: ['fetch-transactions'], realProviders: ['Plaid', 'MX'], status: 'live-ready' },
   'revenue-system':  { label: 'Revenue / billing',     verticals: ['accounting'],  capabilities: ['fetch-contracts'], realProviders: ['Stripe', 'Zuora'], status: 'stub' },
   'close-tool':      { label: 'Close / reconciliation',verticals: ['accounting'],  capabilities: ['reconcile'], realProviders: ['FloQast', 'Numeric'], status: 'stub' },
 
@@ -101,6 +101,7 @@ const LIVE_ADAPTERS = {
   'clearinghouse': () => import('./connectors/clearinghouse.mjs'),
   'ncci-mue': () => import('./connectors/ncci.mjs'),
   'e-signature': () => import('./connectors/e-signature.mjs'),
+  'bank-feed': () => import('./connectors/bank-feed.mjs'),
 };
 
 /** Does this connector have a real (live) adapter wired? */
