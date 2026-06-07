@@ -13,9 +13,12 @@
 
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { loadFlow, runFlow } from './flow-runner.mjs';
 
-function runsDir() { return process.env.GREAT_CTO_RUNS_DIR || join(process.cwd(), '.great_cto', 'autopilot-runs'); }
+// One shared store so the CLI and the admin board always see the SAME runs, regardless of the cwd
+// each is launched from. Override with GREAT_CTO_RUNS_DIR (tests, or a per-tenant path later).
+function runsDir() { return process.env.GREAT_CTO_RUNS_DIR || join(homedir(), '.great_cto', 'autopilot-runs'); }
 function ensureDir() { const d = runsDir(); if (!existsSync(d)) mkdirSync(d, { recursive: true }); }
 function runPath(id) { return join(runsDir(), `${id}.json`); }
 function now() { return new Date().toISOString(); }
