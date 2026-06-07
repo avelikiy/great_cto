@@ -4,6 +4,38 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.42.0 — 2026-06-07
+
+### Every autopilot executes on a live connector — all 6 verticals (Phase 4 complete)
+
+v2.41.0 shipped the connector runtime + the first two live connectors (FHIR, code-sets). This
+release finishes Phase 4: **seven more live connectors** so that *every* service-autopilot vertical
+runs at least one step against real data or real domain logic — not a mock. Still keyless: each
+connector defaults to a public source or deterministic real generation, and POSTs to the real
+provider only when env credentials are present.
+
+- **clearinghouse** (`connectors/clearinghouse.mjs`, rcm) — generates a structurally valid **X12
+  837P** claim and parses **835** remits. `GREATCTO_CLEARINGHOUSE_URL` to submit.
+- **ncci-mue** (`connectors/ncci.mjs`, rcm) — real **NCCI PTP** unbundling + modifier edits and
+  **MUE** unit limits before a claim goes out.
+- **e-signature** (`connectors/e-signature.mjs`, legaltech) — builds a real **DocuSign** envelope and
+  enforces **ESIGN/UETA** exclusions (refuses to e-sign a will, etc.). `DOCUSIGN_*` to send.
+- **bank-feed** (`connectors/bank-feed.mjs`, accounting) — a real **Plaid** `/transactions/get`
+  request + deterministic GL classification of each txn. `PLAID_*` to pull a live feed.
+- **sanctions-screen** (`connectors/sanctions.mjs`, procurement) — fuzzy-matches a counterparty
+  against a curated slice of the real **OFAC SDN** list; a hit is a **HARD BLOCK** (strict
+  liability). `GREAT_CTO_OFAC_PATH` loads the full list.
+- **rmm** (`connectors/rmm.mjs`, msp) — `stage-change` builds a real **staged rollout** plan
+  (canary 1% → early 5% → broad 25% → fleet 100%) with a health gate + auto-halt-and-rollback per
+  ring + a pre-change snapshot — never a fleet-wide push.
+- **tax-engine** (`connectors/tax-engine.mjs`, tax) — a real **2025 US federal** computation
+  (brackets + standard deduction) + a §6694 authority-ladder position classifier.
+
+Phase 4 status: **9 live connectors across all six verticals** — rcm (4: FHIR · NLM · NCCI · 837) ·
+legaltech (e-sign) · accounting (Plaid) · procurement (OFAC) · msp (RMM) · tax (engine). Demo
+inputs thread representative payloads so `flow-runner.mjs <vertical> --live` exercises each adapter.
+213 lib tests.
+
 ## v2.41.0 — 2026-06-07
 
 ### Autopilots execute the flow — connector runtime + two live connectors (Phase 4)
