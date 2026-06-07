@@ -21,7 +21,7 @@ export const CONNECTORS = Object.freeze({
 
   // ── legaltech ──
   'doc-store':       { label: 'Document store',        verticals: ['legaltech', 'accounting'], capabilities: ['get-doc', 'put-doc'], realProviders: ['S3', 'Google Drive', 'SharePoint'], status: 'stub' },
-  'e-signature':     { label: 'E-signature',           verticals: ['legaltech'],   capabilities: ['send-for-signature', 'check-excluded'], realProviders: ['DocuSign', 'Dropbox Sign'], status: 'stub' },
+  'e-signature':     { label: 'E-signature',           verticals: ['legaltech'],   capabilities: ['send-for-signature', 'check-excluded'], realProviders: ['DocuSign', 'Dropbox Sign'], status: 'live-ready' },
   'clause-library':  { label: 'Clause / template library', verticals: ['legaltech'], capabilities: ['get-clause'], realProviders: ['internal KB'], status: 'stub' },
   'jurisdiction-db': { label: 'Jurisdiction / law DB', verticals: ['legaltech', 'tax'], capabilities: ['check-jurisdiction'], realProviders: ['legal data vendor'], status: 'stub' },
   'conflict-db':     { label: 'Conflict-check DB',     verticals: ['legaltech'],   capabilities: ['run-conflict-check'], realProviders: ['matter DB'], status: 'stub' },
@@ -100,6 +100,7 @@ const LIVE_ADAPTERS = {
   'code-sets': () => import('./connectors/codesets.mjs'),
   'clearinghouse': () => import('./connectors/clearinghouse.mjs'),
   'ncci-mue': () => import('./connectors/ncci.mjs'),
+  'e-signature': () => import('./connectors/e-signature.mjs'),
 };
 
 /** Does this connector have a real (live) adapter wired? */
