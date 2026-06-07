@@ -11,8 +11,6 @@
 [![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
 [![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
 
-<img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 74 agents → gate:ship → Deployed" width="900" />
-
 ```bash
 npx great-cto init
 ```
@@ -201,7 +199,7 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ Cognition cloud | ✅ Claude Code |
 | BYOK / multi-model | ✅ Claude Code · Codex | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **57** (architect · PM · 12-angle review · QA · security · devops · 42 reviewers across archetypes, packs & jurisdictions) | 1 generalist | 1 generalist |
+| Specialist agents | **74** (architect · PM · 12-angle review · QA · security · devops · reviewers across archetypes, packs & jurisdictions) | 1 generalist | 1 generalist |
 | SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
 | Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
