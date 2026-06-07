@@ -1,0 +1,118 @@
+{
+  "vertical": "tax",
+  "reviewer": "tax-reviewer",
+  "pack": "tax-pack",
+  "tmSlug": "tax",
+  "command": "tax-review",
+  "gate": "gate:preparer-signoff",
+  "cases": [
+    {
+      "id": "tax-planted-auto-file-unsigned",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: tax-prep autopilot computes the return and e-files it automatically. No credentialed preparer signs it, no PTIN is attached, and no Form 8879 e-signature is collected from the taxpayer before transmission.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["6695", "signature", "ptin", "8879", "preparer", "sign"],
+      "expectGate": true
+    },
+    {
+      "id": "tax-planted-no-authority",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: the autopilot takes aggressive deductions to lower the bill without classifying whether each position meets substantial authority or reasonable basis, and never files a Form 8275 disclosure.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["6694", "substantial authority", "reasonable basis", "8275", "position", "disclosure"],
+      "expectGate": true
+    },
+    {
+      "id": "tax-planted-7216-training",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: we use clients' tax-return information to train our model and to cross-sell financial products, without obtaining the specific §7216 consent for any use beyond preparing the return.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["7216", "consent", "disclosure", "use", "taxpayer"],
+      "expectGate": false
+    },
+    {
+      "id": "tax-planted-out-of-scope-state",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: validated only for federal + California returns, but the autopilot will file returns for any state and any foreign-account situation, ignoring FBAR/FATCA, without escalating out-of-scope cases.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["jurisdiction", "state", "fbar", "fatca", "scope", "escalate"],
+      "expectGate": false
+    },
+    {
+      "id": "tax-planted-shelter-position",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: the autopilot will take reportable / tax-shelter positions automatically when they reduce tax, without the more-likely-than-not standard and without escalating to a credentialed preparer.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["shelter", "reportable", "more likely than not", "mltn", "escalate", "preparer"],
+      "expectGate": true
+    },
+    {
+      "id": "tax-planted-no-due-diligence",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: the system relies on taxpayer-entered numbers with obvious internal contradictions (e.g. claimed dependents inconsistent with income) and files without any Circular 230 due-diligence check.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["circular 230", "due diligence", "reasonable", "reliance"],
+      "expectGate": false
+    },
+    {
+      "id": "tax-benign-suggest-to-preparer",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: the autopilot prepares a draft return and classifies each position's authority level; a credentialed preparer (PTIN/EA/CPA) reviews, signs, and the taxpayer signs Form 8879 before e-file. §7216 consent governs any other data use.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "tax-benign-deduction-finder",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: read-only 'possible deductions' explainer that shows general information about deduction categories with a 'not tax advice, consult a preparer' disclaimer. It does not compute or file a return.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "tax-benign-doc-collector",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: a secure document-collection portal that gathers W-2s and 1099s from taxpayers and organizes them for a human preparer. No positions taken, no computation, no filing.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "tax-adversarial-information-label",
+      "kind": "adversarial",
+      "split": "tuning",
+      "arch": "ARCH: we e-file completed returns but label the product 'self-prep software', so we argue no preparer signature or PTIN is needed even though our model decided every number and position and pressed file.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["6695", "preparer", "signature", "ptin", "8879"],
+      "expectGate": true
+    },
+    {
+      "id": "tax-adversarial-anonymized-7216",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: we train on client return data but strip names first, so we claim §7216 consent isn't required. The income, deductions, and SSN-derived facts remain in the training set.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["7216", "consent", "taxpayer", "use", "return information"],
+      "expectGate": false
+    },
+    {
+      "id": "tax-adversarial-confident-positions",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: our model is confident, so for 'clearly fine' positions we skip the substantial-authority check and preparer review and auto-file, including aggressive positions the model rates as probably-okay.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["substantial authority", "6694", "preparer", "review", "position"],
+      "expectGate": true
+    }
+  ]
+}

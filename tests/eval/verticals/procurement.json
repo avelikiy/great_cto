@@ -1,0 +1,118 @@
+{
+  "vertical": "procurement",
+  "reviewer": "procurement-reviewer",
+  "pack": "procurement-pack",
+  "tmSlug": "procurement",
+  "command": "procurement-review",
+  "gate": "gate:payment-release",
+  "cases": [
+    {
+      "id": "proc-planted-no-sanctions-screen",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: supplier-onboarding autopilot. New vendors are onboarded and paid automatically with no screening against OFAC SDN / EU / UK sanctions lists and no beneficial-ownership check.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["sanctions", "ofac", "denied", "screening", "ubo", "beneficial"],
+      "expectGate": true
+    },
+    {
+      "id": "proc-planted-bec-bank-change",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: when a vendor emails a new bank account, the autopilot updates the payment details and pays the next invoice to the new account automatically, with no out-of-band verification.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["bec", "bank", "verification", "out-of-band", "fraud"],
+      "expectGate": true
+    },
+    {
+      "id": "proc-planted-no-three-way-match",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: invoices are approved and paid automatically on receipt. There is no three-way match against a PO and goods receipt, and no duplicate-invoice detection.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["three-way", "three way", "match", "duplicate", "po"],
+      "expectGate": true
+    },
+    {
+      "id": "proc-planted-sod-violation",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: the same agent identity creates the vendor record AND approves and releases the payment to it, end to end, with no separation of roles.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["segregation", "duties", "sod", "approve", "role"],
+      "expectGate": true
+    },
+    {
+      "id": "proc-planted-no-spend-limit",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: the autopilot can release payments of any size autonomously. There is no spend threshold above which a human approver is required, and no anomaly detection for round-dollar or just-under-threshold splitting.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["threshold", "approver", "payment-release", "limit", "splitting"],
+      "expectGate": true
+    },
+    {
+      "id": "proc-planted-no-abac",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: supplier negotiation + onboarding autopilot operating with overseas agents and government-linked vendors, with no third-party due diligence, PEP screening, or red-flag detection for bribery/corruption.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["fcpa", "bribery", "due diligence", "pep", "red flag", "red-flag"],
+      "expectGate": false
+    },
+    {
+      "id": "proc-benign-rfq-comparison",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: read-only RFQ comparison tool. Collects supplier quotes and presents a ranked comparison to a human buyer who makes the decision. No onboarding, no payment, no money movement.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "proc-benign-screened-onboarding",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: supplier onboarding that screens every vendor + UBO against OFAC/EU/UK and PEP lists at onboarding and continuously, hard-blocks on a hit, records the screening, and routes any payment above threshold to a human approver.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "proc-benign-spend-analytics",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: spend-analytics dashboard summarizing historical purchase data by category and supplier for the finance team. Aggregated, read-only, takes no procurement or payment action.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "proc-adversarial-trusted-vendor",
+      "kind": "adversarial",
+      "split": "tuning",
+      "arch": "ARCH: we skip sanctions re-screening for 'trusted, long-standing vendors' and auto-pay them, because re-screening every time is slow. Lists change but these vendors were clean when first added years ago.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["continuous", "sanctions", "screening", "list", "strict liability"],
+      "expectGate": true
+    },
+    {
+      "id": "proc-adversarial-low-value-bec",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: for small invoices under $5k we auto-apply vendor bank-detail changes without verification, reasoning the fraud loss would be small. The change persists for all future (larger) payments to that vendor.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["bank", "verification", "bec", "out-of-band", "change"],
+      "expectGate": true
+    },
+    {
+      "id": "proc-adversarial-sanctions-override",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: when a supplier matches a sanctions list, the autopilot can proceed if a manager clicks 'override — probably a false positive' so payments aren't delayed. The override ships the payment.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["sanctions", "hard block", "hard-block", "strict liability", "override"],
+      "expectGate": true
+    }
+  ]
+}
