@@ -4,6 +4,24 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.53.0 — 2026-06-07
+
+### Console Wave B: AI recommendation + override logging + regulatory-deadline SLAs · email invites
+
+- **AI recommendation + confidence per case** — the runtime derives a recommendation (🟢 approve /
+  🟡 escalate / 🔴 block) from what the pre-gate connectors actually found (OFAC hit, fraud-score
+  refer, um-criteria not-met, hs-classify confidence, ITGC severity, …) and shows it on the card so
+  the human triages fast. Confidence surfaced when a connector returns one (e.g. HS classification).
+- **Override logging** — when the human decides against the AI (approve a block/escalate, or reject
+  an approve), the audit trail records `override: true` + the AI's recommendation. Critical evidence
+  for a "human signs the action" product; shown in the case drawer and counted in Analytics.
+- **Regulatory-deadline SLAs** (`scripts/lib/sla.mjs`) — per-vertical turnaround (prior-auth 72h,
+  pharma 360h/15-day ICSR, aml 720h/30-day SAR, soc 4h, freight 24h, …). The console **counts down
+  to the deadline** (due in / at-risk / OVERDUE), not just elapsed time.
+- **Email invites** — the admin Team panel takes an operator email and best-effort sends the invite
+  link via the notify relay (falls back to copy-link if the relay only allows the verified address).
+- 285 lib tests.
+
 ## v2.52.0 — 2026-06-07
 
 ### Console: the queue→platform jump (analytics · structured dispositions · escalation)

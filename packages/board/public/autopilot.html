@@ -107,7 +107,8 @@
     <div class="row">
       <select id="op-role" style="min-width:240px"></select>
       <input id="op-tenant" placeholder="tenant (default)" style="max-width:150px" />
-      <input id="op-name" placeholder="operator name (optional)" style="max-width:200px" />
+      <input id="op-name" placeholder="operator name" style="max-width:160px" />
+      <input id="op-email" placeholder="operator email (optional — to send)" style="max-width:230px" />
       <button class="primary" onclick="invite()">Create invite</button>
     </div>
     <div id="invites" style="margin-top:10px"></div>
@@ -151,14 +152,24 @@ const fTenant = () => (document.getElementById('f-tenant').value || '').trim();
 const fStatus = () => document.getElementById('f-status').value;
 const fVert = () => document.getElementById('f-vertical').value;
 
-// time-in-queue / SLA — a case waiting on a human signature has a turnaround clock.
+// SLA — count DOWN to the regulatory/operational deadline (dueAt), not just elapsed time.
 function ageMin(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); }
+function dur(min) { const m = Math.abs(min); return m < 90 ? Math.round(m) + 'm' : m < 1440 ? (m/60).toFixed(1) + 'h' : (m/1440).toFixed(1) + 'd'; }
 function slaHtml(r) {
   if (r.status !== 'awaiting-approval') return '';
-  const m = ageMin(r.createdAt);
-  const label = m < 60 ? m + 'm' : (m/60).toFixed(1) + 'h';
-  const cls = m >= 240 ? 'breach' : m >= 60 ? 'warn' : '';
-  return `<span class="sla ${cls}">⏱ ${label} in queue</span>`;
+  if (!r.dueAt) { const m = ageMin(r.createdAt); return `<span class="sla ${m>=240?'breach':m>=60?'warn':''}">⏱ ${dur(m)} in queue</span>`; }
+  const left = (new Date(r.dueAt).getTime() - Date.now()) / 60000; // minutes to deadline
+  const total = (r.slaHours || 168) * 60;
+  const cls = left <= 0 ? 'breach' : left <= total * 0.25 ? 'warn' : '';
+  return `<span class="sla ${cls}">⏳ ${left <= 0 ? 'OVERDUE ' + dur(left) : 'due in ' + dur(left)}</span>`;
+}
+// AI recommendation for the human, from the pre-gate connectors.
+function recoHtml(r) {
+  if (!r.recommendation) return '';
+  const map = { block: ['🔴', 'AI: block', 'color:#ff5a5a;border-color:#532'], escalate: ['🟡', 'AI: escalate', 'color:#f0a020;border-color:#5a4420'], approve: ['🟢', 'AI: approve', 'color:#00d97e;border-color:#1c5a3e'] };
+  const [ic, lbl, st] = map[r.recommendation] || ['', r.recommendation, ''];
+  const conf = typeof r.recoConfidence === 'number' ? ' ' + Math.round(r.recoConfidence * 100) + '%' : '';
+  return `<span class="pill" style="${st}" title="AI recommendation from the connector results — the human decides">${ic} ${lbl}${conf}</span>`;
 }
 function gateProgressHtml(run) {
   const gates = (run.steps || []).filter(s => s.gate);
@@ -242,11 +253,13 @@ async function invite() {
   const operatorRole = document.getElementById('op-role').value;
   const tenant = (document.getElementById('op-tenant').value || '').trim() || 'default';
   const name = (document.getElementById('op-name').value || '').trim();
-  const r = await api('/api/autopilot/invite', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ operatorRole, tenant, name, role:'admin' }) });
+  const email = (document.getElementById('op-email').value || '').trim();
+  const r = await api('/api/autopilot/invite', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ operatorRole, tenant, name, email, role:'admin' }) });
   if (r.error) { alert(r.error); return; }
-  const link = location.origin + '/autopilot.html?invite=' + r.invite.token;
-  copyInvite(link);
-  document.getElementById('op-name').value = '';
+  const link = r.link || (location.origin + '/autopilot.html?invite=' + r.invite.token);
+  if (email && r.emailed) alert('Invite emailed to ' + email + ' ✓\n\n' + link);
+  else { if (email) alert('Email relay unavailable — copy the link instead:\n\n' + link); copyInvite(link); }
+  document.getElementById('op-name').value = ''; document.getElementById('op-email').value = '';
   loadInvites();
 }
 function copyInvite(link) { navigator.clipboard.writeText(link).then(() => alert('Invite link copied — send it to the operator:\n\n' + link)).catch(() => prompt('Copy the invite link:', link)); }
@@ -255,11 +268,12 @@ async function revoke(token) { await fetch('/api/autopilot/invite?role=admin&rev
 let RUNS = {}; // id → run, for the detail drawer
 function openDrawer(id) {
   const r = RUNS[id]; if (!r) return;
-  const aud = (r.audit || []).map(a => `<div>• <b>${esc(a.event)}</b> ${a.by ? 'by ' + esc(a.by) : ''} <span class="mut">${esc((a.at || '').replace('T', ' ').slice(0, 19))}</span>${a.note ? ' — ' + esc(a.note) : ''}</div>`).join('');
+  const aud = (r.audit || []).map(a => `<div>• <b>${esc(a.event)}</b> ${a.by ? 'by ' + esc(a.by) : ''} <span class="mut">${esc((a.at || '').replace('T', ' ').slice(0, 19))}</span>${a.reason ? ' · <span style="color:#8aa">' + esc(a.reason) + '</span>' : ''}${a.override ? ' · <b style="color:#f0a020">⚠ override (AI: ' + esc(a.aiRecommendation || '?') + ')</b>' : ''}${a.note ? ' — ' + esc(a.note) : ''}</div>`).join('');
   document.getElementById('drawer-body').innerHTML = `
     <h3>${icon(r.vertical)} ${esc(r.vertical)} <span class="mut" style="font-size:13px">${esc(r.status)}</span></h3>
     <div class="mut">${esc(r.id)}${r.tenant && r.tenant !== 'default' ? ' · tenant ' + esc(r.tenant) : ''}</div>
-    <div class="mut" style="margin-top:6px">Accountable owner: <b>${esc(r.owner || r.signer || '—')}</b></div>
+    <div class="row" style="margin-top:6px">${recoHtml(r)}${slaHtml(r)}</div>
+    <div class="mut" style="margin-top:6px">Accountable owner: <b>${esc(r.owner || r.signer || '—')}</b></div>${r.disposition ? '<div class="mut">disposition: <b>' + esc(r.disposition) + '</b></div>' : ''}
     ${gateProgressHtml(r)}
     ${stepsHtml(r)}
     <h2 style="margin-top:18px">Audit trail</h2>
@@ -307,7 +321,7 @@ async function loadInbox() {
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
     <div class="card gate">
-      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:#f0a020;border-color:#5a4420">↑ escalated</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
+      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:#f0a020;border-color:#5a4420">↑ escalated</span>' : ''}${recoHtml(r)}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
       ${gateProgressHtml(r)}
       ${stepsHtml(r)}
@@ -335,7 +349,7 @@ async function loadRuns() {
       : '<span class="pill await">' + esc(r.status) + '</span>';
     const aud = (r.audit||[]).map(a => a.event + (a.by?'('+esc(a.by)+')':'')).join(' → ');
     return `<div class="card click ${cls}" onclick="openDrawer('${r.id}')">
-      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span>${pill}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span></div>
+      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span>${pill}${recoHtml(r)}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span></div>
       <div class="mut" style="margin-top:4px">${esc(aud)}</div>
       ${gateProgressHtml(r)}
       ${stepsHtml(r)}
@@ -370,7 +384,7 @@ async function loadStats() {
     tile('escalation rate', s.escalationRate == null ? '—' : s.escalationRate + '%') +
     tile('avg time→decision', s.avgTimeToDecisionMin == null ? '—' : s.avgTimeToDecisionMin + 'm') +
     tile('SLA breaches', s.slaBreaches) + tile('rejected', s.rejected) +
-    tile('escalated', s.escalated) + tile('sent back', s.sentBack);
+    tile('escalated', s.escalated) + tile('sent back', s.sentBack) + tile('AI overrides', s.overrides);
 }
 function refresh() { loadInbox(); loadRuns(); loadStats(); }
 initRoles().then(refresh);

@@ -15,6 +15,22 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { loadFlow, runFlow } from './flow-runner.mjs';
+import { dueAt as slaDueAt, slaHours } from './sla.mjs';
+
+// Derive an AI recommendation for the human from what the pre-gate connectors found.
+function recommend(steps) {
+  const sigs = steps.flatMap((s) => (s.toolCalls || []).map((c) => c.signal).filter(Boolean));
+  const any = (f) => sigs.some(f);
+  const confs = sigs.map((s) => s.confidence).filter((x) => typeof x === 'number');
+  const confidence = confs.length ? +Math.min(...confs).toFixed(2) : null;
+  const block = any((s) => s.hit === true || s.blocked === true || s.excluded === true
+    || /BLOCK|HARD/i.test(String(s.decision || '')) || /Ineligible/i.test(String(s.recommendation || '')));
+  const escalate = any((s) => s.refer === true || s.requiresMdReview === true || s.requiresMedicalReview === true
+    || s.requiresBrokerReview === true || s.requiresPartnerSignoff === true || s.met === false || s.allowed === false
+    || s.exceeds === true || s.edit === true || s.escalate === true || s.vetted === false
+    || /Refer/i.test(String(s.recommendation || '')) || /material|significant/i.test(String(s.severity || '')) || s.band === 'high' || s.band === 'elevated');
+  return { recommendation: block ? 'block' : escalate ? 'escalate' : 'approve', confidence };
+}
 
 // One shared store so the CLI and the admin board always see the SAME runs, regardless of the cwd
 // each is launched from. Override with GREAT_CTO_RUNS_DIR (tests). Multi-tenant: runs are PHYSICALLY
@@ -60,7 +76,8 @@ export function listRuns({ status, tenant } = {}) {
 /** Runs awaiting a human signature (the inbox), scoped to a tenant. */
 export function pendingGates({ tenant } = {}) {
   return listRuns({ status: 'awaiting-approval', tenant }).map((r) => ({
-    id: r.id, vertical: r.vertical, tenant: r.tenant || 'default', gate: r.pausedAt, signer: r.signer, does: r.gateDoes, createdAt: r.createdAt,
+    id: r.id, vertical: r.vertical, tenant: r.tenant || 'default', gate: r.pausedAt, signer: r.signer, does: r.gateDoes,
+    recommendation: r.recommendation, recoConfidence: r.recoConfidence, dueAt: r.dueAt, escalated: r.escalated || false, createdAt: r.createdAt,
   }));
 }
 
@@ -78,13 +95,17 @@ export async function startRun(vertical, { mode = 'stub', payload = {}, tenant =
   // idempotency: a stable key per run so a retried write never double-submits at the provider.
   const trace = await runFlow(flow, { mode, payload: { idempotencyKey: id, ...payload } });
   const g = gateStep(trace);
+  const createdAt = now();
+  const reco = recommend(trace.steps); // AI recommendation for the human, from the pre-gate connectors
   const run = {
     id, vertical, tenant, mode, status: statusFromTrace(trace),
-    owner: trace.owner, createdAt: now(), updatedAt: now(),
+    owner: trace.owner, createdAt, updatedAt: createdAt,
     pausedAt: trace.pausedAt, pausedAtIndex: trace.pausedAtIndex,
     signer: g ? g.human : null, gateDoes: g ? g.does : null,
+    recommendation: reco.recommendation, recoConfidence: reco.confidence,
+    slaHours: slaHours(vertical), dueAt: slaDueAt(vertical, createdAt),
     steps: trace.steps,
-    audit: [{ at: now(), event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt }],
+    audit: [{ at: createdAt, event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt, recommendation: reco.recommendation }],
   };
   return save(run);
 }
@@ -112,7 +133,9 @@ export async function approve(id, who, note = '', reason = '') {
   const g = gateStep(resume);
   run.pausedAt = resume.pausedAt; run.pausedAtIndex = resume.pausedAtIndex;
   run.signer = g ? g.human : null; run.gateDoes = g ? g.does : null;
-  run.audit.push({ at: now(), event: 'approved', gate: signedGate, by: who, note: note || undefined, reason: reason || undefined, newStatus: run.status });
+  // override: the human approved against the AI's caution (recommended block/escalate)
+  const override = run.recommendation === 'block' || run.recommendation === 'escalate';
+  run.audit.push({ at: now(), event: 'approved', gate: signedGate, by: who, note: note || undefined, reason: reason || undefined, aiRecommendation: run.recommendation, override, newStatus: run.status });
   return save(run);
 }
 
@@ -123,7 +146,9 @@ export async function reject(id, who, note = '', reason = '') {
   if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
   run.status = 'rejected';
   run.disposition = reason || 'rejected';
-  run.audit.push({ at: now(), event: 'rejected', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined });
+  // override: the human rejected what the AI recommended approving
+  const override = run.recommendation === 'approve';
+  run.audit.push({ at: now(), event: 'rejected', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined, aiRecommendation: run.recommendation, override });
   return save(run);
 }
 
@@ -170,6 +195,7 @@ export function stats({ tenant } = {}) {
     byStatus: by('status'),
     byVertical: by('vertical'),
     approved: ev('approved'), rejected: ev('rejected'), escalated: ev('escalated'), sentBack: ev('sent-back'),
+    overrides: runs.reduce((n, r) => n + (r.audit || []).filter((a) => a.override === true).length, 0),
     completed,
     approvalRate: decided ? +(ev('approved') / decided * 100).toFixed(1) : null,
     escalationRate: runs.length ? +((ev('escalated') / runs.length) * 100).toFixed(1) : null,

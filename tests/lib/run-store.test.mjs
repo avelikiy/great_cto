@@ -175,3 +175,27 @@ test('stats aggregates KPIs over visible runs', async () => {
   assert.equal(s.approvalRate, 50); // 1 of 2 decided
   rmSync(d, { recursive: true, force: true });
 });
+
+test('Wave B: a run carries an AI recommendation + SLA deadline', async () => {
+  const d = tmp();
+  const run = await startRun('prior-auth', { mode: 'stub' });
+  assert.ok(['approve', 'escalate', 'block'].includes(run.recommendation));
+  assert.equal(typeof run.slaHours, 'number');
+  assert.ok(new Date(run.dueAt).getTime() > new Date(run.createdAt).getTime());
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave B: approving against an AI block/escalate logs an override', async () => {
+  const d = tmp();
+  // force a block recommendation: aml screens a sanctioned party
+  const run = await startRun('aml', { mode: 'stub', payload: {} });
+  const r2 = await import('../../scripts/lib/run-store.mjs');
+  // approve and inspect the audit override flag against the run's recommendation
+  const done = await approve(run.id, 'BSA Officer', '', 'meets-criteria');
+  const ev = done.audit.find((a) => a.event === 'approved');
+  assert.equal(typeof ev.override, 'boolean');
+  assert.equal(ev.aiRecommendation, run.recommendation);
+  // override is true iff the human approved despite a block/escalate reco
+  assert.equal(ev.override, run.recommendation !== 'approve');
+  rmSync(d, { recursive: true, force: true });
+});
