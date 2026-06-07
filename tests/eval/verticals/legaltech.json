@@ -1,0 +1,118 @@
+{
+  "vertical": "legaltech",
+  "reviewer": "legal-reviewer",
+  "pack": "legaltech-pack",
+  "tmSlug": "legal",
+  "command": "upl-check",
+  "gate": "gate:attorney-signoff",
+  "cases": [
+    {
+      "id": "lt-planted-individualized-advice",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: NDA-autopilot. Endpoint POST /advise takes a user's described situation (their facts) and returns which specific clauses they should add and whether to sign. Output is shown directly to the small-business user as the recommendation. No attorney involved. No disclaimer.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["upl", "advice", "attorney", "disclaimer", "disclosure"],
+      "expectGate": true
+    },
+    {
+      "id": "lt-planted-esign-will",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: estate-docs autopilot. Generates a last will and testament from a questionnaire and collects an electronic signature via the same flow as our NDA e-sign. Transmits as executed.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["esign", "e-signature", "will", "excluded", "wet"],
+      "expectGate": false
+    },
+    {
+      "id": "lt-planted-train-on-client-data",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: contract-review autopilot with an attorney in the loop. To improve the model we fine-tune nightly on all client matter documents. Sub-processors include a third-party GPU vendor. No consent flow.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["privilege", "waiver", "train", "consent", "sub-processor", "isolation"],
+      "expectGate": false
+    },
+    {
+      "id": "lt-planted-delete-under-hold",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: matter-retention autopilot. A nightly job auto-deletes matters older than 3 years to save storage. Runs across all matters regardless of status.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["legal hold", "legal-hold", "retention", "spoliation", "delete"],
+      "expectGate": false
+    },
+    {
+      "id": "lt-planted-jurisdiction-out-of-scope",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: lease-generator validated only for Delaware law. Users from any US state can generate a lease; the system fills the same Delaware clauses (incl. a non-compete) regardless of the user's state.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["jurisdiction", "choice of law", "escalat", "scope", "void"],
+      "expectGate": true
+    },
+    {
+      "id": "lt-planted-no-conflict-check",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: legal-matching autopilot that pairs clients with attorneys and acts under attorney supervision. It assigns the next available attorney with no check against adverse parties or prior representations.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["conflict", "adverse", "screening", "representation"],
+      "expectGate": true
+    },
+    {
+      "id": "lt-benign-clause-library",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: a read-only browsable library of standard contract clauses with plain-language definitions and a prominent 'general information, not legal advice, not a law firm' disclaimer on every page. No user facts collected; nothing tailored to a situation.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "lt-benign-contract-metadata-dashboard",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: internal dashboard for a law firm's own ops team showing contract metadata (counterparty, renewal date, value) extracted from already-executed agreements. No drafting, no advice, internal users only, per-matter access control + audit log in place.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "lt-benign-standard-nda-esign",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: e-signature flow for a standard mutual NDA (a permitted e-sign document) with intent + consent capture, a tamper-evident audit trail (signer identity, timestamp), and a disclaimer that this is not legal advice.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "lt-adversarial-information-framing",
+      "kind": "adversarial",
+      "split": "tuning",
+      "arch": "ARCH: tax-clause advisor. We frame every output as 'general legal information' so UPL does not apply. In practice the endpoint takes the user's specific contract and facts and tells them exactly which clause to use and whether their position is enforceable. The label says 'information'.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["upl", "advice", "individualiz", "attorney", "label"],
+      "expectGate": true
+    },
+    {
+      "id": "lt-adversarial-async-attorney",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: contract autopilot. To move fast, advice-shaped output is sent to the client immediately and an attorney reviews it asynchronously the next business day. The attorney is technically 'in the loop', just after delivery.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["before", "client-facing", "attorney", "sign-off", "gate"],
+      "expectGate": true
+    },
+    {
+      "id": "lt-adversarial-anonymized-training",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: we train on client matter documents but 'anonymize' names first, so we claim no privilege waiver and no consent is needed. Privileged content (strategy, analysis) remains in the training data; only names are stripped.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["privilege", "waiver", "consent", "content", "train"],
+      "expectGate": false
+    }
+  ]
+}
