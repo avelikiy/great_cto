@@ -109,21 +109,21 @@ export const CONNECTORS = Object.freeze({
   'reg-docs':        { label: 'Regulatory docs / eTMF',  verticals: ['cro'],         capabilities: ['assemble-tmf'], realProviders: ['Veeva Vault', 'Florence'], status: 'stub' },
 
   // ── customs ──
-  'hs-classify':     { label: 'HS / HTSUS classification', verticals: ['customs'],    capabilities: ['classify-hs'], realProviders: ['CROSS rulings', 'Avalara', 'Descartes'], status: 'stub' },
+  'hs-classify':     { label: 'HS / HTSUS classification', verticals: ['customs'],    capabilities: ['classify-hs'], realProviders: ['CROSS rulings', 'Avalara', 'Descartes'], status: 'live-ready' },
   'denied-party':    { label: 'Denied-party / Entity List', verticals: ['customs'],   capabilities: ['screen-party'], realProviders: ['BIS Entity List', 'OFAC', 'CSL'], status: 'stub' },
-  'customs-entry':   { label: 'CBP entry (ACE / ABI)',   verticals: ['customs'],      capabilities: ['file-entry', 'check-status'], realProviders: ['CBP ACE', 'ABI'], status: 'stub' },
+  'customs-entry':   { label: 'CBP entry (ACE / ABI)',   verticals: ['customs'],      capabilities: ['file-entry', 'check-status'], realProviders: ['CBP ACE', 'ABI'], status: 'live-ready' },
   'duty-calc':       { label: 'Duty / valuation',        verticals: ['customs'],      capabilities: ['compute-duty'], realProviders: ['HTSUS', 'CBP'], status: 'stub' },
 
   // ── audit ──
   'control-evidence':{ label: 'Control evidence pull',   verticals: ['audit'],        capabilities: ['pull-evidence'], realProviders: ['Okta', 'Jira', 'ServiceNow', 'GitHub'], status: 'stub' },
-  'itgc-test':       { label: 'ITGC control test',       verticals: ['audit'],        capabilities: ['run-test'], realProviders: ['AuditBoard', 'Workiva'], status: 'stub' },
+  'itgc-test':       { label: 'ITGC control test',       verticals: ['audit'],        capabilities: ['run-test'], realProviders: ['AuditBoard', 'Workiva'], status: 'live-ready' },
   'workpaper':       { label: 'Audit workpaper / opinion', verticals: ['audit'],      capabilities: ['assemble-workpaper'], realProviders: ['Workiva', 'CaseWare'], status: 'stub' },
 
   // ── pharma ──
   'icsr-intake':     { label: 'ICSR / case intake',      verticals: ['pharma'],       capabilities: ['intake-case'], realProviders: ['Argus', 'ArisGlobal', 'Veeva Safety'], status: 'stub' },
-  'meddra-code':     { label: 'MedDRA coding',           verticals: ['pharma'],       capabilities: ['code-term'], realProviders: ['MedDRA', 'ArisGlobal'], status: 'stub' },
+  'meddra-code':     { label: 'MedDRA coding',           verticals: ['pharma'],       capabilities: ['code-term'], realProviders: ['MedDRA', 'ArisGlobal'], status: 'live-ready' },
   'causality':       { label: 'Causality assessment',    verticals: ['pharma'],       capabilities: ['assess-causality'], realProviders: ['WHO-UMC', 'Naranjo'], status: 'stub' },
-  'safety-report':   { label: 'Safety report (E2B / FAERS)', verticals: ['pharma'],   capabilities: ['submit-e2b'], realProviders: ['FDA FAERS', 'EudraVigilance'], status: 'stub' },
+  'safety-report':   { label: 'Safety report (E2B / FAERS)', verticals: ['pharma'],   capabilities: ['submit-e2b'], realProviders: ['FDA FAERS', 'EudraVigilance'], status: 'live-ready' },
 });
 
 /** Look up a connector spec by id. */
@@ -183,6 +183,11 @@ const LIVE_ADAPTERS = {
   'carrier-vet': () => import('./connectors/carrier-vet.mjs'),
   'um-criteria': () => import('./connectors/um-criteria.mjs'),
   'sar-filing': () => import('./connectors/sar-filing.mjs'),
+  'hs-classify': () => import('./connectors/hs-classify.mjs'),
+  'customs-entry': () => import('./connectors/customs-entry.mjs'),
+  'itgc-test': () => import('./connectors/itgc-test.mjs'),
+  'meddra-code': () => import('./connectors/meddra-code.mjs'),
+  'safety-report': () => import('./connectors/safety-report.mjs'),
 };
 
 /** Does this connector have a real (live) adapter wired? */

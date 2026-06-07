@@ -4,6 +4,27 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.48.0 — 2026-06-07
+
+### Live connectors for customs / audit / pharma (22 live total) + CLI/board rethink plan
+
+- **5 new live connector adapters** so the three newest verticals run on real domain logic, not
+  mocks (keyless by default; POST to the real provider when env creds are set):
+  - **hs-classify** (customs) — HS/HTSUS classification from a curated table; low confidence →
+    escalate to the broker (a misclassification carries 19 USC 1592 penalties).
+  - **customs-entry** (customs) — CBP Form 7501 entry generation + duty/MPF/HMF; **blocks without the
+    licensed-broker signature**.
+  - **itgc-test** (audit) — real ITGC control tests across the 4 domains → exception + severity
+    (deficiency / significant / material weakness); significant+ escalates to the CPA.
+  - **meddra-code** (pharma) — MedDRA coding of a verbatim AE term; an Important Medical Event or low
+    confidence forces medical review (never auto-downgrades seriousness).
+  - **safety-report** (pharma) — ICH E2B(R3) ICSR generation + 15-day expedited flag; **blocks without
+    the QPPV signature**.
+- Live runs confirm: customs fires hs-classify + OFAC, audit fires itgc-test, pharma fires FHIR +
+  MedDRA — all pre-gate. **22 live adapters across the 19 verticals.** 271 lib tests.
+- **Plan** `docs/plans/PLAN-cli-board-autopilot-rethink.md` — reframe the CLI + admin board around
+  the autopilot model (Build ⇄ Operate; `/autopilot` slash command; the board's compliance work-queue).
+
 ## v2.47.0 — 2026-06-07
 
 ### 3 new verticals (19 total) + browser push to the signer + physical tenant isolation
