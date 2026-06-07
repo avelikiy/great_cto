@@ -4,6 +4,27 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.46.0 — 2026-06-07
+
+### Layer D — operated end-to-end autopilot service (durable runs + human-gate inbox)
+
+Autopilots stop being flows that *describe* a pause and become a **real operated service**: a run
+persists, pauses at the human checkpoint, waits in an **inbox** for a named licensed human to sign,
+then **resumes and executes the irreversible action** (the write). Built on `rcm`; reusable by all 16.
+
+- **Durable run store** (`scripts/lib/run-store.mjs`) — runs persist to
+  `.great_cto/autopilot-runs/<id>.json` and survive process restarts. `startRun` → `awaiting-approval`
+  at the gate; `approve(id, who)` resumes + runs the write; `reject(id, who)` ends it with nothing
+  irreversible run. Every transition is appended to an immutable audit trail (who · what · when).
+- **Resumable runtime** (`flow-runner.mjs`) — `runFlow` gains `startAt` + `approvedGates`. The
+  v2.43.0 safety invariant now holds *end to end*: the irreversible step executes **only because a
+  human signed its protecting gate** — proven across a process boundary (approve in a separate run).
+- **Operator CLI** (`scripts/autopilot.mjs`) — `start · inbox · show · approve --by · reject · runs`.
+- **Admin console** (`packages/board`) — additive endpoints `/api/autopilot/{runs,start,approve,reject}`
+  + an **Autopilot inbox** page (`/autopilot.html`) to sign gates, with an "Autopilot" board nav link.
+- Demonstrated on rcm live: intake → code → NCCI (3 live connectors) → **pause** → coder signs in the
+  inbox → **837 claim submitted** (the write) → completed. Reject path submits nothing. 258 lib tests.
+
 ## v2.45.0 — 2026-06-07
 
 ### Every vertical goes live — 8 new connectors, 16/16 autopilots run on real data (Wave 8)

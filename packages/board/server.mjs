@@ -21,6 +21,7 @@ import {
   removeSubscription,
 } from './push-adapter.mjs';
 import crypto from 'node:crypto';
+import { startRun as apStartRun, approve as apApprove, reject as apReject, listRuns as apListRuns, getRun as apGetRun } from '../../scripts/lib/run-store.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -3140,6 +3141,39 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({ stuck, budgets, goal_ancestry: goalAncestry, tool_failure_rate_1h: toolFailureRate1h }));
+    return;
+  }
+
+  // ── Autopilot console (Layer D) — durable runs + human-gate inbox ──────────────
+  if (pathname === '/api/autopilot/runs' && req.method === 'GET') {
+    const status = url.searchParams.get('status') || undefined;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ runs: apListRuns({ status }) }));
+    return;
+  }
+  if (pathname === '/api/autopilot/run' && req.method === 'GET') {
+    const r = apGetRun(url.searchParams.get('id'));
+    res.writeHead(r ? 200 : 404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(r || { error: 'not found' }));
+    return;
+  }
+  if ((pathname === '/api/autopilot/start' || pathname === '/api/autopilot/approve' || pathname === '/api/autopilot/reject') && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', async () => {
+      let p; try { p = JSON.parse(body || '{}'); } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message) })); return;
+      }
+      try {
+        let run;
+        if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub' });
+        else if (pathname === '/api/autopilot/approve') run = await apApprove(p.id, p.by || 'board user', p.note || '');
+        else run = await apReject(p.id, p.by || 'board user', p.note || '');
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ run }));
+      } catch (e) {
+        res.writeHead(409, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) }));
+      }
+    });
     return;
   }
 

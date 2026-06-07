@@ -36,6 +36,12 @@ function hasGateBefore(steps, i) {
   return false;
 }
 
+/** The id of the nearest human gate strictly before step index i (the gate that protects it), or null. */
+function protectingGate(steps, i) {
+  for (let j = i - 1; j >= 0; j--) if (steps[j].gate) return steps[j].gate;
+  return null;
+}
+
 /**
  * Validate a flow against the "the permission was the wound" invariant (Torlo, 2026): the danger is
  * an agent doing exactly what it's permitted — irreversibly, at machine speed, with no hesitation. So:
@@ -90,37 +96,45 @@ const DEMO_INPUTS = {
  *     (useful to dry-run the whole flow).
  * @returns {Promise<{vertical, mode, status, pausedAt, steps:[…]}>}
  */
-export async function runFlow(flow, { mode = 'stub', payload = {}, stopAtGate = true } = {}) {
+export async function runFlow(flow, { mode = 'stub', payload = {}, stopAtGate = true, startAt = 0, approvedGates = [] } = {}) {
   const steps = flow.steps || [];
+  const approved = new Set(approvedGates);
   const trace = {
-    vertical: flow.vertical, mode, status: 'completed', pausedAt: null,
+    vertical: flow.vertical, mode, status: 'completed', pausedAt: null, pausedAtIndex: null,
     owner: flow.owner || null, validation: validateFlow(flow), steps: [],
   };
 
-  for (let i = 0; i < steps.length; i++) {
+  for (let i = startAt; i < steps.length; i++) {
     const s = steps[i];
 
     if (s.gate) {
+      // A human checkpoint. If a named human has already signed it, record it as approved and roll
+      // on; otherwise pause here (the durable run waits in the inbox until someone approves).
+      if (approved.has(s.gate)) {
+        trace.steps.push({ i, does: s.does, human: s.human, gate: s.gate, status: 'approved' });
+        continue;
+      }
       trace.steps.push({ i, does: s.does, human: s.human, gate: s.gate, status: 'awaiting-human' });
-      if (stopAtGate) { trace.status = 'paused-at-gate'; trace.pausedAt = s.gate; break; }
+      if (stopAtGate) { trace.status = 'paused-at-gate'; trace.pausedAt = s.gate; trace.pausedAtIndex = i; break; }
       continue;
     }
 
-    // "The permission was the wound": an irreversible action is never executed autonomously.
+    // "The permission was the wound": an irreversible action runs ONLY after its protecting gate is signed.
     const blast = s.blastRadius || (s.reversible === false ? 'high' : 'low');
-    if (s.reversible === false && !hasGateBefore(steps, i)) {
-      // No human checkpoint protects this irreversible step — refuse to run it at all.
-      trace.steps.push({ i, does: s.does, agent: s.agent, status: 'blocked-unsafe', blastRadius: blast,
-        note: 'irreversible action with no prior human checkpoint — refused' });
-      trace.unsafe = true;
-      continue;
-    }
-    if (s.reversible === false && stopAtGate === false) {
-      // A prior gate protects it, but in a whole-flow dry-run that gate isn't actually approved —
-      // so we record it as awaiting authorisation rather than firing the irreversible connectors.
-      trace.steps.push({ i, does: s.does, agent: s.agent, status: 'gated', blastRadius: blast,
-        note: 'irreversible — requires human approval at the prior checkpoint before it runs' });
-      continue;
+    if (s.reversible === false) {
+      const pg = protectingGate(steps, i);
+      if (!pg) {
+        trace.steps.push({ i, does: s.does, agent: s.agent, status: 'blocked-unsafe', blastRadius: blast,
+          note: 'irreversible action with no prior human checkpoint — refused' });
+        trace.unsafe = true;
+        continue;
+      }
+      if (!approved.has(pg)) {
+        trace.steps.push({ i, does: s.does, agent: s.agent, status: 'gated', blastRadius: blast,
+          note: `irreversible — requires human approval at ${pg} before it runs` });
+        continue;
+      }
+      // protecting gate approved → execute the write below.
     }
 
     const toolCalls = [];
