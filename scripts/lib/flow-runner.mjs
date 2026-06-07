@@ -30,6 +30,14 @@ function defaultOp(connectorId) {
   return spec && spec.capabilities[0];
 }
 
+// Representative demo inputs per connector:op, so a live run can actually exercise an adapter that
+// requires inputs (in production the orchestrator threads these from prior steps). The caller's
+// `payload` always overrides these.
+const DEMO_INPUTS = {
+  'code-sets:lookup-code': { q: 'type 2 diabetes' },
+  'code-sets:validate-code': { code: 'E11.9' },
+};
+
 /**
  * Run a flow.
  * @param {object} flow  a flow object (from loadFlow)
@@ -56,7 +64,7 @@ export async function runFlow(flow, { mode = 'stub', payload = {}, stopAtGate = 
     for (const t of s.tools || []) {
       const op = defaultOp(t);
       if (!op) { toolCalls.push({ connector: t, op: null, ok: false, error: 'unknown connector' }); continue; }
-      const r = await call(t, op, payload, { mode });
+      const r = await call(t, op, { ...DEMO_INPUTS[`${t}:${op}`], ...payload }, { mode });
       toolCalls.push({ connector: t, op, ok: !!r.ok, mode: r.mode, error: r.error });
     }
     trace.steps.push({ i, does: s.does, agent: s.agent, status: 'done', toolCalls });
