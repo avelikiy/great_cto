@@ -21,7 +21,7 @@ import {
   removeSubscription,
 } from './push-adapter.mjs';
 import crypto from 'node:crypto';
-import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun } from '../../scripts/lib/run-store.mjs';
+import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore } from '../../scripts/lib/run-store.mjs';
 import { ROLES, getRole, roleAllows } from '../../scripts/lib/roles.mjs';
 import { createInvite, listInvites, resolveInvite, acceptInvite, revokeInvite } from '../../scripts/lib/operators.mjs';
 
@@ -3187,6 +3187,21 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(apStats({ tenant })));
     return;
   }
+  if (pathname === '/api/autopilot/config' && req.method === 'GET') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(apGetConfig(auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || 'default'))));
+    return;
+  }
+  if (pathname === '/api/autopilot/qa' && req.method === 'GET') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
+    const tenant = auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || undefined);
+    // QA queue is for admin / compliance-lead oversight
+    if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'QA is for admin / compliance-lead' })); return; }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ queue: apQaQueue({ tenant }) }));
+    return;
+  }
   // Operator onboarding: the admin mints invites; the operator resolves one to bootstrap, scoped.
   if (pathname === '/api/autopilot/invite-resolve' && req.method === 'GET') {
     const inv = acceptInvite(url.searchParams.get('token'));
@@ -3240,6 +3255,47 @@ const server = http.createServer(async (req, res) => {
     const r = apGetRun(url.searchParams.get('id'));
     res.writeHead(r ? 200 : 404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(r || { error: 'not found' }));
+    return;
+  }
+  if (pathname === '/api/autopilot/config' && req.method === 'POST') {
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
+      const auth = apAuth(p.token, p.role);
+      if (auth.role !== 'admin') { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'admin only' })); return; }
+      const patch = {};
+      if (p.confidenceFloor != null) patch.confidenceFloor = Math.max(0, Math.min(1, Number(p.confidenceFloor)));
+      if (p.autoEligible != null) patch.autoEligible = !!p.autoEligible;
+      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(apSetConfig(p.tenant || 'default', patch)));
+    });
+    return;
+  }
+  if (pathname === '/api/autopilot/qa-score' && req.method === 'POST') {
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
+      const auth = apAuth(p.token, p.role);
+      if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'QA is for admin / compliance-lead' })); return; }
+      try { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ run: apQaScore(p.id, p.score, p.by || 'reviewer', p.note || '') })); }
+      catch (e) { res.writeHead(409, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) })); }
+    });
+    return;
+  }
+  if (pathname === '/api/autopilot/bulk' && req.method === 'POST') {
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', async () => {
+      let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
+      const auth = apAuth(p.token, p.role); const who = p.by || 'board user';
+      const fn = { approve: apApprove, reject: apReject, escalate: apEscalate }[p.action];
+      if (!fn) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'bad action' })); return; }
+      let ok = 0, denied = 0, failed = 0;
+      for (const id of (p.ids || [])) {
+        const r = apGetRun(id);
+        if (r && !roleAllows(auth.role, r.vertical)) { denied++; continue; }
+        try { await fn(id, who, p.note || '', p.reason || ''); ok++; } catch { failed++; }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok, denied, failed }));
+    });
     return;
   }
   if (['/api/autopilot/start', '/api/autopilot/approve', '/api/autopilot/reject', '/api/autopilot/escalate', '/api/autopilot/send-back'].includes(pathname) && req.method === 'POST') {

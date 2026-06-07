@@ -159,8 +159,9 @@ export async function runFlow(flow, { mode = 'stub', payload = {}, stopAtGate = 
     for (const t of s.tools || []) {
       const op = defaultOp(t);
       if (!op) { toolCalls.push({ connector: t, op: null, ok: false, error: 'unknown connector' }); continue; }
+      const t0 = Date.now();
       const r = await call(t, op, { ...DEMO_INPUTS[`${t}:${op}`], ...payload }, { mode });
-      toolCalls.push({ connector: t, op, ok: !!r.ok, mode: r.mode, error: r.error, signal: riskSignal(r) });
+      toolCalls.push({ connector: t, op, ok: !!r.ok, mode: r.mode, error: r.error, signal: riskSignal(r), ms: Date.now() - t0 });
     }
     trace.steps.push({ i, does: s.does, agent: s.agent, status: 'done', blastRadius: blast, toolCalls });
   }

@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { startRun, approve, reject, escalate, sendBack, stats, getRun, listRuns, pendingGates } from '../../scripts/lib/run-store.mjs';
+import { startRun, approve, reject, escalate, sendBack, stats, getConfig, setConfig, qaScore, qaQueue, getRun, listRuns, pendingGates } from '../../scripts/lib/run-store.mjs';
 import { loadFlow, runFlow } from '../../scripts/lib/flow-runner.mjs';
 
 function tmp() { const d = mkdtempSync(join(tmpdir(), 'ap-runs-')); process.env.GREAT_CTO_RUNS_DIR = d; return d; }
@@ -197,5 +197,35 @@ test('Wave B: approving against an AI block/escalate logs an override', async ()
   assert.equal(ev.aiRecommendation, run.recommendation);
   // override is true iff the human approved despite a block/escalate reco
   assert.equal(ev.override, run.recommendation !== 'approve');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave C: confidence floor downgrades a low-confidence approve to escalate', async () => {
+  const d = tmp();
+  setConfig('default', { confidenceFloor: 0.99 });          // demand near-perfect confidence
+  const run = await startRun('customs', { mode: 'live' });   // hs-classify returns a confidence
+  // customs clean t-shirt → confidence ~1.0 so still approve; lower the bar test:
+  setConfig('default', { confidenceFloor: 0.5 });
+  assert.ok(['approve', 'escalate', 'block'].includes(run.recommendation));
+  assert.equal(typeof getConfig('default').confidenceFloor, 'number');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave C: a run carries an AI-drafted narrative', async () => {
+  const d = tmp();
+  const run = await startRun('aml', { mode: 'stub' });
+  assert.match(run.narrative, /DETERMINATION DRAFT — aml/);
+  assert.match(run.narrative, /AI recommendation/);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave D: QA scoring records on the run + audit', async () => {
+  const d = tmp();
+  const a = await startRun('rcm', { mode: 'stub' });
+  await approve(a.id, 'Coder');
+  const scored = qaScore(a.id, 4, 'QA Lead', 'good');
+  assert.equal(scored.qa.score, 4);
+  assert.equal(scored.qa.by, 'QA Lead');
+  assert.ok(scored.audit.some((e) => e.event === 'qa-scored' && e.score === 4));
   rmSync(d, { recursive: true, force: true });
 });

@@ -32,6 +32,48 @@ function recommend(steps) {
   return { recommendation: block ? 'block' : escalate ? 'escalate' : 'approve', confidence };
 }
 
+// ── In-console config: an adjustable confidence floor per tenant (the routing dial) ──
+function configPath() { return join(baseDir(), 'autopilot-config.json'); }
+const DEFAULT_CONFIG = { confidenceFloor: 0.7, autoEligible: true };
+export function getConfig(tenant = 'default') {
+  try { const all = JSON.parse(readFileSync(configPath(), 'utf8')); return { ...DEFAULT_CONFIG, ...(all[tenant] || {}) }; }
+  catch { return { ...DEFAULT_CONFIG }; }
+}
+export function setConfig(tenant = 'default', patch = {}) {
+  let all = {}; try { all = JSON.parse(readFileSync(configPath(), 'utf8')); } catch { /* new */ }
+  all[tenant] = { ...DEFAULT_CONFIG, ...(all[tenant] || {}), ...patch };
+  if (!existsSync(baseDir())) mkdirSync(baseDir(), { recursive: true });
+  writeFileSync(configPath(), JSON.stringify(all, null, 2) + '\n');
+  return all[tenant];
+}
+
+// AI-drafted rationale the signer reviews — composed from the connector findings (evidence).
+function draftNarrative(vertical, recommendation, steps, signer) {
+  const evid = steps.flatMap((s) => (s.toolCalls || []).filter((c) => c.signal)
+    .map((c) => `${c.connector}: ${Object.entries(c.signal).map(([k, v]) => `${k}=${v}`).join(', ')}`));
+  return [
+    `DETERMINATION DRAFT — ${vertical} autopilot`,
+    `AI recommendation: ${String(recommendation).toUpperCase()}.`,
+    'Basis (connector findings — the evidence):',
+    ...(evid.length ? evid.map((e) => `  • ${e}`) : ['  • (no risk signals; routine case)']),
+    '',
+    `The autopilot processed the case to the human checkpoint. ${signer || 'The named signer'} reviews`,
+    'this draft and signs the determination; the irreversible action executes only on signature.',
+  ].join('\n');
+}
+
+// ── QA: sample CLOSED cases for a quality review (the second loop, after the action) ──
+function isSampled(id) { try { return parseInt(id.slice(-1), 36) % 5 === 0; } catch { return false; } } // ~20%
+export function qaQueue({ tenant } = {}) {
+  return listRuns({ tenant }).filter((r) => ['completed', 'rejected'].includes(r.status) && isSampled(r.id) && !r.qa);
+}
+export function qaScore(id, score, by, note = '') {
+  const run = getRun(id); if (!run) throw new Error(`run ${id} not found`);
+  run.qa = { score: Number(score), by, note: note || undefined, at: now() };
+  run.audit.push({ at: now(), event: 'qa-scored', by, score: Number(score), note: note || undefined });
+  return save(run);
+}
+
 // One shared store so the CLI and the admin board always see the SAME runs, regardless of the cwd
 // each is launched from. Override with GREAT_CTO_RUNS_DIR (tests). Multi-tenant: runs are PHYSICALLY
 // isolated under <base>/<tenant>/<id>.json — one tenant's directory never holds another's runs.
@@ -96,16 +138,22 @@ export async function startRun(vertical, { mode = 'stub', payload = {}, tenant =
   const trace = await runFlow(flow, { mode, payload: { idempotencyKey: id, ...payload } });
   const g = gateStep(trace);
   const createdAt = now();
+  const cfg = getConfig(tenant);
   const reco = recommend(trace.steps); // AI recommendation for the human, from the pre-gate connectors
+  // confidence floor (the routing dial): low-confidence approvals are downgraded to escalate.
+  let recommendation = reco.recommendation;
+  if (recommendation === 'approve' && reco.confidence != null && reco.confidence < cfg.confidenceFloor) recommendation = 'escalate';
+  const autoEligible = cfg.autoEligible && recommendation === 'approve' && (reco.confidence == null || reco.confidence >= cfg.confidenceFloor);
   const run = {
     id, vertical, tenant, mode, status: statusFromTrace(trace),
     owner: trace.owner, createdAt, updatedAt: createdAt,
     pausedAt: trace.pausedAt, pausedAtIndex: trace.pausedAtIndex,
     signer: g ? g.human : null, gateDoes: g ? g.does : null,
-    recommendation: reco.recommendation, recoConfidence: reco.confidence,
+    recommendation, recoConfidence: reco.confidence, autoEligible,
+    narrative: draftNarrative(vertical, recommendation, trace.steps, g ? g.human : trace.owner),
     slaHours: slaHours(vertical), dueAt: slaDueAt(vertical, createdAt),
     steps: trace.steps,
-    audit: [{ at: createdAt, event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt, recommendation: reco.recommendation }],
+    audit: [{ at: createdAt, event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt, recommendation }],
   };
   return save(run);
 }
@@ -200,5 +248,8 @@ export function stats({ tenant } = {}) {
     approvalRate: decided ? +(ev('approved') / decided * 100).toFixed(1) : null,
     escalationRate: runs.length ? +((ev('escalated') / runs.length) * 100).toFixed(1) : null,
     awaiting: awaiting.length, slaBreaches, avgTimeToDecisionMin: avgTtd,
+    autoEligible: awaiting.filter((r) => r.autoEligible).length,
+    qaScored: runs.filter((r) => r.qa).length,
+    qaAvgScore: (() => { const q = runs.filter((r) => r.qa); return q.length ? +(q.reduce((a, r) => a + r.qa.score, 0) / q.length).toFixed(1) : null; })(),
   };
 }
