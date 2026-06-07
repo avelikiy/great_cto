@@ -11,7 +11,7 @@
 [![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
 [![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
 
-<img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 61 agents → gate:ship → Deployed" width="900" />
+<img src="docs/screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 74 agents → gate:ship → Deployed" width="900" />
 
 ```bash
 npx great-cto init
@@ -87,7 +87,8 @@ declares an **accountable owner** — one person answers for what it does. `flow
 | Human-equivalent for the same work | **~$5,460** |
 | Defects caught that QA had missed | **2** |
 | Monthly cost (20 pipeline runs) | **~$34** |
-| Specialist agents | **61** |
+| Autopilot verticals | **16** (healthcare · finance · legal · ops — each with a human gate) |
+| Specialist agents | **74** |
 | Archetypes auto-detected | **26** |
 | Jurisdictions | **12** (GDPR · HIPAA · PCI-DSS · SOX · and more) |
 
@@ -161,7 +162,7 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — two gates · critics · 61 agents · 26 archetypes · 12 jurisdictions · 45+ compliance frameworks · board · cost · MCP</summary>
+<summary>📖 Full documentation — two gates · critics · 74 agents · 26 archetypes · 12 jurisdictions · 45+ compliance frameworks · board · cost · MCP</summary>
 
 ## Two decisions per feature
 
@@ -374,7 +375,7 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 61 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 74 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
