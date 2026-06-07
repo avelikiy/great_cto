@@ -23,15 +23,24 @@ test('call: stub is deterministic (same input → same output)', async () => {
   assert.deepEqual(a.data, b.data);
 });
 
-test('hasLiveAdapter: ehr-fhir has one, code-sets does not', () => {
+test('hasLiveAdapter: ehr-fhir and code-sets have one, ncci-mue does not', () => {
   assert.equal(hasLiveAdapter('ehr-fhir'), true);
-  assert.equal(hasLiveAdapter('code-sets'), false);
+  assert.equal(hasLiveAdapter('code-sets'), true);
+  assert.equal(hasLiveAdapter('ncci-mue'), false);
 });
 
 test('call: live mode on a connector WITHOUT a live adapter falls back to stub', async () => {
-  const r = await call('code-sets', 'lookup-code', {}, { mode: 'live' });
+  const r = await call('ncci-mue', 'check-ptp', {}, { mode: 'live' });
   assert.equal(r.mode, 'stub');
   assert.match(r.note, /no live adapter/);
+});
+
+test('code-sets live adapter: capabilities + cpt is gracefully unsupported', async () => {
+  const m = await import('../../scripts/lib/connectors/codesets.mjs');
+  assert.deepEqual(m.capabilities, ['lookup-code', 'validate-code']);
+  const cpt = await m.call('lookup-code', { q: 'x', system: 'cpt' });
+  assert.equal(cpt.ok, false);
+  assert.match(cpt.error, /AMA-licensed/);
 });
 
 test('call: unknown op fails cleanly in stub', async () => {
