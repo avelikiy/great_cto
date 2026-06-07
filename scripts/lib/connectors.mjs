@@ -12,7 +12,7 @@
  */
 export const CONNECTORS = Object.freeze({
   // ── rcm ──
-  'ehr-fhir':        { label: 'EHR (FHIR)',            verticals: ['rcm'],         capabilities: ['fetch-note', 'fetch-patient'], realProviders: ['Epic', 'Cerner', 'athenahealth'], status: 'stub' },
+  'ehr-fhir':        { label: 'EHR (FHIR)',            verticals: ['rcm'],         capabilities: ['fetch-note', 'fetch-patient'], realProviders: ['Epic', 'Cerner', 'athenahealth'], status: 'live-ready' },
   'ocr':             { label: 'Document OCR',          verticals: ['rcm', 'tax', 'accounting'], capabilities: ['extract-text'], realProviders: ['AWS Textract', 'Google DocAI'], status: 'stub' },
   'code-sets':       { label: 'ICD-10 / CPT / HCPCS',  verticals: ['rcm'],         capabilities: ['lookup-code', 'validate-code'], realProviders: ['CMS', 'AMA CPT'], status: 'stub' },
   'ncci-mue':        { label: 'NCCI / MUE edits',      verticals: ['rcm'],         capabilities: ['check-ptp', 'check-mue'], realProviders: ['CMS quarterly tables'], status: 'stub' },
@@ -85,9 +85,62 @@ export function stubCall(connectorId, op, payload = {}) {
     ok: true,
     connector: connectorId,
     op,
-    mode: spec.status, // 'stub'
+    mode: 'stub',
     // A realistic, op-shaped placeholder. Deterministic (no randomness) for reproducible demos.
     data: { _stub: true, connector: connectorId, op, echo: payload },
     note: `STUB — ${spec.label}.${op}; wire ${spec.realProviders[0] || 'a real provider'} to go live`,
   };
+}
+
+// ── live adapters ────────────────────────────────────────────────────────────
+// Lazily-imported real adapters (the stub→live path). Importing connectors.mjs stays
+// side-effect-free + network-free; the adapter module loads only when a live call is made.
+const LIVE_ADAPTERS = {
+  'ehr-fhir': () => import('./connectors/fhir.mjs'),
+};
+
+/** Does this connector have a real (live) adapter wired? */
+export function hasLiveAdapter(id) {
+  return !!LIVE_ADAPTERS[id];
+}
+
+/**
+ * Execute a connector op. mode 'stub' (default) → deterministic mock; mode 'live' → the real
+ * adapter when one is registered (else falls back to stub with a note). Mode also reads from
+ * GREAT_CTO_CONNECTOR_MODE so a whole flow run can be flipped live at once.
+ * @returns {Promise<object>} { ok, mode, data|error, … }
+ */
+export async function call(connectorId, op, payload = {}, { mode } = {}) {
+  const m = mode || process.env.GREAT_CTO_CONNECTOR_MODE || 'stub';
+  if (m === 'live' && LIVE_ADAPTERS[connectorId]) {
+    try {
+      const adapter = await LIVE_ADAPTERS[connectorId]();
+      if (!adapter.capabilities.includes(op)) return { ok: false, error: `live ${connectorId} has no op '${op}'` };
+      return await adapter.call(op, payload);
+    } catch (e) {
+      return { ok: false, mode: 'live', connector: connectorId, op, error: `live adapter failed: ${e.message}` };
+    }
+  }
+  if (m === 'live') {
+    const r = stubCall(connectorId, op, payload);
+    return { ...r, mode: 'stub', note: `${r.note || ''} (no live adapter yet — still stub)`.trim() };
+  }
+  return stubCall(connectorId, op, payload);
+}
+
+// ── CLI ───────────────────────────────────────────────────────────────────────
+import { fileURLToPath } from 'node:url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [cmd, id, op, payloadArg] = process.argv.slice(2);
+  const live = process.argv.includes('--live');
+  if (cmd !== 'call' || !id || !op) {
+    console.error('usage: connectors.mjs call <connector> <op> [json-payload] [--live]');
+    console.error(`live-ready: ${Object.keys(LIVE_ADAPTERS).join(', ')}`);
+    process.exit(2);
+  }
+  let payload = {};
+  if (payloadArg && !payloadArg.startsWith('--')) { try { payload = JSON.parse(payloadArg); } catch { console.error('payload must be JSON'); process.exit(2); } }
+  call(id, op, payload, { mode: live ? 'live' : 'stub' })
+    .then((r) => { console.log(JSON.stringify(r, null, 2)); process.exit(r.ok ? 0 : 1); })
+    .catch((e) => { console.error(e.message); process.exit(1); });
 }
