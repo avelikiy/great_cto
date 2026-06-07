@@ -56,30 +56,30 @@ export const CONNECTORS = Object.freeze({
   'brokerage-feed':  { label: 'Bank / brokerage feed', verticals: ['tax'],         capabilities: ['fetch-1099'], realProviders: ['Plaid', 'broker APIs'], status: 'stub' },
 
   // ── prior-auth ──
-  'um-criteria':     { label: 'Medical-necessity criteria', verticals: ['prior-auth'], capabilities: ['check-criteria'], realProviders: ['MCG', 'InterQual', 'CMS NCD/LCD'], status: 'stub' },
+  'um-criteria':     { label: 'Medical-necessity criteria', verticals: ['prior-auth'], capabilities: ['check-criteria'], realProviders: ['MCG', 'InterQual', 'CMS NCD/LCD'], status: 'live-ready' },
   'auth-portal':     { label: 'Prior-auth portal (X12 278)', verticals: ['prior-auth'], capabilities: ['submit-278', 'check-status'], realProviders: ['Availity', 'payer portals'], status: 'stub' },
 
   // ── aml ──
   'id-verify':       { label: 'Identity verification (IDV)', verticals: ['aml'],     capabilities: ['verify-identity'], realProviders: ['Persona', 'Onfido', 'Socure'], status: 'stub' },
   'txn-monitor':     { label: 'Transaction monitoring',  verticals: ['aml'],         capabilities: ['screen-transactions'], realProviders: ['NICE Actimize', 'Hummingbird'], status: 'stub' },
   'adverse-media':   { label: 'Adverse-media / PEP',     verticals: ['aml'],         capabilities: ['search-media'], realProviders: ['Dow Jones', 'RDC', 'ComplyAdvantage'], status: 'stub' },
-  'sar-filing':      { label: 'SAR / BSA e-file',        verticals: ['aml'],         capabilities: ['file-sar'], realProviders: ['FinCEN BSA E-File'], status: 'stub' },
+  'sar-filing':      { label: 'SAR / BSA e-file',        verticals: ['aml'],         capabilities: ['file-sar'], realProviders: ['FinCEN BSA E-File'], status: 'live-ready' },
 
   // ── soc ──
   'siem':            { label: 'SIEM / telemetry',        verticals: ['soc'],         capabilities: ['fetch-alerts', 'query-logs'], realProviders: ['Splunk', 'Microsoft Sentinel', 'Chronicle'], status: 'stub' },
   'edr':             { label: 'Endpoint detection (EDR)', verticals: ['soc'],        capabilities: ['fetch-detections', 'isolate-host'], realProviders: ['CrowdStrike', 'SentinelOne'], status: 'stub' },
-  'threat-intel':    { label: 'Threat intelligence',     verticals: ['soc'],         capabilities: ['enrich-ioc'], realProviders: ['VirusTotal', 'GreyNoise', 'Recorded Future'], status: 'stub' },
+  'threat-intel':    { label: 'Threat intelligence',     verticals: ['soc'],         capabilities: ['enrich-ioc'], realProviders: ['VirusTotal', 'GreyNoise', 'Recorded Future'], status: 'live-ready' },
   'soar':            { label: 'Response orchestration (SOAR)', verticals: ['soc'],   capabilities: ['run-playbook', 'contain'], realProviders: ['Tines', 'Torq', 'Cortex XSOAR'], status: 'stub' },
 
   // ── insurance ──
   'claims-fnol':     { label: 'Claims / FNOL intake',    verticals: ['insurance'],   capabilities: ['get-claim', 'get-policy'], realProviders: ['Guidewire', 'Duck Creek'], status: 'stub' },
-  'fraud-score':     { label: 'Claims fraud scoring',    verticals: ['insurance'],   capabilities: ['score-fraud'], realProviders: ['Shift Technology', 'FRISS'], status: 'stub' },
+  'fraud-score':     { label: 'Claims fraud scoring',    verticals: ['insurance'],   capabilities: ['score-fraud'], realProviders: ['Shift Technology', 'FRISS'], status: 'live-ready' },
   'policy-admin':    { label: 'Policy admin / rating',   verticals: ['insurance'],   capabilities: ['rate-policy', 'bind-policy'], realProviders: ['Guidewire', 'Socotra'], status: 'stub' },
 
   // ── mortgage ──
   'los':             { label: 'Loan origination system', verticals: ['mortgage'],    capabilities: ['get-application', 'update-loan'], realProviders: ['ICE Encompass', 'Blend'], status: 'stub' },
   'credit-bureau':   { label: 'Credit bureau',           verticals: ['mortgage', 'collections'], capabilities: ['pull-credit'], realProviders: ['Experian', 'Equifax', 'TransUnion'], status: 'stub' },
-  'aus':             { label: 'Automated underwriting (DU/LPA)', verticals: ['mortgage'], capabilities: ['run-aus'], realProviders: ['Fannie Mae DU', 'Freddie Mac LPA'], status: 'stub' },
+  'aus':             { label: 'Automated underwriting (DU/LPA)', verticals: ['mortgage'], capabilities: ['run-aus'], realProviders: ['Fannie Mae DU', 'Freddie Mac LPA'], status: 'live-ready' },
   'income-verify':   { label: 'Income / asset verification', verticals: ['mortgage'], capabilities: ['verify-voe', 'verify-voa'], realProviders: ['Truework', 'The Work Number', 'Plaid'], status: 'stub' },
 
   // ── title ──
@@ -88,18 +88,18 @@ export const CONNECTORS = Object.freeze({
   'escrow-ledger':   { label: 'Escrow / settlement ledger', verticals: ['title'],    capabilities: ['open-escrow', 'disburse'], realProviders: ['Qualia', 'RamQuest'], status: 'stub' },
 
   // ── credentialing ──
-  'primary-source':  { label: 'Primary-source verification', verticals: ['credentialing'], capabilities: ['verify-license', 'query-npdb'], realProviders: ['NPDB', 'DEA', 'state boards', 'ABMS'], status: 'stub' },
+  'primary-source':  { label: 'Primary-source verification', verticals: ['credentialing'], capabilities: ['verify-license', 'query-npdb'], realProviders: ['NPDB', 'DEA', 'state boards', 'ABMS'], status: 'live-ready' },
   'caqh':            { label: 'CAQH ProView',            verticals: ['credentialing'], capabilities: ['fetch-profile'], realProviders: ['CAQH'], status: 'stub' },
   'payer-enroll':    { label: 'Payer enrollment',        verticals: ['credentialing'], capabilities: ['submit-enrollment', 'check-status'], realProviders: ['Medallion', 'CAQH EnrollHub'], status: 'stub' },
 
   // ── collections ──
   'account-ledger':  { label: 'Receivables ledger',      verticals: ['collections'], capabilities: ['get-accounts', 'post-payment'], realProviders: ['ERP AR', 'collection CRM'], status: 'stub' },
-  'comms-outreach':  { label: 'Compliant outreach (dialer/SMS)', verticals: ['collections'], capabilities: ['send-outreach'], realProviders: ['Twilio', 'Skit.ai'], status: 'stub' },
+  'comms-outreach':  { label: 'Compliant outreach (dialer/SMS)', verticals: ['collections'], capabilities: ['send-outreach'], realProviders: ['Twilio', 'Skit.ai'], status: 'live-ready' },
 
   // ── freight ──
   'tms':             { label: 'Transportation mgmt (TMS)', verticals: ['freight'],   capabilities: ['get-load', 'book-load'], realProviders: ['McLeod', 'MercuryGate'], status: 'stub' },
   'load-board':      { label: 'Load board / matching',   verticals: ['freight'],     capabilities: ['search-capacity'], realProviders: ['DAT', 'Truckstop'], status: 'stub' },
-  'carrier-vet':     { label: 'Carrier vetting (FMCSA)', verticals: ['freight'],     capabilities: ['vet-carrier'], realProviders: ['FMCSA SAFER', 'RMIS', 'Highway'], status: 'stub' },
+  'carrier-vet':     { label: 'Carrier vetting (FMCSA)', verticals: ['freight'],     capabilities: ['vet-carrier'], realProviders: ['FMCSA SAFER', 'RMIS', 'Highway'], status: 'live-ready' },
   'eld-tracking':    { label: 'ELD / shipment tracking', verticals: ['freight'],     capabilities: ['track-shipment'], realProviders: ['Project44', 'FourKites'], status: 'stub' },
 
   // ── cro ──
@@ -158,6 +158,14 @@ const LIVE_ADAPTERS = {
   'sanctions-screen': () => import('./connectors/sanctions.mjs'),
   'rmm': () => import('./connectors/rmm.mjs'),
   'tax-engine': () => import('./connectors/tax-engine.mjs'),
+  'threat-intel': () => import('./connectors/threat-intel.mjs'),
+  'fraud-score': () => import('./connectors/fraud-score.mjs'),
+  'aus': () => import('./connectors/aus.mjs'),
+  'primary-source': () => import('./connectors/primary-source.mjs'),
+  'comms-outreach': () => import('./connectors/comms-outreach.mjs'),
+  'carrier-vet': () => import('./connectors/carrier-vet.mjs'),
+  'um-criteria': () => import('./connectors/um-criteria.mjs'),
+  'sar-filing': () => import('./connectors/sar-filing.mjs'),
 };
 
 /** Does this connector have a real (live) adapter wired? */
@@ -177,7 +185,10 @@ export async function call(connectorId, op, payload = {}, { mode } = {}) {
     try {
       const adapter = await LIVE_ADAPTERS[connectorId]();
       if (!adapter.capabilities.includes(op)) return { ok: false, error: `live ${connectorId} has no op '${op}'` };
-      return await adapter.call(op, payload);
+      const r = await adapter.call(op, payload);
+      // The dispatcher owns `mode` — a result from a live adapter is always mode:'live'
+      // (the adapter's own sub-mode, e.g. 'deterministic'/'delegate', is kept as adapterMode).
+      return { ...r, mode: 'live', connector: connectorId, op, ...(r.mode && r.mode !== 'live' ? { adapterMode: r.mode } : {}) };
     } catch (e) {
       return { ok: false, mode: 'live', connector: connectorId, op, error: `live adapter failed: ${e.message}` };
     }

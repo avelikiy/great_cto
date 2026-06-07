@@ -70,6 +70,14 @@ const DEMO_INPUTS = {
   'e-signature:check-excluded': { docType: 'mutual NDA' },
   'sanctions-screen:screen-party': { name: 'Acme Office Supplies LLC' },
   'tax-engine:compute-return': { income: 85000, filingStatus: 'single', withheld: 12000 },
+  'threat-intel:enrich-ioc': { ioc: '1.1.1.1' },
+  'fraud-score:score-fraud': { amountUsd: 5000, daysSincePolicyStart: 600, priorClaims12mo: 0, lossType: 'collision', hasPoliceReport: true, reportedDelayDays: 1 },
+  'aus:run-aus': { loanAmount: 300000, propertyValue: 400000, monthlyIncome: 9000, monthlyDebts: 500, ficoScore: 740, loanType: 'conventional', occupancy: 'primary' },
+  'primary-source:verify-license': { name: 'Alice Goodprovider', npi: '1234567893' },
+  'comms-outreach:send-outreach': { channel: 'sms', consumerLocalTime: '13:30', priorContacts7d: 2, hasPriorExpressConsent: true },
+  'carrier-vet:vet-carrier': { dotNumber: '123456', authorityStatus: 'active', insuranceOnFile: true, safetyRating: 'Satisfactory' },
+  'um-criteria:check-criteria': { service: '72148', icd10: 'M54.5', priorConservativeTherapyWeeks: 8 },
+  'sar-filing:file-sar': { bsaOfficerApproved: true, subject: { name: 'Test Subject' }, suspiciousActivity: { type: 'structuring', amountUsd: 25000, dateRange: '2026-01' }, filingInstitution: { name: 'Demo Bank' } },
 };
 
 /**

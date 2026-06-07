@@ -60,10 +60,12 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 
 **Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
 controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. **9 live connectors** run on real data and are reused across the autopilots — FHIR, ICD-10 (NLM),
-NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, and a US federal tax engine. They're
-keyless by default (public source or deterministic real generation) and POST to the real provider
-the moment you add credentials.
+carries liability. **17 live connectors run on real data across all 16 verticals** — FHIR, ICD-10
+(NLM), NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, a US federal tax engine, plus
+medical-necessity criteria, claims fraud-scoring, mortgage AUS (DU/LPA), OIG/SAM exclusion screening,
+FMCSA carrier-vetting, Reg-F/TCPA outreach guardrails, IOC threat-intel, and FinCEN SAR generation.
+They're keyless by default (public source or deterministic real generation) and POST to the real
+provider the moment you add credentials.
 
 ## Under the hood (for the CTO who runs it)
 

@@ -23,10 +23,45 @@ test('call: stub is deterministic (same input → same output)', async () => {
   assert.deepEqual(a.data, b.data);
 });
 
-test('hasLiveAdapter: all six verticals have a live connector; ocr is not yet', () => {
+test('hasLiveAdapter: all 17 live connectors are wired; ocr is not yet', () => {
   for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue', 'e-signature', 'bank-feed',
-    'sanctions-screen', 'rmm', 'tax-engine']) assert.equal(hasLiveAdapter(id), true, id);
+    'sanctions-screen', 'rmm', 'tax-engine',
+    'threat-intel', 'fraud-score', 'aus', 'primary-source', 'comms-outreach', 'carrier-vet',
+    'um-criteria', 'sar-filing']) assert.equal(hasLiveAdapter(id), true, id);
   assert.equal(hasLiveAdapter('ocr'), false);
+});
+
+test('dispatcher owns mode: a live-adapter result is always mode:live (keeps adapterMode)', async () => {
+  const r = await call('aus', 'run-aus', { loanAmount: 300000, propertyValue: 400000, monthlyIncome: 9000, monthlyDebts: 500, ficoScore: 740, loanType: 'conventional' }, { mode: 'live' });
+  assert.equal(r.ok, true);
+  assert.equal(r.mode, 'live');
+});
+
+test('Wave-8 adapters: each closes its vertical with a real decision', async () => {
+  // soc — IOC enrich
+  const ti = await import('../../scripts/lib/connectors/threat-intel.mjs');
+  assert.equal((await ti.call('enrich-ioc', { ioc: '1.1.1.1' })).data.verdict, 'clean');
+  // insurance — fraud score escalates a fraudulent claim
+  const fs = await import('../../scripts/lib/connectors/fraud-score.mjs');
+  assert.equal((await fs.call('score-fraud', { amountUsd: 9000, daysSincePolicyStart: 12, priorClaims12mo: 4, lossType: 'theft', hasPoliceReport: false, reportedDelayDays: 20 })).data.refer, true);
+  // mortgage — AUS ineligible on over-DTI
+  const aus = await import('../../scripts/lib/connectors/aus.mjs');
+  assert.match((await aus.call('run-aus', { loanAmount: 392000, propertyValue: 400000, monthlyIncome: 5000, monthlyDebts: 1500, ficoScore: 640, loanType: 'conventional' })).data.recommendation, /Ineligible|Refer/);
+  // collections — Reg F / time-of-day guardrail blocks a 7am call
+  const co = await import('../../scripts/lib/connectors/comms-outreach.mjs');
+  assert.equal((await co.call('send-outreach', { channel: 'call', consumerLocalTime: '07:00', priorContacts7d: 0, hasPriorExpressConsent: true })).data.decision, 'BLOCK');
+  // freight — carrier vetting blocks a revoked/uninsured carrier
+  const cv = await import('../../scripts/lib/connectors/carrier-vet.mjs');
+  assert.equal((await cv.call('vet-carrier', { dotNumber: '9', authorityStatus: 'revoked', insuranceOnFile: false, safetyRating: 'Unsatisfactory' })).data.decision, 'BLOCK');
+  // aml — SAR filing is blocked without the BSA Officer signature
+  const sf = await import('../../scripts/lib/connectors/sar-filing.mjs');
+  assert.equal((await sf.call('file-sar', { bsaOfficerApproved: false })).blocked, true);
+  // prior-auth — never auto-denies; missing criteria escalates to the medical director
+  const um = await import('../../scripts/lib/connectors/um-criteria.mjs');
+  assert.equal((await um.call('check-criteria', { service: '72148', priorConservativeTherapyWeeks: 2 })).data.requiresMdReview, true);
+  // credentialing — OIG/SAM exclusion is a hard block
+  const ps = await import('../../scripts/lib/connectors/primary-source.mjs');
+  assert.equal((await ps.call('verify-license', { name: 'Jane Excluded Smith' })).data.excluded, true);
 });
 
 test('sanctions live adapter: hard-blocks a sanctioned party, clears a benign one', async () => {

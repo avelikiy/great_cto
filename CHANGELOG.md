@@ -4,6 +4,27 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.45.0 — 2026-06-07
+
+### Every vertical goes live — 8 new connectors, 16/16 autopilots run on real data (Wave 8)
+
+Closes the live-connector gap: the 5 zero-live verticals (soc, insurance, mortgage, credentialing,
+collections) each get a real adapter, plus deeper "brains" for prior-auth, aml and freight. Keyless
+by default (deterministic real logic or a curated public slice), POST to the real provider when keyed.
+
+- **threat-intel** (soc) — IOC enrichment: type detection + curated abuse.ch/URLhaus-style bad list + heuristic scoring. VirusTotal/GreyNoise when keyed.
+- **fraud-score** (insurance) — 11 transparent P&C SIU red-flag indicators → score + `refer`.
+- **aus** (mortgage) — DU/LPA-style underwriting: LTV/DTI + codified conventional/FHA/VA thresholds → Approve/Refer/Ineligible.
+- **primary-source** (credentialing) — OIG LEIE / SAM exclusion screen (hard block) + real NPI Luhn check.
+- **comms-outreach** (collections) — FDCPA/Reg F (7-in-7) + TCPA + 8a–9p guardrail: ALLOW/BLOCK each contact. Twilio when keyed.
+- **carrier-vet** (freight) — FMCSA SAFER vetting (authority/insurance/safety + double-broker flags). Live FMCSA QCMobile when keyed.
+- **um-criteria** (prior-auth) — CMS NCD/LCD-style medical-necessity matcher; **never auto-denies** — missing criteria escalates to the medical director.
+- **sar-filing** (aml) — FinCEN SAR (Form 111) generation; **blocked without the BSA Officer signature**. FinCEN BSA E-File when keyed.
+
+Plus a dispatcher fix: `call()` now owns `mode` — any live-adapter result is `mode:'live'` (the
+adapter's sub-mode is kept as `adapterMode`). **17 live connectors total; all 16 verticals exercise
+≥1 live connector** (14 pre-gate; legaltech e-sign + aml SAR fire post-gate by design). 252 lib tests.
+
 ## v2.44.0 — 2026-06-07
 
 ### 10 new service-autopilots — 16 verticals total
