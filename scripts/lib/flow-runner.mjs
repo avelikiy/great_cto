@@ -87,6 +87,8 @@ const DEMO_INPUTS = {
   'hs-classify:classify-hs': { description: 'cotton knit t-shirt' },
   'itgc-test:run-test': { controlType: 'logical-access', evidence: { terminatedUsersWithAccess: 0, sharedAdminAccounts: 0, mfaEnabled: true, accessReviewDate: '2026-05-01' } },
   'meddra-code:code-term': { verbatim: 'bad headache' },
+  'customs-entry:file-entry': { importerOfRecord: 'Demo Importer LLC', hsLines: [{ hsCode: '6109.10.00', value: 12000, qty: 1000, country: 'CN' }] },
+  'safety-report:submit-e2b': { caseId: 'CASE-DEMO-1', patient: { age: 47, sex: 'F' }, drug: { name: 'DemoDrug', indication: 'hypertension' }, reaction: { pt: 'Anaphylactic reaction', soc: 'Immune system disorders', seriousness: 'life-threatening' } },
 };
 
 /**
