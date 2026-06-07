@@ -160,6 +160,44 @@ Wait for CTO reply. If they say "I know what to build" or equivalent → proceed
 
 ---
 
+## Step 0.6: Autopilot vertical detection (business-function framing)
+
+Before generic type detection, check whether the CTO is automating a **known business function** —
+i.e. building one of our **autopilots**. If so, lead with the *flow* (business language), not
+"archetype + pack". This is the positioning surface (see `docs/positioning/vocabulary.md`).
+
+```bash
+PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+DESC=$(echo "$ARGUMENTS" | tr '[:upper:]' '[:lower:]')
+V=""
+echo "$DESC" | grep -qE "medical cod|icd-?10|\bcpt\b|claim|revenue cycle|\brcm\b|837|clearinghouse|denial|payer"      && V=rcm
+echo "$DESC" | grep -qE "contract|\bnda\b|redline|legal doc|attorney|law firm|e-?sign|clause|filing|paralegal"        && V=legaltech
+echo "$DESC" | grep -qE "procurement|source-to-pay|supplier|vendor onboard|purchase order|invoice|accounts payable|three-way" && V=procurement
+echo "$DESC" | grep -qE "bookkeep|accounting|journal entry|general ledger|reconcil|month-end|close the books|asc 606|gaap" && V=accounting
+echo "$DESC" | grep -qE "\bmsp\b|managed it|managed service|rmm|patch management|endpoint|provision access|help ?desk"  && V=msp
+echo "$DESC" | grep -qE "tax return|tax prep|\birs\b|form 1040|e-?file|preparer|1099|deduction"                       && V=tax
+
+if [ -n "$V" ] && [ -f "$PD/flows/${V}.flow.json" ]; then
+  echo "=== Looks like an autopilot: ${V} ==="
+  node -e "(async()=>{const m=await import('$PD/scripts/lib/flow.mjs');const fs=require('fs');console.log(m.renderFlow(JSON.parse(fs.readFileSync('$PD/flows/${V}.flow.json'))))})()" 2>/dev/null
+fi
+```
+
+**If a vertical matched** — present it to the CTO as the headline:
+
+> You're building the **{autopilot name}**. Here's the flow it runs — {N} automated steps and a
+> human checkpoint where a {role} signs the judgment calls. Connectors start as sandbox stubs.
+>
+> Want me to scaffold this autopilot? (the build runs under the hood; you approve the plan + the ship)
+
+Then set `archetype: {vertical}` in PROJECT.md, note `autopilot: {vertical}` and
+`connectors: stub`, and proceed to the normal pipeline (Step 2 onward) — the vertical's compliance
+reviewer + human gate are already wired. **Skip Step 1 type detection** (the vertical IS the type).
+
+**If no vertical matched** → proceed to Step 1 normally (generic software project).
+
+---
+
 ## Step 1: LLM-based Type Detection
 
 Read plugin files for type detection + archetype resolution:
