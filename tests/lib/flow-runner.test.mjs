@@ -23,10 +23,35 @@ test('call: stub is deterministic (same input → same output)', async () => {
   assert.deepEqual(a.data, b.data);
 });
 
-test('hasLiveAdapter: ehr-fhir and code-sets have one, ncci-mue does not', () => {
+test('hasLiveAdapter: ehr-fhir / code-sets / clearinghouse have one, ncci-mue does not', () => {
   assert.equal(hasLiveAdapter('ehr-fhir'), true);
   assert.equal(hasLiveAdapter('code-sets'), true);
+  assert.equal(hasLiveAdapter('clearinghouse'), true);
   assert.equal(hasLiveAdapter('ncci-mue'), false);
+});
+
+test('clearinghouse: build837 produces a structurally valid X12 837P claim', async () => {
+  const { build837 } = await import('../../scripts/lib/connectors/clearinghouse.mjs');
+  const { claim, segments, controlNumber, totalCharge } = build837({ lines: [{ cpt: '99213', charge: '125.00', units: '1', dxPointer: '1' }] });
+  assert.match(claim, /^ISA\*/);                 // interchange header
+  assert.match(claim, /~\nGS\*HC\*/);            // functional group
+  assert.match(claim, /\nST\*837\*/);            // 837 transaction
+  assert.match(claim, /\nCLM\*/);                // claim segment
+  assert.match(claim, /\nHI\*ABK:/);             // principal diagnosis
+  assert.match(claim, /\nSV1\*HC:99213\*/);      // service line w/ CPT
+  assert.match(claim, /\nIEA\*1\*/);             // interchange trailer
+  assert.ok(segments >= 20);
+  assert.equal(totalCharge, '125.00');
+  assert.equal(controlNumber.length, 9);
+});
+
+test('clearinghouse: submit-837 live generates a claim without a real endpoint', async () => {
+  const r = await call('clearinghouse', 'submit-837', {}, { mode: 'live' });
+  assert.equal(r.ok, true);
+  assert.equal(r.mode, 'live');
+  assert.equal(r.submitted, false);
+  assert.match(r.data.claim, /ST\*837\*/);
+  assert.match(r.note, /GREATCTO_CLEARINGHOUSE_URL|clearinghouse/i);
 });
 
 test('call: live mode on a connector WITHOUT a live adapter falls back to stub', async () => {
