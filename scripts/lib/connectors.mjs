@@ -107,6 +107,23 @@ export const CONNECTORS = Object.freeze({
   'ctms':            { label: 'Clinical trial mgmt',     verticals: ['cro'],         capabilities: ['get-protocol', 'log-monitoring'], realProviders: ['Veeva CTMS', 'Oracle'], status: 'stub' },
   'eligibility-match':{ label: 'Trial eligibility matching', verticals: ['cro'],     capabilities: ['match-patient'], realProviders: ['Triomics', 'Deep 6 AI'], status: 'stub' },
   'reg-docs':        { label: 'Regulatory docs / eTMF',  verticals: ['cro'],         capabilities: ['assemble-tmf'], realProviders: ['Veeva Vault', 'Florence'], status: 'stub' },
+
+  // ── customs ──
+  'hs-classify':     { label: 'HS / HTSUS classification', verticals: ['customs'],    capabilities: ['classify-hs'], realProviders: ['CROSS rulings', 'Avalara', 'Descartes'], status: 'stub' },
+  'denied-party':    { label: 'Denied-party / Entity List', verticals: ['customs'],   capabilities: ['screen-party'], realProviders: ['BIS Entity List', 'OFAC', 'CSL'], status: 'stub' },
+  'customs-entry':   { label: 'CBP entry (ACE / ABI)',   verticals: ['customs'],      capabilities: ['file-entry', 'check-status'], realProviders: ['CBP ACE', 'ABI'], status: 'stub' },
+  'duty-calc':       { label: 'Duty / valuation',        verticals: ['customs'],      capabilities: ['compute-duty'], realProviders: ['HTSUS', 'CBP'], status: 'stub' },
+
+  // ── audit ──
+  'control-evidence':{ label: 'Control evidence pull',   verticals: ['audit'],        capabilities: ['pull-evidence'], realProviders: ['Okta', 'Jira', 'ServiceNow', 'GitHub'], status: 'stub' },
+  'itgc-test':       { label: 'ITGC control test',       verticals: ['audit'],        capabilities: ['run-test'], realProviders: ['AuditBoard', 'Workiva'], status: 'stub' },
+  'workpaper':       { label: 'Audit workpaper / opinion', verticals: ['audit'],      capabilities: ['assemble-workpaper'], realProviders: ['Workiva', 'CaseWare'], status: 'stub' },
+
+  // ── pharma ──
+  'icsr-intake':     { label: 'ICSR / case intake',      verticals: ['pharma'],       capabilities: ['intake-case'], realProviders: ['Argus', 'ArisGlobal', 'Veeva Safety'], status: 'stub' },
+  'meddra-code':     { label: 'MedDRA coding',           verticals: ['pharma'],       capabilities: ['code-term'], realProviders: ['MedDRA', 'ArisGlobal'], status: 'stub' },
+  'causality':       { label: 'Causality assessment',    verticals: ['pharma'],       capabilities: ['assess-causality'], realProviders: ['WHO-UMC', 'Naranjo'], status: 'stub' },
+  'safety-report':   { label: 'Safety report (E2B / FAERS)', verticals: ['pharma'],   capabilities: ['submit-e2b'], realProviders: ['FDA FAERS', 'EudraVigilance'], status: 'stub' },
 });
 
 /** Look up a connector spec by id. */

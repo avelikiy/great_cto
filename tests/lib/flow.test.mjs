@@ -26,8 +26,8 @@ const GOOD = {
 
 // ── shipped flow files all validate ──────────────────────────────────────────────
 
-test('there are 16 vertical flow files', () => {
-  assert.equal(flowFiles.length, 16);
+test('there are 19 vertical flow files', () => {
+  assert.equal(flowFiles.length, 19);
 });
 
 for (const f of readdirSync(FLOWS_DIR).filter((x) => x.endsWith('.flow.json'))) {

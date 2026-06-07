@@ -4,6 +4,23 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.47.0 — 2026-06-07
+
+### 3 new verticals (19 total) + browser push to the signer + physical tenant isolation
+
+- **3 new hard-gap verticals** (research-backed US markets), each with its own flow, connectors,
+  compliance reviewer, pack/command/TM, and golden eval set — all Tier-0 wired:
+  - **customs** — Customs clearance ($4.6B); a licensed customs broker signs the entry of record.
+    Reuses live **OFAC/sanctions-screen** for denied-party.
+  - **audit** — SOX ITGC audit ($15–25B); a CPA / engagement partner signs the ICFR opinion.
+  - **pharma** — Pharmacovigilance ($1.65B outsourced); a QPPV / drug-safety physician signs before
+    a safety report is filed. Reuses live **ehr-fhir**.
+- **Browser push to the signer** — the autopilot console has a "🔔 Notify me" button that subscribes
+  the licensed human's browser (VAPID); when a case lands in their queue they get a real push.
+- **Physical multi-tenant isolation** — runs are now stored under `<base>/<tenant>/<id>.json`; a
+  tenant's directory never holds another tenant's runs (logical filtering hardened to physical).
+- 270 lib tests. All 19 verticals pass `--validate` and the durable run → inbox → sign → write loop.
+
 ## v2.46.0 — 2026-06-07
 
 ### Layer D — operated end-to-end autopilot service (durable runs + human-gate inbox)

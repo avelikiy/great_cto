@@ -17,32 +17,43 @@ import { homedir } from 'node:os';
 import { loadFlow, runFlow } from './flow-runner.mjs';
 
 // One shared store so the CLI and the admin board always see the SAME runs, regardless of the cwd
-// each is launched from. Override with GREAT_CTO_RUNS_DIR (tests, or a per-tenant path later).
-function runsDir() { return process.env.GREAT_CTO_RUNS_DIR || join(homedir(), '.great_cto', 'autopilot-runs'); }
-function ensureDir() { const d = runsDir(); if (!existsSync(d)) mkdirSync(d, { recursive: true }); }
-function runPath(id) { return join(runsDir(), `${id}.json`); }
+// each is launched from. Override with GREAT_CTO_RUNS_DIR (tests). Multi-tenant: runs are PHYSICALLY
+// isolated under <base>/<tenant>/<id>.json — one tenant's directory never holds another's runs.
+function baseDir() { return process.env.GREAT_CTO_RUNS_DIR || join(homedir(), '.great_cto', 'autopilot-runs'); }
+function tenantDir(tenant = 'default') { return join(baseDir(), tenant); }
+function ensureDir(tenant = 'default') { const d = tenantDir(tenant); if (!existsSync(d)) mkdirSync(d, { recursive: true }); }
+function runPath(id, tenant = 'default') { return join(tenantDir(tenant), `${id}.json`); }
+function listTenants() { try { return readdirSync(baseDir(), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name); } catch { return []; } }
 function now() { return new Date().toISOString(); }
 function newId(vertical) {
   return `run_${vertical}_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
-/** Persist a run object. */
-function save(run) { ensureDir(); run.updatedAt = now(); writeFileSync(runPath(run.id), JSON.stringify(run, null, 2) + '\n'); return run; }
+/** Persist a run object into its tenant's directory. */
+function save(run) { const t = run.tenant || 'default'; ensureDir(t); run.updatedAt = now(); writeFileSync(runPath(run.id, t), JSON.stringify(run, null, 2) + '\n'); return run; }
 
-/** Load a run by id (or null). */
+/** Load a run by id (or null) — scans every tenant directory. */
 export function getRun(id) {
-  try { return JSON.parse(readFileSync(runPath(id), 'utf8')); } catch { return null; }
+  for (const t of listTenants()) {
+    const p = runPath(id, t);
+    if (existsSync(p)) { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } }
+  }
+  return null;
 }
 
-/** All runs, newest first, optionally filtered by status. */
+/** All runs, newest first, optionally filtered by status. Physically scoped to a tenant's directory. */
 export function listRuns({ status, tenant } = {}) {
-  ensureDir();
-  const dir = runsDir();
-  let runs = readdirSync(dir).filter((f) => f.endsWith('.json'))
-    .map((f) => { try { return JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { return null; } })
-    .filter(Boolean)
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  if (tenant) runs = runs.filter((r) => (r.tenant || 'default') === tenant); // multi-tenant: a tenant sees only its own runs
+  const tenants = tenant ? [tenant] : listTenants();   // a tenant only reads its OWN directory
+  let runs = [];
+  for (const t of tenants) {
+    const dir = tenantDir(t);
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue;
+      try { runs.push(JSON.parse(readFileSync(join(dir, f), 'utf8'))); } catch { /* skip */ }
+    }
+  }
+  runs.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   return status ? runs.filter((r) => r.status === status) : runs;
 }
 

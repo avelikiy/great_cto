@@ -41,6 +41,7 @@
   <h1>🛂 Autopilot console</h1>
   <span class="sub">durable runs · human-gate inbox · the licensed human signs the irreversible action</span>
   <span style="flex:1"></span>
+  <button id="notify-btn" class="back" style="cursor:pointer;border:0" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
   <a class="back" href="/">← board</a>
 </header>
 <main>
@@ -143,6 +144,24 @@ async function decide(id, action) {
 function refresh() { loadInbox(); loadRuns(); }
 refresh();
 setInterval(refresh, 4000);
+
+// ── Browser push: get a notification when a case lands in your queue ──
+(function () {
+  var btn = document.getElementById('notify-btn');
+  if (!btn || !('serviceWorker' in navigator) || !('PushManager' in window)) { if (btn) btn.style.display = 'none'; return; }
+  btn.addEventListener('click', async function () {
+    try {
+      if ((await Notification.requestPermission()) !== 'granted') { btn.textContent = '🔔 blocked'; return; }
+      var reg = await navigator.serviceWorker.register('/sw.js');
+      var pub = (await (await fetch('/api/push/vapid-key')).json()).publicKey;
+      var raw = atob(pub.replace(/-/g, '+').replace(/_/g, '/'));
+      var key = Uint8Array.from(raw, function (c) { return c.charCodeAt(0); });
+      var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub.toJSON()) });
+      btn.textContent = '🔔 on';
+    } catch (e) { btn.textContent = '🔔 error'; }
+  });
+})();
 </script>
 </body>
 </html>
