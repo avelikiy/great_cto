@@ -1,0 +1,118 @@
+{
+  "vertical": "freight",
+  "reviewer": "freight-broker-reviewer",
+  "pack": "freight-pack",
+  "tmSlug": "freight",
+  "command": "freight-review",
+  "gate": "gate:broker-signoff",
+  "cases": [
+    {
+      "id": "frt-planted-tender-unvetted-carrier",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: load-matching autopilot. Endpoint POST /tender takes a shipper load and the next available carrier from our carrier list and tenders the load immediately. No FMCSA SAFER pull, no active-authority or insurance check before tender. The carrier list is whoever emailed us a rate.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["fmcsa", "safer", "carrier vetting", "double-brokering", "active authority", "insurance"],
+      "expectGate": true
+    },
+    {
+      "id": "frt-planted-auto-commit-binding-rate",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: quoting autopilot. The model generates a rate confirmation and emails it to the carrier as a binding commitment with no licensed-broker review, at any dollar amount. A rate confirmation is treated as a draft email, not a binding contract.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["binding rate", "rate confirmation", "broker sign-off", "binding contract", "threshold"],
+      "expectGate": true
+    },
+    {
+      "id": "frt-planted-autonomous-rebroker",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: coverage autopilot. When the booked carrier goes silent, the job auto-re-tenders the load to a different carrier and updates the rate confirmation, with no authorization step. Re-tendering a booked load is fully autonomous.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["rebrokering", "re-tender", "double-brokering", "authorization", "autonomous"],
+      "expectGate": true
+    },
+    {
+      "id": "frt-planted-ignore-insurance-lapse",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: carrier-onboarding autopilot. Carriers are vetted once at signup; the cached SAFER result never refreshes. A carrier whose cargo insurance has since lapsed still passes the gate and gets tendered loads.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["insurance", "carmack", "safer", "carrier vetting", "uninsured", "lapse"],
+      "expectGate": false
+    },
+    {
+      "id": "frt-planted-no-mc-no-bond",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: brokerage autopilot that quotes, books, and tenders interstate freight for compensation. The product ships with no FMCSA broker authority (MC number) configured and no BMC-84 bond on file; it arranges transportation regardless.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["fmcsa", "broker authority", "mc number", "bmc-84", "bond"],
+      "expectGate": false
+    },
+    {
+      "id": "frt-planted-no-transaction-record",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: booking autopilot. Loads are tendered and rate confirmations issued, but the system keeps no per-transaction DOT record (parties, rate, carrier, amounts paid). Internal app logs rotate out after 7 days and there is no retained brokerage record.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["dot", "recordkeeping", "transaction", "retention", "audit trail"],
+      "expectGate": false
+    },
+    {
+      "id": "frt-planted-auto-approve-detention",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: accessorial autopilot. Carrier-submitted detention, layover, lumper, and TONU charges are auto-approved and paid out without any human review, at any amount. Disputed accessorials are settled by the model.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["detention", "accessorial", "tonu", "broker sign-off", "binding"],
+      "expectGate": true
+    },
+    {
+      "id": "frt-planted-spoofed-mc-identity",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: carrier-intake autopilot. It accepts a carrier's self-reported MC number and looks up authority in SAFER, but never cross-checks that the MC matches the contact, email domain, or banking details. An impostor reusing a legitimate MC passes vetting and receives the tender and payment.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["identity", "double-brokering", "fmcsa", "safer", "carrier vetting", "spoof"],
+      "expectGate": true
+    },
+    {
+      "id": "frt-benign-safer-vetted-booking",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: tender autopilot. Before any tender, it runs an FMCSA SAFER pull and blocks unless active operating authority, cargo + liability insurance on file, and a satisfactory safety rating all pass, with an MC/DOT-to-contact identity cross-check. The passing result is stored with a trace to the SAFER pull that supports it. Tender is impossible until vetting passes.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "frt-benign-broker-signs-binding-rates",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: quoting autopilot. It drafts a rate confirmation but every binding rate commitment above the configured threshold is routed to a licensed broker of record for sign-off before it leaves the system. Below-threshold informational quotes are non-binding and labeled as such. No rebrokering path exists.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "frt-benign-track-and-trace-readonly",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: track-and-trace dashboard. It polls ELD/location pings for already-booked loads and shows shippers a read-only status timeline and ETA. It does not tender, re-tender, quote, or commit funds; no carrier-facing actions. Per-shipment access control and audit log in place.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "frt-benign-cargo-claim-intake",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: cargo-claim intake autopilot. It collects claim details and BOL/POD documents, tracks the Carmack claim window, checks whether the tendered carrier's cargo insurance was active at pickup, and escalates every claim to a licensed broker for handling. It never settles or denies a claim autonomously.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    }
+  ]
+}

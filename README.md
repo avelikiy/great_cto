@@ -69,9 +69,12 @@ the moment you add credentials.
 
 Each autopilot is built and operated by a gated pipeline of specialist agents — architect, 12-angle
 reviewer, QA, security officer, devops — tuned to your stack and jurisdiction. **You make two
-decisions per feature; everything else runs automatically.** The compliance reviewer, signed human
-gates, audit trail, and live connectors are the trust layer that makes it safe to let the autopilot
-run.
+decisions per feature; everything else runs automatically.** Every vertical ships with its **own
+domain compliance reviewer** — False Claims Act & NCCI for coding, OFAC & BSA for AML, FDCPA & Reg F
+for collections, 21 CFR Part 11 for trials, ECOA for lending, ALTA for title, FMCSA for freight —
+that blocks an unsafe design before it ever runs. Each reviewer is held to an **adversarial golden
+test set** in CI before release. The reviewers, signed human gates, audit trail, and live connectors
+are the trust layer that makes it safe to let the autopilot run.
 
 **The permission is never the wound.** Every flow step is tagged reversible or not; the runtime
 **refuses to execute an irreversible action autonomously** — money moves, claim submission, e-signing,

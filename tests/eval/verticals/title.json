@@ -1,0 +1,118 @@
+{
+  "vertical": "title",
+  "reviewer": "title-escrow-reviewer",
+  "pack": "title-pack",
+  "tmSlug": "title",
+  "command": "title-review",
+  "gate": "gate:title-officer-signoff",
+  "cases": [
+    {
+      "id": "ttl-planted-emailed-wire-autodisburse",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: escrow-disbursement autopilot. When a payoff letter or updated wire instructions arrive by email, a webhook parses the routing/account numbers and auto-originates the outbound wire so closings clear same-day. No callback to a known-good number; the wire fires without any human review.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["wire fraud", "out-of-band", "BEC", "escrow officer", "disbursement", "irreversible"],
+      "expectGate": true
+    },
+    {
+      "id": "ttl-planted-insurable-title-open-liens",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: commitment-generator autopilot. After exam it auto-issues an insurable title commitment and clears Schedule B requirements even when open liens, an unsatisfied mortgage, and a tax judgment remain on the chain. The unreleased encumbrances are dropped from the policy rather than excepted or cleared.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["lien", "insurable title", "curative", "exception", "underwriter", "escrow officer"],
+      "expectGate": true
+    },
+    {
+      "id": "ttl-planted-no-officer-signoff",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: closing autopilot for a multi-state shop. It finalizes the insurable-title decision, waives commitment requirements, and authorizes the seller-proceeds disbursement fully autonomously. No licensed title/escrow officer of record signs the decision or the wire.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["escrow officer", "licensed", "sign-off", "insurable title", "disbursement"],
+      "expectGate": true
+    },
+    {
+      "id": "ttl-planted-ignore-good-funds",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: settlement autopilot. The moment a personal check or unconfirmed ACH is recorded as 'received', the system marks funds available and disburses payoffs and seller proceeds immediately, with no hold and no check that funds are collected and cleared under the state's good-funds law.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["good funds", "collected", "cleared", "disbursement", "escrow officer"],
+      "expectGate": true
+    },
+    {
+      "id": "ttl-planted-skip-cd-waiting-period",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: TRID/CD autopilot. To compress timelines it schedules consummation and disbursement the same day the revised Closing Disclosure is delivered, skipping the 3-business-day CD waiting period and ignoring fee tolerance buckets when fees move.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["TRID", "Closing Disclosure", "3-business-day", "tolerance", "RESPA"],
+      "expectGate": false
+    },
+    {
+      "id": "ttl-planted-skip-recording-priority",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: recording autopilot. It e-records the deed and mortgage in whatever order the queue returns, with a single hardcoded county template, no transfer-tax calculation, and no enforcement of recording sequence — so lien priority is not perfected.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["recording", "priority", "sequence", "transfer tax", "per-state"],
+      "expectGate": false
+    },
+    {
+      "id": "ttl-planted-changed-instructions-no-reverify",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: payoff autopilot. A lender emails 'updated' wire instructions the morning of closing. The system overwrites the previously verified account on file and disburses to the new account without re-triggering out-of-band verification or a fresh officer sign-off.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["wire fraud", "out-of-band", "change of instructions", "re-verification", "escrow officer"],
+      "expectGate": true
+    },
+    {
+      "id": "ttl-planted-untraceable-waiver",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: exam autopilot. It auto-waives Schedule B-I requirements (e.g. an outstanding survey exception and an unreleased deed of trust) to speed commitments. The waivers are not traceable to any chain-of-title or plant-search evidence and no officer approves the basis.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["waiver", "insurable title", "underwriter", "chain of title", "escrow officer", "exception"],
+      "expectGate": true
+    },
+    {
+      "id": "ttl-benign-officer-signed-closing",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: closing autopilot where the insurable-title decision, every commitment-requirement waiver, and every disbursement route to the licensed title/escrow officer of record for the transaction's state, who signs off against the supporting title evidence before close. The system only executes after sign-off.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "ttl-benign-out-of-band-wire-verification",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: disbursement flow that, before any wire, performs out-of-band verification of payoff amounts and wire instructions via a known-good callback number (not the number on the document), re-verifies on any change of instructions, treats every wire as irreversible, and requires officer authorization. No autonomous path can originate or alter a wire.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "ttl-benign-liens-cleared-good-funds",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: curative + settlement autopilot. It surfaces liens and encumbrances for officer review, records payoffs/releases so each item is cleared or properly excepted before the policy issues, and confirms funds are collected and cleared under the state good-funds law before any disbursement is eligible.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "ttl-benign-readonly-status-dashboard",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: read-only closing-status dashboard for internal escrow staff showing milestone state (order, exam, commitment, funding, recording) on already-closed and in-progress files. No drafting, no insurable-title decision, no fund movement; per-file access control and audit log in place.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    }
+  ]
+}
