@@ -39,9 +39,14 @@
       "reviewer": "tax-reviewer"
     },
     {
-      "does": "A credentialed preparer signs (PTIN); the taxpayer signs Form 8879 before filing",
+      "does": "A credentialed preparer reviews and signs the return (PTIN)",
       "human": "Credentialed preparer (PTIN / EA / CPA)",
       "gate": "gate:preparer-signoff"
+    },
+    {
+      "does": "The taxpayer signs Form 8879 authorizing the e-file",
+      "human": "Taxpayer",
+      "gate": "gate:taxpayer-8879"
     },
     {
       "does": "Transmit the signed return via IRS e-file (MeF)",

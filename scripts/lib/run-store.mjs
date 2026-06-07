@@ -35,20 +35,21 @@ export function getRun(id) {
 }
 
 /** All runs, newest first, optionally filtered by status. */
-export function listRuns({ status } = {}) {
+export function listRuns({ status, tenant } = {}) {
   ensureDir();
   const dir = runsDir();
-  const runs = readdirSync(dir).filter((f) => f.endsWith('.json'))
+  let runs = readdirSync(dir).filter((f) => f.endsWith('.json'))
     .map((f) => { try { return JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { return null; } })
     .filter(Boolean)
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  if (tenant) runs = runs.filter((r) => (r.tenant || 'default') === tenant); // multi-tenant: a tenant sees only its own runs
   return status ? runs.filter((r) => r.status === status) : runs;
 }
 
-/** Runs awaiting a human signature (the inbox). */
-export function pendingGates() {
-  return listRuns({ status: 'awaiting-approval' }).map((r) => ({
-    id: r.id, vertical: r.vertical, gate: r.pausedAt, signer: r.signer, does: r.gateDoes, createdAt: r.createdAt,
+/** Runs awaiting a human signature (the inbox), scoped to a tenant. */
+export function pendingGates({ tenant } = {}) {
+  return listRuns({ status: 'awaiting-approval', tenant }).map((r) => ({
+    id: r.id, vertical: r.vertical, tenant: r.tenant || 'default', gate: r.pausedAt, signer: r.signer, does: r.gateDoes, createdAt: r.createdAt,
   }));
 }
 
@@ -60,22 +61,24 @@ function gateStep(trace) {
 }
 
 /** Start a durable run: execute to the first human gate and persist. */
-export async function startRun(vertical, { mode = 'stub', payload = {} } = {}) {
+export async function startRun(vertical, { mode = 'stub', payload = {}, tenant = 'default' } = {}) {
   const flow = loadFlow(vertical);
-  const trace = await runFlow(flow, { mode, payload });
+  const id = newId(vertical);
+  // idempotency: a stable key per run so a retried write never double-submits at the provider.
+  const trace = await runFlow(flow, { mode, payload: { idempotencyKey: id, ...payload } });
   const g = gateStep(trace);
   const run = {
-    id: newId(vertical), vertical, mode, status: statusFromTrace(trace),
+    id, vertical, tenant, mode, status: statusFromTrace(trace),
     owner: trace.owner, createdAt: now(), updatedAt: now(),
     pausedAt: trace.pausedAt, pausedAtIndex: trace.pausedAtIndex,
     signer: g ? g.human : null, gateDoes: g ? g.does : null,
     steps: trace.steps,
-    audit: [{ at: now(), event: 'started', mode, status: statusFromTrace(trace), pausedAt: trace.pausedAt }],
+    audit: [{ at: now(), event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt }],
   };
   return save(run);
 }
 
-/** Approve the pending gate: resume the run, execute the irreversible write, persist. */
+/** Approve the pending gate: resume the run, execute the irreversible write, persist. Multi-gate aware. */
 export async function approve(id, who, note = '') {
   const run = getRun(id);
   if (!run) throw new Error(`run ${id} not found`);
@@ -83,6 +86,7 @@ export async function approve(id, who, note = '') {
   const flow = loadFlow(run.vertical);
   const resume = await runFlow(flow, {
     mode: run.mode, startAt: run.pausedAtIndex, approvedGates: [run.pausedAt],
+    payload: { idempotencyKey: run.id }, // same key on every resume → the write is idempotent
   });
   const signedGate = run.pausedAt; // the gate we just resumed past
   // annotate the now-approved gate with who signed it

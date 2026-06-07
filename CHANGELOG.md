@@ -23,7 +23,16 @@ then **resumes and executes the irreversible action** (the write). Built on `rcm
 - **Admin console** (`packages/board`) — additive endpoints `/api/autopilot/{runs,start,approve,reject}`
   + an **Autopilot inbox** page (`/autopilot.html`) to sign gates, with an "Autopilot" board nav link.
 - Demonstrated on rcm live: intake → code → NCCI (3 live connectors) → **pause** → coder signs in the
-  inbox → **837 claim submitted** (the write) → completed. Reject path submits nothing. 258 lib tests.
+  inbox → **837 claim submitted** (the write) → completed. Reject path submits nothing.
+- **CLI ↔ board sync** — one shared store (`~/.great_cto/autopilot-runs`) so a run started in either
+  tool shows in the other's inbox; approve/reject from either is reflected. Verified bidirectionally.
+- **Multi-gate flows** — a flow can require several signatures in sequence. `tax` now needs two:
+  the preparer signs (PTIN), then the taxpayer signs Form 8879 — the IRS e-file fires only after both.
+- **Push to the signer** — the board pushes "🛂 new case awaiting your signature" when a gate opens
+  (start, or the next gate of a multi-gate flow), reusing the existing web-push adapter (deduped).
+- **Hardening** — multi-tenant scoping (`tenant` on a run; the inbox shows only that tenant's queue)
+  + an **idempotency key** (stable per run) threaded into the write so a retry never double-submits.
+- 261 lib tests.
 
 ## v2.45.0 — 2026-06-07
 
