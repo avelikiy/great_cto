@@ -36,6 +36,8 @@ function defaultOp(connectorId) {
 const DEMO_INPUTS = {
   'code-sets:lookup-code': { q: 'type 2 diabetes' },
   'code-sets:validate-code': { code: 'E11.9' },
+  'ncci-mue:check-ptp': { code1: '99213', code2: '36415' },
+  'ncci-mue:check-mue': { code: '99213', units: 1 },
 };
 
 /**
