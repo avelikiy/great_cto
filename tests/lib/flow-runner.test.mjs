@@ -23,11 +23,23 @@ test('call: stub is deterministic (same input → same output)', async () => {
   assert.deepEqual(a.data, b.data);
 });
 
-test('hasLiveAdapter: ehr-fhir / code-sets / clearinghouse have one, ncci-mue does not', () => {
-  assert.equal(hasLiveAdapter('ehr-fhir'), true);
-  assert.equal(hasLiveAdapter('code-sets'), true);
-  assert.equal(hasLiveAdapter('clearinghouse'), true);
-  assert.equal(hasLiveAdapter('ncci-mue'), false);
+test('hasLiveAdapter: rcm connectors are live-ready; ocr is not yet', () => {
+  for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue']) assert.equal(hasLiveAdapter(id), true, id);
+  assert.equal(hasLiveAdapter('ocr'), false);
+});
+
+test('ncci live adapter: detects unbundling, modifier edits, and MUE excess', async () => {
+  const m = await import('../../scripts/lib/connectors/ncci.mjs');
+  const bundled = await m.call('check-ptp', { code1: '80053', code2: '80048' });
+  assert.equal(bundled.data.edit, true);
+  assert.equal(bundled.data.modifierIndicator, 0);
+  const mod = await m.call('check-ptp', { code1: '99213', code2: '36415' });
+  assert.equal(mod.data.allowedWithModifier, true);
+  const clean = await m.call('check-ptp', { code1: '99213', code2: '99214' });
+  assert.equal(clean.data.edit, false);
+  const mue = await m.call('check-mue', { code: '99213', units: 3 });
+  assert.equal(mue.data.exceeds, true);
+  assert.equal(mue.data.mue, 1);
 });
 
 test('clearinghouse: build837 produces a structurally valid X12 837P claim', async () => {
@@ -55,7 +67,7 @@ test('clearinghouse: submit-837 live generates a claim without a real endpoint',
 });
 
 test('call: live mode on a connector WITHOUT a live adapter falls back to stub', async () => {
-  const r = await call('ncci-mue', 'check-ptp', {}, { mode: 'live' });
+  const r = await call('ocr', 'extract-text', {}, { mode: 'live' });
   assert.equal(r.mode, 'stub');
   assert.match(r.note, /no live adapter/);
 });
