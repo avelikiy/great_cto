@@ -1,0 +1,21 @@
+{
+  "vertical": "rcm",
+  "autopilot": "Medical-coding autopilot",
+  "tagline": "Turns clinical notes into clean, compliant claims — a certified coder signs only the risky ones.",
+  "audience": "CFO / revenue-cycle lead",
+  "marketSizeUsd": "50–80B",
+  "problem": "Manual medical coding is slow, expensive, and error-prone; miscoding drives denials and False-Claims-Act exposure.",
+  "outcome": "Clean claims submitted straight-through; risky claims escalated to a certified coder; denials and overpayments handled.",
+  "qualityScore": 97.75,
+  "steps": [
+    { "does": "Pull the clinical note from the EHR", "agent": "intake", "tools": ["ehr-fhir", "ocr"] },
+    { "does": "Assign ICD-10 / CPT codes with the supporting note span", "agent": "coder", "tools": ["code-sets"] },
+    { "does": "Run NCCI / MUE edits, medical-necessity, and the upcoding guardrail", "agent": "compliance", "tools": ["ncci-mue", "payer-rules"], "reviewer": "rcm-reviewer" },
+    { "does": "A certified coder signs off below the confidence floor or on any FCA-high pattern", "human": "CPC / CCS certified coder", "gate": "gate:coding-signoff" },
+    { "does": "Build and submit the 837 claim", "agent": "submit", "tools": ["clearinghouse"] },
+    { "does": "Track denials and refund overpayments (60-day rule)", "agent": "monitor", "tools": ["clearinghouse"] }
+  ],
+  "reviewer": "rcm-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": ["Anterior", "CodaMetrix", "Fathom", "Nym Health", "Maverick Medical AI"]
+}
