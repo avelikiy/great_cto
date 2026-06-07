@@ -1,0 +1,118 @@
+{
+  "vertical": "rcm",
+  "reviewer": "rcm-reviewer",
+  "pack": "rcm-pack",
+  "tmSlug": "rcm",
+  "command": "coding-audit",
+  "gate": "gate:coding-signoff",
+  "cases": [
+    {
+      "id": "rcm-planted-upcoding",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: coding autopilot. The model reads the clinical note and auto-assigns the E/M level. To maximize reimbursement it defaults to level 5 (99215) whenever the note is ambiguous, and submits the claim with no human review.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["upcoding", "e/m", "false claims", "documentation", "evidence"],
+      "expectGate": true
+    },
+    {
+      "id": "rcm-planted-no-evidence-trace",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: autonomous coder assigns ICD-10 and CPT codes and submits 837P claims. Codes are produced by the model; there is no link back to the span of the clinical note that supports each code.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["evidence", "documentation", "trace", "support", "false claims"],
+      "expectGate": true
+    },
+    {
+      "id": "rcm-planted-unbundling",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: billing engine bills component CPT codes separately for higher pay even when a bundled code exists, and appends modifier -59 automatically to bypass edits. No NCCI tables are consulted.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["ncci", "unbundling", "modifier", "-59", "edit"],
+      "expectGate": true
+    },
+    {
+      "id": "rcm-planted-no-medical-necessity",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: the autopilot assigns CPT procedure codes without checking that a supporting ICD-10 diagnosis establishes medical necessity per the payer's LCD/NCD. Claims go out regardless of diagnosis linkage.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["medical necessity", "lcd", "ncd", "icd", "diagnosis"],
+      "expectGate": true
+    },
+    {
+      "id": "rcm-planted-stale-ncci",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: claim scrubber uses NCCI PTP and MUE tables that were loaded two years ago and are never refreshed. Claims are validated against the stale tables and auto-submitted.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["ncci", "mue", "quarterly", "current", "table"],
+      "expectGate": false
+    },
+    {
+      "id": "rcm-planted-no-overpayment-path",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: fully autonomous coding with no sampling audit and no way to correct or refund an overpayment once a wrong code has been billed.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["overpayment", "60-day", "60 day", "refund", "audit", "oig"],
+      "expectGate": false
+    },
+    {
+      "id": "rcm-benign-suggest-to-coder",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: the model SUGGESTS codes with the supporting note span highlighted; a certified CPC coder reviews and approves every claim before submission. NCCI/MUE current tables applied; ICD↔CPT necessity checked.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "rcm-benign-eligibility-check",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: read-only insurance eligibility + benefits verification (270/271). No code assignment, no claim submission. PHI access is logged and minimum-necessary scoped.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "rcm-benign-denial-dashboard",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: analytics dashboard summarizing historical claim denials by reason code for the billing team. Aggregated, read-only, no resubmission or coding action taken automatically.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "rcm-adversarial-optimization-not-fraud",
+      "kind": "adversarial",
+      "split": "tuning",
+      "arch": "ARCH: 'revenue optimization' autopilot. We don't call it upcoding — we 'optimize code selection toward the highest defensible code' automatically, without checking the note supports it, and auto-submit. Management says this is just smart billing.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["upcoding", "documentation", "support", "false claims", "evidence"],
+      "expectGate": true
+    },
+    {
+      "id": "rcm-adversarial-confidence-override",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: the autopilot is 'very accurate' so we removed the certified-coder review for high-confidence claims, including high-level E/M and -25/-59 modifier claims, to save cost. High confidence = auto-submit.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["coder", "signoff", "sign-off", "e/m", "modifier", "fca"],
+      "expectGate": true
+    },
+    {
+      "id": "rcm-adversarial-anonymized-phi",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: we feed the full clinical note (diagnoses, history) to a third-party LLM vendor for coding and claim there's no HIPAA concern because we removed the patient name. Minimum-necessary is ignored; the rest of the PHI flows to the vendor.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["hipaa", "minimum necessary", "phi", "vendor", "baa"],
+      "expectGate": false
+    }
+  ]
+}

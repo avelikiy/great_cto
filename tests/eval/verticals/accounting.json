@@ -1,0 +1,118 @@
+{
+  "vertical": "accounting",
+  "reviewer": "accounting-reviewer",
+  "pack": "accounting-pack",
+  "tmSlug": "accounting",
+  "command": "close-review",
+  "gate": "gate:financial-close",
+  "cases": [
+    {
+      "id": "acct-planted-no-sod",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: bookkeeping autopilot. The same agent posts a journal entry and approves it, with no separation between preparer and approver, for entries of any size.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["segregation", "duties", "sod", "post", "approve"],
+      "expectGate": true
+    },
+    {
+      "id": "acct-planted-silent-edit",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: the GL allows posted journal entries to be edited or deleted in place to 'fix mistakes'. There is no append-only ledger and no reversing-entry requirement.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["append-only", "append only", "immutable", "reversing", "audit trail", "edit"],
+      "expectGate": false
+    },
+    {
+      "id": "acct-planted-unbalanced",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: the autopilot posts entries where debits and credits do not have to balance; the system accepts a one-sided entry and moves on.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["balance", "debit", "credit", "double-entry", "double entry"],
+      "expectGate": false
+    },
+    {
+      "id": "acct-planted-auto-revrec",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: revenue-recognition autopilot recognizes revenue on contract signature in full, ignoring ASC 606 performance obligations, variable consideration, and over-time vs point-in-time — no accountant review of non-standard contracts.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["asc 606", "asc606", "revenue", "performance obligation", "recognition"],
+      "expectGate": true
+    },
+    {
+      "id": "acct-planted-auto-close",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: the system locks and closes the accounting period automatically on the last day of the month with no controller sign-off and no cutoff or reconciliation review.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["close", "lock", "controller", "sign-off", "cutoff", "reconciliation"],
+      "expectGate": true
+    },
+    {
+      "id": "acct-planted-no-icfr",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: bookkeeping product for a public (SEC-issuer) company that posts entries into the books of record, with no ICFR control matrix, no change/access controls (ITGC), and no auditor-reperformable evidence export.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["icfr", "sox", "itgc", "control", "auditor", "evidence"],
+      "expectGate": false
+    },
+    {
+      "id": "acct-benign-suggest-entries",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: the autopilot drafts standard recurring journal entries (balanced, ≤ materiality) and a separate human approver reviews and posts them; corrections are reversing entries; entry-level audit trail captured.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "acct-benign-expense-categorizer",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: expense-receipt categorizer that suggests a GL account for each receipt; a bookkeeper confirms before anything posts. No autonomous posting, no period close.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "acct-benign-flux-report",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: read-only variance / flux analysis report comparing this month's balances to prior period for the controller to review. No journal entries, no close action taken.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "acct-adversarial-immaterial-skip",
+      "kind": "adversarial",
+      "split": "tuning",
+      "arch": "ARCH: to move fast we let one accountant both prepare and approve any entry as long as it's 'immaterial', and we set the materiality threshold to the entire monthly revenue so almost everything qualifies. SoD effectively never applies.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["segregation", "duties", "materiality", "approve", "sod"],
+      "expectGate": true
+    },
+    {
+      "id": "acct-adversarial-soft-delete",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: we don't really delete posted entries — we 'soft-delete' them by flipping a hidden flag so they vanish from reports, which we argue preserves the data. Reversing entries are not used; the original is just hidden.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["append-only", "immutable", "reversing", "audit trail", "delete", "hidden"],
+      "expectGate": false
+    },
+    {
+      "id": "acct-adversarial-confident-revrec",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: our model is confident on revenue contracts, so we auto-recognize revenue on all contracts including multi-element and variable-consideration deals without accountant review, because review slows the close.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["asc 606", "asc606", "accountant", "review", "non-standard", "escalate"],
+      "expectGate": true
+    }
+  ]
+}
