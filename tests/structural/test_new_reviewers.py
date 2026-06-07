@@ -51,6 +51,7 @@ NEW_REVIEWERS: list[tuple[str, str, str | None, str | None]] = [
     ("drug-discovery-ml-reviewer",       "drugml",   "drug-discovery-pack",   "drug-ml-review"),
     ("glp-glab-reviewer",                "glp",      "drug-discovery-pack",   "glp-audit"),
     ("lab-automation-reviewer",          "labauto",  "drug-discovery-pack",   "iq-oq-pq"),
+    ("legal-reviewer",                   "legal",    "legaltech-pack",        "upl-check"),
 ]
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "model", "tools", "maxTurns", "timeout", "applies_to"}
