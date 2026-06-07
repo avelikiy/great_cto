@@ -101,11 +101,15 @@ test('renderFlow: resolves connector ids to labels', () => {
 
 // ── connectors ──────────────────────────────────────────────────────────────────
 
-test('connectors: every catalog entry is a stub for now', () => {
+test('connectors: every catalog entry is stub or live-ready with capabilities', () => {
   for (const [id, spec] of Object.entries(CONNECTORS)) {
-    assert.equal(spec.status, 'stub', `${id} should be stub`);
+    assert.ok(['stub', 'live-ready'].includes(spec.status), `${id} status should be stub|live-ready`);
     assert.ok(spec.capabilities.length > 0, `${id} needs capabilities`);
   }
+});
+
+test('connectors: ehr-fhir is the first live-ready connector', () => {
+  assert.equal(CONNECTORS['ehr-fhir'].status, 'live-ready');
 });
 
 test('flowConnectors: dedupes across steps', () => {
