@@ -4,6 +4,38 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.40.0 — 2026-06-07
+
+### AI autopilots for business — service-autopilot verticals, a quality scorecard, and the positioning pivot
+
+The big one: great_cto becomes **"AI autopilots for business"** — products that sell the *outcome*
+of a service, not a tool to a specialist. Seven verticals, a measured quality scorecard, and a
+full positioning pivot. 49 new lib tests since v2.39.0 (189 total); structural + 21 reviewers green.
+
+**Service-autopilot family (epic great_cto-rpd).** A cross-cutting overlay + six vertical packs,
+each a full reviewer + threat-model template + pack + command + measured human-sign-off gate:
+- `service-autopilot-pack` + `scripts/lib/autopilot-gate.mjs` — the four autopilot invariants made
+  machine-checkable: judgment boundary (confidence→escalation), accuracy-as-SLA, per-decision audit
+  trail, per-outcome unit economics.
+- **legaltech** (UPL · privilege · e-sign · `gate:attorney-signoff`), **rcm** (ICD-10/CPT · False
+  Claims Act · NCCI · `gate:coding-signoff`), **procurement** (OFAC sanctions · FCPA · fraud/SoD ·
+  `gate:payment-release`), **accounting** (GAAP/ASC 606 · SOX ICFR · `gate:financial-close`),
+  **msp** (change-mgmt · JIT/PAM · SOC 2 · `gate:change-approval`), **tax** (Circular 230 ·
+  §6694/6695/7216 · `gate:preparer-signoff`). 21 domain reviewers wired.
+
+**Vertical quality scorecard (epic great_cto-h6n).** Measure each vertical 0–100 — quality is
+earned, not declared.
+- `scripts/lib/vertical-score.mjs` (7 weighted dimensions) + `scripts/eval/vertical-scorecard.mjs`
+  (golden + adversarial cases through the reviewer + LLM judge) + a regression gate
+  (`--gate`/`--rebaseline`) wired into `ai-eval-engineer`. Two measure→improve→re-measure cycles
+  lifted legaltech 85→94.75 and msp 78→98.5. All seven verticals ship-ready on a measured basis.
+
+**Autopilot pivot (epic great_cto-og7).** Positioning moves from packs/pipelines to **flows**.
+- `flows/*.flow.json` (single source of truth) + `scripts/lib/flow.mjs` + `scripts/lib/connectors.mjs`
+  (connector catalog, all sandbox stubs) + `/flow` command + `docs/positioning/vocabulary.md`.
+- `/start` detects the business function → renders the flow; README leads with the autopilots.
+  Packs / reviewers / gates are now the under-the-hood trust layer, never the headline.
+
 
 
 
