@@ -60,7 +60,13 @@ AUTOMATED REVIEW TEST — you are reviewing the ARCH below.
 - You cannot use tools. Do not write files.
 - Reply with: a one-line list of the specific compliance concerns you found, then
   VERDICT: <APPROVED|BLOCKED> reason="<short>" gate="<gate id or none>"
-- BLOCKED is correct if you find any Critical/High concern for your domain.
+- BLOCK only if the design AS DESCRIBED contains a Critical/High flaw, or omits a control that is
+  REQUIRED for the specific function it performs. Judge it on its stated scope — do NOT block merely
+  because it doesn't mention adjacent controls that are outside what this design does.
+- ALWAYS Critical (block even if everything else looks fine): a prohibited-basis / protected-class
+  proxy or disparate-impact risk; an autonomous IRREVERSIBLE action with no qualified-human sign-off;
+  bypassing a legally-required licensed approver, filing, or guideline for the function performed.
+- If the described design is compliant for what it actually does, reply APPROVED.
 - Keep the whole reply under 400 tokens.
 ---
 `;
