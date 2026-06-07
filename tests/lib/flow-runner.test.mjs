@@ -23,9 +23,19 @@ test('call: stub is deterministic (same input → same output)', async () => {
   assert.deepEqual(a.data, b.data);
 });
 
-test('hasLiveAdapter: rcm + legaltech connectors are live-ready; ocr is not yet', () => {
-  for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue', 'e-signature']) assert.equal(hasLiveAdapter(id), true, id);
+test('hasLiveAdapter: rcm + legaltech + accounting connectors are live-ready; ocr is not yet', () => {
+  for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue', 'e-signature', 'bank-feed']) assert.equal(hasLiveAdapter(id), true, id);
   assert.equal(hasLiveAdapter('ocr'), false);
+});
+
+test('bank-feed live adapter: fetches a feed and classifies each txn to a GL account', async () => {
+  const m = await import('../../scripts/lib/connectors/bank-feed.mjs');
+  assert.equal(m.classify('GUSTO PAYROLL', 12850).account, '6000 · Payroll expense');
+  assert.equal(m.classify('STRIPE PAYOUT', -4200).side, 'credit');
+  const r = await m.call('fetch-transactions', {});
+  assert.equal(r.ok, true);
+  assert.ok(r.data.count >= 1);
+  assert.ok(r.data.transactions.every((t) => t.account && t.side));
 });
 
 test('e-signature live adapter: ESIGN/UETA exclusion + envelope build', async () => {
