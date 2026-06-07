@@ -23,9 +23,24 @@ test('call: stub is deterministic (same input → same output)', async () => {
   assert.deepEqual(a.data, b.data);
 });
 
-test('hasLiveAdapter: rcm connectors are live-ready; ocr is not yet', () => {
-  for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue']) assert.equal(hasLiveAdapter(id), true, id);
+test('hasLiveAdapter: rcm + legaltech connectors are live-ready; ocr is not yet', () => {
+  for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue', 'e-signature']) assert.equal(hasLiveAdapter(id), true, id);
   assert.equal(hasLiveAdapter('ocr'), false);
+});
+
+test('e-signature live adapter: ESIGN/UETA exclusion + envelope build', async () => {
+  const m = await import('../../scripts/lib/connectors/e-signature.mjs');
+  assert.equal(m.checkExcluded('Last Will and Testament').excluded, true);
+  assert.equal(m.checkExcluded('mutual NDA').excluded, false);
+  // refuses to e-sign an excluded document
+  const will = await m.call('send-for-signature', { docType: 'will' });
+  assert.equal(will.ok, false);
+  assert.equal(will.blocked, true);
+  // prepares a real DocuSign envelope for a permitted document
+  const nda = await m.call('send-for-signature', { docType: 'mutual NDA' });
+  assert.equal(nda.ok, true);
+  assert.match(nda.data.envelope.emailSubject, /mutual NDA/);
+  assert.ok(nda.data.envelope.recipients.signers.length >= 1);
 });
 
 test('ncci live adapter: detects unbundling, modifier edits, and MUE excess', async () => {
