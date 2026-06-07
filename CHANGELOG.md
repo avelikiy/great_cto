@@ -4,6 +4,32 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.49.0 — 2026-06-07
+
+### Rethink the CLI + admin board around the autopilot model (Build ⇄ Operate)
+
+Implements `docs/plans/PLAN-cli-board-autopilot-rethink.md`. The product has two modes — **Build** an
+autopilot (the gated engineering pipeline) and **Operate** one (the runtime where a licensed human
+signs the risky call) — and the operator surfaces now make that explicit.
+
+**CLI**
+- **`/autopilot`** — first-class Operate command (`start | inbox | runs | show | approve | reject`),
+  previously only `node scripts/autopilot.mjs`. Shares the run store with the admin board.
+- **`/flow`** — dropped stale "stubs today / measured score" copy; added a "▶ run it: `/autopilot
+  start <vertical>`" footer so inspect → operate is one hop.
+- **`/help`** — regrouped around the two modes: Operate · Build · Compliance reviewers · Daily · Admin.
+- Removed the broken `commands/s-classify.md`.
+
+**Admin board**
+- **Operate ⇄ Build mode switch** in both headers (the dev board topbar gains a "🛂 Operate ↗" link);
+  the autopilot console is now the operator's primary surface, not a bolt-on page.
+- **Console = a real compliance work-queue**: filter by tenant / vertical / status · per-vertical
+  icons + signer role on each card · ⏱ time-in-queue SLA pill (warn >1h, breach >4h) · multi-gate
+  "✍️ N of M signatures" progress · tenant badge · oldest-waiting-first ordering · all 19 verticals
+  in the start picker · 🔔 push subscribe in the header.
+
+272 lib tests.
+
 ## v2.48.0 — 2026-06-07
 
 ### Live connectors for customs / audit / pharma (22 live total) + CLI/board rethink plan
