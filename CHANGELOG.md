@@ -4,6 +4,29 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.41.0 — 2026-06-07
+
+### Autopilots execute the flow — connector runtime + two live connectors (Phase 4)
+
+The service-autopilot verticals (shipped in v2.40.0) stop *describing* a flow and start
+**executing** it, with the first **live connectors** reading real data — no API keys.
+
+- **Connector runtime** (`scripts/lib/connectors.mjs`) — a `call()` dispatcher with **stub | live**
+  modes, a lazy live-adapter registry, `hasLiveAdapter`, and a CLI. Stub stays deterministic +
+  network-free; live hits a real adapter when one is registered, else falls back to stub.
+- **Live FHIR/EHR connector** (`connectors/fhir.mjs`) — a real FHIR R4 client; defaults to the
+  public HAPI sandbox (no auth), `GREAT_CTO_FHIR_BASE`/`TOKEN` for Epic/Cerner/athenahealth.
+  Reads real clinical notes.
+- **Live code-sets connector** (`connectors/codesets.mjs`) — real ICD-10-CM / HCPCS lookup +
+  validation via the NLM Clinical Table Search Service (free, no auth). CPT is AMA-licensed, so it
+  returns a clear "needs a licensed service" note rather than a wrong answer.
+- **Flow-runner** (`scripts/lib/flow-runner.mjs`) — the doing layer: walks a flow's steps, runs each
+  agent step's connectors, and **pauses at a human checkpoint** — the assistant↔autopilot boundary
+  enforced at runtime. CLI: `flow-runner.mjs <vertical> [--live] [--full]`.
+
+Proven end to end: `flow-runner.mjs rcm --live` runs **two live connectors** (real note via FHIR,
+real ICD-10 via NLM) then halts at `gate:coding-signoff`. 39 new unit tests (205 lib total).
+
 ## v2.40.0 — 2026-06-07
 
 ### AI autopilots for business — service-autopilot verticals, a quality scorecard, and the positioning pivot
