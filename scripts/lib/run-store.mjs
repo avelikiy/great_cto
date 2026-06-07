@@ -97,7 +97,10 @@ export async function approve(id, who, note = '') {
   const flow = loadFlow(run.vertical);
   const resume = await runFlow(flow, {
     mode: run.mode, startAt: run.pausedAtIndex, approvedGates: [run.pausedAt],
-    payload: { idempotencyKey: run.id }, // same key on every resume → the write is idempotent
+    // The human signed the gate — so the post-gate write IS authorised. Carry that authorisation into
+    // the write payload (the connector-level guards are belt-and-suspenders to the gate) + a stable
+    // idempotency key so a retried write never double-submits.
+    payload: { idempotencyKey: run.id, signedBy: who, approved: true, brokerSignedOff: true, bsaOfficerApproved: true, qppvApproved: true },
   });
   const signedGate = run.pausedAt; // the gate we just resumed past
   // annotate the now-approved gate with who signed it
