@@ -1,0 +1,73 @@
+{
+  "vertical": "soc",
+  "autopilot": "Managed-SOC / MDR autopilot",
+  "tagline": "Triages and investigates every security alert 24/7 — a SOC analyst signs any containment.",
+  "audience": "CISO / MSSP lead",
+  "owner": "Lead SOC analyst / incident commander",
+  "marketSizeUsd": "4–6B",
+  "problem": "Tier-1/2 alert triage is endless, repetitive and alert-fatigued — yet a missed signal is a breach and a wrong containment takes production down.",
+  "outcome": "Every alert is enriched, correlated and investigated autonomously with a written verdict; only real incidents and containment decisions reach a certified analyst, who authorizes the response.",
+  "qualityScore": 90.5,
+  "steps": [
+    {
+      "does": "Ingest the alert and telemetry from the SIEM / EDR",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "siem",
+        "edr"
+      ]
+    },
+    {
+      "does": "Enrich, correlate and investigate against threat intelligence",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "investigate",
+      "tools": [
+        "threat-intel"
+      ]
+    },
+    {
+      "does": "Score severity, preserve forensic evidence, and stage the response playbook",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "soar"
+      ]
+    },
+    {
+      "does": "A certified SOC analyst authorizes containment / host isolation / breach notification",
+      "human": "Certified SOC analyst (incident responder)",
+      "gate": "gate:ir-containment-signoff"
+    },
+    {
+      "does": "Execute the approved containment and isolate the affected hosts",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "respond",
+      "tools": [
+        "soar",
+        "edr"
+      ]
+    },
+    {
+      "does": "Verify remediation, open the ticket, and log for the SOC 2 audit trail",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "psa-ticketing"
+      ]
+    }
+  ],
+  "reviewer": "soc-mdr-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "7AI",
+    "Dropzone AI",
+    "Prophet Security",
+    "Cogent Security"
+  ]
+}

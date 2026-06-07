@@ -54,6 +54,59 @@ export const CONNECTORS = Object.freeze({
   'irs-efile':       { label: 'IRS e-file (MeF)',      verticals: ['tax'],         capabilities: ['transmit-return'], realProviders: ['IRS MeF'], status: 'stub' },
   'doc-intake':      { label: 'Doc intake (W-2/1099)', verticals: ['tax'],         capabilities: ['extract-forms'], realProviders: ['OCR + parsers'], status: 'stub' },
   'brokerage-feed':  { label: 'Bank / brokerage feed', verticals: ['tax'],         capabilities: ['fetch-1099'], realProviders: ['Plaid', 'broker APIs'], status: 'stub' },
+
+  // ── prior-auth ──
+  'um-criteria':     { label: 'Medical-necessity criteria', verticals: ['prior-auth'], capabilities: ['check-criteria'], realProviders: ['MCG', 'InterQual', 'CMS NCD/LCD'], status: 'stub' },
+  'auth-portal':     { label: 'Prior-auth portal (X12 278)', verticals: ['prior-auth'], capabilities: ['submit-278', 'check-status'], realProviders: ['Availity', 'payer portals'], status: 'stub' },
+
+  // ── aml ──
+  'id-verify':       { label: 'Identity verification (IDV)', verticals: ['aml'],     capabilities: ['verify-identity'], realProviders: ['Persona', 'Onfido', 'Socure'], status: 'stub' },
+  'txn-monitor':     { label: 'Transaction monitoring',  verticals: ['aml'],         capabilities: ['screen-transactions'], realProviders: ['NICE Actimize', 'Hummingbird'], status: 'stub' },
+  'adverse-media':   { label: 'Adverse-media / PEP',     verticals: ['aml'],         capabilities: ['search-media'], realProviders: ['Dow Jones', 'RDC', 'ComplyAdvantage'], status: 'stub' },
+  'sar-filing':      { label: 'SAR / BSA e-file',        verticals: ['aml'],         capabilities: ['file-sar'], realProviders: ['FinCEN BSA E-File'], status: 'stub' },
+
+  // ── soc ──
+  'siem':            { label: 'SIEM / telemetry',        verticals: ['soc'],         capabilities: ['fetch-alerts', 'query-logs'], realProviders: ['Splunk', 'Microsoft Sentinel', 'Chronicle'], status: 'stub' },
+  'edr':             { label: 'Endpoint detection (EDR)', verticals: ['soc'],        capabilities: ['fetch-detections', 'isolate-host'], realProviders: ['CrowdStrike', 'SentinelOne'], status: 'stub' },
+  'threat-intel':    { label: 'Threat intelligence',     verticals: ['soc'],         capabilities: ['enrich-ioc'], realProviders: ['VirusTotal', 'GreyNoise', 'Recorded Future'], status: 'stub' },
+  'soar':            { label: 'Response orchestration (SOAR)', verticals: ['soc'],   capabilities: ['run-playbook', 'contain'], realProviders: ['Tines', 'Torq', 'Cortex XSOAR'], status: 'stub' },
+
+  // ── insurance ──
+  'claims-fnol':     { label: 'Claims / FNOL intake',    verticals: ['insurance'],   capabilities: ['get-claim', 'get-policy'], realProviders: ['Guidewire', 'Duck Creek'], status: 'stub' },
+  'fraud-score':     { label: 'Claims fraud scoring',    verticals: ['insurance'],   capabilities: ['score-fraud'], realProviders: ['Shift Technology', 'FRISS'], status: 'stub' },
+  'policy-admin':    { label: 'Policy admin / rating',   verticals: ['insurance'],   capabilities: ['rate-policy', 'bind-policy'], realProviders: ['Guidewire', 'Socotra'], status: 'stub' },
+
+  // ── mortgage ──
+  'los':             { label: 'Loan origination system', verticals: ['mortgage'],    capabilities: ['get-application', 'update-loan'], realProviders: ['ICE Encompass', 'Blend'], status: 'stub' },
+  'credit-bureau':   { label: 'Credit bureau',           verticals: ['mortgage', 'collections'], capabilities: ['pull-credit'], realProviders: ['Experian', 'Equifax', 'TransUnion'], status: 'stub' },
+  'aus':             { label: 'Automated underwriting (DU/LPA)', verticals: ['mortgage'], capabilities: ['run-aus'], realProviders: ['Fannie Mae DU', 'Freddie Mac LPA'], status: 'stub' },
+  'income-verify':   { label: 'Income / asset verification', verticals: ['mortgage'], capabilities: ['verify-voe', 'verify-voa'], realProviders: ['Truework', 'The Work Number', 'Plaid'], status: 'stub' },
+
+  // ── title ──
+  'title-search':    { label: 'Title search (public records)', verticals: ['title'], capabilities: ['search-title', 'pull-chain'], realProviders: ['DataTrace', 'county records'], status: 'stub' },
+  'recording':       { label: 'County recording / e-record', verticals: ['title'],   capabilities: ['record-instrument'], realProviders: ['Simplifile', 'CSC'], status: 'stub' },
+  'escrow-ledger':   { label: 'Escrow / settlement ledger', verticals: ['title'],    capabilities: ['open-escrow', 'disburse'], realProviders: ['Qualia', 'RamQuest'], status: 'stub' },
+
+  // ── credentialing ──
+  'primary-source':  { label: 'Primary-source verification', verticals: ['credentialing'], capabilities: ['verify-license', 'query-npdb'], realProviders: ['NPDB', 'DEA', 'state boards', 'ABMS'], status: 'stub' },
+  'caqh':            { label: 'CAQH ProView',            verticals: ['credentialing'], capabilities: ['fetch-profile'], realProviders: ['CAQH'], status: 'stub' },
+  'payer-enroll':    { label: 'Payer enrollment',        verticals: ['credentialing'], capabilities: ['submit-enrollment', 'check-status'], realProviders: ['Medallion', 'CAQH EnrollHub'], status: 'stub' },
+
+  // ── collections ──
+  'account-ledger':  { label: 'Receivables ledger',      verticals: ['collections'], capabilities: ['get-accounts', 'post-payment'], realProviders: ['ERP AR', 'collection CRM'], status: 'stub' },
+  'comms-outreach':  { label: 'Compliant outreach (dialer/SMS)', verticals: ['collections'], capabilities: ['send-outreach'], realProviders: ['Twilio', 'Skit.ai'], status: 'stub' },
+
+  // ── freight ──
+  'tms':             { label: 'Transportation mgmt (TMS)', verticals: ['freight'],   capabilities: ['get-load', 'book-load'], realProviders: ['McLeod', 'MercuryGate'], status: 'stub' },
+  'load-board':      { label: 'Load board / matching',   verticals: ['freight'],     capabilities: ['search-capacity'], realProviders: ['DAT', 'Truckstop'], status: 'stub' },
+  'carrier-vet':     { label: 'Carrier vetting (FMCSA)', verticals: ['freight'],     capabilities: ['vet-carrier'], realProviders: ['FMCSA SAFER', 'RMIS', 'Highway'], status: 'stub' },
+  'eld-tracking':    { label: 'ELD / shipment tracking', verticals: ['freight'],     capabilities: ['track-shipment'], realProviders: ['Project44', 'FourKites'], status: 'stub' },
+
+  // ── cro ──
+  'edc':             { label: 'Electronic data capture', verticals: ['cro'],         capabilities: ['fetch-crf', 'flag-deviation'], realProviders: ['Medidata Rave', 'Veeva'], status: 'stub' },
+  'ctms':            { label: 'Clinical trial mgmt',     verticals: ['cro'],         capabilities: ['get-protocol', 'log-monitoring'], realProviders: ['Veeva CTMS', 'Oracle'], status: 'stub' },
+  'eligibility-match':{ label: 'Trial eligibility matching', verticals: ['cro'],     capabilities: ['match-patient'], realProviders: ['Triomics', 'Deep 6 AI'], status: 'stub' },
+  'reg-docs':        { label: 'Regulatory docs / eTMF',  verticals: ['cro'],         capabilities: ['assemble-tmf'], realProviders: ['Veeva Vault', 'Florence'], status: 'stub' },
 });
 
 /** Look up a connector spec by id. */

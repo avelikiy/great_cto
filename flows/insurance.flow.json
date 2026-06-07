@@ -1,0 +1,73 @@
+{
+  "vertical": "insurance",
+  "autopilot": "Claims & underwriting autopilot",
+  "tagline": "Adjudicates claims and prices risk — a licensed adjuster/underwriter signs the call that carries bad-faith exposure.",
+  "audience": "Claims VP / Chief Underwriter",
+  "owner": "Licensed adjuster / underwriter",
+  "marketSizeUsd": "36–38B",
+  "problem": "Claims adjudication and underwriting are document-heavy and slow, and a wrong coverage call carries bad-faith and regulatory liability across 50 state codes.",
+  "outcome": "Routine claims and risks are processed straight-through with the rule basis attached; ambiguous and high-value decisions reach a licensed adjuster/underwriter, who signs the call.",
+  "qualityScore": 89,
+  "steps": [
+    {
+      "does": "Intake the FNOL / application, policy and supporting documents",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "claims-fnol",
+        "ocr"
+      ]
+    },
+    {
+      "does": "Extract facts, apply coverage / rating rules, and compute reserve or price",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "process",
+      "tools": [
+        "policy-admin"
+      ]
+    },
+    {
+      "does": "Run the fraud model and the unfair-claims / state-code checks",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "fraud-score"
+      ]
+    },
+    {
+      "does": "A licensed adjuster/underwriter signs the coverage decision or bind",
+      "human": "Licensed adjuster / underwriter",
+      "gate": "gate:adjuster-signoff"
+    },
+    {
+      "does": "Issue the settlement payment or bind the policy",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "execute",
+      "tools": [
+        "payment-rails",
+        "policy-admin"
+      ]
+    },
+    {
+      "does": "Track leakage, subrogation and complaint patterns",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "claims-fnol"
+      ]
+    }
+  ],
+  "reviewer": "insurance-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Shift Technology",
+    "Akur8",
+    "Avallon",
+    "Corgi"
+  ]
+}

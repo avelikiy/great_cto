@@ -1,0 +1,74 @@
+{
+  "vertical": "title",
+  "autopilot": "Title & escrow autopilot",
+  "tagline": "Runs title search, escrow and closing — a licensed officer signs the insurable title and authorizes the wire.",
+  "audience": "Title agency / escrow operations lead",
+  "owner": "Licensed title/escrow officer",
+  "marketSizeUsd": "16.2B premiums",
+  "problem": "Title search, curative and escrow coordination are labor-heavy checklists — and an escrow disbursement is an irreversible wire, the #1 target for business-email-compromise fraud.",
+  "outcome": "The title commitment and closing package are assembled straight-through with standard exceptions cleared; the licensed officer signs the insurable-title decision and authorizes disbursement.",
+  "qualityScore": 88.5,
+  "steps": [
+    {
+      "does": "Open the file and pull title, recording, tax and HOA data",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "title-search"
+      ]
+    },
+    {
+      "does": "Assemble the commitment, send docs for signature, and run the closing checklist",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "process",
+      "tools": [
+        "escrow-ledger",
+        "e-signature"
+      ]
+    },
+    {
+      "does": "Clear standard exceptions; verify the payoff and wire instructions out-of-band",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "title-search"
+      ]
+    },
+    {
+      "does": "A licensed title/escrow officer signs the insurable title and authorizes the wire",
+      "human": "Licensed title/escrow officer",
+      "gate": "gate:title-officer-signoff"
+    },
+    {
+      "does": "Disburse escrow funds and record the deed / mortgage",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "execute",
+      "tools": [
+        "escrow-ledger",
+        "payment-rails",
+        "recording"
+      ]
+    },
+    {
+      "does": "Issue the policy and reconcile the escrow ledger",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "escrow-ledger"
+      ]
+    }
+  ],
+  "reviewer": "title-escrow-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Propy",
+    "Qualia",
+    "Titl",
+    "Dono"
+  ]
+}

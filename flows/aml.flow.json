@@ -1,0 +1,73 @@
+{
+  "vertical": "aml",
+  "autopilot": "KYC/AML compliance autopilot",
+  "tagline": "Onboards, screens and monitors customers — a BSA Officer signs every SAR and high-risk approval.",
+  "audience": "BSA/AML Officer / Head of Compliance",
+  "owner": "Designated BSA/AML Officer",
+  "marketSizeUsd": "61B",
+  "problem": "Financial-crime compliance is a $61B labor sink of manual screening and alert triage — and a missed SAR or sanctions hit is personal liability for the BSA Officer.",
+  "outcome": "Onboarding, screening and alert triage run straight-through with a documented rationale; only genuine risk reaches the BSA Officer, who signs every SAR and high-risk approval.",
+  "qualityScore": 91,
+  "steps": [
+    {
+      "does": "Onboard the customer: verify identity and beneficial ownership",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "id-verify",
+        "kyb"
+      ]
+    },
+    {
+      "does": "Screen the party + UBO against sanctions / PEP / adverse-media (continuous)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "screen",
+      "tools": [
+        "sanctions-screen",
+        "adverse-media"
+      ]
+    },
+    {
+      "does": "Monitor transactions, triage alerts, and draft the SAR narrative",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "txn-monitor"
+      ]
+    },
+    {
+      "does": "The BSA/AML Officer signs the SAR filing and any high-risk onboarding",
+      "human": "Designated BSA/AML Officer",
+      "gate": "gate:bsa-officer-signoff"
+    },
+    {
+      "does": "File the SAR with FinCEN and apply the onboarding decision",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "file",
+      "tools": [
+        "sar-filing"
+      ]
+    },
+    {
+      "does": "Maintain the monitoring loop and document dispositions for exam",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "txn-monitor"
+      ]
+    }
+  ],
+  "reviewer": "aml-bsa-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Diligent AI",
+    "Alloy",
+    "Sardine",
+    "Hummingbird"
+  ]
+}

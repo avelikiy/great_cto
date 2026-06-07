@@ -1,0 +1,74 @@
+{
+  "vertical": "mortgage",
+  "autopilot": "Mortgage-underwriting autopilot",
+  "tagline": "Processes and underwrites the loan to a clear-to-close — a DE underwriter signs the decision.",
+  "audience": "Head of mortgage lending",
+  "owner": "DE-authorized underwriter",
+  "marketSizeUsd": "40B+ origination cost",
+  "problem": "It costs ~$9,000 to originate a loan — mostly processor and underwriter labor against codified guidelines — and any model-driven decision invites fair-lending scrutiny.",
+  "outcome": "Documents are classified, income/assets verified, and eligibility decided against agency guidelines straight-through; the DE underwriter signs the approval and clear-to-close.",
+  "qualityScore": 89.5,
+  "steps": [
+    {
+      "does": "Intake the application (1003) and borrower documents",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "los",
+        "doc-intake"
+      ]
+    },
+    {
+      "does": "Verify income/assets, pull credit, and run automated underwriting (DU / LPA)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "process",
+      "tools": [
+        "income-verify",
+        "credit-bureau",
+        "aus"
+      ]
+    },
+    {
+      "does": "Apply investor overlays and the ECOA / fair-lending + TRID checks",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "los"
+      ]
+    },
+    {
+      "does": "A DE-authorized underwriter signs the approval and clear-to-close",
+      "human": "DE-authorized underwriter",
+      "gate": "gate:underwriter-signoff"
+    },
+    {
+      "does": "Issue the approval and clear the loan to close",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "execute",
+      "tools": [
+        "los"
+      ]
+    },
+    {
+      "does": "Monitor conditions, early-payment-default and HMDA reporting",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "los"
+      ]
+    }
+  ],
+  "reviewer": "lending-credit-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Tidalwave",
+    "Zest AI",
+    "nCino",
+    "Blend"
+  ]
+}

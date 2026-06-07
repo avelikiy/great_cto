@@ -174,7 +174,7 @@ test('runFlow: stopAtGate=false runs the whole flow, recording gates as awaiting
 });
 
 test('runFlow: every shipped vertical flow runs in stub mode and pauses at its gate', async () => {
-  for (const v of ['rcm', 'legaltech', 'procurement', 'accounting', 'msp', 'tax']) {
+  for (const v of ['rcm', 'legaltech', 'procurement', 'accounting', 'msp', 'tax', 'prior-auth', 'aml', 'soc', 'insurance', 'mortgage', 'title', 'credentialing', 'collections', 'freight', 'cro']) {
     const trace = await runFlow(loadFlow(v), { mode: 'stub' });
     assert.equal(trace.status, 'paused-at-gate', `${v} should pause at a human gate`);
     assert.ok(trace.pausedAt, `${v} should name the gate it paused at`);
@@ -197,7 +197,7 @@ test('runFlow: a no-gate flow completes', async () => {
 // ── "the permission was the wound" invariant (irreversible ⟹ gated; named owner) ─────
 
 test('validateFlow: every shipped vertical is safe — irreversible steps are gated + an owner is named', () => {
-  for (const v of ['rcm', 'legaltech', 'procurement', 'accounting', 'msp', 'tax']) {
+  for (const v of ['rcm', 'legaltech', 'procurement', 'accounting', 'msp', 'tax', 'prior-auth', 'aml', 'soc', 'insurance', 'mortgage', 'title', 'credentialing', 'collections', 'freight', 'cro']) {
     const r = validateFlow(loadFlow(v));
     assert.equal(r.ok, true, `${v} violations: ${JSON.stringify(r.violations)}`);
   }
