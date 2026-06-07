@@ -37,14 +37,14 @@ steps**, a built-in compliance reviewer, and a **measured quality score** behind
 
 ## The autopilots
 
-| Autopilot | What it does | Market | Quality |
+| Autopilot | What it does | Market | Who's building it |
 |---|---|---|---|
-| 🩺 **[Medical-coding](https://greatcto.systems/autopilots/rcm.html)** | Clinical notes → clean, compliant claims; a certified coder signs the risky ones | $50–80B | **97.75/100** |
-| 🖥️ **[Managed-IT](https://greatcto.systems/autopilots/msp.html)** | Patches, configs & access across the fleet — staged, reversible, human on big changes | $100B+ | **98.5/100** |
-| ⚖️ **[Legal-document](https://greatcto.systems/autopilots/legaltech.html)** | Drafts & redlines contracts and NDAs; a licensed attorney signs anything that's advice | $20–25B | **94.75/100** |
-| 📒 **[Bookkeeping & close](https://greatcto.systems/autopilots/accounting.html)** | Books, reconciles & closes the month; a controller signs the close | $50–80B | **93.5/100** |
-| 🧾 **[Tax-prep](https://greatcto.systems/autopilots/tax.html)** | Prepares returns & classifies positions; a credentialed preparer signs before filing | $30–35B | **92.75/100** |
-| 🛒 **[Source-to-pay](https://greatcto.systems/autopilots/procurement.html)** | Onboards suppliers, matches invoices, releases payments — screened for sanctions & fraud | $200B+ | **89.42/100** |
+| 🩺 **[Medical-coding](https://greatcto.systems/autopilots/rcm.html)** | Clinical notes → clean, compliant claims; a certified coder signs the risky ones | $50–80B | Anterior · CodaMetrix · Fathom |
+| 🖥️ **[Managed-IT](https://greatcto.systems/autopilots/msp.html)** | Patches, configs & access across the fleet — staged, reversible, human on big changes | $100B+ | Serval · Edra · Electric AI |
+| ⚖️ **[Legal-document](https://greatcto.systems/autopilots/legaltech.html)** | Drafts & redlines contracts and NDAs; a licensed attorney signs anything that's advice | $20–25B | Crosby · Harvey · Robin AI |
+| 📒 **[Bookkeeping & close](https://greatcto.systems/autopilots/accounting.html)** | Books, reconciles & closes the month; a controller signs the close | $50–80B | Rillet · Basis · Digits |
+| 🧾 **[Tax-prep](https://greatcto.systems/autopilots/tax.html)** | Prepares returns & classifies positions; a credentialed preparer signs before filing | $30–35B | Black Ore · April · Column Tax |
+| 🛒 **[Source-to-pay](https://greatcto.systems/autopilots/procurement.html)** | Onboards suppliers, matches invoices, releases payments — screened for sanctions & fraud | $200B+ | Tacto · Zip · AskLio |
 
 → [All autopilots](https://greatcto.systems/autopilots.html) · run `/flow <vertical>` to see any flow in your terminal
 
