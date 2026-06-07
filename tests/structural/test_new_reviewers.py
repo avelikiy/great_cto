@@ -55,6 +55,7 @@ NEW_REVIEWERS: list[tuple[str, str, str | None, str | None]] = [
     ("rcm-reviewer",                     "rcm",      "rcm-pack",              "coding-audit"),
     ("procurement-reviewer",             "procurement", "procurement-pack",   "procurement-review"),
     ("accounting-reviewer",              "accounting",  "accounting-pack",    "close-review"),
+    ("msp-reviewer",                     "msp",         "msp-pack",           "msp-review"),
 ]
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "model", "tools", "maxTurns", "timeout", "applies_to"}
