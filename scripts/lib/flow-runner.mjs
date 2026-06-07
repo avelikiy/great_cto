@@ -38,6 +38,8 @@ const DEMO_INPUTS = {
   'code-sets:validate-code': { code: 'E11.9' },
   'ncci-mue:check-ptp': { code1: '99213', code2: '36415' },
   'ncci-mue:check-mue': { code: '99213', units: 1 },
+  'e-signature:send-for-signature': { docType: 'mutual NDA' },
+  'e-signature:check-excluded': { docType: 'mutual NDA' },
 };
 
 /**
