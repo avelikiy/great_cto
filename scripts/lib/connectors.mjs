@@ -16,7 +16,7 @@ export const CONNECTORS = Object.freeze({
   'ocr':             { label: 'Document OCR',          verticals: ['rcm', 'tax', 'accounting'], capabilities: ['extract-text'], realProviders: ['AWS Textract', 'Google DocAI'], status: 'stub' },
   'code-sets':       { label: 'ICD-10 / CPT / HCPCS',  verticals: ['rcm'],         capabilities: ['lookup-code', 'validate-code'], realProviders: ['NLM Clinical Tables', 'CMS', 'AMA CPT'], status: 'live-ready' },
   'ncci-mue':        { label: 'NCCI / MUE edits',      verticals: ['rcm'],         capabilities: ['check-ptp', 'check-mue'], realProviders: ['CMS quarterly tables'], status: 'stub' },
-  'clearinghouse':   { label: 'Claims clearinghouse',  verticals: ['rcm'],         capabilities: ['submit-837', 'fetch-835'], realProviders: ['Change Healthcare', 'Availity'], status: 'stub' },
+  'clearinghouse':   { label: 'Claims clearinghouse',  verticals: ['rcm'],         capabilities: ['submit-837', 'fetch-835'], realProviders: ['Change Healthcare', 'Availity'], status: 'live-ready' },
   'payer-rules':     { label: 'Payer rules / LCD-NCD', verticals: ['rcm'],         capabilities: ['check-necessity'], realProviders: ['CMS coverage DB'], status: 'stub' },
 
   // ── legaltech ──
@@ -98,6 +98,7 @@ export function stubCall(connectorId, op, payload = {}) {
 const LIVE_ADAPTERS = {
   'ehr-fhir': () => import('./connectors/fhir.mjs'),
   'code-sets': () => import('./connectors/codesets.mjs'),
+  'clearinghouse': () => import('./connectors/clearinghouse.mjs'),
 };
 
 /** Does this connector have a real (live) adapter wired? */
