@@ -46,10 +46,9 @@ Every vertical section renders from `flows/<vertical>.flow.json` and contains, i
 1. **What it is** — `autopilot` + `tagline` + `problem`.
 2. **Market size** — `marketSizeUsd`.
 3. **The flow** — `steps` (each: what it does · 🤖 agent or 🧑‍⚖️ human · tools).
-4. **Agents + tools** — the connectors (stub today; real provider on go-live).
+4. **Agents + tools** — the connectors (9 run live on real data; the rest are sandbox stubs that flip to the real provider on go-live).
 5. **Human checkpoints** — the `gate` steps and who signs.
-6. **Quality** — the measured scorecard number.
-7. **Who else is in this space** — `startups`.
+6. **Who else is in this space** — `startups`.
 
 ## Words to prefer / avoid
 
