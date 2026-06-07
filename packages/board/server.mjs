@@ -23,6 +23,16 @@ import {
 import crypto from 'node:crypto';
 import { startRun as apStartRun, approve as apApprove, reject as apReject, listRuns as apListRuns, getRun as apGetRun } from '../../scripts/lib/run-store.mjs';
 import { ROLES, getRole, roleAllows } from '../../scripts/lib/roles.mjs';
+import { createInvite, listInvites, resolveInvite, acceptInvite, revokeInvite } from '../../scripts/lib/operators.mjs';
+
+// Resolve the caller's authoritative role + tenant. An invite TOKEN (the operator's credential) wins
+// over any client-supplied role — so an operator can't escalate by passing role=admin. No token =
+// the local admin/CTO running the board.
+function apAuth(token, fallbackRole, fallbackTenant) {
+  const inv = token ? resolveInvite(token) : null;
+  if (inv) return { role: inv.role, tenant: inv.tenant, name: inv.name, viaInvite: true };
+  return { role: fallbackRole || 'admin', tenant: fallbackTenant, viaInvite: false };
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -3151,13 +3161,47 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ roles: ROLES }));
     return;
   }
+  // Operator onboarding: the admin mints invites; the operator resolves one to bootstrap, scoped.
+  if (pathname === '/api/autopilot/invite-resolve' && req.method === 'GET') {
+    const inv = acceptInvite(url.searchParams.get('token'));
+    res.writeHead(inv ? 200 : 404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(inv ? { role: inv.role, roleLabel: inv.roleLabel, tenant: inv.tenant, name: inv.name } : { error: 'invalid or revoked invite' }));
+    return;
+  }
+  if (pathname === '/api/autopilot/invites' && req.method === 'GET') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'));
+    if (auth.role !== 'admin') { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'admin only' })); return; }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ invites: listInvites() }));
+    return;
+  }
+  if (pathname === '/api/autopilot/invite' && req.method === 'POST') {
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let p; try { p = JSON.parse(body || '{}'); } catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return; }
+      const auth = apAuth(p.token, p.role);
+      if (auth.role !== 'admin') { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'only the admin can invite operators' })); return; }
+      try {
+        const invite = createInvite({ role: p.operatorRole, tenant: p.tenant || 'default', name: p.name || '', email: p.email || '', createdBy: 'admin' });
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ invite }));
+      } catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) })); }
+    });
+    return;
+  }
+  if (pathname === '/api/autopilot/invite' && req.method === 'DELETE') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'));
+    if (auth.role !== 'admin') { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'admin only' })); return; }
+    const ok = revokeInvite(url.searchParams.get('revoke'));
+    res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok }));
+    return;
+  }
   if (pathname === '/api/autopilot/runs' && req.method === 'GET') {
     const status = url.searchParams.get('status') || undefined;
-    const tenant = url.searchParams.get('tenant') || undefined;
-    const role = url.searchParams.get('role') || 'admin';
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
+    const tenant = auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || undefined);
     let runs = apListRuns({ status, tenant });
     // RBAC: an operator role only sees the cases for the vertical(s) it may sign.
-    runs = runs.filter((r) => roleAllows(role, r.vertical));
+    runs = runs.filter((r) => roleAllows(auth.role, r.vertical));
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({ runs }));
     return;
@@ -3176,8 +3220,9 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message) })); return;
       }
       try {
-        // RBAC: a role may only operate the vertical(s) it's authorised for.
-        const role = p.role || 'admin';
+        // RBAC: the invite token (if any) is authoritative; else the client role (local admin).
+        const auth = apAuth(p.token, p.role, p.tenant);
+        const role = auth.role;
         if (pathname === '/api/autopilot/start') {
           if (!getRole(role).canStart) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${role}' can't start runs (operators sign; admin/compliance-lead start)` })); return; }
           if (!roleAllows(role, p.vertical)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${role}' is not authorised for ${p.vertical}` })); return; }
@@ -3186,7 +3231,7 @@ const server = http.createServer(async (req, res) => {
           if (existing && !roleAllows(role, existing.vertical)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${role}' is not authorised to sign ${existing.vertical} cases` })); return; }
         }
         let run;
-        if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: p.tenant || 'default' });
+        if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: auth.viaInvite ? auth.tenant : (p.tenant || 'default') });
         else if (pathname === '/api/autopilot/approve') run = await apApprove(p.id, p.by || 'board user', p.note || '');
         else run = await apReject(p.id, p.by || 'board user', p.note || '');
         // Push the signer: a new case (or the next gate of a multi-gate flow) is in their queue.

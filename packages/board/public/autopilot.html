@@ -58,8 +58,9 @@
   <h1>🛂 Autopilot console</h1>
   <span class="seg"><a class="on" href="/autopilot.html">Operate</a><a id="build-link" href="/">Build</a></span>
   <span style="flex:1"></span>
-  <span class="mut" style="font-size:13px">I am the</span>
-  <select id="role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select>
+  <span id="session-info" class="mut" style="font-size:13px;display:none"></span>
+  <span id="role-pick"><span class="mut" style="font-size:13px">I am the</span>
+  <select id="role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select></span>
   <button id="notify-btn" class="back" style="cursor:pointer;border:0" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
 </header>
 <main>
@@ -91,6 +92,17 @@
     <input id="start-tenant" placeholder="tenant (default)" style="max-width:140px" />
     <button class="primary" onclick="startRun()">Start run</button>
   </div>
+  </div>
+
+  <div id="team-box" style="display:none">
+    <h2>Team — invite an operator to an industry</h2>
+    <div class="row">
+      <select id="op-role" style="min-width:240px"></select>
+      <input id="op-tenant" placeholder="tenant (default)" style="max-width:150px" />
+      <input id="op-name" placeholder="operator name (optional)" style="max-width:200px" />
+      <button class="primary" onclick="invite()">Create invite</button>
+    </div>
+    <div id="invites" style="margin-top:10px"></div>
   </div>
 
   <h2>Inbox — awaiting a human signature</h2>
@@ -150,26 +162,86 @@ function tenantHtml(r) { return r.tenant && r.tenant !== 'default' ? `<span clas
 // ── RBAC: the console is the operational staff's surface. A role only sees + signs its own
 // vertical(s); only admin may switch to Build; operators sign but don't start runs. ──
 let ROLES = {};
-const role = () => document.getElementById('role').value || 'admin';
+let SESSION = { token: null, role: 'admin', tenant: null, label: null, name: null }; // operator session (from an invite) or local admin
+const role = () => SESSION.role;
+const authParams = () => SESSION.token ? '&token=' + encodeURIComponent(SESSION.token) : '&role=' + encodeURIComponent(role());
+const authBody = () => SESSION.token ? { token: SESSION.token } : { role: role() };
+
 async function initRoles() {
   ROLES = (await api('/api/autopilot/roles')).roles || {};
+  // An invite token (URL ?invite= or saved) = an operator session: locked role + tenant, no picker.
+  const url = new URL(location.href);
+  const tok = url.searchParams.get('invite') || localStorage.getItem('gcto_invite');
+  if (tok) {
+    const inv = await api('/api/autopilot/invite-resolve?token=' + encodeURIComponent(tok));
+    if (inv && inv.role) {
+      SESSION = { token: tok, role: inv.role, tenant: inv.tenant, label: inv.roleLabel, name: inv.name };
+      localStorage.setItem('gcto_invite', tok);
+      document.getElementById('role-pick').style.display = 'none';
+      document.getElementById('build-link').style.display = 'none';
+      const si = document.getElementById('session-info');
+      si.style.display = ''; si.innerHTML = `Signed in as <b>${esc(inv.name || 'operator')}</b> · ${esc(inv.roleLabel)}${inv.tenant && inv.tenant !== 'default' ? ' · tenant ' + esc(inv.tenant) : ''} · <a class="back" href="#" onclick="signOut();return false">sign out</a>`;
+      applyRoleUI(); return;
+    }
+    localStorage.removeItem('gcto_invite'); // stale/revoked
+  }
+  // Local admin / role-preview picker.
   const sel = document.getElementById('role');
   const saved = localStorage.getItem('gcto_role') || 'admin';
+  SESSION = { token: null, role: saved, tenant: null, label: null, name: null };
   sel.innerHTML = Object.entries(ROLES).map(([k, r]) =>
     `<option value="${k}"${k === saved ? ' selected' : ''}>${esc(r.label)}</option>`).join('');
   applyRoleUI();
 }
-function onRole() { localStorage.setItem('gcto_role', role()); applyRoleUI(); refresh(); }
+function onRole() { SESSION.role = document.getElementById('role').value; localStorage.setItem('gcto_role', role()); applyRoleUI(); refresh(); }
+function signOut() { localStorage.removeItem('gcto_invite'); location.href = '/autopilot.html'; }
+
 function applyRoleUI() {
   const r = ROLES[role()] || { verticals: '*', canBuild: true, canStart: true };
-  document.getElementById('build-link').style.display = r.canBuild ? '' : 'none';
+  if (!SESSION.token) document.getElementById('build-link').style.display = r.canBuild ? '' : 'none';
   document.getElementById('start-box').style.display = r.canStart ? '' : 'none';
-  // restrict the start picker to the role's verticals
+  document.getElementById('team-box').style.display = (role() === 'admin' && !SESSION.token) ? '' : 'none';
+  if (role() === 'admin' && !SESSION.token) loadTeam();
   const allowed = r.verticals === '*' ? Object.keys(VERT) : r.verticals;
   for (const o of document.getElementById('vertical').options) o.hidden = !allowed.includes(o.value);
   const cur = document.getElementById('vertical');
   if (cur.selectedOptions[0] && cur.selectedOptions[0].hidden) cur.value = allowed[0] || 'rcm';
 }
+
+// ── Team: the admin invites an operator to an industry (mints a scoped invite link) ──
+function loadTeam() {
+  const sel = document.getElementById('op-role');
+  if (!sel.options.length) sel.innerHTML = Object.entries(ROLES).filter(([k]) => k !== 'admin')
+    .map(([k, r]) => `<option value="${k}">${esc(r.label)} (${r.verticals === '*' ? 'all' : r.verticals.join(', ')})</option>`).join('');
+  loadInvites();
+}
+async function loadInvites() {
+  const { invites } = await api('/api/autopilot/invites?role=admin');
+  const el = document.getElementById('invites');
+  if (!invites || !invites.length) { el.innerHTML = '<div class="empty">No operators invited yet.</div>'; return; }
+  el.innerHTML = invites.map(i => {
+    const link = location.origin + '/autopilot.html?invite=' + i.token;
+    return `<div class="card" style="padding:10px 14px">
+      <div class="row"><b>${esc(i.name || '(unnamed)')}</b><span class="pill">${esc(i.roleLabel)}</span>${i.tenant && i.tenant !== 'default' ? '<span class="pill">'+esc(i.tenant)+'</span>' : ''}<span class="pill ${i.status==='accepted'?'ok':'await'}">${esc(i.status)}</span><span style="flex:1"></span>
+        <button class="back" style="border:0;cursor:pointer" onclick="copyInvite('${link}')">📋 copy link</button>
+        <button class="reject" onclick="revoke('${i.token}')">revoke</button></div>
+      <div class="mut" style="margin-top:4px;word-break:break-all">${esc(link)}</div>
+    </div>`;
+  }).join('');
+}
+async function invite() {
+  const operatorRole = document.getElementById('op-role').value;
+  const tenant = (document.getElementById('op-tenant').value || '').trim() || 'default';
+  const name = (document.getElementById('op-name').value || '').trim();
+  const r = await api('/api/autopilot/invite', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ operatorRole, tenant, name, role:'admin' }) });
+  if (r.error) { alert(r.error); return; }
+  const link = location.origin + '/autopilot.html?invite=' + r.invite.token;
+  copyInvite(link);
+  document.getElementById('op-name').value = '';
+  loadInvites();
+}
+function copyInvite(link) { navigator.clipboard.writeText(link).then(() => alert('Invite link copied — send it to the operator:\n\n' + link)).catch(() => prompt('Copy the invite link:', link)); }
+async function revoke(token) { await fetch('/api/autopilot/invite?role=admin&revoke=' + encodeURIComponent(token), { method:'DELETE' }); loadInvites(); }
 
 let RUNS = {}; // id → run, for the detail drawer
 function openDrawer(id) {
@@ -212,8 +284,8 @@ function stepsHtml(run) {
 function q(status) {
   const p = new URLSearchParams();
   if (status) p.set('status', status);
-  if (fTenant()) p.set('tenant', fTenant());
-  p.set('role', role());
+  if (SESSION.token) p.set('token', SESSION.token);
+  else { p.set('role', role()); if (fTenant()) p.set('tenant', fTenant()); }
   return '/api/autopilot/runs?' + p.toString();
 }
 const byVert = runs => fVert() ? runs.filter(r => r.vertical === fVert()) : runs;
@@ -263,14 +335,14 @@ async function startRun() {
   const vertical = document.getElementById('vertical').value;
   const mode = document.getElementById('live').checked ? 'live' : 'stub';
   const tenant = (document.getElementById('start-tenant').value || '').trim() || undefined;
-  const r = await api('/api/autopilot/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vertical, mode, tenant, role: role() }) });
+  const r = await api('/api/autopilot/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vertical, mode, tenant, ...authBody() }) });
   if (r.error) alert(r.error);
   refresh();
 }
 async function decide(id, action) {
   const by = (document.getElementById('by-'+id).value || '').trim() || 'board user';
   const note = document.getElementById('note-'+id).value || '';
-  const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note, role: role() }) });
+  const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note, ...authBody() }) });
   if (r.error) alert(r.error);
   refresh();
 }
