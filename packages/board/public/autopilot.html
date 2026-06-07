@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Autopilot console — great_cto</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --bg:#0a0e0c; --card:#11161a; --bd:#1f2a26; --tx:#ecf2ee; --mut:#8aa; --grn:#00d97e; --amb:#f0a020; --red:#ff5a5a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--tx); font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:18px 24px; border-bottom:1px solid var(--bd); display:flex; align-items:center; gap:14px; }
+  header h1 { font-size:17px; margin:0; font-weight:600; }
+  header .sub { color:var(--mut); font-size:13px; }
+  main { max-width:1000px; margin:0 auto; padding:24px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  select, input, button { font:inherit; background:#0d1311; color:var(--tx); border:1px solid var(--bd); border-radius:8px; padding:8px 12px; }
+  button { cursor:pointer; }
+  button.primary { background:var(--grn); color:#04140d; border-color:var(--grn); font-weight:600; }
+  button.reject { color:var(--red); border-color:#532; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:28px 0 12px; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:16px 18px; margin-bottom:12px; }
+  .gate { border-left:3px solid var(--amb); }
+  .done { border-left:3px solid var(--grn); }
+  .rej { border-left:3px solid var(--red); opacity:.7; }
+  .vert { font-weight:600; }
+  .mut { color:var(--mut); font-size:13px; }
+  .pill { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--bd); }
+  .pill.await { color:var(--amb); border-color:#5a4420; }
+  .pill.ok { color:var(--grn); border-color:#1c5a3e; }
+  .pill.rej { color:var(--red); border-color:#532; }
+  ol.steps { margin:10px 0 0; padding-left:20px; font-size:13px; color:#c6d2d0; }
+  ol.steps li { margin:2px 0; }
+  ol.steps .h { color:var(--amb); }
+  .sign { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .empty { color:var(--mut); padding:18px; }
+  a.back { color:var(--mut); text-decoration:none; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛂 Autopilot console</h1>
+  <span class="sub">durable runs · human-gate inbox · the licensed human signs the irreversible action</span>
+  <span style="flex:1"></span>
+  <a class="back" href="/">← board</a>
+</header>
+<main>
+  <h2>Start a run</h2>
+  <div class="row">
+    <select id="vertical">
+      <option value="rcm">🩺 Medical coding (rcm)</option>
+      <option value="aml">🛡️ KYC/AML (aml)</option>
+      <option value="soc">🔐 Managed-SOC (soc)</option>
+      <option value="insurance">☂️ Insurance (insurance)</option>
+      <option value="mortgage">🏠 Mortgage (mortgage)</option>
+      <option value="title">🔑 Title & escrow (title)</option>
+      <option value="credentialing">🪪 Credentialing (credentialing)</option>
+      <option value="collections">💰 Collections (collections)</option>
+      <option value="freight">🚚 Freight (freight)</option>
+      <option value="cro">🧪 Clinical-trial ops (cro)</option>
+      <option value="prior-auth">✅ Prior-auth (prior-auth)</option>
+      <option value="legaltech">⚖️ Legal docs (legaltech)</option>
+      <option value="accounting">📒 Bookkeeping (accounting)</option>
+      <option value="tax">🧾 Tax (tax)</option>
+      <option value="procurement">🛒 Procurement (procurement)</option>
+      <option value="msp">🖥️ Managed-IT (msp)</option>
+    </select>
+    <label class="mut"><input type="checkbox" id="live" /> live connectors</label>
+    <button class="primary" onclick="startRun()">Start run</button>
+  </div>
+
+  <h2>Inbox — awaiting a human signature</h2>
+  <div id="inbox"></div>
+
+  <h2>All runs</h2>
+  <div id="runs"></div>
+</main>
+<script>
+const api = (p, opt) => fetch(p, opt).then(r => r.json());
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+function stepsHtml(run) {
+  return '<ol class="steps">' + run.steps.map(s => {
+    if (s.gate) {
+      const t = s.status === 'approved' ? '✅ signed' + (s.approvedBy ? ' · ' + esc(s.approvedBy) : '')
+        : s.status === 'awaiting-human' ? '⏳ awaiting signature' : esc(s.status);
+      return '<li class="h">🧑‍⚖️ ' + esc(s.does) + ' — <b>' + t + '</b></li>';
+    }
+    if (s.status === 'gated') return '<li>⏸️ ' + esc(s.does) + ' — awaits approval</li>';
+    const tools = (s.toolCalls||[]).map(c => c.connector + (c.mode==='live'?'·live':'') + (c.ok?'✓':'✗')).join(' ');
+    return '<li>🤖 ' + esc(s.does) + (tools ? ' · <span class="mut">'+esc(tools)+'</span>' : '') + '</li>';
+  }).join('') + '</ol>';
+}
+
+async function loadInbox() {
+  const { runs } = await api('/api/autopilot/runs?status=awaiting-approval');
+  const el = document.getElementById('inbox');
+  if (!runs.length) { el.innerHTML = '<div class="empty">Inbox empty — no runs awaiting a signature.</div>'; return; }
+  el.innerHTML = runs.map(r => `
+    <div class="card gate">
+      <div class="row"><span class="vert">${esc(r.vertical)}</span><span class="pill await">awaiting signature</span><span class="mut">${esc(r.id)}</span></div>
+      <div class="mut" style="margin-top:6px">${esc(r.signer)} must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
+      ${stepsHtml(r)}
+      <div class="sign">
+        <input id="by-${r.id}" placeholder="your name (the signer)" style="min-width:200px" />
+        <input id="note-${r.id}" placeholder="note (optional)" style="flex:1;min-width:160px" />
+        <button class="primary" onclick="decide('${r.id}','approve')">Approve &amp; run the write</button>
+        <button class="reject" onclick="decide('${r.id}','reject')">Reject</button>
+      </div>
+    </div>`).join('');
+}
+
+async function loadRuns() {
+  const { runs } = await api('/api/autopilot/runs');
+  const el = document.getElementById('runs');
+  if (!runs.length) { el.innerHTML = '<div class="empty">No runs yet — start one above.</div>'; return; }
+  el.innerHTML = runs.map(r => {
+    const cls = r.status === 'completed' ? 'done' : r.status === 'rejected' ? 'rej' : 'gate';
+    const pill = r.status === 'completed' ? '<span class="pill ok">completed</span>'
+      : r.status === 'rejected' ? '<span class="pill rej">rejected</span>'
+      : '<span class="pill await">' + esc(r.status) + '</span>';
+    const aud = (r.audit||[]).map(a => a.event + (a.by?'('+esc(a.by)+')':'')).join(' → ');
+    return `<div class="card ${cls}">
+      <div class="row"><span class="vert">${esc(r.vertical)}</span>${pill}<span class="mut">${esc(r.id)}</span></div>
+      <div class="mut" style="margin-top:4px">${esc(aud)}</div>
+      ${stepsHtml(r)}
+    </div>`;
+  }).join('');
+}
+
+async function startRun() {
+  const vertical = document.getElementById('vertical').value;
+  const mode = document.getElementById('live').checked ? 'live' : 'stub';
+  await api('/api/autopilot/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vertical, mode }) });
+  refresh();
+}
+async function decide(id, action) {
+  const by = (document.getElementById('by-'+id).value || '').trim() || 'board user';
+  const note = document.getElementById('note-'+id).value || '';
+  const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note }) });
+  if (r.error) alert(r.error);
+  refresh();
+}
+function refresh() { loadInbox(); loadRuns(); }
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>
