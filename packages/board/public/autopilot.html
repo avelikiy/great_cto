@@ -34,15 +34,24 @@
   .sign { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .empty { color:var(--mut); padding:18px; }
   a.back { color:var(--mut); text-decoration:none; font-size:13px; }
+  .seg { display:inline-flex; border:1px solid var(--bd); border-radius:8px; overflow:hidden; }
+  .seg a { padding:6px 14px; color:var(--mut); text-decoration:none; font-size:13px; font-weight:600; }
+  .seg a.on { background:var(--grn); color:#04140d; }
+  .filters { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 2px; }
+  .filters select, .filters input { padding:6px 10px; font-size:13px; }
+  .sla { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--bd); color:var(--mut); }
+  .sla.warn { color:var(--amb); border-color:#5a4420; }
+  .sla.breach { color:var(--red); border-color:#532; }
+  .gate-prog { font-size:12px; color:var(--mut); margin-top:4px; }
 </style>
 </head>
 <body>
 <header>
   <h1>🛂 Autopilot console</h1>
-  <span class="sub">durable runs · human-gate inbox · the licensed human signs the irreversible action</span>
+  <span class="seg"><a class="on" href="/autopilot.html">Operate</a><a href="/">Build</a></span>
+  <span class="sub">the licensed human signs the irreversible action</span>
   <span style="flex:1"></span>
   <button id="notify-btn" class="back" style="cursor:pointer;border:0" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
-  <a class="back" href="/">← board</a>
 </header>
 <main>
   <h2>Start a run</h2>
@@ -64,12 +73,27 @@
       <option value="tax">🧾 Tax (tax)</option>
       <option value="procurement">🛒 Procurement (procurement)</option>
       <option value="msp">🖥️ Managed-IT (msp)</option>
+      <option value="customs">🛃 Customs (customs)</option>
+      <option value="audit">📊 SOX ITGC audit (audit)</option>
+      <option value="pharma">💊 Pharmacovigilance (pharma)</option>
     </select>
     <label class="mut"><input type="checkbox" id="live" /> live connectors</label>
+    <input id="start-tenant" placeholder="tenant (default)" style="max-width:140px" />
     <button class="primary" onclick="startRun()">Start run</button>
   </div>
 
   <h2>Inbox — awaiting a human signature</h2>
+  <div class="filters">
+    <span class="mut">filter:</span>
+    <input id="f-tenant" placeholder="tenant (all)" style="max-width:140px" oninput="refresh()" />
+    <select id="f-vertical" onchange="refresh()"><option value="">all verticals</option></select>
+    <select id="f-status" onchange="refresh()">
+      <option value="">all statuses</option>
+      <option value="awaiting-approval">awaiting signature</option>
+      <option value="completed">completed</option>
+      <option value="rejected">rejected</option>
+    </select>
+  </div>
   <div id="inbox"></div>
 
   <h2>All runs</h2>
@@ -78,6 +102,37 @@
 <script>
 const api = (p, opt) => fetch(p, opt).then(r => r.json());
 const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+const VERT = { rcm:'🩺', aml:'🛡️', soc:'🔐', insurance:'☂️', mortgage:'🏠', title:'🔑', credentialing:'🪪',
+  collections:'💰', freight:'🚚', cro:'🧪', 'prior-auth':'✅', legaltech:'⚖️', accounting:'📒', tax:'🧾',
+  procurement:'🛒', msp:'🖥️', customs:'🛃', audit:'📊', pharma:'💊' };
+const icon = v => VERT[v] || '🤖';
+
+// populate the vertical filter
+(function () {
+  const sel = document.getElementById('f-vertical');
+  Object.keys(VERT).sort().forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = icon(v)+' '+v; sel.appendChild(o); });
+})();
+const fTenant = () => (document.getElementById('f-tenant').value || '').trim();
+const fStatus = () => document.getElementById('f-status').value;
+const fVert = () => document.getElementById('f-vertical').value;
+
+// time-in-queue / SLA — a case waiting on a human signature has a turnaround clock.
+function ageMin(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); }
+function slaHtml(r) {
+  if (r.status !== 'awaiting-approval') return '';
+  const m = ageMin(r.createdAt);
+  const label = m < 60 ? m + 'm' : (m/60).toFixed(1) + 'h';
+  const cls = m >= 240 ? 'breach' : m >= 60 ? 'warn' : '';
+  return `<span class="sla ${cls}">⏱ ${label} in queue</span>`;
+}
+function gateProgressHtml(run) {
+  const gates = (run.steps || []).filter(s => s.gate);
+  if (gates.length < 2) return '';
+  const signed = gates.filter(s => s.status === 'approved').length;
+  return `<div class="gate-prog">✍️ ${signed} of ${gates.length} signatures</div>`;
+}
+function tenantHtml(r) { return r.tenant && r.tenant !== 'default' ? `<span class="pill">${esc(r.tenant)}</span>` : ''; }
 
 function stepsHtml(run) {
   return '<ol class="steps">' + run.steps.map(s => {
@@ -92,14 +147,24 @@ function stepsHtml(run) {
   }).join('') + '</ol>';
 }
 
+function q(status) {
+  const p = new URLSearchParams();
+  if (status) p.set('status', status);
+  if (fTenant()) p.set('tenant', fTenant());
+  return '/api/autopilot/runs' + (p.toString() ? '?' + p.toString() : '');
+}
+const byVert = runs => fVert() ? runs.filter(r => r.vertical === fVert()) : runs;
+
 async function loadInbox() {
-  const { runs } = await api('/api/autopilot/runs?status=awaiting-approval');
+  const { runs } = await api(q('awaiting-approval'));
   const el = document.getElementById('inbox');
-  if (!runs.length) { el.innerHTML = '<div class="empty">Inbox empty — no runs awaiting a signature.</div>'; return; }
-  el.innerHTML = runs.map(r => `
+  const list = byVert(runs).sort((a,b) => ageMin(b.createdAt) - ageMin(a.createdAt)); // oldest-waiting first
+  if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting a signature.</div>'; return; }
+  el.innerHTML = list.map(r => `
     <div class="card gate">
-      <div class="row"><span class="vert">${esc(r.vertical)}</span><span class="pill await">awaiting signature</span><span class="mut">${esc(r.id)}</span></div>
-      <div class="mut" style="margin-top:6px">${esc(r.signer)} must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
+      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span></div>
+      <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
+      ${gateProgressHtml(r)}
       ${stepsHtml(r)}
       <div class="sign">
         <input id="by-${r.id}" placeholder="your name (the signer)" style="min-width:200px" />
@@ -111,18 +176,20 @@ async function loadInbox() {
 }
 
 async function loadRuns() {
-  const { runs } = await api('/api/autopilot/runs');
+  const { runs } = await api(q(fStatus()));
   const el = document.getElementById('runs');
-  if (!runs.length) { el.innerHTML = '<div class="empty">No runs yet — start one above.</div>'; return; }
-  el.innerHTML = runs.map(r => {
+  const list = byVert(runs);
+  if (!list.length) { el.innerHTML = '<div class="empty">No runs match — start one above or clear the filter.</div>'; return; }
+  el.innerHTML = list.map(r => {
     const cls = r.status === 'completed' ? 'done' : r.status === 'rejected' ? 'rej' : 'gate';
     const pill = r.status === 'completed' ? '<span class="pill ok">completed</span>'
       : r.status === 'rejected' ? '<span class="pill rej">rejected</span>'
       : '<span class="pill await">' + esc(r.status) + '</span>';
     const aud = (r.audit||[]).map(a => a.event + (a.by?'('+esc(a.by)+')':'')).join(' → ');
     return `<div class="card ${cls}">
-      <div class="row"><span class="vert">${esc(r.vertical)}</span>${pill}<span class="mut">${esc(r.id)}</span></div>
+      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span>${pill}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span></div>
       <div class="mut" style="margin-top:4px">${esc(aud)}</div>
+      ${gateProgressHtml(r)}
       ${stepsHtml(r)}
     </div>`;
   }).join('');
@@ -131,7 +198,8 @@ async function loadRuns() {
 async function startRun() {
   const vertical = document.getElementById('vertical').value;
   const mode = document.getElementById('live').checked ? 'live' : 'stub';
-  await api('/api/autopilot/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vertical, mode }) });
+  const tenant = (document.getElementById('start-tenant').value || '').trim() || undefined;
+  await api('/api/autopilot/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vertical, mode, tenant }) });
   refresh();
 }
 async function decide(id, action) {
