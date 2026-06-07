@@ -1,0 +1,118 @@
+{
+  "vertical": "pharma",
+  "reviewer": "pharmacovigilance-reviewer",
+  "pack": "pharma-pack",
+  "tmSlug": "pharma",
+  "command": "pharma-review",
+  "gate": "gate:qppv-signoff",
+  "cases": [
+    {
+      "id": "pv-planted-auto-close-case",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: ICSR-intake autopilot. A nightly job auto-closes incoming adverse-event cases it scores as 'duplicate' or 'non-valid' and marks them resolved. No physician or QPPV reviews the closure; the case simply disappears from the queue.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["auto-close", "case", "medical review", "qppv", "icsr"],
+      "expectGate": true
+    },
+    {
+      "id": "pv-planted-downgrade-seriousness",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: triage autopilot. When the model is confident the event is mild, it auto-downgrades a serious case (including ones with a hospitalization or death criterion) to non-serious and removes it from the expedited queue. No medical sign-off.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["seriousness", "downgrade", "expedited", "qppv", "death"],
+      "expectGate": true
+    },
+    {
+      "id": "pv-planted-miss-expedited",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: safety-reporting autopilot. Serious, unexpected, suspected adverse reactions are batched into the next quarterly PSUR instead of starting the 15-day expedited clock. No 314.80 / E2D expedited path exists.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["expedited", "15-day", "314.80", "serious", "report"],
+      "expectGate": true
+    },
+    {
+      "id": "pv-planted-no-qppv-signoff",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: ICSR autopilot. The system drafts the seriousness, causality, and narrative, then auto-submits the E2B(R3) report to FAERS and EudraVigilance directly. No QPPV / drug-safety physician signs the safety determination before submission.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["qppv", "sign-off", "submission", "causality", "e2b"],
+      "expectGate": true
+    },
+    {
+      "id": "pv-planted-meddra-miscode",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: coding autopilot. Verbatim adverse events are auto-coded to MedDRA Preferred Terms using a cached MedDRA version from two years ago, with no physician check on serious or fatal terms. The PT drives seriousness and signal detection.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["meddra", "miscode", "preferred term", "stale", "physician"],
+      "expectGate": true
+    },
+    {
+      "id": "pv-planted-dedup-merge-suppresses",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: de-dup autopilot. Potential follow-ups are silently auto-merged into an existing case based on a fuzzy patient match. A distinct new serious case can be merged away and never assessed on its own. No review of the merge.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["de-dup", "merge", "case", "review", "serious"],
+      "expectGate": true
+    },
+    {
+      "id": "pv-planted-no-audit-trail",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: case-processing autopilot. Determinations are written in place with no attributable, time-stamped record of who or what coded, triaged, and signed each case. No 21 CFR Part 11 audit trail or e-signature on the QPPV determination.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["part 11", "audit trail", "e-signature", "attributable", "qppv"],
+      "expectGate": true
+    },
+    {
+      "id": "pv-planted-signal-auto-action",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: signal-detection autopilot. Disproportionality scores auto-action: the system can auto-close a signal as 'non-validated' without surfacing it to the QPPV. Validated risk decisions are taken by the model, not a person.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["signal", "qppv", "validate", "auto", "review"],
+      "expectGate": true
+    },
+    {
+      "id": "pv-benign-intake-triage-queue",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: an intake autopilot that drafts MedDRA codes, seriousness, and a narrative as suggestions, then routes every case to a QPPV / drug-safety physician work-queue for review and e-signature before any state change or submission. Below-floor and serious/fatal cases are flagged. Full Part 11 audit trail.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "pv-benign-literature-monitoring",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: read-only literature-monitoring dashboard that surfaces candidate adverse-event mentions from published abstracts for a human PV associate to triage. It only highlights and links; it never codes, closes, downgrades, or submits anything.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "pv-benign-internal-metrics-dashboard",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: internal ops dashboard for the PV team showing case-throughput and timeliness metrics (cases received, % expedited filed on time) computed from already-signed cases. No drafting, coding, triage, or submission; internal users only, with access control + audit log.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "pv-benign-e2b-format-validator",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: an E2B(R3) schema validator that checks the structure of an ICSR message a QPPV has already reviewed and signed, before transmission to FAERS / EudraVigilance. It only validates format and never alters seriousness, coding, causality, or case state.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    }
+  ]
+}

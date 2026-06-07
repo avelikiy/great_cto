@@ -53,12 +53,15 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 | 💰 **[Debt-collection](https://greatcto.systems/autopilots/collections.html)** | Compliant outreach & payment plans; a manager signs escalation & settlements | $13.5–16B | CollectWise · InDebted · Tesorio |
 | 🚚 **[Freight-brokerage](https://greatcto.systems/autopilots/freight.html)** | Matches loads to vetted carriers & books; a licensed broker signs binding rates | $19–125B | HappyRobot · FleetWorks · Vooma |
 | 🧪 **[Clinical-trial-ops](https://greatcto.systems/autopilots/cro.html)** | Screens patients & runs monitoring; the PI / medical monitor signs eligibility | $20–28B | Triomics · QuantHealth · Tempus |
+| 🛃 **[Customs-clearance](https://greatcto.systems/autopilots/customs.html)** | Classifies, values & screens imports; a licensed customs broker signs the entry of record | $4.6B | Digicust · Flexport · Avalara |
+| 📊 **[SOX ITGC audit](https://greatcto.systems/autopilots/audit.html)** | Tests IT general controls & drafts workpapers; a CPA signs the opinion | $15–25B | Midship · Scytale · AuditBoard |
+| 💊 **[Pharmacovigilance](https://greatcto.systems/autopilots/pharma.html)** | Processes adverse-event cases; a QPPV / drug-safety physician signs before reporting | $1.65B | ArisGlobal · Indegene · Lifebit |
 
 → [All autopilots](https://greatcto.systems/autopilots.html) · run `/flow <vertical>` to see any flow in your terminal
 
 **Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
 controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. **17 live connectors run on real data across all 16 verticals** — FHIR, ICD-10
+carries liability. **17 live connectors run on real data across the 19 verticals** — FHIR, ICD-10
 (NLM), NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, a US federal tax engine, plus
 medical-necessity criteria, claims fraud-scoring, mortgage AUS (DU/LPA), OIG/SAM exclusion screening,
 FMCSA carrier-vetting, Reg-F/TCPA outreach guardrails, IOC threat-intel, and FinCEN SAR generation.
@@ -80,7 +83,7 @@ are the trust layer that makes it safe to let the autopilot run.
 **refuses to execute an irreversible action autonomously** — money moves, claim submission, e-signing,
 fleet changes and tax filing run *only* after a named human signs the checkpoint. Each autopilot also
 declares an **accountable owner** — one person answers for what it does. `flow-runner.mjs <vertical>
---validate` enforces the invariant; all sixteen autopilots ship green.
+--validate` enforces the invariant; all nineteen autopilots ship green.
 
 ## By the numbers
 
@@ -90,7 +93,7 @@ declares an **accountable owner** — one person answers for what it does. `flow
 | Human-equivalent for the same work | **~$5,460** |
 | Defects caught that QA had missed | **2** |
 | Monthly cost (20 pipeline runs) | **~$34** |
-| Autopilot verticals | **16** (healthcare · finance · legal · ops — each with a human gate) |
+| Autopilot verticals | **19** (healthcare · finance · legal · ops — each with a human gate) |
 | Specialist agents | **74** |
 | Archetypes auto-detected | **26** |
 | Jurisdictions | **12** (GDPR · HIPAA · PCI-DSS · SOX · and more) |
