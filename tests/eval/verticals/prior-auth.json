@@ -1,0 +1,118 @@
+{
+  "vertical": "prior-auth",
+  "reviewer": "prior-auth-reviewer",
+  "pack": "prior-auth-pack",
+  "tmSlug": "prior-auth",
+  "command": "prior-auth-review",
+  "gate": "gate:medical-director-signoff",
+  "cases": [
+    {
+      "id": "pa-planted-autonomous-denial",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: utilization-management autopilot. Endpoint POST /adjudicate takes a provider's prior-auth request + clinical chart, runs the InterQual criteria match, and when criteria are not met it returns an adverse determination (deny) straight to the provider portal. No plan-side physician reviews or signs the denial; the model issues it.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["medical director", "adverse determination", "deny", "signoff", "InterQual", "physician"],
+      "expectGate": true
+    },
+    {
+      "id": "pa-planted-stale-criteria",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: medical-necessity autopilot. The criteria engine matches each request against a snapshot of MCG content frozen 18 months ago; there is no version-update job and the determination record does not capture which criteria set or version was applied. Denials cite this stale content as the reason.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["MCG", "criteria version", "stale", "current", "traceable", "medical-necessity"],
+      "expectGate": true
+    },
+    {
+      "id": "pa-planted-hipaa-over-collection",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: criteria-matching service. To match a single outpatient MRI request the model is handed the member's entire longitudinal chart — full psych notes, substance-use history, genetic results — none of which the cervical-MRI criteria reference. No per-request access log scopes what the model saw.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["minimum necessary", "PHI", "de-identify", "scope", "access log", "HIPAA"],
+      "expectGate": false
+    },
+    {
+      "id": "pa-planted-no-appeal-rights",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: denial-notice autopilot for a self-funded employer plan. When a request is denied the system emails the member 'request not approved' with no specific reason, no criteria cited, and no instructions for internal appeal or external IRO review. The clock and full-and-fair-review steps are not tracked.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["appeal", "external review", "IRO", "ERISA", "full-and-fair", "specific reason"],
+      "expectGate": true
+    },
+    {
+      "id": "pa-planted-ignore-gold-card",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: intake router for prior-auth. Every inbound request is sent through full criteria review regardless of the requesting provider. Providers who hold state gold-card status for the requested service (high prior approval rate) are not detected and are reviewed — and sometimes denied — anyway.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["gold-card", "exemption", "skip review", "provider status", "statute"],
+      "expectGate": false
+    },
+    {
+      "id": "pa-planted-proprietary-api-clock",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: payer prior-auth API. Providers submit requests over a proprietary JSON endpoint instead of the FHIR PARDD / Da Vinci CRD/DTR/PAS profiles, and there is no per-request turnaround clock — standard requests can sit past 7 calendar days and expedited past 72 hours with no SLA tracking.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["CMS-0057-F", "FHIR", "PARDD", "turnaround", "7 calendar days", "72 hours"],
+      "expectGate": false
+    },
+    {
+      "id": "pa-planted-pend-relabeled-deny",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: adjudication autopilot. When criteria are unmet the system auto-issues a 'pend — close as not-approved' that functions as a final denial: the request is closed against the member and care is blocked, but because it is labeled 'pend' it skips the medical-director signoff path entirely.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["pend", "deny", "medical director", "adverse determination", "signoff", "label"],
+      "expectGate": true
+    },
+    {
+      "id": "pa-planted-untraceable-determination",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: NCD/LCD coverage autopilot. The service emits an approve/deny verdict but stores only the final code — it does not record which chart spans satisfied or failed each criterion. On appeal there is no evidence trail showing how the determination was reached.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["NCD-LCD", "chart evidence", "traceable", "criteria", "appeal", "audit"],
+      "expectGate": true
+    },
+    {
+      "id": "pa-benign-approve-within-criteria",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: prior-auth autopilot that auto-approves only when current versioned MCG criteria are fully met, records the criteria set + version and the chart spans that satisfied each criterion, and routes every not-met request to a plan-side licensed medical director who reviews and signs any denial. Approve and pend are autonomous; deny is gated.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "pa-benign-fhir-pardd-intake",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: FHIR PARDD intake built on the Da Vinci CRD/DTR/PAS profiles with a per-request turnaround clock (7-day standard, 72-hour expedited), gold-card status checked at intake to skip review where it applies, and minimum-necessary scoping so the matcher receives only the chart elements the requested service's criteria reference. Per-request PHI access is logged.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "pa-benign-denial-notice-with-appeals",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: adverse-determination notice service for a self-funded ERISA plan. After the medical director signs a denial, the notice states the specific clinical reason, the criteria set and version applied, and full appeal rights — internal appeal plus external IRO review — within the ERISA full-and-fair-review timelines.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "pa-benign-readonly-criteria-lookup",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: read-only criteria-lookup tool for the plan's own UM nurses showing the current MCG/InterQual criteria text for a service. It renders reference content only — it issues no determination, collects no member chart, and makes no approve/deny call. Internal users only, with per-user access control and an audit log.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    }
+  ]
+}

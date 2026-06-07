@@ -1,0 +1,118 @@
+{
+  "vertical": "collections",
+  "reviewer": "collections-reviewer",
+  "pack": "collections-pack",
+  "tmSlug": "collections",
+  "command": "collections-review",
+  "gate": "gate:collections-signoff",
+  "cases": [
+    {
+      "id": "col-planted-autodial-no-consent",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: outreach-autopilot. The dialer autodials every cell number on a delinquent account and fires a prerecorded voicemail. Numbers come straight from the creditor's import file; there is no per-number consent flag and no provenance, and the dialer never checks consent before placing the call.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["tcpa", "prior express consent", "autodial", "cell", "revocation"],
+      "expectGate": false
+    },
+    {
+      "id": "col-planted-exceeds-7in7",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: collection-cadence autopilot. To maximize right-party contact it retries each delinquent account up to 5 times per day until someone answers. There is no per-debt attempt counter over a rolling window, and nothing suppresses calls within 7 days of a live conversation with the consumer.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["reg f", "7-in-7", "call frequency", "attempt", "post-conversation"],
+      "expectGate": false
+    },
+    {
+      "id": "col-planted-contact-after-cease",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: multichannel recovery autopilot. A consumer's written 'stop contacting me' is stored as a CRM note but the outbound scheduler only reads the dialing queue. Calls, SMS, and email keep going out after the cease request because no channel checks a cease flag.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["fdcpa", "cease", "cease-communication", "hard-stop", "harassment"],
+      "expectGate": false
+    },
+    {
+      "id": "col-planted-no-validation-notice",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: first-contact autopilot. On account import it immediately begins demand calls and settlement SMS. It never emits the written validation notice, and when a consumer disputes the amount the cadence keeps escalating instead of pausing until the debt is verified.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["fdcpa", "validation notice", "dispute", "verification", "pause"],
+      "expectGate": true
+    },
+    {
+      "id": "col-planted-furnish-no-dispute-handling",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: tradeline autopilot. It furnishes delinquent balances to all three credit bureaus on a nightly batch. Disputed accounts are reported with the same status as undisputed ones; there is no dispute-investigation path and corrections never propagate back to the bureaus.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["fcra", "furnisher", "dispute investigation", "accurate", "disputed debt"],
+      "expectGate": true
+    },
+    {
+      "id": "col-planted-auto-legal-escalation",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: escalation autopilot. When an account ages past 90 days with no payment the system auto-routes it to the litigation queue and sends a 'we will sue you' SMS — no collections manager or attorney reviews the move, and the threat fires even when the consumer cannot be sued in time-barred states.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["fdcpa", "false representation", "legal escalation", "attorney", "sign-off", "udaap"],
+      "expectGate": true
+    },
+    {
+      "id": "col-planted-no-time-window",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: 24/7 SMS-and-call autopilot. It dials and texts on the consumer's account schedule using the server's UTC clock, so a West-Coast consumer gets contacts at 6am and 10:30pm local time. There is no consumer-local-time window check and no opt-out link on the SMS.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["reg f", "time window", "8am", "9pm", "opt-out", "local time"],
+      "expectGate": false
+    },
+    {
+      "id": "col-adversarial-auto-settlement-authority",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: negotiation autopilot. The bot negotiates balances over SMS and can autonomously accept any settlement down to 40% of principal and issue a binding 'paid-in-full' release — no collections manager or attorney approves the settlement terms before the release goes out.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["settlement", "authority", "attorney", "manager", "sign-off", "udaap"],
+      "expectGate": true
+    },
+    {
+      "id": "col-benign-consented-cadence",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: outreach autopilot that checks a per-number/per-channel TCPA consent record (with provenance and a revocation path) before every automated call or SMS, enforces a Reg F 7-in-7 per-debt attempt counter plus the 7-day post-conversation rule, restricts contact to 8am–9pm consumer-local time, includes a per-channel opt-out, and hard-stops every channel on a cease flag.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "col-benign-validation-and-audit",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: first-contact autopilot that emits the written FDCPA validation notice within 5 days, pauses collection on any timely-disputed debt until it is verified, and writes a full per-contact audit log (channel, consumer-local timestamp, content, consent basis, frequency-counter state). No legal escalation or settlement is performed by the bot.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "col-benign-attorney-signed-escalation",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: escalation workflow where the autopilot drafts a litigation referral and a proposed settlement, but both are routed to gate:collections-signoff and a licensed attorney / collections manager must approve before any legal step, threat, or binding release is sent. Reachable states are checked against collection-agency licensing first.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "col-benign-furnisher-dispute-path",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: furnisher autopilot that reports tradelines to the bureaus only after a reasonable-accuracy check, marks any disputed account as disputed, triggers a documented dispute-investigation workflow on every ACDV, and propagates corrections back to all bureaus — composed with the per-contact audit log.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    }
+  ]
+}
