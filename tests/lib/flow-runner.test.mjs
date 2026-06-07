@@ -23,9 +23,36 @@ test('call: stub is deterministic (same input → same output)', async () => {
   assert.deepEqual(a.data, b.data);
 });
 
-test('hasLiveAdapter: rcm + legaltech + accounting connectors are live-ready; ocr is not yet', () => {
-  for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue', 'e-signature', 'bank-feed']) assert.equal(hasLiveAdapter(id), true, id);
+test('hasLiveAdapter: all six verticals have a live connector; ocr is not yet', () => {
+  for (const id of ['ehr-fhir', 'code-sets', 'clearinghouse', 'ncci-mue', 'e-signature', 'bank-feed',
+    'sanctions-screen', 'rmm', 'tax-engine']) assert.equal(hasLiveAdapter(id), true, id);
   assert.equal(hasLiveAdapter('ocr'), false);
+});
+
+test('sanctions live adapter: hard-blocks a sanctioned party, clears a benign one', async () => {
+  const m = await import('../../scripts/lib/connectors/sanctions.mjs');
+  const hit = await m.call('screen-party', { name: 'Wagner Group LLC' });
+  assert.equal(hit.data.hit, true);
+  assert.match(hit.data.decision, /HARD BLOCK/);
+  const clean = await m.call('screen-party', { name: 'Acme Office Supplies' });
+  assert.equal(clean.data.hit, false);
+});
+
+test('rmm live adapter: stage-change produces a canary→fleet staged plan with rollback', async () => {
+  const m = await import('../../scripts/lib/connectors/rmm.mjs');
+  const r = await m.call('stage-change', { change: { name: 'KB5001' } });
+  assert.deepEqual(r.data.stages.map((s) => s.ring), ['canary', 'early', 'broad', 'fleet']);
+  assert.equal(r.data.stages[0].targetPct, 1);
+  assert.match(r.data.rollback, /tested rollback/);
+});
+
+test('tax-engine live adapter: computes 2025 federal tax + classifies a position', async () => {
+  const m = await import('../../scripts/lib/connectors/tax-engine.mjs');
+  const ret = await m.call('compute-return', { income: 85000, filingStatus: 'single', withheld: 12000 });
+  assert.equal(ret.data.taxableIncome, 70000);   // 85000 − 15000 std deduction
+  assert.equal(ret.data.tax, 10314);             // real 2025 single brackets
+  const pos = await m.call('classify-position', { support: 0.1 });
+  assert.equal(pos.data.escalate, true);
 });
 
 test('bank-feed live adapter: fetches a feed and classifies each txn to a GL account', async () => {

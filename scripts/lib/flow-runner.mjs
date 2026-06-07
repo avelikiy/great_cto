@@ -40,6 +40,8 @@ const DEMO_INPUTS = {
   'ncci-mue:check-mue': { code: '99213', units: 1 },
   'e-signature:send-for-signature': { docType: 'mutual NDA' },
   'e-signature:check-excluded': { docType: 'mutual NDA' },
+  'sanctions-screen:screen-party': { name: 'Acme Office Supplies LLC' },
+  'tax-engine:compute-return': { income: 85000, filingStatus: 'single', withheld: 12000 },
 };
 
 /**

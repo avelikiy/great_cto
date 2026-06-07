@@ -29,7 +29,7 @@ export const CONNECTORS = Object.freeze({
 
   // ── procurement ──
   'erp':             { label: 'ERP',                   verticals: ['procurement', 'accounting'], capabilities: ['get-po', 'get-receipt'], realProviders: ['SAP', 'NetSuite', 'Coupa'], status: 'stub' },
-  'sanctions-screen':{ label: 'Sanctions / PEP screening', verticals: ['procurement'], capabilities: ['screen-party', 'resolve-ubo'], realProviders: ['Dow Jones', 'Refinitiv', 'OFAC API'], status: 'stub' },
+  'sanctions-screen':{ label: 'Sanctions / PEP screening', verticals: ['procurement'], capabilities: ['screen-party', 'resolve-ubo'], realProviders: ['Dow Jones', 'Refinitiv', 'OFAC API'], status: 'live-ready' },
   'kyb':             { label: 'KYB / vendor verification', verticals: ['procurement'], capabilities: ['verify-vendor'], realProviders: ['Middesk', 'Persona'], status: 'stub' },
   'e-invoicing':     { label: 'E-invoicing / AP',      verticals: ['procurement'], capabilities: ['get-invoice', 'three-way-match'], realProviders: ['Tipalti', 'Bill.com'], status: 'stub' },
   'payment-rails':   { label: 'Payment rails',         verticals: ['procurement', 'accounting'], capabilities: ['release-payment', 'verify-bank'], realProviders: ['ACH', 'Stripe', 'bank API'], status: 'stub' },
@@ -42,7 +42,7 @@ export const CONNECTORS = Object.freeze({
   'close-tool':      { label: 'Close / reconciliation',verticals: ['accounting'],  capabilities: ['reconcile'], realProviders: ['FloQast', 'Numeric'], status: 'stub' },
 
   // ── msp ──
-  'rmm':             { label: 'RMM',                   verticals: ['msp'],         capabilities: ['stage-change', 'rollback'], realProviders: ['NinjaOne', 'ConnectWise', 'Datto'], status: 'stub' },
+  'rmm':             { label: 'RMM',                   verticals: ['msp'],         capabilities: ['stage-change', 'rollback'], realProviders: ['NinjaOne', 'ConnectWise', 'Datto'], status: 'live-ready' },
   'idp':             { label: 'Identity provider',     verticals: ['msp'],         capabilities: ['grant-jit', 'deprovision'], realProviders: ['Okta', 'Entra ID', 'AD'], status: 'stub' },
   'patch-source':    { label: 'Patch source',          verticals: ['msp'],         capabilities: ['fetch-patches'], realProviders: ['vendor feeds', 'WSUS'], status: 'stub' },
   'monitoring':      { label: 'Monitoring',            verticals: ['msp'],         capabilities: ['health-check'], realProviders: ['Datadog', 'PRTG'], status: 'stub' },
@@ -50,7 +50,7 @@ export const CONNECTORS = Object.freeze({
   'backup-dr':       { label: 'Backup / DR',           verticals: ['msp'],         capabilities: ['verify-restore-point'], realProviders: ['Veeam', 'Datto'], status: 'stub' },
 
   // ── tax ──
-  'tax-engine':      { label: 'Tax engine',            verticals: ['tax'],         capabilities: ['compute-return', 'classify-position'], realProviders: ['CCH', 'Lacerte'], status: 'stub' },
+  'tax-engine':      { label: 'Tax engine',            verticals: ['tax'],         capabilities: ['compute-return', 'classify-position'], realProviders: ['CCH', 'Lacerte'], status: 'live-ready' },
   'irs-efile':       { label: 'IRS e-file (MeF)',      verticals: ['tax'],         capabilities: ['transmit-return'], realProviders: ['IRS MeF'], status: 'stub' },
   'doc-intake':      { label: 'Doc intake (W-2/1099)', verticals: ['tax'],         capabilities: ['extract-forms'], realProviders: ['OCR + parsers'], status: 'stub' },
   'brokerage-feed':  { label: 'Bank / brokerage feed', verticals: ['tax'],         capabilities: ['fetch-1099'], realProviders: ['Plaid', 'broker APIs'], status: 'stub' },
@@ -102,6 +102,9 @@ const LIVE_ADAPTERS = {
   'ncci-mue': () => import('./connectors/ncci.mjs'),
   'e-signature': () => import('./connectors/e-signature.mjs'),
   'bank-feed': () => import('./connectors/bank-feed.mjs'),
+  'sanctions-screen': () => import('./connectors/sanctions.mjs'),
+  'rmm': () => import('./connectors/rmm.mjs'),
+  'tax-engine': () => import('./connectors/tax-engine.mjs'),
 };
 
 /** Does this connector have a real (live) adapter wired? */
