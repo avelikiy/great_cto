@@ -4,6 +4,31 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.54.0 — 2026-06-07
+
+### Console Waves C+D — explainability · narrative · routing dial · QA · bulk · observability
+
+Completes the console gap-roadmap (`docs/plans/PLAN-console-gap-roadmap.md`).
+
+**Wave C**
+- **Evidence-linked explainability** — the case drawer's *Evidence* section lists exactly what each
+  connector found (the signals behind the AI recommendation) with the live/stub flag.
+- **AI-drafted determination** — every run carries a templated rationale composed from the connector
+  evidence; the signer reviews it in the drawer before signing.
+- **Configurable confidence floor (the routing dial)** — admin Settings sets a per-tenant floor; a
+  low-confidence approve is downgraded to *escalate* (routed to a human), and clean high-confidence
+  cases are flagged **auto-eligible**.
+
+**Wave D**
+- **QA sampling** — a deterministic ~20% sample of *closed* cases lands in a QA queue (admin /
+  compliance-lead) to be scored 1–5 against the work; recorded on the run + audit + Analytics.
+- **Bulk actions** — multi-select awaiting cases (or "select auto-eligible") → bulk approve / reject /
+  escalate with a reason, RBAC-checked per case.
+- **Agent-run observability** — per-connector latency (ms) in the drawer + a **⟳ Replay** action to
+  re-run a vertical.
+
+New endpoints: `/api/autopilot/config`, `/qa`, `/qa-score`, `/bulk`. 288 lib tests.
+
 ## v2.53.0 — 2026-06-07
 
 ### Console Wave B: AI recommendation + override logging + regulatory-deadline SLAs · email invites

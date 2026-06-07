@@ -102,6 +102,21 @@
     <div id="stats" class="row" style="gap:14px;flex-wrap:wrap"></div>
   </div>
 
+  <div id="settings-box" style="display:none">
+    <h2>Settings — the routing dial</h2>
+    <div class="row">
+      <label class="mut">Confidence floor <input type="range" id="floor" min="0" max="1" step="0.05" oninput="document.getElementById('floor-v').textContent=this.value" /> <b id="floor-v">0.70</b></label>
+      <label class="mut"><input type="checkbox" id="auto-eligible-cfg" /> auto-eligible fast-lane</label>
+      <button class="primary" onclick="saveConfig()">Save</button>
+      <span class="mut">below the floor → a low-confidence case is routed to a human (escalated)</span>
+    </div>
+  </div>
+
+  <div id="qa-box" style="display:none">
+    <h2>QA — sampled closed cases (the second loop)</h2>
+    <div id="qa"></div>
+  </div>
+
   <div id="team-box" style="display:none">
     <h2>Team — invite an operator to an industry</h2>
     <div class="row">
@@ -125,6 +140,12 @@
       <option value="completed">completed</option>
       <option value="rejected">rejected</option>
     </select>
+  </div>
+  <div class="row" style="margin:4px 0"><button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="selectAuto()">☑ select auto-eligible</button>
+    <span id="bulk-bar" style="display:none"><b id="bulk-n">0</b> selected · reason <select id="bulk-reason">${''}</select>
+    <button class="primary" onclick="bulkDo('approve')">Approve selected</button>
+    <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="bulkDo('escalate')">Escalate</button>
+    <button class="reject" onclick="bulkDo('reject')">Reject</button></span>
   </div>
   <div id="inbox"></div>
 
@@ -220,8 +241,12 @@ function applyRoleUI() {
   const r = ROLES[role()] || { verticals: '*', canBuild: true, canStart: true };
   if (!SESSION.token) document.getElementById('build-link').style.display = r.canBuild ? '' : 'none';
   document.getElementById('start-box').style.display = r.canStart ? '' : 'none';
-  document.getElementById('team-box').style.display = (role() === 'admin' && !SESSION.token) ? '' : 'none';
-  if (role() === 'admin' && !SESSION.token) loadTeam();
+  const isAdmin = role() === 'admin' && !SESSION.token;
+  document.getElementById('team-box').style.display = isAdmin ? '' : 'none';
+  document.getElementById('settings-box').style.display = isAdmin ? '' : 'none';
+  document.getElementById('qa-box').style.display = (['admin', 'compliance-lead'].includes(role())) ? '' : 'none';
+  if (isAdmin) { loadTeam(); loadConfig(); }
+  if (['admin', 'compliance-lead'].includes(role())) loadQa();
   const allowed = r.verticals === '*' ? Object.keys(VERT) : r.verticals;
   for (const o of document.getElementById('vertical').options) o.hidden = !allowed.includes(o.value);
   const cur = document.getElementById('vertical');
@@ -276,10 +301,14 @@ function openDrawer(id) {
     <div class="mut" style="margin-top:6px">Accountable owner: <b>${esc(r.owner || r.signer || '—')}</b></div>${r.disposition ? '<div class="mut">disposition: <b>' + esc(r.disposition) + '</b></div>' : ''}
     ${gateProgressHtml(r)}
     ${stepsHtml(r)}
+    <h2 style="margin-top:18px">Evidence — what the connectors found</h2>
+    <div class="aud">${evidenceHtml(r) || '<span class="mut">no connector signals</span>'}</div>
+    ${r.narrative ? `<h2 style="margin-top:18px">AI-drafted determination</h2><pre style="white-space:pre-wrap;font:12px/1.5 var(--mono),monospace;color:#c6d2d0;background:#0d1311;border:1px solid var(--bd);border-radius:8px;padding:12px;margin:0">${esc(r.narrative)}</pre>` : ''}
     <h2 style="margin-top:18px">Audit trail</h2>
     <div class="aud">${aud || '<span class="mut">no events</span>'}</div>
     <div class="row" style="margin-top:14px">
       <button class="primary" onclick="exportRun('${r.id}')">⬇ Export audit (JSON)</button>
+      <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="replay('${r.vertical}')">⟳ Replay (re-run)</button>
     </div>`;
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawer-bg').classList.add('open');
@@ -289,6 +318,21 @@ function exportRun(id) {
   const r = RUNS[id]; if (!r) return;
   const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = id + '.json'; a.click();
+}
+// Evidence-linked explainability + per-step latency (agent-run observability).
+function evidenceHtml(r) {
+  const rows = [];
+  for (const s of r.steps || []) for (const c of (s.toolCalls || [])) {
+    if (!c.signal && c.ms == null) continue;
+    const facts = c.signal ? Object.entries(c.signal).map(([k, v]) => `${esc(k)}=<b>${esc(v)}</b>`).join(', ') : '<span class="mut">ok</span>';
+    rows.push(`<div>• <b>${esc(c.connector)}</b>${c.mode === 'live' ? ' <span style="color:#00d97e">live</span>' : ''} ${facts}${c.ms != null ? ` <span class="mut">· ${c.ms}ms</span>` : ''}</div>`);
+  }
+  return rows.join('');
+}
+async function replay(vertical) {
+  if (!(ROLES[role()] || {}).canStart) { alert('Replay starts a fresh run — admin/compliance-lead only.'); return; }
+  await api('/api/autopilot/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vertical, mode:'live', ...authBody() }) });
+  closeDrawer(); refresh();
 }
 
 function stepsHtml(run) {
@@ -321,7 +365,7 @@ async function loadInbox() {
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
     <div class="card gate">
-      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:#f0a020;border-color:#5a4420">↑ escalated</span>' : ''}${recoHtml(r)}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
+      <div class="row"><input type="checkbox" class="bulk-cb" value="${r.id}" onchange="updateBulk()" /><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:#f0a020;border-color:#5a4420">↑ escalated</span>' : ''}${recoHtml(r)}${r.autoEligible ? '<span class="pill ok">auto-eligible</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
       ${gateProgressHtml(r)}
       ${stepsHtml(r)}
@@ -386,7 +430,59 @@ async function loadStats() {
     tile('SLA breaches', s.slaBreaches) + tile('rejected', s.rejected) +
     tile('escalated', s.escalated) + tile('sent back', s.sentBack) + tile('AI overrides', s.overrides);
 }
-function refresh() { loadInbox(); loadRuns(); loadStats(); }
+// ── Settings (confidence floor — the routing dial), admin only ──
+async function loadConfig() {
+  const c = await api('/api/autopilot/config?role=' + role() + (fTenant() ? '&tenant=' + fTenant() : ''));
+  document.getElementById('floor').value = c.confidenceFloor; document.getElementById('floor-v').textContent = (+c.confidenceFloor).toFixed(2);
+  document.getElementById('auto-eligible-cfg').checked = !!c.autoEligible;
+}
+async function saveConfig() {
+  const confidenceFloor = +document.getElementById('floor').value;
+  const autoEligible = document.getElementById('auto-eligible-cfg').checked;
+  await api('/api/autopilot/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ confidenceFloor, autoEligible, tenant: fTenant() || 'default', role:'admin' }) });
+  alert('Routing dial saved — applies to new runs.'); refresh();
+}
+// ── QA (sampled closed cases), admin / compliance-lead ──
+async function loadQa() {
+  const { queue } = await api('/api/autopilot/qa?role=' + role() + (fTenant() ? '&tenant=' + fTenant() : ''));
+  const el = document.getElementById('qa');
+  if (!queue || !queue.length) { el.innerHTML = '<div class="empty">No sampled cases pending QA.</div>'; return; }
+  el.innerHTML = queue.map(r => { cache([r]); return `<div class="card" style="padding:10px 14px">
+    <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill ${r.status==='completed'?'ok':'rej'}">${esc(r.status)}</span><span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯</button></div>
+    <div class="row" style="margin-top:6px"><span class="mut">QA score</span><select id="qa-s-${r.id}"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select><input id="qa-n-${r.id}" placeholder="note" style="flex:1" /><button class="primary" onclick="qaSubmit('${r.id}')">Score</button></div>
+  </div>`; }).join('');
+}
+async function qaSubmit(id) {
+  const score = document.getElementById('qa-s-'+id).value, note = document.getElementById('qa-n-'+id).value;
+  await api('/api/autopilot/qa-score', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, score, note, by: SESSION.name || role(), role: role() }) });
+  loadQa(); loadStats();
+}
+// ── Bulk actions ──
+function updateBulk() {
+  const n = document.querySelectorAll('.bulk-cb:checked').length;
+  document.getElementById('bulk-bar').style.display = n ? '' : 'none';
+  document.getElementById('bulk-n').textContent = n;
+}
+function selectAuto() {
+  RUNS && document.querySelectorAll('.bulk-cb').forEach(cb => { const r = RUNS[cb.value]; cb.checked = !!(r && r.autoEligible); });
+  updateBulk();
+}
+async function bulkDo(action) {
+  const ids = [...document.querySelectorAll('.bulk-cb:checked')].map(cb => cb.value);
+  if (!ids.length) return;
+  const reason = document.getElementById('bulk-reason').value || '';
+  const r = await api('/api/autopilot/bulk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids, action, reason, by: SESSION.name || 'board user', ...authBody() }) });
+  alert(`Bulk ${action}: ${r.ok} done${r.denied?', '+r.denied+' denied':''}${r.failed?', '+r.failed+' failed':''}`);
+  refresh();
+}
+
+function refresh() {
+  loadInbox(); loadRuns(); loadStats();
+  if (document.getElementById('settings-box').style.display !== 'none') loadConfig();
+  if (document.getElementById('qa-box').style.display !== 'none') loadQa();
+}
+// populate the bulk reason select
+document.getElementById('bulk-reason').innerHTML = REASONS.map(x => `<option>${x}</option>`).join('');
 initRoles().then(refresh);
 setInterval(refresh, 4000);
 
