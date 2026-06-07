@@ -51,6 +51,9 @@
   #drawer h3 { margin:0 0 4px; font-size:16px; } #drawer .x { float:right; cursor:pointer; color:var(--mut); border:0; background:none; font-size:18px; }
   .aud { font-size:12px; color:#c6d2d0; border-left:2px solid var(--bd); padding-left:10px; margin:8px 0; }
   .aud div { margin:3px 0; }
+  .kpi { background:#0d1311; border:1px solid var(--bd); border-radius:10px; padding:10px 16px; min-width:118px; }
+  .kpi b { display:block; font-size:22px; color:var(--tx); }
+  .kpi span { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
 </style>
 </head>
 <body>
@@ -94,6 +97,11 @@
   </div>
   </div>
 
+  <div id="analytics-box">
+    <h2>Analytics — is the autopilot taking work off your desk?</h2>
+    <div id="stats" class="row" style="gap:14px;flex-wrap:wrap"></div>
+  </div>
+
   <div id="team-box" style="display:none">
     <h2>Team — invite an operator to an industry</h2>
     <div class="row">
@@ -132,6 +140,7 @@ const VERT = { rcm:'🩺', aml:'🛡️', soc:'🔐', insurance:'☂️', mortga
   collections:'💰', freight:'🚚', cro:'🧪', 'prior-auth':'✅', legaltech:'⚖️', accounting:'📒', tax:'🧾',
   procurement:'🛒', msp:'🖥️', customs:'🛃', audit:'📊', pharma:'💊' };
 const icon = v => VERT[v] || '🤖';
+const REASONS = ['meets-criteria', 'below-confidence-floor', 'policy-exception', 'insufficient-documentation', 'fraud-suspected', 'out-of-scope', 'needs-senior-review', 'other'];
 
 // populate the vertical filter
 (function () {
@@ -298,15 +307,18 @@ async function loadInbox() {
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
     <div class="card gate">
-      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
+      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:#f0a020;border-color:#5a4420">↑ escalated</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
       ${gateProgressHtml(r)}
       ${stepsHtml(r)}
       <div class="sign">
-        <input id="by-${r.id}" placeholder="your name (the signer)" style="min-width:200px" />
-        <input id="note-${r.id}" placeholder="note (optional)" style="flex:1;min-width:160px" />
+        <input id="by-${r.id}" placeholder="your name (the signer)" style="min-width:180px" />
+        <select id="reason-${r.id}" title="disposition / reason code">${REASONS.map(x => `<option value="${x}">${x}</option>`).join('')}</select>
+        <input id="note-${r.id}" placeholder="note (optional)" style="flex:1;min-width:140px" />
         <button class="primary" onclick="decide('${r.id}','approve')">Approve &amp; run the write</button>
         <button class="reject" onclick="decide('${r.id}','reject')">Reject</button>
+        <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="decide('${r.id}','escalate')">↑ Escalate</button>
+        <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="decide('${r.id}','send-back')">↩ Send back</button>
       </div>
     </div>`).join('');
 }
@@ -342,11 +354,25 @@ async function startRun() {
 async function decide(id, action) {
   const by = (document.getElementById('by-'+id).value || '').trim() || 'board user';
   const note = document.getElementById('note-'+id).value || '';
-  const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note, ...authBody() }) });
+  const reason = (document.getElementById('reason-'+id) || {}).value || '';
+  const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note, reason, ...authBody() }) });
   if (r.error) alert(r.error);
   refresh();
 }
-function refresh() { loadInbox(); loadRuns(); }
+async function loadStats() {
+  const p = new URLSearchParams();
+  if (SESSION.token) p.set('token', SESSION.token); else { p.set('role', role()); if (fTenant()) p.set('tenant', fTenant()); }
+  const s = await api('/api/autopilot/stats?' + p.toString());
+  const tile = (label, val) => `<div class="kpi"><b>${val == null ? '—' : val}</b><span>${label}</span></div>`;
+  document.getElementById('stats').innerHTML =
+    tile('total runs', s.total) + tile('completed', s.completed) + tile('awaiting', s.awaiting) +
+    tile('approval rate', s.approvalRate == null ? '—' : s.approvalRate + '%') +
+    tile('escalation rate', s.escalationRate == null ? '—' : s.escalationRate + '%') +
+    tile('avg time→decision', s.avgTimeToDecisionMin == null ? '—' : s.avgTimeToDecisionMin + 'm') +
+    tile('SLA breaches', s.slaBreaches) + tile('rejected', s.rejected) +
+    tile('escalated', s.escalated) + tile('sent back', s.sentBack);
+}
+function refresh() { loadInbox(); loadRuns(); loadStats(); }
 initRoles().then(refresh);
 setInterval(refresh, 4000);
 

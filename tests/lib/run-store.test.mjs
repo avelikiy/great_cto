@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { startRun, approve, reject, getRun, listRuns, pendingGates } from '../../scripts/lib/run-store.mjs';
+import { startRun, approve, reject, escalate, sendBack, stats, getRun, listRuns, pendingGates } from '../../scripts/lib/run-store.mjs';
 import { loadFlow, runFlow } from '../../scripts/lib/flow-runner.mjs';
 
 function tmp() { const d = mkdtempSync(join(tmpdir(), 'ap-runs-')); process.env.GREAT_CTO_RUNS_DIR = d; return d; }
@@ -136,4 +136,42 @@ test('resume runFlow: an approved gate lets the irreversible step execute', asyn
   const t2 = await runFlow(flow, { mode: 'stub', stopAtGate: false });
   const submit2 = t2.steps.find((s) => /submit the 837/.test(s.does));
   assert.equal(submit2.status, 'gated');
+});
+
+test('escalate keeps the case in the queue, flagged; reason is recorded', async () => {
+  const d = tmp();
+  const { id } = await startRun('rcm', { mode: 'stub' });
+  const run = await escalate(id, 'Junior coder', 'unsure', 'needs-senior-review');
+  assert.equal(run.status, 'awaiting-approval');   // still signable by a senior
+  assert.equal(run.escalated, true);
+  assert.ok(run.audit.some((a) => a.event === 'escalated' && a.reason === 'needs-senior-review'));
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('send-back ends the run with no irreversible write; reject/approve carry a reason', async () => {
+  const d = tmp();
+  const a = await startRun('rcm', { mode: 'stub' });
+  const back = await sendBack(a.id, 'Coder', 'missing chart', 'insufficient-documentation');
+  assert.equal(back.status, 'sent-back');
+  assert.equal(back.disposition, 'insufficient-documentation');
+  const b = await startRun('rcm', { mode: 'stub' });
+  const rej = await reject(b.id, 'Coder', '', 'policy-exception');
+  assert.equal(rej.disposition, 'policy-exception');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('stats aggregates KPIs over visible runs', async () => {
+  const d = tmp();
+  const a = await startRun('rcm', { mode: 'stub' });
+  await approve(a.id, 'Coder', '', 'meets-criteria');
+  const b = await startRun('aml', { mode: 'stub' });
+  await reject(b.id, 'BSA', '', 'fraud-suspected');
+  await startRun('soc', { mode: 'stub' }); // left awaiting
+  const s = stats();
+  assert.equal(s.total, 3);
+  assert.equal(s.approved, 1);
+  assert.equal(s.rejected, 1);
+  assert.equal(s.awaiting, 1);
+  assert.equal(s.approvalRate, 50); // 1 of 2 decided
+  rmSync(d, { recursive: true, force: true });
 });
