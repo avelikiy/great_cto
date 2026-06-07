@@ -1,0 +1,13 @@
+{
+  "_comment": "Regression-gate baselines for vertical reviewers. `stable` = recall+precision+gate points (max 60), the deterministic, gate-worthy subscore. Judge dims (citation/coverage) are advisory and NOT gated (run-to-run LLM-judge variance). `score` is the full 0-100 headline at baseline time, informational. A reviewer/pack change must not drop `stable` below baseline by more than the tolerance (default 5). Re-baseline intentionally with `vertical-scorecard.mjs <v> --rebaseline` after a confirmed improvement.",
+  "_measured": "2026-06-07 via OpenRouter (anthropic/claude-sonnet-4.5 actor, opus-4.1 judge)",
+  "tolerance": 5,
+  "baselines": {
+    "msp":         { "stable": 60,    "score": 98.5 },
+    "rcm":         { "stable": 60,    "score": 97.75 },
+    "legaltech":   { "stable": 60,    "score": 94.75 },
+    "accounting":  { "stable": 55,    "score": 93.5 },
+    "tax":         { "stable": 55,    "score": 92.75 },
+    "procurement": { "stable": 51.67, "score": 89.42 }
+  }
+}

@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { scoreVertical, band, WEIGHTS, formatScorecard } from '../../scripts/lib/vertical-score.mjs';
+import { scoreVertical, band, WEIGHTS, formatScorecard, stableSubscore, regressionGate, STABLE_DIMS } from '../../scripts/lib/vertical-score.mjs';
 
 // A complete, perfect input → 100.
 const PERFECT = {
@@ -149,4 +149,52 @@ test('formatScorecard: partial run prints PARTIAL + hint', () => {
   const s = formatScorecard('legaltech', scoreVertical({ structural: { wired: true } }));
   assert.match(s, /PARTIAL/);
   assert.match(s, /OPENROUTER_API_KEY/);
+});
+
+// ── stableSubscore + regressionGate ───────────────────────────────────────────────
+
+test('STABLE_DIMS is recall/precision/gate (the deterministic, gate-worthy dims)', () => {
+  assert.deepEqual([...STABLE_DIMS].sort(), ['gate', 'precision', 'recall']);
+});
+
+test('stableSubscore: sums recall+precision+gate only (max 60)', () => {
+  assert.equal(stableSubscore(scoreVertical(PERFECT)), 60); // 30+15+15
+});
+
+test('stableSubscore: excludes judge dims even when present', () => {
+  const r = scoreVertical({ caseResults: [
+    { id: 'p1', kind: 'planted', verdict: 'BLOCKED', matchedKeywords: ['x'], expectGate: true, gateEmitted: true },
+    { id: 'b1', kind: 'benign', verdict: 'APPROVED' },
+  ], judge: { citationAccuracy: 1, coverageCompleteness: 1 } });
+  // recall 30 + precision 15 + gate 15 = 60; citation/coverage excluded
+  assert.equal(stableSubscore(r), 60);
+});
+
+test('stableSubscore: only counts measured stable dims', () => {
+  const r = scoreVertical({ structural: { wired: true } }); // no behavioural
+  assert.equal(stableSubscore(r), 0);
+});
+
+test('regressionGate: equal score passes', () => {
+  const g = regressionGate(60, 60);
+  assert.equal(g.pass, true);
+  assert.equal(g.drop, 0);
+});
+
+test('regressionGate: small drop within tolerance passes', () => {
+  assert.equal(regressionGate(60, 56, { tolerance: 5 }).pass, true);
+});
+
+test('regressionGate: drop beyond tolerance fails with REGRESSION message', () => {
+  const g = regressionGate(60, 50, { tolerance: 5 });
+  assert.equal(g.pass, false);
+  assert.equal(g.drop, 10);
+  assert.match(g.message, /REGRESSION/);
+});
+
+test('regressionGate: improvement (negative drop) passes', () => {
+  const g = regressionGate(55, 60);
+  assert.equal(g.pass, true);
+  assert.equal(g.drop, -5);
+  assert.match(g.message, /OK/);
 });

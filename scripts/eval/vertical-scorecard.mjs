@@ -13,7 +13,8 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { scoreVertical, formatScorecard } from '../lib/vertical-score.mjs';
+import { writeFileSync } from 'node:fs';
+import { scoreVertical, formatScorecard, stableSubscore, regressionGate } from '../lib/vertical-score.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MODEL = process.env.EVAL_ACTOR_MODEL || 'anthropic/claude-sonnet-4.5';
@@ -148,6 +149,31 @@ async function main(argv) {
   const result = scoreVertical({ ...t0, caseResults, judge: judgeScores });
   console.log(formatScorecard(vertical, result));
   if (totalCost) console.log(`\n  run cost: ~$${totalCost.toFixed(2)}`);
+
+  // --gate / --rebaseline operate on the deterministic stable subscore (recall+precision+gate).
+  const gate = argv.includes('--gate');
+  const rebaseline = argv.includes('--rebaseline');
+  if ((gate || rebaseline) && !caseResults) {
+    console.error('\n--gate / --rebaseline need a behavioural run (set OPENROUTER_API_KEY; not --dry-run).');
+    process.exit(2);
+  }
+  if (gate || rebaseline) {
+    const stable = stableSubscore(result);
+    const basePath = join(ROOT, 'tests', 'eval', 'verticals', 'baselines.json');
+    const baseDoc = JSON.parse(readFileSync(basePath, 'utf8'));
+    if (rebaseline) {
+      baseDoc.baselines[vertical] = { stable, score: result.complete ? result.score : null };
+      writeFileSync(basePath, JSON.stringify(baseDoc, null, 2) + '\n');
+      console.log(`\n  ✓ re-baselined ${vertical}: stable ${stable}/60` + (result.complete ? `, score ${result.score}` : ''));
+      process.exit(0);
+    }
+    const base = baseDoc.baselines[vertical];
+    if (!base) { console.error(`\n  no baseline for ${vertical} — run --rebaseline first.`); process.exit(2); }
+    const g = regressionGate(base.stable, stable, { tolerance: baseDoc.tolerance ?? 5 });
+    console.log(`\n  GATE: ${g.message}`);
+    process.exit(g.pass ? 0 : 1);
+  }
+
   process.exit(result.complete && result.band === 'do-not-ship' ? 1 : 0);
 }
 

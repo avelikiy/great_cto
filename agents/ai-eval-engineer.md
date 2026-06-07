@@ -74,6 +74,33 @@ guarantee: **a learned prompt improvement cannot ship until re-run and measured 
 
 Plus a runner: `tests/eval/run.sh` or `tests/eval/test_evals.py` that executes all EVAL files and produces a single pass/fail summary for CI.
 
+## Vertical-reviewer regression gate (same pattern, for service-autopilot verticals)
+
+The service-autopilot vertical reviewers (legaltech / rcm / procurement / accounting / msp / tax)
+are themselves judgment products — their quality is a **measured** 0–100 score, not a declared one.
+When a reviewer prompt or its pack changes, re-score the affected vertical and block on regression,
+exactly like the prompt holdout gate above.
+
+```bash
+# Score one vertical against its golden set (tests/eval/verticals/<vertical>.json):
+OPENROUTER_API_KEY=... node scripts/eval/vertical-scorecard.mjs <vertical>
+
+# Regression gate on a reviewer/pack change (exit 0 = ok, 1 = regression):
+OPENROUTER_API_KEY=... node scripts/eval/vertical-scorecard.mjs <vertical> --gate
+
+# After a CONFIRMED improvement, re-baseline intentionally:
+OPENROUTER_API_KEY=... node scripts/eval/vertical-scorecard.mjs <vertical> --rebaseline
+```
+
+- The gate compares the **stable subscore** (recall + precision + gate = the deterministic,
+  verdict-based dims, max 60) to `tests/eval/verticals/baselines.json`, within a tolerance
+  (default ±5, to absorb borderline-case + actor variance). The LLM-judge dims (citation/coverage)
+  carry run-to-run noise and are **advisory, not gated**.
+- Holdout cases in each golden set are gate-only — never used to tune a reviewer prompt (SIA
+  discipline, same as the holdout split above). The pure engine + math live in
+  `scripts/lib/vertical-score.mjs` (`scoreVertical` / `stableSubscore` / `regressionGate`).
+- Run this when you (or a reviewer) touch `agents/<x>-reviewer.md` or `skills/great_cto/packs/<x>-pack.md`.
+
 ## Workflow
 
 ### Step 0: Read inputs and verify pre-conditions

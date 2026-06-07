@@ -128,3 +128,32 @@ export function formatScorecard(vertical, result) {
   }
   return out.join('\n');
 }
+
+// Dimensions that are deterministic enough to gate on (verdict + keyword based). The LLM-judge
+// dims (citation/coverage) carry run-to-run variance and are advisory, not gating.
+export const STABLE_DIMS = Object.freeze(['recall', 'precision', 'gate']);
+
+/** Sum of points across the stable, gate-worthy dimensions (max 60). */
+export function stableSubscore(result) {
+  return +result.breakdown
+    .filter((d) => STABLE_DIMS.includes(d.dim) && d.measured)
+    .reduce((s, d) => s + d.points, 0)
+    .toFixed(2);
+}
+
+/**
+ * Regression gate: a prompt/pack change must not drop the stable subscore below its baseline by
+ * more than `tolerance` (absorbs borderline-case + actor variance). Judge dims are excluded.
+ * @returns {{ pass: boolean, drop: number, baseline: number, current: number, message: string }}
+ */
+export function regressionGate(baselineStable, currentStable, { tolerance = 5 } = {}) {
+  const drop = +(baselineStable - currentStable).toFixed(2);
+  const pass = drop <= tolerance;
+  const delta = (-drop >= 0 ? '+' : '') + (-drop).toFixed(2);
+  return {
+    pass, drop, baseline: baselineStable, current: currentStable,
+    message: pass
+      ? `OK — stable subscore ${currentStable}/60 (baseline ${baselineStable}, Δ ${delta}, tol ±${tolerance})`
+      : `REGRESSION — stable subscore ${currentStable}/60 dropped ${drop} below baseline ${baselineStable} (tol ±${tolerance}). A reviewer/pack change degraded detection, precision, or gating.`,
+  };
+}
