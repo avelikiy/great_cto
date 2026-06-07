@@ -3,19 +3,71 @@
   "autopilot": "Tax-prep autopilot",
   "tagline": "Prepares returns and classifies positions — a credentialed preparer signs before anything is filed.",
   "audience": "CFO / Tax lead",
+  "owner": "Credentialed preparer (PTIN)",
   "marketSizeUsd": "30–35B",
   "problem": "Tax prep is 80–90% knowledge work but carries preparer penalties (§6694/§6695) and the criminal §7216 data rule, so naive automation is dangerous.",
   "outcome": "Returns prepared and positions authority-classified; below-standard positions disclosed or escalated; a credentialed preparer signs and the taxpayer signs Form 8879 before e-file.",
   "qualityScore": 92.75,
   "steps": [
-    { "does": "Intake taxpayer documents (W-2 / 1099) and statements", "agent": "intake", "tools": ["doc-intake", "brokerage-feed"] },
-    { "does": "Compute the return and classify each position's authority (substantial authority / reasonable basis)", "agent": "preparer", "tools": ["tax-engine"] },
-    { "does": "Check Circular 230 due diligence, §7216 data-use consent, below-standard positions and jurisdiction scope", "agent": "compliance", "tools": ["jurisdiction-db"], "reviewer": "tax-reviewer" },
-    { "does": "A credentialed preparer signs (PTIN); the taxpayer signs Form 8879 before filing", "human": "Credentialed preparer (PTIN / EA / CPA)", "gate": "gate:preparer-signoff" },
-    { "does": "Transmit the signed return via IRS e-file (MeF)", "agent": "filer", "tools": ["irs-efile"] },
-    { "does": "Track acceptance / rejection and handle notices", "agent": "monitor", "tools": ["irs-efile"] }
+    {
+      "does": "Intake taxpayer documents (W-2 / 1099) and statements",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "doc-intake",
+        "brokerage-feed"
+      ]
+    },
+    {
+      "does": "Compute the return and classify each position's authority (substantial authority / reasonable basis)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "preparer",
+      "tools": [
+        "tax-engine"
+      ]
+    },
+    {
+      "does": "Check Circular 230 due diligence, §7216 data-use consent, below-standard positions and jurisdiction scope",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "jurisdiction-db"
+      ],
+      "reviewer": "tax-reviewer"
+    },
+    {
+      "does": "A credentialed preparer signs (PTIN); the taxpayer signs Form 8879 before filing",
+      "human": "Credentialed preparer (PTIN / EA / CPA)",
+      "gate": "gate:preparer-signoff"
+    },
+    {
+      "does": "Transmit the signed return via IRS e-file (MeF)",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "filer",
+      "tools": [
+        "irs-efile"
+      ]
+    },
+    {
+      "does": "Track acceptance / rejection and handle notices",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "irs-efile"
+      ]
+    }
   ],
   "reviewer": "tax-reviewer",
   "manifest": "docs/autopilot/autopilot.json",
-  "startups": ["Black Ore", "April", "Column Tax", "Material Security (tax)"]
+  "startups": [
+    "Black Ore",
+    "April",
+    "Column Tax",
+    "Material Security (tax)"
+  ]
 }

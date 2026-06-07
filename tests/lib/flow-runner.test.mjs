@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { call, hasLiveAdapter, stubCall } from '../../scripts/lib/connectors.mjs';
-import { loadFlow, runFlow, summarizeRun, formatRun } from '../../scripts/lib/flow-runner.mjs';
+import { loadFlow, runFlow, summarizeRun, formatRun, validateFlow } from '../../scripts/lib/flow-runner.mjs';
 
 // ── connector runtime (call dispatcher) ───────────────────────────────────────
 
@@ -192,6 +192,67 @@ test('runFlow: a no-gate flow completes', async () => {
   const flow = { vertical: 'demo', steps: [{ does: 'do', agent: 'x', tools: ['ocr'] }] };
   const trace = await runFlow(flow, { mode: 'stub' });
   assert.equal(trace.status, 'completed');
+});
+
+// ── "the permission was the wound" invariant (irreversible ⟹ gated; named owner) ─────
+
+test('validateFlow: every shipped vertical is safe — irreversible steps are gated + an owner is named', () => {
+  for (const v of ['rcm', 'legaltech', 'procurement', 'accounting', 'msp', 'tax']) {
+    const r = validateFlow(loadFlow(v));
+    assert.equal(r.ok, true, `${v} violations: ${JSON.stringify(r.violations)}`);
+  }
+});
+
+test('validateFlow: flags an irreversible step that runs before any human checkpoint', () => {
+  const flow = { vertical: 'demo', owner: 'X', steps: [
+    { does: 'wire the money', agent: 'pay', reversible: false, blastRadius: 'high', tools: [] },
+    { does: 'sign', human: 'a person', gate: 'gate:x' },
+  ] };
+  const r = validateFlow(flow);
+  assert.equal(r.ok, false);
+  assert.equal(r.violations[0].type, 'irreversible-without-gate');
+  assert.equal(r.violations[0].step, 0);
+});
+
+test('validateFlow: an irreversible step AFTER a gate is allowed', () => {
+  const flow = { vertical: 'demo', owner: 'X', steps: [
+    { does: 'sign', human: 'a person', gate: 'gate:x' },
+    { does: 'wire the money', agent: 'pay', reversible: false, blastRadius: 'high', tools: [] },
+  ] };
+  assert.equal(validateFlow(flow).ok, true);
+});
+
+test('validateFlow: a flow with no owner is a violation (accountability)', () => {
+  const flow = { vertical: 'demo', steps: [{ does: 'read', agent: 'r', tools: [] }] };
+  const r = validateFlow(flow);
+  assert.equal(r.ok, false);
+  assert.ok(r.violations.some((v) => v.type === 'no-owner'));
+});
+
+test('runFlow: REFUSES to autonomously run an irreversible step with no prior checkpoint', async () => {
+  const flow = { vertical: 'demo', owner: 'X', steps: [
+    { does: 'delete prod', agent: 'wipe', reversible: false, blastRadius: 'high', tools: ['ocr'] },
+  ] };
+  const trace = await runFlow(flow, { mode: 'stub', stopAtGate: false });
+  const step = trace.steps[0];
+  assert.equal(step.status, 'blocked-unsafe');
+  assert.equal(step.toolCalls, undefined);   // connectors never fired
+  assert.equal(trace.unsafe, true);
+});
+
+test('runFlow: an irreversible step is NOT auto-fired in a whole-flow dry-run (awaits approval)', async () => {
+  const trace = await runFlow(loadFlow('rcm'), { mode: 'stub', stopAtGate: false });
+  const submit = trace.steps.find((s) => /submit the 837/.test(s.does));
+  assert.equal(submit.status, 'gated');
+  assert.equal(submit.toolCalls, undefined); // the clearinghouse connector did not fire without approval
+  // a reversible follow-on step still runs
+  assert.ok(trace.steps.some((s) => s.status === 'done'));
+});
+
+test('runFlow: exposes the accountable owner + validation on the trace', async () => {
+  const trace = await runFlow(loadFlow('procurement'), { mode: 'stub' });
+  assert.equal(trace.owner, 'Head of Finance');
+  assert.equal(trace.validation.ok, true);
 });
 
 // ── reporting ──────────────────────────────────────────────────────────────────

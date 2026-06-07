@@ -63,6 +63,12 @@ decisions per feature; everything else runs automatically.** The compliance revi
 gates, audit trail, and live connectors are the trust layer that makes it safe to let the autopilot
 run.
 
+**The permission is never the wound.** Every flow step is tagged reversible or not; the runtime
+**refuses to execute an irreversible action autonomously** — money moves, claim submission, e-signing,
+fleet changes and tax filing run *only* after a named human signs the checkpoint. Each autopilot also
+declares an **accountable owner** — one person answers for what it does. `flow-runner.mjs <vertical>
+--validate` enforces the invariant; all six ship green.
+
 ## By the numbers
 
 | | |

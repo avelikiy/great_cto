@@ -3,19 +3,73 @@
   "autopilot": "Source-to-pay autopilot",
   "tagline": "Onboards suppliers, matches invoices and releases payments — screened for sanctions and fraud, with a human on the big ones.",
   "audience": "CFO / Head of Procurement",
+  "owner": "Head of Finance",
   "marketSizeUsd": "200B+",
   "problem": "Source-to-pay is labour-heavy and leaks 2–5% of spend to fraud, duplicate invoices and weak supplier controls; one bad payment can be a sanctions violation.",
   "outcome": "Suppliers onboarded and screened; invoices three-way-matched and paid straight-through under threshold; sanctions hits hard-blocked; large/flagged payments escalated.",
   "qualityScore": 89.42,
   "steps": [
-    { "does": "Onboard the supplier and capture beneficial ownership", "agent": "intake", "tools": ["vendor-master", "kyb"] },
-    { "does": "Screen the supplier + UBO against sanctions / PEP lists (continuous)", "agent": "screening", "tools": ["sanctions-screen"], "reviewer": "procurement-reviewer" },
-    { "does": "Three-way match the invoice (PO ↔ receipt ↔ invoice); verify bank-detail changes out-of-band", "agent": "matcher", "tools": ["e-invoicing", "erp"] },
-    { "does": "A finance approver releases payments above threshold or on any sanctions / ABAC red flag", "human": "AP / finance approver", "gate": "gate:payment-release" },
-    { "does": "Release the payment under threshold straight-through", "agent": "payer", "tools": ["payment-rails"] },
-    { "does": "Monitor spend for anomalies and duplicate / threshold-split patterns", "agent": "monitor", "tools": ["erp"] }
+    {
+      "does": "Onboard the supplier and capture beneficial ownership",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "vendor-master",
+        "kyb"
+      ]
+    },
+    {
+      "does": "Screen the supplier + UBO against sanctions / PEP lists (continuous)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "screening",
+      "tools": [
+        "sanctions-screen"
+      ],
+      "reviewer": "procurement-reviewer"
+    },
+    {
+      "does": "Three-way match the invoice (PO ↔ receipt ↔ invoice); verify bank-detail changes out-of-band",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "matcher",
+      "tools": [
+        "e-invoicing",
+        "erp"
+      ]
+    },
+    {
+      "does": "A finance approver releases payments above threshold or on any sanctions / ABAC red flag",
+      "human": "AP / finance approver",
+      "gate": "gate:payment-release"
+    },
+    {
+      "does": "Release the payment under threshold straight-through",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "payer",
+      "tools": [
+        "payment-rails"
+      ]
+    },
+    {
+      "does": "Monitor spend for anomalies and duplicate / threshold-split patterns",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "erp"
+      ]
+    }
   ],
   "reviewer": "procurement-reviewer",
   "manifest": "docs/autopilot/autopilot.json",
-  "startups": ["Tacto", "AskLio", "Magentic", "Zip", "Levelpath"]
+  "startups": [
+    "Tacto",
+    "AskLio",
+    "Magentic",
+    "Zip",
+    "Levelpath"
+  ]
 }
