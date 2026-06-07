@@ -1,38 +1,45 @@
 # great_cto · v{{VERSION}}
 
-Engineering process for solo founders and small teams. You make 2 decisions
-per feature; agents do the rest.
+AI autopilots for business. Two modes: **Build** an autopilot (the gated
+engineering pipeline) · **Operate** one (the runtime — a human signs the
+risky call). 19 verticals · 22 live connectors.
 
 ## Commands
 
 | Group | Commands |
 |---|---|
-| **Daily** | `/inbox` what needs attention · `/digest` weekly digest · `/doctor` health · `/resume` continue from HANDOFF.md · `/save` snapshot session |
-| **Pipeline** | `/start` bootstrap project · `/audit` audit existing code · `/review` PR review · `/poc` proof of concept · `/promote` POC → prod |
-| **Ops** | `/oncall` rotation · `/ownership` matrix · `/rfc` decisions · `/release` release notes · `/sec` security · `/cost` LLM spend · `/burn` SLO burn |
-| **Memory** | `/learn` extract patterns · `/crystallize` promote to global · `/migrate` schema |
-| **Agents** | `/agent-review` performance · `/agent-retire` retire |
-| **Help** | `/help` this card · `/help commands` just the table · `/help board` admin URL |
+| **Operate (autopilots)** | `/flow <v>` inspect a flow · `/autopilot start <v>` run it · `/autopilot inbox` cases awaiting a signature · `/autopilot approve <id> --by "<name>"` sign · `/autopilot reject <id>` |
+| **Build (pipeline)** | `/start` bootstrap · `/audit` audit code · `/review` PR review · `/poc` proof of concept · `/promote` POC → prod · `/release` release notes |
+| **Compliance reviewers** (build-time gate) | `/coding-audit` · `/aml-review` · `/customs-review` · `/audit-review` · `/pharma-review` · `/upl-check` · … (one per vertical) |
+| **Daily** | `/inbox` attention · `/digest` weekly · `/doctor` health · `/resume` continue · `/save` snapshot |
+| **Admin / ops** | `/oncall` · `/ownership` · `/rfc` · `/sec` · `/cost` · `/burn` · `/learn` · `/crystallize` · `/migrate` · `/agent-review` · `/agent-retire` |
+| **Help** | `/help` this card · `/help commands` table · `/help board` admin URL |
 
 Every command works standalone — no global state required.
 
+## The two modes
+
+- **Build** — `/start` + a vertical's `/<vertical>-review` reviewer build & ship an autopilot through
+  the gated pipeline (architect → reviewers → QA → security → deploy).
+- **Operate** — `/autopilot` runs a vertical's flow to its human checkpoint, holds the case in an
+  inbox for the licensed human (coder · BSA officer · broker · CPA · QPPV …), and executes the
+  irreversible action *only after* they sign.
+
 ## Agents
 
-35 agents in 6 tiers: **architect → pm → senior-dev → qa-engineer →
-security-officer → devops**, plus 18 archetype-specific reviewers
-(pci, ai-security, edtech, gov, insurance, marketplace, …) that
-sign off before senior-dev claims a task.
-
-Inspect with `/agent-review` (run all) or `/agent-review <name>`.
+74 agents: **architect → pm → senior-dev → qa-engineer → security-officer →
+devops**, plus per-archetype + per-vertical compliance reviewers that sign
+off before senior-dev claims a task. Inspect with `/agent-review`.
 
 ## Admin board
 
 ```
-great-cto board     # opens http://localhost:3141
+great-cto board     # http://localhost:3141  →  Autopilot console
 ```
 
-Views: Inbox · Kanban · Metrics · Agents · Memory · Public report.
-Live updates via SSE. Single-tenant by design (one developer).
+**Operate** — the Autopilot console: the work-queue where the licensed human signs cases
+(multi-tenant; 🔔 browser push when a case lands). **Build** — Inbox · Kanban · Metrics · Agents ·
+Memory. Live updates via SSE.
 
 API: `GET /api/projects`, `/api/tasks`, `/api/sse`. See
 `docs/BOARD-API.md` for the full surface.

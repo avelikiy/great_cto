@@ -47,10 +47,16 @@ fi
 
 - **🤖 steps** run autonomously (an agent + its connectors). **🧑‍⚖️ steps** are **human gates** — a
   named person signs off the judgment calls (the assistant↔autopilot boundary).
-- **Connectors are stubs today** (`/flow <v> --connectors` shows the integration checklist + the
-  real provider to wire for go-live). The flow runs end-to-end in demo/sandbox mode now.
-- **Quality is a measured score** (the vertical scorecard), not a claim. **Under the hood** the
-  vertical's compliance reviewer + signed gates + audit trail enforce safety.
+- **Connectors run live where wired** (`/flow <v> --connectors` shows which run live vs stub + the
+  real provider). 22 connectors run on real data; the rest are sandbox stubs that flip to the real
+  provider when you add credentials.
+- **Under the hood** the vertical's compliance reviewer + signed gates + audit trail enforce safety.
+
+`/flow` *inspects* a flow. To *operate* it — run it to the human gate and sign — use:
+
+```
+▶ run it:  /autopilot start <vertical>     # then  /autopilot inbox  →  /autopilot approve <runId> --by "<name>"
+```
 
 The flow file (`flows/<vertical>.flow.json`) is the single source of truth — the landing page,
-README, and `/start` onboarding all render from it, so the story stays consistent everywhere.
+README, `/start` onboarding, and the run engine all render from it, so the story stays consistent.
