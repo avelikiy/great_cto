@@ -43,17 +43,27 @@
   .sla.warn { color:var(--amb); border-color:#5a4420; }
   .sla.breach { color:var(--red); border-color:#532; }
   .gate-prog { font-size:12px; color:var(--mut); margin-top:4px; }
+  .card.click { cursor:pointer; }
+  .card.click:hover { border-color:#2d3d36; }
+  #drawer-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; z-index:20; }
+  #drawer { position:fixed; top:0; right:0; bottom:0; width:min(560px,92vw); background:var(--card); border-left:1px solid var(--bd); padding:22px; overflow:auto; z-index:21; transform:translateX(100%); transition:transform .18s; }
+  #drawer.open { transform:none; } #drawer-bg.open { display:block; }
+  #drawer h3 { margin:0 0 4px; font-size:16px; } #drawer .x { float:right; cursor:pointer; color:var(--mut); border:0; background:none; font-size:18px; }
+  .aud { font-size:12px; color:#c6d2d0; border-left:2px solid var(--bd); padding-left:10px; margin:8px 0; }
+  .aud div { margin:3px 0; }
 </style>
 </head>
 <body>
 <header>
   <h1>🛂 Autopilot console</h1>
-  <span class="seg"><a class="on" href="/autopilot.html">Operate</a><a href="/">Build</a></span>
-  <span class="sub">the licensed human signs the irreversible action</span>
+  <span class="seg"><a class="on" href="/autopilot.html">Operate</a><a id="build-link" href="/">Build</a></span>
   <span style="flex:1"></span>
+  <span class="mut" style="font-size:13px">I am the</span>
+  <select id="role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select>
   <button id="notify-btn" class="back" style="cursor:pointer;border:0" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
 </header>
 <main>
+  <div id="start-box">
   <h2>Start a run</h2>
   <div class="row">
     <select id="vertical">
@@ -81,6 +91,7 @@
     <input id="start-tenant" placeholder="tenant (default)" style="max-width:140px" />
     <button class="primary" onclick="startRun()">Start run</button>
   </div>
+  </div>
 
   <h2>Inbox — awaiting a human signature</h2>
   <div class="filters">
@@ -99,6 +110,8 @@
   <h2>All runs</h2>
   <div id="runs"></div>
 </main>
+<div id="drawer-bg" onclick="closeDrawer()"></div>
+<aside id="drawer"><button class="x" onclick="closeDrawer()">✕</button><div id="drawer-body"></div></aside>
 <script>
 const api = (p, opt) => fetch(p, opt).then(r => r.json());
 const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -134,6 +147,55 @@ function gateProgressHtml(run) {
 }
 function tenantHtml(r) { return r.tenant && r.tenant !== 'default' ? `<span class="pill">${esc(r.tenant)}</span>` : ''; }
 
+// ── RBAC: the console is the operational staff's surface. A role only sees + signs its own
+// vertical(s); only admin may switch to Build; operators sign but don't start runs. ──
+let ROLES = {};
+const role = () => document.getElementById('role').value || 'admin';
+async function initRoles() {
+  ROLES = (await api('/api/autopilot/roles')).roles || {};
+  const sel = document.getElementById('role');
+  const saved = localStorage.getItem('gcto_role') || 'admin';
+  sel.innerHTML = Object.entries(ROLES).map(([k, r]) =>
+    `<option value="${k}"${k === saved ? ' selected' : ''}>${esc(r.label)}</option>`).join('');
+  applyRoleUI();
+}
+function onRole() { localStorage.setItem('gcto_role', role()); applyRoleUI(); refresh(); }
+function applyRoleUI() {
+  const r = ROLES[role()] || { verticals: '*', canBuild: true, canStart: true };
+  document.getElementById('build-link').style.display = r.canBuild ? '' : 'none';
+  document.getElementById('start-box').style.display = r.canStart ? '' : 'none';
+  // restrict the start picker to the role's verticals
+  const allowed = r.verticals === '*' ? Object.keys(VERT) : r.verticals;
+  for (const o of document.getElementById('vertical').options) o.hidden = !allowed.includes(o.value);
+  const cur = document.getElementById('vertical');
+  if (cur.selectedOptions[0] && cur.selectedOptions[0].hidden) cur.value = allowed[0] || 'rcm';
+}
+
+let RUNS = {}; // id → run, for the detail drawer
+function openDrawer(id) {
+  const r = RUNS[id]; if (!r) return;
+  const aud = (r.audit || []).map(a => `<div>• <b>${esc(a.event)}</b> ${a.by ? 'by ' + esc(a.by) : ''} <span class="mut">${esc((a.at || '').replace('T', ' ').slice(0, 19))}</span>${a.note ? ' — ' + esc(a.note) : ''}</div>`).join('');
+  document.getElementById('drawer-body').innerHTML = `
+    <h3>${icon(r.vertical)} ${esc(r.vertical)} <span class="mut" style="font-size:13px">${esc(r.status)}</span></h3>
+    <div class="mut">${esc(r.id)}${r.tenant && r.tenant !== 'default' ? ' · tenant ' + esc(r.tenant) : ''}</div>
+    <div class="mut" style="margin-top:6px">Accountable owner: <b>${esc(r.owner || r.signer || '—')}</b></div>
+    ${gateProgressHtml(r)}
+    ${stepsHtml(r)}
+    <h2 style="margin-top:18px">Audit trail</h2>
+    <div class="aud">${aud || '<span class="mut">no events</span>'}</div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" onclick="exportRun('${r.id}')">⬇ Export audit (JSON)</button>
+    </div>`;
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-bg').classList.add('open');
+}
+function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawer-bg').classList.remove('open'); }
+function exportRun(id) {
+  const r = RUNS[id]; if (!r) return;
+  const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = id + '.json'; a.click();
+}
+
 function stepsHtml(run) {
   return '<ol class="steps">' + run.steps.map(s => {
     if (s.gate) {
@@ -151,18 +213,20 @@ function q(status) {
   const p = new URLSearchParams();
   if (status) p.set('status', status);
   if (fTenant()) p.set('tenant', fTenant());
-  return '/api/autopilot/runs' + (p.toString() ? '?' + p.toString() : '');
+  p.set('role', role());
+  return '/api/autopilot/runs?' + p.toString();
 }
 const byVert = runs => fVert() ? runs.filter(r => r.vertical === fVert()) : runs;
+const cache = runs => { runs.forEach(r => { RUNS[r.id] = r; }); return runs; };
 
 async function loadInbox() {
   const { runs } = await api(q('awaiting-approval'));
   const el = document.getElementById('inbox');
-  const list = byVert(runs).sort((a,b) => ageMin(b.createdAt) - ageMin(a.createdAt)); // oldest-waiting first
-  if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting a signature.</div>'; return; }
+  const list = cache(byVert(runs)).sort((a,b) => ageMin(b.createdAt) - ageMin(a.createdAt)); // oldest-waiting first
+  if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
     <div class="card gate">
-      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span></div>
+      <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
       ${gateProgressHtml(r)}
       ${stepsHtml(r)}
@@ -178,7 +242,7 @@ async function loadInbox() {
 async function loadRuns() {
   const { runs } = await api(q(fStatus()));
   const el = document.getElementById('runs');
-  const list = byVert(runs);
+  const list = cache(byVert(runs));
   if (!list.length) { el.innerHTML = '<div class="empty">No runs match — start one above or clear the filter.</div>'; return; }
   el.innerHTML = list.map(r => {
     const cls = r.status === 'completed' ? 'done' : r.status === 'rejected' ? 'rej' : 'gate';
@@ -186,7 +250,7 @@ async function loadRuns() {
       : r.status === 'rejected' ? '<span class="pill rej">rejected</span>'
       : '<span class="pill await">' + esc(r.status) + '</span>';
     const aud = (r.audit||[]).map(a => a.event + (a.by?'('+esc(a.by)+')':'')).join(' → ');
-    return `<div class="card ${cls}">
+    return `<div class="card click ${cls}" onclick="openDrawer('${r.id}')">
       <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span>${pill}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span></div>
       <div class="mut" style="margin-top:4px">${esc(aud)}</div>
       ${gateProgressHtml(r)}
@@ -199,18 +263,19 @@ async function startRun() {
   const vertical = document.getElementById('vertical').value;
   const mode = document.getElementById('live').checked ? 'live' : 'stub';
   const tenant = (document.getElementById('start-tenant').value || '').trim() || undefined;
-  await api('/api/autopilot/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vertical, mode, tenant }) });
+  const r = await api('/api/autopilot/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vertical, mode, tenant, role: role() }) });
+  if (r.error) alert(r.error);
   refresh();
 }
 async function decide(id, action) {
   const by = (document.getElementById('by-'+id).value || '').trim() || 'board user';
   const note = document.getElementById('note-'+id).value || '';
-  const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note }) });
+  const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note, role: role() }) });
   if (r.error) alert(r.error);
   refresh();
 }
 function refresh() { loadInbox(); loadRuns(); }
-refresh();
+initRoles().then(refresh);
 setInterval(refresh, 4000);
 
 // ── Browser push: get a notification when a case lands in your queue ──

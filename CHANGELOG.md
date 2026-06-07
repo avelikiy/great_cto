@@ -4,6 +4,25 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.50.0 — 2026-06-07
+
+### The console is the operators' app — role-based access + case-detail drawer
+
+Answers "does the CTO need the admin board?": **no — the Operate console is the operational staff's
+surface** (the licensed humans who sign). The CTO/admin builds in the CLI and oversees; only `admin`
+may switch to the Build board.
+
+- **RBAC (`scripts/lib/roles.mjs`)** — 20 roles. An operator role (coder · BSA officer · customs
+  broker · CPA · QPPV …) only **sees and signs** the cases for its own vertical(s); `compliance-lead`
+  sees every queue but can't Build; `admin` does everything. Enforced on the API: `/api/autopilot/runs`
+  is role-filtered, and **approve/reject/start return 403** outside a role's verticals.
+- **Console** — a role picker ("I am the …") scopes the queue, hides the Build switch + "Start a run"
+  for operators, and restricts the start picker to the role's verticals.
+- **Case-detail drawer** — click any run → a side drawer with the full step trace, the accountable
+  owner, multi-gate progress, the **audit trail**, and an **⬇ Export audit (JSON)** button.
+- New `/api/autopilot/roles`. 276 lib tests (5 new RBAC tests; verified: a BSA officer can't see or
+  sign an rcm case).
+
 ## v2.49.0 — 2026-06-07
 
 ### Rethink the CLI + admin board around the autopilot model (Build ⇄ Operate)

@@ -22,6 +22,7 @@ import {
 } from './push-adapter.mjs';
 import crypto from 'node:crypto';
 import { startRun as apStartRun, approve as apApprove, reject as apReject, listRuns as apListRuns, getRun as apGetRun } from '../../scripts/lib/run-store.mjs';
+import { ROLES, getRole, roleAllows } from '../../scripts/lib/roles.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -3145,11 +3146,20 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── Autopilot console (Layer D) — durable runs + human-gate inbox ──────────────
+  if (pathname === '/api/autopilot/roles' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ roles: ROLES }));
+    return;
+  }
   if (pathname === '/api/autopilot/runs' && req.method === 'GET') {
     const status = url.searchParams.get('status') || undefined;
     const tenant = url.searchParams.get('tenant') || undefined;
+    const role = url.searchParams.get('role') || 'admin';
+    let runs = apListRuns({ status, tenant });
+    // RBAC: an operator role only sees the cases for the vertical(s) it may sign.
+    runs = runs.filter((r) => roleAllows(role, r.vertical));
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ runs: apListRuns({ status, tenant }) }));
+    res.end(JSON.stringify({ runs }));
     return;
   }
   if (pathname === '/api/autopilot/run' && req.method === 'GET') {
@@ -3166,6 +3176,15 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message) })); return;
       }
       try {
+        // RBAC: a role may only operate the vertical(s) it's authorised for.
+        const role = p.role || 'admin';
+        if (pathname === '/api/autopilot/start') {
+          if (!getRole(role).canStart) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${role}' can't start runs (operators sign; admin/compliance-lead start)` })); return; }
+          if (!roleAllows(role, p.vertical)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${role}' is not authorised for ${p.vertical}` })); return; }
+        } else {
+          const existing = apGetRun(p.id);
+          if (existing && !roleAllows(role, existing.vertical)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${role}' is not authorised to sign ${existing.vertical} cases` })); return; }
+        }
         let run;
         if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: p.tenant || 'default' });
         else if (pathname === '/api/autopilot/approve') run = await apApprove(p.id, p.by || 'board user', p.note || '');
