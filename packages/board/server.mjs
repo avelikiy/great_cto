@@ -3147,8 +3147,9 @@ const server = http.createServer(async (req, res) => {
   // ── Autopilot console (Layer D) — durable runs + human-gate inbox ──────────────
   if (pathname === '/api/autopilot/runs' && req.method === 'GET') {
     const status = url.searchParams.get('status') || undefined;
+    const tenant = url.searchParams.get('tenant') || undefined;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ runs: apListRuns({ status }) }));
+    res.end(JSON.stringify({ runs: apListRuns({ status, tenant }) }));
     return;
   }
   if (pathname === '/api/autopilot/run' && req.method === 'GET') {
@@ -3166,9 +3167,17 @@ const server = http.createServer(async (req, res) => {
       }
       try {
         let run;
-        if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub' });
+        if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: p.tenant || 'default' });
         else if (pathname === '/api/autopilot/approve') run = await apApprove(p.id, p.by || 'board user', p.note || '');
         else run = await apReject(p.id, p.by || 'board user', p.note || '');
+        // Push the signer: a new case (or the next gate of a multi-gate flow) is in their queue.
+        if (run && run.status === 'awaiting-approval') {
+          firePushAlert('autopilot.gate', `ap:${run.id}:${run.pausedAt}`, {
+            title: `🛂 New case awaiting your signature`,
+            body: `${run.vertical} · ${run.signer || 'reviewer'}: ${run.gateDoes || run.pausedAt}`,
+            url: '/autopilot.html',
+          });
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ run }));
       } catch (e) {
         res.writeHead(409, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) }));

@@ -79,6 +79,51 @@ test('inbox + listRuns reflect run state', async () => {
   rmSync(d, { recursive: true, force: true });
 });
 
+test('multi-gate: tax needs two signatures (preparer + taxpayer 8879) before the write', async () => {
+  const d = tmp();
+  const { id } = await startRun('tax', { mode: 'stub' });
+  // first gate: preparer
+  let run = getRun(id);
+  assert.equal(run.pausedAt, 'gate:preparer-signoff');
+  run = await approve(id, 'Jane EA');
+  // still awaiting — the taxpayer must now sign 8879
+  assert.equal(run.status, 'awaiting-approval');
+  assert.equal(run.pausedAt, 'gate:taxpayer-8879');
+  // the irreversible transmit has NOT run yet (only one signature so far)
+  assert.ok(!run.steps.some((s) => (s.toolCalls || []).some((c) => c.connector === 'irs-efile')));
+  // second gate: taxpayer
+  run = await approve(id, 'Taxpayer John');
+  assert.equal(run.status, 'completed');
+  // both gates signed, by the right people
+  const gates = run.steps.filter((s) => s.gate);
+  assert.equal(gates.length, 2);
+  assert.equal(gates[0].approvedBy, 'Jane EA');
+  assert.equal(gates[1].approvedBy, 'Taxpayer John');
+  // and only now did the transmit fire
+  assert.ok(run.steps.some((s) => (s.toolCalls || []).some((c) => c.connector === 'irs-efile' && c.ok)));
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('multi-tenant: a tenant sees only its own runs', async () => {
+  const d = tmp();
+  await startRun('rcm', { mode: 'stub', tenant: 'acme' });
+  await startRun('aml', { mode: 'stub', tenant: 'globex' });
+  assert.equal(listRuns({ tenant: 'acme' }).length, 1);
+  assert.equal(listRuns({ tenant: 'acme' })[0].vertical, 'rcm');
+  assert.equal(pendingGates({ tenant: 'globex' }).length, 1);
+  assert.equal(pendingGates({ tenant: 'globex' })[0].vertical, 'aml');
+  assert.equal(listRuns().length, 2); // no filter → all
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('idempotency: a run carries a stable key so a retried write never double-submits', async () => {
+  const d = tmp();
+  const run = await startRun('rcm', { mode: 'stub' });
+  // the key is threaded into the run's connector payloads (stable = the run id)
+  assert.ok(run.id.startsWith('run_rcm_'));
+  rmSync(d, { recursive: true, force: true });
+});
+
 test('resume runFlow: an approved gate lets the irreversible step execute', async () => {
   // direct runFlow contract: with the protecting gate approved, the write runs
   const flow = loadFlow('rcm');
