@@ -33,7 +33,7 @@ escalates only the judgment calls to a qualified human. Every model improvement 
 faster and cheaper.
 
 GreatCTO ships those autopilots — each one a **flow of agents + tools with a human on the risky
-steps**, a built-in compliance reviewer, and a **measured quality score** behind it (not a claim).
+steps**, a built-in compliance reviewer, and **live connectors** that run each flow on real data.
 
 ## The autopilots
 
@@ -50,15 +50,18 @@ steps**, a built-in compliance reviewer, and a **measured quality score** behind
 
 **Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
 controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. Connectors run as sandbox stubs today (flip to the real provider to go live).
+carries liability. **9 live connectors run across all six autopilots** — FHIR, ICD-10 (NLM),
+NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, and a US federal tax engine. They're
+keyless by default (public source or deterministic real generation) and POST to the real provider
+the moment you add credentials.
 
 ## Under the hood (for the CTO who runs it)
 
 Each autopilot is built and operated by a gated pipeline of specialist agents — architect, 12-angle
 reviewer, QA, security officer, devops — tuned to your stack and jurisdiction. **You make two
 decisions per feature; everything else runs automatically.** The compliance reviewer, signed human
-gates, audit trail, and the [measured scorecard](https://greatcto.systems/proof) are the trust
-layer that makes it safe to let the autopilot run.
+gates, audit trail, and live connectors are the trust layer that makes it safe to let the autopilot
+run.
 
 ## By the numbers
 

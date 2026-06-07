@@ -2,272 +2,414 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-# great_cto
-
-**描述你的專案和運營地區。GreatCTO 自動編譯正確的 SDLC 流水線。**
-
-`npx great-cto init` 掃描你的技術棧，偵測管轄區，並編譯 **Delivery Flow** — 專案所需的確切代理、合規框架和人工審核門。你批准兩個檢查點：計劃和發布。其他一切自動執行。
-
-**專為單人工程組織打造。** 獨立開發者、單人創辦人和獨立管理一切的技術 CTO。
-
-<sub>底層：57 個專業代理 · 25 個產品原型 · 11 個領域包 · 33+ 個合規框架 · 12 個管轄區覆蓋。</sub>
-
-> **v2.21.0** · 57 代理 · 25 專案類型 · 12 管轄區 · 在 **Claude Code · Cursor · Codex · Aider · Continue** 中工作 · MCP 伺服器 · webhooks · CI gate · 每功能 ~$8–$18 · MIT
-
-> ⚠️ 此為機器翻譯,需要本地化審核。如發現問題請提交 PR。 [English original](../../README.md).
+**面向企業的 AI 自動駕駛（autopilot）——交付完成的工作，而不只是軟體。**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
-[![JSR](https://jsr.io/badges/@avelikiy/great-cto)](https://jsr.io/@avelikiy/great-cto)
+[![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
+[![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
+[![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
 
-[官方網站](https://greatcto.systems) · [展示](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [討論](https://github.com/avelikiy/great_cto/discussions) · [部落格](https://velikiy.hashnode.dev)
-
-**語言:** [English](../../README.md) · [Русский](../ru/README.md) · [简体中文](../zh-CN/README.md) · **繁體中文** · [日本語](../ja/README.md) · [한국어](../ko/README.md) · [Español](../es/README.md) · [Português (BR)](../pt-BR/README.md)
-
-</div>
-
-## 更新日誌
-
-### v2.7.0 — 代理提示一致性 + 模型層級政策 (2026 年 5 月)
-- 3 條新 lint 規則: `CONS-MODEL` (代理模型與角色匹配) · `CONS-OUTPUT` (reviewers 宣告輸出檔案) · `CONS-SIGNOFF` (sign-off / gate 語意)
-- ADR-002 — 統一的模型層級選擇政策 (architect → opus|sonnet, continuous-learner → haiku, *-reviewer → sonnet)
-- Bug 修復: SessionEnd 自動擷取日誌現在能正確渲染到 board 管理介面
-- Lint 基準: 34 個代理 · 0 錯誤 · 0 警告
-
-
-[完整變更日誌 →](../../CHANGELOG.md)
-
-## 什麼是 great_cto?
-
-在任意儲存庫中執行 `npx great-cto init`。GreatCTO 掃描你的技術棧，從基礎設施和 README 訊號中偵測管轄區，並編譯 **Delivery Flow** — 專案所需的確切代理、合規框架和人工審核門：
-
-```
-$ npx great-cto init
-
-Compiled flow: Fintech · EU + UK
-  Agents:     architect · gdpr-reviewer · pci-reviewer · regulated-reviewer · senior-dev · qa-engineer
-  Gates:      gate:plan · gate:compliance · gate:security · gate:ship
-  Compliance: gdpr, pci-dss, dora
-  Cost:       ~$8–$18 per feature cycle
-```
-
-之後，`/start "建立退款端點"` 端到端執行已編譯的流水線。
-
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto kanban — 5 欄, 內聯閘門核准, 即時 SSE" width="900" />
-  <br/>
-  <em>Kanban — 5 欄, 內聯狀態編輯, 來自 <code>bd</code> CLI 的 SSE 即時更新。</em>
-</p>
-
-| 層級 | 作用 |
-|------|------|
-| **33 個專業代理** | architect · pm · senior-dev · code-reviewer · qa-engineer · security-officer · devops · l3-support · performance-engineer · ai-prompt-architect · ai-eval-engineer · ai-security-reviewer · pci-reviewer · regulated-reviewer · oracle-reviewer · firmware-reviewer · web-store-reviewer · db-migration-reviewer · mobile-store-reviewer · library-reviewer · infra-reviewer · cli-reviewer · game-reviewer · data-platform-reviewer · devtools-reviewer · enterprise-saas-reviewer · mlops-reviewer · streaming-reviewer · marketplace-reviewer · cms-reviewer · edtech-reviewer · gov-reviewer · insurance-reviewer · continuous-learner |
-| **25 專案類型** | web-service · agent-product · ai-system · mlops · commerce · marketplace · fintech · healthcare · mobile-app · cli-tool · library · browser-extension · game · web3 · iot-embedded · data-platform · streaming · devtools · infra · cms · enterprise-saas · regulated · edtech · gov-public · insurance |
-| **自動偵測** | 掃描 `package.json`, `pyproject.toml`, `Cargo.toml`, README, 程式碼結構 → 在 2 秒內選擇專案類型 + 合規閘門。當信心度低時,Anthropic Haiku 提供二次意見 (~$0.001)。 |
-| **合規** | EU AI Act · OWASP LLM Top 10 · PCI-DSS · SOX · KYC/AML · HIPAA · HITECH · GDPR · ISO27001 · ETSI EN 303 645 · COPPA · SOC2 — 按專案類型自動附加。 |
-| **記憶體** | 4 層 — `PROJECT.md` (專案類型) · `lessons.md` (專案回顧) · `~/.great_cto/decisions.md` (每個閘門核准,可跨專案查詢) · `verdicts/` (每個代理判定)。 |
-| **看板** | `great-cto board` 在 `localhost:3141` 開啟 6 個檢視 — Inbox · Kanban · Metrics · Agents · Memory · Public report。透過 SSE 即時更新。 |
-
-## 每個功能兩個決定
-
-```
-你:  /start "新增 Stripe 訂閱 — 月度和年度方案"
-
-great_cto:
-  → 專案類型: commerce | 規模: standard | ~45 分鐘
-  → 合規: pci-dss + gdpr (自動附加)
-  → ARCH-stripe-subscriptions.md 已就緒  →  決定 1: 核准架構?
-
-你: "核准"
-
-  → senior-dev → 12 角度審查 → qa-engineer → security-officer → devops
-  → 412 個測試通過 · 0 高危 · canary 就緒
-  → 決定 2: 發布?
-
-你: "發布"  →  canary 5% → 20% → 100%  →  RELEASE 文件已寫入
-```
-
-## 快速安裝
+<img src="../screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 61 agents → gate:ship → Deployed" width="900" />
 
 ```bash
 npx great-cto init
 ```
 
-CLI 掃描你的儲存庫,選擇正確的專案類型,自動連線合規閘門。適用於新專案或現有專案。之後重新啟動 Claude Code。
+[官網](https://greatcto.systems) · [一次真實執行 →](https://greatcto.systems/proof) · [線上示範](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [討論區](https://github.com/avelikiy/great_cto/discussions) · [更新日誌](../../CHANGELOG.md)
 
-**前置需求:** [Claude Code](https://claude.com/claude-code) · Node 18.17+ · [Beads](https://github.com/steveyegge/beads) · [Superpowers](https://github.com/obra/superpowers)
+[Русский](../ru/README.md) · [简体中文](../zh-CN/README.md) · [繁體中文](../zh-TW/README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) · [Español](../es/README.md) · [Português](../pt-BR/README.md) · [Deutsch](../de/README.md) · [Français](../fr/README.md)
 
-## 你真的會檢視的看板
+</div>
+
+---
+
+## 服務就是新的軟體
+
+下一波浪潮不是給專家用的工具——而是**販售一項服務成果的自動駕駛**。
+一個自動駕駛端到端地執行整個業務職能（接收 → 處理 → 決策 → 交付），
+只將需要判斷的關鍵環節升級交給合格的人。每一次模型改進，都讓這項服務
+更快、更便宜。
+
+GreatCTO 交付的正是這些自動駕駛——每一個都是**由代理人 + 工具組成、並在高風險
+步驟上保留人類的流程**，內建合規審查者，以及讓每條流程在真實資料上運行的**即時連接器**。
+
+## 各個自動駕駛
+
+| 自動駕駛 | 它做什麼 | 市場規模 | 誰在打造它 |
+|---|---|---|---|
+| 🩺 **[醫療編碼（Medical-coding）](https://greatcto.systems/autopilots/rcm.html)** | 臨床記錄 → 乾淨、合規的理賠申請；由認證編碼師簽署高風險項目 | $50–80B | Anterior · CodaMetrix · Fathom |
+| 🖥️ **[託管 IT（Managed-IT）](https://greatcto.systems/autopilots/msp.html)** | 跨整個機群的修補、設定與存取——分階段、可回復，重大變更由人把關 | $100B+ | Serval · Edra · Electric AI |
+| ⚖️ **[法律文件（Legal-document）](https://greatcto.systems/autopilots/legaltech.html)** | 起草與紅線標註合約與 NDA；任何屬於法律意見的內容由執業律師簽署 | $20–25B | Crosby · Harvey · Robin AI |
+| 📒 **[記帳與結帳（Bookkeeping & close）](https://greatcto.systems/autopilots/accounting.html)** | 記帳、對帳並完成月結；由財務主管簽署結帳 | $50–80B | Rillet · Basis · Digits |
+| 🧾 **[報稅（Tax-prep）](https://greatcto.systems/autopilots/tax.html)** | 準備報稅表並分類稅務立場；由具資格的報稅員在申報前簽署 | $30–35B | Black Ore · April · Column Tax |
+| 🛒 **[採購到付款（Source-to-pay）](https://greatcto.systems/autopilots/procurement.html)** | 導入供應商、比對發票、放款付款——並篩查制裁與詐欺 | $200B+ | Tacto · Zip · AskLio |
+
+→ [所有自動駕駛](https://greatcto.systems/autopilots.html) · 執行 `/flow <vertical>` 即可在你的終端機中查看任一流程
+
+**每個自動駕駛都在需要判斷的環節上保留一名人類**——認證編碼師、執業律師、財務
+主管、具資格的報稅員。自動駕駛處理大量工作；由人類負責承擔法律責任的那個決定。**9 個即時
+連接器橫跨全部六個自動駕駛運行**——FHIR、ICD-10（NLM）、
+NCCI/MUE、X12 837P、DocuSign、Plaid、OFAC、分階段推出，以及一個美國聯邦稅務引擎。它們
+預設免金鑰（採用公開資料來源或確定性的真實生成），並在你加入憑證的那一刻就向真實提供者
+發送 POST 請求。
+
+## 引擎蓋之下（給負責運營的 CTO）
+
+每個自動駕駛都由一條設有關卡（gate）的專家代理人流水線打造與運營——架構師、12 個角度的
+審查者、QA、安全官、devops——並針對你的技術堆疊與司法轄區進行調校。**每項功能你只需做兩個
+決定；其餘一切自動運行。**合規審查者、由人類簽署的關卡、稽核軌跡與即時連接器，構成了讓
+自動駕駛得以安全運行的信任層。
+
+## 用數字說話
+
+| | |
+|---|---|
+| LLM 成本（一項真實功能，已追蹤） | **$2.39** |
+| 同等人力完成相同工作 | **~$5,460** |
+| 揪出 QA 漏掉的缺陷 | **2** |
+| 每月成本（20 次流水線執行） | **~$34** |
+| 專家代理人 | **61** |
+| 自動偵測的原型（archetype） | **26** |
+| 司法轄區 | **12**（GDPR · HIPAA · PCI-DSS · SOX · 以及更多） |
+
+→ [包含所有產物的完整追蹤](https://greatcto.systems/proof)
+
+## 運作方式
+
+**`npx great-cto init`** ——掃描你的技術堆疊與 README，偵測司法轄區（GDPR？HIPAA？PCI？），並將你專案所需的確切代理人、關卡與合規框架寫入 `.great_cto/FLOW.md`。
+
+**`/start "描述功能"`** ——在寫下任何程式碼之前，評論者會先審查架構與規格。你在 `gate:plan` 審查計畫。
+
+**代理人自動運行** ——senior-dev 以 TDD 實作，接著 12 個角度審查、QA、安全、devops。你在 `gate:ship` 核准出貨。
+
+## 三個專案——三條不同的流水線
+
+同一條指令。產出取決於你在打造什麼、以及它在哪裡運行：
+
+| | **金融科技新創 · 歐盟** | **醫療入口網站 · 美國** | **CLI 工具** |
+|---|---|---|---|
+| 專家代理人 | `pci-reviewer` · `gdpr-reviewer` · `regulated-reviewer` | `fda-reviewer` · `healthcare-reviewer` · `security-officer` | `cli-reviewer` |
+| 人類關卡 | `gate:gdpr-dpia` · `gate:plan` · `gate:ship` | `gate:clinical-validation` · `gate:plan` · `gate:ship` | `gate:plan` |
+| 合規 | GDPR · PCI-DSS · SOX | HIPAA · HITECH | — |
+| 每週期成本 | ~$8–18 | ~$8–18 | ~$0.5–3 |
+
+→ 試試互動式選擇器：[greatcto.systems/#flow-picker](https://greatcto.systems/#flow-picker)
+
+## 你真的會去看的儀表板
+
+`great-cto board` 在 `http://localhost:3141` 開啟——具備即時 SSE 的看板、每個代理人的成本磚塊、流水線狀態，以及 30 天 LLM 花費對比同等人力的基準。
+
+<p align="center">
+  <img src="../screenshots/board.png" alt="Kanban board with realtime SSE updates" width="900" />
+</p>
+
+<table>
+<tr>
+<td width="50%"><a href="docs/screenshots/metrics.png"><img src="../screenshots/metrics.png" alt="Metrics — cost, velocity, savings_x" width="100%" /></a><br/><sub><b>指標</b> — LLM 成本、同等人力基準、savings_x 比率</sub></td>
+<td width="50%"><a href="docs/screenshots/inbox.png"><img src="../screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>收件匣</b> — 待處理關卡、P0 事故、受阻任務、停滯的進行中項目</sub></td>
+</tr>
+<tr>
+<td width="50%"><a href="docs/screenshots/agents.png"><img src="../screenshots/agents.png" alt="Agent fleet — 61 specialists with run counts" width="100%" /></a><br/><sub><b>代理人</b> — 61 位專家，附最近使用時間與執行次數</sub></td>
+<td width="50%"><a href="docs/screenshots/memory.png"><img src="../screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>記憶</b> — 11 層 + 已結晶化的事故模式</sub></td>
+</tr>
+</table>
+
+**為一人工程組織打造。**獨立開發者、單人創辦人、親力親為一手包辦的技術型 CTO——在 Claude Code 或 OpenAI Codex 上運行。*不適合團隊*——詳見 [FAQ](../FAQ.md#is-great_cto-for-teams)。
+
+## 安裝
 
 ```bash
-great-cto board   # localhost:3141
+npx great-cto init
 ```
 
-6 個檢視,真實截圖 — 見 [greatcto.systems#board](https://greatcto.systems#board)。
+init 後請重啟你的 AI 主機。**需要：**Node 18.17+ 以及下列之一：
 
-| 檢視 | 內容 |
-|------|------|
-| **Inbox** | 復原卡片 (從上次離開的地方繼續) · 待定決定 · 開放的 P0 · 阻塞 · 停滯 (in-progress > 48h) |
-| **Kanban** | 5 欄 · 內聯閘門核准/拒絕 · 過濾欄 (代理 / 優先順序 / 標籤) · ⌘K 搜尋 · `j`/`k` 導覽 |
-| **Metrics** | 主卡片 (速度, 成本, MTTR) · 30 天 LLM 支出圖,帶預算告警 |
-| **Agents** | 每個代理的時間, LLM 成本, 按 $150/小時折算的人力等價 · 活動串流 (最近 20 個判定) |
-| **Memory** | 4 層瀏覽器: PROJECT.md · lessons.md · decisions.md · verdicts/ |
-| **Public report** | 切換開啟 → 不可猜測的 URL,包含已發布任務、AI vs 人工成本對比。無程式碼,無憑證。 |
+| 主機 | 安裝旗標 | 狀態 |
+|---|---|---|
+| [Claude Code](https://claude.com/claude-code) | _（預設）_ | ✅ 完整支援 |
+| [OpenAI Codex](https://openai.com/codex) | `--host codex` | ✅ hooks + MCP + agents |
 
-多專案切換器 — 一個看板,所有客戶。
+```bash
+# Claude Code (default)
+npx great-cto init
 
-## 每天使用的三個指令
+# OpenAI Codex Desktop / CLI
+npx great-cto init --host codex
+```
 
-| 指令 | 作用 |
-|------|------|
-| `/start "描述"` | 執行完整 SDLC 流程 — 偵測專案類型、生成架構文件、用 TDD 實作、審查、QA、安全、部署 |
-| `/review` | 在目前分支上進行 12 個獨立角度的程式碼審查 |
-| `/inbox` | 開放的閘門、阻塞的任務、P0 事件、安全告警 — 所有需要你立即決定的東西 |
+Superpowers 與 Beads 隨附外掛會自動安裝——無需手動設定。
 
-其餘 (`/audit` · `/digest` · `/sec` · `/cost` · `/release` · `/crystallize`) 自動執行或僅在需要時執行。完整參考見 [`docs/COMMANDS.md`](../COMMANDS.md)。
+---
 
-## 25 個自動偵測的專案類型
+<details>
+<summary>📖 完整文件——兩道關卡 · 評論者 · 61 個代理人 · 26 種原型 · 12 個司法轄區 · 45+ 合規框架 · 看板 · 成本 · MCP</summary>
 
-每種專案類型都會啟動其專業代理和合規清單。
+## 每項功能兩個決定
 
-| 專案類型 | 預設等級 | 自動載入的專業代理 | 合規 |
-|---------|---------|--------------------|------|
-| `web-service` | baseline | — | gdpr · owasp-api-top-10 |
-| `agent-product` | **deep** | ai-prompt-architect · ai-eval-engineer · ai-security-reviewer | eu-ai-act · owasp-llm-top-10 |
-| `ai-system` | **standard** | ai-prompt-architect · ai-eval-engineer · ai-security-reviewer | eu-ai-act |
-| `mlops` | **deep** | mlops-reviewer · ai-eval-engineer | eu-ai-act · nist-ai-rmf · iso42001 |
-| `commerce` | standard | pci-reviewer | pci-dss · gdpr · sca-psd2 |
-| `marketplace` | **deep** | marketplace-reviewer · pci-reviewer | pci-dss · kyc-aml · dsa-eu · 1099-k · ofac |
-| `fintech` | **deep** | pci-reviewer · regulated-reviewer | pci-dss · sox · kyc-aml · gdpr · dora |
-| `healthcare` | **deep** | regulated-reviewer | hipaa · hitech · gdpr |
-| `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
-| `cli-tool` | baseline | cli-reviewer | — |
-| `library` | baseline | library-reviewer | openssf · sbom |
-| `browser-extension` | standard | web-store-reviewer | csp · mv3-security · gdpr |
-| `game` | standard | game-reviewer | coppa · age-rating · accessibility |
-| `web3` | **deep** | oracle-reviewer | soc2 · audit-prep |
-| `iot-embedded` | standard | firmware-reviewer | iso27001 · etsi-en-303-645 · cra |
-| `data-platform` | standard | data-platform-reviewer | gdpr · data-residency · lineage |
-| `streaming` | standard | streaming-reviewer | gdpr · soc2-cc7 |
-| `devtools` | standard | devtools-reviewer | openssf · soc2-type-2 · slsa-l3 |
-| `infra` | standard | infra-reviewer · db-migration-reviewer | soc2 · cis-benchmarks |
-| `cms` | standard | cms-reviewer | dmca · wcag-2.2-aa · dsa-eu · gdpr |
-| `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa |
-| `regulated` | **deep** | regulated-reviewer | soc2 · hipaa · sox · dora · nis2 · iso27001 |
-| `edtech` | **deep** | edtech-reviewer | coppa · ferpa · gdpr-k · wcag-2.2-aa · section-508 · sopipa-ca |
-| `gov-public` | **deep** | gov-reviewer | fedramp · nist-800-53 · fisma · section-508 · pia · ato · cjis · stateramp |
-| `insurance` | **deep** | insurance-reviewer | naic · solvency-ii · ifrs-17 · gdpr · ccpa · anti-discrimination-pricing · actuarial-asops |
+```
+🟡 gate:plan   ←  你在此決定（架構 + 任務 + 成本）
+   ↓
+🤖 senior-dev → 12-angle review → qa-engineer → security-officer → devops
+   ↓
+🟢 gate:ship   ←  你在此決定（PR 就緒，安全已簽核）
+```
 
-隨時覆寫: `npx great-cto init --archetype <name>` 或編輯 `.great_cto/PROJECT.md`。當啟發式信心度低時, CLI 還提供 Anthropic Haiku 二次意見 (~$0.001) — 設定 `ANTHROPIC_API_KEY` 啟用,透過 `--no-llm` 退出。
+架構師、規劃者、審查者、QA、安全、DevOps 在這兩個人類檢查點之間自動運行。**記憶會在工作階段之間持續保留**：每一次關卡裁決都會追加到 `~/.great_cto/decisions.md`，每一次回顧都會追加到各專案的 `lessons.md`，而 `/crystallize` 會把高影響力的模式提升到一個全域函式庫，供代理人在重新解題前查詢。
 
-## 這有何不同?
+## 計畫之前的評論者
 
-我們不是編輯器 — 我們圍繞你的編輯器編排流程。如果你願意,在迴圈中使用 Cursor、Copilot 或 Claude Code。
+最昂貴的錯誤不在程式碼裡——而在開始寫程式之前所做的決策裡。三個評論者代理人在 Plan 階段之前運行，正好位於錯誤代價最高的三個位置：
 
-| | great_cto | Cursor | Copilot Workspace | Claude Projects |
-|---|---|---|---|---|
-| 多代理 SDLC 流程 | ✓ 33 個專家 | ✕ | ✕ | ✕ |
-| 自動專案類型偵測 | ✓ 25 種 | ✕ | ✕ | ✕ |
-| 合規閘門 (PCI / HIPAA / SOX / EU AI Act) | ✓ | ✕ | ✕ | ✕ |
-| 持久記憶體 | ✓ decisions.md + verdicts | ⚠ 僅聊天 | ✕ | ✓ 聊天範圍 |
-| 多專案檢視 | ✓ | ✕ | ✕ | ⚠ |
-| 12 角度程式碼審查 | ✓ | ⚠ 單次 | ⚠ 單次 | ✕ |
-| 公開可分享報告 | ✓ | ✕ | ✕ | ✕ |
-| 開源 | ✓ MIT | ✕ | ✕ | ✕ |
-| 本地執行 | ✓ | ⚠ 部分 | ✕ | ✕ |
-| 用你自己的 API | ✓ | ✕ | ✕ | ✕ |
-| **價格** | **$0 + 你的 API** | $20/月 | $39/月 | $20/月 |
+| 評論者 | 揪出什麼 |
+|---|---|
+| **架構評論者** | 日後排除多租戶可能性的耦合 · 在真實規模資料上「顯而易見」的 O(n²) · 受限上下文（bounded context）之間的循環相依 |
+| **規格評論者** | 「我們解錯了問題」——最糟的一類錯誤，因為沒有單元測試會抓到它 · 不一致的驗收標準 · 從未達成共識的範圍 |
+| **結構描述評論者** | 在 5000 萬列的表上加 `NOT NULL` 卻沒有預設值（部署 10 分鐘後死鎖） · 建立索引時缺少 `CONCURRENTLY` · 無回滾路徑的不可逆遷移 |
+
+過去評論者只從 Plan 階段才開始啟用。現在流水線會在實作開始之前就攔下架構與規格層級的錯誤——此時撤回只花幾小時，而非幾天。
+
+## great_cto 的比較
+
+|  | **great_cto** | Devin | Claude Code（單獨使用） |
+|---|---|---|---|
+| 開源 | ✅ MIT | ❌ 閉源 | ❌ 閉源外掛模式 |
+| 自架 | ✅ 本機運行 | ❌ Cognition 雲端 | ✅ |
+| 主機 | ✅ Claude Code + Codex | ❌ Cognition 雲端 | ✅ Claude Code |
+| BYOK / 多模型 | ✅ Claude Code · Codex | ❌ 專有 | ❌ 僅 Anthropic |
+| 專家代理人 | **57**（架構師 · PM · 12 角度審查 · QA · 安全 · devops · 跨原型、套件與司法轄區的 42 位審查者） | 1 位通才 | 1 位通才 |
+| SDLC 編排 | architect → plan → impl → review → QA → security → devops | 一次性自主 | 編輯迴圈 |
+| 人類關卡 | ✅ 每項功能 2 道（plan + ship） | ❌ 無 | ❌ |
+| 跨工作階段記憶 | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ 僅執行緒 | ⚠️ 僅執行緒 |
+| 成本追蹤 | ✅ 每個代理人 + 30 天歷史 + savings_x | ❌ | ❌ |
+| 合規框架 | ✅ 33+（PCI · HIPAA · SOX · GDPR · CCPA · DPDPA · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …） | ❌ | ❌ |
+| 定價 | 免費（你支付自己的 LLM 提供者） | $500/月 | $20/月 |
+| 設定 | `npx great-cto init` | 註冊 | 安裝 CLI |
+
+great_cto **不是**又一個寫程式代理人的迴圈——它是位於你已在使用的寫程式代理人**之上的編排層**。可以把它想成「一支審查並把關工作的專家團隊」，而非「又一個替你打字寫程式的助理」。
+
+## 司法轄區偵測
+
+`npx great-cto init` 掃描三種訊號來源——README 關鍵字、基礎設施區域字串（Terraform、`.env` 的 `AWS_REGION=`、docker-compose 的 `TZ=`），以及 `package.json` 的 homepage 頂層網域——並自動偵測 **12 個司法轄區**中哪些適用：
+
+| 司法轄區 | 訊號（README + 基礎設施） | 框架 | 審查者 |
+|---|---|---|---|
+| `eu` | gdpr · eu users · nis2 · eu ai act · `eu-west-*` · `.de` TLD | GDPR · EU AI Act · NIS2 · ePrivacy | `gdpr-reviewer` |
+| `us-ca` | ccpa · cpra · california residents · do not sell | CCPA / CPRA | `us-privacy-reviewer` |
+| `uk` | uk gdpr · information commissioner · dpa 2018 | UK GDPR · DPA 2018 | `gdpr-reviewer` |
+| `in` | dpdpa · india users · rbi data localisation | DPDPA 2023 · RBI | `dpdpa-reviewer` |
+| `br` | lgpd · anpd · brazil users | LGPD | `gdpr-reviewer` |
+| `au` | privacy act 1988 · oaic · notifiable data breach | Privacy Act 1988 · CDR | `us-privacy-reviewer` |
+| `sg` | pdpa · pdpc · mas guidelines · singpass | PDPA · MAS TRM | `us-privacy-reviewer` |
+| `ca` | pipeda · quebec law 25 · casl · canadian users · `ca-central-*` | PIPEDA · Quebec Law 25 · CASL · OSFI B-10 | `us-privacy-reviewer` |
+| `jp` | appi · japan users · my number · `ap-northeast-1` · `japaneast` | APPI 2022 · PPC Guidelines · FISC | `us-privacy-reviewer` |
+| `cn` | pipl · mlps · china users · `cn-north-*` · `cn-east-*` | PIPL 2021 · DSL 2021 · MLPS 2.0 · CBDT | `gdpr-reviewer` |
+| `kr` | pipa korea · isms-p · kisa · korea users · `ap-northeast-2` | PIPA · ISMS-P · FSC regulations | `us-privacy-reviewer` |
+| `us` | ftc · us users · virginia cdpa · texas tdpsa | FTC Act · US state privacy laws | `us-privacy-reviewer` |
+
+詞界比對可防止誤判（`"india"` 不會比對到 `"indiana"`）。偵測到的司法轄區會以 `jurisdiction: [eu, us-ca]` 的形式寫入 `PROJECT.md`，並在每項功能上把關對應的審查者。可手動覆寫：
+
+```yaml
+jurisdiction: [eu, us-ca]
+```
+
+## 你每天會用到的三條指令
+
+```bash
+/start "build a refund endpoint with PCI-DSS scoping"
+# → architect → enterprise-saas-reviewer (PCI-DSS auto-loaded)
+# → pm → 5 Beads tasks → gate:plan (you approve)
+# → senior-dev → 12-angle review → qa → security-officer
+# → gate:ship (you approve) → devops → deployed
+
+/inbox
+# Pending gates · P0 incidents · blocked tasks · stale in-progress
+
+/digest
+# Weekly DORA + delta vs last week + cost-per-feature roll-up
+```
+
+此外還有：`/audit`（既有程式碼庫掃描）、`/cost`（LLM 路由器節省）、`/sec`（安全總管）、`/oncall`、`/release`、`/rfc`。完整清單：安裝後的 `~/.claude/commands/`。
 
 ## 成本
 
 ```
-~$34/月 — 典型產品團隊,每月 20 次流程執行,僅供參考。
+典型的單人 CTO 專案每月約 $34 ——每月 20 次流水線執行，僅供參考。
 ```
 
-| 流程 | 每次成本 | 每月次數 | 總計 |
-|------|---------|---------|------|
-| quick (組態 / typo) | $0.10 | 10 | $1 |
-| quick (新端點) | $1 | 6 | $6 |
-| standard (功能) | $5 | 3 | $15 |
-| deep (跨切面) | $12 | 1 | $12 |
+| 流水線 | 每次成本 | 每月次數 | 總計 |
+|---|---|---|---|
+| quick（設定 / 錯字） | $0.10 | 10 | $1 |
+| quick（新端點） | $1 | 6 | $6 |
+| standard（功能） | $5 | 3 | $15 |
+| deep（橫切關注） | $12 | 1 | $12 |
 | | | | **~$34** |
 
-支付你自己的 Anthropic API token。**無人頭費。無 SaaS 鎖定。** 例行 triage 自動路由到 Kimi K2 (Sonnet 等價,成本約低 5 倍) → 在日誌叢集和雜訊堆疊追蹤上節省 60–80% 成本。
+支付你自己的 Anthropic API token。**無按席位收費。無 SaaS 綁定。**例行的分流會自動路由到 Kimi K2（與 Sonnet 同等、成本約低 5 倍）→ 日誌叢集化減少 60–80%。
 
-## FAQ
+## 自動偵測的 26 種原型
 
-**沒有網際網路連線能用嗎?**
-代理本身作為 Claude Code 子代理在本地執行。只有 Claude API 呼叫到達 Anthropic。沒有程式碼、遙測或記憶體傳送到其他任何地方。
+每種原型都會啟用它自己的專家代理人與合規檢查清單。前 7 名：
 
-**我的原始碼會被用於訓練模型嗎?**
-不會。Claude API 對付費客戶預設零保留。great_cto 不新增任何東西 — 你的程式碼仍是你的。
+| 原型 | 等級 | 專家代理人 | 合規 |
+|---|---|---|---|
+| `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa |
+| `agent-product` | **deep** | ai-prompt-architect · ai-eval · ai-security | eu-ai-act · owasp-llm-top-10 |
+| `fintech` | **deep** | pci · regulated | pci-dss · sox · kyc-aml · gdpr · dora |
+| `mlops` | **deep** | mlops-reviewer · ai-eval | eu-ai-act · nist-ai-rmf · iso42001 |
+| `library` | baseline | library-reviewer | openssf · sbom |
+| `cli-tool` | baseline | cli-reviewer | — |
+| `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
+| `defense-govcon` | **deep** | cmmc-reviewer · gov-reviewer | cmmc-2.0 · nist-800-171 · dfars · itar · section-889 |
 
-**如果我已經有 CI/CD 怎麼辦?**
-great_cto 在 CI *之前*執行。在架構、審查和預合併階段擷取問題。兩者都用 — 它們互補,不競爭。
+完整表格（26 種原型）+ 偵測如何運作：[docs/ARCHETYPES.md](../ARCHETYPES.md)。
 
-**支援 Cursor / Copilot / Aider 嗎?**
-目前僅 Claude Code。基於 `AGENTS.md` 的跨工具支援在 v2.x roadmap 中。
+**深度美國覆蓋** ——除了 GDPR/PCI/HIPAA，great_cto 現在還會針對 SEC 網路揭露（8-K Item 1.05）、給國防承包商的 CMMC 2.0 / NIST 800-171、美國 AI 治理（NIST AI RMF · Colorado SB 205 · Utah/Texas AI）、網路追蹤訴訟（VPPA · CIPA · Washington MHMDA），以及放貸的 HMDA / SR 11-7 模型風險進行審查。
 
-**如果鉤子妨礙我,我能停用它們嗎?**
-每個鉤子都尊重 `GREAT_CTO_DISABLE_<NAME>=1` 環境變數 (例如 `GREAT_CTO_DISABLE_SECRET_SCAN=1`)。secret-scan 鉤子可透過 `// great_cto:allow-secrets` 按檔案退出。
+## 14 個領域套件——疊加式審查者
 
-**如何保持 token 成本低?**
-3 層 — (1) 預設 Haiku 用於便宜代理, (2) [Kimi K2 router](https://github.com/avelikiy/great_cto/blob/main/agents/llm-router.md) 用於 triage (節省 60–80%), (3) `cost-guard` 鉤子在昂貴 prompt 前警告。`/cost` 檢視即時支出。
+領域套件會疊加在原型**之上**。當 CLI 偵測到套件特有的訊號（相依套件、README 術語）時會自動掛載。每個套件都會加入自己的審查者、威脅模型範本、EVAL 套組與人類關卡——獨立於基礎原型之外。
 
-**解除安裝時我的資料會怎樣?**
-外掛狀態在 `~/.great_cto/` (全域決定) 和 `.great_cto/` (按專案)。兩者都是純 markdown — `rm -rf` 清除一切。無外部服務需要取消授權。
+| 類別 | 套件 |
+|---|---|
+| **AI 垂直領域** | `voice-pack` · `clinical-pack` · `hr-ai-pack` · `drug-discovery-pack` |
+| **數位健康** | `digital-health-pack` _(穿戴式遙測 · 心理健康 AI · 營養 AI · 醫師 HITL)_ |
+| **金融科技 / 受監管** | `lending-pack` · `em-fintech-pack` |
+| **高合規** | `clinical-trials-pack` · `climate-pack` |
+| **工程** | `api-platform-pack` · `robotics-pack` |
+| **美國市場** | `sec-cyber-pack` _(SEC 8-K 揭露)_ · `adtech-privacy-pack` _(VPPA · CIPA · MHMDA)_ · `us-ai-pack` _(NIST AI RMF · Colorado SB 205)_ |
 
-**為什麼不全自動? 為什麼"每個功能兩個決定"?**
-LLM 強大但在模糊規範上失去產品判斷。在 gate:plan 和 gate:ship 保留人類擷取那 5% 佔 95% 成本的壞決定。見 [ADR-015 — 學習迴圈架構](../architecture/ADR-015-learning-loop-architecture.md)。
+→ **28 種人類關卡類型** + 53 套參考 EVAL 套組 + 15 套 TM 範本。以**4 層旅程視覺化**（原型 → 套件 → 審查者 → 關卡）瀏覽全部 14 個套件：[greatcto.systems/packs.html](https://greatcto.systems/packs.html)。
+
+## 一次真實執行，完整追蹤
+
+一項 Python CLI 功能跑完整條流水線出貨：**LLM 花費 $2.39** 對比約 $5,460 的同等人力。安全揪出兩個 QA 已放行的真實缺陷（`list(stream_csv())` 破壞了串流 → 13 MB 輸入導致 14.5 MB 的峰值 RSS）。多審查者模式在合併前抓到單一代理人會漏掉的問題。
+
+完整追蹤 + 產物：[greatcto.systems/proof](https://greatcto.systems/proof) · 原始檔：[`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](../qa/runs/2026-05-09/E2E-CLI-PIPELINE.md)。
+
+## CI 整合
+
+放進任何 GitHub Actions 工作流程：
+
+```yaml
+- run: npx great-cto@latest ci ./ --sarif results.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with: { sarif_file: results.sarif }
+```
+
+`great-cto ci` 會自動偵測 `$GITHUB_ACTIONS`，並在 PR 差異上直接內嵌發出 `::error file=...,line=N::` 註解。結束代碼：0 乾淨 / 1 有發現 / 2 設定錯誤。
+
+## 測試金字塔
+
+分層的測試套組——**結構 + 狀態機層在 <2 分鐘內以 $0 完成**（`node --test tests/*.test.mjs`）；真實 LLM 層（26 種原型 × 4-8 階段 + 14 個套件 + 13 位審查者）透過 OpenRouter 按需執行，約 $5–10。完整細項：[docs/testing/](../testing/)。
+
+## MCP
+
+原生 [MCP](https://modelcontextprotocol.io/) 伺服器——**7 個工具**可從 Claude Desktop、Codex 或任何 MCP 主機呼叫。本機（不需看板）：`detect_archetype` · `estimate_cost` · `query_decisions`。看板後端支援：`project_status` · `cost_summary` · `pipeline_stages` · `recent_verdicts`。
+
+```json
+{ "mcpServers": { "great-cto": { "command": "npx", "args": ["-y", "great-cto@latest", "mcp"] } } }
+```
+
+完整設定 + 內部 MCP（Grafana、LLM 路由器、Beads）：[docs/MCP.md](../MCP.md)。
+
+## 電子郵件警示（零設定）
+
+五件需要你在 <2 小時內處理的事會自動寄送電子郵件——即使你離開看板也一樣：
+
+| 觸發條件 | 何時 |
+|---|---|
+| 🚨 **P0 事故** | 任一專案開出 P0 任務 |
+| ⏸️ **關卡停滯 > 2 小時** | 某個 `gate:ship` 等你好幾個小時了 |
+| 🛡️ **安全 BLOCKED** | `security-officer` 駁回了一次合併 |
+| 💸 **預算警示** | 每月 LLM 花費跨越預算的 80% / 100% |
+| 📊 **每週摘要** | 週五 09:00 ——已出貨、已花費、節省、QA |
+
+**設定**：看板 → **Notifications** 分頁 → 輸入電子郵件 → 輸入我們寄出的 6 位數代碼 → 挑選觸發條件。無需 Resend 註冊、無需 API 金鑰——投遞經由 `greatcto.systems/notify`（免費，每個已驗證電子郵件每 24 小時 100 封）。
+
+## 限制與非目標
+
+- **不適合團隊** ——單人 CTO 就是這個產品。2 人以上的工程師？你已經超出它的適用範圍了。
+- **不能取代資深工程師** ——它把流程編成規範；少了資深工程師，它不會替你做架構判斷。
+- **不是 CI/CD 系統** ——關卡在本機 / 工作階段中運行。實際合併你仍需要 GitHub Actions。
+- **未經認證稽核** ——PCI/HIPAA/SOC2 的原型骨架是起點，不是認證。
+- **非確定性** ——LLM 生成的輸出。每一次關卡裁決都應做合理性檢查。
+
+## FAQ（前 5 名）
+
+**我的原始碼會被用來訓練模型嗎？** 不會。Claude API 對付費客戶預設零保留。great_cto 不會多加任何東西。
+
+**你們如何壓低 token 成本？** 預設 Haiku + 用於分流的 Kimi K2 路由器（節省 60–80%）+ cost-guard hook。
+
+**我可以停用 hooks 嗎？** 每個 hook 都遵循 `GREAT_CTO_DISABLE_<NAME>=1`。逐檔停用機密掃描：`// great_cto:allow-secrets`。
+
+**如果我不是單人怎麼辦？** great_cto 是為一人工程組織打造的。如果你有 2 位以上的工程師、並需要共享看板 / 多席位驗證，你已經超出它的適用範圍了。
+
+完整 FAQ：[docs/FAQ.md](../FAQ.md)。
+
+## 文件
+
+📚 **[完整文件中心 →](../README.md)** ——依 [Diátaxis](https://diataxis.fr/) 組織：
+**[入門](../tutorials/getting-started.md)** · 操作指南 ·
+[代理人](../reference/agents.md) 與 [指令](../reference/commands.md) 參考 · [架構](../ARCHITECTURE.md) · [FAQ](../FAQ.md)。
+
+## 架構
+
+此外掛在 Claude Code（或任何具 MCP 能力的主機）內運行；61 個代理人是 markdown 規格；任務存放在 Beads（dolt，git 原生）中；記憶是純 markdown（無向量儲存）。圖表 + 技術堆疊表：[docs/ARCHITECTURE.md](../ARCHITECTURE.md)。
+
+## 有什麼新功能
+
+**v2.21.0**（2026 年 5 月）—— **Flow Compiler UX**：`npx great-cto init` 現在會印出一個 **Compiled flow**，列出每個功能週期的代理人、關卡、合規與成本估算。它會寫入 `.great_cto/FLOW.md` ——代理人讀取它，便能確切知道如何編排你的 SDLC。
+
+**v2.20.0**（2026 年 5 月）—— **Detection v2**：**12 個司法轄區的覆蓋**（新增 CA · JP · CN · KR，附完整法律框架 + 人類關卡） · **基礎設施訊號偵測**（Terraform 區域字串、`.env` 的 `AWS_REGION=`、docker-compose 的 `TZ=`、`package.json` 的 homepage TLD） · **詞界比對**（不再有 "india" → "indiana" 的誤判） · 給冷門原型的 **套件提示**（信心較低時 `suggestedPacks` 會浮現 robotics/climate/clinical-trials/hr-ai/em-fintech 套件）。Token 節省：每次流水線執行 –87.7%（v2.19.0 的上下文架構重新設計）。
+
+**v2.19.0**（2026 年 5 月）—— **Token economy Phase 1+2**：產物摘要（≤250 token，自動生成）+ 任務感知記憶過濾器（每個任務取最相關的前 k 筆項目）。每次流水線執行 –87.7% token。
+
+**v2.17.0**（2026 年 5 月）—— **隨附外掛自動安裝** · Plan 階段之前的 **Architecture / Spec / Schema 評論者**。
+
+[完整更新日誌 →](../../CHANGELOG.md)
+
+## 路線圖
+
+- **CI 中的 Evals 執行器** ——在每個 PR 上執行黃金集 eval 套組，自動攔下 prompt 退化
+- **自我改進迴圈** ——從裁決中學習、並隨時間改進自身 prompt 的代理人
+- **決策評分** ——追蹤哪些關卡決策事後證明是對的；浮現其中的模式
+- **/crystallize** ——把高影響力的經驗教訓提升為整條流水線都能查詢的可重用技能
+
+[為下一個功能投票 →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
+
+</details>
 
 ## 作者
 
-[avelikiy](https://github.com/avelikiy) — Chief AI & Technology Officer / Founder。建構 AI-native 交易和 fintech 平台 (0→1, 1→N) 的 CTO。專注於技術直接影響 PnL、風險和單位經濟的高負載金融系統。
+[avelikiy](https://github.com/avelikiy) ——打造 AI 原生交易與金融科技平台（0→1、1→N）的 CTO。great_cto 是我一次一個代理人地自動化自己工作迴圈的成果。每一條規則，都是為了回應某個真實生產系統中的真實問題而出現的。
 
-## ⭐ 為該儲存庫加星標
+## 社群
 
-如果 great_cto 在某個專案上為你節省了時間,請為該儲存庫加星標 — 這能幫助其他獨立創辦人和小團隊找到它。
+| 管道 | 內容 |
+|---|---|
+| 🐛 [Issues](https://github.com/avelikiy/great_cto/issues) | 錯誤、功能請求、原型提案 |
+| 💡 [Discussions](https://github.com/avelikiy/great_cto/discussions) | 問題、模式、成果分享 |
+| 📝 [Blog](https://velikiy.hashnode.dev) | 架構深度剖析 |
+| 🔒 [SECURITY.md](../../SECURITY.md) | 負責任的漏洞揭露 |
+
+## 貢獻與授權
+
+歡迎提交 Pull Request——詳見 [CONTRIBUTING.md](../../CONTRIBUTING.md)。適合新手的 issue：[`good-first-issue`](https://github.com/avelikiy/great_cto/issues?q=is%3Aopen+label%3Agood-first-issue)。
+
+MIT——詳見 [LICENSE](../../LICENSE)。
+
+如果 great_cto 為你省下了時間，請為這個 repo 點星——這能幫助其他單人 CTO 找到它。
 
 [![Star History Chart](https://api.star-history.com/svg?repos=avelikiy/great_cto&type=Date)](https://star-history.com/#avelikiy/great_cto&Date)
-
-## 💬 社群與支援
-
-| 通道 | 內容 |
-|------|------|
-| 🐛 [Issues](https://github.com/avelikiy/great_cto/issues) | bug, 功能請求, 專案類型提議 |
-| 💡 [Discussions](https://github.com/avelikiy/great_cto/discussions) | 提問, 分享模式, show & tell |
-| 📝 [部落格](https://velikiy.hashnode.dev) | 架構、學習迴圈、成本校準的深度解析 |
-| 🐦 [@Greatcto on Hashnode](https://hashnode.com/@Greatcto) | 發布說明, 文章, AI-CTO 系列 |
-| 📦 [npm](https://www.npmjs.com/package/great-cto) · [JSR](https://jsr.io/@avelikiy/great-cto) | 套件登錄 |
-| 🔒 [Security](../../SECURITY.md) | hook/scanner CVE 的負責任揭露 |
-
-## Roadmap
-
-- **v2.2** — 課題品質遙測 (追蹤代理實際引用 vs 忽略哪些課題)
-- **v2.3** — 自動提升: 高影響決定 → 可重用 skill (`~/.great_cto/global-skills/`)
-- **v3.0** — 跨工具支援 (`AGENTS.md` 用於 Cursor / Codex / OpenCode / Gemini)
-
-[投票下一個功能 →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
-
-## 貢獻
-
-歡迎 pull request — 見 [CONTRIBUTING.md](../../CONTRIBUTING.md)。Good first issues 標有 [`good-first-issue`](https://github.com/avelikiy/great_cto/issues?q=is%3Aopen+label%3Agood-first-issue)。
-
-特別需要:
-- 新的專案類型骨架 (透過 Discussions 提議)
-- 翻譯: `docs/<lang>/README.md` 用於非英語受眾
-- 真實案例研究 — 如果 great_cto 讓你發布了什麼,分享數字
-
-## 授權
-
-MIT — 見 [LICENSE](../../LICENSE)。
 
 ---
 
 <div align="center">
 
-**由 [@avelikiy](https://github.com/avelikiy) · [@Greatcto](https://hashnode.com/@Greatcto) on Hashnode 建構**
-*描述你的專案和運營地區。GreatCTO 自動編譯正確的 SDLC 流水線。*
+**由 [@avelikiy](https://github.com/avelikiy) 打造**
+*別再當那個唯一能出貨的人。*
 
 </div>
