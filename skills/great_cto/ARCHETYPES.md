@@ -208,6 +208,15 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 - `[infra-pack, enterprise-pack]` — regulated infrastructure (financial services, critical infra)
 - `[library-pack, ai-pack]` — open-source LLM SDK
 
+**Cross-cutting overlay — `service-autopilot-pack`.** Not tied to one archetype: load it on top of
+`agent-product` (or a vertical archetype) when the product **sells the outcome of a service** rather
+than a tool to a specialist — "services are the new software". It adds the four autopilot invariants
+(confidence→human judgment boundary, accuracy-as-SLA, per-decision audit trail, per-outcome unit
+economics) and the `gate:judgment-boundary` + `gate:accuracy-sla` gates, enforced by
+`scripts/lib/autopilot-gate.mjs`. Stacks beneath the vertical pack, never replacing its licensure
+gate. Common stacks: `[service-autopilot, legaltech-pack]`, `[service-autopilot, rcm-pack]`,
+`[service-autopilot, insurance-pack]`, `[agent-pack, service-autopilot]`.
+
 ### Parameter Values
 
 | Value | What it adds |
