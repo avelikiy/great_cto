@@ -54,6 +54,13 @@ You write a threat model at `docs/sec-threats/TM-legal-{slug}.md`, then append a
   disclosure; a **licensed-attorney-in-the-loop** for advice-shaped output (the autopilot escalates
   below its confidence threshold to an attorney of record); jurisdiction gating; avoid representing
   that the product "is your lawyer".
+- **The sign-off must be *before* the output reaches the client.** Asynchronous / after-the-fact
+  attorney review (advice is sent, an attorney looks at it the next day) does **not** satisfy the
+  gate — the unauthorized advice has already been delivered. `gate:attorney-signoff` is a
+  pre-delivery blocking gate, never a post-hoc audit. A "review later" design is BLOCKED.
+- **Labelling does not change the substance.** Calling individualized advice "general information"
+  does not cure UPL — if the output applies law to the user's specific facts or recommends a course
+  of action, it is advice regardless of the label, and the attorney gate applies.
 - **LegalZoom precedent + state bars:** several state bars have challenged document-assembly
   products; the defensible posture is attorney supervision + clear disclaimers + no individualized
   advice without a licensed attorney.
@@ -62,9 +69,15 @@ You write a threat model at `docs/sec-threats/TM-legal-{slug}.md`, then append a
 
 - If a licensed attorney *is* in the loop, communications may be privileged — but privilege is
   fragile: sharing with third parties (including some AI vendors / sub-processors) can **waive** it.
-- **Engineering requirements:** tenant isolation per matter; no training on client data without
-  explicit waiver; sub-processor list disclosed; encryption at rest + in transit; access logged;
-  a clear record of who/what touched each matter (composes with `service-autopilot` audit trail).
+- **Engineering requirements:** tenant isolation per matter; sub-processor list disclosed;
+  encryption at rest + in transit; access logged; a clear record of who/what touched each matter
+  (composes with `service-autopilot` audit trail).
+- **Training on client matter data is a Critical control (BLOCK by default).** Fine-tuning or
+  training on client documents requires **specific informed consent / privilege waiver** — it is
+  not covered by a generic ToS. **Anonymising names does not cure it:** the privileged *content*
+  (strategy, analysis, facts) remains, and disclosing it to a model/vendor can waive privilege and
+  breach confidentiality. Stripping identifiers ≠ consent. No-train-on-client-data is the default;
+  any training path needs an explicit, recorded consent + waiver.
 - **Work-product doctrine:** materials prepared in anticipation of litigation get separate
   protection — segregate and label.
 
@@ -81,6 +94,11 @@ You write a threat model at `docs/sec-threats/TM-legal-{slug}.md`, then append a
   attribution, record retention, and an audit trail (signer identity, timestamp, tamper-evidence).
 - **Excluded documents:** wills, some family-law and notarial documents, certain UCC instruments —
   cannot be e-signed in many states. The product must block these, not silently accept them.
+- **A permitted document with proper controls is fine — do not over-block.** E-signing a standard
+  **permitted** document (e.g. a mutual NDA, a commercial contract) *with* intent + consent capture
+  and a tamper-evident audit trail is compliant and should be **APPROVED**. The block is scoped to
+  the excluded-document list and to missing controls — not to e-signature itself. Flagging a clean,
+  well-controlled NDA e-sign is a false positive that erodes trust in the gate.
 
 ### Conflict-of-interest screening
 
@@ -93,6 +111,20 @@ You write a threat model at `docs/sec-threats/TM-legal-{slug}.md`, then append a
 - Client files have retention obligations (state bar rules, often 5–7+ years) and **legal-hold**
   requirements (suspend deletion when litigation is reasonably anticipated). Retention/deletion
   automation must honour holds — a silent purge during a hold is spoliation.
+
+### Professional-conduct & data-protection backdrop
+
+- **ABA Model Rules of Professional Conduct** (adopted in most states with variation) sit behind
+  the above: **Rule 1.6** (confidentiality of client information), **Rule 5.5** (unauthorized
+  practice / assisting UPL), **Rule 1.7/1.9** (conflicts), and **Rule 5.3** (responsibility for
+  non-lawyer assistants — which an AI system effectively is, under attorney supervision). Where a
+  licensed attorney is in the loop, their conduct obligations flow to the product's design.
+- **Client personal data** is also subject to general privacy law — **CCPA/CPRA** (California),
+  **GDPR** (EU), and state equivalents — on top of privilege. Map both: privilege ≠ privacy
+  compliance; you need each.
+- **Professional liability:** advice-shaped output creates malpractice exposure. The error-budget /
+  liability doc (with `service-autopilot-pack`) should note professional-liability (E&O) insurance
+  coverage for the attorney of record and the remediation path when output is wrong.
 
 ## Workflow
 
