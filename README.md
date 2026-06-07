@@ -2,7 +2,7 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Your AI engineering team for ~$34/month.**
+**AI autopilots for business — get the work done, not just the software.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -25,21 +25,40 @@ npx great-cto init
 
 ---
 
-## The problem
+## Services are the new software
 
-You're a solo CTO. You write the code, review the code, deploy the code. Nobody's catching:
+The next wave isn't tools for specialists — it's **autopilots that sell the outcome of a service**.
+An autopilot runs a whole business function end to end (intake → process → decide → deliver) and
+escalates only the judgment calls to a qualified human. Every model improvement makes the service
+faster and cheaper.
 
-- The GDPR clause you missed in the payment flow
-- The N+1 query that shows up in prod at 10× scale
-- The auth middleware hole you'll read about in a bug report
+GreatCTO ships those autopilots — each one a **flow of agents + tools with a human on the risky
+steps**, a built-in compliance reviewer, and a **measured quality score** behind it (not a claim).
 
-Hiring a senior engineer to review: **$15,000/month.** Doing it yourself: **risk.**
+## The autopilots
 
-## What you get
+| Autopilot | What it does | Market | Quality |
+|---|---|---|---|
+| 🩺 **[Medical-coding](https://greatcto.systems/autopilots/rcm.html)** | Clinical notes → clean, compliant claims; a certified coder signs the risky ones | $50–80B | **97.75/100** |
+| 🖥️ **[Managed-IT](https://greatcto.systems/autopilots/msp.html)** | Patches, configs & access across the fleet — staged, reversible, human on big changes | $100B+ | **98.5/100** |
+| ⚖️ **[Legal-document](https://greatcto.systems/autopilots/legaltech.html)** | Drafts & redlines contracts and NDAs; a licensed attorney signs anything that's advice | $20–25B | **94.75/100** |
+| 📒 **[Bookkeeping & close](https://greatcto.systems/autopilots/accounting.html)** | Books, reconciles & closes the month; a controller signs the close | $50–80B | **93.5/100** |
+| 🧾 **[Tax-prep](https://greatcto.systems/autopilots/tax.html)** | Prepares returns & classifies positions; a credentialed preparer signs before filing | $30–35B | **92.75/100** |
+| 🛒 **[Source-to-pay](https://greatcto.systems/autopilots/procurement.html)** | Onboards suppliers, matches invoices, releases payments — screened for sanctions & fraud | $200B+ | **89.42/100** |
 
-61 specialist agents — architect, 12-angle reviewer, QA, security officer, devops — wired into a gated pipeline tuned to your stack and jurisdiction.
+→ [All autopilots](https://greatcto.systems/autopilots.html) · run `/flow <vertical>` to see any flow in your terminal
 
-**You make two decisions per feature.** Everything else runs automatically.
+**Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
+controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
+carries liability. Connectors run as sandbox stubs today (flip to the real provider to go live).
+
+## Under the hood (for the CTO who runs it)
+
+Each autopilot is built and operated by a gated pipeline of specialist agents — architect, 12-angle
+reviewer, QA, security officer, devops — tuned to your stack and jurisdiction. **You make two
+decisions per feature; everything else runs automatically.** The compliance reviewer, signed human
+gates, audit trail, and the [measured scorecard](https://greatcto.systems/proof) are the trust
+layer that makes it safe to let the autopilot run.
 
 ## By the numbers
 
