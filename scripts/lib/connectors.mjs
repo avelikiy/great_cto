@@ -15,7 +15,7 @@ export const CONNECTORS = Object.freeze({
   'ehr-fhir':        { label: 'EHR (FHIR)',            verticals: ['rcm'],         capabilities: ['fetch-note', 'fetch-patient'], realProviders: ['Epic', 'Cerner', 'athenahealth'], status: 'live-ready' },
   'ocr':             { label: 'Document OCR',          verticals: ['rcm', 'tax', 'accounting'], capabilities: ['extract-text'], realProviders: ['AWS Textract', 'Google DocAI'], status: 'stub' },
   'code-sets':       { label: 'ICD-10 / CPT / HCPCS',  verticals: ['rcm'],         capabilities: ['lookup-code', 'validate-code'], realProviders: ['NLM Clinical Tables', 'CMS', 'AMA CPT'], status: 'live-ready' },
-  'ncci-mue':        { label: 'NCCI / MUE edits',      verticals: ['rcm'],         capabilities: ['check-ptp', 'check-mue'], realProviders: ['CMS quarterly tables'], status: 'stub' },
+  'ncci-mue':        { label: 'NCCI / MUE edits',      verticals: ['rcm'],         capabilities: ['check-ptp', 'check-mue'], realProviders: ['CMS quarterly tables'], status: 'live-ready' },
   'clearinghouse':   { label: 'Claims clearinghouse',  verticals: ['rcm'],         capabilities: ['submit-837', 'fetch-835'], realProviders: ['Change Healthcare', 'Availity'], status: 'live-ready' },
   'payer-rules':     { label: 'Payer rules / LCD-NCD', verticals: ['rcm'],         capabilities: ['check-necessity'], realProviders: ['CMS coverage DB'], status: 'stub' },
 
@@ -99,6 +99,7 @@ const LIVE_ADAPTERS = {
   'ehr-fhir': () => import('./connectors/fhir.mjs'),
   'code-sets': () => import('./connectors/codesets.mjs'),
   'clearinghouse': () => import('./connectors/clearinghouse.mjs'),
+  'ncci-mue': () => import('./connectors/ncci.mjs'),
 };
 
 /** Does this connector have a real (live) adapter wired? */
