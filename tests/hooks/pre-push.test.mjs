@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, copyFileSync, chmodSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, copyFileSync, chmodSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,9 +52,35 @@ function installHook(work) {
   chmodSync(dest, 0o755);
 }
 
+// Marker the stub touches whenever it actually runs — lets us assert that the
+// skip flag short-circuits BEFORE node is invoked.
+const RAN_MARKER = join('scripts', '.summary-stub-ran');
+
+/**
+ * Drop a fake scripts/generate-summary.mjs into the work repo so the hook's
+ * summary-freshness block has something to invoke.
+ *   mode 'stale' → prints "⚠ stale" and exits 2 (summaries out of date)
+ *   mode 'hang'  → touches the marker then blocks forever (tests the timeout)
+ * The file always touches RAN_MARKER first, so its absence proves node never ran.
+ */
+function installSummaryStub(work, mode) {
+  mkdirSync(join(work, 'scripts'), { recursive: true });
+  const body =
+    `import { writeFileSync } from 'node:fs';\n` +
+    `writeFileSync(${JSON.stringify(RAN_MARKER)}, '1');\n` +
+    (mode === 'hang'
+      ? `setInterval(() => {}, 1 << 30); // hang forever\n`
+      : `process.stdout.write('  ⚠ stale: docs/architecture/ARCH-x.md\\n');\nprocess.exit(2);\n`);
+  writeFileSync(join(work, 'scripts', 'generate-summary.mjs'), body);
+}
+
+function ranMarkerPath(work) {
+  return join(work, RAN_MARKER);
+}
+
 // Push runs the local pre-push hook; HOME is isolated so its stats writes don't leak.
-function push(work, home, ref) {
-  return git(work, ['push', 'origin', ref], { HOME: home });
+function push(work, home, ref, env = {}) {
+  return git(work, ['push', 'origin', ref], { HOME: home, ...env });
 }
 
 test('new branch: private term only in already-pushed history → PUSH ALLOWED (the fix)', () => {
@@ -103,4 +129,68 @@ test('new branch: private term in NEW diff content → PUSH BLOCKED', () => {
   const res = push(work, home, 'feature/diff-leak');
   assert.notEqual(res.status, 0, 'Expected BLOCKED for private term in diff');
   assert.ok(/LEAK DETECTED/.test(res.stdout + res.stderr));
+});
+
+// ── Summary-freshness block: must be warn-only by default and never hang ──────
+
+function setupCleanBranch(name) {
+  const ctx = setupRepo();
+  commit(ctx.work, ctx.cfg, 'a.txt', 'hello', 'init clean');
+  assert.equal(push(ctx.work, ctx.home, 'main').status, 0);
+  installHook(ctx.work);
+  git(ctx.work, ['checkout', '-b', name], ctx.cfg);
+  return ctx;
+}
+
+test('summary: stale + default → WARN-ONLY, push ALLOWED', () => {
+  const { home, work, cfg } = setupCleanBranch('feature/warn');
+  installSummaryStub(work, 'stale');
+  commit(work, cfg, 'b.txt', 'clean', 'feat: clean work');
+
+  const res = push(work, home, 'feature/warn');
+  assert.equal(res.status, 0, `Expected ALLOWED (warn-only). out:\n${res.stdout}\n${res.stderr}`);
+  assert.ok(/warn-only/.test(res.stdout + res.stderr), 'must print the warn-only notice');
+  assert.ok(existsSync(ranMarkerPath(work)), 'checker should have run');
+});
+
+test('summary: stale + GREAT_CTO_ENFORCE_SUMMARY=1 → PUSH BLOCKED', () => {
+  const { home, work, cfg } = setupCleanBranch('feature/enforce');
+  installSummaryStub(work, 'stale');
+  commit(work, cfg, 'b.txt', 'clean', 'feat: clean work');
+
+  const res = push(work, home, 'feature/enforce', { GREAT_CTO_ENFORCE_SUMMARY: '1' });
+  assert.notEqual(res.status, 0, 'Expected BLOCKED in enforce mode');
+  assert.ok(/Stale artifact summaries/.test(res.stdout + res.stderr));
+});
+
+test('summary: GREAT_CTO_SKIP_SUMMARY_CHECK=1 short-circuits BEFORE node (even in enforce mode)', () => {
+  const { home, work, cfg } = setupCleanBranch('feature/skip');
+  installSummaryStub(work, 'stale');
+  commit(work, cfg, 'b.txt', 'clean', 'feat: clean work');
+
+  const res = push(work, home, 'feature/skip', {
+    GREAT_CTO_SKIP_SUMMARY_CHECK: '1',
+    GREAT_CTO_ENFORCE_SUMMARY: '1', // even with enforce on, skip wins
+  });
+  assert.equal(res.status, 0, `Expected ALLOWED via skip flag. out:\n${res.stdout}\n${res.stderr}`);
+  assert.ok(/Skipping summary freshness check/.test(res.stdout + res.stderr));
+  assert.ok(!existsSync(ranMarkerPath(work)),
+    'node must NOT run when skip flag is set (short-circuit before invocation)');
+});
+
+test('summary: a hanging checker cannot stall the push (hard timeout, enforce mode)', () => {
+  const { home, work, cfg } = setupCleanBranch('feature/hang');
+  installSummaryStub(work, 'hang');
+  commit(work, cfg, 'b.txt', 'clean', 'feat: clean work');
+
+  const t0 = Date.now();
+  const res = push(work, home, 'feature/hang', {
+    GREAT_CTO_ENFORCE_SUMMARY: '1',
+    GREAT_CTO_SUMMARY_TIMEOUT: '3',
+  });
+  const elapsedMs = Date.now() - t0;
+
+  assert.equal(res.status, 0, `Expected ALLOWED after timeout. out:\n${res.stdout}\n${res.stderr}`);
+  assert.ok(/timed out/.test(res.stdout + res.stderr), 'must report the timeout');
+  assert.ok(elapsedMs < 20000, `push must return promptly, took ${elapsedMs}ms`);
 });
