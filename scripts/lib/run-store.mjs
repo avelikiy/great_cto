@@ -11,11 +11,46 @@
 // The v2.43.0 safety invariant holds end to end: the irreversible step fires ONLY because a human
 // approved its protecting gate (runFlow's approvedGates).
 
-import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { createCipheriv, createDecipheriv, randomBytes, createHash, scryptSync } from 'node:crypto';
 import { loadFlow, runFlow } from './flow-runner.mjs';
 import { dueAt as slaDueAt, slaHours } from './sla.mjs';
+
+// ── Encryption at-rest (AES-256-GCM) — PHI/PII never in plaintext when a key is set ──
+function encKey() { const k = process.env.GREAT_CTO_ENCRYPT_KEY; return k ? scryptSync(k, 'gcto-autopilot', 32) : null; }
+function serialize(run) {
+  const plain = JSON.stringify(run, null, 2);
+  const k = encKey(); if (!k) return plain + '\n';
+  const iv = randomBytes(12); const c = createCipheriv('aes-256-gcm', k, iv);
+  const ct = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
+  return JSON.stringify({ enc: 1, iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), data: ct.toString('base64') }) + '\n';
+}
+function deserialize(raw) {
+  const o = JSON.parse(raw); if (!o || !o.enc) return o;
+  const k = encKey(); if (!k) throw new Error('run is encrypted but GREAT_CTO_ENCRYPT_KEY is not set');
+  const d = createDecipheriv('aes-256-gcm', k, Buffer.from(o.iv, 'base64')); d.setAuthTag(Buffer.from(o.tag, 'base64'));
+  return JSON.parse(Buffer.concat([d.update(Buffer.from(o.data, 'base64')), d.final()]).toString('utf8'));
+}
+
+// ── Tamper-evident audit: hash-chain every entry so any later edit is detectable ──
+function hashEntry(e) { const { hash, ...rest } = e; return createHash('sha256').update(JSON.stringify(rest)).digest('hex'); }
+function pushAudit(run, e) {
+  run.audit = run.audit || [];
+  e.prevHash = run.audit.length ? run.audit[run.audit.length - 1].hash : '';
+  e.hash = hashEntry(e);
+  run.audit.push(e);
+}
+/** True iff the audit chain is intact (no entry edited / inserted / removed). */
+export function verifyAudit(run) {
+  let prev = '';
+  for (const e of run.audit || []) {
+    if (e.prevHash !== prev || e.hash !== hashEntry(e)) return false;
+    prev = e.hash;
+  }
+  return true;
+}
 
 // Derive an AI recommendation for the human from what the pre-gate connectors found.
 function recommend(steps) {
@@ -70,8 +105,37 @@ export function qaQueue({ tenant } = {}) {
 export function qaScore(id, score, by, note = '') {
   const run = getRun(id); if (!run) throw new Error(`run ${id} not found`);
   run.qa = { score: Number(score), by, note: note || undefined, at: now() };
-  run.audit.push({ at: now(), event: 'qa-scored', by, score: Number(score), note: note || undefined });
+  pushAudit(run, { at: now(), event: 'qa-scored', by, score: Number(score), note: note || undefined });
   return save(run);
+}
+
+/** Retention: delete runs created more than `days` ago (optionally a single tenant). Returns count. */
+export function purgeRuns({ days = 365, tenant } = {}) {
+  const cutoff = Date.now() - days * 86400 * 1000;
+  let n = 0;
+  for (const r of listRuns({ tenant })) {
+    if (new Date(r.createdAt).getTime() < cutoff) { try { rmSync(runPath(r.id, r.tenant || 'default')); n++; } catch { /* skip */ } }
+  }
+  return n;
+}
+
+/** Regulator-format export — the human-readable artifact (not raw JSON): the signed determination. */
+export function exportRecord(id) {
+  const run = getRun(id); if (!run) return null;
+  const sig = (run.audit || []).filter((a) => ['approved', 'rejected'].includes(a.event));
+  const L = [
+    `GREATCTO AUTOPILOT — ${String(run.vertical).toUpperCase()} DETERMINATION`,
+    `Case: ${run.id}    Tenant: ${run.tenant || 'default'}    Status: ${run.status}`,
+    `Accountable owner: ${run.owner || run.signer || '—'}`,
+    `Audit integrity: ${verifyAudit(run) ? 'VERIFIED (hash-chain intact)' : 'TAMPERED'}`,
+    '',
+    run.narrative || '',
+    '',
+    'SIGNATURES',
+    ...(sig.length ? sig.map((a) => `  • ${a.event.toUpperCase()} by ${a.by}${a.license ? ' (license ' + a.license + ')' : ''} at ${a.at}${a.reason ? ' — ' + a.reason : ''}`) : ['  • (none)']),
+  ];
+  if (run.submission) L.push('', `SUBMISSION: ${run.submission.submitted ? 'transmitted to provider' : 'generated (no provider creds)'} via ${run.submission.connectors.join(', ')} (${run.submission.attempts} attempt(s))`);
+  return L.join('\n');
 }
 
 // One shared store so the CLI and the admin board always see the SAME runs, regardless of the cwd
@@ -88,13 +152,13 @@ function newId(vertical) {
 }
 
 /** Persist a run object into its tenant's directory. */
-function save(run) { const t = run.tenant || 'default'; ensureDir(t); run.updatedAt = now(); writeFileSync(runPath(run.id, t), JSON.stringify(run, null, 2) + '\n'); return run; }
+function save(run) { const t = run.tenant || 'default'; ensureDir(t); run.updatedAt = now(); writeFileSync(runPath(run.id, t), serialize(run)); return run; }
 
 /** Load a run by id (or null) — scans every tenant directory. */
 export function getRun(id) {
   for (const t of listTenants()) {
     const p = runPath(id, t);
-    if (existsSync(p)) { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } }
+    if (existsSync(p)) { try { return deserialize(readFileSync(p, 'utf8')); } catch { return null; } }
   }
   return null;
 }
@@ -108,7 +172,7 @@ export function listRuns({ status, tenant } = {}) {
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
       if (!f.endsWith('.json')) continue;
-      try { runs.push(JSON.parse(readFileSync(join(dir, f), 'utf8'))); } catch { /* skip */ }
+      try { runs.push(deserialize(readFileSync(join(dir, f), 'utf8'))); } catch { /* skip */ }
     }
   }
   runs.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -131,7 +195,7 @@ function gateStep(trace) {
 }
 
 /** Start a durable run: execute to the first human gate and persist. */
-export async function startRun(vertical, { mode = 'stub', payload = {}, tenant = 'default' } = {}) {
+export async function startRun(vertical, { mode = 'stub', payload = {}, tenant = 'default', source } = {}) {
   const flow = loadFlow(vertical);
   const id = newId(vertical);
   // idempotency: a stable key per run so a retried write never double-submits at the provider.
@@ -153,13 +217,14 @@ export async function startRun(vertical, { mode = 'stub', payload = {}, tenant =
     narrative: draftNarrative(vertical, recommendation, trace.steps, g ? g.human : trace.owner),
     slaHours: slaHours(vertical), dueAt: slaDueAt(vertical, createdAt),
     steps: trace.steps,
-    audit: [{ at: createdAt, event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt, recommendation }],
+    audit: [],
   };
+  pushAudit(run, { at: createdAt, event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt, recommendation, source: source || 'manual' });
   return save(run);
 }
 
 /** Approve the pending gate: resume the run, execute the irreversible write, persist. Multi-gate aware. */
-export async function approve(id, who, note = '', reason = '') {
+export async function approve(id, who, note = '', reason = '', license = '') {
   const run = getRun(id);
   if (!run) throw new Error(`run ${id} not found`);
   if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
@@ -181,9 +246,19 @@ export async function approve(id, who, note = '', reason = '') {
   const g = gateStep(resume);
   run.pausedAt = resume.pausedAt; run.pausedAtIndex = resume.pausedAtIndex;
   run.signer = g ? g.human : null; run.gateDoes = g ? g.does : null;
+  // submission receipt — what the post-gate write actually did (generated vs really submitted, retries)
+  if (run.status === 'completed') {
+    const writes = resume.steps.filter((s) => s.blastRadius === 'high' || s.blastRadius === 'medium')
+      .flatMap((s) => (s.toolCalls || [])).filter((c) => c.ok);
+    if (writes.length) run.submission = {
+      at: now(), submitted: writes.some((c) => c.submitted === true),
+      connectors: [...new Set(writes.map((c) => c.connector))],
+      attempts: Math.max(1, ...writes.map((c) => c.attempts || 1)),
+    };
+  }
   // override: the human approved against the AI's caution (recommended block/escalate)
   const override = run.recommendation === 'block' || run.recommendation === 'escalate';
-  run.audit.push({ at: now(), event: 'approved', gate: signedGate, by: who, note: note || undefined, reason: reason || undefined, aiRecommendation: run.recommendation, override, newStatus: run.status });
+  pushAudit(run, { at: now(), event: 'approved', gate: signedGate, by: who, note: note || undefined, reason: reason || undefined, license: license || undefined, aiRecommendation: run.recommendation, override, newStatus: run.status });
   return save(run);
 }
 
@@ -196,7 +271,7 @@ export async function reject(id, who, note = '', reason = '') {
   run.disposition = reason || 'rejected';
   // override: the human rejected what the AI recommended approving
   const override = run.recommendation === 'approve';
-  run.audit.push({ at: now(), event: 'rejected', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined, aiRecommendation: run.recommendation, override });
+  pushAudit(run, { at: now(), event: 'rejected', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined, aiRecommendation: run.recommendation, override });
   return save(run);
 }
 
@@ -206,7 +281,7 @@ export async function escalate(id, who, note = '', reason = '') {
   if (!run) throw new Error(`run ${id} not found`);
   if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
   run.escalated = true; run.escalatedBy = who; run.escalateReason = reason || undefined;
-  run.audit.push({ at: now(), event: 'escalated', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined });
+  pushAudit(run, { at: now(), event: 'escalated', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined });
   return save(run); // status stays awaiting-approval so a senior can sign
 }
 
@@ -217,7 +292,7 @@ export async function sendBack(id, who, note = '', reason = '') {
   if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
   run.status = 'sent-back';
   run.disposition = reason || 'needs-info';
-  run.audit.push({ at: now(), event: 'sent-back', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined });
+  pushAudit(run, { at: now(), event: 'sent-back', gate: run.pausedAt, by: who, note: note || undefined, reason: reason || undefined });
   return save(run);
 }
 

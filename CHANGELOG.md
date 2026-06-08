@@ -5,6 +5,29 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.56.0 — 2026-06-08
+
+### Autopilot production depth (Wave F) — webhooks · tamper-evident audit · encryption · receipts
+
+Turns the demo into a really-operated pipeline. Reference: rcm. Implements
+`docs/plans/PLAN-autopilot-production-depth.md` (Tier-1 buildable slice).
+
+- **Auto case-ingestion (webhook)** — `POST /api/autopilot/ingest` (HMAC-SHA256 via
+  `GREAT_CTO_INGEST_SECRET`, header `x-gcto-signature`) starts a run from a source-system payload and
+  pushes the signer. Cases arrive automatically; a bad signature is rejected (401).
+- **Tamper-evident audit** — every audit entry is hash-chained (`prevHash`→`hash`); `verifyAudit()` +
+  `GET /api/autopilot/verify` detect any edit/insert/removal. The audit is evidence, not a log.
+- **Encryption at-rest** — run files are AES-256-GCM encrypted when `GREAT_CTO_ENCRYPT_KEY` is set
+  (PHI/PII never in plaintext); transparent decrypt on read.
+- **Submission receipt + retry** — the post-gate write records a receipt (generated vs really
+  submitted · connectors · attempts) and retries with backoff against a real provider.
+- **License attestation** — every signature records the signer's attested license in the chained audit.
+- **Regulator-format export** — `GET /api/autopilot/export` emits the signed determination document
+  (with the audit-integrity verdict), not raw JSON.
+- **Retention** — `purgeRuns({days})` deletes runs past their window.
+
+293 lib tests.
+
 ## v2.55.0 — 2026-06-08
 
 ### Operator console: declutter + the missing sections (Waves E1–E3)
