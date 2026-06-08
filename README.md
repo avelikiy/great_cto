@@ -56,9 +56,9 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 | 🛃 **[Customs-clearance](https://greatcto.systems/autopilots/customs.html)** | Classifies, values & screens imports; a licensed customs broker signs the entry of record | $4.6B | Digicust · Flexport · Avalara |
 | 📊 **[SOX ITGC audit](https://greatcto.systems/autopilots/audit.html)** | Tests IT general controls & drafts workpapers; a CPA signs the opinion | $15–25B | Midship · Scytale · AuditBoard |
 | 💊 **[Pharmacovigilance](https://greatcto.systems/autopilots/pharma.html)** | Processes adverse-event cases; a QPPV / drug-safety physician signs before reporting | $1.65B | ArisGlobal · Indegene · Lifebit |
-| 🗽 **Immigration** | Assembles petitions & checks eligibility; a licensed attorney of record signs before filing (UPL) | $3.2B | Boundless · Lawfully · Docketwise |
-| 🏠 **Appraisal** | Pulls comps & reconciles value; a state-certified appraiser signs every USPAP report (independence) | $9B | Clear Capital · Reggora · Class Valuation |
-| 💵 **Payroll** | Computes gross-to-net & tax; a payroll manager (CPP) signs before ACH funding + the 941 deposit | $5.8B | Gusto · Rippling · Deel |
+| 🗽 **[Immigration](https://greatcto.systems/autopilots/immigration.html)** | Assembles petitions & checks eligibility; a licensed attorney of record signs before filing (UPL) | $3.2B | Boundless · Lawfully · Docketwise |
+| 🏠 **[Appraisal](https://greatcto.systems/autopilots/appraisal.html)** | Pulls comps & reconciles value; a state-certified appraiser signs every USPAP report (independence) | $9.2B | Clear Capital · Reggora · Class Valuation |
+| 💵 **[Payroll](https://greatcto.systems/autopilots/payroll.html)** | Computes gross-to-net & tax; a payroll manager (CPP) signs before ACH funding + the 941 deposit | $5.8B | Gusto · Rippling · Deel |
 
 → [All autopilots](https://greatcto.systems/autopilots.html) · run `/flow <vertical>` to see any flow in your terminal
 
