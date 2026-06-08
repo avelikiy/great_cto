@@ -9,6 +9,8 @@
 //   node scripts/eval/vertical-scorecard.mjs legaltech                 # full if key set, else partial
 //   node scripts/eval/vertical-scorecard.mjs legaltech --split holdout # gate-only split
 //   node scripts/eval/vertical-scorecard.mjs legaltech --dry-run       # Tier-0 only, never calls the API
+//   node scripts/eval/vertical-scorecard.mjs legaltech --median 3      # run 3× (median total — kills noise)
+//   node scripts/eval/vertical-scorecard.mjs legaltech --median 3 --ci 85  # CI gate: exit 1 if median < 85
 
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -115,46 +117,77 @@ async function judge(spec) {
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
+/** One full scorecard pass (Tier-0 + Tier-1 when a key is set). Returns { result, cost }. */
+async function evalOnce(spec, cases, dryRun) {
+  const t0 = tier0(spec);
+  let caseResults = null, judgeScores = null, cost = 0;
+  if (!dryRun && API_KEY) {
+    const reviewerSys = agentPrompt(spec.reviewer);
+    caseResults = [];
+    for (const c of cases) {
+      const r = await runCase(reviewerSys, c);
+      cost += r.cost;
+      caseResults.push(r);
+      process.stderr.write(`  ${r.verdict === (c.expectVerdict || 'BLOCKED') || (c.kind === 'benign' && r.verdict !== 'BLOCKED') ? '✓' : '✗'} ${c.id}\n`);
+    }
+    const j = await judge(spec); cost += j.cost; judgeScores = j.judge;
+    console.error(`  judge: ${j.raw}`);
+  }
+  return { result: scoreVertical({ ...t0, caseResults, judge: judgeScores }), cost };
+}
+
+function median(xs) {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : +((s[m - 1] + s[m]) / 2).toFixed(1);
+}
+
 async function main(argv) {
   const args = argv.filter((a) => !a.startsWith('--'));
   const dryRun = argv.includes('--dry-run');
   const splitIdx = argv.indexOf('--split');
   const split = splitIdx >= 0 ? argv[splitIdx + 1] : 'all';
+  const medianIdx = argv.indexOf('--median');
+  const runs = Math.max(1, medianIdx >= 0 ? parseInt(argv[medianIdx + 1], 10) || 1 : 1);
+  const ciIdx = argv.indexOf('--ci');
+  const ciThreshold = ciIdx >= 0 ? parseFloat(argv[ciIdx + 1]) : null;
   const vertical = args[0];
   if (!vertical) {
-    console.error('usage: vertical-scorecard.mjs <vertical> [--split tuning|holdout|all] [--dry-run]');
+    console.error('usage: vertical-scorecard.mjs <vertical> [--split tuning|holdout|all] [--dry-run] [--median N] [--ci THRESHOLD]');
     process.exit(2);
   }
 
   const specPath = join(ROOT, 'tests', 'eval', 'verticals', `${vertical}.json`);
   if (!existsSync(specPath)) { console.error(`no golden set: ${specPath}`); process.exit(2); }
   const spec = JSON.parse(readFileSync(specPath, 'utf8'));
-
-  const t0 = tier0(spec);
-  let caseResults = null, judgeScores = null, totalCost = 0;
-
   const cases = (spec.cases || []).filter((c) => split === 'all' || c.split === split);
 
-  if (!dryRun && API_KEY) {
-    console.error(`▸ running ${cases.length} case(s) + judge via OpenRouter (${MODEL})…`);
-    const reviewerSys = agentPrompt(spec.reviewer);
-    caseResults = [];
-    for (const c of cases) {
-      const r = await runCase(reviewerSys, c);
-      totalCost += r.cost;
-      caseResults.push(r);
-      process.stderr.write(`  ${r.verdict === (c.expectVerdict || 'BLOCKED') || (c.kind === 'benign' && r.verdict !== 'BLOCKED') ? '✓' : '✗'} ${c.id}\n`);
-    }
-    const j = await judge(spec); totalCost += j.cost; judgeScores = j.judge;
-    console.error(`  judge: ${j.raw}`);
-  } else if (!dryRun && !API_KEY) {
+  if (!dryRun && !API_KEY) {
     console.error('⚠ OPENROUTER_API_KEY not set — Tier-0 partial only. Set it for the full 0–100 score.');
   }
 
-  const result = scoreVertical({ ...t0, caseResults, judge: judgeScores });
-  console.log(formatScorecard(vertical, result));
+  const totals = [];
+  let totalCost = 0, lastResult = null;
+  for (let i = 0; i < runs; i++) {
+    if (runs > 1) console.error(`▸ pass ${i + 1}/${runs} — ${cases.length} case(s) + judge via OpenRouter (${MODEL})…`);
+    else if (!dryRun && API_KEY) console.error(`▸ running ${cases.length} case(s) + judge via OpenRouter (${MODEL})…`);
+    const { result, cost } = await evalOnce(spec, cases, dryRun);
+    totals.push(result.complete ? result.score : result.normalized); totalCost += cost; lastResult = result;
+    if (runs > 1) console.error(`  pass ${i + 1} total: ${result.complete ? result.score : result.normalized}`);
+  }
+
+  console.log(formatScorecard(vertical, lastResult));
+  const med = median(totals);
+  if (runs > 1) console.log(`\n  median of ${runs} passes: ${med}/100   (passes: ${totals.join(', ')})`);
   if (totalCost) console.log(`\n  run cost: ~$${totalCost.toFixed(2)}`);
-  process.exit(result.complete && result.band === 'do-not-ship' ? 1 : 0);
+
+  // CI gate: prefer the explicit --ci threshold (against the median); else the band gate on the last run.
+  if (ciThreshold != null) {
+    const pass = med >= ciThreshold;
+    console.log(`\n  CI gate: median ${med} ${pass ? '≥' : '<'} ${ciThreshold} → ${pass ? 'PASS' : 'FAIL'}`);
+    process.exit(pass ? 0 : 1);
+  }
+  process.exit(lastResult.complete && lastResult.band === 'do-not-ship' ? 1 : 0);
 }
 
 main(process.argv.slice(2));

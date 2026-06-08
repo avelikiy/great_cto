@@ -6,6 +6,36 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.58.0 — 2026-06-08
+
+### Autopilot Tier-2 (Wave G) — calibrated · provable · self-reacting
+
+Implements `docs/plans/PLAN-autopilot-tier2.md` (Tier-2 = quality & trust). Every item is fully
+buildable + tested here — no external IdP / sandbox creds. Makes the operated pipeline not just *run*
+but stay *honest, rigorous, and reactive*.
+
+- **SLA auto-escalation (#7)** — the deadline clock now ACTS. `slaState()` classifies an awaiting run
+  `ok` / `at-risk` (≤25% of the window left) / `breached`; `autoEscalateStale()` escalates breached
+  runs once each (idempotent via `slaEscalated`, audit event `sla-escalated`). New board cron
+  `sla.escalate` (5 min) sweeps every tenant and fires email/push — a breach never sits silent.
+- **Calibrated confidence + closed loop (#5)** — `calibration()` buckets decided runs by the AI's
+  `recoConfidence` and measures how often it was actually right (no override, no failing QA), reporting
+  a reliability curve + **ECE**. `suggestFloor()` proposes a data-driven `confidenceFloor` from observed
+  accuracy. New admin/compliance endpoint `GET /api/autopilot/calibration`.
+- **Eval rigor — ×3 median CI gate (#6)** — `vertical-scorecard.mjs --median N` runs the full case+judge
+  eval N times and takes the **median** (kills single-run noise — the cro 82→97 problem); `--ci THRESHOLD`
+  exits non-zero when the median falls below the bar. A real regression gate for prompt/model changes.
+- **Sequential review pipelines (#8)** — `stageProgress()` surfaces a multi-gate run as an ordered
+  pipeline (intake → QC → review → submit) with each stage's signer + status; attached to
+  `GET /api/autopilot/run` as `stages`.
+- **Flake fix** — the Wave F retention-purge test used a `days:0` boundary that raced `Date.now()` under
+  concurrent load; switched to `days:-1` for a deterministic cutoff. Full lib suite now 299/299 green ×5.
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.57.0 — 2026-06-08
 
 ### Operator console UI/UX — tabbed app shell, inbox-first
