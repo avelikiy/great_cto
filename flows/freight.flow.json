@@ -1,5 +1,6 @@
 {
   "vertical": "freight",
+  "domain": "logistics",
   "autopilot": "Freight-brokerage autopilot",
   "tagline": "Matches loads to vetted carriers and books them — a licensed broker signs binding rates and claims.",
   "audience": "Brokerage operations lead",

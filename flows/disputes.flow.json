@@ -1,0 +1,84 @@
+{
+  "vertical": "disputes",
+  "domain": "fintech",
+  "autopilot": "Card-dispute & chargeback autopilot",
+  "tagline": "Intakes cardholder disputes, builds the representment, and decides provisional credit — a dispute analyst signs before money moves or a case is sent to the network.",
+  "audience": "Disputes / Chargeback Manager (Reg E / Reg Z officer)",
+  "owner": "Designated Reg E / disputes officer",
+  "marketSizeUsd": "1B",
+  "problem": "Card disputes are a regulated, deadline-driven labor sink — Reg E (debit) and Reg Z (credit) impose strict provisional-credit and investigation timelines, and every chargeback is evidence assembly across the processor and the card network. Miss a clock or mis-handle a claim and the issuer eats the loss and the regulatory exposure.",
+  "outcome": "Intake, evidence-gathering, Reg E/Z classification and representment assembly run straight-through within the clock; only the provisional-credit and representment decisions reach the analyst, who signs before any credit is issued or a case is filed with Visa/Mastercard.",
+  "qualityScore": 88,
+  "steps": [
+    {
+      "does": "Intake the cardholder dispute and verify the claimant against the account",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "card-processor",
+        "id-verify"
+      ]
+    },
+    {
+      "does": "Pull the transaction, prior history and fraud signals; gather merchant/processor evidence",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "evidence",
+      "tools": [
+        "card-processor",
+        "fraud-score"
+      ]
+    },
+    {
+      "does": "Classify the dispute (Reg E vs Reg Z, fraud vs service) and compute the regulatory clock",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "classify",
+      "tools": [
+        "dispute-network"
+      ]
+    },
+    {
+      "does": "Assemble the representment packet and the provisional-credit recommendation",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "build",
+      "tools": [
+        "dispute-network"
+      ]
+    },
+    {
+      "does": "The disputes analyst signs the provisional-credit decision and the representment",
+      "human": "Designated Reg E / disputes officer",
+      "gate": "gate:disputes-signoff"
+    },
+    {
+      "does": "Issue provisional credit and submit the representment to the card network",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "submit",
+      "tools": [
+        "card-processor",
+        "dispute-network"
+      ]
+    },
+    {
+      "does": "Track the network outcome, post final adjustment, and document for audit",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "dispute-network"
+      ]
+    }
+  ],
+  "reviewer": "disputes-rege-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Chargeflow",
+    "Quavo",
+    "Pinwheel",
+    "Galileo"
+  ]
+}

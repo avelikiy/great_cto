@@ -1,8 +1,25 @@
 # Positioning vocabulary — business language, not engineering
 
 > **Single source of truth for all outward copy** (landing, README, CLI onboarding, decks).
-> great_cto is positioned as **"AI autopilots for business."** When we talk about a vertical we
-> talk about its **flow** and **automation**, not pipelines and packs.
+> great_cto is positioned as **"AI business autopilots for regulated and operationally complex
+> companies."** When we talk about a vertical we talk about its **flow** and **automation**, not
+> pipelines and packs.
+
+## The positioning line (use verbatim where space allows)
+
+> **GreatCTO builds AI business autopilots for regulated and operationally complex companies —
+> fintech, crypto, compliance, back office, support, security and engineering.**
+
+Canonical forms (pick by space):
+- **Full**: "GreatCTO builds AI business autopilots for regulated and operationally complex companies — fintech, crypto, compliance, back office, support, security and engineering."
+- **Short tagline** (titles, OG): "AI business autopilots for regulated companies"
+- **Micro** (eyebrow, badge): "AI business autopilots"
+
+### Who we're for
+Companies where the work is **regulated or operationally complex** — every flow keeps a **named,
+qualified human on the judgment calls** (BSA/AML officer, MLRO, controller, SOC analyst, CPA). That
+human checkpoint is the product, not a footnote. The autopilots are **grouped by domain**
+(see `flows/_domains.json`); ICP domains lead, other industries follow.
 
 ## The reframe
 

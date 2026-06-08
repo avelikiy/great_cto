@@ -1,0 +1,18 @@
+{
+  "_comment": "Domain registry for the autopilot showcase. ICP domains lead; out-of-ICP industries follow. Each flows/<v>.flow.json carries a matching \"domain\". Generators group + order by this file. Not a flow file (no .flow.json suffix) so flow scanners ignore it.",
+  "icpOrder": ["fintech", "crypto", "compliance", "back-office", "security", "engineering", "support"],
+  "outOfIcpOrder": ["healthcare", "legal", "real-estate", "logistics"],
+  "domains": {
+    "fintech":     { "label": "Fintech",      "blurb": "Lending, payments, payroll, claims and tax — regulated money movement with a human on the call that carries liability.", "icp": true },
+    "crypto":      { "label": "Crypto",       "blurb": "VASP onboarding, on-chain screening and Travel Rule — an MLRO signs every SAR and block.", "icp": true },
+    "compliance":  { "label": "Compliance",   "blurb": "KYC/AML, trade and credentialing — screening and filings with a named officer on every decision.", "icp": true },
+    "back-office": { "label": "Back office",  "blurb": "Bookkeeping, procurement, billing and managed IT — high-volume operations run straight-through.", "icp": true },
+    "security":    { "label": "Security",     "blurb": "SecOps and IT-controls audit — triage and testing at machine speed, a human on containment and the opinion.", "icp": true },
+    "engineering": { "label": "Engineering",  "blurb": "The original GreatCTO SDLC pipeline — architect → dev → QA → security → ship, with human gates.", "icp": true },
+    "support":     { "label": "Support",      "blurb": "Operational support workflows — direction on the roadmap.", "icp": true },
+    "healthcare":  { "label": "Healthcare",   "blurb": "Prior-auth, pharmacovigilance and clinical-trial ops — a clinician signs the medical judgment.", "icp": false },
+    "legal":       { "label": "Legal",        "blurb": "Contracts, estate, patent and immigration — a licensed attorney signs anything that is advice (UPL).", "icp": false },
+    "real-estate": { "label": "Real estate",  "blurb": "Title, escrow and appraisal — a licensed officer signs the insurable title and the report of record.", "icp": false },
+    "logistics":   { "label": "Logistics",    "blurb": "Freight brokerage — a licensed broker signs binding rates and claims.", "icp": false }
+  }
+}

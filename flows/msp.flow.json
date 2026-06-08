@@ -1,5 +1,6 @@
 {
   "vertical": "msp",
+  "domain": "back-office",
   "autopilot": "Managed-IT autopilot",
   "tagline": "Patches, configures and provisions across the client fleet — staged and reversible, with a human on high-blast-radius changes.",
   "audience": "CEO / Head of IT Services",

@@ -150,6 +150,14 @@ export const CONNECTORS = Object.freeze({
   // ── patent ──
   'prior-art':       { label: 'Prior-art / patentability', verticals: ['patent'],      capabilities: ['search-prior-art'], realProviders: ['USPTO PatFT', 'Google Patents', 'EPO'], status: 'stub' },
   'uspto-filing':    { label: 'USPTO filing (Patent Center)', verticals: ['patent'],   capabilities: ['file-application', 'check-status'], realProviders: ['USPTO Patent Center', 'EFS-Web'], status: 'stub' },
+
+  // ── crypto ──
+  'chain-analytics': { label: 'Blockchain analytics',    verticals: ['crypto'],        capabilities: ['screen-wallet', 'trace-funds'], realProviders: ['Chainalysis', 'TRM Labs', 'Elliptic'], status: 'live-ready' },
+  'travel-rule':     { label: 'Travel Rule messaging',   verticals: ['crypto'],        capabilities: ['exchange-vasp-info'], realProviders: ['Notabene', 'Sygna', 'TRP'], status: 'stub' },
+
+  // ── disputes (fintech) ──
+  'card-processor':  { label: 'Card processor / issuer', verticals: ['disputes'],      capabilities: ['get-transaction', 'issue-provisional-credit'], realProviders: ['Stripe', 'Adyen', 'Marqeta'], status: 'stub' },
+  'dispute-network': { label: 'Card-network disputes',   verticals: ['disputes'],      capabilities: ['submit-representment', 'check-status'], realProviders: ['Visa VROL', 'Mastercom'], status: 'stub' },
 });
 
 /** Look up a connector spec by id. */

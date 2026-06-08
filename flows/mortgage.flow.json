@@ -1,5 +1,6 @@
 {
   "vertical": "mortgage",
+  "domain": "fintech",
   "autopilot": "Mortgage-underwriting autopilot",
   "tagline": "Processes and underwrites the loan to a clear-to-close — a DE underwriter signs the decision.",
   "audience": "Head of mortgage lending",

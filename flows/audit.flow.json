@@ -1,5 +1,6 @@
 {
   "vertical": "audit",
+  "domain": "security",
   "autopilot": "SOX ITGC audit autopilot",
   "tagline": "Tests IT general controls and drafts workpapers — a licensed CPA signs the opinion.",
   "audience": "Audit partner / SOX lead",

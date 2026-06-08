@@ -2,7 +2,7 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**AI autopilots for business — get the work done, not just the software.**
+**AI business autopilots for regulated and operationally complex companies — fintech, crypto, compliance, back office, support, security and engineering. Get the work done, not just the software.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -45,6 +45,8 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 | 🛒 **[Source-to-pay](https://greatcto.systems/autopilots/procurement.html)** | Onboards suppliers, matches invoices, releases payments — screened for sanctions & fraud | $200B+ | Tacto · Zip · AskLio |
 | ✅ **[Prior-authorization](https://greatcto.systems/autopilots/prior-auth.html)** | Auth request + chart → approval or a clean determination; a medical director signs every denial | $35–56B | Cohere Health · Anterior · Develop Health |
 | 🛡️ **[KYC/AML](https://greatcto.systems/autopilots/aml.html)** | Onboards, screens & monitors customers; a BSA Officer signs every SAR | $61B | Diligent AI · Alloy · Sardine |
+| 🪙 **[Crypto compliance](https://greatcto.systems/autopilots/crypto.html)** | Onboards VASPs, screens wallets on-chain & runs Travel Rule; an MLRO signs every SAR & address block | $1.5B | Chainalysis · TRM Labs · Elliptic |
+| 💳 **[Card-dispute & chargeback](https://greatcto.systems/autopilots/disputes.html)** | Intakes disputes, builds the representment & decides provisional credit (Reg E/Z); an analyst signs before money moves | $1B | Chargeflow · Quavo · Galileo |
 | 🔐 **[Managed-SOC](https://greatcto.systems/autopilots/soc.html)** | Triages & investigates every alert 24/7; a SOC analyst signs any containment | $4–6B | 7AI · Dropzone · Prophet Security |
 | ☂️ **[Claims & underwriting](https://greatcto.systems/autopilots/insurance.html)** | Adjudicates claims & prices risk; a licensed adjuster/underwriter signs the call | $36–38B | Shift · Akur8 · Avallon |
 | 🏠 **[Mortgage-underwriting](https://greatcto.systems/autopilots/mortgage.html)** | Processes & underwrites to clear-to-close; a DE underwriter signs | $40B+ | Tidalwave · Zest AI · Blend |
@@ -67,7 +69,7 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 
 **Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
 controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. **17 live connectors run on real data across the 25 verticals** — FHIR, ICD-10
+carries liability. **17 live connectors run on real data across the 27 verticals** — FHIR, ICD-10
 (NLM), NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, a US federal tax engine, plus
 medical-necessity criteria, claims fraud-scoring, mortgage AUS (DU/LPA), OIG/SAM exclusion screening,
 FMCSA carrier-vetting, Reg-F/TCPA outreach guardrails, IOC threat-intel, and FinCEN SAR generation.

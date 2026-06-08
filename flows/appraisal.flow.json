@@ -1,5 +1,6 @@
 {
   "vertical": "appraisal",
+  "domain": "real-estate",
   "autopilot": "Real-estate appraisal autopilot",
   "tagline": "Intakes the order, pulls comps and cross-checks an AVM — a state-certified appraiser signs the report of record.",
   "audience": "Valuation / appraisal operations lead",

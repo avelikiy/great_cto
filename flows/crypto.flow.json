@@ -1,0 +1,84 @@
+{
+  "vertical": "crypto",
+  "domain": "crypto",
+  "autopilot": "Crypto compliance & Travel Rule autopilot",
+  "tagline": "Onboards, screens and monitors crypto customers and wallets — an MLRO signs every SAR, block and high-risk approval.",
+  "audience": "MLRO / Head of Compliance (VASP / exchange)",
+  "owner": "Designated MLRO (Money Laundering Reporting Officer)",
+  "marketSizeUsd": "1.5B",
+  "problem": "Crypto compliance is a fast-growing labor sink — VASPs must KYC customers, screen wallets on-chain, exchange Travel Rule data with counterparty VASPs, and triage on-chain alerts. A missed sanctioned address or unfiled SAR is personal liability for the MLRO and an enforcement risk for the exchange.",
+  "outcome": "Onboarding, wallet screening, Travel Rule exchange and on-chain monitoring run straight-through with a documented rationale; only genuine risk reaches the MLRO, who signs every SAR, address block and high-risk approval before anything is filed or funds are frozen.",
+  "qualityScore": 89,
+  "steps": [
+    {
+      "does": "Onboard the customer / counterparty VASP: verify identity and beneficial ownership",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "id-verify",
+        "kyb"
+      ]
+    },
+    {
+      "does": "Screen deposit/withdrawal wallets and counterparties on-chain (sanctions, mixers, illicit exposure)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "screen",
+      "tools": [
+        "chain-analytics",
+        "sanctions-screen"
+      ]
+    },
+    {
+      "does": "Exchange Travel Rule originator/beneficiary data (IVMS101) with the counterparty VASP",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "travel-rule",
+      "tools": [
+        "travel-rule"
+      ]
+    },
+    {
+      "does": "Monitor on-chain + fiat flows, triage alerts, and draft the SAR narrative",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "chain-analytics",
+        "txn-monitor"
+      ]
+    },
+    {
+      "does": "The MLRO signs the SAR filing, any address block, and high-risk onboarding",
+      "human": "Designated MLRO",
+      "gate": "gate:mlro-signoff"
+    },
+    {
+      "does": "File the SAR with FinCEN, apply the block, and record the onboarding decision",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "file",
+      "tools": [
+        "sar-filing"
+      ]
+    },
+    {
+      "does": "Maintain continuous wallet monitoring and document dispositions for exam",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "chain-analytics"
+      ]
+    }
+  ],
+  "reviewer": "crypto-mlro-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Chainalysis",
+    "TRM Labs",
+    "Elliptic",
+    "Notabene"
+  ]
+}

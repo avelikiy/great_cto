@@ -1,5 +1,6 @@
 {
   "vertical": "customs",
+  "domain": "compliance",
   "autopilot": "Customs-clearance autopilot",
   "tagline": "Classifies, screens and clears imports — a licensed customs broker signs the entry of record.",
   "audience": "Trade-compliance / import lead",

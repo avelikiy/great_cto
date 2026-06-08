@@ -1,5 +1,6 @@
 {
   "vertical": "payroll",
+  "domain": "fintech",
   "autopilot": "Payroll-processing autopilot",
   "tagline": "Runs gross-to-net, withholds and funds pay — a payroll manager (CPP) signs the run before money moves.",
   "audience": "Payroll / people-ops lead",

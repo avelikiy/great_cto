@@ -1,5 +1,6 @@
 {
   "vertical": "cro",
+  "domain": "healthcare",
   "autopilot": "Clinical-trial-ops autopilot",
   "tagline": "Screens patients and runs monitoring — the PI / medical monitor signs eligibility and safety calls.",
   "audience": "Sponsor / CRO operations lead",

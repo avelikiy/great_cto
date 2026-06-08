@@ -1,5 +1,6 @@
 {
   "vertical": "workers-comp",
+  "domain": "fintech",
   "autopilot": "Workers'-comp claims autopilot",
   "tagline": "Determines compensability, computes benefits and files the EDI claim — a licensed claims adjuster signs the determination.",
   "audience": "Workers'-comp claims / TPA lead",

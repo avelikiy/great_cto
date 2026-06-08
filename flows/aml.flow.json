@@ -1,5 +1,6 @@
 {
   "vertical": "aml",
+  "domain": "compliance",
   "autopilot": "KYC/AML compliance autopilot",
   "tagline": "Onboards, screens and monitors customers — a BSA Officer signs every SAR and high-risk approval.",
   "audience": "BSA/AML Officer / Head of Compliance",

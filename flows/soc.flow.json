@@ -1,5 +1,6 @@
 {
   "vertical": "soc",
+  "domain": "security",
   "autopilot": "Managed-SOC / MDR autopilot",
   "tagline": "Triages and investigates every security alert 24/7 — a SOC analyst signs any containment.",
   "audience": "CISO / MSSP lead",

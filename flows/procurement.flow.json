@@ -1,5 +1,6 @@
 {
   "vertical": "procurement",
+  "domain": "back-office",
   "autopilot": "Source-to-pay autopilot",
   "tagline": "Onboards suppliers, matches invoices and releases payments — screened for sanctions and fraud, with a human on the big ones.",
   "audience": "CFO / Head of Procurement",

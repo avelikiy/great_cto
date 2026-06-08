@@ -1,5 +1,6 @@
 {
   "vertical": "rcm",
+  "domain": "back-office",
   "autopilot": "Medical-coding autopilot",
   "tagline": "Turns clinical notes into clean, compliant claims — a certified coder signs only the risky ones.",
   "audience": "CFO / revenue-cycle lead",

@@ -1,5 +1,6 @@
 {
   "vertical": "prior-auth",
+  "domain": "healthcare",
   "autopilot": "Prior-authorization autopilot",
   "tagline": "Turns a prior-auth request + chart into an approval or a clean determination — a medical director signs every denial.",
   "audience": "Payer UM lead / provider revenue lead",

@@ -1,5 +1,6 @@
 {
   "vertical": "accounting",
+  "domain": "back-office",
   "autopilot": "Bookkeeping & close autopilot",
   "tagline": "Books entries, reconciles and closes the month — segregation of duties enforced, a controller signs the close.",
   "audience": "CFO / Controller",

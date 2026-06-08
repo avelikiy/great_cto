@@ -1,5 +1,6 @@
 {
   "vertical": "pharma",
+  "domain": "healthcare",
   "autopilot": "Pharmacovigilance autopilot",
   "tagline": "Processes adverse-event cases — a QPPV / drug-safety physician signs before reporting.",
   "audience": "Drug-safety / PV lead",
