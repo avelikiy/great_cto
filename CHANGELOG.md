@@ -8,6 +8,34 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.60.0 — 2026-06-08
+
+### Operator console — Ops tab (metering · connector health · dead-letter requeue)
+
+The Wave H (v2.59.0) ops surfaces were API-only. This adds the **Ops tab** to the operator console
+(`/autopilot.html`) so admins/compliance-leads can *see* and *act* on them — completing Tier-3
+end-to-end in the UI.
+
+- **Ops tab** — role-gated (admin / compliance-lead, like QA), with a live **dead-letter badge** that
+  polls off-tab so a stuck write is visible without clicking.
+- **KPI tiles** — runs, connector calls, est. cost, avg latency, retries, over-budget, dead-letters.
+- **Dead-letter queue** — each failed write with its connectors + error and a one-click **↻ Requeue**
+  (`POST /api/autopilot/requeue`) that re-runs the post-gate write and recovers it to `completed`.
+- **Connector health table** — per-connector 🟢/🔴, call count, failure %, p95 latency, last error
+  (unhealthy rows highlighted).
+- **Metering by industry** — per-vertical runs / calls / latency / cost, sorted by spend.
+
+Verified end-to-end: seed a dead-letter → it appears in `/dead-letters` → requeue → `completed` →
+queue empties → metering reflects the recovery. Tab RBAC checked via a 6-assertion DOM sim across
+admin / compliance-lead / token-scoped operator. No functional regression; lib suite 304/304.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.59.0 — 2026-06-08
 
 ### Autopilot Tier-3 (Wave H) — operable: metering · dead-letter · connector health
