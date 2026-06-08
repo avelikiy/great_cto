@@ -139,14 +139,19 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 done
 
 # ---------------------------------------------------------------------------
-# Token-economy: enforce that artifact summaries are fresh
+# Token-economy: report that artifact summaries are fresh
 # ---------------------------------------------------------------------------
-# This block must NEVER hang a push. Two guarantees:
+# This is gigiene, not security — so it is WARN-ONLY by default and never blocks
+# a push. Freshness should be guaranteed by CI, not by a local pre-push hook.
+# Set GREAT_CTO_ENFORCE_SUMMARY=1 to make stale summaries block the push.
+#
+# This block must NEVER hang a push. Three guarantees:
 #   1. GREAT_CTO_SKIP_SUMMARY_CHECK=1 short-circuits BEFORE invoking node, so the
 #      escape hatch works even if the summary checker itself is wedged.
 #   2. The node call is wrapped in a hard timeout (portable: timeout/gtimeout if
 #      present, else a background-kill shim) so a slow/blocked checker can never
-#      stall the push — on timeout we warn and allow the push rather than block.
+#      stall the push — on timeout we warn and allow the push.
+#   3. Stale summaries only block when GREAT_CTO_ENFORCE_SUMMARY=1; otherwise warn.
 SUMMARY_CHECK_TIMEOUT="${GREAT_CTO_SUMMARY_TIMEOUT:-25}"
 
 # run_with_timeout <seconds> <cmd...> — returns the command's exit code, or 124
@@ -197,9 +202,13 @@ elif [[ -f "scripts/generate-summary.mjs" ]] && command -v node >/dev/null 2>&1;
     echo "$STALE_OUTPUT" | grep '⚠ stale' | head -5
     echo ""
     echo "Fix: node scripts/generate-summary.mjs --all"
-    echo "Then re-commit and push."
-    echo "(To skip: GREAT_CTO_SKIP_SUMMARY_CHECK=1 git push)"
-    exit 1
+    if [[ "${GREAT_CTO_ENFORCE_SUMMARY:-0}" == "1" ]]; then
+      echo "Then re-commit and push."
+      echo "(To skip: GREAT_CTO_SKIP_SUMMARY_CHECK=1 git push)"
+      exit 1
+    else
+      echo -e "${YELLOW}(warn-only — push allowed. Set GREAT_CTO_ENFORCE_SUMMARY=1 to block on stale summaries.)${NC}"
+    fi
   fi
 fi
 
