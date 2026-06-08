@@ -4,6 +4,32 @@ All notable changes to great_cto are documented here.
 
 ---
 
+
+## v2.55.0 — 2026-06-08
+
+### Operator console: declutter + the missing sections (Waves E1–E3)
+
+Implements `docs/plans/PLAN-operator-console-menu.md` — strip what a licensed operator doesn't need,
+add what they do.
+
+**E1 — declutter**
+- **Hard-gate the Build board** — an invite (operator) session is redirected from `/` to
+  `/autopilot.html`; Operate is the only surface an operator reaches.
+- **"My cases" + "My work"** — for an operator the runs list is relabelled *My cases* and the
+  Analytics row shows their **own** numbers (my decisions · approved · rejected · escalated · my avg
+  time-to-decision) via `stats({by})`, not org totals. Admin / compliance-lead still see org Analytics.
+
+**E2 — operator essentials**
+- **Decision-criteria (SOP) panel** in the case drawer — a short, per-vertical reference of the rules
+  the human applies (medical necessity, FDCPA, ECOA, ALTA, FMCSA, 21 CFR Part 11, §6694 …).
+- **"Escalated to me" + "Sent back / needs info"** filters in the queue.
+
+**E3 — findability + onboarding**
+- **Search** (id / vertical / signer) over the operator's cases.
+- **Help** drawer — a plain-language "how this works" for the licensed signer.
+
+289 lib tests.
+
 ## v2.54.0 — 2026-06-07
 
 ### Console Waves C+D — explainability · narrative · routing dial · QA · bulk · observability
