@@ -52,8 +52,13 @@
   .aud { font-size:12px; color:#c6d2d0; border-left:2px solid var(--bd); padding-left:10px; margin:8px 0; }
   .aud div { margin:3px 0; }
   .kpi { background:#0d1311; border:1px solid var(--bd); border-radius:10px; padding:10px 16px; min-width:118px; }
-  .kpi b { display:block; font-size:22px; color:var(--tx); }
-  .kpi span { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  .kpi b, .kpi-v { display:block; font-size:22px; color:var(--tx); }
+  .kpi span, .kpi-k { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  .kpis { display:flex; gap:10px; flex-wrap:wrap; }
+  .ops-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+  .ops-tbl th { text-align:left; color:var(--mut); font-weight:500; border-bottom:1px solid var(--bd); padding:6px 10px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  .ops-tbl td { padding:7px 10px; border-bottom:1px solid #16201c; }
+  .ops-tbl tr.bad td { background:#1c0f0f; }
   header { position:sticky; top:0; z-index:11; background:var(--bg); }
   .tabs { position:sticky; top:55px; z-index:10; display:flex; gap:2px; padding:0 24px; max-width:1048px; margin:0 auto; background:var(--bg); border-bottom:1px solid var(--bd); overflow-x:auto; }
   .tabs button { background:none; border:0; border-bottom:2px solid transparent; border-radius:0; color:var(--mut); padding:12px 16px; font-weight:600; font-size:13px; white-space:nowrap; }
@@ -83,6 +88,7 @@
   <button data-tab="cases" onclick="switchTab('cases')">All cases</button>
   <button data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
   <button data-tab="qa" id="tab-qa" onclick="switchTab('qa')" style="display:none">QA</button>
+  <button data-tab="ops" id="tab-ops" onclick="switchTab('ops')" style="display:none">Ops<span class="badge" id="tab-ops-n" style="display:none">0</span></button>
   <button data-tab="admin" id="tab-admin" onclick="switchTab('admin')" style="display:none">Admin</button>
 </nav>
 <main>
@@ -134,6 +140,17 @@
   <div id="qa-box" data-sec="qa" style="display:none">
     <h2>QA — sampled closed cases (the second loop)</h2>
     <div id="qa"></div>
+  </div>
+
+  <div id="ops-box" data-sec="ops" style="display:none">
+    <h2>Ops — what the autopilot costs, and what needs a hand</h2>
+    <div class="kpis" id="ops-kpis"></div>
+    <h3 style="margin:14px 0 6px">Dead-letter queue — writes that need a requeue</h3>
+    <div id="ops-deadletters"><div class="empty">loading…</div></div>
+    <h3 style="margin:18px 0 6px">Connector health</h3>
+    <div id="ops-health"><div class="empty">loading…</div></div>
+    <h3 style="margin:18px 0 6px">Metering — usage by industry</h3>
+    <div id="ops-metering"><div class="empty">loading…</div></div>
   </div>
 
   <div id="team-box" data-sec="admin" style="display:none">
@@ -295,7 +312,7 @@ function signOut() { localStorage.removeItem('gcto_invite'); location.href = '/a
 let TAB = 'inbox';
 function canSee(sec) {
   if (sec === 'admin') return role() === 'admin' && !SESSION.token;   // Start · Settings · Team
-  if (sec === 'qa') return ['admin', 'compliance-lead'].includes(role());
+  if (sec === 'qa' || sec === 'ops') return ['admin', 'compliance-lead'].includes(role());
   return true;                                                        // inbox · cases · analytics
 }
 function applyTab() {
@@ -307,12 +324,14 @@ function switchTab(t) {
   TAB = t; applyTab();
   if (t === 'admin') { loadTeam(); loadConfig(); }
   if (t === 'qa') loadQa();
+  if (t === 'ops') loadOps();
   if (t === 'analytics') loadStats();
 }
 function applyRoleUI() {
   const r = ROLES[role()] || { verticals: '*', canBuild: true, canStart: true };
   document.getElementById('build-link').style.display = (!SESSION.token && r.canBuild) ? '' : 'none';
   document.getElementById('tab-qa').style.display = canSee('qa') ? '' : 'none';
+  document.getElementById('tab-ops').style.display = canSee('ops') ? '' : 'none';
   document.getElementById('tab-admin').style.display = canSee('admin') ? '' : 'none';
   document.getElementById('runs-h').textContent = SESSION.token ? 'My cases' : 'All runs';
   document.getElementById('inbox-h').textContent = SESSION.token ? 'My queue — awaiting my signature' : 'Inbox — awaiting a human signature';
@@ -558,6 +577,46 @@ async function qaSubmit(id) {
   await api('/api/autopilot/qa-score', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, score, note, by: SESSION.name || role(), role: role() }) });
   loadQa(); loadStats();
 }
+
+// ── Ops (Wave H): metering · connector health · dead-letter queue (admin / compliance) ──
+const ms = (n) => n == null ? '—' : (n >= 1000 ? (n/1000).toFixed(1)+'s' : Math.round(n)+'ms');
+async function loadOps() {
+  const t = fTenant() ? '&tenant=' + encodeURIComponent(fTenant()) : '';
+  const [bill, health, dl] = await Promise.all([
+    api('/api/autopilot/metering?role=' + role() + t),
+    api('/api/autopilot/health?role=' + role() + t),
+    api('/api/autopilot/dead-letters?role=' + role() + t),
+  ]);
+  // KPI tiles
+  document.getElementById('ops-kpis').innerHTML = [
+    ['Runs', bill.runs], ['Connector calls', bill.connectorCalls], ['Est. cost', '$' + (bill.totalCostUsd ?? 0)],
+    ['Avg latency', ms(bill.avgLatencyMs)], ['Retries', bill.retries], ['Over budget', bill.overLatencyBudget],
+    ['Dead-letters', (dl.queue || []).length],
+  ].map(([k, v]) => `<div class="kpi"><div class="kpi-v">${esc(v)}</div><div class="kpi-k">${esc(k)}</div></div>`).join('');
+  // dead-letter queue (with a requeue action)
+  const q = dl.queue || [];
+  const badge = document.getElementById('tab-ops-n');
+  if (badge) { badge.textContent = q.length; badge.style.display = q.length ? '' : 'none'; }
+  document.getElementById('ops-deadletters').innerHTML = q.length ? q.map(x => `
+    <div class="card rej">
+      <div class="row"><span class="vert">${icon(x.vertical)} ${esc(x.vertical)}</span><span class="pill rej">dead-letter</span>${x.attempts ? `<span class="pill">${esc(x.attempts)} attempt(s)</span>` : ''}<span class="mut">${esc(x.id)}</span><span style="flex:1"></span><button class="primary" onclick="requeueRun('${x.id}')">↻ Requeue</button></div>
+      <div class="mut" style="margin-top:4px">connectors: ${esc((x.connectors||[]).join(', ') || '—')} · ${esc(x.error || 'write failed after retries')}</div>
+    </div>`).join('') : '<div class="empty">No dead-letters — every write landed.</div>';
+  // connector health table
+  const hs = health.connectors || [];
+  document.getElementById('ops-health').innerHTML = hs.length ? `<table class="ops-tbl"><thead><tr><th>connector</th><th>calls</th><th>fail %</th><th>p95</th><th>last error</th></tr></thead><tbody>${
+    hs.map(h => `<tr class="${h.healthy ? '' : 'bad'}"><td>${h.healthy ? '🟢' : '🔴'} ${esc(h.connector)}</td><td>${esc(h.calls)}</td><td>${Math.round(h.failureRate*100)}%</td><td>${ms(h.p95LatencyMs)}</td><td class="mut">${esc(h.lastError || '—')}</td></tr>`).join('')
+  }</tbody></table>` : '<div class="empty">No connector activity yet.</div>';
+  // metering by industry
+  const bv = Object.entries(bill.byVertical || {});
+  document.getElementById('ops-metering').innerHTML = bv.length ? `<table class="ops-tbl"><thead><tr><th>industry</th><th>runs</th><th>calls</th><th>latency</th><th>cost</th></tr></thead><tbody>${
+    bv.sort((a,b)=>b[1].cost-a[1].cost).map(([v,m]) => `<tr><td>${icon(v)} ${esc(v)}</td><td>${esc(m.runs)}</td><td>${esc(m.connectorCalls)}</td><td>${ms(m.latencyMs)}</td><td>$${esc(m.cost)}</td></tr>`).join('')
+  }</tbody></table>` : '<div class="empty">No runs yet.</div>';
+}
+async function requeueRun(id) {
+  await api('/api/autopilot/requeue', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, role: role(), by: SESSION.name || role() }) });
+  loadOps();
+}
 // ── Bulk actions ──
 function updateBulk() {
   const n = document.querySelectorAll('.bulk-cb:checked').length;
@@ -582,7 +641,17 @@ function refresh() {
   if (TAB === 'cases') loadRuns();
   if (TAB === 'analytics') loadStats();
   if (TAB === 'qa' && canSee('qa')) loadQa();
+  if (TAB === 'ops' && canSee('ops')) loadOps();
   if (TAB === 'admin' && canSee('admin')) loadConfig();
+  if (TAB !== 'ops' && canSee('ops')) opsBadge();   // keep the dead-letter badge live off-tab
+}
+// Lightweight off-tab poll for the Ops dead-letter badge (admins want it visible without clicking).
+async function opsBadge() {
+  try {
+    const dl = await api('/api/autopilot/dead-letters?role=' + role());
+    const n = (dl.queue || []).length, b = document.getElementById('tab-ops-n');
+    if (b) { b.textContent = n; b.style.display = n ? '' : 'none'; }
+  } catch { /* ignore */ }
 }
 // populate the bulk reason select
 document.getElementById('bulk-reason').innerHTML = REASONS.map(x => `<option>${x}</option>`).join('');
