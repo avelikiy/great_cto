@@ -64,6 +64,7 @@
   <span id="session-info" class="mut" style="font-size:13px;display:none"></span>
   <span id="role-pick"><span class="mut" style="font-size:13px">I am the</span>
   <select id="role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select></span>
+  <button class="back" style="cursor:pointer;border:0" onclick="help()" title="How this works">❔ Help</button>
   <button id="notify-btn" class="back" style="cursor:pointer;border:0" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
 </header>
 <main>
@@ -98,7 +99,7 @@
   </div>
 
   <div id="analytics-box">
-    <h2>Analytics — is the autopilot taking work off your desk?</h2>
+    <h2 id="stats-h">Analytics — is the autopilot taking work off your desk?</h2>
     <div id="stats" class="row" style="gap:14px;flex-wrap:wrap"></div>
   </div>
 
@@ -137,9 +138,12 @@
     <select id="f-status" onchange="refresh()">
       <option value="">all statuses</option>
       <option value="awaiting-approval">awaiting signature</option>
+      <option value="escalated">escalated to me</option>
+      <option value="sent-back">sent back / needs info</option>
       <option value="completed">completed</option>
       <option value="rejected">rejected</option>
     </select>
+    <input id="f-search" placeholder="🔍 search id / vertical" style="max-width:180px" oninput="refresh()" />
   </div>
   <div class="row" style="margin:4px 0"><button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="selectAuto()">☑ select auto-eligible</button>
     <span id="bulk-bar" style="display:none"><b id="bulk-n">0</b> selected · reason <select id="bulk-reason">${''}</select>
@@ -149,7 +153,7 @@
   </div>
   <div id="inbox"></div>
 
-  <h2>All runs</h2>
+  <h2 id="runs-h">All runs</h2>
   <div id="runs"></div>
 </main>
 <div id="drawer-bg" onclick="closeDrawer()"></div>
@@ -162,6 +166,33 @@ const VERT = { rcm:'🩺', aml:'🛡️', soc:'🔐', insurance:'☂️', mortga
   collections:'💰', freight:'🚚', cro:'🧪', 'prior-auth':'✅', legaltech:'⚖️', accounting:'📒', tax:'🧾',
   procurement:'🛒', msp:'🖥️', customs:'🛃', audit:'📊', pharma:'💊' };
 const icon = v => VERT[v] || '🤖';
+
+// SOP / decision criteria the licensed human applies — shown in the case drawer (E2).
+const CRITERIA = {
+  rcm: ['Code only what the note supports (no upcoding/unbundling — FCA).', 'NCCI/MUE edits must pass.', 'Sign the risky claims; the rest is straight-through.'],
+  legaltech: ['Anything advice-shaped needs a licensed attorney (UPL).', 'No e-sign on excluded docs (wills, etc.).', 'Privilege + conflicts cleared.'],
+  procurement: ['No sanctions/PEP hit (hard block).', 'Three-way match + verified bank details.', 'Sign payments above threshold / on any flag.'],
+  accounting: ['Enforce SoD + ASC 606 cutoff.', 'Sign non-standard entries + the close.', 'Append-only ledger.'],
+  msp: ['Staged rollout (canary→fleet) with rollback.', 'Approve fleet-wide / privileged / destructive change.', 'JIT least-privilege.'],
+  tax: ['Classify each position\'s authority (§6694).', 'Preparer signs (PTIN); taxpayer signs 8879.', 'Below-standard positions disclosed.'],
+  'prior-auth': ['Approve only if medical-necessity criteria (MCG/NCD-LCD) are met.', 'A DENIAL requires the medical director.', 'Honor gold-card + the CMS turnaround clock.'],
+  aml: ['OFAC hit = hard block.', 'CDD + beneficial ownership done.', 'The BSA Officer personally signs every SAR (no tipping-off).'],
+  soc: ['A certified analyst authorizes containment / isolation / breach-notification.', 'Preserve forensic evidence before containing.', 'Least-privilege response.'],
+  insurance: ['No protected-class proxy in pricing.', 'A licensed adjuster/underwriter signs the coverage call (bad-faith).', 'Meet unfair-claims timelines.'],
+  mortgage: ['No prohibited-basis proxy (ECOA).', 'A DE underwriter signs the approval/clear-to-close.', 'Adverse-action + TRID + HMDA.'],
+  title: ['Verify payoff + wire instructions out-of-band (BEC).', 'Clear liens before insurable title.', 'A licensed officer signs the title + authorizes the wire.'],
+  credentialing: ['Primary-source verify (NPDB/DEA/boards) — no secondary.', 'Screen OIG/SAM exclusions.', 'The committee signs privileging + any adverse finding.'],
+  collections: ['Reg F 7-in-7 + 8am–9pm + cease/opt-out.', 'TCPA consent for autodial/SMS.', 'A manager/attorney signs legal escalation + settlements.'],
+  freight: ['Vet carrier authority/insurance/safety (FMCSA SAFER) before tender.', 'No rebrokering without authorization.', 'A licensed broker signs binding rates + claims.'],
+  cro: ['IRB approval + informed consent first.', 'No auto-disposition of an adverse event.', 'The PI/medical monitor signs eligibility + safety.'],
+  customs: ['Classify HS accurately (reasonable care — §1592).', 'Denied-party / OFAC / Entity-List screen.', 'A licensed broker signs the entry of record.'],
+  audit: ['Sufficient, competent evidence.', 'Rate exception severity (deficiency→material weakness).', 'A CPA / engagement partner signs the opinion.'],
+  pharma: ['MedDRA-code + triage seriousness (no downgrade).', '15-day expedited clock for serious+unexpected.', 'The QPPV signs before the E2B is submitted.'],
+};
+function criteriaHtml(v) {
+  const c = CRITERIA[v]; if (!c) return '';
+  return `<h2 style="margin-top:18px">Decision criteria — how to read this case</h2><ul style="margin:6px 0;padding-left:20px;font-size:13px;color:#c6d2d0">${c.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+}
 const REASONS = ['meets-criteria', 'below-confidence-floor', 'policy-exception', 'insufficient-documentation', 'fraud-suspected', 'out-of-scope', 'needs-senior-review', 'other'];
 
 // populate the vertical filter
@@ -172,6 +203,7 @@ const REASONS = ['meets-criteria', 'below-confidence-floor', 'policy-exception',
 const fTenant = () => (document.getElementById('f-tenant').value || '').trim();
 const fStatus = () => document.getElementById('f-status').value;
 const fVert = () => document.getElementById('f-vertical').value;
+const fSearch = () => (document.getElementById('f-search') ? document.getElementById('f-search').value : '').trim().toLowerCase();
 
 // SLA — count DOWN to the regulatory/operational deadline (dueAt), not just elapsed time.
 function ageMin(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); }
@@ -247,6 +279,7 @@ function applyRoleUI() {
   document.getElementById('qa-box').style.display = (['admin', 'compliance-lead'].includes(role())) ? '' : 'none';
   if (isAdmin) { loadTeam(); loadConfig(); }
   if (['admin', 'compliance-lead'].includes(role())) loadQa();
+  document.getElementById('runs-h').textContent = SESSION.token ? 'My cases' : 'All runs';
   const allowed = r.verticals === '*' ? Object.keys(VERT) : r.verticals;
   for (const o of document.getElementById('vertical').options) o.hidden = !allowed.includes(o.value);
   const cur = document.getElementById('vertical');
@@ -300,6 +333,7 @@ function openDrawer(id) {
     <div class="row" style="margin-top:6px">${recoHtml(r)}${slaHtml(r)}</div>
     <div class="mut" style="margin-top:6px">Accountable owner: <b>${esc(r.owner || r.signer || '—')}</b></div>${r.disposition ? '<div class="mut">disposition: <b>' + esc(r.disposition) + '</b></div>' : ''}
     ${gateProgressHtml(r)}
+    ${criteriaHtml(r.vertical)}
     ${stepsHtml(r)}
     <h2 style="margin-top:18px">Evidence — what the connectors found</h2>
     <div class="aud">${evidenceHtml(r) || '<span class="mut">no connector signals</span>'}</div>
@@ -314,6 +348,20 @@ function openDrawer(id) {
   document.getElementById('drawer-bg').classList.add('open');
 }
 function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawer-bg').classList.remove('open'); }
+function help() {
+  document.getElementById('drawer-body').innerHTML = `
+    <h3>❔ How this works</h3>
+    <p style="font-size:13px;color:#c6d2d0">You're the licensed human in the loop. The AI does the volume up to the judgment call; you sign the action that carries liability.</p>
+    <ol style="font-size:13px;color:#c6d2d0;line-height:1.7">
+      <li><b>A case lands in your Inbox</b> when the autopilot reaches the human checkpoint. You get a 🔔 push if enabled.</li>
+      <li><b>Open ⋯ details</b> to see the decision criteria, what the connectors found (the evidence), the AI's recommendation, and the drafted determination.</li>
+      <li><b>Decide:</b> <b>Approve</b> (the irreversible action then runs), <b>Reject</b>, <b>↑ Escalate</b> to a senior, or <b>↩ Send back</b> for more info — with a reason code.</li>
+      <li>The ⏳ timer counts down to the case's <b>regulatory deadline</b>. Work oldest-waiting first.</li>
+      <li>Nothing irreversible runs until you sign. Your decision is recorded against your name in the audit trail.</li>
+    </ol>
+    <p class="mut" style="font-size:12px">Filters: by status (incl. <i>escalated to me</i> / <i>sent back</i>), vertical, and 🔍 search. Auto-eligible cases are low-risk and can be bulk-approved.</p>`;
+  document.getElementById('drawer').classList.add('open'); document.getElementById('drawer-bg').classList.add('open');
+}
 function exportRun(id) {
   const r = RUNS[id]; if (!r) return;
   const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
@@ -355,13 +403,19 @@ function q(status) {
   else { p.set('role', role()); if (fTenant()) p.set('tenant', fTenant()); }
   return '/api/autopilot/runs?' + p.toString();
 }
-const byVert = runs => fVert() ? runs.filter(r => r.vertical === fVert()) : runs;
 const cache = runs => { runs.forEach(r => { RUNS[r.id] = r; }); return runs; };
+// vertical + escalated-to-me + search filters (client side).
+const filt = runs => {
+  let l = fVert() ? runs.filter(r => r.vertical === fVert()) : runs;
+  if (fStatus() === 'escalated') l = l.filter(r => r.escalated);
+  const s = fSearch(); if (s) l = l.filter(r => (r.id + ' ' + r.vertical + ' ' + (r.signer || '')).toLowerCase().includes(s));
+  return l;
+};
 
 async function loadInbox() {
   const { runs } = await api(q('awaiting-approval'));
   const el = document.getElementById('inbox');
-  const list = cache(byVert(runs)).sort((a,b) => ageMin(b.createdAt) - ageMin(a.createdAt)); // oldest-waiting first
+  const list = cache(filt(runs)).sort((a,b) => ageMin(b.createdAt) - ageMin(a.createdAt)); // oldest-waiting first
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
     <div class="card gate">
@@ -382,9 +436,10 @@ async function loadInbox() {
 }
 
 async function loadRuns() {
-  const { runs } = await api(q(fStatus()));
+  const sStatus = fStatus() === 'escalated' ? 'awaiting-approval' : fStatus(); // escalated is a flag on awaiting cases
+  const { runs } = await api(q(sStatus));
   const el = document.getElementById('runs');
-  const list = cache(byVert(runs));
+  const list = cache(filt(runs));
   if (!list.length) { el.innerHTML = '<div class="empty">No runs match — start one above or clear the filter.</div>'; return; }
   el.innerHTML = list.map(r => {
     const cls = r.status === 'completed' ? 'done' : r.status === 'rejected' ? 'rej' : 'gate';
@@ -419,16 +474,22 @@ async function decide(id, action) {
 }
 async function loadStats() {
   const p = new URLSearchParams();
-  if (SESSION.token) p.set('token', SESSION.token); else { p.set('role', role()); if (fTenant()) p.set('tenant', fTenant()); }
+  const mine = !!SESSION.token; // operators see their own numbers ("My work"); admin/lead see org totals
+  if (mine) { p.set('token', SESSION.token); p.set('by', SESSION.name || ''); }
+  else { p.set('role', role()); if (fTenant()) p.set('tenant', fTenant()); }
   const s = await api('/api/autopilot/stats?' + p.toString());
   const tile = (label, val) => `<div class="kpi"><b>${val == null ? '—' : val}</b><span>${label}</span></div>`;
-  document.getElementById('stats').innerHTML =
-    tile('total runs', s.total) + tile('completed', s.completed) + tile('awaiting', s.awaiting) +
-    tile('approval rate', s.approvalRate == null ? '—' : s.approvalRate + '%') +
-    tile('escalation rate', s.escalationRate == null ? '—' : s.escalationRate + '%') +
-    tile('avg time→decision', s.avgTimeToDecisionMin == null ? '—' : s.avgTimeToDecisionMin + 'm') +
-    tile('SLA breaches', s.slaBreaches) + tile('rejected', s.rejected) +
-    tile('escalated', s.escalated) + tile('sent back', s.sentBack) + tile('AI overrides', s.overrides);
+  document.getElementById('stats-h').textContent = mine ? 'My work' : 'Analytics — is the autopilot taking work off your desk?';
+  document.getElementById('stats').innerHTML = mine
+    ? tile('my decisions', s.myDecisions) + tile('approved', s.myApproved) + tile('rejected', s.myRejected) +
+      tile('escalated', s.myEscalated) + tile('sent back', s.mySentBack) + tile('overrides', s.myOverrides) +
+      tile('my avg time→decision', s.myAvgTimeToDecisionMin == null ? '—' : s.myAvgTimeToDecisionMin + 'm')
+    : tile('total runs', s.total) + tile('completed', s.completed) + tile('awaiting', s.awaiting) +
+      tile('approval rate', s.approvalRate == null ? '—' : s.approvalRate + '%') +
+      tile('escalation rate', s.escalationRate == null ? '—' : s.escalationRate + '%') +
+      tile('avg time→decision', s.avgTimeToDecisionMin == null ? '—' : s.avgTimeToDecisionMin + 'm') +
+      tile('SLA breaches', s.slaBreaches) + tile('rejected', s.rejected) +
+      tile('escalated', s.escalated) + tile('sent back', s.sentBack) + tile('AI overrides', s.overrides);
 }
 // ── Settings (confidence floor — the routing dial), admin only ──
 async function loadConfig() {
