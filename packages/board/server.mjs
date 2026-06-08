@@ -21,7 +21,17 @@ import {
   removeSubscription,
 } from './push-adapter.mjs';
 import crypto from 'node:crypto';
-import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore } from '../../scripts/lib/run-store.mjs';
+import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore, verifyAudit as apVerifyAudit, exportRecord as apExportRecord } from '../../scripts/lib/run-store.mjs';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+// Verify a webhook's HMAC-SHA256 signature (the source system shares GREAT_CTO_INGEST_SECRET).
+function verifyIngestSig(rawBody, sigHeader) {
+  const secret = process.env.GREAT_CTO_INGEST_SECRET;
+  if (!secret) return true;            // no secret configured → open (dev); set one to enforce
+  if (!sigHeader) return false;
+  const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+  try { const a = Buffer.from(expected); const b = Buffer.from(String(sigHeader).replace(/^sha256=/, '')); return a.length === b.length && timingSafeEqual(a, b); } catch { return false; }
+}
 import { ROLES, getRole, roleAllows } from '../../scripts/lib/roles.mjs';
 import { createInvite, listInvites, resolveInvite, acceptInvite, revokeInvite } from '../../scripts/lib/operators.mjs';
 
@@ -3252,10 +3262,37 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ runs }));
     return;
   }
+  if (pathname === '/api/autopilot/verify' && req.method === 'GET') {
+    const r = apGetRun(url.searchParams.get('id'));
+    res.writeHead(r ? 200 : 404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(r ? { id: r.id, auditIntact: apVerifyAudit(r) } : { error: 'not found' }));
+    return;
+  }
+  if (pathname === '/api/autopilot/export' && req.method === 'GET') {
+    const txt = apExportRecord(url.searchParams.get('id'));
+    res.writeHead(txt ? 200 : 404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(txt || 'not found');
+    return;
+  }
   if (pathname === '/api/autopilot/run' && req.method === 'GET') {
     const r = apGetRun(url.searchParams.get('id'));
     res.writeHead(r ? 200 : 404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(r || { error: 'not found' }));
+    return;
+  }
+  if (pathname === '/api/autopilot/ingest' && req.method === 'POST') {
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', async () => {
+      if (!verifyIngestSig(body, req.headers['x-gcto-signature'])) { res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid signature' })); return; }
+      let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
+      if (!p.vertical) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"vertical required"}'); return; }
+      try {
+        // A source system pushes a case → the autopilot runs it to the human gate automatically.
+        const run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: p.tenant || 'default', payload: p.payload || {}, source: 'webhook' });
+        if (run.status === 'awaiting-approval') firePushAlert('autopilot.gate', `ap:${run.id}:${run.pausedAt}`, { title: '🛂 New case awaiting your signature', body: `${run.vertical} · ${run.signer || 'reviewer'}: ${run.gateDoes || run.pausedAt}`, url: '/autopilot.html' });
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ id: run.id, status: run.status, recommendation: run.recommendation }));
+      } catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) })); }
+    });
     return;
   }
   if (pathname === '/api/autopilot/config' && req.method === 'POST') {
@@ -3319,7 +3356,7 @@ const server = http.createServer(async (req, res) => {
         }
         let run; const who = p.by || 'board user';
         if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: auth.viaInvite ? auth.tenant : (p.tenant || 'default') });
-        else if (pathname === '/api/autopilot/approve') run = await apApprove(p.id, who, p.note || '', p.reason || '');
+        else if (pathname === '/api/autopilot/approve') run = await apApprove(p.id, who, p.note || '', p.reason || '', p.license || '');
         else if (pathname === '/api/autopilot/reject') run = await apReject(p.id, who, p.note || '', p.reason || '');
         else if (pathname === '/api/autopilot/escalate') run = await apEscalate(p.id, who, p.note || '', p.reason || '');
         else run = await apSendBack(p.id, who, p.note || '', p.reason || '');
