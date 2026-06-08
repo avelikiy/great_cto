@@ -151,6 +151,11 @@ export function stubCall(connectorId, op, payload = {}) {
   const spec = getConnector(connectorId);
   if (!spec) return { ok: false, error: `unknown connector: ${connectorId}` };
   if (!spec.capabilities.includes(op)) return { ok: false, error: `connector ${connectorId} has no op '${op}'` };
+  // Fault-injection seam (chaos / dead-letter / connector-health testing): when set, every stub call
+  // fails deterministically — exercises the write retry→dead-letter path and unhealthy-connector views.
+  if (process.env.GREAT_CTO_FAULT_INJECT === '1') {
+    return { ok: false, connector: connectorId, op, mode: 'stub', error: 'fault-injected (GREAT_CTO_FAULT_INJECT)' };
+  }
   return {
     ok: true,
     connector: connectorId,

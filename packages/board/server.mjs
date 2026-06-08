@@ -21,7 +21,7 @@ import {
   removeSubscription,
 } from './push-adapter.mjs';
 import crypto from 'node:crypto';
-import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore, verifyAudit as apVerifyAudit, exportRecord as apExportRecord, autoEscalateStale as apAutoEscalateStale, calibration as apCalibration, suggestFloor as apSuggestFloor, stageProgress as apStageProgress } from '../../scripts/lib/run-store.mjs';
+import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore, verifyAudit as apVerifyAudit, exportRecord as apExportRecord, autoEscalateStale as apAutoEscalateStale, calibration as apCalibration, suggestFloor as apSuggestFloor, stageProgress as apStageProgress, metering as apMetering, connectorHealth as apConnectorHealth, deadLetters as apDeadLetters, requeue as apRequeue } from '../../scripts/lib/run-store.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 // Verify a webhook's HMAC-SHA256 signature (the source system shares GREAT_CTO_INGEST_SECRET).
@@ -1373,6 +1373,38 @@ function startAlertCron() {
     } catch (e) { console.warn('cron sla.escalate failed:', e.message); }
   }, FIVE_MIN);
 
+  // connector.health (Wave H #12 + #9): flag a connector whose failure rate crosses 50% (with enough
+  // calls to be meaningful) and surface any dead-lettered writes waiting on a requeue.
+  setInterval(() => {
+    try {
+      const unhealthy = apConnectorHealth({}).filter((h) => h.calls >= 5 && !h.healthy);
+      for (const h of unhealthy) {
+        const dedupeKey = `connector.health:${h.connector}:${Math.round(h.failureRate * 10)}`;
+        const payload = {
+          title: `Connector unhealthy — ${h.connector} ${Math.round(h.failureRate * 100)}% failing`,
+          body: `${h.connector} failed ${h.failures}/${h.calls} recent calls.\nLast error: ${h.lastError || '—'}`,
+          level: 'critical', link: `http://localhost:3141/autopilot.html`, action: 'Inspect in console',
+          kv: { connector: h.connector, failureRate: `${Math.round(h.failureRate * 100)}%`, calls: String(h.calls) },
+        };
+        fireEmailAlert('connector.health', dedupeKey, payload);
+        addNotification('connector.health', payload);
+        firePushAlert('connector.health', dedupeKey, payload);
+      }
+      const dl = apDeadLetters({});
+      if (dl.length) {
+        const dedupeKey = `dead-letter:${dl.length}`;
+        const payload = {
+          title: `${dl.length} dead-lettered write(s) need a requeue`,
+          body: `Writes that exhausted their retries are waiting:\n${dl.slice(0, 5).map((x) => `• ${x.vertical} ${x.id} (${x.error})`).join('\n')}`,
+          level: 'warning', link: `http://localhost:3141/autopilot.html`, action: 'Requeue in console',
+          kv: { count: String(dl.length) },
+        };
+        fireEmailAlert('dead-letter', dedupeKey, payload);
+        addNotification('dead-letter', payload);
+      }
+    } catch (e) { console.warn('cron connector.health failed:', e.message); }
+  }, FIVE_MIN);
+
   // cost.threshold: monthly LLM spend at 80% / 100% of budget
   setInterval(() => {
     try {
@@ -1539,7 +1571,7 @@ function startAlertCron() {
     } catch (e) { console.warn('cron report.daily failed:', e.message); }
   }, FIVE_MIN);
 
-  console.log('Alert cron started: gate.stale (5min), sla.escalate (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00)');
+  console.log('Alert cron started: gate.stale (5min), sla.escalate (5min), connector.health (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00)');
 }
 
 function readVerdicts(cwd = null) {
@@ -3244,6 +3276,30 @@ const server = http.createServer(async (req, res) => {
     const target = parseFloat(url.searchParams.get('target')) || 0.9;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({ ...apCalibration({ tenant }), suggestedFloor: apSuggestFloor({ tenant, target }) }));
+    return;
+  }
+  // Wave H — ops surfaces: metering (billing), connector health, dead-letter queue (admin/compliance).
+  if ((pathname === '/api/autopilot/metering' || pathname === '/api/autopilot/health' || pathname === '/api/autopilot/dead-letters') && req.method === 'GET') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
+    if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'ops views are for admin / compliance-lead' })); return; }
+    const tenant = auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || undefined);
+    const body = pathname === '/api/autopilot/metering' ? apMetering({ tenant })
+      : pathname === '/api/autopilot/health' ? { connectors: apConnectorHealth({ tenant }) }
+      : { queue: apDeadLetters({ tenant }) };
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(body));
+    return;
+  }
+  // Wave H #10 — requeue a dead-lettered run (admin/compliance ops action).
+  if (pathname === '/api/autopilot/requeue' && req.method === 'POST') {
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', async () => {
+      let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
+      const auth = apAuth(p.token, p.role, p.tenant);
+      if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'requeue is for admin / compliance-lead' })); return; }
+      try { const run = await apRequeue(p.id, p.by || auth.role); res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ run })); }
+      catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) })); }
+    });
     return;
   }
   // Operator onboarding: the admin mints invites; the operator resolves one to bootstrap, scoped.

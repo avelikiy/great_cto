@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { startRun, approve, reject, escalate, sendBack, stats, getConfig, setConfig, qaScore, qaQueue, getRun, listRuns, pendingGates, verifyAudit, purgeRuns, exportRecord, slaState, autoEscalateStale, calibration, suggestFloor, stageProgress } from '../../scripts/lib/run-store.mjs';
+import { startRun, approve, reject, escalate, sendBack, stats, getConfig, setConfig, qaScore, qaQueue, getRun, listRuns, pendingGates, verifyAudit, purgeRuns, exportRecord, slaState, autoEscalateStale, calibration, suggestFloor, stageProgress, runMetrics, metering, connectorHealth, deadLetters, requeue } from '../../scripts/lib/run-store.mjs';
 import { loadFlow, runFlow } from '../../scripts/lib/flow-runner.mjs';
 
 function tmp() { const d = mkdtempSync(join(tmpdir(), 'ap-runs-')); process.env.GREAT_CTO_RUNS_DIR = d; return d; }
@@ -379,5 +379,80 @@ test('Wave G #8: stageProgress lists each gate stage with signer + status (multi
   assert.ok(sp.length >= 1);
   assert.equal(sp[0].stage, 1);
   assert.ok('signer' in sp[0] && 'status' in sp[0]);
+  rmSync(d, { recursive: true, force: true });
+});
+
+// ── Wave H (Tier-3 ops) ──
+
+test('Wave H #11: runMetrics reports latency / calls / cost against a budget', async () => {
+  const d = tmp();
+  const run = await startRun('rcm', { mode: 'stub' });
+  const m = runMetrics(run);
+  assert.ok(m.connectorCalls >= 1);
+  assert.ok(typeof m.latencyMs === 'number' && m.latencyMs >= 0);
+  assert.ok(typeof m.cost === 'number' && m.cost >= 0);
+  assert.ok(typeof m.latencyBudgetMs === 'number' && m.latencyBudgetMs > 0);
+  assert.equal(typeof m.overLatencyBudget, 'boolean');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave H #11: metering aggregates usage across runs (the billing surface)', async () => {
+  const d = tmp();
+  await startRun('rcm', { mode: 'stub' });
+  await startRun('tax', { mode: 'stub' });
+  const bill = metering({});
+  assert.equal(bill.runs, 2);
+  assert.ok(bill.connectorCalls >= 2);
+  assert.ok(bill.totalCostUsd >= 0);
+  assert.ok(bill.byVertical.rcm && bill.byVertical.tax);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave H #12: connectorHealth aggregates call outcomes per connector', async () => {
+  const d = tmp();
+  await startRun('rcm', { mode: 'stub' });   // healthy stub calls
+  const health = connectorHealth({});
+  assert.ok(Array.isArray(health) && health.length >= 1);
+  const h = health[0];
+  assert.ok(h.connector && h.calls >= 1);
+  assert.equal(typeof h.failureRate, 'number');
+  assert.equal(typeof h.healthy, 'boolean');
+  assert.equal(h.healthy, true);             // stub calls don't fail
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave H #12: connectorHealth flags an unhealthy connector under fault injection', async () => {
+  const d = tmp();
+  process.env.GREAT_CTO_FAULT_INJECT = '1';
+  try {
+    await startRun('rcm', { mode: 'stub' });
+    const health = connectorHealth({});
+    assert.ok(health.some((h) => h.failures > 0 && h.healthy === false));
+  } finally { delete process.env.GREAT_CTO_FAULT_INJECT; }
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave H #10: a write that fails after retries is dead-lettered, then requeue recovers it', async () => {
+  const d = tmp();
+  // Start clean (reaches the gate), then inject faults so the post-gate write fails its retries.
+  const run = await startRun('rcm', { mode: 'stub' });
+  process.env.GREAT_CTO_FAULT_INJECT = '1';
+  let dl;
+  try {
+    dl = await approve(run.id, 'Biller A', '', 'clean-claim');
+    assert.equal(dl.status, 'dead-letter');
+    assert.ok(dl.deadLetter && dl.deadLetter.gate);
+    assert.ok((dl.audit || []).some((a) => a.event === 'dead-lettered'));
+    // it surfaces in the dead-letter queue
+    assert.ok(deadLetters({}).some((x) => x.id === run.id));
+  } finally { delete process.env.GREAT_CTO_FAULT_INJECT; }
+  // faults cleared → requeue re-runs the write and completes
+  const fixed = await requeue(run.id, 'ops-bot');
+  assert.equal(fixed.status, 'completed');
+  assert.ok((fixed.audit || []).some((a) => a.event === 'requeued'));
+  assert.equal(deadLetters({}).length, 0);
+  // the irreversible write actually ran on recovery
+  const submit = fixed.steps.find((s) => /submit the 837/.test(s.does));
+  assert.ok(submit && submit.toolCalls.some((c) => c.ok));
   rmSync(d, { recursive: true, force: true });
 });

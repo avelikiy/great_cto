@@ -17,6 +17,7 @@ import { homedir } from 'node:os';
 import { createCipheriv, createDecipheriv, randomBytes, createHash, scryptSync } from 'node:crypto';
 import { loadFlow, runFlow } from './flow-runner.mjs';
 import { dueAt as slaDueAt, slaHours } from './sla.mjs';
+import { latencyBudgetMs, unitCostUsd } from './budgets.mjs';
 
 // ── Encryption at-rest (AES-256-GCM) — PHI/PII never in plaintext when a key is set ──
 function encKey() { const k = process.env.GREAT_CTO_ENCRYPT_KEY; return k ? scryptSync(k, 'gcto-autopilot', 32) : null; }
@@ -229,6 +230,7 @@ export async function approve(id, who, note = '', reason = '', license = '') {
   if (!run) throw new Error(`run ${id} not found`);
   if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
   const flow = loadFlow(run.vertical);
+  const fromIndex = run.pausedAtIndex;     // where the write resumes (for dead-letter requeue)
   const resume = await runFlow(flow, {
     mode: run.mode, startAt: run.pausedAtIndex, approvedGates: [run.pausedAt],
     // The human signed the gate — so the post-gate write IS authorised. Carry that authorisation into
@@ -246,19 +248,32 @@ export async function approve(id, who, note = '', reason = '', license = '') {
   const g = gateStep(resume);
   run.pausedAt = resume.pausedAt; run.pausedAtIndex = resume.pausedAtIndex;
   run.signer = g ? g.human : null; run.gateDoes = g ? g.does : null;
-  // submission receipt — what the post-gate write actually did (generated vs really submitted, retries)
+  // submission receipt + dead-letter (Wave H #10): what the post-gate write actually did.
   if (run.status === 'completed') {
-    const writes = resume.steps.filter((s) => s.blastRadius === 'high' || s.blastRadius === 'medium')
-      .flatMap((s) => (s.toolCalls || [])).filter((c) => c.ok);
-    if (writes.length) run.submission = {
-      at: now(), submitted: writes.some((c) => c.submitted === true),
-      connectors: [...new Set(writes.map((c) => c.connector))],
-      attempts: Math.max(1, ...writes.map((c) => c.attempts || 1)),
+    const writeCalls = resume.steps.filter((s) => s.blastRadius === 'high' || s.blastRadius === 'medium')
+      .flatMap((s) => (s.toolCalls || []));
+    const ok = writeCalls.filter((c) => c.ok);
+    const failed = writeCalls.filter((c) => c.ok === false);
+    if (ok.length) run.submission = {
+      at: now(), submitted: ok.some((c) => c.submitted === true),
+      connectors: [...new Set(ok.map((c) => c.connector))],
+      attempts: Math.max(1, ...ok.map((c) => c.attempts || 1)),
     };
+    // a write that exhausted its retries → dead-letter, NOT a silent "completed". Recoverable via requeue.
+    if (failed.length) {
+      run.status = 'dead-letter';
+      run.deadLetter = {
+        at: now(), gate: signedGate, from: fromIndex,
+        connectors: [...new Set(failed.map((c) => c.connector))],
+        attempts: Math.max(1, ...failed.map((c) => c.attempts || 1)),
+        error: failed.find((c) => c.error)?.error || 'write failed after retries',
+      };
+    }
   }
   // override: the human approved against the AI's caution (recommended block/escalate)
   const override = run.recommendation === 'block' || run.recommendation === 'escalate';
   pushAudit(run, { at: now(), event: 'approved', gate: signedGate, by: who, note: note || undefined, reason: reason || undefined, license: license || undefined, aiRecommendation: run.recommendation, override, newStatus: run.status });
+  if (run.status === 'dead-letter') pushAudit(run, { at: now(), event: 'dead-lettered', gate: signedGate, by: 'runtime', error: run.deadLetter.error, attempts: run.deadLetter.attempts });
   return save(run);
 }
 
@@ -431,4 +446,96 @@ export function stageProgress(run) {
   return (run.steps || [])
     .filter((s) => s.gate)
     .map((g, i) => ({ stage: i + 1, gate: g.does || g.gate || `stage ${i + 1}`, signer: g.human || null, status: g.status || 'pending', signedBy: g.approvedBy || null }));
+}
+
+// ── Wave H (Tier-3 ops) — metering, connector health, dead-letter / requeue ──
+
+const runCalls = (run) => (run.steps || []).flatMap((s) => s.toolCalls || []);
+
+/** Per-run ops metrics: latency, connector calls, retries, cost — against the vertical's latency budget. */
+export function runMetrics(run) {
+  const calls = runCalls(run);
+  const latencyMs = calls.reduce((a, c) => a + (c.ms || 0), 0);
+  const retries = calls.reduce((a, c) => a + Math.max(0, (c.attempts || 1) - 1), 0);
+  const budget = latencyBudgetMs(run.vertical);
+  return {
+    latencyMs, connectorCalls: calls.length,
+    failedCalls: calls.filter((c) => c.ok === false).length, retries,
+    cost: +(calls.length * unitCostUsd()).toFixed(4),
+    latencyBudgetMs: budget, overLatencyBudget: latencyMs > budget,
+  };
+}
+
+/** Billing/metering surface: aggregate usage + cost across visible runs, with a per-vertical breakdown. */
+export function metering({ tenant } = {}) {
+  const runs = listRuns({ tenant });
+  const per = runs.map((r) => ({ vertical: r.vertical, ...runMetrics(r) }));
+  const sum = (k) => per.reduce((a, m) => a + (m[k] || 0), 0);
+  const byVertical = {};
+  for (const m of per) {
+    const b = (byVertical[m.vertical] = byVertical[m.vertical] || { runs: 0, connectorCalls: 0, latencyMs: 0, cost: 0 });
+    b.runs++; b.connectorCalls += m.connectorCalls; b.latencyMs += m.latencyMs; b.cost = +(b.cost + m.cost).toFixed(4);
+  }
+  return {
+    runs: runs.length, connectorCalls: sum('connectorCalls'),
+    totalLatencyMs: sum('latencyMs'), totalCostUsd: +sum('cost').toFixed(4),
+    retries: sum('retries'), overLatencyBudget: per.filter((m) => m.overLatencyBudget).length,
+    avgLatencyMs: per.length ? Math.round(sum('latencyMs') / per.length) : 0,
+    byVertical,
+  };
+}
+
+/** Connector health: per-connector call outcomes across runs — failure rate, p95 latency, last error. */
+export function connectorHealth({ tenant } = {}) {
+  const by = {};
+  for (const r of listRuns({ tenant })) for (const c of runCalls(r)) {
+    if (!c.connector) continue;
+    const h = (by[c.connector] = by[c.connector] || { connector: c.connector, calls: 0, failures: 0, lat: [], lastError: null });
+    h.calls++;
+    if (c.ok === false) { h.failures++; if (c.error) h.lastError = c.error; }
+    if (typeof c.ms === 'number') h.lat.push(c.ms);
+  }
+  return Object.values(by).map((h) => {
+    const lat = h.lat.sort((a, b) => a - b);
+    const p95 = lat.length ? lat[Math.min(lat.length - 1, Math.floor(lat.length * 0.95))] : null;
+    const failureRate = h.calls ? +(h.failures / h.calls).toFixed(3) : 0;
+    return { connector: h.connector, calls: h.calls, failures: h.failures, failureRate, p95LatencyMs: p95, lastError: h.lastError, healthy: failureRate < 0.5 };
+  }).sort((a, b) => b.failureRate - a.failureRate);
+}
+
+/** The dead-letter queue: writes that exhausted their retries and need a human/ops requeue. */
+export function deadLetters({ tenant } = {}) {
+  return listRuns({ status: 'dead-letter', tenant }).map((r) => ({
+    id: r.id, vertical: r.vertical, tenant: r.tenant || 'default',
+    gate: r.deadLetter?.gate, connectors: r.deadLetter?.connectors, attempts: r.deadLetter?.attempts,
+    error: r.deadLetter?.error, at: r.deadLetter?.at,
+  }));
+}
+
+/** Requeue a dead-lettered run: re-execute the post-gate write (the gate was already signed). Recovers
+ *  to 'completed' if the write now succeeds; stays dead-lettered (attempts bumped) if it fails again. */
+export async function requeue(id, who = 'ops') {
+  const run = getRun(id);
+  if (!run) throw new Error(`run ${id} not found`);
+  if (run.status !== 'dead-letter' || !run.deadLetter) throw new Error(`run ${id} is '${run.status}', not dead-letter`);
+  const { from, gate } = run.deadLetter;
+  const flow = loadFlow(run.vertical);
+  const resume = await runFlow(flow, {
+    mode: run.mode, startAt: from, approvedGates: [gate],
+    payload: { idempotencyKey: run.id, signedBy: who, approved: true, brokerSignedOff: true, bsaOfficerApproved: true, qppvApproved: true },
+  });
+  run.steps = run.steps.slice(0, from).concat(resume.steps);
+  const writeCalls = resume.steps.filter((s) => s.blastRadius === 'high' || s.blastRadius === 'medium').flatMap((s) => (s.toolCalls || []));
+  const failed = writeCalls.filter((c) => c.ok === false);
+  if (failed.length) {
+    run.deadLetter = { ...run.deadLetter, at: now(), attempts: (run.deadLetter.attempts || 1) + 1, error: failed.find((c) => c.error)?.error || run.deadLetter.error };
+    pushAudit(run, { at: now(), event: 'requeue-failed', by: who, attempts: run.deadLetter.attempts, error: run.deadLetter.error });
+    return save(run);
+  }
+  const ok = writeCalls.filter((c) => c.ok);
+  run.status = 'completed';
+  run.submission = { at: now(), submitted: ok.some((c) => c.submitted === true), connectors: [...new Set(ok.map((c) => c.connector))], attempts: Math.max(1, ...ok.map((c) => c.attempts || 1)), requeued: true };
+  delete run.deadLetter;
+  pushAudit(run, { at: now(), event: 'requeued', by: who, newStatus: 'completed' });
+  return save(run);
 }
