@@ -138,6 +138,18 @@ export const CONNECTORS = Object.freeze({
   'payroll-calc':    { label: 'Payroll gross-to-net',    verticals: ['payroll'],      capabilities: ['compute-gross-net'], realProviders: ['Gusto', 'ADP', 'Symmetry'], status: 'stub' },
   'ach-funding':     { label: 'ACH payroll funding',     verticals: ['payroll'],      capabilities: ['fund-payroll'], realProviders: ['NACHA', 'Modern Treasury', 'Increase'], status: 'stub' },
   'payroll-filing':  { label: 'Payroll tax filing (941/940)', verticals: ['payroll'], capabilities: ['file-941', 'check-status'], realProviders: ['IRS EFTPS', 'state agencies'], status: 'stub' },
+
+  // ── workers-comp ──
+  'comp-rules':      { label: 'WC compensability & benefits', verticals: ['workers-comp'], capabilities: ['check-compensability'], realProviders: ['state WCB/DWC', 'ODG', 'MTUS'], status: 'stub' },
+  'claim-edi':       { label: 'WC claim EDI (IAIABC)',   verticals: ['workers-comp'],  capabilities: ['file-claim', 'check-status'], realProviders: ['IAIABC EDI', 'state DWC'], status: 'stub' },
+
+  // ── estate ──
+  'estate-rules':    { label: 'Estate plan / tax assessment', verticals: ['estate'],   capabilities: ['assess-plan'], realProviders: ['IRC 706/709', 'state probate code'], status: 'stub' },
+  'probate-filing':  { label: 'Instrument / probate filing', verticals: ['estate'],    capabilities: ['file-instrument', 'check-status'], realProviders: ['county probate court', 'IRS'], status: 'stub' },
+
+  // ── patent ──
+  'prior-art':       { label: 'Prior-art / patentability', verticals: ['patent'],      capabilities: ['search-prior-art'], realProviders: ['USPTO PatFT', 'Google Patents', 'EPO'], status: 'stub' },
+  'uspto-filing':    { label: 'USPTO filing (Patent Center)', verticals: ['patent'],   capabilities: ['file-application', 'check-status'], realProviders: ['USPTO Patent Center', 'EFS-Web'], status: 'stub' },
 });
 
 /** Look up a connector spec by id. */

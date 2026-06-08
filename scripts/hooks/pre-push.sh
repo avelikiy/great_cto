@@ -141,9 +141,57 @@ done
 # ---------------------------------------------------------------------------
 # Token-economy: enforce that artifact summaries are fresh
 # ---------------------------------------------------------------------------
-if [[ -f "scripts/generate-summary.mjs" ]] && command -v node >/dev/null 2>&1; then
-  if ! node scripts/generate-summary.mjs --check >/dev/null 2>&1; then
-    STALE_OUTPUT=$(node scripts/generate-summary.mjs --check 2>&1 || true)
+# This block must NEVER hang a push. Two guarantees:
+#   1. GREAT_CTO_SKIP_SUMMARY_CHECK=1 short-circuits BEFORE invoking node, so the
+#      escape hatch works even if the summary checker itself is wedged.
+#   2. The node call is wrapped in a hard timeout (portable: timeout/gtimeout if
+#      present, else a background-kill shim) so a slow/blocked checker can never
+#      stall the push — on timeout we warn and allow the push rather than block.
+SUMMARY_CHECK_TIMEOUT="${GREAT_CTO_SUMMARY_TIMEOUT:-25}"
+
+# run_with_timeout <seconds> <cmd...> — returns the command's exit code, or 124
+# if it had to be killed for exceeding the timeout. Works without coreutils.
+run_with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "${secs}" "$@"; return $?
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "${secs}" "$@"; return $?
+  fi
+  # Portable fallback: run in background, kill if it overruns. On kill we report
+  # 124 (same convention as timeout(1)) so the caller treats it as a timeout, not
+  # as a stale-summary failure.
+  "$@" &
+  local cmd_pid=$!
+  local killed_flag; killed_flag="$(mktemp 2>/dev/null || echo "/tmp/gc-prepush-killed.$$")"
+  ( sleep "${secs}"
+    if kill -0 "${cmd_pid}" 2>/dev/null; then
+      printf 1 > "${killed_flag}" 2>/dev/null
+      kill -TERM "${cmd_pid}" 2>/dev/null
+      sleep 2
+      kill -KILL "${cmd_pid}" 2>/dev/null
+    fi ) &
+  local watch_pid=$!
+  local rc=0
+  wait "${cmd_pid}" 2>/dev/null || rc=$?
+  kill -TERM "${watch_pid}" 2>/dev/null || true
+  wait "${watch_pid}" 2>/dev/null || true
+  if [[ -s "${killed_flag}" ]]; then rc=124; fi
+  rm -f "${killed_flag}" 2>/dev/null || true
+  return "${rc}"
+}
+
+if [[ "${GREAT_CTO_SKIP_SUMMARY_CHECK:-0}" == "1" ]]; then
+  echo -e "${YELLOW}[pre-push] Skipping summary freshness check (GREAT_CTO_SKIP_SUMMARY_CHECK=1).${NC}"
+elif [[ -f "scripts/generate-summary.mjs" ]] && command -v node >/dev/null 2>&1; then
+  # Run the check ONCE, capturing output, under a hard timeout.
+  SUMMARY_RC=0
+  STALE_OUTPUT=$(run_with_timeout "${SUMMARY_CHECK_TIMEOUT}" node scripts/generate-summary.mjs --check 2>&1) || SUMMARY_RC=$?
+  if [[ "${SUMMARY_RC}" -eq 124 ]]; then
+    echo ""
+    echo -e "${YELLOW}[pre-push] Summary freshness check timed out after ${SUMMARY_CHECK_TIMEOUT}s — allowing push.${NC}"
+    echo "(Run 'node scripts/generate-summary.mjs --all' manually if summaries are stale.)"
+  elif [[ "${SUMMARY_RC}" -ne 0 ]]; then
     echo ""
     echo -e "${YELLOW}Stale artifact summaries detected.${NC}"
     echo "$STALE_OUTPUT" | grep '⚠ stale' | head -5
@@ -151,9 +199,7 @@ if [[ -f "scripts/generate-summary.mjs" ]] && command -v node >/dev/null 2>&1; t
     echo "Fix: node scripts/generate-summary.mjs --all"
     echo "Then re-commit and push."
     echo "(To skip: GREAT_CTO_SKIP_SUMMARY_CHECK=1 git push)"
-    if [[ "${GREAT_CTO_SKIP_SUMMARY_CHECK:-0}" != "1" ]]; then
-      exit 1
-    fi
+    exit 1
   fi
 fi
 

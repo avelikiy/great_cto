@@ -10,6 +10,7 @@ export const SLA_HOURS = Object.freeze({
   title: 120, credentialing: 720, collections: 168, freight: 24, cro: 168, soc: 4,
   customs: 48, audit: 720, legaltech: 120, accounting: 168, tax: 360, procurement: 120, msp: 24,
   immigration: 240, appraisal: 168, payroll: 72,
+  'workers-comp': 120, estate: 360, patent: 120,
 });
 
 export function slaHours(vertical) { return SLA_HOURS[vertical] || 168; }
