@@ -7,6 +7,35 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.59.0 — 2026-06-08
+
+### Autopilot Tier-3 (Wave H) — operable: metering · dead-letter · connector health
+
+Implements `docs/plans/PLAN-autopilot-tier3.md` (Tier-3 = ops). Tier-2 made the autopilot calibrated +
+provable; Tier-3 makes it **operable** — you can see what it costs, catch a failing connector, and
+recover a write that didn't land instead of a silent "completed". All buildable + tested here via a
+deterministic cost model and a fault-injection seam.
+
+- **Cost/latency budgets (#9)** — new `scripts/lib/budgets.mjs`: per-vertical `LATENCY_BUDGET_MS` + a
+  flat env-overridable connector unit cost. `runMetrics(run)` flags `overLatencyBudget`.
+- **Retry / dead-letter (#10)** — a post-gate write that exhausts its 3× retry budget now lands in
+  `status:'dead-letter'` (not a silent completion) with an audit `dead-lettered` event + a `deadLetter`
+  envelope. `deadLetters({tenant})` queue + `requeue(id, who)` re-runs the write (gate already signed)
+  → recovers to `completed`, or stays dead-lettered with attempts bumped. New
+  `POST /api/autopilot/requeue` + cron reminder.
+- **Billing / metering (#11)** — `metering({tenant})` aggregates runs → connector calls, total latency,
+  total cost (USD), retries, over-budget count, per-vertical breakdown. New
+  `GET /api/autopilot/metering` (admin/compliance).
+- **Connector health (#12)** — `connectorHealth({tenant})`: per-connector failure rate, p95 latency,
+  last error, `healthy` flag. New `GET /api/autopilot/health` + cron `connector.health` (flags a
+  connector with ≥5 calls and >50% failing) + a dead-letter reminder.
+- **Test seam** — `GREAT_CTO_FAULT_INJECT=1` deterministically fails every stub connector call,
+  exercising the retry→dead-letter→requeue path and the unhealthy-connector view. Lib suite 304/304.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.58.0 — 2026-06-08
 
 ### Autopilot Tier-2 (Wave G) — calibrated · provable · self-reacting
