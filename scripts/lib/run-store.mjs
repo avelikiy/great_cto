@@ -221,10 +221,23 @@ export async function sendBack(id, who, note = '', reason = '') {
   return save(run);
 }
 
-/** Aggregate KPIs over the runs an operator/admin can see (the analytics surface). */
-export function stats({ tenant } = {}) {
+/** Aggregate KPIs over the runs an operator/admin can see (the analytics surface).
+ *  With `by`, returns the OPERATOR's own numbers ("my work") instead of org totals. */
+export function stats({ tenant, by } = {}) {
   const runs = listRuns({ tenant });
-  const by = (k) => runs.reduce((m, r) => ((m[r[k] || '—'] = (m[r[k] || '—'] || 0) + 1), m), {});
+  if (by) {
+    const mine = runs.flatMap((r) => (r.audit || []).filter((a) => a.by === by && ['approved', 'rejected', 'escalated', 'sent-back'].includes(a.event)).map((a) => ({ r, a })));
+    const cnt = (e) => mine.filter((m) => m.a.event === e).length;
+    const ttd = mine.filter((m) => m.r.createdAt).map((m) => (new Date(m.a.at).getTime() - new Date(m.r.createdAt).getTime()) / 60000);
+    const overrides = mine.filter((m) => m.a.override === true).length;
+    return {
+      scope: 'me', by, myDecisions: mine.length,
+      myApproved: cnt('approved'), myRejected: cnt('rejected'), myEscalated: cnt('escalated'), mySentBack: cnt('sent-back'),
+      myOverrides: overrides,
+      myAvgTimeToDecisionMin: ttd.length ? +(ttd.reduce((a, b) => a + b, 0) / ttd.length).toFixed(1) : null,
+    };
+  }
+  const grp = (k) => runs.reduce((m, r) => ((m[r[k] || '—'] = (m[r[k] || '—'] || 0) + 1), m), {});
   const ev = (name) => runs.reduce((n, r) => n + (r.audit || []).filter((a) => a.event === name).length, 0);
   const completed = runs.filter((r) => r.status === 'completed').length;
   const decided = ev('approved') + ev('rejected');
@@ -240,8 +253,8 @@ export function stats({ tenant } = {}) {
   const slaBreaches = awaiting.filter((r) => (Date.now() - new Date(r.createdAt).getTime()) / 60000 >= 240).length;
   return {
     total: runs.length,
-    byStatus: by('status'),
-    byVertical: by('vertical'),
+    byStatus: grp('status'),
+    byVertical: grp('vertical'),
     approved: ev('approved'), rejected: ev('rejected'), escalated: ev('escalated'), sentBack: ev('sent-back'),
     overrides: runs.reduce((n, r) => n + (r.audit || []).filter((a) => a.override === true).length, 0),
     completed,

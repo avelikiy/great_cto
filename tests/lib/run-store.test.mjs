@@ -229,3 +229,19 @@ test('Wave D: QA scoring records on the run + audit', async () => {
   assert.ok(scored.audit.some((e) => e.event === 'qa-scored' && e.score === 4));
   rmSync(d, { recursive: true, force: true });
 });
+
+test('E1: stats({by}) returns the operator’s own numbers (my work)', async () => {
+  const d = tmp();
+  const a = await startRun('rcm', { mode: 'stub' });
+  await approve(a.id, 'Coder Lee');
+  const b = await startRun('rcm', { mode: 'stub' });
+  await reject(b.id, 'Coder Lee');
+  const me = stats({ by: 'Coder Lee' });
+  assert.equal(me.scope, 'me');
+  assert.equal(me.myDecisions, 2);
+  assert.equal(me.myApproved, 1);
+  assert.equal(me.myRejected, 1);
+  // someone else sees none of mine
+  assert.equal(stats({ by: 'Other' }).myDecisions, 0);
+  rmSync(d, { recursive: true, force: true });
+});

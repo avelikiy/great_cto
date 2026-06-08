@@ -3183,8 +3183,9 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/autopilot/stats' && req.method === 'GET') {
     const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
     const tenant = auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || undefined);
+    const by = url.searchParams.get('by') || undefined; // "my work" for an operator
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify(apStats({ tenant })));
+    res.end(JSON.stringify(apStats({ tenant, by })));
     return;
   }
   if (pathname === '/api/autopilot/config' && req.method === 'GET') {
