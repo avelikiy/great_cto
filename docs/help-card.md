@@ -2,7 +2,7 @@
 
 AI autopilots for business. Two modes: **Build** an autopilot (the gated
 engineering pipeline) · **Operate** one (the runtime — a human signs the
-risky call). 22 verticals · 22 live connectors.
+risky call). 25 verticals · 22 live connectors.
 
 ## Commands
 

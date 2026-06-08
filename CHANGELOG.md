@@ -10,6 +10,48 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.62.0 — 2026-06-08
+
+### Three more service-autopilot verticals — workers-comp · estate · patent (22 → 25)
+
+Adds three more depth-matched verticals (each a full flow + reviewer agent + compliance pack +
+threat-model template + `/…-review` command + 12-case golden set) plus central registration
+(connector catalog, SLA, latency budget, operator role, plugin hook, console) and live landing pages.
+
+- **🦺 Workers-comp** — determine compensability + benefits; a **licensed claims adjuster** signs
+  denials/terminations (IAIABC EDI filing). Core risk: AOE/COE compensability, AWW/benefit accuracy,
+  UR + physician peer review for medical denials, statutory FROI/EDI deadlines, **bad-faith** exposure.
+  Gate `gate:claims-adjuster-signoff`.
+- **📜 Estate** — draft + assess wills/trusts; a **licensed estate attorney** signs before execution.
+  Core risk: **UPL** (drafting is law practice), execution formalities (witnesses/notary/self-proving or
+  the will is void), testamentary capacity + undue influence, estate/gift/GST tax (Form 706/709,
+  portability). Gate `gate:estate-attorney-signoff`.
+- **💡 Patent** — prior-art + patentability; a **USPTO-registered practitioner** signs before filing.
+  Core risk: patent-bar UPL (37 CFR 11), **duty of candor / IDS** (inequitable conduct), 102 statutory
+  bars, inventorship (35 USC 115), foreign-filing license (35 USC 184). Gate `gate:patent-attorney-signoff`.
+
+Each flow keeps the v2.43.0 safety invariant: the irreversible write sits strictly after the human
+gate and the runtime refuses it without a signature.
+
+- **Registration** — 6 new connectors (comp-rules, claim-edi, estate-rules, probate-filing, prior-art,
+  uspto-filing), SLA hours (workers-comp 120 / estate 360 / patent 120), latency budgets, operator
+  roles (wc-adjuster · estate-attorney · patent-practitioner), plugin hook, console picker/icons/criteria.
+- **Verification** — all 3 **SHIP-READY** on the behavioural scorecard (OpenRouter): **workers-comp 91,
+  estate 97, patent 98.5** — every benign case un-blocked (precision 4/4), every must-escalate case
+  gated (8/8), citations 85–100% real. All 3 run the durable workflow start → gate → sign → write in
+  stub; flows pass `--validate`. Lib suite 322/322 (flow-count test bumped 22 → 25). Landing pages live
+  at greatcto.systems/autopilots/{workers-comp,estate,patent}.html.
+
+
+### TBD — fill in before committing
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.61.0 — 2026-06-08
 
 ### Three new service-autopilot verticals — immigration · appraisal · payroll (19 → 22)

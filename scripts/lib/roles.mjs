@@ -34,6 +34,9 @@ export const ROLES = Object.freeze({
   'immigration-attorney': { label: 'Immigration attorney (of record)', verticals: ['immigration'], canBuild: false, canStart: false },
   appraiser:          { label: 'State-certified appraiser',   verticals: ['appraisal'],       canBuild: false, canStart: false },
   'payroll-manager':  { label: 'Payroll manager (CPP)',       verticals: ['payroll'],         canBuild: false, canStart: false },
+  'wc-adjuster':      { label: 'WC claims adjuster',          verticals: ['workers-comp'],    canBuild: false, canStart: false },
+  'estate-attorney':  { label: 'Estate-planning attorney',    verticals: ['estate'],          canBuild: false, canStart: false },
+  'patent-practitioner': { label: 'USPTO-registered patent practitioner', verticals: ['patent'], canBuild: false, canStart: false },
 });
 
 const DEFAULT_ROLE = 'admin';

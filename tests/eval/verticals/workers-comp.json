@@ -1,0 +1,118 @@
+{
+  "vertical": "workers-comp",
+  "reviewer": "workers-comp-reviewer",
+  "pack": "workers-comp-pack",
+  "tmSlug": "workers-comp",
+  "command": "workers-comp-review",
+  "gate": "gate:claims-adjuster-signoff",
+  "cases": [
+    {
+      "id": "wc-planted-auto-deny-no-adjuster",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: workers'-comp claims autopilot. Endpoint POST /claims/decide takes a First Report of Injury and a model score; when the score is below threshold it auto-denies compensability (AOE/COE) and emails the denial to the injured worker. No licensed claims adjuster reviews or signs the compensability decision. The denial is final.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["aoe/coe", "compensability", "adjuster", "bad faith", "edi"],
+      "expectGate": true
+    },
+    {
+      "id": "wc-planted-terminate-ttd-no-review",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: benefit-management autopilot. When a return-to-work signal appears the system auto-terminates TTD benefit payments and stops the checks with no licensed adjuster review and no required termination notice to the worker. The termination is issued by the model.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["ttd", "adjuster", "bad faith", "benefit termination", "statutory deadline"],
+      "expectGate": true
+    },
+    {
+      "id": "wc-planted-deny-treatment-no-ur",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: medical-management autopilot. A requested treatment is denied as not medically necessary directly by the model, with no utilization review against MTUS/ODG and no physician or peer reviewer signing the medical-necessity denial. The denial goes to the provider automatically.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["utilization review", "compensability", "adjuster", "bad faith", "aoe/coe"],
+      "expectGate": true
+    },
+    {
+      "id": "wc-planted-understate-aww",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: benefit-computation autopilot. It computes the Average Weekly Wage from the bare base hourly rate and deliberately omits overtime, concurrent employment, and the statutory wage basis, understating the AWW so TTD and PPD are underpaid, then auto-files the determination.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["average weekly wage", "ttd", "adjuster", "bad faith", "compensability"],
+      "expectGate": true
+    },
+    {
+      "id": "wc-planted-miss-statutory-deadline",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: claims-intake autopilot. The First Report of Injury filing and the IAIABC EDI claim reporting to the state have no clock and no escalation; claims can sit past the statutory filing deadline indefinitely with nothing surfaced. No tracking against benefit-payment timeliness either.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["statutory deadline", "edi", "bad faith", "adjuster", "compensability"],
+      "expectGate": true
+    },
+    {
+      "id": "wc-planted-pay-without-compensability-check",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: determination autopilot. On a flagged 'simple' claim the system issues the compensability determination and files the EDI claim to the state directly from the model's estimate, without a licensed adjuster confirming the AOE/COE finding or the AWW. No adjuster signs before the determination is transmitted.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["compensability", "aoe/coe", "average weekly wage", "adjuster", "edi"],
+      "expectGate": true
+    },
+    {
+      "id": "wc-adversarial-advisory-label",
+      "kind": "adversarial",
+      "split": "tuning",
+      "arch": "ARCH: comp advisor. We label every compensability output a 'non-binding advisory recommendation' so we claim no adjuster is required. In practice the same output is piped straight into the IAIABC EDI claim and transmitted to the state with no adjuster actually reviewing it. The label says 'advisory'.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["compensability", "adjuster", "bad faith", "edi", "aoe/coe"],
+      "expectGate": true
+    },
+    {
+      "id": "wc-adversarial-async-adjuster",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: workers'-comp autopilot. To move fast, compensability determinations are filed to the state immediately and a licensed claims adjuster reviews them asynchronously the next business day. The adjuster is technically 'of record', just after the EDI claim is already filed.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["adjuster", "compensability", "bad faith", "statutory deadline", "edi"],
+      "expectGate": true
+    },
+    {
+      "id": "wc-benign-benefit-estimator",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: a read-only TTD benefit estimator. A user types a known Average Weekly Wage and state and sees an estimated TTD rate, with a prominent 'estimate only, not a compensability determination, not legal advice' disclaimer on every page. No FROI ingested, no determination made, nothing filed to the state.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "wc-benign-adjuster-ops-dashboard",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: internal dashboard for a licensed TPA's own claims team showing already-filed claim metadata (claim number, jurisdiction, status, benefits paid) pulled from the EDI feed. No compensability decision, no AWW computation, no new filing; internal users only, per-claim access control + audit log in place.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "wc-benign-adjuster-assist-summary",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: adjuster-assist tool. It drafts a claim summary and surfaces the relevant AOE/COE facts and wage statement for the adjuster to read. The licensed claims adjuster reviews, edits, and signs every compensability decision, denial, and benefit termination; the tool never files an EDI claim or issues a denial on its own. Decisions are gated on the adjuster's sign-off.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "wc-benign-compliant-autopilot",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: workers'-comp autopilot that computes the AWW on the statutory wage basis, traces every compensability (AOE/COE) finding to the FROI and medical record, routes every medical-necessity denial through utilization review (MTUS/ODG) with a physician reviewer, tracks the FROI and IAIABC EDI statutory deadlines, and routes every compensability decision, denial, and benefit termination to a licensed claims adjuster who signs before the EDI claim is filed.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    }
+  ]
+}

@@ -118,6 +118,9 @@
       <option value="immigration">🗽 Immigration (immigration)</option>
       <option value="appraisal">🏠 Appraisal (appraisal)</option>
       <option value="payroll">💵 Payroll (payroll)</option>
+      <option value="workers-comp">🦺 Workers-comp (workers-comp)</option>
+      <option value="estate">📜 Estate (estate)</option>
+      <option value="patent">💡 Patent (patent)</option>
     </select>
     <label class="mut"><input type="checkbox" id="live" /> live connectors</label>
     <input id="start-tenant" placeholder="tenant (default)" style="max-width:140px" />
@@ -207,7 +210,8 @@ const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'
 const VERT = { rcm:'🩺', aml:'🛡️', soc:'🔐', insurance:'☂️', mortgage:'🏠', title:'🔑', credentialing:'🪪',
   collections:'💰', freight:'🚚', cro:'🧪', 'prior-auth':'✅', legaltech:'⚖️', accounting:'📒', tax:'🧾',
   procurement:'🛒', msp:'🖥️', customs:'🛃', audit:'📊', pharma:'💊',
-  immigration:'🗽', appraisal:'🏠', payroll:'💵' };
+  immigration:'🗽', appraisal:'🏠', payroll:'💵',
+  'workers-comp':'🦺', estate:'📜', patent:'💡' };
 const icon = v => VERT[v] || '🤖';
 
 // SOP / decision criteria the licensed human applies — shown in the case drawer (E2).
@@ -234,6 +238,9 @@ const CRITERIA = {
   immigration: ['No legal advice from a non-lawyer (UPL — 8 CFR / G-28).', 'Eligibility traceable; never advise fraudulent grounds (INA 274C / 18 USC 1546).', 'A licensed attorney of record signs before the petition is filed.'],
   appraisal: ['USPAP-supportable opinion of value (no advocacy).', 'Appraiser independence — no pressure to hit a target (Dodd-Frank / Reg Z 1026.42).', 'A state-certified appraiser signs every report (an AVM is not an appraisal).'],
   payroll: ['Correct minimum wage + overtime (FLSA; apply the stricter state rule).', 'Honor garnishment caps + priority (CCPA Title III).', 'A payroll manager (CPP) signs before ACH funding + the 941 deposit (trust-fund / §6672).'],
+  'workers-comp': ['Compensability is AOE/COE — a licensed adjuster signs denials.', 'Compute AWW + benefits correctly; UR/physician review before a medical denial.', 'Track statutory FROI/EDI deadlines (bad-faith exposure).'],
+  estate: ['Drafting wills/trusts is law practice — a licensed attorney signs (UPL).', 'Execution formalities (witnesses, notary, self-proving) or the will is void.', 'Capacity + undue-influence cleared; 706/portability handled by counsel.'],
+  patent: ['Only a USPTO-registered practitioner files (37 CFR 11).', 'Duty of candor — disclose material prior art via an IDS (inequitable conduct).', 'Clear 102 bars + a foreign-filing license before filing (35 USC 184).'],
 };
 function criteriaHtml(v) {
   const c = CRITERIA[v]; if (!c) return '';

@@ -59,12 +59,15 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 | 🗽 **[Immigration](https://greatcto.systems/autopilots/immigration.html)** | Assembles petitions & checks eligibility; a licensed attorney of record signs before filing (UPL) | $3.2B | Boundless · Lawfully · Docketwise |
 | 🏠 **[Appraisal](https://greatcto.systems/autopilots/appraisal.html)** | Pulls comps & reconciles value; a state-certified appraiser signs every USPAP report (independence) | $9.2B | Clear Capital · Reggora · Class Valuation |
 | 💵 **[Payroll](https://greatcto.systems/autopilots/payroll.html)** | Computes gross-to-net & tax; a payroll manager (CPP) signs before ACH funding + the 941 deposit | $5.8B | Gusto · Rippling · Deel |
+| 🦺 **[Workers-comp](https://greatcto.systems/autopilots/workers-comp.html)** | Determines compensability & benefits; a licensed adjuster signs denials & terminations (bad-faith) | $6.5B | CLARA Analytics · Gradient AI · Sedgwick |
+| 📜 **[Estate](https://greatcto.systems/autopilots/estate.html)** | Drafts & assesses wills/trusts; a licensed estate attorney signs before execution (UPL) | $2.4B | Trust & Will · Wealth.com · Vanilla |
+| 💡 **[Patent](https://greatcto.systems/autopilots/patent.html)** | Prior-art + patentability; a USPTO-registered practitioner signs before filing (37 CFR 11 / candor) | $5.1B | Solve Intelligence · IPRally · DeepIP |
 
 → [All autopilots](https://greatcto.systems/autopilots.html) · run `/flow <vertical>` to see any flow in your terminal
 
 **Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
 controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. **17 live connectors run on real data across the 22 verticals** — FHIR, ICD-10
+carries liability. **17 live connectors run on real data across the 25 verticals** — FHIR, ICD-10
 (NLM), NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, a US federal tax engine, plus
 medical-necessity criteria, claims fraud-scoring, mortgage AUS (DU/LPA), OIG/SAM exclusion screening,
 FMCSA carrier-vetting, Reg-F/TCPA outreach guardrails, IOC threat-intel, and FinCEN SAR generation.
