@@ -5,6 +5,34 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v2.57.0 — 2026-06-08
+
+### Operator console UI/UX — tabbed app shell, inbox-first
+
+Reworks the operator console (`/autopilot.html`) information architecture per
+`docs/plans/PLAN-console-ui-ux.md`. The console was one long vertical scroll where the operator's
+actual job — the Inbox — sat below admin/analytics sections. Now it's a tabbed shell.
+
+- **Tabbed app shell** — sticky top tab bar: **Inbox · Cases · Analytics · QA · Admin**. Sections
+  become panels (`[data-sec]`); only one shows at a time. The operator lands on their **Inbox** (the
+  work), not Analytics.
+- **Role-gated tabs** — **QA** appears only for `admin`/`compliance-lead`; **Admin** (Start · Settings ·
+  Team) only for `admin` without an operator token; **Build** link hidden for operators. If the active
+  tab isn't allowed for the role, it falls back to Inbox. Client gating mirrors server-side RBAC.
+- **Inbox badge** — the Inbox tab shows a live count of cases awaiting the operator's signature.
+- **Context-aware refresh** — the 4s poll always refreshes the Inbox (for the badge) but only reloads
+  the panel that's open, cutting redundant Cases/Analytics/QA/Config fetches.
+- **Visual pass** — KPI tiles with accent, sticky header, card hover, status colour system, per-tab
+  fade-in, mobile stacking.
+
+No functional regression: sign / escalate / send-back / bulk / filters / criteria / evidence / drawer
+all unchanged. Verified with a 16-assertion DOM simulation driving the real tab functions across
+admin, compliance-lead, and token-scoped operator roles.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.56.0 — 2026-06-08
 
 ### Autopilot production depth (Wave F) — webhooks · tamper-evident audit · encryption · receipts

@@ -54,6 +54,17 @@
   .kpi { background:#0d1311; border:1px solid var(--bd); border-radius:10px; padding:10px 16px; min-width:118px; }
   .kpi b { display:block; font-size:22px; color:var(--tx); }
   .kpi span { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  header { position:sticky; top:0; z-index:11; background:var(--bg); }
+  .tabs { position:sticky; top:55px; z-index:10; display:flex; gap:2px; padding:0 24px; max-width:1048px; margin:0 auto; background:var(--bg); border-bottom:1px solid var(--bd); overflow-x:auto; }
+  .tabs button { background:none; border:0; border-bottom:2px solid transparent; border-radius:0; color:var(--mut); padding:12px 16px; font-weight:600; font-size:13px; white-space:nowrap; }
+  .tabs button.on { color:var(--tx); border-bottom-color:var(--grn); }
+  .tabs button:hover { color:var(--tx); }
+  .tabs .badge { display:inline-block; min-width:16px; text-align:center; background:var(--amb); color:#04140d; border-radius:10px; font-size:10px; font-weight:700; padding:0 5px; margin-left:6px; }
+  [data-sec] { animation: secfade .16s ease; }
+  @keyframes secfade { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
+  .card.gate:hover, .card.click:hover { border-color:#2d3d36; background:#141b1f; }
+  .card { transition:border-color .12s, background .12s; }
+  @media (max-width:680px){ main{padding:16px} header{flex-wrap:wrap;gap:8px} .tabs{top:auto;position:static} }
 </style>
 </head>
 <body>
@@ -67,8 +78,15 @@
   <button class="back" style="cursor:pointer;border:0" onclick="help()" title="How this works">❔ Help</button>
   <button id="notify-btn" class="back" style="cursor:pointer;border:0" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
 </header>
+<nav class="tabs" id="tabs">
+  <button data-tab="inbox" class="on" onclick="switchTab('inbox')">Inbox<span class="badge" id="tab-inbox-n" style="display:none">0</span></button>
+  <button data-tab="cases" onclick="switchTab('cases')">All cases</button>
+  <button data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
+  <button data-tab="qa" id="tab-qa" onclick="switchTab('qa')" style="display:none">QA</button>
+  <button data-tab="admin" id="tab-admin" onclick="switchTab('admin')" style="display:none">Admin</button>
+</nav>
 <main>
-  <div id="start-box">
+  <div id="start-box" data-sec="admin">
   <h2>Start a run</h2>
   <div class="row">
     <select id="vertical">
@@ -98,12 +116,12 @@
   </div>
   </div>
 
-  <div id="analytics-box">
+  <div id="analytics-box" data-sec="analytics">
     <h2 id="stats-h">Analytics — is the autopilot taking work off your desk?</h2>
     <div id="stats" class="row" style="gap:14px;flex-wrap:wrap"></div>
   </div>
 
-  <div id="settings-box" style="display:none">
+  <div id="settings-box" data-sec="admin" style="display:none">
     <h2>Settings — the routing dial</h2>
     <div class="row">
       <label class="mut">Confidence floor <input type="range" id="floor" min="0" max="1" step="0.05" oninput="document.getElementById('floor-v').textContent=this.value" /> <b id="floor-v">0.70</b></label>
@@ -113,12 +131,12 @@
     </div>
   </div>
 
-  <div id="qa-box" style="display:none">
+  <div id="qa-box" data-sec="qa" style="display:none">
     <h2>QA — sampled closed cases (the second loop)</h2>
     <div id="qa"></div>
   </div>
 
-  <div id="team-box" style="display:none">
+  <div id="team-box" data-sec="admin" style="display:none">
     <h2>Team — invite an operator to an industry</h2>
     <div class="row">
       <select id="op-role" style="min-width:240px"></select>
@@ -130,7 +148,8 @@
     <div id="invites" style="margin-top:10px"></div>
   </div>
 
-  <h2>Inbox — awaiting a human signature</h2>
+  <div id="inbox-box" data-sec="inbox">
+  <h2 id="inbox-h">Inbox — awaiting a human signature</h2>
   <div class="filters">
     <span class="mut">filter:</span>
     <input id="f-tenant" placeholder="tenant (all)" style="max-width:140px" oninput="refresh()" />
@@ -152,9 +171,12 @@
     <button class="reject" onclick="bulkDo('reject')">Reject</button></span>
   </div>
   <div id="inbox"></div>
+  </div>
 
+  <div id="cases-box" data-sec="cases">
   <h2 id="runs-h">All runs</h2>
   <div id="runs"></div>
+  </div>
 </main>
 <div id="drawer-bg" onclick="closeDrawer()"></div>
 <aside id="drawer"><button class="x" onclick="closeDrawer()">✕</button><div id="drawer-body"></div></aside>
@@ -269,21 +291,37 @@ async function initRoles() {
 function onRole() { SESSION.role = document.getElementById('role').value; localStorage.setItem('gcto_role', role()); applyRoleUI(); refresh(); }
 function signOut() { localStorage.removeItem('gcto_invite'); location.href = '/autopilot.html'; }
 
+// ── Tabbed app shell: the operator lands on their Inbox; admin/QA tabs are role-gated ──
+let TAB = 'inbox';
+function canSee(sec) {
+  if (sec === 'admin') return role() === 'admin' && !SESSION.token;   // Start · Settings · Team
+  if (sec === 'qa') return ['admin', 'compliance-lead'].includes(role());
+  return true;                                                        // inbox · cases · analytics
+}
+function applyTab() {
+  for (const el of document.querySelectorAll('[data-sec]')) el.style.display = (el.dataset.sec === TAB && canSee(el.dataset.sec)) ? '' : 'none';
+  for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', b.dataset.tab === TAB);
+}
+function switchTab(t) {
+  if (!canSee(t)) t = 'inbox';
+  TAB = t; applyTab();
+  if (t === 'admin') { loadTeam(); loadConfig(); }
+  if (t === 'qa') loadQa();
+  if (t === 'analytics') loadStats();
+}
 function applyRoleUI() {
   const r = ROLES[role()] || { verticals: '*', canBuild: true, canStart: true };
-  if (!SESSION.token) document.getElementById('build-link').style.display = r.canBuild ? '' : 'none';
-  document.getElementById('start-box').style.display = r.canStart ? '' : 'none';
-  const isAdmin = role() === 'admin' && !SESSION.token;
-  document.getElementById('team-box').style.display = isAdmin ? '' : 'none';
-  document.getElementById('settings-box').style.display = isAdmin ? '' : 'none';
-  document.getElementById('qa-box').style.display = (['admin', 'compliance-lead'].includes(role())) ? '' : 'none';
-  if (isAdmin) { loadTeam(); loadConfig(); }
-  if (['admin', 'compliance-lead'].includes(role())) loadQa();
+  document.getElementById('build-link').style.display = (!SESSION.token && r.canBuild) ? '' : 'none';
+  document.getElementById('tab-qa').style.display = canSee('qa') ? '' : 'none';
+  document.getElementById('tab-admin').style.display = canSee('admin') ? '' : 'none';
   document.getElementById('runs-h').textContent = SESSION.token ? 'My cases' : 'All runs';
+  document.getElementById('inbox-h').textContent = SESSION.token ? 'My queue — awaiting my signature' : 'Inbox — awaiting a human signature';
   const allowed = r.verticals === '*' ? Object.keys(VERT) : r.verticals;
   for (const o of document.getElementById('vertical').options) o.hidden = !allowed.includes(o.value);
   const cur = document.getElementById('vertical');
   if (cur.selectedOptions[0] && cur.selectedOptions[0].hidden) cur.value = allowed[0] || 'rcm';
+  if (!canSee(TAB)) TAB = 'inbox';
+  switchTab(TAB);
 }
 
 // ── Team: the admin invites an operator to an industry (mints a scoped invite link) ──
@@ -416,6 +454,8 @@ async function loadInbox() {
   const { runs } = await api(q('awaiting-approval'));
   const el = document.getElementById('inbox');
   const list = cache(filt(runs)).sort((a,b) => ageMin(b.createdAt) - ageMin(a.createdAt)); // oldest-waiting first
+  const badge = document.getElementById('tab-inbox-n');
+  if (badge) { badge.textContent = list.length; badge.style.display = list.length ? '' : 'none'; }
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
     <div class="card gate">
@@ -538,9 +578,11 @@ async function bulkDo(action) {
 }
 
 function refresh() {
-  loadInbox(); loadRuns(); loadStats();
-  if (document.getElementById('settings-box').style.display !== 'none') loadConfig();
-  if (document.getElementById('qa-box').style.display !== 'none') loadQa();
+  loadInbox();                       // always — drives the Inbox tab badge
+  if (TAB === 'cases') loadRuns();
+  if (TAB === 'analytics') loadStats();
+  if (TAB === 'qa' && canSee('qa')) loadQa();
+  if (TAB === 'admin' && canSee('admin')) loadConfig();
 }
 // populate the bulk reason select
 document.getElementById('bulk-reason').innerHTML = REASONS.map(x => `<option>${x}</option>`).join('');
