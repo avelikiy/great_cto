@@ -21,7 +21,7 @@ import {
   removeSubscription,
 } from './push-adapter.mjs';
 import crypto from 'node:crypto';
-import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore, verifyAudit as apVerifyAudit, exportRecord as apExportRecord } from '../../scripts/lib/run-store.mjs';
+import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore, verifyAudit as apVerifyAudit, exportRecord as apExportRecord, autoEscalateStale as apAutoEscalateStale, calibration as apCalibration, suggestFloor as apSuggestFloor, stageProgress as apStageProgress } from '../../scripts/lib/run-store.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 // Verify a webhook's HMAC-SHA256 signature (the source system shares GREAT_CTO_INGEST_SECRET).
@@ -1350,6 +1350,29 @@ function startAlertCron() {
     } catch (e) { console.warn('cron gate.stale failed:', e.message); }
   }, FIVE_MIN);
 
+  // sla.escalate (Wave G #7): the autopilot SLA clock that ACTS. Awaiting runs past their
+  // per-vertical deadline are auto-escalated (once each, idempotent) so a breach never sits silent.
+  setInterval(() => {
+    try {
+      const escalated = apAutoEscalateStale({});   // breached only, across all tenants
+      for (const e of escalated) {
+        const dedupeKey = `sla.escalate:${e.tenant}:${e.id}`;
+        const payload = {
+          title: `Autopilot SLA breached — ${e.vertical} ${e.id.slice(0, 24)}`,
+          body: `A ${e.vertical} case passed its turnaround deadline (due ${e.dueAt}) and was auto-escalated.\n\nSigner: ${e.signer || '—'}\nTenant: ${e.tenant}`,
+          level: 'critical',
+          link: `http://localhost:3141/autopilot.html`,
+          action: 'Sign in console',
+          kv: { case: e.id, vertical: e.vertical, state: e.state, tenant: e.tenant },
+        };
+        fireEmailAlert('sla.escalate', dedupeKey, payload);
+        addNotification('sla.escalate', payload);
+        firePushAlert('sla.escalate', dedupeKey, payload);
+      }
+      if (escalated.length) console.log(`sla.escalate: auto-escalated ${escalated.length} breached run(s)`);
+    } catch (e) { console.warn('cron sla.escalate failed:', e.message); }
+  }, FIVE_MIN);
+
   // cost.threshold: monthly LLM spend at 80% / 100% of budget
   setInterval(() => {
     try {
@@ -1516,7 +1539,7 @@ function startAlertCron() {
     } catch (e) { console.warn('cron report.daily failed:', e.message); }
   }, FIVE_MIN);
 
-  console.log('Alert cron started: gate.stale (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00)');
+  console.log('Alert cron started: gate.stale (5min), sla.escalate (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00)');
 }
 
 function readVerdicts(cwd = null) {
@@ -3213,6 +3236,16 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ queue: apQaQueue({ tenant }) }));
     return;
   }
+  // Wave G #5 — confidence calibration: is the AI's recommendation confidence honest? (admin/compliance)
+  if (pathname === '/api/autopilot/calibration' && req.method === 'GET') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
+    if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'calibration is for admin / compliance-lead' })); return; }
+    const tenant = auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || undefined);
+    const target = parseFloat(url.searchParams.get('target')) || 0.9;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ ...apCalibration({ tenant }), suggestedFloor: apSuggestFloor({ tenant, target }) }));
+    return;
+  }
   // Operator onboarding: the admin mints invites; the operator resolves one to bootstrap, scoped.
   if (pathname === '/api/autopilot/invite-resolve' && req.method === 'GET') {
     const inv = acceptInvite(url.searchParams.get('token'));
@@ -3276,8 +3309,9 @@ const server = http.createServer(async (req, res) => {
   }
   if (pathname === '/api/autopilot/run' && req.method === 'GET') {
     const r = apGetRun(url.searchParams.get('id'));
+    // Wave G #8 — attach the sequential review pipeline view (gate stages + signer + status).
     res.writeHead(r ? 200 : 404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(r || { error: 'not found' }));
+    res.end(JSON.stringify(r ? { ...r, stages: apStageProgress(r) } : { error: 'not found' }));
     return;
   }
   if (pathname === '/api/autopilot/ingest' && req.method === 'POST') {

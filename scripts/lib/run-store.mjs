@@ -341,3 +341,94 @@ export function stats({ tenant, by } = {}) {
     qaAvgScore: (() => { const q = runs.filter((r) => r.qa); return q.length ? +(q.reduce((a, r) => a + r.qa.score, 0) / q.length).toFixed(1) : null; })(),
   };
 }
+
+// ── Wave G #7 — SLA auto-escalation: the deadline clock that ACTS, not just displays ──
+
+/** How the SLA clock stands for a run: ok / at-risk (≤25% of the window left) / breached. */
+export function slaState(run, nowMs = Date.now()) {
+  if (!run || !run.dueAt || !run.createdAt) return { state: 'none', remainingMin: null, pct: null };
+  const created = new Date(run.createdAt).getTime();
+  const due = new Date(run.dueAt).getTime();
+  const total = due - created;
+  const remaining = due - nowMs;
+  const pct = total > 0 ? Math.max(0, Math.min(1, remaining / total)) : 0;
+  const state = remaining <= 0 ? 'breached' : pct <= 0.25 ? 'at-risk' : 'ok';
+  return { state, remainingMin: Math.round(remaining / 60000), pct: +pct.toFixed(3) };
+}
+
+/** Escalate awaiting runs whose SLA is breached (or at-risk, if asked) — once each. Idempotent via
+ *  `slaEscalated`. Returns [{id,vertical,tenant,state,signer}] for the ones it just escalated. */
+export function autoEscalateStale({ tenant, nowMs = Date.now(), atRisk = false } = {}) {
+  const out = [];
+  for (const r of listRuns({ status: 'awaiting-approval', tenant })) {
+    if (r.slaEscalated) continue;                       // already handled by the monitor
+    const s = slaState(r, nowMs);
+    const trip = s.state === 'breached' || (atRisk && s.state === 'at-risk');
+    if (!trip) continue;
+    r.escalated = true; r.slaEscalated = true;
+    r.escalatedBy = 'sla-monitor';
+    r.escalateReason = `SLA ${s.state} — ${s.remainingMin}m vs deadline`;
+    pushAudit(r, { at: now(), event: 'sla-escalated', by: 'sla-monitor', gate: r.pausedAt, slaState: s.state, remainingMin: s.remainingMin });
+    save(r);
+    out.push({ id: r.id, vertical: r.vertical, tenant: r.tenant || 'default', state: s.state, signer: r.signer, dueAt: r.dueAt });
+  }
+  return out;
+}
+
+// ── Wave G #5 — calibration + closed-loop: is the AI's confidence honest? ──
+
+// A decided run is "AI-correct" iff the human did NOT override the recommendation and QA (if any)
+// didn't fail it. Overrides and low QA scores are the training signal for the floor.
+function aiCorrect(run) {
+  const dec = (run.audit || []).find((a) => a.event === 'approved' || a.event === 'rejected');
+  if (!dec) return null;
+  if (dec.override === true) return false;
+  if (run.qa && Number(run.qa.score) <= 2) return false;
+  return true;
+}
+function confBucket(c) {
+  const lo = Math.max(0, Math.min(0.9, Math.floor(c * 10) / 10));
+  return `${lo.toFixed(1)}-${(lo + 0.1).toFixed(1)}`;
+}
+
+/** Reliability curve: bucket decided runs by recoConfidence, measure how often the AI was right.
+ *  Also reports ECE (expected calibration error) — 0 = perfectly calibrated. */
+export function calibration({ tenant } = {}) {
+  const runs = listRuns({ tenant }).filter((r) => typeof r.recoConfidence === 'number' && aiCorrect(r) !== null);
+  const buckets = {};
+  for (const r of runs) {
+    const key = confBucket(r.recoConfidence);
+    const b = (buckets[key] = buckets[key] || { bucket: key, n: 0, correct: 0 });
+    b.n++; if (aiCorrect(r)) b.correct++;
+  }
+  const curve = Object.values(buckets)
+    .map((b) => ({ ...b, accuracy: +(b.correct / b.n).toFixed(3) }))
+    .sort((a, b) => a.bucket.localeCompare(b.bucket));
+  const total = curve.reduce((s, b) => s + b.n, 0);
+  const ece = total
+    ? +curve.reduce((s, b) => {
+        const mid = parseFloat(b.bucket.split('-')[0]) + 0.05;
+        return s + (b.n / total) * Math.abs(mid - b.accuracy);
+      }, 0).toFixed(3)
+    : null;
+  return { curve, ece, n: total };
+}
+
+/** Closed loop: the lowest confidence band that hits `target` accuracy → a data-driven floor.
+ *  Null when there isn't enough evidence (no bucket with n≥minN at/above target). */
+export function suggestFloor({ tenant, target = 0.9, minN = 1 } = {}) {
+  const { curve } = calibration({ tenant });
+  const good = curve.filter((b) => b.accuracy >= target && b.n >= minN);
+  if (!good.length) return null;
+  return { suggestedFloor: parseFloat(good[0].bucket.split('-')[0]), basis: good[0], target };
+}
+
+// ── Wave G #8 — sequential review pipelines: surface the gate stages as a pipeline ──
+
+/** The ordered human-gate stages of a run (intake → QC → review → submit), each with its signer +
+ *  status — so a multi-gate flow reads as a pipeline, not a flat step list. */
+export function stageProgress(run) {
+  return (run.steps || [])
+    .filter((s) => s.gate)
+    .map((g, i) => ({ stage: i + 1, gate: g.does || g.gate || `stage ${i + 1}`, signer: g.human || null, status: g.status || 'pending', signedBy: g.approvedBy || null }));
+}

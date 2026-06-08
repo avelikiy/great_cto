@@ -4,11 +4,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { startRun, approve, reject, escalate, sendBack, stats, getConfig, setConfig, qaScore, qaQueue, getRun, listRuns, pendingGates, verifyAudit, purgeRuns, exportRecord } from '../../scripts/lib/run-store.mjs';
+import { startRun, approve, reject, escalate, sendBack, stats, getConfig, setConfig, qaScore, qaQueue, getRun, listRuns, pendingGates, verifyAudit, purgeRuns, exportRecord, slaState, autoEscalateStale, calibration, suggestFloor, stageProgress } from '../../scripts/lib/run-store.mjs';
 import { loadFlow, runFlow } from '../../scripts/lib/flow-runner.mjs';
 
 function tmp() { const d = mkdtempSync(join(tmpdir(), 'ap-runs-')); process.env.GREAT_CTO_RUNS_DIR = d; return d; }
@@ -285,11 +285,99 @@ test('Wave F: submission receipt + regulator-format export', async () => {
 
 test('Wave F: retention purge removes old runs', async () => {
   const d = tmp();
-  const a = await startRun('rcm', { mode: 'stub' });
-  // back-date it 400 days
-  const r = getRun(a.id); r.createdAt = new Date(Date.now() - 400 * 86400 * 1000).toISOString();
-  // re-save by approving a fresh one won't help; write directly via a fresh start then purge by 365
-  const n = purgeRuns({ days: 0 });   // everything older than now
+  await startRun('rcm', { mode: 'stub' });
+  // cutoff = now + 1 day (days:-1), so a just-created run is unambiguously "older" — no same-ms
+  // boundary race with Date.now() (which made days:0 flaky under concurrent load).
+  const n = purgeRuns({ days: -1 });
   assert.ok(n >= 1);
+  rmSync(d, { recursive: true, force: true });
+});
+
+// ── Wave G (Tier-2) ──
+
+test('Wave G #7: slaState classifies ok / at-risk / breached against the deadline', async () => {
+  const d = tmp();
+  const run = await startRun('soc', { mode: 'stub' }); // soc SLA = 4h
+  const created = new Date(run.createdAt).getTime();
+  assert.equal(slaState(run, created).state, 'ok');                              // fresh
+  assert.equal(slaState(run, created + 3.5 * 3600 * 1000).state, 'at-risk');     // <25% of 4h left
+  assert.equal(slaState(run, created + 5 * 3600 * 1000).state, 'breached');      // past due
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave G #7: autoEscalateStale escalates a breached run exactly once, leaves a healthy one', async () => {
+  const d = tmp();
+  const stale = await startRun('soc', { mode: 'stub' });   // 4h SLA
+  const fresh = await startRun('aml', { mode: 'stub' });   // 720h SLA — nowhere near due
+  const future = new Date(stale.createdAt).getTime() + 6 * 3600 * 1000; // 6h later: soc breached, aml fine
+  const first = autoEscalateStale({ nowMs: future });
+  assert.equal(first.length, 1);
+  assert.equal(first[0].id, stale.id);
+  assert.equal(first[0].state, 'breached');
+  const s = getRun(stale.id);
+  assert.equal(s.escalated, true);
+  assert.equal(s.slaEscalated, true);
+  assert.equal(s.escalatedBy, 'sla-monitor');
+  assert.ok((s.audit || []).some((a) => a.event === 'sla-escalated'));
+  assert.equal(s.status, 'awaiting-approval');            // still signable
+  // idempotent: a second sweep does nothing
+  assert.equal(autoEscalateStale({ nowMs: future }).length, 0);
+  // the fresh run was never touched
+  assert.equal(getRun(fresh.id).escalated || false, false);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave G #7: at-risk runs escalate only when atRisk:true is requested', async () => {
+  const d = tmp();
+  const run = await startRun('soc', { mode: 'stub' });
+  const atRiskTime = new Date(run.createdAt).getTime() + 3.5 * 3600 * 1000; // <25% left, not yet due
+  assert.equal(autoEscalateStale({ nowMs: atRiskTime }).length, 0);          // default: breached only
+  assert.equal(autoEscalateStale({ nowMs: atRiskTime, atRisk: true }).length, 1);
+  rmSync(d, { recursive: true, force: true });
+});
+
+// stub runs carry no numeric confidence (the demo connectors emit none); calibration is for
+// production data where they do. Inject a confidence onto the persisted run as a test fixture.
+function setConfidence(id, c) {
+  const p = join(process.env.GREAT_CTO_RUNS_DIR, 'default', `${id}.json`);
+  const run = JSON.parse(readFileSync(p, 'utf8'));
+  run.recoConfidence = c;
+  writeFileSync(p, JSON.stringify(run, null, 2) + '\n');
+}
+
+test('Wave G #5: calibration buckets decided runs and reports an ECE', async () => {
+  const d = tmp();
+  // two decided runs so the curve is non-empty; an undecided one is ignored
+  const a = await startRun('rcm', { mode: 'stub' }); setConfidence(a.id, 0.95);
+  await approve(a.id, 'Dr. A', '', 'medically-necessary', 'MD-1');
+  const b = await startRun('rcm', { mode: 'stub' }); setConfidence(b.id, 0.95);
+  await reject(b.id, 'Dr. B', '', 'not-covered');
+  await startRun('rcm', { mode: 'stub' }); // undecided — excluded
+  const cal = calibration({});
+  assert.ok(Array.isArray(cal.curve));
+  assert.equal(cal.n, 2);                       // only the two decided runs
+  assert.ok(cal.curve.every((bk) => bk.n > 0 && bk.accuracy >= 0 && bk.accuracy <= 1));
+  assert.ok(cal.ece === null || (cal.ece >= 0 && cal.ece <= 1));
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave G #5: suggestFloor proposes a floor from observed accuracy (or null when no data)', async () => {
+  const d = tmp();
+  assert.equal(suggestFloor({}), null);          // no decided runs yet
+  const a = await startRun('rcm', { mode: 'stub' }); setConfidence(a.id, 0.85);
+  await approve(a.id, 'Dr. A', '', 'medically-necessary', 'MD-1'); // clean approve (reco=approve, no override)
+  const s = suggestFloor({ target: 0.5 });
+  // one clean (non-override) approval → accuracy 1.0 in the 0.8-0.9 bucket ≥ target → floor proposed
+  assert.ok(s && s.suggestedFloor === 0.8 && s.target === 0.5);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('Wave G #8: stageProgress lists each gate stage with signer + status (multi-gate tax)', async () => {
+  const d = tmp();
+  const run = await startRun('tax', { mode: 'stub' });
+  const sp = stageProgress(run);
+  assert.ok(sp.length >= 1);
+  assert.equal(sp[0].stage, 1);
+  assert.ok('signer' in sp[0] && 'status' in sp[0]);
   rmSync(d, { recursive: true, force: true });
 });
