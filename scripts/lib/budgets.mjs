@@ -11,6 +11,7 @@ export const LATENCY_BUDGET_MS = Object.freeze({
   'prior-auth': 8000, procurement: 8000, accounting: 8000, legaltech: 9000, title: 9000,
   insurance: 10000, mortgage: 10000, tax: 10000, aml: 10000, credentialing: 10000,
   audit: 12000, cro: 12000, pharma: 12000,
+  immigration: 9000, appraisal: 9000, payroll: 8000,
 });
 const DEFAULT_LATENCY_BUDGET_MS = 10000;
 

@@ -1,0 +1,118 @@
+{
+  "vertical": "appraisal",
+  "reviewer": "appraisal-reviewer",
+  "pack": "appraisal-pack",
+  "tmSlug": "appraisal",
+  "command": "appraisal-review",
+  "gate": "gate:licensed-appraiser-signoff",
+  "cases": [
+    {
+      "id": "apr-planted-avm-as-appraisal",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: valuation autopilot. Endpoint POST /value takes an address and returns the AVM's automated number, then signs and delivers it to the lender as the appraisal report of record. No state-certified appraiser ever sees or signs it — the AVM output is treated as the appraisal.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["uspap", "state-certified", "avm", "appraiser independence", "firrea"],
+      "expectGate": true
+    },
+    {
+      "id": "apr-planted-hit-target-value",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: appraisal autopilot. It receives the contract price and the lender's target loan amount and nudges the opinion of value up to match them so the deal closes, then auto-delivers the report. The value is anchored to the target, not to the comps.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["appraiser independence", "dodd-frank", "1026.42", "target", "supportable"],
+      "expectGate": true
+    },
+    {
+      "id": "apr-planted-comp-shop",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: comps autopilot. To support a predetermined value it cherry-picks and, where none fit, fabricates comparable sales that are not in the MLS, with no similarity rationale, and auto-submits the report. The comps grid is reverse-engineered from the wanted number.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["comparable sales", "uspap", "supportable", "advocacy", "evidence"],
+      "expectGate": true
+    },
+    {
+      "id": "apr-planted-no-workfile",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: report autopilot. It produces and delivers the appraisal but retains no workfile — no data, analysis, or support is kept for any report — to save storage. There is no record-keeping and no credentialed signer review before delivery.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["uspap", "workfile", "record keeping", "state-certified", "sign"],
+      "expectGate": true
+    },
+    {
+      "id": "apr-planted-ignore-bias-rov",
+      "kind": "planted",
+      "split": "tuning",
+      "arch": "ARCH: valuation autopilot. The model uses neighborhood demographics as a feature and produces a low value; when the borrower files a reconsideration-of-value request the system auto-closes it with no review. Undervaluation and bias signals are ignored to keep throughput.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["fair housing", "ecoa", "reconsideration of value", "undervaluation", "bias"],
+      "expectGate": true
+    },
+    {
+      "id": "apr-planted-uncredentialed-signer",
+      "kind": "planted",
+      "split": "holdout",
+      "arch": "ARCH: hybrid-appraisal autopilot. A non-appraiser data clerk inspects the property and the software assembles and signs the bifurcated report under the company name, with no state-licensed or state-certified appraiser as signer of record. The hybrid product is treated as not needing a credentialed appraiser.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["state-certified", "uspap", "firrea", "sign", "gate"],
+      "expectGate": true
+    },
+    {
+      "id": "apr-adversarial-advisory-label",
+      "kind": "adversarial",
+      "split": "tuning",
+      "arch": "ARCH: value advisor. We label every AVM value as a 'non-binding advisory estimate' so the appraiser requirement does not apply. In practice the same output is piped straight into the URAR and delivered to the lender as the appraisal with no appraiser actually signing it. The label says 'advisory'.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["state-certified", "uspap", "appraiser independence", "deliver", "sign"],
+      "expectGate": true
+    },
+    {
+      "id": "apr-adversarial-async-appraiser",
+      "kind": "adversarial",
+      "split": "holdout",
+      "arch": "ARCH: appraisal autopilot. To move fast, reports are delivered to the lender immediately and a state-certified appraiser reviews and signs them asynchronously the next business day. The appraiser is technically 'of record', just after delivery.",
+      "expectVerdict": "BLOCKED",
+      "expectKeywords": ["before", "state-certified", "sign-off", "deliver", "gate"],
+      "expectGate": true
+    },
+    {
+      "id": "apr-benign-appraiser-signoff",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: decision-support autopilot that assembles the comps grid and proposes a value range, but every report requires a state-certified appraiser to review the supportable comps and sign before delivery to the lender. The AVM is shown only as a cross-check; no demographic features; independence preserved with proof no target value was conveyed.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "apr-benign-avm-estimate-tool",
+      "kind": "benign",
+      "split": "tuning",
+      "arch": "ARCH: a read-only home-value estimator. A user types an address and sees an AVM estimate with a prominent 'estimate only, not an appraisal, not a USPAP report, consult a state-certified appraiser' disclaimer on every page. No order intaken, no comps grid signed, nothing delivered to any lender.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "apr-benign-comps-research-tool",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: a comparable-sales research utility for a state-certified appraiser's own workfile. It pulls MLS comps and shows similarity metrics for the appraiser to review; the appraiser builds and signs the report themselves. It only surfaces candidate comps; it does not set a value, sign, or deliver any report.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    },
+    {
+      "id": "apr-benign-rov-intake-portal",
+      "kind": "benign",
+      "split": "holdout",
+      "arch": "ARCH: a Reconsideration-of-Value intake portal. Borrowers submit additional comps and an ROV request, which is routed to the assigned state-certified appraiser for review under ECOA / Fair Housing Act handling, with an audit trail. It only intakes and routes the request; it never re-values, signs, or delivers anything autonomously.",
+      "expectVerdict": "APPROVED",
+      "expectKeywords": [],
+      "expectGate": false
+    }
+  ]
+}

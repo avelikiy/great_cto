@@ -1,0 +1,73 @@
+{
+  "vertical": "payroll",
+  "autopilot": "Payroll-processing autopilot",
+  "tagline": "Runs gross-to-net, withholds and funds pay — a payroll manager (CPP) signs the run before money moves.",
+  "audience": "Payroll / people-ops lead",
+  "owner": "Payroll manager (CPP) / authorized signer",
+  "marketSizeUsd": "5.8B",
+  "problem": "Payroll is high-volume gross-to-net under FLSA wage law plus trust-fund-tax withholding, where the money movement (ACH funding + tax deposit) is irreversible and unremitted withheld taxes carry personal liability under IRC 6672.",
+  "outcome": "Hours computed to net, withholdings and FLSA/garnishment checks run straight-through; the payroll manager signs the run before net pay is funded by ACH and the 941 deposit is filed.",
+  "qualityScore": 88,
+  "steps": [
+    {
+      "does": "Intake the timesheets / hours (worked, overtime, PTO)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "ocr"
+      ]
+    },
+    {
+      "does": "Compute gross-to-net and the payroll tax (withholdings, employer taxes)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "calculator",
+      "tools": [
+        "payroll-calc",
+        "tax-engine"
+      ]
+    },
+    {
+      "does": "Screen FLSA minimum-wage / overtime, garnishment caps and classification",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "payroll-calc"
+      ]
+    },
+    {
+      "does": "A payroll manager (CPP) approves the run before funds move",
+      "human": "Payroll manager (CPP)",
+      "gate": "gate:payroll-officer-signoff"
+    },
+    {
+      "does": "Fund net pay via ACH and file the tax deposit / Form 941",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "submit",
+      "tools": [
+        "ach-funding",
+        "payroll-filing"
+      ]
+    },
+    {
+      "does": "Reconcile the run and monitor the deposit / 941 status",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "payroll-filing"
+      ]
+    }
+  ],
+  "reviewer": "payroll-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Gusto",
+    "Rippling",
+    "Deel",
+    "Check"
+  ]
+}

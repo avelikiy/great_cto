@@ -124,6 +124,20 @@ export const CONNECTORS = Object.freeze({
   'meddra-code':     { label: 'MedDRA coding',           verticals: ['pharma'],       capabilities: ['code-term'], realProviders: ['MedDRA', 'ArisGlobal'], status: 'live-ready' },
   'causality':       { label: 'Causality assessment',    verticals: ['pharma'],       capabilities: ['assess-causality'], realProviders: ['WHO-UMC', 'Naranjo'], status: 'stub' },
   'safety-report':   { label: 'Safety report (E2B / FAERS)', verticals: ['pharma'],   capabilities: ['submit-e2b'], realProviders: ['FDA FAERS', 'EudraVigilance'], status: 'live-ready' },
+
+  // ── immigration ──
+  'eligibility-check': { label: 'Immigration eligibility', verticals: ['immigration'], capabilities: ['check-eligibility'], realProviders: ['USCIS', 'DOS Visa Bulletin'], status: 'stub' },
+  'uscis-filing':    { label: 'USCIS e-filing (ELIS)',   verticals: ['immigration'],  capabilities: ['file-petition', 'check-status'], realProviders: ['USCIS ELIS', 'myUSCIS'], status: 'stub' },
+
+  // ── appraisal ──
+  'comps-data':      { label: 'Comparable sales (MLS)',  verticals: ['appraisal'],    capabilities: ['pull-comps'], realProviders: ['MLS', 'CoreLogic', 'ATTOM'], status: 'stub' },
+  'avm':             { label: 'Automated valuation model', verticals: ['appraisal'],  capabilities: ['estimate-value'], realProviders: ['CoreLogic', 'HouseCanary', 'Clear Capital'], status: 'stub' },
+  'appraisal-filing':{ label: 'Appraisal delivery (UCDP/EAD)', verticals: ['appraisal'], capabilities: ['file-report', 'check-status'], realProviders: ['UCDP', 'EAD', 'Reggora'], status: 'stub' },
+
+  // ── payroll ──
+  'payroll-calc':    { label: 'Payroll gross-to-net',    verticals: ['payroll'],      capabilities: ['compute-gross-net'], realProviders: ['Gusto', 'ADP', 'Symmetry'], status: 'stub' },
+  'ach-funding':     { label: 'ACH payroll funding',     verticals: ['payroll'],      capabilities: ['fund-payroll'], realProviders: ['NACHA', 'Modern Treasury', 'Increase'], status: 'stub' },
+  'payroll-filing':  { label: 'Payroll tax filing (941/940)', verticals: ['payroll'], capabilities: ['file-941', 'check-status'], realProviders: ['IRS EFTPS', 'state agencies'], status: 'stub' },
 });
 
 /** Look up a connector spec by id. */
