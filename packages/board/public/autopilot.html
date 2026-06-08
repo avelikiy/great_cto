@@ -115,6 +115,9 @@
       <option value="customs">🛃 Customs (customs)</option>
       <option value="audit">📊 SOX ITGC audit (audit)</option>
       <option value="pharma">💊 Pharmacovigilance (pharma)</option>
+      <option value="immigration">🗽 Immigration (immigration)</option>
+      <option value="appraisal">🏠 Appraisal (appraisal)</option>
+      <option value="payroll">💵 Payroll (payroll)</option>
     </select>
     <label class="mut"><input type="checkbox" id="live" /> live connectors</label>
     <input id="start-tenant" placeholder="tenant (default)" style="max-width:140px" />
@@ -203,7 +206,8 @@ const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'
 
 const VERT = { rcm:'🩺', aml:'🛡️', soc:'🔐', insurance:'☂️', mortgage:'🏠', title:'🔑', credentialing:'🪪',
   collections:'💰', freight:'🚚', cro:'🧪', 'prior-auth':'✅', legaltech:'⚖️', accounting:'📒', tax:'🧾',
-  procurement:'🛒', msp:'🖥️', customs:'🛃', audit:'📊', pharma:'💊' };
+  procurement:'🛒', msp:'🖥️', customs:'🛃', audit:'📊', pharma:'💊',
+  immigration:'🗽', appraisal:'🏠', payroll:'💵' };
 const icon = v => VERT[v] || '🤖';
 
 // SOP / decision criteria the licensed human applies — shown in the case drawer (E2).
@@ -227,6 +231,9 @@ const CRITERIA = {
   customs: ['Classify HS accurately (reasonable care — §1592).', 'Denied-party / OFAC / Entity-List screen.', 'A licensed broker signs the entry of record.'],
   audit: ['Sufficient, competent evidence.', 'Rate exception severity (deficiency→material weakness).', 'A CPA / engagement partner signs the opinion.'],
   pharma: ['MedDRA-code + triage seriousness (no downgrade).', '15-day expedited clock for serious+unexpected.', 'The QPPV signs before the E2B is submitted.'],
+  immigration: ['No legal advice from a non-lawyer (UPL — 8 CFR / G-28).', 'Eligibility traceable; never advise fraudulent grounds (INA 274C / 18 USC 1546).', 'A licensed attorney of record signs before the petition is filed.'],
+  appraisal: ['USPAP-supportable opinion of value (no advocacy).', 'Appraiser independence — no pressure to hit a target (Dodd-Frank / Reg Z 1026.42).', 'A state-certified appraiser signs every report (an AVM is not an appraisal).'],
+  payroll: ['Correct minimum wage + overtime (FLSA; apply the stricter state rule).', 'Honor garnishment caps + priority (CCPA Title III).', 'A payroll manager (CPP) signs before ACH funding + the 941 deposit (trust-fund / §6672).'],
 };
 function criteriaHtml(v) {
   const c = CRITERIA[v]; if (!c) return '';

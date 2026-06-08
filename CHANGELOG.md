@@ -9,6 +9,47 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.61.0 — 2026-06-08
+
+### Three new service-autopilot verticals — immigration · appraisal · payroll (19 → 22)
+
+Adds three depth-matched verticals, each a full vertical (flow + reviewer agent + compliance pack +
+threat-model template + `/…-review` command + 12-case golden set) mirroring the existing 19, plus all
+central registration (connector catalog, SLA, latency budget, operator role, plugin hook, console).
+
+- **🗽 Immigration** — assemble petitions + check eligibility/priority-date; a **licensed attorney of
+  record** signs before filing (USCIS ELIS). Core risk: **UPL** — a non-lawyer giving legal advice or
+  appearing without a G-28 (8 CFR 292.1 / 1003), plus document fraud (18 USC 1546, INA 274C) and
+  frivolous-filing bars (INA 212(a)(6)(C)). Gate `gate:attorney-of-record-signoff`.
+- **🏠 Appraisal** — pull comps + reconcile value vs AVM; a **state-certified appraiser** signs every
+  **USPAP** report. Core risk: **appraiser independence** (Dodd-Frank §1472 / Reg Z 1026.42, FIRREA),
+  an AVM output is not an appraisal, and valuation-bias / undervaluation (ECOA + Fair Housing, ROV).
+  Gate `gate:licensed-appraiser-signoff`.
+- **💵 Payroll** — compute gross-to-net + payroll tax; a **payroll manager (CPP)** signs before the
+  irreversible **ACH funding + 941 deposit**. Core risk: **FLSA** minimum-wage/overtime, the **Trust
+  Fund Recovery Penalty** (IRC 6672) for unremitted withholding, EFTPS deposit schedule, CCPA Title-III
+  garnishment caps, worker misclassification. Gate `gate:payroll-officer-signoff`.
+
+Each flow keeps the v2.43.0 safety invariant: the irreversible write (`reversible:false`,
+`blastRadius:high`) sits strictly after the human gate, and the runtime refuses it without a signature.
+
+- **Registration** — 7 new connectors (eligibility-check, uscis-filing, comps-data, avm,
+  appraisal-filing, payroll-calc, ach-funding, payroll-filing; tax-engine reused), SLA hours
+  (immigration 240 / appraisal 168 / payroll 72), latency budgets, operator roles (immigration-attorney
+  · appraiser · payroll-manager), plugin hook (reviewers + `/…-review` commands), and the operator
+  console (vertical picker, icons, decision-criteria SOPs).
+- **Verification** — all 3 scorecards **structural 10/10 (wired)** with their EVAL suites; all 3 run the
+  full durable workflow start → gate → sign → write in stub; flows pass `--validate`. Lib suite 313/313
+  (flow-count test bumped 19 → 22). Behavioural Tier-1 scorecard (OpenRouter) to be run with the key:
+  `vertical-scorecard.mjs <v> --median 3 --ci 85`.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.60.0 — 2026-06-08
 
 ### Operator console — Ops tab (metering · connector health · dead-letter requeue)
