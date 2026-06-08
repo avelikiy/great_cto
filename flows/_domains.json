@@ -9,7 +9,7 @@
     "back-office": { "label": "Back office",  "blurb": "Bookkeeping, procurement, billing and managed IT — high-volume operations run straight-through.", "icp": true },
     "security":    { "label": "Security",     "blurb": "SecOps and IT-controls audit — triage and testing at machine speed, a human on containment and the opinion.", "icp": true },
     "engineering": { "label": "Engineering",  "blurb": "The original GreatCTO SDLC pipeline — architect → dev → QA → security → ship, with human gates.", "icp": true },
-    "support":     { "label": "Support",      "blurb": "Operational support workflows — direction on the roadmap.", "icp": true },
+    "support":     { "label": "Support",      "blurb": "Customer support & complaints — tier-1 resolved straight-through; a lead signs refunds, account changes and regulated complaints.", "icp": true },
     "healthcare":  { "label": "Healthcare",   "blurb": "Prior-auth, pharmacovigilance and clinical-trial ops — a clinician signs the medical judgment.", "icp": false },
     "legal":       { "label": "Legal",        "blurb": "Contracts, estate, patent and immigration — a licensed attorney signs anything that is advice (UPL).", "icp": false },
     "real-estate": { "label": "Real estate",  "blurb": "Title, escrow and appraisal — a licensed officer signs the insurable title and the report of record.", "icp": false },

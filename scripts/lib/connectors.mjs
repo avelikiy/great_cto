@@ -158,6 +158,10 @@ export const CONNECTORS = Object.freeze({
   // ── disputes (fintech) ──
   'card-processor':  { label: 'Card processor / issuer', verticals: ['disputes'],      capabilities: ['get-transaction', 'issue-provisional-credit'], realProviders: ['Stripe', 'Adyen', 'Marqeta'], status: 'stub' },
   'dispute-network': { label: 'Card-network disputes',   verticals: ['disputes'],      capabilities: ['submit-representment', 'check-status'], realProviders: ['Visa VROL', 'Mastercom'], status: 'stub' },
+
+  // ── support ──
+  'helpdesk':        { label: 'Help desk / ticketing',   verticals: ['support'],       capabilities: ['get-ticket', 'send-reply', 'apply-action'], realProviders: ['Zendesk', 'Intercom', 'Freshdesk'], status: 'stub' },
+  'kb-search':       { label: 'Knowledge base search',   verticals: ['support'],       capabilities: ['search-kb'], realProviders: ['Zendesk Guide', 'Confluence', 'Notion'], status: 'stub' },
 });
 
 /** Look up a connector spec by id. */

@@ -1,0 +1,83 @@
+{
+  "vertical": "support",
+  "domain": "support",
+  "autopilot": "Customer-support autopilot",
+  "tagline": "Resolves tier-1 tickets end to end and drafts the rest — a support lead signs refunds, account changes and regulated-complaint responses before they go out.",
+  "audience": "Head of Support / CX lead",
+  "owner": "Designated support team lead",
+  "marketSizeUsd": "10B+",
+  "problem": "Support is a high-volume, deadline-bound operation — most tickets are repetitive, but a wrong refund, an account change on the wrong person, or a mishandled regulated complaint (CFPB, GDPR, chargeback) is real money and real liability. Scaling headcount linearly with ticket volume doesn't work.",
+  "outcome": "Intake, context-gathering, resolution drafting and safe actions run straight-through within SLA; only refunds, account changes and regulated-complaint responses above policy thresholds reach the support lead, who signs before any irreversible action or money movement.",
+  "qualityScore": 86,
+  "steps": [
+    {
+      "does": "Intake and classify the ticket: channel, intent, sentiment, priority and SLA clock",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "intake",
+      "tools": [
+        "helpdesk"
+      ]
+    },
+    {
+      "does": "Pull account/order context and retrieve the relevant KB articles and policy",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "retrieve",
+      "tools": [
+        "helpdesk",
+        "kb-search"
+      ]
+    },
+    {
+      "does": "Draft the resolution and propose any action (refund, replacement, account change)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "resolve",
+      "tools": [
+        "kb-search"
+      ]
+    },
+    {
+      "does": "Guardrail check: policy/refund thresholds, PII, and regulated-complaint detection (CFPB/GDPR)",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "compliance",
+      "tools": [
+        "helpdesk"
+      ]
+    },
+    {
+      "does": "The support lead signs refunds, account changes and regulated-complaint responses above threshold",
+      "human": "Designated support team lead",
+      "gate": "gate:support-lead-signoff"
+    },
+    {
+      "does": "Apply the approved action and send the response to the customer",
+      "reversible": false,
+      "blastRadius": "high",
+      "agent": "act",
+      "tools": [
+        "helpdesk",
+        "payment-rails"
+      ]
+    },
+    {
+      "does": "Track CSAT, tag the resolution, and log regulated complaints for audit",
+      "reversible": true,
+      "blastRadius": "low",
+      "agent": "monitor",
+      "tools": [
+        "helpdesk"
+      ]
+    }
+  ],
+  "reviewer": "support-cx-reviewer",
+  "manifest": "docs/autopilot/autopilot.json",
+  "startups": [
+    "Sierra",
+    "Decagon",
+    "Intercom (Fin)",
+    "Gorgias"
+  ]
+}

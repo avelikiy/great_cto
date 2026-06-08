@@ -47,6 +47,7 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 | 🛡️ **[KYC/AML](https://greatcto.systems/autopilots/aml.html)** | Onboards, screens & monitors customers; a BSA Officer signs every SAR | $61B | Diligent AI · Alloy · Sardine |
 | 🪙 **[Crypto compliance](https://greatcto.systems/autopilots/crypto.html)** | Onboards VASPs, screens wallets on-chain & runs Travel Rule; an MLRO signs every SAR & address block | $1.5B | Chainalysis · TRM Labs · Elliptic |
 | 💳 **[Card-dispute & chargeback](https://greatcto.systems/autopilots/disputes.html)** | Intakes disputes, builds the representment & decides provisional credit (Reg E/Z); an analyst signs before money moves | $1B | Chargeflow · Quavo · Galileo |
+| 🎧 **[Customer-support](https://greatcto.systems/autopilots/support.html)** | Resolves tier-1 tickets & drafts the rest; a lead signs refunds, account changes & regulated complaints | $10B+ | Sierra · Decagon · Gorgias |
 | 🔐 **[Managed-SOC](https://greatcto.systems/autopilots/soc.html)** | Triages & investigates every alert 24/7; a SOC analyst signs any containment | $4–6B | 7AI · Dropzone · Prophet Security |
 | ☂️ **[Claims & underwriting](https://greatcto.systems/autopilots/insurance.html)** | Adjudicates claims & prices risk; a licensed adjuster/underwriter signs the call | $36–38B | Shift · Akur8 · Avallon |
 | 🏠 **[Mortgage-underwriting](https://greatcto.systems/autopilots/mortgage.html)** | Processes & underwrites to clear-to-close; a DE underwriter signs | $40B+ | Tidalwave · Zest AI · Blend |
@@ -69,7 +70,7 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 
 **Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
 controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. **17 live connectors run on real data across the 27 verticals** — FHIR, ICD-10
+carries liability. **17 live connectors run on real data across the 28 verticals** — FHIR, ICD-10
 (NLM), NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, a US federal tax engine, plus
 medical-necessity criteria, claims fraud-scoring, mortgage AUS (DU/LPA), OIG/SAM exclusion screening,
 FMCSA carrier-vetting, Reg-F/TCPA outreach guardrails, IOC threat-intel, and FinCEN SAR generation.
