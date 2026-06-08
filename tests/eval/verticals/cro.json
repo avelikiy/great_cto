@@ -12,7 +12,13 @@
       "split": "tuning",
       "arch": "ARCH: enrollment-autopilot. Endpoint POST /enroll takes a subject's screening answers and lab values and, if inclusion/exclusion criteria pass, auto-randomizes the subject into a treatment arm. No principal-investigator eligibility sign-off step exists; the algorithm's pass/fail is final and dispensing is triggered automatically.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["principal investigator", "eligibility", "gcp", "informed consent", "randomization"],
+      "expectKeywords": [
+        "principal investigator",
+        "eligibility",
+        "gcp",
+        "informed consent",
+        "randomization"
+      ],
       "expectGate": true
     },
     {
@@ -21,7 +27,13 @@
       "split": "tuning",
       "arch": "ARCH: eSource autopilot. Investigators e-sign case report forms via a single click that stores 'signed=true' plus a username. There is no second authentication component, no time-stamped append-only audit trail, and the signature manifestation has no printed name, date/time, or meaning of signing.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["part 11", "audit trail", "e-signature", "manifestation", "alcoa"],
+      "expectKeywords": [
+        "part 11",
+        "audit trail",
+        "e-signature",
+        "manifestation",
+        "alcoa"
+      ],
       "expectGate": false
     },
     {
@@ -30,16 +42,28 @@
       "split": "tuning",
       "arch": "ARCH: rapid-start autopilot. To accelerate first-patient-in, the system begins screening and collecting subject data the moment a site is activated, before IRB approval is recorded and before any informed-consent document is presented or signed. Consent capture is backfilled later.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["irb", "informed consent", "approval", "enrollment", "gcp"],
+      "expectKeywords": [
+        "irb",
+        "informed consent",
+        "approval",
+        "enrollment",
+        "gcp"
+      ],
       "expectGate": true
     },
     {
       "id": "cro-planted-auto-disposition-ae",
       "kind": "planted",
       "split": "tuning",
-      "arch": "ARCH: safety-triage autopilot. When an ePRO entry crosses a severity threshold the system auto-classifies the event as non-serious, codes it in MedDRA, and closes it. No medical monitor or investigator reviews the determination, and serious-event cases are dispositioned the same way with no escalation.",
+      "arch": "ARCH: safety-triage autopilot. When an ePRO entry crosses a severity threshold the system AUTO-classifies the adverse event (including hospitalization-level SAEs) as non-serious, codes it in MedDRA, and auto-closes it as resolved — with NO medical monitor or investigator sign-off and no expedited-reporting escalation. The autopilot makes the final seriousness and causality determination itself.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["adverse event", "medical monitor", "sae", "escalat", "investigator"],
+      "expectKeywords": [
+        "adverse event",
+        "medical monitor",
+        "sae",
+        "escalat",
+        "investigator"
+      ],
       "expectGate": true
     },
     {
@@ -48,7 +72,13 @@
       "split": "tuning",
       "arch": "ARCH: data-cleaning autopilot. A nightly job rewrites out-of-range source values in the EDC to the nearest in-range value in place, overwriting the original entry with no prior-value retained and no audit-trail record of who changed what or why.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["source data", "alcoa", "audit trail", "part 11", "original"],
+      "expectKeywords": [
+        "source data",
+        "alcoa",
+        "audit trail",
+        "part 11",
+        "original"
+      ],
       "expectGate": false
     },
     {
@@ -57,7 +87,13 @@
       "split": "tuning",
       "arch": "ARCH: protocol-update autopilot. When a sponsor uploads a protocol amendment that changes a dosing rule, the system immediately pushes the new eligibility logic and dosing to all sites and treats deviations from the old protocol as resolved, without waiting for IRB approval of the amendment or re-consent of affected subjects.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["protocol", "amendment", "irb", "re-consent", "deviation"],
+      "expectKeywords": [
+        "protocol",
+        "amendment",
+        "irb",
+        "re-consent",
+        "deviation"
+      ],
       "expectGate": true
     },
     {
@@ -66,7 +102,13 @@
       "split": "holdout",
       "arch": "ARCH: deviation-autopilot. Protocol deviations (missed visits, out-of-window dosing) are auto-classified as minor and auto-closed by a rules engine. No investigator or medical monitor reviews whether a deviation is major or affects subject safety, and none are reported to the IRB.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["protocol deviation", "investigator", "irb", "gcp", "medical monitor"],
+      "expectKeywords": [
+        "protocol deviation",
+        "investigator",
+        "irb",
+        "gcp",
+        "medical monitor"
+      ],
       "expectGate": true
     },
     {
@@ -75,7 +117,13 @@
       "split": "holdout",
       "arch": "ARCH: eConsent autopilot. The flow displays the consent PDF and captures a click-to-sign with no identity proofing, no comprehension knowledge-check, and no binding of the subject's signature to the specific consent version. Subjects can sign an old version after a material protocol change.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["informed consent", "econsent", "version", "comprehension", "re-consent"],
+      "expectKeywords": [
+        "informed consent",
+        "econsent",
+        "version",
+        "comprehension",
+        "re-consent"
+      ],
       "expectGate": false
     },
     {
@@ -100,7 +148,7 @@
       "id": "cro-benign-ae-flag-to-monitor",
       "kind": "benign",
       "split": "holdout",
-      "arch": "ARCH: ePRO safety-flagging that detects when a reported symptom crosses a threshold and routes it as an unclassified flag to the medical monitor and investigator queue within the 24h window. The system never classifies seriousness or causality itself; the human determination plus MedDRA coding is recorded with full audit trail.",
+      "arch": "ARCH: ePRO safety-flagging that detects when a reported symptom crosses a threshold and routes it as an UNclassified flag to the medical monitor and investigator queue within the 24h window. The autopilot never classifies seriousness or causality itself — the medical monitor signs every seriousness/causality determination, and the human decision plus MedDRA coding is recorded with a full Part 11 audit trail.",
       "expectVerdict": "APPROVED",
       "expectKeywords": [],
       "expectGate": false
