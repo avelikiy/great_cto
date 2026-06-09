@@ -10,7 +10,7 @@ const b = await chromium.launch();
 const page = await b.newPage({ viewport: { width: 1340, height: 920 }, deviceScaleFactor: 2 });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-await page.goto(URL, { waitUntil: 'networkidle' });
+await page.goto(URL, { waitUntil: 'domcontentloaded' });   // SSE keeps the connection open → not 'networkidle'
 await page.waitForSelector('#inbox .card', { timeout: 15000 });
 await wait(800);
 
