@@ -135,6 +135,19 @@
   #cheat.open { display:block; }
   #cheat h3 { margin:0 0 12px; font-size:var(--fs-4); }
   #cheat .krow { display:flex; justify-content:space-between; gap:16px; padding:5px 0; font-size:var(--fs-2); border-bottom:1px solid var(--border-3); }
+  /* signature ceremony + trust (Phase 5) */
+  #toasts { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:40; display:flex; flex-direction:column; gap:8px; align-items:center; }
+  .toast { background:var(--surface); border:1px solid var(--bd); border-radius:var(--r-2); box-shadow:var(--shadow-drawer); padding:10px 14px; font-size:var(--fs-2); color:var(--text); display:flex; gap:10px; align-items:center; max-width:90vw; }
+  .toast.ok { border-color:var(--success-border); } .toast.err { border-color:var(--danger-border); color:var(--danger); }
+  #sign-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; z-index:34; }
+  #sign-bg.open { display:block; }
+  #sign { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:min(520px,94vw); background:var(--surface); border:1px solid var(--bd); border-radius:var(--r-3); box-shadow:var(--shadow-drawer); z-index:35; display:none; padding:22px 24px; }
+  #sign.open { display:block; }
+  #sign h3 { margin:0 0 4px; font-size:var(--fs-4); }
+  #sign .warnbox { border:1px solid var(--warn-border); background:color-mix(in srgb, var(--warn) 10%, transparent); border-radius:var(--r-2); padding:12px 14px; margin:14px 0; font-size:var(--fs-2); }
+  #sign .what { color:var(--text); font-weight:600; }
+  .verified { font-size:var(--fs-1); padding:1px 8px; border-radius:var(--r-pill); border:1px solid var(--success-border); color:var(--accent-text); }
+  .verified.bad { border-color:var(--danger-border); color:var(--danger); }
   @media (prefers-reduced-motion: reduce) { *, [data-sec] { animation:none !important; transition:none !important; } }
   @media (max-width:680px){ main{padding:16px} header{flex-wrap:wrap;gap:8px} .tabs{top:auto;position:static} }
 </style>
@@ -280,6 +293,19 @@
   <input id="palette-input" type="text" placeholder="Type a command… tab · filter · theme · help" aria-label="Command palette" autocomplete="off" oninput="renderPalette()" onkeydown="paletteKey(event)" />
   <div id="palette-list" role="listbox" aria-label="Commands"></div>
 </div>
+<!-- signature ceremony (irreversible-write confirmation) -->
+<div id="sign-bg" onclick="closeSign()"></div>
+<div id="sign" role="alertdialog" aria-modal="true" aria-labelledby="sign-h" aria-describedby="sign-desc">
+  <h3 id="sign-h">⚠ Sign an irreversible action</h3>
+  <div class="mut" id="sign-desc">This executes the moment you confirm and <b>cannot be undone</b>.</div>
+  <div class="warnbox" id="sign-what"></div>
+  <div class="mut">Signed by <b id="sign-by">—</b> · recorded against your name in the tamper-evident audit trail.</div>
+  <div class="row" style="margin-top:18px;justify-content:flex-end">
+    <button class="back" style="border:1px solid var(--bd)" onclick="closeSign()">Cancel</button>
+    <button class="primary" id="sign-confirm">Confirm &amp; run the write</button>
+  </div>
+</div>
+<div id="toasts" aria-hidden="true"></div>
 <!-- ? keyboard cheatsheet -->
 <div id="cheat-bg" onclick="closeCheat()"></div>
 <div id="cheat" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
@@ -532,14 +558,15 @@ function openDrawer(id) {
     ${stepsHtml(r)}
     <h2 style="margin-top:18px">Evidence — what the connectors found</h2>
     <div class="aud">${evidenceHtml(r) || '<span class="mut">no connector signals</span>'}</div>
-    ${r.narrative ? `<h2 style="margin-top:18px">AI-drafted determination</h2><pre style="white-space:pre-wrap;font:12px/1.5 var(--mono),monospace;color:var(--text-3);background:#0d1311;border:1px solid var(--bd);border-radius:8px;padding:12px;margin:0">${esc(r.narrative)}</pre>` : ''}
-    <h2 style="margin-top:18px">Audit trail</h2>
+    ${r.narrative ? `<h2 style="margin-top:18px">AI-drafted determination</h2><pre style="white-space:pre-wrap;font:12px/1.5 var(--mono),monospace;color:var(--text-3);background:var(--surface-2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin:0">${esc(r.narrative)}</pre>` : ''}
+    <h2 style="margin-top:18px">Audit trail <span id="audit-verified" class="verified" style="text-transform:none;letter-spacing:0">…</span></h2>
     <div class="aud">${aud || '<span class="mut">no events</span>'}</div>
     <div class="row" style="margin-top:14px">
       <button class="primary" onclick="exportRun('${r.id}')">⬇ Export audit (JSON)</button>
       <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="replay('${r.vertical}')">⟳ Replay (re-run)</button>
     </div>`;
   openDrawerShell();
+  loadVerified(r.id);   // surface the tamper-evident audit-chain status
 }
 // Drawer focus management (WCAG 2.4.3 focus order, 2.1.2 no keyboard trap escape via Esc).
 let _drawerReturn = null;
@@ -649,7 +676,7 @@ async function loadInbox() {
         <input id="by-${r.id}" aria-label="Your name (the signer)" placeholder="your name (the signer)" style="min-width:180px" />
         <select id="reason-${r.id}" aria-label="Disposition / reason code" title="disposition / reason code">${REASONS.map(x => `<option value="${x}">${x}</option>`).join('')}</select>
         <input id="note-${r.id}" aria-label="Decision note (optional)" placeholder="note (optional)" style="flex:1;min-width:140px" />
-        <button class="primary" onclick="decide('${r.id}','approve')">Approve &amp; run the write</button>
+        <button class="primary" onclick="confirmSign('${r.id}')">Approve &amp; run the write</button>
         <button class="reject" onclick="decide('${r.id}','reject')">Reject</button>
         <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="decide('${r.id}','escalate')">↑ Escalate</button>
         <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="decide('${r.id}','send-back')">↩ Send back</button>
@@ -693,8 +720,8 @@ async function decide(id, action) {
   const note = document.getElementById('note-'+id).value || '';
   const reason = (document.getElementById('reason-'+id) || {}).value || '';
   const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note, reason, ...authBody() }) });
-  if (r.error) { alert(r.error); announce('Error: ' + r.error); }
-  else announce(action === 'approve' ? 'Approved and the write executed.' : action + ' recorded.');
+  if (r.error) { toast(r.error, 'err'); announce('Error: ' + r.error); }
+  else { const m = action === 'approve' ? 'Signed — the irreversible write executed.' : action.replace('-', ' ') + ' recorded.'; toast(m, 'ok'); announce(m); }
   refresh();
 }
 async function loadStats() {
@@ -821,6 +848,47 @@ async function opsBadge() {
 }
 // populate the bulk reason select
 document.getElementById('bulk-reason').innerHTML = REASONS.map(x => `<option>${x}</option>`).join('');
+// ── Toasts (Phase 5 feedback) ──
+function toast(msg, kind) {
+  const wrap = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast' + (kind ? ' ' + kind : '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 320); }, 3600);
+}
+
+// ── Signature ceremony (Phase 5): no irreversible write without seeing what it does ──
+let _signId = null;
+function confirmSign(id) {
+  const r = RUNS[id]; if (!r) return;
+  const by = ((document.getElementById('by-' + id) || {}).value || '').trim();
+  if (!by) { const f = document.getElementById('by-' + id); if (f) f.focus(); toast('Enter your name to sign.', 'err'); announce('Enter your name to sign.'); return; }
+  // the irreversible action that runs on approve = the gated write step
+  const w = (r.steps || []).find((s) => s.status === 'gated') || (r.steps || []).filter((s) => s.blastRadius === 'high').slice(-1)[0];
+  const does = w ? w.does : (r.gateDoes || 'the post-gate write');
+  const blast = w && w.blastRadius ? w.blastRadius : 'high';
+  const conns = w && w.agent ? w.agent : '';
+  _signId = id;
+  document.getElementById('sign-what').innerHTML = `<div class="what">${esc(does)}</div><div class="mut" style="margin-top:6px">Blast radius: <b style="color:var(--warn)">${esc(blast)}</b>${conns ? ' · agent: ' + esc(conns) : ''} · gate <b>${esc(r.pausedAt || '')}</b></div>`;
+  document.getElementById('sign-by').textContent = by;
+  document.getElementById('sign').classList.add('open');
+  document.getElementById('sign-bg').classList.add('open');
+  setTimeout(() => document.getElementById('sign-confirm').focus(), 0);
+}
+function closeSign() { document.getElementById('sign').classList.remove('open'); document.getElementById('sign-bg').classList.remove('open'); _signId = null; }
+document.getElementById('sign-confirm').addEventListener('click', () => { const id = _signId; closeSign(); if (id) decide(id, 'approve'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.getElementById('sign').classList.contains('open')) { e.preventDefault(); closeSign(); } });
+
+// ── Audit-integrity badge (Phase 5 trust): the chain verifies, surfaced ──
+async function loadVerified(id) {
+  const el = document.getElementById('audit-verified'); if (!el) return;
+  try { const v = await api('/api/autopilot/verify?id=' + encodeURIComponent(id));
+    if (v.auditIntact) { el.className = 'verified'; el.textContent = '✓ verified'; el.title = 'Tamper-evident hash-chain intact'; }
+    else { el.className = 'verified bad'; el.textContent = '⚠ tampered'; el.title = 'Audit hash-chain does not verify'; }
+  } catch { el.textContent = ''; }
+}
+
 // ── Keyboard-first (Phase 2): queue cursor + ⌘K palette + cheatsheet ──
 let kbRun = null;                              // the run id the keyboard cursor is on
 const kbCards = () => [...document.querySelectorAll('#inbox .card.gate[data-run]')];
@@ -839,7 +907,7 @@ function kbMove(d) {
 }
 function kbAct(action) {
   if (!kbRun) return;
-  if (action === 'approve') { const f = document.getElementById('by-' + kbRun); if (f && !f.value.trim()) { f.focus(); announce('Enter your name to sign, then press Approve.'); return; } }
+  if (action === 'approve') { confirmSign(kbRun); return; }   // irreversible → through the ceremony
   decide(kbRun, action);
 }
 function kbSigner() { if (!kbRun) return; const f = document.getElementById('by-' + kbRun); if (f) f.focus(); }
