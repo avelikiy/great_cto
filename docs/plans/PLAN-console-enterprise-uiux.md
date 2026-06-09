@@ -46,7 +46,7 @@ system in the single file.
   the tab bar and queue. Sign without touching the mouse.
 - **Acceptance:** a full sign cycle (open → review → sign) is doable keyboard-only; cheatsheet via `?`.
 
-## Phase 3 — Accessibility (WCAG 2.2 AA)
+## Phase 3 — Accessibility (WCAG 2.2 AA) ✅ DONE (axe 0 violations, light+dark)
 - Semantic roles (`role="tablist/tab/tabpanel"`, `aria-selected`, `aria-live` for the inbox badge +
   toasts), labelled controls, `aria-current`, name/role/value on every interactive element.
 - Contrast pass to AA (the muted greys + pills likely fail today); non-color status cues (icon + text).
