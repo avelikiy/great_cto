@@ -54,7 +54,7 @@ system in the single file.
 - `prefers-reduced-motion`, `prefers-color-scheme`, 200% zoom reflow.
 - **Acceptance:** axe-core 0 criticals; keyboard-only + VoiceOver walkthrough of a sign; Lighthouse a11y ≥ 95.
 
-## Phase 4 — Realtime + performance
+## Phase 4 — Realtime + performance ✅ DONE
 - **SSE** (`/api/autopilot/stream`) replaces the 4s full-poll: a new gate / status change / dead-letter
   pushes a delta. Falls back to poll if the stream drops.
 - **Optimistic actions** — sign/escalate/reject update the row instantly with a rollback-on-error +

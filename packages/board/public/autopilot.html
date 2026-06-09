@@ -113,7 +113,7 @@
   .tabs button { background:none; border:0; border-bottom:2px solid transparent; border-radius:0; color:var(--mut); padding:12px 16px; font-weight:600; font-size:13px; white-space:nowrap; }
   .tabs button.on { color:var(--tx); border-bottom-color:var(--grn); }
   .tabs button:hover { color:var(--tx); }
-  .tabs .badge { display:inline-block; min-width:16px; text-align:center; background:var(--amb); color:var(--accent-ink); border-radius:10px; font-size:10px; font-weight:700; padding:0 5px; margin-left:6px; }
+  .tabs .badge { display:inline-block; min-width:16px; text-align:center; background:var(--amb); color:var(--warn-ink); border-radius:10px; font-size:10px; font-weight:700; padding:0 5px; margin-left:6px; }
   [data-sec] { animation: secfade .16s ease; }
   @keyframes secfade { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
   .card.gate:hover, .card.click:hover { border-color:var(--border-2); background:var(--surface-3); }
@@ -148,6 +148,7 @@
   #sign .what { color:var(--text); font-weight:600; }
   .verified { font-size:var(--fs-1); padding:1px 8px; border-radius:var(--r-pill); border:1px solid var(--success-border); color:var(--accent-text); }
   .verified.bad { border-color:var(--danger-border); color:var(--danger); }
+  @keyframes livepulse { 0%{box-shadow:0 0 0 0 var(--accent-strong,rgba(0,217,126,.4))} 70%{box-shadow:0 0 0 6px transparent} 100%{box-shadow:0 0 0 0 transparent} }
   @media (prefers-reduced-motion: reduce) { *, [data-sec] { animation:none !important; transition:none !important; } }
   @media (max-width:680px){ main{padding:16px} header{flex-wrap:wrap;gap:8px} .tabs{top:auto;position:static} }
 </style>
@@ -157,6 +158,7 @@
   <h1>🛂 Autopilot console</h1>
   <span class="seg"><a class="on" href="/autopilot.html">Operate</a><a id="build-link" href="/">Build</a></span>
   <span class="spacer"></span>
+  <span id="live-dot" title="Live — realtime updates" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:livepulse 2s infinite"></span>
   <span id="session-info" class="mut" style="font-size:13px;display:none"></span>
   <span id="role-pick"><span class="mut">I am the</span>
   <select id="role" aria-label="Acting role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select></span>
@@ -659,6 +661,14 @@ const filt = runs => {
   return l;
 };
 
+// ── Render cap (Phase 4 perf): keep big queues smooth; an explicit escape shows all ──
+const RENDER_CAP = 80;
+let _showAll = false;
+function capped(list) { return (_showAll || list.length <= RENDER_CAP) ? list : list.slice(0, RENDER_CAP); }
+function capNote(total) {
+  if (_showAll || total <= RENDER_CAP) return '';
+  return `<div class="empty">Showing ${RENDER_CAP} of ${total} — narrow with a filter, or <a href="#" onclick="_showAll=true;refresh();return false" style="color:var(--accent-text)">show all ${total}</a>.</div>`;
+}
 async function loadInbox() {
   const { runs } = await api(q('awaiting-approval'));
   const el = document.getElementById('inbox');
@@ -666,7 +676,7 @@ async function loadInbox() {
   const badge = document.getElementById('tab-inbox-n');
   if (badge) { badge.textContent = list.length; badge.style.display = list.length ? '' : 'none'; }
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
-  el.innerHTML = list.map(r => `
+  el.innerHTML = capped(list).map(r => `
     <div class="card gate" data-run="${r.id}">
       <div class="row"><input type="checkbox" class="bulk-cb" aria-label="Select case for bulk action" value="${r.id}" onchange="updateBulk()" /><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:var(--warn);border-color:var(--warn-border)">↑ escalated</span>' : ''}${recoHtml(r)}${r.autoEligible ? '<span class="pill ok">auto-eligible</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span class="spacer"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
@@ -681,8 +691,8 @@ async function loadInbox() {
         <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="decide('${r.id}','escalate')">↑ Escalate</button>
         <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="decide('${r.id}','send-back')">↩ Send back</button>
       </div>
-    </div>`).join('');
-  kbPaint();   // re-apply the keyboard cursor after the 4s re-render
+    </div>`).join('') + capNote(list.length);
+  kbPaint();   // re-apply the keyboard cursor after the re-render
 }
 
 async function loadRuns() {
@@ -691,7 +701,7 @@ async function loadRuns() {
   const el = document.getElementById('runs');
   const list = cache(filt(runs));
   if (!list.length) { el.innerHTML = '<div class="empty">No runs match — start one above or clear the filter.</div>'; return; }
-  el.innerHTML = list.map(r => {
+  el.innerHTML = capped(list).map(r => {
     const cls = r.status === 'completed' ? 'done' : r.status === 'rejected' ? 'rej' : 'gate';
     const pill = r.status === 'completed' ? '<span class="pill ok">completed</span>'
       : r.status === 'rejected' ? '<span class="pill rej">rejected</span>'
@@ -703,7 +713,7 @@ async function loadRuns() {
       ${gateProgressHtml(r)}
       ${stepsHtml(r)}
     </div>`;
-  }).join('');
+  }).join('') + capNote(list.length);
 }
 
 async function startRun() {
@@ -719,10 +729,13 @@ async function decide(id, action) {
   const by = (document.getElementById('by-'+id).value || '').trim() || 'board user';
   const note = document.getElementById('note-'+id).value || '';
   const reason = (document.getElementById('reason-'+id) || {}).value || '';
+  // optimistic: the row leaves the inbox immediately (escalate stays a gate, so don't drop it)
+  const card = document.querySelector(`#inbox .card.gate[data-run="${id}"]`);
+  if (card && action !== 'escalate') { card.style.opacity = '.4'; card.style.pointerEvents = 'none'; }
   const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note, reason, ...authBody() }) });
-  if (r.error) { toast(r.error, 'err'); announce('Error: ' + r.error); }
+  if (r.error) { toast(r.error, 'err'); announce('Error: ' + r.error); if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; } }
   else { const m = action === 'approve' ? 'Signed — the irreversible write executed.' : action.replace('-', ' ') + ' recorded.'; toast(m, 'ok'); announce(m); }
-  refresh();
+  refresh();   // SSE will also fire; this is the immediate local confirm
 }
 async function loadStats() {
   const p = new URLSearchParams();
@@ -977,7 +990,18 @@ document.addEventListener('keydown', (e) => {
 });
 
 initRoles().then(refresh);
-setInterval(refresh, 4000);
+
+// ── Realtime (Phase 4): SSE-driven refresh, with a slow poll as a safety net ──
+let _refreshT = null;
+function scheduleRefresh() { clearTimeout(_refreshT); _refreshT = setTimeout(refresh, 120); }
+(function connectStream() {
+  let es;
+  try { es = new EventSource('/api/autopilot/stream'); } catch { setInterval(refresh, 8000); return; }
+  es.addEventListener('change', scheduleRefresh);
+  es.onerror = () => { /* EventSource auto-reconnects via the server's retry hint */ };
+  document.getElementById('live-dot') && (document.getElementById('live-dot').style.display = '');
+})();
+setInterval(refresh, 15000);   // fallback: catches anything a dropped stream missed
 
 // ── Browser push: get a notification when a case lands in your queue ──
 (function () {
