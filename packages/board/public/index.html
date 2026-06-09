@@ -1,6 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
+<script>
+  /* set theme before paint (no FOUC) — matches the operator console */
+  (function () {
+    var t; try { t = localStorage.getItem('gcto_board_theme'); } catch (e) {}
+    if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+  })();
+  function toggleBoardTheme() {
+    var r = document.documentElement, t = r.dataset.theme === 'light' ? 'dark' : 'light';
+    r.dataset.theme = t; try { localStorage.setItem('gcto_board_theme', t); } catch (e) {}
+    var b = document.getElementById('board-theme-btn'); if (b) b.textContent = t === 'light' ? '☀️' : '🌙';
+  }
+  addEventListener('DOMContentLoaded', function () {
+    var b = document.getElementById('board-theme-btn'); if (b) b.textContent = document.documentElement.dataset.theme === 'light' ? '☀️' : '🌙';
+  });
+</script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="dark" />
@@ -32,7 +48,7 @@ try{ if(localStorage.getItem('gcto_invite')) location.replace('/autopilot.html')
 
   --text:  #ecf2ee;
   --text2: #8a9a92;
-  --text3: #4f5d57;
+  --text3: #8b958c;
 
   --accent: #00d97e;
   --accent-2: #34e69b;
@@ -58,6 +74,45 @@ try{ if(localStorage.getItem('gcto_invite')) location.replace('/autopilot.html')
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30);
   --shadow-card-hover: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 217, 126, 0.06);
+  --accent-text: #00d97e;   /* contrast-safe accent for TEXT (bright on dark) */
+  --surface-translucent: rgba(17, 22, 26, 0.7);   /* translucent card surface (themable) */
+}
+/* Light theme — same emerald system, AA-contrast on white. Toggle via data-theme. */
+[data-theme="light"] {
+  --bg-page: #eef2f0;
+  --bg-panel: rgba(255, 255, 255, 0.9);
+  --bg-card: #ffffff;
+  --bg-muted: #f0f3f1;
+  --bg-strong: #e2e8e4;
+  --bg-elevated: #ffffff;
+  --border: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --text:  #0d1a14;
+  --text2: #56655e;
+  --text3: #55625b;
+  --accent: #00d97e;
+  --accent-2: #0a7d4d;
+  --accent-soft: rgba(0, 217, 126, 0.12);
+  --accent-strong: rgba(0, 168, 98, 0.20);
+  --accent-text: #0a7d4d;
+  --status-backlog: #6b7280;
+  --status-todo: #6b7280;
+  --status-progress: #b45309;
+  --status-review: #0a7d4d;
+  --status-done: #0a7d4d;
+  --status-blocked: #c43030;
+  --status-gate: #7c3aed;
+  --p0-bg: rgba(196, 48, 48, 0.12);   --p0-fg: #b91c1c;
+  --p1-bg: rgba(180, 83, 9, 0.12);    --p1-fg: #b45309;
+  --p2-bg: rgba(146, 102, 10, 0.12);  --p2-fg: #92660a;
+  --p3-bg: rgba(0, 0, 0, 0.05);       --p3-fg: #5c6b65;
+  --surface-drawer: #ffffff;
+  --surface-translucent: rgba(255, 255, 255, 0.72);
+  --rail-ok-bg: rgba(10, 125, 77, 0.12);
+  --rail-fail-bg: rgba(196, 48, 48, 0.12);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 1px 3px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 168, 98, 0.08);
+  --drawer-shadow: 0 16px 32px rgba(0, 0, 0, 0.18);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
@@ -289,7 +344,7 @@ button { font-family: inherit; cursor: pointer; }
 .btn-bell:hover { border-color: var(--border-strong); color: var(--text); }
 .btn-bell-badge {
   position: absolute; top: -5px; right: -5px;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: #04140d;
   font-size: 10px; font-weight: 700; line-height: 1;
   min-width: 16px; height: 16px; border-radius: 8px;
   display: none; align-items: center; justify-content: center;
@@ -345,7 +400,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .column {
   flex: 0 0 264px;
-  background: rgba(17, 22, 26, 0.7);
+  background: var(--surface-translucent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
@@ -829,7 +884,7 @@ button { font-family: inherit; cursor: pointer; }
   height: 100%;
 }
 .memory-side {
-  background: rgba(17, 22, 26, 0.7);
+  background: var(--surface-translucent);
   backdrop-filter: blur(12px);
   border-right: 1px solid var(--border);
   padding: 18px 14px;
@@ -883,7 +938,7 @@ button { font-family: inherit; cursor: pointer; }
 .memory-content {
   overflow-y: auto;
   padding: 28px 32px;
-  background: rgba(17, 22, 26, 0.85);
+  background: var(--bg-panel);
   backdrop-filter: blur(8px);
 }
 .memory-doc {
@@ -956,7 +1011,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; gap: 0;
   align-items: stretch;
   padding: 14px 16px;
-  background: rgba(17, 22, 26, 0.7);
+  background: var(--surface-translucent);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow-x: auto;
@@ -1136,7 +1191,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 10px; margin-bottom: 28px;
 }
 .inbox-summary .pill-stat {
-  background: rgba(17, 22, 26, 0.7);
+  background: var(--surface-translucent);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1159,7 +1214,7 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Resume card ──────────────────────────────────────────────────────── */
 .resume-card {
-  background: linear-gradient(135deg, rgba(0, 217, 126, 0.04), rgba(17, 22, 26, 0.7));
+  background: linear-gradient(135deg, rgba(0, 217, 126, 0.04), var(--surface-translucent));
   border: 1px solid rgba(0, 217, 126, 0.18);
   border-radius: 12px;
   padding: 18px 20px;
@@ -2096,8 +2151,9 @@ button { font-family: inherit; cursor: pointer; }
         <kbd>⌘K</kbd>
       </div>
       <div class="topbar-actions">
-        <a href="/autopilot.html" title="Switch to Operate — the autopilot work-queue where the licensed human signs cases" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;margin-right:6px;border:1px solid #1f2a26;border-radius:8px;color:#8aa;text-decoration:none;font-size:12px;font-weight:600">🛂 Operate ↗</a>
+        <a href="/autopilot.html" title="Switch to Operate — the autopilot work-queue where the licensed human signs cases" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;margin-right:6px;border:1px solid var(--border-strong);border-radius:8px;color:var(--text2);text-decoration:none;font-size:12px;font-weight:600">🛂 Operate ↗</a>
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
+        <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
         <button class="btn-bell" id="topbar-bell" onclick="openNotifDrawer()" title="Notifications">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
           <span class="btn-bell-badge" id="topbar-bell-badge"></span>
@@ -5184,7 +5240,7 @@ if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}
     <button onclick="closeNotifDrawer()" style="background:none;border:none;cursor:pointer;
       color:var(--text3);font-size:22px;line-height:1;padding:0 4px;margin-left:4px">&times;</button>
   </div>
-  <div id="notif-drawer-list" style="flex:1;overflow-y:auto"></div>
+  <div id="notif-drawer-list" tabindex="0" role="region" aria-label="Notifications list" style="flex:1;overflow-y:auto"></div>
   <div id="notif-drawer-empty" style="display:flex;flex:1;align-items:center;
     justify-content:center;flex-direction:column;gap:8px;color:var(--text3);font-size:13px">
     <span style="font-size:36px">🔔</span>No notifications yet
