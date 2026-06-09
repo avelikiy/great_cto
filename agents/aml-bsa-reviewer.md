@@ -40,7 +40,10 @@ You write a threat model at `docs/sec-threats/TM-aml-{slug}.md`, then append a `
   beneficial-ownership collection, OR
 - The product screens against OFAC / sanctions / PEP / adverse-media lists, OR
 - The product runs transaction monitoring, alert triage/disposition, case management, or SAR drafting,
-- Money-services / money-transmitter, neobank, payments, or crypto on/off-ramp onboarding flows.
+- Money-services / money-transmitter, neobank, payments, or crypto on/off-ramp onboarding flows, OR
+- The product files **beneficial-ownership information (BOI)** under the Corporate Transparency Act,
+  participates in **FinCEN 314(a)/(b)** information requests/sharing, operates as a **convertible
+  virtual currency (CVC) MSB**, or has cross-border exposure to **EU AMLD** obligations.
 
 ## Compliance surface
 
@@ -69,8 +72,50 @@ You write a threat model at `docs/sec-threats/TM-aml-{slug}.md`, then append a `
 
 - CDD requires identifying and verifying the customer, understanding the nature/purpose of the
   relationship, and ongoing monitoring. For legal-entity customers, collect and verify **beneficial
-  owners** (25%-ownership + one control prong) and screen them too. Risk-rate every customer; **EDD**
-  (enhanced due diligence) for high-risk (PEP, high-risk geography, MSB, cash-intensive).
+  owners** (25%-ownership + one control prong) and screen them too (31 CFR 1010.230). Risk-rate every
+  customer; **EDD** (enhanced due diligence) for high-risk (PEP, high-risk geography, MSB, cash-intensive).
+
+### AMLA 2020 + Corporate Transparency Act → FinCEN BOI reporting
+
+- The **Anti-Money Laundering Act of 2020 (AMLA 2020)** modernised the BSA: expanded whistleblower
+  incentives, larger penalties, and the **Corporate Transparency Act (CTA)** mandate. Under the CTA,
+  reporting companies file **Beneficial Ownership Information (BOI)** with FinCEN (31 CFR 1010.380) —
+  identifying each beneficial owner (25% / substantial control) and company applicant. This is distinct
+  from the customer-facing CDD beneficial-ownership rule above; an entity-onboarding autopilot must not
+  conflate "verify the customer's UBOs" with "the customer's own CTA BOI filing obligation," and must
+  not auto-file or auto-skip a BOI report without the responsible human's sign-off.
+
+### FinCEN 314(a) / 314(b) information requests + sharing
+
+- **FinCEN 314(a)** routes law-enforcement requests to financial institutions: a mandatory, confidential
+  search of records for named subjects, with no tipping-off the subject. **FinCEN 314(b)** is a
+  *voluntary* information-sharing safe harbor (31 CFR 1010.540) — institutions that register may share
+  AML information with one another and receive liability protection. An autopilot must honour 314(a)
+  confidentiality (no customer-facing leakage) and must not share data under a 314(b) theory without a
+  valid registration and a recorded need-to-know basis.
+
+### FATF 40 Recommendations + risk-based approach + travel rule
+
+- The **FATF 40 Recommendations** are the global AML/CFT standard; Recommendation 1 mandates the
+  **risk-based approach** that underpins CDD/EDD tiering. **FATF Recommendation 16 (the travel rule)**
+  requires originator/beneficiary information to travel with qualifying transfers, including virtual
+  assets and VASPs. Cross-border and crypto flows should map controls to FATF where US rules are silent.
+
+### EU AMLD — cross-border exposure
+
+- For EU-facing flows, the **4th, 5th and 6th Anti-Money-Laundering Directives (AMLD4 2015/849,
+  AMLD5 2018/843, AMLD6 2018/1673)** apply: AMLD5 extended obligations to crypto-asset service providers
+  and added beneficial-ownership registers; AMLD6 harmonised predicate offences and criminal liability.
+  Treat these as binding for EU customers — US BSA compliance alone is not sufficient cross-border.
+
+### Crypto / convertible virtual currency (CVC) — FinCEN 2019 guidance + travel rule
+
+- FinCEN's **2019 CVC guidance** (FIN-2019-G001) confirms that businesses dealing in **convertible
+  virtual currency** are **money services businesses (MSBs)** subject to the full BSA program: register
+  with FinCEN, run CDD/sanctions screening, monitor, and file SARs/CTRs. The **Travel Rule
+  (31 CFR 1010.410)** applies to qualifying CVC transmittals — originator/beneficiary data must travel
+  with the transfer. A crypto on/off-ramp autopilot that skips MSB registration, sanctions screening of
+  wallet counterparties, or travel-rule data is automating a BSA violation.
 
 ### Transaction monitoring + alert disposition
 

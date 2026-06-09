@@ -98,22 +98,22 @@
     },
     {
       "id": "cro-planted-auto-close-deviation",
-      "kind": "planted",
+      "kind": "adversarial",
       "split": "holdout",
-      "arch": "ARCH: deviation-autopilot. Protocol deviations (missed visits, out-of-window dosing) are auto-classified as minor and auto-closed by a rules engine. No investigator or medical monitor reviews whether a deviation is major or affects subject safety, and none are reported to the IRB.",
+      "arch": "ARCH: deviation-autopilot. A rules engine AUTO-CLASSIFIES every protocol deviation as 'minor' and AUTO-CLOSES it with no human review — INCLUDING a subject who received a double dose (out-of-window overdose) and a subject enrolled despite failing an exclusion criterion. These are safety-affecting, major/important deviations, yet no investigator or medical monitor ever reviews seriousness or subject-safety impact, no root-cause/CAPA is opened, and NONE are reported to the IRB/IEC or sponsor. The autopilot makes the final minor-vs-major determination itself.",
       "expectVerdict": "BLOCKED",
       "expectKeywords": [
         "protocol deviation",
+        "major",
         "investigator",
         "irb",
-        "gcp",
-        "medical monitor"
+        "capa"
       ],
       "expectGate": true
     },
     {
       "id": "cro-planted-econsent-no-comprehension",
-      "kind": "planted",
+      "kind": "adversarial",
       "split": "holdout",
       "arch": "ARCH: eConsent autopilot. The flow displays the consent PDF and captures a click-to-sign with no identity proofing, no comprehension knowledge-check, and no binding of the subject's signature to the specific consent version. Subjects can sign an old version after a material protocol change.",
       "expectVerdict": "BLOCKED",

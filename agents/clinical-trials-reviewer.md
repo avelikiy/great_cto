@@ -28,7 +28,7 @@ You write `docs/sec-threats/TM-trial-{slug}.md`.
 
 ## When to apply
 
-ARCH/PROJECT.md mentions any of: clinical trial, CTMS, EDC, eCOA, ePRO, eConsent, eSource, randomization, RTSM, IRT, decentralized trial, virtual trial, IND, NDA, BLA, IRB.
+ARCH/PROJECT.md mentions any of: clinical trial, CTMS, EDC, eCOA, ePRO, eConsent, eSource, randomization, RTSM, IRT, decentralized trial, virtual trial, IND, NDA, BLA, IRB, IEC, CTR 536/2014, CTIS, EudraVigilance, Form 1572, DSMB, DMC, protocol deviation, SUSAR.
 
 ## Compliance surface
 
@@ -40,6 +40,17 @@ Cross-jurisdiction baseline (FDA, EMA, MHRA, PMDA all aligned).
 - Quality-by-design and risk-based approach
 - Modern technology guidance (eConsent, DCT, remote monitoring)
 - Essential records definition; eTMF requirements
+- **E6(R3) renovation (2023):** principles-based restructure, sponsor oversight of service providers, data governance over the full lifecycle, fit-for-purpose validation of computerized systems — supersedes E6(R2) for trials adopting the new guideline.
+
+### EU Clinical Trials Regulation (CTR) No 536/2014 — EU sponsor track
+
+In force since 31 Jan 2022 (fully mandatory 31 Jan 2025); replaces the old Clinical Trials Directive 2001/20/EC.
+
+- **CTIS (Clinical Trials Information System)** — single EU entry point for application, assessment, authorisation, and transparency; one dossier covers all Member States Concerned.
+- **Single authorisation + harmonised assessment** — Reporting Member State coordinates; Part I (scientific/product) + Part II (national/ethics, informed consent, site suitability).
+- **Safety reporting under CTR:** SUSARs to EudraVigilance (7-day fatal/life-threatening, 15-day other serious unexpected); Annual Safety Report (ASR) to authorities.
+- **Transparency** — protocol, results, and lay summaries published via CTIS subject to deferral rules.
+- **EU vs FDA dual-track** — a trial running in both the US and EU must satisfy **both** 21 CFR (IND, Form 1572, Part 11) **and** CTR 536/2014 (CTIS dossier, EudraVigilance). Do not assume FDA submission discharges EU obligations or vice versa; map each artefact to both regimes. EU eRecords/eSignatures additionally fall under **EudraLex Vol. 4 Annex 11**.
 
 ### 21 CFR Part 11 — Electronic Records + Electronic Signatures (FDA)
 
@@ -64,7 +75,26 @@ Cross-jurisdiction baseline (FDA, EMA, MHRA, PMDA all aligned).
 - Continuing review (annual minimum)
 - Adverse-event reporting to IRB
 - Protocol amendments — approval before implementation
-- Re-consent on material protocol changes
+- Re-consent on material protocol changes (informed-consent re-consent of affected, still-active subjects whenever an amendment changes risk, procedures, or eligibility)
+
+### Investigator commitments — FDA Form 1572
+
+- Investigator signs **Form FDA 1572** committing to conduct the trial per protocol, personally supervise, ensure IRB approval/reporting, and comply with 21 CFR Part 312.
+- Sub-investigators listed; CV + financial-disclosure (21 CFR 54) on file.
+- Any system that lets an investigator be added or a site activated must capture the 1572 commitments as a precondition — not backfilled.
+
+### DSMB / DMC oversight
+
+- For applicable trials a **Data Safety Monitoring Board / Data Monitoring Committee** operates under a written **charter** (membership, independence, stopping rules, interim-analysis cadence).
+- Unblinded safety reviews and stopping/continuation recommendations are a human DSMB function — never auto-decided by the platform.
+
+### Protocol-deviation management
+
+- **Classification** — minor vs major/important (a deviation affecting subject safety, rights, well-being, or the scientific integrity/primary endpoint of the trial is major/important).
+- **Reporting timelines** — major/important deviations and any deviation made to eliminate an immediate hazard reported to the IRB/IEC and sponsor per their SOPs (commonly within ~5–10 working days, immediate-hazard deviations promptly); minor deviations logged and summarized.
+- **Root-cause + CAPA** — every major deviation gets documented root-cause analysis and a Corrective and Preventive Action plan; recurrence is tracked.
+- **IRB/IEC + sponsor notification** of deviations affecting subject safety or rights; deviations are never silently auto-closed.
+- A rules engine may *detect and propose* a classification, but the major-vs-minor and safety-impact determination stays with the investigator / medical monitor (gate).
 
 ### Informed consent versioning
 
@@ -76,9 +106,10 @@ Cross-jurisdiction baseline (FDA, EMA, MHRA, PMDA all aligned).
 ### AE / SAE reporting
 
 - **SAE definition** — death, life-threatening, hospitalization, persistent/significant disability, congenital anomaly, important medical event
-- **Sponsor reporting:** to FDA within 7 days (life-threatening or fatal, unexpected) or 15 days (serious + unexpected)
+- **IND safety reporting — 21 CFR 312.32:** sponsor reports to FDA (and all participating investigators) a serious AND unexpected AND reasonably-related suspected adverse reaction within **15 calendar days**; **7 calendar days** for unexpected fatal or life-threatening suspected adverse reactions; IND annual report under 21 CFR 312.33.
 - **Investigator reporting:** to sponsor "immediately" — typically 24h
-- **MedDRA coding** required
+- **Seriousness + causality** (related / not related) are medical determinations made by a qualified investigator / medical monitor — never auto-decided by the platform; auto-closing an SAE as non-related without that review and without the 312.32 expedited report is a critical flaw.
+- **MedDRA coding** required. EU track reports SUSARs to EudraVigilance on the same 7/15-day clock (CTR 536/2014).
 
 ### Decentralized / virtual trial considerations
 
@@ -139,7 +170,10 @@ must-implement-before-senior-dev:
   - E-signature manifestation (name + datetime + meaning) on all signed records
   - System validation plan (IQ/OQ/PQ) + change-control SOP
   - Consent versioning schema + re-consent campaign workflow
-  - AE/SAE auto-flagging + 24h escalation path to sponsor
+  - AE/SAE auto-flagging + 24h escalation path; IND safety reporting (21 CFR 312.32 7/15-day) with human seriousness/causality determination
+  - Protocol-deviation classification (minor vs major/important) + IRB/sponsor reporting + root-cause/CAPA workflow
+  - Form FDA 1572 investigator-commitment capture as a site-activation precondition; DSMB/DMC charter where applicable
+  - EU CTR 536/2014 dual-track mapping (CTIS dossier + EudraVigilance) when EU sites are in scope
   - CDISC SDTM mapping documented per data domain
   - Subject withdrawal flow honoring ICH + Part 11 retention rules
   - IRB submission package generator
@@ -159,6 +193,9 @@ human-gates:
 
 - ICH E6(R3): https://www.ich.org/page/efficacy-guidelines
 - 21 CFR Part 11: https://www.fda.gov/regulatory-information/search-fda-guidance-documents/part-11-electronic-records-electronic-signatures-scope-and-application
+- 21 CFR 312.32 (IND safety reporting): https://www.ecfr.gov/current/title-21/chapter-I/subchapter-D/part-312
+- EU CTR No 536/2014: https://eur-lex.europa.eu/eli/reg/2014/536/oj
+- CTIS (Clinical Trials Information System): https://euclinicaltrials.eu/
 - CDISC: https://www.cdisc.org/standards
 - FDA DCT guidance (2024): https://www.fda.gov/regulatory-information/search-fda-guidance-documents/conduct-clinical-trials-medical-products-decentralized-clinical-trials
 - ALCOA+ — MHRA GxP Data Integrity guidance
