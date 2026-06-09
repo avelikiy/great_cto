@@ -188,7 +188,7 @@
   <div id="start-box" data-sec="admin">
   <h2>Start a run</h2>
   <div class="row">
-    <select id="vertical">
+    <select id="vertical" aria-label="Vertical to start a run for">
       <option value="rcm">🩺 Medical coding (rcm)</option>
       <option value="aml">🛡️ KYC/AML (aml)</option>
       <option value="soc">🔐 Managed-SOC (soc)</option>
@@ -263,7 +263,7 @@
   <div id="team-box" data-sec="admin" style="display:none">
     <h2>Team — invite an operator to an industry</h2>
     <div class="row">
-      <select id="op-role" style="min-width:240px"></select>
+      <select id="op-role" aria-label="Operator role to invite" style="min-width:240px"></select>
       <input id="op-tenant" placeholder="tenant (default)" style="max-width:150px" />
       <input id="op-name" placeholder="operator name" style="max-width:160px" />
       <input id="op-email" placeholder="operator email (optional — to send)" style="max-width:230px" />
