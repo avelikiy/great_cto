@@ -11,6 +11,54 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.63.0 — 2026-06-09
+
+### Enterprise operator console (UI/UX P1–P7) + board theming + quality uplift
+
+A full enterprise-grade pass on the operator console (`/autopilot.html`), the same theming/a11y
+treatment for the main dev board, a behavioural quality uplift on three verticals, and a permanent
+safety-invariant e2e guard. Implements `docs/plans/PLAN-console-enterprise-uiux.md` end to end.
+
+**Operator console — all 7 phases:**
+- **P1 · Design system** — a full semantic token set (legacy names aliased, zero breakage), **light/dark**
+  (`data-theme` + `prefers-color-scheme` + persist), a **white-label seam** (`--brand-accent`), a
+  **density** toggle, and `:focus-visible` rings.
+- **P3 · Accessibility (WCAG 2.2 AA)** — tablist semantics + arrow-key nav, dialog focus-trap + Esc,
+  `aria-live` badges + an SR status region, labelled controls, `prefers-reduced-motion`. **axe-core: 0
+  violations across all tabs in both themes.**
+- **P2 · Keyboard-first** — ⌘K **command palette**, queue cursor (`j/k`, `Enter`, `a/r/e/b`, `s`),
+  `?` cheatsheet, `/` search.
+- **P5 · Signature ceremony** — signing an irreversible write opens an alertdialog that names exactly
+  what will execute (gated step + blast radius + gate) and requires explicit confirm; **audit
+  "✓ verified"** badge; toast feedback.
+- **P4 · Realtime + performance** — **SSE** (`/api/autopilot/stream` + `fs.watch`) pushes a change the
+  instant any run mutates (console / CLI / webhook); optimistic decisions; a render cap (80) with a
+  show-all escape keeps 500+ queues smooth; the blind 4s poll became a 15s safety net.
+- **P6 · Productivity** — smart-queue saved views (All · Auto-eligible · Escalated · SLA at-risk · High
+  blast), SLA-aware sort, bulk preview, Cases sort + **CSV export**.
+- **P7 · Enterprise admin** — per-tenant **white-label** (brand accent + name, applied for everyone on
+  the tenant) and an **impersonation banner** when acting via an invite token.
+
+**Main dev board** — the same emerald token system gains a **light theme + toggle**; tokenized the
+hardcoded translucent surfaces; fixed pre-existing contrast + a focusable scroll region → **axe-core 0
+in both themes**.
+
+**Quality uplift** — enriched the `cro` / `aml` / `insurance` reviewers + packs with the judge-flagged
+missing regimes (EU CTR 536/2014; AMLA 2020 / CTA-BOI / 314(b) / FATF / EU AMLD / FinCEN CVC; NAIC
+#900/#670 + guaranty funds / ORSA / surplus-lines, and a fix to a hallucinated NAIC #672) → all pass
+median×3 `--ci 90` with coverage at 85%.
+
+**Reliability** — a durable-runtime **e2e test across all 25 verticals** (start → gate → sign → write,
+safety-invariant guard, auto-covers new verticals); the **pre-push hook** can no longer hang a push
+(skip-flag short-circuit + hard timeout, warn-only). Lib suite **348/348**.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.62.0 — 2026-06-08
 
 ### Three more service-autopilot verticals — workers-comp · estate · patent (22 → 25)
