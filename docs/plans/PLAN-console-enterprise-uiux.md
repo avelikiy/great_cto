@@ -73,7 +73,7 @@ system in the single file.
   write (correctly final).
 - **Acceptance:** an operator can't sign an irreversible action without seeing what it does; audit "verified" surfaced.
 
-## Phase 6 — Operator productivity
+## Phase 6 — Operator productivity ✅ DONE
 - **Saved views / smart queues** — "My SLA-breaching", "Auto-eligible", "Escalated to me", "High blast",
   persisted; URL-addressable.
 - **Bulk with preview** — select → see a summary ("12 cases · 3 verticals · all auto-eligible") → one
