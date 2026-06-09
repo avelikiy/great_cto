@@ -65,6 +65,10 @@
   .iconbtn { background:none; border:1px solid var(--bd); color:var(--mut); border-radius:var(--r-1); padding:6px 9px; line-height:1; cursor:pointer; font-size:14px; }
   .iconbtn:hover { color:var(--tx); border-color:var(--border-2); }
   .spacer { flex:1; }
+  .chip { background:var(--surface-2); border:1px solid var(--bd); color:var(--text-2); border-radius:var(--r-pill); padding:4px 12px; font-size:var(--fs-2); cursor:pointer; }
+  .chip:hover { color:var(--tx); border-color:var(--border-2); }
+  .chip.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-text); font-weight:600; }
+  .card.gate.at-risk { border-left-color:var(--warn); }
   button.back { background:none; border:0; cursor:pointer; }
   h2 { font-size:var(--fs-2); text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:var(--sp-6) 0 var(--sp-3); }
   .card { background:var(--card); border:1px solid var(--bd); border-radius:var(--r-3); padding:var(--sp-4); margin-bottom:var(--sp-3); }
@@ -259,6 +263,15 @@
 
   <div id="inbox-box" data-sec="inbox">
   <h2 id="inbox-h">Inbox — awaiting a human signature</h2>
+  <div class="row" id="views" role="group" aria-label="Saved views" style="margin-bottom:8px">
+    <button class="chip on" data-view="all" onclick="setView('all')">All</button>
+    <button class="chip" data-view="auto" onclick="setView('auto')">Auto-eligible</button>
+    <button class="chip" data-view="escalated" onclick="setView('escalated')">Escalated to me</button>
+    <button class="chip" data-view="at-risk" onclick="setView('at-risk')">SLA at-risk</button>
+    <button class="chip" data-view="high" onclick="setView('high')">High blast</button>
+    <span class="spacer"></span>
+    <label class="mut" style="font-size:12px">sort <select id="sort" aria-label="Sort the queue" onchange="refresh()" style="padding:4px 8px;font-size:12px"><option value="oldest">oldest waiting</option><option value="deadline">closest deadline</option></select></label>
+  </div>
   <div class="filters">
     <span class="mut">filter:</span>
     <input id="f-tenant" aria-label="Filter by tenant" placeholder="tenant (all)" style="max-width:140px" oninput="refresh()" />
@@ -274,7 +287,7 @@
     <input id="f-search" aria-label="Search by id or vertical" placeholder="🔍 search id / vertical" style="max-width:180px" oninput="refresh()" />
   </div>
   <div class="row" style="margin:4px 0"><button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="selectAuto()">☑ select auto-eligible</button>
-    <span id="bulk-bar" style="display:none"><b id="bulk-n">0</b> selected · reason <select id="bulk-reason">${''}</select>
+    <span id="bulk-bar" style="display:none"><b id="bulk-n">0</b> selected<span id="bulk-summary" class="mut" style="font-size:12px"></span> · reason <select id="bulk-reason" aria-label="Bulk reason code">${''}</select>
     <button class="primary" onclick="bulkDo('approve')">Approve selected</button>
     <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="bulkDo('escalate')">Escalate</button>
     <button class="reject" onclick="bulkDo('reject')">Reject</button></span>
@@ -284,6 +297,11 @@
 
   <div id="cases-box" data-sec="cases">
   <h2 id="runs-h">All runs</h2>
+  <div class="row" style="margin-bottom:8px">
+    <label class="mut" style="font-size:12px">sort <select id="cases-sort" aria-label="Sort cases" onchange="loadRuns()" style="padding:4px 8px;font-size:12px"><option value="recent">most recent</option><option value="vertical">by industry</option><option value="status">by status</option></select></label>
+    <span class="spacer"></span>
+    <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="exportCasesCsv()">⬇ Export CSV</button>
+  </div>
   <div id="runs"></div>
   </div>
 </main>
@@ -492,6 +510,8 @@ function switchTab(t) {
   if (t === 'qa') loadQa();
   if (t === 'ops') loadOps();
   if (t === 'analytics') loadStats();
+  if (t === 'cases') loadRuns();          // load the active tab immediately (don't wait for the poll)
+  if (t === 'inbox') loadInbox();
 }
 function applyRoleUI() {
   const r = ROLES[role()] || { verticals: '*', canBuild: true, canStart: true };
@@ -661,6 +681,35 @@ const filt = runs => {
   return l;
 };
 
+// ── Smart queues / saved views (Phase 6) — inbox only; persisted + URL-addressable ──
+let VIEW = 'all';
+function slaRisk(r) { if (r.status !== 'awaiting-approval' || !r.dueAt) return false; const left = (new Date(r.dueAt).getTime() - Date.now()) / 60000; return left <= (r.slaHours || 168) * 60 * 0.25; }
+function isHighBlast(r) { return (r.steps || []).some(s => s.blastRadius === 'high' && (s.status === 'gated' || s.status === 'awaiting-human')); }
+function viewFilter(runs) {
+  if (VIEW === 'auto') return runs.filter(r => r.autoEligible);
+  if (VIEW === 'escalated') return runs.filter(r => r.escalated);
+  if (VIEW === 'at-risk') return runs.filter(slaRisk);
+  if (VIEW === 'high') return runs.filter(isHighBlast);
+  return runs;
+}
+function setView(v) {
+  VIEW = v;
+  for (const c of document.querySelectorAll('#views .chip')) { const on = c.dataset.view === v; c.classList.toggle('on', on); c.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+  try { localStorage.setItem('gcto_view', v); } catch {}
+  location.hash = v === 'all' ? '' : 'view=' + v;
+  refresh();
+}
+function sortInbox(list) {
+  const s = (document.getElementById('sort') || {}).value || 'oldest';
+  if (s === 'deadline') return list.sort((a, b) => new Date(a.dueAt || 8.64e15).getTime() - new Date(b.dueAt || 8.64e15).getTime());
+  return list.sort((a, b) => ageMin(b.createdAt) - ageMin(a.createdAt));
+}
+(function initView() {
+  let v; const h = (location.hash.match(/view=([a-z-]+)/) || [])[1];
+  try { v = h || localStorage.getItem('gcto_view'); } catch {}
+  if (v && v !== 'all' && document.querySelector(`#views .chip[data-view="${v}"]`)) setTimeout(() => setView(v), 0);
+})();
+
 // ── Render cap (Phase 4 perf): keep big queues smooth; an explicit escape shows all ──
 const RENDER_CAP = 80;
 let _showAll = false;
@@ -672,12 +721,13 @@ function capNote(total) {
 async function loadInbox() {
   const { runs } = await api(q('awaiting-approval'));
   const el = document.getElementById('inbox');
-  const list = cache(filt(runs)).sort((a,b) => ageMin(b.createdAt) - ageMin(a.createdAt)); // oldest-waiting first
+  const all = cache(filt(runs));                       // full awaiting set (drives the badge)
+  const list = sortInbox(viewFilter(all));             // saved view + chosen sort
   const badge = document.getElementById('tab-inbox-n');
-  if (badge) { badge.textContent = list.length; badge.style.display = list.length ? '' : 'none'; }
-  if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
+  if (badge) { badge.textContent = all.length; badge.style.display = all.length ? '' : 'none'; }
+  if (!list.length) { el.innerHTML = `<div class="empty">${all.length ? 'No cases in this view — try “All”.' : 'Inbox empty — no cases awaiting your signature.'}</div>`; return; }
   el.innerHTML = capped(list).map(r => `
-    <div class="card gate" data-run="${r.id}">
+    <div class="card gate${slaRisk(r) ? ' at-risk' : ''}" data-run="${r.id}">
       <div class="row"><input type="checkbox" class="bulk-cb" aria-label="Select case for bulk action" value="${r.id}" onchange="updateBulk()" /><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:var(--warn);border-color:var(--warn-border)">↑ escalated</span>' : ''}${recoHtml(r)}${r.autoEligible ? '<span class="pill ok">auto-eligible</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span class="spacer"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
       ${gateProgressHtml(r)}
@@ -695,11 +745,27 @@ async function loadInbox() {
   kbPaint();   // re-apply the keyboard cursor after the re-render
 }
 
+let _casesList = [];
+function exportCasesCsv() {
+  const head = ['id', 'vertical', 'status', 'tenant', 'signer', 'recommendation', 'confidence', 'createdAt', 'updatedAt', 'disposition'];
+  const rows = [head].concat((_casesList || []).map(r => [r.id, r.vertical, r.status, r.tenant || 'default', r.signer || '', r.recommendation || '', r.recoConfidence == null ? '' : r.recoConfidence, r.createdAt || '', r.updatedAt || '', r.disposition || '']));
+  const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'autopilot-cases-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('Exported ' + (_casesList || []).length + ' cases to CSV', 'ok');
+}
 async function loadRuns() {
   const sStatus = fStatus() === 'escalated' ? 'awaiting-approval' : fStatus(); // escalated is a flag on awaiting cases
   const { runs } = await api(q(sStatus));
   const el = document.getElementById('runs');
-  const list = cache(filt(runs));
+  let list = cache(filt(runs));
+  const cs = (document.getElementById('cases-sort') || {}).value || 'recent';
+  if (cs === 'vertical') list = list.slice().sort((a, b) => String(a.vertical).localeCompare(b.vertical) || String(b.createdAt).localeCompare(a.createdAt));
+  else if (cs === 'status') list = list.slice().sort((a, b) => String(a.status).localeCompare(b.status) || String(b.createdAt).localeCompare(a.createdAt));
+  else list = list.slice().sort((a, b) => String(b.createdAt || '').localeCompare(a.createdAt || ''));
+  _casesList = list;                                   // for CSV export
   if (!list.length) { el.innerHTML = '<div class="empty">No runs match — start one above or clear the filter.</div>'; return; }
   el.innerHTML = capped(list).map(r => {
     const cls = r.status === 'completed' ? 'done' : r.status === 'rejected' ? 'rej' : 'gate';
@@ -825,9 +891,22 @@ async function requeueRun(id) {
 }
 // ── Bulk actions ──
 function updateBulk() {
-  const n = document.querySelectorAll('.bulk-cb:checked').length;
+  const checked = [...document.querySelectorAll('.bulk-cb:checked')];
+  const n = checked.length;
   document.getElementById('bulk-bar').style.display = n ? '' : 'none';
   document.getElementById('bulk-n').textContent = n;
+  // preview: what the bulk action will touch (verticals · auto-eligible count)
+  const sum = document.getElementById('bulk-summary');
+  if (sum) {
+    if (!n) { sum.textContent = ''; }
+    else {
+      const runs = checked.map(cb => RUNS[cb.value]).filter(Boolean);
+      const verts = new Set(runs.map(r => r.vertical)).size;
+      const auto = runs.filter(r => r.autoEligible).length;
+      const risk = runs.filter(slaRisk).length;
+      sum.textContent = ` · ${verts} vertical${verts !== 1 ? 's' : ''} · ${auto}/${n} auto-eligible${risk ? ' · ' + risk + ' SLA-at-risk' : ''}`;
+    }
+  }
 }
 function selectAuto() {
   RUNS && document.querySelectorAll('.bulk-cb').forEach(cb => { const r = RUNS[cb.value]; cb.checked = !!(r && r.autoEligible); });
@@ -838,7 +917,8 @@ async function bulkDo(action) {
   if (!ids.length) return;
   const reason = document.getElementById('bulk-reason').value || '';
   const r = await api('/api/autopilot/bulk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids, action, reason, by: SESSION.name || 'board user', ...authBody() }) });
-  alert(`Bulk ${action}: ${r.ok} done${r.denied?', '+r.denied+' denied':''}${r.failed?', '+r.failed+' failed':''}`);
+  const m = `Bulk ${action}: ${r.ok} done${r.denied?', '+r.denied+' denied':''}${r.failed?', '+r.failed+' failed':''}`;
+  toast(m, r.failed || r.denied ? 'err' : 'ok'); announce(m);
   refresh();
 }
 
@@ -936,6 +1016,12 @@ function paletteCommands() {
     { label: 'Focus search', hint: '/', run: () => { switchTab('inbox'); setTimeout(() => document.getElementById('f-search').focus(), 0); }, show: true },
     { label: 'Keyboard shortcuts', hint: '?', run: openCheat, show: true },
     { label: 'Help — how this works', hint: 'help', run: help, show: true },
+    { label: 'View: All', hint: 'view', run: () => { switchTab('inbox'); setView('all'); }, show: true },
+    { label: 'View: Auto-eligible', hint: 'view', run: () => { switchTab('inbox'); setView('auto'); }, show: true },
+    { label: 'View: Escalated to me', hint: 'view', run: () => { switchTab('inbox'); setView('escalated'); }, show: true },
+    { label: 'View: SLA at-risk', hint: 'view', run: () => { switchTab('inbox'); setView('at-risk'); }, show: true },
+    { label: 'View: High blast', hint: 'view', run: () => { switchTab('inbox'); setView('high'); }, show: true },
+    { label: 'Export cases to CSV', hint: 'cases', run: () => { switchTab('cases'); setTimeout(exportCasesCsv, 300); }, show: true },
   ];
   for (const o of document.getElementById('vertical').options) {
     if (!o.hidden) cmds.push({ label: 'Filter inbox: ' + o.value, hint: 'filter', run: () => { switchTab('inbox'); const fv = document.getElementById('f-vertical'); fv.value = o.value; refresh(); }, show: true });
