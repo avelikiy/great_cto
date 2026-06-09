@@ -28,7 +28,7 @@
     --bg:#0a0e0c; --surface:#11161a; --surface-2:#0d1311; --surface-3:#141b1f;
     --border:#1f2a26; --border-2:#2d3d36; --border-3:#16201c;
     --text:#ecf2ee; --text-2:#88aaaa; --text-3:#c6d2d0;
-    --accent:var(--brand-accent); --accent-ink:var(--brand-accent-ink);
+    --accent:var(--brand-accent); --accent-ink:var(--brand-accent-ink); --accent-text:var(--brand-accent);
     --warn:#f0a020; --warn-border:#5a4420; --warn-ink:#04140d;
     --success:#00d97e; --success-border:#1c5a3e;
     --danger:#ff5a5a; --danger-border:#553322; --danger-surface:#1c0f0f;
@@ -38,7 +38,7 @@
     --bg:#f6f8f7; --surface:#ffffff; --surface-2:#f0f3f1; --surface-3:#eef3f0;
     --border:#dde5e1; --border-2:#c4d0ca; --border-3:#e7ede9;
     --text:#0d1a14; --text-2:#5c6b65; --text-3:#36443d;
-    --accent:var(--brand-accent); --accent-ink:#04140d;
+    --accent:var(--brand-accent); --accent-ink:#04140d; --accent-text:#0a7d4d;
     --warn:#a85f00; --warn-border:#e3c79a; --warn-ink:#fff;
     --success:#0a7d4d; --success-border:#bfe6d2;
     --danger:#c43030; --danger-border:#eccccc; --danger-surface:#fbeaea;
@@ -75,7 +75,7 @@
   .mut { color:var(--mut); font-size:13px; }
   .pill { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--bd); }
   .pill.await { color:var(--amb); border-color:var(--warn-border); }
-  .pill.ok { color:var(--grn); border-color:var(--success-border); }
+  .pill.ok { color:var(--accent-text); border-color:var(--success-border); }
   .pill.rej { color:var(--red); border-color:var(--danger-border); }
   ol.steps { margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-3); }
   ol.steps li { margin:2px 0; }
@@ -118,6 +118,8 @@
   @keyframes secfade { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
   .card.gate:hover, .card.click:hover { border-color:var(--border-2); background:var(--surface-3); }
   .card { transition:border-color .12s, background .12s; }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  @media (prefers-reduced-motion: reduce) { *, [data-sec] { animation:none !important; transition:none !important; } }
   @media (max-width:680px){ main{padding:16px} header{flex-wrap:wrap;gap:8px} .tabs{top:auto;position:static} }
 </style>
 </head>
@@ -128,20 +130,21 @@
   <span class="spacer"></span>
   <span id="session-info" class="mut" style="font-size:13px;display:none"></span>
   <span id="role-pick"><span class="mut">I am the</span>
-  <select id="role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select></span>
+  <select id="role" aria-label="Acting role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select></span>
   <button class="iconbtn" onclick="toggleDensity()" id="density-btn" title="Toggle density (compact ↔ comfortable)" aria-label="Toggle density">⊟</button>
   <button class="iconbtn" onclick="toggleTheme()" id="theme-btn" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
   <button class="back" onclick="help()" title="How this works">❔ Help</button>
   <button id="notify-btn" class="back" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
 </header>
-<nav class="tabs" id="tabs">
-  <button data-tab="inbox" class="on" onclick="switchTab('inbox')">Inbox<span class="badge" id="tab-inbox-n" style="display:none">0</span></button>
-  <button data-tab="cases" onclick="switchTab('cases')">All cases</button>
-  <button data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
-  <button data-tab="qa" id="tab-qa" onclick="switchTab('qa')" style="display:none">QA</button>
-  <button data-tab="ops" id="tab-ops" onclick="switchTab('ops')" style="display:none">Ops<span class="badge" id="tab-ops-n" style="display:none">0</span></button>
-  <button data-tab="admin" id="tab-admin" onclick="switchTab('admin')" style="display:none">Admin</button>
+<nav class="tabs" id="tabs" role="tablist" aria-label="Console sections" onkeydown="tabKey(event)">
+  <button role="tab" aria-selected="true" data-tab="inbox" class="on" onclick="switchTab('inbox')">Inbox<span class="badge" id="tab-inbox-n" aria-live="polite" style="display:none">0</span></button>
+  <button role="tab" aria-selected="false" tabindex="-1" data-tab="cases" onclick="switchTab('cases')">All cases</button>
+  <button role="tab" aria-selected="false" tabindex="-1" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
+  <button role="tab" aria-selected="false" tabindex="-1" data-tab="qa" id="tab-qa" onclick="switchTab('qa')" style="display:none">QA</button>
+  <button role="tab" aria-selected="false" tabindex="-1" data-tab="ops" id="tab-ops" onclick="switchTab('ops')" style="display:none">Ops<span class="badge" id="tab-ops-n" aria-live="polite" style="display:none">0</span></button>
+  <button role="tab" aria-selected="false" tabindex="-1" data-tab="admin" id="tab-admin" onclick="switchTab('admin')" style="display:none">Admin</button>
 </nav>
+<div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
 <main>
   <div id="start-box" data-sec="admin">
   <h2>Start a run</h2>
@@ -226,9 +229,9 @@
   <h2 id="inbox-h">Inbox — awaiting a human signature</h2>
   <div class="filters">
     <span class="mut">filter:</span>
-    <input id="f-tenant" placeholder="tenant (all)" style="max-width:140px" oninput="refresh()" />
-    <select id="f-vertical" onchange="refresh()"><option value="">all verticals</option></select>
-    <select id="f-status" onchange="refresh()">
+    <input id="f-tenant" aria-label="Filter by tenant" placeholder="tenant (all)" style="max-width:140px" oninput="refresh()" />
+    <select id="f-vertical" aria-label="Filter by vertical" onchange="refresh()"><option value="">all verticals</option></select>
+    <select id="f-status" aria-label="Filter by status" onchange="refresh()">
       <option value="">all statuses</option>
       <option value="awaiting-approval">awaiting signature</option>
       <option value="escalated">escalated to me</option>
@@ -236,7 +239,7 @@
       <option value="completed">completed</option>
       <option value="rejected">rejected</option>
     </select>
-    <input id="f-search" placeholder="🔍 search id / vertical" style="max-width:180px" oninput="refresh()" />
+    <input id="f-search" aria-label="Search by id or vertical" placeholder="🔍 search id / vertical" style="max-width:180px" oninput="refresh()" />
   </div>
   <div class="row" style="margin:4px 0"><button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="selectAuto()">☑ select auto-eligible</button>
     <span id="bulk-bar" style="display:none"><b id="bulk-n">0</b> selected · reason <select id="bulk-reason">${''}</select>
@@ -253,7 +256,7 @@
   </div>
 </main>
 <div id="drawer-bg" onclick="closeDrawer()"></div>
-<aside id="drawer"><button class="x" onclick="closeDrawer()">✕</button><div id="drawer-body"></div></aside>
+<aside id="drawer" role="dialog" aria-modal="true" aria-label="Case detail" tabindex="-1"><button class="x" onclick="closeDrawer()" aria-label="Close case detail">✕</button><div id="drawer-body"></div></aside>
 <script>
 // ── Theme + density (Phase 1 design system) — persisted per operator ──
 const root = document.documentElement;
@@ -306,7 +309,7 @@ const CRITERIA = {
 };
 function criteriaHtml(v) {
   const c = CRITERIA[v]; if (!c) return '';
-  return `<h2 style="margin-top:18px">Decision criteria — how to read this case</h2><ul style="margin:6px 0;padding-left:20px;font-size:13px;color:#c6d2d0">${c.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  return `<h2 style="margin-top:18px">Decision criteria — how to read this case</h2><ul style="margin:6px 0;padding-left:20px;font-size:13px;color:var(--text-3)">${c.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
 }
 const REASONS = ['meets-criteria', 'below-confidence-floor', 'policy-exception', 'insufficient-documentation', 'fraud-suspected', 'out-of-scope', 'needs-senior-review', 'other'];
 
@@ -334,7 +337,7 @@ function slaHtml(r) {
 // AI recommendation for the human, from the pre-gate connectors.
 function recoHtml(r) {
   if (!r.recommendation) return '';
-  const map = { block: ['🔴', 'AI: block', 'color:#ff5a5a;border-color:#532'], escalate: ['🟡', 'AI: escalate', 'color:#f0a020;border-color:#5a4420'], approve: ['🟢', 'AI: approve', 'color:#00d97e;border-color:#1c5a3e'] };
+  const map = { block: ['🔴', 'AI: block', 'color:var(--danger);border-color:var(--danger-border)'], escalate: ['🟡', 'AI: escalate', 'color:var(--warn);border-color:var(--warn-border)'], approve: ['🟢', 'AI: approve', 'color:var(--accent-text);border-color:var(--success-border)'] };
   const [ic, lbl, st] = map[r.recommendation] || ['', r.recommendation, ''];
   const conf = typeof r.recoConfidence === 'number' ? ' ' + Math.round(r.recoConfidence * 100) + '%' : '';
   return `<span class="pill" style="${st}" title="AI recommendation from the connector results — the human decides">${ic} ${lbl}${conf}</span>`;
@@ -392,8 +395,31 @@ function canSee(sec) {
   return true;                                                        // inbox · cases · analytics
 }
 function applyTab() {
-  for (const el of document.querySelectorAll('[data-sec]')) el.style.display = (el.dataset.sec === TAB && canSee(el.dataset.sec)) ? '' : 'none';
-  for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', b.dataset.tab === TAB);
+  for (const el of document.querySelectorAll('[data-sec]')) {
+    const show = el.dataset.sec === TAB && canSee(el.dataset.sec);
+    el.style.display = show ? '' : 'none';
+    el.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }
+  for (const b of document.querySelectorAll('#tabs button')) {
+    const on = b.dataset.tab === TAB;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    b.tabIndex = on ? 0 : -1;                    // roving tabindex (WAI-ARIA tabs pattern)
+  }
+}
+// Arrow-key navigation across the tablist (Left/Right/Home/End).
+function tabKey(e) {
+  if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+  const tabs = [...document.querySelectorAll('#tabs button')].filter((b) => b.style.display !== 'none' && canSee(b.dataset.tab));
+  const i = Math.max(0, tabs.findIndex((b) => b.dataset.tab === TAB));
+  let n = i;
+  if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+  else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+  else if (e.key === 'Home') n = 0;
+  else if (e.key === 'End') n = tabs.length - 1;
+  e.preventDefault();
+  switchTab(tabs[n].dataset.tab);
+  tabs[n].focus();
 }
 function switchTab(t) {
   if (!canSee(t)) t = 'inbox';
@@ -459,7 +485,7 @@ async function revoke(token) { await fetch('/api/autopilot/invite?role=admin&rev
 let RUNS = {}; // id → run, for the detail drawer
 function openDrawer(id) {
   const r = RUNS[id]; if (!r) return;
-  const aud = (r.audit || []).map(a => `<div>• <b>${esc(a.event)}</b> ${a.by ? 'by ' + esc(a.by) : ''} <span class="mut">${esc((a.at || '').replace('T', ' ').slice(0, 19))}</span>${a.reason ? ' · <span style="color:#8aa">' + esc(a.reason) + '</span>' : ''}${a.override ? ' · <b style="color:#f0a020">⚠ override (AI: ' + esc(a.aiRecommendation || '?') + ')</b>' : ''}${a.note ? ' — ' + esc(a.note) : ''}</div>`).join('');
+  const aud = (r.audit || []).map(a => `<div>• <b>${esc(a.event)}</b> ${a.by ? 'by ' + esc(a.by) : ''} <span class="mut">${esc((a.at || '').replace('T', ' ').slice(0, 19))}</span>${a.reason ? ' · <span style="color:var(--mut)">' + esc(a.reason) + '</span>' : ''}${a.override ? ' · <b style="color:var(--warn)">⚠ override (AI: ' + esc(a.aiRecommendation || '?') + ')</b>' : ''}${a.note ? ' — ' + esc(a.note) : ''}</div>`).join('');
   document.getElementById('drawer-body').innerHTML = `
     <h3>${icon(r.vertical)} ${esc(r.vertical)} <span class="mut" style="font-size:13px">${esc(r.status)}</span></h3>
     <div class="mut">${esc(r.id)}${r.tenant && r.tenant !== 'default' ? ' · tenant ' + esc(r.tenant) : ''}</div>
@@ -470,22 +496,47 @@ function openDrawer(id) {
     ${stepsHtml(r)}
     <h2 style="margin-top:18px">Evidence — what the connectors found</h2>
     <div class="aud">${evidenceHtml(r) || '<span class="mut">no connector signals</span>'}</div>
-    ${r.narrative ? `<h2 style="margin-top:18px">AI-drafted determination</h2><pre style="white-space:pre-wrap;font:12px/1.5 var(--mono),monospace;color:#c6d2d0;background:#0d1311;border:1px solid var(--bd);border-radius:8px;padding:12px;margin:0">${esc(r.narrative)}</pre>` : ''}
+    ${r.narrative ? `<h2 style="margin-top:18px">AI-drafted determination</h2><pre style="white-space:pre-wrap;font:12px/1.5 var(--mono),monospace;color:var(--text-3);background:#0d1311;border:1px solid var(--bd);border-radius:8px;padding:12px;margin:0">${esc(r.narrative)}</pre>` : ''}
     <h2 style="margin-top:18px">Audit trail</h2>
     <div class="aud">${aud || '<span class="mut">no events</span>'}</div>
     <div class="row" style="margin-top:14px">
       <button class="primary" onclick="exportRun('${r.id}')">⬇ Export audit (JSON)</button>
       <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="replay('${r.vertical}')">⟳ Replay (re-run)</button>
     </div>`;
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawer-bg').classList.add('open');
+  openDrawerShell();
 }
-function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawer-bg').classList.remove('open'); }
+// Drawer focus management (WCAG 2.4.3 focus order, 2.1.2 no keyboard trap escape via Esc).
+let _drawerReturn = null;
+function openDrawerShell() {
+  _drawerReturn = document.activeElement;
+  const d = document.getElementById('drawer');
+  d.classList.add('open'); document.getElementById('drawer-bg').classList.add('open');
+  setTimeout(() => d.focus(), 0);
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-bg').classList.remove('open');
+  if (_drawerReturn && _drawerReturn.focus) _drawerReturn.focus();   // return focus to the trigger
+  _drawerReturn = null;
+}
+// Esc closes the drawer; basic focus trap (Tab cycles within the open drawer).
+document.addEventListener('keydown', (e) => {
+  const d = document.getElementById('drawer');
+  if (!d.classList.contains('open')) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeDrawer(); return; }
+  if (e.key === 'Tab') {
+    const f = d.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
 function help() {
   document.getElementById('drawer-body').innerHTML = `
     <h3>❔ How this works</h3>
-    <p style="font-size:13px;color:#c6d2d0">You're the licensed human in the loop. The AI does the volume up to the judgment call; you sign the action that carries liability.</p>
-    <ol style="font-size:13px;color:#c6d2d0;line-height:1.7">
+    <p style="font-size:13px;color:var(--text-3)">You're the licensed human in the loop. The AI does the volume up to the judgment call; you sign the action that carries liability.</p>
+    <ol style="font-size:13px;color:var(--text-3);line-height:1.7">
       <li><b>A case lands in your Inbox</b> when the autopilot reaches the human checkpoint. You get a 🔔 push if enabled.</li>
       <li><b>Open ⋯ details</b> to see the decision criteria, what the connectors found (the evidence), the AI's recommendation, and the drafted determination.</li>
       <li><b>Decide:</b> <b>Approve</b> (the irreversible action then runs), <b>Reject</b>, <b>↑ Escalate</b> to a senior, or <b>↩ Send back</b> for more info — with a reason code.</li>
@@ -493,7 +544,7 @@ function help() {
       <li>Nothing irreversible runs until you sign. Your decision is recorded against your name in the audit trail.</li>
     </ol>
     <p class="mut" style="font-size:12px">Filters: by status (incl. <i>escalated to me</i> / <i>sent back</i>), vertical, and 🔍 search. Auto-eligible cases are low-risk and can be bulk-approved.</p>`;
-  document.getElementById('drawer').classList.add('open'); document.getElementById('drawer-bg').classList.add('open');
+  openDrawerShell();
 }
 function exportRun(id) {
   const r = RUNS[id]; if (!r) return;
@@ -506,7 +557,7 @@ function evidenceHtml(r) {
   for (const s of r.steps || []) for (const c of (s.toolCalls || [])) {
     if (!c.signal && c.ms == null) continue;
     const facts = c.signal ? Object.entries(c.signal).map(([k, v]) => `${esc(k)}=<b>${esc(v)}</b>`).join(', ') : '<span class="mut">ok</span>';
-    rows.push(`<div>• <b>${esc(c.connector)}</b>${c.mode === 'live' ? ' <span style="color:#00d97e">live</span>' : ''} ${facts}${c.ms != null ? ` <span class="mut">· ${c.ms}ms</span>` : ''}</div>`);
+    rows.push(`<div>• <b>${esc(c.connector)}</b>${c.mode === 'live' ? ' <span style="color:var(--accent-text)">live</span>' : ''} ${facts}${c.ms != null ? ` <span class="mut">· ${c.ms}ms</span>` : ''}</div>`);
   }
   return rows.join('');
 }
@@ -554,14 +605,14 @@ async function loadInbox() {
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
     <div class="card gate">
-      <div class="row"><input type="checkbox" class="bulk-cb" value="${r.id}" onchange="updateBulk()" /><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:#f0a020;border-color:#5a4420">↑ escalated</span>' : ''}${recoHtml(r)}${r.autoEligible ? '<span class="pill ok">auto-eligible</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span class="spacer"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
+      <div class="row"><input type="checkbox" class="bulk-cb" aria-label="Select case for bulk action" value="${r.id}" onchange="updateBulk()" /><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:var(--warn);border-color:var(--warn-border)">↑ escalated</span>' : ''}${recoHtml(r)}${r.autoEligible ? '<span class="pill ok">auto-eligible</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span class="spacer"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
       ${gateProgressHtml(r)}
       ${stepsHtml(r)}
       <div class="sign">
-        <input id="by-${r.id}" placeholder="your name (the signer)" style="min-width:180px" />
-        <select id="reason-${r.id}" title="disposition / reason code">${REASONS.map(x => `<option value="${x}">${x}</option>`).join('')}</select>
-        <input id="note-${r.id}" placeholder="note (optional)" style="flex:1;min-width:140px" />
+        <input id="by-${r.id}" aria-label="Your name (the signer)" placeholder="your name (the signer)" style="min-width:180px" />
+        <select id="reason-${r.id}" aria-label="Disposition / reason code" title="disposition / reason code">${REASONS.map(x => `<option value="${x}">${x}</option>`).join('')}</select>
+        <input id="note-${r.id}" aria-label="Decision note (optional)" placeholder="note (optional)" style="flex:1;min-width:140px" />
         <button class="primary" onclick="decide('${r.id}','approve')">Approve &amp; run the write</button>
         <button class="reject" onclick="decide('${r.id}','reject')">Reject</button>
         <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="decide('${r.id}','escalate')">↑ Escalate</button>
@@ -599,12 +650,14 @@ async function startRun() {
   if (r.error) alert(r.error);
   refresh();
 }
+function announce(msg) { const el = document.getElementById('sr-status'); if (el) { el.textContent = ''; setTimeout(() => { el.textContent = msg; }, 30); } }
 async function decide(id, action) {
   const by = (document.getElementById('by-'+id).value || '').trim() || 'board user';
   const note = document.getElementById('note-'+id).value || '';
   const reason = (document.getElementById('reason-'+id) || {}).value || '';
   const r = await api('/api/autopilot/' + action, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, by, note, reason, ...authBody() }) });
-  if (r.error) alert(r.error);
+  if (r.error) { alert(r.error); announce('Error: ' + r.error); }
+  else announce(action === 'approve' ? 'Approved and the write executed.' : action + ' recorded.');
   refresh();
 }
 async function loadStats() {
