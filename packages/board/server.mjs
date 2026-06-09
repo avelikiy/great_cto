@@ -3421,6 +3421,9 @@ const server = http.createServer(async (req, res) => {
       const patch = {};
       if (p.confidenceFloor != null) patch.confidenceFloor = Math.max(0, Math.min(1, Number(p.confidenceFloor)));
       if (p.autoEligible != null) patch.autoEligible = !!p.autoEligible;
+      // white-label (Phase 7): a validated hex accent + a short tenant name
+      if (p.brandAccent != null) patch.brandAccent = /^#[0-9a-fA-F]{6}$/.test(p.brandAccent) ? p.brandAccent : '';
+      if (p.brandName != null) patch.brandName = String(p.brandName).slice(0, 40);
       res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(apSetConfig(p.tenant || 'default', patch)));
     });
     return;

@@ -69,6 +69,8 @@
   .chip:hover { color:var(--tx); border-color:var(--border-2); }
   .chip.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-text); font-weight:600; }
   .card.gate.at-risk { border-left-color:var(--warn); }
+  #imp-banner { background:var(--accent-soft); border-bottom:1px solid var(--accent); color:var(--text); padding:7px 24px; font-size:var(--fs-2); text-align:center; position:sticky; top:55px; z-index:9; }
+  #brand-name-tag { margin-left:8px; padding:2px 8px; border-radius:var(--r-pill); background:var(--accent-soft); border:1px solid var(--accent); color:var(--accent-text); font-size:11px; font-weight:600; vertical-align:middle; }
   button.back { background:none; border:0; cursor:pointer; }
   h2 { font-size:var(--fs-2); text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:var(--sp-6) 0 var(--sp-3); }
   .card { background:var(--card); border:1px solid var(--bd); border-radius:var(--r-3); padding:var(--sp-4); margin-bottom:var(--sp-3); }
@@ -159,7 +161,7 @@
 </head>
 <body>
 <header>
-  <h1>🛂 Autopilot console</h1>
+  <h1>🛂 Autopilot console<span id="brand-name-tag" style="display:none"></span></h1>
   <span class="seg"><a class="on" href="/autopilot.html">Operate</a><a id="build-link" href="/">Build</a></span>
   <span class="spacer"></span>
   <span id="live-dot" title="Live — realtime updates" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:livepulse 2s infinite"></span>
@@ -172,6 +174,7 @@
   <button class="back" onclick="help()" title="How this works">❔ Help</button>
   <button id="notify-btn" class="back" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
 </header>
+<div id="imp-banner" role="status" style="display:none"></div>
 <nav class="tabs" id="tabs" role="tablist" aria-label="Console sections" onkeydown="tabKey(event)">
   <button role="tab" aria-selected="true" data-tab="inbox" class="on" onclick="switchTab('inbox')">Inbox<span class="badge" id="tab-inbox-n" aria-live="polite" style="display:none">0</span></button>
   <button role="tab" aria-selected="false" tabindex="-1" data-tab="cases" onclick="switchTab('cases')">All cases</button>
@@ -230,6 +233,14 @@
       <label class="mut"><input type="checkbox" id="auto-eligible-cfg" /> auto-eligible fast-lane</label>
       <button class="primary" onclick="saveConfig()">Save</button>
       <span class="mut">below the floor → a low-confidence case is routed to a human (escalated)</span>
+    </div>
+    <h2 style="margin-top:20px">White-label — this tenant's brand</h2>
+    <div class="row">
+      <label class="mut">Accent <input type="color" id="brand-accent" aria-label="Brand accent colour" style="width:42px;height:30px;padding:2px;vertical-align:middle" /></label>
+      <input id="brand-name" aria-label="Tenant brand name" placeholder="brand name (e.g. Acme Health)" style="max-width:220px" />
+      <button class="primary" onclick="saveBrand()">Apply brand</button>
+      <button class="back" style="border:1px solid var(--bd)" onclick="clearBrand()">Reset</button>
+      <span class="mut">accent recolours the console + appears in the header for everyone on this tenant</span>
     </div>
   </div>
 
@@ -525,6 +536,14 @@ function applyRoleUI() {
   for (const o of document.getElementById('vertical').options) o.hidden = !allowed.includes(o.value);
   const cur = document.getElementById('vertical');
   if (cur.selectedOptions[0] && cur.selectedOptions[0].hidden) cur.value = allowed[0] || 'rcm';
+  // impersonation clarity (Phase 7): an unmistakable banner when acting via an invite token
+  const imp = document.getElementById('imp-banner');
+  if (imp) {
+    if (SESSION.token) {
+      imp.innerHTML = `🔒 You are signing as <b>${esc(SESSION.name || SESSION.label || role())}</b> · role <b>${esc(SESSION.label || role())}</b>${SESSION.tenant && SESSION.tenant !== 'default' ? ' · tenant <b>' + esc(SESSION.tenant) + '</b>' : ''} — your name is recorded on every signature.`;
+      imp.style.display = '';
+    } else { imp.style.display = 'none'; }
+  }
   if (!canSee(TAB)) TAB = 'inbox';
   switchTab(TAB);
 }
@@ -827,12 +846,32 @@ async function loadConfig() {
   const c = await api('/api/autopilot/config?role=' + role() + (fTenant() ? '&tenant=' + fTenant() : ''));
   document.getElementById('floor').value = c.confidenceFloor; document.getElementById('floor-v').textContent = (+c.confidenceFloor).toFixed(2);
   document.getElementById('auto-eligible-cfg').checked = !!c.autoEligible;
+  document.getElementById('brand-accent').value = /^#[0-9a-fA-F]{6}$/.test(c.brandAccent || '') ? c.brandAccent : '#00d97e';
+  document.getElementById('brand-name').value = c.brandName || '';
+  applyBrand(c);
 }
 async function saveConfig() {
   const confidenceFloor = +document.getElementById('floor').value;
   const autoEligible = document.getElementById('auto-eligible-cfg').checked;
   await api('/api/autopilot/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ confidenceFloor, autoEligible, tenant: fTenant() || 'default', role:'admin' }) });
-  alert('Routing dial saved — applies to new runs.'); refresh();
+  toast('Routing dial saved — applies to new runs.', 'ok'); refresh();
+}
+// ── White-label (Phase 7): a tenant brand accent + name, applied for everyone on the tenant ──
+function applyBrand(c) {
+  const accent = /^#[0-9a-fA-F]{6}$/.test((c && c.brandAccent) || '') ? c.brandAccent : '';
+  if (accent) root.style.setProperty('--brand-accent', accent); else root.style.removeProperty('--brand-accent');
+  const tag = document.getElementById('brand-name-tag');
+  if (tag) { if (c && c.brandName) { tag.textContent = c.brandName; tag.style.display = ''; } else { tag.style.display = 'none'; } }
+}
+async function saveBrand() {
+  const brandAccent = document.getElementById('brand-accent').value;
+  const brandName = (document.getElementById('brand-name').value || '').trim();
+  await api('/api/autopilot/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ brandAccent, brandName, tenant: fTenant() || 'default', role:'admin' }) });
+  applyBrand({ brandAccent, brandName }); toast('Brand applied for this tenant.', 'ok');
+}
+async function clearBrand() {
+  await api('/api/autopilot/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ brandAccent: '', brandName: '', tenant: fTenant() || 'default', role:'admin' }) });
+  applyBrand({}); document.getElementById('brand-accent').value = '#00d97e'; document.getElementById('brand-name').value = ''; toast('Brand reset.', 'ok');
 }
 // ── QA (sampled closed cases), admin / compliance-lead ──
 async function loadQa() {
@@ -1075,7 +1114,11 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 's') { e.preventDefault(); kbSigner(); }
 });
 
-initRoles().then(refresh);
+initRoles().then(() => { refresh(); loadBrand(); });
+// apply the tenant brand for everyone on load (not just when admin opens Settings)
+async function loadBrand() {
+  try { const c = await api('/api/autopilot/config?role=' + role() + (SESSION.tenant ? '&tenant=' + encodeURIComponent(SESSION.tenant) : '') + (SESSION.token ? '&token=' + encodeURIComponent(SESSION.token) : '')); applyBrand(c); } catch {}
+}
 
 // ── Realtime (Phase 4): SSE-driven refresh, with a slow poll as a safety net ──
 let _refreshT = null;

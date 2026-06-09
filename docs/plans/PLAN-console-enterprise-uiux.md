@@ -82,7 +82,7 @@ system in the single file.
 - **SLA-aware sort** — oldest-waiting / closest-to-breach default; at-risk rows visually escalate.
 - **Acceptance:** an operator builds + saves a personal queue; bulk-sign 20 auto-eligible in < 5 clicks.
 
-## Phase 7 — Enterprise admin & white-label
+## Phase 7 — Enterprise admin & white-label ✅ DONE
 - **Tenant theming** — logo + accent + name per tenant (CSS-var seam from Phase 1); login/console reflect it.
 - **Impersonation/role clarity** — a persistent banner when acting as a tenant/role; "you are signing as X".
 - **Audit & export UI** — browse/verify/export the audit chain; retention status surfaced.
