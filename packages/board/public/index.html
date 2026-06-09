@@ -523,6 +523,20 @@ button { font-family: inherit; cursor: pointer; }
 }
 .gate-approve { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
 .gate-approve:hover { background: rgba(22, 163, 74, 0.08); border-color: var(--status-review); }
+/* Agent runner (launch control) */
+#agent-panel { position: fixed; right: 16px; bottom: 16px; width: min(560px, 94vw); max-height: 70vh; display: none; flex-direction: column; background: var(--bg-card, #11161a); border: 1px solid var(--border, #1f2a26); border-radius: 12px; box-shadow: 0 24px 70px rgba(0,0,0,.5); z-index: 60; overflow: hidden; }
+#agent-panel.open { display: flex; }
+#agent-panel header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border, #1f2a26); background: transparent; }
+#agent-panel header b { font-size: 13px; }
+#agent-panel .ap-x { margin-left: auto; cursor: pointer; border: 0; background: none; color: var(--text-muted, #8aa); font-size: 16px; }
+#agent-log { flex: 1; overflow: auto; padding: 10px 14px; font: 12px/1.55 ui-monospace, Menlo, monospace; }
+#agent-log .al { margin: 2px 0; white-space: pre-wrap; word-break: break-word; }
+#agent-log .al.tool { color: var(--status-review); } #agent-log .al.system { color: var(--text-muted, #8aa); } #agent-log .al.error { color: var(--status-blocked, #ff5a5a); } #agent-log .al.done { color: var(--text-muted, #8aa); font-weight: 600; }
+#agent-panel .ap-foot { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border, #1f2a26); }
+#agent-panel input { flex: 1; background: var(--bg, #0a0e0c); color: var(--text, #ecf2ee); border: 1px solid var(--border, #1f2a26); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
+#agent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted, #556); }
+#agent-dot.live { background: var(--status-review); animation: apulse 1.2s infinite; }
+@keyframes apulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 .gate-reject { color: var(--status-blocked); border-color: rgba(220, 38, 38, 0.30); }
 .gate-reject:hover { background: rgba(220, 38, 38, 0.06); border-color: var(--status-blocked); }
 .chip-agent {
@@ -2090,6 +2104,10 @@ button { font-family: inherit; cursor: pointer; }
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z M8 12l3 3 5-6"/></svg>
         <span>Autopilot</span>
       </div>
+      <div class="nav-item" title="Run a Claude Code agent in this project" onclick="agentToggle(true)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 3l14 9-14 9V3z"/></svg>
+        <span>Run agent</span>
+      </div>
       <div class="nav-item" data-tab="kanban" onclick="switchTab('kanban', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Tasks</span>
@@ -2635,6 +2653,7 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     const actions = opts.showApprove
       ? `<div class="actions" onclick="event.stopPropagation()">
            <button class="gate-btn gate-approve" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">Approve</button>
+           <button class="gate-btn gate-approve" title="Approve, then spawn an agent in the project" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve', true)">Approve + ▶run</button>
            <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject</button>
          </div>`
       : `<div class="actions"><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${t.status || ''}</span></div>`;
@@ -3555,6 +3574,7 @@ function connectSSE() {
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} }
   const es = new EventSource(`/api/sse${pqs()}`);
   window._gctoSSE = es;
+  es.addEventListener('agent', e => { try { agentOnEvent(JSON.parse(e.data)); } catch {} });
   es.addEventListener('tasks', e => {
     const newTasks = JSON.parse(e.data);
     // Detect status transitions for toast feed
@@ -3780,13 +3800,20 @@ function cardHTML(t) {
     </div>`;
 }
 
-async function gateAction(id, action) {
+async function gateAction(id, action, runAgent) {
+  let body;
   if (action === 'reject') {
     const reason = prompt(`Reject ${id}. Reason (optional)?`);
     if (reason === null) return;
-    var body = { action, reason, project: currentProject };
+    body = { action, reason, project: currentProject };
   } else {
     body = { action, project: currentProject };
+    if (runAgent) {
+      const dflt = `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it with TDD.`;
+      const p = prompt(`Approve ${id} and run an agent in the project.\n\nPrompt for the agent:`, dflt);
+      if (p === null) return;                 // cancelled the whole action
+      body.runAgent = true; body.agentPrompt = p.trim() || dflt;
+    }
   }
   const res = await api(`/api/gates/${encodeURIComponent(id)}${pqs()}`, {
     method: 'POST',
@@ -3798,8 +3825,36 @@ async function gateAction(id, action) {
     return;
   }
   showToast(`Gate <strong>${esc(id)}</strong> ${action === 'approve' ? '✓ approved' : '✗ rejected'}`, action === 'approve' ? 'success' : 'error', 3000);
-  // Force inbox refresh immediately
+  if (res.agent && res.agent.running) { agentToggle(true); agentClear(); agentAppend('system', '▶ launched on approve of ' + id); }
+  else if (res.agent && res.agent.error) showToast('Agent not started: ' + esc(res.agent.error), 'error', 4000);
   api(`/api/inbox${pqs()}`).then(d => d && renderInbox(d));
+}
+
+// ── Launch control: the agent runner panel ──
+function agentToggle(open) { document.getElementById('agent-panel').classList.toggle('open', open !== false ? (open || !document.getElementById('agent-panel').classList.contains('open')) : false); }
+function agentClear() { document.getElementById('agent-log').innerHTML = ''; }
+function agentAppend(kind, text) {
+  const log = document.getElementById('agent-log');
+  const d = document.createElement('div'); d.className = 'al ' + (kind || 'text'); d.textContent = text;
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+}
+function agentSetLive(on, label) { const dot = document.getElementById('agent-dot'); if (dot) dot.classList.toggle('live', !!on); const s = document.getElementById('agent-status'); if (s) s.textContent = label || (on ? 'running…' : ''); }
+function agentOnEvent(e) {
+  if (!document.getElementById('agent-panel').classList.contains('open')) agentToggle(true);
+  agentAppend(e.kind, e.text);
+  if (e.kind === 'done' || e.kind === 'error') agentSetLive(false, e.kind === 'done' ? 'exited' : 'error'); else agentSetLive(true);
+}
+async function agentRun() {
+  const prompt = (document.getElementById('agent-prompt').value || '').trim();
+  if (!prompt) { document.getElementById('agent-prompt').focus(); return; }
+  agentToggle(true);
+  const res = await api(`/api/agent/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project: currentProject, prompt }) });
+  if (res && res.error) { agentAppend('error', '✗ ' + res.error); agentSetLive(false, res.running ? 'already running' : 'error'); }
+  else agentSetLive(true, 'running…');
+}
+async function agentStop() {
+  const res = await api(`/api/agent/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project: currentProject }) });
+  agentAppend('system', res && res.stopped ? '■ stop requested' : ('✗ ' + ((res && res.error) || 'no active run')));
 }
 
 /* ── Inline status / priority edit ─────────────────────────────────────── */
@@ -5248,5 +5303,15 @@ if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}
 </div>
 <div id="notif-drawer-overlay" onclick="closeNotifDrawer()"
   style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4)"></div>
+<!-- Launch control: board-triggered agent runner -->
+<div id="agent-panel" aria-label="Agent runner">
+  <header><span id="agent-dot"></span><b>Agent runner</b><span id="agent-status" style="font-size:12px;color:var(--text-muted,#8aa)"></span><button class="ap-x" onclick="agentToggle(false)" aria-label="Close agent runner">✕</button></header>
+  <div id="agent-log"><div class="al system">Run an agent in the current project. Output streams here live. One run per project.</div></div>
+  <div class="ap-foot">
+    <input id="agent-prompt" placeholder="prompt — e.g. /execute-plan, or 'claim the next ready task and implement it'" onkeydown="if(event.key==='Enter')agentRun()" />
+    <button class="gate-btn gate-approve" onclick="agentRun()">▶ Run</button>
+    <button class="gate-btn gate-reject" onclick="agentStop()">■ Stop</button>
+  </div>
+</div>
 </body>
 </html>
