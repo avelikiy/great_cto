@@ -74,6 +74,25 @@ FMCSA carrier-vetting, Reg-F/TCPA outreach guardrails, IOC threat-intel, and Fin
 They're keyless by default (public source or deterministic real generation) and POST to the real
 provider the moment you add credentials.
 
+## Operate: the console where a human signs
+
+`great-cto board` opens the **operator console** at `http://localhost:3141/autopilot.html` — the
+Operate-mode surface where the autopilot's work lands for a named human. Every case the autopilot
+can't auto-clear waits in the **inbox** with its AI recommendation, confidence, evidence and an SLA
+clock; signing executes the irreversible write, rejecting stops it. Nothing irreversible runs without
+a signature.
+
+<p align="center">
+  <img src="docs/screenshots/console-inbox.png" alt="Operator console inbox — cases awaiting a human signature with AI recommendation, confidence and SLA" width="900" />
+</p>
+
+<table>
+<tr>
+<td width="50%"><a href="docs/screenshots/console-drawer.png"><img src="docs/screenshots/console-drawer.png" alt="Case drawer — decision criteria, connector evidence, AI-drafted determination, audit trail" width="100%" /></a><br/><sub><b>Case drawer</b> — the decision criteria (the SOP), the connector evidence, the AI-drafted determination, and the tamper-evident audit trail — everything the signer needs in one panel</sub></td>
+<td width="50%"><a href="docs/screenshots/console-ops.png"><img src="docs/screenshots/console-ops.png" alt="Ops tab — metering, connector health, dead-letter queue with requeue" width="100%" /></a><br/><sub><b>Ops tab</b> — cost & latency metering, connector health (failure rate + p95), and a dead-letter queue with one-click requeue</sub></td>
+</tr>
+</table>
+
 ## Under the hood (for the CTO who runs it)
 
 Each autopilot is built and operated by a gated pipeline of specialist agents — architect, 12-angle
