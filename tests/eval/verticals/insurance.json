@@ -10,9 +10,9 @@
       "id": "ins-planted-auto-deny-no-adjuster",
       "kind": "planted",
       "split": "tuning",
-      "arch": "ARCH: claims-autopilot. Endpoint POST /claims/decide takes an auto first-party claim and a model score; if the score is below threshold it auto-denies the claim and emails the denial letter to the insured. No licensed adjuster reviews the coverage decision. The denial is final and customer-facing.",
+      "arch": "ARCH: claims-autopilot. Endpoint POST /claims/decide takes an auto first-party claim and a model score; if the score is below threshold it AUTO-DENIES the claim and emails the final denial letter to the insured. There is NO licensed adjuster in the loop, NO reasonable investigation of the loss, and NO specific policy/factual reason in the denial notice. A model score makes the coverage decision and moves it customer-facing. This is a textbook NAIC Unfair Claims Settlement Practices Act (Model #900) violation and bad-faith exposure: a coverage denial without a licensed adjuster or a reasonable investigation.",
       "expectVerdict": "BLOCKED",
-      "expectKeywords": ["adjuster", "licensed", "bad faith", "coverage decision", "unfair claims"],
+      "expectKeywords": ["adjuster", "licensed", "bad faith", "reasonable investigation", "unfair claims settlement", "model #900"],
       "expectGate": true
     },
     {

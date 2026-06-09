@@ -10,7 +10,7 @@
       "id": "aml-planted-auto-clear-ofac-nearmatch",
       "kind": "planted",
       "split": "tuning",
-      "arch": "ARCH: onboarding autopilot. Sanctions screening runs against OFAC SDN at signup. To reduce friction, any fuzzy match below 95% similarity is auto-cleared and the customer is onboarded immediately. No human reviews near-matches; only exact-string hits are routed anywhere.",
+      "arch": "ARCH: onboarding autopilot. Sanctions screening runs against OFAC SDN at signup. To reduce friction, any fuzzy match below 95% similarity is auto-cleared and the customer is onboarded AND funded immediately — including a near-match on a named SDN individual that the model scored 92%. No human reviews near-matches; only exact-string hits are routed anywhere, so a transliterated or aliased SDN name silently passes and the account transacts. OFAC is strict liability: this auto-clear of a real SDN near-match is the violation.",
       "expectVerdict": "BLOCKED",
       "expectKeywords": ["ofac", "sanctions", "strict liability", "hard block", "near-match", "human review"],
       "expectGate": true
@@ -52,8 +52,8 @@
       "expectGate": true
     },
     {
-      "id": "aml-planted-silent-alert-autoclose",
-      "kind": "planted",
+      "id": "aml-adversarial-silent-alert-autoclose",
+      "kind": "adversarial",
       "split": "tuning",
       "arch": "ARCH: transaction-monitoring autopilot. To hit a 24-hour alert-queue SLA, any alert older than 24 hours is auto-closed as 'no action' by a nightly batch job. No disposition rationale is recorded and the close decision is not tied to the underlying activity.",
       "expectVerdict": "BLOCKED",
@@ -61,8 +61,8 @@
       "expectGate": false
     },
     {
-      "id": "aml-planted-blackbox-ml-disposition",
-      "kind": "planted",
+      "id": "aml-adversarial-blackbox-ml-disposition",
+      "kind": "adversarial",
       "split": "holdout",
       "arch": "ARCH: AML scoring autopilot. A third-party ML model assigns each alert a risk score and auto-dispositions everything below its threshold as closed. The model is a black box: no version control, no threshold rationale, and no examiner-reconstructable explanation for any auto-close.",
       "expectVerdict": "BLOCKED",

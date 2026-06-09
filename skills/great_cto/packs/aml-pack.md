@@ -23,6 +23,10 @@ extends: []
   - Customer risk-rating → CDD/EDD path; PEP + adverse-media surfaced with source evidence
   - Transaction-monitoring alerts with a documented, explainable disposition (no silent auto-close)
   - SAR filing discipline + confidentiality (no tipping-off); SAR access controls + audit trail
+  - AMLA 2020 / CTA Beneficial Ownership Information (BOI) reporting kept distinct from customer CDD UBO
+  - FinCEN 314(a) confidentiality (no tipping-off) + 314(b) sharing only under registration + need-to-know
+  - Crypto/CVC flows treated as MSB (FinCEN 2019 guidance) with Travel Rule (31 CFR 1010.410) data
+  - Cross-border flows mapped to FATF 40 + EU AMLD 4/5/6 where US rules don't reach
 
 ## Human gates added
 
@@ -34,6 +38,22 @@ extends: []
 > Stacks beneath `service-autopilot-pack`: that overlay owns the confidence→escalation boundary
 > and audit trail; this pack owns the BSA/OFAC/SAR obligations. The BSA/AML Officer is the human
 > escalation target — and the named owner of record carrying personal regulatory liability.
+
+## Applicability matrix — which regime applies when
+
+| Regime | Citation | Applies when |
+|---|---|---|
+| Bank Secrecy Act + USA PATRIOT Act | 31 USC 5311 et seq. | Always — the gating AML program (5 pillars, CDD, SAR/CTR) |
+| OFAC sanctions (strict liability) | 31 CFR 501 / SDN + 50%-rule | Any customer onboarding, transaction, or fund release |
+| FinCEN CDD + customer beneficial-ownership rule | 31 CFR 1010.230 | Legal-entity (KYB) customer onboarding — verify + screen 25%/control UBOs |
+| AMLA 2020 + CTA → FinCEN BOI reporting | 31 CFR 1010.380 | The product is/serves a reporting company filing its own BOI to FinCEN |
+| FinCEN 314(a) law-enforcement requests | 31 CFR 1010.520 | Institution receives FinCEN 314(a) subject lists — confidential record search, no tipping-off |
+| FinCEN 314(b) voluntary info-sharing | 31 CFR 1010.540 | Sharing AML info with other institutions under the safe harbor — registration + need-to-know required |
+| FATF 40 Recommendations (risk-based approach, Rec. 16 travel rule) | FATF standard | Cross-border / virtual-asset flows; baseline where US rules are silent |
+| EU AMLD 4 / 5 / 6 | 2015/849, 2018/843, 2018/1673 | EU-facing customers or transfers — binding cross-border, BSA alone insufficient |
+| Crypto / CVC — FinCEN 2019 CVC guidance (MSB) | FIN-2019-G001 | Dealing in convertible virtual currency — MSB registration + full BSA program |
+| Travel Rule (CVC + funds transfers) | 31 CFR 1010.410 | Qualifying transmittals — originator/beneficiary data must travel with the transfer |
+| State money-transmitter (MTL) | per-state | Money transmission per jurisdiction |
 
 ## Required artefacts in every aml project
 
@@ -47,6 +67,10 @@ extends: []
 | BSA/AML Officer sign-off workflow (SAR + high-risk onboarding) | `docs/aml/officer-signoff.md` | architect |
 | Model/threshold explainability + examiner-reconstructable audit trail | `docs/aml/explainability-audit.md` | architect |
 | State MTL / jurisdiction obligations matrix | `docs/aml/state-mtl.md` | security-officer |
+| CTA Beneficial Ownership Information (BOI) reporting design — AMLA 2020, 31 CFR 1010.380 (distinct from customer CDD UBO) | `docs/aml/cta-boi-reporting.md` | architect |
+| FinCEN 314(a) request-handling (confidential, no tipping-off) + 314(b) info-sharing safe harbor (registration + need-to-know) | `docs/aml/fincen-314.md` | aml-bsa-reviewer + architect |
+| Crypto / CVC obligations — FinCEN 2019 CVC guidance (MSB registration) + Travel Rule (31 CFR 1010.410) | `docs/aml/crypto-cvc-travel-rule.md` | senior-dev |
+| Cross-border regime mapping — FATF 40 Recommendations (risk-based approach, Rec. 16 travel rule) + EU AMLD 4/5/6 | `docs/aml/fatf-eu-amld.md` | security-officer |
 
 ## Golden eval cases
 

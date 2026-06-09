@@ -35,6 +35,13 @@ extends: []
 |---|---|---|
 | NAIC Model Act compliance matrix (~30 model acts × business line) | `docs/compliance/naic-matrix.md` | insurance-reviewer |
 | 50-state filing tracker (admitted vs. surplus lines, rate + form filings) | `docs/compliance/state-filings.yaml` | insurance-reviewer |
+| Unfair Claims Settlement Practices (Model #900) SLA + denial-reason templates | `docs/compliance/claims-appeal.md` | architect |
+| Licensed adjuster / producer roster (Model #218 + adjuster licensing) per state × line | `docs/compliance/licensing-roster.md` | compliance officer |
+| Privacy notices — Model #670 (FCRA-style rights) + Model #672 (GLBA Title V) | `docs/compliance/privacy-670-672.md` | compliance officer |
+| Guaranty-association exposure + surplus-lines NON-coverage disclosure (Model #540 / #520) | `docs/compliance/guaranty-association.md` | compliance officer |
+| Risk-Based Capital (RBC) inputs + action-level monitoring (Model #312 / #315) | `docs/compliance/rbc/` | senior-dev + actuary |
+| ORSA Summary Report (Model #505) — risk framework + capital projection (if > $500M/$1B premium) | `docs/compliance/orsa/orsa-summary-report.md` | architect + actuary |
+| Surplus-lines file — diligent-search log, home-state tax filing, Lloyd's/Bermuda IID-eligibility (Model #870 / NRRA) | `docs/compliance/surplus-lines.md` | compliance officer |
 | Solvency II SCR/MCR calculation evidence (EU only) | `docs/compliance/solvency2/` | senior-dev + actuary |
 | ORSA report template (Solvency II Pillar 2) | `docs/compliance/solvency2/orsa.md` | architect |
 | SFCR + RSR templates (Solvency II Pillar 3) | `docs/compliance/solvency2/sfcr.md` | architect |
@@ -65,20 +72,77 @@ extends: []
 - `EVAL-fraud-model-bias-audit` — fraud classifier evaluated on synthetic claims set with balanced protected-class distribution; FPR delta across classes < 5pp.
 - `EVAL-asop56-model-documentation` — every model in scope has ASOP 23 / 41 / 56 docs, validation report, and named qualified actuary on file.
 - `EVAL-bordereau-reconciliation` — bordereau totals tie to cession ledger ±$0.01 per treaty per reporting period.
+- `EVAL-unfair-claims-timeline` — Model #900: every claim has an acknowledgement timer, a logged reasonable-investigation step, and a written denial-reason; no coverage decision (deny/pay) without a licensed-adjuster sign-off event.
+- `EVAL-licensing-coverage` — every state × line that the system binds, quotes-to-bind, or adjusts has a named, currently-licensed adjuster/producer (Model #218 + adjuster licensing) on file.
+- `EVAL-rbc-recalc` — RBC ratio (Model #312 / #315) reproduces from annual-statement inputs; action-level thresholds (Company/Regulatory/Authorized/Mandatory Control) are computed and monitored.
+- `EVAL-orsa-summary-report` — if premium > $500M (insurer) / $1B (group), an ORSA Summary Report (Model #505) exists with a documented risk-management framework and forward capital projection.
+- `EVAL-surplus-lines-diligent-search` — every non-admitted (E&S) placement has a diligent-search log (or export-list / exempt-commercial-purchaser exception), home-state premium-tax filing (NRRA), and the alien insurer (Lloyd's / Bermuda) appears on the NAIC IID Quarterly Listing; insured received guaranty-fund non-coverage disclosure.
 
 ## NAIC Model Act quick reference
 
 | Model # | Title | Covered by |
 |---|---|---|
-| #170 | Unfair Trade Practices Act | disparate-impact EVAL |
-| #270 | Unfair Claims Settlement Practices | claims-appeal SLA |
-| #275 | Producer Licensing Model Act | state-filings tracker |
+| #170 | Unfair Trade Practices Act (anti-discrimination) | disparate-impact EVAL |
+| #218 | Producer Licensing Model Act | state-filings / licensing tracker |
+| #270 | Unfair Claims Settlement Practices (model **regulation**) | claims-appeal SLA |
+| #312 | Risk-Based Capital (RBC) For Insurers Model Act (life & P&C) | RBC / solvency artefacts |
+| #315 | Risk-Based Capital (RBC) for Health Organizations | RBC / solvency artefacts |
 | #440 | Property and Casualty Model Rating Law | rate filing per state |
-| #670 | Insurance Information & Privacy Protection | privacy controls (parallel to GLBA) |
-| #672 | Insurance Information Privacy Protection (consumer data) | privacy controls |
-| #870 | Annual Financial Reporting Model Regulation | financial reporting cadence |
-| #900 | Unfair Claims Settlement Practices (revised) | claims-appeal SLA |
+| #505 | Risk Management & Own Risk and Solvency Assessment (ORSA) Model Act | ORSA Summary Report |
+| #520 | Life & Health Insurance Guaranty Association Model Act | insolvency-backstop disclosure |
+| #540 | Post-Assessment P&C Insurance Guaranty Association Model Act | insolvency-backstop disclosure |
+| #670 | Insurance Information & Privacy Protection Model Act (FCRA-style consumer rights) | privacy controls |
+| #672 | Privacy of Consumer Financial & Health Information Regulation (**GLBA Title V**) | privacy controls |
+| #870 | Nonadmitted Insurance Model Act (surplus-lines / E&S) | surplus-lines tracker |
+| #900 | Unfair Claims Settlement Practices **Act** (controlling anti-bad-faith standard) | claims-appeal SLA |
 | #1006 | Insurance Data Security Model Law (cybersecurity event notification) | cyber-event EVAL |
+
+> **Number hygiene (the judge caught a fuzzy #672):** #672 is the **GLBA Title V** privacy *regulation*, not
+> an "IRPC / Insurance Regulatory Information" act. Privacy rights = **#670**; GLBA privacy = **#672**.
+> IRIS (Insurance Regulatory Information System) is a solvency-screening tool, not a numbered privacy model.
+> Annual Financial Reporting is **#205** (formerly cited here as #870, which is actually Nonadmitted Insurance).
+
+## Applicability matrix — which regime fires when
+
+| Regime / Model | Applies when | Required artefact | Gate |
+|---|---|---|---|
+| **Unfair Claims Settlement Practices (Model #900)** | Any flow that acknowledges, investigates, denies, or pays a claim | `docs/compliance/claims-appeal.md` (SLA + denial-reason template); licensed-adjuster sign-off log | `gate:adjuster-signoff` |
+| **Producer / adjuster licensing (Model #218 + state adjuster licensing)** | System binds, quotes-to-bind, or decides/pays claims | `docs/compliance/licensing-roster.md` (licensed adjusters + producers per state + line) | `gate:adjuster-signoff` |
+| **Insurance Information & Privacy Protection (Model #670)** | Collect/use/disclose consumer info in an insurance transaction | `docs/compliance/privacy-670-notices.md` (access, correction, adverse-action notices) | `gate:naic-filing` |
+| **GLBA-privacy regulation (Model #672)** | Carrier/agent handles consumer financial or health info (GLBA Title V) | `docs/compliance/privacy-672-glba.md` (privacy notice + opt-out + HIPAA-aligned health rules) | `gate:naic-filing` |
+| **Guaranty associations (Model #540 P&C / #520 L&H)** | Carrier writes admitted business; or places surplus-lines (must disclose NON-coverage) | `docs/compliance/guaranty-association.md` (assessment exposure + non-admitted disclosure) | `gate:naic-filing` |
+| **Risk-Based Capital (Model #312 / #315)** | Any solvency, reserving, or capital-model feature | `docs/compliance/rbc/` (RBC formula inputs + action-level monitoring) | `gate:actuarial-signoff` |
+| **ORSA (Model #505)** | Insurer > $500M, or group > $1B, direct + assumed premium | `docs/compliance/orsa/orsa-summary-report.md` (risk framework + capital projection) | `gate:actuarial-signoff` |
+| **Surplus-lines / non-admitted (Model #870 + NRRA)** | Risk placed with non-admitted / alien insurers (Lloyd's, Bermuda) | `docs/compliance/surplus-lines.md` (diligent-search log, home-state tax filing, IID-eligibility check) | `gate:naic-filing` |
+| **Solvency II (EU)** | EU/EEA-domiciled (re)insurer | `docs/compliance/solvency2/` (SCR/MCR, ORSA, SFCR/RSR) | `gate:actuarial-signoff` |
+
+## Insolvency backstop & enterprise risk quick reference
+
+- **State guaranty associations** pay covered claims on insurer insolvency, funded by **post-insolvency
+  assessments** on solvent carriers with per-claim caps:
+  - **Model #540** — Post-Assessment P&C Insurance Guaranty Association Model Act (property/casualty).
+  - **Model #520** — Life & Health Insurance Guaranty Association Model Act (life / annuity / health).
+  - **Surplus-lines / non-admitted business is generally NOT guaranty-fund protected** — disclose this to
+    the insured whenever risk is placed in the E&S / alien-insurer market.
+- **Risk-Based Capital (RBC):** **Model #312** (life & P&C, adopted 1993, rev. 2012) and **Model #315**
+  (health). RBC sets capital floors with graduated **action levels** (Company → Regulatory → Authorized
+  Control → Mandatory Control) by RBC ratio; feeds the annual statement.
+- **ORSA — Model #505** (Risk Management & Own Risk and Solvency Assessment, adopted 2012, eff. 2015,
+  accreditation standard). Applies to insurers writing **> $500M** or groups **> $1B** direct + assumed
+  premium. Requires an annual internal ORSA + a confidential **ORSA Summary Report** to the lead-state
+  commissioner on request. US analogue of Solvency II Pillar 2 ORSA — don't conflate the two regimes.
+
+## Surplus-lines / non-admitted markets quick reference
+
+- **Model #870 — Nonadmitted Insurance Model Act** governs **excess-&-surplus (E&S)** placements with
+  **non-admitted (eligible) insurers** for risks admitted carriers decline.
+- **Diligent search:** broker must document a search of the admitted market (declinations) unless the risk
+  is on the **export list** or the insured is an **exempt commercial purchaser** (NRRA national exception).
+- **Premium tax** is owed to and filed in the insured's **home state** under the federal **Nonadmitted and
+  Reinsurance Reform Act (NRRA, 2010)**; a licensed **surplus-lines broker** must place and report.
+- **Lloyd's of London** syndicates and other **alien (non-US) insurers** — including **Bermuda**-domiciled
+  carriers (BMA-supervised, Solvency II-equivalent) — write US surplus-lines business only when listed on
+  the **NAIC International Insurers Department (IID) Quarterly Listing of Alien Insurers**.
 
 ## Solvency II (EU) quick reference
 
@@ -136,6 +200,14 @@ Auto-attach when ARCH / PROJECT.md / package manifests contain any of:
 
 - NAIC Model Acts: https://content.naic.org/model-laws
 - NAIC Insurance Data Security Model Law (#1006): https://content.naic.org/sites/default/files/MO668.pdf
+- NAIC Insurance Information & Privacy Protection (#670): https://content.naic.org/sites/default/files/model-law-670.pdf
+- NAIC Privacy of Consumer Financial & Health Information Regulation / GLBA (#672): https://content.naic.org/sites/default/files/model-law-672.pdf
+- NAIC RBC For Insurers Model Act (#312): https://content.naic.org/sites/default/files/model-law-312.pdf
+- NAIC Risk Management & ORSA Model Act (#505) + ORSA: https://content.naic.org/insurance-topics/own-risk-and-solvency-assessment
+- NAIC P&C Guaranty Association Model Act (#540): https://content.naic.org/sites/default/files/model-law-540.pdf
+- NAIC Life & Health Guaranty Association Model Act (#520): https://content.naic.org/sites/default/files/model-law-520.pdf
+- NAIC Nonadmitted Insurance Model Act / surplus lines (#870): https://content.naic.org/sites/default/files/model-law-870.pdf
+- NAIC International Insurers Dept. (IID) — alien insurers / Lloyd's: https://content.naic.org/insurance-topics/surplus-lines
 - Solvency II Directive 2009/138/EC: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02009L0138-20210630
 - Solvency II Delegated Regulation 2015/35: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02015R0035-20240102
 - IFRS 17 Insurance Contracts: https://www.ifrs.org/issued-standards/list-of-standards/ifrs-17-insurance-contracts/

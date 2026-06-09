@@ -38,14 +38,75 @@ You write a threat model at `docs/sec-threats/TM-{slug}.md`, then append a `<!--
 
 - **State-by-state regulation** — each US state has its own Department of Insurance (DOI). A federal regulator does NOT exist for insurance (with very narrow exceptions).
 - **NAIC** publishes Model Acts; each state adopts (or modifies) them — variations matter.
-- **Key Model Acts:**
-  - **Model #672:** Insurance Information and Privacy Protection
-  - **Model #668:** Insurance Holding Company System Regulatory Act
-  - **Model #870:** Annual Financial Reporting Model Regulation
-  - **Model #672 IRPC:** Insurance Information Privacy Protection (handles consumer data)
-  - **Model #170:** Unfair Trade Practices Act (anti-discrimination)
-  - **Model #1006:** Cybersecurity Event Notification (now in 30+ states)
+- **Key Model Acts (verified numbers — get these right; do not guess):**
+  - **Model #670:** Insurance Information and Privacy Protection Model Act — FCRA-style consumer
+    rights over information collected in insurance transactions (access, correction, adverse-action notice).
+  - **Model #672:** Privacy of Consumer Financial and Health Information Regulation — the NAIC's
+    **GLBA Title V** implementing regulation (financial-privacy notices, opt-out, and the HIPAA-aligned
+    health-information rules). NOTE: #672 is *not* an "IRPC / Insurance Regulatory Information" act — that
+    is a common mislabel. IRIS (Insurance Regulatory Information System) is a separate solvency-screening
+    tool, not a numbered privacy model. Use #670 for privacy rights and #672 for GLBA-privacy.
+  - **Model #900:** Unfair Claims Settlement Practices Act — the controlling anti-bad-faith standard:
+    prompt acknowledgement, reasonable investigation, prompt fair settlement, written denial with a
+    specific reason. (Many states adopted it as a *regulation* historically numbered #270; #900 is the act.)
+  - **Model #170:** Unfair Trade Practices Act (anti-discrimination, unfair methods of competition).
+  - **Model #668:** Insurance Holding Company System Regulatory Act.
+  - **Model #870:** Nonadmitted Insurance Model Act (surplus-lines / E&S — see below).
+  - **Model #1006:** Insurance Data Security Model Law / cybersecurity-event notification (now in 25+ states).
 - **Filings required per state:** rate filings, form filings, license maintenance. Track-and-comply tooling is critical.
+
+### Unfair Claims Settlement Practices & bad faith (Model #900) — claims must clear this
+
+- **Model #900 (Unfair Claims Settlement Practices Act)** is the spine of claims compliance. Required
+  conduct: prompt **acknowledgement** of a claim, **reasonable investigation** before denial, prompt
+  and fair **settlement** once liability is reasonably clear, and a **written denial citing the specific
+  policy/factual basis**. State timelines vary (e.g. acknowledge within 10–15 days, decide within 30–40).
+- **Bad faith:** auto-denying or auto-paying a claim with **no licensed adjuster** and **no reasonable
+  investigation** is a textbook #900 violation and exposes the carrier to bad-faith / extra-contractual
+  liability. A coverage decision (deny / pay / reserve) is a licensed-adjuster act — a model score is not
+  an adjuster. Block any flow that issues a customer-facing denial or moves funds without adjuster sign-off.
+- **Licensing:** adjusters (Model #1230 / state adjuster-licensing) and producers (**Model #218**,
+  Producer Licensing Model Act) must hold the relevant state license for the act they perform.
+
+### Insolvency backstop — guaranty associations & risk-based capital (RBC)
+
+- **State guaranty funds / guaranty associations** pay covered claims when an insurer becomes insolvent:
+  - **Model #540 — Post-Assessment Property and Liability Insurance Guaranty Association Model Act** (P&C).
+  - **Model #520 — Life and Health Insurance Guaranty Association Model Act** (life / annuity / health).
+  - These are funded by **post-insolvency assessments** on solvent carriers, with per-claim caps; coverage
+    is state-of-residence-based. Surplus-lines / non-admitted business is generally **NOT** guaranty-fund
+    protected — material for any flow that places risk in the E&S market (disclose to the insured).
+- **Risk-Based Capital (RBC):**
+  - **Model #312 — Risk-Based Capital (RBC) For Insurers Model Act** (life & P&C; adopted 1993, rev. 2012);
+    **Model #315 — RBC for Health Organizations**. RBC sets capital floors and graduated regulatory
+    **action levels** (Company / Regulatory / Authorized Control / Mandatory Control) tied to the RBC ratio.
+  - Engineering relevance: any solvency, reserving, or capital-modelling artefact must reproduce the RBC
+    formula inputs on demand and feed the annual statement.
+
+### Enterprise risk — ORSA (Model #505)
+
+- **Model #505 — Risk Management and Own Risk and Solvency Assessment (ORSA) Model Act** (adopted 2012,
+  effective 2015; an NAIC accreditation standard). Applies to insurers writing **> $500M** direct + assumed
+  premium, or groups **> $1B**. Requires: (1) a maintained risk-management framework, (2) an annual internal
+  **ORSA**, and (3) a confidential **ORSA Summary Report** to the lead-state commissioner on request.
+  This is the **US analogue of Solvency II Pillar 2 ORSA** — do not conflate the two regimes; #505 is the
+  US statutory hook. Enterprise-risk and capital-projection features must produce ORSA-ready documentation.
+
+### Surplus-lines / non-admitted markets — Model #870, Lloyd's & Bermuda
+
+- **Model #870 — Nonadmitted Insurance Model Act** governs **surplus-lines / excess-&-surplus (E&S)**
+  placements: risks that admitted carriers won't write are placed with **non-admitted (eligible) insurers**.
+- **Diligent search:** a surplus-lines broker generally must show a **diligent search** of the admitted
+  market first (declinations), unless the risk is on the **export list** or the insured is an **exempt
+  commercial purchaser** (NRRA national exception).
+- **Surplus-lines premium tax** is owed to and filed in the insured's **home state** (per the federal
+  **Nonadmitted and Reinsurance Reform Act, NRRA, 2010**); a licensed **surplus-lines broker** must place
+  and report the business.
+- **Markets:** **Lloyd's of London** syndicates and other **alien (non-US) insurers** — including
+  **Bermuda**-domiciled carriers — write US surplus-lines business only when listed on the **NAIC
+  International Insurers Department (IID) Quarterly Listing of Alien Insurers**. Bermuda is a major
+  reinsurance / E&S hub (BMA-supervised, Solvency II-equivalent); placements there are non-admitted and,
+  as above, **not guaranty-fund backed** — the insured must be told.
 
 ### Solvency II (EU)
 
@@ -140,12 +201,15 @@ GEO=$(grep "^geo:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 
 If US-jurisdiction project, generate matrix:
 
-| State | DOI | Rate filing required? | Form filing required? | Specific cybersecurity regs? |
-|-------|-----|----------------------|----------------------|------------------------------|
-| CA | yes | yes (DOI approval) | yes | NAIC Model #672 adopted |
-| NY | yes | yes (NYDFS) | yes | NYDFS Cybersecurity Reg 23 NYCRR 500 |
-| TX | yes | yes | yes | TX SB 820 (NAIC Model #672) |
-| ... | ... | ... | ... | ... |
+| State | DOI | Rate filing required? | Form filing required? | Data-security / cyber reg | Guaranty assoc. (insolvency) |
+|-------|-----|----------------------|----------------------|---------------------------|------------------------------|
+| CA | yes | yes (DOI approval, Prop 103) | yes | (no Model #1006 adoption yet) | CIGA (P&C) / CLHIGA (L&H) |
+| NY | yes | yes (NYDFS) | yes | 23 NYCRR 500 (cyber) | NYPCMIC / NYLIGC |
+| TX | yes | yes | yes | TX Ins. Code ch. 601 (NAIC Model #1006) | TPCIGA / TLHIGA |
+| ... | ... | ... | ... | ... | ... |
+
+> Cyber-event notification = **NAIC Model #1006** (Insurance Data Security Model Law) or 23 NYCRR 500 in NY —
+> NOT a privacy model. Privacy = #670 (FCRA-style rights) + #672 (GLBA). Keep these straight in the matrix.
 
 This matrix drives the implementation plan: if NY is in scope, 23 NYCRR 500 specific controls must be implemented.
 
@@ -188,9 +252,15 @@ critical-findings: <count>
 high-findings: <count>
 must-implement-before-senior-dev:
   - State-by-state filing tracker (which states in scope, what's filed)
+  - Unfair Claims Settlement Practices (Model #900) timeline + licensed-adjuster gate on every coverage decision
+  - Producer/adjuster licensing checks (Model #218 producers; adjuster licensing)
   - Actuarial model documentation per ASOP 41/56
   - Disparate-impact analysis for any pricing decision
-  - NYDFS 23 NYCRR 500 controls (if NY in scope)
+  - NYDFS 23 NYCRR 500 / NAIC Model #1006 cyber-event controls (if in scope)
+  - Privacy controls per Model #670 + #672 (GLBA) — not the same as cyber #1006
+  - Guaranty-association non-coverage disclosure for surplus-lines (#870) placements
+  - RBC reproducibility (Model #312 / #315) + ORSA Summary Report readiness (Model #505, if > $500M/$1B premium)
+  - Surplus-lines diligent-search + home-state premium-tax filing (#870 / NRRA), incl. Lloyd's / Bermuda alien-insurer IID eligibility
   - Solvency II SCR calculation reproducibility (if EU)
   - Bordereau schema validation (if reinsurance)
 gate: gate:insurance-review
