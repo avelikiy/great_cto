@@ -10,7 +10,7 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import { execSync, spawnSync } from 'child_process';
+import { execSync, spawnSync, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import os from 'os';
 import {
@@ -337,6 +337,77 @@ function broadcast(event, data) {
   for (const res of sseClients) {
     try { res.write(msg); } catch { sseClients.delete(res); }
   }
+}
+
+// ── Launch control (board → agent): approve a gate / press Run → spawn a Claude Code agent
+// headlessly in the project, stream its output to the board, with hard guardrails. ──
+const AGENT_BIN = process.env.GREAT_CTO_AGENT_BIN || 'claude';
+const AGENT_TIMEOUT = Math.max(60000, Number(process.env.GREAT_CTO_AGENT_TIMEOUT) || 1800000); // 30 min
+const AGENT_PERMISSION = process.env.GREAT_CTO_AGENT_PERMISSION || 'acceptEdits';
+const AGENT_DANGEROUS = process.env.GREAT_CTO_AGENT_DANGEROUS === '1';
+const AGENT_LINECAP = 2000;
+const agentRuns = new Map();  // cwd → { proc, project, startedAt, lines:[], exit, timer, prompt }
+
+// Only same-origin (the board's own page) may trigger a spawn — a malicious page must not.
+function originAllowed(req) {
+  const o = req.headers.origin || req.headers.referer || '';
+  if (!o) return true; // same-origin fetch / curl with no Origin
+  return [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`].some((e) => o === e || o.startsWith(e + '/'));
+}
+function agentEmit(project, kind, text) {
+  broadcast('agent', { project, kind, text, at: Date.now() });
+}
+function agentPush(run, kind, text) {
+  run.lines.push({ kind, text });
+  if (run.lines.length > AGENT_LINECAP) run.lines.splice(0, run.lines.length - AGENT_LINECAP);
+  agentEmit(run.project, kind, text);
+}
+// Parse a claude --output-format stream-json line into a human line for the board.
+function agentLineFromJson(s) {
+  let e; try { e = JSON.parse(s); } catch { return s ? { kind: 'text', text: s } : null; }
+  if (e.type === 'assistant' && e.message?.content) {
+    const parts = e.message.content;
+    const texts = parts.filter((p) => p.type === 'text').map((p) => p.text).join('').trim();
+    const tools = parts.filter((p) => p.type === 'tool_use').map((p) => '🔧 ' + p.name).join(' ');
+    if (texts) return { kind: 'text', text: texts };
+    if (tools) return { kind: 'tool', text: tools };
+    return null;
+  }
+  if (e.type === 'result') return { kind: 'system', text: `▪ result (${e.subtype || 'done'}${e.total_cost_usd ? ' · $' + e.total_cost_usd.toFixed(4) : ''})` };
+  if (e.type === 'system' && e.subtype === 'init') return { kind: 'system', text: `▪ session ${String(e.session_id || '').slice(0, 8)} · model ${e.model || ''}` };
+  return null;
+}
+function startAgentRun(cwd, project, prompt, model) {
+  if (agentRuns.has(cwd)) return { error: 'an agent is already running for this project', running: true };
+  const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--permission-mode', AGENT_PERMISSION];
+  if (AGENT_DANGEROUS) args.push('--dangerously-skip-permissions');
+  if (model) args.push('--model', String(model));
+  let proc;
+  try { proc = spawn(AGENT_BIN, args, { cwd, env: process.env }); }
+  catch (e) { return { error: 'spawn failed: ' + e.message }; }
+  const run = { proc, project, startedAt: Date.now(), lines: [], exit: null, prompt };
+  agentRuns.set(cwd, run);
+  agentPush(run, 'system', `▶ agent started: ${AGENT_BIN} (${AGENT_PERMISSION}${AGENT_DANGEROUS ? ' · skip-perms' : ''})`);
+  let buf = '';
+  proc.stdout.on('data', (d) => {
+    buf += d.toString();
+    let i; while ((i = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); const l = agentLineFromJson(line); if (l) agentPush(run, l.kind, l.text); }
+  });
+  proc.stderr.on('data', (d) => agentPush(run, 'error', String(d).slice(0, 500)));
+  run.timer = setTimeout(() => { agentPush(run, 'error', '⏱ timeout — terminating'); try { proc.kill('SIGTERM'); } catch {} setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} }, 5000); }, AGENT_TIMEOUT);
+  proc.on('close', (code) => {
+    clearTimeout(run.timer); run.exit = code;
+    agentPush(run, 'done', `■ agent exited (code ${code})`);
+    agentRuns.delete(cwd);
+  });
+  proc.on('error', (e) => { clearTimeout(run.timer); agentPush(run, 'error', 'agent error: ' + e.message); agentRuns.delete(cwd); });
+  return { running: true, startedAt: run.startedAt };
+}
+function stopAgentRun(cwd) {
+  const run = agentRuns.get(cwd); if (!run) return { error: 'no active run' };
+  try { run.proc.kill('SIGTERM'); } catch {}
+  setTimeout(() => { try { run.proc.kill('SIGKILL'); } catch {} }, 4000);
+  return { stopped: true };
 }
 
 function broadcastTasks(cwd) {
@@ -2565,6 +2636,32 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ── Launch control: run / stop / status of a board-triggered agent ──
+  if (pathname === '/api/agent/status' && req.method === 'GET') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const run = agentRuns.get(c);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(run ? { running: true, startedAt: run.startedAt, lines: run.lines.slice(-200) } : { running: false }));
+    return;
+  }
+  if ((pathname === '/api/agent/run' || pathname === '/api/agent/stop') && req.method === 'POST') {
+    if (!originAllowed(req)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'origin not allowed' })); return; }
+    let body = ''; req.on('data', (c) => body += c);
+    req.on('end', () => {
+      let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
+      const c = p.project ? resolveProjectCwd(p.project) : cwd;
+      const home = os.homedir();
+      if (!c || (!c.startsWith(home + path.sep) && c !== home)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'project must live inside HOME' })); return; }
+      if (pathname === '/api/agent/stop') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(stopAgentRun(c))); return; }
+      const prompt = String(p.prompt || '').trim();
+      if (!prompt) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'prompt required' })); return; }
+      const r = startAgentRun(c, p.project || path.basename(c), prompt, p.model);
+      res.writeHead(!r.error ? 200 : (r.running ? 409 : 400), { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(r));
+    });
+    return;
+  }
+
   // Gate approval / rejection
   if (pathname.startsWith('/api/gates/') && req.method === 'POST') {
     const id = pathname.replace('/api/gates/', '');
@@ -2626,8 +2723,14 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: (result && result.error) || 'bd update failed' }));
         return;
       }
+      // Launch control: optionally spawn an agent the moment the gate is approved.
+      let agent = null;
+      if (action === 'approve' && parsed.runAgent && originAllowed(req)) {
+        const prompt = String(parsed.agentPrompt || '').trim() || `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it.`;
+        agent = startAgentRun(gateCwd, parsed.project || path.basename(gateCwd), prompt, parsed.model);
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, id, action }));
+      res.end(JSON.stringify({ ok: true, id, action, agent }));
       broadcastTasks(cwd);
       // Auto-republish share report when a gate is approved (fire-and-forget)
       if (action === 'approve') {
