@@ -63,7 +63,7 @@ system in the single file.
 - **Skeletons + explicit empty/error states** everywhere (no silent blank panels).
 - **Acceptance:** new case appears < 1s without a reload; 500-row inbox scrolls at 60fps; offline shows a banner.
 
-## Phase 5 — The signature ceremony & trust surfaces
+## Phase 5 — The signature ceremony & trust surfaces ✅ DONE
 - **Sign affordance** — the irreversible "Approve & run the write" is visually weightier; shows exactly
   what will execute (the connector + blast radius) and requires the signer's name (already) + an
   explicit confirm for `blastRadius: high`.
