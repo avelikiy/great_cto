@@ -316,6 +316,22 @@ function resolveProjectInfo(slugOrPath) {
 const sseClients = new Set();
 const _reportRepublishDedupeSet = new Set(); // dedupe daily report republish
 
+// ── Autopilot console realtime (Phase 4): push a "change" the instant a run mutates ──
+const apSseClients = new Set();
+const AP_RUNS_DIR = process.env.GREAT_CTO_RUNS_DIR || path.join(os.homedir(), '.great_cto', 'autopilot-runs');
+let _apBroadcastTimer = null;
+function apBroadcast() {                       // debounced so a burst of file writes = one push
+  clearTimeout(_apBroadcastTimer);
+  _apBroadcastTimer = setTimeout(() => {
+    const msg = 'event: change\ndata: {}\n\n';
+    for (const res of apSseClients) { try { res.write(msg); } catch { apSseClients.delete(res); } }
+  }, 120);
+}
+try {
+  fs.mkdirSync(AP_RUNS_DIR, { recursive: true });
+  fs.watch(AP_RUNS_DIR, { recursive: true }, () => apBroadcast());   // catches CLI + console + webhook writes
+} catch (e) { console.warn('autopilot runs watch failed:', e.message); }
+
 function broadcast(event, data) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of sseClients) {
@@ -3240,6 +3256,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── Autopilot console (Layer D) — durable runs + human-gate inbox ──────────────
+  // Realtime stream (Phase 4): the console subscribes here; the server pushes "change"
+  // whenever any run file mutates (console action, CLI, or webhook ingest).
+  if (pathname === '/api/autopilot/stream' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+    res.write('retry: 3000\n\n');
+    res.write('event: change\ndata: {}\n\n');         // prompt an initial load
+    apSseClients.add(res);
+    const hb = setInterval(() => { try { res.write(': hb\n\n'); } catch { /* closed */ } }, 25000);
+    req.on('close', () => { clearInterval(hb); apSseClients.delete(res); });
+    return;
+  }
   if (pathname === '/api/autopilot/roles' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ roles: ROLES }));
