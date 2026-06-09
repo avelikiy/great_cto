@@ -38,7 +38,7 @@ system in the single file.
 - **Density modes** — comfortable / compact toggle (operators want compact; persists per user).
 - **Acceptance:** inline `style=` count → ~0; one source of truth for color/space/type; theme switch works.
 
-## Phase 2 — Keyboard-first + command palette
+## Phase 2 — Keyboard-first + command palette ✅ DONE
 - **⌘K / Ctrl-K command palette** — jump to a tab, a vertical filter, a case id, run an action.
 - **Queue navigation** — `j/k` move through the inbox, `Enter` opens the drawer, `a` approve / `e`
   escalate / `r` reject / `s` focus the signer field / `b` send-back, `?` shows the cheatsheet.

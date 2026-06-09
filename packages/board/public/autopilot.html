@@ -119,6 +119,22 @@
   .card.gate:hover, .card.click:hover { border-color:var(--border-2); background:var(--surface-3); }
   .card { transition:border-color .12s, background .12s; }
   .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  /* keyboard-first (Phase 2) */
+  .kbfocus { box-shadow:0 0 0 2px var(--accent); border-color:var(--accent) !important; }
+  #palette-bg, #cheat-bg { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:30; }
+  #palette-bg.open, #cheat-bg.open { display:block; }
+  #palette { position:fixed; top:13vh; left:50%; transform:translateX(-50%); width:min(580px,94vw); background:var(--surface); border:1px solid var(--bd); border-radius:var(--r-3); box-shadow:var(--shadow-drawer); z-index:31; overflow:hidden; display:none; }
+  #palette.open { display:block; }
+  #palette-input { width:100%; border:0; border-bottom:1px solid var(--bd); border-radius:0; padding:15px 18px; font-size:var(--fs-3); background:var(--surface); color:var(--tx); }
+  #palette-list { max-height:52vh; overflow:auto; padding:6px; }
+  .pcmd { padding:9px 12px; border-radius:var(--r-1); cursor:pointer; display:flex; gap:10px; align-items:center; font-size:var(--fs-2); color:var(--text); }
+  .pcmd .pk { margin-left:auto; }
+  .pcmd.sel, .pcmd:hover { background:var(--surface-3); }
+  kbd { font:inherit; font-size:var(--fs-1); background:var(--surface-2); border:1px solid var(--bd); border-bottom-width:2px; border-radius:5px; padding:1px 6px; color:var(--text-3); white-space:nowrap; }
+  #cheat { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:min(460px,94vw); background:var(--surface); border:1px solid var(--bd); border-radius:var(--r-3); box-shadow:var(--shadow-drawer); z-index:31; display:none; padding:20px 22px; }
+  #cheat.open { display:block; }
+  #cheat h3 { margin:0 0 12px; font-size:var(--fs-4); }
+  #cheat .krow { display:flex; justify-content:space-between; gap:16px; padding:5px 0; font-size:var(--fs-2); border-bottom:1px solid var(--border-3); }
   @media (prefers-reduced-motion: reduce) { *, [data-sec] { animation:none !important; transition:none !important; } }
   @media (max-width:680px){ main{padding:16px} header{flex-wrap:wrap;gap:8px} .tabs{top:auto;position:static} }
 </style>
@@ -131,6 +147,7 @@
   <span id="session-info" class="mut" style="font-size:13px;display:none"></span>
   <span id="role-pick"><span class="mut">I am the</span>
   <select id="role" aria-label="Acting role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select></span>
+  <button class="iconbtn" onclick="openPalette()" title="Command palette (⌘K / Ctrl K)" aria-label="Open command palette" style="font-size:12px">⌘K</button>
   <button class="iconbtn" onclick="toggleDensity()" id="density-btn" title="Toggle density (compact ↔ comfortable)" aria-label="Toggle density">⊟</button>
   <button class="iconbtn" onclick="toggleTheme()" id="theme-btn" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
   <button class="back" onclick="help()" title="How this works">❔ Help</button>
@@ -257,6 +274,25 @@
 </main>
 <div id="drawer-bg" onclick="closeDrawer()"></div>
 <aside id="drawer" role="dialog" aria-modal="true" aria-label="Case detail" tabindex="-1"><button class="x" onclick="closeDrawer()" aria-label="Close case detail">✕</button><div id="drawer-body"></div></aside>
+<!-- ⌘K command palette -->
+<div id="palette-bg" onclick="closePalette()"></div>
+<div id="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+  <input id="palette-input" type="text" placeholder="Type a command… tab · filter · theme · help" aria-label="Command palette" autocomplete="off" oninput="renderPalette()" onkeydown="paletteKey(event)" />
+  <div id="palette-list" role="listbox" aria-label="Commands"></div>
+</div>
+<!-- ? keyboard cheatsheet -->
+<div id="cheat-bg" onclick="closeCheat()"></div>
+<div id="cheat" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <h3>⌨ Keyboard shortcuts</h3>
+  <div class="krow"><span>Command palette</span><span><kbd>⌘K</kbd> / <kbd>Ctrl K</kbd></span></div>
+  <div class="krow"><span>Move through the queue</span><span><kbd>j</kbd> <kbd>k</kbd></span></div>
+  <div class="krow"><span>Open the focused case</span><span><kbd>Enter</kbd> / <kbd>o</kbd></span></div>
+  <div class="krow"><span>Approve · Reject · Escalate · Send back</span><span><kbd>a</kbd> <kbd>r</kbd> <kbd>e</kbd> <kbd>b</kbd></span></div>
+  <div class="krow"><span>Focus the signer field</span><span><kbd>s</kbd></span></div>
+  <div class="krow"><span>Focus search</span><span><kbd>/</kbd></span></div>
+  <div class="krow"><span>Switch tabs</span><span><kbd>←</kbd> <kbd>→</kbd> on the tab bar</span></div>
+  <div class="krow" style="border:0"><span>Close / this help</span><span><kbd>Esc</kbd> · <kbd>?</kbd></span></div>
+</div>
 <script>
 // ── Theme + density (Phase 1 design system) — persisted per operator ──
 const root = document.documentElement;
@@ -604,7 +640,7 @@ async function loadInbox() {
   if (badge) { badge.textContent = list.length; badge.style.display = list.length ? '' : 'none'; }
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
-    <div class="card gate">
+    <div class="card gate" data-run="${r.id}">
       <div class="row"><input type="checkbox" class="bulk-cb" aria-label="Select case for bulk action" value="${r.id}" onchange="updateBulk()" /><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:var(--warn);border-color:var(--warn-border)">↑ escalated</span>' : ''}${recoHtml(r)}${r.autoEligible ? '<span class="pill ok">auto-eligible</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span class="spacer"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
       ${gateProgressHtml(r)}
@@ -619,6 +655,7 @@ async function loadInbox() {
         <button class="back" style="border:1px solid var(--bd);cursor:pointer" onclick="decide('${r.id}','send-back')">↩ Send back</button>
       </div>
     </div>`).join('');
+  kbPaint();   // re-apply the keyboard cursor after the 4s re-render
 }
 
 async function loadRuns() {
@@ -784,6 +821,93 @@ async function opsBadge() {
 }
 // populate the bulk reason select
 document.getElementById('bulk-reason').innerHTML = REASONS.map(x => `<option>${x}</option>`).join('');
+// ── Keyboard-first (Phase 2): queue cursor + ⌘K palette + cheatsheet ──
+let kbRun = null;                              // the run id the keyboard cursor is on
+const kbCards = () => [...document.querySelectorAll('#inbox .card.gate[data-run]')];
+function kbPaint() {
+  const cards = kbCards();
+  if (!cards.length) { kbRun = null; return; }
+  if (!cards.some((c) => c.dataset.run === kbRun)) kbRun = cards[0].dataset.run;
+  for (const c of cards) c.classList.toggle('kbfocus', c.dataset.run === kbRun);
+}
+function kbMove(d) {
+  const cards = kbCards(); if (!cards.length) return;
+  let i = cards.findIndex((c) => c.dataset.run === kbRun);
+  i = Math.max(0, Math.min(cards.length - 1, (i < 0 ? 0 : i + d)));
+  kbRun = cards[i].dataset.run; kbPaint();
+  cards[i].scrollIntoView({ block: 'nearest' });
+}
+function kbAct(action) {
+  if (!kbRun) return;
+  if (action === 'approve') { const f = document.getElementById('by-' + kbRun); if (f && !f.value.trim()) { f.focus(); announce('Enter your name to sign, then press Approve.'); return; } }
+  decide(kbRun, action);
+}
+function kbSigner() { if (!kbRun) return; const f = document.getElementById('by-' + kbRun); if (f) f.focus(); }
+
+// ── Command palette ──
+function paletteCommands() {
+  const tab = (t, label) => ({ label, hint: 'tab', run: () => switchTab(t), show: canSee(t) });
+  const cmds = [
+    tab('inbox', 'Go to Inbox'), tab('cases', 'Go to All cases'), tab('analytics', 'Go to Analytics'),
+    tab('qa', 'Go to QA'), tab('ops', 'Go to Ops'), tab('admin', 'Go to Admin'),
+    { label: 'Toggle light / dark theme', hint: 'theme', run: toggleTheme, show: true },
+    { label: 'Toggle density (compact)', hint: 'view', run: toggleDensity, show: true },
+    { label: 'Focus search', hint: '/', run: () => { switchTab('inbox'); setTimeout(() => document.getElementById('f-search').focus(), 0); }, show: true },
+    { label: 'Keyboard shortcuts', hint: '?', run: openCheat, show: true },
+    { label: 'Help — how this works', hint: 'help', run: help, show: true },
+  ];
+  for (const o of document.getElementById('vertical').options) {
+    if (!o.hidden) cmds.push({ label: 'Filter inbox: ' + o.value, hint: 'filter', run: () => { switchTab('inbox'); const fv = document.getElementById('f-vertical'); fv.value = o.value; refresh(); }, show: true });
+  }
+  return cmds.filter((c) => c.show);
+}
+let _pcmds = [], _psel = 0;
+function openPalette() {
+  document.getElementById('palette').classList.add('open');
+  document.getElementById('palette-bg').classList.add('open');
+  const i = document.getElementById('palette-input'); i.value = ''; renderPalette(); setTimeout(() => i.focus(), 0);
+}
+function closePalette() { document.getElementById('palette').classList.remove('open'); document.getElementById('palette-bg').classList.remove('open'); }
+function renderPalette() {
+  const q = (document.getElementById('palette-input').value || '').toLowerCase();
+  _pcmds = paletteCommands().filter((c) => c.label.toLowerCase().includes(q)); _psel = 0;
+  document.getElementById('palette-list').innerHTML = _pcmds.map((c, i) =>
+    `<div class="pcmd${i === 0 ? ' sel' : ''}" role="option" onclick="runPcmd(${i})"><span>${esc(c.label)}</span><kbd class="pk">${esc(c.hint)}</kbd></div>`).join('') || '<div class="pcmd mut">No match</div>';
+}
+function runPcmd(i) { const c = _pcmds[i]; closePalette(); if (c) c.run(); }
+function paletteKey(e) {
+  if (e.key === 'Escape') { e.preventDefault(); closePalette(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); _psel = Math.min(_pcmds.length - 1, _psel + 1); paintPalette(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _psel = Math.max(0, _psel - 1); paintPalette(); }
+  else if (e.key === 'Enter') { e.preventDefault(); runPcmd(_psel); }
+}
+function paintPalette() { [...document.querySelectorAll('#palette-list .pcmd')].forEach((el, i) => { el.classList.toggle('sel', i === _psel); if (i === _psel) el.scrollIntoView({ block: 'nearest' }); }); }
+
+// ── Cheatsheet ──
+function openCheat() { document.getElementById('cheat').classList.add('open'); document.getElementById('cheat-bg').classList.add('open'); }
+function closeCheat() { document.getElementById('cheat').classList.remove('open'); document.getElementById('cheat-bg').classList.remove('open'); }
+
+// ── Global key router ──
+const _typing = (t) => t && (/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) || t.isContentEditable);
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openPalette(); return; }
+  if (document.getElementById('palette').classList.contains('open')) return;        // palette owns its keys
+  if (document.getElementById('cheat').classList.contains('open')) { if (e.key === 'Escape' || e.key === '?') closeCheat(); return; }
+  if (_typing(e.target)) return;                                                    // never hijack typing
+  if (document.getElementById('drawer').classList.contains('open')) return;          // drawer handler owns Esc/Tab
+  if (e.key === '?') { e.preventDefault(); openCheat(); return; }
+  if (e.key === '/') { e.preventDefault(); switchTab('inbox'); setTimeout(() => document.getElementById('f-search').focus(), 0); return; }
+  if (TAB !== 'inbox') return;                                                       // queue shortcuts only on the Inbox
+  if (e.key === 'j') { e.preventDefault(); kbMove(1); }
+  else if (e.key === 'k') { e.preventDefault(); kbMove(-1); }
+  else if (e.key === 'Enter' || e.key === 'o') { if (kbRun) { e.preventDefault(); openDrawer(kbRun); } }
+  else if (e.key === 'a') { e.preventDefault(); kbAct('approve'); }
+  else if (e.key === 'r') { e.preventDefault(); kbAct('reject'); }
+  else if (e.key === 'e') { e.preventDefault(); kbAct('escalate'); }
+  else if (e.key === 'b') { e.preventDefault(); kbAct('send-back'); }
+  else if (e.key === 's') { e.preventDefault(); kbSigner(); }
+});
+
 initRoles().then(refresh);
 setInterval(refresh, 4000);
 
