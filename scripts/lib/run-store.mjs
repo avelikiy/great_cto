@@ -70,7 +70,7 @@ function recommend(steps) {
 
 // ── In-console config: an adjustable confidence floor per tenant (the routing dial) ──
 function configPath() { return join(baseDir(), 'autopilot-config.json'); }
-const DEFAULT_CONFIG = { confidenceFloor: 0.7, autoEligible: true };
+const DEFAULT_CONFIG = { confidenceFloor: 0.7, autoEligible: true, brandAccent: '', brandName: '' };
 export function getConfig(tenant = 'default') {
   try { const all = JSON.parse(readFileSync(configPath(), 'utf8')); return { ...DEFAULT_CONFIG, ...(all[tenant] || {}) }; }
   catch { return { ...DEFAULT_CONFIG }; }
