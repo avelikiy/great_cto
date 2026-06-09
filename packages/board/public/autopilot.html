@@ -1,34 +1,83 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-density="comfortable">
 <head>
 <meta charset="utf-8" />
 <title>Autopilot console — great_cto</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-  :root { --bg:#0a0e0c; --card:#11161a; --bd:#1f2a26; --tx:#ecf2ee; --mut:#8aa; --grn:#00d97e; --amb:#f0a020; --red:#ff5a5a; }
+  /* ── Design system · Phase 1 ───────────────────────────────────────────────
+     Semantic tokens with light/dark theming + a white-label seam (--brand-accent)
+     + a density switch. Legacy names (--bg/--card/--bd/--tx/--mut/--grn/--amb/--red)
+     are kept as ALIASES so every existing class + var() reference still resolves. */
+  :root {
+    /* white-label seam: a tenant overrides --brand-accent (+ optional ink) on :root */
+    --brand-accent: #00d97e;
+    --brand-accent-ink: #04140d;
+    /* spacing (8-pt) · radii · type · motion · z — theme-independent */
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+    --r-1:8px; --r-2:10px; --r-3:12px; --r-pill:20px;
+    --fs-1:11px; --fs-2:13px; --fs-3:15px; --fs-4:17px; --fs-5:22px;
+    --dur:.16s; --dur-fast:.12s;
+    --z-header:11; --z-tabs:10; --z-drawerbg:20; --z-drawer:21;
+    --shadow-1:0 1px 2px rgba(0,0,0,.3);
+    --shadow-drawer:-18px 0 60px rgba(0,0,0,.5);
+    --ring:0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  }
+  /* dark (default) — values match the original palette exactly */
+  :root, [data-theme="dark"] {
+    --bg:#0a0e0c; --surface:#11161a; --surface-2:#0d1311; --surface-3:#141b1f;
+    --border:#1f2a26; --border-2:#2d3d36; --border-3:#16201c;
+    --text:#ecf2ee; --text-2:#88aaaa; --text-3:#c6d2d0;
+    --accent:var(--brand-accent); --accent-ink:var(--brand-accent-ink);
+    --warn:#f0a020; --warn-border:#5a4420; --warn-ink:#04140d;
+    --success:#00d97e; --success-border:#1c5a3e;
+    --danger:#ff5a5a; --danger-border:#553322; --danger-surface:#1c0f0f;
+  }
+  /* light theme */
+  [data-theme="light"] {
+    --bg:#f6f8f7; --surface:#ffffff; --surface-2:#f0f3f1; --surface-3:#eef3f0;
+    --border:#dde5e1; --border-2:#c4d0ca; --border-3:#e7ede9;
+    --text:#0d1a14; --text-2:#5c6b65; --text-3:#36443d;
+    --accent:var(--brand-accent); --accent-ink:#04140d;
+    --warn:#a85f00; --warn-border:#e3c79a; --warn-ink:#fff;
+    --success:#0a7d4d; --success-border:#bfe6d2;
+    --danger:#c43030; --danger-border:#eccccc; --danger-surface:#fbeaea;
+  }
+  /* legacy aliases — DO NOT REMOVE (existing markup/classes depend on these) */
+  :root { --card:var(--surface); --bd:var(--border); --tx:var(--text); --mut:var(--text-2);
+          --grn:var(--accent); --amb:var(--warn); --red:var(--danger); }
+  /* density */
+  [data-density="compact"] { --sp-3:8px; --sp-4:12px; --sp-5:16px; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--tx); font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
+  body { margin:0; background:var(--bg); color:var(--tx); font:var(--fs-3)/1.5 -apple-system,Segoe UI,Roboto,sans-serif; transition:background .2s,color .2s; }
+  :focus-visible { outline:none; box-shadow:var(--ring); border-radius:6px; }
   header { padding:18px 24px; border-bottom:1px solid var(--bd); display:flex; align-items:center; gap:14px; }
   header h1 { font-size:17px; margin:0; font-weight:600; }
   header .sub { color:var(--mut); font-size:13px; }
-  main { max-width:1000px; margin:0 auto; padding:24px; }
+  main { max-width:1000px; margin:0 auto; padding:var(--sp-5); }
   .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  select, input, button { font:inherit; background:#0d1311; color:var(--tx); border:1px solid var(--bd); border-radius:8px; padding:8px 12px; }
+  select, input, button { font:inherit; background:var(--surface-2); color:var(--tx); border:1px solid var(--bd); border-radius:8px; padding:8px 12px; }
   button { cursor:pointer; }
-  button.primary { background:var(--grn); color:#04140d; border-color:var(--grn); font-weight:600; }
-  button.reject { color:var(--red); border-color:#532; }
-  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:28px 0 12px; }
-  .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:16px 18px; margin-bottom:12px; }
+  button.primary { background:var(--grn); color:var(--accent-ink); border-color:var(--grn); font-weight:600; }
+  button.reject { color:var(--red); border-color:var(--danger-border); }
+  button:hover { border-color:var(--border-2); }
+  button.primary:hover { filter:brightness(1.06); border-color:var(--accent); }
+  .iconbtn { background:none; border:1px solid var(--bd); color:var(--mut); border-radius:var(--r-1); padding:6px 9px; line-height:1; cursor:pointer; font-size:14px; }
+  .iconbtn:hover { color:var(--tx); border-color:var(--border-2); }
+  .spacer { flex:1; }
+  button.back { background:none; border:0; cursor:pointer; }
+  h2 { font-size:var(--fs-2); text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:var(--sp-6) 0 var(--sp-3); }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:var(--r-3); padding:var(--sp-4); margin-bottom:var(--sp-3); }
   .gate { border-left:3px solid var(--amb); }
   .done { border-left:3px solid var(--grn); }
   .rej { border-left:3px solid var(--red); opacity:.7; }
   .vert { font-weight:600; }
   .mut { color:var(--mut); font-size:13px; }
   .pill { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--bd); }
-  .pill.await { color:var(--amb); border-color:#5a4420; }
-  .pill.ok { color:var(--grn); border-color:#1c5a3e; }
-  .pill.rej { color:var(--red); border-color:#532; }
-  ol.steps { margin:10px 0 0; padding-left:20px; font-size:13px; color:#c6d2d0; }
+  .pill.await { color:var(--amb); border-color:var(--warn-border); }
+  .pill.ok { color:var(--grn); border-color:var(--success-border); }
+  .pill.rej { color:var(--red); border-color:var(--danger-border); }
+  ol.steps { margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-3); }
   ol.steps li { margin:2px 0; }
   ol.steps .h { color:var(--amb); }
   .sign { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -36,38 +85,38 @@
   a.back { color:var(--mut); text-decoration:none; font-size:13px; }
   .seg { display:inline-flex; border:1px solid var(--bd); border-radius:8px; overflow:hidden; }
   .seg a { padding:6px 14px; color:var(--mut); text-decoration:none; font-size:13px; font-weight:600; }
-  .seg a.on { background:var(--grn); color:#04140d; }
+  .seg a.on { background:var(--grn); color:var(--accent-ink); }
   .filters { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 2px; }
   .filters select, .filters input { padding:6px 10px; font-size:13px; }
   .sla { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--bd); color:var(--mut); }
-  .sla.warn { color:var(--amb); border-color:#5a4420; }
-  .sla.breach { color:var(--red); border-color:#532; }
+  .sla.warn { color:var(--amb); border-color:var(--warn-border); }
+  .sla.breach { color:var(--red); border-color:var(--danger-border); }
   .gate-prog { font-size:12px; color:var(--mut); margin-top:4px; }
   .card.click { cursor:pointer; }
-  .card.click:hover { border-color:#2d3d36; }
+  .card.click:hover { border-color:var(--border-2); }
   #drawer-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; z-index:20; }
   #drawer { position:fixed; top:0; right:0; bottom:0; width:min(560px,92vw); background:var(--card); border-left:1px solid var(--bd); padding:22px; overflow:auto; z-index:21; transform:translateX(100%); transition:transform .18s; }
   #drawer.open { transform:none; } #drawer-bg.open { display:block; }
   #drawer h3 { margin:0 0 4px; font-size:16px; } #drawer .x { float:right; cursor:pointer; color:var(--mut); border:0; background:none; font-size:18px; }
-  .aud { font-size:12px; color:#c6d2d0; border-left:2px solid var(--bd); padding-left:10px; margin:8px 0; }
+  .aud { font-size:12px; color:var(--text-3); border-left:2px solid var(--bd); padding-left:10px; margin:8px 0; }
   .aud div { margin:3px 0; }
-  .kpi { background:#0d1311; border:1px solid var(--bd); border-radius:10px; padding:10px 16px; min-width:118px; }
+  .kpi { background:var(--surface-2); border:1px solid var(--bd); border-radius:10px; padding:10px 16px; min-width:118px; }
   .kpi b, .kpi-v { display:block; font-size:22px; color:var(--tx); }
   .kpi span, .kpi-k { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
   .kpis { display:flex; gap:10px; flex-wrap:wrap; }
   .ops-tbl { width:100%; border-collapse:collapse; font-size:13px; }
   .ops-tbl th { text-align:left; color:var(--mut); font-weight:500; border-bottom:1px solid var(--bd); padding:6px 10px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
-  .ops-tbl td { padding:7px 10px; border-bottom:1px solid #16201c; }
-  .ops-tbl tr.bad td { background:#1c0f0f; }
+  .ops-tbl td { padding:7px 10px; border-bottom:1px solid var(--border-3); }
+  .ops-tbl tr.bad td { background:var(--danger-surface); }
   header { position:sticky; top:0; z-index:11; background:var(--bg); }
   .tabs { position:sticky; top:55px; z-index:10; display:flex; gap:2px; padding:0 24px; max-width:1048px; margin:0 auto; background:var(--bg); border-bottom:1px solid var(--bd); overflow-x:auto; }
   .tabs button { background:none; border:0; border-bottom:2px solid transparent; border-radius:0; color:var(--mut); padding:12px 16px; font-weight:600; font-size:13px; white-space:nowrap; }
   .tabs button.on { color:var(--tx); border-bottom-color:var(--grn); }
   .tabs button:hover { color:var(--tx); }
-  .tabs .badge { display:inline-block; min-width:16px; text-align:center; background:var(--amb); color:#04140d; border-radius:10px; font-size:10px; font-weight:700; padding:0 5px; margin-left:6px; }
+  .tabs .badge { display:inline-block; min-width:16px; text-align:center; background:var(--amb); color:var(--accent-ink); border-radius:10px; font-size:10px; font-weight:700; padding:0 5px; margin-left:6px; }
   [data-sec] { animation: secfade .16s ease; }
   @keyframes secfade { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
-  .card.gate:hover, .card.click:hover { border-color:#2d3d36; background:#141b1f; }
+  .card.gate:hover, .card.click:hover { border-color:var(--border-2); background:var(--surface-3); }
   .card { transition:border-color .12s, background .12s; }
   @media (max-width:680px){ main{padding:16px} header{flex-wrap:wrap;gap:8px} .tabs{top:auto;position:static} }
 </style>
@@ -76,12 +125,14 @@
 <header>
   <h1>🛂 Autopilot console</h1>
   <span class="seg"><a class="on" href="/autopilot.html">Operate</a><a id="build-link" href="/">Build</a></span>
-  <span style="flex:1"></span>
+  <span class="spacer"></span>
   <span id="session-info" class="mut" style="font-size:13px;display:none"></span>
-  <span id="role-pick"><span class="mut" style="font-size:13px">I am the</span>
+  <span id="role-pick"><span class="mut">I am the</span>
   <select id="role" onchange="onRole()" style="padding:6px 10px;font-size:13px"></select></span>
-  <button class="back" style="cursor:pointer;border:0" onclick="help()" title="How this works">❔ Help</button>
-  <button id="notify-btn" class="back" style="cursor:pointer;border:0" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
+  <button class="iconbtn" onclick="toggleDensity()" id="density-btn" title="Toggle density (compact ↔ comfortable)" aria-label="Toggle density">⊟</button>
+  <button class="iconbtn" onclick="toggleTheme()" id="theme-btn" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
+  <button class="back" onclick="help()" title="How this works">❔ Help</button>
+  <button id="notify-btn" class="back" title="Get a browser push when a case lands in your queue">🔔 Notify me</button>
 </header>
 <nav class="tabs" id="tabs">
   <button data-tab="inbox" class="on" onclick="switchTab('inbox')">Inbox<span class="badge" id="tab-inbox-n" style="display:none">0</span></button>
@@ -204,6 +255,17 @@
 <div id="drawer-bg" onclick="closeDrawer()"></div>
 <aside id="drawer"><button class="x" onclick="closeDrawer()">✕</button><div id="drawer-body"></div></aside>
 <script>
+// ── Theme + density (Phase 1 design system) — persisted per operator ──
+const root = document.documentElement;
+function applyTheme(t) { root.dataset.theme = t; const b = document.getElementById('theme-btn'); if (b) b.textContent = t === 'light' ? '☀️' : '🌙'; }
+function applyDensity(d) { root.dataset.density = d; const b = document.getElementById('density-btn'); if (b) b.style.color = d === 'compact' ? 'var(--accent)' : ''; }
+function toggleTheme() { const t = root.dataset.theme === 'light' ? 'dark' : 'light'; applyTheme(t); try { localStorage.setItem('gcto_theme', t); } catch {} }
+function toggleDensity() { const d = root.dataset.density === 'compact' ? 'comfortable' : 'compact'; applyDensity(d); try { localStorage.setItem('gcto_density', d); } catch {} }
+(function initChrome() {
+  let t, d; try { t = localStorage.getItem('gcto_theme'); d = localStorage.getItem('gcto_density'); } catch {}
+  if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  applyTheme(t); applyDensity(d || 'comfortable');
+})();
 const api = (p, opt) => fetch(p, opt).then(r => r.json());
 const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 
@@ -371,7 +433,7 @@ async function loadInvites() {
   el.innerHTML = invites.map(i => {
     const link = location.origin + '/autopilot.html?invite=' + i.token;
     return `<div class="card" style="padding:10px 14px">
-      <div class="row"><b>${esc(i.name || '(unnamed)')}</b><span class="pill">${esc(i.roleLabel)}</span>${i.tenant && i.tenant !== 'default' ? '<span class="pill">'+esc(i.tenant)+'</span>' : ''}<span class="pill ${i.status==='accepted'?'ok':'await'}">${esc(i.status)}</span><span style="flex:1"></span>
+      <div class="row"><b>${esc(i.name || '(unnamed)')}</b><span class="pill">${esc(i.roleLabel)}</span>${i.tenant && i.tenant !== 'default' ? '<span class="pill">'+esc(i.tenant)+'</span>' : ''}<span class="pill ${i.status==='accepted'?'ok':'await'}">${esc(i.status)}</span><span class="spacer"></span>
         <button class="back" style="border:0;cursor:pointer" onclick="copyInvite('${link}')">📋 copy link</button>
         <button class="reject" onclick="revoke('${i.token}')">revoke</button></div>
       <div class="mut" style="margin-top:4px;word-break:break-all">${esc(link)}</div>
@@ -492,7 +554,7 @@ async function loadInbox() {
   if (!list.length) { el.innerHTML = '<div class="empty">Inbox empty — no cases awaiting your signature.</div>'; return; }
   el.innerHTML = list.map(r => `
     <div class="card gate">
-      <div class="row"><input type="checkbox" class="bulk-cb" value="${r.id}" onchange="updateBulk()" /><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:#f0a020;border-color:#5a4420">↑ escalated</span>' : ''}${recoHtml(r)}${r.autoEligible ? '<span class="pill ok">auto-eligible</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
+      <div class="row"><input type="checkbox" class="bulk-cb" value="${r.id}" onchange="updateBulk()" /><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill await">awaiting signature</span>${r.escalated ? '<span class="pill" style="color:#f0a020;border-color:#5a4420">↑ escalated</span>' : ''}${recoHtml(r)}${r.autoEligible ? '<span class="pill ok">auto-eligible</span>' : ''}${slaHtml(r)}${tenantHtml(r)}<span class="mut">${esc(r.id)}</span><span class="spacer"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯ details</button></div>
       <div class="mut" style="margin-top:6px"><b>${esc(r.signer)}</b> must sign <b>${esc(r.pausedAt)}</b>: ${esc(r.gateDoes)}</div>
       ${gateProgressHtml(r)}
       ${stepsHtml(r)}
@@ -582,7 +644,7 @@ async function loadQa() {
   const el = document.getElementById('qa');
   if (!queue || !queue.length) { el.innerHTML = '<div class="empty">No sampled cases pending QA.</div>'; return; }
   el.innerHTML = queue.map(r => { cache([r]); return `<div class="card" style="padding:10px 14px">
-    <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill ${r.status==='completed'?'ok':'rej'}">${esc(r.status)}</span><span class="mut">${esc(r.id)}</span><span style="flex:1"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯</button></div>
+    <div class="row"><span class="vert">${icon(r.vertical)} ${esc(r.vertical)}</span><span class="pill ${r.status==='completed'?'ok':'rej'}">${esc(r.status)}</span><span class="mut">${esc(r.id)}</span><span class="spacer"></span><button class="back" style="border:0;cursor:pointer" onclick="openDrawer('${r.id}')">⋯</button></div>
     <div class="row" style="margin-top:6px"><span class="mut">QA score</span><select id="qa-s-${r.id}"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select><input id="qa-n-${r.id}" placeholder="note" style="flex:1" /><button class="primary" onclick="qaSubmit('${r.id}')">Score</button></div>
   </div>`; }).join('');
 }
@@ -613,7 +675,7 @@ async function loadOps() {
   if (badge) { badge.textContent = q.length; badge.style.display = q.length ? '' : 'none'; }
   document.getElementById('ops-deadletters').innerHTML = q.length ? q.map(x => `
     <div class="card rej">
-      <div class="row"><span class="vert">${icon(x.vertical)} ${esc(x.vertical)}</span><span class="pill rej">dead-letter</span>${x.attempts ? `<span class="pill">${esc(x.attempts)} attempt(s)</span>` : ''}<span class="mut">${esc(x.id)}</span><span style="flex:1"></span><button class="primary" onclick="requeueRun('${x.id}')">↻ Requeue</button></div>
+      <div class="row"><span class="vert">${icon(x.vertical)} ${esc(x.vertical)}</span><span class="pill rej">dead-letter</span>${x.attempts ? `<span class="pill">${esc(x.attempts)} attempt(s)</span>` : ''}<span class="mut">${esc(x.id)}</span><span class="spacer"></span><button class="primary" onclick="requeueRun('${x.id}')">↻ Requeue</button></div>
       <div class="mut" style="margin-top:4px">connectors: ${esc((x.connectors||[]).join(', ') || '—')} · ${esc(x.error || 'write failed after retries')}</div>
     </div>`).join('') : '<div class="empty">No dead-letters — every write landed.</div>';
   // connector health table
