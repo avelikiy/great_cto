@@ -16,6 +16,20 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.65.0 — 2026-06-10
+
+### Fable 5 support (claude-fable-5)
+
+- **Agent-model override** — `agent-model: fable` in `~/.great_cto/config` pins every managed
+  agent/command to Fable 5 (alongside opus|sonnet|haiku).
+- **Lint tier policy** — `claude-fable-5` / `fable` recognised as the newest deepest tier: accepted
+  anywhere the policy allows opus; still flagged for haiku-only utility agents.
+- The board agent runner passes `--model` through verbatim, so `claude-fable-5` already works there.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.64.3 — 2026-06-10
 
 ### Board launch control — Run on an empty prompt is no longer silent

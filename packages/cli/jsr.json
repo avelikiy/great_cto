@@ -1,6 +1,6 @@
 {
   "name": "@avelikiy/great-cto",
-  "version": "2.64.3",
+  "version": "2.65.0",
   "description": "29 specialist Claude Code agents that ship from idea to production. Auto-detects archetype, attaches compliance, runs the full SDLC pipeline.",
   "license": "MIT",
   "exports": {
