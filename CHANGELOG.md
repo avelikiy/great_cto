@@ -13,6 +13,22 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.64.1 — 2026-06-10
+
+### Board launch control — auth-error hint + child-env hygiene
+
+- A board-triggered `claude` that fails to authenticate now streams a clear **error** line with a fix
+  ("run the board from a terminal where `claude` is logged in, or set `ANTHROPIC_API_KEY`") instead of a
+  misleading `result (success)` followed by a silent non-zero exit.
+- The spawned agent's env is cleaned of this process's Claude-Code **session identity**
+  (`CLAUDE_CODE_SESSION_ID` / `ENTRYPOINT` / `EXECPATH` / `AGENT_SDK_VERSION` / `EFFORT`) so a board
+  launched from inside a Claude Code session never hands the child its parent's identity.
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.64.0 — 2026-06-10
 
 ### Board launch control — approve a gate → spawn an agent, streamed live
