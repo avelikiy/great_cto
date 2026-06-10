@@ -19,7 +19,7 @@
 # any future PR of this feature remain clean.
 #
 # SETTING (optional) — ~/.great_cto/config
-#     agent-model: opus        # one of: opus | sonnet | haiku
+#     agent-model: opus        # one of: opus | sonnet | haiku | fable
 #
 # An absent file or absent key is a no-op: stock per-agent tiers are kept.
 set -u
@@ -35,9 +35,9 @@ MODEL=$(grep -E '^[[:space:]]*agent-model:' "$CONFIG" 2>/dev/null \
 [ -n "$MODEL" ] || exit 0
 
 case "$MODEL" in
-  opus | sonnet | haiku) ;;
+  opus | sonnet | haiku | fable) ;;
   *)
-    echo "great_cto: ignoring invalid agent-model '${MODEL}' (expected opus|sonnet|haiku)" >&2
+    echo "great_cto: ignoring invalid agent-model '${MODEL}' (expected opus|sonnet|haiku|fable)" >&2
     exit 0
     ;;
 esac
