@@ -788,6 +788,41 @@ const bdCache = new Map(); // cwd → { ts, data }
 
 function bdCacheInvalidate(cwd) { bdCache.delete(cwd); }
 
+// ── bd binary resolution (BH-32) ────────────────────────────────────────────
+// A board launched from a GUI / launchd / a login shell that didn't source the
+// usual profile often has a minimal PATH (`/usr/bin:/bin`) that omits where
+// Homebrew (`/opt/homebrew/bin`) or a user install (`~/.local/bin`) put `bd`.
+// Then `spawnSync('bd', …)` → ENOENT, and a gate Approve fails with the opaque
+// "bd update failed" — even though `bd list` was served from cache. Resolve the
+// binary once against the common locations, and always spawn with an augmented
+// PATH so bd's own child processes (git) are found too.
+const BD_EXTRA_PATHS = ['/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), '.local', 'bin'), '/usr/bin', '/bin'];
+const BD_BIN = (() => {
+  // honor an explicit override first
+  if (process.env.GREAT_CTO_BD_BIN && fs.existsSync(process.env.GREAT_CTO_BD_BIN)) return process.env.GREAT_CTO_BD_BIN;
+  for (const dir of BD_EXTRA_PATHS) {
+    const p = path.join(dir, 'bd');
+    try { if (fs.existsSync(p)) return p; } catch { /* skip */ }
+  }
+  return 'bd'; // fall back to PATH lookup
+})();
+function bdEnv() {
+  const cur = process.env.PATH || '';
+  const have = new Set(cur.split(path.delimiter).filter(Boolean));
+  const add = BD_EXTRA_PATHS.filter((d) => !have.has(d));
+  return add.length ? { ...process.env, PATH: [...add, cur].filter(Boolean).join(path.delimiter) } : process.env;
+}
+// Centralized bd invocation — resolved binary + augmented PATH for every call site.
+function bd(args, opts = {}) {
+  return spawnSync(BD_BIN, args, { encoding: 'utf8', timeout: 8000, ...opts, env: { ...bdEnv(), ...(opts.env || {}) } });
+}
+// Turn a failed bd result into an actionable message (the bare "bd update failed" hid ENOENT).
+function bdErr(r, what) {
+  if (r.error && r.error.code === 'ENOENT') return `${what}: 'bd' not found. Install Beads (brew install beads) or set GREAT_CTO_BD_BIN to the bd path, then restart the board.`;
+  if (r.error && r.error.code === 'ETIMEDOUT') return `${what}: bd timed out — a stale .beads/.lock can cause this`;
+  return (r.stderr && r.stderr.trim()) || (r.stdout && r.stdout.trim()) || what;
+}
+
 // Check whether `bd` is initialized in the given cwd. Returns null on success,
 // or a structured error object suitable for a 409 Conflict response.
 // Used to give the admin UI a clean signal ("project not initialized") rather
@@ -836,9 +871,7 @@ function bdList(cwd = process.cwd()) {
   const cached = bdCache.get(cwd);
   if (cached && Date.now() - cached.ts < BD_CACHE_TTL_MS) return cached.data;
   try {
-    const result = spawnSync('bd', ['list', '--json', '--all', '--include-gates'], {
-      encoding: 'utf8', timeout: 8000, cwd
-    });
+    const result = bd(['list', '--json', '--all', '--include-gates'], { cwd });
     if (result.status !== 0) {
       bdCache.set(cwd, { ts: Date.now(), data: [] });
       return [];
@@ -2726,8 +2759,8 @@ const server = http.createServer(async (req, res) => {
         const status = action === 'approve' ? 'closed' : 'blocked';
         const args = ['update', id, '--status', status];
         if (reason) args.push('--notes', `[${action}] ${reason}`);
-        const r = spawnSync('bd', args, { cwd: gateCwd, encoding: 'utf8', timeout: 5000 });
-        if (r.status !== 0) return { error: r.stderr || 'bd update failed' };
+        const r = bd(args, { cwd: gateCwd, timeout: 5000 });
+        if (r.status !== 0) return { error: bdErr(r, 'bd update failed') };
         bdCacheInvalidate(gateCwd);
         // Append to global decisions log — still inside the lock window
         try {
@@ -2899,8 +2932,8 @@ const server = http.createServer(async (req, res) => {
         // Concurrent POST /api/tasks calls used to race on bd's file lock —
         // one crash would leave a stale .beads/.lock that froze ALL writes.
         const result = await bdWriteSerialised(() => {
-          const r = spawnSync('bd', args, { cwd, encoding: 'utf8', timeout: 5000 });
-          if (r.status !== 0) return { error: r.stderr || 'bd create failed' };
+          const r = bd(args, { cwd, timeout: 5000 });
+          if (r.status !== 0) return { error: bdErr(r, 'bd create failed') };
           const idMatch = (r.stdout || '').match(/Created issue:\s*(\S+)/);
           const id = idMatch ? idMatch[1] : null;
 
@@ -2914,7 +2947,7 @@ const server = http.createServer(async (req, res) => {
               if (lbl) { updateArgs.push('--add-label', lbl); needUpdate = true; }
             }
             if (agent && !lbls.includes(agent)) { updateArgs.push('--add-label', agent); needUpdate = true; }
-            if (needUpdate) spawnSync('bd', updateArgs, { cwd, encoding: 'utf8', timeout: 5000 });
+            if (needUpdate) bd(updateArgs, { cwd, timeout: 5000 });
           }
           return { id };
         });
@@ -2959,8 +2992,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const result = await bdWriteSerialised(() => {
-        const r = spawnSync('bd', ['update', id, '--status', status], { cwd, encoding: 'utf8', timeout: 5000 });
-        if (r.status !== 0) return { error: r.stderr || 'bd update failed' };
+        const r = bd(['update', id, '--status', status], { cwd, timeout: 5000 });
+        if (r.status !== 0) return { error: bdErr(r, 'bd update failed') };
         bdCacheInvalidate(cwd);
         return { ok: true };
       });
@@ -2997,8 +3030,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const result = await bdWriteSerialised(() => {
-        const r = spawnSync('bd', ['update', id, '--priority', String(priority)], { cwd, encoding: 'utf8', timeout: 5000 });
-        if (r.status !== 0) return { error: r.stderr || 'bd update failed' };
+        const r = bd(['update', id, '--priority', String(priority)], { cwd, timeout: 5000 });
+        if (r.status !== 0) return { error: bdErr(r, 'bd update failed') };
         bdCacheInvalidate(cwd);
         return { ok: true };
       });
