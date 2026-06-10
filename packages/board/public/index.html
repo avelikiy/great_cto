@@ -3844,17 +3844,28 @@ function agentOnEvent(e) {
   agentAppend(e.kind, e.text);
   if (e.kind === 'done' || e.kind === 'error') agentSetLive(false, e.kind === 'done' ? 'exited' : 'error'); else agentSetLive(true);
 }
+// Direct fetch (NOT the error-swallowing api()) so a missing endpoint / network error is visible.
+async function agentApi(url, payload) {
+  let r;
+  try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); }
+  catch (e) { return { _neterr: 'could not reach the board: ' + e.message }; }
+  if (r.status === 404) return { _neterr: `${url} not found — restart the board (great-cto board / node packages/board/server.mjs) to load the agent endpoints.` };
+  if (!r.ok && r.status !== 409 && r.status !== 400 && r.status !== 403) return { _neterr: `request failed (HTTP ${r.status})` };
+  try { return await r.json(); } catch { return { _neterr: `unexpected response (HTTP ${r.status})` }; }
+}
 async function agentRun() {
   const prompt = (document.getElementById('agent-prompt').value || '').trim();
   if (!prompt) { document.getElementById('agent-prompt').focus(); return; }
   agentToggle(true);
-  const res = await api(`/api/agent/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project: currentProject, prompt }) });
-  if (res && res.error) { agentAppend('error', '✗ ' + res.error); agentSetLive(false, res.running ? 'already running' : 'error'); }
-  else agentSetLive(true, 'running…');
+  agentAppend('system', '… requesting run');
+  const res = await agentApi('/api/agent/run', { project: currentProject, prompt });
+  if (res._neterr) { agentAppend('error', '✗ ' + res._neterr); agentSetLive(false, 'failed'); return; }
+  if (res.error) { agentAppend('error', '✗ ' + res.error); agentSetLive(false, res.running ? 'already running' : 'error'); return; }
+  agentSetLive(true, 'running…');   // stream arrives via SSE
 }
 async function agentStop() {
-  const res = await api(`/api/agent/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project: currentProject }) });
-  agentAppend('system', res && res.stopped ? '■ stop requested' : ('✗ ' + ((res && res.error) || 'no active run')));
+  const res = await agentApi('/api/agent/stop', { project: currentProject });
+  agentAppend('system', res._neterr ? ('✗ ' + res._neterr) : (res.stopped ? '■ stop requested' : ('✗ ' + (res.error || 'no active run'))));
 }
 
 /* ── Inline status / priority edit ─────────────────────────────────────── */
