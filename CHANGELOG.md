@@ -14,6 +14,19 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.64.2 — 2026-06-10
+
+### Board launch control — Run failures are now visible (not silent)
+
+- On a board started before the agent endpoints existed (a stale process), clicking **Run** set the
+  status to "running…" but nothing happened — the error-swallowing `api()` helper hid the 404.
+  `agentRun` / `agentStop` now use a direct fetch that surfaces network/404 errors, including a clear
+  hint: **restart the board to load `/api/agent/*`**.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.64.1 — 2026-06-10
 
 ### Board launch control — auth-error hint + child-env hygiene
