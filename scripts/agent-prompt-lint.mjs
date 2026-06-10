@@ -390,12 +390,25 @@ function parseFrontmatter(text) {
 }
 
 function parseYamlBlock(yaml) {
-  // Hand-rolled: only flat key:value, list-of-strings via `- item` or `[a, b]`
+  // Hand-rolled: flat key:value, list-of-strings via `- item` or `[a, b]`, and
+  // YAML block scalars (`key: |` / `key: >`) whose value spans indented lines.
   const out = {};
   let key = null;
   let listMode = false;
+  let blockKey = null;          // active `|` / `>` block scalar
   for (const rawLine of yaml.split('\n')) {
     const line = rawLine.replace(/\r$/, '');
+
+    // collect a block scalar's indented continuation lines into one string
+    if (blockKey !== null) {
+      if (line.trim() === '' || /^\s/.test(line)) {
+        const t = line.trim();
+        if (t) out[blockKey] = out[blockKey] ? out[blockKey] + ' ' + t : t;
+        continue;
+      }
+      blockKey = null;          // dedented → block ended; fall through to parse this line
+    }
+
     if (!line.trim()) continue;
     if (line.startsWith('#')) continue;
 
@@ -411,7 +424,11 @@ function parseYamlBlock(yaml) {
       throw new Error(`unparseable line: ${line.slice(0, 60)}`);
     }
     const [, k, v] = m;
-    if (v === '' || v === null) {
+    if (/^[|>][+-]?$/.test(v.trim())) {
+      // YAML block scalar (`| literal` / `> folded`) — value is the indented lines below
+      out[k] = '';
+      blockKey = k;
+    } else if (v === '' || v === null) {
       // List or block follows
       out[k] = [];
       key = k;

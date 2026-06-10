@@ -2386,6 +2386,20 @@ const server = http.createServer(async (req, res) => {
   // Expose our debug headers to browsers (CORS hides custom headers by default)
   res.setHeader('Access-Control-Expose-Headers', 'X-Project-Fallback, X-Project-Resolved');
 
+  // ── CSRF guard (BH-31) ──────────────────────────────────────────────────────
+  // The board binds 127.0.0.1, but a page the user visits in their browser can still
+  // issue *simple* cross-origin POSTs to localhost (no preflight). Every state-changing
+  // request must therefore be SAME-ORIGIN — otherwise a malicious page could approve an
+  // autopilot gate (→ run an irreversible write), approve a dev gate, or mutate tasks.
+  // Exemption: /api/autopilot/ingest is a server-to-server webhook authenticated by an
+  // HMAC signature, not by origin. (originAllowed() permits requests with no Origin —
+  // curl, the CLI, server-to-server — and rejects a foreign browser Origin.)
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && pathname !== '/api/autopilot/ingest' && !originAllowed(req)) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'cross-origin request blocked — the board only accepts same-origin state changes' }));
+    return;
+  }
+
   // SSE
   if (pathname === '/api/sse') {
     res.writeHead(200, {

@@ -119,6 +119,38 @@ const PACKS = {
     // Broader keyword set — drug-discovery reviewers use varied terminology
     expectedBlocked: ['model-card', 'model card', 'csv', 'computer-system', 'validation', 'iq', 'oq', 'pq', 'glp', 'gxp', '21 cfr', '21-cfr', 'audit', 'glab', 'reproduc', 'data integrity', 'data-integrity', 'lineage', 'training data', 'wet-lab', 'wet lab', 'lab-automation', 'sila', 'documentation'],
   },
+  'digital-health-pack': {
+    baseArchetype: 'healthcare',
+    baseReviewer: 'healthcare-reviewer',
+    packReviewers: ['digital-health-reviewer', 'ai-clinical-reviewer', 'healthcare-reviewer'],
+    feature: 'symptom-triage-chatbot',
+    task: 'POST /triage endpoint: a consumer health app chatbot reads symptoms and returns a care recommendation (self-care / see a doctor / ER). Logs PHI to analytics.',
+    expectedBlocked: ['samd', 'fda', 'clinical', 'phi', 'hipaa', 'disclaimer', 'medical advice', 'validation', 'safety'],
+  },
+  'sec-cyber-pack': {
+    baseArchetype: 'enterprise',
+    baseReviewer: 'enterprise-saas-reviewer',
+    packReviewers: ['sec-cyber-disclosure-reviewer'],
+    feature: 'incident-disclosure-workflow',
+    task: 'Build the breach-response workflow for a US public company: detect a material cyber incident and auto-file. No human sign-off, no materiality assessment, no 4-business-day clock.',
+    expectedBlocked: ['8-k', '8k', 'item 1.05', 'material', 'four business day', '4 business day', 'disclosure', 'sec', 'regulation s-k', 'cybersecurity'],
+  },
+  'adtech-privacy-pack': {
+    baseArchetype: 'agent-product',
+    baseReviewer: 'ai-security-reviewer',
+    packReviewers: ['adtech-privacy-reviewer', 'us-privacy-reviewer'],
+    feature: 'cross-site-ad-targeting',
+    task: 'Build a programmatic ad pipeline that builds cross-site user profiles from third-party cookies + device fingerprints, sells audience segments. No consent, no opt-out, no sensitive-category exclusion.',
+    expectedBlocked: ['consent', 'opt-out', 'opt out', 'gpc', 'global privacy control', 'cpra', 'ccpa', 'sensitive', 'fingerprint', 'do not sell', 'tcf'],
+  },
+  'us-ai-pack': {
+    baseArchetype: 'ai-system',
+    baseReviewer: 'ai-security-reviewer',
+    packReviewers: ['us-ai-reviewer'],
+    feature: 'automated-hiring-screener',
+    task: 'Build an AI that screens job applicants and auto-rejects below a score, deployed to NYC employees. No bias audit, no candidate notice, no adverse-impact testing.',
+    expectedBlocked: ['bias audit', 'aedt', 'local law 144', 'nyc', 'adverse impact', 'disparate', 'notice', 'colorado ai act', 'transparency', 'discrimination'],
+  },
 };
 
 // ── helpers ────────────────────────────────────────────────────────────────

@@ -23,32 +23,21 @@ const packs = await import('../packages/cli/dist/packs.js');
 // ── pack-reviewer integrity ────────────────────────────────────────────────
 
 test('packs: every PACK_REVIEWERS entry references an existing agent file', () => {
-  // listPacks() returns all 10 v2.8.0 packs.
-  const allPacks = packs.listPacks();
-  assert.equal(allPacks.length, 10, `expected 10 packs, got ${allPacks.length}: [${allPacks.join(',')}]`);
+  // Parse PACK_REVIEWERS straight from packs.ts (not exported) so this self-maintains
+  // as packs are added/removed — no brittle hardcoded count or reviewer list.
+  const src = readFileSync(join(REPO_ROOT, 'packages', 'cli', 'src', 'packs.ts'), 'utf8');
+  const block = src.slice(src.indexOf('PACK_REVIEWERS'), src.indexOf('PACK_GATES'));
+  const packKeys = [...block.matchAll(/"([a-z0-9-]+-pack)":/g)].map((m) => m[1]);
+  const reviewers = [...new Set([...block.matchAll(/"([a-z0-9-]+-reviewer)"/g)].map((m) => m[1]))];
 
-  // Each pack contributes ≥1 reviewer, each must resolve to a real agent file.
-  // We exercise this through suggestPackReviewers indirectly by simulating
-  // a detection result that triggers every pack.
-  const allReviewers = new Set();
-  for (const pack of allPacks) {
-    // We don't have direct access to PACK_REVIEWERS const — read packs.ts
-    // and parse the map. Simpler: just check every reviewer file that
-    // openrouter-pack-overlays.mjs uses also exists.
-  }
+  // every pack in PACK_REVIEWERS is also exposed by listPacks()
+  const listed = packs.listPacks();
+  assert.equal(packKeys.length, listed.length, `PACK_REVIEWERS has ${packKeys.length} packs, listPacks() ${listed.length}: ${packKeys.join(',')}`);
+  for (const pk of packKeys) assert.ok(listed.includes(pk), `pack '${pk}' in PACK_REVIEWERS but not listPacks()`);
 
-  // Direct check: cross-reference with the README pack table (canonical).
-  const readmeReviewers = [
-    'voice-ai-reviewer', 'ai-clinical-reviewer', 'fda-reviewer',
-    'hr-ai-reviewer', 'api-platform-reviewer', 'lending-credit-reviewer',
-    'clinical-trials-reviewer', 'bio-data-reviewer', 'robotics-safety-reviewer',
-    'emerging-markets-fintech-reviewer', 'climate-mrv-reviewer',
-    'biosecurity-reviewer', 'drug-discovery-ml-reviewer', 'glp-glab-reviewer',
-    'lab-automation-reviewer',
-  ];
-  for (const r of readmeReviewers) {
-    assert.ok(existsSync(join(AGENTS_DIR, `${r}.md`)),
-      `Pack reviewer agents/${r}.md must exist (referenced in packs.ts + README)`);
+  // every named reviewer resolves to a real agent file
+  for (const r of reviewers) {
+    assert.ok(existsSync(join(AGENTS_DIR, `${r}.md`)), `Pack reviewer agents/${r}.md must exist (referenced in packs.ts)`);
   }
 });
 
