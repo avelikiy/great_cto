@@ -50,6 +50,7 @@ const REVIEWER_PATTERN = /-reviewer\.md$/;
 // ── Model-tier policy (CONS-MODEL, v2.7.0) ──────────────────────────────────
 // Maps each agent slug to allowed model tiers. See ADR-002-model-tier-policy.md.
 //
+//   fable   — newest deepest tier (Fable 5, claude-fable-5); accepted anywhere opus is
 //   opus    — deep cross-cutting reasoning (architect, ADRs)
 //   sonnet  — balanced default for code/review (most agents)
 //   haiku   — cheap repeatable utility (logging, summaries, fixed-shape output)
@@ -84,11 +85,18 @@ function expectedTiersFor(slug, basename) {
 
 function modelToTier(model) {
   const m = String(model).toLowerCase();
-  const short = m.match(/^(haiku|sonnet|opus)$/);
+  const short = m.match(/^(haiku|sonnet|opus|fable)$/);
   if (short) return short[1];
-  const fq = m.match(/^claude-(haiku|sonnet|opus)-/);
+  const fq = m.match(/^claude-(haiku|sonnet|opus|fable)-/);   // claude-fable-5, claude-opus-4-8, …
   if (fq) return fq[1];
   return null;
+}
+
+// Fable is the newest deepest tier — it satisfies any policy slot that allows opus.
+function tierSatisfies(tier, expected) {
+  if (expected.includes(tier)) return true;
+  if (tier === 'fable' && expected.includes('opus')) return true;
+  return false;
 }
 
 // ── Severity levels ─────────────────────────────────────────────────────────
@@ -318,7 +326,7 @@ const RULES = [
       if (!tier) return [];  // FM-003 catches unparseable
       const expected = expectedTiersFor(file.slug, file.basename);
       if (!expected) return [];  // unknown agent — no policy
-      if (!expected.includes(tier)) {
+      if (!tierSatisfies(tier, expected)) {
         return [`model tier '${tier}' not in policy for '${file.slug}' (expected: ${expected.join('|')}). See ADR-002.`];
       }
       return [];

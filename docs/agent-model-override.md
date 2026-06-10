@@ -25,7 +25,7 @@ Create `~/.great_cto/config` with one line:
 agent-model: opus
 ```
 
-Valid values: `opus`, `sonnet`, `haiku`. Trailing `# comments` are allowed.
+Valid values: `opus`, `sonnet`, `haiku`, `fable` (Fable 5 — the newest deepest tier). Trailing `# comments` are allowed.
 
 On the next session start the override is applied automatically. To revert,
 delete the line (or the file) — stock per-agent tiers come back.
