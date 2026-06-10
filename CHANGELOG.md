@@ -17,6 +17,26 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.65.1 — 2026-06-10
+
+### Project-audit fixes — CSRF guard · green tests · lint block-scalar
+
+- **Security (CSRF, BH-31)** — the board set `Access-Control-Allow-Origin: *` with no Origin check on
+  most mutation endpoints; a page the user visits could POST to localhost and **approve an autopilot
+  gate (→ run an irreversible connector write)**, approve a dev gate, or mutate tasks. Added a
+  same-origin guard on every `POST/PUT/PATCH/DELETE` (exempting the HMAC-authenticated
+  `/api/autopilot/ingest` webhook). Cross-origin mutations now 403; reads, same-origin, and CLI calls
+  unaffected.
+- **Tests** — `packs-integration` was red (2 fail): the reviewer-integrity test now parses
+  `PACK_REVIEWERS` dynamically (no hardcoded count/list) and the overlay harness gained the 4 missing
+  packs (digital-health · sec-cyber · adtech-privacy · us-ai). 5/5.
+- **Lint** — `agent-prompt-lint` mis-read YAML block scalars (`description: |`) as 1 char → 3 false
+  `FM-002` errors (exit 1). `parseYamlBlock` now collects `|`/`>` block bodies. Lint exit 0.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.65.0 — 2026-06-10
 
 ### Fable 5 support (claude-fable-5)
