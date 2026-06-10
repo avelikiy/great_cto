@@ -3854,9 +3854,14 @@ async function agentApi(url, payload) {
   try { return await r.json(); } catch { return { _neterr: `unexpected response (HTTP ${r.status})` }; }
 }
 async function agentRun() {
-  const prompt = (document.getElementById('agent-prompt').value || '').trim();
-  if (!prompt) { document.getElementById('agent-prompt').focus(); return; }
+  const el = document.getElementById('agent-prompt');
+  const prompt = (el.value || '').trim();
   agentToggle(true);
+  if (!prompt) {   // visible feedback instead of a silent no-op
+    el.focus(); el.style.borderColor = 'var(--status-blocked, #ff5a5a)'; setTimeout(() => { el.style.borderColor = ''; }, 1500);
+    agentAppend('error', '✗ Enter a prompt first — e.g. /execute-plan, or "claim the next ready task and implement it".');
+    return;
+  }
   agentAppend('system', '… requesting run');
   const res = await agentApi('/api/agent/run', { project: currentProject, prompt });
   if (res._neterr) { agentAppend('error', '✗ ' + res._neterr); agentSetLive(false, 'failed'); return; }
