@@ -373,7 +373,15 @@ function agentLineFromJson(s) {
     if (tools) return { kind: 'tool', text: tools };
     return null;
   }
-  if (e.type === 'result') return { kind: 'system', text: `▪ result (${e.subtype || 'done'}${e.total_cost_usd ? ' · $' + e.total_cost_usd.toFixed(4) : ''})` };
+  if (e.type === 'result') {
+    if (e.is_error || e.api_error_status) {
+      const hint = e.api_error_status === 401
+        ? ' — the spawned `claude` could not authenticate. Run the board from a terminal where `claude` is logged in (run `claude` once interactively), or set ANTHROPIC_API_KEY.'
+        : '';
+      return { kind: 'error', text: `✗ ${String(e.result || 'agent error')}${e.api_error_status ? ' (HTTP ' + e.api_error_status + ')' : ''}${hint}` };
+    }
+    return { kind: 'system', text: `▪ result (${e.subtype || 'done'}${e.total_cost_usd ? ' · $' + e.total_cost_usd.toFixed(4) : ''})` };
+  }
   if (e.type === 'system' && e.subtype === 'init') return { kind: 'system', text: `▪ session ${String(e.session_id || '').slice(0, 8)} · model ${e.model || ''}` };
   return null;
 }
@@ -382,8 +390,13 @@ function startAgentRun(cwd, project, prompt, model) {
   const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--permission-mode', AGENT_PERMISSION];
   if (AGENT_DANGEROUS) args.push('--dangerously-skip-permissions');
   if (model) args.push('--model', String(model));
+  // Clean env: don't leak this process's Claude-Code session identity into the spawned agent
+  // (a board launched from inside a Claude Code session would otherwise hand the child its parent's
+  // session vars). Keep the user's ANTHROPIC_* config + auth.
+  const childEnv = { ...process.env };
+  for (const k of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_AGENT_SDK_VERSION', 'CLAUDE_EFFORT']) delete childEnv[k];
   let proc;
-  try { proc = spawn(AGENT_BIN, args, { cwd, env: process.env }); }
+  try { proc = spawn(AGENT_BIN, args, { cwd, env: childEnv }); }
   catch (e) { return { error: 'spawn failed: ' + e.message }; }
   try { proc.stdin.end(); } catch {}   // headless claude waits ~3s for stdin otherwise
   const run = { proc, project, startedAt: Date.now(), lines: [], exit: null, prompt };
