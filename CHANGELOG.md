@@ -18,6 +18,22 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.65.2 — 2026-06-10
+
+### Board fix — gate Approve no longer fails under a minimal PATH (BH-32)
+
+- "Approve" / "Approve + run" failed with the opaque "bd update failed" when the board was launched
+  from a GUI / login shell whose PATH omits `/opt/homebrew/bin` (Homebrew's `bd`): `spawnSync('bd')`
+  → ENOENT. `bd list` was served from cache so tasks still showed, masking the cause.
+- The board now resolves `bd` once against `/opt/homebrew/bin` · `/usr/local/bin` · `~/.local/bin`
+  (override `GREAT_CTO_BD_BIN`) and spawns every `bd` call with an augmented PATH. Failures now return
+  an actionable message (ENOENT → install Beads / set `GREAT_CTO_BD_BIN`; timeout → stale `.beads/.lock`).
+  Verified: a board launched with `PATH=/usr/bin:/bin` approves a gate fine.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.65.1 — 2026-06-10
 
 ### Project-audit fixes — CSRF guard · green tests · lint block-scalar
