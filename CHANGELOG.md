@@ -15,6 +15,18 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.64.3 — 2026-06-10
+
+### Board launch control — Run on an empty prompt is no longer silent
+
+- Clicking **Run** with an empty prompt field (the placeholder looks like text) used to silently
+  focus the field and do nothing — read as "the Run button doesn't work". It now shows
+  "✗ Enter a prompt first …" and flashes the field.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.64.2 — 2026-06-10
 
 ### Board launch control — Run failures are now visible (not silent)
