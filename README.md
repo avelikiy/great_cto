@@ -108,7 +108,7 @@ are the trust layer that makes it safe to let the autopilot run.
 **refuses to execute an irreversible action autonomously** — money moves, claim submission, e-signing,
 fleet changes and tax filing run *only* after a named human signs the checkpoint. Each autopilot also
 declares an **accountable owner** — one person answers for what it does. `flow-runner.mjs <vertical>
---validate` enforces the invariant; all nineteen autopilots ship green.
+--validate` enforces the invariant; all twenty-five autopilots ship green.
 
 ## By the numbers
 
@@ -118,7 +118,7 @@ declares an **accountable owner** — one person answers for what it does. `flow
 | Human-equivalent for the same work | **~$5,460** |
 | Defects caught that QA had missed | **2** |
 | Monthly cost (20 pipeline runs) | **~$34** |
-| Autopilot verticals | **19** (healthcare · finance · legal · ops — each with a human gate) |
+| Autopilot verticals | **25** (healthcare · finance · legal · ops — each with a human gate) |
 | Specialist agents | **74** |
 | Archetypes auto-detected | **26** |
 | Jurisdictions | **12** (GDPR · HIPAA · PCI-DSS · SOX · and more) |
@@ -160,8 +160,8 @@ Same command. Output depends on what you're building and where it runs:
 <td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
 </tr>
 <tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — 61 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 61 specialists with last-used + run counts</sub></td>
-<td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 layers + crystallized incident patterns</sub></td>
+<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — installed agents with activity, health and 30-day LLM spend" width="100%" /></a><br/><sub><b>Agents</b> — the fleet with activity, health, retire candidates, and 30-day LLM spend</sub></td>
+<td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Project memory — browsable L1–L3 layers: PROJECT.md, archetypes, lessons" width="100%" /></a><br/><sub><b>Memory</b> — browsable project memory layers: PROJECT.md, archetypes, skills, lessons</sub></td>
 </tr>
 </table>
 
