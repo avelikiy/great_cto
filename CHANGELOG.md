@@ -12,6 +12,34 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.64.0 — 2026-06-10
+
+### Board launch control — approve a gate → spawn an agent, streamed live
+
+The dev board becomes a **pult, not just a mirror**: approving a gate (or pressing Run) spawns a Claude
+Code agent headlessly in the project and streams its output into the board. Implements
+`docs/plans/PLAN-board-agent-launch.md`.
+
+- **Spawn + stream** — `startAgentRun` runs `claude -p "<prompt>" --output-format stream-json --verbose
+  --permission-mode <mode>` in the project cwd; parses the JSON event stream (assistant text · tool_use ·
+  result) and pushes `event: agent` over SSE. New endpoints `POST /api/agent/run`, `/api/agent/stop`,
+  `GET /api/agent/status`; gate-approve accepts optional `{ runAgent, agentPrompt }`.
+- **Guardrails** (it runs an autonomous agent that edits files): same-origin only, project must live in
+  `$HOME`, **one run per project** (409), hard timeout (SIGTERM→SIGKILL), 2000-line ring buffer,
+  configurable bin (`GREAT_CTO_AGENT_BIN`), child stdin closed. **Permission default `acceptEdits`** —
+  full autonomy is opt-in via `GREAT_CTO_AGENT_DANGEROUS=1`, never the default.
+- **UI** — a **Run agent** panel (prompt · Run · Stop · live stream · status dot) opened from the nav,
+  and an **Approve + ▶run** button on gate cards.
+- **Verified** end-to-end with a stub bin (streaming, all four guardrails, Stop) **and** a real `claude`
+  run (spawn → stream-json parse → SSE all confirmed). Lib suite 348/348.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.63.0 — 2026-06-09
 
 ### Enterprise operator console (UI/UX P1–P7) + board theming + quality uplift
