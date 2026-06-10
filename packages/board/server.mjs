@@ -2397,7 +2397,21 @@ function watchVerdicts() {
 }
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
+const MAX_BODY_BYTES = 2 * 1024 * 1024; // 2 MB — board payloads are tiny; cap guards against unbounded `body += c` accumulation.
 const server = http.createServer(async (req, res) => {
+  // Single-point body-size guard: every route reads `body += c`, so cap cumulative
+  // request bytes here and kill the socket on overflow rather than buffering forever.
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    let _seen = 0;
+    req.on('data', (c) => {
+      _seen += c.length;
+      if (_seen > MAX_BODY_BYTES && !res.headersSent) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'request body too large' }));
+        req.destroy();
+      }
+    });
+  }
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
   const proj = url.searchParams.get('project');
