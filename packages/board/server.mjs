@@ -385,6 +385,7 @@ function startAgentRun(cwd, project, prompt, model) {
   let proc;
   try { proc = spawn(AGENT_BIN, args, { cwd, env: process.env }); }
   catch (e) { return { error: 'spawn failed: ' + e.message }; }
+  try { proc.stdin.end(); } catch {}   // headless claude waits ~3s for stdin otherwise
   const run = { proc, project, startedAt: Date.now(), lines: [], exit: null, prompt };
   agentRuns.set(cwd, run);
   agentPush(run, 'system', `▶ agent started: ${AGENT_BIN} (${AGENT_PERMISSION}${AGENT_DANGEROUS ? ' · skip-perms' : ''})`);
