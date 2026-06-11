@@ -22,6 +22,23 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.69.0 — 2026-06-11
+
+### The surface-line cut — autopilot API extracted from server.mjs (PLAN-ui-split P4)
+
+- **`packages/board/autopilot-api.mjs`** — every `/api/autopilot/*` route + its helpers
+  (apAuth, ingest HMAC verify, invite email, run-change SSE) now lives in its own module
+  behind one entry point: `handleAutopilot(req, res, url, pathname, { firePushAlert })`.
+  `server.mjs` delegates after its global guards (CSRF, surface boundary, invite-token
+  guard, body cap). Pure motion — no behavior change; server.mjs 3851 → 3598 lines.
+- This module is the seam for the future package split (`great-cto-console`); triggers
+  documented in `docs/plans/PLAN-ui-split.md` (P5).
+- Tests: surface + gate + operators 15/15; live smoke green across the console API
+  (page, runs, roles, stats, SSE stream, ingest→run) and the dev board API.
+
+---
+
 ## v2.68.0 — 2026-06-11
 
 ### Two surfaces, one engine — the operator console becomes its own entry (PLAN-ui-split P1+P2)
