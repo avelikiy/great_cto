@@ -2675,7 +2675,13 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     const meta = [
       t.agent ? `agent: ${esc(t.agent)}` : '',
       t.priority != null ? PRIORITY_LABEL[t.priority] : '',
-      t.updated_at ? relTime(t.updated_at) : '',
+      // Gates (the showApprove list) get the exact date+time the decision has been
+      // waiting since; other rows keep the compact relative stamp.
+      t.updated_at
+        ? (opts.showApprove
+            ? `<span title="${esc(fmtDate(t.updated_at))}" style="color:var(--status-gate);font-weight:600">⏳ ${fmtDT(t.updated_at)}</span>`
+            : relTime(t.updated_at))
+        : '',
     ].filter(Boolean).join(' · ');
     const actions = opts.showApprove
       ? `<div class="actions" onclick="event.stopPropagation()">
@@ -3817,7 +3823,10 @@ function cardHTML(t) {
   const rawStatus = t.raw_status || t.status;
   const isOpenGate = isGate && rawStatus !== 'closed' && rawStatus !== 'blocked';
   const elapsed = (t.status === 'in_progress' && t.updated_at)
-    ? `<span class="card-time">${relTime(t.updated_at)}</span>` : '';
+    ? `<span class="card-time">${relTime(t.updated_at)}</span>`
+    // A gate is a human decision — show exactly WHEN it's been waiting since (date + time).
+    : (isGate && (t.updated_at || t.created_at))
+      ? `<span class="card-time" title="${esc(fmtDate(t.updated_at || t.created_at))}" style="color:var(--status-gate);font-weight:600">⏳ ${fmtDT(t.updated_at || t.created_at)}</span>` : '';
   const descPreview = t.description ? `<div class="card-desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : '';
   const statusColor = { backlog:'var(--text3)', in_progress:'var(--status-progress)', done:'var(--status-done)', blocked:'var(--status-blocked)', gate:'var(--status-gate)' };
   const statusDotColor = statusColor[t.status] || 'var(--text3)';
@@ -4368,12 +4377,23 @@ function openSide(task) {
     task.agent ? ['Agent', `<span class="chip chip-agent">${esc(task.agent)}</span>`] : null,
     task.labels?.length ? ['Labels', task.labels.map(l => `<span class="chip">${esc(l)}</span>`).join(' ')] : null,
     ['Created', fmtDate(task.created_at)],
+    isOpenGate && task.updated_at ? ['Waiting since', fmtDate(task.updated_at)] : null,
     task.closed_at ? ['Closed', fmtDate(task.closed_at)] : null,
     dur ? ['Duration', dur] : null,
   ].filter(Boolean);
   const desc = task.description
     ? `<div class="side-desc md">${mdRender(task.description)}</div>`
     : `<div class="side-desc side-desc-empty">No description — only the title above. Run <code>bd update ${esc(task.id)} -d "…"</code> to add one.</div>`;
+  // Docs referenced by the ticket text (description/notes/design/acceptance) — openable inline.
+  const docRefs = extractDocRefs(task);
+  const docsSec = docRefs.length ? `
+    <div class="side-section"><div class="side-section-head">Documents</div>
+      ${docRefs.map(p => `
+        <button onclick="openDocInSide('${esc(p)}')" style="display:flex;width:100%;gap:8px;align-items:center;text-align:left;background:var(--bg2,transparent);border:1px solid var(--line,#ddd);border-radius:6px;padding:6px 10px;margin:4px 0;cursor:pointer;font-family:var(--mono);font-size:12px;color:inherit">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p)}</span>
+          <span style="color:var(--text3)">open →</span>
+        </button>`).join('')}
+    </div>` : '';
   const designSec = task.design ? `<div class="side-section"><div class="side-section-head">Design</div><div class="side-section-body">${esc(task.design)}</div></div>` : '';
   const acceptanceSec = task.acceptance ? `<div class="side-section"><div class="side-section-head">Acceptance criteria</div><div class="side-section-body">${esc(task.acceptance)}</div></div>` : '';
   const notesSec = task.notes ? `<div class="side-section"><div class="side-section-head">Notes</div><div class="side-section-body">${esc(task.notes)}</div></div>` : '';
@@ -4388,6 +4408,7 @@ function openSide(task) {
         Reject
       </button>
     </div>` : '';
+  _sideTask = task;   // so the doc viewer's "← back" can restore this task
   document.getElementById('side-body').innerHTML = `
     <div class="side-title">${esc(task.title)}</div>
     ${desc}
@@ -4395,6 +4416,7 @@ function openSide(task) {
     <div class="props">
       ${rows.map(([k, v]) => `<div class="prop-key">${k}</div><div class="prop-val">${v}</div>`).join('')}
     </div>
+    ${docsSec}
     ${designSec}
     ${acceptanceSec}
     ${notesSec}
@@ -4419,6 +4441,25 @@ function openSide(task) {
         </div>
       </div>`).join('')}`;
   });
+}
+// ── Documents referenced by a task: extraction + the inline side-panel viewer ──
+let _sideTask = null;
+function extractDocRefs(task) {
+  const text = [task.description, task.notes, task.design, task.acceptance].filter(Boolean).join('\n');
+  const re = /(?:^|[\s(\[`'"])((?:[\w.-]+\/)+[\w.-]+\.md)\b/g;
+  const out = new Set(); let m;
+  while ((m = re.exec(text))) out.add(m[1]);
+  return [...out].slice(0, 12);
+}
+async function openDocInSide(rel) {
+  const qs = typeof pqs === 'function' ? pqs().replace(/^\?/, '&') : '';
+  const d = await api(`/api/doc?path=${encodeURIComponent(rel)}${qs}`);
+  if (!d || d.error) { showToast('✗ ' + esc(d?.error || 'doc not found'), 'error', 3500); return; }
+  document.getElementById('side-id').textContent = d.name;
+  document.getElementById('side-body').innerHTML = `
+    <button class="gate-btn" onclick="openSide(_sideTask)" style="margin-bottom:12px">← back to task</button>
+    <div class="side-desc md">${mdRender(d.content)}</div>`;
+  const tl = document.getElementById('side-timeline'); if (tl) tl.innerHTML = '';
 }
 function closeSide() {
   document.getElementById('side-panel').classList.remove('open');
@@ -5006,6 +5047,8 @@ function relTime(iso) {
   return `${Math.round(s/86400)}d`;
 }
 function fmtDate(iso) { return iso ? new Date(iso).toLocaleString() : '—'; }
+// Short date+time stamp for cards (full timestamp goes in the title attribute).
+function fmtDT(iso) { return iso ? new Date(iso).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; }
 // Money formatting — uses non-breaking thin space (U+202F) as thousands separator
 // to avoid the comma-as-decimal confusion ($195,960 reads as "195.96" in EU/RU
 // locales). Matches SI standard. Returns "1 234" not "1,234".
