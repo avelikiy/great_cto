@@ -21,6 +21,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.68.0 — 2026-06-11
+
+### Two surfaces, one engine — the operator console becomes its own entry (PLAN-ui-split P1+P2)
+
+- **Surface boundary.** `GREAT_CTO_SURFACE=builder|console|both` (or `--surface`; default `both`).
+  In `console` mode the server serves ONLY the operator console — `autopilot.html`,
+  `/api/autopilot/*`, `/api/push/*`; `/` 302s to the console; the dev board (UI and API)
+  does not exist on that surface.
+- **`great-cto console`** — second CLI entry: `console [--port 8788] [--bind 0.0.0.0] [--no-open]`.
+  Separate `console.pid`: board and console run side by side. `--bind` makes the console
+  hostable (tunnel / console.client.com) with a startup warning; same-host origins pass CSRF.
+- **Invite-only console.** On the console surface there is no local-admin fallback — without a
+  valid invite the operator sees an "ask your administrator" lock screen. Operator sessions are
+  de-branded ("Operator console", no great_cto; tenant brand via white-label config).
+- **Invite token ≠ builder key.** A request carrying a resolved operator invite token reaches
+  only the console's world — in ANY mode.
+- **Tenant boundary on writes.** approve/reject/escalate/send-back, bulk, qa-score, requeue
+  refuse another tenant's cases for invited operators (403); reads were already scoped.
+- New public beacon `GET /api/autopilot/surface`.
+- Tests: `tests/board-surface.test.mjs` (console-only surface + ingest stays up, token guard,
+  cross-tenant denial incl. bulk) — surface+gate 8/8; verified live side-by-side with Playwright.
+
+---
+
 ## v2.67.0 — 2026-06-11
 
 ### Dev board — gate timestamps + openable document links in tasks
