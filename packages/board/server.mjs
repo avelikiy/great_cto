@@ -718,7 +718,6 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
     const b = buckets.get(dayKey);
     b.llm += v.cost_usd;
     b.runs++;
-    hasRealCostData = true;
     // Extract feature= tag from raw verdict line
     const featMatch = v.raw && v.raw.match(/\bfeature=([^\s|]+)/);
     if (featMatch) {
@@ -747,8 +746,11 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
       if (!buckets.has(dayKey)) continue;
       const b = buckets.get(dayKey);
       b.human += HUMAN_PER_TASK_USD;
-      // Only add LLM estimate when we have no real cost data anywhere
-      if (!hasRealCostData) {
+      // Add LLM estimate only for days that have no real cost data (plans or
+      // verdicts). Using a per-bucket check rather than a global flag so that
+      // days WITH plan/verdict data keep their real numbers while days without
+      // still get an estimate — consistent with /api/metrics behaviour.
+      if (b.llm === 0) {
         const mins = t.estimated_minutes || DEFAULT_TASK_MIN;
         b.llm += mins / 60 * LLM_RATE_PER_HR;
         b.runs++;
@@ -1086,8 +1088,9 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   // Verdicts (global verdicts log lives in ~/.great_cto/verdicts/)
   const verdicts = readVerdicts(cwd);
 
-  // Cost from plans (per-project)
-  const costData = readPlanCosts(cwd);
+  // Cost from plans (per-project) — filter to the same window as task/verdict
+  // loops below so /api/metrics and /api/cost agree on the headline AI spend.
+  const costData = readPlanCosts(cwd, days * 86400_000);
 
   // QA/Security (per-project)
   const qaStats = readQAStats(cwd);
@@ -1155,7 +1158,12 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   const agentCostMap = {};
   for (const t of tasks) {
     if (!t.agent) continue;
-    if (t.closed_at && (now - new Date(t.closed_at).getTime()) > costWindowMs) continue;
+    // Only count completed tasks — in-progress tasks have no closed_at and
+    // should not inflate the LLM cost estimate (they match the old
+    //   `if (t.closed_at && outside_window) continue`  guard which
+    // inadvertently passed through !closed_at tasks). Mirrors getCostHistory.
+    if (!t.closed_at) continue;
+    if ((now - new Date(t.closed_at).getTime()) > costWindowMs) continue;
     const mins = t.estimated_minutes || DEFAULT_TASK_MIN;
     const llmCost   = mins / 60 * LLM_RATE_PER_HR;
     const humanCost = mins / 60 * HUMAN_RATE_PER_HR;
@@ -1867,16 +1875,27 @@ function readVerdicts(cwd = null) {
   return results.sort((a, b) => a.ts.localeCompare(b.ts));
 }
 
-function readPlanCosts(cwd = process.cwd()) {
+function readPlanCosts(cwd = process.cwd(), sinceMsAgo = null) {
   const plansDir = path.join(cwd, 'docs/plans');
   let totalLlmMin = 0, totalLlmUsd = 0, totalHumanUsd = 0, count = 0;
   if (!fs.existsSync(plansDir)) return { llm_usd: 0, human_usd: 0, savings_x: 0, count: 0 };
+  const cutoff = sinceMsAgo != null ? Date.now() - sinceMsAgo : null;
   for (const file of fs.readdirSync(plansDir).filter(f => f.endsWith('.md'))) {
-    const content = fs.readFileSync(path.join(plansDir, file), 'utf8');
-    // Parse cost lines from PLAN-*.md
-    const llmMatch = content.match(/LLM.*?(\d+\.?\d*)\s*[-–]\s*\$?(\d+\.?\d*)/i);
-    const humanMatch = content.match(/Human.*?\$(\d[\d,]+)/i);
-    if (llmMatch) totalLlmUsd += parseFloat(llmMatch[2]);
+    const fp = path.join(plansDir, file);
+    // Skip plans outside the requested time window (use file mtime, same as
+    // getCostHistory — fixes BH-26 where readPlanCosts had no date filter and
+    // included all-time plans while getCostHistory only looked at the window).
+    if (cutoff != null && fs.statSync(fp).mtimeMs < cutoff) continue;
+    const content = fs.readFileSync(fp, 'utf8');
+    // Parse cost lines from PLAN-*.md.
+    // Use the SAME anchored regex as getCostHistory() so both endpoints agree
+    // on what constitutes a valid LLM/Human line. The old regex required a
+    // range ("0.5 – $2.30") and silently returned 0 for single-value plans
+    // ("LLM: ~$0.30"), causing /api/metrics to fall back to task-estimate and
+    // show a different number than /api/cost (BH-26: metrics ≠ cost tile).
+    const llmMatch   = content.match(/^[\s*_>\-]*LLM[^\n]*?\$(\d+\.?\d*)/im);
+    const humanMatch = content.match(/^[\s*_>\-]*Human[^\n]*?\$(\d[\d,]*\.?\d*)/im);
+    if (llmMatch) totalLlmUsd += parseFloat(llmMatch[1]);
     // BH-25: /g — replace() with a string only strips the FIRST comma, so
     // "$1,234,567" was silently truncated to 1234. getCostHistory at :413
     // already uses /,/g; this was the divergent twin.
@@ -2768,6 +2787,28 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ── Read a project doc (markdown) referenced from a task — for the side-panel viewer.
+  // Path-traversal-safe: the resolved path must stay inside the project cwd; .md only.
+  if (pathname === '/api/doc' && req.method === 'GET') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const rel = String(url.searchParams.get('path') || '');
+    const abs = path.resolve(c, rel);
+    if (!rel || !abs.startsWith(path.resolve(c) + path.sep) || !abs.toLowerCase().endsWith('.md')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'path must be a .md file inside the project' }));
+      return;
+    }
+    try {
+      const st = fs.statSync(abs);
+      if (!st.isFile() || st.size > 1024 * 1024) throw new Error('not a readable doc');
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ name: path.basename(abs), path: rel, content: fs.readFileSync(abs, 'utf8') }));
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'doc not found: ' + rel }));
+    }
+    return;
+  }
   // ── Launch control: run / stop / status of a board-triggered agent ──
   if (pathname === '/api/agent/status' && req.method === 'GET') {
     const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
