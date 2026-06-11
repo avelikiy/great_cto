@@ -66,6 +66,17 @@ async function sendInviteEmail(to, link, roleLabel, name) {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
 const PUBLIC = path.join(__dirname, 'public');
+// ── Surface: which product face this process serves (PLAN-ui-split P1) ──────
+// builder = dev board, console = operator console only, both = local default.
+// `console` is the hostable face: it physically does not serve the dev board.
+const SURFACE = (() => {
+  const i = process.argv.indexOf('--surface');
+  const v = String(i > -1 ? process.argv[i + 1] : process.env.GREAT_CTO_SURFACE || 'both').toLowerCase();
+  return ['builder', 'console', 'both'].includes(v) ? v : 'both';
+})();
+// The operator console's whole world: its API, push notifications, and its statics.
+const isConsoleApi = (p) => p.startsWith('/api/autopilot/') || p.startsWith('/api/push/');
+const isConsoleStatic = (p) => p === '/autopilot.html' || p === '/sw.js' || p.startsWith('/assets/');
 const GREAT_CTO_DIR = path.join(os.homedir(), '.great_cto');
 const SHARE_STATE_FILE = path.join(GREAT_CTO_DIR, 'board-share.json');
 const PROJECTS_FILE = path.join(GREAT_CTO_DIR, 'projects.json');
@@ -2523,6 +2534,34 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Surface boundary (PLAN-ui-split P1) ──────────────────────────────────
+  // 1) console mode: this process serves ONLY the operator console — its page,
+  //    its API, push. The dev board (UI + API) does not exist on this surface.
+  if (SURFACE === 'console') {
+    if (pathname === '/' || pathname === '/index.html') {
+      res.writeHead(302, { Location: '/autopilot.html' });
+      res.end();
+      return;
+    }
+    if (!isConsoleApi(pathname) && !isConsoleStatic(pathname)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'not on this surface — this server hosts the operator console only' }));
+      return;
+    }
+  }
+  // 2) invite-token guard (any mode): a request carrying an operator's invite token
+  //    may reach ONLY the console's world. Defense in depth — an operator's link
+  //    must never be a key to the builder surface. (createInvite refuses admin
+  //    invites, so any resolved invite is a scoped operator.)
+  {
+    const tok = url.searchParams.get('token');
+    if (tok && !isConsoleApi(pathname) && !isConsoleStatic(pathname) && resolveInvite(tok)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'not available with an operator invite — open the console at /autopilot.html' }));
+      return;
+    }
+  }
+
   // SSE
   if (pathname === '/api/sse') {
     res.writeHead(200, {
@@ -3612,6 +3651,8 @@ const server = http.createServer(async (req, res) => {
       let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
       const auth = apAuth(p.token, p.role, p.tenant);
       if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'requeue is for admin / compliance-lead' })); return; }
+      const rq = apGetRun(p.id);
+      if (rq && auth.viaInvite && (rq.tenant || 'default') !== (auth.tenant || 'default')) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'this case belongs to another tenant' })); return; }
       try { const run = await apRequeue(p.id, p.by || auth.role); res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ run })); }
       catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) })); }
     });
@@ -3722,6 +3763,8 @@ const server = http.createServer(async (req, res) => {
       let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
       const auth = apAuth(p.token, p.role);
       if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'QA is for admin / compliance-lead' })); return; }
+      const qr = apGetRun(p.id);
+      if (qr && auth.viaInvite && (qr.tenant || 'default') !== (auth.tenant || 'default')) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'this case belongs to another tenant' })); return; }
       try { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ run: apQaScore(p.id, p.score, p.by || 'reviewer', p.note || '') })); }
       catch (e) { res.writeHead(409, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) })); }
     });
@@ -3738,6 +3781,8 @@ const server = http.createServer(async (req, res) => {
       for (const id of (p.ids || [])) {
         const r = apGetRun(id);
         if (r && !roleAllows(auth.role, r.vertical)) { denied++; continue; }
+        // Tenant boundary: an invited operator acts ONLY on their own tenant's cases.
+        if (r && auth.viaInvite && (r.tenant || 'default') !== (auth.tenant || 'default')) { denied++; continue; }
         try { await fn(id, who, p.note || '', p.reason || ''); ok++; } catch { failed++; }
       }
       res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok, denied, failed }));
@@ -3761,6 +3806,10 @@ const server = http.createServer(async (req, res) => {
         } else {
           const existing = apGetRun(p.id);
           if (existing && !roleAllows(role, existing.vertical)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${role}' is not authorised to sign ${existing.vertical} cases` })); return; }
+          // Tenant boundary: an invited operator signs ONLY their own tenant's cases.
+          if (existing && auth.viaInvite && (existing.tenant || 'default') !== (auth.tenant || 'default')) {
+            res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'this case belongs to another tenant' })); return;
+          }
         }
         let run; const who = p.by || 'board user';
         if (pathname === '/api/autopilot/start') run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: auth.viaInvite ? auth.tenant : (p.tenant || 'default') });
