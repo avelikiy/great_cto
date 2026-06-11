@@ -1074,6 +1074,33 @@ button { font-family: inherit; cursor: pointer; }
 }
 .pl-stage.idle .pl-msg, .pl-stage.idle .pl-meta { opacity: 0.55; }
 
+/* Human gate — the signing checkpoint. Visually set apart from agent stages:
+   a tinted card with a left accent rule, so the operator reads it as "the rails". */
+.pl-gate {
+  background: var(--surface-translucent);
+  border-left: 2px solid var(--border-strong);
+  border-radius: 6px;
+  margin: -4px 2px;
+  padding: 12px 12px 10px;
+}
+.pl-gate .gate-glyph { font-size: 12px; line-height: 1; flex-shrink: 0; filter: grayscale(1); opacity: 0.6; }
+.pl-gate .pl-name { font-weight: 600; }
+.pl-gate.active {
+  border-left-color: var(--status-blocked);
+  background: color-mix(in srgb, var(--status-blocked) 8%, var(--surface-translucent));
+}
+.pl-gate.active .gate-glyph { filter: none; opacity: 1; }
+.pl-gate.active .pl-msg, .pl-gate.active .pl-meta { opacity: 1; color: var(--text); }
+.pl-gate .gate-badge {
+  margin-left: auto;
+  background: var(--status-blocked); color: #fff;
+  font-size: 10px; font-weight: 700;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pl-gate.active .pl-name .gate-glyph { animation: pl-pulse 1.4s infinite; }
+
 .dot-blue { background: var(--accent); }
 
 /* ── Cost panel ───────────────────────────────────────────────────────────── */
@@ -2917,12 +2944,30 @@ function renderPipeline(stages) {
     'security-officer': 'security',
     'devops': 'devops',
     'l3-support': 'l3 support',
+    'human-gate': 'human gate',
   };
   const anyActive = stages.some(s => s.status === 'active');
   const allIdle = stages.every(s => s.status === 'idle');
-  if (status) status.textContent = anyActive ? 'running' : (allIdle ? 'idle' : 'last run');
+  const pendingGate = stages.find(s => s.is_human_gate)?.pending || 0;
+  if (status) status.textContent = pendingGate > 0
+    ? `${pendingGate} awaiting signature`
+    : (anyActive ? 'running' : (allIdle ? 'idle' : 'last run'));
   root.innerHTML = stages.map(s => {
     const label = labels[s.stage] || s.stage;
+    // The human gate is the product's signing checkpoint — render it distinctly
+    // (a signature glyph, its own class) rather than as just another agent stage.
+    if (s.is_human_gate) {
+      const msg = s.pending > 0 ? esc(s.last_message) : 'no gate pending';
+      const meta = s.pending > 0 && s.age_min != null
+        ? `oldest ${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'}`
+        : 'clear';
+      return `
+        <div class="pl-stage pl-gate ${s.pending > 0 ? 'active' : 'idle'}" title="Human gate — irreversible actions need a signature here. Click to see pending gates." onclick="drillToGates()">
+          <div class="pl-name"><span class="gate-glyph">✍</span>${label}${s.pending > 0 ? `<span class="gate-badge">${s.pending}</span>` : ''}</div>
+          <div class="pl-msg">${msg}</div>
+          <div class="pl-meta">${meta}</div>
+        </div>`;
+    }
     const msg = s.last_message ? esc(s.last_message) : (s.status === 'idle' ? 'no runs yet' : '—');
     const meta = s.age_min != null ? `${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'} ago` : '';
     return `
@@ -2932,6 +2977,14 @@ function renderPipeline(stages) {
         <div class="pl-meta">${meta || s.status}</div>
       </div>`;
   }).join('');
+}
+
+// Click the human-gate node → jump to the gates/inbox view where they get signed.
+function drillToGates() {
+  const search = document.getElementById('search-input');
+  if (search) { search.value = 'gate'; onSearch('gate'); }
+  switchTab('kanban', document.querySelector('.nav-item[data-tab="kanban"]'));
+  showToast('Filtered to <code>gate</code> — these need a human signature', 'info', 2500);
 }
 
 // Drill-down: click a pipeline stage → switch to Kanban + filter by that agent
@@ -3809,8 +3862,15 @@ async function gateAction(id, action, runAgent) {
   } else {
     body = { action, project: currentProject };
     if (runAgent) {
-      const dflt = `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it with TDD.`;
-      const p = prompt(`Approve ${id} and run an agent in the project.\n\nPrompt for the agent:`, dflt);
+      const generic = `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it with TDD.`;
+      // Prefer a ready-to-run prompt derived from the task's own body (title/description/labels),
+      // falling back to the generic one. The operator still sees and edits it before launch.
+      let dflt = generic;
+      try {
+        const pf = await api(`/api/agent/prompt-for?id=${encodeURIComponent(id)}${pqs().replace(/^\?/, '&')}`);
+        if (pf && pf.prompt) dflt = pf.prompt;
+      } catch (_) { /* fall back to generic */ }
+      const p = prompt(`Approve ${id} and run an agent in the project.\n\nPrompt for the agent (edit as needed):`, dflt);
       if (p === null) return;                 // cancelled the whole action
       body.runAgent = true; body.agentPrompt = p.trim() || dflt;
     }

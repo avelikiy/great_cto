@@ -154,11 +154,20 @@ test('pipeline: full 8-stage simulation reports each stage as done', { skip: !BD
   try {
     await waitForBoard(port);
 
-    // 1. /api/pipeline should report each stage as done
+    // 1. /api/pipeline should report each agent stage as done, plus the human-gate node.
     const pipeline = await api(port, '/api/pipeline');
     assert.equal(pipeline.status, 200, `/api/pipeline returned ${pipeline.status}`);
     assert.ok(Array.isArray(pipeline.body), `pipeline body should be array, got ${typeof pipeline.body}`);
-    assert.equal(pipeline.body.length, 8, `expected 8 stages, got ${pipeline.body.length}`);
+    // The pipeline surfaces the human gate AS A STAGE (just before the irreversible
+    // devops step), so the body is the 8 agent stages + 1 human-gate node.
+    const agentNodes = pipeline.body.filter(s => !s.is_human_gate);
+    const gateNodes = pipeline.body.filter(s => s.is_human_gate);
+    assert.equal(agentNodes.length, 8, `expected 8 agent stages, got ${agentNodes.length}`);
+    assert.equal(gateNodes.length, 1, `expected exactly 1 human-gate node, got ${gateNodes.length}`);
+    // The gate must sit immediately before devops on the rail.
+    const gateIdx = pipeline.body.findIndex(s => s.is_human_gate);
+    const devopsIdx = pipeline.body.findIndex(s => s.stage === 'devops');
+    assert.equal(gateIdx + 1, devopsIdx, `human-gate should sit immediately before devops (gate@${gateIdx}, devops@${devopsIdx})`);
 
     const stagesByName = Object.fromEntries(pipeline.body.map(s => [s.stage, s]));
     const expectedDone = ['architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
