@@ -39,7 +39,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "chat-only-hint" | "unknown";
   unknownToken?: string;
   dir: string;
   positional: string[];
@@ -50,6 +50,7 @@ interface CliArgs {
   version: string | null;
   boardPort: number;
   boardNoOpen: boolean;
+  consoleBind: string | null;  // --bind: bind address for `console` (tunnel/hosting); default loopback
   useLlm: boolean;        // --use-llm: force LLM even on high confidence
   noLlm: boolean;         // --no-llm: skip LLM even on low confidence
   host: "claude-code" | "codex" | null;  // --host codex: install for Codex instead of Claude Code
@@ -60,6 +61,7 @@ function parseArgs(argv: string[]): CliArgs {
     command: "init",
     boardPort: 3141,
     boardNoOpen: false,
+    consoleBind: null,
     dir: process.cwd(),
     yes: false,
     dryRun: false,
@@ -89,7 +91,10 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--no-llm") args.noLlm = true;
     else if (a === "--host") { const v = argv[++i] ?? ""; args.host = (v === "codex" || v === "claude-code") ? v : null; }
     else if (a.startsWith("--host=")) { const v = a.slice("--host=".length); args.host = (v === "codex" || v === "claude-code") ? v : null; }
+    else if (a === "--bind") args.consoleBind = argv[++i] ?? null;
+    else if (a.startsWith("--bind=")) args.consoleBind = a.slice("--bind=".length) || null;
     else if (a === "board") args.command = "board";
+    else if (a === "console") args.command = "console";
     else if (a === "register") args.command = "register";
     else if (a === "ci") args.command = "ci";
     else if (a === "mcp") args.command = "mcp";
@@ -180,8 +185,10 @@ async function runRegister(args: CliArgs): Promise<number> {
 // ── Board server lifecycle helpers ───────────────────────────────────────────
 
 /** Absolute path to the board PID file (persists across CLI invocations). */
-function boardPidFilePath(): string {
-  return join(homedir(), ".great_cto", "board.pid");
+function boardPidFilePath(surface?: "console"): string {
+  // The two surfaces are separate processes with separate lifecycles — a console
+  // start must never kill the builder board (and vice versa).
+  return join(homedir(), ".great_cto", surface === "console" ? "console.pid" : "board.pid");
 }
 
 /**
@@ -211,8 +218,8 @@ function findBoardServerPath(): string | undefined {
  * Kill the board server recorded in the PID file.
  * Returns true if a live process was terminated.
  */
-async function killExistingBoard(): Promise<boolean> {
-  const pidFile = boardPidFilePath();
+async function killExistingBoard(surface?: "console"): Promise<boolean> {
+  const pidFile = boardPidFilePath(surface);
   if (!fsExistsSync(pidFile)) return false;
   const raw = readFileSync(pidFile, "utf8").trim();
   const pid = parseInt(raw, 10);
@@ -279,13 +286,13 @@ async function restartBoardAfterUpgrade(port: number): Promise<void> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runBoard(args: CliArgs): Promise<number> {
+async function runBoard(args: CliArgs, surface?: "console"): Promise<number> {
   const { spawn } = await import("node:child_process");
 
-  // Stop any existing board server (e.g. old version left over after upgrade)
-  const killed = await killExistingBoard();
+  // Stop any existing server OF THIS SURFACE (board and console run side by side)
+  const killed = await killExistingBoard(surface);
   if (killed) {
-    log(`  ${dim("stopped previous board server")}`);
+    log(`  ${dim(surface === "console" ? "stopped previous console server" : "stopped previous board server")}`);
   }
 
   const serverPath = findBoardServerPath();
@@ -296,9 +303,13 @@ async function runBoard(args: CliArgs): Promise<number> {
 
   const nodeArgs = [serverPath];
   if (args.boardNoOpen) nodeArgs.push("--no-open");
+  if (surface) nodeArgs.push("--surface", surface);
+
+  const env: NodeJS.ProcessEnv = { ...process.env, BOARD_PORT: String(args.boardPort) };
+  if (surface === "console" && args.consoleBind) env.GREAT_CTO_HOST = args.consoleBind;
 
   const child = spawn(process.execPath, nodeArgs, {
-    env: { ...process.env, BOARD_PORT: String(args.boardPort) },
+    env,
     stdio: "inherit",
     detached: false,
   });
@@ -306,11 +317,11 @@ async function runBoard(args: CliArgs): Promise<number> {
   // Write PID so future invocations (including init upgrades) can find us
   try {
     mkdirSync(join(homedir(), ".great_cto"), { recursive: true });
-    writeFileSync(boardPidFilePath(), String(child.pid));
+    writeFileSync(boardPidFilePath(surface), String(child.pid));
   } catch { /* best-effort */ }
 
   child.on("exit", code => {
-    try { unlinkSync(boardPidFilePath()); } catch { /* ignore */ }
+    try { unlinkSync(boardPidFilePath(surface)); } catch { /* ignore */ }
     process.exit(code ?? 0);
   });
 
@@ -324,6 +335,7 @@ ${bold("Usage:")}
   npx great-cto install [options]    Same as init
   npx great-cto [init] [options]     Detect + bootstrap
   npx great-cto board [--port 3141] [--no-open]
+  npx great-cto console [--port 8788] [--bind 0.0.0.0] [--no-open]
   npx great-cto register [--dir PATH]
   npx great-cto ci [path] [--no-archetype] [--no-budget]
   npx great-cto mcp [--sse --port N]
@@ -337,6 +349,12 @@ ${bold("Board:")}
   great-cto board              Open Kanban + CTO Dashboard at localhost:3141
   great-cto board --port 4000  Use a different port
   great-cto board --no-open    Start server without opening browser
+
+${bold("Operator console (the second surface — invite-only, hostable):")}
+  great-cto console                 Serve ONLY the operator console (no dev board)
+  great-cto console --port 8788     Different port
+  great-cto console --bind 0.0.0.0  Reachable beyond this machine (tunnel/hosting);
+                                    operators sign in via invite links
 
 ${bold("Register:")}
   great-cto register           Add this repo to ~/.great_cto/projects.json
@@ -992,6 +1010,15 @@ async function main(): Promise<void> {
   if (args.command === "board") {
     try {
       const code = await runBoard(args);
+      process.exit(code);
+    } catch (e) {
+      error((e as Error).message);
+      process.exit(1);
+    }
+  }
+  if (args.command === "console") {
+    try {
+      const code = await runBoard(args, "console");
       process.exit(code);
     } catch (e) {
       error((e as Error).message);

@@ -82,6 +82,20 @@ can't auto-clear waits in the **inbox** with its AI recommendation, confidence, 
 clock; signing executes the irreversible write, rejecting stops it. Nothing irreversible runs without
 a signature.
 
+**Two surfaces, one engine.** The builder board (you) and the operator console (your signers) are
+separate faces of the same server:
+
+```bash
+great-cto board                    # builder: kanban, agents, pipeline — localhost only
+great-cto console --port 8788      # operator console ONLY — the dev board does not exist here
+great-cto console --bind 0.0.0.0   # hostable (tunnel / console.client.com); invite-only entry
+```
+
+On the console surface there is no local-admin fallback — without a valid invite link the
+operator sees an "ask your administrator" screen. An invite token never opens builder routes
+(any mode), and an invited operator acts strictly inside their own tenant. Invite links expire
+after 7 days (`GREAT_CTO_INVITE_TTL_DAYS`, `0` = never).
+
 <p align="center">
   <img src="docs/screenshots/console-inbox.png" alt="Operator console inbox — cases awaiting a human signature with AI recommendation, confidence and SLA" width="900" />
 </p>

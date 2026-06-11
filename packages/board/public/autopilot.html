@@ -463,19 +463,38 @@ async function initRoles() {
       localStorage.setItem('gcto_invite', tok);
       document.getElementById('role-pick').style.display = 'none';
       document.getElementById('build-link').style.display = 'none';
+      document.title = 'Operator console';   // de-brand for operators; tenant brand applies via applyBrand
       const si = document.getElementById('session-info');
       si.style.display = ''; si.innerHTML = `Signed in as <b>${esc(inv.name || 'operator')}</b> · ${esc(inv.roleLabel)}${inv.tenant && inv.tenant !== 'default' ? ' · tenant ' + esc(inv.tenant) : ''} · <a class="back" href="#" onclick="signOut();return false">sign out</a>`;
       applyRoleUI(); return;
     }
     localStorage.removeItem('gcto_invite'); // stale/revoked
   }
-  // Local admin / role-preview picker.
+  // On the console surface there is no local-admin fallback: without a valid invite
+  // the operator sees an ask-your-admin screen, not an admin console.
+  const sf = await api('/api/autopilot/surface');
+  if (sf && sf.surface === 'console') { renderLockScreen(); return; }
+  // Local admin / role-preview picker (builder/both surfaces — local trust).
   const sel = document.getElementById('role');
   const saved = localStorage.getItem('gcto_role') || 'admin';
   SESSION = { token: null, role: saved, tenant: null, label: null, name: null };
   sel.innerHTML = Object.entries(ROLES).map(([k, r]) =>
     `<option value="${k}"${k === saved ? ' selected' : ''}>${esc(r.label)}</option>`).join('');
   applyRoleUI();
+}
+function renderLockScreen() {
+  document.title = 'Operator console';
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div style="max-width:420px;text-align:center">
+        <div style="font-size:40px;margin-bottom:12px">🛂</div>
+        <h1 style="font-size:20px;margin:0 0 10px">Operator console</h1>
+        <p style="color:var(--text2,#666);line-height:1.55;margin:0">
+          This console is invite-only. Ask your administrator for an invite link —
+          it signs you in with your role and workspace already set.
+        </p>
+      </div>
+    </div>`;
 }
 function onRole() { SESSION.role = document.getElementById('role').value; localStorage.setItem('gcto_role', role()); applyRoleUI(); refresh(); }
 function signOut() { localStorage.removeItem('gcto_invite'); location.href = '/autopilot.html'; }
