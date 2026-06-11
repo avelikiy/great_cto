@@ -74,6 +74,13 @@ const SURFACE = (() => {
   const v = String(i > -1 ? process.argv[i + 1] : process.env.GREAT_CTO_SURFACE || 'both').toLowerCase();
   return ['builder', 'console', 'both'].includes(v) ? v : 'both';
 })();
+// Bind host. Default loopback. --host/GREAT_CTO_HOST exists so the CONSOLE surface can be
+// tunnelled/hosted (console.client.com); put your reverse-proxy auth in front — hosted
+// operator auth beyond invite tokens lands with the package split (PLAN-ui-split P5).
+const HOST = (() => {
+  const i = process.argv.indexOf('--host');
+  return String(i > -1 ? process.argv[i + 1] : process.env.GREAT_CTO_HOST || '127.0.0.1');
+})();
 // The operator console's whole world: its API, push notifications, and its statics.
 const isConsoleApi = (p) => p.startsWith('/api/autopilot/') || p.startsWith('/api/push/');
 const isConsoleStatic = (p) => p === '/autopilot.html' || p === '/sw.js' || p.startsWith('/assets/');
@@ -363,7 +370,10 @@ const agentRuns = new Map();  // cwd → { proc, project, startedAt, lines:[], e
 function originAllowed(req) {
   const o = req.headers.origin || req.headers.referer || '';
   if (!o) return true; // same-origin fetch / curl with no Origin
-  return [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`].some((e) => o === e || o.startsWith(e + '/'));
+  // True same-origin: the browser's Origin matches the host this request arrived on
+  // (covers a tunnelled/hosted console at console.client.com, http or https).
+  const self = req.headers.host ? [`http://${req.headers.host}`, `https://${req.headers.host}`] : [];
+  return [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`, ...self].some((e) => o === e || o.startsWith(e + '/'));
 }
 function agentEmit(project, kind, text) {
   broadcast('agent', { project, kind, text, at: Date.now() });
@@ -3658,6 +3668,12 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
+  // Which face is this server? Public beacon for the console's boot (no data exposed).
+  if (pathname === '/api/autopilot/surface' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ surface: SURFACE }));
+    return;
+  }
   // Operator onboarding: the admin mints invites; the operator resolves one to bootstrap, scoped.
   if (pathname === '/api/autopilot/invite-resolve' && req.method === 'GET') {
     const inv = acceptInvite(url.searchParams.get('token'));
@@ -3845,8 +3861,13 @@ const server = http.createServer(async (req, res) => {
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────────
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`great_cto board → http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  const face = SURFACE === 'console' ? 'operator console' : SURFACE === 'builder' ? 'dev board' : 'board';
+  console.log(`great_cto ${face} → http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}${SURFACE === 'console' ? '/autopilot.html' : ''}`);
+  if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
+    console.log(`  ⚠ bound to ${HOST} — reachable beyond this machine. Operators authenticate via invite`);
+    console.log(`    links; put your reverse-proxy auth in front for anything admin-grade.`);
+  }
   // Discover all great_cto projects on disk asynchronously — don't block
   // the listening event so /api/tasks is available immediately.
   discoverProjects().then(n => {
