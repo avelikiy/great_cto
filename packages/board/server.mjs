@@ -385,6 +385,30 @@ function agentLineFromJson(s) {
   if (e.type === 'system' && e.subtype === 'init') return { kind: 'system', text: `▪ session ${String(e.session_id || '').slice(0, 8)} · model ${e.model || ''}` };
   return null;
 }
+// Compose a ready-to-run agent prompt from a task's own body (title + description + labels),
+// mirroring the "embed the execution prompt in the issue" pattern. Returns null if the task
+// can't be read, so callers fall back to a generic prompt. The operator still sees and edits
+// this in the approve dialog before anything runs — the human gate is preserved.
+function composeTaskPrompt(taskId, cwd) {
+  if (!taskId) return null;
+  try {
+    const r = bd(['show', String(taskId), '--json'], { cwd });
+    if (r.status !== 0 || !r.stdout) return null;
+    let o = JSON.parse(r.stdout);
+    if (Array.isArray(o)) o = o[0];
+    o = (o && o.issue) || o;
+    if (!o || !o.title) return null;
+    const labels = Array.isArray(o.labels) && o.labels.length ? `\nLabels: ${o.labels.join(', ')}` : '';
+    const desc = (o.description || '').trim();
+    return [
+      `Implement task ${o.id || taskId}: ${o.title}`,
+      desc ? `\n${desc}` : '',
+      labels,
+      `\n\nWork in this project with TDD. When the task is complete, close it (bd close ${o.id || taskId}) and stop.`,
+    ].join('');
+  } catch { return null; }
+}
+
 function startAgentRun(cwd, project, prompt, model) {
   if (agentRuns.has(cwd)) return { error: 'an agent is already running for this project', running: true };
   const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--permission-mode', AGENT_PERMISSION];
@@ -550,7 +574,7 @@ function getPipeline(cwd = process.cwd()) {
     tasks.filter(t => t.status === 'in_progress').map(t => (t.agent || '').toLowerCase()).filter(Boolean)
   );
 
-  return stages.map(stage => {
+  const agentStages = stages.map(stage => {
     // agent log file naming convention: shortened agent name
     const aliases = {
       'architect': ['architect'],
@@ -583,6 +607,39 @@ function getPipeline(cwd = process.cwd()) {
       age_min: ageMs != null ? Math.round(ageMs / 60000) : null,
     };
   });
+
+  // ── Human gate ──────────────────────────────────────────────────────────
+  // The product's whole premise: no irreversible action ships without a human
+  // signature. Surface that checkpoint AS A STAGE in the pipeline, sitting just
+  // before the irreversible steps (devops/ship). It lights up when a gate is
+  // awaiting a human — so the operator always sees where the rails are.
+  const openGates = tasks.filter(t => t.is_gate && t.status !== 'done' && t.status !== 'closed' && t.raw_status !== 'closed');
+  const pending = openGates.length;
+  const newestGate = openGates.reduce((acc, t) => {
+    const ts = t.updated_at || t.created_at; return (!acc || (ts && ts > acc)) ? ts : acc;
+  }, null);
+  const gateAgeMs = newestGate ? (now - new Date(newestGate).getTime()) : null;
+  const gateNode = {
+    stage: 'human-gate',
+    is_human_gate: true,
+    status: pending > 0 ? 'active' : 'idle',
+    pending,
+    last_message: pending > 0
+      ? `${pending} gate${pending > 1 ? 's' : ''} awaiting signature`
+      : 'no gate pending',
+    verdict: null,
+    ts: newestGate,
+    age_min: gateAgeMs != null ? Math.round(gateAgeMs / 60000) : null,
+  };
+
+  // Insert the gate immediately before the first irreversible stage (devops).
+  const out = [];
+  for (const s of agentStages) {
+    if (s.stage === 'devops') out.push(gateNode);
+    out.push(s);
+  }
+  if (!out.includes(gateNode)) out.push(gateNode); // fallback if devops absent
+  return out;
 }
 
 // ── Cost history (daily LLM burn) ────────────────────────────────────────────
@@ -2719,6 +2776,14 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(run ? { running: true, startedAt: run.startedAt, lines: run.lines.slice(-200) } : { running: false }));
     return;
   }
+  if (pathname === '/api/agent/prompt-for' && req.method === 'GET') {
+    // Derive an editable, task-specific default prompt for the launch dialog.
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const prompt = composeTaskPrompt(url.searchParams.get('id'), c);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ prompt: prompt || null }));
+    return;
+  }
   if ((pathname === '/api/agent/run' || pathname === '/api/agent/stop') && req.method === 'POST') {
     if (!originAllowed(req)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'origin not allowed' })); return; }
     let body = ''; req.on('data', (c) => body += c);
@@ -2801,7 +2866,11 @@ const server = http.createServer(async (req, res) => {
       // Launch control: optionally spawn an agent the moment the gate is approved.
       let agent = null;
       if (action === 'approve' && parsed.runAgent && originAllowed(req)) {
-        const prompt = String(parsed.agentPrompt || '').trim() || `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it.`;
+        // Client normally sends an (operator-edited) agentPrompt. If it's empty, derive one from
+        // the task body before falling back to the generic pipeline-continue prompt.
+        const prompt = String(parsed.agentPrompt || '').trim()
+          || composeTaskPrompt(id, gateCwd)
+          || `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it.`;
         agent = startAgentRun(gateCwd, parsed.project || path.basename(gateCwd), prompt, parsed.model);
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
