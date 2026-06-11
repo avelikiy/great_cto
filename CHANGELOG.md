@@ -19,6 +19,37 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.66.0 — 2026-06-11
+
+### Operator console — human gate in the pipeline, autonomous approve→run
+
+- **Human gate is now a pipeline stage.** The Active pipeline renders the human gate as its own
+  node, sitting immediately before the irreversible `devops` step, so operators always see where
+  the rails are. It lights up "N awaiting signature" when gates are pending; clicking it jumps to
+  the inbox where they get signed. (`getPipeline()` inserts the node; the board renders it.)
+- **approve→run defaults the agent prompt from the task body.** "Approve + ▶run" now seeds the
+  launch prompt from the task's own `bd show` (title + description + labels + a TDD/close
+  instruction) instead of a generic string — the "ready-to-run prompt embedded in the issue"
+  pattern. The operator still sees and edits the prompt before anything launches, so the human
+  gate is preserved. New endpoint: `GET /api/agent/prompt-for?id=<task>`.
+
+### Security / hardening
+
+- **Invite links now expire.** Operator invites carry a 7-day TTL by default
+  (`GREAT_CTO_INVITE_TTL_DAYS`, `0` = never). `resolveInvite`/`acceptInvite` reject expired tokens
+  and the Team panel lists them as `expired` — closing the "a leaked invite link is permanent"
+  gap. +4 tests.
+- **POST body-size cap.** The board now caps request bodies at 2 MB (`413` + socket destroy) at a
+  single point, guarding every route's `body += c` accumulation against unbounded buffering.
+
+### Tests
+
+- `pipeline-e2e` updated for the new contract: 8 agent stages **+ 1 human-gate node**, asserting
+  the gate sits immediately before `devops`. Suite green (`tests/lib` 351/351).
+
+---
+
 ## v2.65.2 — 2026-06-10
 
 ### Board fix — gate Approve no longer fails under a minimal PATH (BH-32)
