@@ -20,6 +20,23 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.67.0 — 2026-06-11
+
+### Dev board — gate timestamps + openable document links in tasks
+
+- **Exact date+time on gates.** Gate cards (kanban + Inbox pending-gates rows) show precisely
+  when the decision has been waiting since — `⏳ 06/11, 05:17 PM`, full timestamp on hover —
+  instead of only a relative age. The task side panel adds a "Waiting since" row for open gates.
+- **Documents in the task side panel.** Any `.md` path referenced in the ticket text
+  (description / notes / design / acceptance) surfaces as a "Documents" section; click opens the
+  doc rendered inline with "← back to task".
+- **New `GET /api/doc?path=…`** — path-traversal-safe (the resolved path must stay inside the
+  project cwd), `.md` only, 1 MB cap.
+- Tests: board-gate 5/5, lib 351/351; verified end-to-end in the live board with Playwright.
+
+---
+
 ## v2.66.0 — 2026-06-11
 
 ### Operator console — human gate in the pipeline, autonomous approve→run
