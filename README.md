@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 [![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
-[![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
+[![Savings](https://img.shields.io/badge/one_real_run-1h26m_·_$3.40_vs_~$42K_traditional-darkgreen)](https://greatcto.systems/proof)
 
 ```bash
 npx great-cto init
@@ -67,7 +67,7 @@ steps**, a built-in compliance reviewer, and **live connectors** that run each f
 
 **Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
 controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. **17 live connectors run on real data across the 25 verticals** — FHIR, ICD-10
+carries liability. **22 live connectors run on real data across the 25 verticals** — FHIR, ICD-10
 (NLM), NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, a US federal tax engine, plus
 medical-necessity criteria, claims fraud-scoring, mortgage AUS (DU/LPA), OIG/SAM exclusion screening,
 FMCSA carrier-vetting, Reg-F/TCPA outreach guardrails, IOC threat-intel, and FinCEN SAR generation.
@@ -75,6 +75,8 @@ They're keyless by default (public source or deterministic real generation) and 
 provider the moment you add credentials.
 
 ## Operate: the console where a human signs
+
+→ *The buyer-facing story of this surface: [greatcto.systems/operate](https://greatcto.systems/operate)*
 
 `great-cto board` opens the **operator console** at `http://localhost:3141/autopilot.html` — the
 Operate-mode surface where the autopilot's work lands for a named human. Every case the autopilot
@@ -96,6 +98,24 @@ operator sees an "ask your administrator" screen. An invite token never opens bu
 (any mode), and an invited operator acts strictly inside their own tenant. Invite links expire
 after 7 days (`GREAT_CTO_INVITE_TTL_DAYS`, `0` = never).
 
+**Quick start: onboarding your signers** (one `npx great-cto` install covers both surfaces):
+
+1. **Admin** opens the console → **Team** panel → picks the operator's role (underwriter,
+   BSA officer, certified coder… — 26 roles) and tenant → *Create invite* → copies the link
+   (or emails it). The link expires in 7 days.
+2. **Operator** opens the link — and is in: role and workspace are baked into the token and
+   can't be changed from the browser. They see only the console (tenant's brand if set),
+   only their tenant's cases.
+3. **Work**: cases land in the inbox — started by hand, or pushed by a source system via
+   `POST /api/autopilot/ingest` (HMAC-signed with `GREAT_CTO_INGEST_SECRET`). The operator
+   reads the AI recommendation + evidence and signs or rejects; every decision is recorded
+   with date, time, evidence and confidence in the audit trail.
+4. **Revoke**: Team → *Revoke* kills the token instantly.
+
+When binding beyond loopback (`--bind`), operators are protected by invite tokens; put your
+reverse-proxy auth in front for anything admin-grade — full hosted auth ships with the
+console package split (P5 in `docs/plans/PLAN-ui-split.md`).
+
 <p align="center">
   <img src="docs/screenshots/console-inbox.png" alt="Operator console inbox — cases awaiting a human signature with AI recommendation, confidence and SLA" width="900" />
 </p>
@@ -108,6 +128,8 @@ after 7 days (`GREAT_CTO_INVITE_TTL_DAYS`, `0` = never).
 </table>
 
 ## Under the hood (for the CTO who runs it)
+
+→ *The builder-facing story of this surface: [greatcto.systems/build](https://greatcto.systems/build)*
 
 Each autopilot is built and operated by a gated pipeline of specialist agents — architect, 12-angle
 reviewer, QA, security officer, devops — tuned to your stack and jurisdiction. **You make two
@@ -128,12 +150,11 @@ declares an **accountable owner** — one person answers for what it does. `flow
 
 | | |
 |---|---|
-| LLM cost (one real feature, traced) | **$2.39** |
-| Human-equivalent for the same work | **~$5,460** |
-| Defects caught that QA had missed | **2** |
+| One regulated feature, end to end (voice-AI compliance pack, traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~6 weeks traditional |
+| An earlier CLI-feature run, same pipeline | $2.39 LLM vs ~$5,460 human-equivalent; security caught 2 defects QA had passed |
 | Monthly cost (20 pipeline runs) | **~$34** |
 | Autopilot verticals | **25** (healthcare · finance · legal · ops — each with a human gate) |
-| Specialist agents | **74** |
+| Specialist agents | **83** |
 | Archetypes auto-detected | **26** |
 | Jurisdictions | **12** (GDPR · HIPAA · PCI-DSS · SOX · and more) |
 
@@ -179,7 +200,7 @@ Same command. Output depends on what you're building and where it runs:
 </tr>
 </table>
 
-**Built for the one-person engineering org.** Indie hackers, solo founders, technical CTOs running everything themselves — on Claude Code or OpenAI Codex. *Not for teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
+**One builder, many operators.** [Build](https://greatcto.systems/build) is for the one-person engineering org — an indie hacker, solo founder, or technical CTO running the pipeline on Claude Code or OpenAI Codex. [Operate](https://greatcto.systems/operate) is for everyone who signs the work: licensed adjusters, attorneys, controllers, compliance leads — invited into the operator console with scoped, tenant-isolated links. One engineer builds the autopilot; the whole back office runs on it. *Not for multi-dev engineering teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
 
 ## Install
 
@@ -207,7 +228,7 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — two gates · critics · 74 agents · 26 archetypes · 12 jurisdictions · 45+ compliance frameworks · board · cost · MCP</summary>
+<summary>📖 Full documentation — two gates · critics · 83 agents · 26 archetypes · 12 jurisdictions · 45+ compliance frameworks · board · cost · MCP</summary>
 
 ## Two decisions per feature
 
@@ -241,12 +262,12 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ Cognition cloud | ✅ Claude Code |
 | BYOK / multi-model | ✅ Claude Code · Codex | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **74** (architect · PM · 12-angle review · QA · security · devops · reviewers across archetypes, packs & jurisdictions) | 1 generalist | 1 generalist |
+| Specialist agents | **83** (architect · PM · 12-angle review · QA · security · devops · reviewers across archetypes, packs & jurisdictions) | 1 generalist | 1 generalist |
 | SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
 | Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
 | Cost tracking | ✅ per-agent + 30d history + savings_x | ❌ | ❌ |
-| Compliance frameworks | ✅ 33+ (PCI · HIPAA · SOX · GDPR · CCPA · DPDPA · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …) | ❌ | ❌ |
+| Compliance frameworks | ✅ 45+ (PCI · HIPAA · SOX · GDPR · CCPA · DPDPA · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …) | ❌ | ❌ |
 | Pricing | free (you pay your LLM provider) | $500/mo | $20/mo |
 | Setup | `npx great-cto init` | sign up | install CLI |
 
@@ -347,7 +368,9 @@ Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-
 
 ## One real run, fully traced
 
-A Python CLI feature shipped through the full pipeline: **$2.39 LLM spend** vs ~$5,460 human-equivalent. Security caught two real defects QA had passed (`list(stream_csv())` defeated streaming → 14.5 MB peak RSS on 13 MB input). Multi-reviewer model catching what single agents miss, before merge.
+The canonical receipt: a **voice-AI compliance pack** (TCPA screening, STIR/SHAKEN, state recording-consent) shipped through the full pipeline in **1h 26m wall-clock for $3.40 in LLM cost** — architect → threat model → implementation → 5 reviewers → human gates → merged PR. The traditional path for the same regulated feature: ~170 hours and ~$42K. Every stage timestamped, every artifact links to a public GitHub PR.
+
+An earlier run on a Python CLI feature ($2.39 vs ~$5,460 human-equivalent) showed the review model working: security caught two real defects QA had passed (`list(stream_csv())` defeated streaming → 14.5 MB peak RSS on 13 MB input).
 
 Full trace + artefacts: [greatcto.systems/proof](https://greatcto.systems/proof) · raw: [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md).
 
@@ -394,7 +417,7 @@ Five things that need you to act in <2h get emailed automatically — even when 
 
 ## Limitations & non-goals
 
-- **Not for teams** — solo-CTO is the product. 2+ engineers? You've outgrown it.
+- **Not for multi-dev engineering teams** — one builder is the product; 2+ engineers sharing the pipeline have outgrown it. Operators are unlimited — invite signers and compliance leads to the console freely.
 - **Not a replacement for senior engineers** — codifies process; doesn't make architectural judgement calls without one.
 - **Not a CI/CD system** — gates run locally / in-session. You still need GitHub Actions for actual merge.
 - **Not certification-audited** — PCI/HIPAA/SOC2 archetype scaffolds are starting points, not certifications.
@@ -408,7 +431,7 @@ Five things that need you to act in <2h get emailed automatically — even when 
 
 **Can I disable hooks?** Every hook honors `GREAT_CTO_DISABLE_<NAME>=1`. Per-file secret-scan opt-out: `// great_cto:allow-secrets`.
 
-**What if I'm not solo?** great_cto is built for the one-person engineering org. If you have 2+ engineers and need shared boards / multi-seat auth, you've outgrown it.
+**What if I'm not solo?** The *engineering* side is built for one person — if you have 2+ engineers who need shared builder boards, you've outgrown it. The *operating* side is multi-user by design: invite as many signers and compliance leads to the operator console as your back office needs (scoped invite links, per-tenant isolation).
 
 Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
@@ -420,26 +443,24 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 74 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 83 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
-**v2.21.0** (May 2026) — **Flow Compiler UX**: `npx great-cto init` now prints a **Compiled flow** with agents, gates, compliance, and cost estimate per feature cycle. Writes `.great_cto/FLOW.md` — agents read it to know exactly how to orchestrate your SDLC.
+**v2.40–v2.62** (June 2026) — **The autopilot pivot**: GreatCTO becomes *AI autopilots for business* — 25 service-autopilot verticals, each a flow with a measured quality scorecard, an accountable owner, and the runtime invariant that **an irreversible action never executes without a human signature**. 22 live connectors run every vertical on real data. Story: [We pivoted →](https://greatcto.systems/blog/autopilots-pivot-25-verticals)
 
-**v2.20.0** (May 2026) — **Detection v2**: **12-jurisdiction coverage** (added CA · JP · CN · KR with full legal framework + human gates) · **infra-signal detection** (Terraform region strings, `.env` `AWS_REGION=`, docker-compose `TZ=`, `package.json` homepage TLD) · **word-boundary matching** (no more "india" → "indiana" false positives) · **pack hints** for niche archetypes (`suggestedPacks` surfaces robotics/climate/clinical-trials/hr-ai/em-fintech packs when confidence is low). Token savings: –87.7% per pipeline run (v2.19.0 context-architecture redesign).
+**v2.46–v2.63** (June 2026) — **The operator console**: durable runs pause at the human gate and wait in an inbox for a named licensed human; signing executes the write. Role-based access, scoped invites, AI-drafted determinations with evidence, QA sampling, SLA clocks, Ops tab (metering · connector health · dead-letter requeue), WCAG 2.2 AA, light/dark. Story: [The operator console →](https://greatcto.systems/blog/operator-console)
 
-**v2.19.0** (May 2026) — **Token economy Phase 1+2**: artifact summaries (≤250 tokens, auto-generated) + task-aware memory filter (top-k relevant entries per task). –87.7% tokens per pipeline run.
-
-**v2.17.0** (May 2026) — **companion plugins auto-install** · **Architecture / Spec / Schema critics** before Plan stage.
+**v2.37–v2.65** (June 2026) — **Under the hood**: the dev board becomes a *pult* — approving a gate can spawn a live-streamed agent run; prompt self-improvement gated on held-out evals (SIA-inspired); $0 context compression (CI log 31,475 → 155 chars with the FATAL preserved); Fable 5 support. Story: [June under the hood →](https://greatcto.systems/blog/june-under-the-hood)
 
 [Full changelog →](CHANGELOG.md)
 
 ## Roadmap
 
-- **Evals runner in CI** — run golden-set eval suites on every PR, catch prompt regressions automatically
-- **Self-improving loop** — agents that learn from verdicts and improve their own prompts over time
-- **Decision scoring** — track which gate decisions turned out to be right; surface patterns
-- **/crystallize** — promote high-impact lessons to reusable skills the whole pipeline can query
+- **Hosted operator console** — one-command tunnel + custom domain for `great-cto console`, so signers never need localhost
+- **Vertical depth over breadth** — push the measured quality scorecard ≥95 on the top-5 autopilots before adding new ones
+- **SOC 2 evidence pack** — export the audit trail + gate history in auditor-ready format
+- **Multi-model verification** — independent second-model review on irreversible-action gates
 
 [Vote on the next feature →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
 
@@ -455,7 +476,7 @@ The plugin runs inside Claude Code (or any MCP-capable host); 74 agents are mark
 |---|---|
 | 🐛 [Issues](https://github.com/avelikiy/great_cto/issues) | Bugs, feature requests, archetype proposals |
 | 💡 [Discussions](https://github.com/avelikiy/great_cto/discussions) | Questions, patterns, show-and-tell |
-| 📝 [Blog](https://velikiy.hashnode.dev) | Architecture deep-dives |
+| 📝 [Blog](https://greatcto.systems/blog/) | Receipts, cost breakdowns, architecture deep-dives |
 | 🔒 [SECURITY.md](SECURITY.md) | Responsible disclosure |
 
 ## Contributing & License
