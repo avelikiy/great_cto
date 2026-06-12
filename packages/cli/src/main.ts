@@ -205,7 +205,13 @@ function findBoardServerPath(): string | undefined {
   const pluginBase = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
   if (fsExistsSync(pluginBase)) {
     try {
-      const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort().reverse();
+      // Numeric semver sort — a plain .sort() is lexicographic and would rank
+      // 2.99.0 above 2.100.0 (and once ranked 2.7.0 above 2.69.0).
+      const byVer = (a: string, b: string) => {
+        const pa = a.split(".").map(Number), pb = b.split(".").map(Number);
+        return (pb[0]! - pa[0]!) || (pb[1]! - pa[1]!) || (pb[2]! - pa[2]!) || 0;
+      };
+      const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort(byVer);
       for (const v of versions.slice(0, 5)) {
         candidates.push(join(pluginBase, v, "packages", "board", "server.mjs"));
       }
