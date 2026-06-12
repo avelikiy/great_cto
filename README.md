@@ -140,6 +140,19 @@ that blocks an unsafe design before it ever runs. Each reviewer is held to an **
 test set** in CI before release. The reviewers, signed human gates, audit trail, and live connectors
 are the trust layer that makes it safe to let the autopilot run.
 
+**Recommended companion MCP: Serena (semantic code navigation).** On large codebases the
+code-writing agents (senior-dev, coder) burn context grepping and reading whole files. The
+[Serena MCP](https://github.com/oraios/serena) gives them symbol-level navigation
+(find-symbol, references, structure) instead:
+
+```bash
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
+  serena start-mcp-server --context ide-assistant --project "$(pwd)"
+```
+
+Optional — everything works without it; with it, implementation tasks on big repos use
+noticeably less context per edit.
+
 **The permission is never the wound.** Every flow step is tagged reversible or not; the runtime
 **refuses to execute an irreversible action autonomously** — money moves, claim submission, e-signing,
 fleet changes and tax filing run *only* after a named human signs the checkpoint. Each autopilot also
