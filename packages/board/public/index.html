@@ -2105,6 +2105,7 @@ button { font-family: inherit; cursor: pointer; }
         </svg>
       </span>
       <span class="brand-name">greatcto</span>
+      <span id="build-version" title="great_cto build version" style="margin-left:6px;font-size:10px;color:var(--text3);font-family:var(--mono);align-self:center">—</span>
     </div>
     <div class="proj-switch" id="proj-switch" onclick="toggleProjMenu(event)">
       <span class="proj-icon" id="proj-switch-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
@@ -3570,6 +3571,9 @@ async function init() {
   const urlProject = urlParams.get('project') || '';
   const qs = urlProject ? `?project=${encodeURIComponent(urlProject)}` : '';
 
+  // Build version badge (fire-and-forget — never blocks the board).
+  api('/api/version').then(v => { const el = document.getElementById('build-version'); if (el && v && v.version) el.textContent = 'v' + v.version; }).catch(() => {});
+
   const [tasks, met, share, projs, inbox] = await Promise.all([
     api(`/api/tasks${qs}`),
     api(`/api/metrics${qs}`),
@@ -4479,8 +4483,11 @@ function switchTab(id, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   const panelEl = document.getElementById(`panel-${id}`);
   if (panelEl) panelEl.classList.add('active');
-  // crumb
-  document.getElementById('crumb-here').textContent = labels[id] || 'Board';
+  // crumb — `labels` used to be referenced here but is only ever a function-local in
+  // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
+  // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
+  const TAB_LABELS = { dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', memory: 'Memory', logs: 'Logs', notifications: 'Notifications', metrics: 'Metrics' };
+  const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || 'Board';
   if (id === 'dashboard' || id === 'agents') {
     api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
     if (id === 'dashboard') refreshCost();
@@ -4494,7 +4501,14 @@ function switchTab(id, el) {
 
 async function refreshLogs() {
   const data = await api(`/api/logs${pqs()}`);
-  if (!data) return;
+  // Never leave the panel stuck on "Loading…": on a network/endpoint error,
+  // show an actionable empty state instead of returning early.
+  if (!data || data._neterr || data.error) {
+    const el = document.getElementById('logs-list');
+    if (el) el.innerHTML = `<div class="empty" style="padding:20px 16px">Couldn't load logs.<br><small style="color:var(--text3)">${esc((data && (data.error || (data._neterr && 'board not reachable — restart it'))) || 'no response')}</small></div>`;
+    const countEl = document.getElementById('nav-logs-count'); if (countEl) countEl.textContent = '0';
+    return;
+  }
   allLogs = data.logs || [];
   const countEl = document.getElementById('nav-logs-count');
   if (countEl) countEl.textContent = allLogs.length;
@@ -4838,6 +4852,8 @@ function renderAgentProfile(p) {
         <dt>domain</dt>      <dd>${esc(p.domain)}</dd>
         <dt>model</dt>       <dd>${esc(p.model)}</dd>
         ${p.applies_to.length ? `<dt>applies_to</dt><dd>${esc(p.applies_to.join(', '))}</dd>` : ''}
+        ${(p.tools && p.tools.length) ? `<dt>tools</dt><dd>${p.tools.map(t => `<span class="chip" style="font-size:11px">${esc(t)}</span>`).join(' ')}</dd>` : '<dt>tools</dt><dd style="color:var(--text3)">none declared</dd>'}
+        ${(p.skills && p.skills.length) ? `<dt>skills</dt><dd>${p.skills.map(s => `<span class="chip chip-agent" style="font-size:11px">${esc(s)}</span>`).join(' ')}</dd>` : ''}
         <dt>runs total</dt>  <dd>${p.runs_total} · ${p.runs_30d} in 30d</dd>
         <dt>success</dt>     <dd>${p.success_rate != null ? `${p.success_rate}% (${p.ok_30d}/${p.ok_30d + p.fail_30d})` : 'no verdicts in 30d'}</dd>
         <dt>last run</dt>    <dd>${p.last_run ? esc(p.last_run.slice(0, 16).replace('T', ' ') + ' · ' + agoStr(p.last_run)) : 'never'}</dd>
