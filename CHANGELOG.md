@@ -24,6 +24,20 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.70.1 — 2026-06-13
+
+### Privacy fix: a legacy config.json no longer silently re-enables telemetry
+
+- A pre-v2.9.2 install left `~/.great_cto/config.json` with `{ "telemetry": true }`. The v2.70.0
+  opt-in resolver honored that stale flag and silently re-enabled collection on upgrade — without
+  a fresh, informed opt-in. **Fixed**: the legacy config.json fallback is dropped entirely; only
+  the new `~/.great_cto/telemetry.json` (or `GREAT_CTO_TELEMETRY=on`) enables telemetry.
+  Affected machines now correctly report `disabled (default)` until the user explicitly opts in.
+- +1 regression test — `tests/telemetry.test.mjs` 8/8.
+
+---
+
 ## v2.70.0 — 2026-06-13
 
 ### Anonymous, opt-IN CLI telemetry (default OFF, no PII)
