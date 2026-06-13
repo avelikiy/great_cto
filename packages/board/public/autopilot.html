@@ -84,6 +84,30 @@
   .pill.ok { color:var(--accent-text); border-color:var(--success-border); }
   .pill.rej { color:var(--red); border-color:var(--danger-border); }
   ol.steps { margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-3); }
+  /* ── Flow diagram (graphical block-flow of an autopilot) ── */
+  .fd-toggle { display:inline-flex; border:1px solid var(--bd); border-radius:8px; overflow:hidden }
+  .fd-toggle-btn { background:var(--surface); border:0; padding:5px 11px; font-size:12px; color:var(--mut); cursor:pointer }
+  .fd-toggle-btn.on { background:var(--accent); color:var(--accent-ink, #04150d); font-weight:600 }
+  .fd-legend { display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--mut); margin:6px 0 14px }
+  .fd-legend .sw { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:middle }
+  .fd-chain { display:flex; flex-direction:column; align-items:center }
+  .fd-node { width:100%; max-width:560px; background:var(--card); border:1px solid var(--bd); border-left:4px solid var(--bd);
+             border-radius:10px; padding:11px 14px; position:relative }
+  .fd-node.blast-low    { border-left-color:var(--accent) }
+  .fd-node.blast-medium { border-left-color:var(--warn) }
+  .fd-node.blast-high   { border-left-color:var(--danger) }
+  .fd-node.fd-gate { border:1.5px dashed var(--warn-border); border-left:4px solid var(--warn); background:var(--warn-surface, var(--surface-2)) }
+  .fd-node.fd-irrev { box-shadow:0 0 0 1px var(--danger-border) inset }
+  .fd-node.fd-added { border-style:dashed }
+  .fd-node-head { display:flex; align-items:flex-start; gap:9px; font-size:13.5px; font-weight:600; line-height:1.35 }
+  .fd-node-ic { font-size:15px; flex-shrink:0; line-height:1.2 }
+  .fd-node-meta { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:7px; font-size:11px; color:var(--mut) }
+  .fd-node-meta .pill { font-size:10.5px }
+  .fd-badge-irrev { color:var(--danger); border-color:var(--danger-border) }
+  .fd-badge-signer { color:var(--amb); border-color:var(--warn-border) }
+  .fd-arrow { display:flex; flex-direction:column; align-items:center; margin:2px 0; color:var(--text-3) }
+  .fd-arrow .line { width:2px; height:14px; background:var(--bd) }
+  .fd-arrow .tip { font-size:11px; line-height:1; margin-top:-3px }
   ol.steps li { margin:2px 0; }
   ol.steps .h { color:var(--amb); }
   .sign { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -252,6 +276,10 @@
       <input id="flow-tenant" placeholder="tenant (default)" style="max-width:140px" onchange="loadFlowTab()" />
       <span class="pill" id="flow-customized" style="display:none">customized</span>
       <span class="spacer"></span>
+      <div class="fd-toggle" role="group" aria-label="Flow view">
+        <button id="flow-view-diagram" class="fd-toggle-btn on" onclick="setFlowView('diagram')">◇ Diagram</button>
+        <button id="flow-view-list" class="fd-toggle-btn" onclick="setFlowView('list')">☰ List</button>
+      </div>
       <button class="back" id="flow-edit-btn" style="display:none;border:1px solid var(--bd)" onclick="toggleFlowEdit()">✎ Customize</button>
     </div>
     <div id="flow-steps"><div class="empty">loading…</div></div>
@@ -607,6 +635,7 @@ function applyRoleUI() {
 // ── Flow tab (P0 viewer + P1 parametric customization — "настройка, не сборка") ──
 let FLOW = null;        // last /api/autopilot/flow response
 let FLOW_EDIT = false;  // editor open?
+let FLOW_VIEW = (() => { try { return localStorage.getItem('gcto_flow_view') || 'diagram'; } catch { return 'diagram'; } })();
 let FLOW_DRAFT = null;  // { roles, disabledSteps, extraGates } being edited
 const flowTenant = () => SESSION.tenant || document.getElementById('flow-tenant').value.trim() || 'default';
 const canEditFlow = () => ['admin', 'compliance-lead'].includes(role());
@@ -628,6 +657,10 @@ async function loadFlowTab() {
   if (FLOW.error) { box.innerHTML = `<div class="empty">${esc(FLOW.error)}</div>`; return; }
   document.getElementById('flow-customized').style.display = FLOW.effective.customized ? '' : 'none';
   document.getElementById('flow-edit-btn').style.display = canEditFlow() ? '' : 'none';
+  // sync the Diagram|List toggle to the saved preference
+  const dBtn = document.getElementById('flow-view-diagram'), lBtn = document.getElementById('flow-view-list');
+  if (dBtn) dBtn.classList.toggle('on', FLOW_VIEW !== 'list');
+  if (lBtn) lBtn.classList.toggle('on', FLOW_VIEW === 'list');
   renderFlowSteps();
   if (FLOW_EDIT) renderFlowEditor();
 }
@@ -649,12 +682,59 @@ function flowStepHtml(s, n) {
   </div>`;
 }
 
+function flowSummaryHtml(eff, st) {
+  return `<div class="mut" style="margin-bottom:8px">${esc(eff.autopilot || eff.vertical)} — ${st.autonomous ?? '?'} automated · ${st.human ?? '?'} human checkpoint(s) · ${st.connectors ?? '?'} connector(s) · accountable owner: <b>${esc(eff.owner || '—')}</b>${typeof eff.qualityScore === 'number' ? ` · quality ${eff.qualityScore}/100 (measured on the base flow)` : ''}</div>`;
+}
+
+// Graphical block-flow: a vertical chain of nodes with arrows. Agent steps are colour-coded by
+// blast radius; the human gate is a distinct shield; the irreversible step is ringed. Pure render.
+function flowDiagramNode(s) {
+  const isGate = !!s.gate;
+  const irrev = s.reversible === false;
+  const blast = (s.blastRadius || (irrev ? 'high' : 'low')).toLowerCase();
+  const cls = ['fd-node', isGate ? 'fd-gate' : 'blast-' + (['low','medium','high'].includes(blast) ? blast : 'low'),
+    irrev ? 'fd-irrev' : '', s.addedByOverride ? 'fd-added' : ''].filter(Boolean).join(' ');
+  const meta = isGate
+    ? `<span class="pill fd-badge-signer" title="A named human signs here">✍️ ${esc(s.human || 'signer')}</span><span class="pill">${esc(s.gate)}</span>`
+    : `${s.agent ? `<span class="pill">${esc(s.agent)}</span>` : ''}${irrev ? `<span class="pill fd-badge-irrev" title="Runs only after the protecting gate is signed">⚠ irreversible · ${esc(blast)} blast</span>` : ''}${(s.tools || []).map(t => `<span class="pill">🔌 ${esc(t)}</span>`).join('')}`;
+  return `<div class="${cls}">
+    <div class="fd-node-head"><span class="fd-node-ic">${isGate ? '🛡️' : '🤖'}</span><span>${esc(s.does)}</span></div>
+    <div class="fd-node-meta">${meta}${s.addedByOverride ? '<span class="pill">added by your tenant</span>' : ''}</div>
+  </div>`;
+}
+
+function renderFlowDiagram(eff, st) {
+  const legend = `<div class="fd-legend">
+    <span><span class="sw" style="background:var(--accent)"></span>low blast</span>
+    <span><span class="sw" style="background:var(--warn)"></span>medium</span>
+    <span><span class="sw" style="background:var(--danger)"></span>high / irreversible</span>
+    <span>🤖 autonomous step</span>
+    <span>🛡️ human gate (signature)</span>
+  </div>`;
+  const chain = eff.steps.map((s, i) =>
+    flowDiagramNode(s) + (i < eff.steps.length - 1 ? '<div class="fd-arrow"><span class="line"></span><span class="tip">▼</span></div>' : '')
+  ).join('');
+  return flowSummaryHtml(eff, st) + legend + `<div class="fd-chain">${chain}</div>`;
+}
+
 function renderFlowSteps() {
   const eff = FLOW.effective;
   const st = FLOW.stats || {};
-  document.getElementById('flow-steps').innerHTML =
-    `<div class="mut" style="margin-bottom:8px">${esc(eff.autopilot || eff.vertical)} — ${st.autonomous ?? '?'} automated · ${st.human ?? '?'} human checkpoint(s) · ${st.connectors ?? '?'} connector(s) · accountable owner: <b>${esc(eff.owner || '—')}</b>${typeof eff.qualityScore === 'number' ? ` · quality ${eff.qualityScore}/100 (measured on the base flow)` : ''}</div>`
-    + eff.steps.map((s, i) => flowStepHtml(s, i + 1)).join('');
+  const box = document.getElementById('flow-steps');
+  if (FLOW_VIEW === 'list') {
+    box.innerHTML = flowSummaryHtml(eff, st) + eff.steps.map((s, i) => flowStepHtml(s, i + 1)).join('');
+  } else {
+    box.innerHTML = renderFlowDiagram(eff, st);
+  }
+}
+
+function setFlowView(view) {
+  FLOW_VIEW = view === 'list' ? 'list' : 'diagram';
+  try { localStorage.setItem('gcto_flow_view', FLOW_VIEW); } catch {}
+  const d = document.getElementById('flow-view-diagram'), l = document.getElementById('flow-view-list');
+  if (d) d.classList.toggle('on', FLOW_VIEW === 'diagram');
+  if (l) l.classList.toggle('on', FLOW_VIEW === 'list');
+  if (FLOW && FLOW.effective) renderFlowSteps();
 }
 
 function toggleFlowEdit() {
