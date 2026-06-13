@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore, verifyAudit as apVerifyAudit, exportRecord as apExportRecord, autoEscalateStale as apAutoEscalateStale, calibration as apCalibration, suggestFloor as apSuggestFloor, stageProgress as apStageProgress, metering as apMetering, connectorHealth as apConnectorHealth, deadLetters as apDeadLetters, requeue as apRequeue } from '../../scripts/lib/run-store.mjs';
+import { startRun as apStartRun, approve as apApprove, reject as apReject, escalate as apEscalate, sendBack as apSendBack, stats as apStats, listRuns as apListRuns, getRun as apGetRun, getConfig as apGetConfig, setConfig as apSetConfig, qaQueue as apQaQueue, qaScore as apQaScore, verifyAudit as apVerifyAudit, exportRecord as apExportRecord, autoEscalateStale as apAutoEscalateStale, calibration as apCalibration, suggestFloor as apSuggestFloor, stageProgress as apStageProgress, metering as apMetering, connectorHealth as apConnectorHealth, deadLetters as apDeadLetters, requeue as apRequeue, SAFE_MODES, SafeModeHalt } from '../../scripts/lib/run-store.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 // Verify a webhook's HMAC-SHA256 signature (the source system shares GREAT_CTO_INGEST_SECRET).
@@ -280,7 +280,11 @@ export function handleAutopilot(req, res, url, pathname, ctx = {}) {
         const run = await apStartRun(p.vertical, { mode: p.mode === 'live' ? 'live' : 'stub', tenant: p.tenant || 'default', payload: p.payload || {}, source: 'webhook' });
         if (run.status === 'awaiting-approval') firePushAlert('autopilot.gate', `ap:${run.id}:${run.pausedAt}`, { title: '🛂 New case awaiting your signature', body: `${run.vertical} · ${run.signer || 'reviewer'}: ${run.gateDoes || run.pausedAt}`, url: '/autopilot.html' });
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ id: run.id, status: run.status, recommendation: run.recommendation }));
-      } catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) })); }
+      } catch (e) {
+        // Safe-mode HALT → 503 so the source system backs off and retries later.
+        if (e instanceof SafeModeHalt || e.code === 'SAFE_MODE_HALT') { res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '300' }); res.end(JSON.stringify({ error: 'safe-mode', detail: String(e.message) })); return; }
+        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) }));
+      }
     });
     return true;
   }
@@ -289,14 +293,30 @@ export function handleAutopilot(req, res, url, pathname, ctx = {}) {
     req.on('end', () => {
       let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
       const auth = apAuth(p.token, p.role);
-      if (auth.role !== 'admin') { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'admin only' })); return; }
+      // Config is a control-plane action: admin, or compliance-lead (the operations/safety owner).
+      if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'config is for admin / compliance-lead' })); return; }
       const patch = {};
       if (p.confidenceFloor != null) patch.confidenceFloor = Math.max(0, Math.min(1, Number(p.confidenceFloor)));
       if (p.autoEligible != null) patch.autoEligible = !!p.autoEligible;
+      // safe-mode (the AI-firewall switch): off | gate-all | halt — validated against the allowlist.
+      if (p.safeMode != null) { if (!SAFE_MODES.includes(p.safeMode)) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `safeMode must be one of ${SAFE_MODES.join(' | ')}` })); return; } patch.safeMode = p.safeMode; }
       // white-label (Phase 7): a validated hex accent + a short tenant name
       if (p.brandAccent != null) patch.brandAccent = /^#[0-9a-fA-F]{6}$/.test(p.brandAccent) ? p.brandAccent : '';
       if (p.brandName != null) patch.brandName = String(p.brandName).slice(0, 40);
-      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(apSetConfig(p.tenant || 'default', patch)));
+      const tenant = p.tenant || 'default';
+      // Notify on a safe-mode change (control-plane event the team should see). The per-run
+      // 'forced-to-gate' audit notes + a blocked 'halt' intake are the persistent trail.
+      if (patch.safeMode != null) {
+        try {
+          const prev = apGetConfig(tenant).safeMode || 'off';
+          if (prev !== patch.safeMode) firePushAlert('autopilot.safe-mode', `safemode:${tenant}:${patch.safeMode}`, {
+            title: patch.safeMode === 'off' ? '🟢 Safe mode cleared' : patch.safeMode === 'halt' ? '🛑 Safe mode: HALT — new cases blocked' : '🛟 Safe mode: every case now requires a signature',
+            body: `${tenant} · ${auth.role} set safe mode ${prev} → ${patch.safeMode}`,
+            url: '/autopilot.html',
+          });
+        } catch { /* best-effort notify */ }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(apSetConfig(tenant, patch)));
     });
     return true;
   }
@@ -370,6 +390,7 @@ export function handleAutopilot(req, res, url, pathname, ctx = {}) {
         }
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ run }));
       } catch (e) {
+        if (e instanceof SafeModeHalt || e.code === 'SAFE_MODE_HALT') { res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '300' }); res.end(JSON.stringify({ error: 'safe-mode', detail: String(e.message) })); return; }
         res.writeHead(409, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message) }));
       }
     });
