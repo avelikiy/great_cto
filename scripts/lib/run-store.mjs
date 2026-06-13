@@ -71,7 +71,15 @@ function recommend(steps) {
 
 // ── In-console config: an adjustable confidence floor per tenant (the routing dial) ──
 function configPath() { return join(baseDir(), 'autopilot-config.json'); }
-const DEFAULT_CONFIG = { confidenceFloor: 0.7, autoEligible: true, brandAccent: '', brandName: '' };
+// safeMode (the AI-firewall control-plane switch, per tenant):
+//   'off'      — normal routing (high-confidence reversible cases auto-clear).
+//   'gate-all' — soft freeze: EVERY new case is forced to the human gate (no auto-clear),
+//                regardless of confidence. The autopilot still does the reversible work up to
+//                the gate; nothing irreversible auto-executes. For anomalies / heightened risk.
+//   'halt'     — hard kill-switch: refuse to start new runs at all. For a confirmed incident.
+export const SAFE_MODES = ['off', 'gate-all', 'halt'];
+const DEFAULT_CONFIG = { confidenceFloor: 0.7, autoEligible: true, brandAccent: '', brandName: '', safeMode: 'off' };
+export class SafeModeHalt extends Error { constructor(tenant) { super(`safe-mode (halt) is active for tenant '${tenant}' — new runs are blocked`); this.code = 'SAFE_MODE_HALT'; this.tenant = tenant; } }
 export function getConfig(tenant = 'default') {
   try { const all = JSON.parse(readFileSync(configPath(), 'utf8')); return { ...DEFAULT_CONFIG, ...(all[tenant] || {}) }; }
   catch { return { ...DEFAULT_CONFIG }; }
@@ -198,6 +206,9 @@ function gateStep(trace) {
 
 /** Start a durable run: execute to the first human gate and persist. */
 export async function startRun(vertical, { mode = 'stub', payload = {}, tenant = 'default', source } = {}) {
+  const cfg = getConfig(tenant);
+  // Safe-mode kill-switch: a confirmed incident halts new intake entirely.
+  if (cfg.safeMode === 'halt') throw new SafeModeHalt(tenant);
   // The tenant's parametric overrides (renamed signers / disabled steps / extra gates) apply here.
   const flow = getEffectiveFlow(vertical, tenant);
   const id = newId(vertical);
@@ -205,12 +216,13 @@ export async function startRun(vertical, { mode = 'stub', payload = {}, tenant =
   const trace = await runFlow(flow, { mode, payload: { idempotencyKey: id, ...payload } });
   const g = gateStep(trace);
   const createdAt = now();
-  const cfg = getConfig(tenant);
   const reco = recommend(trace.steps); // AI recommendation for the human, from the pre-gate connectors
   // confidence floor (the routing dial): low-confidence approvals are downgraded to escalate.
   let recommendation = reco.recommendation;
   if (recommendation === 'approve' && reco.confidence != null && reco.confidence < cfg.confidenceFloor) recommendation = 'escalate';
-  const autoEligible = cfg.autoEligible && recommendation === 'approve' && (reco.confidence == null || reco.confidence >= cfg.confidenceFloor);
+  // Safe-mode soft freeze: force EVERY case to the human gate, regardless of confidence.
+  const safeModeGated = cfg.safeMode === 'gate-all';
+  const autoEligible = !safeModeGated && cfg.autoEligible && recommendation === 'approve' && (reco.confidence == null || reco.confidence >= cfg.confidenceFloor);
   const run = {
     id, vertical, tenant, mode, status: statusFromTrace(trace),
     owner: trace.owner, createdAt, updatedAt: createdAt,
@@ -226,6 +238,8 @@ export async function startRun(vertical, { mode = 'stub', payload = {}, tenant =
     audit: [],
   };
   pushAudit(run, { at: createdAt, event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt, recommendation, source: source || 'manual' });
+  // Record when safe-mode forced an otherwise auto-clearable case to the gate (audit trail).
+  if (safeModeGated) pushAudit(run, { at: createdAt, event: 'forced-to-gate', reason: 'safe-mode', tenant });
   return save(run);
 }
 

@@ -456,3 +456,43 @@ test('Wave H #10: a write that fails after retries is dead-lettered, then requeu
   assert.ok(submit && submit.toolCalls.some((c) => c.ok));
   rmSync(d, { recursive: true, force: true });
 });
+
+// ── Safe mode (AI-firewall control-plane switch) ──────────────────────────────
+test('safe-mode gate-all: forces every case to the human gate + audits it', async () => {
+  const d = tmp();
+  // a high-confidence case that would normally auto-clear
+  setConfig('default', { safeMode: 'off', autoEligible: true, confidenceFloor: 0 });
+  const normal = await startRun('rcm', { mode: 'stub' });
+  assert.equal(normal.autoEligible, true, 'baseline: high-confidence case auto-clears');
+
+  setConfig('default', { safeMode: 'gate-all' });
+  const gated = await startRun('rcm', { mode: 'stub' });
+  assert.equal(gated.autoEligible, false, 'gate-all forces the case off the auto-clear path');
+  assert.ok(gated.audit.some((a) => a.event === 'forced-to-gate' && a.reason === 'safe-mode'),
+    'the forced-to-gate decision is recorded in the audit trail');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('safe-mode halt: refuses to start new runs', async () => {
+  const d = tmp();
+  setConfig('default', { safeMode: 'halt' });
+  await assert.rejects(() => startRun('rcm', { mode: 'stub' }), (e) => {
+    assert.equal(e.code, 'SAFE_MODE_HALT');
+    assert.match(String(e.message), /halt/i);
+    return true;
+  });
+  // clearing safe-mode restores intake
+  setConfig('default', { safeMode: 'off' });
+  const run = await startRun('rcm', { mode: 'stub' });
+  assert.ok(run.id, 'intake resumes once safe-mode is cleared');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('safe-mode persists per tenant and defaults to off', async () => {
+  const d = tmp();
+  assert.equal(getConfig('fresh-tenant').safeMode, 'off', 'default is off');
+  setConfig('acme', { safeMode: 'gate-all' });
+  assert.equal(getConfig('acme').safeMode, 'gate-all');
+  assert.equal(getConfig('other').safeMode, 'off', 'safe-mode is per-tenant, not global');
+  rmSync(d, { recursive: true, force: true });
+});
