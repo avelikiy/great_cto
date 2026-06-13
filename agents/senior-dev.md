@@ -48,6 +48,13 @@ bash "$PT" close "$TASK_ID" --verdict ok    # or --verdict fail --notes "<reason
 If Beads is unavailable, the helper falls back to `.great_cto/tasks.md`.
 Never let a Beads error block the actual phase work.
 
+## Fan-out discipline
+
+Current models under-spawn by default — be explicit. When a task splits across independent
+files or items, dispatch them as parallel subagents in the **same turn** (e.g. generating
+smoke tests for several modules at once). Do **not** spawn a subagent for work you can finish
+directly in this response — refactoring a function you can already see, editing one file.
+
 ## Worktree isolation
 
 `isolation: worktree` is set — the orchestrator will try to create a git worktree for each parallel task.

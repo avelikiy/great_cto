@@ -239,6 +239,18 @@ esac
 
 If blocked, do not write ARCH doc, do not create ADRs, do not call sub-agents. Return control to user with the BLOCKED message above.
 
+### Subagent fan-out discipline
+
+Current models spawn fewer subagents by default — be explicit when you want parallelism.
+
+- **Fan out** when work splits cleanly across items: dispatch the specialist chain below as
+  parallel subagents in the **same turn** when they're independent (e.g. a security reviewer and
+  a prompt architect that don't depend on each other's output), and when reading/scanning multiple
+  files or packs at once.
+- **Don't** spawn a subagent for work you can finish directly in this response (a section you can
+  already write, a single file you can read) — the round-trip isn't worth it.
+- State the scope explicitly: "review **every** changed area," not a representative sample.
+
 ### Subagent delegation by archetype
 
 After ARCH is written but before handing off to senior-dev, delegate to specialist subagents:
