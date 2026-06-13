@@ -11,6 +11,7 @@ import http from 'http';
 import { handleAutopilot } from './autopilot-api.mjs';
 import { resolveInvite } from '../../scripts/lib/operators.mjs';
 import { autoEscalateStale as apAutoEscalateStale, connectorHealth as apConnectorHealth, deadLetters as apDeadLetters } from '../../scripts/lib/run-store.mjs';
+import { startDemoFeeder } from '../../scripts/lib/demo-feeder.mjs';
 import fs from 'fs';
 import path from 'path';
 import { execSync, spawnSync, spawn } from 'child_process';
@@ -3637,6 +3638,13 @@ server.listen(PORT, HOST, () => {
   watchBeads();
   startAlertCron();
   watchVerdicts();
+
+  // Demo feeder (opt-in) — inject synthetic stub cases so the operator console comes alive for
+  // demos. OFF unless GREAT_CTO_DEMO_FEED is set or --demo is passed. Never on in production.
+  if (process.env.GREAT_CTO_DEMO_FEED || process.argv.includes('--demo')) {
+    const intervalMs = Math.max(1000, (Number(process.env.GREAT_CTO_DEMO_INTERVAL) || 30) * 1000);
+    startDemoFeeder({ intervalMs, tenant: process.env.GREAT_CTO_DEMO_TENANT || 'default', log: (m) => console.log(m) });
+  }
 
   // Auto-open browser unless --no-open
   if (!process.argv.includes('--no-open')) {
