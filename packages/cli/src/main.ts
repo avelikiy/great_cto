@@ -52,6 +52,7 @@ interface CliArgs {
   boardPort: number;
   boardNoOpen: boolean;
   consoleBind: string | null;  // --bind: bind address for `console` (tunnel/hosting); default loopback
+  demo: boolean;               // --demo: inject synthetic cases so the operator console comes alive
   useLlm: boolean;        // --use-llm: force LLM even on high confidence
   noLlm: boolean;         // --no-llm: skip LLM even on low confidence
   host: "claude-code" | "codex" | null;  // --host codex: install for Codex instead of Claude Code
@@ -63,6 +64,7 @@ function parseArgs(argv: string[]): CliArgs {
     boardPort: 3141,
     boardNoOpen: false,
     consoleBind: null,
+    demo: false,
     dir: process.cwd(),
     yes: false,
     dryRun: false,
@@ -94,6 +96,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a.startsWith("--host=")) { const v = a.slice("--host=".length); args.host = (v === "codex" || v === "claude-code") ? v : null; }
     else if (a === "--bind") args.consoleBind = argv[++i] ?? null;
     else if (a.startsWith("--bind=")) args.consoleBind = a.slice("--bind=".length) || null;
+    else if (a === "--demo") args.demo = true;
     else if (a === "board") args.command = "board";
     else if (a === "console") args.command = "console";
     else if (a === "telemetry") args.command = "telemetry";
@@ -315,6 +318,7 @@ async function runBoard(args: CliArgs, surface?: "console"): Promise<number> {
 
   const env: NodeJS.ProcessEnv = { ...process.env, BOARD_PORT: String(args.boardPort) };
   if (surface === "console" && args.consoleBind) env.GREAT_CTO_HOST = args.consoleBind;
+  if (args.demo) env.GREAT_CTO_DEMO_FEED = "1";
 
   const child = spawn(process.execPath, nodeArgs, {
     env,

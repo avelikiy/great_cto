@@ -225,6 +225,7 @@ export async function startRun(vertical, { mode = 'stub', payload = {}, tenant =
   const autoEligible = !safeModeGated && cfg.autoEligible && recommendation === 'approve' && (reco.confidence == null || reco.confidence >= cfg.confidenceFloor);
   const run = {
     id, vertical, tenant, mode, status: statusFromTrace(trace),
+    source: source || 'manual',   // 'manual' | 'webhook' | 'demo' — how the case entered
     owner: trace.owner, createdAt, updatedAt: createdAt,
     pausedAt: trace.pausedAt, pausedAtIndex: trace.pausedAtIndex,
     signer: g ? g.human : null, gateDoes: g ? g.does : null,
