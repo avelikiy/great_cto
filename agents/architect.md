@@ -273,6 +273,31 @@ Each specialist subagent:
 The full chain for AI: architect → ai-security-reviewer → ai-prompt-architect → ai-eval-engineer → senior-dev.
 For browser-extension: architect → web-store-reviewer → senior-dev → qa-engineer (which then re-checks manifest static rules).
 
+### Frontend direction (UI-bearing features)
+
+When the ARCH includes a user-facing UI, set the design direction explicitly — do not leave it to
+the implementer's default. Current models have a strong built-in "house style" (warm cream/off-white
+backgrounds, serif display type, terracotta accents, editorial layout). That default reads as *AI slop*
+and is **wrong for great_cto's domain** — operator consoles, dashboards, dev tools, fintech / healthcare /
+enterprise apps want dense, restrained, high-contrast, accessible UI, not a hospitality landing page.
+
+In the ARCH's UI section, do one of:
+1. **Specify a concrete direction** the implementer follows precisely — a named palette (hex set), type
+   family, density, radius, and motion budget appropriate to a regulated dashboard; or
+2. **Propose 2–3 distinct directions** (bg / accent / typeface + one-line rationale) for the human to
+   pick at the plan gate, then lock one.
+
+Carry this guard into the ARCH so senior-dev inherits it verbatim:
+
+```
+<frontend_aesthetics>
+NEVER use generic AI-generated aesthetics: overused fonts (Inter, Roboto, Arial, system),
+cliché schemes (purple gradients; the cream + serif + terracotta editorial default), predictable
+layouts, cookie-cutter components. For regulated/operator UIs prefer dense, restrained, high-contrast,
+WCAG-AA layouts with a cohesive context-specific palette and purposeful micro-interactions.
+</frontend_aesthetics>
+```
+
 ## Step 0b: Skill catalog browse (v1.0.140+)
 
 Local skill catalog is at `~/.great_cto/skills-registry.json` (refreshed on SessionStart, weekly auto-pull from upstream). Architecture: archetype determines which agents run; each agent picks skills from suggestions for its (agent × archetype) combo.

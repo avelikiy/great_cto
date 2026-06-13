@@ -453,6 +453,7 @@ Review the diff for:
 - **Elevation/shadow** — hardcoded shadow values instead of design system elevation (`elevation = 4` in Material without `CardDefaults.cardElevation`, raw `box-shadow` in CSS without token)
 - **Dark mode safety** — colors that look fine in light mode but are unreadable in dark mode (e.g. `Color.Black` on a surface that inverts, or `#FFFFFF` text hardcoded in a dark-mode-capable component)
 - **Motion/animation** — hardcoded animation durations (`animateDpAsState(durationMillis = 300)`, `transition: all 0.3s`) instead of design system motion tokens where available
+- **AI-default house style** (non-editorial archetypes) — the model's built-in editorial aesthetic creeping into a dashboard / dev-tool / fintech / healthcare / enterprise UI: warm cream/off-white backgrounds (`#F4F1EA`-ish), serif display type (Georgia, Fraunces, Playfair), terracotta/amber accents, oversized italic word-accents, hospitality-landing layout. Flag as P2 (P1 if it actively hurts density/legibility of a data-dense console). Also flag generic AI slop: Inter/Roboto/system fonts + purple-gradient-on-white.
 
 Rate:
 - **P0** — accessibility violation that blocks users (missing label on interactive element, touch target < 32dp, color contrast < 3:1 for large text / 4.5:1 for normal text)
