@@ -256,7 +256,7 @@
     </div>
     <div id="flow-steps"><div class="empty">loading…</div></div>
     <div id="flow-editor" style="display:none;margin-top:14px">
-      <h3 style="margin:0 0 6px">Customize this tenant's flow <span class="mut" style="font-weight:400">— настройка, не сборка: the base flow stays the measured one; you rename signers, skip optional steps, add checkpoints</span></h3>
+      <h3 style="margin:0 0 6px">Customize this tenant's flow <span class="mut" style="font-weight:400">— configure, don't assemble: the base flow stays the measured one; you rename signers, skip optional steps, add checkpoints</span></h3>
       <div id="flow-editor-body"></div>
       <div class="row" style="margin-top:10px">
         <button class="primary" onclick="saveFlowOverride()">Save customization</button>
@@ -273,6 +273,19 @@
 
   <div id="ops-box" data-sec="ops" style="display:none">
     <h2>Ops — what the autopilot costs, and what needs a hand</h2>
+    <div id="ops-safemode" style="margin:6px 0 14px;padding:12px 14px;border:1px solid var(--bd);border-radius:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <b>Safe mode</b>
+        <span class="muted" style="font-size:12px">action-control switch for this workspace</span>
+        <span id="safemode-state" style="margin-left:auto;font-weight:600"></span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="ghost" data-sm="off" onclick="setSafeMode('off')">🟢 Off — normal</button>
+        <button class="ghost" data-sm="gate-all" onclick="setSafeMode('gate-all')">🛟 Gate-all — every case needs a signature</button>
+        <button class="ghost" data-sm="halt" onclick="setSafeMode('halt')">🛑 Halt — block new cases</button>
+      </div>
+      <div class="muted" style="font-size:12px;margin-top:8px">Gate-all forces every new case to a human gate regardless of confidence (nothing irreversible auto-runs). Halt refuses new intake entirely. Admin / compliance-lead only.</div>
+    </div>
     <div class="kpis" id="ops-kpis"></div>
     <h3 style="margin:14px 0 6px">Dead-letter queue — writes that need a requeue</h3>
     <div id="ops-deadletters"><div class="empty">loading…</div></div>
@@ -1060,8 +1073,46 @@ async function qaSubmit(id) {
 
 // ── Ops (Wave H): metering · connector health · dead-letter queue (admin / compliance) ──
 const ms = (n) => n == null ? '—' : (n >= 1000 ? (n/1000).toFixed(1)+'s' : Math.round(n)+'ms');
+// ── Safe mode (the AI-firewall control-plane switch) ──
+function renderSafeMode(mode) {
+  mode = ['off', 'gate-all', 'halt'].includes(mode) ? mode : 'off';
+  document.querySelectorAll('#ops-safemode button[data-sm]').forEach((b) => {
+    b.style.outline = b.dataset.sm === mode ? '2px solid var(--accent)' : '';
+    b.style.fontWeight = b.dataset.sm === mode ? '700' : '';
+  });
+  const st = document.getElementById('safemode-state');
+  if (st) st.innerHTML = mode === 'off' ? '<span style="color:var(--ok,#0a0)">● off</span>'
+    : mode === 'halt' ? '<span style="color:var(--danger,#c00)">🛑 HALT</span>'
+    : '<span style="color:#b45309">🛟 gate-all</span>';
+  // Persistent top banner whenever safe mode is active.
+  const ban = document.getElementById('imp-banner');
+  if (ban && mode !== 'off') {
+    ban.dataset.safemode = '1';
+    ban.style.display = '';
+    ban.innerHTML = mode === 'halt'
+      ? '🛑 <b>Safe mode: HALT</b> — new cases are blocked for this workspace.'
+      : '🛟 <b>Safe mode: every case requires a signature</b> — nothing auto-clears.';
+  } else if (ban && ban.dataset.safemode === '1' && mode === 'off') {
+    ban.dataset.safemode = ''; ban.style.display = 'none'; ban.innerHTML = '';
+  }
+}
+async function loadSafeMode() {
+  const c = await api('/api/autopilot/config?role=' + role() + (fTenant() ? '&tenant=' + encodeURIComponent(fTenant()) : ''));
+  renderSafeMode(c && c.safeMode);
+}
+async function setSafeMode(mode) {
+  if (mode !== 'off' && !confirm(mode === 'halt'
+    ? 'Halt new intake for this workspace? Source systems will get a 503 until you clear it.'
+    : 'Force EVERY new case to a human signature? Nothing will auto-clear until you turn this off.')) return;
+  const r = await api('/api/autopilot/config', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...authBody(), safeMode: mode, tenant: fTenant() || 'default' }) });
+  if (r && r.error) { toast('✗ ' + esc(r.error), 'error'); return; }
+  renderSafeMode(mode);
+  toast(mode === 'off' ? 'Safe mode cleared — normal routing resumes.' : 'Safe mode: ' + mode + ' — applies to new cases.', 'ok');
+}
 async function loadOps() {
   const t = fTenant() ? '&tenant=' + encodeURIComponent(fTenant()) : '';
+  loadSafeMode();
   const [bill, health, dl] = await Promise.all([
     api('/api/autopilot/metering?role=' + role() + t),
     api('/api/autopilot/health?role=' + role() + t),
