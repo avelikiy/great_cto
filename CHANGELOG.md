@@ -23,6 +23,29 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.70.0 — 2026-06-13
+
+### Anonymous, opt-IN CLI telemetry (default OFF, no PII)
+
+Re-introduces usage telemetry after the zero-collection stance of v2.9.2 — strictly **opt-in**.
+A fresh install collects nothing until the user explicitly enables it.
+
+- **What's sent** (only when opted in): one event per command —
+  `{ ts, version, command, archetype, node, os, exit_code, duration_ms, anon_id }`.
+  No file paths, no code, no repo names, no IP, no PII. `anon_id = sha256(user@hostname)`
+  truncated to 8 hex chars (not reversible).
+- **Opt-in / opt-out**: enable with `npx great-cto telemetry on` or `GREAT_CTO_TELEMETRY=on`.
+  Honors `DO_NOT_TRACK=1` (overrides everything), auto-skips CI, and a non-interactive install
+  never prompts. Inspect/toggle with `great-cto telemetry status|on|off|whoami`.
+- **Server-side guards** (Cloudflare Worker + D1): drops the client IP, rejects any unknown key
+  (PII-smuggling defense) and any non-allowlisted command/archetype, 30-day TTL on raw events,
+  public aggregates at `/v1/stats` (no anon_id), right-to-be-forgotten at `/v1/forget?anon_id=`.
+- Full policy in `docs/PRIVACY.md`. Tests: `tests/telemetry.test.mjs` — 7 privacy invariants.
+  Verified end-to-end against the live endpoint (valid event stored, extra-key → 400, RtBF deletes).
+
+---
+
 ## v2.69.0 — 2026-06-11
 
 ### The surface-line cut — autopilot API extracted from server.mjs (PLAN-ui-split P4)
