@@ -5,6 +5,23 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v2.72.1 — 2026-06-13
+
+### Dev-board fixes
+
+- **Agent drawer shows tools + skills** — the per-agent profile now parses each agent's
+  `tools:` (inline CSV or YAML list; `Bash(...)` collapsed to one chip) and `skills:`
+  frontmatter and renders them as chips. (Was: not surfaced at all.)
+- **Logs tab no longer stuck on "Loading…"** — `switchTab` referenced an undefined `labels`
+  global (only ever a function-local), throwing a ReferenceError on every tab switch that
+  skipped the per-tab loaders, so `refreshLogs` never ran. Fixed with a local crumb map;
+  `refreshLogs` also renders an error state instead of returning early on a null response.
+- **Build-version badge** — new `GET /api/version` (reads the plugin manifest) + a `v<version>`
+  badge next to the sidebar brand, so you can see which great_cto build the board is running.
+
+---
+
 ## v2.72.0 — 2026-06-13
 
 ### Safe mode — tenant-wide action-control switch (the AI-firewall control plane)
