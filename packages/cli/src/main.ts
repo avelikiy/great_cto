@@ -21,6 +21,7 @@ import { installAllCompanions } from "./companion.js";
 import { bootstrap } from "./bootstrap.js";
 import { compileFlow } from "./flow.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
+import { sendUsagePing, sendInstallPing, telemetrySubcommand, isTelemetryEnabled, computeAnonId } from "./telemetry.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,7 +40,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "telemetry" | "chat-only-hint" | "unknown";
   unknownToken?: string;
   dir: string;
   positional: string[];
@@ -95,6 +96,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a.startsWith("--bind=")) args.consoleBind = a.slice("--bind=".length) || null;
     else if (a === "board") args.command = "board";
     else if (a === "console") args.command = "console";
+    else if (a === "telemetry") args.command = "telemetry";
     else if (a === "register") args.command = "register";
     else if (a === "ci") args.command = "ci";
     else if (a === "mcp") args.command = "mcp";
@@ -361,6 +363,13 @@ ${bold("Operator console (the second surface — invite-only, hostable):")}
   great-cto console --port 8788     Different port
   great-cto console --bind 0.0.0.0  Reachable beyond this machine (tunnel/hosting);
                                     operators sign in via invite links
+
+${bold("Telemetry (anonymous, opt-IN — OFF by default):")}
+  great-cto telemetry status   Show state + endpoint + your anon_id
+  great-cto telemetry on        Enable anonymous usage events (command, node, os — no PII)
+  great-cto telemetry off       Disable  ${dim("(also: DO_NOT_TRACK=1)")}
+  great-cto telemetry whoami    Print your anon_id (8 hex chars, not reversible)
+  ${dim("Privacy policy: docs/PRIVACY.md")}
 
 ${bold("Register:")}
   great-cto register           Add this repo to ~/.great_cto/projects.json
@@ -914,6 +923,14 @@ async function runInit(args: CliArgs): Promise<number> {
   // ── 6. install pre-push git hook ─────────────────────────
   installPrePushHook(args.dir);
 
+  // ── 7. opt-IN telemetry prompt (default OFF) ─────────────
+  await promoteTelemetryOptIn({ archetype: String(archetype), cliVersion: getCliVersion(), yes: args.yes });
+  // If already enabled (prior opt-in or env var), count this (re)install toward MAU.
+  if (isTelemetryEnabled()) {
+    await sendInstallPing({ cliVersion: getCliVersion(), archetype: String(archetype), consent: true })
+      .catch(() => { /* never block init on telemetry */ });
+  }
+
   // ── done ─────────────────────────────────────────────────
   log("");
   log(green(bold("✓ great_cto is ready.")));
@@ -929,6 +946,54 @@ async function runInit(args: CliArgs): Promise<number> {
   log(dim("Docs: https://github.com/avelikiy/great_cto"));
   log("");
   return 0;
+}
+
+// ── Telemetry opt-IN prompt ────────────────────────────────────────────────
+// Shown after a successful init when interactive. Skipped if: --yes, non-TTY,
+// DO_NOT_TRACK=1, CI, or the user already decided (either way — no nagging).
+async function promoteTelemetryOptIn(opts: { archetype: string; cliVersion: string; yes: boolean }): Promise<void> {
+  if (opts.yes) return;
+  if (!process.stdin.isTTY) return;
+  if (process.env.DO_NOT_TRACK === "1" || process.env.DO_NOT_TRACK === "true") return;
+  if (process.env.CI || process.env.GITHUB_ACTIONS) return;
+
+  const cfgFile = join(homedir(), ".great_cto", "telemetry.json");
+  if (fsExistsSync(cfgFile)) {
+    try {
+      const cfg = JSON.parse(readFileSync(cfgFile, "utf8")) as { enabled?: boolean };
+      if (cfg.enabled === true || cfg.enabled === false) return;  // already decided
+    } catch { /* malformed — ask again */ }
+  }
+
+  log(dim("─".repeat(60)));
+  log(bold("Help improve great_cto with anonymous usage data?"));
+  log("");
+  log(dim("Default: OFF. One event per command — exactly this, nothing more:"));
+  log("");
+  log(gray(`  { "command": "init", "archetype": "${opts.archetype}", "version": "${opts.cliVersion}",`));
+  log(gray(`    "node": "${process.version.replace(/^v/, "")}", "os": "${process.platform}",`));
+  log(gray(`    "exit_code": 0, "duration_ms": 1234, "anon_id": "${computeAnonId()}" }`));
+  log("");
+  log(dim("No code, no repo names, no file paths, no IP, no PII. ") + dim("anon_id is sha256(user@host), not reversible."));
+  log(dim("Toggle anytime: " + cyan("npx great-cto telemetry off") + " · honors " + cyan("DO_NOT_TRACK=1")));
+  log(dim("Privacy: " + cyan("github.com/avelikiy/great_cto/blob/main/docs/PRIVACY.md")));
+  log("");
+
+  const yes = await confirm(bold("Enable anonymous telemetry?"), false);
+  log("");
+  try {
+    mkdirSync(join(homedir(), ".great_cto"), { recursive: true });
+    writeFileSync(cfgFile, JSON.stringify({ enabled: yes, decided_at: new Date().toISOString() }, null, 2) + "\n");
+  } catch { /* best-effort */ }
+
+  if (yes) {
+    log(green("✓ Telemetry enabled. Thank you."));
+    log(dim(`  Your anon_id: ${cyan("npx great-cto telemetry whoami")}  ·  off anytime: ${cyan("npx great-cto telemetry off")}`));
+    log("");
+  } else {
+    log(dim("No telemetry. (You can opt in later with " + cyan("npx great-cto telemetry on") + ".)"));
+    log("");
+  }
 }
 
 /**
@@ -1002,9 +1067,32 @@ async function main(): Promise<void> {
   const rawArgv = process.argv.slice(2);
   const args = parseArgs(rawArgv);
 
+  // Anonymous, opt-IN usage telemetry (default OFF — see docs/PRIVACY.md). `finish`
+  // is the single exit funnel: it fires one fire-and-forget event (command + node + os
+  // + exit_code + duration, no PII) only when the user has opted in, then exits.
+  const __tStart = Date.now();
+  const finish = async (code: number): Promise<void> => {
+    try {
+      await sendUsagePing({
+        cliVersion: getCliVersion(),
+        subcommand: args.command,
+        exitCode: code,
+        durationMs: Date.now() - __tStart,
+      });
+    } catch { /* telemetry never affects the exit */ }
+    process.exit(code);
+  };
+
+  // `great-cto telemetry <on|off|status|whoami>` — inspect / toggle, never sends.
+  if (args.command === "telemetry") {
+    const { exitCode, output } = telemetrySubcommand(args.positional[0]);
+    process.stdout.write(output);
+    process.exit(exitCode);
+  }
+
   if (args.command === "help") {
     printHelp();
-    process.exit(0);
+    await finish(0);
   }
   if (args.command === "unknown") {
     const tok = (args as CliArgs).unknownToken ?? "<arg>";
@@ -1016,7 +1104,7 @@ async function main(): Promise<void> {
   if (args.command === "board") {
     try {
       const code = await runBoard(args);
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(1);
@@ -1025,7 +1113,7 @@ async function main(): Promise<void> {
   if (args.command === "console") {
     try {
       const code = await runBoard(args, "console");
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(1);
@@ -1034,7 +1122,7 @@ async function main(): Promise<void> {
   if (args.command === "register") {
     try {
       const code = await runRegister(args);
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(1);
@@ -1044,7 +1132,7 @@ async function main(): Promise<void> {
     try {
       const { runCi, parseCiArgs } = await import("./ci.js");
       const code = await runCi(parseCiArgs(rawArgv));
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -1057,7 +1145,7 @@ async function main(): Promise<void> {
       const portArg = rawArgv.indexOf("--port");
       const port = portArg >= 0 ? parseInt(rawArgv[portArg + 1] ?? "8765", 10) : 8765;
       const code = await runMcp({ mode: sse ? "sse" : "stdio", port, version: getCliVersion() });
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -1071,7 +1159,7 @@ async function main(): Promise<void> {
         dryRun: rawArgv.includes("--dry-run"),
         cwd: args.dir,
       });
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -1088,7 +1176,7 @@ async function main(): Promise<void> {
         noLog: rawArgv.includes("--no-log"),
         insecure: rawArgv.includes("--insecure"),
       });
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -1103,7 +1191,7 @@ async function main(): Promise<void> {
         process.exit(2);
       }
       const code = await runWebhookCli(parsed);
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -1112,7 +1200,7 @@ async function main(): Promise<void> {
   if (args.command === "upgrade") {
     try {
       const code = await runUpgrade(rawArgv);
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -1142,7 +1230,7 @@ async function main(): Promise<void> {
         process.exit(2);
       }
       const code = await runReport(parsed);
-      process.exit(code);
+      await finish(code);
     } catch (e) {
       error((e as Error).message);
       process.exit(2);
@@ -1175,7 +1263,7 @@ async function main(): Promise<void> {
 
   try {
     const code = await runInit(args);
-    process.exit(code);
+    await finish(code);
   } catch (e) {
     error((e as Error).message);
     process.exit(1);

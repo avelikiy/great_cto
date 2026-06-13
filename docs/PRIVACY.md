@@ -1,70 +1,154 @@
-# Privacy
+# Privacy & Telemetry
 
-## TL;DR
+great_cto can send anonymous usage telemetry to help us understand which
+commands and archetypes are most used, and where users are getting stuck.
+**Telemetry is OFF by default.** You opt in explicitly.
 
-**great_cto collects zero telemetry.** No usage events, no install pings, no
-anonymous IDs, no aggregate counters. Nothing leaves your machine.
-
-## What runs locally only
-
-| Thing | Where it lives | What touches the network |
-|---|---|---|
-| Your code, agents, gates, verdicts | `.great_cto/` in your repo | Nothing — these never leave |
-| Beads tasks | `.beads/` in your repo | Nothing |
-| `~/.great_cto/decisions.md`, `lessons.md`, `verdicts/`, patterns | Your home dir | Nothing |
-| Board UI | `localhost:3141` on your machine | Nothing leaves your network |
-| `~/.great_cto/notifications.json` | Your home dir | Only used when an alert fires (see below) |
-
-## What does touch the network
-
-great_cto calls external services only when you explicitly ask for one:
-
-- **LLM API calls** — only when you run an agent (`/start`, `/audit`, etc.).
-  Sent to your configured provider (Anthropic, OpenRouter, etc.) under
-  **your** API key and **your** ToS. great_cto adds nothing.
-- **Email alerts (opt-in)** — if you verify an email in the board's
-  **Notifications** tab, alerts you toggled on are routed through our
-  Cloudflare Worker at `greatcto.systems/notify` → Resend → your inbox.
-  The Worker stores your email + verification timestamp in Cloudflare KV.
-  Nothing else is sent.
-- **Plugin updates** — Claude Code itself pulls plugin source from GitHub.
-  great_cto doesn't intermediate this.
-- **Beads / git** — your normal workflow tools, unchanged.
-
-## Why no telemetry
-
-We deliberately don't collect usage data because:
-
-1. The audience is solo CTOs / engineers running production-critical work.
-   Telemetry from `npx great-cto init` running on private repos is a leak
-   surface we shouldn't create.
-2. Open-source self-hostable tools earn trust by not phoning home.
-3. Pattern-promotion (`/crystallize`) is **local** — patterns get promoted
-   from per-project `lessons.md` to `~/.great_cto/decisions.md` on your own
-   machine. No cross-user data exchange is required.
-
-## What this means in practice
-
-- Running `great-cto init` on a private repo: nothing about that repo is
-  transmitted anywhere (not to greatcto.systems, not to GitHub, not to any
-  analytics service).
-- Running `/start "build a billing endpoint"`: only your LLM provider sees
-  the prompt, per your contract with them.
-- Board running on `localhost:3141`: visible only to you. No outbound calls
-  except those listed above.
-
-## Want to verify yourself
-
-Read the source:
-- CLI: `packages/cli/src/` — no `fetch()` to any greatcto.systems endpoint
-- Board: `packages/board/server.mjs` — only outbound is to
-  `greatcto.systems/notify` for opt-in alerts you enabled
-
-## License compatibility
-
-great_cto is MIT-licensed. There's no clause anywhere that grants us
-permission to collect data from your installation, because we don't.
+This document describes exactly what we collect, what we never collect,
+how to opt in, how to opt out, and how to verify what's being sent.
 
 ---
 
-_Last reviewed: 2026-05-17 · removed all telemetry collection in v2.9.2_
+## TL;DR
+
+| Question | Answer |
+|---|---|
+| Default state | **Disabled** |
+| How to enable | `GREAT_CTO_TELEMETRY=on` env var or `~/.great_cto/telemetry.json: { "enabled": true }` |
+| How to disable | unset env var, or `GREAT_CTO_TELEMETRY=off`, or `DO_NOT_TRACK=1` |
+| Honors `DO_NOT_TRACK=1` (consoledonottrack.com) | Yes — overrides everything else |
+| Skips automatically in CI | Yes (detected via `CI=true`, `GITHUB_ACTIONS`, etc.) |
+| Where data goes | `https://telemetry.greatcto.systems/v1/event` (Cloudflare Worker) |
+| Server logs IP addresses | No — Cloudflare gives us the IP, we drop it before write |
+| Country / region collected | No — Cloudflare exposes country via `cf-ipcountry`; the worker deliberately ignores it |
+| Personal info collected | None |
+| Project content collected | None |
+| Source for transparency | `packages/cli/src/telemetry.ts` + `workers/telemetry/index.ts` |
+
+---
+
+## What we collect (when enabled)
+
+A single JSON object per command run, ≤ 256 bytes:
+
+```json
+{
+  "ts":         "2026-05-10T12:34:56Z",
+  "version":    "2.70.0",
+  "command":    "init",
+  "archetype":  "fintech",
+  "node":       "20.11.1",
+  "os":         "darwin",
+  "exit_code":  0,
+  "duration_ms": 1234,
+  "anon_id":    "a3f2dd91"
+}
+```
+
+That's it. Eight fields, no payload, no user content.
+
+### Field details
+
+- **`ts`** — UTC timestamp of the event.
+- **`version`** — great_cto version that emitted the event.
+- **`command`** — the subcommand executed (`init` / `ci` / `board` / `console` / `adapt` / `mcp` / `report` / `serve` / `webhook` / `upgrade` / `register`). One of a fixed allowlist; anything else is dropped.
+- **`archetype`** — value of `archetype:` from `.great_cto/PROJECT.md` if it exists, else `"none"`. One of the 25 documented archetype slugs; unknown values become `"unknown"`.
+- **`node`** — `process.versions.node`.
+- **`os`** — `process.platform` (`linux` / `darwin` / `win32`).
+- **`exit_code`** — process exit code so we can see where users are hitting failures.
+- **`duration_ms`** — wall-clock time the command took. Useful for finding the slow paths.
+- **`anon_id`** — first 8 hex chars of `sha256("great_cto/" + os.userInfo().username + "/" + os.hostname())`. Stable per machine, not reversible. Lets us see DAU/MAU without identifying anyone. We never publish or share the raw mapping; only the count of unique IDs in aggregate.
+
+## What we NEVER collect
+
+These are not in the schema and the worker rejects events containing them.
+
+- ❌ **File paths** (no `cwd`, no `argv`, no project-name slugs).
+- ❌ **Project content** (no source code, no prompts, no CLAUDE.md, no agent outputs).
+- ❌ **Verdicts or cost data** (`.great_cto/verdicts/` stays on your disk, never leaves).
+- ❌ **API keys / secrets** (we don't read env vars beyond opt-out signals).
+- ❌ **IP addresses** (Cloudflare provides them in `cf.connectingIP`; the worker drops the field before D1 insert).
+- ❌ **Geolocation / country / region** — Cloudflare automatically derives country from IP and provides it via the `cf-ipcountry` request header. The worker deliberately does **not** read this header. No geographic data is collected, derived, or stored.
+- ❌ **User-agent fingerprints** (the only request header we read is `Content-Type`).
+- ❌ **Email / username / real name**.
+- ❌ **Repo URL or git remote**.
+
+## How opt-out works (in priority order)
+
+The client checks all of these before sending. Any one disabling = no event sent.
+
+1. `DO_NOT_TRACK=1` env var (industry standard, [consoledonottrack.com](https://consoledonottrack.com/))
+2. `GREAT_CTO_TELEMETRY=off` env var
+3. `GREAT_CTO_DISABLE_TELEMETRY=1` env var (legacy alias)
+4. `~/.great_cto/telemetry.json: { "enabled": false }`
+5. CI detection: `CI` / `GITHUB_ACTIONS` / `GITLAB_CI` / `CIRCLECI` / `BUILDKITE` / `JENKINS_URL` / `TF_BUILD`
+6. **Default state when none of the above is set: opt-out** (telemetry off until you explicitly turn it on)
+
+## How to opt in
+
+Telemetry is opt-in. Three equivalent ways:
+
+```bash
+# One-shot via env var (current shell only):
+export GREAT_CTO_TELEMETRY=on
+
+# Persistent via config file:
+mkdir -p ~/.great_cto
+echo '{ "enabled": true }' > ~/.great_cto/telemetry.json
+
+# Or run the helper:
+npx great-cto telemetry on
+```
+
+To disable again:
+
+```bash
+unset GREAT_CTO_TELEMETRY
+echo '{ "enabled": false }' > ~/.great_cto/telemetry.json
+# OR:
+npx great-cto telemetry off
+```
+
+## How to verify what's being sent
+
+We log the exact JSON to stderr in dry-run mode:
+
+```bash
+GREAT_CTO_TELEMETRY=on GREAT_CTO_TELEMETRY_DRYRUN=1 great-cto board
+# stderr: [telemetry] would-send: { "ts":"...", "command":"board", ... }
+# (no actual network call)
+```
+
+Source code:
+
+- Client: [`packages/cli/src/telemetry.ts`](../packages/cli/src/telemetry.ts) — under 100 lines, fire-and-forget POST with 1s timeout.
+- Server: [`workers/telemetry/index.ts`](../workers/telemetry/index.ts) — schema validation, IP drop, D1 insert.
+
+If you find a discrepancy between this doc and the code, please open an issue
+labelled `privacy-discrepancy` — we treat that as P0 and ship a fix same-day.
+
+## Data retention
+
+- Raw events: **30 days** in Cloudflare D1, then auto-deleted by a daily Worker cron.
+- Aggregates (daily counts per `command × archetype × os`): retained indefinitely, no `anon_id`.
+- Reviewed weekly by the maintainer to inform product decisions. Aggregates
+  are **not currently published publicly** — they may be in the future once
+  weekly active users exceed 100, and only as anonymous counts (never `anon_id`).
+
+## Right to be forgotten
+
+Send the request from any address to `privacy@greatcto.systems` with your
+`anon_id` (you can compute it locally: `npx great-cto telemetry whoami`).
+We delete all events with that ID within 7 days and confirm by reply.
+
+## Why opt-in (not opt-out) is the default
+
+Telemetry default-on without explicit consent is sketchy in 2026 even when
+the data is anonymous. We follow [Honeycomb's approach](https://www.honeycomb.io/blog/our-stance-on-telemetry):
+ship the plumbing, document it, let users decide. The cost of "no telemetry
+data for the first 6 months" is low. The cost of one user feeling
+surprised is very high for an open-source project that asks for trust.
+
+## Changelog
+
+- **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.
