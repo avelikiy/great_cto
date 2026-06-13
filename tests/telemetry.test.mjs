@@ -72,6 +72,19 @@ test('config file opt-in is honored', async () => {
   } finally { s.restore(); }
 });
 
+test('a legacy config.json telemetry:true does NOT silently re-enable (pre-v2.9.2 consent is void)', async () => {
+  const s = sandbox();
+  try {
+    // Old installs left ~/.great_cto/config.json { telemetry: true }. After the v2.9.2
+    // zero-telemetry reset, that stale flag must not reactivate collection — re-introduction
+    // requires a fresh opt-in via the new telemetry.json (or env).
+    writeFileSync(join(s.home, '.great_cto', 'config.json'),
+      JSON.stringify({ telemetry: true, install_id: 'ce6397f9-0e72-4736-adea-697357351ee4' }));
+    const { isTelemetryEnabled } = await fresh();
+    assert.equal(isTelemetryEnabled(), false, 'legacy config.json must not enable telemetry');
+  } finally { s.restore(); }
+});
+
 test('anon_id is a stable, non-reversible 8-hex digest with no PII', async () => {
   const s = sandbox();
   try {

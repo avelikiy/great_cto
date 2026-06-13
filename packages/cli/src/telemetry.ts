@@ -54,28 +54,20 @@ const ALLOWED_ARCHETYPES = new Set([
 
 interface TelemetryConfig {
   enabled?: boolean;
-  // Legacy fields kept readable so users on old configs aren't broken:
-  install_id?: string;
-  telemetry?: boolean;
+  decided_at?: string;
 }
 
 function configPath(): string {
   return path.join(os.homedir(), ".great_cto", "telemetry.json");
 }
 
-function legacyConfigPath(): string {
-  return path.join(os.homedir(), ".great_cto", "config.json");
-}
-
 function readConfig(): TelemetryConfig {
-  // Try new file first.
+  // ONLY the new opt-in file counts. We deliberately do NOT honor the legacy
+  // ~/.great_cto/config.json "telemetry" flag: that consent predates the v2.9.2
+  // zero-telemetry reset, so silently reactivating it would re-enable collection
+  // without a fresh, informed opt-in. Re-introduction requires a new decision.
   try { return JSON.parse(fs.readFileSync(configPath(), "utf8")) as TelemetryConfig; }
-  catch { /* fall through */ }
-  // Fall back to legacy config.json (read-only — never write to it).
-  try {
-    const legacy = JSON.parse(fs.readFileSync(legacyConfigPath(), "utf8")) as TelemetryConfig;
-    return { enabled: legacy.telemetry, install_id: legacy.install_id };
-  } catch { return {}; }
+  catch { return {}; }
 }
 
 function writeConfig(cfg: TelemetryConfig): void {
@@ -108,11 +100,10 @@ export function isTelemetryEnabled(cliFlag = false): boolean {
   if (cliFlag) return false;
   if (isCI()) return false;
 
-  // Opt-in checks:
+  // Opt-in checks (explicit, fresh decision only):
   if (process.env.GREAT_CTO_TELEMETRY === "on") return true;
   const cfg = readConfig();
   if (cfg.enabled === true) return true;
-  if (cfg.telemetry === true) return true;  // legacy
 
   // Default: opt-out.
   return false;
