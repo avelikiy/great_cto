@@ -63,7 +63,7 @@
       "blastRadius": "low",
       "agent": "monitor",
       "tools": [
-        "irs-efile"
+        "irs-efile:check-status"
       ]
     }
   ],

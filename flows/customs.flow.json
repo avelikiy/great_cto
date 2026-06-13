@@ -58,7 +58,7 @@
       "blastRadius": "low",
       "agent": "monitor",
       "tools": [
-        "customs-entry"
+        "customs-entry:check-status"
       ]
     }
   ],

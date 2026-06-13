@@ -51,7 +51,7 @@ export const CONNECTORS = Object.freeze({
 
   // ── tax ──
   'tax-engine':      { label: 'Tax engine',            verticals: ['tax'],         capabilities: ['compute-return', 'classify-position'], realProviders: ['CCH', 'Lacerte'], status: 'live-ready' },
-  'irs-efile':       { label: 'IRS e-file (MeF)',      verticals: ['tax'],         capabilities: ['transmit-return'], realProviders: ['IRS MeF'], status: 'stub' },
+  'irs-efile':       { label: 'IRS e-file (MeF)',      verticals: ['tax'],         capabilities: ['transmit-return', 'check-status'], realProviders: ['IRS MeF'], status: 'stub' },
   'doc-intake':      { label: 'Doc intake (W-2/1099)', verticals: ['tax'],         capabilities: ['extract-forms'], realProviders: ['OCR + parsers'], status: 'stub' },
   'brokerage-feed':  { label: 'Bank / brokerage feed', verticals: ['tax'],         capabilities: ['fetch-1099'], realProviders: ['Plaid', 'broker APIs'], status: 'stub' },
 
@@ -153,14 +153,17 @@ export const CONNECTORS = Object.freeze({
 });
 
 /** Look up a connector spec by id. */
+// A tool entry may be "connector" or "connector:op" — the connector id is the part before ':'.
+export function toolConnectorId(t) { const i = String(t).indexOf(':'); return i >= 0 ? t.slice(0, i) : t; }
+
 export function getConnector(id) {
-  return CONNECTORS[id] || null;
+  return CONNECTORS[toolConnectorId(id)] || null;
 }
 
 /** All connector ids a flow references (deduped, in first-seen order), with their specs. */
 export function flowConnectors(flow) {
   const ids = [];
-  for (const s of flow.steps || []) for (const t of s.tools || []) if (!ids.includes(t)) ids.push(t);
+  for (const s of flow.steps || []) for (const t of s.tools || []) { const id = toolConnectorId(t); if (!ids.includes(id)) ids.push(id); }
   return ids.map((id) => ({ id, spec: getConnector(id) }));
 }
 
