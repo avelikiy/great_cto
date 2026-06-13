@@ -4,7 +4,26 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## v2.66.0 — 2026-06-11
+
+## v2.72.0 — 2026-06-13
+
+### Safe mode — tenant-wide action-control switch (the AI-firewall control plane)
+
+Per-tenant `config.safeMode` (default `off`) — a control-plane switch to restrict autopilots on
+anomaly or during an incident. The framing: an AI firewall controls *what an agent does right now*,
+not just *who has access* (see `docs/AI-FIREWALL.md`).
+
+- **`gate-all`** (soft freeze) — every new case is forced to the human gate regardless of
+  confidence; the autopilot still does the reversible volume, but nothing irreversible auto-runs.
+  `autoEligible` is forced false at `startRun`, and a `forced-to-gate: safe-mode` note is written to
+  the run's hash-chained audit.
+- **`halt`** (kill-switch) — `startRun` throws `SafeModeHalt`; ingest + manual start return **503
+  Retry-After** so source systems back off. Existing pending cases stay parked at their gates.
+- Server: config POST whitelists `safeMode` (validated), now **admin OR compliance-lead** (the
+  ops/safety owner); a safe-mode change fires a push alert to the team.
+- Console Ops tab: off / gate-all / halt control + a persistent top banner while active.
+- Tests: +3 (gate-all forces+audits, halt blocks then clears, per-tenant default off) — 44/44.
+  Verified live: ingest 503 under halt, 400 on a bad value, 403 for non-admin, UI banner toggles.
 
 ### Flow tab + per-tenant parametric flow customization ("настройка, не сборка")
 
