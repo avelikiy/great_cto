@@ -9,6 +9,18 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.72.5 — 2026-06-13
+
+### Fix: inbox task id no longer overlaps the title
+
+- A long project-prefixed task id (e.g. `Copytrader_Rust-5q2`) overflowed the fixed 90px id column
+  in the inbox lists (P0 open, Blocked, Stale) and overlapped the task title. The id column is now
+  110px and the id cell is constrained (`min-width:0; overflow-wrap:anywhere; word-break`) so a long
+  id always stays inside its own grid track. Verified: 0 rows overlap.
+
+---
+
 ## v2.72.4 — 2026-06-13
 
 ### Graphical flow diagram in the operator console
