@@ -88,6 +88,31 @@ echo "Design system detected: $DESIGN_SYSTEM"
 
 Setup above produces the **stable prefix** shared across all 12 angles: archetype, design-system detection, and the full `$DIFF`. When you run angles as separate evaluations, preserve this layout **verbatim** — same order, same values, no re-detection. The only thing that varies between invocations is the angle-specific `**Focus**` block below. Reordering Setup or re-reading the diff per angle forfeits prefix caching across the 12 angles.
 
+## Finding discipline — coverage before filter (applies to every angle)
+
+This harness has two stages: **finding** (the 12 angles below) and **filter** (Skeptical
+Triage + arbiter, further down). They have different jobs — do not conflate them.
+
+At the **finding stage your job is coverage, not filtering.** Report every issue you find,
+including ones you are uncertain about or judge low-severity. Do not silently drop a finding
+because it feels minor or you are not fully sure — the triage stage exists precisely to rank
+and discard. It is better to surface a finding that triage later filters out than to drop a
+real bug at the finding stage.
+
+Concretely, for **every** angle:
+- Emit a one-line entry for **each** finding at **every** severity — P0, P1 **and P2** — plus
+  any borderline/uncertain item, not just P0/P1. (Below, the per-angle output details P0/P1;
+  additionally list each P2 / uncertain item as a single `FILE:LINE — <issue>  [P2|conf:low]`
+  line so it reaches triage rather than collapsing to a bare count.)
+- Tag every finding with **severity** (P0/P1/P2) AND a **confidence** (high / med / low). The
+  downstream triage uses both to rank; your job is to populate them honestly, not to pre-filter.
+- Do not generalize an instruction from one item to the next — review **every** changed hunk,
+  not a representative sample.
+
+Why this matters: the current model investigates as deeply as before but, told to "report
+blockers," will faithfully report fewer of the low-severity/uncertain ones. Coverage here +
+filtering at triage restores recall without raising false-positive gate blocks.
+
 ## Angle 1 — Performance Reviewer
 
 **Focus**: latency, memory, unnecessary computation, N+1 queries, missing caching, unbounded loops.
@@ -450,13 +475,19 @@ Findings: P0:N P1:N P2:N
 
 ## Skeptical Triage
 
-Apply the **skeptical-triage skill** (`skills/skeptical-triage/SKILL.md`) to reduce false-positive gate:code blocks before counting findings.
+**This is the filter stage.** The angles above optimise for coverage (surface everything); this
+stage ranks and discards. Apply the **skeptical-triage skill** (`skills/skeptical-triage/SKILL.md`)
+to reduce false-positive gate:code blocks before counting findings — its rigour is what makes the
+upstream coverage mandate safe.
 
 **Scope** (depends on `--deep` flag):
 - **Default:** P0/P1 findings from Angles 2 (Security), 4 (SQL Safety), 7 (Data Privacy), 9 (Concurrency)
 - **`--deep`:** P0/P1 findings from **all** angles (Performance, Readability, Side Effects, Error Handling, Dependency Freshness, API Contracts, Design System included)
 
-P2 findings bypass triage regardless of flag — cost > value.
+P2 and low-confidence findings bypass the 3-round triage (cost > value) but are **kept in the
+report** as a triage-skipped backlog — never silently dropped. They don't block the gate; they
+give the human signer and the next iteration the full picture. (A P2 is only discarded if an
+angle itself retracts it.)
 
 For each in-scope finding, run the 4-step pattern from the skill:
 1. **Round 1 — Reachability:** attacker path / premise check
