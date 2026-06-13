@@ -2128,10 +2128,6 @@ button { font-family: inherit; cursor: pointer; }
         <span>Inbox</span>
         <span class="count" id="nav-inbox-count">0</span>
       </div>
-      <div class="nav-item" title="Operated autopilot runs — sign the human gate" onclick="location.href='/autopilot.html'">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z M8 12l3 3 5-6"/></svg>
-        <span>Autopilot</span>
-      </div>
       <div class="nav-item" title="Run a Claude Code agent in this project" onclick="agentToggle(true)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 3l14 9-14 9V3z"/></svg>
         <span>Run agent</span>
@@ -2197,7 +2193,6 @@ button { font-family: inherit; cursor: pointer; }
         <kbd>⌘K</kbd>
       </div>
       <div class="topbar-actions">
-        <a href="/autopilot.html" title="Switch to Operate — the autopilot work-queue where the licensed human signs cases" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;margin-right:6px;border:1px solid var(--border-strong);border-radius:8px;color:var(--text2);text-decoration:none;font-size:12px;font-weight:600">🛂 Operate ↗</a>
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
         <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
         <button class="btn-bell" id="topbar-bell" onclick="openNotifDrawer()" title="Notifications">
