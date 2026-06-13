@@ -28,6 +28,13 @@ import crypto from 'node:crypto';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
 const PUBLIC = path.join(__dirname, 'public');
+// Build version — read the plugin manifest this board ships inside (packages/board → ../../.claude-plugin).
+const BUILD_VERSION = (() => {
+  for (const rel of ['../../.claude-plugin/plugin.json', '../cli/package.json']) {
+    try { const v = JSON.parse(fs.readFileSync(path.join(__dirname, rel), 'utf8')).version; if (v) return v; } catch { /* try next */ }
+  }
+  return 'unknown';
+})();
 // ── Surface: which product face this process serves (PLAN-ui-split P1) ──────
 // builder = dev board, console = operator console only, both = local default.
 // `console` is the hostable face: it physically does not serve the dev board.
@@ -2100,6 +2107,22 @@ function getAgentProfile(slug) {
   const applies_to = appliesM
     ? appliesM[1].split(',').map(s => s.trim().replace(/['"]/g, '')).filter(Boolean)
     : [];
+  // tools: either an inline CSV (`tools: Read, Bash, Grep`) or a YAML list.
+  const toolsM = raw.match(/^tools:\s*(.+)$/m);
+  let tools = [];
+  if (toolsM && toolsM[1].trim() && !toolsM[1].trim().startsWith('#')) {
+    tools = toolsM[1].split(',').map(s => s.trim()).filter(Boolean)
+      .map(t => /^Bash\(/.test(t) ? 'Bash' : t);   // collapse Bash(...) allowlist to one chip
+    tools = [...new Set(tools)];
+  } else {
+    const listM = raw.match(/^tools:\s*\n((?:\s*-\s*.+\n?)+)/m);
+    if (listM) tools = listM[1].split('\n').map(l => (l.match(/^\s*-\s*(.+)$/) || [])[1]).filter(Boolean).map(s => s.trim());
+  }
+  // skills: a YAML list under `skills:`. Stop before the closing `---` frontmatter delimiter
+  // (otherwise `---` parses as a bogus `--` entry).
+  const skills = [];
+  const skillsM = raw.match(/^skills:\s*\n((?:[ \t]*-[ \t]*.+\n?)+)/m);
+  if (skillsM) for (const line of skillsM[1].split('\n')) { const v = (line.match(/^[ \t]*-[ \t]*(.+)$/) || [])[1]; const t = v && v.trim(); if (t && !/^-+$/.test(t)) skills.push(t); }
 
   const verdicts = readVerdicts();
   const all = verdicts.filter(v => v.agent === slug);
@@ -2153,6 +2176,8 @@ function getAgentProfile(slug) {
     model: modelM?.[1]?.trim() || 'sonnet',
     color: colorM?.[1]?.trim() || null,
     applies_to,
+    tools,
+    skills,
     domain: deriveDomain(slug),
     health,
     retired: isRetired(slug),
@@ -3345,6 +3370,13 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/agents-installed') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getAgentsFleet(cwd)));
+    return;
+  }
+
+  // Build version — so the board shows which great_cto version it's running.
+  if (pathname === '/api/version') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ version: BUILD_VERSION, surface: SURFACE, node: process.version.replace(/^v/, '') }));
     return;
   }
 
