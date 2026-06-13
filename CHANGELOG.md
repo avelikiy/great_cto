@@ -4,6 +4,44 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.66.0 — 2026-06-11
+
+### Flow tab + per-tenant parametric flow customization ("настройка, не сборка")
+
+The operator console gains a **Flow tab**: every signer can see the flow they sign inside of —
+steps, gates, who signs, what's irreversible — and an admin / compliance-lead can **customize it
+per tenant** without forfeiting the measured base flow. Phase 0+1 of the flow-configurator plan
+(the free-form canvas constructor was deliberately deferred: a tenant configures a proven vertical,
+they don't assemble an unmeasured one).
+
+- **Flow viewer (P0)** — `GET /api/autopilot/flow?vertical&tenant` returns `{ base, override,
+  effective, stats }`; the console's new Flow tab renders steps with 🤖/🧑‍⚖️ icons, signer + gate
+  badges, irreversible/blast flags, connector chips, owner and the (base-flow) qualityScore.
+  Read-gated by `roleAllows` — a signer can always inspect their own vertical.
+- **Parametric overrides (P1)** — `scripts/lib/flow-overrides.mjs`: three knobs, no free-form edits —
+  `roles` (rename who signs a gate), `disabledSteps` (skip optional reversible agent steps; gates and
+  the irreversible write are NOT disableable), `extraGates` (insert an additional human checkpoint,
+  e.g. a tenant compliance pre-check). Stored per tenant in `~/.great_cto/flow-overrides/` with a
+  per-file change history; `GREAT_CTO_OVERRIDES_DIR` to relocate.
+- **Safety invariants hold by construction** — every save re-validates the EFFECTIVE flow against
+  both the structural schema (`flow.mjs`) and the runtime invariants (`flow-runner.mjs`:
+  irreversible ⟹ human gate before it, accountable owner named). An override that would weaken the
+  safety model is rejected with itemised errors (422); a stored override that stops validating
+  (base flow drifted) falls back to the base flow with a warning — safety over customization.
+- **Runtime wiring** — `startRun` executes the tenant's effective flow and stamps a `flowSnapshot`
+  on the run, so approve / dead-letter requeue resume the exact steps the case started with even if
+  the customization changes while it waits at a gate. CLI + webhook ingest inherit this for free.
+- **Console editor UI** — the Flow tab's ✎ Customize panel (admin / compliance-lead): per-gate signer
+  inputs, skip-checkboxes on the skippable steps only, an add-checkpoint row, save (server-validated)
+  and reset-to-base. Multi-gate runs verified end to end: extra gate pauses first → renamed signer →
+  completed; the default tenant stays on the shipped flow.
+- API: `POST /api/autopilot/flow-overrides` (incl. `dryRun: true` validation), `DELETE …/flow-overrides`.
+- Tests: `tests/flow-overrides.test.mjs` — 13 unit tests (rename, refusals, insertion, invariants,
+  tenant isolation, drift fallback). Override knobs are opt-in; no behavior change for tenants
+  without an override.
+
+---
+
 
 
 
