@@ -11,7 +11,7 @@
 |---|---|---|---|
 | `ai-eval-engineer` | haiku | MEDIUM | Builds and maintains the eval pipeline for ai-system / agent-product archetypes. Outputs tests/eval/EVAL-*.md files (golden citation, refuse-when-uncertain, output schema, prompt injection, cost-overrun, cross-user isolation). Runs regression on every prompt or model change. Detects drift. |
 | `ai-prompt-architect` | sonnet | HIGH | Designs and versions LLM system prompts for ai-system / agent-product archetypes. Outputs ADR-PROMPT-{name}.md files with sha256-pinned prompt text, jailbreak resistance test cases, and revision history. Pairs with ai-eval-engineer for golden-set scenarios. |
-| `architect` | claude-opus-4-8 | HIGH | Use when starting any new feature. Creates architecture docs, ADRs, cost estimates, Well-Architected review. Always first in the pipeline. |
+| `architect` | claude-opus-4-8 | XHIGH | Use when starting any new feature. Creates architecture docs, ADRs, cost estimates, Well-Architected review. Always first in the pipeline. |
 | `continuous-learner` | claude-haiku-4-5 | LOW | Use at session end (auto-triggered by SessionEnd hook) or via /learn command. Extracts repeatable patterns, decisions, and cost outliers from the session and writes structured entries to .great_cto/lessons.md. Promotes high-confidence patterns to ~/.great_cto/decisions.md after ≥3 occurrences. |
 | `coordinator` | sonnet | — | Multi-agent coordinator. Use when a CTO request spans 3+ independent work streams, requires parallel research before implementation, or the task graph is complex enough that sequencing matters. Orchestrates agents across the full DECOMPOSE→CLASSIFY→DISPATCH→MONITOR→SYNTHESIZE→VERIFY lifecycle. |
 | `decision-scorer` | claude-sonnet-4-5 | MEDIUM | Scores 2+ architectural alternatives against PROJECT.md criteria. Called by architect after proposing variants. Outputs a weighted scoring table and recommended choice. |
@@ -23,7 +23,7 @@
 | `project-auditor` | sonnet | HIGH | Use for /audit or when no PROJECT.md exists. Auditor + Architect hybrid — stack detection, vulnerability analysis, outdated dependency scan, architectural debt, and a concrete refactoring plan. |
 | `qa-engineer` | haiku | MEDIUM | Use after senior-dev completes implementation. Analyzes actual code, then runs type-appropriate QA, writes report, files bugs in Beads. |
 | `security-officer` | sonnet | HIGH | Use after QA passes. Runs security audit by project type, writes report, controls gate:ship. |
-| `senior-dev` | sonnet | HIGH | Use to implement tasks from Beads backlog. Claims a task, implements with TDD, closes when done. Can run in parallel. |
+| `senior-dev` | sonnet | XHIGH | Use to implement tasks from Beads backlog. Claims a task, implements with TDD, closes when done. Can run in parallel. |
 
 ## Domain reviewers
 
