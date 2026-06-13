@@ -6,6 +6,20 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.72.2 — 2026-06-13
+
+### Build surface is pure-builder — operate cross-links removed
+
+- The dev board (`great-cto board`) no longer mixes operate-side navigation into the builder
+  admin: the **"Autopilot" sidebar item** and the **"Operate ↗" topbar button** (both linked to
+  `/autopilot.html`) are removed. The build board is now purely the builder surface; the operator
+  console runs as its own surface via `great-cto console` (own port, invite-only). Operators on an
+  invite session are already hard-redirected to the console, unaffected.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.72.1 — 2026-06-13
 
 ### Dev-board fixes
