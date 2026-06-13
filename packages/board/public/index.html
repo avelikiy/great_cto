@@ -1350,7 +1350,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .inbox-row {
   display: grid;
-  grid-template-columns: 90px 1fr auto;
+  grid-template-columns: 110px 1fr auto;
   gap: 14px;
   align-items: start;
   padding: 12px 14px;
@@ -1362,11 +1362,13 @@ button { font-family: inherit; cursor: pointer; }
   cursor: pointer;
   min-width: 0;
 }
-.inbox-row .id { padding-top: 2px; }
 .inbox-row:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
 .inbox-row .id {
+  padding-top: 2px;
   font-family: var(--mono); font-size: 11px;
   color: var(--text3); letter-spacing: 0.04em;
+  /* keep a long project-prefixed id inside its own column — never overlap the title */
+  min-width: 0; overflow-wrap: anywhere; word-break: break-word;
 }
 .inbox-row .ttl {
   font-size: 13.5px; color: var(--text);
