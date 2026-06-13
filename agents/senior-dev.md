@@ -9,7 +9,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301, memory_2
 disallowedTools: WebSearch
 maxTurns: 50
 timeout: 900
-effort: HIGH
+effort: XHIGH
 isolation: worktree
 isolation-fallback: cwd
 memory: project

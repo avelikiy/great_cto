@@ -5,7 +5,7 @@ model: claude-opus-4-8
 tools: Read, Write, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(touch:*), Bash(source:*), Bash(awk:*), Bash(xargs:*), Bash(sort:*), Bash(tail:*), Bash(head:*), Bash(echo:*), Bash(export:*), Bash(mkdir:*), Bash(grep:*), Bash(wc:*), Bash(date:*), Bash(printf:*), memory_20250929, advisor_20260301, mcp__great_cto_llm_router__ask_kimi
 maxTurns: 30
 timeout: 1200
-effort: HIGH
+effort: XHIGH
 memory: project
 color: yellow
 skills:
