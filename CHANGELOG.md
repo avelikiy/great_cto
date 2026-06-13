@@ -8,6 +8,23 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.72.4 — 2026-06-13
+
+### Graphical flow diagram in the operator console
+
+- The Flow tab gains a **graphical block-flow** as the default view (toggle **Diagram | List**): a
+  vertical chain of nodes with arrows, rendered from the existing `/api/autopilot/flow` data — a
+  pure render layer, no server/runtime/invariant change.
+- Agent steps are nodes colour-coded by **blast radius** (low=green, medium=amber, high=red) with
+  🤖, the action, agent name and 🔌 connector chips; the **human gate** is a distinct 🛡️ shield node
+  (signer + gate id); the **irreversible** step is ringed with a "⚠ irreversible · <blast> blast"
+  badge. Legend + the existing summary (autonomous/human/connectors/owner/quality); view persisted.
+- The free-form canvas constructor stays out of scope by design ("настройка, не сборка").
+  Verified live (Playwright): rcm + a 2-gate vertical render correctly; Diagram⇄List toggles; 0 errors.
+
+---
+
 ## v2.72.3 — 2026-06-13
 
 ### Bug hunt: operate alerts no longer leak into the builder admin
