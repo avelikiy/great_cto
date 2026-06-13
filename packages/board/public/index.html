@@ -2146,13 +2146,6 @@ button { font-family: inherit; cursor: pointer; }
         <span>Memory</span>
         <span class="count" id="nav-memory-count">0</span>
       </div>
-      <div class="nav-item" data-tab="share" onclick="switchTab('share', this)">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8"/></svg>
-        <span>Share</span>
-        <span id="share-nav-badge" class="share-badge off" style="margin-left:auto;">
-          <span class="share-badge-dot"></span>off
-        </span>
-      </div>
       <div class="nav-item" data-tab="logs" onclick="switchTab('logs', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
         <span>Logs</span>
@@ -2194,6 +2187,11 @@ button { font-family: inherit; cursor: pointer; }
       </div>
       <div class="topbar-actions">
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
+        <button class="btn-bell" data-tab="share" onclick="switchTab('share', this)" title="Share a public project report" aria-label="Share" style="gap:6px;padding:6px 10px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span style="font-size:12px;font-weight:500">Share</span>
+          <span id="share-nav-badge" class="share-badge off"><span class="share-badge-dot"></span>off</span>
+        </button>
         <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
         <button class="btn-bell" id="topbar-bell" onclick="openNotifDrawer()" title="Notifications">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
