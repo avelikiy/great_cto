@@ -10,6 +10,26 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.73.0 — 2026-06-13
+
+### Demo case feeder — make the operator console come alive
+
+The operator console is empty until a source system pushes cases — a dead screen for demos /
+first-run / sales. An **opt-in** feeder injects realistic stub cases so the Inbox fills, gates wait
+for a signature, and the flow diagram shows real work — with no external system.
+
+- Enable with `GREAT_CTO_DEMO_FEED=1` or `--demo` on `great-cto board`/`console`. Interval via
+  `GREAT_CTO_DEMO_INTERVAL` (seconds, default 30); tenant via `GREAT_CTO_DEMO_TENANT`. **Off by
+  default; never on in production; safe-mode halt blocks it.**
+- Round-robins 8 verticals (rcm, aml, mortgage, prior-auth, insurance, tax, collections, soc) in
+  stub mode (`source:demo`), seeds one immediately, and stops feeding while pending demo cases
+  reach a cap (default 12) — the inbox refills as the operator signs.
+- Runs now carry a top-level `source` field (`manual`|`webhook`|`demo`). Tests: +3 (42/42).
+  Verified live: 12 cases across 8 verticals, cap respected, off by default.
+
+---
+
 ## v2.72.5 — 2026-06-13
 
 ### Fix: inbox task id no longer overlaps the title
