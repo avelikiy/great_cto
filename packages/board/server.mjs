@@ -310,6 +310,12 @@ const AGENT_BIN = process.env.GREAT_CTO_AGENT_BIN || 'claude';
 const AGENT_TIMEOUT = Math.max(60000, Number(process.env.GREAT_CTO_AGENT_TIMEOUT) || 1800000); // 30 min
 const AGENT_PERMISSION = process.env.GREAT_CTO_AGENT_PERMISSION || 'acceptEdits';
 const AGENT_DANGEROUS = process.env.GREAT_CTO_AGENT_DANGEROUS === '1';
+// Effort for board-spawned coding agents. Opus 4.8 respects effort strictly and under-thinks
+// at low/medium; xhigh is the recommended default for coding/agentic work. Override with
+// GREAT_CTO_AGENT_EFFORT (set to 'none' to leave the child's effort unset).
+const AGENT_EFFORT = process.env.GREAT_CTO_AGENT_EFFORT || 'xhigh';
+// Room to think + act across tools at high effort (guide: start at 64k, tune from there).
+const AGENT_MAX_OUTPUT = process.env.GREAT_CTO_AGENT_MAX_OUTPUT || '64000';
 const AGENT_LINECAP = 2000;
 const agentRuns = new Map();  // cwd → { proc, project, startedAt, lines:[], exit, timer, prompt }
 
@@ -387,13 +393,17 @@ function startAgentRun(cwd, project, prompt, model) {
   // session vars). Keep the user's ANTHROPIC_* config + auth.
   const childEnv = { ...process.env };
   for (const k of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_AGENT_SDK_VERSION', 'CLAUDE_EFFORT']) delete childEnv[k];
+  // Set effort explicitly for the spawned coding agent (don't inherit the parent's, don't leave
+  // it unset → under-thinking on 4.8). 'none' opts out entirely.
+  if (AGENT_EFFORT && AGENT_EFFORT.toLowerCase() !== 'none') childEnv.CLAUDE_EFFORT = AGENT_EFFORT;
+  if (AGENT_MAX_OUTPUT && AGENT_MAX_OUTPUT.toLowerCase() !== 'none') childEnv.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(AGENT_MAX_OUTPUT);
   let proc;
   try { proc = spawn(AGENT_BIN, args, { cwd, env: childEnv }); }
   catch (e) { return { error: 'spawn failed: ' + e.message }; }
   try { proc.stdin.end(); } catch {}   // headless claude waits ~3s for stdin otherwise
   const run = { proc, project, startedAt: Date.now(), lines: [], exit: null, prompt };
   agentRuns.set(cwd, run);
-  agentPush(run, 'system', `▶ agent started: ${AGENT_BIN} (${AGENT_PERMISSION}${AGENT_DANGEROUS ? ' · skip-perms' : ''})`);
+  agentPush(run, 'system', `▶ agent started: ${AGENT_BIN} (${AGENT_PERMISSION}${AGENT_DANGEROUS ? ' · skip-perms' : ''}${childEnv.CLAUDE_EFFORT ? ' · effort:' + childEnv.CLAUDE_EFFORT : ''})`);
   let buf = '';
   proc.stdout.on('data', (d) => {
     buf += d.toString();
