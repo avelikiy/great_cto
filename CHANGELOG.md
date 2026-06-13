@@ -11,6 +11,25 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.73.1 — 2026-06-13
+
+### Phase 4: monitor steps no longer re-run the irreversible write
+
+- A flow step referenced a connector by id only, and the runner defaulted to the connector's
+  FIRST capability — a WRITE for write-capable connectors. So 10 `monitor` steps re-ran the
+  irreversible write (e.g. rcm monitor called `clearinghouse:submit-837` instead of `fetch-835`)
+  rather than reading status/remittance. Idempotency guarded real double-submission, but it was
+  semantically wrong and a latent duplicate-write risk.
+- Tools now accept an explicit `connector:op` form (backward compatible). Fixed 10 monitor steps
+  to a read op (`fetch-835` / `check-status`); added `check-status` to `irs-efile`.
+- Phase 4 Wave 1 (rcm + live FHIR/EHR) verified end-to-end: live FHIR + NLM code-sets + NCCI →
+  gate → approve → live 837 submit; the irreversible write still runs only after a signature.
+- Tests: `tests/flow-connector-ops.test.mjs` (3); all 25 flows valid. Follow-on great_cto-nl5:
+  8 pre-gate steps reusing write-first connectors need per-vertical review.
+
+---
+
 ## v2.73.0 — 2026-06-13
 
 ### Demo case feeder — make the operator console come alive
