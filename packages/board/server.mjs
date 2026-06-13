@@ -468,10 +468,18 @@ function saveNotifHistory() {
  * Record a notification, broadcast via SSE, and persist.
  * Called alongside fireEmailAlert / firePushAlert at every trigger point.
  */
+// Which surface an alert belongs to. Operate-side events (autopilot runtime: dead-letters,
+// connector health, case SLA, gate/safe-mode pushes) are the operator console's concern and
+// must not clutter the builder board's notifications — the two surfaces are separated.
+function eventSurface(event) {
+  return /^(autopilot\.|dead-letter|connector\.|sla\.)/.test(String(event || '')) ? 'operate' : 'builder';
+}
+
 function addNotification(event, payload) {
   const notif = {
     id: crypto.randomUUID(),
     event,
+    surface: eventSurface(event),
     title: payload.title,
     body: payload.body,
     level: payload.level || 'info',
@@ -3502,7 +3510,15 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/notif-history' && req.method === 'GET') {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
     const unreadOnly = url.searchParams.get('unread') === '1';
-    let items = notifHistory.slice(0, limit);
+    // Surface filter: the builder board must not see operate-side alerts (autopilot dead-letters,
+    // connector health, case SLA). Default to the builder surface; `?scope=operate|all` opts in.
+    // Classify by event name too, so entries written before the surface tag existed are filtered.
+    const scope = url.searchParams.get('scope') || 'builder';
+    const surfaceOf = (n) => n.surface || eventSurface(n.event);
+    let items = notifHistory;
+    if (scope === 'builder') items = items.filter(n => surfaceOf(n) !== 'operate');
+    else if (scope === 'operate') items = items.filter(n => surfaceOf(n) === 'operate');
+    items = items.slice(0, limit);
     if (unreadOnly) items = items.filter(n => !n.read);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify(items));
