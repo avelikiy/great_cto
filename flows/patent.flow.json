@@ -56,7 +56,7 @@
       "blastRadius": "low",
       "agent": "monitor",
       "tools": [
-        "uspto-filing"
+        "uspto-filing:check-status"
       ]
     }
   ],

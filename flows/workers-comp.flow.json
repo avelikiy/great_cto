@@ -56,7 +56,7 @@
       "blastRadius": "low",
       "agent": "monitor",
       "tools": [
-        "claim-edi"
+        "claim-edi:check-status"
       ]
     }
   ],

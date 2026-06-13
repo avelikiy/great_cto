@@ -160,13 +160,18 @@ export async function runFlow(flow, { mode = 'stub', payload = {}, stopAtGate = 
     const isWrite = s.reversible === false; // the irreversible post-gate write — retry on failure
     const toolCalls = [];
     for (const t of s.tools || []) {
-      const op = defaultOp(t);
-      if (!op) { toolCalls.push({ connector: t, op: null, ok: false, error: 'unknown connector' }); continue; }
+      // A tool entry is either "connector" (use its first capability) or "connector:op" (explicit).
+      // Explicit op matters: e.g. a monitor step uses "clearinghouse:fetch-835" to READ the
+      // remittance, not the connector's first capability "submit-837" which would re-run the write.
+      const ci = t.indexOf(':');
+      const connector = ci >= 0 ? t.slice(0, ci) : t;
+      const op = ci >= 0 ? t.slice(ci + 1) : defaultOp(connector);
+      if (!op) { toolCalls.push({ connector, op: null, ok: false, error: 'unknown connector' }); continue; }
       const t0 = Date.now();
-      const inp = { ...DEMO_INPUTS[`${t}:${op}`], ...payload };
+      const inp = { ...DEMO_INPUTS[`${connector}:${op}`], ...payload };
       let r, attempts = 0; const maxAttempts = isWrite ? 3 : 1;
-      do { attempts++; r = await call(t, op, inp, { mode }); if (r.ok || r.blocked) break; if (attempts < maxAttempts) await sleep(120 * attempts); } while (attempts < maxAttempts);
-      toolCalls.push({ connector: t, op, ok: !!r.ok, mode: r.mode, error: r.error, signal: riskSignal(r), ms: Date.now() - t0, submitted: r.submitted === true || undefined, attempts: attempts > 1 ? attempts : undefined });
+      do { attempts++; r = await call(connector, op, inp, { mode }); if (r.ok || r.blocked) break; if (attempts < maxAttempts) await sleep(120 * attempts); } while (attempts < maxAttempts);
+      toolCalls.push({ connector, op, ok: !!r.ok, mode: r.mode, error: r.error, signal: riskSignal(r), ms: Date.now() - t0, submitted: r.submitted === true || undefined, attempts: attempts > 1 ? attempts : undefined });
     }
     trace.steps.push({ i, does: s.does, agent: s.agent, status: 'done', blastRadius: blast, toolCalls });
   }
