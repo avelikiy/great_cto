@@ -25,6 +25,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.71.0 — 2026-06-13
+
+### Tuned the agent layer for Claude Opus 4.8 (and the Fable/4.x family)
+
+Behavioral deltas in the current model family bite great_cto's agents specifically. Four fixes
+(plan: `docs/plans/PLAN-opus48-tuning.md`):
+
+- **Review recall (coverage before filter)** — `/review` (12-angle) now separates the *finding*
+  stage (surface every issue at every severity + confidence; no self-filter) from the *filter*
+  stage (skeptical triage + arbiter). 4.8 follows "report blockers" faithfully and under-reports
+  low-severity/uncertain findings; this restores recall without raising false-positive gate blocks.
+  P2/low-confidence items stay in the report as a triage-skipped backlog, never silently dropped.
+- **Effort = xhigh for spawned coding agents** — the board agent runner now sets `CLAUDE_EFFORT=xhigh`
+  (was: stripped → unset → under-thinking) and `CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000`, both overridable
+  (`GREAT_CTO_AGENT_EFFORT` / `_MAX_OUTPUT`, `none` opts out). `senior-dev` + `architect` effort → XHIGH.
+- **Subagent fan-out steering** — 4.8 under-spawns by default; architect + senior-dev now get explicit
+  guidance to fan out across independent files/items in one turn (and not to spawn for work doable directly).
+- **Frontend-aesthetics guard** — 4.8's editorial house style (cream/serif/terracotta) is wrong for our
+  domain; architect sets UI direction explicitly in ARCH (concrete palette or propose-then-pick) and
+  carries a `<frontend_aesthetics>` guard; `/review` Angle 12 flags the editorial default on non-editorial
+  archetypes. Doc-tests 8/8, lint 0 errors.
+
+---
+
 ## v2.70.1 — 2026-06-13
 
 ### Privacy fix: a legacy config.json no longer silently re-enables telemetry
