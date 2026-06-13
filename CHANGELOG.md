@@ -7,6 +7,23 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.72.3 — 2026-06-13
+
+### Bug hunt: operate alerts no longer leak into the builder admin
+
+- The build board's Notifications were showing operate-side alerts — 50 unread `dead-letter`
+  entries (failed autopilot writes, an operator-console concern) drove a bogus "50" badge.
+  After the build/operate split, the builder admin must only show builder alerts.
+- Each alert is now tagged with a **surface** (`operate` for `autopilot.*` / `dead-letter` /
+  `connector.*` / `sla.*`, `builder` otherwise); `/api/notif-history` defaults to `scope=builder`
+  (excludes operate alerts), with `?scope=operate` / `?scope=all` to opt in. Legacy untagged
+  entries are classified by event name, so existing dead-letters are filtered too.
+- Verified: builder badge `50 → off`; `?scope=operate` still returns them for the console.
+  (Full board bug-hunt pass: all 8 tabs + interactive actions error-free, all builder APIs 200.)
+
+---
+
 ## v2.72.2 — 2026-06-13
 
 ### Build surface is pure-builder — operate cross-links removed
