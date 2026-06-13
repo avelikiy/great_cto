@@ -25,6 +25,9 @@ function verifyIngestSig(rawBody, sigHeader) {
   try { const a = Buffer.from(expected); const b = Buffer.from(String(sigHeader).replace(/^sha256=/, '')); return a.length === b.length && timingSafeEqual(a, b); } catch { return false; }
 }
 import { ROLES, getRole, roleAllows } from '../../scripts/lib/roles.mjs';
+import { loadFlow } from '../../scripts/lib/flow-runner.mjs';
+import { flowStats } from '../../scripts/lib/flow.mjs';
+import { loadOverride, saveOverride, clearOverride, getEffectiveFlow, validateOverride } from '../../scripts/lib/flow-overrides.mjs';
 import { createInvite, listInvites, resolveInvite, acceptInvite, revokeInvite } from '../../scripts/lib/operators.mjs';
 
 // Resolve the caller's authoritative role + tenant. An invite TOKEN (the operator's credential) wins
@@ -100,6 +103,57 @@ export function handleAutopilot(req, res, url, pathname, ctx = {}) {
     const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(apGetConfig(auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || 'default'))));
+    return true;
+  }
+  // Flow viewer (P0) — the tenant's effective flow: steps, gates, signers, irreversible flags.
+  // Read-only; any role that may see the vertical may read its flow (a signer should always be
+  // able to see what they're signing inside of).
+  if (pathname === '/api/autopilot/flow' && req.method === 'GET') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
+    const vertical = url.searchParams.get('vertical');
+    if (!vertical) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"vertical required"}'); return true; }
+    if (!roleAllows(auth.role, vertical)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `role '${auth.role}' is not authorised for ${vertical}` })); return true; }
+    const tenant = auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || 'default');
+    try {
+      const base = loadFlow(vertical);
+      const override = loadOverride(vertical, tenant);
+      const effective = getEffectiveFlow(vertical, tenant);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ vertical, tenant, base, override, effective, stats: flowStats(effective) }));
+    } catch (e) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: `no such vertical: ${vertical}` })); }
+    return true;
+  }
+  // Flow overrides (P1, "настройка, не сборка") — admin / compliance-lead set the tenant's
+  // parametric customization. The lib re-validates the EFFECTIVE flow against both the structural
+  // schema and the safety invariants before anything is written.
+  if (pathname === '/api/autopilot/flow-overrides' && req.method === 'POST') {
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
+      const auth = apAuth(p.token, p.role, p.tenant);
+      if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'flow customization is for admin / compliance-lead' })); return; }
+      const tenant = auth.viaInvite ? auth.tenant : (p.tenant || 'default');
+      if (!p.vertical) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"vertical required"}'); return; }
+      try {
+        if (p.dryRun) {
+          const v = validateOverride(loadFlow(p.vertical), { roles: p.roles || {}, disabledSteps: p.disabledSteps || [], extraGates: p.extraGates || [] });
+          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: v.ok, errors: v.errors, effective: v.effective }));
+          return;
+        }
+        const { override, effective } = saveOverride(p.vertical, tenant, { roles: p.roles, disabledSteps: p.disabledSteps, extraGates: p.extraGates }, p.by || auth.name || auth.role);
+        apBroadcast();
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ override, effective }));
+      } catch (e) { res.writeHead(422, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message), errors: e.errors || [] })); }
+    });
+    return true;
+  }
+  if (pathname === '/api/autopilot/flow-overrides' && req.method === 'DELETE') {
+    const auth = apAuth(url.searchParams.get('token'), url.searchParams.get('role'), url.searchParams.get('tenant') || undefined);
+    if (!['admin', 'compliance-lead'].includes(auth.role)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'flow customization is for admin / compliance-lead' })); return true; }
+    const tenant = auth.viaInvite ? auth.tenant : (url.searchParams.get('tenant') || 'default');
+    const ok = clearOverride(url.searchParams.get('vertical'), tenant);
+    apBroadcast();
+    res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok }));
     return true;
   }
   if (pathname === '/api/autopilot/qa' && req.method === 'GET') {

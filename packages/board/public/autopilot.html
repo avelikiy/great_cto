@@ -179,6 +179,7 @@
   <button role="tab" aria-selected="true" data-tab="inbox" class="on" onclick="switchTab('inbox')">Inbox<span class="badge" id="tab-inbox-n" aria-live="polite" style="display:none">0</span></button>
   <button role="tab" aria-selected="false" tabindex="-1" data-tab="cases" onclick="switchTab('cases')">All cases</button>
   <button role="tab" aria-selected="false" tabindex="-1" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
+  <button role="tab" aria-selected="false" tabindex="-1" data-tab="flow" onclick="switchTab('flow')">Flow</button>
   <button role="tab" aria-selected="false" tabindex="-1" data-tab="qa" id="tab-qa" onclick="switchTab('qa')" style="display:none">QA</button>
   <button role="tab" aria-selected="false" tabindex="-1" data-tab="ops" id="tab-ops" onclick="switchTab('ops')" style="display:none">Ops<span class="badge" id="tab-ops-n" aria-live="polite" style="display:none">0</span></button>
   <button role="tab" aria-selected="false" tabindex="-1" data-tab="admin" id="tab-admin" onclick="switchTab('admin')" style="display:none">Admin</button>
@@ -241,6 +242,27 @@
       <button class="primary" onclick="saveBrand()">Apply brand</button>
       <button class="back" style="border:1px solid var(--bd)" onclick="clearBrand()">Reset</button>
       <span class="mut">accent recolours the console + appears in the header for everyone on this tenant</span>
+    </div>
+  </div>
+
+  <div id="flow-box" data-sec="flow" style="display:none">
+    <h2>Flow — what runs, who signs, what can't be undone</h2>
+    <div class="row" style="margin-bottom:10px">
+      <select id="flow-vertical" aria-label="Vertical to inspect" onchange="loadFlowTab()"></select>
+      <input id="flow-tenant" placeholder="tenant (default)" style="max-width:140px" onchange="loadFlowTab()" />
+      <span class="pill" id="flow-customized" style="display:none">customized</span>
+      <span class="spacer"></span>
+      <button class="back" id="flow-edit-btn" style="display:none;border:1px solid var(--bd)" onclick="toggleFlowEdit()">✎ Customize</button>
+    </div>
+    <div id="flow-steps"><div class="empty">loading…</div></div>
+    <div id="flow-editor" style="display:none;margin-top:14px">
+      <h3 style="margin:0 0 6px">Customize this tenant's flow <span class="mut" style="font-weight:400">— настройка, не сборка: the base flow stays the measured one; you rename signers, skip optional steps, add checkpoints</span></h3>
+      <div id="flow-editor-body"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" onclick="saveFlowOverride()">Save customization</button>
+        <button class="back" style="border:1px solid var(--bd)" onclick="resetFlowOverride()">Reset to base flow</button>
+        <span class="mut" id="flow-editor-msg" role="status" aria-live="polite"></span>
+      </div>
     </div>
   </div>
 
@@ -537,6 +559,7 @@ function switchTab(t) {
   if (!canSee(t)) t = 'inbox';
   TAB = t; applyTab();
   if (t === 'admin') { loadTeam(); loadConfig(); }
+  if (t === 'flow') loadFlowTab();
   if (t === 'qa') loadQa();
   if (t === 'ops') loadOps();
   if (t === 'analytics') loadStats();
@@ -552,6 +575,7 @@ function applyRoleUI() {
   document.getElementById('runs-h').textContent = SESSION.token ? 'My cases' : 'All runs';
   document.getElementById('inbox-h').textContent = SESSION.token ? 'My queue — awaiting my signature' : 'Inbox — awaiting a human signature';
   const allowed = r.verticals === '*' ? Object.keys(VERT) : r.verticals;
+  document.getElementById('flow-vertical').innerHTML = '';   // re-init the Flow picker for the new role
   for (const o of document.getElementById('vertical').options) o.hidden = !allowed.includes(o.value);
   const cur = document.getElementById('vertical');
   if (cur.selectedOptions[0] && cur.selectedOptions[0].hidden) cur.value = allowed[0] || 'rcm';
@@ -565,6 +589,132 @@ function applyRoleUI() {
   }
   if (!canSee(TAB)) TAB = 'inbox';
   switchTab(TAB);
+}
+
+// ── Flow tab (P0 viewer + P1 parametric customization — "настройка, не сборка") ──
+let FLOW = null;        // last /api/autopilot/flow response
+let FLOW_EDIT = false;  // editor open?
+let FLOW_DRAFT = null;  // { roles, disabledSteps, extraGates } being edited
+const flowTenant = () => SESSION.tenant || document.getElementById('flow-tenant').value.trim() || 'default';
+const canEditFlow = () => ['admin', 'compliance-lead'].includes(role());
+
+function initFlowPicker() {
+  const sel = document.getElementById('flow-vertical');
+  const r = ROLES[role()] || { verticals: '*' };
+  const allowed = r.verticals === '*' ? Object.keys(VERT) : r.verticals;
+  sel.innerHTML = allowed.map(v => `<option value="${v}">${VERT[v] || '🤖'} ${v}</option>`).join('');
+  document.getElementById('flow-tenant').style.display = SESSION.token ? 'none' : '';
+}
+
+async function loadFlowTab() {
+  if (!document.getElementById('flow-vertical').options.length) initFlowPicker();
+  const v = document.getElementById('flow-vertical').value;
+  const box = document.getElementById('flow-steps');
+  box.innerHTML = '<div class="empty">loading…</div>';
+  FLOW = await api(`/api/autopilot/flow?vertical=${encodeURIComponent(v)}&tenant=${encodeURIComponent(flowTenant())}${authParams()}`);
+  if (FLOW.error) { box.innerHTML = `<div class="empty">${esc(FLOW.error)}</div>`; return; }
+  document.getElementById('flow-customized').style.display = FLOW.effective.customized ? '' : 'none';
+  document.getElementById('flow-edit-btn').style.display = canEditFlow() ? '' : 'none';
+  renderFlowSteps();
+  if (FLOW_EDIT) renderFlowEditor();
+}
+
+function flowStepHtml(s, n) {
+  const isGate = !!s.gate;
+  const irrev = s.reversible === false;
+  const added = s.addedByOverride;
+  const tools = (s.tools || []).map(t => `<span class="pill">${esc(t)}</span>`).join(' ');
+  return `<div class="card" style="padding:10px 14px;margin-bottom:6px${isGate ? ';border-left:3px solid var(--warn)' : ''}${added ? ';border-style:dashed' : ''}">
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <b style="min-width:24px">${n}.</b><span>${isGate ? '🧑‍⚖️' : '🤖'}</span>
+      <span style="flex:1;min-width:200px">${esc(s.does)}</span>
+      ${isGate ? `<span class="pill await" title="A named human signs here">✍️ ${esc(s.human)} · ${esc(s.gate)}</span>` : `<span class="pill">${esc(s.agent || '')}</span>`}
+      ${irrev ? `<span class="pill" style="color:var(--danger);border-color:var(--danger-border)" title="Runs only after the protecting gate is signed">⚠ irreversible · ${esc(s.blastRadius || 'high')} blast</span>` : ''}
+      ${added ? '<span class="pill">added by your tenant</span>' : ''}
+      ${tools}
+    </div>
+  </div>`;
+}
+
+function renderFlowSteps() {
+  const eff = FLOW.effective;
+  const st = FLOW.stats || {};
+  document.getElementById('flow-steps').innerHTML =
+    `<div class="mut" style="margin-bottom:8px">${esc(eff.autopilot || eff.vertical)} — ${st.autonomous ?? '?'} automated · ${st.human ?? '?'} human checkpoint(s) · ${st.connectors ?? '?'} connector(s) · accountable owner: <b>${esc(eff.owner || '—')}</b>${typeof eff.qualityScore === 'number' ? ` · quality ${eff.qualityScore}/100 (measured on the base flow)` : ''}</div>`
+    + eff.steps.map((s, i) => flowStepHtml(s, i + 1)).join('');
+}
+
+function toggleFlowEdit() {
+  FLOW_EDIT = !FLOW_EDIT;
+  document.getElementById('flow-editor').style.display = FLOW_EDIT ? '' : 'none';
+  if (FLOW_EDIT) {
+    const ov = FLOW.override || {};
+    FLOW_DRAFT = { roles: { ...(ov.roles || {}) }, disabledSteps: [...(ov.disabledSteps || [])], extraGates: JSON.parse(JSON.stringify(ov.extraGates || [])) };
+    renderFlowEditor();
+  }
+}
+
+function renderFlowEditor() {
+  const base = FLOW.base;
+  const d = FLOW_DRAFT;
+  const gates = base.steps.map((s, i) => ({ ...s, i })).filter(s => s.gate);
+  const skippable = base.steps.map((s, i) => ({ ...s, i })).filter(s => !s.gate && !s.human && s.reversible !== false);
+  document.getElementById('flow-editor-body').innerHTML = `
+    <div class="card" style="padding:12px 14px;margin-bottom:8px">
+      <b>Who signs</b> <span class="mut">— rename the signer role on a gate (the gate itself never goes away)</span>
+      ${gates.map(g => `<div class="row" style="margin-top:6px"><span class="pill await">${esc(g.gate)}</span>
+        <input data-gate="${esc(g.gate)}" value="${esc(d.roles[g.gate] || g.human)}" style="flex:1;min-width:220px"
+          oninput="FLOW_DRAFT.roles['${esc(g.gate)}']=this.value" aria-label="Signer for ${esc(g.gate)}" /></div>`).join('')}
+    </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:8px">
+      <b>Optional steps</b> <span class="mut">— only reversible agent steps can be skipped; gates and the irreversible write cannot</span>
+      ${skippable.length ? skippable.map(s => `<label class="row" style="margin-top:6px;cursor:pointer"><input type="checkbox" ${d.disabledSteps.includes(s.i) ? 'checked' : ''}
+        onchange="this.checked?FLOW_DRAFT.disabledSteps.push(${s.i}):(FLOW_DRAFT.disabledSteps=FLOW_DRAFT.disabledSteps.filter(x=>x!==${s.i}))" />
+        <span class="mut">skip</span> ${s.i + 1}. ${esc(s.does)}</label>`).join('') : '<div class="mut" style="margin-top:6px">this flow has no skippable steps</div>'}
+    </div>
+    <div class="card" style="padding:12px 14px">
+      <b>Extra checkpoints</b> <span class="mut">— add a second human signature after a step (e.g. a compliance pre-check)</span>
+      ${d.extraGates.map((g, gi) => `<div class="row" style="margin-top:6px"><span class="pill">after step ${g.after + 1}</span>
+        <span style="flex:1">${esc(g.does)} · ✍️ ${esc(g.human)} · ${esc(g.gate)}</span>
+        <button class="reject" onclick="FLOW_DRAFT.extraGates.splice(${gi},1);renderFlowEditor()">remove</button></div>`).join('')}
+      <div class="row" style="margin-top:8px">
+        <select id="xg-after" aria-label="Insert after step">${base.steps.map((s, i) => `<option value="${i}">after ${i + 1}. ${esc(s.does.slice(0, 48))}</option>`).join('')}</select>
+        <input id="xg-does" placeholder="what is being checked" style="flex:1;min-width:160px" />
+        <input id="xg-human" placeholder="who signs (role)" style="max-width:180px" />
+        <button class="back" style="border:1px solid var(--bd)" onclick="addExtraGate()">+ add checkpoint</button>
+      </div>
+    </div>`;
+}
+
+function addExtraGate() {
+  const does = document.getElementById('xg-does').value.trim();
+  const human = document.getElementById('xg-human').value.trim();
+  if (!does || !human) { flowMsg('describe the checkpoint and who signs it', true); return; }
+  const slug = does.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'extra';
+  FLOW_DRAFT.extraGates.push({ after: parseInt(document.getElementById('xg-after').value, 10), does, human, gate: `gate:${slug}` });
+  renderFlowEditor();
+}
+
+function flowMsg(t, bad) { const el = document.getElementById('flow-editor-msg'); el.textContent = t; el.style.color = bad ? 'var(--danger)' : 'var(--accent-text)'; }
+
+async function saveFlowOverride() {
+  // strip role renames that equal the base signer (no-op noise)
+  for (const [g, v] of Object.entries(FLOW_DRAFT.roles)) {
+    const baseStep = FLOW.base.steps.find(s => s.gate === g);
+    if (!v.trim() || (baseStep && baseStep.human === v.trim())) delete FLOW_DRAFT.roles[g];
+  }
+  const r = await api('/api/autopilot/flow-overrides', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...authBody(), vertical: FLOW.vertical, tenant: flowTenant(), by: SESSION.name || role(), ...FLOW_DRAFT }) });
+  if (r.error) { flowMsg(r.errors && r.errors.length ? r.errors.join(' · ') : r.error, true); return; }
+  flowMsg('saved — new runs for this tenant use the customized flow ✓');
+  await loadFlowTab();
+}
+
+async function resetFlowOverride() {
+  await api(`/api/autopilot/flow-overrides?vertical=${encodeURIComponent(FLOW.vertical)}&tenant=${encodeURIComponent(flowTenant())}${authParams()}`, { method: 'DELETE' });
+  FLOW_EDIT = false; document.getElementById('flow-editor').style.display = 'none';
+  flowMsg('');
+  await loadFlowTab();
 }
 
 // ── Team: the admin invites an operator to an industry (mints a scoped invite link) ──

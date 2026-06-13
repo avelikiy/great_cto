@@ -15,7 +15,8 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, rmSync
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createCipheriv, createDecipheriv, randomBytes, createHash, scryptSync } from 'node:crypto';
-import { loadFlow, runFlow } from './flow-runner.mjs';
+import { runFlow } from './flow-runner.mjs';
+import { getEffectiveFlow } from './flow-overrides.mjs';
 import { dueAt as slaDueAt, slaHours } from './sla.mjs';
 import { latencyBudgetMs, unitCostUsd } from './budgets.mjs';
 
@@ -197,7 +198,8 @@ function gateStep(trace) {
 
 /** Start a durable run: execute to the first human gate and persist. */
 export async function startRun(vertical, { mode = 'stub', payload = {}, tenant = 'default', source } = {}) {
-  const flow = loadFlow(vertical);
+  // The tenant's parametric overrides (renamed signers / disabled steps / extra gates) apply here.
+  const flow = getEffectiveFlow(vertical, tenant);
   const id = newId(vertical);
   // idempotency: a stable key per run so a retried write never double-submits at the provider.
   const trace = await runFlow(flow, { mode, payload: { idempotencyKey: id, ...payload } });
@@ -218,6 +220,9 @@ export async function startRun(vertical, { mode = 'stub', payload = {}, tenant =
     narrative: draftNarrative(vertical, recommendation, trace.steps, g ? g.human : trace.owner),
     slaHours: slaHours(vertical), dueAt: slaDueAt(vertical, createdAt),
     steps: trace.steps,
+    // Snapshot the flow this run executes against, so approve/requeue resume the SAME steps even
+    // if the tenant's overrides (or the shipped base flow) change while the case waits at a gate.
+    flowSnapshot: { vertical: flow.vertical, owner: flow.owner, customized: flow.customized || undefined, steps: flow.steps },
     audit: [],
   };
   pushAudit(run, { at: createdAt, event: 'started', mode, tenant, status: statusFromTrace(trace), pausedAt: trace.pausedAt, recommendation, source: source || 'manual' });
@@ -229,7 +234,7 @@ export async function approve(id, who, note = '', reason = '', license = '') {
   const run = getRun(id);
   if (!run) throw new Error(`run ${id} not found`);
   if (run.status !== 'awaiting-approval') throw new Error(`run ${id} is '${run.status}', not awaiting-approval`);
-  const flow = loadFlow(run.vertical);
+  const flow = run.flowSnapshot || getEffectiveFlow(run.vertical, run.tenant);
   const fromIndex = run.pausedAtIndex;     // where the write resumes (for dead-letter requeue)
   const resume = await runFlow(flow, {
     mode: run.mode, startAt: run.pausedAtIndex, approvedGates: [run.pausedAt],
@@ -519,7 +524,7 @@ export async function requeue(id, who = 'ops') {
   if (!run) throw new Error(`run ${id} not found`);
   if (run.status !== 'dead-letter' || !run.deadLetter) throw new Error(`run ${id} is '${run.status}', not dead-letter`);
   const { from, gate } = run.deadLetter;
-  const flow = loadFlow(run.vertical);
+  const flow = run.flowSnapshot || getEffectiveFlow(run.vertical, run.tenant);
   const resume = await runFlow(flow, {
     mode: run.mode, startAt: from, approvedGates: [gate],
     payload: { idempotencyKey: run.id, signedBy: who, approved: true, brokerSignedOff: true, bsaOfficerApproved: true, qppvApproved: true },
