@@ -908,15 +908,27 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
   const { resolve } = await import('node:path');
   const cli = resolve(import.meta.dirname || new URL('.', import.meta.url).pathname, '..', 'packages/cli/dist/main.js');
 
-  // Boot board with --port=N form, capture first line, then kill
+  // Boot board with --port=N form, capture first line, then kill.
+  // detached + group-kill so the spawned server (a grandchild) is reaped too —
+  // otherwise it survives, holds the port, and its piped fds keep node:test's
+  // event loop alive past the last test (suite hangs with no final summary).
   const { spawn } = await import('node:child_process');
-  const proc = spawn('node', [cli, 'board', '--port=4455', '--no-open'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn('node', [cli, 'board', '--port=4455', '--no-open'], {
+    stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+  });
   let stdout = '';
   proc.stdout.on('data', (b) => { stdout += b.toString(); });
   proc.stderr.on('data', (b) => { stdout += b.toString(); });
-  await new Promise((r) => setTimeout(r, 2500));
-  proc.kill('SIGKILL');
-  assert.match(stdout, /:4455/, `--port=4455 should bind to 4455, got: ${stdout.slice(0, 200)}`);
+  try {
+    await new Promise((r) => setTimeout(r, 2500));
+    assert.match(stdout, /:4455/, `--port=4455 should bind to 4455, got: ${stdout.slice(0, 200)}`);
+  } finally {
+    // Group-kill reaps the spawned server (grandchild) so no fds linger past the
+    // suite. Don't await 'exit' — once the group is gone nothing keeps the loop
+    // alive, and node:test flags the still-pending promise as a failure.
+    try { process.kill(-proc.pid, 'SIGKILL'); } catch {}
+    try { proc.kill('SIGKILL'); } catch {}
+  }
 });
 
 test('BH-A5: public share report fmtTime + speedup clamp prevent "0m / 28800× faster" rendering', async () => {
