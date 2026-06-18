@@ -108,6 +108,18 @@ const ARCHETYPE_COST: Record<string, readonly [number, number]> = {
   "greenfield":        [0.5, 3],
 };
 
+/**
+ * Archetypes that ship a user-facing interface and therefore get a
+ * `design-advisor` stage (plan-altitude, before pm). Backend/infra/library/CLI
+ * archetypes have no UI surface and skip it. design-advisor itself skips a
+ * change classified T0 at runtime (see scripts/lib/change-tier.mjs).
+ */
+export const UI_BEARING_ARCHETYPES: ReadonlySet<Archetype> = new Set<Archetype>([
+  "web-service", "mobile-app", "commerce", "marketplace", "cms",
+  "enterprise-saas", "edtech", "game", "browser-extension",
+  "healthcare", "fintech", "insurance", "gov-public", "web3",
+]);
+
 // ── Main export ───────────────────────────────────────────────────────────
 
 /**
@@ -131,6 +143,8 @@ export function compileFlow(
   agentSet.add("architect");
   agentSet.add("senior-dev");
   agentSet.add("qa-engineer");
+  // Design-advisor for UI-bearing archetypes (plan-altitude, before pm).
+  if (UI_BEARING_ARCHETYPES.has(archetype)) agentSet.add("design-advisor");
 
   // ── Gates ────────────────────────────────────────────────────────────────
   const gateSet = new Set<string>(
