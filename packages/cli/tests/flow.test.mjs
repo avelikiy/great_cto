@@ -83,3 +83,19 @@ test("cli-tool → baseline cost (≤$3), no compliance gate", () => {
   assert.ok(!flow.gates.includes("gate:compliance"), "cli-tool should not have compliance gate");
   assert.ok(flow.agents.includes("cli-reviewer"), "must include cli-reviewer");
 });
+
+// ── design-advisor wiring (UI-bearing archetypes only) ───────────────────────
+
+test("design-advisor is included for UI-bearing archetypes", () => {
+  for (const a of ["web-service", "mobile-app", "cms", "enterprise-saas", "marketplace", "commerce", "game", "edtech"]) {
+    const flow = compileFlow(a, "medium", mkDetection(), [], "high");
+    assert.ok(flow.agents.includes("design-advisor"), `${a} must include design-advisor`);
+  }
+});
+
+test("design-advisor is NOT included for non-UI (backend/infra/library) archetypes", () => {
+  for (const a of ["cli-tool", "library", "infra", "data-platform", "streaming", "iot-embedded"]) {
+    const flow = compileFlow(a, "medium", mkDetection(), [], "high");
+    assert.ok(!flow.agents.includes("design-advisor"), `${a} must NOT include design-advisor`);
+  }
+});
