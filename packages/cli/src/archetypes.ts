@@ -1161,6 +1161,69 @@ export function gatesFor(archetype: Archetype, size: ProjectSize): StandardGate[
 }
 
 /**
+ * The risk of an individual change — an axis orthogonal to project_size.
+ * project_size says how heavy a project is; change_tier says how dangerous
+ * THIS change is. They compose in `effectiveGates()`.
+ *
+ *   T0 — maintenance / fix / docs / test-only. CI + green tests are the gate.
+ *   T1 — net-new, reversible feature. Review the intent (plan); CI covers the rest.
+ *   T2 — irreversible / regulated / deploy-to-prod. Full gates, ship forced. Never downgraded.
+ *
+ * Auto-classification of a change into a tier lives in scripts/lib/change-tier.mjs;
+ * this module only defines how a tier maps to the gate set.
+ */
+export type ChangeTier = "T0" | "T1" | "T2";
+
+/** Gates that form the non-negotiable floor for a *regulated* archetype. */
+const FLOOR_GATES: StandardGate[] = ["security", "compliance", "ship"];
+
+/**
+ * The human gates the pipeline opens for a change, given its archetype, the
+ * project size, AND the per-change risk tier. Composes with `gatesFor()`:
+ *
+ *  - T2 (default): the full size baseline, with `ship` guaranteed even if a
+ *    small project_size had stripped it. An irreversible change always gets a
+ *    final go/no-go. Nothing is ever removed → fail-safe for an unknown tier.
+ *  - T1: only `plan` (you review intent) PLUS the regulated floor. The standalone
+ *    qa/security-as-ceremony is dropped because CI + tests cover a reversible change.
+ *  - T0: the regulated floor only — for a plain archetype that is the empty set
+ *    (CI is the gate); for a regulated one, security+compliance+ship still fire.
+ *
+ * An archetype is "regulated" iff its baseline contains `security` or `compliance`.
+ * That is what keeps the downgrade sound: a fintech repo cannot ship an
+ * irreversible change unreviewed even when the change is labelled a fix.
+ *
+ * NOTE: change-specific T2 triggers (a migration, a new write-connector, a prod
+ * deploy) are resolved upstream by the classifier, which escalates such a change
+ * to T2 before this function sees it. Here we only map an already-decided tier.
+ */
+export function effectiveGates(
+  archetype: Archetype,
+  size: ProjectSize,
+  tier: ChangeTier = "T2",
+): StandardGate[] {
+  const base = gatesFor(archetype, size);
+
+  // T2 (and any unrecognized tier) → full baseline, never downgraded, ship forced.
+  if (tier !== "T0" && tier !== "T1") {
+    return base.includes("ship") ? base : [...base, "ship"];
+  }
+
+  // Regulated archetypes carry a floor that survives every downgrade.
+  const isRegulated = base.includes("security") || base.includes("compliance");
+  const floor = isRegulated ? base.filter((g) => FLOOR_GATES.includes(g)) : [];
+
+  if (tier === "T1") {
+    const keep = new Set<StandardGate>(floor);
+    if (base.includes("plan")) keep.add("plan");
+    return base.filter((g) => keep.has(g)); // preserve base order
+  }
+
+  // T0 — maintenance.
+  return floor;
+}
+
+/**
  * Returns the ordered list of reviewers for an archetype. Empty for
  * `greenfield`. Used by the orchestrator to spawn the right
  * archetype-specific review stages after senior-dev.
