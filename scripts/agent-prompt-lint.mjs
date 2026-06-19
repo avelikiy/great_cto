@@ -338,12 +338,57 @@ const RULES = [
     desc: 'reviewer declares an output file pattern (TM-/MIGRATE-/PERF-/etc.)',
     appliesTo(file) { return REVIEWER_PATTERN.test(file.basename); },
     test(file) {
+      // A reviewer that mounts archetype-review-base INHERITS the canonical output
+      // convention (docs/sec-threats/TM-{slug}.md) from the base skill — it need not
+      // restate it. This is the consolidation invariant (great_cto-bjj): the scaffold
+      // lives in one place. Only reviewers that do NOT mount the base must declare it.
+      if (/^\s*-\s*archetype-review-base\s*$/m.test(file.text)) return [];
       // Reviewers must reference a docs/<dir>/<PREFIX>-{slug-or-name}.md output.
-      // Allows TM-, MIGRATE-, PERF-, ARCH- variants.
+      // Allows TM-, MIGRATE-, PERF-, ARCH- variants, incl. a {domain}- segment.
       const re = /docs\/[a-z-]+\/[A-Z][A-Z0-9-]+-(?:\$\{?SLUG\}?|\{slug\}|extension-\{slug\}|[a-z][a-z0-9-]*)\.md/;
       if (!re.test(file.text)) {
         return [`reviewer missing explicit output file pattern (e.g. \`docs/sec-threats/TM-{slug}.md\`)`];
       }
+      return [];
+    },
+  },
+  {
+    // Anti-regrowth (great_cto-ckf): a reviewer that mounts archetype-review-base
+    // must NOT restate the scaffold the base skill owns. Warn (not error) because the
+    // 46 not-yet-deep-trimmed reviewers still carry a redundant Step-0 copy — flagging
+    // keeps it visible and blocks NEW regrowth in review without breaking CI.
+    id: 'CONS-NOREPEAT',
+    severity: SEVERITY.warn,
+    desc: 'reviewer does not re-declare base-owned scaffold (Step-0 bash / "Skills used" footer)',
+    appliesTo(file) {
+      return REVIEWER_PATTERN.test(file.basename)
+        && /^\s*-\s*archetype-review-base\s*$/m.test(file.text);
+    },
+    test(file) {
+      const body = file.bodyAfterFrontmatter || file.text;
+      const msgs = [];
+      // A "## Skills used" footer is pure redundancy with the skills: frontmatter — the
+      // clearest regrowth marker. (The Step-0 read-inputs bash is also base-owned, but
+      // 46 reviewers legitimately still carry it post-mechanical-pass, so flagging it
+      // would nag an accepted baseline rather than catch regrowth — left out on purpose.)
+      if (/^##+\s+Skills used\b/im.test(body)) {
+        msgs.push('drop the "## Skills used" footer — the `skills:` frontmatter is the source of truth');
+      }
+      return msgs;
+    },
+  },
+  {
+    // Size backstop (great_cto-ckf): flag a reviewer that has grown well past the
+    // domain-only target. Generous cap — legit domain-table-heavy reviewers run ~200;
+    // only egregious bloat (full scaffold re-added) crosses this.
+    id: 'CONS-SIZE',
+    severity: SEVERITY.warn,
+    desc: 'reviewer stays within the domain-only size budget',
+    appliesTo(file) { return REVIEWER_PATTERN.test(file.basename); },
+    test(file) {
+      const lines = file.text.split('\n').length;
+      const CAP = 260;
+      if (lines > CAP) return [`reviewer is ${lines} lines (> ${CAP}) — likely re-grown scaffold; trim to domain-only`];
       return [];
     },
   },
