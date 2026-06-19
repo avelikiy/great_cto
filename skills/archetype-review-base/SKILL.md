@@ -1,6 +1,6 @@
 ---
 name: archetype-review-base
-description: Shared review framework that every domain reviewer (pci, oracle, gov, edtech, healthcare, mlops, etc.) MUST follow. Defines mandatory sections, severity scale, verdict format, and the "domain heuristic vs generic check" boundary. Eliminates duplication across 18 reviewer prompts.
+description: Shared review framework that every domain reviewer (pci, oracle, gov, edtech, healthcare, mlops, etc.) MUST follow. Defines the output artifact (TM-{slug}.md), mandatory sections, severity scale, verdict format, the workflow scaffold (when-invoked, Step-0 read-inputs, HANDOFF), and the "domain heuristic vs generic check" boundary. Eliminates duplication across the 60+ reviewer prompts.
 when_to_use: |
   Apply when invoked as ANY domain reviewer:
   - pci-reviewer, oracle-reviewer, gov-reviewer, healthcare-reviewer,
@@ -27,11 +27,21 @@ Every domain reviewer follows this skeleton. Each reviewer's own
 SKILL.md adds the domain heuristics on top. This skill defines the
 parts that must be IDENTICAL across all reviewers.
 
+## Output artifact (canonical)
+
+Pre-implementation reviewers (the 60+ `*-reviewer` agents, invoked by architect
+BEFORE senior-dev claims tasks) write a **threat model** at
+`docs/sec-threats/TM-{slug}.md` and append a `<!-- HANDOFF -->` block (see
+"Workflow scaffold" below). That is the convention 64/64 reviewers use today.
+
+The **Findings / Severity / Verdict** structure below is the CONTENT format that
+goes inside that artifact (and inside any post-implementation
+`docs/reviews/REVIEW-{slug}.md` produced by a review-tier agent). Path differs by
+phase; the section grammar is identical.
+
 ## Mandatory report sections
 
-A domain review report is a markdown file at
-`docs/reviews/REVIEW-{slug}-{reviewer}.md`. It MUST contain these
-sections in this exact order:
+The report (TM or REVIEW) MUST contain these sections in this exact order:
 
 ```markdown
 # REVIEW-{slug} — {reviewer name}
@@ -156,3 +166,61 @@ Before writing your verdict line, grep your draft for:
 - Any Critical/High without remediation-in-bd — flip to BLOCKED
 
 If any check fires in a non-quoted block, fix before signing off.
+
+## Workflow scaffold (shared — your prompt must NOT repeat this)
+
+Every reviewer shares the same skeleton. It lives HERE; a domain reviewer's own
+prompt should add only its domain heuristics on top, never re-state the steps
+below. (Historically each reviewer copied ~80 lines of this — that duplication is
+what this skill exists to remove.)
+
+### When you are invoked
+
+- `senior-dev` is in pre-implementation mode AND the project `archetype` matches
+  yours (or an `applies_to:` you declare).
+- Architect has finished the ARCH doc; senior-dev has NOT started coding.
+- Any new surface in your domain (a new flag, connector, payment path, migration…).
+
+You run BEFORE senior-dev claims tasks. Your Critical/High findings must have a
+remediation in the bd backlog before the pipeline proceeds.
+
+### Step 0 — Read inputs (canonical; do not re-derive)
+
+```bash
+mkdir -p docs/sec-threats
+ARCH=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
+[ -z "$ARCH" ] && { echo "BLOCKED: no ARCH doc — architect must run first." >&2; exit 1; }
+SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
+TM="docs/sec-threats/TM-${SLUG}.md"
+```
+
+Then read, in order: the ARCH doc's domain-relevant sections, the source files in
+your domain, and any `.great_cto/PROJECT.md` fields your domain needs (e.g.
+`code-sets:`, `payers:`, `compliance:`).
+
+### Output — `docs/sec-threats/TM-${SLUG}.md`
+
+Use your domain template at `skills/great_cto/templates/TM-{archetype}.md` if one
+exists, else the Findings/Severity/Verdict grammar above. End the file with a
+hand-off block the orchestrator parses:
+
+```yaml
+<!-- HANDOFF -->
+{your-name}-verdict: signed-off | blocked
+critical-findings: <N>
+high-findings: <M>
+must-implement-before-senior-dev:
+  - <specific change 1>
+  - <specific change 2>
+gate: <gate:domain-signoff or — if none>
+```
+
+### Do NOT include in your prompt
+
+- A "## Skills used" footer — your `skills:` frontmatter is the source of truth.
+- A re-statement of the severity scale, verdict rules, prose rules, escalation
+  policy, or self-test — all defined above in THIS skill.
+- A copy of the Step-0 bash — it is canonical here.
+
+See `skills/archetype-review-base/reviewer-template.md` for the minimal shape a
+domain reviewer should follow after this scaffold is factored out.
