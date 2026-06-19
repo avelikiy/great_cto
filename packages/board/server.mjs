@@ -8,10 +8,16 @@
  */
 
 import http from 'http';
-import { handleAutopilot } from './autopilot-api.mjs';
-import { resolveInvite } from '../../scripts/lib/operators.mjs';
-import { autoEscalateStale as apAutoEscalateStale, connectorHealth as apConnectorHealth, deadLetters as apDeadLetters } from '../../scripts/lib/run-store.mjs';
-import { startDemoFeeder } from '../../scripts/lib/demo-feeder.mjs';
+// ── operate surface removed → github.com/avelikiy/operate (build/operate split, great_cto-2l4) ──
+// The operator console (autopilot runtime, vertical flows, connectors) lives in a separate repo.
+// These no-op stubs keep this BUILD board fully standalone: console routes 404, operate crons no-op.
+// Dead operate routing/cron code downstream is harmless (calls these stubs) — cleanup is a follow-up.
+const handleAutopilot = () => false;          // console API no longer served here → falls through to 404
+const resolveInvite = () => null;             // no operator invites on the build board
+const apAutoEscalateStale = () => [];         // operate SLA cron → no-op
+const apConnectorHealth = () => [];           // operate connector-health cron → no-op
+const apDeadLetters = () => [];               // operate dead-letter cron → no-op
+const startDemoFeeder = () => {};             // operate demo feeder → no-op
 import fs from 'fs';
 import path from 'path';
 import { execSync, spawnSync, spawn } from 'child_process';
