@@ -1,5 +1,14 @@
 # Positioning vocabulary — business language, not engineering
 
+> **⚠️ SUPERSEDED 2026-06-19 — positioning pivot (epic great_cto-9it).** great_cto is now
+> **"AI Product Builder"** — build real software products through a single CTO gate, maximum
+> automation. The "AI autopilots for business" framing below (autopilot / flow / regulated
+> verticals / per-transaction human gate) is the OLD positioning; that runtime surface moved
+> to [github.com/avelikiy/operate](https://github.com/avelikiy/operate). New copy lives in the
+> README and `docs/strategy/{PRODUCT-BUILDER-DIRECTION,BUILD-PIPELINES}.md`. A full term-by-term
+> rewrite of this file (autopilot→product, flow→pipeline) + the great_cto-site landing,
+> `_domains.json`, and the 9 localized READMEs is a follow-up. Everything below is OLD.
+
 > **Single source of truth for all outward copy** (landing, README, CLI onboarding, decks).
 > great_cto is positioned as **"AI autopilots for business."** When we talk about a vertical we
 > talk about its **flow** and **automation**, not pipelines and packs.

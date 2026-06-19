@@ -2,7 +2,7 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**AI autopilots for business — get the work done, not just the software.**
+**AI Product Builder — describe a product, approve the spec, ship the software.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -23,109 +23,36 @@ npx great-cto init
 
 ---
 
-## Services are the new software
+## Build the product, not just the code
 
-The next wave isn't tools for specialists — it's **autopilots that sell the outcome of a service**.
-An autopilot runs a whole business function end to end (intake → process → decide → deliver) and
-escalates only the judgment calls to a qualified human. Every model improvement makes the service
-faster and cheaper.
+great_cto is an **AI Product Builder**. Describe a software product and it runs the whole
+build — architecture, data model, backend, frontend, tests, deploy. **One human gate:** you,
+the CTO, approve the spec. Everything after is automated, to a shipped repo and a live URL.
 
-GreatCTO ships those autopilots — each one a **flow of agents + tools with a human on the risky
-steps**, a built-in compliance reviewer, and **live connectors** that run each flow on real data.
+The top US industries it builds for — home & field services, professional services,
+hospitality, retail/e-commerce, proptech, fitness, marketing & creator, HR/recruiting,
+construction, logistics — collapse into **6 reusable build archetypes** (CRUD vertical-SaaS,
+booking, CRM, dashboard, marketplace, content/media). One template ships any of ~40 products.
+See [docs/strategy/BUILD-PIPELINES.md](docs/strategy/BUILD-PIPELINES.md).
 
-## The autopilots
-
-| Autopilot | What it does | Market | Who's building it |
-|---|---|---|---|
-| 🩺 **[Medical-coding](https://greatcto.systems/autopilots/rcm.html)** | Clinical notes → clean, compliant claims; a certified coder signs the risky ones | $50–80B | Anterior · CodaMetrix · Fathom |
-| 🖥️ **[Managed-IT](https://greatcto.systems/autopilots/msp.html)** | Patches, configs & access across the fleet — staged, reversible, human on big changes | $100B+ | Serval · Edra · Electric AI |
-| ⚖️ **[Legal-document](https://greatcto.systems/autopilots/legaltech.html)** | Drafts & redlines contracts and NDAs; a licensed attorney signs anything that's advice | $20–25B | Crosby · Harvey · Robin AI |
-| 📒 **[Bookkeeping & close](https://greatcto.systems/autopilots/accounting.html)** | Books, reconciles & closes the month; a controller signs the close | $50–80B | Rillet · Basis · Digits |
-| 🧾 **[Tax-prep](https://greatcto.systems/autopilots/tax.html)** | Prepares returns & classifies positions; a credentialed preparer signs before filing | $30–35B | Black Ore · April · Column Tax |
-| 🛒 **[Source-to-pay](https://greatcto.systems/autopilots/procurement.html)** | Onboards suppliers, matches invoices, releases payments — screened for sanctions & fraud | $200B+ | Tacto · Zip · AskLio |
-| ✅ **[Prior-authorization](https://greatcto.systems/autopilots/prior-auth.html)** | Auth request + chart → approval or a clean determination; a medical director signs every denial | $35–56B | Cohere Health · Anterior · Develop Health |
-| 🛡️ **[KYC/AML](https://greatcto.systems/autopilots/aml.html)** | Onboards, screens & monitors customers; a BSA Officer signs every SAR | $61B | Diligent AI · Alloy · Sardine |
-| 🔐 **[Managed-SOC](https://greatcto.systems/autopilots/soc.html)** | Triages & investigates every alert 24/7; a SOC analyst signs any containment | $4–6B | 7AI · Dropzone · Prophet Security |
-| ☂️ **[Claims & underwriting](https://greatcto.systems/autopilots/insurance.html)** | Adjudicates claims & prices risk; a licensed adjuster/underwriter signs the call | $36–38B | Shift · Akur8 · Avallon |
-| 🏠 **[Mortgage-underwriting](https://greatcto.systems/autopilots/mortgage.html)** | Processes & underwrites to clear-to-close; a DE underwriter signs | $40B+ | Tidalwave · Zest AI · Blend |
-| 🔑 **[Title & escrow](https://greatcto.systems/autopilots/title.html)** | Title search, escrow & closing; a licensed officer signs the title & the wire | $16.2B | Propy · Qualia · Titl |
-| 🪪 **[Provider-credentialing](https://greatcto.systems/autopilots/credentialing.html)** | Primary-source verifies & enrolls a provider; the committee signs privileging | $1.2B+ | Medallion · Verifiable · CertifyOS |
-| 💰 **[Debt-collection](https://greatcto.systems/autopilots/collections.html)** | Compliant outreach & payment plans; a manager signs escalation & settlements | $13.5–16B | CollectWise · InDebted · Tesorio |
-| 🚚 **[Freight-brokerage](https://greatcto.systems/autopilots/freight.html)** | Matches loads to vetted carriers & books; a licensed broker signs binding rates | $19–125B | HappyRobot · FleetWorks · Vooma |
-| 🧪 **[Clinical-trial-ops](https://greatcto.systems/autopilots/cro.html)** | Screens patients & runs monitoring; the PI / medical monitor signs eligibility | $20–28B | Triomics · QuantHealth · Tempus |
-| 🛃 **[Customs-clearance](https://greatcto.systems/autopilots/customs.html)** | Classifies, values & screens imports; a licensed customs broker signs the entry of record | $4.6B | Digicust · Flexport · Avalara |
-| 📊 **[SOX ITGC audit](https://greatcto.systems/autopilots/audit.html)** | Tests IT general controls & drafts workpapers; a CPA signs the opinion | $15–25B | Midship · Scytale · AuditBoard |
-| 💊 **[Pharmacovigilance](https://greatcto.systems/autopilots/pharma.html)** | Processes adverse-event cases; a QPPV / drug-safety physician signs before reporting | $1.65B | ArisGlobal · Indegene · Lifebit |
-| 🗽 **[Immigration](https://greatcto.systems/autopilots/immigration.html)** | Assembles petitions & checks eligibility; a licensed attorney of record signs before filing (UPL) | $3.2B | Boundless · Lawfully · Docketwise |
-| 🏠 **[Appraisal](https://greatcto.systems/autopilots/appraisal.html)** | Pulls comps & reconciles value; a state-certified appraiser signs every USPAP report (independence) | $9.2B | Clear Capital · Reggora · Class Valuation |
-| 💵 **[Payroll](https://greatcto.systems/autopilots/payroll.html)** | Computes gross-to-net & tax; a payroll manager (CPP) signs before ACH funding + the 941 deposit | $5.8B | Gusto · Rippling · Deel |
-| 🦺 **[Workers-comp](https://greatcto.systems/autopilots/workers-comp.html)** | Determines compensability & benefits; a licensed adjuster signs denials & terminations (bad-faith) | $6.5B | CLARA Analytics · Gradient AI · Sedgwick |
-| 📜 **[Estate](https://greatcto.systems/autopilots/estate.html)** | Drafts & assesses wills/trusts; a licensed estate attorney signs before execution (UPL) | $2.4B | Trust & Will · Wealth.com · Vanilla |
-| 💡 **[Patent](https://greatcto.systems/autopilots/patent.html)** | Prior-art + patentability; a USPTO-registered practitioner signs before filing (37 CFR 11 / candor) | $5.1B | Solve Intelligence · IPRally · DeepIP |
-
-→ [All autopilots](https://greatcto.systems/autopilots.html) · run `/flow <vertical>` to see any flow in your terminal
-
-**Each autopilot keeps a human on the judgment calls** — a certified coder, a licensed attorney, a
-controller, a credentialed preparer. The autopilot does the volume; the human owns the call that
-carries liability. **22 live connectors run on real data across the 25 verticals** — FHIR, ICD-10
-(NLM), NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, staged-rollout, a US federal tax engine, plus
-medical-necessity criteria, claims fraud-scoring, mortgage AUS (DU/LPA), OIG/SAM exclusion screening,
-FMCSA carrier-vetting, Reg-F/TCPA outreach guardrails, IOC threat-intel, and FinCEN SAR generation.
-They're keyless by default (public source or deterministic real generation) and POST to the real
-provider the moment you add credentials.
-
-## Operate: the console where a human signs
-
-→ *The buyer-facing story of this surface: [greatcto.systems/operate](https://greatcto.systems/operate)*
-
-`great-cto board` opens the **operator console** at `http://localhost:3141/autopilot.html` — the
-Operate-mode surface where the autopilot's work lands for a named human. Every case the autopilot
-can't auto-clear waits in the **inbox** with its AI recommendation, confidence, evidence and an SLA
-clock; signing executes the irreversible write, rejecting stops it. Nothing irreversible runs without
-a signature.
-
-**Two surfaces, one engine.** The builder board (you) and the operator console (your signers) are
-separate faces of the same server:
-
-```bash
-great-cto board                    # builder: kanban, agents, pipeline — localhost only
-great-cto console --port 8788      # operator console ONLY — the dev board does not exist here
-great-cto console --bind 0.0.0.0   # hostable (tunnel / console.client.com); invite-only entry
+```
+   describe a product
+        │
+   spec synthesis  ── architecture · data model · screens          (automated)
+        ▼
+   👤  CTO gate — approve the spec        ← the one human checkpoint
+        │
+   scaffold → backend → frontend → integrate → test → deploy        (automated)
+        ▼
+   shipped product · repo · live URL
 ```
 
-On the console surface there is no local-admin fallback — without a valid invite link the
-operator sees an "ask your administrator" screen. An invite token never opens builder routes
-(any mode), and an invited operator acts strictly inside their own tenant. Invite links expire
-after 7 days (`GREAT_CTO_INVITE_TTL_DAYS`, `0` = never).
+CI and generated tests are the quality gate — you sign the **direction**, not every line.
 
-**Quick start: onboarding your signers** (one `npx great-cto` install covers both surfaces):
-
-1. **Admin** opens the console → **Team** panel → picks the operator's role (underwriter,
-   BSA officer, certified coder… — 26 roles) and tenant → *Create invite* → copies the link
-   (or emails it). The link expires in 7 days.
-2. **Operator** opens the link — and is in: role and workspace are baked into the token and
-   can't be changed from the browser. They see only the console (tenant's brand if set),
-   only their tenant's cases.
-3. **Work**: cases land in the inbox — started by hand, or pushed by a source system via
-   `POST /api/autopilot/ingest` (HMAC-signed with `GREAT_CTO_INGEST_SECRET`). The operator
-   reads the AI recommendation + evidence and signs or rejects; every decision is recorded
-   with date, time, evidence and confidence in the audit trail.
-4. **Revoke**: Team → *Revoke* kills the token instantly.
-
-When binding beyond loopback (`--bind`), operators are protected by invite tokens; put your
-reverse-proxy auth in front for anything admin-grade — full hosted auth ships with the
-console package split (P5 in `docs/plans/PLAN-ui-split.md`).
-
-<p align="center">
-  <img src="docs/screenshots/console-inbox.png" alt="Operator console inbox — cases awaiting a human signature with AI recommendation, confidence and SLA" width="900" />
-</p>
-
-<table>
-<tr>
-<td width="50%"><a href="docs/screenshots/console-drawer.png"><img src="docs/screenshots/console-drawer.png" alt="Case drawer — decision criteria, connector evidence, AI-drafted determination, audit trail" width="100%" /></a><br/><sub><b>Case drawer</b> — the decision criteria (the SOP), the connector evidence, the AI-drafted determination, and the tamper-evident audit trail — everything the signer needs in one panel</sub></td>
-<td width="50%"><a href="docs/screenshots/console-ops.png"><img src="docs/screenshots/console-ops.png" alt="Ops tab — metering, connector health, dead-letter queue with requeue" width="100%" /></a><br/><sub><b>Ops tab</b> — cost & latency metering, connector health (failure rate + p95), and a dead-letter queue with one-click requeue</sub></td>
-</tr>
-</table>
+> **Operate** — the runtime surface where a human signs each regulated transaction (operator
+> console, autopilot runtime, vertical flows) — **moved to its own repo:**
+> [github.com/avelikiy/operate](https://github.com/avelikiy/operate). great_cto is now the
+> build product.
 
 ## Under the hood (for the CTO who runs it)
 
