@@ -25,6 +25,7 @@ import {
   removeSubscription,
 } from './push-adapter.mjs';
 import crypto from 'node:crypto';
+import { planGates } from '../../scripts/lib/gate-plan.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -151,6 +152,22 @@ function readProjectMd(dir) {
     path: dir,
     added_at: new Date().toISOString(),
   };
+}
+// change_tier for a project's working-tree diff (gate-tiering, ADR-003/004): which
+// human gates open for the current change + which judge model runs. Pure planGates()
+// over the project's archetype/size + `git diff --name-only`.
+function getChangeTier(dir) {
+  try {
+    const meta = readProjectMd(dir);
+    if (!meta) return { tier: null, error: 'no PROJECT.md' };
+    const pm = fs.readFileSync(path.join(dir, '.great_cto', 'PROJECT.md'), 'utf8');
+    const size = (pm.match(/^project_size:\s*(\S+)/m) || [])[1] || 'medium';
+    const out = spawnSync('git', ['diff', '--name-only', 'HEAD'], { cwd: dir, encoding: 'utf8', timeout: 5000 });
+    const changedFiles = String(out.stdout || '').split('\n').map(s => s.trim()).filter(Boolean);
+    return planGates({ archetype: meta.archetype, size, changedFiles });
+  } catch (e) {
+    return { tier: 'T2', error: e.message };  // fail-safe: unknown → full gates
+  }
 }
 function autoRegisterProject(dir) {
   const meta = readProjectMd(dir);
@@ -2922,6 +2939,13 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/pipeline') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getPipeline(cwd)));
+    return;
+  }
+
+  // change_tier for the current working-tree diff — the gate + judge plan (ADR-003/004).
+  if (pathname === '/api/change-tier') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getChangeTier(cwd)));
     return;
   }
 

@@ -1020,6 +1020,14 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text3); font-size: 13px;
 }
 
+/* ── change_tier badge ────────────────────────────────────────────────────── */
+.tier-badge { font-size: 11px; padding: 1px 8px; border-radius: 999px; margin-left: 6px;
+  font-family: var(--mono); white-space: nowrap; }
+.tier-badge:empty { display: none; }
+.tier-badge.tier-T0 { background: var(--status-review); color: #fff; }
+.tier-badge.tier-T1 { background: var(--status-progress); color: #fff; }
+.tier-badge.tier-T2 { background: var(--status-blocked); color: #fff; }
+
 /* ── Pipeline track ───────────────────────────────────────────────────────── */
 .pipeline-track {
   display: flex; gap: 0;
@@ -2247,6 +2255,7 @@ button { font-family: inherit; cursor: pointer; }
             <span class="dot dot-blue"></span>
             <h3>Active pipeline</h3>
             <span class="inbox-count" id="pipeline-status">idle</span>
+            <span class="tier-badge" id="tier-badge" title="change_tier for the current working-tree diff — which gates + judge open (ADR-003/004)"></span>
           </div>
           <div class="pipeline-track" id="pipeline-track"></div>
         </div>
@@ -2931,6 +2940,22 @@ function openSideById(id) {
 async function refreshPipeline() {
   const d = await api(`/api/pipeline${pqs()}`);
   if (Array.isArray(d)) renderPipeline(d);
+  renderTierBadge();
+}
+
+// change_tier badge — the gate + judge plan for the current working-tree diff (ADR-003/004).
+async function renderTierBadge() {
+  const el = document.getElementById('tier-badge');
+  if (!el) return;
+  try {
+    const t = await api(`/api/change-tier${pqs()}`);
+    if (!t || !t.tier) { el.textContent = ''; el.className = 'tier-badge'; return; }
+    const n = (t.gates && t.gates.length) || 0;
+    const gates = n ? `${n} gate${n > 1 ? 's' : ''}` : 'no gate';
+    const judge = t.judge ? (t.judge.human ? 'frontier+human' : 'cheap judge') : '';
+    el.textContent = `${t.tier} · ${gates}${judge ? ' · ' + judge : ''}`;
+    el.className = 'tier-badge tier-' + t.tier;
+  } catch { el.textContent = ''; el.className = 'tier-badge'; }
 }
 
 function renderPipeline(stages) {
