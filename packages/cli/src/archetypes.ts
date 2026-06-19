@@ -30,6 +30,12 @@ export type Archetype =
   | "gov-public"
   | "insurance"
   | "defense-govcon"
+  // ── Product Builder archetypes (A1–A6, 2026-06-19 pivot; A5 = marketplace above) ──
+  | "vertical-saas"      // A1 — CRUD vertical SaaS (entities + roles + records UI)
+  | "booking"            // A2 — booking / scheduling (calendar + availability + payments)
+  | "crm"                // A3 — CRM + nurture (contacts + pipeline + sequences)
+  | "dashboard"          // A4 — dashboard / analytics (ingest + metrics + viz)
+  | "content-platform"   // A6 — content / media (catalog + access + delivery + monetization)
   | "greenfield";
 
 export interface ArchetypePick {
@@ -1105,6 +1111,12 @@ export const REVIEWERS_BY_ARCHETYPE: Record<Archetype, string[]> = {
   "gov-public":        ["gov-reviewer", "security-officer"],
   "insurance":         ["insurance-reviewer", "regulated-reviewer"],
   "defense-govcon":    ["cmmc-reviewer", "gov-reviewer", "security-officer"],
+  // Product Builder archetypes (A1–A6) — lean reviewer sets; payments → pci.
+  "vertical-saas":     ["security-officer"],
+  "booking":           ["pci-reviewer", "security-officer"],
+  "crm":               ["security-officer"],
+  "dashboard":         ["security-officer"],
+  "content-platform":  ["pci-reviewer", "security-officer"],
   "greenfield":        [],
 };
 
@@ -1142,6 +1154,13 @@ export const GATES_BY_ARCHETYPE: Record<Archetype, StandardGate[]> = {
   "gov-public":        ["plan", "qa", "gov-review", "security", "ship", "compliance"],
   "insurance":         ["plan", "qa", "insurance-review", "security", "ship", "compliance"],
   "defense-govcon":    ["plan", "qa", "cmmc-assessment", "security", "ship", "compliance"],
+  // Product Builder archetypes (A1–A6) — non-regulated baseline; the single CTO gate
+  // emerges at change_tier T1 (effectiveGates → [plan]).
+  "vertical-saas":     ["plan", "qa", "ship"],
+  "booking":           ["plan", "qa", "ship"],
+  "crm":               ["plan", "qa", "ship"],
+  "dashboard":         ["plan", "qa", "ship"],
+  "content-platform":  ["plan", "qa", "ship"],
   "greenfield":        ["plan"],
 };
 

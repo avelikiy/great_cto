@@ -93,6 +93,13 @@ test("design-advisor is included for UI-bearing archetypes", () => {
   }
 });
 
+test("product-builder archetypes (A1–A6) are UI-bearing → include design-advisor", () => {
+  for (const a of ["vertical-saas", "booking", "crm", "dashboard", "content-platform"]) {
+    const flow = compileFlow(a, "medium", mkDetection(), [], "high");
+    assert.ok(flow.agents.includes("design-advisor"), `${a} must include design-advisor`);
+  }
+});
+
 test("design-advisor is NOT included for non-UI (backend/infra/library) archetypes", () => {
   for (const a of ["cli-tool", "library", "infra", "data-platform", "streaming", "iot-embedded"]) {
     const flow = compileFlow(a, "medium", mkDetection(), [], "high");
