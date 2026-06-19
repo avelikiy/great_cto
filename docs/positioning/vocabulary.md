@@ -1,65 +1,55 @@
-# Positioning vocabulary — business language, not engineering
-
-> **⚠️ SUPERSEDED 2026-06-19 — positioning pivot (epic great_cto-9it).** great_cto is now
-> **"AI Product Builder"** — build real software products through a single CTO gate, maximum
-> automation. The "AI autopilots for business" framing below (autopilot / flow / regulated
-> verticals / per-transaction human gate) is the OLD positioning; that runtime surface moved
-> to [github.com/avelikiy/operate](https://github.com/avelikiy/operate). New copy lives in the
-> README and `docs/strategy/{PRODUCT-BUILDER-DIRECTION,BUILD-PIPELINES}.md`. A full term-by-term
-> rewrite of this file (autopilot→product, flow→pipeline) + the great_cto-site landing,
-> `_domains.json`, and the 9 localized READMEs is a follow-up. Everything below is OLD.
+# Positioning vocabulary — product-builder language
 
 > **Single source of truth for all outward copy** (landing, README, CLI onboarding, decks).
-> great_cto is positioned as **"AI autopilots for business."** When we talk about a vertical we
-> talk about its **flow** and **automation**, not pipelines and packs.
+> great_cto is positioned as **"AI Product Builder."** We talk about the **product** you ship and
+> the **pipeline** that builds it — not autopilots, flows, or packs (that was the pre-2026-06-19
+> "AI autopilots for business" positioning; its runtime moved to
+> [github.com/avelikiy/operate](https://github.com/avelikiy/operate)).
 
-## The reframe
+## The pitch in one line
 
-We describe **what the autopilot does for the business**, not how we build it. The engineering
-machinery (archetypes, packs, the SDLC pipeline, reviewers) moves under the hood as the *trust
-layer*; the **flow** (intake → process → decide → deliver, with a human on the judgment calls)
-becomes the headline.
+**Describe a product. Approve the spec. Ship the software.** One human gate — you, the CTO —
+approve the spec; everything after is automated to a shipped repo and a live URL.
+
+## The four things a buyer sees
+
+1. **Product** — the software they want to ship ("a dispatch app", "a booking portal").
+2. **Pipeline** — the build stages: spec → CTO gate → scaffold → build → test → deploy.
+3. **The CTO gate** — the single human checkpoint: you approve the spec, nothing else.
+4. **The output** — a real repo they own and a live URL, plus the tests that keep it honest.
 
 ## Translation table — never use the left column in outward copy
 
-| Internal (engineering) | Outward (business) |
+| Internal (engineering) | Outward (product-builder) |
 |---|---|
-| archetype | the business function you're automating |
-| pack / domain overlay | the **flow** of the vertical + its built-in checks |
-| reviewer agent | the **compliance step** in the flow + the **human sign-off** |
-| SDLC pipeline (architect → dev → qa → security → devops) | "how we build it" — kept off-stage |
-| gate | **human checkpoint** — where a named person signs off |
-| threat model | the vertical's risk map (internal) |
-| autopilot-gate manifest | the autopilot's **judgment threshold + accuracy SLA + audit trail** |
-| vertical scorecard score | **measured quality** (a number, a badge — proof, not marketing) |
-| connector | **tool / integration** the autopilot plugs into |
-| "we detected archetype X, loading pack Y" | "Looks like you're automating *medical billing* — here's your coding autopilot" |
+| archetype (vertical-saas, booking, crm…) | the **kind of product** / the **pipeline** that builds it |
+| change_tier / gatesFor / effectiveGates | "how much you approve" — surfaced as the **one CTO gate** |
+| reviewer agent / security-officer | a **build check** that runs before ship (kept off-stage) |
+| SDLC pipeline (architect → dev → qa → deploy) | the **build pipeline** — this IS the headline now |
+| gate:plan | the **CTO gate** — where you approve the spec |
+| design-advisor + ui-ux-pro-max | "it designs the screens" (the spec stage) |
+| CI / generated tests | the **quality gate** — green before ship |
+| connector / integration | the **integration** (Stripe, Twilio, …) the product plugs into |
 
-## The four objects a buyer sees
+## The 10 industries → 40 products → 6 pipelines
 
-1. **Autopilot** — the product for their business function ("medical-coding autopilot").
-2. **Flow** — the steps the autopilot runs (their business process).
-3. **Agents + tools** — who does each step and what it plugs into.
-4. **Human checkpoints** — where a named person signs off the judgment calls.
+The outward catalog (source: `docs/strategy/{PRODUCT-BUILDER-DIRECTION,BUILD-PIPELINES}.md`,
+rendered on the site from `_industries.json`):
+
+- **10 US industries** — home & field services, professional services, restaurants, retail,
+  proptech, fitness, marketing/creator, HR/recruiting, construction, logistics.
+- **~40 products** — 4 buildable products per industry.
+- **6 reusable pipelines** — CRUD vertical-SaaS, booking, CRM, dashboard, marketplace, content/media.
 
 ## Audience order (who the copy speaks to)
 
-1. **CEO / CFO / VC** — founders and investors looking to automate a business function. Lead with
-   the outcome, the market, the flow, and the human checkpoints (trust). This is primary.
-2. **CTO** — secondary. Cares about the agents/tools, the connectors, and the under-the-hood rails.
-
-## Per-vertical page contract (landing + README)
-
-Every vertical section renders from `flows/<vertical>.flow.json` and contains, in order:
-
-1. **What it is** — `autopilot` + `tagline` + `problem`.
-2. **Market size** — `marketSizeUsd`.
-3. **The flow** — `steps` (each: what it does · 🤖 agent or 🧑‍⚖️ human · tools).
-4. **Agents + tools** — the connectors (9 run live on real data; the rest are sandbox stubs that flip to the real provider on go-live).
-5. **Human checkpoints** — the `gate` steps and who signs.
-6. **Who else is in this space** — `startups`.
+1. **Founder / CTO building a product** — primary. Lead with: describe it → approve the spec →
+   it ships. The one gate, the modern stack, the repo you own.
+2. **The skeptical engineer** — secondary. Cares that it's a normal git repo on Next.js/Postgres/
+   shadcn, with tests and CI — not a black box.
 
 ## Words to prefer / avoid
 
-- Prefer: *autopilot · flow · automate · outcome · human checkpoint · sign-off · connector · measured.*
-- Avoid (outward): *pipeline · pack · archetype · reviewer · gate (use "human checkpoint") · threat model · SDLC.*
+- Prefer: *product · build · pipeline · spec · CTO gate · ship · repo · live URL · stack · tests.*
+- Avoid (outward): *autopilot · flow · pack · vertical · compliance reviewer · human-signs-the-
+  judgment-call · outcome-per-transaction* — all old-positioning language.
