@@ -13,6 +13,8 @@ timeout: 900
 applies_to: [ai-system, agent-product, enterprise-saas, fintech, mobile-app]
 triggers:
   - jurisdiction: in
+skills:
+  - archetype-review-base
 ---
 
 # DPDPA 2023 / India Privacy Reviewer

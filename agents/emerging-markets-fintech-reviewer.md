@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: green
 skills:
+  - archetype-review-base
   - prose-style
 applies_to: [commerce, regulated, web-service]
 applies_when:

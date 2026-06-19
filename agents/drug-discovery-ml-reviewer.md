@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: magenta
 skills:
+  - archetype-review-base
   - prose-style
 applies_to: [ai-system, regulated, data-platform]
 applies_when:

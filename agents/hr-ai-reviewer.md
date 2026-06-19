@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: purple
 skills:
+  - archetype-review-base
   - prose-style
 applies_to: [ai-system, agent-product, enterprise]
 applies_when:

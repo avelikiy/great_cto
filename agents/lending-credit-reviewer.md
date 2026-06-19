@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: orange
 skills:
+  - archetype-review-base
   - prose-style
 applies_to: [commerce, regulated, ai-system]
 applies_when:

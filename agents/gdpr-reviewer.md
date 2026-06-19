@@ -15,6 +15,8 @@ triggers:
   - jurisdiction: eu
   - jurisdiction: uk
   - jurisdiction: br
+skills:
+  - archetype-review-base
 ---
 
 # GDPR / EU AI Act Reviewer
