@@ -138,9 +138,11 @@ test('All reviewers reference VERDICT line + archetype-review-base skill', () =>
 
   for (const r of reviewerNames) {
     const content = loadAgent(r);
-    assert.match(content, /\bVERDICT\b|\bAPPROVED\b|\bBLOCKED\b/,
-      `reviewer ${r} must reference VERDICT/APPROVED/BLOCKED contract`);
-    assert.match(content, /archetype-review-base/,
-      `reviewer ${r} must mount archetype-review-base skill`);
+    // The VERDICT/APPROVED/BLOCKED contract is now OWNED by archetype-review-base
+    // (see its "Verdict rules" + "Workflow scaffold" sections). Post-consolidation a
+    // reviewer must MOUNT the base skill rather than restate the verdict grammar — so
+    // mounting the skill is the invariant we assert, not the literal token.
+    assert.match(content, /^\s*-\s*archetype-review-base\s*$/m,
+      `reviewer ${r} must mount archetype-review-base skill (it owns the VERDICT contract)`);
   }
 });

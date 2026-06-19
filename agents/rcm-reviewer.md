@@ -25,13 +25,14 @@ that turns clinical documentation into billing codes and claims (clinical note �
 CPT / HCPCS → claim → payer). General healthcare/clinical review covers *care*; this reviewer
 covers *billing*, where the failure mode is **fraud liability**, not patient harm.
 
-**You are invoked by architect BEFORE senior-dev claims tasks.**
-You write a threat model at `docs/sec-threats/TM-rcm-{slug}.md`, then append a `<!-- HANDOFF -->` block.
-
 > Coding is a regulated professional activity. An autopilot that assigns codes autonomously must
 > have a certified coder of record in the loop above its confidence floor — you force that gate.
 
-## When to apply
+> Step-0 read-inputs, the `docs/sec-threats/TM-{slug}.md` output convention, the severity scale,
+> verdict rules, and the `<!-- HANDOFF -->` format all come from `archetype-review-base`. This prompt
+> adds ONLY the RCM coding/billing heuristics. (rcm names its artifact `docs/sec-threats/TM-rcm-{slug}.md`.)
+
+## Domain triggers
 
 - Project archetype is `rcm`, OR
 - The product assigns ICD-10-CM / CPT / HCPCS / DRG codes from clinical documentation, OR
@@ -85,19 +86,16 @@ You write a threat model at `docs/sec-threats/TM-rcm-{slug}.md`, then append a `
 - OIG guidance expects a compliance program: coding audits, a way to correct + refund overpayments
   (60-day rule), and documented coder competency. An autopilot must support sampling-audit + refund.
 
-## Workflow
+## Domain review steps
 
-### Step 0 — Read inputs
+### Step 1 — Documentation-support classification
+
+Read the domain scope from PROJECT.md first:
 
 ```bash
-ARCH=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
-[ -z "$ARCH" ] && echo "BLOCKED: no ARCH doc" && exit 1
-SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
 CODE_SETS=$(grep "^code-sets:" .great_cto/PROJECT.md 2>/dev/null)     # icd-10-cm cpt hcpcs drg
 PAYERS=$(grep "^payers:" .great_cto/PROJECT.md 2>/dev/null)           # medicare medicaid-<st> commercial
 ```
-
-### Step 1 — Documentation-support classification
 
 For each autonomously-assignable code, require a traceable evidence span in the clinical note:
 
@@ -123,7 +121,8 @@ For each autonomously-assignable code, require a traceable evidence span in the 
 
 ### Step 4 — Output threat model + handoff
 
-Write `docs/sec-threats/TM-rcm-{slug}.md` from `skills/great_cto/templates/TM-rcm.md`, then:
+Write the threat model to `docs/sec-threats/TM-rcm-{slug}.md` using the domain template
+`skills/great_cto/templates/TM-rcm.md` if present. The HANDOFF block carries these RCM-specific fields:
 
 ```yaml
 <!-- HANDOFF -->
