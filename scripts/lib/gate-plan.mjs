@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { classify } from './change-tier.mjs';
+import { selectJudgeModel } from './judge-model.mjs';
 // effectiveGates lives in the built CLI package (TS → dist).
 import { effectiveGates } from '../../packages/cli/dist/archetypes.js';
 
@@ -45,7 +46,10 @@ export function parseProject(text) {
 export function planGates({ archetype, size, changedFiles, connectors, deployTarget, labels }) {
   const c = classify({ changedFiles, connectors, deployTarget, labels });
   const gates = effectiveGates(archetype, size, c.tier);
-  return { tier: c.tier, reasons: c.reasons, escalatedFromLabel: c.escalatedFromLabel, gates };
+  // ADR-004: the per-change plan also says which judge model to use (cheap on T0/T1,
+  // frontier + human on T2). Same tier, two consequences — gates and judge.
+  const judge = selectJudgeModel(c.tier);
+  return { tier: c.tier, reasons: c.reasons, escalatedFromLabel: c.escalatedFromLabel, gates, judge };
 }
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
@@ -95,7 +99,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       `archetype=${archetype} size=${size}\n` +
       `tier=${result.tier}${esc}\n` +
       `reasons: ${result.reasons.join(', ')}\n` +
-      `gates:   ${result.gates.length ? result.gates.join(', ') : '(none — CI is the gate)'}\n`,
+      `gates:   ${result.gates.length ? result.gates.join(', ') : '(none — CI is the gate)'}\n` +
+      `judge:   ${result.judge.model}${result.judge.human ? ' + human' : ''}\n`,
     );
   }
 }
