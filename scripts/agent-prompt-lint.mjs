@@ -68,8 +68,12 @@ const MODEL_TIER_POLICY = {
   'devops':               ['sonnet', 'haiku'],
   'qa-engineer':          ['sonnet', 'haiku'],
   'continuous-learner':   ['haiku'],
-  'ai-eval-engineer':     ['sonnet', 'haiku'],
   'project-auditor':      ['sonnet', 'opus'],
+  // judge / eval / scorer roles — cost-of-error axis (ADR-004): cheap is correct for
+  // T0/T1 (reversible, CI-checked) judging; a T2/regulated decision escalates to the
+  // frontier model + the human gate at runtime, not via this static policy.
+  'ai-eval-engineer':     ['sonnet', 'haiku'],
+  'decision-scorer':      ['sonnet', 'haiku'],
   // AI subsystem
   'ai-prompt-architect':  ['sonnet', 'opus'],
   'ai-security-reviewer': ['sonnet', 'opus'],
