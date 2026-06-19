@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: yellow
 skills:
+  - archetype-review-base
   - prose-style
 applies_to: [iot-embedded, ai-system, agent-product, regulated]
 applies_when:

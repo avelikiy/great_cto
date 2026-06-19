@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: teal
 skills:
+  - archetype-review-base
   - prose-style
 applies_to: [agent-product, ai-system]
 applies_when:

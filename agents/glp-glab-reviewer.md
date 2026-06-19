@@ -12,6 +12,7 @@ effort: HIGH
 memory: project
 color: brown
 skills:
+  - archetype-review-base
   - prose-style
 applies_to: [regulated, data-platform]
 applies_when:

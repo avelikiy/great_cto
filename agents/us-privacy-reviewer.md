@@ -16,6 +16,8 @@ triggers:
   - jurisdiction: us-ca
   - jurisdiction: au
   - jurisdiction: sg
+skills:
+  - archetype-review-base
 ---
 
 # US Privacy / CCPA Reviewer
