@@ -60,3 +60,17 @@ test('unknown archetype is handled (empty baseline → no gates below T2)', () =
   assert.equal(r.tier, 'T0');
   assert.deepEqual(r.gates, []);
 });
+
+// ── judge selection rides along with the gate plan (ADR-004) ──────────────────
+
+test('the plan includes a judge: cheap on T0/T1, frontier+human on T2', () => {
+  const t0 = planGates({ archetype: 'web-service', size: 'medium', changedFiles: ['README.md'] });
+  assert.equal(t0.judge.human, false, 'T0 judge is cheap, no human');
+
+  const t1 = planGates({ archetype: 'web-service', size: 'medium', changedFiles: ['src/app.ts'] });
+  assert.equal(t1.judge.human, false, 'T1 judge is cheap, no human');
+
+  const t2 = planGates({ archetype: 'fintech', size: 'medium', changedFiles: ['migrations/1.sql'] });
+  assert.equal(t2.judge.human, true, 'T2 judge escalates to frontier + human');
+  assert.notEqual(t2.judge.model, t0.judge.model, 'T2 uses a different (frontier) judge than T0');
+});
