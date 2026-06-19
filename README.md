@@ -58,14 +58,13 @@ CI and generated tests are the quality gate — you sign the **direction**, not 
 
 → *The builder-facing story of this surface: [greatcto.systems/build](https://greatcto.systems/build)*
 
-Each autopilot is built and operated by a gated pipeline of specialist agents — architect, 12-angle
-reviewer, QA, security officer, devops — tuned to your stack and jurisdiction. **You make two
-decisions per feature; everything else runs automatically.** Every vertical ships with its **own
-domain compliance reviewer** — False Claims Act & NCCI for coding, OFAC & BSA for AML, FDCPA & Reg F
-for collections, 21 CFR Part 11 for trials, ECOA for lending, ALTA for title, FMCSA for freight —
-that blocks an unsafe design before it ever runs. Each reviewer is held to an **adversarial golden
-test set** in CI before release. The reviewers, signed human gates, audit trail, and live connectors
-are the trust layer that makes it safe to let the autopilot run.
+Every product is built by a pipeline of specialist agents — architect, design-advisor, senior-dev,
+QA, security-officer, devops — that runs spec → scaffold → backend → frontend → tests → deploy.
+**You make one decision: approve the spec.** Everything after is automated. The pipeline is
+risk-tiered — a maintenance fix opens no gate (CI is the gate), a reversible feature opens only the
+plan gate, and an irreversible change forces the full set — so ceremony scales with blast radius,
+not with paperwork. CI and the build's own generated tests are the quality gate that makes it safe
+to let the pipeline run to deploy.
 
 **Recommended companion MCP: Serena (semantic code navigation).** On large codebases the
 code-writing agents (senior-dev, coder) burn context grepping and reading whole files. The
@@ -80,46 +79,46 @@ claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
 Optional — everything works without it; with it, implementation tasks on big repos use
 noticeably less context per edit.
 
-**The permission is never the wound.** Every flow step is tagged reversible or not; the runtime
-**refuses to execute an irreversible action autonomously** — money moves, claim submission, e-signing,
-fleet changes and tax filing run *only* after a named human signs the checkpoint. Each autopilot also
-declares an **accountable owner** — one person answers for what it does. `flow-runner.mjs <vertical>
---validate` enforces the invariant; all twenty-five autopilots ship green.
+**One gate, where it matters.** Build steps are risk-tiered: a reversible change builds and ships
+behind CI; an irreversible one — a production deploy, a schema migration, a new write-capable
+integration — escalates to the CTO gate and the frontier model before it runs. You sign the spec
+and the high-blast-radius calls; the rest runs straight through. `change-tier` + `effectiveGates`
+enforce the invariant in code.
 
 ## By the numbers
 
 | | |
 |---|---|
-| One regulated feature, end to end (voice-AI compliance pack, traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~6 weeks traditional |
+| One feature, end to end (real run, fully traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~6 weeks traditional |
 | An earlier CLI-feature run, same pipeline | $2.39 LLM vs ~$5,460 human-equivalent; security caught 2 defects QA had passed |
 | Monthly cost (20 pipeline runs) | **~$34** |
-| Autopilot verticals | **25** (healthcare · finance · legal · ops — each with a human gate) |
-| Specialist agents | **83** |
-| Archetypes auto-detected | **26** |
-| Jurisdictions | **12** (GDPR · HIPAA · PCI-DSS · SOX · and more) |
+| Target US industries | **10** (home services · retail · proptech · fitness · HR · …) |
+| Buildable products | **~40** across the 10 industries |
+| Reusable build pipelines | **6** (CRUD · booking · CRM · dashboard · marketplace · content) |
+| Specialist agents | **46** |
 
-→ [Full trace with all artefacts](https://greatcto.systems/proof)
+→ [Full trace with all artefacts](https://greatcto.systems/proof) · [the 6 pipelines](https://greatcto.systems/pipelines)
 
 ## How it works
 
-**`npx great-cto init`** — scans your stack and README, detects jurisdiction (GDPR? HIPAA? PCI?), writes `.great_cto/FLOW.md` with the exact agents, gates, and compliance frameworks for your project.
+**`npx great-cto init`** — scans your stack and writes `.great_cto/FLOW.md` with the pipeline for your product: the agents, the build archetype, and the single CTO gate.
 
-**`/start "describe the feature"`** — critics review the architecture and spec before any code is written. You review the plan at `gate:plan`.
+**`/start "describe the product"`** — architect and design-advisor draft the spec, data model and screens. You review and approve it at the **one gate** — `gate:plan`.
 
-**Agents run automatically** — senior-dev implements with TDD, 12-angle review, QA, security, devops. You approve ship at `gate:ship`.
+**The pipeline ships it** — senior-dev scaffolds and builds with TDD, QA runs the generated tests, devops deploys. No further approval needed for a reversible build.
 
-## Three projects — three different pipelines
+## Three products — one pipeline
 
-Same command. Output depends on what you're building and where it runs:
+Same command, different product. The build archetype shapes the stack and integrations:
 
-| | **Fintech startup · EU** | **Healthcare portal · US** | **CLI tool** |
+| | **Dispatch app** | **Class-booking app** | **Profitability dashboard** |
 |---|---|---|---|
-| Specialist agents | `pci-reviewer` · `gdpr-reviewer` · `regulated-reviewer` | `fda-reviewer` · `healthcare-reviewer` · `security-officer` | `cli-reviewer` |
-| Human gates | `gate:gdpr-dpia` · `gate:plan` · `gate:ship` | `gate:clinical-validation` · `gate:plan` · `gate:ship` | `gate:plan` |
-| Compliance | GDPR · PCI-DSS · SOX | HIPAA · HITECH | — |
-| Cost / cycle | ~$8–18 | ~$8–18 | ~$0.5–3 |
+| Archetype | CRUD vertical-SaaS | Booking / scheduling | Dashboard / analytics |
+| Stack | Next.js · Postgres · shadcn | Next.js · Postgres · cal | Next.js · warehouse-lite · charts |
+| Integrations | Auth · RBAC | Stripe · Twilio | source connectors |
+| Human gates | `gate:plan` (the CTO gate) | `gate:plan` | `gate:plan` |
 
-→ Try the interactive picker: [greatcto.systems/#flow-picker](https://greatcto.systems/#flow-picker)
+→ See the 6 pipelines: [greatcto.systems/pipelines](https://greatcto.systems/pipelines)
 
 ## The dashboard you'll actually check
 
@@ -140,7 +139,7 @@ Same command. Output depends on what you're building and where it runs:
 </tr>
 </table>
 
-**One builder, many operators.** [Build](https://greatcto.systems/build) is for the one-person engineering org — an indie hacker, solo founder, or technical CTO running the pipeline on Claude Code or OpenAI Codex. [Operate](https://greatcto.systems/operate) is for everyone who signs the work: licensed adjusters, attorneys, controllers, compliance leads — invited into the operator console with scoped, tenant-isolated links. One engineer builds the autopilot; the whole back office runs on it. *Not for multi-dev engineering teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
+**Built for the one-person engineering org.** GreatCTO is for the indie hacker, solo founder, or technical CTO who wants to ship real products without a team — running the pipeline on Claude Code or OpenAI Codex, approving one spec, and shipping to a live URL. *Not for multi-dev engineering teams* — see [FAQ](docs/FAQ.md#is-great_cto-for-teams).
 
 ## Install
 
@@ -168,19 +167,19 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — two gates · critics · 83 agents · 26 archetypes · 12 jurisdictions · 45+ compliance frameworks · board · cost · MCP</summary>
+<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 46 agents · build archetypes · board · cost · MCP</summary>
 
-## Two decisions per feature
+## One decision per feature
 
 ```
-🟡 gate:plan   ←  you decide here (architecture + tasks + cost)
+🤖 architect + design-advisor  →  spec · data model · screens
    ↓
-🤖 senior-dev → 12-angle review → qa-engineer → security-officer → devops
+🟡 gate:plan   ←  you decide here — approve the spec (the one CTO gate)
    ↓
-🟢 gate:ship   ←  you decide here (PR ready, security signed off)
+🤖 senior-dev → review → qa-engineer → devops  →  built · tested · deployed
 ```
 
-Architects, planners, reviewers, QA, security, DevOps run automatically between those two human checkpoints. **Memory persists** between sessions: every gate verdict appends to `~/.great_cto/decisions.md`, every retrospective appends to per-project `lessons.md`, and `/crystallize` promotes high-impact patterns to a global library agents query before re-solving.
+The pipeline is risk-tiered (`change_tier`): a maintenance fix opens **no** gate (CI is the gate), a reversible feature opens **only** `gate:plan`, and an irreversible change forces the full set + the frontier model. Everything between the gate and deploy runs automatically. **Memory persists** between sessions: every gate verdict appends to `~/.great_cto/decisions.md`, every retrospective to per-project `lessons.md`, and `/crystallize` promotes high-impact patterns to a global library agents query before re-solving.
 
 ## Critics before the plan
 
@@ -202,12 +201,12 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ Cognition cloud | ✅ Claude Code |
 | BYOK / multi-model | ✅ Claude Code · Codex | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **83** (architect · PM · 12-angle review · QA · security · devops · reviewers across archetypes, packs & jurisdictions) | 1 generalist | 1 generalist |
-| SDLC orchestration | architect → plan → impl → review → QA → security → devops | one-shot autonomy | edit loop |
-| Human gates | ✅ 2 per feature (plan + ship) | ❌ none | ❌ |
+| Specialist agents | **46** (architect · design-advisor · senior-dev · QA · security · devops · archetype reviewers) | 1 generalist | 1 generalist |
+| Build pipeline | spec → CTO gate → scaffold → build → test → deploy | one-shot autonomy | edit loop |
+| Human gates | ✅ one — you approve the spec (risk-tiered) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
 | Cost tracking | ✅ per-agent + 30d history + savings_x | ❌ | ❌ |
-| Compliance frameworks | ✅ 45+ (PCI · HIPAA · SOX · GDPR · CCPA · DPDPA · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …) | ❌ | ❌ |
+| Design built in | ✅ design-advisor + ui-ux-pro-max → Next.js/Tailwind/shadcn | ❌ | ❌ |
 | Pricing | free (you pay your LLM provider) | $500/mo | $20/mo |
 | Setup | `npx great-cto init` | sign up | install CLI |
 
@@ -241,14 +240,13 @@ jurisdiction: [eu, us-ca]
 ## Three commands you use every day
 
 ```bash
-/start "build a refund endpoint with PCI-DSS scoping"
-# → architect → enterprise-saas-reviewer (PCI-DSS auto-loaded)
-# → pm → 5 Beads tasks → gate:plan (you approve)
-# → senior-dev → 12-angle review → qa → security-officer
-# → gate:ship (you approve) → devops → deployed
+/start "build a dispatch & scheduling app for an HVAC business"
+# → architect + design-advisor → spec, data model, screens
+# → pm → Beads tasks → gate:plan (you approve the spec — the one gate)
+# → senior-dev → review → qa → devops → built · tested · deployed
 
 /inbox
-# Pending gates · P0 incidents · blocked tasks · stale in-progress
+# Pending gate · P0 incidents · blocked tasks · stale in-progress
 
 /digest
 # Weekly DORA + delta vs last week + cost-per-feature roll-up
@@ -272,43 +270,41 @@ Plus: `/audit` (existing-codebase scan), `/cost` (LLM router savings), `/sec` (s
 
 Pay your own Anthropic API tokens. **No per-seat fee. No SaaS lock-in.** Routine triage auto-routes to Kimi K2 (Sonnet-equivalent at ~5× lower cost) → 60–80% reduction on log clustering.
 
-## 26 archetypes auto-detected
+## Build archetypes
 
-Each archetype activates its own specialist agents and compliance checklists. Top 7:
+Every product maps to a **build archetype** that shapes its pipeline — the stack template,
+the data shape, the signature integration. The 6 Product Builder archetypes (the ~40 products
+collapse into these):
 
-| Archetype | Tier | Specialist agents | Compliance |
+| Archetype | Shape | Stack | Integration |
 |---|---|---|---|
-| `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa |
-| `agent-product` | **deep** | ai-prompt-architect · ai-eval · ai-security | eu-ai-act · owasp-llm-top-10 |
-| `fintech` | **deep** | pci · regulated | pci-dss · sox · kyc-aml · gdpr · dora |
-| `mlops` | **deep** | mlops-reviewer · ai-eval | eu-ai-act · nist-ai-rmf · iso42001 |
-| `library` | baseline | library-reviewer | openssf · sbom |
-| `cli-tool` | baseline | cli-reviewer | — |
-| `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
-| `defense-govcon` | **deep** | cmmc-reviewer · gov-reviewer | cmmc-2.0 · nist-800-171 · dfars · itar · section-889 |
+| `vertical-saas` | entities · roles · workflow · records UI | Next.js · Postgres · shadcn | Auth · RBAC |
+| `booking` | calendar · availability · reminders · payments | Next.js · Postgres · cal | Stripe · Twilio |
+| `crm` | contacts · pipeline · automated sequences | Next.js · Postgres · queue | email / SMS · webhooks |
+| `dashboard` | ingest · metrics · visualization · alerts | Next.js · warehouse-lite · charts | source connectors |
+| `marketplace` | two-sided listings · matching · payments | Next.js · Postgres · Stripe Connect | Stripe Connect / escrow |
+| `content` | catalog · access tiers · delivery · monetization | Next.js · object storage · CDN | Stripe · media pipeline |
+
+Plus the underlying software-kind archetypes (`web-service`, `mobile-app`, `cli-tool`,
+`library`, …) the engine auto-detects to tune the build. See [the 6 pipelines](https://greatcto.systems/pipelines).
 
 Full table (26 archetypes) + how detection works: [docs/ARCHETYPES.md](docs/ARCHETYPES.md).
 
 **Deep US coverage** — beyond GDPR/PCI/HIPAA, great_cto now reviews against SEC cyber-disclosure (8-K Item 1.05), CMMC 2.0 / NIST 800-171 for defense contractors, US AI governance (NIST AI RMF · Colorado SB 205 · Utah/Texas AI), web-tracking litigation (VPPA · CIPA · Washington MHMDA), and HMDA / SR 11-7 model risk for lending.
 
-## 14 domain packs — overlay reviewers
+## Domain overlays (optional)
 
-Domain packs ride **on top of** archetypes. Auto-attached when CLI detects pack-specific signals (deps, README terms). Each pack adds its own reviewer(s), threat-model template, EVAL suite, and human gates — independent of base archetype.
-
-| Category | Packs |
-|---|---|
-| **AI verticals** | `voice-pack` · `clinical-pack` · `hr-ai-pack` · `drug-discovery-pack` |
-| **Digital health** | `digital-health-pack` _(wearable telemetry · mental-health AI · nutrition AI · physician HITL)_ |
-| **Fintech / regulated** | `lending-pack` · `em-fintech-pack` |
-| **High-compliance** | `clinical-trials-pack` · `climate-pack` |
-| **Engineering** | `api-platform-pack` · `robotics-pack` |
-| **US market** | `sec-cyber-pack` _(SEC 8-K disclosure)_ · `adtech-privacy-pack` _(VPPA · CIPA · MHMDA)_ · `us-ai-pack` _(NIST AI RMF · Colorado SB 205)_ |
-
-→ **28 human-gate types** + 53 reference EVAL suites + 15 TM templates. Browse all 14 packs with **4-layer journey visualization** (archetype → pack → reviewer → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
+Beyond the build archetype, the engine can auto-attach an optional **domain overlay** when it
+detects domain-specific signals (deps, README terms) — adding a specialist reviewer and a few
+extra checks for things like voice/telephony, privacy (GDPR/CCPA), or AI governance. They're
+opt-in and orthogonal to the build pipeline; most products need none.
 
 ## One real run, fully traced
 
-The canonical receipt: a **voice-AI compliance pack** (TCPA screening, STIR/SHAKEN, state recording-consent) shipped through the full pipeline in **1h 26m wall-clock for $3.40 in LLM cost** — architect → threat model → implementation → 5 reviewers → human gates → merged PR. The traditional path for the same regulated feature: ~170 hours and ~$42K. Every stage timestamped, every artifact links to a public GitHub PR.
+The canonical receipt: **one real feature** shipped through the full pipeline in **1h 26m
+wall-clock for $3.40 in LLM cost** — architect → plan → implementation → review → human gate →
+merged PR. The traditional path for the same feature: ~170 hours and ~$42K. Every stage
+timestamped, every artifact links to a public GitHub PR.
 
 An earlier run on a Python CLI feature ($2.39 vs ~$5,460 human-equivalent) showed the review model working: security caught two real defects QA had passed (`list(stream_csv())` defeated streaming → 14.5 MB peak RSS on 13 MB input).
 
@@ -383,9 +379,11 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 83 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 46 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
+
+**v2.74+** (June 2026) — **The Product Builder pivot**: GreatCTO becomes an *AI Product Builder* — describe a software product, approve the spec at one CTO gate, and the pipeline ships it (spec → build → test → deploy). 10 US industries, ~40 products, 6 reusable pipelines. Build gates are risk-tiered (`change_tier`); the regulated runtime surface moved out to [avelikiy/operate](https://github.com/avelikiy/operate). Story: [the strategy](docs/strategy/PRODUCT-BUILDER-DIRECTION.md) · [the 6 pipelines](https://greatcto.systems/pipelines)
 
 **v2.40–v2.62** (June 2026) — **The autopilot pivot**: GreatCTO becomes *AI autopilots for business* — 25 service-autopilot verticals, each a flow with a measured quality scorecard, an accountable owner, and the runtime invariant that **an irreversible action never executes without a human signature**. 22 live connectors run every vertical on real data. Story: [We pivoted →](https://greatcto.systems/blog/autopilots-pivot-25-verticals)
 
@@ -397,10 +395,10 @@ The plugin runs inside Claude Code (or any MCP-capable host); 83 agents are mark
 
 ## Roadmap
 
-- **Hosted operator console** — one-command tunnel + custom domain for `great-cto console`, so signers never need localhost
-- **Vertical depth over breadth** — push the measured quality scorecard ≥95 on the top-5 autopilots before adding new ones
-- **SOC 2 evidence pack** — export the audit trail + gate history in auditor-ready format
-- **Multi-model verification** — independent second-model review on irreversible-action gates
+- **Product archetype detection** — pick the build archetype from the product brief, not just the stack
+- **Per-industry build templates** — ship a reference product end-to-end through each of the 6 pipelines
+- **Tier-aware judge** — a cheap fine-tuned judge on T0/T1 evals, frontier + human on T2 (ADR-004)
+- **Headless task-runner** — queue product builds and run them on a VPS, unattended
 
 [Vote on the next feature →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
 
