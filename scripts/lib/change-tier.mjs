@@ -77,6 +77,16 @@ export function classify(signals = {}) {
   }
   if (String(deployTarget).toLowerCase() === 'production') hard.push('deploy:production');
 
+  // Volume/scope escalation — the build-side analog of the runtime AI-firewall
+  // (great_cto-34g): a change touching many behavioral files has a large blast radius;
+  // even if each file is individually reversible, the bulk gets a human look (T2).
+  const bulkThreshold = Number(
+    signals.bulkThreshold ?? process.env.GREAT_CTO_BULK_THRESHOLD ?? 50,
+  );
+  if (Number.isFinite(bulkThreshold) && bulkThreshold > 0 && behavioral.length >= bulkThreshold) {
+    hard.push(`bulk:${behavioral.length}files`);
+  }
+
   if (hard.length) {
     // T2 floor: a lower explicit label is overridden — recorded for the audit log.
     const escalatedFromLabel =

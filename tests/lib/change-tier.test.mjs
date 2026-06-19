@@ -103,6 +103,32 @@ test('label is case-insensitive and ignores unrelated labels', () => {
   assert.equal(r.tier, 'T2');
 });
 
+// ── Volume / scope escalation (the build-side analog of the runtime AI-firewall) ──
+
+test('a bulk behavioral change → T2 (large blast radius gets a human look)', () => {
+  const files = Array.from({ length: 60 }, (_, i) => `src/mod${i}.ts`);
+  const r = classify({ changedFiles: files, bulkThreshold: 50 });
+  assert.equal(r.tier, 'T2');
+  assert.ok(r.reasons.some((x) => /bulk/i.test(x)), 'reason cites the bulk size');
+});
+
+test('below the bulk threshold stays T1', () => {
+  const files = Array.from({ length: 49 }, (_, i) => `src/mod${i}.ts`);
+  assert.equal(classify({ changedFiles: files, bulkThreshold: 50 }).tier, 'T1');
+});
+
+test('bulk counts BEHAVIORAL files only — a docs-only bulk stays T0', () => {
+  const docs = Array.from({ length: 200 }, (_, i) => `docs/page${i}.md`);
+  assert.equal(classify({ changedFiles: docs, bulkThreshold: 50 }).tier, 'T0');
+});
+
+test('a tier:t0 label cannot downgrade a bulk change (floor wins, recorded)', () => {
+  const files = Array.from({ length: 80 }, (_, i) => `src/m${i}.ts`);
+  const r = classify({ changedFiles: files, bulkThreshold: 50, labels: ['tier:t0'] });
+  assert.equal(r.tier, 'T2');
+  assert.equal(r.escalatedFromLabel, 'T0');
+});
+
 // ── Structural ────────────────────────────────────────────────────────────────
 
 test('reasons is always a non-empty array; tier is always valid', () => {
