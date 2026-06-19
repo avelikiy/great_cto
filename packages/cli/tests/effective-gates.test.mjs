@@ -125,6 +125,19 @@ test("output preserves base gate order", () => {
   }
 });
 
+// ── Product Builder archetypes (A1–A6) — the single CTO gate ──────────────────
+
+test("product-builder archetypes open exactly ONE gate (plan) at T1 — the CTO gate", () => {
+  for (const a of ["vertical-saas", "booking", "crm", "dashboard", "content-platform"]) {
+    assert.deepEqual(effectiveGates(a, "medium", "T1"), ["plan"],
+      `${a}: a reversible product feature → the single CTO gate only`);
+    assert.deepEqual(effectiveGates(a, "medium", "T0"), [],
+      `${a}: a maintenance fix → zero gates (CI is the gate)`);
+    assert.ok(effectiveGates(a, "medium", "T2").includes("ship"),
+      `${a}: an irreversible change still forces ship`);
+  }
+});
+
 test("monotonicity: T0 ⊆ T1 ⊆ T2 for every archetype/size", () => {
   for (const a of [...REGULATED, ...PLAIN, "ai-system", "greenfield"]) {
     for (const size of ["nano", "small", "medium", "large"]) {

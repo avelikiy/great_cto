@@ -58,6 +58,11 @@ const ARCHETYPE_TITLE: Record<string, string> = {
   "gov-public":        "Government",
   "insurance":         "Insurance",
   "regulated":         "Regulated system",
+  "vertical-saas":     "Vertical SaaS",
+  "booking":           "Booking / scheduling",
+  "crm":               "CRM",
+  "dashboard":         "Dashboard / analytics",
+  "content-platform":  "Content / media platform",
   "greenfield":        "New project",
 };
 
@@ -105,6 +110,12 @@ const ARCHETYPE_COST: Record<string, readonly [number, number]> = {
   "infra":             [3, 8],
   "library":           [0.5, 3],
   "cli-tool":          [0.5, 3],
+  // Product Builder archetypes — cheap, high-automation builds.
+  "vertical-saas":     [3, 8],
+  "booking":           [3, 8],
+  "crm":               [3, 8],
+  "dashboard":         [3, 8],
+  "content-platform":  [3, 8],
   "greenfield":        [0.5, 3],
 };
 
@@ -118,6 +129,8 @@ export const UI_BEARING_ARCHETYPES: ReadonlySet<Archetype> = new Set<Archetype>(
   "web-service", "mobile-app", "commerce", "marketplace", "cms",
   "enterprise-saas", "edtech", "game", "browser-extension",
   "healthcare", "fintech", "insurance", "gov-public", "web3",
+  // Product Builder archetypes (A1–A6) — all ship a UI.
+  "vertical-saas", "booking", "crm", "dashboard", "content-platform",
 ]);
 
 // ── Main export ───────────────────────────────────────────────────────────
