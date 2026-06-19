@@ -1,3 +1,5 @@
+> ⚠️ **This translation is being updated.** GreatCTO has repositioned to an **AI Product Builder** — describe a product, approve the spec, ship the software (one CTO gate, maximum automation). For the current positioning see the [English README](../../README.md). The text below reflects the previous "AI autopilots" direction.
+
 <div align="center">
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
