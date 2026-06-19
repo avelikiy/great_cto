@@ -10,14 +10,8 @@
 import http from 'http';
 // ── operate surface removed → github.com/avelikiy/operate (build/operate split, great_cto-2l4) ──
 // The operator console (autopilot runtime, vertical flows, connectors) lives in a separate repo.
-// These no-op stubs keep this BUILD board fully standalone: console routes 404, operate crons no-op.
-// Dead operate routing/cron code downstream is harmless (calls these stubs) — cleanup is a follow-up.
-const handleAutopilot = () => false;          // console API no longer served here → falls through to 404
-const resolveInvite = () => null;             // no operator invites on the build board
-const apAutoEscalateStale = () => [];         // operate SLA cron → no-op
-const apConnectorHealth = () => [];           // operate connector-health cron → no-op
-const apDeadLetters = () => [];               // operate dead-letter cron → no-op
-const startDemoFeeder = () => {};             // operate demo feeder → no-op
+// This is the BUILD board only — the operate routing, crons, and stubs that once
+// bridged to the console have been removed.
 import fs from 'fs';
 import path from 'path';
 import { execSync, spawnSync, spawn } from 'child_process';
@@ -57,9 +51,6 @@ const HOST = (() => {
   const i = process.argv.indexOf('--host');
   return String(i > -1 ? process.argv[i + 1] : process.env.GREAT_CTO_HOST || '127.0.0.1');
 })();
-// The operator console's whole world: its API, push notifications, and its statics.
-const isConsoleApi = (p) => p.startsWith('/api/autopilot/') || p.startsWith('/api/push/');
-const isConsoleStatic = (p) => p === '/autopilot.html' || p === '/sw.js' || p.startsWith('/assets/');
 const GREAT_CTO_DIR = path.join(os.homedir(), '.great_cto');
 const SHARE_STATE_FILE = path.join(GREAT_CTO_DIR, 'board-share.json');
 const PROJECTS_FILE = path.join(GREAT_CTO_DIR, 'projects.json');
@@ -1549,61 +1540,6 @@ function startAlertCron() {
     } catch (e) { console.warn('cron gate.stale failed:', e.message); }
   }, FIVE_MIN);
 
-  // sla.escalate (Wave G #7): the autopilot SLA clock that ACTS. Awaiting runs past their
-  // per-vertical deadline are auto-escalated (once each, idempotent) so a breach never sits silent.
-  setInterval(() => {
-    try {
-      const escalated = apAutoEscalateStale({});   // breached only, across all tenants
-      for (const e of escalated) {
-        const dedupeKey = `sla.escalate:${e.tenant}:${e.id}`;
-        const payload = {
-          title: `Autopilot SLA breached — ${e.vertical} ${e.id.slice(0, 24)}`,
-          body: `A ${e.vertical} case passed its turnaround deadline (due ${e.dueAt}) and was auto-escalated.\n\nSigner: ${e.signer || '—'}\nTenant: ${e.tenant}`,
-          level: 'critical',
-          link: `http://localhost:3141/autopilot.html`,
-          action: 'Sign in console',
-          kv: { case: e.id, vertical: e.vertical, state: e.state, tenant: e.tenant },
-        };
-        fireEmailAlert('sla.escalate', dedupeKey, payload);
-        addNotification('sla.escalate', payload);
-        firePushAlert('sla.escalate', dedupeKey, payload);
-      }
-      if (escalated.length) console.log(`sla.escalate: auto-escalated ${escalated.length} breached run(s)`);
-    } catch (e) { console.warn('cron sla.escalate failed:', e.message); }
-  }, FIVE_MIN);
-
-  // connector.health (Wave H #12 + #9): flag a connector whose failure rate crosses 50% (with enough
-  // calls to be meaningful) and surface any dead-lettered writes waiting on a requeue.
-  setInterval(() => {
-    try {
-      const unhealthy = apConnectorHealth({}).filter((h) => h.calls >= 5 && !h.healthy);
-      for (const h of unhealthy) {
-        const dedupeKey = `connector.health:${h.connector}:${Math.round(h.failureRate * 10)}`;
-        const payload = {
-          title: `Connector unhealthy — ${h.connector} ${Math.round(h.failureRate * 100)}% failing`,
-          body: `${h.connector} failed ${h.failures}/${h.calls} recent calls.\nLast error: ${h.lastError || '—'}`,
-          level: 'critical', link: `http://localhost:3141/autopilot.html`, action: 'Inspect in console',
-          kv: { connector: h.connector, failureRate: `${Math.round(h.failureRate * 100)}%`, calls: String(h.calls) },
-        };
-        fireEmailAlert('connector.health', dedupeKey, payload);
-        addNotification('connector.health', payload);
-        firePushAlert('connector.health', dedupeKey, payload);
-      }
-      const dl = apDeadLetters({});
-      if (dl.length) {
-        const dedupeKey = `dead-letter:${dl.length}`;
-        const payload = {
-          title: `${dl.length} dead-lettered write(s) need a requeue`,
-          body: `Writes that exhausted their retries are waiting:\n${dl.slice(0, 5).map((x) => `• ${x.vertical} ${x.id} (${x.error})`).join('\n')}`,
-          level: 'warning', link: `http://localhost:3141/autopilot.html`, action: 'Requeue in console',
-          kv: { count: String(dl.length) },
-        };
-        fireEmailAlert('dead-letter', dedupeKey, payload);
-        addNotification('dead-letter', payload);
-      }
-    } catch (e) { console.warn('cron connector.health failed:', e.message); }
-  }, FIVE_MIN);
-
   // cost.threshold: monthly LLM spend at 80% / 100% of budget
   setInterval(() => {
     try {
@@ -2532,41 +2468,12 @@ const server = http.createServer(async (req, res) => {
   // issue *simple* cross-origin POSTs to localhost (no preflight). Every state-changing
   // request must therefore be SAME-ORIGIN — otherwise a malicious page could approve an
   // autopilot gate (→ run an irreversible write), approve a dev gate, or mutate tasks.
-  // Exemption: /api/autopilot/ingest is a server-to-server webhook authenticated by an
-  // HMAC signature, not by origin. (originAllowed() permits requests with no Origin —
-  // curl, the CLI, server-to-server — and rejects a foreign browser Origin.)
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && pathname !== '/api/autopilot/ingest' && !originAllowed(req)) {
+  // (originAllowed() permits requests with no Origin — curl, the CLI, server-to-server —
+  // and rejects a foreign browser Origin.)
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && !originAllowed(req)) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'cross-origin request blocked — the board only accepts same-origin state changes' }));
     return;
-  }
-
-  // ── Surface boundary (PLAN-ui-split P1) ──────────────────────────────────
-  // 1) console mode: this process serves ONLY the operator console — its page,
-  //    its API, push. The dev board (UI + API) does not exist on this surface.
-  if (SURFACE === 'console') {
-    if (pathname === '/' || pathname === '/index.html') {
-      res.writeHead(302, { Location: '/autopilot.html' });
-      res.end();
-      return;
-    }
-    if (!isConsoleApi(pathname) && !isConsoleStatic(pathname)) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'not on this surface — this server hosts the operator console only' }));
-      return;
-    }
-  }
-  // 2) invite-token guard (any mode): a request carrying an operator's invite token
-  //    may reach ONLY the console's world. Defense in depth — an operator's link
-  //    must never be a key to the builder surface. (createInvite refuses admin
-  //    invites, so any resolved invite is a scoped operator.)
-  {
-    const tok = url.searchParams.get('token');
-    if (tok && !isConsoleApi(pathname) && !isConsoleStatic(pathname) && resolveInvite(tok)) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'not available with an operator invite — open the console at /autopilot.html' }));
-      return;
-    }
   }
 
   // SSE
@@ -3604,19 +3511,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Autopilot console (Layer D) — durable runs + human-gate inbox ──────────────
-  // Realtime stream (Phase 4): the console subscribes here; the server pushes "change"
-  // whenever any run file mutates (console action, CLI, or webhook ingest).
-  // Which face is this server? Public beacon for the console's boot (no data exposed).
-  if (pathname === '/api/autopilot/surface' && req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ surface: SURFACE }));
-    return;
-  }
-  // ── Operator-console API: everything /api/autopilot/* lives in autopilot-api.mjs ──
-  if (handleAutopilot(req, res, url, pathname, { firePushAlert })) return;
-
-
   // API requests get a JSON 404 so frontends can JSON.parse() the response
   // without crashing. Static-file 404s stay plain text.
   if (pathname.startsWith('/api/')) {
@@ -3644,13 +3538,6 @@ server.listen(PORT, HOST, () => {
   watchBeads();
   startAlertCron();
   watchVerdicts();
-
-  // Demo feeder (opt-in) — inject synthetic stub cases so the operator console comes alive for
-  // demos. OFF unless GREAT_CTO_DEMO_FEED is set or --demo is passed. Never on in production.
-  if (process.env.GREAT_CTO_DEMO_FEED || process.argv.includes('--demo')) {
-    const intervalMs = Math.max(1000, (Number(process.env.GREAT_CTO_DEMO_INTERVAL) || 30) * 1000);
-    startDemoFeeder({ intervalMs, tenant: process.env.GREAT_CTO_DEMO_TENANT || 'default', log: (m) => console.log(m) });
-  }
 
   // Auto-open browser unless --no-open
   if (!process.argv.includes('--no-open')) {
