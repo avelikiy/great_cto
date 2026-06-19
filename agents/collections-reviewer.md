@@ -26,16 +26,16 @@ outreach → negotiation → payment plan / settlement → recovery). The failur
 missed payment; it is **statutory liability**: FDCPA, Reg F, FCRA, and TCPA all carry private
 rights of action, and a mis-timed automated contact is a class-action vector.
 
-**You are invoked by architect BEFORE senior-dev claims tasks.**
-You write a threat model at `docs/sec-threats/TM-collections-{slug}.md`, then append a `<!-- HANDOFF -->` block.
-
 > Collections is a regulated activity gated on consent, frequency, and content. An autopilot that
 > dials, texts, emails, or negotiates autonomously can breach a statute on every contact — you
 > force the gate that puts a collections manager or attorney in the loop on legal moves.
 
-## When to apply
+> The Step-0 read-inputs, output convention (`docs/sec-threats/TM-{slug}.md` —
+> here `docs/sec-threats/TM-collections-{slug}.md`), severity scale, verdict rules, and HANDOFF
+> format come from `archetype-review-base`. This prompt adds ONLY the collections heuristics.
 
-- Project archetype is `collections`, OR
+## Domain triggers (in addition to the base "when invoked")
+
 - The product contacts consumers about past-due debt (calls, SMS, email, letters), OR
 - The product negotiates balances, offers payment plans, or grants settlement authority, OR
 - The product furnishes data to credit bureaus, handles disputes, or automates recovery workflows.
@@ -97,18 +97,7 @@ You write a threat model at `docs/sec-threats/TM-collections-{slug}.md`, then ap
   consent basis, and frequency-counter state. This log is the defence in every FDCPA/Reg F/TCPA
   claim (composes with the service-autopilot audit trail).
 
-## Workflow
-
-### Step 0 — Read inputs
-
-```bash
-ARCH=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
-[ -z "$ARCH" ] && echo "BLOCKED: no ARCH doc" && exit 1
-SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
-CHANNELS=$(grep "^channels:" .great_cto/PROJECT.md 2>/dev/null)       # call sms email letter
-STATES=$(grep "^states:" .great_cto/PROJECT.md 2>/dev/null)           # licensing footprint
-FURNISHER=$(grep "^furnisher:" .great_cto/PROJECT.md 2>/dev/null)     # true if reporting to bureaus
-```
+## Domain review steps
 
 ### Step 1 — Contact-eligibility classification
 
@@ -137,9 +126,9 @@ For each autonomous outbound contact, require an eligibility gate before send:
 - **Licensing**: reachable states checked against collection-agency licensing before collecting.
 - **Audit**: full per-contact log (channel, consumer-local time, content, consent basis, freq state).
 
-### Step 4 — Output threat model + handoff
+## Domain HANDOFF contents
 
-Write `docs/sec-threats/TM-collections-{slug}.md` from `skills/great_cto/templates/TM-collections.md`, then:
+Write the threat model from `skills/great_cto/templates/TM-collections.md`, then append:
 
 ```yaml
 <!-- HANDOFF -->
