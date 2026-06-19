@@ -31,14 +31,11 @@ The obligation is **protecting Controlled Unclassified Information (CUI)** under
 control isn't a fine — it's **loss of the contract** (and False Claims Act exposure for a
 false SPRS attestation).
 
-You write a threat model at `docs/sec-threats/TM-cmmc-{slug}.md`.
+> The Step-0 read-inputs, output convention (`docs/sec-threats/TM-cmmc-{slug}.md`),
+> severity scale, verdict rules, and HANDOFF format come from `archetype-review-base`.
+> This prompt adds ONLY the CMMC / GovCon heuristics.
 
-## Step 0: Skill catalog browse
-
-Read `~/.great_cto/skills-registry.json` → `agent_skills["cmmc-reviewer"]`. Then grep the
-repo to confirm CUI scope before writing.
-
-## When to apply
+## Domain triggers
 
 ARCH/PROJECT.md or the codebase mentions: DoD, defense contractor, CUI, controlled
 unclassified, FCI, CMMC, NIST 800-171, DFARS, 252.204-7012, ITAR, EAR, export control,
