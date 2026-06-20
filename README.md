@@ -122,20 +122,16 @@ Same command, different product. The build archetype shapes the stack and integr
 
 ## The dashboard you'll actually check
 
-`great-cto board` opens at `http://localhost:3141` — Kanban with realtime SSE, per-agent cost tile, pipeline status, 30-day LLM spend vs human-equivalent baseline.
+`great-cto board` opens at `http://localhost:3141` — the build board: realtime SSE, the live pipeline with its change_tier badge (one CTO gate · cheap judge), per-agent cost, 30-day LLM spend vs human-equivalent baseline.
 
 <p align="center">
-  <img src="docs/screenshots/board.png" alt="Kanban board with realtime SSE updates" width="900" />
+  <img src="docs/screenshots/board.png" alt="The build board — live pipeline with the change_tier gate badge, inbox and cost" width="900" />
 </p>
 
 <table>
 <tr>
-<td width="50%"><a href="docs/screenshots/metrics.png"><img src="docs/screenshots/metrics.png" alt="Metrics — cost, velocity, savings_x" width="100%" /></a><br/><sub><b>Metrics</b> — LLM cost, human-equivalent baseline, savings_x ratio</sub></td>
-<td width="50%"><a href="docs/screenshots/inbox.png"><img src="docs/screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — pending gates, P0 incidents, blocked tasks, stale in-progress</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="docs/screenshots/agents.png" alt="Agent fleet — installed agents with activity, health and 30-day LLM spend" width="100%" /></a><br/><sub><b>Agents</b> — the fleet with activity, health, retire candidates, and 30-day LLM spend</sub></td>
-<td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Project memory — browsable L1–L3 layers: PROJECT.md, archetypes, lessons" width="100%" /></a><br/><sub><b>Memory</b> — browsable project memory layers: PROJECT.md, archetypes, skills, lessons</sub></td>
+<td width="50%"><a href="docs/screenshots/metrics.png"><img src="docs/screenshots/metrics.png" alt="Metrics — tasks shipped, AI spend, cost savings vs FTE" width="100%" /></a><br/><sub><b>Metrics</b> — tasks shipped, AI spend, cost-savings vs a human team, daily burn</sub></td>
+<td width="50%"><a href="docs/screenshots/memory.png"><img src="docs/screenshots/memory.png" alt="Project memory — browsable layers: PROJECT.md, archetypes, lessons" width="100%" /></a><br/><sub><b>Memory</b> — browsable project memory layers: PROJECT.md, archetypes, skills, lessons</sub></td>
 </tr>
 </table>
 
@@ -353,7 +349,7 @@ Five things that need you to act in <2h get emailed automatically — even when 
 
 ## Limitations & non-goals
 
-- **Not for multi-dev engineering teams** — one builder is the product; 2+ engineers sharing the pipeline have outgrown it. Operators are unlimited — invite signers and compliance leads to the console freely.
+- **Not for multi-dev engineering teams** — one builder is the product; 2+ engineers sharing the pipeline have outgrown it.
 - **Not a replacement for senior engineers** — codifies process; doesn't make architectural judgement calls without one.
 - **Not a CI/CD system** — gates run locally / in-session. You still need GitHub Actions for actual merge.
 - **Not certification-audited** — PCI/HIPAA/SOC2 archetype scaffolds are starting points, not certifications.
@@ -367,7 +363,7 @@ Five things that need you to act in <2h get emailed automatically — even when 
 
 **Can I disable hooks?** Every hook honors `GREAT_CTO_DISABLE_<NAME>=1`. Per-file secret-scan opt-out: `// great_cto:allow-secrets`.
 
-**What if I'm not solo?** The *engineering* side is built for one person — if you have 2+ engineers who need shared builder boards, you've outgrown it. The *operating* side is multi-user by design: invite as many signers and compliance leads to the operator console as your back office needs (scoped invite links, per-tenant isolation).
+**What if I'm not solo?** GreatCTO's build pipeline is built for one engineer — if you have 2+ engineers who need shared builder boards and concurrent pipelines, you've outgrown it.
 
 Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
