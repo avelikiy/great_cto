@@ -1081,6 +1081,34 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text3);
 }
 .pl-stage.idle .pl-msg, .pl-stage.idle .pl-meta { opacity: 0.55; }
+/* Compact rail: idle stages collapse to a labelled node so the active stage stands out. */
+.pl-stage.pl-compact { flex: 0 1 auto; min-width: 0; justify-content: center; padding-top: 10px; }
+.pl-stage.pl-compact .pl-name { color: var(--text2); }
+.pl-stage.active { flex: 2; }
+/* Idle-focus all-clear card (shown when nothing needs a decision). */
+.inbox-allclear {
+  display: flex; align-items: center; gap: 14px;
+  padding: 22px 22px; margin-top: 4px;
+  background: var(--surface-translucent); border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.inbox-allclear .ac-mark {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: rgba(0, 217, 126, 0.12);
+  color: var(--accent, #00d97e); font-size: 16px; font-weight: 600;
+}
+.inbox-allclear .ac-text { flex: 1; font-size: 14px; color: var(--text2); }
+.inbox-allclear .ac-text b { color: var(--text); font-weight: 600; }
+.inbox-allclear .ac-actions { display: flex; gap: 8px; }
+.inbox-allclear .ac-btn {
+  font-size: 13px; padding: 7px 14px; border-radius: 8px;
+  border: 1px solid var(--border-strong); background: transparent;
+  color: var(--text); cursor: pointer; transition: background 0.12s, border-color 0.12s;
+}
+.inbox-allclear .ac-btn:hover { background: var(--bg-muted); border-color: var(--accent, #00d97e); }
+.inbox-allclear .ac-btn.ac-primary { background: var(--accent, #00d97e); border-color: var(--accent, #00d97e); color: #04150d; font-weight: 500; }
+.inbox-allclear .ac-btn.ac-primary:hover { filter: brightness(1.06); }
 
 /* Human gate — the signing checkpoint. Visually set apart from agent stages:
    a tinted card with a left accent rule, so the operator reads it as "the rails". */
@@ -2281,6 +2309,15 @@ button { font-family: inherit; cursor: pointer; }
           </div>
           <div id="inbox-stale"></div>
         </div>
+        <!-- Idle focus: when nothing needs a decision, the four sections above collapse and this shows instead. -->
+        <div class="inbox-allclear" id="inbox-allclear" style="display:none">
+          <div class="ac-mark">✓</div>
+          <div class="ac-text"><b>All clear.</b> Nothing needs your decision — back to deep work.</div>
+          <div class="ac-actions">
+            <button class="ac-btn ac-primary" onclick="openNewIssueModal()">+ New issue</button>
+            <button class="ac-btn" onclick="switchTab('kanban', document.querySelector('.nav-item[data-tab=&quot;kanban&quot;]'))">View tasks</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2652,20 +2689,25 @@ function renderInbox(d) {
     <div class="pill-stat"><span class="dot dot-orange"></span><div><div class="num">${s.blocked}</div><div class="lbl">Blocked</div></div></div>
     <div class="pill-stat"><span class="dot dot-amber"></span><div><div class="num">${s.stale}</div><div class="lbl">Stale &gt; 48h</div></div></div>
   `;
-  renderInboxList('inbox-gates', d?.pending_gates || [], 'inbox-gates-count', { showApprove: true, emptyMsg: 'No pending gates.' });
-  renderInboxList('inbox-p0', d?.p0_open || [], 'inbox-p0-count', { emptyMsg: 'No P0 issues. Nice.' });
-  renderInboxList('inbox-blocked', d?.blocked || [], 'inbox-blocked-count', { emptyMsg: 'Nothing blocked.' });
-  renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', { emptyMsg: 'No stale work.' });
+  renderInboxList('inbox-gates', d?.pending_gates || [], 'inbox-gates-count', { showApprove: true });
+  renderInboxList('inbox-p0', d?.p0_open || [], 'inbox-p0-count', {});
+  renderInboxList('inbox-blocked', d?.blocked || [], 'inbox-blocked-count', {});
+  renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', {});
+  // Idle focus: collapse the empty sections into one all-clear card when nothing needs a decision.
+  const attention = (d?.pending_gates || []).length + (d?.p0_open || []).length
+    + (d?.blocked || []).length + (d?.stale_in_progress || []).length;
+  const ac = document.getElementById('inbox-allclear');
+  if (ac) ac.style.display = attention === 0 ? '' : 'none';
 }
 
 function renderInboxList(rootId, items, countId, opts = {}) {
   const root = document.getElementById(rootId);
   const cnt = document.getElementById(countId);
+  const section = document.getElementById(rootId + '-section');
   if (cnt) cnt.textContent = items.length;
-  if (!items.length) {
-    root.innerHTML = `<div class="inbox-empty">${opts.emptyMsg || 'Empty.'}</div>`;
-    return;
-  }
+  // Hide an empty section entirely (no "No X" placeholder) — the all-clear card covers the all-empty case.
+  if (section) section.style.display = items.length ? '' : 'none';
+  if (!items.length) { root.innerHTML = ''; return; }
   root.innerHTML = items.map(t => {
     const meta = [
       t.agent ? `agent: ${esc(t.agent)}` : '',
@@ -2681,7 +2723,6 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     const actions = opts.showApprove
       ? `<div class="actions" onclick="event.stopPropagation()">
            <button class="gate-btn gate-approve" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">Approve</button>
-           <button class="gate-btn gate-approve" title="Approve, then spawn an agent in the project" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve', true)">Approve + ▶run</button>
            <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject</button>
          </div>`
       : `<div class="actions"><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${t.status || ''}</span></div>`;
@@ -2985,7 +3026,15 @@ function renderPipeline(stages) {
           <div class="pl-meta">${meta}</div>
         </div>`;
     }
-    const msg = s.last_message ? esc(s.last_message) : (s.status === 'idle' ? 'no runs yet' : '—');
+    // Compact rail: an idle stage is just a labelled node (dot + name) — no repeated "no runs
+    // yet". Only an active / done / failed stage expands to show its last message + age.
+    if (s.status === 'idle') {
+      return `
+        <div class="pl-stage idle pl-compact" title="${esc(s.stage)} — idle. Click to filter the Kanban by this stage." onclick="drillToStage('${esc(s.stage)}')">
+          <div class="pl-name"><span class="dot"></span>${label}</div>
+        </div>`;
+    }
+    const msg = s.last_message ? esc(s.last_message) : '—';
     const meta = s.age_min != null ? `${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'} ago` : '';
     return `
       <div class="pl-stage ${s.status}" title="Click to filter Kanban by ${esc(s.stage)}" onclick="drillToStage('${esc(s.stage)}')">
