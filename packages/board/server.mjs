@@ -326,22 +326,7 @@ function broadcast(event, data) {
   }
 }
 
-// ── Launch control (board → agent): approve a gate / press Run → spawn a Claude Code agent
-// headlessly in the project, stream its output to the board, with hard guardrails. ──
-const AGENT_BIN = process.env.GREAT_CTO_AGENT_BIN || 'claude';
-const AGENT_TIMEOUT = Math.max(60000, Number(process.env.GREAT_CTO_AGENT_TIMEOUT) || 1800000); // 30 min
-const AGENT_PERMISSION = process.env.GREAT_CTO_AGENT_PERMISSION || 'acceptEdits';
-const AGENT_DANGEROUS = process.env.GREAT_CTO_AGENT_DANGEROUS === '1';
-// Effort for board-spawned coding agents. Opus 4.8 respects effort strictly and under-thinks
-// at low/medium; xhigh is the recommended default for coding/agentic work. Override with
-// GREAT_CTO_AGENT_EFFORT (set to 'none' to leave the child's effort unset).
-const AGENT_EFFORT = process.env.GREAT_CTO_AGENT_EFFORT || 'xhigh';
-// Room to think + act across tools at high effort (guide: start at 64k, tune from there).
-const AGENT_MAX_OUTPUT = process.env.GREAT_CTO_AGENT_MAX_OUTPUT || '64000';
-const AGENT_LINECAP = 2000;
-const agentRuns = new Map();  // cwd → { proc, project, startedAt, lines:[], exit, timer, prompt }
-
-// Only same-origin (the board's own page) may trigger a spawn — a malicious page must not.
+// Only same-origin (the board's own page) may make a state-changing request — a malicious page must not.
 function originAllowed(req) {
   const o = req.headers.origin || req.headers.referer || '';
   if (!o) return true; // same-origin fetch / curl with no Origin
@@ -349,103 +334,6 @@ function originAllowed(req) {
   // (covers a tunnelled/hosted console at console.client.com, http or https).
   const self = req.headers.host ? [`http://${req.headers.host}`, `https://${req.headers.host}`] : [];
   return [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`, ...self].some((e) => o === e || o.startsWith(e + '/'));
-}
-function agentEmit(project, kind, text) {
-  broadcast('agent', { project, kind, text, at: Date.now() });
-}
-function agentPush(run, kind, text) {
-  run.lines.push({ kind, text });
-  if (run.lines.length > AGENT_LINECAP) run.lines.splice(0, run.lines.length - AGENT_LINECAP);
-  agentEmit(run.project, kind, text);
-}
-// Parse a claude --output-format stream-json line into a human line for the board.
-function agentLineFromJson(s) {
-  let e; try { e = JSON.parse(s); } catch { return s ? { kind: 'text', text: s } : null; }
-  if (e.type === 'assistant' && e.message?.content) {
-    const parts = e.message.content;
-    const texts = parts.filter((p) => p.type === 'text').map((p) => p.text).join('').trim();
-    const tools = parts.filter((p) => p.type === 'tool_use').map((p) => '🔧 ' + p.name).join(' ');
-    if (texts) return { kind: 'text', text: texts };
-    if (tools) return { kind: 'tool', text: tools };
-    return null;
-  }
-  if (e.type === 'result') {
-    if (e.is_error || e.api_error_status) {
-      const hint = e.api_error_status === 401
-        ? ' — the spawned `claude` could not authenticate. Run the board from a terminal where `claude` is logged in (run `claude` once interactively), or set ANTHROPIC_API_KEY.'
-        : '';
-      return { kind: 'error', text: `✗ ${String(e.result || 'agent error')}${e.api_error_status ? ' (HTTP ' + e.api_error_status + ')' : ''}${hint}` };
-    }
-    return { kind: 'system', text: `▪ result (${e.subtype || 'done'}${e.total_cost_usd ? ' · $' + e.total_cost_usd.toFixed(4) : ''})` };
-  }
-  if (e.type === 'system' && e.subtype === 'init') return { kind: 'system', text: `▪ session ${String(e.session_id || '').slice(0, 8)} · model ${e.model || ''}` };
-  return null;
-}
-// Compose a ready-to-run agent prompt from a task's own body (title + description + labels),
-// mirroring the "embed the execution prompt in the issue" pattern. Returns null if the task
-// can't be read, so callers fall back to a generic prompt. The operator still sees and edits
-// this in the approve dialog before anything runs — the human gate is preserved.
-function composeTaskPrompt(taskId, cwd) {
-  if (!taskId) return null;
-  try {
-    const r = bd(['show', String(taskId), '--json'], { cwd });
-    if (r.status !== 0 || !r.stdout) return null;
-    let o = JSON.parse(r.stdout);
-    if (Array.isArray(o)) o = o[0];
-    o = (o && o.issue) || o;
-    if (!o || !o.title) return null;
-    const labels = Array.isArray(o.labels) && o.labels.length ? `\nLabels: ${o.labels.join(', ')}` : '';
-    const desc = (o.description || '').trim();
-    return [
-      `Implement task ${o.id || taskId}: ${o.title}`,
-      desc ? `\n${desc}` : '',
-      labels,
-      `\n\nWork in this project with TDD. When the task is complete, close it (bd close ${o.id || taskId}) and stop.`,
-    ].join('');
-  } catch { return null; }
-}
-
-function startAgentRun(cwd, project, prompt, model) {
-  if (agentRuns.has(cwd)) return { error: 'an agent is already running for this project', running: true };
-  const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--permission-mode', AGENT_PERMISSION];
-  if (AGENT_DANGEROUS) args.push('--dangerously-skip-permissions');
-  if (model) args.push('--model', String(model));
-  // Clean env: don't leak this process's Claude-Code session identity into the spawned agent
-  // (a board launched from inside a Claude Code session would otherwise hand the child its parent's
-  // session vars). Keep the user's ANTHROPIC_* config + auth.
-  const childEnv = { ...process.env };
-  for (const k of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_AGENT_SDK_VERSION', 'CLAUDE_EFFORT']) delete childEnv[k];
-  // Set effort explicitly for the spawned coding agent (don't inherit the parent's, don't leave
-  // it unset → under-thinking on 4.8). 'none' opts out entirely.
-  if (AGENT_EFFORT && AGENT_EFFORT.toLowerCase() !== 'none') childEnv.CLAUDE_EFFORT = AGENT_EFFORT;
-  if (AGENT_MAX_OUTPUT && AGENT_MAX_OUTPUT.toLowerCase() !== 'none') childEnv.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(AGENT_MAX_OUTPUT);
-  let proc;
-  try { proc = spawn(AGENT_BIN, args, { cwd, env: childEnv }); }
-  catch (e) { return { error: 'spawn failed: ' + e.message }; }
-  try { proc.stdin.end(); } catch {}   // headless claude waits ~3s for stdin otherwise
-  const run = { proc, project, startedAt: Date.now(), lines: [], exit: null, prompt };
-  agentRuns.set(cwd, run);
-  agentPush(run, 'system', `▶ agent started: ${AGENT_BIN} (${AGENT_PERMISSION}${AGENT_DANGEROUS ? ' · skip-perms' : ''}${childEnv.CLAUDE_EFFORT ? ' · effort:' + childEnv.CLAUDE_EFFORT : ''})`);
-  let buf = '';
-  proc.stdout.on('data', (d) => {
-    buf += d.toString();
-    let i; while ((i = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); const l = agentLineFromJson(line); if (l) agentPush(run, l.kind, l.text); }
-  });
-  proc.stderr.on('data', (d) => agentPush(run, 'error', String(d).slice(0, 500)));
-  run.timer = setTimeout(() => { agentPush(run, 'error', '⏱ timeout — terminating'); try { proc.kill('SIGTERM'); } catch {} setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} }, 5000); }, AGENT_TIMEOUT);
-  proc.on('close', (code) => {
-    clearTimeout(run.timer); run.exit = code;
-    agentPush(run, 'done', `■ agent exited (code ${code})`);
-    agentRuns.delete(cwd);
-  });
-  proc.on('error', (e) => { clearTimeout(run.timer); agentPush(run, 'error', 'agent error: ' + e.message); agentRuns.delete(cwd); });
-  return { running: true, startedAt: run.startedAt };
-}
-function stopAgentRun(cwd) {
-  const run = agentRuns.get(cwd); if (!run) return { error: 'no active run' };
-  try { run.proc.kill('SIGTERM'); } catch {}
-  setTimeout(() => { try { run.proc.kill('SIGKILL'); } catch {} }, 4000);
-  return { stopped: true };
 }
 
 function broadcastTasks(cwd) {
@@ -2779,39 +2667,7 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
-  // ── Launch control: run / stop / status of a board-triggered agent ──
-  if (pathname === '/api/agent/status' && req.method === 'GET') {
-    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
-    const run = agentRuns.get(c);
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify(run ? { running: true, startedAt: run.startedAt, lines: run.lines.slice(-200) } : { running: false }));
-    return;
-  }
-  if (pathname === '/api/agent/prompt-for' && req.method === 'GET') {
-    // Derive an editable, task-specific default prompt for the launch dialog.
-    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
-    const prompt = composeTaskPrompt(url.searchParams.get('id'), c);
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ prompt: prompt || null }));
-    return;
-  }
-  if ((pathname === '/api/agent/run' || pathname === '/api/agent/stop') && req.method === 'POST') {
-    if (!originAllowed(req)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'origin not allowed' })); return; }
-    let body = ''; req.on('data', (c) => body += c);
-    req.on('end', () => {
-      let p; try { p = JSON.parse(body || '{}'); } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid_json"}'); return; }
-      const c = p.project ? resolveProjectCwd(p.project) : cwd;
-      const home = os.homedir();
-      if (!c || (!c.startsWith(home + path.sep) && c !== home)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'project must live inside HOME' })); return; }
-      if (pathname === '/api/agent/stop') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(stopAgentRun(c))); return; }
-      const prompt = String(p.prompt || '').trim();
-      if (!prompt) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'prompt required' })); return; }
-      const r = startAgentRun(c, p.project || path.basename(c), prompt, p.model);
-      res.writeHead(!r.error ? 200 : (r.running ? 409 : 400), { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(r));
-    });
-    return;
-  }
+  // (board-triggered agent launch removed — the board no longer spawns coding agents)
 
   // Gate approval / rejection
   if (pathname.startsWith('/api/gates/') && req.method === 'POST') {
@@ -2874,18 +2730,8 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: (result && result.error) || 'bd update failed' }));
         return;
       }
-      // Launch control: optionally spawn an agent the moment the gate is approved.
-      let agent = null;
-      if (action === 'approve' && parsed.runAgent && originAllowed(req)) {
-        // Client normally sends an (operator-edited) agentPrompt. If it's empty, derive one from
-        // the task body before falling back to the generic pipeline-continue prompt.
-        const prompt = String(parsed.agentPrompt || '').trim()
-          || composeTaskPrompt(id, gateCwd)
-          || `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it.`;
-        agent = startAgentRun(gateCwd, parsed.project || path.basename(gateCwd), prompt, parsed.model);
-      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, id, action, agent }));
+      res.end(JSON.stringify({ ok: true, id, action }));
       broadcastTasks(cwd);
       // Auto-republish share report when a gate is approved (fire-and-forget)
       if (action === 'approve') {
