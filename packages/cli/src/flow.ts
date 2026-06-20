@@ -63,6 +63,7 @@ const ARCHETYPE_TITLE: Record<string, string> = {
   "crm":               "CRM",
   "dashboard":         "Dashboard / analytics",
   "content-platform":  "Content / media platform",
+  "marketplace-lite":  "Marketplace",
   "greenfield":        "New project",
 };
 
@@ -116,6 +117,7 @@ const ARCHETYPE_COST: Record<string, readonly [number, number]> = {
   "crm":               [3, 8],
   "dashboard":         [3, 8],
   "content-platform":  [3, 8],
+  "marketplace-lite":  [3, 8],
   "greenfield":        [0.5, 3],
 };
 
@@ -131,6 +133,7 @@ export const UI_BEARING_ARCHETYPES: ReadonlySet<Archetype> = new Set<Archetype>(
   "healthcare", "fintech", "insurance", "gov-public", "web3",
   // Product Builder archetypes (A1–A6) — all ship a UI.
   "vertical-saas", "booking", "crm", "dashboard", "content-platform",
+  "marketplace-lite",
 ]);
 
 // ── Main export ───────────────────────────────────────────────────────────

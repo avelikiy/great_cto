@@ -36,6 +36,7 @@ export type Archetype =
   | "crm"                // A3 — CRM + nurture (contacts + pipeline + sequences)
   | "dashboard"          // A4 — dashboard / analytics (ingest + metrics + viz)
   | "content-platform"   // A6 — content / media (catalog + access + delivery + monetization)
+  | "marketplace-lite"   // A5 — non-regulated two-sided marketplace (vs the compliance-heavy "marketplace")
   | "greenfield";
 
 export interface ArchetypePick {
@@ -1117,6 +1118,7 @@ export const REVIEWERS_BY_ARCHETYPE: Record<Archetype, string[]> = {
   "crm":               ["security-officer"],
   "dashboard":         ["security-officer"],
   "content-platform":  ["pci-reviewer", "security-officer"],
+  "marketplace-lite":  ["pci-reviewer", "security-officer"],
   "greenfield":        [],
 };
 
@@ -1161,6 +1163,7 @@ export const GATES_BY_ARCHETYPE: Record<Archetype, StandardGate[]> = {
   "crm":               ["plan", "qa", "ship"],
   "dashboard":         ["plan", "qa", "ship"],
   "content-platform":  ["plan", "qa", "ship"],
+  "marketplace-lite":  ["plan", "qa", "ship"],
   "greenfield":        ["plan"],
 };
 
