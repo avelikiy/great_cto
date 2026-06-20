@@ -128,7 +128,7 @@ test("output preserves base gate order", () => {
 // ── Product Builder archetypes (A1–A6) — the single CTO gate ──────────────────
 
 test("product-builder archetypes open exactly ONE gate (plan) at T1 — the CTO gate", () => {
-  for (const a of ["vertical-saas", "booking", "crm", "dashboard", "content-platform"]) {
+  for (const a of ["vertical-saas", "booking", "crm", "dashboard", "content-platform", "marketplace-lite"]) {
     assert.deepEqual(effectiveGates(a, "medium", "T1"), ["plan"],
       `${a}: a reversible product feature → the single CTO gate only`);
     assert.deepEqual(effectiveGates(a, "medium", "T0"), [],

@@ -29,9 +29,9 @@ Structured **readiness** scoring of the 6 Product Builder pipelines on a 0–100
 | **A6 content / media** | 7 | ✅ `[plan]` | **83** | Clean; storage/CDN/monetization is the hardest build |
 | **A2 booking / scheduling** | 6 | ✅ `[plan]` | **85** | Clean; Stripe + Twilio integration well-scoped |
 | **A4 dashboard / analytics** | 4 | ✅ `[plan]` | **82** | Clean; smaller coverage; source-connector breadth untested |
-| **A5 marketplace-lite** | 4 | ❌ floored | **68** | **Reuses the old `marketplace` archetype → carries a regulated floor** (`T1 = [plan, security, ship, compliance]`, `T0 = [security, ship, compliance]`). Breaks the single-CTO-gate promise. |
+| **A5 marketplace-lite** | 4 | ✅ `[plan]` | **88** | FIXED 2026-06-19 (great_cto-dei): distinct `marketplace-lite` archetype, clean single gate. |
 
-**Average readiness: 82 / 100.**
+**Average readiness: 85 / 100** (was 82; marketplace fixed great_cto-dei → 68→88).
 
 ## Key findings
 

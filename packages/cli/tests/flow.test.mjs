@@ -94,7 +94,7 @@ test("design-advisor is included for UI-bearing archetypes", () => {
 });
 
 test("product-builder archetypes (A1–A6) are UI-bearing → include design-advisor", () => {
-  for (const a of ["vertical-saas", "booking", "crm", "dashboard", "content-platform"]) {
+  for (const a of ["vertical-saas", "booking", "crm", "dashboard", "content-platform", "marketplace-lite"]) {
     const flow = compileFlow(a, "medium", mkDetection(), [], "high");
     assert.ok(flow.agents.includes("design-advisor"), `${a} must include design-advisor`);
   }
