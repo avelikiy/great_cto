@@ -12,6 +12,45 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.74.0 — 2026-06-20
+
+### The Product Builder pivot
+
+GreatCTO becomes an **AI Product Builder** — describe a software product, approve the spec at one
+CTO gate, and the pipeline ships it (spec → scaffold → build → test → deploy). The regulated
+runtime surface (operator console, autopilot runtime, 25 vertical flows) was extracted to a
+separate repo; great_cto is now build-only.
+
+**Gate tiering (ADR-003).** Build gates are risk-tiered on a per-change axis (`change_tier`):
+T0 maintenance opens no gate (CI is the gate), T1 reversible feature opens only `plan` (the one
+CTO gate), T2 irreversible/regulated forces the full set. `effectiveGates` + `classify` +
+`gate-plan` (`scripts/lib/`), with a volume/scope escalation (a bulk change → T2). The board shows
+a live `change_tier` badge. Hard floor: a regulated archetype keeps security+compliance+ship at
+every tier.
+
+**Tier-aware judge (ADR-004).** Judge/eval/scorer agents run a cheap model on T0/T1 and the
+frontier model + human on T2 — spend reasoning in proportion to blast radius. `selectJudgeModel`
+(env-pluggable cheap judge) + `judge-validate`.
+
+**Product Builder archetypes.** Six build archetypes (`vertical-saas`, `booking`, `crm`,
+`dashboard`, `content`, `marketplace-lite`) — the ~40 products across 10 US industries collapse
+into these, each shipping through the one-CTO-gate pipeline. `design-advisor` (ui-ux-pro-max +
+anydesign) plans the UI; senior-dev builds it.
+
+**Reviewer fleet consolidation.** All reviewers now mount `archetype-review-base` (single scaffold
+source); 22 regulated-vertical reviewers moved out with the runtime; anti-regrowth lint added.
+
+**Board.** Removed the in-board agent-launch (the Agents tab + Run-agent + `/api/agent/*` + the
+gate auto-spawn) — the board observes the pipeline, it doesn't spawn coding agents.
+
+Tests: full suite green (cli 207, root 500+). New: effective-gates, change-tier, gate-plan,
+judge-model, design-skills, flow wiring. Docs: ADR-003/004, PRODUCT-BUILDER-DIRECTION,
+BUILD-PIPELINES, PIPELINE-QUALITY-ASSESSMENT (6 pipelines avg 85/100). README + greatcto.systems
+fully repositioned.
+
+---
+
 ## v2.73.1 — 2026-06-13
 
 ### Phase 4: monitor steps no longer re-run the irreversible write
