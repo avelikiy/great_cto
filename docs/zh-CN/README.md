@@ -1,19 +1,15 @@
-> ⚠️ **This translation is being updated.** GreatCTO has repositioned to an **AI Product Builder** — describe a product, approve the spec, ship the software (one CTO gate, maximum automation). For the current positioning see the [English README](../../README.md). The text below reflects the previous "AI autopilots" direction.
-
 <div align="center">
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**面向业务的 AI 自动驾驶（autopilot）—— 交付工作成果，而不只是软件。**
+**AI 产品构建器 —— 描述产品、批准规格、交付软件。**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 [![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
-[![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
-
-<img src="../screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 61 agents → gate:ship → Deployed" width="900" />
+[![Savings](https://img.shields.io/badge/one_real_run-1h26m_·_$3.40_vs_~$42K_traditional-darkgreen)](https://greatcto.systems/proof)
 
 ```bash
 npx great-cto init
@@ -27,96 +23,117 @@ npx great-cto init
 
 ---
 
-## 服务即新一代软件
+## 构建产品，而不只是代码
 
-下一波浪潮不再是面向专家的工具——而是**售卖某项服务最终成果的自动驾驶**。
-一个自动驾驶端到端地运行整个业务职能（接入 → 处理 → 决策 → 交付），
-只把需要判断力的关键决策上报给合格的人类。每一次模型的改进，都让这项服务
-更快、更省。
+great_cto 是一个 **AI 产品构建器（AI Product Builder）**。描述一个软件产品，它就会运行整个
+构建过程——架构、数据模型、后端、前端、测试、部署。**只有一道人类闸门：** 你，作为
+CTO，批准规格。其后的一切都是自动化的，直至交付出一个仓库和一个上线 URL。
 
-GreatCTO 交付的正是这些自动驾驶——每一个都是**带有人类把关高风险环节的智能体 + 工具的流程（flow）**，
-内置合规审查员，并配有**真实连接器（live connector）**，让每个流程跑在真实数据上。
+它所服务的美国头部行业——家政与现场服务、专业服务、餐饮酒店、零售/电商、房产科技、
+健身、营销与创作者、人力资源/招聘、建筑、物流——都收敛为 **6 种可复用的构建原型**
+（CRUD 垂直 SaaS、预订、CRM、仪表盘、市场、内容/媒体）。一套模板即可交付约 40 种产品中的任意一种。
+参见 [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md)。
 
-## 这些自动驾驶
+```
+   describe a product
+        │
+   spec synthesis  ── architecture · data model · screens          (automated)
+        ▼
+   👤  CTO gate — approve the spec        ← the one human checkpoint
+        │
+   scaffold → backend → frontend → integrate → test → deploy        (automated)
+        ▼
+   shipped product · repo · live URL
+```
 
-| 自动驾驶 | 它做什么 | 市场规模 | 谁在做 |
-|---|---|---|---|
-| 🩺 **[Medical-coding](https://greatcto.systems/autopilots/rcm.html)** | 临床记录 → 干净、合规的理赔单据；由持证编码员对高风险项签字确认 | $50–80B | Anterior · CodaMetrix · Fathom |
-| 🖥️ **[Managed-IT](https://greatcto.systems/autopilots/msp.html)** | 在整个设备群中管理补丁、配置与访问权限——分阶段、可回滚、重大变更由人类把关 | $100B+ | Serval · Edra · Electric AI |
-| ⚖️ **[Legal-document](https://greatcto.systems/autopilots/legaltech.html)** | 起草并批注合同与保密协议（NDA）；凡涉及法律意见的内容由持照律师签字 | $20–25B | Crosby · Harvey · Robin AI |
-| 📒 **[Bookkeeping & close](https://greatcto.systems/autopilots/accounting.html)** | 记账、对账并完成月度结账；由财务主管对结账签字 | $50–80B | Rillet · Basis · Digits |
-| 🧾 **[Tax-prep](https://greatcto.systems/autopilots/tax.html)** | 准备纳税申报并对税务处理立场分类；由持证报税员在申报前签字 | $30–35B | Black Ore · April · Column Tax |
-| 🛒 **[Source-to-pay](https://greatcto.systems/autopilots/procurement.html)** | 供应商入驻、发票匹配、放款付款——经过制裁与欺诈筛查 | $200B+ | Tacto · Zip · AskLio |
+CI 和生成的测试就是质量闸门——你签下的是**方向**，而非每一行代码。
 
-→ [全部自动驾驶](https://greatcto.systems/autopilots.html) · 运行 `/flow <vertical>` 即可在终端中查看任意流程
-
-**每个自动驾驶都让人类把关需要判断力的决策**——持证编码员、持照律师、
-财务主管、持证报税员。自动驾驶处理大量工作；人类负责那个承担法律责任的决策。**9 个真实连接器在全部六个自动驾驶中运行**——FHIR、ICD-10（NLM）、
-NCCI/MUE、X12 837P、DocuSign、Plaid、OFAC、分阶段发布（staged-rollout），以及一个美国联邦税务引擎。它们
-默认无需密钥（使用公开数据源或确定性的真实生成），并在你添加凭据的那一刻就向真实的服务提供方发起 POST 请求。
+> **Operate** —— 由人类对每一笔受监管交易签字的运行时界面（操作员控制台、自动驾驶运行时、
+> 垂直流程）—— **已迁移到它自己的仓库：**
+> [github.com/avelikiy/operate](https://github.com/avelikiy/operate)。great_cto 现在是
+> 构建产品本身。
 
 ## 内部原理（写给运行它的 CTO）
 
-每个自动驾驶都由一条带闸门（gated）的专家智能体流水线构建并运营——架构师、12 角度
-审查员、QA、安全官、devops——并针对你的技术栈和司法辖区进行调优。**你每个功能只需做两个
-决策；其余一切自动运行。** 合规审查员、签字的人类闸门、审计轨迹与真实连接器，构成了让自动驾驶
-安全运行的信任层。
+→ *面向构建者讲述这一界面的故事：[greatcto.systems/build](https://greatcto.systems/build)*
+
+每个产品都由一条专家智能体流水线构建——架构师、design-advisor、senior-dev、
+QA、security-officer、devops——它运行 spec → scaffold → backend → frontend → tests → deploy。
+**你只做一个决策：批准规格。** 其后的一切都是自动化的。这条流水线是
+按风险分级的——一次维护修复不会开启任何闸门（CI 就是闸门），一个可逆功能只开启
+plan 闸门，而一个不可逆的变更则强制开启全套闸门——因此仪式感随影响半径而扩展，
+而非随文书工作而扩展。CI 和构建自身生成的测试是质量闸门，正是它让流水线一路跑到部署变得安全。
+
+**推荐的配套 MCP：Serena（语义代码导航）。** 在大型代码库上，编写代码的
+智能体（senior-dev、coder）会因 grep 和通读整个文件而消耗大量上下文。
+[Serena MCP](https://github.com/oraios/serena) 转而为它们提供符号级导航
+（find-symbol、references、structure）：
+
+```bash
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
+  serena start-mcp-server --context ide-assistant --project "$(pwd)"
+```
+
+可选——没有它一切照样工作；有了它，大型仓库上的实现任务每次编辑会用到
+明显更少的上下文。
+
+**一道闸门，恰在要紧之处。** 构建步骤按风险分级：一次可逆变更会在 CI 背后构建并交付；
+一次不可逆变更——一次生产部署、一次 schema 迁移、一个新的可写集成——会在运行之前
+升级到 CTO 闸门和前沿模型。你签下规格
+和高影响半径的调用；其余则一路直通。`change-tier` + `effectiveGates`
+在代码中强制保证这一不变式。
 
 ## 用数据说话
 
 | | |
 |---|---|
-| LLM 成本（一个真实功能，带完整追踪） | **$2.39** |
-| 同等工作量的人力成本 | **~$5,460** |
-| 抓出的、QA 漏掉的缺陷 | **2** |
+| 一个功能，端到端（真实运行，完整追踪） | **1h 26m · $3.40 LLM** 对比传统 ~$42K / ~6 周 |
+| 一次更早的 CLI 功能运行，同一条流水线 | $2.39 LLM 对比 ~$5,460 人力等价；安全环节抓出 2 个 QA 已放行的缺陷 |
 | 月度成本（20 次流水线运行） | **~$34** |
-| 专家智能体 | **61** |
-| 自动识别的原型（archetype） | **26** |
-| 司法辖区 | **12**（GDPR · HIPAA · PCI-DSS · SOX · 等等） |
+| 目标美国行业 | **10**（家政服务 · 零售 · 房产科技 · 健身 · 人力资源 · …） |
+| 可构建的产品 | 横跨 10 个行业的 **~40** 种 |
+| 可复用的构建流水线 | **6**（CRUD · 预订 · CRM · 仪表盘 · 市场 · 内容） |
+| 专家智能体 | **46** |
 
-→ [包含全部产物的完整追踪](https://greatcto.systems/proof)
+→ [包含全部产物的完整追踪](https://greatcto.systems/proof) · [这 6 条流水线](https://greatcto.systems/pipelines)
 
 ## 它如何运作
 
-**`npx great-cto init`** —— 扫描你的技术栈与 README，检测司法辖区（GDPR？HIPAA？PCI？），并将适用于你项目的具体智能体、闸门与合规框架写入 `.great_cto/FLOW.md`。
+**`npx great-cto init`** —— 扫描你的技术栈，并将适用于你产品的流水线写入 `.great_cto/FLOW.md`：智能体、构建原型，以及那唯一的 CTO 闸门。
 
-**`/start "describe the feature"`** —— 在任何代码写出之前，评审员会先审查架构与规格说明。你在 `gate:plan` 处审阅计划。
+**`/start "describe the product"`** —— 架构师和 design-advisor 起草规格、数据模型和界面。你在**那一道闸门** `gate:plan` 处审阅并批准它。
 
-**智能体自动运行** —— senior-dev 以 TDD 实现，配合 12 角度审查、QA、安全、devops。你在 `gate:ship` 处批准发布。
+**流水线把它交付出去** —— senior-dev 以 TDD 搭建并构建，QA 运行生成的测试，devops 部署。一次可逆构建无需进一步批准。
 
-## 三个项目——三条不同的流水线
+## 三个产品——同一条流水线
 
-同一条命令。产出取决于你在构建什么、以及它在哪里运行：
+同一条命令，不同的产品。构建原型塑造技术栈和集成：
 
-| | **金融科技初创 · 欧盟** | **医疗门户 · 美国** | **CLI 工具** |
+| | **派单应用** | **课程预订应用** | **盈利能力仪表盘** |
 |---|---|---|---|
-| 专家智能体 | `pci-reviewer` · `gdpr-reviewer` · `regulated-reviewer` | `fda-reviewer` · `healthcare-reviewer` · `security-officer` | `cli-reviewer` |
-| 人类闸门 | `gate:gdpr-dpia` · `gate:plan` · `gate:ship` | `gate:clinical-validation` · `gate:plan` · `gate:ship` | `gate:plan` |
-| 合规 | GDPR · PCI-DSS · SOX | HIPAA · HITECH | — |
-| 每周期成本 | ~$8–18 | ~$8–18 | ~$0.5–3 |
+| 原型 | CRUD 垂直 SaaS | 预订 / 排程 | 仪表盘 / 分析 |
+| 技术栈 | Next.js · Postgres · shadcn | Next.js · Postgres · cal | Next.js · warehouse-lite · charts |
+| 集成 | Auth · RBAC | Stripe · Twilio | source connectors |
+| 人类闸门 | `gate:plan`（CTO 闸门） | `gate:plan` | `gate:plan` |
 
-→ 试试交互式选择器：[greatcto.systems/#flow-picker](https://greatcto.systems/#flow-picker)
+→ 查看这 6 条流水线：[greatcto.systems/pipelines](https://greatcto.systems/pipelines)
 
 ## 你真正会去看的仪表盘
 
-`great-cto board` 在 `http://localhost:3141` 打开——支持实时 SSE 的看板（Kanban）、每个智能体的成本卡片、流水线状态、30 天 LLM 支出对比人力等价基线。
+`great-cto board` 在 `http://localhost:3141` 打开——构建看板：实时 SSE、带 change_tier 徽章的实时流水线（一道 CTO 闸门 · 廉价裁判）、每个智能体的成本、30 天 LLM 支出对比人力等价基线。
 
 <p align="center">
-  <img src="../screenshots/board.png" alt="Kanban board with realtime SSE updates" width="900" />
+  <img src="../screenshots/board.png" alt="The build board — live pipeline with the change_tier gate badge, inbox and cost" width="900" />
 </p>
 
 <table>
 <tr>
-<td width="50%"><a href="docs/screenshots/metrics.png"><img src="../screenshots/metrics.png" alt="Metrics — cost, velocity, savings_x" width="100%" /></a><br/><sub><b>Metrics</b> — LLM 成本、人力等价基线、savings_x 比率</sub></td>
-<td width="50%"><a href="docs/screenshots/inbox.png"><img src="../screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — 待处理闸门、P0 事故、被阻塞的任务、停滞的进行中任务</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="../screenshots/agents.png" alt="Agent fleet — 61 specialists with run counts" width="100%" /></a><br/><sub><b>Agents</b> — 61 个专家，附最近使用时间 + 运行次数</sub></td>
-<td width="50%"><a href="docs/screenshots/memory.png"><img src="../screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memory</b> — 11 层 + 结晶化的事故模式</sub></td>
+<td width="50%"><a href="../screenshots/metrics.png"><img src="../screenshots/metrics.png" alt="Metrics — tasks shipped, AI spend, cost savings vs FTE" width="100%" /></a><br/><sub><b>Metrics</b> —— 已交付的任务、AI 支出、对比人类团队的成本节省、每日消耗</sub></td>
+<td width="50%"><a href="../screenshots/memory.png"><img src="../screenshots/memory.png" alt="Project memory — browsable layers: PROJECT.md, archetypes, lessons" width="100%" /></a><br/><sub><b>Memory</b> —— 可浏览的项目记忆层：PROJECT.md、原型、技能、经验教训</sub></td>
 </tr>
 </table>
 
-**为单人工程组织而打造。** 独立开发者、单人创始人、亲力亲为的技术型 CTO——运行在 Claude Code 或 OpenAI Codex 上。*不适合团队*——参见 [FAQ](../FAQ.md#is-great_cto-for-teams)。
+**为单人工程组织而打造。** GreatCTO 面向那些想要无需团队就交付真实产品的独立开发者、单人创始人或技术型 CTO——在 Claude Code 或 OpenAI Codex 上运行流水线、批准一份规格、交付到一个上线 URL。*不适合多开发者的工程团队*——参见 [FAQ](../FAQ.md#is-great_cto-for-teams)。
 
 ## 安装
 
@@ -144,19 +161,19 @@ Superpowers 与 Beads 配套插件会自动安装——无需手动设置。
 ---
 
 <details>
-<summary>📖 完整文档 —— 两个闸门 · 评审员 · 61 个智能体 · 26 个原型 · 12 个司法辖区 · 45+ 合规框架 · 看板 · 成本 · MCP</summary>
+<summary>📖 完整文档 —— 一道 CTO 闸门 · 风险分级 · 评审员 · 46 个智能体 · 构建原型 · 看板 · 成本 · MCP</summary>
 
-## 每个功能两个决策
+## 每个功能一个决策
 
 ```
-🟡 gate:plan   ←  你在这里决策（架构 + 任务 + 成本）
+🤖 architect + design-advisor  →  spec · data model · screens
    ↓
-🤖 senior-dev → 12-angle review → qa-engineer → security-officer → devops
+🟡 gate:plan   ←  you decide here — approve the spec (the one CTO gate)
    ↓
-🟢 gate:ship   ←  你在这里决策（PR 就绪，安全已签字）
+🤖 senior-dev → review → qa-engineer → devops  →  built · tested · deployed
 ```
 
-架构师、规划者、审查员、QA、安全、DevOps 在这两个人类检查点之间自动运行。**记忆在会话之间持久保存**：每一个闸门裁定都追加到 `~/.great_cto/decisions.md`，每一次复盘都追加到各项目的 `lessons.md`，而 `/crystallize` 会把高影响力的模式提升到一个全局库中，供智能体在重新求解之前查询。
+这条流水线是按风险分级的（`change_tier`）：一次维护修复**不**开启任何闸门（CI 就是闸门），一个可逆功能**只**开启 `gate:plan`，而一个不可逆的变更则强制开启全套闸门 + 前沿模型。闸门与部署之间的一切都自动运行。**记忆在会话之间持久保存**：每一个闸门裁定都追加到 `~/.great_cto/decisions.md`，每一次复盘都追加到各项目的 `lessons.md`，而 `/crystallize` 会把高影响力的模式提升到一个全局库中，供智能体在重新求解之前查询。
 
 ## 计划之前先有评审员
 
@@ -164,8 +181,8 @@ Superpowers 与 Beads 配套插件会自动安装——无需手动设置。
 
 | 评审员 | 抓什么 |
 |---|---|
-| **架构评审员（Architecture critic）** | 那种日后排除掉多租户可能性的耦合 · 真实规模数据上“看似无害”的 O(n²) · 受限上下文（bounded context）之间的循环依赖 |
-| **规格评审员（Spec critic）** | “我们解决了错误的问题”——最糟糕的一类 bug，因为没有任何单元测试会抓到它 · 不一致的验收标准 · 从未达成共识的范围 |
+| **架构评审员（Architecture critic）** | 那种日后排除掉多租户可能性的耦合 · 真实规模数据上"看似无害"的 O(n²) · 受限上下文（bounded context）之间的循环依赖 |
+| **规格评审员（Spec critic）** | "我们解决了错误的问题"——最糟糕的一类 bug，因为没有任何单元测试会抓到它 · 不一致的验收标准 · 从未达成共识的范围 |
 | **Schema 评审员（Schema critic）** | 在一张 5000 万行的表上加 `NOT NULL` 却没有默认值（部署后 10 分钟内死锁） · 建索引时缺少 `CONCURRENTLY` · 没有回滚路径的不可逆迁移 |
 
 此前评审员只从 Plan 阶段开始激活。现在流水线会在实现开始之前就抓住架构级和规格级的错误——此时回退只需数小时，而非数天。
@@ -178,16 +195,16 @@ Superpowers 与 Beads 配套插件会自动安装——无需手动设置。
 | 自托管 | ✅ 本地运行 | ❌ Cognition 云 | ✅ |
 | 宿主 | ✅ Claude Code + Codex | ❌ Cognition 云 | ✅ Claude Code |
 | BYOK / 多模型 | ✅ Claude Code · Codex | ❌ 专有 | ❌ 仅 Anthropic |
-| 专家智能体 | **57**（架构师 · PM · 12 角度审查 · QA · 安全 · devops · 跨原型、扩展包与司法辖区的 42 个审查员） | 1 个通用智能体 | 1 个通用智能体 |
-| SDLC 编排 | 架构 → 计划 → 实现 → 审查 → QA → 安全 → devops | 一次性自主 | 编辑循环 |
-| 人类闸门 | ✅ 每个功能 2 个（plan + ship） | ❌ 无 | ❌ |
+| 专家智能体 | **46**（架构师 · design-advisor · senior-dev · QA · 安全 · devops · 原型评审员） | 1 个通用智能体 | 1 个通用智能体 |
+| 构建流水线 | spec → CTO 闸门 → scaffold → build → test → deploy | 一次性自主 | 编辑循环 |
+| 人类闸门 | ✅ 一道——你批准规格（按风险分级） | ❌ 无 | ❌ |
 | 跨会话记忆 | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ 仅线程内 | ⚠️ 仅线程内 |
 | 成本追踪 | ✅ 每个智能体 + 30 天历史 + savings_x | ❌ | ❌ |
-| 合规框架 | ✅ 33+（PCI · HIPAA · SOX · GDPR · CCPA · DPDPA · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …） | ❌ | ❌ |
+| 内置设计 | ✅ design-advisor + ui-ux-pro-max → Next.js/Tailwind/shadcn | ❌ | ❌ |
 | 定价 | 免费（你向自己的 LLM 提供方付费） | $500/月 | $20/月 |
 | 安装 | `npx great-cto init` | 注册 | 安装 CLI |
 
-great_cto **不是**又一个编码智能体循环——它是你已在使用的编码智能体**之上的编排层**。可以理解为“一支审查并把关工作的专家团队”，而非“又一个替你敲代码的助手”。
+great_cto **不是**又一个编码智能体循环——它是你已在使用的编码智能体**之上的编排层**。可以理解为"一支审查并把关工作的专家团队"，而非"又一个替你敲代码的助手"。
 
 ## 司法辖区检测
 
@@ -217,14 +234,13 @@ jurisdiction: [eu, us-ca]
 ## 你每天都会用到的三条命令
 
 ```bash
-/start "build a refund endpoint with PCI-DSS scoping"
-# → architect → enterprise-saas-reviewer (PCI-DSS auto-loaded)
-# → pm → 5 Beads tasks → gate:plan (you approve)
-# → senior-dev → 12-angle review → qa → security-officer
-# → gate:ship (you approve) → devops → deployed
+/start "build a dispatch & scheduling app for an HVAC business"
+# → architect + design-advisor → spec, data model, screens
+# → pm → Beads tasks → gate:plan (you approve the spec — the one gate)
+# → senior-dev → review → qa → devops → built · tested · deployed
 
 /inbox
-# Pending gates · P0 incidents · blocked tasks · stale in-progress
+# Pending gate · P0 incidents · blocked tasks · stale in-progress
 
 /digest
 # Weekly DORA + delta vs last week + cost-per-feature roll-up
@@ -248,43 +264,42 @@ jurisdiction: [eu, us-ca]
 
 支付你自己的 Anthropic API token。**没有按席位收费。没有 SaaS 锁定。** 常规分诊会自动路由到 Kimi K2（Sonnet 同等能力，成本约低 5 倍）→ 日志聚类成本降低 60–80%。
 
-## 自动识别的 26 个原型
+## 构建原型
 
-每个原型都会激活其专属的专家智能体与合规检查清单。前 7 名：
+每个产品都映射到一种**构建原型**，由它塑造其流水线——技术栈模板、
+数据形态、标志性集成。这 6 种产品构建器原型（约 40 种产品都收敛到这些之中）：
 
-| 原型 | 层级 | 专家智能体 | 合规 |
+| 原型 | 形态 | 技术栈 | 集成 |
 |---|---|---|---|
-| `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa |
-| `agent-product` | **deep** | ai-prompt-architect · ai-eval · ai-security | eu-ai-act · owasp-llm-top-10 |
-| `fintech` | **deep** | pci · regulated | pci-dss · sox · kyc-aml · gdpr · dora |
-| `mlops` | **deep** | mlops-reviewer · ai-eval | eu-ai-act · nist-ai-rmf · iso42001 |
-| `library` | baseline | library-reviewer | openssf · sbom |
-| `cli-tool` | baseline | cli-reviewer | — |
-| `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
-| `defense-govcon` | **deep** | cmmc-reviewer · gov-reviewer | cmmc-2.0 · nist-800-171 · dfars · itar · section-889 |
+| `vertical-saas` | 实体 · 角色 · 工作流 · 记录 UI | Next.js · Postgres · shadcn | Auth · RBAC |
+| `booking` | 日历 · 可用性 · 提醒 · 支付 | Next.js · Postgres · cal | Stripe · Twilio |
+| `crm` | 联系人 · 管线 · 自动化序列 | Next.js · Postgres · queue | email / SMS · webhooks |
+| `dashboard` | 摄取 · 指标 · 可视化 · 告警 | Next.js · warehouse-lite · charts | source connectors |
+| `marketplace` | 双边挂牌 · 撮合 · 支付 | Next.js · Postgres · Stripe Connect | Stripe Connect / escrow |
+| `content` | 目录 · 访问层级 · 投递 · 变现 | Next.js · object storage · CDN | Stripe · media pipeline |
+
+此外还有底层的软件种类原型（`web-service`、`mobile-app`、`cli-tool`、
+`library`、…），引擎会自动检测它们以微调构建。参见 [这 6 条流水线](https://greatcto.systems/pipelines)。
 
 完整表格（26 个原型）+ 检测如何运作：[docs/ARCHETYPES.md](../ARCHETYPES.md)。
 
 **深度覆盖美国法规** —— 除 GDPR/PCI/HIPAA 之外，great_cto 现在还会针对 SEC 网络安全披露（8-K Item 1.05）、面向国防承包商的 CMMC 2.0 / NIST 800-171、美国 AI 治理（NIST AI RMF · Colorado SB 205 · Utah/Texas AI）、网络追踪相关诉讼（VPPA · CIPA · Washington MHMDA），以及面向放贷的 HMDA / SR 11-7 模型风险进行审查。
 
-## 14 个领域扩展包——叠加式审查员
+## 领域叠加层（可选）
 
-领域扩展包**叠加于**原型**之上**。当 CLI 检测到扩展包专属信号（依赖、README 术语）时自动挂载。每个扩展包都会添加它自己的审查员、威胁模型模板、EVAL 套件和人类闸门——独立于基础原型。
-
-| 类别 | 扩展包 |
-|---|---|
-| **AI 垂直领域** | `voice-pack` · `clinical-pack` · `hr-ai-pack` · `drug-discovery-pack` |
-| **数字健康** | `digital-health-pack` _(可穿戴遥测 · 心理健康 AI · 营养 AI · 医生 HITL)_ |
-| **金融科技 / 受监管** | `lending-pack` · `em-fintech-pack` |
-| **高合规** | `clinical-trials-pack` · `climate-pack` |
-| **工程** | `api-platform-pack` · `robotics-pack` |
-| **美国市场** | `sec-cyber-pack` _(SEC 8-K 披露)_ · `adtech-privacy-pack` _(VPPA · CIPA · MHMDA)_ · `us-ai-pack` _(NIST AI RMF · Colorado SB 205)_ |
-
-→ **28 种人类闸门类型** + 53 个参考 EVAL 套件 + 15 个 TM 模板。通过**4 层旅程可视化**（原型 → 扩展包 → 审查员 → 闸门）浏览全部 14 个扩展包：[greatcto.systems/packs.html](https://greatcto.systems/packs.html)。
+在构建原型之外，当引擎检测到领域专属信号（依赖、README 术语）时，它可以
+自动挂载一个可选的**领域叠加层（domain overlay）**——为诸如语音/电话、隐私
+（GDPR/CCPA）或 AI 治理之类的事项添加一个专家审查员和若干额外检查。它们
+是选择性加入的，且与构建流水线正交；大多数产品都不需要任何叠加层。
 
 ## 一次真实运行，完整追踪
 
-一个 Python CLI 功能经由完整流水线交付：**$2.39 LLM 支出** 对比 ~$5,460 的人力等价成本。安全环节抓出了两个 QA 已放行的真实缺陷（`list(stream_csv())` 让流式处理失效 → 在 13 MB 输入上峰值 RSS 达 14.5 MB）。多审查员模型在合并之前抓住了单个智能体会遗漏的问题。
+权威凭据：**一个真实功能**经由完整流水线交付，**墙钟时间 1h 26m、
+LLM 成本 $3.40**——architect → plan → 实现 → review → 人类闸门 →
+合并的 PR。同一功能的传统路径：~170 小时、~$42K。每一个阶段都打了
+时间戳，每一个产物都链接到一个公开的 GitHub PR。
+
+一次更早的 Python CLI 功能运行（$2.39 对比 ~$5,460 人力等价）展示了审查模型的运作：安全环节抓出了两个 QA 已放行的真实缺陷（`list(stream_csv())` 让流式处理失效 → 在 13 MB 输入上峰值 RSS 达 14.5 MB）。
 
 完整追踪 + 产物：[greatcto.systems/proof](https://greatcto.systems/proof) · 原始数据：[`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](../qa/runs/2026-05-09/E2E-CLI-PIPELINE.md)。
 
@@ -331,7 +346,7 @@ jurisdiction: [eu, us-ca]
 
 ## 局限与非目标
 
-- **不适合团队** —— solo-CTO 才是本产品。2 人以上？你已经超出它的适用范围了。
+- **不适合多开发者的工程团队** —— 单个构建者才是本产品；2 名以上工程师共享流水线已经超出它的适用范围了。
 - **不能替代资深工程师** —— 它把流程固化下来；没有资深工程师在场，它不会替你做架构判断。
 - **不是 CI/CD 系统** —— 闸门在本地 / 会话内运行。你仍然需要 GitHub Actions 来完成真正的合并。
 - **未经认证审计** —— PCI/HIPAA/SOC2 原型脚手架是起点，而非认证。
@@ -345,7 +360,7 @@ jurisdiction: [eu, us-ca]
 
 **我能禁用 hooks 吗？** 每个 hook 都遵循 `GREAT_CTO_DISABLE_<NAME>=1`。按文件退出密钥扫描：`// great_cto:allow-secrets`。
 
-**如果我不是单人怎么办？** great_cto 是为单人工程组织打造的。如果你有 2 名以上工程师、需要共享看板 / 多席位认证，那你已经超出它的适用范围了。
+**如果我不是单人怎么办？** GreatCTO 的构建流水线是为单个工程师打造的——如果你有 2 名以上工程师、需要共享的构建看板和并发流水线，那你已经超出它的适用范围了。
 
 完整 FAQ：[docs/FAQ.md](../FAQ.md)。
 
@@ -357,26 +372,26 @@ jurisdiction: [eu, us-ca]
 
 ## 架构
 
-该插件运行在 Claude Code（或任意支持 MCP 的宿主）内部；61 个智能体是 markdown 规格说明；任务存放在 Beads（dolt，git 原生）中；记忆是纯 markdown（无向量存储）。图示 + 技术栈表：[docs/ARCHITECTURE.md](../ARCHITECTURE.md)。
+该插件运行在 Claude Code（或任意支持 MCP 的宿主）内部；46 个智能体是 markdown 规格说明；任务存放在 Beads（dolt，git 原生）中；记忆是纯 markdown（无向量存储）。图示 + 技术栈表：[docs/ARCHITECTURE.md](../ARCHITECTURE.md)。
 
 ## 新动态
 
-**v2.21.0**（2026 年 5 月）—— **Flow Compiler 体验**：`npx great-cto init` 现在会打印一份**编译后的流程（Compiled flow）**，包含每个功能周期的智能体、闸门、合规与成本估算。它写入 `.great_cto/FLOW.md`——智能体读取该文件，从而精确知道如何编排你的 SDLC。
+**v2.74+**（2026 年 6 月）—— **产品构建器转向**：GreatCTO 成为一个 *AI 产品构建器*——描述一个软件产品、在一道 CTO 闸门处批准规格，流水线便将其交付（spec → build → test → deploy）。10 个美国行业、~40 种产品、6 条可复用流水线。构建闸门按风险分级（`change_tier`）；受监管的运行时界面已迁出到 [avelikiy/operate](https://github.com/avelikiy/operate)。故事：[策略](../strategy/PRODUCT-BUILDER-DIRECTION.md) · [这 6 条流水线](https://greatcto.systems/pipelines)
 
-**v2.20.0**（2026 年 5 月）—— **Detection v2**：**12 个司法辖区覆盖**（新增 CA · JP · CN · KR，含完整法律框架 + 人类闸门） · **基础设施信号检测**（Terraform 区域字符串、`.env` 中的 `AWS_REGION=`、docker-compose 中的 `TZ=`、`package.json` homepage 顶级域名） · **词边界匹配**（不再出现 "india" → "indiana" 的误报） · 面向小众原型的**扩展包提示**（当置信度较低时，`suggestedPacks` 会浮现 robotics/climate/clinical-trials/hr-ai/em-fintech 等扩展包）。Token 节省：每次流水线运行 –87.7%（v2.19.0 上下文架构重设计）。
+**v2.40–v2.62**（2026 年 6 月）—— **自动驾驶转向**：GreatCTO 成为 *面向业务的 AI 自动驾驶*——25 个服务自动驾驶垂直领域，每一个都是一个流程，配有可度量的质量记分卡、一位负责的所有者，以及那条运行时不变式——**任何不可逆的动作绝不会在没有人类签字的情况下执行**。22 个真实连接器让每个垂直领域跑在真实数据上。故事：[我们转向了 →](https://greatcto.systems/blog/autopilots-pivot-25-verticals)
 
-**v2.19.0**（2026 年 5 月）—— **Token 经济 阶段 1+2**：产物摘要（≤250 token，自动生成）+ 任务感知记忆过滤器（每个任务取最相关的前 k 条）。每次流水线运行 –87.7% token。
+**v2.46–v2.63**（2026 年 6 月）—— **操作员控制台**：持久化运行在人类闸门处暂停，并在收件箱中等待一位具名的持证人类；签字即执行写入操作。基于角色的访问、限定范围的邀请、附证据的 AI 起草裁定、QA 抽样、SLA 计时、Ops 标签（计量 · 连接器健康 · 死信重排队）、WCAG 2.2 AA、明/暗主题。故事：[操作员控制台 →](https://greatcto.systems/blog/operator-console)
 
-**v2.17.0**（2026 年 5 月）—— **配套插件自动安装** · 在 Plan 阶段之前的**架构 / 规格 / Schema 评审员**。
+**v2.37–v2.65**（2026 年 6 月）—— **内部原理**：开发看板变成一个 *控制台（pult）*——批准一道闸门可以衍生出一次实时流式的智能体运行；提示词自我改进以留出集（held-out evals）为闸门（受 SIA 启发）；$0 上下文压缩（CI 日志 31,475 → 155 字符且保留 FATAL）；Fable 5 支持。故事：[六月内部原理 →](https://greatcto.systems/blog/june-under-the-hood)
 
 [完整更新日志 →](../../CHANGELOG.md)
 
 ## 路线图
 
-- **CI 中的 Evals runner** —— 在每个 PR 上运行黄金集 eval 套件，自动捕获提示词回归
-- **自我改进循环** —— 智能体从裁定中学习，随时间改进自己的提示词
-- **决策评分** —— 追踪哪些闸门决策最终被证明是对的；浮现其中的模式
-- **/crystallize** —— 把高影响力的经验提升为整条流水线都可查询的可复用技能
+- **产品原型检测** —— 从产品简介中挑选构建原型，而不只是从技术栈
+- **按行业的构建模板** —— 为这 6 条流水线中的每一条端到端交付一个参考产品
+- **分级感知裁判** —— 在 T0/T1 evals 上使用一个廉价的微调裁判，在 T2 上使用前沿模型 + 人类（ADR-004）
+- **无头任务运行器** —— 把产品构建排入队列并在 VPS 上无人值守地运行
 
 [为下一个功能投票 →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
 
@@ -392,7 +407,7 @@ jurisdiction: [eu, us-ca]
 |---|---|
 | 🐛 [Issues](https://github.com/avelikiy/great_cto/issues) | Bug、功能请求、原型提案 |
 | 💡 [Discussions](https://github.com/avelikiy/great_cto/discussions) | 问题、模式、成果展示 |
-| 📝 [Blog](https://velikiy.hashnode.dev) | 架构深度剖析 |
+| 📝 [Blog](https://greatcto.systems/blog/) | 凭据、成本拆解、架构深度剖析 |
 | 🔒 [SECURITY.md](../../SECURITY.md) | 负责任的漏洞披露 |
 
 ## 贡献与许可

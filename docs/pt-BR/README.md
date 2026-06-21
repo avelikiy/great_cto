@@ -1,19 +1,15 @@
-> ⚠️ **This translation is being updated.** GreatCTO has repositioned to an **AI Product Builder** — describe a product, approve the spec, ship the software (one CTO gate, maximum automation). For the current positioning see the [English README](../../README.md). The text below reflects the previous "AI autopilots" direction.
-
 <div align="center">
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Autopilots de IA para negócios — entregue o trabalho pronto, não apenas o software.**
+**Construtor de Produtos com IA — descreva um produto, aprove a especificação, entregue o software.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 [![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
-[![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
-
-<img src="../screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 61 agents → gate:ship → Deployed" width="900" />
+[![Savings](https://img.shields.io/badge/one_real_run-1h26m_·_$3.40_vs_~$42K_traditional-darkgreen)](https://greatcto.systems/proof)
 
 ```bash
 npx great-cto init
@@ -27,99 +23,119 @@ npx great-cto init
 
 ---
 
-## Serviços são o novo software
+## Construa o produto, não apenas o código
 
-A próxima onda não são ferramentas para especialistas — são **autopilots que vendem o resultado de um serviço**.
-Um autopilot executa uma função de negócio inteira de ponta a ponta (entrada → processamento → decisão → entrega) e
-escala apenas as decisões de julgamento para um humano qualificado. Cada melhoria do modelo torna o serviço
-mais rápido e mais barato.
+O great_cto é um **Construtor de Produtos com IA**. Descreva um produto de software e ele executa toda a
+construção — arquitetura, modelo de dados, backend, frontend, testes, deploy. **Um único gate humano:** você,
+o CTO, aprova a especificação. Tudo depois disso é automatizado, até um repositório entregue e uma URL ao vivo.
 
-A GreatCTO entrega esses autopilots — cada um deles um **fluxo de agentes + ferramentas com um humano nas
-etapas de risco**, um revisor de conformidade embutido e **conectores ao vivo** que executam cada fluxo com dados reais.
+As principais indústrias dos EUA para as quais ele constrói — serviços domésticos e de campo, serviços
+profissionais, hospitalidade, varejo/e-commerce, proptech, fitness, marketing & criadores, RH/recrutamento,
+construção, logística — se reduzem a **6 arquétipos de construção reutilizáveis** (SaaS vertical CRUD,
+agendamento, CRM, dashboard, marketplace, conteúdo/mídia). Um template entrega qualquer um dos ~40 produtos.
+Veja [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
-## Os autopilots
+```
+   descreva um produto
+        │
+   síntese da spec  ── arquitetura · modelo de dados · telas          (automatizado)
+        ▼
+   👤  gate do CTO — aprove a spec        ← o único checkpoint humano
+        │
+   scaffold → backend → frontend → integrar → testar → deploy        (automatizado)
+        ▼
+   produto entregue · repo · URL ao vivo
+```
 
-| Autopilot | O que faz | Mercado | Quem está construindo |
-|---|---|---|---|
-| 🩺 **[Codificação-médica](https://greatcto.systems/autopilots/rcm.html)** | Notas clínicas → faturas limpas e em conformidade; um codificador certificado assina as de risco | $50–80B | Anterior · CodaMetrix · Fathom |
-| 🖥️ **[TI-gerenciada](https://greatcto.systems/autopilots/msp.html)** | Patches, configs e acessos em toda a frota — escalonados, reversíveis, humano nas grandes mudanças | $100B+ | Serval · Edra · Electric AI |
-| ⚖️ **[Documentos-jurídicos](https://greatcto.systems/autopilots/legaltech.html)** | Redige e revisa contratos e NDAs; um advogado licenciado assina qualquer coisa que seja aconselhamento | $20–25B | Crosby · Harvey · Robin AI |
-| 📒 **[Contabilidade & fechamento](https://greatcto.systems/autopilots/accounting.html)** | Lança, concilia e fecha o mês; um controller assina o fechamento | $50–80B | Rillet · Basis · Digits |
-| 🧾 **[Preparação-fiscal](https://greatcto.systems/autopilots/tax.html)** | Prepara declarações e classifica posições; um preparador credenciado assina antes do envio | $30–35B | Black Ore · April · Column Tax |
-| 🛒 **[Compra-a-pagamento](https://greatcto.systems/autopilots/procurement.html)** | Integra fornecedores, concilia faturas, libera pagamentos — triados contra sanções e fraude | $200B+ | Tacto · Zip · AskLio |
+A CI e os testes gerados são o gate de qualidade — você assina a **direção**, não cada linha.
 
-→ [Todos os autopilots](https://greatcto.systems/autopilots.html) · execute `/flow <vertical>` para ver qualquer fluxo no seu terminal
-
-**Cada autopilot mantém um humano nas decisões de julgamento** — um codificador certificado, um advogado licenciado, um
-controller, um preparador credenciado. O autopilot faz o volume; o humano assume a decisão que
-carrega a responsabilidade. **9 conectores ao vivo rodam em todos os seis autopilots** — FHIR, ICD-10 (NLM),
-NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, rollout escalonado e um motor de impostos federais dos EUA. Eles são
-keyless por padrão (fonte pública ou geração real determinística) e fazem POST para o provedor real
-no momento em que você adiciona credenciais.
+> **Operate** — a superfície de runtime onde um humano assina cada transação regulada (console do
+> operador, runtime de autopilot, fluxos verticais) — **mudou para seu próprio repositório:**
+> [github.com/avelikiy/operate](https://github.com/avelikiy/operate). O great_cto agora é o
+> produto de construção.
 
 ## Por baixo dos panos (para o CTO que opera)
 
-Cada autopilot é construído e operado por um pipeline com gates de agentes especialistas — arquiteto, revisor de
-12 ângulos, QA, oficial de segurança, devops — ajustados à sua stack e jurisdição. **Você toma duas
-decisões por feature; todo o resto roda automaticamente.** O revisor de conformidade, os gates humanos
-assinados, a trilha de auditoria e os conectores ao vivo são a camada de confiança que torna seguro deixar o autopilot
-rodar.
+→ *A história voltada para o construtor desta superfície: [greatcto.systems/build](https://greatcto.systems/build)*
+
+Cada produto é construído por um pipeline de agentes especialistas — arquiteto, design-advisor, senior-dev,
+QA, security-officer, devops — que roda spec → scaffold → backend → frontend → testes → deploy.
+**Você toma uma decisão: aprovar a spec.** Tudo depois disso é automatizado. O pipeline é
+escalonado por risco — uma correção de manutenção não abre gate (a CI é o gate), uma feature reversível abre apenas o
+gate de plano e uma mudança irreversível força o conjunto completo — então a cerimônia escala com o raio de impacto,
+não com a papelada. A CI e os próprios testes gerados da construção são o gate de qualidade que torna seguro
+deixar o pipeline rodar até o deploy.
+
+**MCP companheiro recomendado: Serena (navegação semântica de código).** Em bases de código grandes, os
+agentes que escrevem código (senior-dev, coder) queimam contexto fazendo grep e lendo arquivos inteiros. O
+[Serena MCP](https://github.com/oraios/serena) dá a eles navegação em nível de símbolo
+(find-symbol, references, structure) em vez disso:
+
+```bash
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
+  serena start-mcp-server --context ide-assistant --project "$(pwd)"
+```
+
+Opcional — tudo funciona sem ele; com ele, tarefas de implementação em repositórios grandes usam
+notavelmente menos contexto por edição.
+
+**Um gate, onde importa.** As etapas de construção são escalonadas por risco: uma mudança reversível constrói e entrega
+atrás da CI; uma irreversível — um deploy em produção, uma migração de schema, uma nova integração com capacidade de
+escrita — escala para o gate do CTO e para o modelo de fronteira antes de rodar. Você assina a spec
+e as chamadas de alto raio de impacto; o resto roda direto. `change-tier` + `effectiveGates`
+impõem o invariante no código.
 
 ## Em números
 
 | | |
 |---|---|
-| Custo de LLM (uma feature real, rastreada) | **$2.39** |
-| Equivalente humano para o mesmo trabalho | **~$5.460** |
-| Defeitos pegos que o QA havia perdido | **2** |
+| Uma feature, de ponta a ponta (caso real, totalmente rastreado) | **1h 26m · $3.40 de LLM** vs ~$42K / ~6 semanas tradicional |
+| Um caso anterior de feature de CLI, mesmo pipeline | $2.39 de LLM vs ~$5.460 equivalente humano; a segurança pegou 2 defeitos que o QA havia aprovado |
 | Custo mensal (20 execuções de pipeline) | **~$34** |
-| Agentes especialistas | **61** |
-| Arquétipos detectados automaticamente | **26** |
-| Jurisdições | **12** (GDPR · HIPAA · PCI-DSS · SOX · e mais) |
+| Indústrias-alvo dos EUA | **10** (serviços domésticos · varejo · proptech · fitness · RH · …) |
+| Produtos construíveis | **~40** nas 10 indústrias |
+| Pipelines de construção reutilizáveis | **6** (CRUD · agendamento · CRM · dashboard · marketplace · conteúdo) |
+| Agentes especialistas | **46** |
 
-→ [Trace completo com todos os artefatos](https://greatcto.systems/proof)
+→ [Trace completo com todos os artefatos](https://greatcto.systems/proof) · [os 6 pipelines](https://greatcto.systems/pipelines)
 
 ## Como funciona
 
-**`npx great-cto init`** — escaneia sua stack e README, detecta a jurisdição (GDPR? HIPAA? PCI?), escreve `.great_cto/FLOW.md` com os agentes, gates e frameworks de conformidade exatos para o seu projeto.
+**`npx great-cto init`** — escaneia sua stack e escreve `.great_cto/FLOW.md` com o pipeline para o seu produto: os agentes, o arquétipo de construção e o único gate do CTO.
 
-**`/start "descreva a feature"`** — críticos revisam a arquitetura e a especificação antes de qualquer código ser escrito. Você revisa o plano no `gate:plan`.
+**`/start "descreva o produto"`** — o arquiteto e o design-advisor esboçam a spec, o modelo de dados e as telas. Você revisa e aprova no **único gate** — `gate:plan`.
 
-**Os agentes rodam automaticamente** — o senior-dev implementa com TDD, revisão de 12 ângulos, QA, segurança, devops. Você aprova o envio no `gate:ship`.
+**O pipeline entrega** — o senior-dev faz scaffold e constrói com TDD, o QA roda os testes gerados, o devops faz deploy. Nenhuma aprovação adicional necessária para uma construção reversível.
 
-## Três projetos — três pipelines diferentes
+## Três produtos — um pipeline
 
-O mesmo comando. A saída depende do que você está construindo e de onde ele roda:
+Mesmo comando, produto diferente. O arquétipo de construção molda a stack e as integrações:
 
-| | **Startup fintech · UE** | **Portal de saúde · EUA** | **Ferramenta CLI** |
+| | **App de despacho** | **App de agendamento de aulas** | **Dashboard de lucratividade** |
 |---|---|---|---|
-| Agentes especialistas | `pci-reviewer` · `gdpr-reviewer` · `regulated-reviewer` | `fda-reviewer` · `healthcare-reviewer` · `security-officer` | `cli-reviewer` |
-| Gates humanos | `gate:gdpr-dpia` · `gate:plan` · `gate:ship` | `gate:clinical-validation` · `gate:plan` · `gate:ship` | `gate:plan` |
-| Conformidade | GDPR · PCI-DSS · SOX | HIPAA · HITECH | — |
-| Custo / ciclo | ~$8–18 | ~$8–18 | ~$0.5–3 |
+| Arquétipo | SaaS vertical CRUD | Agendamento / reservas | Dashboard / analytics |
+| Stack | Next.js · Postgres · shadcn | Next.js · Postgres · cal | Next.js · warehouse-lite · charts |
+| Integrações | Auth · RBAC | Stripe · Twilio | conectores de fonte |
+| Gates humanos | `gate:plan` (o gate do CTO) | `gate:plan` | `gate:plan` |
 
-→ Experimente o seletor interativo: [greatcto.systems/#flow-picker](https://greatcto.systems/#flow-picker)
+→ Veja os 6 pipelines: [greatcto.systems/pipelines](https://greatcto.systems/pipelines)
 
 ## O dashboard que você vai realmente checar
 
-`great-cto board` abre em `http://localhost:3141` — Kanban com SSE em tempo real, tile de custo por agente, status do pipeline, gasto de LLM em 30 dias vs. baseline equivalente humano.
+`great-cto board` abre em `http://localhost:3141` — o board de construção: SSE em tempo real, o pipeline ao vivo com seu badge de change_tier (um gate do CTO · juiz barato), custo por agente, gasto de LLM em 30 dias vs. baseline equivalente humano.
 
 <p align="center">
-  <img src="../screenshots/board.png" alt="Kanban board with realtime SSE updates" width="900" />
+  <img src="../screenshots/board.png" alt="The build board — live pipeline with the change_tier gate badge, inbox and cost" width="900" />
 </p>
 
 <table>
 <tr>
-<td width="50%"><a href="docs/screenshots/metrics.png"><img src="../screenshots/metrics.png" alt="Metrics — cost, velocity, savings_x" width="100%" /></a><br/><sub><b>Métricas</b> — custo de LLM, baseline equivalente humano, razão savings_x</sub></td>
-<td width="50%"><a href="docs/screenshots/inbox.png"><img src="../screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Inbox</b> — gates pendentes, incidentes P0, tarefas bloqueadas, em andamento parado</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="../screenshots/agents.png" alt="Agent fleet — 61 specialists with run counts" width="100%" /></a><br/><sub><b>Agentes</b> — 61 especialistas com último uso + contagem de execuções</sub></td>
-<td width="50%"><a href="docs/screenshots/memory.png"><img src="../screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Memória</b> — 11 camadas + padrões de incidentes cristalizados</sub></td>
+<td width="50%"><a href="../screenshots/metrics.png"><img src="../screenshots/metrics.png" alt="Metrics — tasks shipped, AI spend, cost savings vs FTE" width="100%" /></a><br/><sub><b>Métricas</b> — tarefas entregues, gasto de IA, economia de custo vs. um time humano, queima diária</sub></td>
+<td width="50%"><a href="../screenshots/memory.png"><img src="../screenshots/memory.png" alt="Project memory — browsable layers: PROJECT.md, archetypes, lessons" width="100%" /></a><br/><sub><b>Memória</b> — camadas navegáveis de memória do projeto: PROJECT.md, arquétipos, skills, lições</sub></td>
 </tr>
 </table>
 
-**Feito para a organização de engenharia de uma pessoa só.** Indie hackers, fundadores solo, CTOs técnicos que tocam tudo sozinhos — no Claude Code ou no OpenAI Codex. *Não é para times* — veja o [FAQ](../FAQ.md#is-great_cto-for-teams).
+**Feito para a organização de engenharia de uma pessoa só.** O GreatCTO é para o indie hacker, fundador solo ou CTO técnico que quer entregar produtos reais sem um time — rodando o pipeline no Claude Code ou no OpenAI Codex, aprovando uma spec e entregando para uma URL ao vivo. *Não é para times de engenharia com múltiplos devs* — veja o [FAQ](../FAQ.md#is-great_cto-for-teams).
 
 ## Instalação
 
@@ -147,19 +163,19 @@ Os plugins companheiros Superpowers e Beads se instalam automaticamente — sem 
 ---
 
 <details>
-<summary>📖 Documentação completa — dois gates · críticos · 61 agentes · 26 arquétipos · 12 jurisdições · 45+ frameworks de conformidade · board · custo · MCP</summary>
+<summary>📖 Documentação completa — um gate do CTO · escalonamento por risco · críticos · 46 agentes · arquétipos de construção · board · custo · MCP</summary>
 
-## Duas decisões por feature
+## Uma decisão por feature
 
 ```
-🟡 gate:plan   ←  você decide aqui (arquitetura + tarefas + custo)
+🤖 architect + design-advisor  →  spec · modelo de dados · telas
    ↓
-🤖 senior-dev → revisão de 12 ângulos → qa-engineer → security-officer → devops
+🟡 gate:plan   ←  você decide aqui — aprove a spec (o único gate do CTO)
    ↓
-🟢 gate:ship   ←  você decide aqui (PR pronto, segurança aprovada)
+🤖 senior-dev → review → qa-engineer → devops  →  construído · testado · deployado
 ```
 
-Arquitetos, planejadores, revisores, QA, segurança e DevOps rodam automaticamente entre esses dois checkpoints humanos. **A memória persiste** entre sessões: cada veredito de gate é anexado a `~/.great_cto/decisions.md`, cada retrospectiva é anexada ao `lessons.md` por projeto, e o `/crystallize` promove padrões de alto impacto para uma biblioteca global que os agentes consultam antes de resolver de novo.
+O pipeline é escalonado por risco (`change_tier`): uma correção de manutenção **não** abre gate (a CI é o gate), uma feature reversível abre **apenas** o `gate:plan` e uma mudança irreversível força o conjunto completo + o modelo de fronteira. Tudo entre o gate e o deploy roda automaticamente. **A memória persiste** entre sessões: cada veredito de gate é anexado a `~/.great_cto/decisions.md`, cada retrospectiva ao `lessons.md` por projeto, e o `/crystallize` promove padrões de alto impacto para uma biblioteca global que os agentes consultam antes de resolver de novo.
 
 ## Críticos antes do plano
 
@@ -181,12 +197,12 @@ Antes, os críticos só ativavam a partir do Plano. Agora o pipeline pega erros 
 | Self-host | ✅ roda localmente | ❌ nuvem da Cognition | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ nuvem da Cognition | ✅ Claude Code |
 | BYOK / multi-modelo | ✅ Claude Code · Codex | ❌ proprietário | ❌ apenas Anthropic |
-| Agentes especialistas | **57** (arquiteto · PM · revisão de 12 ângulos · QA · segurança · devops · 42 revisores entre arquétipos, packs e jurisdições) | 1 generalista | 1 generalista |
-| Orquestração de SDLC | arquiteto → plano → impl → revisão → QA → segurança → devops | autonomia de uma só tacada | loop de edição |
-| Gates humanos | ✅ 2 por feature (plano + envio) | ❌ nenhum | ❌ |
+| Agentes especialistas | **46** (arquiteto · design-advisor · senior-dev · QA · segurança · devops · revisores de arquétipo) | 1 generalista | 1 generalista |
+| Pipeline de construção | spec → gate do CTO → scaffold → build → test → deploy | autonomia de uma só tacada | loop de edição |
+| Gates humanos | ✅ um — você aprova a spec (escalonado por risco) | ❌ nenhum | ❌ |
 | Memória entre sessões | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ apenas thread | ⚠️ apenas thread |
 | Rastreamento de custo | ✅ por agente + histórico de 30d + savings_x | ❌ | ❌ |
-| Frameworks de conformidade | ✅ 33+ (PCI · HIPAA · SOX · GDPR · CCPA · DPDPA · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …) | ❌ | ❌ |
+| Design embutido | ✅ design-advisor + ui-ux-pro-max → Next.js/Tailwind/shadcn | ❌ | ❌ |
 | Preço | grátis (você paga seu provedor de LLM) | $500/mês | $20/mês |
 | Setup | `npx great-cto init` | cadastro | instalar CLI |
 
@@ -220,14 +236,13 @@ jurisdiction: [eu, us-ca]
 ## Três comandos que você usa todo dia
 
 ```bash
-/start "build a refund endpoint with PCI-DSS scoping"
-# → architect → enterprise-saas-reviewer (PCI-DSS auto-loaded)
-# → pm → 5 Beads tasks → gate:plan (you approve)
-# → senior-dev → 12-angle review → qa → security-officer
-# → gate:ship (you approve) → devops → deployed
+/start "build a dispatch & scheduling app for an HVAC business"
+# → architect + design-advisor → spec, data model, screens
+# → pm → Beads tasks → gate:plan (you approve the spec — the one gate)
+# → senior-dev → review → qa → devops → built · tested · deployed
 
 /inbox
-# Pending gates · P0 incidents · blocked tasks · stale in-progress
+# Pending gate · P0 incidents · blocked tasks · stale in-progress
 
 /digest
 # Weekly DORA + delta vs last week + cost-per-feature roll-up
@@ -251,43 +266,43 @@ Além de: `/audit` (escaneamento de base de código existente), `/cost` (economi
 
 Pague seus próprios tokens da API da Anthropic. **Sem taxa por assento. Sem lock-in de SaaS.** A triagem rotineira é roteada automaticamente para o Kimi K2 (equivalente ao Sonnet a um custo ~5× menor) → redução de 60–80% no agrupamento de logs.
 
-## 26 arquétipos detectados automaticamente
+## Arquétipos de construção
 
-Cada arquétipo ativa seus próprios agentes especialistas e checklists de conformidade. Top 7:
+Cada produto mapeia para um **arquétipo de construção** que molda seu pipeline — o template de stack,
+o formato dos dados, a integração característica. Os 6 arquétipos do Construtor de Produtos (os ~40 produtos
+se reduzem a estes):
 
-| Arquétipo | Tier | Agentes especialistas | Conformidade |
+| Arquétipo | Formato | Stack | Integração |
 |---|---|---|---|
-| `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa |
-| `agent-product` | **deep** | ai-prompt-architect · ai-eval · ai-security | eu-ai-act · owasp-llm-top-10 |
-| `fintech` | **deep** | pci · regulated | pci-dss · sox · kyc-aml · gdpr · dora |
-| `mlops` | **deep** | mlops-reviewer · ai-eval | eu-ai-act · nist-ai-rmf · iso42001 |
-| `library` | baseline | library-reviewer | openssf · sbom |
-| `cli-tool` | baseline | cli-reviewer | — |
-| `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
-| `defense-govcon` | **deep** | cmmc-reviewer · gov-reviewer | cmmc-2.0 · nist-800-171 · dfars · itar · section-889 |
+| `vertical-saas` | entidades · papéis · workflow · UI de registros | Next.js · Postgres · shadcn | Auth · RBAC |
+| `booking` | calendário · disponibilidade · lembretes · pagamentos | Next.js · Postgres · cal | Stripe · Twilio |
+| `crm` | contatos · pipeline · sequências automatizadas | Next.js · Postgres · queue | email / SMS · webhooks |
+| `dashboard` | ingestão · métricas · visualização · alertas | Next.js · warehouse-lite · charts | conectores de fonte |
+| `marketplace` | listagens de dois lados · matching · pagamentos | Next.js · Postgres · Stripe Connect | Stripe Connect / escrow |
+| `content` | catálogo · tiers de acesso · entrega · monetização | Next.js · object storage · CDN | Stripe · pipeline de mídia |
+
+Além dos arquétipos subjacentes por tipo de software (`web-service`, `mobile-app`, `cli-tool`,
+`library`, …) que o motor detecta automaticamente para ajustar a construção. Veja [os 6 pipelines](https://greatcto.systems/pipelines).
 
 Tabela completa (26 arquétipos) + como a detecção funciona: [docs/ARCHETYPES.md](../ARCHETYPES.md).
 
 **Cobertura profunda dos EUA** — além de GDPR/PCI/HIPAA, o great_cto agora revisa contra a divulgação cibernética da SEC (8-K Item 1.05), CMMC 2.0 / NIST 800-171 para empreiteiros de defesa, governança de IA dos EUA (NIST AI RMF · Colorado SB 205 · Utah/Texas AI), litígio de rastreamento web (VPPA · CIPA · Washington MHMDA) e risco de modelo HMDA / SR 11-7 para empréstimos.
 
-## 14 domain packs — revisores de sobreposição
+## Overlays de domínio (opcional)
 
-Os domain packs rodam **por cima dos** arquétipos. São anexados automaticamente quando o CLI detecta sinais específicos do pack (deps, termos no README). Cada pack adiciona seu(s) próprio(s) revisor(es), template de modelo de ameaça, suite de EVAL e gates humanos — independente do arquétipo base.
-
-| Categoria | Packs |
-|---|---|
-| **Verticais de IA** | `voice-pack` · `clinical-pack` · `hr-ai-pack` · `drug-discovery-pack` |
-| **Saúde digital** | `digital-health-pack` _(telemetria de wearables · IA de saúde mental · IA de nutrição · HITL de médico)_ |
-| **Fintech / regulado** | `lending-pack` · `em-fintech-pack` |
-| **Alta conformidade** | `clinical-trials-pack` · `climate-pack` |
-| **Engenharia** | `api-platform-pack` · `robotics-pack` |
-| **Mercado dos EUA** | `sec-cyber-pack` _(divulgação SEC 8-K)_ · `adtech-privacy-pack` _(VPPA · CIPA · MHMDA)_ · `us-ai-pack` _(NIST AI RMF · Colorado SB 205)_ |
-
-→ **28 tipos de gate humano** + 53 suites de EVAL de referência + 15 templates de TM. Navegue por todos os 14 packs com **visualização de jornada em 4 camadas** (arquétipo → pack → revisor → gate): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
+Além do arquétipo de construção, o motor pode anexar automaticamente um **overlay de domínio** opcional quando
+detecta sinais específicos de domínio (deps, termos no README) — adicionando um revisor especialista e algumas
+verificações extras para coisas como voz/telefonia, privacidade (GDPR/CCPA) ou governança de IA. São
+opt-in e ortogonais ao pipeline de construção; a maioria dos produtos não precisa de nenhum.
 
 ## Um caso real, totalmente rastreado
 
-Uma feature de CLI em Python enviada através do pipeline completo: **$2.39 de gasto de LLM** vs. ~$5.460 equivalente humano. A segurança pegou dois defeitos reais que o QA havia aprovado (`list(stream_csv())` anulava o streaming → pico de 14,5 MB de RSS em uma entrada de 13 MB). Modelo de múltiplos revisores pegando o que agentes isolados perdem, antes do merge.
+O recibo canônico: **uma feature real** entregue através do pipeline completo em **1h 26m
+de wall-clock por $3.40 de custo de LLM** — arquiteto → plano → implementação → revisão → gate humano →
+PR merjado. O caminho tradicional para a mesma feature: ~170 horas e ~$42K. Cada etapa
+com timestamp, cada artefato com link para um PR público no GitHub.
+
+Um caso anterior em uma feature de CLI em Python ($2.39 vs. ~$5.460 equivalente humano) mostrou o modelo de revisão funcionando: a segurança pegou dois defeitos reais que o QA havia aprovado (`list(stream_csv())` anulava o streaming → pico de 14,5 MB de RSS em uma entrada de 13 MB).
 
 Trace completo + artefatos: [greatcto.systems/proof](https://greatcto.systems/proof) · bruto: [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](../qa/runs/2026-05-09/E2E-CLI-PIPELINE.md).
 
@@ -328,13 +343,13 @@ Cinco coisas que exigem sua ação em <2h são enviadas por e-mail automaticamen
 | ⏸️ **Gate parado > 2h** | Um `gate:ship` está esperando por você há horas |
 | 🛡️ **Segurança BLOQUEADA** | O `security-officer` rejeitou um merge |
 | 💸 **Alerta de orçamento** | O gasto mensal de LLM cruza 80% / 100% do orçamento |
-| 📊 **Resumo semanal** | Sexta-feira 09:00 — enviado, gasto, economia, QA |
+| 📊 **Resumo semanal** | Sexta-feira 09:00 — entregue, gasto, economia, QA |
 
 **Setup**: board → aba **Notifications** → digite o e-mail → digite o código de 6 dígitos que enviamos → escolha os gatilhos. Sem cadastro no Resend, sem chaves de API — entrega roteada por `greatcto.systems/notify` (grátis, 100 e-mails/24h por e-mail verificado).
 
 ## Limitações & não-objetivos
 
-- **Não é para times** — o solo-CTO é o produto. 2+ engenheiros? Você já o superou.
+- **Não é para times de engenharia com múltiplos devs** — um construtor é o produto; 2+ engenheiros compartilhando o pipeline já o superaram.
 - **Não substitui engenheiros sêniores** — codifica processo; não toma decisões de julgamento arquitetural sem um.
 - **Não é um sistema de CI/CD** — os gates rodam localmente / na sessão. Você ainda precisa do GitHub Actions para o merge de verdade.
 - **Não é auditado por certificação** — os scaffolds de arquétipo PCI/HIPAA/SOC2 são pontos de partida, não certificações.
@@ -348,7 +363,7 @@ Cinco coisas que exigem sua ação em <2h são enviadas por e-mail automaticamen
 
 **Posso desativar hooks?** Todo hook respeita `GREAT_CTO_DISABLE_<NAME>=1`. Opt-out de varredura de segredos por arquivo: `// great_cto:allow-secrets`.
 
-**E se eu não for solo?** O great_cto é feito para a organização de engenharia de uma pessoa só. Se você tem 2+ engenheiros e precisa de boards compartilhados / autenticação multi-assento, você já o superou.
+**E se eu não for solo?** O pipeline de construção do GreatCTO é feito para um engenheiro — se você tem 2+ engenheiros que precisam de boards de construção compartilhados e pipelines concorrentes, você já o superou.
 
 FAQ completo: [docs/FAQ.md](../FAQ.md).
 
@@ -360,26 +375,26 @@ referência de [Agentes](../reference/agents.md) & [Comandos](../reference/comma
 
 ## Arquitetura
 
-O plugin roda dentro do Claude Code (ou qualquer host com capacidade MCP); 61 agentes são specs em markdown; as tarefas vivem no Beads (dolt, git-native); a memória é markdown puro (sem vector store). Diagrama + tabela de stack: [docs/ARCHITECTURE.md](../ARCHITECTURE.md).
+O plugin roda dentro do Claude Code (ou qualquer host com capacidade MCP); 46 agentes são specs em markdown; as tarefas vivem no Beads (dolt, git-native); a memória é markdown puro (sem vector store). Diagrama + tabela de stack: [docs/ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Novidades
 
-**v2.21.0** (maio de 2026) — **UX do Flow Compiler**: `npx great-cto init` agora imprime um **fluxo compilado** com agentes, gates, conformidade e estimativa de custo por ciclo de feature. Escreve `.great_cto/FLOW.md` — os agentes o leem para saber exatamente como orquestrar seu SDLC.
+**v2.74+** (junho de 2026) — **O pivô do Construtor de Produtos**: o GreatCTO se torna um *Construtor de Produtos com IA* — descreva um produto de software, aprove a spec em um único gate do CTO, e o pipeline o entrega (spec → build → test → deploy). 10 indústrias dos EUA, ~40 produtos, 6 pipelines reutilizáveis. Os gates de construção são escalonados por risco (`change_tier`); a superfície de runtime regulada mudou para [avelikiy/operate](https://github.com/avelikiy/operate). História: [a estratégia](../strategy/PRODUCT-BUILDER-DIRECTION.md) · [os 6 pipelines](https://greatcto.systems/pipelines)
 
-**v2.20.0** (maio de 2026) — **Detecção v2**: **cobertura de 12 jurisdições** (adicionados CA · JP · CN · KR com framework legal completo + gates humanos) · **detecção por sinal de infra** (strings de região do Terraform, `.env` `AWS_REGION=`, docker-compose `TZ=`, TLD do homepage do `package.json`) · **correspondência por limite de palavra** (sem mais falsos positivos "india" → "indiana") · **dicas de pack** para arquétipos de nicho (`suggestedPacks` revela packs de robotics/climate/clinical-trials/hr-ai/em-fintech quando a confiança é baixa). Economia de tokens: –87,7% por execução de pipeline (redesenho de arquitetura de contexto v2.19.0).
+**v2.40–v2.62** (junho de 2026) — **O pivô dos autopilots**: o GreatCTO se torna *autopilots de IA para negócios* — 25 verticais de autopilot de serviço, cada uma um fluxo com um scorecard de qualidade medido, um dono responsável e o invariante de runtime de que **uma ação irreversível nunca executa sem uma assinatura humana**. 22 conectores ao vivo rodam cada vertical com dados reais. História: [Nós pivotamos →](https://greatcto.systems/blog/autopilots-pivot-25-verticals)
 
-**v2.19.0** (maio de 2026) — **Economia de tokens Fase 1+2**: resumos de artefatos (≤250 tokens, gerados automaticamente) + filtro de memória ciente da tarefa (top-k entradas relevantes por tarefa). –87,7% tokens por execução de pipeline.
+**v2.46–v2.63** (junho de 2026) — **O console do operador**: execuções duráveis pausam no gate humano e esperam em uma inbox por um humano licenciado e nomeado; a assinatura executa a escrita. Acesso baseado em papéis, convites com escopo, determinações redigidas por IA com evidências, amostragem de QA, relógios de SLA, aba Ops (medição · saúde de conectores · requeue de dead-letter), WCAG 2.2 AA, claro/escuro. História: [O console do operador →](https://greatcto.systems/blog/operator-console)
 
-**v2.17.0** (maio de 2026) — **plugins companheiros se auto-instalam** · críticos de **Arquitetura / Especificação / Schema** antes da etapa de Plano.
+**v2.37–v2.65** (junho de 2026) — **Por baixo dos panos**: o board de dev se torna um *pult* — aprovar um gate pode disparar uma execução de agente transmitida ao vivo; auto-aprimoramento de prompt condicionado a evals retidos (inspirado em SIA); compressão de contexto a $0 (log de CI 31.475 → 155 caracteres com o FATAL preservado); suporte ao Fable 5. História: [Junho por baixo dos panos →](https://greatcto.systems/blog/june-under-the-hood)
 
 [Changelog completo →](../../CHANGELOG.md)
 
 ## Roadmap
 
-- **Runner de evals no CI** — rodar suites de eval golden-set em cada PR, pegar regressões de prompt automaticamente
-- **Loop de auto-aprimoramento** — agentes que aprendem com os veredictos e melhoram seus próprios prompts ao longo do tempo
-- **Pontuação de decisões** — rastrear quais decisões de gate se mostraram corretas; revelar padrões
-- **/crystallize** — promover lições de alto impacto para skills reutilizáveis que o pipeline inteiro pode consultar
+- **Detecção de arquétipo de produto** — escolher o arquétipo de construção a partir do brief do produto, não apenas da stack
+- **Templates de construção por indústria** — entregar um produto de referência de ponta a ponta através de cada um dos 6 pipelines
+- **Juiz ciente de tier** — um juiz barato afinado em evals de T0/T1, fronteira + humano em T2 (ADR-004)
+- **Task-runner headless** — enfileirar construções de produto e rodá-las em um VPS, sem supervisão
 
 [Vote na próxima feature →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
 
@@ -395,7 +410,7 @@ O plugin roda dentro do Claude Code (ou qualquer host com capacidade MCP); 61 ag
 |---|---|
 | 🐛 [Issues](https://github.com/avelikiy/great_cto/issues) | Bugs, pedidos de feature, propostas de arquétipo |
 | 💡 [Discussions](https://github.com/avelikiy/great_cto/discussions) | Perguntas, padrões, show-and-tell |
-| 📝 [Blog](https://velikiy.hashnode.dev) | Mergulhos profundos em arquitetura |
+| 📝 [Blog](https://greatcto.systems/blog/) | Recibos, detalhamentos de custo, mergulhos profundos em arquitetura |
 | 🔒 [SECURITY.md](../../SECURITY.md) | Divulgação responsável |
 
 ## Contribuição & Licença
