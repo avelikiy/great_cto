@@ -1,19 +1,15 @@
-> ⚠️ **This translation is being updated.** GreatCTO has repositioned to an **AI Product Builder** — describe a product, approve the spec, ship the software (one CTO gate, maximum automation). For the current positioning see the [English README](../../README.md). The text below reflects the previous "AI autopilots" direction.
-
 <div align="center">
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**ИИ-автопилоты для бизнеса — закрывают работу целиком, а не просто пишут софт.**
+**AI Product Builder — опиши продукт, утверди спецификацию, отгрузи софт.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 [![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
-[![Savings](https://img.shields.io/badge/one_real_run-$2.39_vs_$5460_human-darkgreen)](https://greatcto.systems/proof)
-
-<img src="../screenshots/pipeline.svg" alt="great_cto pipeline: Flow Compiler → gate:plan → 61 agents → gate:ship → Deployed" width="900" />
+[![Savings](https://img.shields.io/badge/one_real_run-1h26m_·_$3.40_vs_~$42K_traditional-darkgreen)](https://greatcto.systems/proof)
 
 ```bash
 npx great-cto init
@@ -21,105 +17,125 @@ npx great-cto init
 
 [Сайт](https://greatcto.systems) · [Один реальный прогон →](https://greatcto.systems/proof) · [Живое демо](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [Обсуждения](https://github.com/avelikiy/great_cto/discussions) · [Журнал изменений](../../CHANGELOG.md)
 
-Русский · [简体中文](../zh-CN/README.md) · [繁體中文](../zh-TW/README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) · [Español](../es/README.md) · [Português](../pt-BR/README.md) · [Deutsch](../de/README.md) · [Français](../fr/README.md)
+[Русский](../ru/README.md) · [简体中文](../zh-CN/README.md) · [繁體中文](../zh-TW/README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) · [Español](../es/README.md) · [Português](../pt-BR/README.md) · [Deutsch](../de/README.md) · [Français](../fr/README.md)
 
 </div>
 
 ---
 
-## Сервисы — это новый софт
+## Стройте продукт, а не просто код
 
-Следующая волна — это не инструменты для специалистов, а **автопилоты, которые продают результат сервиса**.
-Автопилот выполняет целую бизнес-функцию от начала до конца (приём → обработка → решение → выдача) и
-эскалирует человеку только те решения, что требуют экспертного суждения. Каждое улучшение модели делает сервис
-быстрее и дешевле.
+great_cto — это **AI Product Builder**. Опишите программный продукт, и он проведёт всю
+сборку — архитектура, модель данных, бэкенд, фронтенд, тесты, деплой. **Один человеческий гейт:** вы,
+CTO, утверждаете спецификацию. Всё после этого автоматизировано, вплоть до отгруженного репозитория и живого URL.
 
-GreatCTO поставляет такие автопилоты — каждый из них представляет собой **поток (flow) из агентов и инструментов с человеком на рискованных
-шагах**, встроенного ревьюера соответствия требованиям (compliance) и **живые коннекторы**, которые гоняют каждый поток на реальных данных.
+Топовые отрасли США, под которые он строит — домашние и выездные сервисы, профессиональные услуги,
+гостеприимство, ретейл/e-commerce, proptech, фитнес, маркетинг и креаторы, HR/рекрутинг,
+строительство, логистика — схлопываются в **6 переиспользуемых архетипов сборки** (CRUD vertical-SaaS,
+booking, CRM, dashboard, marketplace, content/media). Один шаблон отгружает любой из ~40 продуктов.
+См. [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
-## Автопилоты
+```
+   describe a product
+        │
+   spec synthesis  ── architecture · data model · screens          (automated)
+        ▼
+   👤  CTO gate — approve the spec        ← the one human checkpoint
+        │
+   scaffold → backend → frontend → integrate → test → deploy        (automated)
+        ▼
+   shipped product · repo · live URL
+```
 
-| Автопилот | Что он делает | Рынок | Кто его строит |
-|---|---|---|---|
-| 🩺 **[Medical-coding](https://greatcto.systems/autopilots/rcm.html)** | Клинические записи → чистые, соответствующие требованиям счета; сертифицированный кодировщик подписывает рискованные | $50–80B | Anterior · CodaMetrix · Fathom |
-| 🖥️ **[Managed-IT](https://greatcto.systems/autopilots/msp.html)** | Патчи, конфигурации и доступы по всему парку — поэтапно, с возможностью отката, человек на крупных изменениях | $100B+ | Serval · Edra · Electric AI |
-| ⚖️ **[Legal-document](https://greatcto.systems/autopilots/legaltech.html)** | Готовит и правит договоры и NDA; лицензированный юрист подписывает всё, что является советом | $20–25B | Crosby · Harvey · Robin AI |
-| 📒 **[Bookkeeping & close](https://greatcto.systems/autopilots/accounting.html)** | Ведёт учёт, сверяет и закрывает месяц; контролёр подписывает закрытие | $50–80B | Rillet · Basis · Digits |
-| 🧾 **[Tax-prep](https://greatcto.systems/autopilots/tax.html)** | Готовит декларации и классифицирует позиции; аттестованный специалист подписывает перед подачей | $30–35B | Black Ore · April · Column Tax |
-| 🛒 **[Source-to-pay](https://greatcto.systems/autopilots/procurement.html)** | Онбордит поставщиков, сопоставляет счета, проводит платежи — с проверкой на санкции и мошенничество | $200B+ | Tacto · Zip · AskLio |
+CI и сгенерированные тесты — это гейт качества: вы подписываете **направление**, а не каждую строку.
 
-→ [Все автопилоты](https://greatcto.systems/autopilots.html) · запустите `/flow <vertical>`, чтобы увидеть любой поток в своём терминале
-
-**Каждый автопилот оставляет человека на решениях, требующих суждения** — сертифицированного кодировщика, лицензированного юриста,
-контролёра, аттестованного специалиста. Автопилот делает объём; человек владеет решением, которое
-несёт ответственность. **9 живых коннекторов работают во всех шести автопилотах** — FHIR, ICD-10 (NLM),
-NCCI/MUE, X12 837P, DocuSign, Plaid, OFAC, поэтапное развёртывание (staged-rollout) и федеральный налоговый движок США. Они
-по умолчанию работают без ключей (публичный источник или детерминированная реальная генерация) и отправляют POST реальному провайдеру
-в тот момент, когда вы добавляете учётные данные.
+> **Operate** — runtime-поверхность, где человек подписывает каждую регулируемую транзакцию (консоль
+> оператора, runtime автопилота, вертикальные потоки) — **переехала в собственный репозиторий:**
+> [github.com/avelikiy/operate](https://github.com/avelikiy/operate). great_cto теперь продукт
+> для сборки.
 
 ## Под капотом (для CTO, который этим управляет)
 
-Каждый автопилот строится и эксплуатируется управляемым через гейты конвейером из специализированных агентов — архитектор, ревьюер
-с 12 углами зрения, QA, офицер безопасности, devops — настроенных под ваш стек и юрисдикцию. **Вы принимаете два
-решения на фичу; всё остальное работает автоматически.** Ревьюер соответствия требованиям, подписанные человеком
-гейты, аудит-трейл и живые коннекторы — это слой доверия, который делает безопасным предоставление автопилоту права
-работать.
+→ *Сторонняя для билдера история этой поверхности: [greatcto.systems/build](https://greatcto.systems/build)*
+
+Каждый продукт строится конвейером из специализированных агентов — architect, design-advisor, senior-dev,
+QA, security-officer, devops — который проходит spec → scaffold → backend → frontend → tests → deploy.
+**Вы принимаете одно решение: утверждаете спецификацию.** Всё после этого автоматизировано. Конвейер
+тиерирован по риску — фикс в рамках сопровождения не открывает ни одного гейта (гейт — это CI), обратимая фича открывает только
+гейт плана, а необратимое изменение требует полного набора — так что церемония масштабируется по радиусу поражения,
+а не по бумажной работе. CI и собственные сгенерированные тесты сборки — это гейт качества, который делает безопасным
+прогон конвейера вплоть до деплоя.
+
+**Рекомендуемый MCP-компаньон: Serena (семантическая навигация по коду).** На больших кодовых базах
+агенты, пишущие код (senior-dev, coder), жгут контекст, гоняя grep и читая файлы целиком.
+[Serena MCP](https://github.com/oraios/serena) даёт им навигацию на уровне символов
+(find-symbol, references, structure) вместо этого:
+
+```bash
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
+  serena start-mcp-server --context ide-assistant --project "$(pwd)"
+```
+
+Опционально — всё работает и без него; с ним задачи реализации на больших репозиториях используют
+заметно меньше контекста на правку.
+
+**Один гейт, там где это важно.** Шаги сборки тиерированы по риску: обратимое изменение собирается и отгружается
+за CI; необратимое — продакшен-деплой, миграция схемы, новая интеграция с правом записи —
+эскалируется на CTO-гейт и frontier-модель перед запуском. Вы подписываете спецификацию
+и вызовы с высоким радиусом поражения; остальное проходит насквозь. `change-tier` + `effectiveGates`
+обеспечивают этот инвариант в коде.
 
 ## В цифрах
 
 | | |
 |---|---|
-| Стоимость LLM (одна реальная фича, с трассировкой) | **$2.39** |
-| Эквивалент человеческого труда за ту же работу | **~$5,460** |
-| Дефекты, пойманные после того, как их пропустил QA | **2** |
+| Одна фича, от и до (реальный прогон, полностью трассирован) | **1h 26m · $3.40 LLM** против ~$42K / ~6 недель традиционно |
+| Более ранний прогон CLI-фичи, тот же конвейер | $2.39 LLM против ~$5,460 человеческого эквивалента; безопасность поймала 2 дефекта, которые QA пропустил |
 | Месячная стоимость (20 прогонов конвейера) | **~$34** |
-| Специализированных агентов | **61** |
-| Архетипов определяется автоматически | **26** |
-| Юрисдикций | **12** (GDPR · HIPAA · PCI-DSS · SOX · и другие) |
+| Целевые отрасли США | **10** (home services · retail · proptech · fitness · HR · …) |
+| Продуктов, которые можно собрать | **~40** по 10 отраслям |
+| Переиспользуемые конвейеры сборки | **6** (CRUD · booking · CRM · dashboard · marketplace · content) |
+| Специализированных агентов | **46** |
 
-→ [Полная трассировка со всеми артефактами](https://greatcto.systems/proof)
+→ [Полная трассировка со всеми артефактами](https://greatcto.systems/proof) · [6 конвейеров](https://greatcto.systems/pipelines)
 
 ## Как это работает
 
-**`npx great-cto init`** — сканирует ваш стек и README, определяет юрисдикцию (GDPR? HIPAA? PCI?), пишет `.great_cto/FLOW.md` с точным набором агентов, гейтов и фреймворков соответствия для вашего проекта.
+**`npx great-cto init`** — сканирует ваш стек и пишет `.great_cto/FLOW.md` с конвейером для вашего продукта: агенты, архетип сборки и единственный CTO-гейт.
 
-**`/start "опишите фичу"`** — критики проверяют архитектуру и спецификацию до того, как написана хоть строчка кода. Вы проверяете план на `gate:plan`.
+**`/start "опишите продукт"`** — architect и design-advisor набрасывают спецификацию, модель данных и экраны. Вы проверяете и утверждаете на **одном гейте** — `gate:plan`.
 
-**Агенты работают автоматически** — senior-dev реализует через TDD, ревью с 12 углами зрения, QA, безопасность, devops. Вы одобряете выпуск на `gate:ship`.
+**Конвейер отгружает это** — senior-dev делает scaffolding и сборку через TDD, QA запускает сгенерированные тесты, devops деплоит. Дальнейшее одобрение для обратимой сборки не требуется.
 
-## Три проекта — три разных конвейера
+## Три продукта — один конвейер
 
-Одна и та же команда. Результат зависит от того, что вы строите и где это запускается:
+Одна и та же команда, разный продукт. Архетип сборки формирует стек и интеграции:
 
-| | **Финтех-стартап · ЕС** | **Медицинский портал · США** | **CLI-инструмент** |
+| | **Dispatch-приложение** | **Приложение для записи на занятия** | **Дашборд прибыльности** |
 |---|---|---|---|
-| Специализированные агенты | `pci-reviewer` · `gdpr-reviewer` · `regulated-reviewer` | `fda-reviewer` · `healthcare-reviewer` · `security-officer` | `cli-reviewer` |
-| Человеческие гейты | `gate:gdpr-dpia` · `gate:plan` · `gate:ship` | `gate:clinical-validation` · `gate:plan` · `gate:ship` | `gate:plan` |
-| Соответствие требованиям | GDPR · PCI-DSS · SOX | HIPAA · HITECH | — |
-| Стоимость / цикл | ~$8–18 | ~$8–18 | ~$0.5–3 |
+| Архетип | CRUD vertical-SaaS | Booking / scheduling | Dashboard / analytics |
+| Стек | Next.js · Postgres · shadcn | Next.js · Postgres · cal | Next.js · warehouse-lite · charts |
+| Интеграции | Auth · RBAC | Stripe · Twilio | source connectors |
+| Человеческие гейты | `gate:plan` (CTO-гейт) | `gate:plan` | `gate:plan` |
 
-→ Попробуйте интерактивный выбор: [greatcto.systems/#flow-picker](https://greatcto.systems/#flow-picker)
+→ Смотрите 6 конвейеров: [greatcto.systems/pipelines](https://greatcto.systems/pipelines)
 
 ## Дашборд, в который вы реально будете заглядывать
 
-`great-cto board` открывается по адресу `http://localhost:3141` — Kanban с реальным временем через SSE, плитка стоимости по каждому агенту, статус конвейера, расходы на LLM за 30 дней против базовой линии человеческого эквивалента.
+`great-cto board` открывается по адресу `http://localhost:3141` — доска сборки: realtime SSE, живой конвейер с бейджем change_tier (один CTO-гейт · дешёвый судья), стоимость по каждому агенту, расходы на LLM за 30 дней против базовой линии человеческого эквивалента.
 
 <p align="center">
-  <img src="../screenshots/board.png" alt="Kanban board with realtime SSE updates" width="900" />
+  <img src="../screenshots/board.png" alt="The build board — live pipeline with the change_tier gate badge, inbox and cost" width="900" />
 </p>
 
 <table>
 <tr>
-<td width="50%"><a href="docs/screenshots/metrics.png"><img src="../screenshots/metrics.png" alt="Metrics — cost, velocity, savings_x" width="100%" /></a><br/><sub><b>Метрики</b> — стоимость LLM, базовая линия человеческого эквивалента, коэффициент savings_x</sub></td>
-<td width="50%"><a href="docs/screenshots/inbox.png"><img src="../screenshots/inbox.png" alt="Inbox — gates, P0, blocked, stale" width="100%" /></a><br/><sub><b>Входящие</b> — ожидающие гейты, инциденты P0, заблокированные задачи, зависшие в работе</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="docs/screenshots/agents.png"><img src="../screenshots/agents.png" alt="Agent fleet — 61 specialists with run counts" width="100%" /></a><br/><sub><b>Агенты</b> — 61 специалист с временем последнего использования и числом запусков</sub></td>
-<td width="50%"><a href="docs/screenshots/memory.png"><img src="../screenshots/memory.png" alt="Memory layers and crystallized patterns" width="100%" /></a><br/><sub><b>Память</b> — 11 слоёв + кристаллизованные паттерны инцидентов</sub></td>
+<td width="50%"><a href="../screenshots/metrics.png"><img src="../screenshots/metrics.png" alt="Metrics — tasks shipped, AI spend, cost savings vs FTE" width="100%" /></a><br/><sub><b>Метрики</b> — отгруженные задачи, расходы на ИИ, экономия против человеческой команды, дневной burn</sub></td>
+<td width="50%"><a href="../screenshots/memory.png"><img src="../screenshots/memory.png" alt="Project memory — browsable layers: PROJECT.md, archetypes, lessons" width="100%" /></a><br/><sub><b>Память</b> — просматриваемые слои памяти проекта: PROJECT.md, архетипы, навыки, уроки</sub></td>
 </tr>
 </table>
 
-**Создано для инженерной организации из одного человека.** Indie-хакеры, соло-основатели, технические CTO, которые тянут всё сами — на Claude Code или OpenAI Codex. *Не для команд* — см. [FAQ](../FAQ.md#is-great_cto-for-teams).
+**Создано для инженерной организации из одного человека.** GreatCTO — для indie-хакера, соло-основателя или технического CTO, который хочет отгружать реальные продукты без команды — гоняя конвейер на Claude Code или OpenAI Codex, утверждая одну спецификацию и отгружая на живой URL. *Не для команд из нескольких разработчиков* — см. [FAQ](../FAQ.md#is-great_cto-for-teams).
 
 ## Установка
 
@@ -135,7 +151,7 @@ npx great-cto init
 | [OpenAI Codex](https://openai.com/codex) | `--host codex` | ✅ хуки + MCP + агенты |
 
 ```bash
-# Claude Code (по умолчанию)
+# Claude Code (default)
 npx great-cto init
 
 # OpenAI Codex Desktop / CLI
@@ -147,19 +163,19 @@ npx great-cto init --host codex
 ---
 
 <details>
-<summary>📖 Полная документация — два гейта · критики · 61 агент · 26 архетипов · 12 юрисдикций · 45+ фреймворков соответствия · дашборд · стоимость · MCP</summary>
+<summary>📖 Полная документация — один CTO-гейт · тиеринг по риску · критики · 46 агентов · архетипы сборки · дашборд · стоимость · MCP</summary>
 
-## Два решения на фичу
+## Одно решение на фичу
 
 ```
-🟡 gate:plan   ←  вы решаете здесь (архитектура + задачи + стоимость)
+🤖 architect + design-advisor  →  spec · data model · screens
    ↓
-🤖 senior-dev → 12-angle review → qa-engineer → security-officer → devops
+🟡 gate:plan   ←  you decide here — approve the spec (the one CTO gate)
    ↓
-🟢 gate:ship   ←  вы решаете здесь (PR готов, безопасность подписала)
+🤖 senior-dev → review → qa-engineer → devops  →  built · tested · deployed
 ```
 
-Архитекторы, планировщики, ревьюеры, QA, безопасность, DevOps работают автоматически между этими двумя человеческими контрольными точками. **Память сохраняется** между сессиями: каждый вердикт гейта дописывается в `~/.great_cto/decisions.md`, каждая ретроспектива дописывается в `lessons.md` по каждому проекту, а `/crystallize` продвигает высокоэффективные паттерны в глобальную библиотеку, к которой агенты обращаются перед повторным решением.
+Конвейер тиерирован по риску (`change_tier`): фикс в рамках сопровождения открывает **ни одного** гейта (гейт — это CI), обратимая фича открывает **только** `gate:plan`, а необратимое изменение требует полного набора + frontier-модель. Всё между гейтом и деплоем работает автоматически. **Память сохраняется** между сессиями: каждый вердикт гейта дописывается в `~/.great_cto/decisions.md`, каждая ретроспектива — в `lessons.md` по каждому проекту, а `/crystallize` продвигает высокоэффективные паттерны в глобальную библиотеку, к которой агенты обращаются перед повторным решением.
 
 ## Критики перед планом
 
@@ -181,12 +197,12 @@ npx great-cto init --host codex
 | Self-host | ✅ работает локально | ❌ облако Cognition | ✅ |
 | Хост | ✅ Claude Code + Codex | ❌ облако Cognition | ✅ Claude Code |
 | BYOK / мультимодельность | ✅ Claude Code · Codex | ❌ проприетарно | ❌ только Anthropic |
-| Специализированные агенты | **57** (архитектор · PM · ревью с 12 углами зрения · QA · безопасность · devops · 42 ревьюера по архетипам, пакам и юрисдикциям) | 1 универсал | 1 универсал |
-| Оркестрация SDLC | архитектор → план → реализация → ревью → QA → безопасность → devops | автономия в один проход | цикл правок |
-| Человеческие гейты | ✅ 2 на фичу (plan + ship) | ❌ нет | ❌ |
+| Специализированные агенты | **46** (architect · design-advisor · senior-dev · QA · security · devops · ревьюеры по архетипам) | 1 универсал | 1 универсал |
+| Конвейер сборки | spec → CTO gate → scaffold → build → test → deploy | автономия в один проход | цикл правок |
+| Человеческие гейты | ✅ один — вы утверждаете спецификацию (тиерирован по риску) | ❌ нет | ❌ |
 | Память между сессиями | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ только в рамках треда | ⚠️ только в рамках треда |
 | Отслеживание стоимости | ✅ по каждому агенту + история за 30 дней + savings_x | ❌ | ❌ |
-| Фреймворки соответствия | ✅ 33+ (PCI · HIPAA · SOX · GDPR · CCPA · DPDPA · EU AI Act · FDA SaMD · COPPA · FERPA · FedRAMP · NAIC · …) | ❌ | ❌ |
+| Дизайн встроен | ✅ design-advisor + ui-ux-pro-max → Next.js/Tailwind/shadcn | ❌ | ❌ |
 | Цена | бесплатно (вы платите своему LLM-провайдеру) | $500/мес | $20/мес |
 | Настройка | `npx great-cto init` | регистрация | установка CLI |
 
@@ -220,14 +236,13 @@ jurisdiction: [eu, us-ca]
 ## Три команды, которые вы используете каждый день
 
 ```bash
-/start "build a refund endpoint with PCI-DSS scoping"
-# → architect → enterprise-saas-reviewer (PCI-DSS auto-loaded)
-# → pm → 5 Beads tasks → gate:plan (you approve)
-# → senior-dev → 12-angle review → qa → security-officer
-# → gate:ship (you approve) → devops → deployed
+/start "build a dispatch & scheduling app for an HVAC business"
+# → architect + design-advisor → spec, data model, screens
+# → pm → Beads tasks → gate:plan (you approve the spec — the one gate)
+# → senior-dev → review → qa → devops → built · tested · deployed
 
 /inbox
-# Pending gates · P0 incidents · blocked tasks · stale in-progress
+# Pending gate · P0 incidents · blocked tasks · stale in-progress
 
 /digest
 # Weekly DORA + delta vs last week + cost-per-feature roll-up
@@ -251,43 +266,42 @@ jurisdiction: [eu, us-ca]
 
 Вы платите за собственные токены Anthropic API. **Никакой платы за место. Никакого замыкания на SaaS.** Рутинная сортировка автоматически направляется в Kimi K2 (эквивалент Sonnet при стоимости ~в 5 раз ниже) → снижение на 60–80% на кластеризации логов.
 
-## 26 архетипов определяются автоматически
+## Архетипы сборки
 
-Каждый архетип активирует своих специализированных агентов и чек-листы соответствия. Топ-7:
+Каждый продукт мапится на **архетип сборки**, который формирует его конвейер — шаблон стека,
+форму данных, фирменную интеграцию. 6 архетипов Product Builder (в них схлопываются ~40 продуктов):
 
-| Архетип | Уровень | Специализированные агенты | Соответствие требованиям |
+| Архетип | Форма | Стек | Интеграция |
 |---|---|---|---|
-| `enterprise-saas` | **deep** | enterprise-saas-reviewer | soc2-type-2 · iso27001 · gdpr · ccpa |
-| `agent-product` | **deep** | ai-prompt-architect · ai-eval · ai-security | eu-ai-act · owasp-llm-top-10 |
-| `fintech` | **deep** | pci · regulated | pci-dss · sox · kyc-aml · gdpr · dora |
-| `mlops` | **deep** | mlops-reviewer · ai-eval | eu-ai-act · nist-ai-rmf · iso42001 |
-| `library` | baseline | library-reviewer | openssf · sbom |
-| `cli-tool` | baseline | cli-reviewer | — |
-| `mobile-app` | standard | mobile-store-reviewer | store-policy · gdpr |
-| `defense-govcon` | **deep** | cmmc-reviewer · gov-reviewer | cmmc-2.0 · nist-800-171 · dfars · itar · section-889 |
+| `vertical-saas` | entities · roles · workflow · records UI | Next.js · Postgres · shadcn | Auth · RBAC |
+| `booking` | calendar · availability · reminders · payments | Next.js · Postgres · cal | Stripe · Twilio |
+| `crm` | contacts · pipeline · automated sequences | Next.js · Postgres · queue | email / SMS · webhooks |
+| `dashboard` | ingest · metrics · visualization · alerts | Next.js · warehouse-lite · charts | source connectors |
+| `marketplace` | two-sided listings · matching · payments | Next.js · Postgres · Stripe Connect | Stripe Connect / escrow |
+| `content` | catalog · access tiers · delivery · monetization | Next.js · object storage · CDN | Stripe · media pipeline |
+
+Плюс лежащие в основе архетипы по виду софта (`web-service`, `mobile-app`, `cli-tool`,
+`library`, …), которые движок определяет автоматически, чтобы донастроить сборку. См. [6 конвейеров](https://greatcto.systems/pipelines).
 
 Полная таблица (26 архетипов) + как работает определение: [docs/ARCHETYPES.md](../ARCHETYPES.md).
 
 **Глубокое покрытие США** — помимо GDPR/PCI/HIPAA, great_cto теперь проверяет на соответствие SEC cyber-disclosure (8-K Item 1.05), CMMC 2.0 / NIST 800-171 для оборонных подрядчиков, US AI governance (NIST AI RMF · Colorado SB 205 · Utah/Texas AI), судебной практике по веб-трекингу (VPPA · CIPA · Washington MHMDA) и HMDA / SR 11-7 model risk для кредитования.
 
-## 14 доменных паков — накладные ревьюеры
+## Доменные оверлеи (опционально)
 
-Доменные паки работают **поверх** архетипов. Подключаются автоматически, когда CLI обнаруживает специфичные для пака сигналы (зависимости, термины в README). Каждый пак добавляет своих ревьюеров, шаблон модели угроз, набор EVAL и человеческие гейты — независимо от базового архетипа.
-
-| Категория | Паки |
-|---|---|
-| **AI-вертикали** | `voice-pack` · `clinical-pack` · `hr-ai-pack` · `drug-discovery-pack` |
-| **Цифровое здравоохранение** | `digital-health-pack` _(телеметрия носимых устройств · ИИ для ментального здоровья · ИИ для питания · physician HITL)_ |
-| **Финтех / регулируемое** | `lending-pack` · `em-fintech-pack` |
-| **Высокий комплаенс** | `clinical-trials-pack` · `climate-pack` |
-| **Инженерия** | `api-platform-pack` · `robotics-pack` |
-| **Рынок США** | `sec-cyber-pack` _(SEC 8-K disclosure)_ · `adtech-privacy-pack` _(VPPA · CIPA · MHMDA)_ · `us-ai-pack` _(NIST AI RMF · Colorado SB 205)_ |
-
-→ **28 типов человеческих гейтов** + 53 эталонных набора EVAL + 15 шаблонов TM. Просмотрите все 14 паков с **4-слойной визуализацией пути** (архетип → пак → ревьюер → гейт): [greatcto.systems/packs.html](https://greatcto.systems/packs.html).
+Помимо архетипа сборки, движок может автоматически подключить опциональный **доменный оверлей**, когда он
+обнаруживает специфичные для домена сигналы (зависимости, термины в README) — добавляя специализированного ревьюера и несколько
+дополнительных проверок для таких вещей, как голос/телефония, приватность (GDPR/CCPA) или AI governance. Они
+опциональны и ортогональны конвейеру сборки; большинству продуктов они не нужны.
 
 ## Один реальный прогон, полностью трассированный
 
-Фича Python CLI прошла через полный конвейер: **$2.39 расходов на LLM** против ~$5,460 человеческого эквивалента. Безопасность поймала два реальных дефекта, которые пропустил QA (`list(stream_csv())` сводил на нет потоковую обработку → пиковый RSS 14.5 МБ на входе 13 МБ). Модель с несколькими ревьюерами ловит то, что отдельные агенты упускают, до мёрджа.
+Канонический чек: **одна реальная фича** прошла через полный конвейер за **1h 26m
+по настенным часам за $3.40 расходов на LLM** — architect → plan → реализация → review → человеческий гейт →
+смёрдженный PR. Традиционный путь для той же фичи: ~170 часов и ~$42K. Каждая стадия
+с таймстампом, каждый артефакт ссылается на публичный GitHub PR.
+
+Более ранний прогон на фиче Python CLI ($2.39 против ~$5,460 человеческого эквивалента) показал, что модель ревью работает: безопасность поймала два реальных дефекта, которые пропустил QA (`list(stream_csv())` сводил на нет потоковую обработку → пиковый RSS 14.5 МБ на входе 13 МБ).
 
 Полная трассировка + артефакты: [greatcto.systems/proof](https://greatcto.systems/proof) · сырьё: [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](../qa/runs/2026-05-09/E2E-CLI-PIPELINE.md).
 
@@ -334,7 +348,7 @@ jurisdiction: [eu, us-ca]
 
 ## Ограничения и нецели
 
-- **Не для команд** — соло-CTO это и есть продукт. 2+ инженера? Вы из него выросли.
+- **Не для команд из нескольких разработчиков** — один билдер это и есть продукт; 2+ инженера, делящих конвейер, из него выросли.
 - **Не замена senior-инженерам** — кодифицирует процесс; не принимает архитектурных решений без него.
 - **Не CI/CD-система** — гейты работают локально / в рамках сессии. Для реального мёрджа вам всё ещё нужен GitHub Actions.
 - **Без сертификационного аудита** — каркасы архетипов PCI/HIPAA/SOC2 это отправные точки, а не сертификации.
@@ -348,7 +362,7 @@ jurisdiction: [eu, us-ca]
 
 **Можно ли отключить хуки?** Каждый хук уважает `GREAT_CTO_DISABLE_<NAME>=1`. Отказ от сканирования секретов по файлу: `// great_cto:allow-secrets`.
 
-**Что если я не один?** great_cto создан для инженерной организации из одного человека. Если у вас 2+ инженера и нужны общие доски / многопользовательская авторизация — вы из него выросли.
+**Что если я не один?** Конвейер сборки GreatCTO создан для одного инженера — если у вас 2+ инженера, которым нужны общие доски билдера и параллельные конвейеры, вы из него выросли.
 
 Полный FAQ: [docs/FAQ.md](../FAQ.md).
 
@@ -360,26 +374,26 @@ jurisdiction: [eu, us-ca]
 
 ## Архитектура
 
-Плагин работает внутри Claude Code (или любого MCP-совместимого хоста); 61 агент — это markdown-спецификации; задачи живут в Beads (dolt, git-native); память — обычный markdown (без векторного хранилища). Диаграмма + таблица стека: [docs/ARCHITECTURE.md](../ARCHITECTURE.md).
+Плагин работает внутри Claude Code (или любого MCP-совместимого хоста); 46 агентов — это markdown-спецификации; задачи живут в Beads (dolt, git-native); память — обычный markdown (без векторного хранилища). Диаграмма + таблица стека: [docs/ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Что нового
 
-**v2.21.0** (Май 2026) — **Flow Compiler UX**: `npx great-cto init` теперь печатает **скомпилированный поток (Compiled flow)** с агентами, гейтами, соответствием и оценкой стоимости на цикл фичи. Пишет `.great_cto/FLOW.md` — агенты читают его, чтобы точно знать, как оркестрировать ваш SDLC.
+**v2.74+** (Июнь 2026) — **Поворот к Product Builder**: GreatCTO становится *AI Product Builder* — опишите программный продукт, утвердите спецификацию на одном CTO-гейте, и конвейер отгрузит его (spec → build → test → deploy). 10 отраслей США, ~40 продуктов, 6 переиспользуемых конвейеров. Гейты сборки тиерированы по риску (`change_tier`); регулируемая runtime-поверхность выехала в [avelikiy/operate](https://github.com/avelikiy/operate). История: [стратегия](../strategy/PRODUCT-BUILDER-DIRECTION.md) · [6 конвейеров](https://greatcto.systems/pipelines)
 
-**v2.20.0** (Май 2026) — **Detection v2**: **покрытие 12 юрисдикций** (добавлены CA · JP · CN · KR с полным правовым фреймворком + человеческие гейты) · **определение по инфраструктурным сигналам** (строки регионов Terraform, `.env` `AWS_REGION=`, docker-compose `TZ=`, TLD домена homepage в `package.json`) · **сопоставление по границам слов** (больше никаких ложных срабатываний "india" → "indiana") · **подсказки паков** для нишевых архетипов (`suggestedPacks` подсказывает паки robotics/climate/clinical-trials/hr-ai/em-fintech, когда уверенность низкая). Экономия токенов: –87,7% на прогон конвейера (редизайн контекстной архитектуры в v2.19.0).
+**v2.40–v2.62** (Июнь 2026) — **Поворот к автопилотам**: GreatCTO становится *ИИ-автопилотами для бизнеса* — 25 сервис-автопилот-вертикалей, каждая представляет собой поток с измеряемым скоркартом качества, ответственным владельцем и runtime-инвариантом, что **необратимое действие никогда не выполняется без подписи человека**. 22 живых коннектора гоняют каждую вертикаль на реальных данных. История: [Мы сделали поворот →](https://greatcto.systems/blog/autopilots-pivot-25-verticals)
 
-**v2.19.0** (Май 2026) — **Экономия токенов Фаза 1+2**: сводки артефактов (≤250 токенов, автогенерируемые) + фильтр памяти с учётом задачи (top-k релевантных записей на задачу). –87,7% токенов на прогон конвейера.
+**v2.46–v2.63** (Июнь 2026) — **Консоль оператора**: durable-прогоны ставятся на паузу на человеческом гейте и ждут во входящих именованного лицензированного человека; подпись выполняет запись. Ролевой доступ, scoped-приглашения, определения, набросанные ИИ с доказательствами, выборочный QA, SLA-таймеры, вкладка Ops (метеринг · здоровье коннекторов · повторная постановка dead-letter), WCAG 2.2 AA, светлая/тёмная тема. История: [Консоль оператора →](https://greatcto.systems/blog/operator-console)
 
-**v2.17.0** (Май 2026) — **плагины-компаньоны устанавливаются автоматически** · **критики Архитектуры / Спецификации / Схемы** перед стадией Plan.
+**v2.37–v2.65** (Июнь 2026) — **Под капотом**: dev-доска становится *пультом* — одобрение гейта может запустить прогон агента с live-стримом; самоулучшение промптов, гейтированное на held-out evals (вдохновлено SIA); сжатие контекста за $0 (CI-лог 31,475 → 155 символов с сохранённым FATAL); поддержка Fable 5. История: [Июнь под капотом →](https://greatcto.systems/blog/june-under-the-hood)
 
 [Полный журнал изменений →](../../CHANGELOG.md)
 
 ## Дорожная карта
 
-- **Раннер evals в CI** — запуск эталонных наборов eval на каждом PR, автоматический отлов регрессий промптов
-- **Самоулучшающийся цикл** — агенты, которые учатся на вердиктах и со временем улучшают собственные промпты
-- **Скоринг решений** — отслеживание, какие решения гейтов оказались верными; выявление паттернов
-- **/crystallize** — продвижение высокоэффективных уроков в переиспользуемые навыки, к которым может обращаться весь конвейер
+- **Определение архетипа продукта** — выбор архетипа сборки из брифа продукта, а не только из стека
+- **Шаблоны сборки по отраслям** — отгрузка эталонного продукта от и до через каждый из 6 конвейеров
+- **Судья с учётом тиера** — дешёвый дообученный судья на T0/T1 evals, frontier + человек на T2 (ADR-004)
+- **Headless task-runner** — постановка сборок продуктов в очередь и прогон на VPS без присмотра
 
 [Голосуйте за следующую фичу →](https://github.com/avelikiy/great_cto/discussions/categories/ideas)
 
@@ -395,7 +409,7 @@ jurisdiction: [eu, us-ca]
 |---|---|
 | 🐛 [Issues](https://github.com/avelikiy/great_cto/issues) | Баги, запросы фич, предложения архетипов |
 | 💡 [Discussions](https://github.com/avelikiy/great_cto/discussions) | Вопросы, паттерны, show-and-tell |
-| 📝 [Blog](https://velikiy.hashnode.dev) | Глубокие разборы архитектуры |
+| 📝 [Blog](https://greatcto.systems/blog/) | Чеки, разбивки стоимости, глубокие разборы архитектуры |
 | 🔒 [SECURITY.md](../../SECURITY.md) | Ответственное раскрытие уязвимостей |
 
 ## Участие и лицензия
