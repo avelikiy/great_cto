@@ -106,7 +106,14 @@ the destination schema. Never design a mapping against an imagined export shape.
 
 ## Operator step
 - [ ] review dry-run report → approve → real import
+
+## Resolved decisions
+- <mapping ambiguity / source quirk> → <the decision> — <rationale>
 ```
+
+Resolve mapping ambiguities here with a concrete decision (e.g. how a source's combined
+name field splits, how an unknown status maps) — never leave a field mapping "TBD" for
+senior-dev to guess.
 
 ## Phase task tracking (mandatory)
 
