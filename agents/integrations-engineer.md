@@ -121,9 +121,18 @@ provider's webhook/idempotency/rate-limit docs (use WebFetch on the official doc
 - [ ] least-scope verified
 - [ ] dead-letter + alert wired
 
+## Resolved decisions (product-scoped, not deferred)
+- <open question from the architecture> → <the decision you made> — <one-line rationale>
+- <out-of-scope item> → deferred to a later contract, why
+
 ## Open questions / handoffs
 - pci-reviewer / marketplace-reviewer: <scope items>, if any
 ```
+
+Always **resolve** architecture open questions here with a concrete decision — never
+punt a product-scoped choice to a reviewer. Reviewers own compliance *scope*, not your
+mechanics; record their items under "Open questions / handoffs", your decisions under
+"Resolved decisions".
 
 ## Phase task tracking (mandatory)
 

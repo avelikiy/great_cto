@@ -110,7 +110,14 @@ billing correct, reconciled, and idempotent before senior-dev writes a line of i
 
 ## Test-clock cases
 - renewal · proration on plan change · failed-payment dunning
+
+## Resolved decisions
+- <billing-model open question> → <the decision> — <rationale>
 ```
+
+Resolve product-scoped billing choices here (proration policy, trial length, dunning
+cadence) with a concrete decision; record only compliance *scope* items under the
+reviewer hand-offs.
 
 ## Phase task tracking (mandatory)
 
