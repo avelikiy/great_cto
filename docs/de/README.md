@@ -25,14 +25,22 @@ npx great-cto init
 
 ## Baue das Produkt, nicht nur den Code
 
-great_cto ist ein **KI-Produkt-Builder**. Beschreibe ein Software-Produkt, und es führt den gesamten
-Build aus — Architektur, Datenmodell, Backend, Frontend, Tests, Deployment. **Ein menschliches Gate:** du,
-der CTO, genehmigst die Spezifikation. Alles danach läuft automatisch – bis zum ausgelieferten Repo und einer Live-URL.
+**Du beschreibst das Produkt. great_cto liefert es aus.** Kein Snippet, kein Gerüst — eine echte,
+deployte Anwendung mit Backend, Frontend, generierten Tests und einer Live-URL. Du triffst genau **eine
+Entscheidung: genehmige die Spezifikation.** Alles danach — Architektur, Datenmodell, Build, Review,
+Deployment — läuft unbeaufsichtigt.
 
-Die führenden US-Branchen, für die es baut — Haus- & Außendienste, professionelle Dienstleistungen,
-Gastgewerbe, Retail/E-Commerce, PropTech, Fitness, Marketing & Creator, HR/Recruiting,
-Bauwesen, Logistik — verdichten sich zu **6 wiederverwendbaren Build-Archetypen** (CRUD-Vertical-SaaS,
-Booking, CRM, Dashboard, Marketplace, Content/Media). Ein Template liefert jedes der ~40 Produkte aus.
+Es ist ein **KI-Produkt-Builder**, kein weiterer Coding-Agent-Loop. Die Orchestrierungsschicht *über* dem
+Coding-Agenten, den du bereits nutzt: ein Team aus Spezialisten-Agenten, das die Arbeit plant, baut, prüft
+und gatet — sodass eine einzelne Person ausliefert wie eine ganze Engineering-Organisation.
+
+> **Ein echtes Feature: Idee → gemergter PR in `1h 26m` für `$3.40` an LLM-Kosten.** Der traditionelle Weg
+> für dasselbe Feature waren ~6 Wochen und ~$42K. [Den vollständigen Trace ansehen →](https://greatcto.systems/proof)
+
+Es baut für die führenden US-Dienstleistungsbranchen — Haus- & Außendienste, professionelle Dienstleistungen,
+Gastgewerbe, Retail/E-Commerce, PropTech, Fitness, Marketing & Creator, HR/Recruiting, Bauwesen, Logistik —
+die sich zu **6 wiederverwendbaren Build-Pipelines** verdichten (CRUD-Vertical-SaaS, Booking, CRM, Dashboard,
+Marketplace, Content/Media). Ein Befehl liefert jedes der **~40 Produkte** aus.
 Siehe [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
 ```
@@ -49,11 +57,6 @@ Siehe [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
 CI und generierte Tests sind das Quality-Gate – du zeichnest die **Richtung** ab, nicht jede einzelne Zeile.
 
-> **Operate** — die Runtime-Oberfläche, auf der ein Mensch jede regulierte Transaktion signiert (Operator-
-> Konsole, Autopilot-Runtime, Vertical-Flows) — **ist in ein eigenes Repo umgezogen:**
-> [github.com/avelikiy/operate](https://github.com/avelikiy/operate). great_cto ist jetzt das
-> Build-Produkt.
-
 ## Unter der Haube (für den CTO, der es betreibt)
 
 → *Die Builder-Sicht auf diese Oberfläche: [greatcto.systems/build](https://greatcto.systems/build)*
@@ -65,19 +68,6 @@ risiko-gestaffelt — ein Wartungs-Fix öffnet kein Gate (CI ist das Gate), ein 
 Plan-Gate, und eine irreversible Änderung erzwingt den vollen Satz — sodass die Ceremony mit dem Blast-Radius
 skaliert, nicht mit dem Papierkram. CI und die selbst generierten Tests des Builds sind das Quality-Gate, das es sicher macht,
 die Pipeline bis zum Deployment durchlaufen zu lassen.
-
-**Empfohlenes Begleit-MCP: Serena (semantische Code-Navigation).** Auf großen Codebases verbrennen die
-Code-schreibenden Agenten (Senior-Dev, Coder) Kontext mit grep und dem Lesen ganzer Dateien. Das
-[Serena MCP](https://github.com/oraios/serena) gibt ihnen stattdessen Navigation auf Symbol-Ebene
-(find-symbol, references, structure):
-
-```bash
-claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
-  serena start-mcp-server --context ide-assistant --project "$(pwd)"
-```
-
-Optional — alles funktioniert auch ohne; mit ihm verbrauchen Implementierungs-Tasks auf großen Repos
-spürbar weniger Kontext pro Edit.
 
 **Ein Gate, dort wo es zählt.** Build-Schritte sind risiko-gestaffelt: eine reversible Änderung wird gebaut und ausgeliefert
 hinter CI; eine irreversible — ein Production-Deploy, eine Schema-Migration, eine neue schreibfähige
