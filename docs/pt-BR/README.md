@@ -25,14 +25,21 @@ npx great-cto init
 
 ## Construa o produto, não apenas o código
 
-O great_cto é um **Construtor de Produtos com IA**. Descreva um produto de software e ele executa toda a
-construção — arquitetura, modelo de dados, backend, frontend, testes, deploy. **Um único gate humano:** você,
-o CTO, aprova a especificação. Tudo depois disso é automatizado, até um repositório entregue e uma URL ao vivo.
+**Você descreve o produto. O great_cto o entrega.** Não um trecho de código, não um esqueleto — uma aplicação
+real, deployada, com backend, frontend, testes gerados e uma URL ao vivo. Você toma exatamente **uma decisão:
+aprovar a spec.** Tudo depois disso — arquitetura, modelo de dados, build, revisão, deploy — roda sem supervisão.
 
-As principais indústrias dos EUA para as quais ele constrói — serviços domésticos e de campo, serviços
+É um **Construtor de Produtos com IA**, não mais um loop de agente de codificação. A camada de orquestração
+*acima* do agente de codificação que você já usa: um time de agentes especialistas que planejam, constroem,
+revisam e fazem gate do trabalho — para que uma pessoa entregue como uma organização de engenharia.
+
+> **Uma feature real: ideia → PR merjado em `1h 26m` por `$3.40` de custo de LLM.** O caminho tradicional para
+> a mesma feature foi ~6 semanas e ~$42K. [Veja o trace completo →](https://greatcto.systems/proof)
+
+Ele constrói nas principais indústrias de serviços dos EUA — serviços domésticos e de campo, serviços
 profissionais, hospitalidade, varejo/e-commerce, proptech, fitness, marketing & criadores, RH/recrutamento,
-construção, logística — se reduzem a **6 arquétipos de construção reutilizáveis** (SaaS vertical CRUD,
-agendamento, CRM, dashboard, marketplace, conteúdo/mídia). Um template entrega qualquer um dos ~40 produtos.
+construção, logística — que se reduzem a **6 pipelines de construção reutilizáveis** (SaaS vertical CRUD,
+agendamento, CRM, dashboard, marketplace, conteúdo/mídia). Um comando entrega qualquer um dos **~40 produtos**.
 Veja [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
 ```
@@ -49,11 +56,6 @@ Veja [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
 A CI e os testes gerados são o gate de qualidade — você assina a **direção**, não cada linha.
 
-> **Operate** — a superfície de runtime onde um humano assina cada transação regulada (console do
-> operador, runtime de autopilot, fluxos verticais) — **mudou para seu próprio repositório:**
-> [github.com/avelikiy/operate](https://github.com/avelikiy/operate). O great_cto agora é o
-> produto de construção.
-
 ## Por baixo dos panos (para o CTO que opera)
 
 → *A história voltada para o construtor desta superfície: [greatcto.systems/build](https://greatcto.systems/build)*
@@ -65,19 +67,6 @@ escalonado por risco — uma correção de manutenção não abre gate (a CI é 
 gate de plano e uma mudança irreversível força o conjunto completo — então a cerimônia escala com o raio de impacto,
 não com a papelada. A CI e os próprios testes gerados da construção são o gate de qualidade que torna seguro
 deixar o pipeline rodar até o deploy.
-
-**MCP companheiro recomendado: Serena (navegação semântica de código).** Em bases de código grandes, os
-agentes que escrevem código (senior-dev, coder) queimam contexto fazendo grep e lendo arquivos inteiros. O
-[Serena MCP](https://github.com/oraios/serena) dá a eles navegação em nível de símbolo
-(find-symbol, references, structure) em vez disso:
-
-```bash
-claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
-  serena start-mcp-server --context ide-assistant --project "$(pwd)"
-```
-
-Opcional — tudo funciona sem ele; com ele, tarefas de implementação em repositórios grandes usam
-notavelmente menos contexto por edição.
 
 **Um gate, onde importa.** As etapas de construção são escalonadas por risco: uma mudança reversível constrói e entrega
 atrás da CI; uma irreversível — um deploy em produção, uma migração de schema, uma nova integração com capacidade de

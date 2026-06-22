@@ -25,15 +25,24 @@ npx great-cto init
 
 ## Construisez le produit, pas seulement le code
 
-great_cto est un **Constructeur de Produits IA**. Décrivez un produit logiciel et il exécute tout le
-build — architecture, modèle de données, backend, frontend, tests, déploiement. **Une seule gate humaine :** vous,
-le CTO, approuvez la spécification. Tout ce qui suit est automatisé, jusqu'à un dépôt livré et une URL en ligne.
+**Vous décrivez le produit. great_cto le livre.** Pas un extrait de code, pas un squelette — une vraie
+application déployée, avec un backend, un frontend, des tests générés et une URL en ligne. Vous prenez
+exactement **une décision : approuver la spécification.** Tout ce qui suit — architecture, modèle de données,
+build, review, déploiement — s'exécute sans surveillance.
 
-Les principaux secteurs américains pour lesquels il construit — services à domicile et sur le terrain, services
-professionnels, hôtellerie, retail/e-commerce, proptech, fitness, marketing & créateurs, RH/recrutement,
-construction, logistique — se réduisent à **6 archétypes de build réutilisables** (SaaS vertical CRUD,
-réservation, CRM, tableau de bord, place de marché, contenu/média). Un seul template livre n'importe lequel des ~40 produits.
-Voir [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
+C'est un **Constructeur de Produits IA**, pas une énième boucle d'agent de codage. La couche d'orchestration
+*au-dessus* de l'agent de codage que vous utilisez déjà : une équipe d'agents spécialistes qui planifient,
+construisent, relisent et mettent des gates sur le travail — pour qu'une seule personne livre comme une
+organisation d'ingénierie.
+
+> **Une vraie fonctionnalité : de l'idée à la PR mergée en `1h 26m` pour `3,40 $` de coût LLM.** Le chemin
+> traditionnel pour la même fonctionnalité était d'environ 6 semaines et ~42 K$. [Voir la trace complète →](https://greatcto.systems/proof)
+
+Il construit à travers les principaux secteurs de service américains — services à domicile et sur le terrain,
+services professionnels, hôtellerie, retail/e-commerce, proptech, fitness, marketing & créateurs, RH/recrutement,
+construction, logistique — qui se réduisent à **6 pipelines de build réutilisables** (SaaS vertical CRUD,
+réservation, CRM, tableau de bord, place de marché, contenu/média). Un seul template livre n'importe lequel des
+**~40 produits**. Voir [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
 ```
    describe a product
@@ -49,11 +58,6 @@ Voir [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
 La CI et les tests générés constituent la gate qualité — vous signez la **direction**, pas chaque ligne.
 
-> **Operate** — la surface d'exécution où un humain signe chaque transaction régulée (console
-> opérateur, runtime d'autopilote, flux verticaux) — **a déménagé dans son propre repo :**
-> [github.com/avelikiy/operate](https://github.com/avelikiy/operate). great_cto est désormais le
-> produit de build.
-
 ## Sous le capot (pour le CTO qui le pilote)
 
 → *L'histoire de cette surface côté builder : [greatcto.systems/build](https://greatcto.systems/build)*
@@ -65,19 +69,6 @@ hiérarchisé par risque — un correctif de maintenance n'ouvre aucune gate (la
 gate de plan, et un changement irréversible impose l'ensemble complet — de sorte que la cérémonie s'adapte au rayon d'impact,
 pas à la paperasse. La CI et les tests générés du build constituent la gate qualité qui rend sûr
 le fait de laisser le pipeline tourner jusqu'au déploiement.
-
-**MCP compagnon recommandé : Serena (navigation de code sémantique).** Sur les grandes bases de code, les
-agents qui écrivent du code (senior-dev, coder) brûlent du contexte à grepper et lire des fichiers entiers. Le
-[MCP Serena](https://github.com/oraios/serena) leur donne une navigation au niveau des symboles
-(find-symbol, references, structure) à la place :
-
-```bash
-claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
-  serena start-mcp-server --context ide-assistant --project "$(pwd)"
-```
-
-Optionnel — tout fonctionne sans lui ; avec lui, les tâches d'implémentation sur de gros repos utilisent
-nettement moins de contexte par édition.
 
 **Une seule gate, là où ça compte.** Les étapes de build sont hiérarchisées par risque : un changement réversible se construit et se livre
 derrière la CI ; un changement irréversible — un déploiement en production, une migration de schéma, une nouvelle intégration

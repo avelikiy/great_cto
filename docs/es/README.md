@@ -25,15 +25,13 @@ npx great-cto init
 
 ## Construye el producto, no solo el código
 
-great_cto es un **Constructor de Productos con IA**. Describe un producto de software y ejecuta toda la
-construcción — arquitectura, modelo de datos, backend, frontend, pruebas, despliegue. **Una sola compuerta humana:** tú,
-el CTO, apruebas la especificación. Todo lo posterior es automático, hasta un repo entregado y una URL en vivo.
+**Tú describes el producto. great_cto lo entrega.** No un fragmento, no un andamiaje — una aplicación real, desplegada, con un backend, un frontend, pruebas generadas y una URL en vivo. Tomas exactamente **una decisión: aprobar la especificación.** Todo lo posterior — arquitectura, modelo de datos, construcción, revisión, despliegue — corre sin supervisión.
 
-Las principales industrias de EE. UU. para las que construye — servicios para el hogar y de campo, servicios profesionales,
-hostelería, retail/e-commerce, proptech, fitness, marketing y creadores, RR. HH./reclutamiento,
-construcción, logística — se colapsan en **6 arquetipos de construcción reutilizables** (vertical-SaaS CRUD,
-reservas, CRM, dashboard, marketplace, contenido/medios). Una plantilla entrega cualquiera de ~40 productos.
-Ver [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
+Es un **Constructor de Productos con IA**, no otro bucle de agente de programación. La capa de orquestación *por encima* del agente de programación que ya usas: un equipo de agentes especialistas que planifican, construyen, revisan y ponen compuertas al trabajo — de modo que una sola persona entrega como una organización de ingeniería.
+
+> **Una funcionalidad real: idea → PR fusionado en `1h 26m` por `$3.40` de coste en LLM.** La ruta tradicional para la misma funcionalidad fue ~6 semanas y ~$42K. [Ver la traza completa →](https://greatcto.systems/proof)
+
+Construye a través de las principales industrias de servicios de EE. UU. — servicios para el hogar y de campo, servicios profesionales, hostelería, retail/e-commerce, proptech, fitness, marketing y creadores, RR. HH./reclutamiento, construcción, logística — que se colapsan en **6 pipelines de construcción reutilizables** (vertical-SaaS CRUD, reservas, CRM, dashboard, marketplace, contenido/medios). Un comando entrega cualquiera de **~40 productos**. Ver [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
 ```
    describe un producto
@@ -49,11 +47,6 @@ Ver [docs/strategy/BUILD-PIPELINES.md](../strategy/BUILD-PIPELINES.md).
 
 CI y las pruebas generadas son la compuerta de calidad — tú firmas la **dirección**, no cada línea.
 
-> **Operate** — la superficie de runtime donde un humano firma cada transacción regulada (consola de
-> operador, runtime de autopiloto, flujos verticales) — **se movió a su propio repo:**
-> [github.com/avelikiy/operate](https://github.com/avelikiy/operate). great_cto es ahora el
-> producto de construcción.
-
 ## Bajo el capó (para el CTO que lo opera)
 
 → *La historia de cara al constructor sobre esta superficie: [greatcto.systems/build](https://greatcto.systems/build)*
@@ -65,19 +58,6 @@ escalonada por riesgo — una corrección de mantenimiento no abre compuerta (CI
 compuerta de plan, y un cambio irreversible fuerza el conjunto completo — de modo que la ceremonia escala con el radio de impacto,
 no con el papeleo. CI y las propias pruebas generadas de la construcción son la compuerta de calidad que hace seguro
 dejar que la pipeline corra hasta el despliegue.
-
-**MCP complementario recomendado: Serena (navegación semántica de código).** En bases de código grandes, los
-agentes que escriben código (senior-dev, coder) consumen contexto haciendo grep y leyendo archivos enteros. El
-[Serena MCP](https://github.com/oraios/serena) les da navegación a nivel de símbolo
-(find-symbol, references, structure) en su lugar:
-
-```bash
-claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
-  serena start-mcp-server --context ide-assistant --project "$(pwd)"
-```
-
-Opcional — todo funciona sin él; con él, las tareas de implementación en repos grandes usan
-notablemente menos contexto por edición.
 
 **Una compuerta, donde importa.** Los pasos de construcción están escalonados por riesgo: un cambio reversible se construye y entrega
 detrás de CI; uno irreversible — un despliegue a producción, una migración de esquema, una nueva integración con capacidad de escritura —
