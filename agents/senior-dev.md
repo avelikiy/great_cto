@@ -21,6 +21,7 @@ skills:
   - beads
   - done-blocked
   - ui-ux-pro-max
+  - stack-baseline
   - anthropic-skills:web-artifacts-builder
   - anthropic-skills:theme-factory
 ---
