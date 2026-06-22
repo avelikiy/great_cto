@@ -3,7 +3,7 @@
 // Called by bootstrap.ts (writes FLOW.md) and main.ts (prints summary).
 
 import type { Archetype, ProjectSize, StandardGate } from "./archetypes.js";
-import { reviewersFor, gatesFor } from "./archetypes.js";
+import { reviewersFor, gatesFor, buildersFor } from "./archetypes.js";
 import type { DetectionResult } from "./detect.js";
 import { suggestPackReviewers, suggestPackGates, suggestPacks } from "./packs.js";
 import { suggestJurisdictions, suggestJurisdictionReviewers, suggestJurisdictionGates } from "./jurisdictions.js";
@@ -161,6 +161,20 @@ export function compileFlow(
   agentSet.add("qa-engineer");
   // Design-advisor for UI-bearing archetypes (plan-altitude, before pm).
   if (UI_BEARING_ARCHETYPES.has(archetype)) agentSet.add("design-advisor");
+
+  // Horizontal builder agents (the obвязка) for Product-Builder archetypes.
+  for (const b of buildersFor(archetype)) agentSet.add(b);
+  // Signal-gated specialist builders — only when the product actually needs them.
+  const kw = new Set(detection.readmeKeywords.map((k) => k.toLowerCase()));
+  const ROUTING_SIGNALS = ["routing", "route", "dispatch", "delivery", "fleet", "logistics", "maps", "geocode"];
+  if ((archetype === "booking" || archetype === "vertical-saas") &&
+      ROUTING_SIGNALS.some((s) => kw.has(s))) {
+    agentSet.add("geo-routing-engineer");
+  }
+  const MOBILE_SIGNALS = ["mobile", "ios", "android", "react-native", "field", "offline", "technician", "crew"];
+  if (UI_BEARING_ARCHETYPES.has(archetype) && MOBILE_SIGNALS.some((s) => kw.has(s))) {
+    agentSet.add("mobile-app-builder");
+  }
 
   // ── Gates ────────────────────────────────────────────────────────────────
   const gateSet = new Set<string>(
