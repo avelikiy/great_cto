@@ -25,14 +25,22 @@ npx great-cto init
 
 ## Build the product, not just the code
 
-great_cto is an **AI Product Builder**. Describe a software product and it runs the whole
-build — architecture, data model, backend, frontend, tests, deploy. **One human gate:** you,
-the CTO, approve the spec. Everything after is automated, to a shipped repo and a live URL.
+**You describe the product. great_cto ships it.** Not a snippet, not a scaffold — a real,
+deployed application with a backend, a frontend, generated tests, and a live URL. You make
+exactly **one decision: approve the spec.** Everything after — architecture, data model,
+build, review, deploy — runs unattended.
 
-The top US industries it builds for — home & field services, professional services,
+It's an **AI Product Builder**, not another coding-agent loop. The orchestration layer *above*
+the coding agent you already use: a team of specialist agents that plan, build, review, and
+gate the work — so one person ships like an engineering org.
+
+> **One real feature: idea → merged PR in `1h 26m` for `$3.40` in LLM cost.** The traditional
+> path for the same feature was ~6 weeks and ~$42K. [See the full trace →](https://greatcto.systems/proof)
+
+It builds across the top US service industries — home & field services, professional services,
 hospitality, retail/e-commerce, proptech, fitness, marketing & creator, HR/recruiting,
-construction, logistics — collapse into **6 reusable build archetypes** (CRUD vertical-SaaS,
-booking, CRM, dashboard, marketplace, content/media). One template ships any of ~40 products.
+construction, logistics — which collapse into **6 reusable build pipelines** (CRUD vertical-SaaS,
+booking, CRM, dashboard, marketplace, content/media). One command ships any of **~40 products**.
 See [docs/strategy/BUILD-PIPELINES.md](docs/strategy/BUILD-PIPELINES.md).
 
 ```
@@ -49,11 +57,6 @@ See [docs/strategy/BUILD-PIPELINES.md](docs/strategy/BUILD-PIPELINES.md).
 
 CI and generated tests are the quality gate — you sign the **direction**, not every line.
 
-> **Operate** — the runtime surface where a human signs each regulated transaction (operator
-> console, autopilot runtime, vertical flows) — **moved to its own repo:**
-> [github.com/avelikiy/operate](https://github.com/avelikiy/operate). great_cto is now the
-> build product.
-
 ## Under the hood (for the CTO who runs it)
 
 → *The builder-facing story of this surface: [greatcto.systems/build](https://greatcto.systems/build)*
@@ -65,19 +68,6 @@ risk-tiered — a maintenance fix opens no gate (CI is the gate), a reversible f
 plan gate, and an irreversible change forces the full set — so ceremony scales with blast radius,
 not with paperwork. CI and the build's own generated tests are the quality gate that makes it safe
 to let the pipeline run to deploy.
-
-**Recommended companion MCP: Serena (semantic code navigation).** On large codebases the
-code-writing agents (senior-dev, coder) burn context grepping and reading whole files. The
-[Serena MCP](https://github.com/oraios/serena) gives them symbol-level navigation
-(find-symbol, references, structure) instead:
-
-```bash
-claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
-  serena start-mcp-server --context ide-assistant --project "$(pwd)"
-```
-
-Optional — everything works without it; with it, implementation tasks on big repos use
-noticeably less context per edit.
 
 **One gate, where it matters.** Build steps are risk-tiered: a reversible change builds and ships
 behind CI; an irreversible one — a production deploy, a schema migration, a new write-capable
