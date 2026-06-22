@@ -78,7 +78,10 @@ Every integration you design MUST satisfy these. State each explicitly in the ar
 - **Stripe** (Payments/Billing) — `idempotency_key` header; verify webhooks vs raw body;
   reconcile via webhook, never trust the client redirect; test-clock for billing flows.
   Defer subscription/metering design to `subscription-billing-engineer`; you own the
-  payment-intent / checkout / webhook mechanics.
+  payment-intent / checkout / webhook mechanics. **For Connect / marketplace-lite, the
+  `application_fee_amount` value, the refund-fee policy, the expiry-cancel path, and the
+  definition of "paid" are billing-owned** — wire them as placeholders and list them under
+  "Deferred to subscription-billing-engineer" (it is almost never "none" for a paid product).
 - **Twilio / SMS+voice** — `X-Twilio-Signature` verification; STOP/HELP keyword handling
   (TCPA); messaging-service sender pool; status-callback reconciliation. Deliverability +
   consent rules come from the `lifecycle-messaging` skill.
