@@ -1253,3 +1253,26 @@ export function effectiveGates(
 export function reviewersFor(archetype: Archetype): string[] {
   return REVIEWERS_BY_ARCHETYPE[archetype] ?? [];
 }
+
+/**
+ * Horizontal builder agents (the "obвязка") wired into the build pipeline per
+ * Product-Builder archetype: integrations + migration + billing are universal (every
+ * SMB product integrates, imports from an incumbent, and is a paid product —
+ * subscription-billing-engineer self-scopes to one-off when there's no subscription).
+ * connector-builder adds to dashboards (ingest), media-pipeline-engineer to content
+ * platforms. geo-routing-engineer and mobile-app-builder are signal-gated in
+ * compileFlow (routing/maps signals; mobile/field signals), not archetype-static.
+ */
+export const BUILDERS_BY_ARCHETYPE: Partial<Record<Archetype, string[]>> = {
+  "vertical-saas":    ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"],
+  "booking":          ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"],
+  "crm":              ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"],
+  "dashboard":        ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer", "connector-builder"],
+  "content-platform": ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer", "media-pipeline-engineer"],
+  "marketplace-lite": ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"],
+};
+
+/** Builder agents for an archetype (the obвязка layer). Empty for non-SMB archetypes. */
+export function buildersFor(archetype: Archetype): string[] {
+  return BUILDERS_BY_ARCHETYPE[archetype] ?? [];
+}
