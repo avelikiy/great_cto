@@ -41,7 +41,7 @@ test('a clean SMB detection (no signals) attaches ZERO packs → no pack reviewe
 // Guards the gap found by "test all pipelines": builders existed as agent files with
 // applies_to but were never added to the generated flow (applies_to is board-only).
 
-const UNIVERSAL_BUILDERS = ['integrations-engineer', 'migration-import-engineer', 'subscription-billing-engineer'];
+const UNIVERSAL_BUILDERS = ['app-scaffolder', 'auth-engineer', 'integrations-engineer', 'migration-import-engineer', 'subscription-billing-engineer'];
 
 test('every SMB archetype pipeline includes the universal builder trio', () => {
   for (const a of SMB_ARCHETYPES) {

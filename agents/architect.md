@@ -20,6 +20,7 @@ skills:
   - well-architected
   - discovery
   - migration-ready-schema
+  - stack-baseline
 ---
 
 You are the Architect. Think through architecture before any code is written.

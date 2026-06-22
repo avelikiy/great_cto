@@ -1263,13 +1263,15 @@ export function reviewersFor(archetype: Archetype): string[] {
  * platforms. geo-routing-engineer and mobile-app-builder are signal-gated in
  * compileFlow (routing/maps signals; mobile/field signals), not archetype-static.
  */
+const SMB_BUILD_LAYER = ["app-scaffolder", "auth-engineer"];
+const SMB_OBVYAZKA = ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"];
 export const BUILDERS_BY_ARCHETYPE: Partial<Record<Archetype, string[]>> = {
-  "vertical-saas":    ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"],
-  "booking":          ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"],
-  "crm":              ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"],
-  "dashboard":        ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer", "connector-builder"],
-  "content-platform": ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer", "media-pipeline-engineer"],
-  "marketplace-lite": ["integrations-engineer", "migration-import-engineer", "subscription-billing-engineer"],
+  "vertical-saas":    [...SMB_BUILD_LAYER, ...SMB_OBVYAZKA],
+  "booking":          [...SMB_BUILD_LAYER, ...SMB_OBVYAZKA],
+  "crm":              [...SMB_BUILD_LAYER, ...SMB_OBVYAZKA],
+  "dashboard":        [...SMB_BUILD_LAYER, ...SMB_OBVYAZKA, "connector-builder"],
+  "content-platform": [...SMB_BUILD_LAYER, ...SMB_OBVYAZKA, "media-pipeline-engineer"],
+  "marketplace-lite": [...SMB_BUILD_LAYER, ...SMB_OBVYAZKA],
 };
 
 /** Builder agents for an archetype (the obвязка layer). Empty for non-SMB archetypes. */
