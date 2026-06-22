@@ -116,6 +116,7 @@ wrong `web-service` from cmmc-reviewer + emerging-markets-fintech-reviewer).
    geo-routing-engineer, mobile-app-builder agents + local-seo skill.
 3. ✅ **Phase 3** (DONE) — 10 vertical-<industry> domain skills, wired into architect.
 4. ✅ **Phase 4** (DONE) — verified the SMB path is already lean; locked with a regression-guard test + applies_to hygiene.
+5. ✅ **Phase 5 — BUILD LAYER** (DONE, commits 63e3e2e + this) — turning contracts into a deployed product: `stack-baseline` skill (pinned stack), `auth-engineer` (product auth/RBAC/multi-tenant), `app-scaffolder` (running base app) wired into BUILDERS_BY_ARCHETYPE; `infra-provisioner` (gated prod provisioning DB/host/domain → live URL) wired into the orchestrator routing table. The chain now reaches a live URL. 72 agents / 32 skills.
 
 Reference products to validate each builder against (one per archetype, from the niche
 analysis): quoting (home-services), proposals (professional-services), online-ordering

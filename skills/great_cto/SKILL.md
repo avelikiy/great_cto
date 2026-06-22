@@ -51,7 +51,10 @@ pipeline gets bypassed.
 | Architecture decisions, ADRs, scaling questions | `architect` |
 | Decompose feature into tasks, dependency graph, Beads | `pm` |
 | QA report after impl, coverage + acceptance | `qa-engineer` |
-| Deploy / canary / rollback / SLO | `devops` |
+| Scaffold a new product: running base app from the pinned stack | `app-scaffolder` |
+| Product auth: login, sessions, RBAC, multi-tenant isolation | `auth-engineer` |
+| Deploy / canary / rollback / SLO (preview/staging) | `devops` |
+| Provision real infra → live URL: managed DB / host / domain / prod env | `infra-provisioner` |
 | Production incident triage, P0 postmortem | `l3-support` |
 | Pattern extraction from session → `lessons.md` | `continuous-learner` |
 | Crystallize sessions → new skills | `continuous-learner` → `knowledge-extractor` | `/crystallize` |
