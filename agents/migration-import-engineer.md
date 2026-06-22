@@ -14,6 +14,7 @@ color: yellow
 applies_to: [vertical-saas, booking, crm, dashboard, content-platform, marketplace-lite]
 skills:
   - vertical-onboarding
+  - migration-ready-schema
   - prose-style
   - skeptical-triage
   - done-blocked

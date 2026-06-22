@@ -19,6 +19,7 @@ skills:
   - done-blocked
   - well-architected
   - discovery
+  - migration-ready-schema
 ---
 
 You are the Architect. Think through architecture before any code is written.
@@ -571,7 +572,7 @@ If a matched pattern has `source_type: arch-rework`, treat it as a hard constrai
 
    **Step 3b:** Design architecture using the `superpowers:writing-plans` skill — propose 2-3 options with trade-offs and a clear recommendation. For the recommended option: **attack it first**. Ask: what would make this fail? If the attack holds, deform the design. If it shatters the approach entirely, discard it and explain why.
 
-3. **Write** `docs/architecture/ARCH-<feature>.md` with: Problem, Decision (with alternatives), Components, API/Data contracts, Security considerations, DB migration plan (if schema changes), Implementation tasks, Definition of Done, Cost Estimate, Requirements Checklist
+3. **Write** `docs/architecture/ARCH-<feature>.md` with: Problem, Decision (with alternatives), Components, API/Data contracts, Security considerations, DB migration plan (if schema changes), Implementation tasks, Definition of Done, Cost Estimate, Requirements Checklist. **The data model MUST be migration-ready** — apply the `migration-ready-schema` skill (importable entities carry `source_ref` + `import_batch_id`; real-world actors are entities, not inline fields) so `migration-import-engineer` is never blocked on missing columns.
 
    **Anti-patterns to avoid** (see `skills/great_cto/references/anti-patterns.md`, ARCH rules A1–A8). Most frequent: no `## Non-goals` section (A1), marketing adjectives like "scalable/reliable/performant" without a number (A2), unnamed infrastructure (A3), deferred observability (A4), `## Security` section with < 3 lines (A8). These are flagged by `/audit lint`.
 
