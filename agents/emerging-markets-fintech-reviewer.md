@@ -14,7 +14,7 @@ color: green
 skills:
   - archetype-review-base
   - prose-style
-applies_to: [commerce, regulated, web-service]
+applies_to: [commerce, regulated]
 applies_when:
   - product serves financial users outside US / EU / UK
   - product integrates local payment rails (UPI, PIX, M-Pesa, GCash, OVO, DANA, etc.)

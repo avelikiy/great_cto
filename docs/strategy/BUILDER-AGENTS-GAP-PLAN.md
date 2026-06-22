@@ -90,11 +90,19 @@ read-only, applied during spec authoring. Lifts quoting/proposals/bid-builder fr
 
 ---
 
-## Phase 4 — Prune (aligns with epic great_cto-7y5)
+## Phase 4 — Prune (epic great_cto-7y5) — ALREADY LEAN, now LOCKED
 
-Remove the ~50 regulated reviewers from the **default** build pipeline for the 6
-Product-Builder archetypes (keep them bound to regulated/healthcare/fintech/defense
-archetypes only). Net: a lean SMB build path. Tracked separately; not blocked by Phase 1–3.
+Investigated: the default build path was **already pruned** for the 6 SMB archetypes (done
+with the pivot great_cto-9it). Reviewer firing has two paths — `REVIEWERS_BY_ARCHETYPE`
+(lean: each SMB archetype pulls only security-officer ± pci-reviewer) and `suggestPacks`
+(strictly signal-gated → zero packs for a clean SMB product). `applies_to` is NOT a firing
+path (board-only display). So no regulated reviewer fires for a clean SMB build; deleting the
+regulated reviewer agents would wrongly break the regulated archetypes that need them.
+
+Done: a regression-guard test `tests/smb-lean-pipeline.test.mjs` locks (a) each SMB
+archetype pulls only {security-officer, pci-reviewer}, (b) a clean detection attaches zero
+packs, (c) regulated archetypes are NOT over-pruned. Plus applies_to hygiene (removed the
+wrong `web-service` from cmmc-reviewer + emerging-markets-fintech-reviewer).
 
 ---
 
@@ -107,7 +115,7 @@ archetypes only). Net: a lean SMB build path. Tracked separately; not blocked by
 2. ✅ **Phase 2** (DONE, commit cc9c9e9) — connector-builder, media-pipeline-engineer,
    geo-routing-engineer, mobile-app-builder agents + local-seo skill.
 3. ✅ **Phase 3** (DONE) — 10 vertical-<industry> domain skills, wired into architect.
-4. Phase 4 — prune regulated reviewers from default path (great_cto-7y5).
+4. ✅ **Phase 4** (DONE) — verified the SMB path is already lean; locked with a regression-guard test + applies_to hygiene.
 
 Reference products to validate each builder against (one per archetype, from the niche
 analysis): quoting (home-services), proposals (professional-services), online-ordering

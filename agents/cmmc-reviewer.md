@@ -15,7 +15,7 @@ skills:
   - archetype-review-base
   - prose-style
   - skeptical-triage
-applies_to: [defense-govcon, gov-public, enterprise-saas, infra, web-service]
+applies_to: [defense-govcon, gov-public, enterprise-saas, infra]
 applies_when:
   - the company is a DoD contractor or sub handling FCI or CUI
   - codebase processes / stores / transmits Controlled Unclassified Information
