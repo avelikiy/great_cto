@@ -106,7 +106,7 @@ archetypes only). Net: a lean SMB build path. Tracked separately; not blocked by
    `migration-ready-schema` 90b2d58).
 2. ✅ **Phase 2** (DONE, commit cc9c9e9) — connector-builder, media-pipeline-engineer,
    geo-routing-engineer, mobile-app-builder agents + local-seo skill.
-3. Phase 3 — 10 domain skills (can fan out). ← *next*
+3. ✅ **Phase 3** (DONE) — 10 vertical-<industry> domain skills, wired into architect.
 4. Phase 4 — prune regulated reviewers from default path (great_cto-7y5).
 
 Reference products to validate each builder against (one per archetype, from the niche
