@@ -100,9 +100,13 @@ archetypes only). Net: a lean SMB build path. Tracked separately; not blocked by
 
 ## Sequence
 
-1. **Phase 1** (this change) — 3 agents + 2 skills, wired + tested. ← *implementing now*
-2. Phase 2 — 4 agents + 1 skill.
-3. Phase 3 — 10 domain skills (can fan out).
+1. ✅ **Phase 1** (DONE, commit 326022c) — integrations/migration/billing agents +
+   lifecycle-messaging/vertical-onboarding skills. Validated end-to-end on `quoting`
+   (thin slice 9/9; seam bugs caught → template fixes 3a8d24c; systemic fix
+   `migration-ready-schema` 90b2d58).
+2. ✅ **Phase 2** (DONE, commit cc9c9e9) — connector-builder, media-pipeline-engineer,
+   geo-routing-engineer, mobile-app-builder agents + local-seo skill.
+3. Phase 3 — 10 domain skills (can fan out). ← *next*
 4. Phase 4 — prune regulated reviewers from default path (great_cto-7y5).
 
 Reference products to validate each builder against (one per archetype, from the niche
