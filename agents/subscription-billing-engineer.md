@@ -90,6 +90,12 @@ billing correct, reconciled, and idempotent before senior-dev writes a line of i
 - plans/tiers: | name | price | interval | trial | limits |
 - metered event (if any): <event> · aggregation · idempotency key
 
+## Fee model (Connect / marketplace-lite only)
+- application_fee: <flat | bps + processing-cost floor> — the ACTUAL number (a billing
+  decision; integrations-engineer only wires the placeholder)
+- refund_application_fee: <true pro-rata | false> on refund
+- charge type: destination | separate + transfer; who bears disputes
+
 ## State machine
 - states: trialing → active → past_due → canceled | suspended
 - transitions: driven by Stripe events <list>
@@ -110,6 +116,8 @@ billing correct, reconciled, and idempotent before senior-dev writes a line of i
 
 ## Test-clock cases
 - renewal · proration on plan change · failed-payment dunning
+- (one-off / connect: test-clocks are N/A — replace with capture / idempotency / refund /
+  expiry tests. State WHY each subscription-shaped section above is N/A, never silently skip.)
 
 ## Resolved decisions
 - <billing-model open question> → <the decision> — <rationale>
