@@ -103,7 +103,7 @@ test('packs: every pack reviewer has frontmatter + body', () => {
     'voice-ai-reviewer', 'ai-clinical-reviewer', 'fda-reviewer',
     'hr-ai-reviewer', 'api-platform-reviewer',
     'clinical-trials-reviewer', 'bio-data-reviewer', 'robotics-safety-reviewer',
-    'emerging-markets-fintech-reviewer', 'climate-mrv-reviewer',
+    'climate-mrv-reviewer',
     'biosecurity-reviewer', 'drug-discovery-ml-reviewer', 'glp-glab-reviewer',
     'lab-automation-reviewer',
   ];

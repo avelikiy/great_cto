@@ -926,7 +926,7 @@ export function pickArchetype(d: DetectionResult): ArchetypePick {
 /** Niche packs that should surface even at high confidence */
 function isNichePack(pack: string): boolean {
   return ["robotics-pack", "climate-pack", "drug-discovery-pack",
-          "clinical-trials-pack", "em-fintech-pack"].includes(pack);
+          "clinical-trials-pack"].includes(pack);
 }
 
 /**
@@ -944,7 +944,6 @@ function inferPackHints(d: DetectionResult): string[] {
   if (has("drug discovery", "binding affinity", "admet", "chembl", "alphafold")) hints.push("drug-discovery-pack");
   if (has("recruit", "hiring", "candidate", "ats", "aedt")) hints.push("hr-ai-pack");
   if (has("voice", "telephony", "ivr", "stt", "tts", "outbound call")) hints.push("voice-pack");
-  if (has("india", "upi", "rbi", "mpesa", "gcash", "pix", "cross-border", "remittance")) hints.push("em-fintech-pack");
   if (has("public api", "api key", "developer portal", "openapi")) hints.push("api-platform-pack");
 
   return hints;

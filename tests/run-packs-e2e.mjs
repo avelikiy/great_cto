@@ -167,7 +167,6 @@ for (const fixture of fixtures) {
     'api-platform-pack': ['TM-api'],
     'clinical-trials-pack': ['TM-trial', 'TM-biodata'],
     'robotics-pack': ['TM-robot'],
-    'em-fintech-pack': ['TM-emfin'],
     'climate-pack': ['TM-climate', 'TM-biosec'],
     'drug-discovery-pack': ['TM-drugml', 'TM-glp', 'TM-labauto'],
     'digital-health-pack': ['TM-digital-health'],
@@ -222,7 +221,7 @@ for (const fixture of fixtures) {
 
 // ── Standalone checks: pack registry completeness ────────────────────────────
 console.log(`${C.bold}${C.cyan}━━ Pack registry completeness${C.reset}`);
-const EXPECTED_PACK_COUNT = 12;
+const EXPECTED_PACK_COUNT = 11;
 const allPacks = listPacks();
 console.log(`  ${ok(`listPacks() returns ${allPacks.length} packs`)} ${dim(allPacks.join(', '))}`);
 totalAssertions++;

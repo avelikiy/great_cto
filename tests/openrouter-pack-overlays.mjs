@@ -86,14 +86,6 @@ const PACKS = {
     task: 'ROS 2 node for cobot grasp planning. Takes target object pose, plans MoveIt motion. Cobot operates alongside human worker on assembly line.',
     expectedBlocked: ['hara', 'iso', '15066', 'cobot', 'force', 'safety', 'risk', 'sil', 'functional-safety', 'collision'],
   },
-  'em-fintech-pack': {
-    baseArchetype: 'fintech',
-    baseReviewer: 'pci-reviewer',
-    packReviewers: ['emerging-markets-fintech-reviewer'],
-    feature: 'india-bnpl-checkout',
-    task: 'BNPL India: at e-commerce checkout user splits payment 3-month installments. Razorpay UPI for collections. Loan booked on NBFC partner balance sheet.',
-    expectedBlocked: ['rbi', 'nbfc', 'license', 'tier', 'lender-of-record', 'kyc', 'aadhaar'],
-  },
   'climate-pack': {
     baseArchetype: 'web-service',
     baseReviewer: 'security-officer',

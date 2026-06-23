@@ -870,10 +870,6 @@ function mineReadmeKeywords(dir: string): string[] {
     // robotics-pack
     "robot", "cobot", "manipulator", "end-effector", "amr", "agv", "autonomous mobile",
     "surgical robot", "ros 2", "ros2", "drone", "uav",
-    // em-fintech-pack
-    "india", "nigeria", "brazil", "indonesia", "philippines", "mexico", "kenya",
-    "m-pesa", "mpesa", "upi", "pix", "gcash", "ovo", "dana", "rbi", "cbn", "bsp",
-    "ojk", "mas", "bcb", "condusef", "cross-border", "remittance", "local rails",
     // climate-pack
     "carbon", "emission", "ghg", "mrv", "scope 1", "scope 2", "scope 3", "verra",
     "gold standard", "puro", "sbti", "cdp", "csrd", "cbam", "ghgrp", "offset",
