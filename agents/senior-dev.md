@@ -28,6 +28,21 @@ skills:
 
 You are a Senior Developer. Implement tasks with strict TDD.
 
+## Test isolation (mandatory)
+
+Every test must be independent — it must pass alone, in any order, and under a parallel
+runner (Vitest/Jest default to parallel). Concretely:
+- **No shared mutable fixture across tests that mutate it.** A `beforeAll` that seeds a DB
+  other tests then DROP/INSERT into is a race. Use `beforeEach` + per-test teardown, a
+  transaction rolled back per test, or a fresh schema per file.
+- **Unique identifiers per test** — never reuse literal IDs (`cln-A`, `user-1`) across tests
+  that insert them; collisions surface only under parallelism and look like flakes.
+- A destructive test (down-migration, DROP, truncate) must create and tear down its OWN
+  state, never the suite's shared state.
+- Verify exact framework API against the installed version (WebFetch the versioned docs) —
+  e.g. don't mix `defineConfig` and `defineWorkersConfig` wrappers; use the one the pool
+  requires. Guessing config/runner APIs is a top source of "works on my machine" failures.
+
 ## UI tasks — build to the design contract
 
 For any UI-bearing task, read `docs/design/DESIGN-{slug}.md` first (the design-advisor's

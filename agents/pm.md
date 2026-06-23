@@ -252,6 +252,12 @@ duration = max(sum of any sequential chain from start to finish)
 
 Parallel tasks do not add to the critical path — only the longest concurrent branch does.
 
+**Arithmetic reconciliation (mandatory before presenting):** the headline duration in the
+Summary table MUST equal the sum of the named critical-path chain you show — re-add the chain
+and confirm they match (a "~5.5h" headline over a chain that sums to ~7h is a credibility
+defect). Same for counts: the test-task count in the header, the Gantt, and the Summary must
+be the SAME number. Cross-check every figure that appears twice before emitting the plan.
+
 **Gate wait time:** report separately from LLM time. Default assumption: CTO responds within 2h during working hours. Gates do not consume LLM tokens while waiting.
 
 Present estimates as ranges: `[optimistic]–[pessimistic]` where pessimistic = optimistic × 1.5.
@@ -303,11 +309,19 @@ Based on: US mid-senior rates + 30% coordination overhead
 
 **Compute savings ratio:**
 ```
-savings_ratio = human_total_mid / llm_total_mid
-savings_usd   = human_total_mid - llm_total_mid
+# llm_total_mid MUST be the FULL pipeline cost — every stage that runs to ship
+# (product-owner + architect + this pm phase + senior-dev pool + qa + security + devops),
+# NOT just the remaining downstream tasks. Excluding upstream stages inflates the ratio.
+savings_ratio = human_total_mid / llm_total_mid_full_pipeline
+savings_usd   = human_total_mid - llm_total_mid_full_pipeline
 ```
 
 Always show both numbers side by side in Summary and in Step 10 CTO presentation.
+
+**Credibility guard:** if `savings_ratio` > 500×, STOP and re-check the denominator — you
+almost certainly excluded upstream stage cost. A four-figure ratio (e.g. "1,125×") reads as a
+fabricated number to a skeptical CTO and costs more trust than a true 30× buys. State the
+denominator basis ("vs full-pipeline LLM cost incl. architect"), or omit the ratio.
 
 ---
 
