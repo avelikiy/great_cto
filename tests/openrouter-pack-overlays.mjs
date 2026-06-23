@@ -78,14 +78,6 @@ const PACKS = {
     task: 'Electronic Data Capture endpoint: clinician records subject vitals (BP, HR, temp) per CDISC SDTM. eConsent signature collected. Data pushed to CTMS nightly.',
     expectedBlocked: ['part-11', 'part11', 'e-signature', 'esignature', 'irb', 'protocol', 'deidentif', 'audit-trail', 'validated'],
   },
-  'robotics-pack': {
-    baseArchetype: 'agent-product',
-    baseReviewer: 'ai-security-reviewer',
-    packReviewers: ['robotics-safety-reviewer'],
-    feature: 'cobot-grasp-planning',
-    task: 'ROS 2 node for cobot grasp planning. Takes target object pose, plans MoveIt motion. Cobot operates alongside human worker on assembly line.',
-    expectedBlocked: ['hara', 'iso', '15066', 'cobot', 'force', 'safety', 'risk', 'sil', 'functional-safety', 'collision'],
-  },
   'climate-pack': {
     baseArchetype: 'web-service',
     baseReviewer: 'security-officer',

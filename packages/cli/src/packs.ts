@@ -16,7 +16,6 @@ export type PackName =
   | "hr-ai-pack"
   | "api-platform-pack"
   | "clinical-trials-pack"
-  | "robotics-pack"
   | "climate-pack"
   | "drug-discovery-pack"
   | "digital-health-pack"
@@ -38,7 +37,6 @@ const PACK_REVIEWERS: Record<PackName, string[]> = {
   "hr-ai-pack":            ["hr-ai-reviewer"],
   "api-platform-pack":     ["api-platform-reviewer"],
   "clinical-trials-pack":  ["clinical-trials-reviewer", "bio-data-reviewer"],
-  "robotics-pack":         ["robotics-safety-reviewer"],
   "climate-pack":          ["climate-mrv-reviewer", "biosecurity-reviewer"],
   "drug-discovery-pack":   ["drug-discovery-ml-reviewer", "glp-glab-reviewer", "lab-automation-reviewer"],
   "digital-health-pack":   ["digital-health-reviewer", "ai-clinical-reviewer", "healthcare-reviewer"],
@@ -52,7 +50,6 @@ const PACK_GATES: Record<PackName, string[]> = {
   "hr-ai-pack":            ["gate:aedt-audit"],
   "api-platform-pack":     ["gate:api-contract"],
   "clinical-trials-pack":  ["gate:irb-ready", "gate:part11-validation", "gate:deidentification"],
-  "robotics-pack":         ["gate:hara-signoff", "gate:functional-safety-test"],
   "climate-pack":          ["gate:mrv-methodology", "gate:durc-signoff", "gate:open-weights-release"],
   "drug-discovery-pack":   ["gate:model-card-signoff", "gate:csv-validation", "gate:iq-oq-pq"],
   "digital-health-pack":   ["gate:wellness-vs-samd", "gate:hitl-design", "gate:wearable-api-access", "gate:supplement-safety", "gate:mental-health-protocol"],
@@ -84,10 +81,6 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
     // "ecoa" removed: ambiguous with lending ECOA (Reg B). Other clinical-trial
     // signals (ctms, edc, epro, econsent, cdisc, irb, ...) are unambiguous.
     keywords: ["clinical trial", "ctms", "edc", "epro", "econsent", "esource", "randomization", "rtsm", "irt", "decentralized trial", "ind submission", "21 cfr 11", "cdisc", "sdtm", "adam", "irb"],
-  },
-  "robotics-pack": {
-    stack: ["ros", "ros2", "moveit", "gazebo", "px4"],
-    keywords: ["robot", "cobot", "manipulator", "end-effector", "amr", "agv", "autonomous mobile", "surgical robot", "ros 2", "drone", "uav"],
   },
   "climate-pack": {
     stack: [],
