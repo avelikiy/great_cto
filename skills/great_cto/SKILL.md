@@ -47,6 +47,7 @@ pipeline gets bypassed.
 | Browser extension manifest, MV3 permissions | `web-store-reviewer` |
 | Library / SDK / semver / public API surface | `library-reviewer` |
 | CLI tool: argv parsing, exit codes, --json | `cli-reviewer` |
+| New product idea / problem → validated brief + idea debate (runs FIRST, before architect) | `product-owner` |
 | New feature implementation (TDD: RED → GREEN) | `senior-dev` |
 | Architecture decisions, ADRs, scaling questions | `architect` |
 | Decompose feature into tasks, dependency graph, Beads | `pm` |
@@ -309,9 +310,9 @@ If no PROJECT.md → "No project configured. Describe your project or say 'audit
 
 ## Phase task protocol (every pipeline agent)
 
-Each pipeline agent (architect / pm / senior-dev / code-reviewer / qa-engineer
-/ security-officer / performance-engineer / db-migration-reviewer / devops /
-l3-support) **must** create a Beads task at the start of its phase and close
+Each pipeline agent (product-owner / architect / pm / senior-dev / code-reviewer
+/ qa-engineer / security-officer / performance-engineer / db-migration-reviewer /
+devops / l3-support) **must** create a Beads task at the start of its phase and close
 it at the end. Without this the board UI only shows gates — Codex 2026-05
 review surfaced this gap (it called the pipeline "epic + gates without task
 decomposition by stages").
@@ -336,8 +337,10 @@ Conventions:
 - **agent-name**: matches the agent prompt file (architect, senior-dev, etc.)
 - **feature-slug**: kebab-case, derived from the user's `/start` request
   (e.g. `stripe-subscriptions`, `2fa-totp`, `api-rate-limit`)
-- **parent**: the gate task id this phase rolls up to (architect → gate:arch,
-  qa-engineer → gate:ship, etc.)
+- **parent**: the gate task id this phase rolls up to (product-owner → gate:product,
+  architect → gate:arch, qa-engineer → gate:ship, etc.). **gate:product is the
+  first human gate** — the CTO approves the product brief (WHAT before HOW) before
+  architecture begins.
 - **verdict**: `ok` (closes) / `fail` / `blocked` (sets status=blocked +
   notes); `pass`, `done`, `approved`, `rejected` are aliases
 

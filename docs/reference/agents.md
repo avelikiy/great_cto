@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `agents/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**72 agents** · 26 core & specialists · 46 domain reviewers.
+**73 agents** · 27 core & specialists · 46 domain reviewers.
 
 ## Core pipeline & specialists
 
@@ -30,6 +30,7 @@
 | `mobile-app-builder` | sonnet | XHIGH | React Native implementer for Product-Builder products whose users work in the field (home-services dispatch, construction field-docs, field-booking, delivery). Builds the mobile app to the design-advisor's RN contract with TDD — offline-first sync, camera/photo + location capture, push notifications, and store-submission readiness — then hands off to mobile-store-reviewer for policy sign-off. Activated when a product's design contract specifies a React Native target. Field crews live on a phone; we had a mobile-store-reviewer (policy) but no builder — this is the builder. |
 | `performance-engineer` | sonnet | HIGH | Performance specialist. Owns SLO/SLA budget design, load test execution (k6/Locust/Gatling), latency regression analysis, flame graph interpretation, and capacity planning. Runs after senior-dev, before QA. Writes docs/performance/PERF-{slug}.md. Activated when performance-sla is set in PROJECT.md, or archetype is data-platform / enterprise / commerce. |
 | `pm` | sonnet | HIGH | Use after architect produces the ARCH doc. Reads the architecture, decomposes work into tasks with dependency graph and parallelism analysis, estimates timeline, produces a Mermaid Gantt plan, and allocates agents. Creates gate:plan for human approval before any senior-dev starts. |
+| `product-owner` | claude-opus-4-8 | HIGH | The first agent in the pipeline — runs BEFORE architect. Turns a raw idea or problem statement into a validated product brief. Frames the problem, brainstorms options, runs a multi-LLM idea debate (4 personas on 4 models), and synthesizes a recommendation the CTO approves at gate:product (the one human gate — WHAT before HOW). Outputs docs/product/BRIEF-{slug}.md + discovery-summary for architect. |
 | `project-auditor` | sonnet | HIGH | Use for /audit or when no PROJECT.md exists. Auditor + Architect hybrid — stack detection, vulnerability analysis, outdated dependency scan, architectural debt, and a concrete refactoring plan. |
 | `qa-engineer` | haiku | MEDIUM | Use after senior-dev completes implementation. Analyzes actual code, then runs type-appropriate QA, writes report, files bugs in Beads. |
 | `security-officer` | sonnet | HIGH | Use after QA passes. Runs security audit by project type, writes report, controls gate:ship. |

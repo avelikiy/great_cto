@@ -125,7 +125,7 @@ function cleanup(...dirs) {
 
 // ── tests ──────────────────────────────────────────────────────────────────
 
-test('pipeline: full 8-stage simulation reports each stage as done', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async () => {
+test('pipeline: full 9-stage simulation reports each stage as done', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async () => {
   const { home, project } = makeProject();
 
   // Seed artifacts for all 8 pipeline stages with realistic costs.
@@ -135,6 +135,7 @@ test('pipeline: full 8-stage simulation reports each stage as done', { skip: !BD
   const isoMinusMin = (m) => new Date(now.getTime() - m * 60 * 1000).toISOString();
 
   const stages = [
+    { agent: 'product-owner',    ts: isoMinusMin(29), cost: 0.50, verdict: 'APPROVED' },
     { agent: 'architect',        ts: isoMinusMin(28), cost: 0.42, verdict: 'APPROVED' },
     { agent: 'pm',               ts: isoMinusMin(24), cost: 0.18, verdict: 'APPROVED' },
     { agent: 'senior-dev',       ts: isoMinusMin(18), cost: 1.20, verdict: 'DONE'     },
@@ -162,7 +163,7 @@ test('pipeline: full 8-stage simulation reports each stage as done', { skip: !BD
     // devops step), so the body is the 8 agent stages + 1 human-gate node.
     const agentNodes = pipeline.body.filter(s => !s.is_human_gate);
     const gateNodes = pipeline.body.filter(s => s.is_human_gate);
-    assert.equal(agentNodes.length, 8, `expected 8 agent stages, got ${agentNodes.length}`);
+    assert.equal(agentNodes.length, 9, `expected 9 agent stages, got ${agentNodes.length}`);
     assert.equal(gateNodes.length, 1, `expected exactly 1 human-gate node, got ${gateNodes.length}`);
     // The gate must sit immediately before devops on the rail.
     const gateIdx = pipeline.body.findIndex(s => s.is_human_gate);
@@ -170,7 +171,7 @@ test('pipeline: full 8-stage simulation reports each stage as done', { skip: !BD
     assert.equal(gateIdx + 1, devopsIdx, `human-gate should sit immediately before devops (gate@${gateIdx}, devops@${devopsIdx})`);
 
     const stagesByName = Object.fromEntries(pipeline.body.map(s => [s.stage, s]));
-    const expectedDone = ['architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
+    const expectedDone = ['product-owner', 'architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
     for (const stage of expectedDone) {
       const s = stagesByName[stage];
       assert.ok(s, `missing pipeline stage: ${stage}`);

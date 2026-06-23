@@ -57,6 +57,7 @@ extract_id() {
 
 phase_label_for() {
   case "$1" in
+    product-owner)    echo "phase-product" ;;
     architect)        echo "phase-arch" ;;
     pm)               echo "phase-plan" ;;
     senior-dev)       echo "phase-impl" ;;
@@ -72,7 +73,7 @@ phase_label_for() {
 
 phase_priority_for() {
   case "$1" in
-    architect|security-officer|qa-engineer) echo 1 ;;
+    product-owner|architect|security-officer|qa-engineer) echo 1 ;;
     *) echo 2 ;;
   esac
 }
