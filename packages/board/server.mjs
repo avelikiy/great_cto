@@ -440,7 +440,7 @@ function getMemory(cwd = process.cwd()) {
 
 // ── Pipeline state ────────────────────────────────────────────────────────────
 function getPipeline(cwd = process.cwd()) {
-  const stages = ['architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
+  const stages = ['product-owner', 'architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
   const verdicts = readVerdicts(cwd);
   const now = Date.now();
   const ACTIVE_WINDOW = 30 * 60 * 1000;  // 30 min
@@ -461,6 +461,7 @@ function getPipeline(cwd = process.cwd()) {
   const agentStages = stages.map(stage => {
     // agent log file naming convention: shortened agent name
     const aliases = {
+      'product-owner': ['product-owner', 'product_owner', 'product-manager', 'po'],
       'architect': ['architect'],
       'pm': ['pm', 'product-manager', 'project-manager', 'planner'],
       'senior-dev': ['senior-dev', 'senior_dev', 'backend', 'frontend'],
