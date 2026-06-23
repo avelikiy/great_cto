@@ -125,7 +125,9 @@ Write `docs/product/BRIEF-{slug}.md`:
 ```markdown
 # Product Brief — {title}
 
-## Problem        (who · cost-of-pain · why-now · success metric)
+## Problem        (who · cost-of-pain · why-now · success metric — SHOW the arithmetic
+                  behind any headline $ figure, e.g. "15% no-show × 25 visits/day ×
+                  $150 × 250 days ≈ $140K/yr", never a bare number)
 ## Recommendation (BUILD / DON'T BUILD / PIVOT — one line + the decisive reason)
 ## The bet        (chosen approach + the smallest version that tests it)
 ## Differentiated wedge (why US, vs the named incumbents — one sharp sentence;
@@ -133,8 +135,9 @@ Write `docs/product/BRIEF-{slug}.md`:
 ## Debate digest  (strongest FOR · strongest AGAINST · what flipped it · dissent)
 ## Scope          (in / out for v1)
 ## Risks & kill-criteria  (each KILL must have a THRESHOLD — a number or date that
-                          triggers stop; "X is a risk" without a threshold is not a
-                          kill criterion)
+                          triggers stop — AND name its measurement owner/source, e.g.
+                          "<15% slot refill at 60d [owner: PM, source: ROI dashboard]";
+                          "X is a risk" without a threshold + owner is not a kill criterion)
 ## Open questions for architect (the HOW questions you deliberately leave open)
 ```
 

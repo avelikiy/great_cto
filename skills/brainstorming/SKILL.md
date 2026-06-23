@@ -41,7 +41,7 @@ different model families fail differently, so they catch different holes.
 |---|---|---|---|
 | **Visionary** | the strongest case FOR — the 10x outcome if it works | `claude-opus-4-8` | `Task`, `model: opus` |
 | **Skeptic** | the strongest case AGAINST — why it fails / who tried & died | `claude-sonnet-4-6` | `Task`, `model: sonnet` |
-| **User-Advocate** | the user's honest reaction — would I pay / switch / care? | `claude-haiku-4-5` | `Task`, `model: haiku` |
+| **User-Advocate** | the user's honest reaction — would I pay / switch / care? AND, for any product that messages or collects data from end-recipients, the recipient's consent/opt-in friction (TCPA / opt-out / spam fatigue / who refuses) | `claude-haiku-4-5` | `Task`, `model: haiku` |
 | **Pragmatist** | cost, time-to-ship, build-vs-buy, unit economics | Kimi K2 | `mcp__great_cto_llm_router__ask_kimi` |
 
 ### Round 1 — opening positions (blind, parallel)
