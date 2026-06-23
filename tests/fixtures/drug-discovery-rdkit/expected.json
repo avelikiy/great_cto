@@ -1,5 +1,5 @@
 {
   "archetype": "ai-system",
-  "packs": ["drug-discovery-pack", "climate-pack"],
+  "packs": ["climate-pack"],
   "skipIfFails": false
 }

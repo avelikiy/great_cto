@@ -86,15 +86,6 @@ const PACKS = {
     task: 'Endpoint /api/emissions/calc: takes business activity data (electricity kWh, fuel litres, supply-chain), returns Scope 1+2+3 footprint + tradeable Verra carbon credits.',
     expectedBlocked: ['mrv', 'methodology', 'verra', 'cbam', 'registered', 'emission-factor', 'ghg-protocol', 'verification', 'additionality'],
   },
-  'drug-discovery-pack': {
-    baseArchetype: 'ai-system',
-    baseReviewer: 'ai-security-reviewer',
-    packReviewers: ['drug-discovery-ml-reviewer', 'glp-glab-reviewer', 'lab-automation-reviewer'],
-    feature: 'protein-fold-predictor',
-    task: 'POST /predict/structure endpoint: takes amino-acid sequence, runs AlphaFold-style protein structure prediction. Wet-lab confirms via X-ray crystallography (results uploaded via SiLA2).',
-    // Broader keyword set — drug-discovery reviewers use varied terminology
-    expectedBlocked: ['model-card', 'model card', 'csv', 'computer-system', 'validation', 'iq', 'oq', 'pq', 'glp', 'gxp', '21 cfr', '21-cfr', 'audit', 'glab', 'reproduc', 'data integrity', 'data-integrity', 'lineage', 'training data', 'wet-lab', 'wet lab', 'lab-automation', 'sila', 'documentation'],
-  },
   'digital-health-pack': {
     baseArchetype: 'healthcare',
     baseReviewer: 'healthcare-reviewer',

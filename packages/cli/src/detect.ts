@@ -874,13 +874,6 @@ function mineReadmeKeywords(dir: string): string[] {
     "dna synthesis", "gene synthesis", "oligonucleotide", "protein design",
     "esm", "alphafold", "rfdiffusion", "pathogen", "select agent", "gain-of-function",
     "dual-use", "bsl-3", "bsl-4", "biocontainment", "bwc", "p3co", "igsc", "cloud lab",
-    // drug-discovery-pack
-    "drug discovery", "binding affinity", "admet", "toxicity prediction",
-    "generative chem", "generative protein", "antibody design", "mrna design",
-    "virtual screening", "docking", "fep", "chembl", "bindingdb", "pdbbind",
-    "glp", "gmp", "gxp", "preclinical", "lims", "eln", "annex 11", "alcoa",
-    "lab automation", "robotic biology", "liquid handler", "hamilton", "tecan",
-    "beckman", "opentrons", "plate reader", "sequencer", "hplc", "mass spec", "sila",
     // digital-health-pack (Wave 4) — keep in sync with packs.ts SIGNALS.keywords
     "wearable", "apple watch", "apple health", "healthkit", "health connect",
     "garmin", "samsung health", "google fit", "fitbit", "heart rate", "hrv",
