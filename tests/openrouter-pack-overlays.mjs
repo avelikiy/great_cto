@@ -70,14 +70,6 @@ const PACKS = {
     task: 'Public API: POST /v1/widgets, GET /v1/widgets/{id}. OpenAPI 3.1 spec. API-key auth. Webhooks for widget.created events. Rate limit 100/min/key.',
     expectedBlocked: ['version', 'deprecation', 'webhook', 'signature', 'sign', 'breaking', 'idempot'],
   },
-  'lending-pack': {
-    baseArchetype: 'fintech',
-    baseReviewer: 'pci-reviewer',
-    packReviewers: ['lending-credit-reviewer'],
-    feature: 'plaid-loan-approval',
-    task: 'POST /loans/decide endpoint: pulls Plaid bank-data, runs internal credit model, returns approve/deny + APR.',
-    expectedBlocked: ['fcra', 'adverse', 'action', 'fair-lending', 'disparate', 'ecoa', 'notice', 'reason'],
-  },
   'clinical-trials-pack': {
     baseArchetype: 'healthcare',
     baseReviewer: 'healthcare-reviewer',

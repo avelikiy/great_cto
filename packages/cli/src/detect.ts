@@ -867,10 +867,6 @@ function mineReadmeKeywords(dir: string): string[] {
     // api-platform-pack
     "public api", "partner api", "developer portal", "api key", "webhook", "sdk",
     "rest api", "graphql api", "openapi",
-    // lending-pack
-    "loan", "lending", "credit decision", "underwrit", "bnpl", "buy now pay later",
-    "buy-now-pay-later", "payroll advance", "ewa", "line of credit", "fico",
-    "credit score", "fcra", "nmls", "financing", "adverse action",
     // robotics-pack
     "robot", "cobot", "manipulator", "end-effector", "amr", "agv", "autonomous mobile",
     "surgical robot", "ros 2", "ros2", "drone", "uav",

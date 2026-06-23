@@ -3,7 +3,7 @@
 //
 // Three-axis detection model:
 //   archetype  → what you build  (ai-system, healthcare, fintech…)
-//   pack       → what you use    (digital-health-pack, lending-pack…)
+//   pack       → what you use    (digital-health-pack…)
 //   jurisdiction → where you operate  (eu, us-ca, in, br, uk, au, sg)
 //
 // Jurisdiction overlays add specialist reviewer agents and human gates
