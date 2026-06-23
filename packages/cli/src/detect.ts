@@ -867,9 +867,6 @@ function mineReadmeKeywords(dir: string): string[] {
     // api-platform-pack
     "public api", "partner api", "developer portal", "api key", "webhook", "sdk",
     "rest api", "graphql api", "openapi",
-    // robotics-pack
-    "robot", "cobot", "manipulator", "end-effector", "amr", "agv", "autonomous mobile",
-    "surgical robot", "ros 2", "ros2", "drone", "uav",
     // climate-pack
     "carbon", "emission", "ghg", "mrv", "scope 1", "scope 2", "scope 3", "verra",
     "gold standard", "puro", "sbti", "cdp", "csrd", "cbam", "ghgrp", "offset",
