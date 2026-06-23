@@ -223,7 +223,7 @@ for (const fixture of fixtures) {
 
 // ── Standalone checks: pack registry completeness ────────────────────────────
 console.log(`${C.bold}${C.cyan}━━ Pack registry completeness${C.reset}`);
-const EXPECTED_PACK_COUNT = 14;
+const EXPECTED_PACK_COUNT = 13;
 const allPacks = listPacks();
 console.log(`  ${ok(`listPacks() returns ${allPacks.length} packs`)} ${dim(allPacks.join(', '))}`);
 totalAssertions++;
@@ -238,7 +238,6 @@ if (allPacks.length !== EXPECTED_PACK_COUNT) {
 // are slated for removal with the regulated-pack prune (great_cto-517); warn, don't fail.
 const PACKS_WITHOUT_FIXTURES = new Set([
   "adtech-privacy-pack",
-  "sec-cyber-pack",
   "us-ai-pack",
 ]);
 const fixturePacks = new Set();

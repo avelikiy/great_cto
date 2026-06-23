@@ -127,14 +127,6 @@ const PACKS = {
     task: 'POST /triage endpoint: a consumer health app chatbot reads symptoms and returns a care recommendation (self-care / see a doctor / ER). Logs PHI to analytics.',
     expectedBlocked: ['samd', 'fda', 'clinical', 'phi', 'hipaa', 'disclaimer', 'medical advice', 'validation', 'safety'],
   },
-  'sec-cyber-pack': {
-    baseArchetype: 'enterprise',
-    baseReviewer: 'enterprise-saas-reviewer',
-    packReviewers: ['sec-cyber-disclosure-reviewer'],
-    feature: 'incident-disclosure-workflow',
-    task: 'Build the breach-response workflow for a US public company: detect a material cyber incident and auto-file. No human sign-off, no materiality assessment, no 4-business-day clock.',
-    expectedBlocked: ['8-k', '8k', 'item 1.05', 'material', 'four business day', '4 business day', 'disclosure', 'sec', 'regulation s-k', 'cybersecurity'],
-  },
   'adtech-privacy-pack': {
     baseArchetype: 'agent-product',
     baseReviewer: 'ai-security-reviewer',

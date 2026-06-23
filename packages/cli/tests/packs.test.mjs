@@ -141,25 +141,6 @@ test("digital-health-pack: generic web project does NOT trigger pack", () => {
   assert.equal(match, undefined, "digital-health-pack should NOT fire for generic web projects");
 });
 
-// ── US-market Phase 1: sec-cyber-pack ──────────────────────────────────────
-
-test("sec-cyber-pack: triggers on '10-k' + 'material incident'", () => {
-  const m = suggestPacks(mkDetection([], ["10-k", "material incident"])).find(p => p.pack === "sec-cyber-pack");
-  assert.ok(m, "sec-cyber-pack should fire");
-  assert.ok(m.reviewers.includes("sec-cyber-disclosure-reviewer"));
-  assert.ok(m.humanGates.includes("gate:cyber-disclosure-readiness"));
-});
-
-test("sec-cyber-pack: triggers on pagerduty stack token", () => {
-  const m = suggestPacks(mkDetection(["pagerduty"], [])).find(p => p.pack === "sec-cyber-pack");
-  assert.ok(m, "sec-cyber-pack should fire on pagerduty");
-});
-
-test("sec-cyber-pack: generic blog does NOT trigger", () => {
-  const m = suggestPacks(mkDetection(["next.js"], ["blog", "marketing"])).find(p => p.pack === "sec-cyber-pack");
-  assert.equal(m, undefined);
-});
-
 // ── US-market Phase 1: adtech-privacy-pack ─────────────────────────────────
 
 test("adtech-privacy-pack: triggers on 'meta pixel'", () => {
@@ -180,9 +161,8 @@ test("adtech-privacy-pack: triggers on 'session replay'", () => {
   assert.ok(m, "adtech-privacy-pack should fire on session replay");
 });
 
-test("listPacks includes the two US-market packs", () => {
+test("listPacks includes the US-market packs", () => {
   const packs = listPacks();
-  assert.ok(packs.includes("sec-cyber-pack"));
   assert.ok(packs.includes("adtech-privacy-pack"));
 });
 
