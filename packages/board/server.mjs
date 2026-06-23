@@ -8,10 +8,7 @@
  */
 
 import http from 'http';
-// ── operate surface removed → github.com/avelikiy/operate (build/operate split, great_cto-2l4) ──
-// The operator console (autopilot runtime, vertical flows, connectors) lives in a separate repo.
-// This is the BUILD board only — the operate routing, crons, and stubs that once
-// bridged to the console have been removed.
+// The build board. (The separate operator-console runtime lives in its own repo.)
 import fs from 'fs';
 import path from 'path';
 import { execSync, spawnSync, spawn } from 'child_process';
@@ -37,17 +34,8 @@ const BUILD_VERSION = (() => {
   }
   return 'unknown';
 })();
-// ── Surface: which product face this process serves (PLAN-ui-split P1) ──────
-// builder = dev board, console = operator console only, both = local default.
-// `console` is the hostable face: it physically does not serve the dev board.
-const SURFACE = (() => {
-  const i = process.argv.indexOf('--surface');
-  const v = String(i > -1 ? process.argv[i + 1] : process.env.GREAT_CTO_SURFACE || 'both').toLowerCase();
-  return ['builder', 'console', 'both'].includes(v) ? v : 'both';
-})();
-// Bind host. Default loopback. --host/GREAT_CTO_HOST exists so the CONSOLE surface can be
-// tunnelled/hosted (console.client.com); put your reverse-proxy auth in front — hosted
-// operator auth beyond invite tokens lands with the package split (PLAN-ui-split P5).
+// Bind host. Default loopback. --host/GREAT_CTO_HOST allows binding the board to a
+// non-loopback address for tunnelling; put your reverse-proxy auth in front.
 const HOST = (() => {
   const i = process.argv.indexOf('--host');
   return String(i > -1 ? process.argv[i + 1] : process.env.GREAT_CTO_HOST || '127.0.0.1');
@@ -3168,7 +3156,7 @@ const server = http.createServer(async (req, res) => {
   // Build version — so the board shows which great_cto version it's running.
   if (pathname === '/api/version') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ version: BUILD_VERSION, surface: SURFACE, node: process.version.replace(/^v/, '') }));
+    res.end(JSON.stringify({ version: BUILD_VERSION, surface: 'builder', node: process.version.replace(/^v/, '') }));
     return;
   }
 
@@ -3394,8 +3382,7 @@ const server = http.createServer(async (req, res) => {
 
 // ── Start ──────────────────────────────────────────────────────────────────────
 server.listen(PORT, HOST, () => {
-  const face = SURFACE === 'console' ? 'operator console' : SURFACE === 'builder' ? 'dev board' : 'board';
-  console.log(`great_cto ${face} → http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}${SURFACE === 'console' ? '/autopilot.html' : ''}`);
+  console.log(`great_cto board → http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
     console.log(`  ⚠ bound to ${HOST} — reachable beyond this machine. Operators authenticate via invite`);
     console.log(`    links; put your reverse-proxy auth in front for anything admin-grade.`);
