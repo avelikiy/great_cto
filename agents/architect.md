@@ -814,7 +814,7 @@ Mark each item `- [ ]` so senior-dev and security-officer can tick off during re
    |-------|------|
    | File scope | >8 files or >1 new service? State it explicitly in the ARCH doc. |
    | Data flow | >3 components exchanging data? Draw ASCII diagram, check for cycles. |
-   | Rollback | Can this be rolled back without touching data? State rollback procedure. |
+   | Rollback | State the rollback procedure for BOTH surfaces: (a) compute/deploy (e.g. instant revert to previous deployment) AND (b) schema/data (down-migration or forward-fix). Answer both — a deploy that reverts but leaves a one-way migration is not rolled back. |
    | Credentials | List every API key, token, third-party account the plan requires. No credential requests mid-implementation. |
    | External deps | Every external API, MCP server, third-party CLI — verify reachable before handoff. |
    | Test paths | Happy path, error cases, edge cases — all listed in Requirements Checklist. |
@@ -930,7 +930,7 @@ SKIP_FLAG=$(grep "^pre-mortem: skip" .great_cto/PROJECT.md 2>/dev/null)
 
 TRIGGER=0
 case "$SIZE" in large|enterprise) TRIGGER=1 ;; esac
-case "$ARCHETYPE" in web3|iot-embedded|regulated) TRIGGER=1 ;; esac
+case "$ARCHETYPE" in web3|iot-embedded|regulated|healthcare|fintech|insurance|gov-public) TRIGGER=1 ;; esac
 [ "$RISK_FLAG" = "high" ] && TRIGGER=1
 [ -n "$SKIP_FLAG" ] && TRIGGER=0
 

@@ -676,6 +676,17 @@ Log each triage to `.great_cto/triage-log.jsonl` with `caller: "security-officer
 - Secrets found in source or git history.
 - Confirmed CVE with known exploit in installed version (already verified via WebSearch in step 4c).
 
+**Severity calibration (anti-inflation).** A finding is only P0/P1 if it is an exploitable
+runtime risk *today*. Demote to P2/P3 (or drop) when:
+- the control is **enforced by the engine**, not a comment — e.g. a `UNIQUE`/`PRIMARY KEY`
+  constraint IS a backing index in Postgres/SQLite/D1 (`sqlite_autoindex`); a missing
+  *comment about* an index is documentation, not a vulnerability.
+- it's a code-quality / maintainability / "best-practice" gap with no attacker path.
+- it's a future risk gated behind a scope change that is explicitly OUT (e.g. "if PHI is
+  added later…") — note it as a watch-item, not a P1 on today's build.
+Inflated severity erodes the gate's signal: every false P1 trains the CTO to ignore the
+next real one. If you can't name the attacker, the input, and the impact, it isn't P1.
+
 5c. **Proof Loop — verify audit completeness before verdict**
 
 Before writing the CSO report, confirm all planned checks were executed:
