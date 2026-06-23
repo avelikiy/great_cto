@@ -252,7 +252,6 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `api-platform-pack` | api-platform-reviewer | public API, partner API, REST, GraphQL, gRPC, webhook, SDK, OpenAPI, dev portal | devtools, library, ai-system, agent-product, web-service | gate:api-contract |
 | `clinical-trials-pack` | clinical-trials-reviewer + bio-data-reviewer | clinical trial, CTMS, EDC, eCOA, ePRO, eConsent, FHIR, HL7, OMOP, DICOM, genomics | regulated, ai-system, data-platform | gate:irb-ready, gate:part11-validation, gate:deidentification |
 | `robotics-pack` | robotics-safety-reviewer (+fda for surgical) | robot, cobot, manipulator, AMR/AGV, autonomous, surgical robot, ROS 2, drone | iot-embedded, ai-system, agent-product, regulated | gate:hara-signoff, gate:functional-safety-test |
-| `em-fintech-pack` | emerging-markets-fintech-reviewer | India, Nigeria, Brazil, Indonesia, Philippines, Mexico, M-Pesa, UPI, PIX, GCash, RBI, CBN, BSP, OJK, MAS | commerce, regulated, web-service | gate:license-strategy |
 | `climate-pack` | climate-mrv-reviewer + biosecurity-reviewer | carbon, GHG, MRV, Scope 1/2/3, Verra, Gold Standard, SBTi, CDP, CSRD, CBAM, OR synbio dual-use signals | data-platform, ai-system, regulated | gate:mrv-methodology, gate:durc-signoff, gate:open-weights-release |
 | `drug-discovery-pack` | drug-discovery-ml-reviewer + glp-glab-reviewer + lab-automation-reviewer | drug discovery, binding affinity, ADMET, generative chemistry/protein, AlphaFold, RFdiffusion, GLP, LIMS, ELN, lab automation | ai-system, regulated, data-platform, iot-embedded | gate:model-card-signoff, gate:csv-validation, gate:iq-oq-pq |
 | `digital-health-pack` | digital-health-reviewer + ai-clinical-reviewer + healthcare-reviewer | wearable, biometric, HealthKit, Health Connect, Garmin, Samsung Health, Fitbit, Whoop, Oura, HRV, sleep tracking, mental health AI, nutrition/supplement AI, physician HITL, RPM, DTx | ai-system, agent-product, regulated, mobile-app | gate:wellness-vs-samd, gate:hitl-design, gate:wearable-api-access, gate:supplement-safety, gate:mental-health-protocol |
@@ -282,7 +281,6 @@ Overlays are loaded by `architect` when running discovery:
 | `gate:deidentification` | bio-data-reviewer | statistical expert | when Expert Determination is used |
 | `gate:hara-signoff` | robotics-safety-reviewer | licensed safety engineer | every robotics release affecting hazard surface |
 | `gate:functional-safety-test` | robotics-safety-reviewer | QA-lead | surgical / autonomous / high-risk |
-| `gate:license-strategy` | emerging-markets-fintech-reviewer | legal + compliance | per jurisdiction served |
 | `gate:mrv-methodology` | climate-mrv-reviewer | climate-lead + verifier | methodology choice — cannot change retroactively |
 | `gate:durc-signoff` | biosecurity-reviewer | IRE + biosec expert | DURC / PEPP applicable |
 | `gate:open-weights-release` | biosecurity-reviewer | responsible-scaling board | generative bio-model release |

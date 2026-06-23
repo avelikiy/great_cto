@@ -1,5 +1,0 @@
-{
-  "archetype": "fintech",
-  "packs": ["em-fintech-pack"],
-  "skipIfFails": false
-}

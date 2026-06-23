@@ -406,7 +406,6 @@ If `PACKS` is non-empty, write it to PROJECT.md as `packs: voice-pack, clinical-
 | `api-platform-pack` | fastify/trpc/graphql/openapi in stack OR public-API/webhook/SDK in README | api-platform-reviewer + gate:api-contract |
 | `clinical-trials-pack` | FHIR/HL7/DICOM OR CTMS/EDC/eConsent/CDISC in README | clinical-trials + bio-data reviewer + gate:irb-ready + gate:part11-validation |
 | `robotics-pack` | ROS 2 / MoveIt OR robot/cobot/surgical in README | robotics-safety-reviewer + gate:hara-signoff + gate:functional-safety-test |
-| `em-fintech-pack` | razorpay/paystack/flutterwave/mercadopago OR India/Nigeria/Brazil/UPI/PIX/M-Pesa in README | em-fintech-reviewer + gate:license-strategy |
 | `climate-pack` | GHG/Verra/CBAM in README OR synbio dual-use (gene synthesis, AlphaFold, IGSC, DURC) | climate-mrv + biosecurity reviewers + gate:mrv-methodology + gate:durc-signoff |
 | `drug-discovery-pack` | rdkit/ChEMBL/AlphaFold OR LIMS/SiLA2/GLP in README | drug-discovery-ml + glp + lab-automation reviewers + gate:model-card-signoff + gate:csv-validation + gate:iq-oq-pq |
 
@@ -414,7 +413,7 @@ If `PACKS` is non-empty, write it to PROJECT.md as `packs: voice-pack, clinical-
 
 **Reference docs:**
 - Full overlay matrix: `skills/great_cto/ARCHETYPES.md` § Domain Overlays
-- Per-pack deep knowledge: `skills/great_cto/references/iso-ts-15066-force-limits.md`, `em-fintech-jurisdictions.md`, `durc-classification.md`, `glp-raw-data.md`
+- Per-pack deep knowledge: `skills/great_cto/references/iso-ts-15066-force-limits.md`, `durc-classification.md`, `glp-raw-data.md`
 
 ## Step 3: Create PROJECT.md
 

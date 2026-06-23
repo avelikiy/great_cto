@@ -17,7 +17,6 @@ export type PackName =
   | "api-platform-pack"
   | "clinical-trials-pack"
   | "robotics-pack"
-  | "em-fintech-pack"
   | "climate-pack"
   | "drug-discovery-pack"
   | "digital-health-pack"
@@ -40,7 +39,6 @@ const PACK_REVIEWERS: Record<PackName, string[]> = {
   "api-platform-pack":     ["api-platform-reviewer"],
   "clinical-trials-pack":  ["clinical-trials-reviewer", "bio-data-reviewer"],
   "robotics-pack":         ["robotics-safety-reviewer"],
-  "em-fintech-pack":       ["emerging-markets-fintech-reviewer"],
   "climate-pack":          ["climate-mrv-reviewer", "biosecurity-reviewer"],
   "drug-discovery-pack":   ["drug-discovery-ml-reviewer", "glp-glab-reviewer", "lab-automation-reviewer"],
   "digital-health-pack":   ["digital-health-reviewer", "ai-clinical-reviewer", "healthcare-reviewer"],
@@ -55,7 +53,6 @@ const PACK_GATES: Record<PackName, string[]> = {
   "api-platform-pack":     ["gate:api-contract"],
   "clinical-trials-pack":  ["gate:irb-ready", "gate:part11-validation", "gate:deidentification"],
   "robotics-pack":         ["gate:hara-signoff", "gate:functional-safety-test"],
-  "em-fintech-pack":       ["gate:license-strategy"],
   "climate-pack":          ["gate:mrv-methodology", "gate:durc-signoff", "gate:open-weights-release"],
   "drug-discovery-pack":   ["gate:model-card-signoff", "gate:csv-validation", "gate:iq-oq-pq"],
   "digital-health-pack":   ["gate:wellness-vs-samd", "gate:hitl-design", "gate:wearable-api-access", "gate:supplement-safety", "gate:mental-health-protocol"],
@@ -91,10 +88,6 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
   "robotics-pack": {
     stack: ["ros", "ros2", "moveit", "gazebo", "px4"],
     keywords: ["robot", "cobot", "manipulator", "end-effector", "amr", "agv", "autonomous mobile", "surgical robot", "ros 2", "drone", "uav"],
-  },
-  "em-fintech-pack": {
-    stack: [],
-    keywords: ["india", "nigeria", "brazil", "indonesia", "philippines", "mexico", "kenya", "m-pesa", "mpesa", "upi", "pix", "gcash", "ovo", "dana", "rbi", "cbn", "bsp", "ojk", "mas", "bcb", "condusef", "cross-border", "remittance", "local rails"],
   },
   "climate-pack": {
     stack: [],
