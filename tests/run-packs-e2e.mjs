@@ -223,7 +223,7 @@ for (const fixture of fixtures) {
 
 // ── Standalone checks: pack registry completeness ────────────────────────────
 console.log(`${C.bold}${C.cyan}━━ Pack registry completeness${C.reset}`);
-const EXPECTED_PACK_COUNT = 11;
+const EXPECTED_PACK_COUNT = 14;
 const allPacks = listPacks();
 console.log(`  ${ok(`listPacks() returns ${allPacks.length} packs`)} ${dim(allPacks.join(', '))}`);
 totalAssertions++;
@@ -233,8 +233,14 @@ if (allPacks.length !== EXPECTED_PACK_COUNT) {
 }
 
 // Every pack must have ≥1 fixture OR be on the documented-exception allowlist.
-// Empty = every registered pack is exercised by at least one fixture.
-const PACKS_WITHOUT_FIXTURES = new Set();
+// Allowlisted = registered in packs.ts but not yet fully wired (gate not in ARCHETYPES.md
+// Domain Overlays / reviewer chain incomplete). These 3 regulated packs are pending-wiring and
+// are slated for removal with the regulated-pack prune (great_cto-517); warn, don't fail.
+const PACKS_WITHOUT_FIXTURES = new Set([
+  "adtech-privacy-pack",
+  "sec-cyber-pack",
+  "us-ai-pack",
+]);
 const fixturePacks = new Set();
 for (const f of fixtures) {
   const ej = JSON.parse(readFileSync(join(FIXTURES, f, 'expected.json'), 'utf-8'));
