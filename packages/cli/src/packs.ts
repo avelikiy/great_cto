@@ -17,7 +17,6 @@ export type PackName =
   | "api-platform-pack"
   | "clinical-trials-pack"
   | "climate-pack"
-  | "drug-discovery-pack"
   | "digital-health-pack"
   | "adtech-privacy-pack"
   | "us-ai-pack";
@@ -38,7 +37,6 @@ const PACK_REVIEWERS: Record<PackName, string[]> = {
   "api-platform-pack":     ["api-platform-reviewer"],
   "clinical-trials-pack":  ["clinical-trials-reviewer", "bio-data-reviewer"],
   "climate-pack":          ["climate-mrv-reviewer", "biosecurity-reviewer"],
-  "drug-discovery-pack":   ["drug-discovery-ml-reviewer", "glp-glab-reviewer", "lab-automation-reviewer"],
   "digital-health-pack":   ["digital-health-reviewer", "ai-clinical-reviewer", "healthcare-reviewer"],
   "adtech-privacy-pack":   ["adtech-privacy-reviewer", "us-privacy-reviewer"],
   "us-ai-pack":            ["us-ai-reviewer"],
@@ -51,7 +49,6 @@ const PACK_GATES: Record<PackName, string[]> = {
   "api-platform-pack":     ["gate:api-contract"],
   "clinical-trials-pack":  ["gate:irb-ready", "gate:part11-validation", "gate:deidentification"],
   "climate-pack":          ["gate:mrv-methodology", "gate:durc-signoff", "gate:open-weights-release"],
-  "drug-discovery-pack":   ["gate:model-card-signoff", "gate:csv-validation", "gate:iq-oq-pq"],
   "digital-health-pack":   ["gate:wellness-vs-samd", "gate:hitl-design", "gate:wearable-api-access", "gate:supplement-safety", "gate:mental-health-protocol"],
   "adtech-privacy-pack":   ["gate:tracking-consent"],
   "us-ai-pack":            ["gate:ai-governance"],
@@ -87,13 +84,6 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
     keywords: ["carbon", "emission", "ghg", "mrv", "scope 1", "scope 2", "scope 3", "verra", "gold standard", "puro", "sbti", "cdp", "csrd", "cbam", "ghgrp", "offset", "credit retir", "removal", "biogenic",
               // biosec triggers
               "dna synthesis", "gene synthesis", "oligonucleotide", "protein design", "esm", "alphafold", "rfdiffusion", "pathogen", "select agent", "gain-of-function", "dual-use", "bsl-3", "bsl-4", "biocontainment", "bwc", "p3co", "igsc", "cloud lab"],
-  },
-  "drug-discovery-pack": {
-    stack: ["rdkit"],
-    keywords: ["drug discovery", "binding affinity", "admet", "toxicity prediction", "generative chem", "generative protein", "antibody design", "mrna design", "virtual screening", "docking", "fep", "alphafold", "rfdiffusion", "chembl", "bindingdb", "pdbbind",
-              // GLP / lab-automation triggers
-              "glp", "gmp", "gxp", "preclinical", "lims", "eln", "annex 11", "alcoa",
-              "lab automation", "cloud lab", "robotic biology", "liquid handler", "hamilton", "tecan", "beckman", "opentrons", "plate reader", "sequencer", "hplc", "mass spec", "sila"],
   },
   "digital-health-pack": {
     stack: ["healthkit", "health-connect", "garmin-connect-iq", "samsung-health", "fitbit", "polar", "withings", "oura", "whoop"],

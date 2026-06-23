@@ -118,13 +118,6 @@ test("clinical-pack: still triggers on 'clinical' keyword (no regression)", () =
   assert.ok(match, "clinical-pack should still be triggered");
 });
 
-test("drug-discovery-pack: still triggers on 'drug discovery' keyword (no regression)", () => {
-  const d = mkDetection([], ["drug discovery"]);
-  const packs = suggestPacks(d);
-  const match = packs.find(p => p.pack === "drug-discovery-pack");
-  assert.ok(match, "drug-discovery-pack should still be triggered");
-});
-
 // ── listPacks includes digital-health-pack ─────────────────────────────────
 
 test("listPacks includes digital-health-pack", () => {
