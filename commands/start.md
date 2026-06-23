@@ -404,7 +404,6 @@ If `PACKS` is non-empty, write it to PROJECT.md as `packs: voice-pack, clinical-
 | `clinical-pack` | FHIR/HL7 in stack OR clinical/PHI/SaMD/CDS in README | ai-clinical + fda reviewer + gate:samd-class + gate:clinical-validation |
 | `hr-ai-pack` | greenhouse/lever/ashby/workday OR recruit/hiring/resume/AEDT in README | hr-ai-reviewer + gate:aedt-audit |
 | `api-platform-pack` | fastify/trpc/graphql/openapi in stack OR public-API/webhook/SDK in README | api-platform-reviewer + gate:api-contract |
-| `lending-pack` | plaid in stack OR loan/BNPL/FCRA/NMLS/adverse-action in README | lending-credit-reviewer + gate:fair-lending |
 | `clinical-trials-pack` | FHIR/HL7/DICOM OR CTMS/EDC/eConsent/CDISC in README | clinical-trials + bio-data reviewer + gate:irb-ready + gate:part11-validation |
 | `robotics-pack` | ROS 2 / MoveIt OR robot/cobot/surgical in README | robotics-safety-reviewer + gate:hara-signoff + gate:functional-safety-test |
 | `em-fintech-pack` | razorpay/paystack/flutterwave/mercadopago OR India/Nigeria/Brazil/UPI/PIX/M-Pesa in README | em-fintech-reviewer + gate:license-strategy |

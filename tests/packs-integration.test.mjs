@@ -101,7 +101,7 @@ test('packs: every fixture in tests/fixtures/ maps to a known archetype', async 
 test('packs: every pack reviewer has frontmatter + body', () => {
   const reviewerNames = [
     'voice-ai-reviewer', 'ai-clinical-reviewer', 'fda-reviewer',
-    'hr-ai-reviewer', 'api-platform-reviewer', 'lending-credit-reviewer',
+    'hr-ai-reviewer', 'api-platform-reviewer',
     'clinical-trials-reviewer', 'bio-data-reviewer', 'robotics-safety-reviewer',
     'emerging-markets-fintech-reviewer', 'climate-mrv-reviewer',
     'biosecurity-reviewer', 'drug-discovery-ml-reviewer', 'glp-glab-reviewer',

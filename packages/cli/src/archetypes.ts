@@ -943,7 +943,6 @@ function inferPackHints(d: DetectionResult): string[] {
   if (has("clinical", "ctms", "edc", "cdisc", "randomization", "irb")) hints.push("clinical-trials-pack");
   if (has("drug discovery", "binding affinity", "admet", "chembl", "alphafold")) hints.push("drug-discovery-pack");
   if (has("recruit", "hiring", "candidate", "ats", "aedt")) hints.push("hr-ai-pack");
-  if (has("loan", "lending", "bnpl", "underwrit", "fcra")) hints.push("lending-pack");
   if (has("voice", "telephony", "ivr", "stt", "tts", "outbound call")) hints.push("voice-pack");
   if (has("india", "upi", "rbi", "mpesa", "gcash", "pix", "cross-border", "remittance")) hints.push("em-fintech-pack");
   if (has("public api", "api key", "developer portal", "openapi")) hints.push("api-platform-pack");

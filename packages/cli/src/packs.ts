@@ -15,7 +15,6 @@ export type PackName =
   | "clinical-pack"
   | "hr-ai-pack"
   | "api-platform-pack"
-  | "lending-pack"
   | "clinical-trials-pack"
   | "robotics-pack"
   | "em-fintech-pack"
@@ -39,7 +38,6 @@ const PACK_REVIEWERS: Record<PackName, string[]> = {
   "clinical-pack":         ["ai-clinical-reviewer", "fda-reviewer"],
   "hr-ai-pack":            ["hr-ai-reviewer"],
   "api-platform-pack":     ["api-platform-reviewer"],
-  "lending-pack":          ["lending-credit-reviewer"],
   "clinical-trials-pack":  ["clinical-trials-reviewer", "bio-data-reviewer"],
   "robotics-pack":         ["robotics-safety-reviewer"],
   "em-fintech-pack":       ["emerging-markets-fintech-reviewer"],
@@ -55,7 +53,6 @@ const PACK_GATES: Record<PackName, string[]> = {
   "clinical-pack":         ["gate:samd-class", "gate:clinical-validation", "gate:ide-approval"],
   "hr-ai-pack":            ["gate:aedt-audit"],
   "api-platform-pack":     ["gate:api-contract"],
-  "lending-pack":          ["gate:fair-lending"],
   "clinical-trials-pack":  ["gate:irb-ready", "gate:part11-validation", "gate:deidentification"],
   "robotics-pack":         ["gate:hara-signoff", "gate:functional-safety-test"],
   "em-fintech-pack":       ["gate:license-strategy"],
@@ -84,12 +81,6 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
   "api-platform-pack": {
     stack: ["openapi", "graphql", "grpc", "fastify", "trpc"],
     keywords: ["public api", "partner api", "developer portal", "api key", "webhook", "sdk", "rest api", "graphql api", "openapi"],
-  },
-  "lending-pack": {
-    stack: ["plaid"],
-    // "ecoa" removed: collides with clinical "eCOA" (Electronic Clinical Outcome Assessment).
-    // Lending-specific signals (loan, fcra, nmls, underwrit, fico, ...) are unambiguous.
-    keywords: ["loan", "lending", "credit decision", "underwrit", "bnpl", "buy now pay later", "buy-now-pay-later", "payroll advance", "ewa", "line of credit", "fico", "credit score", "fcra", "nmls", "financing", "adverse action"],
   },
   "clinical-trials-pack": {
     stack: ["fhir", "hl7", "dicom", "redcap"],

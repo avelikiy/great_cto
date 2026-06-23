@@ -250,7 +250,6 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `clinical-pack` | ai-clinical-reviewer + fda-reviewer | clinical, patient, EHR/EMR, PHI, diagnosis, SaMD, CDS, scribe, telehealth-AI | ai-system, agent-product, regulated | gate:samd-class, gate:clinical-validation, gate:ide-approval |
 | `hr-ai-pack` | hr-ai-reviewer | recruit, hiring, candidate, resume, interview, ATS, performance review, workforce scheduling | ai-system, agent-product, enterprise | gate:aedt-audit |
 | `api-platform-pack` | api-platform-reviewer | public API, partner API, REST, GraphQL, gRPC, webhook, SDK, OpenAPI, dev portal | devtools, library, ai-system, agent-product, web-service | gate:api-contract |
-| `lending-pack` | lending-credit-reviewer | loan, lending, credit, BNPL, payroll advance, EWA, FCRA, ECOA, NMLS | commerce, regulated, ai-system | gate:fair-lending |
 | `clinical-trials-pack` | clinical-trials-reviewer + bio-data-reviewer | clinical trial, CTMS, EDC, eCOA, ePRO, eConsent, FHIR, HL7, OMOP, DICOM, genomics | regulated, ai-system, data-platform | gate:irb-ready, gate:part11-validation, gate:deidentification |
 | `robotics-pack` | robotics-safety-reviewer (+fda for surgical) | robot, cobot, manipulator, AMR/AGV, autonomous, surgical robot, ROS 2, drone | iot-embedded, ai-system, agent-product, regulated | gate:hara-signoff, gate:functional-safety-test |
 | `em-fintech-pack` | emerging-markets-fintech-reviewer | India, Nigeria, Brazil, Indonesia, Philippines, Mexico, M-Pesa, UPI, PIX, GCash, RBI, CBN, BSP, OJK, MAS | commerce, regulated, web-service | gate:license-strategy |
@@ -278,7 +277,6 @@ Overlays are loaded by `architect` when running discovery:
 | `gate:ide-approval` | fda-reviewer | regulatory + sponsor | PMA path, clinical trial scope |
 | `gate:aedt-audit` | hr-ai-reviewer | independent auditor | NYC LL 144 in scope (annual) |
 | `gate:api-contract` | api-platform-reviewer | architect + DX-lead | before v1 GA |
-| `gate:fair-lending` | lending-credit-reviewer | compliance + statistician | every credit-model release |
 | `gate:irb-ready` | clinical-trials-reviewer | clinical lead + regulatory | before IRB submission |
 | `gate:part11-validation` | clinical-trials-reviewer | independent QA lead | before production go-live |
 | `gate:deidentification` | bio-data-reviewer | statistical expert | when Expert Determination is used |
