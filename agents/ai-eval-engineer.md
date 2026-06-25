@@ -74,6 +74,26 @@ guarantee: **a learned prompt improvement cannot ship until re-run and measured 
 
 Plus a runner: `tests/eval/run.sh` or `tests/eval/test_evals.py` that executes all EVAL files and produces a single pass/fail summary for CI.
 
+## Guardrail hardening loop (prompt-injection category)
+
+For `agent-product` / `ai-system`, the prompt-injection category gets a closed
+**ASR loop** (`scripts/eval/asr-loop.mjs`, adapted from SantanderAI/autoguardrails):
+keep the mutable surface tiny (`tests/eval/security/policy.md`), the suite fixed
+(`tests/eval/security/asr-suite.jsonl` — attacks + benign), and search to drive
+**attack-success-rate (ASR)** down under a **benign-pass floor**.
+
+```bash
+node scripts/eval/asr-loop.mjs baseline        # record current policy's ASR + benign-pass
+# edit ONLY tests/eval/security/policy.md (add Deny / Allow-override patterns)
+node scripts/eval/asr-loop.mjs candidate       # exit 1 (REJECT) unless ASR drops AND benign-pass holds (<=2pp)
+```
+
+Acceptance rule (enforced in code): a candidate ships only if it **lowers ASR
+without dropping benign-pass by more than 2 points** — you can never win by
+refusing everything. Extend the attack suite when you find a new bypass; the loop
+proves the fix and guards against regressions. Swap the deterministic pattern
+evaluator for an LLM judge via `--evaluator` in production.
+
 ## Workflow
 
 ### Step 0: Read inputs and verify pre-conditions
