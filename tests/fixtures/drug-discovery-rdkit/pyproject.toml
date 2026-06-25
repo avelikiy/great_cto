@@ -1,9 +1,0 @@
-[project]
-name = "drug-discovery-ml-fixture"
-version = "0.1.0"
-dependencies = [
-    "rdkit>=2024.3",
-    "torch>=2.3",
-    "transformers>=4.40",
-    "alphafold>=2.3",
-]

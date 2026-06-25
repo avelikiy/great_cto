@@ -925,7 +925,7 @@ export function pickArchetype(d: DetectionResult): ArchetypePick {
 
 /** Niche packs that should surface even at high confidence */
 function isNichePack(pack: string): boolean {
-  return ["climate-pack", "clinical-trials-pack"].includes(pack);
+  return ["clinical-trials-pack"].includes(pack);
 }
 
 /**
@@ -937,7 +937,6 @@ function inferPackHints(d: DetectionResult): string[] {
   const kws = new Set([...d.readmeKeywords, ...(d.infraKeywords ?? [])]);
   const has = (...terms: string[]) => terms.some((t) => kws.has(t));
 
-  if (has("carbon", "ghg", "mrv", "emission", "verra", "sbti")) hints.push("climate-pack");
   if (has("clinical", "ctms", "edc", "cdisc", "randomization", "irb")) hints.push("clinical-trials-pack");
   if (has("recruit", "hiring", "candidate", "ats", "aedt")) hints.push("hr-ai-pack");
   if (has("voice", "telephony", "ivr", "stt", "tts", "outbound call")) hints.push("voice-pack");

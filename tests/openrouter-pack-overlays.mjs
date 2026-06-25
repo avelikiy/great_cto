@@ -78,14 +78,6 @@ const PACKS = {
     task: 'Electronic Data Capture endpoint: clinician records subject vitals (BP, HR, temp) per CDISC SDTM. eConsent signature collected. Data pushed to CTMS nightly.',
     expectedBlocked: ['part-11', 'part11', 'e-signature', 'esignature', 'irb', 'protocol', 'deidentif', 'audit-trail', 'validated'],
   },
-  'climate-pack': {
-    baseArchetype: 'web-service',
-    baseReviewer: 'security-officer',
-    packReviewers: ['climate-mrv-reviewer', 'biosecurity-reviewer'],
-    feature: 'carbon-credit-calculator',
-    task: 'Endpoint /api/emissions/calc: takes business activity data (electricity kWh, fuel litres, supply-chain), returns Scope 1+2+3 footprint + tradeable Verra carbon credits.',
-    expectedBlocked: ['mrv', 'methodology', 'verra', 'cbam', 'registered', 'emission-factor', 'ghg-protocol', 'verification', 'additionality'],
-  },
   'digital-health-pack': {
     baseArchetype: 'healthcare',
     baseReviewer: 'healthcare-reviewer',

@@ -103,8 +103,6 @@ test('packs: every pack reviewer has frontmatter + body', () => {
     'voice-ai-reviewer', 'ai-clinical-reviewer', 'fda-reviewer',
     'hr-ai-reviewer', 'api-platform-reviewer',
     'clinical-trials-reviewer', 'bio-data-reviewer',
-    'climate-mrv-reviewer',
-    'biosecurity-reviewer',
   ];
 
   for (const name of reviewerNames) {

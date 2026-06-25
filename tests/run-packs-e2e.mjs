@@ -166,7 +166,6 @@ for (const fixture of fixtures) {
     'hr-ai-pack': ['TM-hrai'],
     'api-platform-pack': ['TM-api'],
     'clinical-trials-pack': ['TM-trial', 'TM-biodata'],
-    'climate-pack': ['TM-climate', 'TM-biosec'],
     'digital-health-pack': ['TM-digital-health'],
   };
   for (const pm of matched) {
@@ -219,7 +218,7 @@ for (const fixture of fixtures) {
 
 // ── Standalone checks: pack registry completeness ────────────────────────────
 console.log(`${C.bold}${C.cyan}━━ Pack registry completeness${C.reset}`);
-const EXPECTED_PACK_COUNT = 9;
+const EXPECTED_PACK_COUNT = 8;
 const allPacks = listPacks();
 console.log(`  ${ok(`listPacks() returns ${allPacks.length} packs`)} ${dim(allPacks.join(', '))}`);
 totalAssertions++;
