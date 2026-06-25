@@ -720,6 +720,16 @@ manual configuration needed.
 
 5. **Create Beads tasks** — gate:arch MUST be created first, before implementation tasks:
 
+   **Freeze the acceptance gates first (architect-loop R2, MIT).** Before any
+   senior-dev starts, write the slice's executable acceptance criteria to
+   `docs/gates/<slug>.md` — the concrete commands that decide PASS/FAIL (the test
+   to run, the coverage floor, the security check, the perf budget) — and commit
+   them. These are **read-only** from that point: senior-dev must not edit them,
+   and qa/security run them verbatim. A builder edit to a gate file is an
+   automatic slice FAIL (`scripts/lib/check-frozen-gates.mjs`). Putting the
+   pass/fail criteria outside the builder's editable blast radius is what makes
+   the gate an enforced (R2) control, not a vibe.
+
    **Check approval_level before creating gate:**
    ```bash
    APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
