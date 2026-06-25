@@ -1,0 +1,12 @@
+# ZRS worker container. Build: docker build -f docs/deploy/Dockerfile.worker -t great-cto-worker .
+# Run:   docker run -e ANTHROPIC_API_KEY=... -v gc_state:/root/.great_cto -v /srv/repo:/srv/repo \
+#          -p 127.0.0.1:4319:4319 great-cto-worker
+# Queue from the host: docker exec <c> great-cto task add "..." --repo /srv/repo
+FROM node:22-alpine
+RUN apk add --no-cache git openssh-client && npm i -g great-cto @anthropic-ai/claude-code
+# State (queue/state/logs) on a volume so it survives restarts:
+VOLUME ["/root/.great_cto"]
+EXPOSE 4319
+# Lock the worker's network egress to LLM providers + your git remote at the orchestration layer
+# (compose `networks`/firewall) — the worker itself runs untrusted agent code.
+CMD ["great-cto", "worker", "--status-port", "4319", "--poll", "10"]

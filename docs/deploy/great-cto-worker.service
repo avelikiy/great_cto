@@ -1,0 +1,19 @@
+# systemd unit for the ZRS bounded headless worker. Install:
+#   sudo cp docs/deploy/great-cto-worker.service /etc/systemd/system/
+#   sudo systemctl enable --now great-cto-worker
+# Status: curl http://127.0.0.1:4319/status   ·   queue: great-cto task add "..." --repo /srv/great_cto
+[Unit]
+Description=great_cto headless task worker (ZRS)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/great-cto worker --repo /srv/great_cto --status-port 4319 --poll 10
+Restart=always
+RestartSec=5
+Environment=ANTHROPIC_API_KEY=
+# GREAT_CTO_HOME defaults to the service user's ~/.great_cto (queue + state + logs live here).
+# Egress note: run behind an allowlist (LLM providers + your git remote) — see the egress-policy borrow.
+
+[Install]
+WantedBy=multi-user.target

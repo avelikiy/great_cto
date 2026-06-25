@@ -40,7 +40,8 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "telemetry" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "telemetry" | "task" | "worker" | "chat-only-hint" | "unknown";
+  taskArgs?: string[];
   unknownToken?: string;
   dir: string;
   positional: string[];
@@ -108,6 +109,8 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "webhook") args.command = "webhook";
     else if (a === "report") args.command = "report";
     else if (a === "upgrade") args.command = "upgrade";
+    else if (a === "task") { args.command = "task"; args.taskArgs = argv.slice(i + 1); break; }
+    else if (a === "worker") { args.command = "worker"; args.taskArgs = argv.slice(i + 1); break; }
     // Slash-commands surfaced as CLI subcommands so users get a clear hint
     // instead of a confusing usage error. These work only in the chat plugin.
     else if (
@@ -1168,6 +1171,14 @@ async function main(): Promise<void> {
       error((e as Error).message);
       process.exit(2);
     }
+  }
+  if (args.command === "task") {
+    const { runTask } = await import("./worker.js");
+    process.exit(await runTask(args.taskArgs ?? []));
+  }
+  if (args.command === "worker") {
+    const { runWorker } = await import("./worker.js");
+    process.exit(await runWorker(args.taskArgs ?? []));
   }
   if (args.command === "serve") {
     try {
