@@ -1,6 +1,8 @@
 # PLAN: borrow from Santander AI Open Source
 
-**Date:** 2026-06-25 · **Status:** IN PROGRESS
+**Date:** 2026-06-25 · **Status:** ✅ COMPLETE — all 3 TAKEs shipped + tested
+- TAKE 2 ralph → `16d6c89` · TAKE 1 mech-gov → `60029c5` + `aac3fb5` · TAKE 3 autoguardrails → `3ba5611`
+- suite 450/450, validate.py PASS. (`llm_bridge` + mattpocock grill/writing-skills not taken — see Skip.)
 **Source:** [github.com/SantanderAI](https://github.com/SantanderAI) (14 repos, Apache-2.0).
 Studied: `mech-gov-framework`, `ralph` (+ `ralph-vault-skill`), `autoguardrails`, `llm_bridge`.
 
