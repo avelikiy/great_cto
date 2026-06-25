@@ -867,13 +867,6 @@ function mineReadmeKeywords(dir: string): string[] {
     // api-platform-pack
     "public api", "partner api", "developer portal", "api key", "webhook", "sdk",
     "rest api", "graphql api", "openapi",
-    // climate-pack
-    "carbon", "emission", "ghg", "mrv", "scope 1", "scope 2", "scope 3", "verra",
-    "gold standard", "puro", "sbti", "cdp", "csrd", "cbam", "ghgrp", "offset",
-    "credit retir", "removal", "biogenic",
-    "dna synthesis", "gene synthesis", "oligonucleotide", "protein design",
-    "esm", "alphafold", "rfdiffusion", "pathogen", "select agent", "gain-of-function",
-    "dual-use", "bsl-3", "bsl-4", "biocontainment", "bwc", "p3co", "igsc", "cloud lab",
     // digital-health-pack (Wave 4) — keep in sync with packs.ts SIGNALS.keywords
     "wearable", "apple watch", "apple health", "healthkit", "health connect",
     "garmin", "samsung health", "google fit", "fitbit", "heart rate", "hrv",

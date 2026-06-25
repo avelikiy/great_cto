@@ -43,8 +43,6 @@ NEW_REVIEWERS: list[tuple[str, str, str | None, str | None]] = [
     ("api-platform-reviewer",            "api",      "api-platform-pack",     "api-contract-review"),
     ("clinical-trials-reviewer",         "trial",    "clinical-trials-pack",  "part11-audit"),
     ("bio-data-reviewer",                "biodata",  "clinical-trials-pack",  "biodata-conformance"),
-    ("climate-mrv-reviewer",             "climate",  "climate-pack",          "carbon-mrv"),
-    ("biosecurity-reviewer",             "biosec",   "climate-pack",          "dna-screen"),
     ("legal-reviewer",                   "legal",    "legaltech-pack",        "upl-check"),
     ("rcm-reviewer",                     "rcm",      "rcm-pack",              "coding-audit"),
     ("procurement-reviewer",             "procurement", "procurement-pack",   "procurement-review"),

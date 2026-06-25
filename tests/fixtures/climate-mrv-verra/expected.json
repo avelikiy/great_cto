@@ -1,5 +1,0 @@
-{
-  "archetype": "web-service",
-  "packs": ["climate-pack"],
-  "skipIfFails": false
-}

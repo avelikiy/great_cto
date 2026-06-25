@@ -405,13 +405,11 @@ If `PACKS` is non-empty, write it to PROJECT.md as `packs: voice-pack, clinical-
 | `hr-ai-pack` | greenhouse/lever/ashby/workday OR recruit/hiring/resume/AEDT in README | hr-ai-reviewer + gate:aedt-audit |
 | `api-platform-pack` | fastify/trpc/graphql/openapi in stack OR public-API/webhook/SDK in README | api-platform-reviewer + gate:api-contract |
 | `clinical-trials-pack` | FHIR/HL7/DICOM OR CTMS/EDC/eConsent/CDISC in README | clinical-trials + bio-data reviewer + gate:irb-ready + gate:part11-validation |
-| `climate-pack` | GHG/Verra/CBAM in README OR synbio dual-use (gene synthesis, AlphaFold, IGSC, DURC) | climate-mrv + biosecurity reviewers + gate:mrv-methodology + gate:durc-signoff |
 
 **Manual override:** CTO can edit `packs:` in PROJECT.md at any time to opt in/out. To force-add a pack the detector missed, add the pack name and re-run `/audit` to refresh the reviewer chain.
 
 **Reference docs:**
 - Full overlay matrix: `skills/great_cto/ARCHETYPES.md` § Domain Overlays
-- Per-pack deep knowledge: `durc-classification.md`
 
 ## Step 3: Create PROJECT.md
 

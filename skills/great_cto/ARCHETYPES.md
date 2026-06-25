@@ -251,7 +251,6 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `hr-ai-pack` | hr-ai-reviewer | recruit, hiring, candidate, resume, interview, ATS, performance review, workforce scheduling | ai-system, agent-product, enterprise | gate:aedt-audit |
 | `api-platform-pack` | api-platform-reviewer | public API, partner API, REST, GraphQL, gRPC, webhook, SDK, OpenAPI, dev portal | devtools, library, ai-system, agent-product, web-service | gate:api-contract |
 | `clinical-trials-pack` | clinical-trials-reviewer + bio-data-reviewer | clinical trial, CTMS, EDC, eCOA, ePRO, eConsent, FHIR, HL7, OMOP, DICOM, genomics | regulated, ai-system, data-platform | gate:irb-ready, gate:part11-validation, gate:deidentification |
-| `climate-pack` | climate-mrv-reviewer + biosecurity-reviewer | carbon, GHG, MRV, Scope 1/2/3, Verra, Gold Standard, SBTi, CDP, CSRD, CBAM, OR synbio dual-use signals | data-platform, ai-system, regulated | gate:mrv-methodology, gate:durc-signoff, gate:open-weights-release |
 | `digital-health-pack` | digital-health-reviewer + ai-clinical-reviewer + healthcare-reviewer | wearable, biometric, HealthKit, Health Connect, Garmin, Samsung Health, Fitbit, Whoop, Oura, HRV, sleep tracking, mental health AI, nutrition/supplement AI, physician HITL, RPM, DTx | ai-system, agent-product, regulated, mobile-app | gate:wellness-vs-samd, gate:hitl-design, gate:wearable-api-access, gate:supplement-safety, gate:mental-health-protocol |
 
 ### Activation logic
@@ -277,9 +276,6 @@ Overlays are loaded by `architect` when running discovery:
 | `gate:irb-ready` | clinical-trials-reviewer | clinical lead + regulatory | before IRB submission |
 | `gate:part11-validation` | clinical-trials-reviewer | independent QA lead | before production go-live |
 | `gate:deidentification` | bio-data-reviewer | statistical expert | when Expert Determination is used |
-| `gate:mrv-methodology` | climate-mrv-reviewer | climate-lead + verifier | methodology choice — cannot change retroactively |
-| `gate:durc-signoff` | biosecurity-reviewer | IRE + biosec expert | DURC / PEPP applicable |
-| `gate:open-weights-release` | biosecurity-reviewer | responsible-scaling board | generative bio-model release |
 | `gate:wellness-vs-samd` | digital-health-reviewer | architect + regulatory lead | after wellness-vs-SaMD classification |
 | `gate:hitl-design` | digital-health-reviewer | architect + clinical lead | HITL physician workflow in scope |
 | `gate:wearable-api-access` | digital-health-reviewer | product lead | wearable platform API integration |
