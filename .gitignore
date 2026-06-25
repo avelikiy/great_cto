@@ -102,3 +102,4 @@ scripts/hashnode-publish.mjs
 site/.previews/
 tmp/
 .great_cto/autopilot-runs/
+tests/eval/security/results.tsv
