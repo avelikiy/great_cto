@@ -142,6 +142,7 @@ All review, QA, and audit agents must produce findings in this format. Free-form
 - Evidence-backed: every finding links to a file:line or named component
 - No "it looks good" — always produce concrete findings or explicit LGTM with rationale
 - Separate pre-existing issues from issues introduced by the current change
+- **Argument-quality gate** (`agents/_shared/argument-quality.md`): every finding must name mechanism + evidence + consequence, with severity calibrated against runtime exploitability — an argument you can't falsify can't block a gate, and an over-firing gate gets overridden into uselessness
 
 ## Environment Bootstrap
 

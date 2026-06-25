@@ -39,9 +39,18 @@ export function parseProject(text) {
   };
 }
 
+// Governance regime per gate (mech-gov R1/R2 vocabulary, borrow-santander TAKE 1):
+//   R2 = MECHANICALLY enforced — a script/CI produces the verdict and can hard-block
+//        (qa runs tests, security runs secret/CVE scans, ship gates on CI green).
+//   R1 = text-only judgment — a human/reviewer reads and approves the direction.
+// R2 gates are the moat: an enforced control, not a vibe. Surfacing the split lets
+// /gov-metrics measure how much of the pipeline is actually enforced vs prose.
+const R2_GATES = new Set(['qa', 'security', 'ship']);
+export function regimeOfGate(gate) { return R2_GATES.has(gate) ? 'R2' : 'R1'; }
+
 /**
  * Compose classify → effectiveGates for one change.
- * @returns {{tier:string, reasons:string[], escalatedFromLabel:(string|null), gates:string[]}}
+ * @returns {{tier:string, reasons:string[], escalatedFromLabel:(string|null), gates:string[], gateRegimes:Object, r2Share:number, judge:Object}}
  */
 export function planGates({ archetype, size, changedFiles, connectors, deployTarget, labels }) {
   const c = classify({ changedFiles, connectors, deployTarget, labels });
@@ -49,7 +58,10 @@ export function planGates({ archetype, size, changedFiles, connectors, deployTar
   // ADR-004: the per-change plan also says which judge model to use (cheap on T0/T1,
   // frontier + human on T2). Same tier, two consequences — gates and judge.
   const judge = selectJudgeModel(c.tier);
-  return { tier: c.tier, reasons: c.reasons, escalatedFromLabel: c.escalatedFromLabel, gates, judge };
+  const gateRegimes = Object.fromEntries(gates.map((g) => [g, regimeOfGate(g)]));
+  const r2 = gates.filter((g) => regimeOfGate(g) === 'R2').length;
+  const r2Share = gates.length ? Math.round((100 * r2) / gates.length) : 0;
+  return { tier: c.tier, reasons: c.reasons, escalatedFromLabel: c.escalatedFromLabel, gates, gateRegimes, r2Share, judge };
 }
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
@@ -99,7 +111,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       `archetype=${archetype} size=${size}\n` +
       `tier=${result.tier}${esc}\n` +
       `reasons: ${result.reasons.join(', ')}\n` +
-      `gates:   ${result.gates.length ? result.gates.join(', ') : '(none — CI is the gate)'}\n` +
+      `gates:   ${result.gates.length ? result.gates.map((g) => `${g}[${result.gateRegimes[g]}]`).join(', ') : '(none — CI is the gate)'}\n` +
+      `regime:  R2-mechanical ${result.r2Share}% · R1-textual ${100 - result.r2Share}%\n` +
       `judge:   ${result.judge.model}${result.judge.human ? ' + human' : ''}\n`,
     );
   }
