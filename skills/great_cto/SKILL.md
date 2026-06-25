@@ -33,8 +33,6 @@ pipeline gets bypassed.
 | GDPR, EU AI Act, NIS2, EU data residency, DSGVO, data subject rights, DPO, DPIA, cookie consent, ePrivacy | `gdpr-reviewer` |
 | CCPA, CPRA, US state privacy, FTC Act, do not sell, California residents, COPPA, GLBA | `us-privacy-reviewer` |
 | DPDPA, India personal data, DPDPA 2023, Aadhaar, RBI data localisation, MeitY, Indian users | `dpdpa-reviewer` |
-| Clinical / SaMD / FDA / FHIR / PHI / HIPAA | `ai-clinical-reviewer`, `fda-reviewer` |
-| Wearable telemetry, HealthKit, Health Connect, Garmin, Samsung Health, fitness AI, mental health AI, nutrition AI, supplement AI, physician HITL | `digital-health-reviewer` |
 | HR-AI, hiring, AEDT, resume screening, NYC LL 144 | `hr-ai-reviewer` |
 | EdTech: COPPA, FERPA, GDPR-K, Section 508 | `edtech-reviewer` |
 | Gov/public: FedRAMP, NIST 800-53, CJIS, FIPS 140-3 | `gov-reviewer` |

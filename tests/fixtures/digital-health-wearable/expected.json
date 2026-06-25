@@ -1,5 +1,0 @@
-{
-  "archetype": "ai-system",
-  "packs": ["clinical-pack", "digital-health-pack"],
-  "skipIfFails": false
-}

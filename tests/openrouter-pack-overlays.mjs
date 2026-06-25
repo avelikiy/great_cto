@@ -46,14 +46,6 @@ const PACKS = {
     task: 'Build POST /call/handle for Twilio voice IVR. Capture user speech via Deepgram STT, generate TTS reply via ElevenLabs cloned voice. Persist call transcripts to S3.',
     expectedBlocked: ['tcpa', 'consent', 'disclosure', 'synth', 'pii', 'redact', 'biometric'],
   },
-  'clinical-pack': {
-    baseArchetype: 'healthcare',
-    baseReviewer: 'healthcare-reviewer',
-    packReviewers: ['ai-clinical-reviewer', 'fda-reviewer'],
-    feature: 'clinical-decision-support',
-    task: 'POST /cds/dose-suggest endpoint: reads patient EHR (age, weight, comorbidities), suggests drug dosage. Used by clinicians during rounds.',
-    expectedBlocked: ['samd', 'class', 'fda', 'clinical', 'validation', 'premarket', '510k'],
-  },
   'hr-ai-pack': {
     baseArchetype: 'ai-system',
     baseReviewer: 'ai-security-reviewer',
@@ -69,22 +61,6 @@ const PACKS = {
     feature: 'public-widget-api',
     task: 'Public API: POST /v1/widgets, GET /v1/widgets/{id}. OpenAPI 3.1 spec. API-key auth. Webhooks for widget.created events. Rate limit 100/min/key.',
     expectedBlocked: ['version', 'deprecation', 'webhook', 'signature', 'sign', 'breaking', 'idempot'],
-  },
-  'clinical-trials-pack': {
-    baseArchetype: 'healthcare',
-    baseReviewer: 'healthcare-reviewer',
-    packReviewers: ['clinical-trials-reviewer', 'bio-data-reviewer'],
-    feature: 'edc-vitals-capture',
-    task: 'Electronic Data Capture endpoint: clinician records subject vitals (BP, HR, temp) per CDISC SDTM. eConsent signature collected. Data pushed to CTMS nightly.',
-    expectedBlocked: ['part-11', 'part11', 'e-signature', 'esignature', 'irb', 'protocol', 'deidentif', 'audit-trail', 'validated'],
-  },
-  'digital-health-pack': {
-    baseArchetype: 'healthcare',
-    baseReviewer: 'healthcare-reviewer',
-    packReviewers: ['digital-health-reviewer', 'ai-clinical-reviewer', 'healthcare-reviewer'],
-    feature: 'symptom-triage-chatbot',
-    task: 'POST /triage endpoint: a consumer health app chatbot reads symptoms and returns a care recommendation (self-care / see a doctor / ER). Logs PHI to analytics.',
-    expectedBlocked: ['samd', 'fda', 'clinical', 'phi', 'hipaa', 'disclaimer', 'medical advice', 'validation', 'safety'],
   },
   'adtech-privacy-pack': {
     baseArchetype: 'agent-product',

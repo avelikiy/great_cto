@@ -247,11 +247,8 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | Pack | Reviewer(s) | Triggers on | Base archetypes | Human gates added |
 |---|---|---|---|---|
 | `voice-pack` | voice-ai-reviewer | twilio, vonage, livekit, deepgram, elevenlabs, ivr, telephony, tts/stt | ai-system, agent-product | gate:voice-compliance |
-| `clinical-pack` | ai-clinical-reviewer + fda-reviewer | clinical, patient, EHR/EMR, PHI, diagnosis, SaMD, CDS, scribe, telehealth-AI | ai-system, agent-product, regulated | gate:samd-class, gate:clinical-validation, gate:ide-approval |
 | `hr-ai-pack` | hr-ai-reviewer | recruit, hiring, candidate, resume, interview, ATS, performance review, workforce scheduling | ai-system, agent-product, enterprise | gate:aedt-audit |
 | `api-platform-pack` | api-platform-reviewer | public API, partner API, REST, GraphQL, gRPC, webhook, SDK, OpenAPI, dev portal | devtools, library, ai-system, agent-product, web-service | gate:api-contract |
-| `clinical-trials-pack` | clinical-trials-reviewer + bio-data-reviewer | clinical trial, CTMS, EDC, eCOA, ePRO, eConsent, FHIR, HL7, OMOP, DICOM, genomics | regulated, ai-system, data-platform | gate:irb-ready, gate:part11-validation, gate:deidentification |
-| `digital-health-pack` | digital-health-reviewer + ai-clinical-reviewer + healthcare-reviewer | wearable, biometric, HealthKit, Health Connect, Garmin, Samsung Health, Fitbit, Whoop, Oura, HRV, sleep tracking, mental health AI, nutrition/supplement AI, physician HITL, RPM, DTx | ai-system, agent-product, regulated, mobile-app | gate:wellness-vs-samd, gate:hitl-design, gate:wearable-api-access, gate:supplement-safety, gate:mental-health-protocol |
 
 ### Activation logic
 
@@ -268,17 +265,6 @@ Overlays are loaded by `architect` when running discovery:
 | Gate | Set by | Cleared by | Triggered when |
 |---|---|---|---|
 | `gate:voice-compliance` | voice-ai-reviewer | regulatory lead | voice pack active |
-| `gate:samd-class` | fda-reviewer | regulatory + clinical lead | SaMD signal |
-| `gate:clinical-validation` | ai-clinical-reviewer | clinical lead | clinical-AI scope |
-| `gate:ide-approval` | fda-reviewer | regulatory + sponsor | PMA path, clinical trial scope |
 | `gate:aedt-audit` | hr-ai-reviewer | independent auditor | NYC LL 144 in scope (annual) |
 | `gate:api-contract` | api-platform-reviewer | architect + DX-lead | before v1 GA |
-| `gate:irb-ready` | clinical-trials-reviewer | clinical lead + regulatory | before IRB submission |
-| `gate:part11-validation` | clinical-trials-reviewer | independent QA lead | before production go-live |
-| `gate:deidentification` | bio-data-reviewer | statistical expert | when Expert Determination is used |
-| `gate:wellness-vs-samd` | digital-health-reviewer | architect + regulatory lead | after wellness-vs-SaMD classification |
-| `gate:hitl-design` | digital-health-reviewer | architect + clinical lead | HITL physician workflow in scope |
-| `gate:wearable-api-access` | digital-health-reviewer | product lead | wearable platform API integration |
-| `gate:supplement-safety` | digital-health-reviewer | senior-dev + medical advisor | supplement / nutrition recommendation feature |
-| `gate:mental-health-protocol` | digital-health-reviewer | clinical lead + QA | mental-health / behavioural-health component |
 

@@ -162,11 +162,8 @@ for (const fixture of fixtures) {
   // Map pack → TM slug (same naming convention as in pack-overlay files)
   const PACK_TM_MAP = {
     'voice-pack': ['TM-voice'],
-    'clinical-pack': ['TM-clinical', 'TM-samd'],
     'hr-ai-pack': ['TM-hrai'],
     'api-platform-pack': ['TM-api'],
-    'clinical-trials-pack': ['TM-trial', 'TM-biodata'],
-    'digital-health-pack': ['TM-digital-health'],
   };
   for (const pm of matched) {
     for (const tmSlug of (PACK_TM_MAP[pm.pack] || [])) {
@@ -218,7 +215,7 @@ for (const fixture of fixtures) {
 
 // ── Standalone checks: pack registry completeness ────────────────────────────
 console.log(`${C.bold}${C.cyan}━━ Pack registry completeness${C.reset}`);
-const EXPECTED_PACK_COUNT = 8;
+const EXPECTED_PACK_COUNT = 5;
 const allPacks = listPacks();
 console.log(`  ${ok(`listPacks() returns ${allPacks.length} packs`)} ${dim(allPacks.join(', '))}`);
 totalAssertions++;

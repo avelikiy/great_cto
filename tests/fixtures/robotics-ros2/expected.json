@@ -1,5 +1,0 @@
-{
-  "archetype": "agent-product",
-  "packs": ["clinical-pack"],
-  "skipIfFails": false
-}

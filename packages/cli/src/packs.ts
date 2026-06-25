@@ -12,11 +12,8 @@ import type { DetectionResult } from "./detect.js";
 
 export type PackName =
   | "voice-pack"
-  | "clinical-pack"
   | "hr-ai-pack"
   | "api-platform-pack"
-  | "clinical-trials-pack"
-  | "digital-health-pack"
   | "adtech-privacy-pack"
   | "us-ai-pack";
 
@@ -31,22 +28,16 @@ export interface PackMatch {
 // skills/great_cto/packs/*-pack.md.
 const PACK_REVIEWERS: Record<PackName, string[]> = {
   "voice-pack":            ["voice-ai-reviewer"],
-  "clinical-pack":         ["ai-clinical-reviewer", "fda-reviewer"],
   "hr-ai-pack":            ["hr-ai-reviewer"],
   "api-platform-pack":     ["api-platform-reviewer"],
-  "clinical-trials-pack":  ["clinical-trials-reviewer", "bio-data-reviewer"],
-  "digital-health-pack":   ["digital-health-reviewer", "ai-clinical-reviewer", "healthcare-reviewer"],
   "adtech-privacy-pack":   ["adtech-privacy-reviewer", "us-privacy-reviewer"],
   "us-ai-pack":            ["us-ai-reviewer"],
 };
 
 const PACK_GATES: Record<PackName, string[]> = {
   "voice-pack":            ["gate:voice-compliance"],
-  "clinical-pack":         ["gate:samd-class", "gate:clinical-validation", "gate:ide-approval"],
   "hr-ai-pack":            ["gate:aedt-audit"],
   "api-platform-pack":     ["gate:api-contract"],
-  "clinical-trials-pack":  ["gate:irb-ready", "gate:part11-validation", "gate:deidentification"],
-  "digital-health-pack":   ["gate:wellness-vs-samd", "gate:hitl-design", "gate:wearable-api-access", "gate:supplement-safety", "gate:mental-health-protocol"],
   "adtech-privacy-pack":   ["gate:tracking-consent"],
   "us-ai-pack":            ["gate:ai-governance"],
 };
@@ -57,10 +48,6 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
     stack: ["twilio", "vonage", "livekit", "deepgram", "elevenlabs", "whisper", "hume"],
     keywords: ["voice", "telephony", "ivr", "call-center", "tts", "stt", "speech-to-text", "text-to-speech", "phone", "outbound call", "inbound call", "voice agent"],
   },
-  "clinical-pack": {
-    stack: ["fhir", "hl7"],
-    keywords: ["clinical", "patient", "ehr", "emr", "phi", "hipaa", "diagnos", "triage", "radiolog", "patholog", "samd", "scribe", "telehealth-ai", "medical record", "cds", "clinical decision support"],
-  },
   "hr-ai-pack": {
     stack: ["greenhouse", "lever", "ashby", "workday"],
     // "candidate" alone is too generic (SaMD/predicate-candidate clash); use compound terms.
@@ -69,31 +56,6 @@ const SIGNALS: Record<PackName, { stack: string[]; keywords: string[] }> = {
   "api-platform-pack": {
     stack: ["openapi", "graphql", "grpc", "fastify", "trpc"],
     keywords: ["public api", "partner api", "developer portal", "api key", "webhook", "sdk", "rest api", "graphql api", "openapi"],
-  },
-  "clinical-trials-pack": {
-    stack: ["fhir", "hl7", "dicom", "redcap"],
-    // "ecoa" removed: ambiguous with lending ECOA (Reg B). Other clinical-trial
-    // signals (ctms, edc, epro, econsent, cdisc, irb, ...) are unambiguous.
-    keywords: ["clinical trial", "ctms", "edc", "epro", "econsent", "esource", "randomization", "rtsm", "irt", "decentralized trial", "ind submission", "21 cfr 11", "cdisc", "sdtm", "adam", "irb"],
-  },
-  "digital-health-pack": {
-    stack: ["healthkit", "health-connect", "garmin-connect-iq", "samsung-health", "fitbit", "polar", "withings", "oura", "whoop"],
-    keywords: [
-      // wearable / biometric
-      "wearable", "apple watch", "apple health", "healthkit", "health connect", "garmin", "samsung health",
-      "google fit", "fitbit", "heart rate", "hrv", "heart rate variability", "spo2", "sleep tracking",
-      "sleep stages", "biometric sensor", "stress score", "activity tracking", "ecg wearable",
-      // mental health / wellness AI
-      "mental health", "mental wellness", "wellbeing", "mindfulness ai", "stress detection",
-      "burnout detection", "mood tracking", "anxiety ai", "depression ai", "phq-9", "gad-7",
-      "digital therapeutics", "dtx", "cbt app", "dbt app", "therapy ai",
-      // fitness / nutrition AI
-      "personalised training", "personalized training", "fitness ai", "nutrition ai",
-      "supplement recommendation", "supplement ai", "diet ai", "meal plan ai", "macro ai",
-      // HITL clinical
-      "physician review", "physician hitl", "doctor in the loop", "clinical review workflow",
-      "remote patient monitoring", "rpm", "teleconsultation",
-    ],
   },
   "adtech-privacy-pack": {
     stack: ["fbevents", "facebook-pixel", "meta-pixel", "gtag", "ga4", "google-tag-manager", "gtm", "tiktok-pixel", "fullstory", "hotjar", "logrocket", "mouseflow", "smartlook"],

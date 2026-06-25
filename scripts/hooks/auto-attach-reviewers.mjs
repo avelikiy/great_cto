@@ -42,8 +42,6 @@ const RULES = [
   { reviewer: "mobile-store-reviewer",   pattern: /(play[_-]?store|app[_-]?store|fastlane|iap|in_app_purchase|store_listing|aab$|ipa$)/i },
   { reviewer: "api-platform-reviewer",   pattern: /(openapi\.|swagger|graphql\.schema|webhooks?\.|rfc7807|sunset_header)/i },
   { reviewer: "voice-ai-reviewer",       pattern: /(twilio|vonage|livekit|deepgram|elevenlabs|ivr|tcpa|stir.shaken)/i },
-  { reviewer: "ai-clinical-reviewer",    pattern: /(samd|phi[._-]|hipaa|hl7|fhir|cdss|clinical_decision)/i },
-  { reviewer: "fda-reviewer",            pattern: /(510k|de_novo|pma|gmlp|fda.submission)/i },
   { reviewer: "hr-ai-reviewer",          pattern: /(aedt|ny.?city.?ll.?144|resume_screen|hiring|interview_ai)/i },
   { reviewer: "edtech-reviewer",         pattern: /(coppa|ferpa|student[_-]?(data|pii)|sopipa)/i },
   { reviewer: "gov-reviewer",            pattern: /(fedramp|nist.?800.?53|cjis|fips.?140|fisma|ssp\.md|vpat)/i },
