@@ -92,8 +92,11 @@ lives ONLY in the workspace — you start with no memory of prior iterations.
 2. Make the SMALLEST safe increment of real progress on the next open task —
    follow the normal great_cto pipeline and its gates. Do not skip reviewers.
 3. Run the relevant tests. Do not leave the tree broken.
-4. Rewrite `.great_cto/HANDOFF.md`: what you changed (files), what's verified,
-   the single next step. This is the only thing the next iteration will see.
+4. Rewrite `.great_cto/HANDOFF.md` as a SHORT pruned map (architect-loop R1): what
+   you changed (files), what's verified, the single next step. Prune stale entries
+   every iteration — it's a table of contents, not a log; detail lives in linked
+   plan/gate/lane files and git history. Not in the repo = didn't happen. This is
+   the only thing the next iteration will see.
 5. If there is genuinely nothing left to do (all gates closed, tests green,
    nothing open in `/inbox`), create `STOP.md` with a one-line reason so the
    loop exits cleanly. Never create STOP.md just because the task is hard.
