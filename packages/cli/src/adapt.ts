@@ -189,8 +189,6 @@ using it for pattern-matched work silently skips specialist review.
 | Play Store, App Store, iOS/Android release | \`mobile-store-reviewer\` |
 | API contract: OpenAPI, GraphQL schema, webhook signatures | \`api-platform-reviewer\` |
 | Voice/IVR/telephony, Twilio, recording-consent, TCPA | \`voice-ai-reviewer\` |
-| Clinical / SaMD / FDA / FHIR / PHI | \`ai-clinical-reviewer\`, \`fda-reviewer\` |
-| Wearable telemetry, HealthKit, Health Connect, Garmin, Samsung Health, fitness AI, mental health AI, nutrition AI, supplement AI, physician HITL | \`digital-health-reviewer\` |
 | HR-AI, hiring, AEDT, resume screening | \`hr-ai-reviewer\` |
 | Infra-as-code: Terraform / Helm / CDK / Pulumi | \`infra-reviewer\` |
 | Performance regression, hot path, p99 budgets | \`performance-engineer\` |

@@ -854,32 +854,12 @@ function mineReadmeKeywords(dir: string): string[] {
     // voice-pack
     "voice", "telephony", "ivr", "tts", "stt", "speech-to-text", "text-to-speech",
     "outbound call", "inbound call", "voice agent",
-    // clinical-pack + clinical-trials-pack
-    "clinical", "patient", "ehr", "emr", "phi", "diagnosis", "diagnos", "triage",
-    "radiolog", "patholog", "samd", "scribe", "telehealth-ai", "medical record",
-    "cds", "clinical decision support",
-    "clinical trial", "ctms", "edc", "epro", "econsent", "esource",
-    "randomization", "rtsm", "irt", "decentralized trial", "ind submission",
-    "21 cfr 11", "cdisc", "sdtm", "adam", "irb",
     // hr-ai-pack
     "recruit", "hiring", "candidate", "resume", "interview", "ats", "talent acquisition",
     "performance review", "workforce scheduling", "employee evaluation", "aedt",
     // api-platform-pack
     "public api", "partner api", "developer portal", "api key", "webhook", "sdk",
     "rest api", "graphql api", "openapi",
-    // digital-health-pack (Wave 4) — keep in sync with packs.ts SIGNALS.keywords
-    "wearable", "apple watch", "apple health", "healthkit", "health connect",
-    "garmin", "samsung health", "google fit", "fitbit", "heart rate", "hrv",
-    "heart rate variability", "spo2", "sleep tracking", "sleep stages",
-    "biometric sensor", "stress score", "activity tracking", "ecg wearable",
-    "mental health", "mental wellness", "wellbeing", "mindfulness ai",
-    "stress detection", "burnout detection", "mood tracking", "anxiety ai",
-    "depression ai", "phq-9", "gad-7", "digital therapeutics", "dtx",
-    "cbt app", "dbt app", "therapy ai", "personalised training",
-    "personalized training", "fitness ai", "nutrition ai",
-    "supplement recommendation", "supplement ai", "diet ai", "meal plan ai",
-    "macro ai", "physician review", "physician hitl", "doctor in the loop",
-    "clinical review workflow", "remote patient monitoring", "rpm", "teleconsultation",
     // US-market packs — keep in sync with packs.ts SIGNALS.keywords
     // adtech-privacy-pack
     "meta pixel", "facebook pixel", "fbevents", "conversions api", "capi",

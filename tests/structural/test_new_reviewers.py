@@ -37,12 +37,8 @@ PLUGIN_JSON = ROOT / ".claude-plugin" / "plugin.json"
 # pack may be None if the reviewer has no domain-specific pack overlay yet.
 NEW_REVIEWERS: list[tuple[str, str, str | None, str | None]] = [
     ("voice-ai-reviewer",                "voice",    "voice-pack",            "voice-compliance"),
-    ("ai-clinical-reviewer",             "clinical", "clinical-pack",         "clinical-compliance"),
-    ("fda-reviewer",                     "samd",     "clinical-pack",         "samd-classify"),
     ("hr-ai-reviewer",                   "hrai",     "hr-ai-pack",            "aedt-bias-audit"),
     ("api-platform-reviewer",            "api",      "api-platform-pack",     "api-contract-review"),
-    ("clinical-trials-reviewer",         "trial",    "clinical-trials-pack",  "part11-audit"),
-    ("bio-data-reviewer",                "biodata",  "clinical-trials-pack",  "biodata-conformance"),
     ("legal-reviewer",                   "legal",    "legaltech-pack",        "upl-check"),
     ("rcm-reviewer",                     "rcm",      "rcm-pack",              "coding-audit"),
     ("procurement-reviewer",             "procurement", "procurement-pack",   "procurement-review"),

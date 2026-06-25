@@ -394,17 +394,15 @@ for (const p of suggestPacks(detect('.'))) console.log(p.pack);
 fi
 ```
 
-If `PACKS` is non-empty, write it to PROJECT.md as `packs: voice-pack, clinical-pack, …`. Each pack listed there triggers its reviewer chain at architect time and adds its human gates to the gate registry.
+If `PACKS` is non-empty, write it to PROJECT.md as `packs: voice-pack, …`. Each pack listed there triggers its reviewer chain at architect time and adds its human gates to the gate registry.
 
 **Available packs (v2.8):**
 
 | Pack | When auto-attached | Adds |
 |---|---|---|
 | `voice-pack` | telephony provider in stack (twilio/vonage/livekit/deepgram/elevenlabs/hume) OR voice/IVR/TTS/STT in README | voice-ai-reviewer + gate:voice-compliance |
-| `clinical-pack` | FHIR/HL7 in stack OR clinical/PHI/SaMD/CDS in README | ai-clinical + fda reviewer + gate:samd-class + gate:clinical-validation |
 | `hr-ai-pack` | greenhouse/lever/ashby/workday OR recruit/hiring/resume/AEDT in README | hr-ai-reviewer + gate:aedt-audit |
 | `api-platform-pack` | fastify/trpc/graphql/openapi in stack OR public-API/webhook/SDK in README | api-platform-reviewer + gate:api-contract |
-| `clinical-trials-pack` | FHIR/HL7/DICOM OR CTMS/EDC/eConsent/CDISC in README | clinical-trials + bio-data reviewer + gate:irb-ready + gate:part11-validation |
 
 **Manual override:** CTO can edit `packs:` in PROJECT.md at any time to opt in/out. To force-add a pack the detector missed, add the pack name and re-run `/audit` to refresh the reviewer chain.
 

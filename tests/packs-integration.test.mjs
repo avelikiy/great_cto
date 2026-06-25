@@ -65,7 +65,7 @@ test('packs: gate naming follows gate:<name> convention', () => {
   assert.ok(gateMatch, 'PACK_GATES const block not found in packs.ts');
 
   const gates = [...gateMatch[0].matchAll(/"(gate:[a-z0-9-]+)"/g)].map(m => m[1]);
-  assert.ok(gates.length >= 10, `Expected ≥10 pack gates, got ${gates.length}`);
+  assert.ok(gates.length >= 4, `Expected ≥4 pack gates, got ${gates.length}`);
 
   for (const gate of gates) {
     assert.match(gate, /^gate:[a-z][a-z0-9-]+$/,
@@ -100,9 +100,8 @@ test('packs: every fixture in tests/fixtures/ maps to a known archetype', async 
 
 test('packs: every pack reviewer has frontmatter + body', () => {
   const reviewerNames = [
-    'voice-ai-reviewer', 'ai-clinical-reviewer', 'fda-reviewer',
+    'voice-ai-reviewer',
     'hr-ai-reviewer', 'api-platform-reviewer',
-    'clinical-trials-reviewer', 'bio-data-reviewer',
   ];
 
   for (const name of reviewerNames) {
