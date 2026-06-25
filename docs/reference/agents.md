@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `agents/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**72 agents** · 27 core & specialists · 45 domain reviewers.
+**59 agents** · 27 core & specialists · 32 domain reviewers.
 
 ## Core pipeline & specialists
 
