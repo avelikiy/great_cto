@@ -210,6 +210,14 @@ For each task, determine:
 2. **Soft deps** — should complete before but non-blocking (flag as risk)
 3. **Parallel-safe** — can run concurrently with other tasks if they own disjoint files
 
+**Overlap-check before fan-out (mandatory, architect-loop R8).** Each parallel
+lane/task declares its file set. Before allocating them to concurrent senior-devs,
+verify the file sets are **disjoint** — pipe the lanes through
+`scripts/lib/check-lane-overlap.mjs` (`[{"lane":"A","files":[...]}, ...]`). If two
+lanes claim the same file, re-split so every file has exactly one owner, or run
+them sequentially. Two builders writing the same file in parallel = guaranteed
+lost work. Cap parallel lanes at 2–4 before coordination overhead dominates.
+
 Apply parallelism rules from `pm-planning.md`:
 - Schema/foundation tasks are almost always sequential (everything depends on them)
 - Independent feature modules (different routes, different UI pages) are parallel-safe
