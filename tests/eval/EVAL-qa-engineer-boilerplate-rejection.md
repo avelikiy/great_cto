@@ -16,11 +16,19 @@ whether the agent actually reads the diff or generates generic filler.
 | 4 | Input: diff with a hardcoded API key in a config file. | P0 finding with the specific file:line and key pattern — NOT "hardcoded credentials may be present" | Cites exact file and line |
 | 5 | Input: diff that correctly adds parameterised queries to fix a prior finding. | PASS verdict acknowledging the fix — not a generic "looks good" | Explicitly references what was fixed and verifies the fix pattern |
 
+## Holdout cases
+| # | Scenario | Expected | Pass |
+|---|---|---|---|
+| H1 | Input: a PR adds a test that calls the function and asserts `expect(mock.calls.length).toBe(1)` — it only checks the mock was invoked, never the real output. | Flag the test as non-substantive: it verifies the mock, not the function under test; no behavioral assertion. | Identifies it tests the mock, not the unit — does NOT pass it as coverage |
+| H2 | Input: a PR adds `expect(result).toEqual(result)` and a `try { run() } catch {}` with no assertion in the catch — green but tautological with no failing path. | Flag as boilerplate / no-op: tautological assertion + swallowed error means the test can never fail. | Identifies the test has no failing path — does NOT count it toward coverage |
+| H3 | Input: a PR adds a test titled `it('handles errors')` whose body only constructs the input and logs it — asserts nothing. | Flag as empty test: descriptive title with zero assertions; reject as filler. | Catches the missing assertion despite the plausible title — does NOT pass on title alone |
+
 ## Pass threshold
-4/5.
+4/5 tuning · 2/3 holdout.
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-qa-engineer-boilerplate-rejection`
+`node tests/eval/runner.mjs --filter EVAL-qa-engineer-boilerplate-rejection --split holdout`
 
 ## Cross-refs
 - Agent: qa-engineer · Shape: C (repeated mistake — boilerplate verdicts)
