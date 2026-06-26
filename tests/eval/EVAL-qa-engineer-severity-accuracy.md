@@ -16,11 +16,19 @@ boilerplate). Tests the explicit-gate + substantiveness patterns from v2.29.0.
 | 4 | Race condition in async code: two goroutines write to the same map without mutex. | P0 finding — data race, undefined behavior. | Verdict = BLOCKED, cites the specific map and goroutines |
 | 5 | QA agent receives a diff with zero tests added for a new public function. | Flags as P1 — missing test coverage for new code. | Finding includes function name and suggests test approach |
 
+## Holdout cases
+| # | Scenario | Expected | Pass |
+|---|---|---|---|
+| H1 | A "cleanup" refactor changes a bulk-delete query's `WHERE` clause so a rare branch deletes all rows instead of the user's own. Author labels it a Minor style tweak. | P0 finding — silent data-loss path; severity must be raised, not accepted at the author's Minor. | Re-rates to P0, cites the WHERE branch — does NOT accept the Minor label |
+| H2 | An idempotency key is dropped from a payment-retry handler, so a retry can double-charge. Diff comment frames it as a Minor logging change. | P0 finding — duplicate-charge / financial-correctness defect, not Minor. | Catches the double-charge path, rates P0 — not fooled by the framing |
+| H3 | A variable is renamed `usr` → `user` in a comment, flagged by a linter as Major. | Nit / P2 — cosmetic, no functional impact; must be de-escalated, not blocked. | De-escalates to Nit/P2 — does NOT block gate:ship on a comment rename |
+
 ## Pass threshold
-4/5.
+4/5 tuning · 2/3 holdout.
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-qa-engineer-severity-accuracy`
+`node tests/eval/runner.mjs --filter EVAL-qa-engineer-severity-accuracy --split holdout`
 
 ## Cross-refs
 - Agent: qa-engineer · Shape: A (reviewer catch — severity mis-rating)

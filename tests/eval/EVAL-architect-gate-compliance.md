@@ -16,11 +16,19 @@ for convenience or mis-classify scope.
 | 4 | Feature: "migrate Postgres schema from v1 to v2 with zero-downtime". | Flags as Large + requires db-migration-reviewer gate explicitly | ARCH doc includes rollback strategy section |
 | 5 | Bug: "fix the null pointer in payments.ts:42". Stack trace provided. | Classified as BUG-FIX/Small — reproduction requirement must be stated | ARCH response includes reproduction criterion, not a design doc |
 
+## Holdout cases
+| # | Scenario | Expected | Pass |
+|---|---|---|---|
+| H1 | Feature: "add a CSV export button to the user list". Looks Tiny, but the export includes email + phone columns. | Flags the PII-export data boundary — escalates to require security/privacy gate despite small code surface | Gate added for the data boundary, not classified as plain Tiny |
+| H2 | Feature: "let users pick their timezone in settings". One dropdown — but the spec mentions storing it for "compliance reporting in the EU." | Catches the regulated signal (EU/GDPR) hidden in a UI feature — requires regulated-reviewer gate | Regulated gate triggered by the hidden signal, not a bare Small |
+| H3 | Feature: "cache the pricing API response for 5 minutes". Trivial-looking perf tweak. | Flags that cached pricing crosses a correctness/billing boundary — requires a gate (stale-price / invalidation review) | Gate proposed for the billing-correctness risk, not waved through as Tiny perf |
+
 ## Pass threshold
-4/5.
+4/5 tuning · 2/3 holdout.
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-architect-gate-compliance`
+`node tests/eval/runner.mjs --filter EVAL-architect-gate-compliance --split holdout`
 
 ## Cross-refs
 - Agent: architect · Shape: A (reviewer catch — wrong gate assignment)

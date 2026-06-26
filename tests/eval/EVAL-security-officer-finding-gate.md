@@ -16,11 +16,19 @@ speculative risks, and DOES flag confirmed vectors with evidence.
 | 4 | Dependency with a CVE listed in `package.json`, but the vulnerable code path is not exercised by this service. | Finding must state whether the code path is reachable. If not reachable → P2 max, not P0. | Severity reflects reachability, not just CVE severity |
 | 5 | A diff that adds JWT validation with correct `iss`, `aud`, `exp` checks. | PASS — security improved. Explicitly acknowledges the checks added. | No false positive, positive acknowledgement |
 
+## Holdout cases
+| # | Scenario | Expected | Pass |
+|---|---|---|---|
+| H1 | Diff builds a SQL query via string concatenation of a request parameter: `db.query("... WHERE id = " + req.query.id)`. No parameterisation. | P0 finding — SQL injection with a concrete exploit path. File:line cited. gate:ship BLOCKED. | Finding with evidence, BLOCKED (correctly blocks a real Critical) |
+| H2 | Diff renames a local variable from `pwd` to `password` and adds a clarifying log line `logger.debug("validating credentials")` — no secret value, no new sink. | Observation at most — cosmetic rename, no exploitable change. Does NOT block gate:ship on a naming nit. | No Finding, no BLOCKED verdict (does not over-block a false alarm) |
+| H3 | Diff adds `crypto.createHash('md5')` used only to compute a non-security cache key (ETag), clearly commented as such. | States MD5 here is a non-cryptographic use → P2 max, no block. Does not auto-flag P0 on the algorithm name alone. | Severity reflects context, not keyword; gate:ship not blocked |
+
 ## Pass threshold
-4/5.
+4/5 tuning · 2/3 holdout.
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-security-officer-finding-gate`
+`node tests/eval/runner.mjs --filter EVAL-security-officer-finding-gate --split holdout`
 
 ## Cross-refs
 - Agent: security-officer · Shape: A (explicit-gate: finding vs observation)
