@@ -41,6 +41,21 @@ export function detectType(text) {
 export function compress(text, opts = {}) {
   const input = String(text);
   const type = opts.type || detectType(input);
+
+  // Opt-in headroom-MCP routing (great_cto-k9p, docs/compression/HEADROOM-MCP.md): when
+  // PROJECT.md sets `headroom: true` AND the headroom-ai MCP is installed, the caller injects
+  // opts.headroom (a compressor fn) for HEAVY blobs — AST / model weights / very large text.
+  // Never a default dependency: absent → native only. Must never break compression (fall through).
+  if (typeof opts.headroom === 'function' && (opts.heavy || input.length >= (opts.heavyBytes || 200_000))) {
+    try {
+      const r = opts.headroom(input, { type });
+      if (r && typeof r.compressed === 'string' && r.compressed.length < input.length) {
+        const a = r.compressed.length;
+        return { compressed: r.compressed, type: r.type || type, before: input.length, after: a, ratio: +(1 - a / input.length).toFixed(4), via: 'headroom' };
+      }
+    } catch { /* fall through to native — headroom never breaks the native path */ }
+  }
+
   let compressed = input;
 
   if (type === 'json') {
@@ -54,7 +69,7 @@ export function compress(text, opts = {}) {
 
   const before = input.length;
   const after = compressed.length;
-  return { compressed, type, before, after, ratio: before ? +(1 - after / before).toFixed(4) : 0 };
+  return { compressed, type, before, after, ratio: before ? +(1 - after / before).toFixed(4) : 0, via: 'native' };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
