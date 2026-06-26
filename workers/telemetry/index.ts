@@ -3,7 +3,7 @@
 // Endpoints:
 //   POST /v1/event      — accept one event, validate, drop IP, insert into D1
 //   GET  /v1/health     — liveness
-//   GET  /v1/stats      — public daily aggregates (no anon_id)
+//   GET  /v1/stats      — public daily aggregates + lifetime totals (no anon_id; ?days=all)
 //   GET  /v1/report     — weekly report data (?week=YYYY-WW) — aggregate-only JSON
 //                        used by scripts/weekly-telemetry.sh to render markdown.
 //                        No auth: same privacy promise as /v1/stats (no anon_id).
@@ -30,9 +30,10 @@ interface Env {
 }
 
 const ALLOWED_COMMANDS = new Set([
+  "install",                                  // first-run install ping (distinct from the init command)
   "init", "ci", "board", "console", "register",
   "adapt", "mcp", "report", "serve", "webhook", "upgrade",
-  "version", "help", "telemetry",
+  "version", "help", "telemetry", "task", "worker",
   // legacy commands kept so events from older installs still validate:
   "scan", "list-rules",
 ]);
@@ -111,16 +112,37 @@ async function handleEvent(req: Request, env: Env): Promise<Response> {
   return json({ ok: true });
 }
 
-async function handleStats(_req: Request, env: Env): Promise<Response> {
-  // Public aggregates — no anon_id. Last 30 days.
-  const rows = await env.DB.prepare(
-    `SELECT date, command, archetype, os, count, unique_ids
-     FROM daily_stats
-     WHERE date >= date('now', '-30 days')
-     ORDER BY date DESC, count DESC
-     LIMIT 1000`
+async function handleStats(req: Request, env: Env): Promise<Response> {
+  // Public aggregates — no anon_id, ever. Windowed daily rows (default 30d, ?days=all) PLUS a
+  // lifetime block. daily_stats is retained indefinitely with no anon_id, so all-time totals are
+  // anonymous by construction — raw events still expire at 30 days.
+  const url = new URL(req.url);
+  const daysParam = url.searchParams.get("days") || "30";
+  const all = daysParam === "all";
+  const days = all ? 0 : Math.max(1, Math.min(3650, parseInt(daysParam, 10) || 30));
+
+  const rows = all
+    ? await env.DB.prepare(
+        `SELECT date, command, archetype, os, count, unique_ids FROM daily_stats
+         ORDER BY date DESC, count DESC LIMIT 5000`).all()
+    : await env.DB.prepare(
+        `SELECT date, command, archetype, os, count, unique_ids FROM daily_stats
+         WHERE date >= date('now', ?) ORDER BY date DESC, count DESC LIMIT 5000`).bind(`-${days} days`).all();
+
+  // Lifetime totals (all-time): runs = sum of every daily slice; installs counted distinctly
+  // (legacy installs were logged as "init", surfaced separately so the history is honest).
+  const lifetime = await env.DB.prepare(
+    `SELECT SUM(count) AS total_runs,
+            SUM(CASE WHEN command = 'install' THEN count ELSE 0 END) AS installs,
+            SUM(CASE WHEN command IN ('install','init') THEN count ELSE 0 END) AS installs_incl_legacy_init,
+            MIN(date) AS since, MAX(date) AS until
+       FROM daily_stats`
+  ).first();
+  const byCommand = await env.DB.prepare(
+    `SELECT command, SUM(count) AS runs FROM daily_stats GROUP BY command ORDER BY runs DESC`
   ).all();
-  return json({ days: 30, rows: rows.results });
+
+  return json({ days: all ? "all" : days, lifetime: { ...lifetime, by_command: byCommand.results }, rows: rows.results });
 }
 
 // Parse ISO year-week (e.g., "2026-W19") into ISO 8601 Monday → next Monday UTC range.
@@ -188,7 +210,7 @@ async function handleReport(req: Request, env: Env): Promise<Response> {
   const archetypes = await env.DB.prepare(
     `SELECT archetype, COUNT(*) AS runs, COUNT(DISTINCT anon_id) AS users
        FROM events
-      WHERE received_at >= ? AND received_at < ? AND command = 'init'
+      WHERE received_at >= ? AND received_at < ? AND command IN ('init', 'install')
       GROUP BY archetype
       ORDER BY runs DESC`
   ).bind(range.from, range.to).all();
