@@ -168,7 +168,9 @@ async function send(evt: TelemetryEvent): Promise<void> {
 
 // --- Public API ------------------------------------------------------------
 
-/** First-run/install ping. Sent only when enabled. Idempotent across runs. */
+/** First-run/install ping. Sent only when enabled. Idempotent across runs.
+ *  Distinct `command: "install"` (was "init", which conflated installs with the
+ *  init subcommand) so lifetime installs are counted separately from init runs. */
 export async function sendInstallPing(opts: {
   cliVersion: string;
   archetype: string;
@@ -176,7 +178,7 @@ export async function sendInstallPing(opts: {
 }): Promise<void> {
   if (!opts.consent) return;
   if (!isTelemetryEnabled()) return;
-  const evt = sanitize({ cliVersion: opts.cliVersion, command: "init", archetype: opts.archetype });
+  const evt = sanitize({ cliVersion: opts.cliVersion, command: "install", archetype: opts.archetype });
   if (!evt) return;
   await send(evt);
 }
