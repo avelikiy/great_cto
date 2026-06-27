@@ -23,11 +23,10 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { callJudge, parseJudgeVerdict } from '../tests/eval/runner.mjs';
+import { callJudge, parseJudgeVerdict, pickProvider, modelFor } from '../tests/eval/runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_GOLD = join(__dirname, '..', 'tests', 'eval', 'judge-gold.jsonl');
-const DEFAULT_JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL || 'claude-opus-4-5';
 
 /** Parse a gold-set JSONL string into labelled records. */
 export function parseGold(text) {
@@ -79,19 +78,20 @@ function parseCli(argv) {
 
 async function main() {
   const opts = parseCli(process.argv.slice(2));
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) { console.error('ERROR: ANTHROPIC_API_KEY not set.'); process.exit(2); }
+  const { provider } = pickProvider();
+  if (!provider) { console.error('ERROR: set OPENROUTER_API_KEY (or ANTHROPIC_API_KEY).'); process.exit(2); }
   if (!existsSync(opts.gold)) { console.error(`ERROR: gold set not found: ${opts.gold}`); process.exit(2); }
 
   const gold = parseGold(readFileSync(opts.gold, 'utf8'));
   if (gold.length === 0) { console.error('ERROR: gold set empty / no labelled records.'); process.exit(2); }
 
-  console.log(`Judge calibration — ${gold.length} labelled cases · model ${DEFAULT_JUDGE_MODEL}`);
+  const judgeModel = modelFor('judge');
+  console.log(`Judge calibration — ${gold.length} labelled cases · ${provider} · model ${judgeModel}`);
   const records = [];
   for (const g of gold) {
     try {
       const res = await callJudge({
-        apiKey, judgeModel: DEFAULT_JUDGE_MODEL,
+        judgeModel,
         scenario: g.scenario || '', test: g.test || '',
         expected: g.expected || '', actorResponse: g.actorResponse || '',
       });

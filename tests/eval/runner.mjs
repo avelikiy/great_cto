@@ -8,17 +8,21 @@
 //                                whole learning loop measures sampling noise.
 //   Judge  (claude-opus-4-5)   — evaluates the actor's response against criteria
 //
+// Provider (same fallback as the rest of great_cto): OPENROUTER_API_KEY (default
+// path here) or ANTHROPIC_API_KEY (direct; wins if both set).
+//
 // Usage:
-//   export ANTHROPIC_API_KEY=sk-ant-...
+//   export OPENROUTER_API_KEY=sk-or-...               # or ANTHROPIC_API_KEY=sk-ant-...
 //   node tests/eval/runner.mjs                       # run all EVAL files
 //   node tests/eval/runner.mjs --agent security-officer --split holdout --samples 5
 //   node tests/eval/runner.mjs --agent security-officer --prompt-file cand.md --out cand.jsonl
 //   node tests/eval/runner.mjs --filter privacy      # only EVAL files matching "privacy"
 //   node tests/eval/runner.mjs --dry-run             # parse only, no API calls
 //
-// Env overrides:
-//   EVAL_ACTOR_MODEL  (default: claude-sonnet-4-5)
-//   EVAL_JUDGE_MODEL  (default: claude-opus-4-5)
+// Env overrides (model ids):
+//   EVAL_ACTOR_MODEL / EVAL_JUDGE_MODEL  — override regardless of provider
+//   OpenRouter defaults: anthropic/claude-sonnet-4 (override via GREAT_CTO_ROUTER_MODEL
+//     / GREAT_CTO_JUDGE_MODEL); Anthropic defaults: claude-sonnet-4-5 / claude-opus-4-5
 //
 // Output:
 //   tests/eval/results.jsonl          — latest run only (read by eval-gate)
@@ -265,57 +269,103 @@ export function resolveActorSystem({ promptFileBody, agentName }) {
 
 // ── Anthropic API caller (two-agent: Actor → Judge) ──────────────────────────
 
-const DEFAULT_ACTOR_MODEL = 'claude-sonnet-4-5';
-const DEFAULT_JUDGE_MODEL = 'claude-opus-4-5';
+// Provider-agnostic: try Anthropic-direct (ANTHROPIC_API_KEY) first, else OpenRouter
+// (OPENROUTER_API_KEY) — the same fallback the rest of great_cto uses
+// (scripts/generate-summary.mjs, scripts/memory-filter.mjs). Models are picked per
+// role + provider and overridable by env.
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
+const OPENROUTER_API = 'https://openrouter.ai/api/v1/chat/completions';
 
-/** Returns { text, usage, stopReason, model }. Throws on non-2xx. */
-async function callAnthropic({ apiKey, model, system, user, maxTokens = 300 }) {
-  const response = await fetch(ANTHROPIC_API, {
+const DEFAULT_ACTOR_MODEL_ANTHROPIC = 'claude-sonnet-4-5';
+const DEFAULT_JUDGE_MODEL_ANTHROPIC = 'claude-opus-4-5';
+const DEFAULT_ACTOR_MODEL_OPENROUTER = 'anthropic/claude-sonnet-4';
+const DEFAULT_JUDGE_MODEL_OPENROUTER = 'anthropic/claude-sonnet-4';
+
+/** Which provider to use, based on which key is present (Anthropic wins if both). */
+export function pickProvider(env = process.env) {
+  if (env.ANTHROPIC_API_KEY) return { provider: 'anthropic', apiKey: env.ANTHROPIC_API_KEY };
+  if (env.OPENROUTER_API_KEY) return { provider: 'openrouter', apiKey: env.OPENROUTER_API_KEY };
+  return { provider: null, apiKey: null };
+}
+
+/** Resolve the model for a role ('actor'|'judge') given the active provider + env overrides. */
+export function modelFor(role, env = process.env) {
+  const { provider } = pickProvider(env);
+  if (role === 'actor') {
+    if (env.EVAL_ACTOR_MODEL) return env.EVAL_ACTOR_MODEL;
+    return provider === 'openrouter'
+      ? (env.GREAT_CTO_ROUTER_MODEL || DEFAULT_ACTOR_MODEL_OPENROUTER)
+      : DEFAULT_ACTOR_MODEL_ANTHROPIC;
+  }
+  if (env.EVAL_JUDGE_MODEL) return env.EVAL_JUDGE_MODEL;
+  return provider === 'openrouter'
+    ? (env.GREAT_CTO_JUDGE_MODEL || env.GREAT_CTO_ROUTER_MODEL || DEFAULT_JUDGE_MODEL_OPENROUTER)
+    : DEFAULT_JUDGE_MODEL_ANTHROPIC;
+}
+
+/**
+ * One provider-agnostic completion. Returns a normalized
+ * { text, usage:{input_tokens,output_tokens}, stopReason, model } (usage keys
+ * are normalized so cost-meter works for both providers). Throws on non-2xx.
+ */
+async function callLlm({ model, system, user, maxTokens = 300 }) {
+  const { provider, apiKey } = pickProvider();
+  if (!provider) throw new Error('No ANTHROPIC_API_KEY or OPENROUTER_API_KEY set.');
+
+  if (provider === 'anthropic') {
+    const response = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION, 'content-type': 'application/json' },
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+    });
+    if (!response.ok) throw new Error(`Anthropic API ${response.status}: ${(await response.text()).slice(0, 200)}`);
+    const data = await response.json();
+    return { text: data.content?.[0]?.text?.trim() || '', usage: data.usage || null, stopReason: data.stop_reason || null, model };
+  }
+
+  // OpenRouter — OpenAI-compatible chat/completions; system folded into messages.
+  const response = await fetch(OPENROUTER_API, {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_VERSION,
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://greatcto.systems',
+      'X-Title': 'great_cto-evals',
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content: user }],
+      model, max_tokens: maxTokens, temperature: 0,
+      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
   });
-
-  if (!response.ok) {
-    const errBody = await response.text();
-    throw new Error(`Anthropic API ${response.status}: ${errBody.slice(0, 200)}`);
-  }
-
+  if (!response.ok) throw new Error(`OpenRouter API ${response.status}: ${(await response.text()).slice(0, 200)}`);
   const data = await response.json();
+  const u = data.usage || null;
   return {
-    text: data.content?.[0]?.text?.trim() || '',
-    usage: data.usage || null,
-    stopReason: data.stop_reason || null,
+    text: data.choices?.[0]?.message?.content?.trim() || '',
+    // normalize OpenAI-style usage keys → Anthropic-style for cost-meter
+    usage: u ? { input_tokens: u.prompt_tokens ?? 0, output_tokens: u.completion_tokens ?? 0 } : null,
+    stopReason: data.choices?.[0]?.finish_reason || null,
     model,
   };
 }
 
 /**
- * Step 1 — Actor (Sonnet): responds AS the agent under test.
+ * Step 1 — Actor: responds AS the agent under test.
  * `actorSystem` is the real agent body (or candidate prompt). Returns the raw call result.
  */
-async function callActor({ apiKey, actorModel, scenario, test, actorSystem }) {
+async function callActor({ actorModel, scenario, test, actorSystem }) {
   const user = `Scenario: ${scenario}\n\nTest case: ${test}\n\nProvide your agent response:`;
   // 600 tokens: agent bodies produce longer, structured responses than the old generic stub.
-  return callAnthropic({ apiKey, model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens: 600 });
+  return callLlm({ model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens: 600 });
 }
 
 /**
- * Step 2 — Judge (Opus): evaluates whether the actor's response meets the expected criteria.
+ * Step 2 — Judge: evaluates whether the actor's response meets the expected criteria.
  * 220 tokens: a one-line verdict + a full-sentence reason was being truncated at 120.
+ * `judgeModel` optional — defaults to the provider-appropriate judge model.
  */
-export async function callJudge({ apiKey, judgeModel, scenario, test, expected, actorResponse }) {
+export async function callJudge({ judgeModel, scenario, test, expected, actorResponse }) {
   const system =
     'You are an eval judge for great_cto, an AI-native engineering system. ' +
     'You receive a scenario, a test case, the expected behaviour, and the actual agent response. ' +
@@ -330,7 +380,7 @@ export async function callJudge({ apiKey, judgeModel, scenario, test, expected, 
     `Agent response: ${actorResponse}\n\n` +
     `Verdict (PASS or FAIL - reason):`;
 
-  return callAnthropic({ apiKey, model: judgeModel, system, user, maxTokens: 220 });
+  return callLlm({ model: judgeModel || modelFor('judge'), system, user, maxTokens: 220 });
 }
 
 export function parseJudgeVerdict(reply) {
@@ -357,7 +407,7 @@ function mean(arr) {
 // ── Runner core ──────────────────────────────────────────────────────────────
 
 /** Run a single EVAL file ONCE. Returns the per-run result (with cost). */
-async function runEvalFileOnce({ parsed, evalName, apiKey, actorModel, judgeModel, actorSystem, split }) {
+async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split }) {
   const selectedCases = selectCases(parsed, split);
   let passed = 0;
   let skipped = 0;
@@ -372,11 +422,11 @@ async function runEvalFileOnce({ parsed, evalName, apiKey, actorModel, judgeMode
     }
 
     try {
-      const actor = await callActor({ apiKey, actorModel, scenario: parsed.scenario, test: c.test, actorSystem });
+      const actor = await callActor({ actorModel, scenario: parsed.scenario, test: c.test, actorSystem });
       costUsd += costForUsage({ model: actor.model, usage: actor.usage });
 
       const judge = await callJudge({
-        apiKey, judgeModel,
+        judgeModel,
         scenario: parsed.scenario, test: c.test, expected: c.expected,
         actorResponse: actor.text,
       });
@@ -399,7 +449,7 @@ async function runEvalFileOnce({ parsed, evalName, apiKey, actorModel, judgeMode
 }
 
 /** Run an EVAL file `samples` times and aggregate (rate mean + stddev + flaky). */
-async function runEvalFile({ evalPath, evalName, apiKey, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1 }) {
+async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1 }) {
   let content;
   try {
     content = readFileSync(evalPath, 'utf8');
@@ -426,7 +476,7 @@ async function runEvalFile({ evalPath, evalName, apiKey, actorModel, judgeModel,
 
   const runs = [];
   for (let s = 0; s < samples; s++) {
-    runs.push(await runEvalFileOnce({ parsed, evalName, apiKey, actorModel, judgeModel, actorSystem, split }));
+    runs.push(await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split }));
   }
 
   const rates = runs.map(r => r.rate);
@@ -516,15 +566,16 @@ function gitSha() {
 async function main() {
   const { sample, dryRun, split, agent, filter, promptFile, samples, out } = parseArgs();
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!dryRun && !apiKey) {
-    console.error('ERROR: ANTHROPIC_API_KEY environment variable is not set.');
-    console.error('  Export it before running: export ANTHROPIC_API_KEY=sk-ant-...');
+  const { provider } = pickProvider();
+  if (!dryRun && !provider) {
+    console.error('ERROR: no LLM provider key set.');
+    console.error('  Set OPENROUTER_API_KEY (export OPENROUTER_API_KEY=sk-or-...) — or ANTHROPIC_API_KEY for direct Anthropic.');
+    console.error('  Optional model overrides: EVAL_ACTOR_MODEL, EVAL_JUDGE_MODEL, GREAT_CTO_ROUTER_MODEL.');
     process.exit(1);
   }
 
-  const actorModel = process.env.EVAL_ACTOR_MODEL || DEFAULT_ACTOR_MODEL;
-  const judgeModel = process.env.EVAL_JUDGE_MODEL || DEFAULT_JUDGE_MODEL;
+  const actorModel = modelFor('actor');
+  const judgeModel = modelFor('judge');
   const resultsPath = out ? (isAbsolute(out) ? out : join(process.cwd(), out)) : RESULTS_PATH;
 
   // Candidate prompt (overrides actor for ALL evals in this run)
@@ -592,7 +643,7 @@ async function main() {
   const runId = new Date().toISOString();
   const commit = gitSha();
 
-  console.log(`Evals Runner — two-agent mode`);
+  console.log(`Evals Runner — two-agent mode (${provider})`);
   console.log(`  Actor:  ${actorModel}`);
   console.log(`  Judge:  ${judgeModel}`);
   console.log(`  Files:  ${evalFiles.length}${sample > 0 ? ` (sample of ${sample})` : ''}${agent ? ` (agent=${agent})` : ''}`);
@@ -610,7 +661,7 @@ async function main() {
     const result = await runEvalFile({
       evalPath: join(EVAL_DIR, f),
       evalName: f,
-      apiKey, actorModel, judgeModel,
+      actorModel, judgeModel,
       dryRun: false, split,
       promptFileBody,
       agentOverride: agent,
