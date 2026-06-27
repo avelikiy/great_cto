@@ -32,7 +32,7 @@ jobs:
         run: python3 tests/structural/validate.py
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
       - name: Docs reference in sync with agents/commands
         run: node scripts/gen-docs-reference.mjs --check
       - name: Docs reference generator tests
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: packages/cli/package-lock.json
       - name: Install & build CLI
