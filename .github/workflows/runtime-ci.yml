@@ -1,0 +1,45 @@
+name: Runtime CI
+
+# Runs the test buckets that no other workflow covers:
+#   - repo-root tests/*.test.mjs  (board-gate, pipeline-*, product-owner-wiring, …)
+#   - tests/hooks/*.test.mjs      (PreToolUse / SubagentStop hook logic)
+#   - packages/board/*.test.mjs   (board push-adapter)
+# cli-ci's `tests/*.test.mjs` runs with working-directory packages/cli, so it only
+# sees packages/cli/tests — the repo-root and board tests were orphaned. These need
+# no external deps (node: builtins + relative imports only), so no npm ci.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/board/**"
+      - "workers/**"
+      - "tests/**"
+      - "scripts/**"
+      - "shared/**"
+      - "agents/**"
+      - "commands/**"
+      - ".github/workflows/runtime-ci.yml"
+  pull_request:
+    paths:
+      - "packages/board/**"
+      - "workers/**"
+      - "tests/**"
+      - "scripts/**"
+      - "shared/**"
+      - "agents/**"
+      - "commands/**"
+      - ".github/workflows/runtime-ci.yml"
+
+jobs:
+  runtime-tests:
+    name: Board + root integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run orphaned runtime tests (root + hooks + board)
+        run: node --test tests/*.test.mjs tests/hooks/*.test.mjs packages/board/*.test.mjs
