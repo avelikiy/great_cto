@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `agents/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**59 agents** · 27 core & specialists · 32 domain reviewers.
+**60 agents** · 27 core & specialists · 33 domain reviewers.
 
 ## Core pipeline & specialists
 
@@ -49,6 +49,7 @@ Overlay reviewers auto-loaded by archetype / compliance pack.
 | `cli-reviewer` | sonnet | HIGH | CLI tool pre-implementation reviewer. Specialises in shell-injection prevention (no shell, argv arrays only), CLI UX conventions (--help / --version / exit codes / --json mode / NO_COLOR), cross-platform path handling, secret redaction in --verbose, and dangerous-default detection. Outputs threat model TM-{slug}.md and signs off CLI surface decisions before senior-dev claims tasks. |
 | `cmmc-reviewer` | sonnet | HIGH | US defense-contractor (GovCon) pre-implementation reviewer. Specialises in CMMC 2.0 (Level 1 FCI / Level 2 NIST SP 800-171 110-control / Level 3), DFARS 252.204-7012 (safeguarding + 72-hour incident reporting to DoD + media preservation), CUI identification & marking, SPRS score + SSP/POA&M, ITAR/EAR export controls, Section 889 supply-chain ban, and FedRAMP-equivalence for cloud handling CUI. Outputs threat model TM-cmmc-{slug}.md and signs off the CMMC-assessment gate before senior-dev claims tasks. |
 | `cms-reviewer` | sonnet | HIGH | CMS / content-platform pre-implementation reviewer. Specialises in schema.org structured data, Core Web Vitals (LCP / INP / CLS), DMCA §512 safe-harbor workflow, UGC moderation (CSAM / NCMEC reporting / spam / hate-speech), image optimization (AVIF / WebP / responsive srcset), sitemap.xml + robots.txt + canonical hygiene, EU DSA Article 16 notice-and-action, and WCAG 2.2 AA. Outputs threat model TM-{slug}.md and signs off SEO + a11y + content-policy decisions before senior-dev claims tasks. |
+| `code-reviewer` | haiku | MEDIUM | Use after senior-dev completes a task and before gate:ship. One stable, human-grade reviewer (correctness, security, performance, readability) — replaces ad-hoc inline review forks. Reads the diff, files bugs in Beads, emits a verdict. |
 | `data-platform-reviewer` | sonnet | HIGH | Data-platform pre-implementation reviewer. Specialises in dbt model contracts, Spark / Airflow lineage, PII detection in driver logs, GDPR retention enforcement, BI dashboard SLOs, and SAR / DPIA readiness. Outputs threat model TM-{slug}.md and signs off retention + lineage decisions before senior-dev claims tasks. |
 | `db-migration-reviewer` | sonnet | HIGH | Database migration safety specialist. Activates when migrations/ files are detected in a PR or feature branch. Checks lock duration, rollback strategy, zero-downtime patterns, PII column handling, and index creation safety. Writes docs/migrations/MIGRATE-{slug}.md. Blocks deploy if no rollback path exists. |
 | `devtools-reviewer` | sonnet | HIGH | Devtools (CLI plugin / IDE extension / dev SDK) pre-implementation reviewer. Specialises in Sigstore signing + SLSA Level 3 provenance, OpenSSF Scorecard ≥ 7, telemetry-leak prevention (no paths / no usernames / no source), reproducible builds, and update-channel signature verification. Outputs threat model TM-{slug}.md and signs off supply-chain decisions before senior-dev claims tasks. |
