@@ -421,6 +421,18 @@ echo ""
 echo "DONE: $GP_ID approved. Pattern is now active."
 [ -n "$TARGET_AGENT" ] && echo "Next matching incident: Step 0 will surface it before investigation starts."
 [ -n "$TARGET_SKILL" ] && echo "Skill doc updated; agents that read this skill will see the new pattern next session."
+
+# Close the loop: back the claimed mttr_reduction with a MEASURED eval delta.
+# Not auto-run (evals cost real tokens) — print the two-command recipe instead.
+if [ -n "$TARGET_AGENT" ]; then
+  echo ""
+  echo "→ Measure the impact (DEEPEN W2.4 — backs the estimate with a real eval delta):"
+  echo "   node tests/eval/runner.mjs --agent $TARGET_AGENT --split holdout --samples 5 --out /tmp/base.jsonl"
+  echo "   # apply the pattern to a candidate prompt, then:"
+  echo "   node tests/eval/runner.mjs --agent $TARGET_AGENT --split holdout --samples 5 --prompt-file cand.md --out /tmp/cand.jsonl"
+  echo "   node scripts/lib/gp-eval-trace.mjs stamp --gp $GP_FILE --baseline /tmp/base.jsonl --candidate /tmp/cand.jsonl --agent $TARGET_AGENT --ke ${KE_ID:-?} --commit \$(git rev-parse --short HEAD)"
+  echo "   (variance-aware: a delta inside the noise band is stamped 'noisy', not an improvement)"
+fi
 ```
 
 ---
