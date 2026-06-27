@@ -220,6 +220,20 @@ export function parseThreshold(raw) {
   return null;
 }
 
+/**
+ * Resolve the threshold for the split being run. Dual-threshold strings like
+ * "5/5 tuning · 2/3 holdout" carry a per-split bar — running --split holdout must
+ * use 2/3, not the leading 5/5. Falls back to the single parseThreshold otherwise.
+ */
+export function thresholdForSplit(raw, split) {
+  if (!raw) return null;
+  if (split === 'holdout' || split === 'tuning') {
+    const m = raw.match(new RegExp('([0-9]+\\s*/\\s*[0-9]+|[≥>]?\\s*[0-9.]+\\s*%)\\s*' + split, 'i'));
+    if (m) return parseThreshold(m[1]);
+  }
+  return parseThreshold(raw);
+}
+
 // ── Actor prompt resolution ───────────────────────────────────────────────────
 
 const GENERIC_ACTOR_SYSTEM =
@@ -484,6 +498,8 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
   const rateStddev = stddev(rates);
   const totalCost = runs.reduce((a, r) => a + r.costUsd, 0);
   const last = runs[runs.length - 1];
+  // Use the threshold for THIS split (dual-threshold EVALs carry a per-split bar).
+  const threshold = thresholdForSplit(parsed.thresholdRaw, split);
 
   return {
     eval: evalName.replace(/\.md$/, ''),
@@ -500,9 +516,9 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     samples,
     flaky: rateStddev > 0.1,
     costUsd: round4(totalCost),
-    threshold: parsed.threshold,
+    threshold,
     thresholdRaw: parsed.thresholdRaw,
-    belowThreshold: parsed.threshold !== null && rateMean < parsed.threshold,
+    belowThreshold: threshold !== null && rateMean < threshold,
     ts: new Date().toISOString(),
     caseResults: last.caseResults,
   };

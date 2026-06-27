@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, stddev, pickProvider, modelFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, stddev, pickProvider, modelFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -46,6 +46,19 @@ test('parseThreshold: "All ≤ 200 ms p99; self-test verified." → null (non-nu
 
 test('parseThreshold: empty string → null', () => {
   assert.equal(parseThreshold(''), null);
+});
+
+test('thresholdForSplit: dual "5/5 tuning · 2/3 holdout" picks per-split bar', () => {
+  const raw = '5/5 tuning · 2/3 holdout.';
+  assert.equal(thresholdForSplit(raw, 'holdout'), 2 / 3);
+  assert.equal(thresholdForSplit(raw, 'tuning'), 1.0);
+  assert.equal(thresholdForSplit(raw, 'all'), 1.0); // first fraction fallback
+});
+
+test('thresholdForSplit: single-threshold string falls back to parseThreshold', () => {
+  assert.equal(thresholdForSplit('≥ 95%', 'holdout'), 0.95);
+  assert.equal(thresholdForSplit('3/5', 'tuning'), 0.6);
+  assert.equal(thresholdForSplit('', 'holdout'), null);
 });
 
 test('parseThreshold: "5/5." trailing period stripped → 1.0', () => {
