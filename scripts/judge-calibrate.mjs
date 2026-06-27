@@ -23,7 +23,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { callJudge, parseJudgeVerdict, pickProvider, modelFor } from '../tests/eval/runner.mjs';
+import { callJudge, parseJudgeVerdict, majorityVerdict, pickProvider, modelFor } from '../tests/eval/runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_GOLD = join(__dirname, '..', 'tests', 'eval', 'judge-gold.jsonl');
@@ -68,10 +68,11 @@ export function scoreJudge(records) {
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
 function parseCli(argv) {
-  const o = { gold: DEFAULT_GOLD, minAccuracy: 0.9 };
+  const o = { gold: DEFAULT_GOLD, minAccuracy: 0.9, votes: 1 };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--gold') o.gold = argv[++i];
     else if (argv[i] === '--min-accuracy') o.minAccuracy = parseFloat(argv[++i]);
+    else if (argv[i] === '--votes') { o.votes = parseInt(argv[++i], 10); if (isNaN(o.votes) || o.votes < 1) o.votes = 1; }
   }
   return o;
 }
@@ -86,17 +87,24 @@ async function main() {
   if (gold.length === 0) { console.error('ERROR: gold set empty / no labelled records.'); process.exit(2); }
 
   const judgeModel = modelFor('judge');
-  console.log(`Judge calibration — ${gold.length} labelled cases · ${provider} · model ${judgeModel}`);
+  console.log(`Judge calibration — ${gold.length} labelled cases · ${provider} · model ${judgeModel} · votes ${opts.votes}`);
   const records = [];
   for (const g of gold) {
     try {
-      const res = await callJudge({
-        judgeModel,
-        scenario: g.scenario || '', test: g.test || '',
-        expected: g.expected || '', actorResponse: g.actorResponse || '',
-      });
-      const verdict = parseJudgeVerdict(res.text);
-      records.push({ label: g.label, verdict, truncated: res.stopReason === 'max_tokens' });
+      const replies = [];
+      let truncated = false;
+      for (let v = 0; v < opts.votes; v++) {
+        const res = await callJudge({
+          judgeModel,
+          scenario: g.scenario || '', test: g.test || '',
+          expected: g.expected || '', passCriterion: g.pass || g.expected || '',
+          actorResponse: g.actorResponse || '',
+        });
+        replies.push(parseJudgeVerdict(res.text));
+        if (res.stopReason === 'max_tokens') truncated = true;
+      }
+      const verdict = majorityVerdict(replies);
+      records.push({ label: g.label, verdict, truncated });
       process.stdout.write(verdict === g.label ? '·' : 'X');
     } catch (err) {
       console.warn(`\n[WARN] judge call failed: ${err.message.slice(0, 80)}`);

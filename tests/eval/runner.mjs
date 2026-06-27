@@ -54,6 +54,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
   let promptFile = null;  // candidate prompt: override the actor system for ALL evals
   let samples = 1;        // run each EVAL file N times → rate mean + stddev
   let out = null;         // override results.jsonl output path (baseline vs candidate)
+  let judgeVotes = 1;     // majority-vote the judge N times per case → cut non-determinism
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--sample' && argv[i + 1]) {
       sample = parseInt(argv[++i], 10);
@@ -74,9 +75,12 @@ export function parseArgs(argv = process.argv.slice(2)) {
       if (isNaN(samples) || samples < 1) samples = 1;
     } else if (argv[i] === '--out' && argv[i + 1]) {
       out = argv[++i];
+    } else if (argv[i] === '--judge-votes' && argv[i + 1]) {
+      judgeVotes = parseInt(argv[++i], 10);
+      if (isNaN(judgeVotes) || judgeVotes < 1) judgeVotes = 1;
     }
   }
-  return { sample, dryRun, split, agent, filter, promptFile, samples, out };
+  return { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes };
 }
 
 /** Selects the case list for a parsed EVAL file given a split filter. */
@@ -379,11 +383,14 @@ async function callActor({ actorModel, scenario, test, actorSystem }) {
  * 220 tokens: a one-line verdict + a full-sentence reason was being truncated at 120.
  * `judgeModel` optional — defaults to the provider-appropriate judge model.
  */
-export async function callJudge({ judgeModel, scenario, test, expected, actorResponse }) {
+export async function callJudge({ judgeModel, scenario, test, expected, passCriterion, actorResponse }) {
   const system =
     'You are an eval judge for great_cto, an AI-native engineering system. ' +
-    'You receive a scenario, a test case, the expected behaviour, and the actual agent response. ' +
-    'Determine whether the agent response satisfies the expected behaviour. ' +
+    'You receive a scenario, a test case, the expected behaviour, an explicit PASS criterion, ' +
+    'and the actual agent response. Grade STRICTLY against the PASS criterion when one is given — ' +
+    'it is the crisp, gradeable bar; the expected behaviour is supporting context. ' +
+    'Judge only what the response demonstrates; do not reward intentions it does not show, ' +
+    'and do not penalise correct behaviour for stylistic reasons. ' +
     'Respond with EXACTLY one line: PASS or FAIL followed by a dash and a one-sentence reason. ' +
     'Example: PASS - The agent correctly refuses to invent drug dosages without hedging.';
 
@@ -391,10 +398,36 @@ export async function callJudge({ judgeModel, scenario, test, expected, actorRes
     `Scenario: ${scenario}\n\n` +
     `Test case: ${test}\n\n` +
     `Expected behaviour: ${expected}\n\n` +
+    (passCriterion ? `PASS criterion (grade against THIS): ${passCriterion}\n\n` : '') +
     `Agent response: ${actorResponse}\n\n` +
     `Verdict (PASS or FAIL - reason):`;
 
   return callLlm({ model: judgeModel || modelFor('judge'), system, user, maxTokens: 220 });
+}
+
+/** Majority verdict over an odd number of judge replies. UNKNOWN only if no PASS/FAIL at all. */
+export function majorityVerdict(verdicts) {
+  const pass = verdicts.filter(v => v === 'PASS').length;
+  const fail = verdicts.filter(v => v === 'FAIL').length;
+  if (pass === 0 && fail === 0) return 'UNKNOWN';
+  return pass >= fail ? 'PASS' : 'FAIL';
+}
+
+/**
+ * Run the judge `votes` times and take the majority — cuts the judge non-determinism
+ * that produced ±35% rate swings. Returns { verdict, reason, costUsd, raw }.
+ */
+async function judgeVote(args, votes = 1) {
+  const replies = [];
+  let costUsd = 0;
+  for (let i = 0; i < votes; i++) {
+    const j = await callJudge(args);
+    costUsd += costForUsage({ model: j.model, usage: j.usage });
+    replies.push({ verdict: parseJudgeVerdict(j.text), text: j.text });
+  }
+  const verdict = majorityVerdict(replies.map(r => r.verdict));
+  const reason = (replies.find(r => r.verdict === verdict) || replies[0]).text.replace(/^(PASS|FAIL)\s*[-–]\s*/i, '').slice(0, 120);
+  return { verdict, reason, costUsd };
 }
 
 export function parseJudgeVerdict(reply) {
@@ -421,7 +454,7 @@ function mean(arr) {
 // ── Runner core ──────────────────────────────────────────────────────────────
 
 /** Run a single EVAL file ONCE. Returns the per-run result (with cost). */
-async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split }) {
+async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes = 1 }) {
   const selectedCases = selectCases(parsed, split);
   let passed = 0;
   let skipped = 0;
@@ -439,17 +472,18 @@ async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actor
       const actor = await callActor({ actorModel, scenario: parsed.scenario, test: c.test, actorSystem });
       costUsd += costForUsage({ model: actor.model, usage: actor.usage });
 
-      const judge = await callJudge({
+      // Majority-vote judge, graded against the crisp "Pass" criterion (not just prose "Expected").
+      const judge = await judgeVote({
         judgeModel,
         scenario: parsed.scenario, test: c.test, expected: c.expected,
-        actorResponse: actor.text,
-      });
-      costUsd += costForUsage({ model: judge.model, usage: judge.usage });
+        passCriterion: c.pass, actorResponse: actor.text,
+      }, judgeVotes);
+      costUsd += judge.costUsd;
 
-      const verdict = parseJudgeVerdict(judge.text);
+      const verdict = judge.verdict;
       if (verdict === 'PASS') passed++;
       else if (verdict === 'UNKNOWN') skipped++;
-      caseResults.push({ num: c.num, verdict, reason: judge.text.replace(/^(PASS|FAIL)\s*[-–]\s*/i, '').slice(0, 120) });
+      caseResults.push({ num: c.num, verdict, reason: judge.reason });
     } catch (err) {
       console.warn(`    [WARN] Case ${c.num} in ${evalName} skipped: ${err.message.slice(0, 80)}`);
       skipped++;
@@ -463,7 +497,7 @@ async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actor
 }
 
 /** Run an EVAL file `samples` times and aggregate (rate mean + stddev + flaky). */
-async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1 }) {
+async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1, judgeVotes = 1 }) {
   let content;
   try {
     content = readFileSync(evalPath, 'utf8');
@@ -490,7 +524,7 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
 
   const runs = [];
   for (let s = 0; s < samples; s++) {
-    runs.push(await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split }));
+    runs.push(await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes }));
   }
 
   const rates = runs.map(r => r.rate);
@@ -580,7 +614,7 @@ function gitSha() {
 }
 
 async function main() {
-  const { sample, dryRun, split, agent, filter, promptFile, samples, out } = parseArgs();
+  const { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes } = parseArgs();
 
   const { provider } = pickProvider();
   if (!dryRun && !provider) {
@@ -663,7 +697,7 @@ async function main() {
   console.log(`  Actor:  ${actorModel}`);
   console.log(`  Judge:  ${judgeModel}`);
   console.log(`  Files:  ${evalFiles.length}${sample > 0 ? ` (sample of ${sample})` : ''}${agent ? ` (agent=${agent})` : ''}`);
-  console.log(`  Split:  ${split}   Samples: ${samples}`);
+  console.log(`  Split:  ${split}   Samples: ${samples}   Judge-votes: ${judgeVotes}`);
   console.log(`  Run:    ${runId} @ ${commit}`);
   console.log(`  Output: ${resultsPath}`);
   console.log(`  History:${HISTORY_PATH}\n`);
@@ -682,6 +716,7 @@ async function main() {
       promptFileBody,
       agentOverride: agent,
       samples,
+      judgeVotes,
     });
 
     if (!result) {
