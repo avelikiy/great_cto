@@ -27,7 +27,7 @@
 // Exits 1 if any EVAL file's pass rate is below its threshold.
 
 import { readdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { costForUsage, round4 } from '../../scripts/lib/cost-meter.mjs';
@@ -525,7 +525,7 @@ async function main() {
 
   const actorModel = process.env.EVAL_ACTOR_MODEL || DEFAULT_ACTOR_MODEL;
   const judgeModel = process.env.EVAL_JUDGE_MODEL || DEFAULT_JUDGE_MODEL;
-  const resultsPath = out ? join(process.cwd(), out) : RESULTS_PATH;
+  const resultsPath = out ? (isAbsolute(out) ? out : join(process.cwd(), out)) : RESULTS_PATH;
 
   // Candidate prompt (overrides actor for ALL evals in this run)
   const promptFileBody = loadPromptFile(promptFile);
