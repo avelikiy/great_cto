@@ -204,10 +204,16 @@ created: ${SOURCE_DATE}
 last_validated: ${SOURCE_DATE}
 source_ke: ${KE_ID}
 target_agents: [${TARGET_AGENT}]
-applicable_archetypes: []
+applies_to: [${APPLIES_TO}]
+stack_fingerprint: ${STACK}
+symptom: ${SYMPTOM}
+detection_order:
+  - ${BREAKTHROUGH_TOOL} — works where standard tools give false negatives
+  - Check stack-specific configuration fields (see Fix below)
+  - Standard diagnostic chain (only if the above are clean)
 confidence: ${CONFIDENCE}
 hits: 1
-mttr_reduction_estimate: ${MTTR_EST}
+mttr_reduction: ${MTTR_EST}
 ---
 
 ### ${GP_ID} — $(echo "$SLUG" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
@@ -302,7 +308,7 @@ ls "$GP_DIR"/GP-*.md 2>/dev/null | while read f; do
   STATUS=$(grep "^status:" "$f" | awk '{print $2}')
   HITS=$(grep "^hits:" "$f" | awk '{print $2}')
   TARGET=$(grep "^target_agents:" "$f" | sed "s/.*\[//;s/\].*//")
-  MTTR=$(grep "^mttr_reduction_estimate:" "$f" | sed "s/.*: //")
+  MTTR=$(grep "^mttr_reduction:" "$f" | sed "s/.*: //")
   printf '| %s | %s | %s | %s | %s | %s |\n' "$ID" "$SLUG" "$STATUS" "$HITS" "$TARGET" "$MTTR"
 done >> "$GP_DIR/INDEX.md"
 echo "INDEX.md updated"

@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold, splitSections, parseCasesTable, parseArgs, selectCases } from './runner.mjs';
+import { parseEvalFile, parseThreshold, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, stddev } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -306,4 +306,94 @@ test('parseArgs: invalid --split falls back to all', () => {
 
 test('parseArgs: default split is all', () => {
   assert.equal(parseArgs([]).split, 'all');
+});
+
+// ── DEEPEN Wave 1: actor-binding, agent parsing, samples, new flags ───────────
+
+const AGENT_EVAL = `# EVAL-security-officer-secrets.md
+
+> Agent: security-officer · Reviewer: cso
+
+## Scenario
+The security officer must block a deploy when a hardcoded secret is present.
+
+## Cases
+| # | Test | Expected | Pass |
+|---|---|---|---|
+| 1 | PR adds AWS key in source | Block + remediation | deploy blocked |
+
+## Holdout cases
+| # | Test | Expected | Pass |
+|---|---|---|---|
+| 2 | .env committed with token | Block + rotate guidance | deploy blocked |
+
+## Pass threshold
+≥ 95%
+`;
+
+test('parseEvalFile: parses "> Agent:" binding', () => {
+  const r = parseEvalFile(AGENT_EVAL, 'EVAL-security-officer-secrets.md');
+  assert.equal(r.agent, 'security-officer');
+});
+
+test('parseEvalFile: "> Pack:" file has agent === null', () => {
+  const r = parseEvalFile(SAMPLE_EVAL, 'EVAL-sample-test.md');
+  assert.equal(r.agent, null);
+  assert.equal(r.pack, 'test-pack');
+});
+
+test('parseEvalFile: agent EVAL still parses cases + holdout split', () => {
+  const r = parseEvalFile(AGENT_EVAL, 'EVAL-security-officer-secrets.md');
+  assert.equal(r.cases.length, 2);
+  assert.equal(r.holdoutCases.length, 1);
+  assert.equal(r.threshold, 0.95);
+});
+
+test('parseArgs: --agent / --filter / --prompt-file / --samples / --out', () => {
+  const a = parseArgs(['--agent', 'security-officer', '--filter', 'sec', '--prompt-file', '/tmp/c.md', '--samples', '5', '--out', 'cand.jsonl']);
+  assert.equal(a.agent, 'security-officer');
+  assert.equal(a.filter, 'sec');
+  assert.equal(a.promptFile, '/tmp/c.md');
+  assert.equal(a.samples, 5);
+  assert.equal(a.out, 'cand.jsonl');
+});
+
+test('parseArgs: --samples defaults to 1 and rejects < 1', () => {
+  assert.equal(parseArgs([]).samples, 1);
+  assert.equal(parseArgs(['--samples', '0']).samples, 1);
+  assert.equal(parseArgs(['--samples', 'abc']).samples, 1);
+});
+
+test('loadAgentPrompt: loads a real agent body, strips frontmatter', () => {
+  // architect.md exists in the repo and has YAML frontmatter
+  const body = loadAgentPrompt('architect');
+  assert.ok(body && body.length > 100, 'expected non-empty agent body');
+  assert.ok(!body.startsWith('---'), 'frontmatter should be stripped');
+});
+
+test('loadAgentPrompt: missing agent returns null', () => {
+  assert.equal(loadAgentPrompt('no-such-agent-xyz'), null);
+  assert.equal(loadAgentPrompt(null), null);
+});
+
+test('resolveActorSystem: prompt-file > agent > generic priority', () => {
+  assert.equal(resolveActorSystem({ promptFileBody: 'CANDIDATE', agentName: 'architect' }).source, 'prompt-file');
+  assert.equal(resolveActorSystem({ promptFileBody: null, agentName: 'architect' }).source, 'agent:architect');
+  assert.equal(resolveActorSystem({ promptFileBody: null, agentName: null }).source, 'generic');
+  assert.equal(resolveActorSystem({ promptFileBody: null, agentName: 'no-such-agent-xyz' }).source, 'generic');
+});
+
+test('parseJudgeVerdict: PASS / FAIL / UNKNOWN', () => {
+  assert.equal(parseJudgeVerdict('PASS - good'), 'PASS');
+  assert.equal(parseJudgeVerdict('FAIL - bad'), 'FAIL');
+  assert.equal(parseJudgeVerdict('The verdict is PASS'), 'PASS');
+  assert.equal(parseJudgeVerdict('nonsense'), 'UNKNOWN');
+});
+
+test('stddev: 0 for <2 samples, correct sample stddev otherwise', () => {
+  assert.equal(stddev([]), 0);
+  assert.equal(stddev([0.8]), 0);
+  assert.equal(stddev([1, 1, 1]), 0);
+  // sample stddev of [0.6, 1.0] = 0.2828...
+  assert.ok(Math.abs(stddev([0.6, 1.0]) - 0.282842) < 1e-4);
 });

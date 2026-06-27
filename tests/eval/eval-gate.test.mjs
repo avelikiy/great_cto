@@ -96,6 +96,39 @@ test('evaluateGate: multiple evals, one regression blocks the whole set', () => 
   assert.equal(g.improvements.length, 1);
 });
 
+// ── DEEPEN Wave 1: variance-aware regression (epsilon ≥ combined stddev) ──────
+
+test('evaluateGate: drop within combined stddev is noise, not a regression', () => {
+  // base 0.9 (σ=0.1), cand 0.78 (σ=0.1) → noiseBand 0.2; delta -0.12 < 0.2 → promote
+  const g = evaluateGate(
+    [r('a', 0.9, { stddev: 0.1 })],
+    [r('a', 0.78, { stddev: 0.1 })],
+  );
+  assert.equal(g.pass, true, 'drop inside the noise floor must not block');
+  assert.equal(g.regressions.length, 0);
+});
+
+test('evaluateGate: drop beyond combined stddev still blocks', () => {
+  // base 0.9 (σ=0.02), cand 0.6 (σ=0.02) → noiseBand 0.04; delta -0.30 → regression
+  const g = evaluateGate(
+    [r('a', 0.9, { stddev: 0.02 })],
+    [r('a', 0.6, { stddev: 0.02 })],
+  );
+  assert.equal(g.pass, false);
+  assert.equal(g.regressions.length, 1);
+  assert.ok(g.regressions[0].effectiveEpsilon >= 0.04);
+});
+
+test('evaluateGate: effectiveEpsilon is max(epsilon, noiseBand)', () => {
+  // epsilon 0.05 dominates a tiny noiseBand of 0.02; delta -0.04 → within → promote
+  const g = evaluateGate(
+    [r('a', 0.90, { stddev: 0.01 })],
+    [r('a', 0.86, { stddev: 0.01 })],
+    { epsilon: 0.05 },
+  );
+  assert.equal(g.pass, true);
+});
+
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
 function writeJsonl(rows) {

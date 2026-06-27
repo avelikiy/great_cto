@@ -94,6 +94,8 @@ tests/eval/*.jsonl
 tests/eval/*.csv
 tests/eval/test_*.py
 # tracked: tests/eval/EVAL-*.md (reference templates shipped with the plugin)
+# tracked: judge-gold.jsonl is a committed FIXTURE (judge-calibrate reads it), not a run artifact
+!tests/eval/judge-gold.jsonl
 docs/marketing/
 # Marketing pipeline — moved to private avelikiy/great_cto-site repo.
 # Never commit marketing/ contents to this public repo.

@@ -25,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need history for the changed-agents coverage diff
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -37,6 +39,19 @@ jobs:
         run: node scripts/gen-docs-reference.mjs --check
       - name: Docs reference generator tests
         run: node --test tests/docs/*.test.mjs
+      - name: Eval-infra unit tests (runner / gate / gp-schema / coverage / cost-meter)
+        run: node --test tests/eval/runner.test.mjs tests/eval/eval-gate.test.mjs tests/eval/gp-schema.test.mjs tests/eval/coverage-gate.test.mjs scripts/lib/cost-meter.test.mjs
+      - name: Agent → EVAL coverage gate (changed agents)
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          CHANGED=$(git diff --name-only "$BASE"...HEAD -- 'agents/*.md' | tr '\n' ' ')
+          if [ -n "$CHANGED" ]; then
+            echo "Changed agents: $CHANGED"
+            node scripts/coverage-gate.mjs --changed $CHANGED
+          else
+            echo "No agent files changed — coverage gate skipped."
+          fi
 
   archetype-e2e:
     name: Archetype detection e2e (23 fixtures)
