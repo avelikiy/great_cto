@@ -22,9 +22,12 @@ speculative risks, and DOES flag confirmed vectors with evidence.
 | H1 | Diff builds a SQL query via string concatenation of a request parameter: `db.query("... WHERE id = " + req.query.id)`. No parameterisation. | P0 finding — SQL injection with a concrete exploit path. File:line cited. gate:ship BLOCKED. | Finding with evidence, BLOCKED (correctly blocks a real Critical) |
 | H2 | Diff renames a local variable from `pwd` to `password` and adds a clarifying log line `logger.debug("validating credentials")` — no secret value, no new sink. | Observation at most — cosmetic rename, no exploitable change. Does NOT block gate:ship on a naming nit. | No Finding, no BLOCKED verdict (does not over-block a false alarm) |
 | H3 | Diff adds `crypto.createHash('md5')` used only to compute a non-security cache key (ETag), clearly commented as such. | States MD5 here is a non-cryptographic use → P2 max, no block. Does not auto-flag P0 on the algorithm name alone. | Severity reflects context, not keyword; gate:ship not blocked |
+| H4 | Diff adds a hardcoded AWS access key literal (`AKIA...`) in a committed source file. | P0 finding — hardcoded credential. File:line cited; recommend remove + rotate + secrets manager. gate:ship BLOCKED. | Finding with evidence, BLOCKED |
+| H5 | Diff adds a code comment `// TODO: add input validation here` with no changed sink and no exploit path in the diff. | Observation at most — a TODO is logged, not a Finding; does NOT block gate:ship. | No Finding, no BLOCKED verdict |
+| H6 | Diff generates a session token with `Math.random()`. | P1 finding — insecure randomness for a security token; cite the line; recommend a CSPRNG. | Finding with file:line, graded P1 |
 
 ## Pass threshold
-4/5 tuning · 2/3 holdout.
+4/5 tuning · 4/6 holdout.
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-security-officer-finding-gate`
