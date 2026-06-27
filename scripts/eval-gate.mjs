@@ -46,13 +46,19 @@ function indexByEval(results) {
  * Decide whether a candidate prompt may be promoted over the baseline.
  *
  * A candidate is BLOCKED if either:
- *   1. Regression — candidate.rate < baseline.rate - epsilon on any shared eval.
+ *   1. Regression — candidate.rate < baseline.rate - effectiveEpsilon on any shared eval.
  *   2. Below threshold — candidate.belowThreshold === true (or rate < threshold) on any eval.
+ *
+ * Variance-aware (DEEPEN-PIPELINE Wave 1): with n=1 the runner produced a single
+ * coin-flip rate and epsilon=0 read any downward jitter as a hard regression. When
+ * results carry a `stddev` (from runner --samples N), the tolerated drop is widened
+ * to at least the combined sampling noise: effectiveEpsilon = max(epsilon, σ_base + σ_cand).
+ * So a "regression" must exceed the noise floor before it blocks.
  *
  * @param {Array} baseline  baseline holdout results
  * @param {Array} candidate candidate holdout results
  * @param {object} [opts]
- * @param {number} [opts.epsilon=0]   tolerated rate drop before it counts as a regression
+ * @param {number} [opts.epsilon=0]   floor tolerated rate drop before it counts as a regression
  * @param {string} [opts.split]       if set, only consider rows with this split
  * @returns {{pass:boolean, regressions:Array, belowThreshold:Array, improvements:Array, missing:Array, summary:string}}
  */
@@ -77,13 +83,15 @@ export function evaluateGate(baseline, candidate, opts = {}) {
       belowThreshold.push({ eval: name, rate: c.rate, threshold: c.threshold });
     }
 
-    // Regression check vs baseline
+    // Regression check vs baseline, widened by sampling noise.
     const b = base.get(name);
     if (b && typeof b.rate === 'number' && typeof c.rate === 'number') {
+      const noiseBand = (Number(b.stddev) || 0) + (Number(c.stddev) || 0);
+      const effectiveEpsilon = Math.max(epsilon, noiseBand);
       const delta = c.rate - b.rate;
-      if (delta < -epsilon) {
-        regressions.push({ eval: name, baseRate: b.rate, candRate: c.rate, delta: round(delta) });
-      } else if (delta > epsilon) {
+      if (delta < -effectiveEpsilon) {
+        regressions.push({ eval: name, baseRate: b.rate, candRate: c.rate, delta: round(delta), effectiveEpsilon: round(effectiveEpsilon) });
+      } else if (delta > effectiveEpsilon) {
         improvements.push({ eval: name, baseRate: b.rate, candRate: c.rate, delta: round(delta) });
       }
     }

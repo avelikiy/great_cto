@@ -37,6 +37,16 @@ VERDICT="$1"; shift
 COST="$1"; shift
 META="$*"
 
+# `auto` cost (DEEPEN-PIPELINE Wave 1, cost loop): instead of trusting a typed
+# number, compute REAL USD from the API token usage via cost-meter. The caller
+# exports LLM_MODEL / LLM_INPUT_TOKENS / LLM_OUTPUT_TOKENS from the response.usage.
+#   scripts/log-verdict.sh architect APPROVED auto feature=foo   # with LLM_* env set
+if [ "$COST" = "auto" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  COST="$(node "$SCRIPT_DIR/lib/cost-meter.mjs" 2>/dev/null || echo 0)"
+  [ -z "$COST" ] && COST="0"
+fi
+
 # Validate cost is a non-negative number (allow scientific notation, decimals).
 if ! [[ "$COST" =~ ^[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
   echo "error: cost_usd must be a non-negative number, got: $COST" >&2
