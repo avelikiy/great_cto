@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, stddev, pickProvider, modelFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, pickProvider, modelFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -436,6 +436,20 @@ test('parseJudgeVerdict: PASS / FAIL / UNKNOWN', () => {
   assert.equal(parseJudgeVerdict('FAIL - bad'), 'FAIL');
   assert.equal(parseJudgeVerdict('The verdict is PASS'), 'PASS');
   assert.equal(parseJudgeVerdict('nonsense'), 'UNKNOWN');
+});
+
+test('majorityVerdict: majority wins; tie → PASS; all-unknown → UNKNOWN', () => {
+  assert.equal(majorityVerdict(['PASS', 'PASS', 'FAIL']), 'PASS');
+  assert.equal(majorityVerdict(['FAIL', 'FAIL', 'PASS']), 'FAIL');
+  assert.equal(majorityVerdict(['PASS', 'FAIL']), 'PASS');        // tie favours PASS
+  assert.equal(majorityVerdict(['UNKNOWN', 'UNKNOWN']), 'UNKNOWN');
+  assert.equal(majorityVerdict(['UNKNOWN', 'FAIL']), 'FAIL');     // ignores UNKNOWN
+});
+
+test('parseArgs: --judge-votes parsed, defaults 1, rejects <1', () => {
+  assert.equal(parseArgs([]).judgeVotes, 1);
+  assert.equal(parseArgs(['--judge-votes', '3']).judgeVotes, 3);
+  assert.equal(parseArgs(['--judge-votes', '0']).judgeVotes, 1);
 });
 
 test('stddev: 0 for <2 samples, correct sample stddev otherwise', () => {
