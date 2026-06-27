@@ -58,3 +58,22 @@ test('DEFAULT_PRICES covers the eval runner default models (opus + sonnet famili
   assert.ok(priceForModel('claude-opus-4-5', DEFAULT_PRICES));
   assert.ok(priceForModel('claude-sonnet-4-5', DEFAULT_PRICES));
 });
+
+// ── OpenRouter slugs (provider/ prefix) ───────────────────────────────────────
+
+test('priceForModel: OpenRouter "anthropic/claude-sonnet-4" strips prefix → sonnet price', () => {
+  assert.deepEqual(priceForModel('anthropic/claude-sonnet-4', PRICES), { input: 3, output: 15 });
+});
+
+test('priceForModel: OpenRouter "anthropic/claude-haiku-4.5" → haiku family', () => {
+  assert.deepEqual(priceForModel('anthropic/claude-haiku-4.5', PRICES), { input: 0.8, output: 4 });
+});
+
+test('priceForModel: full OpenRouter slug key matches exactly (kimi-k2)', () => {
+  assert.ok(priceForModel('moonshotai/kimi-k2', DEFAULT_PRICES));
+});
+
+test('costForUsage: prices an OpenRouter anthropic slug', () => {
+  const cost = costForUsage({ model: 'anthropic/claude-sonnet-4', usage: { input_tokens: 10000, output_tokens: 2000 }, prices: PRICES });
+  assert.equal(round4(cost), 0.06);
+});

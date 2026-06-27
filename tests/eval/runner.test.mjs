@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, stddev } from './runner.mjs';
+import { parseEvalFile, parseThreshold, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, stddev, pickProvider, modelFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -178,10 +178,10 @@ test('--dry-run: prints file list without API calls', () => {
 
 // ── Missing API key (non-dry-run) ─────────────────────────────────────────────
 
-test('missing ANTHROPIC_API_KEY exits 1 with clear message', () => {
-  // Strip the key from env
+test('no provider key (neither ANTHROPIC nor OPENROUTER) exits 1 with clear message', () => {
+  // Strip BOTH provider keys from env
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([k]) => k !== 'ANTHROPIC_API_KEY')
+    Object.entries(process.env).filter(([k]) => k !== 'ANTHROPIC_API_KEY' && k !== 'OPENROUTER_API_KEY')
   );
   const result = spawnSync(process.execPath, [RUNNER], {
     env,
@@ -191,9 +191,44 @@ test('missing ANTHROPIC_API_KEY exits 1 with clear message', () => {
   assert.equal(result.status, 1, `Expected exit 1, got ${result.status}`);
   const combined = result.stdout + result.stderr;
   assert.ok(
-    combined.includes('ANTHROPIC_API_KEY'),
-    `Expected error about ANTHROPIC_API_KEY. Got: ${combined.slice(0, 300)}`
+    combined.includes('OPENROUTER_API_KEY'),
+    `Expected error mentioning OPENROUTER_API_KEY. Got: ${combined.slice(0, 300)}`
   );
+});
+
+// ── provider selection (OpenRouter vs Anthropic) ──────────────────────────────
+
+test('pickProvider: Anthropic wins when both keys present', () => {
+  const p = pickProvider({ ANTHROPIC_API_KEY: 'a', OPENROUTER_API_KEY: 'o' });
+  assert.equal(p.provider, 'anthropic');
+  assert.equal(p.apiKey, 'a');
+});
+
+test('pickProvider: OpenRouter when only OPENROUTER_API_KEY set', () => {
+  const p = pickProvider({ OPENROUTER_API_KEY: 'o' });
+  assert.equal(p.provider, 'openrouter');
+  assert.equal(p.apiKey, 'o');
+});
+
+test('pickProvider: null when no key', () => {
+  assert.equal(pickProvider({}).provider, null);
+});
+
+test('modelFor: OpenRouter defaults to anthropic/claude-sonnet-4 slugs', () => {
+  const env = { OPENROUTER_API_KEY: 'o' };
+  assert.equal(modelFor('actor', env), 'anthropic/claude-sonnet-4');
+  assert.equal(modelFor('judge', env), 'anthropic/claude-sonnet-4');
+});
+
+test('modelFor: GREAT_CTO_ROUTER_MODEL overrides the OpenRouter actor default', () => {
+  const env = { OPENROUTER_API_KEY: 'o', GREAT_CTO_ROUTER_MODEL: 'moonshotai/kimi-k2' };
+  assert.equal(modelFor('actor', env), 'moonshotai/kimi-k2');
+});
+
+test('modelFor: Anthropic defaults; EVAL_*_MODEL overrides any provider', () => {
+  assert.equal(modelFor('actor', { ANTHROPIC_API_KEY: 'a' }), 'claude-sonnet-4-5');
+  assert.equal(modelFor('judge', { ANTHROPIC_API_KEY: 'a' }), 'claude-opus-4-5');
+  assert.equal(modelFor('actor', { OPENROUTER_API_KEY: 'o', EVAL_ACTOR_MODEL: 'x/y' }), 'x/y');
 });
 
 // ── Results JSONL format ──────────────────────────────────────────────────────

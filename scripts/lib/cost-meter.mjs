@@ -18,9 +18,9 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-/** Default list prices, USD per 1M tokens. Update as Anthropic pricing changes. */
+/** Default list prices, USD per 1M tokens. Update as pricing changes. */
 export const DEFAULT_PRICES = {
-  // Claude 4.x family
+  // Claude 4.x family (bare ids; OpenRouter "anthropic/<id>" slugs resolve via prefix-strip)
   'claude-opus-4':     { input: 15,  output: 75 },
   'claude-sonnet-4':   { input: 3,   output: 15 },
   'claude-haiku-4':    { input: 0.8, output: 4 },
@@ -28,6 +28,9 @@ export const DEFAULT_PRICES = {
   'claude-3-5-sonnet': { input: 3,   output: 15 },
   'claude-3-5-haiku':  { input: 0.8, output: 4 },
   'claude-3-opus':     { input: 15,  output: 75 },
+  // OpenRouter non-Anthropic slugs the project routes to (approx list prices —
+  // override via ~/.great_cto/model-prices.json or GREAT_CTO_MODEL_PRICES).
+  'moonshotai/kimi-k2': { input: 0.55, output: 2.2 },
 };
 
 /** Load price overrides from env (preferred) then ~/.great_cto/model-prices.json. */
@@ -55,11 +58,16 @@ export function effectivePrices() {
  */
 export function priceForModel(model, prices = effectivePrices()) {
   if (!model) return null;
-  if (prices[model]) return prices[model];
+  if (prices[model]) return prices[model];                       // exact (incl. full OpenRouter slug)
+
+  // Strip a leading "provider/" segment so OpenRouter slugs like
+  // "anthropic/claude-sonnet-4" resolve to the bare "claude-sonnet-4" key.
+  const bare = model.includes('/') ? model.slice(model.indexOf('/') + 1) : model;
+  if (prices[bare]) return prices[bare];
 
   let best = null, bestLen = 0;
   for (const k of Object.keys(prices)) {
-    if (model.startsWith(k) && k.length > bestLen) { best = prices[k]; bestLen = k.length; }
+    if (bare.startsWith(k) && k.length > bestLen) { best = prices[k]; bestLen = k.length; }
   }
   if (best) return best;
 
