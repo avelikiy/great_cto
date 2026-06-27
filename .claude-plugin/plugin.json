@@ -101,6 +101,19 @@
         ]
       }
     ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/subagent-stop-completion.mjs\" 2>&1; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Three-state completion check..."
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
