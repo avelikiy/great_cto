@@ -536,7 +536,22 @@ echo "P1 (post-triage): [sum]"
 echo "P2:              [sum]"
 ```
 
-**Gate:code decision:**
+**SPEC-OBJECTION decision (structural errors escalate to the CTO gate, ADR-005):**
+
+A code finding gets a `gate:code`. But if a P0 finding is **structural — the
+approved spec itself is wrong** (wrong data model, wrong integration surface, an
+invalidated assumption), `gate:code` is the wrong gate: the fix isn't in the code,
+it's in the spec. Raise a `SPEC-OBJECTION` instead, which re-opens `gate:plan` for
+the CTO (mid-build escape hatch — `docs/strategy/MID-BUILD-RECOVERY.md`):
+```bash
+# Only for STRUCTURAL P0s (spec/architecture/data-model/integration-surface):
+scripts/log-verdict.sh review SPEC-OBJECTION auto feature="<slug>" reason="<structural spec error>"
+bd create "gate:plan — SPEC-OBJECTION: structural spec error found mid-build, CTO decision needed" \
+  --type task --priority 0 --label gate 2>/dev/null
+echo "SPEC-OBJECTION raised — re-opens gate:plan. See /inbox. Do NOT keep building on the bad spec."
+```
+
+**Gate:code decision (code-level findings):**
 
 If P0 > 0 OR (approval-level = strict AND P1 > 0) **after triage**:
 ```bash
