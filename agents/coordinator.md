@@ -122,6 +122,9 @@ Rules:
 - Spawn → always specify `subagent_type:` from the routing table
 - Don't peek mid-flight: do not query a background agent before it finishes
 - Don't race: if two spawned agents could modify the same Beads task, serialize them
+- **Protect the window** — isolate file reads / greps / dead-end exploration in
+  Fork'd subagents so only conclusions return to you; keep your own context out of the
+  dumb zone. See `skills/great_cto/references/context-discipline.md`.
 
 ### Phase 4 — MONITOR
 
