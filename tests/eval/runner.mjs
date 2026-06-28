@@ -24,6 +24,13 @@
 //   OpenRouter defaults: anthropic/claude-sonnet-4 (override via GREAT_CTO_ROUTER_MODEL
 //     / GREAT_CTO_JUDGE_MODEL); Anthropic defaults: claude-sonnet-4-5 / claude-opus-4-5
 //
+// Recommended flags for AGENT evals (`> Agent:`): --actor-tools --judge-votes 3
+//   A/B (security-officer holdout, n=3): --actor-tools raised mean rate 0.50→0.64 and
+//   got finding-gate to clear its 67% bar (50%→72%) — higher fidelity. It does NOT
+//   reduce variance (±~0.09 either way — that's inherent LLM non-determinism; mitigate
+//   with more --samples + the variance-aware eval-gate). Default off: the "diff under
+//   review" fixture fits agent evals, less so archetype pack evals.
+//
 // Output:
 //   tests/eval/results.jsonl          — latest run only (read by eval-gate)
 //   tests/eval/results-history.jsonl  — APPEND-ONLY, every row stamped with
