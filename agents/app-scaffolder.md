@@ -18,6 +18,7 @@ applies_to: [vertical-saas, booking, crm, dashboard, content-platform, marketpla
 skills:
   - stack-baseline
   - migration-ready-schema
+  - observability-baseline
   - superpowers:test-driven-development
   - beads
   - done-blocked

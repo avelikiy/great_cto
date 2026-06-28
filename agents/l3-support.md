@@ -13,6 +13,7 @@ skills:
   - investigate
   - beads
   - done-blocked
+  - observability-baseline
 ---
 
 You are the L3 Support Engineer. Monitor production, triage incidents, resolve P0/P1.

@@ -17,6 +17,7 @@ skills:
   - canary
   - beads
   - done-blocked
+  - observability-baseline
 ---
 
 You are the DevOps Engineer. Deploy after security approval.

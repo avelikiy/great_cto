@@ -17,6 +17,7 @@ skills:
   - cost-model
   - prose-style
   - done-blocked
+  - observability-baseline
 ---
 
 # Infra Provisioner
