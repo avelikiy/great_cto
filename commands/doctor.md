@@ -505,6 +505,20 @@ fi
 - `/doctor --packs` → expand pack detection with signal-by-signal trace (verbose)
 - (default) → show summary
 
+## Check 8e — Grants & credentials (v2.75+)
+
+Audit the credentials the project actually needs (AgentSpace-inspired): LLM provider
+key, npm auth (local publish), gh auth (PRs/release), and provider↔key orphans (a
+provider configured in PROJECT.md with no matching key). A `critical` here means the
+LLM-calling parts of the pipeline cannot run.
+
+```bash
+PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+GA="$PLUGIN_DIR/scripts/lib/grant-audit.mjs"; [ -f "$GA" ] || GA="scripts/lib/grant-audit.mjs"
+echo "## Check 8e — Grants & credentials"
+node "$GA" 2>/dev/null || echo "  (grant-audit unavailable)"
+```
+
 ## Check 9 — Auto-remediation (--fix mode)
 
 If `FIX_MODE=true`, perform safe, non-destructive fixes. Skip silently otherwise.
