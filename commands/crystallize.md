@@ -170,6 +170,19 @@ ls "$KE_DIR"/KE-*.yaml 2>/dev/null | while read ke_file; do
     sed -i.bak "s/^hits: ${CURRENT_HITS}/hits: $((CURRENT_HITS+1))/" "$EXISTING_GP" 2>/dev/null
     sed -i.bak "s/^confidence: .*/confidence: validated/" "$EXISTING_GP" 2>/dev/null
     rm -f "${EXISTING_GP}.bak"
+    # Knowledge versioning (AgentSpace #4): a re-occurrence means the pattern
+    # evolved — version it + record history, don't silently overwrite.
+    GPS="$PLUGIN_DIR/shared/gp-schema.mjs"; [ -f "$GPS" ] || GPS="$(pwd)/shared/gp-schema.mjs"
+    GPS_ABS="$(cd "$(dirname "$GPS")" 2>/dev/null && pwd)/$(basename "$GPS")"
+    GP_FILE="$EXISTING_GP" GP_DATE="$TODAY" GP_KE="$KE_ID" GPS_ABS="$GPS_ABS" node -e '
+      import("file://" + process.env.GPS_ABS).then(async (m) => {
+        const fs = await import("node:fs");
+        const f = process.env.GP_FILE;
+        const r = m.bumpGpVersion(fs.readFileSync(f, "utf8"), { date: process.env.GP_DATE, source_ke: process.env.GP_KE, reason: "re-occurred (hits incremented)" });
+        fs.writeFileSync(f, r.text);
+        console.log("  VERSIONED " + f + " v" + r.from + " -> v" + r.to);
+      }).catch(() => {});
+    ' 2>/dev/null || true
     printf "promoted_to: %s\n" "$EXISTING_ID" >> "$ke_file"
     echo "  MERGED into $EXISTING_ID (hits now $((CURRENT_HITS+1)))"
     continue
