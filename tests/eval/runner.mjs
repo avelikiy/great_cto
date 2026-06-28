@@ -55,6 +55,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
   let samples = 1;        // run each EVAL file N times → rate mean + stddev
   let out = null;         // override results.jsonl output path (baseline vs candidate)
   let judgeVotes = 1;     // majority-vote the judge N times per case → cut non-determinism
+  let actorTools = false; // ReAct inspect-then-conclude actor loop (vs one-shot)
+  let actorTurns = 4;     // max INSPECT turns before forcing FINAL
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--sample' && argv[i + 1]) {
       sample = parseInt(argv[++i], 10);
@@ -78,9 +80,14 @@ export function parseArgs(argv = process.argv.slice(2)) {
     } else if (argv[i] === '--judge-votes' && argv[i + 1]) {
       judgeVotes = parseInt(argv[++i], 10);
       if (isNaN(judgeVotes) || judgeVotes < 1) judgeVotes = 1;
+    } else if (argv[i] === '--actor-tools') {
+      actorTools = true;
+    } else if (argv[i] === '--actor-turns' && argv[i + 1]) {
+      actorTurns = parseInt(argv[++i], 10);
+      if (isNaN(actorTurns) || actorTurns < 1) actorTurns = 4;
     }
   }
-  return { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes };
+  return { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes, actorTools, actorTurns };
 }
 
 /** Selects the case list for a parsed EVAL file given a split filter. */
@@ -368,11 +375,83 @@ async function callLlm({ model, system, user, maxTokens = 300 }) {
   };
 }
 
+// ── Actor fidelity (DEEPEN a9tp, actor side) ──────────────────────────────────
+//
+// The one-shot actor is a weak proxy for the real agent (which inspects before
+// concluding) — the dominant ±35% variance is actor-side. `--actor-tools` runs a
+// provider-agnostic ReAct text loop: the actor may emit `INSPECT: <q>` to look at
+// the code/diff under review (resolved deterministically by buildFixture — no extra
+// LLM noise) before emitting `FINAL: <response>`. Investigate→conclude is closer to
+// the real agent and the deterministic fixture removes a noise source. Opt-in
+// (default off) until a live A/B confirms it lowers stddev. llmFn is injectable so
+// the loop is unit-tested with no network.
+
+const ACTOR_TOOLS_INSTRUCTION = (n) =>
+  `\n\n--- inspection protocol ---\n` +
+  `Before concluding you may inspect the code/diff under review. To inspect, reply with EXACTLY one line:\n` +
+  `INSPECT: <what you want to look at>\n` +
+  `You will receive the result and may inspect again (at most ${n} times). When ready, reply:\n` +
+  `FINAL: <your complete agent response>\n` +
+  `Prefer to inspect at least once before concluding.`;
+
+/** Parse one ReAct step. FINAL wins; INSPECT next; no marker → treat text as FINAL. */
+export function parseActorStep(text) {
+  const t = String(text).trim();
+  const fin = t.match(/^\s*FINAL:\s*([\s\S]*)$/im);
+  if (fin) return { kind: 'final', payload: fin[1].trim() };
+  const ins = t.match(/^\s*INSPECT:\s*(.+)$/im);
+  if (ins) return { kind: 'inspect', payload: ins[1].trim() };
+  return { kind: 'final', payload: t };
+}
+
+/** Deterministic tool resolver: the eval's scenario+test IS the artifact under review. */
+export function buildFixture({ scenario, test, query }) {
+  return `Inspection "${query}":\n--- code / diff under review ---\n` +
+    `Scenario: ${scenario}\nCase: ${test}\n--- end ---\n` +
+    `(This is the complete material under review; base your verdict only on it.)`;
+}
+
+/** Sum two usage objects (Anthropic-normalized). */
+function addUsage(a, b) {
+  return {
+    input_tokens: (a?.input_tokens || 0) + (b?.input_tokens || 0),
+    output_tokens: (a?.output_tokens || 0) + (b?.output_tokens || 0),
+  };
+}
+
+/**
+ * ReAct actor loop. `llmFn({system,user}) → {text, usage, model}` is injectable.
+ * Returns the same {text, usage, model} shape as a one-shot call.
+ */
+export async function runActorLoop({ system, scenario, test, llmFn, maxTurns = 4 }) {
+  const fullSystem = (system || GENERIC_ACTOR_SYSTEM) + ACTOR_TOOLS_INSTRUCTION(maxTurns);
+  let transcript = `Scenario: ${scenario}\n\nTest case: ${test}\n\nInspect if useful, then reply FINAL: <response>.`;
+  let usage = { input_tokens: 0, output_tokens: 0 };
+  let model = null;
+  for (let turn = 0; turn < maxTurns; turn++) {
+    const res = await llmFn({ system: fullSystem, user: transcript });
+    usage = addUsage(usage, res.usage); model = res.model;
+    const step = parseActorStep(res.text);
+    if (step.kind === 'final') return { text: step.payload, usage, model };
+    const obs = buildFixture({ scenario, test, query: step.payload });
+    transcript += `\n\nINSPECT: ${step.payload}\n${obs}\n\nContinue (INSPECT: ... or FINAL: ...).`;
+  }
+  // Turn cap reached → force a final answer.
+  const res = await llmFn({ system: fullSystem, user: transcript + `\n\nInspection limit reached. Reply FINAL: now.` });
+  usage = addUsage(usage, res.usage); model = res.model;
+  return { text: parseActorStep(res.text).payload, usage, model };
+}
+
 /**
  * Step 1 — Actor: responds AS the agent under test.
- * `actorSystem` is the real agent body (or candidate prompt). Returns the raw call result.
+ * `actorSystem` is the real agent body (or candidate prompt). One-shot by default;
+ * with useTools, runs the ReAct inspection loop. Returns the raw call result.
  */
-async function callActor({ actorModel, scenario, test, actorSystem }) {
+async function callActor({ actorModel, scenario, test, actorSystem, useTools = false, actorTurns = 4 }) {
+  if (useTools) {
+    const llmFn = ({ system, user }) => callLlm({ model: actorModel, system, user, maxTokens: 600 });
+    return runActorLoop({ system: actorSystem, scenario, test, llmFn, maxTurns: actorTurns });
+  }
   const user = `Scenario: ${scenario}\n\nTest case: ${test}\n\nProvide your agent response:`;
   // 600 tokens: agent bodies produce longer, structured responses than the old generic stub.
   return callLlm({ model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens: 600 });
@@ -454,7 +533,7 @@ function mean(arr) {
 // ── Runner core ──────────────────────────────────────────────────────────────
 
 /** Run a single EVAL file ONCE. Returns the per-run result (with cost). */
-async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes = 1 }) {
+async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes = 1, useTools = false, actorTurns = 4 }) {
   const selectedCases = selectCases(parsed, split);
   let passed = 0;
   let skipped = 0;
@@ -469,7 +548,7 @@ async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actor
     }
 
     try {
-      const actor = await callActor({ actorModel, scenario: parsed.scenario, test: c.test, actorSystem });
+      const actor = await callActor({ actorModel, scenario: parsed.scenario, test: c.test, actorSystem, useTools, actorTurns });
       costUsd += costForUsage({ model: actor.model, usage: actor.usage });
 
       // Majority-vote judge, graded against the crisp "Pass" criterion (not just prose "Expected").
@@ -497,7 +576,7 @@ async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actor
 }
 
 /** Run an EVAL file `samples` times and aggregate (rate mean + stddev + flaky). */
-async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1, judgeVotes = 1 }) {
+async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1, judgeVotes = 1, useTools = false, actorTurns = 4 }) {
   let content;
   try {
     content = readFileSync(evalPath, 'utf8');
@@ -524,7 +603,7 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
 
   const runs = [];
   for (let s = 0; s < samples; s++) {
-    runs.push(await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes }));
+    runs.push(await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes, useTools, actorTurns }));
   }
 
   const rates = runs.map(r => r.rate);
@@ -614,7 +693,7 @@ function gitSha() {
 }
 
 async function main() {
-  const { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes } = parseArgs();
+  const { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes, actorTools, actorTurns } = parseArgs();
 
   const { provider } = pickProvider();
   if (!dryRun && !provider) {
@@ -697,7 +776,7 @@ async function main() {
   console.log(`  Actor:  ${actorModel}`);
   console.log(`  Judge:  ${judgeModel}`);
   console.log(`  Files:  ${evalFiles.length}${sample > 0 ? ` (sample of ${sample})` : ''}${agent ? ` (agent=${agent})` : ''}`);
-  console.log(`  Split:  ${split}   Samples: ${samples}   Judge-votes: ${judgeVotes}`);
+  console.log(`  Split:  ${split}   Samples: ${samples}   Judge-votes: ${judgeVotes}   Actor: ${actorTools ? `tools(${actorTurns})` : 'one-shot'}`);
   console.log(`  Run:    ${runId} @ ${commit}`);
   console.log(`  Output: ${resultsPath}`);
   console.log(`  History:${HISTORY_PATH}\n`);
@@ -717,6 +796,8 @@ async function main() {
       agentOverride: agent,
       samples,
       judgeVotes,
+      useTools: actorTools,
+      actorTurns,
     });
 
     if (!result) {
