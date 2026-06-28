@@ -37,6 +37,15 @@ edge case, a gate that can't be met, scope that crept. Silent compliance is a
 (ACCEPT-as-is / NEEDS-CHANGE + one line why) and proceed on the resolved spec.
 (Adapted from architect-loop R5, MIT.)
 
+**STRUCTURAL objection → STOP, don't absorb it (ADR-005).** Slice-level nits you
+resolve inline as above. But if you discover the **spec itself** is structurally
+wrong — wrong data model, wrong integration surface, an invalidated key assumption,
+or cost over headroom — do **not** "proceed on the resolved spec". Emit a
+`SPEC-OBJECTION` verdict (`scripts/log-verdict.sh senior-dev SPEC-OBJECTION auto
+feature=<slug> reason="<structural error>"`), which re-opens `gate:plan` for the
+CTO via HANDOFF → `/inbox`. This is the mid-build escape hatch — see
+`docs/strategy/MID-BUILD-RECOVERY.md`. The CTO decides; you only raise it.
+
 **Frozen gates are read-only.** Never edit, move, or delete any file under
 `docs/gates/` — those are the acceptance criteria, frozen before you started. A
 builder edit to a gate file is an automatic slice FAIL
