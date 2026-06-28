@@ -18,6 +18,7 @@ import {
   RECALL_REQUIRED_KEYS,
   renderGpFrontmatter,
   validateGpFrontmatter,
+  bumpGpVersion,
 } from '../../shared/gp-schema.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -81,4 +82,45 @@ test('crystallize.md GP-writer emits every recall-required key', () => {
 test('crystallize.md no longer writes the dead applicable_archetypes key', () => {
   const block = extractGpWriterBlock(CRYSTALLIZE);
   assert.ok(!/^applicable_archetypes:/m.test(block), 'dead key still emitted');
+});
+
+// ── bumpGpVersion (AgentSpace #4 — knowledge versioning) ──────────────────────
+
+const GP_V1 = `---
+id: GP-0007
+slug: demo
+status: active
+version: 1
+created: 2026-06-01
+last_validated: 2026-06-01
+hits: 1
+---
+
+### GP-0007 — Demo
+body
+`;
+
+test('bumpGpVersion: increments version, refreshes last_validated, appends history', () => {
+  const { text, from, to } = bumpGpVersion(GP_V1, { date: '2026-06-28', source_ke: 'KE-9', reason: 'recurred on web-app' });
+  assert.equal(from, 1);
+  assert.equal(to, 2);
+  assert.match(text, /^version: 2$/m);
+  assert.match(text, /^last_validated: 2026-06-28$/m);
+  assert.match(text, /^## Version history$/m);
+  assert.match(text, /- v2 \(2026-06-28\) · KE-9 — recurred on web-app/);
+});
+
+test('bumpGpVersion: second bump appends, keeps one version line', () => {
+  const once = bumpGpVersion(GP_V1, { date: '2026-06-28' }).text;
+  const twice = bumpGpVersion(once, { date: '2026-06-29', reason: 'again' }).text;
+  assert.match(twice, /^version: 3$/m);
+  assert.equal((twice.match(/^version:/mg) || []).length, 1, 'exactly one version: line');
+  assert.equal((twice.match(/^- v\d /mg) || []).length, 2, 'two history entries');
+});
+
+test('bumpGpVersion: missing version: line defaults from 1 → 2', () => {
+  const noVer = `---\nid: GP-x\nstatus: active\n---\nbody\n`;
+  const { to, text } = bumpGpVersion(noVer, { date: '2026-06-28' });
+  assert.equal(to, 2);
+  assert.match(text, /^version: 2$/m);
 });
