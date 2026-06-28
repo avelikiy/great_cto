@@ -4,6 +4,27 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.76.0 — 2026-06-28
+
+### Adopted ideas from AgentSpace + architect-loop (ideas, not the stacks)
+
+- **Grant/credential audit** (`/doctor` Check 8e, `scripts/lib/grant-audit.mjs`) —
+  LLM-key / npm / gh auth + provider↔key orphan detection; critical when no LLM key.
+- **Knowledge versioning** — `bumpGpVersion()`; crystallize versions a global pattern
+  + appends a Version-history entry on re-crystallize instead of overwriting.
+- **Harness router (slice)** — `scripts/lib/harness-router.mjs` detects the current
+  harness (Claude Code / Codex / OpenCode) + capability registry, so great_cto
+  degrades safely off Claude Code (hooks/subagents are CC-specific). ADR-006.
+- **Cross-model adversarial review** (architect-loop R3) —
+  `scripts/lib/cross-model-review.mjs` red-teams the diff with a non-Claude model via
+  OpenRouter (default `openai/gpt-5`); wired into `code-reviewer` for high-stakes
+  changes — fixes the Claude-on-Claude same-model blind spot. + fresh-context review.
+- **Stall-triage (slice)** (architect-loop R9) — `scripts/lib/stall-triage.mjs` flags
+  hung parallel lanes, "kill narrowest first".
+- **Context discipline** — `references/context-discipline.md` (loaded by coordinator):
+  isolate reads in subagents, compact with intent, rewind over correct, respect the
+  ~40% dumb-zone / context-rot budget.
+
 ## v2.75.0 — 2026-06-28
 
 ### DEEPEN — make the self-improvement pipeline real (not just declared)
