@@ -73,6 +73,15 @@ so a perfect runner still measures nothing for them).
 | `.github/workflows/runtime-ci.yml` paths fix — run orphaned board/worker tests | gate | med | S |
 | Scheduled eval-drift re-run (ONLY now — a fixed actor finally produces real dated signal) | utility | med | S |
 
+## Empirical findings from running the loop live (OpenRouter)
+
+Running the now-working loop produced real evidence — the point of building it:
+
+- **Real REJECT proven**: a gutted security-officer candidate was blocked (33% < 67% holdout). The gate fires; cost is measured ($1.09 full agent vs $0.08 gutted); history persists.
+- **Eval is noisy, and the noise is actor-side**: even with `--judge-votes 3` the judge is stable (its misses are stable label disagreements), but rates still swing ±~0.09–0.35. The variance is run-to-run actor non-determinism, not the judge.
+- **`--actor-tools` raises fidelity, not stability**: a ReAct inspect-then-conclude actor (A/B, security-officer holdout, n=3) lifted mean rate 0.50→0.64 and got finding-gate to clear its 67% bar (50%→72%) — the baseline can finally pass — but did **not** reduce stddev. Recommended for agent (`> Agent:`) evals; left opt-in (the "diff under review" fixture fits agent evals, not archetype pack evals).
+- **So-what for gating**: variance is inherent → rely on more `--samples` + the variance-aware `eval-gate` (Δ within the σ-band = noise), and `eval-drift`'s noise gate (refuses to alert above stddev 0.1). Don't chase zero variance; gate around it.
+
 ## Do NOT build (breadth traps)
 
 - **~6 new agent roles** (test-architect, sre-engineer, technical-writer, dependency-upgrader,
