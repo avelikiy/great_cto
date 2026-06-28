@@ -4,8 +4,51 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.75.0 — 2026-06-28
 
+### DEEPEN — make the self-improvement pipeline real (not just declared)
 
+Closed the four loops the product advertised but that never mechanically worked:
+
+- **Learning loop.** The eval runner now binds the actor to the real `agents/<X>.md`
+  body (parses `> Agent:`), persists an append-only `results-history.jsonl`
+  (run-id + commit), runs multi-sample with rate mean + stddev, routes through
+  **OpenRouter** (fallback Anthropic-direct), and the promotion gate is
+  variance-aware (Δ within the σ-band = noise). Split-aware pass thresholds.
+- **Recall loop.** `shared/gp-schema.mjs` aligns the keys crystallize writes with
+  the ones architect greps (`applies_to`/`stack_fingerprint`/`symptom`/…), with a
+  conformance test; crystallized patterns can finally resurface.
+- **Cost loop.** `scripts/lib/cost-meter.mjs` turns real `response.usage` into USD;
+  measured cost replaces the hardcoded estimate.
+- **Completion loop.** SubagentStop completion-teeth hook + `acceptance-verify.mjs`
+  execute frozen acceptance criteria instead of trusting self-report.
+
+### New agents & skills
+
+- `agents/code-reviewer.md` — one stable, calibrated reviewer (+ EVAL).
+- `agents/e2e-test-engineer.md` — Playwright golden-path + live-URL deploy gate (+ EVAL).
+- `skills/test-strategy` (pyramid/boundary/property/mutation/flake) → wired into qa-engineer.
+- `skills/observability-baseline` (Sentry + request-id logging + /healthz) → wired into 4 agents.
+- Eval coverage backfilled for the core pipeline agents (coverage 11→19/60).
+
+### Eval fidelity
+
+- Judge grades against the crisp `Pass` criterion + `--judge-votes` majority vote.
+- `--actor-tools` ReAct inspect loop (A/B: rate 0.50→0.64; opt-in).
+- `gp-eval-trace.mjs` (variance-aware crystallize→eval delta) and `eval-drift.mjs`
+  (with a noise gate that refuses to alert on a noisy signal).
+
+### Mid-build spec escape hatch (#107)
+
+- ADR-005 + `docs/strategy/MID-BUILD-RECOVERY.md`: `gate:plan` is reversible-with-cost;
+  any agent can raise `SPEC-OBJECTION` on a structural spec error to re-open it
+  (senior-dev Phase 0 + `/review` wired).
+
+### Supply chain & CI/CD
+
+- CycloneDX SBOM + OpenSSF Scorecard in CI; Node 22; `.nvmrc`.
+- **Local CI/CD** (`scripts/ci-local.sh` + `scripts/cd-local.sh`, `docs/LOCAL-CICD.md`)
+  — GitHub Actions is disabled at the account level; the pipeline runs on the mac.
 
 
 
