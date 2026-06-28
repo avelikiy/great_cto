@@ -69,7 +69,9 @@ if [ "$DO_PUBLISH" -eq 1 ]; then
   if npm view "great-cto@${CLI_VERSION}" version >/dev/null 2>&1; then
     die "refusing to publish — great-cto@${CLI_VERSION} already exists on npm. Bump first: (cd packages/cli && npm version patch)."
   fi
-  ( cd packages/cli && npm publish --provenance --access public ) || die "npm publish failed"
+  # --provenance only works under CI OIDC (GitHub Actions); skip it for local publish.
+  PROV=""; [ -n "${CI:-}" ] && PROV="--provenance"
+  ( cd packages/cli && npm publish $PROV --access public ) || die "npm publish failed"
   echo "   ✓ published great-cto@${CLI_VERSION}"
   echo "   → tag the release: git tag v${CLI_VERSION} && git push origin v${CLI_VERSION}"
 fi
