@@ -1,0 +1,30 @@
+name: Scheduled Eval Drift
+
+# Periodically re-runs the holdout eval set and alerts on pass-rate drift — the
+# learning loop's automatic regression alarm (DEEPEN W3.6).
+#
+# GATED: the cron trigger is intentionally COMMENTED OUT until the actor-fidelity
+# fix (a9tp) brings baseline stddev ≤ 0.1. Until then eval-drift's noise gate would
+# (correctly) refuse to alert, so a schedule would just burn tokens. Run manually
+# via workflow_dispatch to dry-check. Uncomment the cron once the signal is trustworthy.
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '17 6 * * 1'   # weekly, Monday 06:17 UTC — ENABLE after a9tp lands
+
+jobs:
+  drift:
+    name: Re-run holdout evals + detect drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run holdout evals (multi-sample, majority-judge)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: node tests/eval/runner.mjs --split holdout --samples 3 --judge-votes 3 || true
+      - name: Detect drift (refuses to alert if signal is noisy)
+        run: node scripts/lib/eval-drift.mjs --window 5 --threshold 0.1 --max-noise 0.1
