@@ -130,7 +130,7 @@ export function inspect(dir, archetype = null) {
     // web product (the 6 build archetypes): data model + API + UI
     hasModel = anyMatch(files, /(schema\.prisma|migrations?\/|models?\/|schema\.(sql|ts))/i);
     hasApi = anyMatch(files, /(\/api\/|routes?\/|controllers?\/|handlers?\/|server\.(ts|js|mjs))/i);
-    hasUi = anyMatch(files, /(\/(pages|components|app|views|ui)\/|\.(tsx|jsx|vue|svelte)$)/i);
+    hasUi = anyMatch(files, /(\/(pages|components|app|views|ui|public)\/|\.(tsx|jsx|vue|svelte)$|index\.html$)/i);
     completeness = (hasModel + hasApi + hasUi) / 3;
   }
 
@@ -146,8 +146,10 @@ export function inspect(dir, archetype = null) {
   const security = ((secretLeak ? 0 : 0.5) + (hasAuth ? 0.3 : 0) + (hasEnvExample ? 0.2 : 0));
 
   // design/a11y: design system + aria/role usage
-  const hasDesignSys = grepAny(code, /(tailwind|@apply|shadcn|MaterialTheme|chakra|mui)/i, /\.(tsx|jsx|css|ts)$/);
-  const hasA11y = grepAny(code, /(aria-|getByRole|role=|getByLabel|alt=)/, /\.(tsx|jsx|ts|js)$/);
+  const hasDesignSys = grepAny(code, /(tailwind|@apply|shadcn|MaterialTheme|chakra|mui)/i, /\.(tsx|jsx|css|ts)$/)
+    || grepAny(files, /<style|style=|class=|<link[^>]+stylesheet/i, /\.html$/);
+  const hasA11y = grepAny(code, /(aria-|getByRole|role=|getByLabel|alt=)/, /\.(tsx|jsx|ts|js)$/)
+    || grepAny(files, /(aria-|role=|alt=|<label)/i, /\.html$/);
   const design_a11y = (hasDesignSys ? 0.5 : 0) + (hasA11y ? 0.5 : 0);
 
   // observability: error capture + structured logging + health endpoint
@@ -228,7 +230,10 @@ function main(argv) {
   if (argv.includes('--json')) { process.stdout.write(JSON.stringify({ dir, ...res, signals }, null, 2)); return; }
 
   const sIdx = argv.indexOf('--save');
-  if (sIdx > -1 && argv[sIdx + 1]) { writeFileSync(argv[sIdx + 1], renderScoreMarkdown(dir.replace(/[/\\]/g, '-'), res)); console.log(`saved ${argv[sIdx + 1]}`); }
+  if (sIdx > -1 && argv[sIdx + 1]) {
+    const slug = dir.replace(/[/\\]+$/, '').split(/[/\\]/).pop() || 'product';
+    writeFileSync(argv[sIdx + 1], renderScoreMarkdown(slug, res)); console.log(`saved ${argv[sIdx + 1]}`);
+  }
 
   console.log(`Product quality score — ${dir}  [archetype: ${res.archetype}]`);
   for (const b of res.breakdown) {
