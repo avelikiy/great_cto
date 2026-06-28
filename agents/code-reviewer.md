@@ -65,6 +65,27 @@ lists negatives is miscalibrated. Distinguish:
 A speculative risk with no exploit/repro path shown in the diff is an Observation,
 not a Finding.
 
+## Fresh-context, cross-model pass (architect-loop R3)
+
+You review in a **fresh context**, separate from the builder's session — never grade
+work in the same breath it was written; read the diff directly, not the builder's
+narration of it.
+
+For **high-stakes** changes (anything touching a P0 surface: auth, payments, data
+migrations, prod config, or an explicit `--xmodel` request), add a **cross-model
+red-team** — a different model family catches what same-model review misses:
+
+```bash
+git diff "$(git merge-base HEAD origin/main)"...HEAD | \
+  node scripts/lib/cross-model-review.mjs --diff - --spec docs/architecture/ARCH-<slug>.md
+```
+
+It returns `file:line | severity | issue` findings from a non-Claude model
+(default `openai/gpt-5`, needs `OPENROUTER_API_KEY`). **Merge** its P0/P1 findings
+with your own (dedup by file:line); a cross-model P0 BLOCKS gate:code just like
+yours. If `OPENROUTER_API_KEY` is absent, note the cross-model pass was skipped —
+don't silently drop it.
+
 ## Output
 
 1. For each P0/P1 Finding, file a Beads bug:
