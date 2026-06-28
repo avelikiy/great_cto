@@ -39,6 +39,9 @@ the pipeline composes them.)
    ║  approve spec + architecture (is this right?) ║
    ╚══════════════════════════════════════════════╝
         │  (approved → everything below is automated)
+        │  ⓘ Approval is reversible-with-cost, not a one-way door. If a structural
+        │    spec error surfaces mid-build, any agent can raise SPEC-OBJECTION to
+        │    re-open this gate — see docs/strategy/MID-BUILD-RECOVERY.md (ADR-005).
    S2. Scaffold        ──────── instantiate the archetype's stack template
    S3. Backend         ──────── data model → API + auth + CRUD + roles
    S4. Frontend        ──────── senior-dev + ui-ux-pro-max build to design-advisor's DESIGN-{slug}.md
