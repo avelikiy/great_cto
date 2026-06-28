@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, pickProvider, modelFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -450,6 +450,59 @@ test('parseArgs: --judge-votes parsed, defaults 1, rejects <1', () => {
   assert.equal(parseArgs([]).judgeVotes, 1);
   assert.equal(parseArgs(['--judge-votes', '3']).judgeVotes, 3);
   assert.equal(parseArgs(['--judge-votes', '0']).judgeVotes, 1);
+});
+
+// ── actor-fidelity: ReAct inspect loop (DEEPEN a9tp actor side) ────────────────
+
+test('parseArgs: --actor-tools / --actor-turns', () => {
+  assert.equal(parseArgs([]).actorTools, false);
+  assert.equal(parseArgs([]).actorTurns, 4);
+  assert.equal(parseArgs(['--actor-tools']).actorTools, true);
+  assert.equal(parseArgs(['--actor-turns', '2']).actorTurns, 2);
+  assert.equal(parseArgs(['--actor-turns', '0']).actorTurns, 4);
+});
+
+test('parseActorStep: FINAL wins, then INSPECT, else whole text is FINAL', () => {
+  assert.deepEqual(parseActorStep('FINAL: block it'), { kind: 'final', payload: 'block it' });
+  assert.deepEqual(parseActorStep('INSPECT: the auth code'), { kind: 'inspect', payload: 'the auth code' });
+  assert.equal(parseActorStep('just prose, no marker').kind, 'final');
+  assert.equal(parseActorStep('INSPECT: x\nFINAL: done').kind, 'final'); // FINAL precedence
+});
+
+test('buildFixture: deterministic, contains scenario + test', () => {
+  const f = buildFixture({ scenario: 'SQLi scenario', test: 'case 1', query: 'the query builder' });
+  assert.ok(f.includes('SQLi scenario'));
+  assert.ok(f.includes('case 1'));
+  assert.ok(f.includes('the query builder'));
+});
+
+test('runActorLoop: immediate FINAL → one call, returns payload', async () => {
+  let calls = 0;
+  const llmFn = async () => { calls++; return { text: 'FINAL: blocked, SQLi', usage: { input_tokens: 10, output_tokens: 5 }, model: 'm' }; };
+  const r = await runActorLoop({ system: 'sys', scenario: 's', test: 't', llmFn, maxTurns: 4 });
+  assert.equal(calls, 1);
+  assert.equal(r.text, 'blocked, SQLi');
+  assert.equal(r.usage.input_tokens, 10);
+});
+
+test('runActorLoop: INSPECT then FINAL → two calls, fixture fed into transcript', async () => {
+  const seen = [];
+  const scripted = ['INSPECT: the diff', 'FINAL: verdict'];
+  let i = 0;
+  const llmFn = async ({ user }) => { seen.push(user); return { text: scripted[i++], usage: { input_tokens: 1, output_tokens: 1 }, model: 'm' }; };
+  const r = await runActorLoop({ system: 'sys', scenario: 'SCEN', test: 'CASE', llmFn, maxTurns: 4 });
+  assert.equal(r.text, 'verdict');
+  assert.equal(seen.length, 2);
+  assert.ok(seen[1].includes('code / diff under review'), 'fixture observation fed back');
+  assert.equal(r.usage.output_tokens, 2, 'usage summed across turns');
+});
+
+test('runActorLoop: never emits FINAL → hits turn cap → forced final', async () => {
+  let calls = 0;
+  const llmFn = async () => { calls++; return { text: 'INSPECT: more', usage: { input_tokens: 1, output_tokens: 1 }, model: 'm' }; };
+  const r = await runActorLoop({ system: 'sys', scenario: 's', test: 't', llmFn, maxTurns: 2 });
+  assert.equal(calls, 3, '2 loop turns + 1 forced-final call');
+  assert.equal(r.text, 'more', 'forced-final extracts the payload from the last reply');
 });
 
 test('stddev: 0 for <2 samples, correct sample stddev otherwise', () => {
