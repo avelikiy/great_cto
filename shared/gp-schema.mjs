@@ -92,3 +92,36 @@ export function validateGpFrontmatter(text) {
   const missing = RECALL_REQUIRED_KEYS.filter(k => !new RegExp(`^${k}:`, 'm').test(String(text)));
   return { ok: missing.length === 0, missing };
 }
+
+/**
+ * Bump a GP's version when a pattern is re-crystallized or amended (AgentSpace #4:
+ * knowledge is owned + versioned, not overwritten). Increments the `version:`
+ * frontmatter, refreshes `last_validated:`, and appends a line to a
+ * `## Version history` section (created if absent) — append-only audit of how the
+ * pattern evolved. Pure: returns the new text; never throws on a missing version.
+ *
+ * @param {string} text  full GP file text
+ * @param {{reason?:string, date:string, source_ke?:string}} meta  date is required (caller supplies the clock)
+ * @returns {{text:string, from:number, to:number}}
+ */
+export function bumpGpVersion(text, meta = {}) {
+  let t = String(text);
+  const m = t.match(/^version:\s*(\d+)\s*$/m);
+  const from = m ? parseInt(m[1], 10) : 1;
+  const to = from + 1;
+
+  if (m) t = t.replace(/^version:\s*\d+\s*$/m, `version: ${to}`);
+  else t = t.replace(/^(---\n)/, `$1version: ${to}\n`); // insert if absent
+
+  if (meta.date) {
+    if (/^last_validated:/m.test(t)) t = t.replace(/^last_validated:.*$/m, `last_validated: ${meta.date}`);
+  }
+
+  const entry = `- v${to} (${meta.date ?? '?'})${meta.source_ke ? ` · ${meta.source_ke}` : ''} — ${meta.reason ?? 're-crystallized'}`;
+  if (/^##\s+Version history/m.test(t)) {
+    t = t.replace(/(^##\s+Version history\s*\n)/m, `$1${entry}\n`);
+  } else {
+    t = t.replace(/\s*$/, `\n\n## Version history\n${entry}\n`);
+  }
+  return { text: t, from, to };
+}
