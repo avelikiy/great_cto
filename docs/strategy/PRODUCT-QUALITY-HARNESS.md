@@ -35,6 +35,23 @@ a product directory to derive the signals. Same rubric great_cto graded itself o
 4. **Real benchmark** — generate 1–2 products per archetype (A1–A6) and score them →
    the empirical per-archetype number that replaces today's expert estimate (≈70).
 
+## Empirical result (P4, first data point)
+
+A general-purpose agent generated a real, minimal **A1 CRUD vertical-SaaS** product
+(Task tracker — model + API + UI + auth + observability + unit & e2e tests + Docker +
+`.env.example`; `npm test` 13/13). The harness scored it:
+
+| Pass | Score | Note |
+|------|-------|------|
+| first run | **69/100 (C)** | exposed a real heuristic blind spot — a vanilla-HTML UI wasn't credited |
+| after fixing the UI/design heuristic | **84/100 (B)** | completeness 20/20, tests 20/20, security 15/15, observability 10/10 |
+
+So a *clean* A1 build scores ~84. The 69→84 jump (fixing a true under-detection) is
+itself proof the harness works and self-corrects. The ~70 expert estimate stands for
+the *fleet* average — harder archetypes (marketplace escrow, content DRM) and
+average-quality builds pull below this best-case A1 number. Artifact:
+`docs/quality/SCORE-gen-crud-app.md`.
+
 ## Why heuristics, honestly
 
 Static inspection can't fully judge correctness or UX — it judges *presence and shape*

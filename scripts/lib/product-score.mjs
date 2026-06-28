@@ -12,7 +12,7 @@
 // Pure scoreProduct(signals) is unit-tested; inspect(dir) derives signals via static
 // checks. Exit 0 always (reporting tool).
 
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,16 +28,47 @@ export const RUBRIC = Object.freeze([
 ]);
 
 /**
- * Pure: weighted score from per-dimension signals (each 0..1; missing → 0).
- * @returns {{total:number, grade:string, breakdown:Array<{key,label,weight,signal,points}>}}
+ * Dimensions that don't apply to an archetype (P2: don't penalize a CLI for having
+ * no UI/deploy). Dropped dims are removed and their weight redistributed over the
+ * rest, so each archetype is scored only on what it legitimately should have. The 6
+ * web build-archetypes (crud/booking/crm/dashboard/marketplace/content) drop nothing.
  */
-export function scoreProduct(signals = {}) {
-  const breakdown = RUBRIC.map(d => {
+export const ARCHETYPE_DROP = Object.freeze({
+  cli: ['design_a11y', 'deploy'],
+  library: ['design_a11y', 'deploy', 'observability'],
+  devtools: ['design_a11y'],
+});
+
+/** Map great_cto's real archetype names (TYPE_MAP) to a scoring family. */
+export function normalizeArchetype(a) {
+  if (!a) return null;
+  const s = String(a).toLowerCase();
+  if (/(^|-)cli(-|$)|cli-tool|command-line/.test(s)) return 'cli';
+  if (/library|^sdk$|-sdk/.test(s)) return 'library';
+  if (/devtool|developer-tools/.test(s)) return 'devtools';
+  return s; // web build-archetypes (crud/booking/crm/dashboard/marketplace/content) → default rubric
+}
+
+/** Rubric for an archetype: default minus dropped dims, weights renormalized to 100. */
+export function rubricFor(archetype) {
+  const drop = new Set(ARCHETYPE_DROP[normalizeArchetype(archetype)] || []);
+  const kept = RUBRIC.filter(d => !drop.has(d.key));
+  const sum = kept.reduce((a, d) => a + d.weight, 0) || 1;
+  return kept.map(d => ({ ...d, weight: round2((d.weight / sum) * 100) }));
+}
+
+/**
+ * Pure: weighted score from per-dimension signals (each 0..1; missing → 0), using the
+ * archetype's rubric (P2). @returns {{total, grade, archetype, breakdown}}
+ */
+export function scoreProduct(signals = {}, archetype = null) {
+  const rubric = rubricFor(archetype);
+  const breakdown = rubric.map(d => {
     const signal = clamp01(Number(signals[d.key]) || 0);
     return { key: d.key, label: d.label, weight: d.weight, signal: round2(signal), points: round2(signal * d.weight) };
   });
   const total = Math.round(breakdown.reduce((a, b) => a + b.points, 0));
-  return { total, grade: grade(total), breakdown };
+  return { total, grade: grade(total), archetype: archetype || 'web (default)', breakdown };
 }
 
 function clamp01(n) { return Math.max(0, Math.min(1, n)); }
@@ -74,17 +105,34 @@ function grepAny(files, contentRe, nameRe, max = 60) {
   return false;
 }
 
-/** Inspect a product dir → signals (each 0..1). Heuristic: presence + shape. */
-export function inspect(dir) {
+/** Inspect a product dir → signals (each 0..1). Heuristic: presence + shape.
+ *  `archetype` tunes the completeness check (a CLI's "complete" ≠ a web app's). */
+export function inspect(dir, archetype = null) {
   const files = walk(dir);
   const codeRe = /\.(ts|tsx|js|jsx|mjs|py|go|rs)$/;
   const code = files.filter(f => codeRe.test(f));
 
-  // completeness: data model + API + UI (⅓ each)
-  const hasModel = anyMatch(files, /(schema\.prisma|migrations?\/|models?\/|schema\.(sql|ts))/i);
-  const hasApi = anyMatch(files, /(\/api\/|routes?\/|controllers?\/|handlers?\/|server\.(ts|js|mjs))/i);
-  const hasUi = anyMatch(files, /(\/(pages|components|app|views|ui)\/|\.(tsx|jsx|vue|svelte)$)/i);
-  const completeness = (hasModel + hasApi + hasUi) / 3;
+  // completeness — archetype-appropriate (P2):
+  let completeness;
+  let hasModel = false, hasApi = false, hasUi = false; // for _evidence (web dims)
+  const fam = normalizeArchetype(archetype);
+  if (fam === 'cli') {
+    const hasEntry = anyMatch(files, /(bin\/|cli\.(ts|js|mjs|py)|index\.(ts|js|mjs)$)/i) || grepAny(code, /#!\/usr\/bin\/env|process\.argv|argparse|commander|yargs/);
+    const hasCommands = grepAny(code, /(addCommand|subcommand|command\(|argparse|yargs|\.option\()/i);
+    const hasHelp = grepAny(code, /(--help|usage:|printHelp|\.description\()/i);
+    completeness = (hasEntry + hasCommands + hasHelp) / 3;
+  } else if (fam === 'library') {
+    const hasExports = grepAny(code, /^export |module\.exports/m);
+    const hasTypes = anyMatch(files, /\.d\.ts$|types?\//i) || grepAny(code, /export (type|interface)/);
+    const hasReadme = anyMatch(files, /readme\.md$/i);
+    completeness = (hasExports + hasTypes + hasReadme) / 3;
+  } else {
+    // web product (the 6 build archetypes): data model + API + UI
+    hasModel = anyMatch(files, /(schema\.prisma|migrations?\/|models?\/|schema\.(sql|ts))/i);
+    hasApi = anyMatch(files, /(\/api\/|routes?\/|controllers?\/|handlers?\/|server\.(ts|js|mjs))/i);
+    hasUi = anyMatch(files, /(\/(pages|components|app|views|ui|public)\/|\.(tsx|jsx|vue|svelte)$|index\.html$)/i);
+    completeness = (hasModel + hasApi + hasUi) / 3;
+  }
 
   // tests: unit present + e2e present
   const hasUnit = anyMatch(files, /\.(test|spec)\.(ts|tsx|js|jsx|mjs|py)$/);
@@ -98,8 +146,10 @@ export function inspect(dir) {
   const security = ((secretLeak ? 0 : 0.5) + (hasAuth ? 0.3 : 0) + (hasEnvExample ? 0.2 : 0));
 
   // design/a11y: design system + aria/role usage
-  const hasDesignSys = grepAny(code, /(tailwind|@apply|shadcn|MaterialTheme|chakra|mui)/i, /\.(tsx|jsx|css|ts)$/);
-  const hasA11y = grepAny(code, /(aria-|getByRole|role=|getByLabel|alt=)/, /\.(tsx|jsx|ts|js)$/);
+  const hasDesignSys = grepAny(code, /(tailwind|@apply|shadcn|MaterialTheme|chakra|mui)/i, /\.(tsx|jsx|css|ts)$/)
+    || grepAny(files, /<style|style=|class=|<link[^>]+stylesheet/i, /\.html$/);
+  const hasA11y = grepAny(code, /(aria-|getByRole|role=|getByLabel|alt=)/, /\.(tsx|jsx|ts|js)$/)
+    || grepAny(files, /(aria-|role=|alt=|<label)/i, /\.html$/);
   const design_a11y = (hasDesignSys ? 0.5 : 0) + (hasA11y ? 0.5 : 0);
 
   // observability: error capture + structured logging + health endpoint
@@ -123,16 +173,69 @@ export function inspect(dir) {
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
+/** Best-effort archetype detect: --archetype flag → PROJECT.md → package.json bin (cli). */
+export function detectArchetype(dir, flag) {
+  if (flag) return flag;
+  try {
+    const t = readFileSync(join(dir, '.great_cto', 'PROJECT.md'), 'utf8');
+    const m = t.match(/^(?:archetype|primary):\s*([a-z-]+)/im);
+    if (m) return m[1];
+  } catch { /* ignore */ }
+  try {
+    const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    if (pkg.bin) return 'cli';
+    if (pkg.main && !pkg.scripts?.start && !pkg.scripts?.dev) return 'library';
+  } catch { /* ignore */ }
+  return null;
+}
+
+/** Score one product dir end-to-end (detect → inspect → score). */
+export function scoreDir(dir, archetypeFlag = null) {
+  const archetype = detectArchetype(dir, archetypeFlag);
+  return scoreProduct(inspect(dir, archetype), archetype);
+}
+
+/** Pure: the SCORE-{slug}.md artifact the pipeline emits at S6/S7 (deploy-gate input). */
+export function renderScoreMarkdown(name, res) {
+  const rows = res.breakdown.map(b => `| ${b.label} | ${b.points}/${b.weight} | ${Math.round(b.signal * 100)}% |`).join('\n');
+  return `# SCORE-${name}\n\n> Auto-generated by scripts/lib/product-score.mjs · archetype: ${res.archetype}\n\n**Quality: ${res.total}/100 (grade ${res.grade})**\n\n| Dimension | Points | Signal |\n|-----------|--------|--------|\n${rows}\n`;
+}
+
+/** P3 fleet: score each immediate subdir → per-archetype averages + overall. */
+function fleet(parent) {
+  const dirs = readdirSync(parent, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => join(parent, e.name));
+  const results = dirs.map(d => ({ dir: d, ...scoreDir(d) }));
+  if (results.length === 0) { console.log(`fleet: no product subdirs in ${parent}`); return; }
+  console.log(`Fleet quality — ${parent}  (${results.length} products)`);
+  for (const r of results) console.log(`  ${String(r.total).padStart(3)}/100 ${r.grade}  ${r.archetype.padEnd(18)} ${r.dir}`);
+  const byA = {};
+  for (const r of results) (byA[r.archetype] ??= []).push(r.total);
+  console.log('\n  Per-archetype average:');
+  for (const [a, ts] of Object.entries(byA)) console.log(`    ${a.padEnd(18)} ${Math.round(ts.reduce((x, y) => x + y, 0) / ts.length)}/100  (n=${ts.length})`);
+  console.log(`\n  OVERALL: ${Math.round(results.reduce((a, r) => a + r.total, 0) / results.length)}/100`);
+}
+
 function main(argv) {
+  const fIdx = argv.indexOf('--fleet');
+  if (fIdx > -1) { const p = argv[fIdx + 1]; if (!p || !existsSync(p)) { console.error('Usage: --fleet <dir-of-products>'); process.exit(2); } return fleet(p); }
+
   const dir = argv.find(a => !a.startsWith('--'));
   if (!dir || !existsSync(dir) || !statSync(dir).isDirectory()) {
-    console.error('Usage: product-score.mjs <product-dir> [--json]'); process.exit(2);
+    console.error('Usage: product-score.mjs <product-dir> [--archetype <id>] [--json] [--save <file>] | --fleet <dir>'); process.exit(2);
   }
-  const signals = inspect(dir);
-  const res = scoreProduct(signals);
+  const aIdx = argv.indexOf('--archetype');
+  const archetype = detectArchetype(dir, aIdx > -1 ? argv[aIdx + 1] : null);
+  const signals = inspect(dir, archetype);
+  const res = scoreProduct(signals, archetype);
   if (argv.includes('--json')) { process.stdout.write(JSON.stringify({ dir, ...res, signals }, null, 2)); return; }
 
-  console.log(`Product quality score — ${dir}`);
+  const sIdx = argv.indexOf('--save');
+  if (sIdx > -1 && argv[sIdx + 1]) {
+    const slug = dir.replace(/[/\\]+$/, '').split(/[/\\]/).pop() || 'product';
+    writeFileSync(argv[sIdx + 1], renderScoreMarkdown(slug, res)); console.log(`saved ${argv[sIdx + 1]}`);
+  }
+
+  console.log(`Product quality score — ${dir}  [archetype: ${res.archetype}]`);
   for (const b of res.breakdown) {
     const bar = '█'.repeat(Math.round(b.signal * 10)).padEnd(10, '·');
     console.log(`  ${b.label.padEnd(24)} ${bar} ${b.points}/${b.weight}`);
