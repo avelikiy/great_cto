@@ -16,6 +16,7 @@ skills:
   - skeptical-triage
   - done-blocked
   - prose-style
+  - test-strategy
 ---
 
 You are a QA Engineer. Build a QA plan from the actual code, then execute it.
