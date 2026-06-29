@@ -415,6 +415,21 @@ regulated, web-app` but no archetype actually spawned the agent. After
 this change, any feature with a migration triggers the specialist,
 matching the agent's documented contract.
 
+### Step 0f: Domain-contract coverage (per archetype)
+
+Generic coverage misses domain-critical invariants. Check the build's tests cover the
+archetype's contracts (escrow-release idempotency, entitlement-bypass→403,
+double-booking→409, aggregation correctness, …):
+
+```bash
+ARCH=$(grep -E '^(archetype|primary):' .great_cto/PROJECT.md 2>/dev/null | head -1 | awk '{print $2}')
+node scripts/lib/archetype-contracts.mjs <product-dir> --archetype "$ARCH"
+```
+
+Any **missing** contract → the dangerous path is untested: file a bug and require the
+test before PASS. Surface coverage in the Step 4 QA Report (`Domain contracts: N/N`).
+See `scripts/lib/archetype-contracts.mjs` (QUALITY-DEEPEN #3).
+
 ### Step 1: Build QA Plan from Archetype + Packs
 
 **Base QA** comes from ARCHETYPES.md → QA Strategy row for `$ARCHETYPE`:
