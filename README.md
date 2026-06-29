@@ -66,8 +66,11 @@ QA, security-officer, devops — that runs spec → scaffold → backend → fro
 **You make one decision: approve the spec.** Everything after is automated. The pipeline is
 risk-tiered — a maintenance fix opens no gate (CI is the gate), a reversible feature opens only the
 plan gate, and an irreversible change forces the full set — so ceremony scales with blast radius,
-not with paperwork. CI and the build's own generated tests are the quality gate that makes it safe
-to let the pipeline run to deploy.
+not with paperwork. CI, the build's own generated tests, and a **cross-model review** (a different
+model family red-teams the diff, so review isn't blind to its own author's mistakes) are the quality
+gate that makes it safe to let the pipeline run to deploy. And approving the spec isn't a one-way
+door — if a structural spec error surfaces mid-build, any agent can raise a **SPEC-OBJECTION** that
+re-opens the gate, so a long build is recoverable, not finish-bad-or-restart.
 
 **One gate, where it matters.** Build steps are risk-tiered: a reversible change builds and ships
 behind CI; an irreversible one — a production deploy, a schema migration, a new write-capable
@@ -85,7 +88,8 @@ enforce the invariant in code.
 | Target US industries | **10** (home services · retail · proptech · fitness · HR · …) |
 | Buildable products | **~40** across the 10 industries |
 | Reusable build pipelines | **6** (CRUD · booking · CRM · dashboard · marketplace · content) |
-| Specialist agents | **46** |
+| Specialist agents | **61** |
+| Generated-product quality (measured) | **89/100** across all 6 build archetypes — reproducible `product-score` harness (quality-machinery score; a floor, not deep correctness) |
 
 → [Full trace with all artefacts](https://greatcto.systems/proof) · [the 6 pipelines](https://greatcto.systems/pipelines)
 
@@ -187,7 +191,7 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ Cognition cloud | ✅ Claude Code |
 | BYOK / multi-model | ✅ Claude Code · Codex | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **46** (architect · design-advisor · senior-dev · QA · security · devops · archetype reviewers) | 1 generalist | 1 generalist |
+| Specialist agents | **61** (architect · design-advisor · senior-dev · code-reviewer · QA · security · e2e-test-engineer · devops · archetype reviewers) | 1 generalist | 1 generalist |
 | Build pipeline | spec → CTO gate → scaffold → build → test → deploy | one-shot autonomy | edit loop |
 | Human gates | ✅ one — you approve the spec (risk-tiered) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
