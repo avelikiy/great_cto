@@ -103,6 +103,16 @@ Show deploy plan: archetype-based deploy method, environment vars required, roll
 **Checkpoint B — BEFORE production deploy** (after step 6 staging validation, before production push):
 Show staging results: smoke test pass/fail, perf metrics vs baseline, critical paths verified. CTO approves → push to prod with canary. Comments → debug on staging first → re-checkpoint.
 
+**Quality gate (mandatory, before Checkpoint B).** Run the executed-quality gate on
+the built product — it RUNS the tests/typecheck/lint/audit/secret-scan, not just
+checks they exist:
+```bash
+node scripts/lib/product-eval.mjs <product-dir> --gate --min 70 --baseline docs/quality/SCORE-<slug>.json
+```
+A sub-threshold score **or a regression vs the last baseline** exits non-zero → do
+NOT proceed to the production push (`gate:quality` BLOCK). This makes product quality
+a measured deploy gate, not a report. See `docs/strategy/QUALITY-DEEPEN.md`.
+
 **Checkpoint C — AFTER production deploy** (after canary complete, before handing off to l3-support):
 Show deploy outcome: version deployed, canary metrics (error rate, p95), rollback readiness. CTO approves → hand off to l3-support monitoring. Comments → investigate → consider rollback.
 
