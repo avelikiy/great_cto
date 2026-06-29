@@ -49,3 +49,11 @@ aggregation/window; marketplace: escrow-held/release-idempotent/buyer≠seller; 
 entitlement-gate/purchase-grants) and checks the product's tests cover them. Wired into
 qa-engineer Step 0f. Fleet result: **all 6 products 100% contract coverage** — the
 generated suites actually test the dangerous domain paths.
+
+## #5 shipped — unified verdict + trend
+
+`quality.mjs` blends the three lenses into one verdict (floor 30% · ceiling 50% ·
+domain 20%; contracts dropped+renormalized when an archetype has none), `--record`s it
+to `metrics-history.jsonl` (trend across releases), and `--gate`s deploy. devops
+Checkpoint B now runs `quality.mjs --gate --record`. Fleet unified: **A1 95, A2–A6 97/100 (A)**.
+One command, one number, gated + trended — instead of three separate tools.
