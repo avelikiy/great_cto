@@ -58,3 +58,7 @@ Static inspection can't fully judge correctness or UX — it judges *presence an
 of the things quality products have. It's a floor, not a ceiling: a high score means
 "the product has the right machinery"; a low score is a true red flag. Real correctness
 still comes from the e2e run (which the harness checks for + can execute).
+
+## Empirical fleet result (full P4)
+
+All 6 build archetypes generated + scored — see [docs/quality/FLEET-SCORE.md](../quality/FLEET-SCORE.md): **fleet average 89/100** (per-archetype 84–91, all A/B). Measures quality-machinery *presence* (a floor); deep correctness needs the e2e run + review layer.
