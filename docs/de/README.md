@@ -85,7 +85,7 @@ erzwingen die Invariante im Code.
 | Ziel-US-Branchen | **10** (Hausdienste · Retail · PropTech · Fitness · HR · …) |
 | Baubare Produkte | **~40** über die 10 Branchen |
 | Wiederverwendbare Build-Pipelines | **6** (CRUD · Booking · CRM · Dashboard · Marketplace · Content) |
-| Spezialisten-Agenten | **46** |
+| Spezialisten-Agenten | **61** |
 
 → [Vollständiger Trace mit allen Artefakten](https://greatcto.systems/proof) · [die 6 Pipelines](https://greatcto.systems/pipelines)
 
@@ -187,7 +187,7 @@ Früher wurden Kritiker erst ab dem Plan aktiviert. Jetzt fängt die Pipeline Ar
 | Self-Host | ✅ läuft lokal | ❌ Cognition Cloud | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ Cognition Cloud | ✅ Claude Code |
 | BYOK / Multi-Model | ✅ Claude Code · Codex | ❌ proprietär | ❌ nur Anthropic |
-| Spezialisten-Agenten | **46** (Architekt · Design-Advisor · Senior-Dev · QA · Security · DevOps · Archetyp-Reviewer) | 1 Generalist | 1 Generalist |
+| Spezialisten-Agenten | **61** (Architekt · Design-Advisor · Senior-Dev · QA · Security · DevOps · Archetyp-Reviewer) | 1 Generalist | 1 Generalist |
 | Build-Pipeline | spec → CTO-Gate → scaffold → build → test → deploy | One-Shot-Autonomie | Edit-Loop |
 | Menschliche Gates | ✅ eines — du genehmigst die Spezifikation (risiko-gestaffelt) | ❌ keine | ❌ |
 | Memory über Sessions hinweg | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ nur Thread | ⚠️ nur Thread |

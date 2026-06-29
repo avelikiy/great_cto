@@ -82,7 +82,7 @@ plan 闸门，而一个不可逆的变更则强制开启全套闸门——因此
 | 目标美国行业 | **10**（家政服务 · 零售 · 房产科技 · 健身 · 人力资源 · …） |
 | 可构建的产品 | 横跨 10 个行业的 **~40** 种 |
 | 可复用的构建流水线 | **6**（CRUD · 预订 · CRM · 仪表盘 · 市场 · 内容） |
-| 专家智能体 | **46** |
+| 专家智能体 | **61** |
 
 → [包含全部产物的完整追踪](https://greatcto.systems/proof) · [这 6 条流水线](https://greatcto.systems/pipelines)
 
@@ -184,7 +184,7 @@ Superpowers 与 Beads 配套插件会自动安装——无需手动设置。
 | 自托管 | ✅ 本地运行 | ❌ Cognition 云 | ✅ |
 | 宿主 | ✅ Claude Code + Codex | ❌ Cognition 云 | ✅ Claude Code |
 | BYOK / 多模型 | ✅ Claude Code · Codex | ❌ 专有 | ❌ 仅 Anthropic |
-| 专家智能体 | **46**（架构师 · design-advisor · senior-dev · QA · 安全 · devops · 原型评审员） | 1 个通用智能体 | 1 个通用智能体 |
+| 专家智能体 | **61**（架构师 · design-advisor · senior-dev · QA · 安全 · devops · 原型评审员） | 1 个通用智能体 | 1 个通用智能体 |
 | 构建流水线 | spec → CTO 闸门 → scaffold → build → test → deploy | 一次性自主 | 编辑循环 |
 | 人类闸门 | ✅ 一道——你批准规格（按风险分级） | ❌ 无 | ❌ |
 | 跨会话记忆 | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ 仅线程内 | ⚠️ 仅线程内 |
