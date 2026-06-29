@@ -40,3 +40,12 @@ Note: these minimal zero-dep products have no TS/lint/lockfile → typecheck/lin
 score n/a (full credit). A richer product exercises those dims for real. The point:
 quality is now **measured by execution + gateable** (`--gate`, wired into devops Checkpoint B),
 not just inspected. Floor (shape) + ceiling (works) together.
+
+## #3 shipped — per-archetype contracts
+
+`archetype-contracts.mjs` encodes domain invariants per archetype (CRUD: validation/auth;
+booking: no-double-book/cancel-release; CRM: stage-transitions/referential; dashboard:
+aggregation/window; marketplace: escrow-held/release-idempotent/buyer≠seller; content:
+entitlement-gate/purchase-grants) and checks the product's tests cover them. Wired into
+qa-engineer Step 0f. Fleet result: **all 6 products 100% contract coverage** — the
+generated suites actually test the dangerous domain paths.
