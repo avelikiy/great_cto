@@ -81,7 +81,7 @@ security-officer、devops——它會跑 spec → scaffold → backend → front
 | 目標美國產業 | **10**（居家服務 · 零售 · 地產科技 · 健身 · 人資 · …） |
 | 可建構的產品 | **~40** 種，橫跨 10 個產業 |
 | 可重複使用的建構流水線 | **6**（CRUD · 預約 · CRM · 儀表板 · 市集 · 內容） |
-| 專家代理人 | **46** |
+| 專家代理人 | **61** |
 
 → [包含所有產物的完整追蹤](https://greatcto.systems/proof) · [這 6 條流水線](https://greatcto.systems/pipelines)
 
@@ -183,7 +183,7 @@ Superpowers 與 Beads 隨附外掛會自動安裝——無需手動設定。
 | 自架 | ✅ 本機運行 | ❌ Cognition 雲端 | ✅ |
 | 主機 | ✅ Claude Code + Codex | ❌ Cognition 雲端 | ✅ Claude Code |
 | BYOK / 多模型 | ✅ Claude Code · Codex | ❌ 專有 | ❌ 僅 Anthropic |
-| 專家代理人 | **46**（架構師 · design-advisor · senior-dev · QA · 安全 · devops · 原型審查者） | 1 位通才 | 1 位通才 |
+| 專家代理人 | **61**（架構師 · design-advisor · senior-dev · QA · 安全 · devops · 原型審查者） | 1 位通才 | 1 位通才 |
 | 建構流水線 | spec → CTO 關卡 → scaffold → build → test → deploy | 一次性自主 | 編輯迴圈 |
 | 人類關卡 | ✅ 一道——你核准規格（風險分級） | ❌ 無 | ❌ |
 | 跨工作階段記憶 | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ 僅執行緒 | ⚠️ 僅執行緒 |

@@ -75,7 +75,7 @@ imponen el invariante en el código.
 | Industrias objetivo de EE. UU. | **10** (servicios para el hogar · retail · proptech · fitness · RR. HH. · …) |
 | Productos construibles | **~40** entre las 10 industrias |
 | Pipelines de construcción reutilizables | **6** (CRUD · reservas · CRM · dashboard · marketplace · contenido) |
-| Agentes especialistas | **46** |
+| Agentes especialistas | **61** |
 
 → [Traza completa con todos los artefactos](https://greatcto.systems/proof) · [las 6 pipelines](https://greatcto.systems/pipelines)
 
@@ -143,7 +143,7 @@ Los plugins complementarios Superpowers y Beads se instalan automáticamente —
 ---
 
 <details>
-<summary>📖 Documentación completa — una compuerta del CTO · escalonamiento por riesgo · críticos · 46 agentes · arquetipos de construcción · board · coste · MCP</summary>
+<summary>📖 Documentación completa — una compuerta del CTO · escalonamiento por riesgo · críticos · 61 agentes · arquetipos de construcción · board · coste · MCP</summary>
 
 ## Una decisión por funcionalidad
 
@@ -177,7 +177,7 @@ Antes los críticos solo se activaban a partir de Plan. Ahora la pipeline detect
 | Self-host | ✅ se ejecuta localmente | ❌ nube de Cognition | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ nube de Cognition | ✅ Claude Code |
 | BYOK / multimodelo | ✅ Claude Code · Codex | ❌ propietario | ❌ solo Anthropic |
-| Agentes especialistas | **46** (arquitecto · design-advisor · senior-dev · QA · seguridad · devops · revisores de arquetipo) | 1 generalista | 1 generalista |
+| Agentes especialistas | **61** (arquitecto · design-advisor · senior-dev · QA · seguridad · devops · revisores de arquetipo) | 1 generalista | 1 generalista |
 | Pipeline de construcción | especificación → compuerta del CTO → andamiaje → construcción → pruebas → despliegue | autonomía de un solo paso | bucle de edición |
 | Compuertas humanas | ✅ una — tú apruebas la especificación (escalonada por riesgo) | ❌ ninguna | ❌ |
 | Memoria entre sesiones | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ solo hilo | ⚠️ solo hilo |
@@ -355,7 +355,7 @@ Referencia de [Agentes](../reference/agents.md) y [Comandos](../reference/comman
 
 ## Arquitectura
 
-El plugin se ejecuta dentro de Claude Code (o cualquier host con capacidad MCP); 46 agentes son especificaciones en markdown; las tareas viven en Beads (dolt, git-native); la memoria es markdown plano (sin almacén de vectores). Diagrama + tabla de stack: [docs/ARCHITECTURE.md](../ARCHITECTURE.md).
+El plugin se ejecuta dentro de Claude Code (o cualquier host con capacidad MCP); 61 agentes son especificaciones en markdown; las tareas viven en Beads (dolt, git-native); la memoria es markdown plano (sin almacén de vectores). Diagrama + tabla de stack: [docs/ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Novedades
 

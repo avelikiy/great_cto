@@ -85,7 +85,7 @@ QA, security-officer, devops — который проходит spec → scaffo
 | Целевые отрасли США | **10** (home services · retail · proptech · fitness · HR · …) |
 | Продуктов, которые можно собрать | **~40** по 10 отраслям |
 | Переиспользуемые конвейеры сборки | **6** (CRUD · booking · CRM · dashboard · marketplace · content) |
-| Специализированных агентов | **46** |
+| Специализированных агентов | **61** |
 
 → [Полная трассировка со всеми артефактами](https://greatcto.systems/proof) · [6 конвейеров](https://greatcto.systems/pipelines)
 
@@ -187,7 +187,7 @@ npx great-cto init --host codex
 | Self-host | ✅ работает локально | ❌ облако Cognition | ✅ |
 | Хост | ✅ Claude Code + Codex | ❌ облако Cognition | ✅ Claude Code |
 | BYOK / мультимодельность | ✅ Claude Code · Codex | ❌ проприетарно | ❌ только Anthropic |
-| Специализированные агенты | **46** (architect · design-advisor · senior-dev · QA · security · devops · ревьюеры по архетипам) | 1 универсал | 1 универсал |
+| Специализированные агенты | **61** (architect · design-advisor · senior-dev · QA · security · devops · ревьюеры по архетипам) | 1 универсал | 1 универсал |
 | Конвейер сборки | spec → CTO gate → scaffold → build → test → deploy | автономия в один проход | цикл правок |
 | Человеческие гейты | ✅ один — вы утверждаете спецификацию (тиерирован по риску) | ❌ нет | ❌ |
 | Память между сессиями | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ только в рамках треда | ⚠️ только в рамках треда |

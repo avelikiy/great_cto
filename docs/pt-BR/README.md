@@ -84,7 +84,7 @@ impõem o invariante no código.
 | Indústrias-alvo dos EUA | **10** (serviços domésticos · varejo · proptech · fitness · RH · …) |
 | Produtos construíveis | **~40** nas 10 indústrias |
 | Pipelines de construção reutilizáveis | **6** (CRUD · agendamento · CRM · dashboard · marketplace · conteúdo) |
-| Agentes especialistas | **46** |
+| Agentes especialistas | **61** |
 
 → [Trace completo com todos os artefatos](https://greatcto.systems/proof) · [os 6 pipelines](https://greatcto.systems/pipelines)
 
@@ -152,7 +152,7 @@ Os plugins companheiros Superpowers e Beads se instalam automaticamente — sem 
 ---
 
 <details>
-<summary>📖 Documentação completa — um gate do CTO · escalonamento por risco · críticos · 46 agentes · arquétipos de construção · board · custo · MCP</summary>
+<summary>📖 Documentação completa — um gate do CTO · escalonamento por risco · críticos · 61 agentes · arquétipos de construção · board · custo · MCP</summary>
 
 ## Uma decisão por feature
 
@@ -186,7 +186,7 @@ Antes, os críticos só ativavam a partir do Plano. Agora o pipeline pega erros 
 | Self-host | ✅ roda localmente | ❌ nuvem da Cognition | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ nuvem da Cognition | ✅ Claude Code |
 | BYOK / multi-modelo | ✅ Claude Code · Codex | ❌ proprietário | ❌ apenas Anthropic |
-| Agentes especialistas | **46** (arquiteto · design-advisor · senior-dev · QA · segurança · devops · revisores de arquétipo) | 1 generalista | 1 generalista |
+| Agentes especialistas | **61** (arquiteto · design-advisor · senior-dev · QA · segurança · devops · revisores de arquétipo) | 1 generalista | 1 generalista |
 | Pipeline de construção | spec → gate do CTO → scaffold → build → test → deploy | autonomia de uma só tacada | loop de edição |
 | Gates humanos | ✅ um — você aprova a spec (escalonado por risco) | ❌ nenhum | ❌ |
 | Memória entre sessões | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ apenas thread | ⚠️ apenas thread |
@@ -364,7 +364,7 @@ referência de [Agentes](../reference/agents.md) & [Comandos](../reference/comma
 
 ## Arquitetura
 
-O plugin roda dentro do Claude Code (ou qualquer host com capacidade MCP); 46 agentes são specs em markdown; as tarefas vivem no Beads (dolt, git-native); a memória é markdown puro (sem vector store). Diagrama + tabela de stack: [docs/ARCHITECTURE.md](../ARCHITECTURE.md).
+O plugin roda dentro do Claude Code (ou qualquer host com capacidade MCP); 61 agentes são specs em markdown; as tarefas vivem no Beads (dolt, git-native); a memória é markdown puro (sem vector store). Diagrama + tabela de stack: [docs/ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Novidades
 
