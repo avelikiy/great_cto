@@ -39,6 +39,7 @@ import {
   VAPID_SUBJECT,
 } from './lib/config.mjs';
 import { csvCell, originAllowed, eventSurface, readFileSafe } from './lib/util.mjs';
+import { sseClients, _reportRepublishDedupeSet, MAX_NOTIF_HISTORY, notifHistory, bdCache } from './lib/state.mjs';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -277,11 +278,6 @@ function resolveProjectInfo(slugOrPath) {
   return { cwd: process.cwd(), resolved: 'fallback', requested: slugOrPath };
 }
 
-// ── SSE clients ────────────────────────────────────────────────────────────────
-const sseClients = new Set();
-const _reportRepublishDedupeSet = new Set(); // dedupe daily report republish
-
-
 function broadcast(event, data) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of sseClients) {
@@ -298,17 +294,11 @@ function broadcastTasks(cwd) {
   }
 }
 
-// ── In-app notification history ────────────────────────────────────────────────
-// Persisted to ~/.great_cto/notif-history.json. Capped at 100 entries.
-// Each entry: { id, event, title, body, level, project, ts, read }
-const MAX_NOTIF_HISTORY = 100;
-let notifHistory = [];
-
 function loadNotifHistory() {
   try {
     if (fs.existsSync(NOTIF_HISTORY_FILE)) {
       const parsed = JSON.parse(fs.readFileSync(NOTIF_HISTORY_FILE, 'utf8'));
-      if (Array.isArray(parsed)) notifHistory = parsed;
+      if (Array.isArray(parsed)) { notifHistory.length = 0; notifHistory.push(...parsed); }
     }
   } catch { /* start fresh on corrupt file */ }
 }
@@ -683,7 +673,6 @@ function getInbox(cwd = process.cwd()) {
 // bdCacheInvalidate(cwd) before broadcasting). This avoids spawning `bd list`
 // on every API call when 5+ projects are open in tabs.
 const BD_CACHE_TTL_MS = 2000;
-const bdCache = new Map(); // cwd → { ts, data }
 
 function bdCacheInvalidate(cwd) { bdCache.delete(cwd); }
 
