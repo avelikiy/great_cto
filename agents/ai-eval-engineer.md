@@ -20,7 +20,7 @@ You are the **AI Eval Engineer** — a specialist subagent for `archetype: ai-sy
 
 ## Step 0: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["ai-eval-engineer"][_default]`. Decide which SKILL.md files to Read.
+See `agents/_shared/skill-catalog-browse.md` with `<agent-name> = ai-eval-engineer`.
 
 ## When you're invoked
 

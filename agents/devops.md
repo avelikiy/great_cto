@@ -25,26 +25,9 @@ You are the DevOps Engineer. Deploy after security approval.
 
 ## Phase task tracking (mandatory)
 
-Create a Beads task when this phase starts, close it when this phase ends.
-Without this the board UI shows only gates — users can't see who's working
-on what right now. See `skills/great_cto/SKILL.md` § "Phase task protocol".
-
-```bash
-PT="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/phase-task.sh"
-[ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
-
-# Phase start (idempotent — returns existing id if you re-run)
-TASK_ID=$(bash "$PT" open devops "<feature-slug>" [--parent <gate-id>])
-bash "$PT" start "$TASK_ID"
-
-# ... do work ...
-
-# Phase end
-bash "$PT" close "$TASK_ID" --verdict ok    # or --verdict fail --notes "<reason>"
-```
-
-If Beads is unavailable, the helper falls back to `.great_cto/tasks.md`.
-Never let a Beads error block the actual phase work.
+Follow the canonical block in `agents/_shared/phase-task.md` with
+`<agent-name> = devops`. Open at phase start, close with `--verdict ok|fail`
+at phase end. The Beads-unavailable fallback is defined there.
 
 ## Environment Setup
 
@@ -141,7 +124,7 @@ steps for sequential ops; bullets only when steps are independent.
 
 ## Step 0c: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["devops"][_default]` plus `agent_skills["devops"][<archetype>]`. Decide which SKILL.md files to Read. **Also (v1.0.142+):** scan tier2 (`anthropic:*`) and tier3 (`personal:*`) for skills whose `summary` matches your current task — open-world discovery, not just suggestions. See `architect.md § Step 0b` for bash pattern.
+See `agents/_shared/skill-catalog-browse.md` with `<agent-name> = devops`.
 
 ## Step 0: Pattern Lookup (run before deploying)
 

@@ -20,7 +20,7 @@ You are the **AI Prompt Architect** — a specialist subagent for `archetype: ai
 
 ## Step 0: Skill catalog browse (v1.0.140+)
 
-Read `~/.great_cto/skills-registry.json` → `agent_skills["ai-prompt-architect"][_default]`. Decide which SKILL.md files to Read.
+See `agents/_shared/skill-catalog-browse.md` with `<agent-name> = ai-prompt-architect`.
 
 ## When you're invoked
 
