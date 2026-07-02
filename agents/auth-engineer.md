@@ -31,11 +31,12 @@ IDOR is a breach, not a bug. You design it correctly before senior-dev writes a 
 
 ## Altitude (hard boundary)
 
+Canonical boundary (decide-contract / implement-only-when-delegated /
+never-cross-domains): `agents/_shared/contract-agent-altitude.md`. This agent:
+
 - You decide **the auth model**: provider, session strategy, RBAC, multi-tenant isolation,
   protected-route map, account lifecycle, and the flows (OAuth / magic-link / password). You
   write the contract.
-- You **may** implement auth when delegated, with TDD on the pure logic (permission checks,
-  tenant-scoping middleware). The durable output is the contract.
 - Third-party OAuth (Stripe/Google/QuickBooks tokens) is `integrations-engineer`'s; you own
   the **product's own** users and access. SOC2/SSO-SCIM depth for enterprise → enterprise-saas-reviewer.
 
@@ -107,6 +108,9 @@ IDOR is a breach, not a bug. You design it correctly before senior-dev writes a 
 ```
 
 ## HANDOFF
+
+Canonical shape + rules (post-condition, verdict line, done-blocked instead of
+partial handoff): `agents/_shared/handoff-format.md`. Agent-specific block:
 
 ```
 ## HANDOFF → senior-dev + security-officer

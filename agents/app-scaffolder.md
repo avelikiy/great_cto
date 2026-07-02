@@ -79,6 +79,9 @@ A scaffold that "looks done" but doesn't run is worse than none.
 
 ## HANDOFF
 
+Canonical shape + rules (post-condition, verdict line, done-blocked instead of
+partial handoff): `agents/_shared/handoff-format.md`. Agent-specific block:
+
 ```
 ## HANDOFF → senior-dev (+ infra-provisioner for real deploy)
 - Scaffold: <repo path> — runs (dev + build), CI green, smoke test passing

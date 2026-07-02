@@ -1,6 +1,6 @@
 ---
 name: archetype-review-base
-description: Shared review framework that every domain reviewer (pci, oracle, gov, edtech, healthcare, mlops, etc.) MUST follow. Defines the output artifact (TM-{slug}.md), mandatory sections, severity scale, verdict format, the workflow scaffold (when-invoked, Step-0 read-inputs, HANDOFF), and the "domain heuristic vs generic check" boundary. Eliminates duplication across the 60+ reviewer prompts.
+description: Shared review framework that every domain reviewer (pci, oracle, gov, edtech, healthcare, mlops, etc.) MUST follow. Defines the output artifact (TM-{slug}.md), mandatory sections, severity scale, verdict format, the workflow scaffold (when-invoked, Step-0 read-inputs, HANDOFF), and the "domain heuristic vs generic check" boundary. Eliminates duplication across the ~30 reviewer prompts.
 when_to_use: |
   Apply when invoked as ANY domain reviewer:
   - pci-reviewer, oracle-reviewer, gov-reviewer, healthcare-reviewer,
@@ -29,10 +29,17 @@ parts that must be IDENTICAL across all reviewers.
 
 ## Output artifact (canonical)
 
-Pre-implementation reviewers (the 60+ `*-reviewer` agents, invoked by architect
-BEFORE senior-dev claims tasks) write a **threat model** at
+Pre-implementation reviewers (the `*-reviewer` agents — ~30 in `agents/` —
+invoked by architect BEFORE senior-dev claims tasks) write a **threat model** at
 `docs/sec-threats/TM-{slug}.md` and append a `<!-- HANDOFF -->` block (see
-"Workflow scaffold" below). That is the convention 64/64 reviewers use today.
+"Workflow scaffold" below). That is the single convention for every reviewer.
+
+**One TM file per feature slug.** Per-reviewer filename suffixes
+(`TM-api-{slug}.md`, `TM-extension-{slug}.md`) are deprecated — consumers glob
+`TM-{slug}.md` and per-suffix files silently escape their checks. When multiple
+domain reviewers run on the same slug, each APPENDS its own `## {reviewer}
+findings` section and its own `<!-- HANDOFF -->` block to the shared
+`TM-{slug}.md` — never overwrite another reviewer's sections.
 
 The **Findings / Severity / Verdict** structure below is the CONTENT format that
 goes inside that artifact (and inside any post-implementation
@@ -44,7 +51,7 @@ phase; the section grammar is identical.
 The report (TM or REVIEW) MUST contain these sections in this exact order:
 
 ```markdown
-# REVIEW-{slug} — {reviewer name}
+# TM-{slug} — {reviewer name}      <!-- pre-impl; post-impl review-tier files use REVIEW-{slug} -->
 
 Reviewed: {commit-sha or file paths or ARCH doc reference}
 Standard: {regulation / framework you applied — list specific clauses}
@@ -125,15 +132,15 @@ CTO time. Only block when 3/3 rounds confirm.
 
 ## Verdict log line
 
-After writing your report, append ONE line to your verdict log:
+After writing your report, record the canonical verdict via the helper (see
+`agents/_shared/verdict-format.md` — do NOT hand-write the line; the helper
+guarantees the format the board parser and the pipeline dispatcher both read,
+and `auto` records real token cost):
 
+```bash
+bash scripts/log-verdict.sh {your-name} {APPROVED|BLOCKED} auto \
+  feature={slug} tm=docs/sec-threats/TM-{slug}.md criticals={N} highs={M}
 ```
-{ISO-ts} {APPROVED|BLOCKED} feature={slug} review=docs/reviews/REVIEW-{slug}-{reviewer}.md criticals={N} highs={M} mediums={K} cost=${USD}
-```
-
-The board's `readVerdicts()` parser anchors on the leading timestamp.
-Format MUST be space-separated; pipe-separated form parses as
-`verdict='|'` and breaks the pipeline status display.
 
 ## Prose rules — apply skill `prose-style`
 

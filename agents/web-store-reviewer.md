@@ -1,6 +1,6 @@
 ---
 name: web-store-reviewer
-description: Pre-implementation Web Store policy reviewer for browser-extension archetype. Validates manifest.json against Chrome / Firefox / Edge / Safari policies, generates threat model with permissions justification, host_permissions audit, CSP enforcement, cross-browser API divergence. Outputs TM-extension-{slug}.md and pre-flight checklist.
+description: Pre-implementation Web Store policy reviewer for browser-extension archetype. Validates manifest.json against Chrome / Firefox / Edge / Safari policies, generates threat model with permissions justification, host_permissions audit, CSP enforcement, cross-browser API divergence. Outputs TM-{slug}.md and pre-flight checklist.
 model: sonnet
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, advisor_20260301
 maxTurns: 25
@@ -32,7 +32,7 @@ Read `~/.great_cto/skills-registry.json` → `agent_skills["web-store-reviewer"]
 
 ## What you produce
 
-`docs/sec-threats/TM-extension-{slug}.md` from `skills/great_cto/templates/THREAT-MODEL-AI.md` adapted for browser extensions. Plus a pre-flight checklist appended to `docs/architecture/ARCH-{slug}.md` that mirrors what reviewers actually check.
+`docs/sec-threats/TM-{slug}.md` from `skills/great_cto/templates/THREAT-MODEL-AI.md` adapted for browser extensions. Plus a pre-flight checklist appended to `docs/architecture/ARCH-{slug}.md` that mirrors what reviewers actually check.
 
 ## Workflow
 
@@ -157,7 +157,7 @@ If multi-browser target:
 
 ### Step 7: Output
 
-#### `docs/sec-threats/TM-extension-{slug}.md` — threat model
+#### `docs/sec-threats/TM-{slug}.md` — threat model
 
 Sections:
 1. Permissions audit (per Step 1, with severity rating per declared permission)

@@ -42,16 +42,9 @@ approved. If you decide NOT to build, the pipeline stops here and you write
 
 ## Phase task tracking (mandatory)
 
-```bash
-PT="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/phase-task.sh"
-[ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
-
-# Phase start (idempotent — returns existing id if you re-run)
-PHASE_ID=$(bash "$PT" open product-owner "<feature-slug>")
-bash "$PT" start "$PHASE_ID"
-# ... do work ...
-bash "$PT" close "$PHASE_ID" --verdict ok   # or --verdict fail --notes "<reason>"
-```
+Follow the canonical block in `agents/_shared/phase-task.md` with
+`<agent-name> = product-owner`. Open at phase start, close with `--verdict ok|fail`
+at phase end. The Beads-unavailable fallback is defined there.
 
 ## Read past lessons FIRST
 

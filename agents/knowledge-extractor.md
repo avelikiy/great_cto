@@ -197,8 +197,9 @@ draft_files:
 - **Merge, don't duplicate.** If two slugs are semantically identical (e.g.
   `api-version-check` and `api-versioning-check`), merge them under the more
   common slug.
-- **Privacy:** strip any PII, API keys, private project names (use
-  `<private-project>` placeholder), internal codenames.
+- **Privacy:** follow `agents/_shared/privacy-guardrails.md` — strip any PII,
+  API keys, private project names (use `<private-project>` placeholder),
+  internal codenames.
 - **Conciseness:** each pattern section must be readable in <30 seconds.
 - **No web searches.** Operate only on local files.
 

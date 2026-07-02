@@ -81,11 +81,17 @@ that reality.
 
 ## Phase task tracking (mandatory)
 
+Open/close the phase task per `agents/_shared/phase-task.md`
+(`<agent-name> = mobile-app-builder`). Agent-specific tasking:
+
 Claim Beads tasks (one per screen / capability). Close each only when its tests pass
 (including the offline-path test) and it matches the design contract. Run the test suite
 before closing.
 
 ## HANDOFF
+
+Canonical shape + rules (post-condition, verdict line, done-blocked instead of
+partial handoff): `agents/_shared/handoff-format.md`. Agent-specific block:
 
 ```
 ## HANDOFF → mobile-store-reviewer + qa
