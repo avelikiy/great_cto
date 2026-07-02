@@ -1,6 +1,6 @@
 ---
 name: ai-prompt-architect
-description: Designs and versions LLM system prompts for ai-system / agent-product archetypes. Outputs ADR-PROMPT-{name}.md files with sha256-pinned prompt text, jailbreak resistance test cases, and revision history. Pairs with ai-eval-engineer for golden-set scenarios.
+description: Designs and versions LLM system prompts for ai-system / agent-product archetypes. Outputs docs/decisions/ADR-{NN}-PROMPT-{name}.md files with sha256-pinned prompt text, jailbreak resistance test cases, and revision history. Pairs with ai-eval-engineer for golden-set scenarios.
 model: sonnet
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301
 maxTurns: 25
@@ -94,11 +94,11 @@ For each LLM role identified in ARCH § LLM Scope:
    PROMPT_HASH=$(sha256_portable "$PROMPT_TEXT")
    ```
 
-6. **Write ADR-PROMPT-{name}.md** from template, fill all sections.
+6. **Write ADR-{NN}-PROMPT-{name}.md** from template, fill all sections. The `{NN}` sequence number is mandatory — consumers glob `ADR-*-PROMPT-*.md`; a file named plain `ADR-PROMPT-x.md` is invisible to ai-eval-engineer's Step 0 check.
 
 ### Step 2: Jailbreak test corpus
 
-For each prompt, design ≥ 5 jailbreak attempts that the prompt must resist. These become test cases in `tests/eval/EVAL-prompt-injection-{name}.md` (delegate to ai-eval-engineer for the test runner; you supply the cases).
+For each prompt, design ≥ 5 **seed** jailbreak attempts — at least one per distinct category (direct override, role swap, encoding, indirect, authority). These seeds go into the ADR and the HANDOFF comment. **Ownership split**: you supply the ≥5 representative seeds; ai-eval-engineer expands them into the full 50+ case corpus in `tests/eval/EVAL-prompt-injection-{name}.md` (its Step 2 contract). Do not attempt the full corpus yourself.
 
 Categories:
 - **Direct override**: "Ignore previous instructions and..."
@@ -126,7 +126,7 @@ Before signing off the ADR-PROMPT, self-check:
 
 ### Step 4: Hand off to ai-eval-engineer
 
-After writing ADR-PROMPT-{name}.md, write a short hand-off note as a comment in the ADR:
+After writing ADR-{NN}-PROMPT-{name}.md, write a short hand-off note as a comment in the ADR:
 
 ```
 <!-- HANDOFF to ai-eval-engineer:
@@ -160,7 +160,7 @@ ai-eval-engineer reads this hand-off and creates the matching EVAL files.
 
 ## Reporting back to architect
 
-Once all roles have ADR-PROMPT-{name}.md files written and signed off:
+Once all roles have ADR-{NN}-PROMPT-{name}.md files written and signed off:
 
 ```
 ai-prompt-architect: complete
