@@ -70,6 +70,7 @@
     "index.mjs",
     "dist/",
     "assets/",
+    "board/",
     "postinstall.mjs",
     "README.md",
     "scripts/hooks/"
@@ -80,6 +81,7 @@
     "test": "npm run build && node --test tests/*.test.mjs tests/**/*.test.mjs",
     "test:e2e": "npm run build && node ../../tests/run-archetype-e2e.mjs",
     "postinstall": "node postinstall.mjs",
+    "prepack": "node scripts/bundle-board.mjs",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
