@@ -181,16 +181,21 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 
 ## Mode — pre-impl vs post-impl (v1.0.133+)
 
-Security-officer runs in two modes depending on when in the pipeline it's invoked. Mode is detected from invocation arguments, environment variable, or by inspecting the project state.
+Security-officer runs in two modes depending on when in the pipeline it's invoked.
+**The invoker MUST state the mode in the spawn brief** (a `SEC_MODE: pre-impl` /
+`SEC_MODE: post-impl` line, or the env var). Subagents receive no shell
+positional args — never rely on `$1`.
 
 ```bash
-MODE_ARG="${1:-${SEC_MODE:-}}"
+MODE_ARG="${SEC_MODE:-}"
 
 if [ -z "$MODE_ARG" ]; then
-  # Auto-detect: if no implementation has happened yet, run pre-impl. Else post-impl.
+  # Fallback heuristic only (brief should have said it): the real pre/post
+  # signal is whether the current feature's threat model exists yet.
+  # (The old "no files in src/" check misfired on any repo with existing code.)
   LATEST_ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
-  HAS_CODE=$(find src -type f \( -name "*.py" -o -name "*.ts" -o -name "*.go" -o -name "*.rs" -o -name "*.sol" \) 2>/dev/null | head -1)
-  if [ -n "$LATEST_ARCH" ] && [ -z "$HAS_CODE" ]; then
+  SLUG_GUESS=$(basename "${LATEST_ARCH:-none}" .md | sed 's/^ARCH-//')
+  if [ -n "$LATEST_ARCH" ] && [ ! -f "docs/sec-threats/TM-${SLUG_GUESS}.md" ]; then
     MODE_ARG="pre-impl"
   else
     MODE_ARG="post-impl"
@@ -224,17 +229,20 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
       commerce)
         # v1.0.143+: delegate to pci-reviewer subagent for PCI scope + idempotency + webhook + SCA
         echo "DELEGATE: spawn pci-reviewer subagent. Produces $TM with PCI-DSS scope, idempotency proof, webhook signature validation, refund/dispute flow, SCA/PSD2." >&2
-        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        # No template fallback: THREAT-MODEL-AI.md is the WRONG domain here — a PCI
+        # threat model seeded from an OWASP-LLM table lets the __pending__ check
+        # pass against irrelevant threats. Missing TM = block until reviewer runs.
+        echo "BLOCKED: $TM missing — spawn pci-reviewer to produce it, then re-run pre-impl." >&2; exit 1
         ;;
       web3)
         # v1.0.143+: delegate to oracle-reviewer subagent for oracle/MEV/upgradeability
         echo "DELEGATE: spawn oracle-reviewer subagent. Produces $TM with oracle strategy, MEV protection, upgradeability decision matrix, L2 resilience." >&2
-        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        echo "BLOCKED: $TM missing — spawn oracle-reviewer to produce it, then re-run pre-impl." >&2; exit 1
         ;;
       iot-embedded)
         # v1.0.143+: delegate to firmware-reviewer subagent for OTA/ETSI/secure boot/HIL
         echo "DELEGATE: spawn firmware-reviewer subagent. Produces $TM with OTA strategy, ETSI EN 303 645, secure boot, HIL test design, wireless security." >&2
-        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        echo "BLOCKED: $TM missing — spawn firmware-reviewer to produce it, then re-run pre-impl." >&2; exit 1
         ;;
       browser-extension)
         # Browser extension — delegate to web-store-reviewer subagent (v1.0.136+) for
@@ -245,9 +253,9 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
         echo "  - CSP audit (no unsafe-eval, no unsafe-inline)" >&2
         echo "  - three-worlds isolation review (SW / content / popup / offscreen)" >&2
         echo "  - cross-browser compat review" >&2
-        # In Claude Code: Task(subagent_type='web-store-reviewer', prompt='generate Web Store preflight TM for slug={SLUG}')
-        # If subagent unavailable, fall back to template copy:
-        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        # In Claude Code: Agent(subagent_type='web-store-reviewer', prompt='generate Web Store preflight TM for slug={SLUG}')
+        # No AI-template fallback (wrong domain) — block until the reviewer produces the TM:
+        echo "BLOCKED: $TM missing — spawn web-store-reviewer to produce it, then re-run pre-impl." >&2; exit 1
         ;;
       ai-system|agent-product)
         # AI archetypes — delegate to ai-security-reviewer subagent for OWASP LLM Top 10 specifics.
@@ -259,8 +267,8 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
         #   - cross-user isolation (agent-product only)
         #   - supply chain (model + MCP + prompt + vector DB)
         echo "DELEGATE: spawn ai-security-reviewer subagent for AI threat-modeling. It produces $TM and signs off Critical/High mitigations." >&2
-        # In Claude Code: Task(subagent_type='ai-security-reviewer', prompt='generate threat model for slug={SLUG}')
-        # If subagent unavailable, fall back to template copy:
+        # In Claude Code: Agent(subagent_type='ai-security-reviewer', prompt='generate threat model for slug={SLUG}')
+        # AI archetype — THREAT-MODEL-AI.md IS the right domain; template fallback is valid here:
         cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/local/great_cto/$(ls -t $HOME/.claude/plugins/cache/local/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
         ;;
       *)
@@ -353,101 +361,13 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
    ```bash
    ALLOWLIST=".great_cto/security-allowlist.yml"
    if [ -f "$ALLOWLIST" ]; then
-     SUPPRESSED=$(python3 <<'PY' 2>/dev/null
-import sys, os, datetime, fnmatch, re
-try:
-    import yaml
-except ImportError:
-    # Minimal fallback parser — handles the documented schema only
-    yaml = None
-
-path = ".great_cto/security-allowlist.yml"
-log  = ".great_cto/security-signals.log"
-today = datetime.date.today()
-max_exp = today + datetime.timedelta(days=90)
-
-def parse_fallback(p):
-    doc = {"allowed-deps": [], "allowed-iac-paths": []}
-    section, entry = None, None
-    with open(p) as f:
-        for raw in f:
-            line = raw.rstrip()
-            if not line.strip() or line.lstrip().startswith("#"): continue
-            if line.startswith("allowed-deps:"):      section = "allowed-deps"; continue
-            if line.startswith("allowed-iac-paths:"): section = "allowed-iac-paths"; continue
-            if section == "allowed-deps":
-                m = re.match(r"\s*-\s*name:\s*(.+)$", line)
-                if m:
-                    if entry: doc["allowed-deps"].append(entry)
-                    entry = {"name": m.group(1).strip().strip('"').strip("'")}; continue
-                m = re.match(r"\s+(\w[\w-]*):\s*(.+)$", line)
-                if m and entry is not None:
-                    entry[m.group(1)] = m.group(2).strip().strip('"').strip("'")
-            elif section == "allowed-iac-paths":
-                m = re.match(r"\s*-\s*(.+?)(\s+#.*)?$", line)
-                if m: doc["allowed-iac-paths"].append(m.group(1).strip().strip('"').strip("'"))
-        if entry: doc["allowed-deps"].append(entry)
-    return doc
-
-try:
-    with open(path) as f:
-        doc = yaml.safe_load(f) if yaml else parse_fallback(path)
-except Exception as e:
-    print(f"WARN_ALLOWLIST parse_error={e}", file=sys.stderr); sys.exit(0)
-
-if not isinstance(doc, dict):
-    sys.exit(0)
-
-log_fh = open(log, "a")
-def audit(line): log_fh.write(line + "\n")
-
-def validate(entry, kind):
-    if not isinstance(entry, dict):
-        return (False, "not-an-object")
-    missing = [k for k in ("reason","approved-by","expires") if not str(entry.get(k,"")).strip()]
-    if missing:
-        return (False, f"missing:{','.join(missing)}")
-    owner = str(entry["approved-by"]).strip()
-    if not owner.startswith("@"):
-        return (False, "owner-not-@handle")
-    exp = str(entry["expires"]).strip()
-    try:
-        exp_date = datetime.date.fromisoformat(exp)
-    except Exception:
-        return (False, f"expires-invalid:{exp}")
-    if exp_date <= today:
-        return (False, f"expired:{exp}")
-    if exp_date > max_exp:
-        return (False, f"expires-beyond-90d:{exp}")
-    return (True, owner)
-
-suppress_deps = set()
-suppress_iac  = []
-
-for e in (doc.get("allowed-deps") or []):
-    ok, info = validate(e, "dep")
-    name = (e.get("name") or "?") if isinstance(e, dict) else "?"
-    if ok:
-        suppress_deps.add(name)
-        audit(f"SEC_WAIVER: dep={name} owner={info} expires={e['expires']}")
-    else:
-        audit(f"WARN_WAIVER_REJECTED: dep={name} reason={info}")
-        print(f"WARN_WAIVER_REJECTED dep={name} reason={info}", file=sys.stderr)
-
-for p in (doc.get("allowed-iac-paths") or []):
-    # iac paths don't carry per-entry owner/expires in the documented schema — require
-    # a sibling entry in allowed-deps style if teams want per-path owners. For now we
-    # accept the path if the file's top-level `iac-approval` block is present and valid.
-    suppress_iac.append(p)
-    audit(f"SEC_WAIVER: iac-path={p}")
-
-# Emit the suppression set to stdout for the calling shell.
-for d in sorted(suppress_deps): print(f"DEP:{d}")
-for p in suppress_iac:          print(f"IAC:{p}")
-
-log_fh.close()
-PY
-)
+     # Waiver validation extracted to scripts/lib/waiver-check.py (was a 95-line
+     # inline heredoc). It validates reason/approved-by/expires, appends the
+     # audit trail to security-signals.log, and prints DEP:<name> / IAC:<path>
+     # suppression lines. Broken allowlist => suppresses nothing (exit 0).
+     WC="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/waiver-check.py"
+     [ -f "$WC" ] || WC="$(pwd)/scripts/lib/waiver-check.py"
+     SUPPRESSED=$(python3 "$WC" 2>/dev/null)
      # Apply suppressions to the upgrade set. A matching waiver removes the
      # corresponding signal from UPGRADES — but only that signal. If a
      # different signal already pushed the tier up, it stays up.
