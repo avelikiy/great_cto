@@ -225,19 +225,29 @@ Rules for WPL:
 - Packets 3/4 must wait for Packets 1/2 (dependency)
 - Packets 5/6 must wait for Packets 3/4 (dependency)
 
+**WPL = the Decomposition Matrix.** CLAUDE.md requires a Decomposition Matrix
+(`Stream | Write-zone | Depends on | Why parallel-safe`) before any Large task
+starts — the WPL is its superset; emitting a WPL satisfies that requirement.
+Column mapping: Stream→Name, Write-zone→Owned files, Depends on→Depends on;
+"Why parallel-safe" is proven mechanically by the lane-overlap check below
+(disjoint owned files) rather than asserted in prose. Do not produce both
+tables — one WPL, referenced from the orchestrator, is the single source.
+
 ---
 
 ## Agent boundary enforcement
 
-**Strict file ownership**: an agent may not write to files outside its ownership list. Before dispatching, check for overlaps:
+**Strict file ownership**: an agent may not write to files outside its ownership list. Before dispatching ≥2 implementation packets, run the mechanical overlap check (`scripts/lib/check-lane-overlap.mjs` — it expands globs; a naive line-level `uniq -d` misses `src/auth/*.ts` vs `src/auth/login.ts`):
 
 ```bash
-# Check if two implementation tasks claim the same file
-# WPL is the source of truth — if overlap detected, make them sequential
-grep -h "Owned files:" work-packets.md | sort | uniq -d
+# Build lanes.json from the WPL "Owned files" column (implementation packets only):
+#   [{"lane":"packet-3","files":["src/auth/*.ts"]},{"lane":"packet-4","files":["migrations/*.sql"]}]
+CLO="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/check-lane-overlap.mjs"
+[ -f "$CLO" ] || CLO="$(pwd)/scripts/lib/check-lane-overlap.mjs"
+node "$CLO" lanes.json    # exit 0 = disjoint (safe to fan out), 1 = overlap
 ```
 
-If overlap → force sequential, add dependency in WPL before dispatching.
+If exit 1 → force sequential: add the dependency in the WPL before dispatching, or re-split the packets until the check passes.
 
 ---
 
