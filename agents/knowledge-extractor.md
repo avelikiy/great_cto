@@ -201,3 +201,13 @@ draft_files:
   `<private-project>` placeholder), internal codenames.
 - **Conciseness:** each pattern section must be readable in <30 seconds.
 - **No web searches.** Operate only on local files.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh knowledge-extractor DONE auto drafts=<n>
+```

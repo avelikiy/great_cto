@@ -120,3 +120,13 @@ IDOR is a breach, not a bug. You design it correctly before senior-dev writes a 
 
 If the tenant model is undefined in ARCH, emit a `done-blocked` report — auth cannot be
 designed without knowing who the users are and how their data is partitioned.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh auth-engineer <DONE|BLOCKED> auto auth=docs/auth/AUTH-<slug>.md
+```

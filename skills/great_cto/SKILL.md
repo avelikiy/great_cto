@@ -54,6 +54,16 @@ pipeline gets bypassed.
 | Deploy / canary / rollback / SLO (preview/staging) | `devops` |
 | Provision real infra → live URL: managed DB / host / domain / prod env | `infra-provisioner` |
 | Production incident triage, P0 postmortem | `l3-support` |
+| Third-party API integration: OAuth flows, webhook signatures, idempotency, retries, sandbox→prod | `integrations-engineer` |
+| Read-side data connectors: cursors, dedup, backfill, freshness SLA (dashboards) | `connector-builder` |
+| Route optimization: VRP, geocoding, distance matrix, re-optimization | `geo-routing-engineer` |
+| Media pipeline: upload, transcode ladder, HLS, signed URLs, image derivatives | `media-pipeline-engineer` |
+| Import/migrate data from a legacy system: dry-run, idempotent re-import, rollback | `migration-import-engineer` |
+| Subscriptions & billing: plans, dunning, proration, tax, Stripe Billing / Connect fees | `subscription-billing-engineer` |
+| React Native mobile implementation (DESIGN doc targets RN; offline-first, store readiness) | `mobile-app-builder` |
+| E2E golden-path suite (Playwright) + live-URL validation around deploy | `e2e-test-engineer` |
+| Score 2+ ADR/ARCH variants against weighted criteria (after architect proposes alternatives) | `decision-scorer` |
+| UI-bearing feature: design system pick, wireframes, a11y contract (after architect, before senior-dev) | `design-advisor` |
 | Pattern extraction from session → `lessons.md` | `continuous-learner` |
 | Crystallize sessions → new skills | `continuous-learner` → `knowledge-extractor` | `/crystallize` |
 
@@ -61,6 +71,24 @@ pipeline gets bypassed.
 one of the rows above, dispatch that specialist **first**. Reach for
 `general-purpose` only when nothing matches. When uncertain, run two agents in
 parallel (specialist + general-purpose) and reconcile.
+
+## Machine handoff (PIPELINE-NEXT directives)
+
+Agent→agent transitions are encoded in `shared/pipeline.toml` (copied into the
+project at SessionStart). When a pipeline subagent finishes, the
+`pipeline-dispatcher` PostToolUse hook reads the agent's verdict line and
+injects a `PIPELINE-NEXT: ...` directive into your context. Treat it as the
+authoritative next step:
+
+- **spawn directive** → dispatch the named `subagent_type` immediately, same turn
+- **gate directive** → surface the gate to the CTO and WAIT; never auto-approve
+- **join-wait** → spawn the missing parallel branch if it is not already running
+- **blocked** → stop the chain, surface findings to the CTO
+- **no-verdict reminder** → the agent forgot its verdict line; record it via
+  `scripts/log-verdict.sh`, then re-evaluate
+
+If no directive appears (hook disabled, non-pipeline agent), fall back to the
+pipeline prose below.
 
 ## Agent dispatch semantics
 
@@ -745,9 +773,9 @@ architect (ARCH + migration plan) → GATE:ARCH
 - Senior-dev tasks are SEQUENTIAL — no parallel implementation (dependency chain)
 - When creating migration tasks in Beads, wire them immediately after creation:
   ```bash
-  TASK1=$(bd create "migration: compatibility shim" --label migration | grep -o '^[A-Z0-9-]*')
-  TASK2=$(bd create "migration: dual-stack setup" --label migration | grep -o '^[A-Z0-9-]*')
-  bd dep "$TASK2" "$TASK1"  # task2 blocked until task1 is closed
+  TASK1=$(bd create "migration: compatibility shim" --label migration --silent)
+  TASK2=$(bd create "migration: dual-stack setup" --label migration --silent)
+  bd dep add "$TASK2" "$TASK1"  # task2 blocked until task1 is closed
   ```
   This prevents any senior-dev from claiming task2 via `bd ready` while task1 is in-progress.
 - OLD stack must remain deployable until 100% cutover confirmed stable for ≥48h
@@ -799,10 +827,10 @@ architect (ARCH + file ownership matrix) → GATE:ARCH
 
 **Sequential enforcement** — when creating refactor tasks in Beads, wire dependencies immediately after creation (one chain per task sequence):
 ```bash
-T1=$(bd create "refactor: <domain-1>" --label refactor | grep -o '^[A-Z0-9-]*')
-T2=$(bd create "refactor: <domain-2>" --label refactor | grep -o '^[A-Z0-9-]*')
-T3=$(bd create "refactor: <domain-3>" --label refactor | grep -o '^[A-Z0-9-]*')
-bd dep "$T2" "$T1" && bd dep "$T3" "$T2"
+T1=$(bd create "refactor: <domain-1>" --label refactor --silent)
+T2=$(bd create "refactor: <domain-2>" --label refactor --silent)
+T3=$(bd create "refactor: <domain-3>" --label refactor --silent)
+bd dep add "$T2" "$T1" && bd dep add "$T3" "$T2"
 ```
 This prevents `bd ready` from returning T2/T3 while T1 is in-progress. Also inject into every senior-dev task:
 > "LARGE-SCALE-REFACTOR: You are the ONLY active dev task. Do NOT start until previous task is confirmed closed. Your owned files: [list from work-packet]. Do not touch any file not in your ownership list."

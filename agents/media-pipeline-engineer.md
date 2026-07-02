@@ -118,3 +118,13 @@ estimate are all specified.
 
 If expected volume/length or the access-tier model is undefined, emit a `done-blocked`
 report — the pipeline (and its cost) cannot be sized against unknown media.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh media-pipeline-engineer <DONE|BLOCKED> auto contract=docs/media/MEDIA-<slug>.md
+```

@@ -136,3 +136,13 @@ tests.
 
 If no real sample export is available, emit a `done-blocked` report requesting one —
 do not hand senior-dev a mapping guessed from documentation alone.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh migration-import-engineer <DONE|BLOCKED> auto contract=docs/migration/IMPORT-<slug>.md
+```

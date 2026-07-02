@@ -97,3 +97,13 @@ Decide; don't survey. Give the implementer one design with a recommended default
 every open question — not three options to choose from. Anti-AI-slop: no generic
 "clean modern minimal" filler — every choice ties to the archetype, the brand, or a
 cited ui-ux-pro-max rule.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh design-advisor <DONE|BLOCKED> auto design=docs/design/DESIGN-<slug>.md
+```

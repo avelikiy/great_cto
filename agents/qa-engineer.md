@@ -99,6 +99,7 @@ success criteria pass, nothing more. Skip: coverage analysis, state coverage,
 error paths, concurrency tests, regression matrix. Write a short report to
 `docs/qa-reports/QA-poc-<slug>.md` with:
 
+- First line (machine-readable, same contract as production reports): `Result: PASS` or `Result: FAIL`
 - One line per success criterion: ✓ / ✗ / partial + evidence
 - Explicit header: `**POC QA — not production QA.** See poc-mode.md.`
 
@@ -108,7 +109,7 @@ works" outcomes — that's how POCs become production bugs. See
 
 ## Interaction Checkpoints
 
-Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approval at:
+Read `approval-level` from PROJECT.md (default: `gates-only`). Pause for CTO approval at:
 
 **Checkpoint A — BEFORE running tests** (after Step 2 build QA plan, before Step 3 execute):
 Show QA plan: tools to run, critical paths identified, thresholds, `qa-extras` from packs, estimated run time. CTO approves or comments. Comments → adjust plan → re-checkpoint.
@@ -656,7 +657,8 @@ Generic observations ("test coverage seems low in auth module") → `Observation
 ### Step 4: Write Report
 
 `docs/qa-reports/QA-<YYYY-MM-DD>.md`:
-- Summary: PASS / FAIL
+- **First line of the file (machine-readable, exact token — devops pre-deploy check greps `^Result:`):** `Result: PASS` or `Result: FAIL`
+- Summary: one-line human summary
 - **Verdict quality: `boilerplate` | `moderate` | `substantive`** — self-assess using the rubric below
 - Requirements traceability: N/M covered (list MISSING/PARTIAL items)
 - Critical paths: result per path (not just "E2E passed")
@@ -720,18 +722,22 @@ bd create "Bug: <desc>" --type bug --priority <0-2>
 
 ### Step 5b: Log agent verdict
 
+Canonical helper (see `agents/_shared/verdict-format.md`) — the pipeline
+dispatcher and the board parse this line; `auto` records real token cost:
+
 ```bash
-mkdir -p .great_cto/verdicts
-printf '%s qa-engineer %s coverage=%s bugs=P0:%d,P1:%d,P2:%d\n' \
-  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "[PASS|FAIL]" "<coverage>%" <P0> <P1> <P2> \
-  >> .great_cto/verdicts/qa-engineer.log
+bash scripts/log-verdict.sh qa-engineer <PASS|FAIL> auto \
+  coverage=<X>% bugs=P0:<n>,P1:<n>,P2:<n> feature=<slug>
 ```
 
 ### Step 6: Create gate:ship (MANDATORY — only on PASS)
 
 ```bash
-GATE_ID=$(bd create "gate:ship — <feature> security + deploy approval" \
-  --type task --priority 0 --label gate 2>/dev/null | grep -oE '[0-9]+' | head -1)
+# Dedup: never create a second open gate:ship (re-runs after a flaky pass)
+GATE_ID=$(bd list --label gate --status open 2>/dev/null | grep "gate:ship" | awk '{print $1}' | head -1)
+if [ -z "$GATE_ID" ]; then
+  GATE_ID=$(bd q "gate:ship — <feature> security + deploy approval" --priority 0 --labels gate)
+fi
 echo "gate:ship created: ID=$GATE_ID"
 ```
 **If bd unavailable**: append to `.great_cto/tasks.md`:
@@ -763,7 +769,13 @@ Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.m
 
 ```bash
 DATE=$(date +%Y-%m-%d)
-QA_FILE="docs/qa-reports/QA-${DATE}.md"
+if [ "${MODE:-production}" = "poc" ]; then
+  # POC mode writes QA-poc-<slug>.md (see § POC-mode behaviour) — accept it here
+  QA_FILE=$(ls -t docs/qa-reports/QA-poc-*.md 2>/dev/null | head -1)
+  QA_FILE="${QA_FILE:-docs/qa-reports/QA-${DATE}.md}"
+else
+  QA_FILE="docs/qa-reports/QA-${DATE}.md"
+fi
 mkdir -p docs/qa-reports .great_cto/verdicts
 if [ ! -f "$QA_FILE" ]; then
   echo "BLOCKED: qa post-condition failed — $QA_FILE not written"
@@ -784,13 +796,9 @@ if [ -n "$PROSE_BAD" ]; then
 fi
 ```
 
-## Verdict log (v1.0.79)
+## Verdict log
 
-```bash
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-STATUS="${QA_VERDICT:-DONE}"   # DONE if PASS, BLOCKED if FAIL
-BUGS=$(bd list --status open --label bug 2>/dev/null | wc -l | tr -d ' ')
-printf '%s | qa-engineer | %s | artefacts=1 | bugs_open=%s\n' "$TS" "$STATUS" "$BUGS" \
-  >> ".great_cto/verdicts/$(date +%Y-%m-%d).log"
-```
+One canonical verdict line per run — already emitted in Step 5b via
+`scripts/log-verdict.sh qa-engineer <PASS|FAIL> auto ...`. Do NOT also write a
+daily-file variant; the dispatcher keys on `verdicts/qa-engineer.log`.
 

@@ -94,7 +94,7 @@ Do **not** produce a CSO report in POC mode. Full review happens at
 
 ## Interaction Checkpoints
 
-Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approval at:
+Read `approval-level` from PROJECT.md (default: `gates-only`). Pause for CTO approval at:
 
 **Checkpoint A — BEFORE running audit** (after step 2-4 context reading, before step 5 compliance checklist):
 Show audit plan: compliance frameworks to check (from `compliance:` params + packs), secrets scan scope, dependency audit tools, high-priority targets from QA report. CTO approves or comments. Comments → adjust scope → re-checkpoint.
@@ -201,7 +201,7 @@ fi
 | Mode | When | Outputs | Halts on |
 |---|---|---|---|
 | **pre-impl** | After architect writes ARCH, BEFORE senior-dev claims tasks | `docs/sec-threats/TM-{slug}.md` (threat model), `docs/architecture/ARCH-{slug}.md § Security` (appended) | mitigations missing for Critical/High threats; senior-dev cannot proceed |
-| **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{slug}-{date}.md` (Compliance & Security Officer report), `gate:ship` verdict | unmitigated Critical findings |
+| **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{date}.md` (Compliance & Security Officer report; same name the artefact post-condition checks), `gate:ship` verdict | unmitigated Critical findings |
 
 ### pre-impl flow (security-critical archetypes only)
 
@@ -742,15 +742,13 @@ Step 3 — Signal strength:
 
 Observations (signal < 2 or no direct evidence): record in a separate `## Observations` section of the CSO report. Do NOT file Beads tasks for observations — they are informational only.
 
-6. **Write** `docs/security/CSO-<YYYY-MM-DD>.md`: summary (APPROVED/BLOCKED), **verdict quality**, findings by severity (P0-P3) with signal strength, dependency scan results, compliance checklist results, observations section
+6. **Write** `docs/security/CSO-<YYYY-MM-DD>.md`. **First line of the file (machine-readable, exact token — devops pre-deploy check greps `^Decision:`):** `Decision: APPROVED` or `Decision: BLOCKED`. Then: summary, **verdict quality**, findings by severity (P0-P3) with signal strength, dependency scan results, compliance checklist results, observations section
 
-   **Log agent verdict** (for postmortem traceability):
+   **Log agent verdict** (canonical — see `agents/_shared/verdict-format.md`;
+   the pipeline dispatcher and the board parse this line):
    ```bash
-   mkdir -p .great_cto/verdicts
-   printf '%s security-officer APPROVED/BLOCKED findings=P0:%d P1:%d P2:%d triaged=%d valid=%d invalid=%d\n' \
-     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" <P0_post_triage> <P1_post_triage> <P2_count> \
-     <triaged_count> <valid_count> <invalid_count> \
-     >> .great_cto/verdicts/security-officer.log
+   bash scripts/log-verdict.sh security-officer <APPROVED|BLOCKED> auto \
+     findings=P0:<n>,P1:<n>,P2:<n> triaged=<n> valid=<n> invalid=<n> feature=<slug>
    ```
 
 7. **Close or block gate:ship** (gate was created by qa-engineer):
@@ -970,15 +968,13 @@ if [ ! -f "$CSO_FILE" ]; then
 fi
 ```
 
-## Verdict log (v1.0.79)
+## Verdict log
 
-```bash
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-STATUS="${CSO_VERDICT:-DONE}"   # DONE if APPROVED, BLOCKED if any P0 open
-P0=$(bd list --status open 2>/dev/null | grep -c "P0" || echo 0)
-printf '%s | security-officer | %s | artefacts=1 | p0_open=%s\n' "$TS" "$STATUS" "$P0" \
-  >> ".great_cto/verdicts/$(date +%Y-%m-%d).log"
-```
+One canonical verdict line per run — already emitted in Step 6 via
+`scripts/log-verdict.sh security-officer <APPROVED|BLOCKED> auto ...`. Do NOT
+also write a daily-file variant; the dispatcher keys on
+`verdicts/security-officer.log`.
 
-**Hard rule**: if `$P0` > 0 and any of them carry the `SEC` label, emit `STATUS=BLOCKED` regardless of local verdict — P0-SEC cannot be approved.
+**Hard rule**: if any open P0 carries the `SEC` label, the verdict is `BLOCKED`
+regardless of local judgement — P0-SEC cannot be approved.
 

@@ -212,7 +212,7 @@ See `skills/great_cto/references/poc-mode.md` for the full skip matrix.
 
 ## Interaction Checkpoints
 
-Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approval at:
+Read `approval-level` from PROJECT.md (default: `gates-only`). Pause for CTO approval at:
 
 **Checkpoint A — BEFORE writing implementation** (after step 4 read context, before step 5 TDD):
 Show implementation plan: approach, files to edit/create, TDD test cases, validation commands. CTO approves or comments. Comments → revise plan → re-checkpoint.
@@ -261,8 +261,8 @@ bd ready 2>/dev/null | head -10  # tasks with no blocking dependencies
 #    Each work-package in docs/architecture/ARCH-*.md → one bd task.
 #    bd create "WP-1: implement /api/users endpoint" --priority P1 --label feature --depends-on <task-id>
 
-# 4. Claim before coding
-bd claim <task-id>
+# 4. Claim before coding (atomic: assignee=you, status=in_progress)
+bd update <task-id> --claim
 ```
 
 **Allowed TodoWrite uses (narrow):**
@@ -389,7 +389,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    If gate:arch is still open → **stop**. Tell CTO: "gate:arch not yet approved — architecture review pending. Run `/inbox` to approve, then re-invoke senior-dev."
    Only proceed when no open gate:arch exists for this feature.
 
-2. **Claim**: `bd ready` → `bd show <id>` → `bd claim <id>`
+2. **Claim**: `bd ready` → `bd show <id>` → `bd update <id> --claim`
 3. **Branch**: Create feature branch before any code:
    ```bash
    git checkout -b feat/<beads-id>-<short-description>
@@ -483,12 +483,12 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
      --body "## Summary\n<what changed and why>\n\n## Test plan\n<how to verify>\n\n## Beads task\n<bd show id>\n\n## Implements REQs\n$LINKED_REQS"
    ```
    **If gh unavailable**: print PR description to stdout (title, summary, test plan, Beads link, REQs) and note "PR: ready — create manually".
-9. **Gate:code check** (if approval_level = strict):
+9. **Gate:code check** (if approval-level = strict):
    ```bash
-   REVIEW_MODE=$(grep "^approval_level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "auto")
+   REVIEW_MODE=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
    ```
    If `strict`: after PR is created, tell CTO:
-   > "approval_level is strict. Run `/review` to trigger 3-angle code review (perf / security / readability) before invoking qa-engineer. gate:code will be created if P0/P1 findings exist."
+   > "approval-level is strict. Run `/review` to trigger 3-angle code review (perf / security / readability) before invoking qa-engineer. gate:code will be created if P0/P1 findings exist."
    If `auto`: proceed directly, no gate:code required unless CTO explicitly runs `/review`.
 
 10. **Proof Loop — verify before claiming done** (mandatory before step 11):
@@ -523,8 +523,8 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 
 10b. **Discoveries**: When finding a bug or tech debt while implementing:
    ```bash
-   NEW_ID=$(bd create "Bug: <desc>" --type bug --priority <0-2> | grep -oE '[0-9]+' | head -1)
-   bd dep $NEW_ID discovered-from <current-task-id>
+   NEW_ID=$(bd q "Bug: <desc>" --type bug --priority <0-2>)   # bd q prints only the ID
+   bd dep add "$NEW_ID" <current-task-id> --type discovered-from
    ```
    Do NOT fix discoveries inline — create the task, link it, continue with current task. Exception: P0 security bug → pause and fix immediately.
 11. **Close** (only after Proof Loop passes): `bd close <id> "Implemented: [brief description] — PR: #<number>"`
@@ -600,6 +600,16 @@ fi
 
 Signals **never block** senior-dev work — they are advisory breadcrumbs for
 `security-officer`. Do not debate them with the user; just emit and continue.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh senior-dev <TASK_DONE|BLOCKED> auto task=<bd-id> pr=#<n> feature=<slug>
+```
 
 ## Reporting Contract
 

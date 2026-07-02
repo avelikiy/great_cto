@@ -95,7 +95,7 @@ See `skills/great_cto/references/poc-mode.md` for the full skip matrix.
 
 ## Interaction Checkpoints
 
-Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approval at:
+Read `approval-level` from PROJECT.md (default: `gates-only`). Pause for CTO approval at:
 
 **Checkpoint A — BEFORE staging deploy** (after step 4 read deploy method, before step 5 deploy to staging):
 Show deploy plan: archetype-based deploy method, environment vars required, rollback procedure, estimated time. CTO approves or comments. Comments → adjust deploy config → re-checkpoint.
@@ -215,6 +215,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    # See skills/great_cto/references/security-tiers.md for the canonical matrix.
    case "$ARCHETYPE_CHECK" in
      web3|iot-embedded|regulated)              TIER_DEFAULT=deep ;;
+     agent-product)                            TIER_DEFAULT=deep ;;
      ai-system|commerce|infra)                 TIER_DEFAULT=standard ;;
      web-service|mobile-app|data-platform|library) TIER_DEFAULT=baseline ;;
      *)                                        TIER_DEFAULT=baseline ;;
@@ -584,6 +585,16 @@ open Beads follow-up task, then proceed.
 ```
 
 On confirmation, create the waiver file + Beads follow-up task (see `skills/great_cto/references/waivers.md` for schema and ID scheme). Link the waiver id in the RELEASE doc under "Gates skipped". If CTO declines → refuse and BLOCK.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh devops <DEPLOYED|BLOCKED> auto env=<staging|prod> version=<v> feature=<slug>
+```
 
 ## Reporting Contract
 
