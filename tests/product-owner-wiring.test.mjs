@@ -20,9 +20,9 @@ test('product-owner: agent file exists with required frontmatter', () => {
 });
 
 test('product-owner: runs FIRST in the board pipeline stages (before architect)', () => {
-  const server = read('packages/board/server.mjs');
+  const server = read('packages/board/lib/data-readers.mjs');
   const m = server.match(/const stages = \[([^\]]+)\]/);
-  assert.ok(m, 'could not find stages array in board/server.mjs');
+  assert.ok(m, 'could not find stages array in board/lib/data-readers.mjs');
   const stages = m[1].split(',').map(s => s.trim().replace(/['"]/g, ''));
   assert.equal(stages[0], 'product-owner', 'product-owner must be the first stage');
   assert.ok(stages.indexOf('product-owner') < stages.indexOf('architect'),
