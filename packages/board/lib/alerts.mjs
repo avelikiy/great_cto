@@ -15,13 +15,7 @@ import { getCostHistory, getInbox } from './data-readers.mjs';
 import { getTasks } from './beads.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { isFailure } from './fleet.mjs';
-// NOTE: getShareState / toggleShare have not been extracted from server.mjs
-// yet at this point in the module split (they move to lib/share.mjs in the
-// next step). ESM supports this circular import because these are only
-// invoked inside function bodies here, never at module-evaluation time.
-// Once share.mjs exists, this import is repointed there instead of
-// server.mjs (done in that step).
-import { getShareState, toggleShare } from '../server.mjs';
+import { getShareState, toggleShare } from './share.mjs';
 
 // ── Email alerts (Resend) ─────────────────────────────────────────────────
 // Dispatch model: read webhooks.json on every fire (idempotent if disabled
