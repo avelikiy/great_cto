@@ -183,3 +183,13 @@ Do not include in the output:
 - "Recommended" section is exactly 2 sentences
 - Output file is saved before reporting DONE
 - If ADR has < 2 variants: output SKIP, do not create an empty DECISION file
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh decision-scorer <DONE|SKIPPED> auto decision=docs/decisions/DECISION-<slug>-<date>.md
+```

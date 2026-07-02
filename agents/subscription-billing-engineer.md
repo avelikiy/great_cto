@@ -146,3 +146,13 @@ specified, and the compliance hand-offs are explicit.
 
 If the pricing model is undecided (no plan/tier defined in the brief), emit a
 `done-blocked` report — billing cannot be designed against an unknown price.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh subscription-billing-engineer <DONE|BLOCKED> auto contract=docs/billing/BILLING-<slug>.md
+```

@@ -1,0 +1,84 @@
+# great_cto pipeline transition map
+# Machine-readable agent→agent handoff graph. Consumed by
+# scripts/hooks/pipeline-dispatcher.mjs (PostToolUse on Agent/Task) to tell the
+# orchestrating model what to run next when a subagent finishes.
+# Prose in skills/great_cto/SKILL.md describes the same pipeline for humans;
+# this file is the version code can act on.
+#
+# Copied into each project at SessionStart (next to orchestrator.toml).
+#
+# Schema per agent:
+#   on   = verdict tokens that mean "this stage succeeded" (from the agent's
+#          last line in .great_cto/verdicts/<agent>.log)
+#   gate = human gate that must be approved before `next` may start.
+#          The dispatcher never auto-approves gates — it only reminds the
+#          orchestrator to create/surface the gate and wait for the CTO.
+#   join = other agents whose success verdict must ALSO exist before `next`
+#          fires (parallel quorum, e.g. qa-engineer + security-officer).
+#   next = agents to spawn after `on` (and gate approval / join quorum).
+#
+# Any verdict of BLOCKED / FAIL / REJECTED halts the chain at that stage.
+
+[transitions.product-owner]
+on = ["APPROVED", "DONE", "BRIEF_READY"]
+gate = "gate:product"
+next = ["architect"]
+
+[transitions.architect]
+on = ["APPROVED", "DONE"]
+gate = "gate:arch"
+next = ["pm"]
+
+[transitions.pm]
+on = ["PLAN_READY", "DONE"]
+gate = "gate:plan"
+next = ["senior-dev"]
+
+[transitions.senior-dev]
+on = ["TASK_DONE", "DONE"]
+next = ["code-reviewer"]
+
+[transitions.code-reviewer]
+on = ["APPROVED", "DONE"]
+next = ["qa-engineer", "security-officer"]
+
+[transitions.qa-engineer]
+on = ["PASS", "DONE"]
+join = ["security-officer"]
+gate = "gate:ship"
+next = ["devops"]
+
+[transitions.security-officer]
+on = ["APPROVED", "DONE"]
+join = ["qa-engineer"]
+gate = "gate:ship"
+next = ["devops"]
+
+[transitions.devops]
+on = ["DEPLOYED", "DONE"]
+next = ["l3-support"]
+
+[transitions.l3-support]
+on = ["OK", "DONE"]
+next = []
+
+# Contract-stage specialists: they gate senior-dev, not each other.
+[transitions.ai-prompt-architect]
+on = ["APPROVED", "DONE"]
+next = ["ai-eval-engineer"]
+
+[transitions.ai-eval-engineer]
+on = ["PASS", "DONE"]
+next = ["senior-dev"]
+
+[transitions.db-migration-reviewer]
+on = ["PASS", "SAFE", "DONE"]
+next = ["qa-engineer"]
+
+[transitions.design-advisor]
+on = ["DONE", "APPROVED"]
+next = ["senior-dev"]
+
+[transitions.performance-engineer]
+on = ["DONE", "PASS"]
+next = ["qa-engineer"]

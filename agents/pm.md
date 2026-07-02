@@ -123,12 +123,6 @@ PHASE=$(grep "^phase:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || e
 TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "1")
 MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "")
 
-# Goal ancestry (Paperclip pattern) — injected into every bd create call
-# Gives every downstream agent the WHY without reading HANDOFF.md
-COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "")
-_COMP_CLEAN=$(echo "$COMPLIANCE" | sed 's/^\[none\]$//;s/^\[none, *\]//;s/, *\[none\]//')
-GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$_COMP_CLEAN" ] && echo " [compliance:${_COMP_CLEAN}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
-
 # Past lessons — calibrate cost/time estimates against actuals
 if [ -f .great_cto/lessons.md ]; then
   COST_LESSONS=$(grep -B1 -A4 "shape: B" .great_cto/lessons.md 2>/dev/null | head -20)
@@ -137,12 +131,24 @@ if [ -f .great_cto/lessons.md ]; then
 fi
 [ -f ~/.great_cto/decisions.md ] && grep -B1 -A4 "archetypes:.*$ARCHETYPE" ~/.great_cto/decisions.md 2>/dev/null | head -20
 
-# Latest ARCH doc
-ARCH_FILE=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
+# ARCH doc for THIS feature. If the orchestrator passed a feature slug in the
+# brief, use it — multiple features may have ARCH docs and "latest by name" is
+# wrong then. Fallback: newest by mtime (not sort -V, which is lexicographic).
+if [ -n "${FEATURE_SLUG:-}" ] && [ -f "docs/architecture/ARCH-${FEATURE_SLUG}.md" ]; then
+  ARCH_FILE="docs/architecture/ARCH-${FEATURE_SLUG}.md"
+else
+  ARCH_FILE=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
+fi
 [ -z "$ARCH_FILE" ] && echo "BLOCKED: No ARCH doc found. Run architect first." && exit 1
 
 # Feature slug from ARCH filename
 FEATURE_SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//' | tr '[:upper:]' '[:lower:]')
+
+# Goal ancestry (Paperclip pattern) — injected into every bd create call.
+# Built AFTER FEATURE_SLUG is known (it interpolates the slug).
+COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "")
+_COMP_CLEAN=$(echo "$COMPLIANCE" | sed 's/^\[none\]$//;s/^\[none, *\]//;s/, *\[none\]//')
+GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$_COMP_CLEAN" ] && echo " [compliance:${_COMP_CLEAN}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
 
 echo "arch=$ARCH_FILE | size=$PROJECT_SIZE | archetype=$ARCHETYPE | team=$TEAM_SIZE"
 ```
@@ -490,10 +496,10 @@ Always create the gate — no approval_level skips it:
 # Dedup check: skip if gate:plan already open for this feature
 if ! bd search "gate:plan" 2>/dev/null | grep -qi "open\|in.progress"; then
   GATE_ID=$(bd create "gate:plan — ${FEATURE_SLUG} implementation plan review" \
-    --type task --priority 0 --label gate \
+    --type task --priority 0 --label gate --silent \
     --context "$GOAL_ANCESTRY" \
     --notes "Review PLAN doc at docs/plans/PLAN-${FEATURE_SLUG}.md. Approve to unblock senior-dev. Check: task count, parallelism, agent allocation, estimates. Modify the plan directly if needed before approving." \
-    2>/dev/null | grep -oE '[a-z0-9]{3,}' | head -1 || echo "bd-unavailable")
+    2>/dev/null || echo "bd-unavailable")
   echo "gate:plan created → $GATE_ID"
 else
   echo "gate:plan already open — skipping duplicate"
@@ -515,7 +521,7 @@ Pass `GOAL_ANCESTRY` as the `--context` flag whenever creating Beads tasks, and
 include it verbatim in the first line of every Worker Contract (see coordinator.md).
 
 ```bash
-# This string is set in Step 1. Include in every bd create call:
+# This string is set in Step 0 (after FEATURE_SLUG is derived). Include in every bd create call:
 #   bd create "<task title>" --context "$GOAL_ANCESTRY" ...
 # Workers read it to understand archetype, compliance, and feature scope
 # without needing to re-read HANDOFF.md or PROJECT.md from scratch.
@@ -580,13 +586,13 @@ Note: `team-size` does NOT constrain LLM parallelism. Pools always spawn as conc
 ## Step 11 — Verdict log
 
 ```bash
-mkdir -p .great_cto/verdicts
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 TASK_COUNT=$(grep -c "^| T" "$PLAN_FILE" 2>/dev/null || echo "?")
-printf '%s | pm | PLAN_READY | feature=%s | mode=%s | tasks=%s | plan=%s\n' \
-  "$TS" "$FEATURE_SLUG" "$MODE" "$TASK_COUNT" "$PLAN_FILE" \
-  >> .great_cto/verdicts/pm.log
+bash scripts/log-verdict.sh pm PLAN_READY auto \
+  "feature=$FEATURE_SLUG" "mode=$MODE" "tasks=$TASK_COUNT" "plan=$PLAN_FILE"
 ```
+Canonical format + `auto` cost via `scripts/log-verdict.sh` (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+both parse this line.
 
 ---
 

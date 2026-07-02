@@ -92,3 +92,13 @@ A scaffold that "looks done" but doesn't run is worse than none.
 If the stack isn't pinned, the data model is missing, or the auth contract is absent, emit a
 `done-blocked` report — scaffolding against an unknown stack/schema/auth produces a skeleton
 senior-dev has to tear down.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh app-scaffolder <DONE|BLOCKED> auto scaffold=docs/SCAFFOLD-<slug>.md
+```

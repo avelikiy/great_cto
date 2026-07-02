@@ -1004,16 +1004,16 @@ fi
 
 ## Verdict log (v1.0.79)
 
-After the artefact check passes, append one line to `.great_cto/verdicts/YYYY-MM-DD.log`:
+After the artefact check passes, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
 
 ```bash
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 BEADS_NEW=$(bd list --status open 2>/dev/null | wc -l | tr -d ' ')
-ARTEFACTS=$(ls docs/audit/AUDIT-*.md docs/audit/REFACTOR-PLAN.md .great_cto/audit-state.json 2>/dev/null | wc -l | tr -d ' ')
-printf '%s | project-auditor | DONE | artefacts=%s | beads_open=%s\n' "$TS" "$ARTEFACTS" "$BEADS_NEW" \
-  >> ".great_cto/verdicts/$(date +%Y-%m-%d).log"
+bash scripts/log-verdict.sh project-auditor DONE auto \
+  audit="docs/audit/AUDIT-$(date +%Y-%m-%d).md" tasks="$BEADS_NEW"
 ```
 
-On BLOCKED, write the same line with `BLOCKED` status and `artefacts=0` so `/doctor` can see the failure.
+On BLOCKED, emit the same call with `BLOCKED` status so `/doctor` can see the failure.
 
 
