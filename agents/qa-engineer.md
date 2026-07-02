@@ -732,8 +732,11 @@ printf '%s qa-engineer %s coverage=%s bugs=P0:%d,P1:%d,P2:%d\n' \
 ### Step 6: Create gate:ship (MANDATORY — only on PASS)
 
 ```bash
-GATE_ID=$(bd create "gate:ship — <feature> security + deploy approval" \
-  --type task --priority 0 --label gate 2>/dev/null | grep -oE '[0-9]+' | head -1)
+# Dedup: never create a second open gate:ship (re-runs after a flaky pass)
+GATE_ID=$(bd list --label gate --status open 2>/dev/null | grep "gate:ship" | awk '{print $1}' | head -1)
+if [ -z "$GATE_ID" ]; then
+  GATE_ID=$(bd q "gate:ship — <feature> security + deploy approval" --priority 0 --labels gate)
+fi
 echo "gate:ship created: ID=$GATE_ID"
 ```
 **If bd unavailable**: append to `.great_cto/tasks.md`:
