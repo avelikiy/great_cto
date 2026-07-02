@@ -33,7 +33,7 @@ if (!existsSync(greatCtoDir)) process.exit(0);
 // Pattern → reviewer mapping. Ordered specific-first.
 // Each pattern is matched against the changed-file paths via simple substring.
 // `match` may be a function returning a count of matched files.
-const RULES = [
+export const RULES = [
   { reviewer: "db-migration-reviewer",   pattern: /(migrations\/|schema\.sql$|alembic\/|knex\/migrations|prisma\/migrations|\.room\.|Migration\d+\.kt$|Migration\d+\.swift$)/i },
   { reviewer: "pci-reviewer",            pattern: /(stripe|webhook.*sig|payment|refund|paypal|adyen|braintree|saq-a|pci-dss)/i },
   { reviewer: "security-officer",        pattern: /(auth\/|oauth|saml|jwt|password|login|session|csrf|cors\.|crypto\.|secret)/i },
@@ -70,7 +70,7 @@ const EXCLUDE = [
   /^\.git\//,
 ];
 
-function shouldExclude(path) {
+export function shouldExclude(path) {
   return EXCLUDE.some(rx => rx.test(path));
 }
 
@@ -178,4 +178,7 @@ function main() {
   console.log(`  Use: Agent({ subagent_type: "<reviewer>", description, prompt })`);
 }
 
-main();
+// Guarded so reviewer-nudge.mjs can import RULES/shouldExclude without running the scan.
+import { fileURLToPath } from "node:url";
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+if (isMain) main();
