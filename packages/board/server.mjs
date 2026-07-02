@@ -53,15 +53,9 @@ import {
   resolveProjectCwd,
   resolveProjectInfo,
 } from './lib/projects.mjs';
+import { broadcast } from './lib/sse.mjs';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function broadcast(event, data) {
-  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of sseClients) {
-    try { res.write(msg); } catch { sseClients.delete(res); }
-  }
-}
 
 function broadcastTasks(cwd) {
   const msg = `event: tasks\ndata: ${JSON.stringify(getTasks(cwd))}\n\n`;
