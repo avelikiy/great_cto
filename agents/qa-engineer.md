@@ -99,6 +99,7 @@ success criteria pass, nothing more. Skip: coverage analysis, state coverage,
 error paths, concurrency tests, regression matrix. Write a short report to
 `docs/qa-reports/QA-poc-<slug>.md` with:
 
+- First line (machine-readable, same contract as production reports): `Result: PASS` or `Result: FAIL`
 - One line per success criterion: ✓ / ✗ / partial + evidence
 - Explicit header: `**POC QA — not production QA.** See poc-mode.md.`
 
@@ -108,7 +109,7 @@ works" outcomes — that's how POCs become production bugs. See
 
 ## Interaction Checkpoints
 
-Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approval at:
+Read `approval-level` from PROJECT.md (default: `gates-only`). Pause for CTO approval at:
 
 **Checkpoint A — BEFORE running tests** (after Step 2 build QA plan, before Step 3 execute):
 Show QA plan: tools to run, critical paths identified, thresholds, `qa-extras` from packs, estimated run time. CTO approves or comments. Comments → adjust plan → re-checkpoint.
@@ -656,7 +657,8 @@ Generic observations ("test coverage seems low in auth module") → `Observation
 ### Step 4: Write Report
 
 `docs/qa-reports/QA-<YYYY-MM-DD>.md`:
-- Summary: PASS / FAIL
+- **First line of the file (machine-readable, exact token — devops pre-deploy check greps `^Result:`):** `Result: PASS` or `Result: FAIL`
+- Summary: one-line human summary
 - **Verdict quality: `boilerplate` | `moderate` | `substantive`** — self-assess using the rubric below
 - Requirements traceability: N/M covered (list MISSING/PARTIAL items)
 - Critical paths: result per path (not just "E2E passed")
@@ -763,7 +765,13 @@ Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.m
 
 ```bash
 DATE=$(date +%Y-%m-%d)
-QA_FILE="docs/qa-reports/QA-${DATE}.md"
+if [ "${MODE:-production}" = "poc" ]; then
+  # POC mode writes QA-poc-<slug>.md (see § POC-mode behaviour) — accept it here
+  QA_FILE=$(ls -t docs/qa-reports/QA-poc-*.md 2>/dev/null | head -1)
+  QA_FILE="${QA_FILE:-docs/qa-reports/QA-${DATE}.md}"
+else
+  QA_FILE="docs/qa-reports/QA-${DATE}.md"
+fi
 mkdir -p docs/qa-reports .great_cto/verdicts
 if [ ! -f "$QA_FILE" ]; then
   echo "BLOCKED: qa post-condition failed — $QA_FILE not written"
