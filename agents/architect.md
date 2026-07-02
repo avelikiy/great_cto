@@ -759,13 +759,13 @@ manual configuration needed.
    ```
    This gate appears in `/inbox` under "NEEDS YOUR DECISION". CTO must approve before senior-dev starts (always in `strict` mode, by default in `auto`).
 
-   **Log agent verdict** (for postmortem traceability):
+   **Log agent verdict** (canonical — see `agents/_shared/verdict-format.md`; the
+   pipeline dispatcher reads this to decide the next stage):
    ```bash
-   mkdir -p .great_cto/verdicts
-   printf '%s architect ARCH_READY feature=%s approval_level=%s\n' \
-     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "<feature>" "$REVIEW_MODE" \
-     >> .great_cto/verdicts/architect.log
+   bash scripts/log-verdict.sh architect APPROVED auto \
+     feature=<feature> arch=docs/architecture/ARCH-<feature>.md
    ```
+   `auto` cost → real token spend via cost-meter, not a guess.
 
    Then create epic + implementation tasks:
    ```bash
@@ -1186,12 +1186,13 @@ if [ -z "$ARCH_LATEST" ]; then
 fi
 ```
 
-## Verdict log (v1.0.79)
+## Verdict log
 
+One canonical verdict line per run — already emitted in Workflow 1 via
+`scripts/log-verdict.sh architect APPROVED auto ...` (see `agents/_shared/verdict-format.md`).
+Do NOT also write a daily-file variant; two formats broke the board parser and
+the dispatcher keys on `verdicts/architect.log`. If the run ends blocked:
 ```bash
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-TASKS_QUEUED=$(bd list --status open 2>/dev/null | wc -l | tr -d ' ')
-printf '%s | architect | DONE | artefacts=1 | arch=%s | tasks=%s\n' "$TS" "$(basename "$ARCH_LATEST")" "$TASKS_QUEUED" \
-  >> ".great_cto/verdicts/$(date +%Y-%m-%d).log"
+bash scripts/log-verdict.sh architect BLOCKED auto feature=<feature> reason=<one-word>
 ```
 

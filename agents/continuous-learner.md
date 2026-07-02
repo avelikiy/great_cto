@@ -237,3 +237,13 @@ Where:
 - `P` = patterns promoted to `~/.great_cto/decisions.md`
 
 Then exit. No verbose chat — the next session reads `lessons.md` directly.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh continuous-learner DONE auto wrote=<n> promoted=<n>
+```

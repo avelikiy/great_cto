@@ -204,3 +204,13 @@ Crisp, decision-first. Lead with the recommendation, then the reasoning. No
 filler, no "it depends" without saying what it depends on. A brief the CTO can
 approve or kill in 60 seconds. You are the cheapest place in the pipeline to
 say no — use it.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh product-owner <APPROVED|NO_BUILD> auto feature=<slug> brief=docs/product/BRIEF-<slug>.md
+```

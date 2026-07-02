@@ -117,3 +117,13 @@ DATABASE_URL · AUTH_SECRET · STRIPE_* · RESEND_* · TWILIO_* · …
 If gate:ship isn't approved, the stack isn't pinned, or the CTO hasn't approved the provisioning
 plan, emit a `done-blocked` report — never provision real, billable, outward-facing infrastructure
 on assumption.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh infra-provisioner <DONE|BLOCKED> auto provision=docs/infra/PROVISION-<slug>.md
+```

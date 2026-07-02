@@ -722,11 +722,12 @@ bd create "Bug: <desc>" --type bug --priority <0-2>
 
 ### Step 5b: Log agent verdict
 
+Canonical helper (see `agents/_shared/verdict-format.md`) — the pipeline
+dispatcher and the board parse this line; `auto` records real token cost:
+
 ```bash
-mkdir -p .great_cto/verdicts
-printf '%s qa-engineer %s coverage=%s bugs=P0:%d,P1:%d,P2:%d\n' \
-  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "[PASS|FAIL]" "<coverage>%" <P0> <P1> <P2> \
-  >> .great_cto/verdicts/qa-engineer.log
+bash scripts/log-verdict.sh qa-engineer <PASS|FAIL> auto \
+  coverage=<X>% bugs=P0:<n>,P1:<n>,P2:<n> feature=<slug>
 ```
 
 ### Step 6: Create gate:ship (MANDATORY — only on PASS)
@@ -795,13 +796,9 @@ if [ -n "$PROSE_BAD" ]; then
 fi
 ```
 
-## Verdict log (v1.0.79)
+## Verdict log
 
-```bash
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-STATUS="${QA_VERDICT:-DONE}"   # DONE if PASS, BLOCKED if FAIL
-BUGS=$(bd list --status open --label bug 2>/dev/null | wc -l | tr -d ' ')
-printf '%s | qa-engineer | %s | artefacts=1 | bugs_open=%s\n' "$TS" "$STATUS" "$BUGS" \
-  >> ".great_cto/verdicts/$(date +%Y-%m-%d).log"
-```
+One canonical verdict line per run — already emitted in Step 5b via
+`scripts/log-verdict.sh qa-engineer <PASS|FAIL> auto ...`. Do NOT also write a
+daily-file variant; the dispatcher keys on `verdicts/qa-engineer.log`.
 

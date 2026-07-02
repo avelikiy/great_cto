@@ -54,6 +54,16 @@ pipeline gets bypassed.
 | Deploy / canary / rollback / SLO (preview/staging) | `devops` |
 | Provision real infra → live URL: managed DB / host / domain / prod env | `infra-provisioner` |
 | Production incident triage, P0 postmortem | `l3-support` |
+| Third-party API integration: OAuth flows, webhook signatures, idempotency, retries, sandbox→prod | `integrations-engineer` |
+| Read-side data connectors: cursors, dedup, backfill, freshness SLA (dashboards) | `connector-builder` |
+| Route optimization: VRP, geocoding, distance matrix, re-optimization | `geo-routing-engineer` |
+| Media pipeline: upload, transcode ladder, HLS, signed URLs, image derivatives | `media-pipeline-engineer` |
+| Import/migrate data from a legacy system: dry-run, idempotent re-import, rollback | `migration-import-engineer` |
+| Subscriptions & billing: plans, dunning, proration, tax, Stripe Billing / Connect fees | `subscription-billing-engineer` |
+| React Native mobile implementation (DESIGN doc targets RN; offline-first, store readiness) | `mobile-app-builder` |
+| E2E golden-path suite (Playwright) + live-URL validation around deploy | `e2e-test-engineer` |
+| Score 2+ ADR/ARCH variants against weighted criteria (after architect proposes alternatives) | `decision-scorer` |
+| UI-bearing feature: design system pick, wireframes, a11y contract (after architect, before senior-dev) | `design-advisor` |
 | Pattern extraction from session → `lessons.md` | `continuous-learner` |
 | Crystallize sessions → new skills | `continuous-learner` → `knowledge-extractor` | `/crystallize` |
 
@@ -61,6 +71,24 @@ pipeline gets bypassed.
 one of the rows above, dispatch that specialist **first**. Reach for
 `general-purpose` only when nothing matches. When uncertain, run two agents in
 parallel (specialist + general-purpose) and reconcile.
+
+## Machine handoff (PIPELINE-NEXT directives)
+
+Agent→agent transitions are encoded in `shared/pipeline.toml` (copied into the
+project at SessionStart). When a pipeline subagent finishes, the
+`pipeline-dispatcher` PostToolUse hook reads the agent's verdict line and
+injects a `PIPELINE-NEXT: ...` directive into your context. Treat it as the
+authoritative next step:
+
+- **spawn directive** → dispatch the named `subagent_type` immediately, same turn
+- **gate directive** → surface the gate to the CTO and WAIT; never auto-approve
+- **join-wait** → spawn the missing parallel branch if it is not already running
+- **blocked** → stop the chain, surface findings to the CTO
+- **no-verdict reminder** → the agent forgot its verdict line; record it via
+  `scripts/log-verdict.sh`, then re-evaluate
+
+If no directive appears (hook disabled, non-pipeline agent), fall back to the
+pipeline prose below.
 
 ## Agent dispatch semantics
 

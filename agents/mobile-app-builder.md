@@ -99,3 +99,13 @@ before closing.
 If the design contract has no React Native target, or is too ambiguous to implement a screen
 without re-deciding UI, emit a `done-blocked` report back to design-advisor — do not invent
 the design.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh mobile-app-builder <DONE|BLOCKED> auto tasks=<bd-ids> feature=<slug>
+```

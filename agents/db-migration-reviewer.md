@@ -274,3 +274,13 @@ Verdict: **SAFE TO DEPLOY** / **BLOCKED: {reason}**
 **BLOCKED**: `BLOCKED: ${FILE} — ${REASON}. Fix required before deploy. See MIGRATE-${SLUG}-${DATE}.md § Blocking findings.`
 
 **NO-OP**: `INFO: no migration files detected in this branch. db-migration-reviewer not needed.`
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh db-migration-reviewer <PASS|BLOCKED> auto migrate=docs/migrations/MIGRATE-<slug>-<date>.md
+```

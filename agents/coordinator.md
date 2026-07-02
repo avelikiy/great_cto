@@ -344,3 +344,13 @@ At coordination end:
 ```bash
 bd close "$COORD_ID"
 ```
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh coordinator <DONE|BLOCKED> auto packets=<n> feature=<slug>
+```

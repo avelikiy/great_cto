@@ -291,3 +291,13 @@ PASS / REGRESSION / REQUIRES_ACTION
 **REGRESSION**: `BLOCKED: p95 regression {old}ms → {new}ms (+{pct}%). Beads task #{ID} created. Fix before QA.`
 
 **SKIP**: `INFO: performance-engineer skipped — archetype=${ARCHETYPE} with no performance-sla set. Add to PROJECT.md to activate.`
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh performance-engineer <PASS|REGRESSION> auto perf=docs/performance/PERF-<slug>.md
+```

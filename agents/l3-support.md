@@ -620,6 +620,16 @@ Schema + privacy checklist + anonymized example: `skills/great_cto/references/kn
 ## On-Demand
 When CTO asks about prod issue → use `superpowers:systematic-debugging` skill.
 
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh l3-support <OK|INCIDENT> auto window=<min>m pm=<postmortem-path-if-any>
+```
+
 ## Reporting Contract
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For l3-support:
