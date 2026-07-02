@@ -220,8 +220,13 @@ echo "=== Pattern lookup complete — apply matching patterns above BEFORE Steps
    - **`large`**: run monitoring for **30 minutes**. Write retrospective entry.
    - **`enterprise`**: run monitoring for **60 minutes** (or 72h for `regulated` archetype per ARCHETYPES.md). Write retrospective entry.
    Set window: `MONITOR_WINDOW=15` (medium) / `30` (large) / `60` (enterprise).
+   **The window is longer than your run budget** (`timeout: 600` = 10 min) — do
+   NOT sleep through it. One run = one sweep: check the last `MONITOR_WINDOW`
+   minutes of logs/metrics retrospectively, report, and end with
+   `next: re-invoke l3-support in <N> min to complete the window` so the
+   orchestrator (or the devops monitoring bead) schedules the next sweep.
 
-1b. **Read thresholds** from `.great_cto/PROJECT.md` (L3 section):
+1c. **Read thresholds** from `.great_cto/PROJECT.md` (L3 section):
    ```bash
    grep -A 10 "^## L3" .great_cto/PROJECT.md 2>/dev/null || echo "NO_L3_CONFIG"
    P0_THRESHOLD=$(grep "p0-threshold:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
@@ -325,7 +330,7 @@ echo "=== Pattern lookup complete — apply matching patterns above BEFORE Steps
    - Security researcher report (CVE, responsible disclosure)
    - Data integrity concerns with confidentiality implications
 
-   If any of the above matches → stop ops triage and run `/security-incident "<description>"` instead. It handles classification (C/I/A + DORA class), notification timelines (24h/72h/1 month), and disclosure drafts in one workflow.
+   If any of the above matches → stop ops triage and run `/sec incident "<description>"` instead. It handles classification (C/I/A + DORA class), notification timelines (24h/72h/1 month), and disclosure drafts in one workflow.
 
    Some incidents are both (e.g. compromised service also DOWN). In that case run `/sec incident` first for the regulatory clock, then continue ops triage for service restoration.
 
@@ -427,9 +432,21 @@ P0 TIMER: 15 min to resolution or escalation to next level
    T+30min: L3 — if not resolved: notify CTO: $CTO
    T+60min: ESCALATE — incident declared major, involve all available engineers
    ```
-   Log each escalation to the Beads task notes with exact timestamp.
+   **You cannot wait these timers out** — your run budget (`timeout: 600`) is
+   10 minutes. Encode the ladder as state, not sleep: create one Beads task per
+   escalation step with a due time, and tell the orchestrator to re-invoke you:
+   ```bash
+   E2=$(bd q "ESCALATE-L2: notify $TEAM_LEAD if <incident-id> unresolved" --priority 0 --labels production,escalation)
+   bd update "$E2" --due "+15m" 2>/dev/null || bd note "$E2" "due: T+15min"
+   E3=$(bd q "ESCALATE-L3: notify $CTO if <incident-id> unresolved" --priority 0 --labels production,escalation)
+   bd update "$E3" --due "+30m" 2>/dev/null || bd note "$E3" "due: T+30min"
+   ```
+   End your run with: `next: re-invoke l3-support at T+15min (bd task $E2) unless incident closed`.
+   The escalation fires on the NEXT invocation (orchestrator, cron, or the CTO's
+   "status" ping) — whoever runs first checks open `escalation` tasks past due.
+   Log each executed escalation to the Beads task notes with exact timestamp.
 
-4. **4-angle bug-hunt** (read-only investigation first — no fixes until proof confirmed):
+4b. **4-angle bug-hunt** (read-only investigation first — no fixes until proof confirmed):
    - **Angle 1 — Reproduction/Scope**: Confirm exact failure conditions. What inputs trigger it? What % of requests? Which services/regions affected?
    - **Angle 2 — Code Path/Failure Seam**: Trace the execution path. Grep for the error string, check stack traces, find where behavior diverges from expected.
    - **Angle 3 — Recent Changes/Regression**: `git log --since="48h" --oneline`. Did any recent commit touch the failing path? Compare deploy timestamps vs incident start.
@@ -535,7 +552,11 @@ P0 TIMER: 15 min to resolution or escalation to next level
 
 7c. **Pattern extraction** — after each PM, ask "would this help diagnose a recurrence on a *different* service?" If yes, append a new entry to `skills/great_cto/references/incident-patterns.md` using the P-<number> format defined at the top of that file. Skip if this is a one-off business-logic bug. This is the feedback loop that makes future l3-support triage smarter over time.
    ```bash
+   # In the great_cto repo itself the reference file is writable; in a consumer
+   # project it lives inside the (read-only) plugin cache — write to the
+   # project-local patterns file instead, which /crystallize promotes globally.
    PATTERNS=skills/great_cto/references/incident-patterns.md
+   [ -w "$PATTERNS" ] 2>/dev/null || { PATTERNS=.great_cto/incident-patterns.md; touch "$PATTERNS"; }
    NEXT_NUM=$(grep -oE "^### P-[0-9]+" "$PATTERNS" 2>/dev/null | sort -V | tail -1 | grep -oE "[0-9]+" | awk '{printf "%04d", $1+1}')
    [ -z "$NEXT_NUM" ] && NEXT_NUM="0001"
    echo "Consider appending a new pattern P-$NEXT_NUM to $PATTERNS (see format at top of file)."
