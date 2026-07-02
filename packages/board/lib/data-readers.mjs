@@ -3,13 +3,14 @@ import path from 'path';
 import os from 'os';
 import { GREAT_CTO_DIR } from './config.mjs';
 import { readFileSafe } from './util.mjs';
-// NOTE: getTasks / readVerdicts / readSecStats have not been extracted from
-// server.mjs yet at this point in the module split (they move to lib/beads.mjs
-// and lib/verdicts.mjs in later steps). ESM supports this circular import
-// because these are only invoked inside function bodies here, never at
-// module-evaluation time. Once beads.mjs / verdicts.mjs exist, these three
-// imports are repointed there instead of server.mjs (done in those steps).
-import { getTasks, readVerdicts, readSecStats } from '../server.mjs';
+import { getTasks } from './beads.mjs';
+// NOTE: readVerdicts / readSecStats have not been extracted from server.mjs
+// yet at this point in the module split (they move to lib/verdicts.mjs in a
+// later step). ESM supports this circular import because these are only
+// invoked inside function bodies here, never at module-evaluation time.
+// Once verdicts.mjs exists, this import is repointed there instead of
+// server.mjs (done in that step).
+import { readVerdicts, readSecStats } from '../server.mjs';
 
 // ── Memory: 4-layer file contents ─────────────────────────────────────────────
 function getMemory(cwd = process.cwd()) {
