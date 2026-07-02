@@ -218,7 +218,8 @@ step "4. Tag v$NEW"
 if [ "$DRY_RUN" = "1" ]; then
   color_dim "    [dry-run] git tag v$NEW"; echo ""
 else
-  git tag "v$NEW"
+  # -m keeps this working when tag.gpgSign=true (signed tags require a message non-interactively)
+  git tag -m "v$NEW" "v$NEW"
 fi
 ok "tagged v$NEW"
 
