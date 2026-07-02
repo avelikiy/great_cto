@@ -123,12 +123,6 @@ PHASE=$(grep "^phase:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || e
 TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "1")
 MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "")
 
-# Goal ancestry (Paperclip pattern) — injected into every bd create call
-# Gives every downstream agent the WHY without reading HANDOFF.md
-COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "")
-_COMP_CLEAN=$(echo "$COMPLIANCE" | sed 's/^\[none\]$//;s/^\[none, *\]//;s/, *\[none\]//')
-GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$_COMP_CLEAN" ] && echo " [compliance:${_COMP_CLEAN}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
-
 # Past lessons — calibrate cost/time estimates against actuals
 if [ -f .great_cto/lessons.md ]; then
   COST_LESSONS=$(grep -B1 -A4 "shape: B" .great_cto/lessons.md 2>/dev/null | head -20)
@@ -137,12 +131,24 @@ if [ -f .great_cto/lessons.md ]; then
 fi
 [ -f ~/.great_cto/decisions.md ] && grep -B1 -A4 "archetypes:.*$ARCHETYPE" ~/.great_cto/decisions.md 2>/dev/null | head -20
 
-# Latest ARCH doc
-ARCH_FILE=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
+# ARCH doc for THIS feature. If the orchestrator passed a feature slug in the
+# brief, use it — multiple features may have ARCH docs and "latest by name" is
+# wrong then. Fallback: newest by mtime (not sort -V, which is lexicographic).
+if [ -n "${FEATURE_SLUG:-}" ] && [ -f "docs/architecture/ARCH-${FEATURE_SLUG}.md" ]; then
+  ARCH_FILE="docs/architecture/ARCH-${FEATURE_SLUG}.md"
+else
+  ARCH_FILE=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
+fi
 [ -z "$ARCH_FILE" ] && echo "BLOCKED: No ARCH doc found. Run architect first." && exit 1
 
 # Feature slug from ARCH filename
 FEATURE_SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//' | tr '[:upper:]' '[:lower:]')
+
+# Goal ancestry (Paperclip pattern) — injected into every bd create call.
+# Built AFTER FEATURE_SLUG is known (it interpolates the slug).
+COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "")
+_COMP_CLEAN=$(echo "$COMPLIANCE" | sed 's/^\[none\]$//;s/^\[none, *\]//;s/, *\[none\]//')
+GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$_COMP_CLEAN" ] && echo " [compliance:${_COMP_CLEAN}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
 
 echo "arch=$ARCH_FILE | size=$PROJECT_SIZE | archetype=$ARCHETYPE | team=$TEAM_SIZE"
 ```
@@ -515,7 +521,7 @@ Pass `GOAL_ANCESTRY` as the `--context` flag whenever creating Beads tasks, and
 include it verbatim in the first line of every Worker Contract (see coordinator.md).
 
 ```bash
-# This string is set in Step 1. Include in every bd create call:
+# This string is set in Step 0 (after FEATURE_SLUG is derived). Include in every bd create call:
 #   bd create "<task title>" --context "$GOAL_ANCESTRY" ...
 # Workers read it to understand archetype, compliance, and feature scope
 # without needing to re-read HANDOFF.md or PROJECT.md from scratch.
