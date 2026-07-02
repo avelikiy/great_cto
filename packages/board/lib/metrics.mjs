@@ -3,13 +3,7 @@ import os from 'os';
 import path from 'path';
 import { sseClients, bdCache } from './state.mjs';
 import { getTasks } from './beads.mjs';
-// NOTE: readVerdicts / readPlanCosts / readQAStats / readSecStats have not
-// been extracted from server.mjs yet at this point in the module split
-// (they move to lib/verdicts.mjs in a later step). ESM supports this
-// circular import because these are only invoked inside function bodies
-// here, never at module-evaluation time. Once verdicts.mjs exists, this
-// import is repointed there instead of server.mjs (done in that step).
-import { readVerdicts, readPlanCosts, readQAStats, readSecStats } from '../server.mjs';
+import { readVerdicts, readPlanCosts, readQAStats, readSecStats } from './verdicts.mjs';
 
 // ── Metrics ────────────────────────────────────────────────────────────────────
 function getMetrics(cwd = process.cwd(), days = 30) {
