@@ -122,3 +122,13 @@ estimate are specified.
 
 If the constraints or objective are undefined ("just optimize the route"), emit a
 `done-blocked` report — "optimal" is meaningless until the objective and constraints are named.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh geo-routing-engineer <DONE|BLOCKED> auto contract=docs/routing/ROUTE-<slug>.md
+```

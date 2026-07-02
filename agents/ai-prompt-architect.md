@@ -176,3 +176,13 @@ Then exit. architect resumes; senior-dev unblocks once eval suite green.
 ## Skills you delegate to
 
 - `prose-style` — agent-style 21 rules apply to ADR-PROMPT prose (not to the prompt text itself; the prompt is what the prompt is)
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh ai-prompt-architect <APPROVED|BLOCKED> auto adr=docs/decisions/ADR-<NN>-PROMPT-<name>.md
+```

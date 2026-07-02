@@ -122,3 +122,13 @@ mode specified.
 
 If a source's API access or scopes aren't available, emit a `done-blocked` report — never
 design a connector against undocumented or unauthenticated assumptions.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh connector-builder <DONE|BLOCKED> auto contract=docs/connectors/CONNECT-<slug>.md
+```

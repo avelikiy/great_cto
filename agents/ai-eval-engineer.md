@@ -263,3 +263,13 @@ Then exit. qa-engineer Step 0b unblocks.
 - Eval that uses temperature > 0 without statistical sampling — flaky
 - "Smoke test" labelled as EVAL — smoke is different; EVALs are correctness-focused
 - Eval with < 5 cases for a critical failure mode — you can't detect regression with 1 example
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh ai-eval-engineer <PASS|BLOCKED> auto evals=tests/eval/ feature=<slug>
+```

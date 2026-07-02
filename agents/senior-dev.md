@@ -601,6 +601,16 @@ fi
 Signals **never block** senior-dev work — they are advisory breadcrumbs for
 `security-officer`. Do not debate them with the user; just emit and continue.
 
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh senior-dev <TASK_DONE|BLOCKED> auto task=<bd-id> pr=#<n> feature=<slug>
+```
+
 ## Reporting Contract
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For senior-dev:

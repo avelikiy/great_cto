@@ -586,13 +586,13 @@ Note: `team-size` does NOT constrain LLM parallelism. Pools always spawn as conc
 ## Step 11 — Verdict log
 
 ```bash
-mkdir -p .great_cto/verdicts
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 TASK_COUNT=$(grep -c "^| T" "$PLAN_FILE" 2>/dev/null || echo "?")
-printf '%s | pm | PLAN_READY | feature=%s | mode=%s | tasks=%s | plan=%s\n' \
-  "$TS" "$FEATURE_SLUG" "$MODE" "$TASK_COUNT" "$PLAN_FILE" \
-  >> .great_cto/verdicts/pm.log
+bash scripts/log-verdict.sh pm PLAN_READY auto \
+  "feature=$FEATURE_SLUG" "mode=$MODE" "tasks=$TASK_COUNT" "plan=$PLAN_FILE"
 ```
+Canonical format + `auto` cost via `scripts/log-verdict.sh` (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+both parse this line.
 
 ---
 

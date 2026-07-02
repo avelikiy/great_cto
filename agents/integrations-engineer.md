@@ -160,3 +160,13 @@ When the contract is complete, write a HANDOFF block at the end of the artifact:
 If blocked (missing provider credentials, undecided compliance scope), emit a
 `done-blocked` report instead of a partial contract — never hand senior-dev a
 half-specified integration.
+
+## Verdict log (mandatory)
+
+Before your final report, record the canonical verdict line (see
+`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+parse it; `auto` records real token cost:
+
+```bash
+bash scripts/log-verdict.sh integrations-engineer <DONE|BLOCKED> auto contract=docs/integrations/INTEGRATE-<slug>.md
+```
