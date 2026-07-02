@@ -32,11 +32,12 @@ trustworthy.
 
 ## Altitude (hard boundary)
 
+Canonical boundary (decide-contract / implement-only-when-delegated /
+never-cross-domains): `agents/_shared/contract-agent-altitude.md`. This agent:
+
 - You decide **how each source is ingested**: auth, the incremental-sync strategy, the
   cursor/watermark, schema mapping into the warehouse-lite, backfill, dedup, freshness SLA,
   and failure handling. You write the contract.
-- You **may** implement a connector when delegated, with TDD against recorded source
-  fixtures. The durable output is the contract.
 - You do **not** design the dashboard UI or the metrics definitions — that's design-advisor
   / architect; you deliver the clean data they read.
 
@@ -105,11 +106,17 @@ trustworthy.
 
 ## Phase task tracking (mandatory)
 
+Open/close the phase task per `agents/_shared/phase-task.md`
+(`<agent-name> = connector-builder`). Agent-specific tasking:
+
 One Beads task per source (`connector-builder: {source}`), blocking senior-dev. Close the
 contract task only when every source has a cursor, schema map, freshness SLA, and failure
 mode specified.
 
 ## HANDOFF
+
+Canonical shape + rules (post-condition, verdict line, done-blocked instead of
+partial handoff): `agents/_shared/handoff-format.md`. Agent-specific block:
 
 ```
 ## HANDOFF → senior-dev

@@ -219,3 +219,43 @@ test('e2e: stale verdict (old mtime) → treated as missing', () => {
     assert.match(out.hookSpecificOutput.additionalContext, /no verdict/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ─── HANDOFF fallback (archetype-review-base) ────────────────────────────
+
+const { parseHandoffVerdict } = await import(HOOK);
+
+test('parseHandoffVerdict reads signed-off as APPROVED', () => {
+  const tm = `# TM-pay — pci-reviewer\n...\n<!-- HANDOFF -->\npci-reviewer-verdict: signed-off\ncritical-findings: 0\n`;
+  assert.deepEqual(parseHandoffVerdict(tm, 'pci-reviewer'),
+    { ts: '', agent: 'pci-reviewer', verdict: 'APPROVED' });
+});
+
+test('parseHandoffVerdict reads blocked as BLOCKED', () => {
+  const tm = `<!-- HANDOFF -->\ngdpr-reviewer-verdict: blocked\n`;
+  assert.deepEqual(parseHandoffVerdict(tm, 'gdpr-reviewer').verdict, 'BLOCKED');
+});
+
+test('parseHandoffVerdict takes the LAST block on a shared multi-reviewer TM', () => {
+  const tm = `<!-- HANDOFF -->\npci-reviewer-verdict: blocked\n\n## api-platform findings\n<!-- HANDOFF -->\napi-platform-reviewer-verdict: signed-off\n`;
+  assert.equal(parseHandoffVerdict(tm, 'api-platform-reviewer').verdict, 'APPROVED');
+  assert.equal(parseHandoffVerdict(tm, 'pci-reviewer').verdict, 'BLOCKED');
+});
+
+test('parseHandoffVerdict returns null without a HANDOFF block', () => {
+  assert.equal(parseHandoffVerdict('# TM — no handoff here', 'pci-reviewer'), null);
+});
+
+test('e2e: reviewer with HANDOFF but no verdict log still dispatches', () => {
+  const now = new Date().toISOString();
+  const dir = sandbox();
+  try {
+    mkdirSync(join(dir, 'docs', 'sec-threats'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'sec-threats', 'TM-pay.md'),
+      `# TM-pay — pci-reviewer\n<!-- HANDOFF -->\npci-reviewer-verdict: signed-off\n`);
+    const r = runHook(dir, 'great_cto-pci-reviewer');
+    assert.equal(r.exit, 0);
+    const out = JSON.parse(r.stdout);
+    assert.match(out.hookSpecificOutput.additionalContext, /PIPELINE-NEXT/);
+    assert.match(out.hookSpecificOutput.additionalContext, /senior-dev/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

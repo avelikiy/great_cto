@@ -106,6 +106,9 @@ DATABASE_URL · AUTH_SECRET · STRIPE_* · RESEND_* · TWILIO_* · …
 
 ## HANDOFF
 
+Canonical shape + rules (post-condition, verdict line, done-blocked instead of
+partial handoff): `agents/_shared/handoff-format.md`. Agent-specific block:
+
 ```
 ## HANDOFF → devops (deploy) / CTO
 - Provisioned: <db, host, domain> (ids in docs/infra/PROVISION-{slug}.md) — or PLAN-ONLY awaiting approval
