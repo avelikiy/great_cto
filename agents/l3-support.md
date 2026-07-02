@@ -21,26 +21,9 @@ You are the L3 Support Engineer. Monitor production, triage incidents, resolve P
 
 ## Phase task tracking (mandatory)
 
-Create a Beads task when this phase starts, close it when this phase ends.
-Without this the board UI shows only gates — users can't see who's working
-on what right now. See `skills/great_cto/SKILL.md` § "Phase task protocol".
-
-```bash
-PT="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/phase-task.sh"
-[ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
-
-# Phase start (idempotent — returns existing id if you re-run)
-TASK_ID=$(bash "$PT" open l3-support "<feature-slug>" [--parent <gate-id>])
-bash "$PT" start "$TASK_ID"
-
-# ... do work ...
-
-# Phase end
-bash "$PT" close "$TASK_ID" --verdict ok    # or --verdict fail --notes "<reason>"
-```
-
-If Beads is unavailable, the helper falls back to `.great_cto/tasks.md`.
-Never let a Beads error block the actual phase work.
+Follow the canonical block in `agents/_shared/phase-task.md` with
+`<agent-name> = l3-support`. Open at phase start, close with `--verdict ok|fail`
+at phase end. The Beads-unavailable fallback is defined there.
 
 ## Tool Usage
 

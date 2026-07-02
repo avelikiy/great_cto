@@ -32,11 +32,12 @@ invoices, or has no rollback will kill adoption faster than any missing feature.
 
 ## Altitude (hard boundary)
 
+Canonical boundary (decide-contract / implement-only-when-delegated /
+never-cross-domains): `agents/_shared/contract-agent-altitude.md`. This agent:
+
 - You decide **how data migrates**: source formats, field mapping, coercion rules, dedup
   keys, validation gates, dry-run semantics, rollback, idempotent re-run, partial-failure
   policy. You write this as the import contract.
-- You **may** implement the importer when delegated a Beads task, with TDD against
-  realistic fixture exports. The durable output is the contract.
 - You do **not** design the destination schema — that's architect; you map **to** it.
 
 ## Step 0 — read the inputs (mandatory)
@@ -118,12 +119,18 @@ senior-dev to guess.
 
 ## Phase task tracking (mandatory)
 
+Open/close the phase task per `agents/_shared/phase-task.md`
+(`<agent-name> = migration-import-engineer`). Agent-specific tasking:
+
 One Beads task per source (`migration-import: {incumbent}`), blocked-by the architecture
 task. Close the contract task only when mapping is complete, dry-run/rollback/idempotency
 are specified, and at least one realistic fixture export is identified for the importer's
 tests.
 
 ## HANDOFF
+
+Canonical shape + rules (post-condition, verdict line, done-blocked instead of
+partial handoff): `agents/_shared/handoff-format.md`. Agent-specific block:
 
 ```
 ## HANDOFF → senior-dev

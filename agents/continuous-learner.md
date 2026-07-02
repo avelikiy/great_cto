@@ -215,13 +215,9 @@ This is a **feature**, not a failure. Most sessions don't produce transferable l
 
 ## Privacy guardrails
 
-You MUST NOT include:
-- API keys, tokens, passwords, JWTs (even partial fragments)
-- Email addresses, phone numbers, names (unless they are project-public like git author)
-- Internal project codenames or business-confidential terminology that the user hasn't explicitly marked shareable
-- Customer/user IDs or any data from `.env*` files
-
-When in doubt, omit. Privacy mistakes are unrecoverable; missed lessons are not.
+Follow `agents/_shared/privacy-guardrails.md` — no keys/PII/codenames/local
+paths; when in doubt, omit. Privacy mistakes are unrecoverable; missed
+lessons are not.
 
 ## Output format
 
