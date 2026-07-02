@@ -43,10 +43,14 @@ approved. If you decide NOT to build, the pipeline stops here and you write
 ## Phase task tracking (mandatory)
 
 ```bash
-# Phase start (idempotent)
-PHASE_ID=$(bash "$PLUGIN_DIR/scripts/phase-task.sh" open product-owner "<feature-slug>" 2>/dev/null)
+PT="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/phase-task.sh"
+[ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
+
+# Phase start (idempotent — returns existing id if you re-run)
+PHASE_ID=$(bash "$PT" open product-owner "<feature-slug>")
+bash "$PT" start "$PHASE_ID"
 # ... do work ...
-bash "$PLUGIN_DIR/scripts/phase-task.sh" close product-owner "<feature-slug>" 2>/dev/null
+bash "$PT" close "$PHASE_ID" --verdict ok   # or --verdict fail --notes "<reason>"
 ```
 
 ## Read past lessons FIRST
@@ -57,8 +61,10 @@ calls or repeat a killed idea:
 ```bash
 # Cross-project decisions + project lessons, filtered to this idea
 TASK="<the idea in 6 words>"
-node "$PLUGIN_DIR/scripts/lib/memory-filter.mjs" decisions "$TASK" 2>/dev/null | head -40
-node "$PLUGIN_DIR/scripts/lib/memory-filter.mjs" lessons "$TASK" 2>/dev/null | head -40
+MF="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/memory-filter.mjs"
+[ -f "$MF" ] || MF="$(pwd)/scripts/memory-filter.mjs"
+node "$MF" decisions "$TASK" 2>/dev/null | head -40
+node "$MF" lessons "$TASK" 2>/dev/null | head -40
 # Was this already decided NOT to build?
 cat .great_cto/DISCOVERY-NO-BUILD.md 2>/dev/null
 ```

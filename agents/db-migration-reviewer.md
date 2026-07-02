@@ -48,7 +48,14 @@ echo "$MIGRATIONS"
 DB_ENGINE=$(grep "^db:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || \
             grep -rn "postgresql\|mysql\|sqlite\|aurora\|cockroach\|planetscale" .great_cto/PROJECT.md 2>/dev/null | head -1 | grep -oE "postgresql|mysql|sqlite|aurora|cockroach|planetscale" | head -1 || echo "unknown")
 
-SLUG=$(basename "$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)" .md | sed 's/^ARCH-//' || echo "$(date +%Y%m%d)")
+# Slug from latest ARCH doc; date fallback must be an explicit branch —
+# `|| echo` after a pipeline never fires (basename "" exits 0 with empty output)
+ARCH_LATEST=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
+if [ -n "$ARCH_LATEST" ]; then
+  SLUG=$(basename "$ARCH_LATEST" .md | sed 's/^ARCH-//')
+else
+  SLUG=$(date +%Y%m%d)
+fi
 echo "DB engine: $DB_ENGINE"
 ```
 
@@ -184,11 +191,15 @@ PII columns added without encryption annotation → **High** finding.
 # Check if migration is safe across all environments
 # (dev might have small tables; prod has millions of rows)
 
+# $MIGRATIONS is a newline-joined LIST — pass through xargs, never quote it
+# as a single grep argument (that treats the whole list as one filename).
+
 # Check for raw SQL that bypasses ORM safety
-grep -rn "execute.*\"\|raw_sql\|connection.execute\|cursor.execute" "$MIGRATIONS" 2>/dev/null | grep -v "CONCURRENTLY\|CREATE INDEX" | head -10
+echo "$MIGRATIONS" | xargs grep -n "execute.*\"\|raw_sql\|connection.execute\|cursor.execute" 2>/dev/null | grep -v "CONCURRENTLY\|CREATE INDEX" | head -10
 
 # Check for missing transaction wrapping (DDL in Postgres is transactional; MySQL is not)
-grep -c "BEGIN\|transaction\|atomic" "$MIGRATIONS" 2>/dev/null || echo "0 explicit transactions"
+TX_COUNT=$(echo "$MIGRATIONS" | xargs grep -h "BEGIN\|transaction\|atomic" 2>/dev/null | wc -l | tr -d ' ')
+echo "${TX_COUNT:-0} explicit transaction markers"
 ```
 
 **MySQL / MariaDB**: DDL is NOT transactional — a failed migration cannot be rolled back at DB level. Flag this if `$DB_ENGINE` = mysql.

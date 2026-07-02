@@ -100,27 +100,43 @@ function getChangedFiles() {
 // don't re-flag it.
 function recentlyInvokedReviewers() {
   try {
-    const verdictDir = join(process.env.HOME || "~", ".great_cto", "verdicts");
-    if (!existsSync(verdictDir)) return new Set();
+    // log-verdict.sh writes to the PROJECT-local .great_cto/verdicts/ — read
+    // that first; the HOME-level dir only exists if a global aggregator syncs
+    // logs there. Reading only HOME meant the dedupe never fired (bug).
+    const candidateDirs = [
+      join(greatCtoDir, "verdicts"),
+      join(process.env.HOME || "~", ".great_cto", "verdicts"),
+    ];
     const day24Ago = Date.now() - 24 * 3600 * 1000;
     const seen = new Set();
-    for (const f of readdirSync(verdictDir)) {
-      const fp = join(verdictDir, f);
-      try {
-        const stat = statSync(fp);
-        if (stat.mtimeMs < day24Ago) continue;
-        const lines = readFileSync(fp, "utf8").split("\n").slice(-30);
-        for (const line of lines) {
-          const m = line.match(/\|\s*([\w-]+-reviewer|security-officer|qa-engineer|architect|pm|senior-dev|devops|l3-support|ai-eval-engineer|ai-prompt-architect)\s*\|/);
-          if (m && line.includes(new Date(day24Ago).toISOString().slice(0, 10))) {
-            seen.add(m[1]);
-          }
-        }
-      } catch { /* skip unreadable */ }
+    for (const verdictDir of candidateDirs) {
+      if (!existsSync(verdictDir)) continue;
+      scanVerdictDir(verdictDir, day24Ago, seen);
     }
     return seen;
   } catch {
     return new Set();
+  }
+}
+
+function scanVerdictDir(verdictDir, day24Ago, seen) {
+  for (const f of readdirSync(verdictDir)) {
+    const fp = join(verdictDir, f);
+    try {
+      const stat = statSync(fp);
+      if (stat.mtimeMs < day24Ago) continue;
+      const lines = readFileSync(fp, "utf8").split("\n").slice(-30);
+      for (const line of lines) {
+        const m = line.match(/\|?\s*([\w-]+-reviewer|security-officer|qa-engineer|architect|pm|senior-dev|devops|l3-support|ai-eval-engineer|ai-prompt-architect)\s*\|/);
+        if (!m) continue;
+        // Lines start with an ISO-8601 UTC timestamp (verdict-format.md).
+        // Compare it against the 24h window instead of matching a calendar
+        // date string (the old check only matched yesterday's date, so
+        // verdicts written today were never deduped).
+        const ts = Date.parse(line.split(" ")[0]);
+        if (!Number.isNaN(ts) && ts >= day24Ago) seen.add(m[1]);
+      }
+    } catch { /* skip unreadable */ }
   }
 }
 
