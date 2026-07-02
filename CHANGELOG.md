@@ -4,6 +4,36 @@ All notable changes to great_cto are documented here.
 
 ---
 
+
+## v2.77.0 — 2026-07-02
+
+### Measured product quality + mechanical pipeline + board server split
+
+- **Product-quality harness (P1–P4)** — automated 0–100 score for shipped products:
+  archetype-aware rubric, fleet scoring, empirical benchmark across 6 generated
+  archetypes (89/100), SCORE artifact, UI-heuristic fix.
+- **QUALITY-DEEPEN #1–#5** — executed-quality harness + deploy gate, per-archetype
+  domain contracts, unified quality verdict with trend tracking and gate.
+- **Pipeline autochain** — mechanical agent handoff via `shared/pipeline.toml` map +
+  PostToolUse dispatcher; fleet-wide canonical verdict logging; reviewer family
+  unified with HANDOFF fallback in the dispatcher.
+- **Agent fixes (waves 2–3)** — mechanical 72h gate expiry + mid-session reviewer
+  nudge hooks, runnable l3-support escalation ladder, coordinator lane-overlap
+  check (WPL = Decomposition Matrix), AI-pair contract sync, security-officer
+  mode/templates/waiver extraction, shared boilerplate factored into
+  `agents/_shared/`, bd CLI verb drift fixed, db-migration-reviewer wired into
+  qa-engineer (was orphaned).
+- **Board server split** — `packages/board/server.mjs` (3,414 lines, hottest file
+  in the repo) split into a 133-line entry + 15 single-responsibility modules under
+  `packages/board/lib/` (design: `docs/arch/ARCH-board-server-split.md`). Strictly
+  behavior-preserving: full suite 143/143 green, QA report byte-diffed the largest
+  moved functions and all 26 routes, security review confirmed CSRF/origin guard
+  and body-size cap unchanged. One commit per module — the branch bisects cleanly.
+- **Docs** — README refresh (61 agents, measured quality, escape hatch,
+  cross-model review).
+
+---
+
 ## v2.76.0 — 2026-06-28
 
 ### Adopted ideas from AgentSpace + architect-loop (ideas, not the stacks)
