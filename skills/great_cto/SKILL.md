@@ -745,9 +745,9 @@ architect (ARCH + migration plan) → GATE:ARCH
 - Senior-dev tasks are SEQUENTIAL — no parallel implementation (dependency chain)
 - When creating migration tasks in Beads, wire them immediately after creation:
   ```bash
-  TASK1=$(bd create "migration: compatibility shim" --label migration | grep -o '^[A-Z0-9-]*')
-  TASK2=$(bd create "migration: dual-stack setup" --label migration | grep -o '^[A-Z0-9-]*')
-  bd dep "$TASK2" "$TASK1"  # task2 blocked until task1 is closed
+  TASK1=$(bd create "migration: compatibility shim" --label migration --silent)
+  TASK2=$(bd create "migration: dual-stack setup" --label migration --silent)
+  bd dep add "$TASK2" "$TASK1"  # task2 blocked until task1 is closed
   ```
   This prevents any senior-dev from claiming task2 via `bd ready` while task1 is in-progress.
 - OLD stack must remain deployable until 100% cutover confirmed stable for ≥48h
@@ -799,10 +799,10 @@ architect (ARCH + file ownership matrix) → GATE:ARCH
 
 **Sequential enforcement** — when creating refactor tasks in Beads, wire dependencies immediately after creation (one chain per task sequence):
 ```bash
-T1=$(bd create "refactor: <domain-1>" --label refactor | grep -o '^[A-Z0-9-]*')
-T2=$(bd create "refactor: <domain-2>" --label refactor | grep -o '^[A-Z0-9-]*')
-T3=$(bd create "refactor: <domain-3>" --label refactor | grep -o '^[A-Z0-9-]*')
-bd dep "$T2" "$T1" && bd dep "$T3" "$T2"
+T1=$(bd create "refactor: <domain-1>" --label refactor --silent)
+T2=$(bd create "refactor: <domain-2>" --label refactor --silent)
+T3=$(bd create "refactor: <domain-3>" --label refactor --silent)
+bd dep add "$T2" "$T1" && bd dep add "$T3" "$T2"
 ```
 This prevents `bd ready` from returning T2/T3 while T1 is in-progress. Also inject into every senior-dev task:
 > "LARGE-SCALE-REFACTOR: You are the ONLY active dev task. Do NOT start until previous task is confirmed closed. Your owned files: [list from work-packet]. Do not touch any file not in your ownership list."

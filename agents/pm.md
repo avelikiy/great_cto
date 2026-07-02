@@ -490,10 +490,10 @@ Always create the gate — no approval_level skips it:
 # Dedup check: skip if gate:plan already open for this feature
 if ! bd search "gate:plan" 2>/dev/null | grep -qi "open\|in.progress"; then
   GATE_ID=$(bd create "gate:plan — ${FEATURE_SLUG} implementation plan review" \
-    --type task --priority 0 --label gate \
+    --type task --priority 0 --label gate --silent \
     --context "$GOAL_ANCESTRY" \
     --notes "Review PLAN doc at docs/plans/PLAN-${FEATURE_SLUG}.md. Approve to unblock senior-dev. Check: task count, parallelism, agent allocation, estimates. Modify the plan directly if needed before approving." \
-    2>/dev/null | grep -oE '[a-z0-9]{3,}' | head -1 || echo "bd-unavailable")
+    2>/dev/null || echo "bd-unavailable")
   echo "gate:plan created → $GATE_ID"
 else
   echo "gate:plan already open — skipping duplicate"

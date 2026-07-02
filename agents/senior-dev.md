@@ -261,8 +261,8 @@ bd ready 2>/dev/null | head -10  # tasks with no blocking dependencies
 #    Each work-package in docs/architecture/ARCH-*.md → one bd task.
 #    bd create "WP-1: implement /api/users endpoint" --priority P1 --label feature --depends-on <task-id>
 
-# 4. Claim before coding
-bd claim <task-id>
+# 4. Claim before coding (atomic: assignee=you, status=in_progress)
+bd update <task-id> --claim
 ```
 
 **Allowed TodoWrite uses (narrow):**
@@ -389,7 +389,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    If gate:arch is still open → **stop**. Tell CTO: "gate:arch not yet approved — architecture review pending. Run `/inbox` to approve, then re-invoke senior-dev."
    Only proceed when no open gate:arch exists for this feature.
 
-2. **Claim**: `bd ready` → `bd show <id>` → `bd claim <id>`
+2. **Claim**: `bd ready` → `bd show <id>` → `bd update <id> --claim`
 3. **Branch**: Create feature branch before any code:
    ```bash
    git checkout -b feat/<beads-id>-<short-description>
@@ -523,8 +523,8 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 
 10b. **Discoveries**: When finding a bug or tech debt while implementing:
    ```bash
-   NEW_ID=$(bd create "Bug: <desc>" --type bug --priority <0-2> | grep -oE '[0-9]+' | head -1)
-   bd dep $NEW_ID discovered-from <current-task-id>
+   NEW_ID=$(bd q "Bug: <desc>" --type bug --priority <0-2>)   # bd q prints only the ID
+   bd dep add "$NEW_ID" <current-task-id> --type discovered-from
    ```
    Do NOT fix discoveries inline — create the task, link it, continue with current task. Exception: P0 security bug → pause and fix immediately.
 11. **Close** (only after Proof Loop passes): `bd close <id> "Implemented: [brief description] — PR: #<number>"`

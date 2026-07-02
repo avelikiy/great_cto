@@ -325,21 +325,22 @@ These patterns silently destroy coordination quality. Reject them explicitly:
 
 ## Beads integration
 
-At coordination start:
+At coordination start (`bd q` prints only the issue ID — never parse `bd create` output with grep):
 ```bash
-COORD_ID=$(bd create "coordinate: <feature>" --label coordinator --priority 1 | grep -o '^[A-Z0-9-]*')
+COORD_ID=$(bd q "coordinate: <feature>" --labels coordinator --priority 1)
 ```
 
 Per work packet:
 ```bash
-PKT_ID=$(bd create "coord-packet: <name>" --label coordinator --parent "$COORD_ID" | grep -o '^[A-Z0-9-]*')
-bd start "$PKT_ID"
+PKT_ID=$(bd q "coord-packet: <name>" --labels coordinator)
+bd dep add "$PKT_ID" "$COORD_ID" --type parent-child
+bd update "$PKT_ID" --claim   # sets assignee + status=in_progress atomically
 # ... dispatch agent ...
 # On return:
-bd close "$PKT_ID" --verdict ok  # or: bd blocked "$PKT_ID" --notes "<reason>"
+bd close "$PKT_ID"  # or: bd update "$PKT_ID" --status blocked --notes "<reason>"
 ```
 
 At coordination end:
 ```bash
-bd close "$COORD_ID" --verdict ok
+bd close "$COORD_ID"
 ```
