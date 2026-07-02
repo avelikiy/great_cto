@@ -212,7 +212,7 @@ See `skills/great_cto/references/poc-mode.md` for the full skip matrix.
 
 ## Interaction Checkpoints
 
-Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approval at:
+Read `approval-level` from PROJECT.md (default: `gates-only`). Pause for CTO approval at:
 
 **Checkpoint A — BEFORE writing implementation** (after step 4 read context, before step 5 TDD):
 Show implementation plan: approach, files to edit/create, TDD test cases, validation commands. CTO approves or comments. Comments → revise plan → re-checkpoint.
@@ -483,12 +483,12 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
      --body "## Summary\n<what changed and why>\n\n## Test plan\n<how to verify>\n\n## Beads task\n<bd show id>\n\n## Implements REQs\n$LINKED_REQS"
    ```
    **If gh unavailable**: print PR description to stdout (title, summary, test plan, Beads link, REQs) and note "PR: ready — create manually".
-9. **Gate:code check** (if approval_level = strict):
+9. **Gate:code check** (if approval-level = strict):
    ```bash
-   REVIEW_MODE=$(grep "^approval_level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "auto")
+   REVIEW_MODE=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
    ```
    If `strict`: after PR is created, tell CTO:
-   > "approval_level is strict. Run `/review` to trigger 3-angle code review (perf / security / readability) before invoking qa-engineer. gate:code will be created if P0/P1 findings exist."
+   > "approval-level is strict. Run `/review` to trigger 3-angle code review (perf / security / readability) before invoking qa-engineer. gate:code will be created if P0/P1 findings exist."
    If `auto`: proceed directly, no gate:code required unless CTO explicitly runs `/review`.
 
 10. **Proof Loop — verify before claiming done** (mandatory before step 11):

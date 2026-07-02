@@ -47,7 +47,7 @@ Each ADR-PROMPT contains:
 
 ```bash
 ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
-TM=$(ls -t docs/sec\ threats/TM-*.md 2>/dev/null | head -1)
+TM=$(ls -t docs/sec-threats/TM-*.md 2>/dev/null | head -1)
 [ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file. Architect must run first." >&2; exit 1; }
 [ -z "$TM" ] && { echo "BLOCKED: no threat model. Run ai-security-reviewer first." >&2; exit 1; }
 ```

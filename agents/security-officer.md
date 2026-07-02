@@ -94,7 +94,7 @@ Do **not** produce a CSO report in POC mode. Full review happens at
 
 ## Interaction Checkpoints
 
-Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approval at:
+Read `approval-level` from PROJECT.md (default: `gates-only`). Pause for CTO approval at:
 
 **Checkpoint A — BEFORE running audit** (after step 2-4 context reading, before step 5 compliance checklist):
 Show audit plan: compliance frameworks to check (from `compliance:` params + packs), secrets scan scope, dependency audit tools, high-priority targets from QA report. CTO approves or comments. Comments → adjust scope → re-checkpoint.
@@ -201,7 +201,7 @@ fi
 | Mode | When | Outputs | Halts on |
 |---|---|---|---|
 | **pre-impl** | After architect writes ARCH, BEFORE senior-dev claims tasks | `docs/sec-threats/TM-{slug}.md` (threat model), `docs/architecture/ARCH-{slug}.md § Security` (appended) | mitigations missing for Critical/High threats; senior-dev cannot proceed |
-| **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{slug}-{date}.md` (Compliance & Security Officer report), `gate:ship` verdict | unmitigated Critical findings |
+| **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{date}.md` (Compliance & Security Officer report; same name the artefact post-condition checks), `gate:ship` verdict | unmitigated Critical findings |
 
 ### pre-impl flow (security-critical archetypes only)
 
@@ -742,7 +742,7 @@ Step 3 — Signal strength:
 
 Observations (signal < 2 or no direct evidence): record in a separate `## Observations` section of the CSO report. Do NOT file Beads tasks for observations — they are informational only.
 
-6. **Write** `docs/security/CSO-<YYYY-MM-DD>.md`: summary (APPROVED/BLOCKED), **verdict quality**, findings by severity (P0-P3) with signal strength, dependency scan results, compliance checklist results, observations section
+6. **Write** `docs/security/CSO-<YYYY-MM-DD>.md`. **First line of the file (machine-readable, exact token — devops pre-deploy check greps `^Decision:`):** `Decision: APPROVED` or `Decision: BLOCKED`. Then: summary, **verdict quality**, findings by severity (P0-P3) with signal strength, dependency scan results, compliance checklist results, observations section
 
    **Log agent verdict** (for postmortem traceability):
    ```bash

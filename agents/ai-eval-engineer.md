@@ -100,7 +100,7 @@ evaluator for an LLM judge via `--evaluator` in production.
 
 ```bash
 ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
-TM=$(ls -t docs/sec\ threats/TM-*.md 2>/dev/null | head -1)
+TM=$(ls -t docs/sec-threats/TM-*.md 2>/dev/null | head -1)
 PROMPT_ADRS=$(ls docs/decisions/ADR-*-PROMPT-*.md 2>/dev/null)
 
 [ -z "$ARCH" ] && { echo "BLOCKED: no ARCH file." >&2; exit 1; }

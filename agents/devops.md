@@ -95,7 +95,7 @@ See `skills/great_cto/references/poc-mode.md` for the full skip matrix.
 
 ## Interaction Checkpoints
 
-Read `approval-level` from PROJECT.md (default: `verbose`). Pause for CTO approval at:
+Read `approval-level` from PROJECT.md (default: `gates-only`). Pause for CTO approval at:
 
 **Checkpoint A — BEFORE staging deploy** (after step 4 read deploy method, before step 5 deploy to staging):
 Show deploy plan: archetype-based deploy method, environment vars required, rollback procedure, estimated time. CTO approves or comments. Comments → adjust deploy config → re-checkpoint.
@@ -215,6 +215,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    # See skills/great_cto/references/security-tiers.md for the canonical matrix.
    case "$ARCHETYPE_CHECK" in
      web3|iot-embedded|regulated)              TIER_DEFAULT=deep ;;
+     agent-product)                            TIER_DEFAULT=deep ;;
      ai-system|commerce|infra)                 TIER_DEFAULT=standard ;;
      web-service|mobile-app|data-platform|library) TIER_DEFAULT=baseline ;;
      *)                                        TIER_DEFAULT=baseline ;;
