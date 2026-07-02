@@ -27,7 +27,7 @@
  * Opt out: GREAT_CTO_DISABLE_DISPATCHER=1
  */
 
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -91,6 +91,40 @@ export function latestVerdict(dir, agent, withinMs, now) {
     if (now - statSync(fp).mtimeMs > withinMs) return null;
     const lines = readFileSync(fp, 'utf8').trim().split('\n');
     return parseVerdictLine(lines[lines.length - 1]);
+  } catch { return null; }
+}
+
+/**
+ * Parse a reviewer's `<!-- HANDOFF -->` YAML block (archetype-review-base) out
+ * of a TM file's text. Returns {agent, verdict} or null. Used as fallback when
+ * a *-reviewer wrote its TM + HANDOFF but forgot the verdict log line.
+ */
+export function parseHandoffVerdict(text, agent) {
+  const blocks = String(text).split('<!-- HANDOFF -->');
+  if (blocks.length < 2) return null;
+  // Scan newest-last: reviewers append; take the LAST block with THIS agent's
+  // key. Strictly agent-specific — a generic `*-verdict:` fallback would
+  // attribute another reviewer's verdict on a shared multi-reviewer TM.
+  const rx = new RegExp(`^\\s*${agent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-verdict:\\s*(signed-off|blocked)`, 'm');
+  for (let i = blocks.length - 1; i >= 1; i--) {
+    const m = blocks[i].match(rx);
+    if (m) return { ts: '', agent, verdict: m[1] === 'signed-off' ? 'APPROVED' : 'BLOCKED' };
+  }
+  return null;
+}
+
+/** Fallback for reviewers: read the freshest TM-*.md and parse its HANDOFF. */
+export function handoffFallback(agent, withinMs, now, { readdir, stat, read }) {
+  try {
+    const dir = join('docs', 'sec-threats');
+    const files = readdir(dir).filter(f => /^TM-.*\.md$/.test(f));
+    let newest = null, newestM = 0;
+    for (const f of files) {
+      const m = stat(join(dir, f)).mtimeMs;
+      if (m > newestM) { newestM = m; newest = f; }
+    }
+    if (!newest || now - newestM > withinMs) return null;
+    return parseHandoffVerdict(read(join(dir, newest)), agent);
   } catch { return null; }
 }
 
@@ -179,7 +213,16 @@ function main() {
   try { transitions = parsePipelineToml(readFileSync(PIPELINE_PATH, 'utf8')); } catch { return process.exit(0); }
 
   const now = Date.now();
-  const verdict = latestVerdict(VERDICT_DIR, agent, FRESH_MS, now);
+  let verdict = latestVerdict(VERDICT_DIR, agent, FRESH_MS, now);
+  if (!verdict && agent.endsWith('-reviewer')) {
+    // Reviewer wrote its TM + HANDOFF but skipped the verdict log — the
+    // archetype-review-base HANDOFF block is an equally authoritative signal.
+    verdict = handoffFallback(agent, FRESH_MS, now, {
+      readdir: (d) => readdirSync(d),
+      stat: (f) => statSync(f),
+      read: (f) => readFileSync(f, 'utf8'),
+    });
+  }
   const rule = transitions[agent];
   const joinVerdicts = {};
   for (const j of (rule?.join || [])) {

@@ -268,7 +268,7 @@ After ARCH is written but before handing off to senior-dev, delegate to speciali
 
 Each specialist subagent:
 - Reads ARCH + relevant pack
-- Produces `docs/sec-threats/TM-{slug}.md` (or extension-specific naming)
+- Produces `docs/sec-threats/TM-{slug}.md` (single file per slug — reviewers append their sections; per-reviewer suffixes are deprecated)
 - Has an `<!-- HANDOFF -->` block in its output that senior-dev / next subagent reads
 - Halts (`exit 1`) on Critical/High `__pending__` mitigations
 
