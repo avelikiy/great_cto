@@ -883,6 +883,19 @@ function mineReadmeKeywords(dir: string): string[] {
     "policy", "underwriting", "premium", "acord", "naic", "actuarial",
     "reinsurance", "solvency", "carrier", "mga", "mgu", "tpa", "insurance",
     "insurtech", "insurer", "insured", "deductible", "coverage", "bordereau",
+    // tax-pack — keep in sync with archetypes.ts fintech score()
+    // "irs"/"e-file"/"tax-prep" deliberately soft signals: generic enough
+    // to appear in unrelated fixtures, so weighted low in the scorer.
+    "ptin", "circular-230", "form-8879", "mef", "pub-4557", "section-7216",
+    "e-file", "tax-prep", "tax-preparation", "irs",
+    // procurement-pack — keep in sync with archetypes.ts enterprise-saas score()
+    // "rfp"/"sourcing" deliberately soft: generic terms, weighted low.
+    "purchase-order", "three-way-match", "rfp", "ofac", "requisition",
+    "punchout", "cxml", "sourcing", "procurement", "spend-management",
+    // msp-pack — keep in sync with archetypes.ts enterprise-saas score()
+    // "sla" deliberately soft: generic term, weighted low.
+    "msa", "sla", "rmm", "psa", "multi-tenant", "managed-service",
+    "credential-vault", "msp", "managed-services",
   ];
   for (const term of packTerms) {
     if (text.includes(term)) kws.add(term);
