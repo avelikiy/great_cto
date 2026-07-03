@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `commands/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**39 user-invocable commands.**
+**40 user-invocable commands.**
 
 | Command | Model | Arguments | What it does |
 |---|---|---|---|
@@ -45,4 +45,5 @@
 | `/spec` | sonnet | [project description or 'retrofit' for existing codebases] | Spec Driven Development: interview → requirements.md + design.md + tasks.md. Run before writing any code. |
 | `/start` | sonnet | [free-form project description] | Set up a new project. Describe what you're building — agents do the rest. |
 | `/trace` | haiku | <bd-id> \| feature <slug> \| <bd-id> --json | Requirement → use-case → task → test traceability (NaCl graph value, no Neo4j). Trace one bd node's rationale (upstream) + impact (downstream), or audit a whole feature's chain for coverage gaps. Reads beads relationships. |
+| `/upl-check` | sonnet | [slug] | Unauthorized-practice-of-law (UPL) + legal-services compliance review. Invokes legal-reviewer to audit UPL gating, IOLTA/trust accounting, attorney-client privilege, conflict-of-interest screening, and e-filing redaction. Required before shipping any client-facing legal-SMB feature. |
 | `/voice-compliance` | sonnet | [slug] — optional ARCH slug to review (defaults to latest) | Voice/telephony compliance check — invokes voice-ai-reviewer to produce TM-voice-{slug}.md with TCPA, STIR/SHAKEN, state recording-consent, EU AI Act Art. 50, and synth-voice deepfake-law gaps. |
