@@ -6,6 +6,29 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.77.2 — 2026-07-03
+
+### Board bughunt wave 2 + honest storefront
+
+- **Board: projects registry self-heals** — duplicate slugs are deduped, entries
+  with existing paths win, a moved repo updates its entry instead of adding a
+  second one. Fixes the "board shows 0 tasks after a repo move" failure.
+- **Board: transient `bd` failures no longer wipe the view** — the server keeps
+  the last-good task cache on a lock/timeout and the UI re-verifies an empty SSE
+  snapshot before accepting it.
+- **Board: zero external calls** — marked, DOMPurify and Geist/Geist Mono
+  variable fonts (latin, ~56 KB) are vendored into `public/assets/`; a new
+  `no-cdn` test guards regressions. Works fully offline now.
+- **Board: `.beads` watcher** picks up a late-created `interactions.jsonl`.
+- **README/CLAUDE.md trust pass** — agent count aligned to the real 61, dead
+  proof link removed, "one gate" promise now states the irreversible-change
+  caveat explicitly, older pivots compressed to CHANGELOG pointers, telemetry
+  policy reworded to match reality (opt-in, off by default).
+- Tests: full suite 163/163 (+20 new across registry/cache/watchers/no-cdn).
+
+---
+
 ## v2.77.1 — 2026-07-03
 
 ### `npx great-cto board` works on a fresh install
