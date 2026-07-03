@@ -14,6 +14,27 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.82.2 — 2026-07-03
+
+### Fix: tax / procurement / msp archetype detection
+
+- Completes the detection fix from 2.82.1. Tax, procurement, and MSP projects
+  misclassified at init-time (`web-service`/`library`) because their domain terms
+  never reached the scorer. Now routed to the archetypes their reviewers already
+  declare: **tax → fintech**, **procurement → enterprise-saas**, **msp →
+  enterprise-saas** (`mineReadmeKeywords()` emits the terms; fintech and
+  enterprise-saas `score()` gain strong/soft term blocks — generic terms like
+  `sla`/`rfp`/`irs` weighted +1 so they never flip an archetype alone).
+- **Side fix:** enterprise-saas's existing `multi-tenant` keyword check was also
+  silently dead (the term was never emitted) — now live.
+- Regression fixtures added (`tax-prep`, `procurement-p2p`, `msp-rmm`);
+  `run-archetype-e2e` 31 → 34, zero regressions. All 8 new regulated verticals
+  now correct on both init-time detection and runtime auto-attach. Suites 307 +
+  268 green, `ci-local --quick` green.
+
+---
+
 ## v2.82.1 — 2026-07-03
 
 ### Fix: legal & insurance archetype detection (found by pipeline testing)
