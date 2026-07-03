@@ -22,6 +22,7 @@ import { bootstrap } from "./bootstrap.js";
 import { compileFlow } from "./flow.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
 import { sendUsagePing, sendInstallPing, telemetrySubcommand, isTelemetryEnabled, computeAnonId } from "./telemetry.js";
+import { findBoardServerPath } from "./board-path.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -200,35 +201,6 @@ function boardPidFilePath(surface?: "console"): string {
 }
 
 /**
- * Locate the board server.mjs — checks dev layouts then plugin cache versions
- * in descending order, returning the first path that exists.
- */
-function findBoardServerPath(): string | undefined {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const candidates: string[] = [
-    join(here, "..", "..", "board", "server.mjs"),  // packages/cli/dist (dev)
-    join(here, "..", "board", "server.mjs"),         // alt dev layout
-    join(here, "board", "server.mjs"),               // flat layout
-  ];
-  const pluginBase = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
-  if (fsExistsSync(pluginBase)) {
-    try {
-      // Numeric semver sort — a plain .sort() is lexicographic and would rank
-      // 2.99.0 above 2.100.0 (and once ranked 2.7.0 above 2.69.0).
-      const byVer = (a: string, b: string) => {
-        const pa = a.split(".").map(Number), pb = b.split(".").map(Number);
-        return (pb[0]! - pa[0]!) || (pb[1]! - pa[1]!) || (pb[2]! - pa[2]!) || 0;
-      };
-      const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort(byVer);
-      for (const v of versions.slice(0, 5)) {
-        candidates.push(join(pluginBase, v, "packages", "board", "server.mjs"));
-      }
-    } catch { /* ignore */ }
-  }
-  return candidates.find(fsExistsSync);
-}
-
-/**
  * Kill the board server recorded in the PID file.
  * Returns true if a live process was terminated.
  */
@@ -311,7 +283,7 @@ async function runBoard(args: CliArgs, surface?: "console"): Promise<number> {
 
   const serverPath = findBoardServerPath();
   if (!serverPath) {
-    error("Board server not found. Try reinstalling: npx great-cto@latest");
+    error("Board server not found. Reinstall the CLI (npm i -g great-cto@latest) or install the great_cto plugin (npx great-cto install).");
     return 1;
   }
 
