@@ -10,6 +10,25 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.80.1 — 2026-07-03
+
+### Healthcare reviewer auto-attaches (catalog honesty)
+
+- **`healthcare-reviewer` now auto-attaches** on HIPAA/PHI signals
+  (`hipaa`, `phi_`, `hl7`, `fhir`, `hitech`, `baa`, `ehr/`, `superbill`,
+  `icd-10`, `soap-note`) — previously the agent existed but had no trigger, so a
+  healthcare project never got a HIPAA review. Closes the gap now that the
+  greatcto.systems catalog ships regulated verticals (allied health, insurance
+  agencies, accounting) whose whole pitch is automatic compliance review.
+- `regulated-reviewer` gets a narrow DORA/NIS2/ISO-27001 trigger (SOX/HIPAA stay
+  with the more-specific reviewers — no double-attach); accounting general-ledger
+  / GAAP signals route to `enterprise-saas-reviewer` (SOX-ITGC).
+- Patterns are token-specific and false-positive-tested (bare `health`/`care`/
+  `claim` deliberately excluded). +9 auto-attach test cases; full suite 324/324.
+
+---
+
 ## v2.80.0 — 2026-07-03
 
 ### Self-upgrade
