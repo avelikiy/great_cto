@@ -873,6 +873,16 @@ function mineReadmeKeywords(dir: string): string[] {
     "automated decision", "ai impact assessment", "utah ai", "traiga",
     "ai transparency", "ab 2013", "sb 942", "training data transparency",
     "ai disclosure", "generative ai disclosure", "deepfake disclosure", "ai governance",
+    // legal-pack — keep in sync with archetypes.ts legal score()
+    "iolta", "matter", "docket", "litigation", "retainer", "clio", "mycase",
+    "pacer", "ecf", "cm/ecf", "conflict-check", "engagement-letter",
+    "paralegal", "law-firm", "attorney",
+    // insurance-pack — keep in sync with archetypes.ts insurance score()
+    // "claim" deliberately omitted: too generic, risks false-positives on
+    // non-insurance fixtures (issue trackers, support tools, etc.)
+    "policy", "underwriting", "premium", "acord", "naic", "actuarial",
+    "reinsurance", "solvency", "carrier", "mga", "mgu", "tpa", "insurance",
+    "insurtech", "insurer", "insured", "deductible", "coverage", "bordereau",
   ];
   for (const term of packTerms) {
     if (text.includes(term)) kws.add(term);
