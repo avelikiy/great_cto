@@ -38,8 +38,18 @@ Use `~/.great_cto/` notation or environment variable references.
 
 ## Privacy — telemetry
 
-`great_cto` collects **zero telemetry**. Do not add any usage tracking,
-install pings, or analytics calls. See `docs/PRIVACY.md` for policy.
+`great_cto` ships an **opt-in** telemetry pipeline (`packages/cli/src/telemetry.ts`) that is
+**off by default** — nothing is sent unless a user explicitly enables it. `docs/PRIVACY.md` is
+the source of truth for what's collected, what's never collected, and how opt-in/opt-out work;
+keep it in sync with the code.
+
+Rules for agents:
+
+- Never make telemetry (or any new tracking) on-by-default. Default must stay off.
+- Never expand what's collected, add a new event, or add a new endpoint without an ADR that
+  updates `docs/PRIVACY.md` in the same change.
+- Do not add tracking, install pings, or analytics calls outside the existing telemetry module
+  and its documented, opt-in fields.
 
 ---
 

@@ -28,14 +28,17 @@ npx great-cto init
 **You describe the product. great_cto ships it.** Not a snippet, not a scaffold — a real,
 deployed application with a backend, a frontend, generated tests, and a live URL. You make
 exactly **one decision: approve the spec.** Everything after — architecture, data model,
-build, review, deploy — runs unattended.
+build, review, deploy — runs unattended. That's the default for reversible work; an
+irreversible change — a data-model migration, a payments or auth path, anything that
+deletes data — opens additional gates on purpose, because "one decision" should mean
+low-risk, not unsupervised.
 
 It's an **AI Product Builder**, not another coding-agent loop. The orchestration layer *above*
 the coding agent you already use: a team of specialist agents that plan, build, review, and
 gate the work — so one person ships like an engineering org.
 
 > **One real feature: idea → merged PR in `1h 26m` for `$3.40` in LLM cost.** The traditional
-> path for the same feature was ~6 weeks and ~$42K. [See the full trace →](https://greatcto.systems/proof)
+> path for the same feature was ~170 hours and ~$42K. [See the full trace →](https://greatcto.systems/proof)
 
 It builds across the top US service industries — home & field services, professional services,
 hospitality, retail/e-commerce, proptech, fitness, marketing & creator, HR/recruiting,
@@ -69,20 +72,19 @@ plan gate, and an irreversible change forces the full set — so ceremony scales
 not with paperwork. CI, the build's own generated tests, and a **cross-model review** (a different
 model family red-teams the diff, so review isn't blind to its own author's mistakes) are the quality
 gate that makes it safe to let the pipeline run to deploy. And approving the spec isn't a one-way
-door — if a structural spec error surfaces mid-build, any agent can raise a **SPEC-OBJECTION** that
-re-opens the gate, so a long build is recoverable, not finish-bad-or-restart.
+door — if a structural spec error surfaces mid-build, any agent can raise an objection that re-opens
+the gate, so a long build is recoverable, not finish-bad-or-restart.
 
 **One gate, where it matters.** Build steps are risk-tiered: a reversible change builds and ships
 behind CI; an irreversible one — a production deploy, a schema migration, a new write-capable
 integration — escalates to the CTO gate and the frontier model before it runs. You sign the spec
-and the high-blast-radius calls; the rest runs straight through. `change-tier` + `effectiveGates`
-enforce the invariant in code.
+and the high-blast-radius calls; the rest runs straight through, enforced in code, not just policy.
 
 ## By the numbers
 
 | | |
 |---|---|
-| One feature, end to end (real run, fully traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~6 weeks traditional |
+| One feature, end to end (real run, fully traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~170h traditional |
 | An earlier CLI-feature run, same pipeline | $2.39 LLM vs ~$5,460 human-equivalent; security caught 2 defects QA had passed |
 | Monthly cost (20 pipeline runs) | **~$34** |
 | Target US industries | **10** (home services · retail · proptech · fitness · HR · …) |
@@ -116,10 +118,10 @@ Same command, different product. The build archetype shapes the stack and integr
 
 ## The dashboard you'll actually check
 
-`great-cto board` opens at `http://localhost:3141` — the build board: realtime SSE, the live pipeline with its change_tier badge (one CTO gate · cheap judge), per-agent cost, 30-day LLM spend vs human-equivalent baseline.
+`great-cto board` opens at `http://localhost:3141` — the build board: realtime SSE, the live pipeline with its risk-tier badge (one CTO gate · cheap judge), per-agent cost, 30-day LLM spend vs human-equivalent baseline.
 
 <p align="center">
-  <img src="docs/screenshots/board.png" alt="The build board — live pipeline with the change_tier gate badge, inbox and cost" width="900" />
+  <img src="docs/screenshots/board.png" alt="The build board — live pipeline with the risk-tier gate badge, inbox and cost" width="900" />
 </p>
 
 <table>
@@ -157,7 +159,7 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 46 agents · build archetypes · board · cost · MCP</summary>
+<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 61 agents · build archetypes · board · cost · MCP</summary>
 
 ## One decision per feature
 
@@ -298,7 +300,7 @@ timestamped, every artifact links to a public GitHub PR.
 
 An earlier run on a Python CLI feature ($2.39 vs ~$5,460 human-equivalent) showed the review model working: security caught two real defects QA had passed (`list(stream_csv())` defeated streaming → 14.5 MB peak RSS on 13 MB input).
 
-Full trace + artefacts: [greatcto.systems/proof](https://greatcto.systems/proof) · raw: [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md).
+Full trace + artefacts: [greatcto.systems/proof](https://greatcto.systems/proof).
 
 ## CI integration
 
@@ -369,15 +371,15 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 46 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 61 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
 **v2.74+** (June 2026) — **The Product Builder pivot**: GreatCTO becomes an *AI Product Builder* — describe a software product, approve the spec at one CTO gate, and the pipeline ships it (spec → build → test → deploy). 10 US industries, ~40 products, 6 reusable pipelines. Build gates are risk-tiered (`change_tier`); the regulated runtime surface moved out to [avelikiy/operate](https://github.com/avelikiy/operate). Story: [the strategy](docs/strategy/PRODUCT-BUILDER-DIRECTION.md) · [the 6 pipelines](https://greatcto.systems/pipelines)
 
-**v2.40–v2.62** (June 2026) — **The autopilot pivot**: GreatCTO becomes *AI autopilots for business* — 25 service-autopilot verticals, each a flow with a measured quality scorecard, an accountable owner, and the runtime invariant that **an irreversible action never executes without a human signature**. 22 live connectors run every vertical on real data. Story: [We pivoted →](https://greatcto.systems/blog/autopilots-pivot-25-verticals)
+**v2.40–v2.62** — **The autopilot pivot**: 25 service-autopilot verticals, each gated on a human signature before any irreversible action. Earlier chapter — see [CHANGELOG.md](CHANGELOG.md).
 
-**v2.46–v2.63** (June 2026) — **The operator console**: durable runs pause at the human gate and wait in an inbox for a named licensed human; signing executes the write. Role-based access, scoped invites, AI-drafted determinations with evidence, QA sampling, SLA clocks, Ops tab (metering · connector health · dead-letter requeue), WCAG 2.2 AA, light/dark. Story: [The operator console →](https://greatcto.systems/blog/operator-console)
+**v2.46–v2.63** — **The operator console**: a human-in-the-loop inbox for signing off runs. Earlier chapter — see [CHANGELOG.md](CHANGELOG.md).
 
 **v2.37–v2.65** (June 2026) — **Under the hood**: the dev board becomes a *pult* — approving a gate can spawn a live-streamed agent run; prompt self-improvement gated on held-out evals (SIA-inspired); $0 context compression (CI log 31,475 → 155 chars with the FATAL preserved); Fable 5 support. Story: [June under the hood →](https://greatcto.systems/blog/june-under-the-hood)
 
