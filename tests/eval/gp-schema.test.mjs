@@ -24,6 +24,9 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..');
 const ARCHITECT = readFileSync(join(ROOT, 'agents', 'architect.md'), 'utf8');
+// Recall greps were extracted from architect.md into this sourced script
+// (prompt diet, great_cto-eyk6) — the recall contract now lives there.
+const PATTERN_LOOKUP = readFileSync(join(ROOT, 'scripts', 'architect-pattern-lookup.sh'), 'utf8');
 const CRYSTALLIZE = readFileSync(join(ROOT, 'commands', 'crystallize.md'), 'utf8');
 
 // ── schema renders a valid GP ─────────────────────────────────────────────────
@@ -57,11 +60,18 @@ test('validateGpFrontmatter flags a key-dead frontmatter (the OLD bug)', () => {
 
 // ── architect recall side actually greps the keys ─────────────────────────────
 
-test('architect.md greps for every recall-required key', () => {
+test('architect recall script greps for every recall-required key', () => {
   for (const key of RECALL_REQUIRED_KEYS) {
-    const grepsit = new RegExp(`grep[^\\n]*${key}`).test(ARCHITECT);
-    assert.ok(grepsit, `architect.md does not grep "${key}" — recall would miss it`);
+    const grepsit = new RegExp(`grep[^\\n]*${key}`).test(PATTERN_LOOKUP);
+    assert.ok(grepsit, `architect-pattern-lookup.sh does not grep "${key}" — recall would miss it`);
   }
+});
+
+test('architect.md actually invokes the recall script', () => {
+  assert.ok(
+    ARCHITECT.includes('architect-pattern-lookup.sh'),
+    'architect.md must reference scripts/architect-pattern-lookup.sh — otherwise the recall greps never run'
+  );
 });
 
 // ── crystallize writer side actually emits the keys ───────────────────────────
