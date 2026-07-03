@@ -5,6 +5,25 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v2.77.1 — 2026-07-03
+
+### `npx great-cto board` works on a fresh install
+
+- **Board bundled into the npm package** — `prepack` now ships `packages/board`
+  (server, `lib/`, `public/`) plus its runtime import closure inside the tarball
+  (109 kB → 260 kB), so a clean `npm i -g great-cto` runs the board with no
+  plugin installed. Previously every fresh install failed with "Board server
+  not found".
+- **Plugin-cache scan fixed** — the resolver checks every marketplace dir under
+  `~/.claude/plugins/cache/`, not just the hardcoded `local`; resolution order:
+  dev checkout → plugin cache (newest versions) → bundled fallback.
+- Resolver extracted to `src/board-path.ts` with 6 new tests (CLI suite:
+  194/194), including an empty-`$HOME` boot test of the bundled server.
+- `scripts/release.sh` tag step works with `tag.gpgSign=true` (annotated `-m`).
+
+---
+
 ## v2.77.0 — 2026-07-02
 
 ### Measured product quality + mechanical pipeline + board server split
