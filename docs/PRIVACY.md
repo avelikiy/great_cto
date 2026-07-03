@@ -149,6 +149,20 @@ ship the plumbing, document it, let users decide. The cost of "no telemetry
 data for the first 6 months" is low. The cost of one user feeling
 surprised is very high for an open-source project that asks for trust.
 
+## Update check (separate from telemetry — on by default)
+
+The CLI periodically checks npm for a newer `great-cto` version and prints a
+one-line hint to stderr when one is available (classic `update-notifier`
+pattern, implemented with zero dependencies). This is **not** telemetry: it's
+a read-only `GET https://registry.npmjs.org/-/package/great-cto/dist-tags`
+request — the same traffic `npm install`/`npm outdated` already make — and it
+sends nothing about you or your project. The result (`{"latest": "x.y.z"}`)
+is cached locally at `~/.great_cto/update-check.json` for 24h; the check runs
+in a detached background process so it never delays or blocks your command.
+It's skipped automatically for `mcp`/`worker`/`task` (protocol-sensitive
+stdio) and for non-interactive/CI runs. Opt out with `GREAT_CTO_NO_UPDATE_CHECK=1`.
+Source: `packages/cli/src/update-check.ts`.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.

@@ -6,7 +6,7 @@ import {
   loadSubscriptions,
   removeSubscription,
 } from '../push-adapter.mjs';
-import { GREAT_CTO_DIR, PUSH_SUBS_FILE, VAPID_KEYS_FILE, VAPID_SUBJECT } from './config.mjs';
+import { GREAT_CTO_DIR, PUSH_SUBS_FILE, VAPID_KEYS_FILE, VAPID_SUBJECT, BUILD_VERSION } from './config.mjs';
 import { _reportRepublishDedupeSet } from './state.mjs';
 import { listProjects, readProjectMd } from './projects.mjs';
 import { addNotification } from './notifications.mjs';
@@ -16,6 +16,7 @@ import { getTasks } from './beads.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { isFailure } from './fleet.mjs';
 import { getShareState, toggleShare } from './share.mjs';
+import { checkForRelease, buildUpdatePayload } from './update-alert.mjs';
 import { log } from './log.mjs';
 
 // ── Email alerts (Resend) ─────────────────────────────────────────────────
@@ -134,6 +135,7 @@ async function firePushAlert(eventName, dedupeKey, payload) {
 function startAlertCron() {
   const FIVE_MIN = 5 * 60 * 1000;
   const ONE_HOUR = 60 * 60 * 1000;
+  const ONE_DAY = 24 * 60 * 60 * 1000;
 
   // incident.p0: open P0 task with recent activity (last 24h).
   // Older P0s are existing backlog — surfacing them via email is spam.
@@ -408,7 +410,26 @@ function startAlertCron() {
     } catch (e) { log.warn('cron report.daily failed:', e.message); }
   }, FIVE_MIN);
 
-  log.info('Alert cron started: gate.stale (5min), sla.escalate (5min), connector.health (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00)');
+  // update.available: daily check for a newer great-cto npm release.
+  // Dedupe key embeds the latest version string (see update-alert.mjs), so a
+  // given release notifies exactly once no matter how many daily ticks pass
+  // while it remains latest — a fresh key is only minted when npm publishes
+  // a newer version. Fails silent offline; skipped entirely when
+  // GREAT_CTO_NO_UPDATE_CHECK=1 (checkForRelease honors the env var itself).
+  setInterval(() => {
+    checkForRelease({
+      currentVersion: BUILD_VERSION,
+      isFired: (dedupeKey) => Boolean(readAlertsFired()[dedupeKey]),
+      notify: (current, latest, dedupeKey) => {
+        const payload = buildUpdatePayload(current, latest);
+        fireEmailAlert('update.available', dedupeKey, payload);
+        addNotification('update.available', payload);
+        firePushAlert('update.available', dedupeKey, payload);
+      },
+    }).catch(e => log.warn('cron update.available failed:', e.message));
+  }, ONE_DAY);
+
+  log.info('Alert cron started: gate.stale (5min), sla.escalate (5min), connector.health (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00), update.available (24h)');
 }
 
 export { readAlertsFired, writeAlertsFired, fireEmailAlert, firePushAlert, startAlertCron };
