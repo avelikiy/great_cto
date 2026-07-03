@@ -81,6 +81,19 @@ export const RULES = [
   //   managed.?service      — "managed service provider" / "managed services", unambiguous
   //   credential.?vault     — MSP's core liability surface (client credential storage)
   { reviewer: "msp-reviewer",            pattern: /(\bmsa\b|\bsla\b|\brmm\b|\bpsa\b|multi.?tenant|managed.?service|credential.?vault)/i },
+  // tax-reviewer: tax-prep / IRS e-file tokens only — deliberately avoids bare "tax"
+  // (collides with sales-tax/tax-rate code in commerce/pci contexts) and bare "irs"
+  // alone as unanchored substring was considered too loose; each token below is a
+  // tax-prep-specific compound or acronym:
+  //   \bptin\b              — Preparer Tax Identification Number (word-boundaried)
+  //   circular.?230         — IRS preparer-practice regulations, unambiguous
+  //   form.?8879            — the e-file signature authorization form number
+  //   \bmef\b               — Modernized e-File, the IRS e-file system (word-boundaried:
+  //                           short acronym)
+  //   pub.?4557             — IRS Publication 4557 (taxpayer data safeguards)
+  //   section.?7216         — IRC §7216 consent-to-disclose statute
+  //   tax.?prep              — "tax prep"/"tax preparation", the domain itself
+  { reviewer: "tax-reviewer",            pattern: /(\bptin\b|circular.?230|form.?8879|\bmef\b|pub.?4557|section.?7216|tax.?prep)/i },
   { reviewer: "insurance-reviewer",      pattern: /(naic|solvency|ifrs.?17|acord|actuarial)/i },
   // legal-reviewer: legal-services / legal-tech domain tokens only — deliberately
   // avoids bare "legal"/"law"/"case"/"trust" (each collides with generic code:
