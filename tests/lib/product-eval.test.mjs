@@ -87,3 +87,12 @@ test('CLI: without --browser, --json has no browser field at all', () => {
   assert.ok(!('browser' in JSON.parse(res.stdout)));
   rmSync(dir, { recursive: true, force: true });
 });
+
+test('CLI: F6b — text-mode --browser output prints a "vitals" field on its own report line (not folded into EXECUTED SCORE)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'eval-browser-vitals-'));
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'x', scripts: { build: 'true' } }));
+  const res = spawnSync(process.execPath, [TOOL, dir, '--browser'], { encoding: 'utf8' });
+  assert.equal(res.status, 0, res.stdout + res.stderr);
+  assert.match(res.stdout, /browser: a11y .* vitals /);
+  rmSync(dir, { recursive: true, force: true });
+});

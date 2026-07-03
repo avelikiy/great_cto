@@ -80,6 +80,20 @@ test('scoreVitals: signal clamps to [0,1]', () => {
   assert.ok(r.signal >= 0 && r.signal <= 1);
 });
 
+test('scoreVitals: F6b — a partially-unsupported metric (e.g. INP on a browser without the Event Timing API) does not penalize', () => {
+  // The Performance API's INP support is Chromium-only in practice; a harness running
+  // against WebKit/Firefox would legitimately get inp: null. Missing ≠ bad — only a
+  // measured value that exceeds the "good" threshold should cost signal.
+  const withInp = scoreVitals({ lcp: 1200, cls: 0.02, inp: null });
+  assert.equal(withInp.signal, 1);
+  assert.equal(withInp.inp, null);
+});
+
+test('scoreVitals: F6b — each metric degrades independently (LCP fine, CLS bad, INP fine)', () => {
+  const r = scoreVitals({ lcp: 1000, cls: 0.4, inp: 50 });
+  assert.ok(r.signal < 1 && r.signal > 0, `expected a partial hit, got ${r.signal}`);
+});
+
 // ── na-path integration: runBrowserChecks graceful degradation ──────────────
 // These exercise the real function but never reach a browser launch — either
 // because there's no preview script (fails before playwright is even imported)
