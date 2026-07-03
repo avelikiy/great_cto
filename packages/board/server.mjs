@@ -13,7 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import { PORT, PUBLIC, HOST } from './lib/config.mjs';
-import { originAllowed } from './lib/util.mjs';
+import { originAllowed, isInsideDir } from './lib/util.mjs';
 import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
 import { watchBeads, watchVerdicts } from './lib/watchers.mjs';
@@ -77,7 +77,13 @@ const server = http.createServer(async (req, res) => {
   // Static files
   let filePath = pathname === '/' ? '/index.html' : pathname;
   const fullPath = path.join(PUBLIC, filePath);
-  if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+  // Path-traversal guard (mirrors the /api/doc containment check in lib/routes.mjs):
+  // the joined path must resolve to somewhere inside PUBLIC. Without this, a decoded
+  // pathname like /..%2F..%2Fetc%2Fpasswd can escape the public/ directory via
+  // path.join's ".." collapsing. Reject with 404 (same as the generic static 404
+  // below) so a traversal attempt is indistinguishable from a missing file — no
+  // signal to a prober about what exists outside PUBLIC.
+  if (isInsideDir(PUBLIC, fullPath) && fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
     const ext = path.extname(fullPath);
     const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
     // HTML must never cache — board UI is iterated daily and stale layouts

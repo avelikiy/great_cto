@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { PORT } from './config.mjs';
 
 /**
@@ -33,4 +34,16 @@ function readFileSafe(p) {
   try { return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null; } catch { return null; }
 }
 
-export { csvCell, originAllowed, eventSurface, readFileSafe };
+// Path-containment check used by any handler that joins user-controlled input
+// onto a base directory (static file serving, doc reads, etc.). Resolves both
+// sides and requires `target` to be exactly `base`, or a real descendant of
+// it (base + path.sep prefix) — this is what actually blocks ".." escapes,
+// since a naive startsWith(base) would wrongly allow a sibling directory
+// like "/public-evil" when base is "/public".
+function isInsideDir(base, target) {
+  const resolvedBase = path.resolve(base);
+  const resolvedTarget = path.resolve(target);
+  return resolvedTarget === resolvedBase || resolvedTarget.startsWith(resolvedBase + path.sep);
+}
+
+export { csvCell, originAllowed, eventSurface, readFileSafe, isInsideDir };
