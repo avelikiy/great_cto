@@ -148,3 +148,70 @@ test('autoRegisterProject updates the existing entry in place when a repo moves 
   assert.equal(matches.length, 1, 'must update in place, not insert a second entry');
   assert.equal(matches[0].path, newDir);
 });
+
+// ── HOME-boundary guard (great_cto-qvg9) ────────────────────────────────────
+// resolveProjectCwd / resolveProjectInfo previously used a raw absolute or
+// `~` path verbatim with no containment check, so `?project=/etc` (or any
+// path outside the operator's home directory) would make the board read
+// project data from an arbitrary filesystem location. Both functions now
+// enforce the same HOME-boundary policy /api/projects/register already used
+// (lib/routes.mjs): a raw path must resolve inside os.homedir(), or the
+// server falls back to process.cwd() — same fallback already used for an
+// unknown slug.
+//
+// tmpDir (from os.tmpdir()) is outside HOME on every CI/dev machine we
+// target (macOS: /private/var/folders/... vs /Users/...; Linux: /tmp vs
+// /home/...), so reusing it here gives a real out-of-HOME path without any
+// extra fixture setup.
+test('resolveProjectCwd falls back to process.cwd() for an absolute path outside HOME', () => {
+  const home = os.homedir();
+  assert.ok(!tmpDir.startsWith(home + path.sep) && tmpDir !== home, 'test fixture must live outside HOME for this test to be meaningful');
+  const outside = path.join(tmpDir, 'outside-home-target');
+  fs.mkdirSync(outside, { recursive: true });
+  assert.equal(resolveProjectCwd(outside), process.cwd());
+});
+
+test('resolveProjectCwd honors an absolute path that resolves inside HOME', () => {
+  const home = os.homedir();
+  // Use HOME itself — always inside-HOME by definition, and doesn't require
+  // creating a fixture under the real ~ (which the test must not touch).
+  assert.equal(resolveProjectCwd(home), home);
+});
+
+test('resolveProjectCwd falls back to process.cwd() for a ~-relative path outside HOME', () => {
+  // ~ always expands to os.homedir() itself, so it can never be "outside
+  // HOME" — this documents that invariant rather than testing a rejection.
+  assert.equal(resolveProjectCwd('~'), os.homedir());
+});
+
+test('resolveProjectInfo marks an out-of-HOME absolute path as fallback, not path', () => {
+  const outside = path.join(tmpDir, 'outside-home-info');
+  fs.mkdirSync(outside, { recursive: true });
+  const info = resolveProjectInfo(outside);
+  assert.equal(info.cwd, process.cwd());
+  assert.equal(info.resolved, 'fallback');
+  assert.equal(info.requested, outside);
+});
+
+test('resolveProjectInfo marks an in-HOME absolute path as path (unchanged behavior)', () => {
+  const home = os.homedir();
+  const info = resolveProjectInfo(home);
+  assert.equal(info.cwd, home);
+  assert.equal(info.resolved, 'path');
+});
+
+test('resolveProjectCwd still resolves registry slugs normally (HOME-boundary does not affect slug lookups)', () => {
+  // Registry entries are validated at registration time (register enforces
+  // the HOME boundary before writing), so slug resolution must be completely
+  // unaffected by this change — including a slug whose registered path
+  // happens to live outside HOME (e.g. a pre-existing/legacy registry entry
+  // from before this guard existed), which must still resolve normally.
+  const legacyDir = makeRealDir('legacy-outside-home-proj');
+  writeProjectsRegistry({
+    projects: [{ slug: 'legacy-proj', path: legacyDir, added_at: '2025-01-01T00:00:00.000Z' }],
+  });
+  assert.equal(resolveProjectCwd('legacy-proj'), legacyDir);
+  const info = resolveProjectInfo('legacy-proj');
+  assert.equal(info.cwd, legacyDir);
+  assert.equal(info.resolved, 'slug');
+});
