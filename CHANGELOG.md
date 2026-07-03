@@ -7,6 +7,35 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.78.0 — 2026-07-03
+
+### Quality deepened, prompts on a diet, structured logs
+
+- **QUALITY-DEEPEN follow-ups #3–#6** (`ARCH-quality-deepen-followups.md`):
+  archetype domain contracts extended 6 → 14 archetypes; contract regexes
+  hardened against false positives (the `/hold/`-matches-"household" class);
+  `quality.mjs --gate --baseline` (product-eval parity) and `--trend`
+  (sparkline over `metrics-history.jsonl`); opt-in `--browser` harness with
+  axe-core a11y + Web Vitals (LCP/CLS/INP) — dynamic playwright import,
+  graceful `na` everywhere, runtime stays zero-dep.
+- **Agent prompt diet** — `architect.md` 1181 → 827 lines, `project-auditor.md`
+  1019 → 701 (−30% each): 16 embedded bash blocks extracted to `scripts/*.sh`,
+  pricing/framework tables to `skills/great_cto/references/`, duplicate step
+  numbering fixed, vestigial `bd_create_if_new` code removed. Cheaper every
+  single agent invocation.
+- **Structured logging** — zero-dep leveled logger (`GREAT_CTO_LOG_LEVEL`,
+  ISO timestamps, error→stderr) across the board server; script diagnostics
+  routed through it; hook protocol and CLI user output untouched by design.
+- **Board hardening** — static path-traversal containment, origin-check dedupe,
+  HOME-boundary for raw `?project=` paths.
+- **Telemetry endpoint** — default now the documented `telemetry.greatcto.systems`
+  (verified live); personal placeholder hostname removed.
+- Fixed the archetype-drift test failures (`cli` vs `cli-tool`) — main is fully
+  green: lib suite 355, full suite 176, hooks 117.
+
+---
+
 ## v2.77.2 — 2026-07-03
 
 ### Board bughunt wave 2 + honest storefront
