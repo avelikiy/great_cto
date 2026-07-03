@@ -13,6 +13,27 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.82.1 — 2026-07-03
+
+### Fix: legal & insurance archetype detection (found by pipeline testing)
+
+- **`legal` and `insurance` projects were misclassified as `library`.** Their
+  archetype `score()` functions check raw README terms (`iolta`, `matter`,
+  `acord`, `naic`, `underwriting`…) that `mineReadmeKeywords()` never emitted, so
+  detection always scored ~0 from README. Insurance was latently broken; legal
+  shipped this way in 2.81.0. Fixed by emitting the legal + insurance detection
+  terms from `mineReadmeKeywords()` (bare `claim` deliberately excluded as too
+  generic). A real legal project now detects as `legal` (high confidence), a
+  real insurance project as `insurance` — so `init` writes the correct reviewer
+  set + gates and `ci` archetype-drift is accurate.
+- **Regression coverage** these verticals shipped without: added
+  `tests/fixtures/legal-clio` and `insurance-acord`; `run-archetype-e2e` is now
+  31/31 (was 29). Runtime auto-attach was already correct for all reviewers —
+  this fixes the init-time classification path. Full suites 336 + 268 green.
+
+---
+
 ## v2.82.0 — 2026-07-03
 
 ### 5 new domain reviewers — reviewer system complete
