@@ -29,7 +29,11 @@ const {
   cachePath,
   refreshCache,
   checkForUpdate,
+  shouldPrompt,
+  recordPromptedFor,
+  promptYesNo,
   CACHE_FRESH_MS,
+  PROMPT_TIMEOUT_MS,
   PROTOCOL_SENSITIVE_COMMANDS,
   REGISTRY_DIST_TAGS_URL,
 } = await import("../dist/update-check.js");
@@ -135,7 +139,7 @@ test("formatHint includes both versions and the upgrade command", () => {
   const hint = formatHint("2.78.0", "2.79.0");
   assert.match(hint, /2\.78\.0/);
   assert.match(hint, /2\.79\.0/);
-  assert.match(hint, /npm i -g great-cto/);
+  assert.match(hint, /great-cto upgrade --self/);
 });
 
 test("formatHint applies injected style functions", () => {
@@ -218,27 +222,204 @@ test("refreshCache: no write when response has no latest field", async () => {
 
 // ── checkForUpdate (integration of the pure pieces, isolated cache dir) ────
 
-test("checkForUpdate: suppressed env is a total no-op (no throw, no stderr assumptions)", () => {
-  assert.doesNotThrow(() => {
+test("checkForUpdate: suppressed env is a total no-op (no throw, no stderr assumptions)", async () => {
+  await assert.doesNotReject(() =>
     checkForUpdate({
       currentVersion: "2.78.0",
       command: "init",
       env: { GREAT_CTO_NO_UPDATE_CHECK: "1" },
       stderrIsTTY: true,
-    });
-  });
+    }),
+  );
 });
 
-test("checkForUpdate: mcp command never throws even with fresh newer cache present", () => {
+test("checkForUpdate: mcp command never throws even with fresh newer cache present", async () => {
   // Cache directory is isolated via GREAT_CTO_HOME=fakeHome for this whole file;
   // no cache file exists yet, so this also exercises the "no cache" branch.
+  await assert.doesNotReject(() => checkForUpdate({ currentVersion: "2.78.0", command: "mcp", stderrIsTTY: true }));
+});
+
+test("checkForUpdate: never throws for a normal command with no cache file (spawns background check)", async () => {
+  await assert.doesNotReject(() =>
+    checkForUpdate({ currentVersion: "2.78.0", command: "init", env: {}, stderrIsTTY: true }),
+  );
+});
+
+test("checkForUpdate: fresh cache + newer version + non-TTY stdin falls back to hint, never awaits a prompt", async () => {
+  // stdinIsTTY: false means shouldPrompt() must say no, so this must resolve
+  // immediately rather than waiting on the 15s prompt timeout.
+  const start = Date.now();
+  await assert.doesNotReject(() =>
+    checkForUpdate({
+      currentVersion: "2.78.0",
+      command: "init",
+      env: {},
+      stderrIsTTY: true,
+      stdinIsTTY: false,
+      now: Date.now(),
+    }),
+  );
+  assert.ok(Date.now() - start < 1000, "must not block waiting on a prompt when stdin is not a TTY");
+});
+
+// ── shouldPrompt (pure gating logic) ────────────────────────────────────────
+
+const freshCache = { checkedAt: new Date().toISOString(), latest: "2.79.0" };
+
+test("shouldPrompt: true when newer version + both TTYs + not suppressed + not already prompted", () => {
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache: freshCache, env: {}, command: "init", stderrIsTTY: true, stdinIsTTY: true }),
+    true,
+  );
+});
+
+test("shouldPrompt: false when this exact version was already prompted for", () => {
+  const cache = { ...freshCache, promptedFor: "2.79.0" };
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache, env: {}, command: "init", stderrIsTTY: true, stdinIsTTY: true }),
+    false,
+  );
+});
+
+test("shouldPrompt: true when a DIFFERENT (older) version was previously prompted for", () => {
+  const cache = { ...freshCache, promptedFor: "2.77.0" };
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache, env: {}, command: "init", stderrIsTTY: true, stdinIsTTY: true }),
+    true,
+  );
+});
+
+test("shouldPrompt: false when stdin is not a TTY (piped input)", () => {
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache: freshCache, env: {}, command: "init", stderrIsTTY: true, stdinIsTTY: false }),
+    false,
+  );
+});
+
+test("shouldPrompt: false when stderr is not a TTY", () => {
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache: freshCache, env: {}, command: "init", stderrIsTTY: false, stdinIsTTY: true }),
+    false,
+  );
+});
+
+test("shouldPrompt: false in CI even with both TTYs true", () => {
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache: freshCache, env: { CI: "true" }, command: "init", stderrIsTTY: true, stdinIsTTY: true }),
+    false,
+  );
+});
+
+test("shouldPrompt: false for protocol-sensitive commands (mcp/worker/task)", () => {
+  for (const command of ["mcp", "worker", "task"]) {
+    assert.equal(
+      shouldPrompt({ currentVersion: "2.78.0", cache: freshCache, env: {}, command, stderrIsTTY: true, stdinIsTTY: true }),
+      false,
+      `expected ${command} to never prompt`,
+    );
+  }
+});
+
+test("shouldPrompt: false when GREAT_CTO_NO_UPDATE_CHECK=1", () => {
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache: freshCache, env: { GREAT_CTO_NO_UPDATE_CHECK: "1" }, command: "init", stderrIsTTY: true, stdinIsTTY: true }),
+    false,
+  );
+});
+
+test("shouldPrompt: false when no cache (nothing to prompt about)", () => {
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache: null, env: {}, command: "init", stderrIsTTY: true, stdinIsTTY: true }),
+    false,
+  );
+});
+
+test("shouldPrompt: false when current version is already latest (no newer version)", () => {
+  const cache = { checkedAt: new Date().toISOString(), latest: "2.78.0" };
+  assert.equal(
+    shouldPrompt({ currentVersion: "2.78.0", cache, env: {}, command: "init", stderrIsTTY: true, stdinIsTTY: true }),
+    false,
+  );
+});
+
+// ── recordPromptedFor (pure, injectable read/write) ─────────────────────────
+
+test("recordPromptedFor: preserves existing checkedAt/latest while adding promptedFor", () => {
+  const existing = { checkedAt: "2026-07-03T00:00:00.000Z", latest: "2.79.0" };
+  let written = null;
+  recordPromptedFor(
+    "2.79.0",
+    () => JSON.stringify(existing),
+    (path, data) => { written = { path, data }; },
+    "/fake/cache/update-check.json",
+  );
+  const parsed = JSON.parse(written.data);
+  assert.equal(parsed.checkedAt, existing.checkedAt);
+  assert.equal(parsed.latest, "2.79.0");
+  assert.equal(parsed.promptedFor, "2.79.0");
+});
+
+test("recordPromptedFor: never throws when the read fails (missing/corrupt cache)", () => {
   assert.doesNotThrow(() => {
-    checkForUpdate({ currentVersion: "2.78.0", command: "mcp", stderrIsTTY: true });
+    recordPromptedFor(
+      "2.79.0",
+      () => { throw new Error("ENOENT"); },
+      () => {},
+      "/fake/cache/update-check.json",
+    );
   });
 });
 
-test("checkForUpdate: never throws for a normal command with no cache file (spawns background check)", () => {
+test("recordPromptedFor: never throws when the write fails", () => {
   assert.doesNotThrow(() => {
-    checkForUpdate({ currentVersion: "2.78.0", command: "init", env: {}, stderrIsTTY: true });
+    recordPromptedFor(
+      "2.79.0",
+      () => JSON.stringify({ checkedAt: new Date().toISOString(), latest: "2.79.0" }),
+      () => { throw new Error("EACCES"); },
+      "/fake/cache/update-check.json",
+    );
   });
+});
+
+// ── promptYesNo (timeout semantics, injected readline via real stdin stub) ──
+
+test("PROMPT_TIMEOUT_MS is 15 seconds", () => {
+  assert.equal(PROMPT_TIMEOUT_MS, 15_000);
+});
+
+test("promptYesNo: resolves false on timeout when stdin never answers", async () => {
+  // Injected Readable that never emits data, so readline never resolves the
+  // question on its own — only the (very short, test-only) timeout should fire.
+  const { Writable, Readable } = await import("node:stream");
+  const neverAnswers = new Readable({ read() {} });
+  const sink = new Writable({ write(_chunk, _enc, cb) { cb(); } });
+  try {
+    const start = Date.now();
+    const result = await promptYesNo("Update? [Y/n] ", 50, neverAnswers, sink);
+    assert.equal(result, false);
+    assert.ok(Date.now() - start < 2000, "timeout must fire close to the configured value, not hang");
+  } finally {
+    neverAnswers.destroy();
+  }
+});
+
+test("promptYesNo: empty/'y'/'Y' answers resolve true; anything else resolves false", async () => {
+  const { Writable, Readable } = await import("node:stream");
+
+  async function ask(line) {
+    const input = new Readable({ read() {} });
+    const sink = new Writable({ write(_chunk, _enc, cb) { cb(); } });
+    const p = promptYesNo("Update? [Y/n] ", 5000, input, sink);
+    input.push(line + "\n");
+    input.push(null);
+    return p;
+  }
+
+  assert.equal(await ask(""), true);
+  assert.equal(await ask("y"), true);
+  assert.equal(await ask("Y"), true);
+  assert.equal(await ask("yes"), true);
+  assert.equal(await ask("n"), false);
+  assert.equal(await ask("no"), false);
+  assert.equal(await ask("garbage"), false);
 });
