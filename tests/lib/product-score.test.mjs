@@ -6,8 +6,23 @@ import assert from 'node:assert/strict';
 import { RUBRIC, scoreProduct, inspect } from '../../scripts/lib/product-score.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+// Hermetic stand-in for "a real CLI codebase": package.json with `bin`, no
+// .great_cto/PROJECT.md. Scoring the real packages/cli is NOT hermetic — a
+// locally init'ed (untracked) .great_cto/PROJECT.md there flips detection from
+// the bin-fallback family 'cli' to that file's `primary:` archetype.
+function makeCliFixture() {
+  const dir = mkdtempSync(join(tmpdir(), 'gcto-ps-'));
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({
+    name: 'fixture-cli', bin: { 'fixture-cli': 'index.mjs' },
+  }));
+  writeFileSync(join(dir, 'index.mjs'), '#!/usr/bin/env node\nconsole.log("hi");\n');
+  return dir;
+}
 
 test('RUBRIC weights sum to 100', () => {
   assert.equal(RUBRIC.reduce((a, d) => a + d.weight, 0), 100);
@@ -81,14 +96,16 @@ test('archetype-aware: a CLI is not penalized for no UI/deploy (scores higher as
   assert.ok(asCli > asWeb, `cli (${asCli}) should beat web (${asWeb}) when UI/deploy legitimately absent`);
 });
 
-test('detectArchetype: packages/cli → bin-fallback detects cli family directly', () => {
-  // packages/cli has no .great_cto/PROJECT.md, so detectArchetype falls through to the
-  // package.json `bin` heuristic, which returns the scoring-family name 'cli' directly
-  // (not the canonical archetypes.ts id 'cli-tool' — that only comes from a PROJECT.md
-  // archetype: line). normalizeArchetype is idempotent on an already-normalized family.
-  const a = detectArchetype(join(ROOT, 'packages', 'cli'));
-  assert.equal(a, 'cli');
-  assert.equal(normalizeArchetype(a), 'cli');
+test('detectArchetype: bin-fallback detects cli family directly', () => {
+  // The bin heuristic returns the scoring-family name 'cli' directly (not the
+  // canonical archetypes.ts id 'cli-tool' — that only comes from a PROJECT.md
+  // archetype/primary line). normalizeArchetype is idempotent on the family.
+  const dir = makeCliFixture();
+  try {
+    const a = detectArchetype(dir);
+    assert.equal(a, 'cli');
+    assert.equal(normalizeArchetype(a), 'cli');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('inspect cli completeness: packages/cli scores its cli-completeness > 0', () => {
@@ -100,10 +117,13 @@ test('inspect cli completeness: packages/cli scores its cli-completeness > 0', (
 
 import { scoreDir, renderScoreMarkdown } from '../../scripts/lib/product-score.mjs';
 
-test('scoreDir: end-to-end on a real codebase returns a total + archetype', () => {
-  const r = scoreDir(join(ROOT, 'packages', 'cli'));
-  assert.ok(r.total >= 0 && r.total <= 100);
-  assert.equal(r.archetype, 'cli'); // bin-fallback detection (no PROJECT.md present)
+test('scoreDir: end-to-end returns a total + archetype (hermetic cli fixture)', () => {
+  const dir = makeCliFixture();
+  try {
+    const r = scoreDir(dir);
+    assert.ok(r.total >= 0 && r.total <= 100);
+    assert.equal(r.archetype, 'cli'); // bin-fallback detection (no PROJECT.md in fixture)
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('renderScoreMarkdown: emits a SCORE artifact with total + table', () => {
