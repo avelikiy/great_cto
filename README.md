@@ -35,7 +35,7 @@ the coding agent you already use: a team of specialist agents that plan, build, 
 gate the work — so one person ships like an engineering org.
 
 > **One real feature: idea → merged PR in `1h 26m` for `$3.40` in LLM cost.** The traditional
-> path for the same feature was ~6 weeks and ~$42K. [See the full trace →](https://greatcto.systems/proof)
+> path for the same feature was ~170 hours and ~$42K. [See the full trace →](https://greatcto.systems/proof)
 
 It builds across the top US service industries — home & field services, professional services,
 hospitality, retail/e-commerce, proptech, fitness, marketing & creator, HR/recruiting,
@@ -82,7 +82,7 @@ enforce the invariant in code.
 
 | | |
 |---|---|
-| One feature, end to end (real run, fully traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~6 weeks traditional |
+| One feature, end to end (real run, fully traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~170h traditional |
 | An earlier CLI-feature run, same pipeline | $2.39 LLM vs ~$5,460 human-equivalent; security caught 2 defects QA had passed |
 | Monthly cost (20 pipeline runs) | **~$34** |
 | Target US industries | **10** (home services · retail · proptech · fitness · HR · …) |
@@ -157,7 +157,7 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 46 agents · build archetypes · board · cost · MCP</summary>
+<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 61 agents · build archetypes · board · cost · MCP</summary>
 
 ## One decision per feature
 
@@ -298,7 +298,7 @@ timestamped, every artifact links to a public GitHub PR.
 
 An earlier run on a Python CLI feature ($2.39 vs ~$5,460 human-equivalent) showed the review model working: security caught two real defects QA had passed (`list(stream_csv())` defeated streaming → 14.5 MB peak RSS on 13 MB input).
 
-Full trace + artefacts: [greatcto.systems/proof](https://greatcto.systems/proof) · raw: [`docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md`](docs/qa/runs/2026-05-09/E2E-CLI-PIPELINE.md).
+Full trace + artefacts: [greatcto.systems/proof](https://greatcto.systems/proof).
 
 ## CI integration
 
@@ -369,7 +369,7 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 46 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 61 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
