@@ -92,12 +92,19 @@ function bdWriteSerialised(fn) {
   return next;
 }
 
-function bdList(cwd = process.cwd()) {
+// On a transient bd failure (nonzero exit, dolt lock, timeout, throw), keep
+// serving the last-good cached data instead of overwriting it with [] — an
+// empty result is indistinguishable from "no tasks" and would wipe a
+// populated board on every SSE push (great_cto-e2ew). We deliberately do NOT
+// refresh cached.ts on failure, so the next call retries bd immediately
+// rather than being TTL-gated on a failed read.
+function bdList(cwd = process.cwd(), runner = bd) {
   const cached = bdCache.get(cwd);
   if (cached && Date.now() - cached.ts < BD_CACHE_TTL_MS) return cached.data;
   try {
-    const result = bd(['list', '--json', '--all', '--include-gates'], { cwd });
+    const result = runner(['list', '--json', '--all', '--include-gates'], { cwd });
     if (result.status !== 0) {
+      if (cached) return cached.data; // last-good data, cache untouched
       bdCache.set(cwd, { ts: Date.now(), data: [] });
       return [];
     }
@@ -105,6 +112,7 @@ function bdList(cwd = process.cwd()) {
     bdCache.set(cwd, { ts: Date.now(), data });
     return data;
   } catch {
+    if (cached) return cached.data; // last-good data, cache untouched
     bdCache.set(cwd, { ts: Date.now(), data: [] });
     return [];
   }

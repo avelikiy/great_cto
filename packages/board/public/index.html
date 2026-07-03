@@ -3694,8 +3694,7 @@ function connectSSE() {
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} }
   const es = new EventSource(`/api/sse${pqs()}`);
   window._gctoSSE = es;
-  es.addEventListener('tasks', e => {
-    const newTasks = JSON.parse(e.data);
+  const applyTasksSnapshot = (newTasks) => {
     // Detect status transitions for toast feed
     if (allTasks.length) {
       const prevById = new Map(allTasks.map(t => [t.id, t]));
@@ -3713,6 +3712,21 @@ function connectSSE() {
     updateNavCounts();
     try { renderKanban(filterTasks(searchQuery)); } catch (e) { console.warn('SSE renderKanban failed', e); }
     refreshInbox();
+  };
+  es.addEventListener('tasks', e => {
+    const newTasks = JSON.parse(e.data);
+    // A transient bd failure (dolt lock, timeout) can produce an empty
+    // snapshot indistinguishable from "no tasks" (great_cto-e2ew). Don't
+    // blindly wipe a populated board — refetch once via the regular API
+    // (which applies the same last-good-cache guard server-side) and only
+    // accept the empty state if the refetch confirms it.
+    if (newTasks.length === 0 && allTasks.length > 0) {
+      api(`/api/tasks${pqs()}`).then(refetched => {
+        applyTasksSnapshot(refetched || []);
+      });
+      return;
+    }
+    applyTasksSnapshot(newTasks);
   });
   es.addEventListener('pipeline', e => {
     try {
