@@ -13,6 +13,7 @@ import { autoRegisterProject, listProjects, resolveProjectCwd, getChangeTier } f
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
+import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { readVerdicts } from './verdicts.mjs';
@@ -378,8 +379,8 @@ async function dispatch(req, res, url, cwd) {
         const shareState = getShareState(gateCwd);
         if (shareState.enabled) {
           toggleShare(true, gateCwd, true)
-            .then(() => console.log(`report: auto-republished after gate approve (${id})`))
-            .catch(e => console.warn(`report: republish after gate failed: ${e.message}`));
+            .then(() => log.info(`report: auto-republished after gate approve (${id})`))
+            .catch(e => log.warn(`report: republish after gate failed: ${e.message}`));
         }
       }
     });
