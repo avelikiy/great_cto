@@ -31,15 +31,24 @@ export const CONTRACTS = Object.freeze({
     { id: 'availability', desc: 'availability filter', pattern: /availab/i },
   ],
   crm: [
-    { id: 'stage-transitions', desc: 'valid pipeline stage transitions', pattern: /stage|advance|pipeline/i },
+    // F3c: bare `advance` false-positives on "in advance of launch" (unrelated to deal
+    // progression) — anchor to a deal/stage/pipeline context within 20 chars.
+    { id: 'stage-transitions', desc: 'valid pipeline stage transitions', pattern: /\bstage\w*|\badvance\w*[\s\S]{0,20}(deal|stage|pipeline)|\bpipeline\w*/i },
     { id: 'referential', desc: 'deal→contact referential integrity', pattern: /(non.?existent|invalid|missing)[\s\S]{0,30}(contact|deal)|referential|\b400\b[\s\S]{0,20}contact/i },
   ],
   dashboard: [
-    { id: 'aggregation', desc: 'aggregation correctness', pattern: /aggregat|\bsum\b|\bcount\b|metric/i },
-    { id: 'window', desc: 'time-window boundaries', pattern: /window|since|until|range|boundary/i },
+    // F3c: bare `aggregat` misses the common `groupBy(...)` idiom (doc example); bare
+    // `metric` false-positives on "asymmetric". Add groupBy alias, word-boundary metric.
+    { id: 'aggregation', desc: 'aggregation correctness', pattern: /\baggregat\w*|group.?by|\bsum\(|\bcount\(|\bmetric\w*/i },
+    // F3c: bare `window` false-positives on "Windows" (the OS); anchor to word boundary
+    // so "Windows" (capital-agnostic \b\w* still ends at the trailing s) needs an explicit
+    // OS exclusion since \bwindow\w* still matches "Windows". Use a negative lookahead.
+    { id: 'window', desc: 'time-window boundaries', pattern: /\bwindow\w*\b(?!\s+(?:os|server|10|11))|\bsince\b|\buntil\b|\brange\b|\bboundary\w*/i },
   ],
   marketplace: [
-    { id: 'escrow-held', desc: 'order holds escrow', pattern: /escrow|hold/i },
+    // F3c: bare `hold` false-positives on "household"/"threshold"/"shareholder" (doc's
+    // headline example). Word-boundary the stem; `held` is a distinct irregular form.
+    { id: 'escrow-held', desc: 'order holds escrow', pattern: /escrow|\bhold\w*|\bheld\b/i },
     { id: 'release-idempotent', desc: 'double-release rejected', pattern: /(double|twice|already|second)[\s\S]{0,30}releas|releas[\s\S]{0,20}(twice|idempot|already)/i },
     { id: 'buyer-not-seller', desc: 'seller cannot order own listing', pattern: /seller[\s\S]{0,40}(buyer|order|\b403\b)|cannot[\s\S]{0,20}order|buyer[\s\S]{0,10}!==?[\s\S]{0,10}seller/i },
   ],
