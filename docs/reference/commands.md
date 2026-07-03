@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `commands/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**40 user-invocable commands.**
+**44 user-invocable commands.**
 
 | Command | Model | Arguments | What it does |
 |---|---|---|---|
@@ -15,6 +15,7 @@
 | `/board` | haiku | [--port N] [--no-open] [--restart] | Open the great_cto admin board at http://localhost:3141 (Kanban, cost, pipeline, inbox, memory). Starts it in background if not running. |
 | `/burn` | haiku | [service] — optional, filters to one service. Examples: /burn \| /burn api | SLO burn rate — multi-window alerting that catches budget exhaustion before it happens. Uses .great_cto/slo-burn-history.log written by /digest. |
 | `/ccr` | haiku | <id> — the 12-char CCR id from a `<!-- ccr: ... -->` footer \| (empty) = list recent recoverable items | CCR (Compressed Context with Retrieval) — recall the full original of context that great_cto compressed/filtered out, by its short id. The retrieval half of the compression layer. |
+| `/close-review` | sonnet | [slug] — optional ARCH slug to review (defaults to latest) | Month-end close / GL compliance check — invokes accounting-reviewer to produce TM-accounting-{slug}.md with double-entry integrity, ASC 606 revenue-recognition, period-lock, and SOX ITGC gaps. |
 | `/coding-audit` | sonnet | [slug] | Medical-coding / revenue-cycle compliance audit. Invokes rcm-reviewer to assess autonomous ICD-10-CM / CPT / HCPCS coding for False Claims Act exposure (upcoding/unbundling), NCCI edits + MUEs, medical necessity (LCD/NCD), modifier discipline, HIPAA minimum-necessary — and force a certified-coder (CPC/CCS) sign-off. |
 | `/cost` | haiku | [period_days] \| feature <slug> \| agent <name> — default: /cost 30. Examples: /cost 7 \| /cost feature stripe-subscriptions \| /cost agent architect | Cost & capacity health — LLM router savings, run-rate, cost-per-deploy, ROI per shipped feature, WoW/MoM delta. Pairs with /digest (delivery+DORA) and /burn (reliability). |
 | `/crystallize` | sonnet | [approve GP-NNNN \| reject GP-NNNN <reason> \| rollback GP-NNNN \| prune \| status] | Promote extracted incident knowledge into global patterns and agent improvements. |
@@ -28,10 +29,12 @@
 | `/inbox` | haiku | [optional: hours — default 24] | What needs your attention? Shows open gates, recent activity, blocked items, and pending decisions. |
 | `/learn` | haiku | [focus] — optional: 'cost', 'security', 'architecture', etc. — narrows the learner's scope | Manually run the continuous-learner. Extract patterns from this session and write to .great_cto/lessons.md. Use when SessionEnd hook missed something or you want to capture a lesson mid-session. |
 | `/migrate` | haiku | [--dry-run] — show what would change without writing | Migrate existing PROJECT.md to the latest great_cto schema — appends missing fields without touching existing values. |
+| `/msp-review` | sonnet | [slug] — optional ARCH slug to review (defaults to latest) | MSP / managed-services compliance check — invokes msp-reviewer to produce TM-msp-{slug}.md with client-isolation, credential-vaulting, SLA-tracking, and incident-escalation gaps. |
 | `/oncall` | haiku | who \| handoff \| schedule <team> <member1,member2,...> \| escalate <service> | On-call rotation management. Who's on duty, shift handoff notes, escalation paths. Reads from .great_cto/oncall-schedule.md and OWNERSHIP.md. |
 | `/ownership` | sonnet | map \| show \| set <path> <team> \| verify | Service ownership matrix. Who owns what: team, tech lead, on-call, SLA. Auto-detects from git history. Generates CODEOWNERS. |
 | `/poc` | sonnet | <hypothesis>  \|  decide  \|  extend <days>  \|  status | Start a hypothesis-driven POC with hard timebox. Skips 80% of the production pipeline; forces ship/pivot/kill decision at expiry. |
 | `/prd` | sonnet | <feature idea, problem statement, or 'upload doc'> | Create a Product Requirements Document — conversational intake, 8-section output. Run BEFORE architect to lock WHAT and WHY before the team decides HOW. |
+| `/procurement-review` | sonnet | [slug] — optional ARCH slug to review (defaults to latest) | Procurement / source-to-pay compliance check — invokes procurement-reviewer to produce TM-procurement-{slug}.md with three-way match, segregation-of-duties, OFAC-screening, and SOX procurement-controls gaps. |
 | `/promote` | sonnet | <poc-slug> [target: mvp\|production, default: production] | Promote a POC to MVP/production. Runs the full audits that POC-mode skipped. Required before any POC can see production. |
 | `/prompt-evolve` | sonnet | <agent-name> [--lesson \"text\"] — e.g. /prompt-evolve security-officer --lesson \"fewer false positives on TODOs\" | Closed prompt-evolution loop: turn a lesson into a candidate agent prompt, gate it on held-out evals, promote only if it beats the baseline. SIA Meta→Target→Feedback ported to great_cto. |
 | `/recall` | haiku | <keyword> — e.g. 'jwt', 'quota', 'board', 'npm' | Search session history by concept keyword. Returns matching sessions with relevant bullets. Usage: /recall <keyword> |
@@ -44,6 +47,7 @@
 | `/skillify` | sonnet | [name] — e.g. 'incident-review' or 'api-contract-gen' (auto-prompted if omitted) | Capture a repeating pattern as a reusable skill. Run when you notice the same 5+ steps appearing 3+ times across sessions or agents. Produces a skills/<name>/SKILL.md file. |
 | `/spec` | sonnet | [project description or 'retrofit' for existing codebases] | Spec Driven Development: interview → requirements.md + design.md + tasks.md. Run before writing any code. |
 | `/start` | sonnet | [free-form project description] | Set up a new project. Describe what you're building — agents do the rest. |
+| `/tax-review` | sonnet | [slug] — optional ARCH slug to review (defaults to latest) | Tax-filing compliance check — invokes tax-reviewer to produce TM-tax-{slug}.md with MeF e-file schema, Form 8879, PTIN/Circular 230, and IRC §7216 consent gaps. |
 | `/trace` | haiku | <bd-id> \| feature <slug> \| <bd-id> --json | Requirement → use-case → task → test traceability (NaCl graph value, no Neo4j). Trace one bd node's rationale (upstream) + impact (downstream), or audit a whole feature's chain for coverage gaps. Reads beads relationships. |
 | `/upl-check` | sonnet | [slug] | Unauthorized-practice-of-law (UPL) + legal-services compliance review. Invokes legal-reviewer to audit UPL gating, IOLTA/trust accounting, attorney-client privilege, conflict-of-interest screening, and e-filing redaction. Required before shipping any client-facing legal-SMB feature. |
 | `/voice-compliance` | sonnet | [slug] — optional ARCH slug to review (defaults to latest) | Voice/telephony compliance check — invokes voice-ai-reviewer to produce TM-voice-{slug}.md with TCPA, STIR/SHAKEN, state recording-consent, EU AI Act Art. 50, and synth-voice deepfake-law gaps. |
