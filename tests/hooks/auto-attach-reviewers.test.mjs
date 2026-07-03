@@ -88,11 +88,26 @@ test('pci-reviewer still attaches on payment signals (regression)', () => {
   assert.ok(reviewersFor('src/payments/stripe-webhook.ts').includes('pci-reviewer'));
 });
 
-// ─── enterprise-saas-reviewer: accounting routing (no dedicated reviewer exists) ──
+// ─── accounting-reviewer: GL/GAAP routing (migrated off enterprise-saas-reviewer,
+// closes great_cto-k0uf's partial patch now that a dedicated reviewer exists) ──
 
-test('enterprise-saas-reviewer attaches on accounting-controls signals (GL/GAAP)', () => {
-  assert.ok(reviewersFor('accounting/general-ledger.ts').includes('enterprise-saas-reviewer'));
-  assert.ok(reviewersFor('finance/gaap-adjustments.ts').includes('enterprise-saas-reviewer'));
+test('accounting-reviewer attaches on GL/GAAP/close signals (migrated from enterprise-saas-reviewer)', () => {
+  assert.ok(reviewersFor('accounting/general-ledger.ts').includes('accounting-reviewer'));
+  assert.ok(reviewersFor('finance/gaap-adjustments.ts').includes('accounting-reviewer'));
+  assert.ok(reviewersFor('src/close/month-end-close.ts').includes('accounting-reviewer'));
+  assert.ok(reviewersFor('src/tax-forms/1099-generator.ts').includes('accounting-reviewer'));
+  assert.ok(reviewersFor('src/revrec/asc-606-schedule.ts').includes('accounting-reviewer'));
+  assert.ok(reviewersFor('src/coa/chart-of-accounts.ts').includes('accounting-reviewer'));
+});
+
+test('accounting-reviewer does NOT double-attach with enterprise-saas-reviewer on GL/GAAP tokens (no double-attach, great_cto-k0uf)', () => {
+  const glMatches = reviewersFor('accounting/general-ledger.ts');
+  assert.ok(glMatches.includes('accounting-reviewer'));
+  assert.ok(!glMatches.includes('enterprise-saas-reviewer'));
+
+  const gaapMatches = reviewersFor('finance/gaap-adjustments.ts');
+  assert.ok(gaapMatches.includes('accounting-reviewer'));
+  assert.ok(!gaapMatches.includes('enterprise-saas-reviewer'));
 });
 
 test('enterprise-saas-reviewer still attaches on SSO/SCIM/tenant signals (regression)', () => {
@@ -117,6 +132,75 @@ test('regulated-reviewer does NOT double-attach alongside healthcare/enterprise-
   const soxMatches = reviewersFor('src/sox.itgc/access-review.ts');
   assert.ok(soxMatches.includes('enterprise-saas-reviewer'));
   assert.ok(!soxMatches.includes('regulated-reviewer'));
+});
+
+// ─── rcm-reviewer: healthcare revenue-cycle / medical-billing vertical ────
+
+test('rcm-reviewer attaches on claim-form/coding/remittance signals', () => {
+  assert.ok(reviewersFor('src/billing/cms-1500-generator.ts').includes('rcm-reviewer'));
+  assert.ok(reviewersFor('src/billing/ub-04-claim.ts').includes('rcm-reviewer'));
+  assert.ok(reviewersFor('src/billing/hcpcs-lookup.ts').includes('rcm-reviewer'));
+  assert.ok(reviewersFor('src/remit/era-835-parser.ts').includes('rcm-reviewer'));
+  assert.ok(reviewersFor('src/remittance-advice/post.ts').includes('rcm-reviewer'));
+  assert.ok(reviewersFor('src/claims/prior-auth-check.ts').includes('rcm-reviewer'));
+  assert.ok(reviewersFor('src/claims/denial-code-map.ts').includes('rcm-reviewer'));
+  assert.ok(reviewersFor('src/provider/npi-validate.ts').includes('rcm-reviewer'));
+});
+
+test('rcm-reviewer does NOT attach on generic billing/claims code without RCM-specific tokens', () => {
+  assert.deepEqual(reviewersFor('src/billing/invoice.ts'), []);
+  assert.deepEqual(reviewersFor('src/utils/format.ts'), []);
+});
+
+// ─── procurement-reviewer: source-to-pay vertical ─────────────────────────
+
+test('procurement-reviewer attaches on PO/three-way-match/vendor-screening signals', () => {
+  assert.ok(reviewersFor('src/procurement/purchase-order.ts').includes('procurement-reviewer'));
+  assert.ok(reviewersFor('src/procurement/three-way-match.ts').includes('procurement-reviewer'));
+  assert.ok(reviewersFor('src/sourcing/rfp-submission.ts').includes('procurement-reviewer'));
+  assert.ok(reviewersFor('src/vendor/ofac-screen.ts').includes('procurement-reviewer'));
+  assert.ok(reviewersFor('src/catalog/punchout-session.ts').includes('procurement-reviewer'));
+  assert.ok(reviewersFor('src/catalog/cxml-handler.ts').includes('procurement-reviewer'));
+  assert.ok(reviewersFor('src/procurement/requisition.ts').includes('procurement-reviewer'));
+});
+
+test('procurement-reviewer does NOT attach on generic e-commerce order code', () => {
+  assert.deepEqual(reviewersFor('src/checkout/order.ts'), []);
+  assert.deepEqual(reviewersFor('src/cart/vendor-list.ts'), []);
+});
+
+// ─── msp-reviewer: managed-service-provider vertical ──────────────────────
+
+test('msp-reviewer attaches on MSA/SLA/RMM/PSA/credential-vault signals', () => {
+  assert.ok(reviewersFor('src/contracts/msa-terms.ts').includes('msp-reviewer'));
+  assert.ok(reviewersFor('src/sla/tracker.ts').includes('msp-reviewer'));
+  assert.ok(reviewersFor('src/rmm/script-deploy.ts').includes('msp-reviewer'));
+  assert.ok(reviewersFor('src/psa/ticket-sync.ts').includes('msp-reviewer'));
+  assert.ok(reviewersFor('src/platform/multi-tenant-router.ts').includes('msp-reviewer'));
+  assert.ok(reviewersFor('src/onboarding/managed-service-setup.ts').includes('msp-reviewer'));
+  assert.ok(reviewersFor('src/secrets/credential-vault.ts').includes('msp-reviewer'));
+});
+
+test('msp-reviewer does NOT attach on generic service/tenant code without MSP-specific tokens', () => {
+  assert.deepEqual(reviewersFor('src/services/user-service.ts'), []);
+  assert.deepEqual(reviewersFor('src/utils/format.ts'), []);
+});
+
+// ─── tax-reviewer: tax preparation / IRS e-file vertical ──────────────────
+
+test('tax-reviewer attaches on PTIN/Circular-230/8879/MeF/7216 signals', () => {
+  assert.ok(reviewersFor('src/preparer/ptin-validate.ts').includes('tax-reviewer'));
+  assert.ok(reviewersFor('src/compliance/circular-230-check.ts').includes('tax-reviewer'));
+  assert.ok(reviewersFor('src/efile/form-8879-signature.ts').includes('tax-reviewer'));
+  assert.ok(reviewersFor('src/efile/mef-transmit.ts').includes('tax-reviewer'));
+  assert.ok(reviewersFor('src/safeguards/pub-4557-controls.ts').includes('tax-reviewer'));
+  assert.ok(reviewersFor('src/consent/section-7216-consent.ts').includes('tax-reviewer'));
+  assert.ok(reviewersFor('src/onboarding/tax-prep-intake.ts').includes('tax-reviewer'));
+});
+
+test('tax-reviewer does NOT attach on generic sales-tax/tax-rate commerce code', () => {
+  assert.deepEqual(reviewersFor('src/checkout/tax-rate.ts'), []);
+  assert.deepEqual(reviewersFor('src/pricing/sales-tax-calc.ts'), []);
 });
 
 // ─── no double-attach on a plain, unrelated path ──────────────────────────
