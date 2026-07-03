@@ -11,6 +11,28 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.81.0 — 2026-07-03
+
+### Legal archetype + legal-reviewer
+
+- **New `legal` archetype** with a dedicated **`legal-reviewer`** agent covering
+  UPL guardrails (information-vs-advice line, attorney-review gate), IOLTA client
+  trust accounting (commingling, per-client ledgers, three-way reconciliation),
+  attorney-client privilege (ABA Model Rule 1.6), conflict-of-interest screening
+  (Rules 1.7-1.9), e-filing/court integration (PACER/CM-ECF, FRCP 5.2 redaction),
+  and records retention / legal hold. Wired end-to-end: detection, reviewers,
+  gates (`upl-review`), UI-bearing set, cost tier, `/upl-check` command,
+  `TM-legal` threat-model template, and a legaltech pack overlay.
+- **`legal-reviewer` auto-attaches** on IOLTA / trust-account / matter / conflict-
+  check / PACER / ECF / docket signals (token-specific, false-positive-tested).
+- **Dental support** — `healthcare-reviewer` now also triggers on CDT-code /
+  odontogram / perio-chart / dental-claim signals, for the dental vertical.
+- Backs the greatcto.systems catalog's dental + law-firm verticals with real
+  compliance review. Tests: main suite 307→327, CLI 264→268 (+24), all green.
+
+---
+
 ## v2.80.1 — 2026-07-03
 
 ### Healthcare reviewer auto-attaches (catalog honesty)
