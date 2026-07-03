@@ -18,6 +18,7 @@ import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
 import { watchBeads, watchVerdicts } from './lib/watchers.mjs';
 import { dispatch } from './lib/routes.mjs';
+import { log } from './lib/log.mjs';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -108,15 +109,15 @@ const server = http.createServer(async (req, res) => {
 
 // ── Start ──────────────────────────────────────────────────────────────────────
 server.listen(PORT, HOST, () => {
-  console.log(`great_cto board → http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  log.info(`great_cto board → http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
-    console.log(`  ⚠ bound to ${HOST} — reachable beyond this machine. Operators authenticate via invite`);
-    console.log(`    links; put your reverse-proxy auth in front for anything admin-grade.`);
+    log.info(`  ⚠ bound to ${HOST} — reachable beyond this machine. Operators authenticate via invite`);
+    log.info(`    links; put your reverse-proxy auth in front for anything admin-grade.`);
   }
   // Discover all great_cto projects on disk asynchronously — don't block
   // the listening event so /api/tasks is available immediately.
   discoverProjects().then(n => {
-    if (n > 0) console.log(`  → discovered ${n} project${n === 1 ? '' : 's'} with .great_cto/PROJECT.md`);
+    if (n > 0) log.info(`  → discovered ${n} project${n === 1 ? '' : 's'} with .great_cto/PROJECT.md`);
   }).catch(() => {}); // non-fatal
   watchBeads();
   startAlertCron();
@@ -131,9 +132,9 @@ server.listen(PORT, HOST, () => {
 
 server.on('error', e => {
   if (e.code === 'EADDRINUSE') {
-    console.log(`Port ${PORT} in use — board already running at http://localhost:${PORT}`);
+    log.info(`Port ${PORT} in use — board already running at http://localhost:${PORT}`);
   } else {
-    console.error(e);
+    log.error(e);
   }
   process.exit(0);
 });

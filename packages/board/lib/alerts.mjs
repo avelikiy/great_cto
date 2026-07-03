@@ -16,6 +16,7 @@ import { getTasks } from './beads.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { isFailure } from './fleet.mjs';
 import { getShareState, toggleShare } from './share.mjs';
+import { log } from './log.mjs';
 
 // ── Email alerts (Resend) ─────────────────────────────────────────────────
 // Dispatch model: read webhooks.json on every fire (idempotent if disabled
@@ -91,12 +92,12 @@ async function fireEmailAlert(eventName, dedupeKey, payload) {
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      console.warn(`fireEmailAlert ${eventName}: relay HTTP ${res.status} ${txt.slice(0, 200)}`);
+      log.warn(`fireEmailAlert ${eventName}: relay HTTP ${res.status} ${txt.slice(0, 200)}`);
       return;
     }
-    console.log(`fireEmailAlert: sent ${eventName} (${dedupeKey})`);
+    log.info(`fireEmailAlert: sent ${eventName} (${dedupeKey})`);
   } catch (e) {
-    console.warn(`fireEmailAlert ${eventName} failed:`, e.message);
+    log.warn(`fireEmailAlert ${eventName} failed:`, e.message);
   }
 }
 
@@ -119,12 +120,12 @@ async function firePushAlert(eventName, dedupeKey, payload) {
       catch (e) {
         // 410 = subscription expired — browser unsubscribed, clean up
         if (e.statusCode === 410) removeSubscription(PUSH_SUBS_FILE, sub.endpoint);
-        else console.warn(`firePushAlert send failed for ${sub.endpoint}:`, e.message);
+        else log.warn(`firePushAlert send failed for ${sub.endpoint}:`, e.message);
       }
     }
     fired[pushKey] = new Date().toISOString();
     writeAlertsFired(fired);
-  } catch (e) { console.warn('firePushAlert failed:', e.message); }
+  } catch (e) { log.warn('firePushAlert failed:', e.message); }
 }
 
 // ── Cron: scan gates / cost / weekly digest ───────────────────────────────
@@ -172,7 +173,7 @@ function startAlertCron() {
           firePushAlert('incident.p0', dedupeKey, p0Payload);
         }
       }
-    } catch (e) { console.warn('cron incident.p0 failed:', e.message); }
+    } catch (e) { log.warn('cron incident.p0 failed:', e.message); }
   }, FIVE_MIN);
 
   // gate.blocked: new BLOCKED verdict from security-officer
@@ -207,7 +208,7 @@ function startAlertCron() {
         addNotification('gate.blocked', blockedPayload);
         firePushAlert('gate.blocked', dedupeKey, blockedPayload);
       }
-    } catch (e) { console.warn('cron gate.blocked failed:', e.message); }
+    } catch (e) { log.warn('cron gate.blocked failed:', e.message); }
   }, FIVE_MIN);
 
   // gate.stale: gate task open between 2h and 7 days.
@@ -238,7 +239,7 @@ function startAlertCron() {
           firePushAlert('gate.stale', dedupeKey, stalePayload);
         }
       }
-    } catch (e) { console.warn('cron gate.stale failed:', e.message); }
+    } catch (e) { log.warn('cron gate.stale failed:', e.message); }
   }, FIVE_MIN);
 
   // cost.threshold: monthly LLM spend at 80% / 100% of budget
@@ -277,7 +278,7 @@ function startAlertCron() {
           firePushAlert('cost.threshold', dedupeKey, costPayload);
         }
       }
-    } catch (e) { console.warn('cron cost.threshold failed:', e.message); }
+    } catch (e) { log.warn('cron cost.threshold failed:', e.message); }
   }, ONE_HOUR);
 
   // digest.weekly: Friday 09:00 UTC ± server tick
@@ -317,7 +318,7 @@ function startAlertCron() {
         addNotification('digest.weekly', weeklyPayload);
         await firePushAlert('digest.weekly', dedupeKey, weeklyPayload);
       }
-    } catch (e) { console.warn('cron digest.weekly failed:', e.message); }
+    } catch (e) { log.warn('cron digest.weekly failed:', e.message); }
   }, FIVE_MIN);
 
   // digest.daily: morning summary (Mon–Fri, 08:00 UTC).
@@ -384,7 +385,7 @@ function startAlertCron() {
         addNotification('digest.daily', dailyPayload);
         await firePushAlert('digest.daily', dedupeKey, dailyPayload);
       }
-    } catch (e) { console.warn('cron digest.daily failed:', e.message); }
+    } catch (e) { log.warn('cron digest.daily failed:', e.message); }
   }, FIVE_MIN);
 
   // report.daily: republish share reports every day at 09:00 UTC
@@ -401,13 +402,13 @@ function startAlertCron() {
         if (_reportRepublishDedupeSet.has(dedupeKey)) continue;
         _reportRepublishDedupeSet.add(dedupeKey);
         toggleShare(true, proj.path, true)
-          .then(() => console.log(`report.daily: republished ${proj.slug}`))
-          .catch(e => console.warn(`report.daily: ${proj.slug} failed: ${e.message}`));
+          .then(() => log.info(`report.daily: republished ${proj.slug}`))
+          .catch(e => log.warn(`report.daily: ${proj.slug} failed: ${e.message}`));
       }
-    } catch (e) { console.warn('cron report.daily failed:', e.message); }
+    } catch (e) { log.warn('cron report.daily failed:', e.message); }
   }, FIVE_MIN);
 
-  console.log('Alert cron started: gate.stale (5min), sla.escalate (5min), connector.health (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00)');
+  log.info('Alert cron started: gate.stale (5min), sla.escalate (5min), connector.health (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00)');
 }
 
 export { readAlertsFired, writeAlertsFired, fireEmailAlert, firePushAlert, startAlertCron };
