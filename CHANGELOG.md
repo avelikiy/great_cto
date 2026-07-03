@@ -9,6 +9,28 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.80.0 — 2026-07-03
+
+### Self-upgrade
+
+- **`great-cto upgrade --self`** — upgrades the CLI in place, detecting how it was
+  installed from the running binary's realpath: npx cache (nothing to do — npx
+  always runs latest), volta, pnpm, or npm with the exact global prefix derived
+  from the binary path. On machines with more than one npm prefix it upgrades the
+  binary that is actually running and prints which prefix was updated, then
+  verifies old → new.
+- **Interactive update prompt** — when a newer version exists and you're in a real
+  terminal, the update hint becomes a one-time `Update to X.Y.Z? [Y/n]` (15s
+  timeout = No, asked at most once per release via `promptedFor` in the cache).
+  Non-TTY, CI, and protocol commands (`mcp`) keep the silent one-line hint, which
+  now recommends `great-cto upgrade --self`.
+- README highlights `npx great-cto@latest` as the zero-maintenance path for
+  occasional use.
+- Tests: CLI suite 229 → 264 (+35); board/root 198.
+
+---
+
 ## v2.79.0 — 2026-07-03
 
 ### Update notifier
