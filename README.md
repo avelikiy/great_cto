@@ -156,6 +156,8 @@ npx great-cto init --host codex
 
 Superpowers and Beads companion plugins install automatically — no manual setup needed.
 
+**Staying up to date:** `npx great-cto@latest` is the zero-maintenance option for occasional use — every run fetches the latest release, nothing to upgrade. If you installed globally (`npm i -g great-cto`), run `great-cto upgrade --self` to update in place — it detects your install (npm/nvm, Volta, pnpm) and upgrades the exact binary you're running.
+
 ---
 
 <details>
