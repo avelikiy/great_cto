@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import { spawnSync } from 'child_process';
 import { bdCache } from './state.mjs';
+import { log } from './log.mjs';
 
 // ── Beads data ─────────────────────────────────────────────────────────────────
 // Cache bdList output per cwd for BD_CACHE_TTL_MS. Invalidated when the project's
@@ -85,7 +86,7 @@ function checkBeadsAvailable(cwd) {
 let _bdWriteChain = Promise.resolve();
 function bdWriteSerialised(fn) {
   const next = _bdWriteChain.then(() => fn()).catch((e) => {
-    console.error('[bd-write-serialised] error:', e?.message || e);
+    log.error('[bd-write-serialised]', e?.message || e);
     return null;
   });
   _bdWriteChain = next.then(() => undefined).catch(() => undefined);
