@@ -21,7 +21,11 @@ const HOST = (() => {
 })();
 const GREAT_CTO_DIR = path.join(os.homedir(), '.great_cto');
 const SHARE_STATE_FILE = path.join(GREAT_CTO_DIR, 'board-share.json');
-const PROJECTS_FILE = path.join(GREAT_CTO_DIR, 'projects.json');
+// Test seam: honor an explicit override so tests can point the registry at a
+// tmp fixture without touching the real ~/.great_cto/projects.json (same
+// convention as GREAT_CTO_BD_BIN in lib/beads.mjs). Unset in production —
+// zero behavior change at runtime.
+const PROJECTS_FILE = process.env.GREAT_CTO_PROJECTS_FILE || path.join(GREAT_CTO_DIR, 'projects.json');
 const SHARE_ENDPOINT = 'https://greatcto.systems/r/';
 const VAPID_KEYS_FILE = path.join(GREAT_CTO_DIR, 'vapid-keys.json');
 const PUSH_SUBS_FILE = path.join(GREAT_CTO_DIR, 'push-subscriptions.json');
