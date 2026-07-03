@@ -7,9 +7,13 @@
 <title>{{PROJECT}} · Engineering Report · {{DATE}}</title>
 <meta property="og:title" content="{{PROJECT}} · Engineering Report" />
 <meta property="og:description" content="AI agents shipped features, saved time and cost. See the breakdown." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<!-- great_cto-kge6: this page is published to an external host
+     (greatcto.systems/r/<hash>), not served from the local board — it can't
+     reference /assets/fonts locally-vendored files. Dropped the Google Fonts
+     CDN call entirely; the --sans/--serif/--mono stacks below already fall
+     back to system fonts (-apple-system, BlinkMacSystemFont, etc.) when
+     "Geist"/"Geist Mono" aren't available, so this renders cleanly with zero
+     external calls instead of leaking the viewer's IP to Google. -->
 <style>
 :root {
   /* Dark emerald — matches landing greatcto.systems */
