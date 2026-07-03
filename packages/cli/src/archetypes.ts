@@ -294,6 +294,21 @@ const RULES: Rule[] = [
       if (d.stack.includes("flutterwave")) s += 9;
       if (d.stack.includes("mercadopago")) s += 9;
       if (d.readmeKeywords.includes("fintech")) s += 2;
+
+      // tax-prep signals — keep in sync with detect.ts tax-pack terms.
+      // Unambiguous regulatory/professional-standard terms get a strong
+      // bump; softer generic terms (irs/e-file/tax-prep) get a light one
+      // since they can appear in unrelated fixtures.
+      const kws = d.readmeKeywords;
+      const taxStrong = ["ptin", "circular-230", "form-8879", "mef",
+                         "pub-4557", "section-7216"];
+      const taxSoft = ["irs", "e-file", "tax-prep", "tax-preparation"];
+      const taxStrongCount = taxStrong.filter((k) => kws.includes(k)).length;
+      const taxSoftCount = taxSoft.filter((k) => kws.includes(k)).length;
+      if (taxStrongCount >= 2) s += 9;
+      else if (taxStrongCount === 1) s += 6;
+      if (taxSoftCount > 0) s += 1;
+
       return s;
     },
     reason: (d) => {
@@ -306,6 +321,11 @@ const RULES: Rule[] = [
       if (d.stack.includes("paystack")) bits.push("Paystack (Nigeria)");
       if (d.stack.includes("flutterwave")) bits.push("Flutterwave (Africa)");
       if (d.stack.includes("mercadopago")) bits.push("MercadoPago (LATAM)");
+      const kws = d.readmeKeywords;
+      if (kws.includes("ptin")) bits.push("PTIN mention");
+      if (kws.includes("circular-230")) bits.push("Circular 230 mention");
+      if (kws.includes("form-8879")) bits.push("Form 8879 mention");
+      if (kws.includes("mef")) bits.push("MeF mention");
       return `fintech integration: ${bits.join(", ")} — SOX, PCI, KYC/AML compliance gates`;
     },
   },
@@ -351,6 +371,31 @@ const RULES: Rule[] = [
       if (d.readmeKeywords.includes("multi-tenant") || d.readmeKeywords.includes("multitenant")) s += 4;
       if (d.readmeKeywords.includes("enterprise") || d.readmeKeywords.includes("b2b")) s += 3;
       if (d.readmeKeywords.includes("sso") || d.readmeKeywords.includes("saml")) s += 3;
+
+      // procurement signals — keep in sync with detect.ts procurement-pack terms.
+      // "three-way-match"/"punchout"/"ofac" are unambiguous procurement/source-
+      // to-pay terms; "rfp"/"sourcing" are softer and get a lighter bump.
+      const kws = d.readmeKeywords;
+      const procurementStrong = ["purchase-order", "three-way-match", "punchout",
+                                 "cxml", "ofac", "requisition"];
+      const procurementSoft = ["rfp", "sourcing", "procurement", "spend-management"];
+      const procurementStrongCount = procurementStrong.filter((k) => kws.includes(k)).length;
+      const procurementSoftCount = procurementSoft.filter((k) => kws.includes(k)).length;
+      if (procurementStrongCount >= 2) s += 9;
+      else if (procurementStrongCount === 1) s += 6;
+      if (procurementSoftCount > 0) s += 1;
+
+      // MSP signals — keep in sync with detect.ts msp-pack terms.
+      // "rmm"/"psa"/"credential-vault"/"msp" are unambiguous MSP terms;
+      // "msa"/"sla"/"managed-service(s)" are softer, lighter bump.
+      const mspStrong = ["rmm", "psa", "credential-vault", "msp"];
+      const mspSoft = ["msa", "sla", "managed-service", "managed-services"];
+      const mspStrongCount = mspStrong.filter((k) => kws.includes(k)).length;
+      const mspSoftCount = mspSoft.filter((k) => kws.includes(k)).length;
+      if (mspStrongCount >= 2) s += 9;
+      else if (mspStrongCount === 1) s += 6;
+      if (mspSoftCount > 0) s += 1;
+
       // Stripe billing + multi-tenant signals = SaaS
       if (s > 0 && d.stack.includes("stripe")) s += 1;
       return s;
@@ -362,6 +407,11 @@ const RULES: Rule[] = [
       if (d.stack.includes("okta")) bits.push("Okta");
       if (d.stack.includes("samlify") || d.stack.includes("passport-saml")) bits.push("SAML lib");
       if (d.stack.includes("scim")) bits.push("SCIM");
+      const kws = d.readmeKeywords;
+      if (kws.includes("three-way-match")) bits.push("three-way match mention");
+      if (kws.includes("punchout")) bits.push("punchout mention");
+      if (kws.includes("rmm")) bits.push("RMM mention");
+      if (kws.includes("psa")) bits.push("PSA mention");
       return `enterprise B2B SaaS (${bits.join(", ")}) — multi-tenant isolation + SSO + audit log + SOC2 mandatory`;
     },
   },
