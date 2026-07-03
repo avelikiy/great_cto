@@ -51,7 +51,49 @@ export const RULES = [
   // core accounting-controls signals route to the SOX-ITGC surface enterprise-saas-reviewer
   // already owns. "1099"/"e-file" deliberately excluded: too loose as bare substrings
   // (collide with port numbers, filenames, version strings) without a path anchor.
-  { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc|general.?ledger|\bgaap\b)/i },
+  { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc)/i },
+  // procurement-reviewer: purchasing / source-to-pay tokens only — deliberately avoids
+  // bare "purchase"/"order"/"vendor" (each collides with e-commerce/checkout code).
+  // Each token below is a procurement-specific compound or acronym:
+  //   purchase.?order       — the PO artifact itself, requires the compound
+  //   three.?way.?match     — the PO/receipt/invoice reconciliation control, unambiguous
+  //   \brfp\b               — Request for Proposal (word-boundaried: short acronym)
+  //   \bofac\b              — sanctions-screening authority (word-boundaried)
+  //   punchout               — e-procurement catalog-launch protocol, unambiguous
+  //   cxml                   — the punchout XML dialect name, unambiguous
+  //   requisition            — procurement-specific request artifact (not generic "request")
+  { reviewer: "procurement-reviewer",    pattern: /(purchase.?order|three.?way.?match|\brfp\b|\bofac\b|punchout|cxml|requisition)/i },
+  // accounting-reviewer: bookkeeping / GL / close-cycle tokens — MOVED from
+  // enterprise-saas-reviewer (was a stop-gap before this reviewer existed, see
+  // great_cto-k0uf). general.?ledger and \bgaap\b now route here exclusively so
+  // accounting signals hit the domain-correct reviewer instead of the generic
+  // enterprise-controls one.
+  { reviewer: "accounting-reviewer",     pattern: /(asc.?606|journal.?entry|general.?ledger|\bgaap\b|1099|month.?end.?close|chart.?of.?accounts)/i },
+  // msp-reviewer: managed-service-provider / RMM-PSA tokens only — deliberately avoids
+  // bare "tenant"/"service" (both collide with generic SaaS/microservice code; tenant_id
+  // already belongs to enterprise-saas-reviewer above). Each token below is MSP-specific:
+  //   \bmsa\b / \bsla\b     — Master Service Agreement / Service Level Agreement acronyms
+  //                           (word-boundaried: both are short and common as substrings)
+  //   \brmm\b / \bpsa\b     — Remote Monitoring & Management / Professional Services
+  //                           Automation, the two dominant MSP tool categories
+  //   multi.?tenant         — MSP cross-client blast-radius framing (distinct from
+  //                           enterprise-saas-reviewer's bare "tenant_id" data-isolation signal)
+  //   managed.?service      — "managed service provider" / "managed services", unambiguous
+  //   credential.?vault     — MSP's core liability surface (client credential storage)
+  { reviewer: "msp-reviewer",            pattern: /(\bmsa\b|\bsla\b|\brmm\b|\bpsa\b|multi.?tenant|managed.?service|credential.?vault)/i },
+  // tax-reviewer: tax-prep / IRS e-file tokens only — deliberately avoids bare "tax"
+  // (collides with sales-tax/tax-rate code in commerce/pci contexts) and bare "irs"
+  // alone as unanchored substring was considered too loose; each token below is a
+  // tax-prep-specific compound or acronym:
+  //   \bptin\b              — Preparer Tax Identification Number (word-boundaried)
+  //   circular.?230         — IRS preparer-practice regulations, unambiguous
+  //   form.?8879            — the e-file signature authorization form number
+  //   \bmef\b               — Modernized e-File, the IRS e-file system (word-boundaried:
+  //                           short acronym)
+  //   pub.?4557             — IRS Publication 4557 (taxpayer data safeguards)
+  //   section.?7216         — IRC §7216 consent-to-disclose statute
+  //   tax.?prep              — "tax prep"/"tax preparation", the domain itself
+  { reviewer: "tax-reviewer",            pattern: /(\bptin\b|circular.?230|form.?8879|\bmef\b|pub.?4557|section.?7216|tax.?prep)/i },
   { reviewer: "insurance-reviewer",      pattern: /(naic|solvency|ifrs.?17|acord|actuarial)/i },
   // legal-reviewer: legal-services / legal-tech domain tokens only — deliberately
   // avoids bare "legal"/"law"/"case"/"trust" (each collides with generic code:
@@ -99,6 +141,21 @@ export const RULES = [
   //   dental.?claim      — dental insurance claim, requires the compound so bare
   //                       "claim" (generic/insurance-collision) doesn't match
   { reviewer: "healthcare-reviewer",     pattern: /(hipaa|phi[_-]|hl7|fhir|hitech|\bbaa\b|(^|\/)ehr\/|superbill|icd-?10|soap.?note|cdt-?code|odontogram|perio-chart|dental.?claim)/i },
+  // rcm-reviewer: medical-billing / revenue-cycle tokens only — deliberately excludes
+  // bare "claim" (generic/insurance-collision, already avoided by healthcare-reviewer's
+  // "dental.?claim" compound) and bare "modifier"/"denial" (too generic on their own).
+  // "icd-?10" and "superbill" stay on healthcare-reviewer (clinical/chart surface);
+  // the tokens below are billing/claims-submission specific:
+  //   cms-?1500 / ub-?04    — the professional/institutional claim form names
+  //   hcpcs                 — HCPCS Level II billing code set
+  //   \b835\b               — ERA remittance transaction number (word-boundaried:
+  //                           short numeric token needs a boundary to avoid false hits)
+  //   remittance.?advice    — the 835's plain-English name
+  //   prior.?auth           — prior-authorization workflow, billing-specific compound
+  //   denial.?code          — CARC/RARC denial-code workflow, requires the compound so
+  //                           bare "denial" doesn't fire on unrelated rejection/reject code
+  //   npi\b                 — National Provider Identifier (word-boundaried)
+  { reviewer: "rcm-reviewer",            pattern: /(cms-?1500|ub-?04|hcpcs|\b835\b|remittance.?advice|prior.?auth|denial.?code|npi\b)/i },
   // regulated-reviewer: DORA/NIS2/ISO27001 only — its other two frameworks (SOX ITGC,
   // HIPAA) are already claimed by enterprise-saas-reviewer's `sox.itgc` and the
   // healthcare-reviewer pattern above respectively, so re-adding those tokens here
