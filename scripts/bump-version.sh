@@ -58,6 +58,21 @@ data["version"] = new
 with open(path, "w") as f: json.dump(data, f, indent=2); f.write("\n")
 PY
 
+# packages/cli/package-lock.json — top-level version fields follow package.json
+CLI_LOCK="$ROOT/packages/cli/package-lock.json"
+if [ -f "$CLI_LOCK" ]; then
+  python3 - "$CLI_LOCK" "$NEW" <<'PY'
+import json, sys
+path, new = sys.argv[1], sys.argv[2]
+with open(path) as f: data = json.load(f)
+data["version"] = new
+if "" in data.get("packages", {}):
+    data["packages"][""]["version"] = new
+with open(path, "w") as f: json.dump(data, f, indent=2); f.write("\n")
+PY
+  echo "  ✓ $CLI_LOCK"
+fi
+
 # packages/cli/jsr.json (if present — kept in lockstep)
 JSR_TOUCHED=""
 if [ -f "$JSR_JSON" ]; then
