@@ -4,6 +4,20 @@ import os from 'os';
 import { spawnSync } from 'child_process';
 import { planGates } from '../../../scripts/lib/gate-plan.mjs';
 import { GREAT_CTO_DIR, PROJECTS_FILE } from './config.mjs';
+import { isInsideDir } from './util.mjs';
+
+// Same HOME-boundary policy /api/projects/register enforces (lib/routes.mjs):
+// a raw absolute/tilde path must resolve inside the operator's home directory,
+// no exceptions. Without this, a request like ?project=/etc or ?project=/tmp
+// makes the board read/write project data (.beads, verdicts/, PROJECT.md)
+// at an arbitrary filesystem location the operator never registered. Returns
+// null (not process.cwd()) so callers can distinguish "not a raw path" from
+// "raw path rejected" and fall back explicitly.
+function resolveRawPathWithinHome(slugOrPath) {
+  const raw = slugOrPath.startsWith('~') ? slugOrPath.replace(/^~/, os.homedir()) : slugOrPath;
+  const resolved = path.resolve(raw);
+  return isInsideDir(os.homedir(), resolved) ? resolved : null;
+}
 
 // ── Project registry ───────────────────────────────────────────────────────────
 function readProjectsRegistry() {
@@ -251,12 +265,19 @@ function listProjects() {
 }
 function resolveProjectCwd(slugOrPath) {
   if (!slugOrPath) return process.cwd();
-  // If absolute path or starts with ~, use directly
-  if (slugOrPath.startsWith('/')) return slugOrPath;
-  if (slugOrPath.startsWith('~')) return slugOrPath.replace(/^~/, os.homedir());
+  // If absolute path or starts with ~, it's raw user input — enforce the same
+  // HOME-boundary policy /api/projects/register uses. A path outside HOME
+  // falls back to process.cwd() (same fallback already used below for an
+  // unknown slug) rather than being honored verbatim.
+  if (slugOrPath.startsWith('/') || slugOrPath.startsWith('~')) {
+    const withinHome = resolveRawPathWithinHome(slugOrPath);
+    return withinHome || process.cwd();
+  }
   // Else look up in registry by slug — among duplicate slugs (great_cto-7xfc),
   // prefer the entry whose path exists on disk; among several existing (or
-  // several missing), prefer the most recently added_at.
+  // several missing), prefer the most recently added_at. Registry entries were
+  // already validated at registration time (register enforces the HOME
+  // boundary before writing), so slug resolution is untouched.
   const reg = readProjectsRegistry();
   const matches = reg.projects.filter(p => p.slug === slugOrPath);
   const found = pickBestBySlug(matches);
@@ -271,16 +292,18 @@ function resolveProjectCwd(slugOrPath) {
  *
  * resolved values:
  *   'cwd'      — no project param passed; using server cwd as documented
- *   'path'     — absolute / tilde path passed and used directly
+ *   'path'     — absolute / tilde path passed, resolved inside HOME, used directly
  *   'slug'     — slug found in registry
- *   'fallback' — slug requested but NOT in registry; using cwd as fallback.
- *                Caller should warn the user (header + log).
+ *   'fallback' — slug requested but NOT in registry, OR a raw path was requested
+ *                that resolves outside HOME (great_cto-qvg9); using cwd as
+ *                fallback. Caller should warn the user (header + log).
  */
 function resolveProjectInfo(slugOrPath) {
   if (!slugOrPath) return { cwd: process.cwd(), resolved: 'cwd' };
-  if (slugOrPath.startsWith('/')) return { cwd: slugOrPath, resolved: 'path' };
-  if (slugOrPath.startsWith('~')) {
-    return { cwd: slugOrPath.replace(/^~/, os.homedir()), resolved: 'path' };
+  if (slugOrPath.startsWith('/') || slugOrPath.startsWith('~')) {
+    const withinHome = resolveRawPathWithinHome(slugOrPath);
+    if (withinHome) return { cwd: withinHome, resolved: 'path' };
+    return { cwd: process.cwd(), resolved: 'fallback', requested: slugOrPath };
   }
   const reg = readProjectsRegistry();
   const matches = reg.projects.filter(p => p.slug === slugOrPath);

@@ -6,8 +6,8 @@ import {
   addSubscription,
   removeSubscription,
 } from '../push-adapter.mjs';
-import { PORT, GREAT_CTO_DIR, VAPID_KEYS_FILE, PUSH_SUBS_FILE, BUILD_VERSION } from './config.mjs';
-import { eventSurface, readFileSafe } from './util.mjs';
+import { GREAT_CTO_DIR, VAPID_KEYS_FILE, PUSH_SUBS_FILE, BUILD_VERSION } from './config.mjs';
+import { eventSurface, readFileSafe, originAllowed } from './util.mjs';
 import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, getChangeTier } from './projects.mjs';
 import { broadcastTasks } from './sse.mjs';
@@ -54,18 +54,12 @@ async function dispatch(req, res, url, cwd) {
   // it MUST reject cross-origin requests. The board listens on 127.0.0.1
   // but a malicious page the user visits can still issue text/plain POSTs
   // (simple CORS request — no preflight) to localhost. Two gates:
-  //   1) Origin / Referer must match http://localhost:PORT or 127.0.0.1:PORT.
+  //   1) Origin / Referer must be same-origin (originAllowed() in lib/util.mjs —
+  //      also enforced as the top-level CSRF guard in server.mjs before dispatch()
+  //      is ever called, so this is defense-in-depth, not the only check).
   //   2) Resolved target path must live inside HOME — no /tmp, no /etc.
   if (pathname === '/api/projects/register' && req.method === 'POST') {
-    const origin = req.headers.origin || req.headers.referer || '';
-    const expectedOrigin = `http://localhost:${PORT}`;
-    const expectedOrigin2 = `http://127.0.0.1:${PORT}`;
-    const originOk = !origin
-      || origin === expectedOrigin
-      || origin === expectedOrigin2
-      || origin.startsWith(expectedOrigin + '/')
-      || origin.startsWith(expectedOrigin2 + '/');
-    if (!originOk) {
+    if (!originAllowed(req)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'origin not allowed' }));
       return true;
@@ -850,16 +844,10 @@ async function dispatch(req, res, url, cwd) {
   // (DESIGN-agents-fleet-view §9 Top-2 #2: reversible sidecar chosen over
   // filesystem move; founder may revise.)
   if (pathname.startsWith('/api/agents/') && req.method === 'POST') {
-    // Cross-origin guard — same pattern as BH-23 on /api/projects/register.
-    const origin = req.headers.origin || req.headers.referer || '';
-    const expectedOrigin = `http://localhost:${PORT}`;
-    const expectedOrigin2 = `http://127.0.0.1:${PORT}`;
-    const originOk = !origin
-      || origin === expectedOrigin
-      || origin === expectedOrigin2
-      || origin.startsWith(expectedOrigin + '/')
-      || origin.startsWith(expectedOrigin2 + '/');
-    if (!originOk) {
+    // Cross-origin guard — same helper as BH-23 on /api/projects/register
+    // (originAllowed() in lib/util.mjs; also enforced as the top-level CSRF
+    // guard in server.mjs before dispatch() is ever called).
+    if (!originAllowed(req)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'origin_not_allowed' }));
       return true;
