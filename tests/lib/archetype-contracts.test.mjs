@@ -149,6 +149,51 @@ test('checkContracts: mobile-app missing offline handling → flagged', () => {
   assert.ok(r.coverage < 100);
 });
 
+// ── F3c: regex hardening — false-positive regression tests (ARCH doc example: /hold/
+// matching "household") ────────────────────────────────────────────────────────
+
+test('F3c regression: marketplace escrow-held does NOT false-positive on "household"/"threshold"/"shareholder"', () => {
+  assert.equal(checkContracts('marketplace', 'test household chores workflow').results.find(c => c.id === 'escrow-held').covered, false);
+  assert.equal(checkContracts('marketplace', 'checks the threshold value').results.find(c => c.id === 'escrow-held').covered, false);
+  assert.equal(checkContracts('marketplace', 'validates the shareholder record').results.find(c => c.id === 'escrow-held').covered, false);
+});
+
+test('F3c regression: marketplace escrow-held still true-positives on "hold"/"held"/"holding"', () => {
+  assert.equal(checkContracts('marketplace', 'creates escrow hold on order').results.find(c => c.id === 'escrow-held').covered, true);
+  assert.equal(checkContracts('marketplace', 'the funds are held until release').results.find(c => c.id === 'escrow-held').covered, true);
+  assert.equal(checkContracts('marketplace', 'holding period enforced').results.find(c => c.id === 'escrow-held').covered, true);
+});
+
+test('F3c regression: dashboard aggregation catches groupBy(...) idiom (doc example: bare /aggregat/ misses it)', () => {
+  assert.equal(checkContracts('dashboard', 'groupBy(items).sum() returns totals').results.find(c => c.id === 'aggregation').covered, true);
+});
+
+test('F3c regression: dashboard aggregation metric does NOT false-positive on "asymmetric"', () => {
+  const r = checkContracts('dashboard', 'asymmetric routing test for the load balancer');
+  assert.equal(r.results.find(c => c.id === 'aggregation').covered, false);
+});
+
+test('F3c regression: dashboard window does NOT false-positive on "Windows OS"', () => {
+  assert.equal(checkContracts('dashboard', 'Windows OS compatibility test').results.find(c => c.id === 'window').covered, false);
+});
+
+test('F3c regression: dashboard window still true-positives on "time-window boundaries"', () => {
+  assert.equal(checkContracts('dashboard', 'time-window boundaries respected').results.find(c => c.id === 'window').covered, true);
+});
+
+test('F3c regression: crm stage-transitions does NOT false-positive on "backstage"', () => {
+  assert.equal(checkContracts('crm', 'backstage pass area rendering').results.find(c => c.id === 'stage-transitions').covered, false);
+});
+
+test('F3c regression: crm stage-transitions does NOT false-positive on "in advance of launch" (unrelated to deal progression)', () => {
+  assert.equal(checkContracts('crm', 'ships the feature in advance of launch day').results.find(c => c.id === 'stage-transitions').covered, false);
+});
+
+test('F3c regression: crm stage-transitions still true-positives on "advances the deal" / pipeline stage moves', () => {
+  assert.equal(checkContracts('crm', 'advances the deal to negotiation').results.find(c => c.id === 'stage-transitions').covered, true);
+  assert.equal(checkContracts('crm', 'valid pipeline stage transitions').results.find(c => c.id === 'stage-transitions').covered, true);
+});
+
 test('every new F3a archetype has ≥2 invariants with a rubric-documented rationale', () => {
   const newFamilies = ['ai-system', 'agent-product', 'commerce', 'web3', 'iot-embedded', 'data-platform', 'browser-extension', 'mobile-app'];
   for (const fam of newFamilies) {
