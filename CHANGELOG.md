@@ -8,6 +8,25 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.79.0 — 2026-07-03
+
+### Update notifier
+
+- **CLI hint** — after any human command, a one-line stderr hint appears when a
+  newer great-cto is on npm (`update available: A → B`). Zero-dep
+  update-notifier pattern: the foreground only reads a 24h cache; a detached
+  worker refreshes it from the npm registry for the next run (~0.05s foreground,
+  never blocks). Skipped in CI, non-TTY, and protocol commands (`mcp`).
+- **Board notification + push** — daily registry check in the alert cron;
+  in-app notification + web-push exactly once per release
+  (`update.available:<version>` dedupe).
+- **Opt-out**: `GREAT_CTO_NO_UPDATE_CHECK=1`. The check is a read-only registry
+  fetch (same traffic as `npm install`), documented in `docs/PRIVACY.md`.
+- Tests: +49 (CLI 229, board/root 198).
+
+---
+
 ## v2.78.0 — 2026-07-03
 
 ### Quality deepened, prompts on a diet, structured logs
