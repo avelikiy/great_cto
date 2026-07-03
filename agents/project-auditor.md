@@ -60,66 +60,21 @@ Agent 4 (Explore): Phase 4 — Architectural Debt
 
 **Scaffold missing directories** — create standard doc dirs if absent (idempotent, never overwrite existing content):
 ```bash
-# Risk register — read by /inbox, /audit, security-officer
-if [ ! -f docs/risks/RISK-REGISTER.md ]; then
-  mkdir -p docs/risks/closed
-  cat > docs/risks/RISK-REGISTER.md << 'RISKEOF'
-# Risk Register
-
-> Managed by great_cto. See `skills/great_cto/references/risk-register.md` for schema.
-> Do NOT edit header. Append risk rows below.
-
-## Active risks
-
-| ID | Title | Impact | Prob | Owner | Source | Status |
-|----|-------|--------|------|-------|--------|--------|
-
-## Closed risks
-
-See `docs/risks/closed/`.
-RISKEOF
-  echo "  scaffolded docs/risks/RISK-REGISTER.md"
-fi
-
-# Vendor register — read by security-officer quarterly review
-mkdir -p docs/vendors
-if [ ! -f docs/vendors/.gitkeep ]; then
-  touch docs/vendors/.gitkeep
-  echo "  scaffolded docs/vendors/ (add VENDOR-<slug>.md per third-party dependency)"
-fi
+bash scripts/auditor-scaffold-dirs.sh
 ```
+Scaffolds `docs/risks/RISK-REGISTER.md` (read by `/inbox`, `/audit`, security-officer) and
+`docs/vendors/` (read by security-officer quarterly review).
 
 **Caching layer** — before spawning agents, check cache:
 ```bash
-CACHE_DIR=".great_cto/cache"
-mkdir -p "$CACHE_DIR"
-
-# CVE scan: cache for 24h (dependencies don't change faster)
-CVE_CACHE="$CACHE_DIR/cve-scan.json"
-if [ -f "$CVE_CACHE" ] && [ $(( $(date +%s) - $(stat -f %m "$CVE_CACHE" 2>/dev/null || stat -c %Y "$CVE_CACHE" 2>/dev/null || echo 0) )) -lt 86400 ]; then
-  echo "CVE_CACHE_HIT: reusing scan from $(stat -f %Sm "$CVE_CACHE" 2>/dev/null)"
-  # Agent 2 should read this cache instead of re-running npm audit
-fi
-
-# Stack detection: cache for 24h (stack doesn't change faster)
-STACK_CACHE="$CACHE_DIR/stack.json"
-# Same logic
+bash scripts/auditor-cache-check.sh
 ```
 
-Invalidate cache when:
-- `package-lock.json`, `yarn.lock`, `Cargo.lock`, `poetry.lock`, `go.sum` modified since cache → invalidate CVE
-- `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod` modified → invalidate stack
-
-```bash
-# Cache invalidation check
-for LOCK in package-lock.json yarn.lock Cargo.lock poetry.lock go.sum; do
-  if [ -f "$LOCK" ] && [ "$LOCK" -nt "$CVE_CACHE" ] 2>/dev/null; then
-    rm -f "$CVE_CACHE"
-    echo "CACHE_INVALIDATED: $LOCK changed"
-    break
-  fi
-done
-```
+Prints `CVE_CACHE_HIT` if `.great_cto/cache/cve-scan.json` is < 24h old (Agent 2 should read
+that cache instead of re-running npm audit), then invalidates it if a lock file
+(`package-lock.json`/`yarn.lock`/`Cargo.lock`/`poetry.lock`/`go.sum`) changed more recently.
+Stack cache (`.great_cto/cache/stack.json`) follows the same 24h rule, gated on
+`package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod` instead.
 
 ---
 
@@ -146,29 +101,13 @@ archetype. A matched `source_type: audit-recurrence` pattern means the same debt
 in two consecutive audits and needs a structural fix, not just a finding.
 
 ```bash
-GP_DIR="$HOME/.great_cto/global-patterns"
-ARCH=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-STACK=$(grep "^stack:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-
-echo "=== KNOWN AUDIT PATTERNS for archetype=${ARCH:-unknown} stack=${STACK:-unknown} ==="
-if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
-  grep -rl "status: active" "$GP_DIR" 2>/dev/null | while read f; do
-    if grep -qiE "applies_to:.*${ARCH}|applies_to:.*${STACK}|stack_fingerprint:.*${STACK}" "$f" 2>/dev/null; then
-      SLUG=$(basename "$f" .md)
-      SOURCE=$(grep "^source_type:" "$f" 2>/dev/null | awk '{print $2}')
-      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
-      HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
-      RECURRENT=""
-      grep -qi "audit-recurrence" "$f" 2>/dev/null && RECURRENT=" ⚠ RECURRING"
-      printf "  %s [%s] (hits=%s)%s\n  known debt: %s\n\n" \
-        "$SLUG" "${SOURCE:-incident}" "${HITS:-0}" "$RECURRENT" "$SYMPTOM"
-    fi
-  done
-  echo "  Flag matched patterns as RECURRING in the audit report — they require structural remediation."
-else
-  echo "  No global patterns yet. Run /crystallize after first audit with recurring findings."
-fi
+bash scripts/auditor-pattern-lookup.sh
 ```
+
+Prints one block per pattern in `~/.great_cto/global-patterns/GP-*.md` whose `applies_to` or
+`stack_fingerprint` matches the current archetype/stack (slug, source_type, hits, RECURRING
+flag, symptom). Flag matched patterns as RECURRING in the audit report — they require
+structural remediation.
 
 **KE trigger**: if the same debt category appears in this audit AND was in the previous audit report
 for this project — write `~/.great_cto/extractions/KE-<date>-<slug>.yaml` with `source_type: audit-recurrence`.
@@ -178,35 +117,12 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 
 Run all at once:
 ```bash
-# Manifests and lock files
-find . -maxdepth 4 \( \
-  -name "Cargo.toml" -o -name "Cargo.lock" \
-  -o -name "go.mod" -o -name "go.sum" \
-  -o -name "package.json" -o -name "package-lock.json" -o -name "yarn.lock" -o -name "pnpm-lock.yaml" \
-  -o -name "requirements.txt" -o -name "pyproject.toml" -o -name "poetry.lock" -o -name "Pipfile.lock" \
-  -o -name "*.tf" -o -name "*.tfvars" \
-  -o -name "Gemfile" -o -name "Gemfile.lock" \
-  -o -name "pom.xml" -o -name "build.gradle" -o -name "build.gradle.kts" \
-  -o -name "composer.json" -o -name "composer.lock" \
-  -o -name ".python-version" -o -name ".nvmrc" -o -name ".node-version" \
-  -o -name "Dockerfile" -o -name "docker-compose*.yml" \
-\) 2>/dev/null | grep -v node_modules | grep -v ".git/" | sort
-
-# CI/CD
-ls .github/workflows/ .gitlab-ci.yml .circleci/config.yml Jenkinsfile .buildkite/ 2>/dev/null
-
-# Runtime versions
-cat .nvmrc .node-version .python-version 2>/dev/null
-node --version 2>/dev/null; python3 --version 2>/dev/null; go version 2>/dev/null
-
-# Test count
-find . \( -name "*.test.*" -o -name "*.spec.*" -o -name "*_test.go" -o -name "test_*.py" \) \
-  -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | wc -l
-
-# Code volume (top files by size — where the core logic lives)
-find . -name "*.ts" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.java" 2>/dev/null \
-  | grep -v node_modules | grep -v ".git" | xargs wc -l 2>/dev/null | sort -rn | head -20
+bash scripts/auditor-stack-fingerprint.sh
 ```
+
+Scans (in order): manifest/lock files across all major ecosystems (Node, Rust, Go, Python,
+Terraform, Ruby, Java/Gradle, PHP, Docker), CI/CD config presence, runtime versions
+(node/python/go), test file count, and the top 20 largest source files by line count.
 
 **Output**: language, frameworks, infra stack, test coverage signal, code volume.
 
@@ -214,99 +130,21 @@ find . -name "*.ts" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.
 
 ## Phase 2 — Vulnerability Scan
 
-### 2A. Secrets in source
 ```bash
-# Hardcoded credentials
-grep -rn \
-  -e 'password\s*=\s*["\047][^"\047]\+["\047]' \
-  -e 'secret\s*=\s*["\047][^"\047]\+["\047]' \
-  -e 'api_key\s*=\s*["\047][^"\047]\+["\047]' \
-  -e 'private_key\s*=' \
-  -e 'AWS_SECRET\|GITHUB_TOKEN\|STRIPE_SECRET' \
-  --include="*.ts" --include="*.js" --include="*.py" --include="*.go" \
-  --include="*.env*" --include="*.yaml" --include="*.yml" \
-  . 2>/dev/null | grep -v node_modules | grep -v ".git" \
-    | grep -v "test\|spec\|example\|placeholder\|your_\|<\|TODO" | head -30
-
-# .env files committed to git
-git ls-files | grep -E "\.env($|\.)" 2>/dev/null
-
-# Private keys
-find . -name "*.pem" -o -name "*.key" -o -name "id_rsa*" 2>/dev/null \
-  | grep -v node_modules | grep -v ".git"
+bash scripts/auditor-vulnerability-scan.sh
 ```
 
-### 2B. Dependency CVEs
+Runs three sub-scans in sequence (each section labeled in stdout):
 
-Detect available scanners first, then run:
-```bash
-echo "=== CVE Scanner Detection ==="
-HAS_NPM_AUDIT=$(npm audit --version 2>/dev/null && echo YES || echo NO)
-HAS_PIP_AUDIT=$(pip-audit --version 2>/dev/null && echo YES || echo NO)
-HAS_SAFETY=$(safety --version 2>/dev/null && echo YES || echo NO)
-HAS_CARGO_AUDIT=$(cargo audit --version 2>/dev/null && echo YES || echo NO)
-HAS_GOVULN=$(govulncheck -version 2>/dev/null && echo YES || echo NO)
-echo "npm-audit:$HAS_NPM_AUDIT pip-audit:$HAS_PIP_AUDIT safety:$HAS_SAFETY cargo-audit:$HAS_CARGO_AUDIT govulncheck:$HAS_GOVULN"
-```
-
-Run all available:
-```bash
-# Node.js (npm audit always available with Node)
-[ -f package.json ] && npm audit --audit-level=moderate 2>/dev/null | tail -20
-
-# Python — try pip-audit, fall back to safety, fall back to manual
-if [ -f requirements.txt ] || [ -f pyproject.toml ]; then
-  pip-audit 2>/dev/null || safety check 2>/dev/null || {
-    echo "No Python CVE scanner found. Install: pip install pip-audit"
-    echo "Manual check — outdated packages with known issues:"
-    pip list --outdated 2>/dev/null | head -20
-  }
-fi
-
-# Rust
-[ -f Cargo.toml ] && (cargo audit 2>/dev/null || echo "cargo-audit not found. Install: cargo install cargo-audit")
-
-# Go
-[ -f go.mod ] && (govulncheck ./... 2>/dev/null || {
-  echo "govulncheck not found. Install: go install golang.org/x/vuln/cmd/govulncheck@latest"
-  echo "Fallback — checking go.sum for known patterns:"
-  grep -iE "CVE|vuln" go.sum 2>/dev/null | head -10
-})
-```
-
-**Fallback when no scanner available:**
-```bash
-# Check package-lock.json / yarn.lock for known vulnerable version ranges
-grep -E '"version":\s*"[0-9]' package-lock.json 2>/dev/null | \
-  awk -F'"' '{print $4}' | sort | uniq -c | sort -rn | head -20
-echo "Manual CVE check needed at: https://osv.dev or https://deps.dev"
-```
-
-Classify each CVE: **Critical** (CVSS ≥9), **High** (7-9), **Medium** (4-7).
-If no scanner ran at all → create a P1 Beads task: "Install CVE scanner for <stack>".
-
-### 2C. Auth & API security surface
-```bash
-# Unprotected routes (common patterns)
-grep -rn \
-  -e "router\.\(get\|post\|put\|delete\|patch\)" \
-  -e "@app\.route\|@router\." \
-  -e "app\.use\|fastapi\|express" \
-  --include="*.ts" --include="*.js" --include="*.py" \
-  . 2>/dev/null | grep -v node_modules | grep -v test | head -30
-
-# Auth middleware presence
-grep -rn "auth\|middleware\|jwt\|bearer\|session\|guard\|protect" \
-  --include="*.ts" --include="*.js" --include="*.py" --include="*.go" \
-  . 2>/dev/null | grep -v node_modules | grep -v test | grep -v ".git" | wc -l
-
-# SQL injection risk: raw queries
-grep -rn \
-  -e 'query\s*[(`]\s*["\047].*\$\|f["\047].*SELECT\|f["\047].*INSERT' \
-  -e 'execute\s*(["\047].*%s\|.*%d' \
-  --include="*.py" --include="*.ts" --include="*.js" \
-  . 2>/dev/null | grep -v node_modules | grep -v test | head -15
-```
+- **2A. Secrets in source** — hardcoded credential patterns, committed `.env` files, private
+  key files (excludes test/spec/example/placeholder matches).
+- **2B. Dependency CVEs** — detects available scanners (npm audit, pip-audit, safety,
+  cargo-audit, govulncheck), runs whichever apply to the detected manifests, always also prints
+  a manual outdated-package / version-range fallback dump. Classify each CVE: **Critical**
+  (CVSS ≥9), **High** (7-9), **Medium** (4-7). If no scanner ran at all → create a P1 Beads
+  task: "Install CVE scanner for <stack>".
+- **2C. Auth & API security surface** — unprotected route patterns, auth middleware presence
+  count, raw-query SQL injection risk patterns.
 
 ---
 
@@ -377,81 +215,20 @@ A 200-line file that changes weekly is a known surface; a 1500-line file that ch
 weekly is where the team is paying interest every commit.
 
 ```bash
-# Top 20 largest source files
-find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.py" \
-  -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.kt" \) \
-  ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" ! -path "*/build/*" \
-  -exec wc -l {} \; 2>/dev/null | sort -rn | head -20 > /tmp/audit-largest.txt
-
-# Top 20 most-modified files (last 6 months)
-git log --since="6 months ago" --name-only --pretty=format: 2>/dev/null \
-  | grep -E '\.(ts|tsx|js|py|go|rs|java|kt)$' \
-  | sort | uniq -c | sort -rn | head -20 > /tmp/audit-churn.txt
-
-# Intersection — these are the worst architectural offenders, focus Phase 4B/4C/4D here
-awk 'NR==FNR{a[$2];next} ($2 in a)' /tmp/audit-largest.txt /tmp/audit-churn.txt \
-  > /tmp/audit-hotspots.txt
-cat /tmp/audit-hotspots.txt
+bash scripts/auditor-architectural-debt-scan.sh
 ```
 
-Every file in `audit-hotspots.txt` MUST receive concrete file:line citations in the
-findings table — these are the most expensive places to leave debt unaddressed.
-
-### 4A. Code structure signals
-```bash
-# God files (>500 lines = architectural smell)
-find . -name "*.ts" -o -name "*.py" -o -name "*.go" -o -name "*.java" 2>/dev/null \
-  | grep -v node_modules | grep -v ".git" \
-  | xargs wc -l 2>/dev/null | awk '$1>500' | sort -rn | head -15
-
-# Circular dependency risk: cross-module imports
-grep -rn "from \.\." --include="*.ts" --include="*.py" . 2>/dev/null \
-  | grep -v node_modules | grep -v test | wc -l
-
-# Dead code signals
-grep -rn "TODO\|FIXME\|HACK\|XXX\|DEPRECATED\|@deprecated" \
-  --include="*.ts" --include="*.js" --include="*.py" --include="*.go" \
-  . 2>/dev/null | grep -v node_modules | grep -v ".git" | wc -l
-
-# Duplicated logic (files with similar names)
-find . -name "*.ts" -o -name "*.py" | grep -v node_modules \
-  | xargs basename -a 2>/dev/null | sort | uniq -d | head -10
-```
-
-### 4B. Infrastructure & ops debt
-```bash
-# Docker image age signals
-grep -rn "FROM " Dockerfile* docker-compose*.yml 2>/dev/null | grep -v "#"
-
-# Kubernetes / Helm: deprecated API versions
-grep -rn "apiVersion:" k8s/ helm/ manifests/ 2>/dev/null | head -20
-
-# Missing health checks
-grep -rn "healthcheck\|health_check\|/health\|/ready" \
-  Dockerfile* docker-compose*.yml . 2>/dev/null | grep -v node_modules | wc -l
-
-# Hardcoded IPs / domains (should be env vars)
-grep -rn "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}" \
-  --include="*.ts" --include="*.py" --include="*.go" --include="*.yaml" \
-  . 2>/dev/null | grep -v node_modules | grep -v ".git" \
-  | grep -v "127\.0\.0\.1\|0\.0\.0\.0\|255\.255\|test\|spec" | head -10
-```
-
-### 4C. Observability gaps
-```bash
-# Logging
-grep -rn "console\.log\|print(\|fmt\.Print\|log\." \
-  --include="*.ts" --include="*.py" --include="*.go" \
-  . 2>/dev/null | grep -v node_modules | grep -v test | wc -l
-
-# Structured logging vs raw
-grep -rn "winston\|pino\|structlog\|zerolog\|zap\|slog" \
-  . 2>/dev/null | grep -v node_modules | wc -l
-
-# Metrics / tracing
-grep -rn "prometheus\|datadog\|opentelemetry\|jaeger\|honeycomb\|grafana" \
-  . 2>/dev/null | grep -v node_modules | wc -l
-```
+Runs all of Phase 4 (sections labeled in stdout):
+- **4A.0** intersects the top-20 largest source files with the top-20 most-git-churned files
+  (last 6 months), writing scratch files to `/tmp/audit-{largest,churn,hotspots}.txt`. Every
+  file in the intersection MUST receive concrete file:line citations in the findings table —
+  these are the most expensive places to leave debt unaddressed.
+- **4A** code structure signals — god files (>500 lines), circular-import risk count,
+  dead-code marker count (TODO/FIXME/HACK/XXX/DEPRECATED), duplicated-basename files.
+- **4B** infrastructure & ops debt — Docker base image lines, k8s/Helm apiVersion usage,
+  health-check presence count, hardcoded IP/domain matches (excludes loopback/broadcast/test).
+- **4C** observability gaps — raw logging call count, structured-logging library presence,
+  metrics/tracing tool presence.
 
 ---
 
@@ -460,62 +237,13 @@ grep -rn "prometheus\|datadog\|opentelemetry\|jaeger\|honeycomb\|grafana" \
 For `archetype: ai-system | agent-product`, verify actual LLM spend has not exceeded the declared `monthly-budget-llm-usd`. If exceeded, file a P0 Beads task immediately.
 
 ```bash
-ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-case "$ARCHETYPE" in
-  ai-system|agent-product) ;;
-  *) ;;  # skip cost-cap for non-AI archetypes
-esac
-
-if [ "$ARCHETYPE" = "ai-system" ] || [ "$ARCHETYPE" = "agent-product" ]; then
-  BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '$')
-
-  if [ -z "$BUDGET" ] || [ "$BUDGET" = "0" ]; then
-    # Dedup: skip if open task already exists for cost cap
-    if ! bd search "cost cap" 2>/dev/null | grep -qi "open\|in.progress"; then
-      bd create "AI cost cap unset for $ARCHETYPE archetype" \
-        --priority P0 --label compliance --label cost \
-        --notes "PROJECT.md missing monthly-budget-llm-usd. ai-system / agent-product archetypes require explicit LLM spend cap. Fill in PROJECT.md ## Budget section." 2>/dev/null
-    fi
-    echo "⚠ P0: monthly-budget-llm-usd not set for $ARCHETYPE archetype"
-  else
-    # Look for cost telemetry: standard locations
-    SPEND_THIS_MONTH=0
-    for SOURCE in \
-      .great_cto/cost-history.log \
-      logs/llm-cost.log \
-      logs/cost.log \
-      logs/audit.jsonl; do
-      if [ -f "$SOURCE" ]; then
-        # Sum cost_usd entries from current month (jsonl-style log expected)
-        MONTH_PREFIX=$(date -u +"%Y-%m")
-        SUM=$(grep "$MONTH_PREFIX" "$SOURCE" 2>/dev/null \
-          | grep -oE '"cost_usd"[[:space:]]*:[[:space:]]*[0-9.]+' \
-          | awk -F: '{s += $2} END {printf "%.2f", s}')
-        SPEND_THIS_MONTH=$(echo "$SPEND_THIS_MONTH + ${SUM:-0}" | bc 2>/dev/null || echo "$SPEND_THIS_MONTH")
-      fi
-    done
-
-    # Compare against budget — flag at 80% (warning) and 100% (P0)
-    PCT=$(echo "scale=0; $SPEND_THIS_MONTH * 100 / $BUDGET" | bc 2>/dev/null || echo 0)
-
-    if [ "${PCT:-0}" -ge 100 ]; then
-      if ! bd search "LLM spend exceeded" 2>/dev/null | grep -qi "open\|in.progress"; then
-        bd create "LLM spend exceeded budget ($SPEND_THIS_MONTH USD vs $BUDGET cap)" \
-          --priority P0 --label compliance --label cost \
-          --notes "Audit detected LLM spend over the declared monthly cap. Either raise budget after CTO sign-off or kill-switch the runaway path. See ARCH-*.md § Cost Model." 2>/dev/null
-      fi
-      echo "⚠ P0: LLM spend $SPEND_THIS_MONTH USD exceeds budget $BUDGET (${PCT}%)"
-    elif [ "${PCT:-0}" -ge 80 ]; then
-      if ! bd search "LLM spend approaching" 2>/dev/null | grep -qi "open\|in.progress"; then
-        bd create "LLM spend approaching budget cap (${PCT}%)" \
-          --priority P1 --label cost \
-          --notes "Spend is at ${PCT}% of monthly cap. Investigate runaway sessions or raise cap." 2>/dev/null
-      fi
-      echo "P1: LLM spend at ${PCT}% of monthly cap"
-    fi
-  fi
-fi
+bash scripts/auditor-ai-cost-cap-check.sh
 ```
+
+No-op for non-AI archetypes. For ai-system/agent-product: if `monthly-budget-llm-usd` is unset
+→ P0 Beads task. Otherwise sums `cost_usd` entries for the current month from the standard cost-log
+locations and compares to budget — P1 task at ≥80%, P0 task at ≥100%. Every `bd create` is
+dedup-guarded (skips if a matching open/in-progress task already exists).
 
 If no cost log exists in any standard location, file a P1 Beads task: "LLM cost telemetry not instrumented — agent-pack BudgetTracker pattern not adopted yet". Reference `skills/great_cto/packs/agent-pack.md § Budget Cap Enforcement Pattern`.
 
@@ -732,33 +460,14 @@ fi
 **Rule: the detected type MUST exist verbatim in TYPE_MAP.md. No invented types, no approximations.**
 
 ```bash
-# Extract canonical type list from TYPE_MAP.md (backticked tokens in the right column)
-TYPE_MAP_PATH="${ARCHETYPES_MD%ARCHETYPES.md}TYPE_MAP.md"
-[ -f "$TYPE_MAP_PATH" ] || TYPE_MAP_PATH=$(find ~/.claude -name "TYPE_MAP.md" -path "*/great_cto/*" 2>/dev/null | sort -V | tail -1)
-VALID_TYPES=$(grep -oE '`[a-z0-9-]+`' "$TYPE_MAP_PATH" 2>/dev/null | tr -d '`' | sort -u)
-
-validate_type() {
-  local t="$1"
-  [ -z "$t" ] && return 1
-  echo "$VALID_TYPES" | grep -qx "$t"
-}
-
-# Apply to primary and secondary before writing PROJECT.md
-if ! validate_type "$DETECTED_PRIMARY"; then
-  echo "ERROR: detected primary type '$DETECTED_PRIMARY' is NOT in TYPE_MAP.md"
-  echo "Valid types nearest to this description:"
-  echo "$VALID_TYPES" | head -10
-  echo "BLOCKED — refusing to write a hallucinated type. Either:"
-  echo "  1. Add a matching keyword line to TYPE_MAP.md, or"
-  echo "  2. Pick the closest existing type from the list above"
-  exit 1
-fi
-
-if [ -n "$DETECTED_SECONDARY" ] && ! validate_type "$DETECTED_SECONDARY"; then
-  echo "WARN: secondary type '$DETECTED_SECONDARY' is NOT in TYPE_MAP.md — dropping"
-  DETECTED_SECONDARY=""
-fi
+ARCHETYPES_MD="$ARCHETYPES_MD" DETECTED_PRIMARY="$DETECTED_PRIMARY" DETECTED_SECONDARY="$DETECTED_SECONDARY" \
+  bash scripts/auditor-validate-type.sh || exit 1
 ```
+
+Exits 1 (BLOCKED) if `$DETECTED_PRIMARY` isn't a verbatim backticked token in TYPE_MAP.md —
+prints the nearest valid types. If `$DETECTED_SECONDARY` is invalid it prints a WARN and drops
+it; since this runs as a subprocess, **read the WARN line yourself and treat `DETECTED_SECONDARY`
+as empty for the rest of this run** if it printed (the script cannot mutate your shell's variable).
 
 If the detection produced a type that does not exist in TYPE_MAP (e.g. fintech vertical labels like `neobroker`, domain adjectives like `orchestrator` without a mapping), **do not invent**. Either add a keyword row to TYPE_MAP.md (and commit it as part of the audit) or pick the nearest existing type. Hallucinating a secondary type to capture a vertical (`fintech`, `crypto`, `healthcare`) is wrong — those belong in a `## Domain` section, not `## Type`.
 
@@ -798,46 +507,19 @@ bd init 2>/dev/null || true
 
 ### Deduplication — MANDATORY before every bd create
 
-Re-running `/audit` on the same repo creates duplicate tickets. Before creating any task, check if an open task with a similar title already exists:
+Re-running `/audit` on the same repo creates duplicate tickets. Before creating any task, check if an open task with a similar title already exists — source the helper once, then call it in place of every raw `bd create`:
 
 ```bash
-# bd_create_if_new — create task only if no similar open task exists.
-# Usage: bd_create_if_new <keyword1> <keyword2> <full title> [bd create flags...]
-#
-# Strategy: search open tasks for ALL provided keywords. If ANY match found → skip.
-# Keywords should be the most distinctive words from the title (dep name, filename,
-# metric, etc.) — not generic words like "fix", "update", "add".
-
-bd_create_if_new() {
-  local KEYWORDS=()
-  local TITLE=""
-  local FLAGS=()
-  local PARSING_KEYWORDS=true
-
-  # Convention: args before "--" are keywords, "--" separates title, rest are flags
-  # Simplified: first N args with no spaces = keywords, then title string, then flags
-  # Real usage: pass keywords as first args until you hit the title (quoted string)
-  # See examples below.
-
-  # Simpler implementation — search for each keyword in open task titles:
-  local SEARCH_KEY="$1"; shift
-  TITLE="$1"; shift
-  FLAGS=("$@")
-
-  # Check if any open task contains the search keyword (case-insensitive)
-  if bd search "$SEARCH_KEY" 2>/dev/null | grep -qi "open\|in.progress"; then
-    echo "  SKIP (duplicate): '$TITLE' — open task already exists for '$SEARCH_KEY'"
-    return 0
-  fi
-
-  # No duplicate found — create the task
-  bd create "$TITLE" "${FLAGS[@]}" 2>/dev/null && \
-    echo "  CREATED: $TITLE" || \
-    echo "  bd create failed: $TITLE (bd may be unavailable)"
-}
+source scripts/bd-create-if-new.sh
 ```
 
-**Example usage** (replace the raw `bd create` calls below with this pattern):
+`bd_create_if_new <search-keyword> <full-title> [bd create flags...]` searches open/in-progress
+tasks for the keyword (case-insensitive); if found it prints `SKIP (duplicate)` and returns
+without creating anything, otherwise it creates the task and prints `CREATED`. Use the most
+distinctive token from the title as the keyword (dep name, filename, metric) — not generic
+words like "fix"/"update"/"add", which would false-positive against unrelated tasks.
+
+**Example usage** (replace every raw `bd create` call below with this pattern):
 
 ```bash
 # ❌ Wrong — creates duplicate on re-run:
