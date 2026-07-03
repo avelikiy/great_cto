@@ -12,6 +12,32 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.82.0 — 2026-07-03
+
+### 5 new domain reviewers — reviewer system complete
+
+Built the 5 remaining planned reviewers, taking `test_new_reviewers.py` to 9/9:
+
+- **rcm-reviewer** — healthcare revenue cycle: CMS-1500/UB-04 claims, CPT/HCPCS/
+  ICD-10 coding + upcoding/unbundling (False Claims Act / OIG), 835 remittance,
+  No Surprises Act good-faith estimates.
+- **procurement-reviewer** — source-to-pay: three-way match, segregation of
+  duties, OFAC vendor screening, competitive-bid fairness, SOX procurement.
+- **accounting-reviewer** — GL/close: double-entry integrity, ASC 606, 1099,
+  month-end reconciliation, SOX ITGC, journal-entry approval + SoD. GL/GAAP
+  auto-attach tokens migrated off the `enterprise-saas-reviewer` stop-gap to this
+  dedicated reviewer (no double-attach). Closes the accounting-catalog gap.
+- **msp-reviewer** — managed IT: multi-tenant isolation, MSA/SLA enforcement,
+  credential vaulting, patch/backup SLAs, SOC 2 for MSPs.
+- **tax-reviewer** — tax prep: IRS MeF e-file, PTIN + Circular 230, taxpayer-data
+  safeguards (Pub 4557 / GLBA / WISP), Form 8879, §7216 consent.
+- Each ships agent + TM threat-model template + pack overlay + `/command` +
+  token-specific auto-attach pattern. Tests: main suite 336, CLI 268 (+42), all
+  green; structural validators + `ci-local --quick` green.
+
+---
+
 ## v2.81.0 — 2026-07-03
 
 ### Legal archetype + legal-reviewer
