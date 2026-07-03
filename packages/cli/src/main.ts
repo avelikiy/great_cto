@@ -22,6 +22,7 @@ import { bootstrap } from "./bootstrap.js";
 import { compileFlow } from "./flow.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
 import { sendUsagePing, sendInstallPing, telemetrySubcommand, isTelemetryEnabled, computeAnonId } from "./telemetry.js";
+import { checkForUpdate } from "./update-check.js";
 import { findBoardServerPath } from "./board-path.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -1059,6 +1060,13 @@ async function main(): Promise<void> {
         durationMs: Date.now() - __tStart,
       });
     } catch { /* telemetry never affects the exit */ }
+    // Update hint — printed after the command's own output, never blocks on
+    // network (reads a local cache; spawns a detached refresh if stale).
+    // Excluded automatically for mcp/worker/task via PROTOCOL_SENSITIVE_COMMANDS
+    // inside checkForUpdate — worker/task don't even route through finish().
+    try {
+      checkForUpdate({ currentVersion: getCliVersion(), command: args.command });
+    } catch { /* update hint never affects the exit */ }
     process.exit(code);
   };
 
