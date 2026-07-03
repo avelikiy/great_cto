@@ -40,16 +40,45 @@ function watchBeads() {
     }, 200));
   };
 
+  // Tracks dirs whose interactions.jsonl file watch is already registered,
+  // so the late-registration path (b) below doesn't double-watch a file
+  // that was already picked up at startup by (a).
+  const interactionsWatched = new Set();
+
+  const watchInteractionsFile = (dir) => {
+    if (interactionsWatched.has(dir)) return;
+    const interactionsFile = path.join(dir, '.beads', 'interactions.jsonl');
+    try {
+      fs.watch(interactionsFile, () => schedule(dir));
+      interactionsWatched.add(dir);
+    } catch {}
+  };
+
   for (const dir of dirs) {
     // (a) interactions.jsonl — captures bd update/close
     const interactionsFile = path.join(dir, '.beads', 'interactions.jsonl');
     if (fs.existsSync(interactionsFile)) {
-      try { fs.watch(interactionsFile, () => schedule(dir)); } catch {}
+      watchInteractionsFile(dir);
     }
     // (b) dolt embeddeddolt directory (recursive) — captures bd create
     const doltDir = path.join(dir, '.beads', 'embeddeddolt');
     if (fs.existsSync(doltDir)) {
       try { fs.watch(doltDir, { recursive: true }, () => schedule(dir)); } catch {}
+    }
+    // (c) .beads dir itself — interactions.jsonl is only registered above if
+    // it already exists at startup; if bd creates it later (first `bd
+    // update`/`close` on a project with no prior interaction log), that
+    // event was previously missed entirely (great_cto-lvai). Watch the
+    // .beads dir (non-recursive) and register the file watch as soon as it
+    // appears, guarded against double-registration via interactionsWatched.
+    const beadsDir = path.join(dir, '.beads');
+    if (fs.existsSync(beadsDir)) {
+      try {
+        fs.watch(beadsDir, (eventType, filename) => {
+          if (filename === 'interactions.jsonl') watchInteractionsFile(dir);
+          schedule(dir);
+        });
+      } catch {}
     }
   }
 }
