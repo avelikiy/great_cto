@@ -40,10 +40,11 @@ gate the work — so one person ships like an engineering org.
 > **One real feature: idea → merged PR in `1h 26m` for `$3.40` in LLM cost.** The traditional
 > path for the same feature was ~170 hours and ~$42K. [See the full trace →](https://greatcto.systems/proof)
 
-It builds across the top US service industries — home & field services, professional services,
-hospitality, retail/e-commerce, proptech, fitness, marketing & creator, HR/recruiting,
-construction, logistics — which collapse into **6 reusable build pipelines** (CRUD vertical-SaaS,
-booking, CRM, dashboard, marketplace, content/media). One command ships any of **~40 products**.
+It builds across 15 US industries — home & field services, professional services,
+retail/e-commerce, proptech, fitness, marketing & creator, HR/recruiting, construction,
+logistics, restaurants, and the regulated verticals allied health, dental, insurance, accounting
+& tax and law firms — which collapse into **6 reusable build pipelines** (CRUD vertical-SaaS,
+booking, CRM, dashboard, marketplace, content/media). One command ships any of **60 products**.
 See [docs/strategy/BUILD-PIPELINES.md](docs/strategy/BUILD-PIPELINES.md).
 
 ```
@@ -87,10 +88,10 @@ and the high-blast-radius calls; the rest runs straight through, enforced in cod
 | One feature, end to end (real run, fully traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~170h traditional |
 | An earlier CLI-feature run, same pipeline | $2.39 LLM vs ~$5,460 human-equivalent; security caught 2 defects QA had passed |
 | Monthly cost (20 pipeline runs) | **~$34** |
-| Target US industries | **10** (home services · retail · proptech · fitness · HR · …) |
-| Buildable products | **~40** across the 10 industries |
+| Target US industries | **15** (home services · retail · proptech · fitness · HR · healthcare · insurance · legal · …) |
+| Buildable products | **60** across the 15 industries |
 | Reusable build pipelines | **6** (CRUD · booking · CRM · dashboard · marketplace · content) |
-| Specialist agents | **61** |
+| Specialist agents | **67** |
 | Generated-product quality (measured) | **89/100** across all 6 build archetypes — reproducible `product-score` harness (quality-machinery score; a floor, not deep correctness) |
 
 → [Full trace with all artefacts](https://greatcto.systems/proof) · [the 6 pipelines](https://greatcto.systems/pipelines)
@@ -161,7 +162,7 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 61 agents · build archetypes · board · cost · MCP</summary>
+<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 67 agents · build archetypes · board · cost · MCP</summary>
 
 ## One decision per feature
 
@@ -195,7 +196,7 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ Cognition cloud | ✅ Claude Code |
 | BYOK / multi-model | ✅ Claude Code · Codex | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **61** (architect · design-advisor · senior-dev · code-reviewer · QA · security · e2e-test-engineer · devops · archetype reviewers) | 1 generalist | 1 generalist |
+| Specialist agents | **67** (architect · design-advisor · senior-dev · code-reviewer · QA · security · e2e-test-engineer · devops · archetype reviewers) | 1 generalist | 1 generalist |
 | Build pipeline | spec → CTO gate → scaffold → build → test → deploy | one-shot autonomy | edit loop |
 | Human gates | ✅ one — you approve the spec (risk-tiered) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
@@ -267,7 +268,7 @@ Pay your own Anthropic API tokens. **No per-seat fee. No SaaS lock-in.** Routine
 ## Build archetypes
 
 Every product maps to a **build archetype** that shapes its pipeline — the stack template,
-the data shape, the signature integration. The 6 Product Builder archetypes (the ~40 products
+the data shape, the signature integration. The 6 Product Builder archetypes (the 60 products
 collapse into these):
 
 | Archetype | Shape | Stack | Integration |
@@ -285,6 +286,8 @@ Plus the underlying software-kind archetypes (`web-service`, `mobile-app`, `cli-
 Full table (26 archetypes) + how detection works: [docs/ARCHETYPES.md](docs/ARCHETYPES.md).
 
 **Deep US coverage** — beyond GDPR/PCI/HIPAA, great_cto now reviews against SEC cyber-disclosure (8-K Item 1.05), CMMC 2.0 / NIST 800-171 for defense contractors, US AI governance (NIST AI RMF · Colorado SB 205 · Utah/Texas AI), web-tracking litigation (VPPA · CIPA · Washington MHMDA), and HMDA / SR 11-7 model risk for lending.
+
+**Regulated SMB verticals** — the catalog covers 15 US industries / 60 products, including regulated ones where a matching domain reviewer auto-attaches when you build: allied health & dental (HIPAA), insurance agencies (NAIC / ACORD), accounting & tax firms (SOX ITGC · IRS Circular 230), and law firms (UPL · IOLTA trust accounting · privilege). Detect the archetype, get the right compliance reviewer and gate — not just a scaffold.
 
 ## Domain overlays (optional)
 
@@ -319,7 +322,7 @@ Drop into any GitHub Actions workflow:
 
 ## Test pyramid
 
-Layered test suite — **structural + state-machine tier runs in <2 min for $0** (`node --test tests/*.test.mjs`); real-LLM tier (26 archetypes × 4-8 stages + 14 packs + 13 reviewers) runs on-demand via OpenRouter for ~$5–10. Full breakdown: [docs/testing/](docs/testing/).
+Layered test suite — **structural + state-machine tier runs in <2 min for $0** (`node --test tests/*.test.mjs`); real-LLM tier (archetypes × 4-8 stages, plus pack overlays and domain reviewers) runs on-demand via OpenRouter for ~$5–10. Full breakdown: [docs/testing/](docs/testing/).
 
 ## MCP
 
@@ -373,11 +376,11 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 61 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 67 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
-**v2.74+** (June 2026) — **The Product Builder pivot**: GreatCTO becomes an *AI Product Builder* — describe a software product, approve the spec at one CTO gate, and the pipeline ships it (spec → build → test → deploy). 10 US industries, ~40 products, 6 reusable pipelines. Build gates are risk-tiered (`change_tier`); the regulated runtime surface moved out to [avelikiy/operate](https://github.com/avelikiy/operate). Story: [the strategy](docs/strategy/PRODUCT-BUILDER-DIRECTION.md) · [the 6 pipelines](https://greatcto.systems/pipelines)
+**v2.74+** (June 2026) — **The Product Builder pivot**: GreatCTO becomes an *AI Product Builder* — describe a software product, approve the spec at one CTO gate, and the pipeline ships it (spec → build → test → deploy). 15 US industries, 60 products, 6 reusable pipelines. Build gates are risk-tiered (`change_tier`); the regulated runtime surface moved out to [avelikiy/operate](https://github.com/avelikiy/operate). Story: [the strategy](docs/strategy/PRODUCT-BUILDER-DIRECTION.md) · [the 6 pipelines](https://greatcto.systems/pipelines)
 
 **v2.40–v2.62** — **The autopilot pivot**: 25 service-autopilot verticals, each gated on a human signature before any irreversible action. Earlier chapter — see [CHANGELOG.md](CHANGELOG.md).
 
