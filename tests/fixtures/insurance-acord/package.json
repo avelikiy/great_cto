@@ -1,0 +1,15 @@
+{
+  "name": "policy-hub",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.7.0"
+  }
+}
