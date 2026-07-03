@@ -151,16 +151,20 @@ surprised is very high for an open-source project that asks for trust.
 
 ## Update check (separate from telemetry — on by default)
 
-The CLI periodically checks npm for a newer `great-cto` version and prints a
-one-line hint to stderr when one is available (classic `update-notifier`
-pattern, implemented with zero dependencies). This is **not** telemetry: it's
+The CLI periodically checks npm for a newer `great-cto` version and notifies
+you on stderr when one is available (classic `update-notifier` pattern,
+implemented with zero dependencies): the first interactive run per release
+asks `Update to x.y.z? [Y/n]` (15s timeout, defaults to No on timeout), and
+every later run prints a one-line hint. This is **not** telemetry: it's
 a read-only `GET https://registry.npmjs.org/-/package/great-cto/dist-tags`
 request — the same traffic `npm install`/`npm outdated` already make — and it
-sends nothing about you or your project. The result (`{"latest": "x.y.z"}`)
-is cached locally at `~/.great_cto/update-check.json` for 24h; the check runs
-in a detached background process so it never delays or blocks your command.
+sends nothing about you or your project. The result (`{"latest": "x.y.z"}`),
+plus which release you've already been prompted about, is cached locally at
+`~/.great_cto/update-check.json` for 24h; the check runs in a detached
+background process so it never delays or blocks your command.
 It's skipped automatically for `mcp`/`worker`/`task` (protocol-sensitive
-stdio) and for non-interactive/CI runs. Opt out with `GREAT_CTO_NO_UPDATE_CHECK=1`.
+stdio) and for non-interactive/CI runs (the prompt additionally requires an
+interactive stdin). Opt out with `GREAT_CTO_NO_UPDATE_CHECK=1`.
 Source: `packages/cli/src/update-check.ts`.
 
 ## Changelog
