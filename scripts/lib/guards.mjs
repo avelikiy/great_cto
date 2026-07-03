@@ -7,6 +7,7 @@
 // LLM context or stall a run.
 
 import { statSync, readFileSync } from 'node:fs';
+import { log } from './log.mjs';
 
 // Defaults mirror SIA's Config (scaled for great_cto's markdown memory files).
 export const MAX_CONTEXT_FILE_BYTES = 10_000_000; // 10 MB — refuse to load larger
@@ -23,7 +24,9 @@ export function safeReadFile(path, { maxBytes = MAX_CONTEXT_FILE_BYTES, encoding
   try {
     const { size } = statSync(path);
     if (size > maxBytes) {
-      process.env.GREAT_CTO_DEBUG && console.warn(`[guard] file too large (${size} > ${maxBytes}): ${path}`);
+      // GREAT_CTO_DEBUG keeps its historical behavior (line visible at the
+      // default log level); otherwise this is debug-level (GREAT_CTO_LOG_LEVEL=debug).
+      (process.env.GREAT_CTO_DEBUG ? log.warn : log.debug)(`[guard] file too large (${size} > ${maxBytes}): ${path}`);
       return null;
     }
     return readFileSync(path, encoding);
