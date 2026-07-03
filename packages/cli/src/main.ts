@@ -59,6 +59,7 @@ interface CliArgs {
   useLlm: boolean;        // --use-llm: force LLM even on high confidence
   noLlm: boolean;         // --no-llm: skip LLM even on low confidence
   host: "claude-code" | "codex" | null;  // --host codex: install for Codex instead of Claude Code
+  upgradeSelf: boolean;   // `upgrade --self` / `upgrade self`: upgrade the CLI itself, not companion plugins
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -77,6 +78,7 @@ function parseArgs(argv: string[]): CliArgs {
     useLlm: false,
     noLlm: false,
     host: null,
+    upgradeSelf: false,
     positional: [],
   };
 
@@ -111,6 +113,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "webhook") args.command = "webhook";
     else if (a === "report") args.command = "report";
     else if (a === "upgrade") args.command = "upgrade";
+    else if (a === "--self") args.upgradeSelf = true;
     else if (a === "task") { args.command = "task"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "worker") { args.command = "worker"; args.taskArgs = argv.slice(i + 1); break; }
     // Slash-commands surfaced as CLI subcommands so users get a clear hint
@@ -330,6 +333,7 @@ ${bold("Usage:")}
   npx great-cto adapt [--dry-run]
   npx great-cto serve [--port 3142]
   npx great-cto upgrade [superpowers|beads]  Re-clone companions to latest tag + re-apply overlays
+  npx great-cto upgrade --self                Upgrade the great-cto CLI itself, in place
   npx great-cto help
   npx great-cto version
 
@@ -360,6 +364,7 @@ ${bold("Upgrade:")}
   great-cto upgrade              Upgrade superpowers + beads to latest, re-apply critic overlays
   great-cto upgrade superpowers  Upgrade superpowers only
   great-cto upgrade beads        Upgrade beads only
+  great-cto upgrade --self       Upgrade the great-cto CLI itself (also: upgrade self)
   ${dim("(Safe to run any time — idempotent if already on latest)")}
 
 ${bold("CI gate:")}
@@ -1009,13 +1014,44 @@ function installPrePushHook(projectDir: string): void {
 }
 
 
-async function runUpgrade(rawArgv: string[]): Promise<number> {
+async function runSelfUpgrade(): Promise<number> {
+  const { performSelfUpgrade, resolveRunningBinaryPath } = await import("./self-upgrade.js");
+  const currentVersion = getCliVersion();
+  const binaryPath = resolveRunningBinaryPath();
+
+  log(`${bold("great-cto upgrade --self")} — current version ${cyan(currentVersion)}`);
+  log(dim(`  running binary: ${binaryPath}`));
+  log("");
+
+  const result = performSelfUpgrade({ currentVersion, binaryPath });
+
+  if (result.manager === "npx") {
+    log(result.message);
+    return 0;
+  }
+
+  if (result.exitCode !== 0) {
+    error(result.message);
+    return result.exitCode;
+  }
+
+  success(result.message);
+  return 0;
+}
+
+async function runUpgrade(rawArgv: string[], args: CliArgs): Promise<number> {
+  // `upgrade --self` / `upgrade self` — upgrade the CLI itself, not companion plugins.
+  const upgradeIdx = rawArgv.indexOf("upgrade");
+  const firstArgAfterUpgrade = upgradeIdx >= 0 ? rawArgv[upgradeIdx + 1] : undefined;
+  if (args.upgradeSelf || firstArgAfterUpgrade === "self") {
+    return runSelfUpgrade();
+  }
+
   const { upgradePlugin, upgradeAll } = await import("./upgrade.js");
   const { COMPANION_PLUGINS } = await import("./companion.js");
 
   // Optional positional: great-cto upgrade [plugin-name]
-  const upgradeIdx = rawArgv.indexOf("upgrade");
-  const pluginArg = upgradeIdx >= 0 ? rawArgv[upgradeIdx + 1] : undefined;
+  const pluginArg = firstArgAfterUpgrade;
   const targetPlugin = pluginArg && !pluginArg.startsWith("--") ? pluginArg : undefined;
 
   let results;
@@ -1194,7 +1230,7 @@ async function main(): Promise<void> {
   }
   if (args.command === "upgrade") {
     try {
-      const code = await runUpgrade(rawArgv);
+      const code = await runUpgrade(rawArgv, args);
       await finish(code);
     } catch (e) {
       error((e as Error).message);
