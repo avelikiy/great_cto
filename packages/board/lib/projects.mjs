@@ -11,9 +11,44 @@ function readProjectsRegistry() {
   catch {}
   return { projects: [] };
 }
+// Pick the best entry among several sharing a slug: prefer one whose path
+// still exists on disk; among several existing (or several missing), prefer
+// the most recently added_at. Never returns a non-existent path when an
+// existing match is available (great_cto-7xfc).
+function pickBestBySlug(candidates) {
+  let best = null;
+  for (const p of candidates) {
+    if (!best) { best = p; continue; }
+    const pExists = existsSafe(p.path);
+    const bestExists = existsSafe(best.path);
+    if (pExists && !bestExists) { best = p; continue; }
+    if (!pExists && bestExists) continue;
+    // Both exist or both missing — prefer most recent added_at.
+    if (String(p.added_at || '') > String(best.added_at || '')) best = p;
+  }
+  return best;
+}
+function existsSafe(p) {
+  try { return !!p && fs.existsSync(p); } catch { return false; }
+}
+// Dedupe registry entries by slug before writing, so the registry self-heals
+// on every write regardless of how the duplicate got in (great_cto-7xfc).
+function dedupeProjects(projects) {
+  const bySlug = new Map();
+  for (const p of projects) {
+    if (!p || !p.slug) continue;
+    const group = bySlug.get(p.slug) || [];
+    group.push(p);
+    bySlug.set(p.slug, group);
+  }
+  const out = [];
+  for (const group of bySlug.values()) out.push(pickBestBySlug(group));
+  return out;
+}
 function writeProjectsRegistry(reg) {
   fs.mkdirSync(GREAT_CTO_DIR, { recursive: true });
-  fs.writeFileSync(PROJECTS_FILE, JSON.stringify(reg, null, 2));
+  const deduped = { ...reg, projects: dedupeProjects(reg.projects || []) };
+  fs.writeFileSync(PROJECTS_FILE, JSON.stringify(deduped, null, 2));
 }
 // Map legacy / informal archetype names to canonical archetype slugs.
 // This lets the board correctly badge old PROJECT.md files (mobile, saas-platform,
@@ -99,10 +134,20 @@ function autoRegisterProject(dir) {
   const meta = readProjectMd(dir);
   if (!meta) return null;
   const reg = readProjectsRegistry();
-  if (!reg.projects.find(p => p.path === meta.path)) {
+  const existingByPath = reg.projects.find(p => p.path === meta.path);
+  if (existingByPath) return meta; // already registered at this path, nothing to do
+  const existingBySlug = reg.projects.find(p => p.slug === meta.slug);
+  if (existingBySlug) {
+    // Repo moved: update the existing entry's path in place instead of
+    // inserting a second entry for the same slug (great_cto-7xfc).
+    existingBySlug.path = meta.path;
+    existingBySlug.archetype = meta.archetype;
+    existingBySlug.description = meta.description;
+    existingBySlug.added_at = meta.added_at;
+  } else {
     reg.projects.push(meta);
-    writeProjectsRegistry(reg);
   }
+  writeProjectsRegistry(reg);
   return meta;
 }
 
@@ -209,9 +254,12 @@ function resolveProjectCwd(slugOrPath) {
   // If absolute path or starts with ~, use directly
   if (slugOrPath.startsWith('/')) return slugOrPath;
   if (slugOrPath.startsWith('~')) return slugOrPath.replace(/^~/, os.homedir());
-  // Else look up in registry by slug
+  // Else look up in registry by slug — among duplicate slugs (great_cto-7xfc),
+  // prefer the entry whose path exists on disk; among several existing (or
+  // several missing), prefer the most recently added_at.
   const reg = readProjectsRegistry();
-  const found = reg.projects.find(p => p.slug === slugOrPath);
+  const matches = reg.projects.filter(p => p.slug === slugOrPath);
+  const found = pickBestBySlug(matches);
   return found ? found.path : process.cwd();
 }
 
@@ -235,7 +283,8 @@ function resolveProjectInfo(slugOrPath) {
     return { cwd: slugOrPath.replace(/^~/, os.homedir()), resolved: 'path' };
   }
   const reg = readProjectsRegistry();
-  const found = reg.projects.find(p => p.slug === slugOrPath);
+  const matches = reg.projects.filter(p => p.slug === slugOrPath);
+  const found = pickBestBySlug(matches);
   if (found) return { cwd: found.path, resolved: 'slug' };
   return { cwd: process.cwd(), resolved: 'fallback', requested: slugOrPath };
 }
@@ -243,6 +292,8 @@ function resolveProjectInfo(slugOrPath) {
 export {
   readProjectsRegistry,
   writeProjectsRegistry,
+  pickBestBySlug,
+  dedupeProjects,
   ARCHETYPE_ALIASES,
   normalizeArchetype,
   extractArchetype,
