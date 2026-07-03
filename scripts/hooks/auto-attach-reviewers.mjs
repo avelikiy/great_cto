@@ -51,7 +51,24 @@ export const RULES = [
   // core accounting-controls signals route to the SOX-ITGC surface enterprise-saas-reviewer
   // already owns. "1099"/"e-file" deliberately excluded: too loose as bare substrings
   // (collide with port numbers, filenames, version strings) without a path anchor.
-  { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc|general.?ledger|\bgaap\b)/i },
+  { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc)/i },
+  // procurement-reviewer: purchasing / source-to-pay tokens only — deliberately avoids
+  // bare "purchase"/"order"/"vendor" (each collides with e-commerce/checkout code).
+  // Each token below is a procurement-specific compound or acronym:
+  //   purchase.?order       — the PO artifact itself, requires the compound
+  //   three.?way.?match     — the PO/receipt/invoice reconciliation control, unambiguous
+  //   \brfp\b               — Request for Proposal (word-boundaried: short acronym)
+  //   \bofac\b              — sanctions-screening authority (word-boundaried)
+  //   punchout               — e-procurement catalog-launch protocol, unambiguous
+  //   cxml                   — the punchout XML dialect name, unambiguous
+  //   requisition            — procurement-specific request artifact (not generic "request")
+  { reviewer: "procurement-reviewer",    pattern: /(purchase.?order|three.?way.?match|\brfp\b|\bofac\b|punchout|cxml|requisition)/i },
+  // accounting-reviewer: bookkeeping / GL / close-cycle tokens — MOVED from
+  // enterprise-saas-reviewer (was a stop-gap before this reviewer existed, see
+  // great_cto-k0uf). general.?ledger and \bgaap\b now route here exclusively so
+  // accounting signals hit the domain-correct reviewer instead of the generic
+  // enterprise-controls one.
+  { reviewer: "accounting-reviewer",     pattern: /(asc.?606|journal.?entry|general.?ledger|\bgaap\b|1099|month.?end.?close|chart.?of.?accounts)/i },
   { reviewer: "insurance-reviewer",      pattern: /(naic|solvency|ifrs.?17|acord|actuarial)/i },
   // legal-reviewer: legal-services / legal-tech domain tokens only — deliberately
   // avoids bare "legal"/"law"/"case"/"trust" (each collides with generic code:
