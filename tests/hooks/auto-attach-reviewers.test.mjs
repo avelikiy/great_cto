@@ -45,11 +45,43 @@ test('healthcare-reviewer does NOT attach on unrelated or near-miss paths', () =
   assert.deepEqual(reviewersFor('src/utils/format.ts'), []);
 });
 
+// ─── legal-reviewer: legal-smb vertical (matches insurance-reviewer's shape) ──
+
+test('legal-reviewer attaches on IOLTA/matter/conflict-check/e-filing signals', () => {
+  assert.ok(reviewersFor('src/iolta/trust-ledger.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('src/trust-account/reconcile.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('intake/matter-number.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('intake/conflict-check.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('efile/pacer-client.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('efile/ecf-submit.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('src/retainer-agreement.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('src/attorney-client-log.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('src/upl-guard.ts').includes('legal-reviewer'));
+  assert.ok(reviewersFor('src/docket-sync.ts').includes('legal-reviewer'));
+});
+
+test('legal-reviewer does NOT attach on generic code containing bare legal/law/case/trust tokens', () => {
+  // Deliberately excluded bare tokens — must not collide with license headers,
+  // unrelated "law" words, switch/test "case" terminology, or crypto "trust" code.
+  assert.deepEqual(reviewersFor('src/LICENSE-checker.ts'), []);
+  assert.deepEqual(reviewersFor('src/law-of-large-numbers.ts'), []);
+  assert.deepEqual(reviewersFor('src/test/case-runner.ts'), []);
+  assert.deepEqual(reviewersFor('src/security/trust-boundary.ts'), []);
+  assert.deepEqual(reviewersFor('src/utils/legal-notice.ts'), []);
+});
+
 // ─── regression: reviewers that already had patterns keep working ────────
 
 test('insurance-reviewer still attaches on NAIC/actuarial signals (regression)', () => {
   assert.ok(reviewersFor('src/naic-filing.ts').includes('insurance-reviewer'));
   assert.ok(reviewersFor('actuarial/model.ts').includes('insurance-reviewer'));
+});
+
+test('healthcare-reviewer attaches on dental tokens (dental vertical reuses healthcare archetype)', () => {
+  assert.ok(reviewersFor('src/dental/cdt-code.ts').includes('healthcare-reviewer'));
+  assert.ok(reviewersFor('src/dental/odontogram.tsx').includes('healthcare-reviewer'));
+  assert.ok(reviewersFor('src/dental/perio-chart.ts').includes('healthcare-reviewer'));
+  assert.ok(reviewersFor('billing/dental-claim.ts').includes('healthcare-reviewer'));
 });
 
 test('pci-reviewer still attaches on payment signals (regression)', () => {

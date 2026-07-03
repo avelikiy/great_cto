@@ -57,6 +57,7 @@ const ARCHETYPE_TITLE: Record<string, string> = {
   "edtech":            "EdTech",
   "gov-public":        "Government",
   "insurance":         "Insurance",
+  "legal":             "Legal / Law firm",
   "regulated":         "Regulated system",
   "vertical-saas":     "Vertical SaaS",
   "booking":           "Booking / scheduling",
@@ -81,6 +82,7 @@ const GATE_LABEL: Record<StandardGate, string> = {
   "edtech-review":    "gate:edtech-review",
   "gov-review":       "gate:gov-review",
   "insurance-review": "gate:insurance-review",
+  "upl-review":       "gate:upl-review",
   "cmmc-assessment":  "gate:cmmc-assessment",
 };
 
@@ -96,6 +98,7 @@ const ARCHETYPE_COST: Record<string, readonly [number, number]> = {
   "edtech":            [8, 18],
   "gov-public":        [8, 18],
   "insurance":         [8, 18],
+  "legal":             [8, 18],
   "web3":              [8, 18],
   "commerce":          [3, 8],
   "mobile-app":        [3, 8],
@@ -130,7 +133,7 @@ const ARCHETYPE_COST: Record<string, readonly [number, number]> = {
 export const UI_BEARING_ARCHETYPES: ReadonlySet<Archetype> = new Set<Archetype>([
   "web-service", "mobile-app", "commerce", "marketplace", "cms",
   "enterprise-saas", "edtech", "game", "browser-extension",
-  "healthcare", "fintech", "insurance", "gov-public", "web3",
+  "healthcare", "fintech", "insurance", "legal", "gov-public", "web3",
   // Product Builder archetypes (A1–A6) — all ship a UI.
   "vertical-saas", "booking", "crm", "dashboard", "content-platform",
   "marketplace-lite",

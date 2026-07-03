@@ -53,6 +53,28 @@ export const RULES = [
   // (collide with port numbers, filenames, version strings) without a path anchor.
   { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc|general.?ledger|\bgaap\b)/i },
   { reviewer: "insurance-reviewer",      pattern: /(naic|solvency|ifrs.?17|acord|actuarial)/i },
+  // legal-reviewer: legal-services / legal-tech domain tokens only — deliberately
+  // avoids bare "legal"/"law"/"case"/"trust" (each collides with generic code:
+  // "legal" appears in license headers, "law" in unrelated words, "case" in
+  // switch/test-case terminology, "trust" in security/crypto trust-boundary code).
+  // Each token below is a domain-specific signal:
+  //   iolta                — Interest on Lawyers' Trust Accounts, the client-trust
+  //                          accounting regime; unambiguous legal-practice term
+  //   trust.?account        — trust-accounting artifact, requires the compound so
+  //                          bare "trust" (crypto/security) doesn't match
+  //   matter.?number        — legal "matter" identifier; requires the compound so
+  //                          bare "matter" (generic English word) doesn't match
+  //   conflict.?check       — conflict-of-interest screening, legal-ethics specific
+  //   \bpacer\b             — federal court public e-filing system (word-boundaried:
+  //                          avoids matching inside unrelated identifiers)
+  //   \becf\b               — Electronic Case Filing (word-boundaried: "ecf" alone
+  //                          is short enough to risk false positives without \b)
+  //   \bcm\/ecf\b           — CM/ECF, the federal court e-filing platform name
+  //   retainer.?agreement   — engagement/retainer contract, legal-practice specific
+  //   attorney.?client      — attorney-client privilege, unambiguous legal-ethics term
+  //   \bupl\b               — Unauthorized Practice of Law, word-boundaried (short token)
+  //   docket                — court docket / case-management term, legal-specific
+  { reviewer: "legal-reviewer",          pattern: /(iolta|trust.?account|matter.?number|conflict.?check|\bpacer\b|\becf\b|\bcm\/ecf\b|retainer.?agreement|attorney.?client|\bupl\b|docket)/i },
   // healthcare-reviewer: HIPAA/PHI/clinical-transport tokens only — deliberately
   // avoids bare "health"/"care"/"claim" (collide with insurance, wellness apps,
   // generic support-ticket code). Each token below is a domain-specific signal:
@@ -69,7 +91,14 @@ export const RULES = [
   //   superbill         — clinical billing artifact, healthcare-specific (not "invoice")
   //   icd-?10           — the diagnosis coding standard
   //   soap.?note        — clinical documentation format (Subjective/Objective/Assessment/Plan)
-  { reviewer: "healthcare-reviewer",     pattern: /(hipaa|phi[_-]|hl7|fhir|hitech|\bbaa\b|(^|\/)ehr\/|superbill|icd-?10|soap.?note)/i },
+  //   cdt-?code         — Current Dental Terminology billing code (dental-specific,
+  //                       parallels icd-?10 for the dental vertical)
+  //   odontogram        — dental charting artifact (tooth-by-tooth condition map),
+  //                       unambiguous dental-clinical term
+  //   perio-chart       — periodontal charting artifact, dental-specific
+  //   dental.?claim      — dental insurance claim, requires the compound so bare
+  //                       "claim" (generic/insurance-collision) doesn't match
+  { reviewer: "healthcare-reviewer",     pattern: /(hipaa|phi[_-]|hl7|fhir|hitech|\bbaa\b|(^|\/)ehr\/|superbill|icd-?10|soap.?note|cdt-?code|odontogram|perio-chart|dental.?claim)/i },
   // regulated-reviewer: DORA/NIS2/ISO27001 only — its other two frameworks (SOX ITGC,
   // HIPAA) are already claimed by enterprise-saas-reviewer's `sox.itgc` and the
   // healthcare-reviewer pattern above respectively, so re-adding those tokens here

@@ -29,6 +29,7 @@ export type Archetype =
   | "edtech"
   | "gov-public"
   | "insurance"
+  | "legal"
   | "defense-govcon"
   // ── Product Builder archetypes (A1–A6, 2026-06-19 pivot; A5 = marketplace above) ──
   | "vertical-saas"      // A1 — CRUD vertical SaaS (entities + roles + records UI)
@@ -853,13 +854,55 @@ const RULES: Rule[] = [
       return `insurance detected (${bits.join(", ") || "insurance domain signals"}) — NAIC/Solvency II/actuarial-audit gates required`;
     },
   },
+
+  // ── legal (legal-smb — UPL / IOLTA / privilege / conflicts) ──
+  // Distinct from enterprise-saas/regulated: the dominant obligations are
+  // ethical/fiduciary (state bar rules), not security-framework compliance.
+  {
+    archetype: "legal",
+    score: (d) => {
+      let s = 0;
+      const legalLibs = ["clio-sdk", "mycase-sdk", "pacer-api", "cm-ecf",
+                         "clio", "mycase"];
+      legalLibs.forEach((l) => { if (d.stack.includes(l)) s += 6; });
+
+      const kws = d.readmeKeywords;
+      const legalKeywords = ["matter", "docket", "litigation", "retainer",
+                             "iolta", "clio", "mycase", "pacer", "ecf",
+                             "cm/ecf", "conflict-check", "engagement-letter",
+                             "paralegal", "law-firm", "attorney"];
+      const matchedKws = legalKeywords.filter((k) => kws.includes(k));
+      if (matchedKws.length >= 3) s += 6;
+      else if (matchedKws.length === 2) s += 3;
+      else if (matchedKws.length === 1) s += 1;
+
+      // Very strong signals — IOLTA / UPL explicit
+      if (kws.includes("iolta")) s += 5;
+      if (kws.includes("law-firm") || kws.includes("attorney")) s += 3;
+      if (kws.includes("upl") || kws.includes("unauthorized practice of law")) s += 4;
+
+      return s;
+    },
+    reason: (d) => {
+      const kws = d.readmeKeywords;
+      const bits: string[] = [];
+      const legalLibs = ["clio-sdk", "mycase-sdk", "pacer-api", "cm-ecf"];
+      legalLibs.forEach((l) => { if (d.stack.includes(l)) bits.push(l); });
+      if (kws.includes("iolta")) bits.push("IOLTA mention");
+      if (kws.includes("matter")) bits.push("matter keyword");
+      if (kws.includes("docket")) bits.push("docket keyword");
+      if (kws.includes("law-firm")) bits.push("law-firm keyword");
+      if (kws.includes("attorney")) bits.push("attorney keyword");
+      return `legal detected (${bits.join(", ") || "legal domain signals"}) — UPL/IOLTA/privilege/conflict-check gates required`;
+    },
+  },
 ];
 
 // Tie-break priority — when two rules score equally, prefer the one
 // higher in this list (more specific / domain-bound first).
 const TIE_BREAK_PRIORITY: Archetype[] = [
   "browser-extension", "iot-embedded", "web3", "game",
-  "agent-product", "fintech", "insurance", "healthcare", "edtech", "defense-govcon", "gov-public", "marketplace",
+  "agent-product", "fintech", "insurance", "legal", "healthcare", "edtech", "defense-govcon", "gov-public", "marketplace",
   "mlops", "streaming",
   "commerce", "enterprise-saas", "ai-system", "devtools",
   "data-platform", "cms", "infra", "mobile-app",
@@ -1013,6 +1056,11 @@ export function suggestCompliance(d: DetectionResult, archetype: Archetype): str
     c.add("state-doi"); // Department of Insurance per US state
     c.add("naic-ai-model-bulletin"); c.add("colorado-sb-21-169"); // US insurance-AI rules
   }
+  if (archetype === "legal") {
+    c.add("upl"); c.add("iolta"); c.add("aba-model-rule-1.6");
+    c.add("aba-model-rules-1.7-1.9"); c.add("frcp-5.2");
+    c.add("gdpr"); c.add("ccpa");
+  }
   if (archetype === "defense-govcon") {
     c.add("cmmc-2.0"); c.add("nist-800-171"); c.add("dfars-252.204-7012");
     c.add("itar"); c.add("ear"); c.add("section-889"); c.add("fedramp");
@@ -1067,6 +1115,7 @@ export type StandardGate =
   | "edtech-review"     // edtech
   | "gov-review"        // gov-public
   | "insurance-review"  // insurance
+  | "upl-review"        // legal
   | "cmmc-assessment";  // defense-govcon — CMMC level + CUI scope sign-off
 
 /**
@@ -1104,6 +1153,7 @@ export const REVIEWERS_BY_ARCHETYPE: Record<Archetype, string[]> = {
   "edtech":            ["edtech-reviewer"],
   "gov-public":        ["gov-reviewer", "security-officer"],
   "insurance":         ["insurance-reviewer", "regulated-reviewer"],
+  "legal":             ["legal-reviewer", "security-officer"],
   "defense-govcon":    ["cmmc-reviewer", "gov-reviewer", "security-officer"],
   // Product Builder archetypes (A1–A6) — lean reviewer sets; payments → pci.
   "vertical-saas":     ["security-officer"],
@@ -1148,6 +1198,7 @@ export const GATES_BY_ARCHETYPE: Record<Archetype, StandardGate[]> = {
   "edtech":            ["plan", "qa", "edtech-review", "security", "ship", "compliance"],
   "gov-public":        ["plan", "qa", "gov-review", "security", "ship", "compliance"],
   "insurance":         ["plan", "qa", "insurance-review", "security", "ship", "compliance"],
+  "legal":             ["plan", "qa", "upl-review", "security", "ship", "compliance"],
   "defense-govcon":    ["plan", "qa", "cmmc-assessment", "security", "ship", "compliance"],
   // Product Builder archetypes (A1–A6) — non-regulated baseline; the single CTO gate
   // emerges at change_tier T1 (effectiveGates → [plan]).

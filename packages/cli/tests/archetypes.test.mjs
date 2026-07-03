@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pickArchetype, suggestCompliance } from "../dist/archetypes.js";
+import { pickArchetype, suggestCompliance, REVIEWERS_BY_ARCHETYPE, GATES_BY_ARCHETYPE } from "../dist/archetypes.js";
 
 function mkDetection(stack = [], extras = {}) {
   return {
@@ -360,6 +360,39 @@ test("Plain Stripe is commerce, not insurance, even with insurer keyword", () =>
   ));
   // Should NOT promote to insurance — too weak. Commerce wins.
   assert.notEqual(pick.primary, "insurance");
+});
+
+// legal tests
+
+test("IOLTA + matter/docket keywords → legal", () => {
+  const pick = pickArchetype(mkDetection(
+    ["nodejs"],
+    { readmeKeywords: ["iolta", "matter", "docket", "attorney"] },
+  ));
+  assert.equal(pick.primary, "legal");
+});
+
+test("Clio SDK + law-firm keywords → legal (high)", () => {
+  const pick = pickArchetype(mkDetection(
+    ["clio-sdk", "typescript"],
+    { readmeKeywords: ["law-firm", "attorney", "retainer", "paralegal"] },
+  ));
+  assert.equal(pick.primary, "legal");
+  assert.ok(pick.confidence === "high");
+});
+
+test("legal reviewers wired: legal-reviewer + security-officer, upl-review gate present", () => {
+  assert.deepEqual(REVIEWERS_BY_ARCHETYPE["legal"], ["legal-reviewer", "security-officer"]);
+  assert.ok(GATES_BY_ARCHETYPE["legal"].includes("upl-review"));
+  assert.ok(GATES_BY_ARCHETYPE["legal"].includes("compliance"));
+});
+
+test("Plain generic app is not legal, even with a single weak keyword", () => {
+  const pick = pickArchetype(mkDetection(
+    ["express", "nodejs"],
+    { readmeKeywords: ["docket"] }, // single keyword
+  ));
+  assert.notEqual(pick.primary, "legal");
 });
 
 
