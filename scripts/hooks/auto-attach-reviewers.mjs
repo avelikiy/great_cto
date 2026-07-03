@@ -46,8 +46,36 @@ export const RULES = [
   { reviewer: "edtech-reviewer",         pattern: /(coppa|ferpa|student[_-]?(data|pii)|sopipa)/i },
   { reviewer: "gov-reviewer",            pattern: /(fedramp|nist.?800.?53|cjis|fips.?140|fisma|ssp\.md|vpat)/i },
   { reviewer: "game-reviewer",           pattern: /(loot[_-]?box|esrb|pegi|iarc|gacha)/i },
-  { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc)/i },
+  // general.?ledger / \bgaap\b appended for accounting-vertical coverage — there is no
+  // dedicated accounting-reviewer agent (only project-auditor, which is unrelated), so
+  // core accounting-controls signals route to the SOX-ITGC surface enterprise-saas-reviewer
+  // already owns. "1099"/"e-file" deliberately excluded: too loose as bare substrings
+  // (collide with port numbers, filenames, version strings) without a path anchor.
+  { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc|general.?ledger|\bgaap\b)/i },
   { reviewer: "insurance-reviewer",      pattern: /(naic|solvency|ifrs.?17|acord|actuarial)/i },
+  // healthcare-reviewer: HIPAA/PHI/clinical-transport tokens only — deliberately
+  // avoids bare "health"/"care"/"claim" (collide with insurance, wellness apps,
+  // generic support-ticket code). Each token below is a domain-specific signal:
+  //   hipaa            — the statute itself
+  //   phi[_-]           — Protected Health Information as an identifier/var prefix
+  //                       (require the separator so it doesn't match unrelated "phi" substrings)
+  //   hl7 / fhir        — the two dominant clinical-data transport standards
+  //   hitech            — HIPAA's breach-notification amendment
+  //   \bbaa\b           — Business Associate Agreement (word-boundaried: "baa" alone
+  //                       is a common false-positive token otherwise)
+  //   (^|\/)ehr\/       — electronic-health-record integration directories (Epic/Cerner/
+  //                       athenahealth); path-anchored so it doesn't match inside unrelated
+  //                       words like "behr" or "cheerful"
+  //   superbill         — clinical billing artifact, healthcare-specific (not "invoice")
+  //   icd-?10           — the diagnosis coding standard
+  //   soap.?note        — clinical documentation format (Subjective/Objective/Assessment/Plan)
+  { reviewer: "healthcare-reviewer",     pattern: /(hipaa|phi[_-]|hl7|fhir|hitech|\bbaa\b|(^|\/)ehr\/|superbill|icd-?10|soap.?note)/i },
+  // regulated-reviewer: DORA/NIS2/ISO27001 only — its other two frameworks (SOX ITGC,
+  // HIPAA) are already claimed by enterprise-saas-reviewer's `sox.itgc` and the
+  // healthcare-reviewer pattern above respectively, so re-adding those tokens here
+  // would double-attach two reviewers on the same file for no added signal. DORA/NIS2/
+  // ISO27001 are regulated-reviewer's exclusive surface — no other rule covers them.
+  { reviewer: "regulated-reviewer",      pattern: /(\bdora\b|dora.?ict|nis2|iso.?27001)/i },
   { reviewer: "infra-reviewer",          pattern: /(\.tf$|terraform\/|helm\/|kustomize\/|cdk\/|pulumi\/|\.bicep$)/i },
   { reviewer: "web-store-reviewer",      pattern: /(manifest\.json$|mv3|chrome_extension|firefox_addon)/i },
   { reviewer: "performance-engineer",    pattern: /(perf|p99|latency_budget|k6\/|locust\/|gatling\/|benchmark)/i },
