@@ -29,9 +29,9 @@ import * as os from "node:os";
 import * as crypto from "node:crypto";
 
 const TELEMETRY_ENDPOINT = process.env.GREAT_CTO_TELEMETRY_ENDPOINT
-  || "https://great-cto-telemetry.alexander-velikiy.workers.dev/v1/event";
-// Note: workers.dev URL is the temporary default until telemetry.greatcto.systems
-// custom domain is bound. Override anytime with GREAT_CTO_TELEMETRY_ENDPOINT.
+  || "https://telemetry.greatcto.systems/v1/event";
+// Override anytime with GREAT_CTO_TELEMETRY_ENDPOINT (e.g. to point at a
+// workers.dev URL during local worker development).
 const TELEMETRY_TIMEOUT_MS = 1000;
 
 // Allowlist — anything else is dropped client-side and server-side.
