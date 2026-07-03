@@ -31,21 +31,68 @@ export const CONTRACTS = Object.freeze({
     { id: 'availability', desc: 'availability filter', pattern: /availab/i },
   ],
   crm: [
-    { id: 'stage-transitions', desc: 'valid pipeline stage transitions', pattern: /stage|advance|pipeline/i },
+    // F3c: bare `advance` false-positives on "in advance of launch" (unrelated to deal
+    // progression) — anchor to a deal/stage/pipeline context within 20 chars.
+    { id: 'stage-transitions', desc: 'valid pipeline stage transitions', pattern: /\bstage\w*|\badvance\w*[\s\S]{0,20}(deal|stage|pipeline)|\bpipeline\w*/i },
     { id: 'referential', desc: 'deal→contact referential integrity', pattern: /(non.?existent|invalid|missing)[\s\S]{0,30}(contact|deal)|referential|\b400\b[\s\S]{0,20}contact/i },
   ],
   dashboard: [
-    { id: 'aggregation', desc: 'aggregation correctness', pattern: /aggregat|\bsum\b|\bcount\b|metric/i },
-    { id: 'window', desc: 'time-window boundaries', pattern: /window|since|until|range|boundary/i },
+    // F3c: bare `aggregat` misses the common `groupBy(...)` idiom (doc example); bare
+    // `metric` false-positives on "asymmetric". Add groupBy alias, word-boundary metric.
+    { id: 'aggregation', desc: 'aggregation correctness', pattern: /\baggregat\w*|group.?by|\bsum\(|\bcount\(|\bmetric\w*/i },
+    // F3c: bare `window` false-positives on "Windows" (the OS); anchor to word boundary
+    // so "Windows" (capital-agnostic \b\w* still ends at the trailing s) needs an explicit
+    // OS exclusion since \bwindow\w* still matches "Windows". Use a negative lookahead.
+    { id: 'window', desc: 'time-window boundaries', pattern: /\bwindow\w*\b(?!\s+(?:os|server|10|11))|\bsince\b|\buntil\b|\brange\b|\bboundary\w*/i },
   ],
   marketplace: [
-    { id: 'escrow-held', desc: 'order holds escrow', pattern: /escrow|hold/i },
+    // F3c: bare `hold` false-positives on "household"/"threshold"/"shareholder" (doc's
+    // headline example). Word-boundary the stem; `held` is a distinct irregular form.
+    { id: 'escrow-held', desc: 'order holds escrow', pattern: /escrow|\bhold\w*|\bheld\b/i },
     { id: 'release-idempotent', desc: 'double-release rejected', pattern: /(double|twice|already|second)[\s\S]{0,30}releas|releas[\s\S]{0,20}(twice|idempot|already)/i },
     { id: 'buyer-not-seller', desc: 'seller cannot order own listing', pattern: /seller[\s\S]{0,40}(buyer|order|\b403\b)|cannot[\s\S]{0,20}order|buyer[\s\S]{0,10}!==?[\s\S]{0,10}seller/i },
   ],
   content: [
     { id: 'entitlement-gate', desc: 'deliver blocked without entitlement', pattern: /\b403\b|without[\s\S]{0,30}(entitle|access)|deny|unauthor/i },
     { id: 'purchase-grants', desc: 'purchase creates entitlement', pattern: /purchas|subscrib|entitlement[\s\S]{0,20}(creat|grant|add)/i },
+  ],
+  // ── F3a: +8 archetypes (docs/arch/ARCH-quality-deepen-followups.md) ──────────
+  'ai-system': [
+    { id: 'prompt-injection', desc: 'prompt-injection / untrusted-input handling tested', pattern: /prompt.?inject|jailbreak|untrusted[\s\S]{0,20}input|ignore (?:previous|all) instructions/i },
+    { id: 'output-validation', desc: 'model output is validated/sanitized before use', pattern: /output[\s\S]{0,20}(valid|sanit|schema)|malformed[\s\S]{0,20}(response|output)|hallucinat/i },
+    { id: 'rate-limit', desc: 'cost/rate limiting on model calls', pattern: /rate.?limit|token.?budget|cost.?cap|max.?tokens/i },
+  ],
+  'agent-product': [
+    { id: 'tool-allowlist', desc: 'tool access is allowlisted/scoped', pattern: /tool.?allowlist|allowed.?tools|tool.?scope|denylist/i },
+    { id: 'cross-user-isolation', desc: 'cross-user/session isolation enforced', pattern: /cross.?(user|tenant|session)|session[\s\S]{0,20}isolat|leak[\s\S]{0,20}(session|user)/i },
+    { id: 'runaway-budget', desc: 'agent loop has a turn/cost budget guard', pattern: /max.?turns|turn.?budget|infinite.?loop|budget.?exceed/i },
+  ],
+  commerce: [
+    { id: 'payment-idempotent', desc: 'duplicate charge/webhook rejected', pattern: /idempot|duplicate[\s\S]{0,20}(charge|payment|webhook)|replay[\s\S]{0,20}webhook/i },
+    { id: 'webhook-signature', desc: 'webhook signature verified', pattern: /webhook[\s\S]{0,30}(signature|verify|valid)|stripe.?signature|invalid.?signature/i },
+    { id: 'refund-flow', desc: 'refund/dispute flow tested', pattern: /refund|chargeback|dispute/i },
+  ],
+  web3: [
+    { id: 'reentrancy', desc: 'reentrancy protection tested', pattern: /reentran/i },
+    { id: 'access-control', desc: 'privileged function access control tested', pattern: /only.?owner|access.?control|unauthorized[\s\S]{0,20}(caller|call)|not.?owner/i },
+    { id: 'oracle-staleness', desc: 'oracle price staleness/manipulation checked', pattern: /stale.?price|oracle[\s\S]{0,20}(stale|manipulat)|price.?feed/i },
+  ],
+  'iot-embedded': [
+    { id: 'ota-signature', desc: 'OTA firmware update signature/integrity verified', pattern: /ota[\s\S]{0,20}(signature|verify|sign)|firmware[\s\S]{0,20}(signature|verify|integrity)/i },
+    { id: 'watchdog', desc: 'watchdog / fail-safe recovery tested', pattern: /watchdog|fail.?safe|fail.?over|reboot[\s\S]{0,20}recover/i },
+  ],
+  'data-platform': [
+    { id: 'schema-drift', desc: 'schema drift / breaking-change detection', pattern: /schema.?drift|breaking.?change|schema[\s\S]{0,20}(mismatch|incompat)/i },
+    { id: 'pipeline-idempotent', desc: 'pipeline re-run / backfill is idempotent', pattern: /idempot|re.?run[\s\S]{0,20}(safe|same|duplicate)|backfill/i },
+    { id: 'pii-handling', desc: 'PII column detection/redaction tested', pattern: /\bpii\b|redact|anonymiz|mask[\s\S]{0,20}(field|column|data)/i },
+  ],
+  'browser-extension': [
+    { id: 'csp-enforced', desc: 'content-security-policy / no unsafe-eval tested', pattern: /\bcsp\b|content.?security.?policy|unsafe.?eval/i },
+    { id: 'permission-scope', desc: 'host/permission scope is minimal & tested', pattern: /host.?permission|permission[\s\S]{0,20}(scope|minim|denied)|manifest[\s\S]{0,20}permission/i },
+  ],
+  'mobile-app': [
+    { id: 'deep-link-validation', desc: 'deep link / universal link input is validated', pattern: /deep.?link|universal.?link|app.?link[\s\S]{0,20}valid/i },
+    { id: 'offline-handling', desc: 'offline / no-connectivity path tested', pattern: /offline|no.?network|no.?connectivity|airplane.?mode/i },
   ],
 });
 
@@ -59,6 +106,15 @@ export function contractFamily(a) {
   if (/dashboard|analytic|metric/.test(s)) return 'dashboard';
   if (/marketplace|two-?sided|listing/.test(s)) return 'marketplace';
   if (/content|media|catalog|cms/.test(s)) return 'content';
+  // ── F3a: +8 archetypes ──────────────────────────────────────────────────────
+  if (/agent-product|agent-runtime|agentic/.test(s)) return 'agent-product'; // check before ai-system (more specific)
+  if (/ai-system|\bai\b|llm/.test(s)) return 'ai-system';
+  if (/commerce|e-?commerce|shop|checkout/.test(s)) return 'commerce';
+  if (/web3|blockchain|smart-?contract|solidity/.test(s)) return 'web3';
+  if (/iot|embedded|firmware/.test(s)) return 'iot-embedded';
+  if (/data-?platform|data-?pipeline/.test(s)) return 'data-platform';
+  if (/browser-?extension|chrome-?extension/.test(s)) return 'browser-extension';
+  if (/mobile-?app|react-native|ios-app|android-app/.test(s)) return 'mobile-app';
   return s;
 }
 
@@ -99,7 +155,10 @@ function main(argv) {
   if (!dir || !existsSync(dir) || !statSync(dir).isDirectory()) { console.error('Usage: archetype-contracts.mjs <dir> --archetype <a> [--json]'); process.exit(2); }
   const ai = argv.indexOf('--archetype');
   const archetype = ai > -1 ? argv[ai + 1] : null;
-  if (!archetype) { console.error('ERROR: --archetype required (crud|booking|crm|dashboard|marketplace|content)'); process.exit(2); }
+  if (!archetype) {
+    console.error('ERROR: --archetype required (crud|booking|crm|dashboard|marketplace|content|ai-system|agent-product|commerce|web3|iot-embedded|data-platform|browser-extension|mobile-app)');
+    process.exit(2);
+  }
 
   const r = checkContracts(archetype, readTestText(dir));
   if (argv.includes('--json')) { process.stdout.write(JSON.stringify({ dir, archetype, ...r }, null, 2)); return; }

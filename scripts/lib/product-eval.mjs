@@ -10,11 +10,13 @@
 // Usage:
 //   node scripts/lib/product-eval.mjs <product-dir> [--json]
 //   node scripts/lib/product-eval.mjs <dir> --gate --min 70 [--baseline prev.json]   # exit 1 if below/regressed
+//   node scripts/lib/product-eval.mjs <dir> --browser   # F6a/F6b: opt-in headless a11y + Web Vitals signals
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { runBrowserChecks } from './product-browser.mjs';
 
 /** Weights sum to 100. n/a dimensions score full (nothing to fail) so a zero-dep
  *  .mjs product isn't punished for lacking a tsconfig/lint/lockfile. */
@@ -128,19 +130,32 @@ function scanSecrets(dir) {
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
-function main(argv) {
+async function main(argv) {
   const dir = argv.find(a => !a.startsWith('--'));
-  if (!dir || !existsSync(dir) || !statSync(dir).isDirectory()) { console.error('Usage: product-eval.mjs <dir> [--json] [--gate --min N [--baseline f]]'); process.exit(2); }
+  if (!dir || !existsSync(dir) || !statSync(dir).isDirectory()) { console.error('Usage: product-eval.mjs <dir> [--json] [--gate --min N [--baseline f]] [--browser]'); process.exit(2); }
 
   const results = runEval(dir);
   const res = scoreExecution(results);
 
-  if (argv.includes('--json')) { process.stdout.write(JSON.stringify({ dir, ...res, results }, null, 2)); }
+  // F6a/F6b: opt-in browser signals (a11y + Web Vitals). Additive report only — never
+  // folds into res.total's fixed EXEC_RUBRIC weights (doc non-goal: "add signals,
+  // don't shift weights"). Zero cost when --browser isn't passed: runBrowserChecks is
+  // never even imported-and-called in that case beyond the static import above, which
+  // has no side effects until invoked.
+  let browser = null;
+  if (argv.includes('--browser')) browser = await runBrowserChecks(dir);
+
+  if (argv.includes('--json')) { process.stdout.write(JSON.stringify({ dir, ...res, results, ...(browser ? { browser } : {}) }, null, 2)); }
   else {
     console.log(`Executed quality — ${dir}`);
     for (const b of res.breakdown) console.log(`  ${b.label.padEnd(26)} ${'█'.repeat(Math.round(b.signal * 10)).padEnd(10, '·')} ${b.points}/${b.weight}`);
     console.log(`  tests: ${results.tests.ran ? `${results.tests.passed}/${results.tests.total} pass` : 'no test script'} · typecheck ${results.typecheck} · lint ${results.lint} · vulns ${results.auditHigh ?? 'n/a'} · secrets ${results.secretLeak ? 'LEAK' : 'clean'}`);
     console.log(`\n  EXECUTED SCORE: ${res.total}/100  (grade ${res.grade})`);
+    if (browser) {
+      const a11y = browser.a11y.signal === 'na' ? 'n/a' : `${Math.round(browser.a11y.signal * 100)}/100 (${browser.a11y.violations} violations)`;
+      const vitals = browser.vitals.signal === 'na' ? 'n/a' : `${Math.round(browser.vitals.signal * 100)}/100`;
+      console.log(`  browser: a11y ${a11y} · vitals ${vitals}${browser.reason ? ` (${browser.reason})` : ''}`);
+    }
   }
 
   // gate mode (#2)
