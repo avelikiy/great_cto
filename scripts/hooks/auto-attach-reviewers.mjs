@@ -99,6 +99,21 @@ export const RULES = [
   //   dental.?claim      — dental insurance claim, requires the compound so bare
   //                       "claim" (generic/insurance-collision) doesn't match
   { reviewer: "healthcare-reviewer",     pattern: /(hipaa|phi[_-]|hl7|fhir|hitech|\bbaa\b|(^|\/)ehr\/|superbill|icd-?10|soap.?note|cdt-?code|odontogram|perio-chart|dental.?claim)/i },
+  // rcm-reviewer: medical-billing / revenue-cycle tokens only — deliberately excludes
+  // bare "claim" (generic/insurance-collision, already avoided by healthcare-reviewer's
+  // "dental.?claim" compound) and bare "modifier"/"denial" (too generic on their own).
+  // "icd-?10" and "superbill" stay on healthcare-reviewer (clinical/chart surface);
+  // the tokens below are billing/claims-submission specific:
+  //   cms-?1500 / ub-?04    — the professional/institutional claim form names
+  //   hcpcs                 — HCPCS Level II billing code set
+  //   \b835\b               — ERA remittance transaction number (word-boundaried:
+  //                           short numeric token needs a boundary to avoid false hits)
+  //   remittance.?advice    — the 835's plain-English name
+  //   prior.?auth           — prior-authorization workflow, billing-specific compound
+  //   denial.?code          — CARC/RARC denial-code workflow, requires the compound so
+  //                           bare "denial" doesn't fire on unrelated rejection/reject code
+  //   npi\b                 — National Provider Identifier (word-boundaried)
+  { reviewer: "rcm-reviewer",            pattern: /(cms-?1500|ub-?04|hcpcs|\b835\b|remittance.?advice|prior.?auth|denial.?code|npi\b)/i },
   // regulated-reviewer: DORA/NIS2/ISO27001 only — its other two frameworks (SOX ITGC,
   // HIPAA) are already claimed by enterprise-saas-reviewer's `sox.itgc` and the
   // healthcare-reviewer pattern above respectively, so re-adding those tokens here
