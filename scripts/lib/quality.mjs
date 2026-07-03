@@ -8,9 +8,9 @@
 // Optionally records the verdict to metrics-history for trend, and gates deploy.
 //
 // Usage:
-//   node scripts/lib/quality.mjs <dir> [--archetype a] [--json] [--record] [--gate --min N]
+//   node scripts/lib/quality.mjs <dir> [--archetype a] [--json] [--record] [--gate --min N] [--baseline prev.json]
 
-import { existsSync, statSync, appendFileSync } from 'node:fs';
+import { existsSync, statSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scoreProduct, inspect, detectArchetype } from './product-score.mjs';
@@ -40,13 +40,44 @@ export function assess(dir, archetypeFlag = null) {
   return { archetype: archetype || 'web', floor, ceiling, contracts, contractDetail: c, ...combined };
 }
 
+/**
+ * F5a: gate decision — parity with product-eval.mjs's --gate --baseline (scripts/lib/
+ * product-eval.mjs main()). Pure so it's unit-testable without a subprocess.
+ *   • fails if `overall < min` (absolute floor, default 70)
+ *   • fails if a baseline is given and `overall < baselineTotal - 2` (regression gate;
+ *     >2-point drop, same threshold/semantics as product-eval)
+ * `readBaseline(path)` reads a JSON file and must return the previous overall/total
+ * (or null/throw if unavailable) — injected so callers can pass the right field name.
+ * @returns {{ ok: boolean, reason: string }}
+ */
+export function evaluateGate(overall, { min = 70, baselineTotal = null } = {}) {
+  if (overall < min) return { ok: false, reason: `score ${overall} < min ${min}` };
+  if (typeof baselineTotal === 'number' && overall < baselineTotal - 2) {
+    return { ok: false, reason: `regression ${overall} < baseline ${baselineTotal}` };
+  }
+  return { ok: true, reason: '' };
+}
+
+/** Read a baseline JSON file's overall score. quality.mjs's own --json output uses
+ *  `overall`; product-eval.mjs's baseline files use `total` — accept either so a
+ *  product-eval baseline file can also be reused here. Returns null on any failure
+ *  (missing file, bad JSON, missing field) — gate then just skips the regression check. */
+export function readBaselineOverall(path) {
+  if (!path) return null;
+  try {
+    const j = JSON.parse(readFileSync(path, 'utf8'));
+    const v = typeof j.overall === 'number' ? j.overall : (typeof j.total === 'number' ? j.total : null);
+    return typeof v === 'number' ? v : null;
+  } catch { return null; }
+}
+
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 
 function main(argv) {
   const dir = argv.find(a => !a.startsWith('--'));
-  if (!dir || !existsSync(dir) || !statSync(dir).isDirectory()) { console.error('Usage: quality.mjs <dir> [--archetype a] [--json] [--record] [--gate --min N]'); process.exit(2); }
+  if (!dir || !existsSync(dir) || !statSync(dir).isDirectory()) { console.error('Usage: quality.mjs <dir> [--archetype a] [--json] [--record] [--gate --min N] [--baseline prev.json]'); process.exit(2); }
   const ai = argv.indexOf('--archetype');
   const r = assess(dir, ai > -1 ? argv[ai + 1] : null);
 
@@ -68,8 +99,11 @@ function main(argv) {
   }
 
   if (argv.includes('--gate')) {
-    const gi = argv.indexOf('--min'); const min = gi > -1 ? parseFloat(argv[gi + 1]) : 70;
-    if (r.overall < min) { console.error(`\ngate:quality BLOCK — overall ${r.overall} < min ${min}`); process.exit(1); }
+    const get = (n) => { const i = argv.indexOf(n); return i > -1 ? argv[i + 1] : null; };
+    const min = parseFloat(get('--min') || '70');
+    const baselineTotal = readBaselineOverall(get('--baseline'));
+    const { ok, reason } = evaluateGate(r.overall, { min, baselineTotal });
+    if (!ok) { console.error(`\ngate:quality BLOCK — ${reason}`); process.exit(1); }
     if (!argv.includes('--json')) console.log('\ngate:quality PASS');
   }
 }
