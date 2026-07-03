@@ -69,6 +69,18 @@ export const RULES = [
   // accounting signals hit the domain-correct reviewer instead of the generic
   // enterprise-controls one.
   { reviewer: "accounting-reviewer",     pattern: /(asc.?606|journal.?entry|general.?ledger|\bgaap\b|1099|month.?end.?close|chart.?of.?accounts)/i },
+  // msp-reviewer: managed-service-provider / RMM-PSA tokens only — deliberately avoids
+  // bare "tenant"/"service" (both collide with generic SaaS/microservice code; tenant_id
+  // already belongs to enterprise-saas-reviewer above). Each token below is MSP-specific:
+  //   \bmsa\b / \bsla\b     — Master Service Agreement / Service Level Agreement acronyms
+  //                           (word-boundaried: both are short and common as substrings)
+  //   \brmm\b / \bpsa\b     — Remote Monitoring & Management / Professional Services
+  //                           Automation, the two dominant MSP tool categories
+  //   multi.?tenant         — MSP cross-client blast-radius framing (distinct from
+  //                           enterprise-saas-reviewer's bare "tenant_id" data-isolation signal)
+  //   managed.?service      — "managed service provider" / "managed services", unambiguous
+  //   credential.?vault     — MSP's core liability surface (client credential storage)
+  { reviewer: "msp-reviewer",            pattern: /(\bmsa\b|\bsla\b|\brmm\b|\bpsa\b|multi.?tenant|managed.?service|credential.?vault)/i },
   { reviewer: "insurance-reviewer",      pattern: /(naic|solvency|ifrs.?17|acord|actuarial)/i },
   // legal-reviewer: legal-services / legal-tech domain tokens only — deliberately
   // avoids bare "legal"/"law"/"case"/"trust" (each collides with generic code:
