@@ -1096,12 +1096,16 @@ async function main(): Promise<void> {
         durationMs: Date.now() - __tStart,
       });
     } catch { /* telemetry never affects the exit */ }
-    // Update hint — printed after the command's own output, never blocks on
-    // network (reads a local cache; spawns a detached refresh if stale).
-    // Excluded automatically for mcp/worker/task via PROTOCOL_SENSITIVE_COMMANDS
-    // inside checkForUpdate — worker/task don't even route through finish().
+    // Update hint / prompt — printed after the command's own output, never
+    // blocks on network (reads a local cache; spawns a detached refresh if
+    // stale). May await a single Y/n keystroke for up to 15s, but ONLY when
+    // a newer version is already cached, stderr+stdin are TTYs, and this
+    // version hasn't been prompted before (see shouldPrompt() in
+    // update-check.ts). Excluded automatically for mcp/worker/task via
+    // PROTOCOL_SENSITIVE_COMMANDS inside checkForUpdate — worker/task don't
+    // even route through finish().
     try {
-      checkForUpdate({ currentVersion: getCliVersion(), command: args.command });
+      await checkForUpdate({ currentVersion: getCliVersion(), command: args.command });
     } catch { /* update hint never affects the exit */ }
     process.exit(code);
   };
