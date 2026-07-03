@@ -81,9 +81,13 @@ test('archetype-aware: a CLI is not penalized for no UI/deploy (scores higher as
   assert.ok(asCli > asWeb, `cli (${asCli}) should beat web (${asWeb}) when UI/deploy legitimately absent`);
 });
 
-test('detectArchetype: packages/cli → its real archetype (cli-tool), normalizes to cli family', () => {
+test('detectArchetype: packages/cli → bin-fallback detects cli family directly', () => {
+  // packages/cli has no .great_cto/PROJECT.md, so detectArchetype falls through to the
+  // package.json `bin` heuristic, which returns the scoring-family name 'cli' directly
+  // (not the canonical archetypes.ts id 'cli-tool' — that only comes from a PROJECT.md
+  // archetype: line). normalizeArchetype is idempotent on an already-normalized family.
   const a = detectArchetype(join(ROOT, 'packages', 'cli'));
-  assert.equal(a, 'cli-tool');
+  assert.equal(a, 'cli');
   assert.equal(normalizeArchetype(a), 'cli');
 });
 
@@ -99,7 +103,7 @@ import { scoreDir, renderScoreMarkdown } from '../../scripts/lib/product-score.m
 test('scoreDir: end-to-end on a real codebase returns a total + archetype', () => {
   const r = scoreDir(join(ROOT, 'packages', 'cli'));
   assert.ok(r.total >= 0 && r.total <= 100);
-  assert.equal(r.archetype, 'cli-tool'); // detected from PROJECT.md, normalized internally
+  assert.equal(r.archetype, 'cli'); // bin-fallback detection (no PROJECT.md present)
 });
 
 test('renderScoreMarkdown: emits a SCORE artifact with total + table', () => {

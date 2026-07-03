@@ -8,6 +8,7 @@
     "demo:rebuild": "node scripts/seed-demo.mjs && node scripts/record-demo.mjs"
   },
   "devDependencies": {
+    "axe-core": "^4.12.1",
     "playwright": "^1.60.0"
   },
   "version": "0.0.1"
