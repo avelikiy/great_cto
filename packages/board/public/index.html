@@ -4039,14 +4039,18 @@ function renderDashboard(m) {
   const avgMin = m.avg_completion_min ?? 0;
   const cycleStat = m.cycle_time_stat === 'median_30d' ? 'Median cycle (30d)' : 'Avg cycle time';
 
-  // Honest cost model (matches share report):
-  // AI spend  = real LLM tokens from verdicts (preferred), else time-based estimate
-  // Human est = done × 4h per feature × $150/hr (industry baseline)
-  // Savings   = humanEst / aiSpend (trustworthy when AI = real tokens, independent of human rate)
+  // Honest cost model — the backend is the source of truth:
+  //   cost.savings_x  = MEASURED savings, only set when real verdict cost data
+  //                     exists. NULL for the time-based (tasks) estimate, because
+  //                     that ratio is just the hardcoded rate ratio, not a real
+  //                     measurement — showing it would fabricate a number.
+  //   cost.human_usd  = the backend's conservative human-cost estimate.
+  // The frontend must NOT recompute its own human/savings figures (that produced
+  // an inflated "×" that contradicted the API); it displays the backend fields.
   const aiSpend = realLlmUsd > 0 ? realLlmUsd : llmUsd;
-  const humanEst = done * 4 * 150;
-  const savingsX = (aiSpend > 0 && humanEst > 0)
-    ? Math.round(humanEst / aiSpend)
+  const humanEst = m.cost?.human_usd ?? 0;
+  const savingsX = (typeof planSavingsX === 'number' && planSavingsX > 1)
+    ? planSavingsX
     : null;
 
   const llmTrend = realLlmUsd > 0
@@ -4067,28 +4071,21 @@ function renderDashboard(m) {
           v: savingsX.toLocaleString(),
           sub: '×',
           label: 'Cost savings vs FTE',
-          trend: `human est. $${humanEst.toLocaleString()} (${done}× 4h × $150)`,
+          trend: humanEst > 0 ? `measured · human est. $${fmtMoney(humanEst)}` : 'measured savings',
           cls: 'green',
         }
       : {
+          // No MEASURED savings yet (no verdict cost data). Don't fabricate a
+          // multiplier from the time-based estimate — show it's not measured.
           v: '—',
           sub: '',
           label: 'Cost savings vs FTE',
-          trend: done > 0 ? 'no spend recorded yet' : 'no tasks done yet',
+          trend: aiSpend > 0
+            ? 'estimate only · run pipelines for measured savings'
+            : (done > 0 ? 'no spend recorded yet' : 'no tasks done yet'),
           cls: '',
         },
   ];
-
-  // Prefer planSavingsX when available (from PLAN-*.md) — explicit override
-  if (planSavingsX != null && planSavingsX > 0) {
-    hero[2] = {
-      v: planSavingsX,
-      sub: '×',
-      label: 'Cost savings vs FTE',
-      trend: `from PLAN-*.md figures`,
-      cls: 'green',
-    };
-  }
   document.getElementById('mp-hero').innerHTML = hero.map(s => `
     <div class="metric-card ${s.cls || ''}">
       <div class="metric-num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
