@@ -15,6 +15,30 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.82.3 — 2026-07-04
+
+### Board honesty fixes (found by admin bughunt)
+
+- **Cost savings no longer fabricated.** The board's metrics recomputed their own
+  human-cost estimate (`done × 4h × $150`) and savings multiplier, ignoring the
+  backend — which deliberately returns `savings_x: null` when there's no measured
+  verdict cost data. That produced an absurd "5,538×" out of nothing. The
+  frontend now uses the backend's `cost.savings_x` / `cost.human_usd`; with no
+  measured data it shows "—", not a made-up multiplier (a real number still
+  renders when verdict cost data exists).
+- **In-app notifications dedupe by key.** The alert crons tick every 5 min and a
+  persistent condition (open P0, blocked/stale gate, cost over threshold, and the
+  daily digest across its whole UTC hour) added a fresh bell notification on every
+  tick — email/push already deduped, the in-app one didn't. `addNotification` now
+  takes a `dedupeKey` and skips duplicates; all crons pass theirs.
+- **Update-check cache** freshness is inclusive at the exact 24h boundary
+  (`<` → `<=`) — no needless background refresh on the tick.
+- Tests: board suite 56 → 60 (+4 notification-dedup regression tests via a new
+  `GREAT_CTO_NOTIF_HISTORY_FILE` test seam); CLI update-check suite green.
+
+---
+
 ## v2.82.2 — 2026-07-03
 
 ### Fix: tax / procurement / msp archetype detection
