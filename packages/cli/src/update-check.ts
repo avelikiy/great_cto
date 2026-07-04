@@ -151,7 +151,7 @@ export function isCacheFresh(cache: UpdateCache | null, now: number = Date.now()
   if (!cache) return false;
   const checkedAtMs = Date.parse(cache.checkedAt);
   if (Number.isNaN(checkedAtMs)) return false;
-  return now - checkedAtMs < freshMs;
+  return now - checkedAtMs <= freshMs;
 }
 
 /** Pure function: does `latest` represent a newer version than `current`? */
