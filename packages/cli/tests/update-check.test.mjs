@@ -86,8 +86,14 @@ test("isCacheFresh: false for malformed checkedAt", () => {
   assert.equal(isCacheFresh(cache), false);
 });
 
-test("isCacheFresh: boundary is exclusive at exactly 24h", () => {
+test("isCacheFresh: inclusive at exactly 24h (still fresh on the boundary)", () => {
   const now = 1000 + CACHE_FRESH_MS;
+  const cache = { checkedAt: new Date(1000).toISOString(), latest: "2.79.0" };
+  assert.equal(isCacheFresh(cache, now), true);
+});
+
+test("isCacheFresh: stale just past 24h", () => {
+  const now = 1000 + CACHE_FRESH_MS + 1;
   const cache = { checkedAt: new Date(1000).toISOString(), latest: "2.79.0" };
   assert.equal(isCacheFresh(cache, now), false);
 });
