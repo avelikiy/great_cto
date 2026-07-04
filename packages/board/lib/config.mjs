@@ -29,7 +29,7 @@ const PROJECTS_FILE = process.env.GREAT_CTO_PROJECTS_FILE || path.join(GREAT_CTO
 const SHARE_ENDPOINT = 'https://greatcto.systems/r/';
 const VAPID_KEYS_FILE = path.join(GREAT_CTO_DIR, 'vapid-keys.json');
 const PUSH_SUBS_FILE = path.join(GREAT_CTO_DIR, 'push-subscriptions.json');
-const NOTIF_HISTORY_FILE = path.join(GREAT_CTO_DIR, 'notif-history.json');
+const NOTIF_HISTORY_FILE = process.env.GREAT_CTO_NOTIF_HISTORY_FILE || path.join(GREAT_CTO_DIR, 'notif-history.json');
 const VAPID_SUBJECT = 'mailto:hi@updates.greatcto.systems';
 
 export {

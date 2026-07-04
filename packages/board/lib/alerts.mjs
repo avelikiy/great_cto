@@ -171,7 +171,7 @@ function startAlertCron() {
             },
           };
           fireEmailAlert('incident.p0', dedupeKey, p0Payload);
-          addNotification('incident.p0', p0Payload);
+          addNotification('incident.p0', p0Payload, dedupeKey);
           firePushAlert('incident.p0', dedupeKey, p0Payload);
         }
       }
@@ -207,7 +207,7 @@ function startAlertCron() {
           },
         };
         fireEmailAlert('gate.blocked', dedupeKey, blockedPayload);
-        addNotification('gate.blocked', blockedPayload);
+        addNotification('gate.blocked', blockedPayload, dedupeKey);
         firePushAlert('gate.blocked', dedupeKey, blockedPayload);
       }
     } catch (e) { log.warn('cron gate.blocked failed:', e.message); }
@@ -237,7 +237,7 @@ function startAlertCron() {
             kv: { gate: g.id, agent: g.agent || 'unknown', age: `${ageHr.toFixed(1)}h` },
           };
           fireEmailAlert('gate.stale', dedupeKey, stalePayload);
-          addNotification('gate.stale', stalePayload);
+          addNotification('gate.stale', stalePayload, dedupeKey);
           firePushAlert('gate.stale', dedupeKey, stalePayload);
         }
       }
@@ -276,7 +276,7 @@ function startAlertCron() {
             },
           };
           fireEmailAlert('cost.threshold', dedupeKey, costPayload);
-          addNotification('cost.threshold', costPayload);
+          addNotification('cost.threshold', costPayload, dedupeKey);
           firePushAlert('cost.threshold', dedupeKey, costPayload);
         }
       }
@@ -317,7 +317,7 @@ function startAlertCron() {
           },
         };
         await fireEmailAlert('digest.weekly', dedupeKey, weeklyPayload);
-        addNotification('digest.weekly', weeklyPayload);
+        addNotification('digest.weekly', weeklyPayload, dedupeKey);
         await firePushAlert('digest.weekly', dedupeKey, weeklyPayload);
       }
     } catch (e) { log.warn('cron digest.weekly failed:', e.message); }
@@ -384,7 +384,7 @@ function startAlertCron() {
           kv: kvObj,
         };
         await fireEmailAlert('digest.daily', dedupeKey, dailyPayload);
-        addNotification('digest.daily', dailyPayload);
+        addNotification('digest.daily', dailyPayload, dedupeKey);
         await firePushAlert('digest.daily', dedupeKey, dailyPayload);
       }
     } catch (e) { log.warn('cron digest.daily failed:', e.message); }
@@ -423,7 +423,7 @@ function startAlertCron() {
       notify: (current, latest, dedupeKey) => {
         const payload = buildUpdatePayload(current, latest);
         fireEmailAlert('update.available', dedupeKey, payload);
-        addNotification('update.available', payload);
+        addNotification('update.available', payload, dedupeKey);
         firePushAlert('update.available', dedupeKey, payload);
       },
     }).catch(e => log.warn('cron update.available failed:', e.message));
