@@ -121,6 +121,8 @@ Same command, different product. The build archetype shapes the stack and integr
 
 `great-cto board` opens at `http://localhost:3141` — the build board: realtime SSE, the live pipeline with its risk-tier badge (one CTO gate · cheap judge), per-agent cost, 30-day LLM spend vs human-equivalent baseline.
 
+**It populates itself — no manual ceremony.** The first session in a project auto-generates a starter code map (`CODEBASE.md`); every agent run records a verdict that feeds the metrics; every session auto-saves a log and extracts lessons on exit. You don't run `/audit` or `/save` to fill the board — you just work, and the memory, metrics, and logs fill in.
+
 <p align="center">
   <img src="docs/screenshots/board.png" alt="The build board — live pipeline with the risk-tier gate badge, inbox and cost" width="900" />
 </p>
