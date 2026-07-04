@@ -35,6 +35,26 @@ bash scripts/cd-local.sh --publish
 git tag "v$(node -p "require('./packages/cli/package.json').version")" && git push --tags
 ```
 
+## Installing the working copy as the local plugin
+
+great_cto is developed from source but Claude Code loads it as a plugin from a
+versioned cache dir (`~/.claude/plugins/cache/local/great_cto/<version>/`). The
+SessionStart hook keeps only the 3 newest versions, so after a few bumps — or a
+plugins-cache reset — that dir can end up **empty**, and the hook silently
+no-ops ("plugin dir not found"): no `ARCHETYPES.md`/`SKILL.md` bootstrap, no
+agents refreshed, docs/metrics look broken on the board.
+
+Re-populate it in one idempotent command:
+
+```bash
+bash scripts/install-local.sh              # sync plugin + refresh ~/.claude/agents
+bash scripts/install-local.sh --no-agents  # plugin cache only
+bash scripts/install-local.sh --prune      # also drop other cached versions
+```
+
+Run it after a version bump or whenever the board shows stale/empty docs, then
+restart your Claude Code session so the SessionStart hook picks it up.
+
 ## Why GitHub Actions is failing (account-level, not the code)
 
 - Repo is **public** → Actions minutes are unlimited (rules out a minutes cap).
