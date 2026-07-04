@@ -25,7 +25,15 @@ function saveNotifHistory() {
  * Record a notification, broadcast via SSE, and persist.
  * Called alongside fireEmailAlert / firePushAlert at every trigger point.
  */
-function addNotification(event, payload) {
+function addNotification(event, payload, dedupeKey = null) {
+  // Idempotent per dedupeKey: the alert crons tick every 5 min and a persistent
+  // condition (open P0, blocked/stale gate, cost over threshold, the daily
+  // digest during its whole UTC hour) would otherwise add a fresh in-app
+  // notification on every tick — spamming the bell. Email/push already dedupe
+  // via alerts-fired.json; this makes the in-app notification dedupe the same.
+  if (dedupeKey && notifHistory.some(n => n.dedupeKey === dedupeKey)) {
+    return null;
+  }
   const notif = {
     id: crypto.randomUUID(),
     event,
@@ -36,6 +44,7 @@ function addNotification(event, payload) {
     project: payload.project || '',
     ts: new Date().toISOString(),
     read: false,
+    ...(dedupeKey ? { dedupeKey } : {}),
   };
   notifHistory.unshift(notif);
   if (notifHistory.length > MAX_NOTIF_HISTORY) notifHistory.length = MAX_NOTIF_HISTORY;
