@@ -371,3 +371,31 @@ test('metrics: too few verdict costs → does NOT promote to measured (stays est
     cleanup(home, project);
   }
 });
+
+test('metrics: cost-history enrichment reads PROJECT-LOCAL file (regression — was global-only, so it never fired)', async () => {
+  const today = new Date().toISOString();      // full ISO; minute+agent key matches
+  const min = today.slice(0, 16);
+  // Verdicts WITHOUT a cost tag — cost must come from the project cost-history.log
+  const { home, project } = makeProject({
+    verdicts: {
+      'architect':     `${min}:05Z | architect | APPROVED | feature=a\n`,
+      'senior-dev':    `${min}:06Z | senior-dev | APPROVED | feature=b\n`,
+      'code-reviewer': `${min}:07Z | code-reviewer | APPROVED | feature=c\n`,
+    },
+  });
+  // Project-local cost-history (where log-verdict.sh + the SubagentStop hook write it).
+  writeFileSync(join(project, '.great_cto', 'cost-history.log'),
+    `${min}:05Z architect 0.80\n${min}:06Z senior-dev 1.40\n${min}:07Z code-reviewer 0.30\n`);
+  const port = pickPort();
+  const board = spawnBoard(project, home, port);
+  try {
+    await waitForBoard(port);
+    const m = await fetchJson(port, '/api/metrics?days=30');
+    // Enrichment fired from the project file → measured cost is canonical.
+    assert.equal(m.cost.source, 'measured', `expected measured (project cost-history enriched), got ${m.cost.source}`);
+    assert.ok(Math.abs(m.cost.llm_usd - 2.50) < 0.05, `enriched llm ~2.50, got ${m.cost.llm_usd}`);
+  } finally {
+    killBoardTree(board);
+    cleanup(home, project);
+  }
+});
