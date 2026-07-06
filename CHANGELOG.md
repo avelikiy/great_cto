@@ -21,6 +21,25 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.85.3 — 2026-07-06
+
+### Fix: board menu bughunt — Logs badge + budget NaN
+
+Hunted all admin-board menus. Two real cosmetic bugs fixed:
+- **Logs nav badge** stayed `0` until you opened the Logs tab (it was populated
+  lazily) — now it fills on load and on project switch.
+- **Projected-month %** showed `NaN%` when the monthly budget was explicitly `0`
+  (0/0) — now guarded (`budget > 0`).
+
+A code hunter flagged two P1 XSS in onclick handlers; **disproved live** — the
+single-/double-quoted attribute escaping (`&apos;`/`&quot;`) holds and `<>` in an
+attribute value never becomes DOM (4 breakout payloads, zero execution). The
+menus are otherwise clean. (One noted low-priority hardening: `showToast` inner
+HTML of a server error string — localhost-only threat, left as-is.)
+
+---
+
 ## v2.85.2 — 2026-07-06
 
 ### Fix: measured cost actually reaches the board
