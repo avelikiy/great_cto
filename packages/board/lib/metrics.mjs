@@ -181,9 +181,34 @@ function getMetrics(cwd = process.cwd(), days = 30) {
     return s + v.cost_usd;
   }, 0);
 
+  // Trust gate for MEASURED cost (pxpipe discipline: measure, but only report
+  // measured when the measurement is trustworthy — else partial/synthetic verdict
+  // data distorts the ratio, so we fall back to the task estimate).
+  // Bar: enough windowed done-tasks carry a real verdict cost (coverage ≥ 50%,
+  // min 3), and the measured total is a real spend (≥ 1¢, not a synthetic $0).
+  const doneInWindowCount = done.filter(t => t.closed_at && (now - new Date(t.closed_at).getTime()) <= costWindowMs).length;
+  const verdictsWithCost = verdicts.filter(v => v.cost_usd != null && (!v.ts || (now - new Date(v.ts).getTime()) <= costWindowMs)).length;
+  const measuredTrustworthy = verdictLlmTotal >= 0.01
+    && verdictsWithCost >= Math.max(3, Math.ceil(0.5 * doneInWindowCount));
+
   let cost;
   if (costData.llm_usd > 0 || costData.human_usd > 0) {
     cost = { ...costData, real_llm_usd: verdictLlmTotal > 0 ? Math.round(verdictLlmTotal * 10000) / 10000 : null };
+  } else if (measuredTrustworthy) {
+    // Canonical = MEASURED verdict cost. Human leg is the independent task
+    // estimate (or a verdict-count baseline when there are no tasks), so the
+    // savings ratio compares measured spend against estimated human effort.
+    const humanLeg = taskHumanTotal > 0 ? taskHumanTotal : verdicts.length * (30 / 60) * HUMAN_RATE_PER_HR;
+    cost = {
+      llm_usd:   Math.round(verdictLlmTotal * 100) / 100,
+      human_usd: Math.round(humanLeg),
+      savings_x: humanLeg > 0 ? Math.round(humanLeg / verdictLlmTotal) : null,
+      window_days: 30,
+      count:     verdictsWithCost,
+      coverage:  doneInWindowCount > 0 ? Math.round((verdictsWithCost / doneInWindowCount) * 100) : null,
+      source:    'measured',
+      real_llm_usd: Math.round(verdictLlmTotal * 10000) / 10000,
+    };
   } else if (taskLlmTotal > 0) {
     // savings_x intentionally NULL for source='tasks': it would always equal
     // HUMAN_RATE_PER_HR / LLM_RATE_PER_HR (e.g. 500) because both legs share
