@@ -17,6 +17,15 @@ cat .great_cto/PROJECT.md 2>/dev/null || echo "NO_PROJECT"
 # Recent session logs (last 3)
 ls -t .great_cto/logs/session-*.md 2>/dev/null | head -3
 
+# RELEVANT past sessions (BM25 ranked, not just recent) — query = current branch
+# + open task titles, so resuming to work on X surfaces the X sessions even if
+# they aren't the newest. Fail-open: silent if node/module unavailable.
+MS="$HOME/.claude/plugins/cache/local/great_cto"; MS="$(ls -d $MS/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/memory-search.mjs"
+if command -v node >/dev/null 2>&1 && [ -f "$MS" ]; then
+  RQ="$(git branch --show-current 2>/dev/null) $(bd list --status open 2>/dev/null | head -5 | sed 's/^[^ ]* //' | tr '\n' ' ')"
+  [ -n "$(echo "$RQ" | tr -d ' ')" ] && { echo "# Relevant past sessions (ranked):"; node "$MS" "$RQ" --source logs --limit 4 2>/dev/null; }
+fi
+
 # Open tasks (Beads or tasks.md)
 cat .great_cto/tasks.md 2>/dev/null | grep -E "^\- \[ \]|^## " | head -20
 
