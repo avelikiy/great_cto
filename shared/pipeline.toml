@@ -82,3 +82,7 @@ next = ["senior-dev"]
 [transitions.performance-engineer]
 on = ["DONE", "PASS"]
 next = ["qa-engineer"]
+
+[transitions.growth-engineer]
+on = ["READY", "DONE"]
+next = ["devops"]

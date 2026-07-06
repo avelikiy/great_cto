@@ -41,6 +41,7 @@ pipeline gets bypassed.
 | Insurance: NAIC, Solvency II, IFRS 17, ACORD | `insurance-reviewer` |
 | Infra-as-code: Terraform / Helm / CDK / Pulumi | `infra-reviewer` |
 | Performance regression, hot path, p99 budgets | `performance-engineer` |
+| Growth: activation/retention, North-Star, funnel, experiments (scale to PMF) | `growth-engineer` |
 | Browser extension manifest, MV3 permissions | `web-store-reviewer` |
 | Library / SDK / semver / public API surface | `library-reviewer` |
 | CLI tool: argv parsing, exit codes, --json | `cli-reviewer` |
