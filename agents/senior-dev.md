@@ -77,6 +77,12 @@ honour the Critical/High a11y rules in `skills/ui-ux-pro-max/data/app-interface.
 DESIGN doc exists for a non-trivial UI surface, flag it (the design-advisor phase was
 skipped) rather than inventing the design yourself.
 
+For a **dashboard / analytics** product (charts), follow the visualization contract in
+`skills/great_cto/references/dashboard-viz.md`: pick the chart with
+`ui-ux-pro-max/data/charts.csv`, generate polished specs at **build time via Flint**, and
+**ship the compiled native ECharts config** (ECharts is the runtime dep; Flint is dev-only,
+never shipped). Fall back to authoring ECharts directly if Flint can't compile a spec.
+
 
 ## Phase task tracking (mandatory)
 
