@@ -15,6 +15,7 @@
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ROLES, ROLE_ORDER, roleForAgent } from '../shared/lifecycle-map.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const AGENTS_DIR = join(ROOT, 'agents');
@@ -57,8 +58,18 @@ function readDefs(dir, { nameKey }) {
 }
 
 function renderAgents(defs) {
-  const reviewers = defs.filter((d) => d.name.endsWith('-reviewer'));
-  const core = defs.filter((d) => !d.name.endsWith('-reviewer'));
+  // Group every agent by team role (see shared/lifecycle-map.mjs) — after Boris
+  // Cherny's 5 roles plus the two axes his model omits. This is a LENS over the
+  // agents, not a merge: agents stay narrowly scoped; we only group them here.
+  const byRole = new Map(ROLE_ORDER.map((r) => [r, []]));
+  const unclassified = [];
+  for (const d of defs) {
+    const role = roleForAgent(d.name);
+    if (role && byRole.has(role)) byRole.get(role).push(d);
+    else unclassified.push(d);
+  }
+  const reviewerCount = byRole.get('reviewers').length;
+  const coreCount = defs.length - reviewerCount;
 
   const table = (rows) => {
     const lines = ['| Agent | Model | Effort | What it does |', '|---|---|---|---|'];
@@ -68,25 +79,39 @@ function renderAgents(defs) {
     return lines.join('\n');
   };
 
-  return [
+  const out = [
     '# Reference — Agents',
     '',
     '> **Auto-generated** by `scripts/gen-docs-reference.mjs` from `agents/*.md` frontmatter.',
     '> Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.',
     '',
-    `**${defs.length} agents** · ${core.length} core & specialists · ${reviewers.length} domain reviewers.`,
+    `**${defs.length} agents** · ${coreCount} core & specialists · ${reviewerCount} domain reviewers.`,
     '',
-    '## Core pipeline & specialists',
+    "Grouped by **team role** — after Boris Cherny's (Anthropic, Claude Code) five roles of the",
+    'IT team of the future (Prototyper · Builder · Sweeper · Grower · Maintainer), plus the two',
+    "axes his model omits: **Reviewers & Safety** (the compliance/security moat) and",
+    '**Orchestration & Meta**. Roles are a lens over the agents, not a merge — each agent stays',
+    'narrowly scoped (focused prompt + right model tier + gates).',
     '',
-    table(core),
-    '',
-    '## Domain reviewers',
-    '',
-    'Overlay reviewers auto-loaded by archetype / compliance pack.',
-    '',
-    table(reviewers),
-    '',
-  ].join('\n');
+  ];
+  for (const key of ROLE_ORDER) {
+    const rows = byRole.get(key);
+    if (!rows.length) continue;
+    const r = ROLES[key];
+    const suffix = r.cherny ? '' : ' _(great_cto adds — beyond Cherny\'s 5)_';
+    out.push(`## ${r.label} — ${r.tagline}${suffix}`, '', r.blurb, '', table(rows), '');
+  }
+  if (unclassified.length) {
+    out.push(
+      '## Unclassified',
+      '',
+      '> ⚠️ These agents are not mapped in `shared/lifecycle-map.mjs`. Classify them there.',
+      '',
+      table(unclassified),
+      '',
+    );
+  }
+  return out.join('\n');
 }
 
 function renderCommands(defs) {
