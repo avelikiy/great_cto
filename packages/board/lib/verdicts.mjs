@@ -81,18 +81,28 @@ function readVerdicts(cwd = null) {
   }
   }  // end verdictDirs loop
 
-  // Fallback: enrich verdicts that lack cost_usd from .great_cto/cost-history.log.
-  // Format: "<ISO-ts> <agent> <cost_usd>" per line (written by scripts/log-verdict.sh).
-  // Match by ts (minute precision) + agent to avoid double-counting.
-  const histPath = path.join(GREAT_CTO_DIR, 'cost-history.log');
-  if (fs.existsSync(histPath)) {
+  // Fallback: enrich verdicts that lack cost_usd from cost-history.log.
+  // Format: "<ISO-ts> <agent> <cost_usd>" per line. Both scripts/log-verdict.sh
+  // and the SubagentStop measured-cost hook write it PROJECT-LOCAL
+  // (<cwd>/.great_cto/cost-history.log) — reading only the global ~/.great_cto
+  // copy (as this did before) meant the enrichment never fired for real
+  // projects. Read project-local first, global second. Match by ts (minute
+  // precision) + agent to avoid double-counting.
+  const histPaths = [
+    cwd ? path.join(cwd, '.great_cto', 'cost-history.log') : null,
+    path.join(GREAT_CTO_DIR, 'cost-history.log'),
+  ].filter(Boolean);
+  {
     const costByKey = new Map();
-    const lines = fs.readFileSync(histPath, 'utf8').split('\n').filter(Boolean);
-    for (const line of lines) {
-      const m = line.match(/^(\S+)\s+(\S+)\s+(\d+\.?\d*)/);
-      if (!m) continue;
-      const key = `${m[1].slice(0, 16)}|${m[2]}`;  // minute + agent
-      costByKey.set(key, parseFloat(m[3]));
+    for (const histPath of histPaths) {
+      if (!fs.existsSync(histPath)) continue;
+      const lines = fs.readFileSync(histPath, 'utf8').split('\n').filter(Boolean);
+      for (const line of lines) {
+        const m = line.match(/^(\S+)\s+(\S+)\s+(\d+\.?\d*)/);
+        if (!m) continue;
+        const key = `${m[1].slice(0, 16)}|${m[2]}`;  // minute + agent
+        if (!costByKey.has(key)) costByKey.set(key, parseFloat(m[3])); // project wins
+      }
     }
     for (const v of results) {
       if (v.cost_usd != null) continue;
