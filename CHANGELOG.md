@@ -20,6 +20,22 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.85.2 — 2026-07-06
+
+### Fix: measured cost actually reaches the board
+
+Real-pipeline validation of v2.84.0 caught a bug the fixtures missed: the
+SubagentStop hook (and `log-verdict.sh`) write `cost-history.log` **project-local**
+(`<cwd>/.great_cto/`), but `readVerdicts` enriched only from the **global**
+`~/.great_cto/cost-history.log` — so measured cost never reached the metrics and
+the board stayed on the estimate. `readVerdicts` now reads the project file first
+(global as fallback). Verified end-to-end on real session subagent transcripts:
+4 agents → `source: 'measured'`, real \$20.38 summed (cache tokens included).
++1 regression test.
+
+---
+
 ## v2.85.1 — 2026-07-06
 
 ### Fix: correct the Flint API in the dashboard viz contract
