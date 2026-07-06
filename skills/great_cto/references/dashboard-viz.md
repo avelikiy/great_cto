@@ -32,13 +32,28 @@ runtime dependency in the client's product — and makes the choice reversible
    rendering thresholds (SVG < ~1k points; Canvas / downsample above; aggregate
    > 10k) and the a11y rules (differentiate series by style+pattern, not colour
    alone; always ship a data-table fallback for pie/donut).
-2. **Author a Flint spec** per chart — semantic field types (`Price`, `Rank`,
-   `Country`, `Date`, …), chart type, encodings, base dimensions. Keep specs
-   small and human-editable; commit them under `viz/specs/` in the product.
-3. **Compile to native ECharts at build time** (devDependency `flint-chart`, or
-   `npx flint-chart`), emit the native option object, and render it with the
-   shipped `echarts` runtime. Do NOT add `flint-chart` to the product's runtime
-   `dependencies`.
+2. **Author a Flint `ChartAssemblyInput`** per chart — `data.values`,
+   `semantic_types` (field → semantic type: `Price`, `Rank`, `Country`, `Date`,
+   `Category`, `Quantity`, …), and `chart_spec` (`chartType` — the same names as
+   `charts.csv`, e.g. `'Bar Chart'`, `'Line Chart'` — plus `encodings`). Keep the
+   inputs small and human-editable; commit them under `viz/specs/` in the product.
+3. **Compile to native ECharts at build time.** `flint-chart` is a **library, not
+   a CLI** (verified v0.1.3). Add it as a **devDependency** and, in a build/codegen
+   step, call `assembleECharts(input)` — it returns a plain ECharts `option`
+   object. Write that option out and render it with the shipped `echarts` runtime.
+   Do NOT add `flint-chart` to the product's runtime `dependencies`.
+
+   ```ts
+   // build step (dev only) — flint-chart → native ECharts option
+   import { assembleECharts, type ChartAssemblyInput } from 'flint-chart';
+   const input: ChartAssemblyInput = {
+     data: { values: rows },
+     semantic_types: { month: 'Month', revenue: 'Price' },
+     chart_spec: { chartType: 'Bar Chart', encodings: { x: { field: 'month' }, y: { field: 'revenue' } } },
+   };
+   const option = assembleECharts(input);   // ship this; echarts renders it
+   ```
+   (`assembleVegaLite` / `assembleChartjs` exist too if the product uses those.)
 4. **Wire to live data**: charts read from the connector-builder's warehouse-lite
    schema (respect freshness SLAs); paginate/aggregate server-side before the
    chart per the thresholds above.
