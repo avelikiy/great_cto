@@ -18,6 +18,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.85.0 — 2026-07-06
+
+### Dashboard visualization contract (Flint at build time → native ECharts)
+
+The `dashboard` archetype ingested data (connector-builder) but nobody owned the
+OUT half — charts. senior-dev hand-wrote ECharts config per product. This adds a
+charting contract:
+
+- **`references/dashboard-viz.md`** — senior-dev now follows it for dashboard /
+  analytics builds: pick the chart with `ui-ux-pro-max/data/charts.csv`, generate
+  polished specs with **Flint** (semantic chart language) at **build time**, and
+  **ship the compiled native ECharts config**.
+- **Flint is dev-only, never a runtime dep of the shipped product.** The client's
+  product depends on mature ECharts; Flint (v0.1.x) only runs during the build and
+  the choice is reversible (drop Flint, keep the native config). Falls back to
+  authoring ECharts directly if a spec won't compile.
+- **stack-baseline** pins Charts = ECharts (shipped) · Recharts (alt) · Flint
+  (build-time generator).
+- Pilot posture: measure chart quality on one dashboard product via the
+  `product-quality` harness before escalating to a dedicated `viz-engineer` agent.
+  Docs/prompt-only; full suite 342, structural + docs-reference green.
+
+---
+
 ## v2.84.0 — 2026-07-06
 
 ### Measured LLM cost (not estimated)
