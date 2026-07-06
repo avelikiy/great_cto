@@ -19,6 +19,22 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.85.1 — 2026-07-06
+
+### Fix: correct the Flint API in the dashboard viz contract
+
+Verified `flint-chart` (v0.1.3) against reality: it's a **library, not a CLI** —
+`references/dashboard-viz.md` wrongly told the agent to run `npx flint-chart`
+(which doesn't exist). Corrected to the real build-time call
+`assembleECharts(input)` (imported from `flint-chart` as a devDependency), with
+the actual `ChartAssemblyInput` shape (`data.values` · `semantic_types` ·
+`chart_spec.chartType` — whose names match `charts.csv`). Confirmed by compiling
+a spec to a real ECharts `option` object. Still dev-only; product ships native
+ECharts.
+
+---
+
 ## v2.85.0 — 2026-07-06
 
 ### Dashboard visualization contract (Flint at build time → native ECharts)
