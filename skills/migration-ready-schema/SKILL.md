@@ -13,7 +13,7 @@ effort: low
 allowed-tools: Read, Write, Grep, Glob
 paths:
   - "docs/architecture/**"
-  - "docs/migration/**"
+  - "docs/data-import/**"
 ---
 
 # Migration-ready schema — importable from day one
