@@ -35,6 +35,19 @@ if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
     fi
   done
   echo "  Apply matched patterns as architecture constraints before writing ARCH doc."
+
+  # Semantically-related patterns (BM25 ranked recall) — surfaces patterns the
+  # exact applies_to grep above misses (relevant symptom, different label).
+  # Fail-open: silent if node or the module is unavailable.
+  MS="$(dirname "$0")/lib/memory-search.mjs"
+  if command -v node >/dev/null 2>&1 && [ -f "$MS" ]; then
+    DESC=$(grep -m1 "^description:" .great_cto/PROJECT.md 2>/dev/null | sed 's/description: //')
+    RANKED=$(node "$MS" "${ARCH} ${STACK} ${DESC}" --source patterns --limit 3 2>/dev/null)
+    case "$RANKED" in
+      ""|"no memory matches"*) ;;
+      *) printf '\n  --- also possibly relevant (ranked recall) ---\n'; echo "$RANKED" | sed 's/^/  /' ;;
+    esac
+  fi
 else
   echo "  No global patterns yet. After first incident, run /crystallize to build the library."
 fi
