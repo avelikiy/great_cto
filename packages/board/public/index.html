@@ -3159,7 +3159,7 @@ function renderCost(d) {
       <div class="cost-cell ${overBudget ? 'warn' : (budget != null ? 'good' : '')}">
         <div class="lbl">Projected month</div>
         <div class="v">$${projected.toFixed(0)}</div>
-        <div class="sub">${budget != null ? (overBudget ? `over budget by $${(projected - budget).toFixed(0)}` : `${Math.round((projected/budget)*100)}% of $${budget} budget`) : 'set monthly-budget in PROJECT.md'}</div>
+        <div class="sub">${budget > 0 ? (overBudget ? `over budget by $${(projected - budget).toFixed(0)}` : `${Math.round((projected/budget)*100)}% of $${budget} budget`) : 'set monthly-budget in PROJECT.md'}</div>
       </div>
       <div class="cost-cell good">
         <div class="lbl">vs Human team</div>
@@ -3484,6 +3484,7 @@ async function switchProject(slug) {
   loadMemory();
   refreshCost();
   refreshPipeline();
+  refreshLogs();   // populate the Logs nav badge (was lazy — stuck at 0 until the tab was opened)
   refreshAgentsInstalled();   // reload agents with verdicts for the new project
   connectSSE();
   if (lbl) lbl.textContent = 'live · synced just now';
@@ -3671,6 +3672,7 @@ async function init() {
   loadMemory();
   refreshCost();
   refreshPipeline();
+  refreshLogs();   // populate the Logs nav badge (was lazy — stuck at 0 until the tab was opened)
   refreshAgentsInstalled();  // preload fleet so Agents tab is instant
   connectSSE();
 
