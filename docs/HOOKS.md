@@ -12,11 +12,35 @@ great_cto uses [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-cod
 | `PreToolUse` | `Edit\|Write\|MultiEdit` | `secret-scan.mjs` | Blocks writes containing hardcoded API keys |
 | `PostToolUse` | `Write\|Edit\|MultiEdit` | inline + `format-check.mjs` | Logs writes + auto-formats by extension |
 | `UserPromptSubmit` | — | `user-prompt-submit.py` + `cost-guard.mjs` | Sets session title + warns on expensive prompts |
+| `UserPromptSubmit` | — | `classify-telemetry.mjs` **(opt-in)** | Records request-class metadata to a local log — off unless `GREAT_CTO_CLASS_TELEMETRY=1` |
 | `PreCompact` | — | inline | Saves HANDOFF.md before context compaction |
 | `SubagentStart` | — | inline | Injects project context to subagents |
 | `PermissionDenied` | — | inline | Logs denials for diagnostics |
 
 Source: `.claude-plugin/plugin.json`, scripts in `scripts/hooks/`.
+
+### Measuring request-class distribution (opt-in)
+
+The request classifier (see `CLAUDE.md` → "Request classifier") is a prompt
+heuristic that leaves no trace, so we can't tell how often each class fires or
+how ambiguous requests are — which is exactly what you'd need to decide whether
+an explicit `mode:` override is worth building. `classify-telemetry.mjs` closes
+that gap **only when you turn it on**:
+
+```bash
+export GREAT_CTO_CLASS_TELEMETRY=1     # dormant otherwise (node isn't even spawned)
+# …work a while…
+# aggregate the local, content-free log:
+cut -f2 .great_cto/class-telemetry.log | sort | uniq -c | sort -rn
+grep -c ambiguous .great_cto/class-telemetry.log   # how often signals collide
+```
+
+It writes **metadata only** (class · ambiguity · signal count · prompt length —
+never the prompt text) to a **local** `.great_cto/class-telemetry.log`, never
+sent anywhere. It's a regex *proxy* of the model's classifier: a high
+`UNCLASSIFIED` share just means many requests are context-dependent
+continuations ("do it", "continue") that keyword-matching can't judge — itself a
+useful signal. Off by default per the telemetry rule in `CLAUDE.md`.
 
 ## What each hook does
 
