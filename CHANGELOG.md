@@ -16,6 +16,30 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.83.0 — 2026-07-06
+
+### Ranked memory recall (BM25)
+
+- **`scripts/lib/memory-search.mjs`** — a zero-dep BM25 search over great_cto's
+  memory (session logs, brain/lessons/decisions, and `~/.great_cto/global-patterns`).
+  Rich memory was let down by naive recall: `/resume` read the *most recent*
+  logs and architect's pattern-lookup grepped patterns by exact `applies_to`
+  frontmatter. Recent ≠ relevant, and an exact grep misses a related pattern
+  under a different label. Ranked search surfaces the *relevant* memory.
+- **Wired into `/resume`** — now also surfaces the past sessions most relevant
+  to the current work (query built from the git branch + open task titles), not
+  only the newest three.
+- **Wired into architect pattern-lookup** — adds a "also possibly relevant
+  (ranked recall)" section alongside the exact-tag matches, so a semantically
+  related pattern surfaces even when its `applies_to` label differs.
+- Pure Node, no deps, no index files, builds in-memory per call (memory corpora
+  are small). Fail-open: silent if node/module is unavailable. Idea adapted from
+  Kuberwastaken/reference (BM25 over agent memory); implemented fresh in Node.
+- Tests: lib suite +6 (348 total, all green).
+
+---
+
 ## v2.82.3 — 2026-07-04
 
 ### Board honesty fixes (found by admin bughunt)
