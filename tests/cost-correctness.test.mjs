@@ -329,3 +329,45 @@ test('cost: by_feature aggregates verdict feature= tags', async () => {
     cleanup(home, project);
   }
 });
+
+test('metrics: measured verdict cost becomes canonical when it clears the trust gate', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  // 4 windowed verdicts all carrying a real cost → coverage ≥ 3, spend ≥ 1¢.
+  const { home, project } = makeProject({
+    verdicts: {
+      'architect':     `${today}T10:00:00Z ok cost=$0.40\n`,
+      'senior-dev':    `${today}T11:00:00Z ok cost=$1.10\n${today}T12:00:00Z ok cost=$0.90\n`,
+      'code-reviewer': `${today}T13:00:00Z ok cost=$0.20\n`,
+    },
+  });
+  const port = pickPort();
+  const board = spawnBoard(project, home, port);
+  try {
+    await waitForBoard(port);
+    const m = await fetchJson(port, '/api/metrics?days=30');
+    assert.equal(m.cost.source, 'measured', `expected measured source, got ${m.cost.source}`);
+    assert.ok(Math.abs(m.cost.llm_usd - 2.60) < 0.05, `measured llm ~2.60, got ${m.cost.llm_usd}`);
+    assert.ok(typeof m.cost.savings_x === 'number' && m.cost.savings_x > 0, 'measured savings_x is a real number, not null');
+    assert.equal(m.cost.real_llm_usd != null, true, 'real_llm_usd populated');
+  } finally {
+    killBoardTree(board);
+    cleanup(home, project);
+  }
+});
+
+test('metrics: too few verdict costs → does NOT promote to measured (stays estimate/none)', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const { home, project } = makeProject({
+    verdicts: { 'architect': `${today}T10:00:00Z ok cost=$0.40\n` }, // only 1 → below the coverage bar
+  });
+  const port = pickPort();
+  const board = spawnBoard(project, home, port);
+  try {
+    await waitForBoard(port);
+    const m = await fetchJson(port, '/api/metrics?days=30');
+    assert.notEqual(m.cost.source, 'measured', 'a single verdict cost must not be treated as measured');
+  } finally {
+    killBoardTree(board);
+    cleanup(home, project);
+  }
+});

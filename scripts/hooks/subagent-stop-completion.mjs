@@ -23,7 +23,7 @@
  *           2 = block stop (only when GREAT_CTO_ENFORCE_COMPLETION=block AND incomplete)
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -73,9 +73,45 @@ export function recentVerdict(dir, withinMs, now) {
   return false;
 }
 
-function main() {
+/**
+ * Record MEASURED cost for the just-finished subagent, from its transcript.
+ * pxpipe discipline: measure the real token usage instead of estimating — so
+ * the board's cost is measured, not a task-minute guess. Writes a
+ * "<verdict-ts> <agent> <usd>" line to .great_cto/cost-history.log, which
+ * readVerdicts() uses to fill any verdict that lacks a cost tag (matched by
+ * minute+agent, so it never double-counts an agent-reported cost).
+ * Fail-open at every step; opt out with GREAT_CTO_NO_MEASURED_COST=1.
+ */
+async function recordMeasuredCost(stdin) {
+  if (process.env.GREAT_CTO_NO_MEASURED_COST === '1') return;
+  try {
+    const tp = JSON.parse(stdin || '{}').transcript_path;
+    if (!tp || !existsSync(tp)) return;
+    const { usageFromTranscript } = await import('../lib/usage-from-transcript.mjs');
+    const { usd } = usageFromTranscript(tp);
+    if (!(usd > 0)) return;
+    // Most-recently-written verdict file → agent name + its timestamp (so the
+    // cost-history minute+agent key matches the verdict readVerdicts sees).
+    if (!existsSync(VERDICT_DIR)) return;
+    let newest = null, newestMtime = 0;
+    for (const f of readdirSync(VERDICT_DIR)) {
+      if (!f.endsWith('.log')) continue;
+      const m = statSync(join(VERDICT_DIR, f)).mtimeMs;
+      if (m > newestMtime) { newestMtime = m; newest = f; }
+    }
+    if (!newest) return;
+    const agent = newest.replace(/\.log$/, '');
+    const lines = readFileSync(join(VERDICT_DIR, newest), 'utf8').trim().split('\n');
+    const lastTs = (lines[lines.length - 1].match(/^(\S+)/) || [])[1] || new Date().toISOString();
+    appendFileSync(join(PROJ_DIR, 'cost-history.log'), `${lastTs} ${agent} ${usd}\n`);
+  } catch { /* fail-open — never block a subagent stop */ }
+}
+
+async function main() {
   if (process.env.GREAT_CTO_DISABLE_COMPLETION_CHECK === '1') return process.exit(0);
-  try { readFileSync(0, 'utf8'); } catch { /* drain stdin, ignore */ }
+  let stdin = '';
+  try { stdin = readFileSync(0, 'utf8'); } catch { /* no stdin */ }
+  await recordMeasuredCost(stdin);
 
   let flags = { threeState: false, acceptanceRequired: false };
   try { flags = readCompletionFlags(readFileSync(ORCH_PATH, 'utf8')); } catch { return process.exit(0); }
