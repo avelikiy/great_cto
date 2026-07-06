@@ -28,6 +28,7 @@ reason in ARCH.**
 |---|---|---|---|
 | **Framework** | Next.js (App Router, TS) | Remix | Server actions + RSC; one repo front+back |
 | **UI** | Tailwind + shadcn/ui | — | matches the site; design-advisor tokens map to it |
+| **Charts** (dashboard/analytics) | ECharts (shipped) | Recharts | polished specs generated at **build time via Flint → compiled to native ECharts**; Flint is dev-only, never a runtime dep. Contract: `references/dashboard-viz.md` |
 | **DB** | Postgres | — | the only DB; integer cents, tz-aware timestamps |
 | **ORM / migrations** | Drizzle | Prisma | typed schema + SQL migrations; migration-ready-schema applies |
 | **Auth** | Auth.js (NextAuth v5) | Clerk (fast path, per-MAU cost) | owned by **auth-engineer**; session + RBAC + multi-tenant |
