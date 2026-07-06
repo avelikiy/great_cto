@@ -91,7 +91,14 @@ export function costForUsage({ model, usage, prices }) {
   if (!p) return 0;
   const inTok = usage.input_tokens || 0;
   const outTok = usage.output_tokens || 0;
-  return (inTok * p.input + outTok * p.output) / 1_000_000;
+  // Prompt-caching tokens bill at Anthropic's standard multipliers off the base
+  // input price: cache WRITE = 1.25× input, cache READ = 0.1× input. Ignoring
+  // them under-counts real spend badly (a cached turn is often 50k+ cache tokens
+  // vs a few hundred fresh input tokens).
+  const cacheWrite = usage.cache_creation_input_tokens || 0;
+  const cacheRead = usage.cache_read_input_tokens || 0;
+  return (inTok * p.input + outTok * p.output
+        + cacheWrite * p.input * 1.25 + cacheRead * p.input * 0.1) / 1_000_000;
 }
 
 export function round4(n) { return Math.round(n * 10000) / 10000; }
