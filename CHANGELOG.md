@@ -17,6 +17,32 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.84.0 — 2026-07-06
+
+### Measured LLM cost (not estimated)
+
+pxpipe's discipline applied to the board's metrics: measure real token usage,
+and only report measured cost when the measurement is trustworthy.
+
+- **SubagentStop records real usage.** When a subagent finishes, the completion
+  hook reads its transcript, sums the real token usage, and writes a measured
+  `cost` for that agent — no agent self-report needed. Fail-open; opt out with
+  `GREAT_CTO_NO_MEASURED_COST=1`.
+- **Cache tokens are now priced.** `cost-meter` bills `cache_creation` at 1.25×
+  and `cache_read` at 0.1× the model's input rate — ignoring them under-counted
+  real spend badly (a cached turn is often 50k+ cache tokens).
+- **The board promotes measured → canonical past a trust gate.** When enough of
+  the window's completed tasks carry a real verdict cost (coverage ≥ 50%, min 3)
+  and the spend is real (≥ 1¢), the board shows the *measured* cost and a real
+  savings multiplier (`source: 'measured'`). Below the bar it honestly falls back
+  to the time-based estimate — partial/synthetic verdict data never distorts the
+  ratio.
+- New `scripts/lib/usage-from-transcript.mjs` (+6 tests); cost-correctness gains
+  2 trust-gate tests. Suites: root+board 342, lib 353, all green.
+
+---
+
 ## v2.83.0 — 2026-07-06
 
 ### Ranked memory recall (BM25)
