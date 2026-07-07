@@ -75,6 +75,14 @@ test('ADR with zero references warns (no-source)', () => {
   assert.equal(r.errors.length, 0);
 });
 
+test('an inline-code file path counts as a source (no no-source warn)', () => {
+  const r = lint({
+    'docs/adr/ADR-007-x.md':
+      `# ADR\n**Date:** ${today}\n## Context\nc\n## Decision\nd\n## Consequences\nSee \`scripts/agent-prompt-lint.mjs\`.\n`,
+  });
+  assert.ok(!warnKinds(r).includes('no-source'));
+});
+
 // ─── freshness ─────────────────────────────────────────────────────────────
 
 test('stale-dated artifact warns; inline **Date:** is parsed', () => {

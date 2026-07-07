@@ -159,7 +159,11 @@ function extractDate(text) {
   return found.sort().at(-1); // most recent
 }
 
-const SOURCE_RE = /(https?:\/\/|\]\(|\[\[)/; // markdown link, bare URL, or [[memory]]
+// A "source" is any concrete reference: markdown link, bare URL, [[memory]]
+// link, OR an inline-code span naming a file/path (e.g. `scripts/foo.mjs`,
+// `archetypes.ts`) — ADRs cite their implementation as code paths, and that
+// counts as sourcing just as much as a URL does.
+const SOURCE_RE = /(https?:\/\/|\]\(|\[\[|`[^`\n]*(?:\/|\.\w{2,4})[^`\n]*`)/;
 
 function ageDays(iso) {
   const then = Date.parse(iso + 'T00:00:00Z');

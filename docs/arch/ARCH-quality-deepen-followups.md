@@ -1,5 +1,7 @@
 # ARCH — QUALITY-DEEPEN follow-ups (#3-#6)
 
+**Date:** 2026-07-03
+
 > Beads: great_cto-482l · Status: scoping · Reader: whoever picks up the next quality wave.
 > Builds on QUALITY-DEEPEN #1+#2 (PR #118), #3 (PR #119), #5 (PR #120). Numbering per
 > `docs/strategy/QUALITY-DEEPEN.md` § Axes.
