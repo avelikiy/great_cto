@@ -10,7 +10,7 @@ when_to_use: |
 effort: low
 allowed-tools: Read, Write, Grep, Glob
 paths:
-  - "docs/migration/**"
+  - "docs/data-import/**"
   - "docs/architecture/**"
   - "docs/design/**"
 ---
@@ -80,7 +80,7 @@ When applied, contribute an **Onboarding** section to the architecture or design
 
 ```
 ## Onboarding
-- incumbent(s): <names> → import via docs/migration/IMPORT-{slug}.md
+- incumbent(s): <names> → import via docs/data-import/IMPORT-{slug}.md
 - activation milestone: <the one action>
 - TTFV target: <minutes>
 - funnel: identify → import(dry-run→approve) → verify → setup → activate → invite

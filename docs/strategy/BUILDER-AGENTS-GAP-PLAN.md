@@ -33,7 +33,7 @@ Without these the core promise fails. Each is needed by 16–40 of the 40 produc
 | # | Deliverable | Kind | Artifact | applies_to | Coverage |
 |---|---|---|---|---|---|
 | 1 | `integrations-engineer` | agent | `docs/integrations/INTEGRATE-{slug}.md` | all 6 | ~38/40 |
-| 2 | `migration-import-engineer` | agent | `docs/migration/IMPORT-{slug}.md` | all 6 | 40/40 |
+| 2 | `migration-import-engineer` | agent | `docs/data-import/IMPORT-{slug}.md` | all 6 | 40/40 |
 | 3 | `subscription-billing-engineer` | agent | `docs/billing/BILLING-{slug}.md` | all 6 | ~30/40 |
 | 4 | `lifecycle-messaging` | skill | (consumed by #1 + senior-dev) | crm, booking | 16/40 |
 | 4b | `vertical-onboarding` | skill | (consumed by #2) | all 6 | 40/40 |

@@ -1,6 +1,6 @@
 ---
 name: migration-import-engineer
-description: Data-migration and onboarding-import specialist for SMB Product-Builder archetypes. Owns the import contract — incumbent export (CSV/XLSX/JSON/API) → our schema with field mapping, type coercion, dedup, a validation report, dry-run + rollback, and idempotent re-import. Source playbooks for ServiceTitan, Toast, Mindbody, Shopify, QuickBooks, Follow Up Boss. Runs after architect, before/with senior-dev. Writes docs/migration/IMPORT-{slug}.md. Switching cost is the #1 adoption barrier for an SMB leaving an incumbent; without a real importer our "low switching" promise is false.
+description: Data-migration and onboarding-import specialist for SMB Product-Builder archetypes. Owns the import contract — incumbent export (CSV/XLSX/JSON/API) → our schema with field mapping, type coercion, dedup, a validation report, dry-run + rollback, and idempotent re-import. Source playbooks for ServiceTitan, Toast, Mindbody, Shopify, QuickBooks, Follow Up Boss. Runs after architect, before/with senior-dev. Writes docs/data-import/IMPORT-{slug}.md. Switching cost is the #1 adoption barrier for an SMB leaving an incumbent; without a real importer our "low switching" promise is false.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1
@@ -28,7 +28,7 @@ a slogan and being true. A migration that loses a customer's history, double-imp
 invoices, or has no rollback will kill adoption faster than any missing feature.
 
 **Pipeline position**: architect → **you** (parallel to design-advisor) → senior-dev
-**Output**: `docs/migration/IMPORT-{slug}.md` (the contract) + Beads tasks per source.
+**Output**: `docs/data-import/IMPORT-{slug}.md` (the contract) + Beads tasks per source.
 
 ## Altitude (hard boundary)
 
@@ -84,7 +84,7 @@ never-cross-domains): `agents/_shared/contract-agent-altitude.md`. This agent:
 For an unlisted incumbent, derive the mapping from a real sample export (request one) and
 the destination schema. Never design a mapping against an imagined export shape.
 
-## Artifact format — `docs/migration/IMPORT-{slug}.md`
+## Artifact format — `docs/data-import/IMPORT-{slug}.md`
 
 ```
 # Import contract — {feature} ← {incumbent}
@@ -134,7 +134,7 @@ partial handoff): `agents/_shared/handoff-format.md`. Agent-specific block:
 
 ```
 ## HANDOFF → senior-dev
-- Contract: docs/migration/IMPORT-{slug}.md (complete)
+- Contract: docs/data-import/IMPORT-{slug}.md (complete)
 - Beads: <task ids>
 - Must-not-violate: dry-run-before-write, idempotent re-import, rollback exists, money-in-cents
 - Fixtures needed: <sample exports to obtain for tests>
@@ -151,5 +151,5 @@ Before your final report, record the canonical verdict line (see
 parse it; `auto` records real token cost:
 
 ```bash
-bash scripts/log-verdict.sh migration-import-engineer <DONE|BLOCKED> auto contract=docs/migration/IMPORT-<slug>.md
+bash scripts/log-verdict.sh migration-import-engineer <DONE|BLOCKED> auto contract=docs/data-import/IMPORT-<slug>.md
 ```

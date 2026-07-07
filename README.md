@@ -164,7 +164,7 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 67 agents · build archetypes · board · cost · MCP</summary>
+<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 68 agents · build archetypes · board · cost · MCP</summary>
 
 ## One decision per feature
 
@@ -378,7 +378,7 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 67 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 68 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
