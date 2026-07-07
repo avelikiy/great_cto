@@ -1,5 +1,7 @@
 # ARCH — Split packages/board/server.mjs into modules
 
+**Date:** 2026-07-02
+
 Reader: next dev doing the mechanical extraction (Beads great_cto-xz5).
 Decision: split 3,414-line `server.mjs` into a `packages/board/lib/` subtree, keeping `server.mjs` as the entry point that wires config → data → routes → http.
 

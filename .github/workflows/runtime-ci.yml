@@ -43,3 +43,5 @@ jobs:
           node-version: "22"
       - name: Run orphaned runtime tests (root + hooks + board)
         run: node --test tests/*.test.mjs tests/hooks/*.test.mjs packages/board/*.test.mjs
+      - name: Lint agent artifacts (structure + freshness)
+        run: node scripts/hooks/artifact-lint.mjs --enforce

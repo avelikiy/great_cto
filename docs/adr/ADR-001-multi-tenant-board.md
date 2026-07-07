@@ -126,6 +126,29 @@ for upstream model providers.
    - Audit log export
    - Custom retention
 
+## Consequences
+
+**Because this decision is to _defer_, the consequences are those of staying
+single-tenant for now:**
+
+Positive:
+- Zero new attack surface — no shared-tenant isolation bugs, no cross-tenant
+  data-leak class of incidents while demand is unproven.
+- Engineering stays focused on single-tenant production hardening (webhooks,
+  reports, MCP SSE) instead of multi-tenant plumbing.
+- The SaaS commitment (on-call, uptime SLA, incident response) is not taken on
+  before willingness-to-pay is validated.
+
+Negative / deferred cost:
+- No shared dashboard for teams or read-only CFO/compliance views until v2.6.0+.
+- Reopening later means retrofitting tenant isolation onto code written
+  single-tenant — the tenant-id column convention (ADR-014, TBD) must be
+  designed before any multi-tenant data is written, or migration cost balloons.
+- Revenue from managed SaaS is postponed.
+
+Revisit trigger: the reopen criteria in **Status** below (≥10 orgs in prod,
+3 paying design partners, an ops playbook).
+
 ## Status
 
 **Deferred.** v2.5.0 ships single-tenant production-grade webhooks + reports
