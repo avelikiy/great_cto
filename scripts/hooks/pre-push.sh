@@ -212,6 +212,33 @@ elif [[ -f "scripts/generate-summary.mjs" ]] && command -v node >/dev/null 2>&1;
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# Artifact hygiene: structural + freshness lint of ADRs / threat models / design
+# contracts (scripts/hooks/artifact-lint.mjs). Same discipline as the summary
+# block above: WARN-ONLY and never hangs a push.
+#   - GREAT_CTO_SKIP_ARTIFACT_CHECK=1 short-circuits before invoking node.
+#   - Runs under the same run_with_timeout shim (timeout → warn + allow).
+#   - Structural ERRORs block ONLY when GREAT_CTO_ENFORCE_ARTIFACTS=1 (which the
+#     linter itself honours for its exit code); otherwise report-and-allow.
+ARTIFACT_CHECK_TIMEOUT="${GREAT_CTO_ARTIFACT_TIMEOUT:-25}"
+if [[ "${GREAT_CTO_SKIP_ARTIFACT_CHECK:-0}" == "1" ]]; then
+  echo -e "${YELLOW}[pre-push] Skipping artifact lint (GREAT_CTO_SKIP_ARTIFACT_CHECK=1).${NC}"
+elif [[ -f "scripts/hooks/artifact-lint.mjs" ]] && command -v node >/dev/null 2>&1; then
+  ARTIFACT_RC=0
+  ARTIFACT_OUT=$(run_with_timeout "${ARTIFACT_CHECK_TIMEOUT}" node scripts/hooks/artifact-lint.mjs 2>&1) || ARTIFACT_RC=$?
+  if [[ "${ARTIFACT_RC}" -eq 124 ]]; then
+    echo -e "${YELLOW}[pre-push] Artifact lint timed out after ${ARTIFACT_CHECK_TIMEOUT}s — allowing push.${NC}"
+  elif echo "$ARTIFACT_OUT" | grep -qE 'ERRORS|WARNINGS'; then
+    echo ""
+    echo "$ARTIFACT_OUT"
+    if [[ "${GREAT_CTO_ENFORCE_ARTIFACTS:-0}" == "1" && "${ARTIFACT_RC}" -ne 0 ]]; then
+      echo -e "${YELLOW}Push blocked${NC} on structural artifact errors."
+      echo "(To skip: GREAT_CTO_SKIP_ARTIFACT_CHECK=1 git push)"
+      exit 1
+    fi
+  fi
+fi
+
 if [[ "$FOUND" -eq 1 ]]; then
   echo ""
   echo -e "${YELLOW}Push blocked.${NC} Remove private project references before pushing."
