@@ -65,6 +65,28 @@ test('ADR with no H1 is flagged', () => {
   assert.ok(errKinds(r).includes('no-h1'));
 });
 
+test('fenced code cannot fake structure: bash comments in ``` are not headings', () => {
+  // Regression: pre-fix, `# context` / `# decision` / `# consequence` inside a
+  // fence satisfied both the H1 check and all required-section regexes, letting
+  // a section-less stub sail through --enforce.
+  const r = lint({
+    'docs/adr/ADR-005-x.md':
+      'Intro prose, no real heading.\n\n```bash\n# context — just a bash comment\n# decision goes here\n# consequence: none\n```\n',
+  });
+  assert.ok(errKinds(r).includes('no-h1'));
+  const missing = r.errors.filter((e) => e.kind === 'missing-section');
+  assert.equal(missing.length, 3); // context, decision, consequence all missing
+});
+
+test('real headings around fences still count (fence stripping is not greedy)', () => {
+  const r = lint({
+    'docs/adr/ADR-006-x.md':
+      `# ADR-006: X\n**Date:** ${today}\n## Context\n\`\`\`bash\necho hi\n\`\`\`\n## Decision\nd\n## Consequences\n[r](https://x)\n`,
+  });
+  assert.equal(r.errors.length, 0);
+  assert.equal(r.warns.length, 0);
+});
+
 // ─── sourcing ──────────────────────────────────────────────────────────────
 
 test('ADR with zero references warns (no-source)', () => {

@@ -23,7 +23,6 @@
  *   node scripts/hooks/artifact-lint.mjs --enforce       # exit 1 if any ERROR
  *   node scripts/hooks/artifact-lint.mjs --stale-days 90
  *   node scripts/hooks/artifact-lint.mjs --json
- *   node scripts/hooks/artifact-lint.mjs --check         # pre-push mode (= --enforce via env)
  *
  * Env:
  *   GREAT_CTO_ENFORCE_ARTIFACTS=1   → structural ERRORs block (same as --enforce)
@@ -102,7 +101,9 @@ const PRUNE_DIRS = new Set(['node_modules', '.git', 'site', 'dist', 'coverage', 
 // ---------------------------------------------------------------------------
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
-  console.log(readFileSync(new URL(import.meta.url)).toString().split('\n').slice(1, 34).join('\n').replace(/^ \*/gm, ''));
+  const src = readFileSync(new URL(import.meta.url), 'utf8').split('\n');
+  const end = src.findIndex((l) => l.trim() === '*/');
+  console.log(src.slice(1, end === -1 ? 34 : end).join('\n').replace(/^ \* ?/gm, ''));
   process.exit(0);
 }
 const asJson = args.includes('--json');
@@ -135,6 +136,26 @@ function walk(dir, out = []) {
     }
   }
   return out;
+}
+
+/**
+ * Remove fenced code blocks (``` / ~~~) so their content can't masquerade as
+ * markdown structure — a bash comment `# gate` inside a fence must NOT satisfy
+ * an H1 check or a required-section regex. Unclosed fence swallows to EOF
+ * (same as how renderers treat it).
+ */
+function stripFences(text) {
+  const out = [];
+  let fence = null; // current fence marker (``` or ~~~) or null
+  for (const l of text.split('\n')) {
+    const m = l.match(/^\s*(```|~~~)/);
+    if (m) {
+      fence = fence === m[1] ? null : (fence ?? m[1]);
+      continue;
+    }
+    if (!fence) out.push(l);
+  }
+  return out.join('\n');
 }
 
 function headings(text) {
@@ -187,21 +208,25 @@ for (const abs of walk(REPO)) {
 
   let text;
   try { text = readFileSync(abs, 'utf8'); } catch { continue; }
-  const hs = headings(text);
+  // Structure is judged on prose only — fenced code can't fake a heading.
+  // Freshness + sourcing still read the full text (a URL in a code example
+  // is a real reference).
+  const prose = stripFences(text);
+  const hs = headings(prose);
 
   // Templates are skeletons to be filled per-project — validate their SHAPE
   // (structure) but never their freshness or sourcing (both are placeholders).
   const isTemplate = /(^|\/)templates\//.test(rel);
 
   // 1. STRUCTURE
-  if (!/^#\s/m.test(text)) errors.push({ file: rel, type: type.name, kind: 'no-h1', msg: 'missing H1 title' });
+  if (!/^#\s/m.test(prose)) errors.push({ file: rel, type: type.name, kind: 'no-h1', msg: 'missing H1 title' });
   for (const re of type.require) {
     if (!hs.some((h) => re.test(h))) {
       errors.push({ file: rel, type: type.name, kind: 'missing-section', msg: `no section matching ${re}` });
     }
   }
   if (type.minH2) {
-    const h2count = text.split('\n').filter((l) => /^##\s/.test(l)).length;
+    const h2count = prose.split('\n').filter((l) => /^##\s/.test(l)).length;
     if (h2count < type.minH2) {
       errors.push({ file: rel, type: type.name, kind: 'thin', msg: `only ${h2count} H2 section(s) (min ${type.minH2}) — looks like a stub` });
     }
