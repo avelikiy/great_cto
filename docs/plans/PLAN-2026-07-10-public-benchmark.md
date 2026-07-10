@@ -104,8 +104,24 @@ case is the credibility move), 1 each A3/A4/A6.
 
 ## Next steps
 
-1. Write the 10 briefs → `docs/benchmarks/briefs/` (one commit, before any run).
-2. Build `scripts/bench-collect.mjs` (JSON row from verdicts/cost/score/URL).
-3. Run wave 0 (ATS), fix collector.
-4. Waves 1–2, collect, write `BENCH-2026-07-batch1.md`.
+1. ~~Write the 10 briefs → `docs/benchmarks/briefs/`~~ ✅ (frozen 2026-07-10)
+2. ~~Build `scripts/bench-collect.mjs`~~ ✅ (+ `scripts/bench-run.sh` launcher)
+3. ~~Run wave 0 (ATS), fix collector~~ ✅ — **completed 2026-07-10**: 3h25m wall,
+   269/0 tests, score 74/B, security APPROVED P0:0, preview live. One incident
+   (harness bg-wait timeout, resumed). Results: `docs/benchmarks/BENCH-2026-07-batch1.md`.
+4. Waves 1–2 via `scripts/bench-run.sh`, collect, extend the BENCH doc.
 5. Site page + README badge update.
+
+## Protocol amendments (from wave 0, apply to waves 1–2)
+
+- **Launch via `scripts/bench-run.sh`** — encodes clean-env auth, the bg-wait
+  ceiling fix, and the benchmark-mode preamble. Requires standalone-CLI OAuth
+  (`claude /login` in a terminal, not the desktop app).
+- **Human actions: 0, not 1** — runs use `approval-level: auto` (CTO pre-approval
+  in the launch prompt). Disclosed in BENCH methodology.
+- **Cost column = `token_equiv_usd`** from transcripts (list-price API equivalent);
+  the wave-0 real number was **$171.61** vs the $6–20 estimate — cache reads
+  dominate. Out-of-pocket on Max subscription ≈ $0, so the batch budget concern
+  is void; the published number is the API-equivalent.
+- **Interruption ≠ failure** — collector splits terminal `failure` from recovered
+  `incidents[]`; both are published.

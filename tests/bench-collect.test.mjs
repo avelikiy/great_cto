@@ -10,6 +10,8 @@ import { execFileSync } from 'node:child_process';
 import {
   wallTimeFromLines, fmtDuration, sumCostHistory, sumCostTags,
   extractPreviewUrl, detectFailure, parseTestCounts,
+  accumulateUsage, priceUsage, transcriptDirFor, upsertRow, PRICING_PER_MTOK,
+  pipelineCompleted,
 } from '../scripts/bench-collect.mjs';
 
 // ─── wall time ──────────────────────────────────────────────────────────────
@@ -60,12 +62,21 @@ test('sumCostTags sums cost=$ tags from verdict lines', () => {
 
 // ─── preview URL ────────────────────────────────────────────────────────────
 
-test('extractPreviewUrl picks last preview-host URL, ignores docs links', () => {
+test('extractPreviewUrl prefers hash-segmented deployment URL over vanity alias', () => {
+  // wave-0 regression: runbook mentions the PLANNED alias 5×, the real deploy once
+  const url = extractPreviewUrl([
+    'deployed: https://ats-1gljywn1v-softone.vercel.app/',
+    'prod will be https://ats-prod.vercel.app and https://ats-prod.vercel.app/api',
+  ]);
+  assert.equal(url, 'https://ats-1gljywn1v-softone.vercel.app');
+});
+
+test('extractPreviewUrl falls back to plain preview URL, first mention wins', () => {
   const url = extractPreviewUrl([
     'see https://docs.aws.amazon.com/foo and https://ats-one.vercel.app/login',
-    'later deploy: https://ats-two.vercel.app.',                   // trailing dot stripped
+    'later: https://ats-two.vercel.app.',
   ]);
-  assert.equal(url, 'https://ats-two.vercel.app');
+  assert.equal(url, 'https://ats-one.vercel.app/login');
 });
 
 test('extractPreviewUrl returns null when only non-preview URLs present', () => {
@@ -74,11 +85,59 @@ test('extractPreviewUrl returns null when only non-preview URLs present', () => 
 
 // ─── failure detection ──────────────────────────────────────────────────────
 
-test('detectFailure classifies spec-objection / cost-cap / gate-block', () => {
+test('detectFailure classifies spec-objection / cost-cap / gate-block / harness-timeout', () => {
   assert.equal(detectFailure(['ts | pm | SPEC-OBJECTION | scope creep']).class, 'spec-objection');
   assert.equal(detectFailure(['cost-guard: cap exceeded, blocking']).class, 'cost-cap');
   assert.equal(detectFailure(['ts | cso | BLOCKED | p0=2']).class, 'gate-block');
+  assert.equal(detectFailure(['Background tasks still running after 600s; terminating. Set CLAUDE…']).class, 'harness-timeout');
   assert.equal(detectFailure(['ts | devops | DEPLOYED']), null);
+});
+
+test('pipelineCompleted spots the security sign-off in both verdict formats', () => {
+  assert.ok(pipelineCompleted(['2026-07-10T18:18:19Z | security-officer | APPROVED | findings=P0:0']));
+  assert.ok(pipelineCompleted(['2026-07-02T17:51:53Z security-officer PASS run p0=0']));
+  assert.ok(!pipelineCompleted(['ts | pm | PLAN_READY | tasks=13']));
+});
+
+// ─── transcript cost ────────────────────────────────────────────────────────
+
+test('accumulateUsage + priceUsage compute API-equivalent USD per model', () => {
+  const acc = {};
+  accumulateUsage(acc, JSON.stringify({ message: { model: 'claude-sonnet-5', usage: {
+    input_tokens: 1_000_000, output_tokens: 100_000, cache_read_input_tokens: 2_000_000, cache_creation_input_tokens: 0 } } }));
+  accumulateUsage(acc, JSON.stringify({ message: { model: 'claude-unknown-9', usage: { input_tokens: 5 } } }));
+  accumulateUsage(acc, 'not json');
+  accumulateUsage(acc, JSON.stringify({ noMessage: true }));
+
+  const r = priceUsage(acc);
+  // sonnet-5: 1M×$3 + 0.1M×$15 + 2M×$0.30 = 3 + 1.5 + 0.6 = $5.10
+  assert.equal(r.by_model['claude-sonnet-5'].usd, 5.1);
+  assert.equal(r.usd, 5.1);
+  assert.deepEqual(r.unpriced_models, ['claude-unknown-9']);
+});
+
+test('priceUsage strips date-suffixed model ids', () => {
+  const acc = {};
+  accumulateUsage(acc, JSON.stringify({ message: { model: 'claude-haiku-4-5-20251001', usage: { input_tokens: 1_000_000 } } }));
+  const r = priceUsage(acc);
+  assert.equal(r.usd, PRICING_PER_MTOK['claude-haiku-4-5'].in);
+  assert.deepEqual(r.unpriced_models, []);
+});
+
+test('transcriptDirFor flattens the product path', () => {
+  assert.ok(transcriptDirFor('/Users/x/bench/ats').endsWith('/.claude/projects/-Users-x-bench-ats'));
+});
+
+// ─── upsert ─────────────────────────────────────────────────────────────────
+
+test('upsertRow replaces same-slug row, keeps others, appends new', () => {
+  const existing = JSON.stringify({ slug: 'ats', v: 1 }) + '\n' + JSON.stringify({ slug: 'crm', v: 1 }) + '\n';
+  const out = upsertRow(existing, { slug: 'ats', v: 2 });
+  const rows = out.trim().split('\n').map(JSON.parse);
+  assert.equal(rows.length, 2);
+  assert.equal(rows.find(r => r.slug === 'ats').v, 2);
+  assert.equal(rows.find(r => r.slug === 'crm').v, 1);
+  assert.ok(out.endsWith('\n'));
 });
 
 // ─── test-output parsing ────────────────────────────────────────────────────
@@ -109,7 +168,9 @@ test('integration: collects a full row from a fixture product dir', () => {
 
     assert.equal(row.slug, 'ats');
     assert.equal(row.wall.human, '3h 26m');
-    assert.deepEqual(row.cost, { usd: 1, source: 'cost-history', rows: 2 });
+    assert.equal(row.cost.logged_usd, 1);
+    assert.equal(row.cost.logged_source, 'cost-history');
+    assert.equal(row.cost.token_equiv_usd, null); // tmp fixture has no transcripts
     assert.equal(row.deploy.url, 'https://bench-ats.vercel.app');
     assert.equal(row.deploy.reachable, null);              // --no-probe
     assert.equal(row.failure, null);

@@ -25,10 +25,11 @@
 // Exit codes: 0 collected · 1 not a pipeline product (no .great_cto) · 2 usage.
 // Screenshots are NOT captured here (needs a browser) — take them at publish time.
 
-import { readFileSync, readdirSync, existsSync, appendFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, appendFileSync, writeFileSync, statSync } from 'node:fs';
 import { join, resolve, basename, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import https from 'node:https';
 import http from 'node:http';
 
@@ -82,15 +83,98 @@ export function sumCostTags(lines) {
   return { sum: round2(sum), rows };
 }
 
-/** Last preview-host URL mentioned across the given texts (verdicts, deploy docs). */
+/**
+ * Preview-URL pick across the given texts, in priority order (wave-0 lesson:
+ * runbooks mention PLANNED vanity aliases like `ats-prod.vercel.app` — the
+ * real deployment URL carries a hash segment like `ats-1gljywn1v-team`):
+ *   1. hash-segmented deployment URLs (most-mentioned last one wins)
+ *   2. any other preview-host URL
+ * Pass texts verdicts-first — on a tie, later (docs) never beat earlier finds
+ * of the same tier.
+ */
 export function extractPreviewUrl(texts) {
-  let found = null;
+  const DEPLOY_HASH = /-[a-z0-9]{8,}-[a-z0-9-]+\.(vercel\.app|pages\.dev|netlify\.app)/;
+  let hashed = null, plain = null;
   for (const text of texts) {
-    for (const url of text.match(URL_RE) || []) {
-      if (PREVIEW_HOSTS.test(url)) found = url.replace(/[.,;]+$/, '');
+    for (const raw of text.match(URL_RE) || []) {
+      if (!PREVIEW_HOSTS.test(raw)) continue;
+      const url = raw.replace(/[.,;]+$/, '').replace(/\/$/, '');
+      if (DEPLOY_HASH.test(url)) hashed = hashed ?? url;
+      else plain = plain ?? url;
     }
   }
-  return found;
+  return hashed || plain;
+}
+
+// ─── LLM cost from session transcripts ──────────────────────────────────────
+// On a subscription, agents log cost=$0 — the only ground truth is token usage
+// in ~/.claude/projects/<flattened-dir>/**/*.jsonl. We sum usage per model and
+// price it as the API-equivalent USD ("what this run would have cost at list
+// price"). Pricing per MTok, cached 2026-07 (source: claude-api skill; cache
+// read = 0.1× input, 5m cache write = 1.25× input).
+export const PRICING_PER_MTOK = Object.freeze({
+  'claude-opus-4-8':  { in: 5,  out: 25, cache_r: 0.5,  cache_w: 6.25 },
+  'claude-opus-4-7':  { in: 5,  out: 25, cache_r: 0.5,  cache_w: 6.25 },
+  'claude-sonnet-5':  { in: 3,  out: 15, cache_r: 0.3,  cache_w: 3.75 },
+  'claude-sonnet-4-6':{ in: 3,  out: 15, cache_r: 0.3,  cache_w: 3.75 },
+  'claude-haiku-4-5': { in: 1,  out: 5,  cache_r: 0.1,  cache_w: 1.25 },
+  'claude-fable-5':   { in: 10, out: 50, cache_r: 1.0,  cache_w: 12.5 },
+});
+
+/** Fold one transcript line's usage into the per-model accumulator. */
+export function accumulateUsage(acc, line) {
+  let d;
+  try { d = JSON.parse(line); } catch { return; }
+  const m = d?.message;
+  const u = m?.usage;
+  if (!u || !m.model) return;
+  const s = (acc[m.model] ||= { in: 0, out: 0, cache_r: 0, cache_w: 0, msgs: 0 });
+  s.in += u.input_tokens || 0;
+  s.out += u.output_tokens || 0;
+  s.cache_r += u.cache_read_input_tokens || 0;
+  s.cache_w += u.cache_creation_input_tokens || 0;
+  s.msgs++;
+}
+
+/** Price a per-model usage accumulator → { usd, by_model, unpriced_models }. */
+export function priceUsage(acc) {
+  let usd = 0;
+  const by_model = {}, unpriced = [];
+  for (const [model, s] of Object.entries(acc)) {
+    const base = model.replace(/-\d{8}$/, ''); // strip date-suffixed ids
+    const p = PRICING_PER_MTOK[base];
+    if (!p) { unpriced.push(model); continue; }
+    const cost = (s.in * p.in + s.out * p.out + s.cache_r * p.cache_r + s.cache_w * p.cache_w) / 1e6;
+    by_model[model] = { ...s, usd: round2(cost) };
+    usd += cost;
+  }
+  return { usd: round2(usd), by_model, unpriced_models: unpriced };
+}
+
+/** Claude Code flattens a project path into its transcript dir name. */
+export function transcriptDirFor(productDir) {
+  return join(homedir(), '.claude', 'projects', productDir.replace(/[/.]/g, '-'));
+}
+
+function collectTranscriptCost(productDir) {
+  const tdir = transcriptDirFor(productDir);
+  if (!existsSync(tdir)) return null;
+  const acc = {};
+  let files = 0;
+  const walk = (d) => {
+    for (const name of readdirSync(d)) {
+      const p = join(d, name);
+      try {
+        if (statSync(p).isDirectory()) { walk(p); continue; }
+        if (!name.endsWith('.jsonl')) continue;
+        files++;
+        for (const line of readFileSync(p, 'utf8').split('\n')) if (line) accumulateUsage(acc, line);
+      } catch { /* unreadable — skip */ }
+    }
+  };
+  walk(tdir);
+  if (files === 0) return null;
+  return { ...priceUsage(acc), transcript_files: files };
 }
 
 /**
@@ -103,12 +187,41 @@ export function detectFailure(lines) {
     { class: 'spec-objection', re: /SPEC[-_]OBJECTION/i },
     { class: 'cost-cap', re: /COST[-_ ]?CAP|cost-guard.*(exceed|block)/i },
     { class: 'gate-block', re: /\bBLOCKED\b|GATE[-_ ]?(REJECT|BLOCK)/i },
+    // wave-0 lesson: headless harness kills the session when background
+    // subagents outlive the print-mode wait ceiling — a tooling failure,
+    // not a pipeline one. Fed from .bench-run*.log, not verdicts.
+    { class: 'harness-timeout', re: /Background tasks still running after \d+s; terminating/ },
   ];
   for (const c of checks) {
     const hit = lines.find(l => c.re.test(l));
     if (hit) return { class: c.class, evidence: hit.trim().slice(0, 200) };
   }
   return null;
+}
+
+/** Did the pipeline reach its terminal success? (security sign-off is the last gate) */
+export function pipelineCompleted(verdictLines) {
+  return verdictLines.some(l => /security-officer\s*\|?\s*(APPROVED|PASS)/.test(l));
+}
+
+/** Read launcher run logs (.bench-run*.log) for harness-level failure signals. */
+function readRunLogLines(dir) {
+  const lines = [];
+  try {
+    for (const f of readdirSync(dir).filter(f => /^\.bench-run.*\.log$/.test(f)).sort()) {
+      lines.push(...readFileSync(join(dir, f), 'utf8').split('\n').filter(Boolean));
+    }
+  } catch { /* no run logs — fine */ }
+  return lines;
+}
+
+/** Upsert a row into a JSONL file keyed by slug (re-collects replace, not append). */
+export function upsertRow(existingText, row) {
+  const rows = existingText.split('\n').filter(Boolean).map(l => {
+    try { return JSON.parse(l); } catch { return null; }
+  }).filter(Boolean).filter(r => r.slug !== row.slug);
+  rows.push(row);
+  return rows.map(r => JSON.stringify(r)).join('\n') + '\n';
 }
 
 /** Parse pass/fail counts from a test-runner's output (node --test / vitest / jest). */
@@ -223,12 +336,26 @@ async function main(argv) {
   }
 
   const verdictLines = readVerdictLines(abs);
+  const runLogLines = readRunLogLines(abs);
+
+  // Cost: logged (cost-history / cost=$ tags) + token-equivalent from transcripts.
+  // On subscription runs the logged number is $0 — token_equiv_usd is the real column.
   const costHistPath = join(abs, '.great_cto', 'cost-history.log');
   const costHist = existsSync(costHistPath) ? sumCostHistory(readFileSync(costHistPath, 'utf8')) : null;
-  const cost = costHist && costHist.rows > 0
+  const logged = costHist && costHist.rows > 0
     ? { usd: costHist.sum, source: 'cost-history', rows: costHist.rows }
     : { ...(({ sum, rows }) => ({ usd: sum, rows }))(sumCostTags(verdictLines)), source: 'cost-tags' };
+  const transcript = collectTranscriptCost(abs);
+  const cost = {
+    logged_usd: logged.usd,
+    logged_source: logged.source,
+    token_equiv_usd: transcript?.usd ?? null,
+    by_model: transcript?.by_model ?? null,
+    unpriced_models: transcript?.unpriced_models?.length ? transcript.unpriced_models : undefined,
+    transcript_files: transcript?.transcript_files ?? 0,
+  };
 
+  // URL: verdicts first (docs mention planned vanity aliases — wave-0 lesson).
   const url = arg(argv, '--url') || extractPreviewUrl([verdictLines.join('\n'), ...readDeployDocs(abs)]);
   const deploy = { url: url || null, status: null, reachable: null };
   if (url && !argv.includes('--no-probe')) Object.assign(deploy, await probeUrl(url));
@@ -246,13 +373,23 @@ async function main(argv) {
     tests: argv.includes('--no-tests') ? { ran: false, reason: '--no-tests' } : runTests(abs),
     e2e_specs: countE2eSpecs(abs),
     deploy,
-    failure: failureOverride ? { class: failureOverride, evidence: 'manual' } : detectFailure(verdictLines),
+    // failure = terminal outcome; incidents = mid-run interruptions the run
+    // recovered from (wave-0: harness-timeout on run 1, resumed, completed).
+    failure: failureOverride
+      ? { class: failureOverride, evidence: 'manual' }
+      : detectFailure(verdictLines)
+        || (pipelineCompleted(verdictLines) ? null : detectFailure(runLogLines)),
+    incidents: (() => { const i = detectFailure(runLogLines); return i ? [i] : []; })(),
     verdict_lines: verdictLines.length,
   };
 
   const json = JSON.stringify(row, null, argv.includes('--pretty') ? 2 : 0);
   const out = arg(argv, '--out');
-  if (out) { appendFileSync(out, JSON.stringify(row) + '\n'); console.log(`appended → ${out}`); }
+  if (out) {
+    const existing = existsSync(out) ? readFileSync(out, 'utf8') : '';
+    writeFileSync(out, upsertRow(existing, row));
+    console.log(`upserted slug=${row.slug} → ${out}`);
+  }
   if (!out || argv.includes('--pretty')) console.log(json);
 }
 
