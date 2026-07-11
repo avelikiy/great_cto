@@ -1,6 +1,6 @@
 # BENCH — 2026-07 batch 1 (public benchmark, in progress)
 
-**Date:** 2026-07-10 · **Status:** wave 0 complete (1 of 10 products) · Plan:
+**Date:** 2026-07-10 · **Status:** waves 0–1 complete (4 of 10 products), wave 2 running · Plan:
 [PLAN-2026-07-10-public-benchmark.md](../plans/PLAN-2026-07-10-public-benchmark.md)
 
 10 products from the catalog, built end-to-end by the great_cto pipeline, measured
@@ -15,15 +15,27 @@ Anyone can re-run.
 | # | Product | Archetype | Wall | Tests | Score | Security | Deploy | Cost (API-equiv) | Failure |
 |---|---------|-----------|------|-------|-------|----------|--------|------------------|---------|
 | 3 | ATS — applicant tracking | A1 crud | **3h 25m** | **269 / 0 fail** | **74 (B)** | APPROVED P0:0 P1:0 | preview live (SSO-walled) | **$171.61** · $0 out-of-pocket | none¹ |
-| 1 | Dispatch & scheduling | A1 crud | — | — | — | — | — | — | wave 1 |
-| 4 | Customer booking | A2 booking | — | — | — | — | — | — | wave 1 |
-| 7 | Profitability dashboard | A4 dashboard | — | — | — | — | — | — | wave 1 |
+| 1 | Dispatch & scheduling | A1 crud | 11h 46m² | 225 / 1 fail³ | 66 (C) | APPROVED P0:0 (TCPA fixed in-run) | preview live (SSO-walled) | $145.20 · $0 out-of-pocket | none² |
+| 4 | Customer booking | A2 booking | 15h 25m² | 368 / 0 fail | 58 (C) | APPROVED P0:0 P1:0, 1×P2 follow-up | preview live (SSO-walled) | $319.30 · $0 out-of-pocket | none² |
+| 7 | Profitability dashboard | A4 dashboard | **1h 46m** | **157 / 0 fail** | **86 (A)** | APPROVED P0:0 P1:0 | preview live (SSO-walled) | $182.64 · $0 out-of-pocket | none |
 | 2, 5, 6, 8, 9, 10 | (see briefs) | A1–A6 | — | — | — | — | — | — | wave 2 |
 
 ¹ One **incident**: the first headless launch was killed by a 600s background-task
 wait ceiling ~1h22m in; the run was resumed with `--continue` and completed. The
 wall-clock figure includes the ~40min interruption gap. Fixed in the launcher for
 all subsequent runs (`CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`).
+
+² Wave-1 **incident** (dispatch + booking): all three wave-1 runs launched in
+parallel and hit the Claude subscription **session limit** mid-run (resets at
+midnight); dispatch and booking were resumed next morning with `--continue` and
+completed. Their wall-clock figures are *calendar spans including the ~8h overnight
+outage* — active pipeline time is a fraction of that. Dashboard finished before the
+limit hit. Booking additionally needed a second resume to run its final QA +
+security stages, which the interrupted run had lost track of.
+
+³ Dispatch's 1 failing test is a flaky integration case the pipeline itself had
+already logged in its QA backlog; its integration tests require a local Docker
+Postgres (left provisioned by the run, started at collection time).
 
 ### ATS row detail (frozen at `bench-2026-07`, commit `3abcb34`)
 
@@ -37,6 +49,24 @@ all subsequent runs (`CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`).
   of silently skipping it.
 - **Cost breakdown (token-equivalent at list prices):** sonnet-5 $139.71 (1,820
   msgs, 298M cache-read tokens) · opus-4.8 $30.06 · haiku-4.5 $1.84.
+
+### Wave-1 row details (all frozen at `bench-2026-07`)
+
+- **№7 Dashboard (86/A, 1h 46m)** — the clean run: architect → pm → build → QA →
+  security in one sitting, before the session limit hit. Real bug found and fixed
+  end-to-end mid-run (CSV importer dropped retainer hours, which silently broke the
+  over-allocation alert). Vercel preview + Neon/Resend provisioning runbook.
+- **№1 Dispatch (66/C)** — security review surfaced a TCPA exposure (SMS to
+  customers without recorded consent); the pipeline added a consent checkbox at
+  job creation, wired it through to the en-route send gate, and re-reviewed —
+  APPROVE went through only after the fix. 6 non-blocking findings left in Beads.
+- **№4 Booking (58/C)** — the stress case: interrupted by the session limit
+  twice, mid-implementation, with completed work sitting in unmerged worktree
+  branches. The resume merged the branches, finished the remaining tasks, patched
+  6 CVEs (nodemailer bump), deployed — but *lost track of QA and security*, which
+  had to be explicitly requested in a second resume (QA: 368 tests, ~87% coverage,
+  P0/P1/P2 all zero). Honest lesson: interruption recovery preserves code but not
+  pipeline-stage state.
 
 ## Methodology — read this before the numbers
 
@@ -73,6 +103,14 @@ all subsequent runs (`CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`).
 | Agents log cost=$0 on subscription | collector prices token usage from transcripts |
 | Collector grabbed a *planned* vanity URL from the runbook | verdicts-first + deployment-hash preference |
 | Recovered interruption reported as failure | `incidents[]` vs terminal `failure` split |
+
+## Wave-1 lessons (applied to wave 2)
+
+| Lesson | Consequence |
+|--------|-------------|
+| 3 parallel runs exhaust the subscription session limit before finishing | wave 2 runs in two batches of 3 with an auto-launcher gating on free slots |
+| Resume-after-interrupt preserves code but loses pipeline-stage state (booking skipped QA/security) | resume prompts now name the completed stages and the remaining ones explicitly |
+| Wall-clock on interrupted runs measures the outage, not the pipeline | calendar span kept (honest), active-time noted in footnotes |
 
 ## Reproduce
 
