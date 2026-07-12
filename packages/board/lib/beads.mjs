@@ -119,8 +119,84 @@ function bdList(cwd = process.cwd(), runner = bd) {
   }
 }
 
-// Fallback: parse .great_cto/tasks.md when Beads isn't initialized.
-// Format: `- [ ] TASK-001: Title [agent] [~42min]\n  Description: ...\n  Depends: ...`
+// Map a free-form status word (from either tasks.md dialect) to the UI status
+// the board renders, plus the gate flag. Kept separate so both the checkbox and
+// the table parser classify identically.
+function tasksMdStatus(rawStatus, id, title) {
+  const s = String(rawStatus || '').toLowerCase().trim();
+  const isGate = /^gate[:\-]/i.test(title || '') || /^gate\b/i.test(id || '')
+    || (title || '').toLowerCase().includes('gate:');
+  let status;
+  if (s === 'done' || s === 'closed' || s === 'x') status = 'done';
+  else if (s === 'in_progress' || s === 'in-progress' || s === 'wip' || s === 'doing') status = 'in_progress';
+  else if (s === 'blocked') status = 'blocked';
+  else status = isGate ? 'gate' : 'backlog';
+  return { status, raw_status: status === 'done' ? 'closed' : 'open', isGate };
+}
+
+// Build the full task record both parsers emit — one shape so getTasks can
+// return either verbatim.
+function tasksMdRecord({ id, title, description, status, raw_status, isGate, owner, agent, est }) {
+  return {
+    id,
+    title: (title || '').trim(),
+    description: (description || '').trim(),
+    notes: '', design: '', acceptance: '',
+    status, raw_status,
+    priority: 2,
+    labels: agent ? [agent] : [],
+    owner: owner || agent || '',
+    created_at: null, updated_at: null, closed_at: null,
+    close_reason: '', comment_count: 0,
+    is_gate: isGate,
+    agent: agent || '',
+    estimated_minutes: est ? (parseInt(est) || null) : null,
+    source: 'tasks.md',
+  };
+}
+
+// The pipeline falls back to a Markdown *table* (`| id | title | status | owner |`)
+// when beads can't open the path (e.g. a space in it). Parse those rows. Requires
+// a header row containing at least `id`, `title`, `status` so unrelated tables in
+// the file (metrics, config) are never misread as tasks.
+function parseTableTasks(text) {
+  const lines = text.split('\n');
+  const tasks = [];
+  let cols = null; // { id, title, status, owner } → column indices
+  const idLike = /^[A-Za-z][\w.]*-[\w.\-]+$/; // e.g. GATE-arch, TASK-12, EPIC-2, AUTH-01
+  for (const line of lines) {
+    if (!/^\s*\|.*\|\s*$/.test(line)) { cols = null; continue; } // table ended
+    const cells = line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+    if (/^:?-{2,}:?$/.test(cells[0] || '')) continue; // separator row
+    if (!cols) {
+      const lower = cells.map(c => c.toLowerCase());
+      const idx = n => lower.indexOf(n);
+      if (idx('id') !== -1 && idx('title') !== -1 && idx('status') !== -1) {
+        cols = { id: idx('id'), title: idx('title'), status: idx('status'), owner: idx('owner') };
+      }
+      continue; // header consumed (or a non-task table's row skipped)
+    }
+    const id = cells[cols.id] || '';
+    if (!idLike.test(id)) continue; // not a task row
+    // Split a trailing `[ … ]` completion note off the title into the description.
+    let rawTitle = (cells[cols.title] || '').replace(/\*\*/g, '');
+    let description = '';
+    const noteAt = rawTitle.search(/`?\[/);
+    if (noteAt > 0) {
+      description = rawTitle.slice(noteAt).replace(/^`|`$/g, '').replace(/^\[|\]$/g, '').trim();
+      rawTitle = rawTitle.slice(0, noteAt).trim();
+    }
+    const owner = cols.owner !== -1 ? (cells[cols.owner] || '') : '';
+    const { status, raw_status, isGate } = tasksMdStatus(cells[cols.status], id, rawTitle);
+    tasks.push(tasksMdRecord({ id, title: rawTitle, description, status, raw_status, isGate, owner, agent: owner }));
+  }
+  return tasks;
+}
+
+// Fallback: parse .great_cto/tasks.md when Beads isn't initialized (or can't
+// open its store). Two dialects, tried in order:
+//   1. checkbox:  `- [ ] TASK-001: Title [agent] [~42min]` + indented description
+//   2. table:     `| id | title | status | owner |` rows (space-in-path fallback)
 function parseTasksMd(cwd) {
   const fp = path.join(cwd, '.great_cto', 'tasks.md');
   if (!fs.existsSync(fp)) return [];
@@ -162,6 +238,8 @@ function parseTasksMd(cwd) {
         source: 'tasks.md',
       });
     }
+    // No checkbox tasks → try the table dialect before giving up.
+    if (tasks.length === 0) return parseTableTasks(text);
     return tasks;
   } catch { return []; }
 }
