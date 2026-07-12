@@ -14,36 +14,46 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Private terms — words that must never appear in a public commit or diff
+# Private terms — loaded from an OUT-OF-REPO file so the private names themselves
+# never live in this public repository. One term per line; blank lines and lines
+# starting with '#' are ignored; matching is case-insensitive. Override the path
+# with GREAT_CTO_PRIVATE_TERMS (the test suite does this). If the file is absent,
+# name matching is skipped (the personal-path check below still runs) and a
+# one-line notice explains how to enable it.
 # ---------------------------------------------------------------------------
-PRIVATE_TERMS=(
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-  "<private-project>"
-)
+PRIVATE_TERMS_FILE="${GREAT_CTO_PRIVATE_TERMS:-$HOME/.great_cto/private-terms}"
+PRIVATE_TERMS=()
+if [[ -f "$PRIVATE_TERMS_FILE" ]]; then
+  while IFS= read -r _line || [[ -n "$_line" ]]; do
+    _line="${_line#"${_line%%[![:space:]]*}"}"   # ltrim
+    _line="${_line%"${_line##*[![:space:]]}"}"    # rtrim
+    [[ -z "$_line" || "$_line" == \#* ]] && continue
+    PRIVATE_TERMS+=("$_line")
+  done < "$PRIVATE_TERMS_FILE"
+fi
 
-# Personal path pattern (regex for grep -E)
-PRIVATE_PATH_PATTERN='/Users/avelikiy/development/[A-Za-z][A-Za-z0-9_-]*'
+# Personal path pattern (regex for grep -E). The username is intentionally
+# GENERIC — a hardcoded /Users/<name>/development/<Project> path is a leak no
+# matter whose it is, and keeping a real username out of this pattern keeps it
+# out of the public repo too.
+PRIVATE_PATH_PATTERN='/Users/[A-Za-z0-9._-]+/development/[A-Za-z][A-Za-z0-9_-]*'
 
-# Files/paths to exclude from blob scanning (test fixtures, docs examples, etc.)
+# Files/paths to exclude from blob scanning. These no longer contain any private
+# name; they are skipped only to avoid self-matching the path-pattern definition
+# and the synthetic fixture names in the hook's own test.
 EXCLUDE_PATHS=(
-  "scripts/hooks/pre-push.sh"        # this file legitimately contains the terms
-  "tests/hooks/pre-push.test.mjs"    # hook test fixtures legitimately use the terms
+  "scripts/hooks/pre-push.sh"        # defines PRIVATE_PATH_PATTERN — would self-match
+  "tests/hooks/pre-push.test.mjs"    # uses synthetic (non-private) fixture names
   "/tmp/redact-"                     # redaction config files (not in repo)
 )
 
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
+
+if [[ ! -f "$PRIVATE_TERMS_FILE" ]]; then
+  echo -e "${YELLOW}[pre-push] No private-terms file at ${PRIVATE_TERMS_FILE} — project-name matching disabled (personal-path check still active). Create it (one project name per line) to enable.${NC}" >&2
+fi
 
 FOUND=0
 
@@ -63,8 +73,8 @@ check_content() {
     fi
   done
 
-  for term in "${PRIVATE_TERMS[@]}"; do
-    if echo "$content" | grep -qF "$term" 2>/dev/null; then
+  for term in ${PRIVATE_TERMS[@]+"${PRIVATE_TERMS[@]}"}; do
+    if echo "$content" | grep -qiF "$term" 2>/dev/null; then
       echo -e "${RED}[pre-push] LEAK DETECTED${NC} — \"${term}\" found in ${context}"
       FOUND=1
     fi

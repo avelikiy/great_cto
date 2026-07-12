@@ -31,6 +31,12 @@ function setupRepo() {
   const bare = join(root, 'remote.git');
   const work = join(root, 'work');
   mkdirSync(home, { recursive: true });
+  // The hook reads private terms from $HOME/.great_cto/private-terms. HOME is
+  // isolated to this temp dir, so seed it with SYNTHETIC names — no real private
+  // project name appears anywhere in this repo.
+  mkdirSync(join(home, '.great_cto'), { recursive: true });
+  writeFileSync(join(home, '.great_cto', 'private-terms'),
+    '# synthetic fixtures\nZephyrite\nFrobnitz\nQuibblewick_Rust\n');
   spawnSync('git', ['init', '--bare', bare], { encoding: 'utf8' });
   spawnSync('git', ['init', '-b', 'main', work], { encoding: 'utf8' });
   const cfg = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@e.x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@e.x' };
@@ -87,7 +93,7 @@ test('new branch: private term only in already-pushed history → PUSH ALLOWED (
   const { home, work, cfg } = setupRepo();
 
   // A: contains a private term, pushed to origin/main BEFORE the hook exists.
-  commit(work, cfg, 'a.txt', 'hello', 'feat: wire up <private-project> sync');
+  commit(work, cfg, 'a.txt', 'hello', 'feat: wire up Zephyrite sync');
   assert.equal(push(work, home, 'main').status, 0, 'baseline push should succeed (no hook yet)');
 
   // Now install the hook and branch off the pushed history with a CLEAN commit.
@@ -109,7 +115,7 @@ test('new branch: private term in a NEW commit → PUSH BLOCKED (still catches r
 
   installHook(work);
   git(work, ['checkout', '-b', 'feature/leak'], cfg);
-  commit(work, cfg, 'c.txt', 'clean body', 'feat: integrate <private-project> engine'); // leak in NEW commit msg
+  commit(work, cfg, 'c.txt', 'clean body', 'feat: integrate Frobnitz engine'); // leak in NEW commit msg
 
   const res = push(work, home, 'feature/leak');
   assert.notEqual(res.status, 0, 'Expected BLOCKED for a new private-term commit');
@@ -124,7 +130,7 @@ test('new branch: private term in NEW diff content → PUSH BLOCKED', () => {
 
   installHook(work);
   git(work, ['checkout', '-b', 'feature/diff-leak'], cfg);
-  commit(work, cfg, 'd.txt', 'connecting to <private-project> backend', 'feat: clean message');
+  commit(work, cfg, 'd.txt', 'connecting to Quibblewick_Rust backend', 'feat: clean message');
 
   const res = push(work, home, 'feature/diff-leak');
   assert.notEqual(res.status, 0, 'Expected BLOCKED for private term in diff');
