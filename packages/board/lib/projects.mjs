@@ -180,12 +180,16 @@ async function discoverProjects() {
     if (depth < 0 || seen.has(dir)) return;
     seen.add(dir);
     try {
-      // Check the dir itself first
-      try {
-        await fsAsync.access(path.join(dir, '.great_cto', 'PROJECT.md'));
-        found.push(dir);
-        return; // don't descend into a registered project
-      } catch {}
+      // Check the dir itself first — but NEVER treat HOME's own .great_cto as a
+      // project: ~/.great_cto is the global config dir, not a project. Without
+      // this guard, $HOME gets registered as a bogus project (great_cto-…).
+      if (dir !== HOME) {
+        try {
+          await fsAsync.access(path.join(dir, '.great_cto', 'PROJECT.md'));
+          found.push(dir);
+          return; // don't descend into a registered project
+        } catch {}
+      }
       if (depth === 0) return;
       // Scan children (skip dotfiles + heavyweight dirs)
       const entries = await fsAsync.readdir(dir, { withFileTypes: true });
@@ -238,8 +242,17 @@ function listProjects() {
   // Auto-register cwd if it has PROJECT.md (cheap)
   autoRegisterProject(process.cwd());
   const reg = readProjectsRegistry();
-  // Filter out projects whose paths no longer exist
-  reg.projects = reg.projects.filter(p => fs.existsSync(p.path));
+  const HOME = os.homedir();
+  // Show only live projects: drop entries whose path is gone, the global
+  // ~/.great_cto config dir ($HOME itself), and dead registrations whose
+  // .great_cto has no project marker or task source left (no PROJECT.md,
+  // no tasks.md, no .beads → nothing to show, just clutters the switcher).
+  reg.projects = reg.projects.filter(p =>
+    p.path !== HOME &&
+    fs.existsSync(p.path) &&
+    (fs.existsSync(path.join(p.path, '.great_cto', 'PROJECT.md')) ||
+     fs.existsSync(path.join(p.path, '.great_cto', 'tasks.md')) ||
+     fs.existsSync(path.join(p.path, '.beads'))));
   // Re-read metadata in case archetype/description changed
   // Enrich with last_activity (mtime of .beads/interactions.jsonl) so the UI
   // can sort projects by recent activity instead of slug-alpha.

@@ -23,6 +23,7 @@ const {
   autoRegisterProject,
   resolveProjectCwd,
   resolveProjectInfo,
+  listProjects,
 } = await import('./lib/projects.mjs');
 
 function makeRealDir(name) {
@@ -214,4 +215,32 @@ test('resolveProjectCwd still resolves registry slugs normally (HOME-boundary do
   const info = resolveProjectInfo('legacy-proj');
   assert.equal(info.cwd, legacyDir);
   assert.equal(info.resolved, 'slug');
+});
+
+test('listProjects hides $HOME, dead (no marker), keeps live projects', () => {
+  // live: has PROJECT.md
+  const live = makeRealDir('live-proj');
+  writeProjectMd(live, 'live-proj');
+  // dead: dir exists but .great_cto is empty (no PROJECT.md / tasks.md / .beads)
+  const dead = makeRealDir('dead-proj');
+  fs.mkdirSync(path.join(dead, '.great_cto'), { recursive: true });
+  // tasksmd: no PROJECT.md but a tasks.md fallback → must still show
+  const tmd = makeRealDir('tasksmd-proj');
+  fs.mkdirSync(path.join(tmd, '.great_cto'), { recursive: true });
+  fs.writeFileSync(path.join(tmd, '.great_cto', 'tasks.md'), '# Tasks\n');
+
+  writeProjectsRegistry({ projects: [
+    { slug: 'live-proj', path: live, added_at: '2025-01-01T00:00:00.000Z' },
+    { slug: 'dead-proj', path: dead, added_at: '2025-01-01T00:00:00.000Z' },
+    { slug: 'tasksmd-proj', path: tmd, added_at: '2025-01-01T00:00:00.000Z' },
+    { slug: 'home-junk', path: os.homedir(), added_at: '2025-01-01T00:00:00.000Z' },
+    { slug: 'gone-proj', path: path.join(tmpDir, 'never-existed'), added_at: '2025-01-01T00:00:00.000Z' },
+  ] });
+
+  const slugs = listProjects().map(p => p.slug);
+  assert.ok(slugs.includes('live-proj'), 'live project shown');
+  assert.ok(slugs.includes('tasksmd-proj'), 'tasks.md-backed project shown');
+  assert.ok(!slugs.includes('dead-proj'), 'empty .great_cto hidden');
+  assert.ok(!slugs.includes('home-junk'), '$HOME (global config dir) hidden');
+  assert.ok(!slugs.includes('gone-proj'), 'non-existent path hidden');
 });
