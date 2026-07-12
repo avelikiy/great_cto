@@ -159,6 +159,56 @@ function tasksMdRecord({ id, title, description, status, raw_status, isGate, own
 // when beads can't open the path (e.g. a space in it). Parse those rows. Requires
 // a header row containing at least `id`, `title`, `status` so unrelated tables in
 // the file (metrics, config) are never misread as tasks.
+// Split one Markdown table row into cells. Markdown escapes a literal pipe
+// inside a cell as `\|` (task notes are full of them: `range=1d\|1w\|1m\|all`,
+// `key\|secret\|token`). Splitting on a bare `|` shredded those rows into extra
+// columns, shoving `open`/`1m\`/`M` into the owner slot → junk filter chips and
+// broken layout. Split only on UNescaped pipes, then unescape each cell.
+function splitTableRow(line) {
+  return line
+    .replace(/^\s*\|/, '')
+    .replace(/\|\s*$/, '')
+    .split(/(?<!\\)\|/)
+    .map(c => c.replace(/\\\|/g, '|').trim());
+}
+
+// An owner/agent cell is a short handle (senior-dev, CTO, qa-engineer). This
+// tasks.md has 19 tables in 3 schemas (incl. `id|title|size|horizon|status|owner`
+// and `id|severity|finding|status`), plus ragged/duplicated rows, so a mis-aligned
+// row can drop a status word ("done"), a size ("M"), or a horizon code ("H2") into
+// the owner slot. Those became bogus agent/label filter chips. Accept only real
+// handle shapes; reject status/size words and anything with a digit.
+const NON_OWNER = new Set([
+  'done', 'closed', 'open', 'in_progress', 'in-progress', 'blocked', 'backlog',
+  'todo', 'wip', 'ready', 'gate', 'xs', 's', 'm', 'l', 'xl', // status + t-shirt sizes
+]);
+function cleanOwner(raw) {
+  const o = String(raw || '').trim();
+  if (!o || o === '—' || o.length > 40 || /\s—\s|[.;]/.test(o)) return '';
+  if (NON_OWNER.has(o.toLowerCase())) return '';
+  // Real handles are letters + hyphens (senior-dev, product-owner, CTO, pm).
+  // Anything with a digit (H2, P1, 1m) is a size/horizon/estimate code, not an owner.
+  if (!/^[A-Za-z]+(-[A-Za-z]+)*$/.test(o)) return '';
+  return o;
+}
+
+// tasks.md table "titles" can run to hundreds of chars (they carry a full
+// implementation note). bd titles are short, so no view was built to clamp this
+// much text and long rows overflowed the layout. Keep the card title readable and
+// push the overflow into the description (which renders in a scrollable panel).
+const TITLE_MAX = 160;
+function capTitle(title, description) {
+  const t = String(title || '').trim();
+  if (t.length <= TITLE_MAX) return { title: t, description };
+  const cut = t.lastIndexOf(' ', TITLE_MAX);
+  const at = cut > TITLE_MAX * 0.6 ? cut : TITLE_MAX;
+  const overflow = t.slice(at).trim();
+  return {
+    title: t.slice(0, at).trim() + '…',
+    description: overflow + (description ? ' — ' + description : ''),
+  };
+}
+
 function parseTableTasks(text) {
   const lines = text.split('\n');
   const tasks = [];
@@ -166,7 +216,7 @@ function parseTableTasks(text) {
   const idLike = /^[A-Za-z][\w.]*-[\w.\-]+$/; // e.g. GATE-arch, TASK-12, EPIC-2, AUTH-01
   for (const line of lines) {
     if (!/^\s*\|.*\|\s*$/.test(line)) { cols = null; continue; } // table ended
-    const cells = line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+    const cells = splitTableRow(line);
     if (/^:?-{2,}:?$/.test(cells[0] || '')) continue; // separator row
     if (!cols) {
       const lower = cells.map(c => c.toLowerCase());
@@ -186,9 +236,10 @@ function parseTableTasks(text) {
       description = rawTitle.slice(noteAt).replace(/^`|`$/g, '').replace(/^\[|\]$/g, '').trim();
       rawTitle = rawTitle.slice(0, noteAt).trim();
     }
-    const owner = cols.owner !== -1 ? (cells[cols.owner] || '') : '';
+    const owner = cols.owner !== -1 ? cleanOwner(cells[cols.owner]) : '';
     const { status, raw_status, isGate } = tasksMdStatus(cells[cols.status], id, rawTitle);
-    tasks.push(tasksMdRecord({ id, title: rawTitle, description, status, raw_status, isGate, owner, agent: owner }));
+    const capped = capTitle(rawTitle, description);
+    tasks.push(tasksMdRecord({ id, title: capped.title, description: capped.description, status, raw_status, isGate, owner, agent: owner }));
   }
   return tasks;
 }

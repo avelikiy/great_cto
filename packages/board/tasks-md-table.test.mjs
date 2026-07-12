@@ -87,6 +87,78 @@ test('checkbox format still parses (regression)', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('escaped pipes in a cell do not shift columns', () => {
+  // `\|` inside a title cell must NOT split into extra columns — that used to
+  // shove `open`/`1m\` into the owner slot and break the filter chips.
+  const body = `| id | title | status | owner |
+|----|-------|--------|-------|
+| API-11 | GET /equity?range=1d\\|1w\\|1m\\|all \`[done]\` | done | senior-dev |
+`;
+  const dir = withTasksMd(body);
+  try {
+    const t = parseTasksMd(dir);
+    assert.equal(t.length, 1);
+    assert.equal(t[0].owner, 'senior-dev', 'owner intact despite pipes in title');
+    assert.equal(t[0].status, 'done', 'status intact');
+    assert.ok(t[0].title.includes('1d|1w|1m|all'), 'pipes unescaped back into the title');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('extra-column table schema maps status/owner by header, not position', () => {
+  const body = `| id | title | size | horizon | status | owner |
+|----|-------|------|---------|--------|-------|
+| SIG-1 | consensus builder | M | H2 | in_progress | senior-dev |
+`;
+  const dir = withTasksMd(body);
+  try {
+    const t = parseTasksMd(dir);
+    assert.equal(t.length, 1);
+    assert.equal(t[0].status, 'in_progress', 'status read from its header column');
+    assert.equal(t[0].owner, 'senior-dev', 'owner read from its header column, not "M"/"H2"');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('sentence-shaped owner debris is dropped, not turned into a chip', () => {
+  const body = `| id | title | status | owner |
+|----|-------|--------|-------|
+| X-1 | a task | done | senior-dev — argon2id, 15min access, WhitelistGuard on routes |
+`;
+  const dir = withTasksMd(body);
+  try {
+    const t = parseTasksMd(dir);
+    assert.equal(t[0].owner, '', 'long sentence owner rejected');
+    assert.deepEqual(t[0].labels, [], 'no junk label emitted');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('status / size / horizon debris never becomes an owner chip', () => {
+  const body = `| id | title | status | owner |
+|----|-------|--------|-------|
+| A-1 | t | open | done |
+| A-2 | t | open | M |
+| A-3 | t | open | H2 |
+| A-4 | t | open | senior-dev |
+| A-5 | t | open | CTO |
+`;
+  const dir = withTasksMd(body);
+  try {
+    const owners = parseTasksMd(dir).map(t => t.owner);
+    assert.deepEqual(owners, ['', '', '', 'senior-dev', 'CTO'], 'done/M/H2 rejected; real handles kept');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('over-long title is capped, overflow moved to description', () => {
+  const long = 'word '.repeat(60).trim(); // ~300 chars
+  const dir = withTasksMd(`| id | title | status | owner |\n|--|--|--|--|\n| L-1 | ${long} | open | pm |\n`);
+  try {
+    const t = parseTasksMd(dir)[0];
+    assert.ok(t.title.length <= 162, `title capped (${t.title.length})`);
+    assert.ok(t.title.endsWith('…'), 'ellipsis appended');
+    assert.ok(t.description.length > 0, 'overflow preserved in description');
+    assert.equal(t.owner, 'pm', 'short lowercase handle kept');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('non-task tables are ignored (no false positives)', () => {
   const dir = withTasksMd('# Notes\n\n| feature | value |\n|---------|-------|\n| latency | 50ms |\n| price | 5% |\n');
   try {
