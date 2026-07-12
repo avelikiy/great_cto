@@ -24,6 +24,7 @@ import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js
 import { sendUsagePing, sendInstallPing, telemetrySubcommand, isTelemetryEnabled, computeAnonId } from "./telemetry.js";
 import { checkForUpdate } from "./update-check.js";
 import { findBoardServerPath } from "./board-path.js";
+import { daemonSpec, decideEnsureAction, type Platform } from "./board-daemon.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -319,6 +320,164 @@ async function runBoard(args: CliArgs, surface?: "console"): Promise<number> {
   return 0;
 }
 
+// ── Always-on board: `ensure` gate + OS-supervisor install (ADR-007) ─────────
+
+/** Absolute path to the CLI entry (index.mjs), one level up from dist/main.js. */
+function cliEntryPath(): string {
+  const here = dirname(fileURLToPath(import.meta.url)); // …/dist
+  return join(here, "..", "index.mjs");
+}
+
+/** Read the board PID file → number, or null if missing / garbage. */
+function readBoardPid(surface?: "console"): number | null {
+  const pidFile = boardPidFilePath(surface);
+  if (!fsExistsSync(pidFile)) return null;
+  const pid = parseInt(readFileSync(pidFile, "utf8").trim(), 10);
+  return pid && !isNaN(pid) ? pid : null;
+}
+
+/** signal-0 existence check. */
+function isPidAlive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+/** Does the board answer HTTP on this port? Any response (even 4xx) = healthy. */
+async function probeBoardPort(port: number): Promise<boolean> {
+  const http = await import("node:http");
+  return new Promise<boolean>(resolve => {
+    const req = http.request(
+      { host: "127.0.0.1", port, path: "/", method: "GET", timeout: 1200 },
+      res => { res.resume(); resolve(true); },
+    );
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => { req.destroy(); resolve(false); });
+    req.end();
+  });
+}
+
+/** Detached relaunch of the board (survives this CLI process). Returns the new pid. */
+async function spawnDetachedBoard(port: number): Promise<number | undefined> {
+  const { spawn } = await import("node:child_process");
+  const serverPath = findBoardServerPath();
+  if (!serverPath) {
+    error("Board server not found. Reinstall the CLI (npm i -g great-cto@latest).");
+    return undefined;
+  }
+  const child = spawn(process.execPath, [serverPath, "--no-open"], {
+    env: { ...process.env, BOARD_PORT: String(port) },
+    stdio: "ignore",
+    detached: true,
+  });
+  child.unref();
+  try {
+    mkdirSync(join(homedir(), ".great_cto"), { recursive: true });
+    if (child.pid) writeFileSync(boardPidFilePath(), String(child.pid));
+  } catch { /* best-effort */ }
+  return child.pid;
+}
+
+/**
+ * `great-cto board ensure` — idempotent health gate. Starts the board only if it
+ * isn't already answering; never kills a healthy instance. Safe to call from a
+ * supervisor, cron line, or shell hook.
+ */
+async function runBoardEnsure(args: CliArgs): Promise<number> {
+  const port = args.boardPort;
+  const pid = readBoardPid();
+  const alive = pid !== null && isPidAlive(pid);
+  const healthy = alive && await probeBoardPort(port);
+  const action = decideEnsureAction({ pid, alive, healthy });
+
+  if (action === "noop") {
+    log(`  ${green("✓")} board already running → http://localhost:${port} (pid ${pid})`);
+    return 0;
+  }
+  if (action === "restart") {
+    log(`  ${dim(`board pid ${pid} alive but not answering on ${port} — restarting…`)}`);
+    await killExistingBoard();
+  }
+  const newPid = await spawnDetachedBoard(port);
+  if (!newPid) return 1;
+  log(`  ${green("✓")} board ${action === "restart" ? "restarted" : "started"} → http://localhost:${port} (pid ${newPid})`);
+  return 0;
+}
+
+/**
+ * `great-cto board install-daemon` — write + activate a per-user OS service that
+ * keeps the board running across crashes and reboots. `--dry-run` prints only.
+ */
+async function runBoardInstallDaemon(args: CliArgs): Promise<number> {
+  const { spawnSync } = await import("node:child_process");
+  const spec = daemonSpec(process.platform as Platform, {
+    nodePath: process.execPath,
+    cliPath: cliEntryPath(),
+    port: args.boardPort,
+    home: homedir(),
+  });
+
+  if (!spec.supported) {
+    error(`No supervisor integration for platform '${process.platform}'.`);
+    log("Run `great-cto board ensure` from your own scheduler instead.");
+    return 1;
+  }
+
+  const body = spec.render();
+  if (args.dryRun) {
+    log(bold(`Would install ${spec.kind} unit${spec.unitPath ? ` at ${spec.unitPath}` : ""}:\n`));
+    log(body);
+    log(dim(`Then run: ${spec.installCmds.map(c => c.join(" ")).join(" && ")}`));
+    return 0;
+  }
+
+  // Write the unit file (launchd/systemd). win32 has no separate file — the task IS the config.
+  if (spec.unitPath) {
+    try {
+      mkdirSync(dirname(spec.unitPath), { recursive: true });
+      writeFileSync(spec.unitPath, body);
+      log(`  ${green("✓")} wrote ${spec.kind} unit → ${spec.unitPath}`);
+    } catch (e) {
+      error(`Could not write unit file: ${(e as Error).message}`);
+      return 1;
+    }
+  }
+
+  for (const cmd of spec.installCmds) {
+    const r = spawnSync(cmd[0]!, cmd.slice(1), { stdio: "ignore" });
+    // launchctl unload of a not-yet-loaded agent returns non-zero — that's expected on first install.
+    if (r.status !== 0 && !(cmd[0] === "launchctl" && cmd.includes("unload"))) {
+      warn(`command exited ${r.status}: ${cmd.join(" ")}`);
+    }
+  }
+
+  log(`  ${green("✓")} board daemon installed — it will start at login and restart on crash.`);
+  log(dim(`  now:      great-cto board ensure   (brings it up immediately)`));
+  log(dim(`  remove:   great-cto board uninstall-daemon`));
+  return 0;
+}
+
+/** `great-cto board uninstall-daemon` — deactivate the service and remove its unit file. */
+async function runBoardUninstallDaemon(args: CliArgs): Promise<number> {
+  const { spawnSync } = await import("node:child_process");
+  const spec = daemonSpec(process.platform as Platform, {
+    nodePath: process.execPath,
+    cliPath: cliEntryPath(),
+    port: args.boardPort,
+    home: homedir(),
+  });
+  if (!spec.supported) {
+    error(`No supervisor integration for platform '${process.platform}'.`);
+    return 1;
+  }
+  for (const cmd of spec.uninstallCmds) {
+    spawnSync(cmd[0]!, cmd.slice(1), { stdio: "ignore" });
+  }
+  if (spec.unitPath && fsExistsSync(spec.unitPath)) {
+    try { unlinkSync(spec.unitPath); } catch { /* ignore */ }
+  }
+  log(`  ${green("✓")} board daemon removed. (A running board keeps running — stop it with a new \`board\` or reboot.)`);
+  return 0;
+}
+
 function printHelp(): void {
   log(`${bold("great-cto")} — one-command install for the great_cto Claude Code plugin
 
@@ -341,6 +500,10 @@ ${bold("Board:")}
   great-cto board              Open Kanban + CTO Dashboard at localhost:3141
   great-cto board --port 4000  Use a different port
   great-cto board --no-open    Start server without opening browser
+  great-cto board ensure       Start only if not already running (idempotent; for cron/hooks)
+  great-cto board install-daemon    Keep the board always on (launchd/systemd/schtasks)
+  great-cto board install-daemon --dry-run   Print the service unit without installing
+  great-cto board uninstall-daemon  Remove the always-on service
 
 ${bold("Operator console (the second surface — invite-only, hostable):")}
   great-cto console                 Serve ONLY the operator console (no dev board)
@@ -1130,7 +1293,16 @@ async function main(): Promise<void> {
   }
   if (args.command === "board") {
     try {
-      const code = await runBoard(args);
+      const verb = args.positional[0];
+      let code: number;
+      if (verb === "ensure") code = await runBoardEnsure(args);
+      else if (verb === "install-daemon") code = await runBoardInstallDaemon(args);
+      else if (verb === "uninstall-daemon") code = await runBoardUninstallDaemon(args);
+      else if (verb) {
+        error(`great-cto board: unknown subcommand '${verb}'`);
+        log(`Try: ${cyan("board")} · ${cyan("board ensure")} · ${cyan("board install-daemon")} · ${cyan("board uninstall-daemon")}`);
+        code = 2;
+      } else code = await runBoard(args);
       await finish(code);
     } catch (e) {
       error((e as Error).message);
