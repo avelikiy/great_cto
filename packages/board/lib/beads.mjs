@@ -244,6 +244,41 @@ function parseTableTasks(text) {
   return tasks;
 }
 
+// Best-effort write-back for bd-less projects (e.g. a path with a space, where
+// embedded-dolt can't open its store): flip the `status` cell of a task's row in
+// the tasks.md table so a board gate approve/reject still persists. Returns true
+// if a matching row was updated. Only touches the table dialect (the checkbox
+// dialect has no separate status cell to rewrite in place).
+function setTaskStatusInTasksMd(cwd, id, newStatus) {
+  const fp = path.join(cwd, '.great_cto', 'tasks.md');
+  if (!fs.existsSync(fp)) return false;
+  let text;
+  try { text = fs.readFileSync(fp, 'utf8'); } catch { return false; }
+  const lines = text.split('\n');
+  let cols = null, changed = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^\s*\|.*\|\s*$/.test(lines[i])) { cols = null; continue; }
+    const cells = splitTableRow(lines[i]);
+    if (/^:?-{2,}:?$/.test(cells[0] || '')) continue;
+    if (!cols) {
+      const lower = cells.map(c => c.toLowerCase());
+      if (lower.indexOf('id') !== -1 && lower.indexOf('status') !== -1) {
+        cols = { id: lower.indexOf('id'), status: lower.indexOf('status') };
+      }
+      continue;
+    }
+    if ((cells[cols.id] || '') === id) {
+      cells[cols.status] = newStatus;
+      // Re-escape pipes we unescaped on the way in, then rebuild the row.
+      lines[i] = '| ' + cells.map(c => c.replace(/\|/g, '\\|')).join(' | ') + ' |';
+      changed = true;
+      break;
+    }
+  }
+  if (!changed) return false;
+  try { fs.writeFileSync(fp, lines.join('\n')); return true; } catch { return false; }
+}
+
 // Fallback: parse .great_cto/tasks.md when Beads isn't initialized (or can't
 // open its store). Two dialects, tried in order:
 //   1. checkbox:  `- [ ] TASK-001: Title [agent] [~42min]` + indented description
@@ -365,6 +400,7 @@ export {
   bdWriteSerialised,
   bdList,
   parseTasksMd,
+  setTaskStatusInTasksMd,
   getTasks,
   mapStatus,
   detectAgent,

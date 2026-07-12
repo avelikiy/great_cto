@@ -14,7 +14,7 @@ import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
 import { log } from './log.mjs';
-import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks } from './beads.mjs';
+import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
@@ -332,8 +332,13 @@ async function dispatch(req, res, url, cwd) {
         res.end(JSON.stringify({ error: 'invalid action' }));
         return;
       }
+      // A project can be tasks.md-backed (no working beads — e.g. its path
+      // contains a space, which embedded-dolt can't open). Only 409 when there
+      // is neither a beads store NOR a tasks.md to record the decision in.
       const beadsErr = checkBeadsAvailable(gateCwd);
-      if (beadsErr) {
+      const tasksMdPath = path.join(gateCwd, '.great_cto', 'tasks.md');
+      const hasTasksMd = fs.existsSync(tasksMdPath);
+      if (beadsErr && !hasTasksMd) {
         res.writeHead(409, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(beadsErr));
         return;
@@ -344,10 +349,20 @@ async function dispatch(req, res, url, cwd) {
       // rejected. bdWriteSerialised guarantees one-at-a-time semantics.
       const result = await bdWriteSerialised(() => {
         const status = action === 'approve' ? 'closed' : 'blocked';
-        const args = ['update', id, '--status', status];
-        if (reason) args.push('--notes', `[${action}] ${reason}`);
-        const r = bd(args, { cwd: gateCwd, timeout: 5000 });
-        if (r.status !== 0) return { error: bdErr(r, 'bd update failed') };
+        let via = 'beads';
+        // Try beads first (unless there's no store at all); on any bd failure
+        // fall back to rewriting the tasks.md status cell so the gate still lands.
+        const r = beadsErr
+          ? { status: 1, error: { code: 'NO_BEADS' } }
+          : bd(['update', id, '--status', status, ...(reason ? ['--notes', `[${action}] ${reason}`] : [])],
+              { cwd: gateCwd, timeout: 5000 });
+        if (r.status !== 0) {
+          if (!setTaskStatusInTasksMd(gateCwd, id, status)) {
+            return { error: (beadsErr ? 'beads unavailable' : bdErr(r, 'bd update failed'))
+              + ` — and no matching '${id}' row in tasks.md to update` };
+          }
+          via = 'tasks.md';
+        }
         bdCacheInvalidate(gateCwd);
         // Append to global decisions log — still inside the lock window
         try {
@@ -364,7 +379,7 @@ async function dispatch(req, res, url, cwd) {
             reason: reason || '',
           });
         } catch { /* best-effort */ }
-        return { ok: true };
+        return { ok: true, via };
       });
       if (!result || result.error) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -372,8 +387,8 @@ async function dispatch(req, res, url, cwd) {
         return;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, id, action }));
-      broadcastTasks(cwd);
+      res.end(JSON.stringify({ ok: true, id, action, via: result.via }));
+      broadcastTasks(gateCwd);
       // Auto-republish share report when a gate is approved (fire-and-forget)
       if (action === 'approve') {
         const shareState = getShareState(gateCwd);

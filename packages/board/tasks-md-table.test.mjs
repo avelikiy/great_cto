@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseTasksMd } from './lib/beads.mjs';
+import { parseTasksMd, setTaskStatusInTasksMd } from './lib/beads.mjs';
 
 function withTasksMd(body) {
   const dir = mkdtempSync(join(tmpdir(), 'gcto-tasksmd-'));
@@ -156,6 +156,39 @@ test('over-long title is capped, overflow moved to description', () => {
     assert.ok(t.title.endsWith('…'), 'ellipsis appended');
     assert.ok(t.description.length > 0, 'overflow preserved in description');
     assert.equal(t.owner, 'pm', 'short lowercase handle kept');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('setTaskStatusInTasksMd flips a row status (gate approve without beads)', () => {
+  const body = `| id | title | status | owner |
+|----|-------|--------|-------|
+| GATE-x | gate:plan review | open | CTO |
+| T-2 | other | open | pm |
+`;
+  const dir = withTasksMd(body);
+  try {
+    const ok = setTaskStatusInTasksMd(dir, 'GATE-x', 'closed');
+    assert.equal(ok, true, 'row updated');
+    const by = Object.fromEntries(parseTasksMd(dir).map(t => [t.id, t]));
+    assert.equal(by['GATE-x'].status, 'done', 'closed → done on re-read');
+    assert.equal(by['T-2'].status, 'backlog', 'other rows untouched');
+    // unknown id → no-op false
+    assert.equal(setTaskStatusInTasksMd(dir, 'NOPE-9', 'blocked'), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('setTaskStatusInTasksMd preserves escaped pipes in other cells', () => {
+  const body = `| id | title | status | owner |
+|----|-------|--------|-------|
+| A-1 | GET /x?range=1d\\|1w \`[note]\` | open | senior-dev |
+`;
+  const dir = withTasksMd(body);
+  try {
+    setTaskStatusInTasksMd(dir, 'A-1', 'blocked');
+    const t = parseTasksMd(dir)[0];
+    assert.equal(t.status, 'blocked');
+    assert.ok(t.title.includes('1d|1w'), 'pipes survive the rewrite');
+    assert.equal(t.owner, 'senior-dev', 'owner survives');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
