@@ -4036,8 +4036,11 @@ function renderDashboard(m) {
   const llmUsd = m.cost?.llm_usd ?? 0;
   const realLlmUsd = m.cost?.real_llm_usd ?? 0;
   const planSavingsX = m.cost?.savings_x;
-  // Prefer window-scoped count when API provides it (matches selected period)
-  const done = m.tasks?.done_in_window ?? m.tasks?.done ?? 0;
+  // Prefer the window-scoped count, but fall back to the all-time total when it
+  // is 0 — otherwise projects with completed-but-untimestamped tasks (e.g. a
+  // tasks.md fallback with no dates) show a meaningless "—" despite real work.
+  // (`??` kept 0 because done_in_window is 0, not null; `||` fixes that.)
+  const done = (m.tasks?.done_in_window || m.tasks?.done) ?? 0;
   const avgMin = m.avg_completion_min ?? 0;
   const cycleStat = m.cycle_time_stat === 'median_30d' ? 'Median cycle (30d)' : 'Avg cycle time';
 

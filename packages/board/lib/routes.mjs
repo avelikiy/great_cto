@@ -726,11 +726,18 @@ async function dispatch(req, res, url, cwd) {
         const dateM = raw.match(/^date:\s*(.+)$/m);
         const timeM = raw.match(/^time:\s*(.+)$/m);
         const durM  = raw.match(/^duration:\s*(.+)$/m);
-        const titleM = raw.match(/^#\s+Session:\s*(.+)$/m);
-        const doneM = raw.match(/## Done\n([\s\S]*?)(?=\n##|$)/);
-        let done = doneM ? doneM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
-        const pendM = raw.match(/## Pending\n([\s\S]*?)(?=\n##|$)/);
-        let pending = pendM ? pendM[1].trim().split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2)) : [];
+        const titleM = raw.match(/^#\s+Session:\s*(.+)$/m) || raw.match(/^#\s+(Session[^\n]*)$/m);
+        // Headings vary across /save versions and hand-written logs: "## Done",
+        // "## Done today", "## Pending", "## Next", "## TODO". Match the keyword
+        // and ignore any trailing words on the heading line; bullets may be - or *.
+        // Accept "- ", "* ", and "1." / "2)" numbered list items.
+        const bulletsFrom = (m) => m
+          ? m[1].trim().split('\n').filter(l => /^(?:[-*]|\d+[.)])\s+/.test(l)).map(l => l.replace(/^(?:[-*]|\d+[.)])\s+/, ''))
+          : [];
+        const doneM = raw.match(/##\s+Done[^\n]*\n([\s\S]*?)(?=\n##|$)/i);
+        let done = bulletsFrom(doneM);
+        const pendM = raw.match(/##\s+(?:Pending|Next(?:\s+steps?)?|To\s?do|Blocked)[^\n]*\n([\s\S]*?)(?=\n##|$)/i);
+        let pending = bulletsFrom(pendM);
 
         // v2.7.0: SessionEnd hook auto-captures use a different schema
         // (## Git / ## Beads / ## Cost). When no /save format found,
