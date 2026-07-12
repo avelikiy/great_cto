@@ -776,9 +776,10 @@ async function dispatch(req, res, url, cwd) {
     // Fallback: synthesize from verdicts grouped by day
     if (!logs.length) {
       try {
-        const verdicts = readVerdicts();
-        // Filter to verdicts referencing this project (best-effort: include all
-        // when project-tagging not available)
+        // Scope to THIS project: readVerdicts(cwd) returns project-local verdicts
+        // plus global lines tagged `project=<slug>`. Without the cwd every project
+        // showed the same unfiltered global verdict feed (another project's work).
+        const verdicts = readVerdicts(cwd);
         const byDay = new Map();
         for (const v of verdicts) {
           const day = (v.ts || '').slice(0, 10);
