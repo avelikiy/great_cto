@@ -558,6 +558,24 @@ button { font-family: inherit; cursor: pointer; }
   text-align: center;
 }
 
+/* A read failed. Deliberately louder than .empty — the whole point is that this
+   must not be mistaken for "there is nothing here". */
+.degraded-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #f0b429;
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: rgba(240, 180, 41, 0.08);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.degraded-banner strong { color: var(--text1); font-weight: 600; }
+.degraded-banner span { color: var(--text2); font-family: var(--mono, ui-monospace, monospace); word-break: break-word; }
+
 /* ── Side panel ───────────────────────────────────────────────────────────── */
 .side {
   position: absolute;
@@ -2678,7 +2696,12 @@ function renderInbox(d) {
   inboxData = d || {};
   const s = d?.summary || { gates: 0, blocked: 0, p0: 0, stale: 0 };
   document.getElementById('nav-inbox-count').textContent = s.gates + s.p0 + s.blocked;
-  document.getElementById('inbox-greet').textContent = `${greetByHour()} ${s.gates + s.p0 ? "Here's what needs your decision." : 'Nothing urgent — back to deep work.'}`;
+  // Same rule as the all-clear card: "nothing urgent" is a claim about data we
+  // may not have. When a read failed, say that instead of reassuring the user.
+  const greetTail = anyDegraded()
+    ? "Some data could not be read — treat the counts below as incomplete."
+    : (s.gates + s.p0 ? "Here's what needs your decision." : 'Nothing urgent — back to deep work.');
+  document.getElementById('inbox-greet').textContent = `${greetByHour()} ${greetTail}`;
   document.getElementById('inbox-summary').innerHTML = `
     <div class="pill-stat"><span class="dot dot-purple"></span><div><div class="num">${s.gates}</div><div class="lbl">Pending decisions</div></div></div>
     <div class="pill-stat"><span class="dot dot-red"></span><div><div class="num">${s.p0}</div><div class="lbl">P0 open</div></div></div>
@@ -2693,7 +2716,14 @@ function renderInbox(d) {
   const attention = (d?.pending_gates || []).length + (d?.p0_open || []).length
     + (d?.blocked || []).length + (d?.stale_in_progress || []).length;
   const ac = document.getElementById('inbox-allclear');
-  if (ac) ac.style.display = attention === 0 ? '' : 'none';
+  // "All clear" is a claim about the data, so it may only be made when the data
+  // was actually read. With an unreadable tasks.md every one of these counts is
+  // zero and the card used to headline "Nothing needs your decision" — maximum
+  // confidence at exactly the moment we knew least. Absence of findings is not
+  // a finding of absence.
+  if (ac) ac.style.display = (attention === 0 && !anyDegraded()) ? '' : 'none';
+  renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
+    'Some project data could not be read — counts below are incomplete.');
 }
 
 function renderInboxList(rootId, items, countId, opts = {}) {
@@ -3686,8 +3716,50 @@ async function init() {
   }
 }
 
+// Reasons the server could not read something, keyed by API path. An empty list
+// means either "nothing here" or "we failed to read it", and rendering both as a
+// tidy empty state is what let a broken tasks.md look like an empty backlog for
+// a week. The server now says which via X-Board-Degraded; keep it so the view
+// can show it.
+const BOARD_DEGRADED = Object.create(null);
+function degradedFor(path) { return BOARD_DEGRADED[path] || null; }
+
+/**
+ * Show or clear a read-failure banner, and remove it as soon as the read
+ * recovers — a stale error is its own bug.
+ *
+ * It mounts at the top of `.workspace`, NOT inside the tasks panel. Mounting it
+ * next to the thing that failed hides it on every other tab: with an unreadable
+ * tasks.md the landing view was still headlining "Nothing urgent" and "All
+ * clear" while the banner sat in the DOM, invisible, one tab away. A failure
+ * notice that only appears where you already suspect a problem is decoration.
+ */
+function renderDegradedBanner(id, reason, headline) {
+  const existing = document.getElementById(id);
+  if (!reason) { if (existing) existing.remove(); return; }
+  const el = existing || document.createElement('div');
+  el.id = id;
+  el.className = 'degraded-banner';
+  el.setAttribute('role', 'alert');
+  el.innerHTML = `<strong>${esc(headline)}</strong><span>${esc(reason)}</span>`;
+  if (!existing) {
+    const host = document.querySelector('.workspace')
+      || (document.getElementById('kanban-board') || {}).parentNode;
+    if (host) host.insertBefore(el, host.firstChild);
+  }
+}
+
+/** True when any project-scoped read failed — used to suppress "all clear" claims. */
+function anyDegraded() { return Object.keys(BOARD_DEGRADED).length > 0; }
+
 function api(url, opts) {
-  return fetch(url, opts).then(r => r.json()).catch(() => null);
+  const key = String(url).split('?')[0];
+  return fetch(url, opts).then(r => {
+    const d = r.headers && r.headers.get('X-Board-Degraded');
+    if (d) { try { BOARD_DEGRADED[key] = decodeURIComponent(d); } catch { BOARD_DEGRADED[key] = d; } }
+    else delete BOARD_DEGRADED[key];
+    return r.json();
+  }).catch(() => null);
 }
 
 function connectSSE() {
@@ -3858,6 +3930,10 @@ function clearFilters() {
 function renderKanban(tasks) {
   renderFilterBar();
   const board = document.getElementById('kanban-board');
+  // If the server could not read the task source, say so. An empty board that
+  // looks clean is a lie when the truth is "we failed to read tasks.md".
+  renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
+    'Tasks could not be read — this board is not empty, it is unreadable.');
   const byCol = Object.fromEntries(COLUMNS.map(c => [c.id, []]));
   for (const t of tasks) {
     if (byCol[t.status]) byCol[t.status].push(t);
