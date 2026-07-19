@@ -1,7 +1,16 @@
 # BENCH — 2026-07 batch 1 (public benchmark, in progress)
 
-**Date:** 2026-07-10 · **Status:** waves 0–1 complete (4 of 10 products), wave 2 running · Plan:
+**Date:** 2026-07-10 · **Status:** **7 of 10 products completed**; 3 interrupted
+mid-build and collected as-is (marked in the table, not comparable) · Plan:
 [PLAN-2026-07-10-public-benchmark.md](../plans/PLAN-2026-07-10-public-benchmark.md)
+
+**Headline across the 7 completed runs:** median score **70 (B)**, range 58–86.
+Five of seven ship a fully green suite (157–368 tests); four reach a live preview
+URL. Median API-equivalent cost **$171** per product, $0 out-of-pocket (built on
+a Claude subscription). The dominant cost is *calendar* time, not money: runs
+that finished inside one session window took **1h46m–3h25m**, while those that
+collided with the subscription's 5-hour limit show 11–24h spans that are mostly
+outage, not work.
 
 10 products from the catalog, built end-to-end by the great_cto pipeline, measured
 by open tooling. Briefs were [frozen before any run](briefs/README.md); each product
@@ -18,7 +27,13 @@ Anyone can re-run.
 | 1 | Dispatch & scheduling | A1 crud | 11h 46m² | 225 / 1 fail³ | 66 (C) | APPROVED P0:0 (TCPA fixed in-run) | preview live (SSO-walled) | $145.20 · $0 out-of-pocket | none² |
 | 4 | Customer booking | A2 booking | 15h 25m² | 368 / 0 fail | 58 (C) | APPROVED P0:0 P1:0, 1×P2 follow-up | preview live (SSO-walled) | $319.30 · $0 out-of-pocket | none² |
 | 7 | Profitability dashboard | A4 dashboard | **1h 46m** | **157 / 0 fail** | **86 (A)** | APPROVED P0:0 P1:0 | preview live (SSO-walled) | $182.64 · $0 out-of-pocket | none |
-| 2, 5, 6, 8, 9, 10 | (see briefs) | A1–A6 | — | — | — | — | — | — | wave 2 |
+| 6 | Lead CRM | A1 crud | **1h 46m** | 130 / 2 fail | **80 (B)** | — | none | $102.36 · $0 out-of-pocket | none |
+| 5 | Class scheduling | A2 booking | 24h 09m² | **316 / 0 fail** | 70 (B) | — | none | $178.81 · $0 out-of-pocket | none² |
+| 2 | Client portal | A3 portal | 22h 49m² | **196 / 0 fail** | 63 (C) | — | **preview live (public, 200)** | $149.81 · $0 out-of-pocket | none²⁴ |
+| — | **Interrupted — not comparable** ↓ | | | | | | | | |
+| 8 | Subscription billing | A5 billing | 2h 13m⁵ | 54 / 0 (partial) | 70 (B)⁵ | — | none | $214.16 | **stopped mid-build** |
+| 9 | Coaching platform | A6 content | 22h 30m⁵ | not run (exit 143) | 76 (B)⁵ | — | none | $191.98 | **stopped mid-build** |
+| 10 | Quoting | A1 crud | —⁵ | 366 / 187 fail | 53 (D)⁵ | — | none | $324.29 | **stopped mid-build** |
 
 ¹ One **incident**: the first headless launch was killed by a 600s background-task
 wait ceiling ~1h22m in; the run was resumed with `--continue` and completed. The
@@ -36,6 +51,25 @@ security stages, which the interrupted run had lost track of.
 ³ Dispatch's 1 failing test is a flaky integration case the pipeline itself had
 already logged in its QA backlog; its integration tests require a local Docker
 Postgres (left provisioned by the run, started at collection time).
+
+⁴ Portal is the only product whose preview URL is reachable **without** the SSO
+wall (HTTP 200 to anonymous visitors). Its first collection reported 140 failing
+tests: the suite provisions its schema on a fresh ephemeral Postgres, and the
+first run raced that provisioning. Docker was unavailable on the collection host,
+so the suite was run against two throwaway host Postgres clusters bound to the
+ports its compose file expects; on a warm schema it is 196/0.
+
+⁵ **Interrupted runs — do not read these as product scores.** Subscription
+session limits stopped these three repeatedly; they were resumed several times
+and finally **terminated by the operator mid-build**, not by any pipeline
+failure. What the numbers actually mean: *subs* had 54 tests written of a planned
+suite (its own last commit claims 352 passing at a later stage than the tree we
+collected); *coaching* exited 143 (SIGTERM — the kill) with its suite never run;
+*quoting*'s 187 failures are a half-wired build, not a verdict on the product.
+Their `score` is what the collector computes from a partial tree and is **not
+comparable** to the seven completed runs. Cost is real spend and is reported.
+Finishing them properly means re-running the remaining pipeline stages to
+completion — see *Reproduce*.
 
 ### ATS row detail (frozen at `bench-2026-07`, commit `3abcb34`)
 
