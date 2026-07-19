@@ -58,9 +58,21 @@ Verify: `/doctor` → "LLM router: ✓ key live".
 | Var | Default | Notes |
 |---|---|---|
 | `OPENROUTER_API_KEY` | (none) | required to enable |
-| `GREAT_CTO_ROUTER_MODEL` | `moonshotai/kimi-k2` | any OpenRouter model slug |
+| `GREAT_CTO_ROUTER_MODEL` | `moonshotai/kimi-k2-0905` | any OpenRouter model slug |
 | `GREAT_CTO_ROUTER_MAX_TOKENS` | `4096` | output cap |
 | `GREAT_CTO_ROUTER_TIMEOUT` | `60` | seconds |
+
+### Picking a model
+
+The default sits in the **cheap lane** on purpose — this router exists to take
+grunt work *off* the expensive model, so a pricier tier must be an explicit
+choice, never a silent upgrade.
+
+| Slug | Context | $/1M in · out | Use when |
+|------|---------|---------------|----------|
+| `moonshotai/kimi-k2-0905` **(default)** | 262k | 0.60 · 2.50 | triage, summarization, routine drafting |
+| `moonshotai/kimi-k2.7-code` | 262k | 0.85 · 3.80 | the delegated work is code-shaped |
+| `moonshotai/kimi-k3` | 1M | 3.00 · 15.00 | only when the task genuinely needs >262k of context or image input — ~5× the cost, and long context degrades in the middle, so selecting the relevant subset usually beats dumping everything |
 
 To use a different cheap model, e.g. DeepSeek or Mistral Large:
 ```

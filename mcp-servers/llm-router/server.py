@@ -60,7 +60,11 @@ def load_config() -> dict:
 
     return {
         "api_key": get("OPENROUTER_API_KEY"),
-        "model": get("GREAT_CTO_ROUTER_MODEL", "moonshotai/kimi-k2"),
+        # Default is the newest *cheap-lane* Kimi, not the oldest: k2-0905 doubles
+        # the context window (262k vs 131k on the 0711 build) for +5%/+9% per
+        # token. Pricier tiers (k2.6, k2.7-code, k3) are a deliberate opt-in via
+        # GREAT_CTO_ROUTER_MODEL — this lane exists to be cheap.
+        "model": get("GREAT_CTO_ROUTER_MODEL", "moonshotai/kimi-k2-0905"),
         "max_tokens": int(get("GREAT_CTO_ROUTER_MAX_TOKENS", "4096")),
         "timeout": int(get("GREAT_CTO_ROUTER_TIMEOUT", "60")),
     }
@@ -143,7 +147,7 @@ TOOLS = [
     {
         "name": "ask_kimi",
         "description": (
-            "Delegate a non-critical task to Kimi K2 (or configured cheap model) "
+            "Delegate a non-critical task to Kimi (or configured cheap model) "
             "via OpenRouter. Use for log triage, summarization, routine doc drafting, "
             "POC-mode smoke test generation, and similar tasks where speed and cost "
             "matter more than absolute quality. Do NOT use for: architecture decisions, "
