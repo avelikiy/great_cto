@@ -55,10 +55,29 @@ while [ -e "$DIR/.bench-run-$N.log" ]; do N=$((N + 1)); done
 LOG="$DIR/.bench-run-$N.log"
 
 cd "$DIR"
+
+# Optional API-key mode: if ~/.great_cto/secrets.env defines ANTHROPIC_API_KEY,
+# runs bill per-token against the API instead of the subscription's shared 5-hour
+# session limit — which is what lets several products run in parallel without
+# starving each other. The key lives OUTSIDE the repo (never committed); we read
+# it here and forward it through the otherwise-clean env -i. Absent → subscription
+# OAuth as before. Reported in BENCH methodology per product (which billing mode).
+API_KEY_PASSTHRU=()
+if [ -f "$HOME/.great_cto/secrets.env" ]; then
+  # shellcheck disable=SC1091
+  KEY_VAL="$(grep -E '^ANTHROPIC_API_KEY=' "$HOME/.great_cto/secrets.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+  if [ -n "$KEY_VAL" ]; then
+    API_KEY_PASSTHRU=(ANTHROPIC_API_KEY="$KEY_VAL")
+    echo "billing: API key (session-limit bypassed)"
+  fi
+fi
+[ ${#API_KEY_PASSTHRU[@]} -eq 0 ] && echo "billing: subscription OAuth"
+
 # shellcheck disable=SC2086  # RESUME_FLAG is intentionally word-split (empty or --continue)
 nohup env -i \
   HOME="$HOME" PATH="$PATH" USER="$USER" LOGNAME="$USER" \
   SHELL="${SHELL:-/bin/zsh}" TMPDIR="${TMPDIR:-/tmp}" \
+  ${API_KEY_PASSTHRU[@]+"${API_KEY_PASSTHRU[@]}"} \
   CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 \
   claude -p $RESUME_FLAG "$PROMPT" --dangerously-skip-permissions \
   > "$LOG" 2>&1 &
