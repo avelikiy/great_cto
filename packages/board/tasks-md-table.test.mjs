@@ -5,10 +5,10 @@
 // project living on a space-containing path.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseTasksMd, setTaskStatusInTasksMd } from './lib/beads.mjs';
+import { parseTasksMd, setTaskStatusInTasksMd, getReadDegradation } from './lib/beads.mjs';
 
 function withTasksMd(body) {
   const dir = mkdtempSync(join(tmpdir(), 'gcto-tasksmd-'));
@@ -196,5 +196,43 @@ test('non-task tables are ignored (no false positives)', () => {
   const dir = withTasksMd('# Notes\n\n| feature | value |\n|---------|-------|\n| latency | 50ms |\n| price | 5% |\n');
   try {
     assert.equal(parseTasksMd(dir).length, 0, 'a random table without an id/status header is not parsed as tasks');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── degradation reporting (T9) ─────────────────────────────────────────────
+// An empty task list means either "no tasks" or "we could not read them". The
+// board used to render both identically; the reader must now say which.
+
+test('a missing tasks.md is not a degradation — absence is a normal state', () => {
+  const dir = withTasksMd('# Tasks\n');
+  try {
+    rmSync(join(dir, '.great_cto', 'tasks.md'));
+    assert.deepEqual(parseTasksMd(dir), []);
+    assert.equal(getReadDegradation(dir), null, 'absent file must not raise an error state');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an unreadable tasks.md reports degradation instead of an empty backlog',
+  { skip: process.getuid?.() === 0 && 'root ignores mode bits' }, () => {
+  const dir = withTasksMd('| id | title | status |\n|--|--|--|\n| A-1 | x | open |\n');
+  const fp = join(dir, '.great_cto', 'tasks.md');
+  try {
+    chmodSync(fp, 0o000);
+    const tasks = parseTasksMd(dir);
+    assert.deepEqual(tasks, [], 'no tasks can be produced');
+    const d = getReadDegradation(dir);
+    assert.ok(d, 'but the failure is recorded, not swallowed');
+    assert.match(d, /could not be read/i);
+  } finally {
+    chmodSync(fp, 0o644);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a healthy read clears any previous degradation', () => {
+  const dir = withTasksMd('| id | title | status |\n|--|--|--|\n| A-1 | x | open |\n');
+  try {
+    assert.equal(parseTasksMd(dir).length, 1);
+    assert.equal(getReadDegradation(dir), null);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

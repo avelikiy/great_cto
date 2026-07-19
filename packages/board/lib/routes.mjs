@@ -14,7 +14,7 @@ import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
 import { log } from './log.mjs';
-import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd } from './beads.mjs';
+import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
@@ -102,8 +102,16 @@ async function dispatch(req, res, url, cwd) {
   }
 
   if (pathname === '/api/tasks' && req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(getTasks(cwd)));
+    const tasks = getTasks(cwd);
+    // An empty list has two very different meanings: "no tasks" and "we could
+    // not read them". Carry the second in a header so the UI can render an
+    // error state instead of a clean-looking empty board. A header keeps the
+    // array body shape, so existing consumers are unaffected.
+    const degraded = getReadDegradation(cwd);
+    const headers = { 'Content-Type': 'application/json' };
+    if (degraded) headers['X-Board-Degraded'] = encodeURIComponent(degraded);
+    res.writeHead(200, headers);
+    res.end(JSON.stringify(tasks));
     return true;
   }
 

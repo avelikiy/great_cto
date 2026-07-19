@@ -4,7 +4,8 @@ import os from 'os';
 import { spawnSync } from 'child_process';
 import { planGates } from '../../../scripts/lib/gate-plan.mjs';
 import { GREAT_CTO_DIR, PROJECTS_FILE } from './config.mjs';
-import { isInsideDir } from './util.mjs';
+import { isInsideDir, readSafe, parseSafe } from './util.mjs';
+import { log } from './log.mjs';
 
 // Same HOME-boundary policy /api/projects/register enforces (lib/routes.mjs):
 // a raw absolute/tilde path must resolve inside the operator's home directory,
@@ -20,10 +21,28 @@ function resolveRawPathWithinHome(slugOrPath) {
 }
 
 // ── Project registry ───────────────────────────────────────────────────────────
+// Why the registry could not be read, or null when healthy. A corrupt or
+// unreadable projects.json used to yield `{projects: []}` silently, which the UI
+// renders as "you have no projects" — indistinguishable from a fresh install,
+// and a great way to lose a switcher full of work to one bad write.
+let registryDegradation = null;
+function getRegistryDegradation() { return registryDegradation; }
+
 function readProjectsRegistry() {
-  try { if (fs.existsSync(PROJECTS_FILE)) return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8')); }
-  catch {}
-  return { projects: [] };
+  const r = readSafe(PROJECTS_FILE);
+  if (!r.ok) {
+    registryDegradation = r.reason === 'missing' ? null : `projects.json could not be read: ${r.error}`;
+    if (registryDegradation) log.warn(`[projects] ${registryDegradation}`);
+    return { projects: [] };
+  }
+  const parsed = parseSafe(r.text);
+  if (!parsed.ok) {
+    registryDegradation = `projects.json is not valid JSON: ${parsed.error}`;
+    log.warn(`[projects] ${registryDegradation} — the switcher will look empty until this is fixed`);
+    return { projects: [] };
+  }
+  registryDegradation = null;
+  return parsed.value;
 }
 // Pick the best entry among several sharing a slug: prefer one whose path
 // still exists on disk; among several existing (or several missing), prefer
@@ -336,6 +355,7 @@ export {
   readProjectMd,
   getChangeTier,
   autoRegisterProject,
+  getRegistryDegradation,
   discoverProjects,
   listProjects,
   resolveProjectCwd,

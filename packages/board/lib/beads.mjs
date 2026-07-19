@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawnSync } from 'child_process';
+import { readSafe } from './util.mjs';
 import { bdCache } from './state.mjs';
 import { log } from './log.mjs';
 
@@ -283,11 +284,30 @@ function setTaskStatusInTasksMd(cwd, id, newStatus) {
 // open its store). Two dialects, tried in order:
 //   1. checkbox:  `- [ ] TASK-001: Title [agent] [~42min]` + indented description
 //   2. table:     `| id | title | status | owner |` rows (space-in-path fallback)
+// Why a read failed, per project dir — so the API can report "could not read
+// this" instead of an empty board. `null` means "nothing wrong": either the file
+// is legitimately absent or it parsed fine. Absence is normal; unreadable is not.
+const readDegradation = new Map();
+
+/** Degradation reason for a project's task sources, or null when healthy. */
+function getReadDegradation(cwd = process.cwd()) {
+  return readDegradation.get(cwd) || null;
+}
+
 function parseTasksMd(cwd) {
   const fp = path.join(cwd, '.great_cto', 'tasks.md');
-  if (!fs.existsSync(fp)) return [];
+  const r = readSafe(fp);
+  if (!r.ok) {
+    // Missing is a normal state (a project may track tasks in beads only).
+    // Unreadable is a defect the operator must see rather than read as "no tasks".
+    readDegradation.set(cwd, r.reason === 'missing'
+      ? null
+      : `tasks.md could not be read: ${r.error}`);
+    return [];
+  }
+  readDegradation.set(cwd, null);
   try {
-    const text = fs.readFileSync(fp, 'utf8');
+    const text = r.text;
     const tasks = [];
     const lines = text.split('\n');
     for (let i = 0; i < lines.length; i++) {
@@ -325,9 +345,14 @@ function parseTasksMd(cwd) {
       });
     }
     // No checkbox tasks → try the table dialect before giving up.
-    if (tasks.length === 0) return parseTableTasks(text);
+    if (tasks.length === 0) return parseTableTasks(r.text);
     return tasks;
-  } catch { return []; }
+  } catch (e) {
+    // The file was readable but we could not make sense of it. Record it: an
+    // empty list here is a parser defect, not an empty backlog.
+    readDegradation.set(cwd, `tasks.md could not be parsed: ${e?.message || e}`);
+    return [];
+  }
 }
 
 function getTasks(cwd = process.cwd()) {
@@ -400,6 +425,7 @@ export {
   bdWriteSerialised,
   bdList,
   parseTasksMd,
+  getReadDegradation,
   setTaskStatusInTasksMd,
   getTasks,
   mapStatus,
