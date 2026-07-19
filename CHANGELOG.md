@@ -22,6 +22,92 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.86.0 — 2026-07-19
+
+### The harness stops giving confident answers where it does not know
+
+One theme across the release: every place the system could fail silently and
+render its failure as a clean, confident answer now says what it actually knows.
+Informed by the open problems in arXiv:2605.18747 "Code as Agent Harness"
+(oracle adequacy, semantic verification, self-evolving harnesses, shared state).
+
+**Board always-on (ADR-007)**
+- `great-cto board ensure` — idempotent health gate: starts the board only when
+  it is not already answering; never kills a healthy instance; restarts a live
+  pid whose port is hung (the case a liveness supervisor cannot see).
+- `great-cto board install-daemon` / `uninstall-daemon` — per-user OS service
+  (launchd / systemd --user / schtasks) with start-at-login + restart-on-crash.
+  Explicit opt-in, never a side effect of init. `--dry-run` prints the unit.
+
+**Board reads space-path / tasks.md-backed projects**
+- The tasks.md fallback now parses the Markdown-table dialect the pipeline
+  writes when beads cannot open a path (e.g. one containing a space) — with
+  header-mapped columns, escaped-pipe handling, and owner-debris filtering.
+- Gate approve/reject falls back to a tasks.md status write-back when bd is
+  unavailable, and reports which path it used (`via: beads|tasks.md`).
+- Metrics and session-log parsers tolerate real-world heading/format variance;
+  the session-log fallback scopes verdicts to the project instead of showing
+  every project the same global list.
+- The project switcher hides $HOME (the global config dir is not a project) and
+  dead registrations with no data source.
+
+**Silent failures now speak (the release theme)**
+- `readSafe`/`parseSafe` keep "absent", "unreadable" and "here it is" apart —
+  the shared root of five separate board bugs where emptiness rendered as truth.
+- `GET /api/tasks` and `/api/logs` carry an `X-Board-Degraded` header when a
+  read failed; the UI mounts a persistent banner (visible on every tab), and
+  the landing view no longer claims "All clear" / "Nothing urgent" over data it
+  could not read. Round-trip verified: break the file → banner; fix it → gone.
+- Session-log reads distinguish ENOENT (normal) from a real read failure.
+
+**Quality oracle tells the truth (bench)**
+- `parseTestCounts` reads vitest and jest summaries, not only node:test — an
+  unparsed suite was previously scored as "1 test, and it failed".
+- "ran" now means "we obtained real counts"; `assess()` returns
+  `overall: null` when the suite was not measured, and `evaluateGate(null)`
+  blocks with a reason. A product whose suite exited 143 can no longer carry a
+  published grade.
+- `scripts/bench-env.mjs` provisions each product's declared database (env-file
+  discovery → compose fallback), relocates onto a port we own when the declared
+  one is somebody else's cluster, and migrates the schema with the product's own
+  script. Measured on one product: 62/132 without env → 131/132 with it.
+
+**Pipeline state survives interruption**
+- `scripts/pipeline-state.mjs` reconstructs completed / failed / next /
+  remaining stages from the verdict logs; `/resume` runs it instead of the
+  operator hand-writing "these stages are done". Exit 3 when a mandatory stage
+  (QA / security) has no terminal verdict.
+
+**Learning loop disarmed until it earns trust**
+- `/crystallize approve` is gated: a stamped eval regression can never be
+  activated (no override); no evidence blocks unless `--no-eval "<reason>"`,
+  and the reason is logged. Noisy deltas activate as "not shown to help".
+- The GP frontmatter writer now emits the `fix:`/`verification:` keys its
+  consumers grep — all four live patterns were being injected with an empty
+  "→ apply:" line. Consumers fall back to detection steps when no remedy exists.
+- continuous-learner delegates cross-project promotion to `lessons-merge.mjs`
+  instead of a prose reimplementation that had already drifted.
+
+**Decisions log is per-project (ADR-008)**
+- Gate decisions land in `<project>/.great_cto/decisions.md`; with no scope the
+  write is refused rather than redirected to the global file. One project's gate
+  vocabulary can no longer reach another project's agent context. The global
+  file keeps only promoted `## pattern:` entries.
+
+**Misc**
+- LLM router default moves to the newest cheap-lane Kimi (k2-0905: 2× context
+  for +5%/+9% per token); pricier tiers stay explicit opt-in.
+- `bench-run.sh` can bill against an API key from `~/.great_cto/secrets.env`
+  (out of repo) instead of the subscription's shared session limit.
+- pre-push private terms load from an out-of-repo file
+  (`~/.great_cto/private-terms`), so the leak detector no longer ships the very
+  names it guards against.
+
+Tests: 99 board · 199 top-level · 368 lib · 281 CLI — all green.
+
+---
+
 ## v2.85.3 — 2026-07-06
 
 ### Fix: board menu bughunt — Logs badge + budget NaN
