@@ -355,8 +355,22 @@ if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
       SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
       FIX=$(grep "^fix:" "$f" 2>/dev/null | head -1 | sed 's/fix: //')
       HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
-      printf "  %s (hits=%s)\n  pitfall: %s\n  → apply: %s\n\n" \
-        "$SLUG" "${HITS:-0}" "$SYMPTOM" "$FIX"
+      # A pattern may record only how to DIAGNOSE the problem. Fall back to its
+      # detection steps, and if there is no remedy at all, say so instead of
+      # printing "→ apply:" with nothing after it — an empty instruction reads
+      # as knowledge and is worse than staying silent.
+      if [ -z "$FIX" ]; then
+        FIX=$(sed -n '/^detection_order:/,/^[a-z_]/p' "$f" 2>/dev/null \
+              | grep '^  - ' | head -2 | sed 's/^  - //' | paste -sd';' - | sed 's/;/; /g')
+        [ -n "$FIX" ] && FIX="diagnose first — $FIX"
+      fi
+      if [ -n "$FIX" ]; then
+        printf "  %s (hits=%s)\n  pitfall: %s\n  → apply: %s\n\n" \
+          "$SLUG" "${HITS:-0}" "$SYMPTOM" "$FIX"
+      else
+        printf "  %s (hits=%s)\n  pitfall: %s\n  (no remedy recorded — treat as a caution, verify before acting)\n\n" \
+          "$SLUG" "${HITS:-0}" "$SYMPTOM"
+      fi
     fi
   done
   echo "  Verify: does this task touch any of the above patterns?"

@@ -145,8 +145,21 @@ if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
       SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
       FIX=$(grep "^fix:" "$f" 2>/dev/null | head -1 | sed 's/fix: //')
       HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
-      printf "  %s (hits=%s)\n  past failure: %s\n  → pre-deploy check: %s\n\n" \
-        "$SLUG" "${HITS:-0}" "$SYMPTOM" "$FIX"
+      # Fall back to the recorded detection steps when no remedy was captured.
+      # Printing "→ pre-deploy check:" with nothing after it hands the operator
+      # an empty checklist item right before an irreversible action.
+      if [ -z "$FIX" ]; then
+        FIX=$(sed -n '/^detection_order:/,/^[a-z_]/p' "$f" 2>/dev/null \
+              | grep '^  - ' | head -2 | sed 's/^  - //' | paste -sd';' - | sed 's/;/; /g')
+        [ -n "$FIX" ] && FIX="diagnose first — $FIX"
+      fi
+      if [ -n "$FIX" ]; then
+        printf "  %s (hits=%s)\n  past failure: %s\n  → pre-deploy check: %s\n\n" \
+          "$SLUG" "${HITS:-0}" "$SYMPTOM" "$FIX"
+      else
+        printf "  %s (hits=%s)\n  past failure: %s\n  (no check recorded — verify manually before deploying)\n\n" \
+          "$SLUG" "${HITS:-0}" "$SYMPTOM"
+      fi
     fi
   done
   echo "  Verify each matched pattern is safe BEFORE starting the deploy sequence."

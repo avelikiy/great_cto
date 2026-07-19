@@ -220,6 +220,8 @@ target_agents: [${TARGET_AGENT}]
 applies_to: [${APPLIES_TO}]
 stack_fingerprint: ${STACK}
 symptom: ${SYMPTOM}
+fix: ${FIX}
+verification: ${VERIFICATION}
 detection_order:
   - ${BREAKTHROUGH_TOOL} — works where standard tools give false negatives
   - Check stack-specific configuration fields (see Fix below)
