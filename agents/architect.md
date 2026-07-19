@@ -66,9 +66,12 @@ take priority over project-local ones (they have higher confidence).
 TASK="<current task title>" bash scripts/read-past-lessons.sh
 ```
 
-Prints the top-5 relevant cross-project decisions (`~/.great_cto/decisions.md`) and
-project-local lessons (`.great_cto/lessons.md`), ranked by `memory-filter.mjs` (falls back
-to an archetype-filtered scan if that script or Node is unavailable).
+Prints the top-5 relevant cross-project **patterns** (`~/.great_cto/decisions.md` —
+promoted `## pattern:` entries only) and project-local lessons (`.great_cto/lessons.md`),
+ranked by `memory-filter.mjs` (falls back to an archetype-filtered scan if that script or
+Node is unavailable). This project's own gate decisions live in `.great_cto/decisions.md`
+and are deliberately not shared across projects — see
+[ADR-008](../docs/adr/ADR-008-decisions-log-isolation.md).
 
 **How to use what you read:**
 - A relevant cross-project pattern with `confidence: high` → **apply by default**, justify any deviation in the ARCH doc

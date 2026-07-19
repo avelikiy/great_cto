@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import { GREAT_CTO_DIR } from './config.mjs';
 import { readFileSafe } from './util.mjs';
+import { log } from './log.mjs';
 import { readVerdicts } from './verdicts.mjs';
 
 // ── Agent fleet view (DESIGN-agents-fleet-view §3) ─────────────────────────
@@ -297,23 +298,39 @@ function restoreAgent(slug) {
   return { ok: true, slug, restored_at: new Date().toISOString() };
 }
 
-// ── decisions.md (global ADR log) ──────────────────────────────────────────
+// ── decisions.md (per-project ADR log) ─────────────────────────────────────
 // Append-only architectural decisions log. Triggered on gate approve/reject.
 // One line per decision; pure markdown so users can `cat` / `grep` / view in
 // their editor without tooling.
-function decisionsLogPath() {
-  return path.join(GREAT_CTO_DIR, 'decisions.md');
+//
+// SCOPED PER PROJECT (ADR-008). A gate title carries the project's own words —
+// feature names, client names, internal slugs — so writing it to a file under
+// ~/.great_cto made it readable by agents working on *every other* project.
+// That is a real cross-tenant bleed, and it fired: a private client name reached
+// the global log via this exact path. New writes always go project-local; the
+// legacy global file is read-only history and is never appended to again.
+function decisionsLogPath(cwd) {
+  return cwd
+    ? path.join(cwd, '.great_cto', 'decisions.md')
+    : path.join(GREAT_CTO_DIR, 'decisions.md');
 }
 
-function appendDecisionLog({ ts, project, action, id, title, reason }) {
-  const file = decisionsLogPath();
-  try { fs.mkdirSync(GREAT_CTO_DIR, { recursive: true }); } catch {}
+function appendDecisionLog({ ts, project, action, id, title, reason, cwd }) {
+  // No project scope → refuse rather than fall back to the global file. Losing
+  // one log line is strictly better than leaking a project's vocabulary into
+  // every other project's agent context.
+  if (!cwd) {
+    log.warn('[decisions] skipped: no project cwd — refusing to write the global log');
+    return;
+  }
+  const file = decisionsLogPath(cwd);
+  try { fs.mkdirSync(path.dirname(file), { recursive: true }); } catch {}
   // Initialize header if file doesn't exist
   if (!fs.existsSync(file)) {
     const header =
 `# great_cto — decisions log
 
-Append-only architectural decisions across all projects. One line per
+Append-only architectural decisions for THIS project. One line per
 gate approve/reject. Agents and humans can grep this for "have we decided
 this before?" lookups.
 
@@ -323,14 +340,22 @@ Format: \`- [TIMESTAMP] [PROJECT] [APPROVED|REJECTED] gate-id — title — reas
     fs.writeFileSync(file, header);
   }
   const verdict = action === 'approve' ? 'APPROVED' : 'REJECTED';
-  const safeTitle = (title || '').replace(/\n/g, ' ').slice(0, 120);
-  const safeReason = (reason || '').replace(/\n/g, ' ').slice(0, 200);
+  // " — " is the field separator, so it must not survive inside a field. Gate
+  // titles are literally shaped `gate:plan — decompose X`, which used to make the
+  // reader split the title in half and mislabel its tail as the reason. Demote
+  // any in-field separator to a plain hyphen and the separator stays unique.
+  const clean = (s) => (s || '').replace(/\n/g, ' ').replace(/\s+—\s+/g, ' - ');
+  const safeTitle = clean(title).slice(0, 120);
+  const safeReason = clean(reason).slice(0, 200);
   const line = `- [${ts}] [${project}] [${verdict}] ${id} — ${safeTitle}${safeReason ? ` — ${safeReason}` : ''}\n`;
   fs.appendFileSync(file, line);
 }
 
-function readDecisionsLog(limit = 20) {
-  const file = decisionsLogPath();
+// Reads are scoped the same way writes are: project X's board shows project X's
+// decisions. The legacy global file is deliberately NOT merged in — surfacing it
+// everywhere is the bleed this change removes.
+function readDecisionsLog(limit = 20, cwd) {
+  const file = decisionsLogPath(cwd);
   if (!fs.existsSync(file)) return [];
   try {
     const text = fs.readFileSync(file, 'utf-8');

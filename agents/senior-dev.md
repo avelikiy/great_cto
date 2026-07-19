@@ -156,10 +156,19 @@ approaches in the current archetype:
 _MF=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/memory-filter.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_MF" ] && _MF="scripts/memory-filter.mjs"
 
-# Cross-project patterns — filtered to top-3 relevant to TASK
+# This project's own gate decisions (ADR-008: gate approvals are project-scoped —
+# their titles carry this project's vocabulary and must never be readable from
+# another project's run).
+if [ -f .great_cto/decisions.md ]; then
+  echo "=== THIS PROJECT'S DECISIONS ==="
+  tail -20 .great_cto/decisions.md 2>/dev/null
+fi
+
+# Cross-project patterns — filtered to top-3 relevant to TASK. This file holds
+# promoted `## pattern:` entries only; per-project gate lines are NOT written here.
 if [ -f ~/.great_cto/decisions.md ]; then
   if [ -f "$_MF" ] && [ "${GREAT_CTO_DISABLE_MEMORY_FILTER:-0}" != "1" ]; then
-    echo "=== RELEVANT DECISIONS ==="
+    echo "=== RELEVANT CROSS-PROJECT PATTERNS ==="
     node "$_MF" "$TASK" ~/.great_cto/decisions.md --k=3 2>/dev/null
   else
     ARCH=$(grep -E '^archetype:|^primary:' .great_cto/PROJECT.md 2>/dev/null | head -1 | awk '{print $2}')

@@ -377,6 +377,7 @@ async function dispatch(req, res, url, cwd) {
             id,
             title,
             reason: reason || '',
+            cwd: gateCwd,   // project-scoped (ADR-008) — never the global log
           });
         } catch { /* best-effort */ }
         return { ok: true, via };
@@ -426,7 +427,7 @@ async function dispatch(req, res, url, cwd) {
       ? Math.min(parsed, 200)
       : 20;
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(readDecisionsLog(limit)));
+    res.end(JSON.stringify(readDecisionsLog(limit, cwd)));
     return true;
   }
 
