@@ -60,12 +60,53 @@ function run(cmd, args, cwd, timeout = 180000) {
 }
 
 /** Parse node:test / TAP counts from stdout. */
+/**
+ * Extract test counts from a runner's summary. Returns all-nulls when the shape
+ * is unrecognised — the caller MUST treat that as "not measured", never as a
+ * result. Matching only node:test here is what let a vitest suite of 269 passing
+ * tests be scored as "1 test, and it failed" (see RESCORE-2026-07-19).
+ *
+ * Supported summaries:
+ *   node:test / TAP   `# tests 79` / `# pass 77` / `# fail 2`
+ *   vitest            `Tests  70 failed | 62 passed (132)`  ·  `Tests  157 passed (157)`
+ *   jest              `Tests:  1 failed, 195 passed, 196 total`
+ */
 export function parseTestCounts(out) {
-  const grab = (re) => { const m = String(out).match(re); return m ? parseInt(m[1], 10) : null; };
-  const total = grab(/^[#ℹ]\s*tests\s+(\d+)/m);
-  const pass = grab(/^[#ℹ]\s*pass\s+(\d+)/m);
-  const fail = grab(/^[#ℹ]\s*fail\s+(\d+)/m);
-  return { total, pass, fail };
+  const text = String(out ?? '');
+  const grab = (re) => { const m = text.match(re); return m ? parseInt(m[1], 10) : null; };
+
+  // node:test / TAP — line-anchored counters.
+  const tapTotal = grab(/^[#ℹ]\s*tests\s+(\d+)/m);
+  if (tapTotal != null) {
+    return { total: tapTotal, pass: grab(/^[#ℹ]\s*pass\s+(\d+)/m), fail: grab(/^[#ℹ]\s*fail\s+(\d+)/m) };
+  }
+
+  // vitest — the `Tests` line, not `Test Files` (which counts files, not cases).
+  // Anchor on `Tests` NOT preceded by `Test Files`, then read its segments.
+  const vitest = text.match(/^\s*Tests\s+(.+)$/m);
+  if (vitest) {
+    const seg = vitest[1];
+    const num = (re) => { const m = seg.match(re); return m ? parseInt(m[1], 10) : null; };
+    const pass = num(/(\d+)\s+passed/);
+    const fail = num(/(\d+)\s+failed/) ?? 0;
+    // Trailing "(N)" is the authoritative total; fall back to pass+fail.
+    const total = num(/\((\d+)\)\s*$/) ?? (pass != null ? pass + fail : null);
+    if (total != null) return { total, pass: pass ?? total - fail, fail };
+  }
+
+  // jest — `Tests:  1 failed, 195 passed, 196 total`
+  const jest = text.match(/^\s*Tests:\s+(.+)$/m);
+  if (jest) {
+    const seg = jest[1];
+    const num = (re) => { const m = seg.match(re); return m ? parseInt(m[1], 10) : null; };
+    const total = num(/(\d+)\s+total/);
+    if (total != null) {
+      const fail = num(/(\d+)\s+failed/) ?? 0;
+      return { total, pass: num(/(\d+)\s+passed/) ?? total - fail, fail };
+    }
+  }
+
+  return { total: null, pass: null, fail: null };
 }
 
 /** Execute checks in a product dir → results for scoreExecution. */
@@ -76,13 +117,23 @@ export function runEval(dir) {
   const scripts = pkg.scripts || {};
 
   // tests — run `npm test` if a test script exists; exit code is the source of truth.
-  let tests = { ran: false, total: 0, passed: 0, failed: 0 };
+  // `ran` means "we obtained real counts", NOT "we launched something". A suite
+  // whose summary we cannot read tells us nothing about the pass rate, so we
+  // report not-measured and let the scorer null out — inventing "1 test, and it
+  // failed" is how 269 passing tests once scored 0/1 (RESCORE-2026-07-19).
+  let tests = { ran: false, total: 0, passed: 0, failed: 0, reason: 'no-test-script' };
   if (scripts.test) {
     const r = run('npm', ['test', '--silent'], dir);
     const c = parseTestCounts((r.stdout || '') + (r.stderr || ''));
-    const total = c.total ?? 0, fail = c.fail ?? (r.status === 0 ? 0 : 1);
-    tests = { ran: true, total: total || (r.status === 0 ? 1 : 1), passed: (total || 1) - fail, failed: fail };
-    if (r.status !== 0 && fail === 0) tests.failed = 1; // exit≠0 but no count → mark a failure
+    if (c.total != null) {
+      const fail = c.fail ?? 0;
+      tests = { ran: true, total: c.total, passed: c.pass ?? (c.total - fail), failed: fail, reason: null };
+    } else {
+      tests = {
+        ran: false, total: 0, passed: 0, failed: 0,
+        reason: r.status === 0 ? 'no-readable-summary' : 'suite-did-not-report',
+      };
+    }
   }
 
   // typecheck — only if a tsconfig exists

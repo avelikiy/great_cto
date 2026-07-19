@@ -31,15 +31,30 @@ export function combinedScore({ floor, ceiling, contracts }) {
 function round2(n) { return Math.round(n * 100) / 100; }
 function grade(t) { return t >= 90 ? 'A' : t >= 75 ? 'B' : t >= 60 ? 'C' : t >= 45 ? 'D' : 'F'; }
 
-/** Full assessment of a product dir across all three lenses. */
+/** Full assessment of a product dir across all three lenses.
+ *
+ *  When the test suite could not be measured — no test script, a suite that never
+ *  ran, or output whose summary we cannot parse — `overall` and `grade` are
+ *  `null`, NOT a number. Half the designed weight is the executed evidence; with
+ *  that missing, any total we printed would be a structural floor wearing a
+ *  quality score's clothes. That is exactly how a product whose suite exited 143
+ *  was published as 76 (B). Absence of evidence must read as absence, and
+ *  `evaluateGate(null)` blocks. */
 export function assess(dir, archetypeFlag = null) {
   const archetype = detectArchetype(dir, archetypeFlag);
   const floor = scoreProduct(inspect(dir, archetype), archetype).total;
-  const ceiling = scoreExecution(runEval(dir)).total;
+  const evalResults = runEval(dir);
+  const ceiling = scoreExecution(evalResults).total;
   const c = checkContracts(archetype, readTestText(dir));
   const contracts = c.coverage; // null when archetype has no contracts
-  const combined = combinedScore({ floor, ceiling, contracts });
-  return { archetype: archetype || 'web', floor, ceiling, contracts, contractDetail: c, ...combined };
+  const tests = evalResults.tests || { ran: false, reason: 'unknown' };
+  const base = { archetype: archetype || 'web', floor, ceiling, contracts, contractDetail: c, tests };
+
+  if (!tests.ran) {
+    return { ...base, overall: null, grade: null, unmeasured: tests.reason || 'tests-not-run',
+             weights: { floor: null, ceiling: null } };
+  }
+  return { ...base, ...combinedScore({ floor, ceiling, contracts }) };
 }
 
 /**
@@ -53,6 +68,12 @@ export function assess(dir, archetypeFlag = null) {
  * @returns {{ ok: boolean, reason: string }}
  */
 export function evaluateGate(overall, { min = 70, baselineTotal = null } = {}) {
+  // A null score means the suite was never measured. Blocking is the only safe
+  // reading: "we could not check" is not a pass. Relying on null < min coercing
+  // to 0 < 70 would work by accident and report a nonsense reason.
+  if (overall == null || typeof overall !== 'number' || Number.isNaN(overall)) {
+    return { ok: false, reason: 'no measurable test suite — score unavailable, cannot pass a quality gate' };
+  }
   if (overall < min) return { ok: false, reason: `score ${overall} < min ${min}` };
   if (typeof baselineTotal === 'number' && overall < baselineTotal - 2) {
     return { ok: false, reason: `regression ${overall} < baseline ${baselineTotal}` };

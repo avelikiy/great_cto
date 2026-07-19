@@ -181,7 +181,10 @@ test('gate: rejection sets bd status=blocked', { skip: !BD_AVAILABLE && 'bd CLI 
   }
 });
 
-test('gate: approval appends to ~/.great_cto/decisions.md', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async () => {
+// ADR-008: the decision lands in the PROJECT's log, never the global one. Gate
+// titles carry the project's own vocabulary, and the global file is read by
+// agents on every other project.
+test('gate: approval appends to the project decisions log, not the global one', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async () => {
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: architecture review for payment service');
 
@@ -200,12 +203,18 @@ test('gate: approval appends to ~/.great_cto/decisions.md', { skip: !BD_AVAILABL
     // Wait briefly for async append to flush
     await new Promise(r => setTimeout(r, 200));
 
-    const decisionsPath = join(home, '.great_cto', 'decisions.md');
-    assert.ok(existsSync(decisionsPath), `decisions.md should exist at ${decisionsPath}`);
-    const log = readFileSync(decisionsPath, 'utf8');
+    const projectDecisions = join(project, '.great_cto', 'decisions.md');
+    assert.ok(existsSync(projectDecisions), `decisions.md should exist at ${projectDecisions}`);
+    const log = readFileSync(projectDecisions, 'utf8');
     assert.ok(log.includes(gateId), `decisions log should contain gate id ${gateId}`);
-    assert.ok(log.includes('approve'), `decisions log should record action=approve`);
+    assert.ok(log.includes('APPROVED'), `decisions log should record the approval`);
     assert.ok(log.includes('audit trail check'), `decisions log should record reason`);
+
+    // The cross-project file must not have gained this project's gate title.
+    const globalDecisions = join(home, '.great_cto', 'decisions.md');
+    const globalText = existsSync(globalDecisions) ? readFileSync(globalDecisions, 'utf8') : '';
+    assert.ok(!globalText.includes(gateId),
+      'a project gate must never reach the global cross-project log');
   } finally {
     killBoardTree(board);
     cleanup(home, project);
