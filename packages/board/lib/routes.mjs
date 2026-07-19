@@ -725,6 +725,10 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/logs') {
     const logsDir = path.join(cwd, '.great_cto', 'logs');
     let logs = [];
+    // Why the session-log read failed, if it did. "No logs" and "could not read
+    // the logs directory" look identical in the UI otherwise — the same collapse
+    // that made an unreadable tasks.md look like an empty backlog.
+    let logsDegraded = null;
     try {
       const files = fs.readdirSync(logsDir)
         .filter(f => f.startsWith('session-') && f.endsWith('.md'))
@@ -780,7 +784,14 @@ async function dispatch(req, res, url, cwd) {
           raw,
         };
       });
-    } catch {}
+    } catch (e) {
+      // ENOENT is the normal "this project has never run /save" state; anything
+      // else means logs exist and we failed to read them, which the user must see.
+      if (e && e.code !== 'ENOENT') {
+        logsDegraded = `session logs could not be read: ${e.message || e}`;
+        log.warn(`[logs] ${logsDegraded}`);
+      }
+    }
 
     // Fallback: synthesize from verdicts grouped by day
     if (!logs.length) {
@@ -818,11 +829,17 @@ async function dispatch(req, res, url, cwd) {
             pending: b.fail.slice(0, 50),
             raw: '_Auto-generated from ~/.great_cto/verdicts/. Run `/save` to create a curated session log._',
           }));
-      } catch {}
+      } catch (e) {
+        logsDegraded = logsDegraded
+          || `verdict fallback could not be built: ${e?.message || e}`;
+        log.warn(`[logs] ${logsDegraded}`);
+      }
     }
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ logs }));
+    const logHeaders = { 'Content-Type': 'application/json' };
+    if (logsDegraded) logHeaders['X-Board-Degraded'] = encodeURIComponent(logsDegraded);
+    res.writeHead(200, logHeaders);
+    res.end(JSON.stringify({ logs, degraded: logsDegraded || undefined }));
     return true;
   }
 
