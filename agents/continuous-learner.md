@@ -167,34 +167,32 @@ shape: A|B|C|D|E
 
 ## Step 4 — Promote to global decisions (cross-project)
 
-For each pattern that has now occurred ≥3 times across `.great_cto/lessons.md` files in different projects:
+**Do not hand-roll this.** `scripts/lessons-merge.mjs` already owns the promotion
+rule: it scans `.great_cto/lessons.md` across every registered project, counts a
+pattern's **distinct projects** (not raw occurrences), de-dupes against the slugs
+already promoted, and writes the consolidated entry. Reimplementing that in prose
+here is how the two drift apart — and the prose version silently omitted
+`skill-candidate-priority` and counted occurrences instead of projects.
 
 ```bash
-# Check existing global decisions
-mkdir -p ~/.great_cto
-LESSON_SLUG="<the slug>"
-EXISTING=$(grep -l "^## pattern: $LESSON_SLUG" ~/.great_cto/decisions.md 2>/dev/null)
-[ -z "$EXISTING" ] && APPEND=1 || APPEND=0
+# Resolve the script from the plugin cache, else the local checkout.
+_LM=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lessons-merge.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_LM" ] && _LM="scripts/lessons-merge.mjs"
+
+# Always preview first — this writes to a file every project's agents read.
+node "$_LM" --dry-run
+
+# Promote only if the preview shows patterns you agree with:
+node "$_LM"
 ```
 
-If `APPEND=1`, append a consolidated entry to `~/.great_cto/decisions.md`:
+Flags: `--dry-run` previews without writing, `--force` re-promotes a slug already
+present. The threshold and entry format live in the script; if either needs to
+change, change it there so both paths move together.
 
-```markdown
----
-promoted: 2026-05-08
-occurrences: 3
-projects: [<list>]
-archetypes: [<distinct list>]
----
-
-## pattern: <same slug>
-
-**Cross-project lesson** (validated in N projects, M archetypes).
-
-<consolidated context, decision, outcome>
-
-**Skill-candidate priority:** <high if occurred in 3+ archetypes, medium otherwise>
-```
+What lands in `~/.great_cto/decisions.md` is a **generalised cross-project
+pattern**, never a project's raw text — per-project gate decisions stay in that
+project's own log (see [ADR-008](../docs/adr/ADR-008-decisions-log-isolation.md)).
 
 ## Step 5 — Stay silent if nothing qualifies
 

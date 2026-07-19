@@ -1,6 +1,6 @@
 ---
 description: "Promote extracted incident knowledge into global patterns and agent improvements."
-argument-hint: "[approve GP-NNNN | reject GP-NNNN <reason> | rollback GP-NNNN | prune | status]"
+argument-hint: "[approve GP-NNNN [--no-eval "reason"] | reject GP-NNNN <reason> | rollback GP-NNNN | prune | status]"
 user-invocable: true
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
@@ -42,7 +42,10 @@ TODAY=$(date +%Y-%m-%d)
 ```bash
 ARG="${1:-status}"
 case "$ARG" in
-  approve)   SUBCOMMAND=approve; GP_ID="$2" ;;
+  # `approve GP-NNNN [--no-eval "<reason>"]` — the flag is the ONLY way to
+  # activate a pattern that carries no eval evidence, and the reason is logged.
+  approve)   SUBCOMMAND=approve; GP_ID="$2"
+             if [ "$3" = "--no-eval" ]; then NO_EVAL_REASON="${*:4}"; fi ;;
   reject)    SUBCOMMAND=reject;  GP_ID="$2"; REASON="${@:3}" ;;
   rollback)  SUBCOMMAND=rollback; GP_ID="$2" ;;
   propose)   SUBCOMMAND=propose; GP_ID="$2" ;;   # NEW: Sprint 3 — PR-gate
@@ -346,6 +349,36 @@ if [ -z "$PROP_FILE" ]; then
 fi
 
 grep -q "PENDING_APPROVAL" "$PROP_FILE" || { echo "ERROR: $GP_ID is not pending"; exit 1; }
+
+# ── gate:learn — evidence check BEFORE activation ───────────────────────────
+# Approving edits an agent's behaviour for every future run. This used to happen
+# on the strength of the proposal's own claim: the backing eval was printed as a
+# recipe AFTER activation and never run. The gate requires the evidence to EXIST,
+# not to be generated now — so it costs nothing when a stamp is already there.
+#   • stamped regression → blocked, no override
+#   • no evidence        → blocked unless --no-eval "<reason>" (recorded)
+#   • improvement/noisy  → allowed
+GP_FILE_PRE=$(ls "$GP_DIR"/"${GP_ID}"-*.md 2>/dev/null | head -1)
+_GATE=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/gp-approve-gate.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_GATE" ] && _GATE="scripts/lib/gp-approve-gate.mjs"
+if [ -n "$GP_FILE_PRE" ] && [ -f "$_GATE" ]; then
+  if [ -n "$NO_EVAL_REASON" ]; then
+    GATE_OUT=$(node "$_GATE" "$GP_FILE_PRE" --no-eval "$NO_EVAL_REASON" 2>&1); GATE_RC=$?
+  else
+    GATE_OUT=$(node "$_GATE" "$GP_FILE_PRE" 2>&1); GATE_RC=$?
+  fi
+  echo "gate:learn — $GATE_OUT"
+  if [ "$GATE_RC" -ne 0 ]; then
+    echo "BLOCKED: $GP_ID not activated."
+    printf '%s BLOCKED %s reason="gate:learn"\n' "$TODAY" "$GP_ID" >> "$METRICS_DIR/crystallize.log"
+    exit 1
+  fi
+  # An override is a decision, so it goes in the audit trail next to the approval.
+  case "$GATE_OUT" in *"explicit override"*)
+    printf '%s EVAL_BYPASS %s reason="%s"\n' "$TODAY" "$GP_ID" "$NO_EVAL_REASON" \
+      >> "$METRICS_DIR/crystallize.log" ;;
+  esac
+fi
 
 # Detect target mode (agent vs skill)
 TARGET_AGENT=$(grep "^Target agent:" "$PROP_FILE" 2>/dev/null | sed "s/Target agent: //")
