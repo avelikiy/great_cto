@@ -38,6 +38,16 @@ ls -t docs/decisions/ADR-*.md 2>/dev/null | head -1 | xargs head -20 2>/dev/null
 # Open gates
 find .great_cto/verdicts -name "*.md" 2>/dev/null | xargs grep -l "status: open\|OPEN\|pending" 2>/dev/null | head -5
 
+# Pipeline stage state — WHERE the interrupted run stopped.
+# An interrupted run keeps its code (it is committed) but loses its place, so a
+# resume either redoes finished stages or skips unfinished ones and ships. This
+# reconstructs the answer from the verdict logs instead of the operator having to
+# hand-write "these stages are done" into the resume prompt. Exit 3 = a mandatory
+# stage (QA / security) still has no terminal verdict.
+_PS=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/pipeline-state.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_PS" ] && _PS="scripts/pipeline-state.mjs"
+[ -f "$_PS" ] && node "$_PS" . 2>/dev/null || echo "NO_PIPELINE_STATE"
+
 # Git: last 5 commits
 git log --oneline -5 2>/dev/null || echo "NO_GIT"
 
