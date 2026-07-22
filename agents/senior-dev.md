@@ -548,8 +548,16 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
     Then release the edit-scope for the next task: `rm -f .great_cto/active-brief`.
 
 ## When Blocked
-`bd update <id> --status blocked --note "Blocked by: <reason>"`
-Release the scope pointer so it can't misfire on unrelated later edits: `rm -f .great_cto/active-brief`.
+Don't just flip the status and vanish — hand over a reviewable package so the human
+can act without reconstructing what you did:
+```bash
+bd update <id> --status blocked --note "Blocked by: <reason>"
+node scripts/handoff-package.mjs blocked "<feature-slug>"   # diff + tests + attempts + cost + why-stopped
+rm -f .great_cto/active-brief                               # release scope for the next task
+```
+The handoff lands in `.great_cto/handoffs/` and is what the reviewer reads. Do the same
+on a spec objection (`node scripts/handoff-package.mjs spec-objection "<feature-slug>"`) —
+a stop is a handoff, not a failure to hide.
 
 ## Stack Detection
 Read PROJECT.md for stack. Use: Jest/Vitest (TS), pytest (Python), `cargo test` (Rust), `go test` (Go).
