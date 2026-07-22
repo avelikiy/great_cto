@@ -23,6 +23,52 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.87.0 — 2026-07-22
+
+### Verified acceptance — the system stops pretending it succeeded
+
+A continuation of the previous release's theme, informed by the "code clean-up
+agents" argument that the bottleneck has moved from generation speed to
+**verified, minimal, reviewable change** — not faster auto-merge loops. Three
+additions, each built by composing pieces already in the repo; none adds a
+runtime dependency, new tracking, or recurring cost.
+
+**Edit-scope enforced at write time, not after**
+- New PreToolUse hook (`Edit|Write|MultiEdit`) turns an IMPL-BRIEF's declared
+  scope into a hard constraint on the write, reusing the existing `checkScope`.
+  A denylisted file → hard deny (exit 2), always; a file on neither list →
+  advisory by default (scope creep surfaced, not blocked, because incomplete
+  allowlists otherwise train people to disable the hook);
+  `GREAT_CTO_ENFORCE_EDIT_SCOPE=block` upgrades it; no active brief → allowed.
+- The active brief is located via the `.great_cto/active-brief` pointer that
+  senior-dev writes on task claim and clears on close/block. A stale pointer can
+  only ever block a denylisted path (fail-safe); `GREAT_CTO_DISABLE_EDIT_SCOPE=1`
+  is the escape hatch. 12 tests + a verified stdin→deny/allow e2e.
+
+**A stopped agent emits a handoff package, not a bare status flip**
+- `scripts/handoff-package.mjs <reason> <feature>` assembles one reviewable
+  evidence bundle when an agent stops (blocked, spec-objection, budget cap):
+  the diff + changed files, what ran and how it came out, the attempt history,
+  what it cost, and why it stopped. Reads only local logs already on disk
+  (agent-writes, cost-history, verdicts, git) — no new tracking, no ADR. Reports
+  honestly: unmeasured tests are "unverified", a stop before any write says so
+  rather than fabricating a diff. Wired into senior-dev's blocked +
+  spec-objection paths. 8 tests.
+
+**Acceptance-oriented metrics on the board**
+- `cost_per_accepted` (window AI cost ÷ gate-APPROVED verdicts) and
+  `rework_rounds` (sent-back review outcomes), derived from verdict logs and
+  surfaced as two board tiles. `cost_per_accepted` is `null` when nothing was
+  accepted in the window — dividing a real cost by zero approvals would invent a
+  number, same discipline as the null-score oracle. Deliberately two of the five
+  metrics the literature lists, not all five: a solo project's denominator is
+  tiny and the rest would be noise until volume justifies them. 8 tests.
+
+Full suite green across board / top-level / hooks / lib (107 / 207 / 168 / 368).
+
+---
+
 ## v2.86.0 — 2026-07-19
 
 ### The harness stops giving confident answers where it does not know
