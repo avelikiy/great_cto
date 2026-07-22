@@ -152,6 +152,12 @@
             "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/frozen-gates-guard.mjs\" 2>&1; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Checking frozen gates..."
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/edit-scope-guard.mjs\" 2>&1; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Checking edit scope..."
           }
         ]
       }

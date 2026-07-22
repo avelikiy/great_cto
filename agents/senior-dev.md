@@ -414,8 +414,12 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
      if [ -f "$BRIEF" ]; then
        node scripts/lib/impl-brief.mjs validate "$BRIEF" || echo "WARN: brief malformed — ask pm to fix before coding"
        cat "$BRIEF"
+       # Activate the brief so the edit-scope guard enforces its scope on every
+       # write, not just at task close (Phase 3 hard constraint). Cleared in 6c.
+       mkdir -p .great_cto && printf '%s\n' "$BRIEF" > .great_cto/active-brief
      else
        echo "NO_IMPL_BRIEF — task not scoped by pm. Proceed from ARCH, but treat ARCH Non-goals as the denylist and do not widen scope."
+       rm -f .great_cto/active-brief   # no scope to enforce
      fi
      ```
      Honour it: implement **only** files under `## Files to modify`; never touch anything under
@@ -541,9 +545,11 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    Do NOT fix discoveries inline — create the task, link it, continue with current task. Exception: P0 security bug → pause and fix immediately.
 11. **Close** (only after Proof Loop passes): `bd close <id> "Implemented: [brief description] — PR: #<number>"`
     **If bd unavailable**: write to `.great_cto/tasks.md` — mark task complete with PR number and date.
+    Then release the edit-scope for the next task: `rm -f .great_cto/active-brief`.
 
 ## When Blocked
 `bd update <id> --status blocked --note "Blocked by: <reason>"`
+Release the scope pointer so it can't misfire on unrelated later edits: `rm -f .great_cto/active-brief`.
 
 ## Stack Detection
 Read PROJECT.md for stack. Use: Jest/Vitest (TS), pytest (Python), `cargo test` (Rust), `go test` (Go).
