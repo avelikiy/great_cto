@@ -5,6 +5,25 @@ import { sseClients, bdCache } from './state.mjs';
 import { getTasks } from './beads.mjs';
 import { readVerdicts, readPlanCosts, readQAStats, readSecStats } from './verdicts.mjs';
 
+// Acceptance-oriented metrics (the "verified acceptance" shift): measure the cost
+// of a change that a gate actually APPROVED — not throughput — and how often work
+// was sent back before it landed. Both derive from verdict logs already on disk;
+// no new capture. cost_per_accepted is null when nothing was accepted in the
+// window: dividing a real cost by zero approvals would invent a number, and "no
+// accepted change yet" is the honest reading (same discipline as the null-score
+// oracle). Only two of the five metrics the literature lists are built here on
+// purpose — a solo project's denominator is tiny and the other three would be noise.
+function acceptanceMetrics(verdicts = [], windowCostUsd = null) {
+  const isAccepted = (v) => /^APPROVED$/i.test(v.verdict || '');
+  const isRework = (v) => /^(CHANGES(_REQUESTED)?|REJECT(ED)?|FAIL(ED)?|BLOCKED)$/i.test(v.verdict || '');
+  const accepted = verdicts.filter(isAccepted).length;
+  const rework_rounds = verdicts.filter(isRework).length;
+  const cost_per_accepted = (accepted > 0 && windowCostUsd != null)
+    ? Math.round((windowCostUsd / accepted) * 100) / 100
+    : null;
+  return { accepted, cost_per_accepted, rework_rounds };
+}
+
 // ── Metrics ────────────────────────────────────────────────────────────────────
 function getMetrics(cwd = process.cwd(), days = 30) {
   // `days` controls the window for cost/agents_cost and for "shipped in window".
@@ -245,8 +264,14 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   // Count tasks completed in selected window (for period-scoped reports)
   const doneInWindow = done.filter(t => t.closed_at && (now - new Date(t.closed_at).getTime()) <= costWindowMs);
 
+  // Acceptance metrics over the same window as cost, so cost_per_accepted lines
+  // up with the cost tile.
+  const verdictsInWindow = verdicts.filter(v => v.ts && (now - new Date(v.ts).getTime()) <= costWindowMs);
+  const acceptance = acceptanceMetrics(verdictsInWindow, cost.llm_usd);
+
   return {
     window_days: days,
+    acceptance,
     tasks: {
       total: tasks.length,
       done: done.length,
@@ -304,4 +329,5 @@ function getCanonicalAgents() {
   return set;
 }
 
-export { getMetrics, getCanonicalAgents };
+export {
+  acceptanceMetrics, getMetrics, getCanonicalAgents };

@@ -4174,9 +4174,15 @@ function renderDashboard(m) {
       <div class="metric-trend">${s.trend}</div>
     </div>`).join('');
 
+  const acc = m.acceptance || {};
   const secondary = [
     { v: avgMin ? `${avgMin}` : '—', sub: avgMin ? 'm' : '', label: cycleStat },
     { v: m.qa?.pass_rate != null ? m.qa.pass_rate : '—', sub: m.qa?.pass_rate != null ? '%' : '', label: m.qa?.pass_rate != null ? 'QA pass rate' : 'QA — run /qa', cls: 'green' },
+    // Verified-acceptance metrics: cost of a change a gate actually APPROVED, and
+    // how often work bounced. '—' when nothing was accepted in the window — an
+    // honest gap, not a zero.
+    { v: acc.cost_per_accepted != null ? `$${acc.cost_per_accepted.toFixed(2)}` : '—', sub: '', label: acc.accepted ? `Cost / accepted (${acc.accepted})` : 'Cost / accepted' },
+    { v: acc.rework_rounds ?? 0, sub: '', label: 'Rework rounds', cls: acc.rework_rounds ? 'amber' : 'green' },
     { v: m.security?.blocked ?? 0, sub: '', label: 'Open security blocks', cls: m.security?.blocked ? 'red' : 'green' },
     { v: m.tasks?.in_progress ?? 0, sub: '', label: 'In progress', cls: 'amber' },
   ];
