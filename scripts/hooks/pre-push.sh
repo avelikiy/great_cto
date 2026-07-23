@@ -168,10 +168,19 @@ SUMMARY_CHECK_TIMEOUT="${GREAT_CTO_SUMMARY_TIMEOUT:-25}"
 # if it had to be killed for exceeding the timeout. Works without coreutils.
 run_with_timeout() {
   local secs="$1"; shift
+  local rc
+  # A `timeout` on PATH is not necessarily a RUNNABLE timeout: an x86 binary on
+  # an arm64 Mac exits 126 ("Bad CPU type in executable"), and a broken shim
+  # exits 127. Both are "the wrapper failed", not "the command failed" — fall
+  # through to the next strategy instead of reporting the wrapper's exit as the
+  # checker's verdict (which is how a stale-summary WARNING became a blocked push).
   if command -v timeout >/dev/null 2>&1; then
-    timeout "${secs}" "$@"; return $?
-  elif command -v gtimeout >/dev/null 2>&1; then
-    gtimeout "${secs}" "$@"; return $?
+    timeout "${secs}" "$@"; rc=$?
+    if [[ $rc -ne 126 && $rc -ne 127 ]]; then return $rc; fi
+  fi
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "${secs}" "$@"; rc=$?
+    if [[ $rc -ne 126 && $rc -ne 127 ]]; then return $rc; fi
   fi
   # Portable fallback: run in background, kill if it overruns. On kill we report
   # 124 (same convention as timeout(1)) so the caller treats it as a timeout, not
@@ -209,7 +218,10 @@ elif [[ -f "scripts/generate-summary.mjs" ]] && command -v node >/dev/null 2>&1;
   elif [[ "${SUMMARY_RC}" -ne 0 ]]; then
     echo ""
     echo -e "${YELLOW}Stale artifact summaries detected.${NC}"
-    echo "$STALE_OUTPUT" | grep '⚠ stale' | head -5
+    # `|| true`: grep exits 1 when the output has no "⚠ stale" line, and under
+    # `set -e -o pipefail` that killed the hook mid-warning — turning a warn-only
+    # notice into a blocked push. Second instance of this trap in this file.
+    echo "$STALE_OUTPUT" | grep '⚠ stale' | head -5 || true
     echo ""
     echo "Fix: node scripts/generate-summary.mjs --all"
     if [[ "${GREAT_CTO_ENFORCE_SUMMARY:-0}" == "1" ]]; then
