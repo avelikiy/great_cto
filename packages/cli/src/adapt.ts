@@ -580,6 +580,44 @@ export async function runAdapt(args: AdaptArgs): Promise<number> {
     if (!meta.aiTools.includes("cursor") && !meta.aiTools.includes("copilot") && !meta.aiTools.includes("windsurf")) {
       console.log(`  Tip: add other AI tools to ai_tools: [] in PROJECT.md to generate .cursorrules, copilot-instructions.md, etc.`);
     }
+    for (const line of nextStepsAfterAdapt(meta.aiTools)) console.log(line);
   }
   return 0;
+}
+
+/**
+ * What to do AFTER the configs exist.
+ *
+ * Telemetry showed `adapt` at 69 of 100 recorded runs against 2 for `board`:
+ * people run it, come back, run it again. Both of this command's closing lines
+ * used to point back at itself ("re-run after editing…", "add more tools…") and
+ * nothing pointed forward, so the command taught its own loop.
+ *
+ * The pointer is tool-aware on purpose. `adapt` is the one command that serves
+ * non-Claude-Code users (Cursor / Copilot / Windsurf / Aider), and the agent
+ * pipeline is Claude-Code-only — telling a Cursor user to run `/audit` would be
+ * a dead end, which is worse than saying nothing. So: pipeline steps only where
+ * the pipeline exists; otherwise say plainly what they have and what it would
+ * take to get the rest.
+ */
+export function nextStepsAfterAdapt(aiTools: string[] = []): string[] {
+  const hasClaude = aiTools.includes("claude-code");
+  const out = ["", "Next:"];
+  if (hasClaude) {
+    out.push(
+      "  1. Restart Claude Code so it picks up the regenerated CLAUDE.md.",
+      "  2. /audit    — full analysis of this codebase (existing project)",
+      "     /start    — scope and build a new feature (greenfield)",
+      "     /inbox    — what needs your decision right now",
+      "  3. great-cto board — Kanban + CTO dashboard at localhost:3141",
+    );
+  } else {
+    out.push(
+      `  Your ${aiTools.join(" / ")} config is live — reload the tool to pick it up.`,
+      "  The agent pipeline (architecture review, QA, security gates) runs inside",
+      "  Claude Code. To use it here: add claude-code to ai_tools in PROJECT.md,",
+      "  then `npx great-cto install`.",
+    );
+  }
+  return out;
 }
