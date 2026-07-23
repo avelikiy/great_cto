@@ -72,8 +72,7 @@
     "assets/",
     "board/",
     "postinstall.mjs",
-    "README.md",
-    "scripts/hooks/"
+    "README.md"
   ],
   "type": "module",
   "scripts": {
