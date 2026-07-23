@@ -24,6 +24,35 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.87.1 — 2026-07-22
+
+### `adapt` points forward instead of back at itself
+
+With the telemetry Worker redeployed (its `?days=all` + lifetime block had been
+written on 2026-06-26 and never shipped), the real usage shape became visible for
+the first time: 100 recorded runs, `adapt` 69 of them against `board` 2. People
+run `adapt`, come back, run it again.
+
+The cause was in the command's own last words — both closing lines pointed at
+`adapt` ("Re-run after editing PROJECT.md…", "add other AI tools…") and nothing
+pointed forward. The command taught its own loop.
+
+- `adapt` now ends with a `Next:` block. Claude Code users get the three real
+  entry points (`/audit`, `/start`, `/inbox`) plus the board.
+- The block is **tool-aware**: `adapt` is the one command that serves
+  non-Claude-Code users (Cursor / Copilot / Windsurf / Aider), and the agent
+  pipeline is Claude-Code-only. Sending a Cursor user to `/audit` would be a dead
+  end — worse than saying nothing. Those users are instead told plainly what
+  they have and the concrete step that unlocks the rest.
+- `nextStepsAfterAdapt` is a pure function, so the routing is tested without
+  generating files. 7 tests; 288/288 CLI suite green.
+
+Telemetry Worker: deployed (version f8f69cf9) — `?days=all` and lifetime totals
+now respond as documented.
+
+---
+
 ## v2.87.0 — 2026-07-22
 
 ### Verified acceptance — the system stops pretending it succeeded
