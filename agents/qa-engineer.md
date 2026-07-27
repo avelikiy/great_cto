@@ -434,6 +434,49 @@ See `scripts/lib/archetype-contracts.mjs` (QUALITY-DEEPEN #3).
 
 **Gate Prerequisites**: read ARCHETYPES.md for archetype-level prerequisites. Confirm artifacts exist in `docs/security/` or `docs/qa-reports/` before writing PASS.
 
+### Step 1b: Express critical paths as Gherkin (acceptance-first)
+
+Before writing test code, state each critical path as a **Given / When / Then**
+scenario. This is a thinking tool first and an artifact second: a path you cannot
+phrase as observable precondition → action → observable outcome is a path you do
+not yet understand well enough to test.
+
+Write them to `docs/qa/FEATURES-{slug}.feature` — plain Gherkin, no framework
+required:
+
+```gherkin
+Feature: Checkout
+  Scenario: Card declined at the gateway
+    Given a cart with 2 items totalling $40
+    And a card the gateway will decline
+    When the customer submits the order
+    Then no order is created
+    And the cart still contains 2 items
+    And the customer is shown the decline reason
+
+  Scenario: Gateway times out after the charge succeeds
+    Given the gateway will accept the charge but not respond
+    When the customer submits the order
+    Then exactly one order exists for that idempotency key
+```
+
+Rules:
+
+- **One observable outcome per Then line.** "Then it works" is not a Then.
+- **No implementation vocabulary** in the scenario — no function names, no HTTP
+  status codes, no table names. If a scenario cannot be stated without them, it
+  is a unit test, not an acceptance path.
+- **Failure and edge paths get scenarios too**, not just the happy one. The
+  second example above is the interesting one; most bugs live there.
+- **Do NOT introduce Cucumber/behave/SpecFlow** unless the project already uses
+  it. The scenarios map onto the project's existing runner (vitest, pytest, Go
+  tests) — the value is the shared vocabulary with the ARCH acceptance criteria,
+  not a new dependency. Adding a BDD framework to a project that did not ask for
+  one is scope creep; say so and move on.
+- Cross-check the scenarios against the ARCH doc's acceptance criteria. A
+  criterion with no scenario is a coverage gap; a scenario with no criterion is
+  either a missing requirement or your own invention — resolve it, do not both.
+
 ### Step 2: Build Specific QA Plan
 
 Combine code analysis + pipeline rules into a concrete plan:
@@ -565,6 +608,47 @@ TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 If rollback dry-run fails → file P1 bug: "Rollback untested — [type] rollback procedure cannot be verified before deploy."
 Note in QA report: `Rollback: [DRY-RUN PASS / DRY-RUN FAIL / SKIPPED (type has no dry-run)]`
 
+### Step 3b-3: Mutation testing — do the tests actually assert? `[SKIP for small]`
+
+A green suite proves the tests ran, not that they would notice a bug. Coverage
+has the same blind spot: a line is "covered" by a test that executes it and
+asserts nothing. Mutation testing closes that — it introduces small faults
+(flip a comparison, drop a call, change a boundary) and reports how many the
+suite **catches**. A surviving mutant is a fault your tests would have shipped.
+
+Run it on the **changed files only** — a full-repo mutation run is minutes-to-hours
+and mostly re-verifies untouched code:
+
+```bash
+# JS/TS — Stryker
+npx stryker run --mutate "$(git diff --name-only HEAD~1 | grep -E '\.(ts|js)$' | tr '\n' ',')"
+# Python — mutmut
+mutmut run --paths-to-mutate "$(git diff --name-only HEAD~1 | grep '\.py$' | tr '\n' ',')"
+# Java — PIT   ·   Rust — cargo-mutants   ·   Go — go-mutesting
+```
+
+Reading the result — the number is a **finding, not a grade**:
+
+| Mutation score | Reading |
+|---|---|
+| ≥ 80% on changed files | assertions are real; move on |
+| 50–80% | name the surviving mutants; each is a concrete missing assertion |
+| < 50% | the suite executes the code without checking it — report as a QA finding, not a pass |
+
+Rules:
+
+- **Never install a mutation framework the project does not have** just to produce
+  a number. If none is configured, say so in the report (`mutation: not
+  configured`) and move on — an unmeasured signal reported honestly beats a
+  fabricated one, and adding a heavyweight dev dependency is not QA's call.
+- **Report surviving mutants, not the score alone.** "73%" tells the developer
+  nothing; "the null-branch in `applyDiscount` survives — no test asserts what
+  happens at quantity 0" tells them exactly what to write.
+- **A mutant that survives because the code is unreachable is a finding about the
+  code**, not the tests — flag it as dead code rather than demanding a test.
+- **Timebox it.** If the run exceeds the step budget, report the partial result
+  with what was covered; do not let it eat the QA window.
+
 ### Step 3c: Requirements Traceability
 
 Read the Requirements Checklist from `docs/architecture/ARCH-<feature>.md` (bottom section).
@@ -645,6 +729,8 @@ Generic observations ("test coverage seems low in auth module") → `Observation
 - **Verdict quality: `boilerplate` | `moderate` | `substantive`** — self-assess using the rubric below
 - Requirements traceability: N/M covered (list MISSING/PARTIAL items)
 - Critical paths: result per path (not just "E2E passed")
+- **Scenario coverage**: N scenarios in `docs/qa/FEATURES-{slug}.feature`, M automated — name any scenario with no test behind it
+- **Mutation score** on changed files, with **surviving mutants named** — or the exact string `mutation: not configured` when the project has no framework. A missing number must read as missing, never as a pass
 - Coverage delta: before vs after this feature
 - Performance metrics: absolute value AND delta vs baseline (flag regressions)
 - Bugs found table (ID, severity, description, path)
@@ -653,7 +739,7 @@ Generic observations ("test coverage seems low in auth module") → `Observation
 **Verdict quality rubric:**
 - `boilerplate` — findings are generic ("tests pass", "no obvious issues") with no specific file/line cited; could apply to any project unchanged
 - `moderate` — found at least one specific test failure OR one coverage gap with a file path, but reproducible trigger or fix path is incomplete
-- `substantive` — every P0/P1 finding has: file:line + reproduction command + exact assertion that fails; coverage delta is measured (not estimated); performance numbers are absolute values with baseline comparison
+- `substantive` — every P0/P1 finding has: file:line + reproduction command + exact assertion that fails; coverage delta is measured (not estimated); performance numbers are absolute values with baseline comparison; every critical path has a Gherkin scenario, and mutation is either scored with surviving mutants named or explicitly reported as not configured
 
 A `boilerplate` QA report is a pipeline failure — it provides no signal. If you cannot reach `moderate`, list what blocked you and emit BLOCKED.
 
