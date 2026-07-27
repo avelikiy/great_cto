@@ -11,6 +11,7 @@
 //   node scripts/lib/quality.mjs <dir> [--archetype a] [--json] [--record] [--gate --min N] [--baseline prev.json]
 //   node scripts/lib/quality.mjs --trend [--history file] [--last N]
 
+import { fromLegacy } from './proof-status.mjs';
 import { existsSync, statSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,11 +51,15 @@ export function assess(dir, archetypeFlag = null) {
   const tests = evalResults.tests || { ran: false, reason: 'unknown' };
   const base = { archetype: archetype || 'web', floor, ceiling, contracts, contractDetail: c, tests };
 
+  // proof carries the same fact in the shared vocabulary (scripts/lib/proof-status.mjs)
+  // so callers can aggregate this with board reads and QA reports instead of
+  // pattern-matching four different shapes.
+  const proof = fromLegacy(tests);
   if (!tests.ran) {
-    return { ...base, overall: null, grade: null, unmeasured: tests.reason || 'tests-not-run',
+    return { ...base, proof, overall: null, grade: null, unmeasured: tests.reason || 'tests-not-run',
              weights: { floor: null, ceiling: null } };
   }
-  return { ...base, ...combinedScore({ floor, ceiling, contracts }) };
+  return { ...base, proof, ...combinedScore({ floor, ceiling, contracts }) };
 }
 
 /**
