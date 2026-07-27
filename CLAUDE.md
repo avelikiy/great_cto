@@ -139,3 +139,31 @@ Classify into one of three depths:
 ```
 
 **Default rule**: when depth is ambiguous, choose the deeper level — skipping a gate is recoverable, skipping architecture review on a Large change is not.
+
+### Gates follow reversibility, not just position (ADR-009)
+
+The gates above are positional — `gate:arch` after architecture, `gate:ship`
+before deploy. That covers the main path, but position and cost-of-undo are
+different axes: an operation that is expensive to reverse gets a gate only if it
+happens to land on a stage boundary. `/crystallize approve` did not, and shipped
+ungated for months while activating a pattern injected into every future run of
+every project.
+
+So ask the second question too:
+
+> **Is this expensive to undo?** If yes, it needs a human decision — wherever it
+> sits in the pipeline.
+
+Expensive-to-undo means any of:
+
+| | Examples |
+|---|---|
+| **Escapes the machine** | registry publish, push to a shared remote, user-reachable deploy |
+| **Crosses a project boundary** | writes to global state other projects' agents read |
+| **Costs money** | provisioned infrastructure, paid API capacity |
+| **Destroys evidence** | force-push, history rewrite, log truncation, deleting reviewer artifacts |
+
+A gate is not the only valid answer — a refusal (devops will not touch prod
+domains), a plan-and-stop (infra-provisioner prints cost and waits), or an
+evidence requirement (crystallize needs an eval) all satisfy it. **Silence does
+not.** Ask at design time, when the capability is added — not after the incident.
