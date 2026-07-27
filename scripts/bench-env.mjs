@@ -140,7 +140,36 @@ export function migrationCandidates(pkgScripts = {}) {
 // ── provisioning (side effects) ─────────────────────────────────────────────
 
 const sh = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
-const listening = (port) => sh('pg_isready', ['-h', 'localhost', '-p', String(port)]).status === 0;
+
+/**
+ * Resolve a postgres binary that actually RUNS on this machine.
+ *
+ * A binary on PATH is not necessarily an executable one: an x86_64 psql in
+ * /usr/local/bin on an Apple Silicon Mac without Rosetta exits with "bad CPU
+ * type in executable", and since it shadows the Homebrew arm64 build, every
+ * postgres call fails while `command -v psql` insists the tool is installed.
+ * (The same shape blocked a git push earlier via an x86 `timeout`.) Probe the
+ * candidates and keep the first that answers.
+ */
+const PG_DIRS = [
+  '/opt/homebrew/opt/postgresql@16/bin', '/opt/homebrew/opt/postgresql@17/bin',
+  '/opt/homebrew/opt/libpq/bin', '/opt/homebrew/bin', '',  // '' = whatever PATH gives
+  '/usr/local/bin',
+];
+const pgBinCache = new Map();
+function pgBin(name) {
+  if (pgBinCache.has(name)) return pgBinCache.get(name);
+  for (const dir of PG_DIRS) {
+    const cand = dir ? `${dir}/${name}` : name;
+    if (dir && !fs.existsSync(cand)) continue;
+    const r = spawnSync(cand, ['--version'], { encoding: 'utf8' });
+    if (r.status === 0) { pgBinCache.set(name, cand); return cand; }
+  }
+  pgBinCache.set(name, name);   // nothing worked — let the caller fail loudly
+  return name;
+}
+
+const listening = (port) => sh(pgBin('pg_isready'), ['-h', 'localhost', '-p', String(port)]).status === 0;
 
 function ensureCluster(port) {
   if (listening(port)) return { port, started: false, note: 'already listening' };
@@ -150,10 +179,16 @@ function ensureCluster(port) {
   if (!fs.existsSync(path.join(dir, 'PG_VERSION'))) {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
-    const r = sh('initdb', ['-D', dir, '-U', 'postgres', '-A', 'trust']);
+    const r = sh(pgBin('initdb'), ['-D', dir, '-U', 'postgres', '-A', 'trust'], { env: { ...process.env, LC_ALL: process.env.LC_ALL || 'en_US.UTF-8' } });
     if (r.status !== 0) return { port, started: false, error: (r.stderr || '').trim().split('\n').pop() };
   }
-  const r = sh('pg_ctl', ['-D', dir, '-o', `-p ${port} -k /tmp`, '-l', path.join(CLUSTER_ROOT, `pg-${port}.log`), 'start']);
+  // LC_ALL is not optional on macOS: without it the Homebrew build aborts with
+  // "postmaster became multithreaded during startup" (macOS locale lookups spawn
+  // threads, which postgres refuses to do before forking). Homebrew's own
+  // post-install note says the same. Applied to initdb too, for consistent
+  // collation in the created cluster.
+  const env = { ...process.env, LC_ALL: process.env.LC_ALL || 'en_US.UTF-8' };
+  const r = sh(pgBin('pg_ctl'), ['-D', dir, '-o', `-p ${port} -k /tmp`, '-l', path.join(CLUSTER_ROOT, `pg-${port}.log`), 'start'], { env });
   for (let i = 0; i < 20 && !listening(port); i++) sh('sleep', ['0.5']);
   if (!listening(port)) return { port, started: false, error: (r.stderr || r.stdout || 'did not come up').trim() };
   return { port, started: true };
@@ -165,7 +200,7 @@ function provision(req) {
   // "psql not found". A tool that exists to distinguish "could not measure" from
   // "measured badly" must not itself fail opaquely.
   const psql = (sql, db = 'postgres') => {
-    const r = sh('psql', ['-h', 'localhost', '-p', String(req.port), '-U', 'postgres', '-d', db, '-tAc', sql]);
+    const r = sh(pgBin('psql'), ['-h', 'localhost', '-p', String(req.port), '-U', 'postgres', '-d', db, '-tAc', sql]);
     return { status: r.status ?? 1, stdout: r.stdout ?? '', stderr: r.stderr ?? '', error: r.error };
   };
   // Fail fast and legibly when psql itself is unavailable.
@@ -194,7 +229,7 @@ if (isMain) {
   if (argv.includes('--down')) {
     if (!fs.existsSync(CLUSTER_ROOT)) { console.log('[bench-env] nothing to stop'); process.exit(0); }
     for (const d of fs.readdirSync(CLUSTER_ROOT).filter((f) => f.startsWith('pg-') && !f.endsWith('.log'))) {
-      const r = sh('pg_ctl', ['-D', path.join(CLUSTER_ROOT, d), 'stop']);
+      const r = sh(pgBin('pg_ctl'), ['-D', path.join(CLUSTER_ROOT, d), 'stop']);
       console.log(`[bench-env] ${d}: ${r.status === 0 ? 'stopped' : 'already down'}`);
     }
     process.exit(0);
@@ -220,7 +255,7 @@ if (isMain) {
   const unusable = new Set();
   for (const port of groupByPort(reqs).keys()) {
     if (!listening(port)) continue;
-    const probe = sh('psql', ['-h', 'localhost', '-p', String(port), '-U', 'postgres', '-tAc', 'SELECT 1']);
+    const probe = sh(pgBin('psql'), ['-h', 'localhost', '-p', String(port), '-U', 'postgres', '-tAc', 'SELECT 1']);
     if (probe.status !== 0) {
       unusable.add(port);
       console.log(`  :${port} occupied by a cluster we cannot administer — relocating`);
