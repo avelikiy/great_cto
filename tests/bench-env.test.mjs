@@ -148,3 +148,24 @@ test('a prisma project with no npm alias still gets a migration path', async () 
   const { migrationScript } = await import('../scripts/bench-env.mjs');
   assert.equal(migrationScript({ postinstall: 'prisma generate' }), 'prisma:deploy');
 });
+
+test('migrationCandidates returns every declared script, best first', async () => {
+  const { migrationCandidates } = await import('../scripts/bench-env.mjs');
+  // A declared script can be broken — one product's db:migrate points at a file
+  // that does not exist while its db:push works. Trying only the first name
+  // turns a product defect into "no schema", which reads as "product is bad".
+  assert.deepEqual(
+    migrationCandidates({ 'db:migrate': 'tsx db/migrate.ts', 'db:push': 'drizzle-kit push' }),
+    ['db:migrate', 'db:push'],
+  );
+});
+
+test('migrationCandidates is empty when nothing is declared', async () => {
+  const { migrationCandidates } = await import('../scripts/bench-env.mjs');
+  assert.deepEqual(migrationCandidates({ build: 'tsc' }), []);
+});
+
+test('a prisma project gets the CLI fallback appended', async () => {
+  const { migrationCandidates } = await import('../scripts/bench-env.mjs');
+  assert.deepEqual(migrationCandidates({ postinstall: 'prisma generate' }), ['prisma:deploy']);
+});

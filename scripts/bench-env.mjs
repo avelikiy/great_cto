@@ -118,6 +118,25 @@ export function migrationScript(pkgScripts = {}) {
   return null;
 }
 
+/**
+ * Every migration script the project declares, best first.
+ *
+ * A declared script is not a working one: one benchmark product's `db:migrate`
+ * runs `tsx db/migrate.ts` against a file that does not exist, while its
+ * `db:push` works fine. Trying only the first name turns a product defect into
+ * "no schema", which then reads as "the product is broken" — the same
+ * misattribution this whole module exists to prevent. The caller walks this list
+ * until one succeeds and reports which one it used.
+ */
+export function migrationCandidates(pkgScripts = {}) {
+  const out = [];
+  for (const name of ['db:migrate', 'db:push', 'migrate', 'db:setup', 'prisma:migrate']) {
+    if (pkgScripts[name]) out.push(name);
+  }
+  if (Object.values(pkgScripts).some((v) => /prisma/.test(String(v)))) out.push('prisma:deploy');
+  return out;
+}
+
 // ── provisioning (side effects) ─────────────────────────────────────────────
 
 const sh = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
@@ -141,8 +160,19 @@ function ensureCluster(port) {
 }
 
 function provision(req) {
-  const psql = (sql, db = 'postgres') =>
-    sh('psql', ['-h', 'localhost', '-p', String(req.port), '-U', 'postgres', '-d', db, '-tAc', sql]);
+  // spawnSync returns {stdout: undefined} when the binary is missing (ENOENT) —
+  // reading .trim() off that crashes the run with a TypeError instead of saying
+  // "psql not found". A tool that exists to distinguish "could not measure" from
+  // "measured badly" must not itself fail opaquely.
+  const psql = (sql, db = 'postgres') => {
+    const r = sh('psql', ['-h', 'localhost', '-p', String(req.port), '-U', 'postgres', '-d', db, '-tAc', sql]);
+    return { status: r.status ?? 1, stdout: r.stdout ?? '', stderr: r.stderr ?? '', error: r.error };
+  };
+  // Fail fast and legibly when psql itself is unavailable.
+  const probe = psql('SELECT 1');
+  if (probe.error?.code === 'ENOENT') {
+    return { ...req, ready: false, error: 'psql not found on PATH — install the postgres client' };
+  }
   // Roles and databases are created separately: CREATE DATABASE cannot run in a
   // transaction block, and psql wraps multiple statements in one.
   if (req.user !== 'postgres') {
@@ -222,14 +252,23 @@ if (isMain) {
       if (!dir) continue;
       let scripts = {};
       try { scripts = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).scripts || {}; } catch { /* none */ }
-      const script = migrationScript(scripts);
-      if (!script) { console.log(`  ${req.slug.padEnd(12)} no migration script declared — skipping`); continue; }
+      const candidates = migrationCandidates(scripts);
+      if (!candidates.length) { console.log(`  ${req.slug.padEnd(12)} no migration script declared — skipping`); continue; }
       const env = { ...process.env, DATABASE_URL: dsnFor(req) };
-      const r = script === 'prisma:deploy'
-        ? sh('npx', ['prisma', 'migrate', 'deploy'], { cwd: dir, env, timeout: 180000 })
-        : sh('npm', ['run', script, '--silent'], { cwd: dir, env, timeout: 180000 });
-      console.log(`  ${req.slug.padEnd(12)} ${script}: ${r.status === 0 ? '✓ migrated' : '✗ ' + (r.stderr || r.stdout || '').trim().split('\n').pop()?.slice(0, 90)}`);
-      if (r.status !== 0) failed++;
+
+      // Walk the candidates: a declared script can be broken (one product's
+      // db:migrate points at a file that does not exist while db:push works).
+      let done = null, lastErr = '';
+      for (const script of candidates) {
+        const r = script === 'prisma:deploy'
+          ? sh('npx', ['prisma', 'migrate', 'deploy'], { cwd: dir, env, timeout: 240000 })
+          : sh('npm', ['run', script, '--silent'], { cwd: dir, env, timeout: 240000 });
+        if (r.status === 0) { done = script; break; }
+        lastErr = (r.stderr || r.stdout || '').trim().split('\n').pop()?.slice(0, 90) || 'failed';
+        console.log(`  ${req.slug.padEnd(12)} ${script}: ✗ ${lastErr} — trying next`);
+      }
+      if (done) console.log(`  ${req.slug.padEnd(12)} ${done}: ✓ migrated`);
+      else { console.log(`  ${req.slug.padEnd(12)} all migration scripts failed (${candidates.join(', ')})`); failed++; }
     }
   }
 
