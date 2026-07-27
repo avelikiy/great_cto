@@ -90,6 +90,36 @@ in the Keychain, so the warning never fired on this platform at all.
 
 ---
 
+## 2026-07-23 — "Do we really need code agents?" · **KNOWN UNMEASURED RISK**
+
+Source: habr.com/ru/articles/1060204 — a tech lead arguing that LLM-generated
+code costs more than it saves. Recorded here because it is the only critique so
+far that attacks this project's premise rather than proposing a feature, and one
+of its arguments is not answered by anything great_cto does.
+
+**What was actionable was built:** the "+1500 −1400 merge request" complaint is
+real and measurable — single commits of 12,306 and 10,687 insertions exist in the
+2026-07 benchmark products. `scripts/lib/diff-size-gate.mjs` now surfaces that in
+code review.
+
+**What is NOT answered — Naur's "Programming as Theory Building".** The claim is
+that a program is a mental model held by the team, of which the code is only a
+projection; an LLM can neither build that model nor transfer it, so even correct
+generated code can leave a team owning a system nobody understands.
+
+great_cto has a partial answer that most tools do not — ADRs, ARCH docs, this
+file, the decisions log: artifacts that record *why*, not just *what*. Whether
+that is sufficient is **unmeasured and not measurable from this repo**: the
+operator is solo, and the effect the article describes appears in teams over
+months. Recording it as an open risk rather than a solved problem.
+
+**What would change the answer:** a team (not a solo operator) running this
+pipeline for a quarter, then answering — can a developer who did not write a
+given module explain its design decisions? That is the actual test, and no test
+suite substitutes for it.
+
+---
+
 ## 2026-07-23 — Agent Flow (patoles/agent-flow) · **SKIP (duplicates the board)**
 
 A real-time visualiser of Claude Code / Codex execution — a node graph of tool

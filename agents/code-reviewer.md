@@ -36,6 +36,27 @@ git diff --merge-base "$(git merge-base HEAD origin/main 2>/dev/null || echo HEA
 Read the changed files in full where the diff alone is ambiguous — a finding you
 can't ground in the actual code is a guess, not a finding.
 
+### First: is this reviewable at all?
+
+```bash
+node scripts/lib/diff-size-gate.mjs "$(git merge-base HEAD origin/main 2>/dev/null || echo HEAD~1)"
+```
+
+A change can pass every other check here — tests green, scope respected, security
+clean — and still be too large to actually review. Past ~400 hand-written lines,
+review quality collapses and the change gets **approved rather than read**; the
+team then owns code no one holds a model of. Generated files (lockfiles, dist,
+snapshots, binaries) are excluded, because their size is not review effort.
+
+- `large` / `huge` → **say so as the first line of the review**, name the heaviest
+  files, and recommend slicing. Do not pretend to have reviewed 2,000 lines with
+  the same care as 200 — an honest "this exceeds what I can review carefully"
+  beats a confident-looking pass.
+- A large diff is sometimes correct (a mechanical rename, a vendored update). It
+  is allowed — but the reason must be **stated**, not assumed.
+- This is advisory. It never blocks on line count alone; it makes the size
+  visible so a human decides.
+
 ## Rubric — review along four dimensions, in priority order
 
 1. **Correctness** — logic errors, off-by-one, wrong conditionals, unhandled
