@@ -2,7 +2,7 @@
 /**
  * scripts/hooks/quota-check.mjs
  *
- * Reads ~/.claude/.credentials.json (Claude Code OAuth), fetches session quota
+ * Reads Claude Code OAuth credentials (file OR macOS Keychain), fetches session quota
  * from api.anthropic.com/api/oauth/usage, and prints a warning when quota is
  * near-exhausted — before the user launches a heavy pipeline and hits a rate
  * limit mid-run.
@@ -21,11 +21,12 @@
  * platform.claude.com/v1/oauth/token when the token is within 5 min of expiry.
  *
  * Graceful degradation:
- *   - No credentials file      → silent exit (API-key user, not OAuth)
+ *   - No credentials anywhere   → silent exit (API-key user, not OAuth)
  *   - Network failure           → silent exit (no noise on flaky connections)
  *   - Stale cache on 401        → attempt one token refresh, then silent exit
  */
 
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -183,18 +184,60 @@ function renderWarnings(data) {
   }
 }
 
+// ── Credentials ────────────────────────────────────────────────────────────
+
+/**
+ * Load Claude Code OAuth credentials.
+ *
+ * The credentials file is only one of two stores. On macOS, Claude Code keeps
+ * them in the login Keychain (service "Claude Code-credentials") and no
+ * ~/.claude/.credentials.json is written at all — so a file-only check exits
+ * silently on every macOS OAuth user, which is exactly the population this hook
+ * exists to protect. That is not hypothetical: three parallel benchmark runs
+ * exhausted a session window on this machine with no warning, because the hook
+ * had already returned before its first API call.
+ *
+ * Order: file first (cheap, and the Linux/CI shape), then Keychain on darwin.
+ * Anything unreadable or absent yields null — an API-key user must stay silent.
+ *
+ * @returns {{ oauth: object, source: 'file'|'keychain' } | null}
+ */
+function loadCredentials({ platform = process.platform, exists = existsSync, read = readFileSync, keychain = readKeychainCreds } = {}) {
+  if (exists(CREDS_PATH)) {
+    try {
+      const creds = JSON.parse(read(CREDS_PATH, 'utf8'));
+      if (creds?.claudeAiOauth?.accessToken) return { oauth: creds.claudeAiOauth, source: 'file' };
+    } catch { /* fall through to keychain */ }
+  }
+  if (platform === 'darwin') {
+    const oauth = keychain();
+    if (oauth?.accessToken) return { oauth, source: 'keychain' };
+  }
+  return null;
+}
+
+/** Read the OAuth blob out of the macOS login Keychain. Never throws. */
+function readKeychainCreds() {
+  try {
+    const r = spawnSync('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], {
+      encoding: 'utf8', timeout: 5000,
+    });
+    if (r.status !== 0 || !r.stdout) return null;
+    const parsed = JSON.parse(r.stdout.trim());
+    return parsed?.claudeAiOauth ?? parsed ?? null;
+  } catch { return null; }
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  // Only for Claude Code OAuth users — API-key users have no credentials file
-  if (!existsSync(CREDS_PATH)) return;
-
-  let creds;
-  try { creds = JSON.parse(readFileSync(CREDS_PATH, 'utf8')); }
-  catch { return; }
-
-  const oauth = creds?.claudeAiOauth;
-  if (!oauth?.accessToken) return;
+  // Only for Claude Code OAuth users — API-key users have no credentials at all.
+  const loaded = loadCredentials();
+  if (!loaded) return;
+  const oauth = loaded.oauth;
+  // Keychain-sourced credentials are read-only here: refreshed tokens are written
+  // back only when they came from the file, so we never clobber the Keychain entry.
+  const creds = loaded.source === 'file' ? { claudeAiOauth: oauth } : null;
 
   // Fast path: serve from cache
   const cached = readCache();
@@ -209,14 +252,18 @@ async function main() {
     const refreshed = await refreshAccessToken(oauth.refreshToken).catch(() => null);
     if (refreshed?.access_token) {
       accessToken = refreshed.access_token;
-      // Write updated credentials (best-effort)
-      try {
-        const expiresAt = Date.now() + (refreshed.expires_in ?? 3600) * 1000;
-        creds.claudeAiOauth.accessToken = refreshed.access_token;
-        creds.claudeAiOauth.expiresAt   = expiresAt;
-        if (refreshed.refresh_token) creds.claudeAiOauth.refreshToken = refreshed.refresh_token;
-        writeFileSync(CREDS_PATH, JSON.stringify(creds, null, 2));
-      } catch { /* best-effort */ }
+      // Write updated credentials back — file store only. A Keychain entry is
+      // Claude Code's own to manage; rewriting it from a hook risks corrupting
+      // the user's login, and the refreshed token works fine for this one call.
+      if (creds) {
+        try {
+          const expiresAt = Date.now() + (refreshed.expires_in ?? 3600) * 1000;
+          creds.claudeAiOauth.accessToken = refreshed.access_token;
+          creds.claudeAiOauth.expiresAt   = expiresAt;
+          if (refreshed.refresh_token) creds.claudeAiOauth.refreshToken = refreshed.refresh_token;
+          writeFileSync(CREDS_PATH, JSON.stringify(creds, null, 2));
+        } catch { /* best-effort */ }
+      }
       ({ status, data } = await fetchUsage(accessToken).catch(() => ({ status: 0, data: null })));
     }
   }
@@ -228,3 +275,5 @@ async function main() {
 }
 
 main().catch(() => { /* silent failure — never crash SessionStart */ });
+
+export { loadCredentials };
