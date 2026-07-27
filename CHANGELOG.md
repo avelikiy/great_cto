@@ -25,6 +25,59 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.88.0 — 2026-07-23
+
+### Measure what you claim, gate what you cannot undo
+
+**The quota warning never fired on macOS.** `quota-check` read only
+`~/.claude/.credentials.json` and returned silently when it was absent — but
+Claude Code keeps OAuth in the login Keychain on macOS and writes no such file.
+So the hook exited at its first line for every macOS OAuth user: exactly the
+population it protects. It now tries the file first, then the Keychain on darwin,
+with refreshed tokens written back only to the file store (a Keychain entry is
+Claude Code's to manage). This is why three parallel benchmark runs exhausted a
+session window earlier with no warning at all. 7 tests.
+
+**Estimates are now checked against reality.** `scripts/lib/cost-drift.mjs`
+compares the hardcoded `ROUGH_COST_USD` predictions against measured spend in
+`cost-history.log`. Deterministic, zero tokens, no new tracking. It refuses to
+pronounce below 30 samples, reports medians (one outlier decides nothing), and
+surfaces agents that were measured but never estimated. First run: architect
+2.67× over its estimate (n=27), median 1.385× → "estimates-adequate, do not
+calibrate" — a question answered with data instead of opinion. 14 tests.
+
+**Gates follow reversibility, not just position (ADR-009).** Gates here are
+positional; `/crystallize approve` sat outside every stage boundary and shipped
+ungated while activating a pattern injected into every future run of every
+project. An audit found the remaining irreversible operations already covered
+(infra-provisioner stops for approval before creating paid resources, publish
+refuses on a dirty tree, devops refuses prod domains) — so no gate was added or
+moved. What was missing is the rule that produced that coverage, now stated in
+CLAUDE.md: an operation needs a human decision when undoing it is expensive —
+escapes the machine, crosses a project boundary, costs money, or destroys
+evidence. A refusal, a plan-and-stop, or an evidence requirement all satisfy it;
+silence does not.
+
+**qa-engineer: Gherkin scenarios + mutation testing.** Critical paths are stated
+as Given/When/Then before test code is written — a path that cannot be phrased as
+observable precondition → action → outcome is one you do not yet understand well
+enough to test. Mutation testing then asks whether the suite would actually catch
+a fault, since a green run only proves the tests executed. Both feed the report
+and the substantiveness rubric. Neither invents a number: no mutation framework
+configured reports exactly `mutation: not configured`, and no BDD runner is added
+to a project that never asked for one. 11 eval cases weighted toward that honesty
+boundary.
+
+**Also:** a broken `timeout` binary (x86 on arm64, exit 126) no longer blocks a
+push — the hook treats 126/127 as "the wrapper failed" and falls through; a
+`package.json` "files" entry that pointed at a directory which never existed is
+removed, with a test asserting every entry resolves; and `docs/decisions/
+DISCOVERY-NO-BUILD.md` records four evaluated-and-rejected ideas with the
+evidence that decided each, so they are not re-litigated.
+
+---
+
 ## v2.87.1 — 2026-07-22
 
 ### `adapt` points forward instead of back at itself
