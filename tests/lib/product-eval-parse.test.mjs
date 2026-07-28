@@ -103,3 +103,37 @@ test('empty / undefined input is safe', () => {
     assert.equal(c.total, null, `input ${JSON.stringify(v)}`);
   }
 });
+
+// ── reproducibility: no network input in the score by default ──────────────
+
+test('runEval does not consult the network unless explicitly asked', async () => {
+  const { runEval } = await import('../../scripts/lib/product-eval.mjs');
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  // A dir with a lockfile is exactly the case that used to trigger `npm audit`.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-audit-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"x","version":"1.0.0"}');
+    fs.writeFileSync(path.join(dir, 'package-lock.json'), '{"lockfileVersion":3}');
+    delete process.env.GREAT_CTO_EVAL_AUDIT;
+    const r = runEval(dir);
+    assert.equal(r.auditHigh, null, 'audit must not run by default — its answer changes with the calendar');
+    assert.equal(r.auditAt, null, 'and no date is claimed when nothing was measured');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an unmeasured audit does not penalise the product', async () => {
+  const { scoreExecution } = await import('../../scripts/lib/product-eval.mjs');
+  const withAudit = scoreExecution({ tests: { ran: true, total: 10, failed: 0 }, auditHigh: 0 });
+  const without   = scoreExecution({ tests: { ran: true, total: 10, failed: 0 }, auditHigh: null });
+  assert.equal(without.total, withAudit.total,
+    'skipping a date-dependent check must not move the score of the artifact');
+});
+
+test('a real vulnerability count still lowers the score when audit IS run', async () => {
+  const { scoreExecution } = await import('../../scripts/lib/product-eval.mjs');
+  const clean = scoreExecution({ tests: { ran: true, total: 10, failed: 0 }, auditHigh: 0 });
+  const vulns = scoreExecution({ tests: { ran: true, total: 10, failed: 0 }, auditHigh: 3 });
+  assert.ok(vulns.total < clean.total, 'opting in must still be meaningful');
+});

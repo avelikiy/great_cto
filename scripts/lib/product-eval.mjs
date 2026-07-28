@@ -147,18 +147,34 @@ export function runEval(dir) {
   let lint = 'na';
   if (scripts.lint) { lint = run('npm', ['run', 'lint', '--silent'], dir).status === 0 ? 'pass' : 'fail'; }
 
-  // deps — npm audit only if a lockfile exists
+  // deps — npm audit, but NOT by default.
+  //
+  // `npm audit` queries the registry's advisory database, so its answer is a
+  // function of today's date, not of the code. Re-run this benchmark next week
+  // and a product loses points because someone published a CVE — the frozen
+  // briefs, the pinned tags and the recorded commits all say the artifact is
+  // identical. A score that moves while the subject does not is not a score of
+  // the subject, and reproducibility is the one thing this benchmark sells.
+  //
+  // So: off unless asked. When it does run, `auditAt` records the date the
+  // answer belongs to, because a vulnerability count is a fact about a moment.
   let auditHigh = null;
-  if (existsSync(join(dir, 'package-lock.json'))) {
+  let auditAt = null;
+  const wantAudit = process.env.GREAT_CTO_EVAL_AUDIT === '1';
+  if (wantAudit && existsSync(join(dir, 'package-lock.json'))) {
     const r = run('npm', ['audit', '--json'], dir, 60000);
-    try { const a = JSON.parse(r.stdout || '{}'); const v = a.metadata?.vulnerabilities || {}; auditHigh = (v.high || 0) + (v.critical || 0); }
-    catch { auditHigh = null; }
+    try {
+      const a = JSON.parse(r.stdout || '{}');
+      const v = a.metadata?.vulnerabilities || {};
+      auditHigh = (v.high || 0) + (v.critical || 0);
+      auditAt = new Date().toISOString().slice(0, 10);
+    } catch { auditHigh = null; }
   }
 
   // secrets — light scan over source
   const secretLeak = scanSecrets(dir);
 
-  return { tests, typecheck, lint, auditHigh, secretLeak };
+  return { tests, typecheck, lint, auditHigh, auditAt, secretLeak };
 }
 
 function scanSecrets(dir) {

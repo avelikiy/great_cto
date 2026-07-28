@@ -273,7 +273,7 @@ if (isMain) {
       const done = provision(req);
       console.log(`    ${done.ready ? '✓' : '✗'} ${req.user}/${req.database}${req.relocated ? ' (relocated)' : ''}`);
       if (!done.ready) failed++;
-      else envLines.push(`${req.slug}\t${dsnFor(req)}`);
+      else envLines.push(`${req.slug}\t${dsnFor(req)}\t${req.migratedVia || ""}${req.migratedViaFallback ? " (fallback)" : ""}`);
     }
   }
 
@@ -302,8 +302,19 @@ if (isMain) {
         lastErr = (r.stderr || r.stdout || '').trim().split('\n').pop()?.slice(0, 90) || 'failed';
         console.log(`  ${req.slug.padEnd(12)} ${script}: ✗ ${lastErr} — trying next`);
       }
-      if (done) console.log(`  ${req.slug.padEnd(12)} ${done}: ✓ migrated`);
-      else { console.log(`  ${req.slug.padEnd(12)} all migration scripts failed (${candidates.join(', ')})`); failed++; }
+      if (done) {
+        // Record WHICH script built the schema. When the product's own declared
+        // path failed and a fallback was used, the schema is not the one the
+        // product claims to produce — so any test number measured against it is
+        // environment-shaped and must not be read as a verdict on the product.
+        req.migratedVia = done;
+        req.migratedViaFallback = done !== candidates[0];
+        const note = req.migratedViaFallback ? `  ⚠️  fallback — declared "${candidates[0]}" failed` : '';
+        console.log(`  ${req.slug.padEnd(12)} ${done}: ✓ migrated${note}`);
+      } else {
+        console.log(`  ${req.slug.padEnd(12)} all migration scripts failed (${candidates.join(', ')})`);
+        failed++;
+      }
     }
   }
 

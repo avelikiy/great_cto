@@ -104,6 +104,27 @@ completion — see *Reproduce*.
 
 ## Methodology — read this before the numbers
 
+0. **Repeatability was tested, and it found a real defect.** Two products were
+   scored three times each with nothing changed between runs. `dashboard` came
+   back 76 / 76 / 76 — stable. `subs` came back **70 / 79 / 79**, a 9-point
+   spread on identical code and an identical 54/54 test result.
+
+   The cause was `npm audit`, which carries 15% of the ceiling weight and queries
+   the registry's advisory database — so its answer is a function of **today's
+   date**, not of the artifact. A product could lose points overnight because
+   someone published a CVE, while the frozen brief, the pinned tag and the
+   recorded commit all say nothing changed. That is not a score of the product.
+
+   `npm audit` is now **off by default** (`GREAT_CTO_EVAL_AUDIT=1` opts in, and
+   the result carries the date it belongs to). With it off, `subs` scores 85 /
+   85 / 85. Any comparison in earlier revisions of this document that turned on a
+   difference of under ~10 points between two products was inside this noise and
+   should not have been drawn.
+
+   The general rule this establishes: **a benchmark that has not been run twice
+   has not been validated.** Repeatability is checked before the numbers are
+   read, not after someone disputes them.
+
 1. **Human actions: 0** (plan said 1). Runs use `approval-level: auto` — the CTO
    pre-approves architecture and ship in the launch prompt. This is disclosed as a
    deviation: the benchmark measures the *fully unattended* pipeline.
