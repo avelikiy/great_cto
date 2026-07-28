@@ -261,6 +261,34 @@ elif [[ -f "scripts/hooks/artifact-lint.mjs" ]] && command -v node >/dev/null 2>
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# Prose slop: the AI voice in the Markdown this push is adding
+# (scripts/lib/prose-slop.mjs). WARN-ONLY, always — style is a judgement call
+# and a linter that blocks on it gets bypassed, then ignored, then deleted.
+#   - Only files this push actually changes: nobody wants a verdict on prose
+#     they did not write.
+#   - GREAT_CTO_SKIP_PROSE_CHECK=1 short-circuits before invoking node.
+PROSE_CHECK_TIMEOUT="${GREAT_CTO_PROSE_TIMEOUT:-15}"
+if [[ "${GREAT_CTO_SKIP_PROSE_CHECK:-0}" == "1" ]]; then
+  : # opted out
+elif [[ -f "scripts/lib/prose-slop.mjs" ]] && command -v node >/dev/null 2>&1; then
+  PROSE_FILES=$(git diff --name-only --diff-filter=ACM "@{push}..HEAD" 2>/dev/null \
+    | grep -E '\.md$' | grep -vE '^(CHANGELOG\.md|node_modules/|tests/fixtures/)' || true)
+  if [[ -n "$PROSE_FILES" ]]; then
+    PROSE_RC=0
+    # shellcheck disable=SC2086 — deliberate word-splitting of the file list
+    PROSE_OUT=$(run_with_timeout "${PROSE_CHECK_TIMEOUT}" node scripts/lib/prose-slop.mjs $PROSE_FILES --quiet 2>&1) || PROSE_RC=$?
+    if [[ "${PROSE_RC}" -eq 124 ]]; then
+      : # timed out — say nothing, this is the least important check here
+    elif echo "$PROSE_OUT" | grep -q 'finding'; then
+      echo ""
+      echo "$PROSE_OUT"
+      echo "(advisory — never blocks. Silence one line with <!-- slop-ok -->,"
+      echo " or all of them with GREAT_CTO_SKIP_PROSE_CHECK=1 git push)"
+    fi
+  fi
+fi
+
 if [[ "$FOUND" -eq 1 ]]; then
   echo ""
   echo -e "${YELLOW}Push blocked.${NC} Remove private project references before pushing."
