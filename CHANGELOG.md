@@ -26,6 +26,67 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.89.0 — 2026-07-28
+
+### The benchmark measures the product now, not the machine it ran on
+
+**One vocabulary for "did this check prove anything".** The same idea had four
+implementations — `overall:null` plus an `unmeasured` string, `{ok:false,
+reason:'unreadable'}`, `tests.ran=false`, and the literal string `mutation: not
+configured`. `scripts/lib/proof-status.mjs` closes it into four values:
+`passed` / `failed` / `not_run` / `inconclusive`. INCONCLUSIVE was missing
+everywhere and is the useful addition — the check ran and still settled nothing
+(a partial run, an unparsable summary, a live pid whose port hangs), which is a
+different report and usually a different fix than "never ran". `isProven()` is
+true only for `passed`, `blocksGate()` blocks on both unknowns, and an invented
+status throws instead of flowing onward looking plausible.
+
+**Diffs too large to review are flagged.** A change can pass every check here —
+tests green, scope respected, security clean — and still be unreviewable. Past
+~400 hand-written lines review quality collapses and the change is approved
+rather than read. Measured in the benchmark products: single commits of 12,306
+and 10,687 insertions. Generated files are excluded (a 15-line change beside a
+15,000-line lockfile stays "ok"), the heaviest files are named, and it is
+advisory — a hard block on line count teaches people to split artificially.
+
+**Benchmark: the score was moving without the code.** Scoring `subs` three times
+with nothing changed gave 70 / 79 / 79. The cause was `npm audit` — 15% of the
+ceiling weight, answered by a registry that changes daily, so a product could
+lose points overnight because someone published a CVE. It is now off unless
+`GREAT_CTO_EVAL_AUDIT=1`, and carries the date it belongs to. With it off, `subs`
+is stable at 85/85/85. The rule this establishes is in the methodology: a
+benchmark that has not been run twice has not been validated.
+
+**Benchmark: the collector was still calling the filename scorer.** Every fix to
+the executing oracle this week landed in `quality.mjs` while `bench-collect` kept
+invoking `product-score.mjs` — the one where `mkdir e2e && touch` is worth +25.
+It now routes through `quality.assess` and publishes floor / ceiling / contracts
+alongside the total, because one number hides what produced it.
+
+**Benchmark: what the run cost in attention.** `human-cost.mjs` counts gate
+verdicts and manual restarts from artifacts already on disk. quoting scores 64
+with zero gates passed and six restarts; coaching scores 82 but needed seven
+interventions. Every reading carries confidence — below ten verdict lines it is
+flagged indicative, because a sparse count dressed as a metric is worse than none.
+
+**Environment defects that made products look broken.** An x86_64 psql in
+/usr/local/bin shadowed the Homebrew arm64 build on a Mac without Rosetta, so
+every postgres call died with "bad CPU type" while `command -v` reported the tool
+present; and Homebrew postgres will not start on macOS without `LC_ALL`. With
+both fixed, all six database-backed products provision and migrate — two of them
+only via a fallback script, which is now recorded in the data rather than
+implied. The first re-score with every environment up: six of ten products fully
+green, and `coaching` — published as 76 on a suite that never ran — measured at
+296/296.
+
+**Also:** `quota-check` reads the macOS Keychain (the session-limit warning had
+never fired on this platform), `cost-drift.mjs` compares estimates against
+measured spend, ADR-009 states that gates follow reversibility rather than
+pipeline position, and qa-engineer gains Gherkin scenarios plus mutation testing.
+
+---
+
 ## v2.88.0 — 2026-07-23
 
 ### Measure what you claim, gate what you cannot undo
