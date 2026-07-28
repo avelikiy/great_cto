@@ -89,11 +89,15 @@ ok()   { color_green "  ✓ $1"; echo ""; }
 warn() { color_yellow "  ⚠ $1"; echo ""; }
 fail() { color_red "  ✗ $1"; echo ""; exit 1; }
 
+# Runs argv directly — NOT through eval. The commit subject comes from the
+# CHANGELOG, and eval executed the backticks in it as a command substitution:
+# a heading like "`product-only` — ..." both lost the subject and ran
+# `product-only` as a shell command. Anything in the CHANGELOG is data.
 run() {
   if [ "$DRY_RUN" = "1" ]; then
     color_dim "    [dry-run] $*"; echo ""
   else
-    eval "$@"
+    "$@" || fail "command failed: $*"
   fi
 }
 
@@ -207,7 +211,8 @@ else
 
   color_dim "    $(git status --porcelain | wc -l | tr -d ' ') file(s) staged"; echo ""
   color_dim "    commit message: $COMMIT_MSG"; echo ""
-  run "git add -A && git commit -m \"$COMMIT_MSG\""
+  run git add -A
+  run git commit -m "$COMMIT_MSG"
   ok "committed"
 fi
 
@@ -230,8 +235,8 @@ if [ "$SKIP_PUSH" = "1" ]; then
   warn "remember to: git push origin main --tags"
 else
   step "5. Push to origin"
-  run "git push origin main"
-  run "git push origin v$NEW"
+  run git push origin main
+  run git push origin "v$NEW"
   ok "pushed main + v$NEW"
 fi
 
