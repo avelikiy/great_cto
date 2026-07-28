@@ -43,13 +43,13 @@ When you write prose for a human reader (audit findings, QA reports, CSO reports
 - BAD: `It is important to note that the learning rate was reduced in order to prevent divergence.`
 - GOOD: `We reduced the learning rate to prevent divergence.`
 
-**Why it matters for agents.** Filler phrases are the #2 visible AI-tell after clichés. A subset is mechanically denied in `enforcement/prose-deny.txt`.
+**Why it matters for agents.** Filler phrases are the #2 visible AI-tell after clichés. A subset is mechanically denied in `agents/_shared/prose-deny.txt`.
 
 ---
 
 ## RULE-05 — Do Not Use Dying Metaphors or Prefabricated Phrases
 
-**Directive.** If a phrase feels off-the-shelf ("push the boundaries", "unlock the full potential", "paves the way", "industry-leading", "state-of-the-art", "paradigm shift") — restate in plain technical terms with specific numbers or mechanism, or delete the sentence.
+**Directive.** If a phrase feels off-the-shelf ("push the boundaries", "unlock the full potential", "paves the way", "industry-leading", "state-of-the-art", "paradigm shift") — restate in plain technical terms with specific numbers or mechanism, or delete the sentence. <!-- slop-ok: the phrases ARE the rule here -->
 
 - BAD: `Our groundbreaking approach represents a paradigm shift in observability.`
 - GOOD: `Our tracer captures p99 latency per-span with 50ns overhead, down from the 400ns of OpenTelemetry's default SDK.`
@@ -90,6 +90,55 @@ When you write prose for a human reader (audit findings, QA reports, CSO reports
 - GOOD: ``Race condition: `src/auth/session.ts:142-156` reads `session.user` before the `await lock.acquire()` at line 149. Repro: 2 concurrent POSTs to `/login` cause `user` to be set from the second request's context (verified on commit `a3f21bb`).``
 
 **Why it matters for agents.** The single worst failure mode of LLM-driven review: handwavy claims and fabricated citations. security-officer, qa-engineer, and project-auditor MUST cite evidence. `/audit` without file:line is not audit.
+
+---
+
+## RULE-R — Report What Happened, Not What Was Achieved
+
+**Directive.** End-of-run reports state what changed, what failed, and what comes
+next, in sentences. No `✅ Successfully implemented`, no `Perfect!`, no wall of
+bullets standing in for a conclusion. If tests failed, say so with the output. A
+report listing only wins is not a report — it is a press release, and the reader
+learns to skip it.
+
+The same applies to commit messages and PR bodies: the subject is the change, not
+the achievement. Prefer the failure the change prevents over the adjective it
+earns.
+
+- BAD: `✅ Successfully implemented comprehensive error handling across all endpoints!`
+- GOOD: `Added error handling to every API endpoint. Two integration tests still fail on timeout — see qa-report.md:41.`
+
+**Why it matters for agents.** This is the tic a reader notices first and trusts
+least, and it is the one place where the model's default register actively hides
+bad news.
+
+---
+
+## The Part That Runs
+
+Rules RULE-04, RULE-05, RULE-08 and RULE-R have a mechanical half, and
+`scripts/lib/prose-slop.mjs` decides it: dead words, throat-clearing openers,
+achievement language, claims with no source, decorative emoji in headings, and
+the passive that hides who acted. Each finding names a replacement.
+
+```bash
+node scripts/lib/prose-slop.mjs docs/adr/ADR-010-*.md
+node scripts/lib/prose-slop.mjs agents/*.md --json
+```
+
+It runs advisory on `git push` over the Markdown that push adds, and never
+blocks — a style gate that blocks gets bypassed, then ignored, then deleted.
+Silence one line with `<!-- slop-ok: reason -->`; sometimes the banned word is
+the subject of the sentence, and four of the eleven hits across all 68 agent
+prompts were exactly that (a GLBA statutory quote, the EU's "Very Large Online <!-- slop-ok: quoting the EU DSA term -->
+Platform", and two files listing the banned words as banned).
+
+Everything else here — tacit knowledge, concreteness, bullet discipline, evidence
+— needs a reader. `agents/_shared/prose-deny.txt` remains reference-only: it is a
+word list, not a checker, and qa-engineer greps its own curated subset.
+
+**The linter does not judge rhythm, insight, or voice.** A tool that pretends
+otherwise produces noise until someone removes it.
 
 ---
 

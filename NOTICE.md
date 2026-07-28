@@ -14,7 +14,7 @@ terms.
     rationale condensed for agent-context budget. Upstream carries 5+ examples
     per rule and per-source citations (Strunk & White, Orwell, Pinker, Gopen &
     Swan) — consult upstream for the full blocks.
-  - `enforcement/prose-deny.txt` — reference-only subset of upstream
+  - `agents/_shared/prose-deny.txt` — reference-only subset of upstream
     `enforcement/deny-phrases.txt` (MIT). Trimmed to phrases that fire in
     great_cto agent output (audit findings, QA/CSO reports, CHANGELOG). The
     file is a human-readable reference; the mechanical warn-grep in

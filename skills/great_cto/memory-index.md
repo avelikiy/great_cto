@@ -49,7 +49,7 @@
 | Memory system | This file. 200-line index → topic files | `skills/great_cto/memory-index.md` |
 | Triage gate | Depth classification inside SIMPLE/COMPLEX CODE (Tiny→Large); escalation guards | `CLAUDE.md §Triage Gate` |
 | Safety rules | Per-workflow safety rules (Coding/Review-Only/Behavior-Preserving/Cleanup/Incident) | `shared/safety-rules.md` |
-| Writing rules | How agent prose reads: Orwell's six + what they mean for ADRs/commits/reports; linter `scripts/lib/prose-slop.mjs` | `shared/writing-rules.md` |
+| Prose style | 7 rules for agent-written prose + the report/commit rules; linter `scripts/lib/prose-slop.mjs` | `skills/great_cto/prose-style.md` |
 | Findings format | Structured review output: Critical/Major/Minor/Nit + APPROVED/BLOCKED verdict | `skills/great_cto/SKILL.md §Structured Findings Format` |
 | Reproduction req | Bug-fix gate: failing test OR repro steps required before code edit | `agents/coordinator.md §Reproduction Requirement` |
 | Hand-off rules | Workflow class transitions: INCIDENT→BUG-FIX, BUG-FIX→Feature, etc. | `agents/coordinator.md §Workflow Hand-off Rules` |

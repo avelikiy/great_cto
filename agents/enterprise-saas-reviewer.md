@@ -69,7 +69,7 @@ Decide model upfront:
 | **Row-level (single DB, single schema)** | Default for B2B SaaS until ~1000 enterprise customers | $ | Code-bug-vulnerable (need RLS or framework discipline) |
 | **Schema-per-tenant (single DB, many schemas)** | Mid-stage, regulated customers want logical isolation | $$ | Stronger; harder to leak |
 | **DB-per-tenant** | Top-tier banks / govt / healthcare; physical isolation | $$$ | Strongest; ops burden high |
-| **Account-per-tenant (separate cloud account)** | Very large enterprise / FedRAMP | $$$$ | Strongest |
+| **Account-per-tenant (separate cloud account)** | Very large enterprise / FedRAMP | $$$$ | Strongest | <!-- slop-ok: market segment name, not emphasis -->
 
 For row-level model — required controls:
 

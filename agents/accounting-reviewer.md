@@ -58,7 +58,7 @@ that were previously a stop-gap on enterprise-saas-reviewer now route here.
   claiming GAAP compliance must follow its recognition, measurement, and disclosure rules.
 - **Accrual basis vs. cash basis:** GAAP requires accrual-basis accounting (revenue/expenses recorded
   when earned/incurred, not when cash moves) for anything claiming GAAP compliance — a system that
-  only supports cash-basis posting cannot honestly claim GAAP-compliant statements.
+  only supports cash-basis posting cannot honestly claim GAAP-compliant statements. <!-- slop-ok: "cannot honestly claim" — honestly carries the meaning -->
 - **Engineering requirement:** the ledger schema must support accrual entries (e.g. accounts
   receivable/payable, deferred revenue, accrued expenses) distinctly from cash transactions.
 

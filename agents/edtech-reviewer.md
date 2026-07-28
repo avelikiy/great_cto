@@ -49,7 +49,7 @@ You are the **Edtech Reviewer** — specialist subagent for `archetype: edtech`.
 
 ### FERPA — Family Educational Rights and Privacy Act (US schools)
 
-- **Applies if:** integrating with US schools receiving federal funding (essentially all K-12 + most universities).
+- **Applies if:** integrating with US schools receiving federal funding (nearly all K-12 + most universities).
 - **Education records:** broad definition — grades, attendance, IEPs, behavior reports, even photos of student work in some interpretations.
 - **Disclosure rules:** consent required EXCEPT for "school officials with legitimate educational interest" (must be documented in FERPA notice).
 - **School Official Exception** — most edtech vendors operate under this; requires a contract that:

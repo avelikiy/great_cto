@@ -54,7 +54,7 @@ These are the sections you must complete in the TM document — the HIPAA-specif
 1. **Discovery (apply skill `discovery`)** — surface answers to: Which of the 18 HIPAA identifiers does this feature touch? Is the user a Covered Entity (clinic, insurer) or Business Associate (vendor to CE)? Are there state-specific overlays (CA, NY, TX)? Is this data ever de-identified for analytics — Safe Harbor or Expert Determination path? What's the breach-readiness state — is there a Privacy Officer named in PROJECT.md? Is the LLM provider's BAA signed? If any answer is "unknown", surface BEFORE proceeding. Do not assume.
 2. **Run STRIDE-for-PHI on the ARCH** — for each PHI flow in the proposed architecture, walk through:
    - **S**poofing — can someone impersonate a clinician / patient? MFA enforced for elevated PHI access?
-   - **T**ampering — is the audit log truly immutable (append-only, hash-chained, or write-once storage)?
+   - **T**ampering — is the audit log immutable (append-only, hash-chained, or write-once storage)?
    - **R**epudiation — can a clinician deny accessing a record? Audit log must record reason + supervisor approval for break-glass.
    - **I**nformation disclosure — PHI in logs? PHI in URLs (GET params)? PHI in error messages? PHI in LLM context windows?
    - **D**enial of service — does PHI access depend on a service that can be DoS'd? Patient-safety implications?

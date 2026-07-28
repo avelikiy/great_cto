@@ -67,7 +67,7 @@ You write a threat model at `docs/sec-threats/TM-tax-{slug}.md`, then append a `
 - **IRS Publication 4557:** required security guidance for tax preparers — encryption, access
   controls, and incident-response expectations for taxpayer data.
 - **GLBA Safeguards Rule (FTC):** tax preparers are "financial institutions" under GLBA and must
-  maintain a comprehensive information security program.
+  maintain a comprehensive information security program. <!-- slop-ok: GLBA Safeguards Rule statutory wording -->
 - **WISP (Written Information Security Plan):** the IRS/FTC require preparers to maintain a
   documented WISP — this is a **written artifact requirement**, not just a technical control; the
   product should support generating/maintaining this document if it serves preparer customers.

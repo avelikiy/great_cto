@@ -36,7 +36,7 @@ You write a threat model at `docs/sec-threats/TM-{slug}.md`, then append a `<!--
 
 ### NAIC Model Acts — US state insurance regulation
 
-- **State-by-state regulation** — each US state has its own Department of Insurance (DOI). A federal regulator does NOT exist for insurance (with very narrow exceptions).
+- **State-by-state regulation** — each US state has its own Department of Insurance (DOI). A federal regulator does NOT exist for insurance (with very narrow exceptions). <!-- slop-ok: "very narrow exceptions" — the degree is the point -->
 - **NAIC** publishes Model Acts; each state adopts (or modifies) them — variations matter.
 - **Key Model Acts (verified numbers — get these right; do not guess):**
   - **Model #670:** Insurance Information and Privacy Protection Model Act — FCRA-style consumer

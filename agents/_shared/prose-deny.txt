@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 #
-# enforcement/prose-deny.txt — reference-only prose deny list for great_cto
+# agents/_shared/prose-deny.txt — reference-only prose deny list for great_cto
 # agent output (not mechanically loaded; qa-engineer hook uses an inline
 # subset). Case-insensitive matches. Comments start with #. Blank lines ok.
 #

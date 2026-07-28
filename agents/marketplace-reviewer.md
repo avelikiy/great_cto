@@ -186,7 +186,7 @@ EU DSA (Digital Services Act, 2024):
 | Notice + Action mechanism for illegal content | ✓ |
 | Trader traceability (seller identity disclosure) | ✓ |
 | Best-before / authenticity claims verification | ✓ |
-| Annual transparency report | ✓ for VLOP (very large platforms, 45M+ EU users) |
+| Annual transparency report | ✓ for VLOP (very large platforms, 45M+ EU users) | <!-- slop-ok: EU DSA defined term: Very Large Online Platform -->
 
 P2B Regulation (2020):
 - Terms changes ≥ 15 days notice

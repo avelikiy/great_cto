@@ -639,7 +639,7 @@ Rules:
 
 - **Never install a mutation framework the project does not have** just to produce
   a number. If none is configured, say so in the report (`mutation: not
-  configured`) and move on — an unmeasured signal reported honestly beats a
+  configured`) and move on — an unmeasured signal reported honestly beats a <!-- slop-ok: "reported honestly" — honestly carries the meaning -->
   fabricated one, and adding a heavyweight dev dependency is not QA's call.
 - **Report surviving mutants, not the score alone.** "73%" tells the developer
   nothing; "the null-branch in `applyDiscount` survives — no test asserts what

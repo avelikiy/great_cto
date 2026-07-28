@@ -83,7 +83,7 @@ For every consumer that produces external side-effects (DB write / API call / do
 | Idempotency key derived from event (event_id + type) | ✓ |
 | `processed_events(key, processed_at)` table OR Redis SETNX with TTL ≥ retention | ✓ |
 | Test: same event delivered 5x → exactly one DB row, one downstream emit | ✓ |
-| For Kafka: leverage `read_committed` isolation + transactional sink | ✓ for exactly-once |
+| For Kafka: use `read_committed` isolation + transactional sink | ✓ for exactly-once |
 | Webhook-out idempotency at receiver — never assume your producer is exactly-once | ✓ |
 
 Hard halt: stateful sink without dedup table or transactional output → block ship.
