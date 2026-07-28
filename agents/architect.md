@@ -502,11 +502,23 @@ manual configuration needed.
    1K/10K/100K req/day. CTO sets the recommended cap; alerts fire above
    cap. See `skills/cost-model/SKILL.md` for the format.
 
-   **MANDATORY — create gate first:**
+   **Create the gate — if this level asks for it:**
    ```bash
-   bd create "gate:arch — <feature> architecture review" --type task --priority 0 --label gate
+   ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+   if node scripts/lib/approval-level.mjs "$APPROVAL_LEVEL" --archetype "$ARCHETYPE" --json \
+        | grep -q '"arch"'; then
+     bd create "gate:arch — <feature> architecture review" --type task --priority 0 --label gate
+   else
+     echo "approval-level=$APPROVAL_LEVEL — architecture is not a gated decision here; continuing to pm"
+   fi
    ```
-   This gate appears in `/inbox` under "NEEDS YOUR DECISION". CTO must approve before senior-dev starts (always in `strict` mode, by default in `auto`).
+   Under `product-only` the CTO chose to be asked about the product, not the
+   architecture — creating gate:arch anyway would stall the pipeline on a question
+   they explicitly delegated. Regulated archetypes keep their floor regardless:
+   the helper adds security/compliance back for those.
+
+   When created, the gate appears in `/inbox` under "NEEDS YOUR DECISION" and must
+   be approved before senior-dev starts.
 
    **Log agent verdict** (canonical — see `agents/_shared/verdict-format.md`; the
    pipeline dispatcher reads this to decide the next stage):

@@ -473,9 +473,21 @@ Any [N] → fix the plan before creating the gate.
 APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
 ```
 
-Always create the gate — no approval_level skips it:
+Create the gate when the level asks for a plan review. `gate:plan` is a
+**technical** checkpoint — task decomposition, parallelism, agent allocation — so
+under `product-only` the CTO has explicitly delegated it, and raising it anyway
+stalls the pipeline on a question they chose not to answer. Every other level
+still gets it. Regulated archetypes keep their security/compliance floor either
+way (the helper re-adds it).
 
 ```bash
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+if ! node scripts/lib/approval-level.mjs "$APPROVAL_LEVEL" --archetype "$ARCHETYPE" --json 2>/dev/null | grep -q '"plan"'; then
+  echo "approval-level=$APPROVAL_LEVEL — plan review is not gated here; PLAN doc still written, senior-dev proceeds"
+  # still emit PLAN_READY so the dispatcher advances the pipeline
+fi
+
 # Dedup check: skip if gate:plan already open for this feature
 if ! bd search "gate:plan" 2>/dev/null | grep -qi "open\|in.progress"; then
   GATE_ID=$(bd create "gate:plan — ${FEATURE_SLUG} implementation plan review" \
