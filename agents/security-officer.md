@@ -103,7 +103,7 @@ Show decision: APPROVED/BLOCKED, findings by severity, compliance results, **str
 
 Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoints).
 
-**Skip checkpoints** if `approval-level` is `auto`, `gates-only`, or `strict`. For MANDATORY security archetypes (`agent-product`, `ai-system`, `commerce`, `web3`, `iot-embedded`, `regulated`), checkpoints are always shown when `approval-level` is `expert` or `step-by-step`.
+**Checkpoints run ONLY at `expert` and `step-by-step`.** Every other `approval-level` skips them — state the rule this way round so a level added later (as `product-only` was) does not silently start pausing. For MANDATORY security archetypes (`agent-product`, `ai-system`, `commerce`, `web3`, `iot-embedded`, `regulated`), checkpoints are always shown when `approval-level` is `expert` or `step-by-step`.
 
 ---
 

@@ -118,7 +118,7 @@ Show summary: architecture decisions, N tasks created, cost estimate. CTO approv
 
 Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoints).
 
-**Skip checkpoints** if `approval-level` is `auto`, `gates-only`, or `strict` (checkpoints only for `expert`/`step-by-step`).
+**Checkpoints run ONLY at `expert` and `step-by-step`.** Every other `approval-level` skips them — state the rule this way round so a level added later (as `product-only` was) does not silently start pausing.
 
 ---
 

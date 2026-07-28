@@ -427,7 +427,7 @@ archetype: <archetype from TYPE_MAP.md>
 secondary: <type2>, <type3>
 packs: <auto-attached packs from Step 2c, comma-separated; empty if none>
 greenfield: <true|false>
-approval-level: <auto|gates-only|strict|expert|step-by-step>
+approval-level: <auto|product-only|gates-only|strict|expert|step-by-step>
 phase: implementation
 mode: <poc|mvp|production>          # ← required. PoC time-boxed throwaway; MVP first ship; production = ongoing.
 poc-deadline: <YYYY-MM-DD or empty> # ← required if mode=poc. Default: today + 14 days. /inbox flags as P0 when overdue.
@@ -472,6 +472,7 @@ Notes:
 - `phase:` controls what SessionStart hook loads — `implementation` (default) loads CODEBASE.md + HANDOFF.md; `planning` loads brain.md + digest only; `review` loads latest QA + CSO; `release` loads perf-baseline. CTO switches in chat: "move to review phase".
 - `approval-level:` single control for pipeline depth. **Two user-facing values** that the CTO specifies in chat:
   - `auto` — no gates (hotfix, trusted automation) → written as `auto`
+  - `product` — ask about the product, decide the technical parts without me → written as **`product-only`** (2 approvals: gate:product + gate:ship, and nothing in between)
   - `review` — **default** — arch + ship gates (2 approvals per feature) → written as **`gates-only`** (canonical internal name; agents read this)
 
   **Advanced** (written verbatim when CTO opts in):
@@ -483,6 +484,7 @@ Notes:
   ```
   user says → stored in PROJECT.md
     auto       → auto
+    product    → product-only
     review     → gates-only   (default)
     strict     → strict
     expert     → expert
