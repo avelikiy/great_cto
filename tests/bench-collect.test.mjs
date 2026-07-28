@@ -174,7 +174,14 @@ test('integration: collects a full row from a fixture product dir', () => {
     assert.equal(row.deploy.url, 'https://bench-ats.vercel.app');
     assert.equal(row.deploy.reachable, null);              // --no-probe
     assert.equal(row.failure, null);
-    assert.ok(typeof row.score?.total === 'number');       // scorer ran (low score is fine)
+    // The collector now scores through the EXECUTING oracle, so a fixture with
+    // no runnable suite correctly yields total:null — "not measured" rather than
+    // the filename-derived number the old scorer would have invented. What must
+    // hold is that the scorer ran and reported its parts.
+    assert.ok(row.score, 'scorer ran');
+    assert.equal(typeof row.score.floor, 'number', 'structural floor is always computable');
+    assert.ok(row.score.total === null || typeof row.score.total === 'number');
+    assert.ok(row.human_cost, 'human-cost is collected alongside the score');
     assert.equal(row.tests.ran, false);
   } finally {
     rmSync(dir, { recursive: true, force: true });

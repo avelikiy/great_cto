@@ -29,6 +29,7 @@ import { readFileSync, readdirSync, existsSync, appendFileSync, writeFileSync, s
 import { join, resolve, basename, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { humanCost } from './lib/human-cost.mjs';
 import { homedir } from 'node:os';
 import https from 'node:https';
 import http from 'node:http';
@@ -269,15 +270,34 @@ function git(dir, ...args) {
   return r.status === 0 ? r.stdout.trim() : null;
 }
 
+/**
+ * Score a product through the EXECUTING oracle, and publish its parts.
+ *
+ * Two problems with what this used to do. It called product-score.mjs, which
+ * grades by globbing filenames — a tree whose `npm test` is `exit 143` and whose
+ * only spec contains syntax garbage scored 93/100, and `mkdir e2e && touch` was
+ * worth +25. And it published a single number, which hides what produced it:
+ * dashboard (157/157 green) and coaching (296/296 green) differ by 6 points
+ * entirely in structural guesswork, and a reader cannot see that from "76" and
+ * "82".
+ *
+ * So: quality.assess() — floor (structure), ceiling (executed), contracts
+ * (domain) — and all three are emitted alongside the total. `proof` rides along
+ * so "not measured" stays a value in the data rather than a rendering choice.
+ */
 function runScore(dir, archetype) {
-  const scoreScript = join(dirname(fileURLToPath(import.meta.url)), 'lib', 'product-score.mjs');
+  const scoreScript = join(dirname(fileURLToPath(import.meta.url)), 'lib', 'quality.mjs');
   const args = [scoreScript, dir, '--json'];
   if (archetype) args.push('--archetype', archetype);
-  const r = spawnSync('node', args, { encoding: 'utf8', timeout: 60_000 });
+  const r = spawnSync('node', args, { encoding: 'utf8', timeout: 600_000 });
   if (r.status !== 0 || !r.stdout) return null;
   try {
-    const { total, grade, archetype: a } = JSON.parse(r.stdout);
-    return { total, grade, archetype: a };
+    const q = JSON.parse(r.stdout);
+    return {
+      total: q.overall, grade: q.grade, archetype: q.archetype,
+      floor: q.floor, ceiling: q.ceiling, contracts: q.contracts,
+      proof: q.proof ?? null,
+    };
   } catch { return null; }
 }
 
@@ -370,6 +390,11 @@ async function main(argv) {
     wall: wallTimeFromLines(verdictLines),
     cost,
     score: runScore(abs, arg(argv, '--archetype')),
+    // What the run cost in human attention — the number closest to the actual
+    // claim ("describe it, approve twice, get software"), which artifact quality
+    // does not capture. Two products with the same score are not equivalent if
+    // one ran unattended and the other needed six restarts.
+    human_cost: humanCost(abs),
     tests: argv.includes('--no-tests') ? { ran: false, reason: '--no-tests' } : runTests(abs),
     e2e_specs: countE2eSpecs(abs),
     deploy,
