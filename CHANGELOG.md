@@ -5,27 +5,47 @@ All notable changes to great_cto are documented here.
 ---
 
 
+## v2.90.0 — 2026-07-28
 
+### `product-only` — the pipeline chains itself; you answer two questions
 
+The operator had to say "run product-owner", then "run architect", then "run pm",
+then "run senior-dev" — by hand, every time. The transitions were prompt-driven,
+so a context compaction or a tangent silently ended the run. This release makes
+the chain execute and adds the approval level most operators actually want.
 
+- **New `approval-level: product-only`** — pauses at `gate:product` (what are we
+  building) and `gate:ship` (do we go live), and nowhere in between. Architecture,
+  planning, and code review are delegated. Two approvals per feature instead of
+  four, without dropping to `auto`.
+- **`scripts/lib/approval-level.mjs`** — the rule now lives in one place instead of
+  as prose duplicated across agent prompts, where it had already diverged. A typo
+  in the level falls back to the default, never to "no gates"; a regulated
+  archetype (fintech, healthcare) keeps its security/compliance/ship floor even
+  under `auto`. 14 tests.
+- **The dispatcher consults the level before announcing a gate.** `pipeline.toml`
+  says where a gate *can* sit; the approval level says which ones stop a human.
+  Without this, `product-only` waited forever on a `gate:arch` the architect
+  deliberately never creates. Omitting the policy still honours every gate — the
+  absence of a policy must never read as "no gates". 5 tests.
+- **`/start` accepts `product`** and writes the canonical `product-only`. The level
+  previously shipped with no way to choose it.
+- **Checkpoints are stated as a rule, not a list.** Four agents skipped checkpoints
+  by matching `auto|gates-only|strict`; a level added later fell outside the list
+  and started pausing — `product-only` would have asked *more* often than the
+  default it is meant to be lighter than. Now: checkpoints run at `expert` and
+  `step-by-step`, everything else skips.
+- **Verification** — the chain was walked end-to-end against the real hook at three
+  levels: `product-only` stops exactly twice, `gates-only` at arch + ship, `auto`
+  runs clean through to `l3-support`. `BLOCKED` halts the chain; `fintech + auto`
+  keeps `gate:ship`; a missing verdict line yields an instruction, not silence.
+  Suite **966/966**.
 
+Upgrade note: the plugin is loaded from a versioned cache, and `npm i -g` does not
+refresh it — run `great-cto init` (or `scripts/install-local.sh` from source) and
+restart the session, or the previous version's hooks keep firing.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+---
 
 ## v2.89.0 — 2026-07-28
 
@@ -748,11 +768,6 @@ Closed the four loops the product advertised but that never mechanically worked:
   — GitHub Actions is disabled at the account level; the pipeline runs on the mac.
 
 
-
-
-
-
-
 ## v2.74.0 — 2026-06-20
 
 ### The Product Builder pivot
@@ -955,27 +970,6 @@ they don't assemble an unmeasured one).
   without an override.
 
 ---
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ## v2.71.0 — 2026-06-13
@@ -1313,13 +1307,6 @@ gate and the runtime refuses it without a signature.
   gated (8/8), citations 85–100% real. All 3 run the durable workflow start → gate → sign → write in
   stub; flows pass `--validate`. Lib suite 322/322 (flow-count test bumped 22 → 25). Landing pages live
   at greatcto.systems/autopilots/{workers-comp,estate,patent}.html.
-
-
-### TBD — fill in before committing
-
-- _Add one bullet per shipped feature._
-- _Cite ADRs introduced (if any)._
-- _Mention test counts and opt-out flags._
 
 ---
 
@@ -1880,9 +1867,6 @@ earned, not declared.
   (connector catalog, all sandbox stubs) + `/flow` command + `docs/positioning/vocabulary.md`.
 - `/start` detects the business function → renders the flow; README leads with the autopilots.
   Packs / reviewers / gates are now the under-the-hood trust layer, never the headline.
-
-
-
 
 
 ## v2.39.0 — 2026-06-06
