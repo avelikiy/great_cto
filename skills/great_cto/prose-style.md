@@ -133,9 +133,15 @@ the subject of the sentence, and four of the eleven hits across all 68 agent
 prompts were exactly that (a GLBA statutory quote, the EU's "Very Large Online <!-- slop-ok: quoting the EU DSA term -->
 Platform", and two files listing the banned words as banned).
 
+`agents/_shared/prose-deny.txt` is the phrase source, not a second opinion: the
+linter parses it, and its `RULE-NN` section headers decide which check each
+phrase feeds. Add a phrase there and it is enforced with no code change.
+RULE-H's hedges are opt-in (`--rule SLOP-HEDGE`) because "appears to" is correct
+in a prompt that describes hedging; qa-engineer asks for them on its own report,
+which is where a hedge without evidence actually costs something.
+
 Everything else here — tacit knowledge, concreteness, bullet discipline, evidence
-— needs a reader. `agents/_shared/prose-deny.txt` remains reference-only: it is a
-word list, not a checker, and qa-engineer greps its own curated subset.
+— needs a reader.
 
 **The linter does not judge rhythm, insight, or voice.** A tool that pretends
 otherwise produces noise until someone removes it.

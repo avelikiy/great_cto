@@ -854,14 +854,21 @@ if [ ! -f "$QA_FILE" ]; then
   exit 1
 fi
 
-# Prose-style soft check on our own report (v1.0.106; warn-only; see
+# Prose-style soft check on our own report (warn-only; see
 # skills/great_cto/prose-style.md and NOTICE.md for attribution).
-# Inline pattern is a curated subset of enforcement/prose-deny.txt —
-# stays self-contained so no external file-path resolution is needed.
-PROSE_BAD=$(grep -iEn 'it is important to note|in order to|due to the fact that|may potentially|could possibly|at this point in time|in the event that|push the boundar|paving the way|industry-leading|state-of-the-art|cutting-edge|groundbreaking|paradigm shift|unlock the full potential|seamlessly integrat|leverage the power of|next-generation|world-class|game-chang' "$QA_FILE" 2>/dev/null | head -5)
-if [ -n "$PROSE_BAD" ]; then
-  echo "⚠ prose-style warn (RULE-04/05) in $QA_FILE — consider rewriting:" 1>&2
-  echo "$PROSE_BAD" 1>&2
+# Reads agents/_shared/prose-deny.txt, which is the one list. This used to be a
+# hand-copied subset pasted here, so a phrase added to the file never reached
+# the report it was meant to catch. SLOP-HEDGE is asked for explicitly: a QA
+# report is exactly where "appears to" needs evidence behind it.
+SLOP=$(ls "$HOME"/.claude/plugins/cache/local/great_cto/*/scripts/lib/prose-slop.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$SLOP" ] && [ -f scripts/lib/prose-slop.mjs ] && SLOP=scripts/lib/prose-slop.mjs
+if [ -n "$SLOP" ] && command -v node >/dev/null 2>&1; then
+  PROSE_BAD=$(node "$SLOP" "$QA_FILE" --quiet 2>/dev/null | head -20)
+  HEDGES=$(node "$SLOP" "$QA_FILE" --rule SLOP-HEDGE --quiet 2>/dev/null | head -10)
+  if [ -n "$PROSE_BAD$HEDGES" ]; then
+    echo "prose-style warn in $QA_FILE — consider rewriting:" 1>&2
+    printf '%s\n%s\n' "$PROSE_BAD" "$HEDGES" 1>&2
+  fi
 fi
 ```
 

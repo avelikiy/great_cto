@@ -30,7 +30,10 @@
  * CLI:  node scripts/lib/prose-slop.mjs <file>...  [--json] [--quiet]
  *       exit 0 always unless --strict is passed (then 1 when findings exist)
  *
- * Opt out of a single line with a trailing `<!-- slop-ok -->`.
+ * Opt out of a single line with a trailing `<!-- slop-ok: reason -->`.
+ *
+ * Phrases come from agents/_shared/prose-deny.txt (the one list) plus the
+ * built-ins below, which add a per-phrase replacement the flat file cannot carry.
  */
 
 /** Words that carry no information in our writing. value = the plain word. */
@@ -117,7 +120,68 @@ const RULES = Object.freeze({
   'SLOP-ADVERB': 'adverb that survives deletion',
   'SLOP-EMOJI-HEAD': 'decorative emoji in a heading',
   'SLOP-PASSIVE-BRAG': 'passive + achievement — name who did it',
+  'SLOP-HEDGE': 'hedge with no evidence behind it — cite it or drop it',
 });
+
+/** Rules NOT run unless asked for. See parseDenyList for why SLOP-HEDGE is here. */
+const OPT_IN_RULES = Object.freeze(['SLOP-HEDGE']);
+
+/** Which rule each `RULE-NN` section of prose-deny.txt feeds. */
+const DENY_SECTIONS = Object.freeze({
+  'RULE-04': 'SLOP-OPENER',
+  'RULE-05': 'SLOP-DEAD',
+  'RULE-H': 'SLOP-HEDGE',
+});
+
+const DENY_FIX = Object.freeze({
+  'SLOP-OPENER': 'cut it — the sentence starts after this',
+  'SLOP-DEAD': 'say the mechanism or the number instead',
+  'SLOP-HEDGE': 'add the evidence (file:line, metric, CVE) or drop the claim',
+});
+
+/**
+ * Parse `agents/_shared/prose-deny.txt` into {ruleId: [phrase, …]}.
+ *
+ * The deny list and this module used to be two lists of banned phrases that
+ * nobody diffed — one documented as "reference-only" (a word list, never a
+ * checker) and one that ran. They were free to drift because only one of them
+ * could ever be wrong out loud. Now the file is the source and this is the
+ * checker, so a phrase added there starts being enforced with no code change.
+ *
+ * SLOP-HEDGE is opt-in rather than default: "appears to" and "might be" are
+ * correct in a prompt that *describes* hedging (every reviewer prompt does), so
+ * running it over agents/ reports the rule's own subject matter. It belongs on
+ * findings and reports — `--rule SLOP-HEDGE` — not on everything.
+ */
+export function parseDenyList(text) {
+  const out = {};
+  let bucket = null;
+  for (const raw of String(text ?? '').split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith('#')) {
+      const m = line.match(/\b(RULE-[\w]+)\b/);
+      if (m && DENY_SECTIONS[m[1]]) bucket = DENY_SECTIONS[m[1]];
+      continue;                                    // header comments only
+    }
+    if (!bucket) continue;                         // phrases before any section: ignored
+    (out[bucket] ||= []).push(line.toLowerCase());
+  }
+  return out;
+}
+
+/** Default deny-list location, resolved from this file so cwd does not matter. */
+export function defaultDenyPath() {
+  return new URL('../../agents/_shared/prose-deny.txt', import.meta.url);
+}
+
+/** Read + parse the deny list; {} when it is absent (the lib must still work). */
+export async function loadDenyList(path = defaultDenyPath()) {
+  try {
+    const { readFileSync } = await import('node:fs');
+    return parseDenyList(readFileSync(path, 'utf8'));
+  } catch { return {}; }
+}
 
 /**
  * Blank out every span where a word is code, not prose, preserving offsets so
@@ -144,12 +208,12 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /**
  * @returns {Array<{rule:string, line:number, column:number, quote:string, fix:string}>}
  */
-export function detectSlop(text, { rules = null } = {}) {
+export function detectSlop(text, { rules = null, deny = null } = {}) {
   const raw = String(text ?? '');
   const masked = maskCode(raw);
   const rawLines = raw.split('\n');
   const findings = [];
-  const wanted = (id) => !rules || rules.includes(id);
+  const wanted = (id) => (rules ? rules.includes(id) : !OPT_IN_RULES.includes(id));
 
   const at = (index) => {
     const before = masked.slice(0, index);
@@ -174,8 +238,19 @@ export function detectSlop(text, { rules = null } = {}) {
     }
   };
 
-  scan('SLOP-DEAD', Object.keys(DEAD_WORDS), (p) => DEAD_WORDS[p]);
-  scan('SLOP-OPENER', THROAT_CLEARING, () => 'cut it — the sentence starts after this');
+  // Built-ins carry a per-phrase replacement, so they win where both lists hold
+  // the same phrase; the deny file contributes everything it adds beyond them.
+  const merge = (id, builtins) => {
+    const extra = (deny?.[id] || []).filter((p) => !builtins.includes(p));
+    return [...builtins, ...extra];
+  };
+  const fixFor = (id, builtinFix) => (p) => builtinFix(p) ?? DENY_FIX[id];
+
+  scan('SLOP-DEAD', merge('SLOP-DEAD', Object.keys(DEAD_WORDS)),
+    fixFor('SLOP-DEAD', (p) => DEAD_WORDS[p]));
+  scan('SLOP-OPENER', merge('SLOP-OPENER', THROAT_CLEARING),
+    () => DENY_FIX['SLOP-OPENER']);
+  scan('SLOP-HEDGE', deny?.['SLOP-HEDGE'] || [], () => DENY_FIX['SLOP-HEDGE']);
   scan('SLOP-WEASEL', WEASEL_ATTRIBUTION, () => 'name the source, or drop the claim');
   scan('SLOP-BRAG', ACHIEVEMENT, () => 'say what changed, and what still fails');
   scan('SLOP-ADVERB', EMPTY_ADVERBS, () => 'delete it and read the sentence again');
@@ -219,13 +294,23 @@ export { RULES, DEAD_WORDS, THROAT_CLEARING, WEASEL_ATTRIBUTION, ACHIEVEMENT, EM
 
 async function main(argv) {
   const { readFileSync } = await import('node:fs');
-  const files = argv.filter((a) => !a.startsWith('--'));
+  const flagIdx = (name) => argv.indexOf(name);
+  const flagVal = (name) => (flagIdx(name) >= 0 ? argv[flagIdx(name) + 1] : null);
+  const consumed = new Set();
+  for (const f of ['--deny', '--rule']) {
+    if (flagIdx(f) >= 0) { consumed.add(argv[flagIdx(f)]); consumed.add(argv[flagIdx(f) + 1]); }
+  }
+  const files = argv.filter((a) => !a.startsWith('--') && !consumed.has(a));
+  const rules = flagVal('--rule') ? flagVal('--rule').split(',') : null;
+  const deny = argv.includes('--no-deny') ? null : await loadDenyList(flagVal('--deny') || undefined);
   const json = argv.includes('--json');
   const quiet = argv.includes('--quiet');
   const strict = argv.includes('--strict');
 
   if (!files.length) {
     console.error('usage: prose-slop.mjs <file>... [--json] [--quiet] [--strict]');
+    console.error('                       [--rule ID,ID] [--deny <path>] [--no-deny]');
+    console.error(`phrases come from ${defaultDenyPath().pathname.split('/').slice(-3).join('/')} plus built-ins`);
     console.error('rules:');
     for (const [id, desc] of Object.entries(RULES)) console.error(`  ${id.padEnd(18)} ${desc}`);
     return 2;
@@ -235,7 +320,7 @@ async function main(argv) {
   for (const f of files) {
     let text;
     try { text = readFileSync(f, 'utf8'); } catch { continue; }
-    for (const hit of detectSlop(text)) all.push({ file: f, ...hit });
+    for (const hit of detectSlop(text, { rules, deny })) all.push({ file: f, ...hit });
   }
 
   if (json) { console.log(JSON.stringify(all, null, 2)); return strict && all.length ? 1 : 0; }

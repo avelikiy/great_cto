@@ -6,7 +6,7 @@
 // and an API name in a call, and the linter has to tell those apart.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detectSlop, maskCode, RULES } from '../../scripts/lib/prose-slop.mjs';
+import { detectSlop, maskCode, RULES, parseDenyList, loadDenyList } from '../../scripts/lib/prose-slop.mjs';
 
 const rules = (text) => detectSlop(text).map((f) => f.rule);
 
@@ -138,4 +138,67 @@ test('empty and junk input do not throw', () => {
 test('maskCode keeps the line count identical', () => {
   const text = 'a\n```\nb\nc\n```\nd\n';
   assert.equal(maskCode(text).split('\n').length, text.split('\n').length);
+});
+
+// ── one list ────────────────────────────────────────────────────────────────
+//
+// prose-deny.txt and this module were two lists of banned phrases that nobody
+// diffed: the file was documented "reference-only" while qa-engineer ran a
+// hand-copied subset. These pin the file as the source, so a phrase added there
+// is checked without touching code — and pin the two ways that can go wrong:
+// a section header that stops mapping, and a hedge rule that fires by default.
+
+test('the deny file is the phrase source — its RULE sections pick the check', () => {
+  const d = parseDenyList([
+    '# junk before any section is ignored',
+    'stray phrase',
+    '# ── RULE-04: filler ──',
+    'in order to',
+    '# ── RULE-05: clichés ──',
+    'state-of-the-art',
+    '# ── RULE-H: hedges ──',
+    'appears to',
+  ].join('\n'));
+  assert.deepEqual(d['SLOP-OPENER'], ['in order to']);
+  assert.deepEqual(d['SLOP-DEAD'], ['state-of-the-art']);
+  assert.deepEqual(d['SLOP-HEDGE'], ['appears to']);
+  assert.ok(!Object.values(d).flat().includes('stray phrase'),
+    'a phrase with no section has no rule to belong to');
+});
+
+test('a phrase only in the file is enforced without touching code', () => {
+  const deny = { 'SLOP-OPENER': ['in order to'] };
+  assert.deepEqual(detectSlop('We did it in order to ship.'), [],
+    'not a built-in');
+  assert.equal(detectSlop('We did it in order to ship.', { deny })[0].rule, 'SLOP-OPENER');
+});
+
+test('a built-in keeps its specific replacement when the file repeats the phrase', () => {
+  const deny = { 'SLOP-DEAD': ['comprehensive'] };
+  const [f] = detectSlop('A comprehensive rewrite.', { deny });
+  assert.match(f.fix, /say the scope/, 'the flat file cannot carry a per-phrase fix');
+  assert.equal(detectSlop('A comprehensive rewrite.', { deny }).length, 1,
+    'and the phrase is not reported twice');
+});
+
+test('hedges do not fire by default — a prompt describing hedging is not hedging', () => {
+  const deny = { 'SLOP-HEDGE': ['appears to'] };
+  assert.deepEqual(detectSlop('The bug appears to be a race.', { deny }), []);
+  assert.equal(detectSlop('The bug appears to be a race.',
+    { deny, rules: ['SLOP-HEDGE'] })[0].rule, 'SLOP-HEDGE');
+});
+
+test('a missing deny file leaves the built-ins working', async () => {
+  assert.deepEqual(await loadDenyList('/nonexistent/prose-deny.txt'), {});
+  assert.ok(detectSlop('We utilize it.', { deny: {} }).length > 0);
+});
+
+test('the real deny file parses and every section maps to a known rule', async () => {
+  const d = await loadDenyList();
+  assert.ok(Object.keys(d).length >= 3, 'the shipped file has all three sections');
+  for (const [id, phrases] of Object.entries(d)) {
+    assert.ok(RULES[id], `${id} is not a rule`);
+    assert.ok(phrases.length > 0, `${id} is empty`);
+    assert.ok(phrases.every((p) => p === p.toLowerCase()), `${id} holds an uncased phrase`);
+  }
 });

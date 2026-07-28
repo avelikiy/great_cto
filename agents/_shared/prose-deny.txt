@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: MIT
 #
-# agents/_shared/prose-deny.txt — reference-only prose deny list for great_cto
-# agent output (not mechanically loaded; qa-engineer hook uses an inline
-# subset). Case-insensitive matches. Comments start with #. Blank lines ok.
+# agents/_shared/prose-deny.txt — the prose deny list for great_cto agent
+# output. This file IS the source: scripts/lib/prose-slop.mjs parses it, so a
+# phrase added below starts being checked with no code change. It was
+# reference-only until 2026-07-28, and a hand-copied subset in qa-engineer.md
+# was what actually ran — the two drifted, as two lists always do.
+#
+# Case-insensitive matches. Comments start with #. Blank lines ok.
+# The `RULE-NN` section headers are load-bearing: they decide which rule each
+# phrase feeds (RULE-04 -> SLOP-OPENER, RULE-05 -> SLOP-DEAD, RULE-H ->
+# SLOP-HEDGE). A phrase before any section header is ignored.
 #
 # Adapted from https://github.com/yzhao062/agent-style (v0.3.1),
 # enforcement/deny-phrases.txt (MIT). Trimmed to phrases that fire in our
