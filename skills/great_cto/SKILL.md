@@ -45,6 +45,7 @@ pipeline gets bypassed.
 | Browser extension manifest, MV3 permissions | `web-store-reviewer` |
 | Library / SDK / semver / public API surface | `library-reviewer` |
 | CLI tool: argv parsing, exit codes, --json | `cli-reviewer` |
+| Building an MCP server: tool surface, descriptions-as-instructions, transport | `mcp-server-reviewer` |
 | New product idea / problem → validated brief + idea debate (runs FIRST, before architect) | `product-owner` |
 | New feature implementation (TDD: RED → GREEN) | `senior-dev` |
 | Architecture decisions, ADRs, scaling questions | `architect` |
@@ -125,7 +126,7 @@ When spawning workers, choose the right dispatch mode:
 Use when: parallel read-only research, quick scoped lookup, second opinion on a finding.
 - Inherits full parent context — no need to re-brief background knowledge
 - Short directive prompt (≤5 sentences): "Read X, answer Y"
-- Set `background: true` for truly parallel forks
+- Set `background: true` for parallel forks
 - **Don't peek mid-flight**: do not call `TaskOutput` before the fork finishes — you'll get partial results
 - **Don't race**: if two forks could write to the same Beads task, serialize their close calls
 

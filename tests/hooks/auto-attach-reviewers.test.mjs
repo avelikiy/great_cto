@@ -209,3 +209,43 @@ test('a plain unrelated file attaches no reviewers', () => {
   assert.deepEqual(reviewersFor('src/components/Button.tsx'), []);
   assert.deepEqual(reviewersFor('README.md'), []); // also EXCLUDE-filtered
 });
+
+// mcp-server-reviewer routes on how an MCP server SITS ON DISK, because RULES
+// test file paths. The distinction that matters: consuming a server leaves
+// `.mcp.json` and `.playwright-mcp/` in a repo that never built one, and
+// flagging those would fire the reviewer on almost every project we touch.
+
+test('mcp-server-reviewer attaches where a server is actually built', () => {
+  for (const p of [
+    'mcp-servers/kimi/index.ts',
+    'packages/board/mcp-server.mjs',
+    'packages/cli/src/mcp.ts',
+    'src/mcp_server/tools.py',
+    'server/tools/mcp-server.ts',
+  ]) {
+    assert.ok(reviewersFor(p).includes('mcp-server-reviewer'), p);
+  }
+});
+
+test('mcp-server-reviewer does NOT attach on the leavings of consuming one', () => {
+  for (const p of ['.mcp.json', '.playwright-mcp/trace.zip', 'config/mcp.json']) {
+    assert.ok(!reviewersFor(p).includes('mcp-server-reviewer'),
+      `${p} — using a server is the operator's trust decision, not our review`);
+  }
+});
+
+test('mcp-server-reviewer does not fire on a word that merely starts with mcp', () => {
+  assert.ok(!reviewersFor('src/mcpherson.ts').includes('mcp-server-reviewer'));
+  assert.ok(!reviewersFor('docs/mcp-notes.md').includes('mcp-server-reviewer'));
+});
+
+test('every reviewer in RULES has a prompt file and a slot in the sync list', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const plugin = readFileSync(new URL('../../.claude-plugin/plugin.json', import.meta.url), 'utf8');
+  for (const { reviewer } of RULES) {
+    const prompt = new URL(`../../agents/${reviewer}.md`, import.meta.url);
+    assert.ok(existsSync(prompt), `${reviewer} is routed to but has no agents/${reviewer}.md`);
+    assert.ok(plugin.includes(` ${reviewer} `) || plugin.includes(`${reviewer};`),
+      `${reviewer} is routed to but never synced into ~/.claude/agents`);
+  }
+});

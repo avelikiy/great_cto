@@ -167,6 +167,9 @@ export const RULES = [
   { reviewer: "performance-engineer",    pattern: /(perf|p99|latency_budget|k6\/|locust\/|gatling\/|benchmark)/i },
   { reviewer: "library-reviewer",        pattern: /(package\.json|pyproject\.toml|Cargo\.toml).*(version|public.api)/i },
   { reviewer: "cli-reviewer",            pattern: /(bin\/|cli\/main|argv|exit.?code)/i },
+  // Building an MCP server, not consuming one: `.mcp.json` and `.playwright-mcp/`
+  // are what USING a server leaves behind, and neither is ours to review.
+  { reviewer: "mcp-server-reviewer",     pattern: /(mcp[-_]servers?[/.]|[/.]mcp[-_]server\.|(^|\/)mcp\.(ts|js|mjs|py)$|modelcontextprotocol)/i },
 ];
 
 // Files we deliberately ignore for reviewer routing — these are metadata,
