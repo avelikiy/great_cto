@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { gatesForApprovalLevel } from '../../scripts/lib/approval-level.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HOOK = resolve(__dirname, '../../scripts/hooks/pipeline-dispatcher.mjs');
@@ -258,4 +259,52 @@ test('e2e: reviewer with HANDOFF but no verdict log still dispatches', () => {
     assert.match(out.hookSpecificOutput.additionalContext, /PIPELINE-NEXT/);
     assert.match(out.hookSpecificOutput.additionalContext, /senior-dev/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── the map declares a gate; the approval level decides if it stops anyone ──
+//
+// pipeline.toml says pm sits behind gate:arch. Under `product-only` the
+// architect deliberately never creates that gate — the CTO delegated the
+// technical decision. If the dispatcher kept announcing it, the orchestrator
+// would sit forever waiting on a Beads task nobody will ever write. Found while
+// verifying the automatic pipeline end-to-end, not by reading the code.
+
+const ARCH_RULE = { architect: { on: ['DONE'], gate: 'gate:arch', next: ['pm'] } };
+const archDecision = (activeGates) => decideNext({
+  agent: 'architect', transitions: ARCH_RULE,
+  verdict: { verdict: 'DONE' }, joinVerdicts: {}, activeGates,
+});
+
+test('an inactive gate does not stall the pipeline — it hands off with the reason', () => {
+  const d = archDecision(['product', 'ship']);          // product-only
+  assert.equal(d.kind, 'next', 'must not wait on a gate nobody will create');
+  assert.match(d.text, /spawn/);
+  assert.match(d.text, /pm/);
+  assert.match(d.text, /not wait/i, 'and says why, so the orchestrator does not re-derive it');
+});
+
+test('an active gate still stops the pipeline', () => {
+  assert.equal(archDecision(['arch', 'ship']).kind, 'gate');   // gates-only
+});
+
+test('no policy supplied means honour every gate in the map', () => {
+  assert.equal(archDecision(null).kind, 'gate', 'absence of policy must never read as "no gates"');
+  assert.equal(decideNext({
+    agent: 'architect', transitions: ARCH_RULE,
+    verdict: { verdict: 'DONE' }, joinVerdicts: {},
+  }).kind, 'gate', 'omitting the argument entirely behaves the same');
+});
+
+test('gate names match with or without the gate: prefix', () => {
+  assert.equal(archDecision(['gate:arch']).kind, 'gate');
+  assert.equal(archDecision(['arch']).kind, 'gate');
+});
+
+test('a regulated floor keeps the ship gate even under a light level', () => {
+  const rule = { 'security-officer': { on: ['APPROVED', 'DONE'], gate: 'gate:ship', next: ['devops'] } };
+  const d = decideNext({
+    agent: 'security-officer', transitions: rule, verdict: { verdict: 'APPROVED' },
+    joinVerdicts: {}, activeGates: gatesForApprovalLevel('product-only', { archetype: 'fintech' }),
+  });
+  assert.equal(d.kind, 'gate', 'ship is expensive to undo — no level opts out of it');
 });

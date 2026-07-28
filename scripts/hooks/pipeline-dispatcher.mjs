@@ -30,6 +30,7 @@
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const PIPELINE_PATH = join('shared', 'pipeline.toml');
@@ -130,9 +131,24 @@ export function handoffFallback(agent, withinMs, now, { readdir, stat, read }) {
 
 /**
  * Pure transition decision.
+ *
+ * `activeGates` is the set the project's approval-level actually asks for
+ * (scripts/lib/approval-level.mjs). pipeline.toml declares where a gate *can*
+ * sit; the approval level decides which of those stop a human. Without this the
+ * dispatcher would tell the orchestrator to wait for `gate:arch` under
+ * `product-only` — where the architect deliberately never creates one — and the
+ * pipeline would stall forever on a gate that does not exist. Omitted (or null)
+ * means "honour every gate in the map", which is the pre-existing behaviour.
+ *
  * @returns {{kind:string, text:string}|null} null = nothing to inject
  */
-export function decideNext({ agent, transitions, verdict, joinVerdicts }) {
+export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null }) {
+  const gateActive = (g) => {
+    if (!g) return false;
+    if (!activeGates) return true;                       // no policy supplied → unchanged behaviour
+    const bare = String(g).replace(/^gate:/, '');
+    return activeGates.includes(bare) || activeGates.includes(g);
+  };
   const rule = transitions[agent] ||
     (agent.endsWith('-reviewer') ? { on: ['APPROVED', 'SIGNED-OFF', 'DONE'], next: ['senior-dev'] } : null);
   if (!rule) return null;
@@ -177,12 +193,24 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts }) {
     return { kind: 'done', text: `PIPELINE: ${agent} succeeded (${verdict.verdict}) — end of chain. Report the outcome to the CTO.` };
   }
 
-  if (rule.gate) {
+  if (rule.gate && gateActive(rule.gate)) {
     return {
       kind: 'gate',
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}). Next stage [${nexts.join(', ')}] is behind ${rule.gate} (human approval). ` +
         `Ensure the ${rule.gate} Beads task exists (bd list --label gate --status open), show the CTO the gate summary with artifact links, and WAIT for approval. ` +
         `After the CTO approves: close the gate bead and spawn ${nexts.map(n => `subagent_type: ${n}`).join(', then ')}. Do not auto-approve.`,
+    };
+  }
+  // A gate declared in the map but not active at this approval level is skipped
+  // deliberately, and the directive says so — a silently-skipped gate would look
+  // identical to a forgotten one, and the operator must be able to tell which
+  // question they chose not to be asked.
+  if (rule.gate) {
+    return {
+      kind: 'next',
+      text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) → spawn ${nexts.map(n => `Agent(subagent_type: ${n})`).join(' and ')} now. ` +
+        `${rule.gate} is declared in the pipeline map but NOT active at this approval level — the CTO delegated this decision, so do not wait for it. ` +
+        `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.`,
     };
   }
 
@@ -229,7 +257,17 @@ function main() {
     joinVerdicts[j] = latestVerdict(VERDICT_DIR, j, JOIN_MS, now);
   }
 
-  const decision = decideNext({ agent, transitions, verdict, joinVerdicts });
+  // Which gates this project's approval-level actually asks for. Read failures
+  // fall back to null = honour every gate in the map, so a missing PROJECT.md
+  // makes the pipeline MORE cautious, never less.
+  let activeGates = null;
+  try {
+    const pm = readFileSync(join(process.cwd(), '.great_cto', 'PROJECT.md'), 'utf8');
+    const archetype = (pm.match(/^archetype:\s*(\S+)/m) || [])[1];
+    activeGates = gatesForApprovalLevel(levelFromProjectMd(pm), { archetype });
+  } catch { /* no PROJECT.md or helper — keep every gate */ }
+
+  const decision = decideNext({ agent, transitions, verdict, joinVerdicts, activeGates });
   if (decision) emit(decision.text);
   return process.exit(0);
 }
