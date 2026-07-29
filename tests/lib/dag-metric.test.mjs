@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateDag, evaluateDag, pendingQuestion, explain,
+  questionPrompt, parseAnswer, judgeWithDag,
 } from '../../scripts/lib/dag-metric.mjs';
 
 // Does a finding carry evidence, and is its severity calibrated? Two questions,
@@ -157,7 +158,7 @@ test('evaluating a graph that does not validate returns the error, not a number'
 test('the shipped finding-gate DAG validates and every path reaches a score', async () => {
   const { readFileSync } = await import('node:fs');
   const dag = JSON.parse(readFileSync(
-    new URL('../eval/dags/finding-gate.dag.json', import.meta.url), 'utf8'));
+    new URL('../eval/dags/security-officer-finding-gate.dag.json', import.meta.url), 'utf8'));
 
   const { errors, warnings } = validateDag(dag);
   assert.deepEqual(errors, []);
@@ -183,7 +184,7 @@ test('the shipped finding-gate DAG validates and every path reaches a score', as
 test('the shipped DAG scores the eval\'s own holdout cases the way the eval says', async () => {
   const { readFileSync } = await import('node:fs');
   const dag = JSON.parse(readFileSync(
-    new URL('../eval/dags/finding-gate.dag.json', import.meta.url), 'utf8'));
+    new URL('../eval/dags/security-officer-finding-gate.dag.json', import.meta.url), 'utf8'));
 
   // H1 — SQL injection, cited, blocked: the eval calls this a pass.
   assert.equal(evaluateDag(dag, {
@@ -207,4 +208,61 @@ test('the shipped DAG scores the eval\'s own holdout cases the way the eval says
   });
   assert.ok(noEvidence.score > 0 && noEvidence.score < 0.5,
     'partial credit, because catching it matters and citing it also matters');
+});
+
+// ── driving a real judge ────────────────────────────────────────────────────
+//
+// The judge's job is now a choice from a closed set. These pin the two ways that
+// can still go wrong: a reply nobody can map, and a reply that looks like it
+// mentions every option.
+
+test('the question prompt names the allowed answers and forbids anything else', () => {
+  const { system, user } = questionPrompt('Did it cite a file:line?', ['yes', 'no'],
+    { scenario: 'S', test: 'T', actorResponse: 'R' });
+  assert.match(system, /exactly one word: yes or no/);
+  assert.match(user, /Question: Did it cite a file:line\?/);
+  assert.match(user, /Agent response:\nR/);
+});
+
+test('the prompt tells the judge which way to fall when the response is silent', () => {
+  const { system } = questionPrompt('q', ['yes', 'no']);
+  assert.match(system, /did NOT do it \(no\)/,
+    'silence must not be credited as compliance');
+});
+
+test('a clean reply parses, with or without punctuation and framing', () => {
+  for (const r of ['yes', 'YES', 'yes.', ' Yes\n', 'Answer: yes']) {
+    assert.equal(parseAnswer(r, ['yes', 'no']), 'yes', r);
+  }
+});
+
+test('a reply naming every option resolves to nothing, not to the first one', () => {
+  assert.equal(parseAnswer('yes or no', ['yes', 'no']), null);
+  assert.equal(parseAnswer('', ['yes', 'no']), null);
+  assert.equal(parseAnswer('maybe', ['yes', 'no']), null);
+  assert.equal(parseAnswer(null, ['yes', 'no']), null);
+});
+
+test('judgeWithDag walks the graph one question at a time and computes the score', async () => {
+  const asked = [];
+  const ask = async (q, allowed) => { asked.push(q); return asked.length === 1 ? 'yes' : 'no'; };
+  const r = await judgeWithDag(DAG, ask);
+  assert.equal(asked.length, 2, 'it asks only the questions on the path taken');
+  assert.equal(r.score, 0.5);
+  assert.deepEqual(r.answers, { 'has-evidence': 'yes', 'severity-calibrated': 'no' });
+});
+
+test('judgeWithDag stops short of a score when the judge answers unusably', async () => {
+  const r = await judgeWithDag(DAG, async () => 'it depends');
+  assert.equal(r.score, null, 'an unusable answer must not become a guessed score');
+  assert.match(r.error, /no usable answer/);
+  assert.equal(r.asked.length, 1, 'and it stops asking rather than pushing on');
+});
+
+test('judgeWithDag keeps every reply, so a disputed score can be re-read', async () => {
+  const r = await judgeWithDag(DAG, async () => 'yes');
+  assert.equal(r.asked.length, 2);
+  for (const a of r.asked) {
+    assert.ok(a.question && a.reply && a.answer, 'each step records what was asked and answered');
+  }
 });

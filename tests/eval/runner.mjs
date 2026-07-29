@@ -18,6 +18,14 @@
 //   node tests/eval/runner.mjs --agent security-officer --prompt-file cand.md --out cand.jsonl
 //   node tests/eval/runner.mjs --filter privacy      # only EVAL files matching "privacy"
 //   node tests/eval/runner.mjs --dry-run             # parse only, no API calls
+//   node tests/eval/runner.mjs --judge rubric        # force the 0-1 judge (see below)
+//
+// Judging: an eval is scored by tests/eval/dags/<slug>.dag.json when that file
+// exists — closed questions, score computed from the path, same answers always
+// giving the same score. Otherwise the original 0-1 rubric judge runs. `--judge
+// rubric` forces the rubric everywhere, which is what an A/B against the graph
+// needs. --judge-votes applies to the rubric judge only: voting a deterministic
+// score is paying three times for one answer.
 //
 // Env overrides (model ids):
 //   EVAL_ACTOR_MODEL / EVAL_JUDGE_MODEL  — override regardless of provider
@@ -38,6 +46,8 @@
 // Exits 1 if any EVAL file's pass rate is below its threshold.
 
 import { readdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { judgeWithDag, questionPrompt, validateDag } from '../../scripts/lib/dag-metric.mjs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -61,7 +71,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
   let promptFile = null;  // candidate prompt: override the actor system for ALL evals
   let samples = 1;        // run each EVAL file N times → rate mean + stddev
   let out = null;         // override results.jsonl output path (baseline vs candidate)
-  let judgeVotes = 1;     // majority-vote the judge N times per case → cut non-determinism
+  let judgeVotes = 1;
+  let judgeMode = 'auto';     // 'auto' = use the eval's DAG when it has one; 'rubric' = the 0-1 judge
   let actorTools = false; // ReAct inspect-then-conclude actor loop (vs one-shot)
   let actorTurns = 4;     // max INSPECT turns before forcing FINAL
   for (let i = 0; i < argv.length; i++) {
@@ -87,6 +98,10 @@ export function parseArgs(argv = process.argv.slice(2)) {
     } else if (argv[i] === '--judge-votes' && argv[i + 1]) {
       judgeVotes = parseInt(argv[++i], 10);
       if (isNaN(judgeVotes) || judgeVotes < 1) judgeVotes = 1;
+    } else if (argv[i] === '--judge' && argv[i + 1]) {
+      // 'auto' (default) scores with the eval's DAG when one exists; 'rubric'
+      // forces the original 0-1 judge, which is the other half of an A/B.
+      judgeMode = argv[++i] === 'rubric' ? 'rubric' : 'auto';
     } else if (argv[i] === '--actor-tools') {
       actorTools = true;
     } else if (argv[i] === '--actor-turns' && argv[i + 1]) {
@@ -94,7 +109,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       if (isNaN(actorTurns) || actorTurns < 1) actorTurns = 4;
     }
   }
-  return { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes, actorTools, actorTurns };
+  return { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes, judgeMode, actorTools, actorTurns };
 }
 
 /** Selects the case list for a parsed EVAL file given a split filter. */
@@ -525,6 +540,57 @@ export function parseJudgeVerdict(reply) {
   return 'UNKNOWN';
 }
 
+/**
+ * A DAG for this eval, or null. Opt-in by existence: drop
+ * tests/eval/dags/<slug>.dag.json next to the EVAL and this eval starts being
+ * scored by the graph. A graph that does not validate is ignored with a warning
+ * rather than silently scoring everything zero.
+ */
+export function loadDagFor(evalName, dir) {
+  const slug = String(evalName).replace(/^EVAL-/, '');
+  const path = join(dir || join(EVAL_DIR, 'dags'), `${slug}.dag.json`);
+  if (!existsSync(path)) return null;
+  try {
+    const dag = JSON.parse(readFileSync(path, 'utf8'));
+    const { errors } = validateDag(dag);
+    if (errors.length) { console.warn(`    [WARN] ${slug}.dag.json ignored: ${errors[0]}`); return null; }
+    return dag;
+  } catch (e) {
+    console.warn(`    [WARN] ${slug}.dag.json unreadable: ${e.message.slice(0, 60)}`);
+    return null;
+  }
+}
+
+/**
+ * Judge one case by walking the graph, asking one closed question at a time.
+ *
+ * The verdict still has to be PASS or FAIL for the rate arithmetic upstream, so
+ * the graph's score is compared against `passAt` (default 1 — a case passes only
+ * on a full-credit leaf). The score itself is carried through so an A/B against
+ * the rubric judge has something finer than a boolean to compare.
+ */
+async function dagJudgeCase({ dag, judgeModel, scenario, test, expected, passCriterion, actorResponse }) {
+  let costUsd = 0;
+  const ask = async (question, allowed) => {
+    const { system, user } = questionPrompt(question, allowed,
+      { scenario, test, expected: passCriterion || expected, actorResponse });
+    const r = await callLlm({ model: judgeModel || modelFor('judge'), system, user, maxTokens: 8 });
+    costUsd += costForUsage({ model: r.model, usage: r.usage });
+    return r.text;
+  };
+
+  const r = await judgeWithDag(dag, ask);
+  if (r.score === null) {
+    return { verdict: 'UNKNOWN', reason: (r.error || 'graph did not reach a leaf').slice(0, 120), score: null, costUsd, dagPath: r.path || [] };
+  }
+  const passAt = typeof dag.passAt === 'number' ? dag.passAt : 1;
+  return {
+    verdict: r.score >= passAt ? 'PASS' : 'FAIL',
+    reason: `${r.score} — ${r.reason || r.leaf}`.slice(0, 120),
+    score: r.score, costUsd, dagPath: r.path,
+  };
+}
+
 /** Sample standard deviation of an array of numbers (0 if < 2 elements). */
 export function stddev(arr) {
   if (!arr || arr.length < 2) return 0;
@@ -540,8 +606,12 @@ function mean(arr) {
 // ── Runner core ──────────────────────────────────────────────────────────────
 
 /** Run a single EVAL file ONCE. Returns the per-run result (with cost). */
-async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes = 1, useTools = false, actorTurns = 4 }) {
+async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes = 1, useTools = false, actorTurns = 4, judgeMode = 'auto' }) {
   const selectedCases = selectCases(parsed, split);
+  // 'auto' uses the graph when one exists for this eval; 'rubric' keeps the
+  // original 0-1 judge, which is what an A/B needs on the other side.
+  const dag = judgeMode === 'rubric' ? null : loadDagFor(evalName);
+  if (dag) console.log(`    judge: DAG (${Object.keys(dag.nodes).length} questions)`);
   let passed = 0;
   let skipped = 0;
   let costUsd = 0;
@@ -558,18 +628,26 @@ async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actor
       const actor = await callActor({ actorModel, scenario: parsed.scenario, test: c.test, actorSystem, useTools, actorTurns });
       costUsd += costForUsage({ model: actor.model, usage: actor.usage });
 
-      // Majority-vote judge, graded against the crisp "Pass" criterion (not just prose "Expected").
-      const judge = await judgeVote({
+      const judgeArgs = {
         judgeModel,
         scenario: parsed.scenario, test: c.test, expected: c.expected,
         passCriterion: c.pass, actorResponse: actor.text,
-      }, judgeVotes);
+      };
+      // The graph asks closed questions and computes; the rubric judge votes on a
+      // free-form verdict. Votes are wasted on the graph — the same answers always
+      // give the same score, so the only variance left is in the answers themselves.
+      const judge = dag
+        ? await dagJudgeCase({ dag, ...judgeArgs })
+        : await judgeVote(judgeArgs, judgeVotes);
       costUsd += judge.costUsd;
 
       const verdict = judge.verdict;
       if (verdict === 'PASS') passed++;
       else if (verdict === 'UNKNOWN') skipped++;
-      caseResults.push({ num: c.num, verdict, reason: judge.reason });
+      caseResults.push({
+        num: c.num, verdict, reason: judge.reason,
+        ...(dag ? { score: judge.score, dagPath: judge.dagPath, judge: 'dag' } : { judge: 'rubric' }),
+      });
     } catch (err) {
       console.warn(`    [WARN] Case ${c.num} in ${evalName} skipped: ${err.message.slice(0, 80)}`);
       skipped++;
@@ -583,7 +661,7 @@ async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actor
 }
 
 /** Run an EVAL file `samples` times and aggregate (rate mean + stddev + flaky). */
-async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1, judgeVotes = 1, useTools = false, actorTurns = 4 }) {
+async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1, judgeVotes = 1, useTools = false, actorTurns = 4, judgeMode = 'auto' }) {
   let content;
   try {
     content = readFileSync(evalPath, 'utf8');
@@ -610,7 +688,7 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
 
   const runs = [];
   for (let s = 0; s < samples; s++) {
-    runs.push(await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes, useTools, actorTurns }));
+    runs.push(await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes, useTools, actorTurns, judgeMode }));
   }
 
   const rates = runs.map(r => r.rate);
@@ -700,7 +778,7 @@ function gitSha() {
 }
 
 async function main() {
-  const { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes, actorTools, actorTurns } = parseArgs();
+  const { sample, dryRun, split, agent, filter, promptFile, samples, out, judgeVotes, judgeMode, actorTools, actorTurns } = parseArgs();
 
   const { provider } = pickProvider();
   if (!dryRun && !provider) {

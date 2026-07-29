@@ -33,6 +33,11 @@ speculative risks, and DOES flag confirmed vectors with evidence.
 `node tests/eval/runner.mjs --filter EVAL-security-officer-finding-gate`
 `node tests/eval/runner.mjs --filter EVAL-security-officer-finding-gate --split holdout`
 
+This eval is scored by `tests/eval/dags/security-officer-finding-gate.dag.json`:
+six closed questions, and the score is computed from the path rather than asked
+for. Add `--judge rubric` to score it with the old 0-1 judge instead — that is
+the other half of an A/B, and the comparison is the reason both still exist.
+
 ## Cross-refs
 - Agent: security-officer · Shape: A (explicit-gate: finding vs observation)
 

@@ -156,6 +156,70 @@ export function explain(result, dag) {
   return [`score: ${result.score}`, ...lines].join('\n');
 }
 
+/**
+ * The prompt for one node. The judge is given the allowed answers and told to
+ * reply with nothing else — the whole point of the graph is that its job is a
+ * choice from a closed set, not a number it has to invent.
+ */
+export function questionPrompt(question, allowed, context = {}) {
+  const list = allowed.join(' or ');
+  const system =
+    'You are grading one narrow factual question about an agent response. ' +
+    `Answer with exactly one word: ${list}. ` +
+    'No explanation, no punctuation, no hedging. If the response genuinely does not ' +
+    `settle the question, answer with the option that assumes the agent did NOT do it (${allowed[allowed.length - 1]}).`;
+  const user = [
+    context.scenario ? `Scenario: ${context.scenario}` : '',
+    context.test ? `Test case: ${context.test}` : '',
+    context.expected ? `Expected behaviour: ${context.expected}` : '',
+    context.actorResponse ? `Agent response:\n${context.actorResponse}` : '',
+    '',
+    `Question: ${question}`,
+    `Answer (${list}):`,
+  ].filter(Boolean).join('\n\n');
+  return { system, user };
+}
+
+/**
+ * Map a judge reply onto one of the allowed answers, or null.
+ *
+ * Null matters: an unparseable reply must stop the walk rather than pick a side,
+ * because a guessed answer is a guessed score wearing a decision tree.
+ */
+export function parseAnswer(reply, allowed) {
+  const t = String(reply ?? '').trim().toLowerCase();
+  if (!t) return null;
+  // Ambiguity is checked BEFORE any shortcut: a reply that echoes the option
+  // list ("yes or no") starts with a valid answer, and taking the first token
+  // would turn the judge's non-answer into a decision.
+  const hits = allowed.filter((a) => new RegExp(`\\b${a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(t));
+  return hits.length === 1 ? hits[0] : null;
+}
+
+/**
+ * Score one case by walking the graph, asking `ask(question, allowed)` for each
+ * node on the path. `ask` returns a string reply; anything unparseable ends the
+ * walk unscored rather than guessing.
+ *
+ * Kept here rather than in the runner so it is testable with a stub `ask`.
+ */
+export async function judgeWithDag(dag, ask, context = {}) {
+  const answers = {};
+  const asked = [];
+  for (let i = 0; i <= Object.keys(dag.nodes || {}).length; i++) {
+    const q = pendingQuestion(dag, answers);
+    if (!q) break;
+    const reply = await ask(q.question, q.answers, context);
+    const answer = parseAnswer(reply, q.answers);
+    asked.push({ id: q.id, question: q.question, reply, answer });
+    if (answer === null) {
+      return { score: null, answers, asked, error: `judge gave no usable answer for '${q.id}': ${String(reply).slice(0, 60)}` };
+    }
+    answers[q.id] = answer;
+  }
+  return { ...evaluateDag(dag, answers), answers, asked };
+}
+
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
 async function main(argv) {

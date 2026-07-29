@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -511,4 +511,40 @@ test('stddev: 0 for <2 samples, correct sample stddev otherwise', () => {
   assert.equal(stddev([1, 1, 1]), 0);
   // sample stddev of [0.6, 1.0] = 0.2828...
   assert.ok(Math.abs(stddev([0.6, 1.0]) - 0.282842) < 1e-4);
+});
+
+// ── DAG judge selection ─────────────────────────────────────────────────────
+//
+// Which judge scores an eval is decided by whether a graph file exists next to
+// it. That makes the loader a new way for scoring to change silently, so it has
+// to fail loudly: a graph that does not validate must fall back to the rubric
+// judge rather than score every case zero.
+
+test('an eval with a graph beside it gets the graph', () => {
+  const dag = loadDagFor('EVAL-security-officer-finding-gate');
+  assert.ok(dag, 'the shipped graph should be found by the eval name');
+  assert.ok(Object.keys(dag.nodes).length >= 5);
+});
+
+test('an eval with no graph gets null, which means the rubric judge', () => {
+  assert.equal(loadDagFor('EVAL-pm-decomposition'), null);
+  assert.equal(loadDagFor('EVAL-does-not-exist'), null);
+});
+
+test('a graph that does not validate is ignored, not used to score zeroes', async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'dags-'));
+  try {
+    // an edge into nothing — the shape a careless edit leaves behind
+    writeFileSync(join(dir, 'broken.dag.json'), JSON.stringify({
+      root: 'a', nodes: { a: { question: 'q', edges: { yes: 'ghost', no: 'leaf' } } },
+      leaves: { leaf: { score: 1, reason: 'r' } },
+    }));
+    assert.equal(loadDagFor('EVAL-broken', dir), null);
+
+    writeFileSync(join(dir, 'garbage.dag.json'), 'not json at all');
+    assert.equal(loadDagFor('EVAL-garbage', dir), null);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
