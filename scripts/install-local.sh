@@ -101,5 +101,47 @@ if [ "$DO_PRUNE" -eq 1 ]; then
   ok "pruned $removed other version(s) — only v$VERSION remains"
 fi
 
+step "Register with the host"
+# Copying files into the cache is not installing. Claude Code loads a plugin only
+# if ~/.claude/plugins/installed_plugins.json has an entry for it, and that entry
+# names one exact version directory. This script creates a NEW directory on every
+# bump and --prune deletes the old ones, so an entry written by a previous install
+# goes stale, points at a deleted path, and the plugin stops loading — quietly.
+# Found on 2026-07-29: great_cto was the only enabled @local plugin missing from
+# the registry, so none of its hooks had run for weeks while `enabledPlugins` said
+# it was on. Re-asserting the entry here is the difference between "the files are
+# there" and "the host will load them".
+REG="$HOME/.claude/plugins/installed_plugins.json"
+if [ -f "$REG" ] && command -v node >/dev/null 2>&1; then
+  node - "$REG" "$DEST" "$VERSION" <<'NODE'
+const { readFileSync, writeFileSync, copyFileSync, existsSync } = require('node:fs');
+const [reg, dest, version] = process.argv.slice(2);
+const KEY = 'great_cto@local';
+let d;
+try { d = JSON.parse(readFileSync(reg, 'utf8')); }
+catch { console.log('  ! registry unreadable — left alone'); process.exit(0); }
+d.plugins ||= {};
+const cur = (d.plugins[KEY] || [])[0];
+if (cur && cur.installPath === dest && existsSync(dest)) {
+  console.log(`  \u2713 already registered → v${version}`);
+  process.exit(0);
+}
+copyFileSync(reg, `${reg}.bak`);            // one rolling backup, never a chain
+const now = new Date().toISOString();
+d.plugins[KEY] = [{
+  scope: 'user',
+  installPath: dest,
+  version,
+  installedAt: cur?.installedAt || now,
+  lastUpdated: now,
+  gitCommitSha: 'local',
+}];
+writeFileSync(reg, JSON.stringify(d, null, 2) + '\n');
+console.log(`  \u2713 ${cur ? 'repointed' : 'registered'} great_cto@local → v${version}`);
+NODE
+else
+  echo "  ! no installed_plugins.json — skipping registration"
+fi
+
 printf '\n\033[42;30m INSTALL-LOCAL: DONE \033[0m  v%s\n' "$VERSION"
 echo "  Restart your Claude Code session so the SessionStart hook picks it up."
