@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.com/plugins)
 [![Codex](https://img.shields.io/badge/OpenAI_Codex-Supported-412991)](https://openai.com/codex)
-[![Savings](https://img.shields.io/badge/one_real_run-1h26m_·_$3.40_vs_~$42K_traditional-darkgreen)](https://greatcto.systems/proof)
+[![Traced run](https://img.shields.io/badge/one_real_feature-1h26m_·_$3.40_in_tokens-darkgreen)](https://greatcto.systems/proof)
 
 ```bash
 npx great-cto init
@@ -37,8 +37,10 @@ It's an **AI Product Builder**, not another coding-agent loop. The orchestration
 the coding agent you already use: a team of specialist agents that plan, build, review, and
 gate the work — so one person ships like an engineering org.
 
-> **One real feature: idea → merged PR in `1h 26m` for `$3.40` in LLM cost.** The traditional
-> path for the same feature was ~170 hours and ~$42K. [See the full trace →](https://greatcto.systems/proof)
+> **One real feature: idea → merged PR in `1h 26m` for `$3.40` in tokens.** That is one
+> feature, not a product — the open benchmark built 7 products at a median **$171 in tokens**
+> and **70/100** quality (range 58–86), reproducible with `scripts/bench-run.sh`.
+> [See the full trace →](https://greatcto.systems/proof) · [the benchmark →](docs/benchmarks/BENCH-2026-07-batch1.md)
 
 It builds across 15 US industries — home & field services, professional services,
 retail/e-commerce, proptech, fitness, marketing & creator, HR/recruiting, construction,
@@ -76,33 +78,36 @@ gate that makes it safe to let the pipeline run to deploy. And approving the spe
 door — if a structural spec error surfaces mid-build, any agent can raise an objection that re-opens
 the gate, so a long build is recoverable, not finish-bad-or-restart.
 
-**One gate, where it matters.** Build steps are risk-tiered: a reversible change builds and ships
-behind CI; an irreversible one — a production deploy, a schema migration, a new write-capable
-integration — escalates to the CTO gate and the frontier model before it runs. You sign the spec
-and the high-blast-radius calls; the rest runs straight through, enforced in code, not just policy.
+**Two checkpoints, both yours.** By default (`approval-level: gates-only`) the pipeline stops
+twice: once to approve the design, once before it ships. Everything between runs unattended.
+Set `approval-level: product-only` and the first stop moves to the product decision instead —
+you approve *what* gets built and let the pipeline decide *how*. `auto` removes both, except on
+a regulated archetype, where the security and ship gates survive every downgrade. The full
+table: [docs/GATES.md](docs/GATES.md).
 
 ## By the numbers
 
 | | |
 |---|---|
-| One feature, end to end (real run, fully traced) | **1h 26m · $3.40 LLM** vs ~$42K / ~170h traditional |
+| One feature, end to end (real run, fully traced) | **1h 26m · $3.40** in tokens |
+| A whole product, 7 of them, open benchmark | median **$171** in tokens · **70/100** quality (58–86) |
 | An earlier CLI-feature run, same pipeline | $2.39 LLM vs ~$5,460 human-equivalent; security caught 2 defects QA had passed |
 | Monthly cost (20 pipeline runs) | **~$34** |
 | Target US industries | **15** (home services · retail · proptech · fitness · HR · healthcare · insurance · legal · …) |
 | Buildable products | **60** across the 15 industries |
 | Reusable build pipelines | **6** (CRUD · booking · CRM · dashboard · marketplace · content) |
-| Specialist agents | **67** |
-| Generated-product quality (measured) | **89/100** across all 6 build archetypes — reproducible `product-score` harness (quality-machinery score; a floor, not deep correctness) |
+| Specialist agents | **69** |
+| Generated-product quality (measured) | median **70/100** on the 7-product benchmark, range 58–86. The `product-score` harness reports 89 — that number is a structural completeness floor, not correctness |
 
 → [Full trace with all artefacts](https://greatcto.systems/proof) · [the 6 pipelines](https://greatcto.systems/pipelines)
 
 ## How it works
 
-**`npx great-cto init`** — scans your stack and writes `.great_cto/FLOW.md` with the pipeline for your product: the agents, the build archetype, and the single CTO gate.
+**`npx great-cto init`** — scans your stack and writes `.great_cto/FLOW.md` with the pipeline for your product: the agents, the build archetype, and which gates apply.
 
-**`/start "describe the product"`** — architect and design-advisor draft the spec, data model and screens. You review and approve it at the **one gate** — `gate:plan`.
+**`/start "describe the product"`** — architect and design-advisor draft the spec, data model and screens. You approve it at **`gate:arch`**.
 
-**The pipeline ships it** — senior-dev scaffolds and builds with TDD, QA runs the generated tests, devops deploys. No further approval needed for a reversible build.
+**The pipeline ships it** — senior-dev scaffolds and builds with TDD, QA runs the generated tests, security signs off, and you approve **`gate:ship`** before it deploys. Nothing between the two stops asks you anything.
 
 ## Three products — one pipeline
 
@@ -164,19 +169,23 @@ Superpowers and Beads companion plugins install automatically — no manual setu
 ---
 
 <details>
-<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · 68 agents · build archetypes · board · cost · MCP</summary>
+<summary>📖 Full documentation — one CTO gate · risk-tiering · critics · approval levels · 69 agents · build archetypes · board · cost · MCP</summary>
 
 ## One decision per feature
 
 ```
 🤖 architect + design-advisor  →  spec · data model · screens
    ↓
-🟡 gate:plan   ←  you decide here — approve the spec (the one CTO gate)
+🟡 gate:arch   ←  you decide here — approve the design
    ↓
-🤖 senior-dev → review → qa-engineer → devops  →  built · tested · deployed
+🤖 senior-dev → review → qa-engineer + security-officer
+   ↓
+🟡 gate:ship   ←  you decide here — approve the deploy
+   ↓
+🤖 devops  →  deployed
 ```
 
-The pipeline is risk-tiered (`change_tier`): a maintenance fix opens **no** gate (CI is the gate), a reversible feature opens **only** `gate:plan`, and an irreversible change forces the full set + the frontier model. Everything between the gate and deploy runs automatically. **Memory persists** between sessions: every gate verdict appends to `~/.great_cto/decisions.md`, every retrospective to per-project `lessons.md`, and `/crystallize` promotes high-impact patterns to a global library agents query before re-solving.
+Which stops apply is one setting, `approval-level` in `.great_cto/PROJECT.md`: `gates-only` (default, the two above), `product-only` (approve the product and the ship, nothing technical), `strict` (adds code review), `auto` (none). A regulated archetype keeps a security and ship floor no level can remove. Everything between the stops runs automatically. **Memory persists** between sessions: every gate verdict appends to `~/.great_cto/decisions.md`, every retrospective to per-project `lessons.md`, and `/crystallize` promotes high-impact patterns to a global library agents query before re-solving.
 
 ## Critics before the plan
 
@@ -198,7 +207,7 @@ Previously critics only activated starting from Plan. Now the pipeline catches a
 | Self-host | ✅ runs locally | ❌ Cognition cloud | ✅ |
 | Host | ✅ Claude Code + Codex | ❌ Cognition cloud | ✅ Claude Code |
 | BYOK / multi-model | ✅ Claude Code · Codex | ❌ proprietary | ❌ Anthropic only |
-| Specialist agents | **67** (architect · design-advisor · senior-dev · code-reviewer · QA · security · e2e-test-engineer · devops · archetype reviewers) | 1 generalist | 1 generalist |
+| Specialist agents | **69** (architect · design-advisor · senior-dev · code-reviewer · QA · security · e2e-test-engineer · devops · archetype reviewers) | 1 generalist | 1 generalist |
 | Build pipeline | spec → CTO gate → scaffold → build → test → deploy | one-shot autonomy | edit loop |
 | Human gates | ✅ one — you approve the spec (risk-tiered) | ❌ none | ❌ |
 | Memory across sessions | ✅ `decisions.md` + `lessons.md` + crystallize | ⚠️ thread only | ⚠️ thread only |
@@ -239,8 +248,9 @@ jurisdiction: [eu, us-ca]
 ```bash
 /start "build a dispatch & scheduling app for an HVAC business"
 # → architect + design-advisor → spec, data model, screens
-# → pm → Beads tasks → gate:plan (you approve the spec — the one gate)
-# → senior-dev → review → qa → devops → built · tested · deployed
+# → gate:arch (you approve the design)
+# → pm → Beads tasks → senior-dev → review → qa + security
+# → gate:ship (you approve the deploy) → devops → deployed
 
 /inbox
 # Pending gate · P0 incidents · blocked tasks · stale in-progress
@@ -302,7 +312,7 @@ opt-in and orthogonal to the build pipeline; most products need none.
 
 The canonical receipt: **one real feature** shipped through the full pipeline in **1h 26m
 wall-clock for $3.40 in LLM cost** — architect → plan → implementation → review → human gate →
-merged PR. The traditional path for the same feature: ~170 hours and ~$42K. Every stage
+merged PR — one feature, traced end to end. Every stage
 timestamped, every artifact links to a public GitHub PR.
 
 An earlier run on a Python CLI feature ($2.39 vs ~$5,460 human-equivalent) showed the review model working: security caught two real defects QA had passed (`list(stream_csv())` defeated streaming → 14.5 MB peak RSS on 13 MB input).
@@ -378,7 +388,7 @@ Full FAQ: [docs/FAQ.md](docs/FAQ.md).
 
 ## Architecture
 
-The plugin runs inside Claude Code (or any MCP-capable host); 68 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The plugin runs inside Claude Code (or any MCP-capable host); 69 agents are markdown specs; tasks live in Beads (dolt, git-native); memory is plain markdown (no vector store). Diagram + stack table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What's new
 
