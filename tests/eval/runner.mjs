@@ -547,7 +547,11 @@ export function parseJudgeVerdict(reply) {
  * rather than silently scoring everything zero.
  */
 export function loadDagFor(evalName, dir) {
-  const slug = String(evalName).replace(/^EVAL-/, '');
+  // The runner passes the FILE name ('EVAL-x.md'); earlier code and the first
+  // test both assumed the bare eval name. Stripping only the prefix made every
+  // lookup miss, so the graph was never selected and an A/B silently compared
+  // the rubric judge against itself.
+  const slug = String(evalName).replace(/^EVAL-/, '').replace(/\.md$/, '');
   const path = join(dir || join(EVAL_DIR, 'dags'), `${slug}.dag.json`);
   if (!existsSync(path)) return null;
   try {
@@ -881,6 +885,7 @@ async function main() {
       agentOverride: agent,
       samples,
       judgeVotes,
+      judgeMode,
       useTools: actorTools,
       actorTurns,
     });
@@ -909,6 +914,11 @@ async function main() {
       thresholdRaw: result.thresholdRaw,
       belowThreshold: result.belowThreshold,
       ts: result.ts,
+      // Per-case detail, so a run can be ARGUED WITH without paying to repeat it.
+      // The aggregate rate says an eval moved; only these say which case moved and
+      // why. Under the DAG judge each entry also carries the score and the path
+      // through the graph, which is the whole point of scoring by path.
+      caseResults: result.caseResults || [],
     };
     appendFileSync(resultsPath, JSON.stringify(jsonlEntry) + '\n');
     // Append-only history: same row + run identity, NEVER truncated.

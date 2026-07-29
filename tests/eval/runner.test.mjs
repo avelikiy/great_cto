@@ -548,3 +548,11 @@ test('a graph that does not validate is ignored, not used to score zeroes', asyn
     assert.equal(loadDagFor('EVAL-garbage', dir), null);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('the loader accepts the name the runner actually passes, not the one we assumed', () => {
+  // runEvalFileOnce receives the FILE name. The first version of this loader
+  // only stripped the EVAL- prefix, so every lookup missed and the graph was
+  // never used — an A/B that looked like it ran compared rubric against rubric.
+  assert.ok(loadDagFor('EVAL-security-officer-finding-gate.md'), 'with .md');
+  assert.ok(loadDagFor('EVAL-security-officer-finding-gate'), 'without .md');
+});
