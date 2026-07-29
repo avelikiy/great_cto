@@ -1,0 +1,210 @@
+// Our judge returns 0.44 against a 1.00 bar with ±0.09 of sampling noise, and
+// fourteen of eighteen recorded results sit below their own threshold. Asking a
+// model for a number is the problem: the number is sampled, not derived.
+//
+// A DAG asks narrow questions a judge can answer the same way twice, and COMPUTES
+// the score from the path taken. So the properties worth pinning are the ones
+// that keep the arithmetic honest: the same answers always give the same score,
+// a question nobody answered stops the walk instead of defaulting, and a graph
+// that cannot produce a score fails at validation rather than at judgement time.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  validateDag, evaluateDag, pendingQuestion, explain,
+} from '../../scripts/lib/dag-metric.mjs';
+
+// Does a finding carry evidence, and is its severity calibrated? Two questions,
+// four outcomes — the shape a reviewer actually needs.
+const DAG = {
+  id: 'finding-quality',
+  root: 'has-evidence',
+  nodes: {
+    'has-evidence': {
+      question: 'Does the finding cite a file:line, a commit, a metric with units, or a CVE?',
+      edges: { yes: 'severity-calibrated', no: 'leaf-no-evidence' },
+    },
+    'severity-calibrated': {
+      question: 'Does the stated severity match the evidence, neither over- nor under-stated?',
+      edges: { yes: 'leaf-good', no: 'leaf-miscalibrated' },
+    },
+  },
+  leaves: {
+    'leaf-good': { score: 1, reason: 'evidence cited and severity matches it' },
+    'leaf-miscalibrated': { score: 0.5, reason: 'evidence cited but severity does not follow from it' },
+    'leaf-no-evidence': { score: 0, reason: 'no evidence pointer — a guess, not a finding' },
+  },
+};
+
+// ── validation catches the graph, not the run ───────────────────────────────
+
+test('a well-formed graph validates', () => {
+  assert.deepEqual(validateDag(DAG).errors, []);
+});
+
+test('a cycle is caught at validation, not discovered mid-walk', () => {
+  const bad = { ...DAG, nodes: { ...DAG.nodes,
+    'severity-calibrated': { question: 'q', edges: { yes: 'has-evidence', no: 'leaf-good' } } } };
+  assert.match(validateDag(bad).errors.join(' '), /cycle/i);
+});
+
+test('an edge pointing nowhere is caught', () => {
+  const bad = { ...DAG, nodes: { ...DAG.nodes,
+    'has-evidence': { question: 'q', edges: { yes: 'nope', no: 'leaf-no-evidence' } } } };
+  assert.match(validateDag(bad).errors.join(' '), /nope/);
+});
+
+test('a leaf without a score is caught — an unscored leaf is a silent zero', () => {
+  const bad = { ...DAG, leaves: { ...DAG.leaves, 'leaf-good': { reason: 'fine' } } };
+  assert.match(validateDag(bad).errors.join(' '), /leaf-good/);
+});
+
+test('a score outside 0..1 is caught', () => {
+  const bad = { ...DAG, leaves: { ...DAG.leaves, 'leaf-good': { score: 1.5, reason: 'x' } } };
+  assert.match(validateDag(bad).errors.join(' '), /0..1|range/i);
+});
+
+test('an unreachable leaf is reported, since it means a branch was lost', () => {
+  const orphaned = { ...DAG, leaves: { ...DAG.leaves, 'leaf-ghost': { score: 0.9, reason: 'x' } } };
+  assert.match(validateDag(orphaned).warnings.join(' '), /leaf-ghost/);
+});
+
+// ── the walk ────────────────────────────────────────────────────────────────
+
+test('the score comes from the leaf the answers reach', () => {
+  const r = evaluateDag(DAG, { 'has-evidence': 'yes', 'severity-calibrated': 'yes' });
+  assert.equal(r.score, 1);
+  assert.equal(r.leaf, 'leaf-good');
+  assert.deepEqual(r.path, ['has-evidence', 'severity-calibrated', 'leaf-good']);
+});
+
+test('a different path gives a different score, computed and not sampled', () => {
+  assert.equal(evaluateDag(DAG, { 'has-evidence': 'no' }).score, 0);
+  assert.equal(evaluateDag(DAG, { 'has-evidence': 'yes', 'severity-calibrated': 'no' }).score, 0.5);
+});
+
+test('the same answers always give the same score', () => {
+  const a = { 'has-evidence': 'yes', 'severity-calibrated': 'no' };
+  const runs = Array.from({ length: 20 }, () => evaluateDag(DAG, a).score);
+  assert.equal(new Set(runs).size, 1, 'a judge that varies is a judge nobody can act on');
+});
+
+test('an unanswered question stops the walk and names itself', () => {
+  const r = evaluateDag(DAG, { 'has-evidence': 'yes' });
+  assert.equal(r.score, null, 'a missing answer must not become a default score');
+  assert.equal(r.pending, 'severity-calibrated');
+  assert.match(r.question, /severity/i);
+});
+
+test('an answer no edge accepts is an error, not a coin flip', () => {
+  const r = evaluateDag(DAG, { 'has-evidence': 'maybe' });
+  assert.equal(r.score, null);
+  assert.match(r.error, /maybe/);
+});
+
+test('answers for nodes off the path are ignored, not blended in', () => {
+  const r = evaluateDag(DAG, { 'has-evidence': 'no', 'severity-calibrated': 'yes' });
+  assert.equal(r.score, 0, 'the branch not taken has no vote');
+  assert.deepEqual(r.path, ['has-evidence', 'leaf-no-evidence']);
+});
+
+// ── driving a judge one question at a time ──────────────────────────────────
+
+test('pendingQuestion asks the root first, then the next node on the path', () => {
+  assert.equal(pendingQuestion(DAG, {}).id, 'has-evidence');
+  assert.equal(pendingQuestion(DAG, { 'has-evidence': 'yes' }).id, 'severity-calibrated');
+  assert.equal(pendingQuestion(DAG, { 'has-evidence': 'no' }), null, 'a finished walk asks nothing');
+});
+
+test('a pending question carries its allowed answers, so a judge cannot invent one', () => {
+  assert.deepEqual(pendingQuestion(DAG, {}).answers.sort(), ['no', 'yes']);
+});
+
+// ── the verdict a human reads ───────────────────────────────────────────────
+
+test('explain prints the questions, the answers, and why the score is what it is', () => {
+  const text = explain(evaluateDag(DAG, { 'has-evidence': 'yes', 'severity-calibrated': 'no' }), DAG);
+  assert.match(text, /0\.5/);
+  assert.match(text, /severity does not follow/);
+  assert.match(text, /yes/);
+});
+
+test('explain on an unfinished walk says what is missing rather than a score', () => {
+  const text = explain(evaluateDag(DAG, {}), DAG);
+  assert.match(text, /unanswered|pending/i);
+  assert.doesNotMatch(text, /score: [0-9]/i);
+});
+
+// ── junk in ─────────────────────────────────────────────────────────────────
+
+test('a graph with no root or no nodes fails validation instead of throwing', () => {
+  for (const bad of [{}, { root: 'x' }, { root: 'x', nodes: {} }]) {
+    assert.ok(validateDag(bad).errors.length > 0);
+  }
+});
+
+test('evaluating a graph that does not validate returns the error, not a number', () => {
+  const r = evaluateDag({ root: 'x', nodes: {}, leaves: {} }, {});
+  assert.equal(r.score, null);
+  assert.ok(r.error);
+});
+
+// ── the DAG we ship ─────────────────────────────────────────────────────────
+//
+// A metric checked into the repo rots the same way a doc does. This walks every
+// path of the shipped graph, so a dropped branch or an unscored leaf fails here
+// rather than during a judging run somebody paid for.
+
+test('the shipped finding-gate DAG validates and every path reaches a score', async () => {
+  const { readFileSync } = await import('node:fs');
+  const dag = JSON.parse(readFileSync(
+    new URL('../eval/dags/finding-gate.dag.json', import.meta.url), 'utf8'));
+
+  const { errors, warnings } = validateDag(dag);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, [], 'an unreachable leaf means a branch was lost in an edit');
+
+  // Exhaustive walk: every combination of answers must land on a scored leaf.
+  const paths = [];
+  const walk = (id, answers) => {
+    if (dag.leaves[id]) { paths.push({ answers, leaf: id }); return; }
+    for (const [answer, next] of Object.entries(dag.nodes[id].edges)) {
+      walk(next, { ...answers, [id]: answer });
+    }
+  };
+  walk(dag.root, {});
+  assert.ok(paths.length >= 6, `expected every branch to be walkable, got ${paths.length}`);
+  for (const { answers, leaf } of paths) {
+    const r = evaluateDag(dag, answers);
+    assert.equal(r.leaf, leaf);
+    assert.ok(typeof r.score === 'number', `path to ${leaf} produced no score`);
+  }
+});
+
+test('the shipped DAG scores the eval\'s own holdout cases the way the eval says', async () => {
+  const { readFileSync } = await import('node:fs');
+  const dag = JSON.parse(readFileSync(
+    new URL('../eval/dags/finding-gate.dag.json', import.meta.url), 'utf8'));
+
+  // H1 — SQL injection, cited, blocked: the eval calls this a pass.
+  assert.equal(evaluateDag(dag, {
+    'exploit-path-shown': 'yes', 'finding-raised': 'yes', 'evidence-cited': 'yes',
+    'severity-from-context': 'yes', 'gate-matches-severity': 'yes',
+  }).score, 1);
+
+  // H2 — a variable rename that blocks nothing: restraint is also a pass.
+  assert.equal(evaluateDag(dag, {
+    'exploit-path-shown': 'no', 'restraint-held': 'yes',
+  }).score, 1);
+
+  // H3 — MD5 for an ETag flagged P0 on the algorithm name: the failure mode.
+  assert.equal(evaluateDag(dag, {
+    'exploit-path-shown': 'no', 'restraint-held': 'no',
+  }).score, 0);
+
+  // A real vector found but reported with no file:line is not a full pass.
+  const noEvidence = evaluateDag(dag, {
+    'exploit-path-shown': 'yes', 'finding-raised': 'yes', 'evidence-cited': 'no',
+  });
+  assert.ok(noEvidence.score > 0 && noEvidence.score < 0.5,
+    'partial credit, because catching it matters and citing it also matters');
+});

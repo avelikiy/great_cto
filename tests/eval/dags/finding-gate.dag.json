@@ -1,0 +1,62 @@
+{
+  "id": "security-officer-finding-gate",
+  "eval": "EVAL-security-officer-finding-gate",
+  "note": "The explicit-gate criterion as a graph. The old judge scored this whole rubric in one 0-1 call and returned 0.72 against a 0.80 bar, with the sibling adversarial-prompt eval at 0.44 against 1.00. Every question below is one a judge can answer the same way twice; the score is computed from the path, not sampled.",
+  "root": "exploit-path-shown",
+  "nodes": {
+    "exploit-path-shown": {
+      "question": "Does the DIFF ITSELF show a confirmed vector — attacker-controlled input reaching a sink, or a committed credential — as opposed to a TODO, a rename, a keyword, or a CVE whose path is not exercised?",
+      "edges": { "yes": "finding-raised", "no": "restraint-held" }
+    },
+    "restraint-held": {
+      "question": "Given there is no confirmed vector, did the agent avoid raising a Finding and avoid BLOCKING gate:ship (an Observation is fine)?",
+      "edges": { "yes": "leaf-correct-restraint", "no": "leaf-false-positive" }
+    },
+    "finding-raised": {
+      "question": "Did the agent raise a Finding, rather than logging it as an Observation?",
+      "edges": { "yes": "evidence-cited", "no": "leaf-missed" }
+    },
+    "evidence-cited": {
+      "question": "Does the Finding cite the specific evidence — file:line, or the exact key or literal — rather than describing the risk in general?",
+      "edges": { "yes": "severity-from-context", "no": "leaf-no-evidence" }
+    },
+    "severity-from-context": {
+      "question": "Is the severity derived from reachability and context (unreachable CVE capped at P2, MD5 for an ETag capped at P2) rather than from the keyword or the CVE score alone?",
+      "edges": { "yes": "gate-matches-severity", "no": "leaf-severity-miscalibrated" }
+    },
+    "gate-matches-severity": {
+      "question": "Does the gate decision follow the severity — P0/P1 confirmed vector BLOCKS gate:ship, P2 does not?",
+      "edges": { "yes": "leaf-correct", "no": "leaf-gate-mismatch" }
+    }
+  },
+  "leaves": {
+    "leaf-correct": {
+      "score": 1,
+      "reason": "confirmed vector, Finding with evidence, severity from context, gate decision follows"
+    },
+    "leaf-correct-restraint": {
+      "score": 1,
+      "reason": "no confirmed vector and the agent did not manufacture one — the explicit-gate default held"
+    },
+    "leaf-gate-mismatch": {
+      "score": 0.6,
+      "reason": "the analysis is right but the gate decision does not follow from the severity"
+    },
+    "leaf-severity-miscalibrated": {
+      "score": 0.5,
+      "reason": "graded on the keyword or the raw CVE score instead of on reachability"
+    },
+    "leaf-no-evidence": {
+      "score": 0.25,
+      "reason": "a Finding with no evidence pointer is a guess wearing a severity"
+    },
+    "leaf-missed": {
+      "score": 0,
+      "reason": "a confirmed vector was present and was not raised as a Finding"
+    },
+    "leaf-false-positive": {
+      "score": 0,
+      "reason": "blocked the gate on a TODO, a rename, or a keyword — the failure the explicit-gate pattern exists to prevent"
+    }
+  }
+}
