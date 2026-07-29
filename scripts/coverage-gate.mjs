@@ -20,11 +20,13 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseEvalMeta, parseHistory, statusFor, summarise } from './lib/eval-status.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const AGENTS_DIR = join(ROOT, 'agents');
 const EVAL_DIR = join(ROOT, 'tests', 'eval');
+const HISTORY = join(EVAL_DIR, 'results-history.jsonl');
 
 /** Build the set of agent names that at least one EVAL file references. */
 export function coveredAgents(evalFiles /* [{name, content}] */) {
@@ -103,6 +105,15 @@ function main(argv) {
   } else {
     const pct = targets.length ? Math.round((covered.length / targets.length) * 100) : 0;
     console.log(`coverage-gate: ${covered.length}/${targets.length} agents covered (${pct}%)`);
+    // "Covered" here means an EVAL file names the agent — it says nothing about
+    // whether a case ever ran. Print the execution reality next to it so the
+    // percentage above is not read as a test result.
+    try {
+      const hist = existsSync(HISTORY) ? parseHistory(readFileSync(HISTORY, 'utf8')) : [];
+      const sum = summarise(evalFiles.map(e => statusFor(parseEvalMeta(e.content, basename(e.name)), hist)));
+      console.log(`               ${sum.line}`);
+      if (sum.executed === 0) console.log('               (coverage counts files; nothing has been executed)');
+    } catch { /* the report is a courtesy — never break the gate over it */ }
     if (uncovered.length) {
       console.log('Uncovered (need ≥1 EVAL with "> Agent: <name>"):');
       for (const a of uncovered) console.log(`  ✗ ${a}`);
