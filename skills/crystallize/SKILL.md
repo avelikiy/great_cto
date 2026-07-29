@@ -1,6 +1,6 @@
 ---
 name: crystallize
-description: Distils repeating patterns from session logs and lessons.md into draft skill files. Run after ≥10 sessions to extract durable knowledge. Output: draft skills/ files + promotion report.
+description: "Distils repeating patterns from session logs and lessons.md into draft skill files. Run after ≥10 sessions to extract durable knowledge. Output: draft skills/ files + promotion report."
 when_to_use: |
   Apply when:
   - CTO says /crystallize, "crystallize", or "extract knowledge"

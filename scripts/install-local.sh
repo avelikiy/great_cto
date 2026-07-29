@@ -101,6 +101,22 @@ if [ "$DO_PRUNE" -eq 1 ]; then
   ok "pruned $removed other version(s) — only v$VERSION remains"
 fi
 
+step "Validate the manifest"
+# `claude plugin validate` is the only thing that reads these files the way the
+# host does. Five files shipped with frontmatter YAML that silently parsed to
+# nothing — a description containing ": " reads as a nested mapping, and the
+# whole block is dropped at load time without a word. Advisory: a broken CLI or
+# an older Claude Code must not stop a local install.
+if command -v claude >/dev/null 2>&1; then
+  if claude plugin validate "$ROOT" 2>&1 | grep -q "Validation failed"; then
+    printf '\033[33m  ! manifest validation FAILED — run: claude plugin validate .\033[0m\n'
+  else
+    ok "manifest validates"
+  fi
+else
+  echo "  · claude CLI not on PATH — manifest not validated"
+fi
+
 step "Register with the host"
 # Copying files into the cache is not installing. Claude Code loads a plugin only
 # if ~/.claude/plugins/installed_plugins.json has an entry for it, and that entry

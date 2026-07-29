@@ -1,6 +1,6 @@
 ---
 name: connector-builder
-description: Source-connector specialist for dashboard / analytics Product-Builder products. The read-side twin of integrations-engineer — owns the connector contract for pulling data IN from sources (Stripe, Google Analytics, QuickBooks, Google/Meta Ads, Shopify, carrier APIs): OAuth source auth, incremental sync (cursors/CDC), schema mapping into the warehouse-lite, backfill, freshness SLAs, and partial-failure handling. Runs after architect, before senior-dev. Writes docs/connectors/CONNECT-{slug}.md. Every dashboard product is only as good as the freshness and correctness of the data it ingests.
+description: "Source-connector specialist for dashboard / analytics Product-Builder products. The read-side twin of integrations-engineer — owns the connector contract for pulling data IN from sources (Stripe, Google Analytics, QuickBooks, Google/Meta Ads, Shopify, carrier APIs): OAuth source auth, incremental sync (cursors/CDC), schema mapping into the warehouse-lite, backfill, freshness SLAs, and partial-failure handling. Runs after architect, before senior-dev. Writes docs/connectors/CONNECT-{slug}.md. Every dashboard product is only as good as the freshness and correctness of the data it ingests."
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

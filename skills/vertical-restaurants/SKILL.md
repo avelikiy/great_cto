@@ -1,6 +1,6 @@
 ---
 name: vertical-restaurants
-description: Domain-knowledge primer for the restaurants & hospitality vertical (dine-in, pickup, delivery). Gives architect and pm the vocabulary, non-obvious operating rules, must-model entities, and incumbent landscape so a restaurant-product spec isn't naive about modifiers, 86'd items, aggregator commissions, tip law, and razor-thin margins. Covers the 4 products: online-ordering, reservations, loyalty, shift-scheduling.
+description: "Domain-knowledge primer for the restaurants & hospitality vertical (dine-in, pickup, delivery). Gives architect and pm the vocabulary, non-obvious operating rules, must-model entities, and incumbent landscape so a restaurant-product spec isn't naive about modifiers, 86'd items, aggregator commissions, tip law, and razor-thin margins. Covers the 4 products: online-ordering, reservations, loyalty, shift-scheduling."
 when_to_use: |
   Apply when speccing a restaurant / hospitality product:
   - architect writing ARCH-*.md for online-ordering, reservations, loyalty, or shift-scheduling

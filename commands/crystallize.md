@@ -1,6 +1,6 @@
 ---
 description: "Promote extracted incident knowledge into global patterns and agent improvements."
-argument-hint: "[approve GP-NNNN [--no-eval "reason"] | reject GP-NNNN <reason> | rollback GP-NNNN | prune | status]"
+argument-hint: '[approve GP-NNNN [--no-eval "reason"] | reject GP-NNNN <reason> | rollback GP-NNNN | prune | status]'
 user-invocable: true
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
