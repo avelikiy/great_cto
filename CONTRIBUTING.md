@@ -117,22 +117,7 @@ outputs: A bullet list per pillar (operational excellence, security, reliability
 
 ---
 
-### 4. Add a new language to the README switcher
-
-When to use: you can produce a quality translation for a market we don't cover.
-
-**File:** `docs/{locale}/README.md`
-**Pattern:** copy `docs/ru/README.md` (current most-complete locale) and translate. Keep the comparison table; localise headings and prose; keep code blocks and command names verbatim.
-
-Then add to the language switcher row in the main [README.md](README.md):
-```diff
-- [Русский](docs/ru/README.md) · [简体中文](docs/zh-CN/README.md) · ...
-+ [Русский](docs/ru/README.md) · [简体中文](docs/zh-CN/README.md) · ... · [Italiano](docs/it/README.md)
-```
-
----
-
-### 5. Report a bug
+### 4. Report a bug
 
 **File:** open a GitHub issue using the `bug-report` template.
 
