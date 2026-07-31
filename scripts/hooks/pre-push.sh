@@ -272,7 +272,16 @@ PROSE_CHECK_TIMEOUT="${GREAT_CTO_PROSE_TIMEOUT:-15}"
 if [[ "${GREAT_CTO_SKIP_PROSE_CHECK:-0}" == "1" ]]; then
   : # opted out
 elif [[ -f "scripts/lib/prose-slop.mjs" ]] && command -v node >/dev/null 2>&1; then
-  PROSE_FILES=$(git diff --name-only --diff-filter=ACM "@{push}..HEAD" 2>/dev/null \
+  # `@{push}` fails outright on a branch with no upstream — which is the FIRST
+  # push of every branch, the one that introduces all the new prose. With
+  # 2>/dev/null it degraded into "no files changed" and the check silently never
+  # ran; on this repo it had never run at all. Fall back through upstream, then
+  # the default branch, then the last commit.
+  PROSE_RANGE=""
+  for cand in "@{push}..HEAD" "@{upstream}..HEAD" "origin/main..HEAD" "HEAD~1..HEAD"; do
+    if git rev-parse --verify --quiet "${cand%%..*}" >/dev/null 2>&1; then PROSE_RANGE="$cand"; break; fi
+  done
+  PROSE_FILES=$(git diff --name-only --diff-filter=ACM ${PROSE_RANGE:+"$PROSE_RANGE"} 2>/dev/null \
     | grep -E '\.md$' | grep -vE '^(CHANGELOG\.md|node_modules/|tests/fixtures/)' || true)
   if [[ -n "$PROSE_FILES" ]]; then
     PROSE_RC=0

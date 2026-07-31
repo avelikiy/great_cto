@@ -153,6 +153,13 @@ d.plugins[KEY] = [{
   gitCommitSha: 'local',
 }];
 writeFileSync(reg, JSON.stringify(d, null, 2) + '\n');
+// Read back before claiming anything: announcing a write we never verified is
+// how the previous version of this step managed to lie.
+const after = JSON.parse(readFileSync(reg, 'utf8'));
+if (!(after.plugins || {})[KEY]) {
+  console.log('  ! wrote the registry but the entry is not there — inspect it by hand');
+  process.exit(1);
+}
 console.log(`  \u2713 ${cur ? 'repointed' : 'registered'} great_cto@local → v${version}`);
 NODE
 else

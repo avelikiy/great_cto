@@ -192,7 +192,13 @@ export function parseAnswer(reply, allowed) {
   // Ambiguity is checked BEFORE any shortcut: a reply that echoes the option
   // list ("yes or no") starts with a valid answer, and taking the first token
   // would turn the judge's non-answer into a decision.
-  const hits = allowed.filter((a) => new RegExp(`\\b${a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(t));
+  // Delimit by "not a word character" on either side rather than \b: a label is
+  // whatever the graph author wrote, and \b needs a word character to sit against,
+  // so `yes(1)` or `p0.` could never match their own exact reply.
+  const hits = allowed.filter((a) => {
+    const esc = a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^\\w-])${esc}([^\\w-]|$)`).test(t);
+  });
   return hits.length === 1 ? hits[0] : null;
 }
 

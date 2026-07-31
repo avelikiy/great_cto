@@ -147,3 +147,42 @@ test('an all-unexecuted corpus summarises as zero passing, not as no data', () =
   assert.equal(s.executed, 0);
   assert.match(s.line, /0\/2/);
 });
+
+// Two ways this report could claim the opposite of what happened, both found by
+// hunting rather than by use. The module's whole job is to refuse to print a
+// number nothing measured, so both are in scope for it specifically.
+
+test('a run whose eval states its bar in prose is not erased into never-run', () => {
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'),
+    [row({ eval: 'EVAL-demo', rate: 0.9, threshold: null })], { now: NOW });
+  assert.notEqual(s.state, STATES.NEVER_RUN,
+    'it ran, it has a rate and a timestamp — calling that "never run" is the lie');
+  assert.equal(s.state, STATES.UNSCORED);
+  assert.equal(s.rate, 0.9, 'the measured rate survives even without a bar to judge it against');
+});
+
+test('a corrupt timestamp never outranks a real one', () => {
+  const rows = [
+    row({ eval: 'EVAL-demo', rate: 0.2, threshold: 0.8, ts: '2026-07-28T00:00:00Z' }),
+    row({ eval: 'EVAL-demo', rate: 1.0, threshold: 0.8, ts: 'not-a-date' }),
+  ];
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.state, STATES.FAILING,
+    'a row nobody can date must not decide, least of all in the passing direction');
+  assert.equal(s.rate, 0.2);
+});
+
+test('a pass whose age cannot be established reads as stale, not as fresh', () => {
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'),
+    [row({ eval: 'EVAL-demo', rate: 1, threshold: 0.8, ts: 'garbage' })], { now: NOW });
+  assert.equal(s.state, STATES.STALE, 'unknown freshness must not read as current');
+  assert.equal(s.ageDays, null, 'and the age is reported as unknown, not as NaN');
+});
+
+test('summarise counts unscored runs as executed, and never as passing', () => {
+  const s = summarise([{ state: STATES.UNSCORED }, { state: STATES.PASSING }, { state: STATES.NEVER_RUN }]);
+  assert.equal(s.passing, 1);
+  assert.equal(s.unscored, 1);
+  assert.equal(s.executed, 2, 'an unscored run still ran');
+  assert.match(s.line, /1 unscored/);
+});

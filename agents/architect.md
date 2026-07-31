@@ -504,9 +504,17 @@ manual configuration needed.
 
    **Create the gate — if this level asks for it:**
    ```bash
+   PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
    ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-   if node scripts/lib/approval-level.mjs "$APPROVAL_LEVEL" --archetype "$ARCHETYPE" --json \
-        | grep -q '"arch"'; then
+   # Resolve the helper out of the plugin cache: your cwd is the TARGET project,
+   # which has no scripts/lib. A repo-relative path made node fail, the grep find
+   # nothing, and the else-branch announce that skipping the gate was intended —
+   # fail-OPEN on a decision whose whole job is to stop someone.
+   GATES=$(node "$PD/scripts/lib/approval-level.mjs" "$APPROVAL_LEVEL" --archetype "$ARCHETYPE" --json 2>/dev/null)
+   if [ -z "$GATES" ]; then
+     echo "approval-level helper unreachable — creating gate:arch rather than assuming none is wanted"
+     bd create "gate:arch — <feature> architecture review" --type task --priority 0 --label gate
+   elif echo "$GATES" | grep -q '"arch"'; then
      bd create "gate:arch — <feature> architecture review" --type task --priority 0 --label gate
    else
      echo "approval-level=$APPROVAL_LEVEL — architecture is not a gated decision here; continuing to pm"

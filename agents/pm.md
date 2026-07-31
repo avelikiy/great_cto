@@ -481,15 +481,23 @@ still gets it. Regulated archetypes keep their security/compliance floor either
 way (the helper re-adds it).
 
 ```bash
+PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
-if ! node scripts/lib/approval-level.mjs "$APPROVAL_LEVEL" --archetype "$ARCHETYPE" --json 2>/dev/null | grep -q '"plan"'; then
+APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}   # awk exits 0 on no match, so `|| echo` never fires
+# Resolve out of the plugin cache — cwd is the target project, which has no
+# scripts/lib. An unreachable helper means "create the gate": an unknown must
+# never read as "no gate wanted".
+GATES=$(node "$PD/scripts/lib/approval-level.mjs" "$APPROVAL_LEVEL" --archetype "$ARCHETYPE" --json 2>/dev/null)
+if [ -n "$GATES" ] && ! echo "$GATES" | grep -q '"plan"'; then
   echo "approval-level=$APPROVAL_LEVEL — plan review is not gated here; PLAN doc still written, senior-dev proceeds"
-  # still emit PLAN_READY so the dispatcher advances the pipeline
+  PLAN_GATE=no
+else
+  PLAN_GATE=yes
 fi
 
 # Dedup check: skip if gate:plan already open for this feature
-if ! bd search "gate:plan" 2>/dev/null | grep -qi "open\|in.progress"; then
+if [ "$PLAN_GATE" = yes ] && ! bd search "gate:plan" 2>/dev/null | grep -qi "open\|in.progress"; then
   GATE_ID=$(bd create "gate:plan — ${FEATURE_SLUG} implementation plan review" \
     --type task --priority 0 --label gate --silent \
     --context "$GOAL_ANCESTRY" \

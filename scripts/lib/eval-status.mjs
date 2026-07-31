@@ -33,6 +33,7 @@ export const STATES = Object.freeze({
   PASSING: 'passing',
   FAILING: 'failing',
   STALE: 'stale',
+  UNSCORED: 'unscored',
   NEVER_RUN: 'never-run',
 });
 
@@ -110,9 +111,11 @@ export function parseHistory(jsonl) {
  * printed that nothing measured.
  */
 export function statusFor(meta, rows, { now = Date.now(), staleDays = DEFAULT_STALE_DAYS } = {}) {
-  const mine = (rows || [])
-    .filter((r) => r && r.eval === meta.name)
-    .sort((a, b) => Date.parse(a.ts || 0) - Date.parse(b.ts || 0));
+  // An unparseable ts sorts oldest, never newest. Date.parse returns NaN there,
+  // and NaN in a comparator reads as "equal" — which let a corrupt row keep its
+  // file position and outrank a real timestamp, in the passing direction.
+  const at = (r) => { const t = Date.parse(r.ts ?? ''); return Number.isFinite(t) ? t : -Infinity; };
+  const mine = (rows || []).filter((r) => r && r.eval === meta.name).sort((a, b) => at(a) - at(b));
 
   if (!mine.length) {
     return { ...meta, state: STATES.NEVER_RUN, rate: null, threshold: null, lastRun: null, ageDays: null };
@@ -121,12 +124,17 @@ export function statusFor(meta, rows, { now = Date.now(), staleDays = DEFAULT_ST
   const last = mine[mine.length - 1];
   const rate = typeof last.rate === 'number' ? last.rate : null;
   const bar = typeof last.threshold === 'number' ? last.threshold : null;
-  const ageDays = last.ts ? Math.floor((now - Date.parse(last.ts)) / DAY_MS) : null;
+  const ts = at(last);
+  const ageDays = Number.isFinite(ts) ? Math.floor((now - ts) / DAY_MS) : null;
 
   let state;
-  if (rate === null || bar === null) state = STATES.NEVER_RUN;   // a row without a number measured nothing
+  // It ran. Without a rate or a bar we cannot say whether it passed, but saying
+  // "never run" over a row that carries a rate and a timestamp is the one claim
+  // this module exists to prevent.
+  if (rate === null || bar === null) state = STATES.UNSCORED;
   else if (rate < bar) state = STATES.FAILING;
-  else if (ageDays !== null && ageDays > staleDays) state = STATES.STALE;
+  // An age nobody can establish must not read as fresh — unknown is not current.
+  else if (ageDays === null || ageDays > staleDays) state = STATES.STALE;
   else state = STATES.PASSING;
 
   return { ...meta, state, rate, threshold: bar, lastRun: last.ts || null, ageDays, runs: mine.length };
@@ -137,12 +145,14 @@ export function summarise(statuses) {
   const passing = n(STATES.PASSING);
   const failing = n(STATES.FAILING);
   const stale = n(STATES.STALE);
+  const unscored = n(STATES.UNSCORED);
   const neverRun = n(STATES.NEVER_RUN);
   const total = statuses.length;
-  const executed = passing + failing + stale;
+  const executed = passing + failing + stale + unscored;
+  const unscoredPart = unscored ? ` · ${unscored} unscored` : '';
   return {
-    total, passing, failing, stale, neverRun, executed,
-    line: `${passing}/${total} evals passing · ${failing} failing · ${stale} stale · ${neverRun} never run`,
+    total, passing, failing, stale, unscored, neverRun, executed,
+    line: `${passing}/${total} evals passing · ${failing} failing · ${stale} stale${unscoredPart} · ${neverRun} never run`,
   };
 }
 
@@ -177,7 +187,7 @@ async function main(argv) {
     return strict && sum.failing ? 1 : 0;
   }
 
-  const mark = { passing: '✓', failing: '✗', stale: '~', 'never-run': '·' };
+  const mark = { passing: '✓', failing: '✗', stale: '~', unscored: '?', 'never-run': '·' };
   const shown = statuses.filter((s) => s.state !== STATES.NEVER_RUN);
   for (const s of shown) {
     const rate = s.rate === null ? '   —  ' : `${(s.rate * 100).toFixed(0).padStart(3)}%`;

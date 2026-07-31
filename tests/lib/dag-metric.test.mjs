@@ -266,3 +266,25 @@ test('judgeWithDag keeps every reply, so a disputed score can be re-read', async
     assert.ok(a.question && a.reply && a.answer, 'each step records what was asked and answered');
   }
 });
+
+// A judge answer is whatever the graph author wrote in `edges`. Bounding the
+// match with \b assumed those labels start and end with word characters, so a
+// perfectly legal label like `yes(1)` or `p0.` could never be matched — the
+// judge would answer correctly, parseAnswer would return null, and the whole
+// eval would report 0% while measuring nothing. validateDag accepts such labels,
+// so nothing upstream would have caught it.
+
+test('an answer label ending in punctuation still matches', () => {
+  assert.equal(parseAnswer('yes(1)', ['yes(1)', 'no']), 'yes(1)');
+  assert.equal(parseAnswer('p0.', ['p0.', 'p1']), 'p0.');
+  assert.equal(parseAnswer('(n/a)', ['(n/a)', 'yes']), '(n/a)');
+});
+
+test('punctuated labels keep the ambiguity guard', () => {
+  assert.equal(parseAnswer('yes(1) or no', ['yes(1)', 'no']), null);
+});
+
+test('a label is still matched as a whole token, not a substring', () => {
+  assert.equal(parseAnswer('yesterday', ['yes', 'no']), null,
+    'a longer word containing the label is not the label');
+});
