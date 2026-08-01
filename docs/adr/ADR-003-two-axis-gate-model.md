@@ -12,9 +12,11 @@ A concrete symptom: build gates were chosen by **one** axis, `project_size`
 (`gatesFor(archetype, size)` in `packages/cli/src/archetypes.ts`). A `medium`
 project therefore opened *every* gate on *every* change — including a one-line
 docs fix or a test-only change. The gates that actually matter for a
-regulated-compliance product are the **runtime** autopilot gates
-(`scripts/lib/autopilot-gate.mjs`), which sit before an irreversible action and
-are the product itself. Build-time ceremony was taxing maintenance velocity
+regulated-compliance product are the **runtime** autopilot gates, which sit
+before an irreversible action and are the product itself. (Those gates lived in
+`scripts/lib/autopilot-gate.mjs` when this ADR was written; commit c9c93ea9 moved
+the whole operate surface out of this repo on 2026-06-19. The decision below
+stands — only the pointer went stale.) Build-time ceremony was taxing maintenance velocity
 without protecting anything CI didn't already cover.
 
 Two non-negotiables framed the fix:

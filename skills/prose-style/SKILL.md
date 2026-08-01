@@ -43,7 +43,7 @@ Good:
 ### 2. Concrete evidence, not adjectives
 
 Bad: "Performance is acceptable."
-Good: "p99 latency 142ms over 50K requests (k6 run 2026-05-12 14:00 UTC, `tests/load/api.js`). SLO is 200ms."
+Good: "p99 latency 142ms over 50K requests (k6 run 2026-05-12 14:00 UTC, `tests/load/<your-scenario>.js`). SLO is 200ms."
 
 Bad: "Security looks good."
 Good: "No findings at Critical or High. 2 Medium: hardcoded log level in `src/logger.ts:14`, missing CORS header in `src/middleware/cors.ts:8`."

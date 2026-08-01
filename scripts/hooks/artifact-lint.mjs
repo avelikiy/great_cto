@@ -33,6 +33,7 @@
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, basename } from 'node:path';
+import { deadSourceRefs } from '../lib/source-refs.mjs';
 
 // ---------------------------------------------------------------------------
 // Artifact type registry — extend here as new agent outputs get canonicalized.
@@ -232,6 +233,23 @@ for (const abs of walk(REPO)) {
     }
   }
   if (isTemplate) continue; // structure-only for templates
+
+  // 1b. ACCURACY — does what it cites still exist?
+  //
+  // Freshness below is measured by AGE, and age is not accuracy. AI-FIREWALL.md
+  // was 47 days old against a 180-day threshold — fresh by that measure — while
+  // every one of the six source files it invited a reviewer to check had been
+  // deleted six days after it was written. A dead path catches what a date cannot.
+  //
+  // PLANs are exempt: a plan describes files it intends to create, and the ones
+  // that were never built are the plan's own record of what it dropped. Holding a
+  // plan to the current tree would make every completed plan a source of errors.
+  if (type.name !== 'PLAN') for (const d of deadSourceRefs(text)) {
+    errors.push({
+      file: rel, type: type.name, kind: 'dead-source-ref',
+      msg: `line ${d.line}: cites \`${d.path}\`, which does not exist`,
+    });
+  }
 
   // 2. FRESHNESS
   const date = extractDate(text);

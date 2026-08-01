@@ -78,7 +78,7 @@ Every task description ends with a bulleted "Done when:" section.
 - [ ] Bad email returns 400 with "invalid_email"
 - [ ] Duplicate email returns 409 with "email_taken"
 - [ ] Password is hashed with argon2 (no plaintext in DB)
-- [ ] Unit test in `tests/auth/signup.test.ts` covers all 4 cases
+- [ ] Unit test in `tests/<area>/<feature>.test.ts` covers all 4 cases
 - [ ] `npm test` passes
 ```
 

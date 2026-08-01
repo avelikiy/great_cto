@@ -42,7 +42,7 @@ A checklist a reviewer can run against the PR:
 
 3 files the contributor should read before writing code. Paste paths.
 
-- `packages/cli/src/archetypes/web-app.ts` — closest existing example
+- `packages/cli/src/archetypes.ts` — every archetype lives here; copy the closest one
 - `packages/cli/tests/fixtures/web-app/` — the fixture shape
 - `CONTRIBUTING.md#1-add-a-new-project-archetype` — the pattern docs
 
