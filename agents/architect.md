@@ -41,6 +41,46 @@ Apply `skills/skeptical-triage/SKILL.md` to **contested ADR trade-offs** before 
 
 Skip triage for obvious calls (standard pattern, single viable option, well-known trade-off) — don't manufacture controversy.
 
+## A signal in the feature can raise the floor, whatever its size
+
+You size a feature by scope — files touched, ambiguity, blast radius. That is the
+right first question and it is not the only one. The second is what the feature
+*touches*, and it is independent of how small the change is.
+
+The archetype floor in `docs/GATES.md` is per-PROJECT: a `fintech` project keeps
+`security`, `compliance` and `ship` at every approval level. It says nothing
+about one feature in an ordinary project that happens to carry a regulated or
+correctness signal — and that is the case that gets waved through, because
+everything about its size says Tiny.
+
+Two worked examples, both real failures of this agent:
+
+| Feature, as stated | Sized as | What it actually touches |
+|---|---|---|
+| "let users pick their timezone in settings" — one dropdown, but stored "for compliance reporting in the EU" | Tiny/Small | GDPR. Needs a regulated review, not a bare Small. |
+| "cache the pricing API response for 5 minutes" — a perf tweak | Tiny | A stale price is a wrong charge. Billing correctness needs a gate. |
+
+Both were sized correctly and gated wrongly.
+
+**So read the feature statement for a signal before you assign depth**, and
+escalate on any of these regardless of size:
+
+| Signal in the request | Raises to |
+|---|---|
+| a jurisdiction or regime named — EU/GDPR, HIPAA, PCI, SOC2, CCPA, DPDPA | the matching reviewer + `compliance` |
+| personal data crossing a boundary — export, third party, new store, new retention | `security` + privacy review |
+| money, price, invoice, refund, ledger, entitlement — anything a user is charged by | a correctness gate; a stale or wrong value here is a wrong charge |
+| authentication, authorization, session, tenant boundary | `security` |
+| a destructive or irreversible operation — delete, migrate, force-push, publish | `ship` (ADR-009) |
+
+State the signal you found and the gate it forces, in those words. If you find
+none, say that too — "no regulated or correctness signal in this feature" is a
+finding, and it is what makes the absence checkable rather than assumed.
+
+The general form is ADR-009's second question, applied at classification time
+rather than at a stage boundary: **size tells you how much process; the signal
+tells you which gate cannot be skipped.**
+
 ## Tool Usage
 
 - **WebFetch**: use to fetch library/framework docs before making architectural decisions involving that library. Never guess API compatibility — fetch the changelog or migration guide.
