@@ -503,8 +503,8 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 |----------|--------|
 | "build X" / "implement X" | Feature pipeline |
 | "fix X" / "bug" / "hotfix" / "patch" | Fast path |
-| "refactor X" / "clean up" / "restructure" / "extract service" | Large-scale refactor pipeline (see below) |
-| "upgrade stack" / "migrate to X" / "EOL" / "upgrade PHP/Node/Python" | Stack migration pipeline (see below) |
+| "refactor X" / "clean up" / "restructure" / "extract service" | Read `skills/great_cto/playbooks/large-scale-refactor.md`, follow it |
+| "upgrade stack" / "migrate to X" / "EOL" / "upgrade PHP/Node/Python" | Read `skills/great_cto/playbooks/stack-migration.md`, follow it |
 | "status" / "what's happening" | git log + bd stats + artifacts |
 | "what needs me" / "inbox" | Gates + blocked + PRs |
 | "audit" / "review codebase" / "scan repo" | `/audit` command |
@@ -791,105 +791,22 @@ Tell CTO: `L3 watching production for 30 min — will surface anomalies if found
 
 ## Stack Migration Pipeline
 
-Use when: "upgrade PHP/Node/Python/Angular/etc.", "migrate away from EOL runtime", "strangler fig", "replace X with Y".
+Read `skills/great_cto/playbooks/stack-migration.md` and follow it end-to-end when the
+request matches "upgrade stack" / "migrate to X" / "EOL" in § Intent Mapping.
 
-**Step 0 — Migration scope:**
-```bash
-# Detect current runtime version
-node --version 2>/dev/null || php --version 2>/dev/null || python3 --version 2>/dev/null || ruby --version 2>/dev/null
-# Count files affected by migration
-find src/ \( -name "*.php" -o -name "*.js" -o -name "*.py" \) -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | wc -l
-```
-Ask architect to include in ARCH doc: (a) current version + EOL date, (b) target version, (c) breaking changes list, (d) strangler fig boundary.
-
-**GATE:ARCH for stack-migration** — gate summary MUST include inline breaking changes count:
-```
-Migration architecture ready → docs/architecture/ARCH-<migration>.md
-  From: <runtime> <old-version> (EOL: <date>)  →  To: <runtime> <new-version>
-  Breaking changes: N (see ARCH doc for list)
-  Rollback plan: <one-line summary>
-Proceed? [yes/no]  ← auto-expires in 72h
-```
-If breaking changes > 5 → add: `⚠ High-risk migration — review breaking changes list before approving.`
-
-**Pipeline:**
-```
-architect (ARCH + migration plan) → GATE:ARCH
-→ senior-dev (compatibility shim + dual-stack setup — SEQUENTIAL)
-→ QA (dual-stack test matrix — inject: "STACK_MIGRATION: run tests against BOTH old and new runtime. OLD suite must pass on old runtime. NEW suite must pass on new runtime. Report separately.")
-→ security-officer (dependency vulnerability scan on new version)
-→ GATE:SHIP
-→ devops (staged cutover 10%→50%→100%, OLD stack kept live)
-```
-
-**Special rules for this pipeline:**
-- Senior-dev tasks are SEQUENTIAL — no parallel implementation (dependency chain)
-- When creating migration tasks in Beads, wire them immediately after creation:
-  ```bash
-  TASK1=$(bd create "migration: compatibility shim" --label migration --silent)
-  TASK2=$(bd create "migration: dual-stack setup" --label migration --silent)
-  bd dep add "$TASK2" "$TASK1"  # task2 blocked until task1 is closed
-  ```
-  This prevents any senior-dev from claiming task2 via `bd ready` while task1 is in-progress.
-- OLD stack must remain deployable until 100% cutover confirmed stable for ≥48h
-- Devops maintains instant rollback (traffic shift back) throughout cutover
-- architect ARCH doc must include: compatibility matrix (what breaks), rollback plan per stage
-
-**OLD stack retirement** — after 100% cutover and ≥48h stability confirmed, devops creates a retirement gate:
-```bash
-bd create "gate:retire-old-stack — <runtime> <version> decommission" --type task --priority 1 --label gate
-```
-Retirement checklist before shutdown:
-1. Error rate on NEW stack <0.1% for ≥48h — confirm from perf-baseline.log
-2. No open incidents referencing OLD stack — `bd list --label production --status open`
-3. CTO explicitly approves: "retire old stack" or "decommission [version]"
-4. Remove OLD stack infra, update PROJECT.md runtime version, archive OLD stack branch
-Retirement appears in `/inbox` under NEEDS YOUR DECISION like any other gate.
+The content is unchanged; it lives outside SKILL.md because SKILL.md is loaded
+for every request, and a playbook that applies to one intent should not be
+carried by the other twenty.
 
 ## Large-Scale Refactor Pipeline
 
-Use when: >20 files touched, architectural boundary change, monolith decomposition, extract-service, mass rename/restructure.
+Read `skills/great_cto/playbooks/large-scale-refactor.md` and follow it end-to-end when the
+request matches "refactor X" / "restructure" / "extract service" in § Intent Mapping.
 
-**Step 0 — Scope gate (mandatory before architecture):**
-```bash
-# Estimate refactor surface
-git diff --name-only HEAD 2>/dev/null | wc -l  # if already started
-# OR estimate from description: how many files/modules does this touch?
-```
-If >50 files OR >3 components → tell CTO:
-```
-Refactor scope: ~[N] files, [M] components.
-Risk: high merge conflict probability, regression surface large.
-Recommend:
-  (a) Strangler fig — extract incrementally (lower risk, longer timeline)
-  (b) Big bang — full refactor in one branch (higher risk, faster)
-  (c) Scope down — refactor [smallest valuable slice] first
-Choose approach before I start architecture.
-```
-Wait for CTO decision. This IS a blocking question (unlike Decision Brief).
+The content is unchanged; it lives outside SKILL.md because SKILL.md is loaded
+for every request, and a playbook that applies to one intent should not be
+carried by the other twenty.
 
-**Pipeline:**
-```
-architect (ARCH + file ownership matrix) → GATE:ARCH
-→ senior-dev (SEQUENTIAL tasks only — one at a time, exclusive file ownership)
-→ QA (inject: "LARGE_SCALE_REFACTOR: (1) snapshot regression — compare HTTP responses/outputs before vs after refactor. (2) run dep graph tool for this stack: PHP→deptrac, JS/TS→depcruise, Python→lint-imports, Go→go vet, Java→ArchUnit. Report to docs/qa-reports/DEP-GRAPH-<date>.txt. Block on circular deps.")
-→ security-officer (dependency graph audit — no new attack surface)
-→ GATE:SHIP
-→ devops (standard deploy for project type)
-```
-
-**Sequential enforcement** — when creating refactor tasks in Beads, wire dependencies immediately after creation (one chain per task sequence):
-```bash
-T1=$(bd create "refactor: <domain-1>" --label refactor --silent)
-T2=$(bd create "refactor: <domain-2>" --label refactor --silent)
-T3=$(bd create "refactor: <domain-3>" --label refactor --silent)
-bd dep add "$T2" "$T1" && bd dep add "$T3" "$T2"
-```
-This prevents `bd ready` from returning T2/T3 while T1 is in-progress. Also inject into every senior-dev task:
-> "LARGE-SCALE-REFACTOR: You are the ONLY active dev task. Do NOT start until previous task is confirmed closed. Your owned files: [list from work-packet]. Do not touch any file not in your ownership list."
-
-**File ownership matrix** — architect must produce this in ARCH doc:
-```markdown
 ## File Ownership Matrix
 | Task | Owned files | Must not touch |
 |------|-------------|----------------|
