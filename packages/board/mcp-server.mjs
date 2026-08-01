@@ -118,13 +118,22 @@ const TOOLS = [
 ];
 
 // ── HTTP helpers ───────────────────────────────────────────────────────────
+// An MCP tool call blocks the model until it answers. Without a deadline, a
+// board that accepts the connection and then never replies — paused process,
+// half-open socket after a laptop sleep — hangs the caller indefinitely with no
+// way to tell it apart from slow work.
+const FETCH_TIMEOUT_MS = 10_000;
+
 async function boardFetch(path) {
   try {
-    const res = await fetch(`${BASE_URL}${path}`);
+    const res = await fetch(`${BASE_URL}${path}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   } catch (e) {
-    throw new Error(`Board unreachable at ${BASE_URL} — is great-cto board running? (${e.message})`);
+    const why = e.name === 'TimeoutError' || e.name === 'AbortError'
+      ? `no response within ${FETCH_TIMEOUT_MS / 1000}s`
+      : e.message;
+    throw new Error(`Board unreachable at ${BASE_URL} — is great-cto board running? (${why})`);
   }
 }
 
@@ -163,17 +172,20 @@ async function callTool(name, args = {}) {
         lines.push(`- **${b.id}** ${b.title}`);
       }
     }
-    if (metrics) {
-      const done = metrics.done ?? 0;
-      const total = metrics.total ?? 0;
-      lines.push('', `**Tasks:** ${done}/${total} done`);
-    }
+    // /api/metrics nests these under `tasks` — reading metrics.done/.total off
+    // the root gave undefined every time, so this line reported "0/0 done" for
+    // every project regardless of how much had shipped.
+    const t = metrics && metrics.tasks;
+    if (t) lines.push('', `**Tasks:** ${t.done ?? 0}/${t.total ?? 0} done`);
     return lines.join('\n');
   }
 
   if (name === 'cost_summary') {
     const days = Math.min(365, Math.max(1, args.days || 30));
-    const d = await boardFetch(`/api/cost${pqs(proj)}&days=${days}`);
+    // With no project, pqs() is empty and this built `/api/cost&days=30` — a
+    // path the router never matches, so cost_summary answered "board
+    // unreachable" for anyone who did not pass a project.
+    const d = await boardFetch(`/api/cost${pqs(proj)}${pqs(proj) ? '&' : '?'}days=${days}`);
     const lines = [
       `## Cost summary${proj ? ` — ${proj}` : ''} (last ${days} days)`,
       '',

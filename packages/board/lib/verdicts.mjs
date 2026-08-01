@@ -2,6 +2,37 @@ import fs from 'fs';
 import path from 'path';
 import { GREAT_CTO_DIR } from './config.mjs';
 
+/**
+ * One verdict line → { ts, verdict }.
+ *
+ * Two formats agents emit in the wild:
+ *   space-separated:  "<ts> <verdict> <details> cost=$X"
+ *   pipe-separated:   "<ts> | <agent> | <verdict> | <details> | cost=$X"
+ *
+ * Choosing between them on `line.includes(' | ')` was wrong: a space-separated
+ * line whose DETAILS contain a pipe — "APPROVED 3 findings | all minor" is
+ * ordinary prose from an agent — was read as the pipe form, and the verdict came
+ * back as whatever sat after the second pipe. The board then showed a made-up
+ * status for a real verdict.
+ *
+ * The pipe form is recognised by its shape instead: a timestamp, then a
+ * separator, then at least three fields. Prose pipes appear later in the line,
+ * after a verdict word that is already sitting in field 2 of the space form.
+ */
+export function parseVerdictLine(line) {
+  const text = String(line ?? '');
+  const m = text.match(/^(\S+)\s+\|\s+(.*)$/);
+  if (m) {
+    const rest = m[2].split('|').map((s) => s.trim());
+    // [agent, verdict, …] — a bare "<ts> | <verdict>" has no agent field, so a
+    // two-field line is read as the verdict rather than dropped.
+    if (rest.length >= 2) return { ts: m[1], verdict: rest[1] || '' };
+    return { ts: m[1], verdict: rest[0] || '' };
+  }
+  const parts = text.split(/\s+/);
+  return { ts: parts[0] || '', verdict: parts[1] || '' };
+}
+
 function readVerdicts(cwd = null) {
   // Verdict attribution model:
   //   1. cwd given → read project-local <cwd>/.great_cto/verdicts/
@@ -57,18 +88,7 @@ function readVerdicts(cwd = null) {
       // for the pipe form is "|", breaking /api/pipeline status mapping
       // (verdicts displayed as "|" instead of APPROVED/DONE/BLOCKED).
       // Now we detect the pipe form and parse it differently.
-      let ts, verdict;
-      if (line.includes(' | ')) {
-        const pipeParts = line.split('|').map(s => s.trim());
-        ts = pipeParts[0].trim();
-        // Pipe form: [ts, agent, verdict, details, cost]
-        // Verdict is at index 2 (after ts and agent name).
-        verdict = pipeParts[2] || '';
-      } else {
-        const parts = line.split(' ');
-        ts = parts[0];
-        verdict = parts[1] || '';
-      }
+      const { ts, verdict } = parseVerdictLine(line);
       const costMatch = line.match(/\bcost=\$?(\d+\.?\d*)\b/i);
       results.push({
         ts,

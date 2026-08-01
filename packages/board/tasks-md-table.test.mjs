@@ -5,6 +5,7 @@
 // project living on a space-containing path.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -278,5 +279,37 @@ test('a task listed in both dialects appears once', () => {
   try {
     const tasks = parseTasksMd(dir);
     assert.equal(tasks.filter(t => t.id === 'UI-7').length, 1, 'one task, not two');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// A title with an unescaped `|` splits into an extra cell, shifting every
+// column after it. Writing the status by column index then wrote "closed" over
+// a piece of the TITLE and left the real status cell reading `open` — the row
+// lost text and the gate stayed open while the board reported it approved.
+test('a row whose cells do not match the header is refused, not overwritten', () => {
+  const dir = withTasksMd(`| id | title | status | owner |
+|----|-------|--------|-------|
+| GATE-ship | gate:ship — deploy A | B decision | open | CTO |
+`);
+  try {
+    const before = fs.readFileSync(join(dir, '.great_cto', 'tasks.md'), 'utf8');
+    assert.equal(setTaskStatusInTasksMd(dir, 'GATE-ship', 'closed'), false,
+      'refusing is the honest answer — the caller can report a failure, silent corruption cannot be reported');
+    assert.equal(fs.readFileSync(join(dir, '.great_cto', 'tasks.md'), 'utf8'), before,
+      'the file is untouched');
+    assert.match(getReadDegradation(dir) || '', /cells/, 'and the reason is recorded');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an escaped pipe in a title still writes correctly', () => {
+  const dir = withTasksMd(`| id | title | status | owner |
+|----|-------|--------|-------|
+| GATE-ship | gate:ship — deploy A \\| B decision | open | CTO |
+`);
+  try {
+    assert.equal(setTaskStatusInTasksMd(dir, 'GATE-ship', 'closed'), true);
+    const t = parseTasksMd(dir).find(x => x.id === 'GATE-ship');
+    assert.equal(t.raw_status, 'closed');
+    assert.match(t.title, /deploy A \| B decision/, 'the title keeps both halves');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

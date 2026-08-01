@@ -264,11 +264,23 @@ function setTaskStatusInTasksMd(cwd, id, newStatus) {
     if (!cols) {
       const lower = cells.map(c => c.toLowerCase());
       if (lower.indexOf('id') !== -1 && lower.indexOf('status') !== -1) {
-        cols = { id: lower.indexOf('id'), status: lower.indexOf('status') };
+        cols = { id: lower.indexOf('id'), status: lower.indexOf('status'), width: cells.length };
       }
       continue;
     }
     if ((cells[cols.id] || '') === id) {
+      // A title containing an unescaped `|` — "deploy A | B decision" — splits
+      // into an extra cell, so every column after it is shifted. Writing by
+      // index then put the new status INSIDE the title and left the real status
+      // cell untouched: the row lost text and the gate stayed open while the
+      // board reported it approved. A row that does not match the header's
+      // width is not one we can address by index, so it is refused instead.
+      if (cells.length !== cols.width) {
+        readDegradation.set(cwd,
+          `tasks.md row '${id}' has ${cells.length} cells but the table header has ${cols.width} ` +
+          '(an unescaped `|` in a cell?) — status not written, as writing by column would corrupt the row');
+        return false;
+      }
       cells[cols.status] = newStatus;
       // Re-escape pipes we unescaped on the way in, then rebuild the row.
       lines[i] = '| ' + cells.map(c => c.replace(/\|/g, '\\|')).join(' | ') + ' |';

@@ -126,12 +126,18 @@ const BOARD_BASE = `http://127.0.0.1:${BOARD_PORT}`;
 
 async function boardFetch(path: string): Promise<any> {
   try {
-    const res = await fetch(`${BOARD_BASE}${path}`);
+    // A tool call blocks the model until it answers; a board that accepts the
+    // connection and never replies would hang it with no timeout to end the wait.
+    const res = await fetch(`${BOARD_BASE}${path}`, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   } catch (e) {
+    const err = e as Error;
+    const why = err.name === "TimeoutError" || err.name === "AbortError"
+      ? "no response within 10s"
+      : err.message;
     throw new Error(
-      `Board unreachable at ${BOARD_BASE} — run \`great-cto board\` first. (${(e as Error).message})`
+      `Board unreachable at ${BOARD_BASE} — run \`great-cto board\` first. (${why})`
     );
   }
 }
@@ -168,7 +174,9 @@ async function toolProjectStatus(args: { project?: string }): Promise<string> {
     }
   }
   if (metrics) {
-    lines.push("", `**Tasks:** ${metrics.done ?? 0}/${metrics.total ?? 0} done`);
+    // /api/metrics nests these under `tasks`; off the root they are undefined,
+    // so this reported "0/0 done" for every project.
+    lines.push("", `**Tasks:** ${metrics.tasks?.done ?? 0}/${metrics.tasks?.total ?? 0} done`);
   }
   return lines.join("\n");
 }
