@@ -121,3 +121,41 @@ don't silently drop it.
 
 Done = verdict emitted, review artefact written, P0/P1 bugs filed. gate:code reads
 your verdict.
+
+## Evidence discipline — check it before you claim you are done
+
+Every finding you report uses the Structured Findings Format
+(§ Structured Findings Format in `skills/great_cto/SKILL.md`), and its
+`**Evidence**` field is mandatory:
+
+```
+- **Evidence**: passed | failed | not_run | inconclusive
+  ```
+  $ <the command you ran>
+  <its raw output, pasted, not summarised>
+  ```
+```
+
+**A claim about live state carries the command that established it.** If you did
+not run anything, the status is `not_run` and the claim is a hypothesis — put it
+under a `## Hypotheses` heading, not in the findings. `inconclusive` is for a
+check that ran and settled nothing; it is also a hypothesis, and it is a
+different fact from `not_run`.
+
+Before you report the work as complete, run the checker on your own report and
+paste its output:
+
+```bash
+_FE=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_FE" ] && _FE="scripts/lib/finding-evidence.mjs"
+node "$_FE" <your-report.md> --strict
+```
+
+Non-zero exit means a finding does not carry its evidence. Fix the report; do
+not report done over it.
+
+Why this and not a reviewer reading your report: a reviewer judges whether the
+finding reads plausibly, and a confident wrong finding is exactly what passes
+that test. "The secret is not set" written because it looks true is
+indistinguishable, as prose, from the same sentence written after running
+`grep`. The only thing that separates them is the output.
