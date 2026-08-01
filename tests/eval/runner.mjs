@@ -84,6 +84,13 @@ export function parseArgs(argv = process.argv.slice(2)) {
     } else if (argv[i] === '--split' && argv[i + 1]) {
       const v = argv[++i].toLowerCase();
       if (['all', 'tuning', 'holdout'].includes(v)) split = v;
+    } else if (argv[i] === '--actor-max-tokens' && argv[i + 1]) {
+      // The actor's budget is part of the measurement, not a detail. An agent
+      // prompt whose opening ceremony is longer than the budget produces a
+      // response that is all setup and no answer — and the judge correctly fails
+      // it for not answering, which measures the budget rather than the agent.
+      const n = Number(argv[++i]);
+      if (Number.isFinite(n) && n > 0) ACTOR_MAX_TOKENS = n;
     } else if (argv[i] === '--agent' && argv[i + 1]) {
       agent = argv[++i];
     } else if (argv[i] === '--filter' && argv[i + 1]) {
@@ -464,6 +471,25 @@ export async function runActorLoop({ system, scenario, test, llmFn, maxTurns = 4
   return { text: parseActorStep(res.text).payload, usage, model };
 }
 
+// The actor's token budget — part of the measurement, not a detail.
+//
+// This was 600, chosen when the actor was a generic stub. Once the actor became
+// the REAL agent body, 600 stopped measuring the agent: architect, senior-dev,
+// l3-support and project-auditor all open with phase tracking, environment
+// setup, past-lesson lookup and discovery gates, and a faithful actor spends the
+// whole budget doing exactly that. The judge then fails the response for never
+// answering — which is true, and which measures the cap rather than the agent.
+//
+// The evidence is the same eval at two budgets. At 600 every reason read "only
+// shows setup commands without completing". At 2500 they read "classified this
+// as MEDIUM instead of recognizing the EU compliance signal" — a real judgement
+// about the agent's behaviour. Same prompt, same cases; one number was about the
+// runner and the other is about the agent.
+//
+// A cap is not a spend: raising it costs nothing unless the model uses it. The
+// old value was quietly buying cheaper runs by truncating the thing under test.
+let ACTOR_MAX_TOKENS = 2500;
+
 /**
  * Step 1 — Actor: responds AS the agent under test.
  * `actorSystem` is the real agent body (or candidate prompt). One-shot by default;
@@ -471,12 +497,11 @@ export async function runActorLoop({ system, scenario, test, llmFn, maxTurns = 4
  */
 async function callActor({ actorModel, scenario, test, actorSystem, useTools = false, actorTurns = 4 }) {
   if (useTools) {
-    const llmFn = ({ system, user }) => callLlm({ model: actorModel, system, user, maxTokens: 600 });
+    const llmFn = ({ system, user }) => callLlm({ model: actorModel, system, user, maxTokens: ACTOR_MAX_TOKENS });
     return runActorLoop({ system: actorSystem, scenario, test, llmFn, maxTurns: actorTurns });
   }
   const user = `Scenario: ${scenario}\n\nTest case: ${test}\n\nProvide your agent response:`;
-  // 600 tokens: agent bodies produce longer, structured responses than the old generic stub.
-  return callLlm({ model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens: 600 });
+  return callLlm({ model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens: ACTOR_MAX_TOKENS });
 }
 
 /**
