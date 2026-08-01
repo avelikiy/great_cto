@@ -201,6 +201,14 @@ const EXCLUDE = [
   /\.md$/,                     // any markdown — docs talking about X ≠ doing X
   /^node_modules\//,
   /^\.git\//,
+  // What USING an MCP server leaves behind, not code we wrote. The
+  // mcp-server-reviewer rule already says these are not ours to review; they
+  // were still reaching every OTHER rule, and `.playwright-mcp/session.json`
+  // matched security-officer's `session` token on every run that used the
+  // browser. A reviewer flagged by a tool's own cache file is noise, and noise
+  // is what teaches people to skim the reviewer list.
+  /^\.playwright-mcp\//,
+  /^\.mcp\.json$/,
 ];
 
 export function shouldExclude(path) {

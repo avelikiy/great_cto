@@ -189,8 +189,14 @@ function readSecStats(cwd = process.cwd()) {
   if (!fs.existsSync(secDir)) return { approved: 0, blocked: 0 };
   for (const file of fs.readdirSync(secDir).filter(f => f.endsWith('.md'))) {
     const content = fs.readFileSync(path.join(secDir, file), 'utf8');
-    if (/APPROVED/i.test(content)) approved++;
-    if (/BLOCKED/i.test(content)) blocked++;
+    // One report is one outcome. Testing for each word separately counted a
+    // report that says "initially BLOCKED, now APPROVED" as both an approval
+    // and a block — the two counters summed to more than the number of reports,
+    // and a resolved finding kept inflating the blocked count forever. The LAST
+    // verdict word in the file is the one that stands.
+    const last = [...content.matchAll(/\b(APPROVED|BLOCKED)\b/gi)].pop();
+    if (!last) continue;
+    if (last[1].toUpperCase() === 'APPROVED') approved++; else blocked++;
   }
   return { approved, blocked };
 }

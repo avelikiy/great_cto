@@ -313,3 +313,24 @@ test('an escaped pipe in a title still writes correctly', () => {
     assert.match(t.title, /deploy A \| B decision/, 'the title keeps both halves');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// A title longer than the cap is split into title + description. Cutting by
+// character position landed inside a markdown link, leaving `see [the design…`
+// in the title and the URL stranded — the board renders that as broken markup,
+// and a reader cannot tell a truncated title from a malformed one.
+test('a truncated title never ends inside a markdown link', () => {
+  const filler = 'Fix the thing '.repeat(9);
+  for (const tail of [
+    'see [the design doc](https://example.com/very/long/path/here) for details',
+    '[a link right at the boundary](https://example.com/x) trailing words here',
+  ]) {
+    const dir = withTasksMd(
+      `| id | title | status | owner |\n|--|--|--|--|\n| TASK-1 | ${filler}${tail} | open | dev |\n`,
+    );
+    try {
+      const t = parseTasksMd(dir).find(x => x.id === 'TASK-1');
+      assert.ok(!/\[[^\]]*$/.test(t.title), `title ends inside a link: ${JSON.stringify(t.title.slice(-40))}`);
+      assert.ok(!/\]\([^)]*$/.test(t.title), `title ends inside a link target: ${JSON.stringify(t.title.slice(-40))}`);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});

@@ -201,7 +201,19 @@ const TITLE_MAX = 160;
 function capTitle(title, description) {
   const t = String(title || '').trim();
   if (t.length <= TITLE_MAX) return { title: t, description };
-  const cut = t.lastIndexOf(' ', TITLE_MAX);
+  let cut = t.lastIndexOf(' ', TITLE_MAX);
+  // Cutting inside a markdown link leaves `see [the design…` in the title and
+  // the URL stranded in the description — the board renders a broken link and
+  // the reader cannot tell the title was truncated rather than malformed. Back
+  // up to before the link when the cut lands inside one.
+  const linkStart = t.lastIndexOf('[', cut);
+  if (linkStart !== -1) {
+    const linkEnd = t.indexOf(')', linkStart);
+    if (linkEnd === -1 || linkEnd >= cut) {
+      const before = t.lastIndexOf(' ', linkStart);
+      if (before > 0) cut = before;
+    }
+  }
   const at = cut > TITLE_MAX * 0.6 ? cut : TITLE_MAX;
   const overflow = t.slice(at).trim();
   return {
