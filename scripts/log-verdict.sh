@@ -59,7 +59,13 @@ PROJ_DIR="${GREAT_CTO_DIR:-.great_cto}"
 # Determine project slug: PROJECT.md `slug:` field → basename of cwd
 PROJECT_SLUG=""
 if [ -f "$PROJ_DIR/PROJECT.md" ]; then
-  PROJECT_SLUG=$(grep -E '^slug:\s*' "$PROJ_DIR/PROJECT.md" 2>/dev/null | head -1 | sed -E 's/^slug:\s*//;s/[[:space:]]+$//' || true)
+  # `\s` is a GNU extension. BSD grep/sed (macOS, the primary dev platform here)
+  # read it as a literal 's', so `^slug:\s*` matched "slug:" followed by any
+  # number of the letter s — the leading space survived and PROJECT_SLUG came out
+  # as " my-project". Written into a verdict line that reads `project= my-project`,
+  # which the board's `project=([^\s|]+)` filter then captures as empty: every
+  # project-scoped verdict query silently matched nothing.
+  PROJECT_SLUG=$(grep -E '^slug:[[:space:]]*' "$PROJ_DIR/PROJECT.md" 2>/dev/null | head -1 | sed -E 's/^slug:[[:space:]]*//;s/[[:space:]]+$//' || true)
 fi
 [ -z "$PROJECT_SLUG" ] && PROJECT_SLUG=$(basename "$(pwd)")
 

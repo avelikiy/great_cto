@@ -33,18 +33,23 @@ if (!existsSync(greatCtoDir)) process.exit(0);
 // Pattern → reviewer mapping. Ordered specific-first.
 // Each pattern is matched against the changed-file paths via simple substring.
 // `match` may be a function returning a count of matched files.
+// EXCLUDE (below) drops every `.md` path, so a rule token that can only match a
+// markdown file can never fire. Three did: `EVAL-.*\.md$`, `ssp\.md`, and an
+// `.api.md` token — removed rather than left as rules that read as coverage.
+// `tests/eval/` already routes the eval files that are not excluded for another
+// reason. The test `no rule can only match an excluded path` keeps this true.
 export const RULES = [
   { reviewer: "db-migration-reviewer",   pattern: /(migrations\/|schema\.sql$|alembic\/|knex\/migrations|prisma\/migrations|\.room\.|Migration\d+\.kt$|Migration\d+\.swift$)/i },
   { reviewer: "pci-reviewer",            pattern: /(stripe|webhook.*sig|payment|refund|paypal|adyen|braintree|saq-a|pci-dss)/i },
   { reviewer: "security-officer",        pattern: /(auth\/|oauth|saml|jwt|password|login|session|csrf|cors\.|crypto\.|secret)/i },
   { reviewer: "ai-security-reviewer",    pattern: /(prompts?\/|system_prompt|tool_definitions|rag|embeddings?\/|jailbreak)/i },
-  { reviewer: "ai-eval-engineer",        pattern: /(tests\/eval\/|EVAL-.*\.md$|golden_set|prompt_regression)/i },
+  { reviewer: "ai-eval-engineer",        pattern: /(tests\/eval\/|golden_set|prompt_regression)/i },
   { reviewer: "mobile-store-reviewer",   pattern: /(play[_-]?store|app[_-]?store|fastlane|iap|in_app_purchase|store_listing|aab$|ipa$)/i },
   { reviewer: "api-platform-reviewer",   pattern: /(openapi\.|swagger|graphql\.schema|webhooks?\.|rfc7807|sunset_header)/i },
   { reviewer: "voice-ai-reviewer",       pattern: /(twilio|vonage|livekit|deepgram|elevenlabs|ivr|tcpa|stir.shaken)/i },
   { reviewer: "hr-ai-reviewer",          pattern: /(aedt|ny.?city.?ll.?144|resume_screen|hiring|interview_ai)/i },
   { reviewer: "edtech-reviewer",         pattern: /(coppa|ferpa|student[_-]?(data|pii)|sopipa)/i },
-  { reviewer: "gov-reviewer",            pattern: /(fedramp|nist.?800.?53|cjis|fips.?140|fisma|ssp\.md|vpat)/i },
+  { reviewer: "gov-reviewer",            pattern: /(fedramp|nist.?800.?53|cjis|fips.?140|fisma|vpat)/i },
   { reviewer: "game-reviewer",           pattern: /(loot[_-]?box|esrb|pegi|iarc|gacha)/i },
   // general.?ledger / \bgaap\b appended for accounting-vertical coverage — there is no
   // dedicated accounting-reviewer agent (only project-auditor, which is unrelated), so
@@ -165,7 +170,18 @@ export const RULES = [
   { reviewer: "infra-reviewer",          pattern: /(\.tf$|terraform\/|helm\/|kustomize\/|cdk\/|pulumi\/|\.bicep$)/i },
   { reviewer: "web-store-reviewer",      pattern: /(manifest\.json$|mv3|chrome_extension|firefox_addon)/i },
   { reviewer: "performance-engineer",    pattern: /(perf|p99|latency_budget|k6\/|locust\/|gatling\/|benchmark)/i },
-  { reviewer: "library-reviewer",        pattern: /(package\.json|pyproject\.toml|Cargo\.toml).*(version|public.api)/i },
+  // This rule never fired. It required a manifest name AND the word "version" or
+  // "public api" in the SAME string, but the string it is tested against is a
+  // FILE PATH — no path contains both, so library-reviewer was never attached to
+  // anything since the rule was written. The `version` half was written as if it
+  // would see the diff.
+  //
+  // Bare `package.json` is deliberately not a trigger: every project has one, and
+  // a reviewer that attaches to everything is one people learn to ignore. What is
+  // matched instead are the manifests and artifacts that only a PUBLISHED library
+  // has — a declared public API surface, or a packaging manifest for an ecosystem
+  // where the file's presence already implies distribution.
+  { reviewer: "library-reviewer",        pattern: /(api-extractor\.json|(^|\/)(pyproject\.toml|Cargo\.toml|setup\.py|go\.mod)$|\.npmignore$)/i },
   { reviewer: "cli-reviewer",            pattern: /(bin\/|cli\/main|argv|exit.?code)/i },
   // Building an MCP server, not consuming one: `.mcp.json` and `.playwright-mcp/`
   // are what USING a server leaves behind, and neither is ours to review.

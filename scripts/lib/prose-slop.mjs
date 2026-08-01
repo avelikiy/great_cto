@@ -193,7 +193,13 @@ export function maskCode(text) {
   const blank = (m) => m.replace(/[^\n]/g, ' ');           // keep newlines, kill content
   out = out.replace(/```[\s\S]*?```/g, blank);             // fenced blocks
   out = out.replace(/~~~[\s\S]*?~~~/g, blank);             // fenced, tilde form
-  out = out.replace(/^(?: {4}|\t).*$/gm, blank);           // indented code blocks
+  // Indented code blocks — but NOT a nested list item. In markdown a bullet
+  // indented under its parent is prose, and blanking it made the linter silently
+  // skip every nested bullet in the corpus: the same phrase was flagged at the
+  // top level and invisible one level in. A line whose first non-space character
+  // starts a list item is prose however deep it sits.
+  out = out.replace(/^(?: {4}|\t)(.*)$/gm, (m, body) =>
+    /^\s*(?:[-*+]\s|\d+[.)]\s)/.test(body) ? m : blank(m));
   out = out.replace(/`[^`\n]*`/g, blank);                  // inline code
   out = out.replace(/<!--[\s\S]*?-->/g, blank);            // html comments
   out = out.replace(/\]\([^)\s]+\)/g, blank);              // link targets, not link text
@@ -296,11 +302,15 @@ async function main(argv) {
   const { readFileSync } = await import('node:fs');
   const flagIdx = (name) => argv.indexOf(name);
   const flagVal = (name) => (flagIdx(name) >= 0 ? argv[flagIdx(name) + 1] : null);
+  // Consume by POSITION, not by value. A Set of values removed every argument
+  // equal to a flag's operand, so `--deny rules.md rules.md` — linting the deny
+  // list itself — dropped the file and the run silently checked nothing.
   const consumed = new Set();
   for (const f of ['--deny', '--rule']) {
-    if (flagIdx(f) >= 0) { consumed.add(argv[flagIdx(f)]); consumed.add(argv[flagIdx(f) + 1]); }
+    const i = flagIdx(f);
+    if (i >= 0) { consumed.add(i); consumed.add(i + 1); }
   }
-  const files = argv.filter((a) => !a.startsWith('--') && !consumed.has(a));
+  const files = argv.filter((a, i) => !a.startsWith('--') && !consumed.has(i));
   const rules = flagVal('--rule') ? flagVal('--rule').split(',') : null;
   const deny = argv.includes('--no-deny') ? null : await loadDenyList(flagVal('--deny') || undefined);
   const json = argv.includes('--json');

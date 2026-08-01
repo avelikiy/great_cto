@@ -656,7 +656,10 @@ Observations (signal < 2 or no direct evidence): record in a separate `## Observ
 
 7. **Close or block gate:ship** (gate was created by qa-engineer):
    ```bash
-   GATE_SHIP_ID=$(bd list --label gate --status open 2>/dev/null | grep "gate:ship" | awk '{print $1}' | head -1)
+   # `bd list` prints a status symbol first — `○ ck-9lv ● P2 <title>` — so $1 is `○`,
+   # not the id. Every bd command that followed was run against a bullet character and
+   # failed silently. Match the id by shape, the way phase-task.sh already does.
+   GATE_SHIP_ID=$(bd list --label gate --status open 2>/dev/null | grep "gate:ship" | grep -oE '[a-zA-Z][a-zA-Z0-9_-]+-[a-z0-9]+' | head -1)
    ```
    - APPROVED: `bd close "$GATE_SHIP_ID" "Security approved — CSO-<date>.md"`
    - BLOCKED: `bd update "$GATE_SHIP_ID" --status blocked --note "Security BLOCKED: <top finding>"` + create tasks per P0/P1 finding

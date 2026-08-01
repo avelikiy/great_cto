@@ -249,3 +249,48 @@ test('every reviewer in RULES has a prompt file and a slot in the sync list', as
       `${reviewer} is routed to but never synced into ~/.claude/agents`);
   }
 });
+
+// ─── rules that cannot fire ────────────────────────────────────────────────
+//
+// A rule is tested against a FILE PATH, after EXCLUDE has removed some paths
+// entirely. Two ways a rule ends up permanently silent, both of which happened:
+//
+//   - it requires two things in one path that no path carries together
+//     (library-reviewer wanted a manifest name AND the word "version", written
+//     as if the rule would see the diff)
+//   - every path it could match is already excluded (EXCLUDE drops all `.md`,
+//     which killed `EVAL-.*\.md$` and `ssp\.md`)
+//
+// Neither shows up as a failure. The reviewer simply never attaches, and the
+// rule list reads as coverage that isn't there.
+
+test('no rule can only match a path EXCLUDE throws away', () => {
+  const offenders = [];
+  for (const r of RULES) {
+    // Tokens ending in `.md` — the one extension EXCLUDE removes wholesale.
+    const mdOnly = (r.pattern.source.match(/[^|()]*\\\.md\$?/g) || []).filter(Boolean);
+    if (mdOnly.length) offenders.push(`${r.reviewer}: ${mdOnly.join(', ')}`);
+  }
+  assert.deepEqual(offenders, [],
+    'these tokens can never fire — EXCLUDE drops every .md path before rules run');
+});
+
+test('no rule bridges two fragments with .* across a path', () => {
+  // `(a|b).*(c|d)` needs both halves in ONE path string. Real paths carry a
+  // name and a location, not a name and a diff word — this shape has never
+  // matched anything in practice.
+  const offenders = RULES.filter(r => /\)\.\*\(/.test(r.pattern.source)).map(r => r.reviewer);
+  assert.deepEqual(offenders, [],
+    'a wildcard bridging two alternation groups is a rule written against a diff, not a path');
+});
+
+test('library-reviewer attaches on a published package manifest', () => {
+  for (const p of ['Cargo.toml', 'pyproject.toml', 'go.mod', 'sdk/api-extractor.json']) {
+    assert.ok(reviewersFor(p).includes('library-reviewer'), p);
+  }
+});
+
+test('library-reviewer does not attach to every project that has a package.json', () => {
+  assert.ok(!reviewersFor('package.json').includes('library-reviewer'),
+    'a reviewer that attaches to everything is one people learn to ignore');
+});

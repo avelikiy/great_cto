@@ -202,3 +202,31 @@ test('the real deny file parses and every section maps to a known rule', async (
     assert.ok(phrases.every((p) => p === p.toLowerCase()), `${id} holds an uncased phrase`);
   }
 });
+
+// ─── masking: a nested bullet is prose, not a code block ───────────────────
+//
+// Markdown's indented-code-block rule is 4 spaces, and a nested list item is
+// also indented 4 spaces. Blanking on indentation alone meant the linter
+// checked top-level bullets and silently skipped everything one level in — the
+// same phrase flagged in one place and invisible in another, which reads as the
+// phrase being acceptable there.
+
+test('slop inside a nested list item is found', () => {
+  const md = '# D\n\n- top\n    - nested item that is basically filler\n';
+  const hits = detectSlop(md).map(f => f.quote);
+  assert.ok(hits.includes('basically'), `nested bullet was skipped; found ${JSON.stringify(hits)}`);
+});
+
+test('a numbered nested item is prose too', () => {
+  const md = '# D\n\n1. top\n    2. nested step that is basically filler\n';
+  assert.ok(detectSlop(md).some(f => f.quote === 'basically'));
+});
+
+test('an actual indented code block is still masked', () => {
+  const md = '# D\n\nProse.\n\n    const x = "basically";\n';
+  assert.deepEqual(detectSlop(md), [], 'indented code is code, whatever words it contains');
+});
+
+test('a fenced block is still masked', () => {
+  assert.deepEqual(detectSlop('# D\n\n```\nbasically just\n```\n'), []);
+});

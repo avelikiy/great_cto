@@ -803,7 +803,10 @@ bash scripts/log-verdict.sh qa-engineer <PASS|FAIL> auto \
 
 ```bash
 # Dedup: never create a second open gate:ship (re-runs after a flaky pass)
-GATE_ID=$(bd list --label gate --status open 2>/dev/null | grep "gate:ship" | awk '{print $1}' | head -1)
+# `bd list` prints a status symbol first — `○ ck-9lv ● P2 <title>` — so $1 is `○`,
+# not the id. Every bd command that followed was run against a bullet character and
+# failed silently. Match the id by shape, the way phase-task.sh already does.
+GATE_ID=$(bd list --label gate --status open 2>/dev/null | grep "gate:ship" | grep -oE '[a-zA-Z][a-zA-Z0-9_-]+-[a-z0-9]+' | head -1)
 if [ -z "$GATE_ID" ]; then
   GATE_ID=$(bd q "gate:ship — <feature> security + deploy approval" --priority 0 --labels gate)
 fi

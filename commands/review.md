@@ -564,7 +564,10 @@ If bd unavailable: append to `.great_cto/tasks.md`: `[GATE:CODE] <feature> — P
 If P0 = 0 AND (P1 = 0 OR approval-level = auto):
 ```bash
 # Close existing gate:code if present
-EXISTING=$(bd list --label gate --status open 2>/dev/null | grep "gate:code" | awk '{print $1}' | head -1)
+# `bd list` prints a status symbol first — `○ ck-9lv ● P2 <title>` — so $1 is `○`,
+# not the id. Every bd command that followed was run against a bullet character and
+# failed silently. Match the id by shape, the way phase-task.sh already does.
+EXISTING=$(bd list --label gate --status open 2>/dev/null | grep "gate:code" | grep -oE '[a-zA-Z][a-zA-Z0-9_-]+-[a-z0-9]+' | head -1)
 [ -n "$EXISTING" ] && bd close "$EXISTING" "Review clean — P0:0 P1:[count]" 2>/dev/null
 echo "Code review: CLEAN — no gate:code needed. Proceed to qa-engineer."
 ```
