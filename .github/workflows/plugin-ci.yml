@@ -41,15 +41,30 @@ jobs:
         run: node --test tests/docs/*.test.mjs
       - name: Eval-infra unit tests (runner / gate / gp-schema / coverage / cost-meter)
         run: node --test tests/eval/runner.test.mjs tests/eval/eval-gate.test.mjs tests/eval/gp-schema.test.mjs tests/eval/coverage-gate.test.mjs scripts/lib/cost-meter.test.mjs
+      # A ratchet, not a wall. Holding every edited agent to `exercised` would
+      # block 68 of 69 on day one and stop all work, so the existing debt stays
+      # visible and non-blocking while NEW debt cannot be added: an agent
+      # introduced in this PR needs an EVAL that has actually run, not one that
+      # merely exists. "A file names the agent" is what the old single-number
+      # coverage counted, and it measured nothing.
       - name: Agent → EVAL coverage gate (changed agents)
         if: github.event_name == 'pull_request'
         run: |
           BASE="${{ github.event.pull_request.base.sha }}"
-          CHANGED=$(git diff --name-only "$BASE"...HEAD -- 'agents/*.md' | tr '\n' ' ')
-          if [ -n "$CHANGED" ]; then
-            echo "Changed agents: $CHANGED"
-            node scripts/coverage-gate.mjs --changed $CHANGED
-          else
+          ADDED=$(git diff --name-only --diff-filter=A "$BASE"...HEAD -- 'agents/*.md' | tr '\n' ' ')
+          EDITED=$(git diff --name-only --diff-filter=M "$BASE"...HEAD -- 'agents/*.md' | tr '\n' ' ')
+
+          if [ -n "$EDITED" ]; then
+            echo "Edited agents (bar: an EVAL exists): $EDITED"
+            node scripts/coverage-gate.mjs --changed $EDITED --require present
+          fi
+
+          if [ -n "$ADDED" ]; then
+            echo "New agents (bar: an EVAL that has been executed): $ADDED"
+            node scripts/coverage-gate.mjs --changed $ADDED --require exercised
+          fi
+
+          if [ -z "$ADDED$EDITED" ]; then
             echo "No agent files changed — coverage gate skipped."
           fi
 
