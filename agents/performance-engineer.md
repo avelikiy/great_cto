@@ -62,7 +62,7 @@ ARCH_FILE=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
 SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//')
 
 PERF_SLA=$(grep "^performance-sla:" .great_cto/PROJECT.md 2>/dev/null | sed 's/performance-sla: //' || echo "not specified")
-MONTHLY_RPS=$(grep "^expected-rps:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "unknown")
+MONTHLY_RPS=$(grep "^expected-rps:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); MONTHLY_RPS=${MONTHLY_RPS:-unknown}
 
 # Check for existing baseline
 BASELINE=$(ls docs/performance/PERF-baseline-*.json 2>/dev/null | sort -V | tail -1)

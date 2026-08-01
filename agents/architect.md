@@ -255,15 +255,15 @@ constraint in the new ARCH doc — document why this design choice was not taken
 
    - **Read archetype + params** — pipeline rules come from archetype, not specific type:
      ```bash
-     ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
-     PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
-     SECURITY_GATE=$(grep "^security-gate:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "conditional")
+     ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
+     PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PROJECT_SIZE=${PROJECT_SIZE:-medium}
+     SECURITY_GATE=$(grep "^security-gate:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); SECURITY_GATE=${SECURITY_GATE:-conditional}
      COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "[]")
      ```
      Read ARCHETYPES.md for QA strategy, deploy method, and thresholds matching `$ARCHETYPE`. Use these as constraints for the architecture design.
    - **Greenfield check** — determines how deep to read existing code:
      ```bash
-     GREENFIELD=$(grep "^greenfield:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "true")
+     GREENFIELD=$(grep "^greenfield:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); GREENFIELD=${GREENFIELD:-true}
      ```
      If `greenfield: false` → **read existing codebase before designing**:
      ```bash
@@ -312,7 +312,7 @@ constraint in the new ARCH doc — document why this design choice was not taken
    Count files the feature will touch (estimate from CTO description + existing ARCH docs):
    ```bash
    TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-   APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+   APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
    ```
 
    Apply rules from ARCHETYPES.md `## Required Agents by Size`:
@@ -342,7 +342,7 @@ constraint in the new ARCH doc — document why this design choice was not taken
 3. **User Spec → Tech Spec separation** (for `approval-level: expert` or `step-by-step`):
 
    ```bash
-   APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+   APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
    ```
 
    **If `expert` or `step-by-step`** → produce two documents in sequence:
@@ -387,7 +387,7 @@ constraint in the new ARCH doc — document why this design choice was not taken
 
    **Cloud Cost Estimate** — append `## Cost Estimate` section to ARCH doc:
    ```bash
-   CLOUD=$(grep "cloud:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "aws")
+   CLOUD=$(grep "cloud:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); CLOUD=${CLOUD:-aws}
    ```
    For each NEW component this feature introduces, match to the per-component AWS/GCP/Azure
    rate table and sum: `skills/great_cto/references/cloud-pricing.md` § Cloud component pricing.
@@ -481,7 +481,7 @@ manual configuration needed.
 
    **Check approval_level before creating gate:**
    ```bash
-   APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+   APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
    ```
    - `strict`: gate:arch is mandatory — senior-dev cannot start without CTO approval
    - `auto`: gate:arch is advisory — senior-dev may start if no P0 risks identified in ARCH doc

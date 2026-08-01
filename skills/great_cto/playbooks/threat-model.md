@@ -52,7 +52,7 @@ TM_FILE="${TM_DIR}/TM-${SLUG}.md"
 Threat modeling is mandatory for some archetypes, recommended for others, and advisory for the rest.
 
 ```bash
-ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
 case "$ARCHETYPE" in
   ai-system|commerce|web3|iot-embedded|regulated|fintech)
     REQUIRED="mandatory"

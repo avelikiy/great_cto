@@ -93,7 +93,10 @@ export function computeAnonId(): string {
 /** Resolve telemetry-enabled state. Pure function, no side effects. */
 export function isTelemetryEnabled(cliFlag = false): boolean {
   // Opt-out wins, in priority order:
-  if (process.env.DO_NOT_TRACK === "1" || process.env.DO_NOT_TRACK === "true") return false;
+  // consoledonottrack.com specifies ANY non-empty value as opt-out. Accepting
+  // only "1"/"true" meant `DO_NOT_TRACK=yes` — which a user sets believing it
+  // works, and which the spec says does work — silently left telemetry on.
+  if ((process.env.DO_NOT_TRACK ?? "") !== "") return false;
   if (process.env.GREAT_CTO_TELEMETRY === "off") return false;
   if (process.env.GREAT_CTO_DISABLE_TELEMETRY === "1") return false;
   if (process.env.GREATCTO_NO_TELEMETRY === "1") return false;

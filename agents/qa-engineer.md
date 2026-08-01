@@ -278,7 +278,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 ### Step 0: Check project_size — gate your own execution
 
 ```bash
-PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
+PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PROJECT_SIZE=${PROJECT_SIZE:-medium}
 ```
 
 **If `nano`**: exit immediately. "project_size=nano — QA agent not required. Senior-dev runs unit tests inline." Do NOT create gate:ship for nano (senior-dev deploys directly).
@@ -290,7 +290,7 @@ PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{p
 ### Step 0c: Read archetype + params + load domain packs
 
 ```bash
-ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
 COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "[]")
 QA_EXTRAS=$(grep "^qa-extras:" .great_cto/PROJECT.md 2>/dev/null | sed 's/qa-extras: //' || echo "[]")
 PERF_SLA=$(grep "^performance-sla:" .great_cto/PROJECT.md 2>/dev/null | sed 's/performance-sla: //' || echo "")
@@ -570,7 +570,7 @@ export default function() { check(http.get('http://localhost:3000/health'), {'st
 EOF
 
 # Option 2: Apache Bench (fallback — available on most systems)
-PORT=$(grep "port:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "3000")
+PORT=$(grep "port:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PORT=${PORT:-3000}
 ab -n 500 -c 20 -q http://localhost:${PORT}/health 2>/dev/null | grep -E "p95|Time per request|Requests per second|Failed"
 
 # Option 3: curl timing (minimal fallback — always available)

@@ -99,12 +99,12 @@ If the CTO provides a roadmap (list of features by quarter/phase), apply the `ou
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 
 # Project metadata
-PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
-ARCHETYPE=$(grep "^archetype:\|^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1 || echo "web-app")
-APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
-PHASE=$(grep "^phase:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "implementation")
-TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "1")
-MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "")
+PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PROJECT_SIZE=${PROJECT_SIZE:-medium}
+ARCHETYPE=$(grep "^archetype:\|^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1); ARCHETYPE=${ARCHETYPE:-web-app}
+APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
+PHASE=$(grep "^phase:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PHASE=${PHASE:-implementation}
+TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); TEAM_SIZE=${TEAM_SIZE:-1}
+MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 
 # Past lessons — calibrate cost/time estimates against actuals
 if [ -f .great_cto/lessons.md ]; then
@@ -470,7 +470,7 @@ Any [N] → fix the plan before creating the gate.
 ## Step 9 — Create gate:plan
 
 ```bash
-APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
 ```
 
 Create the gate when the level asks for a plan review. `gate:plan` is a

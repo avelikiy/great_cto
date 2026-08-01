@@ -57,7 +57,7 @@ SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//')
 
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //')
-DATA_RESIDENCY=$(grep "^data-residency:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "unspecified")
+DATA_RESIDENCY=$(grep "^data-residency:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); DATA_RESIDENCY=${DATA_RESIDENCY:-unspecified}
 
 echo "slug=$SLUG archetype=$ARCHETYPE compliance=$COMPLIANCE residency=$DATA_RESIDENCY"
 cat "$ARCH_FILE"

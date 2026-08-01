@@ -97,16 +97,30 @@ phase_open() {
   priority=$(phase_priority_for "$agent")
 
   if [ "$HAS_BD" = "1" ]; then
-    # Check for existing open phase task for this agent + feature.
-    # bd list output: `<symbol> <id> <symbol> <priority> <title>`
-    # — extract the id with grep (alpha+digits, dashes).
-    local existing
-    existing=$(bd list --label "$label" --status open 2>/dev/null \
-               | grep -F "$feature" \
-               | head -1 \
-               | grep -oE '[a-zA-Z][a-zA-Z0-9_-]+-[a-z0-9]+' \
-               | head -1)
+    # Check for an existing phase task for this agent + feature.
+    #
+    # This used to search `--status open` only, which made the idempotency
+    # claim in the header false the moment anything happened to the task:
+    # `start` moves it to in_progress and `close --verdict fail` moves it to
+    # blocked, so the next `open` found nothing and created a second task for
+    # the same phase. A phase that failed and was retried accumulated one row
+    # per attempt, and the blocked ones stayed blocked with nothing to clear
+    # them. Every non-closed status counts as "this phase already exists".
+    local existing=""
+    local st
+    for st in open in_progress blocked deferred; do
+      existing=$(bd list --label "$label" --status "$st" 2>/dev/null \
+                 | grep -F "$feature" \
+                 | head -1 \
+                 | grep -oE '[a-zA-Z][a-zA-Z0-9_-]+-[a-z0-9]+' \
+                 | head -1)
+      [ -n "$existing" ] && break
+    done
     if [ -n "$existing" ]; then
+      # A retry of a phase that failed: hand back the same task and put it back
+      # in play, so the blocked row is resolved by the rerun rather than left
+      # behind for a human to notice.
+      [ "$st" = "blocked" ] && bd update "$existing" --status in_progress >/dev/null 2>&1
       echo "$existing"  # idempotent
       return 0
     fi
@@ -189,10 +203,17 @@ phase_latest() {
   local label
   label=$(phase_label_for "$agent")
   if [ "$HAS_BD" = "1" ]; then
-    bd list --label "$label" --status open 2>/dev/null \
-      | head -1 \
-      | grep -oE '[a-zA-Z][a-zA-Z0-9_-]+-[a-z0-9]+' \
-      | head -1
+    # "Latest open phase task" means any phase still in flight — a task that
+    # `start` moved to in_progress is exactly the one a caller is looking for,
+    # and searching `open` alone returned nothing for it.
+    local st out
+    for st in in_progress open blocked; do
+      out=$(bd list --label "$label" --status "$st" 2>/dev/null \
+            | head -1 \
+            | grep -oE '[a-zA-Z][a-zA-Z0-9_-]+-[a-z0-9]+' \
+            | head -1)
+      if [ -n "$out" ]; then echo "$out"; return 0; fi
+    done
   fi
 }
 

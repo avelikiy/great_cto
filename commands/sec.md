@@ -58,7 +58,7 @@ esac
 NOW_EPOCH=$(date +%s)
 WINDOW_START=$(( NOW_EPOCH - PERIOD * 86400 ))
 SEC_BASELINE=.great_cto/sec-baseline.log
-ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
 ```
 
 ## Step 0 — Current security tier

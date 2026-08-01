@@ -142,7 +142,11 @@ test('autoRegisterProject updates the existing entry in place when a repo moves 
   assert.equal(reg.projects.filter(p => p.slug === 'moveable-proj').length, 1);
   assert.equal(reg.projects.find(p => p.slug === 'moveable-proj').path, oldDir);
 
-  // "Move" the repo: register the same slug at a new path.
+  // "Move" the repo: the old location stops existing. That is the evidence a
+  // move leaves behind — with BOTH directories present and valid, the registry
+  // cannot tell a move from two projects that share a name, and it now keeps
+  // both rather than overwriting one of them.
+  fs.rmSync(oldDir, { recursive: true, force: true });
   autoRegisterProject(newDir);
   reg = readProjectsRegistry();
   const matches = reg.projects.filter(p => p.slug === 'moveable-proj');
@@ -243,4 +247,52 @@ test('listProjects hides $HOME, dead (no marker), keeps live projects', () => {
   assert.ok(!slugs.includes('dead-proj'), 'empty .great_cto hidden');
   assert.ok(!slugs.includes('home-junk'), '$HOME (global config dir) hidden');
   assert.ok(!slugs.includes('gone-proj'), 'non-existent path hidden');
+});
+
+// Two live projects that happen to share a basename — ~/work/api and
+// ~/personal/api — produced the same slug, and the registry treated the second
+// as the first having moved. It rewrote the first entry's path and one project
+// vanished from the switcher with no error anywhere. A path is a project; a slug
+// is only its name, and names have to be made unique when they collide.
+
+test('two live projects with the same name both survive registration', () => {
+  const a = makeRealDir(path.join('work', 'api'));
+  const b = makeRealDir(path.join('personal', 'api'));
+  writeProjectMd(a, 'api');
+  writeProjectMd(b, 'api');
+
+  autoRegisterProject(a);
+  autoRegisterProject(b);
+
+  const paths = readProjectsRegistry().projects.map(p => p.path).sort();
+  assert.deepEqual(paths, [a, b].sort(), 'neither project is dropped');
+  const slugs = readProjectsRegistry().projects.map(p => p.slug);
+  assert.equal(new Set(slugs).size, 2, 'the colliding name is disambiguated, so both are reachable');
+});
+
+test('each of two same-named projects resolves to its own directory', () => {
+  const a = makeRealDir(path.join('w2', 'app'));
+  const b = makeRealDir(path.join('p2', 'app'));
+  writeProjectMd(a, 'app');
+  writeProjectMd(b, 'app');
+  autoRegisterProject(a);
+  autoRegisterProject(b);
+
+  const reg = readProjectsRegistry().projects;
+  for (const entry of reg) {
+    assert.equal(resolveProjectCwd(entry.slug), entry.path, `${entry.slug} → its own path`);
+  }
+});
+
+test('a repo that genuinely moved still updates in place', () => {
+  const gone = path.join(tmpDir, 'moved-away', 'svc');   // never created on disk
+  const now = makeRealDir(path.join('moved-here', 'svc'));
+  writeProjectMd(now, 'svc');
+  writeProjectsRegistry({ projects: [{ slug: 'svc', path: gone, archetype: 'cli-tool', added_at: '2020-01-01T00:00:00Z' }] });
+
+  autoRegisterProject(now);
+
+  const reg = readProjectsRegistry().projects.filter(p => p.slug.startsWith('svc'));
+  assert.equal(reg.length, 1, 'a dead path is not a second project');
+  assert.equal(reg[0].path, now);
 });

@@ -184,3 +184,60 @@ test('checkScope: empty / falsy entries skipped', () => {
   assert.equal(r.ok, true);
   assert.equal(r.warnings.length, 0);
 });
+
+// The denylist compared strings. Claude Code's Edit/Write pass an ABSOLUTE
+// file_path, so in real use nothing ever matched a repo-relative denylist entry
+// and the hard deny never fired — the guard was inert exactly where it ran.
+// `..` segments and symlinks walked through it for the same reason.
+
+const DENY_BRIEF = { filesToModify: ['src/**'], filesNotToModify: ['secrets.env', 'config/**'] };
+
+test('an absolute path inside the repo is judged by its repo-relative form', async () => {
+  const { checkScope } = await import('../../scripts/lib/impl-brief.mjs');
+  const abs = `${process.cwd()}/secrets.env`;
+  const r = checkScope([abs], DENY_BRIEF);
+  assert.equal(r.ok, false, 'the absolute form of a denied file is the denied file');
+  assert.match(r.violations[0], /secrets\.env/);
+});
+
+test('a traversal that lands on a denied file is denied', async () => {
+  const { checkScope } = await import('../../scripts/lib/impl-brief.mjs');
+  for (const p of ['docs/../secrets.env', './src/../secrets.env', 'config/../config/keys.json']) {
+    assert.equal(checkScope([p], DENY_BRIEF).ok, false, p);
+  }
+});
+
+test('a path outside the repo cannot masquerade as an allowed one', async () => {
+  const { checkScope } = await import('../../scripts/lib/impl-brief.mjs');
+  const r = checkScope(['/etc/passwd'], DENY_BRIEF);
+  assert.equal(r.warnings.length, 1, 'outside the brief is at least a warning, never silent');
+});
+
+test('normal relative paths keep working', async () => {
+  const { checkScope } = await import('../../scripts/lib/impl-brief.mjs');
+  assert.equal(checkScope(['src/app.ts'], DENY_BRIEF).ok, true);
+  assert.equal(checkScope(['./src/app.ts'], DENY_BRIEF).ok, true);
+  assert.equal(checkScope(['secrets.env'], DENY_BRIEF).ok, false);
+});
+
+test('a write reaching a denied file through a symlink is denied', async (t) => {
+  const { mkdtempSync, writeFileSync, symlinkSync, mkdirSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { checkScope } = await import('../../scripts/lib/impl-brief.mjs');
+
+  const dir = mkdtempSync(join(tmpdir(), 'scope-'));
+  const cwd = process.cwd();
+  try {
+    mkdirSync(join(dir, 'src'));
+    writeFileSync(join(dir, 'secrets.env'), 'K=1');
+    symlinkSync('secrets.env', join(dir, 'sym.env'));
+    process.chdir(dir);
+    // The write lands on secrets.env whatever name it travelled under.
+    assert.equal(checkScope(['sym.env'], DENY_BRIEF).ok, false, 'symlink to a denied file is the denied file');
+    assert.equal(checkScope(['src/a.ts'], DENY_BRIEF).ok, true, 'ordinary files are unaffected');
+  } finally {
+    process.chdir(cwd);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

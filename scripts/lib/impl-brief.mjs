@@ -16,7 +16,8 @@
 //       exit 0 = clean · 1 = denylist hit (hard) · 2 = malformed brief
 //   (allowlist misses are warnings, not failures — they print but keep exit 0.)
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
+import { resolve, relative, isAbsolute, normalize, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Headings we recognise (matched case-insensitively, ignoring a trailing "(explicit)" etc).
@@ -146,9 +147,60 @@ export function globToRegExp(glob) {
   return new RegExp('^' + re + '$');
 }
 
+/**
+ * A path the agent asked to write, reduced to the repo-relative form the brief
+ * is written in.
+ *
+ * The guard used to compare strings after stripping a leading `./`. Claude Code
+ * passes Edit/Write an ABSOLUTE file_path, so a denylist entry like
+ * `secrets.env` matched nothing in real use and the hard deny never fired — the
+ * check ran on every write and protected nothing. `docs/../secrets.env` walked
+ * through for the same reason.
+ *
+ * Resolving against cwd fixes both. A path that resolves OUTSIDE the repo keeps
+ * its absolute form: it belongs to no allowlist, so it stays a warning rather
+ * than being silently rewritten into something that looks allowed.
+ */
+export function toRepoRelative(file, cwd = process.cwd(), { resolveLeaf = false } = {}) {
+  const raw = String(file ?? '');
+  if (!raw) return '';
+  const abs = isAbsolute(raw) ? normalize(raw) : resolve(cwd, raw);
+
+  // Both sides go through realpath, and both must: on macOS the cwd reports as
+  // /private/var/... while a caller passes /var/..., which are the same directory
+  // through a symlink. Comparing one resolved form against one unresolved form
+  // put every file "outside the repo" and skipped the denylist entirely.
+  const real = (p) => { try { return realpathSync(p); } catch { return p; } };
+  const canon = (p, leaf = false) => {
+    if (leaf) return real(p);
+    const d = real(dirname(p));
+    return d === p ? p : resolve(d, basename(p));
+  };
+
+  const rel = relative(canon(cwd), canon(abs, resolveLeaf));
+  return rel && !rel.startsWith('..') ? rel : abs;
+}
+
+/**
+ * Every repo-relative name that a single write reaches.
+ *
+ * A write through a symlink lands on the target, so a denylisted file stays
+ * denied when it is reached under another name. Both forms are checked rather
+ * than only the resolved one: the name the caller typed is also the name the
+ * brief author had in mind, and neither should be the only thing consulted.
+ */
+function candidateNames(file) {
+  const literal = toRepoRelative(file, process.cwd(), { resolveLeaf: false });
+  const target = toRepoRelative(file, process.cwd(), { resolveLeaf: true });
+  return target === literal ? [literal] : [literal, target];
+}
+
 function matchesAny(file, globs) {
-  const f = String(file).replace(/^\.\//, '');
-  return globs.find((g) => globToRegExp(g).test(f) || globToRegExp(g).test('./' + f));
+  const names = candidateNames(file);
+  return globs.find((g) => {
+    const rx = globToRegExp(g);
+    return names.some((f) => rx.test(f) || rx.test('./' + f));
+  });
 }
 
 /**

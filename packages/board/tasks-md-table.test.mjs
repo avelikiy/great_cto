@@ -67,12 +67,16 @@ test('table format: strips bold, lifts trailing note into description', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('table format: checkbox and table are mutually exclusive dialects', () => {
-  // A file with checkbox tasks must NOT also pick up an unrelated pipe table.
-  const dir = withTasksMd('- [ ] TASK-9: only this\n\n| id | title | status |\n|--|--|--|\n| X-1 | leak | open |\n');
+// This used to assert the dialects were mutually exclusive — the table was read
+// only when the checkbox pass found nothing. That rule cost more than it bought:
+// one stray checkbox line hid every table row, gates included. What the rule was
+// actually protecting against is a table that is not a task table, and the
+// id/title/status header requirement already covers that on its own.
+test('a table that is not a task table is still ignored', () => {
+  const dir = withTasksMd('- [ ] TASK-9: only this\n\n| metric | value |\n|--|--|\n| latency | 42ms |\n');
   try {
     const ids = parseTasksMd(dir).map(t => t.id);
-    assert.deepEqual(ids, ['TASK-9'], 'checkbox wins; table not double-parsed');
+    assert.deepEqual(ids, ['TASK-9'], 'no id/title/status header → not a task table');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -234,5 +238,45 @@ test('a healthy read clears any previous degradation', () => {
   try {
     assert.equal(parseTasksMd(dir).length, 1);
     assert.equal(getReadDegradation(dir), null);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// The table was parsed only `if (tasks.length === 0)`, so one checkbox line
+// anywhere in the file hid every table row behind it. A file that grew a
+// checkbox note above its gate table lost the gate from the board — and a gate
+// nobody can see is a gate nobody can approve.
+const MIXED = `# Tasks
+
+- [ ] NOTE-01: leftover checkbox task from an earlier run
+
+| id | title | status | owner |
+|----|-------|--------|-------|
+| GATE-ship | **gate:ship — release review** | open | CTO |
+| UI-7 | Empty state for the list | open | senior-dev |
+`;
+
+test('both dialects in one file: neither hides the other', () => {
+  const dir = withTasksMd(MIXED);
+  try {
+    const ids = parseTasksMd(dir).map(t => t.id);
+    assert.ok(ids.includes('NOTE-01'), 'the checkbox task is still parsed');
+    assert.ok(ids.includes('GATE-ship'), 'the gate is visible, so it can be approved');
+    assert.ok(ids.includes('UI-7'));
+    assert.equal(ids.length, 3);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a task listed in both dialects appears once', () => {
+  const dir = withTasksMd(`# Tasks
+
+- [ ] UI-7: Empty state for the list
+
+| id | title | status | owner |
+|----|-------|--------|-------|
+| UI-7 | Empty state for the list | open | senior-dev |
+`);
+  try {
+    const tasks = parseTasksMd(dir);
+    assert.equal(tasks.filter(t => t.id === 'UI-7').length, 1, 'one task, not two');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

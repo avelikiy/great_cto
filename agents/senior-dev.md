@@ -387,7 +387,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
 
 1. **Read project_size — gate behavior depends on it**:
    ```bash
-   PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
+   PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PROJECT_SIZE=${PROJECT_SIZE:-medium}
    ```
 
    **If `nano`**: skip gate:arch check entirely. Implement directly (no ARCH doc exists for nano). After implementing: merge PR, write one-line CHANGELOG entry, notify CTO "nano deploy complete". Skip steps 8-9 (no gate:code, no QA handoff needed).
@@ -442,7 +442,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    - Check task context for `SKIP standard TDD` injection from orchestrator
    - Read archetype from PROJECT.md:
      ```bash
-     ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
+     ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
      ```
    - If `infra` archetype → Terratest + `terraform plan` / dry-run + rollback verification
    - If `data-platform` archetype → dbt tests + data contract validation / snapshot regression
@@ -501,7 +501,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    **If gh unavailable**: print PR description to stdout (title, summary, test plan, Beads link, REQs) and note "PR: ready — create manually".
 9. **Gate:code check** (if approval-level = strict):
    ```bash
-   REVIEW_MODE=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+   REVIEW_MODE=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); REVIEW_MODE=${REVIEW_MODE:-gates-only}
    ```
    If `strict`: after PR is created, tell CTO:
    > "approval-level is strict. Run `/review` to trigger 3-angle code review (perf / security / readability) before invoking qa-engineer. gate:code will be created if P0/P1 findings exist."

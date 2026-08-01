@@ -15,8 +15,8 @@ how to opt in, how to opt out, and how to verify what's being sent.
 |---|---|
 | Default state | **Disabled** |
 | How to enable | `GREAT_CTO_TELEMETRY=on` env var or `~/.great_cto/telemetry.json: { "enabled": true }` |
-| How to disable | unset env var, or `GREAT_CTO_TELEMETRY=off`, or `DO_NOT_TRACK=1` |
-| Honors `DO_NOT_TRACK=1` (consoledonottrack.com) | Yes — overrides everything else |
+| How to disable | unset env var, or `GREAT_CTO_TELEMETRY=off`, or `DO_NOT_TRACK` set to anything |
+| Honors `DO_NOT_TRACK` (consoledonottrack.com) | Yes, at any non-empty value — overrides everything else |
 | Skips automatically in CI | Yes (detected via `CI=true`, `GITHUB_ACTIONS`, etc.) |
 | Where data goes | `https://telemetry.greatcto.systems/v1/event` (Cloudflare Worker) |
 | Server logs IP addresses | No — Cloudflare gives us the IP, we drop it before write |
@@ -77,7 +77,8 @@ These are not in the schema and the worker rejects events containing them.
 
 The client checks all of these before sending. Any one disabling = no event sent.
 
-1. `DO_NOT_TRACK=1` env var (industry standard, [consoledonottrack.com](https://consoledonottrack.com/))
+1. `DO_NOT_TRACK` env var set to any non-empty value — `1`, `true`, `yes`, anything
+   (industry standard, [consoledonottrack.com](https://consoledonottrack.com/))
 2. `GREAT_CTO_TELEMETRY=off` env var
 3. `GREAT_CTO_DISABLE_TELEMETRY=1` env var (legacy alias)
 4. `~/.great_cto/telemetry.json: { "enabled": false }`

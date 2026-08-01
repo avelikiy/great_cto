@@ -293,8 +293,8 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
    Reference: `skills/great_cto/references/security-tiers.md` — single source of truth.
 
    ```bash
-   ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
-   PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
+   ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
+   PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PROJECT_SIZE=${PROJECT_SIZE:-medium}
 
    # Archetype default tier
    case "$ARCHETYPE" in
@@ -408,7 +408,7 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
 
 1b. **Read** `.great_cto/PROJECT.md` → get `archetype`, `type`, `stack`, and `compliance` params:
    ```bash
-   ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
+   ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
    COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "[]")
    ```
    Read ARCHETYPES.md → find security rules for `$ARCHETYPE`.

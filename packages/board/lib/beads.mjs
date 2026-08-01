@@ -344,8 +344,13 @@ function parseTasksMd(cwd) {
         source: 'tasks.md',
       });
     }
-    // No checkbox tasks → try the table dialect before giving up.
-    if (tasks.length === 0) return parseTableTasks(r.text);
+    // Both dialects, always. Parsing the table only when the checkbox pass came
+    // back empty meant a single stray `- [ ] …` line hid every table row behind
+    // it — and a gate row that never reaches the board is a gate nobody can
+    // approve. The checkbox pass wins a duplicate id: it is the older dialect,
+    // so a file carrying both is one being migrated away from it.
+    const seen = new Set(tasks.map((t) => t.id));
+    for (const t of parseTableTasks(r.text)) if (!seen.has(t.id)) tasks.push(t);
     return tasks;
   } catch (e) {
     // The file was readable but we could not make sense of it. Record it: an

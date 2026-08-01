@@ -104,3 +104,19 @@ test("decideEnsureAction: alive but port hung → restart", () => {
 test("decideEnsureAction: alive + healthy → noop", () => {
   assert.equal(decideEnsureAction({ pid: 999, alive: true, healthy: true }), "noop");
 });
+
+// `board ensure` used to accept any HTTP response as proof the board was up, so
+// anything squatting on the port — a dev server, a proxy, another app — made it
+// report a healthy board and refuse to start the real one.
+test("a foreign process on the port is not the board", async () => {
+  const { isBoardResponse } = await import("../dist/board-daemon.js");
+  assert.equal(isBoardResponse(200, "<!doctype html><h1>Vite</h1>"), false, "HTML is not the board");
+  assert.equal(isBoardResponse(404, ""), false, "a 404 was the original false positive");
+  assert.equal(isBoardResponse(200, '{"ok":true}'), false, "JSON alone proves nothing");
+  assert.equal(isBoardResponse(502, '{"version":"1","surface":"builder"}'), false, "a gateway error is not up");
+});
+
+test("the board's own /api/version is recognised", async () => {
+  const { isBoardResponse } = await import("../dist/board-daemon.js");
+  assert.equal(isBoardResponse(200, '{"version":"2.90.0","surface":"builder","node":"22.0.0"}'), true);
+});

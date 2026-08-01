@@ -191,3 +191,23 @@ export function decideEnsureAction(s: EnsureState): EnsureAction {
   if (!s.healthy) return "restart";
   return "noop";
 }
+
+/**
+ * Is this HTTP response the great_cto board, or just something on that port?
+ *
+ * The probe used to accept ANY response, including a 404 — so a dev server, a
+ * Docker proxy, or an unrelated app squatting on 3141 made `board ensure` print
+ * "board already running" and exit 0. The supervisor then never started the
+ * board, and the user got a healthy-looking line pointing at someone else's app.
+ *
+ * `/api/version` answers with the board's own build identity, which nothing else
+ * on the machine has a reason to serve.
+ */
+export function isBoardResponse(status: number, body: string): boolean {
+  if (status !== 200) return false;
+  let parsed: unknown;
+  try { parsed = JSON.parse(body); } catch { return false; }
+  if (!parsed || typeof parsed !== "object") return false;
+  const o = parsed as Record<string, unknown>;
+  return typeof o.version === "string" && typeof o.surface === "string";
+}

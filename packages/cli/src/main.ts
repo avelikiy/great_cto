@@ -24,7 +24,7 @@ import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js
 import { sendUsagePing, sendInstallPing, telemetrySubcommand, isTelemetryEnabled, computeAnonId } from "./telemetry.js";
 import { checkForUpdate } from "./update-check.js";
 import { findBoardServerPath } from "./board-path.js";
-import { daemonSpec, decideEnsureAction, type Platform } from "./board-daemon.js";
+import { daemonSpec, decideEnsureAction, isBoardResponse, type Platform } from "./board-daemon.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -341,13 +341,28 @@ function isPidAlive(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
 
-/** Does the board answer HTTP on this port? Any response (even 4xx) = healthy. */
+/**
+ * Is OUR board answering on this port?
+ *
+ * Any-response-is-healthy was the bug: whatever happened to hold 3141 — a dev
+ * server, a proxy, an unrelated app — made `ensure` print "board already
+ * running" and never start the board. `/api/version` returns the board's own
+ * identity, so a stranger on the port now reads as "not running".
+ */
 async function probeBoardPort(port: number): Promise<boolean> {
   const http = await import("node:http");
   return new Promise<boolean>(resolve => {
     const req = http.request(
-      { host: "127.0.0.1", port, path: "/", method: "GET", timeout: 1200 },
-      res => { res.resume(); resolve(true); },
+      { host: "127.0.0.1", port, path: "/api/version", method: "GET", timeout: 1200 },
+      res => {
+        const status = res.statusCode ?? 0;
+        let body = "";
+        res.setEncoding("utf8");
+        // A stranger could stream forever; the identity fits in well under 4 KB.
+        res.on("data", (c: string) => { body += c; if (body.length > 4096) req.destroy(); });
+        res.on("end", () => resolve(isBoardResponse(status, body)));
+        res.on("error", () => resolve(false));
+      },
     );
     req.on("error", () => resolve(false));
     req.on("timeout", () => { req.destroy(); resolve(false); });

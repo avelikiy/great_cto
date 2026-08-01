@@ -69,10 +69,10 @@ Optional — Grafana-native tools are used when available; file/Docker/journalct
 ```bash
 # Detect Grafana integration from PROJECT.md
 GRAFANA_URL=$(grep "grafana-url:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-GRAFANA_API_KEY_ENV=$(grep "grafana-api-key-env:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "GRAFANA_API_KEY")
+GRAFANA_API_KEY_ENV=$(grep "grafana-api-key-env:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); GRAFANA_API_KEY_ENV=${GRAFANA_API_KEY_ENV:-GRAFANA_API_KEY}
 GRAFANA_API_KEY="${!GRAFANA_API_KEY_ENV:-}"
-LOKI_DS=$(grep "loki-datasource:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "Loki")
-TEMPO_DS=$(grep "tempo-datasource:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "Tempo")
+LOKI_DS=$(grep "loki-datasource:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); LOKI_DS=${LOKI_DS:-Loki}
+TEMPO_DS=$(grep "tempo-datasource:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); TEMPO_DS=${TEMPO_DS:-Tempo}
 GRAFANA_OK=false
 [ -n "$GRAFANA_URL" ] && [ -n "$GRAFANA_API_KEY" ] && GRAFANA_OK=true
 
@@ -188,14 +188,14 @@ echo "=== Pattern lookup complete — apply matching patterns above BEFORE Steps
 
 1. **Read approval-level + project_size**:
    ```bash
-   APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+   APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
    ```
    - `auto`: skip postmortem write, skip retrospective entry — just resolve and report one line
    - `gates-only` or higher: full workflow below including postmortem
 
 1b. **Check project_size — gate your own execution and set monitoring window**:
    ```bash
-   PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
+   PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PROJECT_SIZE=${PROJECT_SIZE:-medium}
    ```
    - **`nano`**: exit. "project_size=nano — L3 monitoring not required. No post-deploy watch."
    - **`small`**: exit. "project_size=small — L3 monitoring not required. Senior-dev is responsible for post-deploy check."
@@ -267,7 +267,7 @@ echo "=== Pattern lookup complete — apply matching patterns above BEFORE Steps
 3. **Quick diagnostics** (run ALL checks in parallel — do not wait for one before starting the next):
    ```bash
    # Service reachability
-   APP_PORT=$(grep "port:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "3000")
+   APP_PORT=$(grep "port:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APP_PORT=${APP_PORT:-3000}
    curl -sf http://localhost:${APP_PORT}/health 2>/dev/null && echo "service: UP" || echo "service: DOWN ⚠"
 
    # Recent error rate estimate
@@ -407,7 +407,7 @@ P0 TIMER: 15 min to resolution or escalation to next level
    TEAM_LEAD=$(grep "<affected-service>" .great_cto/OWNERSHIP.md 2>/dev/null | awk -F'|' '{print $3}' | tr -d ' ')
    # Fallback: PROJECT.md
    [ -z "$TEAM_LEAD" ] && TEAM_LEAD=$(grep "l2-contact:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-   CTO=$(grep "l3-contact:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "CTO")
+   CTO=$(grep "l3-contact:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); CTO=${CTO:-CTO}
    ```
    ```
    T+0:     L1 — on-call notified: $ONCALL_PERSON ($ONCALL_SLACK)

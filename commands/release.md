@@ -32,7 +32,8 @@ esac
 if [ -z "$VERSION" ]; then
   VERSION=$(grep -E '"version"' package.json 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
   [ -z "$VERSION" ] && VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-  [ -z "$VERSION" ] && VERSION=$(grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "current")
+  [ -z "$VERSION" ] && VERSION=$(grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+  VERSION=${VERSION:-current}
 fi
 
 PROJECT_NAME=$(grep "^name:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || basename "$PWD")

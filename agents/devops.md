@@ -202,7 +202,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
 
 2. **Verify artifacts — requirements depend on project_size**:
    ```bash
-   PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "medium")
+   PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PROJECT_SIZE=${PROJECT_SIZE:-medium}
    TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
    ARCHETYPES_MD="${ARCHETYPES_MD:-$(find ~/.claude -name "ARCHETYPES.md" -path "*/great_cto/*" 2>/dev/null | sort -V | tail -1)}"
    ARCHETYPE_CHECK=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
@@ -259,7 +259,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
 
 3. **Read** `.great_cto/PROJECT.md` → get `archetype`, `type`, and deploy params:
    ```bash
-   ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
+   ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
    TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
    ```
 4. **Read ARCHETYPES.md** → find deploy method + rollback for `$ARCHETYPE`.
@@ -298,7 +298,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
 6. **Staging validation** (before prod):
    - **Smoke tests** — run against staging (5 critical paths from QA report):
      ```bash
-     STAGING_URL=$(grep "staging-url:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "http://localhost:3000")
+     STAGING_URL=$(grep "staging-url:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); STAGING_URL=${STAGING_URL:-http://localhost:3000}
      # Health
      curl -sf "${STAGING_URL}/health" && echo "✓ health" || echo "✗ health FAIL"
      # API ping
@@ -418,7 +418,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
 
 9c. **Generate SBOM** — supply-chain integrity artefact per SSDF PS.2 / SLSA L1. Produced on every production deploy; cross-referenced in the RELEASE doc (step 10). See `skills/great_cto/references/secure-sdlc.md`.
    ```bash
-   VERSION=$(git describe --tags --abbrev=0 2>/dev/null || grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "unreleased")
+   VERSION=$(git describe --tags --abbrev=0 2>/dev/null || grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); VERSION=${VERSION:-unreleased}
    # Invoke /sec sbom $VERSION — emits docs/releases/SBOM-<version>.json (CycloneDX 1.5).
    # Falls back to minimal hand-built SBOM if ecosystem tools aren't installed.
    echo "Generating SBOM for $VERSION → docs/releases/SBOM-${VERSION}.json"
@@ -429,7 +429,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
 10. **Generate Changelog entry**:
    ```bash
    # Append to CHANGELOG.md (use printf — echo "\n" is not portable)
-   VERSION=$(git describe --tags --abbrev=0 2>/dev/null || grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "unreleased")
+   VERSION=$(git describe --tags --abbrev=0 2>/dev/null || grep "^version:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); VERSION=${VERSION:-unreleased}
    FEATURE=$(grep "^# " docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1 | sed 's/.*# //')
    printf '\n## %s — %s\n\n### Deployed\n- %s\n\n' "$VERSION" "$(date +%Y-%m-%d)" "${FEATURE:-<feature>}" >> CHANGELOG.md
    git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null)"..HEAD 2>/dev/null \

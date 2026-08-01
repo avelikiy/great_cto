@@ -406,7 +406,7 @@ the agent — task tracking is best-effort observability, not a gate.
 Single control for pipeline depth. Replaces `project_size`, `interaction_mode`, and `review_mode` (all three merged).
 
 ```bash
-APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
 ```
 
 ### Levels
@@ -459,7 +459,7 @@ Comment → agent revises → re-checkpoint. Max 3 rounds per checkpoint.
 ### How agents read approval-level
 
 ```bash
-APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "gates-only")
+APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
 case "$APPROVAL_LEVEL" in
   auto)         SHOW_CHECKPOINTS=false; CREATE_GATES=false ;;
   product-only) SHOW_CHECKPOINTS=false; CREATE_GATES=true ;;
@@ -530,7 +530,7 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 At the start of every pipeline, after loading PROJECT.md, read the archetype to derive pipeline rules:
 
 ```bash
-ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || echo "web-service")
+ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
 ```
 
 All rules come from ARCHETYPES.md by archetype. No type-specific lookup. Agents read:

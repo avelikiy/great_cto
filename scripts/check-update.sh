@@ -23,7 +23,11 @@ CHECK_INTERVAL=86400   # 24 hours
 mkdir -p "$CACHE_DIR" 2>/dev/null
 
 NOW=$(date +%s)
-LAST_CHECK=$(cat "$CACHE_FILE" 2>/dev/null | awk '{print $1}' || echo 0)
+LAST_CHECK=$(awk '{print $1}' "$CACHE_FILE" 2>/dev/null)
+# awk exits 0 on an empty or missing file, so the old `|| echo 0` never fired
+# and LAST_CHECK came out empty — which the arithmetic below then read as 0
+# anyway, but only by accident.
+LAST_CHECK=${LAST_CHECK:-0}
 LAST_CHECK=${LAST_CHECK:-0}
 [ "$LAST_CHECK" -ge "$NOW" ] && exit 0  # clock skew safety
 

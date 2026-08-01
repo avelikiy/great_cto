@@ -64,18 +64,59 @@ function pickBestBySlug(candidates) {
 function existsSafe(p) {
   try { return !!p && fs.existsSync(p); } catch { return false; }
 }
-// Dedupe registry entries by slug before writing, so the registry self-heals
-// on every write regardless of how the duplicate got in (great_cto-7xfc).
+// Two directories that share a basename — ~/work/api and ~/personal/api — read
+// as the same slug. Collapsing them lost one project outright, so a colliding
+// name is qualified by its parent instead: api → api@work, api@personal. The
+// slug stays the lookup key, so it still has to be unique; what changed is that
+// uniqueness is now bought by renaming rather than by dropping a project.
+function qualifiedSlug(project, taken) {
+  const parts = String(project.path || '').split(path.sep).filter(Boolean).slice(0, -1).reverse();
+  let candidate = project.slug;
+  for (const parent of parts) {
+    if (!taken.has(candidate)) return candidate;
+    candidate = `${project.slug}@${parent}`;
+  }
+  let n = 2;
+  while (taken.has(candidate)) candidate = `${project.slug}@${n++}`;
+  return candidate;
+}
+
+// Dedupe registry entries before writing, so the registry self-heals on every
+// write regardless of how the duplicate got in (great_cto-7xfc).
+//
+// Identity is the PATH. Entries sharing a slug are only the same project when
+// at most one of their paths still exists — that is a repo that moved, and
+// collapsing it is the original fix. Two live paths are two projects.
 function dedupeProjects(projects) {
-  const bySlug = new Map();
+  // Same slug AND same path is one entry written twice. A shared path under two
+  // different slugs is left alone — someone registered an alias deliberately.
+  const exact = new Map();
   for (const p of projects) {
     if (!p || !p.slug) continue;
+    const key = `${p.slug}\u0000${p.path || ''}`;
+    const prior = exact.get(key);
+    exact.set(key, prior ? pickBestBySlug([prior, p]) : p);
+  }
+
+  const bySlug = new Map();
+  for (const p of exact.values()) {
     const group = bySlug.get(p.slug) || [];
     group.push(p);
     bySlug.set(p.slug, group);
   }
+
   const out = [];
-  for (const group of bySlug.values()) out.push(pickBestBySlug(group));
+  const taken = new Set();
+  for (const group of bySlug.values()) {
+    const live = group.filter((p) => existsSafe(p.path));
+    // 0 or 1 live path → one project, possibly one that moved.
+    const keep = live.length > 1 ? live : [pickBestBySlug(group)];
+    for (const p of keep) {
+      const slug = qualifiedSlug(p, taken);
+      taken.add(slug);
+      out.push(slug === p.slug ? p : { ...p, slug });
+    }
+  }
   return out;
 }
 function writeProjectsRegistry(reg) {
@@ -169,7 +210,10 @@ function autoRegisterProject(dir) {
   const reg = readProjectsRegistry();
   const existingByPath = reg.projects.find(p => p.path === meta.path);
   if (existingByPath) return meta; // already registered at this path, nothing to do
-  const existingBySlug = reg.projects.find(p => p.slug === meta.slug);
+  // Only an entry whose path is GONE is this repo having moved. An entry whose
+  // path still exists is a different project that happens to share a name, and
+  // overwriting its path deleted it from the switcher silently.
+  const existingBySlug = reg.projects.find(p => p.slug === meta.slug && !existsSafe(p.path));
   if (existingBySlug) {
     // Repo moved: update the existing entry's path in place instead of
     // inserting a second entry for the same slug (great_cto-7xfc).

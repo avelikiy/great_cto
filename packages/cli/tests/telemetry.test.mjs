@@ -39,3 +39,24 @@ test("telemetry on/off subcommands report the same non-personal endpoint", () =>
   assert.doesNotMatch(on.output, /alexander-velikiy/i);
   telemetrySubcommand("off");
 });
+
+// consoledonottrack.com: any non-empty value is opt-out. We accepted "1" and
+// "true" only, so a user who set DO_NOT_TRACK=yes — and had every reason to
+// believe that worked — kept sending telemetry.
+test("DO_NOT_TRACK opts out whatever non-empty value it holds", async () => {
+  const { isTelemetryEnabled } = await import("../dist/telemetry.js");
+  const prior = process.env.DO_NOT_TRACK;
+  const priorOn = process.env.GREAT_CTO_TELEMETRY;
+  try {
+    process.env.GREAT_CTO_TELEMETRY = "on";   // an explicit opt-in to override
+    for (const v of ["1", "true", "yes", "on", "0 "]) {
+      process.env.DO_NOT_TRACK = v;
+      assert.equal(isTelemetryEnabled(), false, `DO_NOT_TRACK=${JSON.stringify(v)} must disable telemetry`);
+    }
+    process.env.DO_NOT_TRACK = "";
+    assert.equal(isTelemetryEnabled(), true, "empty means unset — it must not disable an explicit opt-in");
+  } finally {
+    if (prior === undefined) delete process.env.DO_NOT_TRACK; else process.env.DO_NOT_TRACK = prior;
+    if (priorOn === undefined) delete process.env.GREAT_CTO_TELEMETRY; else process.env.GREAT_CTO_TELEMETRY = priorOn;
+  }
+});
