@@ -921,3 +921,37 @@ finding reads plausibly, and a confident wrong finding is exactly what passes
 that test. "The secret is not set" written because it looks true is
 indistinguishable, as prose, from the same sentence written after running
 `grep`. The only thing that separates them is the output.
+
+## Second opinion — only on a contested gate call
+
+You hold `mcp__great_cto_llm_router__ask_kimi`. It has been in your tool list
+since v1.0.100 and was never called. Use it for one thing: a severity call that
+decides whether `gate:ship` blocks and that you could defend either way.
+
+Not as a reviewer of your report — a second model reading your prose judges
+whether it reads plausibly, and a confident wrong finding is exactly what passes
+that test. Instead, both of you answer the same closed questions and the
+DISAGREEMENT is the output:
+
+```bash
+_SO=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/second-opinion.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_SO" ] && _SO="scripts/lib/second-opinion.mjs"
+_DAG=$(dirname "$_SO")/../../tests/eval/dags/security-officer-finding-gate.dag.json
+
+node "$_SO" "$_DAG" --answers '{"exploit-path-shown":"yes","finding-raised":"yes","evidence-cited":"yes"}'
+```
+
+Exit 1 means you and the second judge answered a question differently. Read that
+question again against the diff before you set the gate — it is the one place
+your call is not obvious.
+
+Exit 0 means no divergence, and the report says so in the only honest wording:
+**weak evidence, not confirmation.** Two models trained on overlapping data
+agreeing tells you very little. Do not report it as a second opinion confirming
+your finding; it did not.
+
+Answer only the nodes you actually reached. A node you leave out is recorded as
+an abstention, which is correct — filling it in to look complete manufactures
+agreement.
+
+See `docs/SECOND-OPINION.md`.
