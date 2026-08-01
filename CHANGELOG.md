@@ -5,6 +5,144 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v2.91.0 — 2026-08-01
+
+A release about the difference between a check that exists and a check that
+runs. Seventeen of the bugs below are mechanisms that executed on every request
+and could not fail — several of them guards protecting nothing.
+
+### Scope is enforced by path, and now by width
+
+`edit-scope-guard` compared path **strings**. Claude Code passes Edit/Write an
+absolute `file_path`, so a denylist entry like `secrets.env` matched nothing in
+real use: the hard deny had never fired in the environment it ships for. `../`
+traversal and symlinks walked through for the same reason. Paths are resolved on
+both sides now, and a write is judged under both the name it was given and the
+name it lands on.
+
+The guard also answered *which* files a slice may touch and never *how many*. A
+brief allowing `src/**` says yes to most of a repo. It now counts distinct files
+per slice — repeated writes to one file count once — and speaks past a
+threshold. Advisory by default; a legitimate wide change exists and a guard that
+blocks it is a guard people turn off.
+
+- `GREAT_CTO_MAX_SLICE_FILES` (default `30`, `0` disables)
+- `GREAT_CTO_ENFORCE_EDIT_SCOPE=block` turns both warnings into denials
+- `GREAT_CTO_DISABLE_EDIT_SCOPE=1` turns the guard off
+- Documented in `docs/GATES.md`
+
+### Verdicts have a schema, and it carries its version
+
+Verdicts were free text in two dialects, and the reader chose between them by
+asking whether the line contained `' | '`. Agents write prose in the details
+field; prose contains pipes. `"BLOCKED 3 findings | all in the auth path"` was
+read as the pipe dialect, and the board displayed *"all in the auth path"* as
+the agent's verdict.
+
+`scripts/lib/verdict-record.mjs` replaces the guess with named fields. Writing
+is strict — a record that could not be read later is refused at write time.
+Reading stays permissive: both legacy dialects still parse, because every
+verdict written before this release is in them. A reader meeting an unknown
+`v:` reports it rather than interpreting the fields it happens to recognise.
+
+Found while wiring it: `/review` wrote its log directly with the literal string
+`code-review` in the verdict slot. Every review ever run recorded its verdict as
+`CODE-REVIEW`. It now records `BLOCKED` when a P0 survived triage, `APPROVED`
+otherwise.
+
+### Coverage reports what is known, not what exists
+
+`coverage-gate` defined *covered* as "an EVAL file names this agent" and printed
+it as one percentage, which reads as a test result. It is not one: 33 EVAL files
+exist and 2 have ever executed. Coverage is now a ladder — `missing`, `present`,
+`exercised`, `passing` — and all four counts are printed, because the distance
+between *present* and *exercised* is the finding.
+
+    1 passing · 0 exercised · 19 present-only · 49 missing   (of 69 agents)
+
+`--require exercised` raises the bar; an unknown value exits 2 rather than
+falling back to the weakest rung.
+
+### Documents are checked against the code they cite
+
+Artifact freshness was measured by **age**, and age is not accuracy. A document
+in this repo cited six source files a security reviewer was invited to verify;
+all six had been deleted six days after it was written, and it survived another
+six weeks because 47 days is fresh against a 180-day threshold.
+
+`artifact-lint` now reports a cited source path that does not resolve. Most of
+the work is in what it does *not* flag — globs, template placeholders, files a
+plan intends to create, and pointers a decision record deliberately anchors to
+history. Exemptions apply per line, not per file.
+
+### Lessons merge instead of accumulating
+
+De-duplicating `lessons.md` was a line in the continuous-learner prompt asking a
+Haiku agent to recognise a slug it wrote weeks ago. `scripts/lib/lessons-write.mjs`
+makes it mechanical: the same pattern folds in, evidence accumulates,
+`occurrences:` increments, `confidence:` may rise but never fall. A reversed
+decision is recorded under `**Superseded:**` with its date rather than
+overwritten — a lesson that reversed is the most valuable kind.
+
+### Fixes
+
+- `bd list` prints a status symbol first, so `awk '{print $1}'` returned `○`.
+  Three gate-dedup sites ran every subsequent `bd` command against a bullet
+  character, which is why re-runs created a second open `gate:ship`.
+- `\s` is a GNU extension; BSD grep/sed read it as a literal `s`. `log-verdict.sh`
+  emitted `project= <slug>` with a leading space, which the board's filter
+  captured as empty — every project-scoped verdict query matched nothing. The
+  vulnerability scan's lockfile grep matched no line at all on macOS.
+- 47 sites of `X=$(grep … | awk … || echo "default")`. `awk` exits 0 on empty
+  input, so the default never fired and archetype, approval-level, and project
+  size came out blank.
+- `board ensure` accepted any HTTP response as proof the board was up; anything
+  squatting on the port made it report a healthy board and refuse to start the
+  real one. It asks `/api/version` now.
+- `tasks.md` parsed its table dialect only when the checkbox pass found nothing,
+  so one stray `- [ ]` line hid every table row — gates included.
+- Two projects sharing a basename produced one slug, and the registry read the
+  second as the first having moved: it overwrote the path and a live project
+  vanished from the switcher silently.
+- `phase-task.sh` claimed idempotency but searched `--status open` only, so
+  `start` and a failed `close` both produced duplicates.
+- `DO_NOT_TRACK` accepted only `1`/`true`; the spec says any non-empty value.
+  `docs/PRIVACY.md` updated in the same change.
+- Writing a task status into `tasks.md` addressed cells by index, so an
+  unescaped `|` in a title put `closed` over the title text while the real
+  status cell stayed `open`.
+- A security report reading "initially BLOCKED, now APPROVED" counted as both;
+  the two counters summed to more than the number of reports.
+- MCP `project_status` read `metrics.done` off the response root instead of
+  `metrics.tasks`, reporting `0/0 done` for every project; `cost_summary` built
+  `/api/cost&days=30` with no `?` when called without a project; neither MCP
+  server put a deadline on its board fetch.
+- prose-slop masked any 4-space-indented line as code, skipping every nested
+  list item; its CLI consumed flag operands by value, so `--deny f.md f.md`
+  linted nothing.
+- Three auto-attach rules could never fire — one required a manifest name and
+  the word "version" in the same *path*, two could only match `.md` paths that
+  `EXCLUDE` drops. Two tests now fail on either shape.
+- `.playwright-mcp/session.json` matched `session` and flagged security-officer
+  on every run that used the browser.
+
+### Housekeeping
+
+- `docs/AI-FIREWALL.md` and its plan deleted: they describe the operate surface
+  that left this repo in June. `CHANGELOG` entries for it are left intact — they
+  record what great_cto was at the time, and that record is true.
+- Stack-migration and large-scale-refactor playbooks moved out of `SKILL.md`
+  into `skills/great_cto/playbooks/`. `SKILL.md` is loaded for every request;
+  those two are reached by one Intent Mapping row each.
+- `continuous-learner` was told to run `node` without `Bash(node:*)` in its tool
+  list, so the cross-project promotion it triggers was not runnable by it.
+
+**Tests: 1573 passing.** No breaking changes: legacy verdict logs still parse,
+and the new volume check is advisory unless explicitly enforced.
+
+---
+
 ## v2.90.0 — 2026-07-28
 
 ### `product-only` — the pipeline chains itself; you answer two questions
