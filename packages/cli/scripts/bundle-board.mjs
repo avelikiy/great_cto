@@ -40,7 +40,7 @@ cpSync(boardSrc, join(out, "packages", "board"), {
 
 // shared scripts the board imports at runtime
 mkdirSync(join(out, "scripts", "lib"), { recursive: true });
-for (const f of ["gate-plan.mjs", "change-tier.mjs", "judge-model.mjs"]) {
+for (const f of ["gate-plan.mjs", "change-tier.mjs", "judge-model.mjs", "verdict-record.mjs"]) {
   copyFileSync(join(repoRoot, "scripts", "lib", f), join(out, "scripts", "lib", f));
 }
 

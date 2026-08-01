@@ -69,10 +69,24 @@ if [ -f "$PROJ_DIR/PROJECT.md" ]; then
 fi
 [ -z "$PROJECT_SLUG" ] && PROJECT_SLUG=$(basename "$(pwd)")
 
-# Emit verdict line. Format kept compatible with existing parser (server.mjs:725-733).
-LINE="$TS | $AGENT | $VERDICT"
-[ -n "$META" ] && LINE="$LINE | $META"
-LINE="$LINE | project=$PROJECT_SLUG | cost=\$$COST"
+# Emit the verdict as one versioned NDJSON record.
+#
+# The old format was `<ts> | <agent> | <verdict> | <meta> | cost=$X`, and the
+# reader picked between it and a space-separated variant by asking whether the
+# line contained ' | '. Agents write prose in the meta field, prose contains
+# pipes, and "BLOCKED 3 findings | all in the auth path" was read as the pipe
+# form with the verdict taken from after the second pipe. Named fields end that
+# whole class: no punctuation a human types can move one field into another.
+#
+# Readers still accept both old dialects (scripts/lib/verdict-record.mjs), so
+# every log written before today keeps reading.
+SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+LINE=$(TS="$TS" AGENT="$AGENT" VERDICT="$VERDICT" COST="$COST" \
+       PROJECT_SLUG="$PROJECT_SLUG" META="$META" \
+       node "$SCRIPT_DIR/lib/verdict-record.mjs" --emit) || {
+  echo "error: could not build the verdict record" >&2
+  exit 1
+}
 
 # Write to PROJECT-LOCAL ONLY. Previously also wrote to ~/.great_cto/verdicts/
 # for cross-project aggregation, but that polluted every project's "AI spend"

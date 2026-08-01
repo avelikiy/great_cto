@@ -573,12 +573,21 @@ echo "Code review: CLEAN — no gate:code needed. Proceed to qa-engineer."
 ```
 
 **Log verdict:**
+This wrote the log directly, in the space dialect `<ts> <verdict> <details>` —
+with `code-review` sitting in the verdict slot. Every `/review` run therefore
+recorded its verdict as **CODE-REVIEW**, and the board displayed that instead of
+whether the review passed. Use the canonical writer, which names the fields:
+
 ```bash
-mkdir -p .great_cto/verdicts
-printf '%s code-review P0:%d P1:%d P2:%d mode=%s angles=12 archetype=%s triaged=%d valid=%d invalid=%d\n' \
-  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" <P0_post> <P1_post> <P2> "$REVIEW_MODE" "$ARCHETYPE" \
-  <triaged_count> <valid_count> <invalid_count> \
-  >> .great_cto/verdicts/code-review.log
+_LV=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/log-verdict.sh 2>/dev/null | sort -V | tail -1)
+[ -z "$_LV" ] && _LV="scripts/log-verdict.sh"
+
+# The verdict is the OUTCOME: a P0 blocks, anything else passes.
+if [ "<P0_post>" -gt 0 ]; then VERDICT=BLOCKED; else VERDICT=APPROVED; fi
+
+bash "$_LV" code-review "$VERDICT" "${REVIEW_COST:-0}" \
+  p0=<P0_post> p1=<P1_post> p2=<P2> mode="$REVIEW_MODE" angles=12 \
+  archetype="$ARCHETYPE" triaged=<triaged_count> valid=<valid_count> invalid=<invalid_count>
 ```
 
 ## Summary

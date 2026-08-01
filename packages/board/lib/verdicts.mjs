@@ -1,37 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { GREAT_CTO_DIR } from './config.mjs';
+import { parseVerdictLine } from '../../../scripts/lib/verdict-record.mjs';
 
-/**
- * One verdict line → { ts, verdict }.
- *
- * Two formats agents emit in the wild:
- *   space-separated:  "<ts> <verdict> <details> cost=$X"
- *   pipe-separated:   "<ts> | <agent> | <verdict> | <details> | cost=$X"
- *
- * Choosing between them on `line.includes(' | ')` was wrong: a space-separated
- * line whose DETAILS contain a pipe — "APPROVED 3 findings | all minor" is
- * ordinary prose from an agent — was read as the pipe form, and the verdict came
- * back as whatever sat after the second pipe. The board then showed a made-up
- * status for a real verdict.
- *
- * The pipe form is recognised by its shape instead: a timestamp, then a
- * separator, then at least three fields. Prose pipes appear later in the line,
- * after a verdict word that is already sitting in field 2 of the space form.
- */
-export function parseVerdictLine(line) {
-  const text = String(line ?? '');
-  const m = text.match(/^(\S+)\s+\|\s+(.*)$/);
-  if (m) {
-    const rest = m[2].split('|').map((s) => s.trim());
-    // [agent, verdict, …] — a bare "<ts> | <verdict>" has no agent field, so a
-    // two-field line is read as the verdict rather than dropped.
-    if (rest.length >= 2) return { ts: m[1], verdict: rest[1] || '' };
-    return { ts: m[1], verdict: rest[0] || '' };
-  }
-  const parts = text.split(/\s+/);
-  return { ts: parts[0] || '', verdict: parts[1] || '' };
-}
 
 function readVerdicts(cwd = null) {
   // Verdict attribution model:
@@ -75,26 +46,23 @@ function readVerdicts(cwd = null) {
     const lines = fs.readFileSync(path.join(verdictDir, file), 'utf8')
       .split('\n').filter(Boolean);
     for (const line of lines) {
-      // When reading global with a project filter, only include lines tagged
-      // with this project's slug.
-      if (projectTagFilter) {
-        const tagMatch = line.match(/\bproject=([^\s|]+)/);
-        if (!tagMatch || tagMatch[1] !== projectTagFilter) continue;
-      }
-      // Two formats agents emit in the wild:
-      //   space-separated:  "<ts> <verdict> <details> cost=$X"
-      //   pipe-separated:   "<ts> | <agent> | <verdict> | <details> | cost=$X"
-      // Pre-2026-05: parts[1] always took the 2nd whitespace token, which
-      // for the pipe form is "|", breaking /api/pipeline status mapping
-      // (verdicts displayed as "|" instead of APPROVED/DONE/BLOCKED).
-      // Now we detect the pipe form and parse it differently.
-      const { ts, verdict } = parseVerdictLine(line);
-      const costMatch = line.match(/\bcost=\$?(\d+\.?\d*)\b/i);
+      const parsed = parseVerdictLine(line);
+      if (!parsed.ok) continue;          // unreadable — counted by the CLI, not shown as a verdict
+
+      // When reading global with a project filter, only include records for this
+      // project. Read from the parsed record, not from a `project=` substring:
+      // that tag only exists in the legacy text form, so matching on it would
+      // have dropped every new NDJSON record from the global view.
+      if (projectTagFilter && parsed.rec.project !== projectTagFilter) continue;
+      // Format handling lives in scripts/lib/verdict-record.mjs: v1 NDJSON for
+      // anything written from 2026-08 on, plus both legacy text dialects so the
+      // history keeps reading.
+      const { ts, verdict } = parsed.rec;
       results.push({
         ts,
         agent,
         verdict,
-        cost_usd: costMatch ? parseFloat(costMatch[1]) : null,
+        cost_usd: parsed.rec.cost_usd ?? null,
         raw: line.replace(/\s*\bcost=\$?\d+\.?\d*\b/i, ''),
       });
     }
