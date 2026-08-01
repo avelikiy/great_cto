@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { decideEditScope, activeBriefPath } from '../../scripts/hooks/edit-scope-guard.mjs';
+import { decideEditScope, activeBriefPath, recordSliceWrite, maxSliceFiles } from '../../scripts/hooks/edit-scope-guard.mjs';
 import { parseBrief } from '../../scripts/lib/impl-brief.mjs';
 
 // Paths are backtick-wrapped — the format impl-brief.mjs's parser reads.
@@ -91,4 +91,71 @@ test('activeBriefPath returns null when nothing is active', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-scope-'));
   try { assert.equal(activeBriefPath({}, dir), null); }
   finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ─── volume: WHICH files vs HOW MANY ───────────────────────────────────────
+//
+// The scope check answered which files a slice may touch and never how many. A
+// brief that allows `src/**` says yes to most of a repo, so a slice could
+// rewrite two hundred files and pass every check. The two questions are
+// different, and the second is the one a reviewer feels: a diff nobody can hold
+// in their head gets approved on trust rather than read.
+
+const BRIEF_PATH = '/tmp/brief-a/IMPL-BRIEF.md';
+
+test('distinct files are counted, repeated writes to one file are not', () => {
+  let st = null;
+  for (let i = 0; i < 40; i++) st = recordSliceWrite(st, BRIEF_PATH, 'src/app.ts', 5).state;
+  assert.equal(recordSliceWrite(st, BRIEF_PATH, 'src/app.ts', 5).count, 1,
+    'editing one file forty times is not a wide change');
+});
+
+test('the count crosses the line only past the limit', () => {
+  let st = null, last;
+  for (let i = 1; i <= 3; i++) {
+    last = recordSliceWrite(st, BRIEF_PATH, `src/f${i}.ts`, 3);
+    st = last.state;
+  }
+  assert.equal(last.count, 3);
+  assert.equal(last.exceeded, false, 'at the limit is not over it');
+  last = recordSliceWrite(st, BRIEF_PATH, 'src/f4.ts', 3);
+  assert.equal(last.exceeded, true);
+  assert.equal(last.count, 4);
+});
+
+test('a new brief starts a new slice', () => {
+  let st = null;
+  for (let i = 1; i <= 5; i++) st = recordSliceWrite(st, BRIEF_PATH, `src/f${i}.ts`, 3).state;
+  const next = recordSliceWrite(st, '/tmp/brief-b/IMPL-BRIEF.md', 'src/other.ts', 3);
+  assert.equal(next.count, 1, 'a finished slice must not lend its count to the next one');
+  assert.equal(next.exceeded, false);
+});
+
+test('the same file under two spellings counts once', () => {
+  const cwd = process.cwd();
+  let st = recordSliceWrite(null, BRIEF_PATH, 'src/app.ts', 10).state;
+  const r = recordSliceWrite(st, BRIEF_PATH, `${cwd}/src/app.ts`, 10);
+  assert.equal(r.count, 1, 'an absolute path is the same file as its relative form');
+});
+
+test('corrupt prior state is treated as a fresh slice, not a crash', () => {
+  for (const junk of [undefined, null, {}, { brief: BRIEF_PATH }, { brief: BRIEF_PATH, files: 'nope' }]) {
+    assert.equal(recordSliceWrite(junk, BRIEF_PATH, 'src/a.ts', 3).count, 1);
+  }
+});
+
+test('the limit is configurable and 0 disables the check', () => {
+  assert.equal(maxSliceFiles({}), 30, 'a default exists so the check is on without configuration');
+  assert.equal(maxSliceFiles({ GREAT_CTO_MAX_SLICE_FILES: '5' }), 5);
+  assert.equal(maxSliceFiles({ GREAT_CTO_MAX_SLICE_FILES: '0' }), 0);
+  let st = null;
+  for (let i = 1; i <= 50; i++) st = recordSliceWrite(st, BRIEF_PATH, `src/f${i}.ts`, 0).state;
+  assert.equal(recordSliceWrite(st, BRIEF_PATH, 'src/f51.ts', 0).exceeded, false, '0 means no limit');
+});
+
+test('an unparseable limit falls back rather than becoming NaN', () => {
+  // NaN compares false against everything, which would disable the check by accident.
+  for (const bad of ['abc', '-4', 'Infinity ']) {
+    assert.equal(maxSliceFiles({ GREAT_CTO_MAX_SLICE_FILES: bad }), 30, bad);
+  }
 });

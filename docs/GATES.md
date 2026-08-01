@@ -84,3 +84,32 @@ models a second question: how reversible is *this particular change*
 two-axis model. **It does not currently drive the running pipeline** — the
 dispatcher reads `approval-level` only. If you are reasoning about what your next
 run will actually ask you, use the table at the top of this file.
+
+## Scope, at write time
+
+Gates stop the pipeline between stages. A separate check runs *inside* a stage:
+while an IMPL-BRIEF is active, `scripts/hooks/edit-scope-guard.mjs` sees every
+Edit/Write before it happens and answers two questions.
+
+**Which file?** A path on the brief's `## Files NOT to modify` list is denied
+outright. A path on neither list is a warning — allowlists are routinely
+incomplete (a new test file, a generated artifact), and a guard that blocks on
+"not listed" is one people switch off.
+
+**How many?** A brief that allows `src/**` says yes to most of a repo, so
+"which" alone cannot catch a slice that rewrites two hundred files. The guard
+counts the distinct files a slice touches and says so past a threshold. Repeated
+writes to one file count once — editing something forty times is not a wide
+change.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `GREAT_CTO_MAX_SLICE_FILES` | `30` | Distinct files per slice before the guard speaks. `0` disables the count. |
+| `GREAT_CTO_ENFORCE_EDIT_SCOPE` | unset | `block` turns both warnings (unlisted file, too many files) into hard denials. |
+| `GREAT_CTO_DISABLE_EDIT_SCOPE` | unset | `1` turns the whole guard off. |
+
+The count resets when the active brief changes: a new brief is a new slice.
+
+Why a count at all — a diff nobody can hold in their head gets approved on trust
+rather than read, so width is a review risk on its own, separately from whether
+every file in it was permitted.

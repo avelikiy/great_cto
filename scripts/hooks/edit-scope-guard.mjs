@@ -28,9 +28,9 @@
  *
  * stdout: silent on allow; on deny, hookSpecificOutput JSON. Exit 2 = block.
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { isAbsolute, resolve, join } from 'node:path';
-import { parseBrief, checkScope } from '../lib/impl-brief.mjs';
+import { parseBrief, checkScope, toRepoRelative } from '../lib/impl-brief.mjs';
 
 function readStdin() {
   try { return readFileSync(0, 'utf8'); } catch { return ''; }
@@ -70,6 +70,71 @@ export function decideEditScope(filePath, brief, { mode = 'advisory' } = {}) {
   return { decision: 'allow', kind: null, reason: null };
 }
 
+
+// ── volume ──────────────────────────────────────────────────────────────────
+//
+// The scope check answers WHICH files a slice may touch and never HOW MANY. A
+// slice that rewrites two hundred allowlisted files passes every check here,
+// and `src/**` in a brief is an allowlist that says yes to most of a repo.
+//
+// Which and how-many are different questions, and the second one is the one a
+// reviewer feels: a diff nobody can hold in their head gets approved on trust.
+// So the count is tracked across the slice and reported once it crosses a line —
+// advisory by default, like the allowlist rule, because a legitimate wide change
+// exists and a guard that blocks it is a guard people turn off.
+
+const DEFAULT_MAX_SLICE_FILES = 30;
+
+export function maxSliceFiles(env = process.env) {
+  const raw = env.GREAT_CTO_MAX_SLICE_FILES;
+  if (raw === undefined || raw === '') return DEFAULT_MAX_SLICE_FILES;
+  const n = Number(raw);
+  // 0 disables the check outright; anything unparseable falls back rather than
+  // silently becoming NaN, which compares false and disables it by accident.
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_MAX_SLICE_FILES;
+  return n;
+}
+
+/**
+ * Fold one write into the slice's file set.
+ *
+ * Pure: takes the prior state and returns the next one, so the counting rule is
+ * testable without a filesystem. State resets when the active brief changes —
+ * a new brief is a new slice, and carrying the old count into it would report a
+ * number that belongs to finished work.
+ *
+ * @returns {{ state: {brief: string, files: string[]}, count: number, exceeded: boolean }}
+ */
+export function recordSliceWrite(prior, briefPath, file, max = DEFAULT_MAX_SLICE_FILES) {
+  const fresh = !prior || prior.brief !== briefPath || !Array.isArray(prior.files);
+  const files = fresh ? [] : prior.files.slice();
+  const key = toRepoRelative(file);
+  // Distinct files, not writes: editing one file forty times is not a wide change.
+  if (key && !files.includes(key)) files.push(key);
+  return {
+    state: { brief: briefPath, files },
+    count: files.length,
+    exceeded: max > 0 && files.length > max,
+  };
+}
+
+function sliceStatePath(cwd = process.cwd()) {
+  return join(cwd, '.great_cto', 'edit-scope-slice.json');
+}
+
+function readSliceState(cwd) {
+  try { return JSON.parse(readFileSync(sliceStatePath(cwd), 'utf8')); } catch { return null; }
+}
+
+function writeSliceState(cwd, state) {
+  // Best-effort: a guard that cannot persist its count must not block the write
+  // it was only counting.
+  try {
+    mkdirSync(join(cwd, '.great_cto'), { recursive: true });
+    writeFileSync(sliceStatePath(cwd), JSON.stringify(state));
+  } catch { /* counting is advisory; failing to count is not a reason to fail the edit */ }
+}
+
 function main() {
   if (process.env.GREAT_CTO_DISABLE_EDIT_SCOPE === '1') return process.exit(0);
   const raw = readStdin();
@@ -85,6 +150,30 @@ function main() {
 
   const mode = process.env.GREAT_CTO_ENFORCE_EDIT_SCOPE === 'block' ? 'block' : 'advisory';
   const { decision, reason } = decideEditScope(filePath, brief, { mode });
+
+  // Count before deciding, so a denied write is not counted — it never happened.
+  let volume = null;
+  if (decision !== 'deny') {
+    const max = maxSliceFiles();
+    volume = recordSliceWrite(readSliceState(process.cwd()), briefPath, filePath, max);
+    writeSliceState(process.cwd(), volume.state);
+    if (volume.exceeded && mode === 'block') {
+      const msg =
+        `this slice has now touched ${volume.count} distinct files (limit ${max}). ` +
+        `Scope is not only WHICH files a brief allows but HOW MANY a reviewer can hold ` +
+        `in their head — a diff this wide gets approved on trust rather than read. ` +
+        `Split the slice, or raise GREAT_CTO_MAX_SLICE_FILES if this width is intended.`;
+      process.stdout.write(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: `great_cto edit-scope guard blocked the edit — ${msg}`,
+        },
+      }) + '\n');
+      process.stderr.write(`[great_cto:edit-scope] BLOCKED — ${msg}\n`);
+      return process.exit(2);
+    }
+  }
 
   if (decision === 'deny') {
     const msg =
@@ -104,6 +193,15 @@ function main() {
   }
   if (decision === 'warn') {
     process.stderr.write(`[great_cto:edit-scope] ${reason} — allowed (advisory; set GREAT_CTO_ENFORCE_EDIT_SCOPE=block to enforce)\n`);
+  }
+  // Reported once per write past the line, not once — the count keeps climbing
+  // and so does the reason to split.
+  if (volume && volume.exceeded) {
+    process.stderr.write(
+      `[great_cto:edit-scope] this slice has touched ${volume.count} distinct files ` +
+      `(limit ${maxSliceFiles()}) — a diff this wide is reviewed on trust. Consider splitting it. ` +
+      `(advisory; GREAT_CTO_ENFORCE_EDIT_SCOPE=block to enforce, GREAT_CTO_MAX_SLICE_FILES to retune)\n`,
+    );
   }
   return process.exit(0);
 }

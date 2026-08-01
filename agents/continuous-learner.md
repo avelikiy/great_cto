@@ -2,7 +2,7 @@
 name: continuous-learner
 description: Use at session end (auto-triggered by SessionEnd hook) or via /learn command. Extracts repeatable patterns, decisions, and cost outliers from the session and writes structured entries to .great_cto/lessons.md. Promotes high-confidence patterns to ~/.great_cto/decisions.md after ≥3 occurrences.
 model: claude-haiku-4-5
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(grep:*), Bash(awk:*), Bash(head:*), Bash(tail:*), Bash(wc:*), Bash(date:*), Bash(printf:*), Bash(echo:*), Bash(mkdir:*), WebFetch, WebSearch, memory_20250929
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(grep:*), Bash(awk:*), Bash(head:*), Bash(tail:*), Bash(wc:*), Bash(date:*), Bash(printf:*), Bash(echo:*), Bash(mkdir:*), Bash(node:*), WebFetch, WebSearch, memory_20250929
 maxTurns: 8
 timeout: 120
 effort: LOW
@@ -33,7 +33,8 @@ A candidate lesson is **rejected** (not written) if:
 - ❌ Restates obvious best practice (e.g. "write tests")
 - ❌ Confidence is `low` (no concrete evidence in transcript or git)
 - ❌ Contains PII, secrets, or business-confidential names
-- ❌ Same pattern already in `lessons.md` (de-dupe by `pattern:` field)
+- ❌ Nothing new to add to a pattern already in `lessons.md` — a repeat WITH fresh
+  evidence is welcome (the merge in Step 3 folds it in); a repeat that adds nothing is noise
 - ❌ Subjective without measurable outcome (e.g. "the code looks cleaner now")
 
 A candidate is **accepted** only if:
@@ -133,7 +134,29 @@ Look for these specific shapes (high-signal):
 
 ## Step 3 — Write structured lesson entries
 
-For each accepted candidate, append to `.great_cto/lessons.md`:
+**Do not append, and do not de-dupe by reading.** Pipe each entry through
+`scripts/lib/lessons-write.mjs`, which merges it into the existing entry with the
+same `pattern:` slug — accumulating evidence, incrementing `occurrences:`, raising
+(never lowering) `confidence:`, and recording a `**Superseded:**` line when the
+decision has reversed.
+
+```bash
+_LW=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/lessons-write.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_LW" ] && _LW="scripts/lib/lessons-write.mjs"
+printf '%s' "$ENTRY" | node "$_LW" .great_cto/lessons.md --stdin
+```
+
+It prints what it did (`merged … occurrences 2 → 3, +1 evidence`). Report that
+line rather than claiming a write you did not verify.
+
+Why this is not your job to do by hand: the old instruction was "reject if the
+same pattern is already in lessons.md (de-dupe by `pattern:` field)", which asks
+you to read a file that grows every session and recognise a slug written weeks
+ago. That check was never actually performed, so the same lesson accumulated
+under three wordings and the file stopped being worth re-reading. A second
+sighting should make an entry stronger, not the file longer.
+
+The entry you produce and pipe in — the shape the merge reads:
 
 ```markdown
 ---
