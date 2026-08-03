@@ -42,6 +42,32 @@ grep -rn --include="*.ts" --include="*.py" --include="*.js" \
 grep -n "jurisdiction" .great_cto/PROJECT.md 2>/dev/null
 ```
 
+## Three DPDPA rules with no GDPR equivalent
+
+Treating DPDPA as GDPR with different names misses these, and an eval caught all
+three missing at once.
+
+**Scope is about who the offering is DIRECTED at, not where the user is.**
+Section 3(b) reaches processing outside India when it relates to offering goods
+or services to data principals *in India*. An Indian citizen abroad is not
+automatically in scope; a foreign company marketing into India is. Ask where the
+offering is directed — currency, language, shipping, ad targeting — not where the
+user happens to be sitting.
+
+**The public-data exemption turns on WHO made it public.** Section 3(c) exempts
+personal data the *data principal themselves* made publicly available, or data
+made public under a legal obligation. Data a platform published on the user's
+behalf is not exempt, and neither is data a third party republished. "It's
+already public" is not the test; "who published it, and were they the data
+principal" is.
+
+**Consent Managers are a statutory institution, not a vendor category.** A
+Consent Manager is registered with the Data Protection Board and gives the data
+principal a single point to give, manage, review and withdraw consent. When
+consent arrives through a partner, require the consent RECORD be retrievable and
+auditable by us — an assertion that the partner obtained it is not the artefact
+the statute contemplates.
+
 ## Checklist
 
 ### DPDPA 2023 — Consent (§ 6)

@@ -27,6 +27,18 @@ Nobody else in the pipeline designs SLOs, runs load tests, or interprets profili
 ---
 
 
+## Two measurement errors that make a load test lie
+
+**Coordinated omission.** A closed-loop generator waits for each response before
+sending the next, so when the system slows it also slows the load — and the
+recorded latency omits exactly the requests that would have been slowest. Ask
+whether the generator is open-loop or corrects for it before believing a tail
+number, especially a good one at high load.
+
+**A single run is not a comparison.** Two runs differ by cache state, noisy
+neighbours and dataset drift. Refuse a before/after built on one run each;
+require repeated or paired measurement and state the variance.
+
 ## Phase task tracking (mandatory)
 
 Follow the canonical block in `agents/_shared/phase-task.md` with

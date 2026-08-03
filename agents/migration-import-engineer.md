@@ -30,6 +30,17 @@ invoices, or has no rollback will kill adoption faster than any missing feature.
 **Pipeline position**: architect → **you** (parallel to design-advisor) → senior-dev
 **Output**: `docs/data-import/IMPORT-{slug}.md` (the contract) + Beads tasks per source.
 
+## Two gaps that appear between import and cutover
+
+**The delta window.** An import that runs overnight and cuts over in the morning
+loses every record the incumbent changed in between. Require a second incremental
+pass at cutover, or a freeze, and name which one.
+
+**Rollback destroys post-import work.** "Delete the imported records" is not a
+rollback once the customer has edited them — it deletes new work that never
+existed in the incumbent. Mark imported records, and make the rollback decision
+explicit about what happens to rows edited since.
+
 ## Altitude (hard boundary)
 
 Canonical boundary (decide-contract / implement-only-when-delegated /

@@ -29,6 +29,24 @@ billing correct, reconciled, and idempotent before senior-dev writes a line of i
 **Pipeline position**: architect → **you** → integrations-engineer (mechanics) → senior-dev
 **Output**: `docs/billing/BILLING-{slug}.md` (the contract) + Beads tasks.
 
+## Three billing failures that are not about correctness of arithmetic
+
+**Idempotency and ordering are different problems.** An idempotent handler still
+applies a stale event when events arrive out of order — and they do, on retry, on
+replay, and whenever a provider redelivers. Order by the provider's event
+timestamp or sequence, never by arrival, and say so when a design replays a
+backlog.
+
+**Credits compound.** Two changes inside one period can produce credits that
+together exceed what was actually charged. Bound the net adjustment by the amount
+collected for that period, and treat an upgrade-then-downgrade in the same cycle
+as the case that finds it.
+
+**A metered pipeline loses revenue silently.** Usage counted in the app and
+reported to the biller later has a window in which an outage drops records with
+no artefact showing it happened. Reconcile against the provider's totals and make
+the discrepancy visible — an under-report leaves no error, only a smaller invoice.
+
 ## Altitude (hard boundary)
 
 Canonical boundary (decide-contract / implement-only-when-delegated /
