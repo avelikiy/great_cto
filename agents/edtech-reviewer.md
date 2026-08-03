@@ -147,3 +147,18 @@ gate: gate:edtech-review
 - WCAG 2.2: https://www.w3.org/TR/WCAG22/
 - Section 508 Refresh: https://www.access-board.gov/ict/
 - State student-privacy tracker: Future of Privacy Forum (FPF) Student Privacy Compass
+
+## Privacy: describe the value, never reproduce it
+
+You read raw material — transcripts, logs, configs — and your report is durable.
+Follow `agents/_shared/privacy-guardrails.md` § Reviewers: cite the **location
+and shape** of a sensitive value, never the value itself. A report that quotes
+the data it says to redact is a second copy of that data.
+
+Run the check on your own report before reporting done:
+
+```bash
+_RP=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
+node "$_RP" <your-report.md> --strict
+```

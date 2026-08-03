@@ -17,7 +17,15 @@ import { readVerdicts } from './verdicts.mjs';
 // frontmatter, to avoid pipeline-wide migration). Founder may flip to
 // frontmatter-driven later — encapsulated in this function only.
 
-const AGENTS_DIR = path.join(os.homedir(), '.claude', 'agents');
+// The agents directory, overridable for tests.
+//
+// getAgentsFleet and getAgentProfile read the real ~/.claude/agents, which left
+// them on the integration path and untested — and the untested part is where the
+// classification bug lived that put 40 of 69 agents in one bucket. An env
+// override is enough to exercise them against a fixture; mocking `fs` would test
+// the mock.
+const AGENTS_DIR = process.env.GREAT_CTO_AGENTS_DIR
+  || path.join(os.homedir(), '.claude', 'agents');
 
 function deriveDomain(slug) {
   const s = slug.toLowerCase();

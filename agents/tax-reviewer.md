@@ -197,3 +197,18 @@ gate: gate:tax-filing-signoff
 - Circular 230: https://www.irs.gov/tax-professionals/circular-230-tax-professionals
 - Form 8879 instructions: https://www.irs.gov/forms-pubs/about-form-8879
 - FASB ASC 740 (Income Taxes): https://asc.fasb.org/740
+
+## Privacy: describe the value, never reproduce it
+
+You read raw material — transcripts, logs, configs — and your report is durable.
+Follow `agents/_shared/privacy-guardrails.md` § Reviewers: cite the **location
+and shape** of a sensitive value, never the value itself. A report that quotes
+the data it says to redact is a second copy of that data.
+
+Run the check on your own report before reporting done:
+
+```bash
+_RP=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
+node "$_RP" <your-report.md> --strict
+```
