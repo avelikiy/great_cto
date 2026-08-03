@@ -294,3 +294,48 @@ test('library-reviewer does not attach to every project that has a package.json'
   assert.ok(!reviewersFor('package.json').includes('library-reviewer'),
     'a reviewer that attaches to everything is one people learn to ignore');
 });
+
+// ─── every rule declares what it catches and what it must not ──────────────
+//
+// The two structural tests above catch two KNOWN shapes of dead rule: a token
+// requiring a `.md` path that EXCLUDE drops, and a `.*` bridging two alternation
+// groups. They are proxies — they would not have caught a third shape.
+//
+// Borrowed from numbat, whose detection rules ship beside a `_tests.yaml` giving
+// a positive case and its nearest miss: `.env` matches, `.env.example` does not.
+// A rule that declares both is checked directly rather than by proxy, and a rule
+// that fires on nothing fails the moment it is written instead of six months on.
+
+test('every rule declares at least one match and one non-match', () => {
+  const bare = RULES.filter(r => !r.cases || !r.cases.match?.length || !r.cases.noMatch?.length)
+    .map(r => r.reviewer);
+  assert.deepEqual(bare, [],
+    'a rule with no cases is a rule nobody has shown to fire — add cases: { match, noMatch }');
+});
+
+test('every declared match actually attaches its reviewer', () => {
+  const broken = [];
+  for (const rule of RULES) {
+    for (const path of rule.cases?.match ?? []) {
+      if (!reviewersFor(path).includes(rule.reviewer)) broken.push(`${rule.reviewer} ← ${path}`);
+    }
+  }
+  assert.deepEqual(broken, [], 'these rules do not fire on the paths they claim to catch');
+});
+
+test('every declared non-match stays clear of its reviewer', () => {
+  const broken = [];
+  for (const rule of RULES) {
+    for (const path of rule.cases?.noMatch ?? []) {
+      if (reviewersFor(path).includes(rule.reviewer)) broken.push(`${rule.reviewer} ← ${path}`);
+    }
+  }
+  assert.deepEqual(broken, [],
+    'these rules fire on the nearest miss — a reviewer attached to everything is one people ignore');
+});
+
+test('no reviewer is declared twice', () => {
+  const seen = new Set();
+  const dupes = RULES.filter(r => seen.size === seen.add(r.reviewer).size).map(r => r.reviewer);
+  assert.deepEqual(dupes, [], 'two rules for one reviewer means one of them is unreachable in the report');
+});

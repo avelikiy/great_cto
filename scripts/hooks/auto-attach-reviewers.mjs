@@ -39,24 +39,76 @@ if (!existsSync(greatCtoDir)) process.exit(0);
 // `tests/eval/` already routes the eval files that are not excluded for another
 // reason. The test `no rule can only match an excluded path` keeps this true.
 export const RULES = [
-  { reviewer: "db-migration-reviewer",   pattern: /(migrations\/|schema\.sql$|alembic\/|knex\/migrations|prisma\/migrations|\.room\.|Migration\d+\.kt$|Migration\d+\.swift$)/i },
-  { reviewer: "pci-reviewer",            pattern: /(stripe|webhook.*sig|payment|refund|paypal|adyen|braintree|saq-a|pci-dss)/i },
-  { reviewer: "security-officer",        pattern: /(auth\/|oauth|saml|jwt|password|login|session|csrf|cors\.|crypto\.|secret)/i },
-  { reviewer: "ai-security-reviewer",    pattern: /(prompts?\/|system_prompt|tool_definitions|rag|embeddings?\/|jailbreak)/i },
-  { reviewer: "ai-eval-engineer",        pattern: /(tests\/eval\/|golden_set|prompt_regression)/i },
-  { reviewer: "mobile-store-reviewer",   pattern: /(play[_-]?store|app[_-]?store|fastlane|iap|in_app_purchase|store_listing|aab$|ipa$)/i },
-  { reviewer: "api-platform-reviewer",   pattern: /(openapi\.|swagger|graphql\.schema|webhooks?\.|rfc7807|sunset_header)/i },
-  { reviewer: "voice-ai-reviewer",       pattern: /(twilio|vonage|livekit|deepgram|elevenlabs|ivr|tcpa|stir.shaken)/i },
-  { reviewer: "hr-ai-reviewer",          pattern: /(aedt|ny.?city.?ll.?144|resume_screen|hiring|interview_ai)/i },
-  { reviewer: "edtech-reviewer",         pattern: /(coppa|ferpa|student[_-]?(data|pii)|sopipa)/i },
-  { reviewer: "gov-reviewer",            pattern: /(fedramp|nist.?800.?53|cjis|fips.?140|fisma|vpat)/i },
-  { reviewer: "game-reviewer",           pattern: /(loot[_-]?box|esrb|pegi|iarc|gacha)/i },
+  { reviewer: "db-migration-reviewer",   pattern: /(migrations\/|schema\.sql$|alembic\/|knex\/migrations|prisma\/migrations|\.room\.|Migration\d+\.kt$|Migration\d+\.swift$)/i,
+    cases: {
+      match: ["db/migrations/0007_add_index.sql", "prisma/migrations/20260801_init/migration.sql", "app/Migration12.kt"],
+      noMatch: ["src/db/query.ts", "docs/schema-notes.txt"],
+    } },
+  { reviewer: "pci-reviewer",            pattern: /(stripe|webhook.*sig|payment|refund|paypal|adyen|braintree|saq-a|pci-dss)/i,
+    cases: {
+      match: ["src/billing/stripe-webhook.ts", "api/refund.ts", "lib/adyen-client.ts"],
+      noMatch: ["src/user/profile.ts", "tests/fixtures/cart.json"],
+    } },
+  { reviewer: "security-officer",        pattern: /(auth\/|oauth|saml|jwt|password|login|session|csrf|cors\.|crypto\.|secret)/i,
+    cases: {
+      match: ["src/auth/session.ts", "api/oauth-callback.ts", "lib/jwt-verify.ts"],
+      noMatch: ["src/ui/button.tsx", "docs/onboarding.txt"],
+    } },
+  { reviewer: "ai-security-reviewer",    pattern: /(prompts?\/|system_prompt|tool_definitions|rag|embeddings?\/|jailbreak)/i,
+    cases: {
+      match: ["prompts/system.txt", "src/rag/retriever.ts", "lib/embeddings/index.ts"],
+      noMatch: ["src/api/users.ts"],
+    } },
+  { reviewer: "ai-eval-engineer",        pattern: /(tests\/eval\/|golden_set|prompt_regression)/i,
+    cases: {
+      match: ["tests/eval/runner.mjs", "data/golden_set.jsonl"],
+      noMatch: ["tests/unit/parser.test.ts"],
+    } },
+  { reviewer: "mobile-store-reviewer",   pattern: /(play[_-]?store|app[_-]?store|fastlane|iap|in_app_purchase|store_listing|aab$|ipa$)/i,
+    cases: {
+      match: ["fastlane/Fastfile", "ios/iap-manager.swift", "build/app.aab"],
+      noMatch: ["src/api/client.ts"],
+    } },
+  { reviewer: "api-platform-reviewer",   pattern: /(openapi\.|swagger|graphql\.schema|webhooks?\.|rfc7807|sunset_header)/i,
+    cases: {
+      match: ["api/openapi.yaml", "src/webhooks.ts", "schema/graphql.schema"],
+      noMatch: ["src/db/pool.ts"],
+    } },
+  { reviewer: "voice-ai-reviewer",       pattern: /(twilio|vonage|livekit|deepgram|elevenlabs|ivr|tcpa|stir.shaken)/i,
+    cases: {
+      match: ["integrations/twilio-handler.ts", "src/ivr/menu.ts", "lib/deepgram-stream.ts"],
+      noMatch: ["src/audio/player.ts"],
+    } },
+  { reviewer: "hr-ai-reviewer",          pattern: /(aedt|ny.?city.?ll.?144|resume_screen|hiring|interview_ai)/i,
+    cases: {
+      match: ["src/hiring/rank.ts", "lib/resume_screen.py"],
+      noMatch: ["src/hr/payroll.ts"],
+    } },
+  { reviewer: "edtech-reviewer",         pattern: /(coppa|ferpa|student[_-]?(data|pii)|sopipa)/i,
+    cases: {
+      match: ["src/coppa-consent.ts", "lib/student_data.py"],
+      noMatch: ["src/course/player.tsx"],
+    } },
+  { reviewer: "gov-reviewer",            pattern: /(fedramp|nist.?800.?53|cjis|fips.?140|fisma|vpat)/i,
+    cases: {
+      match: ["config/fedramp-boundary.yaml", "src/fisma-controls.ts"],
+      noMatch: ["src/gov/ui.tsx"],
+    } },
+  { reviewer: "game-reviewer",           pattern: /(loot[_-]?box|esrb|pegi|iarc|gacha)/i,
+    cases: {
+      match: ["src/loot_box.ts", "config/esrb.json"],
+      noMatch: ["src/game/physics.ts"],
+    } },
   // general.?ledger / \bgaap\b appended for accounting-vertical coverage — there is no
   // dedicated accounting-reviewer agent (only project-auditor, which is unrelated), so
   // core accounting-controls signals route to the SOX-ITGC surface enterprise-saas-reviewer
   // already owns. "1099"/"e-file" deliberately excluded: too loose as bare substrings
   // (collide with port numbers, filenames, version strings) without a path anchor.
-  { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc)/i },
+  { reviewer: "enterprise-saas-reviewer",pattern: /(scim|tenant_id|row.?level.?security|sso\/|saml\/|sox.itgc)/i,
+    cases: {
+      match: ["src/scim/provision.ts", "db/row-level-security.sql", "src/sso/handler.ts"],
+      noMatch: ["src/ui/table.tsx"],
+    } },
   // procurement-reviewer: purchasing / source-to-pay tokens only — deliberately avoids
   // bare "purchase"/"order"/"vendor" (each collides with e-commerce/checkout code).
   // Each token below is a procurement-specific compound or acronym:
@@ -67,13 +119,21 @@ export const RULES = [
   //   punchout               — e-procurement catalog-launch protocol, unambiguous
   //   cxml                   — the punchout XML dialect name, unambiguous
   //   requisition            — procurement-specific request artifact (not generic "request")
-  { reviewer: "procurement-reviewer",    pattern: /(purchase.?order|three.?way.?match|\brfp\b|\bofac\b|punchout|cxml|requisition)/i },
+  { reviewer: "procurement-reviewer",    pattern: /(purchase.?order|three.?way.?match|\brfp\b|\bofac\b|punchout|cxml|requisition)/i,
+    cases: {
+      match: ["src/purchase-order.ts", "lib/punchout.ts"],
+      noMatch: ["src/store/cart.ts"],
+    } },
   // accounting-reviewer: bookkeeping / GL / close-cycle tokens — MOVED from
   // enterprise-saas-reviewer (was a stop-gap before this reviewer existed, see
   // great_cto-k0uf). general.?ledger and \bgaap\b now route here exclusively so
   // accounting signals hit the domain-correct reviewer instead of the generic
   // enterprise-controls one.
-  { reviewer: "accounting-reviewer",     pattern: /(asc.?606|journal.?entry|general.?ledger|\bgaap\b|1099|month.?end.?close|chart.?of.?accounts)/i },
+  { reviewer: "accounting-reviewer",     pattern: /(asc.?606|journal.?entry|general.?ledger|\bgaap\b|1099|month.?end.?close|chart.?of.?accounts)/i,
+    cases: {
+      match: ["src/journal-entry.ts", "lib/general-ledger.ts"],
+      noMatch: ["src/reports/chart.tsx"],
+    } },
   // msp-reviewer: managed-service-provider / RMM-PSA tokens only — deliberately avoids
   // bare "tenant"/"service" (both collide with generic SaaS/microservice code; tenant_id
   // already belongs to enterprise-saas-reviewer above). Each token below is MSP-specific:
@@ -85,7 +145,11 @@ export const RULES = [
   //                           enterprise-saas-reviewer's bare "tenant_id" data-isolation signal)
   //   managed.?service      — "managed service provider" / "managed services", unambiguous
   //   credential.?vault     — MSP's core liability surface (client credential storage)
-  { reviewer: "msp-reviewer",            pattern: /(\bmsa\b|\bsla\b|\brmm\b|\bpsa\b|multi.?tenant|managed.?service|credential.?vault)/i },
+  { reviewer: "msp-reviewer",            pattern: /(\bmsa\b|\bsla\b|\brmm\b|\bpsa\b|multi.?tenant|managed.?service|credential.?vault)/i,
+    cases: {
+      match: ["src/rmm-agent.ts", "lib/credential-vault.ts"],
+      noMatch: ["src/ui/nav.tsx"],
+    } },
   // tax-reviewer: tax-prep / IRS e-file tokens only — deliberately avoids bare "tax"
   // (collides with sales-tax/tax-rate code in commerce/pci contexts) and bare "irs"
   // alone as unanchored substring was considered too loose; each token below is a
@@ -98,8 +162,16 @@ export const RULES = [
   //   pub.?4557             — IRS Publication 4557 (taxpayer data safeguards)
   //   section.?7216         — IRC §7216 consent-to-disclose statute
   //   tax.?prep              — "tax prep"/"tax preparation", the domain itself
-  { reviewer: "tax-reviewer",            pattern: /(\bptin\b|circular.?230|form.?8879|\bmef\b|pub.?4557|section.?7216|tax.?prep)/i },
-  { reviewer: "insurance-reviewer",      pattern: /(naic|solvency|ifrs.?17|acord|actuarial)/i },
+  { reviewer: "tax-reviewer",            pattern: /(\bptin\b|circular.?230|form.?8879|\bmef\b|pub.?4557|section.?7216|tax.?prep)/i,
+    cases: {
+      match: ["src/form-8879.ts", "lib/tax-prep.py"],
+      noMatch: ["src/finance/invoice.ts"],
+    } },
+  { reviewer: "insurance-reviewer",      pattern: /(naic|solvency|ifrs.?17|acord|actuarial)/i,
+    cases: {
+      match: ["src/naic-filing.ts", "lib/actuarial-model.py"],
+      noMatch: ["src/policy/ui.tsx"],
+    } },
   // legal-reviewer: legal-services / legal-tech domain tokens only — deliberately
   // avoids bare "legal"/"law"/"case"/"trust" (each collides with generic code:
   // "legal" appears in license headers, "law" in unrelated words, "case" in
@@ -121,7 +193,11 @@ export const RULES = [
   //   attorney.?client      — attorney-client privilege, unambiguous legal-ethics term
   //   \bupl\b               — Unauthorized Practice of Law, word-boundaried (short token)
   //   docket                — court docket / case-management term, legal-specific
-  { reviewer: "legal-reviewer",          pattern: /(iolta|trust.?account|matter.?number|conflict.?check|\bpacer\b|\becf\b|\bcm\/ecf\b|retainer.?agreement|attorney.?client|\bupl\b|docket)/i },
+  { reviewer: "legal-reviewer",          pattern: /(iolta|trust.?account|matter.?number|conflict.?check|\bpacer\b|\becf\b|\bcm\/ecf\b|retainer.?agreement|attorney.?client|\bupl\b|docket)/i,
+    cases: {
+      match: ["src/iolta-ledger.ts", "lib/conflict-check.ts", "src/docket-sync.ts"],
+      noMatch: ["src/legal/ui.tsx"],
+    } },
   // healthcare-reviewer: HIPAA/PHI/clinical-transport tokens only — deliberately
   // avoids bare "health"/"care"/"claim" (collide with insurance, wellness apps,
   // generic support-ticket code). Each token below is a domain-specific signal:
@@ -145,7 +221,11 @@ export const RULES = [
   //   perio-chart       — periodontal charting artifact, dental-specific
   //   dental.?claim      — dental insurance claim, requires the compound so bare
   //                       "claim" (generic/insurance-collision) doesn't match
-  { reviewer: "healthcare-reviewer",     pattern: /(hipaa|phi[_-]|hl7|fhir|hitech|\bbaa\b|(^|\/)ehr\/|superbill|icd-?10|soap.?note|cdt-?code|odontogram|perio-chart|dental.?claim)/i },
+  { reviewer: "healthcare-reviewer",     pattern: /(hipaa|phi[_-]|hl7|fhir|hitech|\bbaa\b|(^|\/)ehr\/|superbill|icd-?10|soap.?note|cdt-?code|odontogram|perio-chart|dental.?claim)/i,
+    cases: {
+      match: ["src/hipaa-audit.ts", "integrations/fhir/client.ts", "src/soap-note.ts"],
+      noMatch: ["src/patient/avatar.tsx"],
+    } },
   // rcm-reviewer: medical-billing / revenue-cycle tokens only — deliberately excludes
   // bare "claim" (generic/insurance-collision, already avoided by healthcare-reviewer's
   // "dental.?claim" compound) and bare "modifier"/"denial" (too generic on their own).
@@ -160,16 +240,36 @@ export const RULES = [
   //   denial.?code          — CARC/RARC denial-code workflow, requires the compound so
   //                           bare "denial" doesn't fire on unrelated rejection/reject code
   //   npi\b                 — National Provider Identifier (word-boundaried)
-  { reviewer: "rcm-reviewer",            pattern: /(cms-?1500|ub-?04|hcpcs|\b835\b|remittance.?advice|prior.?auth|denial.?code|npi\b)/i },
+  { reviewer: "rcm-reviewer",            pattern: /(cms-?1500|ub-?04|hcpcs|\b835\b|remittance.?advice|prior.?auth|denial.?code|npi\b)/i,
+    cases: {
+      match: ["src/cms-1500.ts", "lib/prior-auth.ts", "src/denial-code-map.ts"],
+      noMatch: ["src/billing/ui.tsx"],
+    } },
   // regulated-reviewer: DORA/NIS2/ISO27001 only — its other two frameworks (SOX ITGC,
   // HIPAA) are already claimed by enterprise-saas-reviewer's `sox.itgc` and the
   // healthcare-reviewer pattern above respectively, so re-adding those tokens here
   // would double-attach two reviewers on the same file for no added signal. DORA/NIS2/
   // ISO27001 are regulated-reviewer's exclusive surface — no other rule covers them.
-  { reviewer: "regulated-reviewer",      pattern: /(\bdora\b|dora.?ict|nis2|iso.?27001)/i },
-  { reviewer: "infra-reviewer",          pattern: /(\.tf$|terraform\/|helm\/|kustomize\/|cdk\/|pulumi\/|\.bicep$)/i },
-  { reviewer: "web-store-reviewer",      pattern: /(manifest\.json$|mv3|chrome_extension|firefox_addon)/i },
-  { reviewer: "performance-engineer",    pattern: /(perf|p99|latency_budget|k6\/|locust\/|gatling\/|benchmark)/i },
+  { reviewer: "regulated-reviewer",      pattern: /(\bdora\b|dora.?ict|nis2|iso.?27001)/i,
+    cases: {
+      match: ["config/dora-ict-register.yaml", "src/nis2-controls.ts"],
+      noMatch: ["src/app/main.ts"],
+    } },
+  { reviewer: "infra-reviewer",          pattern: /(\.tf$|terraform\/|helm\/|kustomize\/|cdk\/|pulumi\/|\.bicep$)/i,
+    cases: {
+      match: ["infra/main.tf", "helm/values.yaml", "cdk/stack.ts"],
+      noMatch: ["src/server.ts"],
+    } },
+  { reviewer: "web-store-reviewer",      pattern: /(manifest\.json$|mv3|chrome_extension|firefox_addon)/i,
+    cases: {
+      match: ["extension/manifest.json", "src/mv3-worker.ts"],
+      noMatch: ["package.json"],
+    } },
+  { reviewer: "performance-engineer",    pattern: /(perf|p99|latency_budget|k6\/|locust\/|gatling\/|benchmark)/i,
+    cases: {
+      match: ["tests/k6/load.js", "src/perf-budget.ts", "bench/benchmark.ts"],
+      noMatch: ["src/ui/form.tsx"],
+    } },
   // This rule never fired. It required a manifest name AND the word "version" or
   // "public api" in the SAME string, but the string it is tested against is a
   // FILE PATH — no path contains both, so library-reviewer was never attached to
@@ -181,13 +281,32 @@ export const RULES = [
   // matched instead are the manifests and artifacts that only a PUBLISHED library
   // has — a declared public API surface, or a packaging manifest for an ecosystem
   // where the file's presence already implies distribution.
-  { reviewer: "library-reviewer",        pattern: /(api-extractor\.json|(^|\/)(pyproject\.toml|Cargo\.toml|setup\.py|go\.mod)$|\.npmignore$)/i },
-  { reviewer: "cli-reviewer",            pattern: /(bin\/|cli\/main|argv|exit.?code)/i },
+  { reviewer: "library-reviewer",        pattern: /(api-extractor\.json|(^|\/)(pyproject\.toml|Cargo\.toml|setup\.py|go\.mod)$|\.npmignore$)/i,
+    cases: {
+      match: ["Cargo.toml", "pyproject.toml", "sdk/api-extractor.json", "go.mod"],
+      noMatch: ["package.json", "src/index.ts"],
+    } },
+  { reviewer: "cli-reviewer",            pattern: /(bin\/|cli\/main|argv|exit.?code)/i,
+    cases: {
+      match: ["bin/great-cto", "src/cli/main.ts", "lib/argv-parse.ts"],
+      noMatch: ["src/server/routes.ts"],
+    } },
   // Building an MCP server, not consuming one: `.mcp.json` and `.playwright-mcp/`
   // are what USING a server leaves behind, and neither is ours to review.
-  { reviewer: "mcp-server-reviewer",     pattern: /(mcp[-_]servers?[/.]|[/.]mcp[-_]server\.|(^|\/)mcp\.(ts|js|mjs|py)$|modelcontextprotocol)/i },
+  { reviewer: "mcp-server-reviewer",     pattern: /(mcp[-_]servers?[/.]|[/.]mcp[-_]server\.|(^|\/)mcp\.(ts|js|mjs|py)$|modelcontextprotocol)/i,
+    cases: {
+      match: ["mcp-servers/llm-router/server.py", "src/mcp.ts", "lib/modelcontextprotocol-adapter.ts"],
+      noMatch: [".mcp.json", ".playwright-mcp/session.json"],
+    } },
 ];
 
+// Known limit, found by giving every rule its own cases: `^docs/` and `\.md$`
+// are excluded wholesale, so a compliance artefact that lives as a document —
+// a FedRAMP boundary, a DORA ICT register, a system prompt in markdown — never
+// reaches gov-reviewer, regulated-reviewer or ai-security-reviewer. Those rules
+// fire only on config and source. Widening EXCLUDE would make every rule fire on
+// every doc, so it is recorded here rather than changed in passing.
+//
 // Files we deliberately ignore for reviewer routing — these are metadata,
 // templates, or test fixtures whose path matches a pattern by accident but
 // they're not actual product code that needs review.

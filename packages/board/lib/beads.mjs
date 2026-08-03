@@ -132,7 +132,14 @@ function tasksMdStatus(rawStatus, id, title) {
   else if (s === 'in_progress' || s === 'in-progress' || s === 'wip' || s === 'doing') status = 'in_progress';
   else if (s === 'blocked') status = 'blocked';
   else status = isGate ? 'gate' : 'backlog';
-  return { status, raw_status: status === 'done' ? 'closed' : 'open', isGate };
+  // raw_status is what the inbox filters on, because mapStatus() rewrites any
+  // gate-labelled task to 'gate' and filtering on the mapped value would leave
+  // closed gates in the inbox forever. That fix covered `done`; it did not cover
+  // `blocked`, so a gate marked blocked in tasks.md reported raw_status 'open'
+  // and never left the inbox — for exactly the bd-less projects this parser
+  // exists to serve.
+  const raw = status === 'done' ? 'closed' : status === 'blocked' ? 'blocked' : 'open';
+  return { status, raw_status: raw, isGate };
 }
 
 // Build the full task record both parsers emit — one shape so getTasks can
