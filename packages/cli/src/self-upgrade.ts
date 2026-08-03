@@ -192,3 +192,54 @@ export function performSelfUpgrade(opts: {
 
 // Re-export for callers that only need the prefix-derivation logic directly.
 export { derivePrefixFromBinPath as _derivePrefixFromBinPath };
+
+/**
+ * Newest version present in the Claude Code plugin cache, or null.
+ *
+ * Takes the directory names so the rule is testable without a filesystem.
+ */
+export function newestCachedPlugin(dirNames: string[]): string | null {
+  const versions = dirNames.filter((d) => /^\d+\.\d+\.\d+$/.test(d));
+  if (!versions.length) return null;
+  const key = (v: string) => v.split(".").map(Number);
+  return versions.sort((a, b) => {
+    const [A, B] = [key(a), key(b)];
+    for (let i = 0; i < 3; i++) if (A[i] !== B[i]) return A[i] - B[i];
+    return 0;
+  })[versions.length - 1];
+}
+
+/**
+ * Warn when the npm package has moved ahead of the plugin Claude Code loads.
+ *
+ * `npm i -g` replaces the CLI. It does not touch
+ * ~/.claude/plugins/cache/local/great_cto/<version>/, which is where the hooks
+ * and agent prompts are actually read from — so a user can take the update
+ * prompt, be told the upgrade succeeded, and keep running the previous release's
+ * agents with nothing anywhere saying so. That is the same defect this codebase
+ * keeps finding: a step reported as done while the thing it was meant to change
+ * stayed as it was.
+ *
+ * Returns null when they match, when nothing is cached (the plugin is simply not
+ * installed), or when the cache is somehow ahead — none of those are the failure
+ * this exists to catch.
+ */
+export function pluginCacheLagWarning(npmVersion: string, cachedDirs: string[]): string | null {
+  const cached = newestCachedPlugin(cachedDirs);
+  if (!cached || !npmVersion) return null;
+  if (cached === npmVersion) return null;
+
+  const key = (v: string) => v.split(".").map(Number);
+  const [c, n] = [key(cached), key(npmVersion)];
+  for (let i = 0; i < 3; i++) {
+    if (c[i] > n[i]) return null;   // cache ahead — not the case we guard
+    if (c[i] < n[i]) break;
+  }
+
+  return [
+    `note: the npm package is ${npmVersion}, but the plugin Claude Code loads is ${cached}.`,
+    "      Hooks and agent prompts come from the plugin cache, not from npm — until it is",
+    "      refreshed, this session keeps running the previous release's agents.",
+    "      Refresh it with:  bash scripts/install-local.sh --prune",
+  ].join("\n");
+}

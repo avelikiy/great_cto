@@ -1214,6 +1214,21 @@ async function runSelfUpgrade(): Promise<number> {
   }
 
   success(result.message);
+
+  // The CLI is upgraded; the plugin Claude Code actually loads may not be.
+  // `npm i -g` never touches the plugin cache, so without this the user is told
+  // the upgrade succeeded and keeps running the previous release's hooks and
+  // agent prompts with nothing anywhere saying so.
+  try {
+    const { pluginCacheLagWarning } = await import("./self-upgrade.js");
+    const { readdirSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const cacheRoot = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
+    const dirs = readdirSync(cacheRoot);
+    const warning = pluginCacheLagWarning(result.newVersion ?? "", dirs);
+    if (warning) { log(""); log(dim(warning)); }
+  } catch { /* no plugin cache is not a lag — the plugin is simply not installed */ }
+
   return 0;
 }
 

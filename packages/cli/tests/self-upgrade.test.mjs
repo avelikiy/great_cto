@@ -186,3 +186,49 @@ test("performSelfUpgrade: install succeeds but verify fails -> still exitCode 0,
   assert.equal(result.newVersion, null);
   assert.match(result.message, /could not verify/);
 });
+
+// `npm i -g` replaces the CLI. It does not touch
+// ~/.claude/plugins/cache/local/great_cto/<version>/, which is where hooks and
+// agent prompts are actually read from — so a user can take the update prompt,
+// be told the upgrade succeeded, and keep running the previous release's agents
+// with nothing anywhere saying so. This happened during the 2.91.0 release:
+// publishing left the cache on the prior version until install-local.sh ran.
+import { newestCachedPlugin, pluginCacheLagWarning } from "../dist/self-upgrade.js";
+
+test("the newest cached plugin is chosen numerically, not alphabetically", () => {
+  assert.equal(newestCachedPlugin(["2.9.0", "2.10.0", "2.86.0"]), "2.86.0");
+  assert.equal(newestCachedPlugin(["2.91.0", "2.9.0"]), "2.91.0",
+    "a string sort would put 2.9.0 after 2.91.0 and report the wrong cache");
+});
+
+test("non-version directories are ignored", () => {
+  assert.equal(newestCachedPlugin(["latest", ".DS_Store", "2.5.0"]), "2.5.0");
+  assert.equal(newestCachedPlugin(["latest", "tmp"]), null);
+  assert.equal(newestCachedPlugin([]), null);
+});
+
+test("a cache behind npm produces a warning that names both versions and the fix", () => {
+  const w = pluginCacheLagWarning("2.91.0", ["2.86.0", "2.90.0"]);
+  assert.ok(w);
+  assert.match(w, /npm package is 2\.91\.0/);
+  assert.match(w, /plugin Claude Code loads is 2\.90\.0/);
+  assert.match(w, /install-local\.sh --prune/, "a warning with no next step is a warning people learn to skip");
+});
+
+test("matching versions warn about nothing", () => {
+  assert.equal(pluginCacheLagWarning("2.91.0", ["2.90.0", "2.91.0"]), null);
+});
+
+test("no plugin cache is not a lag — the plugin is simply not installed", () => {
+  assert.equal(pluginCacheLagWarning("2.91.0", []), null);
+  assert.equal(pluginCacheLagWarning("2.91.0", ["latest"]), null);
+});
+
+test("a cache ahead of npm is not the case this guards", () => {
+  assert.equal(pluginCacheLagWarning("2.90.0", ["2.91.0"]), null,
+    "a local build newer than the registry is normal during development");
+});
+
+test("a missing npm version warns about nothing rather than guessing", () => {
+  assert.equal(pluginCacheLagWarning("", ["2.90.0"]), null);
+});
