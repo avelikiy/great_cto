@@ -74,11 +74,35 @@ export function isSuppressed(opts: {
   command?: string;
   stderrIsTTY?: boolean;
 } = {}): boolean {
+  if (isRefreshSuppressed(opts)) return true;
+  // Nothing may be printed when stderr is not a terminal — the output is being
+  // read by something. This is about PRINTING only; see isRefreshSuppressed.
+  if (opts.stderrIsTTY === false) return true;
+  return false;
+}
+
+/**
+ * Should the background cache refresh be suppressed too?
+ *
+ * Deliberately narrower than isSuppressed. Not printing and not learning are
+ * different things, and conflating them had a consequence: the refresh sits
+ * behind the same non-TTY check as the hint, so a user whose runs are mostly
+ * non-interactive never warmed the cache — and their occasional interactive run
+ * therefore had no cache to read and showed nothing, every time. The cache file
+ * was simply absent on this machine, which is how this was found.
+ *
+ * A detached refresh with stdio ignored pollutes no output. What genuinely must
+ * not spawn: the protocol commands, whose children would outlive a parsed
+ * stream, and anyone who asked us not to check at all.
+ */
+export function isRefreshSuppressed(opts: {
+  env?: NodeJS.ProcessEnv;
+  command?: string;
+} = {}): boolean {
   const env = opts.env ?? process.env;
   if (env.CI != null && env.CI !== "" && env.CI !== "0" && env.CI !== "false") return true;
   if (env.GREAT_CTO_NO_UPDATE_CHECK === "1") return true;
   if (opts.command && PROTOCOL_SENSITIVE_COMMANDS.has(opts.command)) return true;
-  if (opts.stderrIsTTY === false) return true;
   return false;
 }
 
@@ -247,10 +271,14 @@ export async function checkForUpdate(opts: {
     const env = opts.env ?? process.env;
     const stderrIsTTY = opts.stderrIsTTY ?? Boolean(process.stderr.isTTY);
     const stdinIsTTY = opts.stdinIsTTY ?? Boolean(process.stdin.isTTY);
-    if (isSuppressed({ env, command: opts.command, stderrIsTTY })) return;
+    // Warm the cache even when nothing may be printed. A run that cannot show a
+    // hint can still learn the version for the run that can.
+    if (isRefreshSuppressed({ env, command: opts.command })) return;
+    const quiet = isSuppressed({ env, command: opts.command, stderrIsTTY });
 
     const cache = readCache();
     if (isCacheFresh(cache, opts.now)) {
+      if (quiet) return;                 // fresh cache, but this run may not speak
       if (!cache || !isNewerVersion(opts.currentVersion, cache.latest)) return;
 
       if (shouldPrompt({ currentVersion: opts.currentVersion, cache, env, command: opts.command, stderrIsTTY, stdinIsTTY })) {

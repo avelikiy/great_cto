@@ -1280,7 +1280,11 @@ async function main(): Promise<void> {
   // is the single exit funnel: it fires one fire-and-forget event (command + node + os
   // + exit_code + duration, no PII) only when the user has opted in, then exits.
   const __tStart = Date.now();
-  const finish = async (code: number): Promise<void> => {
+  // Promise<never>, not Promise<void>: this always exits, and typing it as such
+  // is what lets `await finish(2)` narrow a nullable the way `process.exit(2)`
+  // did. Without it, routing an exit through the update check would silently
+  // widen types at every call site.
+  const finish = async (code: number): Promise<never> => {
     try {
       await sendUsagePing({
         cliVersion: getCliVersion(),
@@ -1307,7 +1311,7 @@ async function main(): Promise<void> {
   if (args.command === "telemetry") {
     const { exitCode, output } = telemetrySubcommand(args.positional[0]);
     process.stdout.write(output);
-    process.exit(exitCode);
+    await finish(exitCode);
   }
 
   if (args.command === "help") {
@@ -1319,7 +1323,7 @@ async function main(): Promise<void> {
     error(`great-cto: unknown command or flag '${tok}'`);
     log("");
     log(`Run ${cyan("great-cto --help")} for usage.`);
-    process.exit(2);
+    await finish(2);
   }
   if (args.command === "board") {
     try {
@@ -1336,7 +1340,7 @@ async function main(): Promise<void> {
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(1);
+      await finish(1);
     }
   }
   if (args.command === "console") {
@@ -1345,7 +1349,7 @@ async function main(): Promise<void> {
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(1);
+      await finish(1);
     }
   }
   if (args.command === "register") {
@@ -1354,7 +1358,7 @@ async function main(): Promise<void> {
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(1);
+      await finish(1);
     }
   }
   if (args.command === "ci") {
@@ -1364,7 +1368,7 @@ async function main(): Promise<void> {
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(2);
+      await finish(2);
     }
   }
   if (args.command === "mcp") {
@@ -1377,7 +1381,7 @@ async function main(): Promise<void> {
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(2);
+      await finish(2);
     }
   }
   if (args.command === "adapt") {
@@ -1391,16 +1395,16 @@ async function main(): Promise<void> {
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(2);
+      await finish(2);
     }
   }
   if (args.command === "task") {
     const { runTask } = await import("./worker.js");
-    process.exit(await runTask(args.taskArgs ?? []));
+    await finish(await runTask(args.taskArgs ?? []));
   }
   if (args.command === "worker") {
     const { runWorker } = await import("./worker.js");
-    process.exit(await runWorker(args.taskArgs ?? []));
+    await finish(await runWorker(args.taskArgs ?? []));
   }
   if (args.command === "serve") {
     try {
@@ -1416,7 +1420,7 @@ async function main(): Promise<void> {
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(2);
+      await finish(2);
     }
   }
   if (args.command === "webhook") {
@@ -1425,13 +1429,13 @@ async function main(): Promise<void> {
       const parsed = parseWebhookArgs(rawArgv);
       if (!parsed) {
         error("usage: great-cto webhook list | add-incoming <name> --secret <s> | add-outgoing <name> --url <u> --format <f> --triggers <t1,t2> | remove <name> | test <name>");
-        process.exit(2);
+        return finish(2);
       }
       const code = await runWebhookCli(parsed);
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(2);
+      await finish(2);
     }
   }
   if (args.command === "upgrade") {
@@ -1440,7 +1444,7 @@ async function main(): Promise<void> {
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(2);
+      await finish(2);
     }
   }
   if (args.command === "chat-only-hint") {
@@ -1457,20 +1461,20 @@ async function main(): Promise<void> {
     log(`  ${cyan("serve")} · ${cyan("webhook")} · ${cyan("report")} · ${cyan("board")} · ${cyan("register")} · ${cyan("upgrade")}`);
     log("");
     log(`Run ${cyan("npx great-cto --help")} for the full CLI reference.`);
-    process.exit(2);
+    await finish(2);
   }
   if (args.command === "report") {
     try {
       const { runReport, parseReportArgs } = await import("./report.js");
       const parsed = parseReportArgs(rawArgv, args.dir);
       if (!parsed) {
-        process.exit(2);
+        return finish(2);
       }
       const code = await runReport(parsed);
       await finish(code);
     } catch (e) {
       error((e as Error).message);
-      process.exit(2);
+      await finish(2);
     }
   }
   if (args.command === "version") {
@@ -1487,7 +1491,7 @@ async function main(): Promise<void> {
           const pkg = JSON.parse(readFileSync(p, "utf-8")) as { name?: string; version?: string };
           if (pkg.name === "great-cto" && pkg.version) {
             log(pkg.version);
-            process.exit(0);
+            await finish(0);
           }
         } catch { /* keep searching */ }
       }
@@ -1495,7 +1499,7 @@ async function main(): Promise<void> {
     } catch {
       log("0.0.0");
     }
-    process.exit(0);
+    await finish(0);
   }
 
   try {

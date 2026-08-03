@@ -60,3 +60,33 @@ test("DO_NOT_TRACK opts out whatever non-empty value it holds", async () => {
     if (priorOn === undefined) delete process.env.GREAT_CTO_TELEMETRY; else process.env.GREAT_CTO_TELEMETRY = priorOn;
   }
 });
+
+// Not printing and not learning are different things. The background refresh sat
+// behind the same non-TTY check as the hint, so a run that could not show a hint
+// also never learned the version — and the cache file was simply absent on this
+// machine as a result. A user whose runs are mostly non-interactive would never
+// see an update prompt, ever.
+test("a silent run still warms the update cache", async () => {
+  const { isSuppressed, isRefreshSuppressed } = await import("../dist/update-check.js");
+  const env = {};
+  assert.equal(isSuppressed({ env, command: "board", stderrIsTTY: false }), true,
+    "nothing may be printed when the output is being read");
+  assert.equal(isRefreshSuppressed({ env, command: "board" }), false,
+    "but a detached refresh with stdio ignored pollutes nothing");
+});
+
+test("the protocol commands neither print nor refresh", async () => {
+  const { isRefreshSuppressed } = await import("../dist/update-check.js");
+  for (const command of ["mcp", "worker", "task"]) {
+    assert.equal(isRefreshSuppressed({ env: {}, command }), true,
+      `${command} must not spawn a child that outlives a parsed stream`);
+  }
+});
+
+test("an explicit opt-out and CI stop both printing and refreshing", async () => {
+  const { isRefreshSuppressed } = await import("../dist/update-check.js");
+  assert.equal(isRefreshSuppressed({ env: { GREAT_CTO_NO_UPDATE_CHECK: "1" } }), true);
+  assert.equal(isRefreshSuppressed({ env: { CI: "true" } }), true);
+  assert.equal(isRefreshSuppressed({ env: { CI: "false" } }), false, "CI=false is not CI");
+  assert.equal(isRefreshSuppressed({ env: { CI: "0" } }), false);
+});
