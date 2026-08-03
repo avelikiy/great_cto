@@ -135,6 +135,7 @@ function replaceSection(body, label, value) {
  */
 export function mergeEntry(existing, incoming) {
   const changed = [];
+  let conflict = null;
   const meta = { ...existing.meta };
 
   const prior = Number(meta.occurrences || 1);
@@ -176,6 +177,11 @@ export function mergeEntry(existing, incoming) {
         `**Superseded:** as of ${when} — ${newDecision}`);
     }
     changed.push('recorded a superseding decision');
+    // Surfaced, not just stored. A reversal written silently into a file nobody
+    // re-reads is the same as not recording it: the next reader inherits the new
+    // decision with no idea one was overturned, and the reason it was overturned
+    // is the most valuable thing in the entry.
+    conflict = { slug: existing.slug, was: oldDecision, now: newDecision, when };
   }
 
   // Evidence accumulates: it is the reason to believe the entry, and each
@@ -188,7 +194,7 @@ export function mergeEntry(existing, incoming) {
     changed.push(`+${add.length} evidence`);
   }
 
-  return { entry: { ...existing, meta, body: body.replace(/\s+$/, '') }, changed };
+  return { entry: { ...existing, meta, body: body.replace(/\s+$/, '') }, changed, conflict };
 }
 
 const normalise = (s) => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
@@ -213,7 +219,7 @@ export function addLesson(lessonsText, incomingText) {
   if (!incoming.slug) {
     // No `## pattern:` line means nothing to merge ON. Appending it anyway is
     // how the file fills with entries the de-dup can never see again.
-    return { text: String(lessonsText ?? ''), action: 'skipped', slug: null, changed: ['no `## pattern:` slug — refusing to add an unmergeable entry'] };
+    return { text: String(lessonsText ?? ''), action: 'skipped', slug: null, conflict: null, changed: ['no `## pattern:` slug — refusing to add an unmergeable entry'] };
   }
 
   const { preamble, entries } = parseLessons(lessonsText);
@@ -222,13 +228,13 @@ export function addLesson(lessonsText, incomingText) {
   if (idx === -1) {
     if (!('occurrences' in incoming.meta)) incoming.meta.occurrences = '1';
     const next = [...entries, incoming];
-    return { text: render(preamble, next), action: 'appended', slug: incoming.slug, changed: ['new pattern'] };
+    return { text: render(preamble, next), action: 'appended', slug: incoming.slug, conflict: null, changed: ['new pattern'] };
   }
 
-  const { entry, changed } = mergeEntry(entries[idx], incoming);
+  const { entry, changed, conflict } = mergeEntry(entries[idx], incoming);
   const next = entries.slice();
   next[idx] = entry;
-  return { text: render(preamble, next), action: 'merged', slug: incoming.slug, changed };
+  return { text: render(preamble, next), action: 'merged', slug: incoming.slug, changed, conflict };
 }
 
 function render(preamble, entries) {
@@ -259,6 +265,15 @@ async function main(argv) {
   const r = addLesson(current, incoming);
 
   console.log(`[lessons-write] ${r.action}${r.slug ? ` \`${r.slug}\`` : ''}: ${r.changed.join(', ')}`);
+  if (r.conflict) {
+    // On stderr and unmissable: this is the one outcome that needs a human.
+    console.error('');
+    console.error(`⚠ CONFLICT — the lesson \`${r.conflict.slug}\` reverses a recorded decision.`);
+    console.error(`  was: ${r.conflict.was}`);
+    console.error(`  now: ${r.conflict.now}   (${r.conflict.when})`);
+    console.error('  Both are kept. Surface this to the CTO — a decision that reversed is the');
+    console.error('  most valuable thing in the file, and it is worthless if nobody is told.');
+  }
   if (r.action === 'skipped') return 1;
   if (argv.includes('--dry-run')) { console.log('[lessons-write] --dry-run: not writing'); return 0; }
   writeFileSync(target, r.text);

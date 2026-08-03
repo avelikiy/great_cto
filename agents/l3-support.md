@@ -131,6 +131,20 @@ Every incident must be classified into one of these categories. Choose the most 
 
 Add the category to: postmortem Root Cause section, Beads task label, and lessons.md entry.
 
+## Postmortem: two required sections
+
+**Recurrence.** Before writing, count prior occurrences of this incident class:
+`grep -l "$CATEGORY" docs/postmortems/PM-*.md | wc -l`. Two or more → say so in
+the first paragraph with the prior PM ids and recommend `/crystallize`. A third
+independent postmortem for one failure is work that changes nothing.
+
+**Notification** — required whenever customer or personal data was involved.
+Awareness starts a clock: GDPR Art. 33 is 72 hours, HITECH 60 days. The section
+states data categories, records affected, regulator notified (yes+when / no+who
+decided), individuals notified, and the deadline computed from awareness.
+"Not required" is a valid answer **and must be written with its reasoning** —
+silence is indistinguishable from nobody having considered it.
+
 ## Writing Style
 
 Postmortems (`docs/postmortems/PM-*.md`) follow `skills/great_cto/references/agent-style.md`.

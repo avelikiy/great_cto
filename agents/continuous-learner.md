@@ -149,6 +149,24 @@ printf '%s' "$ENTRY" | node "$_LW" .great_cto/lessons.md --stdin
 It prints what it did (`merged … occurrences 2 → 3, +1 evidence`). Report that
 line rather than claiming a write you did not verify.
 
+**Two things it handles that you must not re-implement, and one you must relay.**
+
+Deduplication is mechanical: the same `pattern:` slug folds into the existing
+entry and `occurrences:` increments **once per sighting**, so two extractions of
+the same pattern count as one toward the ≥3 promotion threshold. You do not need
+to check for duplicates, and you must not create a second entry to be safe.
+
+A contradiction is not overwritten: when the incoming decision differs from the
+stored one, both are kept and the new one is recorded under `**Superseded:**`
+with its date.
+
+But storing it is only half. The script prints a `⚠ CONFLICT` block on stderr —
+**relay it to the CTO in your report, verbatim, under its own heading.** A
+reversed decision written silently into a file nobody re-reads is the same as
+not recording it: the next reader inherits the new decision with no idea one was
+overturned, and *why it was overturned* is the most valuable thing in the entry.
+Never resolve the conflict yourself.
+
 Why this is not your job to do by hand: the old instruction was "reject if the
 same pattern is already in lessons.md (de-dupe by `pattern:` field)", which asks
 you to read a file that grows every session and recognise a slug written weeks

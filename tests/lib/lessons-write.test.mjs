@@ -186,3 +186,29 @@ test('rendering round-trips: what is written parses back the same', () => {
   assert.equal(again.meta.occurrences, '2');
   assert.equal(renderEntry(again).trim(), parseLessons(text).entries[0].raw.trim());
 });
+
+// A reversal written silently into a file nobody re-reads is the same as not
+// recording it: the next reader inherits the new decision with no idea one was
+// overturned. The eval put it plainly — "flags the conflict for review; does not
+// silently overwrite" — and storing it was only half of that.
+
+test('a reversed decision is surfaced, not just stored', () => {
+  let text = addLesson('', entry({ decision: 'Always run the full pipeline.' })).text;
+  const r = addLesson(text, entry({ date: '2026-07-30', decision: 'Skip pm below three work streams.' }));
+  assert.ok(r.conflict, 'the caller must be able to tell a human, not just write a file');
+  assert.match(r.conflict.was, /Always run the full pipeline/);
+  assert.match(r.conflict.now, /Skip pm below three work streams/);
+  assert.equal(r.conflict.when, '2026-07-30');
+  assert.equal(r.conflict.slug, 'gate-before-irreversible');
+});
+
+test('an ordinary repeat reports no conflict', () => {
+  let text = addLesson('', entry()).text;
+  assert.equal(addLesson(text, entry({ date: '2026-07-30' })).conflict, null,
+    'wording noise is not a reversal, and crying conflict on it would train people to ignore the field');
+});
+
+test('a new pattern and a refused entry both report no conflict', () => {
+  assert.equal(addLesson('', entry()).conflict, null);
+  assert.equal(addLesson('', '---\ndate: 2026-05-08\n---\n\nno slug\n').conflict, null);
+});

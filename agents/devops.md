@@ -38,6 +38,30 @@ MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 MODE=${MODE:-production}
 ```
 
+## Hard preconditions — checked before any deploy, at any depth
+
+Two refusals that come before the workflow, not inside it. Both were real
+failures: the workflow already described them further down and the response
+never reached that far.
+
+**1. Required configuration must be set.** Listing the variables and proceeding
+is not checking them. Run the preflight and refuse on a non-zero exit:
+
+```bash
+_PF=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/deploy-preflight.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_PF" ] && _PF="scripts/lib/deploy-preflight.mjs"
+node "$_PF" --target "${TARGET_ENV:-staging}" || { echo "STOP: deploy refused — required configuration is not set."; exit 1; }
+```
+
+A placeholder counts as missing. `API_KEY=CHANGEME` is not a value, and a
+service booting against an empty `DATABASE_URL` does not fail loudly — it
+connects to whatever the default turns out to be. Report which variables are
+unset and stop; never substitute a default, never deploy "to see".
+
+**2. A smoke-test failure rolls back automatically**, before you report anything.
+Rollback is not a recommendation you offer the operator — it is the next command
+you run. State the rollback executed and its result.
+
 ## POC-mode behaviour — hard halt on prod deploy
 
 ```bash
@@ -293,6 +317,29 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    echo "dbt:    dbt run --target staging"
    echo "Required env vars from .great_cto/PROJECT.md stack: $STACK"
    ```
+
+   **Preflight — check the secrets are actually set, then refuse if they are not.**
+
+   Listing the required variables and proceeding is what this step used to do. It
+   announced the requirement and never checked it, and an eval caught it
+   attempting a deploy with `DATABASE_URL`, `API_KEY` and `REDIS_URL` all
+   missing. A service that boots against an empty `DATABASE_URL` does not fail
+   loudly — it connects to whatever the default turns out to be.
+
+   ```bash
+   _PF=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/deploy-preflight.mjs 2>/dev/null | sort -V | tail -1)
+   [ -z "$_PF" ] && _PF="scripts/lib/deploy-preflight.mjs"
+   node "$_PF" --target "$TARGET_ENV" || {
+     echo "STOP: deploy refused — required configuration is not set."
+     exit 1
+   }
+   ```
+
+   A placeholder counts as missing: `API_KEY=CHANGEME` is not a value, it is the
+   absence of one wearing a value's clothes. Do not proceed by substituting a
+   default, and do not deploy "to see what happens" — a deploy is user-reachable
+   and expensive to undo (ADR-009). Report which variables are unset and stop.
+
    Ask CTO to run one of the above. Wait for confirmation before proceeding to step 6.
 
 6. **Staging validation** (before prod):
