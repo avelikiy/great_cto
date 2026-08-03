@@ -6,6 +6,141 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.92.0 — 2026-08-03
+
+A release about measurement. Most of what follows was found by running something
+that had never been run, and the largest items are cases where a number everyone
+trusted turned out to be about the measuring apparatus.
+
+### A finding must carry the command that proves it
+
+The Structured Findings Format asked for problems that are "evidence-backed" —
+an adjective. Nothing read it, nothing rejected a finding without evidence, and
+no agent referenced the section at all.
+
+The failure it permitted is the expensive one: an agent writes "the secret is not
+set" because it looks true, and that sentence is indistinguishable, as prose,
+from the same sentence written after running `grep`. This is also why a second
+model reviewing the report is the wrong fix — a reviewer judges plausibility, and
+a confident wrong finding is exactly what passes that test.
+
+`**Evidence**` is now a required field carrying a proof status and, for a settled
+one, the command and its raw output. `scripts/lib/finding-evidence.mjs` rejects a
+finding with no field, a `passed`/`failed` with no command, a command with no
+output (running something is not observing it), an invented status, and an
+unproven claim listed as a finding rather than a hypothesis. qa-engineer,
+security-officer and code-reviewer run it on their own report before reporting
+done.
+
+Statuses are the existing `proof-status` vocabulary: `passed`/`failed` are
+results, `not_run`/`inconclusive` are the two ways of not knowing.
+
+### The second model is for disagreement, not approval
+
+`ask_kimi` had been in the tools list of nineteen agents since v1.0.100 and was
+invoked by none. The router works; nothing called it.
+
+Two models agreeing is weak evidence — they are trained on overlapping data and
+fail together. So both judges now walk the same DAG of closed questions and the
+output is the nodes where they answered differently. A divergence names a
+question a human settles in seconds. Agreement is reported as *"weak evidence,
+not confirmation"*, and no word in the report may say verified or confirmed. An
+abstention is a third state; counting it as agreement would let a broken judge
+confirm anything. Wired to security-officer only, for a contested severity call.
+
+### Eval coverage is a ladder, not a percentage
+
+`coverage-gate` defined *covered* as "an EVAL file names this agent" and printed
+it as one number, which reads as a test result. Coverage is now four rungs —
+`missing`, `present`, `exercised`, `passing` — and all four are printed, because
+the distance between *present* and *exercised* is the finding. CI holds a
+**ratchet**: an edited agent keeps the old bar, a NEW agent must have an EVAL
+that has actually run.
+
+Then the suite was run for the first time in six weeks, and two measurement
+defects fell out of it.
+
+**The actor's token cap was measuring the runner.** Twelve of 33 evals were below
+threshold and five agents at or near zero, every judge reason a version of "only
+shows setup commands without completing". The cap was 600, chosen when the actor
+was a generic stub; once it became the real agent body, 600 was not enough to
+reach the task past the setup the prompt itself demands first. Same eval at 2500
+produced real judgements. Default raised; a cap is not a spend.
+
+**The pack evals were measuring the scenario.** Twelve files ran against a
+generic stub, which is why they passed at 92% while agent-bound evals failed at
+55%. Eleven already named a real agent in `> Pack: … · Reviewer: …` and the
+runner read only `> Agent:`. One parser line, not eleven rewrites. `> Actor:
+generic` is now an explicit opt-out for the four voice evals, whose cases ask the
+actor to BE the voice agent rather than review one.
+
+Start of day to end: **1 passing · 19 present-only · 49 missing** →
+**20 passing · 0 present-only · 49 missing**, 32 of 33 evals passing. Every EVAL
+that exists has now been executed.
+
+### Agents fixed against real failures
+
+Each verified by re-running the same cases at the same budget, not asserted.
+
+- **architect** 1/3 → 3/3. It sized features correctly and gated them wrongly:
+  "let users pick a timezone… stored for compliance reporting in the EU" is Tiny
+  and is GDPR; "cache the pricing API for 5 minutes" is Tiny and a stale price is
+  a wrong charge. The archetype floor in `docs/GATES.md` is per-project and said
+  nothing about one feature carrying a signal. A signal table now raises the
+  floor whatever the size, and stating its absence is itself a finding.
+- **devops** 1/3 → 2/3. It printed the required env vars and deployed anyway.
+  `deploy-preflight.mjs` refuses on unset or placeholder values — `CHANGEME` is
+  the absence of a value wearing a value's clothes, and the value is never echoed
+  into a deploy log.
+- **l3-support** 1/3 → 2/3. A postmortem for exposed customer data had no
+  notification step; awareness starts a 72-hour GDPR clock. "Not required" stays
+  valid and must be written with its reasoning.
+- **continuous-learner** 1/3 → 2/3. A contradiction was recorded silently. The
+  merge now surfaces it and the agent must relay it verbatim.
+
+### Context measured in tokens
+
+Sections were being cut by line count, which overstated the effect. Measured:
+always-loaded 14,315 tokens; one agent at spawn 2,268 median; the flat catalogue
+306,742 against a 200,000 window.
+
+Six reference sections moved out of `SKILL.md` behind explicit pointers:
+12,526 → 8,869 tokens (−29%). Only the routing layer was cut. The executing
+layer got deliberately longer — architect and security-officer now open with
+what they must produce, because in a long prompt position outranks wording, and a
+48-line addition to l3-support made it *worse* until cut to 14.
+
+### Update notifier reaches every command
+
+It existed, worked, and had never written its cache. Not printing and not
+learning were the same check, so a silent run never learned the published
+version; and the check ran on 12 of 34 exit paths. Both fixed. `upgrade --self`
+now also warns when the npm package has moved ahead of the plugin cache Claude
+Code actually loads — `npm i -g` never touches it.
+
+### Fixes
+
+- A document's cited source paths are checked for existence. Age is not accuracy:
+  a doc here cited six files a reviewer was invited to verify, all deleted six
+  days after it was written, and it survived six weeks because 47 days is fresh
+  against a 180-day threshold. Placeholders, planned files and deliberate
+  historical pointers are exempt, per line rather than per file.
+- Every auto-attach rule declares a match and a nearest miss. Writing them found
+  that `^docs/` and `.md` are excluded wholesale, so a compliance artefact living
+  as a document never reaches a reviewer — recorded, not changed in passing.
+- `fleet.mjs` classified 40 of 69 agents as `qa` because the qa rule matched
+  `review`, which every `*-reviewer` contains, leaving `/reviewer$/ → domain`
+  unreachable and the domain bucket empty. Now domain 35, qa 4.
+- A gate marked `blocked` in `tasks.md` never left the inbox: every non-done
+  status mapped to `raw_status: 'open'`.
+- Board coverage 59% → 72.7%; `data-readers.mjs` 5% → 88.5%, `metrics.mjs`
+  10% → 83%, `verdicts.mjs` 16% → 94%.
+
+**Tests: 1693 passing.** No breaking changes.
+
+---
+
 ## v2.91.0 — 2026-08-01
 
 A release about the difference between a check that exists and a check that
