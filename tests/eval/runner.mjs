@@ -187,12 +187,41 @@ export function parseCasesTable(tableText) {
 export function parseEvalFile(content, filename) {
   try {
     // Agent binding — "> Agent: X · ..." (10+ EVALs use this; runner previously ignored it)
+    //
+    // A pack eval declares `> Pack: voice-pack · Reviewer: voice-ai-reviewer`, and
+    // that reviewer IS an agent — agents/voice-ai-reviewer.md exists for all
+    // twelve of them. Reading only `> Agent:` meant those evals ran against a
+    // generic stub, so they measured whether the SCENARIO was answerable rather
+    // than whether our prompt answers it. That is why they passed at 92% while
+    // the agent-bound evals failed at 55%: the difference was never agent quality.
+    //
+    // `Agent:` still wins when both are present — an explicit binding beats an
+    // inferred one.
+    // `> Actor: generic` opts out. Inferring the reviewer is right when the cases
+    // ask for a REVIEW judgement, and wrong when they ask the actor to BE the
+    // system under review — the four voice evals demand a live
+    // `transfer_to_human("medical-emergency")` tool call, which a
+    // pre-implementation reviewer that writes threat models will never produce.
+    // The eval knows which kind it is; the runner cannot infer it.
+    const actorMatch = content.match(/^>[^\n]*\bActor:\s*([a-z0-9-]+)/m);
+    const explicitGeneric = actorMatch && actorMatch[1].trim().toLowerCase() === 'generic';
+
     const agentMatch = content.match(/^>\s*Agent:\s*([^·\n]+)/m);
-    const agent = agentMatch ? agentMatch[1].trim() : null;
+    const reviewerMatch = content.match(/^>[^\n]*\bReviewer:\s*([a-z0-9-]+)/m);
+    const agent = explicitGeneric ? null
+                : agentMatch ? agentMatch[1].trim()
+                : reviewerMatch ? reviewerMatch[1].trim()
+                : null;
 
     // Pack name — "> Pack: X · ..." line
     const packMatch = content.match(/^>\s*Pack:\s*([^·\n]+)/m);
     const pack = packMatch ? packMatch[1].trim() : 'unknown';
+
+    // "> Component: scripts/lib/x" — this eval tests a deterministic library, not
+    // an agent, and the generic actor is correct for it. Recording it means an
+    // unbound eval can be told apart from one that is deliberately unbound.
+    const componentMatch = content.match(/^>\s*Component:\s*([^·\n]+)/m);
+    const component = componentMatch ? componentMatch[1].trim() : null;
 
     // Section-based extraction via splitSections — robust to the threshold/scenario
     // being the LAST section (the `\Z`-anchored regex previously used here is not a
@@ -228,7 +257,7 @@ export function parseEvalFile(content, filename) {
     const thresholdRaw = findSection(/^pass threshold$/i);
     const threshold = parseThreshold(thresholdRaw);
 
-    return { agent, pack, scenario, cases, tuningCases, holdoutCases, thresholdRaw, threshold };
+    return { agent, component, pack, scenario, cases, tuningCases, holdoutCases, thresholdRaw, threshold };
   } catch (err) {
     console.warn(`[WARN] Failed to parse ${filename}: ${err.message}`);
     return null;
@@ -711,7 +740,7 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
   const { system: actorSystem, source: actorSource } = resolveActorSystem({ promptFileBody, agentName });
 
   if (dryRun) {
-    console.log(`  [dry-run] ${evalName} — ${selectedCases.length} cases (split=${split}), agent=${agentName || '-'}, actor=${actorSource}, pack=${parsed.pack}, threshold="${parsed.thresholdRaw}"`);
+    console.log(`  [dry-run] ${evalName} — ${selectedCases.length} cases (split=${split}), agent=${agentName || '-'}, actor=${actorSource}${parsed.component ? " (component)" : ""}, pack=${parsed.pack}, threshold="${parsed.thresholdRaw}"`);
     return null;
   }
 

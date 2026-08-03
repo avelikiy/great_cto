@@ -384,10 +384,45 @@ test('parseEvalFile: parses "> Agent:" binding', () => {
   assert.equal(r.agent, 'security-officer');
 });
 
-test('parseEvalFile: "> Pack:" file has agent === null', () => {
-  const r = parseEvalFile(SAMPLE_EVAL, 'EVAL-sample-test.md');
-  assert.equal(r.agent, null);
-  assert.equal(r.pack, 'test-pack');
+const PACK_EVAL = `# EVAL-pack.md
+
+> Pack: voice-pack · Reviewer: voice-ai-reviewer
+
+## Scenario
+A synthetic voice call must disclose it is synthetic.
+
+## Cases (tuning)
+| # | Scenario | Expected | Pass |
+|---|---|---|---|
+| 1 | a | b | c |
+
+## Pass threshold
+1/1 tuning · 1/1 holdout.
+`;
+
+test('parseEvalFile: a pack eval binds to the reviewer named in its header', () => {
+  // This asserted `agent === null` and encoded the defect. A pack eval declares
+  // `> Pack: voice-pack · Reviewer: voice-ai-reviewer`, and that reviewer IS an
+  // agent — twelve evals named one and every file existed. Reading only
+  // `> Agent:` ran them against a generic stub, so they measured whether the
+  // scenario was answerable rather than whether our prompt answers it. That is
+  // why the pack evals passed at 92% while the agent-bound ones failed at 55%.
+  const parsed = parseEvalFile(PACK_EVAL, 'EVAL-pack.md');
+  assert.equal(parsed.agent, 'voice-ai-reviewer');
+  assert.equal(parsed.pack, 'voice-pack');
+});
+
+test('parseEvalFile: an explicit Agent: beats an inferred Reviewer:', () => {
+  const both = '# E\n\n> Agent: security-officer · Reviewer: voice-ai-reviewer\n\n## Scenario\nx\n';
+  assert.equal(parseEvalFile(both, 'EVAL-both.md').agent, 'security-officer');
+});
+
+test('parseEvalFile: a component eval is deliberately unbound, and says so', () => {
+  const comp = '# E\n\n> Component: scripts/lib/compress · Phase 1\n\n## Scenario\nx\n';
+  const parsed = parseEvalFile(comp, 'EVAL-comp.md');
+  assert.equal(parsed.agent, null, 'a library is not an agent');
+  assert.equal(parsed.component, 'scripts/lib/compress',
+    'recording it lets an unbound eval be told apart from one that is deliberately unbound');
 });
 
 test('parseEvalFile: agent EVAL still parses cases + holdout split', () => {
@@ -555,4 +590,22 @@ test('the loader accepts the name the runner actually passes, not the one we ass
   // never used — an A/B that looked like it ran compared rubric against rubric.
   assert.ok(loadDagFor('EVAL-security-officer-finding-gate.md'), 'with .md');
   assert.ok(loadDagFor('EVAL-security-officer-finding-gate'), 'without .md');
+});
+
+test('parseEvalFile: `> Actor: generic` opts a reviewer-named eval out of binding', () => {
+  // Inferring the reviewer is right when the cases ask for a review judgement and
+  // wrong when they ask the actor to BE the system under review. The four voice
+  // evals demand a live `transfer_to_human("medical-emergency")` tool call, which
+  // a pre-implementation reviewer that writes threat models will never produce —
+  // they scored 0/3 bound and pass generic. The eval knows which kind it is; the
+  // runner cannot infer it.
+  const opted = '# E\n\n> Pack: voice-pack · Reviewer: voice-ai-reviewer\n> Actor: generic · the actor plays the voice agent\n\n## Scenario\nx\n';
+  assert.equal(parseEvalFile(opted, 'EVAL-v.md').agent, null);
+  assert.equal(parseEvalFile(opted, 'EVAL-v.md').pack, 'voice-pack', 'the pack binding is unaffected');
+});
+
+test('parseEvalFile: `> Actor: generic` overrides even an explicit Agent:', () => {
+  const opted = '# E\n\n> Agent: security-officer\n> Actor: generic\n\n## Scenario\nx\n';
+  assert.equal(parseEvalFile(opted, 'EVAL-o.md').agent, null,
+    'an opt-out that only beats inference would be an opt-out nobody can rely on');
 });
