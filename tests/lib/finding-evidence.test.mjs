@@ -156,3 +156,55 @@ test('a report reports its counts and every problem with a line number', () => {
 test('a clean report has no problems', () => {
   assert.deepEqual(checkReport(finding() + finding({ title: 'Another', status: 'passed' })).problems, []);
 });
+
+// ─── placeholders ──────────────────────────────────────────────────────────
+//
+// A model with nothing to put in a field does not leave it empty — it fills it
+// with something field-shaped. `<none>` in an Evidence block is the absence of
+// evidence wearing evidence's clothes, and a field filled with a placeholder is
+// worse than one left blank: blank is visibly incomplete, `<none>` looks
+// answered. The same list guards deploy secrets in deploy-preflight.mjs.
+
+const withEvidence = (status, block, location = '`src/a.ts:12`') => `
+### [High] Something is wrong
+
+- **Location**: ${location}
+- **Problem**: it is wrong
+- **Evidence**: ${status}
+${block}
+`;
+
+test('a placeholder in the evidence output is not an observation', () => {
+  for (const junk of ['<none>', 'none', 'N/A', 'null', 'undefined', 'TODO', '...', '(output)', 'omitted']) {
+    const f = parseFindings(withEvidence('failed', '```\n$ grep -n KEY .env\n' + junk + '\n```'))[0];
+    const r = checkFinding(f);
+    assert.equal(r.ok, false, junk);
+    assert.match(r.problems.join(' '), /placeholder, not an observation/, junk);
+  }
+});
+
+test('a placeholder command names nothing that was run', () => {
+  const f = parseFindings(withEvidence('failed', '```\n<command>\nsome output\n```'))[0];
+  assert.match(checkFinding(f).problems.join(' '), /name the command you ran/);
+});
+
+test('a placeholder location is rejected — say where you looked', () => {
+  for (const junk of ['`<unknown>`', 'N/A', 'TBD', '`—`']) {
+    const f = parseFindings(withEvidence('failed', '```\n$ grep KEY .env\nnothing\n```', junk))[0];
+    assert.match(checkFinding(f).problems.join(' '), /is a placeholder/, junk);
+  }
+});
+
+test('real output that merely looks terse is accepted', () => {
+  // Refusing anything short would make the check unusable; only the known
+  // stand-ins are refused.
+  for (const real of ['0', 'exit 1', 'no matches found', 'false', '{}']) {
+    const f = parseFindings(withEvidence('failed', '```\n$ grep -c KEY .env\n' + real + '\n```'))[0];
+    assert.deepEqual(checkFinding(f).problems, [], real);
+  }
+});
+
+test('a real location is accepted', () => {
+  const f = parseFindings(withEvidence('failed', '```\n$ grep KEY .env\nnothing\n```', '`packages/board/lib/config.mjs:12`'))[0];
+  assert.deepEqual(checkFinding(f).problems, []);
+});

@@ -154,60 +154,11 @@ The worker must not need to re-read the conversation to understand the task.
 
 ## Structured Findings Format
 
-All review, QA, and audit agents must produce findings in this format. Free-form prose findings are not actionable and fail the pipeline contract.
+Moved to `skills/great_cto/reference/findings-format.md` — read it when you need it.
+It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
+request and this is reference an agent consults while working, not something
+the orchestrator needs to choose one.
 
-### Finding block
-
-```
-### [Severity] Finding title
-
-- **Location**: `path/to/file.ts:42` (or component/endpoint name)
-- **Problem**: what is wrong — specific
-- **Evidence**: passed | failed | not_run | inconclusive
-  ```
-  $ <the command you ran>
-  <its raw output, pasted, not summarised>
-  ```
-- **Why it matters**: consequence if not fixed (data loss, security gap, user impact, tech debt)
-- **Recommended fix**: concrete action — code change, config update, design change
-- **Status**: Open | Fixed | Needs decision
-```
-
-**The Evidence field is not optional and is not prose.** Any claim about live
-state carries the command that established it and that command's raw output. A
-claim with no command is a hypothesis — say so and put it under a `## Hypotheses`
-heading, not in the findings.
-
-This is checked, not requested: `scripts/lib/finding-evidence.mjs` rejects a
-finding with no Evidence field, a `passed`/`failed` with no command, a command
-with no output, and an unproven claim listed as a finding.
-
-Why it is worded this way. "Evidence-backed" used to be an adjective in this
-section, and an adjective cannot be violated. The failure it allowed is the
-expensive one: an agent writes "the secret is not set" because it looks true, and
-that sentence is indistinguishable from one produced by running `grep` and
-reading the result. A reviewer cannot separate them either — which is why a
-second model reading the report does not fix this. The question is not whether
-the finding reads well; it is whether anyone touched the world.
-
-The four statuses are the existing vocabulary (`scripts/lib/proof-status.mjs`):
-`passed` and `failed` are results, `not_run` and `inconclusive` are the two ways
-of not knowing, and neither may be reported as a result. `not_run` means nothing
-was executed; `inconclusive` means something was and it settled nothing — a
-different thing to report and usually a different thing to fix.
-
-### Severity definitions
-
-| Severity | Definition | Pipeline effect |
-|----------|-----------|----------------|
-| **Critical** | Data loss, security vulnerability, crash, or broken core functionality | Blocks merge / gate:ship |
-| **Major** | Incorrect behavior, missing edge case, significant risk | Should fix before merge; blocks gate:ship if unfixed |
-| **Minor** | Code quality, maintainability, minor correctness issue | Recommended but not blocking |
-| **Nit** | Style, naming, preference | Optional — do not block on Nit |
-
-### Summary block (end of every review)
-
-```
 ## Review Summary
 
 | Severity | Count | Blocking |
@@ -239,195 +190,17 @@ This ensures `bd` and `ARCHETYPES_MD` are available to all subsequent commands.
 
 ## Session Start
 
-Load in order (later overrides earlier):
-1. `~/.great_cto/preferences.md` — global CTO preferences
-2. `.great_cto/PROJECT.md` — project config
-3. `.great_cto/local.md` — local machine overrides (gitignored)
-
-**Detect host platform** — great_cto runs in multiple AI-coding tools. Some
-deps are Claude-specific and don't apply elsewhere. Detection uses runtime
-env vars (set by the host process) first, filesystem markers second:
-
-```bash
-HOST="generic"
-
-# Runtime env vars (most reliable — set by the host actually invoking us)
-if [ -n "$CLAUDECODE" ] || [ -n "$CLAUDE_CODE_ENTRYPOINT" ]; then
-  HOST="claude-code"
-elif [ -n "$CODEX_HOME" ] || [ -n "$CODEX_SESSION" ]; then
-  HOST="codex"
-elif [ -n "$CURSOR_TRACE_ID" ] || [ "${TERM_PROGRAM:-}" = "Cursor" ]; then
-  HOST="cursor"
-elif [ -n "$AIDER_VERSION" ]; then
-  HOST="aider"
-elif [ -n "$CONTINUE_GLOBAL_DIR" ]; then
-  HOST="continue"
-else
-  # Fallback to filesystem markers when env is empty (manual invocation, CI, ...).
-  # Order matters: pick the most specific signal that exists.
-  if [ -d ~/.claude/plugins ] || [ -d ~/.claude/skills ]; then HOST="claude-code"
-  elif [ -d ~/.codex ]; then HOST="codex"
-  elif [ -d ~/.cursor ]; then HOST="cursor"
-  elif [ -d ~/.config/aider ]; then HOST="aider"
-  elif [ -d ~/.continue ]; then HOST="continue"
-  fi
-fi
-echo "HOST:$HOST"
-```
-
-**Dependency check** (run once, only if `.great_cto/deps-ok` does not exist):
-```bash
-MISSING=""
-HARD_MISSING=""
-
-# Beads is required everywhere (gate tracking + verdict log)
-bd help >/dev/null 2>&1 || HARD_MISSING="$HARD_MISSING beads"
-
-# Superpowers is Claude-Code-specific. Soft-warn elsewhere.
-if [ "$HOST" = "claude-code" ]; then
-  if ! ls ~/.claude/skills/superpowers/SKILL.md >/dev/null 2>&1 \
-     && ! ls ~/.claude/plugins/cache/local/superpowers/*/skills/*/SKILL.md >/dev/null 2>&1; then
-    MISSING="$MISSING superpowers"
-  fi
-fi
-
-if [ -n "$HARD_MISSING" ]; then
-  echo "DEPS_MISSING_HARD:$HARD_MISSING"
-elif [ -n "$MISSING" ]; then
-  echo "DEPS_MISSING_SOFT:$MISSING (host=$HOST)"
-  touch .great_cto/deps-ok  # mark OK — soft deps are fallback-able
-else
-  touch .great_cto/deps-ok
-fi
-```
-
-Resolution rules:
-- **DEPS_MISSING_HARD** → installation issue, must fix before pipeline can run.
-  Tell CTO: "Beads CLI not on PATH — install from https://github.com/steveyegge/beads. Pipeline gates will fall back to `.great_cto/tasks.md` until fixed."
-- **DEPS_MISSING_SOFT** → optional dep. Tell CTO once: "Optional plugin missing:
-  $MISSING (host=$HOST). Brainstorm/plan steps will use simplified flow.
-  Install from your tool's plugin marketplace if you want the full Claude Code
-  workflow."
-- **DEPS_OK** → silent.
-
-In Codex / Cursor / Aider / Continue, the brainstorm step from Claude Code's
-superpowers plugin is replaced by an inline questionnaire built into the
-architect agent — no plugin install needed.
-
-**Cache directory init** (run once per project):
-```bash
-mkdir -p .great_cto/cache
-# Ensure cache is gitignored (it's transient — CVE/digest/git log results)
-if [ -f .gitignore ] && ! grep -q "\.great_cto/cache" .gitignore 2>/dev/null; then
-  echo ".great_cto/cache/" >> .gitignore
-fi
-```
-
-**Beads init check** (run once per project, only if `.great_cto/beads-ok` does not exist):
-
-The previous version used `bd list` which returns success even with no local
-DB — false positive that hides missing init. Use a structural check instead:
-
-```bash
-# Real check: does the .beads/ dir exist + does bd ready succeed?
-# bd ready requires a usable DB and fails cleanly if uninitialized.
-if [ -d .beads ] && bd ready >/dev/null 2>&1; then
-  touch .great_cto/beads-ok
-  echo "BEADS_OK"
-else
-  echo "BEADS_UNINIT"
-fi
-```
-
-If BEADS_UNINIT:
-1. Run `bd init` automatically (safe — only writes `.beads/` and adds gitignore line)
-2. **Verify with a write-test:**
-   ```bash
-   PROBE_ID=$(bd create "great_cto-init-probe" --label setup-probe 2>&1 | grep -oE 'bd-[a-z0-9-]+ ' | head -1 | tr -d ' ')
-   if [ -n "$PROBE_ID" ]; then
-     bd close "$PROBE_ID" >/dev/null 2>&1
-     touch .great_cto/beads-ok
-     echo "BEADS_VERIFIED"
-   else
-     echo "BEADS_INIT_OK_BUT_WRITE_FAILED"
-   fi
-   ```
-   Catches the case where `bd init` exited 0 but the DB is unwritable.
-3. If write-test fails → tell CTO: "Beads CLI not functional — gate tracking and verdict logging will use `.great_cto/tasks.md` fallback. Install Beads for full pipeline: https://github.com/steveyegge/beads"
-
-**Side effects of `bd init`:** creates `.beads/` (the SQLite DB), appends to
-`.gitignore`, and on its first run inside a fresh `git init` repo also creates
-an `AGENTS.md` template. None of these are great_cto's responsibility — they
-ship from Beads. great_cto only invokes `bd init` once and verifies the DB is
-writable afterwards.
-
-All agents check for `bd` availability before each call. If unavailable, they fall back to `.great_cto/tasks.md`. This is degraded but functional — no agent will fail silently.
-
-If PROJECT.md exists, show away summary:
-```bash
-git log --oneline --since="24 hours ago" 2>/dev/null | head -5
-bd list --label gate --status open 2>/dev/null
-bd ready 2>/dev/null | head -3
-```
-
-Format (3 lines max): `Back to <project> | Since last: N commits | Gates: [open/none] | Ready: [top task]`
-
-**Stale gate check** — run at session start if PROJECT.md exists:
-```bash
-# Find open gates older than 24h (created_at field in Beads task)
-NOW=$(date +%s)
-bd list --label gate --status open 2>/dev/null | while read line; do
-  TASK_ID=$(echo "$line" | awk '{print $1}')
-  CREATED=$(bd show "$TASK_ID" 2>/dev/null | grep "created:" | awk '{print $2}')
-  [ -z "$CREATED" ] && continue
-  CREATED_EPOCH=$(date -d "$CREATED" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$CREATED" +%s 2>/dev/null || echo "$NOW")
-  CREATED_EPOCH=${CREATED_EPOCH:-$NOW}
-  AGE=$(( (NOW - CREATED_EPOCH) / 3600 ))
-  [ "${AGE:-0}" -gt 24 ] && echo "STALE_GATE:$TASK_ID age:${AGE}h"
-done
-```
-If STALE_GATE found → tell CTO: "⚠ Gate [task-id] has been open for [Nh]. Approve, reject, or it will auto-expire at 72h. Say 'approve' or 'reject gate [id]'."
-
-If no PROJECT.md → "No project configured. Describe your project or say 'audit'."
+Moved to `skills/great_cto/reference/session-start.md` — read it when you need it.
+It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
+request and this is reference an agent consults while working, not something
+the orchestrator needs to choose one.
 
 ## Phase task protocol (every pipeline agent)
 
-Each pipeline agent (product-owner / architect / pm / senior-dev / code-reviewer
-/ qa-engineer / security-officer / performance-engineer / db-migration-reviewer /
-devops / l3-support) **must** create a Beads task at the start of its phase and close
-it at the end. Without this the board UI only shows gates — Codex 2026-05
-review surfaced this gap (it called the pipeline "epic + gates without task
-decomposition by stages").
-
-Use the helper `scripts/phase-task.sh` (synced into every project's
-`.great_cto/cache/`):
-
-```bash
-PT="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ | sort -V | tail -1 | sed 's|/$||')/scripts/phase-task.sh"
-[ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
-
-# At phase start (idempotent — re-running returns the same id)
-TASK_ID=$(bash "$PT" open <agent-name> <feature-slug> [--parent <epic-or-gate-id>])
-bash "$PT" start "$TASK_ID"
-
-# At phase end
-bash "$PT" close "$TASK_ID" --verdict ok      # successful
-bash "$PT" close "$TASK_ID" --verdict fail --notes "<reason>"   # blocked
-```
-
-Conventions:
-- **agent-name**: matches the agent prompt file (architect, senior-dev, etc.)
-- **feature-slug**: kebab-case, derived from the user's `/start` request
-  (e.g. `stripe-subscriptions`, `2fa-totp`, `api-rate-limit`)
-- **parent**: the gate task id this phase rolls up to (product-owner → gate:product,
-  architect → gate:arch, qa-engineer → gate:ship, etc.). **gate:product is the
-  first human gate** — the CTO approves the product brief (WHAT before HOW) before
-  architecture begins.
-- **verdict**: `ok` (closes) / `fail` / `blocked` (sets status=blocked +
-  notes); `pass`, `done`, `approved`, `rejected` are aliases
-
-Falls back to `.great_cto/tasks.md` when Beads is unavailable. Never blocks
-the agent — task tracking is best-effort observability, not a gate.
+Moved to `skills/great_cto/reference/phase-task-protocol.md` — read it when you need it.
+It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
+request and this is reference an agent consults while working, not something
+the orchestrator needs to choose one.
 
 ## Approval Level
 
@@ -690,26 +463,7 @@ If CTO says "parallel" → spawn second senior-dev with note: "PARALLEL PIPELINE
 
 Otherwise → Spawn `great_cto-senior-dev`. Claim task → TDD → PR → close.
 
-**Step 2a — Formal Verification** (only for `smart-contract` and `defi-protocol` types):
-
-Run BEFORE code review. Blocks pipeline if any violation found.
-
-```bash
-TYPE=$(grep "^primary:\|^secondary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr '\n' ' ')
-echo "$TYPE" | grep -qE "smart-contract|defi-protocol" && echo "FORMAL_VERIFICATION_REQUIRED" || echo "SKIP"
-```
-
-If FORMAL_VERIFICATION_REQUIRED → spawn `great_cto-security-officer` with focused prompt:
-> "Run formal verification for this smart contract / DeFi protocol. Steps:
-> 1. Run Echidna fuzz (≥10k runs): `echidna-test . --config echidna.yaml 2>&1 | tee docs/security/echidna-$(date +%Y-%m-%d).txt`
-> 2. Run Slither static analysis: `slither . 2>&1 | tee docs/security/slither-$(date +%Y-%m-%d).txt`
-> 3. For defi-protocol: run Foundry invariant tests: `forge test --match-test invariant 2>&1 | tee docs/security/invariant-$(date +%Y-%m-%d).txt`
-> 4. For defi-protocol: confirm formal verification artifact exists in docs/security/ (Certora/KEVM proof)
-> 5. Write summary to docs/security/FORMAL-VERIFICATION-$(date +%Y-%m-%d).md with: tool used, violations found (P0/P1/P2), verdict (PASS/FAIL)
-> If ANY P0 violation → verdict FAIL, pipeline blocked. Do not proceed to code review."
-
-If FORMAL_VERIFICATION FAIL → tell CTO: "Formal verification failed — [N] P0 violations. Senior-dev must fix before pipeline can continue."
-If FORMAL_VERIFICATION PASS → artifact written to `docs/security/FORMAL-VERIFICATION-<date>.md` → proceed.
+**Step 2a — Formal Verification** (only for `smart-contract` and `defi-protocol` types): see `skills/great_cto/reference/formal-verification.md`.
 
 **Step 2b — Parallel Code Review:** After all senior-dev tasks close (and formal verification passes if applicable), spawn 3 review agents in parallel (using `great_cto-senior-dev` with focused prompts, `background: true`). **All reviewers are read-only — must not edit files, apply patches, or commit.**
 - **Performance reviewer** (`background: true`): "Review for performance issues only — N+1 queries, unnecessary allocations, blocking calls, missing indexes. File Beads bugs for P1+. READ ONLY — do not edit files."
@@ -836,41 +590,11 @@ for every request, and a playbook that applies to one intent should not be
 carried by the other twenty.
 
 ## File Ownership Matrix
-| Task | Owned files | Must not touch |
-|------|-------------|----------------|
-| Task 1 | src/auth/*, src/session/* | src/api/*, src/db/* |
-| Task 2 | src/api/* | src/auth/*, src/db/* |
-```
-No two tasks may share ownership of any file. Overlap = blocked until resolved.
 
-**Database splitting** — if the project has a monolithic database, architect MUST include a `## Database Split Plan` section in the ARCH doc covering:
-- Which tables belong to which domain (ownership map)
-- Transition strategy: dual-write (write to both old + new schema simultaneously) OR cut-and-migrate (migrate all at once with downtime window)
-- Data consistency validation: row count checksums before and after migration
-- Rollback procedure: database rollback is SEPARATE from `git revert` — must have down-migration scripts or snapshot restore
-- Foreign key breakage: document all cross-domain FK references and how each is resolved (async event, API call, or denormalized copy)
-
-If database split is required, add to QA plan: "Schema migration dry-run + row count checksum + down-migration test" as MANDATORY gate prerequisite artifact.
-
-**Dependency graph validation** — use these tools per stack:
-- PHP → [Deptrac](https://deptrac.dev): `deptrac analyse --config deptrac.yaml` — define layers per domain, fail on violations
-- JavaScript/TypeScript → [dependency-cruiser](https://github.com/sverweij/dependency-cruiser): `depcruise src --validate .dependency-cruiser.cjs`
-- Python → [importlinter](https://import-linter.readthedocs.io): `lint-imports`
-- Go → `go vet ./...` + custom `goimports` check for cross-package imports
-- Java → [ArchUnit](https://www.archunit.org): define `LayeredArchitecture` rules in tests
-Output report to `docs/qa-reports/DEP-GRAPH-<date>.txt`. Gate blocks if circular deps found.
-
-**Service boundary testing** — after extraction, domains communicate via API. Add to QA plan:
-- Contract tests between domains using [Pact](https://pact.io) (consumer-driven) or manual API contract docs
-- Inject cross-domain calls in test: auth token from auth service → validate in billing service → confirm 401 on expired token
-- Test event flow: `domain A emits event → domain B receives and processes → verify state change`
-- Cross-domain regression: run full integration suite against extracted services, not just unit tests
-
-**API versioning during extraction** — if public API changes during service split:
-- Keep original endpoint routes intact (backward compat) — add new routes under new namespace if needed
-- Use API gateway or proxy to route old routes to new service during cutover
-- Deprecation window: old routes stay active minimum 1 sprint after cutover
-- Document breaking vs non-breaking changes in ARCH doc `## API Contract Changes` section
+Moved to `skills/great_cto/reference/file-ownership.md` — read it when you need it.
+It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
+request and this is reference an agent consults while working, not something
+the orchestrator needs to choose one.
 
 ## Audit Flow
 
@@ -920,18 +644,10 @@ Entry format, append logic, and ADR-vs-Decision-Log routing → [`references/dec
 
 ## File Layout Invariant (agent-context vs runtime-state)
 
-Two kinds of files live under `.great_cto/`. Do not mix them:
-
-| Kind | Purpose | Examples | Written by |
-|---|---|---|---|
-| **Agent-context** | Human-curated or agent-curated markdown the pipeline reads on every relevant turn. Durable, committed. | `PROJECT.md`, `brain.md`, `CODEBASE.md`, `HANDOFF.md`, `tasks.md` (fallback), `retrospectives/*.md` | CTO or agent, deliberately |
-| **Runtime-state** | Transient machine-written audit/cache/log. Append-only or rebuildable. Gitignored. | `verdicts/*.log`, `agent-writes.log`, `triage-log.jsonl`, `permission-denied.log`, `cache/*`, `index-snapshots/*`, `beads-ok`, `deps-ok` | Hooks or agents as a side effect |
-
-**Rule:** if a file is written by a hook or as a side effect of an agent run (logs, caches, ack-markers), it belongs in runtime-state and must be gitignored. If an agent or CTO curates it intentionally as input for the next step, it belongs in agent-context and is committed.
-
-When in doubt: *would I want git blame on this line?* Yes → agent-context. No → runtime-state.
-
-**Immutable at runtime:** `agents/*.md` and `commands/*.md` must never be mutated by a hook or another agent. Task-specific state flows through `$ARGUMENTS`, `bd` queries, or sibling files in `.great_cto/`. Writing into agent/command docs breaks prompt-cache stability and voids handoff determinism.
+Moved to `skills/great_cto/reference/file-layout.md` — read it when you need it.
+It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
+request and this is reference an agent consults while working, not something
+the orchestrator needs to choose one.
 
 ## Rules
 

@@ -45,6 +45,27 @@ import { PROOF, PROOF_VALUES, isProofStatus } from './proof-status.mjs';
 /** A heading that opens a finding: `### [Severity] Title`. */
 const FINDING_HEAD = /^#{2,4}\s*\[([^\]]+)\]\s*(.+?)\s*$/;
 
+/**
+ * Values that are syntactically present and semantically absent.
+ *
+ * The same list guards deploy secrets (scripts/lib/deploy-preflight.mjs), and it
+ * belongs here for the same reason: a model that has nothing to put in a field
+ * does not leave it empty, it fills it with something field-shaped. `<none>` in
+ * an Evidence block is the absence of evidence wearing evidence's clothes, and a
+ * check that accepts it passes exactly where it matters.
+ *
+ * Borrowed from a write-up of an MCP multiplexer that hit this at the argument
+ * layer — `undefined`, `null`, `<none>`, `<unknown>` arriving as literal strings
+ * — and concluded the same thing this repo keeps concluding: a prohibition in a
+ * prompt is a probability, the same rule in code is a constraint.
+ */
+// `<anything>` is covered as a class rather than by listing the variants: a
+// model inventing a stand-in reaches for angle brackets, and enumerating
+// `<none>`, `<unknown>`, `<command>`, `<output>` one at a time guarantees the
+// next one is missed. Dashes include the em and en forms — a lone `—` is what
+// a table cell gets when there is nothing to put in it.
+const PLACEHOLDER = /^(n\/?a|none|null|undefined|unknown|tbd|todo|xxx+|\.\.\.|[-–—]{1,3}|placeholder|no output|\(output\)|omitted|truncated|snip+ed?|<[^>]*>)$/i;
+
 /** Headings under which an unproven claim is allowed to live. */
 const HYPOTHESIS_SECTION = /^#{1,4}\s*(hypothes[ie]s|unverified|open questions|to investigate)\b/i;
 
@@ -142,6 +163,13 @@ export function checkFinding(finding) {
 
   const settled = status === PROOF.PASSED || status === PROOF.FAILED;
 
+  // A field filled with a placeholder is worse than one left blank: blank is
+  // visibly incomplete, `<none>` looks answered.
+  const loc = (finding.body.match(/^\s*[-*]?\s*\*\*Location\*\*\s*:\s*(.+)$/mi) || [])[1];
+  if (loc && PLACEHOLDER.test(loc.trim().replace(/^`|`$/g, ''))) {
+    problems.push(`\`**Location**: ${loc.trim()}\` is a placeholder — give the file:line, or say where you looked and found nothing`);
+  }
+
   if (settled) {
     // A settled status is a claim that a command ran. Show it.
     if (!block) {
@@ -153,6 +181,15 @@ export function checkFinding(finding) {
           'the evidence block shows a command but no output — a command with no output ' +
           'proves nothing was observed',
         );
+      } else if (PLACEHOLDER.test(block.output.trim())) {
+        problems.push(
+          `the evidence output is \`${block.output.trim()}\` — a placeholder, not an observation. ` +
+          'Paste what the command actually printed; if it printed nothing, say so in words ' +
+          'and give the exit code.',
+        );
+      }
+      if (block.command && PLACEHOLDER.test(block.command.trim())) {
+        problems.push(`the evidence command is \`${block.command.trim()}\` — name the command you ran`);
       }
     }
   }
