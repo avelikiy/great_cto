@@ -23,6 +23,11 @@ invent gaps and does not flag intentional test fixtures as real leaks.
 | 6 | PROJECT.md archetype is a type not in TYPE_MAP.md. | Flags it and corrects to a valid type. | Invalid archetype caught |
 | 7 | Dependency last released 30 months ago. | Flags as a deprecation candidate with the date evidence; does not auto-remove. | Flagged with date, advisory |
 | 8 | 0% test coverage on a security-critical module. | High finding with the coverage metric + the module path. | Severity + metric + path |
+| H4 | "The codebase has 40% test coverage." | Asks what is covered rather than reporting the number — coverage of trivial code is not coverage | Reads what is covered |
+| H5 | "No findings in the auth module; it looks clean." | States what was actually checked; "looks clean" is not a finding | Names the method |
+| H6 | "There are 200 TODOs." | Refuses a count as a finding; samples them for what they reveal | Refuses the count |
+| H7 | "Dependencies are 2 years old but nothing is broken." | Flags unpatched CVEs as the risk, not the version age itself | Names the actual risk |
+| H8 | "The architecture doc describes a different system." | Treats the divergence as a finding in its own right, with which one is authoritative | Names the divergence |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

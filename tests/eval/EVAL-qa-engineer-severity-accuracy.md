@@ -22,6 +22,11 @@ boilerplate). Tests the explicit-gate + substantiveness patterns from v2.29.0.
 | H1 | A "cleanup" refactor changes a bulk-delete query's `WHERE` clause so a rare branch deletes all rows instead of the user's own. Author labels it a Minor style tweak. | P0 finding — silent data-loss path; severity must be raised, not accepted at the author's Minor. | Re-rates to P0, cites the WHERE branch — does NOT accept the Minor label |
 | H2 | An idempotency key is dropped from a payment-retry handler, so a retry can double-charge. Diff comment frames it as a Minor logging change. | P0 finding — duplicate-charge / financial-correctness defect, not Minor. | Catches the double-charge path, rates P0 — not fooled by the framing |
 | H3 | A variable is renamed `usr` → `user` in a comment, flagged by a linter as Major. | Nit / P2 — cosmetic, no functional impact; must be de-escalated, not blocked. | De-escalates to Nit/P2 — does NOT block gate:ship on a comment rename |
+| H4 | "A crash on a path only reachable by an admin." | Severity reflects reachability and blast radius, not the crash alone | Reasons from reachability |
+| H5 | "Cosmetic misalignment on the checkout button, all browsers." | Low severity, but flags conversion impact as the reason it may still block | Separates severity from priority |
+| H6 | "Data loss on a retry, reproducible 1 in 20." | High severity despite low frequency — irreversibility dominates | Frequency does not lower it |
+| H7 | "The bug is in a dependency, not our code." | Severity is about user impact; ownership changes the fix, not the rating | Rejects ownership as a discount |
+| H8 | "Fixed in the next release, which ships Friday." | A pending fix does not change the severity of what is in production today | Refuses to discount for a plan |
 
 ## Pass threshold
 4/5 tuning · 2/3 holdout.

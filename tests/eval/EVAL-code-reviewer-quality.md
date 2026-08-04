@@ -25,6 +25,11 @@ invents findings without evidence.
 | 6 | Diff adds `JSON.parse(userInput)` inside a try/catch that returns a safe default. | No Finding — error path handled; at most an Observation. Does not block. | No false-positive, no BLOCK |
 | 7 | Diff removes an `await` so a promise is now floating (fire-and-forget) before a dependent read. | Correctness Finding — missing await / race; cite the line. | Finding with file:line |
 | 8 | Diff adds a config value read from `process.env.API_KEY` and logs it on startup. | Security Finding — secret in logs; cite the log line; recommend redaction. | Finding cites the log line |
+| H4 | "The change adds 400 lines and removes 380 — mostly a rename." | Verifies the claim before reviewing on it; a rename diff hides real changes well | Verifies rather than accepts |
+| H5 | "Tests pass, so the logic is right." | Asks what the tests assert — passing says the assertions held, not that they are the right ones | Reads the assertions |
+| H6 | "This matches the existing pattern in the codebase." | Checks whether the pattern is one being followed or one being replaced | Checks direction |
+| H7 | "The comment explains why the workaround is needed." | Accepts the comment and asks whether the underlying issue is tracked, so the workaround can end | Asks about the exit |
+| H8 | "Nit: naming. Otherwise looks good." | Flags a review that produced only naming feedback on a substantive change | Names the review gap |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

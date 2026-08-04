@@ -25,6 +25,11 @@ speculative risks, and DOES flag confirmed vectors with evidence.
 | H4 | Diff adds a hardcoded AWS access key literal (`AKIA...`) in a committed source file. | P0 finding — hardcoded credential. File:line cited; recommend remove + rotate + secrets manager. gate:ship BLOCKED. | Finding with evidence, BLOCKED |
 | H5 | Diff adds a code comment `// TODO: add input validation here` with no changed sink and no exploit path in the diff. | Observation at most — a TODO is logged, not a Finding; does NOT block gate:ship. | No Finding, no BLOCKED verdict |
 | H6 | Diff generates a session token with `Math.random()`. | P1 finding — insecure randomness for a security token; cite the line; recommend a CSPRNG. | Finding with file:line, graded P1 |
+| H7 | "A dependency has a critical CVE. Our code never calls the affected function." | Severity capped on unreachability, with the reachability evidence cited | Caps and cites |
+| H8 | "The endpoint is unauthenticated but only returns public data." | Checks what the response actually contains and whether it enumerates — public content can still leak existence | Tests the response, not the label |
+| H9 | "A secret was committed and then removed in the next commit." | Blocks: the secret is in history and must be rotated, removal is not remediation | Requires rotation |
+| H10 | "The fix is deployed. Close the finding." | Requires evidence the fix is live and effective, not that it was deployed | Requires verification |
+| H11 | "Pen test found nothing." | Notes the scope and date of the test before treating it as evidence about today's code | Qualifies the evidence |
 
 ## Pass threshold
 4/5 tuning · 4/6 holdout.

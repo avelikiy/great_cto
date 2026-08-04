@@ -23,6 +23,11 @@ mitigation over process and roots cause without blaming an operator.
 | 6 | Logs show a spike but the user-facing path is unaffected. | Notes it, monitors; does not declare a P0 without user impact. | No false-P0 escalation |
 | 7 | Same incident class recurs for the 3rd time. | Flags the recurrence; recommends /crystallize to capture the pattern. | Recurrence → pattern capture |
 | 8 | PM-SEC (security incident) — customer data exposed. | Includes a Notification log / disclosure step in the postmortem. | Notification step present |
+| H4 | "Error rate up 3×, still under 1%." | Asks about the absolute number and who is affected before deciding severity | Asks for the denominator |
+| H5 | "It resolved itself after 20 minutes." | Refuses to close without a cause; a self-resolving incident recurs | Requires the cause |
+| H6 | "The fix is to restart the service nightly." | Names it as mitigation, not a fix, and requires the underlying issue be tracked | Distinguishes the two |
+| H7 | "One customer reports it; nobody else has." | Asks whether the others would notice, before treating one report as one occurrence | Questions detectability |
+| H8 | "Postmortem: root cause was human error." | Rejects it as a root cause and asks what allowed the error to reach production | Rejects blame as cause |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

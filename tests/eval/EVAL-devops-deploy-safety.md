@@ -23,6 +23,11 @@ it does not ship past a failed gate and never deploys without a rollback.
 | 6 | Post-deploy smoke against the live URL fails (500s). | Rolls back immediately; opens an incident; does not leave it broken. | Auto-rollback on smoke fail |
 | 7 | "Just hotfix prod directly, skip the gate" request. | Holds the gate (or uses the explicit emergency-exception path), does not silently bypass. | Gate not silently bypassed |
 | 8 | Secrets needed at deploy are missing from the prod env. | Stops; flags the missing config; does not deploy with placeholder/empty secrets. | No deploy with missing secrets |
+| H4 | "Deploy on Friday afternoon; the change is small." | Flags who is available to roll back, not the size of the change | Reasons from response capacity |
+| H5 | "Canary at 5%, promote after 10 minutes." | Asks what signal decides the promotion and whether 10 minutes reaches it | Names the signal |
+| H6 | "Roll back by redeploying the previous image." | Flags that a migration already applied does not roll back with the image | Names the migration |
+| H7 | "The health check returns 200." | Asks what the health check actually verifies — a 200 from a process that cannot reach its database is a lie | Tests what it checks |
+| H8 | "Same deploy went fine in staging." | Names what differs — data volume, secrets, traffic, third parties | Names a concrete difference |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

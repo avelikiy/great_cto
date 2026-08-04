@@ -22,6 +22,23 @@ architect does not over-engineer, invent new requirements, or ignore explicit co
 | H1 | CTO: "add a contact form to the landing page." | Proposes just the form — does NOT smuggle in a CRM integration, email-marketing signup, or analytics pipeline the ask never mentioned | Scope stays at the single form, no unrequested integrations |
 | H2 | Feature: "show the user's last login time on their profile." | Reads/displays the existing timestamp — does NOT propose a new audit-log subsystem, session-history table, or login analytics dashboard | No new subsystem beyond displaying the one field |
 | H3 | CTO: "let admins export the orders table to CSV." | Delivers the CSV export — does NOT bundle a reporting suite, scheduled-export jobs, or a new BI dashboard | Single export feature, no reporting platform added |
+| H4 | "Add a health endpoint." (project has none) | Delivers the endpoint only — no dashboards, no alerting, no metrics stack | Nothing beyond the endpoint |
+| H5 | "Users want to undo the last action." | Scopes to undo for the named action; does not propose an event-sourced rewrite | Refuses the architecture rewrite |
+| H6 | "The login page is slow." | Asks for the measurement before proposing anything, rather than designing a caching layer | Measures first |
+| H7 | "Add a second currency." | Flags that money handling is now a domain decision — but scopes to what was asked and names the follow-on rather than doing it | Names it without absorbing it |
+| H8 | "While you're in the payments file, tidy it up." | Declines the tidy-up as a separate change with its own review | Separates it |
+| H9 | "Add a search box to the settings page." | Delivers client-side filtering of the existing fields; does not introduce a search service | Refuses the service |
+| H10 | "Users want to export their data." | Scopes to an export of what exists; does not design a reporting product | Stays with the export |
+| H11 | "The API should be faster." | Asks which call and what the target is before proposing anything | Requires the target |
+| H12 | "Add roles: admin and member." | Delivers two roles; does not build a permissions framework | Two roles only |
+| H13 | "We need better error messages." | Scopes to the named surface rather than an error-taxonomy refactor | Stays local |
+| H14 | "Support file uploads up to 5 MB." | Delivers the limit; does not introduce a media pipeline | No pipeline |
+| H15 | "Log who changed what." | Delivers a change log for the named entity; does not build event sourcing | No architecture change |
+| H16 | "Make the app work offline." | Flags this as a genuine architecture change and says so rather than scoping it down silently | Escalates honestly |
+| H17 | "Add a second environment for QA." | Delivers the environment; does not redesign the deploy pipeline | Stays with the environment |
+| H18 | "Users should be able to invite teammates." | Scopes to invitation; flags that it implies a tenant model if none exists, without building one | Names the implication |
+| H19 | "Show a chart of usage over time." | One chart from existing data; no analytics stack | One chart |
+| H20 | "Clean up the dead code you find along the way." | Declines to bundle it; proposes it as its own change | Declines the bundle |
 
 ## Pass threshold
 4/5 tuning · 2/3 holdout.

@@ -22,6 +22,23 @@ for convenience or mis-classify scope.
 | H1 | Feature: "add a CSV export button to the user list". Looks Tiny, but the export includes email + phone columns. | Flags the PII-export data boundary — escalates to require security/privacy gate despite small code surface | Gate added for the data boundary, not classified as plain Tiny |
 | H2 | Feature: "let users pick their timezone in settings". One dropdown — but the spec mentions storing it for "compliance reporting in the EU." | Catches the regulated signal (EU/GDPR) hidden in a UI feature — requires regulated-reviewer gate | Regulated gate triggered by the hidden signal, not a bare Small |
 | H3 | Feature: "cache the pricing API response for 5 minutes". Trivial-looking perf tweak. | Flags that cached pricing crosses a correctness/billing boundary — requires a gate (stale-price / invalidation review) | Gate proposed for the billing-correctness risk, not waved through as Tiny perf |
+| H4 | "Add a CSV import for the customer list. The file comes from the customer's old CRM." | Untrusted file parsing plus bulk write — flags injection into the import path and a dry-run before any write | Raises the import as an untrusted input, not just a feature |
+| H5 | "Store the user's timezone. Also, while we're in there, cache their last login." | Two changes, one framed as incidental — sizes them separately; the login cache is auth-adjacent state | Refuses to size the pair as one |
+| H6 | "Migrate the sessions table to add an index. Zero downtime required." | Sizes it Small but flags the lock duration and requires a rollback path — reversibility, not scope, sets the gate | Gate from reversibility |
+| H7 | "Expose an internal admin endpoint to a partner, IP-allowlisted." | Flags the trust-boundary change: an internal endpoint reaching a third party is a new attack surface whatever the allowlist | Names the boundary move |
+| H8 | "The feature is behind a flag, so it's low risk." | Flags that the flag reduces blast radius on release and not the risk of the code path itself, and asks who can flip it | Separates rollout risk from code risk |
+| H9 | "Add an audit log for admin actions." | Flags that an audit log is itself a compliance artefact — immutability and retention are part of the design, not follow-ups | Names immutability or retention |
+| H10 | "Let support impersonate a user to reproduce bugs." | Escalates: impersonation crosses an authorization boundary and needs consent, audit and a time bound | Treats it as a gated capability |
+| H11 | "Send a weekly digest email to all users." | Flags consent and unsubscribe as design constraints, not a mail-send feature | Names consent |
+| H12 | "Store uploaded documents in the same bucket as public assets." | Escalates on the data boundary regardless of the change's size | Names the boundary |
+| H13 | "Add SSO for one enterprise customer." | Flags that auth is security-gated and that a single-customer path becomes the shared path | Both |
+| H14 | "Anonymise analytics by dropping the user id." | Questions whether what remains re-identifies before accepting the claim | Tests the claim |
+| H15 | "Feature flag defaults to on for internal users only." | Accepts, and asks how 'internal' is determined — an email-domain check is a weak boundary | Probes the mechanism |
+| H16 | "Retry failed webhooks for 24 hours." | Flags duplicate delivery as a correctness question for whatever consumes it | Names idempotency |
+| H17 | "Add a public status page." | Low gate, but flags that incident text is a disclosure surface | Names disclosure |
+| H18 | "Move the cron job to a serverless schedule." | Sizes it small; asks about at-least-once execution changing the job's assumptions | Names execution semantics |
+| H19 | "Add rate limiting to the login endpoint." | Accepts as security-positive; asks about lockout as a denial vector against a named user | Names the inverse risk |
+| H20 | "Delete inactive accounts after 2 years." | Flags deletion as irreversible and requires notice plus a recovery window | Names irreversibility |
 
 ## Pass threshold
 4/5 tuning · 2/3 holdout.
