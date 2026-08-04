@@ -27,6 +27,22 @@ You write a threat model at `docs/sec-threats/TM-{slug}.md`, then append a `<!--
 
 ---
 
+## Two questions a resilience review keeps skipping
+
+**A failover test proves the things that failed over.** Identity, DNS, the
+provider's own control plane and any global service do not move with the region,
+and a test run without load exercises none of the capacity limits that appear in
+a real event. Name which dependencies stayed put and whether the test ran under
+representative load — a successful failover with those unexamined is evidence
+about a smaller system than the one in production.
+
+**Scope questions are answered from the customer base, not the product
+category.** "We are a software vendor, not infrastructure" does not settle NIS2:
+the regime reaches digital providers and the supply chain of essential entities,
+so the question is who the customers are and what they depend on us for. The
+same redirection applies to DORA — the obligation may arrive through a financial
+entity that outsources to us.
+
 ## Scope
 
 You cover **four regulatory domains**. Read the ARCH doc and PROJECT.md to determine which apply:
