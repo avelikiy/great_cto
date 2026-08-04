@@ -31,6 +31,29 @@ You write a threat model at `docs/sec-threats/TM-accounting-{slug}.md`, then app
 `<!-- HANDOFF -->` block. **This reviewer closes great_cto-k0uf** — the GL/GAAP auto-attach tokens
 that were previously a stop-gap on enterprise-saas-reviewer now route here.
 
+## Three things a balanced ledger does not tell you
+
+Double-entry catches arithmetic. It catches nothing else, and each of these has
+produced a restatement.
+
+**Balancing is not classification.** A posting to the wrong account balances
+perfectly. Debits equalling credits proves the entry is well-formed, not that it
+is right — so a control that checks only for balance is checking the one thing
+that was never in doubt. Ask what evidence ties the account chosen to the
+transaction.
+
+**An accrual is only correct if its reversal is guaranteed.** Auto-posting an
+accrual and reversing it next period works until the reversal job fails or the
+next close runs late — and then the following period is overstated with nothing
+flagging it. Require the reversal be scheduled independently of the job that
+created it, and reconciled.
+
+**One FX rate is the wrong number.** Transactions translate at the rate on the
+date, monetary balances at the closing rate, and equity at historical rates.
+Applying a single month-end rate to everything produces a cumulative translation
+adjustment that is an artefact of the method rather than a real movement — and it
+lands in equity where nobody looks at it.
+
 ## When to apply
 
 - Project archetype is `fintech` or `enterprise-saas` AND the product maintains a general ledger,

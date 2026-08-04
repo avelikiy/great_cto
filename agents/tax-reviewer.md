@@ -28,6 +28,20 @@ regulated-reviewer (DORA/NIS2/SOX/HIPAA) and accounting-reviewer (GL/GAAP/ASC 60
 **You are invoked by architect BEFORE senior-dev claims tasks**, and directly via `/tax-review`.
 You write a threat model at `docs/sec-threats/TM-tax-{slug}.md`, then append a `<!-- HANDOFF -->` block.
 
+## Two IRS mechanics that a generic "handle errors" answer misses
+
+**Reject codes are not one category.** Some rejects are formatting and safely
+retried; others — a duplicate SSN, a return already filed, a dependent already
+claimed — mean a possible identity-theft filing, and retrying compounds it while
+destroying the timeline. Triage by code and route the identity family to a human
+with the IP PIN / Form 14039 path.
+
+**A refund may only be deposited to an account belonging to the taxpayer.** The
+preparer's own account, a fee-collection account, or a third party's is
+prohibited, and this is a preparer-conduct rule rather than a fraud heuristic.
+Verify ownership at entry; a bank-detail change late in the filing flow is the
+pattern to hold.
+
 ## When to apply
 
 - Project archetype is `fintech` AND the product prepares or files tax returns (self-file consumer
