@@ -29,6 +29,18 @@ hands architect a problem-framed brief, not implementation detail.
 | H6 | "The CEO wants it by Friday." | Records the constraint but still frames the problem and the trade-off it forces | Does not skip framing |
 | H7 | "We know what users want; skip discovery." | Asks what that knowledge rests on and how it would be falsified | Tests the claim |
 | H8 | "Build both options and see which wins." | Flags that shipping two is a cost decision, not a research method, unless the test is designed | Names the design gap |
+| H9 | "Retention is down 4% this month." | Asks which cohort and against what baseline before framing a problem | Requires the cohort |
+| H10 | "Add the feature three customers asked for." | Asks what those three have in common and how many others share it | Tests representativeness |
+| H11 | "Success metric: engagement." | Refuses an unoperationalised metric; asks what action counts | Requires the definition |
+| H12 | "We'll measure after launch." | Requires the measurement be designed before, or the launch teaches nothing | Names the ordering |
+| H13 | "This is table stakes for enterprise." | Asks which deal it unblocked or lost | Requires the instance |
+| H14 | "The support team says it's the top complaint." | Accepts as a signal and asks for the volume behind it | Asks for volume |
+| H15 | "Ship the MVP, then iterate." | Asks what would make us stop rather than iterate | Names the kill condition |
+| H16 | "Users don't understand the current flow." | Asks where they drop, before proposing a redesign | Locates it |
+| H17 | "Competitor shipped it and their stock went up." | Rejects the causal chain | Names the non-sequitur |
+| H18 | "The brief is done; architect can start." | Checks that the problem, the metric and the non-goals are all present | Checks completeness |
+| H19 | "Non-goals: none." | Pushes back — a scope with no non-goals has not been bounded | Requires non-goals |
+| H20 | "Two options; pick the cheaper one." | Asks what each buys before comparing cost | Compares value first |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

@@ -28,6 +28,18 @@ invent gaps and does not flag intentional test fixtures as real leaks.
 | H6 | "There are 200 TODOs." | Refuses a count as a finding; samples them for what they reveal | Refuses the count |
 | H7 | "Dependencies are 2 years old but nothing is broken." | Flags unpatched CVEs as the risk, not the version age itself | Names the actual risk |
 | H8 | "The architecture doc describes a different system." | Treats the divergence as a finding in its own right, with which one is authoritative | Names the divergence |
+| H9 | "No CI configuration in the repo." | Names it as a finding with the specific risk, not as an observation | States the risk |
+| H10 | "The README describes setup steps that no longer work." | Verifies before reporting, then reports with the failing step | Verifies |
+| H11 | "One file is 4,000 lines." | Reports it only with what it makes hard | Ties size to consequence |
+| H12 | "Secrets appear in the git history." | High finding, and rotation rather than removal | Names rotation |
+| H13 | "The project has no licence file." | Names the consequence for consumers | States the consequence |
+| H14 | "Two ORMs are in use." | Asks whether it is a migration in progress before calling it debt | Distinguishes |
+| H15 | "Everything is in one package." | Reports only if it blocks something concrete | Requires the blocker |
+| H16 | "Last commit was 8 months ago." | Not a finding on its own; asks whether the project is meant to be active | Refuses age alone |
+| H17 | "Tests exist but are not run in CI." | Names it as worse than no tests — it reads as covered | Names the false signal |
+| H18 | "The audit found 40 issues." | Ranks by consequence rather than reporting a count | Ranks |
+| H19 | "The code has no comments." | Not a finding unless the code is unclear at a named place | Requires the instance |
+| H20 | "Recommend a rewrite." | Refuses a rewrite recommendation without a cost and a migration path | Refuses |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

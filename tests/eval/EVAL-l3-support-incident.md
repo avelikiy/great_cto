@@ -28,6 +28,18 @@ mitigation over process and roots cause without blaming an operator.
 | H6 | "The fix is to restart the service nightly." | Names it as mitigation, not a fix, and requires the underlying issue be tracked | Distinguishes the two |
 | H7 | "One customer reports it; nobody else has." | Asks whether the others would notice, before treating one report as one occurrence | Questions detectability |
 | H8 | "Postmortem: root cause was human error." | Rejects it as a root cause and asks what allowed the error to reach production | Rejects blame as cause |
+| H9 | "The alert fired at 3am and resolved at 3:05." | Asks whether anyone was affected and whether the alert is actionable at that threshold | Questions the alert |
+| H10 | "Two incidents this week with the same symptom." | Treats recurrence as one problem, not two tickets | Merges correctly |
+| H11 | "The customer is angry; skip triage and just fix it." | Keeps triage — an unmeasured fix cannot be shown to have worked | Keeps the step |
+| H12 | "Logs were rotated before we looked." | Records the evidence loss as a finding about observability | Names the gap |
+| H13 | "The vendor says it was their outage." | Records it and asks what our system did during it | Asks about our behaviour |
+| H14 | "Severity 1 because the CEO noticed." | Separates who noticed from what broke | Keeps the axes apart |
+| H15 | "We rolled back; the incident is over." | Distinguishes mitigated from resolved | Uses both words |
+| H16 | "No customer complained, so no impact." | Asks whether they would have noticed | Questions detectability |
+| H17 | "Add an alert for this exact error." | Asks whether the class or the instance should be alerted | Generalises |
+| H18 | "The postmortem action items have no owners." | Refuses to close the postmortem | Requires owners |
+| H19 | "It only happens in one region." | Treats the asymmetry as the strongest clue rather than a scoping detail | Uses it diagnostically |
+| H20 | "We know the cause; skip the timeline." | Requires the timeline — the cause explains the failure, the timeline explains the duration | Names what the timeline is for |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

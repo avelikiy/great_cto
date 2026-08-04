@@ -58,45 +58,34 @@ Apply `skills/skeptical-triage/SKILL.md` to **contested ADR trade-offs** before 
 
 Skip triage for obvious calls (standard pattern, single viable option, well-known trade-off) — don't manufacture controversy.
 
-## A signal in the feature can raise the floor, whatever its size
+## Enumerate what the change touches, then say each one out loud
 
-You size a feature by scope — files touched, ambiguity, blast radius. That is the
-right first question and it is not the only one. The second is what the feature
-*touches*, and it is independent of how small the change is.
+A list of signals to match against does not scale — twelve holdout cases failed
+on signals the list happened not to contain, each one a competent analysis that
+never named the thing. So the step is an enumeration you complete every time,
+not a table you scan.
 
-The archetype floor in `docs/GATES.md` is per-PROJECT: a `fintech` project keeps
-`security`, `compliance` and `ship` at every approval level. It says nothing
-about one feature in an ordinary project that happens to carry a regulated or
-correctness signal — and that is the case that gets waved through, because
-everything about its size says Tiny.
+For every change, answer all six aloud. "None" is an answer and must be written:
+an unstated absence is indistinguishable from an omission, and the reader cannot
+tell which one they are looking at.
 
-Two worked examples, both real failures of this agent:
-
-| Feature, as stated | Sized as | What it actually touches |
+| | Ask | Escalates when |
 |---|---|---|
-| "let users pick their timezone in settings" — one dropdown, but stored "for compliance reporting in the EU" | Tiny/Small | GDPR. Needs a regulated review, not a bare Small. |
-| "cache the pricing API response for 5 minutes" — a perf tweak | Tiny | A stale price is a wrong charge. Billing correctness needs a gate. |
+| **Input** | Where does data enter, and who controls it? | A file, upload, webhook or third-party response the user or a partner controls — parse it as hostile, dry-run before writing |
+| **Boundary** | Does anything move between trust zones? | Internal → external, tenant → tenant, private store → public one. An allowlist narrows a boundary move; it does not undo it |
+| **Data** | What is stored, for how long, and who reads it? | Personal data, a new store, a new retention, an audit record. Audit and retention are design, not follow-ups |
+| **Money & correctness** | Can a wrong value cost someone? | Price, invoice, entitlement, balance, a cached figure a charge derives from |
+| **Control** | Does this add or change a control? | Every control has an inverse risk — a rate limit is a denial vector against a named account, a lockout is a takeover tool. Name the inverse |
+| **Execution** | What changes about when and how often it runs? | Cron → queue, sync → async, retries. At-least-once means duplicate delivery, which is a correctness question for whatever consumes it |
 
-Both were sized correctly and gated wrongly.
+**A claim is not a signal answered.** "We anonymise by dropping the user id",
+"only internal users see it", "it is behind a flag" — each of these is an
+assertion whose mechanism decides whether it is true. Ask what determines
+"internal", what remains after the id is dropped, who can flip the flag. A
+design accepted on its own description has not been reviewed.
 
-**So read the feature statement for a signal before you assign depth**, and
-escalate on any of these regardless of size:
-
-| Signal in the request | Raises to |
-|---|---|
-| a jurisdiction or regime named — EU/GDPR, HIPAA, PCI, SOC2, CCPA, DPDPA | the matching reviewer + `compliance` |
-| personal data crossing a boundary — export, third party, new store, new retention | `security` + privacy review |
-| money, price, invoice, refund, ledger, entitlement — anything a user is charged by | a correctness gate; a stale or wrong value here is a wrong charge |
-| authentication, authorization, session, tenant boundary | `security` |
-| a destructive or irreversible operation — delete, migrate, force-push, publish | `ship` (ADR-009) |
-
-State the signal you found and the gate it forces, in those words. If you find
-none, say that too — "no regulated or correctness signal in this feature" is a
-finding, and it is what makes the absence checkable rather than assumed.
-
-The general form is ADR-009's second question, applied at classification time
-rather than at a stage boundary: **size tells you how much process; the signal
-tells you which gate cannot be skipped.**
+Size and signal are independent, and both go in the output. A Tiny change that
+crosses a boundary is Tiny work behind a gate.
 
 ## Tool Usage
 

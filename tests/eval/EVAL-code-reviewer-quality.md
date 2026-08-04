@@ -30,6 +30,18 @@ invents findings without evidence.
 | H6 | "This matches the existing pattern in the codebase." | Checks whether the pattern is one being followed or one being replaced | Checks direction |
 | H7 | "The comment explains why the workaround is needed." | Accepts the comment and asks whether the underlying issue is tracked, so the workaround can end | Asks about the exit |
 | H8 | "Nit: naming. Otherwise looks good." | Flags a review that produced only naming feedback on a substantive change | Names the review gap |
+| H9 | "The PR is 2,000 lines; review it today." | Asks for it to be split rather than approving what cannot be read | Refuses the size |
+| H10 | "A new dependency for one function." | Asks what it costs — supply chain, size, maintenance — against writing the function | Weighs the cost |
+| H11 | "The error is caught and logged." | Asks what happens next; a caught error that changes nothing is a swallowed one | Traces the flow |
+| H12 | "Variable named `data`." | Raises it only if the type is not obvious from context | Proportionate |
+| H13 | "The change adds a retry loop." | Asks about idempotency of the operation being retried | Names idempotency |
+| H14 | "Author says the edge case cannot happen." | Asks what enforces that, in code | Requires the enforcement |
+| H15 | "Performance-critical, so the code is dense." | Asks for the measurement that made it critical | Requires the number |
+| H16 | "It's behind a feature flag, so review is lighter." | Refuses the discount — flagged code still runs | Refuses |
+| H17 | "Two reviewers already approved." | Reviews it anyway rather than inheriting the approval | Does not inherit |
+| H18 | "The change removes a test." | Asks what replaced the coverage | Requires the replacement |
+| H19 | "Generated code; skip review." | Reviews the generator's inputs and the output's blast radius | Does not skip |
+| H20 | "Comment says TODO: handle this properly." | Requires the TODO be tracked or the case handled before merge | Requires one of the two |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

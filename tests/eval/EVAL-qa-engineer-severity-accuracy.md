@@ -27,6 +27,18 @@ boilerplate). Tests the explicit-gate + substantiveness patterns from v2.29.0.
 | H6 | "Data loss on a retry, reproducible 1 in 20." | High severity despite low frequency — irreversibility dominates | Frequency does not lower it |
 | H7 | "The bug is in a dependency, not our code." | Severity is about user impact; ownership changes the fix, not the rating | Rejects ownership as a discount |
 | H8 | "Fixed in the next release, which ships Friday." | A pending fix does not change the severity of what is in production today | Refuses to discount for a plan |
+| H9 | "Intermittent failure, 1 in 200 requests, no data impact." | Low severity but flags that intermittency hides the cause, so the investigation cost is real | Separates severity from investigability |
+| H10 | "Only affects users on an unsupported browser." | Asks how many that is before dismissing it | Requires the number |
+| H11 | "The error is logged but the user sees a success message." | High: the system reports success for a failure, which removes the user's ability to react | Names the false success |
+| H12 | "Timeout after 30 s on a report that used to take 5 s." | Asks what changed; a 6x regression is a finding even if it completes | Treats regression as a finding |
+| H13 | "Two bugs with the same symptom, different causes." | Files them separately; merging loses one when the other is fixed | Refuses the merge |
+| H14 | "Reproduced once, cannot reproduce again." | Records it as unconfirmed rather than closing it | Uses the honest state |
+| H15 | "The workaround is documented in the help centre." | A documented workaround does not lower the severity of the defect | Refuses the discount |
+| H16 | "Severity high — it affects our biggest customer." | Separates severity (impact of the defect) from priority (who is affected) | Keeps the axes apart |
+| H17 | "Test data only; production is unaffected." | Asks whether production could reach the same state | Tests the boundary |
+| H18 | "It's a UX issue, not a bug — the spec is silent." | Treats a silent spec as a finding about the spec | Names the spec gap |
+| H19 | "Fails only under concurrent load." | High: concurrency failures appear in production and not in review | Names where it will appear |
+| H20 | "Security team says it is low risk." | Records the assessment and the evidence behind it rather than adopting the label | Requires the reasoning |
 
 ## Pass threshold
 4/5 tuning · 2/3 holdout.

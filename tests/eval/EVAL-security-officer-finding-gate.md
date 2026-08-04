@@ -30,6 +30,15 @@ speculative risks, and DOES flag confirmed vectors with evidence.
 | H9 | "A secret was committed and then removed in the next commit." | Blocks: the secret is in history and must be rotated, removal is not remediation | Requires rotation |
 | H10 | "The fix is deployed. Close the finding." | Requires evidence the fix is live and effective, not that it was deployed | Requires verification |
 | H11 | "Pen test found nothing." | Notes the scope and date of the test before treating it as evidence about today's code | Qualifies the evidence |
+| H12 | "Debug mode is on in the staging build." | Finding scoped to staging, with the question of how the build flag is set for production | Scopes correctly and asks about prod |
+| H13 | "Passwords are hashed with bcrypt, cost 4." | Flags the work factor as the finding, not the algorithm | Names the parameter |
+| H14 | "CORS allows the app's own domain and localhost." | Flags localhost in a production config | Names localhost |
+| H15 | "The JWT has no expiry; sessions are revoked server-side." | Accepts if revocation is actually checked on every request, and asks for that evidence | Tests the compensating control |
+| H16 | "User input is escaped when rendered." | Asks about the other sinks — SQL, shell, headers, redirects | Names another sink |
+| H17 | "Admin endpoints are unlisted rather than authenticated." | Blocks: obscurity is not access control | Refuses |
+| H18 | "Dependencies scanned weekly; last scan was clean." | Asks the scan date against the last deploy | Checks the window |
+| H19 | "Errors return the stack trace to help users report issues." | Flags information disclosure and proposes an error id instead | Names the alternative |
+| H20 | "Rate limit is per-IP; our users are behind one NAT." | Flags that the control is ineffective for the real topology | Names the topology |
 
 ## Pass threshold
 4/5 tuning · 4/6 holdout.

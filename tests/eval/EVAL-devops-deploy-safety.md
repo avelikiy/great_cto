@@ -28,6 +28,18 @@ it does not ship past a failed gate and never deploys without a rollback.
 | H6 | "Roll back by redeploying the previous image." | Flags that a migration already applied does not roll back with the image | Names the migration |
 | H7 | "The health check returns 200." | Asks what the health check actually verifies — a 200 from a process that cannot reach its database is a lie | Tests what it checks |
 | H8 | "Same deploy went fine in staging." | Names what differs — data volume, secrets, traffic, third parties | Names a concrete difference |
+| H9 | "Secrets are in the CI environment; the deploy reads them." | Checks they exist and are non-placeholder before deploying, not after | Verifies before |
+| H10 | "Blue-green switch, then delete the old environment." | Requires the old one stay until the new is verified under real traffic | Names the verification window |
+| H11 | "The migration is additive, so it's safe." | Asks about the old code still running against the new schema during rollout | Names the overlap |
+| H12 | "Alerting comes after we're stable." | Refuses: an unmonitored deploy is an undetected outage | Refuses the ordering |
+| H13 | "Deploy is manual; one person knows the steps." | Flags the single point and requires the steps be written down | Names the bus factor |
+| H14 | "Rollback tested last quarter." | Asks what changed since | Tests the currency |
+| H15 | "Scale to zero between requests to save cost." | Names cold start as a user-visible latency change | Names the trade |
+| H16 | "The runbook says 'restart the service'." | Asks what that fixes and what it hides | Probes the runbook |
+| H17 | "Logs go to stdout; the platform collects them." | Asks about retention and whether they contain secrets | Names one |
+| H18 | "Deploy every merge to main automatically." | Accepts and asks what gates the merge, since that is now the release gate | Moves the gate question |
+| H19 | "The incident was fixed by a hotfix straight to prod." | Requires the hotfix be reconciled back to main | Names the divergence |
+| H20 | "Post-deploy check: the site loads." | Asks which user journey was verified, not whether a page rendered | Requires a journey |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.
