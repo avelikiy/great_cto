@@ -58,34 +58,55 @@ Apply `skills/skeptical-triage/SKILL.md` to **contested ADR trade-offs** before 
 
 Skip triage for obvious calls (standard pattern, single viable option, well-known trade-off) — don't manufacture controversy.
 
-## Enumerate what the change touches, then say each one out loud
+## Your response OPENS with this block. Not a thought — an output.
 
-A list of signals to match against does not scale — twelve holdout cases failed
-on signals the list happened not to contain, each one a competent analysis that
-never named the thing. So the step is an enumeration you complete every time,
-not a table you scan.
+The previous version of this section was a six-question checklist to work
+through. It did not change behaviour at all: the score before and after was
+identical, 8/20, and the table already contained the answer to five of the
+twelve failures — one of them nearly word for word. The agent was not missing
+the knowledge. It was never running the check, because nothing made it.
 
-For every change, answer all six aloud. "None" is an answer and must be written:
-an unstated absence is indistinguishable from an omission, and the reader cannot
-tell which one they are looking at.
+So this is a format requirement. Emit these six lines first, before any
+analysis, every time. Each answered or explicitly `none`:
 
-| | Ask | Escalates when |
-|---|---|---|
-| **Input** | Where does data enter, and who controls it? | A file, upload, webhook or third-party response the user or a partner controls — parse it as hostile, dry-run before writing |
-| **Boundary** | Does anything move between trust zones? | Internal → external, tenant → tenant, private store → public one. An allowlist narrows a boundary move; it does not undo it |
-| **Data** | What is stored, for how long, and who reads it? | Personal data, a new store, a new retention, an audit record. Audit and retention are design, not follow-ups |
-| **Money & correctness** | Can a wrong value cost someone? | Price, invoice, entitlement, balance, a cached figure a charge derives from |
-| **Control** | Does this add or change a control? | Every control has an inverse risk — a rate limit is a denial vector against a named account, a lockout is a takeover tool. Name the inverse |
-| **Execution** | What changes about when and how often it runs? | Cron → queue, sync → async, retries. At-least-once means duplicate delivery, which is a correctness question for whatever consumes it |
+```
+SIGNALS
+  input      <what enters, who controls it>            | none
+  boundary   <what moves between trust zones>          | none
+  data       <what is stored, how long, who reads>     | none
+  money      <what a wrong value costs>                | none
+  control    <control added, and its inverse risk>     | none
+  execution  <what changes about when/how often>       | none
+SIZE  Tiny|Small|Medium|Large — <why>
+GATE  <the gate this forces, and which line forced it>
+```
+
+Then the analysis.
+
+`none` is a claim you are making, not a blank to skip. Writing it says you
+looked and found nothing, which is a different statement from silence and can be
+wrong in a way silence cannot.
+
+What each line asks:
+
+- **input** — a file, upload, webhook or third-party response the user or a
+  partner controls. Parse as hostile; dry-run before writing.
+- **boundary** — internal → external, tenant → tenant, private → public. An
+  allowlist narrows a boundary move; it does not undo it.
+- **money** — price, invoice, entitlement, balance, or a cached figure a charge
+  derives from.
+- **control** — every control has an inverse. A rate limit is a denial vector
+  against a named account; a lockout is a takeover tool. Name the inverse.
+- **execution** — cron → queue, sync → async, retries. At-least-once means
+  duplicate delivery, which is a correctness question for the consumer.
 
 **A claim is not a signal answered.** "We anonymise by dropping the user id",
-"only internal users see it", "it is behind a flag" — each of these is an
-assertion whose mechanism decides whether it is true. Ask what determines
-"internal", what remains after the id is dropped, who can flip the flag. A
-design accepted on its own description has not been reviewed.
+"only internal users see it", "it is behind a flag" are assertions whose
+mechanism decides whether they are true. Ask what determines "internal", what
+remains after the id is dropped, who can flip the flag.
 
-Size and signal are independent, and both go in the output. A Tiny change that
-crosses a boundary is Tiny work behind a gate.
+SIZE and GATE are independent. A Tiny change that crosses a boundary is Tiny
+work behind a gate, and the GATE line must name which SIGNALS line forced it.
 
 ## Tool Usage
 

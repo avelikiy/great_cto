@@ -489,10 +489,18 @@ test('parseArgs: --judge-votes parsed, defaults 1, rejects <1', () => {
 
 // ── actor-fidelity: ReAct inspect loop (DEEPEN a9tp actor side) ────────────────
 
-test('parseArgs: --actor-tools / --actor-turns', () => {
-  assert.equal(parseArgs([]).actorTools, false);
+// This asserted `false` and encoded the defect. Default-off measured an agent
+// that cannot look at anything: at 20 holdout cases architect scored 8/20 with a
+// signal table, with a six-question procedure, with a required output format,
+// AND with 92% of the prompt deleted — four prompts, identical number. Giving
+// the actor tools was the only change that moved it, to 11/20. Cases like "probe
+// the mechanism that decides who is internal" cannot be answered from memory.
+test('parseArgs: actor tools are undecided by default, so each eval can choose', () => {
+  assert.equal(parseArgs([]).actorTools, null,
+    'null means decide per eval — tools for an agent-bound one, one-shot for a pack');
   assert.equal(parseArgs([]).actorTurns, 4);
-  assert.equal(parseArgs(['--actor-tools']).actorTools, true);
+  assert.equal(parseArgs(['--actor-tools']).actorTools, true, 'an explicit flag still wins');
+  assert.equal(parseArgs(['--no-actor-tools']).actorTools, false, 'and so does the explicit off');
   assert.equal(parseArgs(['--actor-turns', '2']).actorTurns, 2);
   assert.equal(parseArgs(['--actor-turns', '0']).actorTurns, 4);
 });

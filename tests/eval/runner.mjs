@@ -74,7 +74,9 @@ export function parseArgs(argv = process.argv.slice(2)) {
   let out = null;         // override results.jsonl output path (baseline vs candidate)
   let judgeVotes = 1;
   let judgeMode = 'auto';     // 'auto' = use the eval's DAG when it has one; 'rubric' = the 0-1 judge
-  let actorTools = false; // ReAct inspect-then-conclude actor loop (vs one-shot)
+  // null = decide per eval. An agent-bound eval gets tools; a pack or component
+  // eval does not, because the "diff under review" fixture does not fit it.
+  let actorTools = null; // ReAct inspect-then-conclude actor loop (vs one-shot)
   let actorTurns = 4;     // max INSPECT turns before forcing FINAL
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--sample' && argv[i + 1]) {
@@ -110,6 +112,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
       // 'auto' (default) scores with the eval's DAG when one exists; 'rubric'
       // forces the original 0-1 judge, which is the other half of an A/B.
       judgeMode = argv[++i] === 'rubric' ? 'rubric' : 'auto';
+    } else if (argv[i] === '--no-actor-tools') {
+      actorTools = false;
     } else if (argv[i] === '--actor-tools') {
       actorTools = true;
     } else if (argv[i] === '--actor-turns' && argv[i + 1]) {
@@ -936,7 +940,7 @@ async function main() {
   console.log(`  Actor:  ${actorModel}`);
   console.log(`  Judge:  ${judgeModel}`);
   console.log(`  Files:  ${evalFiles.length}${sample > 0 ? ` (sample of ${sample})` : ''}${agent ? ` (agent=${agent})` : ''}`);
-  console.log(`  Split:  ${split}   Samples: ${samples}   Judge-votes: ${judgeVotes}   Actor: ${actorTools ? `tools(${actorTurns})` : 'one-shot'}`);
+  console.log(`  Split:  ${split}   Samples: ${samples}   Judge-votes: ${judgeVotes}   Actor: ${actorTools === false ? 'one-shot (forced)' : actorTools ? `tools(${actorTurns})` : 'tools when agent-bound'}`);
   console.log(`  Run:    ${runId} @ ${commit}`);
   console.log(`  Output: ${resultsPath}`);
   console.log(`  History:${HISTORY_PATH}\n`);
@@ -957,7 +961,9 @@ async function main() {
       samples,
       judgeVotes,
       judgeMode,
-      useTools: actorTools,
+      // Default: tools for an agent-bound eval, one-shot otherwise. An explicit
+      // flag on either side wins.
+      useTools: actorTools ?? Boolean(parseEvalFile(readFileSync(join(EVAL_DIR, f), 'utf8'), f)?.agent),
       actorTurns,
     });
 
