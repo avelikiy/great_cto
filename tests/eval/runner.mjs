@@ -52,6 +52,7 @@ import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { costForUsage, round4 } from '../../scripts/lib/cost-meter.mjs';
+import { verdict as powerVerdict } from '../../scripts/lib/eval-power.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EVAL_DIR = __dirname;
@@ -775,6 +776,12 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     threshold,
     thresholdRaw: parsed.thresholdRaw,
     belowThreshold: threshold !== null && rateMean < threshold,
+    // The point estimate decides `belowThreshold`, which is what every report
+    // read until now. `power` decides from the INTERVAL: at three holdout cases
+    // the 95% band for 2/3 is 21%–94%, so a verdict of pass or fail is asserting
+    // something the sample cannot support. `inconclusive` is the honest third
+    // answer, and it is the vocabulary proof-status already defines.
+    power: powerVerdict(last.passed, last.judged, threshold),
     ts: new Date().toISOString(),
     caseResults: last.caseResults,
   };
@@ -791,27 +798,34 @@ function printSummary(results) {
     ' EVAL file'.padEnd(38) +
     'Agent'.padEnd(16) +
     'Rate'.padEnd(10) +
-    'σ'.padEnd(7) +
+    '95% CI'.padEnd(14) +
     'Cost'.padEnd(9) +
     'Status'
   );
   console.log(divider);
 
   for (const r of results) {
-    const status = r.belowThreshold ? 'BELOW THRESHOLD' : r.threshold === null ? 'OK (no num. threshold)' : 'OK';
-    const rateStr = `${r.passed}/${r.judged}`;
+    const p = r.power || {};
+    const status = p.status === 'passed' ? 'PASS'
+                 : p.status === 'failed' ? 'FAIL'
+                 : p.status === 'not_run' ? 'NOT RUN'
+                 : 'INCONCLUSIVE';
+    const ci = (p.low != null && p.high != null)
+      ? `${(p.low * 100).toFixed(0)}–${(p.high * 100).toFixed(0)}%`
+      : '-';
     console.log(
       ` ${r.eval.replace('EVAL-', '').slice(0, 36).padEnd(36)}` +
       `${(r.agent || '-').slice(0, 14).padEnd(16)}` +
-      `${rateStr.padEnd(10)}` +
-      `${(r.stddev ? r.stddev.toFixed(2) : '-').padEnd(7)}` +
+      `${`${r.passed}/${r.judged}`.padEnd(10)}` +
+      `${ci.padEnd(14)}` +
       `${('$' + (r.costUsd ?? 0).toFixed(3)).padEnd(9)}` +
       status
     );
   }
 
   const total = results.length;
-  const failing = results.filter(r => r.belowThreshold).length;
+  const failing = results.filter(r => r.power?.status === 'failed').length;
+  const unsettled = results.filter(r => r.power?.status === 'inconclusive').length;
   const totalCases = results.reduce((a, r) => a + r.cases, 0);
   const totalPassed = results.reduce((a, r) => a + r.passed, 0);
   const totalSkipped = results.reduce((a, r) => a + r.skipped, 0);
@@ -819,8 +833,11 @@ function printSummary(results) {
 
   console.log(divider);
   console.log(` Files: ${total}  |  Cases: ${totalCases}  |  Passed: ${totalPassed}  |  Skipped: ${totalSkipped}  |  Cost: $${totalCost.toFixed(3)}`);
-  if (failing > 0) {
-    console.log(` BELOW THRESHOLD: ${failing} EVAL file(s) — see above`);
+  if (failing > 0) console.log(` FAILED: ${failing} EVAL file(s) — the interval is entirely below the bar`);
+  if (unsettled > 0) {
+    console.log(` INCONCLUSIVE: ${unsettled} EVAL file(s) — the interval spans the bar; the run settled nothing`);
+    console.log(`   At ${results[0]?.judged ?? 3} cases one case is worth ${(100 / (results[0]?.judged || 3)).toFixed(0)} points.`);
+    console.log('   Raise cases or --samples before reading these as pass or fail.');
   }
   console.log(divider + '\n');
 }
