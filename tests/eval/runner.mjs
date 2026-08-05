@@ -1148,6 +1148,14 @@ async function main() {
       costUsd: result.costUsd,
       threshold: result.threshold,
       thresholdRaw: result.thresholdRaw,
+      // The verdict from the interval, persisted alongside the rate. A history
+      // row with a rate and no power invites reading 74% as a pass when the
+      // interval spanned the bar — which is the whole reason power exists.
+      power: result.power,
+      // How many observations never reached the provider. A run that lost a
+      // quarter of its cases to fetch failures reports the same rate as one
+      // that lost none, and they are not the same measurement.
+      skipped: result.skipped,
       belowThreshold: result.belowThreshold,
       ts: result.ts,
       // Per-case detail, so a run can be ARGUED WITH without paying to repeat it.

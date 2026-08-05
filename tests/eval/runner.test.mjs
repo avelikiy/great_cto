@@ -811,3 +811,12 @@ test('the interval is computed from every sample, not the last run', () => {
   assert.match(call, /runs\.reduce\(\(a, r\) => a \+ r\.judged, 0\)/);
   assert.ok(!/powerVerdict\(\s*last\.passed/.test(src), 'the last-run-only form must be gone, not merely shadowed');
 });
+
+test('the history row carries the power verdict and the dropout count', () => {
+  // A row with a rate and no power invites reading 74% as a pass when the
+  // interval spanned the bar. A row that hides ten fetch failures reports the
+  // same rate as a clean run and is not the same measurement.
+  const row = (() => { const s = fs.readFileSync(RUNNER, 'utf8'); const i = s.indexOf('const jsonlEntry = {'); return s.slice(i, i + 1600); })();
+  assert.match(row, /power: result\.power/);
+  assert.match(row, /skipped: result\.skipped/);
+});
