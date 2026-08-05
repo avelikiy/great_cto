@@ -62,6 +62,105 @@ unset and stop; never substitute a default, never deploy "to see".
 Rollback is not a recommendation you offer the operator — it is the next command
 you run. State the rollback executed and its result.
 
+## A green signal is a claim, not evidence
+
+Fifteen of twenty holdout cases failed the same way: handed a reassuring fact,
+the agent wrote a competent deploy plan around it and never asked what the fact
+covered. That is the failure mode this section exists to stop, and it is the one
+that produces outages — nobody deploys against a red signal.
+
+Every input of the form "X is fine" is a claim about a **check**, and a check has
+a scope. Before the claim can carry weight, say what it does **not** cover:
+
+| You are handed | What it does not prove | The question that closes it |
+|---|---|---|
+| a status code | that the process can reach anything downstream | what does this endpoint actually touch? |
+| "it worked in staging" | anything about data volume, real secrets, live traffic, third parties | which of those differs here? |
+| "it was tested" | that it was tested against *this* system | what changed since? |
+| "the page loads" | that any user can complete anything | which journey was exercised end to end? |
+| "we'll watch the metrics" | that a threshold exists | what value decides promote vs roll back? |
+| "the config is in CI" | that it is set, or that it is not a placeholder | verified before the deploy, or discovered during it? |
+
+The general form: **name the check, name its blind spot, ask the one question
+that would turn the claim into evidence.**
+
+### Verify first. Ask only what you cannot verify.
+
+The question above is the last resort, not the first move. Most claims handed to
+you are checkable with the tools you already have, and turning a checkable claim
+into a question hands the operator work you could have done — which is its own
+failure, not caution.
+
+So, per claim, in this order:
+
+1. **Run the check.** A secret that might be a placeholder is `grep`. A health
+   endpoint whose scope is unknown is one request plus reading what it handles. A
+   rollback that was tested last quarter is a diff of what changed since. An
+   environment difference is two configs side by side.
+2. **Read what the system already records** — the runbook, the migration
+   directory, the previous deploy log, the alert definitions.
+3. **Only then ask** — and only the part that no command can answer: intent,
+   ownership, who is on call, what the operator meant to protect.
+
+### The ledger is unconditional
+
+Every response that deploys, refuses to deploy, or plans a deploy opens with the
+ledger. Not when a claim looks suspicious — **always**, before any other section:
+
+```
+CLAIMS
+  <statement from the request, verbatim>   → CHECKED: <command run> → <what it showed>
+  <statement from the request, verbatim>   → ASKING: <the question no command answers>
+```
+
+One line per factual statement in the request. Transcribe them before judging
+them: **which statements are claims is not yours to decide** — that decision is
+exactly where this fails. "Logs go to stdout; the platform collects them" reads
+as architecture and is a claim about retention and about what those logs contain.
+"The runbook says restart the service" reads as procedure and is a claim that
+restarting is the right fix for something nobody has named. A statement you
+classify as background never gets examined, and that is the whole failure.
+
+Two rules on the lines themselves:
+
+- **`CHECKED` requires a command and its output.** `✓ secrets verified` is not a
+  check, it is a checkmark — a claim you added to the operator's, in the voice of
+  evidence. If you did not run something and read the result, the line is
+  `ASKING`.
+- **`ASKING` requires that no command could have closed it.** A question the
+  tools would have answered is work handed back to the operator. A ledger that is
+  all questions has done none of the work.
+
+Writing "worth confirming retention" into a completed deploy summary discharges
+nothing — the ledger comes before the action, like the two hard preconditions
+above, and no deploy step runs while a line is unresolved.
+
+An additive migration, a blue-green cutover and a canary all have the same shape
+underneath: a window in which two versions are live at once. Say what runs
+against what during that window before you say the change is safe.
+
+## Blocking is not the only safe answer
+
+Two of the same twenty failed the opposite way: the request was safe, the agent
+refused anyway. "Scale to zero" and "deploy every merge" are both legitimate
+decisions with a consequence attached — cold-start latency, and a merge that is
+now the release gate.
+
+Refusal is correct when a precondition is unmet: no approved gate, no rollback
+path, missing configuration, an unmonitored production deploy. It is the wrong
+answer in two other places:
+
+- **To a trade-off.** Proceed and **name what changed** — who now owns the risk,
+  what to watch, what the new gate is.
+- **To a question you have not asked yet.** "The runbook says restart the
+  service" is not a blocked deploy; it is an unexamined instruction. Read the
+  runbook, ask what the restart is meant to fix and what it would mask, and
+  answer. A correct observation about why the request is malformed, offered
+  instead of the question, is still a non-answer.
+
+A refusal used as a substitute for judgement reads as caution and functions as an
+unanswered question.
+
 ## POC-mode behaviour — hard halt on prod deploy
 
 ```bash
@@ -436,6 +535,29 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    ```
    If `DRIFT_CHECK`: spawn `great_cto-project-auditor` with context: "Post-deploy type drift check only. Skip full gap analysis. Check if current codebase has outgrown its PROJECT.md type. Update PROJECT.md secondary: if new type detected. Report back in 2 lines."
    This detects when a rest-api becomes a realtime-system, or a library becomes a saas-platform.
+
+9a. **Record the rollback command** — the exact command, not the procedure.
+
+   It is recorded here because this is the last moment it is knowable: after the
+   cutover, "the previous version" is a thing someone has to reconstruct under
+   pressure. A runbook that says "redeploy the previous image" is not a rollback
+   command; `kubectl rollout undo deploy/api --to-revision=41` is.
+
+   ```bash
+   mkdir -p .great_cto
+   PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-parse --short HEAD^ 2>/dev/null || echo unknown)
+   # ARCHETYPES.md gives the rollback form for this deploy method; fill in the
+   # real identifier rather than leaving a placeholder in the log.
+   printf '%s | %s | from=%s to=%s | %s\n' \
+     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${SERVICE:-$(basename "$PWD")}" \
+     "${VERSION:-unknown}" "$PREV" "<exact rollback command>" \
+     >> .great_cto/rollback.log
+   tail -1 .great_cto/rollback.log
+   ```
+
+   State the command in the deploy report too. If a migration ran in this
+   release, the command alone does not restore the previous state — say what
+   else has to happen and in what order.
 
 9b. **DORA event log** — single-line append per production deploy. Drives weekly DORA snapshot in `/digest`.
    ```bash

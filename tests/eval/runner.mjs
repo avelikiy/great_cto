@@ -308,6 +308,47 @@ export function thresholdForSplit(raw, split) {
   return parseThreshold(raw);
 }
 
+/**
+ * Both bars of a dual threshold, or null when the string carries only one.
+ *
+ * "5/5 tuning · 2/3 holdout" is two gates, and a run of everything has to clear
+ * both. Reducing it to one number takes the leading bar — so a `--split all` run
+ * was judging the whole set against the TUNING bar. devops cleared 5/5 tuning
+ * and 16/20 holdout against its own 2/3, and still printed
+ * `FAIL: 84% < 5/5 tuning · 2/3 holdout`: 84% is below 100%, and 100% was never
+ * the bar for the holdout cases. A red that the eval's own thresholds do not
+ * support teaches people to ignore the red.
+ */
+export function dualThreshold(raw) {
+  const tuning = thresholdForSplit(raw, 'tuning');
+  const holdout = thresholdForSplit(raw, 'holdout');
+  if (tuning === null || holdout === null) return null;
+  // Both matched the named-bar pattern only if the string actually names them;
+  // otherwise thresholdForSplit fell through to the same single number twice.
+  if (!/tuning/i.test(raw) || !/holdout/i.test(raw)) return null;
+  return { tuning, holdout };
+}
+
+/**
+ * Per-split outcome for a whole-set run: {split: {passed, judged, rate, threshold, below}}.
+ * `holdoutNums` is the set of case numbers belonging to the holdout split — the
+ * classification lives in the parsed EVAL, not in a naming convention.
+ */
+export function splitOutcomes(bars, caseResults, holdoutNums) {
+  const of = (want) => {
+    const rows = (caseResults ?? []).filter(
+      (c) => (holdoutNums.has(String(c.num)) ? 'holdout' : 'tuning') === want && c.verdict !== 'SKIP',
+    );
+    const passed = rows.filter((c) => c.verdict === 'PASS').length;
+    const threshold = bars[want];
+    // No case of a split ran — say nothing about it rather than failing it on an
+    // empty sample, the same reason a run with no cases reports NOT RUN.
+    const rate = rows.length ? passed / rows.length : null;
+    return { passed, judged: rows.length, rate, threshold, below: rate !== null && rate < threshold };
+  };
+  return { tuning: of('tuning'), holdout: of('holdout') };
+}
+
 // ── Actor prompt resolution ───────────────────────────────────────────────────
 
 const GENERIC_ACTOR_SYSTEM =
@@ -787,6 +828,13 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
   // Use the threshold for THIS split (dual-threshold EVALs carry a per-split bar).
   const threshold = thresholdForSplit(parsed.thresholdRaw, split);
 
+  // A whole-set run against a dual threshold is two gates, not one — see
+  // dualThreshold(). Judge each split against its own bar.
+  const bars = split === 'all' ? dualThreshold(parsed.thresholdRaw) : null;
+  const splits = bars
+    ? splitOutcomes(bars, last.caseResults, new Set((parsed.holdoutCases ?? []).map((c) => String(c.num))))
+    : null;
+
   return {
     eval: evalName.replace(/\.md$/, ''),
     agent: agentName,
@@ -804,7 +852,10 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     costUsd: round4(totalCost),
     threshold,
     thresholdRaw: parsed.thresholdRaw,
-    belowThreshold: threshold !== null && rateMean < threshold,
+    splits,
+    belowThreshold: splits
+      ? (splits.tuning.below || splits.holdout.below)
+      : (threshold !== null && rateMean < threshold),
     // The point estimate decides `belowThreshold`, which is what every report
     // read until now. `power` decides from the INTERVAL: at three holdout cases
     // the 95% band for 2/3 is 21%–94%, so a verdict of pass or fail is asserting
@@ -1046,6 +1097,17 @@ async function main() {
     console.error(`FAIL: ${failing.length} EVAL file(s) below pass threshold:`);
     for (const r of failing) {
       console.error(`  ${r.eval}: ${(r.rate * 100).toFixed(0)}% < ${r.thresholdRaw}`);
+      // Name the split that actually missed. "84% < 5/5 tuning · 2/3 holdout"
+      // does not say which gate failed, and on a dual threshold it is usually
+      // only one of them.
+      if (r.splits) {
+        for (const name of ['tuning', 'holdout']) {
+          const s = r.splits[name];
+          if (s.rate === null) continue;
+          console.error(`    ${name.padEnd(8)} ${s.passed}/${s.judged} = ${(s.rate * 100).toFixed(0)}%`
+            + ` vs ${(s.threshold * 100).toFixed(0)}% — ${s.below ? 'BELOW' : 'ok'}`);
+        }
+      }
     }
     process.exit(1);
   }

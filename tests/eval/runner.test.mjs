@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -646,4 +646,59 @@ test('an empty or missing answer is a string, not undefined', () => {
   // A case that threw stores no answer; reading the file must not have to guard.
   assert.equal(truncateAnswer(undefined), '');
   assert.equal(truncateAnswer(null), '');
+});
+
+// ── dual thresholds at --split all ─────────────────────────────────────────
+//
+// devops cleared 5/5 tuning and 16/20 holdout against its own "5/5 tuning ·
+// 2/3 holdout" bar, and the run still printed
+// `FAIL: 84% < 5/5 tuning · 2/3 holdout`. Reducing two gates to one number takes
+// the LEADING bar, so the whole set was judged against tuning's 100%. A red the
+// eval's own thresholds do not support teaches people to ignore the red.
+
+test('a dual threshold yields both bars; a single one yields none', () => {
+  assert.deepEqual(dualThreshold('5/5 tuning · 2/3 holdout'), { tuning: 1, holdout: 2 / 3 });
+  assert.equal(dualThreshold('≥ 90%'), null, 'one bar is not a dual threshold');
+  assert.equal(dualThreshold('4/5'), null);
+  assert.equal(dualThreshold(''), null);
+  assert.equal(dualThreshold(null), null);
+});
+
+test('each split is judged against its own bar, not the leading one', () => {
+  const bars = { tuning: 1, holdout: 2 / 3 };
+  const cases = [
+    { num: '1', verdict: 'PASS' }, { num: '2', verdict: 'PASS' },
+    { num: 'H1', verdict: 'PASS' }, { num: 'H2', verdict: 'PASS' }, { num: 'H3', verdict: 'FAIL' },
+  ];
+  const out = splitOutcomes(bars, cases, new Set(['H1', 'H2', 'H3']));
+  assert.equal(out.tuning.rate, 1);
+  assert.equal(out.tuning.below, false);
+  assert.equal(out.holdout.passed, 2);
+  assert.equal(out.holdout.below, false, '2/3 meets a 2/3 bar — the leading 5/5 must not apply here');
+});
+
+test('a holdout miss fails the run even when tuning is perfect', () => {
+  const cases = [
+    { num: '1', verdict: 'PASS' },
+    { num: 'H1', verdict: 'FAIL' }, { num: 'H2', verdict: 'FAIL' }, { num: 'H3', verdict: 'PASS' },
+  ];
+  const out = splitOutcomes({ tuning: 1, holdout: 2 / 3 }, cases, new Set(['H1', 'H2', 'H3']));
+  assert.equal(out.tuning.below, false);
+  assert.equal(out.holdout.below, true, 'the split that guards against overfit is the one that must bite');
+});
+
+test('skips are excluded from the denominator, not counted as failures', () => {
+  // A 402 or a network drop is not evidence about the agent. Counting it as a
+  // miss reports a regression that never happened.
+  const out = splitOutcomes({ tuning: 1, holdout: 2 / 3 },
+    [{ num: '1', verdict: 'PASS' }, { num: '2', verdict: 'SKIP' }], new Set());
+  assert.equal(out.tuning.judged, 1);
+  assert.equal(out.tuning.rate, 1);
+});
+
+test('a split with no cases run says nothing rather than failing on an empty sample', () => {
+  const out = splitOutcomes({ tuning: 1, holdout: 2 / 3 },
+    [{ num: '1', verdict: 'PASS' }], new Set(['H1']));
+  assert.equal(out.holdout.rate, null);
+  assert.equal(out.holdout.below, false, 'an unrun split is not a failed one');
 });
