@@ -7,7 +7,7 @@
 // being judged by a number whose smallest step was bigger than the effect.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { wilson, verdict, casesFor, stepSize, explain } from '../../scripts/lib/eval-power.mjs';
+import { wilson, verdict, casesFor, stepSize, explain, dropout, DROPOUT_LIMIT } from '../../scripts/lib/eval-power.mjs';
 import { PROOF } from '../../scripts/lib/proof-status.mjs';
 
 // ── the interval ───────────────────────────────────────────────────────────
@@ -124,4 +124,78 @@ test('a total failure at three cases IS conclusive', () => {
   // pass. Cheap runs are worth keeping for exactly that.
   assert.equal(verdict(0, 3, 0.67).status, PROOF.FAILED);
   assert.equal(verdict(1, 3, 0.67).status, PROOF.INCONCLUSIVE);
+});
+
+// ── dropout ─────────────────────────────────────────────────────────────────
+//
+// A confirmation run on devops reported PASS at 88% having lost eleven of forty
+// cases, and the eleven were H27 then H31–H40 unbroken. The run did not drop
+// cases, it stopped — eight of the errors were `402 insufficient credits`. What
+// survived was the front of the case list, which in that eval is the older and
+// easier material. The number was confident and the measurement had not
+// happened.
+
+test('scattered loss under the limit is not severe', () => {
+  const d = dropout({ skippedNums: ['H3', 'H9'], orderedNums: Array.from({ length: 40 }, (_, i) => `H${i + 1}`) });
+  assert.equal(d.severe, false);
+  assert.equal(d.tail, false);
+  assert.equal(d.why, null);
+});
+
+test('scattered loss over the limit is severe and says the share', () => {
+  const ordered = Array.from({ length: 40 }, (_, i) => `H${i + 1}`);
+  const d = dropout({ skippedNums: ['H2', 'H5', 'H9', 'H12', 'H17', 'H21', 'H30'], orderedNums: ordered });
+  assert.ok(d.rate > DROPOUT_LIMIT);
+  assert.equal(d.severe, true);
+  assert.match(d.why, /7 of 40/);
+});
+
+test('a run that stopped is severe whatever the share', () => {
+  // Two of twenty is under the rate limit and still fatal: the sample is a
+  // prefix, and a prefix is not a draw from the cases.
+  const ordered = Array.from({ length: 20 }, (_, i) => `H${i + 1}`);
+  const d = dropout({ skippedNums: ['H19', 'H20'], orderedNums: ordered });
+  assert.ok(d.rate < DROPOUT_LIMIT, 'the rate alone would have cleared');
+  assert.equal(d.tail, true);
+  assert.equal(d.severe, true);
+  assert.match(d.why, /the run stopped/);
+});
+
+test('one trailing failure is noise, not a stopped run', () => {
+  const ordered = Array.from({ length: 20 }, (_, i) => `H${i + 1}`);
+  assert.equal(dropout({ skippedNums: ['H20'], orderedNums: ordered }).tail, false);
+});
+
+test('without the case order only the rate is judged', () => {
+  // A caller that cannot say what order the cases ran in must not get a silent
+  // "no tail" — it gets the rate, which is all the information there is.
+  const d = dropout({ skipped: 11, attempted: 40 });
+  assert.equal(d.severe, true, 'the rate alone still condemns this one');
+  assert.equal(d.tail, false);
+});
+
+test('a clean run is unaffected', () => {
+  assert.deepEqual(dropout({ skippedNums: [], orderedNums: ['H1', 'H2'] }).severe, false);
+  assert.equal(dropout({}).severe, false, 'nothing attempted is not a dropout');
+});
+
+test('severe dropout downgrades a pass to inconclusive, and says which fault', () => {
+  // The devops case: 26/29 clears the bar on the cases that ran.
+  const clean = verdict(26, 29, 0.67);
+  assert.equal(clean.status, 'passed');
+  const ordered = Array.from({ length: 40 }, (_, i) => `H${i + 1}`);
+  const cut = verdict(26, 29, 0.67, {
+    dropout: dropout({ skippedNums: ordered.slice(30), orderedNums: ordered }),
+  });
+  assert.equal(cut.status, 'inconclusive');
+  assert.match(cut.why, /the run stopped/);
+  assert.match(cut.why, /over what ran, not over what was asked for/);
+  assert.equal(cut.point, 26 / 29, 'the interval is still reported — it is the conclusion that is withheld');
+});
+
+test('severe dropout downgrades a fail too', () => {
+  // A fail over a truncated sample is as unearned as a pass over one.
+  const ordered = Array.from({ length: 40 }, (_, i) => `H${i + 1}`);
+  const cut = verdict(2, 20, 0.67, { dropout: dropout({ skippedNums: ordered.slice(20), orderedNums: ordered }) });
+  assert.equal(cut.status, 'inconclusive');
 });

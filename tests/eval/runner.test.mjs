@@ -820,3 +820,16 @@ test('the history row carries the power verdict and the dropout count', () => {
   assert.match(row, /power: result\.power/);
   assert.match(row, /skipped: result\.skipped/);
 });
+
+test('a run that stopped is reported as dropout, not as a pass', () => {
+  // The confirmation run: PASS at 88% having lost H27 and H31-H40 to
+  // `402 insufficient credits`. More samples measure the same truncation twice,
+  // so the summary has to name the cause separately from an interval problem.
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  assert.match(src, /dropout: runDropout/, 'the runner computes it');
+  assert.match(src, /\{ dropout: runDropout \}/, 'and the power verdict is given it');
+  assert.match(src, /DROPOUT: \$\{r\.eval\}/, 'and the summary says so out loud');
+  assert.match(src, /dropout: result\.dropout/, 'and the history row keeps it');
+  assert.match(src, /orderedNums = selectCases\(parsed, split\)/,
+    'the case order is what distinguishes a stopped run from scattered loss');
+});

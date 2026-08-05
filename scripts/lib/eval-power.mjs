@@ -61,7 +61,60 @@ export function wilson(passed, n, z = 1.96) {
  *
  * @returns {{status, point, low, high, n, threshold, why}}
  */
-export function verdict(passed, n, threshold, { z = 1.96 } = {}) {
+/**
+ * The share of cases that never reached the provider, and whether they left in
+ * a block.
+ *
+ * A confirmation run on devops reported PASS at 88% having lost eleven of forty
+ * cases — and the eleven were H27 and then H31 through H40 unbroken: the run did
+ * not drop cases, it stopped. Eight of the errors were `402 insufficient
+ * credits`. What survived was the FIRST part of the case list, and in that eval
+ * the tail is the newest and hardest material, so the surviving sample was
+ * easier than the one that was asked for.
+ *
+ * Two different faults, so two signals:
+ *
+ *  - **rate** — scattered timeouts. Independent of case content, so the estimate
+ *    is probably unbiased, but n is smaller than the report implies.
+ *  - **tail** — a contiguous run to the end of the list. Not noise: the run was
+ *    cut off, and the sample is a prefix rather than a subset. Severe at any
+ *    rate, because a prefix is not a random sample of the cases.
+ *
+ * `orderedNums` must be the case order as run; without it only the rate is
+ * judged, and a cut-off run reads as scattered loss.
+ */
+export const DROPOUT_LIMIT = 0.15;
+
+export function dropout({ skippedNums = [], orderedNums = [], skipped, attempted } = {}) {
+  const total = Number.isFinite(attempted) ? attempted : orderedNums.length;
+  const lost = Number.isFinite(skipped) ? skipped : skippedNums.length;
+  if (!total) return { rate: 0, lost: 0, attempted: 0, tail: false, severe: false, why: null };
+
+  const rate = lost / total;
+  // A tail: every case from some index to the end is missing, and it is more
+  // than one case (a single trailing failure is ordinary noise).
+  const gone = new Set(skippedNums.map(String));
+  let run = 0;
+  for (let i = orderedNums.length - 1; i >= 0 && gone.has(String(orderedNums[i])); i--) run++;
+  const tail = run >= 2;
+
+  const severe = tail || rate > DROPOUT_LIMIT;
+  const why = !severe ? null
+    : tail
+      ? `the run stopped: the last ${run} case(s) never reached the provider, so the sample is the start of the list rather than a draw from it`
+      : `${lost} of ${total} case(s) never reached the provider (${(rate * 100).toFixed(0)}%)`;
+  return { rate, lost, attempted: total, tail, tailRun: run, severe, why };
+}
+
+export function verdict(passed, n, threshold, { z = 1.96, dropout: drop = null } = {}) {
+  // A settled verdict over a measurement that did not happen is the failure this
+  // whole module exists to stop; dropout is the same fault by a different route.
+  if (drop?.severe) {
+    const ci = wilson(passed, n, z);
+    return { ...(ci ?? { point: null, low: null, high: null, width: null }),
+      status: PROOF.INCONCLUSIVE, n, threshold: threshold ?? null,
+      why: `${drop.why} — the rate is over what ran, not over what was asked for` };
+  }
   const ci = wilson(passed, n, z);
   if (!ci) return { status: PROOF.NOT_RUN, point: null, low: null, high: null, n, threshold, why: 'no cases ran' };
   if (threshold === null || threshold === undefined || !Number.isFinite(threshold)) {

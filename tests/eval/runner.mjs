@@ -52,7 +52,7 @@ import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { costForUsage, round4 } from '../../scripts/lib/cost-meter.mjs';
-import { verdict as powerVerdict } from '../../scripts/lib/eval-power.mjs';
+import { verdict as powerVerdict, dropout as dropoutOf } from '../../scripts/lib/eval-power.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EVAL_DIR = __dirname;
@@ -894,6 +894,14 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
   // Use the threshold for THIS split (dual-threshold EVALs carry a per-split bar).
   const threshold = thresholdForSplit(parsed.thresholdRaw, split);
 
+  const orderedNums = selectCases(parsed, split).map((c) => String(c.num));
+  const runDropout = dropoutOf({
+    skippedNums: last.caseResults.filter((c) => c.verdict === 'SKIP').map((c) => String(c.num)),
+    orderedNums,
+    skipped: runs.reduce((a, r) => a + r.skipped, 0),
+    attempted: orderedNums.length * runs.length,
+  });
+
   // A whole-set run against a dual threshold is two gates, not one — see
   // dualThreshold(). Judge each split against its own bar.
   const bars = split === 'all' ? dualThreshold(parsed.thresholdRaw) : null;
@@ -936,10 +944,15 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     // observations of the pass rate — and forty cases at 74% cannot clear a 67%
     // bar while eighty can. Reading only the last run threw half the evidence
     // away and then reported the result as underpowered.
+    // Dropout over every sample, in the order the cases ran: a run cut short by
+    // a rate limit or exhausted credits leaves a prefix of the case list, and a
+    // prefix is not a draw from the cases. See eval-power.dropout().
+    dropout: runDropout,
     power: powerVerdict(
       runs.reduce((a, r) => a + r.passed, 0),
       runs.reduce((a, r) => a + r.judged, 0),
       threshold,
+      { dropout: runDropout },
     ),
     ts: new Date().toISOString(),
     caseResults: last.caseResults,
@@ -997,6 +1010,14 @@ function printSummary(results) {
     console.log(` INCONCLUSIVE: ${unsettled} EVAL file(s) — the interval spans the bar; the run settled nothing`);
     console.log(`   At ${results[0]?.judged ?? 3} cases one case is worth ${(100 / (results[0]?.judged || 3)).toFixed(0)} points.`);
     console.log('   Raise cases or --samples before reading these as pass or fail.');
+  }
+  // Dropout is a separate cause with a separate remedy: more samples do not fix
+  // a run that stopped, and the rate on the surviving cases is not the rate
+  // that was asked for.
+  for (const r of results.filter((x) => x.dropout?.severe)) {
+    console.log(` DROPOUT: ${r.eval} — ${r.dropout.why}.`);
+    console.log(`   ${r.passed}/${r.judged} is over the cases that ran. Fix the cause and re-run;`);
+    console.log('   raising --samples measures the same truncation twice.');
   }
   console.log(divider + '\n');
 }
@@ -1152,6 +1173,7 @@ async function main() {
       // row with a rate and no power invites reading 74% as a pass when the
       // interval spanned the bar — which is the whole reason power exists.
       power: result.power,
+      dropout: result.dropout,
       // How many observations never reached the provider. A run that lost a
       // quarter of its cases to fetch failures reports the same rate as one
       // that lost none, and they are not the same measurement.
