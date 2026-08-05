@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -781,4 +781,33 @@ test('the history row carries the expansion, not only the in-memory result', () 
   const src = fs.readFileSync(RUNNER, 'utf8');
   const row = src.slice(src.indexOf('const jsonlEntry = {'));
   assert.match(row.slice(0, 800), /sharedExpanded: result\.sharedExpanded/);
+});
+
+// ── the bar as applied ──────────────────────────────────────────────────────
+
+test('a single-split run names the bar it used, not the whole dual string', () => {
+  // `63% < 5/5 tuning · 2/3 holdout` on a holdout run invites the reader to
+  // check 63% against 5/5, which was never applied to those cases.
+  const raw = '5/5 tuning · 2/3 holdout';
+  assert.equal(appliedThresholdLabel(raw, 'holdout'), '2/3 holdout');
+  assert.equal(appliedThresholdLabel(raw, 'tuning'), '5/5 tuning');
+  assert.equal(appliedThresholdLabel(raw, 'all'), raw, 'a whole-set run really is judged on both');
+});
+
+test('a single threshold is printed as written, whatever the split', () => {
+  assert.equal(appliedThresholdLabel('≥ 80%', 'holdout'), '≥ 80%');
+  assert.equal(appliedThresholdLabel(null, 'holdout'), null);
+});
+
+// ── power over every sample ─────────────────────────────────────────────────
+
+test('the interval is computed from every sample, not the last run', () => {
+  // Two runs of forty cases are eighty observations of one stochastic actor.
+  // Forty cases at 74% cannot clear a 67% bar; eighty can. Reading only the
+  // last run discarded half the evidence and called the result underpowered.
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  const call = src.slice(src.indexOf('power: powerVerdict('), src.indexOf('power: powerVerdict(') + 400);
+  assert.match(call, /runs\.reduce\(\(a, r\) => a \+ r\.passed, 0\)/);
+  assert.match(call, /runs\.reduce\(\(a, r\) => a \+ r\.judged, 0\)/);
+  assert.ok(!/powerVerdict\(\s*last\.passed/.test(src), 'the last-run-only form must be gone, not merely shadowed');
 });

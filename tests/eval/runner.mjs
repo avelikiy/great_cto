@@ -319,6 +319,23 @@ export function thresholdForSplit(raw, split) {
  * the bar for the holdout cases. A red that the eval's own thresholds do not
  * support teaches people to ignore the red.
  */
+/**
+ * The bar as applied, for the failure line.
+ *
+ * At `--split holdout` the runner correctly uses 2/3 and then printed
+ * `63% < 5/5 tuning · 2/3 holdout` — the whole dual string, including a bar that
+ * was never applied to these cases. A reader checks 63% against the first number
+ * they see. Print what was used.
+ */
+export function appliedThresholdLabel(raw, split) {
+  if (!raw) return null;
+  if (split === 'tuning' || split === 'holdout') {
+    const m = raw.match(new RegExp('([0-9]+\\s*/\\s*[0-9]+|[≥>]?\\s*[0-9.]+\\s*%)\\s*' + split, 'i'));
+    if (m) return m[0].trim();
+  }
+  return raw;
+}
+
 export function dualThreshold(raw) {
   const tuning = thresholdForSplit(raw, 'tuning');
   const holdout = thresholdForSplit(raw, 'holdout');
@@ -914,7 +931,16 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     // the 95% band for 2/3 is 21%–94%, so a verdict of pass or fail is asserting
     // something the sample cannot support. `inconclusive` is the honest third
     // answer, and it is the vocabulary proof-status already defines.
-    power: powerVerdict(last.passed, last.judged, threshold),
+    // Across every sample, not the last run alone. Each sample is an independent
+    // draw from the same stochastic actor, so two runs of forty cases are eighty
+    // observations of the pass rate — and forty cases at 74% cannot clear a 67%
+    // bar while eighty can. Reading only the last run threw half the evidence
+    // away and then reported the result as underpowered.
+    power: powerVerdict(
+      runs.reduce((a, r) => a + r.passed, 0),
+      runs.reduce((a, r) => a + r.judged, 0),
+      threshold,
+    ),
     ts: new Date().toISOString(),
     caseResults: last.caseResults,
   };
@@ -1153,7 +1179,7 @@ async function main() {
   if (failing.length > 0) {
     console.error(`FAIL: ${failing.length} EVAL file(s) below pass threshold:`);
     for (const r of failing) {
-      console.error(`  ${r.eval}: ${(r.rate * 100).toFixed(0)}% < ${r.thresholdRaw}`);
+      console.error(`  ${r.eval}: ${(r.rate * 100).toFixed(0)}% < ${appliedThresholdLabel(r.thresholdRaw, r.split)}`);
       // Name the split that actually missed. "84% < 5/5 tuning · 2/3 holdout"
       // does not say which gate failed, and on a dual threshold it is usually
       // only one of them.
