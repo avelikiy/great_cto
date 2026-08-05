@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -616,4 +616,34 @@ test('parseEvalFile: `> Actor: generic` overrides even an explicit Agent:', () =
   const opted = '# E\n\n> Agent: security-officer\n> Actor: generic\n\n## Scenario\nx\n';
   assert.equal(parseEvalFile(opted, 'EVAL-o.md').agent, null,
     'an opt-out that only beats inference would be an opt-out nobody can rely on');
+});
+
+// ── the actor's answer on the record ────────────────────────────────────────
+//
+// devops took three prompt rewrites that moved the holdout 5→11→12→11. Six cases
+// never passed under any wording, and every judge reason had the same shape:
+// "does not name X". Whether the agent omitted X or the judge wanted a keyword
+// is the whole question — and the results file could not answer it, because it
+// stored the judge's summary and threw the answer away.
+
+test('a short answer is stored whole', () => {
+  assert.equal(truncateAnswer('CLAIMS BEFORE cutover\n  health 200 → CHECKED'),
+    'CLAIMS BEFORE cutover\n  health 200 → CHECKED');
+});
+
+test('a long answer keeps both ends, because the complaint lives at either', () => {
+  // The opening carries the disposition (refused / asked / proceeded); the close
+  // carries what the summary failed to name. A head-only clip loses the second
+  // every time, and "does not name the migration" is a complaint about the close.
+  const out = truncateAnswer('HEAD-MARKER' + 'x'.repeat(20_000) + 'TAIL-MARKER');
+  assert.ok(out.startsWith('HEAD-MARKER'));
+  assert.ok(out.endsWith('TAIL-MARKER'));
+  assert.match(out, /chars elided/, 'a clipped answer must say it was clipped');
+  assert.ok(out.length < ANSWER_LIMIT + 200, 'the bound is a bound');
+});
+
+test('an empty or missing answer is a string, not undefined', () => {
+  // A case that threw stores no answer; reading the file must not have to guard.
+  assert.equal(truncateAnswer(undefined), '');
+  assert.equal(truncateAnswer(null), '');
 });

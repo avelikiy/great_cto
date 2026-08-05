@@ -666,6 +666,23 @@ function mean(arr) {
   return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 }
 
+/**
+ * The actor's answer as stored on a case result.
+ *
+ * Kept whole when it fits. When it does not, the head and the tail are both
+ * kept: a judge's complaint is usually either about the opening disposition
+ * (refused / asked / proceeded) or about what the closing summary failed to
+ * name, and a head-only clip loses the second one every time.
+ */
+export const ANSWER_LIMIT = 6000;
+export function truncateAnswer(text, limit = ANSWER_LIMIT) {
+  const s = String(text ?? '');
+  if (s.length <= limit) return s;
+  const head = Math.floor(limit * 0.6);
+  const tail = limit - head;
+  return `${s.slice(0, head)}\n\n…[${s.length - limit} chars elided]…\n\n${s.slice(-tail)}`;
+}
+
 // ── Runner core ──────────────────────────────────────────────────────────────
 
 /** Run a single EVAL file ONCE. Returns the per-run result (with cost). */
@@ -709,6 +726,14 @@ async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actor
       else if (verdict === 'UNKNOWN') skipped++;
       caseResults.push({
         num: c.num, verdict, reason: judge.reason,
+        // What the agent actually said. Without it a run records only the
+        // judge's summary, and "does not name the migration" is unfalsifiable
+        // from the record — it could be a gap in the agent or a keyword the
+        // judge wanted. Three prompt rewrites on devops were flat because that
+        // question could not be answered from the results file.
+        // Bounded: a tool-using actor can emit tens of KB per case, and this
+        // file accumulates across every run.
+        answer: truncateAnswer(actor.text),
         ...(dag ? { score: judge.score, dagPath: judge.dagPath, judge: 'dag' } : { judge: 'rubric' }),
       });
     } catch (err) {
