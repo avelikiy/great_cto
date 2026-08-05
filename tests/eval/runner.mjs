@@ -931,9 +931,16 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     threshold,
     thresholdRaw: parsed.thresholdRaw,
     splits,
-    belowThreshold: splits
-      ? (splits.tuning.below || splits.holdout.below)
-      : (threshold !== null && rateMean < threshold),
+    // A rate over nothing is not a failing rate. A run that never reached the
+    // provider printed `0/0 NOT RUN` and then `FAIL: 0% < 2/3 holdout` two lines
+    // apart — a threshold applied to an empty result, contradicting the dropout
+    // line beside it. Same for a truncated run: 26/29 is the rate over the cases
+    // that ran, and comparing it to the bar asserts the thing dropout withheld.
+    belowThreshold: (last.judged === 0 || runDropout.severe)
+      ? false
+      : splits
+        ? (splits.tuning.below || splits.holdout.below)
+        : (threshold !== null && rateMean < threshold),
     // The point estimate decides `belowThreshold`, which is what every report
     // read until now. `power` decides from the INTERVAL: at three holdout cases
     // the 95% band for 2/3 is 21%–94%, so a verdict of pass or fail is asserting
@@ -1006,9 +1013,14 @@ function printSummary(results) {
   console.log(divider);
   console.log(` Files: ${total}  |  Cases: ${totalCases}  |  Passed: ${totalPassed}  |  Skipped: ${totalSkipped}  |  Cost: $${totalCost.toFixed(3)}`);
   if (failing > 0) console.log(` FAILED: ${failing} EVAL file(s) — the interval is entirely below the bar`);
-  if (unsettled > 0) {
-    console.log(` INCONCLUSIVE: ${unsettled} EVAL file(s) — the interval spans the bar; the run settled nothing`);
-    console.log(`   At ${results[0]?.judged ?? 3} cases one case is worth ${(100 / (results[0]?.judged || 3)).toFixed(0)} points.`);
+  // Only the runs whose interval is the problem. A run that stopped is
+  // unsettled too, and telling its operator to raise --samples sends them to
+  // buy more of the thing that already failed.
+  const spanning = results.filter((r) => r.power?.status === 'inconclusive' && !r.dropout?.severe);
+  if (spanning.length > 0) {
+    console.log(` INCONCLUSIVE: ${spanning.length} EVAL file(s) — the interval spans the bar; the run settled nothing`);
+    const n = spanning[0]?.judged ?? 0;
+    if (n > 0) console.log(`   At ${n} cases one case is worth ${(100 / n).toFixed(0)} points.`);
     console.log('   Raise cases or --samples before reading these as pass or fail.');
   }
   // Dropout is a separate cause with a separate remedy: more samples do not fix
@@ -1204,6 +1216,17 @@ async function main() {
   }
 
   printSummary(results);
+
+  // A run that never reached the provider must not exit 0 under "All evaluated
+  // EVAL files meet their pass thresholds" — a green CI over a measurement that
+  // did not happen is worse than the false red this replaced.
+  const unmeasured = results.filter((r) => r.judged === 0 || r.dropout?.severe);
+  if (unmeasured.length > 0) {
+    console.error(`NOT MEASURED: ${unmeasured.length} EVAL file(s) did not produce a verdict:`);
+    for (const r of unmeasured) console.error(`  ${r.eval}: ${r.dropout?.why ?? 'no cases ran'}`);
+    console.error('No threshold is applied to these — the rate is over the cases that ran.');
+    process.exit(1);
+  }
 
   const failing = results.filter(r => r.belowThreshold);
   if (failing.length > 0) {

@@ -833,3 +833,36 @@ test('a run that stopped is reported as dropout, not as a pass', () => {
   assert.match(src, /orderedNums = selectCases\(parsed, split\)/,
     'the case order is what distinguishes a stopped run from scattered loss');
 });
+
+// ── no threshold over a run that did not happen ─────────────────────────────
+//
+// A run whose forty cases all returned `402 insufficient credits` printed
+// `0/0 NOT RUN`, then `At 0 cases one case is worth 33 points`, then
+// `FAIL: 0% < 2/3 holdout` — a bar applied to an empty result, two lines from
+// the dropout notice that said the sample did not exist.
+
+test('a threshold is not applied to an empty or truncated run', () => {
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  assert.match(src, /belowThreshold: \(last\.judged === 0 \|\| runDropout\.severe\)\s*\n\s*\? false/,
+    'a rate over nothing is not a failing rate');
+});
+
+test('a run that produced no verdict still exits non-zero', () => {
+  // Suppressing the false FAIL must not hand CI a green over a measurement that
+  // did not happen — that is a worse failure than the one being fixed.
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  const at = src.indexOf('const unmeasured =');
+  const block = src.slice(at, src.indexOf('const failing = results.filter(r => r.belowThreshold)', at));
+  assert.match(block, /NOT MEASURED/);
+  assert.match(block, /process\.exit\(1\)/);
+  assert.ok(src.indexOf('const unmeasured =') < src.indexOf('All evaluated EVAL files meet their pass thresholds'),
+    'the check has to come before the all-clear');
+});
+
+test('the raise-more-samples advice skips the runs that stopped', () => {
+  // Telling the operator of a credit-exhausted run to buy more samples sends
+  // them to purchase more of what already failed.
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  assert.match(src, /const spanning = results\.filter\(\(r\) => r\.power\?\.status === 'inconclusive' && !r\.dropout\?\.severe\)/);
+  assert.match(src, /if \(n > 0\) console\.log\(`\s*At \$\{n\} cases/, 'no per-case arithmetic over zero cases');
+});
