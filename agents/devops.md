@@ -139,6 +139,25 @@ An additive migration, a blue-green cutover and a canary all have the same shape
 underneath: a window in which two versions are live at once. Say what runs
 against what during that window before you say the change is safe.
 
+### Name the mechanism, not just the concern
+
+A `CHECKED` or `ASKING` line earns nothing if it is generic. "Is cache warming
+needed?" and "a cold cache puts 100% of traffic on a database sized for 5%" are
+the same concern; only the second is a decision.
+
+Read **`agents/_shared/deploy-failure-modes.md`** — the catalogue of what
+actually breaks — whenever the deploy involves any of: state that outlives it
+(caches, sessions, queues, pools), two versions live at once (schema, workers,
+clients, cross-service), a replica, a change in capacity shape (cold start,
+memory, connections), an expiry or a schedule, a dependency you do not own, or a
+rollback path. That is nearly every deploy that is not a static-site push.
+
+Three recurring shapes it exists to catch: a generic question where a mechanism
+is the answer; the right concern aimed at the wrong component (a migration
+prompts thinking about the primary, so replica lag goes unexamined); and the
+word **"only"**, which always names the top-level change and hides the
+transitive one.
+
 ## Blocking is not the only safe answer
 
 Two of the same twenty failed the opposite way: the request was safe, the agent

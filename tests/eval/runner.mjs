@@ -362,6 +362,47 @@ function stripFrontmatter(text) {
   return text.replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
 }
 
+/**
+ * Expand `agents/_shared/*.md` references into the prompt body.
+ *
+ * An agent file points at shared contracts — verdict format, phase task,
+ * privacy guardrails, handoff format — and in production the agent has Read and
+ * opens them. The eval actor has no filesystem: `buildFixture` answers every
+ * INSPECT with the scenario text, so a pointer resolves to nothing.
+ *
+ * The cost of that was measured. A catalogue of deploy failure modes was added
+ * behind a pointer and appeared in 1 of 40 answers — not because the pointer was
+ * weak, but because the file was never reachable. Forty of sixty-nine agents
+ * carry at least one such pointer, so every run of those judged an agent without
+ * the half of its contract that lives in `_shared`.
+ *
+ * Inlining is an approximation, and it is the generous one: it measures the
+ * agent given the material, not the agent choosing to fetch it. A harness with
+ * no filesystem cannot measure the second, and reporting the generous number as
+ * if it were the strict one is the mistake this comment exists to prevent.
+ * Runs record `sharedExpanded` so a result carries which it was.
+ */
+export function expandSharedRefs(body, { root = AGENTS_DIR, seen = new Set() } = {}) {
+  if (!body) return { text: body, expanded: [] };
+  const expanded = [];
+  const text = body.replace(/`?agents\/_shared\/([a-z0-9-]+\.md)`?/gi, (match, file) => {
+    if (seen.has(file)) return match;   // a pointer back to something already inlined
+    let content;
+    try {
+      content = stripFrontmatter(readFileSync(join(root, '_shared', file), 'utf8'));
+    } catch {
+      return match;   // a pointer at a file that does not exist stays a pointer
+    }
+    seen.add(file);
+    expanded.push(file);
+    // Nested: a shared file may point at another. Same `seen` set bounds the walk.
+    const inner = expandSharedRefs(content, { root, seen });
+    expanded.push(...inner.expanded);
+    return `${match}\n\n<<< BEGIN agents/_shared/${file} >>>\n${inner.text}\n<<< END agents/_shared/${file} >>>`;
+  });
+  return { text, expanded };
+}
+
 /** Load an agent's prompt body from agents/<name>.md. Returns null if absent. */
 export function loadAgentPrompt(agentName) {
   if (!agentName) return null;
@@ -388,12 +429,20 @@ export function loadPromptFile(promptFile) {
  * Returns { system, source } where source is 'prompt-file' | 'agent:<name>' | 'generic'.
  */
 export function resolveActorSystem({ promptFileBody, agentName }) {
-  if (promptFileBody) return { system: promptFileBody, source: 'prompt-file' };
+  // A candidate prompt file is expanded too: an A/B between two prompts has to
+  // give both sides the same shared contracts, or it measures the expansion.
+  if (promptFileBody) {
+    const { text, expanded } = expandSharedRefs(promptFileBody);
+    return { system: text, source: 'prompt-file', sharedExpanded: expanded };
+  }
   if (agentName) {
     const body = loadAgentPrompt(agentName);
-    if (body) return { system: body, source: `agent:${agentName}` };
+    if (body) {
+      const { text, expanded } = expandSharedRefs(body);
+      return { system: text, source: `agent:${agentName}`, sharedExpanded: expanded };
+    }
   }
-  return { system: GENERIC_ACTOR_SYSTEM, source: 'generic' };
+  return { system: GENERIC_ACTOR_SYSTEM, source: 'generic', sharedExpanded: [] };
 }
 
 // ── Anthropic API caller (two-agent: Actor → Judge) ──────────────────────────
@@ -808,7 +857,7 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
   }
 
   const agentName = agentOverride || parsed.agent || null;
-  const { system: actorSystem, source: actorSource } = resolveActorSystem({ promptFileBody, agentName });
+  const { system: actorSystem, source: actorSource, sharedExpanded } = resolveActorSystem({ promptFileBody, agentName });
 
   if (dryRun) {
     console.log(`  [dry-run] ${evalName} — ${selectedCases.length} cases (split=${split}), agent=${agentName || '-'}, actor=${actorSource}${parsed.component ? " (component)" : ""}, pack=${parsed.pack}, threshold="${parsed.thresholdRaw}"`);
@@ -839,6 +888,10 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     eval: evalName.replace(/\.md$/, ''),
     agent: agentName,
     actorSource,
+    // Which _shared contracts were inlined into the actor's prompt. A result
+    // that does not say this cannot be compared with one from before the
+    // expansion existed.
+    sharedExpanded,
     pack: parsed.pack,
     split,
     cases: last.cases,
@@ -1052,6 +1105,10 @@ async function main() {
       eval: result.eval,
       agent: result.agent,
       actorSource: result.actorSource,
+      // Persisted, not just returned: a history row without it cannot be told
+      // apart from a row written before the expansion existed, and the same
+      // score would then mean two different measurements.
+      sharedExpanded: result.sharedExpanded,
       pack: result.pack,
       split: result.split,
       cases: result.cases,
