@@ -19,6 +19,7 @@ import { getMetrics } from './metrics.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
+import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -852,6 +853,53 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/agents-installed') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getAgentsFleet(cwd)));
+    return true;
+  }
+
+  // ── session transcripts ───────────────────────────────────────────────
+  //
+  // The board reports outcomes. These four report HOW an outcome was reached,
+  // which is the only thing that separates a weak agent from a broken harness —
+  // a distinction this repo got wrong three times in one week by reading a score
+  // without reading the run.
+  //
+  // Read-only by construction: no writes, no index, no cache. A transcript is
+  // evidence, and a tool that edits evidence is not one.
+
+  if (pathname === '/api/sessions') {
+    const sessions = listSessions(cwd);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ project: cwd, count: sessions.length,
+      // The absolute path stays on the server. A browser has no use for it and
+      // it names the operator's home directory.
+      sessions: sessions.map(({ file, ...rest }) => rest) }));
+    return true;
+  }
+
+  if (pathname.startsWith('/api/sessions/') && pathname.endsWith('/edits')) {
+    const id = pathname.slice('/api/sessions/'.length, -'/edits'.length);
+    const s = listSessions(cwd).find((x) => x.id === id);
+    if (!s) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end('{"error":"no such session"}'); return true; }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ session: id, files: editedFiles(s.file) }));
+    return true;
+  }
+
+  if (pathname.startsWith('/api/sessions/')) {
+    // The id comes from the URL and is used to pick from a list the server
+    // built — never to build a path. A traversal in the id matches nothing.
+    const id = pathname.slice('/api/sessions/'.length);
+    const s = listSessions(cwd).find((x) => x.id === id);
+    if (!s) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end('{"error":"no such session"}'); return true; }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ session: id, title: s.title, modified: s.modified, turns: readSession(s.file) }));
+    return true;
+  }
+
+  if (pathname === '/api/session-search') {
+    const q = url.searchParams.get('q') || '';
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(searchSessions(cwd, q)));
     return true;
   }
 
