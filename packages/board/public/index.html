@@ -2194,6 +2194,11 @@ button { font-family: inherit; cursor: pointer; }
         <span>Memory</span>
         <span class="count" id="nav-memory-count">0</span>
       </div>
+      <div class="nav-item" data-tab="sessions" onclick="switchTab('sessions', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        <span>Sessions</span>
+        <span class="count" id="nav-sessions-count">0</span>
+      </div>
       <div class="nav-item" data-tab="logs" onclick="switchTab('logs', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
         <span>Logs</span>
@@ -2464,6 +2469,19 @@ button { font-family: inherit; cursor: pointer; }
     </div>
 
     <!-- Memory -->
+    <!-- Sessions: what the agent DID, as opposed to what it concluded.
+         Every other panel reports an outcome. Three times this week a low eval
+         score was read as an agent gap and turned out to be the harness, and
+         each was found by reading the run rather than the number. -->
+    <div class="panel" id="panel-sessions">
+      <div class="panel-head">
+        <h2>Sessions</h2>
+        <input id="session-q" class="input" placeholder="search transcripts…" style="max-width:280px"
+               onkeydown="if(event.key==='Enter')searchTranscripts()">
+      </div>
+      <div id="sessions-body" class="muted">Loading…</div>
+    </div>
+
     <div class="panel" id="panel-memory">
       <div class="memory-page">
         <div class="memory-side">
@@ -3282,6 +3300,104 @@ function mdToHtml(md) {
     USE_PROFILES: { html: true },
     ADD_ATTR: ['target'],  // allow target=_blank on links
   });
+}
+
+// ── Sessions ────────────────────────────────────────────────────────────────
+//
+// Every other panel answers "what happened". This one answers "how", which is
+// the only thing that separates a weak agent from a broken harness — a
+// distinction this repo got wrong three times in one week by reading a score
+// without reading the run.
+
+const fmtMB = (b) => b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.round(b / 1e3) + ' KB';
+const ago = (iso) => {
+  const h = (Date.now() - new Date(iso)) / 36e5;
+  if (!Number.isFinite(h)) return '';
+  return h < 1 ? `${Math.round(h * 60)}m ago` : h < 48 ? `${Math.round(h)}h ago` : `${Math.round(h / 24)}d ago`;
+};
+
+async function loadSessions() {
+  const body = document.getElementById('sessions-body');
+  const d = await api(`/api/sessions${pqs()}`);
+  // Never leave the panel on "Loading…" — an endpoint that failed must say so,
+  // because a spinner and an empty project look identical to the reader.
+  if (!d) { body.innerHTML = '<div class="muted">Could not read sessions.</div>'; return; }
+  const c = document.getElementById('nav-sessions-count'); if (c) c.textContent = d.count ?? 0;
+  if (!d.sessions?.length) {
+    body.innerHTML = '<div class="muted">No transcripts for this project yet.</div>';
+    return;
+  }
+  body.innerHTML = d.sessions.map(s => `
+    <div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline">
+        <strong>${esc(s.title || s.opened_with || s.id)}</strong>
+        <span class="muted" style="white-space:nowrap">${ago(s.modified)} · ${fmtMB(s.size_bytes)}</span>
+      </div>
+      <div style="margin-top:6px">
+        <button class="btn-sm" onclick="openSession('${esc(s.id)}')">transcript</button>
+        <button class="btn-sm" onclick="openEdits('${esc(s.id)}')">edits</button>
+      </div>
+      <div id="sess-${esc(s.id)}" style="margin-top:8px"></div>
+    </div>`).join('');
+}
+
+async function openEdits(id) {
+  const slot = document.getElementById(`sess-${id}`);
+  slot.innerHTML = '<span class="muted">Loading…</span>';
+  const d = await api(`/api/sessions/${encodeURIComponent(id)}/edits${pqs()}`);
+  if (!d?.files) { slot.innerHTML = '<span class="muted">Could not read edits.</span>'; return; }
+  if (!d.files.length) { slot.innerHTML = '<span class="muted">No files edited in this session.</span>'; return; }
+  slot.innerHTML = `<table class="tbl"><tbody>${d.files.map(f => `
+    <tr><td style="width:3em;text-align:right" class="muted">${f.edits}×</td>
+        <td style="width:5em" class="muted">${esc(f.tool)}</td>
+        <td><code>${esc(f.path)}</code></td></tr>`).join('')}</tbody></table>`;
+}
+
+async function openSession(id) {
+  const slot = document.getElementById(`sess-${id}`);
+  slot.innerHTML = '<span class="muted">Loading…</span>';
+  const d = await api(`/api/sessions/${encodeURIComponent(id)}${pqs()}`);
+  if (!d?.turns) { slot.innerHTML = '<span class="muted">Could not read transcript.</span>'; return; }
+  // A session runs to thousands of turns. Showing the tail is what a reader
+  // wants — the question is almost always "what happened at the end".
+  const turns = d.turns.slice(-60);
+  slot.innerHTML =
+    `<div class="muted" style="margin-bottom:6px">last ${turns.length} of ${d.turns.length} turns</div>` +
+    `<div style="max-height:420px;overflow:auto;border-left:2px solid var(--border);padding-left:10px">` +
+    turns.map(t => {
+      const tools = t.tool_detail?.length
+        ? `<div class="muted" style="font-size:.85em">${t.tool_detail.map(x =>
+            `${esc(x.name)}${x.target ? ' → ' + esc(String(x.target).slice(0, 70)) : ''}`).join(' · ')}</div>`
+        : '';
+      const text = (t.text || '').slice(0, 400);
+      return `<div style="margin-bottom:10px">
+        <span class="muted" style="font-size:.8em">${esc(t.role)}${t.subtype ? '/' + esc(t.subtype) : ''} ${t.ts ? ago(t.ts) : ''}</span>
+        ${text ? `<div>${esc(text)}${(t.text || '').length > 400 ? '…' : ''}</div>` : ''}
+        ${tools}
+      </div>`;
+    }).join('') + '</div>';
+}
+
+async function searchTranscripts() {
+  const q = document.getElementById('session-q').value.trim();
+  const body = document.getElementById('sessions-body');
+  if (q.length < 3) { loadSessions(); return; }
+  body.innerHTML = '<div class="muted">Searching…</div>';
+  const d = await api(`/api/session-search${pqs()}&q=${encodeURIComponent(q)}`);
+  if (!d) { body.innerHTML = '<div class="muted">Search failed.</div>'; return; }
+  if (!d.hits?.length) {
+    body.innerHTML = `<div class="muted">No match for “${esc(q)}”.${d.note ? ' ' + esc(d.note) : ''}
+      <button class="btn-sm" onclick="loadSessions()">back</button></div>`;
+    return;
+  }
+  body.innerHTML =
+    `<div class="muted" style="margin-bottom:8px">${d.hits.length} match(es)${d.truncated ? ', capped' : ''}
+      <button class="btn-sm" onclick="loadSessions()">back</button></div>` +
+    d.hits.map(h => `
+      <div class="card" style="margin-bottom:6px">
+        <div class="muted" style="font-size:.8em">${esc(h.title || h.session)} · ${esc(h.role)} · ${h.ts ? ago(h.ts) : ''}</div>
+        <div>${esc(h.excerpt)}</div>
+      </div>`).join('');
 }
 
 async function loadMemory() {
@@ -4592,7 +4708,7 @@ function switchTab(id, el) {
   // crumb — `labels` used to be referenced here but is only ever a function-local in
   // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
-  const TAB_LABELS = { dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', memory: 'Memory', logs: 'Logs', notifications: 'Notifications', metrics: 'Metrics' };
+  const TAB_LABELS = { dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', memory: 'Memory', sessions: 'Sessions', logs: 'Logs', notifications: 'Notifications', metrics: 'Metrics' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || 'Board';
   if (id === 'dashboard' || id === 'agents') {
     api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
@@ -4601,6 +4717,7 @@ function switchTab(id, el) {
   }
   if (id === 'inbox') refreshInbox();
   if (id === 'memory') loadMemory();
+  if (id === 'sessions') loadSessions();
   if (id === 'logs') refreshLogs();
   if (id === 'notifications') loadNotifications();
 }
