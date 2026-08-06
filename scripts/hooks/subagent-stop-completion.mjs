@@ -57,19 +57,16 @@ export function completionDecision({ threeState, recentVerdictExists, canonical 
   if (!recentVerdictExists) {
     return { ok: false, reason: 'subagent stopped without recording a verdict — three-state completion requires acceptance evidence. Record it: scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...]' };
   }
-  // Presence was the whole check, and presence is not enough. On the first live
-  // pipeline run architect wrote {"v":1,...,"verdict":"APPROVED"} — a verdict, so
-  // this hook passed — and the dispatcher read no verdict, named no next stage,
-  // and the run stalled at the first transition while the agent reported success.
-  // The command was inlined verbatim in the agent's own file, with the reason
-  // attached; it still was not used. So the format is checked here rather than
-  // argued there.
+  // An earlier version of this check FAILED completion for a versioned-JSON
+  // verdict, on the belief that the pipe form was canonical. It is the other way
+  // round: scripts/log-verdict.sh has written versioned JSON since dda79037, and
+  // the pipe dialects are history the readers still accept. Failing an agent for
+  // using the helper correctly is worse than the stall it was meant to prevent,
+  // so format is reported, never enforced.
   if (!canonical) {
     return {
-      ok: false,
-      reason: 'verdict recorded in a NON-CANONICAL format (JSON or freeform). The pipeline dispatcher '
-        + 'and the board cost view read the canonical line and will not see this one — the pipeline stalls here. '
-        + 'Re-record it: bash scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...] — see agents/_shared/verdict-format.md',
+      ok: true,
+      reason: 'verdict recorded in a legacy text dialect — readable, but scripts/log-verdict.sh now writes versioned JSON',
     };
   }
   if (!hasCost) {

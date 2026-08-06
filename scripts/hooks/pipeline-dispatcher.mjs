@@ -31,13 +31,16 @@ import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
+import { parseVerdictLine as parseVerdictRecord } from '../lib/verdict-record.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const PIPELINE_PATH = join('shared', 'pipeline.toml');
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
 // A verdict is "fresh" if written in the last 30 min — long enough for a slow
 // subagent's closing writes, short enough not to resurrect yesterday's run.
-const FRESH_MS = 30 * 60 * 1000;
+// Exported so scripts/lib/pipeline-position.mjs shares this one boundary
+// instead of hardcoding its own 30-min constant.
+export const FRESH_MS = 30 * 60 * 1000;
 // Join-quorum partner verdicts may be hours old (parallel branches).
 const JOIN_MS = 24 * 60 * 60 * 1000;
 
@@ -75,50 +78,33 @@ export function normalizeAgent(subagentType) {
 }
 
 /**
- * Parse a verdict log line → {agent, verdict, canonical}.
+ * Parse a verdict log line → {agent, verdict, canonical, hasCost}.
  *
- * The canonical format is `<ts> | <agent> | <verdict> | ... | cost=$<usd>`,
- * written by scripts/log-verdict.sh and specified in
- * agents/_shared/verdict-format.md.
+ * Delegates to scripts/lib/verdict-record.mjs, which owns the schema. This hook
+ * had its OWN copy of the parser and it knew only the two legacy text dialects.
+ * When verdicts moved to versioned JSON (dda79037) one parser was updated and
+ * this one was not, so on the first live pipeline run architect wrote a correct
+ * v1 record through scripts/log-verdict.sh, and the dispatcher reported "no
+ * verdict recorded", named no next stage, and the run stalled at the first
+ * transition while the agent had done exactly the right thing.
  *
- * JSON is tolerated because an agent wrote it. On the first live pipeline run,
- * architect finished correctly — ARCH doc, ADR, Beads tasks, gate — and emitted
- * `{"v":1,"agent":"architect","verdict":"APPROVED",...}` instead of the
- * documented line. The dispatcher reported "no verdict recorded", the next stage
- * was never named, and the run stalled at the first transition while the agent
- * believed it had succeeded.
+ * The lesson is not "tolerate more formats" — it is that a second parser for a
+ * schema someone else owns will drift, and the drift shows up as the pipeline
+ * being silently wrong rather than as a failing test. So there is one parser.
  *
- * Refusing to parse it is defensible and leaves the pipeline dead; parsing it
- * silently would hide the deviation and leave the board's cost dashboard at zero
- * (the cost=$ tag is what /api/cost reads). So: parse it, and mark it
- * non-canonical so the caller can say so.
+ * `canonical` marks the CURRENT write format (versioned JSON). Legacy lines
+ * still read — every log written before dda79037 is in them — and are not a
+ * defect to report.
  */
 export function parseVerdictLine(line) {
-  if (!line) return null;
-  const t = String(line).trim();
-
-  if (t.startsWith('{')) {
-    try {
-      const o = JSON.parse(t);
-      const verdict = o.verdict ?? o.status ?? o.result;
-      if (!verdict) return null;
-      return {
-        ts: o.ts ?? o.timestamp ?? null,
-        agent: o.agent ?? null,
-        verdict: String(verdict).toUpperCase(),
-        canonical: false,
-        // The cost tag lives in the canonical line; a JSON verdict that omits it
-        // reports zero spend for a stage that spent.
-        hasCost: o.cost_usd != null || o.cost != null,
-      };
-    } catch { return null; }
-  }
-
-  const parts = t.includes('|') ? t.split('|').map(s => s.trim()) : t.split(/\s+/);
-  if (parts.length < 3) return null;
+  const r = parseVerdictRecord(line);
+  if (!r.ok) return null;
   return {
-    ts: parts[0], agent: parts[1], verdict: (parts[2] || '').toUpperCase(),
-    canonical: true, hasCost: /cost=\$/.test(t),
+    ts: r.rec.ts ?? null,
+    agent: r.rec.agent || null,
+    verdict: String(r.rec.verdict || '').toUpperCase(),
+    canonical: !r.legacy,
+    hasCost: r.rec.cost_usd != null,
   };
 }
 
@@ -234,12 +220,12 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     };
   }
 
-  // A verdict the pipeline could only read by guessing is a defect to surface,
-  // not a detail to absorb: the same line leaves /api/cost at zero.
-  const formatNote = verdict.canonical === false
-    ? ` NOTE: ${agent} wrote a non-canonical (JSON) verdict line. The pipeline read it, but the board's cost view cannot`
-      + `${verdict.hasCost ? '' : ' and this stage will report zero spend'}.`
-      + ` Ask ${agent} to use: bash scripts/log-verdict.sh ${agent} ${verdict.verdict} <cost_usd> — see agents/_shared/verdict-format.md.`
+  // A legacy line is history, not a defect — the helper has written versioned
+  // JSON since dda79037. Only a missing cost tag still matters, because
+  // /api/cost reads it and a stage with no cost reports zero spend.
+  const formatNote = verdict.hasCost === false
+    ? ` NOTE: this verdict carries no cost — /api/cost will report zero spend for ${agent}.`
+      + ` Record with: bash scripts/log-verdict.sh ${agent} ${verdict.verdict} auto`
     : '';
 
   const nexts = rule.next || [];

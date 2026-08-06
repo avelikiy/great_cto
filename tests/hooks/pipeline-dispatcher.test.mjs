@@ -2,6 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
@@ -54,10 +55,16 @@ test('normalizeAgent strips the great_cto- prefix', () => {
 test('parseVerdictLine handles pipe- and space-separated formats', () => {
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z | architect | APPROVED | feature=x | cost=$0.50'),
-    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: true, hasCost: true });
+    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: false, hasCost: true });
+  // The space dialect is `<ts> <verdict> <details>` — it never carried an agent
+  // (the filename did), so the second token IS the verdict. The hook's old
+  // private parser read it as `<ts> <agent> <verdict>`; the two disagreed, which
+  // is the second thing a duplicated parser drifted on. Only history is written
+  // in this dialect, and `latestVerdict` ignores anything over 30 minutes old,
+  // so the ambiguity cannot reach a live dispatch.
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z qa-engineer PASS coverage=80%'),
-    { ts: '2026-07-02T10:00:00Z', agent: 'qa-engineer', verdict: 'PASS', canonical: true, hasCost: false });
+    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'QA-ENGINEER', canonical: false, hasCost: false });
   assert.equal(parseVerdictLine(''), null);
 });
 
@@ -376,41 +383,62 @@ test('a regulated floor keeps the ship gate even under a light level', () => {
 // reported "no verdict recorded" and named no next stage, while the agent
 // believed it had succeeded.
 
-test('the canonical line parses and is marked canonical', () => {
-  const v = parseVerdictLine('2026-08-06T10:00:00Z | architect | APPROVED | feature=x | cost=$0.42');
+test('the current write format — versioned JSON — is the canonical one', () => {
+  // These two assertions were inverted for one commit. scripts/log-verdict.sh
+  // has written versioned JSON since dda79037; the piped form is history.
+  const v = parseVerdictLine('{"v":1,"ts":"2026-08-06T10:54:09Z","agent":"architect","verdict":"APPROVED","cost_usd":0}');
   assert.equal(v.agent, 'architect');
   assert.equal(v.verdict, 'APPROVED');
   assert.equal(v.canonical, true);
   assert.equal(v.hasCost, true);
 });
 
-test('the JSON line an agent actually wrote parses, and is marked non-canonical', () => {
-  const v = parseVerdictLine('{"v":1,"ts":"2026-08-06T10:54:09Z","agent":"architect","verdict":"APPROVED","cost_usd":0}');
+test('a legacy piped line still parses, marked legacy rather than broken', () => {
+  const v = parseVerdictLine('2026-08-06T10:00:00Z | architect | APPROVED | feature=x | cost=$0.42');
   assert.equal(v.agent, 'architect');
   assert.equal(v.verdict, 'APPROVED');
-  assert.equal(v.canonical, false, 'tolerating it silently would hide the defect and leave /api/cost at zero');
+  assert.equal(v.canonical, false, 'every log written before the schema is in this dialect');
   assert.equal(v.hasCost, true);
 });
 
-test('a non-canonical verdict still names the next stage, and says the format was wrong', () => {
-  // Refusing to parse is defensible and leaves the pipeline dead.
+test('the hook does not keep its own copy of the schema', () => {
+  // The stall had one cause: two parsers for one format, and the schema change
+  // updated the other one. A second copy will drift again, and the drift shows
+  // up as the pipeline being silently wrong rather than as a failing test.
+  const src = fs.readFileSync(new URL('../../scripts/hooks/pipeline-dispatcher.mjs', import.meta.url), 'utf8');
+  assert.match(src, /from '\.\.\/lib\/verdict-record\.mjs'/,
+    'parseVerdictLine must delegate to the module that owns the schema');
+});
+
+test('a verdict with no cost is flagged — the dashboard would read zero', () => {
   const d = decideNext({
     agent: 'architect', transitions: TRANSITIONS,
-    verdict: parseVerdictLine('{"agent":"architect","verdict":"APPROVED"}'),
+    verdict: parseVerdictLine('{"v":1,"ts":"2026-08-06T10:00:00Z","agent":"architect","verdict":"APPROVED"}'),
     activeGates: ['arch', 'ship'],
   });
   assert.equal(d.kind, 'gate');
   assert.match(d.text, /pm/, 'the pipeline must keep moving');
-  assert.match(d.text, /non-canonical/);
-  assert.match(d.text, /log-verdict\.sh/, 'the fix has to be actionable, not just named');
-  assert.match(d.text, /zero spend/, 'a JSON verdict with no cost silently zeroes the dashboard');
+  assert.match(d.text, /zero spend/);
+  assert.match(d.text, /log-verdict\.sh/, 'naming the defect without the fix just stops the agent twice');
+});
+
+test('a correct verdict carries no format complaint', () => {
+  const d = decideNext({
+    agent: 'architect', transitions: TRANSITIONS,
+    verdict: parseVerdictLine('{"v":1,"ts":"2026-08-06T10:00:00Z","agent":"architect","verdict":"APPROVED","cost_usd":0.4}'),
+    activeGates: ['arch', 'ship'],
+  });
+  assert.ok(!/NOTE:/.test(d.text), 'an agent that used the helper must not be told it did something wrong');
 });
 
 test('garbage and blank lines are unparseable rather than half-parsed', () => {
   // A real verdict directory holds an empty senior-dev.log.
-  for (const bad of ['', '   ', '\n', '{not json', '{"v":1}', 'two words']) {
+  // The space dialect never carried an agent name — the filename did — so a
+  // two-word line parses to a record with an empty agent rather than to null.
+  for (const bad of ['', '   ', '\n', '{not json', '{"v":1}']) {
     assert.equal(parseVerdictLine(bad), null, JSON.stringify(bad));
   }
+  assert.equal(parseVerdictLine('two words').agent, null, 'the legacy space form has no agent field');
 });
 
 test('every verdict line shape found in this repo is readable', () => {
@@ -420,7 +448,7 @@ test('every verdict line shape found in this repo is readable', () => {
     '2026-06-27T16:29:38Z | project-auditor | DONE | artefacts=1 | beads_open=8',
     '2026-07-29T10:12:13Z | architect | DONE | project=great_cto | cost=$0',
     '{"v":1,"ts":"2026-08-06T10:54:09Z","agent":"architect","verdict":"APPROVED","cost_usd":0}',
-  ];
+  ];  // two legacy dialects and the current one, all present in this repo today
   for (const s of shapes) {
     const v = parseVerdictLine(s);
     assert.ok(v && v.verdict, `unreadable: ${s.slice(0, 60)}`);

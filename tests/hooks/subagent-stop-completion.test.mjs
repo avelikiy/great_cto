@@ -56,12 +56,14 @@ test('recentVerdict: true only when a log is within the window', () => {
 // inlined verbatim in the agent's own file, with the reason attached, and was
 // still not used; so the format is checked here rather than argued there.
 
-test('a non-canonical verdict fails completion and says how to fix it', () => {
+test('a legacy-dialect verdict passes, and is only noted', () => {
+  // This assertion was the other way round for one commit, on the belief that
+  // the pipe form was canonical. scripts/log-verdict.sh has written versioned
+  // JSON since dda79037; the pipe dialects are history the readers accept.
+  // Failing an agent for using the helper correctly is worse than the stall.
   const d = completionDecision({ threeState: true, recentVerdictExists: true, canonical: false });
-  assert.equal(d.ok, false);
-  assert.match(d.reason, /NON-CANONICAL/);
-  assert.match(d.reason, /log-verdict\.sh/, 'naming the defect without the fix just stops the agent twice');
-  assert.match(d.reason, /stalls/, 'the consequence is what makes it worth re-recording');
+  assert.equal(d.ok, true);
+  assert.match(d.reason, /legacy/);
 });
 
 test('a canonical verdict with no cost tag fails — the dashboard would read zero', () => {
