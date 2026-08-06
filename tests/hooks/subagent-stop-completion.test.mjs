@@ -123,3 +123,37 @@ test('a missing artefact outranks a missing cost tag', () => {
   });
   assert.match(d.reason, /named but absent/);
 });
+
+// ── the check a verdict cites must back it ─────────────────────────────────
+
+test('a success verdict whose own check fails does not complete', () => {
+  const d = completionDecision({
+    threeState: true, recentVerdictExists: true,
+    execution: { ok: false, status: 'failed', counts: { pass: 8, fail: 2 }, claim: { value: 'npm test' }, why: 'failed' },
+  });
+  assert.equal(d.ok, false);
+  assert.match(d.reason, /cannot both stand/);
+});
+
+test('a refused command does not pass as verified', () => {
+  const d = completionDecision({
+    threeState: true, recentVerdictExists: true,
+    execution: { ok: false, status: 'refused', claim: { value: 'npm test; rm -rf /' }, why: 'will not run it' },
+  });
+  assert.equal(d.ok, false);
+});
+
+test('execution is only judged when it was actually attempted', () => {
+  // Off by default: re-running a suite on every subagent stop is a real cost.
+  assert.equal(completionDecision({ threeState: true, recentVerdictExists: true, execution: null }).ok, true);
+});
+
+test('a missing artefact is reported before a failing check', () => {
+  // If the document does not exist, whether its tests pass is the wrong question.
+  const d = completionDecision({
+    threeState: true, recentVerdictExists: true,
+    artifacts: { ok: false, checked: [{ key: 'a', path: 'x.md' }], missing: [{ key: 'a', path: 'x.md' }], thin: [] },
+    execution: { ok: false, status: 'failed', claim: { value: 'npm test' }, why: 'failed' },
+  });
+  assert.match(d.reason, /named but absent/);
+});

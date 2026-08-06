@@ -27,6 +27,7 @@ import { readFileSync, readdirSync, statSync, existsSync, appendFileSync } from 
 import { join } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
+import { checkExecution, explainExecution } from '../lib/execution-claims.mjs';
 import { fileURLToPath } from 'node:url';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -53,7 +54,7 @@ export function readCompletionFlags(tomlText) {
  * @param {{threeState:boolean, recentVerdictExists:boolean}} s
  * @returns {{ok:boolean, reason:string}}
  */
-export function completionDecision({ threeState, recentVerdictExists, canonical = true, hasCost = true, artifacts = null }) {
+export function completionDecision({ threeState, recentVerdictExists, canonical = true, hasCost = true, artifacts = null, execution = null }) {
   if (!threeState) return { ok: true, reason: 'three_state_completion off — no enforcement' };
   if (!recentVerdictExists) {
     return { ok: false, reason: 'subagent stopped without recording a verdict — three-state completion requires acceptance evidence. Record it: scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...]' };
@@ -77,6 +78,14 @@ export function completionDecision({ threeState, recentVerdictExists, canonical 
   const artifactNote = artifacts && !artifacts.ok ? explainArtifacts(artifacts) : null;
   if (artifactNote) {
     return { ok: false, reason: artifactNote };
+  }
+  // The rung above artefacts: the check the verdict cites is re-run, and a
+  // success verdict whose own check fails does not stand. Only runs when the
+  // agent names a command — see execution-claims for why the allowlist, not the
+  // agent, decides what may be executed.
+  const execNote = execution && !execution.ok ? explainExecution(execution) : null;
+  if (execNote) {
+    return { ok: false, reason: execNote };
   }
   if (!hasCost) {
     return {
@@ -174,6 +183,12 @@ async function main() {
     canonical: fresh ? fresh.canonical !== false : true,
     hasCost: fresh ? fresh.hasCost !== false : true,
     artifacts: fresh ? checkArtifacts(fresh.meta) : null,
+    // Off unless asked for: re-running a suite on every subagent stop is a real
+    // cost, and a hook that quietly adds minutes to every stage is a tax nobody
+    // agreed to. GREAT_CTO_VERIFY_EXECUTION=1 turns it on.
+    execution: fresh && process.env.GREAT_CTO_VERIFY_EXECUTION === '1'
+      ? checkExecution(fresh.meta, { timeoutMs: Number(process.env.GREAT_CTO_VERIFY_TIMEOUT_MS || 120_000) })
+      : null,
   });
   if (decision.ok) return process.exit(0);
 
