@@ -10,9 +10,16 @@
 # Schema per agent:
 #   on   = verdict tokens that mean "this stage succeeded" (from the agent's
 #          last line in .great_cto/verdicts/<agent>.log)
-#   gate = human gate that must be approved before `next` may start.
+#   gate = human gate(s) that must be approved before `next` may start. A
+#          string or a list; ALL of the listed gates that are ACTIVE at the
+#          project's approval-level must be approved. The map declares which
+#          gates guard an edge; approval-level decides which of them apply.
 #          The dispatcher never auto-approves gates — it only reminds the
 #          orchestrator to create/surface the gate and wait for the CTO.
+#
+#          Every gate name in scripts/lib/approval-level.mjs LEVEL_GATES must
+#          appear here, or a level silently promises a pause it cannot deliver.
+#          tests/hooks/pipeline-dispatcher.test.mjs enforces that.
 #   join = other agents whose success verdict must ALSO exist before `next`
 #          fires (parallel quorum, e.g. qa-engineer + security-officer).
 #   next = agents to spawn after `on` (and gate approval / join quorum).
@@ -36,6 +43,7 @@ next = ["senior-dev"]
 
 [transitions.senior-dev]
 on = ["TASK_DONE", "DONE"]
+gate = ["gate:code"]
 next = ["code-reviewer"]
 
 [transitions.code-reviewer]
@@ -45,13 +53,13 @@ next = ["qa-engineer", "security-officer"]
 [transitions.qa-engineer]
 on = ["PASS", "DONE"]
 join = ["security-officer"]
-gate = "gate:ship"
+gate = ["gate:qa", "gate:ship"]
 next = ["devops"]
 
 [transitions.security-officer]
 on = ["APPROVED", "DONE"]
 join = ["qa-engineer"]
-gate = "gate:ship"
+gate = ["gate:security", "gate:compliance", "gate:ship"]
 next = ["devops"]
 
 [transitions.devops]

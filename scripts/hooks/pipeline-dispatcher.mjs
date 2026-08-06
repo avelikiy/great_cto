@@ -143,12 +143,20 @@ export function handoffFallback(agent, withinMs, now, { readdir, stat, read }) {
  * @returns {{kind:string, text:string}|null} null = nothing to inject
  */
 export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null }) {
+  // An edge may be guarded by several gates — `approval-level` decides which of
+  // them apply, the map only declares that they guard this edge. Before this,
+  // `gate` was a single string and every level above `strict` promised gates
+  // (code, qa, security, compliance) that no transition declared: the level
+  // asked for a pause the map could not deliver, and a regulated archetype's
+  // security + compliance floor was among them.
+  const gatesOf = (g) => (Array.isArray(g) ? g : g ? [g] : []);
   const gateActive = (g) => {
     if (!g) return false;
     if (!activeGates) return true;                       // no policy supplied → unchanged behaviour
     const bare = String(g).replace(/^gate:/, '');
     return activeGates.includes(bare) || activeGates.includes(g);
   };
+  const activeOf = (g) => gatesOf(g).filter(gateActive);
   const rule = transitions[agent] ||
     (agent.endsWith('-reviewer') ? { on: ['APPROVED', 'SIGNED-OFF', 'DONE'], next: ['senior-dev'] } : null);
   if (!rule) return null;
@@ -184,7 +192,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}), but the parallel branch ` +
         `[${pendingJoin.join(', ')}] has not recorded a success verdict yet. ` +
         `If not already running, spawn it now (subagent_type: ${pendingJoin[0]}). ` +
-        `Only after the full quorum: ${rule.gate ? `surface ${rule.gate} to the CTO, then ` : ''}spawn ${(rule.next || []).join(' + ')}.`,
+        `Only after the full quorum: ${activeOf(rule.gate).length ? `surface ${activeOf(rule.gate).join(' + ')} to the CTO, then ` : ''}spawn ${(rule.next || []).join(' + ')}.`,
     };
   }
 
@@ -193,23 +201,26 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     return { kind: 'done', text: `PIPELINE: ${agent} succeeded (${verdict.verdict}) — end of chain. Report the outcome to the CTO.` };
   }
 
-  if (rule.gate && gateActive(rule.gate)) {
+  const active = activeOf(rule.gate);
+  if (active.length) {
+    const list = active.join(' + ');
     return {
       kind: 'gate',
-      text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}). Next stage [${nexts.join(', ')}] is behind ${rule.gate} (human approval). ` +
-        `Ensure the ${rule.gate} Beads task exists (bd list --label gate --status open), show the CTO the gate summary with artifact links, and WAIT for approval. ` +
-        `After the CTO approves: close the gate bead and spawn ${nexts.map(n => `subagent_type: ${n}`).join(', then ')}. Do not auto-approve.`,
+      text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}). Next stage [${nexts.join(', ')}] is behind ${list} (human approval). ` +
+        `Ensure the ${list} Beads task${active.length > 1 ? 's exist' : ' exists'} (bd list --label gate --status open), show the CTO the gate summary with artifact links, and WAIT for approval. ` +
+        `${active.length > 1 ? 'EVERY one of them must be approved before proceeding. ' : ''}` +
+        `After the CTO approves: close the gate bead${active.length > 1 ? 's' : ''} and spawn ${nexts.map(n => `subagent_type: ${n}`).join(', then ')}. Do not auto-approve.`,
     };
   }
   // A gate declared in the map but not active at this approval level is skipped
   // deliberately, and the directive says so — a silently-skipped gate would look
   // identical to a forgotten one, and the operator must be able to tell which
   // question they chose not to be asked.
-  if (rule.gate) {
+  if (gatesOf(rule.gate).length) {
     return {
       kind: 'next',
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) → spawn ${nexts.map(n => `Agent(subagent_type: ${n})`).join(' and ')} now. ` +
-        `${rule.gate} is declared in the pipeline map but NOT active at this approval level — the CTO delegated this decision, so do not wait for it. ` +
+        `${gatesOf(rule.gate).join(' + ')} ${gatesOf(rule.gate).length > 1 ? 'are' : 'is'} declared in the pipeline map but NOT active at this approval level — the CTO delegated this decision, so do not wait for it. ` +
         `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.`,
     };
   }

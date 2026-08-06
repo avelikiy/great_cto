@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { gatesForApprovalLevel } from '../../scripts/lib/approval-level.mjs';
+import { gatesForApprovalLevel, APPROVAL_LEVELS } from '../../scripts/lib/approval-level.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HOOK = resolve(__dirname, '../../scripts/hooks/pipeline-dispatcher.mjs');
@@ -75,9 +75,66 @@ test('success verdict with gate → gate directive naming next agent', () => {
 });
 
 test('success verdict without gate → immediate spawn directive', () => {
-  const d = decideNext({ agent: 'senior-dev', transitions: TRANSITIONS, verdict: v('senior-dev', 'TASK_DONE') });
+  // code-reviewer → qa+security is the ungated edge; senior-dev is behind
+  // gate:code, which only some approval levels activate.
+  const d = decideNext({ agent: 'code-reviewer', transitions: TRANSITIONS, verdict: v('code-reviewer', 'APPROVED') });
   assert.equal(d.kind, 'next');
-  assert.match(d.text, /code-reviewer/);
+  assert.match(d.text, /qa-engineer/);
+  assert.match(d.text, /security-officer/);
+});
+
+test('an edge guarded by several gates waits for every ACTIVE one', () => {
+  // security-officer → devops is guarded by security + compliance + ship. A
+  // regulated archetype activates all three; approving one is not approving the
+  // edge, and a directive naming only the first would read as if it were.
+  const d = decideNext({
+    agent: 'security-officer', transitions: TRANSITIONS,
+    verdict: v('security-officer', 'APPROVED'),
+    joinVerdicts: { 'qa-engineer': v('qa-engineer', 'PASS') },
+    activeGates: ['security', 'compliance', 'ship'],
+  });
+  assert.equal(d.kind, 'gate');
+  for (const g of ['gate:security', 'gate:compliance', 'gate:ship']) assert.match(d.text, new RegExp(g));
+  assert.match(d.text, /EVERY one of them must be approved/);
+});
+
+test('a multi-gate edge honours only the gates the level activates', () => {
+  const d = decideNext({
+    agent: 'security-officer', transitions: TRANSITIONS,
+    verdict: v('security-officer', 'APPROVED'),
+    joinVerdicts: { 'qa-engineer': v('qa-engineer', 'PASS') },
+    activeGates: ['arch', 'ship'],           // gates-only
+  });
+  assert.equal(d.kind, 'gate');
+  assert.match(d.text, /gate:ship/);
+  assert.ok(!/gate:compliance/.test(d.text), 'a gate the CTO switched off must not be presented as pending');
+});
+
+// ── every configured gate must exist on the map ─────────────────────────────
+//
+// approval-level offers seven gates; the map declared four. `strict` promised a
+// code gate that never fired, `expert` and `step-by-step` promised three, and a
+// regulated archetype's security + compliance floor — the one the level table
+// calls a floor precisely so it cannot be bypassed by omission — was bypassed by
+// omission here instead. Nothing failed; the pause simply never came.
+
+test('every gate any approval level can demand is declared in pipeline.toml', () => {
+  const toml = PIPELINE_TOML;
+  const declared = new Set([...toml.matchAll(/gate:([a-z]+)/g)].map((m) => m[1]));
+  for (const level of APPROVAL_LEVELS) {
+    for (const g of gatesForApprovalLevel(level)) {
+      assert.ok(declared.has(g),
+        `approval-level '${level}' demands gate:${g}, which no transition declares — the level promises a pause the pipeline cannot deliver`);
+    }
+  }
+});
+
+test('the regulated floor is declared, not merely required', () => {
+  const toml = PIPELINE_TOML;
+  const declared = new Set([...toml.matchAll(/gate:([a-z]+)/g)].map((m) => m[1]));
+  for (const g of gatesForApprovalLevel('gates-only', { archetype: 'fintech' })) {
+    assert.ok(declared.has(g), `a fintech project is told gate:${g} applies; no transition declares it`);
+  }
 });
 
 test('BLOCKED verdict halts the chain', () => {
