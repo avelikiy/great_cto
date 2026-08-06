@@ -89,10 +89,44 @@ test('an unreadable store yields no beads, which reads as absent, which waits', 
 });
 
 test('an unparseable date does not become an approval', () => {
-  const r = gateState('gate:arch', [bead('gate:arch — x', 'closed', 'not-a-date')], { verdictTs: RAISED });
-  assert.equal(r.state, 'approved', 'an unreadable close time falls back to the status, which is closed');
-  const r2 = gateState('gate:arch', [bead('gate:arch — x', 'closed', '2026-08-06T11:00:00Z')], { verdictTs: 'not-a-date' });
-  assert.equal(r2.state, 'approved');
+  // This test's NAME was right and both its assertions were the other way round,
+  // and it shipped green — so "gate-state tests: all passing" bought exactly the
+  // confidence the bug should have denied. Security review found it by reading
+  // the code rather than the suite. A test that pins the defect its own title
+  // forbids is worse than no test.
+  assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'closed', 'not-a-date')], { verdictTs: RAISED }).state,
+    'stale', 'a close time that cannot be read cannot be shown to be after the verdict');
+  assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'closed', '2026-08-06T11:00:00Z')], { verdictTs: 'not-a-date' }).state,
+    'stale', 'a verdict time that cannot be read cannot be shown to precede the approval');
+  assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'closed', '')], { verdictTs: RAISED }).state,
+    'stale', 'a blank updated_at from an export quirk needs no attacker');
+});
+
+test('a back-dated verdict cannot make an old approval cover a new run', () => {
+  // The first security reproduction, and the one that needed no bd access: an
+  // agent writes its own verdict timestamp, and `closed AFTER the verdict` is
+  // trivially true of every gate ever closed once the verdict claims to be from
+  // 1970. The check meant to stop an old approval carrying a new run did the
+  // opposite.
+  const NOW = Date.parse('2026-08-06T12:00:00Z');
+  const closed = [bead('gate:ship — x', 'closed', '2026-08-06T09:00:00Z')];
+  assert.equal(gateState('gate:ship', closed, { verdictTs: '1970-01-01T00:00:00Z', now: NOW }).state, 'stale');
+  assert.equal(gateState('gate:ship', closed, { verdictTs: '2027-01-01T00:00:00Z', now: NOW }).state, 'stale',
+    'a future-dated verdict is equally impossible to have been approved');
+  assert.equal(gateState('gate:ship', closed, { verdictTs: '2026-08-06T08:00:00Z', now: NOW }).state, 'approved',
+    'the ordinary case must still pass, or the bound is just a refusal');
+});
+
+test('an open gate outranks a newer closed one with a matching title', () => {
+  // The second security reproduction. Selecting the newest matching bead let a
+  // second `gate:ship — …` bead, closed later, silently answer for the CTO's
+  // real still-open one. A later close cannot answer an earlier question.
+  const r = gateState('gate:ship', [
+    { id: 'real-42', title: 'gate:ship — deploy X', status: 'open', updated_at: '2026-08-01T10:00:00Z' },
+    { id: 'forged-99', title: 'gate:ship — unrelated note', status: 'closed', updated_at: '2026-08-06T09:00:00Z' },
+  ], { verdictTs: '2026-08-01T09:00:00Z' });
+  assert.equal(r.state, 'pending');
+  assert.equal(r.bead.id, 'real-42', 'the report must name the bead that is actually blocking');
 });
 
 test('several gates on one edge are resolved from one read', () => {
