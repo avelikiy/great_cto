@@ -27,6 +27,9 @@ interface Env {
   EMAIL_FROM?: string;       // welcome-email From (e.g. "GreatCTO <hi@greatcto.systems>")
   EMAIL_WELCOME_SUBJECT?: string;
   EMAIL_WELCOME_HTML?: string;   // optional inline HTML override for welcome email
+  // Comma-separated properties allowed to submit a lead. Defaults to "greatcto".
+  // Kept out of source so no site name has to live in a public repository.
+  LEAD_PROPERTIES?: string;
 }
 
 const ALLOWED_COMMANDS = new Set([
@@ -284,7 +287,23 @@ async function handleSmoke(req: Request, env: Env): Promise<Response> {
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
 
-const ALLOWED_PROPERTIES = new Set(["greatcto", "coreal", "<private-project>"]);
+/**
+ * Which properties may submit a lead.
+ *
+ * Configuration, not source. This was a literal list of site names, and this
+ * repository is public — so one name was redacted in place to `<private-project>`,
+ * which silently broke it: a placeholder never matches a real property, and the
+ * only signal was a 400 nobody was looking for. Redacting a value that the code
+ * COMPARES is a functional change wearing a privacy fix's clothes.
+ *
+ * LEAD_PROPERTIES is a comma-separated list in the worker's environment.
+ * `greatcto` is the default because it is this repository's own site and the
+ * only name that belongs in public source.
+ */
+function allowedProperties(env: Env): Set<string> {
+  const raw = (env.LEAD_PROPERTIES || "greatcto").split(",");
+  return new Set(raw.map((s) => s.trim().toLowerCase()).filter(Boolean));
+}
 const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
 const SOURCE_RE = /^[a-z0-9/_-]{1,64}$/i;
 const UTM_RE = /^[a-z0-9_.-]{1,64}$/i;
@@ -384,7 +403,7 @@ async function handleLead(req: Request, env: Env): Promise<Response> {
   const utm = (body.utm && typeof body.utm === "object") ? body.utm : {};
 
   if (!EMAIL_RE.test(email) || email.length > 254) return json({ error: "invalid email" }, 400);
-  if (!ALLOWED_PROPERTIES.has(property))            return json({ error: "invalid property" }, 400);
+  if (!allowedProperties(env).has(property))        return json({ error: "invalid property" }, 400);
   if (!SOURCE_RE.test(source))                      return json({ error: "invalid source" }, 400);
 
   const utmFields = ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"];

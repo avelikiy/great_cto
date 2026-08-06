@@ -22,13 +22,14 @@ CREATE INDEX IF NOT EXISTS idx_events_anon     ON events(anon_id);
 -- Leads (email signups from greatcto.systems landing pages).
 -- Storage of email is intentional and explicit (user submitted it).
 -- Honoured deletion on /v1/leads/forget?email=. Forwarded to email provider on
--- ingest (Loops/Resend/Beehiiv — see DEPLOY.md). property=greatcto today;
--- room for coreal.io / <private-project>.cash later.
+-- ingest (Loops/Resend/Beehiiv — see DEPLOY.md). property=greatcto by default;
+-- the set of accepted properties is the worker's LEAD_PROPERTIES env var, so no
+-- site name has to live in this public repository.
 CREATE TABLE IF NOT EXISTS leads (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   received_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   email       TEXT NOT NULL,
-  property    TEXT NOT NULL,                 -- greatcto | coreal | <private-project>
+  property    TEXT NOT NULL,                 -- one of LEAD_PROPERTIES (default: greatcto)
   source      TEXT NOT NULL,                 -- lp/agentic-sdlc | lp/architecture | …
   referrer    TEXT,
   utm_source  TEXT,

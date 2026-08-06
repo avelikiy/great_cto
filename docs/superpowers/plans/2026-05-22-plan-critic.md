@@ -173,7 +173,7 @@ Expected: `plan-critic-prompt.md` appears in the listing alongside `SKILL.md` an
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/avelikiy/development/great_cto
+cd "$(git rev-parse --show-toplevel)"
 git add ~/.claude/plugins/cache/local/superpowers/5.0.6/skills/writing-plans/plan-critic-prompt.md 2>/dev/null || true
 # Note: plugin files are in ~/.claude, not in the great_cto repo.
 # Commit to document the change in great_cto's docs instead:

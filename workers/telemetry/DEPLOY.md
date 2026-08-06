@@ -124,6 +124,13 @@ secrets are configured.
 wrangler d1 execute great-cto-telemetry --remote --file=schema.sql
 
 # Email-provider configuration (Resend, transactional only — we own the audience in D1):
+# Which properties may submit a lead — comma-separated, defaults to "greatcto".
+# Set this when a site other than greatcto.systems posts leads. It is an env var
+# rather than a list in index.ts because this repository is public and a site
+# name in source is a leak; an earlier in-place redaction of one silently broke
+# the check, since a placeholder never matches a real property.
+wrangler secret put LEAD_PROPERTIES   # e.g. "greatcto,othersite"
+
 wrangler secret put EMAIL_PROVIDER   # set to: resend
 wrangler secret put EMAIL_API_KEY    # Resend API key (send-only is enough)
 wrangler secret put EMAIL_FROM       # e.g. "GreatCTO <hi@updates.greatcto.systems>" (must be on verified domain)
