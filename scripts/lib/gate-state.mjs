@@ -49,11 +49,32 @@
 
 import { execFileSync } from 'node:child_process';
 
-/** Does a bead title name this gate? Titles read `gate:arch — <what>`. */
+/**
+ * Does a bead title name this gate? Titles read `gate:arch — <what>`.
+ *
+ * The gate name is PARSED out of the title and compared as a string, rather
+ * than built into a regex. The regex version had two defects, both filed HIGH-3
+ * by security review and both reproduced before this change:
+ *
+ *   the escape of the caller's gate name did not work, so `gate:a.b` matched a
+ *   bead titled `gate:aXb` — a metacharacter in a gate name became a wildcard;
+ *
+ *   `\b` is a word boundary, not a segment boundary, so `gate:arch` matched
+ *   `gate:arch-review`. A hyphen ends a word; it does not end a gate name.
+ *
+ * Neither had a live collision among today's gate names, which is why it was
+ * HIGH and not CRITICAL. Both are the kind that becomes real the day someone
+ * adds `gate:arch-review` next to `gate:arch`. Parsing removes the class of bug
+ * rather than the two instances of it: there is no pattern to escape.
+ */
 export function titleNamesGate(title, gate) {
-  const bare = String(gate || '').replace(/^gate:/, '').trim();
-  if (!bare) return false;
-  return new RegExp(`^\\s*gate:${bare.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`, 'i').test(String(title || ''));
+  const wanted = String(gate || '').replace(/^gate:/, '').trim().toLowerCase();
+  if (!wanted) return false;
+  // The name runs to the first character that cannot be part of one: whitespace,
+  // an em/en dash, or a colon. Everything after it is the human description.
+  const m = String(title || '').match(/^\s*gate:([^\s\u2013\u2014:]+)/i);
+  if (!m) return false;
+  return m[1].toLowerCase() === wanted;
 }
 
 const OPEN_STATES = new Set(['open', 'blocked', 'in_progress', 'in-progress']);

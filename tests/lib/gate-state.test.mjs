@@ -74,9 +74,41 @@ test('the newest bead decides, so a new run reopens a gate an old bead closed', 
 test('gate names match on the whole segment, not a prefix', () => {
   assert.ok(titleNamesGate('gate:arch — x', 'gate:arch'));
   assert.ok(titleNamesGate('gate:arch — x', 'arch'), 'callers pass both bare and prefixed names');
+  assert.ok(titleNamesGate('  gate:ARCH — x', 'gate:arch'), 'titles are written by hand; case and leading space are not a different gate');
+  assert.ok(titleNamesGate('gate:arch', 'gate:arch'), 'a title with no description still names its gate');
   assert.ok(!titleNamesGate('gate:architecture-review — x', 'gate:arch'),
     'a longer gate name is a different gate');
   assert.ok(!titleNamesGate('note about gate:arch', 'gate:arch'), 'the title must NAME the gate, not mention it');
+});
+
+// ── HIGH-3: the two ways the regex version got this wrong ──────────────────
+//
+// Both filed by security review and reproduced before the fix. Neither had a
+// live collision among today's gate names — which is why it was HIGH, and why
+// it would have become real the day someone added `gate:arch-review` beside
+// `gate:arch`. The name is now PARSED and compared as a string, so there is no
+// pattern to escape and no boundary to get wrong.
+
+test('a metacharacter in a gate name is not a wildcard', () => {
+  // The escape of the caller's name did not work: `gate:a.b` matched `gate:aXb`.
+  assert.ok(!titleNamesGate('gate:aXb — x', 'gate:a.b'));
+  assert.ok(titleNamesGate('gate:a.b — x', 'gate:a.b'), 'and the literal name still matches itself');
+  for (const g of ['gate:a+b', 'gate:a*b', 'gate:a|b', 'gate:a(b']) {
+    assert.ok(!titleNamesGate('gate:aXb — x', g), g);
+  }
+});
+
+test('a hyphen ends a word but not a gate name', () => {
+  // `\b` is a word boundary, so `gate:arch` matched `gate:arch-review`.
+  assert.ok(!titleNamesGate('gate:arch-review — x', 'gate:arch'));
+  assert.ok(!titleNamesGate('gate:ship-it — x', 'gate:ship'));
+  assert.ok(titleNamesGate('gate:arch-review — x', 'gate:arch-review'), 'the longer gate still matches itself');
+});
+
+test('the description cannot smuggle a different gate name', () => {
+  // Only the first segment counts; everything after the separator is prose.
+  assert.ok(!titleNamesGate('gate:arch — actually about gate:ship', 'gate:ship'));
+  assert.ok(titleNamesGate('gate:arch — actually about gate:ship', 'gate:arch'));
 });
 
 // ── failing safe ───────────────────────────────────────────────────────────
