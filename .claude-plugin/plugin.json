@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); if [ -n \"$PLUGIN_DIR\" ] && [ -f \"${PLUGIN_DIR}/shared/orchestrator.toml\" ]; then mkdir -p shared; cp \"${PLUGIN_DIR}/shared/orchestrator.toml\" shared/orchestrator.toml 2>/dev/null || true; cp \"${PLUGIN_DIR}/shared/pipeline.toml\" shared/pipeline.toml 2>/dev/null || true; fi",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); if [ -f .claude-plugin/plugin.json ] && grep -q '\"name\": *\"great_cto\"' .claude-plugin/plugin.json 2>/dev/null; then : ; elif [ -n \"$PLUGIN_DIR\" ] && [ -f \"${PLUGIN_DIR}/shared/orchestrator.toml\" ]; then mkdir -p shared; cp \"${PLUGIN_DIR}/shared/orchestrator.toml\" shared/orchestrator.toml 2>/dev/null || true; cp \"${PLUGIN_DIR}/shared/pipeline.toml\" shared/pipeline.toml 2>/dev/null || true; fi",
             "timeout": 5,
             "statusMessage": "Refreshing orchestrator contract..."
           },
