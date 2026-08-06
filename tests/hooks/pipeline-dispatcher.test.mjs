@@ -55,7 +55,7 @@ test('normalizeAgent strips the great_cto- prefix', () => {
 test('parseVerdictLine handles pipe- and space-separated formats', () => {
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z | architect | APPROVED | feature=x | cost=$0.50'),
-    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: false, hasCost: true });
+    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: false, hasCost: true, meta: { feature: 'x' } });
   // The space dialect is `<ts> <verdict> <details>` — it never carried an agent
   // (the filename did), so the second token IS the verdict. The hook's old
   // private parser read it as `<ts> <agent> <verdict>`; the two disagreed, which
@@ -64,7 +64,7 @@ test('parseVerdictLine handles pipe- and space-separated formats', () => {
   // so the ambiguity cannot reach a live dispatch.
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z qa-engineer PASS coverage=80%'),
-    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'QA-ENGINEER', canonical: false, hasCost: false });
+    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'QA-ENGINEER', canonical: false, hasCost: false, meta: { coverage: '80%' } });
   assert.equal(parseVerdictLine(''), null);
 });
 

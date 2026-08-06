@@ -26,6 +26,7 @@
 import { readFileSync, readdirSync, statSync, existsSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
+import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { fileURLToPath } from 'node:url';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -52,7 +53,7 @@ export function readCompletionFlags(tomlText) {
  * @param {{threeState:boolean, recentVerdictExists:boolean}} s
  * @returns {{ok:boolean, reason:string}}
  */
-export function completionDecision({ threeState, recentVerdictExists, canonical = true, hasCost = true }) {
+export function completionDecision({ threeState, recentVerdictExists, canonical = true, hasCost = true, artifacts = null }) {
   if (!threeState) return { ok: true, reason: 'three_state_completion off — no enforcement' };
   if (!recentVerdictExists) {
     return { ok: false, reason: 'subagent stopped without recording a verdict — three-state completion requires acceptance evidence. Record it: scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...]' };
@@ -68,6 +69,14 @@ export function completionDecision({ threeState, recentVerdictExists, canonical 
       ok: true,
       reason: 'verdict recorded in a legacy text dialect — readable, but scripts/log-verdict.sh now writes versioned JSON',
     };
+  }
+  // The cheapest rung of the evidence ladder, and the only one that fits in a
+  // hook that runs on every subagent stop: a path the verdict names either
+  // exists with content, or the claim is not true. Presence of a verdict says
+  // the agent reported; this says it did something.
+  const artifactNote = artifacts && !artifacts.ok ? explainArtifacts(artifacts) : null;
+  if (artifactNote) {
+    return { ok: false, reason: artifactNote };
   }
   if (!hasCost) {
     return {
@@ -164,6 +173,7 @@ async function main() {
     recentVerdictExists: recentVerdict(VERDICT_DIR, RECENT_MS, Date.now()),
     canonical: fresh ? fresh.canonical !== false : true,
     hasCost: fresh ? fresh.hasCost !== false : true,
+    artifacts: fresh ? checkArtifacts(fresh.meta) : null,
   });
   if (decision.ok) return process.exit(0);
 

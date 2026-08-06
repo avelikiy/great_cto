@@ -106,6 +106,9 @@ export function parseVerdictLine(line) {
     verdict: String(r.rec.verdict || '').toUpperCase(),
     canonical: !r.legacy,
     hasCost: r.rec.cost_usd != null,
+    // The claims the verdict makes — artefact paths among them. Carried so the
+    // completion hook can check whether what the agent named actually exists.
+    meta: r.rec.meta ?? {},
   };
 }
 

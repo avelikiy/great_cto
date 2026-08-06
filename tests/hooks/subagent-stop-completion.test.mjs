@@ -87,3 +87,39 @@ test('format is only judged when a verdict exists at all', () => {
 test('the check stays off when three-state completion is not enabled', () => {
   assert.equal(completionDecision({ threeState: false, recentVerdictExists: false, canonical: false }).ok, true);
 });
+
+// ── the artefact a verdict names must exist ────────────────────────────────
+//
+// The hook checked that a verdict existed and parsed — that the agent reported,
+// not that it did anything. Six agents in one session: one left its work in a
+// worktree, one reported coverage=100% having run a third of the suite, one
+// re-verification produced no output at all.
+
+test('a verdict naming an artefact that does not exist fails completion', () => {
+  const d = completionDecision({
+    threeState: true, recentVerdictExists: true,
+    artifacts: { ok: false, checked: [{ key: 'arch', path: 'docs/x.md' }], missing: [{ key: 'arch', path: 'docs/x.md' }], thin: [] },
+  });
+  assert.equal(d.ok, false);
+  assert.match(d.reason, /named but absent/);
+  assert.match(d.reason, /docs\/x\.md/, 'the operator has to know which claim');
+});
+
+test('a verdict claiming no artefact still passes', () => {
+  // Requiring every agent to name one is a different rule, and enforcing it here
+  // would fail the whole fleet at once for something nobody agreed to.
+  assert.equal(completionDecision({
+    threeState: true, recentVerdictExists: true,
+    artifacts: { ok: true, checked: [], missing: [], thin: [] },
+  }).ok, true);
+});
+
+test('a missing artefact outranks a missing cost tag', () => {
+  // Both are wrong; only one means the work may not exist. Reporting the cost
+  // tag first sends the agent to fix the smaller thing.
+  const d = completionDecision({
+    threeState: true, recentVerdictExists: true, hasCost: false,
+    artifacts: { ok: false, checked: [{ key: 'a', path: 'x.md' }], missing: [{ key: 'a', path: 'x.md' }], thin: [] },
+  });
+  assert.match(d.reason, /named but absent/);
+});
