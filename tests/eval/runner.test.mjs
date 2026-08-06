@@ -8,10 +8,11 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { costForUsage } from '../../scripts/lib/cost-meter.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -865,4 +866,65 @@ test('the raise-more-samples advice skips the runs that stopped', () => {
   const src = fs.readFileSync(RUNNER, 'utf8');
   assert.match(src, /const spanning = results\.filter\(\(r\) => r\.power\?\.status === 'inconclusive' && !r\.dropout\?\.severe\)/);
   assert.match(src, /if \(n > 0\) console\.log\(`\s*At \$\{n\} cases/, 'no per-case arithmetic over zero cases');
+});
+
+// ── prompt caching ──────────────────────────────────────────────────────────
+//
+// The actor's system prompt is one agent file with its _shared contracts
+// inlined — 58k characters for devops, identical for every case in a run and
+// re-sent on every ReAct turn. Measured against the real bill it was ~97% of
+// the cost; the judge, which is what people swap when a run costs too much,
+// is 3%. A cache read bills at a tenth of fresh input.
+
+test('a large system prompt is sent as a cacheable prefix, per provider shape', () => {
+  const big = 'x'.repeat(CACHE_MIN_CHARS + 1);
+  const a = cacheableSystem(big, 'anthropic');
+  assert.equal(a[0].cache_control.type, 'ephemeral');
+  assert.equal(a[0].text, big, 'the prompt itself must be unchanged — caching is a price change, not a prompt change');
+
+  const o = cacheableSystem(big, 'openrouter');
+  assert.equal(o[0].role, 'system');
+  assert.equal(o[0].content[0].cache_control.type, 'ephemeral');
+  assert.equal(o[0].content[0].text, big);
+});
+
+test('a prompt too small to cache is left alone', () => {
+  // Anthropic refuses to cache a short prefix, and a write costs 1.25x a plain
+  // read — caching something small is a surcharge, not a saving.
+  assert.equal(cacheableSystem('short', 'anthropic'), null);
+  assert.equal(cacheableSystem('', 'openrouter'), null);
+  assert.equal(cacheableSystem(null, 'anthropic'), null);
+});
+
+test('cache counters are read from either provider and priced, not dropped', () => {
+  const ant = normalizeCacheUsage(
+    { input_tokens: 40, output_tokens: 100 },
+    { input_tokens: 40, output_tokens: 100, cache_read_input_tokens: 16000, cache_creation_input_tokens: 0 },
+  );
+  assert.equal(ant.cache_read_input_tokens, 16000);
+  assert.equal(ant.input_tokens, 40, "Anthropic's input_tokens already excludes cached tokens");
+
+  const or = normalizeCacheUsage(
+    { input_tokens: 16040, output_tokens: 100 },
+    { prompt_tokens: 16040, completion_tokens: 100, prompt_tokens_details: { cached_tokens: 16000 } },
+  );
+  assert.equal(or.cache_read_input_tokens, 16000);
+  assert.equal(or.input_tokens, 40,
+    'OpenAI-style prompt_tokens INCLUDES cached ones — counting them as fresh input reports a saving that did not happen');
+});
+
+test('a cached turn costs a fraction of the same turn uncached', () => {
+  // The claim the change is made on, priced end to end rather than asserted.
+  const model = 'anthropic/claude-sonnet-4';
+  const fresh = costForUsage({ model, usage: { input_tokens: 16040, output_tokens: 500 } });
+  const cached = costForUsage({
+    model,
+    usage: { input_tokens: 40, output_tokens: 500, cache_read_input_tokens: 16000 },
+  });
+  assert.ok(cached < fresh / 2, `a cache read must be materially cheaper (fresh $${fresh}, cached $${cached})`);
+});
+
+test('a run with no usage reported still costs nothing rather than throwing', () => {
+  assert.equal(normalizeCacheUsage(null, null), null);
+  assert.equal(costForUsage({ model: 'anthropic/claude-sonnet-4', usage: null }), 0);
 });

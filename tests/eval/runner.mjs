@@ -500,6 +500,59 @@ export function modelFor(role, env = process.env) {
 }
 
 /**
+ * Minimum system-prompt size worth a cache breakpoint.
+ *
+ * Anthropic will not cache a prefix under 1024 tokens for Sonnet, and a write
+ * costs 1.25x a plain read — so caching something small and rarely reused is a
+ * surcharge, not a saving. ~4000 characters is comfortably over that line.
+ */
+export const CACHE_MIN_CHARS = 4000;
+
+/**
+ * Mark the system prompt as a cacheable prefix.
+ *
+ * The actor's system prompt is one agent file with its `_shared` contracts
+ * inlined — 58k characters for devops, identical for every case in a run and
+ * re-sent on every ReAct turn within a case. That prefix was ~97% of the bill:
+ * the judge, which people reach for first when a run costs too much, is 3%.
+ *
+ * A cache read bills at a tenth of fresh input, so a run of forty cases pays the
+ * prefix once instead of forty times. Nothing about the measurement changes —
+ * same tokens, same model, same temperature; only the price of re-sending an
+ * identical prefix does.
+ *
+ * The TTL is five minutes from last use, which a run keeps alive case to case.
+ * A second `--samples` pass usually still lands inside it; if it does not, the
+ * only cost is one more write.
+ */
+export function cacheableSystem(system, provider) {
+  const text = String(system ?? '');
+  if (text.length < CACHE_MIN_CHARS) return null;   // caller sends it plainly
+  const block = { type: 'text', text, cache_control: { type: 'ephemeral' } };
+  // Anthropic takes a system block array; OpenRouter's OpenAI-compatible shape
+  // carries the same marker inside a structured message content part.
+  return provider === 'anthropic' ? [block] : [{ role: 'system', content: [block] }];
+}
+
+/** Cache counters, normalized across providers, folded into the usage record. */
+export function normalizeCacheUsage(usage, raw) {
+  if (!usage) return usage;
+  const read = raw?.cache_read_input_tokens
+    ?? raw?.prompt_tokens_details?.cached_tokens
+    ?? 0;
+  const write = raw?.cache_creation_input_tokens
+    ?? raw?.prompt_tokens_details?.cache_creation_tokens
+    ?? 0;
+  // OpenAI-style `prompt_tokens` INCLUDES the cached ones; Anthropic's
+  // `input_tokens` excludes them. Double-counting a cached prefix as fresh input
+  // reports a saving that did not happen.
+  const fresh = raw?.prompt_tokens !== undefined
+    ? Math.max(0, (usage.input_tokens || 0) - read - write)
+    : (usage.input_tokens || 0);
+  return { ...usage, input_tokens: fresh, cache_read_input_tokens: read, cache_creation_input_tokens: write };
+}
+
+/**
  * One provider-agnostic completion. Returns a normalized
  * { text, usage:{input_tokens,output_tokens}, stopReason, model } (usage keys
  * are normalized so cost-meter works for both providers). Throws on non-2xx.
@@ -512,11 +565,19 @@ async function callLlm({ model, system, user, maxTokens = 300 }) {
     const response = await fetch(ANTHROPIC_API, {
       method: 'POST',
       headers: { 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION, 'content-type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+      body: JSON.stringify({
+        model, max_tokens: maxTokens,
+        system: cacheableSystem(system, 'anthropic') ?? system,
+        messages: [{ role: 'user', content: user }],
+      }),
     });
     if (!response.ok) throw new Error(`Anthropic API ${response.status}: ${(await response.text()).slice(0, 200)}`);
     const data = await response.json();
-    return { text: data.content?.[0]?.text?.trim() || '', usage: data.usage || null, stopReason: data.stop_reason || null, model };
+    return {
+      text: data.content?.[0]?.text?.trim() || '',
+      usage: normalizeCacheUsage(data.usage || null, data.usage),
+      stopReason: data.stop_reason || null, model,
+    };
   }
 
   // OpenRouter — OpenAI-compatible chat/completions; system folded into messages.
@@ -530,7 +591,10 @@ async function callLlm({ model, system, user, maxTokens = 300 }) {
     },
     body: JSON.stringify({
       model, max_tokens: maxTokens, temperature: 0,
-      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+      messages: [
+        ...(cacheableSystem(system, 'openrouter') ?? [{ role: 'system', content: system }]),
+        { role: 'user', content: user },
+      ],
     }),
   });
   if (!response.ok) throw new Error(`OpenRouter API ${response.status}: ${(await response.text()).slice(0, 200)}`);
@@ -539,7 +603,7 @@ async function callLlm({ model, system, user, maxTokens = 300 }) {
   return {
     text: data.choices?.[0]?.message?.content?.trim() || '',
     // normalize OpenAI-style usage keys → Anthropic-style for cost-meter
-    usage: u ? { input_tokens: u.prompt_tokens ?? 0, output_tokens: u.completion_tokens ?? 0 } : null,
+    usage: u ? normalizeCacheUsage({ input_tokens: u.prompt_tokens ?? 0, output_tokens: u.completion_tokens ?? 0 }, u) : null,
     stopReason: data.choices?.[0]?.finish_reason || null,
     model,
   };
