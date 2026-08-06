@@ -54,10 +54,10 @@ test('normalizeAgent strips the great_cto- prefix', () => {
 test('parseVerdictLine handles pipe- and space-separated formats', () => {
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z | architect | APPROVED | feature=x | cost=$0.50'),
-    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED' });
+    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: true, hasCost: true });
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z qa-engineer PASS coverage=80%'),
-    { ts: '2026-07-02T10:00:00Z', agent: 'qa-engineer', verdict: 'PASS' });
+    { ts: '2026-07-02T10:00:00Z', agent: 'qa-engineer', verdict: 'PASS', canonical: true, hasCost: false });
   assert.equal(parseVerdictLine(''), null);
 });
 
@@ -364,4 +364,65 @@ test('a regulated floor keeps the ship gate even under a light level', () => {
     joinVerdicts: {}, activeGates: gatesForApprovalLevel('product-only', { archetype: 'fintech' }),
   });
   assert.equal(d.kind, 'gate', 'ship is expensive to undo — no level opts out of it');
+});
+
+// ── verdict formats that occur, not the ones the fixture invented ───────────
+//
+// The mechanical walk of all nine stages reported no silent gaps. It wrote
+// pipe-separated verdicts, because that is the canonical format and what the
+// fixture assumed. The first LIVE run stalled at the first transition: architect
+// finished correctly — ARCH doc, ADR, Beads tasks, gate — and wrote
+// {"v":1,"agent":"architect","verdict":"APPROVED",...} instead. The dispatcher
+// reported "no verdict recorded" and named no next stage, while the agent
+// believed it had succeeded.
+
+test('the canonical line parses and is marked canonical', () => {
+  const v = parseVerdictLine('2026-08-06T10:00:00Z | architect | APPROVED | feature=x | cost=$0.42');
+  assert.equal(v.agent, 'architect');
+  assert.equal(v.verdict, 'APPROVED');
+  assert.equal(v.canonical, true);
+  assert.equal(v.hasCost, true);
+});
+
+test('the JSON line an agent actually wrote parses, and is marked non-canonical', () => {
+  const v = parseVerdictLine('{"v":1,"ts":"2026-08-06T10:54:09Z","agent":"architect","verdict":"APPROVED","cost_usd":0}');
+  assert.equal(v.agent, 'architect');
+  assert.equal(v.verdict, 'APPROVED');
+  assert.equal(v.canonical, false, 'tolerating it silently would hide the defect and leave /api/cost at zero');
+  assert.equal(v.hasCost, true);
+});
+
+test('a non-canonical verdict still names the next stage, and says the format was wrong', () => {
+  // Refusing to parse is defensible and leaves the pipeline dead.
+  const d = decideNext({
+    agent: 'architect', transitions: TRANSITIONS,
+    verdict: parseVerdictLine('{"agent":"architect","verdict":"APPROVED"}'),
+    activeGates: ['arch', 'ship'],
+  });
+  assert.equal(d.kind, 'gate');
+  assert.match(d.text, /pm/, 'the pipeline must keep moving');
+  assert.match(d.text, /non-canonical/);
+  assert.match(d.text, /log-verdict\.sh/, 'the fix has to be actionable, not just named');
+  assert.match(d.text, /zero spend/, 'a JSON verdict with no cost silently zeroes the dashboard');
+});
+
+test('garbage and blank lines are unparseable rather than half-parsed', () => {
+  // A real verdict directory holds an empty senior-dev.log.
+  for (const bad of ['', '   ', '\n', '{not json', '{"v":1}', 'two words']) {
+    assert.equal(parseVerdictLine(bad), null, JSON.stringify(bad));
+  }
+});
+
+test('every verdict line shape found in this repo is readable', () => {
+  // Pinned against the shapes that exist rather than the shape assumed: the walk
+  // could not have found the live stall because it wrote its own fixture.
+  const shapes = [
+    '2026-06-27T16:29:38Z | project-auditor | DONE | artefacts=1 | beads_open=8',
+    '2026-07-29T10:12:13Z | architect | DONE | project=great_cto | cost=$0',
+    '{"v":1,"ts":"2026-08-06T10:54:09Z","agent":"architect","verdict":"APPROVED","cost_usd":0}',
+  ];
+  for (const s of shapes) {
+    const v = parseVerdictLine(s);
+    assert.ok(v && v.verdict, `unreadable: ${s.slice(0, 60)}`);
+  }
 });

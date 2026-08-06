@@ -25,6 +25,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parseVerdictLine } from './pipeline-dispatcher.mjs';
 import { fileURLToPath } from 'node:url';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -51,12 +52,56 @@ export function readCompletionFlags(tomlText) {
  * @param {{threeState:boolean, recentVerdictExists:boolean}} s
  * @returns {{ok:boolean, reason:string}}
  */
-export function completionDecision({ threeState, recentVerdictExists }) {
+export function completionDecision({ threeState, recentVerdictExists, canonical = true, hasCost = true }) {
   if (!threeState) return { ok: true, reason: 'three_state_completion off — no enforcement' };
   if (!recentVerdictExists) {
     return { ok: false, reason: 'subagent stopped without recording a verdict — three-state completion requires acceptance evidence. Record it: scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...]' };
   }
+  // Presence was the whole check, and presence is not enough. On the first live
+  // pipeline run architect wrote {"v":1,...,"verdict":"APPROVED"} — a verdict, so
+  // this hook passed — and the dispatcher read no verdict, named no next stage,
+  // and the run stalled at the first transition while the agent reported success.
+  // The command was inlined verbatim in the agent's own file, with the reason
+  // attached; it still was not used. So the format is checked here rather than
+  // argued there.
+  if (!canonical) {
+    return {
+      ok: false,
+      reason: 'verdict recorded in a NON-CANONICAL format (JSON or freeform). The pipeline dispatcher '
+        + 'and the board cost view read the canonical line and will not see this one — the pipeline stalls here. '
+        + 'Re-record it: bash scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...] — see agents/_shared/verdict-format.md',
+    };
+  }
+  if (!hasCost) {
+    return {
+      ok: false,
+      reason: 'verdict has no cost=$<usd> tag — /api/cost reports zero for this stage. '
+        + 'Re-record with: bash scripts/log-verdict.sh <agent> <verdict> auto [meta...]',
+    };
+  }
   return { ok: true, reason: 'verdict recorded' };
+}
+
+/**
+ * The freshest verdict line, parsed — so the check can look at its FORMAT and
+ * not only at whether a file was touched.
+ */
+export function freshestVerdictLine(dir, withinMs, now) {
+  let best = null, bestMt = 0;
+  let files;
+  try { files = readdirSync(dir).filter((f) => f.endsWith('.log')); } catch { return null; }
+  for (const f of files) {
+    let mt;
+    try { mt = statSync(join(dir, f)).mtimeMs; } catch { continue; }
+    if (now - mt > withinMs || mt <= bestMt) continue;
+    let body;
+    try { body = readFileSync(join(dir, f), 'utf8').trim(); } catch { continue; }
+    if (!body) continue;
+    const parsed = parseVerdictLine(body.split('\n').pop());
+    if (!parsed) continue;
+    bestMt = mt; best = parsed;
+  }
+  return best;
 }
 
 /** True if any verdict log was modified within `withinMs` of `now`. */
@@ -116,9 +161,12 @@ async function main() {
   let flags = { threeState: false, acceptanceRequired: false };
   try { flags = readCompletionFlags(readFileSync(ORCH_PATH, 'utf8')); } catch { return process.exit(0); }
 
+  const fresh = freshestVerdictLine(VERDICT_DIR, RECENT_MS, Date.now());
   const decision = completionDecision({
     threeState: flags.threeState,
     recentVerdictExists: recentVerdict(VERDICT_DIR, RECENT_MS, Date.now()),
+    canonical: fresh ? fresh.canonical !== false : true,
+    hasCost: fresh ? fresh.hasCost !== false : true,
   });
   if (decision.ok) return process.exit(0);
 

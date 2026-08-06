@@ -74,14 +74,52 @@ export function normalizeAgent(subagentType) {
   return String(subagentType || '').replace(/^great_cto-/, '').trim();
 }
 
-/** Parse a verdict log line (pipe- or space-separated) → {agent, verdict}. */
+/**
+ * Parse a verdict log line → {agent, verdict, canonical}.
+ *
+ * The canonical format is `<ts> | <agent> | <verdict> | ... | cost=$<usd>`,
+ * written by scripts/log-verdict.sh and specified in
+ * agents/_shared/verdict-format.md.
+ *
+ * JSON is tolerated because an agent wrote it. On the first live pipeline run,
+ * architect finished correctly — ARCH doc, ADR, Beads tasks, gate — and emitted
+ * `{"v":1,"agent":"architect","verdict":"APPROVED",...}` instead of the
+ * documented line. The dispatcher reported "no verdict recorded", the next stage
+ * was never named, and the run stalled at the first transition while the agent
+ * believed it had succeeded.
+ *
+ * Refusing to parse it is defensible and leaves the pipeline dead; parsing it
+ * silently would hide the deviation and leave the board's cost dashboard at zero
+ * (the cost=$ tag is what /api/cost reads). So: parse it, and mark it
+ * non-canonical so the caller can say so.
+ */
 export function parseVerdictLine(line) {
   if (!line) return null;
-  const parts = line.includes('|')
-    ? line.split('|').map(s => s.trim())
-    : line.trim().split(/\s+/);
+  const t = String(line).trim();
+
+  if (t.startsWith('{')) {
+    try {
+      const o = JSON.parse(t);
+      const verdict = o.verdict ?? o.status ?? o.result;
+      if (!verdict) return null;
+      return {
+        ts: o.ts ?? o.timestamp ?? null,
+        agent: o.agent ?? null,
+        verdict: String(verdict).toUpperCase(),
+        canonical: false,
+        // The cost tag lives in the canonical line; a JSON verdict that omits it
+        // reports zero spend for a stage that spent.
+        hasCost: o.cost_usd != null || o.cost != null,
+      };
+    } catch { return null; }
+  }
+
+  const parts = t.includes('|') ? t.split('|').map(s => s.trim()) : t.split(/\s+/);
   if (parts.length < 3) return null;
-  return { ts: parts[0], agent: parts[1], verdict: (parts[2] || '').toUpperCase() };
+  return {
+    ts: parts[0], agent: parts[1], verdict: (parts[2] || '').toUpperCase(),
+    canonical: true, hasCost: /cost=\$/.test(t),
+  };
 }
 
 /** Read the agent's latest verdict if the log was touched within `withinMs`. */
@@ -196,9 +234,17 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     };
   }
 
+  // A verdict the pipeline could only read by guessing is a defect to surface,
+  // not a detail to absorb: the same line leaves /api/cost at zero.
+  const formatNote = verdict.canonical === false
+    ? ` NOTE: ${agent} wrote a non-canonical (JSON) verdict line. The pipeline read it, but the board's cost view cannot`
+      + `${verdict.hasCost ? '' : ' and this stage will report zero spend'}.`
+      + ` Ask ${agent} to use: bash scripts/log-verdict.sh ${agent} ${verdict.verdict} <cost_usd> — see agents/_shared/verdict-format.md.`
+    : '';
+
   const nexts = rule.next || [];
   if (nexts.length === 0) {
-    return { kind: 'done', text: `PIPELINE: ${agent} succeeded (${verdict.verdict}) — end of chain. Report the outcome to the CTO.` };
+    return { kind: 'done', text: `PIPELINE: ${agent} succeeded (${verdict.verdict}) — end of chain. Report the outcome to the CTO.${formatNote}` };
   }
 
   const active = activeOf(rule.gate);
@@ -209,7 +255,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}). Next stage [${nexts.join(', ')}] is behind ${list} (human approval). ` +
         `Ensure the ${list} Beads task${active.length > 1 ? 's exist' : ' exists'} (bd list --label gate --status open), show the CTO the gate summary with artifact links, and WAIT for approval. ` +
         `${active.length > 1 ? 'EVERY one of them must be approved before proceeding. ' : ''}` +
-        `After the CTO approves: close the gate bead${active.length > 1 ? 's' : ''} and spawn ${nexts.map(n => `subagent_type: ${n}`).join(', then ')}. Do not auto-approve.`,
+        `After the CTO approves: close the gate bead${active.length > 1 ? 's' : ''} and spawn ${nexts.map(n => `subagent_type: ${n}`).join(', then ')}. Do not auto-approve.${formatNote}`,
     };
   }
   // A gate declared in the map but not active at this approval level is skipped

@@ -38,7 +38,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  parsePipelineToml, decideNext, latestVerdict, normalizeAgent,
+  parsePipelineToml, decideNext, latestVerdict, normalizeAgent, parseVerdictLine,
 } from './pipeline-dispatcher.mjs';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 
@@ -62,7 +62,21 @@ export function newestStage(dir, now = Date.now(), freshMs = FRESH_MS) {
     let mt;
     try { mt = statSync(join(dir, f)).mtimeMs; } catch { continue; }
     if (now - mt > freshMs) continue;
-    if (!best || mt > best.mtime) best = { agent: f.replace(/\.log$/, ''), mtime: mt };
+
+    // The agent comes from the LINE, not the filename. A real verdict directory
+    // holds `2026-06-27.log` carrying a project-auditor verdict, and an empty
+    // `senior-dev.log`; trusting the filename would name a date as the current
+    // stage and mask the one that actually ran.
+    let parsed = null;
+    try {
+      const body = readFileSync(join(dir, f), 'utf8').trim();
+      if (body) parsed = parseVerdictLine(body.split('\n').pop());
+    } catch { /* unreadable */ }
+    if (!parsed) continue;
+
+    const agent = normalizeAgent(parsed.agent || f.replace(/\.log$/, ''));
+    if (!agent) continue;
+    if (!best || mt > best.mtime) best = { agent, mtime: mt, verdict: parsed };
   }
   return best;
 }
