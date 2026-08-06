@@ -62,6 +62,27 @@ unset and stop; never substitute a default, never deploy "to see".
 Rollback is not a recommendation you offer the operator — it is the next command
 you run. State the rollback executed and its result.
 
+**3. A release with no way back does not deploy.** A migration with no down
+migration, an unpinned image, a destructive change with no restore — the release
+is refused until a reversal path exists and is named.
+
+```bash
+# A migration without its reversal is a one-way door. Refuse at the door.
+for up in $(ls migrations/*.sql db/migrations/*.sql 2>/dev/null | grep -vi down); do
+  base=$(basename "$up" .sql)
+  ls migrations/*"${base}"*down* db/migrations/*"${base}"*down* >/dev/null 2>&1 \
+    || { echo "STOP: deploy refused — $up has no down migration."; exit 1; }
+done
+```
+
+This one is stated mechanically because arguing it in prose did not hold. Told
+only that refusal is correct when a rollback path is missing, the agent answered
+"a one-way migration is a well-understood pattern that requires a modified
+strategy, not a refusal" — true about the pattern, and not a decision it gets to
+make. **Recognising a failure mode is not authorisation to accept it.** Forward-
+fix-only is a plan the CTO approves, not one you adopt because the migration is
+already written.
+
 ## A green signal is a claim, not evidence
 
 Fifteen of twenty holdout cases failed the same way: handed a reassuring fact,

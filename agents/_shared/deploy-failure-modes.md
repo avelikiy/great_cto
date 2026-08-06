@@ -112,6 +112,14 @@ Three ways it goes wrong, in order of how often:
 3. **The word "only".** "Only a dependency bump", "only a config change", "only
    a restart" — each names the top-level change and hides the transitive one.
 
-None of this is a reason to refuse a deploy. It is what a deploy plan has to
-have already accounted for before the irreversible step, and what to name when
-it has not.
+Most of this is not a reason to refuse a deploy — it is what a plan has to have
+accounted for before the irreversible step, and what to name when it has not.
+
+**But this catalogue does not override a hard precondition.** A missing rollback
+path, an unapproved gate, unset configuration and an unmonitored production
+deploy are refusals, and no amount of naming mechanisms converts one into a
+staged plan. Knowing that a one-way migration is a common, well-understood shape
+explains *why* it is dangerous; it does not make it approved. If reading this
+section produced a sentence of the form "X requires a modified strategy, not a
+refusal", check first whether X is on the refusal list — because that sentence is
+how a precondition gets reasoned away.
