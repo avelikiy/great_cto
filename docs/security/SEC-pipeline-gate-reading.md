@@ -218,6 +218,267 @@ that label, and treat two beads racing to be "newest" within the same run as
 
 ---
 
+## Re-verification — 2026-08-06, independent of the fixer
+
+I filed both CRITICALs above. I did not write the fix. Someone else did, in
+`efb18b4d` ("fix(gate-state): fail closed on both paths security review found
+approving"). This section is the independence check: re-running my own
+reproductions against the current code, then trying to break the fix rather
+than confirm it. Both beads that closed these findings were closed by the
+fixer — that does not count as verification, which is the entire reason this
+section exists.
+
+Reviewed: `scripts/lib/gate-state.mjs` at current HEAD (`70e18975`), and
+`git show efb18b4d` in full (diff read, not summarised).
+
+### CRITICAL-1 — the stale check has no floor
+
+**1. Re-run of my original reproductions, against current code:**
+
+```
+$ node -e '... gateState("gate:ship", [{id:"old-7", ..., updated_at:"2026-02-01T00:00:00Z"}], {verdictTs:"1970-01-01T00:00:00Z", now: Date.parse("2026-08-06T12:00:00Z")}) ...'
+{"state":"stale", ..., "why":"this stage is dated more than 30 days ago — too old to be the run gate:ship approved"}
+
+$ node -e '... same bead ..., {verdictTs:"garbage-not-a-date", now: ...} ...'
+{"state":"stale", ..., "why":"this stage has no readable timestamp — cannot confirm gate:ship approved it"}
+
+$ node -e '... gateState("gate:ship", [{id:"weird-2", ..., updated_at:""}], {verdictTs:"2026-08-06T09:00:00Z", now:...}) ...'
+{"state":"stale", ..., "why":"gate:ship has no readable close time — cannot confirm it approved THIS run"}
+```
+
+All three reproductions that previously returned `approved` now return
+`stale`. Also ran the pinned regression suite:
+
+```
+$ node --test tests/lib/gate-state.test.mjs
+ok 10 - an unparseable date does not become an approval
+ok 11 - a back-dated verdict cannot make an old approval cover a new run
+ok 12 - an open gate outranks a newer closed one with a matching title
+# pass 13, fail 0
+```
+Test 10's name and its assertions now agree — the pin-for-the-bug I flagged
+in the original finding is gone, replaced with the correct assertion
+(`'stale'` instead of `'approved'`).
+
+**2. Verdict: CLOSED.** The specific reproduction I filed no longer produces
+`approved`. `closedAt` is now computed unconditionally and checked for
+finiteness before anything else runs (`gate-state.mjs:122-125`), so the
+"skip the comparison, fall through to the unconditional `approved` at the
+bottom" path I found no longer exists — there is no unconditional `approved`
+at the bottom for this branch to fall through to.
+
+**3. Tried to defeat it — additional timestamps, not in my original repro:**
+
+```
+$ node -e '... verdictTs:"2027-01-01T00:00:00Z" (future), now:"2026-08-06T12:00:00Z" ...'
+{"state":"stale", "why":"this stage is dated in the future — gate:ship cannot have approved it"}
+```
+Future-dated verdict: `stale`, correctly. This is a case my original finding
+did not test (I only tried "ancient," "garbage," and "blank") — the fixer
+added it unprompted, and it holds. Also checked the legitimate edges don't
+misfire:
+```
+verdict 29 days old, closed after it → approved   (correct — inside the 30-day bound)
+ordinary case, verdict then close 30 min later → approved   (correct)
+```
+No unreadable/absent/future/out-of-range timestamp I could construct reaches
+`approved`. `closedAt` is checked first and unconditionally, before
+`verdictTs` is even looked at, so this holds regardless of whether a
+`verdictTs` is supplied at all.
+
+One boundary I did not find a way to turn into a false approval, but is worth
+naming: if a call site's `verdict` is entirely absent (not malformed — the
+whole object undefined, so `verdict?.ts ?? null` yields exactly `null`),
+`gateState()` skips the raised-at/future/30-day checks (`if (verdictTs !=
+null)` is false for `null`) and returns whatever the bare `closedAt` check
+allows. Traced the three real call sites
+(`pipeline-dispatcher.mjs:299`, `pipeline-stall-guard.mjs:115`,
+`pipeline-position.mjs:224`) — all three run on a verdict that was just
+parsed to trigger the check, so `verdict` is not null in the reachable path
+today, and `verdict-record.mjs`'s `ts` is either schema-validated (v1) or
+always a non-empty string even in the worst legacy case (confirmed by
+reading `parseVerdictLine`, `verdict-record.mjs:120-158` — `ts` is never
+`undefined`, so `?? null` never actually fires from a real parsed record).
+Recording this as a **checked, not reachable today** note, not a finding —
+the two literal repros I filed are closed, and this is a different, narrower
+door than either of them, gated on a caller shape that doesn't occur.
+
+**4. Did the fix over-refuse?** No. Ordinary same-run approval (verdict
+raised, bead closed shortly after) still returns `approved`
+(`{"state":"approved", ...}` above). A verdict up to 29 days old still
+approves. The 30-day / future-dated bounds are a deliberate, generous margin
+stated in the code's own comment (`gate-state.mjs:72-74`) against a
+dispatcher freshness window of 30 minutes — not a plausible source of
+pipeline stalls in normal operation. Full test suite across the blast radius
+(`gate-state`, `pipeline-dispatcher`, `pipeline-stall-guard`,
+`pipeline-position` — 102 tests) passes, including the pre-existing tests for
+the ordinary approval path, so nothing that used to legitimately dispatch now
+stalls.
+
+**CRITICAL-1: CLOSED.**
+
+---
+
+### CRITICAL-2 — a newer bead outranking a real one
+
+**1. Re-run of my original reproduction, against current code:**
+
+```
+$ node -e '... gateState("gate:ship", [
+    {id:"real-42", title:"gate:ship — deploy tenant-onboarding", status:"open", updated_at:"2026-08-01T10:00:00Z"},
+    {id:"forged-99", title:"gate:ship — unrelated note", status:"closed", updated_at:"2026-08-06T09:00:00Z"},
+  ], {verdictTs:"2026-08-01T09:00:00Z", now:"2026-08-06T12:00:00Z"}) ...'
+{"state":"pending", "bead":{"id":"real-42", ...}, "why":"gate:ship is open — awaiting the CTO"}
+```
+`real-42` now wins. The forged bead no longer outranks it.
+
+**2. Verdict: PARTIALLY CLOSED** — see step 3. The exact reproduction I filed
+is fixed and I could not re-break it under variation. But the finding's own
+stated general claim — "a second, unrelated bead with a matching title
+prefix... silently outranks the real one" — still holds for two bead
+arrangements the original repro didn't cover: real gate **absent**, and real
+gate **closed-but-stale**. Both are named in the module's own new docstring
+as a known, undone residual, so this is not a hidden regression — but the
+underlying claim under test ("Absent... stale... must ALL read as
+not-approved") still does not fully hold once a second matching-titled bead
+is in play, which is exactly what this finding is about.
+
+**3. Tried to defeat it:**
+
+Any arrangement with at least one open/blocked/in-progress bead for the gate
+— I could not produce a false approval, under several variants:
+```
+several forged closed beads (2, 3) + one real open bead, shuffled order → pending, real-42 named
+real open bead with status "OPEN" (case) → pending
+status "" or missing entirely (neither open nor closed) → pending, "unrecognised status"
+```
+`gate-state.mjs:99-102` finds ANY open-state bead via `.find()` before any
+sort or closed-bead comparison runs at all — an arbitrary number of forged
+closed beads, in any order, with any timestamp, cannot reach that branch.
+This part of the fix is robust, not merely fixed against the one shape I
+happened to file.
+
+Two arrangements DO still produce a false `approved`, and neither needs
+anything the trust-boundary paragraph doesn't already name (`bd create` +
+`bd close`, which every pipeline agent has):
+
+```
+# (a) gate never legitimately raised (should read "absent") — one forged, closed bead
+$ node -e '... gateState("gate:ship", [
+    {id:"forged-1", title:"gate:ship — unrelated note", status:"closed", updated_at:"2026-08-06T11:59:00Z"},
+  ], {verdictTs:"2026-08-06T11:00:00Z", now:"2026-08-06T12:00:00Z"}) ...'
+{"state":"approved", "bead":{"id":"forged-1", ...}}
+
+# (b) real gate closed but STALE (approved an old run, no open bead exists) — one forged, fresher closed bead
+$ node -e '... gateState("gate:ship", [
+    {id:"real-old",  title:"gate:ship — deploy old feature A", status:"closed", updated_at:"2026-07-01T10:00:00Z"},
+    {id:"forged-99", title:"gate:ship — unrelated note",       status:"closed", updated_at:"2026-08-06T11:00:00Z"},
+  ], {verdictTs:"2026-08-06T10:00:00Z", now:"2026-08-06T12:00:00Z"}) ...'
+{"state":"approved", "bead":{"id":"forged-99", ...}}
+```
+In (b), `real-old` alone would correctly read `stale` (it approved a run
+that finished six weeks before this verdict) — that part of CRITICAL-1's fix
+works. The forged bead's own fresh `updated_at` beats it in the "newest by
+`updated_at` decides among the closed ones" sort (`gate-state.mjs:106-107`),
+so its own closedAt/verdictTs comparison runs instead, and passes.
+
+**Not a regression**: checked this exact arrangement against the pre-fix
+code (`git show efb18b4d~1:scripts/lib/gate-state.mjs`, same reproduction
+in the old logic) — it already produced `approved`, identically. The fix did
+not introduce this path; it narrowed what was previously a wide-open "newest
+wins regardless of open/closed" door down to "newest wins only among the
+closed ones, and only when no open bead exists." That is real, verified
+progress (the pending-override case — the one I actually filed and scored
+CRITICAL — is closed), but it is not the same as closing the finding's
+stated general claim.
+
+**4. Did the fix over-refuse?** No — same evidence as CRITICAL-1: ordinary
+approval still works, full 102-test suite green, and the new "any open bead
+wins" rule can only ever make a `pending` MORE likely to be reported
+correctly, never turn a real approval into a false pending (verified: a
+single closed bead with no competing open one still reads `approved`, shown
+above and in the pinned regression test at `tests/lib/gate-state.test.mjs`
+"a back-dated verdict... the ordinary case must still pass").
+
+**CRITICAL-2: PARTIALLY CLOSED.** The filed reproduction is fixed and
+verified robust under variation — that part should be treated as done. The
+residual (forged bead manufacturing approval for an absent or stale gate,
+not a pending one) is real, reproducible, not a regression, already named in
+the module's own docstring as an accepted gap ("Pinning approval to a
+specific bead ID... would close the rest and is not done here"), and
+requires the same `bd create`+`bd close` capability the original review's
+"trust boundary" section already scoped as pre-existing and not unique to
+this diff. I am not re-blocking `gate:ship` over it — narrowing an
+open-ended trust-boundary problem into a stated, documented residual is the
+right shape of partial fix, and re-litigating the full "pin to a bead ID"
+redesign here would hold the gate on a problem that predates this diff and
+is unchanged by it. Recommend a tracked follow-up (not a blocker): pin
+approval to a specific bead ID recorded when the gate bead is raised, which
+the docstring itself proposes as the actual close.
+
+---
+
+### HIGH-3 and MEDIUM-4 — brief recheck
+
+Neither was touched by `efb18b4d` (confirmed: the diff only modifies the
+module docstring, `gateState()`'s body, and adds `MAX_VERDICT_AGE_MS`;
+`titleNamesGate()` and `readGateBeads()` are byte-for-byte unchanged). Reran
+both original reproductions against current code:
+
+```
+$ node -e '... titleNamesGate("gate:aXb — x", "gate:a.b") ...'
+true    # still unescaped — HIGH-3's character-class bug is present, unchanged
+$ node -e '... titleNamesGate("gate:arch-review — x", "gate:arch") ...'
+true    # still a \b-boundary match, not a segment match
+$ grep -n "execFileSync('bd'" scripts/lib/gate-state.mjs
+152:    const out = execFileSync('bd', [...])   # still bare-name PATH resolution
+```
+
+**HIGH-3: STILL OPEN**, exactly as filed (latent — no live collision in
+today's ~39 gate names, per the original scoring; unchanged by this diff).
+**MEDIUM-4: STILL OPEN**, exactly as filed (requires a PATH/profile write
+precondition; unchanged by this diff). Neither was in scope for `efb18b4d`,
+whose commit message only claims the two CRITICALs — that claim is accurate,
+it does not overclaim HIGH-3/MEDIUM-4 as fixed.
+
+---
+
+### Self-check on my own prior work
+
+Nothing in the original two CRITICAL findings was overstated — both
+reproduced cleanly against the shipped code at the time, and CRITICAL-1's
+was fully closed. CRITICAL-2's severity (CRITICAL) was scored against the
+"outrank a real pending gate" reproduction specifically, which is what made
+it "sufficient by itself to auto-advance past `gate:ship`... silently
+overriding a real pending approval" — that framing was correct and is now
+fixed. The residual I found in this re-verification (absent/stale + forged
+bead) is a narrower claim than what CRITICAL-2 was scored against, and I am
+scoring it as a documented residual rather than re-raising it at CRITICAL,
+consistent with the original review's own treatment of the same underlying
+`bd create`+`bd close` capability in the trust-boundary section (scored
+contextually, not as its own numbered CRITICAL, because it needs the same
+capability every pipeline agent already has documented use of).
+
+---
+
+## Verdict
+
+**APPROVED for `gate:ship` on this specific fix.** Both CRITICALs that
+blocked it are addressed: CRITICAL-1 fully, CRITICAL-2 for the reproduction
+that earned the CRITICAL score, with a narrower, previously-existing,
+now-documented residual left for a follow-up rather than blocking this
+change. HIGH-3 and MEDIUM-4 remain open, unchanged, and were never claimed
+fixed by this commit — they do not block this specific fix but should not be
+forgotten.
+
+**Recommended follow-up** (not blocking): pin gate approval to a specific
+bead ID recorded when the gate is raised (closes CRITICAL-2's residual);
+fix the character class in `titleNamesGate()` and tighten its boundary match
+(HIGH-3); resolve `bd` to a checked absolute path instead of bare-name PATH
+lookup (MEDIUM-4).
+
+---
+
 ### [High] The "escape regex metacharacters in the gate name" helper is broken, and the match is a prefix-with-word-boundary, not "the whole segment," despite what the tests claim
 
 - **Location**: `scripts/lib/gate-state.mjs:44`
