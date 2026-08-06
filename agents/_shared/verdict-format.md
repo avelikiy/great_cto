@@ -65,9 +65,13 @@ bash scripts/log-verdict.sh architect APPROVED 0.50 \
 ```
 
 Produces `.great_cto/verdicts/architect.log`:
+```json
+{"v":1,"ts":"2026-05-09T14:30:00Z","agent":"architect","verdict":"APPROVED","project":"<slug>","cost_usd":0.5,"meta":{"feature":"tenant-onboarding","arch":"docs/architecture/ARCH-tenant-onboarding.md"}}
 ```
-2026-05-09T14:30:00Z | architect | APPROVED | feature=tenant-onboarding arch=docs/architecture/ARCH-tenant-onboarding.md | cost=$0.50
-```
+
+This example showed the piped form for one commit after the schema changed —
+the same defect, in the same file, that stalled a live pipeline run: a stale
+document read as the contract. Update the example with the section above it.
 
 And `.great_cto/cost-history.log`:
 ```
