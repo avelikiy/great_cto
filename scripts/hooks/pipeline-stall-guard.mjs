@@ -41,6 +41,7 @@ import {
   parsePipelineToml, decideNext, latestVerdict, normalizeAgent, parseVerdictLine,
 } from './pipeline-dispatcher.mjs';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
+import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
@@ -107,6 +108,13 @@ export function decideStall({ directive, alreadyDispatched, stopHookActive, bloc
   };
 }
 
+/** Gate approval for the gates on this edge, read once, failing safe to unapproved. */
+function gateStatesFor(rule, verdict) {
+  const gates = Array.isArray(rule?.gate) ? rule.gate : rule?.gate ? [rule.gate] : [];
+  if (!gates.length) return null;
+  return readGateStates(gates, readGateBeads(), { verdictTs: verdict?.ts ?? null });
+}
+
 function main() {
   if (process.env.GREAT_CTO_DISABLE_STALL_GUARD === '1') return 0;
 
@@ -134,7 +142,7 @@ function main() {
   const joinVerdicts = {};
   for (const j of rule.join || []) joinVerdicts[j] = latestVerdict(VERDICT_DIR, j, 24 * 60 * 60 * 1000, Date.now());
 
-  const directive = decideNext({ agent, transitions, verdict, joinVerdicts, activeGates });
+  const directive = decideNext({ agent, transitions, verdict, joinVerdicts, activeGates, gateStates: gateStatesFor(rule, verdict) });
 
   // "Already dispatched" = every next stage has its own fresh verdict. A stage
   // that is running but has not finished has no verdict yet, so this errs toward

@@ -52,6 +52,7 @@ import {
   parsePipelineToml, parseVerdictLine, normalizeAgent, decideNext, FRESH_MS,
 } from '../hooks/pipeline-dispatcher.mjs';
 import { gatesForApprovalLevel, levelFromProjectMd } from './approval-level.mjs';
+import { readGateBeads, gateStates as readGateStates } from './gate-state.mjs';
 
 // Any verdict of BLOCKED / FAIL / REJECTED halts the chain at that stage —
 // documented in shared/pipeline.toml's own header comment and pinned by
@@ -205,7 +206,25 @@ export function pipelineOrder(transitions, verdicts = {}) {
  *   summary: string,
  * }}
  */
-export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates = null, now = Date.now() } = {}) {
+/**
+ * Approval state for the gates on this edge; unreadable → unapproved → waits.
+ *
+ * `readGates` is injectable because reading approval means shelling out to the
+ * Beads store, and a unit test that reaches the developer's live store passes or
+ * fails on whichever gates happen to be open that day. Three tests in this
+ * module's own suite did exactly that the moment gate reading landed.
+ */
+function gateStatesFor(rule, verdictTs, readGates) {
+  const gates = Array.isArray(rule?.gate) ? rule.gate : rule?.gate ? [rule.gate] : [];
+  if (!gates.length) return null;
+  let beads = [];
+  // A store that throws must read as unapproved, not crash the view — the whole
+  // point of this direction is that every way of failing waits.
+  try { beads = readGates() || []; } catch { beads = []; }
+  return readGateStates(gates, beads, { verdictTs: verdictTs ?? null });
+}
+
+export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates = null, now = Date.now(), readGates = readGateBeads } = {}) {
   // Cursor = the verdict entry with the newest event timestamp (D2).
   let cursor = null;
   for (const agent of Object.keys(verdicts)) {
@@ -233,9 +252,13 @@ export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates 
     const decision = decideNext({
       agent: cursor.agent,
       transitions,
-      verdict: { agent: cursor.agent, verdict: cursor.verdict, canonical: cursor.canonical, hasCost: cursor.hasCost },
+      verdict: { agent: cursor.agent, verdict: cursor.verdict, canonical: cursor.canonical, hasCost: cursor.hasCost, ts: cursor.ts },
       joinVerdicts,
       activeGates,
+      // Whether a gate is actually approved, not merely declared. Without this
+      // the view reports `awaiting-gate` after the CTO has closed the bead —
+      // which is what it did on the run this was found on.
+      gateStates: gateStatesFor(rule, cursor.ts, readGates),
     });
     // decideNext returns null for an unrecognized verdict token (not blocked,
     // not in the rule's `on` list) — that is functionally "nothing to act

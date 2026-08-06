@@ -31,6 +31,7 @@ import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
+import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
 import { parseVerdictLine as parseVerdictRecord } from '../lib/verdict-record.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -166,7 +167,7 @@ export function handoffFallback(agent, withinMs, now, { readdir, stat, read }) {
  *
  * @returns {{kind:string, text:string}|null} null = nothing to inject
  */
-export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null }) {
+export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null, gateStates = null }) {
   // An edge may be guarded by several gates — `approval-level` decides which of
   // them apply, the map only declares that they guard this edge. Before this,
   // `gate` was a single string and every level above `strict` promised gates
@@ -233,8 +234,26 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     return { kind: 'done', text: `PIPELINE: ${agent} succeeded (${verdict.verdict}) — end of chain. Report the outcome to the CTO.${formatNote}` };
   }
 
+  // A gate the CTO has already approved is not a stopping point. Until this
+  // read existed the machinery never asked, so approving a gate was one human
+  // action and telling the orchestrator to continue was a second — the second
+  // carrying no decision. `gateStates` is optional: without it every gate reads
+  // as unapproved, which is the previous behaviour and the safe direction.
+  const stateOf = (g) => gateStates?.[g]?.state ?? 'pending';
   const active = activeOf(rule.gate);
-  if (active.length) {
+  const unapproved = active.filter((g) => stateOf(g) !== 'approved');
+
+  if (active.length && !unapproved.length) {
+    return {
+      kind: 'next',
+      text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) and ${active.join(' + ')} `
+        + `${active.length > 1 ? 'are' : 'is'} APPROVED → spawn ${nexts.map((n) => `Agent(subagent_type: ${n})`).join(' and ')} now. `
+        + `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.${formatNote}`,
+    };
+  }
+
+  if (unapproved.length) {
+    const active = unapproved;
     const list = active.join(' + ');
     return {
       kind: 'gate',
@@ -268,6 +287,13 @@ function emit(text) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text },
   }) + '\n');
+}
+
+/** Gate approval for the gates on this edge, read once, failing safe to unapproved. */
+function gateStatesFor(rule, verdict) {
+  const gates = Array.isArray(rule?.gate) ? rule.gate : rule?.gate ? [rule.gate] : [];
+  if (!gates.length) return null;
+  return readGateStates(gates, readGateBeads(), { verdictTs: verdict?.ts ?? null });
 }
 
 function main() {
@@ -310,7 +336,7 @@ function main() {
     activeGates = gatesForApprovalLevel(levelFromProjectMd(pm), { archetype });
   } catch { /* no PROJECT.md or helper — keep every gate */ }
 
-  const decision = decideNext({ agent, transitions, verdict, joinVerdicts, activeGates });
+  const decision = decideNext({ agent, transitions, verdict, joinVerdicts, activeGates, gateStates: gateStatesFor(rule, verdict) });
   if (decision) emit(decision.text);
   return process.exit(0);
 }

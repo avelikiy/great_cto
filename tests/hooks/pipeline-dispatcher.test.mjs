@@ -454,3 +454,57 @@ test('every verdict line shape found in this repo is readable', () => {
     assert.ok(v && v.verdict, `unreadable: ${s.slice(0, 60)}`);
   }
 });
+
+// ── an approved gate is not a stopping point ───────────────────────────────
+
+test('an approved gate dispatches instead of asking again', () => {
+  const d = decideNext({
+    agent: 'architect', transitions: TRANSITIONS,
+    verdict: { verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z' },
+    activeGates: ['arch', 'ship'],
+    gateStates: { 'gate:arch': { state: 'approved' } },
+  });
+  assert.equal(d.kind, 'next');
+  assert.match(d.text, /APPROVED/);
+  assert.match(d.text, /subagent_type: pm/, 'the point is that it moves');
+});
+
+test('without gate states nothing changes — every gate reads as unapproved', () => {
+  // The safe direction: a caller that does not read approval gets the previous
+  // behaviour, not an optimistic one.
+  const d = decideNext({
+    agent: 'architect', transitions: TRANSITIONS,
+    verdict: { verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z' },
+    activeGates: ['arch', 'ship'],
+  });
+  assert.equal(d.kind, 'gate');
+});
+
+test('a pending, absent or stale gate all still wait', () => {
+  for (const state of ['pending', 'absent', 'stale']) {
+    const d = decideNext({
+      agent: 'architect', transitions: TRANSITIONS,
+      verdict: { verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z' },
+      activeGates: ['arch'],
+      gateStates: { 'gate:arch': { state } },
+    });
+    assert.equal(d.kind, 'gate', `${state} must not dispatch`);
+  }
+});
+
+test('on a multi-gate edge one approval is not enough', () => {
+  const d = decideNext({
+    agent: 'security-officer', transitions: TRANSITIONS,
+    verdict: { verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z' },
+    joinVerdicts: { 'qa-engineer': { verdict: 'PASS' } },
+    activeGates: ['security', 'compliance', 'ship'],
+    gateStates: {
+      'gate:security': { state: 'approved' },
+      'gate:compliance': { state: 'approved' },
+      'gate:ship': { state: 'pending' },
+    },
+  });
+  assert.equal(d.kind, 'gate');
+  assert.match(d.text, /gate:ship/);
+  assert.ok(!/gate:security/.test(d.text), 'an approved gate should not still be asked for');
+});

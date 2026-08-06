@@ -59,7 +59,7 @@ test('idle: no verdicts at all → position idle, empty next/gates', () => {
 
 test('success->gate: architect succeeded, gate:arch is active → awaiting-gate', () => {
   const verdicts = { architect: mkV('architect', 'APPROVED') };
-  const r = pipelinePosition({ transitions: TRANSITIONS, verdicts, activeGates: ['arch', 'ship'], now: NOW });
+  const r = pipelinePosition({ readGates: () => [], transitions: TRANSITIONS, verdicts, activeGates: ['arch', 'ship'], now: NOW });
   assert.equal(r.position, 'awaiting-gate');
   assert.deepEqual(r.next, ['pm']);
   assert.deepEqual(r.gates, ['arch']);
@@ -141,7 +141,7 @@ test('complete: l3-support succeeded → end of chain', () => {
 
 test('stale-label: a verdict older than FRESH_MS still becomes cursor, but is labeled stale, not hidden', () => {
   const verdicts = { architect: mkV('architect', 'APPROVED', { ageMs: FRESH_MS + 60_000 }) };
-  const r = pipelinePosition({ transitions: TRANSITIONS, verdicts, activeGates: ['arch', 'ship'], now: NOW });
+  const r = pipelinePosition({ readGates: () => [], transitions: TRANSITIONS, verdicts, activeGates: ['arch', 'ship'], now: NOW });
   assert.equal(r.cursor.agent, 'architect', 'a 3-day-old verdict with nothing after it is still the true position');
   assert.equal(r.cursor.fresh, false);
   assert.equal(r.position, 'awaiting-gate');
@@ -156,7 +156,7 @@ test('re-entry: newest-event wins over an older downstream success', () => {
     'senior-dev': mkV('senior-dev', 'TASK_DONE', { ageMs: 3 * 24 * 3600_000 }),   // 3 days old, further along
     architect: mkV('architect', 'APPROVED', { ageMs: 5 * 60_000 }),               // 5 min old, re-run
   };
-  const r = pipelinePosition({ transitions: TRANSITIONS, verdicts, activeGates: ['arch', 'ship'], now: NOW });
+  const r = pipelinePosition({ readGates: () => [], transitions: TRANSITIONS, verdicts, activeGates: ['arch', 'ship'], now: NOW });
   assert.equal(r.cursor.agent, 'architect', 'the freshest EVENT is the cursor, not the furthest-along stage');
   assert.equal(r.position, 'awaiting-gate');
 });
@@ -391,4 +391,49 @@ test('CLI idle project (no verdicts yet) reports idle, exit 0', () => {
     assert.equal(r.exit, 0);
     assert.equal(JSON.parse(r.stdout).position, 'idle');
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── gate approval is read, not assumed ─────────────────────────────────────
+//
+// The view reported `awaiting-gate` after the CTO had closed the bead, because
+// nothing in the machinery ever asked whether a gate was approved — it only
+// told the orchestrator to go and look. That made approving a gate one human
+// action and continuing the pipeline a second one carrying no decision.
+
+test('an approved gate moves the position from awaiting-gate to ready-to-dispatch', () => {
+  const base = {
+    transitions: { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } },
+    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z', ageMs: 0, fresh: true } },
+    activeGates: ['arch'],
+  };
+  const waiting = pipelinePosition({ ...base, readGates: () => [] });
+  assert.equal(waiting.position, 'awaiting-gate');
+
+  const approved = pipelinePosition({
+    ...base,
+    readGates: () => [{ id: 'g1', title: 'gate:arch — x', status: 'closed', updated_at: '2026-08-06T11:00:00Z' }],
+  });
+  assert.equal(approved.position, 'ready-to-dispatch');
+  assert.deepEqual(approved.next, ['pm']);
+});
+
+test('a gate closed before this stage ran does not carry it', () => {
+  // gate:arch closed for the previous feature must not wave this one through.
+  const p = pipelinePosition({
+    transitions: { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } },
+    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z', ageMs: 0, fresh: true } },
+    activeGates: ['arch'],
+    readGates: () => [{ id: 'old', title: 'gate:arch — last feature', status: 'closed', updated_at: '2026-08-01T09:00:00Z' }],
+  });
+  assert.equal(p.position, 'awaiting-gate');
+});
+
+test('an unreadable gate store waits rather than dispatching', () => {
+  const p = pipelinePosition({
+    transitions: { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } },
+    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z', ageMs: 0, fresh: true } },
+    activeGates: ['arch'],
+    readGates: () => { throw new Error('bd unavailable'); },
+  });
+  assert.equal(p.position, 'awaiting-gate', 'a gate that cannot be read is a gate that has not been approved');
 });
