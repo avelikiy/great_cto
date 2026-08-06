@@ -46,7 +46,7 @@
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   parsePipelineToml, parseVerdictLine, normalizeAgent, decideNext, FRESH_MS,
@@ -333,8 +333,14 @@ export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates 
 
 const STAGE_ICON = { current: '▶', done: '✓', blocked: '✗', next: '→', pending: ' ' };
 
-function renderHuman(result, { label, level }) {
-  const lines = [`Pipeline: ${label}   (approval-level: ${level})`, ''];
+function renderHuman(result, { label, level, source = null }) {
+  // Attribution first. Run from a home directory that happens to hold
+  // `shared/pipeline.toml` and `.great_cto/verdicts/`, this tool read eighteen
+  // other projects' logs and reported a position from a five-week-old verdict.
+  // It was not wrong about what it read — it never said what that was.
+  const lines = [`Pipeline: ${label}   (approval-level: ${level})`];
+  if (source) lines.push(`  reading: ${source.project}`, `  map:     ${source.map}`);
+  lines.push('');
   for (const s of result.stages) {
     const icon = STAGE_ICON[s.status] ?? ' ';
     const verdictCol = s.verdict ?? '—';
@@ -376,6 +382,16 @@ function main() {
     process.exit(1);
   }
 
+  // Which project this answer is about, resolved to absolute paths.
+  //
+  // Run from a home directory that happens to hold `shared/pipeline.toml` and
+  // `.great_cto/verdicts/` — both of which the bootstrap can leave there — this
+  // tool read eighteen other projects' verdict logs and confidently reported a
+  // position from a five-week-old verdict. It was not wrong about what it read;
+  // it just never said what that was. An unattributed answer about "the
+  // pipeline" is the same defect this whole module exists to fix, one level up.
+  const source = { map: resolve(pipelinePath), project: resolve(projDir) };
+
   const now = Date.now();
   const verdicts = readAllVerdicts(join(projDir, 'verdicts'), { transitions, now });
 
@@ -391,9 +407,9 @@ function main() {
   const result = pipelinePosition({ transitions, verdicts, activeGates, now });
 
   if (asJson) {
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    process.stdout.write(JSON.stringify({ ...result, source }, null, 2) + '\n');
   } else {
-    process.stdout.write(renderHuman(result, { label: readProjectLabel(projDir), level }) + '\n');
+    process.stdout.write(renderHuman(result, { label: readProjectLabel(projDir), level, source }) + '\n');
   }
 
   if (exitCodeMode && result.position === 'blocked') process.exit(2);

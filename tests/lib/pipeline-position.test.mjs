@@ -223,7 +223,7 @@ test('S3: an inactive gate agrees between decideNext (next kind) and pipelinePos
 
 test('S4: pipelinePosition() returns exactly the documented top-level keys', () => {
   const r = pipelinePosition({ transitions: TRANSITIONS, verdicts: {}, activeGates: [], now: NOW });
-  assert.deepEqual(Object.keys(r).sort(), ['cursor', 'gates', 'next', 'position', 'stages', 'summary']);
+  assert.deepEqual(Object.keys(r).sort(), ['cursor', 'gates', 'next', 'position', 'stages', 'summary']);  // `source` is a CLI concern — the function answers about state it was handed
 });
 
 test('S4: each stage entry has the documented shape', () => {
@@ -353,7 +353,7 @@ test('CLI --json emits the documented shape', () => {
     const r = runCli(dir, ['--json']);
     assert.equal(r.exit, 0);
     const out = JSON.parse(r.stdout);
-    assert.deepEqual(Object.keys(out).sort(), ['cursor', 'gates', 'next', 'position', 'stages', 'summary']);
+    assert.deepEqual(Object.keys(out).sort(), ['cursor', 'gates', 'next', 'position', 'source', 'stages', 'summary']);
     assert.equal(out.position, 'awaiting-gate');
     assert.deepEqual(out.next, ['pm']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -436,4 +436,18 @@ test('an unreadable gate store waits rather than dispatching', () => {
     readGates: () => { throw new Error('bd unavailable'); },
   });
   assert.equal(p.position, 'awaiting-gate', 'a gate that cannot be read is a gate that has not been approved');
+});
+
+test('the report names which project it read', () => {
+  // Run from a home directory that happens to hold `shared/pipeline.toml` and
+  // `.great_cto/verdicts/` — both of which the bootstrap can leave there — this
+  // tool read eighteen other projects' verdict logs and confidently reported a
+  // position from a five-week-old verdict. It was not wrong about what it read;
+  // it never said what that was. An unattributed answer about "the pipeline" is
+  // the defect this module exists to fix, one level up.
+  const src = MODULE_SOURCE;
+  assert.match(src, /const source = \{ map: resolve\(pipelinePath\), project: resolve\(projDir\) \}/,
+    'the CLI must resolve what it read to absolute paths');
+  assert.match(src, /reading: \$\{source\.project\}/, 'and print it');
+  assert.ok(src.includes('{ ...result, source }'), 'and carry it in --json, where a script reads it');
 });
