@@ -7,6 +7,90 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.93.0 — 2026-08-07
+
+The pipeline stopped taking agents at their word.
+
+### The evidence ladder
+
+An agent used to be believed when it said it was done. Six agents in one live
+run: two recorded a verdict at all, one reported 100% coverage having run about a
+third of the suite, one filed a finding and never checked the fix. Four rungs now
+sit between "reported" and "verified", each cheap enough for where it runs.
+
+- **Verdict present and canonical** — unchanged, but the format check no longer
+  fails an agent for using the helper correctly (that regression shipped and was
+  reverted the same day).
+- **Artefact exists** — `scripts/lib/artifact-claims.mjs`. A path a verdict names
+  must exist and hold content. Stat calls; runs on every SubagentStop. Path
+  detection is deliberately conservative: `task=`, `coverage=` and `files=` are
+  not files, and a false accusation teaches people to switch the check off.
+- **Check re-run** — `scripts/lib/execution-claims.mjs`. The command comes from
+  `[verify]` in `shared/orchestrator.toml` — the repository owner's file — never
+  from the verdict, which agents write. Off unless
+  `GREAT_CTO_VERIFY_EXECUTION=1`, and empty by default.
+- **Independent re-verification** — `scripts/lib/finding-closure.mjs`. A finding
+  may not be closed by whoever fixed it, the verification must postdate the fix,
+  and the reproduction must now pass. It cannot make a distinct verifier a
+  competent one; it removes the case where nobody looked twice.
+
+### Gates are read, not assumed
+
+`scripts/lib/gate-state.mjs` reads whether a gate bead is actually approved.
+Before this, approving a gate was not enough — someone also had to tell the
+orchestrator to continue, a second human action carrying no decision. Four
+states, and only one of them proceeds: `absent` is not approval (the question was
+never asked), and `stale` is not either (that approval belonged to an earlier
+run).
+
+### One parser for verdicts
+
+`pipeline-dispatcher` kept a private copy of the verdict parser. When verdicts
+moved to versioned JSON the other copy was updated and this one was not, so a
+correct record read as no verdict at all and a live run stalled at its first
+transition while the agent had done exactly the right thing. The copy is gone.
+
+### Also
+
+- `scripts/lib/pipeline-position.mjs` — ask "where is the pipeline now" at any
+  moment, not only when a subagent finishes. Names which project it read, after
+  it confidently reported another one's position from a home directory.
+- `pipeline-stall-guard` — a Stop hook that will not let a turn end on an
+  undispatched transition. Gates still stop the turn; that is a human's to answer.
+- `shared/pipeline.toml` — an edge may declare several gates; `gate:code`,
+  `gate:qa`, `gate:security` and `gate:compliance` now exist, so the levels above
+  `strict` stop promising pauses no transition could deliver.
+- Eval runner: the actor's answer is stored on every case, `agents/_shared/*.md`
+  is expanded into the actor prompt (forty of sixty-nine agents were being judged
+  without half their contract), prompt caching cut a run from $10.31 to $1.22,
+  and a truncated run reports NOT MEASURED instead of a rate over the cases that
+  happened to run.
+- `devops` holdout: 25% → 82%, [72%, 89%] over 77 observations.
+
+### Security
+
+Three CRITICALs found by review before this shipped, all in one decision — the
+re-run command came from a file agents write. The worst let an agent with no Bash
+grant obtain unattended execution. Fixed by moving the source, not by tightening
+the string. `docs/security/SEC-execution-claims.md`.
+
+Two CRITICALs in gate reading, found and independently re-verified:
+`docs/security/SEC-pipeline-gate-reading.md`.
+
+### Privacy
+
+A lead-property allowlist named a private site in public source. An earlier
+in-place redaction had silently broken the check, because a placeholder never
+matches a real property. The list moved to the `LEAD_PROPERTIES` environment
+variable.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.92.0 — 2026-08-03
 
 A release about measurement. Most of what follows was found by running something

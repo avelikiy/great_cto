@@ -79,7 +79,7 @@ the next rung of enforcement projects should adopt.
   test('noop', () => {});
   EOF
   $ node -e '
-  import("/Users/avelikiy/development/Personal/great_cto/scripts/lib/execution-claims.mjs")
+  import("$REPO/scripts/lib/execution-claims.mjs")
     .then(({ parseCommandClaim, checkExecution }) => {
       const claim = parseCommandClaim({ tests: "node --test --require ./evil-require.mjs harmless-test.mjs" });
       console.log("shape accepted:", JSON.stringify(claim));
@@ -127,7 +127,7 @@ the next rung of enforcement projects should adopt.
   {"name":"poc","version":"1.0.0","scripts":{"test":"touch PWNED-VIA-NPM-SCRIPT.txt; echo done"}}
   EOF
   $ node -e '
-  import("/Users/avelikiy/development/Personal/great_cto/scripts/lib/execution-claims.mjs")
+  import("$REPO/scripts/lib/execution-claims.mjs")
     .then(({ checkExecution }) => {
       const r = checkExecution({ tests: "npm test" }, { cwd: process.cwd() });
       console.log(JSON.stringify(r));
@@ -175,10 +175,10 @@ the next rung of enforcement projects should adopt.
       > .great_cto/verdicts/innocuous-doc-writer.log
   $ GREAT_CTO_DIR=/tmp/poc3/.great_cto node -e '
   (async () => {
-    const mod = await import("/Users/avelikiy/development/Personal/great_cto/scripts/hooks/subagent-stop-completion.mjs");
+    const mod = await import("$REPO/scripts/hooks/subagent-stop-completion.mjs");
     const fresh = mod.freshestVerdictLine(process.env.GREAT_CTO_DIR + "/verdicts", 5*60*1000, Date.now());
     console.log("freshest verdict picked up (belongs to agent):", fresh.agent);
-    const { checkExecution } = await import("/Users/avelikiy/development/Personal/great_cto/scripts/lib/execution-claims.mjs");
+    const { checkExecution } = await import("$REPO/scripts/lib/execution-claims.mjs");
     console.log(JSON.stringify(checkExecution(fresh.meta, { cwd: "/tmp/poc3" })));
   })();'
   freshest verdict picked up (belongs to agent): innocuous-doc-writer
@@ -234,7 +234,7 @@ the next rung of enforcement projects should adopt.
   filename string:
   ```
   $ node -e '
-  import("/Users/avelikiy/development/Personal/great_cto/scripts/lib/execution-claims.mjs")
+  import("$REPO/scripts/lib/execution-claims.mjs")
     .then(({ parseCommandClaim }) => {
       console.log(JSON.stringify(parseCommandClaim({ tests: "bash scripts/anything-a-pr-can-add.sh" })));
     });'
