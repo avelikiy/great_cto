@@ -10,8 +10,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseCommandClaim, parseCounts, runClaim, checkExecution, explainExecution,
+  parseCommandClaim, parseCounts, runClaim, checkExecution, explainExecution, verifyCommandFor,
 } from '../../scripts/lib/execution-claims.mjs';
+
+const TOML = (cmd) => `[verify]\nsenior-dev = "${cmd}"\n`;
 
 // ── what will and will not be run ──────────────────────────────────────────
 
@@ -23,7 +25,7 @@ test('the allowed shapes are recognised', () => {
     ['npm run lint', 'npm run <script>'],
     ['bash scripts/ci-local.sh', 'bash scripts/<name>.sh'],
   ]) {
-    const c = parseCommandClaim({ tests: value });
+    const c = parseCommandClaim(value);
     assert.equal(c.shape, shape, value);
     assert.ok(!c.refused, value);
   }
@@ -42,7 +44,7 @@ test('a shell metacharacter refuses the claim rather than being escaped', () => 
     'node --test `whoami`',
     'npm test > /dev/null',
   ]) {
-    const c = parseCommandClaim({ tests: value });
+    const c = parseCommandClaim(value);
     assert.ok(c.refused, value);
   }
 });
@@ -54,28 +56,66 @@ test('shapes are allowlisted, not prefixes — node alone is a shell by another 
     'bash /etc/init.d/x.sh', 'bash scripts/../../evil.sh',
     'git push origin main', 'rm -rf tmp',
   ]) {
-    const c = parseCommandClaim({ tests: value });
+    const c = parseCommandClaim(value);
     assert.ok(c.refused, `must refuse: ${value}`);
   }
 });
 
-test('a count is a claim for the rung below, not a command', () => {
-  assert.equal(parseCommandClaim({ tests: '33' }), null);
-  assert.equal(parseCommandClaim({ coverage: '100%' }), null);
-  assert.equal(parseCommandClaim({}), null);
+test('an empty configured command is nothing to run, not an error', () => {
+  assert.equal(parseCommandClaim(''), null);
   assert.equal(parseCommandClaim(null), null);
+});
+
+// ── the command comes from the owner's file, never from the verdict ────────
+//
+// The first version read it from verdict meta, which agents write. Security
+// review found three CRITICALs in that one decision; the third settles it — the
+// re-run was not scoped to the stopping agent, so any agent able to Write a file
+// could plant a verdict under another name and get unattended execution WITHOUT
+// a Bash grant of its own. That widens the trust boundary rather than moving it.
+
+test('the command is read from [verify] in orchestrator.toml, keyed by agent', () => {
+  assert.equal(verifyCommandFor('senior-dev', TOML('npm test')), 'npm test');
+  assert.equal(verifyCommandFor('qa-engineer', TOML('npm test')), null, 'an agent with no entry is not verified at this rung');
+  assert.equal(verifyCommandFor('senior-dev', '[completion]\nx = 1\n'), null, 'no [verify] section means nothing to run');
+  assert.equal(verifyCommandFor('', TOML('npm test')), null);
+  assert.equal(verifyCommandFor('senior-dev', null), null);
+});
+
+test('a verdict cannot supply the command however it is written', () => {
+  // The whole class: nothing an agent writes reaches the runner any more.
+  const r = checkExecution(
+    { agent: 'senior-dev', orchestratorToml: '' },
+    { run: () => { throw new Error('must not run'); } },
+  );
+  assert.equal(r.status, 'absent');
+  assert.equal(r.ok, true, 'no configured check is not a failure — it is simply not this rung');
+});
+
+test('a flag cannot pose as a path', () => {
+  // CRITICAL-1: `[\\w./*-]` allowed a leading dash, so `--require ./evil.mjs`
+  // passed the shape check and executed arbitrary JS before any test ran.
+  for (const cmd of [
+    'node --test --require ./evil.mjs t.mjs',
+    'node --test --import ./evil.mjs t.mjs',
+    'node --test --experimental-loader ./evil.mjs t.mjs',
+    'node --test -r ./evil.mjs t.mjs',
+  ]) {
+    assert.ok(parseCommandClaim(cmd).refused, cmd);
+  }
+  assert.ok(!parseCommandClaim('node --test tests/a-b.test.mjs').refused, 'a hyphen inside a filename is still a path');
 });
 
 // ── running it ─────────────────────────────────────────────────────────────
 
 test('a passing check backs the verdict and says nothing', () => {
-  const r = checkExecution({ tests: 'npm test' }, { run: () => ({ status: 'passed', exitCode: 0, counts: { pass: 10, fail: 0 }, why: 'ok' }) });
+  const r = checkExecution({ agent: 'senior-dev', orchestratorToml: TOML('npm test') }, { run: () => ({ status: 'passed', exitCode: 0, counts: { pass: 10, fail: 0 }, why: 'ok' }) });
   assert.equal(r.ok, true);
   assert.equal(explainExecution(r), null, 'a clean check must be silent, or the signal is noise');
 });
 
 test('a success verdict whose own check fails is the case this exists for', () => {
-  const r = checkExecution({ tests: 'npm test' }, { run: () => ({ status: 'failed', exitCode: 1, counts: { pass: 8, fail: 2 }, why: 'failed' }) });
+  const r = checkExecution({ agent: 'senior-dev', orchestratorToml: TOML('npm test') }, { run: () => ({ status: 'failed', exitCode: 1, counts: { pass: 8, fail: 2 }, why: 'failed' }) });
   assert.equal(r.ok, false);
   assert.match(explainExecution(r), /2 failing/);
   assert.match(explainExecution(r), /cannot both stand/);
@@ -91,14 +131,14 @@ test('a timeout is not_run, not failed', () => {
 
 test('a refused command does not pass', () => {
   // A command this module will not run is a claim nobody verified.
-  const r = checkExecution({ tests: 'npm test; echo hi' }, { run: () => { throw new Error('must not run'); } });
+  const r = checkExecution({ agent: 'senior-dev', orchestratorToml: TOML('npm test; echo hi') }, { run: () => { throw new Error('must not run'); } });
   assert.equal(r.ok, false);
   assert.equal(r.status, 'refused');
   assert.match(explainExecution(r), /Name a check this can re-run/);
 });
 
 test('no command claimed is not a failure here', () => {
-  const r = checkExecution({ feature: 'x' }, { run: () => { throw new Error('must not run'); } });
+  const r = checkExecution({ agent: 'nobody', orchestratorToml: TOML('npm test') }, { run: () => { throw new Error('must not run'); } });
   assert.equal(r.ok, true);
   assert.equal(r.status, 'absent');
 });

@@ -14,23 +14,34 @@
  * So this rung re-runs the command and compares the result to the claim. It is
  * the only way to tell "the tests pass" from "the agent believes the tests pass".
  *
- * Running agent-written strings is the whole risk
- * -----------------------------------------------
- * The command comes out of a verdict file that agents write. Executing it turns
- * a reporting channel into an execution channel. The agent already has Bash, so
- * this grants no new capability — but a hook that runs whatever a log says is a
- * different and worse thing than an agent running its own commands, because
- * nobody is watching this one.
+ * Where the command comes from is the whole design
+ * ------------------------------------------------
+ * The first version took it from the verdict's own meta — a file agents write.
+ * Security review found three CRITICALs in that single decision, and the third
+ * is the one that settles it: the re-run was not scoped to the stopping agent,
+ * so any agent that could Write a file could plant a verdict line under any name
+ * and get unattended execution at the next SubagentStop, WITHOUT a Bash grant of
+ * its own. That widens the trust boundary rather than moving it, and no amount
+ * of tightening the claim string fixes a design where the attacker supplies the
+ * command.
  *
- * Three constraints, all of them load-bearing:
+ * So the command comes from `[verify]` in shared/orchestrator.toml, which the
+ * repository owner writes and agents do not. What remains — that `npm test` runs
+ * the project's own package.json scripts — is the same trust as running the
+ * repo's tests by hand: explicit, and the owner's to grant.
  *
- *   1. No shell, ever. execFile with an argv array. No pipes, redirection,
- *      substitution, chaining — a metacharacter anywhere refuses the claim.
- *   2. An allowlist of command SHAPES, not of prefixes. `node --test <paths>`,
- *      `npm test`, `npm run <script>`, `bash scripts/<name>.sh`. Anything else
- *      is refused, and refusal is a failure to verify, not a pass.
- *   3. A time budget. A hook that can hang is an outage, so a run that exceeds
- *      it is `not_run` — an unknown, which does not pass.
+ * The rest is defence in depth, because a typo in a trusted file should fail
+ * closed rather than run something surprising:
+ *
+ *   No shell, ever. execFile with an argv array. A metacharacter anywhere
+ *   refuses the command instead of being escaped.
+ *
+ *   An allowlist of command SHAPES, not prefixes — `node` alone would permit
+ *   `node -e '<anything>'`. Path arguments may not begin with a dash, because a
+ *   leading dash makes it a flag: `--require ./evil.mjs` was CRITICAL-1.
+ *
+ *   A time budget. A hook that can hang is an outage, so a run past it is
+ *   `not_run` — an unknown, which does not pass.
  *
  * Verdicts use the proof-status vocabulary the repo already defines: passed,
  * failed, not_run, refused. Both unknowns block, same as everywhere else here.
@@ -55,23 +66,57 @@ const ALLOWED = [
 ];
 
 function isPathish(s) {
-  return /^[\w./*-]+$/.test(s) && !s.includes('..');
+  // A leading dash makes it a FLAG, not a path. `[\w./*-]` allowed one, so
+  // `node --test --require ./evil.mjs t.mjs` passed the shape check and executed
+  // arbitrary JS before any test ran. Filed CRITICAL by security review.
+  return /^[\w.][\w./*-]*$/.test(s) && !s.includes('..');
 }
 
 /**
- * A command claim from verdict meta → {key, argv, shape} or a refusal.
+ * The command to re-run for an agent, from `[verify]` in orchestrator.toml.
  *
- * Looks at keys that name a check (`tests`, `check`, `checks`, `verify`) whose
- * value looks like a command rather than a count — `tests=33` is a claim for the
- * rung above, `tests=node --test tests/lib/x.test.mjs` is one for this rung.
+ * THIS IS THE FIX FOR THE WHOLE MODULE. The command used to come out of the
+ * verdict's own meta — a file agents write — and security review found three
+ * CRITICALs in that one decision:
+ *
+ *   a `node --test` claim could carry `--require ./evil.mjs`, executing
+ *   arbitrary JS before any test ran;
+ *
+ *   `npm test` and `npm run <script>` run package.json script bodies through
+ *   npm's own shell, so "no shell" constrained the outer call and nothing else;
+ *
+ *   the re-run was not scoped to the stopping agent — any agent that could
+ *   Write a file could plant a verdict line under any name and get unattended
+ *   execution at the next SubagentStop, WITHOUT a Bash grant of its own.
+ *
+ * The third is the one that mattered: it widened the trust boundary rather than
+ * moving it. No amount of tightening the claim string fixes a design where the
+ * attacker supplies the command.
+ *
+ * So the command comes from orchestrator.toml, which the repository owner
+ * writes and agents do not. What remains — that `npm test` runs the project's
+ * own scripts — is the same trust as running the repo's tests by hand, which is
+ * explicit and the owner's to grant.
  */
-export function parseCommandClaim(meta) {
-  const KEYS = ['tests', 'test', 'check', 'checks', 'verify', 'cmd'];
-  for (const key of KEYS) {
-    const raw = meta?.[key];
-    if (raw == null) continue;
-    const value = String(raw).trim();
-    if (!value || !/\s/.test(value)) continue;          // `tests=33` — a count, not a command
+export function verifyCommandFor(agent, tomlText) {
+  const seg = String(tomlText || '').match(/\[verify\]([\s\S]*?)(?=\n\[|$)/);
+  if (!seg) return null;
+  const name = String(agent || '').trim();
+  if (!name) return null;
+  const m = seg[1].match(new RegExp(`^\\s*["']?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']?\\s*=\\s*"([^"]*)"`, 'm'));
+  return m ? m[1].trim() : null;
+}
+
+/**
+ * A command string → {argv, shape} or a refusal.
+ *
+ * Kept as defence in depth even though the source is now trusted: a typo in
+ * orchestrator.toml should fail closed rather than run something surprising.
+ */
+export function parseCommandClaim(value_, key = 'verify') {
+  {
+    const value = String(value_ ?? '').trim();
+    if (!value) return null;
 
     if (SHELL_META.test(value)) {
       return { key, value, refused: 'contains shell metacharacters — this runs without a shell, so it would not mean what it says' };
@@ -83,7 +128,6 @@ export function parseCommandClaim(meta) {
     }
     return { key, value, argv, shape: shape.name };
   }
-  return null;
 }
 
 /** node --test TAP output → {pass, fail} when it says so. */
@@ -124,9 +168,11 @@ export function runClaim(argv, { cwd = process.cwd(), timeoutMs = 120_000, exec 
  * to run the claim is `not_run`, which does not pass — a command this module
  * will not execute is a claim nobody verified.
  */
-export function checkExecution(meta, { cwd = process.cwd(), timeoutMs = 120_000, exec, run = runClaim } = {}) {
-  const claim = parseCommandClaim(meta);
-  if (!claim) return { status: 'absent', ok: true, why: 'the verdict names no command to re-run' };
+export function checkExecution({ agent, orchestratorToml }, { cwd = process.cwd(), timeoutMs = 120_000, exec, run = runClaim } = {}) {
+  const command = verifyCommandFor(agent, orchestratorToml);
+  if (!command) return { status: 'absent', ok: true, why: `no [verify] command is configured for ${agent || 'this agent'}` };
+  const claim = parseCommandClaim(command);
+  if (!claim) return { status: 'absent', ok: true, why: 'the configured command is empty' };
   if (claim.refused) {
     return { status: 'refused', ok: false, claim, why: `will not run \`${claim.value}\` — ${claim.refused}` };
   }

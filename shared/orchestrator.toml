@@ -41,3 +41,19 @@ strict_file_ownership = true
 
 # Minimum: must check for ownership overlap before dispatching ≥2 implementation agents.
 overlap_check_required = true
+
+[verify]
+# Commands re-run to check an agent's verdict, when
+# GREAT_CTO_VERIFY_EXECUTION=1 is set. See scripts/lib/execution-claims.mjs.
+#
+# This file is the repository owner's; agents do not write it. That is the whole
+# point: the first version of this rung took the command from the verdict's own
+# meta, and security review found that any agent able to Write a file could plant
+# one under another agent's name and get unattended execution — without a Bash
+# grant of its own.
+#
+# Only four command shapes are accepted, and only the project's own scripts run:
+#   node --test <paths>   npm test   npm run <script>   bash scripts/<name>.sh
+#
+# Empty by default. An agent with no entry here is not verified at this rung,
+# which is the honest state rather than a silent pass.

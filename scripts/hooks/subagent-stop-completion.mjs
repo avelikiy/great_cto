@@ -97,6 +97,11 @@ export function completionDecision({ threeState, recentVerdictExists, canonical 
   return { ok: true, reason: 'verdict recorded' };
 }
 
+/** Read a file, or '' — a config we cannot read must not throw inside a hook. */
+function safeRead(p) {
+  try { return readFileSync(p, 'utf8'); } catch { return ''; }
+}
+
 /**
  * The freshest verdict line, parsed — so the check can look at its FORMAT and
  * not only at whether a file was touched.
@@ -186,8 +191,14 @@ async function main() {
     // Off unless asked for: re-running a suite on every subagent stop is a real
     // cost, and a hook that quietly adds minutes to every stage is a tax nobody
     // agreed to. GREAT_CTO_VERIFY_EXECUTION=1 turns it on.
+    // The command comes from [verify] in orchestrator.toml — the repository
+    // owner's file — keyed by the agent that just wrote the verdict. It is NOT
+    // taken from the verdict, which agents write; that was three CRITICALs.
     execution: fresh && process.env.GREAT_CTO_VERIFY_EXECUTION === '1'
-      ? checkExecution(fresh.meta, { timeoutMs: Number(process.env.GREAT_CTO_VERIFY_TIMEOUT_MS || 120_000) })
+      ? checkExecution(
+        { agent: fresh.agent, orchestratorToml: safeRead(ORCH_PATH) },
+        { timeoutMs: Number(process.env.GREAT_CTO_VERIFY_TIMEOUT_MS || 120_000) },
+      )
       : null,
   });
   if (decision.ok) return process.exit(0);
