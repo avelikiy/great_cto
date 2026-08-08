@@ -170,6 +170,49 @@ export function handoffFallback(agent, withinMs, now, { readdir, stat, read }) {
  *
  * @returns {{kind:string, text:string}|null} null = nothing to inject
  */
+/**
+ * A stage the map says to run, that this run does not need.
+ *
+ * `shared/pipeline.toml` says `architect -> pm` unconditionally; CLAUDE.md says
+ * skip pm decomposition below three work streams. On 2026-08-07 the architect
+ * itself wrote "depth Small, one implementation task" — the decision was already
+ * in its output, and a human made it again.
+ *
+ * The trap is that skipping a stage also skips that stage's gate, and `depth`
+ * comes from a verdict an agent writes. An input from the agent that removes a
+ * check is the shape that produced three CRITICALs in execution-claims a day
+ * earlier. So: **a skip may never remove an ACTIVE gate.** At `gates-only`,
+ * gate:plan is not active and skipping pm changes nothing a human was going to
+ * be asked; at `expert` it is active, so pm runs and the plan is reviewed. The
+ * approval level decides, not the agent.
+ */
+export function resolveSkip({ rule, transitions, meta, activeGates, gateStates, depth = 0 }) {
+  const cond = rule?.skip_next_when;
+  const nexts = rule?.next || [];
+  if (!cond || nexts.length !== 1 || depth > 3) return { nexts, skipped: [] };
+
+  const [key, want] = String(cond).split('=').map((x) => x.trim().toLowerCase());
+  const have = String(meta?.[key] ?? '').trim().toLowerCase();
+  if (!key || !want || have !== want) return { nexts, skipped: [] };
+
+  const skipStage = nexts[0];
+  const skipRule = transitions?.[skipStage];
+  if (!skipRule || !(skipRule.next || []).length) return { nexts, skipped: [] };
+
+  // The gates on the edge being removed. If any is active at this level, the
+  // human asked to be consulted here and a verdict field does not overrule that.
+  const gates = Array.isArray(skipRule.gate) ? skipRule.gate : skipRule.gate ? [skipRule.gate] : [];
+  const stillActive = gates.filter((g) => {
+    if (!activeGates) return true;
+    const bare = String(g).replace(/^gate:/, '');
+    return activeGates.includes(bare) || activeGates.includes(g);
+  });
+  if (stillActive.length) return { nexts, skipped: [] };
+
+  const onward = resolveSkip({ rule: skipRule, transitions, meta, activeGates, gateStates, depth: depth + 1 });
+  return { nexts: onward.nexts, skipped: [skipStage, ...onward.skipped], why: `${cond} (declared by ${meta?.agent ?? 'the stage'})` };
+}
+
 export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null, gateStates = null }) {
   // An edge may be guarded by several gates — `approval-level` decides which of
   // them apply, the map only declares that they guard this edge. Before this,
@@ -232,7 +275,11 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       + ` Record with: bash scripts/log-verdict.sh ${agent} ${verdict.verdict} auto`
     : '';
 
-  const nexts = rule.next || [];
+  const skip = resolveSkip({ rule, transitions, meta: verdict?.meta, activeGates, gateStates });
+  const nexts = skip.nexts;
+  const skipNote = skip.skipped.length
+    ? ` (skipping ${skip.skipped.join(', ')} — ${skip.why}; no active gate sat on that edge)`
+    : '';
   if (nexts.length === 0) {
     return { kind: 'done', text: `PIPELINE: ${agent} succeeded (${verdict.verdict}) — end of chain. Report the outcome to the CTO.${formatNote}` };
   }
@@ -251,7 +298,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       kind: 'next',
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) and ${active.join(' + ')} `
         + `${active.length > 1 ? 'are' : 'is'} APPROVED → spawn ${nexts.map((n) => `Agent(subagent_type: ${n})`).join(' and ')} now. `
-        + `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.${formatNote}`,
+        + `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.${skipNote}${formatNote}`,
     };
   }
 

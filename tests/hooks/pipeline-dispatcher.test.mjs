@@ -17,7 +17,7 @@ const PIPELINE_TOML = readFileSync(resolve(__dirname, '../../shared/pipeline.tom
 const {
   parsePipelineToml,
   normalizeAgent,
-  parseVerdictLine,
+  parseVerdictLine, resolveSkip,
   decideNext,
 } = await import(HOOK);
 
@@ -507,4 +507,85 @@ test('on a multi-gate edge one approval is not enough', () => {
   assert.equal(d.kind, 'gate');
   assert.match(d.text, /gate:ship/);
   assert.ok(!/gate:security/.test(d.text), 'an approved gate should not still be asked for');
+});
+
+// ── a stage the map says to run, that this run does not need ──────────────
+//
+// pipeline.toml said `architect -> pm` unconditionally; CLAUDE.md said skip pm
+// decomposition below three work streams. On 2026-08-07 the architect itself
+// wrote "depth Small, one implementation task" — the decision was already in its
+// output, and a human made it again.
+//
+// The trap: skipping a stage also skips that stage's gate, and `depth` comes
+// from a verdict an agent writes. An input from the agent that removes a check
+// is the shape that produced three CRITICALs in execution-claims a day earlier.
+
+const withDepth = (depth) => ({ verdict: 'APPROVED', ts: '2026-08-07T10:00:00Z', meta: depth ? { depth } : {} });
+
+test('a declared small depth skips the stage the architect already did', () => {
+  const d = decideNext({
+    agent: 'architect', transitions: TRANSITIONS, verdict: withDepth('small'),
+    activeGates: ['arch', 'ship'], gateStates: { 'gate:arch': { state: 'approved' } },
+  });
+  assert.match(d.text, /subagent_type: senior-dev/);
+  assert.match(d.text, /skipping pm/);
+  assert.match(d.text, /no active gate sat on that edge/, 'the reason must be inspectable, not implicit');
+});
+
+test('a skip may never remove an ACTIVE gate', () => {
+  // At `expert` someone asked to see the plan. A field an agent writes does not
+  // overrule that; the approval level decides.
+  const d = decideNext({
+    agent: 'architect', transitions: TRANSITIONS, verdict: withDepth('small'),
+    activeGates: ['product', 'arch', 'plan', 'code', 'qa', 'security', 'ship'],
+    gateStates: { 'gate:arch': { state: 'approved' } },
+  });
+  assert.match(d.text, /subagent_type: pm/);
+  assert.ok(!/skipping/.test(d.text));
+});
+
+test('no depth declared changes nothing', () => {
+  const d = decideNext({
+    agent: 'architect', transitions: TRANSITIONS, verdict: withDepth(null),
+    activeGates: ['arch', 'ship'], gateStates: { 'gate:arch': { state: 'approved' } },
+  });
+  assert.match(d.text, /subagent_type: pm/);
+});
+
+test('a value that is not the declared one does not skip', () => {
+  for (const depth of ['medium', 'large', 'SMALLISH', '']) {
+    const d = decideNext({
+      agent: 'architect', transitions: TRANSITIONS, verdict: withDepth(depth),
+      activeGates: ['arch', 'ship'], gateStates: { 'gate:arch': { state: 'approved' } },
+    });
+    assert.match(d.text, /subagent_type: pm/, depth);
+  }
+});
+
+test('the declared value matches case-insensitively, since agents write it by hand', () => {
+  const d = decideNext({
+    agent: 'architect', transitions: TRANSITIONS, verdict: withDepth('Small'),
+    activeGates: ['arch', 'ship'], gateStates: { 'gate:arch': { state: 'approved' } },
+  });
+  assert.match(d.text, /senior-dev/);
+});
+
+test('resolveSkip refuses to fan out and refuses to run away', () => {
+  // Only a single-next edge can be skipped — bypassing one branch of a fan-out
+  // leaves the pipeline in a state nobody chose. And a chain of skips is bounded.
+  const T = {
+    a: { next: ['b', 'c'], skip_next_when: 'depth=small' },
+    b: { next: ['d'] }, c: { next: ['d'] }, d: { next: ['e'] },
+  };
+  assert.deepEqual(resolveSkip({ rule: T.a, transitions: T, meta: { depth: 'small' }, activeGates: [] }).skipped, []);
+
+  const loop = { x: { next: ['x'], skip_next_when: 'depth=small' } };
+  const r = resolveSkip({ rule: loop.x, transitions: loop, meta: { depth: 'small' }, activeGates: [] });
+  assert.ok(r.skipped.length <= 4, 'a self-referential map must terminate');
+});
+
+test('a stage with nowhere to go afterwards is not skipped', () => {
+  // Skipping the last stage would leave the pipeline with no next at all.
+  const T = { a: { next: ['end'], skip_next_when: 'depth=small' }, end: { next: [] } };
+  assert.deepEqual(resolveSkip({ rule: T.a, transitions: T, meta: { depth: 'small' }, activeGates: [] }).nexts, ['end']);
 });

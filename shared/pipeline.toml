@@ -23,6 +23,9 @@
 #   join = other agents whose success verdict must ALSO exist before `next`
 #          fires (parallel quorum, e.g. qa-engineer + security-officer).
 #   next = agents to spawn after `on` (and gate approval / join quorum).
+#   skip_next_when = "key=value" — when the succeeding stage's verdict meta
+#          carries this, the single `next` stage is bypassed and ITS next runs
+#          instead. Refused whenever an active gate sits on the skipped edge.
 #
 # Any verdict of BLOCKED / FAIL / REJECTED halts the chain at that stage.
 
@@ -35,6 +38,16 @@ next = ["architect"]
 on = ["APPROVED", "DONE"]
 gate = "gate:arch"
 next = ["pm"]
+# pm decomposes work into parallel streams. At Small depth the architect has
+# already produced the decomposition — one implementation task — so pm would
+# decompose one into one. CLAUDE.md's triage says skip it below three streams;
+# this is that rule, read from the architect's own verdict instead of from a
+# human repeating a decision the architect already made and wrote down.
+#
+# A skip can never remove an ACTIVE gate: at `expert` gate:plan applies and pm
+# runs, because someone asked to see the plan. See resolveSkip() for why a field
+# an agent writes must not be able to drop a check.
+skip_next_when = "depth=small"
 
 [transitions.pm]
 on = ["PLAN_READY", "DONE"]
