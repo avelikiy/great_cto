@@ -9,6 +9,80 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.95.0 — 2026-08-08
+
+Four pipeline defects, every one found by running the pipeline rather than by a
+test. Three of them were my own assumptions about the shape of the data.
+
+### The pipeline no longer loses a stage
+
+- **A verdict written from a git worktree now lands in the project.** Agents run
+  in worktrees under `.claude/worktrees/`, each with its own `.great_cto/`. Three
+  runs in a row wrote their verdict there, where the dispatcher never looks: it
+  saw nothing, named no next stage, and a human copied the file across. The
+  worktree is then removed with the verdict inside it — once, with 105 passing
+  tests the pipeline could not see. `.great_cto/` is state about the project, and
+  a checkout of a project is not a different project.
+- **A verdict from a previous run is no longer read as this run's success.** The
+  freshness window is thirty minutes and says nothing about *which* run. A
+  verdict written twenty minutes earlier, for the previous task, was reported as
+  a cut-off agent's `TASK_DONE` — and the directive said "succeeded, spawn
+  code-reviewer" for a stage that had produced nothing. A false absence stalls
+  the pipeline; a false success advances it past work that never happened.
+- **A cut-off agent is detected without SubagentStop.** That hook does not run
+  when the harness force-stops a subagent — `cost-history.log`, which it appends
+  to on every invocation, had no entry within two hours of the agent it was
+  written to catch. PostToolUse does fire, and the Agent result carries the
+  agentId, so the transcript is now read directly. The directive names the action:
+  `RESUME it (SendMessage to: <id>)`, and says to check the worktree before
+  concluding the agent produced nothing.
+
+### Agents stop dying during verification
+
+Four of nine subagents were cut off mid-run and recorded nothing. Reading all
+seventeen transcripts, every one died during verification, not during the work —
+97, 100, 105 and 125 turns, each running a full-suite command at the moment it
+stopped, on runs that were **passing**. Agents that recorded a verdict early
+(turns 9, 10, 11, 26) finished.
+
+- `senior-dev` records its verdict when acceptance is met, before the regression
+  pass, and the contract states that overwriting it is free — otherwise an honest
+  agent waits until it is certain, which is the behaviour being removed.
+- Full-repo CI is named as the orchestrator's job. A green result you cannot
+  fully read is still green, and a second run tells you nothing the first did not.
+
+### Session start
+
+`session-pipeline-resume` picks the pipeline up where it was left, so approving a
+gate is no longer one action and "continue" a second. It costs 27ms in a project
+with nothing in flight, against 847ms before the freshness check — a stage that
+succeeded last week is not work waiting for you.
+
+### Also
+
+- `pipeline-tick` decides whether the pipeline may move unattended: only
+  `ready-to-dispatch`, never the same transition twice, never `devops` or
+  `infra-provisioner` *by name* rather than only by gate, never inside a
+  ten-minute floor.
+- A stage may be skipped when the previous one already decided it
+  (`skip_next_when = "depth=small"`), but a skip may never remove an **active**
+  gate — `depth` comes from a verdict an agent writes.
+- Judge provenance: `dagFingerprint`, `judge`/`dagHash` on every history row,
+  a `mismatched` bucket in the gate, and `judgeSwapped` in eval-status. Two runs
+  judged by different graphs are not comparable, and until now nothing said which
+  judge produced a score.
+- `adherence` reports whether the instruction under test reached the answer at
+  all — the diagnosis that would have saved about \$41.
+- `improve-loop` fixes the order in which to ask what a failing eval wants, with
+  "edit the prompt" last.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.94.0 — 2026-08-08
 
 Fewer confirmations, and the pipeline stops losing runs.
