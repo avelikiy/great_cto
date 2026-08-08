@@ -53,6 +53,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { costForUsage, round4 } from '../../scripts/lib/cost-meter.mjs';
 import { verdict as powerVerdict, dropout as dropoutOf } from '../../scripts/lib/eval-power.mjs';
+import { parseAdherenceMarker, adherence, explainAdherence } from '../../scripts/lib/adherence.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EVAL_DIR = __dirname;
@@ -262,7 +263,7 @@ export function parseEvalFile(content, filename) {
     const thresholdRaw = findSection(/^pass threshold$/i);
     const threshold = parseThreshold(thresholdRaw);
 
-    return { agent, component, pack, scenario, cases, tuningCases, holdoutCases, thresholdRaw, threshold };
+    return { agent, component, pack, scenario, cases, tuningCases, holdoutCases, thresholdRaw, threshold, adherenceMarker: parseAdherenceMarker(content) };
   } catch (err) {
     console.warn(`[WARN] Failed to parse ${filename}: ${err.message}`);
     return null;
@@ -994,6 +995,10 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     costUsd: round4(totalCost),
     threshold,
     thresholdRaw: parsed.thresholdRaw,
+    // Whether the instruction under test reached the response at all. Four
+    // rewordings of one devops instruction moved the holdout by nothing, because
+    // it appeared in 4 of 22 answers — no phrasing changes what is absent.
+    adherence: adherence(last.caseResults, parsed.adherenceMarker),
     splits,
     // A rate over nothing is not a failing rate. A run that never reached the
     // provider printed `0/0 NOT RUN` and then `FAIL: 0% < 2/3 holdout` two lines
@@ -1232,6 +1237,7 @@ async function main() {
       // apart from a row written before the expansion existed, and the same
       // score would then mean two different measurements.
       sharedExpanded: result.sharedExpanded,
+      adherence: result.adherence,
       pack: result.pack,
       split: result.split,
       cases: result.cases,
@@ -1290,6 +1296,13 @@ async function main() {
     for (const r of unmeasured) console.error(`  ${r.eval}: ${r.dropout?.why ?? 'no cases ran'}`);
     console.error('No threshold is applied to these — the rate is over the cases that ran.');
     process.exit(1);
+  }
+
+  for (const r of results) {
+    const note = explainAdherence(r.eval.replace('EVAL-', ''), r.adherence);
+    // Printed whenever it was measured, pass or fail: an instruction that fires
+    // 40% of the time is worth knowing about on a run that scraped by.
+    if (note) console.log(`\n${note}`);
   }
 
   const failing = results.filter(r => r.belowThreshold);

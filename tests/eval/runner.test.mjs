@@ -928,3 +928,35 @@ test('a run with no usage reported still costs nothing rather than throwing', ()
   assert.equal(normalizeCacheUsage(null, null), null);
   assert.equal(costForUsage({ model: 'anthropic/claude-sonnet-4', usage: null }), 0);
 });
+
+// ── does the instruction under test reach the answer at all ───────────────
+//
+// One devops instruction was reworded four times for no movement: the holdout
+// went 5/20 → 11 → 12 → 11 → 10 across four phrasings, about $41. It appeared in
+// 4 of 22 answers. The wording was never the variable, and no run said so.
+
+test('an eval declares which instruction it is measuring', () => {
+  const p = parseEvalFile('# EVAL-x\n\n> Agent: devops\n> Adherence: CLAIMS BEFORE|CHECKED:\n\n## Scenario\ns\n\n## Cases\n| # | Scenario | Expected | Pass |\n|---|---|---|---|\n| 1 | a | b | c |\n\n## Pass threshold\n2/3\n', 'EVAL-x.md');
+  assert.ok(p.adherenceMarker instanceof RegExp);
+  assert.ok(p.adherenceMarker.test('CLAIMS BEFORE cutover'));
+});
+
+test('an eval that does not declare one measures nothing extra', () => {
+  const p = parseEvalFile('# EVAL-x\n\n> Agent: devops\n\n## Scenario\ns\n\n## Cases\n| # | Scenario | Expected | Pass |\n|---|---|---|---|\n| 1 | a | b | c |\n\n## Pass threshold\n2/3\n', 'EVAL-x.md');
+  assert.equal(p.adherenceMarker, null);
+});
+
+test('a broken marker does not take the whole eval down with it', () => {
+  // parseEvalFile returning null costs the run every case in the file, which is
+  // a steep price for a typo in an advisory field.
+  const p = parseEvalFile('# EVAL-x\n\n> Agent: devops\n> Adherence: [unclosed\n\n## Scenario\ns\n\n## Cases\n| # | Scenario | Expected | Pass |\n|---|---|---|---|\n| 1 | a | b | c |\n\n## Pass threshold\n2/3\n', 'EVAL-x.md');
+  assert.ok(p, 'the eval still parses');
+  assert.equal(p.adherenceMarker, null);
+});
+
+test('the devops eval declares the instruction that cost four rewrites', () => {
+  const src = fs.readFileSync(join(__dirname, 'EVAL-devops-deploy-safety.md'), 'utf8');
+  const p = parseEvalFile(src, 'EVAL-devops-deploy-safety.md');
+  assert.ok(p.adherenceMarker, 'the claims ledger is what that eval is really testing');
+  assert.ok(p.adherenceMarker.test('CLAIMS\n  health 200 → CHECKED: curl'));
+});
