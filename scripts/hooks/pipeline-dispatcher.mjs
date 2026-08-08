@@ -73,6 +73,36 @@ export function parsePipelineToml(text) {
   return transitions;
 }
 
+/**
+ * The agentId out of a PostToolUse payload, if the tool reported one.
+ *
+ * The Agent tool prints it in its result so a caller can resume that exact
+ * agent with its context — which is the only useful thing to do with one that
+ * was cut off. Extracted defensively from the stringified response: the field's
+ * position is not guaranteed, and a directive that says "use the agentId from
+ * its result" is still actionable when this finds nothing.
+ */
+export function agentIdFrom(payload) {
+  try {
+    const blob = typeof payload?.tool_response === 'string'
+      ? payload.tool_response
+      : JSON.stringify(payload?.tool_response ?? '');
+    const m = blob.match(/agentId["':\s]+([a-f0-9]{8,})/i);
+    return m ? m[1] : null;
+  } catch { return null; }
+}
+
+/** How the last subagent stopped, as SubagentStop recorded it. */
+export function readLastStop(dir, { withinMs = 10 * 60 * 1000, now = Date.now(), read = readFileSync } = {}) {
+  try {
+    const o = JSON.parse(read(join(dir, '.last-stop'), 'utf8'));
+    // Stale means it describes a different subagent — worse than knowing nothing,
+    // because it would prescribe resuming an agent that already finished.
+    if (o?.ts && now - Date.parse(o.ts) > withinMs) return null;
+    return o && o.shape ? o : null;
+  } catch { return null; }
+}
+
 /** Normalize "great_cto-architect" → "architect". */
 export function normalizeAgent(subagentType) {
   return String(subagentType || '').replace(/^great_cto-/, '').trim();
@@ -213,7 +243,7 @@ export function resolveSkip({ rule, transitions, meta, activeGates, gateStates, 
   return { nexts: onward.nexts, skipped: [skipStage, ...onward.skipped], why: `${cond} (declared by ${meta?.agent ?? 'the stage'})` };
 }
 
-export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null, gateStates = null }) {
+export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null, gateStates = null, lastStop = null, agentId = null }) {
   // An edge may be guarded by several gates — `approval-level` decides which of
   // them apply, the map only declares that they guard this edge. Before this,
   // `gate` was a single string and every level above `strict` promised gates
@@ -233,6 +263,20 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   if (!rule) return null;
 
   if (!verdict) {
+    // How it stopped decides what to ask for, and the two need opposite things.
+    // An agent CUT OFF mid-loop cannot be asked for anything — it has to be
+    // resumed with its context, and only the orchestrator can do that. This hook
+    // runs in the orchestrator's context, which is why the directive can name the
+    // action instead of describing the problem.
+    if (lastStop?.shape === 'cut-off') {
+      return {
+        kind: 'resume',
+        text: `PIPELINE: ${agent} was CUT OFF after ${lastStop.turns} turns — it never closed a turn, so it stopped mid-loop rather than concluding, and recorded no verdict. `
+          + 'Its work may already exist: check for changes it left behind, INCLUDING in a git worktree under .claude/worktrees/. '
+          + `RESUME it${agentId ? ` (SendMessage to: '${agentId}')` : ' with SendMessage, using the agentId from its result'} and ask it to record its verdict and close its task. `
+          + 'Do NOT re-run it from scratch — a fresh run repeats work already done, and this one spent its whole budget.',
+      };
+    }
     return {
       kind: 'no-verdict',
       text: `PIPELINE: ${agent} finished but recorded no verdict line in ${VERDICT_DIR}/${agent}.log. ` +
@@ -386,7 +430,12 @@ function main() {
     activeGates = gatesForApprovalLevel(levelFromProjectMd(pm), { archetype });
   } catch { /* no PROJECT.md or helper — keep every gate */ }
 
-  const decision = decideNext({ agent, transitions, verdict, joinVerdicts, activeGates, gateStates: gateStatesFor(rule, verdict) });
+  const decision = decideNext({
+    agent, transitions, verdict, joinVerdicts, activeGates,
+    gateStates: gateStatesFor(rule, verdict),
+    lastStop: readLastStop(PROJ_DIR),
+    agentId: agentIdFrom(payload),
+  });
   if (decision) emit(decision.text);
   return process.exit(0);
 }

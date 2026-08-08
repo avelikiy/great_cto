@@ -229,7 +229,18 @@ async function main() {
   let stop = null;
   try {
     const tp = JSON.parse(stdin || '{}').transcript_path;
-    if (tp) { const sh = stopShape(tp); stop = { shape: sh.shape, turns: sh.turns, agent: fresh?.agent || null }; }
+    if (tp) {
+      const sh = stopShape(tp);
+      stop = { shape: sh.shape, turns: sh.turns, agent: fresh?.agent || null };
+      // Handed to the dispatcher, which runs in the ORCHESTRATOR's context and
+      // is the only thing here that can resume anything. A hook cannot call
+      // SendMessage; the orchestrator can, and it does not know how the subagent
+      // stopped. This file is the one place both of them see.
+      try {
+        mkdirSync(PROJ_DIR, { recursive: true });
+        writeFileSync(join(PROJ_DIR, '.last-stop'), JSON.stringify({ ...stop, ts: new Date().toISOString() }) + '\n');
+      } catch { /* the dispatcher falls back to its generic message */ }
+    }
   } catch { /* no transcript — the generic message still applies */ }
   const decision = completionDecision({
     threeState: flags.threeState,

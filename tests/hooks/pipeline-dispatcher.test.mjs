@@ -17,7 +17,7 @@ const PIPELINE_TOML = readFileSync(resolve(__dirname, '../../shared/pipeline.tom
 const {
   parsePipelineToml,
   normalizeAgent,
-  parseVerdictLine, resolveSkip,
+  parseVerdictLine, resolveSkip, agentIdFrom, readLastStop,
   decideNext,
 } = await import(HOOK);
 
@@ -588,4 +588,60 @@ test('a stage with nowhere to go afterwards is not skipped', () => {
   // Skipping the last stage would leave the pipeline with no next at all.
   const T = { a: { next: ['end'], skip_next_when: 'depth=small' }, end: { next: [] } };
   assert.deepEqual(resolveSkip({ rule: T.a, transitions: T, meta: { depth: 'small' }, activeGates: [] }).nexts, ['end']);
+});
+
+// ── resuming a cut-off agent, which only the orchestrator can do ──────────
+//
+// Six of eight agents over two days recorded no verdict; four of those were cut
+// off mid-loop. A hook cannot call SendMessage — but PostToolUse runs in the
+// ORCHESTRATOR's context, and the orchestrator can. What it lacked was the one
+// fact SubagentStop has and it does not: how the subagent stopped.
+
+test('a cut-off agent gets a resume directive naming the agent id', () => {
+  const T = { 'senior-dev': { on: ['TASK_DONE'], next: ['code-reviewer'] } };
+  const d = decideNext({
+    agent: 'senior-dev', transitions: T, verdict: null,
+    lastStop: { shape: 'cut-off', turns: 105 }, agentId: 'add5b33cf1e170666',
+  });
+  assert.equal(d.kind, 'resume');
+  assert.match(d.text, /CUT OFF after 105 turns/);
+  assert.match(d.text, /SendMessage to: 'add5b33cf1e170666'/, 'a directive without the id is a description, not an action');
+  assert.match(d.text, /worktrees/, 'its work may already exist somewhere the main tree cannot see');
+  assert.match(d.text, /Do NOT re-run it from scratch/);
+});
+
+test('without an id the directive still says what to do', () => {
+  const T = { 'senior-dev': { on: ['TASK_DONE'], next: ['code-reviewer'] } };
+  const d = decideNext({ agent: 'senior-dev', transitions: T, verdict: null, lastStop: { shape: 'cut-off', turns: 9 } });
+  assert.equal(d.kind, 'resume');
+  assert.match(d.text, /using the agentId from its result/);
+});
+
+test('an agent that finished and forgot is asked to record, not resumed', () => {
+  const T = { 'senior-dev': { on: ['TASK_DONE'], next: ['code-reviewer'] } };
+  const d = decideNext({ agent: 'senior-dev', transitions: T, verdict: null, lastStop: { shape: 'reported', turns: 40 } });
+  assert.equal(d.kind, 'no-verdict');
+  assert.ok(!/RESUME/.test(d.text), 'resuming an agent that concluded wastes a turn on a request it already answered');
+});
+
+test('no stop record falls back to the generic message', () => {
+  const T = { 'senior-dev': { on: ['TASK_DONE'], next: ['code-reviewer'] } };
+  assert.equal(decideNext({ agent: 'senior-dev', transitions: T, verdict: null }).kind, 'no-verdict');
+});
+
+test('the agent id is pulled out of a real Agent result', () => {
+  assert.equal(agentIdFrom({ tool_response: "Done.agentId: add5b33cf1e170666 (use SendMessage with to: 'add5b33cf1e170666')" }), 'add5b33cf1e170666');
+  assert.equal(agentIdFrom({ tool_response: { agentId: 'a3210798032f3466e' } }), 'a3210798032f3466e');
+  assert.equal(agentIdFrom({}), null);
+  assert.equal(agentIdFrom(null), null);
+});
+
+test('a stale stop record is worse than none and is ignored', () => {
+  // It would prescribe resuming an agent that already finished.
+  const fresh = JSON.stringify({ shape: 'cut-off', turns: 5, ts: new Date().toISOString() });
+  const old = JSON.stringify({ shape: 'cut-off', turns: 5, ts: '2020-01-01T00:00:00Z' });
+  assert.equal(readLastStop('/x', { read: () => fresh })?.shape, 'cut-off');
+  assert.equal(readLastStop('/x', { read: () => old }), null);
+  assert.equal(readLastStop('/x', { read: () => { throw new Error('none'); } }), null);
+  assert.equal(readLastStop('/x', { read: () => '{}' }), null);
 });
