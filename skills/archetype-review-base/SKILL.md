@@ -70,12 +70,51 @@ For each finding, use this exact format:
   - Rationale: {why this matters IN THIS DOMAIN — cite a regulation or
     domain-specific best practice. Generic "could be a problem" is
     rejected.}
+  - Repro: {a command, or numbered steps, that SHOWS the finding. Required for
+    Critical and High.}
   - Remediation: {specific fix — code change, config change, or
     architectural change. NOT "consider adding X" — write the exact change.}
   - References: {URL or document section}
 
 Order findings: Critical → High → Medium → Low.
 If no findings at a tier, write: "_None at {tier} severity._"
+
+### Repro, and why it is required at Critical and High
+
+A finding with no reproduction cannot be shown to be fixed, so closing it is an
+opinion. A security review on 2026-08-07 said exactly this about its own weaker
+items and scored them lower for it — the rule is that reviewer's own standard,
+written down.
+
+It is also what makes the finding survive you. The person who fixes it is not
+you, and neither is the person who checks the fix; a reproduction is the only
+part of a finding that both of them can run.
+
+### File Critical and High as beads
+
+A finding that lives only in a report is one nobody can track, and one whose
+closure nobody can check. Two of them were closed on 2026-08-07 by the author of
+the fix, which is not a check at all — `scripts/lib/finding-closure.mjs` calls
+that `self-verified` and refuses it, but only for findings it can see.
+
+```bash
+bd create "[Critical] {title}" --label finding --type bug \
+  -d "Location: {file:line}
+Repro: {command or steps}
+Rationale: {why}
+Remediation: {exact fix}"
+```
+
+Then, as the finding moves:
+
+```bash
+bd comment <id> "fixed-by: <agent>"      # whoever writes the fix
+bd comment <id> "verified-by: <agent>"   # someone who did NOT write it
+bd close <id> --reason "repro re-run after the fix, now passing"
+```
+
+The verifier may not be the fixer, the verification must come after the fix, and
+the repro must pass now. Those are checked, not merely asked for.
 
 ## Verdict
 
