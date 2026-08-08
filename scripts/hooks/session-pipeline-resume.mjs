@@ -30,11 +30,40 @@
  * Opt out: GREAT_CTO_DISABLE_SESSION_RESUME=1
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const MARKER = join(PROJ_DIR, '.pipeline-tick');
+
+/**
+ * How recent a stage must be for this to be "work waiting" rather than history.
+ *
+ * Most sessions start on a project with no pipeline in flight, and this hook runs
+ * for all of them. Reading gate approval means shelling out to `bd`, which costs
+ * 533ms of the 847ms this hook took before the check below — against ~30ms for
+ * every other hook in this plugin. A session-start tax paid by everyone, to
+ * answer a question almost nobody is asking.
+ *
+ * A day is generous and the reasoning is not about speed: a stage that succeeded
+ * last week is not work waiting for you, it is something that happened. The hook
+ * exists for "you approved a gate two hours ago", and that is what it should
+ * answer.
+ */
+const IN_FLIGHT_MS = 24 * 60 * 60 * 1000;
+
+/** The newest verdict's age, or null when there are none. */
+function newestVerdictAge(dir, now = Date.now()) {
+  let newest = 0;
+  try {
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.log')) continue;
+      const m = statSync(join(dir, f)).mtimeMs;
+      if (m > newest) newest = m;
+    }
+  } catch { return null; }
+  return newest ? now - newest : null;
+}
 
 /**
  * The brief, phrased for someone who is present.
@@ -59,6 +88,11 @@ export function resumeBrief(decision, position) {
 async function main() {
   if (process.env.GREAT_CTO_DISABLE_SESSION_RESUME === '1') return 0;
   if (!existsSync(PROJ_DIR) || !existsSync(join('shared', 'pipeline.toml'))) return 0;
+
+  // Cheapest question first: is anything in flight at all? A stat per verdict
+  // log, before any import or subprocess.
+  const age = newestVerdictAge(join(PROJ_DIR, 'verdicts'));
+  if (age === null || age > IN_FLIGHT_MS) return 0;
 
   const { tickDecision } = await import('../lib/pipeline-tick.mjs');
   const { pipelinePosition, readAllVerdicts } = await import('../lib/pipeline-position.mjs');
