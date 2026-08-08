@@ -56,6 +56,26 @@ fi
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 PROJ_DIR="${GREAT_CTO_DIR:-.great_cto}"
 
+# A verdict is state about the PROJECT, not about a checkout of it.
+#
+# Agents run in git worktrees under .claude/worktrees/, each with its own
+# .great_cto/. Three runs in a row wrote their verdict there: the pipeline reads
+# the main tree, saw nothing, named no next stage, and a human copied the file
+# across by hand every time. The worktree is then removed with the verdict inside
+# it. Once the work was 105 passing tests that the pipeline could not see at all.
+#
+# `--git-common-dir` differs from `--git-dir` only in a linked worktree, and
+# points at the main checkout's .git — so its parent is where .great_cto belongs.
+# An explicit GREAT_CTO_DIR still wins: someone naming a directory means it.
+if [ -z "${GREAT_CTO_DIR:-}" ]; then
+  _COMMON=$(git rev-parse --git-common-dir 2>/dev/null || true)
+  _GITDIR=$(git rev-parse --git-dir 2>/dev/null || true)
+  if [ -n "$_COMMON" ] && [ "$_COMMON" != "$_GITDIR" ]; then
+    _MAIN=$(cd "$(dirname "$_COMMON")" 2>/dev/null && pwd || true)
+    [ -n "$_MAIN" ] && [ -d "$_MAIN" ] && PROJ_DIR="$_MAIN/.great_cto"
+  fi
+fi
+
 # Determine project slug: PROJECT.md `slug:` field → basename of cwd
 PROJECT_SLUG=""
 if [ -f "$PROJ_DIR/PROJECT.md" ]; then
@@ -67,7 +87,11 @@ if [ -f "$PROJ_DIR/PROJECT.md" ]; then
   # project-scoped verdict query silently matched nothing.
   PROJECT_SLUG=$(grep -E '^slug:[[:space:]]*' "$PROJ_DIR/PROJECT.md" 2>/dev/null | head -1 | sed -E 's/^slug:[[:space:]]*//;s/[[:space:]]+$//' || true)
 fi
-[ -z "$PROJECT_SLUG" ] && PROJECT_SLUG=$(basename "$(pwd)")
+# The fallback is the PROJECT's directory, not the checkout's. From inside a
+# worktree, `basename $(pwd)` is the worktree name — a verdict tagged
+# `project=wt-1786206189-78666`, which no project-scoped query will ever match
+# and which reads as a different project in any cross-project view.
+[ -z "$PROJECT_SLUG" ] && PROJECT_SLUG=$(basename "$(cd "$PROJ_DIR/.." 2>/dev/null && pwd || pwd)")
 
 # Emit the verdict as one versioned NDJSON record.
 #
