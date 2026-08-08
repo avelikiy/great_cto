@@ -31,7 +31,37 @@
  *   node scripts/lib/dag-metric.mjs <dag.json> --next --answers '{...}'
  */
 
+import { createHash } from 'node:crypto';
+
 const isLeafScore = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
+
+/**
+ * A 12-hex-char fingerprint over the DAG's scoring structure — `root`, each
+ * node's `question` and `edges`, each leaf's `score` — with every level's keys
+ * sorted so key order in the source file cannot move the hash.
+ *
+ * Deliberately excludes `note` (top-level) and each leaf's `reason`: those are
+ * documentation, not the metric. Two runs scored by the same questions and the
+ * same edges must fingerprint identically even if someone rewrote a comment —
+ * and two runs whose questions or edges differ must not, because that is
+ * exactly the case (ARCH-judge-provenance §1/§3) that makes their rates
+ * incomparable.
+ */
+export function dagFingerprint(dag) {
+  const sortKeys = (o) => Object.fromEntries(Object.entries(o || {}).sort(([a], [b]) => (a < b ? -1 : 1)));
+  const scoring = {
+    root: dag && dag.root,
+    nodes: sortKeys(Object.fromEntries(Object.entries((dag && dag.nodes) || {})
+      // `n?.` rather than `n.`: a null entry inside `nodes` threw where an
+      // absent `nodes` did not, so the function was safe against the malformed
+      // shapes anyone thought to try and unsafe against one nobody did. This
+      // runs inside an eval that has already been paid for.
+      .map(([id, n]) => [id, { question: n?.question, edges: sortKeys(n?.edges) }]))),
+    leaves: sortKeys(Object.fromEntries(Object.entries((dag && dag.leaves) || {})
+      .map(([id, l]) => [id, { score: l?.score }]))),
+  };
+  return createHash('sha256').update(JSON.stringify(scoring)).digest('hex').slice(0, 12);
+}
 
 /**
  * Check the graph before anyone judges anything: a lost branch or a cycle is a

@@ -109,9 +109,22 @@ Then, as the finding moves:
 
 ```bash
 bd comment <id> "fixed-by: <agent>"      # whoever writes the fix
-bd comment <id> "verified-by: <agent>"   # someone who did NOT write it
+bd comment <id> "verified-by: <agent>
+repro-result: passed"                    # someone who did NOT write it,
+                                         # stating what the repro did NOW
 bd close <id> --reason "repro re-run after the fix, now passing"
 ```
+
+`repro-result` is `passed`, `failed` or `not_run`, and the VERIFIER writes it in
+the same comment as `verified-by`. Nothing re-executes the reproduction on your
+behalf: running a command out of a bead description is how a reporting channel
+becomes an execution channel, and it produced three CRITICALs in
+`execution-claims` on 2026-08-07. So this rung checks who says the repro passes
+and whether they wrote the fix — not the command. That is a real limit and it is
+the deliberate one.
+
+A verification that does not say what the reproduction did leaves the finding
+`repro-not-run`. "Looks fine to me" is not a result.
 
 The verifier may not be the fixer, the verification must come after the fix, and
 the repro must pass now. Those are checked, not merely asked for.

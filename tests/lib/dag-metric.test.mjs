@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateDag, evaluateDag, pendingQuestion, explain,
-  questionPrompt, parseAnswer, judgeWithDag,
+  questionPrompt, parseAnswer, judgeWithDag, dagFingerprint,
 } from '../../scripts/lib/dag-metric.mjs';
 
 // Does a finding carry evidence, and is its severity calibrated? Two questions,
@@ -287,4 +287,113 @@ test('punctuated labels keep the ambiguity guard', () => {
 test('a label is still matched as a whole token, not a substring', () => {
   assert.equal(parseAnswer('yesterday', ['yes', 'no']), null,
     'a longer word containing the label is not the label');
+});
+
+// ── fingerprinting the metric, not the run ──────────────────────────────────
+//
+// Two eval runs judged by different graphs are not comparable (ARCH-judge-
+// provenance §1). dagFingerprint answers "did the metric change?" — so it must
+// move when the scoring structure (question wording, edge targets, leaf scores)
+// changes, and must NOT move for edits that are documentation only (`note`,
+// a leaf's `reason`) or purely cosmetic (key order in the source file).
+
+test('dagFingerprint returns a 12-character lowercase hex string', () => {
+  const hash = dagFingerprint(DAG);
+  assert.equal(hash.length, 12);
+  assert.match(hash, /^[0-9a-f]{12}$/, `expected lowercase hex, got '${hash}'`);
+});
+
+test('key order at every level of the source object does not change the hash', () => {
+  const reordered = {
+    leaves: {
+      'leaf-no-evidence': DAG.leaves['leaf-no-evidence'],
+      'leaf-miscalibrated': DAG.leaves['leaf-miscalibrated'],
+      'leaf-good': DAG.leaves['leaf-good'],
+    },
+    nodes: {
+      'severity-calibrated': {
+        question: DAG.nodes['severity-calibrated'].question,
+        edges: { no: 'leaf-miscalibrated', yes: 'leaf-good' }, // edges reversed too
+      },
+      'has-evidence': {
+        question: DAG.nodes['has-evidence'].question,
+        edges: { no: 'leaf-no-evidence', yes: 'severity-calibrated' }, // edges reversed too
+      },
+    },
+    root: DAG.root,
+    id: DAG.id,
+  };
+  assert.equal(dagFingerprint(DAG), dagFingerprint(reordered),
+    'reordering keys must not change what is, in substance, the same graph');
+});
+
+test('changing a node\'s question text changes the hash', () => {
+  const changed = {
+    ...DAG,
+    nodes: { ...DAG.nodes, 'has-evidence': {
+      ...DAG.nodes['has-evidence'], question: 'Is there any evidence at all, cited or not?' } },
+  };
+  assert.notEqual(dagFingerprint(DAG), dagFingerprint(changed));
+});
+
+test('retargeting an edge changes the hash', () => {
+  const changed = {
+    ...DAG,
+    nodes: { ...DAG.nodes, 'has-evidence': {
+      ...DAG.nodes['has-evidence'], edges: { yes: 'leaf-good', no: 'leaf-no-evidence' } } },
+  };
+  assert.notEqual(dagFingerprint(DAG), dagFingerprint(changed));
+});
+
+test('changing a leaf\'s score changes the hash', () => {
+  const changed = {
+    ...DAG,
+    leaves: { ...DAG.leaves, 'leaf-good': { ...DAG.leaves['leaf-good'], score: 0.9 } },
+  };
+  assert.notEqual(dagFingerprint(DAG), dagFingerprint(changed));
+});
+
+test('changing a leaf\'s reason does NOT change the hash — it is documentation, not the metric', () => {
+  const changed = {
+    ...DAG,
+    leaves: { ...DAG.leaves, 'leaf-good': {
+      ...DAG.leaves['leaf-good'], reason: 'a totally rewritten explanation of the same score' } },
+  };
+  assert.equal(dagFingerprint(DAG), dagFingerprint(changed));
+});
+
+test('changing the DAG\'s top-level note does NOT change the hash', () => {
+  const noteA = { ...DAG, note: 'draft, needs review' };
+  const noteB = { ...DAG, note: 'reviewed and signed off' };
+  assert.equal(dagFingerprint(noteA), dagFingerprint(noteB));
+  assert.equal(dagFingerprint(DAG), dagFingerprint(noteA),
+    'adding a note where none existed must not move the hash either');
+});
+
+// A null entry INSIDE nodes or leaves threw, where an absent `nodes` did not:
+// the function was safe against every malformed shape someone thought to try and
+// unsafe against one nobody did. Found by review after six acceptance criteria
+// had been checked by hand and passed — all of them on well-formed input.
+// This runs inside an eval run that has already been paid for.
+
+test('a null entry inside nodes or leaves does not throw', () => {
+  assert.match(dagFingerprint({ root: 'n1', nodes: { n1: null }, leaves: { l1: { score: 1 } } }), /^[0-9a-f]{12}$/);
+  assert.match(dagFingerprint({ root: 'n1', nodes: { n1: { question: 'q', edges: {} } }, leaves: { l1: null } }), /^[0-9a-f]{12}$/);
+  assert.match(dagFingerprint({ nodes: { a: undefined }, leaves: { b: undefined } }), /^[0-9a-f]{12}$/);
+});
+
+test('a null node is not the same graph as no node at all', () => {
+  // Collapsing them would let a broken graph share a fingerprint with a valid
+  // one, which is worse than having no fingerprint.
+  assert.notEqual(
+    dagFingerprint({ nodes: { a: null }, leaves: {} }),
+    dagFingerprint({ nodes: {}, leaves: {} }),
+  );
+});
+
+test('null-safety did not cost sensitivity', () => {
+  const ok = { root: 'a', nodes: { a: { question: 'q1', edges: { yes: 'L1' } } }, leaves: { L1: { score: 1, reason: 'x' } } };
+  const h = dagFingerprint(ok);
+  assert.notEqual(dagFingerprint({ ...ok, leaves: { L1: { score: 0, reason: 'x' } } }), h, 'score still matters');
+  assert.equal(dagFingerprint({ ...ok, leaves: { L1: { score: 1, reason: 'different' } } }), h, 'reason still does not');
 });

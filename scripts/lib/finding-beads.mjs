@@ -54,7 +54,7 @@ export function parseRepro(description) {
  * that matters is the one for the fix that stands.
  */
 export function parseActors(comments) {
-  const out = { fixedBy: null, fixedAt: null, verifiedBy: null, verifiedAt: null };
+  const out = { fixedBy: null, fixedAt: null, verifiedBy: null, verifiedAt: null, reproResult: null };
   const sorted = [...(comments || [])].sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
   for (const c of sorted) {
     const body = String(c?.body ?? c?.text ?? c?.comment ?? '');
@@ -62,6 +62,13 @@ export function parseActors(comments) {
     if (fixed) { out.fixedBy = fixed[1]; out.fixedAt = c.created_at ?? null; }
     const ver = body.match(/^\s*verified-by\s*:\s*(\S+)/im);
     if (ver) { out.verifiedBy = ver[1]; out.verifiedAt = c.created_at ?? null; }
+    // The reproduction's outcome is STATED by the verifier, not re-executed
+    // here. Running a command out of a bead description is the shape that
+    // produced three CRITICALs in execution-claims: agents write these. So this
+    // rung checks WHO says the repro passes and whether they wrote the fix — not
+    // the command itself. That is a real limit, and it is the deliberate one.
+    const res = body.match(/^\s*repro-result\s*:\s*(passed|failed|not_run)/im);
+    if (res) out.reproResult = { status: res[1].toLowerCase() };
   }
   return out;
 }
@@ -69,13 +76,14 @@ export function parseActors(comments) {
 /** One bead → the record closureDecision() reads. */
 export function findingFromBead(bead, { comments = [], reproResult = null } = {}) {
   if (!bead) return null;
+  const actors = parseActors(comments);
   return {
     id: bead.id ? `${bead.id} ${String(bead.title || '').slice(0, 60)}` : String(bead.title || '(untitled)'),
     beadId: bead.id ?? null,
     status: bead.status ?? null,
     repro: parseRepro(bead.description),
-    ...parseActors(comments),
-    reproResult,
+    ...actors,
+    reproResult: reproResult ?? actors.reproResult,
   };
 }
 
@@ -99,8 +107,14 @@ export function readBeadComments(id, { timeoutMs = 6000, cwd = process.cwd(), ex
   try {
     const out = exec('bd', ['show', String(id), '--json'],
       { cwd, timeout: timeoutMs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    const o = JSON.parse(out || '{}');
-    const list = o.comments ?? o.issue?.comments ?? [];
+    // `bd show --json` returns an ARRAY of issues, not one issue. Written
+    // against a guessed shape, this silently returned [] — every finding then
+    // read as having no fixer and no verifier, which is the same defect that
+    // stalled the pipeline yesterday: a reader built for a format nobody
+    // checked. The alternatives are kept because a tracker may wrap it.
+    const parsed = JSON.parse(out || '{}');
+    const issue = Array.isArray(parsed) ? parsed[0] : (parsed.issue ?? parsed);
+    const list = issue?.comments ?? [];
     return Array.isArray(list) ? list : [];
   } catch {
     return [];
