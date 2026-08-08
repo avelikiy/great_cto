@@ -38,7 +38,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  parsePipelineToml, decideNext, latestVerdict, normalizeAgent, parseVerdictLine,
+  parsePipelineToml, decideNext, latestVerdict, normalizeAgent, parseVerdictLine, readLastStop,
 } from './pipeline-dispatcher.mjs';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
@@ -95,16 +95,30 @@ export function decideStall({ directive, alreadyDispatched, stopHookActive, bloc
   if (stopHookActive) return { block: false, why: 'already continuing from a block' };
   if (blockedBefore) return { block: false, why: 'this transition was blocked once already' };
   if (!directive) return { block: false, why: 'no pending transition' };
-  if (directive.kind !== 'next') {
-    // 'gate' is a legitimate stop — the CTO answers it after the turn ends.
-    // 'blocked', 'done', 'join-wait' and 'no-verdict' all end the turn honestly.
-    return { block: false, why: `transition is '${directive.kind}', not a pending dispatch` };
+  // 'resume' is held for the same reason as 'next': it names a concrete action
+  // the orchestrator can take right now — SendMessage to a specific agent id —
+  // and letting the turn end abandons an agent that was cut off with its work
+  // unlanded. Six of eight agents over two days recorded no verdict, four of them
+  // because they were cut off, and every one of those needed a human to notice.
+  //
+  // 'gate' is a legitimate stop — the CTO answers it after the turn ends.
+  // 'blocked', 'done', 'join-wait' and 'no-verdict' all end the turn honestly:
+  // 'no-verdict' is the agent that FINISHED and forgot, and the completion hook
+  // already asks that one directly at SubagentStop, where it still has budget.
+  const HOLD = new Set(['next', 'resume']);
+  if (!HOLD.has(directive.kind)) {
+    return { block: false, why: `transition is '${directive.kind}', not a pending action` };
   }
-  if (alreadyDispatched) return { block: false, why: 'the next stage already recorded a verdict' };
+  if (directive.kind === 'next' && alreadyDispatched) {
+    return { block: false, why: 'the next stage already recorded a verdict' };
+  }
   return {
     block: true,
-    reason: `${directive.text}\n\n(The turn was held open because this dispatch had not happened. `
-      + `Spawn the agent(s) above now. If you genuinely cannot — say why to the CTO; this guard will not hold the turn again.)`,
+    reason: directive.kind === 'resume'
+      ? `${directive.text}\n\n(The turn was held open because a cut-off agent was about to be abandoned. `
+        + 'Resume it, or land its work yourself. If you genuinely cannot — say why to the CTO; this guard will not hold the turn again.)'
+      : `${directive.text}\n\n(The turn was held open because this dispatch had not happened. `
+        + 'Spawn the agent(s) above now. If you genuinely cannot — say why to the CTO; this guard will not hold the turn again.)',
   };
 }
 
@@ -128,7 +142,19 @@ function main() {
     transitions = parsePipelineToml(readFileSync(join('shared', 'pipeline.toml'), 'utf8'));
   } catch { return 0; }
 
-  const stage = newestStage(VERDICT_DIR);
+  // A cut-off agent has NO verdict, and `newestStage` finds the freshest one —
+  // so on its own it can never see the very stage this guard most needs to hold
+  // the turn for. Found by running the hook end to end; the unit tests all
+  // passed because they hand `decideNext` a directive directly.
+  //
+  // When SubagentStop reports a fresh cut-off and that agent has no verdict of
+  // its own, THAT is where the pipeline actually is.
+  const lastStop = readLastStop(PROJ_DIR);
+  const cutOffAgent = lastStop?.shape === 'cut-off' && lastStop.agent
+    && !latestVerdict(VERDICT_DIR, normalizeAgent(lastStop.agent), FRESH_MS, Date.now())
+    ? normalizeAgent(lastStop.agent) : null;
+
+  const stage = cutOffAgent ? { agent: cutOffAgent } : newestStage(VERDICT_DIR);
   if (!stage) return 0;
   const agent = normalizeAgent(stage.agent);
 
@@ -142,7 +168,14 @@ function main() {
   const joinVerdicts = {};
   for (const j of rule.join || []) joinVerdicts[j] = latestVerdict(VERDICT_DIR, j, 24 * 60 * 60 * 1000, Date.now());
 
-  const directive = decideNext({ agent, transitions, verdict, joinVerdicts, activeGates, gateStates: gateStatesFor(rule, verdict) });
+  const directive = decideNext({
+    agent, transitions, verdict, joinVerdicts, activeGates,
+    gateStates: gateStatesFor(rule, verdict),
+    // Without this the guard cannot see a cut-off agent at all: `decideNext`
+    // only emits `resume` when it knows how the subagent stopped, and that is
+    // recorded by SubagentStop.
+    lastStop,
+  });
 
   // "Already dispatched" = every next stage has its own fresh verdict. A stage
   // that is running but has not finished has no verdict yet, so this errs toward
@@ -152,7 +185,11 @@ function main() {
     && nexts.every((n) => latestVerdict(VERDICT_DIR, n, FRESH_MS, Date.now()));
 
   let blockedBefore = false;
-  try { blockedBefore = readFileSync(MARKER, 'utf8').trim() === `${agent}:${verdict?.verdict || ''}`; } catch { /* none */ }
+  // The kind is part of the identity: a stage blocked once for a missing
+  // dispatch and later cut off is two different situations, and one marker for
+  // both would silently skip the second.
+  const markerId = `${agent}:${verdict?.verdict || ''}:${directive?.kind || ''}`;
+  try { blockedBefore = readFileSync(MARKER, 'utf8').trim() === markerId; } catch { /* none */ }
 
   const d = decideStall({
     directive,
@@ -165,7 +202,7 @@ function main() {
 
   try {
     mkdirSync(PROJ_DIR, { recursive: true });
-    writeFileSync(MARKER, `${agent}:${verdict?.verdict || ''}\n`);
+    writeFileSync(MARKER, `${markerId}\n`);
   } catch { /* a marker we cannot write means we may block twice; not fatal */ }
 
   process.stdout.write(JSON.stringify({ decision: 'block', reason: d.reason }));

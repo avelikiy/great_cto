@@ -27,7 +27,7 @@ test('a gate ends the turn — the CTO answers it after the turn, not during', (
   // Blocking here would make "wait for the CTO" a loop the CTO cannot answer.
   const d = decideStall({ directive: dir('gate'), alreadyDispatched: false, stopHookActive: false, blockedBefore: false });
   assert.equal(d.block, false);
-  assert.match(d.why, /not a pending dispatch/);
+  assert.match(d.why, /not a pending action/);
 });
 
 test('the other honest endings are left alone', () => {
@@ -92,4 +92,58 @@ test('a stale pipeline is not resumed hours later', () => {
 
 test('a project with no verdict directory is silent', () => {
   assert.equal(newestStage('/nowhere/at/all'), null);
+});
+
+// ── a cut-off agent must not be abandoned when the turn ends ──────────────
+//
+// Six of eight agents over two days recorded no verdict; four were cut off
+// mid-loop with work unlanded, and every one needed a human to notice. The
+// dispatcher can now name the exact action — SendMessage to a specific agent id
+// — but naming it is only advice if the turn is allowed to end first.
+
+test('a resume directive holds the turn, like a pending dispatch', () => {
+  const d = decideStall({ directive: { kind: 'resume', text: 'RESUME it' }, alreadyDispatched: false, stopHookActive: false, blockedBefore: false });
+  assert.equal(d.block, true);
+  assert.match(d.reason, /about to be abandoned/);
+  assert.match(d.reason, /Resume it, or land its work yourself/);
+});
+
+test('a resume is not satisfied by a downstream verdict', () => {
+  // `alreadyDispatched` answers "did the NEXT stage run" — a different question
+  // from "was the cut-off agent picked up".
+  const d = decideStall({ directive: { kind: 'resume', text: 'x' }, alreadyDispatched: true, stopHookActive: false, blockedBefore: false });
+  assert.equal(d.block, true);
+});
+
+test('everything else still ends the turn honestly', () => {
+  for (const kind of ['gate', 'blocked', 'join-wait', 'done', 'no-verdict']) {
+    const d = decideStall({ directive: { kind, text: 'x' }, alreadyDispatched: false, stopHookActive: false, blockedBefore: false });
+    assert.equal(d.block, false, kind);
+  }
+});
+
+test('no-verdict is left to the completion hook on purpose', () => {
+  // That is the agent which FINISHED and forgot; SubagentStop asks it directly,
+  // while it still has budget. Holding the orchestrator's turn for it would ask
+  // the wrong party.
+  const d = decideStall({ directive: { kind: 'no-verdict', text: 'x' }, alreadyDispatched: false, stopHookActive: false, blockedBefore: false });
+  assert.match(d.why, /not a pending action/);
+});
+
+test('a cut-off agent is findable even though it has no verdict', () => {
+  // The gap that made the resume path unreachable: newestStage() finds the
+  // freshest VERDICT, and a cut-off agent has none — so on its own the guard
+  // could never see the one stage it most needs to hold the turn for. Every unit
+  // test passed anyway, because they hand decideStall a directive directly. Found
+  // by running the hook end to end.
+  const root = mkdtempSync(join(tmpdir(), 'stall-'));
+  try {
+    const v = join(root, 'verdicts');
+    mkdirSync(v, { recursive: true });
+    writeFileSync(join(v, 'code-reviewer.log'), `{"v":1,"ts":"${new Date().toISOString()}","agent":"code-reviewer","verdict":"APPROVED"}\n`);
+    // newestStage sees only code-reviewer; senior-dev left nothing behind.
+    assert.equal(newestStage(v).agent, 'code-reviewer');
+    assert.equal(newestStage(v).agent === 'senior-dev', false,
+      'the cut-off agent is invisible to a verdict-based search — the guard has to be told');
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
