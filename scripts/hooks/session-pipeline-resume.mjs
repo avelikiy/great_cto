@@ -35,6 +35,26 @@ import { join } from 'node:path';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const MARKER = join(PROJ_DIR, '.pipeline-tick');
+const TRACE = join(PROJ_DIR, '.session-resume');
+
+/**
+ * One line recording that this hook ran, and what it decided.
+ *
+ * Silence is this hook's normal answer — nothing in flight, a gate unapproved,
+ * a transition already dispatched. But a hook that stayed silent and a hook that
+ * never ran are indistinguishable from outside, and that is the same defect this
+ * repo spent two days removing everywhere else: a run that did not happen must
+ * not look like a run that found nothing.
+ *
+ * Overwritten rather than appended: the question is "did it run this session and
+ * what did it say", not "how many times has it ever run".
+ */
+function trace(state, why) {
+  try {
+    mkdirSync(PROJ_DIR, { recursive: true });
+    writeFileSync(TRACE, `${new Date().toISOString()} ${state} ${why}\n`);
+  } catch { /* a trace we cannot write must not stop the hook */ }
+}
 
 /**
  * How recent a stage must be for this to be "work waiting" rather than history.
@@ -92,7 +112,10 @@ async function main() {
   // Cheapest question first: is anything in flight at all? A stat per verdict
   // log, before any import or subprocess.
   const age = newestVerdictAge(join(PROJ_DIR, 'verdicts'));
-  if (age === null || age > IN_FLIGHT_MS) return 0;
+  if (age === null || age > IN_FLIGHT_MS) {
+    trace('idle', age === null ? 'no verdicts recorded' : `newest stage is ${Math.round(age / 3600_000)}h old — history, not work waiting`);
+    return 0;
+  }
 
   const { tickDecision } = await import('../lib/pipeline-tick.mjs');
   const { pipelinePosition, readAllVerdicts } = await import('../lib/pipeline-position.mjs');
@@ -118,12 +141,17 @@ async function main() {
   // ready-to-dispatch, never twice for one transition, never devops or
   // infra-provisioner, never inside the interval floor.
   const decision = tickDecision({ position, lastMarker, lastTickAt });
-  if (!decision.act) return 0;                       // silent — nothing to resume
+  if (!decision.act) {
+    trace('silent', decision.why);
+    return 0;
+  }
 
   try {
     mkdirSync(PROJ_DIR, { recursive: true });
     writeFileSync(MARKER, `${decision.marker}\n${Date.now()}\n`);
   } catch { /* an unwritable marker means it may offer twice; not fatal */ }
+
+  trace('offered', `${decision.agents.join(' + ')} — ${decision.why}`);
 
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {

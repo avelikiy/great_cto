@@ -79,3 +79,63 @@ test('a stage behind an unapproved gate is not announced as work waiting', () =>
   const dir = project({ verdictAgeMs: 60_000 });
   try { assert.equal(run(dir).out.trim(), ''); } finally { clean(dir); }
 });
+
+// ── a silent run and a run that never happened must not look the same ─────
+//
+// Silence is this hook's normal answer: nothing in flight, a gate unapproved, a
+// transition already dispatched. But without a trace, "stayed silent" and "never
+// ran" are indistinguishable from outside — the same defect this repo spent two
+// days removing everywhere else, where a run that did not happen looked like a
+// run that found nothing.
+
+const traceOf = (dir) => {
+  const p = path.join(dir, '.great_cto', '.session-resume');
+  return fs.existsSync(p) ? fs.readFileSync(p, 'utf8').trim() : null;
+};
+
+test('an idle project records that it ran and found nothing in flight', () => {
+  const dir = project({ verdictAgeMs: 7 * 24 * 3600_000 });
+  try {
+    assert.equal(run(dir).out.trim(), '');
+    const t = traceOf(dir);
+    assert.match(t, /idle/, 'the hook must leave proof it ran');
+    assert.match(t, /history, not work waiting/);
+  } finally { clean(dir); }
+});
+
+test('a project with no verdicts at all records that too', () => {
+  const dir = project();
+  try {
+    run(dir);
+    assert.match(traceOf(dir), /idle no verdicts recorded/);
+  } finally { clean(dir); }
+});
+
+test('a stage behind an unapproved gate records WHY it said nothing', () => {
+  // Not the same as idle: something is in flight, and the CTO has not said yes.
+  const dir = project({ verdictAgeMs: 60_000 });
+  try {
+    assert.equal(run(dir).out.trim(), '');
+    const t = traceOf(dir);
+    assert.match(t, /silent/);
+    assert.ok(!/idle/.test(t), 'an unapproved gate is a different answer from an idle project');
+  } finally { clean(dir); }
+});
+
+test('the trace is overwritten, not grown', () => {
+  // The question is "did it run this session and what did it say", not "how many
+  // times has it ever run".
+  const dir = project({ verdictAgeMs: 60_000 });
+  try {
+    run(dir); run(dir); run(dir);
+    assert.equal(traceOf(dir).split('\n').length, 1);
+  } finally { clean(dir); }
+});
+
+test('a trace that cannot be written does not stop the hook', () => {
+  const dir = project({ verdictAgeMs: 7 * 24 * 3600_000 });
+  try {
+    fs.mkdirSync(path.join(dir, '.great_cto', '.session-resume'), { recursive: true });  // a directory where a file goes
+    assert.equal(run(dir).out.trim(), '', 'still exits cleanly and says nothing');
+  } finally { clean(dir); }
+});
