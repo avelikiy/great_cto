@@ -29,6 +29,7 @@ import { parseVerdictLine } from './pipeline-dispatcher.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { checkExecution, explainExecution } from '../lib/execution-claims.mjs';
 import { stopShape, stopRemedy } from '../lib/stop-shape.mjs';
+import { worktreesWithChanges, explainWorktrees } from '../lib/worktree-state.mjs';
 import { fileURLToPath } from 'node:url';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -219,6 +220,15 @@ async function main() {
       )
       : null,
   });
+  // Reported separately from the completion decision, and never blocking: a
+  // worktree with changes is the normal state while agents are working, and
+  // several may be live during a parallel fan-out. The failure is silence at the
+  // moment one stops, not the existence of uncommitted work.
+  try {
+    const note = explainWorktrees(worktreesWithChanges());
+    if (note) process.stderr.write(`[great_cto:worktree] ${note}\n`);
+  } catch { /* never break a subagent stop over a report */ }
+
   if (decision.ok) return process.exit(0);
 
   const enforce = process.env.GREAT_CTO_ENFORCE_COMPLETION === 'block';
