@@ -82,13 +82,17 @@ export function stopShape(input) {
  * pipeline's own record — both show a stage with no verdict — and the wrong
  * remedy either wastes a full re-run or asks a dead agent to speak.
  */
-export function stopRemedy({ shape, turns, hasVerdict, agent = 'the agent' }) {
+export function stopRemedy({ shape, turns, hasVerdict, agent = null }) {
   if (hasVerdict) return null;
+  // At SubagentStop the agent's name is only knowable from a verdict — and the
+  // whole point here is that there isn't one. A fabricated name produces a
+  // command that silently does the wrong thing, so the placeholder stays visible.
+  const who = agent || '<agent>';
 
   if (shape === 'cut-off') {
     return {
       kind: 'resume',
-      text: `${agent} was CUT OFF after ${turns} turns — it never closed a turn, so it stopped mid-loop rather than concluding. `
+      text: `${who} was CUT OFF after ${turns} turns — it never closed a turn, so it stopped mid-loop rather than concluding. `
         + 'Its work may exist (files written, tests run) while its verdict does not. '
         + `RESUME it with its context (SendMessage to the same agent: "record your verdict and close your task") rather than re-running it — a fresh run repeats work already done. `
         + 'Check for changes it left behind, including in a git worktree, before deciding it produced nothing.',
@@ -97,12 +101,12 @@ export function stopRemedy({ shape, turns, hasVerdict, agent = 'the agent' }) {
   if (shape === 'reported') {
     return {
       kind: 'record',
-      text: `${agent} finished normally but recorded no verdict — it has context and budget, so ask it for the last step: `
-        + `bash scripts/log-verdict.sh ${agent} <VERDICT> auto [meta...]`,
+      text: `${who} finished normally but recorded no verdict — it has context and budget, so ask it for the last step: `
+        + `bash scripts/log-verdict.sh ${who} <VERDICT> auto [meta...]`,
     };
   }
   return {
     kind: 'unknown',
-    text: `${agent} produced no readable transcript, so whether it finished cannot be established. Treat the stage as incomplete.`,
+    text: `${who} produced no readable transcript, so whether it finished cannot be established. Treat the stage as incomplete.`,
   };
 }

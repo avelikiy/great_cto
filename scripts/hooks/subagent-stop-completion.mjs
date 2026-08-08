@@ -23,7 +23,7 @@
  *           2 = block stop (only when GREAT_CTO_ENFORCE_COMPLETION=block AND incomplete)
  */
 
-import { readFileSync, readdirSync, statSync, existsSync, appendFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync, appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
@@ -56,6 +56,37 @@ export function readCompletionFlags(tomlText) {
  * @param {{threeState:boolean, recentVerdictExists:boolean}} s
  * @returns {{ok:boolean, reason:string}}
  */
+/**
+ * Should this stop be BLOCKED so the agent finishes its contract, or only noted?
+ *
+ * Eight agents over two days; six recorded no verdict. Without one the dispatcher
+ * names no next stage, so each of those six stopped the pipeline and a human
+ * wrote the verdict by hand. `stop-shape` tells the two causes apart — and
+ * nothing acted on the difference, which is what made the distinction academic.
+ *
+ * Blocking works for exactly one of them. An agent that FINISHED and forgot has
+ * context and budget: asking for the last step is a request it can satisfy. An
+ * agent that was CUT OFF cannot answer, so blocking it is asking a dead agent to
+ * speak — and, worse, invites the loop this guard would otherwise be.
+ *
+ * Once per agent, whatever happens. A hook that can refuse a stop indefinitely
+ * is a hang, not a guardrail.
+ */
+export function shouldBlockStop({ decision, stop, blockedBefore, forced = false }) {
+  if (decision?.ok) return { block: false, why: 'the contract is complete' };
+  if (blockedBefore) return { block: false, why: 'this agent was already asked once' };
+  if (forced) return { block: true, why: 'enforcement was requested explicitly' };
+
+  const shape = stop?.shape;
+  if (shape === 'reported') {
+    return { block: true, why: 'the agent finished and has the context to record its verdict' };
+  }
+  if (shape === 'cut-off') {
+    return { block: false, why: 'the agent was cut off — it cannot answer, and blocking it would loop' };
+  }
+  return { block: false, why: `stop shape is ${shape ?? 'unknown'} — not something a block can fix` };
+}
+
 export function completionDecision({ threeState, recentVerdictExists, canonical = true, hasCost = true, artifacts = null, execution = null, stop = null }) {
   if (!threeState) return { ok: true, reason: 'three_state_completion off — no enforcement' };
   if (!recentVerdictExists) {
@@ -198,7 +229,7 @@ async function main() {
   let stop = null;
   try {
     const tp = JSON.parse(stdin || '{}').transcript_path;
-    if (tp) { const sh = stopShape(tp); stop = { shape: sh.shape, turns: sh.turns, agent: fresh?.agent || 'the agent' }; }
+    if (tp) { const sh = stopShape(tp); stop = { shape: sh.shape, turns: sh.turns, agent: fresh?.agent || null }; }
   } catch { /* no transcript — the generic message still applies */ }
   const decision = completionDecision({
     threeState: flags.threeState,
@@ -231,13 +262,30 @@ async function main() {
 
   if (decision.ok) return process.exit(0);
 
-  const enforce = process.env.GREAT_CTO_ENFORCE_COMPLETION === 'block';
   process.stderr.write(`[great_cto:completion] ${decision.reason}\n`);
-  if (enforce) {
-    process.stderr.write('[great_cto:completion] BLOCKED stop (GREAT_CTO_ENFORCE_COMPLETION=block). Record the verdict, then finish.\n');
-    return process.exit(2);
+
+  // Blocking is now the default for the one case it can fix — an agent that
+  // finished and forgot — because six of eight agents over two days stopped
+  // without a verdict and a human wrote each one by hand. GREAT_CTO_ENFORCE_
+  // COMPLETION=block still forces it for the rest; =off disables it entirely.
+  const forced = process.env.GREAT_CTO_ENFORCE_COMPLETION === 'block';
+  if (process.env.GREAT_CTO_ENFORCE_COMPLETION === 'off') return process.exit(0);
+
+  const marker = join(PROJ_DIR, `.completion-asked-${(stop?.agent || 'unknown').replace(/[^\w-]/g, '')}`);
+  let blockedBefore = false;
+  try { blockedBefore = existsSync(marker); } catch { /* unreadable — may ask twice */ }
+
+  const b = shouldBlockStop({ decision, stop, blockedBefore, forced });
+  if (!b.block) {
+    process.stderr.write(`[great_cto:completion] not blocking — ${b.why}\n`);
+    return process.exit(0);
   }
-  return process.exit(0); // advisory only
+
+  try { mkdirSync(PROJ_DIR, { recursive: true }); writeFileSync(marker, `${new Date().toISOString()}\n`); }
+  catch { /* a marker we cannot write means we may ask twice; not a hang */ }
+
+  process.stderr.write('[great_cto:completion] BLOCKED stop — record the verdict, then finish. Asked once; this will not repeat.\n');
+  return process.exit(2);
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];

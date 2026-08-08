@@ -7,7 +7,7 @@ import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { readCompletionFlags, completionDecision, recentVerdict } from '../../scripts/hooks/subagent-stop-completion.mjs';
+import { readCompletionFlags, completionDecision, shouldBlockStop, recentVerdict } from '../../scripts/hooks/subagent-stop-completion.mjs';
 
 test('readCompletionFlags: reads [completion] booleans', () => {
   const toml = `[parallelism]\nmax = 5\n\n[completion]\nthree_state_completion = true\nacceptance_evidence_required = true\n\n[ownership]\n`;
@@ -189,4 +189,55 @@ test('with no transcript the generic message still stands', () => {
   const d = completionDecision({ threeState: true, recentVerdictExists: false, stop: null });
   assert.equal(d.ok, false);
   assert.match(d.reason, /without recording a verdict/);
+});
+
+// ── acting on the difference, not only reporting it ───────────────────────
+//
+// Eight agents over two days; six recorded no verdict. Without one the
+// dispatcher names no next stage, so each of those six stopped the pipeline and
+// a human wrote the verdict by hand. stop-shape told the two causes apart from
+// the first day — and nothing acted on the difference, which is what made the
+// distinction academic.
+
+test('an agent that finished and forgot is blocked, because a block can fix that', () => {
+  const b = shouldBlockStop({ decision: { ok: false }, stop: { shape: 'reported', agent: 'code-reviewer' }, blockedBefore: false });
+  assert.equal(b.block, true);
+  assert.match(b.why, /has the context/);
+});
+
+test('an agent that was cut off is not blocked — it cannot answer', () => {
+  // Blocking it is asking a dead agent to speak, and invites the loop this guard
+  // would otherwise be.
+  const b = shouldBlockStop({ decision: { ok: false }, stop: { shape: 'cut-off', agent: 'senior-dev' }, blockedBefore: false });
+  assert.equal(b.block, false);
+  assert.match(b.why, /cannot answer/);
+});
+
+test('an unknown stop shape is not something a block can fix', () => {
+  for (const shape of ['empty', undefined]) {
+    assert.equal(shouldBlockStop({ decision: { ok: false }, stop: { shape }, blockedBefore: false }).block, false, String(shape));
+  }
+});
+
+test('a complete contract is never blocked', () => {
+  assert.equal(shouldBlockStop({ decision: { ok: true }, stop: { shape: 'reported' }, blockedBefore: false }).block, false);
+});
+
+test('an agent is asked once, whatever its shape', () => {
+  // A hook that can refuse a stop indefinitely is a hang, not a guardrail.
+  for (const shape of ['reported', 'cut-off']) {
+    const b = shouldBlockStop({ decision: { ok: false }, stop: { shape }, blockedBefore: true });
+    assert.equal(b.block, false, shape);
+    assert.match(b.why, /already asked once/);
+  }
+});
+
+test('explicit enforcement still reaches the cases the default leaves alone', () => {
+  const b = shouldBlockStop({ decision: { ok: false }, stop: { shape: 'cut-off' }, blockedBefore: false, forced: true });
+  assert.equal(b.block, true);
+});
+
+test('forcing does not defeat the once-only bound', () => {
+  const b = shouldBlockStop({ decision: { ok: false }, stop: { shape: 'cut-off' }, blockedBefore: true, forced: true });
+  assert.equal(b.block, false);
 });

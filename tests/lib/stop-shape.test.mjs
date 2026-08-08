@@ -86,3 +86,12 @@ test('an unreadable transcript says the stage is incomplete rather than guessing
   assert.equal(r.kind, 'unknown');
   assert.match(r.text, /cannot be established/);
 });
+
+test('an unknown agent stays a visible placeholder, not a plausible name', () => {
+  // At SubagentStop the name is only knowable from a verdict, and the whole
+  // point is that there isn't one. `log-verdict.sh the agent APPROVED` is a
+  // command that silently does the wrong thing.
+  const r = stopRemedy({ shape: 'reported', turns: 40, hasVerdict: false });
+  assert.match(r.text, /log-verdict\.sh <agent>/);
+  assert.ok(!/the agent finished/.test(r.text));
+});
