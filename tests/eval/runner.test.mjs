@@ -1156,3 +1156,40 @@ test('HISTORY_PATH keeps exactly its current read/write shape — no new read, n
   assert.ok(!/readFileSync\(HISTORY_PATH/.test(src), 'HISTORY_PATH must never be read back');
   assert.equal((src.match(/appendFileSync\(HISTORY_PATH/g) || []).length, 1, 'exactly one write path');
 });
+
+// ── an eval is never run against a prompt it did not name ────────────────
+//
+// `--agent architect` matched EVAL-ai-prompt-architect-versioning by substring
+// and then ran it against `architect`, because the flag also overrode the eval's
+// own binding. It scored 0/8 — read as an agent that gets everything wrong — and
+// improve-loop's first live output proposed a content edit to architect.md to
+// make it discuss prompt versioning, holdout sets and jailbreak resistance,
+// which are another agent's job entirely.
+
+test('the eval\'s own declaration wins over the --agent flag', () => {
+  const declared = parseEvalFile('# EVAL-x\n\n> Agent: ai-prompt-architect\n\n## Scenario\ns\n\n## Cases\n| # | Scenario | Expected | Pass |\n|---|---|---|---|\n| 1 | a | b | c |\n\n## Pass threshold\n2/3\n', 'EVAL-x.md');
+  assert.equal(declared.agent, 'ai-prompt-architect');
+  // The runner composes `parsed.agent || agentOverride` — pinned at the source,
+  // because getting this backwards measures a different agent and files the
+  // result under this eval's name.
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  assert.match(src, /const agentName = parsed\.agent \|\| agentOverride/);
+  assert.ok(!/agentName = agentOverride \|\| parsed\.agent/.test(src),
+    'the override-first form must be gone, not merely shadowed');
+});
+
+test('an eval that declares a different agent is not selected by substring', () => {
+  // "ai-prompt-architect" contains "architect".
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  assert.match(src, /if \(parsed\.agent\) return parsed\.agent === agent;/,
+    'a declared agent must match exactly');
+  assert.match(src, /return f\.toLowerCase\(\)\.includes\(agent\.toLowerCase\(\)\);/,
+    'the filename stays a fallback for evals that declare nothing');
+});
+
+test('the real eval files bind to the agents they name', () => {
+  // The regression as it actually occurred, against the files on disk.
+  const dir = __dirname;
+  const versioning = parseEvalFile(fs.readFileSync(join(dir, 'EVAL-ai-prompt-architect-versioning.md'), 'utf8'), 'EVAL-ai-prompt-architect-versioning.md');
+  assert.equal(versioning.agent, 'ai-prompt-architect', 'not architect');
+});

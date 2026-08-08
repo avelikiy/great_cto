@@ -946,7 +946,10 @@ export async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, 
     return null;
   }
 
-  const agentName = agentOverride || parsed.agent || null;
+  // The eval's own declaration wins. An override that silently swaps the prompt
+  // under test measures a different agent and reports it under this eval's name;
+  // `--prompt-file` is the supported way to try a different prompt.
+  const agentName = parsed.agent || agentOverride || null;
   const { system: actorSystem, source: actorSource, sharedExpanded } = resolveActorSystem({ promptFileBody, agentName });
 
   if (dryRun) {
@@ -1157,12 +1160,24 @@ async function main() {
   // --filter: filename substring
   if (filter) evalFiles = evalFiles.filter(f => f.toLowerCase().includes(filter.toLowerCase()));
 
-  // --agent: keep only EVALs bound to this agent (by `> Agent:` line or filename)
+  // --agent: keep only EVALs bound to this agent.
+  //
+  // An eval that DECLARES a different agent is never selected, whatever its
+  // filename looks like. `--agent architect` used to match
+  // EVAL-ai-prompt-architect-versioning by substring and then run it against
+  // `architect`, because the flag also overrode the eval's own binding. The
+  // result was 0/8 — read as an agent that gets everything wrong, and
+  // improve-loop's first live output proposed a content edit to architect.md to
+  // make it discuss prompt versioning, which is not its job.
+  //
+  // The filename is still a fallback, but only for evals that declare nothing.
   if (agent) {
     evalFiles = evalFiles.filter(f => {
       try {
         const parsed = parseEvalFile(readFileSync(join(EVAL_DIR, f), 'utf8'), f);
-        return parsed && (parsed.agent === agent || f.toLowerCase().includes(agent.toLowerCase()));
+        if (!parsed) return false;
+        if (parsed.agent) return parsed.agent === agent;
+        return f.toLowerCase().includes(agent.toLowerCase());
       } catch { return false; }
     });
   }
