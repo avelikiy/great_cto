@@ -8,6 +8,87 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.94.0 — 2026-08-08
+
+Fewer confirmations, and the pipeline stops losing runs.
+
+Three failures were observed live on 2026-08-07, each costing a human to notice.
+This release closes all three, and adds the measurement that would have saved
+about $41 of a $43 eval campaign.
+
+### The pipeline stops losing runs
+
+- **A cut-off agent is told apart from one that forgot.** Four of seven agents in
+  one live run ended mid-sentence with real work behind them — 33 tests, a 23 KB
+  security report — and no verdict, so the dispatcher named no next stage. The
+  distinction turned out to be exact across twelve transcripts: an agent that
+  returned normally has one `stop_reason: end_turn`, one that was cut off has
+  none. The remedies are opposite — an agent that finished has the context to
+  record its verdict; one that was cut off has to be RESUMED, and 'try again'
+  re-runs work already done.
+- **The loop is closed.** A hook cannot call SendMessage, but PostToolUse runs in
+  the orchestrator's context and it can. SubagentStop records how the subagent
+  stopped; the dispatcher reads it and names the action with the agent id. The
+  Stop hook then holds the turn rather than letting a cut-off agent be abandoned.
+- **Work left in a worktree is reported.** senior-dev implemented 775 lines in a
+  worktree and the main tree looked clean — which reads as 'the agent produced
+  nothing' rather than 'the agent produced something you cannot see'.
+
+### Fewer confirmations
+
+- **The pipeline is picked up at session start.** Approving a gate was never
+  enough: the turn ends, and someone had to come back and say 'continue'. The
+  next session now says what is waiting. SessionStart rather than a scheduler on
+  purpose — it closes the same gap at the one moment the human is present, and a
+  failed recovery under cron is an invisible stall at 3am.
+- **A stage the previous one already decided can be skipped.** `depth=small` from
+  the architect's own verdict skips pm decomposition — but never removes an
+  ACTIVE gate. At `expert`, gate:plan applies and pm runs, because someone asked
+  to see the plan. The approval level decides, never a field an agent writes.
+- **`pipeline-tick`** answers whether the pipeline may move unattended, with four
+  refusals: only ready-to-dispatch, never the same transition twice, never devops
+  or infra-provisioner BY NAME rather than only by gate, and never inside a
+  ten-minute floor.
+
+### Measurement
+
+- **Adherence.** One devops instruction was reworded four times for no movement:
+  5/20 → 11 → 12 → 11 → 10. It appeared in 4 of 22 answers — the wording was
+  never the variable. Runs now report whether the instruction under test reached
+  the answer at all, and say what that means: emission low, the fix is structural;
+  emission high, only then is it wording.
+- **`improve-loop`** encodes the order in which to ask what a failing eval wants.
+  Four of the six repairs that campaign were to the harness, and every one looked
+  at first like an agent needing a better prompt. Each question has an answer that
+  stops the loop, and 'edit the prompt' is the last one. It also names what a
+  prompt-improving agent may never write — the EVAL files, the judge's graphs,
+  run-shape, eval-power — because an optimiser with write access to its own ruler
+  optimises the ruler.
+
+### Reviewer contract
+
+Critical and High findings carry a `Repro:` and are filed as beads. A finding
+with no reproduction cannot be shown to be fixed, so closing it is an opinion —
+which is the standard a security reviewer applied to its own weaker items, now
+written down. One edit to the shared review skill covers forty reviewers.
+
+### Fixed
+
+- `dagFingerprint` threw on a null entry inside `nodes` or `leaves` — safe against
+  the malformed shapes anyone thought to try, unsafe against one nobody did.
+- `finding-beads` read `bd --json` as an object when it returns a list, so it
+  silently reported no findings. The same class of defect as the verdict-format
+  mismatch a day earlier: a reader written against an imagined shape.
+- `finding-closure` had nowhere to record that a reproduction was re-run, so every
+  finding stayed permanently `repro-not-run`.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v2.93.0 — 2026-08-07
 
 The pipeline stopped taking agents at their word.
