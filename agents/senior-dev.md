@@ -568,11 +568,36 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    Any unchecked acceptance item → not done. The scope-clean item is satisfied by the Step 6b
    `impl-brief.mjs check` (clean, or covered by a signed exception).
 
+   **Record the verdict HERE, the moment acceptance is met — before the final
+   regression pass below.** Not at the end. Four of nine agents in this repo were
+   cut off mid-run and recorded nothing, and every one of them died during
+   verification, not during the work: 97, 100, 105 and 125 turns, each one
+   running a full-suite command at the moment it stopped. Their work was fine —
+   105 passing tests in one case — and the pipeline could not see any of it,
+   because without a verdict the dispatcher names no next stage.
+
+   The verdict is the cheapest thing you produce and the only one the pipeline
+   reads. Putting it last makes it the first thing lost.
+
+   ```bash
+   bash scripts/log-verdict.sh senior-dev TASK_DONE auto task=<bd-id> tests=<n> depth=<small|medium|large>
+   ```
+   If the regression pass below then fails, re-record as BLOCKED. Overwriting a
+   verdict is free; losing one costs the whole stage.
+
    Also run a final test pass to confirm no regressions slipped in:
    ```bash
    npm test 2>/dev/null || PYTHONUNBUFFERED=1 pytest --timeout=30 2>/dev/null || cargo test 2>/dev/null || go test ./... 2>/dev/null
    ```
    If any test fails → fix before closing (max 2 self-fix attempts; if still failing, escalate via `bd update --status blocked`).
+
+   **Run the project's own suite, not the whole repository's CI.** A full CI
+   script builds, packs and runs thousands of tests; it costs minutes and
+   thousands of lines per invocation, and it is the ORCHESTRATOR's to run once
+   after your work lands. Agents asked to run it re-ran it seven and ten times —
+   on runs that were passing — and were cut off inside it. If you are told to run
+   it, run it ONCE and report what it said; a green result you cannot fully read
+   is still a green result, and a second run tells you nothing the first did not.
 
 10b. **Discoveries**: When finding a bug or tech debt while implementing:
    ```bash
@@ -666,9 +691,11 @@ Signals **never block** senior-dev work — they are advisory breadcrumbs for
 
 ## Verdict log (mandatory)
 
-Before your final report, record the canonical verdict line (see
-`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
-parse it; `auto` records real token cost:
+You should already have recorded this at step 10, when acceptance was met. This
+section is the format reference, and the backstop if you did not.
+
+Record the canonical verdict line (see `agents/_shared/verdict-format.md`) — the
+pipeline dispatcher and the board parse it; `auto` records real token cost:
 
 ```bash
 bash scripts/log-verdict.sh senior-dev <TASK_DONE|BLOCKED> auto task=<bd-id> pr=#<n> feature=<slug>
