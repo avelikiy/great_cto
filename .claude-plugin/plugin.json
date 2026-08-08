@@ -71,6 +71,12 @@
             "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/gate-expiry.mjs\" 2>/dev/null || true",
             "timeout": 10,
             "statusMessage": "Checking gate expiry (72h policy)..."
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -n \"$PLUGIN_DIR\" ] && node \"${PLUGIN_DIR}/scripts/hooks/session-pipeline-resume.mjs\" 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Checking for pipeline work in flight..."
           }
         ]
       }
