@@ -43,11 +43,25 @@ function indexByEval(results) {
 }
 
 /**
+ * Which judge produced a row's rate. Rows written before the graph judge
+ * (2026-07-29, JP-2) carry no `judge` field — and every one of them was in
+ * fact rubric-scored, since the graph judge did not exist yet. So absent
+ * means 'rubric', not 'unknown': ARCH-judge-provenance.md §2.
+ *
+ * @param {object} row
+ * @returns {'rubric'|'dag'}
+ */
+export function judgeOf(row) {
+  return row?.judge ?? 'rubric';
+}
+
+/**
  * Decide whether a candidate prompt may be promoted over the baseline.
  *
- * A candidate is BLOCKED if either:
+ * A candidate is BLOCKED if any of:
  *   1. Regression — candidate.rate < baseline.rate - effectiveEpsilon on any shared eval.
  *   2. Below threshold — candidate.belowThreshold === true (or rate < threshold) on any eval.
+ *   3. Mismatched — baseline and candidate were scored by different judges (see below).
  *
  * Variance-aware (DEEPEN-PIPELINE Wave 1): with n=1 the runner produced a single
  * coin-flip rate and epsilon=0 read any downward jitter as a hard regression. When
@@ -55,12 +69,20 @@ function indexByEval(results) {
  * to at least the combined sampling noise: effectiveEpsilon = max(epsilon, σ_base + σ_cand).
  * So a "regression" must exceed the noise floor before it blocks.
  *
+ * Judge provenance (ARCH-judge-provenance.md §3): a rate is only comparable to
+ * another rate scored by the same judge. Two rows are MISMATCHED — refused,
+ * not compared as a regression/improvement — when `judgeOf(base) !== judgeOf(cand)`,
+ * or both are `'dag'` but their `dagHash` differs (the graph was edited between
+ * runs, so the metric moved). A mismatched eval is neither a regression nor an
+ * improvement — it's counted in neither bucket — because a cross-judge delta
+ * settles nothing about whether the candidate is actually better.
+ *
  * @param {Array} baseline  baseline holdout results
  * @param {Array} candidate candidate holdout results
  * @param {object} [opts]
  * @param {number} [opts.epsilon=0]   floor tolerated rate drop before it counts as a regression
  * @param {string} [opts.split]       if set, only consider rows with this split
- * @returns {{pass:boolean, regressions:Array, belowThreshold:Array, improvements:Array, missing:Array, summary:string}}
+ * @returns {{pass:boolean, regressions:Array, belowThreshold:Array, improvements:Array, missing:Array, mismatched:Array, summary:string}}
  */
 export function evaluateGate(baseline, candidate, opts = {}) {
   const epsilon = Number.isFinite(opts.epsilon) ? opts.epsilon : 0;
@@ -74,18 +96,34 @@ export function evaluateGate(baseline, candidate, opts = {}) {
   const belowThreshold = [];
   const improvements = [];
   const missing = []; // in baseline but absent from candidate
+  const mismatched = []; // same eval, scored by different judges — refused, not compared
 
   for (const [name, c] of cand) {
-    // Below-threshold check (candidate must clear its own bar)
+    // Below-threshold check (candidate must clear its own bar). Independent of
+    // baseline comparability — a candidate can fail its own bar with no
+    // baseline at all, or while also being judge-mismatched against one.
     const below = c.belowThreshold === true ||
       (typeof c.threshold === 'number' && typeof c.rate === 'number' && c.rate < c.threshold);
     if (below) {
       belowThreshold.push({ eval: name, rate: c.rate, threshold: c.threshold });
     }
 
-    // Regression check vs baseline, widened by sampling noise.
     const b = base.get(name);
-    if (b && typeof b.rate === 'number' && typeof c.rate === 'number') {
+    if (!b) continue;
+
+    // Judge-provenance check: refuse to compare two rows scored by different
+    // judges, or by the same graph judge edited between runs.
+    const baseJudge = judgeOf(b);
+    const candJudge = judgeOf(c);
+    const isMismatched = baseJudge !== candJudge ||
+      (baseJudge === 'dag' && candJudge === 'dag' && b.dagHash !== c.dagHash);
+    if (isMismatched) {
+      mismatched.push({ eval: name, baseJudge, candJudge, baseDagHash: b.dagHash, candDagHash: c.dagHash });
+      continue; // incomparable — not a regression, not an improvement
+    }
+
+    // Regression check vs baseline, widened by sampling noise.
+    if (typeof b.rate === 'number' && typeof c.rate === 'number') {
       const noiseBand = (Number(b.stddev) || 0) + (Number(c.stddev) || 0);
       const effectiveEpsilon = Math.max(epsilon, noiseBand);
       const delta = c.rate - b.rate;
@@ -101,14 +139,15 @@ export function evaluateGate(baseline, candidate, opts = {}) {
     if (!cand.has(name)) missing.push(name);
   }
 
-  const pass = regressions.length === 0 && belowThreshold.length === 0;
+  const pass = regressions.length === 0 && belowThreshold.length === 0 && mismatched.length === 0;
   const summary =
     `${pass ? 'PROMOTE' : 'BLOCK'} — ` +
     `${regressions.length} regression(s), ${belowThreshold.length} below-threshold, ` +
+    `${mismatched.length} mismatched, ` +
     `${improvements.length} improvement(s)` +
     (missing.length ? `, ${missing.length} missing in candidate` : '');
 
-  return { pass, regressions, belowThreshold, improvements, missing, summary };
+  return { pass, regressions, belowThreshold, improvements, missing, mismatched, summary };
 }
 
 function round(n) {
@@ -155,6 +194,7 @@ function main() {
   for (const r of result.improvements) console.log(`  ▲ ${r.eval}: ${pct(r.baseRate)} → ${pct(r.candRate)} (+${pct(r.delta)})`);
   for (const r of result.regressions) console.log(`  ▼ ${r.eval}: ${pct(r.baseRate)} → ${pct(r.candRate)} (${pct(r.delta)})  REGRESSION`);
   for (const r of result.belowThreshold) console.log(`  ✗ ${r.eval}: ${pct(r.rate)} < threshold ${pct(r.threshold)}  BELOW THRESHOLD`);
+  for (const r of result.mismatched) console.log(`  ⚠ ${r.eval}: ${mismatchDetail(r)}  JUDGE MISMATCH — rerun both arms under one judge`);
   for (const name of result.missing) console.log(`  ? ${name}: present in baseline, missing in candidate`);
   console.log(divider);
   console.log(` ${result.summary}`);
@@ -165,6 +205,12 @@ function main() {
 
 function pct(n) {
   return typeof n === 'number' ? `${(n * 100).toFixed(0)}%` : '—';
+}
+
+/** Human-readable reason a mismatched-bucket entry is incomparable. */
+function mismatchDetail(m) {
+  if (m.baseJudge !== m.candJudge) return `base=${m.baseJudge}, cand=${m.candJudge}`;
+  return `dagHash base=${m.baseDagHash} cand=${m.candDagHash}`;
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];

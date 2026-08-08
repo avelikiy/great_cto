@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
 import { parseVerdictLine as parseVerdictRecord } from '../lib/verdict-record.mjs';
-import { findAgentTranscript } from '../lib/agent-transcript.mjs';
+import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcript.mjs';
 import { stopShape } from '../lib/stop-shape.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -110,7 +110,27 @@ function stopShapeFor(agentId) {
   const path = findAgentTranscript({ agentId });
   if (!path) return null;
   const sh = stopShape(path);
-  return sh.shape === 'empty' ? null : { shape: sh.shape, turns: sh.turns, agent: null };
+  if (sh.shape === 'empty') return null;
+  return { shape: sh.shape, turns: sh.turns, agent: null, startedAt: transcriptStartedAt(path) };
+}
+
+/**
+ * A verdict that predates this run belongs to whatever the same agent did
+ * before, and must not be read as this one's success.
+ *
+ * The freshness window is thirty minutes and says nothing about WHICH run. On
+ * 2026-08-08 a senior-dev verdict written twenty minutes earlier, for the
+ * previous task, was read as a cut-off agent's TASK_DONE — and the directive
+ * said "succeeded, spawn code-reviewer" for a stage that had produced nothing
+ * but an unlanded worktree. A false success advances the pipeline; a false
+ * absence only stalls it.
+ */
+export function verdictBelongsToRun(verdict, startedAt) {
+  if (!verdict || !startedAt) return true;          // nothing to contradict it
+  const ts = Date.parse(verdict.ts ?? '');
+  if (!Number.isFinite(ts)) return true;            // unreadable — do not invent a mismatch
+  // A second of slack: the verdict is written during the run, not before it.
+  return ts >= startedAt - 1000;
 }
 
 /** How the last subagent stopped, as SubagentStop recorded it — the fallback. */
@@ -451,12 +471,15 @@ function main() {
     activeGates = gatesForApprovalLevel(levelFromProjectMd(pm), { archetype });
   } catch { /* no PROJECT.md or helper — keep every gate */ }
 
+  const shape = stopShapeFor(agentIdFrom(payload));
+  if (!verdictBelongsToRun(verdict, shape?.startedAt)) verdict = null;
+
   const decision = decideNext({
     agent, transitions, verdict, joinVerdicts, activeGates,
     gateStates: gateStatesFor(rule, verdict),
     // The transcript first, `.last-stop` only if it is unreachable: the hook that
     // writes the latter does not run when the harness force-stops a subagent.
-    lastStop: stopShapeFor(agentIdFrom(payload)) || readLastStop(PROJ_DIR),
+    lastStop: shape || readLastStop(PROJ_DIR),
     agentId: agentIdFrom(payload),
   });
   if (decision) emit(decision.text);

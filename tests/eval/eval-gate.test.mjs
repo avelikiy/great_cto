@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { evaluateGate, parseResultsJsonl } from '../../scripts/eval-gate.mjs';
+import { evaluateGate, parseResultsJsonl, judgeOf } from '../../scripts/eval-gate.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GATE = join(__dirname, '..', '..', 'scripts', 'eval-gate.mjs');
@@ -96,6 +96,80 @@ test('evaluateGate: multiple evals, one regression blocks the whole set', () => 
   assert.equal(g.improvements.length, 1);
 });
 
+// ── judgeOf() + mismatched bucket (JP-3) ───────────────────────────────────────
+//
+// Two rows scored by different judges — or the same graph judge edited between
+// runs — are not comparable. A row with no `judge` field predates the graph
+// judge (2026-07-29) and was in fact rubric-scored, so absent resolves to
+// 'rubric', not 'unknown' (ARCH-judge-provenance.md §2).
+
+test('judgeOf: defaults an absent judge field to rubric, passes explicit values through', () => {
+  assert.equal(judgeOf({}), 'rubric');
+  assert.equal(judgeOf({ judge: 'rubric' }), 'rubric');
+  assert.equal(judgeOf({ judge: 'dag' }), 'dag');
+});
+
+test('evaluateGate: rubric baseline vs dag candidate → mismatched, blocks', () => {
+  const g = evaluateGate(
+    [r('a', 0.8, { judge: 'rubric' })],
+    [r('a', 0.8, { judge: 'dag', dagHash: 'abc123def456' })],
+  );
+  assert.equal(g.pass, false);
+  assert.equal(g.mismatched.length, 1);
+  assert.equal(g.mismatched[0].eval, 'a');
+  assert.equal(g.mismatched[0].baseJudge, 'rubric');
+  assert.equal(g.mismatched[0].candJudge, 'dag');
+  // A cross-judge delta is incomparable, not a regression or an improvement.
+  assert.equal(g.regressions.length, 0);
+  assert.equal(g.improvements.length, 0);
+});
+
+test('evaluateGate: both dag with the same dagHash compares normally', () => {
+  const g = evaluateGate(
+    [r('a', 0.6, { judge: 'dag', dagHash: 'abc123def456' })],
+    [r('a', 0.9, { judge: 'dag', dagHash: 'abc123def456' })],
+  );
+  assert.equal(g.mismatched.length, 0, 'same dagHash must not be flagged as a mismatch');
+  assert.equal(g.pass, true);
+  assert.equal(g.improvements.length, 1);
+});
+
+test('evaluateGate: both dag with differing dagHash → mismatched, blocks', () => {
+  const g = evaluateGate(
+    [r('a', 0.8, { judge: 'dag', dagHash: 'abc123def456' })],
+    [r('a', 0.8, { judge: 'dag', dagHash: 'def456abc123' })],
+  );
+  assert.equal(g.pass, false);
+  assert.equal(g.mismatched.length, 1);
+  assert.equal(g.mismatched[0].baseDagHash, 'abc123def456');
+  assert.equal(g.mismatched[0].candDagHash, 'def456abc123');
+  assert.equal(g.regressions.length, 0, 'differing graphs must not also register as a rate regression');
+});
+
+test('evaluateGate: legacy row with no judge field vs dag candidate → mismatched', () => {
+  // The baseline row omits `judge` entirely — a pre-2026-07-29 row. judgeOf
+  // resolves it to 'rubric', which differs from the candidate's 'dag': the
+  // unknown must not be waved through as "same judge as the candidate".
+  const g = evaluateGate(
+    [r('a', 0.8)],
+    [r('a', 0.8, { judge: 'dag', dagHash: 'abc123def456' })],
+  );
+  assert.equal(g.pass, false);
+  assert.equal(g.mismatched.length, 1);
+  assert.equal(g.mismatched[0].baseJudge, 'rubric');
+  assert.equal(g.mismatched[0].candJudge, 'dag');
+});
+
+test('evaluateGate: candidate below its own threshold is still reported even when also mismatched', () => {
+  const g = evaluateGate(
+    [r('a', 0.8, { judge: 'rubric' })],
+    [r('a', 0.5, { judge: 'dag', dagHash: 'abc123def456', threshold: 0.8 })],
+  );
+  assert.equal(g.pass, false);
+  assert.equal(g.mismatched.length, 1);
+  assert.equal(g.belowThreshold.length, 1, 'below-threshold is a per-candidate check, independent of baseline comparability');
+});
+
 // ── DEEPEN Wave 1: variance-aware regression (epsilon ≥ combined stddev) ──────
 
 test('evaluateGate: drop within combined stddev is noise, not a regression', () => {
@@ -158,4 +232,13 @@ test('CLI: regression exits 1', () => {
 test('CLI: missing args exits 2', () => {
   const res = spawnSync(process.execPath, [GATE, '--baseline', 'x.jsonl'], { encoding: 'utf8' });
   assert.equal(res.status, 2);
+});
+
+test('CLI: judge mismatch exits 1 and prints the mismatch', () => {
+  const base = writeJsonl([r('a', 0.8, { judge: 'rubric' })]);
+  const cand = writeJsonl([r('a', 0.8, { judge: 'dag', dagHash: 'abc123def456' })]);
+  const res = spawnSync(process.execPath, [GATE, '--baseline', base, '--candidate', cand], { encoding: 'utf8' });
+  assert.equal(res.status, 1);
+  assert.ok(res.stdout.includes('BLOCK'));
+  assert.match(res.stdout, /mismatch/i);
 });

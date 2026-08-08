@@ -28,7 +28,7 @@
  * filesystem is a hook that stalls a session.
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -65,4 +65,23 @@ export function findAgentTranscript(opts) {
     try { if (existsSync(p)) return p; } catch { /* unreadable candidate */ }
   }
   return null;
+}
+
+/**
+ * When this agent's run began, from its transcript.
+ *
+ * A verdict older than this is not from this run — it belongs to whatever the
+ * same agent did before. The dispatcher's freshness window is thirty minutes,
+ * and on 2026-08-08 a verdict written for the PREVIOUS task twenty minutes
+ * earlier was read as this cut-off agent's success. The pipeline was told to
+ * advance past a stage that had produced nothing.
+ */
+export function transcriptStartedAt(path) {
+  try {
+    const st = statSync(path);
+    // birthtime is the run's start; some filesystems report 0, in which case
+    // mtime is the only bound available and is still better than nothing.
+    const born = st.birthtimeMs || st.ctimeMs || 0;
+    return born > 0 ? born : (st.mtimeMs || null);
+  } catch { return null; }
 }

@@ -17,7 +17,7 @@ const PIPELINE_TOML = readFileSync(resolve(__dirname, '../../shared/pipeline.tom
 const {
   parsePipelineToml,
   normalizeAgent,
-  parseVerdictLine, resolveSkip, agentIdFrom, readLastStop,
+  parseVerdictLine, resolveSkip, agentIdFrom, readLastStop, verdictBelongsToRun,
   decideNext,
 } = await import(HOOK);
 
@@ -652,7 +652,37 @@ test('the stop shape is read from the transcript, not only from SubagentStop', (
   // carries the agentId — so the shape is read from the transcript on disk and
   // .last-stop is the fallback, not the condition.
   const src = fs.readFileSync(new URL('../../scripts/hooks/pipeline-dispatcher.mjs', import.meta.url), 'utf8');
-  assert.match(src, /stopShapeFor\(agentIdFrom\(payload\)\) \|\| readLastStop/,
-    'the transcript is tried first');
+  assert.match(src, /const shape = stopShapeFor\(agentIdFrom\(payload\)\)/, 'the transcript is read');
+  assert.match(src, /lastStop: shape \|\| readLastStop/, 'and .last-stop is only the fallback');
   assert.match(src, /findAgentTranscript/);
+});
+
+// ── a verdict from a previous run is not this run's success ───────────────
+//
+// The freshness window is thirty minutes and says nothing about WHICH run. On
+// 2026-08-08 a senior-dev verdict written twenty minutes earlier, for the
+// previous task, was read as a cut-off agent's TASK_DONE — and the directive
+// said "succeeded, spawn code-reviewer" for a stage that had produced nothing
+// but an unlanded worktree.
+
+test('a verdict older than the run does not belong to it', () => {
+  const started = Date.parse('2026-08-08T15:23:37Z');
+  assert.equal(verdictBelongsToRun({ ts: '2026-08-08T15:20:17Z' }, started), false, 'the real case: three minutes early');
+  assert.equal(verdictBelongsToRun({ ts: '2026-08-08T15:25:00Z' }, started), true);
+});
+
+test('a verdict written at the very start of the run still counts', () => {
+  // A second of slack — the verdict is written during the run, not before it,
+  // and clock granularity should not manufacture a mismatch.
+  const started = Date.parse('2026-08-08T15:23:37Z');
+  assert.equal(verdictBelongsToRun({ ts: '2026-08-08T15:23:36.500Z' }, started), true);
+});
+
+test('nothing to contradict the verdict leaves it alone', () => {
+  // A false absence only stalls the pipeline; a false success advances it. But
+  // inventing a mismatch out of missing data would stall every run.
+  assert.equal(verdictBelongsToRun({ ts: '2026-08-08T15:20:00Z' }, null), true);
+  assert.equal(verdictBelongsToRun(null, Date.now()), true);
+  assert.equal(verdictBelongsToRun({ ts: 'not-a-date' }, Date.now()), true);
+  assert.equal(verdictBelongsToRun({}, Date.now()), true);
 });
