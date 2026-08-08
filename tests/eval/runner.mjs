@@ -47,7 +47,7 @@
 
 import { readdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { existsSync } from 'node:fs';
-import { judgeWithDag, questionPrompt, validateDag } from '../../scripts/lib/dag-metric.mjs';
+import { judgeWithDag, questionPrompt, validateDag, dagFingerprint } from '../../scripts/lib/dag-metric.mjs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -858,7 +858,7 @@ export function truncateAnswer(text, limit = ANSWER_LIMIT) {
 // ── Runner core ──────────────────────────────────────────────────────────────
 
 /** Run a single EVAL file ONCE. Returns the per-run result (with cost). */
-async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes = 1, useTools = false, actorTurns = 4, judgeMode = 'auto' }) {
+export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes = 1, useTools = false, actorTurns = 4, judgeMode = 'auto' }) {
   const selectedCases = selectCases(parsed, split);
   // 'auto' uses the graph when one exists for this eval; 'rubric' keeps the
   // original 0-1 judge, which is what an A/B needs on the other side.
@@ -917,11 +917,19 @@ async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actor
 
   const judged = selectedCases.length - skipped;
   const rate = judged > 0 ? passed / judged : 0;
-  return { cases: selectedCases.length, judged, passed, skipped, rate, costUsd, caseResults };
+  return {
+    cases: selectedCases.length, judged, passed, skipped, rate, costUsd, caseResults,
+    // Which ruler scored this run, and — only when it was the graph — exactly
+    // which graph. Every case in a run scores through the same judge (`dag` is
+    // resolved once above, before the case loop), so this is unambiguous per
+    // run, unlike a field that could vary case to case.
+    judge: dag ? 'dag' : 'rubric',
+    ...(dag ? { dagHash: dagFingerprint(dag) } : {}),
+  };
 }
 
 /** Run an EVAL file `samples` times and aggregate (rate mean + stddev + flaky). */
-async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1, judgeVotes = 1, useTools = false, actorTurns = 4, judgeMode = 'auto' }) {
+export async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun, split = 'all', promptFileBody, agentOverride, samples = 1, judgeVotes = 1, useTools = false, actorTurns = 4, judgeMode = 'auto' }) {
   let content;
   try {
     content = readFileSync(evalPath, 'utf8');
@@ -984,6 +992,12 @@ async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, dryRun,
     sharedExpanded,
     pack: parsed.pack,
     split,
+    // Which judge scored every sample of this run, and — only on a DAG-scored
+    // run — the fingerprint of the exact graph. `dag` is resolved once per file
+    // in runEvalFileOnce, so it is identical across every sample here; carrying
+    // it from `last` rather than recomputing keeps this the single source.
+    judge: last.judge,
+    ...(last.dagHash !== undefined ? { dagHash: last.dagHash } : {}),
     cases: last.cases,
     judged: last.judged,
     passed: last.passed,
@@ -1240,6 +1254,12 @@ async function main() {
       adherence: result.adherence,
       pack: result.pack,
       split: result.split,
+      // Which ruler scored this row — 'rubric' or 'dag' — and, on a dag row
+      // only, the fingerprint of the exact graph. Two runs are comparable only
+      // if the ruler was the same; this is what lets a reader (and eval-gate,
+      // in JP-3) tell whether it was.
+      judge: result.judge,
+      ...(result.dagHash !== undefined ? { dagHash: result.dagHash } : {}),
       cases: result.cases,
       judged: result.judged,
       passed: result.passed,

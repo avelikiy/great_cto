@@ -645,3 +645,14 @@ test('a stale stop record is worse than none and is ignored', () => {
   assert.equal(readLastStop('/x', { read: () => { throw new Error('none'); } }), null);
   assert.equal(readLastStop('/x', { read: () => '{}' }), null);
 });
+
+test('the stop shape is read from the transcript, not only from SubagentStop', () => {
+  // The hook that writes .last-stop did not run for the very agent it exists to
+  // catch. PostToolUse does fire — the Agent tool returned, and its result
+  // carries the agentId — so the shape is read from the transcript on disk and
+  // .last-stop is the fallback, not the condition.
+  const src = fs.readFileSync(new URL('../../scripts/hooks/pipeline-dispatcher.mjs', import.meta.url), 'utf8');
+  assert.match(src, /stopShapeFor\(agentIdFrom\(payload\)\) \|\| readLastStop/,
+    'the transcript is tried first');
+  assert.match(src, /findAgentTranscript/);
+});

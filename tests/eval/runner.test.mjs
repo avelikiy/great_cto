@@ -12,7 +12,8 @@ import { costForUsage } from '../../scripts/lib/cost-meter.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile } from './runner.mjs';
+import { dagFingerprint } from '../../scripts/lib/dag-metric.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(__dirname, 'runner.mjs');
@@ -959,4 +960,199 @@ test('the devops eval declares the instruction that cost four rewrites', () => {
   const p = parseEvalFile(src, 'EVAL-devops-deploy-safety.md');
   assert.ok(p.adherenceMarker, 'the claims ledger is what that eval is really testing');
   assert.ok(p.adherenceMarker.test('CLAIMS\n  health 200 → CHECKED: curl'));
+});
+
+// ── judge provenance on the row (JP-2) ──────────────────────────────────────
+//
+// Two eval runs judged by different graphs are not comparable, and nothing on a
+// stored row said which judge produced the score. `caseResults[].judge` shipped
+// already (each case is tagged 'dag' or 'rubric'); the top-level row was not.
+// `judge` is unambiguous per run: `loadDagFor` is resolved once per eval file
+// and every case in that run scores through the same judge — never mixed.
+//
+// These tests exercise the real functions rather than pinning source text,
+// stubbing only `fetch` (the network boundary `callLlm` hits) — no API key,
+// no cost, no network. `withStubbedLlm` supplies canned Anthropic-shaped
+// replies in call order: the actor's answer first, then one reply per judge
+// question (one for the rubric judge, one per DAG node visited).
+
+/**
+ * Stubs the Anthropic HTTP boundary so runEvalFileOnce/runEvalFile can run for
+ * real without a network call or a live key. `texts` is consumed in call
+ * order. Always restores `fetch` and the provider env vars, even on throw, so
+ * one test's stub can never leak into the next.
+ */
+async function withStubbedLlm(texts, fn) {
+  const savedFetch = global.fetch;
+  const savedAnthropic = process.env.ANTHROPIC_API_KEY;
+  const savedOpenrouter = process.env.OPENROUTER_API_KEY;
+  let i = 0;
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      content: [{ text: texts[i++] }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+      stop_reason: 'end_turn',
+      model: 'claude-test-stub',
+    }),
+  });
+  process.env.ANTHROPIC_API_KEY = 'test-key-not-real';
+  delete process.env.OPENROUTER_API_KEY;
+  try {
+    return await fn();
+  } finally {
+    global.fetch = savedFetch;
+    if (savedAnthropic === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = savedAnthropic;
+    if (savedOpenrouter === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = savedOpenrouter;
+  }
+}
+
+// The real, already-shipped fixture (also used by the DAG-selection tests
+// above) — read-only here, never written or mutated. Its root question
+// answered "no" leads to `restraint-held`, answered "yes" leads straight to
+// `leaf-correct-restraint` (score 1) in exactly two judge questions, which
+// keeps the stub's canned reply list short and exact.
+const JP2_DAG_EVAL_NAME = 'EVAL-security-officer-finding-gate.md';
+
+function onePlainCase(num = '1') {
+  return { num, test: `case ${num}`, expected: 'expected outcome', pass: 'the criterion', split: 'tuning' };
+}
+
+test('runEvalFileOnce: a rubric-scored run\'s row carries judge:"rubric" and no dagHash', async () => {
+  const parsed = { scenario: 'A scenario.', cases: [onePlainCase()], tuningCases: [onePlainCase()], holdoutCases: [] };
+  const result = await withStubbedLlm(
+    ['the actor response', 'PASS - meets the criterion'],
+    () => runEvalFileOnce({
+      parsed, evalName: 'EVAL-runner-jp2-rubric-once.md',
+      actorModel: 'test-actor', judgeModel: 'test-judge',
+      actorSystem: 'system prompt', split: 'all', useTools: false, judgeMode: 'auto',
+    }),
+  );
+  assert.equal(result.judge, 'rubric');
+  assert.equal('dagHash' in result, false, 'a rubric row must not carry a dagHash key at all');
+});
+
+test('runEvalFileOnce: a DAG-scored run\'s row carries judge:"dag" and dagHash === dagFingerprint(dag)', async () => {
+  const dag = loadDagFor('EVAL-security-officer-finding-gate');
+  assert.ok(dag, 'the shipped graph fixture must exist for this test to mean anything');
+  const parsed = { scenario: 'A scenario needing DAG scoring.', cases: [onePlainCase()], tuningCases: [onePlainCase()], holdoutCases: [] };
+  const result = await withStubbedLlm(
+    ['the actor response', 'no', 'yes'], // actor, then exploit-path-shown=no, restraint-held=yes
+    () => runEvalFileOnce({
+      parsed, evalName: JP2_DAG_EVAL_NAME,
+      actorModel: 'test-actor', judgeModel: 'test-judge',
+      actorSystem: 'system prompt', split: 'all', useTools: false, judgeMode: 'auto',
+    }),
+  );
+  assert.equal(result.judge, 'dag');
+  assert.equal(result.dagHash, dagFingerprint(dag));
+  assert.equal(result.dagHash.length, 12);
+});
+
+test('runEvalFileOnce: --judge rubric forces judge:"rubric" even when a graph exists', () => {
+  // judgeMode:'rubric' is the other half of an A/B against the graph — it must
+  // be able to force the rubric judge on an eval that HAS a shipped graph.
+  return withStubbedLlm(
+    ['the actor response', 'PASS - meets the criterion'],
+    async () => {
+      const parsed = { scenario: 's', cases: [onePlainCase()], tuningCases: [onePlainCase()], holdoutCases: [] };
+      const result = await runEvalFileOnce({
+        parsed, evalName: JP2_DAG_EVAL_NAME,
+        actorModel: 'test-actor', judgeModel: 'test-judge',
+        actorSystem: 'system prompt', split: 'all', useTools: false, judgeMode: 'rubric',
+      });
+      assert.equal(result.judge, 'rubric');
+      assert.equal('dagHash' in result, false);
+    },
+  );
+});
+
+const JP2_MINIMAL_EVAL = `# EVAL-runner-jp2-row.md
+
+> Pack: test-pack · Reviewer: test-reviewer
+
+## Scenario
+A scenario for the row-assembly test.
+
+## Cases
+| # | Test | Expected | Pass |
+|---|---|---|---|
+| 1 | case one | expected one | the criterion |
+
+## Pass threshold
+1/1
+`;
+
+// evalPath (a throwaway temp file) and evalName are deliberately different
+// here: runEvalFile reads content from evalPath but looks up the DAG fixture
+// by evalName, so pointing evalName at the real shipped fixture lets this test
+// exercise the real dag-selection path without writing into tests/eval/dags/.
+test('runEvalFile: forwards judge:"rubric" onto its own returned row, no dagHash', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-runner-jp2-rubric-'));
+  const evalPath = path.join(dir, 'EVAL-tmp.md');
+  fs.writeFileSync(evalPath, JP2_MINIMAL_EVAL);
+  try {
+    const result = await withStubbedLlm(
+      ['the actor response', 'PASS - meets the criterion'],
+      () => runEvalFile({
+        evalPath, evalName: 'EVAL-runner-jp2-rubric-file.md',
+        actorModel: 'test-actor', judgeModel: 'test-judge',
+        dryRun: false, split: 'all', promptFileBody: null, agentOverride: null,
+        samples: 1, judgeVotes: 1, useTools: false, judgeMode: 'auto',
+      }),
+    );
+    assert.equal(result.judge, 'rubric');
+    assert.equal('dagHash' in result, false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('runEvalFile: forwards judge:"dag" and dagHash onto its own returned row', async () => {
+  const dag = loadDagFor('EVAL-security-officer-finding-gate');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-runner-jp2-dag-'));
+  const evalPath = path.join(dir, 'EVAL-tmp.md');
+  fs.writeFileSync(evalPath, JP2_MINIMAL_EVAL);
+  try {
+    const result = await withStubbedLlm(
+      ['the actor response', 'no', 'yes'],
+      () => runEvalFile({
+        evalPath, evalName: JP2_DAG_EVAL_NAME,
+        actorModel: 'test-actor', judgeModel: 'test-judge',
+        dryRun: false, split: 'all', promptFileBody: null, agentOverride: null,
+        samples: 1, judgeVotes: 1, useTools: false, judgeMode: 'auto',
+      }),
+    );
+    assert.equal(result.judge, 'dag');
+    assert.equal(result.dagHash, dagFingerprint(dag));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('main(): the jsonlEntry row carries judge, and dagHash only when the run was DAG-scored', () => {
+  // main() is not exported and a live run needs a real key and costs money —
+  // the pattern already used in this file for main()-only assembly code
+  // (sharedExpanded/power/dropout above) is to pin the source text.
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  const i = src.indexOf('const jsonlEntry = {');
+  const row = src.slice(i, i + 1800);
+  assert.match(row, /judge: result\.judge/);
+  assert.match(row, /\.\.\.\(result\.dagHash[^)]*\?\s*\{\s*dagHash:\s*result\.dagHash\s*\}\s*:\s*\{\s*\}\)/,
+    'dagHash must be conditionally spread in, not always present with an undefined fallback');
+});
+
+test('HISTORY_PATH keeps exactly its current read/write shape — no new read, no second write path', () => {
+  // The append-only guarantee: results-history.jsonl is written once, never
+  // read back and never rewritten. Three occurrences today: the declaration,
+  // the run-banner print, and the one appendFileSync call. A fourth is exactly
+  // the mistake this test exists to catch.
+  const src = fs.readFileSync(RUNNER, 'utf8');
+  const occurrences = (src.match(/HISTORY_PATH/g) || []).length;
+  assert.equal(occurrences, 3);
+  assert.ok(!/readFileSync\(HISTORY_PATH/.test(src), 'HISTORY_PATH must never be read back');
+  assert.equal((src.match(/appendFileSync\(HISTORY_PATH/g) || []).length, 1, 'exactly one write path');
 });

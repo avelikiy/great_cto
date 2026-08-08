@@ -33,6 +33,8 @@ import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
 import { parseVerdictLine as parseVerdictRecord } from '../lib/verdict-record.mjs';
+import { findAgentTranscript } from '../lib/agent-transcript.mjs';
+import { stopShape } from '../lib/stop-shape.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const PIPELINE_PATH = join('shared', 'pipeline.toml');
@@ -92,7 +94,26 @@ export function agentIdFrom(payload) {
   } catch { return null; }
 }
 
-/** How the last subagent stopped, as SubagentStop recorded it. */
+/**
+ * How the subagent stopped — read from ITS OWN transcript, found by the agentId
+ * the tool result printed.
+ *
+ * This does not depend on SubagentStop, and that is the point. On 2026-08-08 an
+ * agent was cut off after 97 turns with 105 passing tests in a worktree, and the
+ * SubagentStop hook never ran — `cost-history.log`, which that hook appends on
+ * every invocation, had no entry within two hours of it. Run by hand against the
+ * same transcript the hook worked perfectly. It is unreliable in exactly the case
+ * it exists for, so the reliable signal is read here instead.
+ */
+function stopShapeFor(agentId) {
+  if (!agentId) return null;
+  const path = findAgentTranscript({ agentId });
+  if (!path) return null;
+  const sh = stopShape(path);
+  return sh.shape === 'empty' ? null : { shape: sh.shape, turns: sh.turns, agent: null };
+}
+
+/** How the last subagent stopped, as SubagentStop recorded it — the fallback. */
 export function readLastStop(dir, { withinMs = 10 * 60 * 1000, now = Date.now(), read = readFileSync } = {}) {
   try {
     const o = JSON.parse(read(join(dir, '.last-stop'), 'utf8'));
@@ -433,7 +454,9 @@ function main() {
   const decision = decideNext({
     agent, transitions, verdict, joinVerdicts, activeGates,
     gateStates: gateStatesFor(rule, verdict),
-    lastStop: readLastStop(PROJ_DIR),
+    // The transcript first, `.last-stop` only if it is unreachable: the hook that
+    // writes the latter does not run when the harness force-stops a subagent.
+    lastStop: stopShapeFor(agentIdFrom(payload)) || readLastStop(PROJ_DIR),
     agentId: agentIdFrom(payload),
   });
   if (decision) emit(decision.text);
