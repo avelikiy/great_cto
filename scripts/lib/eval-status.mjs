@@ -104,6 +104,22 @@ export function parseHistory(jsonl) {
 }
 
 /**
+ * Which judge produced a row's rate. Rows written before the graph judge
+ * shipped (2026-07-29, JP-2) carry no `judge` field — and every one of them
+ * was in fact rubric-scored, since the graph judge did not exist yet. So
+ * absent means 'rubric', not 'unknown': ARCH-judge-provenance.md §2. Same
+ * rule as `judgeOf` in scripts/eval-gate.mjs, kept local rather than
+ * imported — JP-3 and JP-4 are independent, parallel-safe tasks with
+ * disjoint file ownership (PLAN-judge-provenance.md).
+ *
+ * @param {object} row
+ * @returns {'rubric'|'dag'}
+ */
+function judgeOf(row) {
+  return row?.judge ?? 'rubric';
+}
+
+/**
  * Join one eval against the run history.
  *
  * The newest run decides. Taking the best run is how a suite reports green while
@@ -118,7 +134,7 @@ export function statusFor(meta, rows, { now = Date.now(), staleDays = DEFAULT_ST
   const mine = (rows || []).filter((r) => r && r.eval === meta.name).sort((a, b) => at(a) - at(b));
 
   if (!mine.length) {
-    return { ...meta, state: STATES.NEVER_RUN, rate: null, threshold: null, lastRun: null, ageDays: null };
+    return { ...meta, state: STATES.NEVER_RUN, rate: null, threshold: null, lastRun: null, ageDays: null, judge: null, judgeSwapped: false };
   }
 
   const last = mine[mine.length - 1];
@@ -137,7 +153,12 @@ export function statusFor(meta, rows, { now = Date.now(), staleDays = DEFAULT_ST
   else if (ageDays === null || ageDays > staleDays) state = STATES.STALE;
   else state = STATES.PASSING;
 
-  return { ...meta, state, rate, threshold: bar, lastRun: last.ts || null, ageDays, runs: mine.length };
+  // A swap needs two runs to compare — one run has nothing to have swapped from.
+  const prior = mine.length > 1 ? mine[mine.length - 2] : null;
+  const judge = judgeOf(last);
+  const judgeSwapped = prior !== null && judgeOf(prior) !== judge;
+
+  return { ...meta, state, rate, threshold: bar, lastRun: last.ts || null, ageDays, runs: mine.length, judge, judgeSwapped };
 }
 
 export function summarise(statuses) {

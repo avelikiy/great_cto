@@ -113,6 +113,85 @@ test('history rows for another eval do not count as this one running', () => {
   assert.equal(statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW }).state, STATES.NEVER_RUN);
 });
 
+// ── judge provenance (JP-4) ─────────────────────────────────────────────────
+// A rate that moved between two runs judged by different rulers has not been
+// shown to have moved at all. `judge` says who scored the newest run;
+// `judgeSwapped` says whether that changed since the run before it — the fact
+// a reader needs before trusting a delta in `rate`.
+
+test('the returned status carries the judge from the newest row', () => {
+  const rows = [row({ eval: 'EVAL-demo', judge: 'dag', ts: '2026-07-28T00:00:00Z' })];
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.judge, 'dag');
+});
+
+test('a row written before the judge field shipped reads as rubric, not unknown', () => {
+  const rows = [row({ eval: 'EVAL-demo', ts: '2026-07-28T00:00:00Z' })]; // no judge key — legacy row
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.judge, 'rubric');
+});
+
+test('judgeSwapped is false with a single run — nothing to compare against', () => {
+  const rows = [row({ eval: 'EVAL-demo', judge: 'dag', ts: '2026-07-28T00:00:00Z' })];
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.judgeSwapped, false);
+});
+
+test('judgeSwapped is true when the newest run changed judge from the run before it', () => {
+  const rows = [
+    row({ eval: 'EVAL-demo', judge: 'rubric', ts: '2026-07-20T00:00:00Z' }),
+    row({ eval: 'EVAL-demo', judge: 'dag', ts: '2026-07-28T00:00:00Z' }),
+  ];
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.judgeSwapped, true);
+  assert.equal(s.judge, 'dag', 'judge still reports the newest row, not the swap itself');
+});
+
+test('judgeSwapped is false when the newest two runs share a judge', () => {
+  const rows = [
+    row({ eval: 'EVAL-demo', judge: 'dag', ts: '2026-07-20T00:00:00Z' }),
+    row({ eval: 'EVAL-demo', judge: 'dag', ts: '2026-07-28T00:00:00Z' }),
+  ];
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.judgeSwapped, false);
+});
+
+test('a legacy row with no judge field still resolves to rubric when comparing for a swap', () => {
+  const rows = [
+    row({ eval: 'EVAL-demo', ts: '2026-07-20T00:00:00Z' }), // no judge key — legacy row
+    row({ eval: 'EVAL-demo', judge: 'dag', ts: '2026-07-28T00:00:00Z' }),
+  ];
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.judgeSwapped, true, 'absent resolves to rubric, which differs from dag');
+});
+
+test('judgeSwapped compares the newest two runs by timestamp, not by array order', () => {
+  const rows = [
+    row({ eval: 'EVAL-demo', judge: 'dag', ts: '2026-07-28T00:00:00Z' }), // newest, listed first
+    row({ eval: 'EVAL-demo', judge: 'rubric', ts: '2026-07-01T00:00:00Z' }), // oldest, listed second
+    row({ eval: 'EVAL-demo', judge: 'dag', ts: '2026-07-20T00:00:00Z' }), // the actual prior run
+  ];
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.judge, 'dag');
+  assert.equal(s.judgeSwapped, false, 'the prior run (07-20) also used dag; the older 07-01 rubric run is not the comparison point');
+});
+
+test('rows for another eval never count toward this eval\'s judge or swap', () => {
+  const rows = [
+    row({ eval: 'EVAL-demo', judge: 'rubric', ts: '2026-07-28T00:00:00Z' }),
+    row({ eval: 'EVAL-somethingelse', judge: 'dag', ts: '2026-07-29T00:00:00Z' }),
+  ];
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW });
+  assert.equal(s.judge, 'rubric');
+  assert.equal(s.judgeSwapped, false);
+});
+
+test('an eval with no run carries no judge and is never reported as swapped', () => {
+  const s = statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), [], { now: NOW });
+  assert.equal(s.judge, null);
+  assert.equal(s.judgeSwapped, false);
+});
+
 // ── history parsing ─────────────────────────────────────────────────────────
 
 test('history parsing skips junk lines instead of throwing', () => {
