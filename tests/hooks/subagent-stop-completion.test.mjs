@@ -157,3 +157,36 @@ test('a missing artefact is reported before a failing check', () => {
   });
   assert.match(d.reason, /named but absent/);
 });
+
+// ── why there is no verdict decides what to do about it ────────────────────
+//
+// Four of seven agents in one live run ended mid-sentence with real work behind
+// them — 33 tests, a 23 KB security report — and no verdict. From the pipeline's
+// record that is indistinguishable from an agent that simply forgot the last
+// step, and the two need opposite remedies.
+
+test('a cut-off agent is told to resume, not to try again', () => {
+  const d = completionDecision({
+    threeState: true, recentVerdictExists: false,
+    stop: { shape: 'cut-off', turns: 125, agent: 'senior-dev' },
+  });
+  assert.equal(d.ok, false);
+  assert.match(d.reason, /CUT OFF after 125 turns/);
+  assert.match(d.reason, /rather than re-running/, 'a fresh run repeats work already done');
+});
+
+test('an agent that finished and forgot is asked for the last step only', () => {
+  const d = completionDecision({
+    threeState: true, recentVerdictExists: false,
+    stop: { shape: 'reported', turns: 40, agent: 'code-reviewer' },
+  });
+  assert.match(d.reason, /log-verdict\.sh code-reviewer/);
+  assert.ok(!/CUT OFF/.test(d.reason));
+});
+
+test('with no transcript the generic message still stands', () => {
+  // Losing the remedy must not lose the check.
+  const d = completionDecision({ threeState: true, recentVerdictExists: false, stop: null });
+  assert.equal(d.ok, false);
+  assert.match(d.reason, /without recording a verdict/);
+});

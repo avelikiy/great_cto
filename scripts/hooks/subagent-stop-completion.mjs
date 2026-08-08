@@ -28,6 +28,7 @@ import { join } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { checkExecution, explainExecution } from '../lib/execution-claims.mjs';
+import { stopShape, stopRemedy } from '../lib/stop-shape.mjs';
 import { fileURLToPath } from 'node:url';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -54,10 +55,20 @@ export function readCompletionFlags(tomlText) {
  * @param {{threeState:boolean, recentVerdictExists:boolean}} s
  * @returns {{ok:boolean, reason:string}}
  */
-export function completionDecision({ threeState, recentVerdictExists, canonical = true, hasCost = true, artifacts = null, execution = null }) {
+export function completionDecision({ threeState, recentVerdictExists, canonical = true, hasCost = true, artifacts = null, execution = null, stop = null }) {
   if (!threeState) return { ok: true, reason: 'three_state_completion off — no enforcement' };
   if (!recentVerdictExists) {
-    return { ok: false, reason: 'subagent stopped without recording a verdict — three-state completion requires acceptance evidence. Record it: scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...]' };
+    // WHY there is no verdict decides what to do about it, and the two causes
+    // are indistinguishable in the pipeline's own record. An agent that finished
+    // and forgot has context to record it; one that was cut off does not, and
+    // telling it to try again re-runs work already done.
+    const remedy = stop ? stopRemedy({ ...stop, hasVerdict: false }) : null;
+    return {
+      ok: false,
+      reason: remedy
+        ? remedy.text
+        : 'subagent stopped without recording a verdict — three-state completion requires acceptance evidence. Record it: scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...]',
+    };
   }
   // An earlier version of this check FAILED completion for a versioned-JSON
   // verdict, on the belief that the pipe form was canonical. It is the other way
@@ -182,11 +193,18 @@ async function main() {
   try { flags = readCompletionFlags(readFileSync(ORCH_PATH, 'utf8')); } catch { return process.exit(0); }
 
   const fresh = freshestVerdictLine(VERDICT_DIR, RECENT_MS, Date.now());
+  // How the subagent stopped — read from the transcript the hook is already given.
+  let stop = null;
+  try {
+    const tp = JSON.parse(stdin || '{}').transcript_path;
+    if (tp) { const sh = stopShape(tp); stop = { shape: sh.shape, turns: sh.turns, agent: fresh?.agent || 'the agent' }; }
+  } catch { /* no transcript — the generic message still applies */ }
   const decision = completionDecision({
     threeState: flags.threeState,
     recentVerdictExists: recentVerdict(VERDICT_DIR, RECENT_MS, Date.now()),
     canonical: fresh ? fresh.canonical !== false : true,
     hasCost: fresh ? fresh.hasCost !== false : true,
+    stop,
     artifacts: fresh ? checkArtifacts(fresh.meta) : null,
     // Off unless asked for: re-running a suite on every subagent stop is a real
     // cost, and a hook that quietly adds minutes to every stage is a tax nobody
