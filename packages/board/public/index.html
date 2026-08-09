@@ -2865,6 +2865,33 @@ async function refreshResume() {
   if (d) renderResume(d);
 }
 
+/**
+ * What a verdict says, in the width of a column.
+ *
+ * Two shapes reach here: the legacy `agent: free text` line, and the versioned
+ * JSON record the verdict helper writes today. Only the first has anything
+ * readable after the colon — for the second, splitting on `': '` yields the
+ * whole record, which is how a JSON blob ended up rendered as a summary.
+ */
+function summariseVerdict(v, raw) {
+  let meta = null;
+  const t = String(raw || '').trim();
+  if (t.startsWith('{')) { try { meta = JSON.parse(t).meta || null; } catch { meta = null; } }
+
+  if (meta) {
+    // `scope` is what the run was about; the rest are the artefacts it produced.
+    const what = meta.scope || meta.feature || meta.task || null;
+    const artefact = Object.values(meta).find(x => typeof x === 'string' && x.endsWith('.md'));
+    const tail = what || (artefact ? artefact.split('/').pop() : null);
+    return tail ? `${v.verdict || 'verdict'} · ${tail}` : (v.verdict || 'verdict');
+  }
+
+  const i = t.indexOf(': ');
+  if (i !== -1) return t.slice(i + 2);
+  // Not JSON and not `agent: text` — a bare line, which is still readable.
+  return t || (v.verdict || 'verdict');
+}
+
 function renderResume(d) {
   const card = document.getElementById('resume-card');
   if (!card) return;
@@ -2891,8 +2918,16 @@ function renderResume(d) {
     const vu = (v.verdict || '').toUpperCase();
     const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' :
                 ['BLOCKED','FAIL','REJECTED'].includes(vu) ? 'fail' : '';
+    // A verdict is written in one of two shapes: the legacy `AGENT: text` line,
+    // and the versioned JSON record the helper writes today. This column split
+    // on `': '` and printed whatever followed — which for the JSON shape is the
+    // whole record, so the column that should read "DONE · board-review" showed
+    // `{"v":1,"ts":"2026-08-09T06:19:37Z","agent":"design-advis…`.
+    //
+    // The structured fields are already parsed by the time they arrive; the raw
+    // line is a fallback for the legacy shape, not the primary source.
     const raw = v.raw || '';
-    const after = raw.indexOf(': ') !== -1 ? raw.slice(raw.indexOf(': ') + 2) : raw;
+    const after = summariseVerdict(v, raw);
     window.__resumeVerdicts = verdicts;
     return `<div class="resume-item" onclick="showVerdictDetail(${i})" role="button" tabindex="0">
       <span class="ri-tag ${cls}">${esc(v.agent || 'agent')}</span>
@@ -3358,80 +3393,6 @@ function setActivityView(view) {
   }
 }
 
-// ── Portfolio ───────────────────────────────────────────────────────────────
-//
-// Every other panel answers about one project. With twenty-two in the registry,
-// "what needs me right now across everything" had no answer, and switching to
-// each of them by hand was the substitute.
-//
-// Three columns and no sorting on purpose: if this screen is worth having, that
-// will show without them. Every cell can say `unread` — a fleet view built on
-// readers that return zero when they fail multiplies one silent lie by
-// twenty-two.
-async function loadPortfolio() {
-  const el = document.getElementById('portfolio-body');
-  el.innerHTML = '<span class="muted">loading…</span>';
-  let d;
-  try { d = await api('/api/portfolio'); } catch (e) { d = null; }
-  if (!d || d._neterr || d.error) {
-    el.innerHTML = `<div class="card"><b>Could not read the fleet.</b>
-      <div class="muted" style="margin-top:6px">${esc((d && (d.error || 'board not reachable')) || 'no response')}</div></div>`;
-    return;
-  }
-  if (d.registryUnread) {
-    el.innerHTML = `<div class="card"><b>The project registry could not be read.</b>
-      <div class="muted" style="margin-top:6px">${esc(d.registryUnread)}</div>
-      <div class="muted" style="margin-top:6px">This is not "no projects" — it is "the list of them is unreadable".</div></div>`;
-    return;
-  }
-
-  document.getElementById('nav-portfolio-count').textContent = d.needsYou || 0;
-
-  const money = d.spend != null
-    ? `$${d.spend} <span class="muted">recorded across ${d.spendCoveredProjects} of ${d.total} projects</span>`
-    : '<span class="muted">no recorded spend</span>';
-  const unread = d.unreadable
-    ? ` · <span class="muted">${d.unreadable} could not be read</span>` : '';
-
-  const rows = d.projects.map(p => {
-    if (p.unread) {
-      return `<tr><td><b>${esc(p.slug)}</b></td>
-        <td colspan="3" class="muted">unread — ${esc(p.unread)}</td></tr>`;
-    }
-    const idle = p.idleMs == null ? '<span class="muted">never ran</span>'
-      : p.idleMs < 36e5 ? 'just now'
-      : p.idleMs < 864e5 ? `${Math.round(p.idleMs / 36e5)}h ago`
-      : `${Math.round(p.idleMs / 864e5)}d ago`;
-    const needs = p.needsYou
-      ? `<b>${esc(p.needsYou)}</b>`
-      : '<span class="muted">nothing blocking</span>';
-    // A verdict with no recorded cost is not zero spend — it is spend nobody
-    // wrote down, so the column says so rather than adding a confident zero.
-    const spend = p.spend == null
-      ? '<span class="muted">—</span>'
-      : `$${p.spend}${p.spendUnknownFor ? ` <span class="muted">(+${p.spendUnknownFor} unpriced)</span>` : ''}`;
-    return `<tr>
-      <td><b>${esc(p.slug)}</b><div class="muted" style="font-size:11px">${esc(p.archetype || '')}</div></td>
-      <td>${needs}</td>
-      <td>${idle}<div class="muted" style="font-size:11px">${esc(p.lastAgent || '')} ${esc(p.lastVerdict || '')}</div></td>
-      <td>${spend}</td></tr>`;
-  }).join('');
-
-  el.innerHTML = `<div class="card">
-      <b>${d.needsYou} project${d.needsYou === 1 ? '' : 's'} may need you</b>${unread}
-      <div class="muted" style="margin-top:4px">${money}</div>
-    </div>
-    <div class="card"><table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr style="text-align:left">
-        <th style="padding:6px 4px">Project</th><th>Waiting on you</th><th>Last moved</th><th>Spend</th>
-      </tr></thead><tbody>${rows}</tbody></table>
-      <div class="muted" style="margin-top:8px;font-size:11px">
-        Gate approval is not read here — it costs about half a second per project.
-        A row says "nothing blocking" when no stage returned a blocking verdict; it does not
-        claim a gate was approved.</div>
-    </div>`;
-}
-
 // ── Docs ────────────────────────────────────────────────────────────────────
 //
 // A project accumulates documentation nobody can find: this repository has
@@ -3442,6 +3403,22 @@ async function loadPortfolio() {
 // is hand-drawn, three months old, and says "34 agents" where there are
 // sixty-nine — a drawn picture goes stale silently, a derived one cannot.
 let _docsCache = null;
+
+/**
+ * The sidebar badge, without rendering the panel.
+ *
+ * It was written only inside `loadDocs`, which runs when the tab is opened — so
+ * a project with a hundred and seventy-five documents showed `0` until you
+ * clicked, and `0` is the one number that reads as "there is nothing here".
+ * A dash says "not counted yet", which is what it actually means.
+ */
+async function refreshDocsCount() {
+  const el = document.getElementById('nav-docs-count');
+  if (!el) return;
+  let d;
+  try { d = await api(`/api/docs${pqs()}`); } catch { d = null; }
+  el.textContent = (d && !d.error && typeof d.total === 'number') ? d.total : '—';
+}
 
 async function loadDocs() {
   const el = document.getElementById('docs-body');
@@ -3495,7 +3472,9 @@ async function loadDocs() {
   // is folded in rather than dropped.
   const mem = await loadContextLayers();
 
-  el.innerHTML = pipeline + map + mem + groups + '<div id="doc-view"></div>';
+  // The document itself opens in the side panel now, so this panel no longer
+  // needs a place to append one.
+  el.innerHTML = pipeline + map + mem + groups;
 }
 
 /**
@@ -3562,19 +3541,38 @@ function renderPipeline(mermaid) {
     </div>`).join('')}</div>`;
 }
 
+/**
+ * Open a document in the side panel — the same drawer a task, a verdict and a
+ * decision open in.
+ *
+ * It used to append the rendered markdown to the BOTTOM of the Docs panel and
+ * scroll there, so reading a document meant losing the list you were browsing,
+ * and closing it meant scrolling back up. Every other section of this board
+ * answers a click by sliding the detail in from the right; this one invented its
+ * own mechanic, and a reader has to learn two.
+ */
 async function openDoc(p) {
-  const view = document.getElementById('doc-view');
-  view.innerHTML = '<span class="muted">loading…</span>';
+  const panel = document.getElementById('side-panel');
+  const body = document.getElementById('side-body');
+  const idEl = document.getElementById('side-id');
+  const tl = document.getElementById('side-timeline');
+  if (!panel || !body) return;
+
+  idEl.textContent = p.split('/').pop();
+  body.innerHTML = '<div style="padding:18px" class="muted">loading…</div>';
+  if (tl) tl.innerHTML = '';
+  panel.classList.add('open');
+
   try {
     const q = pqs();
     const d = await api(`/api/doc?path=${encodeURIComponent(p)}${q ? '&' + q.slice(1) : ''}`);
-    view.innerHTML = `<div class="card"><b>${esc(d.name)}</b>
-      <span class="muted" style="font-size:11px"> · ${esc(d.path)}</span>
-      <div style="margin-top:10px">${mdToHtml(d.content)}</div></div>`;
-    view.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!d || d.error) throw new Error(d?.error || 'doc not found');
+    idEl.textContent = d.name || p;
+    body.innerHTML = `<div class="muted" style="font-size:11px;margin-bottom:10px">${esc(d.path)}</div>
+      <div class="side-desc md">${mdToHtml(d.content)}</div>`;
   } catch (e) {
-    view.innerHTML = `<div class="card"><b>Could not open ${esc(p)}</b>
-      <div class="muted">${String(e && e.message || e)}</div></div>`;
+    body.innerHTML = `<div class="side-desc"><b>Could not open ${esc(p)}</b>
+      <div class="muted" style="margin-top:6px">${esc(String(e && e.message || e))}</div></div>`;
   }
 }
 
@@ -3692,8 +3690,14 @@ async function loadMemory() {
   renderDegradedBanner('degraded-memory', degradedFor('/api/memory'), 'Memory could not be read');
   memoryData = d;
   renderMemorySidebar();
-  document.getElementById('nav-memory-count').textContent =
-    (memoryData.layers || []).filter(l => l.exists).length + (memoryData.patterns || []).length;
+  // Memory folded into Docs, so this badge no longer exists. It was still
+  // written unconditionally, and the TypeError left the rest of this function —
+  // including the auto-select below — unreached on every page load.
+  const memCount = document.getElementById('nav-memory-count');
+  if (memCount) {
+    memCount.textContent =
+      (memoryData.layers || []).filter(l => l.exists).length + (memoryData.patterns || []).length;
+  }
   // Auto-select first existing layer
   if (!activeMemKey) {
     const first = (memoryData.layers || []).find(l => l.exists);
@@ -3916,6 +3920,7 @@ async function switchProject(slug) {
   try { renderDashboard(metrics); } catch (e) { console.warn('renderDashboard failed', e); }
   try { renderShareState(shareState); } catch (e) { console.warn('renderShareState failed', e); }
   loadMemory();
+  refreshDocsCount();   // the badge said 0 until the tab was opened — same bug the Logs badge had
   refreshCost();
   refreshPipeline();
   refreshLogs();   // populate the Logs nav badge (was lazy — stuck at 0 until the tab was opened)
@@ -4104,6 +4109,7 @@ async function init() {
   try { renderDashboard(metrics); } catch (e) { console.warn('renderDashboard failed', e); }
   try { renderShareState(shareState); } catch (e) { console.warn('renderShareState failed', e); }
   loadMemory();
+  refreshDocsCount();   // the badge said 0 until the tab was opened — same bug the Logs badge had
   refreshCost();
   refreshPipeline();
   refreshLogs();   // populate the Logs nav badge (was lazy — stuck at 0 until the tab was opened)

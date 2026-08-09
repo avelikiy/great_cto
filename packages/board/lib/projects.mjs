@@ -216,8 +216,16 @@ function autoRegisterProject(dir) {
   //
   // Nothing downstream can tell these apart, because they are the same shape.
   // The distinction is the location, so that is where it belongs.
+  //
+  // The installed plugin is not a project either, for the same reason and by the
+  // same mechanism: `~/.claude/plugins/cache/local/great_cto/2.95.0` ships a
+  // `.great_cto/` because it IS great_cto, so running the board from there
+  // registered the plugin's own copy as a twenty-third project — a version
+  // number in the switcher next to real work.
   try {
-    if (path.resolve(dir) === path.resolve(os.homedir())) return null;
+    const resolved = path.resolve(dir);
+    if (resolved === path.resolve(os.homedir())) return null;
+    if (isInsideDir(path.join(os.homedir(), '.claude', 'plugins'), resolved)) return null;
   } catch { /* if we cannot resolve it, fall through to the normal checks */ }
 
   const meta = readProjectMd(dir);

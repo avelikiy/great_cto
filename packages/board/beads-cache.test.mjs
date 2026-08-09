@@ -7,7 +7,7 @@
 // real `bd` binary.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bdList } from './lib/beads.mjs';
+import { bdList, bdFailureFor, getReadDegradation } from './lib/beads.mjs';
 import { bdCache } from './lib/state.mjs';
 
 function ok(data) {
@@ -83,4 +83,49 @@ test('success refreshes the cache (subsequent calls within TTL are served from c
   const result = bdList(cwd, spy);
   assert.equal(invoked, false, 'cache within TTL should short-circuit before invoking runner');
   assert.deepEqual(result, data1);
+});
+
+// ── A silent empty list is a lie the reader cannot detect ────────────────────
+//
+// The fallback above keeps the board up when bd fails, and that is right. What
+// was missing is the label: `[]` is also what a project with no tasks returns,
+// so a project whose directory name contains a dot — bd refuses to open
+// `holdra.ai` with "invalid database name" — rendered as a clean, empty,
+// entirely believable board. Switching to it looked like a project nobody had
+// started, which is the opposite of what had happened.
+
+test('a bd failure is recorded as a reason, not just an empty list', () => {
+  const cwd = '/tmp/gcto-test-reason';
+  assert.deepEqual(bdList(cwd, fail()), []);
+  const why = bdFailureFor(cwd);
+  assert.ok(why, 'the failure must be retrievable');
+  assert.match(why, /locked/, 'and must carry bd\'s own words');
+});
+
+test("bd's JSON error object on a zero exit is a failure, not a task list", () => {
+  // bd 0.6x answers some open failures this way: exit 0, an object on stdout.
+  // `JSON.parse` succeeds, so the old code returned the object as data.
+  const cwd = '/tmp/gcto-test-jsonerr';
+  const jsonErr = () => ({
+    status: 0,
+    stdout: '{"error":"failed to open database: invalid database name: \\"holdra.ai\\""}',
+    stderr: '',
+  });
+  assert.deepEqual(bdList(cwd, jsonErr), [], 'not a task list');
+  assert.match(bdFailureFor(cwd) || '', /invalid database name/);
+});
+
+test('a later success clears the recorded reason', () => {
+  const cwd = '/tmp/gcto-test-recovers';
+  bdList(cwd, fail());
+  assert.ok(bdFailureFor(cwd));
+  bdCache.clear();
+  bdList(cwd, ok([{ id: 'T-9' }]));
+  assert.equal(bdFailureFor(cwd), null, 'a project that reads again is not degraded');
+});
+
+test('the degradation channel reports it, so /api/tasks can label the response', () => {
+  const cwd = '/tmp/gcto-test-degradation';
+  bdList(cwd, fail());
+  assert.match(getReadDegradation(cwd) || '', /locked/);
 });

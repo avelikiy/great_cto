@@ -11,7 +11,27 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { projectRow, portfolio, needsAttention } from './lib/portfolio.mjs';
+
+// A test that writes to the real registry
+// -----------------------------------------
+// The auto-registration case below calls the real `autoRegisterProject`, and
+// `lib/config.mjs` resolves the registry path once at module-eval time. Without
+// this line it resolved to `~/.great_cto/projects.json` — so every run added a
+// temp directory that the test then deleted, and the user's own project list
+// accumulated eleven dead `gcto-real-*` entries pointing at paths in
+// /var/folders that no longer exist.
+//
+// The env var must be set before the import below, because ES imports are
+// hoisted and config.mjs reads it as it evaluates. `registry.test.mjs` already
+// does this; this file was the one that did not.
+// The import is dynamic for the same reason `registry.test.mjs` does it: a
+// static `import` is hoisted above this assignment and config.mjs would resolve
+// the real path before the line below ever runs.
+const REGISTRY = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-pf-reg-')), 'projects.json');
+process.env.GREAT_CTO_PROJECTS_FILE = REGISTRY;
+
+const { projectRow, portfolio, needsAttention } = await import('./lib/portfolio.mjs');
+const { autoRegisterProject } = await import('./lib/projects.mjs');
 
 function project({ verdicts = [], initialised = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-pf-'));
@@ -125,11 +145,21 @@ test('a project that never ran is distinguishable from one that ran long ago', (
 //
 // Nothing downstream can tell the two apart, because they are the same shape.
 // The distinction is the location, which is where the rule now lives.
-import { autoRegisterProject } from './lib/projects.mjs';
+//
+// `autoRegisterProject` is imported at the top of this file, against a tmp
+// registry — see the note there.
 
 test('the home directory is refused even though it looks exactly like a project', () => {
   assert.equal(autoRegisterProject(os.homedir()), null);
   assert.equal(autoRegisterProject(path.join(os.homedir(), '.')), null, 'and by any path that resolves to it');
+});
+
+// The installed plugin ships a `.great_cto/` because it IS great_cto, so a board
+// started from the plugin cache registered a version number as a project and it
+// appeared in the switcher beside real work.
+test('the installed plugin is refused for the same reason', () => {
+  const plugin = path.join(os.homedir(), '.claude', 'plugins', 'cache', 'local', 'great_cto', '9.9.9');
+  assert.equal(autoRegisterProject(plugin), null);
 });
 
 test('a real project directory is still registered', () => {

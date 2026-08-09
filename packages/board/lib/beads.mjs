@@ -100,20 +100,64 @@ function bdWriteSerialised(fn) {
 // populated board on every SSE push (great_cto-e2ew). We deliberately do NOT
 // refresh cached.ts on failure, so the next call retries bd immediately
 // rather than being TTL-gated on a failed read.
+//
+// Why the failure is also RECORDED
+// --------------------------------
+// Falling back to `[]` keeps the board up, but `[]` is the same value a project
+// with no tasks returns, and the reader cannot tell them apart. A project whose
+// directory name contains a dot — `holdra.ai` — makes bd refuse to open its
+// database at all ("invalid database name"), and the board answered that with a
+// clean empty board: no tasks, no metrics, no explanation. Switching to it looked
+// exactly like a project nobody had started.
+//
+// So the reason is kept per-cwd and handed up to the API, which reports it in
+// `X-Board-Degraded`. The empty list is still returned — the board stays usable —
+// but it now arrives labelled.
+const bdFailures = new Map();
+
+/** Why this project's tasks could not be read, or null if they could. */
+function bdFailureFor(cwd = process.cwd()) {
+  return bdFailures.get(cwd) || null;
+}
+
+/** The first meaningful line of bd's complaint, short enough for a header. */
+function bdReason(result) {
+  const text = String(result?.stderr || result?.stdout || '').trim();
+  // bd reports some failures as JSON on stdout with status 0-adjacent shapes.
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && parsed.error) return String(parsed.error).slice(0, 300);
+  } catch { /* not JSON — use the raw first line */ }
+  const line = text.split('\n').map((s) => s.trim()).find(Boolean);
+  return (line || 'bd exited non-zero without a message').slice(0, 300);
+}
+
 function bdList(cwd = process.cwd(), runner = bd) {
   const cached = bdCache.get(cwd);
   if (cached && Date.now() - cached.ts < BD_CACHE_TTL_MS) return cached.data;
   try {
     const result = runner(['list', '--json', '--all', '--include-gates'], { cwd });
     if (result.status !== 0) {
+      bdFailures.set(cwd, bdReason(result));
       if (cached) return cached.data; // last-good data, cache untouched
       bdCache.set(cwd, { ts: Date.now(), data: [] });
       return [];
     }
-    const data = JSON.parse(result.stdout || '[]');
-    bdCache.set(cwd, { ts: Date.now(), data });
-    return data;
-  } catch {
+    // bd 0.6x reports some open failures as a JSON object on stdout with exit 0.
+    // `JSON.parse` succeeds, the result is not an array, and the board rendered
+    // it as no tasks — the same silent zero one layer further in.
+    const parsed = JSON.parse(result.stdout || '[]');
+    if (!Array.isArray(parsed)) {
+      bdFailures.set(cwd, String(parsed?.error || 'bd returned something that is not a task list').slice(0, 300));
+      if (cached) return cached.data;
+      bdCache.set(cwd, { ts: Date.now(), data: [] });
+      return [];
+    }
+    bdFailures.delete(cwd);
+    bdCache.set(cwd, { ts: Date.now(), data: parsed });
+    return parsed;
+  } catch (e) {
+    bdFailures.set(cwd, `bd could not be run: ${e?.message || e}`.slice(0, 300));
     if (cached) return cached.data; // last-good data, cache untouched
     bdCache.set(cwd, { ts: Date.now(), data: [] });
     return [];
@@ -322,7 +366,10 @@ const readDegradation = new Map();
 
 /** Degradation reason for a project's task sources, or null when healthy. */
 function getReadDegradation(cwd = process.cwd()) {
-  return readDegradation.get(cwd) || null;
+  // tasks.md first: if that file exists and is broken, that is the specific
+  // problem. Otherwise report bd's failure, which until now was swallowed — the
+  // board answered "no tasks" for a project whose database bd refused to open.
+  return readDegradation.get(cwd) || bdFailureFor(cwd) || null;
 }
 
 function parseTasksMd(cwd) {
@@ -460,6 +507,7 @@ export {
   checkBeadsAvailable,
   bdWriteSerialised,
   bdList,
+  bdFailureFor,
   parseTasksMd,
   getReadDegradation,
   setTaskStatusInTasksMd,
