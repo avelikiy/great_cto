@@ -4,7 +4,38 @@ import { GREAT_CTO_DIR } from './config.mjs';
 import { parseVerdictLine } from '../../../scripts/lib/verdict-record.mjs';
 
 
-function readVerdicts(cwd = null) {
+/**
+ * Verdicts, plus an account of what could not be read.
+ *
+ * This function feeds metrics, cost, the pipeline strip, the inbox, resume and
+ * agent statistics — six surfaces from one read. It returned `[]` on every kind
+ * of failure, so an unreadable verdict directory arrived at all six as "this
+ * project has not run anything", which is a different claim and a confident one.
+ *
+ * Three things can go wrong and each is now named rather than absorbed: a
+ * directory that cannot be listed, a file that cannot be read, and a line that
+ * does not parse. The last is not a failure of this reader — a half-written
+ * append is normal — so it is counted and only reported when it is the reason a
+ * project looks empty.
+ */
+function readVerdictsWithHealth(cwd = null) {
+  const problems = [];
+  let unreadableLines = 0;
+  const verdicts = readVerdicts(cwd, { problems, onBadLine: () => { unreadableLines += 1; } });
+  return {
+    verdicts,
+    unreadableLines,
+    // Only a real read failure degrades. Unparseable lines beside readable ones
+    // are noise; unparseable lines and NOTHING else is the project looking empty
+    // for a reason worth saying out loud.
+    unread: problems.length
+      ? problems.join('; ')
+      : (unreadableLines && !verdicts.length
+        ? `${unreadableLines} verdict line(s) could not be parsed and none could` : null),
+  };
+}
+
+function readVerdicts(cwd = null, health = null) {
   // Verdict attribution model:
   //   1. cwd given → read project-local <cwd>/.great_cto/verdicts/
   //      PLUS any global verdict line tagged `project=<slug>` matching cwd
@@ -21,9 +52,18 @@ function readVerdicts(cwd = null) {
   }
   // First read project-local verdicts when scoped
   const projectVerdictDir = cwd ? path.join(cwd, '.great_cto', 'verdicts') : null;
-  const useProjectDir = projectVerdictDir
-    && fs.existsSync(projectVerdictDir)
-    && fs.readdirSync(projectVerdictDir).filter(f => f.endsWith('.log')).length > 0;
+  // This listing happens before the main loop, to decide whether a project has
+  // any local verdicts at all — and it threw where the loop's own read is
+  // guarded, so an unreadable directory crashed the caller instead of being
+  // reported. Same failure, one line earlier.
+  let useProjectDir = false;
+  if (projectVerdictDir && fs.existsSync(projectVerdictDir)) {
+    try {
+      useProjectDir = fs.readdirSync(projectVerdictDir).filter(f => f.endsWith('.log')).length > 0;
+    } catch (e) {
+      health?.problems?.push(`verdicts could not be listed in ${projectVerdictDir}: ${e.code || e.message}`);
+    }
+  }
   // For cwd-scoped reads, we collect from BOTH local AND tagged global lines
   const verdictDirs = [];
   if (useProjectDir) verdictDirs.push(projectVerdictDir);
@@ -41,13 +81,27 @@ function readVerdicts(cwd = null) {
     const verdictDir = typeof entry === 'string' ? entry : entry.dir;
     const projectTagFilter = typeof entry === 'string' ? null : entry.filterByProjectTag;
     if (!fs.existsSync(verdictDir)) continue;
-    for (const file of fs.readdirSync(verdictDir)) {
+    let files;
+    try {
+      files = fs.readdirSync(verdictDir);
+    } catch (e) {
+      // A directory that exists and cannot be listed is the case that made a
+      // project look like it had never run.
+      health?.problems?.push(`verdicts could not be listed in ${verdictDir}: ${e.code || e.message}`);
+      continue;
+    }
+    for (const file of files) {
     const agent = file.replace('.log', '');
-    const lines = fs.readFileSync(path.join(verdictDir, file), 'utf8')
-      .split('\n').filter(Boolean);
+    let lines;
+    try {
+      lines = fs.readFileSync(path.join(verdictDir, file), 'utf8').split('\n').filter(Boolean);
+    } catch (e) {
+      health?.problems?.push(`${file} could not be read: ${e.code || e.message}`);
+      continue;
+    }
     for (const line of lines) {
       const parsed = parseVerdictLine(line);
-      if (!parsed.ok) continue;          // unreadable — counted by the CLI, not shown as a verdict
+      if (!parsed.ok) { health?.onBadLine?.(); continue; }  // counted, never shown as a verdict
 
       // When reading global with a project filter, only include records for this
       // project. Read from the parsed record, not from a `project=` substring:
@@ -169,4 +223,4 @@ function readSecStats(cwd = process.cwd()) {
   return { approved, blocked };
 }
 
-export { readVerdicts, readPlanCosts, readQAStats, readSecStats };
+export { readVerdicts, readVerdictsWithHealth, readPlanCosts, readQAStats, readSecStats };

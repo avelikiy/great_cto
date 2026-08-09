@@ -10,6 +10,7 @@ import { GREAT_CTO_DIR, VAPID_KEYS_FILE, PUSH_SUBS_FILE, BUILD_VERSION } from '.
 import { eventSurface, readFileSafe, originAllowed } from './util.mjs';
 import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
+import { readVerdictsWithHealth } from './verdicts.mjs';
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
@@ -25,6 +26,23 @@ import { listSessions, readSession, editedFiles, searchSessions } from './transc
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
 // Returns true if the request was handled (response already sent or streaming),
 // false if the caller (server.mjs) should fall through to static file serving.
+/**
+ * Headers for a response whose data came from the verdict reader.
+ *
+ * Metrics, cost, the pipeline strip and the inbox are all built from
+ * readVerdicts, which returned [] on every kind of failure — so an unreadable
+ * verdict directory arrived at four panels as "this project has not run
+ * anything". That is a different claim from "I could not look", and a confident
+ * one.
+ */
+function verdictHeaders(cwd, base = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }) {
+  try {
+    const { unread } = readVerdictsWithHealth(cwd);
+    if (unread) return { ...base, 'X-Board-Degraded': encodeURIComponent(unread) };
+  } catch { /* never fail a response over its own health check */ }
+  return base;
+}
+
 async function dispatch(req, res, url, cwd) {
   const pathname = url.pathname;
 
@@ -145,7 +163,7 @@ async function dispatch(req, res, url, cwd) {
     let days = parseInt(url.searchParams.get('days') || '30', 10);
     if (!Number.isFinite(days) || days < 1) days = 30;
     if (days > 365) days = 365;
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.writeHead(200, verdictHeaders(cwd));
     res.end(JSON.stringify(getMetrics(cwd, days)));
     return true;
   }
@@ -494,14 +512,14 @@ async function dispatch(req, res, url, cwd) {
 
   // Inbox — what needs your attention right now
   if (pathname === '/api/inbox') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(getInbox(cwd)));
     return true;
   }
 
   // Resume — pick up where you left off (last verdicts + WIP + recent decisions)
   if (pathname === '/api/resume') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(getResume(cwd)));
     return true;
   }
@@ -515,28 +533,28 @@ async function dispatch(req, res, url, cwd) {
     const limit = Number.isFinite(parsed) && parsed > 0
       ? Math.min(parsed, 200)
       : 20;
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(readDecisionsLog(limit, cwd)));
     return true;
   }
 
   // Memory — 4-layer memory file contents
   if (pathname === '/api/memory') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(getMemory(cwd)));
     return true;
   }
 
   // Pipeline — current stage states (idle / active / done / failed)
   if (pathname === '/api/pipeline') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(getPipeline(cwd)));
     return true;
   }
 
   // change_tier for the current working-tree diff — the gate + judge plan (ADR-003/004).
   if (pathname === '/api/change-tier') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(getChangeTier(cwd)));
     return true;
   }
@@ -555,7 +573,7 @@ async function dispatch(req, res, url, cwd) {
     const days = Number.isFinite(parsed) && parsed > 0
       ? Math.min(parsed, 365)
       : 30;
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.writeHead(200, verdictHeaders(cwd));
     res.end(JSON.stringify(getCostHistory(cwd, days)));
     return true;
   }
