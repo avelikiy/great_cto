@@ -113,3 +113,32 @@ test('a project that never ran is distinguishable from one that ran long ago', (
     assert.ok(projectRow({ slug: 'o', path: old }).idleMs > 0);
   } finally { clean(never); clean(old); }
 });
+
+// ── the home directory is never a project ─────────────────────────────────
+//
+// `~/.great_cto/` is the GLOBAL store — cross-project verdicts, decisions,
+// secrets — and it is shaped exactly like a project's own `.great_cto/`: same
+// name, same contents. So the home directory read as a project, and
+// auto-registration kept re-adding it. Deleted from the registry, it was back
+// two minutes later, contributing 124 stages and $93 of $95 to a fleet view
+// covering 22 real projects.
+//
+// Nothing downstream can tell the two apart, because they are the same shape.
+// The distinction is the location, which is where the rule now lives.
+import { autoRegisterProject } from './lib/projects.mjs';
+
+test('the home directory is refused even though it looks exactly like a project', () => {
+  assert.equal(autoRegisterProject(os.homedir()), null);
+  assert.equal(autoRegisterProject(path.join(os.homedir(), '.')), null, 'and by any path that resolves to it');
+});
+
+test('a real project directory is still registered', () => {
+  // The guard must be about the location, not about having a .great_cto — every
+  // project has one.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-real-'));
+  try {
+    fs.mkdirSync(path.join(dir, '.great_cto'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.great_cto', 'PROJECT.md'), 'primary: devtools\nslug: a-real-project\n');
+    assert.ok(autoRegisterProject(dir), 'a directory that is not home registers normally');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

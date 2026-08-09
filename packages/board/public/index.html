@@ -2212,14 +2212,9 @@ button { font-family: inherit; cursor: pointer; }
         <span>Docs</span>
         <span class="count" id="nav-docs-count">0</span>
       </div>
-      <div class="nav-item" data-tab="sessions" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('sessions', this)">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-        <span>Sessions</span>
-        <span class="count" id="nav-sessions-count">0</span>
-      </div>
       <div class="nav-item" data-tab="logs" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('logs', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
-        <span>Logs</span>
+        <span>Activity</span>
         <span class="count" id="nav-logs-count">0</span>
       </div>
       <div class="nav-item" data-tab="notifications" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('notifications', this); loadNotifHistory()">
@@ -2502,6 +2497,14 @@ button { font-family: inherit; cursor: pointer; }
 
     <div class="panel" id="panel-portfolio">
       <h1>Portfolio</h1>
+      <!-- Sessions was its own sidebar entry. Both answered "what did the agents
+           do" — Logs from written summaries, Sessions from raw transcripts — and
+           splitting them meant deciding which of the two to open before knowing
+           which one had the answer. One entry, two depths. -->
+      <div style="display:flex;gap:8px;margin:0 0 12px">
+        <button id="act-tab-logs" class="facet-chip" onclick="setActivityView('logs')">Summaries</button>
+        <button id="act-tab-sessions" class="facet-chip" onclick="setActivityView('sessions')">Transcripts</button>
+      </div>
       <div id="portfolio-body" class="muted">loading…</div>
     </div>
 
@@ -3330,6 +3333,39 @@ function mdToHtml(md) {
   });
 }
 
+// Activity — one entry, two depths.
+//
+// Sessions and Logs were separate sidebar items answering the same question,
+// "what did the agents do", from written summaries and from raw transcripts. A
+// reader had to choose which to open before knowing which one held the answer.
+function setActivityView(view) {
+  const logsPanel = document.getElementById('logs-list')?.closest('.panel') || document.getElementById('panel-logs');
+  const sessHost = document.getElementById('sessions-body');
+  const logsHost = document.getElementById('logs-list')?.parentElement;
+  const inPanel = document.getElementById('activity-sessions-host');
+
+  document.getElementById('act-tab-logs')?.classList.toggle('active', view === 'logs');
+  document.getElementById('act-tab-sessions')?.classList.toggle('active', view === 'sessions');
+
+  // The transcript view is rendered by the Sessions panel's own code; it is moved
+  // into this panel rather than reimplemented, so the two cannot drift apart.
+  let host = inPanel;
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'activity-sessions-host';
+    logsPanel?.appendChild(host);
+  }
+  if (view === 'sessions') {
+    if (logsHost) logsHost.style.display = 'none';
+    host.style.display = '';
+    if (sessHost && sessHost.parentElement !== host) host.appendChild(sessHost);
+    loadSessions();
+  } else {
+    host.style.display = 'none';
+    if (logsHost) logsHost.style.display = '';
+  }
+}
+
 // ── Portfolio ───────────────────────────────────────────────────────────────
 //
 // Every other panel answers about one project. With twenty-two in the registry,
@@ -4084,7 +4120,15 @@ function api(url, opts) {
     if (d) { try { BOARD_DEGRADED[key] = decodeURIComponent(d); } catch { BOARD_DEGRADED[key] = d; } }
     else delete BOARD_DEGRADED[key];
     return r.json();
-  }).catch(() => null);
+  }).catch(() => {
+    // A request that never completed is the one case the degradation mechanism
+    // could not see: the header lives on a response, and there is no response.
+    // So the board went quiet exactly when it had lost contact with itself —
+    // and worse, a key deleted by an earlier success stayed deleted, leaving
+    // every panel looking healthy while nothing could be read at all.
+    BOARD_DEGRADED[key] = 'the board is not reachable — is the server still running?';
+    return null;
+  });
 }
 
 function connectSSE() {
@@ -4926,6 +4970,7 @@ function switchTab(id, el) {
   }
   if (id === 'inbox') refreshInbox();
   if (id === 'memory') loadMemory();
+  if (id === 'logs') setActivityView('logs');
   if (id === 'portfolio') loadPortfolio();
   if (id === 'docs') loadDocs();
   if (id === 'sessions') loadSessions();

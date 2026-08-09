@@ -205,6 +205,21 @@ function getChangeTier(dir) {
   }
 }
 function autoRegisterProject(dir) {
+  // The home directory is never a project.
+  //
+  // `~/.great_cto/` is the GLOBAL store — cross-project verdicts, decisions,
+  // secrets — and it is shaped exactly like a project's own `.great_cto/`, same
+  // name and same contents. So the home directory reads as a project, and
+  // auto-registration kept adding it: deleted from the registry, it was back two
+  // minutes later, contributing 124 stages and $93 of $95 to a fleet view that
+  // has 22 real projects.
+  //
+  // Nothing downstream can tell these apart, because they are the same shape.
+  // The distinction is the location, so that is where it belongs.
+  try {
+    if (path.resolve(dir) === path.resolve(os.homedir())) return null;
+  } catch { /* if we cannot resolve it, fall through to the normal checks */ }
+
   const meta = readProjectMd(dir);
   if (!meta) return null;
   const reg = readProjectsRegistry();
