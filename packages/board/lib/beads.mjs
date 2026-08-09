@@ -105,7 +105,7 @@ function bdWriteSerialised(fn) {
 // --------------------------------
 // Falling back to `[]` keeps the board up, but `[]` is the same value a project
 // with no tasks returns, and the reader cannot tell them apart. A project whose
-// directory name contains a dot — `holdra.ai` — makes bd refuse to open its
+// directory name contains a dot — `<private-project>.ai` — makes bd refuse to open its
 // database at all ("invalid database name"), and the board answered that with a
 // clean empty board: no tasks, no metrics, no explanation. Switching to it looked
 // exactly like a project nobody had started.

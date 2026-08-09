@@ -90,7 +90,7 @@ test('success refreshes the cache (subsequent calls within TTL are served from c
 // The fallback above keeps the board up when bd fails, and that is right. What
 // was missing is the label: `[]` is also what a project with no tasks returns,
 // so a project whose directory name contains a dot — bd refuses to open
-// `holdra.ai` with "invalid database name" — rendered as a clean, empty,
+// `<private-project>.ai` with "invalid database name" — rendered as a clean, empty,
 // entirely believable board. Switching to it looked like a project nobody had
 // started, which is the opposite of what had happened.
 
@@ -108,7 +108,7 @@ test("bd's JSON error object on a zero exit is a failure, not a task list", () =
   const cwd = '/tmp/gcto-test-jsonerr';
   const jsonErr = () => ({
     status: 0,
-    stdout: '{"error":"failed to open database: invalid database name: \\"holdra.ai\\""}',
+    stdout: '{"error":"failed to open database: invalid database name: \\"<private-project>.ai\\""}',
     stderr: '',
   });
   assert.deepEqual(bdList(cwd, jsonErr), [], 'not a task list');
