@@ -53,6 +53,11 @@
      and using the brand colour for focus made the light theme's ring effectively
      invisible. Dark keeps the brand green; light gets #047857 (5.48:1). */
   --focus-ring: #00d97e;
+  --rail-ok-bg: rgba(0, 217, 126, 0.12);
+  --rail-fail-bg: rgba(255, 84, 102, 0.12);
+  --surface-drawer: #0f1411;
+  --drawer-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+
   --accent: #00d97e;
   --accent-2: #34e69b;
   --accent-soft: rgba(0, 217, 126, 0.10);
@@ -1661,10 +1666,12 @@ button { font-family: inherit; cursor: pointer; }
   --agent-failing:   var(--status-blocked);
   --agent-retired:   var(--text3);
   --agent-unused:    var(--text3);
-  --rail-ok-bg:      rgba(0, 217, 126, 0.12);
-  --rail-fail-bg:    rgba(255, 84, 102, 0.12);
-  --surface-drawer:  #0f1411;
-  --drawer-shadow:   0 16px 32px rgba(0, 0, 0, 0.5);
+  /* The four theme-specific values that used to sit here have moved to the
+     theme blocks at the top of this file. A bare `:root` this far down the
+     stylesheet has the same specificity as `[data-theme="light"]` and comes
+     after it, so it won — the LIGHT theme was being served the dark drawer
+     surface (#0f1411) and the dark rail tints. The review read this as the dark
+     theme missing tokens; it was the other way round, and the cascade is why. */
 }
 
 /* Fleet summary — uses existing .metric-card; nothing new */
@@ -2188,11 +2195,6 @@ button { font-family: inherit; cursor: pointer; }
         <span>Inbox</span>
         <span class="count" id="nav-inbox-count">0</span>
       </div>
-      <div class="nav-item" data-tab="portfolio" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('portfolio', this)">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        <span>Portfolio</span>
-        <span class="count" id="nav-portfolio-count">0</span>
-      </div>
       <div class="nav-item" data-tab="kanban" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('kanban', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Tasks</span>
@@ -2201,11 +2203,6 @@ button { font-family: inherit; cursor: pointer; }
       <div class="nav-item" data-tab="dashboard" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('dashboard', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18 M7 14l3-3 4 4 5-5"/></svg>
         <span>Metrics</span>
-      </div>
-      <div class="nav-item" data-tab="memory" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('memory', this)">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span>Memory</span>
-        <span class="count" id="nav-memory-count">0</span>
       </div>
       <div class="nav-item" data-tab="docs" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('docs', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -2392,6 +2389,14 @@ button { font-family: inherit; cursor: pointer; }
           <h2>Session logs</h2>
           <span class="logs-hint">Written by <code>/save</code> · Restored by <code>/resume</code></span>
         </div>
+        <!-- Sessions used to be its own sidebar entry. Both answered "what did
+             the agents do" — this panel from written summaries, that one from raw
+             transcripts — so a reader had to choose which to open before knowing
+             which held the answer. One entry, two depths. -->
+        <div style="display:flex;gap:8px;margin:0 0 12px">
+          <button id="act-tab-logs" class="facet-chip active" onclick="setActivityView('logs')">Summaries</button>
+          <button id="act-tab-sessions" class="facet-chip" onclick="setActivityView('sessions')">Transcripts</button>
+        </div>
         <div class="logs-layout">
           <div class="logs-list" id="logs-list"><div class="empty">Loading…</div></div>
           <div class="logs-detail" id="logs-detail"><div class="empty">Select a session to view</div></div>
@@ -2493,19 +2498,6 @@ button { font-family: inherit; cursor: pointer; }
                onkeydown="if(event.key==='Enter')searchTranscripts()">
       </div>
       <div id="sessions-body" class="muted">Loading…</div>
-    </div>
-
-    <div class="panel" id="panel-portfolio">
-      <h1>Portfolio</h1>
-      <!-- Sessions was its own sidebar entry. Both answered "what did the agents
-           do" — Logs from written summaries, Sessions from raw transcripts — and
-           splitting them meant deciding which of the two to open before knowing
-           which one had the answer. One entry, two depths. -->
-      <div style="display:flex;gap:8px;margin:0 0 12px">
-        <button id="act-tab-logs" class="facet-chip" onclick="setActivityView('logs')">Summaries</button>
-        <button id="act-tab-sessions" class="facet-chip" onclick="setActivityView('sessions')">Transcripts</button>
-      </div>
-      <div id="portfolio-body" class="muted">loading…</div>
     </div>
 
     <div class="panel" id="panel-docs">
@@ -3497,7 +3489,58 @@ async function loadDocs() {
         </div>`).join('')}</div>
       </div>`).join('');
 
-  el.innerHTML = pipeline + map + groups + '<div id="doc-view"></div>';
+  // Memory used to be its own tab listing PROJECT.md, CODEBASE.md and lessons —
+  // the same files this panel's "This project" group already showed. One section
+  // for documentation, as asked; what Memory knew that a directory walk does not
+  // is folded in rather than dropped.
+  const mem = await loadContextLayers();
+
+  el.innerHTML = pipeline + map + mem + groups + '<div id="doc-view"></div>';
+}
+
+/**
+ * The context an agent reads, and the patterns learned across projects.
+ *
+ * A directory walk finds files that exist. This list is the CANONICAL set of
+ * layers, so a layer that is absent is information — "this project has recorded
+ * no lessons yet" is a fact about the project, not an empty row to hide. Three
+ * of them live in ~/.great_cto and are shared by every project, which is why
+ * they never appeared in a per-project walk at all.
+ */
+async function loadContextLayers() {
+  let m;
+  try { m = await api(`/api/memory${pqs()}`); } catch { m = null; }
+  if (!m || m.error) {
+    return `<div class="card"><b>Agent context</b>
+      <div class="muted" style="margin-top:6px">could not be read — ${esc((m && m.error) || degradedFor('/api/memory') || 'no response')}</div></div>`;
+  }
+
+  const layers = (m.layers || []).map(l => {
+    const global = String(l.path || '').includes('/.great_cto/') && !String(l.path || '').includes(projectRootHint());
+    const where = global ? ' <span class="muted" style="font-size:11px">shared by every project</span>' : '';
+    return l.exists
+      ? `<div style="padding:4px 0;border-bottom:1px solid var(--border,#eee)">
+           <a href="#" onclick="openDoc('${esc(l.path)}');return false">${esc(l.id)}</a>${where}
+           <span class="muted" style="font-size:11px"> · ${esc(l.path)}</span></div>`
+      : `<div style="padding:4px 0;border-bottom:1px solid var(--border,#eee)" class="muted">
+           ${esc(l.id)} — not written yet${where}</div>`;
+  }).join('');
+
+  const pats = (m.patterns || []).map(p =>
+    `<div style="padding:4px 0" class="muted">${esc(p.id)} — ${esc(p.title || '')}</div>`).join('');
+
+  return `<div class="card">
+      <b>Agent context</b> <span class="muted">${(m.layers || []).filter(l => l.exists).length} of ${(m.layers || []).length} written — what an agent reads before it starts</span>
+      <div style="margin-top:8px">${layers}</div>
+    </div>` + (pats ? `<div class="card">
+      <b>Learned patterns</b> <span class="muted">${(m.patterns || []).length} — failures seen often enough to be written down</span>
+      <div style="margin-top:8px">${pats}</div></div>` : '');
+}
+
+/** The selected project's root, for telling a shared layer from a local one. */
+function projectRootHint() {
+  const crumb = document.querySelector('.crumb-project, #crumb-project');
+  return (crumb && crumb.textContent || '').trim() || '\u0000';
 }
 
 /** The pipeline as boxes and gates — no diagram library, so it always renders. */
@@ -4947,6 +4990,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSide();
 
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
 function switchTab(id, el) {
+  // `agents` has no sidebar entry by design: it is a drill-in from Dashboard.
+  // Without this the call fell through to code that expects a nav element and
+  // left the sidebar with nothing selected.
+  if (!el) el = document.querySelector(`.nav-item[data-tab="${id}"]`)
+    || document.querySelector('.nav-item[data-tab="dashboard"]');
   currentTab = id;
   // sidebar nav
   document.querySelectorAll('.nav-item[data-tab]').forEach(t => {
@@ -4961,17 +5009,23 @@ function switchTab(id, el) {
   // crumb — `labels` used to be referenced here but is only ever a function-local in
   // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
-  const TAB_LABELS = { docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', memory: 'Memory', sessions: 'Sessions', logs: 'Logs', notifications: 'Notifications', metrics: 'Metrics' };
+  const TAB_LABELS = { docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || 'Board';
   if (id === 'dashboard' || id === 'agents') {
-    api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
+    // pqsd(), not pqs(): this call omitted `days` entirely, so the server applied
+    // its 30-day default and overwrote whatever window the period chips had
+    // selected. Pick "7d", switch tabs, come back — the chip still read 7d and
+    // the numbers were thirty days old, which is the period selector appearing
+    // not to work at all.
+    //
+    // Through the sequence guard too, so a tab switch cannot land after a newer
+    // period request and clobber it.
+    _refreshMetricsRaced(`/api/metrics${pqsd()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
     if (id === 'dashboard') refreshCost();
     if (id === 'agents') refreshAgentsInstalled();
   }
   if (id === 'inbox') refreshInbox();
-  if (id === 'memory') loadMemory();
   if (id === 'logs') setActivityView('logs');
-  if (id === 'portfolio') loadPortfolio();
   if (id === 'docs') loadDocs();
   if (id === 'sessions') loadSessions();
   if (id === 'logs') refreshLogs();

@@ -29,11 +29,14 @@ export const DOC_GROUPS = Object.freeze([
   // them here. They are state the pipeline writes, not documentation someone
   // would read, and burying four useful files under them is how a browser
   // becomes something nobody opens.
+  // The .great_cto context files are listed by the "Agent context" group in the
+  // board, which knows the canonical set — including layers that are not written
+  // yet, which a directory walk cannot report because there is no file to find.
+  // Listing them here as well was the duplication between Docs and Memory.
   {
     key: 'state', label: 'This project',
-    files: ['README.md', 'CLAUDE.md', '.great_cto/PROJECT.md', '.great_cto/CODEBASE.md',
-            '.great_cto/lessons.md', '.great_cto/decisions.md'],
-    why: 'what it is and how it is configured',
+    files: ['README.md', 'CLAUDE.md'],
+    why: 'what it is, for a person arriving',
   },
   { key: 'architecture', label: 'Architecture', dirs: ['docs/architecture'], why: 'how the system is built' },
   { key: 'decisions', label: 'Decisions', dirs: ['docs/adr', 'docs/decisions'], why: 'why it was built that way' },
