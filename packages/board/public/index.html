@@ -2180,31 +2180,36 @@ button { font-family: inherit; cursor: pointer; }
         <span>Inbox</span>
         <span class="count" id="nav-inbox-count">0</span>
       </div>
-      <div class="nav-item" data-tab="kanban" onclick="switchTab('kanban', this)">
+      <div class="nav-item" data-tab="kanban" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('kanban', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Tasks</span>
         <span class="count" id="nav-task-count">0</span>
       </div>
-      <div class="nav-item" data-tab="dashboard" onclick="switchTab('dashboard', this)">
+      <div class="nav-item" data-tab="dashboard" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('dashboard', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18 M7 14l3-3 4 4 5-5"/></svg>
         <span>Metrics</span>
       </div>
-      <div class="nav-item" data-tab="memory" onclick="switchTab('memory', this)">
+      <div class="nav-item" data-tab="memory" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('memory', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span>Memory</span>
         <span class="count" id="nav-memory-count">0</span>
       </div>
-      <div class="nav-item" data-tab="sessions" onclick="switchTab('sessions', this)">
+      <div class="nav-item" data-tab="docs" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('docs', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Docs</span>
+        <span class="count" id="nav-docs-count">0</span>
+      </div>
+      <div class="nav-item" data-tab="sessions" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('sessions', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
         <span>Sessions</span>
         <span class="count" id="nav-sessions-count">0</span>
       </div>
-      <div class="nav-item" data-tab="logs" onclick="switchTab('logs', this)">
+      <div class="nav-item" data-tab="logs" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('logs', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
         <span>Logs</span>
         <span class="count" id="nav-logs-count">0</span>
       </div>
-      <div class="nav-item" data-tab="notifications" onclick="switchTab('notifications', this); loadNotifHistory()">
+      <div class="nav-item" data-tab="notifications" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('notifications', this); loadNotifHistory()">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         <span>Notifications</span>
         <span id="nav-notifications-badge" class="share-badge off" style="margin-left:auto;">
@@ -2480,6 +2485,11 @@ button { font-family: inherit; cursor: pointer; }
                onkeydown="if(event.key==='Enter')searchTranscripts()">
       </div>
       <div id="sessions-body" class="muted">Loading…</div>
+    </div>
+
+    <div class="panel" id="panel-docs">
+      <h1>Docs</h1>
+      <div id="docs-body" class="muted">loading…</div>
     </div>
 
     <div class="panel" id="panel-memory">
@@ -3300,6 +3310,101 @@ function mdToHtml(md) {
     USE_PROFILES: { html: true },
     ADD_ATTR: ['target'],  // allow target=_blank on links
   });
+}
+
+// ── Docs ────────────────────────────────────────────────────────────────────
+//
+// A project accumulates documentation nobody can find: this repository has
+// twenty architecture documents, eleven ADRs and thirty-one plans, and the only
+// way to read one was to know its filename.
+//
+// The two diagrams are computed on request rather than stored. docs/ARCHITECTURE.md
+// is hand-drawn, three months old, and says "34 agents" where there are
+// sixty-nine — a drawn picture goes stale silently, a derived one cannot.
+let _docsCache = null;
+
+async function loadDocs() {
+  const el = document.getElementById('docs-body');
+  el.innerHTML = '<span class="muted">loading…</span>';
+  let d;
+  try {
+    // pqs() carries the selected project — without it this panel would repeat
+    // the defect that made sixteen endpoints show the server's own directory.
+    d = await api(`/api/docs${pqs()}`);
+  } catch (e) {
+    // "Could not read" must never render as "there is nothing here" — the
+    // failure this board keeps making in other forms.
+    el.innerHTML = `<div class="card"><b>Could not read the project's documents.</b>
+      <div class="muted" style="margin-top:6px">${String(e && e.message || e)}</div></div>`;
+    return;
+  }
+  _docsCache = d;
+  document.getElementById('nav-docs-count').textContent = d.total || 0;
+
+  const pipeline = d.pipeline
+    ? `<div class="card"><b>Pipeline</b> <span class="muted">— how a feature moves, drawn from shared/pipeline.toml</span>
+         ${renderPipeline(d.pipeline)}
+         <details style="margin-top:8px"><summary class="muted">Mermaid source</summary>
+           <pre style="white-space:pre-wrap;font-size:11px">${esc(d.pipeline)}</pre></details></div>`
+    : '';
+
+  const map = d.map ? `<div class="card"><b>Components</b>
+      <span class="muted">— derived ${ago(d.map.generatedAt)}, so it cannot disagree with the code</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+        ${d.map.nodes.map(n => `<div style="border:1px solid var(--border,#ddd);border-radius:6px;padding:8px 10px;min-width:120px">
+          <div><b>${esc(n.label)}</b> <span class="muted">${n.count}</span></div>
+          <div class="muted" style="font-size:11px">${esc(n.what || '')}</div></div>`).join('')}
+      </div>
+      ${d.map.edges.length ? `<div class="muted" style="margin-top:8px;font-size:11px">
+        ${d.map.edges.map(e => `${esc(e.from)}→${esc(e.to)} (${e.count})`).join(' · ')}</div>` : ''}
+      <details style="margin-top:8px"><summary class="muted">Mermaid source</summary>
+        <pre style="white-space:pre-wrap;font-size:11px">${esc(d.map.mermaid)}</pre></details></div>` : '';
+
+  const groups = (d.groups || []).map(g => `<div class="card">
+      <b>${esc(g.label)}</b> <span class="muted">${g.docs.length} — ${esc(g.why || '')}</span>
+      <div style="margin-top:8px">${g.docs.map(doc => `
+        <div style="padding:4px 0;border-bottom:1px solid var(--border,#eee)">
+          <a href="#" onclick="openDoc('${esc(doc.path)}');return false">${esc(doc.title)}</a>
+          <span class="muted" style="font-size:11px"> · ${esc(doc.path)} · ${ago(doc.modified)}</span>
+        </div>`).join('')}</div>
+      </div>`).join('');
+
+  el.innerHTML = pipeline + map + groups + '<div id="doc-view"></div>';
+}
+
+/** The pipeline as boxes and gates — no diagram library, so it always renders. */
+function renderPipeline(mermaid) {
+  const edges = [];
+  for (const line of String(mermaid).split('\n')) {
+    const m = line.match(/^\s*(\w+)\s*-->(?:\|([^|]*)\|)?\s*(\w+)/);
+    if (m) edges.push({ from: m[1], gate: (m[2] || '').trim(), to: m[3], join: false });
+    const j = line.match(/^\s*(\w+)\s*-\.->\|join\|\s*(\w+)/);
+    if (j) edges.push({ from: j[1], to: j[2], join: true });
+  }
+  if (!edges.length) return '<div class="muted">no transitions declared</div>';
+  const name = (id) => id.replace(/_/g, '-');
+  return `<div style="margin-top:10px;font-size:12px">${edges.map(e => `
+    <div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+      <span style="border:1px solid var(--border,#ddd);border-radius:4px;padding:2px 8px">${esc(name(e.from))}</span>
+      <span class="muted">${e.join ? '⋯ join ⋯' : (e.gate ? `→ ${esc(e.gate)} →` : '→')}</span>
+      <span style="border:1px solid var(--border,#ddd);border-radius:4px;padding:2px 8px">${esc(name(e.to))}</span>
+    </div>`).join('')}</div>`;
+}
+
+async function openDoc(p) {
+  const view = document.getElementById('doc-view');
+  view.innerHTML = '<span class="muted">loading…</span>';
+  try {
+    const q = pqs();
+    const d = await api(`/api/doc?path=${encodeURIComponent(p)}${q ? '&' + q.slice(1) : ''}`);
+    view.innerHTML = `<div class="card"><b>${esc(d.name)}</b>
+      <span class="muted" style="font-size:11px"> · ${esc(d.path)}</span>
+      <div style="margin-top:10px">${mdToHtml(d.content)}</div></div>`;
+    view.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    view.innerHTML = `<div class="card"><b>Could not open ${esc(p)}</b>
+      <div class="muted">${String(e && e.message || e)}</div></div>`;
+  }
 }
 
 // ── Sessions ────────────────────────────────────────────────────────────────
@@ -4708,7 +4813,7 @@ function switchTab(id, el) {
   // crumb — `labels` used to be referenced here but is only ever a function-local in
   // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
-  const TAB_LABELS = { dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', memory: 'Memory', sessions: 'Sessions', logs: 'Logs', notifications: 'Notifications', metrics: 'Metrics' };
+  const TAB_LABELS = { docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', memory: 'Memory', sessions: 'Sessions', logs: 'Logs', notifications: 'Notifications', metrics: 'Metrics' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || 'Board';
   if (id === 'dashboard' || id === 'agents') {
     api(`/api/metrics${pqs()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
@@ -4717,6 +4822,7 @@ function switchTab(id, el) {
   }
   if (id === 'inbox') refreshInbox();
   if (id === 'memory') loadMemory();
+  if (id === 'docs') loadDocs();
   if (id === 'sessions') loadSessions();
   if (id === 'logs') refreshLogs();
   if (id === 'notifications') loadNotifications();

@@ -193,7 +193,18 @@ function getAgentsFleet(projectCwd) {
   };
 }
 
-function getAgentProfile(slug) {
+/**
+ * One agent's profile and its recent record.
+ *
+ * `cwd` scopes the statistics to a project. Without it the counts came from
+ * every project's verdicts at once, so opening an agent while looking at
+ * `holdra` showed its behaviour across twenty-two projects — a number that is
+ * about the fleet answering a question about this project.
+ *
+ * Omitting `cwd` still means "the whole fleet", which is what the fleet view
+ * itself wants; the defect was the caller, not the default.
+ */
+function getAgentProfile(slug, cwd = null) {
   const fp = path.join(AGENTS_DIR, `great_cto-${slug}.md`);
   if (!fs.existsSync(fp)) return null;
 
@@ -222,7 +233,7 @@ function getAgentProfile(slug) {
   const skillsM = raw.match(/^skills:\s*\n((?:[ \t]*-[ \t]*.+\n?)+)/m);
   if (skillsM) for (const line of skillsM[1].split('\n')) { const v = (line.match(/^[ \t]*-[ \t]*(.+)$/) || [])[1]; const t = v && v.trim(); if (t && !/^-+$/.test(t)) skills.push(t); }
 
-  const verdicts = readVerdicts();
+  const verdicts = readVerdicts(cwd);
   const all = verdicts.filter(v => v.agent === slug);
   const now = Date.now();
   const day30Ms = 30 * 86400_000;

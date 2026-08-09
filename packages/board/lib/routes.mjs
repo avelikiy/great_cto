@@ -9,7 +9,7 @@ import {
 import { GREAT_CTO_DIR, VAPID_KEYS_FILE, PUSH_SUBS_FILE, BUILD_VERSION } from './config.mjs';
 import { eventSurface, readFileSafe, originAllowed } from './util.mjs';
 import { sseClients, notifHistory } from './state.mjs';
-import { autoRegisterProject, listProjects, resolveProjectCwd, getChangeTier } from './projects.mjs';
+import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier } from './projects.mjs';
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
@@ -27,6 +27,31 @@ import { listSessions, readSession, editedFiles, searchSessions } from './transc
 // false if the caller (server.mjs) should fall through to static file serving.
 async function dispatch(req, res, url, cwd) {
   const pathname = url.pathname;
+
+  // The selected project, resolved ONCE for every route below.
+  //
+  // The board is multi-project — a registry of twenty-two, a switcher in the
+  // sidebar — and sixteen of its eighteen endpoints read `cwd`, the directory
+  // the SERVER was started in. Switching to another project changed the heading
+  // and nothing else: `holdra` has a .great_cto with two verdicts and
+  // thirty-nine session logs, and every panel showed 0.
+  //
+  // Which is the failure this board keeps making in other forms: a read that did
+  // not happen looked exactly like an absence of data. Resolving here rather than
+  // per-route means the next endpoint added cannot forget.
+  //
+  // A slug that does not resolve falls back to the server's directory — that is
+  // pre-existing behaviour and it is defensible, but it must not be silent, so
+  // it is announced in a header rather than shown as if it were the project asked
+  // for.
+  const requestedProject = url.searchParams.get('project');
+  if (requestedProject) {
+    const info = resolveProjectInfo(requestedProject);
+    cwd = info.cwd;
+    if (info.resolved === 'fallback' && typeof res.setHeader === 'function') {
+      try { res.setHeader('X-Project-Fallback', String(info.requested || requestedProject)); } catch { /* headers already sent */ }
+    }
+  }
 
   // SSE
   if (pathname === '/api/sse') {
@@ -297,6 +322,37 @@ async function dispatch(req, res, url, cwd) {
 
   // ── Read a project doc (markdown) referenced from a task — for the side-panel viewer.
   // Path-traversal-safe: the resolved path must stay inside the project cwd; .md only.
+  // Which documents exist, and the two diagrams nobody hand-draws.
+  //
+  // /api/doc could already fetch one document by path; the question before that
+  // — which documents exist — had no answer, so a project's twenty architecture
+  // documents and ten ADRs were reachable only by knowing a filename.
+  //
+  // The maps are computed per request rather than stored. docs/ARCHITECTURE.md
+  // is a hand-drawn diagram, three months old, that says "34 agents" where there
+  // are sixty-nine; a picture that is regenerated when looked at cannot drift.
+  if (pathname === '/api/docs' && req.method === 'GET') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    try {
+      const [{ listDocs }, { systemMap, toMermaid, pipelineMermaid }] = await Promise.all([
+        import('./docs.mjs'), import('../../../scripts/lib/system-map.mjs'),
+      ]);
+      const map = systemMap(c);
+      let pipeline = null;
+      try { pipeline = pipelineMermaid(fs.readFileSync(path.join(c, 'shared', 'pipeline.toml'), 'utf8')); } catch { /* not a great_cto project */ }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({
+        ...listDocs(c),
+        map: { nodes: map.nodes, edges: map.edges, generatedAt: map.generatedAt, mermaid: toMermaid(map) },
+        pipeline,
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(e.message || e) }));
+    }
+    return true;
+  }
+
   if (pathname === '/api/doc' && req.method === 'GET') {
     const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
     const rel = String(url.searchParams.get('path') || '');
@@ -923,7 +979,10 @@ async function dispatch(req, res, url, cwd) {
       return true;
     }
     if (!sub) {
-      const profile = getAgentProfile(slug);
+      // Scoped to the selected project — see getAgentProfile. Unscoped, this
+      // reported an agent's record across all twenty-two projects while the
+      // reader was looking at one of them.
+      const profile = getAgentProfile(slug, cwd);
       if (!profile) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'agent_not_found', slug }));
