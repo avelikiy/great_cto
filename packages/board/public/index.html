@@ -2188,6 +2188,11 @@ button { font-family: inherit; cursor: pointer; }
         <span>Inbox</span>
         <span class="count" id="nav-inbox-count">0</span>
       </div>
+      <div class="nav-item" data-tab="portfolio" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('portfolio', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span>Portfolio</span>
+        <span class="count" id="nav-portfolio-count">0</span>
+      </div>
       <div class="nav-item" data-tab="kanban" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('kanban', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Tasks</span>
@@ -2493,6 +2498,11 @@ button { font-family: inherit; cursor: pointer; }
                onkeydown="if(event.key==='Enter')searchTranscripts()">
       </div>
       <div id="sessions-body" class="muted">Loading…</div>
+    </div>
+
+    <div class="panel" id="panel-portfolio">
+      <h1>Portfolio</h1>
+      <div id="portfolio-body" class="muted">loading…</div>
     </div>
 
     <div class="panel" id="panel-docs">
@@ -3318,6 +3328,80 @@ function mdToHtml(md) {
     USE_PROFILES: { html: true },
     ADD_ATTR: ['target'],  // allow target=_blank on links
   });
+}
+
+// ── Portfolio ───────────────────────────────────────────────────────────────
+//
+// Every other panel answers about one project. With twenty-two in the registry,
+// "what needs me right now across everything" had no answer, and switching to
+// each of them by hand was the substitute.
+//
+// Three columns and no sorting on purpose: if this screen is worth having, that
+// will show without them. Every cell can say `unread` — a fleet view built on
+// readers that return zero when they fail multiplies one silent lie by
+// twenty-two.
+async function loadPortfolio() {
+  const el = document.getElementById('portfolio-body');
+  el.innerHTML = '<span class="muted">loading…</span>';
+  let d;
+  try { d = await api('/api/portfolio'); } catch (e) { d = null; }
+  if (!d || d._neterr || d.error) {
+    el.innerHTML = `<div class="card"><b>Could not read the fleet.</b>
+      <div class="muted" style="margin-top:6px">${esc((d && (d.error || 'board not reachable')) || 'no response')}</div></div>`;
+    return;
+  }
+  if (d.registryUnread) {
+    el.innerHTML = `<div class="card"><b>The project registry could not be read.</b>
+      <div class="muted" style="margin-top:6px">${esc(d.registryUnread)}</div>
+      <div class="muted" style="margin-top:6px">This is not "no projects" — it is "the list of them is unreadable".</div></div>`;
+    return;
+  }
+
+  document.getElementById('nav-portfolio-count').textContent = d.needsYou || 0;
+
+  const money = d.spend != null
+    ? `$${d.spend} <span class="muted">recorded across ${d.spendCoveredProjects} of ${d.total} projects</span>`
+    : '<span class="muted">no recorded spend</span>';
+  const unread = d.unreadable
+    ? ` · <span class="muted">${d.unreadable} could not be read</span>` : '';
+
+  const rows = d.projects.map(p => {
+    if (p.unread) {
+      return `<tr><td><b>${esc(p.slug)}</b></td>
+        <td colspan="3" class="muted">unread — ${esc(p.unread)}</td></tr>`;
+    }
+    const idle = p.idleMs == null ? '<span class="muted">never ran</span>'
+      : p.idleMs < 36e5 ? 'just now'
+      : p.idleMs < 864e5 ? `${Math.round(p.idleMs / 36e5)}h ago`
+      : `${Math.round(p.idleMs / 864e5)}d ago`;
+    const needs = p.needsYou
+      ? `<b>${esc(p.needsYou)}</b>`
+      : '<span class="muted">nothing blocking</span>';
+    // A verdict with no recorded cost is not zero spend — it is spend nobody
+    // wrote down, so the column says so rather than adding a confident zero.
+    const spend = p.spend == null
+      ? '<span class="muted">—</span>'
+      : `$${p.spend}${p.spendUnknownFor ? ` <span class="muted">(+${p.spendUnknownFor} unpriced)</span>` : ''}`;
+    return `<tr>
+      <td><b>${esc(p.slug)}</b><div class="muted" style="font-size:11px">${esc(p.archetype || '')}</div></td>
+      <td>${needs}</td>
+      <td>${idle}<div class="muted" style="font-size:11px">${esc(p.lastAgent || '')} ${esc(p.lastVerdict || '')}</div></td>
+      <td>${spend}</td></tr>`;
+  }).join('');
+
+  el.innerHTML = `<div class="card">
+      <b>${d.needsYou} project${d.needsYou === 1 ? '' : 's'} may need you</b>${unread}
+      <div class="muted" style="margin-top:4px">${money}</div>
+    </div>
+    <div class="card"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="text-align:left">
+        <th style="padding:6px 4px">Project</th><th>Waiting on you</th><th>Last moved</th><th>Spend</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <div class="muted" style="margin-top:8px;font-size:11px">
+        Gate approval is not read here — it costs about half a second per project.
+        A row says "nothing blocking" when no stage returned a blocking verdict; it does not
+        claim a gate was approved.</div>
+    </div>`;
 }
 
 // ── Docs ────────────────────────────────────────────────────────────────────
@@ -4842,6 +4926,7 @@ function switchTab(id, el) {
   }
   if (id === 'inbox') refreshInbox();
   if (id === 'memory') loadMemory();
+  if (id === 'portfolio') loadPortfolio();
   if (id === 'docs') loadDocs();
   if (id === 'sessions') loadSessions();
   if (id === 'logs') refreshLogs();

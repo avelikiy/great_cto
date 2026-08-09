@@ -9,7 +9,7 @@ import {
 import { GREAT_CTO_DIR, VAPID_KEYS_FILE, PUSH_SUBS_FILE, BUILD_VERSION } from './config.mjs';
 import { eventSurface, readFileSafe, originAllowed } from './util.mjs';
 import { sseClients, notifHistory } from './state.mjs';
-import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier } from './projects.mjs';
+import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
@@ -331,6 +331,30 @@ async function dispatch(req, res, url, cwd) {
   // The maps are computed per request rather than stored. docs/ARCHITECTURE.md
   // is a hand-drawn diagram, three months old, that says "34 agents" where there
   // are sixty-nine; a picture that is regenerated when looked at cannot drift.
+  // The whole fleet on one screen.
+  //
+  // Every other endpoint answers about one project, so "what needs me right now
+  // across all twenty-two" had no answer and the switcher was a poor substitute
+  // for one. Read-only, file-only: gate approval is authoritative but costs about
+  // 530ms per project, which is twelve seconds on a screen meant to be glanced
+  // at. This reads 23 projects in about 140ms.
+  if (pathname === '/api/portfolio' && req.method === 'GET') {
+    try {
+      const { portfolio } = await import('./portfolio.mjs');
+      const reg = readProjectsRegistry();
+      const degraded = getRegistryDegradation();
+      // A registry that could not be read used to render as a board with no
+      // projects — the same silence this screen exists to remove, one level out.
+      const out = portfolio(degraded ? { unread: degraded } : reg);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(e.message || e) }));
+    }
+    return true;
+  }
+
   if (pathname === '/api/docs' && req.method === 'GET') {
     const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
     try {
