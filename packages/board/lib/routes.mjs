@@ -51,8 +51,8 @@ async function dispatch(req, res, url, cwd) {
   // The board is multi-project — a registry of twenty-two, a switcher in the
   // sidebar — and sixteen of its eighteen endpoints read `cwd`, the directory
   // the SERVER was started in. Switching to another project changed the heading
-  // and nothing else: `holdra` has a .great_cto with two verdicts and
-  // thirty-nine session logs, and every panel showed 0.
+  // and nothing else: a project with a .great_cto holding two verdicts and
+  // thirty-nine session logs had every panel show 0.
   //
   // Which is the failure this board keeps making in other forms: a read that did
   // not happen looked exactly like an absence of data. Resolving here rather than

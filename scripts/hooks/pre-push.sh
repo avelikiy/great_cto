@@ -32,6 +32,62 @@ if [[ -f "$PRIVATE_TERMS_FILE" ]]; then
   done < "$PRIVATE_TERMS_FILE"
 fi
 
+# ---------------------------------------------------------------------------
+# Derived terms — every directory in the workspace is a private project
+# ---------------------------------------------------------------------------
+#
+# The hand-maintained list above kept losing. Three project names that had
+# already leaked into this repository were simply not on it, and nothing said so:
+# a name absent from a denylist produces silence, which reads exactly like a name
+# that is safe. That is the same defect this repository spends its time removing
+# everywhere else — an absent check and a passed check looking identical.
+#
+# The rule the owner actually holds is simpler than any list: everything under
+# the workspace is private, and `great_cto` is the one public project. So derive
+# the terms from the directories themselves. A project created tomorrow is
+# covered the moment it exists, with nobody remembering to add it.
+#
+# The polarity is the point
+# -------------------------
+# Directory names collide with ordinary English — `docs`, `shared`, `Work`,
+# `Dashboard` are all real directories here, and flagging them would fire on
+# hundreds of innocent files. So there is an allowlist, and it is maintained by
+# hand. That is deliberate: a forgotten allowlist entry costs a false alarm you
+# fix in a minute, while a forgotten denylist entry costs a leak you cannot
+# retract. Both lists are imperfect; only one is imperfect in a safe direction.
+#
+# The derived names never enter this repository — they are read from disk at
+# push time, on the machine that already has them.
+WORKSPACE_DIR="${GREAT_CTO_WORKSPACE:-$HOME/development}"
+PUBLIC_TERMS_FILE="${GREAT_CTO_PUBLIC_TERMS:-$HOME/.great_cto/public-terms}"
+
+# `${var,,}` is bash 4; macOS ships bash 3.2, so lowercase via tr.
+_lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+_is_public() {
+  local name_lc
+  name_lc="$(_lc "$1")"
+  # The one public project, and anything published under its name.
+  [[ "$name_lc" == great_cto* ]] && return 0
+  [[ -f "$PUBLIC_TERMS_FILE" ]] || return 1
+  while IFS= read -r _allow || [[ -n "$_allow" ]]; do
+    _allow="${_allow#"${_allow%%[![:space:]]*}"}"
+    _allow="${_allow%"${_allow##*[![:space:]]}"}"
+    [[ -z "$_allow" || "$_allow" == \#* ]] && continue
+    [[ "$name_lc" == "$(_lc "$_allow")" ]] && return 0
+  done < "$PUBLIC_TERMS_FILE"
+  return 1
+}
+
+if [[ -d "$WORKSPACE_DIR" ]]; then
+  while IFS= read -r _dir; do
+    _name="$(basename "$_dir")"
+    [[ -z "$_name" || "$_name" == .* ]] && continue
+    _is_public "$_name" && continue
+    PRIVATE_TERMS+=("$_name")
+  done < <(find "$WORKSPACE_DIR" -mindepth 1 -maxdepth 2 -type d -not -path '*/.*' 2>/dev/null || true)
+fi
+
 # Personal path pattern (regex for grep -E). The username is intentionally
 # GENERIC — a hardcoded /Users/<name>/development/<Project> path is a leak no
 # matter whose it is, and keeping a real username out of this pattern keeps it
@@ -45,6 +101,10 @@ EXCLUDE_PATHS=(
   "scripts/hooks/pre-push.sh"        # defines PRIVATE_PATH_PATTERN — would self-match
   "tests/hooks/pre-push.test.mjs"    # uses synthetic (non-private) fixture names
   "/tmp/redact-"                     # redaction config files (not in repo)
+  # Vendored Google Fonts data: third-party rows carrying typeface designers'
+  # names. Not this project's prose, and a designer who shares a name with a
+  # directory here is not a leak.
+  "skills/ui-ux-pro-max/data/"
 )
 
 RED='\033[0;31m'
@@ -73,8 +133,21 @@ check_content() {
     fi
   done
 
+  # Match the term as a WORD, not as any substring.
+  #
+  # Plain `grep -F` matched a private name wherever its letters happened to fall.
+  # One real term on this list is a substring of `thresholdRaw`, so adding it lit
+  # up thirteen files of eval-runner internals with nothing private in them. A
+  # guard that cries wolf on ordinary identifiers is a guard people push past
+  # with --no-verify, and then it protects nothing at all.
+  #
+  # The boundary is "not a letter or digit", so the shapes a real leak takes are
+  # still caught — `name.ai`, `name-prod`, `"name"`, `/name/`, `name_1` — while a
+  # name buried inside a longer word is not.
   for term in ${PRIVATE_TERMS[@]+"${PRIVATE_TERMS[@]}"}; do
-    if echo "$content" | grep -qiF "$term" 2>/dev/null; then
+    local escaped
+    escaped=$(printf '%s' "$term" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
+    if echo "$content" | grep -qiE "(^|[^A-Za-z0-9])${escaped}([^A-Za-z0-9]|\$)" 2>/dev/null; then
       echo -e "${RED}[pre-push] LEAK DETECTED${NC} — \"${term}\" found in ${context}"
       FOUND=1
     fi

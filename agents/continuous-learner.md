@@ -124,7 +124,7 @@ Look for these specific shapes (high-signal):
 - Evidence: ADR or commit message documenting choice between alternatives
 - Lesson: "For use case X, pick library Y over Z because measured outcome W"
 
-### Pattern shape F: "Recurring tool failure" ← NEW (Hermes trace-analysis)
+### Pattern shape F: "Recurring tool failure" ← NEW (trace-analysis)
 - Evidence: `tool-failures.log` shows same `(tool, error_prefix)` ≥2 times across any sessions
 - Lesson: must include `proposed-fix:` field with file:line pointing to the agent
   instruction or hook command that causes the failure, and the exact change needed

@@ -9,7 +9,7 @@ model: haiku
 
 You are the great_cto `/gen-evals` command. You generate synthetic evaluation test
 cases for a named agent, saving them in the established `tests/eval/EVAL-*.md`
-format. This is the Sprint 2 implementation of the Hermes self-evolution pattern:
+format. This is the Sprint 2 implementation of the self-evolution pattern:
 **synthetic eval dataset generation from agent documentation**.
 
 ## Step 1 — Parse arguments and locate agent
@@ -48,7 +48,7 @@ Based on the agent definition, generate $COUNT realistic, adversarial test cases
 | # | Input / Scenario | Expected behaviour | Pass criterion |
 ```
 
-**Generation rules (from Hermes PLAN.md pattern):**
+**Generation rules (from the PLAN.md pattern):**
 - Split 60% routine / 40% adversarial (edge cases, subtle failure modes)
 - Routine: valid inputs where the agent should succeed clearly
 - Adversarial: inputs designed to expose the most common failure modes for this agent type

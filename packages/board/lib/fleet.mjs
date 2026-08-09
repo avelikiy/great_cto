@@ -198,7 +198,7 @@ function getAgentsFleet(projectCwd) {
  *
  * `cwd` scopes the statistics to a project. Without it the counts came from
  * every project's verdicts at once, so opening an agent while looking at
- * `holdra` showed its behaviour across twenty-two projects — a number that is
+ * one project showed its behaviour across twenty-two projects — a number that is
  * about the fleet answering a question about this project.
  *
  * Omitting `cwd` still means "the whole fleet", which is what the fleet view

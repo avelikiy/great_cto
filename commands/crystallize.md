@@ -544,7 +544,7 @@ echo "DONE: $GP_ID rolled back."
 
 ## Subcommand: propose GP-NNNN
 
-**Sprint 3 — PR-gate for crystallize** (Hermes self-evolution pattern).
+**Sprint 3 — PR-gate for crystallize** (the self-evolution pattern).
 
 Creates a git branch `evolve/<agent>-<timestamp>`, applies the proposed agent
 change, runs the EVAL suite for that agent to measure before/after improvement,

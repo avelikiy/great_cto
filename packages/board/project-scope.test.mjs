@@ -2,15 +2,17 @@
 // sidebar — and sixteen of its eighteen endpoints read `cwd`, the directory the
 // SERVER was started in. Switching project changed the heading and nothing else.
 //
-// `holdra` has a .great_cto with two verdicts and thirty-nine session logs, and
-// every panel showed 0. Which is this system's recurring failure in another
-// costume: a read that did not happen looked exactly like an absence of data.
+// A <private-project> with a .great_cto holding two verdicts and thirty-nine
+// session logs had every panel show 0. Which is this system's recurring failure
+// in another costume: a read that did not happen looked exactly like an absence
+// of data.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { dispatch } from './lib/routes.mjs';
+import { listProjects } from './lib/projects.mjs';
 
 const ROUTES = fs.readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'lib/routes.mjs'), 'utf8');
 
@@ -33,9 +35,20 @@ test('the project is resolved once, at the entry, not per route', () => {
   assert.match(ROUTES, /cwd = info\.cwd/);
 });
 
+// The second project is taken from whatever registry this machine has, rather
+// than named. Naming one hard-coded a private repository's slug into a public
+// test suite, and made the test pass only on the laptop that repository lives on.
+function anotherProject() {
+  try {
+    return (listProjects() || []).map((p) => p.slug).find((s) => s && s !== 'great_cto') || null;
+  } catch { return null; }
+}
+
 test('logs come from the selected project, not the server directory', async () => {
+  const other = anotherProject();
+  if (!other) return;  // a machine with a single registered project cannot show this
   const a = await get('/api/logs', 'great_cto');
-  const b = await get('/api/logs', 'holdra');
+  const b = await get('/api/logs', other);
   // Both projects exist on this machine; if either is absent the assertion below
   // still holds by being skipped rather than by passing vacuously.
   if (!a.json?.logs?.length || !b.json?.logs?.length) return;

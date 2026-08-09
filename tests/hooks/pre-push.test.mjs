@@ -200,3 +200,118 @@ test('summary: a hanging checker cannot stall the push (hard timeout, enforce mo
   assert.ok(/timed out/.test(res.stdout + res.stderr), 'must report the timeout');
   assert.ok(elapsedMs < 20000, `push must return promptly, took ${elapsedMs}ms`);
 });
+
+// ── A guard that cries wolf is a guard people push past ──────────────────────
+//
+// Matching was `grep -F`: a private term flagged wherever its letters happened
+// to fall inside a longer word. Adding a real project name to the list lit up
+// thirteen files of eval-runner internals, because the name is a substring of
+// `thresholdRaw`. The next step after that is `--no-verify`, and then the hook
+// protects nothing.
+
+test('a private term inside a longer identifier is not a leak', () => {
+  const { home, work, cfg } = setupRepo();
+  commit(work, cfg, 'a.txt', 'hello', 'init clean');
+  assert.equal(push(work, home, 'main').status, 0);
+
+  installHook(work);
+  git(work, ['checkout', '-b', 'feature/substring'], cfg);
+  // "Frobnitz" is a configured private term; "unFrobnitzed" is an ordinary word
+  // that happens to contain it, the way `thresholdRaw` contains a real name.
+  commit(work, cfg, 'e.txt', 'const unFrobnitzed = parseUnFrobnitzedValue();', 'refactor: rename a field');
+
+  const res = push(work, home, 'feature/substring');
+  assert.equal(res.status, 0,
+    `Expected ALLOWED for a substring match. stdout+stderr:\n${res.stdout}\n${res.stderr}`);
+});
+
+test('the shapes a real leak takes are still caught', () => {
+  // A name is rarely written bare: it carries an extension, a separator, or
+  // quotes. Each of these must still block.
+  for (const [i, body] of ['see Frobnitz.ai for details', 'path: /Frobnitz/build', 'slug = "Frobnitz"', 'Frobnitz-prod is down'].entries()) {
+    const { home, work, cfg } = setupRepo();
+    commit(work, cfg, 'a.txt', 'hello', 'init clean');
+    assert.equal(push(work, home, 'main').status, 0);
+    installHook(work);
+    git(work, ['checkout', '-b', `feature/shape-${i}`], cfg);
+    commit(work, cfg, `f${i}.txt`, body, 'docs: a note');
+    const res = push(work, home, `feature/shape-${i}`);
+    assert.notEqual(res.status, 0, `Expected BLOCKED for: ${body}`);
+    assert.ok(/LEAK DETECTED/.test(res.stdout + res.stderr), `must report: ${body}`);
+  }
+});
+
+// ── The list nobody remembers to update ─────────────────────────────────────
+//
+// Three project names that had already reached this repository were simply not
+// on the hand-written denylist, and nothing said so: an absent term produces
+// silence, which reads exactly like a term that is safe.
+//
+// The owner's actual rule is not a list — every directory in the workspace is a
+// private project, and great_cto is the one public one. So the terms are derived
+// from the directories, and a project created tomorrow is covered the moment it
+// exists.
+
+function workspaceProject(home, name) {
+  mkdirSync(join(home, 'development', name), { recursive: true });
+}
+
+test('a workspace directory is private without being listed anywhere', () => {
+  const { home, work, cfg } = setupRepo();
+  workspaceProject(home, 'Wobblesprocket');   // never added to private-terms
+  commit(work, cfg, 'a.txt', 'hello', 'init clean');
+  assert.equal(push(work, home, 'main').status, 0);
+
+  installHook(work);
+  git(work, ['checkout', '-b', 'feature/derived'], cfg);
+  commit(work, cfg, 'g.txt', 'ported from Wobblesprocket last week', 'feat: port a thing');
+
+  const res = push(work, home, 'feature/derived');
+  assert.notEqual(res.status, 0, 'a workspace project name must block the push');
+  assert.ok(/Wobblesprocket/.test(res.stdout + res.stderr), 'and must name what it found');
+});
+
+test('a nested workspace directory counts too', () => {
+  const { home, work, cfg } = setupRepo();
+  workspaceProject(home, join('Clients', 'Thrumbleworth'));
+  commit(work, cfg, 'a.txt', 'hello', 'init clean');
+  assert.equal(push(work, home, 'main').status, 0);
+
+  installHook(work);
+  git(work, ['checkout', '-b', 'feature/nested'], cfg);
+  commit(work, cfg, 'h.txt', 'clean body', 'fix: Thrumbleworth deploy');  // in the message
+
+  assert.notEqual(push(work, home, 'feature/nested').status, 0);
+});
+
+test('great_cto itself is public and never blocks its own name', () => {
+  const { home, work, cfg } = setupRepo();
+  workspaceProject(home, join('Personal', 'great_cto'));
+  commit(work, cfg, 'a.txt', 'hello', 'init clean');
+  assert.equal(push(work, home, 'main').status, 0);
+
+  installHook(work);
+  git(work, ['checkout', '-b', 'feature/self'], cfg);
+  commit(work, cfg, 'i.txt', 'great_cto ships a board', 'docs: describe great_cto');
+
+  const res = push(work, home, 'feature/self');
+  assert.equal(res.status, 0, `the public project must not block itself:\n${res.stdout}\n${res.stderr}`);
+});
+
+test('the allowlist clears a directory name that is an ordinary word', () => {
+  // `docs` is a directory here and appears in hundreds of innocent files. The
+  // allowlist is hand-maintained on purpose: forgetting an entry costs a false
+  // alarm, forgetting a denylist entry costs a leak.
+  const { home, work, cfg } = setupRepo();
+  workspaceProject(home, 'docs');
+  writeFileSync(join(home, '.great_cto', 'public-terms'), '# ordinary words\ndocs\n');
+  commit(work, cfg, 'a.txt', 'hello', 'init clean');
+  assert.equal(push(work, home, 'main').status, 0);
+
+  installHook(work);
+  git(work, ['checkout', '-b', 'feature/allowed'], cfg);
+  commit(work, cfg, 'j.txt', 'see docs/ for the rest', 'docs: point at docs');
+
+  const res = push(work, home, 'feature/allowed');
+  assert.equal(res.status, 0, `an allowlisted word must not block:\n${res.stdout}\n${res.stderr}`);
+});
