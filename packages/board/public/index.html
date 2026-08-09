@@ -46,6 +46,13 @@
   --text2: #8a9a92;
   --text3: #8b958c;
 
+
+  /* Focus ring — a separate token from --accent on purpose.
+     #00d97e measures 9.68:1 on the dark background and 1.87:1 on white, against
+     a 3.0 minimum for a non-text indicator. One colour cannot serve both themes,
+     and using the brand colour for focus made the light theme's ring effectively
+     invisible. Dark keeps the brand green; light gets #047857 (5.48:1). */
+  --focus-ring: #00d97e;
   --accent: #00d97e;
   --accent-2: #34e69b;
   --accent-soft: rgba(0, 217, 126, 0.10);
@@ -86,6 +93,7 @@
   --text:  #0d1a14;
   --text2: #56655e;
   --text3: #55625b;
+  --focus-ring: #047857;
   --accent: #00d97e;
   --accent-2: #0a7d4d;
   --accent-soft: rgba(0, 217, 126, 0.12);
@@ -1671,7 +1679,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: 8px 12px; border-radius: 6px;
 }
 .fleet-search input[type="search"]:focus {
-  outline: 2px solid var(--accent); outline-offset: 1px;
+  outline: 2px solid var(--focus-ring); outline-offset: 1px;
   border-color: transparent;
 }
 .fleet-search .search-hint { font-size: 11px; color: var(--text3); font-family: var(--mono); }
@@ -1696,7 +1704,7 @@ button { font-family: inherit; cursor: pointer; }
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 .facet-chip:hover { color: var(--text); border-color: var(--border-strong); }
-.facet-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.facet-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .facet-chip[aria-checked="true"] {
   background: var(--accent-soft); color: var(--accent);
   border-color: var(--accent-strong);
@@ -1735,7 +1743,7 @@ button { font-family: inherit; cursor: pointer; }
   transition: background-color 0.15s, border-color 0.15s;
 }
 .agent-row:hover { background: var(--bg-muted); border-color: var(--border); }
-.agent-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.agent-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .agent-row[aria-current="true"] {
   background: var(--accent-soft);
   border-color: var(--accent-strong);
@@ -1824,7 +1832,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: center; justify-content: center;
 }
 .agent-drawer-close:hover { color: var(--text); border-color: var(--border-strong); }
-.agent-drawer-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.agent-drawer-close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .agent-drawer-body {
   flex: 1; overflow-y: auto; padding: 16px 20px;
   display: flex; flex-direction: column; gap: 16px;
@@ -1866,7 +1874,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: 6px 12px; border-radius: 6px;
 }
 .agent-actions button:hover { border-color: var(--border-strong); }
-.agent-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.agent-actions button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .agent-actions button.danger { color: var(--agent-failing); }
 .agent-actions button.danger:hover { border-color: var(--agent-failing); }
 .agent-actions button[disabled] { opacity: 0.4; cursor: not-allowed; }
@@ -3507,7 +3515,19 @@ async function searchTranscripts() {
 
 async function loadMemory() {
   const d = await api(`/api/memory${pqs()}`);
-  memoryData = d || { layers: [], patterns: [] };
+  // `d || {layers: []}` collapsed a failed read into "this project has no
+  // memory" — the two look identical to a reader and mean opposite things.
+  if (!d || d._neterr || d.error) {
+    memoryData = { layers: [], patterns: [] };
+    renderMemorySidebar();
+    const c = document.getElementById('nav-memory-count'); if (c) c.textContent = '—';
+    renderDegradedBanner('degraded-memory',
+      (d && (d.error || (d._neterr && 'board not reachable — restart it'))) || 'no response',
+      'Memory could not be read');
+    return;
+  }
+  renderDegradedBanner('degraded-memory', degradedFor('/api/memory'), 'Memory could not be read');
+  memoryData = d;
   renderMemorySidebar();
   document.getElementById('nav-memory-count').textContent =
     (memoryData.layers || []).filter(l => l.exists).length + (memoryData.patterns || []).length;
@@ -4838,6 +4858,12 @@ async function refreshLogs() {
     const countEl = document.getElementById('nav-logs-count'); if (countEl) countEl.textContent = '0';
     return;
   }
+  // The server already says WHY a read came back short — /api/logs has emitted
+  // X-Board-Degraded since the tasks fix, and until now the UI threw it away.
+  // An unreadable logs directory rendered as a project that had never run.
+  renderDegradedBanner('degraded-logs', degradedFor('/api/logs'),
+    'Session logs could not be read');
+
   allLogs = data.logs || [];
   const countEl = document.getElementById('nav-logs-count');
   if (countEl) countEl.textContent = allLogs.length;
