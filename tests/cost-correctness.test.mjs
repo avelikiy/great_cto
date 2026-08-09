@@ -19,15 +19,12 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
 
 // ── helpers ────────────────────────────────────────────────────────────────
-
-function pickPort() {
-  return 33000 + Math.floor(Math.random() * 2000);
-}
 
 async function waitForBoard(port, timeoutMs = 8000) {
   const deadline = Date.now() + timeoutMs;
@@ -97,7 +94,7 @@ test('cost: verdict cost=$X values sum into total_llm', async () => {
       'code-reviewer': `${yesterday}T11:00:00Z ok cost=$0.15\n`,
     },
   });
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -142,7 +139,7 @@ test('cost: ratio sanity bounds — anti-regression for the 7,638× class', asyn
       'senior-dev': `${today}T12:00:00Z ok cost=$1.20\n`,
     },
   });
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -178,7 +175,7 @@ test('cost: ratio sanity bounds — anti-regression for the 7,638× class', asyn
 
 test('cost: empty state returns zero (no false numbers)', async () => {
   const { home, project } = makeProject(); // no verdicts seeded
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -211,7 +208,7 @@ test('cost: malformed verdict lines do not crash /api/cost', async () => {
       ].join('\n'),
     },
   });
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -255,7 +252,7 @@ test('cost: rejects mid-line "LLM" reference (the $240 regression bug)', async (
 `;
   writeFileSync(join(plansDir, 'PLAN-trap.md'), trapPlan);
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
   try {
     await waitForBoard(port);
@@ -280,7 +277,7 @@ test('cost: ratio guard suppresses implausible human/LLM ratios', async () => {
   writeFileSync(join(plansDir, 'PLAN-implausible.md'),
     `# PLAN\n\n**LLM**: $0.01 (one cent, comically low)\n**Human**: $50,000 saved (5 weeks)\n`);
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
   try {
     await waitForBoard(port);
@@ -306,7 +303,7 @@ test('cost: by_feature aggregates verdict feature= tags', async () => {
       'qa-engineer': `${today}T13:00:00Z DONE feature=auth cost=$0.10\n`,
     },
   });
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
   try {
     await waitForBoard(port);
@@ -340,7 +337,7 @@ test('metrics: measured verdict cost becomes canonical when it clears the trust 
       'code-reviewer': `${today}T13:00:00Z ok cost=$0.20\n`,
     },
   });
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
   try {
     await waitForBoard(port);
@@ -360,7 +357,7 @@ test('metrics: too few verdict costs → does NOT promote to measured (stays est
   const { home, project } = makeProject({
     verdicts: { 'architect': `${today}T10:00:00Z ok cost=$0.40\n` }, // only 1 → below the coverage bar
   });
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
   try {
     await waitForBoard(port);
@@ -386,7 +383,7 @@ test('metrics: cost-history enrichment reads PROJECT-LOCAL file (regression — 
   // Project-local cost-history (where log-verdict.sh + the SubagentStop hook write it).
   writeFileSync(join(project, '.great_cto', 'cost-history.log'),
     `${min}:05Z architect 0.80\n${min}:06Z senior-dev 1.40\n${min}:07Z code-reviewer 0.30\n`);
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
   try {
     await waitForBoard(port);

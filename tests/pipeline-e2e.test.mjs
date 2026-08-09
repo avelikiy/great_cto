@@ -25,6 +25,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
@@ -33,8 +34,6 @@ const bdProbe = spawnSync('bd', ['--version'], { encoding: 'utf8' });
 const BD_AVAILABLE = bdProbe.status === 0;
 
 // ── helpers ────────────────────────────────────────────────────────────────
-
-function pickPort() { return 37000 + Math.floor(Math.random() * 2000); }
 
 async function waitForBoard(port, timeoutMs = 8000) {
   const deadline = Date.now() + timeoutMs;
@@ -149,7 +148,7 @@ test('pipeline: full 9-stage simulation reports each stage as done', { skip: !BD
     seedVerdict(project, s.agent, s.ts, s.verdict, `feature=stripe-webhook stage=${s.agent}`, s.cost);
   }
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -208,7 +207,7 @@ test('pipeline: gate state transitions reflect in /api/inbox', { skip: !BD_AVAIL
   const gatePlan = bdCreate(project, 'gate: plan approval for stripe-webhook', { label: 'gate' });
   const gateShip = bdCreate(project, 'gate: ship v2.7.1', { label: 'gate' });
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -260,7 +259,7 @@ test('pipeline: failed verdict marks stage as failed (not done)', { skip: !BD_AV
   seedVerdict(project, 'architect',         isoMinusMin(20), 'APPROVED', 'feature=test', 0.42);
   seedVerdict(project, 'security-officer',  isoMinusMin(2),  'BLOCKED',  'feature=test criticals=1', 0.28);
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -294,7 +293,7 @@ test('pipeline: cumulative cost across multiple feature runs', { skip: !BD_AVAIL
     }
   }
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {

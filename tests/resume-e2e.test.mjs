@@ -21,6 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
@@ -29,8 +30,6 @@ const bdProbe = spawnSync('bd', ['--version'], { encoding: 'utf8' });
 const BD_AVAILABLE = bdProbe.status === 0;
 
 // ── helpers ────────────────────────────────────────────────────────────────
-
-function pickPort() { return 39000 + Math.floor(Math.random() * 2000); }
 
 async function waitForBoard(port, timeoutMs = 8000) {
   const deadline = Date.now() + timeoutMs;
@@ -121,7 +120,7 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
   const wipId2 = bdCreate(project, 'add idempotency middleware', { status: 'in_progress' });
 
   // ── Phase 2: start board, capture state ──
-  const port1 = pickPort();
+  const port1 = await freePort();
   let board = spawnBoard(project, home, port1);
 
   let preRestartResume;
@@ -138,7 +137,7 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
   await new Promise(r => setTimeout(r, 500));
 
   // ── Phase 3: start FRESH board, verify state recovered from disk ──
-  const port2 = pickPort();
+  const port2 = await freePort();
   board = spawnBoard(project, home, port2);
   try {
     await waitForBoard(port2);
@@ -187,7 +186,7 @@ test('resume: approving a gate then restarting reflects the closed state', { ski
   const gateShipId = bdCreate(project, 'gate: ship approval', { label: 'gate' });
 
   // Phase 1: approve gate:plan, leaving only gate:ship open
-  const port1 = pickPort();
+  const port1 = await freePort();
   let board = spawnBoard(project, home, port1);
   try {
     await waitForBoard(port1);
@@ -204,7 +203,7 @@ test('resume: approving a gate then restarting reflects the closed state', { ski
   await new Promise(r => setTimeout(r, 500));
 
   // Phase 2: restart, verify only 1 gate remaining (ship)
-  const port2 = pickPort();
+  const port2 = await freePort();
   board = spawnBoard(project, home, port2);
   try {
     await waitForBoard(port2);
@@ -229,7 +228,7 @@ test('resume: decisions log preserves audit trail across restart', { skip: !BD_A
   const gate1 = bdCreate(project, 'gate: pre-restart audit test', { label: 'gate' });
 
   // Phase 1: approve gate to create a decisions.md entry
-  const port1 = pickPort();
+  const port1 = await freePort();
   let board = spawnBoard(project, home, port1);
   try {
     await waitForBoard(port1);
@@ -246,7 +245,7 @@ test('resume: decisions log preserves audit trail across restart', { skip: !BD_A
   await new Promise(r => setTimeout(r, 500));
 
   // Phase 2: restart, verify /api/decisions surfaces the entry
-  const port2 = pickPort();
+  const port2 = await freePort();
   board = spawnBoard(project, home, port2);
   try {
     await waitForBoard(port2);

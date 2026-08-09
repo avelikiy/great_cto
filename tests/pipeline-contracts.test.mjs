@@ -18,6 +18,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
@@ -256,7 +257,7 @@ test('BH-1: pipe-separated verdict lines parse to real verdict (not "|")', async
       `${today}T11:00:00Z APPROVED feature=test cost=$0.40\n`);
 
     // Start board against this seeded state
-    const port = 34100 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
@@ -322,7 +323,7 @@ test('BH-2: savings_x is null (not 0) when human estimate is missing', async () 
       `${today}T10:00:00Z APPROVED feature=test cost=$0.42\n`);
     // No plans, no human estimate
 
-    const port = 34200 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
@@ -385,7 +386,7 @@ test('BH-3: non-canonical agents go to legacy_agent_runs, not the main agent map
     writeFileSync(join(project, '.great_cto', 'verdicts', 'frontend.log'),
       `${today}T11:00:00Z DONE feature=test cost=$0.10\n`);
 
-    const port = 34300 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
@@ -446,7 +447,7 @@ test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () =>
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
-    const port = 34400 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
@@ -518,7 +519,7 @@ test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', asy
       return;
     }
 
-    const port = 34500 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
@@ -598,7 +599,7 @@ test('BH-5: X-Project-Resolved + X-Project-Fallback headers explain routing', as
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
-    const port = 35100 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
@@ -651,7 +652,7 @@ test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', asy
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
-    const port = 35300 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
@@ -706,7 +707,7 @@ test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', asy
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
     spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8', timeout: 5000 });
 
-    const port = 35500 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
@@ -784,7 +785,7 @@ test('BH-22: /api/metrics.velocity exposes last_7d + last_30d (honest labels)', 
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
-    const port = 35600 + Math.floor(Math.random() * 100);
+    const port = await freePort();
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',

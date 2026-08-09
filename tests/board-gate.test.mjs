@@ -19,6 +19,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
@@ -29,8 +30,6 @@ const bdProbe = spawnSync('bd', ['--version'], { encoding: 'utf8' });
 const BD_AVAILABLE = bdProbe.status === 0;
 
 // ── helpers ────────────────────────────────────────────────────────────────
-
-function pickPort() { return 35000 + Math.floor(Math.random() * 2000); }
 
 async function waitForBoard(port, timeoutMs = 8000) {
   const deadline = Date.now() + timeoutMs;
@@ -120,7 +119,7 @@ test('gate: approve via POST /api/gates/<id> closes bd task', { skip: !BD_AVAILA
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: plan approval for billing endpoint');
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -159,7 +158,7 @@ test('gate: rejection sets bd status=blocked', { skip: !BD_AVAILABLE && 'bd CLI 
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: ship approval for v2.1');
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -188,7 +187,7 @@ test('gate: approval appends to the project decisions log, not the global one', 
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: architecture review for payment service');
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -225,7 +224,7 @@ test('gate: SSE broadcasts updated tasks after approval', { skip: !BD_AVAILABLE 
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: SSE broadcast test');
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
@@ -279,7 +278,7 @@ test('gate: invalid action returns 400', { skip: !BD_AVAILABLE && 'bd CLI not in
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: input validation test');
 
-  const port = pickPort();
+  const port = await freePort();
   const board = spawnBoard(project, home, port);
 
   try {
