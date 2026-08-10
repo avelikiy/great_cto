@@ -112,7 +112,22 @@ async function main() {
   // Cheapest question first: is anything in flight at all? A stat per verdict
   // log, before any import or subprocess.
   const age = newestVerdictAge(join(PROJ_DIR, 'verdicts'));
-  if (age === null || age > IN_FLIGHT_MS) {
+
+  // An approval outranks the clock.
+  //
+  // The freshness shortcut below is right for the case it was written for — most
+  // sessions start on a project with nothing in flight, and reading gate state
+  // costs half a second of shelling out to `bd`. It is wrong for the case this
+  // whole mechanism exists to serve: approve a gate on a stage that ran three
+  // days ago, and the strongest evidence the pipeline is waiting is the one
+  // thing the hook would never consult.
+  //
+  // So a recorded approval suppresses the shortcut. It suppresses nothing else:
+  // every refusal in tickDecision still applies below.
+  const { readWake, clearWake } = await import('../lib/pipeline-wake.mjs');
+  const woken = readWake(process.cwd());
+
+  if (!woken.pending && (age === null || age > IN_FLIGHT_MS)) {
     trace('idle', age === null ? 'no verdicts recorded' : `newest stage is ${Math.round(age / 3600_000)}h old — history, not work waiting`);
     return 0;
   }
@@ -141,8 +156,16 @@ async function main() {
   // ready-to-dispatch, never twice for one transition, never devops or
   // infra-provisioner, never inside the interval floor.
   const decision = tickDecision({ position, lastMarker, lastTickAt });
+
+  // The approval has now been considered, so it is spent — whatever the answer.
+  // A wake that survives its own consideration re-announces the same approval at
+  // every session start for a week, and a signal that fires forever stops being
+  // a signal. The refusal, if there was one, is in the trace.
+  const wokenBy = woken.pending ? ` (woken by an approval ${woken.wake?.gate ? `of ${woken.wake.gate}` : ''})` : '';
+  if (woken.pending) clearWake(process.cwd());
+
   if (!decision.act) {
-    trace('silent', decision.why);
+    trace('silent', `${decision.why}${wokenBy}`);
     return 0;
   }
 
@@ -151,7 +174,7 @@ async function main() {
     writeFileSync(MARKER, `${decision.marker}\n${Date.now()}\n`);
   } catch { /* an unwritable marker means it may offer twice; not fatal */ }
 
-  trace('offered', `${decision.agents.join(' + ')} — ${decision.why}`);
+  trace('offered', `${decision.agents.join(' + ')} — ${decision.why}${wokenBy}`);
 
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {

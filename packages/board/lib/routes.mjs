@@ -450,6 +450,10 @@ async function dispatch(req, res, url, cwd) {
         res.end(JSON.stringify(beadsErr));
         return;
       }
+      // Named outside the serialised block so the wake below can say WHICH gate a
+      // human approved; the lookup itself belongs inside the lock.
+      let gateTitle = id;
+
       // BH-16 fix: serialise gate writes through bd-write queue.
       // Without this, concurrent approve+reject on the same gate produced
       // TWO appendDecisionLog entries (one wrong) — log says approved AND
@@ -477,6 +481,7 @@ async function dispatch(req, res, url, cwd) {
           const allTasks = getTasks(gateCwd);
           const gateTask = allTasks.find(t => t.id === id);
           const title = gateTask?.title || id;
+          gateTitle = title;
           appendDecisionLog({
             ts: new Date().toISOString(),
             project: projectSlug,
@@ -494,8 +499,37 @@ async function dispatch(req, res, url, cwd) {
         res.end(JSON.stringify({ error: (result && result.error) || 'bd update failed' }));
         return;
       }
+      // An approval is evidence that the pipeline is waiting — record it.
+      //
+      // `session-pipeline-resume` opens with a freshness shortcut: a pipeline
+      // whose newest verdict is over a day old is treated as history and the
+      // hook returns before reading a single gate. Approve `gate:arch` on a
+      // stage that ran three days ago and the one fact that proves work is
+      // waiting is the one thing never consulted.
+      //
+      // This records the approval so the next session looks properly. It
+      // decides nothing: tickDecision still applies every refusal it has,
+      // including never dispatching devops or infra-provisioner unattended
+      // (ADR-009). Best-effort — a wake we cannot write must not fail an
+      // approval that already happened.
+      let wake = null;
+      if (action === 'approve') {
+        try {
+          const { recordWake } = await import('../../../scripts/lib/pipeline-wake.mjs');
+          const r = recordWake(gateCwd, { gate: gateTitle, id });
+          wake = r.ok ? { recorded: true } : { recorded: false, why: r.why };
+        } catch (e) {
+          // Report the actual failure. The first version of this catch guessed
+          // ("unavailable in this board build") and printed the guess as a
+          // finding — it was a ReferenceError three lines up, and the guess sent
+          // the reader looking at packaging. A handler that names a cause it did
+          // not observe is worse than one that says nothing.
+          wake = { recorded: false, why: String(e?.message || e) };
+        }
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, id, action, via: result.via }));
+      res.end(JSON.stringify({ ok: true, id, action, via: result.via, ...(wake ? { wake } : {}) }));
       broadcastTasks(gateCwd);
       // Auto-republish share report when a gate is approved (fire-and-forget)
       if (action === 'approve') {

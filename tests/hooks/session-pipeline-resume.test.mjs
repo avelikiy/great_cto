@@ -145,3 +145,62 @@ test('a trace that cannot be written does not stop the hook', () => {
     assert.equal(run(dir).out.trim(), '', 'still exits cleanly and says nothing');
   } finally { clean(dir); }
 });
+
+// ── An approval outranks the clock (§1.3) ───────────────────────────────────
+//
+// The freshness shortcut is the first thing this hook does: a pipeline whose
+// newest verdict is over a day old is "history, not work waiting", and the hook
+// returns before reading a single gate. That is right for the common case and
+// wrong for the case the whole mechanism exists to serve — approve a gate on a
+// stage that ran three days ago, and the strongest evidence the pipeline is
+// waiting is the one fact never consulted.
+
+import { recordWake, readWake } from '../../scripts/lib/pipeline-wake.mjs';
+
+test('a stale pipeline is still history when nobody approved anything', () => {
+  const dir = project({ verdictAgeMs: 3 * 24 * 3600_000 });
+  try {
+    run(dir);
+    assert.match(traceOf(dir), /idle .*history, not work waiting/,
+      'without an approval the shortcut must still fire — it pays for itself on every other session');
+  } finally { clean(dir); }
+});
+
+test('an approved gate makes a three-day-old pipeline work waiting again', () => {
+  const dir = project({ verdictAgeMs: 3 * 24 * 3600_000 });
+  try {
+    recordWake(dir, { gate: 'gate:arch — payment service', id: 'proj-1a2b' });
+    run(dir);
+    const trace = traceOf(dir);
+    assert.doesNotMatch(trace, /history, not work waiting/,
+      'the approval must suppress the freshness shortcut');
+    assert.match(trace, /woken by an approval/,
+      'and the trace must say the approval is why it looked');
+  } finally { clean(dir); }
+});
+
+test('an approval is spent once it has been considered', () => {
+  // A wake that survives its own consideration re-announces the same approval at
+  // every session start for a week, and a signal that fires forever stops being
+  // a signal.
+  const dir = project({ verdictAgeMs: 3 * 24 * 3600_000 });
+  try {
+    recordWake(dir, { gate: 'gate:arch', id: 'x' });
+    run(dir);
+    assert.equal(readWake(dir).pending, false, 'considered means spent');
+    run(dir);
+    assert.match(traceOf(dir), /history, not work waiting/,
+      'and the next session falls back to the ordinary shortcut');
+  } finally { clean(dir); }
+});
+
+test('an approval does not override the refusals, only the shortcut', () => {
+  // The gate is still unapproved in beads here; the wake must not manufacture a
+  // dispatch. Everything tickDecision refuses, it still refuses.
+  const dir = project({ verdictAgeMs: 3 * 24 * 3600_000 });
+  try {
+    recordWake(dir, { gate: 'gate:arch', id: 'x' });
+    const { out } = run(dir);
+    assert.equal(out.trim(), '', 'a woken hook that finds nothing dispatchable still says nothing');
+  } finally { clean(dir); }
+});
