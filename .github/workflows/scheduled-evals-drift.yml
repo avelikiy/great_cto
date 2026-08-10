@@ -33,4 +33,4 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: node tests/eval/runner.mjs --split holdout --samples 3 --judge-votes 3 || true
       - name: Detect drift (refuses to alert if signal is noisy or unmeasured)
-        run: node scripts/lib/eval-drift.mjs --split holdout --window 5 --threshold 0.1 --max-noise 0.1
+        run: node scripts/lib/eval-drift.mjs --split holdout --samples 3 --window 5 --threshold 0.1 --max-noise 0.1

@@ -115,3 +115,39 @@ test('a non-severe dropout is still real data', () => {
   const line = JSON.stringify({ eval: 'A', rate: 0.8, stddev: 0.1, split: 'holdout', samples: 3, dropout: { severe: false } });
   assert.equal(parseEvalHistory(line).length, 1);
 });
+
+// ── Sample count is part of the shape too ───────────────────────────────────
+//
+// Filtering by split alone was half a fix, and the first real run at the
+// scheduled shape exposed the other half: 49 of 75 evals "drifted", 29 up and
+// 20 down. Symmetric drift is a ruler change, not a regression.
+//
+// One sample of a three-case eval can only score 0, 0.33, 0.67 or 1.00, so its
+// own history swings 0.83 → 1.00 → 0.83 with nothing changing. A three-sample
+// mean estimates the same quantity better and therefore reads as a drop against
+// the average of those swings.
+
+test('a three-sample run is not compared against single-sample draws', () => {
+  const rows = [
+    { eval: 'E', rate: 1.0, stddev: 0, split: 'holdout', samples: 1 },
+    { eval: 'E', rate: 0.83, stddev: 0, split: 'holdout', samples: 1 },
+    { eval: 'E', rate: 0.67, stddev: 0.1, split: 'holdout', samples: 3 },
+  ];
+  const only = sameShape(rows, { split: 'holdout', samples: 3 });
+  assert.equal(only.length, 1);
+  assert.equal(only[0].samples, 3);
+});
+
+test('no sample filter keeps the old behaviour', () => {
+  const rows = [{ eval: 'E', rate: 1, stddev: 0, split: 'holdout', samples: 1 }];
+  assert.equal(sameShape(rows, { split: 'holdout' }).length, 1);
+});
+
+test('split and samples both apply', () => {
+  const rows = [
+    { eval: 'E', rate: 1, stddev: 0, split: 'all', samples: 3 },
+    { eval: 'E', rate: 1, stddev: 0, split: 'holdout', samples: 1 },
+    { eval: 'E', rate: 1, stddev: 0, split: 'holdout', samples: 3 },
+  ];
+  assert.equal(sameShape(rows, { split: 'holdout', samples: 3 }).length, 1);
+});

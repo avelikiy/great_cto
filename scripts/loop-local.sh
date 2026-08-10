@@ -137,7 +137,7 @@ fi
 
 # ── Stage 2 — drift (free, and the reason the loop exists) ──────────────────
 say "Drift check"
-node scripts/lib/eval-drift.mjs --split holdout --window 5 --threshold 0.1 --max-noise 0.1
+node scripts/lib/eval-drift.mjs --split holdout --samples "$SAMPLES" --window 5 --threshold 0.1 --max-noise 0.1
 DRIFT_STATUS=$?
 
 if [ "$DRIFT_STATUS" -eq 0 ]; then

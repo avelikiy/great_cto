@@ -61,10 +61,29 @@ export function parseEvalHistory(text) {
   return out;
 }
 
-/** Only the rows that answer the same question as the run being judged. */
-export function sameShape(rows, { split = null } = {}) {
-  if (!split) return rows;
-  return rows.filter((r) => r.split === split);
+/**
+ * Only the rows that answer the same question as the run being judged.
+ *
+ * `split` was the first half of this and it was not enough. The first real
+ * scheduled-shape run — 3 samples, holdout — reported 49 of 75 evals as drifted,
+ * 29 up and 20 down. Symmetric drift is not a regression, it is a ruler change.
+ *
+ * The baseline it was measured against is 263 single-sample rows. One sample of
+ * a three-case eval can only score 0, 0.33, 0.67 or 1.00, so its own history
+ * swings 0.83 → 1.00 → 0.83 → 1.00 with nothing changing at all; a three-sample
+ * mean is a better estimate of the same quantity and therefore reads as a drop
+ * against the average of those swings. Comparing them measures how many samples
+ * were taken, not how the agent behaves.
+ *
+ * So sample count is part of the shape. The cost is that a new shape has no
+ * history and cannot be judged — which is the correct answer, and the caller
+ * says so rather than alarming.
+ */
+export function sameShape(rows, { split = null, samples = null } = {}) {
+  let out = rows;
+  if (split) out = out.filter((r) => r.split === split);
+  if (samples) out = out.filter((r) => Number(r.samples || 1) === Number(samples));
+  return out;
 }
 
 /**
@@ -102,13 +121,27 @@ function main(argv) {
   // it must be compared against holdout history and nothing else.
   const si = argv.indexOf('--split');
   const split = si > -1 ? argv[si + 1] : null;
+  const mi = argv.indexOf('--samples');
+  const samples = mi > -1 ? Number(argv[mi + 1]) : null;
 
   if (!existsSync(HISTORY)) { console.log('eval-drift: no results-history.jsonl yet — nothing to check.'); process.exit(0); }
   const all = parseEvalHistory(readFileSync(HISTORY, 'utf8'));
   if (all.length === 0) { console.log('eval-drift: history empty.'); process.exit(0); }
-  const rows = sameShape(all, { split });
+  const rows = sameShape(all, { split, samples });
+  const shape = `split="${split}"${samples ? ` samples=${samples}` : ''}`;
   if (rows.length === 0) {
-    console.log(`eval-drift: no history for split="${split}" — nothing comparable to judge against.`);
+    console.log(`eval-drift: no history at ${shape} — nothing comparable to judge against.`);
+    process.exit(0);
+  }
+  // A shape whose only rows are this run's own has no baseline: the comparison
+  // would be a run against itself. Say what it is — a baseline being
+  // established — rather than reporting drift of zero as a clean bill.
+  const perEval = new Map();
+  for (const r of rows) perEval.set(r.eval, (perEval.get(r.eval) || 0) + 1);
+  const withHistory = [...perEval.values()].filter((n) => n > 1).length;
+  if (withHistory === 0) {
+    console.log(`eval-drift: ${perEval.size} eval(s) at ${shape}, each seen once — this run establishes the baseline. `
+      + 'Nothing to compare against yet; the next run at this shape is the first that can drift.');
     process.exit(0);
   }
 
@@ -127,8 +160,8 @@ function main(argv) {
   // Map eval→rate into the metrics-trend drift detector.
   const drift = detectDrift(rows.map(r => ({ key: r.eval, value: r.rate })), { window, threshold });
   const alerts = drift.filter(d => d.alert);
-  console.log(`eval-drift: ${drift.length} eval(s)${split ? ` in split="${split}"` : ''} of ${all.length} history rows, `
-    + `window=${window}, threshold=${threshold}, noise=${noise.toFixed(2)}`);
+  console.log(`eval-drift: ${drift.length} eval(s) at ${shape} of ${all.length} history rows `
+    + `(${withHistory} with prior runs at this shape), window=${window}, threshold=${threshold}, noise=${noise.toFixed(2)}`);
   for (const d of drift) {
     const arrow = d.drift > 0 ? '▲' : d.drift < 0 ? '▼' : '·';
     console.log(`  ${arrow} ${d.key}: ${d.latest}${d.baseline !== null ? ` vs ${d.baseline} (Δ${d.drift >= 0 ? '+' : ''}${d.drift})` : ''}${d.alert ? ' ⚠ DRIFT' : ''}`);
