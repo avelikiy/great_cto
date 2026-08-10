@@ -53,6 +53,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { costForUsage, round4 } from '../../scripts/lib/cost-meter.mjs';
 import { verdict as powerVerdict, dropout as dropoutOf } from '../../scripts/lib/eval-power.mjs';
+import { classifyProviderError, exhaustionReport, admissibleToHistory } from '../../scripts/lib/provider-exhaustion.mjs';
 import { parseAdherenceMarker, adherence, explainAdherence } from '../../scripts/lib/adherence.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -867,6 +868,7 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
   let passed = 0;
   let skipped = 0;
   let costUsd = 0;
+  let terminalFailure = null;
   const caseResults = [];
 
   for (const c of selectedCases) {
@@ -909,6 +911,17 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
         ...(dag ? { score: judge.score, dagPath: judge.dagPath, judge: 'dag' } : { judge: 'rubric' }),
       });
     } catch (err) {
+      // Some failures mean "this case did not work". Others mean "no case will
+      // work again in this process". A run that ran out of credits made 147
+      // more calls, each returning the same 402, before anyone found out.
+      const cls = classifyProviderError(err);
+      if (cls.terminal) {
+        console.warn(`    [STOP] ${cls.kind}: ${cls.why}`);
+        skipped += selectedCases.length - selectedCases.indexOf(c);
+        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${cls.kind}: run stopped` });
+        terminalFailure = cls;
+        break;
+      }
       console.warn(`    [WARN] Case ${c.num} in ${evalName} skipped: ${err.message.slice(0, 80)}`);
       skipped++;
       caseResults.push({ num: c.num, verdict: 'SKIP', reason: err.message.slice(0, 80) });
@@ -919,6 +932,9 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
   const rate = judged > 0 ? passed / judged : 0;
   return {
     cases: selectedCases.length, judged, passed, skipped, rate, costUsd, caseResults,
+    // Propagated so the file loop can stop the whole run rather than starting
+    // the next file into the same wall.
+    terminalFailure,
     // Which ruler scored this run, and — only when it was the graph — exactly
     // which graph. Every case in a run scores through the same judge (`dag` is
     // resolved once above, before the case loop), so this is unambiguous per
@@ -959,7 +975,11 @@ export async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, 
 
   const runs = [];
   for (let s = 0; s < samples; s++) {
-    runs.push(await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes, useTools, actorTurns, judgeMode }));
+    const one = await runEvalFileOnce({ parsed, evalName, actorModel, judgeModel, actorSystem, split, judgeVotes, useTools, actorTurns, judgeMode });
+    runs.push(one);
+    // No point drawing a second sample from a provider that has stopped
+    // answering — and every extra attempt delays the message that says why.
+    if (one.terminalFailure) break;
   }
 
   const rates = runs.map(r => r.rate);
@@ -1041,6 +1061,8 @@ export async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, 
     // a rate limit or exhausted credits leaves a prefix of the case list, and a
     // prefix is not a draw from the cases. See eval-power.dropout().
     dropout: runDropout,
+    // Surfaced to the file loop, which stops the whole run on it.
+    terminalFailure: runs.find((r) => r.terminalFailure)?.terminalFailure ?? null,
     power: powerVerdict(
       runs.reduce((a, r) => a + r.passed, 0),
       runs.reduce((a, r) => a + r.judged, 0),
@@ -1305,7 +1327,23 @@ async function main() {
     };
     appendFileSync(resultsPath, JSON.stringify(jsonlEntry) + '\n');
     // Append-only history: same row + run identity, NEVER truncated.
-    appendFileSync(HISTORY_PATH, JSON.stringify({ run_id: runId, commit, ...jsonlEntry }) + '\n');
+    //
+    // But a file whose cases never reached the provider does not go in at all.
+    // The run that prompted this wrote thirteen such rows with `rate: 0` while
+    // correctly printing NOT MEASURED for them — and eval-drift reads `rate`,
+    // so the next comparison would have seen thirteen evals collapse from ~0.85
+    // to zero overnight and alarmed on an empty wallet.
+    //
+    // `results.jsonl` above still records them: that file is this run's account
+    // of itself, including what it failed to measure. History is the trend
+    // baseline, and a run that did not happen must not become tomorrow's
+    // baseline.
+    const admissible = admissibleToHistory(result);
+    if (admissible.ok) {
+      appendFileSync(HISTORY_PATH, JSON.stringify({ run_id: runId, commit, ...jsonlEntry }) + '\n');
+    } else {
+      console.log(`    (not added to trend history — ${admissible.why})`);
+    }
 
     const statusIcon = result.belowThreshold ? '✗' : '✓';
     console.log(` ${statusIcon} ${result.passed}/${result.judged} (${(result.rate * 100).toFixed(0)}%` +
@@ -1313,6 +1351,22 @@ async function main() {
       (result.skipped > 0 ? ` [${result.skipped} skipped]` : ''));
 
     results.push(result);
+
+    // Stop the RUN, not just this file. The alternative is what happened on
+    // 2026-08-10: credits ran out at file 58 of 75, and the remaining seventeen
+    // files each opened, made every one of their calls into the same 402, and
+    // recorded a zero.
+    if (result.terminalFailure) {
+      console.log('');
+      console.log(exhaustionReport({
+        kind: result.terminalFailure.kind,
+        why: result.terminalFailure.why,
+        completed: results.length,
+        total: evalFiles.length,
+        costUsd: results.reduce((a, r) => a + (r.costUsd || 0), 0),
+      }));
+      break;
+    }
   }
 
   if (results.length === 0) {

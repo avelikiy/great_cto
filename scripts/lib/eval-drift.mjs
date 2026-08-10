@@ -41,6 +41,13 @@ export function parseEvalHistory(text) {
     try {
       const o = JSON.parse(t);
       if (o && typeof o.eval === 'string' && typeof o.rate === 'number') {
+        // A file whose cases never reached the provider carries `rate: 0` and a
+        // severe dropout. The runner no longer writes those, but 13 are already
+        // in this history from the run that found the problem, and a detector
+        // that trusts what is on disk must still refuse them: they would read as
+        // thirteen evals collapsing to zero overnight, which is an empty wallet
+        // rather than a regression.
+        if (o.dropout?.severe) continue;
         out.push({
           eval: o.eval,
           rate: o.rate,

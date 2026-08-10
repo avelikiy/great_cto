@@ -95,3 +95,23 @@ test('a mix still reports the measured rows only', () => {
   ];
   assert.equal(Number(recentNoise(rows).toFixed(4)), 0.2);
 });
+
+test('a row the runner could not measure never becomes a baseline', () => {
+  // Thirteen such rows are already on disk from the run that found the problem:
+  // rate 0 because the provider stopped answering, not because the agent failed
+  // every case. A detector that trusts what is on disk must still refuse them.
+  const lines = [
+    JSON.stringify({ eval: 'A', rate: 0.9, stddev: 0.05, split: 'holdout', samples: 3 }),
+    JSON.stringify({ eval: 'A', rate: 0, stddev: 0, split: 'holdout', samples: 1, dropout: { severe: true, why: 'never reached the provider' } }),
+  ].join('\n');
+  const rows = parseEvalHistory(lines);
+  assert.equal(rows.length, 1, 'the unmeasured row is not a data point');
+  assert.equal(rows[0].rate, 0.9);
+});
+
+test('a non-severe dropout is still real data', () => {
+  // Losing two cases of forty is a weaker measurement, not an absent one — the
+  // power verdict already carries that. Dropping it would throw away evidence.
+  const line = JSON.stringify({ eval: 'A', rate: 0.8, stddev: 0.1, split: 'holdout', samples: 3, dropout: { severe: false } });
+  assert.equal(parseEvalHistory(line).length, 1);
+});
