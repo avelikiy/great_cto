@@ -43,6 +43,15 @@ NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 echo "ci-local: node $(node -v) on $(uname -s)"
 [ "$NODE_MAJOR" -lt 22 ] && echo "   ⚠ project targets Node 22 (.nvmrc); you are on $(node -v)"
 
+# ── The privacy guard is actually in force ──
+#
+# First, because it is the check that fails silently. The pre-push hook was
+# installed, executable and current for months while `core.hooksPath` pointed at
+# a directory this repository had moved out of — so git ran no hooks at all, and
+# three private project names reached a public remote with nothing objecting.
+# An uninstalled guard and a guard that passed produce identical output.
+step "pre-push guard in force" node scripts/lib/hook-install.mjs --quiet
+
 # ── Structural + docs-reference (plugin-ci) ──
 step "structural validation" python3 tests/structural/validate.py
 step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check

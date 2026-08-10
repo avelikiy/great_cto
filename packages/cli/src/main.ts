@@ -28,6 +28,7 @@ import { daemonSpec, decideEnsureAction, isBoardResponse, type Platform } from "
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 
 function getCliVersion(): string {
@@ -1164,10 +1165,45 @@ async function promoteTelemetryOptIn(opts: { archetype: string; cliVersion: stri
  * .git/hooks/pre-push so that future pushes are scanned for private project
  * name leaks. Best-effort — never throws.
  */
+/**
+ * The directory git will actually read hooks from.
+ *
+ * `core.hooksPath` wins over `.git/hooks` when set, and a linked worktree reads
+ * from the main checkout's git dir. Returns null when this is not a repository.
+ */
+function effectiveGitHooksDir(projectDir: string): string | null {
+  const git = (args: string[]): string => {
+    try {
+      return execFileSync("git", args, {
+        cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+    } catch { return ""; }
+  };
+  const top = git(["rev-parse", "--show-toplevel"]);
+  if (!top) return null;
+  const configured = git(["config", "--get", "core.hooksPath"]);
+  if (configured) return resolve(top, configured);
+  const common = git(["rev-parse", "--git-common-dir"]);
+  return join(common ? resolve(top, common) : join(top, ".git"), "hooks");
+}
+
 function installPrePushHook(projectDir: string): void {
   try {
-    const gitHooksDir = join(projectDir, ".git", "hooks");
-    if (!fsExistsSync(gitHooksDir)) return; // not a git repo — skip silently
+    // Ask git where it reads hooks from, rather than assuming `.git/hooks`.
+    //
+    // This installer wrote the file it was asked to write and reported success
+    // for months while `core.hooksPath` pointed at a directory the repository
+    // had moved out of. Git honours that setting even when it does not exist, so
+    // no hook ran, and the success message was the only evidence anyone had.
+    const gitHooksDir = effectiveGitHooksDir(projectDir);
+    if (!gitHooksDir) return; // not a git repo — skip silently
+    if (!fsExistsSync(gitHooksDir)) {
+      warn(
+        `git is configured to read hooks from ${gitHooksDir}, which does not exist — ` +
+        `no hook can run until that is fixed (git config --unset core.hooksPath)`,
+      );
+      return;
+    }
 
     const dest = join(gitHooksDir, "pre-push");
     if (fsExistsSync(dest)) {
