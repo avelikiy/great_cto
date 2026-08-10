@@ -603,6 +603,24 @@ button { font-family: inherit; cursor: pointer; }
   transition: transform 0.2s ease;
 }
 .side.open { transform: translateX(0); }
+/* A document is not a task.
+ *
+ * 480px is right for a task: a dozen short property rows read fine in a
+ * column. A markdown document is prose and tables — ARCH docs, ADRs, plans —
+ * and at 480px a table wraps into unreadable confetti and a paragraph becomes
+ * six words a line. Opening one at half the window is the difference between
+ * reading it here and giving up and opening an editor, which is the failure
+ * this panel exists to prevent.
+ *
+ * `vw` rather than `%`: the panel is absolutely positioned inside the main
+ * column, so 50% is half of what is left after the sidebar — 41% of the window
+ * on a 1280px laptop, which is not the half screen this is meant to be.
+ *
+ * `clamp` rather than a flat 50vw: never narrower than the task width on a
+ * laptop, and never so wide on an ultrawide that the line length itself becomes
+ * the problem. */
+.side.wide { width: clamp(480px, 50vw, 1100px); }
+@media (max-width: 900px) { .side, .side.wide { width: 100%; } }
 .side-top {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 18px;
@@ -3561,7 +3579,7 @@ async function openDoc(p) {
   idEl.textContent = p.split('/').pop();
   body.innerHTML = '<div style="padding:18px" class="muted">loading…</div>';
   if (tl) tl.innerHTML = '';
-  panel.classList.add('open');
+  panel.classList.add('open', 'wide');
 
   try {
     const q = pqs();
@@ -4949,7 +4967,10 @@ function openSide(task) {
     ${acceptanceSec}
     ${notesSec}
     ${task.close_reason ? `<div class="result-box"><div class="side-section-head">Close reason</div>${esc(task.close_reason)}</div>` : ''}`;
-  document.getElementById('side-panel').classList.add('open');
+  const sidePanel = document.getElementById('side-panel');
+  sidePanel.classList.add('open');
+  // A task after a document: back to the narrower column the rows were sized for.
+  sidePanel.classList.remove('wide');
   // Clear and load timeline
   const tlEl = document.getElementById('side-timeline');
   if (tlEl) tlEl.innerHTML = '';
@@ -4984,6 +5005,7 @@ async function openDocInSide(rel) {
   const d = await api(`/api/doc?path=${encodeURIComponent(rel)}${qs}`);
   if (!d || d.error) { showToast('✗ ' + esc(d?.error || 'doc not found'), 'error', 3500); return; }
   document.getElementById('side-id').textContent = d.name;
+  document.getElementById('side-panel').classList.add('wide');
   document.getElementById('side-body').innerHTML = `
     <button class="gate-btn" onclick="openSide(_sideTask)" style="margin-bottom:12px">← back to task</button>
     <div class="side-desc md">${mdRender(d.content)}</div>`;
