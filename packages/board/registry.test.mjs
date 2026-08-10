@@ -296,3 +296,36 @@ test('a repo that genuinely moved still updates in place', () => {
   assert.equal(reg.length, 1, 'a dead path is not a second project');
   assert.equal(reg[0].path, now);
 });
+
+// ── A directory inside a project is not a second project ────────────────────
+//
+// `packages/cli` ships its own `.great_cto/` — the published package carries
+// one — so opening the board from there registered it as a separate project
+// reading great_cto's beads. The fleet showed seventeen projects with the same
+// 228 tasks counted twice, under two names.
+
+test('a subdirectory of a registered project does not become its own project', () => {
+  const parent = makeRealDir('enclosing-proj');
+  writeProjectMd(parent, 'enclosing-proj');
+  autoRegisterProject(parent);
+
+  const child = path.join(parent, 'packages', 'inner');
+  fs.mkdirSync(child, { recursive: true });
+  writeProjectMd(child, 'inner-pkg');
+
+  assert.equal(autoRegisterProject(child), null, 'a nested directory is part of its parent');
+  const reg = readProjectsRegistry();
+  assert.equal(reg.projects.filter(p => p.slug === 'inner-pkg').length, 0,
+    'and it must not reach the registry');
+});
+
+test('a sibling directory is still its own project', () => {
+  // The guard is about containment, not about being near something registered.
+  const a = makeRealDir('sibling-a');
+  const b = makeRealDir('sibling-b');
+  writeProjectMd(a, 'sibling-a');
+  writeProjectMd(b, 'sibling-b');
+  autoRegisterProject(a);
+  assert.ok(autoRegisterProject(b), 'a sibling is not enclosed by anything');
+  assert.equal(readProjectsRegistry().projects.filter(p => p.slug === 'sibling-b').length, 1);
+});

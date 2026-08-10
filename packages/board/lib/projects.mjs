@@ -222,10 +222,18 @@ function autoRegisterProject(dir) {
   // `.great_cto/` because it IS great_cto, so running the board from there
   // registered the plugin's own copy as a twenty-third project — a version
   // number in the switcher next to real work.
+  //
+  // Nor is a directory inside a project already registered. `packages/cli` ships
+  // its own `.great_cto/` because the published package carries one, so opening
+  // the board there added it as a separate project reading great_cto's beads —
+  // 228 tasks counted twice, under two names, in a fleet of seventeen.
   try {
     const resolved = path.resolve(dir);
     if (resolved === path.resolve(os.homedir())) return null;
     if (isInsideDir(path.join(os.homedir(), '.claude', 'plugins'), resolved)) return null;
+    const enclosing = readProjectsRegistry().projects
+      .find((e) => e.path && path.resolve(e.path) !== resolved && isInsideDir(path.resolve(e.path), resolved));
+    if (enclosing) return null;
   } catch { /* if we cannot resolve it, fall through to the normal checks */ }
 
   const meta = readProjectMd(dir);
