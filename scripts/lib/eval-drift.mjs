@@ -22,7 +22,17 @@ import { detectDrift } from './metrics-trend.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HISTORY = join(__dirname, '..', '..', 'tests', 'eval', 'results-history.jsonl');
 
-/** Parse results-history.jsonl → rows {eval, rate, stddev}. */
+/**
+ * Parse results-history.jsonl → rows {eval, rate, stddev, split, samples}.
+ *
+ * `split` and `samples` used to be dropped here, and dropping them is what made
+ * this detector compare apples with oranges. The history holds 285 holdout rows,
+ * 148 full-split rows and 5 tuning rows interleaved; a scheduled
+ * `--split holdout --samples 3` run was compared against whatever happened to
+ * run last, which on this machine was often a one-sample full-split run. The
+ * resulting "regressions" of -0.4 and -0.5 were two different questions being
+ * subtracted from each other.
+ */
 export function parseEvalHistory(text) {
   const out = [];
   for (const line of String(text).split('\n')) {
@@ -31,19 +41,47 @@ export function parseEvalHistory(text) {
     try {
       const o = JSON.parse(t);
       if (o && typeof o.eval === 'string' && typeof o.rate === 'number') {
-        out.push({ eval: o.eval, rate: o.rate, stddev: Number(o.stddev) || 0 });
+        out.push({
+          eval: o.eval,
+          rate: o.rate,
+          stddev: Number(o.stddev) || 0,
+          split: typeof o.split === 'string' ? o.split : null,
+          samples: Number(o.samples) || 1,
+        });
       }
     } catch { /* skip */ }
   }
   return out;
 }
 
-/** Mean stddev of the most-recent point per eval — the "is the signal trustworthy" gauge. */
+/** Only the rows that answer the same question as the run being judged. */
+export function sameShape(rows, { split = null } = {}) {
+  if (!split) return rows;
+  return rows.filter((r) => r.split === split);
+}
+
+/**
+ * Mean stddev over rows where variance was ACTUALLY MEASURED, or null.
+ *
+ * A single-sample run reports stddev 0 because it ran the case once — there was
+ * no second observation to differ from. Averaging those in produced a recent
+ * mean of 0.00 across a history where 416 of 438 rows are single-sample, so the
+ * gate that exists to refuse a noisy signal passed on a signal whose noise
+ * nobody had measured.
+ *
+ * Which is this repository's oldest defect in its purest form: "0 because we did
+ * not look" and "0 because it is stable" are opposite facts with identical
+ * representations. So unmeasured rows are excluded, and if that leaves nothing,
+ * the answer is null — unknown — and unknown must not read as quiet.
+ */
 export function recentNoise(rows) {
   const lastByEval = new Map();
-  for (const r of rows) lastByEval.set(r.eval, r.stddev); // later rows overwrite → last wins
+  for (const r of rows) {
+    if ((r.samples ?? 1) < 2) continue;   // variance was never observed here
+    lastByEval.set(r.eval, r.stddev);
+  }
   const vals = [...lastByEval.values()];
-  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
@@ -53,22 +91,37 @@ function main(argv) {
   const window = get('--window', 5);
   const threshold = get('--threshold', 0.1);
   const maxNoise = get('--max-noise', 0.1);
+  // Which run shape this is judging. The scheduled job runs `--split holdout`, so
+  // it must be compared against holdout history and nothing else.
+  const si = argv.indexOf('--split');
+  const split = si > -1 ? argv[si + 1] : null;
 
   if (!existsSync(HISTORY)) { console.log('eval-drift: no results-history.jsonl yet — nothing to check.'); process.exit(0); }
-  const rows = parseEvalHistory(readFileSync(HISTORY, 'utf8'));
-  if (rows.length === 0) { console.log('eval-drift: history empty.'); process.exit(0); }
+  const all = parseEvalHistory(readFileSync(HISTORY, 'utf8'));
+  if (all.length === 0) { console.log('eval-drift: history empty.'); process.exit(0); }
+  const rows = sameShape(all, { split });
+  if (rows.length === 0) {
+    console.log(`eval-drift: no history for split="${split}" — nothing comparable to judge against.`);
+    process.exit(0);
+  }
 
-  // GATE: refuse to alert on a noisy signal.
+  // GATE: refuse to alert on a noisy signal — or on one whose noise is unknown.
   const noise = recentNoise(rows);
+  if (noise === null) {
+    console.log('eval-drift: no multi-sample run in this history — the signal\'s noise has never been measured, '
+      + 'and unmeasured is not the same as quiet. Not alerting. Re-run with --samples 3 to establish a baseline.');
+    process.exit(0);
+  }
   if (noise > maxNoise) {
-    console.log(`eval-drift: signal too noisy to judge (recent mean stddev ${noise.toFixed(2)} > ${maxNoise}). Not alerting — fix actor-fidelity (a9tp) first.`);
+    console.log(`eval-drift: signal too noisy to judge (recent mean stddev ${noise.toFixed(2)} > ${maxNoise}). Not alerting.`);
     process.exit(0);
   }
 
   // Map eval→rate into the metrics-trend drift detector.
   const drift = detectDrift(rows.map(r => ({ key: r.eval, value: r.rate })), { window, threshold });
   const alerts = drift.filter(d => d.alert);
-  console.log(`eval-drift: ${drift.length} eval(s), window=${window}, threshold=${threshold}, noise=${noise.toFixed(2)}`);
+  console.log(`eval-drift: ${drift.length} eval(s)${split ? ` in split="${split}"` : ''} of ${all.length} history rows, `
+    + `window=${window}, threshold=${threshold}, noise=${noise.toFixed(2)}`);
   for (const d of drift) {
     const arrow = d.drift > 0 ? '▲' : d.drift < 0 ? '▼' : '·';
     console.log(`  ${arrow} ${d.key}: ${d.latest}${d.baseline !== null ? ` vs ${d.baseline} (Δ${d.drift >= 0 ? '+' : ''}${d.drift})` : ''}${d.alert ? ' ⚠ DRIFT' : ''}`);
