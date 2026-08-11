@@ -74,7 +74,7 @@ export function validateVerdict(rec) {
 }
 
 /** Build a v1 record, normalising what the caller passed. Throws if unusable. */
-export function makeVerdict({ ts, agent, verdict, project, cost_usd, meta } = {}) {
+export function makeVerdict({ ts, agent, verdict, project, cost_usd, meta, receipt } = {}) {
   const rec = {
     v: VERDICT_FORMAT_VERSION,
     ts: String(ts ?? '').trim(),
@@ -84,12 +84,28 @@ export function makeVerdict({ ts, agent, verdict, project, cost_usd, meta } = {}
   if (project) rec.project = String(project).trim();
   if (cost_usd !== undefined && cost_usd !== null && cost_usd !== '') rec.cost_usd = Number(cost_usd);
   if (meta && Object.keys(meta).length) rec.meta = meta;
+  // The fingerprint of the tree this verdict was formed over — see receipt.mjs.
+  // Optional by design: every log written before this existed still validates,
+  // and a verdict whose receipt could not be built is still a verdict. Absent
+  // means "no receipt", which the checker reports as its own state rather than
+  // as a match.
+  if (receipt && typeof receipt === 'object' && receipt.head) rec.receipt = receipt;
 
   const { valid, errors } = validateVerdict(rec);
   // Refusing here is the point: a malformed record that reaches the log is read
   // by something later, and by then nobody knows which agent wrote it.
   if (!valid) throw new Error(`invalid verdict record: ${errors.join('; ')}`);
   return rec;
+}
+
+/** A receipt from the environment, or nothing. Never throws — an unparseable
+ * receipt must not stop a verdict from being recorded. */
+export function parseReceiptEnv(raw) {
+  if (!raw || !String(raw).trim()) return undefined;
+  try {
+    const r = JSON.parse(raw);
+    return r && r.head ? r : undefined;
+  } catch { return undefined; }
 }
 
 /** One record → one NDJSON line (no trailing newline). */
@@ -202,6 +218,7 @@ async function main(argv) {
         project: process.env.PROJECT_SLUG || undefined,
         cost_usd: process.env.COST === '' || process.env.COST === undefined ? undefined : Number(process.env.COST),
         meta,
+        receipt: parseReceiptEnv(process.env.RECEIPT),
       })) + '\n');
       return 0;
     } catch (e) {

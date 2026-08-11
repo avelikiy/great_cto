@@ -105,8 +105,23 @@ fi
 # Readers still accept both old dialects (scripts/lib/verdict-record.mjs), so
 # every log written before today keeps reading.
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+
+# A receipt: the fingerprint of exactly what this agent saw.
+#
+# Every other rung of the evidence ladder asks a question about the moment of
+# review — did the stage report, does the artefact exist, does the check pass,
+# does a second reader agree. None of them says whether the code that was
+# reviewed is the code that shipped. An APPROVED verdict over one tree and a
+# push over another both read green, because both rungs are answering questions
+# about the past.
+#
+# Best-effort and never fatal: a verdict that cannot be fingerprinted is still a
+# verdict. `RECEIPT=""` then means "no receipt", which the checker reports as its
+# own state rather than as a match.
+RECEIPT="$(node "$SCRIPT_DIR/lib/receipt.mjs" --emit 2>/dev/null || true)"
+
 LINE=$(TS="$TS" AGENT="$AGENT" VERDICT="$VERDICT" COST="$COST" \
-       PROJECT_SLUG="$PROJECT_SLUG" META="$META" \
+       PROJECT_SLUG="$PROJECT_SLUG" META="$META" RECEIPT="$RECEIPT" \
        node "$SCRIPT_DIR/lib/verdict-record.mjs" --emit) || {
   echo "error: could not build the verdict record" >&2
   exit 1

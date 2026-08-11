@@ -222,6 +222,41 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 done
 
 # ---------------------------------------------------------------------------
+# Receipt: is what is being pushed what was reviewed?
+# ---------------------------------------------------------------------------
+#
+# Every other rung of the evidence ladder asks a question about the moment of
+# review. None of them asks whether the code that was reviewed is the code that
+# ships — an APPROVED verdict over one tree and a push over another both read
+# green, because both are answering questions about the past.
+#
+# Warn-only by default, like the two checks below it, and for the same reason:
+# not every change in this repository is reviewed by an agent, and a guard that
+# fires on every push is one people learn to pass with --no-verify. That is
+# exactly how the privacy guard came to be trusted while silently disabled.
+# GREAT_CTO_ENFORCE_RECEIPT=1 makes it block.
+#
+# What is never quiet is the third state. "No approving verdict carries a
+# receipt" is not the same as "the receipt matched", and the check says which.
+if [[ "${GREAT_CTO_SKIP_RECEIPT_CHECK:-}" != "1" ]] && [[ -f "scripts/lib/receipt.mjs" ]]; then
+  RECEIPT_OUT="$(node scripts/lib/receipt.mjs --verify 2>/dev/null || true)"
+  RECEIPT_RC=$?
+  if [[ -n "$RECEIPT_OUT" ]]; then
+    if [[ "$RECEIPT_OUT" == *"reviewed file(s) changed"* ]]; then
+      echo -e "\n${RED}Files changed after the review that approved them.${NC}" >&2
+      echo "$RECEIPT_OUT" >&2
+      if [[ "${GREAT_CTO_ENFORCE_RECEIPT:-}" == "1" ]]; then
+        echo -e "${RED}[pre-push] BLOCKED — re-review, or unset GREAT_CTO_ENFORCE_RECEIPT.${NC}" >&2
+        exit 1
+      fi
+      echo -e "${YELLOW}(warn-only — push allowed. Set GREAT_CTO_ENFORCE_RECEIPT=1 to block.)${NC}" >&2
+    else
+      echo -e "\n${RECEIPT_OUT}"
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Token-economy: report that artifact summaries are fresh
 # ---------------------------------------------------------------------------
 # This is gigiene, not security — so it is WARN-ONLY by default and never blocks
