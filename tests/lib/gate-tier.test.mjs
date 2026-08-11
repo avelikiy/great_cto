@@ -10,7 +10,7 @@
 // strict.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tierFor, tierAll, evidenceFor, CLASS_A } from '../../scripts/lib/gate-tier.mjs';
+import { tierFor, tierAll, evidenceFor, CLASS_A, notifyOnlyAgents, tieringEnabled, notifyOnlyForProject } from '../../scripts/lib/gate-tier.mjs';
 
 const row = (o = {}) => ({
   agent: 'some-reviewer',
@@ -128,4 +128,42 @@ test('tierAll reports every agent it has seen, with a reason each', () => {
   assert.ok(all.every((x) => x.why), 'a verdict without a reason is not actionable');
   assert.equal(all.find((x) => x.agent === 'devops').tier, 'gated');
   assert.equal(all.find((x) => x.agent === 'a').tier, 'notify');
+});
+
+// ── Turning it on ───────────────────────────────────────────────────────────
+//
+// Tiering changes when a human is asked to decide. Shipping that on by default
+// would change behaviour for every project that never saw the evidence — the
+// ADR-009 "crosses a project boundary" case. So it is opt-in, and every failure
+// path leaves the gates standing.
+
+test('tiering is off unless the project asks for it', () => {
+  const rows = [row()];
+  assert.equal(notifyOnlyAgents(rows).size, 0, 'default is off');
+  assert.equal(notifyOnlyAgents(rows, { enabled: true }).size, 1);
+});
+
+test('the opt-in is an explicit line, not a truthy accident', () => {
+  assert.equal(tieringEnabled('gate-tiering: evidence'), true);
+  assert.equal(tieringEnabled('approval-level: gates-only\ngate-tiering: evidence\n'), true);
+  assert.equal(tieringEnabled(''), false);
+  assert.equal(tieringEnabled('gate-tiering: off'), false);
+  assert.equal(tieringEnabled('# gate-tiering: evidence — how to enable'), false,
+    'a line about the setting is not the setting');
+  assert.equal(tieringEnabled(undefined), false);
+});
+
+test('Class A never enters the notify-only set, even with tiering on', () => {
+  const rows = [row({ agent: 'devops' }), row({ agent: 'infra-provisioner' }), row({ agent: 'ok-reviewer' })];
+  const s = notifyOnlyAgents(rows, { enabled: true });
+  assert.equal(s.has('devops'), false);
+  assert.equal(s.has('infra-provisioner'), false);
+  assert.equal(s.has('ok-reviewer'), true);
+});
+
+test('an unreadable project fails closed — every gate stands', async () => {
+  // The failure mode of a mis-read here is a gate that quietly stops asking,
+  // which is the one outcome this must never produce by accident.
+  const s = await notifyOnlyForProject('/nonexistent/project/path');
+  assert.equal(s.size, 0);
 });

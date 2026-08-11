@@ -202,6 +202,11 @@ export function pipelineOrder(transitions, verdicts = {}) {
  *   position: 'blocked'|'awaiting-gate'|'ready-to-dispatch'|'join-wait'|'complete'|'no-verdict'|'idle',
  *   next: string[],
  *   gates: string[],
+ *   notified: string[],  // gates that STOOD DOWN rather than blocking, because the
+ *                        // agent conclusively passed its holdout (phase 5). Named
+ *                        // rather than omitted: a decision that was not asked for
+ *                        // still has to be visible, or it is indistinguishable
+ *                        // from a gate nobody configured.
  *   stages: Array<{agent,status,verdict,ts,ageMs,fresh}>,
  *   summary: string,
  * }}
@@ -224,7 +229,7 @@ function gateStatesFor(rule, verdictTs, readGates) {
   return readGateStates(gates, beads, { verdictTs: verdictTs ?? null });
 }
 
-export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates = null, now = Date.now(), readGates = readGateBeads } = {}) {
+export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates = null, now = Date.now(), readGates = readGateBeads, notifyOnly = null } = {}) {
   // Cursor = the verdict entry with the newest event timestamp (D2).
   let cursor = null;
   for (const agent of Object.keys(verdicts)) {
@@ -235,6 +240,9 @@ export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates 
   let position;
   let next = [];
   let gates = [];
+  // Gates that stood down rather than blocking — named so a reader can see which
+  // decision was not asked for, and why.
+  let notified = [];
   let summary;
 
   if (!cursor) {
@@ -271,9 +279,25 @@ export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates 
         summary = `Position: blocked — ${cursor.agent} returned ${cursor.verdict}.`;
         break;
       case 'gate':
-        position = 'awaiting-gate';
         next = rule?.next || [];
         gates = activeGatesOf(rule?.gate, activeGates);
+        // Phase 5: a gate whose agent has earned it stands down to notify-only.
+        //
+        // The gate is not deleted and not hidden — it is ANNOUNCED. The entry
+        // still reaches the board's inbox, the human may still intervene; what
+        // changes is that the pipeline no longer waits to be told to continue.
+        // A gate that silently vanished would be indistinguishable from a gate
+        // nobody configured, which is the defect this repository spent the week
+        // removing.
+        if (notifyOnly?.has?.(cursor.agent)) {
+          position = 'ready-to-dispatch';
+          notified = gates.map((g) => `gate:${g}`);
+          summary = `Position: ready-to-dispatch — ${cursor.agent} succeeded; `
+            + `${next.join(', ')} proceeding. ${notified.join(' + ')} is notify-only: `
+            + `${cursor.agent} conclusively passed its holdout, so this announces rather than waits.`;
+          break;
+        }
+        position = 'awaiting-gate';
         summary = `Position: awaiting-gate — ${cursor.agent} succeeded; `
           + `${next.join(', ')} behind ${gates.map((g) => `gate:${g}`).join(' + ')}.`;
         break;
@@ -326,7 +350,7 @@ export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates 
     };
   });
 
-  return { cursor, position, next, gates, stages, summary };
+  return { cursor, position, next, gates, notified, stages, summary };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────

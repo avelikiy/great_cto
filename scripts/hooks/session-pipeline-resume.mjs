@@ -144,7 +144,11 @@ async function main() {
   try { activeGates = gatesForApprovalLevel(levelFromProjectMd(readFileSync(join(PROJ_DIR, 'PROJECT.md'), 'utf8'))); } catch { /* honour every declared gate */ }
 
   const verdicts = readAllVerdicts(join(PROJ_DIR, 'verdicts'), { transitions });
-  const position = pipelinePosition({ transitions, verdicts, activeGates });
+  // Phase 5: gates whose agent conclusively passed its holdout announce rather
+  // than wait. Off unless this project opted in; fails closed on any doubt.
+  const { notifyOnlyForProject } = await import('../lib/gate-tier.mjs');
+  const notifyOnly = await notifyOnlyForProject(process.cwd());
+  const position = pipelinePosition({ transitions, verdicts, activeGates, notifyOnly });
 
   let lastMarker = null; let lastTickAt = null;
   try {

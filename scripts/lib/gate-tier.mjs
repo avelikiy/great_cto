@@ -117,6 +117,65 @@ export function tierAll(rows = [], opts = {}) {
   return agents.map((a) => ({ agent: a, ...tierFor(a, { rows, ...opts }) }));
 }
 
+
+/**
+ * The agents whose gate may stand down, as a Set the pipeline can consult.
+ *
+ * OFF unless the project asks for it. Tiering changes when a human is asked to
+ * decide, and shipping that on by default would change behaviour for every
+ * project that never saw the evidence — the ADR-009 "crosses a project
+ * boundary" case. A project opts in with `gate-tiering: evidence` in its
+ * PROJECT.md.
+ *
+ * Derived at read time, never a list. A stored list of blessed agents is a
+ * snapshot that rots silently: an agent that regresses keeps its pass until
+ * someone remembers to revoke it, which is `ARCHITECTURE.md` saying "34 agents"
+ * for three months. Computed from the history, a regression restores the gate on
+ * the next measurement without anybody acting.
+ */
+export function notifyOnlyAgents(rows = [], { enabled = false, classA = CLASS_A } = {}) {
+  if (!enabled) return new Set();
+  return new Set(tierAll(rows, { classA }).filter((a) => a.tier === 'notify').map((a) => a.agent));
+}
+
+/** Does this project want evidence-based tiering? Default: no. */
+export function tieringEnabled(projectMdText) {
+  return /^\s*gate-tiering:\s*evidence\s*$/mi.test(String(projectMdText ?? ''));
+}
+
+
+/**
+ * The notify-only set for a project, assembled from its own opt-in and the
+ * measured history. One place, so callers cannot each get it subtly wrong.
+ *
+ * Fails closed: any problem reading either file leaves every gate standing. The
+ * failure mode of a mis-read here is a gate that quietly stops asking, and that
+ * is the one outcome this must never produce by accident.
+ */
+export async function notifyOnlyForProject(cwd = process.cwd()) {
+  try {
+    const { readFileSync, existsSync } = await import('node:fs');
+    const { join, dirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+
+    const projectMd = join(cwd, '.great_cto', 'PROJECT.md');
+    if (!existsSync(projectMd)) return new Set();
+    if (!tieringEnabled(readFileSync(projectMd, 'utf8'))) return new Set();
+
+    const history = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'tests', 'eval', 'results-history.jsonl');
+    if (!existsSync(history)) return new Set();
+
+    const rows = [];
+    for (const line of readFileSync(history, 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      try { rows.push(JSON.parse(line)); } catch { /* a bad row is not evidence */ }
+    }
+    return notifyOnlyAgents(rows, { enabled: true });
+  } catch {
+    return new Set();   // fail closed — every gate stands
+  }
+}
+
 // ── CLI ─────────────────────────────────────────────────────────────────────
 //
 // Prints who qualifies and, for everyone else, the specific reason — because

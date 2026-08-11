@@ -223,7 +223,10 @@ test('S3: an inactive gate agrees between decideNext (next kind) and pipelinePos
 
 test('S4: pipelinePosition() returns exactly the documented top-level keys', () => {
   const r = pipelinePosition({ transitions: TRANSITIONS, verdicts: {}, activeGates: [], now: NOW });
-  assert.deepEqual(Object.keys(r).sort(), ['cursor', 'gates', 'next', 'position', 'stages', 'summary']);  // `source` is a CLI concern — the function answers about state it was handed
+  // `notified` joined the contract with phase 5: the gates that stood down
+  // rather than blocking. It is part of the shape rather than an extra, because
+  // a caller that cannot see which decision was skipped cannot report it.
+  assert.deepEqual(Object.keys(r).sort(), ['cursor', 'gates', 'next', 'notified', 'position', 'stages', 'summary']);  // `source` is a CLI concern — the function answers about state it was handed
 });
 
 test('S4: each stage entry has the documented shape', () => {
@@ -353,7 +356,7 @@ test('CLI --json emits the documented shape', () => {
     const r = runCli(dir, ['--json']);
     assert.equal(r.exit, 0);
     const out = JSON.parse(r.stdout);
-    assert.deepEqual(Object.keys(out).sort(), ['cursor', 'gates', 'next', 'position', 'source', 'stages', 'summary']);
+    assert.deepEqual(Object.keys(out).sort(), ['cursor', 'gates', 'next', 'notified', 'position', 'source', 'stages', 'summary']);
     assert.equal(out.position, 'awaiting-gate');
     assert.deepEqual(out.next, ['pm']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -450,4 +453,44 @@ test('the report names which project it read', () => {
     'the CLI must resolve what it read to absolute paths');
   assert.match(src, /reading: \$\{source\.project\}/, 'and print it');
   assert.ok(src.includes('{ ...result, source }'), 'and carry it in --json, where a script reads it');
+});
+
+// ── Phase 5: a gate that announces instead of waiting ───────────────────────
+//
+// The gate is not deleted and not hidden. The entry still reaches the board's
+// inbox and can still be acted on; what stops is the pipeline waiting to be told
+// to continue. A gate that silently vanished would be indistinguishable from a
+// gate nobody configured.
+
+test('a gate stands when its agent is not tiered', () => {
+  const transitions = { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } };
+  const verdicts = { architect: { agent: 'architect', verdict: 'APPROVED', ts: new Date().toISOString(), canonical: true } };
+  const p = pipelinePosition({ transitions, verdicts, readGates: () => [] });
+  assert.equal(p.position, 'awaiting-gate');
+  assert.deepEqual(p.notified, [], 'nothing stood down');
+});
+
+test('a tiered agent proceeds, and the gate it passed is NAMED', () => {
+  const transitions = { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } };
+  const verdicts = { architect: { agent: 'architect', verdict: 'APPROVED', ts: new Date().toISOString(), canonical: true } };
+  const p = pipelinePosition({ transitions, verdicts, readGates: () => [], notifyOnly: new Set(['architect']) });
+  assert.equal(p.position, 'ready-to-dispatch');
+  assert.deepEqual(p.notified, ['gate:arch']);
+  assert.match(p.summary, /notify-only/);
+  assert.match(p.summary, /conclusively passed/, 'and the summary says why it did not ask');
+});
+
+test('tiering another agent does not stand this gate down', () => {
+  const transitions = { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } };
+  const verdicts = { architect: { agent: 'architect', verdict: 'APPROVED', ts: new Date().toISOString(), canonical: true } };
+  const p = pipelinePosition({ transitions, verdicts, readGates: () => [], notifyOnly: new Set(['qa-engineer']) });
+  assert.equal(p.position, 'awaiting-gate');
+});
+
+test('an absent notifyOnly behaves exactly as before', () => {
+  const transitions = { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } };
+  const verdicts = { architect: { agent: 'architect', verdict: 'APPROVED', ts: new Date().toISOString(), canonical: true } };
+  for (const n of [null, undefined]) {
+    assert.equal(pipelinePosition({ transitions, verdicts, readGates: () => [], notifyOnly: n }).position, 'awaiting-gate');
+  }
 });
