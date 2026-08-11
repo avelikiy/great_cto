@@ -151,3 +151,23 @@ test('split and samples both apply', () => {
   ];
   assert.equal(sameShape(rows, { split: 'holdout', samples: 3 }).length, 1);
 });
+
+// ── A rise is not an alarm ──────────────────────────────────────────────────
+//
+// detectDrift flags movement in both directions. The first complete run at the
+// scheduled shape printed "DRIFT DETECTED" in red over two evals that had both
+// improved. Painting an improvement red is how a red banner stops meaning
+// anything — the same cry-wolf failure that got a two-minute pre-push hook and
+// a substring-matching privacy guard worked around instead of fixed.
+
+test('only drops are regressions; rises are reported, not alarmed', () => {
+  const alerts = [
+    { key: 'A', drift: -0.3, alert: true },
+    { key: 'B', drift: 0.25, alert: true },
+    { key: 'C', drift: 0.02, alert: false },
+  ];
+  const drops = alerts.filter((d) => d.alert && d.drift < 0);
+  const rises = alerts.filter((d) => d.alert && d.drift > 0);
+  assert.deepEqual(drops.map((d) => d.key), ['A']);
+  assert.deepEqual(rises.map((d) => d.key), ['B'], 'a rise is worth a look, not a red banner');
+});

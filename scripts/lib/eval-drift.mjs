@@ -166,8 +166,26 @@ function main(argv) {
     const arrow = d.drift > 0 ? '▲' : d.drift < 0 ? '▼' : '·';
     console.log(`  ${arrow} ${d.key}: ${d.latest}${d.baseline !== null ? ` vs ${d.baseline} (Δ${d.drift >= 0 ? '+' : ''}${d.drift})` : ''}${d.alert ? ' ⚠ DRIFT' : ''}`);
   }
-  if (alerts.length > 0) { console.error(`\neval-drift: ${alerts.length} eval(s) drifted beyond ${threshold}.`); process.exit(1); }
-  console.log('eval-drift: no actionable drift.');
+  // A rise is not an alarm.
+  //
+  // detectDrift flags movement in both directions, and the first complete run
+  // reported "DRIFT DETECTED" in red over two evals that had both IMPROVED.
+  // Painting an improvement red is how a red banner stops meaning anything —
+  // the same cry-wolf failure that let a two-minute pre-push hook and a
+  // substring-matching privacy guard get worked around instead of fixed.
+  //
+  // Rises are still printed, because an unexplained jump can mean the ruler
+  // moved rather than the agent improving. They are reported, not alarmed.
+  const drops = alerts.filter((d) => d.drift < 0);
+  const rises = alerts.filter((d) => d.drift > 0);
+  if (rises.length) {
+    console.log(`eval-drift: ${rises.length} eval(s) rose beyond ${threshold} — worth a look, not an alarm.`);
+  }
+  if (drops.length > 0) {
+    console.error(`\neval-drift: ${drops.length} eval(s) DROPPED beyond ${threshold}.`);
+    process.exit(1);
+  }
+  console.log('eval-drift: no regression.');
   process.exit(0);
 }
 

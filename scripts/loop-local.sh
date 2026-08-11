@@ -141,9 +141,9 @@ node scripts/lib/eval-drift.mjs --split holdout --samples "$SAMPLES" --window 5 
 DRIFT_STATUS=$?
 
 if [ "$DRIFT_STATUS" -eq 0 ]; then
-  printf '\n\033[42;30m LOOP-LOCAL: NO ACTIONABLE DRIFT \033[0m\n'
+  printf '\n\033[42;30m LOOP-LOCAL: NO REGRESSION \033[0m\n'
 else
-  printf '\n\033[41;30m LOOP-LOCAL: DRIFT DETECTED \033[0m\n'
+  printf '\n\033[41;30m LOOP-LOCAL: REGRESSION \033[0m\n'
   echo "Read the ▼ lines above. A drop is a regression to explain, not a number to re-run until it moves."
 fi
 exit "$DRIFT_STATUS"
