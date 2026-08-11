@@ -10,6 +10,90 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v2.96.0 — 2026-08-11
+
+The self-improving pipeline's remaining phases, and a week of finding that
+several guards were installed but not running.
+
+### The pipeline moves where it has evidence, and stops where it does not
+
+- **Gate tiering by proof** (`scripts/lib/gate-tier.mjs`). An agent whose
+  holdout conclusively passed at three samples — the interval, never the point —
+  has its gate announce rather than wait. Fifteen of sixty-two agents qualify.
+  `devops` and `infra-provisioner` never do at any score: the question at a
+  production deploy is not competence (ADR-009). devops has the best evidence in
+  the repository, 82% [72%, 89%] n=77, which is what makes it the test rather
+  than a comment.
+  Opt-in per project with `gate-tiering: evidence` in PROJECT.md; absent by
+  default, and every failure path in assembling the set leaves the gates
+  standing. `pipelinePosition` gained a `notified` field naming the gates that
+  stood down — a gate that silently vanished is indistinguishable from a gate
+  nobody configured.
+- **`gate:prompt`** (`scripts/lib/prompt-gate.mjs`). A candidate prompt reaches
+  a human only when tuning settles, holdout settles, and holdout's lower bound
+  clears the incumbent's rate. An interval containing the current prompt has not
+  beaten it. A fixture diagnosis never reaches the gate at all.
+- **Holdout rotation** (`scripts/lib/holdout-rotation.mjs`). An approved prompt
+  costs a quarter of the holdout, exchanged with tuning and seeded by the
+  prompt's own hash — a rotation that can be re-rolled is a way to reshuffle
+  until the number is favourable. Equal exchange so the split sizes never drift;
+  recorded, because an unauditable rotation is indistinguishable from none.
+- **Wake on approval.** Approving a gate in the board now records the approval
+  where the next session looks. The resume hook's freshness shortcut treated a
+  three-day-old pipeline as history and returned before reading a single gate —
+  so a late approval, the strongest evidence work is waiting, was the one fact
+  never consulted.
+
+### Guards that were installed and not running
+
+- **`core.hooksPath`.** The privacy pre-push hook was executable, current, and
+  had never run: git was reading hooks from a directory this repository moved
+  out of. `scripts/lib/hook-install.mjs` resolves where git actually looks and
+  names the state — unreachable, missing, not-executable, stale, ok — and
+  ci-local gates on it first.
+- **Private names are derived, not remembered.** The hand-written denylist was
+  missing three project names that had already reached the public repo. Terms
+  now come from the workspace directories at push time; an allowlist covers
+  directory names that are also ordinary words. Matching moved from substring to
+  word boundary — one real term is a substring of `thresholdRaw`.
+- **Receipt verification.** The pre-push hook reports which reviewed files
+  changed after the reviewer approved them.
+
+### Evals
+
+- **A run that ran out of money is not a row of zeros.** Provider exhaustion now
+  stops the run at the first 402 instead of making 147 doomed calls, and files it
+  could not measure never reach the trend history.
+- **Comparisons are like-for-like.** Drift now matches on split AND sample
+  count; the same eval read as a 0.11 regression or a 0.16 improvement depending
+  only on which rows happened to be adjacent. Noise is measured only from runs
+  that could measure it — 416 of 438 rows reported stddev 0 because nothing was
+  observed twice.
+- **A rise is not an alarm.** Only drops exit non-zero.
+- **The loop runs locally** (`scripts/loop-local.sh`), because GitHub Actions is
+  failing at the billing layer. It prices the run — about $47 at three samples —
+  and stops, the way infra-provisioner does before it creates anything.
+- The holdout×3 baseline completed: 75 of 75, three samples, majority judge.
+
+### Board
+
+- A directory inside a project is not a second project; the home directory and
+  the plugin cache are not projects either.
+- An empty project reads differently from one that could not be read.
+- Documents open at half the window; tasks keep the width their rows were sized
+  for.
+- Memory folded into Docs; Portfolio removed.
+
+### Tests
+
+Sixty-two new tests across gate tiering, prompt gating, holdout rotation,
+provider exhaustion, cost estimation, hook reachability and the privacy guard.
+Test ports are now assigned by the OS rather than guessed, which removed a
+collision that failed a different test on every full-suite run.
+
+---
+
 ## v2.95.0 — 2026-08-08
 
 Four pipeline defects, every one found by running the pipeline rather than by a

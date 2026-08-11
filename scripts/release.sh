@@ -254,13 +254,20 @@ else
 
   # Determine if this should be marked --latest
   # (highest semver tag → latest)
-  HIGHEST_TAG=$(git tag --sort=-v:refname | head -1)
+  # In a real run the tag was created in step 3, so it is already the highest and
+  # this marks Latest. In a dry run it does not exist yet, and comparing against
+  # the tags that DO exist reported "v2.95.0 is higher than 2.96.0" — a rehearsal
+  # that disagrees with the performance is worse than no rehearsal. So the
+  # candidate is included in the comparison either way.
+  HIGHEST_TAG=$(printf '%s\nv%s\n' "$(git tag --sort=-v:refname | head -1)" "$NEW" | sort -V | tail -1)
   if [ "$HIGHEST_TAG" = "v$NEW" ]; then
     LATEST_FLAG="--latest"
-    color_dim "    will mark as Latest (v$NEW is highest tag)"; echo ""
+    color_dim "    will mark as Latest (v$NEW is the highest tag)"; echo ""
   else
     LATEST_FLAG=""
-    color_dim "    not marking Latest (v$HIGHEST_TAG is higher than v$NEW)"; echo ""
+    # `$HIGHEST_TAG` already carries its own leading v; printing "v$HIGHEST_TAG"
+    # produced "vv2.95.0".
+    color_dim "    not marking Latest ($HIGHEST_TAG is higher than v$NEW)"; echo ""
   fi
 
   if [ "$DRY_RUN" = "1" ]; then
