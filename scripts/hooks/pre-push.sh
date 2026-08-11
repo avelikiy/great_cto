@@ -107,6 +107,23 @@ EXCLUDE_PATHS=(
   "skills/ui-ux-pro-max/data/"
 )
 
+# One alternation, built once.
+#
+# check_content used to loop the term list and spawn `sed` + `grep` per term per
+# added line. With eight hand-listed terms that was tolerable; deriving them from
+# the workspace took the list to thirty-four, and a push touching a few hundred
+# lines became sixty-eight thousand subprocesses — two minutes on a hook that
+# used to be instant.
+#
+# A pre-push hook that costs two minutes is a hook people run with --no-verify,
+# and this repository has already had one guard silently disabled for months.
+# Escaping happens once at startup; matching is one grep per line.
+TERMS_RE=""
+for _t in ${PRIVATE_TERMS[@]+"${PRIVATE_TERMS[@]}"}; do
+  _esc=$(printf '%s' "$_t" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
+  TERMS_RE="${TERMS_RE:+$TERMS_RE|}$_esc"
+done
+
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
@@ -144,14 +161,14 @@ check_content() {
   # The boundary is "not a letter or digit", so the shapes a real leak takes are
   # still caught — `name.ai`, `name-prod`, `"name"`, `/name/`, `name_1` — while a
   # name buried inside a longer word is not.
-  for term in ${PRIVATE_TERMS[@]+"${PRIVATE_TERMS[@]}"}; do
-    local escaped
-    escaped=$(printf '%s' "$term" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
-    if echo "$content" | grep -qiE "(^|[^A-Za-z0-9])${escaped}([^A-Za-z0-9]|\$)" 2>/dev/null; then
-      echo -e "${RED}[pre-push] LEAK DETECTED${NC} — \"${term}\" found in ${context}"
-      FOUND=1
-    fi
-  done
+  if [[ -n "$TERMS_RE" ]] && echo "$content" | grep -qiE "(^|[^A-Za-z0-9])(${TERMS_RE})([^A-Za-z0-9]|\$)" 2>/dev/null; then
+    # Only now, on the rare path, pay to find out WHICH term matched — a report
+    # that says "a private name" and not which one sends the reader hunting.
+    local hit
+    hit=$(echo "$content" | grep -oiE "(^|[^A-Za-z0-9])(${TERMS_RE})([^A-Za-z0-9]|\$)" | head -1 | sed 's/^[^A-Za-z0-9]*//; s/[^A-Za-z0-9]*$//')
+    echo -e "${RED}[pre-push] LEAK DETECTED${NC} — \"${hit}\" found in ${context}"
+    FOUND=1
+  fi
 
   if echo "$content" | grep -qE "$PRIVATE_PATH_PATTERN" 2>/dev/null; then
     local match
