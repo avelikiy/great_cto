@@ -1052,7 +1052,8 @@ function mineInfraKeywords(dir: string, pkg: Pkg | null): string[] {
   const tfFiles: string[] = [];
   function collectTf(d: string, depth: number): void {
     if (depth > 4) return;
-    const SKIP = new Set(["node_modules", ".git", "dist", ".terraform"]);
+    // Dependency and build output — scanning them counts other people's code.
+  const SKIP = new Set(["node_modules", ".git", "dist", ".terraform"]);
     try {
       for (const e of readdirSync(d)) {
         if (SKIP.has(e)) continue;

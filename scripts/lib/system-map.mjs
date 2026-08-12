@@ -46,6 +46,8 @@ export const GROUPS = Object.freeze([
   { key: 'evals', label: 'Evals', dirs: ['tests/eval'], ext: ['.md'], what: 'what each agent is measured against' },
 ]);
 
+// Generated or third-party trees, plus _shared: its contracts are counted by
+// the groups that fetch them, and counting the directory twice inflated Agents.
 const SKIP = new Set(['node_modules', 'dist', 'build', '.git', 'coverage', 'vendor', '_shared']);
 
 function filesIn(root, dir, ext, depth = 0, out = []) {

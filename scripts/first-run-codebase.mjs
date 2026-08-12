@@ -50,6 +50,8 @@ if (existsSync(CODEBASE_PATH)) {
   existingBody = prev.split('\n').slice(1).join('\n').trim();
 }
 
+// Dependencies, build output, and machine state — none of it is this
+// project's own writing, and CODEBASE.md describes the project's own writing.
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'dist', 'build', '.next', 'out', 'vendor', 'target',
   '.venv', 'venv', '__pycache__', 'coverage', '.turbo', '.cache', 'tmp',

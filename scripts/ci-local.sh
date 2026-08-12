@@ -54,6 +54,10 @@ step "pre-push guard in force" node scripts/lib/hook-install.mjs --quiet
 
 # ── Structural + docs-reference (plugin-ci) ──
 step "structural validation" python3 tests/structural/validate.py
+# The lesson-rules pack holds at zero findings across the repository, so a
+# finding here is a regression against a rule a real incident bought. Test
+# files are excluded — they carry the hunted shapes as fixtures.
+step "lesson rules (incident-bought)" node scripts/lib/lesson-rules.mjs --sweep --strict
 step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
 
 # ── Unit tests: root + hooks + lib + eval + board (runtime-ci/evals/plugin) ──

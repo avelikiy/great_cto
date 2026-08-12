@@ -295,8 +295,11 @@ test('BH-1: pipe-separated verdict lines parse to real verdict (not "|")', async
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    // maxRetries: the board is still flushing async writes (bd cache, session
+    // log) when teardown starts, and a file landing mid-rmdir is ENOTEMPTY.
+    // Failed under full-suite load only — in isolation the flush wins the race.
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -355,8 +358,8 @@ test('BH-2: savings_x is null (not 0) when human estimate is missing', async () 
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -427,8 +430,8 @@ test('BH-3: non-canonical agents go to legacy_agent_runs, not the main agent map
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -491,8 +494,8 @@ test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () =>
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -580,8 +583,8 @@ test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', asy
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -635,8 +638,8 @@ test('BH-5: X-Project-Resolved + X-Project-Fallback headers explain routing', as
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -684,8 +687,8 @@ test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', asy
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -766,8 +769,8 @@ test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', asy
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -816,8 +819,8 @@ test('BH-22: /api/metrics.velocity exposes last_7d + last_30d (honest labels)', 
       try { board.kill('SIGKILL'); } catch {}
     }
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -882,7 +885,7 @@ test('X1 TDD: senior-dev RED → GREEN cycle works on a tiny stub', async () => 
     const src = readFileSync(join(project, 'src', 'add.mjs'), 'utf8');
     assert.match(src, /export function add/, 'REFACTOR check: export survives');
   } finally {
-    rmSync(project, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
