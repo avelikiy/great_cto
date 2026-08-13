@@ -1,3 +1,5 @@
+
+
 <div align="center">
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
@@ -65,7 +67,7 @@ counting files — which is why it says 70 and not a rounder, prettier number.
 ## Quick start
 
 ```bash
-npx great-cto init            # Claude Code (default) · add --host codex for OpenAI Codex
+npx great-cto init            # Claude Code (default) · add --host codex for OpenAI Codex · add --host cursor for Cursor
 ```
 
 Restart your AI host, then:
