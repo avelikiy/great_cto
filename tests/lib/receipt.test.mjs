@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { treeReceipt, compareReceipts, describeDrift, fileDigest } from '../../scripts/lib/receipt.mjs';
+import { treeReceipt, compareReceipts, describeDrift, fileDigest, receiptHash, writeAcceptance, readAcceptance, clearAcceptance } from '../../scripts/lib/receipt.mjs';
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-'));
@@ -217,4 +217,92 @@ test('a corrupt line does not hide the good ones after it', () => {
     'code-reviewer': ['{not json', rec({ agent: 'code-reviewer', verdict: 'APPROVED', receipt: { head: 'ccc' } })].join('\n'),
   }) });
   assert.equal(found.receipt.head, 'ccc');
+});
+
+// ── Falling out of the change set is not being deleted ──────────────────────
+//
+// The file map is the diff against the merge-base, so the moment a reviewed
+// change is committed and the base moves forward, every reviewed file drops out
+// of it. The first version read that as `removed` — the strongest wording it
+// has — about files sitting right there on disk, and would have blocked every
+// push after a release. A gate that fires on the ordinary case gets routed
+// around.
+
+test('a reviewed file that was committed since reads as landed, not removed', () => {
+  const recorded = { head: 'a', dirty: null, base: 'b', files: { 'src/x.mjs': 'D1' } };
+  const current = { head: 'c', dirty: null, base: 'd', files: {} };   // no longer in the diff
+  const cmp = compareReceipts(recorded, current, { digest: () => 'D1' });   // same bytes on disk
+  assert.equal(cmp.state, 'matches');
+  assert.deepEqual(cmp.landed, ['src/x.mjs']);
+  assert.deepEqual(cmp.removed, []);
+  assert.match(cmp.why, /committed since, unchanged/);
+});
+
+test('a reviewed file that is genuinely gone is removed', () => {
+  const recorded = { head: 'a', dirty: null, base: 'b', files: { 'src/x.mjs': 'D1' } };
+  const cmp = compareReceipts(recorded, { head: 'c', files: {} }, { digest: () => null });
+  assert.equal(cmp.state, 'differs');
+  assert.deepEqual(cmp.removed, ['src/x.mjs']);
+});
+
+test('a reviewed file out of the diff but edited on disk is changed', () => {
+  const recorded = { head: 'a', dirty: null, base: 'b', files: { 'src/x.mjs': 'D1' } };
+  const cmp = compareReceipts(recorded, { head: 'c', files: {} }, { digest: () => 'D2' });
+  assert.equal(cmp.state, 'differs');
+  assert.deepEqual(cmp.changed, ['src/x.mjs']);
+});
+
+// ── An approval names a state ───────────────────────────────────────────────
+//
+// hashgate's formulation, better than the one we shipped: an approve button
+// approves an intention, a hash approves a state. Accepting "ship despite the
+// drift" without naming WHICH state leaves an acceptance that survives the next
+// edit — an expiring bypass wearing an approval's clothes.
+
+test('the hash covers the files, their contents, and the uncommitted work', () => {
+  const a = { head: 'H', dirty: 'D', files: { 'a.mjs': '1', 'b.mjs': '2' } };
+  assert.equal(receiptHash(a), receiptHash({ head: 'H', dirty: 'D', files: { 'b.mjs': '2', 'a.mjs': '1' } }),
+    'key order is not part of the state');
+  assert.notEqual(receiptHash(a), receiptHash({ ...a, files: { 'a.mjs': '9', 'b.mjs': '2' } }));
+  assert.notEqual(receiptHash(a), receiptHash({ ...a, dirty: 'OTHER' }));
+  assert.notEqual(receiptHash(a), receiptHash({ ...a, head: 'OTHER' }));
+  assert.equal(receiptHash(null), null, 'no receipt, no hash — not a fabricated one');
+});
+
+test('an acceptance is valid only for the state it named', async () => {
+  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-accept-'));
+  try {
+    writeAcceptance(dir, { hash: 'STATE-1', why: 'checked by hand' });
+    assert.equal(readAcceptance(dir, 'STATE-1').valid, true);
+    const other = readAcceptance(dir, 'STATE-2');
+    assert.equal(other.valid, false);
+    assert.equal(other.stale, true);
+    assert.match(other.why, /tree changed after it was accepted/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('one acceptance authorises one push', async () => {
+  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-accept-'));
+  try {
+    writeAcceptance(dir, { hash: 'S' });
+    assert.equal(readAcceptance(dir, 'S').valid, true);
+    clearAcceptance(dir);
+    const after = readAcceptance(dir, 'S');
+    assert.equal(after.valid, false, 'an acceptance that survives its push is a standing permission');
+    assert.match(after.why, /no acceptance recorded/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an unreadable acceptance is not a valid one', async () => {
+  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-accept-'));
+  try {
+    fs.mkdirSync(path.join(dir, '.great_cto'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.great_cto/.receipt-accept'), '{ not json');
+    const r = readAcceptance(dir, 'S');
+    assert.equal(r.valid, false);
+    assert.equal(r.unreadable, true);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

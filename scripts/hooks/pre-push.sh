@@ -256,17 +256,43 @@ done
 # What is never quiet is the third state. "No approving verdict carries a
 # receipt" is not the same as "the receipt matched", and the check says which.
 if [[ "${GREAT_CTO_SKIP_RECEIPT_CHECK:-}" != "1" ]] && [[ -f "scripts/lib/receipt.mjs" ]]; then
-  RECEIPT_OUT="$(node scripts/lib/receipt.mjs --verify 2>/dev/null || true)"
+  # The EXIT CODE is the answer, not the prose.
+  #
+  # This block used to grep the output for "reviewed file(s) changed" and threw
+  # the exit code away — `RECEIPT_RC=$?` sat after a `|| true` that had already
+  # eaten it. So rewording a message silently changed what the guard enforced,
+  # which is the same defect as the `ci-local | grep … && git commit` that let a
+  # red gate reach main this month: a decision taken from the wrong channel.
+  # `set -e` would kill the hook on the very exit code we want to read, which is
+  # what the old `|| true` was really for — it kept the script alive and ate the
+  # answer in the same breath. Disable it for exactly this assignment.
+  set +e
+  RECEIPT_OUT="$(node scripts/lib/receipt.mjs --verify 2>/dev/null)"
   RECEIPT_RC=$?
+  set -e
+
   if [[ -n "$RECEIPT_OUT" ]]; then
-    if [[ "$RECEIPT_OUT" == *"reviewed file(s) changed"* ]]; then
+    if [[ "$RECEIPT_RC" -ne 0 ]]; then
       echo -e "\n${RED}Files changed after the review that approved them.${NC}" >&2
       echo "$RECEIPT_OUT" >&2
-      if [[ "${GREAT_CTO_ENFORCE_RECEIPT:-}" == "1" ]]; then
-        echo -e "${RED}[pre-push] BLOCKED — re-review, or unset GREAT_CTO_ENFORCE_RECEIPT.${NC}" >&2
+
+      # Posture lives with the project's other postures, not in an env var
+      # nobody exports. `GREAT_CTO_ENFORCE_RECEIPT` still overrides, per
+      # invocation, in both directions.
+      RECEIPT_GATE="warn"
+      if grep -qE '^[[:space:]]*receipt-gate:[[:space:]]*enforce[[:space:]]*$' .great_cto/PROJECT.md 2>/dev/null; then
+        RECEIPT_GATE="enforce"
+      fi
+      [[ "${GREAT_CTO_ENFORCE_RECEIPT:-}" == "1" ]] && RECEIPT_GATE="enforce"
+      [[ "${GREAT_CTO_ENFORCE_RECEIPT:-}" == "0" ]] && RECEIPT_GATE="warn"
+
+      if [[ "$RECEIPT_GATE" == "enforce" ]]; then
+        echo -e "${RED}[pre-push] BLOCKED — re-review, or accept this exact state:${NC}" >&2
+        echo -e "${RED}    node scripts/lib/receipt.mjs --accept${NC}" >&2
+        echo -e "${YELLOW}(one acceptance authorises one push of this state; any further edit voids it)${NC}" >&2
         exit 1
       fi
-      echo -e "${YELLOW}(warn-only — push allowed. Set GREAT_CTO_ENFORCE_RECEIPT=1 to block.)${NC}" >&2
+      echo -e "${YELLOW}(warn-only — push allowed. Add 'receipt-gate: enforce' to PROJECT.md to block.)${NC}" >&2
     else
       echo -e "\n${RECEIPT_OUT}"
     fi

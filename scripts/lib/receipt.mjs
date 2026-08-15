@@ -28,6 +28,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import * as fsModule from 'node:fs';
 import { join } from 'node:path';
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
@@ -121,19 +122,36 @@ export function mergeBase(cwd) {
  * whose receipt matched, and collapsing them is the defect this whole ladder
  * exists to remove.
  */
-export function compareReceipts(recorded, current) {
+export function compareReceipts(recorded, current, { digest = null, cwd = process.cwd() } = {}) {
   if (!recorded) return { state: 'no-receipt', why: 'the approving verdict carries no receipt — nothing to compare against' };
   if (!current) return { state: 'unreadable', why: 'the current tree state could not be read' };
 
   const changed = [];
   const added = [];
   const removed = [];
+  const landed = [];
   const before = recorded.files || {};
   const now = current.files || {};
+  // Falling out of the CHANGE SET is not the same as being deleted.
+  //
+  // The file map is the diff against the merge-base, so the moment a reviewed
+  // change is committed and the base moves forward, every reviewed file drops
+  // out of it. The first version read that as `removed` and would therefore
+  // have blocked every push after a release, with the strongest wording it
+  // has, about files sitting right there on disk. A gate that fires on the
+  // ordinary case is a gate people route around.
+  const digestOf = digest || ((path) => fileDigest(cwd, path));
 
-  for (const [p, digest] of Object.entries(before)) {
-    if (!(p in now)) removed.push(p);
-    else if (now[p] !== digest) changed.push(p);
+  for (const [p, d] of Object.entries(before)) {
+    if (p in now) {
+      if (now[p] !== d) changed.push(p);
+      continue;
+    }
+    // Not in the current change set — ask the disk which of the three it is.
+    const onDisk = digestOf(p);
+    if (onDisk === null) removed.push(p);        // genuinely gone
+    else if (onDisk === d) landed.push(p);       // committed since; byte-identical to the review
+    else changed.push(p);                        // still here, and edited
   }
   for (const p of Object.keys(now)) if (!(p in before)) added.push(p);
 
@@ -141,14 +159,16 @@ export function compareReceipts(recorded, current) {
   // context. `added` in particular is usually ordinary work continuing, not a
   // review being bypassed, and reporting it as one is how a signal dies.
   if (changed.length || removed.length) {
-    return { state: 'differs', changed, added, removed,
+    return { state: 'differs', changed, added, removed, landed,
       why: `${changed.length + removed.length} reviewed file(s) changed after the approval` };
   }
   if (added.length) {
-    return { state: 'extended', changed, added, removed,
+    return { state: 'extended', changed, added, removed, landed,
       why: `${added.length} file(s) were added after the approval; nothing reviewed was altered` };
   }
-  return { state: 'matches', changed, added, removed, why: 'every reviewed file is byte-identical to what was approved' };
+  const shipped = landed.length ? ` (${landed.length} committed since, unchanged)` : '';
+  return { state: 'matches', changed, added, removed, landed,
+    why: `every reviewed file is byte-identical to what was approved${shipped}` };
 }
 
 /** Lines a human can act on — the paths, not just the count. */
@@ -194,6 +214,84 @@ export function latestApproval(cwd = process.cwd(), { agents = APPROVING_AGENTS,
   return best;
 }
 
+/**
+ * Where an operator's acceptance of a drifted state is recorded.
+ *
+ * Beside the verdicts rather than in them: a verdict is an agent's report of
+ * what it found, and this is a human's decision about what to do next. Mixing
+ * them would let a reader mistake one for the other, which is the whole thing
+ * receipts exist to prevent.
+ */
+export const ACCEPT_PATH = '.great_cto/.receipt-accept';
+
+/**
+ * A stable fingerprint of a tree state — what an acceptance is bound TO.
+ *
+ * `hashgate`'s formulation, which is better than the one we shipped: an approve
+ * button approves an intention, a hash approves a state. Accepting "yes, ship
+ * despite the drift" without naming WHICH state leaves an acceptance that
+ * survives the next edit — an expiring bypass wearing an approval's clothes.
+ */
+export function receiptHash(receipt) {
+  if (!receipt) return null;
+  // The file map in a fixed order, plus the dirty digest: two trees hash alike
+  // exactly when every reviewed file is byte-identical and the uncommitted work
+  // is the same.
+  const files = Object.keys(receipt.files || {}).sort()
+    .map((p) => `${p}:${receipt.files[p]}`).join('\n');
+  return sha(`${receipt.head}\n${receipt.dirty ?? '-'}\n${files}`);
+}
+
+/**
+ * Record that a human accepted this exact state.
+ *
+ * Single-use by design: an acceptance authorises ONE push. An acceptance that
+ * outlives its push is a standing permission, and nobody asked for one.
+ */
+export function writeAcceptance(cwd, { hash, why = '', at = Date.now() } = {}) {
+  const { writeFileSync, mkdirSync } = requireFs();
+  mkdirSync(join(cwd, '.great_cto'), { recursive: true });
+  writeFileSync(join(cwd, ACCEPT_PATH), JSON.stringify({ hash, why, at }) + '\n');
+  return { hash, why, at };
+}
+
+/**
+ * The pending acceptance, if it is for the state in front of us.
+ *
+ * Four answers, not two. "None recorded", "unreadable", "for a different
+ * state" and "valid" are different situations, and the third is the one worth
+ * naming out loud: it means the tree moved after a human looked at it.
+ */
+export function readAcceptance(cwd, currentHash) {
+  const { readFileSync } = requireFs();
+  let raw;
+  try { raw = readFileSync(join(cwd, ACCEPT_PATH), 'utf8'); }
+  catch { return { valid: false, why: 'no acceptance recorded' }; }
+
+  let rec;
+  try { rec = JSON.parse(raw.trim()); }
+  catch { return { valid: false, unreadable: true, why: 'the acceptance record could not be parsed' }; }
+
+  if (!rec?.hash) return { valid: false, unreadable: true, why: 'the acceptance record names no state' };
+  if (rec.hash !== currentHash) {
+    return { valid: false, stale: true, rec,
+      why: 'the acceptance names a different state — the tree changed after it was accepted' };
+  }
+  return { valid: true, rec, why: `accepted at ${new Date(rec.at).toISOString()}` };
+}
+
+/** Consume it. One acceptance, one push. */
+export function clearAcceptance(cwd) {
+  try { requireFs().rmSync(join(cwd, ACCEPT_PATH), { force: true }); return true; }
+  catch { return false; /* an acceptance we cannot clear is re-checked against the hash anyway */ }
+}
+
+function requireFs() {
+  // Imported lazily so the pure comparison functions above stay usable by
+  // callers that hand in their own strings and never touch a disk.
+  return fsModule;
+}
+
 // ── CLI ─────────────────────────────────────────────────────────────────────
 //
 // `--emit`   prints a receipt for the current tree (used by log-verdict.sh).
@@ -208,8 +306,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(r ? 0 : 1);
   }
   if (argv.includes('--verify')) {
-    const approval = latestApproval(process.cwd());
-    const cmp = compareReceipts(approval?.receipt ?? null, treeReceipt(process.cwd()));
+    const cwd = process.cwd();
+    const approval = latestApproval(cwd);
+    const current = treeReceipt(cwd);
+    const cmp = compareReceipts(approval?.receipt ?? null, current);
     if (cmp.state === 'no-receipt') {
       // Not silence. A push with no approval to compare against and a push whose
       // receipt matched are different facts, and only one of them is evidence.
@@ -219,7 +319,58 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const who = approval ? `${approval.agent} ${approval.verdict} at ${approval.ts}` : 'an approval';
     console.log(`receipt: against ${who}`);
     console.log(describeDrift(cmp).split('\n').map((l) => `  ${l}`).join('\n'));
-    process.exit(cmp.state === 'differs' ? 1 : 0);
+
+    if (cmp.state !== 'differs') process.exit(0);
+
+    // Drift, but a human may already have looked at exactly this state.
+    const hash = receiptHash(current);
+    const acc = readAcceptance(cwd, hash);
+    if (acc.valid) {
+      console.log(`  accepted by the operator for this exact state (${acc.why})`);
+      // Consumed here rather than by the caller: whoever asked the question is
+      // the one acting on the answer, and an acceptance that survives its own
+      // check is a standing permission.
+      clearAcceptance(cwd);
+      process.exit(0);
+    }
+    if (acc.stale) console.log(`  ${acc.why} — accept again if this state is fine`);
+    console.log(`  to accept this state: node scripts/lib/receipt.mjs --accept`);
+    process.exit(1);
+  }
+
+  // `--accept`: a human says this drifted state is fine to ship.
+  //
+  // Requires a controlling terminal, and that is the substance rather than a
+  // nicety. Our hooks and agents run inside the operator's own shell, so
+  // without this "the operator accepted" would mean "something in the agent's
+  // session ran a command". Enforcement must not depend on the agent's good
+  // behaviour — an agent asked to approve its own work will comply.
+  if (argv.includes('--accept')) {
+    const cwd = process.cwd();
+    const approval = latestApproval(cwd);
+    const current = treeReceipt(cwd);
+    const cmp = compareReceipts(approval?.receipt ?? null, current);
+    if (cmp.state !== 'differs') {
+      console.log(`receipt: nothing to accept — ${cmp.why}`);
+      process.exit(0);
+    }
+    console.log(describeDrift(cmp));
+    const hash = receiptHash(current);
+    console.log(`\nstate: ${hash.slice(0, 16)}…`);
+
+    if (!process.stdin.isTTY) {
+      console.error('\nreceipt: --accept needs a terminal. Run it yourself, in your own shell —');
+      console.error('an acceptance from inside an agent session is the agent approving its own work.');
+      process.exit(2);
+    }
+    const { createInterface } = await import('node:readline');
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise((res) => rl.question('\nShip this state anyway? [y/N] ', (a) => { rl.close(); res(a); }));
+    if (!/^y(es)?$/i.test(answer.trim())) { console.log('not accepted — nothing recorded.'); process.exit(1); }
+
+    writeAcceptance(cwd, { hash, why: `drift accepted over ${cmp.changed.length} changed file(s)` });
+    console.log('accepted. This authorises ONE push of this exact state; any further edit voids it.');
+    process.exit(0);
   }
 
   const i = argv.indexOf('--check');
