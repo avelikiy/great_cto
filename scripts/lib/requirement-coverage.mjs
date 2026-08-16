@@ -31,8 +31,8 @@ export function requirements(text) {
   const out = new Map();
   for (const raw of String(text ?? '').split('\n')) {
     const line = raw.trim();
-    // `- **R1** — …`, `- R1: …`, `### R1 — …`, `| R1 | …`
-    const m = line.match(/^(?:[-*+]|\|?\s*|#{1,6})\s*\**\s*(R\d+)\b\**\s*[—:\-|]?\s*(.*)$/);
+    // `- **BOARD-R1** — …`, `- BOARD-R1: …`, `### BOARD-R1 — …`
+    const m = line.match(/^(?:[-*+]|\|?\s*|#{1,6})\s*\**\s*((?:[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-)?R\d+)\b\**\s*[—:\-|]?\s*(.*)$/);
     if (!m) continue;
     const [, id, rest] = m;
     // First declaration wins: a brief that lists R1 in Scope and refers back to
@@ -45,8 +45,13 @@ export function requirements(text) {
 /** Every requirement ID a document mentions, however it mentions it. */
 export function citations(text) {
   const out = new Set();
-  for (const m of String(text ?? '').matchAll(/\bR\d+\b/g)) out.add(m[0]);
+  for (const m of String(text ?? '').matchAll(/\b(?:[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-)?R\d+\b/g)) out.add(m[0]);
   return out;
+}
+
+/** A bare `R1` belongs to no brief in particular. */
+export function isUnprefixed(id) {
+  return /^R\d+$/.test(String(id));
 }
 
 /**
@@ -63,6 +68,24 @@ export function citations(text) {
  */
 export function coverage({ brief = '', downstream = [] } = {}) {
   const reqs = requirements(brief);
+
+  // A bare `R1` is not an identifier, it is a coincidence.
+  //
+  // Found by running this against a real brief rather than a fixture: three
+  // requirements reported as fully covered, and every "citation" came from
+  // unrelated plans that carry their OWN R1..R8. An R-number is global while a
+  // requirement is local to its brief, so any document with its own numbering
+  // makes any brief look addressed — a green light exactly where the gap is.
+  // The unit tests all passed, because every fixture came from one brief.
+  const bare = [...reqs.keys()].filter(isUnprefixed);
+  if (bare.length) {
+    return {
+      state: 'ambiguous',
+      why: `${bare.join(', ')} carry no brief prefix — a bare R-number cannot be told apart from another document's numbering, so coverage here would be a coincidence. Number them <SLUG>-R1 (e.g. BOARD-R1).`,
+      covered: [], uncovered: [], dangling: [],
+    };
+  }
+
   if (reqs.size === 0) {
     // Not zero coverage. A brief written before the convention declares nothing,
     // and reporting that as "0 of 0 covered, all good" would be the same defect
@@ -71,9 +94,18 @@ export function coverage({ brief = '', downstream = [] } = {}) {
     return { state: 'no-requirements', why: 'this brief declares no R-numbered requirements — nothing to check coverage against', covered: [], uncovered: [], dangling: [] };
   }
 
+  // Only this brief's own namespace counts.
+  //
+  // Without this the report listed eight `dangling` R4..R8 belonging to an
+  // unrelated plan's numbering — noise that reads as a finding, which is how a
+  // check earns the reputation that gets it ignored.
+  const prefixes = new Set([...reqs.keys()].map((id) => id.replace(/-R\d+$/, '')));
+  const mine = (id) => prefixes.has(id.replace(/-R\d+$/, ''));
+
   const seen = new Map();   // id → [document names]
   for (const doc of downstream) {
     for (const id of citations(doc?.text ?? '')) {
+      if (!mine(id)) continue;
       if (!seen.has(id)) seen.set(id, []);
       seen.get(id).push(doc?.name ?? '(unnamed)');
     }

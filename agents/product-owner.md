@@ -136,16 +136,16 @@ Write `docs/product/BRIEF-{slug}.md`:
 
 ### Numbering what you ask for
 
-Every IN-scope item in `## Scope` carries an `R`-number, declared at the START of
+Every IN-scope item in `## Scope` carries a `<SLUG>-R<n>` number — the brief's own slug, then the number — declared at the START of
 its bullet:
 
 ```markdown
-- **R1** — the board opens on one screen that names what needs a decision
-- **R2** — an empty project reads differently from one that could not be read
+- **BOARD-R1** — the board opens on one screen that names what needs a decision
+- **BOARD-R2** — an empty project reads differently from one that could not be read
 ```
 
-Downstream artefacts cite the bare number wherever they address it — an ARCH
-section, a plan item, a bead title. Nothing more than `R1` in the prose; a syntax
+Downstream artefacts cite the full ID wherever they address it — an ARCH
+section, a plan item, a bead title. Nothing more than `BOARD-R1` in the prose; a syntax
 people have to remember is a syntax people forget.
 
 This exists so `scripts/lib/requirement-coverage.mjs` can answer the one question
