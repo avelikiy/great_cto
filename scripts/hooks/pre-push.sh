@@ -437,7 +437,24 @@ elif [[ -f "scripts/lib/prose-slop.mjs" ]] && command -v node >/dev/null 2>&1; t
   if [[ -n "$PROSE_FILES" ]]; then
     PROSE_RC=0
     # shellcheck disable=SC2086 — deliberate word-splitting of the file list
-    PROSE_OUT=$(run_with_timeout "${PROSE_CHECK_TIMEOUT}" node scripts/lib/prose-slop.mjs $PROSE_FILES --quiet 2>&1) || PROSE_RC=$?
+    # Records get the substance rules only.
+    #
+    # An unsourced claim matters MORE in an ADR than in a README — the record is
+    # what someone trusts in six months. A single "merely" in a security report
+    # matters not at all, and asking an agent to polish it means rewriting a
+    # record and risking a change to what it claims. Measured before splitting:
+    # 58 findings across ADRs, ARCH docs, plans and reports, and every one of
+    # them was a style rule.
+    PROSE_RECORDS=$(printf '%s\n' $PROSE_FILES | grep -E '^(docs/(adr|architecture|plans|qa|security)/|\.great_cto/)' || true)
+    PROSE_PRESENT=$(printf '%s\n' $PROSE_FILES | grep -vE '^(docs/(adr|architecture|plans|qa|security)/|\.great_cto/)' || true)
+    PROSE_OUT=""
+    if [[ -n "$PROSE_PRESENT" ]]; then
+      PROSE_OUT=$(run_with_timeout "${PROSE_CHECK_TIMEOUT}" node scripts/lib/prose-slop.mjs $PROSE_PRESENT --quiet 2>&1) || PROSE_RC=$?
+    fi
+    if [[ -n "$PROSE_RECORDS" ]]; then
+      PROSE_REC_OUT=$(run_with_timeout "${PROSE_CHECK_TIMEOUT}" node scripts/lib/prose-slop.mjs $PROSE_RECORDS --layer record --quiet 2>&1) || PROSE_RC=$?
+      PROSE_OUT="${PROSE_OUT}${PROSE_REC_OUT:+$'\n'$PROSE_REC_OUT}"
+    fi
     if [[ "${PROSE_RC}" -eq 124 ]]; then
       : # timed out — say nothing, this is the least important check here
     elif echo "$PROSE_OUT" | grep -q 'finding'; then

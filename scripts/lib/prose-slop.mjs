@@ -126,6 +126,48 @@ const RULES = Object.freeze({
 /** Rules NOT run unless asked for. See parseDenyList for why SLOP-HEDGE is here. */
 const OPT_IN_RULES = Object.freeze(['SLOP-HEDGE']);
 
+/**
+ * What kind of defect each rule names — and therefore where it applies.
+ *
+ * These rules are two different things wearing one name. Some catch a CLAIM the
+ * text cannot support: an unsourced assertion, achievement language standing in
+ * for a result. Those matter more in a record than in a README, because the
+ * record is what someone trusts in six months. The rest catch a WORD a reader
+ * would rather not see, and that is a presentation concern — a security report
+ * saying "merely a warning" is fine, and polishing it means rewriting a record
+ * and risking a change to what it claims.
+ *
+ * Kuber Mehta's argument (Humanising LLM Outputs is Dumb, 2026-08-10) is that
+ * style belongs in a renderer at the consumption boundary rather than in the
+ * working instructions. Applied here the cut turned out to be by RULE, not by
+ * path: a README can make an unsourced claim just as easily, and an ADR is
+ * allowed to say "very".
+ */
+export const RULE_KIND = Object.freeze({
+  'SLOP-WEASEL': 'substance',
+  'SLOP-BRAG': 'substance',
+  'SLOP-PASSIVE-BRAG': 'substance',
+  'SLOP-HEDGE': 'substance',
+  'SLOP-DEAD': 'style',
+  'SLOP-OPENER': 'style',
+  'SLOP-ADVERB': 'style',
+  'SLOP-EMOJI-HEAD': 'style',
+});
+
+/**
+ * The rules that apply to a layer.
+ *
+ * `presentation` is everything and stays the default: a file whose layer nobody
+ * declared should be checked as strictly as before, not more leniently. The
+ * quiet direction to be wrong in is "too strict on a README", never "silent on
+ * an unsourced claim".
+ */
+export function rulesForLayer(layer = 'presentation') {
+  const all = Object.keys(RULES);
+  if (layer !== 'record') return all;
+  return all.filter((r) => RULE_KIND[r] === 'substance');
+}
+
 /** Which rule each `RULE-NN` section of prose-deny.txt feeds. */
 const DENY_SECTIONS = Object.freeze({
   'RULE-04': 'SLOP-OPENER',
@@ -306,12 +348,18 @@ async function main(argv) {
   // equal to a flag's operand, so `--deny rules.md rules.md` — linting the deny
   // list itself — dropped the file and the run silently checked nothing.
   const consumed = new Set();
-  for (const f of ['--deny', '--rule']) {
+  for (const f of ['--deny', '--rule', '--layer']) {
     const i = flagIdx(f);
     if (i >= 0) { consumed.add(i); consumed.add(i + 1); }
   }
   const files = argv.filter((a, i) => !a.startsWith('--') && !consumed.has(i));
-  const rules = flagVal('--rule') ? flagVal('--rule').split(',') : null;
+  // `--layer record` drops the style rules and keeps the ones about claims the
+  // text cannot support. An explicit `--rule` still wins: asking for a specific
+  // rule means you want that rule.
+  const layer = flagVal('--layer') || 'presentation';
+  const rules = flagVal('--rule')
+    ? flagVal('--rule').split(',')
+    : (layer === 'record' ? rulesForLayer('record') : null);
   const deny = argv.includes('--no-deny') ? null : await loadDenyList(flagVal('--deny') || undefined);
   const json = argv.includes('--json');
   const quiet = argv.includes('--quiet');

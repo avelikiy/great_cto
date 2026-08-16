@@ -6,7 +6,7 @@
 // and an API name in a call, and the linter has to tell those apart.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detectSlop, maskCode, RULES, parseDenyList, loadDenyList } from '../../scripts/lib/prose-slop.mjs';
+import { detectSlop, maskCode, RULES, parseDenyList, loadDenyList, rulesForLayer, RULE_KIND } from '../../scripts/lib/prose-slop.mjs';
 
 const rules = (text) => detectSlop(text).map((f) => f.rule);
 
@@ -229,4 +229,51 @@ test('an actual indented code block is still masked', () => {
 
 test('a fenced block is still masked', () => {
   assert.deepEqual(detectSlop('# D\n\n```\nbasically just\n```\n'), []);
+});
+
+// ── Style at the boundary, substance everywhere ─────────────────────────────
+//
+// These rules are two different things wearing one name. Some catch a CLAIM the
+// text cannot support; those matter MORE in a record than in a README, because
+// the record is what someone trusts in six months. The rest catch a word a
+// reader would rather not see, and a security report saying "merely a warning"
+// is fine — polishing it means rewriting a record and risking a change to what
+// it claims.
+//
+// Measured before the split: 58 findings across ADRs, ARCH docs, plans and
+// reports, every one of them a style rule.
+
+test('a record keeps the rules about unsupported claims', () => {
+  const rules = rulesForLayer('record');
+  for (const r of ['SLOP-WEASEL', 'SLOP-BRAG', 'SLOP-PASSIVE-BRAG', 'SLOP-HEDGE']) {
+    assert.ok(rules.includes(r), `${r} is about substance and applies to a record`);
+  }
+});
+
+test('a record drops the rules about word choice', () => {
+  const rules = rulesForLayer('record');
+  for (const r of ['SLOP-ADVERB', 'SLOP-OPENER', 'SLOP-DEAD', 'SLOP-EMOJI-HEAD']) {
+    assert.ok(!rules.includes(r), `${r} is presentation, and an ADR is allowed to say "very"`);
+  }
+});
+
+test('presentation is unchanged, and is the default', () => {
+  const all = rulesForLayer('presentation');
+  assert.deepEqual(rulesForLayer(), all, 'a file whose layer nobody declared is checked as before');
+  assert.deepEqual(rulesForLayer('anything-else'), all, 'an unknown layer is not a lenient one');
+  assert.ok(all.length > rulesForLayer('record').length);
+});
+
+test('every rule is classified — an unclassified rule would silently vanish from records', () => {
+  for (const r of rulesForLayer('presentation')) {
+    assert.ok(RULE_KIND[r] === 'substance' || RULE_KIND[r] === 'style', `${r} has no kind`);
+  }
+});
+
+test('an adverb in a record is not a finding; an unsourced claim is', () => {
+  const record = 'The cache was merely a warning. Experts agree this is the right design.';
+  const styleOnly = detectSlop('The cache was merely a warning.', { rules: rulesForLayer('record'), deny: null });
+  assert.equal(styleOnly.length, 0, '"merely" is a word, not a claim');
+  const claim = detectSlop(record, { rules: rulesForLayer('record'), deny: null });
+  assert.ok(claim.some((f) => f.rule === 'SLOP-WEASEL'), '"Experts agree" has no source, in any layer');
 });

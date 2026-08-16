@@ -197,7 +197,11 @@ Every prose artifact you produce (ARCH docs, ADRs, RFCs, brain.md entries) follo
 **5-second self-check before generating prose:**
 1. Reader named (junior eng / on-call / cross-team reviewer)? — RULE-01
 2. Active voice unless agent unknown? — RULE-02
-3. No filler bullets, no em-dash habit, no "Additionally / In summary"? — RULES A, B, D, E
+3. Every claim carries its source, and no achievement language stands in for
+   a result? — RULES A, B, D, E. (Punctuation and word choice are not on this
+   list: a design review is not the place to audit em-dashes, and asking an
+   agent to watch its style while it reasons is what makes the reasoning
+   shorter than it should be.)
 4. Numbers attached to every claim of improvement? — RULE-08
 5. Citations or admitted absence of source? — RULE-H
 
