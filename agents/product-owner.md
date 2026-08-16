@@ -132,7 +132,29 @@ Write `docs/product/BRIEF-{slug}.md`:
 ## Differentiated wedge (why US, vs the named incumbents — one sharp sentence;
                          "do the simpler thing first" is not a wedge)
 ## Debate digest  (strongest FOR · strongest AGAINST · what flipped it · dissent)
-## Scope          (in / out for v1)
+## Scope          (in / out for v1 — every IN item gets an R-number, see below)
+
+### Numbering what you ask for
+
+Every IN-scope item in `## Scope` carries an `R`-number, declared at the START of
+its bullet:
+
+```markdown
+- **R1** — the board opens on one screen that names what needs a decision
+- **R2** — an empty project reads differently from one that could not be read
+```
+
+Downstream artefacts cite the bare number wherever they address it — an ARCH
+section, a plan item, a bead title. Nothing more than `R1` in the prose; a syntax
+people have to remember is a syntax people forget.
+
+This exists so `scripts/lib/requirement-coverage.mjs` can answer the one question
+no check here asked before: what did the brief ask for that nothing downstream
+picked up. Without the numbers it reports "no requirements declared", which is
+honest and useless. A requirement raised in prose and silently dropped between
+the brief and the plan is invisible today, and every document involved passes its
+own lint.
+
 ## Risks & kill-criteria  (each KILL must have a THRESHOLD — a number or date that
                           triggers stop — AND name its measurement owner/source, e.g.
                           "<15% slot refill at 60d [owner: PM, source: ROI dashboard]";
