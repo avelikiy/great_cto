@@ -4,10 +4,49 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased
 
+### A document goes stale on a date its author chose
 
+- **`stale_after`** (`scripts/lib/freshness.mjs`). `artifact-lint` derived
+  freshness from mtime, so a typo fix rejuvenated a document that stopped being
+  true months earlier. Measured before proposed: 13 of 159 documents read
+  fresher than their last substantive edit, worst case 76 days — 8%, real and
+  smaller than the problem had been described as.
+  An author writes `stale_after: YYYY-MM-DD` in frontmatter, or
+  `**Stale after:** YYYY-MM-DD` inline where a document has no frontmatter at
+  all — which is how this repository's own ADRs are dated. Where present it is
+  authoritative and compared against `now` with no reference to when the file
+  was last touched. Where absent, the previous rule still applies and the report
+  says which rule judged the document: three verdicts (`fresh` | `stale` |
+  `unknown`), never two, and a document with neither field reads `unknown`
+  rather than fresh forever.
+  `now` is injected once at startup (`--now`, `GREAT_CTO_NOW`), so every state
+  is reachable in a test without a timer hack. `--json` gains a `freshness[]`
+  audit array recording the verdict for every judged artifact, including the
+  ones that produce no warning. Warn-only, as freshness has always been.
+  Adapted from the `stale_after` field in `scaccogatto/okf-skills`; the format
+  itself is not adopted.
 
+### One eval is not breadth
 
+- **`notify-thin`** (`scripts/lib/gate-tier.mjs`). Of the fifteen agents whose
+  gate stood down under `gate-tiering: evidence`, fourteen qualified on a single
+  eval file — roughly eighteen trials — and rendered identically to the one
+  agent with four. The statistics were never wrong: the interval clears the bar
+  on the cases that exist, and says nothing about whether those cases span what
+  the agent answers for.
+  So a third tier. `notify` is conclusive on two or more evals; `notify-thin` is
+  conclusive on one, where the statistics are sound and the coverage is
+  unmeasured; `gated` names its reason as before. This does not measure
+  coverage — nothing here can, and claiming otherwise would repeat the defect a
+  storey up. It marks where coverage is unmeasured so a narrow result stops
+  reading like a broad one.
+  Whether a thin tier stands its gate down is the project's policy, not the
+  tier's fact: **`gate-tiering: evidence` is unchanged** and still stands
+  fifteen gates down, while the new **`gate-tiering: evidence-broad`** restores
+  the fourteen a single eval cannot justify. An unrecognised mode reads as
+  `off` — a misspelt setting must never buy a stand-down.
 
 
 
