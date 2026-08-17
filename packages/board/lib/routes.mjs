@@ -551,6 +551,51 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
+  // Gate tiers — will this gate wait for you, or announce and proceed?
+  //
+  // A gate card offered Approve/Reject regardless, which is the right control
+  // for a `gated` gate and the wrong one for a tiered gate that already went
+  // ahead. Two states rendered where the machinery has three.
+  //
+  // `enabled` is returned alongside, because a tier is only in force when the
+  // project opted in with `gate-tiering: evidence`. Showing "notify" on a
+  // project that never opted in would describe a stand-down that will not
+  // happen — the mirror image of the defect this whole feature guards.
+  if (pathname === '/api/gate-tiers') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    try {
+      const { tierAll, tieringEnabled } = await import('../../../scripts/lib/gate-tier.mjs');
+      const { fileURLToPath: f2u } = await import('node:url');
+      const libDir = path.dirname(f2u(import.meta.url));
+      const histPath = path.join(libDir, '..', '..', '..', 'tests', 'eval', 'results-history.jsonl');
+
+      let enabled = false;
+      try { enabled = tieringEnabled(fs.readFileSync(path.join(c, '.great_cto', 'PROJECT.md'), 'utf8')); }
+      catch { /* no PROJECT.md — tiering is off, which is the safe reading */ }
+
+      const rows = [];
+      let historyRead = false;
+      try {
+        for (const line of fs.readFileSync(histPath, 'utf8').split('\n')) {
+          if (!line.trim()) continue;
+          try { rows.push(JSON.parse(line)); } catch { /* a bad row is not evidence */ }
+        }
+        historyRead = true;
+      } catch { /* reported as unmeasured below, never as gated-because-fine */ }
+
+      const byAgent = {};
+      for (const t of tierAll(rows)) byAgent[t.agent] = { tier: t.tier, why: t.why, evals: t.evals };
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ enabled, measured: historyRead, agents: byAgent }));
+    } catch (e) {
+      // The real error. An agent missing from `agents` reads as unmeasured on the
+      // client, which keeps its gate — the correct direction to be wrong in.
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ enabled: false, measured: false, agents: {}, why: String(e?.message || e) }));
+    }
+    return true;
+  }
+
   // Stand-downs — gates that proceeded WITHOUT being asked, and on what evidence.
   //
   // ADR-009: a gate is not the only valid answer, but silence is never one. An

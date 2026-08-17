@@ -2802,6 +2802,43 @@ function renderInbox(d) {
     'Some project data could not be read — counts below are incomplete.');
 }
 
+// Will this gate wait for you, or did the pipeline already go past it?
+//
+// `null` until fetched, and it stays null on any failure — every render path
+// treats "no tier information" as "this gate waits", which is the reading that
+// keeps a human in the loop when we do not know.
+let gateTiers = null;
+async function refreshGateTiers() {
+  const d = await api(`/api/gate-tiers${pqs()}`);
+  gateTiers = d && d.agents ? d : null;
+}
+
+/**
+ * The tier line for a gate card, or '' when it would say nothing true.
+ *
+ * Three readings, not two:
+ *   - tiering off for this project, or the agent unmeasured → nothing shown, the
+ *     gate waits, which is what the buttons already imply
+ *   - `gated` → nothing shown for the same reason
+ *   - `notify` / `notify-thin` → said out loud, because the pipeline did NOT
+ *     wait for this decision and the Approve button alone implies it did
+ */
+function gateTierNote(t) {
+  if (!gateTiers?.enabled || !gateTiers?.measured) return '';
+  const info = gateTiers.agents?.[t.agent];
+  if (!info || info.tier === 'gated') return '';
+  const thin = info.tier === 'notify-thin';
+  const colour = thin ? 'var(--status-gate)' : 'var(--text3)';
+  // `notify-thin` is sound statistics over unmeasured coverage — one eval passed
+  // conclusively, which says nothing about the rest of what this agent is for.
+  // It is the reading most worth a second look, so it reads differently.
+  const caveat = thin ? ' — one eval, coverage unmeasured' : '';
+  return `<div style="margin-top:3px;font-size:11px;color:${colour}">
+    <span style="font-family:var(--mono);border:1px solid var(--border);border-radius:3px;padding:0 4px">${esc(info.tier)}</span>
+    the pipeline did not wait for this${esc(caveat)} · <span title="${esc(info.why || '')}">${esc((info.why || '').slice(0, 90))}</span>
+  </div>`;
+}
+
 // Gates that announced instead of waiting.
 //
 // Three states, not two. `none` hides the section — nothing has proceeded
@@ -2883,16 +2920,21 @@ function renderInboxList(rootId, items, countId, opts = {}) {
          </div>`
       : `<div class="actions"><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${t.status || ''}</span></div>`;
     const desc = t.description ? `<span class="ttl-desc">${esc(t.description.slice(0, 140))}${t.description.length > 140 ? '…' : ''}</span>` : '';
+    // Only gate rows can stand down, so only they carry the note.
+    const tierNote = opts.showApprove ? gateTierNote(t) : '';
     return `
       <div class="inbox-row" onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         <span class="id">${esc(t.id || '')}</span>
-        <span class="ttl">${esc(t.title)}${desc}<span class="meta">${meta}</span></span>
+        <span class="ttl">${esc(t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
         ${actions}
       </div>`;
   }).join('');
 }
 
 async function refreshInbox() {
+  // Tiers first: the gate rows are rendered from this same call, and a row drawn
+  // before the tiers arrive would silently claim every gate is waiting.
+  await refreshGateTiers();
   const d = await api(`/api/inbox${pqs()}`);
   if (d) renderInbox(d);
   refreshPipeline();
