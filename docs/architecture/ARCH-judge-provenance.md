@@ -1,5 +1,8 @@
 # ARCH — judge provenance on eval result rows
 
+**Date:** 2026-08-06
+**Stale after:** 2027-02-02
+
 Reader: the senior-dev who will implement this, and the on-call engineer who reads
 `eval-gate` output before promoting a prompt. The decision: put two fields on each
 aggregate result row so a reader can tell which judge produced the rate, and make
@@ -116,7 +119,7 @@ them — does not go through `eval-gate`. It runs the runner twice with `--judge
 reads the numbers by hand, which is what the benchmark doc already did. `eval-gate`
 is the promotion gate; refusing a cross-judge promotion there is the correct answer.
 
-## 4. Blast radius
+## 4. Blast radius — the risks this carries
 
 | File | Change | Lines |
 |---|---|---|
@@ -152,7 +155,7 @@ Tests, checked against the change:
   low, but the runner change adds keys and a `deepEqual` on a whole row would catch
   them.
 
-## 5. What I deliberately did not design
+## 5. Non-goals — what I deliberately did not design
 
 - **No backfill of old rows.** Append-only forbids it, and "absent means rubric"
   makes it needless.

@@ -25,6 +25,38 @@ hierarchy and polish.
 
 ---
 
+## 0. Design system and component inventory
+
+A review audits the system already shipped rather than proposing one, so both
+are recorded here as found — and stated up front, because the token list below
+is what every contrast number in §2a is computed against.
+
+**Design system in play.** The landing has one, defined as CSS custom properties
+in `styles.css` `:root` and used consistently: surfaces `--bg-page #0a0e0c`,
+`--bg-card #11161a`, `--surface-2 #171d21`; text `--text #ecf2ee`,
+`--text-2 #8a9a92`, `--text-3 #7d8f86`; accents `--accent #00d97e`,
+`--p0 #ff5466`. The README has no design system of its own and inherits
+GitHub's markdown renderer, which is why its findings are hierarchy and wording
+rather than colour.
+
+One gap, and it is the source of the only real accessibility failure: **`--muted`
+is referenced by generated markup and never defined** in `:root`, so it silently
+falls back to a light-theme literal on a dark page. A token that does not exist
+resolves to something rather than failing — the same shape as every other defect
+this repository keeps removing.
+
+**Components reviewed.**
+
+| Component | Surface | Verdict |
+|---|---|---|
+| Industry keyword chip (generated) | landing | **FAIL** — 2.62:1, undefined token |
+| Hero + eyebrow + primary CTA | landing | pass |
+| Archetype hub cards (`.ap-hubmeta`, `.ap-hubtag`) | landing | pass |
+| Receipts panel + `--p0` kicker | landing | pass |
+| Sub-page nav | `site/*.html` | **FAIL** — links a dead `/#archetypes` anchor |
+| Badge row, agent-count claims | README + landing | **FAIL** — four different numbers |
+| Heading order, landmarks, focus, reduced-motion | both | pass |
+
 ## 1. Information hierarchy, per surface
 
 ### 1a. README — order the eye hits it

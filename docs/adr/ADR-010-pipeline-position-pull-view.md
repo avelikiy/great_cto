@@ -1,6 +1,7 @@
 # ADR-010: Pipeline position is a pull-view over the state the dispatcher pushes
 
 Date: 2026-08-06
+**Stale after:** 2027-02-02
 Status: PROPOSED
 
 ## Context
@@ -61,8 +62,8 @@ The view never writes, spawns, approves a gate, or re-derives transition logic.
   rollback is a commit revert with no data surface.
 - Negative: a soft coupling — the position lib imports pure functions from a *hooks*
   file. Acceptable today (those functions are already exported and test-consumed);
-  the clean fix (extract shared parsers to `scripts/lib/pipeline-core.mjs`) is
-  deferred as out of scope for this Small change.
+  the clean fix — a planned `scripts/lib/pipeline-core.mjs` holding the shared
+  parsers — is out of scope for this Small change.
 - Risks: the newest-event cursor can look surprising during out-of-order re-entry
   (a later early-agent success supersedes an earlier downstream success). This is the
   intended semantics and is documented in the ARCH; it matches ADR-005 re-entry.

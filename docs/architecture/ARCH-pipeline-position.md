@@ -1,5 +1,8 @@
 # ARCH — pipeline position (where is the pipeline right now)
 
+**Date:** 2026-08-06
+**Stale after:** 2027-02-02
+
 Reader: the senior-dev who will implement this, and any contributor who runs
 `/inbox` or the board, sees no injected `PIPELINE-NEXT` directive, and cannot tell
 whether the pipeline is *waiting on a human gate* or *simply stalled*. The
@@ -194,7 +197,7 @@ log lines are treated strictly as data — parsed field-by-field, never executed
 interpolated into a shell/eval. Path input is confined to `--dir`; there is no
 user-supplied path that reaches beyond the project dir. No new attack surface.
 
-## Safeguards
+## Risks and the safeguards that answer them
 
 - [ ] **S1 (data-fidelity, correctness):** a `BLOCKED`/`FAIL`/`REJECTED` newest
       verdict MUST render as `position: 'blocked'` with `next: []` — a blocked
