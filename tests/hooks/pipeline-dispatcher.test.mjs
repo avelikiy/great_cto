@@ -686,3 +686,80 @@ test('nothing to contradict the verdict leaves it alone', () => {
   assert.equal(verdictBelongsToRun({ ts: 'not-a-date' }, Date.now()), true);
   assert.equal(verdictBelongsToRun({}, Date.now()), true);
 });
+
+// ── Edges that did not exist, and a verdict nothing listened for ─────────────
+//
+// Found by walking shared/pipeline.toml against agents/*.md: eight agents were
+// reachable only through routing prose in SKILL.md and had no transition here,
+// so decideNext named no next stage and the chain stopped after them. The two
+// that mattered were auth-engineer and subscription-billing-engineer —
+// authentication and money, finishing with nothing routing them onward.
+
+const MAP = parsePipelineToml(PIPELINE_TOML);
+
+test('every contract-stage specialist routes into implementation, not into review', () => {
+  // A contract is a document. Pointing these at code-reviewer would review the
+  // wrong artefact and skip the implementation the contract exists to direct.
+  for (const a of ['auth-engineer', 'subscription-billing-engineer', 'integrations-engineer',
+    'connector-builder', 'media-pipeline-engineer', 'geo-routing-engineer']) {
+    assert.ok(MAP[a], `${a} has no transition`);
+    assert.deepEqual(MAP[a].next, ['senior-dev'], `${a} should hand its contract to senior-dev`);
+  }
+});
+
+test('auth and billing reach security-officer by following their edges', () => {
+  // The whole point of the gap: work that finishes and looks reviewed. Walk it.
+  const seen = new Set();
+  let frontier = ['auth-engineer', 'subscription-billing-engineer'];
+  while (frontier.length) {
+    const nxt = [];
+    for (const a of frontier) {
+      if (seen.has(a)) continue;
+      seen.add(a);
+      for (const n of (MAP[a]?.next || [])) nxt.push(n);
+    }
+    frontier = nxt;
+  }
+  assert.ok(seen.has('code-reviewer'), 'must reach code review');
+  assert.ok(seen.has('security-officer'), 'must reach security-officer — this is the gap that existed');
+});
+
+test('the mobile builder takes the code path and the e2e sweeper ends at deploy', () => {
+  assert.deepEqual(MAP['mobile-app-builder'].next, ['code-reviewer']);
+  assert.deepEqual(MAP['e2e-test-engineer'].next, ['devops']);
+  assert.ok(MAP['e2e-test-engineer'].on.includes('PASSED'), 'its own prompt writes PASSED, not DONE alone');
+});
+
+test('data import is gated, because re-importing destroys work that followed it', () => {
+  assert.ok((MAP['migration-import-engineer'].gate || []).includes('gate:import'));
+});
+
+test('INCIDENT routes to a fix; OK still ends the chain', () => {
+  // l3-support was always instructed to write <OK|INCIDENT>. Nothing matched
+  // INCIDENT, and decideNext returns null for an unrecognised token — so
+  // production broke, the agent said so in the verdict log, and the dispatcher
+  // was SILENT. Not a halt, not a route. Indistinguishable from a quiet night.
+  const incident = decideNext({
+    agent: 'l3-support', transitions: MAP,
+    verdict: { verdict: 'INCIDENT' }, activeGates: [],
+  });
+  assert.ok(incident, 'an incident must produce a decision, not silence');
+  assert.equal(incident.kind, 'next');
+  assert.match(incident.text, /senior-dev/);
+
+  const ok = decideNext({
+    agent: 'l3-support', transitions: MAP,
+    verdict: { verdict: 'OK' }, activeGates: [],
+  });
+  assert.equal(ok.kind, 'done', 'a quiet night is still the end of the chain');
+});
+
+test('a verdict-keyed branch cannot widen anything by accident', () => {
+  // Only an exact match routes. A neighbouring token must not fall into the
+  // branch — that would turn a typo into a dispatch.
+  const other = decideNext({
+    agent: 'l3-support', transitions: MAP,
+    verdict: { verdict: 'INCIDENTS' }, activeGates: [],
+  });
+  assert.equal(other, null, 'no branch, no default match → still silent, as before');
+});

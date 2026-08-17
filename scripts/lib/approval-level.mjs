@@ -42,6 +42,21 @@ const REGULATED = new Set([
 ]);
 const REGULATED_FLOOR = ['security', 'compliance'];
 
+/**
+ * Gates that apply at EVERY level, including `auto`.
+ *
+ * The levels above trade review depth for speed, which is the operator's call.
+ * This is a different axis, and ADR-009 states it: an operation that destroys
+ * evidence needs a human wherever it sits, regardless of position or policy.
+ *
+ * `import` is here because re-importing over records someone has since edited
+ * cannot be undone — `migration-import-engineer` says so in its own prompt. A
+ * level is a statement about how much review you want; it is not permission to
+ * overwrite a client's data unattended, and a floor of `[]` at `auto` would have
+ * made it exactly that.
+ */
+const IRREVERSIBLE_FLOOR = ['import'];
+
 export function isRegulated(archetype) {
   return REGULATED.has(String(archetype || '').toLowerCase());
 }
@@ -59,12 +74,15 @@ export function gatesForApprovalLevel(level, { archetype } = {}) {
   const key = LEVEL_GATES[level] ? level : DEFAULT_LEVEL;
   const base = [...LEVEL_GATES[key]];
 
+  // Applies at every level, `auto` included — see IRREVERSIBLE_FLOOR.
+  for (const g of IRREVERSIBLE_FLOOR) if (!base.includes(g)) base.push(g);
+
   if (isRegulated(archetype)) {
     for (const g of REGULATED_FLOOR) if (!base.includes(g)) base.push(g);
     if (!base.includes('ship')) base.push('ship');
   }
 
-  const order = ['product', 'arch', 'plan', 'code', 'qa', 'security', 'compliance', 'ship'];
+  const order = ['product', 'arch', 'plan', 'code', 'import', 'qa', 'security', 'compliance', 'ship'];
   return [...new Set(base)].sort((a, b) => order.indexOf(a) - order.indexOf(b));
 }
 

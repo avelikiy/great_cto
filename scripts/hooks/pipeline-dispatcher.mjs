@@ -299,7 +299,18 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     return activeGates.includes(bare) || activeGates.includes(g);
   };
   const activeOf = (g) => gatesOf(g).filter(gateActive);
-  const rule = transitions[agent] ||
+  // A verdict-keyed branch wins over the agent's default edge.
+  //
+  // `[transitions.l3-support.INCIDENT]` routes only the INCIDENT verdict; OK
+  // still ends the chain. Without this, a token an agent is instructed to write
+  // but the map does not list falls through the `onTokens` check below and
+  // decideNext returns null — silence. l3-support shipped able to report an
+  // incident into a pipeline that would not react to the word.
+  //
+  // Looked up before the default so a branch cannot be shadowed, and only for an
+  // exact verdict match, so this cannot widen anything by accident.
+  const branch = verdict?.verdict ? transitions[`${agent}.${verdict.verdict}`] : null;
+  const rule = branch || transitions[agent] ||
     (agent.endsWith('-reviewer') ? { on: ['APPROVED', 'SIGNED-OFF', 'DONE'], next: ['senior-dev'] } : null);
   if (!rule) return null;
 

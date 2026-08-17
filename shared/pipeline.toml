@@ -83,7 +83,97 @@ next = ["l3-support"]
 on = ["OK", "DONE"]
 next = []
 
+# A verdict-keyed branch: `[transitions.<agent>.<VERDICT>]` overrides the agent's
+# default edge when that exact verdict is recorded.
+#
+# l3-support has always been able to say INCIDENT — its own prompt tells it to
+# write `<OK|INCIDENT>`. Nothing here matched that token, and decideNext returns
+# null for a token it does not recognise, so the dispatcher said NOTHING. Not a
+# halt, not a route: production broke, the agent reported it in the verdict log,
+# and the pipeline was silent. An incident that produces no next stage is
+# indistinguishable from a quiet night.
+#
+# The chain: fix it, review it, verify it, ship it, and confirm it is actually
+# resolved. `gate:ship` still sits on the qa/security edge, so a hotfix reaches
+# production through the same door as everything else — an incident is a reason
+# to hurry, not a reason to skip.
+#
+# The postmortem is not modelled as a stage. l3-support already writes one and
+# reports its path in `pm=`; a stage that produces a document the agent has
+# already produced would measure obedience rather than learning.
+[transitions.l3-support.INCIDENT]
+on = ["INCIDENT"]
+next = ["senior-dev"]
+
 # Contract-stage specialists: they gate senior-dev, not each other.
+#
+# Each writes ONE document that senior-dev then implements against. They were
+# reachable by topic-routing prose in SKILL.md and had no edge here, so the
+# dispatcher named no next stage after them and the chain stopped — the work was
+# done and nothing said what followed. `auth-engineer` and
+# `subscription-billing-engineer` are the two that matter most: authentication
+# and money, finishing without anything routing them onward to implementation
+# and from there to security-officer.
+#
+# They point at senior-dev, NOT at code-reviewer. A contract is a document; code
+# review of a document reviews the wrong artefact, and jumping to review would
+# skip the implementation the contract exists to direct.
+[transitions.auth-engineer]
+on = ["DONE"]
+next = ["senior-dev"]
+
+[transitions.subscription-billing-engineer]
+on = ["DONE"]
+next = ["senior-dev"]
+
+[transitions.integrations-engineer]
+on = ["DONE"]
+next = ["senior-dev"]
+
+[transitions.connector-builder]
+on = ["DONE"]
+next = ["senior-dev"]
+
+[transitions.media-pipeline-engineer]
+on = ["DONE"]
+next = ["senior-dev"]
+
+[transitions.geo-routing-engineer]
+on = ["DONE"]
+next = ["senior-dev"]
+
+# Writes code, so it takes senior-dev's path rather than a contract-stage one.
+# `mobile-store-reviewer` is not named here on purpose: it auto-attaches by file
+# pattern (scripts/hooks/auto-attach-reviewers.mjs), and naming it as `next`
+# would route policy sign-off ahead of code review instead of alongside it.
+[transitions.mobile-app-builder]
+on = ["DONE"]
+gate = ["gate:code"]
+next = ["code-reviewer"]
+
+# Runs after qa passes and replays against the live URL, so its success is the
+# last thing before a deploy rather than a step needing review.
+[transitions.e2e-test-engineer]
+on = ["PASSED", "DONE"]
+next = ["devops"]
+
+# Data import is the one edge in this map that destroys evidence.
+#
+# The agent's own prompt says "Rollback destroys post-import work", and its human
+# approval lived only in that prose — a sentence asking an operator to confirm a
+# dry-run, with nothing the dispatcher tracks. Re-importing over records someone
+# has since edited cannot be undone, which is ADR-009's "destroys evidence" test,
+# so it takes a real gate rather than a request to be careful.
+#
+# `gate:import` is active at EVERY approval level, including `auto` — see
+# IRREVERSIBLE_FLOOR in scripts/lib/approval-level.mjs. Choosing a faster level
+# is a statement about how much review you want, not permission to overwrite a
+# client's data unattended.
+[transitions.migration-import-engineer]
+on = ["DONE"]
+gate = ["gate:import"]
+next = ["senior-dev"]
+
 [transitions.ai-prompt-architect]
 on = ["APPROVED", "DONE"]
 next = ["ai-eval-engineer"]
