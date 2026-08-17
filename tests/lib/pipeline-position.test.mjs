@@ -226,7 +226,11 @@ test('S4: pipelinePosition() returns exactly the documented top-level keys', () 
   // `notified` joined the contract with phase 5: the gates that stood down
   // rather than blocking. It is part of the shape rather than an extra, because
   // a caller that cannot see which decision was skipped cannot report it.
-  assert.deepEqual(Object.keys(r).sort(), ['cursor', 'gates', 'next', 'notified', 'position', 'stages', 'summary']);  // `source` is a CLI concern — the function answers about state it was handed
+  // `standDown` joined it with GATE-R1..R3: which of three things happened to a
+  // tiered gate — recorded, unrecordable, or never tiered. Two states could not
+  // carry it, and a stand-down nobody can audit is the defect tiering exists to
+  // avoid.
+  assert.deepEqual(Object.keys(r).sort(), ['cursor', 'gates', 'next', 'notified', 'position', 'stages', 'standDown', 'summary']);  // `source` is a CLI concern — the function answers about state it was handed
 });
 
 test('S4: each stage entry has the documented shape', () => {
@@ -356,7 +360,7 @@ test('CLI --json emits the documented shape', () => {
     const r = runCli(dir, ['--json']);
     assert.equal(r.exit, 0);
     const out = JSON.parse(r.stdout);
-    assert.deepEqual(Object.keys(out).sort(), ['cursor', 'gates', 'next', 'notified', 'position', 'source', 'stages', 'summary']);
+    assert.deepEqual(Object.keys(out).sort(), ['cursor', 'gates', 'next', 'notified', 'position', 'source', 'stages', 'standDown', 'summary']);
     assert.equal(out.position, 'awaiting-gate');
     assert.deepEqual(out.next, ['pm']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -470,14 +474,23 @@ test('a gate stands when its agent is not tiered', () => {
   assert.deepEqual(p.notified, [], 'nothing stood down');
 });
 
-test('a tiered agent proceeds, and the gate it passed is NAMED', () => {
+test('a tiered agent proceeds once the stand-down is RECORDED, and the gate is named', () => {
   const transitions = { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } };
   const verdicts = { architect: { agent: 'architect', verdict: 'APPROVED', ts: new Date().toISOString(), canonical: true } };
-  const p = pipelinePosition({ transitions, verdicts, readGates: () => [], notifyOnly: new Set(['architect']) });
+  const written = [];
+  const p = pipelinePosition({
+    transitions, verdicts, readGates: () => [], notifyOnly: new Set(['architect']),
+    recordStandDown: (rec) => { written.push(rec); return { recorded: true, why: 'written' }; },
+    tierName: 'notify', tierWhy: 'architect conclusively passed its holdout',
+  });
   assert.equal(p.position, 'ready-to-dispatch');
   assert.deepEqual(p.notified, ['gate:arch']);
+  assert.equal(p.standDown.state, 'recorded');
   assert.match(p.summary, /notify-only/);
   assert.match(p.summary, /conclusively passed/, 'and the summary says why it did not ask');
+  assert.equal(written.length, 1, 'and something actually witnessed it');
+  assert.equal(written[0].gate, 'arch');
+  assert.equal(written[0].agent, 'architect');
 });
 
 test('tiering another agent does not stand this gate down', () => {
@@ -493,4 +506,89 @@ test('an absent notifyOnly behaves exactly as before', () => {
   for (const n of [null, undefined]) {
     assert.equal(pipelinePosition({ transitions, verdicts, readGates: () => [], notifyOnly: n }).position, 'awaiting-gate');
   }
+});
+
+// ── GATE-R1..R3: a gate that stands down must leave a record ─────────────────
+//
+// Six days of `gate-tiering: evidence` had no such guarantee. The stand-down
+// entry was meant to reach the board's inbox; if that write failed the stage
+// proceeded anyway, leaving a gate that stood down and a gate that stood down
+// and told nobody indistinguishable. That is the defect tiering was built to
+// avoid, shipped inside it.
+
+const TIERED = {
+  transitions: { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } },
+  verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: new Date().toISOString(), canonical: true } },
+};
+
+test('GATE-R2: a stand-down that cannot be recorded does not happen — the gate waits', () => {
+  const p = pipelinePosition({
+    ...TIERED, readGates: () => [], notifyOnly: new Set(['architect']),
+    recordStandDown: () => ({ recorded: false, why: 'disk full' }),
+  });
+  assert.equal(p.position, 'awaiting-gate', 'fail-closed: the human is still asked');
+  assert.deepEqual(p.notified, [], 'and nothing claims to have been announced');
+  assert.equal(p.standDown.state, 'unrecordable');
+  assert.match(p.summary, /disk full/, 'the real reason, not a guess about it');
+});
+
+test('GATE-R2: a recorder that THROWS is a recorder that failed, not a crash', () => {
+  // Every way of failing has to end with the human still being asked.
+  const p = pipelinePosition({
+    ...TIERED, readGates: () => [], notifyOnly: new Set(['architect']),
+    recordStandDown: () => { throw new Error('beads unreachable'); },
+  });
+  assert.equal(p.position, 'awaiting-gate');
+  assert.equal(p.standDown.state, 'unrecordable');
+  assert.match(p.standDown.why, /beads unreachable/);
+});
+
+test('GATE-R2: no recorder at all is not permission to proceed', () => {
+  // The default must not assume somebody else wrote it down. This is the exact
+  // state the feature shipped in, and it is now a refusal.
+  const p = pipelinePosition({ ...TIERED, readGates: () => [], notifyOnly: new Set(['architect']) });
+  assert.equal(p.position, 'awaiting-gate');
+  assert.equal(p.standDown.state, 'unrecordable');
+  assert.match(p.standDown.why, /no stand-down recorder/);
+});
+
+test('GATE-R1: the record names the gate, the agent, the tier and the evidence', () => {
+  const seen = [];
+  pipelinePosition({
+    ...TIERED, readGates: () => [], notifyOnly: new Set(['architect']),
+    recordStandDown: (rec) => { seen.push(rec); return { recorded: true, why: 'ok' }; },
+    tierName: 'notify-thin', tierWhy: '1 eval conclusively passed — coverage unmeasured',
+  });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].gate, 'arch');
+  assert.equal(seen[0].agent, 'architect');
+  assert.equal(seen[0].tier, 'notify-thin', 'which tier stood it down, not merely that one did');
+  assert.match(seen[0].evidence, /coverage unmeasured/);
+  assert.ok(Number.isFinite(seen[0].at), 'and when');
+});
+
+test('GATE-R1: the record is written BEFORE the position says proceed', () => {
+  // Ordering is the requirement. Recording after returning would leave a window
+  // in which the pipeline has been told to go and nothing yet witnesses it.
+  let recordedAt = null;
+  const p = pipelinePosition({
+    ...TIERED, readGates: () => [], notifyOnly: new Set(['architect']),
+    recordStandDown: () => { recordedAt = 'during'; return { recorded: true, why: 'ok' }; },
+  });
+  assert.equal(recordedAt, 'during', 'the recorder ran inside the call, not after it');
+  assert.equal(p.position, 'ready-to-dispatch');
+});
+
+test('GATE-R3: an untiered gate is not-applicable, which is neither of the other two', () => {
+  const p = pipelinePosition({ ...TIERED, readGates: () => [], notifyOnly: new Set(['someone-else']) });
+  assert.equal(p.position, 'awaiting-gate');
+  assert.equal(p.standDown.state, 'not-applicable', 'never tiered is not the same as failed to record');
+});
+
+test('GATE-R3: the three states are distinguishable from the contract alone', () => {
+  const states = new Set();
+  states.add(pipelinePosition({ ...TIERED, readGates: () => [], notifyOnly: new Set(['someone-else']) }).standDown.state);
+  states.add(pipelinePosition({ ...TIERED, readGates: () => [], notifyOnly: new Set(['architect']), recordStandDown: () => ({ recorded: false, why: 'x' }) }).standDown.state);
+  states.add(pipelinePosition({ ...TIERED, readGates: () => [], notifyOnly: new Set(['architect']), recordStandDown: () => ({ recorded: true, why: 'x' }) }).standDown.state);
+  assert.deepEqual([...states].sort(), ['not-applicable', 'recorded', 'unrecordable']);
 });

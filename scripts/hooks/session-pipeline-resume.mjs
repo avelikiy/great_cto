@@ -146,9 +146,41 @@ async function main() {
   const verdicts = readAllVerdicts(join(PROJ_DIR, 'verdicts'), { transitions });
   // Phase 5: gates whose agent conclusively passed its holdout announce rather
   // than wait. Off unless this project opted in; fails closed on any doubt.
-  const { notifyOnlyForProject } = await import('../lib/gate-tier.mjs');
+  const { notifyOnlyForProject, tierFor } = await import('../lib/gate-tier.mjs');
   const notifyOnly = await notifyOnlyForProject(process.cwd());
-  const position = pipelinePosition({ transitions, verdicts, activeGates, notifyOnly });
+
+  // GATE-R1/R2: the stand-down is recorded before the pipeline is told it may
+  // proceed, and an unwritable record means the gate does not stand down at all.
+  // This is the only production caller that tiers, so it is the only place the
+  // recorder has to be supplied — and supplying nothing here would silently
+  // restore every gate rather than fail open, which is the correct direction to
+  // be wrong in.
+  const { standDownRecorder } = await import('../lib/stand-down.mjs');
+  const now = Date.now();
+  const recordStandDown = standDownRecorder(process.cwd(), { at: now });
+
+  // Which tier stood it down, and on what — `notify` and `notify-thin` are the
+  // difference between plural evidence and one eval, and a record that does not
+  // say which cannot be audited for the thing most worth auditing.
+  let tierName = 'notify';
+  let tierWhy = '';
+  try {
+    const cursorAgent = Object.values(verdicts).sort((a, b) => (a.ts > b.ts ? -1 : 1))[0]?.agent;
+    if (cursorAgent) {
+      const { readFileSync: rf } = await import('node:fs');
+      const rows = [];
+      for (const line of rf('tests/eval/results-history.jsonl', 'utf8').split('\n')) {
+        if (!line.trim()) continue;
+        try { rows.push(JSON.parse(line)); } catch { /* a bad row is not evidence */ }
+      }
+      const t = tierFor(cursorAgent, { rows });
+      tierName = t.tier; tierWhy = t.why;
+    }
+  } catch { /* the record then says 'unknown', which is true and is not a pass */ }
+
+  const position = pipelinePosition({
+    transitions, verdicts, activeGates, notifyOnly, now, recordStandDown, tierName, tierWhy,
+  });
 
   let lastMarker = null; let lastTickAt = null;
   try {

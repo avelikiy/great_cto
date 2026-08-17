@@ -68,6 +68,18 @@ notification is an event, not state to be overwritten.
 
 ## Status
 
-Planned. The finding came from a subagent's analysis, verified against our own
-code path, and it is a gap I introduced — which is the reason to fix it before
-adding anything else from either survey.
+**Implemented.** `scripts/lib/stand-down.mjs` holds the record;
+`pipelinePosition` takes an injected `recordStandDown` and returns a three-state
+`standDown` field; `session-pipeline-resume.mjs` — the only production caller
+that tiers — supplies the recorder and the tier that stood the gate down.
+
+Two things the implementation found that the plan did not anticipate:
+
+- **The record must name the tier, not merely that a gate stood down.** `notify`
+  and `notify-thin` shipped the same day as this fix, and the difference between
+  plural evidence and one eval is exactly the thing worth auditing later.
+- **`pipelinePosition` is forbidden to write** (ARCH-pipeline-position S2, with a
+  test asserting no fs-write), so the recorder is injected rather than called.
+  That turned out to be the better shape anyway: the default is *no recorder*,
+  and no recorder means no stand-down. The feature's own shipped state is now a
+  refusal.

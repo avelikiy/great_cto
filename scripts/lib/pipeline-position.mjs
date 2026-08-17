@@ -206,7 +206,15 @@ export function pipelineOrder(transitions, verdicts = {}) {
  *                        // agent conclusively passed its holdout (phase 5). Named
  *                        // rather than omitted: a decision that was not asked for
  *                        // still has to be visible, or it is indistinguishable
- *                        // from a gate nobody configured.
+ *                        // from a gate nobody configured. A gate appears here only
+ *                        // once its stand-down has been durably recorded.
+ *   standDown: {         // GATE-R3 — which of three things happened, never two:
+ *     state: 'recorded'        //   the gate stood down and there is a record of it
+ *          | 'unrecordable'    //   it would have, the record failed, so it waits
+ *          | 'not-applicable', //   no gate on this edge was tiered
+ *     why: string,
+ *     gates: string[],
+ *   },
  *   stages: Array<{agent,status,verdict,ts,ageMs,fresh}>,
  *   summary: string,
  * }}
@@ -229,7 +237,29 @@ function gateStatesFor(rule, verdictTs, readGates) {
   return readGateStates(gates, beads, { verdictTs: verdictTs ?? null });
 }
 
-export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates = null, now = Date.now(), readGates = readGateBeads, notifyOnly = null } = {}) {
+/**
+ * Attempt the stand-down record, and never let it throw into the position.
+ *
+ * A recorder that throws must read as "not recorded" — which restores the gate —
+ * rather than crashing the view. Every way of failing here has to end with the
+ * human still being asked.
+ */
+function safeRecord(recordStandDown, { gates, agent, tier, evidence, at }) {
+  try {
+    // One record per gate. A single line covering two gates would make removing
+    // one of them later a rewrite of history rather than an append.
+    let last = { recorded: false, why: 'no gates on this edge to record' };
+    for (const g of gates) {
+      last = recordStandDown({ gate: g, agent, tier, evidence, at }) || { recorded: false, why: 'recorder returned nothing' };
+      if (!last.recorded) return last;
+    }
+    return last;
+  } catch (e) {
+    return { recorded: false, why: `recorder threw: ${String(e?.message || e)}` };
+  }
+}
+
+export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates = null, now = Date.now(), readGates = readGateBeads, notifyOnly = null, recordStandDown = null, tierName = 'notify', tierWhy = '' } = {}) {
   // Cursor = the verdict entry with the newest event timestamp (D2).
   let cursor = null;
   for (const agent of Object.keys(verdicts)) {
@@ -241,8 +271,13 @@ export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates 
   let next = [];
   let gates = [];
   // Gates that stood down rather than blocking — named so a reader can see which
-  // decision was not asked for, and why.
+  // decision was not asked for, and why. Only gates whose stand-down was RECORDED
+  // appear here; one that could not be recorded did not stand down.
   let notified = [];
+  // GATE-R3: three states, because two cannot carry the difference between a
+  // gate that stood down, a gate that would have but could not be recorded, and
+  // a gate that was never tiered at all.
+  let standDown = { state: 'not-applicable', why: 'no gate on this edge stood down', gates: [] };
   let summary;
 
   if (!cursor) {
@@ -290,11 +325,41 @@ export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates 
         // nobody configured, which is the defect this repository spent the week
         // removing.
         if (notifyOnly?.has?.(cursor.agent)) {
-          position = 'ready-to-dispatch';
-          notified = gates.map((g) => `gate:${g}`);
-          summary = `Position: ready-to-dispatch — ${cursor.agent} succeeded; `
-            + `${next.join(', ')} proceeding. ${notified.join(' + ')} is notify-only: `
-            + `${cursor.agent} conclusively passed its holdout, so this announces rather than waits.`;
+          // GATE-R1/R2: the stand-down is recorded BEFORE the pipeline is told it
+          // may proceed, and if it cannot be recorded the gate does not stand
+          // down at all.
+          //
+          // Six days of this feature had no such guarantee. The entry was meant
+          // to reach the board's inbox, and if that write failed the stage
+          // proceeded anyway — leaving a gate that stood down and a gate that
+          // stood down and told nobody indistinguishable. An unrecordable
+          // stand-down is a stand-down nobody can audit.
+          //
+          // The recorder is injected because this module is forbidden to write
+          // (ARCH S2, with a test asserting no fs-write). No recorder therefore
+          // means no stand-down — the default fails closed rather than assuming
+          // somebody else wrote it down.
+          const wanted = gates.map((g) => `gate:${g}`);
+          const evidence = tierWhy || `${cursor.agent} is in the project's notify-only set`;
+          const attempt = recordStandDown
+            ? safeRecord(recordStandDown, { gates, agent: cursor.agent, tier: tierName, evidence, at: now })
+            : { recorded: false, why: 'no stand-down recorder supplied — nothing would have witnessed this' };
+
+          if (attempt.recorded) {
+            position = 'ready-to-dispatch';
+            notified = wanted;
+            standDown = { state: 'recorded', why: attempt.why, gates: wanted };
+            summary = `Position: ready-to-dispatch — ${cursor.agent} succeeded; `
+              + `${next.join(', ')} proceeding. ${wanted.join(' + ')} is notify-only (${tierName}): `
+              + `${evidence}. Recorded, so this announces rather than waits.`;
+            break;
+          }
+
+          position = 'awaiting-gate';
+          standDown = { state: 'unrecordable', why: attempt.why, gates: wanted };
+          summary = `Position: awaiting-gate — ${cursor.agent} succeeded, and ${wanted.join(' + ')} `
+            + `would have stood down, but the record could not be written (${attempt.why}). `
+            + `Fail-closed: the gate waits, because a stand-down nobody can audit is not one.`;
           break;
         }
         position = 'awaiting-gate';
@@ -350,7 +415,7 @@ export function pipelinePosition({ transitions = {}, verdicts = {}, activeGates 
     };
   });
 
-  return { cursor, position, next, gates, notified, stages, summary };
+  return { cursor, position, next, gates, notified, standDown, stages, summary };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────
