@@ -13,6 +13,7 @@
 // Zero dependencies, like the rest of the board.
 
 import fs from 'node:fs';
+import { judgeFreshness } from '../../../scripts/lib/freshness.mjs';
 import path from 'node:path';
 
 /**
@@ -100,6 +101,38 @@ export function groupFor(rel) {
  * differently — the same reason the pipeline view labels a stale verdict rather
  * than hiding it.
  */
+/**
+ * One document's freshness, as three states rather than a date.
+ *
+ * `unknown` covers two different absences and says which: a file we could not
+ * read at all, and a file that simply declares no date. Neither may render as
+ * fresh — the whole reason `stale_after` exists is that a document nobody can
+ * judge must not look like one that passed.
+ */
+function freshnessOf(abs, nowMs = Date.now(), staleDays = 180) {
+  let text;
+  try { text = fs.readFileSync(abs, 'utf8'); }
+  catch (e) {
+    return { freshness: 'unknown', freshnessBasis: 'unreadable', staleAfter: null,
+      freshnessWhy: `could not read this file: ${String(e?.message || e)}` };
+  }
+  try {
+    const j = judgeFreshness({ text, dateType: 'any', nowMs, staleDays });
+    return {
+      freshness: j.verdict,
+      freshnessBasis: j.basis,
+      staleAfter: j.staleAfter,
+      freshnessWhy: j.basis === 'declared'
+        ? `the author declared it good until ${j.staleAfter}`
+        : (j.date ? `judged by its own date ${j.date} (${j.ageDays}d, threshold ${staleDays}d)`
+                  : 'no stale_after and no date — nothing to judge it by'),
+    };
+  } catch (e) {
+    return { freshness: 'unknown', freshnessBasis: 'unreadable', staleAfter: null,
+      freshnessWhy: String(e?.message || e) };
+  }
+}
+
 export function listDocs(root, { max = MAX_DOCS } = {}) {
   const found = [];
   for (const g of DOC_GROUPS) {
@@ -125,6 +158,12 @@ export function listDocs(root, { max = MAX_DOCS } = {}) {
       group: groupFor(d.rel),
       size: d.size,
       modified: d.modified,
+      // A modification time answers "when was this file last touched", which is
+      // a different question from "is this still true". A typo fix rejuvenates a
+      // document that stopped being true months earlier, and the list showed
+      // only the former. `judgeFreshness` gives three verdicts and names which
+      // rule produced each — see scripts/lib/freshness.mjs.
+      ...freshnessOf(d.abs),
     });
   }
 

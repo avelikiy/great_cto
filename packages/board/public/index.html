@@ -2284,6 +2284,9 @@ button { font-family: inherit; cursor: pointer; }
       <div class="inbox-page">
         <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
         <div class="inbox-summary" id="inbox-summary"></div>
+        <!-- Top rung of the evidence ladder: are the bytes that were reviewed
+             still the bytes in the tree? Hidden while they match. -->
+        <div id="inbox-receipt" style="display:none;margin:6px 0 2px;font-size:12px"></div>
 
         <!-- Resume — pick up where you left off -->
         <div class="resume-card" id="resume-card" style="display:none">
@@ -2788,6 +2791,7 @@ function renderInbox(d) {
   renderInboxList('inbox-blocked', d?.blocked || [], 'inbox-blocked-count', {});
   renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', {});
   refreshStandDowns();
+  refreshReceipt();
   // Idle focus: collapse the empty sections into one all-clear card when nothing needs a decision.
   const attention = (d?.pending_gates || []).length + (d?.p0_open || []).length
     + (d?.blocked || []).length + (d?.stale_in_progress || []).length;
@@ -2800,6 +2804,67 @@ function renderInbox(d) {
   if (ac) ac.style.display = (attention === 0 && !anyDegraded()) ? '' : 'none';
   renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
     'Some project data could not be read — counts below are incomplete.');
+}
+
+/**
+ * Does the last approval still describe what is in the tree?
+ *
+ * The reviewing agents already record a hash-bound receipt of the bytes they
+ * read. Nothing on this board looked at it, so the top rung of the evidence
+ * ladder was being written and never read.
+ *
+ * Five readings, and only three of them speak:
+ *   differs     reviewed files changed after the approval — the actionable one
+ *   unreadable  we could not tell. Shown, because "cannot check" must never
+ *               render as "checked and fine"
+ *   extended    new files appeared; nothing reviewed was altered — worth a
+ *               quiet line, since the addition was never reviewed either
+ *   matches     silent. A clean state does not need a banner.
+ *   no-receipt  silent. Nothing has been approved yet; saying so would nag
+ *               about a stage that has not happened.
+ */
+async function refreshReceipt() {
+  const el = document.getElementById('inbox-receipt');
+  if (!el) return;
+  const d = await api(`/api/receipt${pqs()}`);
+  if (!d || d.state === 'matches' || d.state === 'no-receipt') { el.style.display = 'none'; return; }
+
+  const stamp = d.agent ? `${esc(d.agent)}${d.ts ? ' · ' + relTime(d.ts) : ''}` : '';
+  const body = d.state === 'differs'
+    ? `<b>${(d.changed || []).length + (d.removed || []).length} reviewed file(s) changed since ${stamp} approved</b>
+       — the approval no longer describes what is in the tree.
+       <span class="muted">${esc((d.changed || []).slice(0, 4).join(', '))}${(d.changed || []).length > 4 ? ' …' : ''}</span>`
+    : d.state === 'unreadable'
+      ? `<b>Could not check the review receipt</b> — <span class="muted">${esc(d.why || '')}</span>. This is not the same as a clean tree.`
+      : `${(d.added || []).length} file(s) added since ${stamp} approved; nothing reviewed was altered.`;
+
+  const colour = d.state === 'matches' ? 'var(--text3)' : 'var(--status-gate)';
+  el.style.display = '';
+  el.innerHTML = `<span style="color:${colour}">${body}</span>`;
+}
+
+/**
+ * Is this document still true? — which is not the question `modified` answers.
+ *
+ * Three states, and the two that are not `fresh` look different from each other:
+ *
+ *   stale    the author's own `stale_after` has passed, or its date is older
+ *            than the threshold — say so, loudly, it is the actionable one
+ *   unknown  nothing to judge it by, OR the file could not be read. Both are
+ *            shown, because a document nobody could judge must never render the
+ *            same as one that passed. That equivalence is why stale_after exists.
+ *   fresh    nothing — a clean row should stay quiet
+ *
+ * Absent freshness data (an older board payload) also renders nothing, since
+ * inventing a verdict from a missing field is the defect itself.
+ */
+function freshnessBadge(doc) {
+  const v = doc?.freshness;
+  if (!v || v === 'fresh') return '';
+  const unreadable = doc.freshnessBasis === 'unreadable';
+  const colour = v === 'stale' ? 'var(--status-gate)' : 'var(--text3)';
+  const label = v === 'stale' ? 'stale' : (unreadable ? 'could not read' : 'unknown');
+  return `<span title="${esc(doc.freshnessWhy || '')}" style="font-family:var(--mono);font-size:10px;margin-left:6px;padding:0 4px;border:1px solid var(--border);border-radius:3px;color:${colour}">${esc(label)}</span>`;
 }
 
 // Will this gate wait for you, or did the pipeline already go past it?
@@ -3594,6 +3659,7 @@ async function loadDocs() {
         <div style="padding:4px 0;border-bottom:1px solid var(--border,#eee)">
           <a href="#" onclick="openDoc('${esc(doc.path)}');return false">${esc(doc.title)}</a>
           <span class="muted" style="font-size:11px"> · ${esc(doc.path)} · ${ago(doc.modified)}</span>
+          ${freshnessBadge(doc)}
         </div>`).join('')}</div>
       </div>`).join('');
 

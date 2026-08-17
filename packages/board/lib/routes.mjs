@@ -551,6 +551,37 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
+  // Receipt — does the approval still apply to what is in the tree?
+  //
+  // The reviewing agents already record a hash-bound receipt of the bytes they
+  // read, and those verdicts are in the log this board reads. Nothing surfaced
+  // them, so the top rung of the evidence ladder — the reviewed bytes are the
+  // shipped bytes — was being written and never looked at. An approval that no
+  // longer describes the tree is the one thing a gate button cannot tell you.
+  if (pathname === '/api/receipt') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    let out;
+    try {
+      const { latestApproval, treeReceipt, compareReceipts, mergeBase } = await import('../../../scripts/lib/receipt.mjs');
+      const approval = latestApproval(c);
+      if (!approval?.receipt) {
+        out = { state: 'no-receipt', why: 'no approving verdict carries a receipt yet', agent: approval?.agent || null, ts: approval?.ts || null };
+      } else {
+        const current = treeReceipt(c, { base: approval.receipt.base || mergeBase(c) });
+        const cmp = compareReceipts(approval.receipt, current, { cwd: c });
+        out = { ...cmp, agent: approval.agent, ts: approval.ts };
+      }
+    } catch (e) {
+      // Never "matches" on an error. Not knowing whether the approval still
+      // holds is its own state, and calling it a match would put the strongest
+      // reassurance exactly where the least is known.
+      out = { state: 'unreadable', why: String(e?.message || e), agent: null, ts: null };
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(out));
+    return true;
+  }
+
   // Gate tiers — will this gate wait for you, or announce and proceed?
   //
   // A gate card offered Approve/Reject regardless, which is the right control
