@@ -22,11 +22,13 @@
  *   node scripts/hooks/artifact-lint.mjs                 # report, exit 0 (warn-only)
  *   node scripts/hooks/artifact-lint.mjs --enforce       # exit 1 if any ERROR
  *   node scripts/hooks/artifact-lint.mjs --stale-days 90
+ *   node scripts/hooks/artifact-lint.mjs --now 2026-08-17 # inject `now` (tests, replay)
  *   node scripts/hooks/artifact-lint.mjs --json
  *
  * Env:
  *   GREAT_CTO_ENFORCE_ARTIFACTS=1   → structural ERRORs block (same as --enforce)
  *   GREAT_CTO_STALE_DAYS=<n>        → override staleness threshold
+ *   GREAT_CTO_NOW=<YYYY-MM-DD>      → override `now` (--now takes precedence)
  *
  * Exit: 0 = ok / warn-only, 1 = structural ERROR under enforcement, 2 = bad args.
  */
@@ -34,6 +36,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, basename } from 'node:path';
 import { deadSourceRefs } from '../lib/source-refs.mjs';
+import { judgeFreshness } from '../lib/freshness.mjs';
 
 // ---------------------------------------------------------------------------
 // Artifact type registry — extend here as new agent outputs get canonicalized.
@@ -118,6 +121,23 @@ if (!Number.isFinite(staleDays) || staleDays <= 0) {
   process.exit(2);
 }
 
+// `now` is resolved ONCE here — nothing downstream (freshness.mjs, ageDays)
+// calls Date.now() itself, so every freshness state is reproducible from a
+// fixed clock. Precedence: --now > GREAT_CTO_NOW > real clock (default).
+const nowIdx = args.indexOf('--now');
+const nowArg = nowIdx !== -1 ? args[nowIdx + 1] : process.env.GREAT_CTO_NOW;
+let NOW_MS = Date.now();
+if (nowArg) {
+  const m = String(nowArg).match(/^(\d{4}-\d{2}-\d{2})$/);
+  const parsed = m ? Date.parse(`${m[1]}T00:00:00Z`) : NaN;
+  if (Number.isNaN(parsed)) {
+    console.error(`bad --now / GREAT_CTO_NOW (expected YYYY-MM-DD): ${nowArg}`);
+    process.exit(2);
+  }
+  NOW_MS = parsed;
+}
+const nowIso = new Date(NOW_MS).toISOString().slice(0, 10);
+
 const REPO = process.cwd();
 
 // ---------------------------------------------------------------------------
@@ -163,41 +183,25 @@ function headings(text) {
   return text.split('\n').filter((l) => /^#{1,6}\s/.test(l)).map((l) => l.replace(/^#+\s*/, '').trim());
 }
 
-/** Extract the most recent date (YYYY-MM-DD) from YAML frontmatter or inline **Date:**. */
-function extractDate(text) {
-  const found = [];
-  // YAML frontmatter block
-  const fm = text.match(/^---\n([\s\S]*?)\n---/);
-  if (fm) {
-    for (const m of fm[1].matchAll(/^(?:date|last[_-]?reviewed|updated):\s*(\d{4}-\d{2}-\d{2})/gim)) {
-      found.push(m[1]);
-    }
-  }
-  // Inline bold markers: **Date:** 2026-05-09 / **Last reviewed:** ...
-  for (const m of text.matchAll(/\*\*(?:date|last[_-]?reviewed|updated)[:\s]*\*\*\s*(\d{4}-\d{2}-\d{2})/gi)) {
-    found.push(m[1]);
-  }
-  if (!found.length) return null;
-  return found.sort().at(-1); // most recent
-}
-
 // A "source" is any concrete reference: markdown link, bare URL, [[memory]]
 // link, OR an inline-code span naming a file/path (e.g. `scripts/foo.mjs`,
 // `archetypes.ts`) — ADRs cite their implementation as code paths, and that
 // counts as sourcing just as much as a URL does.
 const SOURCE_RE = /(https?:\/\/|\]\(|\[\[|`[^`\n]*(?:\/|\.\w{2,4})[^`\n]*`)/;
 
-function ageDays(iso) {
-  const then = Date.parse(iso + 'T00:00:00Z');
-  if (Number.isNaN(then)) return null;
-  return Math.floor((Date.now() - then) / 86_400_000);
-}
+// extractDate() and ageDays() live in ../lib/freshness.mjs alongside
+// parseStaleAfter()/judgeFreshness() — one date parser, not two that can
+// drift apart (ARCH-stale-after.md Risk R3).
 
 // ---------------------------------------------------------------------------
 // Lint
 // ---------------------------------------------------------------------------
 const errors = [];
 const warns = [];
+// One entry per checked (non-template) artifact, regardless of outcome — the
+// audit trail for "which rule judged this doc's freshness" even when the
+// verdict is 'fresh' and produces no warn line (see freshness.mjs doc comment).
+const freshness = [];
 let checked = 0;
 
 for (const abs of walk(REPO)) {
@@ -252,13 +256,31 @@ for (const abs of walk(REPO)) {
   }
 
   // 2. FRESHNESS
-  const date = extractDate(text);
-  if (!date && type.date === 'any') {
-    warns.push({ file: rel, type: type.name, kind: 'no-date', msg: 'no date (frontmatter or **Date:**) — freshness unknown' });
-  } else if (date) {
-    const age = ageDays(date);
-    if (age !== null && age > staleDays) {
-      warns.push({ file: rel, type: type.name, kind: 'stale', msg: `last dated ${date} (${age}d ago > ${staleDays}d) — due for review` });
+  const judged = judgeFreshness({ text, dateType: type.date, nowMs: NOW_MS, staleDays });
+  freshness.push({ file: rel, type: type.name, ...judged });
+
+  if (judged.verdict === 'unknown') {
+    // Unchanged gate: only date:'any' types (ADR/ARCH/DESIGN) warn on a doc
+    // with neither stale_after nor a date. date:'optional' types (PLAN, TM)
+    // stay silent on absence, exactly as before this feature existed — a doc
+    // predating stale_after must never start failing.
+    if (type.date === 'any') {
+      warns.push({
+        file: rel, type: type.name, kind: 'no-date',
+        msg: 'no stale_after, no date — judged by mtime, freshness unknown',
+      });
+    }
+  } else if (judged.verdict === 'stale') {
+    if (judged.basis === 'declared') {
+      warns.push({
+        file: rel, type: type.name, kind: 'stale-declared',
+        msg: `stale_after ${judged.staleAfter} has passed (now ${nowIso}) — due for review`,
+      });
+    } else {
+      warns.push({
+        file: rel, type: type.name, kind: 'stale',
+        msg: `last dated ${judged.date} (${judged.ageDays}d ago > ${staleDays}d) — due for review`,
+      });
     }
   }
 
@@ -272,7 +294,9 @@ for (const abs of walk(REPO)) {
 // Report
 // ---------------------------------------------------------------------------
 if (asJson) {
-  console.log(JSON.stringify({ checked, staleDays, errors, warns }, null, 2));
+  // freshness[] is additive — existing { checked, staleDays, errors, warns }
+  // consumers are unaffected by its presence.
+  console.log(JSON.stringify({ checked, staleDays, errors, warns, freshness }, null, 2));
   process.exit(enforce && errors.length ? 1 : 0);
 }
 

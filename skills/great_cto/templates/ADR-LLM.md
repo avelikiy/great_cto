@@ -15,6 +15,8 @@ applies_to:
 ## Status
 {Proposed | Accepted | Superseded by ADR-NN}
 
+**Stale after:** {creation date + 180d — compute at fill time, do not copy a literal date between docs}
+
 ## Context
 - Project: {name}
 - Archetype: {ai-system | agent-product}

@@ -17,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const LINTER = resolve(__dirname, '../../scripts/hooks/artifact-lint.mjs');
 
 /** Write { relPath: contents } into a fresh temp repo and run the linter in it. */
-function lint(files, args = []) {
+function lint(files, args = [], env = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'artlint-'));
   try {
     for (const [rel, body] of Object.entries(files)) {
@@ -25,7 +25,11 @@ function lint(files, args = []) {
       mkdirSync(dirname(abs), { recursive: true });
       writeFileSync(abs, body);
     }
-    const r = spawnSync('node', [LINTER, '--json', ...args], { cwd: dir, encoding: 'utf8' });
+    const r = spawnSync('node', [LINTER, '--json', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, ...env },
+    });
     // --json prints the report object on stdout regardless of exit code.
     const report = JSON.parse(r.stdout);
     return { ...report, status: r.status };
@@ -128,6 +132,113 @@ test('missing date warns only for date:any types', () => {
     'docs/arch/ARCH-x.md': `# ARCH\n## Non-goals\nn\n## Risks\nr\n`,
   });
   assert.ok(warnKinds(r).includes('no-date'));
+});
+
+// ─── freshness: declared stale_after (ARCH-stale-after) ────────────────────
+
+test('REQ-1: future stale_after reads fresh via --now, basis declared, no warn', () => {
+  const r = lint(
+    {
+      'docs/adr/ADR-030-x.md':
+        `---\nstale_after: 2027-06-01\n---\n# ADR\n**Date:** ${today}\n## Context\nc\n## Decision\nd\n## Consequences\n[r](https://x)\n`,
+    },
+    ['--now', '2026-08-17'],
+  );
+  assert.equal(r.errors.length, 0);
+  assert.equal(warnKinds(r).filter((k) => k === 'stale' || k === 'stale-declared').length, 0);
+  const f = r.freshness.find((x) => x.file === 'docs/adr/ADR-030-x.md');
+  assert.equal(f.verdict, 'fresh');
+  assert.equal(f.basis, 'declared');
+  assert.equal(f.staleAfter, '2027-06-01');
+});
+
+test('REQ-1: past stale_after warns stale-declared via --now, regardless of a fresh **Date:**', () => {
+  const r = lint(
+    {
+      'docs/adr/ADR-031-x.md':
+        `---\nstale_after: 2026-01-01\n---\n# ADR\n**Date:** 2026-08-16\n## Context\nc\n## Decision\nd\n## Consequences\n[r](https://x)\n`,
+    },
+    ['--now', '2026-08-17'],
+  );
+  assert.ok(warnKinds(r).includes('stale-declared'));
+  assert.ok(!warnKinds(r).includes('stale'), 'declared precedence must suppress the plain mtime "stale" kind');
+  const w = r.warns.find((x) => x.kind === 'stale-declared');
+  assert.match(w.msg, /2026-01-01/);
+});
+
+test('REQ-1: future stale_after suppresses a stale warn even though **Date:** is ancient', () => {
+  const r = lint(
+    {
+      'docs/adr/ADR-032-x.md':
+        `---\nstale_after: 2099-01-01\n---\n# ADR\n**Date:** 2000-01-01\n## Context\nc\n## Decision\nd\n## Consequences\n[r](https://x)\n`,
+    },
+    ['--now', '2026-08-17'],
+  );
+  assert.equal(warnKinds(r).filter((k) => k === 'stale' || k === 'stale-declared').length, 0);
+});
+
+test('GREAT_CTO_NOW env var resolves `now` the same way --now does', () => {
+  const r = lint(
+    {
+      'docs/adr/ADR-033-x.md':
+        `---\nstale_after: 2026-01-01\n---\n# ADR\n**Date:** ${today}\n## Context\nc\n## Decision\nd\n## Consequences\n[r](https://x)\n`,
+    },
+    [],
+    { GREAT_CTO_NOW: '2026-08-17' },
+  );
+  assert.ok(warnKinds(r).includes('stale-declared'));
+});
+
+test('REQ-2: no stale_after, date:any type with neither field — unknown, exact message names the basis', () => {
+  const r = lint({ 'docs/arch/ARCH-y.md': `# ARCH\n## Non-goals\nn\n## Risks\nr\n` }, ['--now', '2026-08-17']);
+  const w = r.warns.find((x) => x.kind === 'no-date');
+  assert.equal(w.msg, 'no stale_after, no date — judged by mtime, freshness unknown');
+  const f = r.freshness.find((x) => x.file === 'docs/arch/ARCH-y.md');
+  assert.equal(f.verdict, 'unknown');
+  assert.equal(f.basis, 'mtime');
+});
+
+test('REQ-2: date:optional type (PLAN) with neither field stays silent, as today — pre-field docs never start failing', () => {
+  const r = lint(
+    { 'docs/plans/PLAN-old.md': `# PLAN\n## Principle\np\n## Sequence\ns\n` },
+    ['--now', '2026-08-17'],
+  );
+  assert.equal(r.errors.length, 0);
+  assert.equal(r.warns.length, 0);
+});
+
+test('a malformed stale_after falls back to the mtime rule through the full CLI, never to "fresh"', () => {
+  const r = lint(
+    {
+      'docs/adr/ADR-034-x.md':
+        `---\nstale_after: 2026-13-40\n---\n# ADR\n**Date:** 2000-01-01\n## Context\nc\n## Decision\nd\n## Consequences\n[r](https://x)\n`,
+    },
+    ['--now', '2026-08-17'],
+  );
+  assert.ok(warnKinds(r).includes('stale'));
+  assert.ok(!warnKinds(r).includes('stale-declared'));
+});
+
+test('freshness[] records a basis for every checked non-template artifact, even a clean pass', () => {
+  const r = lint({
+    'docs/adr/ADR-035-x.md': `# ADR\n**Date:** ${today}\n## Context\nc\n## Decision\nd\n## Consequences\n[r](https://x)\n`,
+  });
+  const f = r.freshness.find((x) => x.file === 'docs/adr/ADR-035-x.md');
+  assert.equal(f.verdict, 'fresh');
+  assert.equal(f.basis, 'mtime');
+  assert.equal(f.staleAfter, null);
+});
+
+test('Safeguard: stale-declared is WARN-only — --enforce does not exit non-zero for it', () => {
+  const r = lint(
+    {
+      'docs/adr/ADR-036-x.md':
+        `---\nstale_after: 2026-01-01\n---\n# ADR\n**Date:** ${today}\n## Context\nc\n## Decision\nd\n## Consequences\n[r](https://x)\n`,
+    },
+    ['--now', '2026-08-17', '--enforce'],
+  );
+  assert.ok(warnKinds(r).includes('stale-declared'));
+  assert.equal(r.status, 0);
 });
 
 // ─── templates: structure-only ─────────────────────────────────────────────

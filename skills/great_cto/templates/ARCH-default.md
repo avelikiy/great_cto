@@ -8,6 +8,7 @@ applies_to:
   - mobile-app
   - data-platform
   - infra
+stale_after: {creation date + 180d — compute at fill time, do not copy a literal date between docs}
 ---
 
 # ARCH-{slug}.md — Standard architecture document
