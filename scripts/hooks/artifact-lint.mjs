@@ -125,7 +125,21 @@ if (!Number.isFinite(staleDays) || staleDays <= 0) {
 // calls Date.now() itself, so every freshness state is reproducible from a
 // fixed clock. Precedence: --now > GREAT_CTO_NOW > real clock (default).
 const nowIdx = args.indexOf('--now');
-const nowArg = nowIdx !== -1 ? args[nowIdx + 1] : process.env.GREAT_CTO_NOW;
+let nowArg;
+if (nowIdx !== -1) {
+  nowArg = args[nowIdx + 1];
+  // `--now` with nothing after it must fail, not fall back to the real clock.
+  // A garbage GREAT_CTO_NOW already errors; a flag that silently ignores
+  // itself would make a CI typo indistinguishable from a deliberate run at
+  // today's date — the reading that hides a wrong answer behind a right-looking
+  // one.
+  if (nowArg === undefined || nowArg.startsWith('--')) {
+    console.error('--now requires a YYYY-MM-DD value');
+    process.exit(2);
+  }
+} else {
+  nowArg = process.env.GREAT_CTO_NOW;
+}
 let NOW_MS = Date.now();
 if (nowArg) {
   const m = String(nowArg).match(/^(\d{4}-\d{2}-\d{2})$/);
@@ -198,9 +212,15 @@ const SOURCE_RE = /(https?:\/\/|\]\(|\[\[|`[^`\n]*(?:\/|\.\w{2,4})[^`\n]*`)/;
 // ---------------------------------------------------------------------------
 const errors = [];
 const warns = [];
-// One entry per checked (non-template) artifact, regardless of outcome — the
-// audit trail for "which rule judged this doc's freshness" even when the
-// verdict is 'fresh' and produces no warn line (see freshness.mjs doc comment).
+// The audit trail for "which rule judged this doc's freshness", recorded even
+// when the verdict is 'fresh' and produces no warn line (see freshness.mjs).
+//
+// `freshness.length` is deliberately SMALLER than `checked`: templates are
+// counted as checked (they get structural validation) but are skipped before
+// this point, because a template's dates are placeholders and judging them
+// would report the template's staleness rather than any real document's. On
+// this repository today that is 48 entries against 58 checked. The two numbers
+// answering different questions is the intent, not a gap.
 const freshness = [];
 let checked = 0;
 

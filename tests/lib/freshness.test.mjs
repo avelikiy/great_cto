@@ -151,3 +151,46 @@ test('the same document judges differently under two different injected `now` va
   assert.equal(before.verdict, 'fresh');
   assert.equal(after.verdict, 'stale');
 });
+
+// ─── What the reviewers found, and the fixtures did not ──────────────────────
+//
+// Four findings from the qa-engineer and security-officer passes on d128ce10.
+// Each one is a case where the document declared a date and the parser lost it,
+// or where a comment described a check that was not happening — the same class
+// of defect the module exists to remove.
+
+test('CRLF frontmatter still declares its date', () => {
+  // A Windows checkout or an editor normalising line endings must not demote a
+  // declared document to the mtime rule, where it looks exactly like a document
+  // that never declared anything.
+  const text = '---\r\nstale_after: 2026-09-01\r\n---\r\n# X\r\n';
+  assert.equal(parseStaleAfter(text), '2026-09-01');
+  const r = judgeFreshness({ text, dateType: 'any', nowMs: NOW, staleDays: 180 });
+  assert.equal(r.basis, 'declared');
+});
+
+test('a leading BOM does not hide the frontmatter block', () => {
+  const text = '﻿---\nstale_after: 2026-09-01\n---\n# X\n';
+  assert.equal(parseStaleAfter(text), '2026-09-01');
+});
+
+test('CRLF and BOM are tolerated by extractDate too, not only where reported', () => {
+  // Both parsers live in one module precisely so a fix to one is a fix to both;
+  // a tolerance applied only to the reported path would recreate the drift.
+  assert.equal(extractDate('﻿---\r\ndate: 2026-05-01\r\n---\r\n'), '2026-05-01');
+});
+
+test('an impossible day of month is discarded, not rolled forward', () => {
+  // `Date.parse` rejects an impossible MONTH but silently rolls an impossible
+  // DAY forward: 2026-02-30 becomes March 2. Judging a document against a date
+  // its author never wrote is worse than having no date at all.
+  for (const bad of ['2026-02-30', '2026-04-31', '2026-06-31', '2026-11-31']) {
+    assert.equal(parseStaleAfter(`---\nstale_after: ${bad}\n---\n`), null, `${bad} must not parse`);
+  }
+});
+
+test('a real end-of-month date still parses — the day check is not over-eager', () => {
+  for (const good of ['2026-02-28', '2028-02-29', '2026-04-30', '2026-12-31']) {
+    assert.equal(parseStaleAfter(`---\nstale_after: ${good}\n---\n`), good, `${good} must parse`);
+  }
+});

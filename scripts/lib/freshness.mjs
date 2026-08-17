@@ -46,25 +46,53 @@
 
 const ISO_DATE = /\d{4}-\d{2}-\d{2}/;
 
-/** True if `iso` (YYYY-MM-DD) is a real calendar date, not just digit-shaped. */
+/**
+ * Strip a UTF-8 BOM. A file that starts with one has no `^---` at position 0,
+ * so its frontmatter is invisible to every anchored match below and the
+ * author's declared date is silently lost.
+ */
+function stripBom(s) {
+  return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
+}
+
+/**
+ * True if `iso` (YYYY-MM-DD) is a real calendar date, not just digit-shaped.
+ *
+ * `Date.parse` alone is not enough: it rejects an impossible MONTH
+ * (`2026-13-40` → NaN) but silently rolls an impossible DAY forward, so
+ * `2026-02-30` becomes March 2 rather than failing. Round-tripping the parsed
+ * value back to its components and requiring they match what the author typed
+ * discards such a date instead of quietly judging the document against a
+ * nearby one it never wrote.
+ */
 function isValidIsoDate(iso) {
-  return !Number.isNaN(Date.parse(`${iso}T00:00:00Z`));
+  const ms = Date.parse(`${iso}T00:00:00Z`);
+  if (Number.isNaN(ms)) return false;
+  const [y, m, d] = iso.split('-').map(Number);
+  const back = new Date(ms);
+  return back.getUTCFullYear() === y && back.getUTCMonth() + 1 === m && back.getUTCDate() === d;
 }
 
 /**
  * Parse a declared `stale_after` date from frontmatter or the inline
  * `**Stale after:**` marker. Defensive by construction: the regex is
  * anchored to `\d{4}-\d{2}-\d{2}` so a non-date value (`stale_after: soon`)
- * never matches at all, and a shape-valid but impossible calendar date
- * (`2026-13-40`) is caught by `isValidIsoDate` and discarded — never coerced,
- * never read as fresh. Frontmatter takes precedence when both forms appear;
- * the field describes a single intended value, not two independent ones.
+ * never matches at all, and a shape-valid but impossible calendar date — an
+ * impossible month (`2026-13-40`) or an impossible day (`2026-02-30`) — is
+ * caught by `isValidIsoDate` and discarded, never coerced, never read as
+ * fresh. Frontmatter takes precedence when both forms appear; the field
+ * describes a single intended value, not two independent ones.
+ *
+ * CRLF and a leading BOM are tolerated: a file normalised by a Windows
+ * checkout or an editor still declares the date its author wrote, and losing
+ * it to an invisible byte would silently demote the document to the mtime
+ * rule while looking exactly like a document that never declared one.
  *
  * @param {string} text
  * @returns {string|null} 'YYYY-MM-DD' or null
  */
 export function parseStaleAfter(text) {
-  const fm = text.match(/^---\n([\s\S]*?)\n---/);
+  const fm = stripBom(String(text ?? '')).match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (fm) {
     const m = fm[1].match(/^stale_after:\s*(\d{4}-\d{2}-\d{2})\b/im);
     if (m && isValidIsoDate(m[1])) return m[1];
@@ -77,15 +105,17 @@ export function parseStaleAfter(text) {
 /**
  * Extract the most recent date (YYYY-MM-DD) from YAML frontmatter or inline
  * `**Date:**` / `**Last reviewed:**` / `**Updated:**` markers. Moved here
- * (verbatim) from artifact-lint.mjs per ARCH Risk R3: keeping both date
- * parsers in one module means they cannot drift apart silently.
+ * from artifact-lint.mjs per ARCH Risk R3: keeping both date parsers in one
+ * module means they cannot drift apart silently — which is why the CRLF/BOM
+ * tolerance added to `parseStaleAfter` is applied here too rather than only
+ * where it was reported.
  *
  * @param {string} text
  * @returns {string|null}
  */
 export function extractDate(text) {
   const found = [];
-  const fm = text.match(/^---\n([\s\S]*?)\n---/);
+  const fm = stripBom(String(text ?? '')).match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (fm) {
     for (const m of fm[1].matchAll(/^(?:date|last[_-]?reviewed|updated):\s*(\d{4}-\d{2}-\d{2})/gim)) {
       found.push(m[1]);
