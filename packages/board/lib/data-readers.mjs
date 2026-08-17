@@ -322,17 +322,62 @@ function getInbox(cwd = process.cwd()) {
     return ageH > 48;
   });
   const sec = readSecStats(cwd);
+
+  // One object, one section.
+  //
+  // These four filters overlap — a P0 that is also blocked matched two of them,
+  // so it rendered as two rows and the nav badge (gates + p0 + blocked) counted
+  // it twice. "Two things need you" when one thing does is a small lie that
+  // costs real attention, and it is the same defect as any other count that
+  // measures the query rather than the world.
+  //
+  // Each task lands in its strongest section only, strongest first: a gate is
+  // waiting on a signature, a P0 is an emergency, blocked is a state, stale is
+  // an observation. The other states it is in are kept on the row as `also`, so
+  // deduplicating loses nothing — the row can still say "and it is blocked".
+  const ORDER = [
+    ['gate', pendingGates],
+    ['p0', p0],
+    ['blocked', blocked],
+    ['stale', stale],
+  ];
+  const homeOf = new Map();      // task id → the section that owns it
+  const alsoOf = new Map();      // task id → the other sections it matched
+  for (const [name, list] of ORDER) {
+    for (const t of list) {
+      const id = t?.id ?? t?.title;
+      if (id === undefined) continue;
+      if (homeOf.has(id)) { alsoOf.set(id, [...(alsoOf.get(id) || []), name]); continue; }
+      homeOf.set(id, name);
+    }
+  }
+  const own = (name, list, limit) => list
+    .filter((t) => homeOf.get(t?.id ?? t?.title) === name)
+    .map((t) => ({ ...t, also: alsoOf.get(t?.id ?? t?.title) || [] }))
+    .slice(0, limit);
+
+  const ownedGates = own('gate', pendingGates, 20);
+  const ownedP0 = own('p0', p0, 10);
+  const ownedBlocked = own('blocked', blocked, 10);
+  const ownedStale = own('stale', stale, 10);
+
   return {
-    pending_gates: pendingGates.slice(0, 20),
-    blocked: blocked.slice(0, 10),
-    p0_open: p0.slice(0, 10),
-    stale_in_progress: stale.slice(0, 10),
+    pending_gates: ownedGates,
+    blocked: ownedBlocked,
+    p0_open: ownedP0,
+    stale_in_progress: ownedStale,
     security: { blocked: sec.blocked, approved: sec.approved },
     summary: {
-      gates: pendingGates.length,
-      blocked: blocked.length,
-      p0: p0.length,
-      stale: stale.length,
+      // Counts of distinct objects, so gates + p0 + blocked is a real total
+      // rather than a sum over overlapping sets.
+      gates: [...homeOf.values()].filter((s) => s === 'gate').length,
+      blocked: [...homeOf.values()].filter((s) => s === 'blocked').length,
+      p0: [...homeOf.values()].filter((s) => s === 'p0').length,
+      stale: [...homeOf.values()].filter((s) => s === 'stale').length,
+      // How many distinct things want attention at all — the number the nav
+      // badge means, stated once here rather than re-derived by every caller
+      // that might re-derive it wrongly.
+      needs_you: [...homeOf.values()].filter((s) => s !== 'stale').length,
     },
   };
 }

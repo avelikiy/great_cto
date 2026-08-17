@@ -2754,7 +2754,12 @@ function greetByHour() {
 function renderInbox(d) {
   inboxData = d || {};
   const s = d?.summary || { gates: 0, blocked: 0, p0: 0, stale: 0 };
-  document.getElementById('nav-inbox-count').textContent = s.gates + s.p0 + s.blocked;
+  // `needs_you` counts distinct objects. Summing the three categories double-counted
+  // anything that matched two of them — a P0 that is also blocked read as two things
+  // needing attention when it was one. Older payloads have no `needs_you`, so the sum
+  // stays as the fallback rather than rendering nothing.
+  document.getElementById('nav-inbox-count').textContent =
+    Number.isFinite(s.needs_you) ? s.needs_you : s.gates + s.p0 + s.blocked;
   // Same rule as the all-clear card: "nothing urgent" is a claim about data we
   // may not have. When a read failed, say that instead of reassuring the user.
   const greetTail = anyDegraded()
@@ -2794,9 +2799,17 @@ function renderInboxList(rootId, items, countId, opts = {}) {
   if (section) section.style.display = items.length ? '' : 'none';
   if (!items.length) { root.innerHTML = ''; return; }
   root.innerHTML = items.map(t => {
+    // A task now appears in one section only, so the states it ALSO matched are
+    // shown here rather than lost. Deduplicating the rows must not deduplicate
+    // the facts: a gate that is also blocked is still blocked, and hiding that
+    // to fix a double count would trade one wrong reading for another.
+    const alsoTag = (t.also || []).length
+      ? `<span title="also matched: ${esc((t.also || []).join(', '))}" style="color:var(--text3)">also ${esc((t.also || []).join(' + '))}</span>`
+      : '';
     const meta = [
       t.agent ? `agent: ${esc(t.agent)}` : '',
       t.priority != null ? PRIORITY_LABEL[t.priority] : '',
+      alsoTag,
       // Gates (the showApprove list) get the exact date+time the decision has been
       // waiting since; other rows keep the compact relative stamp.
       t.updated_at
