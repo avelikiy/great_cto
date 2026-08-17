@@ -49,6 +49,14 @@ next = ["pm"]
 # an agent writes must not be able to drop a check.
 skip_next_when = "depth=small"
 
+# Deciding NOT to build is a real outcome, and the best one this stage can
+# produce. It was silence: the token is in product-owner's own verdict line and
+# matched nothing, so a brief that concluded "do not build this" looked exactly
+# like an agent that forgot to write a verdict.
+[transitions.product-owner.NO_BUILD]
+on = ["NO_BUILD"]
+next = []
+
 [transitions.pm]
 on = ["PLAN_READY", "DONE"]
 gate = "gate:plan"
@@ -58,6 +66,18 @@ next = ["senior-dev"]
 on = ["TASK_DONE", "DONE"]
 gate = ["gate:code"]
 next = ["code-reviewer"]
+
+# The mid-build escape hatch, and it escaped into nothing.
+#
+# senior-dev's prompt tells it to stop rather than "proceed on the resolved spec"
+# when the plan is structurally wrong, and says the objection "re-opens gate:plan
+# for the CTO". Nothing matched the token, so the one mechanism that lets an
+# implementer refuse a bad plan produced no next stage at all — the build simply
+# stopped, looking like an agent that gave up.
+[transitions.senior-dev.SPEC-OBJECTION]
+on = ["SPEC-OBJECTION"]
+gate = ["gate:plan"]
+next = ["pm"]
 
 [transitions.code-reviewer]
 on = ["APPROVED", "DONE"]
@@ -193,6 +213,26 @@ next = ["senior-dev"]
 [transitions.performance-engineer]
 on = ["DONE", "PASS"]
 next = ["qa-engineer"]
+
+# Its own prompt: "p95 regression > 10% → REGRESSION: create Beads task, block QA
+# gate". The blocking half worked by not advancing; the "create a task and fix
+# it" half had nowhere to go, so a measured performance regression stopped the
+# chain silently instead of routing back to the person who caused it.
+[transitions.performance-engineer.REGRESSION]
+on = ["REGRESSION"]
+next = ["senior-dev"]
+
+# Runs after gate:ship to take a built app to a real live URL. It had no edge at
+# all, while e2e-test-engineer's prompt says plainly (line 46): "After
+# infra-provisioner reports the live URL, run the suite against it." The handoff
+# was declared in the other agent's prose and absent from the map.
+#
+# Its plan-and-stop and its refusal of prod domains are unchanged — those are the
+# agent's own controls and ADR-009 counts them as a valid answer. This only says
+# what verifies the result afterwards.
+[transitions.infra-provisioner]
+on = ["DONE"]
+next = ["e2e-test-engineer"]
 
 [transitions.growth-engineer]
 on = ["READY", "DONE"]

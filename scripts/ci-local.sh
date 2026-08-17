@@ -67,6 +67,11 @@ step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
 # See docs/plans/PLAN-2026-08-17-guards-that-do-not-run.md (GUARD-R1).
 step "artifact structure (enforced)" node scripts/hooks/artifact-lint.mjs --enforce
 step "guards run where CI runs" node scripts/lib/guard-parity.mjs --strict
+# The sibling question. guard-parity asks whether a guard EXECUTES; this asks
+# whether a declaration is CONSUMED. Four agents could write a verdict nothing
+# would act on — including senior-dev's own refuse-a-bad-plan escape hatch — and
+# all four were found by this check rather than by anyone noticing.
+step "declarations have consumers" node scripts/lib/declared-consumed.mjs --strict
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which

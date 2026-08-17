@@ -47,7 +47,10 @@ export const FRESH_MS = 30 * 60 * 1000;
 // Join-quorum partner verdicts may be hours old (parallel branches).
 const JOIN_MS = 24 * 60 * 60 * 1000;
 
-const BLOCKED_TOKENS = new Set(['BLOCKED', 'FAIL', 'FAILED', 'REJECTED']);
+// Exported so `declared-consumed.mjs` can ask "is this token handled anywhere?"
+// against the same set the dispatcher acts on, rather than a second copy that
+// would drift and quietly excuse a token nothing reads.
+export const BLOCKED_TOKENS = new Set(['BLOCKED', 'FAIL', 'FAILED', 'REJECTED']);
 
 /** Minimal TOML-subset parser for pipeline.toml:
  *  [transitions.<name>] sections with string / string-array values. */
