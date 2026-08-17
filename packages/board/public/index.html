@@ -3458,7 +3458,7 @@ async function loadDocs() {
 
   const pipeline = d.pipeline
     ? `<div class="card"><b>Pipeline</b> <span class="muted">— how a feature moves, drawn from shared/pipeline.toml</span>
-         ${renderPipeline(d.pipeline)}
+         ${renderDeclaredPipeline(d.pipeline)}
          <details style="margin-top:8px"><summary class="muted">Mermaid source</summary>
            <pre style="white-space:pre-wrap;font-size:11px">${esc(d.pipeline)}</pre></details></div>`
     : '';
@@ -3541,7 +3541,18 @@ function projectRootHint() {
 }
 
 /** The pipeline as boxes and gates — no diagram library, so it always renders. */
-function renderPipeline(mermaid) {
+// Named `renderDeclaredPipeline`, not `renderPipeline`, because there is already
+// a `renderPipeline(stages)` above that draws the LIVE rail. Both were declared
+// at the top level of this one <script>, so the later declaration won and every
+// call carrying an array of stages — refreshPipeline() and the SSE handler —
+// reached this mermaid parser instead. It returned a string nobody used and
+// never touched `#pipeline-track`, so the rail stayed the empty div in the
+// markup and the status stayed the hardcoded `idle` beside it.
+//
+// The first section of the first screen therefore read "idle" whatever the
+// pipeline was doing: not an empty state, but a confident wrong answer, which is
+// the failure this project spends its time removing.
+function renderDeclaredPipeline(mermaid) {
   const edges = [];
   for (const line of String(mermaid).split('\n')) {
     const m = line.match(/^\s*(\w+)\s*-->(?:\|([^|]*)\|)?\s*(\w+)/);
