@@ -46,7 +46,35 @@ If there are no holdout cases yet for this agent's EVAL files, first run
 
 ## Step 3 — Candidate prompt (delegate to ai-prompt-architect)
 
-Spawn the **ai-prompt-architect** agent with the lesson as the improvement directive.
+First, collect what actually failed. The lesson is one sentence of prose; the eval
+history holds, per case, the judge's reason and the agent's own words:
+
+```bash
+node scripts/lib/failure-digest.mjs "$AGENT" --split holdout --samples 3
+```
+
+Four answers, and only one of them is a reason to rewrite anything:
+
+| State | What it means | What to do |
+|---|---|---|
+| `failures` | the cases, the judge's reason, the agent's response | pass all of it to Step 3 |
+| `clean` | measured, nothing failing | **stop** — there is nothing to fix, and a rewrite with no failure to point at is a guess |
+| `unmeasured` | no run at this shape — not the same as passing | run `/gen-evals <agent>`, then Step 2 |
+| `unreadable` | the history could not be read | fix that first; a digest built on "I could not look" is worse than none |
+
+Spawn the **ai-prompt-architect** agent with the lesson as the improvement directive
+**and the digest as the evidence** — the specific cases it failed, what it said, and
+why the judge rejected it. A revision aimed at a named failure can be checked against
+that failure; a revision aimed at a sentence can only be checked by running the whole
+eval again and hoping.
+
+This is the one idea worth taking from GEPA (`stanfordnlp/dspy`): its proposer is
+conditioned on the actual failing trajectories with their feedback, and a metric that
+returns only a number degrades it to guessing. We are **not** adopting its optimizer —
+a search needing hundreds of scored rollouts is neither affordable at ~$0.03 a case nor
+statistically resolvable on the five or six cases most agents have. The grounding is
+free, because it was already measured.
+
 It rewrites `agents/<agent>.md` (or the ADR-PROMPT) into the candidate — generation N+1.
 The candidate is the *only* file that changes; nothing else in the pipeline moves.
 

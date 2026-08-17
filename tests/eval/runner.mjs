@@ -712,6 +712,22 @@ async function callActor({ actorModel, scenario, test, actorSystem, useTools = f
 }
 
 /**
+ * How much of the judge's reasoning is kept.
+ *
+ * It was 120 characters, and the judge is asked for "a one-sentence reason" with
+ * 220 tokens to write it — so the budget was raised to stop the MODEL running
+ * out mid-sentence, and the string was still cut at 120 by the code. Stored
+ * reasons end like "...while requiring proper", severed exactly where the
+ * judgement stops being generic and starts naming what went wrong.
+ *
+ * That truncated half-sentence is the only record of WHY a case failed. The
+ * actor's full response is already stored beside it at ~2900 characters, so
+ * keeping the explanation costs a rounding error against the thing it explains,
+ * and it is the input any grounded prompt revision has to start from.
+ */
+export const JUDGE_REASON_CHARS = 400;
+
+/**
  * Step 2 — Judge: evaluates whether the actor's response meets the expected criteria.
  * 220 tokens: a one-line verdict + a full-sentence reason was being truncated at 120.
  * `judgeModel` optional — defaults to the provider-appropriate judge model.
@@ -759,7 +775,8 @@ async function judgeVote(args, votes = 1) {
     replies.push({ verdict: parseJudgeVerdict(j.text), text: j.text });
   }
   const verdict = majorityVerdict(replies.map(r => r.verdict));
-  const reason = (replies.find(r => r.verdict === verdict) || replies[0]).text.replace(/^(PASS|FAIL)\s*[-–]\s*/i, '').slice(0, 120);
+  const reason = (replies.find(r => r.verdict === verdict) || replies[0]).text
+    .replace(/^(PASS|FAIL)\s*[-–]\s*/i, '').slice(0, JUDGE_REASON_CHARS);
   return { verdict, reason, costUsd };
 }
 
