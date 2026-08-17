@@ -287,7 +287,7 @@ export function resolveSkip({ rule, transitions, meta, activeGates, gateStates, 
   return { nexts: onward.nexts, skipped: [skipStage, ...onward.skipped], why: `${cond} (declared by ${meta?.agent ?? 'the stage'})` };
 }
 
-export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null, gateStates = null, lastStop = null, agentId = null }) {
+export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null, gateStates = null, lastStop = null, agentId = null, effects = null }) {
   // An edge may be guarded by several gates — `approval-level` decides which of
   // them apply, the map only declares that they guard this edge. Before this,
   // `gate` was a single string and every level above `strict` promised gates
@@ -324,10 +324,25 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     // runs in the orchestrator's context, which is why the directive can name the
     // action instead of describing the problem.
     if (lastStop?.shape === 'cut-off') {
+      // What it left behind, stated rather than requested.
+      //
+      // This used to say "its work may already exist: check for changes it left
+      // behind" — an instruction to go and look, which is only followed when the
+      // reader chooses to. `attempt-effects` answers it instead, and answers
+      // fail-closed: anything it could not establish counts as present, so the
+      // advice never softens on missing information.
+      const left = effects
+        ? (effects.state === 'some'
+            ? `It DID leave work behind (${effects.fields.join(', ')}) — re-running would duplicate it. `
+            : effects.state === 'unknown'
+              ? `Whether it left work behind could not be established (${effects.fields.join(', ')}), so treat it as though it did. `
+              : 'It left nothing behind, so nothing would be duplicated — but it also made no progress to keep. ')
+        : 'Its work may already exist: check for changes it left behind, INCLUDING in a git worktree under .claude/worktrees/. ';
       return {
         kind: 'resume',
         text: `PIPELINE: ${agent} was CUT OFF after ${lastStop.turns} turns — it never closed a turn, so it stopped mid-loop rather than concluding, and recorded no verdict. `
-          + 'Its work may already exist: check for changes it left behind, INCLUDING in a git worktree under .claude/worktrees/. '
+          + left
+          + 'Check a git worktree under .claude/worktrees/ too. '
           + `RESUME it${agentId ? ` (SendMessage to: '${agentId}')` : ' with SendMessage, using the agentId from its result'} and ask it to record its verdict and close its task. `
           + 'Do NOT re-run it from scratch — a fresh run repeats work already done, and this one spent its whole budget.',
       };
@@ -445,7 +460,7 @@ function gateStatesFor(rule, verdict) {
   return readGateStates(gates, readGateBeads(), { verdictTs: verdict?.ts ?? null });
 }
 
-function main() {
+async function main() {
   if (process.env.GREAT_CTO_DISABLE_DISPATCHER === '1') return process.exit(0);
   if (!existsSync(PROJ_DIR) || !existsSync(PIPELINE_PATH)) return process.exit(0);
 
@@ -488,8 +503,29 @@ function main() {
   const shape = stopShapeFor(agentIdFrom(payload));
   if (!verdictBelongsToRun(verdict, shape?.startedAt)) verdict = null;
 
+  // Only when there is no verdict. With one, the run concluded and what it left
+  // behind is not in question — and this hook fires on every subagent
+  // completion, so `git status` on the hot path would be a cost with no reader.
+  let effects = null;
+  if (!verdict) {
+    try {
+      const { observeEffects, summariseEffects } = await import('../lib/attempt-effects.mjs');
+      const { execFileSync } = await import('node:child_process');
+      let changedPaths = null;
+      try {
+        changedPaths = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8', timeout: 5000 })
+          .split('\n').map((l) => l.slice(3).trim()).filter(Boolean);
+      } catch { /* stays null → unknown → treated as present */ }
+      let verdictSeenAt = null;
+      try { verdictSeenAt = statSync(join(PROJ_DIR, 'verdicts', `${agent}.log`)).mtimeMs; } catch { /* absent */ }
+      effects = summariseEffects(observeEffects({
+        since: shape?.startedAt ?? null, verdictSeenAt, changedPaths, delivered: null,
+      }));
+    } catch { /* the advice falls back to asking the reader to look */ }
+  }
+
   const decision = decideNext({
-    agent, transitions, verdict, joinVerdicts, activeGates,
+    agent, transitions, verdict, joinVerdicts, activeGates, effects,
     gateStates: gateStatesFor(rule, verdict),
     // The transcript first, `.last-stop` only if it is unreachable: the hook that
     // writes the latter does not run when the harness force-stops a subagent.

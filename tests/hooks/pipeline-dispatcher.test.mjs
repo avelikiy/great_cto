@@ -763,3 +763,48 @@ test('a verdict-keyed branch cannot widen anything by accident', () => {
   });
   assert.equal(other, null, 'no branch, no default match → still silent, as before');
 });
+
+// ── A cut-off run: what it left behind, stated rather than requested ─────────
+//
+// The advice used to say "its work may already exist: check for changes it left
+// behind" — an instruction only followed when the reader chooses to. It is now
+// answered, and answered fail-closed.
+
+const cutOff = { shape: 'cut-off', turns: 12 };
+
+test('a cut-off run that left work behind says so, instead of asking', () => {
+  const d = decideNext({
+    agent: 'senior-dev', transitions: MAP, verdict: null, lastStop: cutOff,
+    effects: { state: 'some', why: 'x', fields: ['wroteArtefacts'] },
+  });
+  assert.equal(d.kind, 'resume');
+  assert.match(d.text, /DID leave work behind \(wroteArtefacts\)/);
+  assert.match(d.text, /duplicate/);
+  assert.match(d.text, /Do NOT re-run it from scratch/);
+});
+
+test('effects that could not be established are stated as "treat it as though it did"', () => {
+  const d = decideNext({
+    agent: 'senior-dev', transitions: MAP, verdict: null, lastStop: cutOff,
+    effects: { state: 'unknown', why: 'x', fields: ['wroteArtefacts', 'recordedVerdict'] },
+  });
+  assert.match(d.text, /could not be established/);
+  assert.match(d.text, /as though it did/, 'fail-closed: missing information never softens the advice');
+});
+
+test('a run that left nothing behind still says resume, and says why there is little to keep', () => {
+  const d = decideNext({
+    agent: 'senior-dev', transitions: MAP, verdict: null, lastStop: cutOff,
+    effects: { state: 'none', why: 'x', fields: [] },
+  });
+  assert.match(d.text, /left nothing behind/);
+  assert.match(d.text, /no progress to keep/);
+});
+
+test('with no effects supplied at all, the old advice stands rather than a claim', () => {
+  // The observation is best-effort in the hook. If it could not run, the message
+  // must not assert anything about what happened — it falls back to asking.
+  const d = decideNext({ agent: 'senior-dev', transitions: MAP, verdict: null, lastStop: cutOff });
+  assert.match(d.text, /may already exist/);
+  assert.doesNotMatch(d.text, /DID leave work behind/);
+});
