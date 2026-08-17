@@ -551,6 +551,37 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
+  // Stand-downs — gates that proceeded WITHOUT being asked, and on what evidence.
+  //
+  // ADR-009: a gate is not the only valid answer, but silence is never one. An
+  // evidence-tiered gate announces instead of waiting, and until now that
+  // announcement had nowhere on this board to land — the record was being
+  // written and nothing read it.
+  if (pathname === '/api/stand-downs') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    let rows = null;
+    let why = '';
+    try {
+      const { readStandDowns } = await import('../../../scripts/lib/stand-down.mjs');
+      rows = readStandDowns(c, { limit: 50 });
+    } catch (e) {
+      // The real error. A handler that names a cause it did not observe sends
+      // the reader looking in the wrong place — this file has done that once.
+      why = String(e?.message || e);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    // Three states, because two cannot carry them: `readStandDowns` returns null
+    // when the ledger exists and could not be read, [] when nothing has stood
+    // down, and rows when something has. "I could not look" must never render as
+    // "nothing happened".
+    res.end(JSON.stringify(
+      rows === null
+        ? { state: 'unreadable', why: why || 'the stand-down ledger exists but could not be read', rows: [] }
+        : { state: rows.length ? 'some' : 'none', why: '', rows },
+    ));
+    return true;
+  }
+
   // Resume — pick up where you left off (last verdicts + WIP + recent decisions)
   if (pathname === '/api/resume') {
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));

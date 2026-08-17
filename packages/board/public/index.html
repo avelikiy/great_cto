@@ -2332,6 +2332,17 @@ button { font-family: inherit; cursor: pointer; }
           </div>
           <div id="inbox-gates"></div>
         </div>
+        <!-- Gates that did NOT wait for you. Placed directly under the decisions
+             you still owe, because "what proceeded without me" is the question a
+             tiered gate creates and nothing on this board answered. -->
+        <div class="inbox-section" id="inbox-standdown-section" style="display:none">
+          <div class="inbox-section-head">
+            <span class="dot dot-amber"></span>
+            <h3>Proceeded without you</h3>
+            <span class="inbox-count" id="inbox-standdown-count">0</span>
+          </div>
+          <div id="inbox-standdown"></div>
+        </div>
         <div class="inbox-section" id="inbox-p0-section">
           <div class="inbox-section-head">
             <span class="dot dot-red"></span>
@@ -2776,6 +2787,7 @@ function renderInbox(d) {
   renderInboxList('inbox-p0', d?.p0_open || [], 'inbox-p0-count', {});
   renderInboxList('inbox-blocked', d?.blocked || [], 'inbox-blocked-count', {});
   renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', {});
+  refreshStandDowns();
   // Idle focus: collapse the empty sections into one all-clear card when nothing needs a decision.
   const attention = (d?.pending_gates || []).length + (d?.p0_open || []).length
     + (d?.blocked || []).length + (d?.stale_in_progress || []).length;
@@ -2788,6 +2800,52 @@ function renderInbox(d) {
   if (ac) ac.style.display = (attention === 0 && !anyDegraded()) ? '' : 'none';
   renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
     'Some project data could not be read — counts below are incomplete.');
+}
+
+// Gates that announced instead of waiting.
+//
+// Three states, not two. `none` hides the section — nothing has proceeded
+// unattended, which is a real and common answer. `unreadable` SHOWS it and says
+// so: a ledger that exists and could not be read must never render the same as
+// an empty one, because the whole reason this record exists is that a
+// stand-down nobody can see is indistinguishable from a gate nobody configured.
+async function refreshStandDowns() {
+  const section = document.getElementById('inbox-standdown-section');
+  const root = document.getElementById('inbox-standdown');
+  const cnt = document.getElementById('inbox-standdown-count');
+  if (!section || !root) return;
+
+  const d = await api(`/api/stand-downs${pqs()}`);
+  if (!d) { section.style.display = 'none'; return; }
+
+  if (d.state === 'unreadable') {
+    section.style.display = '';
+    if (cnt) cnt.textContent = '?';
+    root.innerHTML = `<div class="inbox-row"><span class="ttl">The stand-down ledger could not be read
+      <span class="meta">${esc(d.why || '')} — gates may have proceeded unattended without appearing here</span></span></div>`;
+    return;
+  }
+  if (d.state !== 'some' || !d.rows.length) { section.style.display = 'none'; root.innerHTML = ''; return; }
+
+  section.style.display = '';
+  if (cnt) cnt.textContent = d.rows.length;
+  // Newest first — the ledger appends, but a reader wants the most recent thing
+  // that happened without them.
+  root.innerHTML = d.rows.slice().reverse().map(r => {
+    // `notify-thin` means the gate stood down on ONE eval: sound statistics,
+    // unmeasured coverage. That is the row most worth a second look, so it is
+    // the row that looks different.
+    const thin = r.tier === 'notify-thin';
+    const tierTag = `<span style="font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:3px;border:1px solid var(--border);color:${thin ? 'var(--status-gate)' : 'var(--text3)'}">${esc(r.tier || 'unknown')}</span>`;
+    return `
+      <div class="inbox-row">
+        <span class="id">gate:${esc(r.gate || '?')}</span>
+        <span class="ttl">${esc(r.agent || 'unknown agent')} proceeded without asking
+          <span class="ttl-desc">${esc(r.evidence || '')}</span>
+          <span class="meta">${tierTag} · <span title="${esc(r.ts || '')}">${r.ts ? relTime(r.ts) : 'no timestamp'}</span></span>
+        </span>
+      </div>`;
+  }).join('');
 }
 
 function renderInboxList(rootId, items, countId, opts = {}) {
