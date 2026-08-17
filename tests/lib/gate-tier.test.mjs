@@ -8,9 +8,14 @@
 // The refusals are the substance. Thirty evals clear the interval and only
 // fifteen agents qualify, which is the rule working rather than the rule being
 // strict.
+//
+// Of those fifteen, fourteen qualified on ONE eval file — about eighteen trials
+// — and read exactly like the one with four. That is `notify-thin`: the
+// statistics are sound and the coverage is unmeasured, and the two must not
+// share a word.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tierFor, tierAll, evidenceFor, CLASS_A, notifyOnlyAgents, tieringEnabled, notifyOnlyForProject } from '../../scripts/lib/gate-tier.mjs';
+import { tierFor, tierAll, evidenceFor, CLASS_A, notifyOnlyAgents, tieringEnabled, tieringMode, notifyOnlyForProject } from '../../scripts/lib/gate-tier.mjs';
 
 const row = (o = {}) => ({
   agent: 'some-reviewer',
@@ -24,10 +29,32 @@ const row = (o = {}) => ({
   ...o,
 });
 
-test('conclusive evidence at the right shape drops the gate to notify', () => {
-  const t = tierFor('some-reviewer', { rows: [row()] });
+test('conclusive evidence on plural evals drops the gate to notify', () => {
+  const t = tierFor('some-reviewer', { rows: [row({ eval: 'EVAL-x' }), row({ eval: 'EVAL-y' })] });
   assert.equal(t.tier, 'notify');
   assert.match(t.why, /conclusively passed/);
+});
+
+test('conclusive evidence on a SINGLE eval is notify-thin, not notify', () => {
+  // Read from our own output rather than the code: fourteen of the fifteen
+  // agents standing down did so on one eval file — roughly eighteen trials —
+  // and that read exactly like the agent with four. The statistics were never
+  // wrong; they answer for the cases that exist and say nothing about whether
+  // those cases span what the agent is responsible for.
+  const t = tierFor('some-reviewer', { rows: [row()] });
+  assert.equal(t.tier, 'notify-thin');
+  assert.match(t.why, /conclusively passed/, 'it did pass — that part is not in doubt');
+  assert.match(t.why, /unmeasured/, 'and it names what was not measured');
+});
+
+test('notify-thin is a stand-down, not a refusal — the caller decides', () => {
+  // The tier is a fact about evidence; whether that fact stands a gate down is
+  // a policy about risk appetite, and the two must not be welded together.
+  const rows = [row()];
+  assert.equal(notifyOnlyAgents(rows, { enabled: true }).has('some-reviewer'), true,
+    'default keeps the behaviour shipped under `gate-tiering: evidence`');
+  assert.equal(notifyOnlyAgents(rows, { enabled: true, thin: 'gated' }).has('some-reviewer'), false,
+    '`evidence-broad` restores the gate a single eval cannot justify');
 });
 
 // ── The refusal that matters most ───────────────────────────────────────────
@@ -127,7 +154,7 @@ test('tierAll reports every agent it has seen, with a reason each', () => {
   assert.equal(all.length, 3);
   assert.ok(all.every((x) => x.why), 'a verdict without a reason is not actionable');
   assert.equal(all.find((x) => x.agent === 'devops').tier, 'gated');
-  assert.equal(all.find((x) => x.agent === 'a').tier, 'notify');
+  assert.equal(all.find((x) => x.agent === 'a').tier, 'notify-thin', 'one eval is thin, however conclusive');
 });
 
 // ── Turning it on ───────────────────────────────────────────────────────────
@@ -166,4 +193,39 @@ test('an unreadable project fails closed — every gate stands', async () => {
   // which is the one outcome this must never produce by accident.
   const s = await notifyOnlyForProject('/nonexistent/project/path');
   assert.equal(s.size, 0);
+});
+
+// ── How much evidence the project asks for ──────────────────────────────────
+
+test('the mode is off, evidence, or evidence-broad — and nothing else', () => {
+  assert.equal(tieringMode('gate-tiering: evidence'), 'evidence');
+  assert.equal(tieringMode('gate-tiering: evidence-broad'), 'evidence-broad');
+  assert.equal(tieringMode('gate-tiering: off'), 'off');
+  assert.equal(tieringMode(''), 'off');
+  assert.equal(tieringMode(undefined), 'off');
+});
+
+test('an unrecognised mode reads as off, never as the permissive one', () => {
+  // A misspelt setting must not buy a stand-down. The failure of a mis-read
+  // here is a gate that quietly stopped asking, so every unknown value has to
+  // land on the side where the human is still asked.
+  for (const bad of ['gate-tiering: evidenc', 'gate-tiering: broad', 'gate-tiering: evidence-broadly', 'gate-tiering: EVIDENCE!']) {
+    assert.equal(tieringMode(bad), 'off', `${bad} must not enable anything`);
+  }
+});
+
+test('evidence-broad is still tiering — enabled, just stricter', () => {
+  assert.equal(tieringEnabled('gate-tiering: evidence-broad'), true);
+});
+
+test('evidence-broad keeps the gates a single eval cannot justify', () => {
+  const rows = [
+    row({ agent: 'thin-one' }),
+    row({ agent: 'broad-one', eval: 'EVAL-a' }),
+    row({ agent: 'broad-one', eval: 'EVAL-b' }),
+  ];
+  const lenient = notifyOnlyAgents(rows, { enabled: true, thin: 'notify' });
+  const strict = notifyOnlyAgents(rows, { enabled: true, thin: 'gated' });
+  assert.deepEqual([...lenient].sort(), ['broad-one', 'thin-one']);
+  assert.deepEqual([...strict], ['broad-one'], 'the thin one gets its gate back, the broad one keeps standing down');
 });

@@ -48,6 +48,27 @@ export const REQUIRED_SPLIT = 'holdout';
 export const REQUIRED_SAMPLES = 3;
 
 /**
+ * The eval count above which the evidence is at least plural.
+ *
+ * Found by reading our own output rather than the code: of the fifteen agents
+ * whose gate stands down today, FOURTEEN qualified on a single eval file. One
+ * file is roughly six holdout cases at three samples — about eighteen trials —
+ * and that was the entire basis for deciding a human need not be asked.
+ *
+ * The statistics were never wrong. `power.status === 'passed'` means the
+ * interval clears the bar ON THE CASES THAT EXIST, and it says nothing about
+ * whether those cases span what the agent is responsible for. `insurance-
+ * reviewer` answers for NAIC, IFRS 17, Solvency II, ACORD and actuarial
+ * auditability; one passing eval dropped its gate for all of it.
+ *
+ * So this threshold does NOT measure coverage — nothing here can, and claiming
+ * otherwise would be the same defect one layer up. It marks the case where
+ * coverage is UNMEASURED, so that a narrow result stops reading exactly like a
+ * broad one.
+ */
+export const BROAD_EVALS = 2;
+
+/**
  * The newest qualifying row per eval, for one agent.
  *
  * Newest rather than best: an agent that improved and then regressed is at its
@@ -72,7 +93,18 @@ export function evidenceFor(agent, rows = []) {
 /**
  * May this agent's gate drop to notify-only?
  *
- * @returns {{tier:'gated'|'notify', why:string, evals:number}}
+ * Three answers, not two — the same rule this repository applies everywhere
+ * else. `notify` is a stand-down on plural evidence; `notify-thin` is a
+ * stand-down on ONE eval, where the statistics are sound and the coverage is
+ * simply unmeasured. Collapsing the two would put "we checked one thing and it
+ * was fine" and "we checked broadly and it was fine" behind one word, which is
+ * how an absent measurement comes to wear a result's clothes.
+ *
+ * `notify-thin` is a real tier, not a warning label: whether it stands down or
+ * keeps its gate is the CALLER's decision (see `notifyOnlyAgents`), because
+ * that is a policy about risk appetite and this is a fact about evidence.
+ *
+ * @returns {{tier:'gated'|'notify'|'notify-thin', why:string, evals:number}}
  */
 export function tierFor(agent, { rows = [], classA = CLASS_A } = {}) {
   if (classA.includes(agent)) {
@@ -104,11 +136,17 @@ export function tierFor(agent, { rows = [], classA = CLASS_A } = {}) {
     return { tier: 'gated', evals: ev.length, why: 'ran against the generic actor — that measures the eval, not this agent\'s prompt' };
   }
 
-  return {
-    tier: 'notify',
-    evals: ev.length,
-    why: `${ev.length} eval(s) conclusively passed at ${REQUIRED_SPLIT}×${REQUIRED_SAMPLES}, none fixture-inlined`,
-  };
+  const passed = `${ev.length} eval(s) conclusively passed at ${REQUIRED_SPLIT}×${REQUIRED_SAMPLES}, none fixture-inlined`;
+
+  if (ev.length < BROAD_EVALS) {
+    return {
+      tier: 'notify-thin',
+      evals: ev.length,
+      why: `${passed} — but on a single eval, so how much of this agent's responsibility was exercised is unmeasured, not broad`,
+    };
+  }
+
+  return { tier: 'notify', evals: ev.length, why: passed };
 }
 
 /** Every agent that appears in the evidence, tiered. */
@@ -133,14 +171,37 @@ export function tierAll(rows = [], opts = {}) {
  * for three months. Computed from the history, a regression restores the gate on
  * the next measurement without anybody acting.
  */
-export function notifyOnlyAgents(rows = [], { enabled = false, classA = CLASS_A } = {}) {
+export function notifyOnlyAgents(rows = [], { enabled = false, classA = CLASS_A, thin = 'notify' } = {}) {
   if (!enabled) return new Set();
-  return new Set(tierAll(rows, { classA }).filter((a) => a.tier === 'notify').map((a) => a.agent));
+  const stands = thin === 'gated' ? ['notify'] : ['notify', 'notify-thin'];
+  return new Set(tierAll(rows, { classA }).filter((a) => stands.includes(a.tier)).map((a) => a.agent));
 }
 
-/** Does this project want evidence-based tiering? Default: no. */
+/**
+ * How much evidence this project wants before a gate stops asking.
+ *
+ *   off             — every gate stands. The default, and what a project that
+ *                     never saw the evidence gets.
+ *   evidence        — a conclusive holdout stands a gate down, including on a
+ *                     single eval. What `gate-tiering: evidence` has meant
+ *                     since it shipped; unchanged, so no project's behaviour
+ *                     moves under it without the owner asking.
+ *   evidence-broad  — the same, except a single-eval pass (`notify-thin`) keeps
+ *                     its gate. Costs fourteen of today's fifteen stand-downs
+ *                     on this repository; buys not treating one eval as breadth.
+ *
+ * Anything unrecognised is `off`. A misspelt mode must not be read as the more
+ * permissive one — the failure of a mis-read here is a gate that quietly
+ * stopped asking.
+ */
+export function tieringMode(projectMdText) {
+  const m = String(projectMdText ?? '').match(/^\s*gate-tiering:\s*(evidence-broad|evidence)\s*$/mi);
+  return m ? m[1].toLowerCase() : 'off';
+}
+
+/** Does this project want evidence-based tiering at all? Default: no. */
 export function tieringEnabled(projectMdText) {
-  return /^\s*gate-tiering:\s*evidence\s*$/mi.test(String(projectMdText ?? ''));
+  return tieringMode(projectMdText) !== 'off';
 }
 
 
@@ -160,7 +221,8 @@ export async function notifyOnlyForProject(cwd = process.cwd()) {
 
     const projectMd = join(cwd, '.great_cto', 'PROJECT.md');
     if (!existsSync(projectMd)) return new Set();
-    if (!tieringEnabled(readFileSync(projectMd, 'utf8'))) return new Set();
+    const mode = tieringMode(readFileSync(projectMd, 'utf8'));
+    if (mode === 'off') return new Set();
 
     const history = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'tests', 'eval', 'results-history.jsonl');
     if (!existsSync(history)) return new Set();
@@ -170,7 +232,7 @@ export async function notifyOnlyForProject(cwd = process.cwd()) {
       if (!line.trim()) continue;
       try { rows.push(JSON.parse(line)); } catch { /* a bad row is not evidence */ }
     }
-    return notifyOnlyAgents(rows, { enabled: true });
+    return notifyOnlyAgents(rows, { enabled: true, thin: mode === 'evidence-broad' ? 'gated' : 'notify' });
   } catch {
     return new Set();   // fail closed — every gate stands
   }
@@ -197,13 +259,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const all = tierAll(rows);
   const notify = all.filter((a) => a.tier === 'notify');
+  const thin = all.filter((a) => a.tier === 'notify-thin');
 
   if (process.argv.includes('--json')) {
     console.log(JSON.stringify(all, null, 2));
   } else {
-    console.log(`gate-tier: ${notify.length} of ${all.length} agent(s) have evidence to drop to notify-only\n`);
-    for (const a of notify) console.log(`  notify  ${a.agent.padEnd(28)} ${a.why}`);
-    console.log('');
-    for (const a of all.filter((x) => x.tier === 'gated')) console.log(`  gated   ${a.agent.padEnd(28)} ${a.why}`);
+    const projectMd = join(process.cwd(), '.great_cto', 'PROJECT.md');
+    const mode = existsSync(projectMd) ? tieringMode(readFileSync(projectMd, 'utf8')) : 'off';
+
+    console.log(`gate-tier: ${notify.length} broad, ${thin.length} thin, ${all.length - notify.length - thin.length} gated — of ${all.length} agent(s)`);
+    console.log(`  this project: gate-tiering: ${mode}${mode === 'evidence' ? '  (thin stands down too — `evidence-broad` would keep those gates)' : ''}\n`);
+
+    for (const a of notify) console.log(`  notify      ${a.agent.padEnd(28)} ${a.why}`);
+    if (notify.length) console.log('');
+    for (const a of thin) console.log(`  notify-thin ${a.agent.padEnd(28)} ${a.why}`);
+    if (thin.length) console.log('');
+    for (const a of all.filter((x) => x.tier === 'gated')) console.log(`  gated       ${a.agent.padEnd(28)} ${a.why}`);
   }
 }
