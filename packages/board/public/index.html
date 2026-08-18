@@ -530,6 +530,17 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--bg-card);
   transition: background 0.12s, border-color 0.12s;
 }
+/* A thumb needs a bigger target than a cursor does.
+   24px is comfortable with a mouse and a coin-flip with a thumb, and Approve sits
+   4px from Reject — the one pair on this board where a miss advances work that
+   cannot be un-advanced. Scoped to `pointer: coarse` so the desktop density that
+   makes a long gate list scannable is left exactly as it is. 44px is the iOS
+   minimum; Android asks for 48dp, and the gap does the rest. */
+@media (pointer: coarse) {
+  .gate-btn { height: 44px; font-size: 13px; }
+  .inbox-row .actions .gate-btn { height: 44px; font-size: 13px; }
+  .gate-actions, .side-gate-actions, .inbox-row .actions { gap: 12px; }
+}
 .gate-approve { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
 .gate-approve:hover { background: rgba(22, 163, 74, 0.08); border-color: var(--status-review); }
 /* Agent runner (launch control) */
@@ -2208,7 +2219,7 @@ button { font-family: inherit; cursor: pointer; }
       </div>
     </div>
     <nav class="nav">
-      <div class="nav-item active" data-tab="inbox" onclick="switchTab('inbox', this)">
+      <div class="nav-item active" data-tab="inbox" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('inbox', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
         <span>Inbox</span>
         <span class="count" id="nav-inbox-count">0</span>
@@ -4636,6 +4647,28 @@ function cardHTML(t) {
     </div>`;
 }
 
+// What clicking Approve actually sets in motion, in the words of what it does.
+//
+// A confirm that only asks "are you sure?" teaches people to dismiss confirms,
+// so this one states consequences instead: the approval is appended to the
+// verdict log, the pipeline is woken so the next session dispatches the
+// following stage, and — when the share report is on — a public URL is
+// republished. That last line is the one worth reading: it leaves the machine,
+// and revoking the link later does not un-see what was already served.
+function approveConsequence(id) {
+  const lines = [
+    `Approve ${id}?`,
+    '',
+    'Records your approval in the verdict log and wakes the pipeline —',
+    'the next session dispatches the following stage.',
+  ];
+  if (shareState && shareState.enabled) {
+    lines.push('', `Also republishes the public report at ${shareState.url || 'the share URL'} —`,
+                   'anyone holding that link sees the update.');
+  }
+  return lines.join('\n');
+}
+
 async function gateAction(id, action, runAgent) {
   let body;
   if (action === 'reject') {
@@ -4643,6 +4676,16 @@ async function gateAction(id, action, runAgent) {
     if (reason === null) return;
     body = { action, reason, project: currentProject };
   } else {
+    // The gate is the human signature the pipeline waits on. Rejecting has
+    // always asked for a reason and approving asked for nothing, so the cheaper
+    // click was the one that advanced work nobody can un-advance — friction
+    // pointing exactly the wrong way.
+    //
+    // Medium cost-of-undo (ADR-009): one confirm that NAMES the consequence, not
+    // a typed-name ritual on a button pressed several times a day. The runAgent
+    // path already shows an editable prompt that says what it will approve and
+    // run, and is cancellable — a second dialog there would be pure friction.
+    if (!runAgent && !confirm(approveConsequence(id))) return;
     body = { action, project: currentProject };
     if (runAgent) {
       const generic = `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it with TDD.`;
@@ -4743,6 +4786,18 @@ function renderDashboard(m) {
   // tasks.md fallback with no dates) show a meaningless "—" despite real work.
   // (`??` kept 0 because done_in_window is 0, not null; `||` fixes that.)
   const done = (m.tasks?.done_in_window || m.tasks?.done) ?? 0;
+  // Three states, not two. `?? 0` folds "the payload has no tasks section" into
+  // the same 0 as "zero tasks done", and the tile then rendered that 0 as an
+  // absence — so a day-one project read "—" beside "+0 this week", the board
+  // reporting a failure to measure something it had measured fine. The backend
+  // always sends `tasks` (lib/metrics.mjs), so this is "—" only for a payload
+  // that really is missing it.
+  const doneKnown = m.tasks != null;
+  const costKnown = m.cost != null;
+  // NOT the same shape: avg_completion_min is a median over completions that
+  // carry timestamps, and the backend emits 0 when there are none — so 0 here
+  // means "could not be computed", not "took no time". "—" is the correct
+  // reading; do not "fix" this into a literal 0 m.
   const avgMin = m.avg_completion_min ?? 0;
   const cycleStat = m.cycle_time_stat === 'median_30d' ? 'Median cycle (30d)' : 'Avg cycle time';
 
@@ -4765,9 +4820,11 @@ function renderDashboard(m) {
     : (llmUsd > 0 ? `time-based estimate (no verdict data yet)` : 'no plans or tasks yet');
 
   const hero = [
-    { v: done || '—', sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
+    { v: doneKnown ? done : '—', sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
     {
-      v: aiSpend > 0 ? `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}` : '—',
+      // $0.00 with nothing spent yet is a measurement; "—" would claim we never
+      // looked. The trend line underneath already says which of the two it is.
+      v: costKnown ? `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}` : '—',
       sub: '',
       label: 'AI spend',
       trend: llmTrend,
