@@ -45,6 +45,10 @@ alignment; a number that cannot — a phone number, a postcode, a date, an ID �
 gets neither.** Say which components fall on each side. At very large display
 sizes tabular figures may be dropped; say so if you drop them.
 
+**A column header takes the alignment of its data.** Right-aligned figures under
+a left-aligned heading break the edge the alignment existed to create, and this
+is the part most often left out.
+
 State also: decimal alignment for columns compared vertically; **precision by
 currency, not a hardcoded two** (JPY has none, TND has three); the
 negative-number convention chosen once and written down — minus, parentheses, or
@@ -104,8 +108,11 @@ you make, not a styling detail:
 
 - **hidden** when the role can never gain access — its presence would confirm the
   feature, and often the record, exists
-- **disabled** when the role could gain access; a disabled control is **not read
-  by screen readers**, so never use it where the content must be readable
+- **disabled** when the role could gain access — but prefer leaving the control
+  operable and explaining the refusal on activation. A disabled control does not
+  say *why*, is **not read by screen readers**, and leaves the tab order, so a
+  keyboard user cannot reach it to discover it exists. Never attach a tooltip to
+  one: the tooltip cannot be opened by the people who need it.
 - **read-only** when the value matters to this reader but is not theirs to edit —
   navigable and announced, contrast preserved
 
