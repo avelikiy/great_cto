@@ -356,7 +356,10 @@ Extract key information from user request:
 - **Product type**: Entertainment (social, video, music, gaming), Tool (scanner, editor, converter), Productivity (task manager, notes, calendar), or hybrid
 - **Target audience**: C-end consumer users; consider age group, usage context (commute, leisure, work)
 - **Style keywords**: playful, vibrant, minimal, dark mode, content-first, immersive, etc.
-- **Stack**: React Native (this project's only tech stack)
+- **Stack**: read it from the project, do not assume one. This line said
+  "React Native (this project's only tech stack)" — inherited from the project
+  this skill was vendored from, not true here. `data/stacks/` carries sixteen;
+  pick the one the project actually uses.
 
 ### Step 2: Generate Design System (REQUIRED)
 
@@ -464,6 +467,12 @@ python3 skills/ui-ux-pro-max/scripts/search.py "<keyword>" --stack react-native
 | `web` | App interface guidelines (iOS/Android/React Native) | accessibilityLabel, touch targets, safe areas, Dynamic Type |
 | `prompt` | AI prompts, CSS keywords | (style name) |
 
+> **Removed from this vendored copy:** `data/design.csv` and `data/draft.csv`
+> (208 KB). Neither is named in `scripts/core.py`, `scripts/design_system.py` or
+> this file, so the engine never opened them — content there reached nobody while
+> looking like coverage. Upstream deleted them too. Do not restore them.
+> (`data/ui-reasoning.csv` IS read, by `design_system.py`, and stays.)
+
 ### Available Stacks
 
 | Stack | Focus |
@@ -559,7 +568,11 @@ python3 skills/ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system 
 ## Common Rules for Professional UI
 
 These are frequently overlooked issues that make UI look unprofessional:
-Scope notice: The rules below are for App UI (iOS/Android/React Native/Flutter), not desktop-web interaction patterns.
+Scope notice: the rules below are for App UI (iOS/Android/React Native/Flutter)
+and are NOT desktop-web interaction patterns. Read as written: this is the most
+concrete material in the skill, and it excludes itself from the web work that is
+this repository's ordinary case. For a web surface, use it as background and take
+the binding rules from the design contract in `agents/design-advisor.md`.
 
 ### Icons & Visual Elements
 
@@ -619,7 +632,9 @@ Scope notice: The rules below are for App UI (iOS/Android/React Native/Flutter),
 ## Pre-Delivery Checklist
 
 Before delivering UI code, verify these items:
-Scope notice: This checklist is for App UI (iOS/Android/React Native/Flutter).
+Scope notice: this checklist is for App UI (iOS/Android/React Native/Flutter),
+so it does not apply to a web surface — see the note above before using it as a
+pre-delivery gate on a dashboard.
 
 ### Visual Quality
 - [ ] No emojis used as icons (use SVG instead)
