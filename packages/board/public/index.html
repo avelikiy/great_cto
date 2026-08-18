@@ -356,7 +356,7 @@ button { font-family: inherit; cursor: pointer; }
   margin: 0 16px;
   transition: border-color .12s, background .12s;
 }
-.search-box:focus-within { border-color: var(--accent); background: var(--bg-card); }
+.search-box:focus-within { border-color: var(--focus-ring); background: var(--bg-card); }
 .search-box svg { color: var(--text3); flex-shrink: 0; }
 .search-box input {
   flex: 1; border: none; outline: none; background: transparent;
@@ -757,7 +757,7 @@ button { font-family: inherit; cursor: pointer; }
 .toast code { background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px; }
 .pl-stage { cursor: pointer; transition: background 0.12s; }
 .pl-stage:hover { background: var(--bg-muted); border-radius: 4px; }
-.card-selected { outline: 2px solid var(--accent, #3b82f6); outline-offset: -1px; }
+.card-selected { outline: 2px solid var(--focus-ring); outline-offset: -1px; }
 #hotkey-modal {
   position: fixed; inset: 0; z-index: 10000;
   display: flex; align-items: center; justify-content: center;
@@ -1241,6 +1241,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .cost-cell .v {
   font-family: var(--serif); font-weight: 500;
+  font-variant-numeric: tabular-nums;
   font-size: 26px; letter-spacing: -0.02em;
   color: var(--text); line-height: 1.1;
 }
@@ -1583,8 +1584,20 @@ button { font-family: inherit; cursor: pointer; }
 .metric-card.purple::before { background: #7c3aed; }
 .metric-num {
   font-family: var(--serif); font-weight: 500;
+  /* The board is live (SSE). In a proportional face a 1 is narrower than an 8,
+     so a figure that ticks over re-flows its own width and the number appears to
+     breathe. Tabular figures cost nothing here and stop it. */
+  font-variant-numeric: tabular-nums;
   font-size: 52px; line-height: 1;
   letter-spacing: -0.02em;
+}
+/* An absence is rendered quietly and never silently — the glyph stays out of the
+   way, the reason is available on hover and to a screen reader. Sized down from
+   whatever it sits in, so a missing hero figure does not shout at 52px. */
+.absent {
+  font-family: var(--mono); font-size: 0.55em;
+  color: var(--text3); letter-spacing: 0.04em;
+  cursor: help; border-bottom: 1px dotted var(--border-strong);
 }
 .metric-num small {
   font-size: 22px; color: var(--text2);
@@ -4852,6 +4865,32 @@ async function updateTaskPriority(id, priority) {
   }
 }
 
+/* ── One glyph cannot mean five things ─────────────────────────────────────
+ *
+ * A single em dash was doing duty for at least five different facts on this
+ * board: not loaded yet, measured and there is none, cannot be computed from
+ * what we have, no verdict, no date. On a screen where the figures are money and
+ * throughput, "we looked and it is zero" and "we could not look" are not the
+ * same answer, and the reader was being asked to guess which one they had.
+ *
+ * Three kinds, because three is what actually occurs here. Vocabulary follows
+ * the distinction statistical agencies draw between a value that is missing and
+ * one that is not applicable; the wording is ours, the discipline is theirs.
+ *
+ * The caller always passes the specific reason. A generic tooltip that repeats
+ * the glyph's category would add a hover and no information.
+ */
+const ABSENCE = {
+  none:         '—',      // measured; the answer is that there is none
+  uncomputable: 'n/a',    // the inputs for this figure do not exist
+  unloaded:     '·',      // no answer yet — the read has not landed
+};
+
+function absent(kind, why) {
+  const glyph = ABSENCE[kind] || ABSENCE.none;
+  return `<span class="absent" title="${esc(why)}" aria-label="${esc(why)}">${glyph}</span>`;
+}
+
 /* ── Dashboard ──────────────────────────────────────────────────────────── */
 function renderDashboard(m) {
   const llmUsd = m.cost?.llm_usd ?? 0;
@@ -4896,11 +4935,11 @@ function renderDashboard(m) {
     : (llmUsd > 0 ? `time-based estimate (no verdict data yet)` : 'no plans or tasks yet');
 
   const hero = [
-    { v: doneKnown ? done : '—', sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
+    { v: doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section'), sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
     {
       // $0.00 with nothing spent yet is a measurement; "—" would claim we never
       // looked. The trend line underneath already says which of the two it is.
-      v: costKnown ? `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}` : '—',
+      v: costKnown ? `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}` : absent('unloaded', 'the metrics payload carried no cost section'),
       sub: '',
       label: 'AI spend',
       trend: llmTrend,
@@ -4917,7 +4956,7 @@ function renderDashboard(m) {
       : {
           // No MEASURED savings yet (no verdict cost data). Don't fabricate a
           // multiplier from the time-based estimate — show it's not measured.
-          v: '—',
+          v: absent('uncomputable', 'a measured multiplier needs verdict cost data, and there is none yet'),
           sub: '',
           label: 'Cost savings vs FTE',
           trend: aiSpend > 0
@@ -4935,12 +4974,12 @@ function renderDashboard(m) {
 
   const acc = m.acceptance || {};
   const secondary = [
-    { v: avgMin ? `${avgMin}` : '—', sub: avgMin ? 'm' : '', label: cycleStat },
-    { v: m.qa?.pass_rate != null ? m.qa.pass_rate : '—', sub: m.qa?.pass_rate != null ? '%' : '', label: m.qa?.pass_rate != null ? 'QA pass rate' : 'QA — run /qa', cls: 'green' },
+    { v: avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure'), sub: avgMin ? 'm' : '', label: cycleStat },
+    { v: m.qa?.pass_rate != null ? m.qa.pass_rate : absent('none', 'no QA run recorded in this window'), sub: m.qa?.pass_rate != null ? '%' : '', label: m.qa?.pass_rate != null ? 'QA pass rate' : 'QA — run /qa', cls: 'green' },
     // Verified-acceptance metrics: cost of a change a gate actually APPROVED, and
     // how often work bounced. '—' when nothing was accepted in the window — an
     // honest gap, not a zero.
-    { v: acc.cost_per_accepted != null ? `$${acc.cost_per_accepted.toFixed(2)}` : '—', sub: '', label: acc.accepted ? `Cost / accepted (${acc.accepted})` : 'Cost / accepted' },
+    { v: acc.cost_per_accepted != null ? `$${acc.cost_per_accepted.toFixed(2)}` : absent('none', 'nothing was accepted in this window'), sub: '', label: acc.accepted ? `Cost / accepted (${acc.accepted})` : 'Cost / accepted' },
     { v: acc.rework_rounds ?? 0, sub: '', label: 'Rework rounds', cls: acc.rework_rounds ? 'amber' : 'green' },
     { v: m.security?.blocked ?? 0, sub: '', label: 'Open security blocks', cls: m.security?.blocked ? 'red' : 'green' },
     { v: m.tasks?.in_progress ?? 0, sub: '', label: 'In progress', cls: 'amber' },
@@ -5206,6 +5245,19 @@ function setNotifStatus(text, tone) {
 
 async function toggleShare() {
   const enabled = !document.getElementById('share-toggle').checked;
+  // Only on the way ON. Switching sharing OFF is the safe direction and asking
+  // there would train people to click through the dialog that matters. The card
+  // already explains what publishing means, but a toggle can be flipped without
+  // reading the card next to it, and revoking the link afterwards does not
+  // un-see what was already served.
+  if (enabled && !confirm(
+    'Publish a public report for this project?\n\n' +
+    'Anyone holding the link can read what shipped, the metrics and the activity,\n' +
+    'with no sign-in. Approving a gate republishes it automatically.\n\n' +
+    'Turning sharing off later revokes the link — it does not unpublish what has\n' +
+    'already been read.')) {
+    return;
+  }
   document.getElementById('share-loading').style.display = enabled ? 'flex' : 'none';
   document.getElementById('share-url-section').style.display = 'none';
   // BUG FIX: scope publish to the currently-selected project, not server's cwd
@@ -5832,7 +5884,6 @@ function renderAgentProfile(p) {
         ${p.retired
           ? `<button type="button" onclick="restoreAgentAction('${esc(p.slug)}')">Restore agent</button>`
           : `<button type="button" class="danger" onclick="retireAgentAction('${esc(p.slug)}')">Retire agent</button>`}
-        <button type="button" disabled title="Opening external files is not yet wired up">Open prompt file</button>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-top:8px">
         File: <code>${esc(p.file_path)}</code>
