@@ -4,7 +4,7 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased
+## v2.97.0 — 2026-08-18
 
 ### A document goes stale on a date its author chose
 
