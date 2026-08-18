@@ -163,6 +163,34 @@ button { font-family: inherit; cursor: pointer; }
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
 }
+/* Below this width the fixed 240px sidebar left 135px of workspace on a 375px
+   screen — narrower than a single kanban column (264px) — so every visit from a
+   phone was broken. It becomes a drawer: off-canvas by default, over the content
+   when opened.
+
+   `visibility` matters as much as the transform. A panel merely moved off-screen
+   is still in the tab order, so a keyboard user would tab through an invisible
+   menu — the same defect as the one this file just fixed on the Inbox tab, in
+   the opposite direction. */
+.sidebar-scrim {
+  display: none;
+  position: fixed; inset: 0; z-index: 39;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0; pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+.menu-btn {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 40px; height: 40px; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-card); color: var(--text2);
+}
+.menu-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .sidebar-scrim { transition: none; }
+}
 .sidebar-brand {
   display: flex; align-items: center; gap: 8px;
   padding: 14px 16px;
@@ -2176,6 +2204,48 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width:480px) {
 .chip-filter-bar { flex-direction: column; align-items: stretch; }
 }
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    z-index: 40;
+    transform: translateX(-100%);
+    visibility: hidden;
+    /* Visibility is switched, never eased. Transitioning it over the same 200ms
+       as the transform flips it at the halfway mark, so the drawer is invisible
+       for the first half of its own slide-in — and, worse, still unfocusable at
+       the instant openMenu() tries to move focus into it, which silently left
+       focus on the button and the menu unreachable by keyboard. On the way out
+       it waits for the slide to finish (`0s linear 200ms`), so the panel does
+       not vanish mid-animation. */
+    transition: transform 200ms ease-out, visibility 0s linear 200ms;
+    box-shadow: var(--drawer-shadow);
+  }
+  .sidebar.open {
+    transform: none; visibility: visible;
+    transition: transform 200ms ease-out, visibility 0s;
+  }
+  .sidebar-scrim { display: block; }
+  .sidebar-scrim.open { opacity: 1; pointer-events: auto; }
+  .menu-btn { display: inline-flex; }
+  .topbar { padding: 0 10px; gap: 8px; }
+  .topbar .crumbs { min-width: 0; overflow: hidden; white-space: nowrap; }
+  .topbar .crumbs > span { overflow: hidden; text-overflow: ellipsis; }
+  .topbar-actions { flex-shrink: 0; }
+  /* The search box is the one topbar item that can give up its width; ⌘K still
+     reaches it, and on a phone there is no ⌘K but there is the Search tab. */
+  .topbar .search-box { display: none; }
+  .topbar .task-count { display: none; }
+  .topbar-actions { gap: 6px; }
+  /* Icon-only, with the name moved to aria-label/title rather than deleted. */
+  .btn-label { display: none; }
+
+  /* Four columns of numbers do not fit in 375px; they were being clipped, which
+     silently dropped the fourth stat rather than wrapping it. */
+  .inbox-summary { grid-template-columns: repeat(2, 1fr); }
+  .mp-secondary { grid-template-columns: repeat(2, 1fr); }
+  .mp-hero { grid-template-columns: 1fr; }
+  .mp-row { grid-template-columns: 1fr; }
+}
 @keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 rgba(76,175,80,.6);} 100% { box-shadow: 0 0 0 6px rgba(76,175,80,0);} }
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -2189,7 +2259,7 @@ button { font-family: inherit; cursor: pointer; }
   <div class="board-bg" aria-hidden="true"></div>
 
   <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <span class="brand-mark">
         <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
@@ -2257,9 +2327,15 @@ button { font-family: inherit; cursor: pointer; }
     </div>
   </aside>
 
+  <div class="sidebar-scrim" id="sidebar-scrim" onclick="closeMenu()" aria-hidden="true"></div>
+
   <!-- Workspace -->
   <div class="workspace">
     <div class="topbar">
+      <button class="menu-btn" id="menu-btn" type="button" aria-label="Menu"
+              aria-controls="sidebar" aria-expanded="false" onclick="toggleMenu()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18 M3 12h18 M3 18h18"/></svg>
+      </button>
       <div class="crumbs">
         <span class="proj-icon" id="crumb-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
         <span id="crumb-project">—</span>
@@ -2275,7 +2351,7 @@ button { font-family: inherit; cursor: pointer; }
         <span class="task-count" id="topbar-task-count">0 ISSUES</span>
         <button class="btn-bell" data-tab="share" onclick="switchTab('share', this)" title="Share a public project report" aria-label="Share" style="gap:6px;padding:6px 10px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          <span style="font-size:12px;font-weight:500">Share</span>
+          <span class="btn-label" style="font-size:12px;font-weight:500">Share</span>
           <span id="share-nav-badge" class="share-badge off"><span class="share-badge-dot"></span>off</span>
         </button>
         <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
@@ -2283,9 +2359,9 @@ button { font-family: inherit; cursor: pointer; }
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
           <span class="btn-bell-badge" id="topbar-bell-badge"></span>
         </button>
-        <button class="btn-new" onclick="openNewIssueModal()">
+        <button class="btn-new" onclick="openNewIssueModal()" aria-label="New issue" title="New issue">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14 M5 12h14"/></svg>
-          New issue
+          <span class="btn-label">New issue</span>
         </button>
       </div>
     </div>
@@ -5264,6 +5340,51 @@ function closeSide() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSide(); });
 
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
+/* ── The sidebar as a drawer on narrow screens ──────────────────────────── */
+//
+// Three things a drawer owes a keyboard, all of them things a transform alone
+// does not give you: it leaves the tab order when closed, Escape closes it, and
+// focus moves in on open and back to the button that opened it on close.
+function menuIsOpen() {
+  return !!document.getElementById('sidebar')?.classList.contains('open');
+}
+
+function openMenu() {
+  const sb = document.getElementById('sidebar');
+  if (!sb) return;
+  sb.classList.add('open');
+  document.getElementById('sidebar-scrim')?.classList.add('open');
+  document.getElementById('menu-btn')?.setAttribute('aria-expanded', 'true');
+  document.body.style.overflow = 'hidden';
+  (sb.querySelector('.nav-item.active') || sb.querySelector('.nav-item'))?.focus();
+}
+
+// `restoreFocus` is false when the drawer closes because a tab was CHOSEN — the
+// user is looking at the panel they just picked, and yanking focus back to the
+// hamburger would undo the thing they came for. It is true when the drawer is
+// dismissed (Escape, scrim, the button), where the button is where focus was.
+function closeMenu(restoreFocus = true) {
+  const sb = document.getElementById('sidebar');
+  if (!sb || !sb.classList.contains('open')) return;
+  sb.classList.remove('open');
+  document.getElementById('sidebar-scrim')?.classList.remove('open');
+  const btn = document.getElementById('menu-btn');
+  btn?.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+  if (restoreFocus) btn?.focus();
+}
+
+function toggleMenu() { menuIsOpen() ? closeMenu() : openMenu(); }
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menuIsOpen()) closeMenu(); });
+
+// Rotating a phone, or dragging a desktop window wider, un-applies the media
+// query — the drawer stops being a drawer while `overflow: hidden` is still on
+// the body, which is a page that will not scroll and no visible reason why.
+try {
+  matchMedia('(min-width: 769px)').addEventListener('change', (e) => { if (e.matches) closeMenu(false); });
+} catch (_) { /* older Safari: no addEventListener on MediaQueryList — drawer still works */ }
+
 function switchTab(id, el) {
   // `agents` has no sidebar entry by design: it is a drill-in from Dashboard.
   // Without this the call fell through to code that expects a nav element and
@@ -5271,6 +5392,7 @@ function switchTab(id, el) {
   if (!el) el = document.querySelector(`.nav-item[data-tab="${id}"]`)
     || document.querySelector('.nav-item[data-tab="dashboard"]');
   currentTab = id;
+  closeMenu(false);   // choosing a destination is the end of using the menu
   // sidebar nav
   document.querySelectorAll('.nav-item[data-tab]').forEach(t => {
     t.classList.toggle('active', t.dataset.tab === id);
