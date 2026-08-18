@@ -523,3 +523,18 @@ Target files the implementer touches: `README.md`, `site/agents.html`,
 `CLAUDE.md`, and — in the separate landing repo — `styles.css` `:root`, the industries
 generator, and the homepage template. No file in this contract requires a new
 dependency; the token system stays as-is.
+
+## Numeric contract
+
+This surface displays no figure a reader compares down a column or sums, so
+tabular figure style is not required here. Where counts do appear they are
+proportional and left-aligned with their labels.
+
+The rule that does apply is absence: a count that could not be read renders as
+"—" with its reason, never as `0`. A zero means measured-and-none.
+
+## Destructive actions
+
+None on this surface — nothing here deletes, overwrites or dispatches. Stated
+rather than omitted, so a later reader can tell this was considered and found
+empty rather than skipped.

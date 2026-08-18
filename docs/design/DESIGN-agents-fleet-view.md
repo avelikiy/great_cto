@@ -535,3 +535,34 @@ exists.
 
 > Confidence: high · invented: nothing — this is a summary of decisions
 > already made in §§1-8.
+
+## Numeric contract
+
+Added after the fact, because this document was the evidence that the contract
+was missing: a dense numeric board whose only typographic line read
+`typography — none new; --mono for numbers, --sans for labels`.
+
+**Figure style.** Success rate, cost, run count and latency are summable and
+compared down a column: tabular figures, right-aligned. Agent name, model id and
+run id are not summable: proportional figures, left-aligned. `--mono` was
+carrying both jobs; monospace is not the same as tabular, and using it as a
+substitute makes labels harder to read for no gain.
+
+**Precision.** Cost to cents; rates as whole percentages with no decimal, since
+the underlying denominators are single digits and a decimal implies a precision
+the sample does not have. Where a rate is rounded for display, the row carries
+its raw n.
+
+**Absence.** An agent with no runs is *not available*, not `0%` — the board
+already treats a null `savings_x` this way and renders `—`; the same rule
+applies to every rate. A genuine zero (ran, never passed) renders as `0%` and
+must not look like the dash.
+
+## Destructive actions
+
+`retire` is the only destructive action on this surface. Cost of recovery: low —
+`restore` exists, the agent's verdict history is untouched, and the change is a
+single row. Ritual: act on click with an undo affordance in the confirmation
+toast; no modal. The row states which agent and that verdicts are preserved.
+
+No bulk retire is offered, so there is no blast radius to state.

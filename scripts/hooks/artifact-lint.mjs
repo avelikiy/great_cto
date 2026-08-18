@@ -56,7 +56,14 @@ const TYPES = [
   {
     name: 'DESIGN',
     match: (p) => /(^|\/)docs\/design\/DESIGN-[^/]*\.md$/.test(p),
-    require: [/design system/i, /component inventory/i, /(a11y|accessib)/i, /responsive/i],
+    // `numeric` and `destructive` joined the required set with the design
+    // contract. They are the two sections a DESIGN doc most often omits and most
+    // expensively: a figure whose absence renders as a blank, and a delete whose
+    // confirmation does not match its cost of recovery. Prose nothing verifies is
+    // prose that gets skipped, and the mechanism for verifying it already existed
+    // — this is the same list that has required an a11y section all along.
+    require: [/design system/i, /component inventory/i, /(a11y|accessib)/i, /responsive/i,
+      /(numeric contract|figure style|tabular)/i, /(destructive|cost of recovery)/i],
     date: 'any',
     cites: false,
   },

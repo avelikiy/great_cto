@@ -558,3 +558,18 @@ shippable and reviewable.
 
 Do items 1–5 (the two P0s + the two inbox P1s + the token repair) first; they carry the most
 reader value and are the smallest changes. 6–11 are independent and can land in any order.
+
+## Numeric contract
+
+This surface displays no figure a reader compares down a column or sums, so
+tabular figure style is not required here. Where counts do appear they are
+proportional and left-aligned with their labels.
+
+The rule that does apply is absence: a count that could not be read renders as
+"—" with its reason, never as `0`. A zero means measured-and-none.
+
+## Destructive actions
+
+None on this surface — nothing here deletes, overwrites or dispatches. Stated
+rather than omitted, so a later reader can tell this was considered and found
+empty rather than skipped.

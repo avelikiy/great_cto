@@ -561,3 +561,18 @@ Hex values are starting points (Tailwind slate/blue 500 family) — implementer 
 **Recommendation:** senior-dev SHOULD wait if founder is reachable in <24h (the Top-2 here is architectural — aggregation reshapes the data model). After 24h, take the default and surface the issue.
 
 > Confidence: high · invented: nothing — escape-hatch wording follows v1.2 §10 template verbatim.
+
+## Numeric contract
+
+This surface displays no figure a reader compares down a column or sums, so
+tabular figure style is not required here. Where counts do appear they are
+proportional and left-aligned with their labels.
+
+The rule that does apply is absence: a count that could not be read renders as
+"—" with its reason, never as `0`. A zero means measured-and-none.
+
+## Destructive actions
+
+None on this surface — nothing here deletes, overwrites or dispatches. Stated
+rather than omitted, so a later reader can tell this was considered and found
+empty rather than skipped.

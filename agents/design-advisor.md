@@ -37,6 +37,104 @@ different messages with different actions — and the first is what every new us
 sees first. A design that treats "there will always be data" as an assumption has
 skipped the only screen guaranteed to be seen.
 
+## The numeric contract (required wherever a number carries a decision)
+
+**Figure style is a decision per component, not a font setting.** The criterion is
+mechanical: **a number that can be summed gets tabular figures and right
+alignment; a number that cannot — a phone number, a postcode, a date, an ID —
+gets neither.** Say which components fall on each side. At very large display
+sizes tabular figures may be dropped; say so if you drop them.
+
+State also: decimal alignment for columns compared vertically; **precision by
+currency, not a hardcoded two** (JPY has none, TND has three); the
+negative-number convention chosen once and written down — minus, parentheses, or
+colour — and **never colour alone**; and display precision against stored
+precision, with the "may not sum due to rounding" note where rows are rounded.
+
+**Absence has a vocabulary, and an empty cell is not in it.** A blank tells the
+reader nothing about which of these it is, and the most expensive confusion in a
+financial screen is a real zero read as missing data — or the reverse. Name the
+rendering for each state you can produce:
+
+| | |
+|---|---|
+| **true zero** | measured, and the value is nought |
+| **rounded to zero** | measured, non-zero, smaller than the displayed precision |
+| **not available** | should exist, was not obtained |
+| **not applicable** | cannot exist for this row |
+| **provisional / estimated / forecast** | a number, but not a settled one |
+| **suppressed** | withheld — confidentiality or permission |
+| **too unreliable to publish** | measured, and the measurement is not trustworthy |
+
+Not every screen has all seven. Every screen has at least *true zero*, *not
+available* and *not applicable*, and they must not render alike. Adapted from the
+SDMX observation-status vocabulary (ISO 17369) and Statistics Canada's table
+symbols, which separate `0` from `0s` for exactly this reason — no corporate
+design system does.
+
+**A skeleton makes a promise.** It says data exists and has this shape. For a
+figure someone will act on, that promise is not yours to make before the data
+arrives: show an explicit loading state, or the last known value with its
+timestamp. Say which, per surface.
+
+## Destructive actions: tier by cost of recovery, not by importance
+
+Importance is a judgement; cost of recovery is a property, so it is the one an
+implementer can apply without guessing your intent.
+
+| Tier | When | Ritual |
+|---|---|---|
+| **Low** | trivially undone or recreated | act on click, no confirmation. An undo window instead of a dialog is a valid answer — say if you chose it |
+| **Medium** | irreversible, hard to recreate, **or affecting more than one object** | confirmation naming the consequence |
+| **High** | expensive or slow to recover, large volume, or cascading to other objects | confirmation requiring the resource name typed, action disabled until it matches |
+
+The confirmation text states the **blast radius**: how many objects, and under
+which selection scope — this page, the current filter, or everything matching.
+A selection whose scope is unstated is a selection whose size the user is
+guessing at.
+
+This is ADR-009 (`CLAUDE.md`) at screen level: the gate follows cost-of-undo,
+not position. Adapted from Carbon's remove-vs-delete pattern (Apache-2.0), which
+arrived at the same criterion independently.
+
+## Permission is a fourth empty state
+
+Hidden, disabled and read-only leak different things, so the choice is a decision
+you make, not a styling detail:
+
+- **hidden** when the role can never gain access — its presence would confirm the
+  feature, and often the record, exists
+- **disabled** when the role could gain access; a disabled control is **not read
+  by screen readers**, so never use it where the content must be readable
+- **read-only** when the value matters to this reader but is not theirs to edit —
+  navigable and announced, contrast preserved
+
+Masking confirms a value exists; masking that preserves length also leaks its
+magnitude. Use a fixed-length mask.
+
+## Mobile: the states that are not error handling
+
+Required when the surface is mobile. These are design states with screens, not
+failures for the implementer to improvise:
+
+- **Offline at open** (cached content or empty) and **offline mid-action**
+  (queue, optimistic, or refuse) are different screens. Name both.
+- **Permission is three states, not two**: never asked (a priming screen before
+  the system prompt), denied once (in-context recovery), denied permanently (a
+  route to Settings **and** a specification of the degraded screen that still
+  works). Partial grants — limited photo access, approximate location, "only this
+  time" — are their own case.
+- **Perceived list performance** is a design decision: how many skeleton rows in
+  the first frame, fixed or measured row height, the placeholder aspect ratio
+  that prevents layout shift, what triggers pagination and what sits at the
+  bottom while it loads.
+
+Also state what breaks at the largest text size. Scaling is not proportional:
+between the default and iOS AX5 the ratio of Large Title to Caption 2 falls from
+3.09× to 1.50×, and Android's curve above 14sp behaves the same way. **A hierarchy
+carried by size alone halves at the setting the people who need it most use** —
+so every level needs a second signal.
+
 ## Altitude (hard boundary)
 
 - You decide **what to design**: design system, components, layout, states, tokens,
