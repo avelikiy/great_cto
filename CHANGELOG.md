@@ -4,6 +4,94 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.98.0 — 2026-08-18
+
+A design review of the board, and the four things it found that cost most in
+daily use. Every finding below was checked against the source before it was
+acted on, and one was checked and rejected.
+
+### The cheaper click was the one you cannot take back
+
+- **Gate approval now confirms.** Rejecting a gate had always opened a prompt
+  for a reason. Approving one — the human signature the whole pipeline waits
+  on, which appends a verdict, wakes the next stage, and republishes a public
+  URL when sharing is on — fired on a single click with no dialog at all. The
+  friction pointed exactly the wrong way. The dialog states consequences rather
+  than asking whether you are sure; a dialog that only asks that teaches people
+  to dismiss dialogs. Medium cost-of-undo under ADR-009: one confirm, not a
+  typed-name ritual on a button pressed several times a day. The run-an-agent
+  path already shows an editable prompt naming what it will do, so it is not
+  confirmed twice.
+- **Publishing a public report confirms too**, on the way ON only — asking on
+  the safe direction as well would train people to click through the one that
+  matters. The text names who can read it, and that revoking the link is not
+  the same as unpublishing what was already served.
+
+### The board on a phone
+
+- **The sidebar was a fixed 240px at every width**, with no media query anywhere
+  that touched it — 135px of workspace on a 375px screen, narrower than a single
+  kanban column. It is a drawer below 768px now: out of the tab order when
+  closed (visibility, not just a transform), Escape closes it, and focus moves
+  in on open and back to the button on close — except when it closes because a
+  tab was chosen, where pulling focus back would undo what the user came for.
+- **Collapsing it exposed what it had been hiding.** The topbar actions ran to
+  546px inside a container with `overflow: hidden`, so "New issue" was not
+  awkward on a phone, it was past the edge and unclickable; the four-column stat
+  grids lost their fourth cell the same way. Crumbs now shrink, labels give way
+  to their icons with the names kept in `aria-label`, and the grids wrap.
+- **Gate buttons were 24px tall with a 4px gap** — comfortable with a cursor, a
+  coin flip with a thumb, on the one pair where a mis-tap advances work that
+  cannot be un-advanced. 44px and 12px under `pointer: coarse` only; desktop
+  density is untouched.
+
+### An absence is not a value
+
+- **A single em dash was carrying five different facts**: not loaded yet,
+  measured and there is none, cannot be computed, no verdict, no date. On a
+  screen full of money, "we looked and it is zero" and "we could not look" are
+  not the same answer. Three kinds now, each with its own glyph, and every call
+  site passes the specific reason — on hover and in the accessible name, since a
+  bare glyph reads as nothing.
+- **A measured zero rendered as an absence.** `done || '—'` meant a day-one
+  project read "—" beside "+0 this week": the board reporting a failure to
+  measure something it had measured fine. Same for a real $0.00 of spend.
+- **Cycle time was checked and left alone.** It looked like the same falsy bug
+  and is not — the backend emits 0 when no completion could be timed, so 0 there
+  genuinely means not-computable. The reason is now written down so a future
+  sweep does not "fix" it into a literal 0 m.
+
+### Reachable, visible, honest
+
+- **Inbox was the only one of six tabs with no `role`, no `tabindex` and no key
+  handler** — the default tab, reachable by mouse only. The other five were
+  correct, which is why nobody noticed. The test asserts over all nav items, so
+  the next tab added cannot repeat it.
+- **Focus and selection outlines were drawn in `--accent`** (#00d97e), which is
+  1.87:1 on the light theme's white — under the 3:1 floor for a non-text
+  indicator. The outline a keyboard user cannot route around was the one thing
+  they could not see. `--focus-ring` was already #047857 there and used
+  correctly everywhere else.
+- **A disabled button explained itself through a tooltip.** Disabled controls
+  are skipped by screen readers and dropped from the tab order, so the
+  explanation was unreachable by exactly the people who needed it. The feature
+  is not wired up and is no longer advertised.
+- **Live figures set in a proportional serif changed width as they ticked** over
+  SSE. Tabular numerals.
+
+### Two mistakes this cost, both kept in the record
+
+- The mobile block was first written **above** the rules it overrides. At equal
+  specificity the later rule wins, so half of it was silently ignored while
+  looking entirely correct in the diff. A test now asserts the ordering, not
+  only the declarations.
+- `visibility` was eased over the same 200ms as the transform, which flips it at
+  the halfway mark — leaving the drawer unfocusable at the instant focus moved
+  into it. That is the same defect the change set out to fix, reintroduced by
+  the fix. It is switched now, never eased.
+
+---
+
 ## v2.97.0 — 2026-08-18
 
 ### A document goes stale on a date its author chose
