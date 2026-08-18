@@ -131,6 +131,83 @@ provider exhaustion, cost estimation, hook reachability and the privacy guard.
 Test ports are now assigned by the OS rather than guessed, which removed a
 collision that failed a different test on every full-suite run.
 
+### A decision that could not be logged is refused
+
+- **Stand-down records** (`scripts/lib/stand-down.mjs`). `gate-tiering: evidence`
+  had been dropping gates to notify-only for six days with nothing guaranteeing
+  the notification was written. A gate that stood down and a gate that stood down
+  and told nobody were indistinguishable — the defect tiering exists to avoid,
+  shipped inside it. The record is now written, fsynced, **before** the pipeline
+  is told it may proceed; an unwritable record means the gate does not stand
+  down. `pipelinePosition` reports which of three things happened: `recorded`,
+  `unrecordable`, `not-applicable`. The recorder is injected, so the default is
+  no recorder — and no recorder means no stand-down.
+
+### Declared, and consumed by nothing
+
+- **`scripts/lib/declared-consumed.mjs`.** `guard-parity` asks whether a guard
+  executes; this asks whether a declaration is read. It found four things nobody
+  had noticed, including `senior-dev`'s own escape hatch: the agent is told to
+  emit `SPEC-OBJECTION` when a plan is structurally wrong, and no transition
+  matched the token, so refusing a bad plan produced silence. Also
+  `product-owner`'s `NO_BUILD` — deciding not to build, the best outcome that
+  stage can reach, looked exactly like an agent that forgot to write a verdict.
+- **Eight agents had no edge** in `shared/pipeline.toml` and were reachable only
+  through routing prose, so the chain stopped after them. Two were authentication
+  and billing.
+- Gated in ci-local, so the class stays closed.
+
+### Retry decided by what the attempt already did
+
+- **`scripts/lib/attempt-effects.mjs`**, wired into the dispatcher. The advice
+  after a cut-off run said "check for changes it left behind" — a request only
+  followed when the reader chose to, and twice this week it was not. The hook now
+  observes and states: it left work behind and re-running would duplicate it, or
+  it left nothing, or this could not be established and should be treated as
+  though it did. Fail-closed, and when the observation itself cannot run the
+  message falls back to asking rather than asserting.
+
+### The design contract says something about money
+
+- **A numeric contract** in `agents/design-advisor.md`. Figure style by a
+  mechanical criterion — a number that can be summed takes tabular figures and
+  right alignment, a phone number or postcode takes neither; a column header
+  takes the alignment of its data. Precision by currency rather than a hardcoded
+  two. The negative convention chosen once, never colour alone.
+- **A vocabulary for absence.** An empty cell cannot distinguish a true zero from
+  one rounded to zero, from data not obtained, from a field that cannot apply,
+  from a value withheld, from one too unreliable to publish. Adapted from the
+  SDMX observation-status vocabulary and Statistics Canada's table symbols, which
+  separate `0` from `0s` for this reason. No corporate design system covers it.
+- **Destructive actions tiered by cost of recovery**, not importance — ADR-009 at
+  screen level. Permission as a fourth empty state; the three mobile states that
+  are not error handling.
+- `artifact-lint` requires the numeric and destructive sections, on the list that
+  has required an a11y section all along.
+- **208 KB removed from `skills/ui-ux-pro-max`**: two CSVs named nowhere in the
+  engine or its own SKILL.md, so their contents reached nobody while looking like
+  coverage. The skill also still declared React Native "this project's only tech
+  stack", scoping its best checklist out of the web work that is the ordinary
+  case here.
+
+### Board
+
+- **The first screen said `idle` whatever the pipeline was doing.** Two functions
+  named `renderPipeline` were declared in one `<script>`; the later won, so every
+  call carrying stage data reached a mermaid parser and the rail stayed the empty
+  div in the markup. Not an empty state — a confident wrong answer, on the first
+  section of the first screen.
+- **One task counted twice.** The inbox's four filters overlap and the badge
+  summed three of them. Each task now lands in its strongest section only and
+  carries `also`, so deduplicating the rows does not deduplicate the facts.
+- **"Proceeded without you"** — the stand-down ledger has somewhere to land, with
+  `notify-thin` rows styled apart from `notify`.
+- **Gate cards say whether the gate will wait**, and freshness in Docs shows
+  three states rather than a modification date.
+- **The npm package shipped four of the six shared scripts the board imports**,
+  so two features worked in the repo and not in what users install. The list is
+  now derived from the board's own imports, transitively, and fails loudly.
+
 ---
 
 ## v2.95.0 — 2026-08-08
