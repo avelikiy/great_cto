@@ -180,7 +180,7 @@ OLD_PID="$(board_pid_on_port "$BOARD_PORT")"
 if [ -n "$OLD_PID" ]; then
   OLD_VER="$(board_reported_version "$BOARD_PORT")"
   if [ "$OLD_VER" = "$VERSION" ]; then
-    echo "  \u2713 board on :$BOARD_PORT already runs v$VERSION"
+    echo "  ✓ board on :$BOARD_PORT already runs v$VERSION"
   else
     # Its cwd decides which project it opens on — a restart that changes that is
     # a restart that moved the operator's board somewhere else.
@@ -189,14 +189,14 @@ if [ -n "$OLD_PID" ]; then
     if board_stop "$BOARD_PORT"; then
       NEW_VER="$(board_start "$PLUGIN_DIR/packages/board/server.mjs" "$OLD_CWD" "$BOARD_PORT")"
       if [ -n "$NEW_VER" ]; then
-        echo "  \u2713 board restarted \u2192 v$NEW_VER"
+        echo "  ✓ board restarted → v$NEW_VER"
       else
         # Never claim the restart worked. A board that did not come back is worse
         # than a stale one, and the operator has to know which they have.
-        echo "  ! board did not come back on :$BOARD_PORT \u2014 start it with /board"
+        echo "  ! board did not come back on :$BOARD_PORT — start it with /board"
       fi
     else
-      echo "  ! could not free :$BOARD_PORT (pid $OLD_PID) \u2014 the board still runs v${OLD_VER:-unknown}"
+      echo "  ! could not free :$BOARD_PORT (pid $OLD_PID) — the board still runs v${OLD_VER:-unknown}"
     fi
   fi
 fi
