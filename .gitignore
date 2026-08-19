@@ -106,3 +106,7 @@ tmp/
 .great_cto/autopilot-runs/
 tests/eval/security/results.tsv
 packages/cli/board/
+
+# Design canvases — the seeded artboard payload is ~2 MB of editor code,
+# and the working .dc.html files are scratch for a canvas that lives online.
+.design/
