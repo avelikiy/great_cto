@@ -11,7 +11,18 @@ import { log } from './log.mjs';
 // .beads/interactions.jsonl changes (the file watcher in watchBeads() calls
 // bdCacheInvalidate(cwd) before broadcasting). This avoids spawning `bd list`
 // on every API call when 5+ projects are open in tabs.
-const BD_CACHE_TTL_MS = 2000;
+// Measured, not guessed: `bd list` on this repository takes 3.0–4.6 s and
+// `bd --version` — pure process startup, no query — takes 1.13 s. At a 2 s TTL
+// the entry expired before the call that filled it had returned, so a page load
+// firing /api/inbox, /api/tasks and /api/metrics paid full price three times and
+// every endpoint sat at ~5 s. A cache whose TTL is shorter than the operation it
+// caches is not a cache; it is a counter of missed opportunities.
+//
+// 30 s is safe because staleness is bounded by invalidation, not by the clock:
+// `bdCacheInvalidate` fires on every write through the board, and the file
+// watchers fire when anything changes the store underneath us. The TTL is only
+// the backstop for a change that arrived through neither.
+const BD_CACHE_TTL_MS = Number(process.env.GREAT_CTO_BD_CACHE_TTL_MS || 30000);
 
 function bdCacheInvalidate(cwd) { bdCache.delete(cwd); }
 
@@ -500,6 +511,7 @@ function detectAgent(task) {
 
 export {
   bdCacheInvalidate,
+  BD_CACHE_TTL_MS,
   BD_BIN,
   bdEnv,
   bd,

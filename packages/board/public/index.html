@@ -153,6 +153,16 @@ button { font-family: inherit; cursor: pointer; }
     radial-gradient(ellipse 70% 50% at 100% 100%, rgba(0, 217, 126, 0.03), transparent 70%);
 }
 
+.stale-board {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 12px; padding: 10px 14px;
+  background: rgba(180, 83, 9, 0.10);
+  border: 1px solid var(--status-progress);
+  border-radius: 8px;
+  font-size: 13px; color: var(--text);
+}
+.stale-board code { font-family: var(--mono); font-size: 12px; }
+
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 .sidebar {
   position: relative; z-index: 1;
@@ -4564,6 +4574,7 @@ function connectSSE() {
     // Sidebar counter FIRST, independent of render
     updateNavCounts();
     try { renderKanban(filterTasks(searchQuery)); } catch (e) { console.warn('SSE renderKanban failed', e); }
+    checkBoardFreshness();
     refreshInbox();
   };
   es.addEventListener('tasks', e => {
@@ -5452,6 +5463,33 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSide();
 // Three things a drawer owes a keyboard, all of them things a transform alone
 // does not give you: it leaves the tab order when closed, Escape closes it, and
 // focus moves in on open and back to the button that opened it on close.
+/* The board tells on itself.
+ *
+ * A board is a process, and a process keeps the version it started with. This
+ * one served v2.95.0 for nine days while three installs in a row reported
+ * success — the installer wrote files, the running server kept answering, and
+ * nothing compared the two. The installer restarts the board now; this is for a
+ * board started any other way, so that being behind is visible rather than
+ * merely true.
+ *
+ * Three states, like everywhere else on this page: `yes` says so, `no` is
+ * silent, and `unknown` — the plugin cache could not be read — is also silent,
+ * because a comparison we could not make must not be announced as a mismatch.
+ */
+async function checkBoardFreshness() {
+  const v = await api('/api/version');
+  if (!v || v.stale !== 'yes') return;
+  const host = document.querySelector('.workspace');
+  if (!host || document.getElementById('stale-board')) return;
+  const el = document.createElement('div');
+  el.id = 'stale-board';
+  el.className = 'stale-board';
+  el.setAttribute('role', 'status');
+  el.innerHTML = `<span>This board is running <code>v${esc(v.version)}</code> — `
+    + `<code>v${esc(v.installed)}</code> is installed. Restart it to pick up the new version.</span>`;
+  host.insertBefore(el, host.firstChild);
+}
+
 function menuIsOpen() {
   return !!document.getElementById('sidebar')?.classList.contains('open');
 }

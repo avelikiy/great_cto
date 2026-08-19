@@ -166,5 +166,40 @@ else
   echo "  ! no installed_plugins.json — skipping registration"
 fi
 
+# ── The board is a running process, not a file ──────────────────────────────
+#
+# Installing a new plugin used to update the cache and leave the running board
+# alone. `server.mjs` answers EADDRINUSE with "board already running" and
+# exit(0), so every relaunch deferred to the old process: this machine served
+# v2.95.0 for nine days while three installs in a row reported success. An
+# install that reports a version the operator cannot see is the same defect as a
+# guard that never runs.
+. "$(dirname "$0")/lib/board-restart.sh"
+BOARD_PORT="${BOARD_PORT:-3141}"
+OLD_PID="$(board_pid_on_port "$BOARD_PORT")"
+if [ -n "$OLD_PID" ]; then
+  OLD_VER="$(board_reported_version "$BOARD_PORT")"
+  if [ "$OLD_VER" = "$VERSION" ]; then
+    echo "  \u2713 board on :$BOARD_PORT already runs v$VERSION"
+  else
+    # Its cwd decides which project it opens on — a restart that changes that is
+    # a restart that moved the operator's board somewhere else.
+    OLD_CWD="$(board_cwd "$OLD_PID")"
+    printf '  restarting board on :%s (was v%s)\n' "$BOARD_PORT" "${OLD_VER:-unknown}"
+    if board_stop "$BOARD_PORT"; then
+      NEW_VER="$(board_start "$PLUGIN_DIR/packages/board/server.mjs" "$OLD_CWD" "$BOARD_PORT")"
+      if [ -n "$NEW_VER" ]; then
+        echo "  \u2713 board restarted \u2192 v$NEW_VER"
+      else
+        # Never claim the restart worked. A board that did not come back is worse
+        # than a stale one, and the operator has to know which they have.
+        echo "  ! board did not come back on :$BOARD_PORT \u2014 start it with /board"
+      fi
+    else
+      echo "  ! could not free :$BOARD_PORT (pid $OLD_PID) \u2014 the board still runs v${OLD_VER:-unknown}"
+    fi
+  fi
+fi
+
 printf '\n\033[42;30m INSTALL-LOCAL: DONE \033[0m  v%s\n' "$VERSION"
 echo "  Restart your Claude Code session so the SessionStart hook picks it up."

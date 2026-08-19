@@ -7,7 +7,7 @@
 // real `bd` binary.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bdList, bdFailureFor, getReadDegradation } from './lib/beads.mjs';
+import { bdList, bdFailureFor, getReadDegradation, BD_CACHE_TTL_MS } from './lib/beads.mjs';
 import { bdCache } from './lib/state.mjs';
 
 function ok(data) {
@@ -57,14 +57,20 @@ test('failure does not refresh the cache timestamp (next call retries bd)', () =
   bdList(cwd, ok(goodData));
   const tsAfterSuccess = bdCache.get(cwd).ts;
 
-  // Make cache stale so the failing call actually runs. The stale value is
-  // CAPTURED, not recomputed: the previous version compared against a second
-  // `Date.now() - 10_000` evaluated at assert time, which only matched when zero
-  // milliseconds had elapsed in between — a test that failed on a slow machine
-  // and passed on a fast one. The `|| tsAfterFailure` next to it was meant as a
-  // safety net and never fired: `||` short-circuits on its truthy left side, so
-  // it was dead text sitting beside a real flake.
-  const staleTs = Date.now() - 10_000;
+  // Make cache stale so the failing call actually runs. Two things this line has
+  // been wrong about, both worth keeping:
+  //
+  // It used to compare against a second `Date.now() - 10_000` evaluated at
+  // assert time, matching only when zero milliseconds had elapsed in between —
+  // a test that failed on a slow machine and passed on a fast one. The
+  // `|| tsAfterFailure` beside it was meant as a safety net and never fired:
+  // `||` short-circuits on its truthy left side, so it was dead text sitting
+  // next to a real flake. The stale value is CAPTURED now.
+  //
+  // And it hard-coded 10 s, which silently became NOT stale when the TTL was
+  // raised from 2 s to 30 s: the call under test was served from cache and never
+  // ran at all. A test that duplicates a constant tests the copy.
+  const staleTs = Date.now() - (BD_CACHE_TTL_MS + 5_000);
   bdCache.get(cwd).ts = staleTs;
   bdList(cwd, fail());
   const tsAfterFailure = bdCache.get(cwd).ts;

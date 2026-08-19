@@ -1144,8 +1144,32 @@ async function dispatch(req, res, url, cwd) {
 
   // Build version — so the board shows which great_cto version it's running.
   if (pathname === '/api/version') {
+    // A board is a process, and a process keeps the version it started with.
+    // This one served v2.95.0 for nine days while three installs in a row
+    // reported success: the installer updated files, the running server kept
+    // answering, and nothing compared the two. The installer restarts the board
+    // now, but a board started any other way still needs to be able to say that
+    // it is behind — an install the operator cannot see is not an install.
+    //
+    // Three states, not two. `unknown` when the cache cannot be read: a version
+    // we failed to look up must not render as agreement.
+    let installed = null;
+    try {
+      const root = path.join(os.homedir(), '.claude', 'plugins', 'cache', 'local', 'great_cto');
+      const versions = fs.readdirSync(root).filter((d) => /^\d+\.\d+\.\d+$/.test(d));
+      installed = versions.sort((a, b) => {
+        const x = a.split('.').map(Number), y = b.split('.').map(Number);
+        return (x[0] - y[0]) || (x[1] - y[1]) || (x[2] - y[2]);
+      }).pop() || null;
+    } catch { installed = null; }
+    const stale = installed && BUILD_VERSION !== 'unknown'
+      ? (installed !== BUILD_VERSION ? 'yes' : 'no')
+      : 'unknown';
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ version: BUILD_VERSION, surface: 'builder', node: process.version.replace(/^v/, '') }));
+    res.end(JSON.stringify({
+      version: BUILD_VERSION, installed, stale,
+      surface: 'builder', node: process.version.replace(/^v/, ''),
+    }));
     return true;
   }
 
