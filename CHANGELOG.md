@@ -4,6 +4,98 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.99.0 — 2026-08-19
+
+One behaviour change and two classes of defect closed. The behaviour change is
+the reason this is a minor and not a patch.
+
+### The default gated how to build and never what to build
+
+`gates-only` was `['arch', 'ship']`: the pipeline stopped on HOW to build and on
+WHETHER to release, and never on WHAT to build. ADR-009 in this repository's own
+CLAUDE.md puts gates on cost-of-undo rather than on position, and by that rule
+the default was inverted — architecture is cheap to undo, you rewrite a document;
+the product decision is wrong for six stages before anyone finds out.
+
+`gate:product` is now in the default set. It costs **one pause per product, not
+per feature**: `product-owner` is a pipeline entry point, nothing transitions
+into it, so it runs only from `/start`. `/audit` enters at `project-auditor`, and
+the request classifier routes both SIMPLE and COMPLEX CODE straight to
+`senior-dev` or `architect`. `auto` still asks nothing — the unattended
+behaviour is a choice again rather than the thing you get by not choosing.
+
+### The brief was the one artifact nobody read
+
+`docs/product/BRIEF-*.md` matched no entry in artifact-lint's type registry, so
+the file was skipped whole — not its headings, not its freshness, not its dead
+source refs. A 153-line document called a brief sat in `docs/product/` with no
+Problem, no Recommendation, no Debate digest and no Scope, and CI was green
+throughout. It opens with "Review, not a new brief"; it was named wrong from its
+first commit and nothing ever asked.
+
+BRIEF is a type now, and five rules read the section body rather than the
+heading — a heading with nothing under it passes every structural check ever
+written:
+
+- a KILL with no number is not a kill criterion
+- an IN-scope bullet with no R-number
+- a wedge with no `[vs: <name>]` — the real brief said "A normal dashboard
+  optimises for…" and named nobody
+- a Debate digest with no per-persona status
+- a figure carrying neither `[source:]` nor `[assumption]`
+
+That last one replaces "SHOW the arithmetic", which is a ritual: a plausible
+multiplier times a plausible multiplier gives a number with visible working and
+no provenance. The real brief reads `22 projects × ~3 opens/day ≈ 66
+context-switches a day`, the `~3` came from nowhere, and the rule was satisfied.
+
+The panel reports on itself now. There was no failure branch anywhere, and the
+four digest slots are all fillable by two personas — a panel that ran short read
+exactly like one that ran. It had already happened: a brief here records "Kimi
+router unavailable in this env" in parentheses, disclosed because that run chose
+to. A roster with `ok|failed|unavailable` per persona is required, and under
+three `ok` the agent may not write BUILD. Four models agreeing is agreement, not
+evidence.
+
+Three loops closed: `discovery: completed` no longer disables the architect's
+discovery gate (product-owner writes that field itself); architect actually reads
+the `discovery-summary` its prompt has always promised to read; and `NO_BUILD`
+carries a gate, since it writes a standing suppression that every later run
+consults.
+
+### A gate that never runs, and a rule that people re-run instead of read
+
+- **CSS declarations that never apply.** A conditional block written above the
+  rules it overrides loses at equal specificity while reading as correct in the
+  diff. It happened twice in two days on the board's phone layout, and both times
+  it was found by looking at the rendered page rather than the source.
+  `scripts/lib/css-cascade.mjs` reads the stylesheet instead, and fails ci-local.
+  Validated against the two defects that bought it, reconstructed: 3 and 10
+  losing declarations with the winning rule's line number.
+- **A suite people re-run instead of read.** Twenty-eight test sites SIGKILLed a
+  detached board and immediately removed its temp directories. `great-cto board`
+  is a launcher — it exits at once and the server is a grandchild — so the
+  process racing `rmSync` was still alive. `tests/helpers/reap.mjs` waits for the
+  process GROUP to go empty, and a sweep requires every such site to use it or
+  state a reason.
+
+### An install the operator cannot see is not an install
+
+This machine served board v2.95.0 for nine days while three installs in a row
+reported success. `server.mjs` answers EADDRINUSE with "board already running"
+and exits, so every relaunch deferred to the old process; `/board --restart`
+killed by patterns that matched nothing the board is actually called. The
+installer stops the board by PORT now, preserves its working directory,
+restarts, and verifies by asking the new process its version. `/api/version`
+reports `stale: yes|no|unknown`.
+
+And the board got faster. `bd list` takes 3.0–4.6 s here; the cache TTL was 2 s,
+so it expired before the call that filled it returned and every endpoint sat at
+~5 s. A cache whose TTL is shorter than the operation it caches is not a cache.
+Warm calls are 3–35 ms now.
+
+---
+
 ## v2.98.1 — 2026-08-19
 
 A patch for two defects in v2.98.0's own mobile work, both the same shape: a
