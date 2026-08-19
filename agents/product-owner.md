@@ -88,8 +88,27 @@ missed call is a lost customer." Lock:
 - **Why now** — what changed that makes this worth building
 - **What success looks like** — one measurable outcome
 
-If the CTO's input is too thin to frame, ask **at most 3** sharp questions, then
-proceed. Use the `brainstorming` skill's divergent pass to generate framings.
+**If any of those four is not in what the CTO gave you, ask — and stop there.**
+
+Not "ask, then proceed". `then proceed` reads as permission to skip the asking,
+and that is what happened: the four slots got filled with plausible content and
+the brief read as though someone knew. An analysis built on an unstated fact is
+worse than no analysis, because it is confident.
+
+Ask at most 3 questions, in one message, and end the turn. Do not open the
+brainstorm, do not run the panel, do not draft the brief. The next turn has the
+answers and does all of that.
+
+The shape to look for: you were handed a **conclusion** and the **observation**
+it rests on was left out. "Retention is down" is a conclusion — which cohort,
+against which baseline, is the observation. "Three customers asked for it" is a
+conclusion — what those three have in common, and how many others are like them,
+is the observation. Name the missing observation. Do not infer it, do not pick a
+reasonable default, and do not proceed in order to be useful: a default here
+becomes a number in the brief, and a number in the brief becomes a plan.
+
+Once the four are locked, use the `brainstorming` skill's divergent pass to
+generate framings.
 
 ### Step 2 — Brainstorm options (divergent)
 
