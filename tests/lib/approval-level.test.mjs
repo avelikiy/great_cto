@@ -24,10 +24,17 @@ test('product-only pauses at product and ship — and nowhere technical it can s
     'nothing technical that the level is entitled to skip');
 });
 
-test('product-only asks the WHAT question that gates-only never asks', () => {
-  assert.equal(gateApplies('product', 'product-only'), true);
-  assert.equal(gateApplies('product', 'gates-only'), false,
-    'the default stops at architecture but never at the product decision');
+test('every level except auto asks the WHAT question', () => {
+  // This test used to assert the opposite for `gates-only` — that the default
+  // "stops at architecture but never at the product decision". It was an
+  // accurate description of a defect: the pipeline gated the cheap-to-undo
+  // decision (how to build, which you fix by rewriting a document) and left the
+  // expensive one ungated (what to build, which is wrong for six stages before
+  // anyone finds out). ADR-009 puts gates on cost-of-undo, not on position.
+  for (const lvl of ['product-only', 'gates-only', 'expert', 'step-by-step']) {
+    assert.equal(gateApplies('product', lvl), true, lvl);
+  }
+  assert.equal(gateApplies('product', 'auto'), false, 'auto still asks nothing');
 });
 
 test('product-only skips architecture and planning', () => {
@@ -119,4 +126,26 @@ test('describeLevel explains an unattended run rather than printing an empty lis
   assert.match(describeLevel('auto', { archetype: 'cli-tool' }), /gate:import/);
   assert.match(describeLevel('product-only'), /gate:product/);
   assert.match(describeLevel('bogus'), /unknown/, 'a typo is surfaced, not silently corrected');
+});
+
+// ── The default gates the decision that costs most to reverse ───────────────
+
+test('the default level gates the PRODUCT decision, not only the technical ones', () => {
+  // `gates-only` was ['arch', 'ship'] until 2026-08-19: the pipeline stopped on
+  // HOW to build and on WHETHER to release, and never on WHAT to build. ADR-009
+  // puts gates on cost-of-undo rather than position, and by that rule this was
+  // inverted — architecture is cheap to undo (rewrite the document); the product
+  // decision is the most expensive, because it is wrong for six stages before
+  // anyone finds out.
+  const gates = gatesForApprovalLevel(DEFAULT_LEVEL);
+  assert.ok(gates.includes('product'), `default level ${DEFAULT_LEVEL} must gate the product decision`);
+  assert.ok(gates.includes('ship'), 'and still gate the thing that reaches users');
+});
+
+test('auto remains the way to ask for nothing this level chose', () => {
+  // The escape hatch has to keep existing, or the new default becomes
+  // unavoidable rather than chosen. `import` is not part of that choice — it is
+  // present at every level, including this one, for the reason stated at the top
+  // of this file.
+  assert.deepEqual(gatesForApprovalLevel('auto').filter((g) => g !== 'import'), []);
 });

@@ -216,18 +216,29 @@ APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk
 |-------|-------|-------------------|----------|
 | `auto` | 0 | 0 | Nano fix, hotfix, trusted auto-deploy |
 | `product-only` | gate:product + gate:ship | 0 | **Ask me only about the product** — the pipeline decides the technical parts |
-| `gates-only` | gate:arch + gate:ship | 0 | **Default** — standard features, bugfix |
+| `gates-only` | gate:product + gate:arch + gate:ship | 0 | **Default** — standard features, bugfix |
 | `strict` | gate:arch + gate:code + gate:ship | 0 | New features that need code review gate |
 | `expert` | all gates | 2 per agent (plan + result) | Deep review, new team member, complex feature |
 | `step-by-step` | all gates | every substep | Learning mode, critical systems |
 
-**`product-only`** exists because the two other unattended-ish options both miss:
-`gates-only` stops at architecture — a *technical* question — and never asks what
-to build, while `auto` asks nothing at all. The two gates it keeps are exactly the
-two [ADR-009](../../docs/adr/ADR-009-gates-follow-reversibility.md) calls expensive
-to undo: **what to build** (a wrong answer wastes the whole build) and **shipping**
-(it escapes the machine and reaches users). Everything between them —
-architecture, decomposition, implementation, review, QA — runs without asking.
+**`product-only`** keeps exactly the two gates
+[ADR-009](../../docs/adr/ADR-009-gates-follow-reversibility.md) calls expensive to
+undo — **what to build** (a wrong answer wastes the whole build) and **shipping**
+(it escapes the machine and reaches users) — and drops architecture. Everything
+between them runs without asking.
+
+**`gates-only` gained `gate:product` on 2026-08-19.** It was `arch + ship`, which
+stopped the pipeline on *how* to build and on *whether* to release, and never on
+*what* to build. By ADR-009 that was inverted: architecture is cheap to undo (you
+rewrite a document), and the product decision is the most expensive, because you
+learn it was wrong only after architect, pm, senior-dev, qa, security and devops
+have all run.
+
+It costs one pause per **product**, not per feature. `product-owner` is a pipeline
+entry point — nothing transitions into it — so it runs only from `/start`;
+`/audit` enters at `project-auditor`, and the request classifier routes both
+SIMPLE and COMPLEX CODE straight to `senior-dev` or `architect`. Set `auto` if you
+want the old unattended behaviour.
 
 The gate set for a level is computed by `scripts/lib/approval-level.mjs`, not
 re-derived per agent:
@@ -237,7 +248,7 @@ node scripts/lib/approval-level.mjs "$APPROVAL_LEVEL" --archetype "$ARCHETYPE"
 # product-only: pauses at gate:product, gate:ship
 ```
 
-**Default is `gates-only`** — CTO approves architecture and deploy. Agents run without mid-stream checkpoints.
+**Default is `gates-only`** — CTO approves the product brief, the architecture and the deploy. Agents run without mid-stream checkpoints.
 
 ### Checkpoint Pattern (expert / step-by-step only)
 

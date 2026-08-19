@@ -22,7 +22,20 @@
 const LEVEL_GATES = Object.freeze({
   auto:            [],
   'product-only':  ['product', 'ship'],
-  'gates-only':    ['arch', 'ship'],
+  // `product` joined the default on 2026-08-19. The set was ['arch', 'ship'],
+  // which gated HOW to build and WHETHER to release, and left WHAT to build
+  // ungated — the one decision in the chain that is most expensive to reverse,
+  // because you learn it was wrong only after architect, pm, senior-dev, qa,
+  // security and devops have all run. ADR-009 puts gates on cost-of-undo rather
+  // than on position, and by that rule this was inverted: the cheap-to-undo
+  // decision stopped, the expensive one did not.
+  //
+  // It costs one pause per PRODUCT, not per feature. product-owner is a pipeline
+  // entry point — nothing transitions into it — so it runs only from `/start`.
+  // `/audit` enters at project-auditor, and the request classifier sends both
+  // SIMPLE and COMPLEX CODE straight to senior-dev or architect. The pause lands
+  // at the moment someone typed `/start` and is by definition at the keyboard.
+  'gates-only':    ['product', 'arch', 'ship'],
   strict:          ['arch', 'code', 'ship'],
   expert:          ['product', 'arch', 'plan', 'code', 'qa', 'security', 'ship'],
   'step-by-step':  ['product', 'arch', 'plan', 'code', 'qa', 'security', 'ship'],
