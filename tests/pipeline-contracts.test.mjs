@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { freePort } from './helpers/free-port.mjs';
+import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
@@ -291,8 +292,9 @@ test('BH-1: pipe-separated verdict lines parse to real verdict (not "|")', async
       assert.equal(arch.verdict, 'APPROVED',
         `architect space-form parsed wrong: got '${arch.verdict}', want 'APPROVED'`);
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     // maxRetries: the board is still flushing async writes (bd cache, session
@@ -354,8 +356,9 @@ test('BH-2: savings_x is null (not 0) when human estimate is missing', async () 
         `savings_x should be null when total_human=0 (was: ${data.savings_x}). ` +
         `null means "no estimate", 0 would mean "estimated zero savings" — distinct.`);
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
@@ -426,8 +429,9 @@ test('BH-3: non-canonical agents go to legacy_agent_runs, not the main agent map
       assert.equal(typeof data.legacy_agent_count, 'number',
         'legacy_agent_count must be a number');
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
@@ -490,8 +494,9 @@ test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () =>
           `daily_avg must be a finite number, got ${data.daily_avg}`);
       }
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
@@ -579,8 +584,9 @@ test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', asy
       assert.equal(r4.status, 200,
         `Valid input should still succeed, got HTTP ${r4.status}`);
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
@@ -634,8 +640,9 @@ test('BH-5: X-Project-Resolved + X-Project-Fallback headers explain routing', as
       assert.ok(fallback && fallback.includes('nonexistent-xyz'),
         `X-Project-Fallback should mention requested slug, got '${fallback}'`);
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
@@ -683,8 +690,9 @@ test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', asy
       assert.ok(r.server.sse_clients >= 0,
         'sse_clients should be >= 0');
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
@@ -765,8 +773,9 @@ test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', asy
       const r4 = await post(JSON.stringify({ status: 'in_progress' }));
       assert.equal(r4.status, 200, `valid status should yield 200, got ${r4.status}`);
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
@@ -815,8 +824,9 @@ test('BH-22: /api/metrics.velocity exposes last_7d + last_30d (honest labels)', 
       assert.equal(v.this_week, v.last_7d, 'this_week alias must equal last_7d');
       assert.equal(v.this_month, v.last_30d, 'this_month alias must equal last_30d');
     } finally {
-      try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-      try { board.kill('SIGKILL'); } catch {}
+      // Kill AND wait — SIGKILL is asynchronous, and the rmSync below used to
+      // race a board still writing into its temp HOME (ENOTEMPTY).
+      await reap(board);
     }
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
@@ -927,9 +937,11 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
     await new Promise((r) => setTimeout(r, 2500));
     assert.match(stdout, /:4455/, `--port=4455 should bind to 4455, got: ${stdout.slice(0, 200)}`);
   } finally {
-    // Group-kill reaps the spawned server (grandchild) so no fds linger past the
-    // suite. Don't await 'exit' — once the group is gone nothing keeps the loop
-    // alive, and node:test flags the still-pending promise as a failure.
+    // Group-kill reaps the spawned server (grandchild) so no fds linger past
+    // the suite.
+    // reap-exempt: this test removes no directory of its own, so there is
+    // nothing for the dying group to race — waiting would cost the suite time
+    // for a guarantee it does not need.
     try { process.kill(-proc.pid, 'SIGKILL'); } catch {}
     try { proc.kill('SIGKILL'); } catch {}
   }

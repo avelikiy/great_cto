@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { freePort } from './helpers/free-port.mjs';
+import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
@@ -93,9 +94,11 @@ function spawnBoard(project, home, port) {
   });
 }
 
-function killBoardTree(board) {
-  try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-  try { board.kill('SIGKILL'); } catch {}
+// Kill AND wait. SIGKILL is delivered asynchronously, so between the signal and
+// the cleanup below the board could still finish a write into its temp HOME and
+// leave `rmSync` failing with ENOTEMPTY. See tests/helpers/reap.mjs.
+async function killBoardTree(board) {
+  await reap(board);
 }
 
 function cleanup(...dirs) {
@@ -130,7 +133,7 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
     assert.equal(r.status, 200, `pre-restart /api/resume returned ${r.status}`);
     preRestartResume = r.body;
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
   }
 
   // Wait a moment to ensure board process fully exited
@@ -175,7 +178,7 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
     assert.equal(preRestartResume.wip_tasks.length, post.wip_tasks.length,
       'wip_tasks count drifted across restart');
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -197,7 +200,7 @@ test('resume: approving a gate then restarting reflects the closed state', { ski
     });
     assert.equal(r.status, 200, `pre-restart approve failed: ${JSON.stringify(r.body)}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
   }
 
   await new Promise(r => setTimeout(r, 500));
@@ -218,7 +221,7 @@ test('resume: approving a gate then restarting reflects the closed state', { ski
     assert.equal(inbox.body.summary.gates, 1,
       `inbox gates summary should be 1, got ${inbox.body.summary.gates}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -239,7 +242,7 @@ test('resume: decisions log preserves audit trail across restart', { skip: !BD_A
     });
     await new Promise(r => setTimeout(r, 300));
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
   }
 
   await new Promise(r => setTimeout(r, 500));
@@ -258,7 +261,7 @@ test('resume: decisions log preserves audit trail across restart', { skip: !BD_A
       `decisions log should preserve audit-test-marker-xyz entry across restart. ` +
       `Got ${r.body?.length || 0} decisions, none matched gate=${gate1}.`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });

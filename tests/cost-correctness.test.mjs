@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { freePort } from './helpers/free-port.mjs';
+import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
@@ -69,10 +70,11 @@ function spawnBoard(project, home, port) {
   });
 }
 
-function killBoardTree(board) {
-  try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-  // Belt-and-braces — also kill the main pid if the group kill missed it.
-  try { board.kill('SIGKILL'); } catch {}
+// Kill AND wait. SIGKILL is delivered asynchronously, so between the signal and
+// the cleanup below the board could still finish a write into its temp HOME and
+// leave `rmSync` failing with ENOTEMPTY. See tests/helpers/reap.mjs.
+async function killBoardTree(board) {
+  await reap(board);
 }
 
 function cleanup(...dirs) {
@@ -125,7 +127,7 @@ test('cost: verdict cost=$X values sum into total_llm', async () => {
       `yesterday.llm: expected ${yExpected.toFixed(2)}, got ${yBucket.llm}`
     );
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -168,7 +170,7 @@ test('cost: ratio sanity bounds — anti-regression for the 7,638× class', asyn
       );
     }
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -188,7 +190,7 @@ test('cost: empty state returns zero (no false numbers)', async () => {
     assert.ok(Array.isArray(data.series), `series must be an array`);
     assert.equal(data.series.length, 31, `30-day window should yield 31 buckets (inclusive), got ${data.series.length}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -224,7 +226,7 @@ test('cost: malformed verdict lines do not crash /api/cost', async () => {
       `expected ~$${expected.toFixed(2)} from 2 valid lines, got $${data.total_llm}`
     );
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -263,7 +265,7 @@ test('cost: rejects mid-line "LLM" reference (the $240 regression bug)', async (
     assert.equal(data.total_human, 0,
       `mid-line "human" should not match. Got total_human=$${data.total_human}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -288,7 +290,7 @@ test('cost: ratio guard suppresses implausible human/LLM ratios', async () => {
     assert.equal(data.total_human, 0,
       `total_human should be suppressed when ratio > 1000×. Got $${data.total_human}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -322,7 +324,7 @@ test('cost: by_feature aggregates verdict feature= tags', async () => {
     // sorted desc by cost — auth (0.60) before billing (0.50)
     assert.equal(data.by_feature[0].feature, 'auth', 'by_feature should be sorted desc by llm');
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -347,7 +349,7 @@ test('metrics: measured verdict cost becomes canonical when it clears the trust 
     assert.ok(typeof m.cost.savings_x === 'number' && m.cost.savings_x > 0, 'measured savings_x is a real number, not null');
     assert.equal(m.cost.real_llm_usd != null, true, 'real_llm_usd populated');
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -364,7 +366,7 @@ test('metrics: too few verdict costs → does NOT promote to measured (stays est
     const m = await fetchJson(port, '/api/metrics?days=30');
     assert.notEqual(m.cost.source, 'measured', 'a single verdict cost must not be treated as measured');
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -392,7 +394,7 @@ test('metrics: cost-history enrichment reads PROJECT-LOCAL file (regression — 
     assert.equal(m.cost.source, 'measured', `expected measured (project cost-history enriched), got ${m.cost.source}`);
     assert.ok(Math.abs(m.cost.llm_usd - 2.50) < 0.05, `enriched llm ~2.50, got ${m.cost.llm_usd}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });

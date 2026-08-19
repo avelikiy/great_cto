@@ -57,12 +57,19 @@ test('failure does not refresh the cache timestamp (next call retries bd)', () =
   bdList(cwd, ok(goodData));
   const tsAfterSuccess = bdCache.get(cwd).ts;
 
-  // Make cache stale so the failing call actually runs.
-  bdCache.get(cwd).ts = Date.now() - 10_000;
+  // Make cache stale so the failing call actually runs. The stale value is
+  // CAPTURED, not recomputed: the previous version compared against a second
+  // `Date.now() - 10_000` evaluated at assert time, which only matched when zero
+  // milliseconds had elapsed in between — a test that failed on a slow machine
+  // and passed on a fast one. The `|| tsAfterFailure` next to it was meant as a
+  // safety net and never fired: `||` short-circuits on its truthy left side, so
+  // it was dead text sitting beside a real flake.
+  const staleTs = Date.now() - 10_000;
+  bdCache.get(cwd).ts = staleTs;
   bdList(cwd, fail());
   const tsAfterFailure = bdCache.get(cwd).ts;
 
-  assert.equal(tsAfterFailure, Date.now() - 10_000 || tsAfterFailure, 'sanity');
+  assert.equal(tsAfterFailure, staleTs, 'a failed call must leave the timestamp exactly as it found it');
   assert.notEqual(tsAfterFailure, tsAfterSuccess, 'timestamp should remain the pre-failure stale value, not be refreshed');
 
   // A subsequent successful call should be allowed to run (not TTL-gated)

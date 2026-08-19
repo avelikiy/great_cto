@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { freePort } from './helpers/free-port.mjs';
+import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
@@ -113,9 +114,11 @@ function spawnBoard(project, home, port) {
   });
 }
 
-function killBoardTree(board) {
-  try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-  try { board.kill('SIGKILL'); } catch {}
+// Kill AND wait. SIGKILL is delivered asynchronously, so between the signal and
+// the cleanup below the board could still finish a write into its temp HOME and
+// leave `rmSync` failing with ENOTEMPTY. See tests/helpers/reap.mjs.
+async function killBoardTree(board) {
+  await reap(board);
 }
 
 function cleanup(...dirs) {
@@ -192,7 +195,7 @@ test('pipeline: full 9-stage simulation reports each stage as done', { skip: !BD
       assert.ok(ratio <= 1000, `pipeline cost ratio ${ratio.toFixed(0)}× exceeds plausible ceiling`);
     }
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -245,7 +248,7 @@ test('pipeline: gate state transitions reflect in /api/inbox', { skip: !BD_AVAIL
     assert.equal(inbox.body.summary.gates, 0,
       `0 gates after both approved, got ${inbox.body.summary.gates}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -272,7 +275,7 @@ test('pipeline: failed verdict marks stage as failed (not done)', { skip: !BD_AV
     assert.equal(stages['security-officer'].status, 'failed',
       `security-officer BLOCKED should map to status=failed, got ${stages['security-officer'].status}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -304,7 +307,7 @@ test('pipeline: cumulative cost across multiple feature runs', { skip: !BD_AVAIL
       `cumulative across 3 features: expected ~$${expected.toFixed(2)}, got $${cost.body.total_llm}`
     );
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });

@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { freePort } from './helpers/free-port.mjs';
+import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
@@ -104,9 +105,11 @@ function spawnBoard(project, home, port) {
   });
 }
 
-function killBoardTree(board) {
-  try { process.kill(-board.pid, 'SIGKILL'); } catch {}
-  try { board.kill('SIGKILL'); } catch {}
+// Kill AND wait. SIGKILL is delivered asynchronously, so between the signal and
+// the cleanup below the board could still finish a write into its temp HOME and
+// leave `rmSync` failing with ENOTEMPTY. See tests/helpers/reap.mjs.
+async function killBoardTree(board) {
+  await reap(board);
 }
 
 function cleanup(...dirs) {
@@ -149,7 +152,7 @@ test('gate: approve via POST /api/gates/<id> closes bd task', { skip: !BD_AVAILA
     assert.ok(task, `bd show ${gateId} returned null`);
     assert.equal(task.status, 'closed', `expected status=closed after approve, got ${task.status}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -175,7 +178,7 @@ test('gate: rejection sets bd status=blocked', { skip: !BD_AVAILABLE && 'bd CLI 
     const task = bdShow(project, gateId);
     assert.equal(task.status, 'blocked', `expected status=blocked after reject, got ${task.status}`);
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -215,7 +218,7 @@ test('gate: approval appends to the project decisions log, not the global one', 
     assert.ok(!globalText.includes(gateId),
       'a project gate must never reach the global cross-project log');
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -269,7 +272,7 @@ test('gate: SSE broadcasts updated tasks after approval', { skip: !BD_AVAILABLE 
       `expected at least 1 SSE 'tasks' event, got ${tasksEventCount}. Combined stream:\n${combined.slice(0, 500)}`
     );
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
@@ -292,7 +295,7 @@ test('gate: invalid action returns 400', { skip: !BD_AVAILABLE && 'bd CLI not in
     assert.equal(r.status, 400, `expected 400 for invalid action, got ${r.status}`);
     assert.ok(r.body?.error, 'error field should be present');
   } finally {
-    killBoardTree(board);
+    await killBoardTree(board);
     cleanup(home, project);
   }
 });
