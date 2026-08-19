@@ -72,6 +72,16 @@ step "guards run where CI runs" node scripts/lib/guard-parity.mjs --strict
 # would act on — including senior-dev's own refuse-a-bad-plan escape hatch — and
 # all four were found by this check rather than by anyone noticing.
 step "declarations have consumers" node scripts/lib/declared-consumed.mjs --strict
+# The same question one layer down. A CSS rule written above the rules it
+# overrides loses at equal specificity and applies to nothing, while reading as
+# entirely correct in the diff — it happened twice in two days on the board's
+# phone layout, and both times it was found by looking at the rendered page
+# rather than the source. Declared is not applied.
+step "css declarations apply" bash -c '
+  for f in packages/board/public/index.html packages/board/public/share.html; do
+    node scripts/lib/css-cascade.mjs "$f" || exit 1
+  done
+'
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which
