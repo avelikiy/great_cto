@@ -4,6 +4,47 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v2.98.1 — 2026-08-19
+
+A patch for two defects in v2.98.0's own mobile work, both the same shape: a
+rule that named what somebody remembered instead of stating a property.
+
+- **Touch targets were a list, not a floor.** v2.98.0 raised `.gate-btn` to
+  44px because that is what a review had pointed at. The hamburger that same
+  release added was 40px and the topbar's icon buttons ~32px — under the
+  minimum from the line they were written on, beneath a block that read as
+  "touch targets: done". Now `button`, `[role="button"]`, `.nav-item`,
+  `.toggle` and `summary` all get a 44px floor under `pointer: coarse`, and a
+  control that must stay smaller has to opt out in writing.
+- **A declaration that loses is not a declaration.** `.inbox-row .actions
+  { gap: 12px }` sat inside that same block and was beaten by the base rule's
+  4px declared nine hundred lines below, so Approve and Reject were 4px apart
+  on a touch screen while the block above said 12. The coarse block now sits at
+  the end of the stylesheet, and the test asserts that ordering rather than the
+  text of the declaration.
+
+### The row layout this exposed
+
+Measured, not eyeballed: the page gives 64px to its side padding and the row
+another 30px to border and padding, leaving 281px for tracks. The fixed ones —
+id 110, two 14px gaps, and a 44px Approve/Reject pair at about 156 — come to
+294. The title column resolved to **zero** and the row overflowed its own
+border box. Raising the buttons to a real touch target is what finished it off:
+at 24px they fit, at 44px they do not — fixing one defect deepened its
+neighbour.
+
+On a phone the row is three rows now rather than three columns: title at full
+width over two wrapped lines, id and status sharing the line below, and on a
+gate a full-width pair of 44px buttons. CSS only, inside the existing
+phone-width block — the markup is shared with the desktop layout, and the
+desktop layout is fine.
+
+Raising every control to 44px then crushed the breadcrumb to "g… / B." —
+present, unreadable, worse than absent. The phone keeps the current screen and
+drops the project name the drawer already shows.
+
+---
+
 ## v2.98.0 — 2026-08-18
 
 A design review of the board, and the four things it found that cost most in
