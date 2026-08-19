@@ -84,8 +84,10 @@ This is not a generic project dashboard, and the design should refuse to become 
 board's single job is **attention allocation for one human supervising many autonomous
 agents** — so its differentiator is *honesty as a first-class feature*: it must never spend
 the human's attention on a false alarm, and never hide a real one behind a zero it couldn't
-verify. A normal dashboard optimises for "show the numbers"; this one optimises for "tell me
-what's owed, and tell me when you don't know." Aggregation without that honesty is worse than
+verify. [vs: Linear] and [vs: Datadog] both optimise for "show the numbers" — Linear surfaces
+every notification, Datadog every series, and neither distinguishes a zero it measured
+from a zero it failed to read. This one optimises for "tell me what's owed, and tell me
+when you don't know." Aggregation without that honesty is worse than
 no aggregation — it launders 22 unverified zeros into one confident number that *feels* like
 signal.
 
@@ -109,11 +111,11 @@ Kimi router unavailable in this env). Two rounds.
 ## Scope
 
 **In (v1):**
-- Honest `readVerdicts()` (degradation + project-scoping) and the two leak fixes it unlocks.
-- `/api/projects` emits the already-computed `getRegistryDegradation()` — today a corrupt
+- **BOARD-R1** — Honest `readVerdicts()` (degradation + project-scoping) and the two leak fixes it unlocks.
+- **BOARD-R2** — `/api/projects` emits the already-computed `getRegistryDegradation()` — today a corrupt
   `projects.json` makes the switcher look *empty*, silently (`lib/projects.mjs:29`); the
   switcher itself can lie.
-- Portfolio Home: read-only fleet table (decisions-owed · last-movement · spend · state),
+- **BOARD-R3** — Portfolio Home: read-only fleet table (decisions-owed · last-movement · spend · state),
   with an explicit `unread` per project. Becomes the default landing.
 
 **Out (v1) — explicit anti-scope:**

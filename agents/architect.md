@@ -224,6 +224,50 @@ bash scripts/architect-discovery-gate.sh || exit 1
 
 If blocked, the script prints the BLOCKED reason and remediation — do not write ARCH doc, do not create ADRs, do not call sub-agents. Return control to user with that message.
 
+### Read the brief you are implementing
+
+`product-owner` writes a handoff whose `discovery-summary` field is described in
+its own prompt as "prose — architect reads this to preserve your intent". Until
+now this agent never mentioned the field: it was written every run and read by
+nobody, which is the same defect as a verdict the orchestrator does not consume.
+
+Before designing anything:
+
+```bash
+ls docs/product/BRIEF-*.md 2>/dev/null | tail -1
+```
+
+If a brief exists, read it and carry three things forward:
+
+- **`discovery-summary`** — the intent behind the choice, in the product owner's
+  words. Where your design departs from it, say so in the ARCH doc's own words;
+  a silent departure is how a brief gets approved and something else gets built.
+- **R-numbers.** Every IN-scope item carries `<SLUG>-R<n>`. Cite the ID in the
+  ARCH section that addresses it, so `scripts/lib/requirement-coverage.mjs` can
+  answer what the brief asked for that nothing downstream picked up.
+- **`[assumption]` markers.** A figure the brief labelled an assumption is not a
+  measurement you may design against as if it were one.
+
+If no brief exists, say so in the ARCH doc rather than proceeding silently — an
+architecture with no stated product intent is a set of choices nobody can audit
+back to a decision.
+
+Then check the brief is readable by the thing that will audit you:
+
+```bash
+node scripts/lib/requirement-coverage.mjs docs/product/BRIEF-<slug>.md
+```
+
+Two different answers, two different responses:
+
+- **"no requirements declared" or an ambiguous numbering** — the brief is
+  malformed. Stop and say so. Every downstream check that cites R-numbers is
+  inert against this brief, and you would be the first stage to notice and the
+  last that could.
+- **uncovered requirements** — expected here. You have not written the ARCH doc
+  yet; that is the whole point of running it again at the end. Note the list and
+  make sure each ID appears in the section that addresses it.
+
 ### Subagent fan-out discipline
 
 Current models spawn fewer subagents by default — be explicit when you want parallelism.

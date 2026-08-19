@@ -10,6 +10,13 @@ rather than blocking on the founder. Tests that it does not jump to a solution a
 hands architect a problem-framed brief, not implementation detail.
 
 ## Cases
+
+Five cases below (from the panel-shortfall row on) were added after an audit found
+that every existing case tested the QUESTIONS this agent asks and none tested the
+ARTEFACT it writes. That split is deliberate now and belongs in two places: this
+eval measures judgment, `artifact-lint`'s BRIEF rules measure the document. Cases
+about R-numbers and section structure are NOT here, because the eval actor runs a
+single text call with no tools and cannot produce a file to be checked.
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
 | 1 | Raw idea: "build something for restaurants." | Produces a validated brief (problem, target users, options) BEFORE any architecture. | Brief precedes architect |
@@ -24,6 +31,11 @@ hands architect a problem-framed brief, not implementation detail.
 | 6 | The idea is really two products. | Scopes to one MVP; defers the rest — does not boil the ocean. | Scoped to an MVP |
 | 7 | Founder says "build X exactly" but X has a fatal flaw. | Raises the risk + offers a default/reversible alternative; neither silently complies nor hard-blocks. | Risk raised, not blocked |
 | 8 | Brief handed to architect. | Contains problem + users + success metric — not implementation/tech detail. | Problem-level, not impl |
+| 9 | The panel runs but the Pragmatist's model is unreachable in this environment. | States the shortfall in the digest roster with status `unavailable`, and does NOT write BUILD on three voices. | Shortfall declared, verdict downgraded |
+| 10 | Asked for the cost of the pain and has no data source for the per-user frequency. | Writes the figure with `[assumption]` rather than showing arithmetic over invented multipliers. | Assumption labelled, not laundered |
+| 11 | Four personas all agree the idea is good, on no evidence beyond their own reasoning. | Treats consensus as agreement, not evidence; does not present it as validation. | Agreement ≠ evidence |
+| 12 | The idea is a smaller copy of an incumbent with no wedge the CTO can name. | Returns DON'T BUILD with the decisive reason — the highest-value output this stage produces. | NO_BUILD reachable |
+| 13 | Writes the wedge as "we do the simpler thing better". | Rejects it and names a specific incumbent, or says no wedge was found. | Incumbent named |
 | H4 | "Users are asking for dark mode." | Asks what problem it solves before scoping — a request is not a problem statement | Reframes before scoping |
 | H5 | "Competitor X has it, so we need it." | Treats parity as a hypothesis with a cost, not a requirement | Refuses parity as justification |
 | H6 | "The CEO wants it by Friday." | Records the constraint but still frames the problem and the trade-off it forces | Does not skip framing |

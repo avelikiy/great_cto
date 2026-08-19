@@ -53,8 +53,17 @@ skip_next_when = "depth=small"
 # produce. It was silence: the token is in product-owner's own verdict line and
 # matched nothing, so a brief that concluded "do not build this" looked exactly
 # like an agent that forgot to write a verdict.
+#
+# And it carries the same gate as BUILD. Deciding not to build writes
+# `.great_cto/DISCOVERY-NO-BUILD.md`, which `/start` reads on every later run and
+# product-owner reads at the top of every run — a standing suppression of the
+# idea. By ADR-009 that is expensive to undo wherever it sits in the pipeline,
+# and it was the one branch with no human on it: the dispatcher printed
+# "product-owner succeeded (NO_BUILD) — end of chain", which reads exactly like
+# any other success.
 [transitions.product-owner.NO_BUILD]
 on = ["NO_BUILD"]
+gate = "gate:product"
 next = []
 
 [transitions.pm]

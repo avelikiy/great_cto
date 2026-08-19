@@ -86,6 +86,82 @@ const TYPES = [
     cites: false,
   },
   {
+    // The product brief was read by nobody. BRIEF-*.md matched no entry here, so
+    // `if (!type) continue` skipped the file entirely — not its headings, not its
+    // freshness, not its dead source refs. A 153-line document called a brief sat
+    // in docs/product/ with no Problem, no Recommendation, no Debate digest and
+    // no Scope, and CI was green the whole time.
+    //
+    // The agent that writes these is the FIRST stage of the pipeline and its
+    // approval activates every stage after it. That is the most expensive thing
+    // in this repository to get wrong, and it had the least checking.
+    name: 'BRIEF',
+    match: (p) => /(^|\/)docs\/product\/BRIEF-[^/]*\.md$/.test(p),
+    require: [/problem/i, /recommendation/i, /the bet/i, /wedge/i,
+      /debate digest/i, /scope/i, /risks?.*(kill|criteri)/i],
+    date: 'any',
+    cites: false,
+    // Headings prove a section exists. These prove it says something.
+    rules: [
+      {
+        kind: 'kill-without-threshold',
+        section: /risks?.*(kill|criteri)/i,
+        check: (body) => body.split('\n')
+          .filter((l) => /\bKILL\b/.test(l) && !/\d/.test(l))
+          .map((l) => `KILL with no number: "${l.trim().slice(0, 70)}"`),
+        why: 'a kill criterion without a threshold is a sentence nobody can act on',
+      },
+      {
+        kind: 'scope-without-r-number',
+        section: /^scope/i,
+        check: (body) => {
+          // Only the IN half — everything before an out-of-scope marker.
+          // The out-of-scope marker is a bold lead-in in practice
+          // (`**Out (v1) — explicit anti-scope:**`), not the phrase "out of
+          // scope". A first cut required the phrase and flagged every anti-scope
+          // bullet for lacking an R-number — a rule that fires on the deliberate
+          // half of the section is a rule people delete.
+          const inHalf = body.split(/^\s*\*{0,2}(out|not in|non-goals?)\b.*$/im)[0];
+          return inHalf.split('\n')
+            // The DECLARATION grammar requirement-coverage.mjs parses, anchored
+            // at the head of the bullet — not the looser one it uses to find
+            // mentions in prose. `- **board-R1** — x` contains the substring
+            // `R1` and passes a mention test; the declaration parser wants an
+            // uppercase prefix at the start and reads it as nothing at all. A
+            // check that agrees with itself instead of with the thing it feeds
+            // is the shape this whole file exists to catch.
+            .filter((l) => /^\s*[-*]\s+\S/.test(l)
+              && !/^\s*[-*]\s*\**\s*(?:[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-)?R\d+\b/.test(l))
+            .map((l) => `IN item with no R-number: "${l.trim().slice(0, 70)}"`);
+        },
+        why: 'requirement-coverage answers "what did the brief ask for that the plan dropped?" by R-number; without one it can only answer "no requirements declared"',
+      },
+      {
+        kind: 'wedge-without-named-rival',
+        section: /wedge/i,
+        check: (body) => (/\[vs:\s*[^\]]{2,}\]/.test(body) ? []
+          : ['no [vs: <name>] marker — the wedge names no incumbent']),
+        why: 'a differentiator against nobody in particular fits any product; the real brief here said "A normal dashboard optimises for..." and named no one',
+      },
+      {
+        kind: 'panel-status-undeclared',
+        section: /debate digest/i,
+        check: (body) => (/\b(ok|failed|unavailable)\b/i.test(body) ? []
+          : ['no per-persona status — a panel that ran short reads exactly like one that ran']),
+        why: 'this already happened: a brief here records "Kimi router unavailable in this env" in parentheses, disclosed voluntarily and trivially omitted',
+      },
+      {
+        kind: 'number-without-provenance',
+        section: /problem/i,
+        check: (body) => body.split('\n')
+          .filter((l) => /(\d+(\.\d+)?\s*%|[$€£]\s?\d)/.test(l))
+          .filter((l) => !/\[(source|assumption)\b/i.test(l))
+          .map((l) => `figure with no [source:] or [assumption]: "${l.trim().slice(0, 70)}"`),
+        why: 'the arithmetic requirement asks the brief to SHOW the multiplication, which a plausible multiplier times a plausible multiplier satisfies; the source requirement already exists thirty lines below it, on kill criteria only',
+      },
+    ],
+  },
+  {
     name: 'PLAN',
     match: (p) => /(^|\/)docs\/plans?\/PLAN-[^/]*\.md$/.test(p),
     // Plans use wildly varied section names (Why / Phases / TAKE / Principle /
@@ -204,6 +280,30 @@ function headings(text) {
   return text.split('\n').filter((l) => /^#{1,6}\s/.test(l)).map((l) => l.replace(/^#+\s*/, '').trim());
 }
 
+/**
+ * The text under the first heading matching `re`, up to the next heading of the
+ * same or higher level.
+ *
+ * @returns {string|null} null when no heading matches — the caller must not
+ *   report an empty section and a missing one the same way.
+ */
+function sectionBody(text, re) {
+  const lines = text.split('\n');
+  let start = -1, level = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^(#{1,6})\s+(.*)$/);
+    if (m && re.test(m[2].trim())) { start = i + 1; level = m[1].length; break; }
+  }
+  if (start < 0) return null;
+  const out = [];
+  for (let i = start; i < lines.length; i++) {
+    const m = lines[i].match(/^(#{1,6})\s/);
+    if (m && m[1].length <= level) break;
+    out.push(lines[i]);
+  }
+  return out.join('\n');
+}
+
 // A "source" is any concrete reference: markdown link, bare URL, [[memory]]
 // link, OR an inline-code span naming a file/path (e.g. `scripts/foo.mjs`,
 // `archetypes.ts`) — ADRs cite their implementation as code paths, and that
@@ -257,6 +357,18 @@ for (const abs of walk(REPO)) {
       errors.push({ file: rel, type: type.name, kind: 'missing-section', msg: `no section matching ${re}` });
     }
   }
+  // Section-internal rules. `require` proves a heading exists; these read what is
+  // under it. A heading with nothing beneath it passes every structural check
+  // ever written, which is how a brief with no numbers, no R-numbers and no named
+  // rival stayed green.
+  for (const rule of (type.rules || [])) {
+    const body = sectionBody(prose, rule.section);
+    if (body === null) continue;   // the missing-section error above already said so
+    for (const msg of rule.check(body)) {
+      errors.push({ file: rel, type: type.name, kind: rule.kind, msg: `${msg} — ${rule.why}` });
+    }
+  }
+
   if (type.minH2) {
     const h2count = prose.split('\n').filter((l) => /^##\s/.test(l)).length;
     if (h2count < type.minH2) {

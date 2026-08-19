@@ -49,7 +49,18 @@ case "$ARCH" in
     [ -z "$TEAM_SIZE" ] && MISSING="$MISSING team-size"
     [ -z "$COST_CAP" ] && MISSING="$MISSING cost-cap-usd-month"
     [ -z "$GEO" ] && MISSING="$MISSING geo"
-    if [ -n "$MISSING" ] && [ "$DISCOVERY" != "completed" ] && [ "$DISCOVERY" != "skipped" ]; then
+    # `discovery: completed` used to satisfy this condition, and product-owner
+    # writes that field itself — a value an agent stamps on its own work could
+    # switch off the check that verifies the work. The same shape resolveSkip()
+    # refuses elsewhere in this repository: a field an agent writes must not be
+    # able to drop a check.
+    #
+    # `skipped` stays, because it is a HUMAN writing "proceed with defaults" and
+    # the message below tells them the defaults they are accepting. Completing
+    # discovery is not a claim about these four fields; it is a claim about
+    # having done discovery, and the fields are what discovery was supposed to
+    # produce.
+    if [ -n "$MISSING" ] && [ "$DISCOVERY" != "skipped" ]; then
       echo "BLOCKED: $ARCH archetype requires these PROJECT.md fields:$MISSING"
       echo ""
       echo "These four shape every downstream decision (compliance scope, parallelism in pm, infra sizing in arch)."

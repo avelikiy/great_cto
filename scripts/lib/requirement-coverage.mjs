@@ -182,7 +182,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`requirement-coverage: ${briefPath} against ${downstream.length} downstream document(s)`);
   console.log(describeCoverage(cov));
   if (process.argv.includes('--json')) console.log(JSON.stringify(cov, null, 2));
-  // Reported, never blocking: the question is new and its false-positive rate is
-  // unmeasured. `--strict` is there for whoever wants to gate on it later.
-  process.exit(process.argv.includes('--strict') && cov.state === 'gaps' ? 1 : 0);
+  // Reported by default; `--strict` gates.
+  //
+  // `no-requirements` fails under --strict alongside `gaps`, and that is the
+  // point rather than an edge case. Both real briefs in this repository carried
+  // zero R-numbers, so this module answered "no requirements declared" — its own
+  // header calls that honest and useless — and a gate wired to it would have
+  // passed every time while checking nothing. A check that could not look must
+  // not exit like one that looked and found nothing. `ambiguous` fails for the
+  // same reason.
+  const blocking = new Set(['gaps', 'no-requirements', 'ambiguous']);
+  process.exit(process.argv.includes('--strict') && blocking.has(cov.state) ? 1 : 0);
 }
