@@ -36,6 +36,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, basename } from 'node:path';
 import { deadSourceRefs } from '../lib/source-refs.mjs';
+import { PROVENANCE, settle, rank } from '../lib/provenance-status.mjs';
 import { judgeFreshness } from '../lib/freshness.mjs';
 
 // ---------------------------------------------------------------------------
@@ -153,10 +154,23 @@ const TYPES = [
       {
         kind: 'number-without-provenance',
         section: /problem/i,
+        // The vocabulary lives in scripts/lib/provenance-status.mjs, not here.
+        // Two definitions of "counts as evidence" drift, and the one in a linter
+        // is the one nobody reads. This rule owns the MARKUP; the module owns
+        // what each marker is worth and whether the claim earned it.
         check: (body) => body.split('\n')
           .filter((l) => /(\d+(\.\d+)?\s*%|[$€£]\s?\d)/.test(l))
-          .filter((l) => !/\[(source|assumption)\b/i.test(l))
-          .map((l) => `figure with no [source:] or [assumption]: "${l.trim().slice(0, 70)}"`),
+          .map((l) => {
+            const claim = parseProvenanceMarker(l);
+            if (!claim) return `figure with no [source:] or [assumption]: "${l.trim().slice(0, 70)}"`;
+            const s = settle(claim);
+            // Labelling a figure an assumption is the goal, not a failure. What
+            // is reported is a claim reaching for a level it has not earned —
+            // `[measured: churn]` with no n is an assertion wearing the word.
+            if (!s.downgraded) return null;
+            return `claims ${s.declared} without ${s.missing.join(', ')}: "${l.trim().slice(0, 60)}"`;
+          })
+          .filter(Boolean),
         why: 'the arithmetic requirement asks the brief to SHOW the multiplication, which a plausible multiplier times a plausible multiplier satisfies; the source requirement already exists thirty lines below it, on kill criteria only',
       },
     ],
@@ -278,6 +292,50 @@ function stripFences(text) {
 
 function headings(text) {
   return text.split('\n').filter((l) => /^#{1,6}\s/.test(l)).map((l) => l.replace(/^#+\s*/, '').trim());
+}
+
+/**
+ * A provenance marker on one line of prose, as a claim the ladder can settle.
+ *
+ *   [assumption]                          -> asserted, and that is fine
+ *   [source: 2026-07 time study, n=12]    -> cited/observed, depending on what it carries
+ *   [measured: ab-42, n=400, A/B]         -> measured, if all three are there
+ *
+ * The author-facing syntax stays small on purpose: `[source:]` and
+ * `[assumption]` are what a person writing a brief will actually type. The
+ * richer levels are available for anything that wants to be precise, and are
+ * checked rather than believed.
+ *
+ * @returns {object|null} null when the line carries no marker at all.
+ */
+function parseProvenanceMarker(line) {
+  const m = line.match(/\[(assumption|source|derived|cited|observed|measured)\b([^\]]*)\]/i);
+  if (!m) return null;
+  const kind = m[1].toLowerCase();
+  const rest = (m[2] || '').replace(/^:\s*/, '').trim();
+  if (kind === 'assumption') return { level: PROVENANCE.ASSERTED };
+
+  const nMatch = rest.match(/\bn\s*=\s*(\d+)/i);
+  const dateMatch = rest.match(/\b(\d{4}-\d{2}(-\d{2})?)\b/);
+  const claim = {
+    locator: rest || undefined,
+    n: nMatch ? Number(nMatch[1]) : undefined,
+    date: dateMatch ? dateMatch[1] : undefined,
+    method: /\b(a\/b|experiment|survey|interview|log)\b/i.test(rest) ? rest : undefined,
+  };
+  // `[source: …]` does not name a level — it is the everyday marker. Give it the
+  // strongest level its own contents can carry, so an author who wrote down `n`
+  // gets credit for it without learning a vocabulary first.
+  if (kind === 'source') {
+    claim.level = claim.n && claim.method ? PROVENANCE.MEASURED
+      : claim.n ? PROVENANCE.OBSERVED
+      : claim.date ? PROVENANCE.CITED
+      : PROVENANCE.ASSERTED;
+    // An everyday `[source: the ROI dashboard]` must not be reported as an
+    // overclaim — the author claimed nothing. Only explicit levels can overclaim.
+    return { ...claim, level: rank(claim.level) ? claim.level : PROVENANCE.ASSERTED };
+  }
+  return { ...claim, level: kind };
 }
 
 /**

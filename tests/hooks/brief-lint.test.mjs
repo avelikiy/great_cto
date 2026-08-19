@@ -158,3 +158,27 @@ test('a missing section reports once, not once per body rule it would have faile
   assert.ok(k.includes('missing-section'));
   assert.ok(!k.includes('scope-without-r-number'), 'the absence is one finding, not two');
 });
+
+// ── The ladder, not a second definition of it ───────────────────────────────
+
+test('an explicit level with the evidence it needs is accepted', () => {
+  const r = lint(brief(GOOD.replace('[source: 2026-07 time study, n=12]',
+    '[measured: ab-42, n=400, A/B]')));
+  assert.ok(!kinds(r).includes('number-without-provenance'));
+});
+
+test('a claim reaching for a level it has not earned is reported', () => {
+  // `[measured: churn]` with no n is an assertion wearing the word. The lint
+  // owns the markup; scripts/lib/provenance-status.mjs owns what it is worth.
+  const r = lint(brief(GOOD.replace('[source: 2026-07 time study, n=12]', '[measured: churn]')));
+  const e = r.errors.find((x) => x.kind === 'number-without-provenance');
+  assert.ok(e, 'overclaim must be reported');
+  assert.match(e.msg, /claims measured without/);
+});
+
+test('an everyday [source: ...] with no numbers is not an overclaim', () => {
+  // The author claimed no level, so there is nothing to fall short of. A rule
+  // that scolds `[source: the ROI dashboard]` is a rule people stop writing.
+  const r = lint(brief(GOOD.replace('[source: 2026-07 time study, n=12]', '[source: the ROI dashboard]')));
+  assert.ok(!kinds(r).includes('number-without-provenance'));
+});
