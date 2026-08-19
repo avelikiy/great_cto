@@ -130,7 +130,18 @@ if [ "$DO_EVALS" -eq 1 ]; then
   fi
 
   say "Running holdout evals"
-  node tests/eval/runner.mjs --split holdout --samples "$SAMPLES" --judge-votes 3
+  # `--actor-tools` is the flag runner.mjs's own header calls recommended for
+  # agent evals, next to the A/B that measured it: mean rate 0.50 -> 0.64, and
+  # finding-gate crossing its 67% bar (50% -> 72%). It took `--judge-votes 3`
+  # from that same line and left this one behind, so every recorded run measured
+  # agents with their tools taken away — and the agents that lost most are the
+  # ones whose prompts open by running something. product-owner's failing answers
+  # all begin by narrating a bash block the actor cannot execute.
+  #
+  # A recommendation written next to its own measurement, and not passed, is the
+  # same defect this repository spends its time closing — sitting in the
+  # instrument we judge everything else with.
+  node tests/eval/runner.mjs --split holdout --samples "$SAMPLES" --judge-votes 3 --actor-tools
   echo "  (a non-zero exit here means evals failed their thresholds, which is a"
   echo "   result rather than an error — the drift check below is the alarm.)"
 fi
