@@ -564,11 +564,7 @@ button { font-family: inherit; cursor: pointer; }
    cannot be un-advanced. Scoped to `pointer: coarse` so the desktop density that
    makes a long gate list scannable is left exactly as it is. 44px is the iOS
    minimum; Android asks for 48dp, and the gap does the rest. */
-@media (pointer: coarse) {
-  .gate-btn { height: 44px; font-size: 13px; }
-  .inbox-row .actions .gate-btn { height: 44px; font-size: 13px; }
-  .gate-actions, .side-gate-actions, .inbox-row .actions { gap: 12px; }
-}
+
 .gate-approve { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
 .gate-approve:hover { background: rgba(22, 163, 74, 0.08); border-color: var(--status-review); }
 /* Agent runner (launch control) */
@@ -2241,8 +2237,16 @@ button { font-family: inherit; cursor: pointer; }
   .sidebar-scrim.open { opacity: 1; pointer-events: auto; }
   .menu-btn { display: inline-flex; }
   .topbar { padding: 0 10px; gap: 8px; }
+  /* Raising every control to 44px gave the actions 223px of a 375px bar and
+     crushed the breadcrumb to "g… / B." — present, unreadable, worse than absent.
+     The project name is already at the top of the drawer and the tab name is the
+     row you tapped to get here, so the phone keeps only where you are. */
   .topbar .crumbs { min-width: 0; overflow: hidden; white-space: nowrap; }
   .topbar .crumbs > span { overflow: hidden; text-overflow: ellipsis; }
+  .topbar .crumbs .proj-icon,
+  .topbar .crumbs .sep,
+  .topbar .crumbs #crumb-project { display: none; }
+  .topbar .crumbs .here { color: var(--text); font-weight: 600; }
   .topbar-actions { flex-shrink: 0; }
   /* The search box is the one topbar item that can give up its width; ⌘K still
      reaches it, and on a phone there is no ⌘K but there is the Search tab. */
@@ -2252,12 +2256,63 @@ button { font-family: inherit; cursor: pointer; }
   /* Icon-only, with the name moved to aria-label/title rather than deleted. */
   .btn-label { display: none; }
 
+  /* The row's own arithmetic, measured rather than eyeballed: the page gives
+     64px to its side padding and the row another 30px to border and padding,
+     leaving 281px for the tracks. The fixed ones — id 110, two 14px gaps, and a
+     44px Approve/Reject pair at about 156 — come to 294. The 1fr title column
+     resolves to ZERO and the row overflows its own border box.
+     Raising the buttons to a real touch target is what finished it off: at 24px
+     they fit, at 44px they do not. Fixing one defect deepened its neighbour.
+     So on a phone the row stops being three columns and becomes three rows:
+     title first at full width, the id demoted to a meta line, the actions
+     spanning the bottom. CSS only — the markup this renders from is shared with
+     the desktop layout, and the desktop layout is fine. */
+  .inbox-page { padding: 16px 16px 48px; }
+  .inbox-row {
+    display: flex; flex-wrap: wrap;
+    gap: 8px 10px; align-items: baseline;
+  }
+  .inbox-row .ttl { order: 1; flex: 1 1 100%; font-size: 14px; }
+  /* Two lines, wrapped — a phone has the vertical room it lacks sideways. */
+  .inbox-row .ttl > :first-child { -webkit-line-clamp: 2; white-space: normal; }
+  /* The id and the status share a line: stacked, each took a full row of its
+     own and a four-line card said three things. */
+  .inbox-row .id { order: 2; flex: 0 1 auto; padding-top: 0; }
+  .inbox-row .actions { order: 3; margin-left: auto; }
+  /* Except on a gate, where the line is a pair of 44px buttons and wants the
+     whole width — the one row on this screen where the target size is the point. */
+  .inbox-row .actions:has(.gate-btn) { flex: 1 0 100%; margin-left: 0; }
+  .inbox-row .actions .gate-btn { flex: 1; }
+
   /* Four columns of numbers do not fit in 375px; they were being clipped, which
      silently dropped the fourth stat rather than wrapping it. */
   .inbox-summary { grid-template-columns: repeat(2, 1fr); }
   .mp-secondary { grid-template-columns: repeat(2, 1fr); }
   .mp-hero { grid-template-columns: 1fr; }
   .mp-row { grid-template-columns: 1fr; }
+}
+@media (pointer: coarse) {
+  /* A floor, not a list.
+     Placed here, at the END of the stylesheet, for the same reason the
+     phone-width block is: at equal specificity the later rule wins. Written
+     higher up, its `.inbox-row .actions { gap: 12px }` lost to the base rule's
+     4px declared 900 lines below it — so Approve and Reject sat 4px apart on a
+     touch screen while a block that read as correct sat above saying 12.
+     A declaration that loses is not a declaration.
+     The first version of this block named .gate-btn and stopped there, because
+     those were the buttons a review had pointed at. Two controls this same file
+     had just added — the drawer's own hamburger at 40px and the topbar's icon
+     buttons at ~32px — sat under the minimum from the day they were written,
+     and nothing objected, because the rule was a list of what somebody had
+     remembered rather than a property of the page.
+     So: every control gets the floor, and the ones with something to say about
+     their own size say it after. A button added tomorrow is covered by default;
+     one that must stay small has to opt out in writing. */
+  button, [role="button"], .nav-item, .toggle, summary { min-height: 44px; }
+  .gate-btn, .inbox-row .actions .gate-btn { height: 44px; font-size: 13px; }
+  .menu-btn { width: 44px; height: 44px; }
+  .btn-bell { min-width: 44px; justify-content: center; }
+  .gate-actions, .side-gate-actions, .inbox-row .actions { gap: 12px; }
 }
 @keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 rgba(76,175,80,.6);} 100% { box-shadow: 0 0 0 6px rgba(76,175,80,0);} }
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */

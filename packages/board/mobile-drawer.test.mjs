@@ -133,3 +133,34 @@ test('the stat grids wrap instead of being clipped', () => {
       `${sel} still overflows its container at 375px`);
   }
 });
+
+// ── The row itself ──────────────────────────────────────────────────────────
+
+test('the inbox row stops being three columns on a phone', () => {
+  // Measured, not eyeballed: the page gives 64px to its side padding and the row
+  // another 30px to border and padding, leaving 281px for the tracks. The fixed
+  // ones — id 110, two 14px gaps, and a 44px Approve/Reject pair at about 156 —
+  // come to 294. The 1fr title column resolves to ZERO and the row overflows its
+  // own border box. Raising the buttons to a real touch target is what finished
+  // it: at 24px they fit, at 44px they do not.
+  assert.match(mobileBlock, /\.inbox-row \{\s*display: flex; flex-wrap: wrap;/,
+    'three rows on a phone, not three columns');
+  assert.match(mobileBlock, /\.inbox-row \.ttl \{ order: 1; flex: 1 1 100%;/,
+    'the title takes the full width it was being denied');
+  assert.match(mobileBlock, /-webkit-line-clamp: 2; white-space: normal;/,
+    'and two wrapped lines, since a phone has the vertical room it lacks sideways');
+});
+
+test('the id and the status share a line, and a gate keeps its own', () => {
+  assert.match(mobileBlock, /\.inbox-row \.actions \{ order: 3; margin-left: auto; \}/,
+    'stacked, each took a full row and a four-line card said three things');
+  assert.match(mobileBlock, /\.inbox-row \.actions:has\(\.gate-btn\) \{ flex: 1 0 100%;/,
+    'except a gate, where the line is a 44px pair and the target size is the point');
+});
+
+test('the phone keeps where you are, not the whole path', () => {
+  // Raising every control to 44px gave the actions 223px of a 375px bar and
+  // crushed the breadcrumb to "g… / B." — present, unreadable, worse than absent.
+  assert.match(mobileBlock, /#crumb-project \{ display: none; \}/);
+  assert.match(mobileBlock, /\.topbar \.crumbs \.here \{ color: var\(--text\)/);
+});

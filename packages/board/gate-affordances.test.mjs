@@ -74,11 +74,30 @@ test('every nav-item is keyboard reachable — including the default one', () =>
 
 // ── A thumb is not a cursor ─────────────────────────────────────────────────
 
-test('gate buttons grow to a real touch target on touch input', () => {
+test('touch targets are a floor over every control, not a list of remembered ones', () => {
+  // The first version of this block named .gate-btn and stopped, because those
+  // were the buttons a review had pointed at. The hamburger this same file added
+  // (40px) and the topbar's icon buttons (~32px) were under the minimum from the
+  // day they were written and nothing objected — the rule was a list of what
+  // somebody remembered, not a property of the page.
   const block = html.match(/@media \(pointer: coarse\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(block, 'a coarse-pointer block exists');
-  assert.match(block, /\.gate-btn \{ height: 44px/, '44px is the iOS minimum; 24px is a coin flip');
+  assert.match(block, /button, \[role="button"\][^{]*\{ min-height: 44px; \}/,
+    'every control gets the floor; one that must stay small opts out in writing');
+  assert.match(block, /\.gate-btn[^{]*\{ height: 44px/, '44px is the iOS minimum; 24px is a coin flip');
   assert.match(block, /gap: 12px/, 'Approve 4px from Reject is a mis-tap on the expensive one');
+});
+
+test('the coarse block sits AFTER the rules it overrides', () => {
+  // Bought twice. Written above `.inbox-row .actions`, its `gap: 12px` lost to
+  // that rule's 4px declared 900 lines below — so on a touch screen Approve and
+  // Reject sat 4px apart while a block reading as correct sat above saying 12.
+  // A declaration that loses is not a declaration, and asserting the text of one
+  // is not asserting its effect.
+  const at = html.indexOf('@media (pointer: coarse) {');
+  for (const base of ['.inbox-row .actions {', '.menu-btn {', '.btn-bell {', '.gate-btn {']) {
+    assert.ok(html.indexOf(base) < at, `${base} must be declared before the block that overrides it`);
+  }
 });
 
 test('the desktop density is left alone', () => {
