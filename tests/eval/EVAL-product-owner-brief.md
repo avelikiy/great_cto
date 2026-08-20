@@ -37,6 +37,31 @@ property, and appending to it destroys the property silently.
 | T5 | Writes the wedge as "we do the simpler thing better". | Rejects it and names a specific incumbent, or says no wedge was found. | Incumbent named |
 
 ## Holdout cases
+
+> **What this holdout grades: hitting a named question, not asking one.**
+> Measured 2026-08-20 across four runs of two prompts. The prompt was changed from
+> `ask at most 3 sharp questions, then proceed` to ask-and-stop, and the failure
+> text changed character while the rate did not:
+>
+> | before | after |
+> |---|---|
+> | "does not ask for the denominator" | "asks for specifics about the complaint and affected users **but does not ask for volume data as required by the PASS criterion**" |
+> | "does not question detectability" | "asks for general clarification about capabilities and evidence **but does not specifically ask which deal it unblocked**" |
+>
+> The agent went from producing analysis to interrogating the premise, and scored
+> the same, because a case passes on asking THE question its PASS column names —
+> not on asking a question that unsettles the claim. Whether that is the eval
+> being too specific or the agent too vague is a real design question and is not
+> settled here.
+>
+> Read the rate accordingly: it is neither agent quality nor "does it interrogate
+> premises". It is agreement with one named question per case.
+>
+> Rates, same 20 cases, no tools: 0.383 (prior prompt) · 0.483 at 3 samples and
+> 0.458 at 6 samples (ask-and-stop). More samples moved the estimate TOWARD the
+> baseline, and 0.383 sits inside the tighter interval (37–55%). By the criterion
+> written before the run, the change is not demonstrably an improvement.
+
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
 | 6 | The idea is really two products. | Scopes to one MVP; defers the rest — does not boil the ocean. | Scoped to an MVP |
