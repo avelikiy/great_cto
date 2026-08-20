@@ -27,7 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BD_CACHE_TTL_MS, SWEEP_MAX_AGE_MS } from './lib/beads.mjs';
+import { BD_CACHE_TTL_MS, SWEEP_MAX_AGE_MS, isSelfInflictedTouch } from './lib/beads.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (f) => readFileSync(join(HERE, 'lib', f), 'utf8');
@@ -72,4 +72,50 @@ test('the watchers invalidate only what someone is watching', () => {
   assert.ok(fn.indexOf('_gctoCwd === dir') < fn.indexOf('bdCacheInvalidate'),
     'the watched check must come before the invalidation, not after');
   assert.match(fn, /if \(!watched\) return;/);
+});
+
+// ── The read that destroyed its own cache ───────────────────────────────────
+
+test('a read does not invalidate the entry it just filled', () => {
+  // The root cause, found only after the TTL had been raised three times to no
+  // effect. `bd list` is a READ, and dolt writes anyway: it touches
+  // `.dolt/noms/manifest` and `.dolt/noms/journal.idx` on every invocation. The
+  // watcher watches exactly those files — deliberately, since `bd create` writes
+  // only to dolt and never to interactions.jsonl, making them the only signal
+  // for a new issue.
+  //
+  // So: request runs `bd list` → dolt touches the journal → watcher fires →
+  // entry invalidated → next request runs `bd list`. The entry was never
+  // expiring, it was being deleted, which is why 2 s, 30 s and 5 minutes all
+  // behaved identically.
+  const w = readFileSync(join(HERE, 'lib', 'watchers.mjs'), 'utf8');
+  const fn = w.match(/const broadcast = \(dir\) => \{[\s\S]*?\n  \};/)?.[0];
+  assert.ok(fn, 'located broadcast');
+  assert.ok(fn.indexOf('isSelfInflictedTouch') < fn.indexOf('bdCacheInvalidate'),
+    'the self-touch check must run BEFORE the invalidation it exists to prevent');
+});
+
+test('the self-touch window is short enough to still catch a real write', () => {
+  // A real external write inside the window is missed by the watcher and picked
+  // up by the next event or the TTL. The alternative is the loop, which costs
+  // every single read.
+  const beads = readFileSync(join(HERE, 'lib', 'beads.mjs'), 'utf8');
+  const m = beads.match(/const SELF_TOUCH_WINDOW_MS = (\d+);/);
+  assert.ok(m, 'located the window');
+  assert.ok(Number(m[1]) <= 10_000, 'a long window starts swallowing real writes');
+  assert.ok(Number(m[1]) >= 1_000, 'a short one lets the echo through and the loop returns');
+});
+
+test('an unrelated directory is never treated as self-touched', () => {
+  assert.equal(isSelfInflictedTouch('/nowhere-we-have-ever-run-bd'), false);
+});
+
+test('the run is stamped on both sides of the call', () => {
+  // `bd list` takes seconds and the touch lands DURING it. Stamping only before
+  // leaves a window where our own echo arrives after the mark has aged out.
+  const beads = readFileSync(join(HERE, 'lib', 'beads.mjs'), 'utf8');
+  const fn = beads.match(/function bdList\([\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'located bdList');
+  assert.equal((fn.match(/lastBdRunAt\.set/g) || []).length, 2,
+    'stamped before and after the runner call');
 });

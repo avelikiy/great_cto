@@ -3,7 +3,7 @@ import path from 'path';
 import { GREAT_CTO_DIR } from './config.mjs';
 import { sseClients } from './state.mjs';
 import { listProjects } from './projects.mjs';
-import { bdCacheInvalidate, getTasks } from './beads.mjs';
+import { bdCacheInvalidate, getTasks, isSelfInflictedTouch } from './beads.mjs';
 import { getPipeline, getInbox } from './data-readers.mjs';
 
 // ── File watcher ───────────────────────────────────────────────────────────────
@@ -32,6 +32,10 @@ function watchBeads() {
     // happens when someone actually opens it.
     const watched = [...sseClients].some((r) => r._gctoCwd === dir);
     if (!watched) return;
+    // Do not invalidate on the echo of our own read. `bd list` touches the dolt
+    // journal this watcher watches, so every read was invalidating the entry it
+    // had just filled — a loop that made the cache useless at any TTL.
+    if (isSelfInflictedTouch(dir)) return;
     bdCacheInvalidate(dir);
     for (const res of sseClients) {
       if (res._gctoCwd === dir) {

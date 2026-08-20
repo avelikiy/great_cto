@@ -181,12 +181,46 @@ function bdReason(result) {
  *   defect as the 2 s TTL fixed yesterday, one level up: that one was measured
  *   against a single call, this one has to be measured against the whole sweep.
  */
+/**
+ * When we last ran `bd` ourselves in a directory.
+ *
+ * `bd list` is a READ, and dolt still writes: it touches
+ * `.dolt/noms/manifest` and `.dolt/noms/journal.idx` on every invocation. The
+ * file watcher watches exactly those files — deliberately, because `bd create`
+ * writes only to dolt and never to interactions.jsonl, so they are the only
+ * signal for a new issue.
+ *
+ * The two together form a loop: a request runs `bd list`, dolt touches the
+ * journal, the watcher fires, the cache entry is invalidated, and the next
+ * request runs `bd list` again. The read destroyed the cache that existed to
+ * make the read unnecessary. This is why raising the TTL never worked — not at
+ * 2 s, not at 30 s, not at 5 minutes. The entry was never expiring; it was being
+ * deleted.
+ *
+ * A touch within `SELF_TOUCH_WINDOW_MS` of our own run is ours. A real external
+ * write inside that window is missed by the watcher and picked up by the next
+ * event or by the TTL — the alternative is the loop, which costs every read.
+ */
+const lastBdRunAt = new Map();
+const SELF_TOUCH_WINDOW_MS = 3000;
+
+/** True when a file event under `cwd` is the echo of a `bd` we just ran. */
+function isSelfInflictedTouch(cwd) {
+  const at = lastBdRunAt.get(cwd);
+  return at != null && Date.now() - at < SELF_TOUCH_WINDOW_MS;
+}
+
 function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
   const maxAge = Number.isFinite(opts.maxAgeMs) ? opts.maxAgeMs : BD_CACHE_TTL_MS;
   const cached = bdCache.get(cwd);
   if (cached && Date.now() - cached.ts < maxAge) return cached.data;
   try {
+    lastBdRunAt.set(cwd, Date.now());
     const result = runner(['list', '--json', '--all', '--include-gates'], { cwd });
+    // Stamped again on return: the touch happens DURING the call, and the call
+    // takes seconds. Stamping only before it leaves a window where our own echo
+    // arrives after the mark has already aged out.
+    lastBdRunAt.set(cwd, Date.now());
     if (result.status !== 0) {
       bdFailures.set(cwd, bdReason(result));
       if (cached) return cached.data; // last-good data, cache untouched
@@ -559,6 +593,7 @@ export {
   bdCacheInvalidate,
   BD_CACHE_TTL_MS,
   SWEEP_MAX_AGE_MS,
+  isSelfInflictedTouch,
   BD_BIN,
   bdEnv,
   bd,
