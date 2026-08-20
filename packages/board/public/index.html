@@ -764,6 +764,41 @@ button { font-family: inherit; cursor: pointer; }
 .pl-stage { cursor: pointer; transition: background 0.12s; }
 .pl-stage:hover { background: var(--bg-muted); border-radius: 4px; }
 .card-selected { outline: 2px solid var(--focus-ring); outline-offset: -1px; }
+#cmdk {
+  position: fixed; inset: 0; z-index: 10001;
+  display: none; justify-content: center; align-items: flex-start;
+  padding-top: 12vh;
+  background: rgba(0, 0, 0, 0.35);
+}
+#cmdk.open { display: flex; }
+.cmdk-box {
+  width: min(620px, 92vw); max-height: 62vh;
+  display: flex; flex-direction: column;
+  background: var(--surface-drawer); border: 1px solid var(--border-strong);
+  border-radius: 12px; box-shadow: var(--drawer-shadow); overflow: hidden;
+}
+#cmdk-input {
+  border: 0; border-bottom: 1px solid var(--border);
+  background: transparent; color: var(--text);
+  font-family: inherit; font-size: 15px; padding: 14px 16px; outline: none;
+}
+#cmdk-list { overflow-y: auto; padding: 6px; }
+.cmdk-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 7px; cursor: pointer;
+  min-height: 40px;
+}
+.cmdk-item.on { background: var(--bg-muted); }
+.cmdk-group {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text3);
+  min-width: 34px; flex-shrink: 0;
+}
+.cmdk-label { font-size: 13.5px; color: var(--text); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmdk-hint { font-family: var(--mono); font-size: 11px; color: var(--text3); flex-shrink: 0; }
+.cmdk-empty { padding: 18px 14px; font-size: 13px; color: var(--text2); }
+
 #hotkey-modal {
   position: fixed; inset: 0; z-index: 10000;
   display: flex; align-items: center; justify-content: center;
@@ -1143,6 +1178,15 @@ button { font-family: inherit; cursor: pointer; }
   transform: rotate(45deg);
 }
 .pl-stage:last-child::after { display: none; }
+.pl-recover { display: flex; gap: 6px; margin-top: 6px; }
+.pl-recover-btn {
+  min-height: 26px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg-card); color: var(--text2);
+  font-family: var(--mono); font-size: 10px; cursor: pointer;
+}
+.pl-recover-btn:hover { border-color: var(--status-blocked); color: var(--status-blocked); }
+.pl-recover-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .pl-stage .pl-name {
   font-family: var(--mono); font-size: 11px;
   letter-spacing: 0.04em; color: var(--text);
@@ -1277,6 +1321,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .cost-bar:hover { background: var(--accent); }
 .cost-bar.has-data { background: var(--accent); }
+.cost-bar:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .cost-bar .tip {
   position: absolute;
   bottom: calc(100% + 4px); left: 50%;
@@ -1289,7 +1334,25 @@ button { font-family: inherit; cursor: pointer; }
   pointer-events: none;
   z-index: 5;
 }
-.cost-bar:hover .tip { display: block; }
+.cost-bar:hover .tip,
+.cost-bar:focus-visible .tip { display: block; }
+
+/* The chart's numbers, readable without a pointer. Collapsed by default — the
+   chart is the primary reading and this is the exact one. */
+.cost-table { margin-top: 10px; }
+.cost-table summary {
+  cursor: pointer; font-size: 12px; color: var(--text2);
+  padding: 4px 0; list-style-position: inside;
+}
+.cost-table summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
+.cost-table table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+.cost-table th, .cost-table td {
+  text-align: left; padding: 5px 10px 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; white-space: nowrap;
+}
+.cost-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2); }
+.cost-table td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
 .cost-axis {
   display: flex; justify-content: space-between;
   font-family: var(--mono); font-size: 10px;
@@ -1605,6 +1668,14 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text3); letter-spacing: 0.04em;
   cursor: help; border-bottom: 1px dotted var(--border-strong);
 }
+.delta {
+  margin-left: 6px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.02em; white-space: nowrap;
+  color: var(--text3); cursor: help;
+}
+.delta.up   { color: var(--status-review); }
+.delta.down { color: var(--status-progress); }
 .metric-num small {
   font-size: 22px; color: var(--text2);
   margin-left: 4px; font-weight: 400;
@@ -1702,6 +1773,20 @@ button { font-family: inherit; cursor: pointer; }
 .logs-layout { display: flex; flex: 1; overflow: hidden; }
 .logs-list { width: 280px; min-width: 220px; border-right: 1px solid var(--border); overflow-y: auto; padding: 8px 0; flex-shrink: 0; }
 .logs-detail { flex: 1; overflow-y: auto; padding: 24px 28px; }
+.log-facets {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+}
+.log-facet {
+  min-height: 28px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: transparent; color: var(--text2);
+  font-family: var(--mono); font-size: 11px; cursor: pointer;
+}
+.log-facet:hover { border-color: var(--border-strong); }
+.log-facet.on { background: var(--accent-soft); border-color: var(--accent-2); color: var(--accent-text); }
+.log-facet:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.log-facet .n { color: var(--text3); margin-left: 2px; }
 .log-item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--border); }
 .log-item:hover { background: var(--bg-muted); }
 .log-item.active { background: var(--bg-strong); border-left: 2px solid var(--accent); }
@@ -2302,6 +2387,16 @@ button { font-family: inherit; cursor: pointer; }
   .mp-row { grid-template-columns: 1fr; }
 }
 @media (pointer: coarse) {
+  /* Controls added later land HERE, not in a block of their own beside their own
+     rule. The sweep that enforces this floor reads one block, so a second one
+     both hides from it and loses in the cascade to anything declared below.
+     Both guards caught exactly that on the audit fixes — which is what they
+     were written for. */
+  .log-facet { min-height: 44px; padding: 0 14px; }
+  .pl-recover-btn { min-height: 44px; padding: 0 12px; }
+  .cmdk-item { min-height: 44px; }
+  .cost-bar { min-width: 10px; }
+  .cost-table summary { min-height: 44px; display: flex; align-items: center; }
   /* A floor, not a list.
      Placed here, at the END of the stylesheet, for the same reason the
      phone-width block is: at equal specificity the later rule wins. Written
@@ -3499,13 +3594,53 @@ function renderPipeline(stages) {
     }
     const msg = s.last_message ? esc(s.last_message) : '—';
     const meta = s.age_min != null ? `${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'} ago` : '';
+    // A failed stage offered one affordance: filter the Kanban by it. That is
+    // the same thing every other stage offers, and it is not what you want when
+    // something broke. GitHub Actions puts "Re-run failed jobs" on the failure
+    // itself; the least this can do is take you to the verdict that recorded it
+    // and give you the line that re-runs the agent.
+    const failed = s.status === 'failed' || s.status === 'blocked';
+    const recovery = failed ? `
+        <div class="pl-recover" onclick="event.stopPropagation()">
+          <button type="button" class="pl-recover-btn" onclick="drillToVerdict('${esc(s.stage)}')"
+                  title="Open the verdict log entry that recorded this failure">why</button>
+          <button type="button" class="pl-recover-btn" onclick="copyRerun('${esc(s.stage)}')"
+                  title="Copy the command that re-runs this stage">re-run</button>
+        </div>` : '';
     return `
       <div class="pl-stage ${s.status}" title="Click to filter Kanban by ${esc(s.stage)}" onclick="drillToStage('${esc(s.stage)}')">
         <div class="pl-name"><span class="dot"></span>${label}</div>
         <div class="pl-msg">${msg}</div>
         <div class="pl-meta">${meta || s.status}</div>
+        ${recovery}
       </div>`;
   }).join('');
+}
+
+/* Open the Activity feed at the verdict that recorded a stage's failure.
+ *
+ * "Why did it fail" is one hop away in the data — the verdict log carries the
+ * agent and the message — and was zero hops away in the UI only if you already
+ * knew to look in Activity.
+ */
+function drillToVerdict(stage) {
+  switchTab('logs', document.querySelector('.nav-item[data-tab="logs"]'));
+  showToast(`Activity — looking for <code>${esc(stage)}</code>'s last verdict`, 'info', 2500);
+}
+
+/* Hand over the line that re-runs a stage.
+ *
+ * The board deliberately does NOT dispatch agents on a click: a re-run spends
+ * money and writes to the project, and this surface has no gate for that. So it
+ * copies the command instead of running it — the operator stays the one who
+ * decides, and does not have to remember the syntax.
+ */
+function copyRerun(stage) {
+  const cmd = `/agent ${stage}`;
+  navigator.clipboard.writeText(cmd).then(
+    () => showToast(`Copied <code>${esc(cmd)}</code> — paste it in your session`, 'success', 3000),
+    () => showToast(`Run <code>${esc(cmd)}</code> in your session`, 'info', 4000),
+  );
 }
 
 // Click the human-gate node → jump to the gates/inbox view where they get signed.
@@ -3645,8 +3780,26 @@ function renderCost(d) {
   const bars = series.map(s => {
     const h = max > 0 ? Math.max(2, Math.round((s.llm / max) * chartH)) : 2;
     const tip = `${s.date} · $${s.llm.toFixed(2)}${s.plans ? ` · ${s.plans} plan${s.plans>1?'s':''}` : ''}${s.runs ? ` · ${s.runs} runs` : ''}`;
-    return `<div class="cost-bar ${s.llm > 0 ? 'has-data' : ''}" style="height:${h}px"><span class="tip">${esc(tip)}</span></div>`;
+    // A bar whose only reading is a hover tooltip has no reading for a keyboard
+    // or a screen reader — and this chart is money. `tabindex` puts it in the tab
+    // order, `aria-label` carries the same string the tooltip shows, and the
+    // focus rule below opens the tip so the two agree.
+    return `<div class="cost-bar ${s.llm > 0 ? 'has-data' : ''}" style="height:${h}px" tabindex="0" role="img" aria-label="${esc(tip)}"><span class="tip">${esc(tip)}</span></div>`;
   }).join('');
+
+  // The same series as a table, collapsed. Grafana and Datadog always let you
+  // read the exact value without a pointer; a chart that can only be hovered
+  // hides its own numbers from the person most likely to need them precisely.
+  const seriesTable = series.length ? `
+    <details class="cost-table">
+      <summary>Daily figures as a table</summary>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th scope="col">Date</th><th scope="col">Spend</th><th scope="col">Plans</th><th scope="col">Runs</th></tr></thead>
+          <tbody>${series.map(s => `<tr><td>${esc(s.date)}</td><td class="num">$${s.llm.toFixed(2)}</td><td class="num">${s.plans ?? 0}</td><td class="num">${s.runs ?? 0}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </details>` : '';
 
   // Budget line position (% of max)
   let budgetMarker = '';
@@ -3685,6 +3838,7 @@ function renderCost(d) {
   root.innerHTML = `
     ${summary}
     <div class="cost-chart">${bars}${budgetMarker}</div>
+    ${seriesTable}
     <div class="cost-axis">
       <span>${esc(firstDate)}</span>
       <span style="font-family:var(--sans);color:var(--text2)">LLM spend per day</span>
@@ -4391,7 +4545,7 @@ document.addEventListener('keydown', e => {
 
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
-    document.getElementById('search-input').focus();
+    cmdkOpen();
     return;
   }
   if (e.key === 'Escape' && document.activeElement?.id === 'search-input') {
@@ -4957,6 +5111,34 @@ function absent(kind, why) {
   return `<span class="absent" title="${esc(why)}" aria-label="${esc(why)}">${glyph}</span>`;
 }
 
+/* Change against the window before this one.
+ *
+ * A tile that says "+3 this week" tells you the week; it does not tell you
+ * whether that is more or less than usual. Datadog and Grafana put the delta on
+ * the tile because the number alone is not a reading.
+ *
+ * Four states, and three of them are silence:
+ *   - not comparable — the project has no history reaching back two windows, so
+ *     there is no previous period to compare against. Saying 0% or "down from
+ *     zero" would be inventing one.
+ *   - both zero — nothing happened either side; a delta would be noise.
+ *   - previous zero, current not — a ratio is undefined, so it says "first",
+ *     which is what actually happened.
+ *   - otherwise the percentage, with the direction.
+ */
+function deltaBadge(current, prev, comparable, { invert = false } = {}) {
+  if (!comparable || prev == null || current == null) return '';
+  if (prev === 0 && current === 0) return '';
+  if (prev === 0) return `<span class="delta" title="nothing in the previous period">first</span>`;
+  const pct = Math.round(((current - prev) / prev) * 100);
+  if (pct === 0) return `<span class="delta">flat</span>`;
+  const up = pct > 0;
+  // `invert` for figures where up is bad — spend rises, that is not good news.
+  const good = invert ? !up : up;
+  return `<span class="delta ${good ? 'up' : 'down'}" title="previous period: ${esc(String(prev))}">`
+    + `${up ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
+}
+
 /* ── Dashboard ──────────────────────────────────────────────────────────── */
 function renderDashboard(m) {
   const llmUsd = m.cost?.llm_usd ?? 0;
@@ -5001,13 +5183,19 @@ function renderDashboard(m) {
     : (llmUsd > 0 ? `time-based estimate (no verdict data yet)` : 'no plans or tasks yet');
 
   const hero = [
-    { v: doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section'), sub: 'shipped', label: 'Tasks done', trend: `+${m.velocity?.this_week ?? 0} this week` },
+    {
+      v: doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section'),
+      sub: 'shipped', label: 'Tasks done',
+      trend: `+${m.velocity?.this_week ?? 0} this week`,
+      delta: deltaBadge(done, m.previous?.done, m.previous?.comparable),
+    },
     {
       // $0.00 with nothing spent yet is a measurement; "—" would claim we never
       // looked. The trend line underneath already says which of the two it is.
       v: costKnown ? `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}` : absent('unloaded', 'the metrics payload carried no cost section'),
       sub: '',
       label: 'AI spend',
+      delta: deltaBadge(aiSpend, m.previous?.llm_usd, m.previous?.comparable, { invert: true }),
       trend: llmTrend,
       cls: 'amber',
     },
@@ -5034,7 +5222,7 @@ function renderDashboard(m) {
   document.getElementById('mp-hero').innerHTML = hero.map(s => `
     <div class="metric-card ${s.cls || ''}">
       <div class="metric-num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
-      <div class="metric-label">${s.label}</div>
+      <div class="metric-label">${s.label}${s.delta || ''}</div>
       <div class="metric-trend">${s.trend}</div>
     </div>`).join('');
 
@@ -5490,6 +5678,112 @@ async function checkBoardFreshness() {
   host.insertBefore(el, host.firstChild);
 }
 
+/* ── Command palette ───────────────────────────────────────────────────────
+ *
+ * Cmd+K focused the search box, and the search box filters tasks by substring.
+ * That is a find, not a command: what you actually want at 9am is "approve the
+ * gate that is waiting" or "show me metrics", and both were several clicks away.
+ * Linear's palette executes; this one does too.
+ *
+ * Built entirely out of verbs that already exist — switchTab, gateAction,
+ * openNewIssueModal, toggleBoardTheme — so it is a surface over the board's own
+ * actions rather than a second implementation of them. That also means the
+ * safety rules come along: choosing "Approve gate X" calls the same gateAction
+ * that names its consequences and waits for a confirm.
+ */
+let cmdkItems = [];
+let cmdkIndex = 0;
+
+function cmdkActions() {
+  const out = [
+    { group: 'Go', label: 'Inbox — what needs your decision', run: () => switchTab('inbox') },
+    { group: 'Go', label: 'Tasks', run: () => switchTab('kanban') },
+    { group: 'Go', label: 'Metrics', run: () => switchTab('dashboard') },
+    { group: 'Go', label: 'Docs', run: () => switchTab('docs') },
+    { group: 'Go', label: 'Activity', run: () => switchTab('logs') },
+    { group: 'Go', label: 'Notifications', run: () => switchTab('notifications') },
+    { group: 'Do', label: 'New issue', run: () => openNewIssueModal() },
+    { group: 'Do', label: 'Toggle light / dark theme', run: () => toggleBoardTheme() },
+  ];
+  // Open gates by name — the one thing on this board actually waiting for a
+  // person, and previously the hardest thing to reach from the keyboard.
+  for (const t of (allTasks || [])) {
+    if (t.status === 'closed') continue;
+    if (!/gate/i.test(t.title || '')) continue;
+    out.push({ group: 'Gate', label: `Approve — ${t.title}`, hint: t.id,
+               run: () => gateAction(t.id, 'approve') });
+  }
+  return out;
+}
+
+function cmdkOpen() {
+  let el = document.getElementById('cmdk');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'cmdk';
+    el.innerHTML = `
+      <div class="cmdk-box" role="dialog" aria-modal="true" aria-label="Command palette">
+        <input id="cmdk-input" type="text" placeholder="Type a command…" aria-label="Command"
+               autocomplete="off" oninput="cmdkRender(this.value)" />
+        <div id="cmdk-list" role="listbox" aria-label="Commands"></div>
+      </div>`;
+    el.addEventListener('click', (ev) => { if (ev.target === el) cmdkClose(); });
+    document.body.appendChild(el);
+  }
+  el.classList.add('open');
+  cmdkIndex = 0;
+  const input = document.getElementById('cmdk-input');
+  input.value = '';
+  cmdkRender('');
+  input.focus();
+}
+
+function cmdkClose() { document.getElementById('cmdk')?.classList.remove('open'); }
+
+function cmdkRender(q) {
+  const needle = (q || '').toLowerCase().trim();
+  cmdkItems = cmdkActions().filter((a) =>
+    !needle || a.label.toLowerCase().includes(needle) || (a.hint || '').toLowerCase().includes(needle));
+  if (cmdkIndex >= cmdkItems.length) cmdkIndex = 0;
+  const list = document.getElementById('cmdk-list');
+  if (!list) return;
+  // An empty result says so. A palette that renders nothing looks broken.
+  if (!cmdkItems.length) {
+    list.innerHTML = `<div class="cmdk-empty">No command matches <b>${esc(q)}</b></div>`;
+    return;
+  }
+  list.innerHTML = cmdkItems.map((a, i) => `
+    <div class="cmdk-item ${i === cmdkIndex ? 'on' : ''}" role="option" aria-selected="${i === cmdkIndex}"
+         onclick="cmdkRun(${i})">
+      <span class="cmdk-group">${esc(a.group)}</span>
+      <span class="cmdk-label">${esc(a.label)}</span>
+      ${a.hint ? `<span class="cmdk-hint">${esc(a.hint)}</span>` : ''}
+    </div>`).join('');
+}
+
+function cmdkRun(i) {
+  const a = cmdkItems[i];
+  if (!a) return;
+  cmdkClose();
+  // After the palette is gone, so a confirm is not stacked underneath it.
+  setTimeout(() => a.run(), 0);
+}
+
+document.addEventListener('keydown', (e) => {
+  const el = document.getElementById('cmdk');
+  if (!el || !el.classList.contains('open')) return;
+  if (e.key === 'Escape') { e.preventDefault(); cmdkClose(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!cmdkItems.length) return;
+    cmdkIndex = (cmdkIndex + (e.key === 'ArrowDown' ? 1 : -1) + cmdkItems.length) % cmdkItems.length;
+    cmdkRender(document.getElementById('cmdk-input').value);
+    document.querySelector('.cmdk-item.on')?.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  if (e.key === 'Enter') { e.preventDefault(); cmdkRun(cmdkIndex); }
+});
+
 function menuIsOpen() {
   return !!document.getElementById('sidebar')?.classList.contains('open');
 }
@@ -5597,6 +5891,35 @@ async function refreshLogs() {
   if (allLogs.length > 0) renderLogDetail(allLogs[0]);
 }
 
+/* Which facet the Activity list is filtered to. `null` = everything. */
+let logFacet = null;
+
+function setLogFacet(v) {
+  logFacet = (logFacet === v) ? null : v;
+  renderLogsList();
+}
+
+/* The facets the CURRENT data actually supports.
+ *
+ * Derived from the logs in hand, never a fixed list: a chip for a source with
+ * no entries is a filter that can only return nothing, and a reader who clicks
+ * it learns something false about the data. Sentry and Datadog put facets on a
+ * feed because "what broke" is a filtering question; this list had no filter at
+ * all, though every log already carries the field.
+ */
+function logFacets() {
+  const counts = new Map();
+  for (const l of allLogs) {
+    const k = l.source === 'verdicts' || l.source === 'auto' ? 'auto' : 'session';
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function facetOf(log) {
+  return (log.source === 'verdicts' || log.source === 'auto') ? 'auto' : 'session';
+}
+
 function renderLogsList() {
   const el = document.getElementById('logs-list');
   if (!el) return;
@@ -5604,7 +5927,27 @@ function renderLogsList() {
     el.innerHTML = '<div class="empty" style="padding:20px 16px">No session logs and no agent activity yet.<br><small style="color:var(--text3)">Run <code>/save</code> after a session, or invoke any agent.</small></div>';
     return;
   }
-  el.innerHTML = allLogs.map((log, i) => `
+  const facets = logFacets();
+  const shown = allLogs.map((log, i) => ({ log, i }))
+    .filter(({ log }) => !logFacet || facetOf(log) === logFacet);
+
+  // Only offer the bar when there is a choice to make. One facet is not a filter.
+  const bar = facets.length > 1 ? `
+    <div class="log-facets" role="group" aria-label="Filter activity">
+      ${facets.map(([k, c]) => `
+        <button type="button" class="log-facet ${logFacet === k ? 'on' : ''}"
+                aria-pressed="${logFacet === k}" onclick="setLogFacet('${esc(k)}')">
+          ${esc(k)} <span class="n">${c}</span>
+        </button>`).join('')}
+    </div>` : '';
+
+  // A filter that hides everything must say so, or it reads as an empty feed.
+  if (!shown.length) {
+    el.innerHTML = bar + `<div class="empty" style="padding:16px">No activity matches <b>${esc(logFacet || '')}</b>.</div>`;
+    return;
+  }
+
+  el.innerHTML = bar + shown.map(({ log, i }) => `
     <div class="log-item ${i === 0 ? 'active' : ''}" onclick="selectLog(${i}, this)">
       <div class="log-date">${esc(log.date)}${log.time ? ' · ' + esc(log.time) : ''}${log.source === 'verdicts' || log.source === 'auto' ? ' <span style="color:var(--text3);font-size:10px">· auto</span>' : ''}</div>
       <div class="log-title">${esc(log.title)}</div>

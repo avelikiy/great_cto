@@ -32,9 +32,21 @@ function watchBeads() {
     // happens when someone actually opens it.
     const watched = [...sseClients].some((r) => r._gctoCwd === dir);
     if (!watched) return;
-    // Do not invalidate on the echo of our own read. `bd list` touches the dolt
-    // journal this watcher watches, so every read was invalidating the entry it
-    // had just filled — a loop that made the cache useless at any TTL.
+    // Do not react at all to the echo of our own read. `bd list` touches the dolt
+    // journal this watcher watches, so every read was dropping the entry it had
+    // just filled — a loop that made the cache useless at any TTL.
+    //
+    // Return, rather than merely skipping the invalidation. I tried the narrower
+    // version — suppress the cache drop, still broadcast — reasoning that a
+    // watcher event is still an event. It is not: the broadcast reads
+    // getTasks(dir), and on a self-touch the entry was deliberately NOT
+    // invalidated, so the event carries the cache's older answer. Clients were
+    // pushed stale tasks, and `gate: SSE broadcasts updated tasks after
+    // approval` failed on exactly that.
+    //
+    // Nothing is lost by staying silent here. A write through the board calls
+    // broadcastTasks itself; a write from outside is not a self-touch and lands
+    // in the branch below.
     if (isSelfInflictedTouch(dir)) return;
     bdCacheInvalidate(dir);
     for (const res of sseClients) {

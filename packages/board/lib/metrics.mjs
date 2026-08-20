@@ -269,9 +269,33 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   const verdictsInWindow = verdicts.filter(v => v.ts && (now - new Date(v.ts).getTime()) <= costWindowMs);
   const acceptance = acceptanceMetrics(verdictsInWindow, cost.llm_usd);
 
+  // The window immediately before this one, same length — so a tile can say
+  // "12% fewer than the previous 30 days" instead of only "+3 this week".
+  //
+  // Three states, not two. `comparable: false` when the project has no history
+  // reaching back two full windows: a project that is three weeks old has no
+  // previous 30 days, and rendering that absence as 0% or as a fall from zero
+  // would be inventing a comparison. The tile shows nothing in that case.
+  const prevStart = now - 2 * costWindowMs;
+  const prevEnd = now - costWindowMs;
+  const inPrev = (ms) => ms > prevStart && ms <= prevEnd;
+  const oldestSignal = Math.min(
+    ...[...done.map(t => t.closed_at), ...verdicts.map(v => v.ts)]
+      .filter(Boolean).map(x => new Date(x).getTime()).filter(Number.isFinite),
+    Infinity,
+  );
+  const previous = {
+    comparable: Number.isFinite(oldestSignal) && oldestSignal <= prevEnd,
+    done: done.filter(t => t.closed_at && inPrev(new Date(t.closed_at).getTime())).length,
+    llm_usd: Math.round(verdicts
+      .filter(v => v.ts && v.cost_usd != null && inPrev(new Date(v.ts).getTime()))
+      .reduce((a, v) => a + v.cost_usd, 0) * 10000) / 10000,
+  };
+
   return {
     window_days: days,
     acceptance,
+    previous,
     tasks: {
       total: tasks.length,
       done: done.length,

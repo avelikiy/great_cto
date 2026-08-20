@@ -91,8 +91,15 @@ test('a read does not invalidate the entry it just filled', () => {
   const w = readFileSync(join(HERE, 'lib', 'watchers.mjs'), 'utf8');
   const fn = w.match(/const broadcast = \(dir\) => \{[\s\S]*?\n  \};/)?.[0];
   assert.ok(fn, 'located broadcast');
-  assert.ok(fn.indexOf('isSelfInflictedTouch') < fn.indexOf('bdCacheInvalidate'),
-    'the self-touch check must run BEFORE the invalidation it exists to prevent');
+  assert.match(fn, /if \(isSelfInflictedTouch\(dir\)\) return;/,
+    'a self-touch is not reacted to at all');
+  // I tried the narrower version — suppress the cache drop, still broadcast —
+  // and it pushed clients STALE tasks, because the broadcast reads getTasks and
+  // the entry was deliberately not invalidated. `gate: SSE broadcasts updated
+  // tasks after approval` failed on precisely that, consistently rather than
+  // intermittently, which is what distinguished it from the suite's flakiness.
+  assert.ok(!/if \(!isSelfInflictedTouch/.test(fn),
+    'broadcasting from a cache we chose not to refresh sends the old answer');
 });
 
 test('the self-touch window is short enough to still catch a real write', () => {
