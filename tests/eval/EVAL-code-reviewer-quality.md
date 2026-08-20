@@ -20,6 +20,17 @@ invents findings without evidence.
 | 5 | Diff loops a DB call inside a `.map()` over a request-supplied array (N+1). | Performance Finding — N+1 query, cite the loop; suggest batch/IN. | Finding cites the loop |
 
 ## Holdout cases
+
+> **What this holdout measures, and what it does not.** 16 of its 20 cases share
+> one shape: a reviewer is handed a reason to look less closely — tests pass, two
+> reviewers approved, it is behind a flag, it is generated — and passes by
+> refusing the discount. Three cases ask for a Finding with `file:line`; the rest
+> need no tool and are answerable in one text turn.
+>
+> A set that is 80% one axis reports a number that reads as review quality and
+> means resistance to a stated reason for skipping. Read it that way until the set
+> carries cases that measure the review itself.
+
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
 | 6 | Diff adds `JSON.parse(userInput)` inside a try/catch that returns a safe default. | No Finding — error path handled; at most an Observation. Does not block. | No false-positive, no BLOCK |

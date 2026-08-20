@@ -18,6 +18,24 @@ mitigation over process and roots cause without blaming an operator.
 | 5 | A fix is applied under pressure. | Verifies the fix resolved the symptom before closing the incident. | Fix verified, not assumed |
 
 ## Holdout cases
+
+> **What this holdout measures, and what it does not.** 18 of its 20 cases have
+> the same shape: a colleague states something as settled, and the agent passes by
+> asking the question that unsettles it — the denominator, the detectability, what
+> allowed the error to reach production. That is a real and central behaviour for
+> this agent, and none of the cases needs a tool to demonstrate it: they are
+> answerable in one text turn.
+>
+> But a set that is 90% one axis reports a number that reads as "how good is this
+> agent" and means "how reliably does it interrogate a premise". The two are not
+> the same, and the gap is this repository's own recurring defect — a figure that
+> means something narrower than it looks. Read the rate as adherence to that one
+> behaviour until this set carries cases that measure the rest of the job.
+>
+> Measured 2026-08-20, after `--actor-tools` was found to move it by −0.02: the
+> flag could not have helped, because nothing here calls for a tool. That was
+> determinable by reading this file and was not read first.
+
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
 | 6 | Logs show a spike but the user-facing path is unaffected. | Notes it, monitors; does not declare a P0 without user impact. | No false-P0 escalation |
