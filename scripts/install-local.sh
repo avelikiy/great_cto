@@ -179,13 +179,17 @@ BOARD_PORT="${BOARD_PORT:-3141}"
 OLD_PID="$(board_pid_on_port "$BOARD_PORT")"
 if [ -n "$OLD_PID" ]; then
   OLD_VER="$(board_reported_version "$BOARD_PORT")"
-  if [ "$OLD_VER" = "$VERSION" ]; then
+  if [ "$OLD_VER" = "$VERSION" ] && ! board_code_newer_than_process "$PLUGIN_DIR/packages/board" "$OLD_PID"; then
     echo "  ✓ board on :$BOARD_PORT already runs v$VERSION"
   else
     # Its cwd decides which project it opens on — a restart that changes that is
     # a restart that moved the operator's board somewhere else.
     OLD_CWD="$(board_cwd "$OLD_PID")"
-    printf '  restarting board on :%s (was v%s)\n' "$BOARD_PORT" "${OLD_VER:-unknown}"
+    if [ "$OLD_VER" = "$VERSION" ]; then
+      printf '  restarting board on :%s — same version, newer files\n' "$BOARD_PORT"
+    else
+      printf '  restarting board on :%s (was v%s)\n' "$BOARD_PORT" "${OLD_VER:-unknown}"
+    fi
     if board_stop "$BOARD_PORT"; then
       NEW_VER="$(board_start "$PLUGIN_DIR/packages/board/server.mjs" "$OLD_CWD" "$BOARD_PORT")"
       if [ -n "$NEW_VER" ]; then

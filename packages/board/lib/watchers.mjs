@@ -17,6 +17,21 @@ function watchBeads() {
   if (!dirs.includes(process.cwd())) dirs.push(process.cwd());
 
   const broadcast = (dir) => {
+    // Invalidate ONLY for a project somebody is looking at.
+    //
+    // This ran unconditionally, for all sixteen registered projects, on every
+    // file event in any of them — and an invalidated entry is deleted, so no
+    // later read can be served from cache no matter how stale it is willing to
+    // accept. The alert crons then re-ran `bd list` for all sixteen every five
+    // minutes, at 2-6 s each, synchronously. That is the pair that made the
+    // board unanswerable: watchers emptying the cache as fast as sweeps filled
+    // it, with the event loop held by `spawnSync` throughout.
+    //
+    // A project nobody is watching serves data up to BD_CACHE_TTL_MS old, which
+    // is the freshness contract everywhere else, and the read that refreshes it
+    // happens when someone actually opens it.
+    const watched = [...sseClients].some((r) => r._gctoCwd === dir);
+    if (!watched) return;
     bdCacheInvalidate(dir);
     for (const res of sseClients) {
       if (res._gctoCwd === dir) {

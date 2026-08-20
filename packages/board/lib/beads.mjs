@@ -22,7 +22,21 @@ import { log } from './log.mjs';
 // `bdCacheInvalidate` fires on every write through the board, and the file
 // watchers fire when anything changes the store underneath us. The TTL is only
 // the backstop for a change that arrived through neither.
-const BD_CACHE_TTL_MS = Number(process.env.GREAT_CTO_BD_CACHE_TTL_MS || 30000);
+// 5 minutes, and the number is a backstop rather than a freshness promise.
+//
+// Staleness is bounded by INVALIDATION, not by this clock. Every write through
+// the board drops the entry (four call sites in routes.mjs), and the file
+// watchers drop it for the project a client is actually watching on any change
+// underneath it. What the TTL covers is the residue: a change that arrived
+// through neither path, in a project nobody has open.
+//
+// 30 s was worse than it looks. `bd list` costs 6.8 s on this repository, so a
+// person who clicks, reads for half a minute, and clicks again pays the full
+// cost every single time — the cache only ever helped a burst. Measured after
+// the sweep fix, with no `bd` child present in twenty seconds of sampling: the
+// board was no longer saturated and still answered /api/inbox in 8-11 s,
+// because each request arrived just after the entry expired.
+const BD_CACHE_TTL_MS = Number(process.env.GREAT_CTO_BD_CACHE_TTL_MS || 300000);
 
 function bdCacheInvalidate(cwd) { bdCache.delete(cwd); }
 
@@ -143,9 +157,34 @@ function bdReason(result) {
   return (line || 'bd exited non-zero without a message').slice(0, 300);
 }
 
-function bdList(cwd = process.cwd(), runner = bd) {
+/**
+ * @param {object} [opts]
+ * @param {number} [opts.maxAgeMs] How stale an entry may be before it is
+ *   refreshed. Defaults to BD_CACHE_TTL_MS — the interactive freshness a person
+ *   looking at one project expects.
+ *
+ *   Background sweeps pass a much larger value, and the reason is arithmetic
+ *   rather than taste. `bd list` costs 2-6 s per project; this machine has 16
+ *   registered. One sweep is therefore ~60 s of SYNCHRONOUS work — `spawnSync`
+ *   holds the event loop for the whole of it — while the TTL was 30 s. The first
+ *   entries expired before the sweep that filled them had finished, so the next
+ *   sweep re-ran all sixteen. Three of the alert crons do this every five
+ *   minutes: ~190 s of blocking per 300 s.
+ *
+ *   Measured while it was happening: a `bd` child present in 9 of 10 samples
+ *   over 20 s, and `/api/version` — a single readdirSync — answering in 1-10 s
+ *   because it was queued behind the sweep. The board rendered empty, said
+ *   "live · synced just now", and was telling the truth: SSE was connected and
+ *   every data request had timed out.
+ *
+ *   A cache whose TTL is shorter than the sweep that fills it never hits. Same
+ *   defect as the 2 s TTL fixed yesterday, one level up: that one was measured
+ *   against a single call, this one has to be measured against the whole sweep.
+ */
+function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
+  const maxAge = Number.isFinite(opts.maxAgeMs) ? opts.maxAgeMs : BD_CACHE_TTL_MS;
   const cached = bdCache.get(cwd);
-  if (cached && Date.now() - cached.ts < BD_CACHE_TTL_MS) return cached.data;
+  if (cached && Date.now() - cached.ts < maxAge) return cached.data;
   try {
     const result = runner(['list', '--json', '--all', '--include-gates'], { cwd });
     if (result.status !== 0) {
@@ -449,8 +488,15 @@ function parseTasksMd(cwd) {
   }
 }
 
-function getTasks(cwd = process.cwd()) {
-  const all = bdList(cwd);
+/**
+ * Sweeps that touch every registered project pass `{ maxAgeMs: SWEEP_MAX_AGE_MS }`.
+ * A gate that has been stale for hours is not less stale for having been read
+ * ten minutes ago, and no alert is worth making the board unanswerable.
+ */
+const SWEEP_MAX_AGE_MS = Number(process.env.GREAT_CTO_BD_SWEEP_MAX_AGE_MS || 15 * 60 * 1000);
+
+function getTasks(cwd = process.cwd(), opts = {}) {
+  const all = bdList(cwd, bd, opts);
   // Fallback to tasks.md when no Beads tasks (project not initialized with bd)
   if (all.length === 0) {
     const mdTasks = parseTasksMd(cwd);
@@ -512,6 +558,7 @@ function detectAgent(task) {
 export {
   bdCacheInvalidate,
   BD_CACHE_TTL_MS,
+  SWEEP_MAX_AGE_MS,
   BD_BIN,
   bdEnv,
   bd,

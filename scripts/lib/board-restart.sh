@@ -22,8 +22,16 @@ board_pid_on_port() {
 }
 
 # The version a running board reports, or empty if it will not answer.
+#
+# 10 s, not 2. A board saturated by a sixteen-project sweep answers /api/version
+# — one readdirSync — in anything up to ten seconds, because the request queues
+# behind work that holds the event loop. At a 2 s budget the probe timed out, the
+# version read as unknown, and the installer restarted for the right reason while
+# reporting the wrong one ("was vunknown" instead of "same version, newer files").
+# A diagnosis that misfires exactly when the board is in trouble is the diagnosis
+# you cannot use.
 board_reported_version() {
-  curl -s --max-time 2 "http://127.0.0.1:${1:-3141}/api/version" 2>/dev/null \
+  curl -s --max-time 10 "http://127.0.0.1:${1:-3141}/api/version" 2>/dev/null \
     | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
 }
 
@@ -72,4 +80,29 @@ board_start() {
     [ -n "$v" ] && { printf '%s\n' "$v"; return 0; }
   done
   return 1
+}
+
+# Is the installed board NEWER than the process serving it?
+#
+# The version check alone is not enough, and today proved it: the installer
+# reported "board on :3141 already runs v2.99.0" and left a process running code
+# that had been replaced under it minutes earlier. Same version, different bytes.
+# That is the nine-day staleness bug in its second costume — during development
+# the version does not move, and the version is what was being compared.
+#
+# Compares the newest mtime under the installed board against the process start
+# time. Returns 0 (restart needed) when the files are newer, 1 otherwise, and
+# 1 when either side cannot be read — an unknown answer must not trigger a
+# restart of a board that is serving fine.
+board_code_newer_than_process() {
+  local dir="$1" pid="$2" started newest
+  [ -d "$dir" ] && [ -n "$pid" ] || return 1
+  # lstart is the only portable-enough process start time on macOS.
+  started="$(ps -o lstart= -p "$pid" 2>/dev/null)" || return 1
+  [ -n "$started" ] || return 1
+  started="$(date -j -f "%a %b %d %T %Y" "$started" +%s 2>/dev/null)" || return 1
+  newest="$(find "$dir" -name '*.mjs' -o -name '*.html' 2>/dev/null \
+            | xargs stat -f '%m' 2>/dev/null | sort -n | tail -1)"
+  [ -n "$newest" ] || return 1
+  [ "$newest" -gt "$started" ]
 }

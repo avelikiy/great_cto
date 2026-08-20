@@ -12,7 +12,14 @@ import { listProjects, readProjectMd } from './projects.mjs';
 import { addNotification } from './notifications.mjs';
 import { getMetrics } from './metrics.mjs';
 import { getCostHistory, getInbox } from './data-readers.mjs';
-import { getTasks } from './beads.mjs';
+// Every sweep below runs over EVERY registered project, and `bd list` is
+// spawnSync — the event loop is held for the whole of it. At 16 projects and
+// 2-6 s each that is ~60 s per sweep, and three of these fire every five
+// minutes. Sweeps therefore read at sweep freshness, not interactive freshness:
+// see SWEEP_MAX_AGE_MS in beads.mjs for the arithmetic that made the board
+// unanswerable while reporting "live · synced just now".
+import { getTasks, SWEEP_MAX_AGE_MS } from './beads.mjs';
+const SWEEP = { maxAgeMs: SWEEP_MAX_AGE_MS };
 import { readVerdicts } from './verdicts.mjs';
 import { isFailure } from './fleet.mjs';
 import { getShareState, toggleShare } from './share.mjs';
@@ -146,7 +153,7 @@ function startAlertCron() {
       const projects = listProjects();
       const now = Date.now();
       for (const proj of projects) {
-        const tasks = getTasks(proj.path);
+        const tasks = getTasks(proj.path, SWEEP);
         const p0 = tasks.filter(t => {
           if (t.priority !== 0) return false;
           if (t.raw_status === 'closed' || t.raw_status === 'done') return false;
@@ -220,7 +227,7 @@ function startAlertCron() {
     try {
       const projects = listProjects();
       for (const proj of projects) {
-        const tasks = getTasks(proj.path);
+        const tasks = getTasks(proj.path, SWEEP);
         const gates = tasks.filter(t => t.is_gate && t.raw_status !== 'closed' && t.raw_status !== 'blocked');
         for (const g of gates) {
           const created = new Date(g.created_at || g.updated_at || 0).getTime();
@@ -348,7 +355,7 @@ function startAlertCron() {
         const blocked = inbox.summary?.blocked ?? 0;
         const gates = inbox.summary?.gates ?? 0;
         // Tasks closed yesterday
-        const tasks = (() => { try { return getTasks(proj.path); } catch { return []; } })();
+        const tasks = (() => { try { return getTasks(proj.path, SWEEP); } catch { return []; } })();
         const doneYesterday = tasks.filter(t => {
           if (!t.closed_at) return false;
           return t.closed_at.slice(0, 10) === yesterday;
