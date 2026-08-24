@@ -151,3 +151,20 @@ test('the short window applies to the empty case only', () => {
   assert.match(fn, /Math\.min\(maxAge, EMPTY_TTL_MS\)/,
     'and never LENGTHENS a window the caller asked to be shorter');
 });
+
+test('a deliberate invalidation clears the self-touch mark', () => {
+  // The window must suppress the echo of a READ, never the consequence of a
+  // WRITE. Approving a gate goes: read the inbox (our `bd list`, stamped),
+  // approve (a `bd update`), dolt touches the journal, watcher fires — and that
+  // touch landed inside the 3 s window our own read had opened, so it was
+  // skipped and the SSE broadcast never went out. Live updates stopped.
+  //
+  // "Picked up by the next event or the TTL" is true for a cache and false for a
+  // broadcast, which happens once or not at all. Every write path already calls
+  // bdCacheInvalidate; clearing the mark there costs nothing.
+  const beads = readFileSync(join(HERE, 'lib', 'beads.mjs'), 'utf8');
+  const fn = beads.match(/function bdCacheInvalidate\([\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'located bdCacheInvalidate');
+  assert.match(fn, /clearSelfTouch\(cwd\)/,
+    'a write must not leave the watcher treating its own consequence as an echo');
+});

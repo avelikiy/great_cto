@@ -241,13 +241,24 @@ test('gate: SSE broadcasts updated tasks after approval', { skip: !BD_AVAILABLE 
 
     // Collect events for 2 seconds while we trigger an approval
     const events = [];
+    // The deadline is checked BETWEEN reads, and `reader.read()` is unbounded —
+    // so a loop that has already collected everything it needs blocks forever on
+    // the next read waiting for an event that may never come. The assertion
+    // below wants `>= 1` and the handshake alone satisfies it, so this hung on a
+    // read whose result it did not need, until the harness killed the file.
+    //
+    // Racing the read against the remaining budget makes the loop honour the
+    // deadline it declares. The assertion is unchanged.
     const readPromise = (async () => {
       const deadline = Date.now() + 2500;
       while (Date.now() < deadline) {
         try {
-          const { value, done } = await reader.read();
-          if (done) break;
-          events.push(decoder.decode(value));
+          const r = await Promise.race([
+            reader.read(),
+            new Promise((res) => setTimeout(() => res({ timedOut: true }), Math.max(0, deadline - Date.now()))),
+          ]);
+          if (r.timedOut || r.done) break;
+          events.push(decoder.decode(r.value));
         } catch { break; }
       }
     })();

@@ -38,7 +38,10 @@ import { log } from './log.mjs';
 // because each request arrived just after the entry expired.
 const BD_CACHE_TTL_MS = Number(process.env.GREAT_CTO_BD_CACHE_TTL_MS || 300000);
 
-function bdCacheInvalidate(cwd) { bdCache.delete(cwd); }
+function bdCacheInvalidate(cwd) {
+  clearSelfTouch(cwd);
+  bdCache.delete(cwd);
+}
 
 // ── bd binary resolution (BH-32) ────────────────────────────────────────────
 // A board launched from a GUI / launchd / a login shell that didn't source the
@@ -211,6 +214,23 @@ function isSelfInflictedTouch(cwd) {
 }
 
 /**
+ * A DELIBERATE invalidation means something really changed, so the file event it
+ * is about to produce is not ours to ignore.
+ *
+ * Without this the self-touch window swallowed real writes. Approving a gate
+ * goes: read the inbox (our `bd list`, stamped), approve (a `bd update`), dolt
+ * touches the journal, watcher fires — and the touch lands inside the 3 s window
+ * opened by our own read, so it was skipped and the SSE broadcast never went out.
+ * Live updates stopped, and the comment above said the write would be "picked up
+ * by the next event", which for a broadcast means never.
+ *
+ * Every write path already calls `bdCacheInvalidate`. Clearing the mark there
+ * costs nothing and makes the window mean what it says: it suppresses the echo
+ * of a READ, never the consequence of a write.
+ */
+function clearSelfTouch(cwd) { lastBdRunAt.delete(cwd); }
+
+/**
  * An EMPTY answer is cached briefly, whatever the TTL says.
  *
  * Empty is the one result most likely to be premature: a board that starts while
@@ -229,7 +249,7 @@ function isSelfInflictedTouch(cwd) {
  * A short window for empty costs one `bd list` on a project that really is
  * empty, and nothing at all on one that is not.
  */
-const EMPTY_TTL_MS = 5000;
+const EMPTY_TTL_MS = Number(process.env.GREAT_CTO_BD_EMPTY_TTL_MS || 5000);
 
 function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
   const maxAge = Number.isFinite(opts.maxAgeMs) ? opts.maxAgeMs : BD_CACHE_TTL_MS;
