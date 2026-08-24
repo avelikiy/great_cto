@@ -49,11 +49,26 @@ function parseUsd(raw) {
 export function parseAgentBudgets(text) {
   const budgets = new Map();
   const malformed = [];
-  if (!text) return { budgets, malformed };
+  if (!text) return { budgets, malformed, deprecatedKey: null };
 
+  // Two spellings. `agent-budget:` (singular) predates this module: the board
+  // parsed it with its own inline regex in routes.mjs and only displayed it,
+  // labelled "$X/run". I then added `agent-budgets:` (plural) with a second
+  // parser and a different meaning, which is how a repository ends up with two
+  // definitions of one concept differing by a letter — the exact drift the
+  // dispatcher's own comment warns about.
+  //
+  // No project, template or document used the singular form, so consolidating
+  // costs nothing. It is still accepted, and reported as deprecated, because a
+  // config someone wrote must not stop working silently.
   const lines = String(text).split('\n');
-  const start = lines.findIndex((l) => /^agent-budgets:\s*$/.test(l));
-  if (start < 0) return { budgets, malformed };
+  let start = lines.findIndex((l) => /^agent-budgets:\s*$/.test(l));
+  let deprecatedKey = null;
+  if (start < 0) {
+    start = lines.findIndex((l) => /^agent-budget:\s*$/.test(l));
+    if (start >= 0) deprecatedKey = 'agent-budget';
+  }
+  if (start < 0) return { budgets, malformed, deprecatedKey: null };
 
   for (let i = start + 1; i < lines.length; i++) {
     const line = lines[i];
@@ -65,7 +80,7 @@ export function parseAgentBudgets(text) {
     if (usd == null) { malformed.push({ line: line.trim(), why: `\`${m[2]}\` is not a dollar amount` }); continue; }
     budgets.set(m[1].toLowerCase(), usd);
   }
-  return { budgets, malformed };
+  return { budgets, malformed, deprecatedKey };
 }
 
 /**

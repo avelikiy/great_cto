@@ -177,6 +177,28 @@ button { font-family: inherit; cursor: pointer; }
 .budget-chip.exceeded   { color: var(--status-blocked); border-color: rgba(220, 38, 38, 0.35); background: var(--p0-bg); font-weight: 600; }
 .budget-chip.unmeasured { color: var(--status-progress); border-color: rgba(180, 83, 9, 0.35); cursor: help; }
 
+/* The budgets panel. A cap with no consumption beside it cannot answer the only
+   question worth asking of it, so every row carries the state and the spend. */
+.ab-title { font-weight: 600; margin-bottom: 8px; }
+.ab-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 0; border-top: 1px solid var(--border);
+}
+.ab-row:first-of-type { border-top: 0; }
+.ab-name { font-family: var(--mono); flex: 1 1 auto; min-width: 0; }
+.ab-cap { font-family: var(--mono); color: var(--text2); }
+.ab-spent { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.ab-note { margin-top: 8px; font-size: 11px; color: var(--status-progress); }
+.ab-note.ab-bad { color: var(--status-blocked); }
+
+.budget-line {
+  margin: -18px 0 24px; padding: 8px 12px;
+  border-radius: 8px; font-size: 12px;
+  border: 1px solid var(--border);
+}
+.budget-line.exceeded   { color: var(--status-blocked); border-color: var(--status-blocked); background: var(--p0-bg); font-weight: 500; }
+.budget-line.unmeasured { color: var(--status-progress); border-color: rgba(180, 83, 9, 0.35); }
+
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 .sidebar {
   position: relative; z-index: 1;
@@ -3066,6 +3088,7 @@ function renderInbox(d) {
   renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', {});
   refreshStandDowns();
   refreshReceipt();
+  refreshBudgetLine();
   // Idle focus: collapse the empty sections into one all-clear card when nothing needs a decision.
   const attention = (d?.pending_gates || []).length + (d?.p0_open || []).length
     + (d?.blocked || []).length + (d?.stale_in_progress || []).length;
@@ -3315,19 +3338,101 @@ async function refreshHeartbeat() {
   }
 
   // Per-agent budget bars in agents tab
-  renderAgentBudgets(h.budgets || {});
+  renderAgentBudgets(h.budgets || {}, h);
 }
 
-function renderAgentBudgets(budgets) {
+/* A budget that holds a stage has to be visible where decisions are read.
+ *
+ * `exceeded` stops the pipeline: the dispatcher refuses to dispatch that agent
+ * and prints PIPELINE-STOP. If the only place that says so is a panel two clicks
+ * away on another tab, the operator meets it as "why did nothing happen".
+ *
+ * Silent in the common case — no budgets declared, nothing to say. Three states
+ * like everywhere else on this page: exceeded is loud, unmeasured is a quiet
+ * note that the caps cannot fire yet, and all-within says nothing at all.
+ */
+async function refreshBudgetLine() {
+  const host = document.getElementById('inbox-summary');
+  if (!host) return;
+  document.getElementById('inbox-budget-line')?.remove();
+
+  const h = await api(`/api/heartbeat${pqs()}`);
+  const caps = Object.keys(h?.budgets || {}).length;
+  if (!caps) return;
+
+  const judged = (fleetState?.agents || []).map((a) => a.budget).filter((b) => b && b.state !== 'no-limit');
+  const exceeded = judged.filter((b) => b.state === 'exceeded');
+  const unmeasured = judged.filter((b) => b.state === 'unmeasured');
+
+  let text, cls;
+  if (exceeded.length) {
+    cls = 'exceeded';
+    text = `${exceeded.length} of ${caps} agent budget${caps > 1 ? 's' : ''} exceeded — the pipeline will not dispatch `
+         + exceeded.map((b) => esc(b.why.split(' ')[0])).join(', ');
+  } else if (unmeasured.length === caps) {
+    cls = 'unmeasured';
+    text = `${caps} agent budget${caps > 1 ? 's' : ''} declared, none measurable yet — no verdict carries a cost, so nothing can be held`;
+  } else {
+    return;   // all within: the number is on the agents tab, and silence is correct here
+  }
+
+  const el = document.createElement('div');
+  el.id = 'inbox-budget-line';
+  el.className = `budget-line ${cls}`;
+  el.setAttribute('role', 'status');
+  el.innerHTML = text;
+  host.insertAdjacentElement('afterend', el);
+}
+
+/* Budgets, with what each one is actually judged against.
+ *
+ * This showed the declared cap and nothing else — "$25/run", a label that did
+ * not match what any consumer did with the number, next to no indication of
+ * spend. A cap with no consumption beside it cannot answer the only question
+ * worth asking of it.
+ *
+ * The state comes from the fleet, which judges every agent with the same module
+ * the dispatcher refuses with, so this cannot say `within` while a stage is
+ * being held.
+ */
+function renderAgentBudgets(budgets, meta = {}) {
   const el = document.getElementById('agent-budgets');
   if (!el) return;
-  const entries = Object.entries(budgets);
-  if (entries.length === 0) { el.style.display = 'none'; return; }
+  const entries = Object.entries(budgets || {});
+  const malformed = meta.budgets_malformed || [];
+  if (entries.length === 0 && !malformed.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
-  el.innerHTML = `<div class="ab-title">Per-agent budgets (PROJECT.md)</div>` +
-    entries.map(([agent, cap]) =>
-      `<div class="ab-row"><span class="ab-name">${esc(agent)}</span><span class="ab-cap">$${cap}/run</span></div>`
-    ).join('');
+
+  // Judgements the fleet already computed, keyed by slug. Absent while the
+  // fleet is still loading — the row then shows the cap and says the state is
+  // not known yet, rather than guessing one.
+  const judged = new Map((fleetState?.agents || []).map((a) => [a.slug, a.budget]));
+
+  const rows = entries.map(([agent, cap]) => {
+    const b = judged.get(agent);
+    const state = b?.state && b.state !== 'no-limit' ? b.state : null;
+    const spent = state === 'within' || state === 'exceeded'
+      ? `$${(b.measuredUsd ?? 0).toFixed(2)} spent`
+      : (state === 'unmeasured' ? 'nothing measured yet' : 'state not loaded');
+    return `<div class="ab-row">
+      <span class="ab-name">${esc(agent)}</span>
+      <span class="ab-cap">$${esc(String(cap))}</span>
+      ${state ? budgetChip(b) : ''}
+      <span class="ab-spent">${esc(spent)}</span>
+    </div>`;
+  }).join('');
+
+  const deprecated = meta.budgets_deprecated_key
+    ? `<div class="ab-note">Read from the deprecated <code>${esc(meta.budgets_deprecated_key)}:</code> key — rename it to <code>agent-budgets:</code>.</div>`
+    : '';
+  // A line the parser could not read is shown, never dropped: a budget silently
+  // ignored is a limit its author believes they have.
+  const bad = malformed.length
+    ? `<div class="ab-note ab-bad">${malformed.length} line(s) not read: ` +
+      malformed.map((m) => `<code>${esc(m.line)}</code> — ${esc(m.why)}`).join('; ') + '</div>'
+    : '';
+
+  el.innerHTML = `<div class="ab-title">Per-agent budgets · <code>PROJECT.md</code></div>${rows}${deprecated}${bad}`;
 }
 
 async function refreshResume() {

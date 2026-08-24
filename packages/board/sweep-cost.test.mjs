@@ -168,3 +168,12 @@ test('a deliberate invalidation clears the self-touch mark', () => {
   assert.match(fn, /clearSelfTouch\(cwd\)/,
     'a write must not leave the watcher treating its own consequence as an echo');
 });
+
+test('the board and the dispatcher read budgets through the same parser', () => {
+  // routes.mjs had an inline regex for a different key with a different
+  // meaning, so the board could display a cap the dispatcher had never heard
+  // of, and hold a stage the board showed as fine.
+  const routes = readFileSync(join(HERE, 'lib', 'routes.mjs'), 'utf8');
+  assert.match(routes, /import \{ parseAgentBudgets \} from '\.\.\/\.\.\/\.\.\/scripts\/lib\/agent-budget\.mjs'/);
+  assert.ok(!/match\(\/\^agent-budget:/.test(routes), 'no second parser for the same block');
+});

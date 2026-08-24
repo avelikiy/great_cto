@@ -126,3 +126,31 @@ test('a cost that was never measured must not reach this module as 0', () => {
   assert.equal(measuredZero.state, 'within',
     'a cost field that IS present and zero is a real measurement and must read differently');
 });
+
+// ── One parser, not two ─────────────────────────────────────────────────────
+
+test('the deprecated singular key still reads, and says it is deprecated', () => {
+  // The board had its own inline regex for `agent-budget:` in routes.mjs,
+  // meaning "$X per run" and displayed only; this module then arrived with
+  // `agent-budgets:`, meaning a total and enforced. Two definitions of one
+  // concept differing by a letter, neither aware of the other — the drift the
+  // dispatcher's own comment warns about, built while writing the module that
+  // prevents it elsewhere.
+  //
+  // No project, template or doc used the singular form, so consolidating cost
+  // nothing. It still reads, and reports itself, because a config someone wrote
+  // must not stop working in silence.
+  const old = parseAgentBudgets('agent-budget:\n  senior-dev: 50\n');
+  assert.deepEqual([...old.budgets], [['senior-dev', 50]]);
+  assert.equal(old.deprecatedKey, 'agent-budget');
+
+  const now = parseAgentBudgets('agent-budgets:\n  senior-dev: $50\n');
+  assert.deepEqual([...now.budgets], [['senior-dev', 50]]);
+  assert.equal(now.deprecatedKey, null, 'the current spelling is not flagged');
+});
+
+test('the plural key wins when a file somehow carries both', () => {
+  const r = parseAgentBudgets('agent-budgets:\n  a: $1\nagent-budget:\n  b: 2\n');
+  assert.deepEqual([...r.budgets.keys()], ['a']);
+  assert.equal(r.deprecatedKey, null);
+});

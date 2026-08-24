@@ -18,6 +18,7 @@ import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { readVerdicts } from './verdicts.mjs';
+import { parseAgentBudgets } from '../../../scripts/lib/agent-budget.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
@@ -1343,16 +1344,20 @@ async function dispatch(req, res, url, cwd) {
     // Per-agent budgets from PROJECT.md
     const projectMdPath = path.join(cwd, '.great_cto', 'PROJECT.md');
     let budgets = {};
+    let budgetsDeprecatedKey = null;
+    const budgetsMalformed = [];
     let goalAncestry = null;
     try {
       const projectTxt = fs.readFileSync(projectMdPath, 'utf8');
-      const sectionMatch = projectTxt.match(/^agent-budget:\s*\n((?:[ \t]+\S[^\n]*\n?)*)/m);
-      if (sectionMatch) {
-        for (const line of sectionMatch[1].split('\n')) {
-          const m = line.match(/^\s+([a-z][a-z0-9-]*):\s*(\d+(?:\.\d+)?)/);
-          if (m) budgets[m[1]] = parseFloat(m[2]);
-        }
-      }
+      // One parser, in scripts/lib/agent-budget.mjs — the same one the pipeline
+      // dispatcher enforces with and the fleet view judges with. This was an
+      // inline regex reading a different key (`agent-budget:`) with a different
+      // meaning ("$X/run"), so the board could display a cap the dispatcher had
+      // never heard of, and vice versa.
+      const parsed = parseAgentBudgets(projectTxt);
+      for (const [agent, cap] of parsed.budgets) budgets[agent] = cap;
+      if (parsed.deprecatedKey) budgetsDeprecatedKey = parsed.deprecatedKey;
+      for (const bad of parsed.malformed) budgetsMalformed.push(bad);
       // Goal ancestry
       const archetype = (projectTxt.match(/^(?:archetype|primary):\s*(\S+)/m) || [])[1] || null;
       const compliance = (projectTxt.match(/^compliance:\s*(.+)$/m) || [])[1] || null;
@@ -1370,7 +1375,15 @@ async function dispatch(req, res, url, cwd) {
     } catch { /* no log */ }
 
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ stuck, budgets, goal_ancestry: goalAncestry, tool_failure_rate_1h: toolFailureRate1h }));
+    // `budgets_deprecated_key` and `budgets_malformed` travel with the caps.
+    // A limit somebody wrote under the old key still works and they are told; a
+    // line the parser could not read is reported rather than dropped, because a
+    // budget silently ignored is a limit its author believes they have.
+    res.end(JSON.stringify({
+      stuck, budgets, goal_ancestry: goalAncestry, tool_failure_rate_1h: toolFailureRate1h,
+      budgets_deprecated_key: budgetsDeprecatedKey,
+      budgets_malformed: budgetsMalformed,
+    }));
     return true;
   }
 
