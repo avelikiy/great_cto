@@ -364,7 +364,18 @@ async function dispatch(req, res, url, cwd) {
       const degraded = getRegistryDegradation();
       // A registry that could not be read used to render as a board with no
       // projects — the same silence this screen exists to remove, one level out.
-      const out = portfolio(degraded ? { unread: degraded } : reg);
+      // The pipeline map, so the fleet can say which projects are waiting on a
+      // decision rather than only which ones failed. Read once for the sweep;
+      // unreadable means the gate question is simply not answered, never
+      // answered as "nothing is waiting".
+      let transitions = null;
+      try {
+        const { pipelineMapFor } = await import('../../../scripts/lib/pipeline-health.mjs');
+        const { parsePipelineToml } = await import('../../../scripts/hooks/pipeline-dispatcher.mjs');
+        const map = pipelineMapFor(cwd);
+        if (map.path) transitions = parsePipelineToml(fs.readFileSync(map.path, 'utf8'));
+      } catch { transitions = null; }
+      const out = portfolio(degraded ? { unread: degraded } : reg, { transitions });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(out));
     } catch (e) {

@@ -160,7 +160,12 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   // Without this, "AI spend" stayed at lifetime $93 even when period=7D
   // showed only 12 tasks worth ~$0.30 — making savings ratios nonsensical.
   for (const v of verdicts) {
-    if (v.cost_usd == null) continue;
+    // A RECORDED zero is not a measurement. `log-verdict.sh` wrote `cost_usd: 0`
+    // whenever no cost was passed, for this repository's whole history, so
+    // `!= null` counted every one of them as a measured run costing nothing —
+    // and the board reported "$0.00 AI spend" over projects with dozens of
+    // agent runs. Same defect as the fleet's, on a second screen.
+    if (v.cost_usd == null || v.cost_usd === 0) continue;
     if (!agentCostMap[v.agent]) continue;
     if (v.ts && (now - new Date(v.ts).getTime()) > costWindowMs) continue;
     agentCostMap[v.agent].real_llm_usd += v.cost_usd;
@@ -195,7 +200,7 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   const taskHumanTotal = agentsCost.reduce((s, a) => s + a.human_usd, 0);
   // Filter verdicts to the same window for consistent total
   const verdictLlmTotal = verdicts.reduce((s, v) => {
-    if (v.cost_usd == null) return s;
+    if (v.cost_usd == null || v.cost_usd === 0) return s;
     if (v.ts && (now - new Date(v.ts).getTime()) > costWindowMs) return s;
     return s + v.cost_usd;
   }, 0);
@@ -206,7 +211,7 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   // Bar: enough windowed done-tasks carry a real verdict cost (coverage ≥ 50%,
   // min 3), and the measured total is a real spend (≥ 1¢, not a synthetic $0).
   const doneInWindowCount = done.filter(t => t.closed_at && (now - new Date(t.closed_at).getTime()) <= costWindowMs).length;
-  const verdictsWithCost = verdicts.filter(v => v.cost_usd != null && (!v.ts || (now - new Date(v.ts).getTime()) <= costWindowMs)).length;
+  const verdictsWithCost = verdicts.filter(v => v.cost_usd != null && v.cost_usd !== 0 && (!v.ts || (now - new Date(v.ts).getTime()) <= costWindowMs)).length;
   const measuredTrustworthy = verdictLlmTotal >= 0.01
     && verdictsWithCost >= Math.max(3, Math.ceil(0.5 * doneInWindowCount));
 

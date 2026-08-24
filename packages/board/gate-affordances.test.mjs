@@ -115,9 +115,24 @@ test('zero tasks done renders as 0, not as an absence', () => {
     'the absence marker is reserved for a payload with no tasks section at all');
 });
 
-test('spending nothing yet renders as $0.00, not as an absence', () => {
-  assert.ok(!/v: aiSpend > 0 \?/.test(html), 'a measured $0 is a measurement');
-  assert.match(html, /v: costKnown \? `\$\$\{aiSpend/, 'the dash means the cost section is missing');
+test('a zero ESTIMATE is not a measured zero, and does not render as $0.00', () => {
+  // This test asserted the opposite this morning, on a premise that was wrong.
+  //
+  // The reasoning was sound for a measured zero — "$0.00 spent is a
+  // measurement; a dash would claim we never looked". But the value being
+  // rendered is `aiSpend`, which falls back to `llm_usd`: the TIME-BASED
+  // ESTIMATE, used when no verdict carries a cost. So on a project with dozens
+  // of agent runs and no recorded costs, the tile said "$0.00 AI spend" — a
+  // confident zero produced by an estimator with nothing to estimate from.
+  //
+  // Three states, not two. A measured figure prints. An estimate with no inputs
+  // is uncomputable. A payload with no cost section at all is unloaded.
+  assert.ok(!/v: aiSpend > 0 \?/.test(html), 'the original falsy check stays gone');
+  assert.match(html, /realLlmUsd === 0 && llmUsd === 0/, 'the empty-estimate case is separated');
+  assert.match(html, /absent\('uncomputable', 'no verdict carries a cost/,
+    'and named as uncomputable rather than printed as zero');
+  assert.match(html, /absent\('unloaded', 'the metrics payload carried no cost section'\)/,
+    'the missing-section case is still distinct from it');
 });
 
 test('cycle time keeps its dash, and says why', () => {

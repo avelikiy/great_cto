@@ -13,6 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import { PORT, PUBLIC, HOST } from './lib/config.mjs';
+import { getTasks } from './lib/beads.mjs';
 import { originAllowed, isInsideDir } from './lib/util.mjs';
 import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
@@ -114,6 +115,29 @@ server.listen(PORT, HOST, () => {
     log.info(`  ⚠ bound to ${HOST} — reachable beyond this machine. Operators authenticate via invite`);
     log.info(`    links; put your reverse-proxy auth in front for anything admin-grade.`);
   }
+  // Warm the task cache for THIS project before a browser asks.
+  //
+  // `bd list` costs seconds and runs through `spawnSync`, which holds the event
+  // loop for the whole of it. On a cold board the first request pays that, and
+  // every other request queues behind it: opening the board showed "loading…"
+  // on Docs for 27 seconds, measured, while the endpoint itself takes 0.4 s
+  // warm. Nothing was broken — everything was waiting.
+  //
+  // Doing it here moves the stall to before anyone is looking, where a stall
+  // costs nothing. `setImmediate` so the listening callback returns first and
+  // the port is genuinely open while this runs.
+  setImmediate(() => {
+    const t0 = Date.now();
+    try {
+      getTasks(process.cwd());
+      log.info(`  → task cache warmed in ${Date.now() - t0}ms`);
+    } catch (e) {
+      // A warm-up that failed changes nothing a request would not have hit
+      // anyway; it must never stop the board from serving.
+      log.warn(`  → could not warm the task cache: ${e?.message || e}`);
+    }
+  });
+
   // Discover all great_cto projects on disk asynchronously — don't block
   // the listening event so /api/tasks is available immediately.
   discoverProjects().then(n => {

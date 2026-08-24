@@ -2601,7 +2601,7 @@ button { font-family: inherit; cursor: pointer; }
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 12 7 8 11 12 15 8 19 12"/><polyline points="3 18 7 14 11 18 15 14 19 18"/></svg>
             </span>
             <span class="resume-title">Pick up where you left off</span>
-            <span class="resume-meta" id="resume-meta">last 24h</span>
+            <span class="resume-meta" id="resume-meta"></span>
           </div>
           <div class="resume-grid">
             <div class="resume-col">
@@ -2712,6 +2712,14 @@ button { font-family: inherit; cursor: pointer; }
         <div class="mp-hero" id="mp-hero"></div>
         <div class="mp-secondary" id="mp-secondary"></div>
 
+        <!-- Budgets live HERE, on Metrics, not two clicks deep in the Agents
+             drill-in. A control the operator could not find is a control they do
+             not have — and it was invisible on top of that, hidden whenever a
+             project had declared no caps, which is exactly the project that
+             needs the button to declare one. -->
+        <div class="mp-section-label" style="margin-top:24px">Agent budgets</div>
+        <div id="agent-budgets" class="mp-card" style="padding:12px 16px;font-size:12px;margin-bottom:4px;"></div>
+
         <div class="mp-section-label" id="mp-cost-label" style="margin-top:24px">Cost · last 30 days</div>
         <div class="mp-card cost-panel" id="cost-panel">
           <div class="cost-empty">Loading…</div>
@@ -2754,11 +2762,6 @@ button { font-family: inherit; cursor: pointer; }
 
         <!-- §3.1 Fleet controls -->
         <section aria-label="Fleet controls" style="margin-top:20px">
-          <!-- Agent budgets (Paperclip cascading budget pattern) -->
-          <div id="agent-budgets" style="display:none;background:var(--bg-muted);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;">
-            <!-- populated by renderAgentBudgets() from /api/heartbeat -->
-          </div>
-
           <div class="mp-card fleet-controls">
             <div class="fleet-search">
               <input type="search" id="fleet-search" placeholder="Filter agents (press / to focus)" aria-label="Filter agents by slug" />
@@ -3410,8 +3413,17 @@ function renderAgentBudgets(budgets, meta = {}) {
   if (!el) return;
   const entries = Object.entries(budgets || {});
   const malformed = meta.budgets_malformed || [];
-  if (entries.length === 0 && !malformed.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
+
+  // Shown even with nothing declared. Hiding it meant the only project that
+  // needed the "add a budget" button — one with no budgets — was the only
+  // project that never saw it.
+  if (entries.length === 0 && !malformed.length) {
+    el.innerHTML = '<div class="ab-title">Agent budgets · <code>PROJECT.md</code></div>'
+      + '<div class="ab-spent">No caps declared — every agent dispatches regardless of what it has spent.</div>'
+      + '<button type="button" class="ab-btn ab-add" onclick="addAgentBudget()">+ Add a budget</button>';
+    return;
+  }
 
   // Judgements the fleet already computed, keyed by slug. Absent while the
   // fleet is still loading — the row then shows the cap and says the state is
@@ -3555,6 +3567,29 @@ function renderResume(d) {
   const totalItems = wip.length + verdicts.length + decisions.length;
   card.style.display = totalItems > 0 ? 'block' : 'none';
   if (totalItems === 0) return;
+
+  // The label said "last 24h" and was hardcoded. `getResume` applies no time
+  // filter at all — it takes the last three verdicts, ever — so on a project
+  // last touched five days ago the card announced week-old records as if they
+  // had happened this afternoon.
+  //
+  // The DATA is right for what this card is for: if you were away a week you
+  // still want to know where you left off. The claim about it was wrong, so the
+  // claim is what changes. It now states the age of the newest thing shown, and
+  // says "last 24h" only when that is true.
+  const meta = document.getElementById('resume-meta');
+  if (meta) {
+    const stamps = [...verdicts.map((v) => v.ts), ...wip.map((t) => t.updated_at)]
+      .filter((t) => t && !Number.isNaN(Date.parse(t)))
+      .map((t) => Date.parse(t));
+    if (!stamps.length) {
+      // No usable timestamp is not "recent" — it is unknown, and says so.
+      meta.textContent = 'age unknown';
+    } else {
+      const ageMs = Date.now() - Math.max(...stamps);
+      meta.textContent = ageMs < 24 * 3600e3 ? 'last 24h' : `newest ${relTime(new Date(Math.max(...stamps)).toISOString())}`;
+    }
+  }
 
   // WIP column
   const wipEl = document.getElementById('resume-wip');
@@ -5388,9 +5423,15 @@ function renderDashboard(m) {
       delta: deltaBadge(done, m.previous?.done, m.previous?.comparable),
     },
     {
-      // $0.00 with nothing spent yet is a measurement; "—" would claim we never
-      // looked. The trend line underneath already says which of the two it is.
-      v: costKnown ? `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}` : absent('unloaded', 'the metrics payload carried no cost section'),
+      // Three states, and $0.00 is only one of them. A measured zero is worth
+      // showing; a zero that is the TIME-BASED ESTIMATE with no plans or tasks
+      // to estimate from is not a figure at all, and rendering it as $0.00 told
+      // a project with dozens of agent runs that it had spent nothing.
+      v: !costKnown
+        ? absent('unloaded', 'the metrics payload carried no cost section')
+        : (realLlmUsd === 0 && llmUsd === 0
+            ? absent('uncomputable', 'no verdict carries a cost and there is nothing to estimate from')
+            : `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}`),
       sub: '',
       label: 'AI spend',
       delta: deltaBadge(aiSpend, m.previous?.llm_usd, m.previous?.comparable, { invert: true }),
@@ -6045,6 +6086,10 @@ function switchTab(id, el) {
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
   const TAB_LABELS = { docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || 'Board';
+  // Budgets render on Metrics, so the heartbeat that feeds them has to be
+  // fetched when Metrics opens — not only from the agents drill-in it used to
+  // live in.
+  if (id === 'dashboard') refreshHeartbeat();
   if (id === 'dashboard' || id === 'agents') {
     // pqsd(), not pqs(): this call omitted `days` entirely, so the server applied
     // its 30-day default and overwrote whatever window the period chips had
