@@ -3,7 +3,7 @@ import path from 'path';
 import { GREAT_CTO_DIR } from './config.mjs';
 import { sseClients } from './state.mjs';
 import { listProjects } from './projects.mjs';
-import { bdCacheInvalidate, getTasks, isSelfInflictedTouch } from './beads.mjs';
+import { bdCacheStale, getTasks, isSelfInflictedTouch } from './beads.mjs';
 import { getPipeline, getInbox } from './data-readers.mjs';
 
 // ── File watcher ───────────────────────────────────────────────────────────────
@@ -48,7 +48,10 @@ function watchBeads() {
     // broadcastTasks itself; a write from outside is not a self-touch and lands
     // in the branch below.
     if (isSelfInflictedTouch(dir)) return;
-    bdCacheInvalidate(dir);
+    // Stale, not deleted. A change we NOTICED must not make the next reader pay
+    // for it — they asked for something else. The broadcast below still reads
+    // fresh, because a stale entry refreshes on read.
+    bdCacheStale(dir);
     for (const res of sseClients) {
       if (res._gctoCwd === dir) {
         try {

@@ -38,9 +38,33 @@ import { log } from './log.mjs';
 // because each request arrived just after the entry expired.
 const BD_CACHE_TTL_MS = Number(process.env.GREAT_CTO_BD_CACHE_TTL_MS || 300000);
 
+/**
+ * Drop a directory's entry so the next read is guaranteed fresh.
+ *
+ * For a WRITE the board just performed. The operator clicked approve and is
+ * waiting for the result; paying for the read is correct there, and serving the
+ * pre-approval state would be a lie about what they just did.
+ */
 function bdCacheInvalidate(cwd) {
   clearSelfTouch(cwd);
   bdCache.delete(cwd);
+}
+
+/**
+ * Mark a directory's entry stale WITHOUT dropping it.
+ *
+ * For a change that arrived from outside — a file event under a project someone
+ * is watching. Deleting made the next reader, who asked for something unrelated,
+ * pay 623 ms warm and 6.8 s cold for a write they did not make. An entry marked
+ * stale is still served, and the refresh happens off the event loop.
+ *
+ * The difference is intent, not mechanism: a write we performed must be visible
+ * to whoever asked for it; a change we merely noticed must not stop the board.
+ */
+function bdCacheStale(cwd) {
+  clearSelfTouch(cwd);
+  const cached = bdCache.get(cwd);
+  if (cached) bdCache.set(cwd, { ...cached, ts: 0 });
 }
 
 // ── bd binary resolution (BH-32) ────────────────────────────────────────────
@@ -707,6 +731,7 @@ function detectAgent(task) {
 
 export {
   bdCacheInvalidate,
+  bdCacheStale,
   BD_CACHE_TTL_MS,
   SWEEP_MAX_AGE_MS,
   EMPTY_TTL_MS,

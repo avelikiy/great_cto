@@ -69,8 +69,12 @@ test('the watchers invalidate only what someone is watching', () => {
   const w = read('watchers.mjs');
   const fn = w.match(/const broadcast = \(dir\) => \{[\s\S]*?\n  \};/)?.[0];
   assert.ok(fn, 'located broadcast');
-  assert.ok(fn.indexOf('_gctoCwd === dir') < fn.indexOf('bdCacheInvalidate'),
-    'the watched check must come before the invalidation, not after');
+  // Assert the PROPERTY — the watched check comes before the cache is touched —
+  // not the name of the function that touches it. Pinning the name failed this
+  // when `bdCacheInvalidate` became `bdCacheStale` here, while the property it
+  // guards was still true.
+  assert.ok(fn.indexOf('_gctoCwd === dir') < fn.search(/bdCache(Invalidate|Stale)/),
+    'the watched check must come before the cache is touched, not after');
   assert.match(fn, /if \(!watched\) return;/);
 });
 
@@ -220,4 +224,25 @@ test('the reply always reports the previous value', () => {
   const route = routes.match(/if \(pathname === '\/api\/agent-budgets'[\s\S]*?\n  \}/)?.[0];
   assert.match(route, /previous_usd: out\.previousUsd/);
   assert.match(route, /removed: out\.removed === true/);
+});
+
+test('a noticed change marks the entry stale; a write we made drops it', () => {
+  // Deleting made the next reader — who asked for something unrelated — pay 623
+  // ms warm and 6.8 s cold for a write they did not make. An entry marked stale
+  // is still served while it refreshes off the loop.
+  //
+  // The difference is intent, not mechanism. A write the board performed must be
+  // visible to whoever asked for it: the operator clicked approve and is waiting,
+  // and serving the pre-approval state would be a lie about what they just did.
+  const beads = readFileSync(join(HERE, 'lib', 'beads.mjs'), 'utf8');
+  const stale = beads.match(/function bdCacheStale\([\s\S]*?\n\}/)?.[0];
+  const drop = beads.match(/function bdCacheInvalidate\([\s\S]*?\n\}/)?.[0];
+  assert.ok(stale && drop, 'both exist');
+  assert.ok(!/bdCache\.delete/.test(stale), 'stale must not delete');
+  assert.match(stale, /ts: 0/, 'it ages the entry instead');
+  assert.match(drop, /bdCache\.delete/, 'a write drops it so the next read is guaranteed fresh');
+
+  const watchers = readFileSync(join(HERE, 'lib', 'watchers.mjs'), 'utf8');
+  assert.match(watchers, /bdCacheStale\(dir\)/, 'the watcher marks');
+  assert.ok(!/bdCacheInvalidate\(dir\)/.test(watchers), 'the watcher does not drop');
 });
