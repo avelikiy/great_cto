@@ -72,6 +72,15 @@ step "guards run where CI runs" node scripts/lib/guard-parity.mjs --strict
 # would act on — including senior-dev's own refuse-a-bad-plan escape hatch — and
 # all four were found by this check rather than by anyone noticing.
 step "declarations have consumers" node scripts/lib/declared-consumed.mjs --strict
+# The question underneath the other two. guard-parity asks whether a guard
+# EXECUTES; declared-consumed asks whether a declaration is CONSUMED; this asks
+# whether the dispatcher could ACT AT ALL in a given project.
+#
+# It was bought by the map being resolved against the project instead of the
+# plugin: thirteen of seventeen registered projects hit `return process.exit(0)`
+# and said nothing — no dispatch, no verdict, no task, nowhere to look. The
+# pipeline reported success while being incapable of running.
+step "the pipeline can run where it is installed" node scripts/lib/pipeline-health.mjs --strict
 # The same question one layer down. A CSS rule written above the rules it
 # overrides loses at equal specificity and applies to nothing, while reading as
 # entirely correct in the diff — it happened twice in two days on the board's
