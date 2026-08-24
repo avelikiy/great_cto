@@ -203,7 +203,19 @@ function getAgentsFleet(projectCwd) {
   const active30d = agents.filter(a => a.runs_30d > 0 && !a.retired).length;
   const retireCandidates = agents.filter(a => a.runs_30d === 0 && !a.retired).length;
   const failing = agents.filter(a => a.health === 'failing' && !a.retired).length;
-  const totalLlm30d = agents.reduce((s, a) => s + (a.llm_usd_30d_est || 0), 0);
+  // MEASURED spend, or none. This tile reported the estimate — verdict count
+  // times a hardcoded rate — under the label "LLM SPEND 30D", while the metrics
+  // page reported its own estimate, derived from TASKS, under the same words.
+  // The two disagreed by more than twofold ($3.90 against $1.65) and neither
+  // said it was estimating, so the board contradicted itself and sounded certain
+  // doing it.
+  //
+  // The estimate stays available per agent as `llm_usd_30d_est`, named as an
+  // estimate. The fleet total claims only what verdicts actually recorded, and
+  // is null when they recorded nothing — the same rule the metrics tile, the
+  // portfolio and the budgets all follow now.
+  const totalReal30d = agents.reduce((s, a) => s + (a.llm_usd_30d_real || 0), 0);
+  const measuredFor = agents.filter((a) => a.llm_usd_30d_real != null).length;
 
   return {
     agents,
@@ -213,7 +225,9 @@ function getAgentsFleet(projectCwd) {
       active_30d: active30d,
       retire_candidates: retireCandidates,
       failing_7d: failing,
-      llm_usd_30d: Math.round(totalLlm30d * 100) / 100,
+      llm_usd_30d: measuredFor ? Math.round(totalReal30d * 100) / 100 : null,
+      llm_usd_30d_measured_for: measuredFor,
+      llm_usd_30d_agents_with_runs: agents.filter((a) => a.runs_30d > 0).length,
     },
   };
 }

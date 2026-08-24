@@ -6277,11 +6277,32 @@ function renderFleetSummary() {
       trend: s.retire_candidates > 0 ? 'click to filter' : 'fleet is lean',
       onClick: 'setFleetFilter("activity", "never")',
     },
-    { v: '$' + (s.llm_usd_30d ?? 0).toFixed(2), label: 'LLM spend 30d', cls: '', trend: s.failing_7d ? `${s.failing_7d} failing` : '' },
+    {
+      // `?? 0` turned "nothing was measured" into "$0.00 spent", and before that
+      // the number here was an ESTIMATE from verdict counts while the metrics
+      // page estimated from tasks — two screens, one label, $3.90 against $1.65.
+      v: s.llm_usd_30d != null
+        ? '$' + s.llm_usd_30d.toFixed(2)
+        : absent('uncomputable', `no verdict carries a cost — ${s.llm_usd_30d_agents_with_runs ?? 0} agent(s) ran in this window`),
+      vHtml: s.llm_usd_30d == null,
+      label: 'LLM spend 30d',
+      cls: '',
+      trend: s.llm_usd_30d != null
+        ? `measured for ${s.llm_usd_30d_measured_for} agent(s)`
+        : (s.failing_7d ? `${s.failing_7d} failing` : 'measured from verdicts'),
+    },
   ];
+  // `t.v` is HTML when it is an absence marker — a span carrying the reason on
+  // hover and in the accessible name — and a plain string otherwise. Escaping it
+  // unconditionally printed the markup as text on the fleet tile. `vHtml` is the
+  // deliberate opt-in; every value without it is still escaped.
+  //
+  // This comment lives out here because it names `t.v` in backticks, and a
+  // backtick inside the template literal below terminates it — which is how the
+  // board shipped a syntax error for about ninety seconds.
   el.innerHTML = tiles.map(t => `
     <div class="metric-card ${t.cls}" ${t.onClick ? `role="button" tabindex="0" onclick='${t.onClick}' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();${t.onClick}}'` : ''}>
-      <div class="metric-num">${esc(String(t.v))}</div>
+      <div class="metric-num">${t.vHtml ? t.v : esc(String(t.v))}</div>
       <div class="metric-label">${esc(t.label)}</div>
       ${t.trend ? `<div class="metric-trend">${esc(t.trend)}</div>` : ''}
     </div>`).join('');
