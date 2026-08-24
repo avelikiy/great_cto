@@ -1640,6 +1640,28 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; gap: 4px; align-items: center;
 }
 .inbox-row .actions .gate-btn { height: 26px; padding: 0 10px; font-size: 11px; }
+.docs-search { display: flex; align-items: center; gap: 8px; margin: 10px 0 16px; }
+.docs-search input {
+  flex: 1 1 auto; min-width: 0; max-width: 460px;
+  height: 32px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-card); color: var(--text); font: inherit; font-size: 13px;
+}
+.docs-search input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.docs-search-hint { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.docs-search-meta { font-size: 12px; color: var(--text2); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.docs-hit { padding: 10px 0; border-top: 1px solid var(--border); }
+.docs-hit-line { display: flex; gap: 10px; font-family: var(--mono); font-size: 11px; color: var(--text2); margin-top: 4px; }
+.docs-hit-no { color: var(--text3); min-width: 34px; text-align: right; }
+.col-more {
+  display: block; width: 100%;
+  margin-top: 6px; padding: 8px;
+  font-family: var(--mono); font-size: 11px;
+  border: 1px dashed var(--border-strong); border-radius: 8px;
+  background: transparent; color: var(--text2);
+}
+.col-more:hover { border-style: solid; color: var(--text); }
+.col-more:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .inbox-empty {
   padding: 14px 16px;
   background: var(--bg-muted);
@@ -2843,6 +2865,14 @@ button { font-family: inherit; cursor: pointer; }
 
     <div class="panel" id="panel-docs">
       <h1>Docs</h1>
+      <div class="docs-search">
+        <input type="search" id="docs-q" placeholder="Search inside documents…"
+               aria-label="Search inside documents"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();searchDocs();}else if(event.key==='Escape'){this.value='';clearDocsSearch();}" />
+        <button type="button" class="ab-btn" onclick="searchDocs()">Search</button>
+        <span class="docs-search-hint"><kbd>Enter</kbd> search · <kbd>Esc</kbd> clear</span>
+      </div>
+      <div id="docs-results" style="display:none"></div>
       <div id="docs-body" class="muted">loading…</div>
     </div>
 
@@ -4235,6 +4265,54 @@ async function loadDocs() {
  * of them live in ~/.great_cto and are shared by every project, which is why
  * they never appeared in a per-project walk at all.
  */
+/* Search inside documents, not only their names.
+ *
+ * 187 documents whose contents cannot be searched are a directory listing, and
+ * the question actually asked of them — "where did we write down the reason for
+ * X" — was answerable only by leaving the board.
+ *
+ * `scanned` and `unreadable` come back with the answer and are shown: "nothing
+ * found across 187 files" and "nothing found across the 3 that could be opened"
+ * are different facts, and only one of them means the phrase is not there.
+ */
+async function searchDocs() {
+  const q = (document.getElementById('docs-q')?.value || '').trim();
+  const out = document.getElementById('docs-results');
+  const body = document.getElementById('docs-body');
+  if (!out) return;
+  if (q.length < 2) { clearDocsSearch(); return; }
+
+  out.style.display = 'block';
+  out.innerHTML = '<div class="muted" style="padding:12px 0">searching…</div>';
+  if (body) body.style.display = 'none';
+
+  const d = await api(`/api/docs/search?q=${encodeURIComponent(q)}${pqs().replace(/^\?/, '&')}`);
+  if (!d || d.error) {
+    out.innerHTML = `<div class="muted" style="padding:12px 0">search failed — ${esc(d?.error || 'no response')}</div>`;
+    return;
+  }
+  const head = `<div class="docs-search-meta">${d.matched} document(s) contain “${esc(d.q)}” · `
+    + `${d.scanned} searched${d.unreadable ? ` · ${d.unreadable} could not be opened` : ''} · `
+    + `<button type="button" class="ab-btn" onclick="clearDocsSearch()">back to all docs</button></div>`;
+  if (!d.matched) {
+    out.innerHTML = head + '<div class="muted" style="padding:12px 0">No document contains that phrase.</div>';
+    return;
+  }
+  out.innerHTML = head + d.results.map((r) => `
+    <div class="docs-hit">
+      <a href="#" onclick="event.preventDefault();openDoc('${esc(r.path)}')"><b>${esc(r.title)}</b></a>
+      <span class="muted"> · ${esc(r.group)} · <code>${esc(r.path)}</code></span>
+      ${r.hits.map((h) => `<div class="docs-hit-line"><span class="docs-hit-no">${h.line}</span>${esc(h.text)}</div>`).join('')}
+    </div>`).join('');
+}
+
+function clearDocsSearch() {
+  const out = document.getElementById('docs-results');
+  const body = document.getElementById('docs-body');
+  if (out) { out.style.display = 'none'; out.innerHTML = ''; }
+  if (body) body.style.display = '';
+}
+
 async function loadContextLayers() {
   let m;
   try { m = await api(`/api/memory${pqs()}`); } catch { m = null; }
@@ -5106,6 +5184,15 @@ function clearFilters() {
 }
 
 /* ── Kanban ─────────────────────────────────────────────────────────────── */
+/** Columns the operator has asked to see in full, for this page load. */
+const expandedColumns = new Set();
+const COLUMN_CAP = 25;
+
+function expandColumn(id) {
+  expandedColumns.add(id);
+  renderKanban(allTasks);
+}
+
 function renderKanban(tasks) {
   renderFilterBar();
   const board = document.getElementById('kanban-board');
@@ -5121,6 +5208,11 @@ function renderKanban(tasks) {
   board.innerHTML = '';
   for (const col of COLUMNS) {
     const items = byCol[col.id];
+    // Capped per column, not globally: a Backlog of 5 and a Done of 227 are
+    // different problems and only one of them needs a lid.
+    const cap = expandedColumns.has(col.id) ? Infinity : COLUMN_CAP;
+    const shown = items.slice(0, cap);
+    const hidden = items.length - shown.length;
     const dotClass = col.dot === 'filled' ? 'filled' : col.dot === 'half' ? 'half' : '';
     const el = document.createElement('div');
     el.className = `column col-${col.id}`;
@@ -5130,10 +5222,20 @@ function renderKanban(tasks) {
         <span class="col-title">${col.label}</span>
         <span class="col-count">${items.length}</span>
       </div>
-      <div class="col-body">${items.length ? items.map(cardHTML).join('') : '<div class="empty">No tasks</div>'}</div>`;
+      <div class="col-body">${
+        items.length
+          ? shown.map(cardHTML).join('') + (hidden > 0
+              // 227 done cards in one column is not a list anybody reads; it is
+              // a scroll. The count in the header is the fact worth having, and
+              // the rest is available by asking rather than by default.
+              ? `<button type="button" class="col-more" onclick="expandColumn('${col.id}')">`
+                + `Show ${hidden} more · ${items.length} total</button>`
+              : '')
+          : '<div class="empty">No tasks</div>'
+      }</div>`;
     board.appendChild(el);
     el.querySelectorAll('.card').forEach((cardEl, i) => {
-      cardEl.addEventListener('click', () => openSide(items[i]));
+      cardEl.addEventListener('click', () => openSide(shown[i]));
     });
   }
 }
@@ -6090,6 +6192,12 @@ function switchTab(id, el) {
   // fetched when Metrics opens — not only from the agents drill-in it used to
   // live in.
   if (id === 'dashboard') refreshHeartbeat();
+  // The Notifications panel has carried an inline history list all along, and
+  // `renderNotifHistoryInline()` to fill it — but the only caller was
+  // `openNotifDrawer()`. Opening the tab itself never loaded it, so the sidebar
+  // promised 50 unread and the screen showed settings. Declared and not
+  // consumed, in the UI this time.
+  if (id === 'notifications') loadNotifHistory();
   if (id === 'dashboard' || id === 'agents') {
     // pqsd(), not pqs(): this call omitted `days` entirely, so the server applied
     // its 30-day default and overwrote whatever window the period chips had

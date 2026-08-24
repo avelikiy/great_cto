@@ -1468,6 +1468,56 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
+  // Search INSIDE documents, not only their titles.
+  //
+  // The docs list has always matched on filename and heading. A hundred and
+  // eighty-seven documents whose contents cannot be searched are a directory
+  // listing, and the thing an operator actually wants — "where did we write down
+  // the reason for X" — was answerable only by leaving the board.
+  //
+  // GET /api/docs/search?q=...  ->  { q, matched, scanned, results[] }
+  if (pathname === '/api/docs/search' && req.method === 'GET') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const q = (url.searchParams.get('q') || '').trim();
+    if (q.length < 2) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'query must be at least 2 characters' }));
+      return true;
+    }
+    try {
+      const { listDocs } = await import('./docs.mjs');
+      const all = listDocs(c);
+      const needle = q.toLowerCase();
+      const results = [];
+      let scanned = 0, unreadable = 0;
+      for (const g of (all.groups || [])) {
+        for (const d of (g.docs || [])) {
+          if (results.length >= 60) break;
+          let text;
+          try { text = fs.readFileSync(path.join(c, d.path), 'utf8'); scanned++; }
+          catch { unreadable++; continue; }   // counted, never silently skipped
+          const lines = text.split('\n');
+          const hits = [];
+          for (let i = 0; i < lines.length && hits.length < 3; i++) {
+            if (lines[i].toLowerCase().includes(needle)) {
+              hits.push({ line: i + 1, text: lines[i].trim().slice(0, 160) });
+            }
+          }
+          if (hits.length) results.push({ path: d.path, title: d.title || d.name, group: g.label, hits });
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      // `scanned` and `unreadable` travel with the answer: "no results" over
+      // 187 files and "no results" over 3 that could be opened are different
+      // facts, and only one of them means the phrase is not there.
+      res.end(JSON.stringify({ q, matched: results.length, scanned, unreadable, results }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(e.message || e) }));
+    }
+    return true;
+  }
+
   // API requests get a JSON 404 so frontends can JSON.parse() the response
   // without crashing. Static-file 404s stay plain text.
   if (pathname.startsWith('/api/')) {

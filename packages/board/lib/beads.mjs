@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { spawnSync } from 'child_process';
+import { spawnSync, spawn } from 'child_process';
 import { readSafe } from './util.mjs';
 import { bdCache } from './state.mjs';
 import { log } from './log.mjs';
@@ -251,6 +251,60 @@ function clearSelfTouch(cwd) { lastBdRunAt.delete(cwd); }
  */
 const EMPTY_TTL_MS = Number(process.env.GREAT_CTO_BD_EMPTY_TTL_MS || 5000);
 
+/**
+ * Directories with a background refresh already in flight.
+ *
+ * Without this, ten requests arriving while one refresh runs start ten more.
+ */
+const refreshing = new Set();
+
+/**
+ * Refresh a directory's entry WITHOUT holding the event loop.
+ *
+ * `spawnSync` is what made this board unanswerable: `bd list` costs seconds and
+ * blocks everything for the whole of it — /api/version, one readdirSync,
+ * measured at 1-10 s because it was queued behind a task read. Warming at boot
+ * moved the first stall out of sight; this removes the rest.
+ *
+ * Nothing awaits it. It exists to make the NEXT read fast, and a caller that
+ * needed the new data would have had to block for it anyway.
+ */
+function bdRefreshAsync(cwd) {
+  if (refreshing.has(cwd)) return;
+  refreshing.add(cwd);
+  lastBdRunAt.set(cwd, Date.now());
+  let out = '';
+  try {
+    const child = spawn(BD_BIN, ['list', '--json', '--all', '--include-gates'], { cwd, env: bdEnv() });
+    child.stdout?.on('data', (d) => { out += d; });
+    child.on('error', (e) => {
+      refreshing.delete(cwd);
+      bdFailures.set(cwd, `bd could not be run: ${e?.message || e}`.slice(0, 300));
+    });
+    child.on('close', (code) => {
+      refreshing.delete(cwd);
+      lastBdRunAt.set(cwd, Date.now());
+      if (code !== 0) { bdFailures.set(cwd, `bd exited ${code}`); return; }
+      try {
+        const parsed = JSON.parse(out || '[]');
+        // Same guard as the sync path: bd 0.6x can answer 0 with a JSON object,
+        // and a non-array rendered as no tasks is the silent zero again.
+        if (!Array.isArray(parsed)) {
+          bdFailures.set(cwd, String(parsed?.error || 'bd returned something that is not a task list').slice(0, 300));
+          return;
+        }
+        bdFailures.delete(cwd);
+        bdCache.set(cwd, { ts: Date.now(), data: parsed });
+      } catch (e) {
+        bdFailures.set(cwd, `bd output could not be parsed: ${e?.message || e}`.slice(0, 300));
+      }
+    });
+  } catch (e) {
+    refreshing.delete(cwd);
+    bdFailures.set(cwd, `bd could not be spawned: ${e?.message || e}`.slice(0, 300));
+  }
+}
+
 function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
   const maxAge = Number.isFinite(opts.maxAgeMs) ? opts.maxAgeMs : BD_CACHE_TTL_MS;
   const cached = bdCache.get(cwd);
@@ -258,6 +312,24 @@ function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
     ? Math.min(maxAge, EMPTY_TTL_MS)
     : maxAge;
   if (cached && Date.now() - cached.ts < ttl) return cached.data;
+
+  // Stale-while-revalidate. An entry that exists is served immediately, however
+  // old, and refreshed off the event loop. Only a directory with NO entry at all
+  // blocks — which after the boot warm-up means a project nobody has opened yet,
+  // once.
+  //
+  // The alternative was making this async and every caller with it: getTasks,
+  // getInbox, getPipeline, the metrics readers, the SSE broadcast, the alert
+  // sweeps. That refactor is the correct end state and is not what a board
+  // hanging today needs.
+  //
+  // The injected `runner` is how the tests drive this. When one is supplied the
+  // sync path is kept, so a test that stubs `bd` still observes the call it
+  // stubbed rather than a background spawn it cannot see.
+  if (cached && runner === bd) {
+    bdRefreshAsync(cwd);
+    return cached.data;
+  }
   try {
     lastBdRunAt.set(cwd, Date.now());
     const result = runner(['list', '--json', '--all', '--include-gates'], { cwd });
