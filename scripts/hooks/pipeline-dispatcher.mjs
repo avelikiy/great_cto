@@ -36,6 +36,7 @@ import { parseVerdictLine as parseVerdictRecord } from '../lib/verdict-record.mj
 import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch } from '../lib/agent-budget.mjs';
 import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcript.mjs';
 import { stopShape } from '../lib/stop-shape.mjs';
+import { recordRun } from '../lib/pipeline-journal.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 /**
@@ -559,6 +560,49 @@ export function applyAgentBudgets(nexts, { cwd, verdicts }) {
   return { allowed, held };
 }
 
+/**
+ * Which of the outcomes this run was.
+ *
+ * Read from `decision.kind`, which the decision already carries, rather than by
+ * matching prose. A first version regexed `decision.text` and read a plain
+ * dispatch as a hold — the word it keyed on appeared in an unrelated sentence
+ * about a gate not being active. Classifying output by pattern-matching its own
+ * wording is a guess dressed as a fact, and it was wrong on the first row.
+ */
+const OUTCOME_BY_KIND = Object.freeze({
+  next: 'dispatch',
+  resume: 'dispatch',
+  gate: 'hold',
+  'join-wait': 'hold',
+  done: 'stop',
+  blocked: 'stop',
+  'no-verdict': 'no-verdict',
+});
+
+function journalOutcome({ decision, verdict, rule }) {
+  if (!decision) {
+    if (!rule) return 'no-rule';
+    if (!verdict) return 'no-verdict';
+    return 'unknown-verdict';
+  }
+  // The budget refusal is a `blocked` that is worth telling apart from every
+  // other stop: it is the only one a person can lift by changing a number.
+  if (/HELD BY BUDGET/.test(decision.text)) return 'blocked-budget';
+  return OUTCOME_BY_KIND[decision.kind] || 'stop';
+}
+
+/** Why a run produced nothing — the sentence that did not exist before. */
+function journalSilentWhy({ verdict, rule, agent }) {
+  if (!rule) return `no [transitions.${agent}] in the map — its verdict names no next stage`;
+  if (!verdict) return `no verdict from ${agent} within the freshness window`;
+  return `verdict "${verdictToken(verdict)}" matches no on-list and no branch for ${agent}`;
+}
+
+/** The token out of a verdict record — the record is not the token. */
+function verdictToken(v) {
+  return typeof v === 'string' ? v : (v?.verdict ?? null);
+}
+
 function emit(text) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text },
@@ -573,8 +617,21 @@ function gateStatesFor(rule, verdict) {
 }
 
 async function main() {
+  // The project root, for the journal. PROJ_DIR is `.great_cto` by default and
+  // may be an absolute override.
+  const PROJECT_ROOT = PROJ_DIR.replace(/\/?\.great_cto\/?$/, '') || '.';
+  const MAP_SOURCE = PIPELINE_PATH === LOCAL_PIPELINE ? 'project' : 'plugin';
+  // Never able to fail a dispatch: a journal whose failure stops the pipeline is
+  // very much worse than no journal.
+  const journal = (entry) => { try { recordRun(PROJECT_ROOT, { ...entry, mapSource: MAP_SOURCE }); } catch { /* the run still happened */ } };
+
   if (process.env.GREAT_CTO_DISABLE_DISPATCHER === '1') return process.exit(0);
-  if (!existsSync(PROJ_DIR) || !existsSync(PIPELINE_PATH)) return process.exit(0);
+  // Not a great_cto project: nothing to record, and nowhere to record it.
+  if (!existsSync(PROJ_DIR)) return process.exit(0);
+  if (!existsSync(PIPELINE_PATH)) {
+    journal({ outcome: 'no-map', why: 'no pipeline map in the project or the plugin — the dispatcher cannot read a verdict' });
+    return process.exit(0);
+  }
 
   let payload = {};
   try { payload = JSON.parse(readFileSync(0, 'utf8')); } catch { return process.exit(0); }
@@ -583,7 +640,11 @@ async function main() {
   if (!agent || agent === 'general-purpose' || agent === 'Explore' || agent === 'Plan') return process.exit(0);
 
   let transitions;
-  try { transitions = parsePipelineToml(readFileSync(PIPELINE_PATH, 'utf8')); } catch { return process.exit(0); }
+  try { transitions = parsePipelineToml(readFileSync(PIPELINE_PATH, 'utf8')); }
+  catch (e) {
+    journal({ agent, outcome: 'no-map', why: `the map at ${PIPELINE_PATH} could not be parsed: ${String(e?.message || e)}` });
+    return process.exit(0);
+  }
 
   const now = Date.now();
   let verdict = latestVerdict(VERDICT_DIR, agent, FRESH_MS, now);
@@ -655,6 +716,16 @@ async function main() {
     // writes the latter does not run when the harness force-stops a subagent.
     lastStop: shape || readLastStop(PROJ_DIR),
     agentId: agentIdFrom(payload),
+  });
+  // Every run ends here, and every run is recorded — the ones that decided
+  // something and, more importantly, the ones that did not. "Nothing should
+  // happen" and "nothing could happen" produce identical output, and only a
+  // reason written at the moment separates them afterwards.
+  journal({
+    agent, verdict: verdictToken(verdict),
+    outcome: journalOutcome({ decision, verdict, rule }),
+    next: decision?.nexts ?? [],
+    why: decision ? decision.text.slice(0, 240) : journalSilentWhy({ verdict, rule, agent }),
   });
   if (decision) emit(decision.text);
   return process.exit(0);
