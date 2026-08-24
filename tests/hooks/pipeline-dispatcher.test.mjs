@@ -822,7 +822,7 @@ test('with no effects supplied at all, the old advice stands rather than a claim
 // agent reported actually spending — and that is the only number allowed to say
 // no.
 
-import { applyAgentBudgets } from '../../scripts/hooks/pipeline-dispatcher.mjs';
+import { applyAgentBudgets, readAllVerdicts } from '../../scripts/hooks/pipeline-dispatcher.mjs';
 
 const withProject = (projectMd, fn) => {
   const dir = mkdtempSync(join(tmpdir(), 'budget-'));
@@ -895,4 +895,38 @@ test('every next stage over budget is a STOP, not a silent success', () => {
     assert.match(d.text, /Nothing was dispatched/);
     assert.match(d.text, /agent-budgets:/, 'and says where to change it');
   });
+});
+
+test('the real hook consumes the budget — the parameters are actually passed', () => {
+  // This shipped wired-but-dead once. `decideNext` gained `cwd`/`allVerdicts`,
+  // the unit tests passed them, and `main()` did not — so `applyAgentBudgets`
+  // was never reached and every budget in every project read as allowed. The
+  // unit tests could not see it, because they were the only caller supplying
+  // the arguments.
+  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)),
+    '../../scripts/hooks/pipeline-dispatcher.mjs'), 'utf8');
+  const call = src.match(/const decision = decideNext\(\{[\s\S]*?\}\);/)?.[0];
+  assert.ok(call, 'located the production call');
+  assert.match(call, /cwd:/, 'main() must pass the project directory');
+  assert.match(call, /allVerdicts/, 'and the verdicts the budget is measured from');
+});
+
+test('readAllVerdicts sums a spend spread over several records', () => {
+  // A cap is spend-to-date. `latestVerdict` answers "what did this agent just
+  // say", which is a different question and the wrong one here.
+  const dir = mkdtempSync(join(tmpdir(), 'verd-'));
+  try {
+    const ts = new Date().toISOString();
+    writeFileSync(join(dir, 'senior-dev.log'),
+      `{"v":1,"ts":"${ts}","agent":"senior-dev","verdict":"DONE","cost_usd":7}\n`
+      + `{"v":1,"ts":"${ts}","agent":"senior-dev","verdict":"DONE","cost_usd":5}\n`
+      + 'not a verdict at all\n');
+    const all = readAllVerdicts(dir);
+    const total = all.filter((v) => v.agent === 'senior-dev').reduce((s, v) => s + (v.costUsd || 0), 0);
+    assert.equal(total, 12, 'both records counted, the unparseable line contributes nothing');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an unreadable verdict directory is no spend, not a crash', () => {
+  assert.deepEqual(readAllVerdicts('/nowhere-at-all'), []);
 });

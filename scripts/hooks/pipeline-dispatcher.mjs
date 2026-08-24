@@ -486,6 +486,31 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
  *
  * @returns {{allowed: string[], held: Array<{agent: string, why: string}>}}
  */
+/**
+ * Every parsed verdict record in a project, newest last.
+ *
+ * `latestVerdict` answers "what did this agent just say"; a budget needs "what
+ * has this agent spent", which is every record it ever wrote. Unparseable lines
+ * are skipped — the parser owns the schema and returns null for anything it does
+ * not recognise, and a line we could not read contributes no measured spend
+ * rather than a guessed one.
+ */
+export function readAllVerdicts(dir) {
+  const out = [];
+  let files;
+  try { files = readdirSync(dir).filter((f) => f.endsWith('.log')); }
+  catch { return out; }
+  for (const f of files) {
+    let text;
+    try { text = readFileSync(join(dir, f), 'utf8'); } catch { continue; }
+    for (const line of text.split('\n')) {
+      const v = parseVerdictLine(line);
+      if (v) out.push(v);
+    }
+  }
+  return out;
+}
+
 export function applyAgentBudgets(nexts, { cwd, verdicts }) {
   let budgets;
   try {
@@ -592,8 +617,20 @@ async function main() {
     } catch { /* the advice falls back to asking the reader to look */ }
   }
 
+  // Every verdict this project has recorded, for the budget check. Reading the
+  // whole directory is what the budget needs — a cap is spend-to-date, not spend
+  // since the last dispatch — and it is a handful of small append-only logs.
+  //
+  // Without this the feature was wired and never fired: `decideNext` defaulted
+  // `cwd` to null, `applyAgentBudgets` was never reached, and every budget in
+  // every project read as allowed. Declared and not consumed, shipped by the
+  // person who spends his days closing exactly that.
+  const allVerdicts = readAllVerdicts(VERDICT_DIR);
+
   const decision = decideNext({
     agent, transitions, verdict, joinVerdicts, activeGates, effects,
+    cwd: PROJ_DIR.replace(/\/?\.great_cto\/?$/, '') || '.',
+    allVerdicts,
     gateStates: gateStatesFor(rule, verdict),
     // The transcript first, `.last-stop` only if it is unreachable: the hook that
     // writes the latter does not run when the harness force-stops a subagent.
