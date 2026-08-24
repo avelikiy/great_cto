@@ -115,6 +115,20 @@ function main(argv) {
     else if (argv[i] === '--in' && argv[i + 1]) inTok = parseInt(argv[++i], 10) || 0;
     else if (argv[i] === '--out' && argv[i + 1]) outTok = parseInt(argv[++i], 10) || 0;
   }
+  // No tokens means the caller never had a usage block to hand us — a
+  // measurement that did not happen. Printing 0 here made every verdict in the
+  // fleet record a MEASURED zero: the portfolio reported $0.00 spend for twelve
+  // projects, and a per-agent budget would have read "spent $0.00 of $25,
+  // measured" forever. All 35 agents pass `auto`, so this was every verdict.
+  //
+  // Exit 2 with nothing on stdout. `log-verdict.sh` omits the field, and every
+  // reader downstream already distinguishes an absent cost from a zero one —
+  // portfolio.mjs calls it "spend nobody recorded", agent-budget.mjs calls it
+  // `unmeasured`. They were right and had nothing to be right about.
+  if (inTok <= 0 && outTok <= 0) {
+    process.stderr.write('cost-meter: no token usage supplied — cost not measured\n');
+    return process.exit(2);
+  }
   const cost = costForUsage({ model, usage: { input_tokens: inTok, output_tokens: outTok } });
   process.stdout.write(String(round4(cost)));
 }

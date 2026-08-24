@@ -104,3 +104,25 @@ test('every state is one of the four, for any input shape', () => {
     assert.ok(v.why && v.why.length > 10, `${v.state} must explain itself`);
   }
 });
+
+// ── The zero that was never measured ────────────────────────────────────────
+
+test('a cost that was never measured must not reach this module as 0', () => {
+  // `log-verdict.sh <agent> <verdict> auto` is what all 35 agents write. The
+  // meter needs LLM_INPUT_TOKENS / LLM_OUTPUT_TOKENS from the API response;
+  // agents do not export them, so it returned 0 and `|| echo 0` turned even its
+  // refusal into a zero. Every verdict in every project recorded a MEASURED
+  // zero — the portfolio reported $0.00 spend for twelve projects, and this
+  // module would have answered `within` at "$0.00 of $25, measured from
+  // verdicts" forever. A limit that can never fire, wearing the word measured.
+  //
+  // The meter exits 2 with no output now and the field is omitted. This asserts
+  // the shape that arrives here, so the two cannot drift apart again.
+  const budgets = new Map([['senior-dev', 25]]);
+  const unmeasured = judgeAgentBudget({ agent: 'senior-dev', budgets, spend: { llm_usd: 3 } });
+  assert.equal(unmeasured.state, 'unmeasured', 'no cost field means no measurement');
+
+  const measuredZero = judgeAgentBudget({ agent: 'senior-dev', budgets, spend: { llm_usd: 3, real_llm_usd: 0 } });
+  assert.equal(measuredZero.state, 'within',
+    'a cost field that IS present and zero is a real measurement and must read differently');
+});

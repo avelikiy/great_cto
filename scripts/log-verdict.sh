@@ -41,14 +41,26 @@ META="$*"
 # number, compute REAL USD from the API token usage via cost-meter. The caller
 # exports LLM_MODEL / LLM_INPUT_TOKENS / LLM_OUTPUT_TOKENS from the response.usage.
 #   scripts/log-verdict.sh architect APPROVED auto feature=foo   # with LLM_* env set
+# `auto` when the meter has nothing to measure is UNMEASURED, not zero.
+#
+# The meter needs LLM_INPUT_TOKENS / LLM_OUTPUT_TOKENS from the API response.
+# Agents do not export them, so it returned 0 and `|| echo 0` turned even its
+# refusal into a zero. All 35 agents pass `auto`, so every verdict in every
+# project recorded a MEASURED zero: the portfolio reported $0.00 spend for
+# twelve projects, and a per-agent budget would have read "spent $0.00 of $25,
+# measured from verdicts" forever — a limit that could never fire, wearing the
+# word `measured`.
+#
+# COST empty means the field is OMITTED from the record. Every reader downstream
+# already distinguishes an absent cost from a zero one; they had nothing to
+# distinguish.
 if [ "$COST" = "auto" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  COST="$(node "$SCRIPT_DIR/lib/cost-meter.mjs" 2>/dev/null || echo 0)"
-  [ -z "$COST" ] && COST="0"
+  COST="$(node "$SCRIPT_DIR/lib/cost-meter.mjs" 2>/dev/null)" || COST=""
 fi
 
-# Validate cost is a non-negative number (allow scientific notation, decimals).
-if ! [[ "$COST" =~ ^[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
+# Validate cost is a non-negative number — when one was measured at all.
+if [ -n "$COST" ] && ! [[ "$COST" =~ ^[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
   echo "error: cost_usd must be a non-negative number, got: $COST" >&2
   exit 1
 fi
@@ -133,4 +145,6 @@ LINE=$(TS="$TS" AGENT="$AGENT" VERDICT="$VERDICT" COST="$COST" \
 # global is reserved for cron jobs that aggregate across projects.
 mkdir -p "$PROJ_DIR/verdicts"
 echo "$LINE" >> "$PROJ_DIR/verdicts/$AGENT.log"
-echo "$TS $AGENT $COST" >> "$PROJ_DIR/cost-history.log"
+# The fallback log carries the same distinction: an unmeasured cost is written
+# as `-`, never as 0, so a parser cannot read it back as spend.
+echo "$TS $AGENT ${COST:--}" >> "$PROJ_DIR/cost-history.log"
