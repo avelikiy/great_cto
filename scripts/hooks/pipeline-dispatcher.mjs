@@ -28,7 +28,7 @@
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
@@ -38,7 +38,26 @@ import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcrip
 import { stopShape } from '../lib/stop-shape.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
-const PIPELINE_PATH = join('shared', 'pipeline.toml');
+/**
+ * Where the pipeline map lives.
+ *
+ * This was `shared/pipeline.toml`, resolved against the CURRENT WORKING
+ * DIRECTORY — the project being worked in. Only a project that happens to
+ * contain a copy of the map could chain, and of seventeen registered projects
+ * with `.great_cto/`, thirteen had none. In those the hook hit
+ *
+ *     if (!existsSync(PROJ_DIR) || !existsSync(PIPELINE_PATH)) return process.exit(0);
+ *
+ * and exited silently: no dispatch, no verdict, no task, and nothing anywhere
+ * saying why. The pipeline was installed, wired, and incapable of running.
+ *
+ * The map is a property of the PLUGIN, not of each project. It is resolved from
+ * this file's own location first-and-last, with a project-local copy taking
+ * precedence so a project can still override the chain deliberately.
+ */
+const PLUGIN_PIPELINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shared', 'pipeline.toml');
+const LOCAL_PIPELINE = join('shared', 'pipeline.toml');
+const PIPELINE_PATH = existsSync(LOCAL_PIPELINE) ? LOCAL_PIPELINE : PLUGIN_PIPELINE;
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
 // A verdict is "fresh" if written in the last 30 min — long enough for a slow
 // subagent's closing writes, short enough not to resurrect yesterday's run.

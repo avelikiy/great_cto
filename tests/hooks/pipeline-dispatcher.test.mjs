@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { gatesForApprovalLevel, APPROVAL_LEVELS } from '../../scripts/lib/approval-level.mjs';
 
@@ -258,8 +258,31 @@ test('e2e: general-purpose agent → silent exit 0', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('e2e: no pipeline.toml → silent exit 0 (non-great_cto project)', () => {
-  const dir = sandbox({ withPipeline: false });
+test('e2e: a project with no pipeline.toml of its own uses the plugin\'s', () => {
+  // This asserted the opposite — "no pipeline.toml → silent exit 0" — and was an
+  // accurate description of a defect written as a guarantee. `PIPELINE_PATH`
+  // resolved `shared/pipeline.toml` against the working directory, so only a
+  // project that happened to contain a copy of the map could chain. Of seventeen
+  // registered projects with `.great_cto/`, thirteen had none, and in those the
+  // hook exited silently: no dispatch, no verdict, no task, and nothing saying
+  // why. Measured by running the real hook in each: 4 dispatched, 13 said
+  // nothing. After: 17 of 17.
+  //
+  // The map is a property of the plugin. A project-local copy still wins, so a
+  // project can override the chain deliberately.
+  const now = new Date().toISOString();
+  const dir = sandbox({ withPipeline: false, verdictLines: { architect: `${now} | architect | APPROVED | cost=$0` } });
+  try {
+    const r = runHook(dir, 'architect');
+    assert.equal(r.exit, 0);
+    assert.notEqual(r.stdout.trim(), '', 'the chain must continue without a local copy of the map');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('e2e: a directory that is not a great_cto project stays silent', () => {
+  // The other half of the same condition, and still correct: no `.great_cto`
+  // means this is not ours to dispatch in.
+  const dir = mkdtempSync(join(tmpdir(), 'not-a-project-'));
   try {
     const r = runHook(dir, 'architect');
     assert.equal(r.exit, 0);
@@ -929,4 +952,34 @@ test('readAllVerdicts sums a spend spread over several records', () => {
 
 test('an unreadable verdict directory is no spend, not a crash', () => {
   assert.deepEqual(readAllVerdicts('/nowhere-at-all'), []);
+});
+
+test('the pipeline map comes from the plugin, not from each project', () => {
+  // `PIPELINE_PATH` was `shared/pipeline.toml` resolved against the CURRENT
+  // WORKING DIRECTORY — the project being worked in. Only a project that
+  // happened to contain a copy of the map could chain, and of seventeen
+  // registered projects with `.great_cto/`, thirteen had none. In those the hook
+  // hit its `if (!existsSync(PIPELINE_PATH)) return process.exit(0)` and exited
+  // silently: no dispatch, no verdict, no task, nothing anywhere saying why.
+  //
+  // The pipeline was installed, wired, and incapable of running in 13 of 17
+  // projects. Measured by running the real hook in each one: 4 dispatched, 13
+  // said nothing. After: 17 of 17.
+  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)),
+    '../../scripts/hooks/pipeline-dispatcher.mjs'), 'utf8');
+  assert.match(src, /PLUGIN_PIPELINE = join\(dirname\(fileURLToPath\(import\.meta\.url\)\)/,
+    'resolved from this file, so it works wherever the hook is invoked');
+  assert.match(src, /existsSync\(LOCAL_PIPELINE\) \? LOCAL_PIPELINE : PLUGIN_PIPELINE/,
+    'a project may still override the chain deliberately');
+});
+
+test('the map the plugin ships is actually there', () => {
+  // The fallback is only a fallback if the file it names exists — a path
+  // computed correctly to somewhere empty is the same silent exit with extra
+  // steps.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const shipped = resolve(here, '../../shared/pipeline.toml');
+  assert.ok(existsSync(shipped), `no pipeline map at ${shipped}`);
+  const transitions = parsePipelineToml(readFileSync(shipped, 'utf8'));
+  assert.ok(Object.keys(transitions).length > 5, 'and it parses into real transitions');
 });
