@@ -4,6 +4,110 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.0.0 — 2026-08-24
+
+A major, because the pipeline could not run in most of the fleet and now can, and
+because the default gate set and the agent-budget key both changed under projects
+that already exist.
+
+### The pipeline was installed, wired, and unable to run
+
+`PIPELINE_PATH` resolved `shared/pipeline.toml` against the CURRENT WORKING
+DIRECTORY — the project being worked in, not the plugin. Only a project that
+happened to carry its own copy of the map could dispatch. Measured across the
+registry rather than reasoned about: of seventeen projects with `.great_cto/`,
+**four had a copy and thirteen did not**, and in those thirteen the hook reached
+`return process.exit(0)` and said nothing. No dispatch, no verdict, no task,
+nowhere to look — which is precisely what the operator was seeing and asking
+about.
+
+The map is a property of the plugin. It resolves from the hook's own location
+now; a project-local copy still wins, so a chain can be overridden deliberately.
+Verified by running the real hook from the installed plugin in every registered
+project: **4 of 17 before, 17 of 17 after.**
+
+`pipeline-health.mjs` keeps the class closed. `guard-parity` asks whether a guard
+executes, `declared-consumed` asks whether a declaration is consumed; this asks
+whether the dispatcher could act at all. A directory with no `.great_cto/` is not
+a fault, a map with zero transitions is blocked rather than ready, and an
+unreadable registry is never an empty fleet.
+
+### Per-agent spending caps
+
+`agent-budgets:` in PROJECT.md caps what a stage may spend, and the dispatcher
+refuses to dispatch an agent past its cap — naming the number, the percentage and
+where to change it, rather than failing quietly.
+
+The rule that makes it usable: **an estimate never refuses.** Spend is measured
+from verdicts that carry a cost; where none does, the state is `unmeasured` and
+nothing is held. A limit that fires on a number nobody measured is worse than no
+limit, because it stops real work on an invented basis.
+
+Set and cleared from the board, which writes PROJECT.md through an endpoint gated
+like `/api/projects/register`, replaces the file atomically, and always reports
+the previous value — a cap that silently replaced another is a change the
+operator cannot see they made.
+
+Three of my own defects on the way here, all found by running it: the check was
+wired into `decideNext` and `main()` passed neither argument, so it never fired;
+the board already had a budgets feature under `agent-budget:` (singular) with its
+own parser and a different meaning, so I had built a rival to it; and the
+block-end scan treated a blank line as part of the block, splitting it in two on
+the first write.
+
+### The board was saturated, not broken
+
+It rendered empty and said "live · synced just now", and both were true: SSE was
+connected and every data request had timed out. Three causes, each measured:
+alert crons sweeping sixteen projects synchronously every five minutes; watchers
+invalidating all sixteen caches on any file event in any of them; and — the root
+— `bd list` touching the dolt journal the watcher watches, so **every read
+destroyed the cache that existed to make it unnecessary.** That is why 2 s, 30 s
+and 5 minutes all behaved identically.
+
+    /api/inbox    timeout -> 4.6 s cold, 6 ms after
+    /api/tasks    timeout -> 3 ms
+    /api/version  1-10 s  -> 5 ms
+
+### Cost was recorded as a measured zero
+
+`log-verdict.sh` wrote `cost_usd: 0` when no cost was passed. Every consumer
+reads that as "this run cost nothing" — so 21 of 21 verdicts here claimed zero,
+the fleet showed $0.00 spend across the board, and the budget feature had nothing
+to enforce against. A cost that was never measured is absent now, and absence
+reads as `unmeasured` everywhere it lands.
+
+### Default approval level
+
+`gates-only` gained `gate:product`. It was `arch + ship`, which stopped on HOW to
+build and WHETHER to release, and never on WHAT to build — the decision that is
+wrong for six stages before anyone finds out. One pause per **product**, not per
+feature: `product-owner` is an entry point and runs only from `/start`. `auto`
+still asks nothing.
+
+### Guards that were bought this week
+
+- `css-cascade.mjs` — a conditional block written above the rules it overrides
+  loses at equal specificity while reading as correct in the diff. It happened
+  twice in two days.
+- `pipeline-health.mjs` — above.
+- `provenance-status.mjs` — five levels from ASSERTED to MEASURED, with
+  `settle()` refusing to take a claim's word for its own strength.
+
+### Two eval hypotheses, stated confidently and refuted
+
+`--actor-tools` was never passed by `loop-local.sh` despite the runner's own
+header recommending it beside a +14-point measurement. Passing it moved the low
+cluster by −0.02 and 0.00 — and reading the cases first would have shown why, for
+free: none of them needs a tool. The second, that one shared instruction explains
+the cluster, was refuted by the criterion written before the run. Both are
+recorded as refuted, with the numbers.
+
+Also found: five cases I had appended to a holdout set, destroying the one
+property holdout has, and a prompt I then tuned against it.
+
+---
+
 ## v2.99.0 — 2026-08-19
 
 One behaviour change and two classes of defect closed. The behaviour change is
