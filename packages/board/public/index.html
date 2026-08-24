@@ -190,6 +190,16 @@ button { font-family: inherit; cursor: pointer; }
 .ab-spent { font-family: var(--mono); font-size: 11px; color: var(--text3); }
 .ab-note { margin-top: 8px; font-size: 11px; color: var(--status-progress); }
 .ab-note.ab-bad { color: var(--status-blocked); }
+.ab-btn {
+  font-family: inherit; font-size: 11px;
+  min-height: 24px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg-card); color: var(--text2);
+}
+.ab-btn:hover { border-color: var(--focus-ring); color: var(--text); }
+.ab-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.ab-btn.ab-rm:hover { border-color: var(--status-blocked); color: var(--status-blocked); }
+.ab-btn.ab-add { margin-top: 10px; }
 
 .budget-line {
   margin: -18px 0 24px; padding: 8px 12px;
@@ -3419,6 +3429,10 @@ function renderAgentBudgets(budgets, meta = {}) {
       <span class="ab-cap">$${esc(String(cap))}</span>
       ${state ? budgetChip(b) : ''}
       <span class="ab-spent">${esc(spent)}</span>
+      <button type="button" class="ab-btn" onclick="editAgentBudget('${esc(agent)}', ${Number(cap)})"
+              aria-label="Change the ${esc(agent)} budget">Change</button>
+      <button type="button" class="ab-btn ab-rm" onclick="clearAgentBudget('${esc(agent)}', ${Number(cap)})"
+              aria-label="Remove the ${esc(agent)} budget">Remove</button>
     </div>`;
   }).join('');
 
@@ -3432,7 +3446,72 @@ function renderAgentBudgets(budgets, meta = {}) {
       malformed.map((m) => `<code>${esc(m.line)}</code> — ${esc(m.why)}`).join('; ') + '</div>'
     : '';
 
-  el.innerHTML = `<div class="ab-title">Per-agent budgets · <code>PROJECT.md</code></div>${rows}${deprecated}${bad}`;
+  el.innerHTML = `<div class="ab-title">Per-agent budgets · <code>PROJECT.md</code></div>${rows}${deprecated}${bad}`
+    + `<button type="button" class="ab-btn ab-add" onclick="addAgentBudget()">+ Add a budget</button>`;
+}
+
+/* Writing a cap writes PROJECT.md — a file the operator owns and git tracks.
+ *
+ * The confirm states what the number DOES rather than asking whether you are
+ * sure: a cap this agent passes stops the pipeline from dispatching it, and that
+ * is the fact worth reading before typing a number. The dialog for a change also
+ * names the value being replaced, because a cap that silently overwrote another
+ * is a change you cannot see you made.
+ */
+async function writeAgentBudget(body, consequence) {
+  if (!confirm(consequence)) return;
+  const r = await api(`/api/agent-budgets${pqs()}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!r || r.error) { alert(`Budget not saved: ${r?.error || 'network error'}`); return; }
+  showToast(`Budget for <strong>${esc(r.agent)}</strong> ${r.removed ? 'removed' : 'saved'}`, 'success', 2500);
+  refreshHeartbeat();
+  if (typeof loadFleet === 'function') loadFleet();
+}
+
+function budgetPrompt(agent, current) {
+  const raw = prompt(
+    `Spending cap for ${agent}, in dollars.\n\n`
+    + `Measured spend past this figure stops the pipeline dispatching ${agent}.\n`
+    + `Spend is measured from verdicts; while none carries a cost the cap cannot fire.`,
+    current != null ? String(current) : '');
+  if (raw === null) return null;
+  const usd = Number(String(raw).replace(/[$\s,]/g, ''));
+  if (!Number.isFinite(usd) || usd <= 0) { alert(`Not a positive dollar amount: ${raw}`); return null; }
+  return usd;
+}
+
+function editAgentBudget(agent, current) {
+  const usd = budgetPrompt(agent, current);
+  if (usd == null) return;
+  writeAgentBudget({ agent, limit_usd: usd },
+    `Set ${agent} to $${usd}, replacing $${current}?\n\n`
+    + `Written to .great_cto/PROJECT.md. Measured spend past $${usd} stops the pipeline dispatching ${agent}.`);
+}
+
+function clearAgentBudget(agent, current) {
+  writeAgentBudget({ agent, remove: true },
+    `Remove the $${current} budget for ${agent}?\n\n`
+    + `Written to .great_cto/PROJECT.md. ${agent} will dispatch regardless of what it has spent.`);
+}
+
+function addAgentBudget() {
+  // Offer the agents the fleet knows about, so a typo does not become a budget
+  // for an agent that does not exist — which would look identical to a cap
+  // nobody is near.
+  const known = (fleetState?.agents || []).map((a) => a.slug);
+  const agent = prompt(`Which agent?${known.length ? `\n\n${known.slice(0, 40).join(', ')}` : ''}`);
+  if (agent === null) return;
+  const slug = String(agent).trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) { alert(`Not an agent slug: ${agent}`); return; }
+  if (known.length && !known.includes(slug)) {
+    if (!confirm(`No agent called "${slug}" is installed. A budget for an agent that does not exist looks exactly like one nobody is near.\n\nAdd it anyway?`)) return;
+  }
+  const usd = budgetPrompt(slug, null);
+  if (usd == null) return;
+  writeAgentBudget({ agent: slug, limit_usd: usd },
+    `Set ${slug} to $${usd}?\n\n`
+    + `Written to .great_cto/PROJECT.md. Measured spend past $${usd} stops the pipeline dispatching ${slug}.`);
 }
 
 async function refreshResume() {

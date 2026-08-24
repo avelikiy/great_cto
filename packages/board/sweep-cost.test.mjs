@@ -174,6 +174,50 @@ test('the board and the dispatcher read budgets through the same parser', () => 
   // meaning, so the board could display a cap the dispatcher had never heard
   // of, and hold a stage the board showed as fine.
   const routes = readFileSync(join(HERE, 'lib', 'routes.mjs'), 'utf8');
-  assert.match(routes, /import \{ parseAgentBudgets \} from '\.\.\/\.\.\/\.\.\/scripts\/lib\/agent-budget\.mjs'/);
-  assert.ok(!/match\(\/\^agent-budget:/.test(routes), 'no second parser for the same block');
+  // Assert the MODULE is the source, not the exact import list — the list grew
+  // when the write endpoint arrived, and pinning it made this fail on an
+  // unrelated change while the property it guards was still true.
+  assert.match(routes, /from '\.\.\/\.\.\/\.\.\/scripts\/lib\/agent-budget\.mjs'/);
+  assert.match(routes, /parseAgentBudgets/);
+  assert.ok(!/\.match\(\/\^agent-budgets?:/.test(routes), 'no second parser for the same block');
+});
+
+// ── Writing a budget writes a file the operator owns ────────────────────────
+
+test('the budget write endpoint refuses a cross-origin POST', () => {
+  // The board listens on 127.0.0.1, and a page the user happens to be visiting
+  // can still issue a simple cross-origin POST to localhost. This endpoint
+  // rewrites PROJECT.md, so it gets the same gate as /api/projects/register.
+  const routes = readFileSync(join(HERE, 'lib', 'routes.mjs'), 'utf8');
+  const route = routes.match(/if \(pathname === '\/api\/agent-budgets'[\s\S]*?\n  \}/)?.[0];
+  assert.ok(route, 'located the endpoint');
+  assert.ok(route.indexOf('originAllowed(req)') < route.indexOf('readFileSync'),
+    'the origin check must run before anything reads or writes the project');
+  assert.match(route, /403/);
+});
+
+test('PROJECT.md is replaced atomically, never written in place', () => {
+  // A half-written PROJECT.md is the project's own identity truncated: the
+  // board would read no archetype, no approval level and no budgets from it.
+  const routes = readFileSync(join(HERE, 'lib', 'routes.mjs'), 'utf8');
+  const route = routes.match(/if \(pathname === '\/api\/agent-budgets'[\s\S]*?\n  \}/)?.[0];
+  assert.match(route, /renameSync/, 'temp file then rename');
+  assert.ok(route.indexOf('writeFileSync(tmp') < route.indexOf('renameSync'));
+});
+
+test('a missing PROJECT.md is refused, not created', () => {
+  // Creating a project identity from a browser POST is not this endpoint's job.
+  const routes = readFileSync(join(HERE, 'lib', 'routes.mjs'), 'utf8');
+  const route = routes.match(/if \(pathname === '\/api\/agent-budgets'[\s\S]*?\n  \}/)?.[0];
+  assert.match(route, /409/);
+  assert.match(route, /no PROJECT\.md to write to/);
+});
+
+test('the reply always reports the previous value', () => {
+  // A cap that silently replaced another is a change the operator cannot see
+  // they made.
+  const routes = readFileSync(join(HERE, 'lib', 'routes.mjs'), 'utf8');
+  const route = routes.match(/if \(pathname === '\/api\/agent-budgets'[\s\S]*?\n  \}/)?.[0];
+  assert.match(route, /previous_usd: out\.previousUsd/);
+  assert.match(route, /removed: out\.removed === true/);
 });

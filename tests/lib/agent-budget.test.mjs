@@ -7,7 +7,7 @@
 // a rate constant, and tell the operator their agent had overspent.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch } from '../../scripts/lib/agent-budget.mjs';
+import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch, upsertAgentBudget, removeAgentBudget } from '../../scripts/lib/agent-budget.mjs';
 
 const BUDGETS = new Map([['senior-dev', 50]]);
 const judge = (spend, agent = 'senior-dev') => judgeAgentBudget({ agent, budgets: BUDGETS, spend });
@@ -153,4 +153,90 @@ test('the plural key wins when a file somehow carries both', () => {
   const r = parseAgentBudgets('agent-budgets:\n  a: $1\nagent-budget:\n  b: 2\n');
   assert.deepEqual([...r.budgets.keys()], ['a']);
   assert.equal(r.deprecatedKey, null);
+});
+
+// ── Editing PROJECT.md ──────────────────────────────────────────────────────
+//
+// The board writes these, which means writing to a file the operator owns and
+// git tracks. Everything not the budget block must survive byte for byte.
+
+const FILE = 'project: demo\nphase: implementation\nagent-budgets:\n  senior-dev: $25\nstack: node\n';
+
+test('setting a cap leaves the rest of the file untouched', () => {
+  const { text } = upsertAgentBudget(FILE, 'architect', 10);
+  assert.match(text, /^project: demo$/m);
+  assert.match(text, /^phase: implementation$/m);
+  assert.match(text, /^stack: node$/m, 'the key after the block is still there and still last');
+  assert.deepEqual([...parseAgentBudgets(text).budgets], [['senior-dev', 25], ['architect', 10]]);
+});
+
+test('setting an existing cap replaces it and reports what it was', () => {
+  const r = upsertAgentBudget(FILE, 'senior-dev', 40);
+  assert.equal(r.previousUsd, 25, 'the caller can say what changed');
+  assert.equal(parseAgentBudgets(r.text).budgets.get('senior-dev'), 40);
+  assert.equal((r.text.match(/senior-dev/g) || []).length, 1, 'replaced, not appended twice');
+});
+
+test('a file with no block gets one, and says it created it', () => {
+  const r = upsertAgentBudget('phase: x\n', 'pm', 5);
+  assert.equal(r.created, true);
+  assert.equal(parseAgentBudgets(r.text).budgets.get('pm'), 5);
+});
+
+test('the key already in the file wins — a deprecated block is not silently renamed', () => {
+  // Rewriting somebody's config to a different spelling while they asked for an
+  // unrelated change is the kind of helpfulness that loses trust.
+  const old = 'agent-budget:\n  senior-dev: 25\n';
+  const r = upsertAgentBudget(old, 'architect', 5);
+  assert.match(r.text, /^agent-budget:$/m);
+  assert.ok(!/^agent-budgets:$/m.test(r.text));
+  assert.deepEqual([...parseAgentBudgets(r.text).budgets], [['senior-dev', 25], ['architect', 5]]);
+});
+
+test('a cap of zero or nonsense is refused', () => {
+  // Zero would hold every dispatch of that agent forever, and an accident must
+  // not be able to do that.
+  for (const bad of [0, -5, 'soon', null, undefined, NaN]) {
+    assert.throws(() => upsertAgentBudget(FILE, 'pm', bad), /positive number/, String(bad));
+  }
+});
+
+test('an agent slug that is not one is refused', () => {
+  for (const bad of ['../etc/passwd', 'a b', '', 'Agent!']) {
+    assert.throws(() => upsertAgentBudget(FILE, bad, 5), /agent slug/, bad);
+  }
+});
+
+test('removing a cap reports what it was, and removing a missing one says so', () => {
+  const r = removeAgentBudget(FILE, 'senior-dev');
+  assert.equal(r.removed, true);
+  assert.equal(r.previousUsd, 25);
+
+  const none = removeAgentBudget(FILE, 'never-had-one');
+  assert.equal(none.removed, false, 'the caller must tell "now none" from "never any"');
+  assert.equal(none.text, FILE, 'and the file is untouched');
+});
+
+test('removing the last cap removes the empty header too', () => {
+  // A bare `agent-budgets:` reads as a declaration that produced no limits,
+  // which is a different and more confusing thing than having none.
+  const r = removeAgentBudget(FILE, 'senior-dev');
+  assert.ok(!/agent-budgets:/.test(r.text));
+  assert.match(r.text, /^stack: node$/m, 'and the rest of the file survives');
+});
+
+test('a blank line ends the block — a new cap is not appended below the gap', () => {
+  // A blank is not a dedent: it starts with no non-space character. Scanning
+  // only for `^\S` walked past the gap at the end of the file and inserted the
+  // cap below it, leaving a block split by an empty line. The parser tolerates
+  // that; a person reading their own PROJECT.md should not have to.
+  const withGap = 'agent-budgets:\n  a: $1\n\nphase: x\n';
+  const { text } = upsertAgentBudget(withGap, 'b', 2);
+  assert.equal(text, 'agent-budgets:\n  a: $1\n  b: $2\n\nphase: x\n');
+});
+
+test('a trailing block at end of file gets the cap inside it', () => {
+  const atEnd = 'phase: x\nagent-budgets:\n  a: $1\n';
+  const { text } = upsertAgentBudget(atEnd, 'b', 2);
+  assert.equal(text, 'phase: x\nagent-budgets:\n  a: $1\n  b: $2\n');
 });

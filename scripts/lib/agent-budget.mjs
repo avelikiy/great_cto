@@ -132,3 +132,93 @@ export function judgeAgentBudget({ agent, budgets, spend }) {
 export function budgetAllowsDispatch(verdict) {
   return verdict?.state !== 'exceeded';
 }
+
+// ── Editing the declaration ─────────────────────────────────────────────────
+//
+// The board can set a cap, which means writing to a file the operator owns and
+// git tracks. Two rules govern that, and both are about not surprising them:
+//
+//   1. Everything else in PROJECT.md survives byte for byte. These functions
+//      touch the budget block and nothing around it.
+//   2. The key already in the file wins. A project written with the deprecated
+//      `agent-budget:` keeps it — silently rewriting somebody's config to a
+//      different spelling while they asked for an unrelated change is the kind
+//      of helpfulness that loses trust.
+
+/** The block header this file uses, or null when it has none. */
+function budgetKeyIn(text) {
+  if (/^agent-budgets:\s*$/m.test(text)) return 'agent-budgets';
+  if (/^agent-budget:\s*$/m.test(text)) return 'agent-budget';
+  return null;
+}
+
+/**
+ * Set or replace one agent's cap.
+ *
+ * @returns {{text: string, created: boolean, previousUsd: number|null}}
+ *   `created` is true when the block did not exist and was appended.
+ * @throws when `limitUsd` is not a positive number — a cap of zero or NaN would
+ *   hold every dispatch of that agent forever, and an accident should not be
+ *   able to do that.
+ */
+export function upsertAgentBudget(text, agent, limitUsd) {
+  const slug = String(agent || '').trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new Error(`not an agent slug: ${agent}`);
+  const usd = Number(limitUsd);
+  if (!Number.isFinite(usd) || usd <= 0) throw new Error(`cap must be a positive number, got: ${limitUsd}`);
+
+  const before = parseAgentBudgets(text).budgets.get(slug) ?? null;
+  const key = budgetKeyIn(text);
+  const line = `  ${slug}: $${usd}`;
+
+  if (!key) {
+    const sep = text.endsWith('\n') ? '' : '\n';
+    return { text: `${text}${sep}agent-budgets:\n${line}\n`, created: true, previousUsd: null };
+  }
+
+  const lines = text.split('\n');
+  const start = lines.findIndex((l) => new RegExp(`^${key}:\\s*$`).test(l));
+  // The block ends at a dedent OR a blank line. A blank is not a dedent — it
+  // starts with no non-space character — so scanning only for `^\S` walked past
+  // the gap at the end of the file and inserted the new cap below it, leaving a
+  // block split by an empty line. The parser tolerates that; a person reading
+  // their own PROJECT.md should not have to.
+  let end = start + 1;
+  while (end < lines.length && lines[end].trim() && !/^\S/.test(lines[end])) end++;
+
+  const existing = lines.slice(start + 1, end)
+    .findIndex((l) => new RegExp(`^\\s+${slug}\\s*:`, 'i').test(l));
+  if (existing >= 0) lines[start + 1 + existing] = line;
+  else lines.splice(end, 0, line);
+
+  return { text: lines.join('\n'), created: false, previousUsd: before };
+}
+
+/**
+ * Remove one agent's cap.
+ *
+ * @returns {{text: string, removed: boolean, previousUsd: number|null}}
+ *   `removed: false` when the agent had no cap — the caller must be able to tell
+ *   "there is now no limit" from "there never was one".
+ */
+export function removeAgentBudget(text, agent) {
+  const slug = String(agent || '').trim().toLowerCase();
+  const before = parseAgentBudgets(text).budgets.get(slug) ?? null;
+  const key = budgetKeyIn(text);
+  if (!key || before == null) return { text, removed: false, previousUsd: null };
+
+  const lines = text.split('\n');
+  const start = lines.findIndex((l) => new RegExp(`^${key}:\\s*$`).test(l));
+  let end = start + 1;
+  while (end < lines.length && lines[end].trim() && !/^\S/.test(lines[end])) end++;
+
+  const kept = lines.slice(start + 1, end)
+    .filter((l) => !new RegExp(`^\\s+${slug}\\s*:`, 'i').test(l));
+
+  // An empty block is removed with its header. A bare `agent-budgets:` reads as
+  // a declaration that produced no limits, which is a different and confusing
+  // thing from having none.
+  const replacement = kept.some((l) => l.trim()) ? [lines[start], ...kept] : [];
+  lines.splice(start, end - start, ...replacement);
+  return { text: lines.join('\n'), removed: true, previousUsd: before };
+}

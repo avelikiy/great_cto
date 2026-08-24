@@ -18,7 +18,7 @@ import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { readVerdicts } from './verdicts.mjs';
-import { parseAgentBudgets } from '../../../scripts/lib/agent-budget.mjs';
+import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
@@ -1384,6 +1384,76 @@ async function dispatch(req, res, url, cwd) {
       budgets_deprecated_key: budgetsDeprecatedKey,
       budgets_malformed: budgetsMalformed,
     }));
+    return true;
+  }
+
+  // Set or clear one agent's spending cap, by writing PROJECT.md.
+  //
+  // POST /api/agent-budgets  { agent, limit_usd }   set / replace
+  // POST /api/agent-budgets  { agent, remove: true } clear
+  //
+  // This writes a file the operator owns and git tracks, from a browser. Same
+  // two gates as /api/projects/register, for the same reason: the board listens
+  // on 127.0.0.1, and a page the user happens to be visiting can still issue a
+  // simple cross-origin POST to localhost.
+  //
+  // The reply always reports the PREVIOUS value. A cap that silently replaced
+  // another is a change the operator cannot see they made.
+  if (pathname === '/api/agent-budgets' && req.method === 'POST') {
+    if (!originAllowed(req)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'origin not allowed' }));
+      return true;
+    }
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
+    req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); }
+      catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+        return;
+      }
+      const mdPath = path.join(cwd, '.great_cto', 'PROJECT.md');
+      let before;
+      try { before = fs.readFileSync(mdPath, 'utf8'); }
+      catch (e) {
+        // No PROJECT.md is not a project we may create one for from a browser.
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'no PROJECT.md to write to', detail: String(e.message || e) }));
+        return;
+      }
+      let out;
+      try {
+        out = parsed.remove
+          ? removeAgentBudget(before, parsed.agent)
+          : upsertAgentBudget(before, parsed.agent, parsed.limit_usd);
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e.message || e) }));
+        return;
+      }
+      try {
+        // Write through a temp file in the same directory, then rename: a
+        // half-written PROJECT.md is the project's own identity truncated.
+        const tmp = `${mdPath}.tmp-${process.pid}`;
+        fs.writeFileSync(tmp, out.text);
+        fs.renameSync(tmp, mdPath);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `could not write PROJECT.md: ${String(e.message || e)}` }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        agent: String(parsed.agent || '').toLowerCase(),
+        previous_usd: out.previousUsd,
+        removed: out.removed === true,
+        created_block: out.created === true,
+      }));
+    });
     return true;
   }
 
