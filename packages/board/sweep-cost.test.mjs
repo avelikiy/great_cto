@@ -27,7 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BD_CACHE_TTL_MS, SWEEP_MAX_AGE_MS, isSelfInflictedTouch } from './lib/beads.mjs';
+import { BD_CACHE_TTL_MS, SWEEP_MAX_AGE_MS, EMPTY_TTL_MS, isSelfInflictedTouch } from './lib/beads.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (f) => readFileSync(join(HERE, 'lib', f), 'utf8');
@@ -125,4 +125,29 @@ test('the run is stamped on both sides of the call', () => {
   assert.ok(fn, 'located bdList');
   assert.equal((fn.match(/lastBdRunAt\.set/g) || []).length, 2,
     'stamped before and after the runner call');
+});
+
+// ── An empty answer is the one most likely to be premature ──────────────────
+
+test('an empty result is cached briefly, whatever the TTL says', () => {
+  // Raising the interactive TTL to 5 minutes turned a self-healing race into a
+  // permanent one. A board that starts while a project is still being written
+  // reads no tasks, and "no tasks" is indistinguishable from a project that
+  // genuinely has none — so it was cached for the full five minutes. The gate
+  // tests create a task, start a board and poll; the poll used to recover in
+  // 2-30 s and stopped recovering at all. The board answered
+  // {"gates":0,"blocked":0,"p0":0,"stale":0} for longer than any test runs.
+  //
+  // I read that as the flakiness that had been on this machine all day and spent
+  // three runs blaming the machine. It was mine, and it arrived with the TTL.
+  assert.ok(EMPTY_TTL_MS <= 10_000, 'a premature empty must heal quickly');
+  assert.ok(EMPTY_TTL_MS < BD_CACHE_TTL_MS, 'and sooner than a populated answer expires');
+});
+
+test('the short window applies to the empty case only', () => {
+  const beads = readFileSync(join(HERE, 'lib', 'beads.mjs'), 'utf8');
+  const fn = beads.match(/function bdList\([\s\S]*?\n\}/)?.[0];
+  assert.match(fn, /cached\.data\.length === 0/, 'keyed on emptiness, not on age alone');
+  assert.match(fn, /Math\.min\(maxAge, EMPTY_TTL_MS\)/,
+    'and never LENGTHENS a window the caller asked to be shorter');
 });

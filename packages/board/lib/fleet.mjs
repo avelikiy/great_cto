@@ -5,6 +5,10 @@ import { GREAT_CTO_DIR } from './config.mjs';
 import { readFileSafe } from './util.mjs';
 import { log } from './log.mjs';
 import { readVerdicts } from './verdicts.mjs';
+// Per-agent spending limits. The judge lives in scripts/lib because the pipeline
+// dispatcher enforces the same verdict — one definition, so the board cannot
+// show `within` while the dispatcher holds the stage.
+import { parseAgentBudgets, judgeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 
 // ── Agent fleet view (DESIGN-agents-fleet-view §3) ─────────────────────────
 //
@@ -86,6 +90,16 @@ function isFailure(verdict) {
 }
 
 function getAgentsFleet(projectCwd) {
+  // Read once per call, not per agent: sixty agents would otherwise re-read and
+  // re-parse the same PROJECT.md sixty times on every board refresh.
+  let agentBudgets = new Map();
+  try {
+    if (projectCwd) {
+      agentBudgets = parseAgentBudgets(
+        fs.readFileSync(path.join(projectCwd, '.great_cto', 'PROJECT.md'), 'utf8')).budgets;
+    }
+  } catch { /* no PROJECT.md, or unreadable — every agent reads as no-limit */ }
+
   const agents = [];
   let files = [];
   try {
@@ -170,6 +184,17 @@ function getAgentsFleet(projectCwd) {
       savings_x: savingsX,
       health,
       retired: isRetired(slug),
+      // Four states, and only `exceeded` can hold a dispatch — see
+      // scripts/lib/agent-budget.mjs. `llm_usd_30d_real` is null when nothing was
+      // measured, which is exactly what makes the difference between "under the
+      // cap" and "no idea" visible here instead of guessed.
+      budget: judgeAgentBudget({
+        agent: slug,
+        budgets: agentBudgets,
+        spend: realLlmUsd > 0
+          ? { real_llm_usd: Math.round(realLlmUsd * 100) / 100, llm_usd: Math.round(estLlmUsd * 100) / 100 }
+          : { llm_usd: Math.round(estLlmUsd * 100) / 100 },
+      }),
     });
   }
 

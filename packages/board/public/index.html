@@ -163,6 +163,20 @@ button { font-family: inherit; cursor: pointer; }
 }
 .stale-board code { font-family: var(--mono); font-size: 12px; }
 
+/* Per-agent budget. Four states, and they must not look alike: `exceeded` holds
+   a dispatch, `unmeasured` deliberately does not. A shared grey chip for
+   "under the cap" and "we never measured it" would be the same silent zero this
+   board spends its time refusing to render. */
+.budget-chip {
+  font-family: var(--mono); font-size: 10px;
+  padding: 1px 6px; border-radius: 3px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.budget-chip.within     { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
+.budget-chip.exceeded   { color: var(--status-blocked); border-color: rgba(220, 38, 38, 0.35); background: var(--p0-bg); font-weight: 600; }
+.budget-chip.unmeasured { color: var(--status-progress); border-color: rgba(180, 83, 9, 0.35); cursor: help; }
+
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 .sidebar {
   position: relative; z-index: 1;
@@ -6122,6 +6136,20 @@ function sortFleet(agents) {
   });
 }
 
+/* One chip, four states, and the title always says which number it is judging.
+ *
+ * `no-limit` renders NOTHING — an agent with no declared budget is the common
+ * case, and a chip saying "no budget" on sixty rows is noise that trains the eye
+ * to skip the row where it matters.
+ */
+function budgetChip(b) {
+  if (!b || b.state === 'no-limit') return '';
+  const label = b.state === 'unmeasured'
+    ? `$${b.limitUsd} cap · unmeasured`
+    : `$${(b.measuredUsd ?? 0).toFixed(2)} / $${b.limitUsd}`;
+  return `<span class="budget-chip ${esc(b.state)}" title="${esc(b.why)}">${esc(label)}</span>`;
+}
+
 function renderFleetList() {
   const el = document.getElementById('fleet-list');
   if (!el) return;
@@ -6139,7 +6167,7 @@ function renderFleetList() {
     return `<li>
       <button class="agent-row status-${esc(a.health)}${a.retired ? ' retired' : ''}"
               role="button" data-slug="${esc(a.slug)}"
-              aria-label="${esc(a.slug)} · ${esc(a.health)} · ${rateLabel} · ${esc(lastRunStr)}"
+              aria-label="${esc(a.slug)} · ${esc(a.health)} · ${rateLabel} · ${esc(lastRunStr)}${a.budget && a.budget.state !== 'no-limit' ? ' · ' + esc(a.budget.why) : ''}"
               onclick="openAgentDrawer('${esc(a.slug)}')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();openAgentDrawer('${esc(a.slug)}')}">
         <span class="ar-status" aria-hidden="true"></span>
@@ -6151,6 +6179,7 @@ function renderFleetList() {
             <span>${esc(rateLabel)}</span>
             <span>last: ${esc(lastRunStr)}</span>
             ${savingsStr ? `<span>${esc(savingsStr)}</span>` : ''}
+            ${budgetChip(a.budget)}
             ${a.retired ? '<span style="color:var(--agent-retired)">retired</span>' : ''}
           </span>
         </span>

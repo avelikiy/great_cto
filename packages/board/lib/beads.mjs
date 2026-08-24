@@ -210,10 +210,34 @@ function isSelfInflictedTouch(cwd) {
   return at != null && Date.now() - at < SELF_TOUCH_WINDOW_MS;
 }
 
+/**
+ * An EMPTY answer is cached briefly, whatever the TTL says.
+ *
+ * Empty is the one result most likely to be premature: a board that starts while
+ * a project is still being written reads no tasks, and that answer is
+ * indistinguishable from a project that genuinely has none. At a 2 s TTL the
+ * mistake healed before anyone noticed. At 5 minutes it does not — the board
+ * served `{"gates":0,"blocked":0,"p0":0,"stale":0}` for longer than any test
+ * runs, and longer than a person will wait before deciding the board is broken.
+ *
+ * That is exactly what raising the TTL did to this suite: the gate tests create
+ * a task, start a board, and poll. The poll used to recover. It stopped
+ * recovering, and the failures moved around enough between runs to read as the
+ * flakiness that had been there all day — which is why I spent three runs
+ * blaming the machine.
+ *
+ * A short window for empty costs one `bd list` on a project that really is
+ * empty, and nothing at all on one that is not.
+ */
+const EMPTY_TTL_MS = 5000;
+
 function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
   const maxAge = Number.isFinite(opts.maxAgeMs) ? opts.maxAgeMs : BD_CACHE_TTL_MS;
   const cached = bdCache.get(cwd);
-  if (cached && Date.now() - cached.ts < maxAge) return cached.data;
+  const ttl = cached && Array.isArray(cached.data) && cached.data.length === 0
+    ? Math.min(maxAge, EMPTY_TTL_MS)
+    : maxAge;
+  if (cached && Date.now() - cached.ts < ttl) return cached.data;
   try {
     lastBdRunAt.set(cwd, Date.now());
     const result = runner(['list', '--json', '--all', '--include-gates'], { cwd });
@@ -593,6 +617,7 @@ export {
   bdCacheInvalidate,
   BD_CACHE_TTL_MS,
   SWEEP_MAX_AGE_MS,
+  EMPTY_TTL_MS,
   isSelfInflictedTouch,
   BD_BIN,
   bdEnv,

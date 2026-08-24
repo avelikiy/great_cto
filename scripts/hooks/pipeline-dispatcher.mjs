@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
 import { parseVerdictLine as parseVerdictRecord } from '../lib/verdict-record.mjs';
+import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch } from '../lib/agent-budget.mjs';
 import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcript.mjs';
 import { stopShape } from '../lib/stop-shape.mjs';
 
@@ -180,6 +181,10 @@ export function parseVerdictLine(line) {
     verdict: String(r.rec.verdict || '').toUpperCase(),
     canonical: !r.legacy,
     hasCost: r.rec.cost_usd != null,
+    // The number itself, not only whether it exists. Per-agent budgets are
+    // enforced from MEASURED spend, and this is where measured spend lives —
+    // `hasCost` alone could only answer "was anything recorded".
+    costUsd: r.rec.cost_usd != null ? Number(r.rec.cost_usd) : null,
     // The claims the verdict makes — artefact paths among them. Carried so the
     // completion hook can check whether what the agent named actually exists.
     meta: r.rec.meta ?? {},
@@ -287,7 +292,7 @@ export function resolveSkip({ rule, transitions, meta, activeGates, gateStates, 
   return { nexts: onward.nexts, skipped: [skipStage, ...onward.skipped], why: `${cond} (declared by ${meta?.agent ?? 'the stage'})` };
 }
 
-export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null, gateStates = null, lastStop = null, agentId = null, effects = null }) {
+export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGates = null, gateStates = null, lastStop = null, agentId = null, effects = null, cwd = null, allVerdicts = null }) {
   // An edge may be guarded by several gates — `approval-level` decides which of
   // them apply, the map only declares that they guard this edge. Before this,
   // `gate` was a single string and every level above `strict` promised gates
@@ -390,7 +395,30 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     : '';
 
   const skip = resolveSkip({ rule, transitions, meta: verdict?.meta, activeGates, gateStates });
-  const nexts = skip.nexts;
+
+  // Budget is applied to the stages about to be dispatched, not to the one that
+  // just finished — stopping an agent mid-run recovers nothing already spent.
+  // `cwd` absent means the caller did not offer a project to read budgets from,
+  // and an unread budget is not an exceeded one: everything proceeds.
+  const budget = cwd
+    ? applyAgentBudgets(skip.nexts, { cwd, verdicts: allVerdicts || [] })
+    : { allowed: skip.nexts, held: [] };
+  const nexts = budget.allowed;
+  const heldNote = budget.held.length
+    ? ` HELD BY BUDGET: ${budget.held.map((h) => h.why).join('; ')}.`
+      + ` Raise the limit in .great_cto/PROJECT.md under \`agent-budgets:\` or accept the stage does not run.`
+    : '';
+
+  // Every next stage is over budget. This is a stop, and it says so — a stage
+  // held for money that reported "succeeded, spawn nothing" would read exactly
+  // like a pipeline that had finished.
+  if (skip.nexts.length > 0 && nexts.length === 0) {
+    return {
+      kind: 'blocked',
+      text: `PIPELINE-STOP: ${agent} succeeded (${verdict.verdict}), and every next stage is over its declared budget.`
+        + heldNote + ` Nothing was dispatched.`,
+    };
+  }
   const skipNote = skip.skipped.length
     ? ` (skipping ${skip.skipped.join(', ')} — ${skip.why}; no active gate sat on that edge)`
     : '';
@@ -436,15 +464,55 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       kind: 'next',
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) → spawn ${nexts.map(n => `Agent(subagent_type: ${n})`).join(' and ')} now. ` +
         `${gatesOf(rule.gate).join(' + ')} ${gatesOf(rule.gate).length > 1 ? 'are' : 'is'} declared in the pipeline map but NOT active at this approval level — the CTO delegated this decision, so do not wait for it. ` +
-        `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.`,
+        `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.` + heldNote,
     };
   }
 
   return {
     kind: 'next',
     text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) → spawn ${nexts.map(n => `Agent(subagent_type: ${n})`).join(' and ')} now ` +
-      `(parallel is safe — no gate between these stages). Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.`,
+      `(parallel is safe — no gate between these stages). Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.` + heldNote,
   };
+}
+
+/**
+ * Hold back any next stage whose agent has spent past its declared budget.
+ *
+ * Only MEASURED spend refuses. `agent-budgets:` in PROJECT.md is judged against
+ * the sum of `cost_usd` across that agent's verdict records — the number an
+ * agent actually reported spending — never against the board's time-based
+ * estimate. An estimate is time multiplied by a rate constant, and halting a
+ * pipeline on it would stop real work over arithmetic.
+ *
+ * @returns {{allowed: string[], held: Array<{agent: string, why: string}>}}
+ */
+export function applyAgentBudgets(nexts, { cwd, verdicts }) {
+  let budgets;
+  try {
+    const md = readFileSync(join(cwd, '.great_cto', 'PROJECT.md'), 'utf8');
+    budgets = parseAgentBudgets(md).budgets;
+  } catch {
+    // No PROJECT.md, or unreadable. A budget we could not read is not a budget
+    // that was exceeded — proceed, exactly as before this feature existed.
+    return { allowed: nexts, held: [] };
+  }
+  if (!budgets.size) return { allowed: nexts, held: [] };
+
+  // Measured spend per agent, from the verdict records themselves.
+  const measured = new Map();
+  for (const v of (verdicts || [])) {
+    if (!v?.agent || v.costUsd == null) continue;
+    measured.set(v.agent, (measured.get(v.agent) || 0) + v.costUsd);
+  }
+
+  const allowed = [], held = [];
+  for (const n of nexts) {
+    const spend = measured.has(n) ? { real_llm_usd: measured.get(n), llm_usd: measured.get(n) } : undefined;
+    const verdict = judgeAgentBudget({ agent: n, budgets, spend });
+    if (budgetAllowsDispatch(verdict)) allowed.push(n);
+    else held.push({ agent: n, why: verdict.why });
+  }
+  return { allowed, held };
 }
 
 function emit(text) {

@@ -1,0 +1,106 @@
+// A limit that fires on a number nobody measured is worse than no limit.
+//
+// The board's cost model already draws the line this module depends on:
+// `agents_cost[].cost_source` is `'estimate'` unless verdicts carry real token
+// spend, and `real_llm_usd` is DELETED rather than set to zero when there is
+// none. An enforcement built on `llm_usd` would stop work on time multiplied by
+// a rate constant, and tell the operator their agent had overspent.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch } from '../../scripts/lib/agent-budget.mjs';
+
+const BUDGETS = new Map([['senior-dev', 50]]);
+const judge = (spend, agent = 'senior-dev') => judgeAgentBudget({ agent, budgets: BUDGETS, spend });
+
+// ── Reading the declaration ─────────────────────────────────────────────────
+
+test('the block is read, and the flat keys around it are not', () => {
+  const { budgets } = parseAgentBudgets(
+    'phase: implementation\nagent-budgets:\n  senior-dev: $50\n  architect: 20\nstack: node\n');
+  assert.deepEqual([...budgets], [['senior-dev', 50], ['architect', 20]]);
+});
+
+test('a dedent ends the block', () => {
+  const { budgets } = parseAgentBudgets('agent-budgets:\n  a: $1\nphase: x\n  b: $2\n');
+  assert.deepEqual([...budgets.keys()], ['a'], 'b is under `phase`, not under the block');
+});
+
+test('a malformed line is returned, never dropped', () => {
+  // A budget the operator wrote and the parser silently ignored is a limit they
+  // believe they have. That is the defect this repository is built around.
+  const { budgets, malformed } = parseAgentBudgets('agent-budgets:\n  qa: soon\n  ok: $3\n');
+  assert.deepEqual([...budgets], [['ok', 3]]);
+  assert.equal(malformed.length, 1);
+  assert.match(malformed[0].why, /not a dollar amount/);
+});
+
+test('no block at all is empty, not an error', () => {
+  const { budgets, malformed } = parseAgentBudgets('phase: x\n');
+  assert.equal(budgets.size, 0);
+  assert.deepEqual(malformed, []);
+});
+
+// ── The four states ─────────────────────────────────────────────────────────
+
+test('an agent with no declared budget is no-limit, not zero', () => {
+  const v = judge({ llm_usd: 999, real_llm_usd: 999 }, 'architect');
+  assert.equal(v.state, 'no-limit');
+  assert.equal(budgetAllowsDispatch(v), true, 'an undeclared budget cannot be exceeded');
+});
+
+test('measured spend under the cap is within', () => {
+  assert.equal(judge({ llm_usd: 9, real_llm_usd: 3 }).state, 'within');
+});
+
+test('measured spend over the cap is exceeded, and only this state refuses', () => {
+  const v = judge({ llm_usd: 9, real_llm_usd: 51 });
+  assert.equal(v.state, 'exceeded');
+  assert.equal(budgetAllowsDispatch(v), false);
+  assert.match(v.why, /measured from verdicts/, 'the refusal says what it is based on');
+});
+
+test('exactly at the cap is within — the limit is a ceiling, not a trigger', () => {
+  assert.equal(judge({ llm_usd: 9, real_llm_usd: 50 }).state, 'within');
+});
+
+test('a measured zero is within, not unmeasured', () => {
+  // `real_llm_usd` is deleted when zero upstream, so a 0 that DOES arrive is a
+  // real measurement. `> 0` here would read it as "never measured" — the exact
+  // confusion the four states exist to prevent.
+  const v = judge({ llm_usd: 9, real_llm_usd: 0 });
+  assert.equal(v.state, 'within');
+  assert.equal(v.measuredUsd, 0);
+});
+
+// ── The rule that keeps it honest ───────────────────────────────────────────
+
+test('an estimate never refuses, however large', () => {
+  const v = judge({ llm_usd: 5000, cost_source: 'estimate' });
+  assert.equal(v.state, 'unmeasured');
+  assert.equal(budgetAllowsDispatch(v), true,
+    'halting a pipeline on time multiplied by a rate constant is the defect, not the feature');
+});
+
+test('unmeasured says so, and labels the number it does show', () => {
+  const v = judge({ llm_usd: 5000, cost_source: 'estimate' });
+  assert.equal(v.measuredUsd, null);
+  assert.equal(v.estimateUsd, 5000);
+  assert.match(v.why, /no verdict cost data/);
+  assert.match(v.why, /time-based estimate, not spend/);
+});
+
+test('no spend data at all is unmeasured, not within', () => {
+  // Absence of a cost record is not evidence of no cost.
+  const v = judge(undefined);
+  assert.equal(v.state, 'unmeasured');
+  assert.equal(budgetAllowsDispatch(v), true);
+});
+
+test('every state is one of the four, for any input shape', () => {
+  const shapes = [undefined, {}, { llm_usd: 0 }, { real_llm_usd: 0 }, { llm_usd: 1, real_llm_usd: 999 }];
+  for (const s of shapes) {
+    const v = judge(s);
+    assert.ok(['no-limit', 'within', 'exceeded', 'unmeasured'].includes(v.state), JSON.stringify(s));
+    assert.ok(v.why && v.why.length > 10, `${v.state} must explain itself`);
+  }
+});

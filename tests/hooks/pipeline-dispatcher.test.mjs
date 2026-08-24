@@ -52,10 +52,15 @@ test('normalizeAgent strips the great_cto- prefix', () => {
   assert.equal(normalizeAgent('pm'), 'pm');
 });
 
+// `costUsd` joined the shape when per-agent budgets arrived. `hasCost` could
+// only answer whether anything was recorded; a budget is enforced against the
+// AMOUNT, and it must come from the verdict rather than from the board's
+// time-based estimate. `null` when absent, never 0 — a stage that recorded no
+// cost and a stage that recorded zero cost are different facts.
 test('parseVerdictLine handles pipe- and space-separated formats', () => {
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z | architect | APPROVED | feature=x | cost=$0.50'),
-    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: false, hasCost: true, meta: { feature: 'x' } });
+    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: false, hasCost: true, costUsd: 0.5, meta: { feature: 'x' } });
   // The space dialect is `<ts> <verdict> <details>` — it never carried an agent
   // (the filename did), so the second token IS the verdict. The hook's old
   // private parser read it as `<ts> <agent> <verdict>`; the two disagreed, which
@@ -64,7 +69,7 @@ test('parseVerdictLine handles pipe- and space-separated formats', () => {
   // so the ambiguity cannot reach a live dispatch.
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z qa-engineer PASS coverage=80%'),
-    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'QA-ENGINEER', canonical: false, hasCost: false, meta: { coverage: '80%' } });
+    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'QA-ENGINEER', canonical: false, hasCost: false, costUsd: null, meta: { coverage: '80%' } });
   assert.equal(parseVerdictLine(''), null);
 });
 
@@ -807,4 +812,87 @@ test('with no effects supplied at all, the old advice stands rather than a claim
   const d = decideNext({ agent: 'senior-dev', transitions: MAP, verdict: null, lastStop: cutOff });
   assert.match(d.text, /may already exist/);
   assert.doesNotMatch(d.text, /DID leave work behind/);
+});
+
+// ─── Per-agent budgets ───────────────────────────────────────────────────────
+//
+// The rule that keeps a limit honest: only MEASURED spend refuses. The board's
+// `llm_usd` is time multiplied by a rate constant, and a pipeline halted on that
+// would stop real work over arithmetic. Verdicts carry `cost_usd` — what an
+// agent reported actually spending — and that is the only number allowed to say
+// no.
+
+import { applyAgentBudgets } from '../../scripts/hooks/pipeline-dispatcher.mjs';
+
+const withProject = (projectMd, fn) => {
+  const dir = mkdtempSync(join(tmpdir(), 'budget-'));
+  try {
+    mkdirSync(join(dir, '.great_cto'), { recursive: true });
+    writeFileSync(join(dir, '.great_cto', 'PROJECT.md'), projectMd);
+    return fn(dir);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+};
+
+const BUDGETED = 'phase: x\nagent-budgets:\n  senior-dev: $10\n';
+
+test('an agent over its budget is held, and the reason names the measurement', () => {
+  withProject(BUDGETED, (cwd) => {
+    const r = applyAgentBudgets(['senior-dev', 'qa-engineer'], {
+      cwd, verdicts: [{ agent: 'senior-dev', costUsd: 7 }, { agent: 'senior-dev', costUsd: 5 }],
+    });
+    assert.deepEqual(r.allowed, ['qa-engineer'], 'only the over-budget stage is held');
+    assert.equal(r.held.length, 1);
+    assert.match(r.held[0].why, /12\.00 of its \$10/, 'spend is summed across that agent\'s verdicts');
+    assert.match(r.held[0].why, /measured from verdicts/);
+  });
+});
+
+test('an agent under its budget dispatches', () => {
+  withProject(BUDGETED, (cwd) => {
+    const r = applyAgentBudgets(['senior-dev'], { cwd, verdicts: [{ agent: 'senior-dev', costUsd: 3 }] });
+    assert.deepEqual(r.allowed, ['senior-dev']);
+    assert.deepEqual(r.held, []);
+  });
+});
+
+test('no verdict cost data never refuses, however long the agent ran', () => {
+  // This is the whole point. Without `cost_usd` there is no measurement, and an
+  // unmeasured budget must not stop a pipeline.
+  withProject(BUDGETED, (cwd) => {
+    const r = applyAgentBudgets(['senior-dev'], { cwd, verdicts: [{ agent: 'senior-dev', costUsd: null }] });
+    assert.deepEqual(r.allowed, ['senior-dev']);
+    assert.deepEqual(r.held, []);
+  });
+});
+
+test('an unreadable PROJECT.md is not an exceeded budget', () => {
+  const r = applyAgentBudgets(['senior-dev'], { cwd: '/nowhere-at-all', verdicts: [{ agent: 'senior-dev', costUsd: 999 }] });
+  assert.deepEqual(r.allowed, ['senior-dev'], 'a budget we could not read did not stop anything');
+});
+
+test('a project with no agent-budgets block behaves as before the feature', () => {
+  withProject('phase: x\nmonthly-budget: $500\n', (cwd) => {
+    const r = applyAgentBudgets(['senior-dev'], { cwd, verdicts: [{ agent: 'senior-dev', costUsd: 999 }] });
+    assert.deepEqual(r.allowed, ['senior-dev']);
+  });
+});
+
+test('every next stage over budget is a STOP, not a silent success', () => {
+  // A pipeline that reports "succeeded, spawn nothing" reads exactly like one
+  // that finished. Being held for money has to look different from being done.
+  withProject(BUDGETED, (cwd) => {
+    // pm's only next stage is senior-dev, and senior-dev is over its $10 cap.
+    // `PLAN_READY` because that is what the map accepts from pm — a verdict it
+    // does not recognise returns null, and the assertion would pass vacuously.
+    const d = decideNext({
+      agent: 'pm', transitions: TRANSITIONS, verdict: v('pm', 'PLAN_READY'),
+      cwd, allVerdicts: [{ agent: 'senior-dev', costUsd: 99 }],
+    });
+    assert.ok(d, 'the map recognises this verdict');
+    assert.equal(d.kind, 'blocked');
+    assert.match(d.text, /PIPELINE-STOP/);
+    assert.match(d.text, /over its declared budget/);
+    assert.match(d.text, /Nothing was dispatched/);
+    assert.match(d.text, /agent-budgets:/, 'and says where to change it');
+  });
 });
