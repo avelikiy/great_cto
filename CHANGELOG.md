@@ -4,6 +4,74 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.1.0 — 2026-08-24
+
+Everything here came from the operator opening the board and saying he could not
+find, or did not believe, what it showed. Each item names what he saw.
+
+### Budgets is a screen, not a panel two clicks in
+
+The budgets panel lived on the agents tab behind a drill-in from Metrics, and
+rendered nothing at all on a project with no caps declared — so on the project
+actually being opened, the feature did not exist. A limit you can only see after
+hand-editing the config it reads is documentation, not a feature.
+
+Its own item in the sidebar now. It answers both halves of the question: the caps,
+judged by the same module the dispatcher refuses with, and every agent that has
+NO cap — because "which agents are uncapped" is the question you arrive with. The
+empty state says what is true rather than showing nothing:
+
+    No agent has a spending cap in this project.
+    Nothing is being held, and nothing will be.
+
+### A change we noticed must not cost the next reader
+
+Measured before deciding what a full async refactor was worth, and it turned out
+to be worth less than the measurement. The remaining block was not the cold read;
+it was invalidation.
+
+`bdCacheInvalidate` DELETES, and a deleted entry defeats stale-while-revalidate
+entirely — there is nothing left to serve. It fired on every write AND on every
+file event under a watched project, so a reader who asked for something unrelated
+paid for a write they did not make.
+
+Split by intent: a write the board performed drops the entry, because the
+operator clicked approve and is waiting; a change merely noticed ages it, and it
+is still served while the refresh runs off the event loop.
+
+    after a file event   623 ms -> 3 ms
+    after our own write  1172 ms  (unchanged, and correct)
+
+Every endpoint answers in 1.5-70 ms warm.
+
+### Four things the board would not show
+
+- **Docs stuck on "loading…"** for 27 seconds. Nothing was broken — everything
+  was queued behind a cold `bd list`. The cache is warmed at boot now, before
+  anyone is looking.
+- **187 documents that could not be searched inside.** `/api/docs/search` reads
+  them; `scanned` and `unreadable` come back with the answer, because "nothing
+  found across 187 files" and "nothing found across the 3 that could be opened"
+  are different facts.
+- **The Notifications tab never loaded its own list.** The panel had carried one
+  all along, with a renderer to fill it, and the only caller was the bell drawer.
+  Declared and not consumed, in the UI this time.
+- **227 done cards in one column.** Capped at 25, with the rest one click away.
+
+### Two screens reported the same number and disagreed by 2.4x
+
+Fixed, and the pipeline dispatcher now records what it decided — including when
+it decided nothing, which is the case that has hidden every pipeline defect this
+week.
+
+### Withdrawn
+
+I reported a doubled path `great_cto/great_cto/PROJECT.md` in the Agent context
+card. `/api/memory` returns `/Users/…/great_cto/.great_cto/PROJECT.md`, which is
+correct; I misread `.great_cto` on a low-resolution screenshot. Not a defect.
+
+---
+
 ## v3.0.0 — 2026-08-24
 
 A major, because the pipeline could not run in most of the fleet and now can, and
