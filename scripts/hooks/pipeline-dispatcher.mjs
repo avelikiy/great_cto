@@ -37,6 +37,7 @@ import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch } from '../li
 import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcript.mjs';
 import { stopShape } from '../lib/stop-shape.mjs';
 import { recordRun } from '../lib/pipeline-journal.mjs';
+import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 /**
@@ -72,6 +73,39 @@ const JOIN_MS = 24 * 60 * 60 * 1000;
 // against the same set the dispatcher acts on, rather than a second copy that
 // would drift and quietly excuse a token nothing reads.
 export const BLOCKED_TOKENS = new Set(['BLOCKED', 'FAIL', 'FAILED', 'REJECTED']);
+
+/**
+ * The verdict token an independent verifier writes when work must go back.
+ *
+ * Distinct from BLOCKED on purpose. BLOCKED halts the chain and escalates to the
+ * CTO — it means "a human must decide". REWORK means "the agent that just ran
+ * can fix this itself, and here is what": nobody needs to be interrupted, the
+ * work needs another pass. Collapsing them would either page a human for a
+ * missing file or let a missing file through as a routine retry.
+ */
+export const REWORK_TOKEN = 'REWORK';
+
+/**
+ * Layer 1 of independent-verify, inline: do the artefacts this verdict names
+ * exist on disk with content?
+ *
+ * Imported lazily and fail-open on its own failure. A verification step that
+ * throws must not become a way to stop the pipeline — a broken checker halting
+ * every transition is a worse outage than the defect it looks for, and "the
+ * checker could not run" is a third state, reported, never counted as a pass.
+ */
+function verifyClaimedArtefacts(agent, verdict, cwd) {
+  try {
+    const r = checkArtifacts(verdict?.meta || {}, { root: cwd });
+    if (!r.checked.length) return { state: 'nothing-claimed', detail: 'the verdict names no artefact' };
+    if (r.ok) return { state: 'ok', detail: `${r.checked.length} claimed artefact(s) present` };
+    return { state: 'rework', detail: explainArtifacts(r) || 'claimed artefacts are missing or empty' };
+  } catch {
+    return { state: 'unavailable', detail: 'artefact check could not run' };
+  }
+}
+
+
 
 /** Minimal TOML-subset parser for pipeline.toml:
  *  [transitions.<name>] sections with string / string-array values. */
@@ -439,6 +473,39 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
         + heldNote + ` Nothing was dispatched.`,
     };
   }
+  // ── independent verification, before anything is built on this stage ──────
+  //
+  // Split by cost, because this hook runs synchronously on every agent
+  // transition and a judge takes ~30s per requirement:
+  //
+  //   enforced here   layer 1, "do the files this verdict names exist" — pure
+  //                   file stats, microseconds, and the single most common way a
+  //                   verdict is wrong. A stage that failed this does not
+  //                   dispatch; the finding names the file and goes back to the
+  //                   agent that claimed it.
+  //   directed here   layers 2-3, acceptance commands and the second model. Too
+  //                   slow to run inline, so the directive names the command and
+  //                   the next stage waits on it.
+  //
+  // The asymmetry is deliberate and stated rather than silent: what this hook
+  // can enforce, it enforces; what it cannot, it instructs and says so.
+  const artefacts = cwd ? verifyClaimedArtefacts(agent, verdict, cwd) : null;
+  if (artefacts && artefacts.state === 'rework') {
+    return {
+      kind: 'rework',
+      text: `PIPELINE-REWORK: ${agent} reported ${verdict.verdict}, and the artefacts it named are not there. `
+        + `${artefacts.detail} `
+        + `Do NOT spawn ${(nexts.length ? nexts : skip.nexts).join(', ') || 'anything downstream'} — that work would rest on a stage that produced nothing. `
+        + `Re-spawn ${agent} with these findings and require it to either write the artefact or drop the claim.`,
+    };
+  }
+
+  const verifyCmd = `node scripts/lib/independent-verify.mjs ${agent}`;
+  const verifyNote =
+    ` VERIFY FIRST: run \`${verifyCmd}\` and act on its exit code — 0 verified, `
+    + `1 rework (hand its findings back to ${agent}, do not proceed), 2 unverifiable `
+    + `(nothing could be checked; say so to the CTO rather than treating it as a pass).`;
+
   const skipNote = skip.skipped.length
     ? ` (skipping ${skip.skipped.join(', ')} — ${skip.why}; no active gate sat on that edge)`
     : '';
@@ -460,7 +527,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       kind: 'next',
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) and ${active.join(' + ')} `
         + `${active.length > 1 ? 'are' : 'is'} APPROVED → spawn ${nexts.map((n) => `Agent(subagent_type: ${n})`).join(' and ')} now. `
-        + `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.${skipNote}${formatNote}`,
+        + `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.${skipNote}${formatNote}${verifyNote}`,
     };
   }
 
@@ -484,14 +551,14 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       kind: 'next',
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) → spawn ${nexts.map(n => `Agent(subagent_type: ${n})`).join(' and ')} now. ` +
         `${gatesOf(rule.gate).join(' + ')} ${gatesOf(rule.gate).length > 1 ? 'are' : 'is'} declared in the pipeline map but NOT active at this approval level — the CTO delegated this decision, so do not wait for it. ` +
-        `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.` + heldNote,
+        `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.` + heldNote + verifyNote,
     };
   }
 
   return {
     kind: 'next',
     text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) → spawn ${nexts.map(n => `Agent(subagent_type: ${n})`).join(' and ')} now ` +
-      `(parallel is safe — no gate between these stages). Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.` + heldNote,
+      `(parallel is safe — no gate between these stages). Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.` + heldNote + verifyNote,
   };
 }
 

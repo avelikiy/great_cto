@@ -65,6 +65,7 @@ def load_config() -> dict:
         # token. Pricier tiers (k2.6, k2.7-code, k3) are a deliberate opt-in via
         # GREAT_CTO_ROUTER_MODEL — this lane exists to be cheap.
         "model": get("GREAT_CTO_ROUTER_MODEL", "moonshotai/kimi-k2-0905"),
+        "temperature": float(get("GREAT_CTO_ROUTER_TEMPERATURE", "0")),
         "max_tokens": int(get("GREAT_CTO_ROUTER_MAX_TOKENS", "4096")),
         "timeout": int(get("GREAT_CTO_ROUTER_TIMEOUT", "60")),
     }
@@ -82,9 +83,22 @@ def call_openrouter(cfg: dict, system: str, user: str) -> dict:
             "setup_hint": "Add OPENROUTER_API_KEY=sk-or-v1-... to .env.local and restart session.",
         }
 
+    # Temperature is set, and defaults to 0.
+    #
+    # It was absent, so every request ran at the provider's default (~1.0 for
+    # Kimi). That is invisible for prose, and wrong for the use this router was
+    # built for: closed questions whose answer decides whether work proceeds. A
+    # requirement that is objectively satisfied was answered "no" once in six
+    # asks of the identical question — roughly one verification in six sending
+    # correct work back for rework, and passing on the retry. A gate people
+    # re-run instead of read has stopped being a gate.
+    #
+    # Overridable, because a caller wanting variety should be able to ask for it
+    # — but a judge is the default caller here, and a judge should not roll dice.
     body = {
         "model": cfg["model"],
         "max_tokens": cfg["max_tokens"],
+        "temperature": cfg["temperature"],
         "messages": [
             {"role": "system", "content": system or "You are a helpful assistant."},
             {"role": "user", "content": user},

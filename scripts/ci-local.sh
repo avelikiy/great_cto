@@ -120,6 +120,16 @@ step "css tokens resolve" bash -c '
 step "css type scale" bash -c '
   node scripts/lib/css-type-scale.mjs packages/board/public/index.html
 '
+
+# The verifier that checks the agents must itself be checked, and in both
+# directions. A verifier that only ever returns rework sends correct work back
+# forever and gets switched off within a day; one that only ever returns
+# verified is the self-report it was built to replace. The suite carries one
+# fixture of each, with the answer known before the run.
+step "independent verifier: both directions" bash -c '
+  node --test tests/lib/independent-verify.test.mjs
+'
+
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which
