@@ -1647,8 +1647,20 @@ button { font-family: inherit; cursor: pointer; }
   padding: 0 12px 8px 0; border-bottom: 1px solid var(--border);
 }
 .budgets-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.budgets-table .bt-agent { font-family: var(--mono); }
-.budgets-table .bt-cap { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* A row has to answer three questions: what is this agent, what does it cost,
+   over what period. The slug alone answered none of them. */
+.budgets-table .bt-slug { font-family: var(--mono); font-size: 12.5px; }
+.budgets-table .bt-desc {
+  font-size: 12px; color: var(--text2); margin-top: 2px;
+  max-width: 52ch; text-wrap: pretty;
+}
+.budgets-table .bt-runs,
+.budgets-table .bt-cap { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.budgets-table .bt-spend { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.budgets-table .bt-usd { font-variant-numeric: tabular-nums; color: var(--text); }
+.budgets-table th[title] { cursor: help; }
+.budgets-idle summary { cursor: pointer; font-size: 13px; color: var(--text2); }
+.budgets-idle summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .budgets-table .bt-actions { text-align: right; white-space: nowrap; }
 .budgets-table .bt-actions .ab-btn + .ab-btn { margin-left: 6px; }
 .budgets-empty {
@@ -3544,66 +3556,120 @@ async function loadBudgetsPage() {
 
   const [h] = await Promise.all([
     api(`/api/heartbeat${pqs()}`),
-    (typeof loadFleet === 'function' && !(fleetState?.agents || []).length) ? loadFleet() : Promise.resolve(),
+    (typeof refreshAgentsInstalled === 'function' && !(fleetState?.agents || []).length)
+      ? refreshAgentsInstalled() : Promise.resolve(),
   ]);
   const caps = h?.budgets || {};
-  const agents = fleetState?.agents || [];
-  const judged = new Map(agents.map((a) => [a.slug, a.budget]));
-  const capped = Object.entries(caps);
-  const uncapped = agents.filter((a) => !(a.slug in caps));
+  const agents = (fleetState?.agents || []).filter((a) => !a.retired);
+
+  // 69 identical chips in one blob answered none of the three questions a person
+  // arrives with: what does this agent do, what does it usually cost, and over
+  // what period. Worse, 62 of the 69 had not run in thirty days — a cap on an
+  // agent that never runs is a cap on nothing, and they were the bulk of the
+  // wall.
+  //
+  // Ordered by what it costs to leave uncapped: agents that ran, most spend
+  // first. The ones that never ran are still reachable, behind a count.
+  const spendOf = (a) => (a.llm_usd_30d_real ?? a.llm_usd_30d_est ?? 0);
+  const ran = agents.filter((a) => (a.runs_30d || 0) > 0)
+    .sort((x, y) => spendOf(y) - spendOf(x) || (y.runs_30d || 0) - (x.runs_30d || 0));
+  const idle = agents.filter((a) => !(a.runs_30d > 0));
+
+  const firstSentence = (t) => {
+    const s1 = String(t || '').split(/(?<=[.!?])\s/)[0] || '';
+    return s1.length > 150 ? s1.slice(0, 147) + '…' : s1;
+  };
+
+  // Spend is stated with its window and its provenance. `est` is a time-based
+  // guess and says so; a real figure only exists where a verdict carried a cost.
+  const spendCell = (a) => {
+    if (a.llm_usd_30d_real != null && a.llm_usd_30d_real > 0) {
+      return `<span class="bt-usd">$${a.llm_usd_30d_real.toFixed(2)}</span> <span class="muted">measured</span>`;
+    }
+    if (a.llm_usd_30d_est != null && a.llm_usd_30d_est > 0) {
+      return `<span class="bt-usd">$${a.llm_usd_30d_est.toFixed(2)}</span> <span class="muted">estimated</span>`;
+    }
+    return '<span class="muted">not measured</span>';
+  };
 
   const stateCell = (slug) => {
-    const b = judged.get(slug);
-    if (!b || b.state === 'no-limit') return '<span class="muted">state not loaded</span>';
+    const b = (fleetState?.agents || []).find((a) => a.slug === slug)?.budget;
+    if (!b || b.state === 'no-limit') return '';
     const spent = (b.state === 'within' || b.state === 'exceeded')
-      ? `$${(b.measuredUsd ?? 0).toFixed(2)} measured`
-      : (b.state === 'unmeasured' ? 'nothing measured yet' : '');
+      ? `$${(b.measuredUsd ?? 0).toFixed(2)} measured` : (b.state === 'unmeasured' ? 'nothing measured yet' : '');
     return `${budgetChip(b)} <span class="ab-spent">${esc(spent)}</span>`;
   };
 
-  // Three states, as everywhere: capped, uncapped, and unreadable — never a
-  // silent "all fine".
-  const bad = (h?.budgets_malformed || []);
+  const row = (a, cap) => `
+    <tr>
+      <td class="bt-agent">
+        <div class="bt-slug">${esc(a.slug)}</div>
+        <div class="bt-desc">${esc(firstSentence(a.description))}</div>
+      </td>
+      <td class="bt-runs">${a.runs_30d || 0}</td>
+      <td class="bt-spend">${spendCell(a)}</td>
+      <td class="bt-cap">${cap != null ? `$${esc(String(cap))}` : '<span class="muted">—</span>'}</td>
+      <td class="bt-state">${cap != null ? stateCell(a.slug) : ''}</td>
+      <td class="bt-actions">${cap != null
+        ? `<button type="button" class="ab-btn" onclick="editAgentBudget('${esc(a.slug)}', ${Number(cap)})">Change</button>`
+          + `<button type="button" class="ab-btn ab-rm" onclick="clearAgentBudget('${esc(a.slug)}', ${Number(cap)})">Remove</button>`
+        : `<button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')">Set a cap</button>`}</td>
+    </tr>`;
+
+  const table = (rows) => `
+    <table class="budgets-table">
+      <thead><tr>
+        <th scope="col">Agent</th>
+        <th scope="col" title="Dispatches in the last 30 days">Runs 30d</th>
+        <th scope="col" title="LLM spend over the same 30 days">Spend 30d</th>
+        <th scope="col">Cap</th><th scope="col">State</th><th scope="col"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  // A cap declared for an agent the fleet does not list still has to appear —
+  // otherwise a limit that is holding a stage would be invisible here.
+  const known = new Set(agents.map((a) => a.slug));
+  const orphanCaps = Object.entries(caps).filter(([slug]) => !known.has(slug));
+
+  const capped = ran.filter((a) => a.slug in caps);
+  const uncappedRan = ran.filter((a) => !(a.slug in caps));
+
   const notes = [
     h?.budgets_deprecated_key
       ? `<div class="ab-note">Read from the deprecated <code>${esc(h.budgets_deprecated_key)}:</code> key — rename it to <code>agent-budgets:</code>.</div>` : '',
-    bad.length
-      ? `<div class="ab-note ab-bad">${bad.length} line(s) in PROJECT.md were not read: `
-        + bad.map((m) => `<code>${esc(m.line)}</code> — ${esc(m.why)}`).join('; ') + '</div>' : '',
+    (h?.budgets_malformed || []).length
+      ? `<div class="ab-note ab-bad">${h.budgets_malformed.length} line(s) in PROJECT.md were not read: `
+        + h.budgets_malformed.map((m) => `<code>${esc(m.line)}</code> — ${esc(m.why)}`).join('; ') + '</div>' : '',
   ].join('');
 
-  const capsBlock = capped.length ? `
-    <table class="budgets-table">
-      <thead><tr><th scope="col">Agent</th><th scope="col">Cap</th><th scope="col">State</th><th scope="col"></th></tr></thead>
-      <tbody>${capped.map(([slug, cap]) => `
-        <tr>
-          <td class="bt-agent">${esc(slug)}</td>
-          <td class="bt-cap">$${esc(String(cap))}</td>
-          <td>${stateCell(slug)}</td>
-          <td class="bt-actions">
-            <button type="button" class="ab-btn" onclick="editAgentBudget('${esc(slug)}', ${Number(cap)})">Change</button>
-            <button type="button" class="ab-btn ab-rm" onclick="clearAgentBudget('${esc(slug)}', ${Number(cap)})">Remove</button>
-          </td>
-        </tr>`).join('')}</tbody>
-    </table>`
-    : `<div class="budgets-empty">
-         No agent has a spending cap in this project. Nothing is being held, and nothing will be.
-       </div>`;
+  const capsBlock = (capped.length || orphanCaps.length) ? `
+    <div class="mp-section-label">Capped (${capped.length + orphanCaps.length})</div>
+    ${table(capped.map((a) => row(a, caps[a.slug])).join('')
+      + orphanCaps.map(([slug, cap]) => row({ slug, description: 'not among the installed agents', runs_30d: 0 }, cap)).join(''))}`
+    : `<div class="budgets-empty">No agent has a spending cap in this project. Nothing is being held, and nothing will be.</div>`;
 
-  const uncappedBlock = uncapped.length ? `
-    <div class="mp-section-label" style="margin-top:24px">No cap (${uncapped.length})</div>
-    <div class="budgets-uncapped">${uncapped.slice(0, 60).map((a) => `
-      <button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')"
-              title="Set a cap for ${esc(a.slug)}">${esc(a.slug)} +</button>`).join('')}
-      ${uncapped.length > 60 ? `<span class="muted">and ${uncapped.length - 60} more</span>` : ''}
-    </div>` : '';
+  const activeBlock = uncappedRan.length ? `
+    <div class="mp-section-label" style="margin-top:28px">Ran in the last 30 days, no cap (${uncappedRan.length})</div>
+    <p class="muted" style="margin:4px 0 10px">These are the ones a cap would actually apply to.</p>
+    ${table(uncappedRan.map((a) => row(a, null)).join(''))}` : '';
 
-  body.innerHTML = `${notes}${capsBlock}
-    <button type="button" class="ab-btn ab-add" onclick="addAgentBudget()">+ Add a budget</button>
-    ${uncappedBlock}`;
+  // Capping an agent that has not run is capping nothing. Reachable, not shown.
+  const idleBlock = idle.length ? `
+    <details class="budgets-idle" style="margin-top:28px">
+      <summary>${idle.length} installed agents have not run in 30 days</summary>
+      <div class="budgets-uncapped">${idle.slice(0, 80).map((a) => `
+        <button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')"
+                title="${esc(firstSentence(a.description))}">${esc(a.slug)} +</button>`).join('')}
+        ${idle.length > 80 ? `<span class="muted">and ${idle.length - 80} more</span>` : ''}
+      </div>
+    </details>` : '';
+
+  body.innerHTML = `${notes}${capsBlock}${activeBlock}${idleBlock}
+    <button type="button" class="ab-btn ab-add" onclick="addAgentBudget()">+ Add a budget for any agent</button>`;
 
   const badge = document.getElementById('nav-budget-count');
-  if (badge) badge.textContent = capped.length ? String(capped.length) : '';
+  if (badge) badge.textContent = Object.keys(caps).length ? String(Object.keys(caps).length) : '';
 }
 
 /** Set a cap for a named agent, skipping the "which agent?" question. */
