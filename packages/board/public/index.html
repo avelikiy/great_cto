@@ -123,6 +123,38 @@
   --shadow-card-hover: 0 1px 3px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 168, 98, 0.08);
   --drawer-shadow: 0 16px 32px rgba(0, 0, 0, 0.18);
 }
+/* ── Type scale ──────────────────────────────────────────────────────────────
+   The board had 22 raw font sizes (9px…52px, including 11.5/12.5/13.5) and no
+   rule for h1/h2/h3 at all — so Budgets, Docs, Sessions and Activity rendered
+   their titles in the browser's default bold 700, a weight used nowhere else in
+   the design. One role, six renderings.
+
+   Two ramps, because the board has two kinds of text. Text steps by +1px in the
+   dense band (this is a single-operator console; density is the point) and by
+   ~1.2x in the title band. Live numbers get their own ramp: they are read as
+   quantities, not prose, so they take --serif at 500 with tabular-nums.
+
+   --serif is NOT a serif face — it resolves to the same Geist as --sans. The
+   name is legacy; the role is "display numerals". Reach for it only at >=24px.
+
+   Legal 10px: --fs-eyebrow, and only for mono uppercase labels with tracking.
+   10px in sans body text is not a size, it is a mistake. */
+:root {
+  --fs-eyebrow:  10px;   /* mono uppercase label, tracking 0.08–0.1em */
+  --fs-caption:  11px;   /* metadata, counts, timestamps */
+  --fs-small:    12px;   /* table cells, secondary meta, chips */
+  --fs-body:     13px;   /* dense body: cards, list rows, form fields */
+  --fs-base:     14px;   /* document base / longform prose */
+  --fs-title-s:  15px;   /* card or section heading (h3 role) */
+  --fs-title-m:  18px;   /* region heading (h2 role) */
+  --fs-title-l:  22px;   /* page heading (h1 role) */
+
+  --fs-num-s:    24px;   /* inline stat */
+  --fs-num-m:    30px;   /* secondary metric card */
+  --fs-num-l:    36px;   /* second-tier hero KPI */
+  --fs-num-xl:   52px;   /* primary hero KPI */
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
@@ -134,6 +166,51 @@ body {
   background: var(--bg-card);
 }
 button { font-family: inherit; cursor: pointer; }
+
+/* Headings had no base rule, so every unstyled h1/h2/h3 fell to the browser's
+   bold 700. Three weights exist in this design — 400 body, 500 value, 600 title
+   — and 700 is not one of them. This removes it everywhere at once. Bare-element
+   specificity (0,0,1), so every component rule below still wins. */
+h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
+
+/* The page's own title. Present on every panel, one size, one weight. Before
+   this, two panels had no title element at all, four rendered the browser
+   default, and one rendered a section heading at title size. */
+.page-title {
+  font-size: var(--fs-title-l);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0 0 14px;
+}
+
+/* A heading INSIDE a page. Notifications rendered its three sections through
+   .share-card h2 — the showcase hero — so "Email alerts" was set at 28px, the
+   size of a page title, three times on one screen. */
+.section-title {
+  font-size: var(--fs-title-m);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+/* Sessions had a .panel-head element with no rule of any kind: its h2 fell to
+   the browser default of 1.5em bold-700 and the search box beside it did not
+   align to anything. */
+.panel-head {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 14px; flex-wrap: wrap;
+}
+.panel-head h2 {
+  font-size: var(--fs-title-l);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0; flex: 1 1 auto;
+}
+
 
 .board {
   position: relative;
@@ -554,7 +631,7 @@ button { font-family: inherit; cursor: pointer; }
   flex-shrink: 0;
 }
 .card .title {
-  font-weight: 600; font-size: 13px;
+  font-weight: 600; font-size: var(--fs-body);
   line-height: 1.35;
   color: var(--text);
   display: -webkit-box;
@@ -628,13 +705,13 @@ button { font-family: inherit; cursor: pointer; }
 #agent-panel.open { display: flex; }
 #agent-panel header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border, #1f2a26); background: transparent; }
 #agent-panel header b { font-size: 13px; }
-#agent-panel .ap-x { margin-left: auto; cursor: pointer; border: 0; background: none; color: var(--text-muted, #8aa); font-size: 16px; }
+#agent-panel .ap-x { margin-left: auto; cursor: pointer; border: 0; background: none; color: var(--text3); font-size: 16px; }
 #agent-log { flex: 1; overflow: auto; padding: 10px 14px; font: 12px/1.55 ui-monospace, Menlo, monospace; }
 #agent-log .al { margin: 2px 0; white-space: pre-wrap; word-break: break-word; }
-#agent-log .al.tool { color: var(--status-review); } #agent-log .al.system { color: var(--text-muted, #8aa); } #agent-log .al.error { color: var(--status-blocked, #ff5a5a); } #agent-log .al.done { color: var(--text-muted, #8aa); font-weight: 600; }
+#agent-log .al.tool { color: var(--status-review); } #agent-log .al.system { color: var(--text3); } #agent-log .al.error { color: var(--status-blocked, #ff5a5a); } #agent-log .al.done { color: var(--text3); font-weight: 600; }
 #agent-panel .ap-foot { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border, #1f2a26); }
-#agent-panel input { flex: 1; background: var(--bg, #0a0e0c); color: var(--text, #ecf2ee); border: 1px solid var(--border, #1f2a26); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
-#agent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted, #556); }
+#agent-panel input { flex: 1; background: var(--bg-muted); color: var(--text, #ecf2ee); border: 1px solid var(--border, #1f2a26); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
+#agent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
 #agent-dot.live { background: var(--status-review); animation: apulse 1.2s infinite; }
 @keyframes apulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 .gate-reject { color: var(--status-blocked); border-color: rgba(220, 38, 38, 0.30); }
@@ -677,7 +754,7 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 12px;
   line-height: 1.45;
 }
-.degraded-banner strong { color: var(--text1); font-weight: 600; }
+.degraded-banner strong { color: var(--text); font-weight: 600; }
 .degraded-banner span { color: var(--text2); font-family: var(--mono, ui-monospace, monospace); word-break: break-word; }
 
 /* ── Side panel ───────────────────────────────────────────────────────────── */
@@ -733,9 +810,9 @@ button { font-family: inherit; cursor: pointer; }
 .side-close:hover { background: var(--bg-muted); color: var(--text); }
 .side-body { flex: 1; overflow: auto; padding: 18px; }
 .side-title {
-  font-family: var(--serif); font-weight: 600;
-  font-size: 20px;
-  letter-spacing: -0.02em;
+  font-family: var(--sans); font-weight: 600;
+  font-size: var(--fs-title-m);
+  letter-spacing: -0.01em;
   margin-bottom: 12px;
   color: var(--text);
 }
@@ -840,7 +917,7 @@ button { font-family: inherit; cursor: pointer; }
   text-transform: uppercase; color: var(--text3);
   min-width: 34px; flex-shrink: 0;
 }
-.cmdk-label { font-size: 13.5px; color: var(--text); flex: 1; min-width: 0;
+.cmdk-label { font-size: var(--fs-body); color: var(--text); flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmdk-hint { font-family: var(--mono); font-size: 11px; color: var(--text3); flex-shrink: 0; }
 .cmdk-empty { padding: 18px 14px; font-size: 13px; color: var(--text2); }
@@ -853,7 +930,7 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute; inset: 0; background: rgba(0,0,0,0.5);
 }
 .hk-card {
-  position: relative; background: var(--bg, #0f172a);
+  position: relative; background: var(--bg-elevated);
   color: var(--text); border: 1px solid var(--border);
   border-radius: 8px; padding: 20px 24px; min-width: 360px;
   box-shadow: 0 12px 32px rgba(0,0,0,0.5);
@@ -876,7 +953,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .rdm-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
 .rdm-card {
-  position: relative; background: var(--bg, #0f172a);
+  position: relative; background: var(--bg-elevated);
   color: var(--text); border: 1px solid var(--border);
   border-radius: 8px; padding: 18px 22px; min-width: 480px; max-width: 720px;
   box-shadow: 0 12px 32px rgba(0,0,0,0.5);
@@ -903,10 +980,10 @@ button { font-family: inherit; cursor: pointer; }
   text-decoration: none; color: var(--text);
   font-family: ui-monospace, monospace;
 }
-.rdm-artefact:hover { background: var(--bg-hover, rgba(255,255,255,0.08)); }
+.rdm-artefact:hover { background: var(--bg-muted); }
 .rdm-artefact .rdm-art-kind {
   font-size: 10px; padding: 1px 4px; border-radius: 3px;
-  background: var(--accent-bg, rgba(59,130,246,0.2)); color: var(--accent, #3b82f6);
+  background: var(--accent-soft); color: var(--accent-text);
 }
 .rdm-foot { margin-top: 12px; font-size: 11px; color: var(--text3, #9ca3af); }
 .resume-item { cursor: pointer; }
@@ -937,9 +1014,9 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; border-bottom: 1px solid var(--border);
 }
-.ni-header h3 { font-size: 14px; font-weight: 600; margin: 0; }
+.ni-header h3 { font-size: var(--fs-title-s); font-weight: 600; margin: 0; }
 .ni-close {
-  background: transparent; border: 0; color: var(--text-3, #9ca3af);
+  background: transparent; border: 0; color: var(--text3);
   cursor: pointer; padding: 4px; display: flex; border-radius: 4px;
 }
 .ni-close:hover { background: var(--bg-muted, rgba(255,255,255,0.06)); color: var(--text); }
@@ -952,8 +1029,8 @@ button { font-family: inherit; cursor: pointer; }
   flex: 1;
 }
 .ni-label {
-  font-size: 11px; color: var(--text-3, #9ca3af);
-  text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+  font-family: var(--mono); font-size: var(--fs-eyebrow); color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500;
 }
 .ni-field input[type="text"],
 .ni-field textarea,
@@ -981,7 +1058,7 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 13px; cursor: pointer;
 }
 .ni-checkbox input { margin: 0; cursor: pointer; }
-.ni-checkbox span { color: var(--text-2); }
+.ni-checkbox span { color: var(--text2); }
 .ni-actions {
   display: flex; justify-content: flex-end; gap: 8px;
   margin-top: 4px;
@@ -992,7 +1069,7 @@ button { font-family: inherit; cursor: pointer; }
   cursor: pointer; transition: all 120ms;
 }
 .ni-btn-ghost {
-  background: transparent; color: var(--text-2);
+  background: transparent; color: var(--text2);
   border-color: var(--border);
 }
 .ni-btn-ghost:hover { background: var(--bg-muted, rgba(255,255,255,0.05)); color: var(--text); }
@@ -1024,7 +1101,7 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text3); margin-bottom: 6px;
 }
 .side-section-body {
-  font-size: 13.5px; line-height: 1.55;
+  font-size: var(--fs-body); line-height: 1.5;
   color: var(--text2);
   white-space: pre-wrap;
   word-break: break-word;
@@ -1101,7 +1178,7 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text);
 }
 .mem-item .desc {
-  font-size: 11.5px; color: var(--text2);
+  font-size: var(--fs-caption); color: var(--text2);
   margin-top: 2px;
 }
 .mem-item .meta {
@@ -1338,11 +1415,11 @@ button { font-family: inherit; cursor: pointer; }
 .cost-cell .v {
   font-family: var(--serif); font-weight: 500;
   font-variant-numeric: tabular-nums;
-  font-size: 26px; letter-spacing: -0.02em;
+  font-size: var(--fs-num-s); letter-spacing: -0.02em;
   color: var(--text); line-height: 1.1;
 }
 .cost-cell .v small { font-size: 14px; color: var(--text2); margin-left: 2px; font-weight: 400; }
-.cost-cell .sub { font-size: 11.5px; color: var(--text2); }
+.cost-cell .sub { font-size: var(--fs-caption); color: var(--text2); }
 .cost-cell.warn .v { color: var(--status-blocked); }
 .cost-cell.good .v { color: var(--status-review); }
 
@@ -1443,12 +1520,12 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 12px;
 }
 .feat-name {
-  font-family: var(--mono); color: var(--text1);
+  font-family: var(--mono); color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.feat-bar-wrap { background: var(--bg); border-radius: 3px; height: 6px; }
+.feat-bar-wrap { background: var(--bg-strong); border-radius: 3px; height: 6px; }
 .feat-bar { height: 6px; border-radius: 3px; background: var(--accent); transition: width .3s; }
-.feat-cost { font-family: var(--mono); color: var(--text1); text-align: right; }
+.feat-cost { font-family: var(--mono); color: var(--text); text-align: right; }
 .feat-runs { font-size: 11px; color: var(--text3); text-align: right; }
 
 /* ── Inbox page ───────────────────────────────────────────────────────────── */
@@ -1476,8 +1553,10 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: center; gap: 10px;
 }
 .inbox-summary .pill-stat .num {
-  font-family: var(--mono); font-weight: 600;
-  font-size: 24px; color: var(--text);
+  font-family: var(--serif); font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-num-s); letter-spacing: -0.02em;
+  color: var(--text);
 }
 .inbox-summary .pill-stat .lbl {
   font-family: var(--mono); font-size: 10px;
@@ -1542,7 +1621,7 @@ button { font-family: inherit; cursor: pointer; }
 .resume-list .resume-item:hover { color: var(--text); }
 .resume-list .resume-item .ri-tag {
   flex-shrink: 0;
-  font-family: var(--mono); font-size: 9px;
+  font-family: var(--mono); font-size: var(--fs-eyebrow);
   padding: 2px 5px; border-radius: 3px;
   letter-spacing: 0.04em;
   background: rgba(255,255,255,0.05);
@@ -1550,7 +1629,7 @@ button { font-family: inherit; cursor: pointer; }
   margin-top: 1px;
 }
 .resume-list .resume-item .ri-tag.ok { color: var(--accent); background: rgba(0,217,126,0.08); }
-.resume-list .resume-item .ri-tag.fail { color: var(--p1); background: rgba(255,80,80,0.08); }
+.resume-list .resume-item .ri-tag.fail { color: var(--p1-fg); background: rgba(255,80,80,0.08); }
 .resume-list .resume-item .ri-text {
   flex: 1; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1572,7 +1651,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .inbox-section-head h3 {
   font-family: var(--sans); font-weight: 600;
-  font-size: 14px; margin: 0; color: var(--text);
+  font-size: var(--fs-title-s); margin: 0; color: var(--text);
 }
 .inbox-section-head .inbox-count {
   font-family: var(--mono); font-size: 11px;
@@ -1607,7 +1686,7 @@ button { font-family: inherit; cursor: pointer; }
   min-width: 0; overflow-wrap: anywhere; word-break: break-word;
 }
 .inbox-row .ttl {
-  font-size: 13.5px; color: var(--text);
+  font-size: var(--fs-body); color: var(--text);
   font-weight: 500;
   display: flex;
   flex-direction: column;
@@ -1623,7 +1702,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .inbox-row .ttl .ttl-desc {
   font-weight: 400;
-  font-size: 12.5px;
+  font-size: var(--fs-small);
   color: var(--text2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1649,7 +1728,7 @@ button { font-family: inherit; cursor: pointer; }
 .budgets-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
 /* A row has to answer three questions: what is this agent, what does it cost,
    over what period. The slug alone answered none of them. */
-.budgets-table .bt-slug { font-family: var(--mono); font-size: 12.5px; }
+.budgets-table .bt-slug { font-family: var(--mono); font-size: var(--fs-small); }
 .budgets-table .bt-desc {
   font-size: 12px; color: var(--text2); margin-top: 2px;
   max-width: 52ch; text-wrap: pretty;
@@ -1753,7 +1832,7 @@ button { font-family: inherit; cursor: pointer; }
      so a figure that ticks over re-flows its own width and the number appears to
      breathe. Tabular figures cost nothing here and stop it. */
   font-variant-numeric: tabular-nums;
-  font-size: 52px; line-height: 1;
+  font-size: var(--fs-num-xl); line-height: 1;
   letter-spacing: -0.02em;
 }
 /* An absence is rendered quietly and never silently — the glyph stays out of the
@@ -1790,7 +1869,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 12px; margin-bottom: 28px;
 }
 .mp-secondary .metric-card { padding: 18px; }
-.mp-secondary .metric-num { font-size: 30px; }
+.mp-secondary .metric-num { font-size: var(--fs-num-m); }
 
 .mp-row {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
@@ -1801,7 +1880,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .mp-card h3 {
   font-family: var(--sans); font-weight: 600;
-  font-size: 15px; margin: 0 0 16px;
+  font-size: var(--fs-title-s); margin: 0 0 16px;
 }
 .mp-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
 .mp-card-head h3 { margin: 0; }
@@ -1821,7 +1900,7 @@ button { font-family: inherit; cursor: pointer; }
 .bar-row {
   display: grid; grid-template-columns: 130px 1fr 50px;
   align-items: center; gap: 12px;
-  margin-bottom: 10px; font-size: 12.5px;
+  margin-bottom: 10px; font-size: var(--fs-small);
 }
 .bar-row .name { font-family: var(--mono); color: var(--text); }
 .bar-row .rail {
@@ -1863,7 +1942,7 @@ button { font-family: inherit; cursor: pointer; }
 /* ── Logs tab ───────────────────────────────────────────── */
 .logs-page { display: flex; flex-direction: column; height: 100%; }
 .logs-header { padding: 20px 24px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 16px; }
-.logs-header h2 { margin: 0; font-size: 18px; }
+.logs-header h2 { margin: 0; font-size: var(--fs-title-l); letter-spacing: -0.02em; }
 .logs-hint { font-size: 12px; color: var(--text3); }
 .logs-hint code { font-family: var(--mono); background: var(--bg-strong); padding: 1px 5px; border-radius: 3px; }
 .logs-layout { display: flex; flex: 1; overflow: hidden; }
@@ -1890,7 +1969,7 @@ button { font-family: inherit; cursor: pointer; }
 .log-item .log-title { font-size: 13px; font-weight: 500; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .log-item .log-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .log-detail-head { margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
-.log-detail-head h3 { margin: 0 0 4px; font-size: 17px; }
+.log-detail-head h3 { margin: 0 0 4px; font-size: var(--fs-title-m); letter-spacing: -0.01em; }
 .log-detail-head .log-detail-meta { font-size: 12px; color: var(--text3); }
 .log-section { margin-bottom: 18px; }
 .log-section-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
@@ -2086,7 +2165,8 @@ button { font-family: inherit; cursor: pointer; }
   padding: 16px 20px; border-bottom: 1px solid var(--border);
 }
 .agent-drawer-header h3 {
-  font-family: var(--mono); font-size: 14px;
+  font-family: var(--sans); font-weight: 600;
+  font-size: var(--fs-title-s);
   color: var(--text); flex: 1; margin: 0;
 }
 .agent-drawer-close {
@@ -2169,7 +2249,7 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 16px;
   padding: 32px;
 }
-.share-card h2 {
+.share-card h2:not(.section-title) {
   font-family: var(--serif); font-weight: 500;
   font-size: 28px; letter-spacing: -0.01em;
   margin: 0 0 6px;
@@ -2187,10 +2267,10 @@ button { font-family: inherit; cursor: pointer; }
 .share-toggle-row .label-grp .l { font-weight: 600; font-size: 14px; }
 .share-toggle-row .label-grp .h { color: var(--text2); font-size: 12px; }
 
-.notif-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; }
+.notif-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; }
 .notif-row:hover { border-color: var(--accent); }
 .notif-row .emoji { font-size: 16px; flex-shrink: 0; }
-.notif-row strong { color: var(--text1); margin-right: 4px; }
+.notif-row strong { color: var(--text); margin-right: 4px; }
 .notif-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
 .toggle {
@@ -2224,7 +2304,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .url-block .url-text {
   flex: 1; font-family: var(--mono);
-  font-size: 12.5px; color: var(--text);
+  font-size: var(--fs-small); color: var(--text);
   white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -2357,7 +2437,7 @@ button { font-family: inherit; cursor: pointer; }
   display: grid;
   grid-template-columns: 130px 1fr 70px;
   align-items: center; gap: 12px;
-  margin-bottom: 10px; font-size: 12.5px;
+  margin-bottom: 10px; font-size: var(--fs-small);
 }
 .agent-cost-row .name { font-family: var(--mono); color: var(--text); }
 .agent-cost-row .rail { display: block; height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
@@ -2390,7 +2470,11 @@ button { font-family: inherit; cursor: pointer; }
 .side-section-head { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; margin-top: 16px; }
 
 /* ── Security tab: hero KPI tile + activity feed ──────────────────────────── */
-.kpi-hero .kpi-value-hero { font-size: 36px; line-height: 1.1; font-weight: 500; }
+.kpi-hero .kpi-value-hero {
+  font-family: var(--serif); font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-num-l); line-height: 1.1; letter-spacing: -0.02em;
+}
 .kpi-hero .kpi-label { font-size: 13px; font-weight: 500; }
 .kpi-empty .kpi-value { color: var(--accent); font-size: 22px; }
 .kpi-empty .kpi-value::after {
@@ -2745,6 +2829,7 @@ button { font-family: inherit; cursor: pointer; }
 
     <!-- Kanban -->
     <div class="panel" id="panel-kanban">
+      <h1 class="page-title">Tasks</h1>
       <div id="filter-bar" class="filter-bar"></div>
       <div class="kanban" id="kanban-board"></div>
     </div>
@@ -2753,6 +2838,7 @@ button { font-family: inherit; cursor: pointer; }
     <!-- Metrics -->
     <div class="panel" id="panel-dashboard">
       <div class="metrics-page">
+        <h1 class="page-title">Metrics</h1>
         <div class="period-toolbar">
           <span class="period-label">PERIOD</span>
           <div class="period-chips" id="period-chips">
@@ -2898,7 +2984,7 @@ button { font-family: inherit; cursor: pointer; }
 
     <div class="panel" id="panel-budgets" role="tabpanel">
       <div class="metrics-page">
-        <h1>Agent budgets</h1>
+        <h1 class="page-title">Agent budgets</h1>
         <p class="muted" style="max-width:70ch;margin:6px 0 20px">
           A cap on what one agent may spend. When measured spend passes it, the pipeline
           refuses to dispatch that agent and says so — it does not fail quietly.
@@ -2910,7 +2996,7 @@ button { font-family: inherit; cursor: pointer; }
     </div>
 
     <div class="panel" id="panel-docs">
-      <h1>Docs</h1>
+      <h1 class="page-title">Docs</h1>
       <div class="docs-search">
         <input type="search" id="docs-q" placeholder="Search inside documents…"
                aria-label="Search inside documents"
@@ -2979,8 +3065,9 @@ button { font-family: inherit; cursor: pointer; }
     <!-- Notifications -->
     <div class="panel" id="panel-notifications">
       <div class="share-page">
+        <h1 class="page-title">Notifications</h1>
         <div class="share-card">
-          <h2>Email alerts</h2>
+          <h2 class="section-title">Email alerts</h2>
           <p class="sub">Get notified when something needs your attention — even when you're away from the board. Verify your email once, pick what to receive, done. No API keys, no extra signup.</p>
 
           <div class="share-toggle-row">
@@ -2997,7 +3084,7 @@ button { font-family: inherit; cursor: pointer; }
           <div id="notif-step-email">
             <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-family:var(--mono);letter-spacing:.05em">RECIPIENT EMAIL</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <input id="notif-to" type="email" placeholder="you@example.com" style="flex:1 1 280px;min-width:240px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:14px" />
+              <input id="notif-to" type="email" placeholder="you@example.com" style="flex:1 1 280px;min-width:240px;padding:8px 10px;background:var(--bg-muted);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px" />
               <button class="btn-black" onclick="sendVerifyCode()">Send code</button>
             </div>
           </div>
@@ -3006,23 +3093,23 @@ button { font-family: inherit; cursor: pointer; }
           <div id="notif-step-code" style="display:none;margin-top:14px">
             <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-family:var(--mono);letter-spacing:.05em">VERIFICATION CODE (CHECK <span id="notif-code-target">YOUR INBOX</span>)</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <input id="notif-code" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456" style="flex:1 1 200px;min-width:140px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text1);font-size:18px;font-family:var(--mono);letter-spacing:.2em;text-align:center" />
+              <input id="notif-code" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456" style="flex:1 1 200px;min-width:140px;padding:8px 10px;background:var(--bg-muted);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:18px;font-family:var(--mono);letter-spacing:.2em;text-align:center" />
               <button class="btn-black" onclick="confirmVerifyCode()">Verify</button>
               <button class="btn-ghost-sm" onclick="sendVerifyCode()">Resend code</button>
             </div>
           </div>
 
           <!-- Step 3: verified -->
-          <div id="notif-step-verified" style="display:none;margin-top:14px;padding:10px 14px;background:rgba(0,217,126,0.08);border:1px solid rgba(0,217,126,0.30);border-radius:8px;display:none;align-items:center;gap:10px;font-size:13.5px">
+          <div id="notif-step-verified" style="display:none;margin-top:14px;padding:10px 14px;background:rgba(0,217,126,0.08);border:1px solid rgba(0,217,126,0.30);border-radius:8px;display:none;align-items:center;gap:10px;font-size: var(--fs-body)">
             <span style="color:var(--accent);font-size:18px">✓</span>
             <span><strong id="notif-verified-email">—</strong> verified · alerts delivered through <code>greatcto.systems/notify</code></span>
             <button class="btn-ghost-sm" style="margin-left:auto" onclick="changeEmail()">Change</button>
           </div>
 
           <div class="share-note" style="margin-top:24px">
-            <strong style="color:var(--text1)">Which alerts to send</strong>
+            <strong style="color:var(--text)">Which alerts to send</strong>
           </div>
-          <div id="notif-triggers" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:13.5px">
+          <div id="notif-triggers" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size: var(--fs-body)">
             <label class="notif-row"><input type="checkbox" data-trigger="incident.p0"> <span class="emoji">🚨</span><strong>P0 incident</strong> — production failure, ack-grade</label>
             <label class="notif-row"><input type="checkbox" data-trigger="gate.stale"> <span class="emoji">⏸️</span><strong>Gate stale &gt; 2h</strong> — ship gate waiting for your approval</label>
             <label class="notif-row"><input type="checkbox" data-trigger="gate.blocked"> <span class="emoji">🛡️</span><strong>Security BLOCKED</strong> — security-officer rejected a merge</label>
@@ -3044,7 +3131,7 @@ button { font-family: inherit; cursor: pointer; }
 
         <!-- ── Browser push card ───────────────────────────────────────── -->
         <div class="share-card" style="margin-top:16px" id="push-card">
-          <h2>Browser push</h2>
+          <h2 class="section-title">Browser push</h2>
           <p class="sub">Native desktop notifications — works even when the board tab is in the background. No email required. Uses Web Push (VAPID) — keys stay local.</p>
           <div class="share-toggle-row">
             <div class="label-grp">
@@ -3055,7 +3142,7 @@ button { font-family: inherit; cursor: pointer; }
               <input type="checkbox" id="push-toggle" onclick="event.stopPropagation()">
             </div>
           </div>
-          <div id="push-status" style="margin-top:10px;font-size:12.5px;font-family:var(--mono);color:var(--text3)"></div>
+          <div id="push-status" style="margin-top:10px;font-size: var(--fs-small);font-family:var(--mono);color:var(--text3)"></div>
           <div class="share-note" style="margin-top:16px">
             Push subscriptions are stored locally in <code>~/.great_cto/push-subscriptions.json</code>. Notifications fire for the same 5 triggers as email alerts.
           </div>
@@ -3063,7 +3150,7 @@ button { font-family: inherit; cursor: pointer; }
 
         <!-- ── In-app notification history ─────────────────────────────── -->
         <div class="share-card" style="margin-top:16px">
-          <h2>Recent notifications</h2>
+          <h2 class="section-title">Recent notifications</h2>
           <p class="sub">Last 100 alerts fired this session. Also accessible via the notification drawer (bell icon).</p>
           <div id="notif-history-inline" style="display:flex;flex-direction:column;gap:0;margin-top:12px;
             border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">
@@ -6197,15 +6284,22 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSide();
  */
 async function checkBoardFreshness() {
   const v = await api('/api/version');
-  if (!v || v.stale !== 'yes') return;
+  // `behind` and `ahead` are different problems with different fixes; `no` and
+  // `unknown` are both silent, because a comparison we could not make must not
+  // render as a mismatch.
+  if (!v || (v.stale !== 'behind' && v.stale !== 'ahead')) return;
   const host = document.querySelector('.workspace');
   if (!host || document.getElementById('stale-board')) return;
   const el = document.createElement('div');
   el.id = 'stale-board';
   el.className = 'stale-board';
   el.setAttribute('role', 'status');
-  el.innerHTML = `<span>This board is running <code>v${esc(v.version)}</code> — `
-    + `<code>v${esc(v.installed)}</code> is installed. Restart it to pick up the new version.</span>`;
+  el.innerHTML = v.stale === 'behind'
+    ? `<span>This board is running <code>v${esc(v.version)}</code> — `
+      + `<code>v${esc(v.installed)}</code> is installed. Restart it to pick up the new version.</span>`
+    : `<span>This board is running <code>v${esc(v.version)}</code>, which is newer than the `
+      + `installed <code>v${esc(v.installed)}</code>. Restarting would go back to the older build — `
+      + `install this version first.</span>`;
   host.insertBefore(el, host.firstChild);
 }
 
@@ -7236,7 +7330,7 @@ function renderNotifDrawer() {
       <div style="display:flex;align-items:flex-start;gap:10px">
         <span style="font-size:15px;flex-shrink:0;margin-top:1px">${_notifLevelIcon(n.level)}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:${n.read ? '400' : '600'};color:var(--text1);
+          <div style="font-size:13px;font-weight:${n.read ? '400' : '600'};color:var(--text);
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.title)}</div>
           <div style="font-size:12px;color:var(--text3);margin-top:2px;line-height:1.4">${esc(n.body)}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)">
@@ -7416,7 +7510,7 @@ if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}
 
 <!-- ── Notification drawer ──────────────────────────────────────────────── -->
 <div id="notif-drawer" style="position:fixed;top:0;right:-400px;width:380px;height:100vh;
-  background:var(--bg1);border-left:1px solid var(--border);z-index:9999;
+  background:var(--bg-elevated);border-left:1px solid var(--border);z-index:9999;
   transition:right .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;
   box-shadow:-4px 0 32px rgba(0,0,0,.5)">
   <div style="padding:14px 16px;border-bottom:1px solid var(--border);
@@ -7425,7 +7519,7 @@ if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}
       style="width:16px;height:16px;color:var(--text2)">
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
     </svg>
-    <span style="font-weight:600;font-size:14px;flex:1;color:var(--text1)">Notifications</span>
+    <span style="font-weight:600;font-size:14px;flex:1;color:var(--text)">Notifications</span>
     <button class="btn-ghost-sm" onclick="markAllNotifsRead()"
       style="font-size:12px">Mark all read</button>
     <button onclick="closeNotifDrawer()" style="background:none;border:none;cursor:pointer;

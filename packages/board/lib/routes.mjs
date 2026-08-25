@@ -1174,9 +1174,24 @@ async function dispatch(req, res, url, cwd) {
         return (x[0] - y[0]) || (x[1] - y[1]) || (x[2] - y[2]);
       }).pop() || null;
     } catch { installed = null; }
-    const stale = installed && BUILD_VERSION !== 'unknown'
-      ? (installed !== BUILD_VERSION ? 'yes' : 'no')
-      : 'unknown';
+    // Direction, not inequality. `installed !== BUILD_VERSION` is true in both
+    // directions, and the banner it fed said "restart to pick up the new
+    // version" either way — so a board running 3.2.0 against an installed 3.1.0
+    // was told to restart into the OLDER build. A prompt to downgrade that
+    // looks exactly like a prompt to upgrade is the same defect this endpoint
+    // was written to fix, pointed the other way.
+    //
+    // Four states: `behind` (an install is waiting), `ahead` (the running code
+    // is newer — restarting would lose it), `no`, and `unknown`.
+    const cmp = (a, b) => {
+      const x = a.split('.').map(Number), y = b.split('.').map(Number);
+      return (x[0] - y[0]) || (x[1] - y[1]) || (x[2] - y[2]);
+    };
+    let stale = 'unknown';
+    if (installed && BUILD_VERSION !== 'unknown' && /^\d+\.\d+\.\d+$/.test(BUILD_VERSION)) {
+      const d = cmp(installed, BUILD_VERSION);
+      stale = d > 0 ? 'behind' : d < 0 ? 'ahead' : 'no';
+    }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({
       version: BUILD_VERSION, installed, stale,

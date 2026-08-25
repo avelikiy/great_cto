@@ -33,20 +33,45 @@ test('/api/version compares the running version against the installed one', () =
   assert.match(handler, /stale/, 'and the comparison, so the page does not have to make it');
 });
 
-test('staleness is three states — a comparison we could not make is not a mismatch', () => {
+test('staleness is four states — a comparison we could not make is not a mismatch', () => {
   const routes = read('packages', 'board', 'lib', 'routes.mjs');
   const handler = routes.match(/if \(pathname === '\/api\/version'\)[\s\S]*?\n  \}/)?.[0];
   assert.match(handler, /'unknown'/, 'an unreadable plugin cache answers unknown');
   assert.match(handler, /installed && BUILD_VERSION !== 'unknown'/,
-    'both sides must be known before yes/no is claimed');
+    'both sides must be known before a verdict is claimed');
 });
 
-test('the banner is silent unless the answer is a definite yes', () => {
+test('the comparison is by direction, not by inequality', () => {
+  // `installed !== BUILD_VERSION` is true in both directions, so a board running
+  // 3.2.0 against an installed 3.1.0 was told to "restart to pick up the new
+  // version" — i.e. to downgrade. Asserted as a property (the two directions
+  // reach different outcomes), not as the names they currently carry.
+  const routes = read('packages', 'board', 'lib', 'routes.mjs');
+  const handler = routes.match(/if \(pathname === '\/api\/version'\)[\s\S]*?\n  \}/)?.[0];
+  assert.ok(!/installed !== BUILD_VERSION \? '[a-z]+' : /.test(handler),
+    'a bare inequality cannot tell an upgrade from a downgrade');
+  const outcomes = [...handler.matchAll(/stale = [^;]*?'(\w+)'[^;]*?'(\w+)'[^;]*?'(\w+)'/g)][0];
+  assert.ok(outcomes, 'the handler picks between three definite outcomes');
+  assert.equal(new Set(outcomes.slice(1)).size, 3, 'and they are three DIFFERENT outcomes');
+});
+
+test('the banner is silent unless the answer is a definite mismatch', () => {
   const html = read('packages', 'board', 'public', 'index.html');
   const fn = html.match(/async function checkBoardFreshness\(\)[\s\S]*?\n\}/)?.[0];
   assert.ok(fn, 'located checkBoardFreshness');
-  assert.match(fn, /v\.stale !== 'yes'\) return;/, "'unknown' must not render as a mismatch");
+  assert.match(fn, /if \(!v \|\| \(v\.stale !== '\w+' && v\.stale !== '\w+'\)\) return;/,
+    "'no' and 'unknown' must both leave the page silent");
   assert.match(fn, /esc\(v\.version\)/, 'server-supplied strings are escaped like everything else here');
+});
+
+test('the two directions do not share one message', () => {
+  // The whole defect was one sentence serving both cases. If the banner has a
+  // single innerHTML with no branch on direction, it is telling somebody to
+  // restart into the wrong build again.
+  const html = read('packages', 'board', 'public', 'index.html');
+  const fn = html.match(/async function checkBoardFreshness\(\)[\s\S]*?\n\}/)?.[0];
+  assert.match(fn, /el\.innerHTML = v\.stale ===/, 'the message branches on which way the mismatch runs');
+  assert.match(fn, /newer than the/, 'and says so when the running code is the newer one');
 });
 
 // ── The installer restarts what it replaced ─────────────────────────────────

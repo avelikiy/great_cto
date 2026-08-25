@@ -20,6 +20,25 @@ That's it. The CLI detects your stack, picks the right archetype, clones the plu
 
 After install, restart Claude Code and run `/inbox` or `/audit`.
 
+## What the plugin gives you
+
+The CLI installs it; these are what it installs.
+
+- **A pipeline of specialist agents** — architect, product owner, senior dev, QA,
+  security officer, and archetype-specific reviewers — that run in sequence with
+  human approval gates at the points that are expensive to undo.
+- **Spending caps that refuse.** Set a per-agent cap; when measured spend passes
+  it the dispatcher declines to run that agent instead of quietly continuing. An
+  agent with no measurement reads as `unmeasured`, never as `$0`.
+- **A board at `localhost:3141`** — tasks, metrics, per-agent budgets, docs
+  search, and the decision journal, all served from your own machine. Nothing
+  leaves it.
+- **A decision journal** that records what each dispatch decided and why, so a
+  pipeline that did not run looks different from one that ran and found nothing.
+
+Telemetry is opt-in and off by default — see
+[docs/PRIVACY.md](https://github.com/avelikiy/great_cto/blob/main/docs/PRIVACY.md).
+
 ## Examples
 
 ### Commerce detection (Stripe + Next.js)
@@ -82,8 +101,10 @@ npx great-cto init [options]
 ## Trust signals
 
 - Zero runtime dependencies — only Node built-ins (`node:fs`, `node:path`, etc.)
-- 47 unit tests covering stack detection, archetype scoring, settings merge
-- CI matrix: Node 18/20/22 × Ubuntu/macOS/Windows
+- 305 unit tests covering stack detection, archetype scoring, and settings merge
+- Tests and the release gate run locally (`scripts/ci-local.sh`) — the hosted CI
+  workflows are present in the repo but have not run since June 2026, so treat the
+  badge-shaped claims in this file as claims about the local gate, not a cloud matrix
 - Source: [`packages/cli/src/`](https://github.com/avelikiy/great_cto/tree/main/packages/cli/src) — ~1.2k LOC TypeScript
 
 ## License
