@@ -4,6 +4,67 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.5.0 — 2026-08-25
+
+### An agent's report about itself is not evidence
+
+The pipeline handed one agent's output to the next on the strength of a line the
+agent wrote about itself. `architect | APPROVED | arch=docs/...` is a
+self-report, and every stage downstream treated it as fact — so a wrong one was
+not caught at the next stage, it was **built on**.
+
+The parts to check it were already here, pointed at nothing:
+
+- **`ask_kimi` is declared by 19 agents and has never been invoked once.** The
+  router works; verified with a live call.
+- **`acceptance-verify.mjs` had one caller: its own test.** Because zero
+  documents in the repository have an `## ACCEPTANCE` section. `pm` is
+  instructed to emit one IMPL-BRIEF per task; `docs/impl-briefs/` does not
+  exist and no brief has ever been written. That is why "100% done" had nothing
+  to be measured against.
+
+**`independent-verify.mjs`** asks cheapest-and-hardest first, and the model is
+only asked what the machine cannot settle: do the claimed files exist → do the
+frozen criteria pass when run → does a *different model* find each requirement
+addressed in the actual artefact. Three states — `verified | rework |
+unverifiable` — and `unverifiable` is the point: an agent that claims nothing
+and freezes no criteria is reported, never waved through, or the cheapest way to
+pass becomes claiming nothing. On this repo's own logs it already separates
+them: `architect` and `security-officer` verify, `senior-dev` and `qa-engineer`
+cannot be verified at all.
+
+**Three things had to be measured rather than assumed:**
+
+1. The judge answered the identical closed question differently between runs.
+   The router sent **no `temperature` at all** — every call ran at the provider
+   default. Now 0, and configurable.
+2. Temperature 0 was **not sufficient**: four consecutive runs of one fixture
+   gave "2 not met, 2, 1, 2". Each requirement is now asked three times and the
+   majority taken; a split is reported, not hidden.
+3. Neither was the main problem — **the prompt was**. It said "do not be
+   generous" and "answer no if you cannot tell", so a requirement implemented in
+   plain code came back "no", correctly, by that instruction. It would have sent
+   every stage back forever. The question now separates *addressed* from
+   *proven* and asks only the first. After the rewrite: 3/3 identical on both
+   fixtures, zero splits.
+
+**Wired into the dispatcher**, split by what it can afford to enforce. Layer 1
+runs inline (file stats, microseconds): a stage whose named artefacts are absent
+returns `PIPELINE-REWORK` and dispatches nothing. Layers 2–3 take ~30s per
+requirement, too slow for a synchronous hook, so every success directive carries
+the command and what its three exit codes mean. The asymmetry is written into
+the code rather than left as a silence.
+
+**`REWORK` is a new verdict token with a ceiling of three.** Distinct from
+BLOCKED: BLOCKED means a human must decide, REWORK means the agent that just ran
+can fix this itself. Unbounded return is a loop between two machines whose
+symptom is not a crash but a pipeline that looks busy for hours.
+
+⚠️ **Behaviour change:** a stage that names an artefact it did not write now
+stops the chain instead of advancing it.
+
+---
+
 ## v3.4.0 — 2026-08-25
 
 ### A check nobody calls and a check that cannot fail are the same thing
