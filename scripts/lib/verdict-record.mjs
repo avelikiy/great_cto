@@ -33,6 +33,11 @@ export const VERDICT_FORMAT_VERSION = 1;
 /** Verdict values with a defined meaning. Anything else is kept but flagged. */
 export const KNOWN_VERDICTS = Object.freeze([
   'APPROVED', 'BLOCKED', 'DONE', 'FAIL', 'PASS', 'REJECTED', 'SKIPPED', 'ESCALATED',
+  // REWORK — independent verification found the stage incomplete and the agent
+  // that ran it can fix that itself. Distinct from BLOCKED, which means a human
+  // must decide. Without it here the verifier could reach its conclusion and not
+  // be able to write it down, which is the same as not reaching it.
+  'REWORK',
 ]);
 
 /**

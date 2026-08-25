@@ -86,6 +86,20 @@ export const BLOCKED_TOKENS = new Set(['BLOCKED', 'FAIL', 'FAILED', 'REJECTED'])
 export const REWORK_TOKEN = 'REWORK';
 
 /**
+ * How many times a stage may be sent back before it becomes a human's problem.
+ *
+ * Three, not unlimited. Two machines handing work back and forth do not get
+ * bored, and the symptom is not an error — it is a pipeline that looks busy.
+ */
+export const MAX_REWORK = 3;
+
+/** How many REWORK verdicts this agent already has in this chain. */
+export function countRework(agent, allVerdicts) {
+  if (!Array.isArray(allVerdicts)) return 0;
+  return allVerdicts.filter((v) => v?.agent === agent && v?.verdict === REWORK_TOKEN).length;
+}
+
+/**
  * Layer 1 of independent-verify, inline: do the artefacts this verdict names
  * exist on disk with content?
  *
@@ -411,6 +425,31 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       text: `PIPELINE: ${agent} finished but recorded no verdict line in ${VERDICT_DIR}/${agent}.log. ` +
         `Three-state completion requires it (shared/orchestrator.toml [completion]). ` +
         `Ask the agent (or run yourself): bash scripts/log-verdict.sh ${agent} <VERDICT> auto — then continue the pipeline.`,
+    };
+  }
+
+  // REWORK: back to the agent that just ran, with a bound.
+  //
+  // The bound is the part that matters. "Send it back until it is right" with no
+  // ceiling is an unbounded loop between two machines, and the failure mode is
+  // not a crash — it is a pipeline that looks busy for hours. After MAX_REWORK
+  // passes this stops being the agent's problem and becomes a decision, which is
+  // what BLOCKED already means.
+  if (verdict.verdict === REWORK_TOKEN) {
+    const passes = countRework(agent, allVerdicts);
+    if (passes >= MAX_REWORK) {
+      return {
+        kind: 'blocked',
+        text: `PIPELINE-STOP: ${agent} has been sent back ${passes} times and still does not pass verification. `
+          + `That is the ceiling — this is now a decision, not another pass. `
+          + `Show the CTO the outstanding findings and what ${agent} changed on each attempt.`,
+      };
+    }
+    return {
+      kind: 'rework',
+      text: `PIPELINE-REWORK: ${agent} did not pass independent verification (pass ${passes + 1} of ${MAX_REWORK}). `
+        + `Re-spawn ${agent} with the verifier's findings quoted verbatim and require it to address each one. `
+        + `Do NOT spawn ${((rule.next || []).join(', ')) || 'downstream agents'} — that work would rest on a stage that has not passed.`,
     };
   }
 
