@@ -4,6 +4,44 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.2.0 — 2026-08-25
+
+### The budgets screen answers the three questions it is asked
+
+It shipped as 69 identical chips in one blob — a wall, not a screen. The
+operator named exactly what was missing, and each item was a real gap:
+
+- **No structure.** Grouped now: agents with a cap, agents that RAN in the last
+  30 days without one — the ones a cap would actually apply to — and, collapsed,
+  the 62 that have not run at all. On a fresh project that last group is most of
+  the roster, and burying it is the point.
+- **No idea what an agent does.** Every row carries its description, from the
+  agent's own frontmatter rather than a list maintained beside it.
+- **No idea what one costs.** Runs and spend over an explicit 30-day window, and
+  labelled `estimated` when that is what it is. `llm_usd_30d_real` is preferred
+  where it exists; where it does not, the estimate says so rather than passing
+  for a measurement.
+
+### The README and the landing describe what v3 actually does
+
+Both still said building a product was two approvals. It has been three since
+`gates-only` gained the product gate — the pipeline used to stop on *how* to
+build and on *whether* to release, and never on *what*.
+
+Spending caps and the decision journal were shipped and undocumented. The
+sentence that matters for caps is the one about when they do NOT fire: an
+estimate never refuses, so while no verdict carries a real cost the cap reads
+`unmeasured` and holds nothing.
+
+### The version guard was half a fix
+
+`seo-augment.mjs` derives `softwareVersion` from plugin.json — but only inserted
+it when absent. The block already existed, so the insert was skipped and the
+number froze at 2.96.0 against a shipped 3.1.0: precisely the drift that
+deriving it was meant to end. "Insert if absent" is not "keep correct".
+
+---
+
 ## v3.1.0 — 2026-08-24
 
 Everything here came from the operator opening the board and saying he could not
