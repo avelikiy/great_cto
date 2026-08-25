@@ -4,6 +4,48 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.4.0 — 2026-08-25
+
+### A check nobody calls and a check that cannot fail are the same thing
+
+v3.3.0 shipped two mechanical checkers — token parity and type-scale parity —
+with passing unit tests. Neither was pointed at anything. Run against the board
+they exited 0 in silence, and they did so against a file with an undeclared
+token and a 17px size planted in it, because neither had a command-line entry
+point: loading the module, defining its functions and exiting 0 looks exactly
+like checking the file and finding it clean.
+
+Both have one now, both run in CI over the real stylesheet, and the gate was
+verified by breaking `index.html` and watching it fail — not by reading the code.
+`share.html` is deliberately exempt from the type-scale check, and the reason is
+written into `ci-local.sh` rather than left as an absence: it is a self-contained
+report published to an external host with its own visual language, so giving it
+a scale is a design decision, not a mechanical snap.
+
+**What the checks found once they could see:**
+
+- **Two `var()` calls that never resolved.** `--bg2` and `--line`, both carrying
+  fallbacks — so they painted `transparent` and `#ddd` straight through the theme
+  switch meant to change them.
+
+- **246 font sizes off the scale by reference.** Each carried a raw pixel value
+  that happened to equal a scale step. They are on the token now; the rendering
+  is byte-identical and the point is that a scale nothing references is
+  documentation. The 8 that stay off it are deliberate and each names its reason:
+  icon glyphs sized to their box, the longform document ramp, the Share hero.
+
+- **Form controls at the browser's 13.333px.** `font-family: inherit` was there,
+  the size was not. Every field the operator types into sat off every step.
+
+**And one no checker can see, found by opening the page.** Budgets awaited its
+two reads bare, so a rejection returned from the function and left `loading…` on
+screen permanently. A page that failed and a page still working are the same
+picture — and the one you are looking at is the one where nothing more is
+coming. Three states now; the failure names what broke, says the caps themselves
+are untouched, and offers the retry.
+
+---
+
 ## v3.3.0 — 2026-08-25
 
 ### A declaration that does not resolve is not a declaration
