@@ -4,6 +4,56 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.3.0 — 2026-08-25
+
+### A declaration that does not resolve is not a declaration
+
+Three findings in the board's stylesheet, one shape: something written down that
+never took effect and rendered as though it had.
+
+- **Eight dead custom properties, 26 declarations.** `--text1`, `--text-2`,
+  `--text-3`, `--text-muted`, `--bg1`, `--bg2`, `--bg`, `--bg-hover` were used
+  and never declared, plus `--accent-bg` and `--p1`. CSS drops an unresolvable
+  `var()` silently, so a notification row's background computed to
+  `rgba(0, 0, 0, 0)` — a card with no card — and a failure tag rendered with no
+  colour. The ones carrying a fallback were the worse half: they always paint
+  the fallback, so `var(--accent-bg, rgba(59,130,246,0.2))` painted **blue**
+  inside an emerald palette and survived every theme switch that was meant to
+  change it.
+
+- **No type scale, and no rule for headings at all.** 22 distinct font sizes had
+  accumulated, from 9px to 52px, including 11.5 / 12.5 / 13.5. Because nothing
+  styled `h1`/`h2`/`h3`, four screens rendered their page title in the browser's
+  default bold 700 — a weight the design uses nowhere. One role, six renderings.
+  Now two ramps as `--fs-*` tokens (text 10→22, display numerals 24→52), a
+  heading reset that removes 700 everywhere at once, and one `.page-title` on
+  every panel — two of them previously had no title element whatsoever, and
+  Notifications rendered three *section* headings at page-title size.
+
+- **A staleness banner that could not tell an upgrade from a downgrade.** The
+  check was `installed !== BUILD_VERSION` — true in both directions, feeding one
+  sentence. A board running v3.2.0 against an installed v3.1.0 was told to
+  "restart to pick up the new version", i.e. to go backwards. Four states now,
+  with the direction named and a different message for each.
+
+### Two more mechanical checks, so noticing is not the thing that has to work
+
+Alongside `css-cascade` (does a rule win?), the stylesheet is now checked for
+**token parity** (does every `var()` resolve to a declared name?) and **scale
+parity** (is every `font-size` a step on the ramp?). Deliberate exceptions —
+icon glyphs, longform document typography, the single showcase hero — pass by
+naming their selector, because an exception you have to write down is one you
+have to defend.
+
+### The npm page said things that were not measured
+
+It claimed "47 unit tests" against a measured 305, and a CI matrix across three
+Node versions and three operating systems that has not run since June. Both
+corrected, and the page now describes what the plugin actually does — spending
+caps, the board, the decision journal — rather than only how to install it.
+
+---
+
 ## v3.2.0 — 2026-08-25
 
 ### The budgets screen answers the three questions it is asked
