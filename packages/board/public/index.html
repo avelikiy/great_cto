@@ -1640,6 +1640,22 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; gap: 4px; align-items: center;
 }
 .inbox-row .actions .gate-btn { height: 26px; padding: 0 10px; font-size: 11px; }
+.budgets-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.budgets-table th {
+  text-align: left; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2);
+  padding: 0 12px 8px 0; border-bottom: 1px solid var(--border);
+}
+.budgets-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.budgets-table .bt-agent { font-family: var(--mono); }
+.budgets-table .bt-cap { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.budgets-table .bt-actions { text-align: right; white-space: nowrap; }
+.budgets-table .bt-actions .ab-btn + .ab-btn { margin-left: 6px; }
+.budgets-empty {
+  padding: 16px; border: 1px dashed var(--border-strong); border-radius: 8px;
+  color: var(--text2); font-size: 13px;
+}
+.budgets-uncapped { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .docs-search { display: flex; align-items: center; gap: 8px; margin: 10px 0 16px; }
 .docs-search input {
   flex: 1 1 auto; min-width: 0; max-width: 460px;
@@ -2554,6 +2570,11 @@ button { font-family: inherit; cursor: pointer; }
         <span>Activity</span>
         <span class="count" id="nav-logs-count">0</span>
       </div>
+      <div class="nav-item" data-tab="budgets" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('budgets', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>Budgets</span>
+        <span class="count" id="nav-budget-count"></span>
+      </div>
       <div class="nav-item" data-tab="notifications" role="tab" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="switchTab('notifications', this); loadNotifHistory()">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         <span>Notifications</span>
@@ -2861,6 +2882,19 @@ button { font-family: inherit; cursor: pointer; }
                onkeydown="if(event.key==='Enter')searchTranscripts()">
       </div>
       <div id="sessions-body" class="muted">Loading…</div>
+    </div>
+
+    <div class="panel" id="panel-budgets" role="tabpanel">
+      <div class="metrics-page">
+        <h1>Agent budgets</h1>
+        <p class="muted" style="max-width:70ch;margin:6px 0 20px">
+          A cap on what one agent may spend. When measured spend passes it, the pipeline
+          refuses to dispatch that agent and says so — it does not fail quietly.
+          Spend is measured from verdicts that carry a cost; while none does, the cap
+          cannot fire and says that too. An estimate never refuses.
+        </p>
+        <div id="budgets-page-body">loading…</div>
+      </div>
     </div>
 
     <div class="panel" id="panel-docs">
@@ -3492,6 +3526,95 @@ function renderAgentBudgets(budgets, meta = {}) {
     + `<button type="button" class="ab-btn ab-add" onclick="addAgentBudget()">+ Add a budget</button>`;
 }
 
+/* The Budgets screen.
+ *
+ * The panel on the agents tab was only reachable two clicks in, and hidden
+ * entirely on a project with no caps declared — so on the project the operator
+ * actually opened, the feature did not exist. A limit you can only see after
+ * hand-editing the config it reads is documentation, not a feature.
+ *
+ * This screen shows the same judgements the dispatcher refuses with, plus every
+ * agent that has NO cap, because "which agents are uncapped" is the question you
+ * arrive with when you come here at all.
+ */
+async function loadBudgetsPage() {
+  const body = document.getElementById('budgets-page-body');
+  if (!body) return;
+  body.innerHTML = '<div class="muted">loading…</div>';
+
+  const [h] = await Promise.all([
+    api(`/api/heartbeat${pqs()}`),
+    (typeof loadFleet === 'function' && !(fleetState?.agents || []).length) ? loadFleet() : Promise.resolve(),
+  ]);
+  const caps = h?.budgets || {};
+  const agents = fleetState?.agents || [];
+  const judged = new Map(agents.map((a) => [a.slug, a.budget]));
+  const capped = Object.entries(caps);
+  const uncapped = agents.filter((a) => !(a.slug in caps));
+
+  const stateCell = (slug) => {
+    const b = judged.get(slug);
+    if (!b || b.state === 'no-limit') return '<span class="muted">state not loaded</span>';
+    const spent = (b.state === 'within' || b.state === 'exceeded')
+      ? `$${(b.measuredUsd ?? 0).toFixed(2)} measured`
+      : (b.state === 'unmeasured' ? 'nothing measured yet' : '');
+    return `${budgetChip(b)} <span class="ab-spent">${esc(spent)}</span>`;
+  };
+
+  // Three states, as everywhere: capped, uncapped, and unreadable — never a
+  // silent "all fine".
+  const bad = (h?.budgets_malformed || []);
+  const notes = [
+    h?.budgets_deprecated_key
+      ? `<div class="ab-note">Read from the deprecated <code>${esc(h.budgets_deprecated_key)}:</code> key — rename it to <code>agent-budgets:</code>.</div>` : '',
+    bad.length
+      ? `<div class="ab-note ab-bad">${bad.length} line(s) in PROJECT.md were not read: `
+        + bad.map((m) => `<code>${esc(m.line)}</code> — ${esc(m.why)}`).join('; ') + '</div>' : '',
+  ].join('');
+
+  const capsBlock = capped.length ? `
+    <table class="budgets-table">
+      <thead><tr><th scope="col">Agent</th><th scope="col">Cap</th><th scope="col">State</th><th scope="col"></th></tr></thead>
+      <tbody>${capped.map(([slug, cap]) => `
+        <tr>
+          <td class="bt-agent">${esc(slug)}</td>
+          <td class="bt-cap">$${esc(String(cap))}</td>
+          <td>${stateCell(slug)}</td>
+          <td class="bt-actions">
+            <button type="button" class="ab-btn" onclick="editAgentBudget('${esc(slug)}', ${Number(cap)})">Change</button>
+            <button type="button" class="ab-btn ab-rm" onclick="clearAgentBudget('${esc(slug)}', ${Number(cap)})">Remove</button>
+          </td>
+        </tr>`).join('')}</tbody>
+    </table>`
+    : `<div class="budgets-empty">
+         No agent has a spending cap in this project. Nothing is being held, and nothing will be.
+       </div>`;
+
+  const uncappedBlock = uncapped.length ? `
+    <div class="mp-section-label" style="margin-top:24px">No cap (${uncapped.length})</div>
+    <div class="budgets-uncapped">${uncapped.slice(0, 60).map((a) => `
+      <button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')"
+              title="Set a cap for ${esc(a.slug)}">${esc(a.slug)} +</button>`).join('')}
+      ${uncapped.length > 60 ? `<span class="muted">and ${uncapped.length - 60} more</span>` : ''}
+    </div>` : '';
+
+  body.innerHTML = `${notes}${capsBlock}
+    <button type="button" class="ab-btn ab-add" onclick="addAgentBudget()">+ Add a budget</button>
+    ${uncappedBlock}`;
+
+  const badge = document.getElementById('nav-budget-count');
+  if (badge) badge.textContent = capped.length ? String(capped.length) : '';
+}
+
+/** Set a cap for a named agent, skipping the "which agent?" question. */
+function addBudgetFor(slug) {
+  const usd = budgetPrompt(slug, null);
+  if (usd == null) return;
+  writeAgentBudget({ agent: slug, limit_usd: usd },
+    `Set ${slug} to $${usd}?\n\n`
+    + `Written to .great_cto/PROJECT.md. Measured spend past $${usd} stops the pipeline dispatching ${slug}.`);
+}
+
 /* Writing a cap writes PROJECT.md — a file the operator owns and git tracks.
  *
  * The confirm states what the number DOES rather than asking whether you are
@@ -3509,6 +3632,7 @@ async function writeAgentBudget(body, consequence) {
   showToast(`Budget for <strong>${esc(r.agent)}</strong> ${r.removed ? 'removed' : 'saved'}`, 'success', 2500);
   refreshHeartbeat();
   if (typeof loadFleet === 'function') loadFleet();
+  if (currentTab === 'budgets') loadBudgetsPage();
 }
 
 function budgetPrompt(agent, current) {
@@ -6186,7 +6310,7 @@ function switchTab(id, el) {
   // crumb — `labels` used to be referenced here but is only ever a function-local in
   // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
-  const TAB_LABELS = { docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
+  const TAB_LABELS = { budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || 'Board';
   // Budgets render on Metrics, so the heartbeat that feeds them has to be
   // fetched when Metrics opens — not only from the agents drill-in it used to
@@ -6198,6 +6322,7 @@ function switchTab(id, el) {
   // promised 50 unread and the screen showed settings. Declared and not
   // consumed, in the UI this time.
   if (id === 'notifications') loadNotifHistory();
+  if (id === 'budgets') loadBudgetsPage();
   if (id === 'dashboard' || id === 'agents') {
     // pqsd(), not pqs(): this call omitted `days` entirely, so the server applied
     // its 30-day default and overwrote whatever window the period chips had
