@@ -47,3 +47,56 @@ export function offScaleSizes(css, { scale, exceptions = [] }) {
     return !exceptions.some((e) => e.match.test(f.selector));
   });
 }
+
+// --- CLI ---------------------------------------------------------------------
+//
+// The scale is read from the file's own `--fs-*` declarations rather than
+// hardcoded here. A checker carrying its own copy of the scale drifts from the
+// stylesheet the moment either changes, and then enforces a scale nobody uses.
+//
+// The exceptions are hardcoded, deliberately, and each carries its reason. That
+// asymmetry is the point: the scale is a fact about the file, an exception is a
+// decision about the design, and decisions get written down where someone has
+// to read them to change them.
+
+const EXCEPTIONS = [
+  { match: /\.ac-mark/,        why: 'checkmark glyph sized to its 34px circle, not text' },
+  { match: /\.emoji/,          why: 'icon glyph' },
+  { match: /\.star/,           why: 'favourite glyph' },
+  { match: /\.ap-x/,           why: 'close glyph' },
+  { match: /\.memory-doc h[12]/, why: 'longform document ramp — content typography, not chrome' },
+  { match: /\.side-desc\.md h1/, why: 'longform markdown heading inside the drawer' },
+  { match: /\.share-card h2/,  why: 'showcase hero — Share is the one outward-facing screen' },
+];
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const { readFileSync } = await import('node:fs');
+  const file = process.argv[2];
+  if (!file) { console.error('usage: css-type-scale.mjs <file> [--json]'); process.exit(2); }
+
+  const css = readFileSync(file, 'utf8');
+  const scale = [...css.matchAll(/--fs-[a-z-]+:\s*([0-9.]+)px/g)].map((m) => parseFloat(m[1]));
+  if (!scale.length) {
+    console.error(`  ${file}: no --fs-* scale declared — nothing to check against`);
+    process.exit(2);   // not "clean": unmeasured is its own answer
+  }
+
+  const off = offScaleSizes(css, { scale, exceptions: EXCEPTIONS });
+
+  if (process.argv.includes('--json')) {
+    console.log(JSON.stringify({ scale, off }, null, 2));
+    process.exit(off.length ? 1 : 0);
+  }
+
+  const total = fontSizes(css).length;
+  if (!off.length) {
+    console.log(`  ${file}: ${total} font-size declarations, all on the ${scale.length}-step scale or excused`);
+    process.exit(0);
+  }
+
+  console.error(`  ${file}: ${off.length} of ${total} font-size declarations are off the scale\n`);
+  console.error(`    scale: ${[...new Set(scale)].sort((a, b) => a - b).join(' / ')}px\n`);
+  for (const f of off) console.error(`    line ${f.line}: ${f.px}px  in  ${f.selector || '(inline)'}`);
+  console.error(`\n    Either snap to a step, or add the selector to EXCEPTIONS with its reason.`);
+  process.exit(1);
+}

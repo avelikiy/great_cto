@@ -63,3 +63,41 @@ export function checkTokenParity(css) {
 
   return { undeclared, unused, declaredCount: declared.size, usedCount: used.size };
 }
+
+// --- CLI ---------------------------------------------------------------------
+//
+// This block is the whole point. Without it `node css-tokens.mjs index.html`
+// loads the module, defines three functions, and exits 0 — silently, on any
+// input, including a file with an undeclared token deliberately planted in it.
+// That is worse than having no check: wired into CI it would have added a gate
+// that is green by construction, which is the exact defect this module exists
+// to catch, one level up.
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const { readFileSync } = await import('node:fs');
+  const file = process.argv[2];
+  if (!file) { console.error('usage: css-tokens.mjs <file> [--json]'); process.exit(2); }
+
+  const css = readFileSync(file, 'utf8');
+  const r = checkTokenParity(css);
+
+  if (process.argv.includes('--json')) {
+    console.log(JSON.stringify(r, null, 2));
+    process.exit(r.undeclared.length ? 1 : 0);
+  }
+
+  if (!r.undeclared.length) {
+    console.log(`  ${file}: ${r.usedCount} tokens used, all declared` +
+                (r.unused.length ? ` (${r.unused.length} declared but unused)` : ''));
+    process.exit(0);
+  }
+
+  console.error(`  ${file}: ${r.undeclared.length} token(s) used but never declared\n`);
+  for (const u of r.undeclared) {
+    const how = u.withFallback === u.count ? 'always falls back — renders a hardcoded value, ignoring the theme'
+              : u.withFallback ? `${u.withFallback}/${u.count} with a fallback`
+              : 'no fallback — the declaration is dropped entirely';
+    console.error(`    ${u.token}  ×${u.count}  ${how}`);
+  }
+  process.exit(1);
+}

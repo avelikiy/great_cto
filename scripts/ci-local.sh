@@ -91,6 +91,35 @@ step "css declarations apply" bash -c '
     node scripts/lib/css-cascade.mjs "$f" || exit 1
   done
 '
+
+# Two layers further down, and the reason both of these are wired here rather
+# than only unit-tested: css-tokens.mjs and css-type-scale.mjs already existed,
+# already had passing tests, and were pointed at NOTHING. Run against the board
+# they exited 0 in silence — including against a file with an undeclared token
+# and an off-scale size planted in it — because neither had a CLI entry point at
+# all. A check nobody calls and a check that cannot fail are the same artefact.
+
+# A var(--x) with no --x is dropped at computed-value time and the element
+# renders as if that line were never written; with a fallback it paints a
+# hardcoded value and survives the theme switch that was supposed to change it.
+# Both look exactly like a declaration that worked.
+step "css tokens resolve" bash -c '
+  for f in packages/board/public/index.html packages/board/public/share.html; do
+    node scripts/lib/css-tokens.mjs "$f" || exit 1
+  done
+'
+
+# Type scale, index.html only — and the omission is deliberate rather than
+# overlooked. share.html is a self-contained report published to an external
+# host, with its own palette and its own visual language (a 92px hero figure
+# that belongs to nothing in the admin chrome). It carries 16 distinct sizes
+# including 9.5 and 10.5 — the shape of a scale being invented one declaration
+# at a time — and giving it one is a design decision about a public-facing
+# artefact, not a mechanical snap. Named here so it reads as known and unbudgeted
+# rather than as covered.
+step "css type scale" bash -c '
+  node scripts/lib/css-type-scale.mjs packages/board/public/index.html
+'
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which
