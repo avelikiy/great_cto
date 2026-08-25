@@ -93,9 +93,14 @@ One setting in `.great_cto/PROJECT.md` decides where the pipeline stops:
 | `approval-level` | Stops at | Per feature |
 |---|---|---|
 | `product-only` | what we build · whether it ships | 2 |
-| `gates-only` *(default)* | the design · the deploy | 2 |
-| `strict` | + code review | 3 |
+| `gates-only` *(default)* | what we build · the design · the deploy | 3 |
+| `strict` | + code review | 4 |
 | `auto` | nothing | 0 |
+
+`gates-only` gained the product gate in v3.0.0. It used to stop on *how* to build
+and *whether* to release, and never on *what* to build — the decision that is
+wrong for six stages before anyone finds out. It costs one pause per **product**,
+not per feature: `product-owner` is an entry point and runs only from `/start`.
 
 A regulated archetype — fintech, healthcare, gov — keeps its security,
 compliance and ship gates **at every level, including `auto`**. A lighter level
@@ -116,6 +121,15 @@ delegates judgement; it never skips compliance. Full table: [docs/GATES.md](docs
   per project and globally; an interrupted run resumes knowing which stages ran.
 - **Cost you can see** — per-agent spend, estimate-vs-actual drift, and
   cost-per-accepted-change on the board, not in a spreadsheet.
+- **Spending caps that refuse** — `agent-budgets:` in PROJECT.md caps what a
+  stage may spend, and the pipeline declines to dispatch past it, naming the
+  number. An **estimate never refuses**: while no verdict carries a real cost the
+  cap reads `unmeasured` and holds nothing, because a limit firing on a number
+  nobody measured is worse than no limit. Set and cleared from the board.
+- **Silence is recorded** — the dispatcher writes what it decided to
+  `.great_cto/pipeline-runs.jsonl`, *including when it decided nothing* and why.
+  Every pipeline defect found this year hid in the gap between "nothing should
+  happen" and "nothing could happen".
 
 Everything runs locally, MIT-licensed, on your own keys. Your code stays on your
 machine; prompts go to your LLM provider and nowhere else. Telemetry is
@@ -129,6 +143,9 @@ machine; prompts go to your LLM provider and nowhere else. Telemetry is
 - **Not certification-audited** — PCI/HIPAA/SOC2 scaffolds are starting points,
   not certifications.
 - **Not deterministic** — LLM output. Gate verdicts deserve a sanity check.
+- **Spend is only as measured as your verdicts** — agents that do not record a
+  cost show as `unmeasured` everywhere, and budgets cannot fire for them. The
+  board says so rather than showing a confident `$0.00`.
 
 ## Documentation
 
