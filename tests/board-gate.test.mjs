@@ -20,12 +20,18 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { freePort } from './helpers/free-port.mjs';
-import { reap } from './helpers/reap.mjs';
+import { reap, sweepStrays } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
 
 // ── env preflight ──────────────────────────────────────────────────────────
+
+// A previous run that was interrupted rather than failed leaves a detached board
+// running and its temp tree behind — `finally` does not fire when the runner is
+// killed. Clear that before spawning more, so debris cannot accumulate across
+// days of Ctrl-C.
+sweepStrays('gcto-gate-');
 
 const bdProbe = spawnSync('bd', ['--version'], { encoding: 'utf8' });
 const BD_AVAILABLE = bdProbe.status === 0;
