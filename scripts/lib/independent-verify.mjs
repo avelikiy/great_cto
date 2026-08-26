@@ -477,6 +477,37 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 
   const r = await verifyAgentOutput({ verdict, root, ask });
+
+  // The assessment gets written down.
+  //
+  // Until this line it was printed and lost — the module reached a conclusion,
+  // returned an exit code, and the reasoning vanished with the scrollback. An
+  // assessment nobody can read tomorrow is an assessment that was not made, and
+  // nothing downstream could ask "was this stage ever verified, and by what".
+  //
+  // It goes to scores.jsonl rather than into the verdict, because it is a
+  // different kind of fact: the verdict says what the run did, the score says
+  // how well, they are produced by different actors at different times, and a
+  // re-score must not rewrite history.
+  if (!argv.includes('--no-record')) {
+    try {
+      const { writeScore } = await import('./scores.mjs');
+      writeScore(root, {
+        agent: verdict.agent,
+        runTs: verdict.ts,
+        name: 'independent-verify',
+        state: r.state,
+        scorer: ask ? 'mechanical+judge' : 'mechanical',
+        findings: r.findings,
+        comment: (r.checks || []).map((c) => `${c.layer}: ${c.detail}`).join(' | ').slice(0, 500),
+      });
+    } catch (e) {
+      // Recording must not change the outcome. A store that cannot be written
+      // is worth saying out loud and is not a verification failure.
+      console.error(`  note: could not record the score — ${e.message}`);
+    }
+  }
+
   if (argv.includes('--json')) console.log(JSON.stringify(r, null, 2));
   else console.log(r.conclusion);
 

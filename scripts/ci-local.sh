@@ -154,6 +154,14 @@ step "agent budgets actually refuse" bash -c '
   node --test tests/hooks/budget-fires.test.mjs
 '
 
+# Quality kept apart from what happened. The property that earns the separation:
+# an unassessed run has a NULL value, never 0, and a pass rate divides by the
+# assessed count. Nine unverifiable runs and one verified one is 100% of 1, not
+# 10% — the second is a number about work nobody looked at.
+step "scores: unassessed is not zero" bash -c '
+  node --test tests/lib/scores.test.mjs
+'
+
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which

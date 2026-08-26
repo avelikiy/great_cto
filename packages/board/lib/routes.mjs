@@ -11,6 +11,7 @@ import { eventSurface, readFileSafe, originAllowed } from './util.mjs';
 import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
+import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
@@ -678,6 +679,39 @@ async function dispatch(req, res, url, cwd) {
   }
 
   // Decisions log — global ADR-style log across all projects
+  // Quality, kept apart from what happened.
+  //
+  // A verdict says what a run did; a score says how well, and is produced by a
+  // different actor at a different time. Exposed as its own endpoint for the
+  // same reason it is its own file: a re-score must not rewrite the run, and a
+  // run can carry several assessments from several scorers.
+  //
+  // `rate` is over ASSESSED runs and `unassessed` is returned beside it, so a
+  // caller cannot render "100%" without also being handed the count it is out
+  // of. An agent with nine unverifiable runs and one verified one is not a 100%
+  // agent, and the payload refuses to let the UI say it is.
+  if (pathname === '/api/scores') {
+    const agent = url.searchParams.get('agent') || null;
+    const name = url.searchParams.get('name') || 'independent-verify';
+    const rawLimit = url.searchParams.get('limit');
+    const parsed = rawLimit != null ? parseInt(rawLimit, 10) : 50;
+    const limit = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 500) : 50;
+
+    const { scores, rejected } = readScores(cwd, { agent, name });
+    const recent = scores.slice(-limit).reverse();
+    res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
+    res.end(JSON.stringify({
+      name,
+      agent,
+      scores: recent,
+      summary: summarizeScores(cwd, { name, agent }),
+      // A line that exists and could not be read is neither a score nor an
+      // absence of one, and saying so is cheaper than a support thread.
+      unreadable_lines: rejected,
+    }));
+    return true;
+  }
+
   if (pathname === '/api/decisions') {
     // Clamp `limit` to [1, 200]. Same defensive pattern as /api/cost?days
     // — handle ?limit=abc / ?limit=0 / ?limit=-5 / ?limit=999 deterministically.
