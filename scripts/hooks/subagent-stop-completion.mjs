@@ -210,6 +210,18 @@ function verdictTimestamp(line) {
   return m ? m[1] : null;
 }
 
+/**
+ * The largest turn count that can plausibly be ONE subagent run.
+ *
+ * Not a tuning knob — a discriminator. Agent runs in this repository's own logs
+ * sit in the tens; the session transcript that produced a $3,385 "qa-engineer"
+ * cost carried 9,103. Anything above this is a session, and attributing a
+ * session to an agent is the defect this bound exists to catch. Generous on
+ * purpose: a false "unattributed" costs a per-agent figure, a false attribution
+ * costs the operator a budget decision made on a number off by two orders.
+ */
+const MAX_RUN_TURNS = 400;
+
 async function recordMeasuredCost(stdin) {
   if (process.env.GREAT_CTO_NO_MEASURED_COST === '1') return;
   try {
@@ -219,6 +231,27 @@ async function recordMeasuredCost(stdin) {
     const measured = usageFromTranscript(tp);
     const { usd } = measured;
     if (!(usd > 0)) return;
+
+    // A figure that cannot belong to ONE agent run must not be recorded as one.
+    //
+    // The host hands this hook a `transcript_path`, and when that path is the
+    // SESSION transcript rather than the subagent's, the whole session's spend
+    // lands on whichever verdict file was written last. Observed on this
+    // repository: $3,385 against four qa-engineer runs, and the board showed it
+    // under a `measured` label — a wrong number wearing the badge of a right one,
+    // which is worse than showing nothing.
+    //
+    // The turn count is the tell. A subagent run is tens of turns; the reading
+    // that produced $3,385 carried 9,103, and the session transcript holds 9,266.
+    // So a measurement above this bound is recorded as UNATTRIBUTED rather than
+    // silently attached to an agent. It stays in the file — the spend is real and
+    // deleting it would understate the total — but it cannot be read as one
+    // stage's cost, and a reader that wants per-agent figures skips it.
+    if (measured.turns > MAX_RUN_TURNS) {
+      appendFileSync(join(PROJ_DIR, 'cost-history.log'),
+        `${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} (unattributed) ${usd} turns=${measured.turns}\n`);
+      return;
+    }
     // Most-recently-written verdict file → agent name + its timestamp (so the
     // cost-history minute+agent key matches the verdict readVerdicts sees).
     if (!existsSync(VERDICT_DIR)) return;

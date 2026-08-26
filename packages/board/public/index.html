@@ -140,13 +140,24 @@
    Legal 10px: --fs-eyebrow, and only for mono uppercase labels with tracking.
    10px in sans body text is not a size, it is a mistake. */
 :root {
-  --fs-eyebrow:  10px;   /* mono uppercase label, tracking 0.08–0.1em */
-  --fs-caption:  11px;   /* metadata, counts, timestamps */
-  --fs-small:    12px;   /* table cells, secondary meta, chips */
-  --fs-body:     13px;   /* dense body: cards, list rows, form fields */
-  --fs-base:     14px;   /* document base / longform prose */
-  --fs-title-s:  15px;   /* card or section heading (h3 role) */
-  --fs-title-m:  18px;   /* region heading (h2 role) */
+  /* The bottom of the ramp was lifted one step on 2026-08-26, and the top was
+     not. Measured on the Inbox before the change: 42% of all rendered text sat
+     at 11px or smaller, and 11px alone carried 37% of it across 895 elements.
+     A step defined as "metadata, counts, timestamps" was doing the work of body
+     text — the role written here and the role in use had come apart, and the
+     operator reported exactly that: small text, hard to read.
+
+     Titles were left where they were on purpose. The same report called the
+     screen overloaded, and enlarging headings would have answered one complaint
+     by worsening the other. Density is fixed by showing less, not by shrinking
+     what is shown. */
+  --fs-eyebrow:  11px;   /* mono uppercase label, tracking 0.08–0.1em */
+  --fs-caption:  12px;   /* metadata, counts, timestamps */
+  --fs-small:    13px;   /* table cells, secondary meta, chips */
+  --fs-body:     14px;   /* dense body: cards, list rows, form fields */
+  --fs-base:     15px;   /* document base / longform prose */
+  --fs-title-s:  16px;   /* card or section heading (h3 role) */
+  --fs-title-m:  19px;   /* region heading (h2 role) */
   --fs-title-l:  22px;   /* page heading (h1 role) */
 
   --fs-num-s:    24px;   /* inline stat */
@@ -367,6 +378,14 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .proj-switch .star { color: var(--accent); font-size: 16px; }
 .proj-switch .name { font-weight: 600; font-size: var(--fs-base); }
 .proj-switch .sw-meta { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.sw-ancestry[hidden] { display: none; }
+.sw-ancestry { font-size: var(--fs-eyebrow); color: var(--text3);
+  line-height: 1.35; margin-top: 2px; word-break: break-word;
+  /* Two lines at most: this is context, and context that pushes the navigation
+     down has stopped being context. The full wire value is on the title. */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .proj-switch .sw-arch { font-size: var(--fs-eyebrow); color: var(--text3); font-weight: 400; letter-spacing: 0.03em; }
 .proj-switch .chev {
   color: var(--text3); width: 12px; height: 12px;
@@ -2647,6 +2666,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       <div class="sw-meta">
         <span class="name" id="project-name">—</span>
         <span class="sw-arch" id="proj-switch-arch"></span>
+        <span class="sw-ancestry" id="proj-ancestry" hidden></span>
       </div>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       <div class="proj-menu" id="proj-menu" onclick="event.stopPropagation()">
@@ -2774,8 +2794,16 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           </div>
         </div>
 
-        <!-- Goal ancestry banner (Paperclip pattern) — shows archetype+compliance+phase -->
-        <div id="goal-ancestry-banner" style="display:none;font-family:var(--mono,monospace);font-size:var(--fs-caption);color:var(--text3,#6b7280);background:var(--bg-muted);padding:6px 10px;border-radius:6px;margin-bottom:10px;letter-spacing:0.3px;"></div>
+        <!-- Project archetype / compliance / phase used to be a full-width mono
+             row here, between the KPI tiles and the pipeline. On a screen whose
+             title is "what needs your decision" it answered no question the page
+             asks: it is configuration, it does not change day to day, and it was
+             one of three stacked strips competing with the two that ARE
+             actionable. Moved onto the sidebar project block, where the archetype
+             was already shown — same information, one place, and the stack of
+             strips on this page goes from three to two.
+             Not deleted: `PROJECT.md` is not in the Docs list, so compliance and
+             phase would have become unreachable. -->
         <!-- Tool failure rate watchdog warning -->
         <div id="tool-failure-rate" style="display:none;font-size:var(--fs-small);color:var(--status-blocked,#f87171);background:rgba(248,113,113,0.08);padding:6px 10px;border-radius:6px;margin-bottom:10px;"></div>
 
@@ -3501,12 +3529,32 @@ async function refreshHeartbeat() {
   if (!h) return;
 
   // Goal ancestry banner
-  const bannerEl = document.getElementById('goal-ancestry-banner');
+  const bannerEl = document.getElementById('proj-ancestry');
   if (bannerEl && h.goal_ancestry) {
-    bannerEl.textContent = h.goal_ancestry;
-    bannerEl.style.display = 'block';
+    // `[archetype:x] [compliance:[a, b]] [phase:y]` → `x · a, b · y`.
+    //
+    // Parsed rather than regex-chained. The value NESTS — `compliance:[...]`
+    // sits inside its own brackets — and a first attempt that stripped `[` and
+    // `]` globally produced `developer-tools [openssf, api-stability,
+    // soc2-type-2 implementation`: an unbalanced bracket and a lost separator.
+    // The wire format is how the pipeline passes this between stages; rendering
+    // it verbatim is most of why the row read as debug output.
+    const parts = [];
+    const re = /\[([a-z_]+):((?:[^\[\]]|\[[^\]]*\])*)\]/g;
+    let m;
+    while ((m = re.exec(String(h.goal_ancestry))) !== null) {
+      const v = m[2].replace(/^\[|\]$/g, '').trim();
+      if (v) parts.push(v);
+    }
+    bannerEl.textContent = parts.length ? parts.join(' · ') : String(h.goal_ancestry);
+    bannerEl.title = h.goal_ancestry;   // the exact wire value stays one hover away
+    // `''`, not `'block'`: an inline display beats the stylesheet, and the
+    // stylesheet is what applies the two-line clamp. Setting it here silently
+    // disabled the clamp and the block ran to three lines, pushing the
+    // navigation down — the opposite of the reason it was moved here.
+    bannerEl.hidden = false;
   } else if (bannerEl) {
-    bannerEl.style.display = 'none';
+    bannerEl.hidden = true;
   }
 
   // Tool failure rate warning

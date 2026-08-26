@@ -146,8 +146,17 @@ function readVerdicts(cwd = null, health = null) {
         // verdict in that position, and `\S+` accepted it — producing keys like
         // `{"v":1,"ts":"202|qa-engineer` that could never match a verdict.
         // Lines from that era are skipped here instead of being half-parsed.
-        const m = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)\s+(\S+)\s+(\d+\.?\d*)(?:\s|$)/);
+        const m = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)\s+(\S+)\s+(\d+\.?\d*)(?:\s+turns=(\d+))?(?:\s|$)/);
         if (!m) continue;
+        // A cost whose turn count is a whole session is not one agent's cost.
+        //
+        // The writer records those as `(unattributed)` now, but lines already in
+        // this file predate that and carry a real agent name — the board showed
+        // $3,385 against four qa-engineer runs under a `measured` label, which is
+        // a wrong number wearing the badge of a right one. Skipped here so the
+        // history stops asserting it; the line stays on disk because the spend was
+        // real and deleting it would understate the total.
+        if (m[4] && Number(m[4]) > 400) continue;
         const usd = parseFloat(m[3]);
         // A recorded zero is `log-verdict.sh` writing through whatever the agent
         // reported, which is nothing. Enriching a zero verdict with a zero from
