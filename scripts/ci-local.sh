@@ -162,6 +162,19 @@ step "scores: unassessed is not zero" bash -c '
   node --test tests/lib/scores.test.mjs
 '
 
+# What a stage produces is declared in the map, not in JavaScript. Borrowed from
+# Pipelex, where every step declares its typed output — here one direction,
+# because what a stage consumes is implied by what its predecessor produced.
+#
+# The check REPORTS coverage and fails only on a contract that is declared and
+# unreadable. Failing on absence would push people to invent contracts to silence
+# it, and an invented contract makes verification reject work for not producing
+# something nobody wanted.
+step "stage output contracts" bash -c '
+  node scripts/lib/pipeline-contract.mjs shared/pipeline.toml
+  node --test tests/lib/pipeline-contract.test.mjs
+'
+
 # Install it the way someone who just found it would.
 #
 # `great-cto init` clones the repo into the plugin cache, and packages/cli/dist

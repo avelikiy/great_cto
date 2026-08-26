@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   STATE, SAMPLES, verifyAgentOutput, checkClaimedArtifacts,
-  findAcceptanceDoc, judgeableRequirements, checkRequiredClaim, REQUIRED_CLAIMS,
+  findAcceptanceDoc, judgeableRequirements, checkRequiredClaim, contractFor,
 } from '../../scripts/lib/independent-verify.mjs';
 
 // Briefs are padded past THIN_BYTES on purpose. A real brief is never 50 bytes,
@@ -183,10 +183,19 @@ test('an agent that skipped its REQUIRED artefact is rework, not a pass', async 
     root,
   });
   assert.equal(r.state, STATE.REWORK);
-  assert.match(r.findings.join(' '), /IMPL-BRIEF/);
+  assert.match(r.findings.join(' '), /brief=<path>/,
+    'the finding names the key the map declares, so the message follows the contract');
 });
 
-test('an agent with no declared obligation is unaffected by the rule', () => {
-  assert.equal(checkRequiredClaim({ agent: 'architect', meta: { arch: 'a.md' } }).status, 'none');
-  assert.ok(!('architect' in REQUIRED_CLAIMS), 'obligations need evidence, not enthusiasm');
+test('the obligation comes from the pipeline map, not from this module', () => {
+  // Was a hardcoded object here with one entry. A stage contract written in
+  // JavaScript instead of in the stage map is a list somebody has to remember to
+  // update, which is a list that will be wrong.
+  const MAP = join(process.cwd(), 'shared', 'pipeline.toml');
+  const c = contractFor('architect', { pipelinePath: MAP });
+  assert.deepEqual(c?.keys, ['arch'], 'read out of shared/pipeline.toml');
+
+  // A stage the map knows but that declares nothing is `none` — not a pass, and
+  // not the same as a stage the map has never heard of.
+  assert.equal(checkRequiredClaim({ agent: 'senior-dev', meta: {} }, { pipelinePath: MAP }).status, 'none');
 });

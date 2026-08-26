@@ -23,6 +23,27 @@
 #   join = other agents whose success verdict must ALSO exist before `next`
 #          fires (parallel quorum, e.g. qa-engineer + security-officer).
 #   next = agents to spawn after `on` (and gate approval / join quorum).
+#   produces = list of meta keys whose VALUE the stage must name — its output
+#          contract. Borrowed from Pipelex, where every step declares typed
+#          inputs and outputs; here it is one direction, because what a stage
+#          CONSUMES is already implied by what its predecessor produced.
+#
+#          The gap it closes, measured: of seven scored runs, THREE came back
+#          `unverifiable` — senior-dev, qa-engineer and code-reviewer claim no
+#          artefact, so independent-verify had nothing to check. Not "the check
+#          failed": there was nothing to check, and a stage that declares
+#          nothing was the cheapest way to pass.
+#
+#          This lived as a hardcoded REQUIRED_CLAIMS object in
+#          scripts/lib/independent-verify.mjs with exactly one entry. A stage
+#          contract written in JavaScript instead of in the stage map is a list
+#          somebody has to remember to update, which is a list that will be
+#          wrong.
+#
+#          Declared only where BOTH the agent's own prompt and its verdict
+#          history agree on the key. A stage with no `produces` is not silently
+#          fine — `pipeline-contract.mjs` reports it, because "no contract" and
+#          "contract met" must not look alike.
 #   skip_next_when = "key=value" — when the succeeding stage's verdict meta
 #          carries this, the single `next` stage is bypassed and ITS next runs
 #          instead. Refused whenever an active gate sits on the skipped edge.
@@ -31,11 +52,15 @@
 
 [transitions.product-owner]
 on = ["APPROVED", "DONE", "BRIEF_READY"]
+# BRIEF-{slug}.md — the validated product brief
+produces = ["brief"]
 gate = "gate:product"
 next = ["architect"]
 
 [transitions.architect]
 on = ["APPROVED", "DONE"]
+# ARCH-{slug}.md — the architecture the rest builds on
+produces = ["arch"]
 gate = "gate:arch"
 next = ["pm"]
 # pm decomposes work into parallel streams. At Small depth the architect has
@@ -68,6 +93,8 @@ next = []
 
 [transitions.pm]
 on = ["PLAN_READY", "DONE"]
+# PLAN-{slug}.md and one IMPL-BRIEF per task (Step 7b)
+produces = ["plan", "brief"]
 gate = "gate:plan"
 next = ["senior-dev"]
 
@@ -94,12 +121,16 @@ next = ["qa-engineer", "security-officer"]
 
 [transitions.qa-engineer]
 on = ["PASS", "DONE"]
+# the QA report its verdict rests on
+produces = ["report"]
 join = ["security-officer"]
 gate = ["gate:qa", "gate:ship"]
 next = ["devops"]
 
 [transitions.security-officer]
 on = ["APPROVED", "DONE"]
+# the security audit report
+produces = ["report"]
 join = ["qa-engineer"]
 gate = ["gate:security", "gate:compliance", "gate:ship"]
 next = ["devops"]
@@ -217,6 +248,8 @@ next = ["qa-engineer"]
 
 [transitions.design-advisor]
 on = ["DONE", "APPROVED"]
+# DESIGN-{slug}.md — the design + a11y contract
+produces = ["design"]
 next = ["senior-dev"]
 
 [transitions.performance-engineer]

@@ -54,6 +54,7 @@ import path from 'node:path';
 import { checkArtifacts, explainArtifacts, pathClaims, THIN_BYTES } from './artifact-claims.mjs';
 import { parseAcceptance, summarize } from './acceptance-verify.mjs';
 import { spawnSync } from 'node:child_process';
+import { parsePipelineToml } from '../hooks/pipeline-dispatcher.mjs';
 
 export const STATE = Object.freeze({
   VERIFIED: 'verified',
@@ -99,44 +100,77 @@ export const MAX_JUDGED = 12;
 export const SAMPLES = 3;
 
 /**
- * Artefacts an agent is REQUIRED to produce, keyed by the meta field that names
- * one.
+ * The output contract for a stage, read from the pipeline map.
  *
- * The gap this closes, measured on this repository: `pm` is instructed in
- * Step 7b to emit one IMPL-BRIEF per implementation task, with a template, a
- * validator, and a worked procedure. `docs/impl-briefs/` does not exist and no
- * brief has ever been written — across 41 plans and zero documents carrying an
- * `## ACCEPTANCE` section. Nothing noticed, because pm's verdict claims
- * `plan=<file>` and that file is real: layer 1 passed, the stage read as
- * verified, and the pipeline moved on.
+ * This was a hardcoded object here with exactly one entry. A stage contract
+ * written in JavaScript instead of in the stage map is a list somebody has to
+ * remember to update, which is a list that will be wrong — the same shape as the
+ * bundler's file list before it started deriving itself from the imports.
  *
- * An instruction whose output nothing consumes is a suggestion. This is the
- * consumer. A stage that produced its own artefact but not its REQUIRED one is
- * incomplete in the specific way its own contract names, so it is rework rather
- * than a silent pass.
+ * `produces = ["arch"]` in shared/pipeline.toml is the declaration; this is the
+ * consumer. Borrowed from Pipelex, where every step declares its typed output.
  *
- * Deliberately short. Only `pm` is listed because `pm` is the one measured gap;
- * adding obligations nobody has evidence for would make this a wish list, and a
- * false accusation teaches people to switch the check off.
+ * Returns null when the map is unreadable or the stage declares nothing — and
+ * those are different from each other and from "contract met", which is why the
+ * caller reports three states rather than two.
  */
-export const REQUIRED_CLAIMS = Object.freeze({
-  pm: { key: 'brief', what: 'an IMPL-BRIEF per implementation task (Step 7b)',
-        why: 'without it no stage downstream has acceptance criteria to be verified against' },
-});
+export function contractFor(agent, { root = process.cwd(), pipelinePath = null } = {}) {
+  const candidates = pipelinePath ? [pipelinePath] : [
+    path.join(root, 'shared', 'pipeline.toml'),
+    path.join(root, '.great_cto', 'pipeline.toml'),
+    path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', 'shared', 'pipeline.toml'),
+  ];
+  let sawMap = null;
+  for (const f of candidates) {
+    if (!existsSync(f)) continue;
+    try {
+      const text = readFileSync(f, 'utf8');
+      const map = parsePipelineToml(text);
+      sawMap = f;
+      const rule = map[agent];
+      if (rule?.produces?.length) return { keys: rule.produces, source: f, known: true };
+      if (rule) return { keys: [], source: f, known: true };   // stage known, contract absent
+    } catch { /* try the next */ }
+  }
+  // Three outcomes, and the first version collapsed the last two: a map that
+  // does not exist and a map that does not mention this stage are different
+  // facts, and only one of them is the operator's to fix.
+  return sawMap ? { keys: [], source: sawMap, known: false } : null;
+}
 
-/** Did this agent claim the artefact its own contract requires? */
-export function checkRequiredClaim(verdict) {
-  const req = REQUIRED_CLAIMS[verdict?.agent];
-  if (!req) return { status: 'none', detail: 'no required artefact declared for this agent' };
-  const value = verdict?.meta?.[req.key];
-  if (!value) {
+/**
+ * Did this stage claim what its contract says it produces?
+ *
+ * Three states, because "no contract" and "contract met" must not look alike.
+ * A stage that declares nothing is the cheapest way to pass verification, and
+ * naming that out loud is the point — of seven scored runs on this repository,
+ * three came back unverifiable for exactly this reason.
+ */
+export function checkRequiredClaim(verdict, { root = process.cwd(), pipelinePath = null } = {}) {
+  const c = contractFor(verdict?.agent, { root, pipelinePath });
+  if (!c) return { status: 'none', detail: 'no pipeline map found — the stage contract cannot be read' };
+  if (!c.known) {
     return {
-      status: 'fail',
-      detail: `${verdict.agent} must produce ${req.what} and its verdict names none ` +
-              `(expected \`${req.key}=<path>\`) — ${req.why}`,
+      status: 'none',
+      detail: `${verdict?.agent} is not a stage in ${path.basename(c.source)} — it ran outside the mapped pipeline`,
     };
   }
-  return { status: 'pass', detail: `required \`${req.key}\` claimed: ${value}` };
+  if (!c.keys.length) {
+    return {
+      status: 'none',
+      detail: `${verdict?.agent} declares no \`produces\` in the pipeline map — nothing to hold it to`,
+    };
+  }
+  const missing = c.keys.filter((k) => !verdict?.meta?.[k]);
+  if (missing.length) {
+    return {
+      status: 'fail',
+      detail: `${verdict.agent} must name ${missing.map((k) => `\`${k}=<path>\``).join(' and ')} ` +
+              `(declared in ${path.basename(c.source)}) and its verdict does not — ` +
+              `no stage downstream can be verified against what it did not produce`,
+    };
+  }
+  return { status: 'pass', detail: `contract met: ${c.keys.map((k) => `${k}=${verdict.meta[k]}`).join(', ')}` };
 }
 
 // ── layer 1: artefacts ───────────────────────────────────────────────────────
