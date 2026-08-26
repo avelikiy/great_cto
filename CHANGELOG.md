@@ -4,6 +4,59 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.11.0 — 2026-08-26
+
+### Readable type, one fewer strip, and a cost that stops lying
+
+Three findings, all from driving the board rather than reading it.
+
+**Type.** The operator reported small text that is hard to read, and the
+measurement agreed exactly: **42% of all rendered text on the Inbox sat at 11px
+or smaller**, and 11px alone carried **37% of it across 895 elements**. A step
+defined in the scale as *"metadata, counts, timestamps"* was doing the work of
+body text — the role written down and the role in use had come apart.
+
+The bottom of the ramp is lifted one step; the top is not. 11px-and-below now
+carries **6%**, the bulk sits at 13–15px, and no layout gained a horizontal
+scrollbar. Titles were left alone on purpose: the same report called the screen
+overloaded, and enlarging headings would answer one complaint by worsening the
+other. **Density is fixed by showing less, not by shrinking what is shown.**
+
+**Density.** Three full-width strips stacked between the KPI tiles and the
+pipeline; only two were actionable. The third printed
+`[archetype:developer-tools] [compliance:[openssf, …]] [phase:implementation]` —
+the wire format the pipeline passes between stages, rendered verbatim, on a
+screen titled *what needs your decision*. Moved to the sidebar project block
+where the archetype already lived, and **parsed** rather than printed:
+`developer-tools · openssf, api-stability, soc2-type-2 · implementation`, clamped
+to two lines, exact wire value on hover. Not deleted — `PROJECT.md` is not in the
+Docs list, so compliance and phase would have become unreachable.
+
+Two attempts, and the first is worth recording: stripping `[` and `]` with a
+global regex produced an unbalanced string, because the value **nests** —
+`compliance:[…]` sits inside its own brackets. Setting `style.display` to reveal
+it also silently disabled the two-line clamp (an inline display beats the
+stylesheet), so it ran to three lines and pushed the navigation down — the
+opposite of why it was moved.
+
+**Cost.** The board displayed `qa-engineer · $3385.11 measured`. The host hands
+the SubagentStop hook a `transcript_path`, and when that path is the **session**
+transcript rather than the subagent's, the whole session's spend lands on
+whichever verdict file was written last. A wrong number wearing the badge of a
+right one is worse than no number.
+
+The turn count is the tell — an agent run is tens of turns, that reading carried
+**9,103**, and the session transcript holds 9,266. A measurement above 400 turns
+is now recorded as `(unattributed)` instead of being attached to an agent, and
+the reader skips historical lines carrying a session-sized count. The line stays
+on disk: the spend was real, and deleting it would understate the total.
+
+⚠️ The board now reports `$0.00` and `unmeasured` for every agent. That is the
+honest state — nothing has yet been correctly measured per run, and per-agent
+attribution needs the host to hand over the subagent's own transcript.
+
+---
+
 ## v3.10.0 — 2026-08-26
 
 ### A gate that blocks every push protects nothing
