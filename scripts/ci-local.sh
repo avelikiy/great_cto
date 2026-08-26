@@ -162,6 +162,19 @@ step "scores: unassessed is not zero" bash -c '
   node --test tests/lib/scores.test.mjs
 '
 
+# Install it the way someone who just found it would.
+#
+# `great-cto init` clones the repo into the plugin cache, and packages/cli/dist
+# is a build artefact — five of its thirty-two files are in git by accident,
+# archetypes.js is not. So a cloned plugin got 5 of 32 and the board died on
+# ERR_MODULE_NOT_FOUND. It worked for the author (install-local.sh from a built
+# working tree) and from the npm tarball (ships all 32), and failed on the one
+# path a new user takes. Nothing in this suite walked that path, so the board was
+# unstartable for every new user across several releases with CI fully green.
+step "installs for a stranger, not just the author" bash -c '
+  node --test tests/install-as-a-stranger.test.mjs
+'
+
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which

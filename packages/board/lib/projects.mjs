@@ -416,6 +416,31 @@ function resolveProjectInfo(slugOrPath) {
   const matches = reg.projects.filter(p => p.slug === slugOrPath);
   const found = pickBestBySlug(matches);
   if (found) return { cwd: found.path, resolved: 'slug' };
+
+  // The identifier the board SHOWS and the identifier it RESOLVES were two
+  // different things.
+  //
+  // `listProjects()` derives a display slug at :184 —
+  // `project` / `name` / basename(dir) — while resolution matched only
+  // `p.slug` as stored in the registry. A project listed as `<private-project>`
+  // (basename of its directory) had a different slug on disk, so asking for the
+  // name the UI itself printed resolved to nothing and fell back to the server's
+  // own project: one project's session logs served under another's name. The
+  // fallback header said so, which is why this was a wrong answer rather than a
+  // silent one — but a caller that asks by the name it was given should not have
+  // to read a header to learn it was ignored.
+  //
+  // So the derived identifier is accepted too, and only after the stored one
+  // fails. Basename matching is last because it is the weakest claim: two
+  // directories can share a name, and pickBestBySlug already knows how to
+  // choose between candidates.
+  const byDerived = reg.projects.filter((p) => {
+    if (!p?.path) return false;
+    return path.basename(p.path) === slugOrPath;
+  });
+  const derived = pickBestBySlug(byDerived);
+  if (derived) return { cwd: derived.path, resolved: 'slug' };
+
   return { cwd: process.cwd(), resolved: 'fallback', requested: slugOrPath };
 }
 
