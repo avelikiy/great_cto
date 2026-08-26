@@ -146,6 +146,14 @@ step "measured cost reaches the board" bash -c '
   node --test tests/lib/measured-cost.test.mjs
 '
 
+# The other half: a cap that cannot refuse is not a cap. Budgets existed for
+# weeks and never held anything back — the rule they rest on (an estimate never
+# refuses) was, in practice, a permanent open gate, because nothing measured ever
+# reached the judge. Walks the whole chain and asserts all four states.
+step "agent budgets actually refuse" bash -c '
+  node --test tests/hooks/budget-fires.test.mjs
+'
+
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which
