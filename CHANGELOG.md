@@ -4,6 +4,63 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.8.0 — 2026-08-26
+
+### How well a run went, kept apart from what the run did
+
+The verdict line answers one question — *what happened*. Everything about
+**quality** had to squeeze into that same line as ad-hoc meta keys
+(`tests=46-pass`, `coverage=100`, `findings=3-medium`): an assessment could not
+be added after the fact, revised, attributed, or allowed to disagree with an
+earlier one.
+
+`independent-verify` produces exactly such an assessment and, until now, wrote it
+**nowhere** — zero write calls in the module. It printed a conclusion, returned
+an exit code, and the reasoning was gone with the scrollback.
+
+A **score** is a separate record pointing *at* a run — borrowed from Langfuse,
+where scores are first-class objects attached to traces rather than fields inside
+them. Four things the separation buys:
+
+| | |
+|---|---|
+| **many per run** | a mechanical check and a model's judgement are different evidence and must not overwrite each other |
+| **later than the run** | a 30-second verification does not block the verdict |
+| **revisable** | a re-score appends; nothing is rewritten |
+| **attributable** | every score names its scorer |
+
+Append-only on purpose. v3.5.0 measured the same judge giving different answers
+to an identical question across runs — that is information, and an updating store
+would erase it.
+
+**The value is `null` for `unverifiable`, never `0`.** Zero means *scored, and
+scored badly*; the third state means *nothing was assessed*. `summarizeScores`
+divides by the assessed count and returns `unassessed` beside the rate, so a
+caller cannot render a percentage without also being handed what it is out of.
+On this repository: **7 runs, rate 100%, assessed 4** — `senior-dev`,
+`qa-engineer` and `code-reviewer` claim no artefact and cannot be verified at
+all. Reporting 57% would be a number about work nobody looked at.
+
+Served at `GET /api/scores` with the summary. The bundler picked the new module
+up on its own, because it derives its file list from the board's imports rather
+than a hand-maintained array — verified against the bundled board, not just the
+repo copy.
+
+### Agent budgets actually refuse now
+
+Caps existed for weeks and never held anything back. The rule they rest on — *an
+estimate never refuses, only a measurement does* — was in practice a permanent
+open gate: nothing measured reached the judge, so every cap sat at `unmeasured`
+and every stage ran. The cap was real and the refusal unreachable, which from
+outside is indistinguishable from a cap that works and is never hit.
+
+Verified end to end rather than by reading: a $5 cap, a measured $7.50, and the
+dispatcher returns `PIPELINE-STOP` naming both numbers **without** dispatching
+the stage. All four states asserted in CI — over refuses, under proceeds,
+unmeasured proceeds, and a measured zero counts as *within* rather than unknown.
+
+---
+
 ## v3.7.0 — 2026-08-26
 
 ### Every agent read $0.00 while the spend sat measured on the same disk
