@@ -5,6 +5,7 @@ import { GREAT_CTO_DIR } from './config.mjs';
 import { readFileSafe } from './util.mjs';
 import { getTasks } from './beads.mjs';
 import { readVerdicts, readSecStats } from './verdicts.mjs';
+import { datePlans } from './plan-date.mjs';
 
 // ── Memory: 4-layer file contents ─────────────────────────────────────────────
 function getMemory(cwd = process.cwd()) {
@@ -166,11 +167,15 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   // but total_llm fell to zero because the LLM regex was too strict).
   const plansDir = path.join(cwd, 'docs/plans');
   if (fs.existsSync(plansDir)) {
-    for (const f of fs.readdirSync(plansDir).filter(x => x.endsWith('.md'))) {
-      const fp = path.join(plansDir, f);
-      const stat = fs.statSync(fp);
-      const dayKey = stat.mtime.toISOString().slice(0, 10);
-      if (!buckets.has(dayKey)) continue;
+    const planFiles = fs.readdirSync(plansDir).filter(x => x.endsWith('.md')).map(x => path.join(plansDir, x));
+    // The day a plan lands on is read from the plan, not from its mtime. The
+    // twin of the same defect in readPlanCosts: on a fresh clone every file
+    // carries the clone time, so the whole history stacked onto one bar of this
+    // chart — today's — and every earlier day read as zero spend.
+    const dated = datePlans(planFiles, { root: cwd, dir: 'docs/plans' });
+    for (const fp of planFiles) {
+      const dayKey = dated.dates.get(fp)?.date;
+      if (!dayKey || !buckets.has(dayKey)) continue;
       const content = fs.readFileSync(fp, 'utf8');
       // Anchor LLM/Human at START of line (with optional markdown emphasis)
       // so we never mis-match cases like:

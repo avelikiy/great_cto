@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { GREAT_CTO_DIR } from './config.mjs';
+import { datePlans } from './plan-date.mjs';
 import { parseVerdictLine } from '../../../scripts/lib/verdict-record.mjs';
 
 
@@ -161,12 +162,23 @@ function readPlanCosts(cwd = process.cwd(), sinceMsAgo = null) {
   let totalLlmMin = 0, totalLlmUsd = 0, totalHumanUsd = 0, count = 0;
   if (!fs.existsSync(plansDir)) return { llm_usd: 0, human_usd: 0, savings_x: 0, count: 0 };
   const cutoff = sinceMsAgo != null ? Date.now() - sinceMsAgo : null;
-  for (const file of fs.readdirSync(plansDir).filter(f => f.endsWith('.md'))) {
-    const fp = path.join(plansDir, file);
-    // Skip plans outside the requested time window (use file mtime, same as
-    // getCostHistory — fixes BH-26 where readPlanCosts had no date filter and
-    // included all-time plans while getCostHistory only looked at the window).
-    if (cutoff != null && fs.statSync(fp).mtimeMs < cutoff) continue;
+  const planFiles = fs.readdirSync(plansDir).filter(f => f.endsWith('.md')).map(f => path.join(plansDir, f));
+  // Dated from the plan itself — front-matter, then the filename, then the
+  // commit that added it — rather than from mtime. mtime is a fact about the
+  // filesystem: `git clone` stamps every plan with the clone time, which
+  // collapsed thirteen dates into one and made this 30-day window return the
+  // project's entire history. See plan-date.mjs for the measurement.
+  const dated = datePlans(planFiles, { root: cwd, dir: 'docs/plans' });
+  let fromMtime = 0;
+  for (const fp of planFiles) {
+    const d = dated.dates.get(fp);
+    if (cutoff != null) {
+      if (!d?.date) continue;                                   // undatable: not in any window
+      if (Date.parse(`${d.date}T23:59:59Z`) < cutoff) continue;  // outside it
+    }
+    // Counted after the window test, so the figure describes the plans that
+    // actually went into these totals rather than everything in the directory.
+    if (d && !d.reliable) fromMtime += 1;
     const content = fs.readFileSync(fp, 'utf8');
     // Parse cost lines from PLAN-*.md.
     // Use the SAME anchored regex as getCostHistory() so both endpoints agree
@@ -188,6 +200,10 @@ function readPlanCosts(cwd = process.cwd(), sinceMsAgo = null) {
     human_usd: Math.round(totalHumanUsd),
     savings_x: totalLlmUsd > 0 ? Math.round(totalHumanUsd / totalLlmUsd) : 0,
     count,
+    // How many of these plans could only be dated by their file timestamp. A
+    // figure assembled partly from filesystem metadata says so rather than
+    // presenting itself as measured.
+    dated_by_mtime: fromMtime,
   };
 }
 

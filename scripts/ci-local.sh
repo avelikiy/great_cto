@@ -130,6 +130,14 @@ step "independent verifier: both directions" bash -c '
   node --test tests/lib/independent-verify.test.mjs
 '
 
+# A cost figure must not depend on when the repository was cloned. `git clone`
+# writes every file at clone time, so dating a plan by mtime collapsed thirteen
+# dates into one and made the 30-day window return the project's entire history.
+# The test changes timestamps and asserts the answer does not move.
+step "plan dates ignore the filesystem" bash -c '
+  node --test tests/lib/plan-date.test.mjs
+'
+
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which
