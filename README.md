@@ -126,6 +126,26 @@ delegates judgement; it never skips compliance. Full table: [docs/GATES.md](docs
   number. An **estimate never refuses**: while no verdict carries a real cost the
   cap reads `unmeasured` and holds nothing, because a limit firing on a number
   nobody measured is worse than no limit. Set and cleared from the board.
+- **A stage is checked before the next builds on it** — the pipeline used to
+  hand one agent's output to the next on the strength of a line the agent wrote
+  about itself. Now a second model (Kimi K3 via OpenRouter) checks it, cheapest
+  question first: do the files the verdict names exist, do the frozen
+  `## ACCEPTANCE` criteria pass when run, and only then is a model asked whether
+  each requirement is addressed. Three answers, never two — `verified`,
+  `rework`, or **`unverifiable`**, which is not a pass: an agent that claims
+  nothing and freezes no criteria is reported, or the cheapest way to pass
+  becomes claiming nothing.
+- **Work goes back, and the return has a ceiling** — a stage that fails
+  verification returns `REWORK` with the findings quoted, and the agent that just
+  ran fixes it. Distinct from `BLOCKED`, which means a human must decide. After
+  three passes it stops being the agent's problem and becomes one, because two
+  machines handing work back and forth do not get bored.
+- **Quality kept apart from what happened** — the verdict says what a run did;
+  a *score* says how well, in its own append-only store, produced by a different
+  actor at a different time. A re-score appends rather than rewrites, several
+  scorers can disagree about one run, and every score names who made it. An
+  unassessed run counts as `null`, never zero — a pass rate divides by what was
+  actually assessed and reports the rest beside it.
 - **Silence is recorded** — the dispatcher writes what it decided to
   `.great_cto/pipeline-runs.jsonl`, *including when it decided nothing* and why.
   Every pipeline defect found this year hid in the gap between "nothing should
@@ -143,9 +163,13 @@ machine; prompts go to your LLM provider and nowhere else. Telemetry is
 - **Not certification-audited** — PCI/HIPAA/SOC2 scaffolds are starting points,
   not certifications.
 - **Not deterministic** — LLM output. Gate verdicts deserve a sanity check.
-- **Spend is only as measured as your verdicts** — agents that do not record a
-  cost show as `unmeasured` everywhere, and budgets cannot fire for them. The
-  board says so rather than showing a confident `$0.00`.
+- **Spend is measured, attribution is not yet per-agent** — cost is read from
+  the host's own session transcript rather than from an agent's self-report, so
+  the tokens are real. But the transcript the hook is handed covers the session,
+  not one subagent, so a run's cost can be attributed to whichever stage finished
+  last — inflated by orders of magnitude. Treat per-agent figures as a ceiling
+  until this is fixed. A stage with no measurement at all still shows
+  `unmeasured` rather than a confident `$0.00`, and budgets do not fire for it.
 
 ## Documentation
 
