@@ -4,6 +4,63 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.6.0 — 2026-08-26
+
+### A plan's date is a fact about the plan, not about its file
+
+Both cost readers dated a plan by `statSync(fp).mtime`. mtime is a fact about
+the filesystem, and everything ordinary changes it — a reformat, a copy, a
+`sed -i` across the directory.
+
+`git clone` is what turns it from imprecise into wrong. Clone writes every file
+at clone time, so on a fresh checkout of this repository all 41 plans carried
+today's date and **thirteen distinct dates collapsed into one**:
+
+| | before | after |
+|---|---|---|
+| fresh clone, 30-day window | 41 plans — identical to all-time | **13 plans** |
+| distinct dates on a clone | **1** | **20** |
+| cost chart | every plan stacked on today's bar | 9 days across the window |
+
+The 30-day figure was the project's entire history, every earlier day read as
+zero spend, and nobody reads "$150 in the last 30 days" as suspicious. That is
+the shape of the class: wrong in a way that looks normal.
+
+Where the date actually lives, counted rather than assumed — **21 of 41 plans
+carry it in the filename, 20 carry it nowhere in the file at all**. So git is
+not a nicety: the commit that added the file is the only honest source for half
+of them. One batched `git log` covers the directory in 0.27s against 1.47s for
+one call per file, so the cheap way is also the correct way.
+
+Order: front-matter → filename → adding commit → mtime. The last still returns a
+date (dropping the plan would silently shrink the window — a different wrong
+answer) but marks it `reliable: false`, and `readPlanCosts` now reports
+`dated_by_mtime` beside the total. A figure assembled partly from filesystem
+metadata should say so.
+
+The test locks the property rather than an expected string: it changes
+timestamps and asserts the answer does not move. A fresh clone and a working
+copy now produce identical output from both readers.
+
+### An instruction whose output nothing reads is a suggestion
+
+pm's Step 7b — emit one IMPL-BRIEF per implementation task — has been written
+out in full since 2026-06-06: template, procedure, validator. **Across 41 plans
+not one brief was ever produced**, and nothing noticed, because the verdict
+claimed `plan=<file>` and that file was real. The stage verified and the
+pipeline moved on.
+
+That is why v3.5.0's verifier had nothing to measure "done" against: ACCEPTANCE
+criteria live in the briefs, and there were no briefs.
+
+The claim is now required rather than suggested. pm's verdict carries
+`briefs=<n> brief=<path>`, and `independent-verify` gains a required-artefact
+layer: an agent omitting a claim its role is defined by returns **REWORK**, not
+"nothing to check". pm also refuses to log the verdict at all when Step 7b
+produced nothing, rather than logging a claim it cannot back.
+
+---
+
 ## v3.5.0 — 2026-08-25
 
 ### An agent's report about itself is not evidence
