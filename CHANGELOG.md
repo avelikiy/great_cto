@@ -4,6 +4,58 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.7.0 — 2026-08-26
+
+### Every agent read $0.00 while the spend sat measured on the same disk
+
+Four links in one chain: a hook measures token usage from the session
+transcript, prices it, appends a line to `cost-history.log`; the board reads that
+line and enriches the verdict, which has no cost of its own because agents do not
+measure themselves. **Every link was present.** Three were broken and one was
+mislabelled — and the result looked exactly like a project nobody had measured:
+26 verdicts in the window, zero with a cost, and a budgets screen reporting
+`unmeasured`. True of what it read. False of what existed.
+
+**1. The writer put a JSON verdict in the timestamp column.** It extracted the
+timestamp with `/^(\S+)/` — the first run of non-space characters, a timestamp
+only in the legacy pipe format. Verdicts have been compact JSON since dda79037,
+so the whole record landed in that column. 55 lines of
+`{"v":1,...} qa-engineer 9286.5251`, and a reader keyed on the first 16
+characters matched nothing, ever.
+
+**2. A self-reported zero shadowed the measurement.** The reader skipped
+enrichment `if (v.cost_usd != null)`, and every verdict carries `cost_usd: 0`.
+Zero is not null — and zero is not a measurement, it is the absence of one.
+
+**3. Opus 5 was billed at the Opus 4 rate.** The table ended in a family
+fallback: anything matching `/opus/i` got $15/$75. **Opus 5 is $5/$25.** All
+8,763 turns of one session were costed at three times their real price, and the
+total looked like a total. That session recomputed: **$9,485 → $3,375.**
+
+**4. An unpriced model cost nothing.** `claude-fable-5` — 172 turns — billed at
+$0.00 because it matched no entry and no family, and `costForUsage` returns a
+number, so *unknown* and *free* are the same value. `priceUsage` now returns the
+third state — `priced | assumed | unpriced` — and the CLI prints
+`N turns NOT priced — no price for: X. This total excludes them.`
+
+Prices come from the Claude API reference (first-party list, cached 2026-06-24),
+not from memory. Current models are listed explicitly, ahead of the fallback.
+**Opus 5 fast mode ($10/$50 rather than $5/$25) is not modelled** and is named in
+the source as a known gap — a fast turn is under-costed 2×, the direction that
+does not manufacture confidence.
+
+**What this unblocks:** agent spending caps could not fire, because the rule "an
+estimate never refuses" held them at `unmeasured` — while the measurement sat
+beside them, computed. Attribution is auditable now: the writer appends
+`turns=N`, so a whole-session total landing on one agent is visible in the file
+instead of silently summing.
+
+The corrupt `cost-history.log` is quarantined, not repaired: several lines carry
+~$9,000 against one agent run, at triple rates. Repairing them would import wrong
+numbers in a correct format.
+
+---
+
 ## v3.6.0 — 2026-08-26
 
 ### A plan's date is a fact about the plan, not about its file
