@@ -141,16 +141,42 @@ function readVerdicts(cwd = null, health = null) {
       if (!fs.existsSync(histPath)) continue;
       const lines = fs.readFileSync(histPath, 'utf8').split('\n').filter(Boolean);
       for (const line of lines) {
-        const m = line.match(/^(\S+)\s+(\S+)\s+(\d+\.?\d*)/);
+        // Anchored on a real ISO timestamp rather than "the first run of
+        // non-space characters". The writer used to emit an entire compact-JSON
+        // verdict in that position, and `\S+` accepted it — producing keys like
+        // `{"v":1,"ts":"202|qa-engineer` that could never match a verdict.
+        // Lines from that era are skipped here instead of being half-parsed.
+        const m = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)\s+(\S+)\s+(\d+\.?\d*)(?:\s|$)/);
         if (!m) continue;
+        const usd = parseFloat(m[3]);
+        // A recorded zero is `log-verdict.sh` writing through whatever the agent
+        // reported, which is nothing. Enriching a zero verdict with a zero from
+        // this file changes no number and would label it `measured` — a claim
+        // that something was measured when the file says only that a line exists.
+        if (!(usd > 0)) continue;
         const key = `${m[1].slice(0, 16)}|${m[2]}`;  // minute + agent
-        if (!costByKey.has(key)) costByKey.set(key, parseFloat(m[3])); // project wins
+        if (!costByKey.has(key)) costByKey.set(key, usd); // project wins
       }
     }
     for (const v of results) {
-      if (v.cost_usd != null) continue;
+      // A self-reported ZERO is not a measurement — it is the absence of one,
+      // and it must not shadow a figure that was actually measured.
+      //
+      // This read `if (v.cost_usd != null) continue`, and every verdict carries
+      // `cost_usd: 0` because agents do not measure their own spend. Zero is not
+      // null, so enrichment was skipped for all 26 verdicts in the window while
+      // the measured costs sat in cost-history.log unused — and the budgets
+      // screen reported `unmeasured`, which was true of what it read and false
+      // of what existed.
+      //
+      // A measured value overrides a zero; nothing overrides a non-zero figure
+      // an agent actually reported.
+      if (v.cost_usd != null && v.cost_usd > 0) continue;
       const key = `${(v.ts || '').slice(0, 16)}|${v.agent}`;
-      if (costByKey.has(key)) v.cost_usd = costByKey.get(key);
+      if (costByKey.has(key)) {
+        v.cost_usd = costByKey.get(key);
+        v.cost_source = 'measured';   // read from a transcript, not self-reported
+      }
     }
   }
 

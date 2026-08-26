@@ -18,8 +18,36 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-/** Default list prices, USD per 1M tokens. Update as pricing changes. */
+/**
+ * Default list prices, USD per 1M tokens.
+ *
+ * Anthropic rates below are first-party API list prices as of 2026-06-24. They
+ * also apply to Claude on Microsoft Foundry; Bedrock and Vertex are partner-
+ * operated with separate pricing — override there.
+ *
+ * Why the current models are listed explicitly rather than left to the family
+ * fallback: the fallback bills anything matching /opus/i at the Opus 4 rate, and
+ * Opus 5 is $5/$25, not $15/$75. Every Opus 5 turn on this machine — 8,763 of
+ * them in one session — was being costed at THREE TIMES its real price, and the
+ * total looked like a total. A guess that silently triples the number is worse
+ * than no number, because it is spendable.
+ *
+ * Keep this list ahead of the fallback. A model that reaches the fallback is
+ * reported as `assumed` by priceUsage(); one that reaches neither is reported as
+ * unpriced rather than free.
+ */
 export const DEFAULT_PRICES = {
+  // Claude 5 family
+  'claude-fable-5':    { input: 10,  output: 50 },
+  'claude-mythos-5':   { input: 10,  output: 50 },
+  'claude-opus-5':     { input: 5,   output: 25 },
+  'claude-sonnet-5':   { input: 2,   output: 10 },
+  // Claude 4.6–4.8
+  'claude-opus-4-8':   { input: 5,   output: 25 },
+  'claude-opus-4-7':   { input: 5,   output: 25 },
+  'claude-opus-4-6':   { input: 5,   output: 25 },
+  'claude-sonnet-4-6': { input: 3,   output: 15 },
+  'claude-haiku-4-5':  { input: 1,   output: 5 },
   // Claude 4.x family (bare ids; OpenRouter "anthropic/<id>" slugs resolve via prefix-strip)
   'claude-opus-4':     { input: 15,  output: 75 },
   'claude-sonnet-4':   { input: 3,   output: 15 },
@@ -30,8 +58,19 @@ export const DEFAULT_PRICES = {
   'claude-3-opus':     { input: 15,  output: 75 },
   // OpenRouter non-Anthropic slugs the project routes to (approx list prices —
   // override via ~/.great_cto/model-prices.json or GREAT_CTO_MODEL_PRICES).
-  'moonshotai/kimi-k2': { input: 0.55, output: 2.2 },
+  'moonshotai/kimi-k2':  { input: 0.55, output: 2.2 },
+  'moonshotai/kimi-k3':  { input: 3,    output: 15 },
 };
+
+/**
+ * NOT modelled, and named here so it is a known gap rather than a silent one:
+ * Opus 5 fast mode bills at $10/$50 instead of $5/$25. Turns carry the rate they
+ * ran at in `usage.speed`, which this module does not read — a fast-mode turn is
+ * therefore under-costed by 2×. Wire it when a transcript in the wild shows
+ * `speed: "fast"`; until then the figure is right for standard turns and low for
+ * fast ones, which is the direction that does not create false confidence.
+ */
+export const UNMODELLED_RATES = Object.freeze(['opus-5 fast mode ($10/$50)']);
 
 /** Load price overrides from env (preferred) then ~/.great_cto/model-prices.json. */
 export function loadPriceOverrides() {
@@ -75,6 +114,60 @@ export function priceForModel(model, prices = effectivePrices()) {
   if (/sonnet/i.test(model)) return prices['claude-sonnet-4'] || { input: 3,   output: 15 };
   if (/haiku/i.test(model))  return prices['claude-haiku-4']  || { input: 0.8, output: 4 };
   return null;
+}
+
+/**
+ * The same lookup, but it says HOW it found the price.
+ *
+ * `priceForModel` answers with a number or null, and both callers and readers
+ * then treat "priced exactly" and "priced by guessing the family" as the same
+ * thing. They are not. `claude-opus-5` is billed here at Opus 4's rate because
+ * its name contains "opus" — a guess that may be right and is not a fact, and a
+ * total built from it should be able to say so.
+ *
+ * @returns {{price: {input:number,output:number}|null, source: 'exact'|'bare'|'prefix'|'family'|'none'}}
+ */
+export function resolvePrice(model, prices = effectivePrices()) {
+  if (!model) return { price: null, source: 'none' };
+  if (prices[model]) return { price: prices[model], source: 'exact' };
+
+  const bare = model.includes('/') ? model.slice(model.indexOf('/') + 1) : model;
+  if (prices[bare]) return { price: prices[bare], source: 'bare' };
+
+  let best = null, bestLen = 0;
+  for (const k of Object.keys(prices)) {
+    if (bare.startsWith(k) && k.length > bestLen) { best = prices[k]; bestLen = k.length; }
+  }
+  if (best) return { price: best, source: 'prefix' };
+
+  if (/opus/i.test(model))   return { price: prices['claude-opus-4']   || { input: 15,  output: 75 }, source: 'family' };
+  if (/sonnet/i.test(model)) return { price: prices['claude-sonnet-4'] || { input: 3,   output: 15 }, source: 'family' };
+  if (/haiku/i.test(model))  return { price: prices['claude-haiku-4']  || { input: 0.8, output: 4 }, source: 'family' };
+  return { price: null, source: 'none' };
+}
+
+/**
+ * Cost of one call, with the third state kept.
+ *
+ * `costForUsage` returns a number, so an unknown model has to come back as 0 —
+ * and a model nobody has priced then reads as a model that costs nothing.
+ * 172 turns of `claude-fable-5` were billed at $0.00 for exactly that reason,
+ * and the total looked like a total rather than a total plus a hole.
+ *
+ * @returns {{usd:number, priced:boolean, assumed:boolean, source:string, model:string}}
+ */
+export function priceUsage({ model, usage, prices }) {
+  const { price, source } = resolvePrice(model, prices || effectivePrices());
+  if (!usage || !price) {
+    return { usd: 0, priced: false, assumed: false, source, model: model || '' };
+  }
+  const inTok = usage.input_tokens || 0;
+  const outTok = usage.output_tokens || 0;
+  const cacheWrite = usage.cache_creation_input_tokens || 0;
+  const cacheRead = usage.cache_read_input_tokens || 0;
+  const usd = (inTok * price.input + outTok * price.output
+             + cacheWrite * price.input * 1.25 + cacheRead * price.input * 0.1) / 1_000_000;
+  return { usd, priced: true, assumed: source === 'family', source, model: model || '' };
 }
 
 /**

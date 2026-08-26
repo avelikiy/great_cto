@@ -138,6 +138,14 @@ step "plan dates ignore the filesystem" bash -c '
   node --test tests/lib/plan-date.test.mjs
 '
 
+# Every agent read $0.00 while the real spend sat measured on the same disk, in
+# a file the board could not parse, priced by a guess that tripled it. Four
+# links, each present and each broken in a way that looked like "nothing has
+# been measured yet".
+step "measured cost reaches the board" bash -c '
+  node --test tests/lib/measured-cost.test.mjs
+'
+
 # The coverage gate is diff-shaped: it asks whether a CHANGED agent has an eval,
 # so it needs a base to compare against. `||  exit 1` rather than `&&` chaining —
 # a trailing `exit 0` after an `&&` would swallow the gate's own failure, which

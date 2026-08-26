@@ -190,13 +190,34 @@ export function recentVerdict(dir, withinMs, now) {
  * minute+agent, so it never double-counts an agent-reported cost).
  * Fail-open at every step; opt out with GREAT_CTO_NO_MEASURED_COST=1.
  */
+/**
+ * The ISO timestamp of one verdict line, in either format it may be written in.
+ *
+ * Returns null rather than a guess when the line is neither — a cost attributed
+ * to the wrong minute is worse than a cost recorded against `now`, because it
+ * silently attaches to some other agent's run.
+ */
+function verdictTimestamp(line) {
+  const raw = String(line || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('{')) {
+    try {
+      const ts = JSON.parse(raw).ts;
+      return typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(ts) ? ts : null;
+    } catch { return null; }
+  }
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\S*)/);
+  return m ? m[1] : null;
+}
+
 async function recordMeasuredCost(stdin) {
   if (process.env.GREAT_CTO_NO_MEASURED_COST === '1') return;
   try {
     const tp = JSON.parse(stdin || '{}').transcript_path;
     if (!tp || !existsSync(tp)) return;
     const { usageFromTranscript } = await import('../lib/usage-from-transcript.mjs');
-    const { usd } = usageFromTranscript(tp);
+    const measured = usageFromTranscript(tp);
+    const { usd } = measured;
     if (!(usd > 0)) return;
     // Most-recently-written verdict file → agent name + its timestamp (so the
     // cost-history minute+agent key matches the verdict readVerdicts sees).
@@ -210,8 +231,27 @@ async function recordMeasuredCost(stdin) {
     if (!newest) return;
     const agent = newest.replace(/\.log$/, '');
     const lines = readFileSync(join(VERDICT_DIR, newest), 'utf8').trim().split('\n');
-    const lastTs = (lines[lines.length - 1].match(/^(\S+)/) || [])[1] || new Date().toISOString();
-    appendFileSync(join(PROJ_DIR, 'cost-history.log'), `${lastTs} ${agent} ${usd}\n`);
+    // The timestamp of the verdict this cost belongs to.
+    //
+    // This was `match(/^(\S+)/)` — the first run of non-space characters, which
+    // is a timestamp only in the LEGACY pipe-delimited format. Verdicts have been
+    // versioned JSON since dda79037, and compact JSON contains no spaces, so
+    // `\S+` captured the ENTIRE record as the timestamp. Every line written since
+    // then reads `{"v":1,...}  senior-dev  0.42` — and the reader, which keys on
+    // the first 16 characters, matched nothing. 55 lines of a file nobody could
+    // use, and no symptom anywhere: the board showed estimated costs and looked
+    // like a board with no measurements rather than one with a broken writer.
+    const lastTs = verdictTimestamp(lines[lines.length - 1]) || new Date().toISOString();
+    // `turns=` makes the attribution auditable. The cost of ONE agent run and
+    // the cost of the whole session are both just a number in this column, and
+    // the file already holds lines of ~$9,000 against a single qa-engineer run —
+    // a session total that landed on one agent and nothing could tell you so.
+    // A turn count next to it makes that visible at a glance.
+    //
+    // Trailing field, deliberately: nine readers parse this file with their own
+    // regexes and awk `$3`, and all of them keep working.
+    appendFileSync(join(PROJ_DIR, 'cost-history.log'),
+                   `${lastTs} ${agent} ${usd} turns=${measured.turns || 0}\n`);
   } catch { /* fail-open — never block a subagent stop */ }
 }
 

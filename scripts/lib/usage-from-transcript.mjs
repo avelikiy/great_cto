@@ -16,7 +16,7 @@
  * CLI:      node usage-from-transcript.mjs <transcript.jsonl> [--json]
  */
 import { readFileSync, statSync } from 'node:fs';
-import { costForUsage, round4 } from './cost-meter.mjs';
+import { costForUsage, priceUsage, round4 } from './cost-meter.mjs';
 
 // Guard against pathological transcripts — a few MB is normal; cap the read.
 const MAX_BYTES = 64 * 1024 * 1024;
@@ -29,7 +29,13 @@ const MAX_BYTES = 64 * 1024 * 1024;
  */
 export function usageFromTranscript(input) {
   const empty = { usd: 0, turns: 0, input_tokens: 0, output_tokens: 0,
-    cache_creation_input_tokens: 0, cache_read_input_tokens: 0, by_model: {} };
+    cache_creation_input_tokens: 0, cache_read_input_tokens: 0, by_model: {},
+    // Three states carried alongside the total, because a dollar figure alone
+    // cannot distinguish "this is what it cost" from "this is what it cost, for
+    // the part we know how to price".
+    unpriced_turns: 0,      // model not in any table and matching no family
+    unpriced_models: [],    // which ones — so the operator can price them
+    assumed_turns: 0 };     // priced by family guess (opus-5 billed at opus-4)
   let text = '';
   try {
     const trimmed = String(input).trimStart();
@@ -53,7 +59,14 @@ export function usageFromTranscript(input) {
     if (o.type !== 'assistant' || !usage) continue;
     const model = msg.model || o.model || 'unknown';
     if (model === '<synthetic>') continue;   // synthetic/no-op turns are $0
-    const usd = costForUsage({ model, usage });
+    const priced = priceUsage({ model, usage });
+    const usd = priced.usd;
+    if (!priced.priced) {
+      totals.unpriced_turns += 1;
+      if (!totals.unpriced_models.includes(model)) totals.unpriced_models.push(model);
+    } else if (priced.assumed) {
+      totals.assumed_turns += 1;
+    }
     totals.usd += usd;
     totals.turns += 1;
     totals.input_tokens += usage.input_tokens || 0;
@@ -76,5 +89,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!path) { console.error('usage: usage-from-transcript.mjs <transcript.jsonl> [--json]'); process.exit(2); }
   const r = usageFromTranscript(path);
   if (json) console.log(JSON.stringify(r, null, 2));
-  else console.log(`$${r.usd.toFixed(4)}  (${r.turns} turns · in ${r.input_tokens} · out ${r.output_tokens} · cache ${r.cache_creation_input_tokens + r.cache_read_input_tokens})`);
+  else {
+    console.log(`$${r.usd.toFixed(4)}  (${r.turns} turns · in ${r.input_tokens} · out ${r.output_tokens} · cache ${r.cache_creation_input_tokens + r.cache_read_input_tokens})`);
+    if (r.unpriced_turns) {
+      console.log(`  ${r.unpriced_turns} turn(s) NOT priced — no price for: ${r.unpriced_models.join(', ')}.`);
+      console.log('  This total excludes them. Add rates in ~/.great_cto/model-prices.json.');
+    }
+    if (r.assumed_turns) console.log(`  ${r.assumed_turns} turn(s) priced by family guess, not an exact rate.`);
+  }
 }
