@@ -4,6 +4,33 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.10.0 — 2026-08-26
+
+### A gate that blocks every push protects nothing
+
+The pre-push privacy guard refused **every** push in this repository, including
+ones containing no private reference at all.
+
+The array of private terms was expanded **unquoted**, so a multi-word project
+name became several independent patterns: 14 lines produced 47 of them, among
+which were `the`, `and`, `with` and `project`. Any push carrying ordinary English
+prose matched one — and the advice printed on a match is `--no-verify`.
+
+Nothing rejected a term that cannot discriminate, either. From the outside, a
+common word in the list is indistinguishable from a genuine leak, so the operator
+learns the gate is noise. That is exactly how the guard named in this file's own
+header came to be silently disabled for months.
+
+Terms are quoted now (one line, one term), and a term shorter than three
+characters or matching a stop list is **refused and named at startup** rather
+than silently arming a gate nobody can pass.
+
+Verified in both directions, because a privacy gate that stops firing is the
+worse failure: with a real private name planted in a tracked file the hook
+reports `LEAK DETECTED` and exits 1; with ordinary prose it exits 0.
+
+---
+
 ## v3.9.0 — 2026-08-26
 
 ### It worked for the author and for nobody who just found it
