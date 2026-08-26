@@ -4,6 +4,57 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.12.0 — 2026-08-26
+
+### A stage declares what it produces, in the map
+
+Borrowed from [Pipelex](https://github.com/Pipelex/pipelex), where every step
+declares its typed inputs and outputs. Here it is one direction — what a stage
+*consumes* is already implied by what its predecessor produced — and it lives in
+`shared/pipeline.toml` beside `on`, `gate` and `next`, where the rest of the
+stage contract already is.
+
+```toml
+[transitions.architect]
+on       = ["APPROVED", "DONE"]
+produces = ["arch"]
+next     = ["pm"]
+```
+
+**The gap was measured, not supposed.** Of seven scored runs, **three came back
+`unverifiable`** — not "the check failed" but *there was nothing to check*,
+because `senior-dev`, `qa-engineer` and `code-reviewer` name no artefact in their
+verdicts. A stage that declares nothing was the cheapest way to pass
+verification.
+
+It also removes a wart from v3.6.0: `REQUIRED_CLAIMS`, a hardcoded object in
+`independent-verify.mjs` with exactly one entry. A stage contract written in
+JavaScript instead of in the stage map is a list somebody has to remember to
+update — the same shape as the bundler's file list before it derived itself from
+the imports.
+
+**What it does on the real logs — silence became findings:**
+
+| | before | after |
+|---|---|---|
+| assessed | 4 of 7 | **6 of 8** |
+| rate | 100% *(nothing could fail)* | **67%** |
+| unverifiable | 3 | 2 |
+
+`pm` and `qa-engineer` now return **REWORK** naming the key they did not write.
+A rate that could not fall was not a measurement; 67% is.
+
+**Three decisions worth knowing.** Contracts are declared only where the agent's
+own prompt *and* its verdict history agree on the key — six of them — and a test
+asserts every declared key is one an agent has been observed writing, because a
+key nobody emits would make verification reject correct work. Coverage is
+**reported, not required** (6 of 29 stages, 21%): not every stage has a contract
+worth writing, and failing on absence would push people to invent them to silence
+the check. And three states throughout — a map that does not exist and a map that
+does not mention this stage are different facts, only one of them yours to fix.
+
+---
+
 ## v3.11.0 — 2026-08-26
 
 ### Readable type, one fewer strip, and a cost that stops lying
