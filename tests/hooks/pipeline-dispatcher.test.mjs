@@ -61,15 +61,28 @@ test('parseVerdictLine handles pipe- and space-separated formats', () => {
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z | architect | APPROVED | feature=x | cost=$0.50'),
     { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: false, hasCost: true, costUsd: 0.5, meta: { feature: 'x' } });
-  // The space dialect is `<ts> <verdict> <details>` — it never carried an agent
-  // (the filename did), so the second token IS the verdict. The hook's old
-  // private parser read it as `<ts> <agent> <verdict>`; the two disagreed, which
-  // is the second thing a duplicated parser drifted on. Only history is written
-  // in this dialect, and `latestVerdict` ignores anything over 30 minutes old,
-  // so the ambiguity cannot reach a live dispatch.
+  // The space dialect comes in TWO shapes, and this test used to assert only one
+  // of them — `<ts> <verdict> <details>`, on the premise that it "never carried
+  // an agent (the filename did)".
+  //
+  // The premise is falsified by logs written today:
+  //   2026-08-26T16:59:22Z great_cto:code-reviewer APPROVED web-wallet-foundation
+  // Read the old way, that record's VERDICT became `GREAT_CTO:CODE-REVIEWER`. The
+  // expected value below was itself an instance of the bug: `qa-engineer PASS`
+  // was asserted to produce `verdict: 'QA-ENGINEER'`.
+  //
+  // The shapes are now told apart by the one fact the line already carries —
+  // whether a token is a verdict this system knows. That preserves the old
+  // reading wherever the old premise holds (`<ts> DONE …` still parses as before)
+  // and corrects it where it does not. When NEITHER position is a known verdict,
+  // the original reading stands rather than a second guess.
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z qa-engineer PASS coverage=80%'),
-    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'QA-ENGINEER', canonical: false, hasCost: false, costUsd: null, meta: { coverage: '80%' } });
+    { ts: '2026-07-02T10:00:00Z', agent: 'qa-engineer', verdict: 'PASS', canonical: false, hasCost: false, costUsd: null, meta: { coverage: '80%' } });
+  // The agentless shape is unchanged: `DONE` is a known verdict in position 1.
+  assert.deepEqual(
+    parseVerdictLine('2026-07-02T10:00:00Z DONE postgres replica: failover wired'),
+    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'DONE', canonical: false, hasCost: false, costUsd: null, meta: {} });
   assert.equal(parseVerdictLine(''), null);
 });
 

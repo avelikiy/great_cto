@@ -92,6 +92,28 @@ function readVerdicts(cwd = null, health = null) {
       continue;
     }
     for (const file of files) {
+    // Only per-agent verdict logs. `<agent>-YYYY-MM-DD-HHMMSS.log` is a different
+    // artefact that lives in the same directory: a free-text report of one run,
+    // written as prose. Reading it as a verdict log made its first words into
+    // records — `ts: "DONE:"`, `ts: "artifact:"`, `ts: "next:"`, with the agent
+    // name taken from the filename including its timestamp. Six of the ten
+    // "verdicts" one project appeared to have were paragraph openings.
+    //
+    // Skipped rather than parsed leniently: a run report has no verdict token, no
+    // cost and no meta, so anything recovered from it would be invented. Counted,
+    // though — a directory whose contents this reader ignores is worth saying out
+    // loud, because from outside it looks identical to a project that never ran.
+    if (!file.endsWith('.log')) continue;
+    // Rejected by the shape that IDENTIFIES a run report, not by trying to
+    // describe what a valid agent name looks like. The first attempt did the
+    // latter — `/^[A-Za-z0-9_:.-]+\.log$/` — and matched
+    // `architect-2026-08-26-134109.log` perfectly well, because digits and
+    // hyphens are exactly what an agent name may contain. An allowlist that
+    // cannot exclude the thing it was written to exclude is not a filter.
+    if (RUN_REPORT_FILE.test(file)) {
+      health?.notes?.push(`${file} is a run report, not a verdict log — not read`);
+      continue;
+    }
     const agent = file.replace('.log', '');
     let lines;
     try {
@@ -191,6 +213,9 @@ function readVerdicts(cwd = null, health = null) {
 
   return results.sort((a, b) => a.ts.localeCompare(b.ts));
 }
+
+/** `<agent>-YYYY-MM-DD-HHMMSS.log` — a prose report of one run, not a verdict. */
+const RUN_REPORT_FILE = /-\d{4}-\d{2}-\d{2}-\d{6}\.log$/;
 
 function readPlanCosts(cwd = process.cwd(), sinceMsAgo = null) {
   const plansDir = path.join(cwd, 'docs/plans');

@@ -155,7 +155,18 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   for (let i = 0; i <= days; i++) {
     const d = new Date(now - i * 86400000);
     const key = d.toISOString().slice(0, 10);
-    buckets.set(key, { date: key, llm: 0, human: 0, plans: 0, runs: 0 });
+    // `runs` was one field incremented in two places for two different things:
+  // once per verdict that carried a cost, and once per closed task on a day that
+  // happened to have no cost data. Its meaning therefore changed from day to day
+  // depending on whether anything had been measured, and the two sums were
+  // indistinguishable once added.
+  //
+  // Measured against the verdict logs on disk, it was wrong in BOTH directions —
+  // +18 on one project over 90 days (closed tasks counted as agent runs) and −3
+  // on two others (verdicts with no cost contributing nothing). Split into the
+  // two facts, with `runs` kept as their sum so every existing reader keeps
+  // working and no chart silently changes shape.
+  buckets.set(key, { date: key, llm: 0, human: 0, plans: 0, runs: 0, agent_runs: 0, task_estimates: 0 });
   }
 
   // Plans: file mtime as date
@@ -217,18 +228,28 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   // feature=X aggregation — answers "how much did stripe-webhook cost?"
   const featureMap = new Map(); // feature → { llm, runs }
   for (const v of verdicts) {
-    if (v.cost_usd == null) continue;
     const dayKey = (v.ts || '').slice(0, 10);
     if (!buckets.has(dayKey)) continue;
     const b = buckets.get(dayKey);
-    b.llm += v.cost_usd;
+    // A run that was never priced is still a run.
+    //
+    // This began `if (v.cost_usd == null) continue`, so a verdict carrying no
+    // cost contributed nothing at all — not even its own existence. Measured
+    // against the logs: one project had four verdicts and reported ZERO agent
+    // runs, because none of the four had been priced. "We do not know what it
+    // cost" was being rendered as "it did not happen", which is the confusion
+    // this codebase keeps having to unpick.
+    //
+    // Cost is added only when there is one; the run is counted either way.
+    if (v.cost_usd != null) b.llm += v.cost_usd;
+    b.agent_runs++;
     b.runs++;
     // Extract feature= tag from raw verdict line
     const featMatch = v.raw && v.raw.match(/\bfeature=([^\s|]+)/);
     if (featMatch) {
       const feat = featMatch[1];
       const f = featureMap.get(feat) || { llm: 0, runs: 0 };
-      f.llm += v.cost_usd;
+      if (v.cost_usd != null) f.llm += v.cost_usd;
       f.runs++;
       featureMap.set(feat, f);
     }
@@ -258,6 +279,10 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
       if (b.llm === 0) {
         const mins = t.estimated_minutes || DEFAULT_TASK_MIN;
         b.llm += mins / 60 * LLM_RATE_PER_HR;
+        // A closed task is not an agent run. It is counted, and counted
+        // separately, so a caller asking "how many times did agents run" is not
+        // handed a number that is partly something else.
+        b.task_estimates++;
         b.runs++;
       }
     }
@@ -267,6 +292,11 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   let totalLlm = series.reduce((a, b) => a + b.llm, 0);
   let totalHuman = series.reduce((a, b) => a + b.human, 0);
   const totalPlans = series.reduce((a, b) => a + b.plans, 0);
+  // Reported alongside the sum rather than instead of it: `total_runs` keeps its
+  // meaning for every existing caller, and the two facts it was made of are now
+  // separately answerable.
+  const totalAgentRuns = series.reduce((a, b) => a + b.agent_runs, 0);
+  const totalTaskEstimates = series.reduce((a, b) => a + b.task_estimates, 0);
 
   // SANITY GUARD — anti-7,638× regression. If ratio > 1000×, one of the
   // numbers is wrong. Almost always: total_llm collapsed to ~0 because plan
@@ -291,6 +321,8 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
     total_llm: Math.round(totalLlm * 100) / 100,
     total_human: Math.round(totalHuman),
     total_plans: totalPlans,
+    total_agent_runs: totalAgentRuns,
+    total_task_estimates: totalTaskEstimates,
     daily_avg: Math.round(dayRate * 100) / 100,
     projected_monthly: projectedMonthly,
     monthly_budget: budget,

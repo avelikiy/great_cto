@@ -162,6 +162,15 @@ step "scores: unassessed is not zero" bash -c '
   node --test tests/lib/scores.test.mjs
 '
 
+# One number must not mean two things. `runs` was incremented once per priced
+# verdict and once per closed task on days with no cost, so its meaning changed
+# from day to day — and it disagreed with the verdict logs in both directions.
+# The property: agent runs in a window equals verdicts in that window, whatever
+# was or was not priced.
+step "agent runs match the verdict logs" bash -c '
+  node --test tests/lib/cost-runs.test.mjs
+'
+
 # What a stage produces is declared in the map, not in JavaScript. Borrowed from
 # Pipelex, where every step declares its typed output — here one direction,
 # because what a stage consumes is implied by what its predecessor produced.

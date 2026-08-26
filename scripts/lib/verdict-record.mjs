@@ -164,10 +164,29 @@ export function parseVerdictLine(line) {
     agent = fields.length >= 2 ? fields[0] : '';
     verdict = fields.length >= 2 ? fields[1] : fields[0];
   } else {
+    // The space form comes in two shapes, and this used to assume only one:
+    //
+    //   <ts> <verdict> <rest>            what the comment here claimed
+    //   <ts> <agent> <verdict> <rest>    also written, e.g. by log-verdict.sh
+    //
+    // Assuming the first turned `2026-08-26T16:59:22Z great_cto:code-reviewer
+    // APPROVED …` into a record whose VERDICT was `GREAT_CTO:CODE-REVIEWER`. It
+    // parsed, it validated, and the board showed an agent name in the verdict
+    // column — a wrong value that looks like a value.
+    //
+    // Discriminated by the one fact the file already carries: whether the token
+    // is a verdict this system knows. Neither position matching leaves the
+    // original reading in place rather than guessing a different wrong one.
     const parts = raw.split(/\s+/);
     ts = parts[0] || '';
-    verdict = parts[1] || '';
-    agent = '';           // the space form never carried one; the filename did
+    const known = (t) => KNOWN_VERDICTS.includes(String(t || '').toUpperCase());
+    if (!known(parts[1]) && known(parts[2])) {
+      agent = parts[1] || '';
+      verdict = parts[2] || '';
+    } else {
+      verdict = parts[1] || '';
+      agent = '';         // this shape does not carry one; the filename does
+    }
   }
 
   const rec = { v: VERDICT_FORMAT_VERSION, ts, agent, verdict: String(verdict || '').toUpperCase() };
