@@ -4,6 +4,54 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.9.0 — 2026-08-26
+
+### It worked for the author and for nobody who just found it
+
+Installed the way a stranger would — clean `HOME`, `npx great-cto init`, follow
+the README — and the board does not start:
+
+```
+ERR_MODULE_NOT_FOUND … packages/cli/dist/archetypes.js
+  imported from scripts/lib/gate-plan.mjs
+```
+
+`init` **clones the repository** into the plugin cache, and `packages/cli/dist/`
+is a build artefact. Five of its thirty-two files are in git by accident; the
+rest, including `archetypes.js`, are not. A cloned plugin gets **5 of 32**, and
+the board's project reader dies on import.
+
+It worked in both places anyone would check — the author's cache is filled by
+`install-local.sh` from a built working tree, and the npm tarball ships all 32.
+It failed on exactly one path: the one a new user takes. The board was
+unstartable for every new user across several releases, with CI green throughout.
+
+- **The installer supplies the build** instead of hoping the clone carried one.
+  Not fetched, not rebuilt: this CLI *is* the published package, so the version
+  being installed and the version doing the installing are the same artefacts.
+- **The post-install check asks whether the plugin can RUN.** It asked whether
+  `.claude-plugin/plugin.json` exists — which a clone always satisfies while the
+  board still cannot start. A sanity check a broken install passes is not one.
+
+Verified on a clean `HOME`: `supplied 32 built file(s)`, and the board answers
+**200** on `/`, `version`, `inbox`, `metrics`, `cost`, `scores`, `pipeline`.
+
+The new gate is derived from the source, not listed — it greps what `scripts/`
+and `packages/board/` actually import from `cli/dist` and asserts each is
+present. Confirmed by deleting `archetypes.js` and watching it go red.
+
+### The identifier shown was not the identifier resolved
+
+Found by that run, and pre-existing (fails on v3.8.0 too). `listProjects()`
+derives a display slug from `project` / `name` / `basename(dir)`; resolution
+matched only the slug stored in the registry. **Asking for the name the UI itself
+printed resolved to nothing** and fell back to the server's own project — one
+project's session logs served under another project's name. The fallback header
+said so, which made it wrong rather than silent, but a caller should not have to
+read a header to learn its request was ignored.
+
+---
+
 ## v3.8.0 — 2026-08-26
 
 ### How well a run went, kept apart from what the run did
