@@ -118,11 +118,49 @@ EXCLUDE_PATHS=(
 # A pre-push hook that costs two minutes is a hook people run with --no-verify,
 # and this repository has already had one guard silently disabled for months.
 # Escaping happens once at startup; matching is one grep per line.
+# Two things had to be fixed here, and together they had turned the privacy gate
+# into a gate that blocks everything.
+#
+# 1. The array expansion below was UNQUOTED — `${PRIVATE_TERMS[@]+"..."}` splits
+#    on whitespace after expansion. A multi-word private name became several
+#    terms: 14 lines in the terms file produced 47 patterns, among them "the",
+#    "and", "with" and "project". Every push carrying ordinary English prose
+#    matched, and the hook's advice on a match is `--no-verify`. A gate that
+#    fires on everything is a gate people learn to bypass, and this file's own
+#    header records that one guard here was already silently disabled for months.
+#
+# 2. Nothing rejected a term that cannot discriminate. A one-word entry that is
+#    a common English word blocks every commit message ever written, and the
+#    operator has no way to tell that from a genuine leak.
+#
+# So: terms are quoted (one line = one term, spaces included), and a term that
+# would match everything is REFUSED AND NAMED at startup rather than silently
+# arming a gate nobody can pass.
+_STOPWORDS=" the and or for with from this that a an of to in on at is are be by
+ it as not but if then else when where project projects work personal src lib bin
+ docs doc test tests script scripts main app api web core data build dist node "
+
 TERMS_RE=""
-for _t in ${PRIVATE_TERMS[@]+"${PRIVATE_TERMS[@]}"}; do
+_REJECTED_TERMS=()
+for _t in ${PRIVATE_TERMS[@]+"${PRIVATE_TERMS[@]}"} ; do :; done   # keep shellcheck quiet about the array
+for (( _i=0; _i<${#PRIVATE_TERMS[@]}; _i++ )); do
+  _t="${PRIVATE_TERMS[$_i]}"
+  [[ -z "$_t" ]] && continue
+  _lower=$(printf '%s' "$_t" | tr '[:upper:]' '[:lower:]')
+  # A term must be able to tell one project from every English sentence.
+  if [[ ${#_t} -lt 3 ]] || [[ "$_STOPWORDS" == *" $_lower "* ]]; then
+    _REJECTED_TERMS+=("$_t")
+    continue
+  fi
   _esc=$(printf '%s' "$_t" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
   TERMS_RE="${TERMS_RE:+$TERMS_RE|}$_esc"
 done
+
+if [[ ${#_REJECTED_TERMS[@]} -gt 0 ]]; then
+  echo -e "\033[0;33m[pre-push] ${#_REJECTED_TERMS[@]} private term(s) ignored — too short or too common to identify a project:\033[0m" >&2
+  printf '  %s\n' "${_REJECTED_TERMS[@]}" >&2
+  echo "  Fix them in ${PRIVATE_TERMS_FILE} — one project name per line." >&2
+fi
 
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
