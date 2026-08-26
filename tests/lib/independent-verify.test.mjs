@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   STATE, SAMPLES, verifyAgentOutput, checkClaimedArtifacts,
-  findAcceptanceDoc, judgeableRequirements,
+  findAcceptanceDoc, judgeableRequirements, checkRequiredClaim, REQUIRED_CLAIMS,
 } from '../../scripts/lib/independent-verify.mjs';
 
 // Briefs are padded past THIN_BYTES on purpose. A real brief is never 50 bytes,
@@ -171,4 +171,22 @@ test('a bookkeeping meta value is not mistaken for an artefact path', () => {
   const root = project();
   const r = checkClaimedArtifacts(verdictFor({ coverage: '100%', tests: '33', task: 'great_cto-9it' }), { root });
   assert.equal(r.status, 'none', 'a false accusation teaches people to disable the check');
+});
+
+test('an agent that skipped its REQUIRED artefact is rework, not a pass', async () => {
+  // The plan file must genuinely exist, or layer 1 fires first and the test
+  // would be asserting on the wrong check — the artefact layer runs before this
+  // one on purpose, because a named file that is absent is the harder fact.
+  const root = project({ brief: '# plan\n\nreal content\n' });
+  const r = await verifyAgentOutput({
+    verdict: { agent: 'pm', verdict: 'PLAN_READY', meta: { plan: 'docs/impl-briefs/B.md' } },
+    root,
+  });
+  assert.equal(r.state, STATE.REWORK);
+  assert.match(r.findings.join(' '), /IMPL-BRIEF/);
+});
+
+test('an agent with no declared obligation is unaffected by the rule', () => {
+  assert.equal(checkRequiredClaim({ agent: 'architect', meta: { arch: 'a.md' } }).status, 'none');
+  assert.ok(!('architect' in REQUIRED_CLAIMS), 'obligations need evidence, not enthusiasm');
 });

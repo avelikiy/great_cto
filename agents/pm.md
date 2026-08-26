@@ -588,10 +588,30 @@ Note: `team-size` does NOT constrain LLM parallelism. Pools always spawn as conc
 
 ## Step 11 — Verdict log
 
+The verdict must name the IMPL-BRIEFs from Step 7b, not only the plan.
+
+Why this line changed: Step 7b has always been written out in full — template,
+procedure, validator — and across 41 plans in this repository not one brief was
+ever produced. Nothing noticed, because the verdict claimed `plan=<file>` and
+that file was real, so the stage verified and the pipeline moved on. An
+instruction whose output nothing reads is a suggestion. `brief=` is what reads
+it: independent-verify treats a pm verdict without one as REWORK, because every
+stage downstream needs those ACCEPTANCE criteria to be verified against
+anything at all.
+
 ```bash
 TASK_COUNT=$(grep -c "^| T" "$PLAN_FILE" 2>/dev/null || echo "?")
+BRIEFS=$(ls docs/impl-briefs/IMPL-BRIEF-*.md 2>/dev/null | wc -l | tr -d ' ')
+BRIEF_ONE=$(ls docs/impl-briefs/IMPL-BRIEF-*.md 2>/dev/null | head -1)
+
+# Do not paper over a skipped Step 7b. If there are no briefs, go back and write
+# them — a verdict that omits the claim is rejected downstream anyway, and being
+# told so by a hook two minutes later is worse than noticing here.
+[ -n "$BRIEF_ONE" ] || echo "STOP: Step 7b produced no IMPL-BRIEF. Write them before logging this verdict."
+
 bash scripts/log-verdict.sh pm PLAN_READY auto \
-  "feature=$FEATURE_SLUG" "mode=$MODE" "tasks=$TASK_COUNT" "plan=$PLAN_FILE"
+  "feature=$FEATURE_SLUG" "mode=$MODE" "tasks=$TASK_COUNT" "plan=$PLAN_FILE" \
+  "briefs=$BRIEFS" "brief=$BRIEF_ONE"
 ```
 Canonical format + `auto` cost via `scripts/log-verdict.sh` (see
 `agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board

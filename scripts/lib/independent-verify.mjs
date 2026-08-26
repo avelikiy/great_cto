@@ -98,6 +98,47 @@ export const MAX_JUDGED = 12;
  */
 export const SAMPLES = 3;
 
+/**
+ * Artefacts an agent is REQUIRED to produce, keyed by the meta field that names
+ * one.
+ *
+ * The gap this closes, measured on this repository: `pm` is instructed in
+ * Step 7b to emit one IMPL-BRIEF per implementation task, with a template, a
+ * validator, and a worked procedure. `docs/impl-briefs/` does not exist and no
+ * brief has ever been written — across 41 plans and zero documents carrying an
+ * `## ACCEPTANCE` section. Nothing noticed, because pm's verdict claims
+ * `plan=<file>` and that file is real: layer 1 passed, the stage read as
+ * verified, and the pipeline moved on.
+ *
+ * An instruction whose output nothing consumes is a suggestion. This is the
+ * consumer. A stage that produced its own artefact but not its REQUIRED one is
+ * incomplete in the specific way its own contract names, so it is rework rather
+ * than a silent pass.
+ *
+ * Deliberately short. Only `pm` is listed because `pm` is the one measured gap;
+ * adding obligations nobody has evidence for would make this a wish list, and a
+ * false accusation teaches people to switch the check off.
+ */
+export const REQUIRED_CLAIMS = Object.freeze({
+  pm: { key: 'brief', what: 'an IMPL-BRIEF per implementation task (Step 7b)',
+        why: 'without it no stage downstream has acceptance criteria to be verified against' },
+});
+
+/** Did this agent claim the artefact its own contract requires? */
+export function checkRequiredClaim(verdict) {
+  const req = REQUIRED_CLAIMS[verdict?.agent];
+  if (!req) return { status: 'none', detail: 'no required artefact declared for this agent' };
+  const value = verdict?.meta?.[req.key];
+  if (!value) {
+    return {
+      status: 'fail',
+      detail: `${verdict.agent} must produce ${req.what} and its verdict names none ` +
+              `(expected \`${req.key}=<path>\`) — ${req.why}`,
+    };
+  }
+  return { status: 'pass', detail: `required \`${req.key}\` claimed: ${value}` };
+}
+
 // ── layer 1: artefacts ───────────────────────────────────────────────────────
 
 /**
@@ -323,6 +364,13 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
   checks.push({ layer: 'artefacts', ...art });
   if (art.status === 'fail') {
     findings.push(...art.missing.map((m) => `claimed artefact is missing or empty: ${m}`));
+    return conclude(STATE.REWORK, checks, findings, verdict);
+  }
+
+  const req = checkRequiredClaim(verdict);
+  checks.push({ layer: 'required artefact', ...req });
+  if (req.status === 'fail') {
+    findings.push(req.detail);
     return conclude(STATE.REWORK, checks, findings, verdict);
   }
 
