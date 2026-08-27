@@ -217,7 +217,7 @@ test('unknown agent → null', () => {
 
 // ─── E2E: spawn the hook in a sandbox project ────────────────────────────
 
-function sandbox({ verdictLines = {}, withPipeline = true } = {}) {
+function sandbox({ verdictLines = {}, withPipeline = true, scored = null, scoredRunTs = null } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'gcto-dispatch-'));
   mkdirSync(join(dir, '.great_cto', 'verdicts'), { recursive: true });
   if (withPipeline) {
@@ -226,6 +226,20 @@ function sandbox({ verdictLines = {}, withPipeline = true } = {}) {
   }
   for (const [agent, line] of Object.entries(verdictLines)) {
     writeFileSync(join(dir, '.great_cto', 'verdicts', `${agent}.log`), line + '\n');
+  }
+  // Verification is required before a stage dispatches, so a sandbox that means
+  // to test DISPATCH has to have been verified — the same order a real run goes
+  // through. `scored: null` leaves it unchecked, which is what the gate's own
+  // e2e test wants.
+  if (scored) {
+    writeFileSync(join(dir, '.great_cto', 'scores.jsonl'),
+      JSON.stringify({ v: 1, ts: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+        agent: scored, name: 'independent-verify', state: 'verified', value: 1,
+        scorer: 'mechanical',
+        // Pointed at the run being scored. A score with no `run_ts` satisfies
+        // only a verdict that itself carries no timestamp — which is the right
+        // conservative rule, and means a fixture must say which run it scored.
+        ...(scoredRunTs ? { run_ts: scoredRunTs } : {}) }) + '\n');
   }
   return dir;
 }
@@ -241,7 +255,8 @@ function runHook(cwd, subagentType, env = {}) {
 
 test('e2e: fresh success verdict emits additionalContext with PIPELINE-NEXT', () => {
   const now = new Date().toISOString();
-  const dir = sandbox({ verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` } });
+  const dir = sandbox({ verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` },
+                        scored: 'architect', scoredRunTs: now });
   try {
     const r = runHook(dir, 'great_cto-architect');
     assert.equal(r.exit, 0);
@@ -249,6 +264,21 @@ test('e2e: fresh success verdict emits additionalContext with PIPELINE-NEXT', ()
     assert.equal(out.hookSpecificOutput.hookEventName, 'PostToolUse');
     assert.match(out.hookSpecificOutput.additionalContext, /PIPELINE-NEXT/);
     assert.match(out.hookSpecificOutput.additionalContext, /pm/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('e2e: a success verdict with no score does NOT dispatch', () => {
+  // The same scenario as the dispatch test above, minus the score. Asserted
+  // through the real hook rather than through decideNext, because the gate that
+  // matters is the one that runs in the process the host actually spawns.
+  const now = new Date().toISOString();
+  const dir = sandbox({ verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` } });
+  try {
+    const r = runHook(dir, 'great_cto-architect');
+    assert.equal(r.exit, 0, 'an unverified stage is not an error — it is a stage that waits');
+    const out = JSON.parse(r.stdout);
+    assert.match(out.hookSpecificOutput.additionalContext, /PIPELINE-VERIFY/);
+    assert.doesNotMatch(out.hookSpecificOutput.additionalContext, /PIPELINE-NEXT/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -353,7 +383,7 @@ test('parseHandoffVerdict returns null without a HANDOFF block', () => {
 
 test('e2e: reviewer with HANDOFF but no verdict log still dispatches', () => {
   const now = new Date().toISOString();
-  const dir = sandbox();
+  const dir = sandbox({ scored: 'pci-reviewer' });
   try {
     mkdirSync(join(dir, 'docs', 'sec-threats'), { recursive: true });
     writeFileSync(join(dir, 'docs', 'sec-threats', 'TM-pay.md'),

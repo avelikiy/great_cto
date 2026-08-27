@@ -16,6 +16,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { decideNext } from '../../scripts/hooks/pipeline-dispatcher.mjs';
+import { writeScore } from '../../scripts/lib/scores.mjs';
 import { readVerdicts } from '../../packages/board/lib/verdicts.mjs';
 
 const TS = '2026-08-26T10:00:00Z';
@@ -30,6 +31,12 @@ function project({ cap = 5, history = null, verdictCost = 0 } = {}) {
     JSON.stringify({ v: 1, ts: TS, agent: 'senior-dev', verdict: 'APPROVED',
                      project: 't', cost_usd: verdictCost }) + '\n');
   if (history) writeFileSync(join(root, '.great_cto/cost-history.log'), history);
+  // The stage under test has been verified. These tests assert what the BUDGET
+  // decides, and a stage that reaches the budget check in real life has already
+  // passed the verification gate that sits in front of it — so the fixture says
+  // so rather than disabling the gate, which would test a mode nobody runs.
+  writeScore(root, { agent: 'architect', name: 'independent-verify',
+                     state: 'verified', scorer: 'mechanical' });
   return root;
 }
 
@@ -76,6 +83,13 @@ test('the measured figure reaches the verdict from cost-history', () => {
 
 test('an unreadable PROJECT.md holds nothing back', () => {
   const root = mkdtempSync(join(tmpdir(), 'gcto-budget-none-'));
+  // Scored, for the same reason the shared fixture is: this asserts what an
+  // ABSENT budget does, and the verification gate in front of it would otherwise
+  // answer first — a project with no PROJECT.md would look like a budget refusal
+  // when it is nothing of the kind.
+  mkdirSync(join(root, '.great_cto'), { recursive: true });
+  writeScore(root, { agent: 'architect', name: 'independent-verify',
+                     state: 'verified', scorer: 'mechanical' });
   const r = dispatch(root, 999);
   assert.equal(r.kind, 'next', 'a budget we could not read is not a budget that was exceeded');
 });

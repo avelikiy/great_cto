@@ -176,6 +176,20 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   // "LLM" and another near "Human", and FIRE the sanity check below to
   // reject pathological pairs (the 7,638× regression — total_human present
   // but total_llm fell to zero because the LLM regex was too strict).
+  // Whether a plan carried a cost at all, kept apart from what that cost was.
+  //
+  // The pair of regexes below reads a format nothing writes: measured across
+  // this repository's 41 plans, ZERO carry an LLM figure at the start of a line
+  // and one carries a Human figure — which the guard then subtracts back out. So
+  // `total_human` was $0 on every window, beside a plan count in the dozens, and
+  // read as "these plans cost nothing" rather than "no plan states a cost".
+  //
+  // There is no plan template to blame the plans for: the only template shipped
+  // is GAP-WAVE-PLAN-template.yaml, so no cost line was ever specified. Counted
+  // rather than parsed harder — the dollar figures that DO appear in plans are
+  // prose ("10 × ~$0.15", "assert total < $5") and reading them as this plan's
+  // cost would be inventing a number.
+  let planCostParsed = 0, planCostAbsent = 0, planHumanSuppressed = 0;
   const plansDir = path.join(cwd, 'docs/plans');
   if (fs.existsSync(plansDir)) {
     const planFiles = fs.readdirSync(plansDir).filter(x => x.endsWith('.md')).map(x => path.join(plansDir, x));
@@ -210,8 +224,10 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
       if (humanMatch && !llmMatch && b.human > 0) {
         // Reverse the suppression — drop the bogus single-sided Human entry.
         b.human -= parseFloat(humanMatch[1].replace(/,/g, ''));
+        planHumanSuppressed += 1;
       }
       b.plans++;
+      if (llmMatch || humanMatch) planCostParsed += 1; else planCostAbsent += 1;
     }
   }
 
@@ -323,6 +339,12 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
     total_plans: totalPlans,
     total_agent_runs: totalAgentRuns,
     total_task_estimates: totalTaskEstimates,
+    // Three states, not a number and a silence: a plan that states a cost, a
+    // plan that states none, and a plan whose Human figure was suppressed
+    // because its LLM counterpart could not be read.
+    plans_with_cost: planCostParsed,
+    plans_without_cost: planCostAbsent,
+    plans_human_suppressed: planHumanSuppressed,
     daily_avg: Math.round(dayRate * 100) / 100,
     projected_monthly: projectedMonthly,
     monthly_budget: budget,

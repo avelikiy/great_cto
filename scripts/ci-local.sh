@@ -171,6 +171,16 @@ step "agent runs match the verdict logs" bash -c '
   node --test tests/lib/cost-runs.test.mjs
 '
 
+# Verification used to be a sentence in a directive, and it ran on a third of the
+# work: 31 agent runs, 10 scores. The dispatch is now conditional on a score for
+# THIS run. The properties that keep it a gate rather than a trap: an earlier
+# run's score does not satisfy a later one, `unverifiable` unblocks (the LOOK is
+# what is required, not a pass), and the bypass says the stage was not checked
+# rather than implying it passed.
+step "verification is required, not suggested" bash -c '
+  node --test tests/hooks/verify-gate.test.mjs
+'
+
 # What a stage produces is declared in the map, not in JavaScript. Borrowed from
 # Pipelex, where every step declares its typed output — here one direction,
 # because what a stage consumes is implied by what its predecessor produced.

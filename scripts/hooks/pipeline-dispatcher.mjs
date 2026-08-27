@@ -38,6 +38,7 @@ import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcrip
 import { stopShape } from '../lib/stop-shape.mjs';
 import { recordRun } from '../lib/pipeline-journal.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
+import { latestScore as _latestScore } from '../lib/scores.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 /**
@@ -92,6 +93,24 @@ export const REWORK_TOKEN = 'REWORK';
  * bored, and the symptom is not an error — it is a pipeline that looks busy.
  */
 export const MAX_REWORK = 3;
+
+/**
+ * The score recorded for one run, or null.
+ *
+ * Keyed on the run's own timestamp so a score from an EARLIER run of the same
+ * agent cannot satisfy the gate for this one — the failure mode would be a stage
+ * verified once and waved through forever after.
+ *
+ * Fail-open on its own failure: a scores file that cannot be read is not a
+ * refusal to dispatch. A broken checker halting every transition is a worse
+ * outage than the defect it looks for.
+ */
+function latestScoreFor(cwd, agent, runTs) {
+  try {
+    const latestScore = _latestScore;
+    return latestScore(cwd, { agent, runTs: runTs || null, name: 'independent-verify' });
+  } catch { return null; }
+}
 
 /** How many REWORK verdicts this agent already has in this chain. */
 export function countRework(agent, allVerdicts) {
@@ -540,10 +559,41 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   }
 
   const verifyCmd = `node scripts/lib/independent-verify.mjs ${agent}`;
-  const verifyNote =
-    ` VERIFY FIRST: run \`${verifyCmd}\` and act on its exit code — 0 verified, `
-    + `1 rework (hand its findings back to ${agent}, do not proceed), 2 unverifiable `
-    + `(nothing could be checked; say so to the CTO rather than treating it as a pass).`;
+
+  // Verification stopped being advisory.
+  //
+  // It was a sentence in a directive — "VERIFY FIRST: run …" — and a sentence is
+  // followed when the reader chooses to. Measured on this repository: 31 agent
+  // runs, 10 scores, and most of those ten were run by hand rather than by the
+  // pipeline. A check that executes on a third of the work is not a gate, it is
+  // a suggestion with good intentions.
+  //
+  // So the DISPATCH is now conditional on a score existing for THIS run, and the
+  // hook stays fast by not doing the verifying itself — it declines to hand work
+  // to the next stage until the judgement is on disk.
+  //
+  // The escape from a deadlock is deliberate and is not a bypass: `unverifiable`
+  // is a valid score. Running the judge always unblocks the pipeline, even when
+  // the honest answer is "nothing here could be checked". What cannot be done is
+  // SKIPPING the look. `GREAT_CTO_REQUIRE_VERIFY=0` turns the gate off for
+  // operators who need it off, and says so in the directive rather than
+  // pretending the check passed.
+  const requireVerify = process.env.GREAT_CTO_REQUIRE_VERIFY !== '0';
+  const score = cwd ? latestScoreFor(cwd, agent, verdict?.ts) : null;
+  if (requireVerify && cwd && !score) {
+    return {
+      kind: 'verify-wait',
+      text: `PIPELINE-VERIFY: ${agent} reported ${verdict.verdict}, and nothing has checked it. `
+        + `Run \`${verifyCmd}\` before spawning ${(skip.nexts || []).join(', ') || 'the next stage'}. `
+        + `Exit 0 verified — proceed. Exit 1 rework — hand the findings back to ${agent}. `
+        + `Exit 2 unverifiable — nothing could be checked; that is a recorded answer and the `
+        + `pipeline may proceed, but say so to the CTO rather than treating it as a pass. `
+        + `Set GREAT_CTO_REQUIRE_VERIFY=0 to dispatch without a check.`,
+    };
+  }
+  const verifyNote = score
+    ? ` VERIFIED: independent-verify recorded \`${score.state}\` for this run (${score.scorer}).`
+    : ` NOT VERIFIED: the check is disabled (GREAT_CTO_REQUIRE_VERIFY=0); nothing has judged this stage.`;
 
   const skipNote = skip.skipped.length
     ? ` (skipping ${skip.skipped.join(', ')} — ${skip.why}; no active gate sat on that edge)`
