@@ -4,6 +4,54 @@ All notable changes to great_cto are documented here.
 
 ---
 
+
+## v3.14.0 — 2026-08-27
+
+### A plugin older than the CLI does not get to answer for it
+
+`npm i -g great-cto@NEW` installed a new CLI carrying a new bundled board, and
+`great-cto board` then launched the **old** board out of the plugin cache —
+because `findBoardServerPath` put the cache ahead of the bundle unconditionally
+and a plugin directory existed. The CLI reported the new version, the screen
+served the old one, and nothing said so.
+
+The list is still the list; what changed is that a **stale** plugin no longer
+beats the bundle. When the newest installed plugin is older than the running CLI,
+the bundled board wins — it ships inside that CLI and is therefore exactly as
+new. An equal or newer plugin still wins, because a plugin install is the richer
+one: it carries agents, skills and commands the npm package does not.
+
+A version that cannot be read arrives as `undefined`, never as the string
+`"unknown"` — board-path treats absence as *behave as before*, while the literal
+word would make the semver comparison parse `NaN` and answer nonsense.
+
+⚠️ **What this does not fix, said plainly:** `postinstall.mjs` is still a
+five-line no-op, so `npm i -g` does not update the **plugin** — the agents,
+skills and commands under `~/.claude/plugins`. Those come from the Claude Code
+marketplace, and the two distributions are deliberately different sizes. What is
+fixed is the symptom: a new CLI will no longer serve an old board.
+
+### Also in this release
+
+**The inbox stopped printing wire format.** One P0 card had no prose at all —
+all 140 visible characters were `## Context [archetype:...] [compliance:[...]]`,
+the format the pipeline passes between stages, printed verbatim to a person.
+Parsed now. The receipt notice moved out of the way of the decisions, age became
+a column with the oldest first, and the pipeline strip stopped wrapping: 5 of 10
+labels broke to two lines before, 0 of 10 now, and the track is 39% shorter.
+
+**The docs screen stopped shrugging at 91% of itself.** `unknown` was returned
+both when a file could not be read and when it simply declared no `stale_after` —
+and 0 of 1634 markdown files in one project declare one. Four states now, with
+"not declared" as `null` so a caller drops the badge without learning a
+vocabulary; the 19 genuinely-judged documents stopped drowning in 198 badges
+about nothing. Classification read one signal, the directory, and put **165 of
+217** documents in "Other". It reads six now, and a leading filename token beats
+the directory: `Other` fell to **8% · 14% · 6%** across three projects, with the
+totals unchanged — nothing dropped to make the number look better.
+
+---
+
 ## v3.13.0 — 2026-08-26
 
 ### Verification stopped being advisory, and the judge got 48× cheaper
