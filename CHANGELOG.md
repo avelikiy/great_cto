@@ -12,6 +12,27 @@ Every stage of the pipeline can now be checked against something, the check
 reads the contracts of the project it is checking, and what it concluded is
 visible on the board instead of scrolling past in a terminal.
 
+### What's new
+
+- **Every pipeline stage is now verifiable.** Each stage declares what it
+  produces — a document, a set of documents, or a receipt of the files it
+  touched — and a run is checked against that declaration.
+- **A stage can declare a set, not just a file.** `briefs=docs/impl-briefs/`
+  names a directory, judged by its contents, for stages that write one document
+  per task.
+- **Verification reads your project's contracts**, not great_cto's, when it runs
+  inside your project.
+- **A split judge is reported as split.** Where three samples disagree, a second
+  model settles it; where nothing settles it, the result says so instead of
+  presenting a coin flip as a conclusion.
+- **The board shows verification results.** State, scorer and findings for every
+  run, on the Budgets page.
+- **`npm i -g` tells you when the plugin is behind the CLI.** The two ship
+  separately and are deliberately different sizes; the difference is no longer
+  silent.
+
+---
+
 ### Two stages could not be verified at all
 
 `senior-dev` and `code-reviewer` declared no output contract, so their runs came

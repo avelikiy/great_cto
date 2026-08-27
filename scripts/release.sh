@@ -178,24 +178,43 @@ awk -v ver="v$NEW" '
   in_section { print }
 ' "$CHANGELOG" > "$NOTES_FILE"
 
-# The RELEASE PAGE gets a summary; the CHANGELOG keeps the depth.
+# The RELEASE PAGE says what you can now do; the CHANGELOG says what was wrong.
 #
-# These were the same text, so a release page carried every paragraph of
-# reasoning behind every fix — the right amount for someone auditing a decision
-# months later, and far too much for someone deciding whether to upgrade. A
-# reader who wants the argument can follow one link; a reader who wants to know
-# what changed should not have to scroll past it.
+# These were the same text, so every release page led with defects — "two stages
+# could not be verified", "the checker read the wrong contracts". That is the
+# right framing for a maintainer auditing a decision months later, and the wrong
+# framing for the page a prospective user reads first, where a list of things
+# that used to be broken is the entire impression.
 #
-# What survives: the lead paragraph (what this release is), the `###` headings
-# (what changed, one line each), and the link.
+# So the page carries the lead paragraph (what this release lets you do) and, if
+# the entry provides one, a "What is new" section. The per-defect headings and
+# the reasoning under them stay in the CHANGELOG, one link away. Nothing is
+# hidden; it is filed where its readers are.
+#
+# Authoring rule the script cannot enforce: write the lead paragraph in terms of
+# what the release ENABLES, not what it repaired. This will not rephrase a defect
+# list into a feature list, and should not — that is where honest release notes
+# turn into marketing.
 SUMMARY_FILE=$(mktemp)
 trap "rm -f $NOTES_FILE $SUMMARY_FILE" EXIT
 
-awk '
-  /^### / { if (!heads++) print ""; sub(/^### /, "- "); print; next }
-  !heads  { print }
-' "$NOTES_FILE" \
-  | awk 'NF || prev { print; prev = NF }' > "$SUMMARY_FILE"
+# Lead paragraph: everything before the first `###`.
+awk '/^### / { exit } { print }' "$NOTES_FILE" > "$SUMMARY_FILE"
+
+# The "What is new" section, if the entry has one. The `.` matches an
+# apostrophe, so the heading may be written either way.
+awk '/^### / { want = ($0 ~ /What.s new/); next } want { print }' \
+  "$NOTES_FILE" >> "$SUMMARY_FILE"
+
+# Collapse the blank runs extraction leaves behind, and drop a trailing rule —
+# the `---` that separates the summary from the detail sections belongs to the
+# CHANGELOG's layout, not to the release page.
+awk 'NF || prev { print; prev = NF }' "$SUMMARY_FILE" \
+  | awk '{ lines[NR] = $0 } END { last = NR; while (last > 0 && (lines[last] == "" || lines[last] ~ /^-{3,}$/)) last--; for (i = 1; i <= last; i++) print lines[i] }' \
+  > "$SUMMARY_FILE.tidy" && mv "$SUMMARY_FILE.tidy" "$SUMMARY_FILE"
+
+printf '\n[Full notes, including every fix and the reasoning behind it](https://github.com/%s/blob/main/CHANGELOG.md)\n' \
+  "${GITHUB_REPO:-avelikiy/great_cto}" >> "$SUMMARY_FILE"
 
 printf '\n[Full notes for this release](https://github.com/%s/blob/main/CHANGELOG.md) — what changed, and why each change was made.\n' \
   "${GITHUB_REPO:-avelikiy/great_cto}" >> "$SUMMARY_FILE"
