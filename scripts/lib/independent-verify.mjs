@@ -163,17 +163,26 @@ export function contractFor(agent, { root = process.cwd(), pipelinePath = null }
     path.join(root, '.great_cto', 'pipeline.toml'),
     path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', 'shared', 'pipeline.toml'),
   ];
+  // The FIRST map that parses wins, whether or not it mentions this stage.
+  //
+  // Searching on until some map recognises the agent is how one project ends up
+  // judged by another project's contracts: a project whose own map simply does
+  // not run `pm` would inherit this repository's pm contract and be told it owes
+  // a plan it never promised. "This pipeline does not have that stage" is an
+  // answer, and it belongs to the map that was found — not a reason to keep
+  // looking for a map that agrees.
   let sawMap = null;
   for (const f of candidates) {
     if (!existsSync(f)) continue;
+    let map;
     try {
-      const text = readFileSync(f, 'utf8');
-      const map = parsePipelineToml(text);
-      sawMap = f;
-      const rule = map[agent];
-      if (rule?.produces?.length) return { keys: rule.produces, source: f, known: true };
-      if (rule) return { keys: [], source: f, known: true };   // stage known, contract absent
-    } catch { /* try the next */ }
+      map = parsePipelineToml(readFileSync(f, 'utf8'));
+    } catch { continue; }   // unreadable is not an answer; a later candidate may be
+    sawMap = f;
+    const rule = map[agent];
+    if (rule?.produces?.length) return { keys: rule.produces, source: f, known: true };
+    if (rule) return { keys: [], source: f, known: true };     // stage known, contract absent
+    break;                                                     // map found, stage absent — that IS the answer
   }
   // Three outcomes, and the first version collapsed the last two: a map that
   // does not exist and a map that does not mention this stage are different

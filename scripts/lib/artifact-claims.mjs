@@ -34,7 +34,7 @@
  * not in a checker that would suddenly fail every agent at once.
  */
 
-import { statSync } from 'node:fs';
+import { statSync, readdirSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 
 /**
@@ -58,14 +58,31 @@ export const THIN_BYTES = 200;
  */
 const ARTEFACT_EXT = /\.(md|mjs|js|ts|tsx|json|toml|yaml|yml|sql|sh|txt|html|css|jsonl)$/i;
 
+/**
+ * A trailing slash means "the set of them, in here".
+ *
+ * Some stages produce ONE document and some produce a SET. `pm` emits one
+ * implementation brief per senior-dev task, so no single `brief=<path>` can be
+ * true of a run that wrote four of them — and requiring one anyway is a contract
+ * that cannot be satisfied honestly, which is worse than no contract. It names
+ * `briefs=docs/impl-briefs/` instead, and the directory is checked for contents.
+ *
+ * The trailing slash is required rather than inferred from what is on disk: a
+ * value that resolves to a directory today and a file tomorrow would silently
+ * change what was asserted. The claim says which kind it is.
+ */
+const DIR_CLAIM = /\/$/;
+
 export function pathClaims(meta) {
   const out = [];
   for (const [key, raw] of Object.entries(meta || {})) {
     const value = String(raw ?? '').trim();
-    if (!value || !value.includes('/') || !ARTEFACT_EXT.test(value)) continue;
+    if (!value || !value.includes('/')) continue;
     // A URL is a claim about somewhere else; this module only knows the disk.
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) continue;
-    out.push({ key, path: value });
+    const dir = DIR_CLAIM.test(value);
+    if (!dir && !ARTEFACT_EXT.test(value)) continue;
+    out.push({ key, path: value, ...(dir ? { dir: true } : {}) });
   }
   return out;
 }
@@ -75,7 +92,7 @@ export function pathClaims(meta) {
  *   missing — named and absent, or not a regular file
  *   thin    — present but under THIN_BYTES
  */
-export function checkArtifacts(meta, { root = process.cwd(), thinBytes = THIN_BYTES, stat = statSync } = {}) {
+export function checkArtifacts(meta, { root = process.cwd(), thinBytes = THIN_BYTES, stat = statSync, readdir = readdirSync } = {}) {
   const claims = pathClaims(meta);
   const missing = [];
   const thin = [];
@@ -85,6 +102,23 @@ export function checkArtifacts(meta, { root = process.cwd(), thinBytes = THIN_BY
     let st;
     try { st = stat(full); } catch {
       missing.push(c);
+      continue;
+    }
+    if (c.dir) {
+      // A directory claim is satisfied by CONTENT, not by existence. `mkdir -p`
+      // runs in half the agent prompts in this repo, so an empty directory is
+      // the single most likely way for a set-producing stage to look like it
+      // delivered when it did not.
+      if (!st.isDirectory || !st.isDirectory()) { missing.push(c); continue; }
+      let real = 0;
+      try {
+        for (const name of readdir(full)) {
+          let f;
+          try { f = stat(join(full, name)); } catch { continue; }
+          if (f.isFile && f.isFile() && f.size >= thinBytes) real += 1;
+        }
+      } catch { missing.push(c); continue; }
+      if (real === 0) thin.push({ ...c, size: 0 });
       continue;
     }
     if (!st.isFile || !st.isFile()) { missing.push(c); continue; }

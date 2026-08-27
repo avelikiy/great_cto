@@ -93,8 +93,15 @@ next = []
 
 [transitions.pm]
 on = ["PLAN_READY", "DONE"]
-# PLAN-{slug}.md and one IMPL-BRIEF per task (Step 7b)
-produces = ["plan", "brief"]
+# PLAN-{slug}.md, and one IMPL-BRIEF per senior-dev task (Step 7b).
+#
+# `briefs` is PLURAL and names the directory, because pm writes one brief per
+# task and no single `brief=<path>` is true of a run that wrote four. The old
+# singular key held pm on REWORK for a reason that was this map's fault rather
+# than the agent's: it asked for something the stage cannot honestly produce.
+# A trailing slash marks a set; the directory is judged by what is in it, so
+# `mkdir -p` with nothing written still fails.
+produces = ["plan", "briefs"]
 gate = "gate:plan"
 next = ["senior-dev"]
 
@@ -196,6 +203,21 @@ next = ["senior-dev"]
 # They point at senior-dev, NOT at code-reviewer. A contract is a document; code
 # review of a document reviews the wrong artefact, and jumping to review would
 # skip the implementation the contract exists to direct.
+# `/audit` is where a project that has no pipeline history starts, so
+# project-auditor has no incoming edge and nothing it hands off to — the CTO
+# reads the audit and decides. It is in this map anyway, and only for its
+# contract: without an entry here the verifier reports `none` ("ran outside the
+# mapped pipeline"), which is honest and useless — the one stage most likely to
+# run against an unfamiliar codebase was the one nothing could check.
+#
+# `next = []` is the declaration that it ends here. An invented handoff would
+# make the dispatcher push work the CTO never asked for.
+[transitions.project-auditor]
+on = ["DONE", "AUDIT_COMPLETE"]
+# the combined audit report its findings rest on
+produces = ["audit"]
+next = []
+
 [transitions.auth-engineer]
 on = ["DONE"]
 next = ["senior-dev"]

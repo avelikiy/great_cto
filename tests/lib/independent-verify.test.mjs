@@ -193,13 +193,20 @@ test('an agent that skipped its REQUIRED artefact is rework, not a pass', async 
   // The plan file must genuinely exist, or layer 1 fires first and the test
   // would be asserting on the wrong check — the artefact layer runs before this
   // one on purpose, because a named file that is absent is the harder fact.
-  const root = project({ brief: '# plan\n\nreal content\n' });
+  // The requirement is declared BY THE FIXTURE. Borrowing it from this
+  // repository's own map made the test assert on whatever pm happens to owe
+  // today — it broke the day pm's contract went from `brief` to `briefs`, which
+  // is a change in the map, not a regression in the code under test.
+  const root = project({
+    brief: '# plan\n\nreal content\n',
+    map: '[transitions.pm]\non = ["PLAN_READY"]\nproduces = ["plan", "handbook"]\nnext = ["senior-dev"]\n',
+  });
   const r = await verifyAgentOutput({
     verdict: { agent: 'pm', verdict: 'PLAN_READY', meta: { plan: 'docs/impl-briefs/B.md' } },
     root,
   });
   assert.equal(r.state, STATE.REWORK);
-  assert.match(r.findings.join(' '), /brief=<path>/,
+  assert.match(r.findings.join(' '), /handbook=<path>/,
     'the finding names the key the map declares, so the message follows the contract');
 });
 

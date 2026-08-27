@@ -102,7 +102,14 @@ test('every declared key is one an agent actually writes', () => {
   // senior-dev and code-reviewer have never written a document path into meta in
   // any project's logs, and both DO carry receipts. Declaring a document key for
   // them would have invented an obligation, which is what this test prevents.
-  const KNOWN_META = ['arch', 'adr', 'plan', 'brief', 'design', 'report', 'files'];
+  // `briefs` and `audit` joined this list because the AGENTS already emitted them
+  // (agents/pm.md, agents/project-auditor.md) — the map was behind, not ahead.
+  // That is the only direction this list may grow: a key is added because
+  // something writes it, never so a contract can be declared.
+  //
+  // `briefs` ends in a slash and names a directory; `brief` (singular, from
+  // product-owner) is one product brief. Different stages, different things.
+  const KNOWN_META = ['arch', 'adr', 'plan', 'brief', 'briefs', 'design', 'report', 'audit', 'files'];
   const KNOWN_BLOCKS = ['receipt'];
   const KNOWN = new Set([...KNOWN_META, ...KNOWN_BLOCKS]);
   const r = contractCoverage(readFileSync(MAP, 'utf8'));

@@ -122,3 +122,51 @@ test('no meta at all is not an error', () => {
     assert.equal(checkArtifacts(meta, { root: '/nonexistent' }).ok, true);
   }
 });
+
+// A stage that produces a SET cannot name one path.
+//
+// `pm` writes one implementation brief per senior-dev task. Its contract asked
+// for `brief=<path>`, singular, which no run that wrote four briefs can satisfy
+// honestly — so it satisfied nothing, and the stage sat on REWORK for a reason
+// that was the contract's fault rather than the agent's. A set names its
+// directory, and the directory is judged by what is IN it.
+test('a directory claim is judged by its contents, in four distinct states', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-dir-'));
+  fs.mkdirSync(path.join(root, 'empty'));
+  fs.mkdirSync(path.join(root, 'thin-only'));
+  fs.writeFileSync(path.join(root, 'thin-only', 'a.md'), 'x');
+  fs.mkdirSync(path.join(root, 'real'));
+  fs.writeFileSync(path.join(root, 'real', 'a.md'), 'x'.repeat(THIN_BYTES + 1));
+
+  // Absent and empty are different facts: one stage never ran, the other ran
+  // and produced nothing. `mkdir -p` appears in half the agent prompts here, so
+  // an empty directory is the likeliest way to look delivered while not being.
+  const absent = checkArtifacts({ briefs: 'nowhere/' }, { root });
+  assert.equal(absent.missing.length, 1);
+  assert.equal(absent.thin.length, 0);
+
+  const empty = checkArtifacts({ briefs: 'empty/' }, { root });
+  assert.equal(empty.missing.length, 0);
+  assert.equal(empty.thin.length, 1, 'present and says nothing');
+
+  const thinOnly = checkArtifacts({ briefs: 'thin-only/' }, { root });
+  assert.equal(thinOnly.thin.length, 1, 'a placeholder inside is still nothing inside');
+
+  assert.equal(checkArtifacts({ briefs: 'real/' }, { root }).ok, true);
+});
+
+test('the trailing slash is the claim, not a guess about the disk', () => {
+  // Without it, a value with no extension is not a path claim at all — the
+  // conservative rule that keeps `task=great_cto-12qe` from being checked as a
+  // file. With it, the claim says "a set lives here" and stays saying that even
+  // if a file of the same name appears later.
+  assert.deepEqual(pathClaims({ briefs: 'docs/impl-briefs' }), [],
+    'no slash, no extension — not a claim about the disk');
+  assert.deepEqual(pathClaims({ briefs: 'docs/impl-briefs/' }),
+    [{ key: 'briefs', path: 'docs/impl-briefs/', dir: true }]);
+
+  // And a directory claim pointed at a regular file is wrong, not lenient.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-dir2-'));
+  fs.writeFileSync(path.join(root, 'notadir'), 'x'.repeat(THIN_BYTES + 1));
+  assert.equal(checkArtifacts({ briefs: 'notadir/' }, { root }).missing.length, 1);
+});

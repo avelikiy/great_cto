@@ -280,12 +280,16 @@ function sandboxVerdicts(files) {
 
 test('readAllVerdicts takes the agent from the verdict line, not the filename', () => {
   const { vdir, dir } = sandboxVerdicts({
-    '2026-06-27.log': '2026-06-27T16:29:38Z | project-auditor | DONE | artefacts=1 | beads_open=8\n',
+    '2026-06-27.log': '2026-06-27T16:29:38Z | some-old-agent | DONE | artefacts=1 | beads_open=8\n',
   });
   try {
     const verdicts = readAllVerdicts(vdir, { transitions: TRANSITIONS, now: NOW });
     assert.ok(!verdicts['2026-06-27'], 'the filename stem must never become an agent key');
-    assert.ok(!verdicts['project-auditor'], 'project-auditor is not a pipeline.toml stage — stray log, ignored');
+    // A name invented for the case. `project-auditor` stood here as the example
+    // of a non-stage until it became one, which is what happens to every real
+    // name borrowed to illustrate a category: the illustration decays into a
+    // false assertion the day the category changes.
+    assert.ok(!verdicts['some-old-agent'], 'not a pipeline.toml stage — stray log, ignored');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

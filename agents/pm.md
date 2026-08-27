@@ -601,17 +601,25 @@ anything at all.
 
 ```bash
 TASK_COUNT=$(grep -c "^| T" "$PLAN_FILE" 2>/dev/null || echo "?")
-BRIEFS=$(ls docs/impl-briefs/IMPL-BRIEF-*.md 2>/dev/null | wc -l | tr -d ' ')
-BRIEF_ONE=$(ls docs/impl-briefs/IMPL-BRIEF-*.md 2>/dev/null | head -1)
+BRIEF_DIR=docs/impl-briefs
+BRIEF_N=$(ls "$BRIEF_DIR"/IMPL-BRIEF-*.md 2>/dev/null | wc -l | tr -d ' ')
 
-# Do not paper over a skipped Step 7b. If there are no briefs, go back and write
-# them — a verdict that omits the claim is rejected downstream anyway, and being
-# told so by a hook two minutes later is worse than noticing here.
-[ -n "$BRIEF_ONE" ] || echo "STOP: Step 7b produced no IMPL-BRIEF. Write them before logging this verdict."
+# An echo is not a guard. This line used to print STOP and then log the verdict
+# anyway on the next command, which is the failure it was written to prevent
+# wearing the costume of preventing it. If Step 7b produced nothing, stop.
+if [ "$BRIEF_N" -eq 0 ]; then
+  echo "STOP: Step 7b produced no IMPL-BRIEF. Write them before logging this verdict." >&2
+  exit 1
+fi
 
+# `briefs` names the DIRECTORY, with the trailing slash that marks a set. pm
+# writes one brief per task, so no single path is true of the run; the verifier
+# checks the directory has real content, which an empty `mkdir -p` does not.
+# The count rides along as bookkeeping under its own name — it is a number, and
+# a number in a path-shaped key is how this claim went unchecked before.
 bash scripts/log-verdict.sh pm PLAN_READY auto \
   "feature=$FEATURE_SLUG" "mode=$MODE" "tasks=$TASK_COUNT" "plan=$PLAN_FILE" \
-  "briefs=$BRIEFS" "brief=$BRIEF_ONE"
+  "briefs=$BRIEF_DIR/" "brief_count=$BRIEF_N"
 ```
 Canonical format + `auto` cost via `scripts/log-verdict.sh` (see
 `agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board

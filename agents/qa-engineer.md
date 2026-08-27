@@ -795,8 +795,16 @@ Canonical helper (see `agents/_shared/verdict-format.md`) — the pipeline
 dispatcher and the board parse this line; `auto` records real token cost:
 
 ```bash
+# The report path is NOT optional. § "Post-condition" already requires the file
+# to exist; naming it here is what lets anything downstream check that it does.
+# Without it the verdict says coverage=100% and points at nothing, which is the
+# exact shape of the run that reported full coverage having run a third of the
+# suite. A stage that cannot name its report has not finished writing it.
+REPORT=docs/qa-reports/QA-$(date +%Y-%m-%d).md   # or QA-poc-<slug>.md in POC mode
+[ -s "$REPORT" ] || { echo "STOP: no QA report at $REPORT — write it first." >&2; exit 1; }
+
 bash scripts/log-verdict.sh qa-engineer <PASS|FAIL> auto \
-  coverage=<X>% bugs=P0:<n>,P1:<n>,P2:<n> feature=<slug>
+  coverage=<X>% bugs=P0:<n>,P1:<n>,P2:<n> feature=<slug> "report=$REPORT"
 ```
 
 ### Step 6: Create gate:ship (MANDATORY — only on PASS)
