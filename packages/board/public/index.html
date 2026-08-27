@@ -1822,6 +1822,39 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   font-size: var(--fs-body);
 }
 .judge-status[hidden] { display: none; }
+
+/* What the judge CONCLUDED, under whether it is connected.
+   The scores existed for weeks and no page read them: /api/scores had zero
+   callers, so every verification ran, wrote a record, and vanished. */
+.jscores { margin-bottom: 16px; }
+.jscores[hidden] { display: none; }
+.jscores-head {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px 8px 0 0;
+  background: var(--bg-muted); font-size: var(--fs-body);
+}
+.jscores-head .rate { font-size: var(--fs-num-s); font-weight: 600; }
+.jscores-rows { border: 1px solid var(--border); border-top: 0; border-radius: 0 0 8px 8px; }
+.jscore {
+  display: grid; grid-template-columns: minmax(9rem, 12rem) 7.5rem 1fr auto;
+  gap: 12px; align-items: baseline;
+  padding: 7px 12px; border-top: 1px solid var(--border); font-size: var(--fs-small);
+}
+.jscore:first-child { border-top: 0; }
+.jscore .who { font-weight: 500; }
+.jscore .why { color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jscore .when { color: var(--text3); font-family: var(--mono); font-size: var(--fs-caption); }
+.jstate { font-weight: 600; }
+.jstate.verified { color: var(--status-done); }
+.jstate.rework { color: var(--status-progress); }
+/* Deliberately grey, not red. `unverifiable` is not a failing grade — it is the
+   absence of one, and colouring it like a failure is the same collapse of three
+   states into two that the scores exist to prevent. */
+.jstate.unverifiable { color: var(--text3); }
+@media (max-width: 640px) {
+  .jscore { grid-template-columns: 1fr auto; }
+  .jscore .why, .jscore .when { grid-column: 1 / -1; }
+}
 .judge-status .js-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .judge-status.ok .js-dot { background: var(--status-done); }
 .judge-status.off .js-dot { background: var(--status-blocked); }
@@ -3136,6 +3169,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              key is not discoverable: the README names OpenRouter once without
              saying where it goes. -->
         <div id="judge-status" class="judge-status" hidden></div>
+          <!-- The verdicts of the verifier itself. Kept beside the connection
+               status because the two answer consecutive questions: is anything
+               checking, and what did it find. -->
+          <div id="judge-scores" class="jscores" hidden></div>
         <div id="budgets-page-body">loading…</div>
       </div>
     </div>
@@ -3960,6 +3997,75 @@ async function loadJudgeStatus() {
        </span>`;
 }
 
+/**
+ * What the verifier concluded, per stage.
+ *
+ * `/api/scores` existed with ZERO front-end callers: every verification ran,
+ * appended a record, and was never shown to anyone. The user's question — "how
+ * much did introducing the judge improve anything, and why can I not see it?" —
+ * had a correct answer of "you cannot, nothing renders it".
+ *
+ * The rate divides by ASSESSED, never by total, and says how many that was.
+ * An agent with nine unverifiable runs and one verified run scores 100% here
+ * with `1 assessed` beside it; reporting 10% would be a made-up number about
+ * work nobody looked at.
+ */
+async function loadJudgeScores() {
+  const el = document.getElementById('judge-scores');
+  if (!el) return;
+  let d;
+  try { d = await api(`/api/scores${pqs()}&limit=40`); } catch { d = null; }
+
+  // Three states, and the empty one earns a sentence rather than a blank space:
+  // "nothing has been verified yet" and "the panel is broken" look identical
+  // when a component renders nothing.
+  if (!d || !Array.isArray(d.scores)) {
+    el.hidden = false;
+    el.innerHTML = `<div class="jscores-head"><span class="muted">Verification results could not be read.</span></div>`;
+    return;
+  }
+  if (!d.scores.length) {
+    el.hidden = false;
+    el.innerHTML = `<div class="jscores-head"><span class="muted">No stage has been verified yet — run a pipeline and the judge's conclusions land here.</span></div>`;
+    return;
+  }
+
+  const sum = d.summary || {};
+  const by = sum.byState || {};
+  const rate = sum.rate === null || sum.rate === undefined ? '—' : `${sum.rate}%`;
+
+  // Newest first, one row per agent: an older score for the same stage is
+  // history, and history belongs in the file, not in a status panel.
+  const seen = new Set();
+  const rows = d.scores.filter((s) => {
+    if (seen.has(s.agent)) return false;
+    seen.add(s.agent);
+    return true;
+  });
+
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="jscores-head">
+      <span class="rate">${rate}</span>
+      <span class="muted">verified, of ${sum.assessed || 0} assessed</span>
+      <span class="jstate verified">${by.verified || 0} verified</span>
+      <span class="jstate rework">${by.rework || 0} rework</span>
+      <span class="jstate unverifiable"
+            title="Nothing was checked — not a failing grade. Excluded from the rate rather than counted as zeros, which is why the rate says how many it divided by.">${by.unverifiable || 0} unverifiable</span>
+      ${d.unreadable_lines
+        ? `<span class="jstate rework">${d.unreadable_lines} unreadable line(s)</span>` : ''}
+    </div>
+    <div class="jscores-rows">
+      ${rows.map((s) => `
+        <div class="jscore">
+          <span class="who">${esc(s.agent)}</span>
+          <span class="jstate ${esc(s.state)}">${esc(s.state)}</span>
+          <span class="why" title="${esc(s.comment || '')}">${esc(s.comment || '')}</span>
+          <span class="when">${esc(String(s.ts || '').slice(0, 10))} · ${esc(s.scorer || '')}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
 async function saveJudgeKey() {
   const input = document.getElementById('judge-key');
   const key = (input?.value || '').trim();
@@ -3982,6 +4088,7 @@ async function saveJudgeKey() {
 
 async function loadBudgetsPage() {
   loadJudgeStatus();
+  loadJudgeScores();
   const body = document.getElementById('budgets-page-body');
   if (!body) return;
   body.innerHTML = '<div class="muted">loading…</div>';
