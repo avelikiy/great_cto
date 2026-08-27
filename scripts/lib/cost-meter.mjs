@@ -60,6 +60,11 @@ export const DEFAULT_PRICES = {
   // override via ~/.great_cto/model-prices.json or GREAT_CTO_MODEL_PRICES).
   'moonshotai/kimi-k2':  { input: 0.55, output: 2.2 },
   'moonshotai/kimi-k3':  { input: 3,    output: 15 },
+  // Read from OpenRouter's /models on 2026-08-27, not guessed. Until now these
+  // reported `priced: false` — correctly, and that honesty is why an eval run on
+  // glm-5.3-flash showed $0.000: not free, unpriced. Now they are priced exactly.
+  'z-ai/glm-5.3-flash': { input: 0.075, output: 0.25 },
+  'z-ai/glm-5.3':       { input: 1.4,   output: 4.4 },
 };
 
 /**

@@ -31,6 +31,17 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 
+/** The CLI version, or undefined when it cannot be read.
+ *
+ * `undefined` rather than the string "unknown": board-path treats a missing
+ * version as "behave as before", and passing the literal "unknown" would make
+ * `byVer` parse NaNs and answer nonsense. A value we could not determine must
+ * arrive as an absence, not as a word that looks like one. */
+function cliVersionOrUndefined(): string | undefined {
+  const v = getCliVersion();
+  return /^\d+\.\d+\.\d+/.test(v) ? v : undefined;
+}
+
 function getCliVersion(): string {
   try {
     const here = dirname(fileURLToPath(import.meta.url));
@@ -253,7 +264,7 @@ async function restartBoardAfterUpgrade(port: number): Promise<void> {
 
   await killExistingBoard();
 
-  const serverPath = findBoardServerPath();
+  const serverPath = findBoardServerPath(undefined, undefined, cliVersionOrUndefined());
   if (!serverPath) {
     warn("board server not found after upgrade — start it manually with: great-cto board");
     return;
@@ -287,7 +298,7 @@ async function runBoard(args: CliArgs, surface?: "console"): Promise<number> {
     log(`  ${dim(surface === "console" ? "stopped previous console server" : "stopped previous board server")}`);
   }
 
-  const serverPath = findBoardServerPath();
+  const serverPath = findBoardServerPath(undefined, undefined, cliVersionOrUndefined());
   if (!serverPath) {
     error("Board server not found. Reinstall the CLI (npm i -g great-cto@latest) or install the great_cto plugin (npx great-cto install).");
     return 1;
@@ -374,7 +385,7 @@ async function probeBoardPort(port: number): Promise<boolean> {
 /** Detached relaunch of the board (survives this CLI process). Returns the new pid. */
 async function spawnDetachedBoard(port: number): Promise<number | undefined> {
   const { spawn } = await import("node:child_process");
-  const serverPath = findBoardServerPath();
+  const serverPath = findBoardServerPath(undefined, undefined, cliVersionOrUndefined());
   if (!serverPath) {
     error("Board server not found. Reinstall the CLI (npm i -g great-cto@latest).");
     return undefined;

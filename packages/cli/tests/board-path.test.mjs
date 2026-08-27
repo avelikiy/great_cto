@@ -124,3 +124,55 @@ test("bundled board server boots and serves /api/version", async () => {
     child.kill("SIGKILL");
   }
 });
+
+// ── a stale plugin must not answer for a newer CLI ───────────────────────────
+//
+// The plugin cache won unconditionally, so `npm i -g great-cto@NEW` installed a
+// new CLI carrying a new bundled board and `great-cto board` launched the OLD
+// board out of the cache. The CLI reported the new version; the screen served
+// the old one; nothing said so.
+
+test('a plugin older than the CLI loses to the bundled board', () => {
+  const home = mkdtempSync(join(tmpdir(), 'gcto-bp-stale-'));
+  const base = mkdtempSync(join(tmpdir(), 'gcto-bp-cli-'));
+  // plugin 3.13.0 installed, CLI 3.14.0 running
+  const plug = join(home, '.claude/plugins/cache/local/great_cto/3.13.0/packages/board');
+  mkdirSync(plug, { recursive: true });
+  writeFileSync(join(plug, 'server.mjs'), '// old');
+  const bundled = join(base, '..', 'board', 'packages', 'board');
+  mkdirSync(bundled, { recursive: true });
+  writeFileSync(join(bundled, 'server.mjs'), '// new');
+
+  const chosen = findBoardServerPath(base, home, '3.14.0');
+  assert.match(chosen, /board\/packages\/board\/server\.mjs$/);
+  assert.doesNotMatch(chosen, /3\.13\.0/, 'the older plugin must not answer for a newer CLI');
+});
+
+test('a plugin at or above the CLI still wins — it carries more than the bundle', () => {
+  const home = mkdtempSync(join(tmpdir(), 'gcto-bp-fresh-'));
+  const base = mkdtempSync(join(tmpdir(), 'gcto-bp-cli2-'));
+  const plug = join(home, '.claude/plugins/cache/local/great_cto/3.14.0/packages/board');
+  mkdirSync(plug, { recursive: true });
+  writeFileSync(join(plug, 'server.mjs'), '// same version');
+  const bundled = join(base, '..', 'board', 'packages', 'board');
+  mkdirSync(bundled, { recursive: true });
+  writeFileSync(join(bundled, 'server.mjs'), '// bundle');
+
+  const chosen = findBoardServerPath(base, home, '3.14.0');
+  assert.match(chosen, /3\.14\.0/,
+    'a plugin install carries agents, skills and commands the npm package does not');
+});
+
+test('with no CLI version the behaviour is unchanged — no silent difference', () => {
+  const home = mkdtempSync(join(tmpdir(), 'gcto-bp-none-'));
+  const base = mkdtempSync(join(tmpdir(), 'gcto-bp-cli3-'));
+  const plug = join(home, '.claude/plugins/cache/local/great_cto/3.13.0/packages/board');
+  mkdirSync(plug, { recursive: true });
+  writeFileSync(join(plug, 'server.mjs'), '// old');
+  const bundled = join(base, '..', 'board', 'packages', 'board');
+  mkdirSync(bundled, { recursive: true });
+  writeFileSync(join(bundled, 'server.mjs'), '// new');
+
+  assert.match(findBoardServerPath(base, home), /3\.13\.0/,
+    'a caller that cannot determine its version must not get a different answer by surprise');
+});

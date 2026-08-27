@@ -13,8 +13,26 @@ import { fileURLToPath } from "node:url";
  *   3. the copy bundled into the npm package by scripts/bundle-board.mjs —
  *      guaranteed fallback so a fresh `npm i -g great-cto` can run the board
  *      without the plugin installed
+ *
+ * WITH ONE CORRECTION TO THAT ORDER, and it is why this comment is long.
+ *
+ * The plugin cache used to win unconditionally. So `npm i -g great-cto@NEW`
+ * installed a new CLI carrying a new bundled board, and `great-cto board` then
+ * launched the OLD board out of the plugin cache — because a plugin directory
+ * existed and came first in the list. The operator upgraded, the CLI reported
+ * the new version, and the screen kept serving the old one. Nothing said so.
+ *
+ * The list is still the list; what changed is that a STALE plugin no longer
+ * beats the bundle. When the newest installed plugin is OLDER than the running
+ * CLI, the bundled board — which ships inside that CLI and is therefore exactly
+ * as new as it is — wins. An equal or newer plugin still wins, because a plugin
+ * install is the richer one: it carries agents, skills and commands the npm
+ * package does not.
+ *
+ * @param cliVersion the running CLI's version. Omitted → previous behaviour, so
+ *   a caller that cannot determine it never gets a silently different answer.
  */
-export function findBoardServerPath(baseDir?: string, home?: string): string | undefined {
+export function findBoardServerPath(baseDir?: string, home?: string, cliVersion?: string): string | undefined {
   const here = baseDir ?? dirname(fileURLToPath(import.meta.url));
   const candidates: string[] = [
     join(here, "..", "..", "board", "server.mjs"),  // packages/cli/dist (dev)
@@ -29,6 +47,8 @@ export function findBoardServerPath(baseDir?: string, home?: string): string | u
     return (pb[0]! - pa[0]!) || (pb[1]! - pa[1]!) || (pb[2]! - pa[2]!) || 0;
   };
 
+  const pluginCandidates: string[] = [];
+  let newestPlugin: string | null = null;
   const cacheRoot = join(home ?? homedir(), ".claude", "plugins", "cache");
   if (fsExistsSync(cacheRoot)) {
     try {
@@ -37,14 +57,20 @@ export function findBoardServerPath(baseDir?: string, home?: string): string | u
         if (!fsExistsSync(pluginBase)) continue;
         const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort(byVer);
         for (const v of versions.slice(0, 5)) {
-          candidates.push(join(pluginBase, v, "packages", "board", "server.mjs"));
+          pluginCandidates.push(join(pluginBase, v, "packages", "board", "server.mjs"));
         }
+        if (versions[0] && (!newestPlugin || byVer(versions[0], newestPlugin) < 0)) newestPlugin = versions[0];
       }
     } catch { /* ignore */ }
   }
 
   // bundled copy (dist → ../board/packages/board/server.mjs)
-  candidates.push(join(here, "..", "board", "packages", "board", "server.mjs"));
+  const bundled = join(here, "..", "board", "packages", "board", "server.mjs");
+
+  // A plugin OLDER than the running CLI does not get to answer for it.
+  const pluginIsStale = !!(cliVersion && newestPlugin && byVer(newestPlugin, cliVersion) > 0);
+  if (pluginIsStale) candidates.push(bundled, ...pluginCandidates);
+  else candidates.push(...pluginCandidates, bundled);
 
   return candidates.find(fsExistsSync);
 }
