@@ -181,6 +181,15 @@ step "verification is required, not suggested" bash -c '
   node --test tests/hooks/verify-gate.test.mjs
 '
 
+# `tests=46` counts tests that RAN, not tests that would catch anything. The
+# mechanical half of that question costs nothing: a body with no assertion cannot
+# fail for the reason its name gives. Run over the suite it ships with — 203
+# files, 2670 tests — because a scanner nobody points at real code is where its
+# three false-accusation bugs came from.
+step "tests assert what their names claim" bash -c '
+  node --test tests/lib/test-substance.test.mjs
+'
+
 # What a stage produces is declared in the map, not in JavaScript. Borrowed from
 # Pipelex, where every step declares its typed output — here one direction,
 # because what a stage consumes is implied by what its predecessor produced.

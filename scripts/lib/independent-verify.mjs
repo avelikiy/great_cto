@@ -72,8 +72,22 @@ export const JUDGE_ANSWERS = Object.freeze(['yes', 'no', 'unclear']);
  * judge that saw the first 12k of a 40k document and said "yes" answered about
  * the part it saw. Truncation that is not disclosed turns a partial read into a
  * full verdict, which is the same defect one level down.
+ *
+ * Raised from 12k to 128k on 2026-08-26, sized from the artefacts rather than
+ * guessed. Measured across the 68 documents this judge reads — architecture,
+ * plans, designs, QA reports, impl-briefs — the median is 4.2 KB and the largest
+ * is 34.5 KB; 12 KB held 89% of them whole, 64 KB holds all of them. The other
+ * evidence source is a receipt's changed-file set, and the three on this
+ * repository total 79–85 KB. 128 KB covers both cases entirely, so the "judge
+ * saw the first N of M" caveat stops applying to real inputs instead of being
+ * disclosed on most of them.
+ *
+ * The bound is about COST, not context: the judge's window is 1.31M tokens, and
+ * 128 KB is ~32k. Each of the nine questions per stage re-sends the artefact, so
+ * this is ~$0.022 per stage at the current model's price — against $0.0005 at
+ * 12 KB, and against $0.20 for one stage on the model this replaced.
  */
-export const EXCERPT_BYTES = 12_000;
+export const EXCERPT_BYTES = 128 * 1024;
 
 /** Requirements checked by the judge in one verification. Excess is reported. */
 export const MAX_JUDGED = 12;
@@ -274,9 +288,102 @@ export function checkAcceptance(verdict, { root = process.cwd(), timeoutMs = 120
  */
 export function judgeableRequirements(verdict, { root = process.cwd() } = {}) {
   const doc = findAcceptanceDoc(verdict, { root });
-  if (!doc) return { doc: null, requirements: [] };
+  if (!doc) {
+    // No document freezes criteria for this stage. Fall back to what the verdict
+    // itself asserts — reported as a different source, because a criterion
+    // frozen before the work and a claim written after it are not equal evidence
+    // and the caller must be able to tell which it got.
+    const fromClaims = claimsAsRequirements(verdict);
+    return { doc: null, source: fromClaims.length ? 'verdict-claims' : 'none', requirements: fromClaims };
+  }
   const items = parseAcceptance(readFileSync(doc, 'utf8'));
-  return { doc, requirements: items.filter((i) => !i.verify).map((i) => i.text).filter(Boolean) };
+  return { doc, source: 'acceptance-criteria',
+           requirements: items.filter((i) => !i.verify).map((i) => i.text).filter(Boolean) };
+}
+
+/**
+ * What a stage CHANGED, when it named no artefact.
+ *
+ * `senior-dev`, `qa-engineer` and `code-reviewer` came back `unverifiable` on
+ * this repository — not because a check failed but because there was nothing to
+ * check: they write code and reports, not documents they name in `meta`.
+ *
+ * They do carry a receipt. `receipt.files` is a map of every path the run
+ * touched to its digest, recorded by the agent at the moment it finished.
+ * receipt.mjs proves those bytes are still the bytes; it says so itself, and
+ * says the rung below — whether the change is any good — is somebody else's.
+ * This is that rung: the files the receipt names, read as the artefact.
+ *
+ * Bounded by count and by bytes, and both bounds are reported. A judge shown 3
+ * of 11 changed files answered about 3 of 11.
+ */
+export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXCERPT_BYTES, maxFiles = 40 } = {}) {
+  const files = verdict?.receipt?.files;
+  if (!files || typeof files !== 'object') return null;
+  const paths = Object.keys(files);
+  if (!paths.length) return null;
+
+  const shown = [];
+  let text = '', truncated = false;
+  for (const rel of paths.slice(0, maxFiles)) {
+    const abs = path.resolve(root, rel);
+    if (!existsSync(abs)) continue;
+    let body;
+    try { body = readFileSync(abs, 'utf8'); } catch { continue; }
+    const room = bytes - text.length;
+    if (room <= 0) { truncated = true; break; }
+    const slice = body.slice(0, room);
+    if (slice.length < body.length) truncated = true;
+    text += `\n----- ${rel} -----\n${slice}\n`;
+    shown.push(rel);
+  }
+  if (!shown.length) return null;
+  return {
+    path: `${shown.length} changed file(s)`,
+    text,
+    truncated: truncated || paths.length > shown.length,
+    shownBytes: text.length,
+    totalBytes: text.length,
+    files: shown,
+    totalFiles: paths.length,
+  };
+}
+
+/**
+ * Requirements built from the stage's OWN claims, when no document states any.
+ *
+ * `senior-dev`, `qa-engineer` and `code-reviewer` freeze no ACCEPTANCE criteria —
+ * they write code and reports. So the judge had evidence (the receipt's changed
+ * files) and nothing to hold it against, and the stage stayed unverifiable for a
+ * second reason after the first was fixed.
+ *
+ * The verdict itself carries claims: `feature=stale-after`, `tests=46`,
+ * `coverage=100-unit-coverage`. Turning them into questions is not a weaker
+ * substitute for real criteria — it is the module's whole premise applied one
+ * level in. The agent said what it did; this asks the evidence whether it did.
+ *
+ * Only claims a reader could settle FROM THE FILES become questions. `ci=pass`
+ * is a fact about a run that happened elsewhere and no amount of reading the
+ * diff will confirm it, so it is left alone rather than asked about badly.
+ */
+export function claimsAsRequirements(verdict) {
+  const meta = verdict?.meta || {};
+  const out = [];
+  const feature = meta.feature || meta.task;
+  if (feature) {
+    out.push(`The change implements "${feature}" — the feature this verdict claims to have delivered.`);
+  }
+  if (meta.tests) {
+    out.push(`The change adds or updates automated tests (the verdict claims \`tests=${meta.tests}\`).`);
+  }
+  if (meta.report || meta.findings) {
+    out.push(`The change records what was found, rather than only asserting a conclusion` +
+             (meta.findings ? ` (the verdict claims \`findings=${meta.findings}\`).` : '.'));
+  }
+  if (meta.scope) {
+    out.push(`The change stays within "${meta.scope}" — the scope this verdict claims.`);
+  }
+  return out;
 }
 
 /** The artefact text the judge reads, and whether it was cut. */
@@ -304,11 +411,17 @@ export function artefactExcerpt(verdict, { root = process.cwd(), bytes = EXCERPT
  * @param {(q:string, allowed:string[]) => Promise<string>} ask
  */
 export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDGED, samples = SAMPLES } = {}) {
-  const { doc, requirements } = judgeableRequirements(verdict, { root });
-  if (!doc || !requirements.length) {
+  // Gated on REQUIREMENTS, not on a document. This read `if (!doc || …)`, which
+  // was right while criteria could only come from an ACCEPTANCE section — and
+  // silently discarded every requirement built from the verdict's own claims the
+  // moment that second source existed. The three stages it was added for went on
+  // reporting "no requirement needs a judge" with two questions in hand.
+  const { doc, requirements, source } = judgeableRequirements(verdict, { root });
+  if (!requirements.length) {
     return { status: 'none', detail: 'no requirement needs a judge', answers: [], unmet: [], abstained: 0, skipped: 0 };
   }
-  const excerpt = artefactExcerpt(verdict, { root });
+  const excerpt = artefactExcerpt(verdict, { root })
+    || changedFilesExcerpt(verdict, { root });
   if (!excerpt) {
     return { status: 'none', detail: 'no readable artefact for a judge to read', answers: [], unmet: [], abstained: 0, skipped: 0 };
   }
@@ -372,6 +485,8 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
   return {
     status: unmet.length ? 'fail' : (abstained === answers.length ? 'none' : 'pass'),
     detail: `${answers.length} requirement(s) judged \u00d7${samples}` +
+      (source === 'verdict-claims'
+        ? ' (from the verdict\u2019s own claims — no document freezes criteria for this stage)' : '') +
       (unmet.length ? `, ${unmet.length} not met` : '') +
       (split.length ? `, ${split.length} where the judge was split (${split.map((a) => a.split).join('; ')})` : '') +
       (abstained ? `, ${abstained} abstained` : '') +
