@@ -527,15 +527,30 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
       votes.push({ answer: m ? m[1] : null, raw: raw.slice(0, 200) });
     }
     const tally = votes.reduce((acc, v) => { const k = v.answer || 'unparsed'; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
-    // Majority, with a tie resolving to the more cautious answer. A judge that
-    // cannot make up its mind about a requirement has told you something about
-    // the requirement, and the safe reading of "half of me says this is not
-    // done" is that it is not done.
+
+    // Majority. A TIE is not a majority and is not treated as one.
+    //
+    // It used to resolve straight to `no`, on the reading that "half of me says
+    // this is not done" is safely read as not done. Two things were wrong with
+    // that. It contradicts this module's own stated economics forty lines down —
+    // a wrong `no` is the expensive answer, which is why a second model is
+    // consulted only on `no` — and it made a coin flip indistinguishable, in the
+    // finding text, from three judges out of three saying no.
+    //
+    // Measured on this repository: one tie in six runs of the same question.
+    // Rare, and the one that occurred did send a stage back on 1 yes / 1 no.
+    //
+    // So a tie stays provisionally `no` — falling toward rework is right at a
+    // verification layer, since a wrong pass defeats the point of verifying — and
+    // is MARKED, so the tie-break below can settle it and the report can say
+    // which of the two happened.
     const yes = tally.yes || 0, no = tally.no || 0;
+    const tied = yes > 0 && yes === no;
     const answer = yes > no ? 'yes' : no > yes ? 'no' : (yes === 0 && no === 0 ? null : 'no');
     answers.push({
       requirement: req,
       answer,
+      tied,
       split: yes && no ? `${yes} yes / ${no} no` : null,
       tally,
       raw: votes[0]?.raw || '',
@@ -554,33 +569,63 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
   // stage through, a wrong `no` puts an agent in a rework loop. Divergence is
   // REPORTED, never resolved — the second model does not overrule the first, and
   // agreement between two models is deliberately not presented as strong.
+  // On a TIE it does something different: it decides.
+  //
+  // That is not a contradiction of "never overrule". On a tie there is nothing to
+  // overrule — the first judge did not reach an answer, it split. A second model
+  // settling a specific closed question is exactly what this machinery was built
+  // for, and it is the cheapest way to stop reporting a coin flip as a finding.
+  // Where the first judge DID decide, its answer stands and divergence is still
+  // only reported.
   if (second) {
     for (const a of answers) {
       if (a.answer !== 'no') continue;
       const raw = String((await second(questionFor(a.requirement, excerpt), JUDGE_ANSWERS)) || '').trim().toLowerCase();
       const m = raw.match(/\b(yes|no|unclear)\b/);
       a.second = m ? m[1] : null;
-      a.diverged = a.second === 'yes';
+      if (a.tied) {
+        if (a.second === 'yes' || a.second === 'no') {
+          a.answer = a.second;
+          a.tieBroken = a.second;   // decided, either way — no longer a coin flip
+        }
+        // A second model that also cannot tell leaves the split standing. The
+        // answer remains `no`, and it is reported as unresolved rather than as a
+        // requirement that was found wanting.
+      } else {
+        a.diverged = a.second === 'yes';
+      }
     }
   }
 
-  const unmet = answers.filter((a) => a.answer === 'no').map((a) => a.requirement);
+  // Marked after the tie-break, so a tie the second model settled is not counted
+  // among them. What survives is a split that nothing resolved.
+  for (const a of answers) a.unresolvedSplit = !!(a.tied && !a.tieBroken);
+
+  const unmet = answers.filter((a) => a.answer === 'no' && !a.unresolvedSplit).map((a) => a.requirement);
+  const unresolved = answers.filter((a) => a.unresolvedSplit);
+  const tieBroken = answers.filter((a) => a.tieBroken);
   const diverged = answers.filter((a) => a.diverged);
   const abstained = answers.filter((a) => a.answer !== 'yes' && a.answer !== 'no').length;
   const split = answers.filter((a) => a.split);
 
   return {
-    status: unmet.length ? 'fail' : (abstained === answers.length ? 'none' : 'pass'),
+    // An unresolved split still fails. It is separated from `unmet` for the
+    // REPORT, not to soften the outcome: sending work back on a coin flip is
+    // defensible, calling a coin flip a finding is not.
+    status: (unmet.length || unresolved.length) ? 'fail'
+      : (abstained === answers.length ? 'none' : 'pass'),
     detail: `${answers.length} requirement(s) judged \u00d7${samples}` +
       (source === 'verdict-claims'
         ? ' (from the verdict\u2019s own claims — no document freezes criteria for this stage)' : '') +
       (unmet.length ? `, ${unmet.length} not met` : '') +
+      (unresolved.length ? `, ${unresolved.length} SPLIT AND UNRESOLVED (${unresolved.map((a) => a.split).join('; ')})` : '') +
+      (tieBroken.length ? `, ${tieBroken.length} tie settled by a second model` : '') +
       (diverged.length ? `, ${diverged.length} where a second model DISAGREED` : '') +
       (split.length ? `, ${split.length} where the judge was split (${split.map((a) => a.split).join('; ')})` : '') +
       (abstained ? `, ${abstained} abstained` : '') +
       (skipped ? `, ${skipped} NOT judged (over the ${max} cap)` : '') +
       (excerpt.truncated ? ` — judge saw ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes` : ''),
-    answers, unmet, abstained, skipped,
+    answers, unmet, unresolved, abstained, skipped,
   };
 }
 
@@ -631,6 +676,11 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
       // judge rejected. Seen in the first live run against a real verdict.
       findings.push(...j.unmet.map((r) =>
         `the independent judge was asked whether this is true and answered no — “${r}”`));
+      // A split says something different and must not borrow the sentence above.
+      // The work still comes back — but as "nobody could decide", which is what
+      // the evidence supports, rather than as a finding nobody actually made.
+      findings.push(...(j.unresolved || []).map((a) =>
+        `the judge split ${a.split} and a second model did not settle it — sent back undecided, not rejected: “${a.requirement}”`));
       return conclude(STATE.REWORK, checks, findings, verdict);
     }
   }

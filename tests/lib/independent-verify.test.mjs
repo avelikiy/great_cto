@@ -280,3 +280,90 @@ test('a path key is still a path key — receipt is an addition, not a replaceme
   assert.equal(r.status, 'fail', 'a receipt must not stand in for a declared document');
   assert.match(r.detail, /brief=<path>/);
 });
+
+// ── a tie is not a majority ───────────────────────────────────────────────────
+//
+// Three samples resolved a 1-yes/1-no tie straight to `no`. That contradicted
+// this module's own economics — a second model is consulted ONLY on `no`,
+// because a wrong `no` is the expensive answer — and it made a coin flip read,
+// in the finding text, exactly like three judges out of three saying no.
+//
+// Measured before changing it: one tie in six runs of the same real question,
+// and the one that occurred did send a stage back on 1 yes / 1 no.
+
+/** A judge whose successive votes are scripted, so a tie can be constructed. */
+const scriptedJudge = (votes) => {
+  let i = 0;
+  return async () => votes[i++ % votes.length];
+};
+
+const oneRequirement = () => project({
+  brief: ['# B', '## ACCEPTANCE', '- [ ] One requirement'].join('\n'),
+});
+
+test('a tie the second model resolves to yes is a pass, not rework', async () => {
+  let secondAsked = 0;
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }),
+    root: oneRequirement(),
+    ask: scriptedJudge(['yes', 'no', 'unclear']),
+    second: async () => { secondAsked += 1; return 'yes'; },
+  });
+  assert.equal(secondAsked, 1, 'a tie must reach the second model');
+  assert.equal(r.state, STATE.VERIFIED);
+  assert.equal(r.findings.length, 0, 'a settled tie leaves nothing to send back');
+});
+
+test('a tie the second model resolves to no is a real finding, worded as one', async () => {
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }),
+    root: oneRequirement(),
+    ask: scriptedJudge(['yes', 'no', 'unclear']),
+    second: async () => 'no',
+  });
+  assert.equal(r.state, STATE.REWORK);
+  // Settled, so it speaks with the ordinary voice — not as an unresolved split.
+  assert.match(r.findings.join(' '), /answered no/);
+  assert.doesNotMatch(r.findings.join(' '), /did not settle it/);
+});
+
+test('a tie nothing settles still comes back — but as undecided, not as a finding', async () => {
+  // The whole point. The work returns either way; what changes is that the
+  // report stops asserting a conclusion nobody reached.
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }),
+    root: oneRequirement(),
+    ask: scriptedJudge(['yes', 'no', 'unclear']),
+    second: async () => 'unclear',
+  });
+  assert.equal(r.state, STATE.REWORK, 'falling toward rework is right when verifying');
+  const f = r.findings.join(' ');
+  assert.match(f, /split 1 yes \/ 1 no/);
+  assert.match(f, /did not settle it/);
+  assert.doesNotMatch(f, /answered no/, 'a coin flip must not borrow the sentence for a rejection');
+});
+
+test('with no second model at all a tie is unresolved, never silently decided', async () => {
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }),
+    root: oneRequirement(),
+    ask: scriptedJudge(['yes', 'no', 'unclear']),
+    second: null,
+  });
+  assert.equal(r.state, STATE.REWORK);
+  assert.match(r.findings.join(' '), /did not settle it/);
+});
+
+test('a decided no is untouched by the tie-break — a second model never overrules', async () => {
+  // The pre-existing contract, which the tie-break must not quietly widen: where
+  // the first judge REACHED an answer, divergence is reported and the answer
+  // stands. Only a tie — where there is nothing to overrule — is settled.
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }),
+    root: oneRequirement(),
+    ask: scriptedJudge(['no', 'no', 'no']),
+    second: async () => 'yes',
+  });
+  assert.equal(r.state, STATE.REWORK, 'three no votes stand against one dissenting model');
+  assert.match(r.findings.join(' '), /answered no/);
+});
