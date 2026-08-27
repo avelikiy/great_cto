@@ -4,6 +4,89 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.13.0 — 2026-08-26
+
+### Verification stopped being advisory, and the judge got 48× cheaper
+
+The judge ran on a third of the work. Measured here: **31 agent runs, 10 scores**
+— and most of those ten were run by hand, not by the pipeline. The dispatcher
+never verified anything; it printed a sentence, *"VERIFY FIRST: run …"*, and a
+sentence is followed when the reader chooses to.
+
+Part of why it stayed optional is that it was expensive. So the model changed
+first. `ox-alpha` is a stealth codename and is not on OpenRouter; the Z.ai GLM
+family is:
+
+| | context | in / out per M | one stage | 8-stage pipeline |
+|---|---|---|---|---|
+| `kimi-k3` *(was)* | 1.0M | $3.00 / $15.00 | $0.0252 | $0.201 |
+| **`glm-5.3-flash`** | **1.31M** | **$0.075 / $0.25** | **$0.0005** | **$0.004** |
+
+Cheap is only useful if it judges correctly, so it was measured on two fixtures
+with known answers, three runs each: **glm-5.3-flash was right 6 of 6** with no
+disagreement across runs, matching kimi-k3. `glm-5.2:free` abstained on the
+passing fixture and is not usable as a judge. At 48× cheaper the argument for
+leaving verification optional disappears.
+
+**Dispatch is now conditional on a score for THIS run.** The hook stays fast by
+not verifying itself — it declines to hand work to the next stage until a
+judgement is on disk. Three properties keep it a gate rather than a trap:
+
+- a score from an **earlier run does not satisfy a later one** — otherwise a
+  stage verified once is waved through forever after;
+- **`unverifiable` unblocks** — the requirement is that somebody *looked*, not
+  that the look was flattering; a gate nothing can satisfy is a deadlock;
+- the bypass **says the stage was not checked** rather than implying it passed —
+  `GREAT_CTO_REQUIRE_VERIFY=0` renders `NOT VERIFIED` into the directive.
+
+Fail-open on its own failure: no project directory, or an unreadable scores file,
+dispatches. A broken checker halting every transition is a worse outage than the
+defect it looks for. Asserted through the real hook as a subprocess, not only
+through `decideNext`.
+
+### One number that meant two things, and two ways of not counting a run
+
+Compared against the verdict logs on disk across four projects and two windows,
+**every figure disagreed — in both directions**: +18 on one project over 90 days,
+−3 on two others. Three separate causes.
+
+**`runs` was one field with two meanings** — incremented once per priced verdict
+and once per closed task on days that happened to have no cost data, so its
+meaning changed from day to day. Split into `agent_runs` and `task_estimates`,
+with `runs` kept as their sum so no existing reader breaks.
+
+**A run that was never priced is still a run.** The loop opened with
+`if (v.cost_usd == null) continue`, so an unpriced verdict contributed nothing —
+not even its own existence. One project had four verdicts and reported zero runs.
+
+**Prose was read as verdicts.** `.great_cto/verdicts/` holds two artefacts, and
+`<agent>-YYYY-MM-DD-HHMMSS.log` is a free-text run report. Globbing `*.log`
+turned paragraph openings into records — `ts: "DONE:"`, `ts: "artifact:"`. Six of
+one project's ten "verdicts" were first words. The first filter written for this
+was an allowlist that matched the run reports perfectly well, because digits and
+hyphens are what an agent name may contain; an allowlist that cannot exclude what
+it was written to exclude is not a filter.
+
+**And one found on the way:** the space dialect was parsed as `<ts> <verdict>` on
+the premise that it "never carried an agent". Logs written the same day falsify
+it — `great_cto:code-reviewer APPROVED …` produced a record whose verdict was
+`GREAT_CTO:CODE-REVIEWER`, and the existing test asserted that as correct.
+
+Verified against the real logs, not fixtures: **8 of 8** comparisons match
+exactly, **6 of 6** against the running board after install.
+
+### Cost from plans: absence stopped looking like zero
+
+`total_human` read `$0` on every window beside a plan count in the dozens. The
+guard that suppresses a Human figure whose LLM counterpart could not be parsed
+was subtracting it back out silently. Measured: **0 of 41 plans carry a
+parseable LLM figure and 1 carries a Human one** — the format is read by nobody
+because no plan template was ever shipped that specifies it. Now reported as
+`plans_with_cost`, `plans_without_cost` and `plans_human_suppressed`, so `$0`
+is a stated absence rather than a claim that the work was free.
+
+---
+
 ## v3.12.0 — 2026-08-26
 
 ### A stage declares what it produces, in the map
