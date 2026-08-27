@@ -624,7 +624,13 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
     const j = await judge(verdict, ask, { root, second });
     checks.push({ layer: 'judgement', ...j });
     if (j.status === 'fail') {
-      findings.push(...j.unmet.map((r) => `requirement not met, per the independent judge: ${r}`));
+      // Phrased as the question that was actually asked, because a requirement
+      // is a declarative sentence and the answer is no. "requirement not met:
+      // The change implements X" reads as a contradiction — the reader takes
+      // the trailing clause for the judge's conclusion when it is the claim the
+      // judge rejected. Seen in the first live run against a real verdict.
+      findings.push(...j.unmet.map((r) =>
+        `the independent judge was asked whether this is true and answered no — “${r}”`));
       return conclude(STATE.REWORK, checks, findings, verdict);
     }
   }
