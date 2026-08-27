@@ -204,16 +204,33 @@ export function checkRequiredClaim(verdict, { root = process.cwd(), pipelinePath
       detail: `${verdict?.agent} declares no \`produces\` in the pipeline map — nothing to hold it to`,
     };
   }
-  const missing = c.keys.filter((k) => !verdict?.meta?.[k]);
+    // `receipt` is a declarable output, and it is not a path.
+    //
+    // senior-dev and code-reviewer were the two stages nothing could verify:
+    // measured across every project's logs, neither has EVER written a path into
+    // its meta. Declaring `produces = ["report"]` for them would invent an
+    // obligation and start rejecting correct work — which is the rule this
+    // module follows, a key is declared only where the agent's prompt and its
+    // verdict history agree.
+    //
+    // They do leave evidence, of a stronger kind: the receipt records head, base
+    // and every file touched with its hash — 11 files on the last senior-dev run.
+    // A path says "I wrote something somewhere"; a receipt says which bytes the
+    // stage saw. What the contract requires is EVIDENCE, and a path was only ever
+    // one shape of it.
+    const has = (k) => (k === 'receipt'
+      ? Object.keys(verdict?.receipt?.files || {}).length > 0
+      : !!verdict?.meta?.[k]);
+    const missing = c.keys.filter((k) => !has(k));
   if (missing.length) {
     return {
       status: 'fail',
-      detail: `${verdict.agent} must name ${missing.map((k) => `\`${k}=<path>\``).join(' and ')} ` +
+      detail: `${verdict.agent} must produce ${missing.map((k) => (k === 'receipt' ? '`receipt` (the files it touched, with hashes)' : '`' + k + '=<path>`')).join(' and ')} ` +
               `(declared in ${path.basename(c.source)}) and its verdict does not — ` +
               `no stage downstream can be verified against what it did not produce`,
     };
   }
-  return { status: 'pass', detail: `contract met: ${c.keys.map((k) => `${k}=${verdict.meta[k]}`).join(', ')}` };
+    return { status: 'pass', detail: `contract met: ${c.keys.map((k) => (k === 'receipt' ? `receipt over ${Object.keys(verdict.receipt.files || {}).length} file(s)` : `${k}=${verdict.meta[k]}`)).join(', ')}` };
 }
 
 // ── layer 1: artefacts ───────────────────────────────────────────────────────
@@ -578,7 +595,7 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
     return conclude(STATE.REWORK, checks, findings, verdict);
   }
 
-  const req = checkRequiredClaim(verdict);
+  const req = checkRequiredClaim(verdict, { root });
   checks.push({ layer: 'required artefact', ...req });
   if (req.status === 'fail') {
     findings.push(req.detail);

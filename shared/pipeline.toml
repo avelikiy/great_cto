@@ -100,6 +100,21 @@ next = ["senior-dev"]
 
 [transitions.senior-dev]
 on = ["TASK_DONE", "DONE"]
+# What this stage must leave behind.
+#
+# `receipt`, not a document path — and the difference is measured, not stylistic.
+# Across every project's verdict logs, senior-dev and code-reviewer have NEVER
+# written a path into their meta: not once. Declaring `produces = ["report"]` for
+# them would invent an obligation and start rejecting correct work, which is the
+# rule this file follows — a key is declared only where the agent's prompt and
+# its verdict history agree.
+#
+# They do leave evidence, and a stronger kind. The receipt records the head and
+# base commit and every file touched with its hash: 11 files on the last
+# senior-dev run, 6 on code-reviewer's. A path says "I wrote something
+# somewhere"; a receipt says exactly which bytes the stage saw, and it is what
+# makes "the code that was reviewed is the code that shipped" answerable.
+produces = ["receipt"]
 gate = ["gate:code"]
 next = ["code-reviewer"]
 
@@ -117,6 +132,9 @@ next = ["pm"]
 
 [transitions.code-reviewer]
 on = ["APPROVED", "DONE"]
+# See senior-dev above: a reviewer's evidence is the tree it reviewed, recorded
+# as a receipt, not a document it may or may not have written.
+produces = ["receipt"]
 next = ["qa-engineer", "security-officer"]
 
 [transitions.qa-engineer]

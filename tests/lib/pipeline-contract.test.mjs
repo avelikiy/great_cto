@@ -11,8 +11,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { contractCoverage } from '../../scripts/lib/pipeline-contract.mjs';
 import { contractFor, checkRequiredClaim } from '../../scripts/lib/independent-verify.mjs';
 
@@ -49,8 +50,16 @@ test('three states: no map, stage not in the map, stage with no contract', () =>
   assert.equal(outside.status, 'none');
   assert.match(outside.detail, /not a stage in/);
 
-  // Map present, stage present, contract absent.
-  const silent = checkRequiredClaim({ agent: 'senior-dev', meta: {} }, { pipelinePath: MAP });
+    // Map present, stage present, contract absent. Written for the case rather
+    // than borrowed from a real stage: `senior-dev` was the example here until it
+    // gained `produces = ["receipt"]`, and any stage picked for declaring nothing
+    // today will break this test the day it declares something.
+    const bare = mkdtempSync(join(tmpdir(), 'gcto-pc-'));
+    mkdirSync(join(bare, 'shared'), { recursive: true });
+    writeFileSync(join(bare, 'shared/pipeline.toml'),
+      '[transitions.silent-stage]\non = ["DONE"]\nnext = ["other"]\n');
+    const silent = checkRequiredClaim({ agent: 'silent-stage', meta: {} },
+      { root: bare });
   assert.equal(silent.status, 'none');
   assert.match(silent.detail, /declares no `produces`/);
 
@@ -85,7 +94,17 @@ test('every declared key is one an agent actually writes', () => {
   // Guard against inventing contracts. A key no agent emits would make
   // verification reject correct work, and a false accusation teaches people to
   // switch the check off.
-  const KNOWN = new Set(['arch', 'adr', 'plan', 'brief', 'design', 'report', 'files']);
+  // Two kinds of evidence, because two kinds exist.
+  //
+  // Meta keys are document paths an agent writes into its verdict. `receipt` is
+  // not one — it is the top-level receipt block: head, base, and every file
+  // touched with its hash. It earns its place on the same evidence as the rest:
+  // senior-dev and code-reviewer have never written a document path into meta in
+  // any project's logs, and both DO carry receipts. Declaring a document key for
+  // them would have invented an obligation, which is what this test prevents.
+  const KNOWN_META = ['arch', 'adr', 'plan', 'brief', 'design', 'report', 'files'];
+  const KNOWN_BLOCKS = ['receipt'];
+  const KNOWN = new Set([...KNOWN_META, ...KNOWN_BLOCKS]);
   const r = contractCoverage(readFileSync(MAP, 'utf8'));
   for (const d of r.declared) {
     for (const k of d.produces) {

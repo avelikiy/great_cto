@@ -27,9 +27,25 @@ import {
 // layer it claims to be about.
 const PAD = '\n<!-- ' + 'padding to clear the thin-artefact floor. '.repeat(6) + '-->\n';
 
-function project({ brief = null, artefactPresent = true } = {}) {
+// Every fixture writes its OWN pipeline map.
+//
+// `contractFor` falls back to the module's own repository when a root has no
+// map — so a test with a temp root still picked up the real shared/pipeline.toml
+// and answered about THIS repository's contracts rather than the fixture's. It
+// was invisible until senior-dev gained a contract there and six tests changed
+// answer without their fixtures changing at all. A test that reads state outside
+// its own fixture is not testing what its name says.
+function writeMap(root, body) {
+  mkdirSync(join(root, 'shared'), { recursive: true });
+  writeFileSync(join(root, 'shared', 'pipeline.toml'), body);
+}
+
+function project({ brief = null, artefactPresent = true, map = null } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'gcto-iv-'));
   mkdirSync(join(root, 'docs', 'impl-briefs'), { recursive: true });
+  // Default: the stage exists in the map and declares nothing. That is the
+  // "no contract to hold it to" case most of these tests mean.
+  writeMap(root, map || '[transitions.senior-dev]\non = ["APPROVED"]\nnext = ["qa-engineer"]\n');
   // Padded BEFORE the ACCEPTANCE section, not after: parseAcceptance folds any
   // trailing prose into the last checklist item, so padding at the end became
   // part of the requirement text. Real briefs have a heading after ACCEPTANCE,
@@ -196,6 +212,64 @@ test('the obligation comes from the pipeline map, not from this module', () => {
   assert.deepEqual(c?.keys, ['arch'], 'read out of shared/pipeline.toml');
 
   // A stage the map knows but that declares nothing is `none` — not a pass, and
-  // not the same as a stage the map has never heard of.
-  assert.equal(checkRequiredClaim({ agent: 'senior-dev', meta: {} }, { pipelinePath: MAP }).status, 'none');
+  // not the same as a stage the map has never heard of. `senior-dev` used to be
+  // the example here and stopped being one when it gained `produces = ["receipt"]`;
+  // a stage picked because it happens to declare nothing today will keep breaking
+  // this test, so the case is made against a map written for it.
+  const bare = mkdtempSync(join(tmpdir(), 'gcto-iv-bare-'));
+  mkdirSync(join(bare, 'shared'), { recursive: true });
+  writeFileSync(join(bare, 'shared/pipeline.toml'),
+    '[transitions.some-stage]\non = ["DONE"]\nnext = ["other"]\n');
+  assert.equal(checkRequiredClaim({ agent: 'some-stage', meta: {} }, { root: bare }).status, 'none');
+
+  // And senior-dev, which the real map now holds to a receipt, fails without one.
+  assert.equal(checkRequiredClaim({ agent: 'senior-dev', meta: {} }, { pipelinePath: MAP }).status, 'fail');
+});
+
+// ── every stage leaves evidence, and not all evidence is a path ──────────────
+//
+// Four of seven stages came back `unverifiable` — not "the check failed" but
+// "there was nothing to check". Two of them, senior-dev and code-reviewer, have
+// NEVER written a path into their meta across every project's logs, so declaring
+// a document key for them would invent an obligation and start rejecting correct
+// work. They leave a receipt instead: head, base, and every file touched with its
+// hash.
+
+test('a receipt satisfies a contract that asks for one', () => {
+  const root = mkdtempSync(join(tmpdir(), 'gcto-iv-receipt-'));
+  mkdirSync(join(root, 'shared'), { recursive: true });
+  writeFileSync(join(root, 'shared/pipeline.toml'),
+    '[transitions.senior-dev]\non = ["DONE"]\nproduces = ["receipt"]\nnext = ["code-reviewer"]\n');
+  const withReceipt = {
+    agent: 'senior-dev', verdict: 'DONE', meta: {},
+    receipt: { head: 'abc', base: 'def', files: { 'a.mjs': '1', 'b.mjs': '2' } },
+  };
+  const r = checkRequiredClaim(withReceipt, { root });
+  assert.equal(r.status, 'pass');
+  assert.match(r.detail, /receipt over 2 file/);
+});
+
+test('an empty receipt does not satisfy it — a fingerprint of nothing is not evidence', () => {
+  const root = mkdtempSync(join(tmpdir(), 'gcto-iv-receipt2-'));
+  mkdirSync(join(root, 'shared'), { recursive: true });
+  writeFileSync(join(root, 'shared/pipeline.toml'),
+    '[transitions.senior-dev]\non = ["DONE"]\nproduces = ["receipt"]\nnext = ["x"]\n');
+  for (const receipt of [undefined, {}, { files: {} }, { head: 'abc', files: {} }]) {
+    const r = checkRequiredClaim({ agent: 'senior-dev', verdict: 'DONE', meta: {}, receipt }, { root });
+    assert.equal(r.status, 'fail', JSON.stringify(receipt));
+    assert.match(r.detail, /the files it touched/,
+      'and the message names what a receipt is, not just the key');
+  }
+});
+
+test('a path key is still a path key — receipt is an addition, not a replacement', () => {
+  const root = mkdtempSync(join(tmpdir(), 'gcto-iv-mixed-'));
+  mkdirSync(join(root, 'shared'), { recursive: true });
+  writeFileSync(join(root, 'shared/pipeline.toml'),
+    '[transitions.pm]\non = ["DONE"]\nproduces = ["plan", "brief"]\nnext = ["x"]\n');
+  const half = { agent: 'pm', verdict: 'DONE', meta: { plan: 'docs/plans/P.md' },
+                 receipt: { files: { 'a.mjs': '1' } } };
+  const r = checkRequiredClaim(half, { root });
+  assert.equal(r.status, 'fail', 'a receipt must not stand in for a declared document');
+  assert.match(r.detail, /brief=<path>/);
 });
