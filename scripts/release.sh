@@ -178,6 +178,28 @@ awk -v ver="v$NEW" '
   in_section { print }
 ' "$CHANGELOG" > "$NOTES_FILE"
 
+# The RELEASE PAGE gets a summary; the CHANGELOG keeps the depth.
+#
+# These were the same text, so a release page carried every paragraph of
+# reasoning behind every fix — the right amount for someone auditing a decision
+# months later, and far too much for someone deciding whether to upgrade. A
+# reader who wants the argument can follow one link; a reader who wants to know
+# what changed should not have to scroll past it.
+#
+# What survives: the lead paragraph (what this release is), the `###` headings
+# (what changed, one line each), and the link.
+SUMMARY_FILE=$(mktemp)
+trap "rm -f $NOTES_FILE $SUMMARY_FILE" EXIT
+
+awk '
+  /^### / { if (!heads++) print ""; sub(/^### /, "- "); print; next }
+  !heads  { print }
+' "$NOTES_FILE" \
+  | awk 'NF || prev { print; prev = NF }' > "$SUMMARY_FILE"
+
+printf '\n[Full notes for this release](https://github.com/%s/blob/main/CHANGELOG.md) — what changed, and why each change was made.\n' \
+  "${GITHUB_REPO:-avelikiy/great_cto}" >> "$SUMMARY_FILE"
+
 if [ ! -s "$NOTES_FILE" ]; then
   fail "no CHANGELOG entry for v$NEW — fill it in before releasing"
 fi
@@ -275,7 +297,7 @@ else
   else
     gh release create "v$NEW" \
       --title "$RELEASE_TITLE" \
-      --notes-file "$NOTES_FILE" \
+      --notes-file "$SUMMARY_FILE" \
       $LATEST_FLAG
   fi
   ok "GitHub Release created: https://github.com/avelikiy/great_cto/releases/tag/v$NEW"

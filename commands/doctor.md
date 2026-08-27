@@ -427,7 +427,7 @@ if [ -f "$REGISTRY" ]; then
 
   [ -d "$HOME/.great_cto/personal-skills" ] && \
     echo "  ✓ personal-skills cloned ($(cd $HOME/.great_cto/personal-skills && git log -1 --pretty=%cr 2>/dev/null))" || \
-    echo "  ⚠ personal-skills not configured — set up: gh repo create avelikiy/ai-agent-skills"
+    echo "  ⚠ personal-skills not configured — set up: gh repo create <your-account>/ai-agent-skills"
 
   # If invoked with --skills, show archetype-relevant skills
   if [ "${SKILLS_DETAIL:-false}" = "true" ]; then
