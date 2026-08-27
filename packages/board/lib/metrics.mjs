@@ -123,6 +123,26 @@ function getMetrics(cwd = process.cwd(), days = 30) {
   // with the "Last 30 days" panel ($6.42) shown directly below it. Now both
   // sit on the same N-day window so the dashboard numbers reconcile.
   const costWindowMs = days * 86400_000;
+  // How much of the requested window actually contains anything.
+  //
+  // The operator switched 1D → 7D → 30D → 90D, saw the same figures every time,
+  // and reported the period selector as broken. It was not: every task in that
+  // project closed within the last 24 hours, so a wider window selects the same
+  // work. The numbers were right and unreadable — a screen that answers
+  // identically to four different questions gives you no way to tell "nothing
+  // changed" from "nothing is being computed".
+  //
+  // So the payload carries the span the data actually occupies. A caller can
+  // then say "90 days requested, 1 day has data" instead of showing four
+  // identical tiles and leaving the reader to guess which failure it is.
+  const _closedTs = tasks
+    .filter((t) => t.closed_at)
+    .map((t) => new Date(t.closed_at).getTime())
+    .filter((ms) => Number.isFinite(ms) && (now - ms) <= costWindowMs);
+  const _daysWithData = new Set(_closedTs.map((ms) => new Date(ms).toISOString().slice(0, 10))).size;
+  const _spanDays = _closedTs.length
+    ? Math.max(1, Math.ceil((Math.max(..._closedTs) - Math.min(..._closedTs)) / 86400_000))
+    : 0;
   // AI active time per task: use estimated_minutes if set, else DEFAULT_TASK_MIN (30m).
   // We deliberately DO NOT use wall-clock (closed_at - created_at) because that
   // includes idle time — tasks that sit in backlog for days before being closed
@@ -227,7 +247,15 @@ function getMetrics(cwd = process.cwd(), days = 30) {
       llm_usd:   Math.round(verdictLlmTotal * 100) / 100,
       human_usd: Math.round(humanLeg),
       savings_x: humanLeg > 0 ? Math.round(humanLeg / verdictLlmTotal) : null,
-      window_days: 30,
+      // `days`, not a hardcoded 30. Both of these branches asserted a 30-day
+      // window whatever was asked for, so a request for one day came back
+      // labelled as a month. The values were windowed correctly all along — only
+      // the label lied, which is the harder kind to notice.
+      window_days: days,
+      // Reported beside the window, not instead of it: "90 days requested, 1 day
+      // has data" is a different statement from "90 days of data".
+      days_with_data: _daysWithData,
+      data_span_days: _spanDays,
       count:     verdictsWithCost,
       coverage:  doneInWindowCount > 0 ? Math.round((verdictsWithCost / doneInWindowCount) * 100) : null,
       source:    'measured',
@@ -244,7 +272,11 @@ function getMetrics(cwd = process.cwd(), days = 30) {
       human_usd: Math.round(taskHumanTotal),
       savings_x: null,
       rate_ratio: Math.round(HUMAN_RATE_PER_HR / LLM_RATE_PER_HR),
-      window_days: 30,
+      window_days: days,
+      // Reported beside the window, not instead of it: "90 days requested, 1 day
+      // has data" is a different statement from "90 days of data".
+      days_with_data: _daysWithData,
+      data_span_days: _spanDays,
       count:     0,
       source:    'tasks',
       real_llm_usd: verdictLlmTotal > 0 ? Math.round(verdictLlmTotal * 10000) / 10000 : null,

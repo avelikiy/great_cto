@@ -1345,6 +1345,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   font-family: var(--mono); font-size: var(--fs-caption);
   letter-spacing: 0.04em; color: var(--text);
   display: flex; align-items: center; gap: 6px;
+  /* Measured at 1280px: 5 of the 10 stage labels wrapped to two lines
+     ("product-owner", "senior dev", "12-angle review", "human gate",
+     "l3 support" — 36px tall against 18px for the rest), so the rail read as a
+     ragged two-row grid with holes rather than a track. The track already has
+     `overflow-x: auto`; letting it scroll is the honest failure mode on a narrow
+     screen, where wrapping was the dishonest one. */
+  white-space: nowrap;
 }
 .pl-stage .pl-name .dot {
   width: 6px; height: 6px; border-radius: 50%;
@@ -1370,7 +1377,17 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .pl-stage.idle .pl-msg, .pl-stage.idle .pl-meta { opacity: 0.55; }
 /* Compact rail: idle stages collapse to a labelled node so the active stage stands out. */
-.pl-stage.pl-compact { flex: 0 1 auto; min-width: 0; justify-content: center; padding-top: 10px; }
+/* `0 0 auto`, not `0 1 auto`: with the label now `white-space: nowrap`, a
+   shrinkable node whose `min-width` is 0 shrinks past its own text, and at 375px
+   the ten stage names overlapped into an unreadable smear
+   ("prodapcbmtowntr", "12-anglsecunontbayigs"). Refusing to shrink hands the
+   narrow case to the track's `overflow-x: auto`, which is what it is for. */
+.pl-stage.pl-compact { flex: 0 0 auto; min-width: 0; justify-content: center;
+  /* 6px, down from the base rule's 10px: nine idle nodes that no longer shrink
+     came to 1000px against a 964px track, so the rail scrolled 36px on a full
+     desktop where it used to fit. Trimming the padding buys back 72px and the
+     scroll goes back to being the narrow-screen behaviour it was meant to be. */
+  padding: 10px 6px 6px; }
 .pl-stage.pl-compact .pl-name { color: var(--text2); }
 .pl-stage.active { flex: 2; }
 /* Idle-focus all-clear card (shown when nothing needs a decision). */
@@ -1424,6 +1441,15 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   display: inline-flex; align-items: center; justify-content: center;
 }
 .pl-gate.active .pl-name .gate-glyph { animation: pl-pulse 1.4s infinite; }
+/* The gate with nothing pending is a node like any other idle stage — the tinted
+   card is reserved for the state that actually holds the pipeline, so a clear
+   gate stops out-shouting the stages that ran. */
+.pl-gate.pl-compact {
+  background: transparent;
+  border-left-color: transparent;
+  margin: 0;
+  padding: 10px 6px 6px;
+}
 
 .dot-blue { background: var(--accent); }
 
@@ -1750,6 +1776,41 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   display: flex; gap: 4px; align-items: center;
 }
 .inbox-row .actions .gate-btn { height: 26px; padding: 0 10px; font-size: var(--fs-caption); }
+
+/* ── Inbox rows: making five equal-weight rows unequal ────────────────────────
+   Measured on one live project's "P0 open": 5 cards, and on every one of them
+   the priority read `Urgent`, the status read `backlog`, and the section dot was
+   red. The only field that varied was age — 22h, 23h, 2d, 2d, 2d — and it was
+   buried mid-line in grey mono. These rules give that field the column and the
+   weight the identical fields were holding. Declared below `.inbox-row` and
+   `.inbox-row .actions` so they win the cascade rather than lose it silently. */
+.inbox-row .actions.age-col {
+  flex-direction: column; align-items: flex-end; gap: 2px;
+  text-align: right;
+}
+.inbox-row .actions.age-col .age {
+  font-family: var(--mono); font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text2); white-space: nowrap;
+}
+.inbox-row .actions.age-col .age-status {
+  font-family: var(--mono); font-size: var(--fs-eyebrow);
+  color: var(--text3); white-space: nowrap;
+}
+.inbox-row .actions.age-col .age-status:empty { display: none; }
+/* Past this board's own 48h staleness line (the same threshold the "Stale
+   (in progress > 48h)" section uses) the row gets an edge and the age turns the
+   blocked colour — so "sat here longest" is legible at a glance instead of
+   requiring five timestamps to be compared by eye. */
+.inbox-row.row-aged { border-left: 3px solid var(--status-blocked); }
+.inbox-row.row-aged .actions.age-col .age { color: var(--status-blocked); font-weight: 600; }
+
+/* Quiet page footer for conditions that report but do not ask. */
+.inbox-foot-note {
+  margin: 4px 0 0; padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-small); color: var(--text3);
+}
 .budgets-failed { padding: 20px 0; max-width: 560px; }
 .budgets-failed .bf-head { font-size: var(--fs-title-s); font-weight: 600; margin-bottom: 6px; }
 .budgets-failed .bf-why { font-family: var(--mono); font-size: var(--fs-small); color: var(--status-blocked); margin-bottom: 10px; word-break: break-word; }
@@ -1840,6 +1901,12 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 14px; margin-bottom: 24px;
 }
+.window-fill {
+  font-size: var(--fs-body); color: var(--text2); line-height: 1.5;
+  padding: 8px 12px; margin-bottom: 12px; border-radius: 8px;
+  background: var(--bg-muted); border: 1px solid var(--border);
+}
+.window-fill[hidden] { display: none; }
 .period-toolbar {
   display: flex; align-items: center; gap: 12px;
   margin-bottom: 16px;
@@ -2783,7 +2850,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
         <div class="inbox-summary" id="inbox-summary"></div>
         <!-- Top rung of the evidence ladder: are the bytes that were reviewed
-             still the bytes in the tree? Hidden while they match. -->
+             still the bytes in the tree? Hidden while they match — and now only
+             used for `differs`, the one reading that needs a decision. The other
+             two speaking states render into #inbox-receipt-foot at the bottom of
+             this page (see refreshReceipt). -->
         <div id="inbox-receipt" style="display:none;margin:6px 0 2px;font-size:var(--fs-small)"></div>
 
         <!-- Resume — pick up where you left off -->
@@ -2885,6 +2955,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
             <button class="ac-btn" onclick="switchTab('kanban', document.querySelector('.nav-item[data-tab=&quot;kanban&quot;]'))">View tasks</button>
           </div>
         </div>
+
+        <!-- Evidence-ladder footer: the receipt readings that report a condition
+             but do not ask for a decision ("could not check", "files added").
+             Below the decisions, because that is what they rank against them —
+             not deleted, because a check that could not run must never look
+             like a check that passed. -->
+        <div id="inbox-receipt-foot" class="inbox-foot-note" style="display:none"></div>
       </div>
     </div>
 
@@ -2900,6 +2977,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     <div class="panel" id="panel-dashboard">
       <div class="metrics-page">
         <h1 class="page-title">Metrics</h1>
+        <div id="mp-window-fill" class="window-fill" hidden></div>
         <div class="period-toolbar">
           <span class="period-label">PERIOD</span>
           <div class="period-chips" id="period-chips">
@@ -3326,9 +3404,13 @@ function renderInbox(d) {
     <div class="pill-stat"><span class="dot dot-amber"></span><div><div class="num">${s.stale}</div><div class="lbl">Stale &gt; 48h</div></div></div>
   `;
   renderInboxList('inbox-gates', d?.pending_gates || [], 'inbox-gates-count', { showApprove: true });
-  renderInboxList('inbox-p0', d?.p0_open || [], 'inbox-p0-count', {});
+  // `implies` names the fact the section heading already states, so the rows
+  // below it stop repeating that fact on every card. "P0 open" states the
+  // priority; "Stale (in progress > 48h)" states the age. "Blocked" states
+  // neither, so its rows keep both.
+  renderInboxList('inbox-p0', d?.p0_open || [], 'inbox-p0-count', { implies: 'priority' });
   renderInboxList('inbox-blocked', d?.blocked || [], 'inbox-blocked-count', {});
-  renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', {});
+  renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', { implies: 'age' });
   refreshStandDowns();
   refreshReceipt();
   refreshBudgetLine();
@@ -3365,9 +3447,12 @@ function renderInbox(d) {
  */
 async function refreshReceipt() {
   const el = document.getElementById('inbox-receipt');
+  const foot = document.getElementById('inbox-receipt-foot');
   if (!el) return;
   const d = await api(`/api/receipt${pqs()}`);
-  if (!d || d.state === 'matches' || d.state === 'no-receipt') { el.style.display = 'none'; return; }
+  el.style.display = 'none';
+  if (foot) foot.style.display = 'none';
+  if (!d || d.state === 'matches' || d.state === 'no-receipt') return;
 
   const stamp = d.agent ? `${esc(d.agent)}${d.ts ? ' · ' + relTime(d.ts) : ''}` : '';
   const body = d.state === 'differs'
@@ -3378,9 +3463,26 @@ async function refreshReceipt() {
       ? `<b>Could not check the review receipt</b> — <span class="muted">${esc(d.why || '')}</span>. This is not the same as a clean tree.`
       : `${(d.added || []).length} file(s) added since ${stamp} approved; nothing reviewed was altered.`;
 
-  const colour = d.state === 'matches' ? 'var(--text3)' : 'var(--status-gate)';
-  el.style.display = '';
-  el.innerHTML = `<span style="color:${colour}">${body}</span>`;
+  // Where the line lands is decided by whether it asks for a decision.
+  //
+  // `differs` does: named files were edited after somebody approved them, and
+  // only a human can say whether the approval still stands. It keeps the top
+  // slot, in gate purple.
+  //
+  // `unreadable` and `extended` do not. `unreadable` in particular is a true and
+  // careful statement — "cannot check" is deliberately not "clean" — but it was
+  // measured sitting in gate purple ABOVE the resume card, the pipeline, and all
+  // five P0s on a screen titled "Here's what needs your decision", asking for
+  // nothing. It moves to a footer under the sections and drops to --text3, the
+  // colour this file already uses for "quiet note, nothing to do".
+  //
+  // Moved, not removed: same wording, same detail, same page, still unmissable
+  // if you read to the bottom, and it still never renders as "checked and fine".
+  const actionable = d.state === 'differs';
+  const host = actionable ? el : (foot || el);
+  const colour = actionable ? 'var(--status-gate)' : 'var(--text3)';
+  host.style.display = '';
+  host.innerHTML = `<span style="color:${colour}">${body}</span>`;
 }
 
 /**
@@ -3490,6 +3592,53 @@ async function refreshStandDowns() {
   }).join('');
 }
 
+/**
+ * Split a task description into the prose a human wrote and the `## Context`
+ * block the pipeline appended.
+ *
+ * Measured on the live board: of 5 P0 rows in one project, one had NO prose at
+ * all — its entire description was
+ *   `## Context\n[archetype:web3] [compliance:[owasp-api, owasp-masvs, pci-dss]]
+ *    [feature:web-wallet] [phase:implementation] | Why: see docs/plans/…`
+ * rendered verbatim into the row, all 140 visible characters of it. That block
+ * is the wire format one pipeline stage uses to hand state to the next; a reader
+ * asking "what needs my decision" was being shown the envelope instead of the
+ * letter.
+ *
+ * The producer cannot be fixed from this file, so the reader stops printing it
+ * raw. Nothing is deleted: the row's tooltip carries the exact wire string, and
+ * clicking the row opens the side panel, which renders the untouched
+ * description through `mdRender`.
+ *
+ * Parsed with the same nested-bracket regex as the sidebar ancestry banner
+ * (`proj-ancestry`) rather than a global strip of `[` and `]` — the value NESTS
+ * (`compliance:[a, b]` sits inside its own brackets) and the naive strip was
+ * already measured there to produce unbalanced output.
+ */
+function splitContextBlock(description) {
+  const raw = String(description || '');
+  const i = raw.search(/^##\s*Context\s*$/mi);
+  if (i < 0) return { prose: raw.trim(), tags: {}, wire: '' };
+  const wire = raw.slice(i).trim();
+  const tags = {};
+  const re = /\[([a-z_]+):((?:[^\[\]]|\[[^\]]*\])*)\]/g;
+  let m;
+  while ((m = re.exec(wire)) !== null) {
+    const v = m[2].replace(/^\[|\]$/g, '').trim();
+    if (v) tags[m[1]] = v;
+  }
+  return { prose: raw.slice(0, i).trim(), tags, wire };
+}
+
+// How long has this been sitting? Returned in hours so callers can bucket it.
+// `null` when there is no timestamp — never 0, because "no data" and "just now"
+// are the two readings this whole board keeps apart.
+function ageHours(ts) {
+  if (!ts) return null;
+  const ms = Date.now() - new Date(ts).getTime();
+  return Number.isFinite(ms) ? ms / 36e5 : null;
+}
+
 function renderInboxList(rootId, items, countId, opts = {}) {
   const root = document.getElementById(rootId);
   const cnt = document.getElementById(countId);
@@ -3498,7 +3647,25 @@ function renderInboxList(rootId, items, countId, opts = {}) {
   // Hide an empty section entirely (no "No X" placeholder) — the all-clear card covers the all-empty case.
   if (section) section.style.display = items.length ? '' : 'none';
   if (!items.length) { root.innerHTML = ''; return; }
-  root.innerHTML = items.map(t => {
+  // Oldest first for the non-gate lists.
+  //
+  // Measured: the five "P0 open" rows on the live board carried three identical
+  // fields each (`Urgent`, `backlog`, and the red section dot) and differed on
+  // exactly one — how long each had been sitting (22h, 23h, 2d, 2d, 2d). Five
+  // cards of equal weight, one real distinction, and the distinction was the
+  // fourth item in a middle line of mono metadata. Sorting by it puts the
+  // longest-ignored row at the top, which is the order a triage list is read in.
+  // Gates keep their server order: their own list is already time-ordered and
+  // their ⏳ stamp is the loud field.
+  const rows = opts.showApprove
+    ? items
+    : items.slice().sort((a, b) => {
+        const ah = ageHours(a.updated_at), bh = ageHours(b.updated_at);
+        if (ah == null) return 1;
+        if (bh == null) return -1;
+        return bh - ah;
+      });
+  root.innerHTML = rows.map(t => {
     // A task now appears in one section only, so the states it ALSO matched are
     // shown here rather than lost. Deduplicating the rows must not deduplicate
     // the facts: a gate that is also blocked is still blocked, and hiding that
@@ -3506,29 +3673,59 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     const alsoTag = (t.also || []).length
       ? `<span title="also matched: ${esc((t.also || []).join(', '))}" style="color:var(--text3)">also ${esc((t.also || []).join(' + '))}</span>`
       : '';
+    // The priority word is dropped only where the heading above already says it.
+    //
+    // Every one of the five rows under "P0 open" printed `Urgent`, beside a red
+    // dot, beside a tile counting them — four statements of one fact, while the
+    // one field that actually separated the rows (age) competed with all four.
+    // Under "Blocked" and "Stale" the same word is load-bearing: those headings
+    // say nothing about priority, and a High blocked item is not a Low one. So
+    // this is `opts.implies`, not a blanket removal. Nothing is hidden either
+    // way — the section IS the statement, and the side panel still shows the chip.
     const meta = [
       t.agent ? `agent: ${esc(t.agent)}` : '',
-      t.priority != null ? PRIORITY_LABEL[t.priority] : '',
+      opts.implies !== 'priority' && t.priority != null ? PRIORITY_LABEL[t.priority] : '',
       alsoTag,
       // Gates (the showApprove list) get the exact date+time the decision has been
-      // waiting since; other rows keep the compact relative stamp.
-      t.updated_at
-        ? (opts.showApprove
-            ? `<span title="${esc(fmtDate(t.updated_at))}" style="color:var(--status-gate);font-weight:600">⏳ ${fmtDT(t.updated_at)}</span>`
-            : relTime(t.updated_at))
+      // waiting since; other rows carry their age in the right-hand column instead.
+      opts.showApprove && t.updated_at
+        ? `<span title="${esc(fmtDate(t.updated_at))}" style="color:var(--status-gate);font-weight:600">⏳ ${fmtDT(t.updated_at)}</span>`
         : '',
     ].filter(Boolean).join(' · ');
+    // 48h is this board's own staleness line — the "Stale (in progress > 48h)"
+    // section below and the 72h gate auto-expiry both come from SKILL.md policy.
+    // Reusing it rather than inventing a threshold: a P0 that has outlived the
+    // board's own patience is the one worth the accent.
+    //
+    // Not applied under the Stale heading, where every row is over the line by
+    // definition — an accent on all of them marks nothing and is the same noise
+    // this change is removing.
+    const hrs = ageHours(t.updated_at);
+    const aged = !opts.showApprove && opts.implies !== 'age' && hrs != null && hrs >= 48;
     const actions = opts.showApprove
       ? `<div class="actions" onclick="event.stopPropagation()">
            <button class="gate-btn gate-approve" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">Approve</button>
            <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject</button>
          </div>`
-      : `<div class="actions"><span style="font-family:var(--mono);font-size:var(--fs-caption);color:var(--text3)">${t.status || ''}</span></div>`;
-    const desc = t.description ? `<span class="ttl-desc">${esc(t.description.slice(0, 140))}${t.description.length > 140 ? '…' : ''}</span>` : '';
+      // Age is promoted out of the metadata run into its own column, because it
+      // is the only field that differs between these rows. `status` stays,
+      // demoted to the line beneath it — it was the loudest thing in this column
+      // and read `backlog` on all five.
+      : `<div class="actions age-col">
+           <span class="age" title="${t.updated_at ? esc(fmtDate(t.updated_at)) : 'no timestamp'}">${t.updated_at ? relTime(t.updated_at) : '—'}</span>
+           <span class="age-status">${esc(t.status || '')}</span>
+         </div>`;
+    // Machine wire format out of the visible prose; the exact string stays on the
+    // row's tooltip and the whole untouched description is one click away.
+    const ctx = splitContextBlock(t.description);
+    const shown = ctx.prose || (ctx.tags.feature ? `feature: ${ctx.tags.feature}` : '');
+    const desc = shown
+      ? `<span class="ttl-desc"${ctx.wire ? ` title="${esc(ctx.wire)}"` : ''}>${esc(shown.slice(0, 140))}${shown.length > 140 ? '…' : ''}</span>`
+      : '';
     // Only gate rows can stand down, so only they carry the note.
     const tierNote = opts.showApprove ? gateTierNote(t) : '';
     return `
-      <div class="inbox-row" onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
+      <div class="inbox-row${aged ? ' row-aged' : ''}" onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         <span class="id">${esc(t.id || '')}</span>
         <span class="ttl">${esc(t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
         ${actions}
@@ -4282,14 +4479,24 @@ function renderPipeline(stages) {
     // The human gate is the product's signing checkpoint — render it distinctly
     // (a signature glyph, its own class) rather than as just another agent stage.
     if (s.is_human_gate) {
-      const msg = s.pending > 0 ? esc(s.last_message) : 'no gate pending';
-      const meta = s.pending > 0 && s.age_min != null
+      // With nothing pending the card spent two full lines saying "no gate
+      // pending" / "clear" — the emptiest state on the rail rendered as its
+      // tallest tile, and the two-line title alongside made the whole track
+      // 137px of mostly nothing. Idle, it collapses to the same labelled node
+      // every other idle stage uses; the "clear" reading stays in the tooltip.
+      if (!(s.pending > 0)) {
+        return `
+          <div class="pl-stage pl-gate idle pl-compact" title="Human gate — irreversible actions need a signature here. No gate is pending. Click to see gates." onclick="drillToGates()">
+            <div class="pl-name"><span class="gate-glyph">✍</span>${label}</div>
+          </div>`;
+      }
+      const meta = s.age_min != null
         ? `oldest ${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'}`
-        : 'clear';
+        : 'waiting';
       return `
-        <div class="pl-stage pl-gate ${s.pending > 0 ? 'active' : 'idle'}" title="Human gate — irreversible actions need a signature here. Click to see pending gates." onclick="drillToGates()">
-          <div class="pl-name"><span class="gate-glyph">✍</span>${label}${s.pending > 0 ? `<span class="gate-badge">${s.pending}</span>` : ''}</div>
-          <div class="pl-msg">${msg}</div>
+        <div class="pl-stage pl-gate active" title="Human gate — irreversible actions need a signature here. Click to see pending gates." onclick="drillToGates()">
+          <div class="pl-name"><span class="gate-glyph">✍</span>${label}<span class="gate-badge">${s.pending}</span></div>
+          ${s.last_message ? `<div class="pl-msg">${esc(s.last_message)}</div>` : ''}
           <div class="pl-meta">${meta}</div>
         </div>`;
     }
@@ -4301,7 +4508,12 @@ function renderPipeline(stages) {
           <div class="pl-name"><span class="dot"></span>${label}</div>
         </div>`;
     }
-    const msg = s.last_message ? esc(s.last_message) : '—';
+    // An em-dash on its own line is not information. Measured: `senior-dev` and
+    // `pm` both came back with `last_message: ""`, so the two stages that had
+    // actually run each spent a line rendering `—` above their age. When there
+    // is no message the row is simply omitted and the stage keeps its verdict +
+    // age, which is what the reader was looking at anyway.
+    const msg = s.last_message ? `<div class="pl-msg">${esc(s.last_message)}</div>` : '';
     const meta = s.age_min != null ? `${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'} ago` : '';
     // A failed stage offered one affordance: filter the Kanban by it. That is
     // the same thing every other stage offers, and it is not what you want when
@@ -4319,7 +4531,7 @@ function renderPipeline(stages) {
     return `
       <div class="pl-stage ${s.status}" title="Click to filter Kanban by ${esc(s.stage)}" onclick="drillToStage('${esc(s.stage)}')">
         <div class="pl-name"><span class="dot"></span>${label}</div>
-        <div class="pl-msg">${msg}</div>
+        ${msg}
         <div class="pl-meta">${meta || s.status}</div>
         ${recovery}
       </div>`;
@@ -4414,9 +4626,39 @@ async function refreshMetricsForPeriod() {
   if (lbl) lbl.textContent = `Last ${periodLabel(currentPeriod)}`;
   // Use seq-guarded fetch so stale init/SSE fetches can't overwrite us
   const m = await _refreshMetricsRaced(`/api/metrics${pqsd()}`);
-  if (m) renderDashboard(m);
+  if (m) { renderDashboard(m); renderWindowFill(m); }
   refreshCost();
 }
+
+  /* Why four periods can show the same number.
+   *
+   * The operator switched 1D → 7D → 30D → 90D, saw identical figures, and
+   * reported the selector as broken. It was not: every task in that project
+   * closed inside 24 hours, so a wider window selects the same work. The numbers
+   * were right and unreadable — a screen that answers identically to four
+   * different questions gives no way to tell "nothing changed" from "nothing is
+   * being computed".
+   *
+   * Shown only when the data occupies LESS than the window asked for. A caption
+   * that is always there stops being read. */
+  function renderWindowFill(m) {
+    const el = document.getElementById('mp-window-fill');
+    if (!el) return;
+    const c = (m && m.cost) || {};
+    const have = c.days_with_data, span = c.data_span_days, want = c.window_days;
+    if (!Number.isFinite(have) || !Number.isFinite(want)) { el.hidden = true; return; }
+    if (have === 0) {
+      el.textContent = `No closed work in the last ${periodLabel(want)} — the figures below are not about this window.`;
+      el.hidden = false;
+      return;
+    }
+    if (span >= want) { el.hidden = true; return; }
+    el.textContent = `${have} day${have === 1 ? '' : 's'} of this ${periodLabel(want)} window contain work`
+      + (span > 1 ? `, spread over ${span} days` : '')
+      + ' — a wider period selects the same runs until there is older work to include.';
+    el.hidden = false;
+  }
+
 
 function setPeriod(days) {
   currentPeriod = days;

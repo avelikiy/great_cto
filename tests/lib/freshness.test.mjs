@@ -124,6 +124,24 @@ test('REQ-2: neither field present → unknown/mtime, never silently fresh', () 
   assert.equal(r.ageDays, null);
 });
 
+test('`declared` separates "nothing to judge" from "judged and could not tell"', () => {
+  // The verdict is 'unknown' either way, which is why the board painted one
+  // badge on 198 of 217 rows. Only this field says which — and the common case
+  // (zero of 1634 md files in one project declare a stale_after) is the one that
+  // is not a finding about the document at all.
+  const nothing = judgeFreshness({ text: '# X\nno date, no stale_after\n', dateType: 'any', nowMs: NOW, staleDays: 180 });
+  assert.equal(nothing.declared, false);
+
+  const recent = new Date(NOW - 10 * DAY).toISOString().slice(0, 10);
+  for (const text of [
+    `# X\n**Date:** ${recent}\n`,                       // its own date, still current
+    '# X\n**Date:** 2000-01-01\n',                      // its own date, long past
+    '---\nstale_after: 2026-09-01\n---\n# X\n',         // an explicit review date
+  ]) {
+    assert.equal(judgeFreshness({ text, dateType: 'any', nowMs: NOW, staleDays: 180 }).declared, true);
+  }
+});
+
 test('neither field present is "unknown" regardless of dateType — the any/optional gate is a report-time decision, not a verdict-time one', () => {
   const text = '# X\nno date, no stale_after\n';
   const any = judgeFreshness({ text, dateType: 'any', nowMs: NOW, staleDays: 180 });

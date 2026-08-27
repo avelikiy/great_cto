@@ -250,6 +250,20 @@ step "agent → eval coverage (changed agents)" bash -c '
   exit 0
 '
 
+# A label on nine rows in ten and a bucket holding three quarters of the corpus
+# are the same defect: a classification that has stopped classifying. Measured on
+# the live board — `unknown` on 198 of 217 documents in one project, "Other" on
+# 165 of the same 217. Both passed every unit test they had, because the tests
+# were written against fixtures with this repository's own directory names.
+#
+# So this gate runs the classifier over a REAL tree (this repository's docs/) and
+# asserts the properties rather than the numbers: absence of a declared date is
+# never a finding about the document, the three freshness states stay three,
+# nothing is dropped from the listing, and "Other" is not the largest group.
+step "docs screen classifies more than it shrugs at" bash -c '
+  node --test tests/lib/docs-classify.test.mjs
+'
+
 # ── Unit tests: root + hooks + lib + eval + board (runtime-ci/evals/plugin) ──
 step "root + hooks + board tests" node --test tests/*.test.mjs tests/hooks/*.test.mjs packages/board/*.test.mjs
 step "lib tests" node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs

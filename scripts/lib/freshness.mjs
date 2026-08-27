@@ -25,6 +25,15 @@
  * mtime rule, which still fires past the threshold, and a doc with neither
  * field reads as 'unknown', not fresh.
  *
+ * `declared` says whether the document put ANYTHING on the record — a
+ * `stale_after`, or a date of its own. The distinction it carries is the one
+ * `verdict` cannot: an 'unknown' from a doc that declared nothing is not a
+ * finding about that doc, it is the ordinary case. Measured: of 1634 md files
+ * in one project ZERO declare `stale_after`, and 5 of 2541 do here, which is
+ * how the board came to paint the same 'unknown' badge on 198 of 217 rows.
+ * `verdict` and `basis` are deliberately unchanged — artifact-lint.mjs keys its
+ * no-date warn on the verdict and its message on the basis, and neither moves.
+ *
  * `now` is always an injected parameter (`nowMs`) — nothing in this module
  * calls Date.now(). The caller (artifact-lint.mjs) resolves one NOW_MS at
  * startup from --now / GREAT_CTO_NOW / the real clock, so every state is
@@ -149,6 +158,7 @@ export function ageDays(iso, nowMs) {
  * @returns {{
  *   verdict: 'fresh'|'stale'|'unknown',
  *   basis: 'declared'|'mtime',
+ *   declared: boolean,
  *   staleAfter: string|null,
  *   date: string|null,
  *   ageDays: number|null,
@@ -163,13 +173,18 @@ export function judgeFreshness({ text, dateType: _dateType, nowMs, staleDays }) 
     const staleAfterMs = Date.parse(`${staleAfter}T00:00:00Z`);
     // "Stale on/after that date" (ADR-011 decision #1) — equality counts as stale.
     const verdict = nowMs >= staleAfterMs ? 'stale' : 'fresh';
-    return { verdict, basis: 'declared', staleAfter, date, ageDays: age };
+    return { verdict, basis: 'declared', declared: true, staleAfter, date, ageDays: age };
   }
 
   if (!date) {
-    return { verdict: 'unknown', basis: 'mtime', staleAfter: null, date: null, ageDays: null };
+    // No rule ran, because there was no input to run one on. `basis` still reads
+    // 'mtime' (the rule that WOULD have applied, and what artifact-lint prints);
+    // `declared: false` is the fact a caller needs to tell "we judged and could
+    // not tell" apart from "there was nothing to judge" — the second is the
+    // ordinary state of a document and must not be reported as a defect.
+    return { verdict: 'unknown', basis: 'mtime', declared: false, staleAfter: null, date: null, ageDays: null };
   }
 
   const verdict = age !== null && age > staleDays ? 'stale' : 'fresh';
-  return { verdict, basis: 'mtime', staleAfter: null, date, ageDays: age };
+  return { verdict, basis: 'mtime', declared: true, staleAfter: null, date, ageDays: age };
 }
