@@ -115,6 +115,31 @@ export const SAMPLES = 3;
 
 /** The second judge. A different FAMILY on purpose: correlated failure modes are
  *  the thing a second opinion is supposed to escape. */
+/**
+ * The judge's model, on its own variable.
+ *
+ * It used to be `GREAT_CTO_ROUTER_MODEL`, which is read by FIVE consumers:
+ * the ask_kimi router, generate-summary, memory-filter, and — the one that bit —
+ * the eval runner's ACTOR and JUDGE. Setting it to a cheap judge silently made
+ * the eval suite's actor a cheap model too. The suite's pass rate fell from its
+ * calibrated bar to 1/8 and its reported cost read $0.000, because the model is
+ * not in the price table and an unknown model is priced at zero.
+ *
+ * Neither symptom names the cause. A shared knob whose blast radius is invisible
+ * is the same defect as a shared field with two meanings, one level out.
+ *
+ * Passed explicitly to routerAsk rather than exported through the environment,
+ * so this lane cannot move another one again.
+ *
+ * And the NAME was checked before it was taken. The first attempt used
+ * `GREAT_CTO_JUDGE_MODEL`, which the eval runner already reads for its own
+ * rubric judge — the identical collision under a different name, made by
+ * choosing a name instead of looking for one. These are different jobs: the eval
+ * judge scores an agent's answer 0-1 against a rubric, this one answers closed
+ * questions about an artefact.
+ */
+export const JUDGE_MODEL = process.env.GREAT_CTO_VERIFY_MODEL || 'z-ai/glm-5.3-flash';
+
 export const SECOND_OPINION_MODEL = process.env.GREAT_CTO_SECOND_JUDGE || 'moonshotai/kimi-k3';
 
 /**
@@ -658,7 +683,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const { routerAsk } = await import('./second-opinion.mjs');
     const server = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..',
                              'mcp-servers', 'llm-router', 'server.py');
-    if (existsSync(server)) ask = routerAsk(server);
+    if (existsSync(server)) ask = routerAsk(server, { model: JUDGE_MODEL });
     else console.error('  llm-router server not found — running layers 1–2 only');
   }
 

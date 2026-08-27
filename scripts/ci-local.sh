@@ -200,6 +200,15 @@ step "the key can be set without losing one" bash -c '
   node --test tests/lib/router-key.test.mjs
 '
 
+# One variable moved three models. `GREAT_CTO_ROUTER_MODEL` is read by five
+# consumers including the eval ACTOR, so setting it for a cheap verifier judge
+# silently changed what the eval suite runs — pass rate 1/8, cost $0.000, and
+# neither symptom names the cause. The lanes are asserted apart here because the
+# second attempt at a name collided too.
+step "model lanes do not move each other" bash -c '
+  node --test tests/lib/model-lanes.test.mjs
+'
+
 # What a stage produces is declared in the map, not in JavaScript. Borrowed from
 # Pipelex, where every step declares its typed output — here one direction,
 # because what a stage consumes is implied by what its predecessor produced.
