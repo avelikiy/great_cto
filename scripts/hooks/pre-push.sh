@@ -136,22 +136,9 @@ EXCLUDE_PATHS=(
 # So: terms are quoted (one line = one term, spaces included), and a term that
 # would match everything is REFUSED AND NAMED at startup rather than silently
 # arming a gate nobody can pass.
-#
-# The second source of terms is every DIRECTORY NAME under the workspace, and
-# that is where common words get in. `~/development/secrets` exists, so `secrets`
-# became a blocking term — and the module whose entire job is to write
-# `~/.great_cto/secrets.env` could not be pushed, along with any file that names
-# the path. The block was indistinguishable from a real leak, which is precisely
-# what the note above says must not happen.
-#
-# Added below: generic infrastructure directory names. NOT added: anything that
-# could identify a client or product, however ordinary it looks. A stopword list
-# that grows to make a push convenient stops being a guard.
 _STOPWORDS=" the and or for with from this that a an of to in on at is are be by
  it as not but if then else when where project projects work personal src lib bin
- docs doc test tests script scripts main app api web core data build dist node
- secrets secret config configs shared skills skill cron deliverables assets
- tmp temp cache logs log env envs backup backups "
+ docs doc test tests script scripts main app api web core data build dist node "
 
 TERMS_RE=""
 _REJECTED_TERMS=()
