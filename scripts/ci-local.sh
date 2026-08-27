@@ -190,6 +190,16 @@ step "tests assert what their names claim" bash -c '
   node --test tests/lib/test-substance.test.mjs
 '
 
+# The board can now write the OpenRouter key, and that file holds other
+# credentials — one careless `cat >` destroyed it before. What is asserted is
+# mostly about not losing one: neighbours preserved, replaced in place rather
+# than appended beside itself, backed up before being touched, 0600, and a
+# malformed key refused before anything is written. Plus the one that matters
+# for the board: the full key never appears in a status payload.
+step "the key can be set without losing one" bash -c '
+  node --test tests/lib/router-key.test.mjs
+'
+
 # What a stage produces is declared in the map, not in JavaScript. Borrowed from
 # Pipelex, where every step declares its typed output — here one direction,
 # because what a stage consumes is implied by what its predecessor produced.

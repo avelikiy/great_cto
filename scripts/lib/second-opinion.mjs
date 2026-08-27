@@ -159,11 +159,17 @@ export function explainComparison(cmp) {
  * answers accumulate into a context that biases the next one. It is slower and
  * that is the correct trade for an independence claim.
  */
-export function routerAsk(serverPath, { timeoutMs = 60_000 } = {}) {
+export function routerAsk(serverPath, { timeoutMs = 60_000, model = null } = {}) {
   return async (question, allowed) => {
     const { spawn } = await import('node:child_process');
     return new Promise((resolve) => {
-      const p = spawn('python3', [serverPath], { stdio: ['pipe', 'pipe', 'ignore'] });
+      // The model is passed through the spawned server's environment, which is
+      // where it reads it from. Without this every "second opinion" was the same
+      // model answering twice — three samples of one judge are correlated, and
+      // calling that a second opinion is the confidence-by-repetition this
+      // module was written to avoid.
+      const env = model ? { ...process.env, GREAT_CTO_ROUTER_MODEL: model } : process.env;
+      const p = spawn('python3', [serverPath], { stdio: ['pipe', 'pipe', 'ignore'], env });
       let out = '';
       const done = (v) => { try { p.kill(); } catch {} resolve(v); };
       const timer = setTimeout(() => done(''), timeoutMs);

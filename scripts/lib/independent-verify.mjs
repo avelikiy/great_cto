@@ -113,6 +113,10 @@ export const MAX_JUDGED = 12;
  */
 export const SAMPLES = 3;
 
+/** The second judge. A different FAMILY on purpose: correlated failure modes are
+ *  the thing a second opinion is supposed to escape. */
+export const SECOND_OPINION_MODEL = process.env.GREAT_CTO_SECOND_JUDGE || 'moonshotai/kimi-k3';
+
 /**
  * The output contract for a stage, read from the pipeline map.
  *
@@ -410,7 +414,27 @@ export function artefactExcerpt(verdict, { root = process.cwd(), bytes = EXCERPT
  *
  * @param {(q:string, allowed:string[]) => Promise<string>} ask
  */
-export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDGED, samples = SAMPLES } = {}) {
+/** The question put to a judge about one requirement. Shared, so a second
+ *  judge answers the identical question rather than a paraphrase of it. */
+function questionFor(req, excerpt) {
+  // On the same line as `return`, and it matters: a newline after `return` makes
+  // ASI insert a semicolon, the function returns undefined, and the judge is sent
+  // an empty question. `node --check` passes — the syntax is valid and the
+  // behaviour is silently empty, which is this module's own defect class.
+  return `Judge one requirement against one artefact. Answer only about what the artefact contains.\n\n` +
+      `REQUIREMENT:\n${req}\n\n` +
+      `ARTEFACT (${excerpt.path}${excerpt.truncated ? `, first ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes` : ''}):\n` +
+      `---\n${excerpt.text}\n---\n\n` +
+      `Does the artefact ADDRESS this requirement — is there concrete content ` +
+      `(code, configuration, or a specific written commitment) that implements it?\n` +
+      `  yes     — the artefact contains something that implements this requirement\n` +
+      `  no      — the artefact contains nothing that implements it, or only names it\n` +
+      `  unclear — the artefact touches it but you cannot tell whether it is implemented\n` +
+      `Do NOT answer "no" merely because there is no test or proof; you are judging ` +
+      `presence of the implementation, not evidence that it works.`;
+}
+
+export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDGED, samples = SAMPLES, second = null } = {}) {
   // Gated on REQUIREMENTS, not on a document. This read `if (!doc || …)`, which
   // was right while criteria could only come from an ACCEPTANCE section — and
   // silently discarded every requirement built from the verdict's own claims the
@@ -443,18 +467,7 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
     // requirement ADDRESSED by what is here, versus is it PROVEN. This asks the
     // first. Proof is layer 2's job, and layer 2 runs commands rather than
     // opinions.
-    const q =
-      `Judge one requirement against one artefact. Answer only about what the artefact contains.\n\n` +
-      `REQUIREMENT:\n${req}\n\n` +
-      `ARTEFACT (${excerpt.path}${excerpt.truncated ? `, first ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes` : ''}):\n` +
-      `---\n${excerpt.text}\n---\n\n` +
-      `Does the artefact ADDRESS this requirement — is there concrete content ` +
-      `(code, configuration, or a specific written commitment) that implements it?\n` +
-      `  yes     — the artefact contains something that implements this requirement\n` +
-      `  no      — the artefact contains nothing that implements it, or only names it\n` +
-      `  unclear — the artefact touches it but you cannot tell whether it is implemented\n` +
-      `Do NOT answer "no" merely because there is no test or proof; you are judging ` +
-      `presence of the implementation, not evidence that it works.`;
+    const q = questionFor(req, excerpt);
 
     const votes = [];
     for (let i = 0; i < samples; i += 1) {
@@ -478,7 +491,30 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
     });
   }
 
+  // A second model, asked only where the answer is expensive to get wrong.
+  //
+  // Three samples of one judge are not a second opinion — one model asked three
+  // times repeats its own failure modes, which is confidence by repetition and
+  // is what second-opinion.mjs exists to refuse. A different family fails
+  // differently, and where two disagree about a specific closed question is a
+  // place a human settles in seconds.
+  //
+  // Only on `no`, because that is the answer that costs: a wrong `yes` lets one
+  // stage through, a wrong `no` puts an agent in a rework loop. Divergence is
+  // REPORTED, never resolved — the second model does not overrule the first, and
+  // agreement between two models is deliberately not presented as strong.
+  if (second) {
+    for (const a of answers) {
+      if (a.answer !== 'no') continue;
+      const raw = String((await second(questionFor(a.requirement, excerpt), JUDGE_ANSWERS)) || '').trim().toLowerCase();
+      const m = raw.match(/\b(yes|no|unclear)\b/);
+      a.second = m ? m[1] : null;
+      a.diverged = a.second === 'yes';
+    }
+  }
+
   const unmet = answers.filter((a) => a.answer === 'no').map((a) => a.requirement);
+  const diverged = answers.filter((a) => a.diverged);
   const abstained = answers.filter((a) => a.answer !== 'yes' && a.answer !== 'no').length;
   const split = answers.filter((a) => a.split);
 
@@ -488,6 +524,7 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
       (source === 'verdict-claims'
         ? ' (from the verdict\u2019s own claims — no document freezes criteria for this stage)' : '') +
       (unmet.length ? `, ${unmet.length} not met` : '') +
+      (diverged.length ? `, ${diverged.length} where a second model DISAGREED` : '') +
       (split.length ? `, ${split.length} where the judge was split (${split.map((a) => a.split).join('; ')})` : '') +
       (abstained ? `, ${abstained} abstained` : '') +
       (skipped ? `, ${skipped} NOT judged (over the ${max} cap)` : '') +
@@ -505,7 +542,7 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
  * @param {Function} [o.ask] judge; omitted → layers 1–2 only, and the result says so
  * @returns {Promise<{state:string, checks:object[], findings:string[], conclusion:string}>}
  */
-export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = null } = {}) {
+export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = null, second = null } = {}) {
   const checks = [];
   const findings = [];
 
@@ -533,7 +570,7 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
   if (!ask) {
     checks.push({ layer: 'judgement', status: 'none', detail: 'no judge configured — layers 1–2 only' });
   } else {
-    const j = await judge(verdict, ask, { root });
+    const j = await judge(verdict, ask, { root, second });
     checks.push({ layer: 'judgement', ...j });
     if (j.status === 'fail') {
       findings.push(...j.unmet.map((r) => `requirement not met, per the independent judge: ${r}`));
@@ -625,7 +662,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     else console.error('  llm-router server not found — running layers 1–2 only');
   }
 
-  const r = await verifyAgentOutput({ verdict, root, ask });
+  // The second judge is only wired when the first one is, and only when a second
+  // model is actually reachable — one model answering twice under two names would
+  // be worse than no second opinion at all.
+  let second = null;
+  if (ask && !argv.includes('--no-second-opinion')) {
+    const { routerAsk } = await import('./second-opinion.mjs');
+    const server = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..',
+                             'mcp-servers', 'llm-router', 'server.py');
+    if (existsSync(server)) second = routerAsk(server, { model: SECOND_OPINION_MODEL });
+  }
+
+  const r = await verifyAgentOutput({ verdict, root, ask, second });
 
   // The assessment gets written down.
   //

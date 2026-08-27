@@ -1754,6 +1754,23 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .budgets-failed .bf-head { font-size: var(--fs-title-s); font-weight: 600; margin-bottom: 6px; }
 .budgets-failed .bf-why { font-family: var(--mono); font-size: var(--fs-small); color: var(--status-blocked); margin-bottom: 10px; word-break: break-word; }
 .budgets-failed .bf-note { font-size: var(--fs-body); color: var(--text2); line-height: 1.5; margin-bottom: 14px; }
+.judge-status {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px; margin-bottom: 16px; border-radius: 8px;
+  background: var(--bg-muted); border: 1px solid var(--border);
+  font-size: var(--fs-body);
+}
+.judge-status[hidden] { display: none; }
+.judge-status .js-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.judge-status.ok .js-dot { background: var(--status-done); }
+.judge-status.off .js-dot { background: var(--status-blocked); }
+.judge-status .js-where { font-family: var(--mono); font-size: var(--fs-small); color: var(--text3); }
+.judge-status .js-form { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.judge-status input {
+  font-family: var(--mono); font-size: var(--fs-small); padding: 5px 8px;
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  background: var(--bg-card); color: var(--text); min-width: 26ch;
+}
 .budgets-table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
 .budgets-table th {
   text-align: left; font-family: var(--mono); font-size: var(--fs-eyebrow);
@@ -3035,6 +3052,12 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           Spend is measured from verdicts that carry a cost; while none does, the cap
           cannot fire and says that too. An estimate never refuses.
         </p>
+        <!-- Whether the judge is connected at all. Without a key nothing breaks
+             — every stage is scored `unverifiable`, honestly — but "not
+             connected" and "nothing to check" read the same from here, and the
+             key is not discoverable: the README names OpenRouter once without
+             saying where it goes. -->
+        <div id="judge-status" class="judge-status" hidden></div>
         <div id="budgets-page-body">loading…</div>
       </div>
     </div>
@@ -3700,7 +3723,68 @@ function renderAgentBudgets(budgets, meta = {}) {
  * agent that has NO cap, because "which agents are uncapped" is the question you
  * arrive with when you come here at all.
  */
+/* Is the judge connected?
+ *
+ * The field writes a secret, so it is deliberately one-way: the endpoint never
+ * returns a key, and this never asks for one back. What is shown is presence,
+ * where it was found, and eight characters — enough to tell two keys apart and
+ * useless as a key.
+ *
+ * `type="password"` and `autocomplete="off"` keep it out of the browser's own
+ * stores, which is where a pasted credential otherwise ends up living long after
+ * the page is closed.
+ */
+async function loadJudgeStatus() {
+  const el = document.getElementById('judge-status');
+  if (!el) return;
+  let s;
+  try { s = await api(`/api/router-key${pqs()}`); } catch { s = null; }
+  if (!s) { el.hidden = true; return; }
+
+  const connected = s.state === 'present';
+  el.className = 'judge-status ' + (connected ? 'ok' : 'off');
+  el.hidden = false;
+  el.innerHTML = connected
+    ? `<span class="js-dot"></span>
+       <span><strong>Judge connected</strong> — ${esc(s.model || 'default model')}</span>
+       <span class="js-where">${esc(s.fingerprint || '')} · from ${esc(String(s.from || '').replace(/^.*\/(?=\.great_cto)/, '~/'))}</span>
+       <span class="js-form">
+         <input id="judge-key" type="password" autocomplete="off" spellcheck="false" placeholder="replace key (sk-or-…)">
+         <button class="btn" onclick="saveJudgeKey()">Replace</button>
+       </span>`
+    : `<span class="js-dot"></span>
+       <span><strong>No judge connected.</strong> Every stage will be scored
+         <code>unverifiable</code> — recorded honestly, but nothing is checked.</span>
+       ${s.state === 'unreadable'
+          ? `<span class="js-where">${esc(s.problems.join('; '))}</span>` : ''}
+       <span class="js-form">
+         <input id="judge-key" type="password" autocomplete="off" spellcheck="false" placeholder="OpenRouter key (sk-or-…)">
+         <button class="btn" onclick="saveJudgeKey()">Connect</button>
+       </span>`;
+}
+
+async function saveJudgeKey() {
+  const input = document.getElementById('judge-key');
+  const key = (input?.value || '').trim();
+  if (!key) return;
+  // Written to ~/.great_cto/secrets.env, which holds other credentials. The
+  // confirm states that rather than asking whether you are sure.
+  if (!confirm('Write this key to ~/.great_cto/secrets.env?\n\n'
+             + 'The file is backed up first and other entries are preserved.')) return;
+  const r = await api(`/api/router-key${pqs()}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  });
+  // Cleared either way: a rejected key should not sit in the DOM waiting for the
+  // next screenshot.
+  if (input) input.value = '';
+  if (!r || r.error) { alert(`Key not saved: ${r?.error || 'network error'}`); return; }
+  showToast(r.replaced ? 'Judge key replaced' : 'Judge connected', 'success', 2500);
+  loadJudgeStatus();
+}
+
 async function loadBudgetsPage() {
+  loadJudgeStatus();
   const body = document.getElementById('budgets-page-body');
   if (!body) return;
   body.innerHTML = '<div class="muted">loading…</div>';

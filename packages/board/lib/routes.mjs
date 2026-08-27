@@ -12,6 +12,7 @@ import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
+import { status as routerKeyStatus, writeKey as writeRouterKey } from '../../../scripts/lib/router-key.mjs';
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
@@ -690,6 +691,57 @@ async function dispatch(req, res, url, cwd) {
   // caller cannot render "100%" without also being handed the count it is out
   // of. An agent with nine unverifiable runs and one verified one is not a 100%
   // agent, and the payload refuses to let the UI say it is.
+  // Is the judge connected, and let the operator connect it.
+  //
+  // Nothing breaks without a key — every stage comes back `unverifiable`, which
+  // is honest. But "the judge is not connected" and "the judge found nothing to
+  // check" read identically from here, and the user has no way to discover a key
+  // is involved: the README mentions OpenRouter once without saying where the key
+  // goes, and the router's own hint names a file it is not read from.
+  //
+  // GET NEVER RETURNS THE KEY. It answers presence, which of the three locations
+  // it came from, and eight characters of it — enough to tell two keys apart,
+  // useless as a key. A read path would make any future XSS in a 7,600-line
+  // single-page app a secret disclosure, and buys nothing: nobody needs to read
+  // back a key they already hold.
+  if (pathname === '/api/router-key' && req.method === 'GET') {
+    res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
+    res.end(JSON.stringify(routerKeyStatus({ cwd })));
+    return true;
+  }
+
+  if (pathname === '/api/router-key' && req.method === 'POST') {
+    if (!originAllowed(req)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'origin not allowed' }));
+      return true;
+    }
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
+    req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); }
+      catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+        return;
+      }
+      const r = writeRouterKey(String(parsed.key || ''));
+      if (!r.ok) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: r.error }));
+        return;
+      }
+      // The reply carries the new status, not the key, and names the backup —
+      // a write to a file holding other credentials should say what it saved
+      // first, because this file has been destroyed once by a careless write.
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, replaced: r.replaced, backup: r.backup,
+                               status: routerKeyStatus({ cwd }) }));
+    });
+    return true;
+  }
+
   if (pathname === '/api/scores') {
     const agent = url.searchParams.get('agent') || null;
     const name = url.searchParams.get('name') || 'independent-verify';
