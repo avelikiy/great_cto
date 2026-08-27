@@ -5,6 +5,92 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v3.15.0 — 2026-08-27
+
+Every stage of the pipeline can now be checked against something, the check
+reads the contracts of the project it is checking, and what it concluded is
+visible on the board instead of scrolling past in a terminal.
+
+### Two stages could not be verified at all
+
+`senior-dev` and `code-reviewer` declared no output contract, so their runs came
+back `unverifiable` — honest, and useless. Measured across the verdict logs:
+neither has ever written a document path into its meta, and both DO carry a
+receipt (head, base, and every touched file with its hash). They now declare
+`produces = ["receipt"]`, and a contract can be satisfied by the receipt block
+as well as by a document path. Inventing a document key for them would have made
+verification reject correct work.
+
+### The verifier read the wrong project's contracts
+
+`verifyAgentOutput` never passed `root` down to the contract lookup, so the
+contract was always read from **great_cto's own** `shared/pipeline.toml`
+regardless of which project was being verified. In any other project the
+verifier was enforcing our stage contracts against their stages. Found because
+six hermetic tests started failing and the fixture map was being ignored.
+
+### A stage that produces a SET could not name it
+
+`pm` writes one implementation brief per task, and its contract asked for
+`brief=<path>` — singular. No run that wrote four briefs can satisfy that
+honestly, so pm sat on REWORK for a reason that was the map's fault rather than
+the agent's. A trailing slash now marks a directory claim (`briefs=docs/impl-briefs/`),
+judged by its **contents**: absent, empty, only-placeholders and real are four
+distinct outcomes, so `mkdir -p` with nothing written still fails.
+
+`qa-engineer` had the opposite problem — its own post-condition already required
+a QA report to exist, but the verdict never named it, so nothing downstream could
+check. It does now, and refuses to log a verdict without one. `project-auditor`
+entered the map for its contract alone, with `next = []`: it is where a project
+with no pipeline history starts, and it was the stage most likely to run against
+an unfamiliar codebase and the one nothing could check.
+
+### A tie is not a majority
+
+Three judge samples resolved a 1-yes/1-no tie straight to `no`. That contradicted
+the module's own economics — a second model is consulted **only** on `no`,
+because a wrong `no` is the expensive answer — and made a coin flip read exactly
+like three judges out of three saying no.
+
+A tie now goes to the second model, and the second model decides it. This is not
+a widening of "never overrule": on a tie there is nothing to overrule, because
+the first judge did not reach an answer. Where it did, its answer stands and a
+dissenting second model is still only reported.
+
+Where nothing settles the tie the work still comes back — falling toward rework
+is right when verifying, since a wrong pass defeats the point — but it is now
+reported as *split and unresolved*, not as a requirement found wanting. Measured
+before deciding: 5/5 unanimous on the same real question, 1 tie in 6 runs, and
+— the deciding fact — with layer 3 undecided the stage comes back VERIFIED, so
+resolving ties to "unclear" would have turned a coin flip into a clean pass.
+
+### A rejected claim read like a confirmed one
+
+An unverified requirement and a refuted one printed the same way. They are
+different facts and now say so.
+
+### The board shows what the verifier concluded
+
+`/api/scores` had existed with **zero** front-end callers: every verification —
+its state, its scorer, its findings — was written to `.great_cto/scores.jsonl`
+and never displayed. A run's assessment is now visible where the run is.
+
+### `npm i -g` no longer leaves the plugin behind
+
+`postinstall.mjs` was a five-line no-op, so installing a new CLI moved the CLI
+and silently left the **plugin** — agents, skills, commands under
+`~/.claude/plugins` — at whatever version it was. It now reports the mismatch
+rather than pretending the two distributions are one. They are deliberately
+different sizes; what is fixed is that the difference is no longer silent.
+
+### Tests
+
+20 in the verifier suite, 12 in artefact claims, 7 in pipeline contracts, plus a
+new suite for postinstall. Full local CI: 32 steps green.
+
+---
+
 ## v3.14.0 — 2026-08-27
 
 ### A plugin older than the CLI does not get to answer for it
