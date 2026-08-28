@@ -3464,10 +3464,48 @@ function renderInbox(d) {
     Number.isFinite(s.needs_you) ? s.needs_you : s.gates + s.p0 + s.blocked;
   // Same rule as the all-clear card: "nothing urgent" is a claim about data we
   // may not have. When a read failed, say that instead of reassuring the user.
-  const greetTail = anyDegraded()
-    ? "Some data could not be read — treat the counts below as incomplete."
-    : (s.gates + s.p0 ? "Here's what needs your decision." : 'Nothing urgent — back to deep work.');
-  document.getElementById('inbox-greet').textContent = `${greetByHour()} ${greetTail}`;
+  // The headline states the SITUATION, not the time of day.
+  //
+  // "Good morning. Here's what needs your decision." sat above a screen whose
+  // every timestamp was 11 to 30 days old. The most important fact available —
+  // that nothing had moved in eleven days — was the one thing the page never
+  // said. Borrowed from Datadog's monitor states, where "No Data" is an alert in
+  // its own right rather than the absence of one: silence is a reading.
+  //
+  // Age is taken across everything the screen knows about, so a quiet queue with
+  // a live pipeline reads differently from a project that has stopped.
+  const newestEventAgeH = (() => {
+    const stamps = [
+      ...(d?.pending_gates || []), ...(d?.p0_open || []),
+      ...(d?.blocked || []), ...(d?.stale_in_progress || []),
+    ].map((t) => t?.updated_at).filter(Boolean)
+      .concat((window.__pipelineStages || []).map((st) => st?.ts).filter(Boolean))
+      .map((t) => Date.parse(t)).filter((n) => Number.isFinite(n));
+    if (!stamps.length) return null;
+    return (Date.now() - Math.max(...stamps)) / 3600e3;
+  })();
+
+  const needs = s.gates + s.p0;
+  const STALL_H = 72;               // the same 72h the gate-expiry hook uses
+  const greetEl = document.getElementById('inbox-greet');
+  greetEl.setAttribute('role', 'status');
+  greetEl.setAttribute('aria-live', 'polite');
+
+  if (anyDegraded()) {
+    // A read failed. Reassurance would be a claim about data we do not have.
+    greetEl.textContent = 'Some data could not be read — treat the counts below as incomplete.';
+  } else if (newestEventAgeH != null && newestEventAgeH > STALL_H) {
+    const days = Math.floor(newestEventAgeH / 24);
+    greetEl.textContent = needs
+      ? `Stalled — nothing has moved in ${days} days, and ${needs} item${needs > 1 ? 's' : ''} ${needs > 1 ? 'are' : 'is'} waiting on you.`
+      : `Stalled — nothing has moved in ${days} days, and nothing is waiting on you either.`;
+  } else if (needs) {
+    greetEl.textContent = "Here's what needs your decision.";
+  } else {
+    greetEl.textContent = newestEventAgeH == null
+      ? 'Nothing recorded yet for this project.'
+      : `All clear — last activity ${relTime(new Date(Date.now() - newestEventAgeH * 3600e3).toISOString())}.`;
+  }
   // Only the tiles that have something in them.
   //
   // Four rendered unconditionally, and on an ordinary morning two of them read 0
