@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Beschreibe ein Produkt. Genehmige drei Dinge. Öffne die URL.**
+**Liefere Produkte mit dem Coding-Agenten, den du schon hast.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)

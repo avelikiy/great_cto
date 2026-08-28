@@ -2,7 +2,7 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Describe a product. Approve three things. Open the URL.**
+**Ship products with the coding agent you already have.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -21,9 +21,14 @@ npx great-cto init
 
 ---
 
-You describe a software product. What lands on your disk is a **repository you
-own** and a **URL that already works** — architecture, data model, backend,
-frontend, generated tests and the deploy, finished. Not a plan. Not a prototype.
+great_cto is the layer **around the coding agent you already run**. It drives
+your Claude Code — or OpenAI Codex — through a whole build and hands you a
+**repository you own** and a **URL that already works**: architecture, data
+model, backend, frontend, generated tests and the deploy, finished. Not a plan.
+Not a prototype.
+
+It is not a hosted app builder and does not replace your agent; without one there
+is nothing for it to orchestrate.
 
 Seven products built end to end in the open benchmark cost a **median of $171**
 in tokens. You pay your own LLM provider; great_cto bills you nothing and is MIT.

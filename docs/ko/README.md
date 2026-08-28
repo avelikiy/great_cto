@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**제품을 설명하세요. 세 가지를 승인하세요. URL을 여세요.**
+**이미 쓰고 있는 코딩 에이전트로 제품을 출시하세요.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)

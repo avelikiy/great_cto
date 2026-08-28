@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**描述產品。批准三件事。打開 URL。**
+**用你已有的編碼 agent 交付產品。**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
