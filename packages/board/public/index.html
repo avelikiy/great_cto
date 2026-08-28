@@ -3613,7 +3613,34 @@ function renderInbox(d) {
   // zero and the card used to headline "Nothing needs your decision" — maximum
   // confidence at exactly the moment we knew least. Absence of findings is not
   // a finding of absence.
-  if (ac) ac.style.display = (attention === 0 && !anyDegraded()) ? '' : 'none';
+  //
+  // And "nothing needs you" has TWO readings that deserve different words.
+  //
+  //   quiet because the work is done   → rest, and the actions offer more work
+  //   quiet because nothing is running → that is not rest, it is a stopped
+  //                                      machine, and "back to deep work" is
+  //                                      the wrong thing to say to it
+  //
+  // Today's board is the second, and until now the screen had no way to say so:
+  // an empty queue rendered the same congratulation either way.
+  if (ac) {
+    const show = attention === 0 && !anyDegraded();
+    ac.style.display = show ? '' : 'none';
+    if (show) {
+      const stalled = newestEventAgeH != null && newestEventAgeH > STALL_H;
+      const txt = ac.querySelector('.ac-text');
+      const mark = ac.querySelector('.ac-mark');
+      if (stalled) {
+        const days = Math.floor(newestEventAgeH / 24);
+        if (mark) mark.textContent = '·';
+        if (txt) txt.innerHTML = `<b>Nothing is waiting on you.</b> Nothing has run in `
+          + `${days} days either — this project is idle, not finished.`;
+      } else {
+        if (mark) mark.textContent = '\u2713';
+        if (txt) txt.innerHTML = '<b>All clear.</b> Nothing needs your decision — back to deep work.';
+      }
+    }
+  }
   renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
     'Some project data could not be read — counts below are incomplete.');
 }
