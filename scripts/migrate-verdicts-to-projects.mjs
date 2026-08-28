@@ -13,7 +13,11 @@
  *   3. Write attributed lines to <project_cwd>/.great_cto/verdicts/<agent>.log
  *      Append `project=<slug>` tag if missing (so future re-runs are idempotent)
  *
- * Safe to re-run: each line is deduplicated by (ts, agent, project, cost) before append.
+ * Safe to re-run: each line is deduplicated by (ts, agent, project, cost) before
+ * append — and, since the safety of that claim could not be checked after a
+ * crash, the run now records its progress per project and writes a completion
+ * marker only once every project verifies. Absence of the marker means "not
+ * known to have finished", never "not started". See scripts/lib/migration.mjs.
  *
  * Usage:
  *   node scripts/migrate-verdicts-to-projects.mjs            # dry-run
@@ -21,6 +25,7 @@
  */
 
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
+import { runMigration, backupOnce, atomicWrite, migrationState } from './lib/migration.mjs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -38,6 +43,19 @@ if (!existsSync(GLOBAL_VERDICTS)) {
 if (!existsSync(PROJECTS_FILE)) {
   console.error(`Missing ${PROJECTS_FILE}. Run from a machine with great_cto board initialised.`);
   process.exit(1);
+}
+
+// Say where this stands before doing anything. The three answers are different
+// and an operator acts differently on each: `done` needs no run, `partial` needs
+// this one to finish what stopped, `never` is a first pass.
+const STATE = migrationState(GREAT_CTO, 'verdicts-to-projects');
+if (STATE === 'done') {
+  console.log('Already migrated — a completion marker is present, so every project verified.');
+  console.log(`  ${GREAT_CTO}/.verdicts-to-projects.migrated`);
+  process.exit(0);
+}
+if (STATE === 'partial') {
+  console.log('An earlier run did NOT finish. Projects it verified will be skipped.\n');
 }
 
 const projects = JSON.parse(readFileSync(PROJECTS_FILE, 'utf8')).projects || [];
@@ -133,21 +151,62 @@ if (!APPLY) {
   process.exit(0);
 }
 
-// Apply: write to per-project dirs
-for (const [slug, byAgent] of projectAppends) {
-  const proj = projects.find(p => p.slug === slug);
-  if (!proj) continue;
-  const dir = join(proj.path, '.great_cto', 'verdicts');
-  mkdirSync(dir, { recursive: true });
-  for (const [agent, lines] of byAgent) {
-    const target = join(dir, `${agent}.log`);
-    // Dedupe against existing content (rerun-safe)
-    const existing = existsSync(target) ? new Set(readFileSync(target, 'utf8').split('\n')) : new Set();
-    const newLines = lines.filter(l => !existing.has(l));
-    if (newLines.length === 0) continue;
-    writeFileSync(target, (existsSync(target) ? readFileSync(target, 'utf8').trimEnd() + '\n' : '') + newLines.join('\n') + '\n');
-    stats.written += newLines.length;
-    console.log(`  wrote ${newLines.length} line${newLines.length === 1 ? '' : 's'} → ${slug}/${agent}.log`);
-  }
-}
+// Apply: one project at a time, each backed up, written atomically, and verified
+// before it counts. A project that cannot be written stops the marker; the rest
+// still migrate, and the next run picks up exactly where this one stopped.
+const result = runMigration({
+  root: GREAT_CTO,
+  name: 'verdicts-to-projects',
+  apply: true,
+  log: (m) => console.log(m),
+  units: [...projectAppends.keys()],
+  id: (slug) => slug,
+
+  migrate(slug) {
+    const proj = projects.find(p => p.slug === slug);
+    // Not `continue` in silence: a slug with no project is a fact the operator
+    // needs, because those lines stay in the global log and nothing says so.
+    if (!proj) throw new Error(`no project registered for slug "${slug}" — its lines were left in the global log`);
+
+    const dir = join(proj.path, '.great_cto', 'verdicts');
+    mkdirSync(dir, { recursive: true });
+    const wrote = [];
+    for (const [agent, lines] of projectAppends.get(slug)) {
+      const target = join(dir, `${agent}.log`);
+      const before = existsSync(target) ? readFileSync(target, 'utf8') : '';
+      const existing = new Set(before.split('\n'));
+      const newLines = lines.filter(l => !existing.has(l));
+      if (newLines.length === 0) continue;
+
+      // The original content is copied aside ONCE, before the first change, so a
+      // re-run cannot overwrite the only copy of what was there to begin with.
+      backupOnce(target);
+      atomicWrite(target, (before ? before.trimEnd() + '\n' : '') + newLines.join('\n') + '\n');
+      stats.written += newLines.length;
+      wrote.push({ agent, target, added: newLines });
+      console.log(`  wrote ${newLines.length} line${newLines.length === 1 ? '' : 's'} → ${slug}/${agent}.log`);
+    }
+    return wrote;
+  },
+
+  // Read the file back. `migrate` returning without throwing says the write was
+  // attempted; this says the lines are there.
+  verify(slug, wrote) {
+    for (const { target, added } of wrote || []) {
+      if (!existsSync(target)) return false;
+      const text = readFileSync(target, 'utf8');
+      if (!added.every(l => text.includes(l))) return false;
+    }
+    return true;
+  },
+});
+
 console.log(`\n✓ Migrated ${stats.written} verdict line${stats.written === 1 ? '' : 's'} to per-project directories.`);
+if (result.skipped.length) console.log(`  ${result.skipped.length} project(s) already done in an earlier run.`);
+if (result.failed.length) {
+  console.log(`\n⚠ ${result.failed.length} project(s) did NOT complete — no completion marker written:`);
+  for (const f of result.failed) console.log(`    ${f.unit}: ${f.why}`);
+  console.log(`  Re-run to continue; verified projects are skipped.`);
+  process.exit(1);
+}
+console.log(`  marker: ${result.marker}`);
