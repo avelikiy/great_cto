@@ -3779,7 +3779,7 @@ function renderInboxList(rootId, items, countId, opts = {}) {
       alsoTag,
       // Gates (the showApprove list) get the exact date+time the decision has been
       // waiting since; other rows carry their age in the right-hand column instead.
-      opts.showApprove && t.updated_at
+      (opts.showApprove || t.is_gate === true) && t.updated_at
         ? `<span title="${esc(fmtDate(t.updated_at))}" style="color:var(--status-gate);font-weight:600">⏳ ${fmtDT(t.updated_at)}</span>`
         : '',
     ].filter(Boolean).join(' · ');
@@ -3793,7 +3793,20 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     // this change is removing.
     const hrs = ageHours(t.updated_at);
     const aged = !opts.showApprove && opts.implies !== 'age' && hrs != null && hrs >= 48;
-    const actions = opts.showApprove
+    // A gate can be approved because it IS a gate — not because of which list it
+    // happened to land in.
+    //
+    // `gate-expiry.mjs` marks a gate `blocked` once it has waited 72 hours.
+    // `getInbox` excludes blocked gates from `pending_gates`, so the item drops
+    // into `p0_open`, which renders without `showApprove` — and loses its
+    // Approve/Reject buttons. The hook built to draw attention to a neglected
+    // gate quietly removed the only way to answer it. Observed on a gate that had
+    // then waited 699 hours with nothing on screen able to end that wait.
+    //
+    // The affordance now follows `is_gate`, which is a fact about the task rather
+    // than about the query that fetched it.
+    const canDecide = opts.showApprove || t.is_gate === true;
+    const actions = canDecide
       ? `<div class="actions" onclick="event.stopPropagation()">
            <button class="gate-btn gate-approve" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">Approve</button>
            <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject</button>
@@ -3814,9 +3827,14 @@ function renderInboxList(rootId, items, countId, opts = {}) {
       ? `<span class="ttl-desc"${ctx.wire ? ` title="${esc(ctx.wire)}"` : ''}>${esc(shown.slice(0, 140))}${shown.length > 140 ? '…' : ''}</span>`
       : '';
     // Only gate rows can stand down, so only they carry the note.
-    const tierNote = opts.showApprove ? gateTierNote(t) : '';
+    const tierNote = (opts.showApprove || t.is_gate === true) ? gateTierNote(t) : '';
+    // Reachable by keyboard. Every row in this queue was a bare `div` with an
+    // onclick — no tabindex, no role, no key handler — so the whole list of
+    // things needing the operator could be seen and never opened without a
+    // mouse. Enter and Space now do what a click does, and the row announces
+    // itself as a button instead of as anonymous text.
     return `
-      <div class="inbox-row${aged ? ' row-aged' : ''}" onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
+      <div class="inbox-row${aged ? ' row-aged' : ''}" tabindex="0" role="button" aria-label="${esc(t.title || t.id)}" onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();this.click();}' onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         <span class="id">${esc(t.id || '')}</span>
         <span class="ttl">${esc(t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
         ${actions}
