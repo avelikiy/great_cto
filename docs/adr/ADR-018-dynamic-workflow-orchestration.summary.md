@@ -9,4 +9,4 @@ _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, s
 - Structured results come from the **`schema`** opt (forces a StructuredOutput
 - Does **not** replace single-domain or Small/Medium pipelines — those keep
 
-- **Full doc:** docs/architecture/ADR-018-dynamic-workflow-orchestration.md
+- **Full doc:** docs/adr/ADR-018-dynamic-workflow-orchestration.md

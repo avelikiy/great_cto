@@ -198,7 +198,7 @@ if [ -d "$ADR_DIR" ] && ls "$ADR_DIR"/ADR-*.md >/dev/null 2>&1; then
   [ "$STALE_COUNT" -gt 0 ] && printf "$STALE_OUT"
   [ "$STALE_COUNT" = "0" ] && [ "$BROKEN_LINK" = "0" ] && echo "  ✓ no stale ADRs, all supersession links intact"
 else
-  echo "  (no ADRs yet — docs/decisions/ADR-*.md absent)"
+  echo "  (no ADRs yet — docs/adr/ADR-*.md absent)"
 fi
 ```
 

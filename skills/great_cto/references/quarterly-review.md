@@ -23,7 +23,7 @@ applies_to:
 
 | Source | What's extracted |
 |--------|------------------|
-| `docs/decisions/ADR-*.md` | Added / modified / superseded in the quarter; conflicts |
+| `docs/adr/ADR-*.md` | Added / modified / superseded in the quarter; conflicts |
 | `docs/rfcs/RFC-*.md` | Posted / accepted / rejected / in progress |
 | `.great_cto/brain.md` | Current synthesis; diff vs `.great_cto/brain-Q<N-1>-snapshot.md` |
 | `.great_cto/CODEBASE.md` | God-nodes (top-N by inbound imports); delta vs prior quarter |

@@ -258,7 +258,7 @@ PY
 fi
 ```
 
-Write `docs/decisions/ADR-<NUM>-<slug>.md`:
+Write `docs/adr/ADR-<NUM>-<slug>.md`:
 ```markdown
 # ADR-<NUM>: <RFC title>
 
@@ -288,5 +288,5 @@ Output:
 ```
 RFC-<ID> closed: <ACCEPTED/REJECTED>
 Reason: <reason>
-[If accepted:] ADR-<NUM> created → docs/decisions/ADR-<NUM>-<slug>.md
+[If accepted:] ADR-<NUM> created → docs/adr/ADR-<NUM>-<slug>.md
 ```

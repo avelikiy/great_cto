@@ -27,7 +27,7 @@ Invoke after architect proposes 2+ variants, before creating gate:arch.
 
 Invoke this skill when ALL of these are true:
 
-1. An ADR (`docs/decisions/ADR-*.md`) or ARCH doc (`docs/architecture/ARCH-*.md`)
+1. An ADR (`docs/adr/ADR-*.md`) or ARCH doc (`docs/architecture/ARCH-*.md`)
    contains a section with 2 or more named alternatives (look for
    `## Alternatives Considered`, `## Options`, or bold-prefixed options like
    `**Option A:**`)
@@ -44,7 +44,7 @@ the `decision-scorer` agent with the file path as context:
 
 ```bash
 # Identify target document
-TARGET=$(ls -t docs/decisions/ADR-*.md 2>/dev/null | head -1)
+TARGET=$(ls -t docs/adr/ADR-*.md 2>/dev/null | head -1)
 [ -z "$TARGET" ] && TARGET=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
 
 # Confirm 2+ variants

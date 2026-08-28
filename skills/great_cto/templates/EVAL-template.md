@@ -70,7 +70,7 @@ python -m great_cto.eval.run --scenario {slug}
 ## Cross-references
 - Failure mode: `ARCH-{slug}.md § Failure Modes` row F{n}
 - Threat: `TM-{slug}.md § Section {n}` threat P-{nn}
-- ADR: `docs/decisions/ADR-PROMPT-{name}.md` (if scenario tests a prompt change)
+- ADR: `docs/adr/ADR-PROMPT-{name}.md` (if scenario tests a prompt change)
 
 ## History
 | Date | Version | Result | Notes |

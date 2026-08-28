@@ -115,9 +115,9 @@ test('a declared date still decides, in both directions', () => {
 // ─── Classification: signals, in the order they earn ─────────────────────────
 
 test('the leading filename token outranks the directory it sits in', () => {
-  // The 14 documents that bought this ordering: docs/architecture/ADR-0NN-*.md
+  // The 14 documents that bought this ordering: docs/adr/ADR-0NN-*.md
   // were being filed as Architecture, when an ADR is a decision.
-  assert.equal(groupFor('docs/architecture/ADR-019-hook-execution-modes.md'), 'decisions');
+  assert.equal(groupFor('docs/adr/ADR-019-hook-execution-modes.md'), 'decisions');
   assert.equal(groupFor('docs/design/PLAN-visual-redesign.md'), 'plans');
   assert.equal(groupFor('docs/audit/AUDIT-2026-08-25.md'), 'reviews');
 });

@@ -9,4 +9,4 @@ _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, s
 - stderr = surfaced to user / agent
 - **Bash:** error-prone for JSON parsing and string regex with backreferences; brittle on different pl
 
-- **Full doc:** docs/architecture/ADR-013-hook-execution-model.md
+- **Full doc:** docs/adr/ADR-013-hook-execution-model.md

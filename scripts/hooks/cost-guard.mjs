@@ -23,7 +23,7 @@
  *   GREAT_CTO_BUMP_CAP=10            one-shot bump today's cap by $10
  *
  * @see docs/HOOKS.md
- * @see docs/architecture/ADR-016-pay-what-you-want-cost-control.md (planned)
+ * @see docs/adr/ADR-016-pay-what-you-want-cost-control.md (planned)
  */
 
 import { readFileSync } from 'node:fs';

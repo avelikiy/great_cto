@@ -68,7 +68,7 @@ If your tool layer fetches URLs, runs code, queries databases, or hits external 
 |---|---|
 | Model version drift (silent vendor upgrade) | Pin to specific model version (`gpt-4o-2024-11-20`, not `gpt-4o`); eval suite re-runs on version change |
 | MCP server tampering | SHA256-pinned binaries in `config/mcp_servers.yaml`; CI verifies on every deploy |
-| Prompt template tampering | Versioned in `docs/decisions/ADR-PROMPT-{name}.md`; CI compares hash |
+| Prompt template tampering | Versioned in `docs/adr/ADR-PROMPT-{name}.md`; CI compares hash |
 | Vector DB poisoning | Source allowlist for indexed documents; provenance metadata on every chunk |
 
 ## Severity rating + sign-off

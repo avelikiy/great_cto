@@ -9,4 +9,4 @@ _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, s
 - 1 occurrence = anecdote
 - 2 = coincidence
 
-- **Full doc:** docs/architecture/ADR-015-learning-loop-architecture.md
+- **Full doc:** docs/adr/ADR-015-learning-loop-architecture.md

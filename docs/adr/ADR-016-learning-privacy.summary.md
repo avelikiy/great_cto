@@ -9,4 +9,4 @@ _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, s
 - Customer/user IDs or any data from .env* files
 - Source code beyond minimal reference (file:line, not contents)
 
-- **Full doc:** docs/architecture/ADR-016-learning-privacy.md
+- **Full doc:** docs/adr/ADR-016-learning-privacy.md

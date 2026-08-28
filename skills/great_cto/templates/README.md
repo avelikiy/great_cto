@@ -15,8 +15,8 @@
 | `archetype: ai-system | agent-product` | `THREAT-MODEL-AI.md` | `docs/sec-threats/TM-{slug}.md` |
 | `archetype: browser-extension` | `THREAT-MODEL-AI.md` (adapted by web-store-reviewer) | `docs/sec-threats/TM-{slug}.md` |
 | `archetype: ai-system | agent-product` | `EVAL-template.md` (×3 or ×5) | `tests/eval/EVAL-{scenario}.md` |
-| AI / agent project picks LLM | `ADR-LLM.md` | `docs/decisions/ADR-{NN}-LLM-{model}.md` |
-| AI / agent project writes prompt | `ADR-PROMPT.md` | `docs/decisions/ADR-{NN}-PROMPT-{name}.md` |
+| AI / agent project picks LLM | `ADR-LLM.md` | `docs/adr/ADR-{NN}-LLM-{model}.md` |
+| AI / agent project writes prompt | `ADR-PROMPT.md` | `docs/adr/ADR-{NN}-PROMPT-{name}.md` |
 | `compliance: [dora]` | `DORA-ICT-risk-assessment.md` + `DORA-third-party-register.md` | `docs/compliance/` |
 | `compliance: [nis2]` | `NIS2-article21-controls.md` | `docs/compliance/` |
 | `compliance: [gxp]` or `[21cfr11]` | `21CFR11-checklist.md` | `docs/compliance/` |

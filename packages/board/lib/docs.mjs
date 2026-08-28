@@ -182,7 +182,7 @@ function walk(dir, root, out, depth = 0) {
  *   8. a bare README              a name that describes nothing else
  *
  * The leading filename token outranks the directory, and that ordering was
- * bought: 14 `docs/architecture/ADR-0NN-*.md` files were being filed as
+ * bought: 14 `docs/adr/ADR-0NN-*.md` files were being filed as
  * Architecture, and `docs/design/PLAN-*.md` as Design. A directory is where a
  * project dumps a category; the front of a filename is what the author called
  * THIS document. Mid-name tokens rank below the directory instead, because

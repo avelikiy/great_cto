@@ -344,7 +344,7 @@ async function runArchetype(archetypeKey) {
     process.stdout.write('architect.');
     const arch = await runStage({
       stage: 'architect', agentName: 'architect',
-      taskPrompt: `Archetype: ${archetypeKey}\nFeature: "${config.feature}"\n\nUser request: ${config.task}\n\nProduce: 1 short ARCH document (under 50 lines) at docs/architecture/ARCH-${config.feature}.md and 1 ADR at docs/decisions/ADR-001-${config.feature}.md. Reference the archetype's compliance requirements.`,
+      taskPrompt: `Archetype: ${archetypeKey}\nFeature: "${config.feature}"\n\nUser request: ${config.task}\n\nProduce: 1 short ARCH document (under 50 lines) at docs/architecture/ARCH-${config.feature}.md and 1 ADR at docs/adr/ADR-001-${config.feature}.md. Reference the archetype's compliance requirements.`,
       project, home,
     });
     totalCost += arch.cost;

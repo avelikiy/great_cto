@@ -404,7 +404,7 @@ constraint in the new ARCH doc — document why this design choice was not taken
    - **Previous architecture docs** (read before designing — avoid re-inventing decided patterns):
      ```bash
      ls docs/architecture/ARCH-*.md 2>/dev/null | sort | tail -3 | xargs cat 2>/dev/null || echo "NO_ARCH_DOCS"
-     ls docs/decisions/ADR-*.md 2>/dev/null | sort | tail -5 | xargs cat 2>/dev/null || echo "NO_ADRS"
+     ls docs/adr/ADR-*.md 2>/dev/null | sort | tail -5 | xargs cat 2>/dev/null || echo "NO_ADRS"
      ```
      Extract: existing component boundaries, rejected alternatives, API contracts already in use.
      If a pattern was already decided in an ADR → reuse it. Don't re-decide without SUPERSEDES reference.
@@ -526,7 +526,7 @@ constraint in the new ARCH doc — document why this design choice was not taken
    artifacts produced, only phases relevant to this feature). Both are gated, fill-in-verbatim
    templates: `skills/great_cto/references/arch-framework-sections.md`.
 
-5. **Write ADR** for each significant decision in `docs/decisions/ADR-<NNN>-<slug>.md`, then auto-update the index:
+5. **Write ADR** for each significant decision in `docs/adr/ADR-<NNN>-<slug>.md`, then auto-update the index:
    ```markdown
    # ADR-<NNN>: <Decision Title>
    Date: <YYYY-MM-DD>
@@ -549,7 +549,7 @@ constraint in the new ARCH doc — document why this design choice was not taken
    ```
    Auto-update `docs/decisions/DECISIONS.md` index immediately after writing each ADR:
    ```bash
-   bash scripts/architect-update-adr-index.sh docs/decisions/ADR-<NNN>-<slug>.md
+   bash scripts/architect-update-adr-index.sh docs/adr/ADR-<NNN>-<slug>.md
    ```
    Idempotent — appends a table row (ADR / Title / Date / Status) unless one already exists
    for that ADR number; creates the index file with its header if missing.

@@ -464,7 +464,7 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
      to pm/architect or open a signed exception (`/exception create`). Never silently widen scope.
    - Codebase map (if existing repo): `cat .great_cto/CODEBASE.md 2>/dev/null | head -40` — god nodes = highest-coupling modules, change carefully
    - Architecture doc: `ls docs/architecture/ARCH-*.md | sort -V | tail -1`
-   - ADRs: `ls docs/decisions/ADR-*.md 2>/dev/null | sort | tail -3`
+   - ADRs: `ls docs/adr/ADR-*.md 2>/dev/null | sort | tail -3`
    - Last 3 postmortems (learn from production failures):
      ```bash
      ls docs/postmortems/PM-*.md 2>/dev/null | sort | tail -3 | xargs cat 2>/dev/null || echo "NO_POSTMORTEMS"

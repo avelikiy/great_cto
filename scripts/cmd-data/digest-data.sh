@@ -62,7 +62,7 @@ CUTOFF=$(python3 -c "from datetime import date, timedelta; print((date.today() -
   || date -v-${DAYS:-7}d +%Y-%m-%d 2>/dev/null \
   || date -d "${DAYS:-7} days ago" +%Y-%m-%d 2>/dev/null \
   || echo "1970-01-01")
-ls docs/decisions/ADR-*.md 2>/dev/null | sort | while read f; do
+ls docs/adr/ADR-*.md 2>/dev/null | sort | while read f; do
   D=$(grep "^Date:" "$f" 2>/dev/null | awk '{print $2}')
   [ -n "$D" ] && [ "$D" \> "$CUTOFF" ] && echo "$D $f"
 done | sort -r | head -5

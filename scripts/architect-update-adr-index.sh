@@ -3,7 +3,7 @@
 # docs/decisions/DECISIONS.md after writing an ADR.
 #
 # Usage:
-#   bash scripts/architect-update-adr-index.sh docs/decisions/ADR-<NNN>-<slug>.md
+#   bash scripts/architect-update-adr-index.sh docs/adr/ADR-<NNN>-<slug>.md
 #
 # Idempotent — skips if a row for this ADR number already exists. Creates
 # DECISIONS.md with the table header if missing.

@@ -215,7 +215,7 @@ for p in ALL_DOCS:
                 flag("L4", p, i, f"'{TEMPORAL_RE.search(line).group(0)}' in doc {int(age_days)}d old")
 
 # L3: orphan ADR/RFC
-for pat in ("docs/adr/ADR-*.md", "docs/rfcs/RFC-*.md", "docs/decisions/ADR-*.md"):
+for pat in ("docs/adr/ADR-*.md", "docs/rfcs/RFC-*.md", "docs/adr/ADR-*.md"):
     for p in glob.glob(pat):
         p_abs = os.path.abspath(p)
         # Ignore index/log files

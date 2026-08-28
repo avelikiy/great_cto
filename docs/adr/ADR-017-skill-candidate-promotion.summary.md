@@ -9,4 +9,4 @@ _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, s
 - **Force promote** a single decision: `node scripts/promote-skill.mjs <slug>` (Phase 4)
 - **Demote** a skill back to decisions.md: `mv ~/.great_cto/global-skills/<slug> ~/.great_cto/skills-d
 
-- **Full doc:** docs/architecture/ADR-017-skill-candidate-promotion.md
+- **Full doc:** docs/adr/ADR-017-skill-candidate-promotion.md

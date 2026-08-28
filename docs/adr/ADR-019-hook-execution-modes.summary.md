@@ -9,4 +9,4 @@ _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, s
 - **Coordination:** plugin.json is the release-chat's zone (currently at
 - https://habr.com/ru/companies/spring_aio/articles/1041156/ — source teardown
 
-- **Full doc:** docs/architecture/ADR-019-hook-execution-modes.md
+- **Full doc:** docs/adr/ADR-019-hook-execution-modes.md

@@ -33,7 +33,7 @@ cat .great_cto/tasks.md 2>/dev/null | grep -E "^\- \[ \]|^## " | head -20
 tail -60 docs/decisions/DECISION-LOG.md 2>/dev/null || echo "NO_DECISION_LOG"
 
 # Latest ADR
-ls -t docs/decisions/ADR-*.md 2>/dev/null | head -1 | xargs head -20 2>/dev/null
+ls -t docs/adr/ADR-*.md 2>/dev/null | head -1 | xargs head -20 2>/dev/null
 
 # Open gates
 find .great_cto/verdicts -name "*.md" 2>/dev/null | xargs grep -l "status: open\|OPEN\|pending" 2>/dev/null | head -5

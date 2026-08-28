@@ -420,9 +420,9 @@ case "$ARCHETYPE" in
     fi
 
     # 3. Prompt drift — sha256 in code differs from ADR-PROMPT
-    if ls docs/decisions/ADR-*-PROMPT-*.md >/dev/null 2>&1; then
+    if ls docs/adr/ADR-*-PROMPT-*.md >/dev/null 2>&1; then
       DRIFT_COUNT=0
-      for ADR in docs/decisions/ADR-*-PROMPT-*.md; do
+      for ADR in docs/adr/ADR-*-PROMPT-*.md; do
         STORED_HASH=$(grep -oE '\*\*Hash:\*\* `[a-f0-9]{64}`' "$ADR" 2>/dev/null | head -1 | grep -oE '[a-f0-9]{64}')
         [ -z "$STORED_HASH" ] && continue
         # Best-effort grep for the prompt text in src/
@@ -471,7 +471,7 @@ case "$ARCHETYPE" in
     LATEST_ARCH=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
     if [ -n "$LATEST_ARCH" ]; then
       ROLES=$(awk '/^## LLM Scope/,/^## /' "$LATEST_ARCH" 2>/dev/null | grep -cE "^\| .* \| LLM \|" || echo 0)
-      ADRS=$(ls docs/decisions/ADR-*-PROMPT-*.md 2>/dev/null | wc -l | tr -d ' ')
+      ADRS=$(ls docs/adr/ADR-*-PROMPT-*.md 2>/dev/null | wc -l | tr -d ' ')
       if [ "${ROLES:-0}" -gt 0 ] && [ "${ADRS:-0}" -lt "${ROLES:-0}" ]; then
         AI_SIGNALS+="  ⚠ ARCH lists ${ROLES} LLM roles but only ${ADRS} ADR-PROMPT files. Run ai-prompt-architect.\n"
       fi

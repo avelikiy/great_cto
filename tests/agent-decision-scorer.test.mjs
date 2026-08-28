@@ -74,7 +74,7 @@ function buildScoringOutput(opts = {}) {
     runnerScore = '3.10',
     slug = 'queue-strategy',
     date = '20260521',
-    sourceFile = 'docs/decisions/ADR-042-queue-strategy.md',
+    sourceFile = 'docs/adr/ADR-042-queue-strategy.md',
   } = opts;
 
   return `# Decision Scoring: Queue Strategy

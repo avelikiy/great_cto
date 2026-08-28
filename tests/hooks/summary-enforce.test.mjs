@@ -53,7 +53,7 @@ test('classifies artifact types correctly', async () => {
   // Lazy-import for ESM module under test
   const mod = await import('../../scripts/generate-summary.mjs');
   assert.equal(mod.classify('docs/architecture/ARCH-foo.md'), 'architecture');
-  assert.equal(mod.classify('docs/architecture/ADR-013.md'), 'architecture');
+  assert.equal(mod.classify('docs/adr/ADR-013.md'), 'architecture');
   assert.equal(mod.classify('docs/architecture/PHASE-x.md'), 'architecture');
   assert.equal(mod.classify('docs/plans/PLAN-foo.md'), 'plan');
   assert.equal(mod.classify('docs/qa/QA-foo.md'), 'qa');

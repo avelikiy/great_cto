@@ -59,7 +59,7 @@ Look for the document passed as context. If none specified:
 
 ```bash
 # Most recent ADR
-ls -t docs/decisions/ADR-*.md 2>/dev/null | head -1
+ls -t docs/adr/ADR-*.md 2>/dev/null | head -1
 
 # Most recent ARCH doc
 ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1

@@ -9,4 +9,4 @@ _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, s
 - **`block`** (exit 2) — high-confidence vendor tokens. The hook blocks the tool call. The agent sees 
 - **`warn`** (exit 0 + stderr) — patterns with non-zero false-positive rates. We surface to the agent 
 
-- **Full doc:** docs/architecture/ADR-014-secret-detection-patterns.md
+- **Full doc:** docs/adr/ADR-014-secret-detection-patterns.md

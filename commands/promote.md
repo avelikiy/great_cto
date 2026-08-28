@@ -100,7 +100,7 @@ case "$ARCHETYPE" in
   ai-system|agent-product)
     # 1. Promote prompts to ADR-PROMPT files via ai-prompt-architect
     #    Task(subagent_type='ai-prompt-architect', prompt='audit and version all prompts for ${SLUG} promotion to ${TARGET}')
-    PROMPT_ADRS=$(ls docs/decisions/ADR-*-PROMPT-*.md 2>/dev/null | wc -l | tr -d ' ')
+    PROMPT_ADRS=$(ls docs/adr/ADR-*-PROMPT-*.md 2>/dev/null | wc -l | tr -d ' ')
     if [ "${PROMPT_ADRS:-0}" -lt 1 ]; then
       echo "BLOCKED: at least one ADR-PROMPT-*.md required for production. Invoke ai-prompt-architect." >&2
       exit 1

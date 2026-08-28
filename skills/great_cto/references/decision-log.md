@@ -14,7 +14,7 @@ When CTO says "log decision", "we decided X", or starts a message with "decision
 
 **Non-architectural decisions only** — process changes, vendor picks, waivers, reversible calls.
 
-Architectural decisions still go to individual ADR files (`docs/decisions/ADR-NNN.md`), handled by architect. Do not duplicate ADRs in the Decision Log.
+Architectural decisions still go to individual ADR files (`docs/adr/ADR-NNN.md`), handled by architect. Do not duplicate ADRs in the Decision Log.
 
 ## Append logic
 

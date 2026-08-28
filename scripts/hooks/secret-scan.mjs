@@ -20,7 +20,7 @@
  *           "# great_cto:allow-secrets" to the file you're editing.
  *
  * @see docs/HOOKS.md
- * @see docs/architecture/ADR-014-secret-detection-patterns.md
+ * @see docs/adr/ADR-014-secret-detection-patterns.md
  */
 
 import { readFileSync, appendFileSync, mkdirSync } from 'node:fs';
