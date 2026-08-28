@@ -93,6 +93,35 @@ export function ratio(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
+/**
+ * Every theme the stylesheet defines, as a name → tokens map.
+ *
+ * `readTokens` reads `:root` and nothing else, so for months the audit measured
+ * ONE of the two themes this board ships. The light theme redefines 39 tokens and
+ * had never been checked; when it finally was, four pairings were below the floor
+ * and one — the green accent on a light surface — sat at 1.51:1 against a 3:1
+ * requirement, which is half.
+ *
+ * A check that covers half its subject looks exactly like a check that passed.
+ *
+ * Each theme is returned FULLY RESOLVED: a theme block overrides `:root` rather
+ * than replacing it, so the tokens it does not mention still apply, and auditing
+ * the override block alone would miss every inherited pairing.
+ *
+ * @returns {Record<string, Record<string,string>>}
+ */
+export function readThemes(css) {
+  const text = String(css);
+  const base = readTokens(text);
+  const themes = { dark: base };
+  for (const m of text.matchAll(/\[data-theme=["']?([a-z-]+)["']?\]\s*\{([\s\S]*?)\n\s*\}/gi)) {
+    const over = {};
+    for (const [, k, v] of m[2].matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) over[k] = v.trim();
+    if (Object.keys(over).length) themes[m[1]] = { ...base, ...over };
+  }
+  return themes;
+}
+
 /** Pull `--name: value;` pairs out of the first `:root { … }` block. */
 export function readTokens(css) {
   const m = String(css).match(/:root\s*\{([\s\S]*?)\n\s*\}/);

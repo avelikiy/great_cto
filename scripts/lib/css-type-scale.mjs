@@ -59,7 +59,15 @@ export function offScaleSizes(css, { scale, exceptions = [] }) {
 // decision about the design, and decisions get written down where someone has
 // to read them to change them.
 
-const EXCEPTIONS = [
+/**
+ * Shared with the rendered-layout check, which had its own idea of what counts.
+ *
+ * That check reported five screens off-scale; every one was one of these — a
+ * longform document ramp and the Share hero, both decided on purpose and written
+ * down here. Two checks enforcing one rule from two lists is how a deliberate
+ * decision starts reading as a defect, and how somebody "fixes" it.
+ */
+export const EXCEPTIONS = [
   { match: /\.ac-mark/,        why: 'checkmark glyph sized to its 34px circle, not text' },
   { match: /\.emoji/,          why: 'icon glyph' },
   { match: /\.star/,           why: 'favourite glyph' },

@@ -109,6 +109,16 @@
 }
 /* Light theme — same emerald system, AA-contrast on white. Toggle via data-theme. */
 [data-theme="light"] {
+  /* Four values that had never been measured.
+     The contrast audit read `:root` and nothing else, so this theme — 39 token
+     overrides, half the board's surface area — was unchecked for months. When it
+     was finally measured against `--bg-strong`, the hardest surface here:
+       --accent      1.51:1 against a 3:1 floor for UI boundaries. Half.
+       --accent-text 4.17, --p1-fg 4.04, --p2-fg 4.09 against a 4.5 floor.
+     `--accent` was simply the dark theme's green, which is designed to sit on
+     #0a0e0c. Each value below is the same hue darkened until it clears its floor,
+     computed rather than eyeballed. */
+
   --bg-page: #eef2f0;
   --bg-panel: rgba(255, 255, 255, 0.9);
   --bg-card: #ffffff;
@@ -121,11 +131,11 @@
   --text2: #56655e;
   --text3: #55625b;
   --focus-ring: #047857;
-  --accent: #00d97e;
+  --accent: #009657;
   --accent-2: #0a7d4d;
   --accent-soft: rgba(0, 217, 126, 0.12);
   --accent-strong: rgba(0, 168, 98, 0.20);
-  --accent-text: #0a7d4d;
+  --accent-text: #097648;
   --status-backlog: #6b7280;
   --status-todo: #6b7280;
   --status-progress: #b45309;
@@ -134,8 +144,8 @@
   --status-blocked: #c43030;
   --status-gate: #7c3aed;
   --p0-bg: rgba(196, 48, 48, 0.12);   --p0-fg: #b91c1c;
-  --p1-bg: rgba(180, 83, 9, 0.12);    --p1-fg: #b45309;
-  --p2-bg: rgba(146, 102, 10, 0.12);  --p2-fg: #92660a;
+  --p1-bg: rgba(180, 83, 9, 0.12);    --p1-fg: #a64c08;
+  --p2-bg: rgba(146, 102, 10, 0.12);  --p2-fg: #885f09;
   --p3-bg: rgba(0, 0, 0, 0.05);       --p3-fg: #5c6b65;
   --surface-drawer: #ffffff;
   --surface-translucent: rgba(255, 255, 255, 0.72);
@@ -1740,6 +1750,14 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   outline-offset: 2px;
   border-radius: 8px;
 }
+/* A link with no colour rule gets the browser's default, which is on nobody's
+   palette. This one — "stale, listed below" in the empty resume column — was
+   added today without one, and the rendered-layout check found it on both themes
+   within the hour. That is the check working on its author. */
+.resume-list a, .empty a { color: var(--accent-text); text-decoration: underline; }
+.resume-list a:hover, .empty a:hover { color: var(--accent); }
+
+.proj-status-verdict { color: var(--text3); font-family: var(--mono); font-size: var(--fs-eyebrow); }
 .proj-status-body { padding: 0 16px 14px; }
 .proj-status-body .inbox-section { margin-top: 6px; }
 
@@ -2108,7 +2126,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    way, the reason is available on hover and to a screen reader. Sized down from
    whatever it sits in, so a missing hero figure does not shout at 52px. */
 .absent {
-  font-family: var(--mono); font-size: 0.55em;
+  /* `0.55em` is a size relative to whatever it lands inside. Next to a 52px
+     display numeral that resolves to 28.6px — a step the ramp does not have, and
+     the rendered-layout check flagged it on two screens. The "n/a" beside a
+     figure is a caption; it is sized like one. */
+  font-family: var(--mono); font-size: var(--fs-caption);
   color: var(--text3); letter-spacing: 0.04em;
   cursor: help; border-bottom: 1px dotted var(--border-strong);
 }
@@ -3016,7 +3038,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              Not deleted. "How is the project" is a real question; it is simply not
              the question this screen is named after. -->
         <details class="proj-status" id="proj-status">
-          <summary class="proj-status-summary">Project status</summary>
+          <summary class="proj-status-summary">Project status<span class="proj-status-verdict" id="proj-status-verdict"></span></summary>
           <div class="proj-status-body">
         <!-- Resume — pick up where you left off -->
         <div class="resume-card" id="resume-card" style="display:none">
@@ -3601,6 +3623,7 @@ function renderInbox(d) {
   // morning, and the two that did not repeated a count the section headings
   // below already carry. The counts still reach the nav badge.
   renderQueue(d);
+  renderStatusVerdict(d, newestEventAgeH);
   refreshStandDowns();
   refreshReceipt();
   refreshBudgetLine();
@@ -3643,6 +3666,34 @@ function renderInbox(d) {
   }
   renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
     'Some project data could not be read — counts below are incomplete.');
+}
+
+/**
+ * The line a closed disclosure says out loud.
+ *
+ * "Project status" on its own is a label, not an answer: closed, it told the
+ * reader nothing, so the only way to learn anything was to open it — which is
+ * the cost the disclosure was supposed to remove. It now carries the verdict, and
+ * the reader opens it only when the verdict is worth chasing.
+ */
+function renderStatusVerdict(d, ageH) {
+  const el = document.getElementById('proj-status-verdict');
+  if (!el) return;
+  const parts = [];
+  if (ageH == null) parts.push('no activity recorded');
+  else if (ageH < 1) parts.push(`last activity ${Math.max(1, Math.round(ageH * 60))}m ago`);
+  else if (ageH < 48) parts.push(`last activity ${Math.round(ageH)}h ago`);
+  else parts.push(`idle ${Math.floor(ageH / 24)}d`);
+
+  const stages = window.__pipelineStages || [];
+  const active = stages.filter((x) => x && x.status === 'active').length;
+  if (stages.length) parts.push(active ? `${active} stage${active > 1 ? 's' : ''} active` : 'pipeline idle');
+
+  // A budget that cannot be measured is not a budget that is fine.
+  const budget = document.getElementById('inbox-budget-line');
+  if (budget) parts.push('budgets unmeasured');
+
+  el.textContent = ' · ' + parts.join(' · ');
 }
 
 /**

@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  parseColor, composite, luminance, ratio, readTokens, auditContrast, hardcodedColors,
+  parseColor, composite, luminance, ratio, readTokens, readThemes, auditContrast, hardcodedColors,
   AA_TEXT, AA_LARGE,
 } from '../../scripts/lib/contrast.mjs';
 
@@ -76,33 +76,44 @@ test('the worst surface is the one reported', () => {
   assert.equal(results[0].ok, false);
 });
 
-test('the board reads at AA today, and says so from its own tokens', () => {
-  // Not a fixture: the shipped stylesheet. If a future edit darkens a text token
-  // or lightens a surface, this is where it stops.
-  const tokens = readTokens(readFileSync('packages/board/public/index.html', 'utf8'));
-  assert.ok(Object.keys(tokens).length > 20, 'the :root block was found');
+test('EVERY theme the board ships reads at AA, not just the one in :root', () => {
+  // This test used to read `:root` and stop. The board ships two themes, and the
+  // light one — 39 token overrides, half the surface a user ever sees — went
+  // unchecked for months. Measured the first time anybody looked:
+  //
+  //   --accent      1.51:1 against a 3:1 floor for UI boundaries. Half of it.
+  //   --accent-text 4.17, --p1-fg 4.04, --p2-fg 4.09 against a 4.5 floor.
+  //
+  // `--accent` was the dark theme's green, which is designed to sit on #0a0e0c.
+  // Nothing was wrong with the check's arithmetic; it was pointed at half the
+  // subject, which looks exactly like a check that passed.
+  const themes = readThemes(readFileSync('packages/board/public/index.html', 'utf8'));
+  const names = Object.keys(themes);
+  assert.ok(names.includes('dark') && names.includes('light'),
+    `expected both themes, got ${names.join(', ')} — a new theme must be audited too`);
 
-  const { results, failures, unknown } = auditContrast({
-    tokens,
-    surfaces: ['--bg-page', '--bg-card', '--bg-muted', '--bg-strong', '--bg-elevated',
-               '--surface-drawer', '--bg-panel'],
-    text: [
-      { name: '--text', floor: AA_TEXT }, { name: '--text2', floor: AA_TEXT },
-      { name: '--text3', floor: AA_TEXT }, { name: '--accent-text', floor: AA_TEXT },
-      { name: '--p0-fg', floor: AA_TEXT }, { name: '--p1-fg', floor: AA_TEXT },
-      { name: '--p2-fg', floor: AA_TEXT }, { name: '--p3-fg', floor: AA_TEXT },
-      // Status dots and the focus ring are UI boundaries, not prose: 3:1.
-      { name: '--accent', floor: AA_LARGE }, { name: '--focus-ring', floor: AA_LARGE },
-      { name: '--status-backlog', floor: AA_LARGE }, { name: '--status-todo', floor: AA_LARGE },
-      { name: '--status-progress', floor: AA_LARGE }, { name: '--status-blocked', floor: AA_LARGE },
-      { name: '--status-gate', floor: AA_LARGE },
-    ],
-  });
+  const surfaces = ['--bg-page', '--bg-card', '--bg-muted', '--bg-strong', '--bg-elevated',
+                    '--surface-drawer', '--bg-panel'];
+  const text = [
+    { name: '--text', floor: AA_TEXT }, { name: '--text2', floor: AA_TEXT },
+    { name: '--text3', floor: AA_TEXT }, { name: '--accent-text', floor: AA_TEXT },
+    { name: '--p0-fg', floor: AA_TEXT }, { name: '--p1-fg', floor: AA_TEXT },
+    { name: '--p2-fg', floor: AA_TEXT }, { name: '--p3-fg', floor: AA_TEXT },
+    // Status dots, the accent and the focus ring are UI boundaries, not prose.
+    { name: '--accent', floor: AA_LARGE }, { name: '--focus-ring', floor: AA_LARGE },
+    { name: '--status-backlog', floor: AA_LARGE }, { name: '--status-todo', floor: AA_LARGE },
+    { name: '--status-progress', floor: AA_LARGE }, { name: '--status-blocked', floor: AA_LARGE },
+    { name: '--status-gate', floor: AA_LARGE },
+  ];
 
-  assert.deepEqual(unknown, [], 'every token the board declares is measurable');
-  assert.equal(results.length, 15);
-  assert.deepEqual(
-    failures.map((f) => `${f.token} ${f.ratio.toFixed(2)}:1 on ${f.on} (floor ${f.floor})`), []);
+  for (const [theme, tokens] of Object.entries(themes)) {
+    const { results, failures, unknown } = auditContrast({ tokens, surfaces, text });
+    assert.deepEqual(unknown, [], `${theme}: every token the board declares must be measurable`);
+    assert.equal(results.length, text.length, `${theme}: every text token was measured`);
+    assert.deepEqual(
+      failures.map((f) => `${f.token} ${f.ratio.toFixed(2)}:1 on ${f.on} (floor ${f.floor})`), [],
+      `${theme} theme fails WCAG AA`);
+  }
 });
 
 test('nothing bypasses the token system', () => {

@@ -21,8 +21,9 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { snapshot, compare, loadBrowser, checkAgainstTokens, declaredTokens } from '../../scripts/lib/layout-snapshot.mjs';
-import { parseColor } from '../../scripts/lib/contrast.mjs';
+import { snapshot, snapshotAll, compare, loadBrowser, checkAgainstTokens, declaredTokens, EXCUSED_SELECTORS } from '../../scripts/lib/layout-snapshot.mjs';
+import { EXCEPTIONS } from '../../scripts/lib/css-type-scale.mjs';
+import { parseColor, readThemes } from '../../scripts/lib/contrast.mjs';
 
 const BASELINE = 'tests/baselines/board-layout.json';
 const PORT = 3197 + (process.pid % 40);
@@ -121,6 +122,64 @@ test('the shipped board still renders its baseline', { timeout: 120_000 }, async
     // true finding delivered as a flake. It is a static fact, and it is checked
     // statically, in tests/lib/contrast.test.mjs.
     void onSystem.offPalette;
+  } finally {
+    try { process.kill(-server.pid, 'SIGKILL'); } catch { /* already gone */ }
+  }
+});
+
+test('both checks excuse the same things, or one of them accuses the other\'s decision', () => {
+  // The rendered check reported five screens off-scale. Every one was a deliberate
+  // exception the SOURCE check already carried with its reason written down — the
+  // longform document ramp, the Share hero. Two lists for one rule is how a
+  // decision starts reading as a defect, and how somebody sets out to "fix" it.
+  //
+  // The shapes differ on purpose: css-type-scale matches SELECTOR TEXT with
+  // regexes, this one matches ELEMENTS with selectors. So the assertion is that
+  // every regex has a selector that it matches — one set, two spellings.
+  for (const e of EXCEPTIONS) {
+    const covered = EXCUSED_SELECTORS.some((sel) => e.match.test(sel));
+    assert.ok(covered,
+      `css-type-scale excuses ${e.match} (${e.why}) and the rendered check does not — ` +
+      'add the equivalent selector to EXCUSED_SELECTORS');
+  }
+});
+
+test('the whole board is on-system: every screen, every theme', { timeout: 240_000 }, async (t) => {
+  if (!(await loadBrowser())) return t.skip('playwright not installed — not checked, not passed');
+  const html = readFileSync('packages/board/public/index.html', 'utf8');
+  const panels = [...new Set([...html.matchAll(/id="panel-([a-z-]+)"/g)].map((m) => m[1]))];
+  assert.ok(panels.length >= 10, `expected the board's screens, found ${panels.length}`);
+
+  const server = spawn('node', ['packages/board/server.mjs'], {
+    env: { ...process.env, PORT: String(PORT + 1) }, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+  });
+  try {
+    let up = false;
+    for (let i = 0; i < 60 && !up; i += 1) {
+      await sleep(500);
+      try { up = (await fetch(`http://127.0.0.1:${PORT + 1}/`, { signal: AbortSignal.timeout(1500) })).ok; } catch { /* not yet */ }
+    }
+    if (!up) return t.skip('board server did not come up — not checked, not passed');
+
+    const shot = await snapshotAll(`http://127.0.0.1:${PORT + 1}`, { panels, settleMs: 6000 });
+    if (shot.state !== 'ok') return t.skip(`could not read the board: ${shot.reason}`);
+
+    // Each theme is judged against ITS OWN palette. The light theme redefines 39
+    // tokens; auditing it against `:root` would accuse every one of them.
+    const themes = readThemes(html);
+    const base = declaredTokens(html, parseColor);
+    const bad = [];
+    for (const s of shot.screens) {
+      const declared = {
+        sizes: base.sizes,
+        colors: Object.values(themes[s.theme] || {}).map(parseColor).filter(Boolean),
+      };
+      const r = checkAgainstTokens(s, declared);
+      for (const x of r.offScale) bad.push(`${s.panel}/${s.theme}: font-size ${x}`);
+      for (const x of r.offPalette) bad.push(`${s.panel}/${s.theme}: colour ${x}`);
+    }
+    assert.deepEqual(bad, [], 'values reached the page that the design system does not declare');
+    assert.equal(shot.screens.length, panels.length * 2, 'every screen was visited in both themes');
   } finally {
     try { process.kill(-server.pid, 'SIGKILL'); } catch { /* already gone */ }
   }

@@ -49,12 +49,29 @@ export async function loadBrowser() {
 }
 
 /** Read the signature out of an open page. */
-export const COLLECT = () => {
+/**
+ * Selectors the type-scale check already excuses, so this one excuses them too.
+ *
+ * Kept as literal selectors rather than as the regexes `css-type-scale` matches
+ * against, because that check reads SOURCE and this one reads ELEMENTS. Same
+ * decisions, two shapes — and a test asserts the two lists describe the same set,
+ * so adding an exception in one place cannot silently leave the other behind.
+ */
+export const EXCUSED_SELECTORS = [
+  '.ac-mark', '.emoji', '.star', '.ap-x',
+  '.memory-doc h1', '.memory-doc h2',
+  '.side-desc.md h1',
+  '.share-card h2',
+];
+
+export const COLLECT = (excused) => {
   const fontSizes = new Set();
   const colors = new Set();
+  const skip = (el) => (excused || []).some((sel) => { try { return el.matches(sel); } catch { return false; } });
   for (const el of document.querySelectorAll('body *')) {
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) continue;      // invisible elements have no design
+    if (skip(el)) continue;                          // decided on purpose, recorded elsewhere
     const cs = getComputedStyle(el);
     fontSizes.add(cs.fontSize);
     if (el.textContent && el.textContent.trim()) colors.add(cs.color);
@@ -74,6 +91,51 @@ export const COLLECT = () => {
 /**
  * @returns {{state:'ok'|'unavailable', signature?:object, reason?:string}}
  */
+/**
+ * Every screen, in every theme.
+ *
+ * `snapshot` opens one URL and reads what is on it — which meant ONE of eleven
+ * panels, in whatever theme the browser happened to default to. It reported the
+ * board on-system while ten screens and an entire second theme had never been
+ * looked at. The contrast audit had the same blind spot in the same week, and
+ * both looked like checks that passed.
+ *
+ * @returns {{state:'ok'|'unavailable', screens?:object[], reason?:string}}
+ */
+export async function snapshotAll(url, { panels, themes = ['dark', 'light'],
+                                         width = 1440, height = 900, settleMs = 2500 } = {}) {
+  const chromium = await loadBrowser();
+  if (!chromium) return { state: 'unavailable', reason: 'playwright is not installed' };
+  let browser;
+  try { browser = await chromium.launch({ channel: 'chrome', headless: true }); }
+  catch (e) { return { state: 'unavailable', reason: `no usable browser: ${String(e.message).split('\n')[0]}` }; }
+
+  const screens = [];
+  try {
+    const page = await browser.newPage({ viewport: { width, height } });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForTimeout(settleMs);
+    for (const theme of themes) {
+      await page.evaluate((t) => { document.documentElement.dataset.theme = t; }, theme);
+      for (const panel of panels) {
+        // Switching by hash rather than by clicking: a nav item that has moved
+        // would silently measure the wrong panel, and this must not depend on chrome.
+        await page.evaluate((n) => {
+          document.querySelectorAll('.panel').forEach((el) => el.classList.remove('active'));
+          document.getElementById(`panel-${n}`)?.classList.add('active');
+        }, panel);
+        await page.waitForTimeout(350);
+        screens.push({ panel, theme, ...(await page.evaluate(COLLECT, EXCUSED_SELECTORS)) });
+      }
+    }
+    return { state: 'ok', screens };
+  } catch (e) {
+    return { state: 'unavailable', reason: String(e.message).split('\n')[0] };
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
 export async function snapshot(url, { width = 1440, height = 900, settleMs = 2500 } = {}) {
   const chromium = await loadBrowser();
   if (!chromium) return { state: 'unavailable', reason: 'playwright is not installed' };
@@ -94,7 +156,7 @@ export async function snapshot(url, { width = 1440, height = 900, settleMs = 250
     // out after 30s of a green-looking hang. Load, then let it settle.
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForTimeout(settleMs);
-    const signature = await page.evaluate(COLLECT);
+    const signature = await page.evaluate(COLLECT, EXCUSED_SELECTORS);
     return { state: 'ok', signature };
   } catch (e) {
     return { state: 'unavailable', reason: String(e.message).split('\n')[0] };
