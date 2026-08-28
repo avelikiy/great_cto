@@ -39,6 +39,15 @@ import { log } from './log.mjs';
 const BD_CACHE_TTL_MS = Number(process.env.GREAT_CTO_BD_CACHE_TTL_MS || 300000);
 
 /**
+ * When a cwd was last told "your cache entry is wrong" — by an invalidate or
+ * a stale-mark, whichever most recently ran. A background fetch that STARTED
+ * before this timestamp answers a question nobody is asking anymore: see
+ * `bdRefreshAsync`, which compares its own start time against this map before
+ * committing its result, so a slow fetch racing a write always loses to it.
+ */
+const lastInvalidatedAt = new Map();
+
+/**
  * Drop a directory's entry so the next read is guaranteed fresh.
  *
  * For a WRITE the board just performed. The operator clicked approve and is
@@ -47,6 +56,7 @@ const BD_CACHE_TTL_MS = Number(process.env.GREAT_CTO_BD_CACHE_TTL_MS || 300000);
  */
 function bdCacheInvalidate(cwd) {
   clearSelfTouch(cwd);
+  lastInvalidatedAt.set(cwd, Date.now());
   bdCache.delete(cwd);
 }
 
@@ -63,6 +73,7 @@ function bdCacheInvalidate(cwd) {
  */
 function bdCacheStale(cwd) {
   clearSelfTouch(cwd);
+  lastInvalidatedAt.set(cwd, Date.now());
   const cached = bdCache.get(cwd);
   if (cached) bdCache.set(cwd, { ...cached, ts: 0 });
 }
@@ -290,13 +301,16 @@ const refreshing = new Set();
  * measured at 1-10 s because it was queued behind a task read. Warming at boot
  * moved the first stall out of sight; this removes the rest.
  *
- * Nothing awaits it. It exists to make the NEXT read fast, and a caller that
- * needed the new data would have had to block for it anyway.
+ * `onDone`, if given, fires exactly once at every exit point (success,
+ * failure, or "already refreshing"). Every existing caller omits it and stays
+ * fire-and-forget — the ONE caller that wants to know when the fill finished
+ * is the boot warm-up (see `warmTasksAsync`), which logs how long it took.
  */
-function bdRefreshAsync(cwd) {
-  if (refreshing.has(cwd)) return;
+function bdRefreshAsync(cwd, onDone = () => {}) {
+  if (refreshing.has(cwd)) { onDone({ ok: false, skipped: true }); return; }
   refreshing.add(cwd);
-  lastBdRunAt.set(cwd, Date.now());
+  const startedAt = Date.now();
+  lastBdRunAt.set(cwd, startedAt);
   let out = '';
   try {
     const child = spawn(BD_BIN, ['list', '--json', '--all', '--include-gates'], { cwd, env: bdEnv() });
@@ -304,29 +318,85 @@ function bdRefreshAsync(cwd) {
     child.on('error', (e) => {
       refreshing.delete(cwd);
       bdFailures.set(cwd, `bd could not be run: ${e?.message || e}`.slice(0, 300));
+      onDone({ ok: false });
     });
     child.on('close', (code) => {
       refreshing.delete(cwd);
       lastBdRunAt.set(cwd, Date.now());
-      if (code !== 0) { bdFailures.set(cwd, `bd exited ${code}`); return; }
+      if (code !== 0) { bdFailures.set(cwd, `bd exited ${code}`); onDone({ ok: false }); return; }
       try {
         const parsed = JSON.parse(out || '[]');
         // Same guard as the sync path: bd 0.6x can answer 0 with a JSON object,
         // and a non-array rendered as no tasks is the silent zero again.
         if (!Array.isArray(parsed)) {
           bdFailures.set(cwd, String(parsed?.error || 'bd returned something that is not a task list').slice(0, 300));
+          onDone({ ok: false });
+          return;
+        }
+        // This fetch answers "what was true at `startedAt`?" — if anyone has
+        // since told the cache it's wrong (a write's invalidate/stale-mark)
+        // or already written something newer (a synchronous cold read that
+        // raced us and won), our answer is superseded. Committing it now
+        // would silently resurrect data from before a change a caller is
+        // already waiting to see reflected — exactly what made
+        // `tests/pipeline-e2e.test.mjs`'s gate-approval assertions flake once
+        // this function started running from a COLD cache (the boot warm-up)
+        // instead of only ever refreshing an already-populated one.
+        const supersededByInvalidation = (lastInvalidatedAt.get(cwd) || 0) >= startedAt;
+        const supersededByFresherEntry = (bdCache.get(cwd)?.ts || 0) >= startedAt;
+        if (supersededByInvalidation || supersededByFresherEntry) {
+          onDone({ ok: true, count: parsed.length, discarded: true });
           return;
         }
         bdFailures.delete(cwd);
         bdCache.set(cwd, { ts: Date.now(), data: parsed });
+        onDone({ ok: true, count: parsed.length });
       } catch (e) {
         bdFailures.set(cwd, `bd output could not be parsed: ${e?.message || e}`.slice(0, 300));
+        onDone({ ok: false });
       }
     });
   } catch (e) {
     refreshing.delete(cwd);
     bdFailures.set(cwd, `bd could not be spawned: ${e?.message || e}`.slice(0, 300));
+    onDone({ ok: false });
   }
+}
+
+/**
+ * Warm a directory's task cache at boot, WITHOUT blocking the event loop.
+ *
+ * The boot warm-up used to call `getTasks(cwd)` directly — `bdList()`'s
+ * COLD-cache path, which is `bd()`'s synchronous `spawnSync`, because a cold
+ * cache has nothing to serve while a background refresh runs, so it has
+ * always been the one path in this file that blocks. That's the right call
+ * for a REQUEST (something is waiting and there's no stale data to fall back
+ * on); it was the wrong call at boot, because a boot warm-up has nobody
+ * waiting on it — its only job is to be ready before someone asks.
+ *
+ * Measured with an artificially slow `bd` (GREAT_CTO_BD_BIN pointed at a
+ * fixture that sleeps N seconds before answering): the board bound its port,
+ * then answered `000` on EVERY endpoint — including /api/version, a plain
+ * readdirSync with nothing to do with bd — for the fixture's entire delay.
+ * The port being open did not matter; the single process serving it was
+ * blocked inside `spawnSync` the whole time. `bd()`'s own 8s spawnSync
+ * timeout capped that run at ~8s; a real cold Dolt store or lock contention
+ * has no such cap, which is consistent with the up-to-2-minute stalls
+ * reported in production.
+ *
+ * This calls `bdRefreshAsync` — the SAME `spawn`-based, non-blocking path
+ * already used for warm-cache "stale-while-revalidate" reads — for the cold
+ * boot case too. The returned Promise exists only so the boot log can report
+ * how long the fill took; nothing waits on it, and the server is accepting
+ * and answering connections for the entire duration either way.
+ *
+ * @returns {Promise<{ok: boolean, count?: number, skipped?: boolean, ms: number}>}
+ */
+function warmTasksAsync(cwd) {
+  const t0 = Date.now();
+  return new Promise((resolve) => {
+    bdRefreshAsync(cwd, (result) => resolve({ ...result, ms: Date.now() - t0 }));
+  });
 }
 
 function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
@@ -743,6 +813,7 @@ export {
   checkBeadsAvailable,
   bdWriteSerialised,
   bdList,
+  warmTasksAsync,
   bdFailureFor,
   parseTasksMd,
   getReadDegradation,

@@ -13,7 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import { PORT, PUBLIC, HOST } from './lib/config.mjs';
-import { getTasks } from './lib/beads.mjs';
+import { warmTasksAsync } from './lib/beads.mjs';
 import { originAllowed, isInsideDir } from './lib/util.mjs';
 import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
@@ -115,27 +115,34 @@ server.listen(PORT, HOST, () => {
     log.info(`  ⚠ bound to ${HOST} — reachable beyond this machine. Operators authenticate via invite`);
     log.info(`    links; put your reverse-proxy auth in front for anything admin-grade.`);
   }
-  // Warm the task cache for THIS project before a browser asks.
+  // Warm the task cache for THIS project before a browser asks — asynchronously.
   //
-  // `bd list` costs seconds and runs through `spawnSync`, which holds the event
-  // loop for the whole of it. On a cold board the first request pays that, and
-  // every other request queues behind it: opening the board showed "loading…"
-  // on Docs for 27 seconds, measured, while the endpoint itself takes 0.4 s
-  // warm. Nothing was broken — everything was waiting.
+  // `bd list` costs seconds. This used to call `getTasks(cwd)` directly, which
+  // is `bdList()`'s COLD-cache path — `spawnSync` — because a cache with
+  // nothing in it has nothing to fall back on while a refresh runs. That
+  // reasoning is right for a REQUEST; it is wrong here, because nobody is
+  // waiting on a boot warm-up. The comment this replaced said moving the call
+  // here "moves the stall to before anyone is looking" — true of the
+  // `.listen()` callback, false of the port: `setImmediate` only defers past
+  // that callback, not past `accept()`, and the port is already open. Every
+  // connection accepted during the spawnSync — including one with nothing to
+  // do with this cwd, like /api/version's plain readdirSync — queued behind
+  // it. Measured with an artificially slow `bd` (GREAT_CTO_BD_BIN): every
+  // endpoint answered `000` for the fixture's entire delay, whatever it was
+  // asked for, because the one process serving them was blocked inside
+  // spawnSync the whole time.
   //
-  // Doing it here moves the stall to before anyone is looking, where a stall
-  // costs nothing. `setImmediate` so the listening callback returns first and
-  // the port is genuinely open while this runs.
-  setImmediate(() => {
-    const t0 = Date.now();
-    try {
-      getTasks(process.cwd());
-      log.info(`  → task cache warmed in ${Date.now() - t0}ms`);
-    } catch (e) {
-      // A warm-up that failed changes nothing a request would not have hit
-      // anyway; it must never stop the board from serving.
-      log.warn(`  → could not warm the task cache: ${e?.message || e}`);
-    }
+  // warmTasksAsync (lib/beads.mjs) runs the same `bd list` through `spawn`
+  // instead — the same non-blocking path already used for warm-cache
+  // "stale-while-revalidate" reads — so the event loop is free for the whole
+  // fill, cold cache or not.
+  warmTasksAsync(process.cwd()).then(({ ok, count, ms, skipped }) => {
+    if (skipped) return;
+    if (ok) log.info(`  → task cache warmed in ${ms}ms (${count} task${count === 1 ? '' : 's'})`);
+    // A warm-up that failed changes nothing a request would not have hit
+    // anyway; it must never stop the board from serving. bdFailureFor(cwd)
+    // carries the reason for whoever asks next.
+    else log.warn(`  → could not warm the task cache after ${ms}ms (see bdFailureFor)`);
   });
 
   // Discover all great_cto projects on disk asynchronously — don't block
