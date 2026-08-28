@@ -35,6 +35,13 @@ const IS_SUMMARY = /\.summary\.md$/;
 const IS_TRANSLATION = /^docs\/[a-z]{2}(-[A-Z]{2})?\//;
 
 export function listDocs(root = 'docs') {
+  // The translation rule is written against a path that starts at the docs
+  // directory. `root` may be relative ('docs') or absolute (the board serves
+  // other projects by absolute path), so every candidate is re-expressed
+  // relative to root's parent before the rule is applied — otherwise the rule
+  // matches nothing on an absolute walk and translations count as documents,
+  // which is a wrong number that looks like a right one.
+  const base = path.dirname(root);
   const out = [];
   const walk = (dir) => {
     let entries;
@@ -44,7 +51,7 @@ export function listDocs(root = 'docs') {
       let st;
       try { st = statSync(full); } catch { continue; }
       if (st.isDirectory()) walk(full);
-      else if (e.endsWith('.md') && !IS_SUMMARY.test(e) && !IS_TRANSLATION.test(full)) out.push(full);
+      else if (e.endsWith('.md') && !IS_SUMMARY.test(e) && !IS_TRANSLATION.test(path.relative(base, full))) out.push(full);
     }
   };
   walk(root);

@@ -5402,6 +5402,52 @@ async function refreshDocsCount() {
   el.textContent = (d && !d.error && typeof d.total === 'number') ? d.total : '—';
 }
 
+// How many documents cite this one, and the order of the list.
+//
+// 105 of 156 documents have no inbound reference. A badge on two rows in three
+// marks nothing — so the count itself is the signal, and sorting by it answers
+// "where would I find X" while letting the zeroes surface without being shouted
+// at. "not measured" is not a zero: it means the document sits outside the link
+// graph, which is a different fact from being cited by nobody.
+let _docsSort = 'recent';
+
+function setDocsSort(mode) {
+  _docsSort = mode;
+  const host = document.getElementById('docs-groups');
+  if (host && _docsCache) host.innerHTML = renderDocGroups(_docsCache.groups || []);
+}
+
+function citedLabel(doc) {
+  if (doc.inbound === null || doc.inbound === undefined) {
+    return '<span class="muted absent" title="Outside docs/ — citations were not measured">not measured</span>';
+  }
+  return `<span class="muted">cited by ${doc.inbound}</span>`;
+}
+
+function renderDocGroups(groups) {
+  const sorted = (docs) => _docsSort === 'cited'
+    ? docs.slice().sort((a, b) => (b.inbound ?? -1) - (a.inbound ?? -1) || a.title.localeCompare(b.title))
+    : docs.slice().sort((a, b) => String(b.modified).localeCompare(String(a.modified)));
+
+  const control = `<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <b>Sort</b>
+    <button type="button" class="ab-btn" aria-pressed="${_docsSort === 'recent'}" onclick="setDocsSort('recent')">Recently changed</button>
+    <button type="button" class="ab-btn" aria-pressed="${_docsSort === 'cited'}" onclick="setDocsSort('cited')">Most cited</button>
+    <span class="muted" style="font-size:var(--fs-caption)">How many other documents link here.</span>
+  </div>`;
+
+  return control + groups.map(g => `<div class="card">
+      <b>${esc(g.label)}</b> <span class="muted">${g.docs.length} — ${esc(g.why || '')}</span>
+      <div style="margin-top:8px">${sorted(g.docs).map(doc => `
+        <div style="padding:4px 0;border-bottom:1px solid var(--border,#eee)">
+          <a href="#" onclick="openDoc('${esc(doc.path)}');return false">${esc(doc.title)}</a>
+          <span class="muted" style="font-size:var(--fs-caption)"> · ${esc(doc.path)} · ${ago(doc.modified)} · </span>
+          <span style="font-size:var(--fs-caption)">${citedLabel(doc)}</span>
+          ${freshnessBadge(doc)}
+        </div>`).join('')}</div>
+      </div>`).join('');
+}
+
 async function loadDocs() {
   const el = document.getElementById('docs-body');
   el.innerHTML = '<span class="muted">loading…</span>';
@@ -5439,15 +5485,7 @@ async function loadDocs() {
       <details style="margin-top:8px"><summary class="muted">Mermaid source</summary>
         <pre style="white-space:pre-wrap;font-size:var(--fs-caption)">${esc(d.map.mermaid)}</pre></details></div>` : '';
 
-  const groups = (d.groups || []).map(g => `<div class="card">
-      <b>${esc(g.label)}</b> <span class="muted">${g.docs.length} — ${esc(g.why || '')}</span>
-      <div style="margin-top:8px">${g.docs.map(doc => `
-        <div style="padding:4px 0;border-bottom:1px solid var(--border,#eee)">
-          <a href="#" onclick="openDoc('${esc(doc.path)}');return false">${esc(doc.title)}</a>
-          <span class="muted" style="font-size:var(--fs-caption)"> · ${esc(doc.path)} · ${ago(doc.modified)}</span>
-          ${freshnessBadge(doc)}
-        </div>`).join('')}</div>
-      </div>`).join('');
+  const groups = renderDocGroups(d.groups || []);
 
   // Memory used to be its own tab listing PROJECT.md, CODEBASE.md and lessons —
   // the same files this panel's "This project" group already showed. One section
@@ -5457,7 +5495,7 @@ async function loadDocs() {
 
   // The document itself opens in the side panel now, so this panel no longer
   // needs a place to append one.
-  el.innerHTML = pipeline + map + mem + groups;
+  el.innerHTML = pipeline + map + mem + `<div id="docs-groups">${groups}</div>`;
 }
 
 /**

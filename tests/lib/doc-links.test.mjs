@@ -12,6 +12,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { listDocs, linkGraph } from '../../scripts/lib/doc-links.mjs';
 
 test('summaries and translations are copies, not documents', () => {
@@ -52,4 +55,23 @@ test('the orphan count is frozen, and only shrinks deliberately', () => {
   if (orphans.length < FROZEN) {
     assert.fail(`down to ${orphans.length} — lower FROZEN to ${orphans.length} so the ratchet keeps holding`);
   }
+});
+
+// The translation filter was anchored to a literal leading `docs/`, so it worked
+// only when the walk started at the relative path `docs`. The board serves other
+// projects by absolute path; called that way the filter silently stopped matching
+// and translations counted as documents. Silent is the problem — the count would
+// have been wrong and looked right.
+test('translations and summaries are excluded when the root is absolute', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'doclinks-abs-'));
+  const docs = path.join(dir, 'docs');
+  mkdirSync(path.join(docs, 'ru'), { recursive: true });
+  mkdirSync(path.join(docs, 'adr'), { recursive: true });
+  writeFileSync(path.join(docs, 'adr', 'ADR-001-a.md'), '# A');
+  writeFileSync(path.join(docs, 'adr', 'ADR-001-a.summary.md'), '# A summary');
+  writeFileSync(path.join(docs, 'ru', 'ADR-001-a.md'), '# А по-русски');
+
+  const rel = listDocs(docs).map((f) => path.relative(dir, f));
+  assert.deepEqual(rel, ['docs/adr/ADR-001-a.md'],
+    'an absolute root must exclude the same copies a relative root excludes');
 });

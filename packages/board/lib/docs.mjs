@@ -14,6 +14,7 @@
 
 import fs from 'node:fs';
 import { judgeFreshness } from '../../../scripts/lib/freshness.mjs';
+import { linkGraph } from '../../../scripts/lib/doc-links.mjs';
 import path from 'node:path';
 
 /**
@@ -148,6 +149,10 @@ export function titleFromText(text) {
   return m ? m[1].replace(/\.md$/i, '').trim() : null;
 }
 
+/** Generated summaries and translated copies — see listDocs. */
+const IS_COPY = /\.summary\.md$/i;
+const IS_TRANSLATED = /^docs[/\\][a-z]{2}(-[A-Z]{2})?[/\\]/;
+
 function walk(dir, root, out, depth = 0) {
   if (depth > 3 || out.length >= MAX_DOCS) return;
   let entries;
@@ -158,6 +163,10 @@ function walk(dir, root, out, depth = 0) {
     const abs = path.join(dir, e.name);
     if (e.isDirectory()) { walk(abs, root, out, depth + 1); continue; }
     if (!e.name.toLowerCase().endsWith('.md')) continue;
+    // A generated summary and a translation are copies of a document, not more
+    // documents. Counting them made this screen report 188 where there are 156,
+    // and stood a machine-written summary in the index beside its own source.
+    if (IS_COPY.test(e.name) || IS_TRANSLATED.test(path.relative(root, abs))) continue;
     let st;
     try { st = fs.statSync(abs); } catch { continue; }
     out.push({ abs, rel: path.relative(root, abs), size: st.size, modified: st.mtime.toISOString() });
@@ -336,6 +345,17 @@ export function listDocs(root, { max = MAX_DOCS } = {}) {
     }
   }
 
+  // How many documents cite this one. Measured over docs/ only, which is where
+  // the link graph is defined; anything outside it gets `null` — "not measured"
+  // and "measured, and the answer is none" are different facts, and rendering
+  // the first as the second is the substitution this whole board refuses.
+  let inboundBy = null;
+  try {
+    const g = linkGraph(path.join(root, 'docs'));
+    inboundBy = new Map();
+    for (const [k, v] of g.inbound) inboundBy.set(path.relative(root, k), v.length);
+  } catch { inboundBy = null; }
+
   const seen = new Set();
   const docs = [];
   for (const d of found) {
@@ -353,6 +373,7 @@ export function listDocs(root, { max = MAX_DOCS } = {}) {
       title: (text !== null && titleFromText(text)) || path.basename(d.rel, '.md'),
       group: groupFor(d.rel, { text: text ?? '' }),
       size: d.size,
+      inbound: inboundBy ? (inboundBy.has(d.rel) ? inboundBy.get(d.rel) : null) : null,
       modified: d.modified,
       // A modification time answers "when was this file last touched", which is
       // a different question from "is this still true". A typo fix rejuvenates a

@@ -220,3 +220,45 @@ test('on this repository, the freshness mark is on a minority of rows', () => {
     if (d.freshness === null) assert.equal(d.freshnessBasis, 'undeclared', `${d.path}`);
   }
 });
+
+// ── What the screen counts, and what it can say about a row ──────────────────
+//
+// Two changes the CTO approved after the inbound-link distribution was measured:
+// 105 of 156 documents have no inbound reference at all. A badge on two rows in
+// three marks nothing, so the screen reports the citation COUNT per row instead
+// and lets the reader sort by it. Zero is then visible without being shouted.
+
+test('a machine summary and a translation are not documents', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'boarddocs-'));
+  fs.mkdirSync(path.join(dir, 'docs', 'adr'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'docs', 'ru'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'docs', 'adr', 'ADR-001-a.md'), '# A');
+  fs.writeFileSync(path.join(dir, 'docs', 'adr', 'ADR-001-a.summary.md'), '# A summary');
+  fs.writeFileSync(path.join(dir, 'docs', 'ru', 'ADR-001-a.md'), '# А');
+
+  const paths = listDocs(dir).groups.flatMap((g) => g.docs.map((d) => d.path));
+  assert.ok(paths.includes('docs/adr/ADR-001-a.md'), 'the document itself is listed');
+  assert.equal(paths.filter((p) => p.endsWith('.summary.md')).length, 0,
+    'a generated summary is a copy of a document, not another document');
+  assert.equal(paths.filter((p) => p.startsWith('docs/ru/')).length, 0,
+    'a translation is a copy of a document, not another document');
+});
+
+test('a row carries how many documents cite it — and null when unmeasured', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'boarddocs-in-'));
+  fs.mkdirSync(path.join(dir, 'docs', 'adr'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'docs', 'adr', 'ADR-001-a.md'), '# A\n');
+  fs.writeFileSync(path.join(dir, 'docs', 'adr', 'ADR-002-b.md'),
+    '# B\n\nsee [A](./ADR-001-a.md) and again [A](ADR-001-a.md)\n');
+  fs.writeFileSync(path.join(dir, 'README.md'), '# readme\n');
+
+  const byPath = new Map(listDocs(dir).groups.flatMap((g) => g.docs).map((d) => [d.path, d]));
+
+  assert.equal(byPath.get('docs/adr/ADR-001-a.md').inbound, 1,
+    'one document cites A, twice — that is one citing document, not two');
+  assert.equal(byPath.get('docs/adr/ADR-002-b.md').inbound, 0,
+    'nothing cites B: measured, and the answer is zero');
+  assert.equal(byPath.get('README.md').inbound, null,
+    'README is outside the docs graph — "not measured" must not render as zero, '
+    + 'which is the one substitution this board exists to refuse');
+});
