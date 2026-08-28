@@ -7,6 +7,61 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.17.0 — 2026-08-28
+
+The board now starts itself, opens on one ranked queue instead of six blocks of
+status, and tells you whether the project is moving — with an empty state that
+distinguishes work finished from a machine that stopped.
+
+### What's new
+
+- **The board starts on its own.** Installing or updating the package brings it
+  up; if it is already running on its port, nothing is spawned on top of it. Set
+  `GREAT_CTO_NO_BOARD=1` to opt out.
+- **One queue, ranked, with the reason on the row.** The Inbox opens on a single
+  list ordered by what needs you first, and each row carries the reason it is
+  there — instead of four headed lists whose headings held the reason.
+- **The headline says whether the project is alive.** It reports the last time
+  anything moved, so a project that has not advanced in eleven days no longer
+  greets you as though it had.
+- **An empty queue says which kind of empty it is.** Nothing to do and nothing
+  being read are different states, and the board now names which one you are
+  looking at.
+- **Project status is a disclosure, not a wall.** The per-project detail is one
+  keystroke away rather than occupying the top of the page.
+- **Every skill has a reference page.** `docs/reference/skills.md` is generated
+  from the skills themselves, so the one thing this project ships was no longer
+  the one thing it did not document.
+
+---
+
+### The board answers while it warms up
+
+Two paths held the event loop for the length of a `bd list`: the boot warm-up,
+and the alert cron's five-minute sweep, which paid that cost once per project it
+had not read yet. The port was open and the page answered nothing — the shape of
+failure this project is built to refuse, a thing that had not happened looking
+exactly like a thing that had.
+
+Both now yield. The sweep reads what is already cached and declines to block on
+what is not; the cold read happens off the request path. A four-hundred-second
+measurement across the five-minute tick records no unanswered request.
+
+The narrower fix matters as much as the fix. Making every cold read
+non-blocking also made a just-approved gate read as no gate at all — the same
+defect class, one layer down. The change is scoped to the sweep alone.
+
+### A gate you could see and could not answer
+
+The hook that flags a neglected gate marked it blocked, which moved it to a
+bucket that renders no buttons. The board showed you a decision waiting and
+removed the way to make it. Gates past their expiry are now surfaced as needing
+you, with their controls intact — and `pending` and `blocked` are counted as the
+different things they are.
+
+---
+
 ## v3.16.0 — 2026-08-28
 
 Three new checks that open the page, read its colours, and hold the project's
