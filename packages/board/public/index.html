@@ -1679,6 +1679,24 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
 /* ── Resume card ──────────────────────────────────────────────────────── */
 /* Project status — one disclosure for everything the operator cannot act on. */
+/* Reason chip — why a row is in the queue, carried by the row itself. */
+.why {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: var(--fs-eyebrow);
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  margin-right: 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  color: var(--text2);
+  vertical-align: 1px;
+}
+.why-gate    { color: var(--status-gate);     border-color: var(--status-gate); }
+.why-p0      { color: var(--status-blocked);  border-color: var(--status-blocked); }
+.why-blocked { color: var(--status-progress); border-color: var(--status-progress); }
+.why-stale   { color: var(--text3); }
+
 .proj-status {
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -3034,13 +3052,27 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              Not deleted: `PROJECT.md` is not in the Docs list, so compliance and
              phase would have become unreachable. -->
         <!-- Tool failure rate watchdog warning -->
-        <div class="inbox-section" id="inbox-gates-section">
+        <!-- One queue, not four sections.
+
+             Gates, P0s, blocked and stale were four headed lists, each with its own
+             count, on a screen that shows five to seven rows in total. The headings
+             cost more vertical space than the rows and forced the reader to work out
+             which bucket a thing was in before reading what it was.
+
+             Linear and GitHub both do the opposite: one ranked stream, and the reason
+             an item is there rides ON the row as a chip. The reason is a property of
+             the item, so it survives the item moving between buckets — which is what
+             made an expired gate unrecognisable when it fell out of the gate list.
+
+             Order: gates first (a signature is owed), then oldest first, because the
+             longest-ignored row is the one a triage list is read for. -->
+        <div class="inbox-section" id="inbox-queue-section">
           <div class="inbox-section-head">
             <span class="dot dot-purple"></span>
-            <h3>Pending decisions</h3>
-            <span class="inbox-count" id="inbox-gates-count">0</span>
+            <h3>Needs you</h3>
+            <span class="inbox-count" id="inbox-queue-count">0</span>
           </div>
-          <div id="inbox-gates"></div>
+          <div id="inbox-queue"></div>
         </div>
         <!-- Gates that did NOT wait for you. Placed directly under the decisions
              you still owe, because "what proceeded without me" is the question a
@@ -3052,30 +3084,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
             <span class="inbox-count" id="inbox-standdown-count">0</span>
           </div>
           <div id="inbox-standdown"></div>
-        </div>
-        <div class="inbox-section" id="inbox-p0-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-red"></span>
-            <h3>P0 open</h3>
-            <span class="inbox-count" id="inbox-p0-count">0</span>
-          </div>
-          <div id="inbox-p0"></div>
-        </div>
-        <div class="inbox-section" id="inbox-blocked-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-orange"></span>
-            <h3>Blocked</h3>
-            <span class="inbox-count" id="inbox-blocked-count">0</span>
-          </div>
-          <div id="inbox-blocked"></div>
-        </div>
-        <div class="inbox-section" id="inbox-stale-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-amber"></span>
-            <h3>Stale (in progress &gt; 48h)</h3>
-            <span class="inbox-count" id="inbox-stale-count">0</span>
-          </div>
-          <div id="inbox-stale"></div>
         </div>
         <!-- Idle focus: when nothing needs a decision, the four sections above collapse and this shows instead. -->
         <div class="inbox-allclear" id="inbox-allclear" style="display:none">
@@ -3576,14 +3584,40 @@ function renderInbox(d) {
   // The stat-tile row is gone: two of its four boxes read 0 on an ordinary
   // morning, and the two that did not repeated a count the section headings
   // below already carry. The counts still reach the nav badge.
-  renderInboxList('inbox-gates', d?.pending_gates || [], 'inbox-gates-count', { showApprove: true });
-  // `implies` names the fact the section heading already states, so the rows
-  // below it stop repeating that fact on every card. "P0 open" states the
-  // priority; "Stale (in progress > 48h)" states the age. "Blocked" states
-  // neither, so its rows keep both.
-  renderInboxList('inbox-p0', d?.p0_open || [], 'inbox-p0-count', { implies: 'priority' });
-  renderInboxList('inbox-blocked', d?.blocked || [], 'inbox-blocked-count', {});
-  renderInboxList('inbox-stale', d?.stale_in_progress || [], 'inbox-stale-count', { implies: 'age' });
+  // One queue. The reason an item is here travels ON the item, so it survives the
+  // item changing buckets — the failure that made an expired gate unreadable when
+  // it dropped out of `pending_gates`.
+  const ageD = (t) => {
+    const h = ageHours(t?.updated_at);
+    return h == null ? null : Math.floor(h / 24);
+  };
+  const withReason = (list, reason) => (list || []).map((t) => ({
+    ...t,
+    __reason: typeof reason === 'function' ? reason(t) : reason,
+  }));
+  const queue = [
+    // An expired gate is still a gate, and saying so is the whole point: the row
+    // that lost its buttons for 699 hours looked like an ordinary P0.
+    ...withReason(d?.pending_gates, (t) =>
+      (t.raw_status === 'blocked' ? 'expired gate' : 'gate')),
+    ...withReason(d?.p0_open, (t) => (t.is_gate ? 'expired gate' : 'P0')),
+    ...withReason(d?.blocked, 'blocked'),
+    ...withReason(d?.stale_in_progress, (t) => {
+      const dd = ageD(t);
+      return dd == null ? 'stale' : `stale ${dd}d`;
+    }),
+  ];
+  // Gates first — a signature is owed. Then oldest first, because the
+  // longest-ignored row is what a triage list is read for.
+  queue.sort((a, b) => {
+    const ga = a.is_gate ? 0 : 1, gb = b.is_gate ? 0 : 1;
+    if (ga !== gb) return ga - gb;
+    const ah = ageHours(a.updated_at), bh = ageHours(b.updated_at);
+    if (ah == null) return 1;
+    if (bh == null) return -1;
+    return bh - ah;
+  });
+  renderInboxList('inbox-queue', queue, 'inbox-queue-count', { reasons: true });
   refreshStandDowns();
   refreshReceipt();
   refreshBudgetLine();
@@ -3838,7 +3872,8 @@ function renderInboxList(rootId, items, countId, opts = {}) {
   // longest-ignored row at the top, which is the order a triage list is read in.
   // Gates keep their server order: their own list is already time-ordered and
   // their ⏳ stamp is the loud field.
-  const rows = opts.showApprove
+  // A queue built with reasons arrives already ranked; re-sorting would undo it.
+  const rows = (opts.showApprove || opts.reasons)
     ? items
     : items.slice().sort((a, b) => {
         const ah = ageHours(a.updated_at), bh = ageHours(b.updated_at);
@@ -3923,10 +3958,19 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     // things needing the operator could be seen and never opened without a
     // mouse. Enter and Space now do what a click does, and the row announces
     // itself as a button instead of as anonymous text.
+    // Why this row is here, as a property of the row. Four headed sections used to
+    // carry this fact in their headings, where it was lost the moment an item moved
+    // between them — which is how an expired gate became indistinguishable from an
+    // ordinary P0 for 699 hours.
+    const REASON_TONE = { 'expired gate': 'gate', gate: 'gate', P0: 'p0', blocked: 'blocked' };
+    const tone = REASON_TONE[t.__reason] || (String(t.__reason || '').startsWith('stale') ? 'stale' : '');
+    const reasonChip = (opts.reasons && t.__reason)
+      ? `<span class="why why-${tone}">${esc(t.__reason)}</span>`
+      : '';
     return `
       <div class="inbox-row${aged ? ' row-aged' : ''}" tabindex="0" role="button" aria-label="${esc(t.title || t.id)}" onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();this.click();}' onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         <span class="id">${esc(t.id || '')}</span>
-        <span class="ttl">${esc(t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
+        <span class="ttl">${reasonChip}${esc(t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
         ${actions}
       </div>`;
   }).join('');

@@ -146,7 +146,11 @@ test('the receipt footer host exists and sits below the decision sections', () =
   // this asserts — and that the top host still exists, because `differs` (files
   // changed after approval) genuinely does need the top slot.
   const top = HTML.indexOf('id="inbox-receipt"');
-  const p0 = HTML.indexOf('id="inbox-p0-section"');
+  // Anchored on the queue: the four headed sections were merged into one ranked
+  // list, so `inbox-p0-section` no longer exists. The property is unchanged — the
+  // line that asks for a decision sits above the queue, the line that asks for
+  // nothing sits below it.
+  const p0 = HTML.indexOf('id="inbox-queue-section"');
   const foot = HTML.indexOf('id="inbox-receipt-foot"');
   assert.notEqual(top, -1, 'the actionable "differs" host was removed');
   assert.notEqual(foot, -1, 'the quiet footer host was removed');
