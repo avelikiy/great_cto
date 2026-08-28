@@ -134,6 +134,23 @@ step "colour contrast (WCAG AA)" bash -c '
   node --test tests/lib/contrast.test.mjs
 '
 
+# And the one check that actually opens the page. Everything above reads the
+# source, so none of it sees the cascade, the media queries or the JavaScript.
+# The board is a 7,600-line single-page app whose appearance has only ever been
+# verified by a person looking at it.
+#
+# Not pixel diffs: font rasterisation differs between macOS and Linux, so
+# committed PNGs would be flaky by construction and a failure would report
+# "pixels differ" rather than what differed. The baseline is a JSON signature of
+# what rendered — a diff names the font size that appeared or the anchor that
+# vanished, and it reviews like code.
+#
+# Skips honestly when no browser is present. A check that could not run must not
+# look like a check that passed.
+step "rendered layout matches its baseline" bash -c '
+  node --test tests/lib/layout-snapshot.test.mjs
+'
+
 # The verifier that checks the agents must itself be checked, and in both
 # directions. A verifier that only ever returns rework sends correct work back
 # forever and gets switched off within a day; one that only ever returns
