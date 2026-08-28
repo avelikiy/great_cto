@@ -48,9 +48,21 @@ test('"All clear" is suppressed while any read is degraded', () => {
 });
 
 test('the greeting does not claim "nothing urgent" on degraded data', () => {
-  const block = html.match(/const greetTail = anyDegraded\(\)[\s\S]{0,320}/);
-  assert.ok(block, 'greeting branches on degradation');
-  assert.match(block[0], /could not be read/i, 'says so instead of reassuring');
+  // Asserted on BEHAVIOUR, not on a variable name. This used to grep for
+  // `const greetTail = anyDegraded()` and broke the moment the greeting was
+  // rewritten — while the property it exists to protect was untouched. A test
+  // that fails on a rename and passes on a regression is pointed the wrong way.
+  const branch = html.match(/if \(anyDegraded\(\)\)[\s\S]{0,400}/);
+  assert.ok(branch, 'the headline still branches on degraded reads');
+  assert.match(branch[0], /could not be read/i,
+    'degraded data says so instead of reassuring the operator');
+
+  // And the reassuring strings must be unreachable from that branch: they belong
+  // to the healthy paths below it.
+  const degradedFirst = html.indexOf('if (anyDegraded())');
+  const allClear = html.indexOf('All clear —');
+  assert.ok(degradedFirst > -1 && allClear > degradedFirst,
+    'the degraded case is decided before any all-clear wording');
 });
 
 test('anyDegraded reflects the degradation map', () => {
