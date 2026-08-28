@@ -3740,6 +3740,16 @@ function renderQueue(d) {
     return bh - ah;
   });
   renderInboxList('inbox-queue', queue, 'inbox-queue-count', { reasons: true });
+  // The heading claims what the rows can deliver, and no more. "Needs you" over a
+  // list of things you cannot touch is the same overclaim this screen spent the
+  // day removing — it was simply mine.
+  // "Needs you" means a decision only you can make — a gate to sign. Everything
+  // else is work that continues elsewhere, and saying otherwise is the overclaim
+  // that made six rows promise an action five of them did not have.
+  const decidable = queue.some((t) => t.is_gate);
+  const head = document.querySelector('#inbox-queue-section h3');
+  if (head) head.textContent = queue.length === 0 ? 'Needs you'
+    : (decidable ? 'Needs you' : 'Waiting on work elsewhere');
 }
 
 /**
@@ -3821,6 +3831,7 @@ async function refreshReceipt() {
       updated_at: d.ts || null,
       __reason: 'review drift',
       __synthetic: true,
+      __files: changedFiles,
     };
   } else {
     window.__receiptDrift = null;
@@ -4064,6 +4075,29 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     // The affordance now follows `is_gate`, which is a fact about the task rather
     // than about the query that fetched it.
     const canDecide = opts.showApprove || t.is_gate === true;
+    // A row with no action is a row that says "needs you" and means "look at me".
+    //
+    // Merging four sections under one "Needs you" heading made that promise for
+    // all of them, and five of six rows could not be acted on from this board at
+    // all: the only write action it has is approving a gate. The operator's words
+    // were "но я не могу ничего сделать" — and they were right.
+    //
+    // The board does not dispatch agents; it hands you the line that does. That is
+    // the same copy-not-dispatch the pipeline rail already uses on a failed stage,
+    // and it is the honest affordance for a task that has sat for a month: this
+    // cannot be finished here, here is what finishes it.
+    // The drift row is not a task and has no agent, so it needs its own line: the
+    // one that shows what changed under an approval. Files come from the receipt.
+    const diffBtn = (t.__synthetic && Array.isArray(t.__files) && t.__files.length)
+      ? `<div class="actions" onclick="event.stopPropagation()">`
+        + `<button type="button" class="gate-btn" title="Copy a git diff limited to the reviewed files"`
+        + ` onclick="event.stopPropagation(); copyDiff(${esc(JSON.stringify(JSON.stringify(t.__files)))})">Copy diff</button></div>`
+      : '';
+    const rerun = (!canDecide && !t.__synthetic && t.agent && t.id)
+      ? `<div class="actions" onclick="event.stopPropagation()">`
+        + `<button type="button" class="gate-btn" title="Copy the line that re-runs this agent"`
+        + ` onclick="event.stopPropagation(); copyRerun('${esc(t.agent)}')">Copy re-run</button></div>`
+      : '';
     const actions = canDecide
       ? `<div class="actions" onclick="event.stopPropagation()">
            <button class="gate-btn gate-approve" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">Approve</button>
@@ -4104,7 +4138,7 @@ function renderInboxList(rootId, items, countId, opts = {}) {
       <div class="inbox-row${aged ? ' row-aged' : ''}" tabindex="0" role="button" aria-label="${esc(t.title || t.id)}" onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();this.click();}' onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         <span class="id">${esc(t.id || '')}</span>
         <span class="ttl">${reasonChip}${esc(t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
-        ${actions}
+        ${actions}${rerun}${diffBtn}
       </div>`;
   }).join('');
 }
@@ -5032,6 +5066,17 @@ function copyRerun(stage) {
   navigator.clipboard.writeText(cmd).then(
     () => showToast(`Copied <code>${esc(cmd)}</code> — paste it in your session`, 'success', 3000),
     () => showToast(`Run <code>${esc(cmd)}</code> in your session`, 'info', 4000),
+  );
+}
+
+/** The same copy-not-dispatch: the board shows what changed, it does not open it. */
+function copyDiff(filesJson) {
+  let files = [];
+  try { files = JSON.parse(filesJson); } catch { /* nothing to scope to */ }
+  const cmd = files.length ? `git diff -- ${files.join(' ')}` : 'git diff';
+  navigator.clipboard.writeText(cmd).then(
+    () => showToast(`Copied <code>${esc(cmd.slice(0, 70))}…</code>`, 'success', 3000),
+    () => showToast(`Run <code>${esc(cmd.slice(0, 70))}</code>`, 'info', 4000),
   );
 }
 
