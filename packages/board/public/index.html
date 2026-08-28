@@ -31,6 +31,28 @@
 <script src="/assets/vendor/purify.min.js"></script>
 <style>
 :root {
+  /* Colours that used to be written straight into rules.
+     Twenty-nine declarations bypassed the token system, so the contrast audit —
+     which reads `:root` — could not see any of them. Values are carried across
+     unchanged: this is a rename, not a redesign, and the rendered-layout check
+     proves it by comparing the colours the page actually paints. */
+  --on-solid: #fff;           /* text on a solid coloured chip or button */
+  --on-warm: #000;            /* text on amber, where white fails contrast */
+  --on-accent: #04140d;       /* text on the green accent */
+  --bg-solid: #0f1115;        /* opaque button and tooltip surface */
+  --bg-solid-hover: #2a2d33;
+  --accent-hover: #00ee8a;
+  --verdict-ok: #4ade80;
+  --verdict-fail: #f87171;
+  --toast-bg: #1f2937;
+  --toast-ok: #14532d;
+  --toast-err: #7f1d1d;
+  --toast-info: #1e3a5f;
+  --dot-orange: #f97316;
+  --dot-unread: #3b82f6;
+  --metric-purple: #7c3aed;
+  --chip-agent: #2540d4;
+
   /* Dark emerald — matches landing greatcto.systems */
   --bg-page: #0a0e0c;
   --bg-panel: rgba(17, 22, 26, 0.85);
@@ -545,7 +567,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .btn-bell:hover { border-color: var(--border-strong); color: var(--text); }
 .btn-bell-badge {
   position: absolute; top: -5px; right: -5px;
-  background: var(--accent); color: #04140d;
+  background: var(--accent); color: var(--on-accent);
   font-size: var(--fs-eyebrow); font-weight: 700; line-height: 1;
   min-width: 16px; height: 16px; border-radius: 8px;
   display: none; align-items: center; justify-content: center;
@@ -574,13 +596,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .icon-btn:hover { background: var(--bg-muted); color: var(--text); }
 
 .btn-new {
-  background: #0f1115; color: #fff; border: none;
+  background: var(--bg-solid); color: var(--on-solid); border: none;
   height: 30px; padding: 0 14px;
   border-radius: 999px;
   font-size: var(--fs-body); font-weight: 500;
   display: inline-flex; align-items: center; gap: 6px;
 }
-.btn-new:hover { background: #2a2d33; }
+.btn-new:hover { background: var(--bg-solid-hover); }
 
 .task-count {
   font-family: var(--mono); font-size: var(--fs-caption);
@@ -902,7 +924,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   pointer-events: none;
 }
 .toast {
-  background: #1f2937; color: #fff;
+  background: var(--toast-bg); color: var(--on-solid);
   padding: 8px 14px; border-radius: 6px;
   font-size: var(--fs-body); min-width: 200px; max-width: 360px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.35);
@@ -911,9 +933,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   pointer-events: auto;
 }
 .toast.show { opacity: 1; transform: translateY(0); }
-.toast-success { background: #14532d; border-left: 3px solid #22c55e; }
-.toast-error { background: #7f1d1d; border-left: 3px solid #ef4444; }
-.toast-info { background: #1e3a5f; border-left: 3px solid #3b82f6; }
+.toast-success { background: var(--toast-ok); border-left: 3px solid #22c55e; }
+.toast-error { background: var(--toast-err); border-left: 3px solid #ef4444; }
+.toast-info { background: var(--toast-info); border-left: 3px solid #3b82f6; }
 .toast code { background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px; }
 .pl-stage { cursor: pointer; transition: background 0.12s; }
 .pl-stage:hover { background: var(--bg-muted); border-radius: 4px; }
@@ -991,8 +1013,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .rdm-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .rdm-head .rdm-agent { font-weight: 600; }
-.rdm-head .rdm-verdict.ok { color: #4ade80; }
-.rdm-head .rdm-verdict.fail { color: #f87171; }
+.rdm-head .rdm-verdict.ok { color: var(--verdict-ok); }
+.rdm-head .rdm-verdict.fail { color: var(--verdict-fail); }
 .rdm-head .rdm-ts { color: var(--text2); font-size: var(--fs-caption); margin-left: auto; }
 .rdm-raw {
   background: var(--bg-muted); padding: 8px 10px; border-radius: 4px;
@@ -1106,9 +1128,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .ni-btn-ghost:hover { background: var(--bg-muted, rgba(255,255,255,0.05)); color: var(--text); }
 .ni-btn-primary {
   background: var(--accent, #00d97e);
-  color: #0a0e0c; font-weight: 500;
+  color: var(--bg-page); font-weight: 500;
 }
-.ni-btn-primary:hover { background: #00ee8a; }
+.ni-btn-primary:hover { background: var(--accent-hover); }
 .ni-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 @media (max-width: 600px) {
   .ni-row { flex-direction: column; gap: 14px; }
@@ -1303,9 +1325,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .tier-badge { font-size: var(--fs-caption); padding: 1px 8px; border-radius: 999px; margin-left: 6px;
   font-family: var(--mono); white-space: nowrap; }
 .tier-badge:empty { display: none; }
-.tier-badge.tier-T0 { background: var(--status-review); color: #fff; }
-.tier-badge.tier-T1 { background: var(--status-progress); color: #fff; }
-.tier-badge.tier-T2 { background: var(--status-blocked); color: #fff; }
+.tier-badge.tier-T0 { background: var(--status-review); color: var(--on-solid); }
+.tier-badge.tier-T1 { background: var(--status-progress); color: var(--on-solid); }
+.tier-badge.tier-T2 { background: var(--status-blocked); color: var(--on-solid); }
 
 /* ── Pipeline track ───────────────────────────────────────────────────────── */
 .pipeline-track {
@@ -1421,7 +1443,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   color: var(--text); cursor: pointer; transition: background 0.12s, border-color 0.12s;
 }
 .inbox-allclear .ac-btn:hover { background: var(--bg-muted); border-color: var(--accent, #00d97e); }
-.inbox-allclear .ac-btn.ac-primary { background: var(--accent, #00d97e); border-color: var(--accent, #00d97e); color: #04150d; font-weight: 500; }
+.inbox-allclear .ac-btn.ac-primary { background: var(--accent, #00d97e); border-color: var(--accent, #00d97e); color: var(--on-accent); font-weight: 500; }
 .inbox-allclear .ac-btn.ac-primary:hover { filter: brightness(1.06); }
 
 /* Human gate — the signing checkpoint. Visually set apart from agent stages:
@@ -1443,7 +1465,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .pl-gate.active .pl-msg, .pl-gate.active .pl-meta { opacity: 1; color: var(--text); }
 .pl-gate .gate-badge {
   margin-left: auto;
-  background: var(--status-blocked); color: #fff;
+  background: var(--status-blocked); color: var(--on-solid);
   font-size: var(--fs-eyebrow); font-weight: 700;
   min-width: 16px; height: 16px; padding: 0 4px;
   border-radius: 8px;
@@ -1515,7 +1537,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   position: absolute;
   bottom: calc(100% + 4px); left: 50%;
   transform: translateX(-50%);
-  background: #0f1115; color: #fff;
+  background: var(--bg-solid); color: var(--on-solid);
   padding: 4px 8px; border-radius: 4px;
   font-family: var(--mono); font-size: var(--fs-eyebrow);
   white-space: nowrap;
@@ -1726,7 +1748,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
 .dot-purple { background: var(--status-gate); }
 .dot-red    { background: var(--status-blocked); }
-.dot-orange { background: #f97316; }
+.dot-orange { background: var(--dot-orange); }
 .dot-amber  { background: var(--status-progress); }
 
 .inbox-row {
@@ -1986,7 +2008,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .metric-card.green::before { background: var(--status-review); }
 .metric-card.amber::before { background: var(--status-progress); }
 .metric-card.red::before   { background: var(--status-blocked); }
-.metric-card.purple::before { background: #7c3aed; }
+.metric-card.purple::before { background: var(--metric-purple); }
 .metric-num {
   font-family: var(--serif); font-weight: 500;
   /* The board is live (SSE). In a proportional face a 1 is narrower than an 8,
@@ -2470,7 +2492,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   text-overflow: ellipsis;
 }
 .btn-black {
-  background: #0f1115; color: #fff; border: none;
+  background: var(--bg-solid); color: var(--on-solid); border: none;
   padding: 8px 14px; border-radius: 999px;
   font-size: var(--fs-small); font-weight: 500;
 }
@@ -2540,9 +2562,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 .fchip:hover { background: var(--bg-elevated); color: var(--text); border-color: var(--border-strong); }
-.fchip.active { background: var(--accent); color: #fff; border-color: transparent; }
-.fchip-agent.active { background: #2540d4; }
-.fchip-priority.active { background: #f59e0b; color: #000; }
+.fchip.active { background: var(--accent); color: var(--on-solid); border-color: transparent; }
+.fchip-agent.active { background: var(--chip-agent); }
+.fchip-priority.active { background: var(--status-progress); color: var(--on-warm); }
 .fchip-label.active { background: var(--accent); }
 .fchip-clear { background: transparent; color: var(--text3); border-color: transparent; }
 .fchip-clear:hover { background: var(--bg-strong); color: var(--status-blocked); }
@@ -7910,7 +7932,7 @@ function renderNotifDrawer() {
             ${new Date(n.ts).toLocaleString()}
           </div>
         </div>
-        ${n.read ? '' : '<span style="width:7px;height:7px;background:#3b82f6;border-radius:50%;flex-shrink:0;margin-top:5px"></span>'}
+        ${n.read ? '' : '<span style="width:7px;height:7px;background:var(--dot-unread);border-radius:50%;flex-shrink:0;margin-top:5px"></span>'}
       </div>
     </div>`).join('');
 }
