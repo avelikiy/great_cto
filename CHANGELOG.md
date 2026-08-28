@@ -6,6 +6,106 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.16.0 — 2026-08-28
+
+Three new checks that open the page, read its colours, and hold the project's
+own decision records where everything can find them — plus a migration pattern
+that cannot report a half-finished run as a finished one.
+
+### What's new
+
+- **Colour contrast is checked in CI.** Every text token is measured against
+  every surface it can land on, to the WCAG AA floor. Arithmetic over the
+  declared tokens — no browser, milliseconds.
+- **The rendered board is checked against its own design system.** A real
+  browser opens the page and every font size and colour it paints must be one
+  the stylesheet declares. Catches what source-level checks cannot see: the
+  cascade, the media queries, the JavaScript.
+- **Migrations record where they stopped.** A backup before the first change,
+  atomic writes, per-unit progress that survives a crash, and a completion
+  marker written only once every unit verifies — so a partial run can never
+  read as a finished one.
+- **Every ADR is where the tooling looks for it.** Eighteen decision records
+  lived in two directories while twenty-nine files searched a third; `/resume`,
+  `/audit`, `/doctor`, architect and senior-dev now all find them.
+- **The Inbox agrees with itself.** The tile and the pipeline rail no longer
+  give different answers about the same gate, empty stat tiles are not drawn,
+  and nothing is listed twice.
+- **The board's palette is complete.** Twenty-nine colours that bypassed the
+  token system are tokens, so the contrast audit can see all of them.
+
+---
+
+### Colour contrast, and the defect it was built from
+
+A stylesheet in this project used a colour token in 61 places and defined it in
+none. Every use fell through to a light-theme fallback and the densest block on
+the page rendered at 2.62:1 against a 4.5:1 floor. A person found it months
+later, by looking.
+
+`scripts/lib/contrast.mjs` reports the worst surface for each text token rather
+than guessing which background it lands on. Translucent colours are composited
+over the page first, because that is what the eye receives. A colour it cannot
+parse is `unknown` and yields no verdict, rather than a confident ratio for
+something nobody measured.
+
+Measured on the shipped board: all fifteen tokens pass, thinnest margin
+`--status-backlog` at 3.14:1 against the 3:1 floor for UI boundaries.
+
+### The rendered board, and the check that had to be rebuilt
+
+The first version recorded what happened to render and failed when the next run
+differed. It went red within the hour on a 36px that is `--fs-num-l`, a declared
+step of the ramp drawn only when a metric tile is on screen — a false accusation
+on correct behaviour, which is how a check gets switched off.
+
+The rule is a subset, not a match: every rendered value must be one the
+stylesheet declares. Data-independent, and still catches a raw `17px` by name.
+Colours moved to a source-level check, because the browser sees one only when
+its element is on screen — a true finding arriving as a flake.
+
+### Twenty-nine colours nothing could measure
+
+Frozen by a ratchet first, then tokenised, values carried across unchanged. Not
+asserted — shown: the rendered-layout check compared the colours the page paints
+before and after and found them identical.
+
+### The Inbox contradicted itself
+
+The tile read **0 pending decisions** while the rail beside it announced **1 gate
+awaiting signature**. Both were computed correctly; they answered different
+questions under the same label. Nobody can sign a blocked gate, so the rail says
+`1 gate blocked` — and still shows it, because a gate stuck for 29 days is what
+the rail is for.
+
+Three cuts alongside it: stat tiles that read zero are not drawn, the resume card
+no longer repeats the stale list below it, and the receipt-drift notice keeps its
+four file paths one click away instead of wrapping onto three lines.
+
+### Decision records had three addresses
+
+Eighteen ADRs in `docs/adr/` and `docs/architecture/`; twenty-nine files pointing
+at `docs/decisions/`, which held one unrelated file. `/resume` printed an empty
+"Latest ADR" every session, and an agent asked what the project had decided
+opened an empty directory and concluded nothing had been — including ADR-009,
+which CLAUDE.md builds the whole gate philosophy on. One home now, with three
+tests keeping it closed.
+
+### Positioning
+
+The README opened with an outcome and met its prerequisite at the install line.
+Both surfaces now lead with the same thing — the coding agent you already run —
+and say plainly what this is not: not a hosted app builder, and no substitute for
+your agent. The nine translations were realigned with it.
+
+### Tests
+
+10 for the migration pattern, 7 for contrast, 6 for the rendered layout, 3 for
+the ADR home, 2 more for the Inbox gate. Full local CI: 34 steps green.
+
+---
+
 ## v3.15.0 — 2026-08-27
 
 Every stage of the pipeline can now be checked against something, the check
