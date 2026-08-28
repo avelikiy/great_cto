@@ -12,14 +12,20 @@ import { listProjects, readProjectMd } from './projects.mjs';
 import { addNotification } from './notifications.mjs';
 import { getMetrics } from './metrics.mjs';
 import { getCostHistory, getInbox } from './data-readers.mjs';
-// Every sweep below runs over EVERY registered project, and `bd list` is
-// spawnSync — the event loop is held for the whole of it. At 16 projects and
-// 2-6 s each that is ~60 s per sweep, and three of these fire every five
-// minutes. Sweeps therefore read at sweep freshness, not interactive freshness:
-// see SWEEP_MAX_AGE_MS in beads.mjs for the arithmetic that made the board
-// unanswerable while reporting "live · synced just now".
+// Every sweep below runs over EVERY registered project. `sweep: true` opts a
+// COLD project (never read this process) into bdList()'s non-blocking fill
+// path instead of its synchronous one — the same escape hatch a WARM-but-
+// stale entry already gets. Without it: a real board's first cron tick
+// (t=+5:10, no request in flight) lagged the event loop 9.8s reading a
+// single project synchronously; at 16 projects and 2-6s each that is ~60s
+// per sweep, three of which fire every five minutes, indefinitely. Sweeps
+// read at sweep freshness, not interactive freshness — see SWEEP_MAX_AGE_MS
+// in beads.mjs for the arithmetic that made the board unanswerable while
+// reporting "live · synced just now". `sweep: true` must NEVER be added to
+// an interactive read's opts: an ordinary request is someone waiting on
+// THIS project's answer, and the fill path answers `[]` instead.
 import { getTasks, SWEEP_MAX_AGE_MS } from './beads.mjs';
-const SWEEP = { maxAgeMs: SWEEP_MAX_AGE_MS };
+const SWEEP = { maxAgeMs: SWEEP_MAX_AGE_MS, sweep: true };
 import { readVerdicts } from './verdicts.mjs';
 import { isFailure } from './fleet.mjs';
 import { getShareState, toggleShare } from './share.mjs';

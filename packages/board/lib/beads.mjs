@@ -408,14 +408,7 @@ function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
   if (cached && Date.now() - cached.ts < ttl) return cached.data;
 
   // Stale-while-revalidate. An entry that exists is served immediately, however
-  // old, and refreshed off the event loop. Only a directory with NO entry at all
-  // blocks — which after the boot warm-up means a project nobody has opened yet,
-  // once.
-  //
-  // The alternative was making this async and every caller with it: getTasks,
-  // getInbox, getPipeline, the metrics readers, the SSE broadcast, the alert
-  // sweeps. That refactor is the correct end state and is not what a board
-  // hanging today needs.
+  // old, and refreshed off the event loop.
   //
   // The injected `runner` is how the tests drive this. When one is supplied the
   // sync path is kept, so a test that stubs `bd` still observes the call it
@@ -423,6 +416,32 @@ function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
   if (cached && runner === bd) {
     bdRefreshAsync(cwd);
     return cached.data;
+  }
+
+  // A directory with NO entry at all — genuinely never read. Left
+  // synchronous for an ordinary caller: a request FOR this project is
+  // waiting on the answer, and returning `[]` while a background fill
+  // catches up would be wrong data handed to a caller who cannot tell it
+  // apart from "no tasks" — confirmed the hard way. This branch originally
+  // covered every caller, and tests/board-gate.test.mjs,
+  // tests/pipeline-e2e.test.mjs and tests/resume-e2e.test.mjs all went red:
+  // a gate approved seconds after project creation read back as "no gates",
+  // because the read that should have shown it took the async path and
+  // answered empty instead.
+  //
+  // `opts.sweep` is the one caller allowed to skip the wait: the alert cron,
+  // which already has its own looser freshness contract (SWEEP_MAX_AGE_MS)
+  // and iterates EVERY registered project on a timer nobody is blocking on.
+  // Measured live, unprompted: a real board's first cron tick (t=+5:10, no
+  // request in flight) lagged the event loop 9.8s doing exactly this
+  // synchronous cold read, once per registered project, every five minutes,
+  // indefinitely. For that caller specifically, the same non-blocking fill
+  // stale-while-revalidate already uses for a WARM entry is safe on a COLD
+  // one too — the cron does not need this tick's answer to be correct, only
+  // bounded in staleness, which the background fill still gives it.
+  if (!cached && runner === bd && opts.sweep) {
+    bdRefreshAsync(cwd);
+    return [];
   }
   try {
     lastBdRunAt.set(cwd, Date.now());

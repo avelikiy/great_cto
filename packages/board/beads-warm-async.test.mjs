@@ -106,3 +106,67 @@ test('a bd write that lands while the boot warm-up is still in flight is not ove
   assert.deepEqual(bdCache.get(cwd)?.data, freshData,
     'the fresh, post-write data must survive — the stale boot fetch must not overwrite it');
 });
+
+// ── the SECOND blocker: the alert cron's cold sweep ──────────────────────────
+//
+// The boot warm-up above only covers cwd. The alert cron's 5-minute sweeps
+// loop over EVERY registered project calling getTasks(proj.path, SWEEP),
+// and until this fix that was `bdList()`'s cold-cache branch — `bd()`,
+// spawnSync — for a project the sweep had never read before. Proven live
+// (not synthetically): a real board running against this machine's real
+// project registry showed a 9.8s event-loop-lag spike at t=+5:10 — the
+// cron's first tick — with no request in flight at all.
+//
+// Scope: this fix is opt-in via `opts.sweep`, set ONLY by alerts.mjs's
+// SWEEP constant. An earlier version made EVERY cold read (including a
+// plain interactive `/api/tasks?project=X`) take the async path, and that
+// broke real callers: tests/board-gate.test.mjs, tests/pipeline-e2e.test.mjs
+// and tests/resume-e2e.test.mjs all went red because a gate approved
+// seconds after project creation read back as "no gates" — the read that
+// should have shown it got `[]` instead of waiting for the real answer. An
+// interactive request IS someone waiting on this project's data; only the
+// cron sweep can tolerate "catch up next tick".
+test('bdList cold path with {sweep: true} does not block — answers [] and fills in the background', async () => {
+  process.env.FAKE_BD_DELAY_SECS = '1.5';
+  const { bdList, bdCache } = await freshBeadsWith(FAKE_BD_SLOW);
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-sweep-'));
+
+  const beforeCall = Date.now();
+  const result = bdList(cwd, undefined, { sweep: true }); // default runner, sweep opt-in
+  const afterCall = Date.now();
+
+  assert.ok(afterCall - beforeCall < 500,
+    `a sweep cold read must return immediately (took ${afterCall - beforeCall}ms)`);
+  assert.deepEqual(result, [], 'nothing to serve yet on a genuinely first read');
+
+  await new Promise((r) => setTimeout(r, 1800)); // past the fixture's delay
+  const second = bdList(cwd, undefined, { sweep: true });
+  assert.deepEqual(second, [], 'the fixture genuinely has no tasks — now served from a completed fill');
+});
+
+test('bdList cold path WITHOUT {sweep: true} stays synchronous, even with the real bd runner', async () => {
+  // The interactive default. A caller who did not opt into sweep semantics
+  // gets exactly the pre-existing behavior: block, then real data — no
+  // "loading" placeholder a UI or a test could mistake for "no tasks".
+  process.env.FAKE_BD_DELAY_SECS = '1';
+  const { bdList } = await freshBeadsWith(FAKE_BD_SLOW);
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-interactive-'));
+
+  const beforeCall = Date.now();
+  const result = bdList(cwd); // default runner, no opts — interactive shape
+  const afterCall = Date.now();
+
+  assert.ok(afterCall - beforeCall >= 900,
+    `an interactive cold read must still wait for the real answer (took only ${afterCall - beforeCall}ms)`);
+  assert.deepEqual(result, [], 'the fixture genuinely returns no tasks — but this is the REAL answer, not a placeholder');
+});
+
+test('bdList cold path leaves test-injected runners synchronous (existing beads-cache.test.mjs contract)', async () => {
+  const { bdList } = await freshBeadsWith(FAKE_BD_FAIL); // module BD_BIN irrelevant here
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-cold-injected-'));
+  const injected = () => ({ status: 0, stdout: JSON.stringify([{ id: 'T-1' }]), stderr: '' });
+
+  const result = bdList(cwd, injected, { sweep: true }); // runner !== the module's own bd, even with sweep set
+  assert.deepEqual(result, [{ id: 'T-1' }],
+    'an injected runner (as beads-cache.test.mjs uses) must still resolve synchronously, sweep opt-in or not');
+});
