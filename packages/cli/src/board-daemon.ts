@@ -169,7 +169,7 @@ export function daemonSpec(platform: Platform, o: DaemonRenderOpts): DaemonSpec 
   };
 }
 
-export type EnsureAction = "noop" | "start" | "restart";
+export type EnsureAction = "noop" | "adopt" | "start" | "restart";
 
 export interface EnsureState {
   /** PID from board.pid, or null if the file is missing/garbage. */
@@ -181,15 +181,36 @@ export interface EnsureState {
 }
 
 /**
- * Decide what `board ensure` should do:
- *   - no live process              → start
- *   - live process, port hung      → restart (the case a liveness supervisor misses)
- *   - live process, port answering → noop (never kill a healthy board)
+ * Decide what `board ensure` should do.
+ *
+ * THE PORT DECIDES, NOT THE PID FILE.
+ *
+ * This asked the pid first: `pid === null || !alive → start`. A board started any
+ * other way — `node packages/board/server.mjs`, a terminal someone left open, a
+ * pid file lost to a reboot — leaves no pid this CLI wrote, so ensure declared it
+ * absent and spawned a second server onto the occupied port. That one died on
+ * EADDRINUSE, its pid was recorded anyway, and the file then named a corpse while
+ * a perfectly healthy board answered every request. Observed exactly that: pid
+ * file 56328, dead; port 3141 served by 47326, HTTP 200.
+ *
+ * Every later run repeated it. A health gate that fails forever while reporting
+ * success is worse than no health gate.
+ *
+ * ADR-007 already said the decision is pid-alive AND port-healthy. This is that
+ * sentence, with the port asked first, because the port is what a user opens:
+ *
+ *   port answering, pid ours       → noop    (nothing to do)
+ *   port answering, pid not ours   → adopt   (someone else's healthy board; leave it)
+ *   port hung, pid alive           → restart (the case a liveness supervisor misses)
+ *   port hung, no live pid         → start
+ *
+ * `adopt` exists so the caller does not overwrite the pid file with a process it
+ * did not start. A pid we cannot vouch for is worse than no pid at all.
  */
 export function decideEnsureAction(s: EnsureState): EnsureAction {
-  if (s.pid === null || !s.alive) return "start";
-  if (!s.healthy) return "restart";
-  return "noop";
+  if (s.healthy) return s.pid !== null && s.alive ? "noop" : "adopt";
+  if (s.pid !== null && s.alive) return "restart";
+  return "start";
 }
 
 /**

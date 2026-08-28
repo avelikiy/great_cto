@@ -35,6 +35,7 @@
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -116,6 +117,54 @@ function main() {
 
   const r = compare({ cli, plugin: newestPluginVersion(cacheRoot) });
   if (r.state === 'stale') process.stdout.write(message(r) + '\n');
+
+  ensureBoard();
+}
+
+/**
+ * Bring the board up, because an admin panel you have to remember to start is one
+ * you find down.
+ *
+ * ADR-007 accepted "board always-on" in v2.86.0 and shipped `great-cto board
+ * ensure` — an idempotent health gate that starts the board only if nothing is
+ * answering. Nothing ever called it from an install. The decision existed, the
+ * mechanism existed, and the two were never connected, so every upgrade left the
+ * panel down until somebody typed the command.
+ *
+ * Four rules this obeys, because a postinstall hook that breaks an install is
+ * worse than one that does nothing:
+ *
+ *   - never fail. `npm install` must succeed even if this cannot run at all.
+ *   - never block. The board takes the better part of a minute to become
+ *     responsive; the installer does not wait for it. Detached, unref'd, output
+ *     discarded.
+ *   - never in CI, and never when asked not to. Both already guard the notice
+ *     above; `GREAT_CTO_NO_BOARD=1` opts out of this specifically.
+ *   - never twice. `ensure` probes the port first and adopts a board that is
+ *     already answering, whoever started it.
+ */
+function ensureBoard() {
+  if (process.env.GREAT_CTO_NO_BOARD) return;
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const entry = join(here, 'index.mjs');
+    if (!existsSync(entry)) return;
+
+    const child = spawn(process.execPath, [entry, 'board', 'ensure'], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+    process.stdout.write('  great-cto: starting the board — http://localhost:3141\n');
+  } catch (e) {
+    // Never fail the install — but never fail SILENTLY either. The first version
+    // of this function referenced an import that was not there; the catch ate the
+    // ReferenceError and the hook printed nothing, so the board simply did not
+    // start and nothing said why. A swallowed error is the defect this project
+    // spends most of its checks on.
+    process.stdout.write(`  great-cto: could not start the board — ${e?.message || e}\n`);
+    process.stdout.write('  Start it yourself with: great-cto board\n');
+  }
 }
 
 // Only when run as the hook, so the pure parts above stay importable by tests.

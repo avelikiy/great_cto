@@ -404,6 +404,33 @@ async function spawnDetachedBoard(port: number): Promise<number | undefined> {
 }
 
 /**
+ * How long a board may take to start answering before something is wrong.
+ *
+ * Measured, not chosen: this board serves /api/version at ~2.4s, falls silent for
+ * ~37s while discovering projects, and recovers. 60s leaves headroom on a slower
+ * machine with more projects. It is a ceiling on patience, not a target — a board
+ * that answers in two seconds costs two seconds.
+ */
+const WARM_WINDOW_MS = 60_000;
+
+/**
+ * Poll until the board answers, or give up.
+ *
+ * `spawn` returning a pid means the OS created a process, not that a board is
+ * serving. A child that dies on EADDRINUSE or a bad build has a pid for a few
+ * milliseconds, and the previous code announced "board started" on the strength
+ * of it — then wrote that pid to the file the next run would trust.
+ */
+async function waitForBoard(port: number, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await probeBoardPort(port)) return true;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return false;
+}
+
+/**
  * `great-cto board ensure` — idempotent health gate. Starts the board only if it
  * isn't already answering; never kills a healthy instance. Safe to call from a
  * supervisor, cron line, or shell hook.
@@ -412,11 +439,37 @@ async function runBoardEnsure(args: CliArgs): Promise<number> {
   const port = args.boardPort;
   const pid = readBoardPid();
   const alive = pid !== null && isPidAlive(pid);
-  const healthy = alive && await probeBoardPort(port);
+  // Probe the port ALWAYS, not only when a pid file happens to exist. The port is
+  // what a user opens; a missing pid file means this CLI did not start the board,
+  // not that no board is running. Gating the probe on `alive` is what let ensure
+  // spawn a second server onto an occupied port, over and over.
+  // One failed probe is not a hung board.
+  //
+  // Measured on this machine: the board binds the port, answers /api/version at
+  // ~2.4s, then goes SILENT for roughly 37 seconds while it discovers projects,
+  // and only then serves normally. A single probe inside that window says "not
+  // answering" about a board that is merely starting — and the old code then
+  // restarted it, which starts the window again. That is a restart loop, and it
+  // is exactly what a supervisor calling this every minute would have produced.
+  //
+  // So a live pid gets the benefit of the doubt: several probes across the warm
+  // window before anything is declared hung. A board with no live pid needs no
+  // patience — one probe answers whether something is already serving.
+  const healthy = alive
+    ? await waitForBoard(port, WARM_WINDOW_MS)
+    : await probeBoardPort(port);
   const action = decideEnsureAction({ pid, alive, healthy });
 
   if (action === "noop") {
     log(`  ${green("✓")} board already running → http://localhost:${port} (pid ${pid})`);
+    return 0;
+  }
+  if (action === "adopt") {
+    // Deliberately does NOT record a pid: this process is not ours to vouch for,
+    // and a pid file naming something we did not start is how the last one came
+    // to name a corpse.
+    log(`  ${green("✓")} board already answering → http://localhost:${port}`);
+    log(`  ${dim("started outside this CLI — left alone")}`);
     return 0;
   }
   if (action === "restart") {
@@ -425,6 +478,19 @@ async function runBoardEnsure(args: CliArgs): Promise<number> {
   }
   const newPid = await spawnDetachedBoard(port);
   if (!newPid) return 1;
+
+  // Spawning is not starting. The previous version announced success the moment
+  // it had a pid, so a child that died immediately — EADDRINUSE, a syntax error,
+  // a missing build — was reported as a started board and its pid was written
+  // down. Wait for the port to actually answer before claiming anything.
+  // Same window: a fresh board is not late, it is warming.
+  const cameUp = await waitForBoard(port, WARM_WINDOW_MS);
+  if (!cameUp) {
+    try { unlinkSync(boardPidFilePath()); } catch { /* nothing to clean up */ }
+    error(`board did not come up on ${port} within 8s — pid ${newPid} exited or is not serving.`);
+    log(dim(`  Something else may hold the port: lsof -nP -iTCP:${port} -sTCP:LISTEN`));
+    return 1;
+  }
   log(`  ${green("✓")} board ${action === "restart" ? "restarted" : "started"} → http://localhost:${port} (pid ${newPid})`);
   return 0;
 }

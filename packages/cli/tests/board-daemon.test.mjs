@@ -92,6 +92,19 @@ test("daemonSpec unknown platform → unsupported, no crash", () => {
   assert.equal(s.supported, false);
 });
 
+// The case that broke it: a board running with no pid file this CLI wrote.
+//
+// Observed on a real machine — pid file naming 56328 (dead), port 3141 served by
+// 47326 (HTTP 200). `ensure` asked the pid first, decided nothing was running,
+// spawned a second server onto the occupied port, that one died on EADDRINUSE,
+// and its pid was written down anyway. Every later run repeated it: a health gate
+// failing forever while reporting success.
+test("decideEnsureAction: port answering with no pid of ours → adopt, never start", () => {
+  assert.equal(decideEnsureAction({ pid: null, alive: false, healthy: true }), "adopt");
+  assert.equal(decideEnsureAction({ pid: 999, alive: false, healthy: true }), "adopt",
+    "a dead pid beside a healthy port is a board someone else started");
+});
+
 test("decideEnsureAction: no pid → start", () => {
   assert.equal(decideEnsureAction({ pid: null, alive: false, healthy: false }), "start");
 });
