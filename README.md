@@ -58,7 +58,7 @@ checking each stage's work before the next one builds on it.
 ```
 
 <p align="center">
-  <img src="docs/screenshots/board.png" alt="The build board — live pipeline, gates, per-agent cost" width="900" />
+  <img src="docs/screenshots/board.png" alt="The board's Metrics screen — tasks shipped, measured AI spend, median cycle time, QA pass rate, and per-agent budget caps" width="900" />
 </p>
 
 The board at `localhost:3141` fills itself in — pipeline state, pending gates,
