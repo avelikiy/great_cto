@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**描述产品。批准两次。交付软件。**
+**描述产品。批准三件事。打开 URL。**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -34,11 +34,15 @@ architect、design-advisor、senior-dev、code-reviewer、QA、security、devops
         │
    🤖  规格 · 架构 · 数据模型 · 页面
         ▼
-   👤  检查点 1 — 批准设计
+   👤  检查点 1 — 批准要构建什么
+        │
+   🤖  architecture · data model · screens
+        ▼
+   👤  检查点 2 — 批准如何构建
         │
    🤖  脚手架 → 后端 → 前端 → 测试 → 评审 → 安全
         ▼
-   👤  检查点 2 — 批准部署
+   👤  检查点 3 — 批准部署
         │
    🤖  已部署 · 仓库 · 可访问的 URL
 ```

@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Опиши продукт. Одобри дважды. Получи софт.**
+**Опиши продукт. Одобри три решения. Открой URL.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -17,7 +17,7 @@ npx great-cto init
 
 </div>
 
-> Перевод английского [README](../../README.md) на версии **v2.90.0** (2026-07-30).
+> Перевод английского [README](../../README.md) на версии **v2.90.0** (2026-07-30). При этом счётчик одобрений приведён к текущему значению по умолчанию (три).
 > При расхождении канонична английская версия.
 
 ---
@@ -35,11 +35,15 @@ senior-dev, code-reviewer, QA, security, devops — планирует, стро
         │
    🤖  спека · архитектура · модель данных · экраны
         ▼
-   👤  чекпоинт 1 — одобрить дизайн
+   👤  чекпоинт 1 — одобрить ЧТО строим
+        │
+   🤖  architecture · data model · screens
+        ▼
+   👤  чекпоинт 2 — одобрить КАК строим
         │
    🤖  каркас → бэкенд → фронтенд → тесты → ревью → безопасность
         ▼
-   👤  чекпоинт 2 — одобрить деплой
+   👤  чекпоинт 3 — одобрить деплой
         │
    🤖  задеплоено · репозиторий · живой URL
 ```

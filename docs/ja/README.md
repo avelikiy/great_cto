@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**プロダクトを説明する。2回承認する。ソフトウェアが届く。**
+**プロダクトを説明する。3つを承認する。URL を開く。**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -36,11 +36,15 @@ QA、security、devops — のパイプラインが、実際のアプリケー�
         │
    🤖  仕様 · アーキテクチャ · データモデル · 画面
         ▼
-   👤  チェックポイント 1 — 設計を承認
+   👤  チェックポイント 1 — 何を作るかを承認
+        │
+   🤖  architecture · data model · screens
+        ▼
+   👤  チェックポイント 2 — どう作るかを承認
         │
    🤖  雛形 → バックエンド → フロントエンド → テスト → レビュー → セキュリティ
         ▼
-   👤  チェックポイント 2 — デプロイを承認
+   👤  チェックポイント 3 — デプロイを承認
         │
    🤖  デプロイ済み · リポジトリ · 公開 URL
 ```

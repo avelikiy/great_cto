@@ -2,7 +2,7 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Describe a product. Approve twice. Ship the software.**
+**Describe a product. Approve three things. Open the URL.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -21,24 +21,33 @@ npx great-cto init
 
 ---
 
-great_cto is the **orchestration layer above the coding agent you already use**.
-A pipeline of **69 specialist agents** — architect, design-advisor, senior-dev,
-code-reviewer, QA, security, devops — plans, builds, reviews, and deploys a real
-application: backend, frontend, generated tests, live URL.
+You describe a software product. What lands on your disk is a **repository you
+own** and a **URL that already works** — architecture, data model, backend,
+frontend, generated tests and the deploy, finished. Not a plan. Not a prototype.
 
-You are stopped exactly twice: once on **what gets built**, once on **whether it
-ships**. Everything between runs unattended.
+Seven products built end to end in the open benchmark cost a **median of $171**
+in tokens. You pay your own LLM provider; great_cto bills you nothing and is MIT.
+
+You are stopped **three times** — on *what* gets built, on *how*, and on *whether
+it ships*. Everything between those runs unattended, and it is the pipeline's job
+to be worth leaving alone: **69 specialist agents** (architect, design-advisor,
+senior-dev, code-reviewer, QA, security, devops) with an independent model
+checking each stage's work before the next one builds on it.
 
 ```
    describe a product
         │
-   🤖  spec · architecture · data model · screens
+   🤖  problem framed · options weighed · brief written
         ▼
-   👤  checkpoint 1 — approve the design
+   👤  checkpoint 1 — approve WHAT gets built
+        │
+   🤖  architecture · data model · screens · plan
+        ▼
+   👤  checkpoint 2 — approve HOW it gets built
         │
    🤖  scaffold → backend → frontend → tests → review → security
         ▼
-   👤  checkpoint 2 — approve the deploy
+   👤  checkpoint 3 — approve the deploy
         │
    🤖  deployed · repo · live URL
 ```
@@ -105,6 +114,26 @@ not per feature: `product-owner` is an entry point and runs only from `/start`.
 A regulated archetype — fintech, healthcare, gov — keeps its security,
 compliance and ship gates **at every level, including `auto`**. A lighter level
 delegates judgement; it never skips compliance. Full table: [docs/GATES.md](docs/GATES.md).
+
+## The three doubts worth having
+
+**“I can't trust code I didn't watch being written.”**
+Neither do we, so nothing is taken on an agent's word about itself. Each stage is
+checked against what it actually produced — do the named files exist, do the
+frozen acceptance criteria pass when run, and only then is a separate model asked
+whether each requirement is addressed. Where that check cannot tell, it returns
+`unverifiable`, which is **not** a pass.
+
+**“It will spend money while I sleep.”**
+Per-agent budgets decline to dispatch past their cap and name the number. A run
+whose cost could not be measured reads `unmeasured` and holds nothing — a limit
+firing on a number nobody measured is worse than no limit, and a confident
+`$0.00` for unmeasured work is how a spend goes unnoticed.
+
+**“And then I'm locked in.”**
+One command to install, MIT, running on your machine against your own LLM
+account. Delete great_cto and the repository it built is still yours — ordinary
+Next.js, Postgres and Stripe that any engineer can pick up.
 
 ## What makes it different
 

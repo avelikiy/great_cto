@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Beschreibe ein Produkt. Genehmige zweimal. Erhalte die Software.**
+**Beschreibe ein Produkt. Genehmige drei Dinge. Öffne die URL.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -17,7 +17,7 @@ npx great-cto init
 
 </div>
 
-> Übersetzung des englischen [README](../../README.md), Stand **v2.90.0** (2026-07-30).
+> Übersetzung des englischen [README](../../README.md), Stand **v2.90.0** (2026-07-30). Die Anzahl der Freigaben wurde auf den aktuellen Standard (drei) aktualisiert.
 > Bei Abweichungen gilt die englische Fassung.
 
 ---
@@ -36,11 +36,15 @@ Du wirst genau zweimal angehalten: einmal bei **was gebaut wird**, einmal bei
         │
    🤖  Spezifikation · Architektur · Datenmodell · Screens
         ▼
-   👤  Checkpoint 1 — Design genehmigen
+   👤  Checkpoint 1 — WAS gebaut wird genehmigen
+        │
+   🤖  architecture · data model · screens
+        ▼
+   👤  Checkpoint 2 — WIE gebaut wird genehmigen
         │
    🤖  Scaffold → Backend → Frontend → Tests → Review → Security
         ▼
-   👤  Checkpoint 2 — Deploy genehmigen
+   👤  Checkpoint 3 — Deploy genehmigen
         │
    🤖  deployed · Repository · Live-URL
 ```

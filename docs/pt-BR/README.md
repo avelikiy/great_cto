@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Descreva um produto. Aprove duas vezes. Receba o software.**
+**Descreva um produto. Aprove três coisas. Abra a URL.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -17,7 +17,7 @@ npx great-cto init
 
 </div>
 
-> Tradução do [README](../../README.md) em inglês na versão **v2.90.0** (2026-07-30).
+> Tradução do [README](../../README.md) em inglês na versão **v2.90.0** (2026-07-30). O número de aprovações foi atualizado para o padrão atual (três).
 > Em caso de divergência, a versão em inglês é a canônica.
 
 ---
@@ -35,11 +35,15 @@ sobre **se vai ao ar**. Tudo entre esses dois pontos roda sem você.
         │
    🤖  spec · arquitetura · modelo de dados · telas
         ▼
-   👤  checkpoint 1 — aprovar o design
+   👤  checkpoint 1 — aprovar O QUE será construído
+        │
+   🤖  architecture · data model · screens
+        ▼
+   👤  checkpoint 2 — aprovar COMO será construído
         │
    🤖  scaffold → backend → frontend → testes → revisão → segurança
         ▼
-   👤  checkpoint 2 — aprovar o deploy
+   👤  checkpoint 3 — aprovar o deploy
         │
    🤖  no ar · repositório · URL ao vivo
 ```

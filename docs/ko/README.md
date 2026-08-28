@@ -2,7 +2,7 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**제품을 설명하세요. 두 번 승인하세요. 소프트웨어를 받으세요.**
+**제품을 설명하세요. 세 가지를 승인하세요. URL을 여세요.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
@@ -35,11 +35,15 @@ QA, security, devops — 로 이루어진 파이프라인이 실제 애플리케
         │
    🤖  스펙 · 아키텍처 · 데이터 모델 · 화면
         ▼
-   👤  체크포인트 1 — 설계 승인
+   👤  체크포인트 1 — 무엇을 만들지 승인
+        │
+   🤖  architecture · data model · screens
+        ▼
+   👤  체크포인트 2 — 어떻게 만들지 승인
         │
    🤖  스캐폴드 → 백엔드 → 프런트엔드 → 테스트 → 리뷰 → 보안
         ▼
-   👤  체크포인트 2 — 배포 승인
+   👤  체크포인트 3 — 배포 승인
         │
    🤖  배포 완료 · 저장소 · 라이브 URL
 ```
