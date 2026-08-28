@@ -121,6 +121,19 @@ step "css type scale" bash -c '
   node scripts/lib/css-type-scale.mjs packages/board/public/index.html
 '
 
+# The three checks above ask whether a declaration APPLIES, whether a token
+# RESOLVES, and whether the type scale is CONSISTENT — all questions about the
+# code. None asks whether the result can be read.
+#
+# A stylesheet in this project once used a colour token in 61 places and defined
+# it in none; every one fell through to a light-theme fallback and the densest
+# block on the page rendered at 2.62:1 against a 4.5:1 floor. A person found it
+# months later. This is arithmetic over the tokens as declared, so it needs no
+# browser and no judgement, and it runs in milliseconds.
+step "colour contrast (WCAG AA)" bash -c '
+  node --test tests/lib/contrast.test.mjs
+'
+
 # The verifier that checks the agents must itself be checked, and in both
 # directions. A verifier that only ever returns rework sends correct work back
 # forever and gets switched off within a day; one that only ever returns

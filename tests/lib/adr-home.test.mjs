@@ -29,8 +29,12 @@ const ADR_DIR = 'docs/adr';
 /** Files git tracks, minus the changelog, which records history and may name old paths. */
 function tracked() {
   const out = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' });
+  // This file is excluded from its own scan: it has to write the forbidden
+  // pattern down in order to forbid it. (Found the honest way — the test passed
+  // while it was untracked and failed the moment it was committed.)
+  const self = 'tests/lib/adr-home.test.mjs';
   return out.split('\n').filter((f) =>
-    f && f !== 'CHANGELOG.md' && !f.startsWith('.claude/worktrees/')
+    f && f !== 'CHANGELOG.md' && f !== self && !f.startsWith('.claude/worktrees/')
     && /\.(md|mjs|js|sh|toml|json)$/.test(f));
 }
 
