@@ -5,6 +5,13 @@
 // Produces:
 //   docs/reference/agents.md    — table of all agents/*.md (name, model, effort, description)
 //   docs/reference/commands.md  — table of all commands/*.md (command, model, args, description)
+//   docs/reference/skills.md    — table of all skills/*/SKILL.md (skill, description)
+//
+// Skills were the third kind of thing this project ships and the only one with no
+// reference page. Measured before adding it: of 35 skills, TWELVE appeared nowhere
+// in docs/ at all — ten vertical domain packs and two discovery skills — while
+// every one of 69 agents and 44 commands was documented. The gap was not twelve
+// missing paragraphs; it was a missing page.
 //
 // Usage:
 //   node scripts/gen-docs-reference.mjs            # (re)generate the reference pages
@@ -18,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { ROLES, ROLE_ORDER, roleForAgent } from '../shared/lifecycle-map.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const SKILLS_DIR = join(ROOT, 'skills');
 const AGENTS_DIR = join(ROOT, 'agents');
 const COMMANDS_DIR = join(ROOT, 'commands');
 const OUT_DIR = join(ROOT, 'docs', 'reference');
@@ -45,6 +53,70 @@ export function parseFrontmatter(content) {
 }
 
 const esc = (s) => String(s || '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+
+/**
+ * A skill is a DIRECTORY holding SKILL.md, not a flat file, so it needs its own
+ * reader rather than `readDefs`. Description lives in the same frontmatter.
+ */
+function readSkills(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => {
+      const file = join(dir, e.name, 'SKILL.md');
+      if (!existsSync(file)) return null;
+      const fm = parseFrontmatter(readFileSync(file, 'utf8'));
+      return { file: `${e.name}/SKILL.md`, name: fm.name || e.name, fm };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Grouped by what a skill IS, because 35 flat rows is a list nobody reads twice.
+ * The `vertical-*` prefix is a real convention in this repo — ten domain packs an
+ * agent loads when it works in that industry — and it carries the grouping.
+ */
+function renderSkills(defs) {
+  const verticals = defs.filter((d) => d.name.startsWith('vertical-'));
+  const rest = defs.filter((d) => !d.name.startsWith('vertical-'));
+  // First sentence only. A skill's `description` is written for a MODEL deciding
+  // whether to load it, so several run past 200 words — as table cells they made a
+  // reference nobody could scan. The full text stays in the skill, which is where
+  // someone who has decided to use it will be looking anyway.
+  const clean = (t) => {
+    const raw = String(t || '').replace(/^["']|["']$/g, '').trim();
+    const cut = raw.match(/^(.+?[.!?])(\s|$)/);
+    const one = (cut ? cut[1] : raw).trim();
+    return (one.length > 200 ? `${one.slice(0, 197)}…` : one).replace(/\|/g, '\\|');
+  };
+  const row = (d) => `| \`${d.name}\` | ${clean(d.fm.description) || '—'} |`;
+  return [
+    '# Reference — Skills',
+    '',
+    '> **Auto-generated** by `scripts/gen-docs-reference.mjs` from `skills/*/SKILL.md` frontmatter.',
+    '> Do not edit by hand — edit the skill and re-run the generator.',
+    '',
+    'A skill is knowledge an agent loads on demand, rather than a thing that runs.',
+    `${defs.length} in total: ${verticals.length} industry domain packs and ${rest.length} others.`,
+    '',
+    `## Industry domain packs (${verticals.length})`,
+    '',
+    'Loaded when a product is being built for that industry, so `architect` and `pm`',
+    'are not naive about the domain.',
+    '',
+    '| Skill | What it carries |',
+    '|---|---|',
+    ...verticals.map(row),
+    '',
+    `## Everything else (${rest.length})`,
+    '',
+    '| Skill | What it carries |',
+    '|---|---|',
+    ...rest.map(row),
+    '',
+  ].join('\n');
+}
 
 function readDefs(dir, { nameKey }) {
   return readdirSync(dir)
@@ -137,9 +209,11 @@ function renderCommands(defs) {
 export function generate() {
   const agents = readDefs(AGENTS_DIR, { nameKey: 'name' });
   const commands = readDefs(COMMANDS_DIR, { nameKey: 'name' }); // commands have no name → filename
+  const skills = readSkills(SKILLS_DIR);
   return {
     'agents.md': renderAgents(agents),
     'commands.md': renderCommands(commands),
+    'skills.md': renderSkills(skills),
   };
 }
 
