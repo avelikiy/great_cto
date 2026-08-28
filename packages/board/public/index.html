@@ -1389,7 +1389,16 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   background: var(--text3); flex-shrink: 0;
 }
 .pl-stage.idle .pl-name .dot { background: var(--text3); }
-.pl-stage.active .pl-name .dot { background: var(--status-progress); animation: pl-pulse 1.4s infinite; }
+/* Motion means the data is live.
+
+   A pulsing dot says "this is happening right now". Three stages pulsed on a
+   rail whose newest timestamp was 260 hours old — the strongest liveness signal
+   the design has, spent on work that stopped eleven days ago. The animation is
+   now gated on `.fresh`, which the renderer adds only when the stage's own
+   timestamp is inside the hour. An `active` stage that has not moved keeps its
+   colour and loses its heartbeat. */
+.pl-stage.active .pl-name .dot { background: var(--status-progress); }
+.pl-stage.active.fresh .pl-name .dot { animation: pl-pulse 1.4s infinite; }
 .pl-stage.done .pl-name .dot { background: var(--status-review); }
 .pl-stage.failed .pl-name .dot { background: var(--status-blocked); }
 @keyframes pl-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); } }
@@ -1471,7 +1480,19 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.pl-gate.active .pl-name .gate-glyph { animation: pl-pulse 1.4s infinite; }
+.pl-gate.active.fresh .pl-name .gate-glyph { animation: pl-pulse 1.4s infinite; }
+
+/* Reduced motion, declared AFTER the pulse rules on purpose.
+
+   It was first written into the reduced-motion block near the top of this file,
+   where `css-cascade` immediately reported it: same specificity as the two rules
+   above, and the later rule wins, so `animation: none` never applied and a reader
+   who had asked for less movement still got a pulsing dot. The check exists for
+   exactly this, and it caught it within the minute. */
+@media (prefers-reduced-motion: reduce) {
+  .pl-stage.active.fresh .pl-name .dot,
+  .pl-gate.active.fresh .pl-name .gate-glyph { animation: none; }
+}
 /* The gate with nothing pending is a node like any other idle stage — the tinted
    card is reserved for the state that actually holds the pipeline, so a clear
    gate stops out-shouting the stages that ran. */
@@ -1657,6 +1678,37 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 
 /* ── Resume card ──────────────────────────────────────────────────────── */
+/* Project status — one disclosure for everything the operator cannot act on. */
+.proj-status {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  margin: 10px 0 18px;
+}
+.proj-status-summary {
+  cursor: pointer;
+  padding: 11px 16px;
+  font-size: var(--fs-small);
+  color: var(--text2);
+  list-style: none;
+  display: flex; align-items: center; gap: 8px;
+}
+.proj-status-summary::-webkit-details-marker { display: none; }
+.proj-status-summary::before {
+  content: "\25B8";
+  color: var(--text3);
+  transition: transform 0.12s;
+}
+.proj-status[open] .proj-status-summary::before { transform: rotate(90deg); }
+.proj-status-summary:hover { color: var(--text); }
+.proj-status-summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.proj-status-body { padding: 0 16px 14px; }
+.proj-status-body .inbox-section { margin-top: 6px; }
+
 .resume-card {
   background: linear-gradient(135deg, rgba(0, 217, 126, 0.04), var(--surface-translucent));
   border: 1px solid rgba(0, 217, 126, 0.18);
@@ -2912,14 +2964,26 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     <div class="panel active" id="panel-inbox">
       <div class="inbox-page">
         <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
-        <div class="inbox-summary" id="inbox-summary"></div>
         <!-- Top rung of the evidence ladder: are the bytes that were reviewed
              still the bytes in the tree? Hidden while they match — and now only
              used for `differs`, the one reading that needs a decision. The other
              two speaking states render into #inbox-receipt-foot at the bottom of
              this page (see refreshReceipt). -->
         <div id="inbox-receipt" style="display:none;margin:6px 0 2px;font-size:var(--fs-small)"></div>
+        <!-- Everything below is STATUS, and status is not a decision.
 
+             Six of the seven blocks on this screen were read-only: a pipeline rail,
+             a resume card, two advisory notices, a strip of stat tiles. They sat
+             ABOVE the one item the operator could act on, under a headline promising
+             decisions. The rule the design spec states — a block earns the top of a
+             screen only if the operator can act on it now — puts all of it here,
+             one disclosure, closed by default.
+
+             Not deleted. "How is the project" is a real question; it is simply not
+             the question this screen is named after. -->
+        <details class="proj-status" id="proj-status">
+          <summary class="proj-status-summary">Project status</summary>
+          <div class="proj-status-body">
         <!-- Resume — pick up where you left off -->
         <div class="resume-card" id="resume-card" style="display:none">
           <div class="resume-head">
@@ -2944,6 +3008,20 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
             </div>
           </div>
         </div>
+        <div id="tool-failure-rate" style="display:none;font-size:var(--fs-small);color:var(--status-blocked,#f87171);background:rgba(248,113,113,0.08);padding:6px 10px;border-radius:6px;margin-bottom:10px;"></div>
+
+        <div class="inbox-section">
+          <div class="inbox-section-head">
+            <span class="dot dot-blue"></span>
+            <h3>Active pipeline</h3>
+            <span class="inbox-count" id="pipeline-status">idle</span>
+            <span class="tier-badge" id="tier-badge" title="change_tier for the current working-tree diff — which gates + judge open (ADR-003/004)"></span>
+          </div>
+          <div class="pipeline-track" id="pipeline-track"></div>
+        </div>
+          </div>
+        </details>
+
 
         <!-- Project archetype / compliance / phase used to be a full-width mono
              row here, between the KPI tiles and the pipeline. On a screen whose
@@ -2956,17 +3034,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              Not deleted: `PROJECT.md` is not in the Docs list, so compliance and
              phase would have become unreachable. -->
         <!-- Tool failure rate watchdog warning -->
-        <div id="tool-failure-rate" style="display:none;font-size:var(--fs-small);color:var(--status-blocked,#f87171);background:rgba(248,113,113,0.08);padding:6px 10px;border-radius:6px;margin-bottom:10px;"></div>
-
-        <div class="inbox-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-blue"></span>
-            <h3>Active pipeline</h3>
-            <span class="inbox-count" id="pipeline-status">idle</span>
-            <span class="tier-badge" id="tier-badge" title="change_tier for the current working-tree diff — which gates + judge open (ADR-003/004)"></span>
-          </div>
-          <div class="pipeline-track" id="pipeline-track"></div>
-        </div>
         <div class="inbox-section" id="inbox-gates-section">
           <div class="inbox-section-head">
             <span class="dot dot-purple"></span>
@@ -3506,24 +3573,9 @@ function renderInbox(d) {
       ? 'Nothing recorded yet for this project.'
       : `All clear — last activity ${relTime(new Date(Date.now() - newestEventAgeH * 3600e3).toISOString())}.`;
   }
-  // Only the tiles that have something in them.
-  //
-  // Four rendered unconditionally, and on an ordinary morning two of them read 0
-  // — half the header spending a quarter of the width each to say "nothing here".
-  // A zero is worth stating when it is the WHOLE answer, so the all-clear is one
-  // line instead of four boxes of noughts.
-  const TILES = [
-    { n: s.gates,   dot: 'purple', lbl: 'Pending decisions' },
-    { n: s.p0,      dot: 'red',    lbl: 'P0 open' },
-    { n: s.blocked, dot: 'orange', lbl: 'Blocked' },
-    { n: s.stale,   dot: 'amber',  lbl: 'Stale &gt; 48h' },
-  ];
-  const liveTiles = TILES.filter((t) => Number(t.n) > 0);
-  document.getElementById('inbox-summary').innerHTML = liveTiles.length
-    ? liveTiles.map((t) => `<div class="pill-stat"><span class="dot dot-${t.dot}"></span>`
-        + `<div><div class="num">${t.n}</div><div class="lbl">${t.lbl}</div></div></div>`).join('')
-    : `<div class="pill-stat" style="grid-column:1/-1"><span class="dot dot-green"></span>`
-      + `<div><div class="lbl">No gates, no P0s, nothing blocked or stale.</div></div></div>`;
+  // The stat-tile row is gone: two of its four boxes read 0 on an ordinary
+  // morning, and the two that did not repeated a count the section headings
+  // below already carry. The counts still reach the nav badge.
   renderInboxList('inbox-gates', d?.pending_gates || [], 'inbox-gates-count', { showApprove: true });
   // `implies` names the fact the section heading already states, so the rows
   // below it stop repeating that fact on every card. "P0 open" states the
@@ -4733,7 +4785,7 @@ function renderPipeline(stages) {
         ? `oldest ${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'}`
         : 'waiting';
       return `
-        <div class="pl-stage pl-gate active" title="Human gate — irreversible actions need a signature here. Click to see pending gates." onclick="drillToGates()">
+        <div class="pl-stage pl-gate active${(s.age_min != null && s.age_min < 60) ? ' fresh' : ''}" title="Human gate — irreversible actions need a signature here. Click to see pending gates." onclick="drillToGates()">
           <div class="pl-name"><span class="gate-glyph">✍</span>${label}<span class="gate-badge">${s.pending}</span></div>
           ${s.last_message ? `<div class="pl-msg">${esc(s.last_message)}</div>` : ''}
           <div class="pl-meta">${meta}</div>
@@ -4754,6 +4806,9 @@ function renderPipeline(stages) {
     // age, which is what the reader was looking at anyway.
     const msg = s.last_message ? `<div class="pl-msg">${esc(s.last_message)}</div>` : '';
     const meta = s.age_min != null ? `${s.age_min < 60 ? s.age_min + 'm' : Math.round(s.age_min/60)+'h'} ago` : '';
+    // Within the hour is live; anything older is a record of something that
+    // finished. Only the first earns the heartbeat.
+    const fresh = s.age_min != null && s.age_min < 60 ? ' fresh' : '';
     // A failed stage offered one affordance: filter the Kanban by it. That is
     // the same thing every other stage offers, and it is not what you want when
     // something broke. GitHub Actions puts "Re-run failed jobs" on the failure
@@ -4768,7 +4823,7 @@ function renderPipeline(stages) {
                   title="Copy the command that re-runs this stage">re-run</button>
         </div>` : '';
     return `
-      <div class="pl-stage ${s.status}" title="Click to filter Kanban by ${esc(s.stage)}" onclick="drillToStage('${esc(s.stage)}')">
+      <div class="pl-stage ${s.status}${fresh}" title="Click to filter Kanban by ${esc(s.stage)}" onclick="drillToStage('${esc(s.stage)}')">
         <div class="pl-name"><span class="dot"></span>${label}</div>
         ${msg}
         <div class="pl-meta">${meta || s.status}</div>
