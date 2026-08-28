@@ -1318,7 +1318,16 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   overflow-x: auto;
 }
 .pl-stage {
-  flex: 1; min-width: 100px;
+    /* `flex: 1` let a cell shrink below its own label, and `.pl-name` below
+       refuses to wrap — so the text simply ran over its neighbour. Measured at
+       1440px: three of ten labels overflowed, "12-angle review" needing 127px
+       inside an 80px cell. Box geometry hid it (getBoundingClientRect reports the
+       BOX, and the boxes were 20px apart while the ink was not), which is why it
+       read as a rendering quirk for so long.
+       `min-width: max-content` is the missing half of the decision recorded on
+       `.pl-name`: refusing to wrap is only honest if the row may overflow and
+       scroll, which `overflow-x: auto` on the track already allows. */
+    flex: 1 0 auto; min-width: max-content;
   position: relative;
   padding: 8px 10px 6px;
   display: flex; flex-direction: column; gap: 4px;
@@ -3420,6 +3429,9 @@ function greetByHour() {
 }
 
 function renderInbox(d) {
+  // Kept so renderResume can ask what this section is already showing, rather
+  // than the two of them rendering the same task independently.
+  window.__inboxData = d;
   inboxData = d || {};
   const s = d?.summary || { gates: 0, blocked: 0, p0: 0, stale: 0 };
   // `needs_you` counts distinct objects. Summing the three categories double-counted
@@ -3434,12 +3446,24 @@ function renderInbox(d) {
     ? "Some data could not be read — treat the counts below as incomplete."
     : (s.gates + s.p0 ? "Here's what needs your decision." : 'Nothing urgent — back to deep work.');
   document.getElementById('inbox-greet').textContent = `${greetByHour()} ${greetTail}`;
-  document.getElementById('inbox-summary').innerHTML = `
-    <div class="pill-stat"><span class="dot dot-purple"></span><div><div class="num">${s.gates}</div><div class="lbl">Pending decisions</div></div></div>
-    <div class="pill-stat"><span class="dot dot-red"></span><div><div class="num">${s.p0}</div><div class="lbl">P0 open</div></div></div>
-    <div class="pill-stat"><span class="dot dot-orange"></span><div><div class="num">${s.blocked}</div><div class="lbl">Blocked</div></div></div>
-    <div class="pill-stat"><span class="dot dot-amber"></span><div><div class="num">${s.stale}</div><div class="lbl">Stale &gt; 48h</div></div></div>
-  `;
+  // Only the tiles that have something in them.
+  //
+  // Four rendered unconditionally, and on an ordinary morning two of them read 0
+  // — half the header spending a quarter of the width each to say "nothing here".
+  // A zero is worth stating when it is the WHOLE answer, so the all-clear is one
+  // line instead of four boxes of noughts.
+  const TILES = [
+    { n: s.gates,   dot: 'purple', lbl: 'Pending decisions' },
+    { n: s.p0,      dot: 'red',    lbl: 'P0 open' },
+    { n: s.blocked, dot: 'orange', lbl: 'Blocked' },
+    { n: s.stale,   dot: 'amber',  lbl: 'Stale &gt; 48h' },
+  ];
+  const liveTiles = TILES.filter((t) => Number(t.n) > 0);
+  document.getElementById('inbox-summary').innerHTML = liveTiles.length
+    ? liveTiles.map((t) => `<div class="pill-stat"><span class="dot dot-${t.dot}"></span>`
+        + `<div><div class="num">${t.n}</div><div class="lbl">${t.lbl}</div></div></div>`).join('')
+    : `<div class="pill-stat" style="grid-column:1/-1"><span class="dot dot-green"></span>`
+      + `<div><div class="lbl">No gates, no P0s, nothing blocked or stale.</div></div></div>`;
   renderInboxList('inbox-gates', d?.pending_gates || [], 'inbox-gates-count', { showApprove: true });
   // `implies` names the fact the section heading already states, so the rows
   // below it stop repeating that fact on every card. "P0 open" states the
@@ -3492,10 +3516,18 @@ async function refreshReceipt() {
   if (!d || d.state === 'matches' || d.state === 'no-receipt') return;
 
   const stamp = d.agent ? `${esc(d.agent)}${d.ts ? ' · ' + relTime(d.ts) : ''}` : '';
+  // The FACT is one line; the file list is evidence for it.
+  //
+  // Four full paths printed inline wrapped the notice onto three lines and buried
+  // the sentence that matters — that the approval no longer describes the tree —
+  // under `docs/plans/PLAN-2026-08-17-gate-fail-closed.md`. The paths are still
+  // here, one click away: a reader who wants to act needs them, a reader deciding
+  // whether to care does not.
+  const changedFiles = [...(d.changed || []), ...(d.removed || [])];
   const body = d.state === 'differs'
-    ? `<b>${(d.changed || []).length + (d.removed || []).length} reviewed file(s) changed since ${stamp} approved</b>
+    ? `<b>${changedFiles.length} reviewed file(s) changed since ${stamp} approved</b>
        — the approval no longer describes what is in the tree.
-       <span class="muted">${esc((d.changed || []).slice(0, 4).join(', '))}${(d.changed || []).length > 4 ? ' …' : ''}</span>`
+       ${changedFiles.length ? `<details style="display:inline"><summary class="muted" style="display:inline;cursor:pointer">which files</summary><div class="muted" style="margin-top:4px">${esc(changedFiles.join(', '))}</div></details>` : ''}`
     : d.state === 'unreadable'
       ? `<b>Could not check the review receipt</b> — <span class="muted">${esc(d.why || '')}</span>. This is not the same as a clean tree.`
       : `${(d.added || []).length} file(s) added since ${stamp} approved; nothing reviewed was altered.`;
@@ -4341,7 +4373,25 @@ function summariseVerdict(v, raw) {
 function renderResume(d) {
   const card = document.getElementById('resume-card');
   if (!card) return;
-  const wip = d.wip_tasks || [];
+
+  // Whatever the Stale section is already showing does not need showing again.
+  //
+  // Measured on a real morning: three of the five stale rows also filled the
+  // "in progress" column here, so 60% of "pick up where you left off" was the
+  // list immediately below it. Both blocks were honest; together they made one
+  // fact look like two, which is the same arithmetic error as counting a task
+  // twice in the nav badge — just spent in vertical space instead of a number.
+  //
+  // Stale wins the duplicate because it says more: it carries the age, which is
+  // the reason the row deserves attention at all.
+  const shownElsewhere = new Set(
+    (window.__inboxData?.stale_in_progress || []).map((t) => t?.id).filter(Boolean));
+  const allWip = d.wip_tasks || [];
+  const wip = allWip.filter((t) => !shownElsewhere.has(t?.id));
+  // How many were dropped, so the empty column can say WHY it is empty. Rendering
+  // "Nothing in progress" over three tasks that are in progress — and listed a
+  // screen below — would be a worse lie than the duplication this removed.
+  const wipHiddenAsStale = allWip.length - wip.length;
   const verdicts = d.recent_verdicts || [];
   const decisions = d.decisions || [];
   const totalItems = wip.length + verdicts.length + decisions.length;
@@ -4373,7 +4423,11 @@ function renderResume(d) {
 
   // WIP column
   const wipEl = document.getElementById('resume-wip');
-  wipEl.innerHTML = wip.length ? wip.map(t => {
+  if (!wip.length && wipHiddenAsStale > 0) {
+    wipEl.innerHTML = `<div class="empty">${wipHiddenAsStale} in progress — all of them `
+      + `<a href="#" onclick="document.getElementById('inbox-stale')`
+      + `?.scrollIntoView({behavior:'smooth'});return false">stale, listed below</a></div>`;
+  } else wipEl.innerHTML = wip.length ? wip.map(t => {
     const tag = (t.agent || 'wip').slice(0, 12);
     return `<div class="resume-item" onclick="openSideById('${esc(t.id)}')">
       <span class="ri-tag">${esc(tag)}</span>

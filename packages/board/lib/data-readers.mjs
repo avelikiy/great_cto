@@ -114,8 +114,21 @@ function getPipeline(cwd = process.cwd()) {
   // signature. Surface that checkpoint AS A STAGE in the pipeline, sitting just
   // before the irreversible steps (devops/ship). It lights up when a gate is
   // awaiting a human — so the operator always sees where the rails are.
+  // Awaiting a signature and blocked are not the same thing, and this said they
+  // were. `getInbox`'s pendingGates excludes blocked gates — deliberately, and
+  // under test: in a tasks.md project a gate marked `blocked` carried raw_status
+  // 'open' and never left the inbox. This filter excluded only done/closed, so
+  // the same gate the tile reported as 0 PENDING DECISIONS was announced here as
+  // 1 GATE AWAITING SIGNATURE. Two counts of one concept, on one screen,
+  // disagreeing over a single word.
+  //
+  // Dropping it from the rail would have been the other wrong answer: a gate
+  // stuck for 29 days is exactly what the rail exists to show. It is still
+  // shown, and now it is named for what it is.
   const openGates = tasks.filter(t => t.is_gate && t.status !== 'done' && t.status !== 'closed' && t.raw_status !== 'closed');
-  const pending = openGates.length;
+  const blockedGates = openGates.filter(t => t.raw_status === 'blocked' || t.status === 'blocked');
+  const awaitingGates = openGates.filter(t => !blockedGates.includes(t));
+  const pending = awaitingGates.length;
   const newestGate = openGates.reduce((acc, t) => {
     const ts = t.updated_at || t.created_at; return (!acc || (ts && ts > acc)) ? ts : acc;
   }, null);
@@ -123,11 +136,15 @@ function getPipeline(cwd = process.cwd()) {
   const gateNode = {
     stage: 'human-gate',
     is_human_gate: true,
-    status: pending > 0 ? 'active' : 'idle',
+    // Blocked is not active: an active stage is one somebody can act on now.
+    status: pending > 0 ? 'active' : (blockedGates.length ? 'blocked' : 'idle'),
     pending,
+    blocked: blockedGates.length,
     last_message: pending > 0
       ? `${pending} gate${pending > 1 ? 's' : ''} awaiting signature`
-      : 'no gate pending',
+      : (blockedGates.length
+          ? `${blockedGates.length} gate${blockedGates.length > 1 ? 's' : ''} blocked`
+          : 'no gate pending'),
     verdict: null,
     ts: newestGate,
     age_min: gateAgeMs != null ? Math.round(gateAgeMs / 60000) : null,

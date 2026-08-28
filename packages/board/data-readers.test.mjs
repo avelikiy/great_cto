@@ -175,3 +175,43 @@ test('a pipeline with no verdicts at all still lists its stages', () => {
     assert.ok(getPipeline(dir).length > 0);
   } finally { clean(dir); }
 });
+
+// Two counts of one concept, on one screen, disagreeing over a single word.
+//
+// `getInbox` excludes blocked gates from pending_gates — deliberately, and the
+// test above pins it. `getPipeline` excluded only done/closed, so the gate the
+// Inbox tile reported as 0 PENDING DECISIONS was announced by the rail beside it
+// as 1 GATE AWAITING SIGNATURE. Both numbers were computed correctly; they were
+// answers to different questions wearing the same label.
+test('a blocked gate is shown as blocked, not as awaiting a signature', () => {
+  const dir = project({ tasks: `| id | title | status | owner |
+|--|--|--|--|
+| GATE-plan | gate:plan — review | blocked | CTO |
+` });
+  try {
+    const gate = getPipeline(dir).find((s) => s.is_human_gate);
+    assert.ok(gate, 'the human gate is always a stage, even with nothing pending');
+    assert.equal(gate.pending, 0, 'nobody can sign a blocked gate');
+    assert.equal(gate.blocked, 1, 'and it has not gone away either');
+    assert.match(gate.last_message, /blocked/);
+    assert.doesNotMatch(gate.last_message, /awaiting signature/);
+    assert.equal(gate.status, 'blocked', 'active means somebody can act on it now');
+
+    // The two surfaces now agree about this task.
+    assert.deepEqual(getInbox(dir).pending_gates, []);
+  } finally { clean(dir); }
+});
+
+test('a gate that really is awaiting still reads as awaiting', () => {
+  const dir = project({ tasks: `| id | title | status | owner |
+|--|--|--|--|
+| GATE-ship | gate:ship — release | open | CTO |
+` });
+  try {
+    const gate = getPipeline(dir).find((s) => s.is_human_gate);
+    assert.equal(gate.pending, 1);
+    assert.equal(gate.blocked, 0);
+    assert.equal(gate.status, 'active');
+    assert.match(gate.last_message, /awaiting signature/);
+  } finally { clean(dir); }
+});
