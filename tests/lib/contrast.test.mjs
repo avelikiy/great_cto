@@ -10,7 +10,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  parseColor, composite, luminance, ratio, readTokens, auditContrast, AA_TEXT, AA_LARGE,
+  parseColor, composite, luminance, ratio, readTokens, auditContrast, hardcodedColors,
+  AA_TEXT, AA_LARGE,
 } from '../../scripts/lib/contrast.mjs';
 
 test('the ratio matches the values WCAG publishes', () => {
@@ -102,4 +103,23 @@ test('the board reads at AA today, and says so from its own tokens', () => {
   assert.equal(results.length, 15);
   assert.deepEqual(
     failures.map((f) => `${f.token} ${f.ratio.toFixed(2)}:1 on ${f.on} (floor ${f.floor})`), []);
+});
+
+test('colours that bypass the token system are frozen, not forgiven', () => {
+  // 29 declarations write a hex straight into a rule instead of using a token:
+  // nine `#fff`, three `#0f1115`, and a scatter of status and badge colours.
+  // They are real debt — the contrast audit above cannot see them, because it
+  // reads `:root`, and they are not there.
+  //
+  // Frozen rather than fixed here: tokenising 29 declarations is its own change
+  // with its own review. What this stops is the number GROWING. A ratchet says
+  // out loud that the debt exists, which a silent allowance does not.
+  const FROZEN = 29;
+  const found = hardcodedColors(readFileSync('packages/board/public/index.html', 'utf8'));
+  assert.ok(found.length <= FROZEN,
+    `${found.length} hardcoded colour declarations, up from ${FROZEN} — ` +
+    `new ones must use a token: ${found.slice(FROZEN).map((f) => `${f.prop}: ${f.value}`).join(', ')}`);
+  if (found.length < FROZEN) {
+    assert.fail(`down to ${found.length} — lower FROZEN to ${found.length} so the ratchet keeps holding`);
+  }
 });

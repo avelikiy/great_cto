@@ -135,3 +135,22 @@ export function auditContrast({ tokens, surfaces, text, base = '--bg-page' }) {
   }
   return { results, failures: results.filter((r) => !r.ok), unknown: [...new Set(unknown)] };
 }
+
+/**
+ * Colour declarations that bypass the token system.
+ *
+ * Found by the browser check, which reported `rgb(4, 20, 13)` reaching the page
+ * — `#04140d`, written straight into a rule. That check could only see it when
+ * the element using it happened to be on screen, so it caught a real violation
+ * intermittently, which is the worst of both: a true finding delivered as a
+ * flake. The same fact is static, so it is read from the source instead, where
+ * the answer is the same every time.
+ *
+ * @returns {Array<{prop:string, value:string}>}
+ */
+export function hardcodedColors(css) {
+  const out = [];
+  const re = /(?:^|[;{\s"'])(color|background|background-color|border-color|fill|stroke)\s*:\s*(#[0-9a-fA-F]{3,8})/g;
+  for (const m of String(css).matchAll(re)) out.push({ prop: m[1], value: m[2].toLowerCase() });
+  return out;
+}

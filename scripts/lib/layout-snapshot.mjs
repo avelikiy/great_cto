@@ -104,46 +104,59 @@ export async function snapshot(url, { width = 1440, height = 900, settleMs = 250
 }
 
 /**
- * Compare a signature against a baseline.
+ * Which rendered values are not on the design system's own lists.
  *
- * EACH FIELD IS CHECKED IN ONE DIRECTION, AND THE DIRECTION IS THE POINT.
+ * THIS REPLACED A SNAPSHOT, AND THE REASON IS THE POINT.
  *
- * This was got wrong on the first attempt and the test caught it: the baseline
- * held `rgb(124, 58, 237)`, a status colour, and the next run did not — not
- * because anything regressed, but because no item with that status happened to
- * be on screen. Colours and type sizes appear only when something that uses them
- * renders, so their ABSENCE is a fact about the machine's data and their
- * PRESENCE is a fact about the design.
+ * The first version recorded the sizes and colours that HAPPENED to render and
+ * failed when the next run differed. It went red within the hour on
+ * `fontSizes: newly rendered — 36px` — and 36px is `--fs-num-l`, a declared step
+ * of the twelve-step ramp. It renders only when a metric tile with a large
+ * numeral is on screen, which depends on the machine's data.
  *
- *   fontSizes   a NEW size fails — raw sizes creeping back past the scale
- *   colors      a NEW colour fails — a value rendered off the palette
- *   anchors     a MISSING id fails — a structural element stopped rendering;
- *               a new one is a feature being built, and failing on it would
- *               make every addition a red build
- *   viewport    drift beyond tolerance fails, either way — a blow-out
+ * So the test failed on correct behaviour: a false accusation, which is the
+ * thing that teaches people to switch a check off. The mistake underneath was
+ * making the baseline a fact about one machine's data rather than about the
+ * design.
  *
- * What is only informational still comes back, under `notes`, so a reviewer can
- * see it without the build going red over the shape of somebody's task list.
+ * A rendered value belongs if the stylesheet DECLARES it. That is
+ * data-independent, needs no baseline, and still catches the defect this exists
+ * for — a raw size or an off-palette colour reaching the page, which is exactly
+ * what 246 hand-edited font sizes could have left behind.
  *
- * @returns {{ok:boolean, diffs:string[], notes:string[]}}
+ * @param {object} signature   from snapshot()
+ * @param {{sizes:string[], colors:Array<{r,g,b}>}} declared
+ * @returns {{ok:boolean, offScale:string[], offPalette:string[]}}
+ */
+export function checkAgainstTokens(signature, declared) {
+  const sizes = new Set(declared.sizes || []);
+  const offScale = (signature.fontSizes || []).filter((s) => !sizes.has(s));
+
+  const key = (c) => `${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)}`;
+  const palette = new Set((declared.colors || []).map(key));
+  const offPalette = (signature.colors || []).filter((raw) => {
+    const m = String(raw).match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+    if (!m) return false;                       // unparseable is unknown, not guilty
+    return !palette.has(key({ r: +m[1], g: +m[2], b: +m[3] }));
+  });
+
+  return { ok: offScale.length === 0 && offPalette.length === 0, offScale, offPalette };
+}
+
+/**
+ * Compare the STRUCTURAL half of a signature against a baseline.
+ *
+ * Only what does not move with the data lives here. Anchors are checked for
+ * what DISAPPEARED — a structural element stopped rendering — and never for what
+ * appeared, because a new id is a section being built and failing on it would
+ * make every addition a red build.
+ *
+ * @returns {{ok:boolean, diffs:string[]}}
  */
 export function compare(baseline, current, { scrollTolerance = 0.05 } = {}) {
   const diffs = [];
-  const notes = [];
-  const added = (was, now) => now.filter((x) => !was.includes(x));
-  const gone = (was, now) => was.filter((x) => !now.includes(x));
-
-  for (const field of ['fontSizes', 'colors']) {
-    const was = baseline[field] || [];
-    const now = current[field] || [];
-    const plus = added(was, now);
-    const minus = gone(was, now);
-    if (plus.length) diffs.push(`${field}: newly rendered — ${plus.join(', ')}`);
-    if (minus.length) notes.push(`${field}: not on screen this run — ${minus.join(', ')}`);
-  }
-
-  const anchorsGone = gone(baseline.anchors || [], current.anchors || []);
-  if (anchorsGone.length) diffs.push(`anchors: no longer rendered — ${anchorsGone.join(', ')}`);
+  const gone = (baseline.anchors || []).filter((a) => !(current.anchors || []).includes(a));
+  if (gone.length) diffs.push(`anchors: no longer rendered — ${gone.join(', ')}`);
 
   const b = baseline.viewport || {};
   const c = current.viewport || {};
@@ -152,5 +165,16 @@ export function compare(baseline, current, { scrollTolerance = 0.05 } = {}) {
     const drift = Math.abs(c[k] - b[k]) / Math.max(b[k], 1);
     if (drift > scrollTolerance) diffs.push(`${k}: ${b[k]} → ${c[k]} (${Math.round(drift * 100)}% drift)`);
   }
-  return { ok: diffs.length === 0, diffs, notes };
+  return { ok: diffs.length === 0, diffs };
+}
+
+/** The type ramp and colour palette a stylesheet DECLARES, for checkAgainstTokens. */
+export function declaredTokens(css, parseColor) {
+  const sizes = [...new Set([...String(css).matchAll(/--fs-[a-z0-9-]+:\s*([0-9.]+px)/gi)].map((m) => m[1]))];
+  const colors = [];
+  for (const [, value] of String(css).matchAll(/--[a-z0-9-]+:\s*(#[0-9a-f]{3,8}|rgba?\([^)]*\))/gi)) {
+    const c = parseColor(value);
+    if (c) colors.push(c);
+  }
+  return { sizes, colors };
 }
