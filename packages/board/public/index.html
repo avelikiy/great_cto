@@ -1679,6 +1679,22 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
 /* ── Resume card ──────────────────────────────────────────────────────── */
 /* Project status — one disclosure for everything the operator cannot act on. */
+/* Focus, visible against every surface it can land on.
+
+   Queue rows became keyboard-reachable and the buttons on them are real buttons,
+   but nothing drew a ring — so a keyboard user could reach a row and not see
+   where they were. `outline-offset: 2px` is not decoration: `.gate-approve` is a
+   filled green button, and a ring drawn ON that fill disappears into it. Offset
+   puts the ring on the surface behind, where it keeps its contrast. */
+.inbox-row:focus-visible,
+.gate-btn:focus-visible,
+.ac-btn:focus-visible,
+.ac-primary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 /* Reason chip — why a row is in the queue, carried by the row itself. */
 .why {
   display: inline-block;
@@ -3584,6 +3600,31 @@ function renderInbox(d) {
   // The stat-tile row is gone: two of its four boxes read 0 on an ordinary
   // morning, and the two that did not repeated a count the section headings
   // below already carry. The counts still reach the nav badge.
+  renderQueue(d);
+  refreshStandDowns();
+  refreshReceipt();
+  refreshBudgetLine();
+  // Idle focus: collapse the empty sections into one all-clear card when nothing needs a decision.
+  const attention = (d?.pending_gates || []).length + (d?.p0_open || []).length
+    + (d?.blocked || []).length + (d?.stale_in_progress || []).length;
+  const ac = document.getElementById('inbox-allclear');
+  // "All clear" is a claim about the data, so it may only be made when the data
+  // was actually read. With an unreadable tasks.md every one of these counts is
+  // zero and the card used to headline "Nothing needs your decision" — maximum
+  // confidence at exactly the moment we knew least. Absence of findings is not
+  // a finding of absence.
+  if (ac) ac.style.display = (attention === 0 && !anyDegraded()) ? '' : 'none';
+  renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
+    'Some project data could not be read — counts below are incomplete.');
+}
+
+/**
+ * The one queue. Extracted from renderInbox because the receipt fetch finishes
+ * AFTER the first render and has to put its row in — and calling renderInbox from
+ * refreshReceipt, which renderInbox itself calls, is an infinite loop. Rendering
+ * only the list it needs to change is both correct and cheaper.
+ */
+function renderQueue(d) {
   // One queue. The reason an item is here travels ON the item, so it survives the
   // item changing buckets — the failure that made an expired gate unreadable when
   // it dropped out of `pending_gates`.
@@ -3607,6 +3648,9 @@ function renderInbox(d) {
       return dd == null ? 'stale' : `stale ${dd}d`;
     }),
   ];
+  // The receipt-drift row, when there is one. It is not a task, so it arrives as
+  // a synthetic item rather than from any bucket.
+  if (window.__receiptDrift) queue.push(window.__receiptDrift);
   // Gates first — a signature is owed. Then oldest first, because the
   // longest-ignored row is what a triage list is read for.
   queue.sort((a, b) => {
@@ -3618,21 +3662,6 @@ function renderInbox(d) {
     return bh - ah;
   });
   renderInboxList('inbox-queue', queue, 'inbox-queue-count', { reasons: true });
-  refreshStandDowns();
-  refreshReceipt();
-  refreshBudgetLine();
-  // Idle focus: collapse the empty sections into one all-clear card when nothing needs a decision.
-  const attention = (d?.pending_gates || []).length + (d?.p0_open || []).length
-    + (d?.blocked || []).length + (d?.stale_in_progress || []).length;
-  const ac = document.getElementById('inbox-allclear');
-  // "All clear" is a claim about the data, so it may only be made when the data
-  // was actually read. With an unreadable tasks.md every one of these counts is
-  // zero and the card used to headline "Nothing needs your decision" — maximum
-  // confidence at exactly the moment we knew least. Absence of findings is not
-  // a finding of absence.
-  if (ac) ac.style.display = (attention === 0 && !anyDegraded()) ? '' : 'none';
-  renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
-    'Some project data could not be read — counts below are incomplete.');
 }
 
 /**
@@ -3693,11 +3722,37 @@ async function refreshReceipt() {
   //
   // Moved, not removed: same wording, same detail, same page, still unmissable
   // if you read to the bottom, and it still never renders as "checked and fine".
+  // `differs` now becomes a ROW IN THE QUEUE rather than a line above it.
+  //
+  // The queue exists so that everything asking for the operator is in one place.
+  // A purple line floating above it was a second place — smaller, but a reader
+  // still had to notice it separately and decide whether it counted. It carries
+  // the chip `review drift`, sorts with everything else, and is reachable by
+  // keyboard like any other row.
+  //
+  // `unreadable` and `extended` stay in the footer. "Cannot check" is true and
+  // careful and asks for nothing; putting it in a queue named for what needs you
+  // would be the overclaim this whole screen has been unwinding.
   const actionable = d.state === 'differs';
-  const host = actionable ? el : (foot || el);
-  const colour = actionable ? 'var(--status-gate)' : 'var(--text3)';
-  host.style.display = '';
-  host.innerHTML = `<span style="color:${colour}">${body}</span>`;
+  if (actionable) {
+    el.style.display = 'none';
+    window.__receiptDrift = {
+      id: 'receipt',
+      title: `${changedFiles.length} reviewed file(s) changed after approval`,
+      desc: body,
+      updated_at: d.ts || null,
+      __reason: 'review drift',
+      __synthetic: true,
+    };
+  } else {
+    window.__receiptDrift = null;
+    const host = foot || el;
+    host.style.display = '';
+    host.innerHTML = `<span style="color:var(--text3)">${body}</span>`;
+  }
+  // The queue was rendered before this fetch returned, so it has to be rebuilt
+  // with the row in it. Silent if the Inbox is not the open panel.
+  if (window.__inboxData) renderQueue(window.__inboxData);
 }
 
 /**
