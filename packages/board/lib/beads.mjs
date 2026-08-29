@@ -682,7 +682,22 @@ function getReadDegradation(cwd = process.cwd()) {
   // tasks.md first: if that file exists and is broken, that is the specific
   // problem. Otherwise report bd's failure, which until now was swallowed — the
   // board answered "no tasks" for a project whose database bd refused to open.
-  return readDegradation.get(cwd) || bdFailureFor(cwd) || null;
+  const fromTasksMd = readDegradation.get(cwd);
+  if (fromTasksMd) return fromTasksMd;
+
+  // A project that never ran `bd init` has no beads store to fail. bd still
+  // reports its absence as an error, and reporting THAT as a degradation put a
+  // permanent "counts are incomplete" banner over complete counts on every
+  // project that tracks tasks in tasks.md — a supported source, not a fallback
+  // of last resort. Absent and broken are different states; this file already
+  // draws that line for tasks.md ("Missing is a normal state") and now draws it
+  // for beads too.
+  //
+  // Deliberately narrow: an existing .beads/ that bd cannot open is still a
+  // defect and is still reported. Only absence is forgiven.
+  if (checkBeadsAvailable(cwd)) return null;
+
+  return bdFailureFor(cwd) || null;
 }
 
 function parseTasksMd(cwd) {

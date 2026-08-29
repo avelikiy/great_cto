@@ -58,7 +58,11 @@ checking each stage's work before the next one builds on it.
 ```
 
 <p align="center">
-  <img src="docs/screenshots/board.png" alt="The board's Metrics screen — tasks shipped, measured AI spend, median cycle time, QA pass rate, and per-agent budget caps" width="900" />
+  <img src="docs/screenshots/board.png" alt="The board's Tasks screen — gates awaiting a decision, backlog, work in progress, done and blocked, each card showing the agent that owns it" width="900" />
+</p>
+
+<p align="center">
+  <img src="docs/tapes/ci.gif" alt="Terminal: npx great-cto register adds the project to the board's switcher, then npx great-cto ci checks the declared archetype against the code and the monthly budget, and passes" width="900" />
 </p>
 
 The board at `localhost:3141` fills itself in — pipeline state, pending gates,

@@ -27,6 +27,14 @@ function getMemory(cwd = process.cwd()) {
   ];
   const result = layers.map(l => ({
     ...l,
+    // `path` opens the file; `displayPath` is what a person — or a README
+    // screenshot — sees. An absolute path here names the operator's home
+    // directory and username: fine in a local tool, wrong the moment the screen
+    // is photographed. The layer already knows its scope, so the display form is
+    // derived rather than guessed.
+    displayPath: l.scope === 'global'
+      ? path.join('~', path.relative(home, l.path)).split(path.sep).join('/')
+      : path.relative(cwd, l.path).split(path.sep).join('/'),
     content: readFileSafe(l.path),
     exists: fs.existsSync(l.path),
     size: fs.existsSync(l.path) ? fs.statSync(l.path).size : 0,

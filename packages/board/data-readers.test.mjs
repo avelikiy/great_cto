@@ -215,3 +215,40 @@ test('a gate that really is awaiting still reads as awaiting', () => {
     assert.match(gate.last_message, /awaiting signature/);
   } finally { clean(dir); }
 });
+
+// ── What a path looks like on screen ────────────────────────────────────────
+//
+// The Memory list printed the absolute path of every layer, which on this
+// machine begins with the operator's home directory and their username. That is
+// fine in a local tool and wrong the moment the screen is photographed for the
+// README — and the README has carried board screenshots since v2.x.
+//
+// The layer already knows whether it is project-local or global, so the display
+// form is derivable rather than guessed: project paths are shown relative to the
+// project, global ones under `~/.great_cto/`. `path` stays absolute because that
+// is what opens the file.
+test('a layer carries a display path that names no home directory', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'memdisp-'));
+  fs.mkdirSync(path.join(dir, '.great_cto'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.great_cto', 'PROJECT.md'), '# p\n');
+
+  const layers = getMemory(dir).layers ?? getMemory(dir);
+  const list = Array.isArray(layers) ? layers : layers.layers;
+
+  const proj = list.find((l) => l.id === 'project');
+  const glob = list.find((l) => l.scope === 'global');
+
+  assert.equal(proj.displayPath, '.great_cto/PROJECT.md',
+    'a project layer is shown relative to the project it belongs to');
+  assert.ok(glob.displayPath.startsWith('~/.great_cto/'),
+    `a global layer is shown under ~, got ${glob.displayPath}`);
+
+  const home = os.homedir();
+  for (const l of list) {
+    assert.ok(!String(l.displayPath).includes(home),
+      `${l.id} shows the home directory: ${l.displayPath}`);
+    assert.ok(!/^\/Users\/|^\/home\/|^[A-Z]:\\Users\\/.test(String(l.displayPath)),
+      `${l.id} shows an absolute user path: ${l.displayPath}`);
+  }
+  assert.ok(path.isAbsolute(proj.path), 'the real path stays absolute — it is what opens the file');
+});

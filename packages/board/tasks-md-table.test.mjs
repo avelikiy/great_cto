@@ -334,3 +334,35 @@ test('a truncated title never ends inside a markdown link', () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }
 });
+
+// ── A working fallback is not a failure ─────────────────────────────────────
+//
+// Found by photographing the board against a fixture project that tracks tasks
+// in tasks.md and has never run `bd init`. The board read the file, listed all
+// eight tasks — and headlined "Some data could not be read — treat the counts
+// below as incomplete", because bd's absence was reported as a degradation.
+//
+// The counts were complete. tasks.md is a supported source, not a consolation
+// prize, so a project that uses it saw a permanent error banner over correct
+// data. Absent and broken are different states, and this file already says so
+// about tasks.md itself: "Missing is a normal state."
+//
+// An existing store that bd cannot open is still a defect and still reported.
+test('an uninitialised beads store is a normal state, not a read failure', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tasksmd-nobd-'));
+  mkdirSync(join(dir, '.great_cto'), { recursive: true });
+  writeFileSync(join(dir, '.great_cto', 'tasks.md'), [
+    '| id | title | size | horizon | status | owner |',
+    '|----|-------|------|---------|--------|-------|',
+    '| a-1 | Checkout idempotency | M | H1 | in_progress | senior-dev |',
+    '| a-2 | Refund totals | S | H1 | open | senior-dev |',
+  ].join('\n') + '\n');
+
+  const tasks = parseTasksMd(dir);
+  assert.equal(tasks.length, 2, 'the fallback supplied the tasks');
+  assert.ok(!fs.existsSync(join(dir, '.beads')), 'and beads was never initialised here');
+
+  assert.equal(getReadDegradation(dir), null,
+    'a project that tracks tasks in tasks.md and never ran `bd init` is healthy — '
+    + 'reporting complete counts as incomplete is the same substitution, inverted');
+});

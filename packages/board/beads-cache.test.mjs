@@ -7,6 +7,9 @@
 // real `bd` binary.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { bdList, bdFailureFor, getReadDegradation, BD_CACHE_TTL_MS } from './lib/beads.mjs';
 import { bdCache } from './lib/state.mjs';
 
@@ -138,7 +141,13 @@ test('a later success clears the recorded reason', () => {
 });
 
 test('the degradation channel reports it, so /api/tasks can label the response', () => {
-  const cwd = '/tmp/gcto-test-degradation';
+  // The directory and its `.beads/` are real, because the claim is "bd FAILED on
+  // a project that uses beads" — not "bd is absent from a project that does not".
+  // The fixture used to be a path that did not exist, so it modelled the second
+  // while asserting the first; a project that never ran `bd init` now reads as
+  // healthy, and this test would have passed for the wrong reason.
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-degradation-'));
+  fs.mkdirSync(path.join(cwd, '.beads'), { recursive: true });
   bdList(cwd, fail());
   assert.match(getReadDegradation(cwd) || '', /locked/);
 });

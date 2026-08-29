@@ -5564,12 +5564,18 @@ async function loadContextLayers() {
   }
 
   const layers = (m.layers || []).map(l => {
-    const global = String(l.path || '').includes('/.great_cto/') && !String(l.path || '').includes(projectRootHint());
-    const where = global ? ' <span class="muted" style="font-size:var(--fs-caption)">shared by every project</span>' : '';
+    // The reader sees `displayPath` — `.great_cto/PROJECT.md`, or `~/.great_cto/…`
+    // for a shared layer. The absolute path stays behind openDoc(), because it
+    // names this machine's home directory and username and this screen is
+    // photographed for the README. `scope` comes from the server, which knows;
+    // this used to be guessed by matching the breadcrumb text against the path.
+    const shared = l.scope === 'global';
+    const where = shared ? ' <span class="muted" style="font-size:var(--fs-caption)">shared by every project</span>' : '';
+    const shown = l.displayPath || l.name || l.id;
     return l.exists
       ? `<div style="padding:4px 0;border-bottom:1px solid var(--border,#eee)">
            <a href="#" onclick="openDoc('${esc(l.path)}');return false">${esc(l.id)}</a>${where}
-           <span class="muted" style="font-size:var(--fs-caption)"> · ${esc(l.path)}</span></div>`
+           <span class="muted" style="font-size:var(--fs-caption)"> · ${esc(shown)}</span></div>`
       : `<div style="padding:4px 0;border-bottom:1px solid var(--border,#eee)" class="muted">
            ${esc(l.id)} — not written yet${where}</div>`;
   }).join('');
@@ -5583,12 +5589,6 @@ async function loadContextLayers() {
     </div>` + (pats ? `<div class="card">
       <b>Learned patterns</b> <span class="muted">${(m.patterns || []).length} — failures seen often enough to be written down</span>
       <div style="margin-top:8px">${pats}</div></div>` : '');
-}
-
-/** The selected project's root, for telling a shared layer from a local one. */
-function projectRootHint() {
-  const crumb = document.querySelector('.crumb-project, #crumb-project');
-  return (crumb && crumb.textContent || '').trim() || '\u0000';
 }
 
 /** The pipeline as boxes and gates — no diagram library, so it always renders. */
@@ -6486,7 +6486,11 @@ function cardHTML(t) {
   const pIdx = t.priority ?? 3;
   const pClass = `p${pIdx}`;
   const pLabel = PRIORITY_LABEL[pIdx];
-  const labels = (t.labels || []).filter(l => l !== 'gate');
+  // The agent is stored in BOTH `agent` and `labels` — deliberately, so filtering
+  // by label finds it — and the card drew a chip from each, so every card carried
+  // its owner's name twice. Keep the data; draw it once. The agent chip is the
+  // one that stays, because it is the one that is styled as an owner.
+  const labels = (t.labels || []).filter(l => l !== 'gate' && l !== t.agent);
   const isGate = !!t.is_gate || (t.labels || []).includes('gate');
   // raw_status reflects bd's actual status (open/in_progress/closed/blocked) —
   // mapStatus() returns 'gate' for gate-labeled cards regardless, so we need
