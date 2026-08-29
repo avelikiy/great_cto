@@ -9,6 +9,7 @@ import {
 import { GREAT_CTO_DIR, PUSH_SUBS_FILE, VAPID_KEYS_FILE, VAPID_SUBJECT, BUILD_VERSION } from './config.mjs';
 import { _reportRepublishDedupeSet } from './state.mjs';
 import { recurrence } from './alert-recurrence.mjs';
+import { waitingOnYou, dedupeKeyFor } from '../../../scripts/lib/waiting-on-you.mjs';
 import { listProjects, readProjectMd } from './projects.mjs';
 import { addNotification } from './notifications.mjs';
 import { getMetrics } from './metrics.mjs';
@@ -251,26 +252,42 @@ function startAlertCron() {
       const projects = listProjects();
       for (const proj of projects) {
         const tasks = getTasks(proj.path, SWEEP);
-        const gates = tasks.filter(t => t.is_gate && t.raw_status !== 'closed' && t.raw_status !== 'blocked');
-        for (const g of gates) {
-          const created = new Date(g.created_at || g.updated_at || 0).getTime();
-          const ageHr = (Date.now() - created) / 3600_000;
-          if (ageHr < 2 || ageHr > 24 * 7) continue;
-          const dedupeKey = `gate.stale:${proj.slug}:${g.id}`;
+        // Which gates are waiting, and for how long — the same reader the console
+        // hook uses, so the two surfaces cannot tell you different things about
+        // the same gate. See scripts/lib/waiting-on-you.mjs.
+        //
+        // Two silencers were removed here, and each is worth naming because each
+        // was reasonable alone and together they produced total silence:
+        //
+        //   · `raw_status !== 'blocked'` — but gate-expiry MARKS a gate blocked at
+        //     72h, so this hid precisely the gates that had waited longest.
+        //   · `ageHr > 24 * 7 → skip`, on the grounds that a gate open past a week
+        //     is "abandoned, not stale". A decision nobody has made does not get
+        //     less urgent by ageing; every stage behind it is still stopped.
+        //
+        // Measured before this change: six gate.stale alerts in the tool's
+        // lifetime, most recent 41 days old, over a period that contained a gate
+        // sitting open for 29 days.
+        const waiting = waitingOnYou(tasks, { limit: Infinity });
+        for (const g of waiting.items) {
+          const ageHr = g.ageHours;
+          // The period lives in the key, so the same dedupe machinery that
+          // silenced this forever now repeats it daily, then weekly.
+          const dedupeKey = dedupeKeyFor(proj.slug, g);
           // How often this has happened here. A threshold says the gate is old;
           // only the history says whether old gates are this project's normal
           // state. Both readings come from the same file — one as a dedupe set,
           // this one as history.
           const seen = recurrence(readAlertsHistory(), { event: 'gate.stale', project: proj.slug });
           const stalePayload = {
-            title: `${proj.slug} — ${g.title.slice(0, 60)} pending ${ageHr.toFixed(1)}h`,
-            body: `A gate has been waiting for your approval for ${ageHr.toFixed(1)} hours.\n\n${seen.sentence}\n\nGate: ${g.id}\nProject: ${proj.slug}`,
+            title: `${proj.slug} — ${g.title.slice(0, 60)} · ${g.why}`,
+            body: `${g.why}. Nothing downstream of it can move.\n\n${seen.sentence}\n\nGate: ${g.id}\nProject: ${proj.slug}`,
             level: 'warning',
             project: proj.slug,
             link: `http://localhost:3141/?project=${encodeURIComponent(proj.slug)}&task=${encodeURIComponent(g.id)}#inbox`,
             action: 'Approve in board',
             kv: {
-              gate: g.id, agent: g.agent || 'unknown', age: `${ageHr.toFixed(1)}h`,
+              gate: g.id, age: `${ageHr}h`, cadence: g.cadence,
               // `unknown` is carried through rather than rendered as 0 — a count
               // nobody took is not a count of none.
               seen_before: seen.count === null ? 'unknown' : `${seen.atLeast ? '\u2265' : ''}${seen.count}`,

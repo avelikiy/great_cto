@@ -105,6 +105,36 @@ export function resumeBrief(decision, position) {
   ].filter(Boolean).join('\n');
 }
 
+/**
+ * The one-line "what is waiting on you", read from the board.
+ *
+ * The board computes it with `waitingOnYou` (scripts/lib/waiting-on-you.mjs), so
+ * the console and the Inbox cannot drift into telling you different things about
+ * the same gate. Returns null when the board is not up or answers slowly — this
+ * is a hint channel, and a hint that guesses is worse than no hint.
+ */
+async function waitingLine() {
+  const port = process.env.GREAT_CTO_BOARD_PORT || '3141';
+  let tasks;
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/tasks?project=${encodeURIComponent(process.cwd())}`,
+      { signal: AbortSignal.timeout(400) });
+    if (!r.ok) return null;
+    const body = await r.json();
+    tasks = Array.isArray(body) ? body : body.tasks;
+  } catch { return null; }
+  if (!Array.isArray(tasks)) return null;
+
+  const { waitingOnYou } = await import('../lib/waiting-on-you.mjs');
+  const w = waitingOnYou(tasks);
+  if (w.state !== 'waiting') return null;
+
+  const rows = w.items.map((i) => `  · ${i.id} — ${i.title} (${i.why})`);
+  if (w.hidden) rows.push(`  · …and ${w.hidden} more`);
+  return [`PIPELINE: ${w.line}`, ...rows,
+    'Open the board to approve, or say what you want to do about the oldest one.'].join('\n');
+}
+
 async function main() {
   if (process.env.GREAT_CTO_DISABLE_SESSION_RESUME === '1') return 0;
   if (!existsSync(PROJ_DIR) || !existsSync(join('shared', 'pipeline.toml'))) return 0;
@@ -128,6 +158,18 @@ async function main() {
   const woken = readWake(process.cwd());
 
   if (!woken.pending && (age === null || age > IN_FLIGHT_MS)) {
+    // Before going quiet: a stage older than a day is history, but a GATE older
+    // than a day is not. It is a decision nobody has made, and every stage after
+    // it is stopped behind it. Three mechanisms each decided that old work stops
+    // being mentioned, and together they produced total silence — measured at six
+    // gate.stale alerts in the tool's lifetime, the most recent 41 days old.
+    //
+    // Cheap on purpose: the board already knows and is already running, so this
+    // is one localhost request with a short timeout, not the 533ms of shelling
+    // out to `bd` that this shortcut exists to avoid. If the board does not
+    // answer, this says nothing rather than guessing.
+    const line = await waitingLine();
+    if (line) { console.error(line); trace('waiting', line); return 0; }
     trace('idle', age === null ? 'no verdicts recorded' : `newest stage is ${Math.round(age / 3600_000)}h old — history, not work waiting`);
     return 0;
   }
