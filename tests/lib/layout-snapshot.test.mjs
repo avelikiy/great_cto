@@ -89,7 +89,13 @@ test('the shipped board still renders its baseline', { timeout: 120_000 }, async
   // say "checked and fine", which is the lie this repository keeps deleting.
   if (!(await loadBrowser())) return t.skip('playwright not installed — not checked, not passed');
 
-  const server = spawn('node', ['packages/board/server.mjs'], {
+  // `--no-open` is not cosmetic. Without it server.mjs calls spawnSync on the
+  // platform's browser opener INSIDE the listen callback, blocking the event
+  // loop while the browser starts: the port is open and the page answers
+  // nothing, and this test times out on page.goto. It also opened a real tab on
+  // the operator's screen, at a pid-derived port, on every CI run — which is
+  // where the mystery `localhost:32xx` tabs were coming from.
+  const server = spawn('node', ['packages/board/server.mjs', '--no-open'], {
     env: { ...process.env, PORT: String(PORT) },
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
@@ -150,7 +156,13 @@ test('the whole board is on-system: every screen, every theme', { timeout: 240_0
   const panels = [...new Set([...html.matchAll(/id="panel-([a-z-]+)"/g)].map((m) => m[1]))];
   assert.ok(panels.length >= 10, `expected the board's screens, found ${panels.length}`);
 
-  const server = spawn('node', ['packages/board/server.mjs'], {
+  // `--no-open` is not cosmetic. Without it server.mjs calls spawnSync on the
+  // platform's browser opener INSIDE the listen callback, blocking the event
+  // loop while the browser starts: the port is open and the page answers
+  // nothing, and this test times out on page.goto. It also opened a real tab on
+  // the operator's screen, at a pid-derived port, on every CI run — which is
+  // where the mystery `localhost:32xx` tabs were coming from.
+  const server = spawn('node', ['packages/board/server.mjs', '--no-open'], {
     env: { ...process.env, PORT: String(PORT + 1) }, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
   });
   try {

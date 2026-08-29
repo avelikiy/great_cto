@@ -192,6 +192,31 @@ Frontmatter: `surface` (web | mobile | extension), `feature`, `target` (the file
 component the implementer touches), `status: draft`, `author: design-advisor v2.0`,
 `date`. Then exactly these sections (mark a section `n/a` rather than dropping it):
 
+0. **Dials** — the three parameters that decide how this design differs from every
+   other one, declared before anything is drawn. Each is 1–10 **with one line of
+   why**; a number alone is decoration, and a number nobody can argue with cannot
+   be reviewed. Copy this block verbatim and fill it in:
+
+   ```
+   DESIGN_VARIANCE:  n/10 — why this and not one step either side
+   MOTION_INTENSITY: n/10 — why
+   VISUAL_DENSITY:   n/10 — why
+   ```
+
+   - **DESIGN_VARIANCE** — 1 is centred, conventional, boring on purpose; 10 is
+     asymmetric and unusual. High variance on an operator's daily tool costs
+     them fluency; low variance on a landing page costs it attention.
+   - **MOTION_INTENSITY** — 1 is hover and focus only; 10 is scroll-driven and
+     choreographed. Whatever the number, the reduced-motion fallback in §6 is not
+     optional and does not scale with it.
+   - **VISUAL_DENSITY** — 1 is spacious and few things per screen; 10 is a dense
+     dashboard. This one has a floor: the type scale and the contrast tokens hold
+     at any density, and a density that needs smaller text than the scale allows
+     is the wrong density.
+
+   Two designs with the same dials should look like siblings. If yours do not,
+   one of the numbers is wrong — say which and why in §10.
+
 1. **Design system pick** — decision + context. Reuse existing tokens unless the ARCH
    doc says otherwise; justify any new dependency. Cite the ui-ux-pro-max style.
 2. **Component inventory** — every component, existing vs new, with its states.
