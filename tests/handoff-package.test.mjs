@@ -4,7 +4,10 @@
 // CLI on the real repo).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildHandoff } from '../scripts/handoff-package.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { buildHandoff, gatherCost } from '../scripts/handoff-package.mjs';
 
 test('a full package renders every section', () => {
   const md = buildHandoff({
@@ -71,4 +74,58 @@ test('the package never states more than 12 verdict lines', () => {
   const md = buildHandoff({ reason: 'blocked', feature: 'f', verdicts: many });
   const lines = md.split('\n').filter((l) => /→ DONE/.test(l));
   assert.ok(lines.length <= 12, `capped to 12, got ${lines.length}`);
+});
+
+// ── "Cost: not recorded" was the handoff reading a format that never existed ─
+//
+// gatherCost matched `cost_usd=([0-9.]+)`. cost-history.log has been
+// `<ts> <agent> <usd> [turns=N]` for its whole life: zero lines match, in this
+// project's log and in the global one. So every handoff package ever written
+// said "Cost: not recorded" — which is not the same statement as "I could not
+// read this file", and is the one a reader believes.
+//
+// Three states, as everywhere else: a figure, no file, and a file that is there
+// and says nothing.
+test('gatherCost reads the format the file is actually written in', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'handoff-cost-'));
+  mkdirSync(join(dir, '.great_cto'), { recursive: true });
+  writeFileSync(join(dir, '.great_cto', 'cost-history.log'),
+    '2026-08-17T10:00:00Z architect 0.80\n'
+    + '2026-08-17T11:00:00Z qa-engineer 10 turns=100\n'
+    + '2026-08-17T12:00:00Z qa-engineer 14 turns=140\n');
+
+  const got = gatherCost(dir);
+  assert.equal(got.state, 'measured');
+  assert.equal(got.usd, 14.8, 'single runs add; a running total counts by its increment');
+});
+
+test('no file and an unreadable file are different answers', () => {
+  const absent = mkdtempSync(join(tmpdir(), 'handoff-nocost-'));
+  mkdirSync(join(absent, '.great_cto'), { recursive: true });
+  assert.equal(gatherCost(absent).state, 'absent');
+
+  const junk = mkdtempSync(join(tmpdir(), 'handoff-junk-'));
+  mkdirSync(join(junk, '.great_cto'), { recursive: true });
+  writeFileSync(join(junk, '.great_cto', 'cost-history.log'), 'garbage\nmore garbage\n');
+  const r = gatherCost(junk);
+  assert.equal(r.state, 'unreadable',
+    'a file that exists and yields no figure is not a project that spent nothing');
+  assert.equal(r.usd, null);
+});
+
+test('the rendered package never prints a figure it does not have', () => {
+  // The unit test above passed while the caller still handed buildHandoff the
+  // whole object, which would have rendered `$NaN`. Testing the reader without
+  // testing the wiring is how that survives.
+  for (const [state, expect] of [
+    ['absent', /no `\.great_cto\/cost-history\.log`/],
+    ['unreadable', /present but no line in it could be read/],
+  ]) {
+    const out = buildHandoff({ reason: 'blocked', costUsd: null, costState: state });
+    assert.match(out, expect, `state ${state} renders its own sentence`);
+    assert.doesNotMatch(out, /\$NaN|\$null|\$undefined/, 'no figure is invented');
+  }
+  const measured = buildHandoff({ reason: 'blocked', costUsd: 14.8, costState: 'measured' });
+  assert.match(measured, /\$14\.80/);
+  assert.match(measured, /project total/, 'and it says whose total it is');
 });

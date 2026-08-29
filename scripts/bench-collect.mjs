@@ -63,13 +63,41 @@ export function fmtDuration(seconds) {
   return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
 }
 
-/** Sum cost-history.log: lines of `<ts> <agent> <cost_usd>`. */
+/**
+ * Sum cost-history.log: lines of `<ts> <agent> <cost_usd> [turns=N]`.
+ *
+ * Two kinds of row live in this file and they must not be added the same way.
+ *
+ *   `<ts> <agent> <usd>`            — one run. log-verdict.sh writes it.
+ *   `<ts> <agent> <usd> turns=N`    — the SESSION's running total after a
+ *                                     subagent stopped. subagent-stop-completion
+ *                                     writes it, and its own comment records that
+ *                                     the file "already holds lines of ~$9,000
+ *                                     against a single qa-engineer run".
+ *
+ * Adding the running totals together counted the same dollars once per snapshot:
+ * on this repository's log it returned $90,026 from a series whose largest single
+ * reading is $3,912 — a 23x over-count, reported as a measured figure.
+ *
+ * A running total contributes its INCREMENT. A reading below the one before it is
+ * a new session rather than a refund, so it starts over and counts in full — the
+ * rule any counter reset gets. Each agent keeps its own total, because a second
+ * agent's first reading is not a reset of the first agent's.
+ */
 export function sumCostHistory(text) {
   let sum = 0, rows = 0;
+  const running = new Map();  // agent → last cumulative reading
   for (const line of text.split('\n')) {
     const parts = line.trim().split(/\s+/);
     const cost = Number(parts[2]);
-    if (parts.length >= 3 && Number.isFinite(cost)) { sum += cost; rows++; }
+    if (parts.length < 3 || !Number.isFinite(cost)) continue;
+    rows++;
+    const cumulative = parts.slice(3).some((p) => p.startsWith('turns='));
+    if (!cumulative) { sum += cost; continue; }
+    const agent = parts[1];
+    const prev = running.get(agent);
+    sum += prev === undefined || cost < prev ? cost : cost - prev;
+    running.set(agent, cost);
   }
   return { sum: round2(sum), rows };
 }

@@ -199,3 +199,57 @@ test('integration: non-product dir exits 1', () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ── A running total is not a series of purchases ────────────────────────────
+//
+// The SubagentStop hook appends the SESSION's cumulative cost after each
+// subagent, tagged `turns=` so the attribution is auditable — its own comment
+// says the file "already holds lines of ~$9,000 against a single qa-engineer
+// run — a session total that landed on one agent".
+//
+// sumCostHistory added those snapshots together. On this repository's own log
+// that produced $90,026 from a series whose largest single reading is $3,912:
+// a 23× over-count, reported as a measured figure.
+//
+// A cumulative reading is summed by its INCREMENTS. A reading lower than the one
+// before it is a new session, not a refund, so it starts a new run and counts in
+// full — the same rule a counter reset gets anywhere else.
+test('cumulative session rows are summed by increment, not added up', () => {
+  const r = sumCostHistory([
+    '2026-08-17T12:32:39Z qa-engineer 3385.111 turns=9013',
+    '2026-08-17T12:32:39Z qa-engineer 3392.0572 turns=9033',
+    '2026-08-17T12:32:39Z qa-engineer 3405.2423 turns=9069',
+  ].join('\n'));
+  assert.equal(r.sum, 3405.24,
+    'three readings of one running total are one cost, not their sum');
+});
+
+test('a reading that drops is a new session and counts in full', () => {
+  const r = sumCostHistory([
+    '2026-08-17T10:00:00Z qa-engineer 10 turns=100',
+    '2026-08-17T11:00:00Z qa-engineer 14 turns=140',
+    '2026-08-18T09:00:00Z qa-engineer 3 turns=20',
+  ].join('\n'));
+  assert.equal(r.sum, 17, '14 from the first session, then 3 from the second');
+});
+
+test('per-run rows and cumulative rows can share a file', () => {
+  // Rows without `turns=` are single runs — log-verdict.sh writes those — and
+  // they are still added. Mixing the two is the normal state of a real log.
+  const r = sumCostHistory([
+    '2026-08-17T10:00:00Z architect 0.80',
+    '2026-08-17T11:00:00Z qa-engineer 10 turns=100',
+    '2026-08-17T12:00:00Z qa-engineer 14 turns=140',
+    '2026-08-17T13:00:00Z devops 0.20',
+  ].join('\n'));
+  assert.equal(r.sum, 15, '0.80 + 0.20 single runs, plus 14 for the session');
+});
+
+test('two agents each keep their own running total', () => {
+  const r = sumCostHistory([
+    '2026-08-17T10:00:00Z qa-engineer 10 turns=100',
+    '2026-08-17T10:05:00Z senior-dev 4 turns=40',
+    '2026-08-17T11:00:00Z qa-engineer 14 turns=140',
+  ].join('\n'));
+  assert.equal(r.sum, 18, "senior-dev's 4 does not reset qa-engineer's total");
+});
