@@ -80,7 +80,10 @@ async function main() {
     process.exit(2);
   }
 
-  const server = spawn(process.execPath, [path.join(ROOT, 'packages', 'board', 'server.mjs')], {
+  // `--no-open`: server.mjs opens a real browser tab on start unless told not to,
+  // and a capture run is not a reason to take over the operator's screen. Six
+  // captures during one session opened six tabs.
+  const server = spawn(process.execPath, [path.join(ROOT, 'packages', 'board', 'server.mjs'), '--no-open'], {
     cwd: projectRoot,
     env: {
       ...process.env,

@@ -299,7 +299,9 @@ else
   pkill -f "packages/board/server" 2>/dev/null || true
   sleep 1
 
-  nohup node "$PLUGIN_DIR/packages/board/server.mjs" >/tmp/gctest-l4-board.log 2>&1 &
+  # --no-open: the server opens a real browser tab on start unless told not to,
+      # and a test run must not take over the operator's screen.
+      nohup node "$PLUGIN_DIR/packages/board/server.mjs" --no-open >/tmp/gctest-l4-board.log 2>&1 &
   BOARD_PID=$!
   # Wait up to 5s for server to listen
   for i in 1 2 3 4 5; do

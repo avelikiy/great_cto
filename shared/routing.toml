@@ -1,0 +1,57 @@
+# great_cto request-routing map
+#
+# The eight request classes, in one place. Prose in CLAUDE.md ("Request
+# classifier") describes them for the model; this file is the version code can
+# act on, and tests/lib/routing-source.test.mjs holds the two together.
+#
+# Why this file exists: the classes were named in four documents in four
+# different subsets. CLAUDE.md listed eight, agents/coordinator.md five,
+# skills/great_cto/SKILL.md four, shared/safety-rules.md three — and nothing
+# related them, so an agent reading SKILL.md never learned that SURVEY or
+# SIMPLE CODE exist. Four partial copies of one table is not four documents
+# disagreeing loudly; it is four documents disagreeing silently.
+#
+# NOT a router. The classification is made by the model from CLAUDE.md's prose;
+# scripts/hooks/classify-telemetry.mjs keeps a regex PROXY of it for measuring
+# request shape, and says so in its own header. Nothing here executes a routing
+# decision, and a test over this file must not be mistaken for a test of the
+# model's routing — see tests/eval/ for that, where behaviour belongs.
+#
+# Schema per class:
+#   signals  = the words and shapes that indicate this class (prose, as written
+#              in CLAUDE.md — this is a table for a reader, not a matcher)
+#   pipeline = what runs when the class is chosen
+#
+# Copied into each project at SessionStart, next to pipeline.toml.
+
+[QUESTION]
+signals = '''"what is", "how does", "explain", "why", "what's the difference"'''
+pipeline = '''Answer inline — no agents'''
+
+[SURVEY]
+signals = '''"show me", "list", "what files", "status", "what's pending", "show report"'''
+pipeline = '''Read-only — Explore or Bash only'''
+
+[SIMPLE_CODE]
+signals = '''"fix", "typo", "rename", "minor", "patch", single file implied'''
+pipeline = '''Fast path: senior-dev → gate:ship'''
+
+[COMPLEX_CODE]
+signals = '''"implement", "build", "add feature", "refactor", "migrate"'''
+pipeline = '''Full pipeline: arch → pm → senior-dev → qa+cso → devops'''
+
+[DESIGN]
+signals = '''"design", "architect", "plan", "RFC", "ADR", "how should we"'''
+pipeline = '''Architect agent → gate:arch → optional pm'''
+
+[SLASH_CMD]
+signals = '''Message starts with `/`'''
+pipeline = '''Route to matching command in `commands/`'''
+
+[INCIDENT]
+signals = '''"broken", "down", "prod issue", "incident", "P0", "alert"'''
+pipeline = '''l3-support immediately, no pipeline'''
+
+[COORDINATE]
+signals = '''"parallelize", "orchestrate", "3+ streams", complex dependency graph'''
+pipeline = '''coordinator agent'''
