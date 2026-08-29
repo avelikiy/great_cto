@@ -4,9 +4,9 @@
 > Do not edit by hand — edit the skill and re-run the generator.
 
 A skill is knowledge an agent loads on demand, rather than a thing that runs.
-35 in total: 11 industry domain packs and 24 others.
+36 in total: 12 industry domain packs and 24 others.
 
-## Industry domain packs (11)
+## Industry domain packs (12)
 
 Loaded when a product is being built for that industry, so `architect` and `pm`
 are not naive about the domain.
@@ -15,6 +15,7 @@ are not naive about the domain.
 |---|---|
 | `vertical-construction` | Domain knowledge for the construction vertical (contractors, field crews) so architect and pm don't spec construction products naively. |
 | `vertical-creator` | Domain-knowledge primer for the marketing & creator vertical (creators, newsletter writers, podcasters, course sellers) so architect/pm don't spec naively against incumbents (Substack ~10%, Patreon… |
+| `vertical-fintech-mobile` | Domain-knowledge pack for money on a phone — wallets, payments, custody and signing, transaction lifecycle, KYC/AML gates, and offline reconciliation. |
 | `vertical-fitness` | Domain-knowledge pack for fitness & wellness (boutique studios, gyms, coaches, on-demand brands) — the membership vocabulary, non-obvious billing/booking rules, and retention realities a builder mu… |
 | `vertical-home-services` | Domain-knowledge pack for home & field services (HVAC, plumbing, cleaning, landscaping) — the trades vocabulary, non-obvious pricing/dispatch rules, and field-crew realities a builder must know so … |
 | `vertical-hr-recruiting` | Domain-knowledge primer for the HR & recruiting vertical (ATS, onboarding, workforce scheduling, engagement). |

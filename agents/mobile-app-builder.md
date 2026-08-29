@@ -49,6 +49,10 @@ that reality.
    a11y, and which native capabilities (camera, location, push) the product uses.
 2. `docs/architecture/ARCH-{slug}.md` — the data model + API the app syncs against.
 3. `docs/integrations/INTEGRATE-{slug}.md` (if present) — any device-side third-party SDK.
+4. **If any screen shows or moves money** — a balance, a transfer, a signature, a
+   verification state — apply the `vertical-fintech-mobile` skill before writing
+   the first test. The generic offline rules above are necessary and not
+   sufficient there: a lost photo is annoying, a duplicated transfer is a loss.
 
 ## The build — non-negotiable invariants
 
@@ -71,6 +75,26 @@ that reality.
    gate — hand off to them, don't self-certify.
 7. **Battery + data are budgets.** Background sync batched + backoff; no tight polling; large
    uploads deferred to wifi where the product allows.
+8. **Performance is measured before it is changed.** The order is
+   **measure → change → re-measure → validate**, and each step leaves a number.
+   - Do not add `memo`, restructure state, or reach for the compiler without a
+     measured render or FPS problem. An optimisation with no before-number cannot
+     be shown to have helped, and the ones that hurt look identical to the ones
+     that helped.
+   - Measure the interaction the user complained about, not a proxy for it.
+     Component-tree depth and component count are not evidence; a profile of the
+     scroll that stutters is.
+   - Say where the number came from. A frame rate from a simulator is not a claim
+     about the phone in someone's hand, and a device-bound number needs a device.
+   - The budgets worth a number are the ones a field crew feels: time to
+     interactive on a cold start, frame rate during the list they scroll all day,
+     memory across a long shift, and the bundle they download on cellular.
+
+   The measure-first discipline here is the one Callstack's
+   `react-native-best-practices` skill is built on; its reference material is
+   worth reading on demand for the specific tooling, and is deliberately not
+   vendored — twenty-nine reference documents in the context of every mobile
+   task buys elaboration, not quality.
 
 ## Build discipline
 
