@@ -23,12 +23,14 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 PRIVATE_TERMS_FILE="${GREAT_CTO_PRIVATE_TERMS:-$HOME/.great_cto/private-terms}"
 PRIVATE_TERMS=()
+_TERMS_FROM_FILE=()
 if [[ -f "$PRIVATE_TERMS_FILE" ]]; then
   while IFS= read -r _line || [[ -n "$_line" ]]; do
     _line="${_line#"${_line%%[![:space:]]*}"}"   # ltrim
     _line="${_line%"${_line##*[![:space:]]}"}"    # rtrim
     [[ -z "$_line" || "$_line" == \#* ]] && continue
     PRIVATE_TERMS+=("$_line")
+    _TERMS_FROM_FILE+=("$_line")
   done < "$PRIVATE_TERMS_FILE"
 fi
 
@@ -157,9 +159,29 @@ for (( _i=0; _i<${#PRIVATE_TERMS[@]}; _i++ )); do
 done
 
 if [[ ${#_REJECTED_TERMS[@]} -gt 0 ]]; then
+  # Where the term came from decides whether the advice is actionable. Terms are
+  # collected from two places: the operator's private-terms file, and the names of
+  # directories in the workspace. A workspace directory called `scripts`, `Work` or
+  # `Personal` is picked up, correctly ignored as too common — and the message used
+  # to tell the operator to fix it in a file that has never contained it. Advice
+  # that cannot be followed is worse than none: it sends someone looking for a line
+  # that is not there.
+  _R_FILE=(); _R_SCAN=()
+  for _r in "${_REJECTED_TERMS[@]}"; do
+    _found=0
+    for _f in ${_TERMS_FROM_FILE[@]+"${_TERMS_FROM_FILE[@]}"}; do
+      [[ "$_f" == "$_r" ]] && { _found=1; break; }
+    done
+    if [[ $_found -eq 1 ]]; then _R_FILE+=("$_r"); else _R_SCAN+=("$_r"); fi
+  done
   echo -e "\033[0;33m[pre-push] ${#_REJECTED_TERMS[@]} private term(s) ignored — too short or too common to identify a project:\033[0m" >&2
   printf '  %s\n' "${_REJECTED_TERMS[@]}" >&2
-  echo "  Fix them in ${PRIVATE_TERMS_FILE} — one project name per line." >&2
+  if [[ ${#_R_FILE[@]} -gt 0 ]]; then
+    echo "  from $PRIVATE_TERMS_FILE: ${_R_FILE[*]} — remove or lengthen these lines." >&2
+  fi
+  if [[ ${#_R_SCAN[@]} -gt 0 ]]; then
+    echo "  from workspace directory names: ${_R_SCAN[*]} — nothing to fix; they are not in your file." >&2
+  fi
 fi
 
 RED='\033[0;31m'
