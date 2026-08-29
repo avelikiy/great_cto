@@ -8,6 +8,77 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.18.0 — 2026-08-29
+
+The board's documents screen now says how often each document is cited, the
+request classes have one definition instead of four partial copies, and the
+screenshots in the README are taken from a seeded sample project and carry the
+version they were taken at.
+
+### What's new
+
+- **The Docs screen counts citations.** Each document shows how many others link
+  to it, and the list sorts by that — so the question a reader arrives with,
+  "where would I find X", has an answer on the page. Machine-written summaries
+  and translated copies are no longer counted as documents.
+- **The eight request classes have one definition.** `shared/routing.toml` is the
+  source; the table in the project instructions is held to it by a test, so the
+  two cannot drift apart quietly.
+- **Screenshots are taken, not made.** A seeded sample project is built, the
+  board is photographed against it, and each image carries the version it was
+  shot at inside the PNG. A picture from an older feature release now fails the
+  build instead of sitting in the README looking current.
+- **A terminal recording, from a tape.** `docs/tapes/` holds the script; the GIF
+  is built from it against the same sample project, so it can be re-rendered
+  rather than re-performed.
+- **Alerts say whether this has happened before.** A gate going stale for the
+  first time in a project and the fifty-third in a month no longer read the same.
+- **Design documents declare three dials.** Variance, motion and density, each
+  1–10 with a reason, so the arguable part of a design is stated before
+  implementation rather than after.
+- **A domain pack for money on a phone.** Wallets, signing, transaction
+  lifecycle, verification states and offline reconciliation — the part a client
+  gets wrong even when the server is right.
+- **The mobile builder has an eval**, and a performance invariant that requires a
+  measurement before a change and another one after it.
+
+---
+
+### The screenshots, and the rule they are taken under
+
+Two rules, both learned from defects in this repository.
+
+**Never the operator's own board.** It lists every project on the machine and
+prints paths that begin with a home directory and a username. The capture runs
+against a seeded fixture with `HOME` redirected, so there is nothing else to find
+and nothing personal to print.
+
+**Every image carries its version.** A board screenshot from v2.73.1 sat in
+eleven READMEs while the board shipped 3.16.0 — two months and one redesign out
+of date, and nothing in the repository could tell. The version now travels in a
+`tEXt` chunk inside the PNG, which cannot be separated from the image the way a
+sidecar manifest can. Three states, not two: current, stale, and unstamped — an
+image that was never stamped is not an image that passed.
+
+It fired on the first release after it was built, naming all six files.
+
+### A running total added to itself
+
+`cost-history.log` holds two kinds of row: one run, and the session's running
+total after a subagent stopped. The benchmark collector added the running totals
+together, which counted the same dollars once per snapshot — $90,026 from a
+series whose largest single reading is $3,912. A running total contributes its
+increment; a reading below the one before it is a new session, not a refund. The
+same log now reads $7,420.
+
+The handoff package had the other half of it: it looked for a field name the file
+has never used, matched nothing, and reported "Cost: not recorded" on every
+package ever produced — which is a different statement from "I could not read
+this file", and the one a reader believes.
+
+---
+
 ## v3.17.0 — 2026-08-28
 
 The board now starts itself, opens on one ranked queue instead of six blocks of
