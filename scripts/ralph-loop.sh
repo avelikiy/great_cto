@@ -65,6 +65,45 @@ model_for() {
   esac
 }
 
+# The state of the world at wake-up: what is stalled, and who can act on it.
+# Prints nothing when nothing is stalled — an empty board should not cost tokens.
+wakeup_scan() {
+  local repo scan
+  repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  scan="$(node -e '
+    (async () => {
+      const { readFileSync } = await import("node:fs");
+      let tasks = null;
+      try {
+        const r = await fetch("http://127.0.0.1:" + (process.env.GREAT_CTO_BOARD_PORT || "3141")
+          + "/api/tasks?project=" + encodeURIComponent(process.cwd()),
+          { signal: AbortSignal.timeout(1500) });
+        if (r.ok) { const b = await r.json(); tasks = Array.isArray(b) ? b : b.tasks; }
+      } catch { /* board not up — falls through to the tasks.md reader */ }
+      if (!Array.isArray(tasks)) {
+        try {
+          const { parseTasksMd } = await import(process.argv[1] + "/packages/board/lib/beads.mjs");
+          tasks = parseTasksMd(process.cwd());
+        } catch { tasks = null; }
+      }
+      const { wakeupScan } = await import(process.argv[1] + "/scripts/lib/wakeup-scan.mjs");
+      const s = wakeupScan(tasks);
+      if (s.state !== "clear") process.stdout.write(s.text + "\n\n");
+    })()
+  ' "$repo" 2>/dev/null)"
+  local rc=$?
+  # A scan that could not run must not read as a board with nothing on it.
+  # If node failed — bad path, missing module, syntax error — the iteration is
+  # told the scan did not happen, rather than being handed silence it will
+  # interpret as "nothing is stalled".
+  if [ $rc -ne 0 ]; then
+    printf '%s\n\n' "STALLED WORK — the scan did NOT run (exit ${rc}). Do not read this as an empty board. Continue the handoff and say in your summary that the scan failed."
+    return 0
+  fi
+  [ -n "$scan" ] && printf '%s\n' "$scan"
+  return 0
+}
+
 # Build the agent invocation for the chosen tool. Prompt is piped on stdin.
 run_agent() {
   local tool="$1" model="$2" logf="$3"
@@ -135,7 +174,18 @@ main() {
     local ts logf; ts="$(date +%Y%m%d-%H%M%S)"; logf="${LOG_DIR}/iter-${i}-${ts}.log"
     echo "═══ ralph-loop iteration ${i}/${max} · ${tool}${model:+/$model} · ${ts} ═══"
 
-    if [ -n "$prompt_file" ]; then cat "$prompt_file"; else default_prompt; fi \
+    # Wake up, then go and look — not only drain the queue you were already in.
+    #
+    # The prompt below reads HANDOFF.md and falls back to the inbox only "if
+    # HANDOFF.md is absent". It exists from iteration 2 onward, so that fallback
+    # never fires and the loop follows one thread forever while other work sits.
+    # The scan runs FIRST, every iteration, and is prepended to the prompt.
+    #
+    # It separates work the agent may take from work waiting on a person, because
+    # an unattended agent that "handles" a gate has approved its own work. Failure
+    # to scan is not silence: the scan says it could not run, so an iteration
+    # never reports a clean board it did not see.
+    { wakeup_scan; if [ -n "$prompt_file" ]; then cat "$prompt_file"; else default_prompt; fi; } \
       | run_agent "$tool" "$model" "$logf"
     local rc=${PIPESTATUS[1]:-$?}
     echo "ralph-loop: iteration ${i} exited rc=${rc} (log: ${logf})"
