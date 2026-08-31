@@ -10,6 +10,81 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.20.0 — 2026-08-31
+
+A quantitative research agent that refuses to certify a result whose validity
+conditions failed, an unattended nightly run that goes looking for stalled work
+instead of only draining the queue it was in, and a money ceiling on that run.
+
+### What's new
+
+- **A quant research agent.** `quant-researcher` forms hypotheses, runs
+  backtests, and reports what the test supports — with seven conditions a result
+  has to satisfy before it counts as evidence: purged cross-validation with an
+  embargo, stationarity that keeps its memory, sample uniqueness under
+  overlapping labels, costs and slippage, a trials count, a never-touched
+  holdout, and a label that describes an outcome that could actually have
+  happened. Research only: it never places an order, holds an execution
+  credential, or sizes a position.
+- **The methods behind those refusals.** `quant-validation` states the mechanism
+  for each — how purging and the embargo work, what triple-barrier labelling
+  replaces, why an integer first difference is stationary and useless. Refusing
+  without being able to say what would fix it is half a job.
+- **The nightly run goes looking.** It read the handoff and continued that
+  thread; it now scans first for work that has stopped, and may switch — saying
+  which it chose and why. A gate waiting on a person is reported and never taken:
+  an unattended agent that "handles" a gate has approved its own work.
+- **A ceiling on what one unattended run may spend.** `LOOP_BUDGET_USD`, $8 by
+  default overnight. An unmeasurable spend against a set ceiling stops the run,
+  because a budget that cannot fire is not a budget.
+- **The console says when it is reading a stale plugin.** Editing this repository
+  does not change what a running session loads until it is reinstalled; the
+  session now says so, comparing bytes rather than versions.
+
+---
+
+### The agent's value is what it declines to certify
+
+Its eval is seventeen cases and eleven of them are refusals — of a reused
+holdout, of an order on a testnet, of a period chosen after seeing its result, of
+a headline Sharpe printed beside its own invalidation.
+
+Running it changed it four times. The first run scored 14/14 and meant nothing:
+all fourteen cases asked "what is wrong with this", which measures recognition.
+Three cases asking it to CONSTRUCT — choose the splitting scheme, fix the
+features, replace the label — dropped it to 14/17 and showed the real gap: the
+agent recognised every failure and could not produce a valid design. A
+researcher who can only reject is a researcher who blocks.
+
+The last gap was structural rather than verbal. Asked to label outcomes, it
+answered about sample uniqueness — reasonable, and wrong, because the contract
+had six conditions and none of them was about labels. The knowledge was in the
+skill; the hook that would make it reach for it was not. With the seventh
+condition the runner reports PASS for the first time.
+
+### A flaky test, and three wrong answers before the right one
+
+`pipeline-contracts` failed intermittently under load, a different case each run,
+passing 19/19 in isolation. Three hypotheses were tested and discarded: a port
+race (150 ports across six processes, zero collisions), too few cleanup retries
+(all twenty sites had them), surviving grandchildren (the reaper already kills
+the group and waits).
+
+Then: rmSync failing means the directory survives, so every past failure was
+still on disk — each holding exactly one file, `update-check.json`. The CLI
+spawns a detached, unref'd process that queries the npm registry and writes it,
+outside the board's process group and therefore invisible to teardown. Under load
+the network call outlives the cleanup.
+
+The switch already existed and the tests never set it. Verified by three
+consecutive full runs: green, and zero leftover directories where there had been
+one per failure.
+
+Read what a failure leaves behind before theorising about what caused it.
+
+---
+
 ## v3.19.0 — 2026-08-31
 
 The pipeline can now stop you once instead of three times, alerts about a waiting
