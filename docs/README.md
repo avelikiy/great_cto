@@ -37,8 +37,11 @@ Task-focused recipes (assume you already know the basics).
 
 Information-oriented, exhaustive lookups. **Auto-generated** pages stay in sync with source.
 
-- **[Agents](reference/agents.md)** — all 57 agents (model, effort, purpose). _auto-generated_
+- **[Agents](reference/agents.md)** — every agent, with model, effort and purpose. _auto-generated_
 - **[Commands](reference/commands.md)** — all user-invocable `/commands`. _auto-generated_
+- **[Skills](reference/skills.md)** — every skill an agent can load, and when. _auto-generated_
+- **[Architecture maps](reference/architecture-map.md)** — how the code is arranged and how a
+  feature moves, both derived from the source rather than drawn. _auto-generated_
 - [Archetypes](ARCHETYPES.md) — the 25 project archetypes and the pipelines they select.
 - [Agent lint rules](AGENT-LINT-RULES.md) — the rules `agent-prompt-lint.mjs` enforces.
 - [Help card](help-card.md) — one-page cheat sheet.
