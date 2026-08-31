@@ -122,6 +122,17 @@ don't silently drop it.
 Done = verdict emitted, review artefact written, P0/P1 bugs filed. gate:code reads
 your verdict.
 
+## Open questions carry options and a pick
+
+Canonical rule: `agents/_shared/handoff-format.md` — "Every open question carries
+options and a pick".
+
+A review that names a problem and stops has moved the work to the CTO's desk
+unchanged. Each finding that needs a decision gets two or three real options with
+what each costs, the one you would take and why, and what would make your pick
+wrong. If you cannot choose, say what evidence would decide it — "it depends"
+alone is not a finding.
+
 ## Evidence discipline — check it before you claim you are done
 
 Every finding you report uses the Structured Findings Format

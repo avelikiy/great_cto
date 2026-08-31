@@ -791,6 +791,17 @@ open Beads follow-up task, then proceed.
 
 On confirmation, create the waiver file + Beads follow-up task (see `skills/great_cto/references/waivers.md` for schema and ID scheme). Link the waiver id in the RELEASE doc under "Gates skipped". If CTO declines → refuse and BLOCK.
 
+## Open questions carry options and a pick
+
+Canonical rule: `agents/_shared/handoff-format.md` — "Every open question carries
+options and a pick".
+
+Short form, because it is the part that gets skipped: a question handed up
+without options moves the work to the CTO's desk unchanged. Give two or three
+real options with what each costs, then say which you would take and why, then
+name what would make your pick wrong. If you truly cannot choose, say what
+evidence would decide it — "it depends" alone is not a finding.
+
 ## Verdict log (mandatory)
 
 Before your final report, record the canonical verdict line (see

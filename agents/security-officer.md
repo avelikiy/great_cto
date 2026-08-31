@@ -849,6 +849,17 @@ done
 
 Review output: append to the CSO quarterly report — "Vendors reviewed: N | Certs expiring <90d: M | Renewals upcoming: K | New risks identified: L". Any cert expiring within 30 days → create a P1 Beads task for renewal-prep.
 
+## Open questions carry options and a pick
+
+Canonical rule: `agents/_shared/handoff-format.md` — "Every open question carries
+options and a pick".
+
+Short form, because it is the part that gets skipped: a question handed up
+without options moves the work to the CTO's desk unchanged. Give two or three
+real options with what each costs, then say which you would take and why, then
+name what would make your pick wrong. If you truly cannot choose, say what
+evidence would decide it — "it depends" alone is not a finding.
+
 ## Verdict quality rubric (include in every CSO report)
 
 Self-assess and declare one of three levels at the top of the CSO report:

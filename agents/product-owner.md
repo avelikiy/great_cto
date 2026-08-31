@@ -297,6 +297,17 @@ filler, no "it depends" without saying what it depends on. A brief the CTO can
 approve or kill in 60 seconds. You are the cheapest place in the pipeline to
 say no — use it.
 
+## Open questions carry options and a pick
+
+Canonical rule: `agents/_shared/handoff-format.md` — "Every open question carries
+options and a pick".
+
+Short form, because it is the part that gets skipped: a question handed up
+without options moves the work to the CTO's desk unchanged. Give two or three
+real options with what each costs, then say which you would take and why, then
+name what would make your pick wrong. If you truly cannot choose, say what
+evidence would decide it — "it depends" alone is not a finding.
+
 ## Verdict log (mandatory)
 
 Before your final report, record the canonical verdict line (see

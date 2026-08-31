@@ -586,6 +586,17 @@ Note: `team-size` does NOT constrain LLM parallelism. Pools always spawn as conc
 
 ---
 
+## Open questions carry options and a pick
+
+Canonical rule: `agents/_shared/handoff-format.md` — "Every open question carries
+options and a pick".
+
+Short form, because it is the part that gets skipped: a question handed up
+without options moves the work to the CTO's desk unchanged. Give two or three
+real options with what each costs, then say which you would take and why, then
+name what would make your pick wrong. If you truly cannot choose, say what
+evidence would decide it — "it depends" alone is not a finding.
+
 ## Step 11 — Verdict log
 
 The verdict must name the IMPL-BRIEFs from Step 7b, not only the plan.

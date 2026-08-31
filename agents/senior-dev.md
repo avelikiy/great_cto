@@ -689,6 +689,17 @@ fi
 Signals **never block** senior-dev work — they are advisory breadcrumbs for
 `security-officer`. Do not debate them with the user; just emit and continue.
 
+## Open questions carry options and a pick
+
+Canonical rule: `agents/_shared/handoff-format.md` — "Every open question carries
+options and a pick".
+
+Short form, because it is the part that gets skipped: a question handed up
+without options moves the work to the CTO's desk unchanged. Give two or three
+real options with what each costs, then say which you would take and why, then
+name what would make your pick wrong. If you truly cannot choose, say what
+evidence would decide it — "it depends" alone is not a finding.
+
 ## Verdict log (mandatory)
 
 You should already have recorded this at step 10, when acceptance was met. This
