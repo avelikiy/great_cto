@@ -200,6 +200,36 @@ Each archetype auto-loads a domain pack when the archetype is detected. Multiple
 | `iot-embedded` | (no dedicated pack — use detection signals) | platformio.ini, Zephyr (`west.yml`), ESP-IDF detected from filesystem |
 | `regulated` | `enterprise-pack` | DORA, NIS2, GxP/21CFR11, ISO 27001, TISAX detailed checklists |
 
+### Domain packs — selected by what the project DOES, not by its archetype
+
+The table above keys on archetype, which answers "what kind of software is this".
+These ten answer a different question — "what regulated activity does it perform" —
+and an accounting product and a tax product are both `enterprise-saas`. They were
+written, complete, and unreachable: `ARCHETYPES.md` named packs thirty-seven times
+and named none of these, so `/start` could not select them and nothing else could
+either. Ten of twenty-six packs, shipped to every user, selectable by nobody.
+
+Declare the signal in `PROJECT.md` (`compliance:` or `industry:`) and the pack
+loads alongside the archetype pack. Each names the reviewer it pairs with, which
+already exists.
+
+| Signal in PROJECT.md | Pack | Pairs with | What the pack adds |
+|---|---|---|---|
+| `accounting`, `sox`, `gl`, `close` | `accounting-pack` | `enterprise-saas-reviewer` | Double-entry integrity, ASC 606, three-way reconciliation, month-end close, journal-entry approval with segregation of duties |
+| `tax`, `irs`, `efile` | `tax-pack` | `regulated-reviewer` | IRS e-file (MeF), PTIN + Circular 230, Pub 4557 safeguards + WISP, Form 8879, multi-state nexus, IRC §7216 consent |
+| `rcm`, `medical-billing`, `claims` | `rcm-pack` | `healthcare-reviewer` | CMS-1500/UB-04, CPT/HCPCS/ICD-10 coding exposure, prior auth, denials and appeals, ERA/835, No Surprises Act |
+| `fedramp`, `fisma`, `cjis`, `section-508` | `gov-pack` | `gov-reviewer` | FedRAMP boundary scoping, NIST 800-53 mapping, PIA generation, Section 508, StateRAMP |
+| `coppa`, `ferpa`, `student-data` | `edtech-pack` | `edtech-reviewer` | COPPA verifiable parental consent, FERPA handling, GDPR-K, SOPIPA / NY 2-D, child-safety moderation |
+| `legal`, `iolta`, `upl` | `legaltech-pack` | `legal-reviewer` | UPL guardrails, IOLTA trust accounting, privilege (Model Rule 1.6), conflict screening, e-filing + FRCP 5.2 redaction, legal hold |
+| `msp`, `rmm`, `psa` | `msp-pack` | `enterprise-saas-reviewer` | Multi-tenant client isolation, MSA/SOW/SLA enforcement, credential vaulting, patch/backup SLA tracking, escalation chains |
+| `procurement`, `p2p`, `source-to-pay` | `procurement-pack` | `enterprise-saas-reviewer` | Three-way match, segregation of duties, approval thresholds, OFAC screening, punchout/cXML, maverick-spend detection |
+| `pixel`, `session-replay`, `vppa`, `cipa` | `adtech-privacy-pack` | `adtech-privacy-reviewer` | VPPA, CIPA wiretap/pen-register theory, WA My Health My Data, sale/share + Global Privacy Control, FTC §5 |
+| `ai-governance`, `colorado-ai`, `nist-ai-rmf` | `us-ai-pack` | `us-ai-reviewer` | NIST AI RMF (+ GenAI profile), Colorado SB 205, Utah AI Policy Act, Texas TRAIGA, CA AB 2013 + SB 942 |
+
+A pack that no signal selects is a file, not a capability — the same trade as an
+agent declared by nineteen callers and invoked by none. `tests/lib/pack-routing.test.mjs`
+holds the count at zero so this cannot happen again quietly.
+
 **Multi-pack combinations** — common stacking patterns:
 
 - `[ai-pack, enterprise-pack]` — regulated AI system (e.g. healthcare diagnosis)
