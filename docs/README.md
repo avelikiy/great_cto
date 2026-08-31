@@ -73,5 +73,6 @@ Localized READMEs: [de](de/) · [es](es/) · [fr](fr/) · [ja](ja/) · [ko](ko/)
 ## Internal / working docs
 
 `adr/` (decisions) · `plans/` (implementation plans) · `architecture/` · `benchmarks/` ·
-`qa/` · `security/` · `testing/` · `validation/` · `design/` · `analysis/` · `operations/` ·
+`qa/` · [`testing/`](testing/TEST-STRATEGY-end-to-end.md) — how the end-to-end layer is
+gated, and why it was not · `security/` · `validation/` · `design/` · `analysis/` · `operations/` ·
 `launch/` · `marketing/` · `blog/` · `superpowers/` — these are maintainer-facing and not part of the user docs surface.

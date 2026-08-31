@@ -4,7 +4,7 @@
 > Do not edit by hand — edit the skill and re-run the generator.
 
 A skill is knowledge an agent loads on demand, rather than a thing that runs.
-36 in total: 12 industry domain packs and 24 others.
+37 in total: 12 industry domain packs and 25 others.
 
 ## Industry domain packs (12)
 
@@ -26,7 +26,7 @@ are not naive about the domain.
 | `vertical-restaurants` | Domain-knowledge primer for the restaurants & hospitality vertical (dine-in, pickup, delivery). |
 | `vertical-retail` | Retail & e-commerce domain knowledge for SMB storefront products (storefront, inventory, pricing, cart-recovery). |
 
-## Everything else (24)
+## Everything else (25)
 
 | Skill | What it carries |
 |---|---|
@@ -49,6 +49,7 @@ are not naive about the domain.
 | `pm-planning` | Decomposition methodology for pm agent — turns an approved ARCH document into a Beads task list with explicit dependencies, time-boxes, and acceptance criteria. |
 | `pre-mortem` | Imagine the project has already shipped and failed catastrophically — work backwards from the failure to identify the most likely causes BEFORE building. |
 | `prose-style` | Reusable writing-style contract for agent outputs (reports, ARCH docs, verdicts, threat models). |
+| `quant-validation` | The methods a financial-ML result has to survive before it is evidence — purged cross-validation with an embargo, triple-barrier labelling, sample uniqueness under overlapping labels, fractional di… |
 | `skeptical-triage` | Reusable 3-round self-challenge + arbiter pattern for filtering false positives from findings/verdicts. |
 | `stack-baseline` | The pinned default technology stack for SMB Product-Builder products. |
 | `test-strategy` | Coverage-design method for qa-engineer — pyramid ratios per archetype, equivalence/boundary/property case selection, mutation score as the real coverage signal, and a flake-quarantine policy. |
