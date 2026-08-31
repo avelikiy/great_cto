@@ -125,7 +125,10 @@ git worktree add -b "$BRANCH" "$WORKTREE" HEAD >/dev/null 2>&1 || die "could not
 echo "nightly-loop: ${BRANCH} → ${WORKTREE} (${ITERATIONS} iterations, no push)"
 START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-( cd "$WORKTREE" && bash "$ROOT/scripts/ralph-loop.sh" "$ITERATIONS" ) \
+# A nightly run that nobody watches needs a money bound, not only an iteration
+# cap: six iterations of a hard task cost more than sixty of an easy one. An
+# unmeasurable spend against this ceiling stops the run — see run-budget.mjs.
+( cd "$WORKTREE" && LOOP_BUDGET_USD="${NIGHTLY_BUDGET_USD:-8}" bash "$ROOT/scripts/ralph-loop.sh" "$ITERATIONS" ) \
   > "$SUMMARY_DIR/${STAMP}.log" 2>&1
 LOOP_EXIT=$?
 

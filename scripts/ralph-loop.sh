@@ -39,6 +39,9 @@ each iteration so edits take effect next loop):
   LOOP_CAPABILITY  low | med | high               (default: high)
   LOOP_CLAUDE_FLAGS  flags for `claude -p`         (default: --permission-mode acceptEdits)
   LOOP_KEEP_LOGS   how many iteration logs to keep (default: 30)
+  LOOP_BUDGET_USD  ceiling in USD for ONE run of this loop. Unset = unbounded.
+                   An unmeasurable spend against a set ceiling STOPS the run:
+                   a budget that cannot fire is not a budget.
 EOF
 }
 
@@ -63,6 +66,41 @@ model_for() {
     gemini:*) echo gemini-2.5-pro ;;
     *) echo "" ;;
   esac
+}
+
+# What this run has spent so far, against the ceiling if one is set.
+# Prints a line and returns 1 when the loop must stop. See scripts/lib/run-budget.mjs
+# for why an UNMEASURABLE spend against a ceiling stops rather than continues.
+COST_LOG=".great_cto/cost-history.log"
+BUDGET_BEFORE=""
+
+budget_snapshot() { BUDGET_BEFORE="$(cat "$COST_LOG" 2>/dev/null || printf '')"; }
+
+budget_check() {
+  local repo after out
+  repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  after="$(cat "$COST_LOG" 2>/dev/null || printf '')"
+  out="$(BEFORE="$BUDGET_BEFORE" AFTER="$after" CEILING="${LOOP_BUDGET_USD:-}" node -e '
+    (async () => {
+      const { runBudget } = await import(process.argv[1] + "/scripts/lib/run-budget.mjs");
+      const ceil = process.env.CEILING === "" ? null : Number(process.env.CEILING);
+      const r = runBudget({ ceiling: ceil, before: process.env.BEFORE, after: process.env.AFTER });
+      process.stdout.write((r.stop ? "STOP " : "OK ") + r.sentence + "\n");
+    })()
+  ' "$repo" 2>/dev/null)" || {
+    # The check itself failed. With a ceiling set that is indistinguishable from
+    # an unmeasurable spend, and gets the same answer: stop.
+    if [ -n "${LOOP_BUDGET_USD:-}" ]; then
+      echo "ralph-loop: budget check could not run and a ceiling is set — stopping." >&2
+      return 1
+    fi
+    return 0
+  }
+  case "$out" in
+    STOP*) echo "ralph-loop: ${out#STOP }" >&2; return 1 ;;
+    *)     [ -n "${LOOP_BUDGET_USD:-}" ] && echo "ralph-loop: ${out#OK }" ;;
+  esac
+  return 0
 }
 
 # The state of the world at wake-up: what is stalled, and who can act on it.
@@ -185,6 +223,8 @@ main() {
     # an unattended agent that "handles" a gate has approved its own work. Failure
     # to scan is not silence: the scan says it could not run, so an iteration
     # never reports a clean board it did not see.
+    budget_check || break
+    budget_snapshot
     { wakeup_scan; if [ -n "$prompt_file" ]; then cat "$prompt_file"; else default_prompt; fi; } \
       | run_agent "$tool" "$model" "$logf"
     local rc=${PIPESTATUS[1]:-$?}
