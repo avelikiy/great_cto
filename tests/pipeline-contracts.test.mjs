@@ -259,11 +259,19 @@ test('BH-1: pipe-separated verdict lines parse to real verdict (not "|")', async
 
     // Start board against this seeded state
     const port = await freePort();
+    // GREAT_CTO_NO_UPDATE_CHECK: the CLI spawns a DETACHED, unref'd process that
+    // queries the npm registry and then writes $HOME/.great_cto/update-check.json. It
+    // is not in the board's process group, so `reap` — which kills that group and waits
+    // for it — never sees it. Under full-suite load the network call outlives teardown,
+    // the file lands after the directory was emptied, and rmSync fails ENOTEMPTY.
+    //
+    // Every failing run left exactly that one file behind. Three hypotheses were tested
+    // and wrong before anyone looked in the directory the failure names.
     const board = spawn('node', [
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
@@ -333,7 +341,7 @@ test('BH-2: savings_x is null (not 0) when human estimate is missing', async () 
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
@@ -397,7 +405,7 @@ test('BH-3: non-canonical agents go to legacy_agent_runs, not the main agent map
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
@@ -459,7 +467,7 @@ test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () =>
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
@@ -532,7 +540,7 @@ test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', asy
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
@@ -613,7 +621,7 @@ test('BH-5: X-Project-Resolved + X-Project-Fallback headers explain routing', as
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
@@ -667,7 +675,7 @@ test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', asy
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
@@ -723,7 +731,7 @@ test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', asy
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
@@ -802,7 +810,7 @@ test('BH-22: /api/metrics.velocity exposes last_7d + last_30d (honest labels)', 
       join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
       'board', '--port', String(port), '--no-open',
     ], {
-      cwd: project, env: { ...process.env, HOME: home },
+      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
       stdio: ['ignore', 'pipe', 'pipe'], detached: true,
     });
 
