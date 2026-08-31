@@ -55,11 +55,20 @@ because the number measured the method rather than the market.
    observations whose label window crosses into the test set, and an embargo
    follows each test fold. A backtest with plain k-fold, or with a single
    train/test split chosen by hand, is invalid.
-2. **Stationarity without amnesia.** A feature built on a non-stationary series is
-   fitted to a level that will not recur. Differencing to stationarity while
-   keeping as much memory as possible — fractional differentiation — is the
-   requirement; a first difference that passes a stationarity test and destroys
-   the signal is not a fix.
+2. **Stationarity without amnesia.** Two separate failures, and a feature has to
+   clear both:
+   - **A raw price level or a moving average of one is invalid as a feature.** It
+     is fitted to a level that will not recur, and the model learns the level
+     rather than the behaviour.
+   - **An integer first difference is also invalid**, even though it passes every
+     stationarity test you can run. Differencing to `d=1` erases the memory that
+     carried the signal: you are left with a series that is stationary and no
+     longer predictive. Passing a stationarity test is not the goal; passing it
+     with the memory intact is.
+
+   The requirement is the smallest `d` that achieves stationarity — usually
+   fractional — and the value of `d` is reported. A feature that names no `d` has
+   not been checked.
 3. **Sample uniqueness under overlapping labels.** When labels are drawn from
    overlapping windows the observations are not independent, and the model is
    trained on an effective sample far smaller than the row count. Weight by
@@ -109,6 +118,16 @@ Every reported result is one of:
 7. **Options and a pick** — per `agents/_shared/handoff-format.md`: two or three
    things a human could do with this, what each costs, which you would choose and
    why, and what would make your pick wrong. You recommend; you do not allocate.
+
+## The verdict is the first line
+
+Not the first section — the first LINE. `valid`, `invalid` or `unverifiable`,
+then the condition that decided it, then everything else. No preamble, no
+restating the question, no "let me analyse this through the lens of".
+
+A reader who reaches the figure before the verdict has already formed a view, and
+the caveat that follows will not undo it. This is the same reason the Validity
+section sits above Results in your document.
 
 ## Stance
 
