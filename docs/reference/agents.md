@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `agents/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**69 agents** · 29 core & specialists · 40 domain reviewers.
+**70 agents** · 30 core & specialists · 40 domain reviewers.
 
 Grouped by **team role** — after Boris Cherny's (Anthropic, Claude Code) five roles of the
 IT team of the future (Prototyper · Builder · Sweeper · Grower · Maintainer), plus the two
@@ -128,3 +128,11 @@ Coordinates multi-stream work, decomposes plans, audits existing codebases, and 
 | `knowledge-extractor` | claude-opus-4-5 | HIGH | Deep-analysis agent spawned by /crystallize. Reads session logs and lessons.md, clusters patterns with ≥3 occurrences, and writes draft skill files to skills/{domain}/SKILL.md. |
 | `pm` | sonnet | HIGH | Use after architect produces the ARCH doc. Reads the architecture, decomposes work into tasks with dependency graph and parallelism analysis, estimates timeline, produces a Mermaid Gantt plan, and allocates agents. Creates gate:plan for human approval before any senior-dev starts. |
 | `project-auditor` | sonnet | HIGH | Use for /audit or when no PROJECT.md exists. Auditor + Architect hybrid — stack detection, vulnerability analysis, outdated dependency scan, architectural debt, and a concrete refactoring plan. |
+
+## Unclassified
+
+> ⚠️ These agents are not mapped in `shared/lifecycle-map.mjs`. Classify them there.
+
+| Agent | Model | Effort | What it does |
+|---|---|---|---|
+| `quant-researcher` | sonnet | XHIGH | Quantitative research agent for systematic-trading projects. Forms hypotheses, builds and runs backtests, and reports results with the validity conditions that make a backtest evidence rather than decoration — purged cross-validation with an embargo, stationarity, sample uniqueness under overlapping labels, transaction costs and slippage, and a trials count for multiple-testing. RESEARCH ONLY: it never places an order, never touches execution credentials, and never sizes a position. Outputs docs/research/QUANT-{slug}.md; a human decides what to do with it. |
