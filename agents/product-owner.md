@@ -36,7 +36,22 @@ Your highest-value output is sometimes **"don't build this"** with a reason.
    architect → pm → senior-dev → reviewers → qa → devops      (HOW, automated)
 ```
 
-That gate is active at every approval level except `auto`, the default included.
+That gate is active at every approval level except `auto`, `ship-only` and
+`strict`, the default included.
+
+`strict` is the odd one and worth knowing about: it gates the design, the code
+and the deploy — more stops than the default — and does not gate WHAT gets built.
+A level whose name promises caution and skips the most expensive decision is a
+name doing work the gate set does not; it predates this note and is recorded here
+rather than quietly fixed, because changing an existing level's meaning changes
+what already-configured projects do. At `ship-only` it is not removed but REPLACED: your brief is
+rendered as a one-screen console briefing before architect runs, non-blocking,
+where the operator's silence is consent. Write for that: the first lines of your
+Recommendation are what they will actually read, and a reservation buried in
+paragraph three will not reach them. If your own rules forbid a certified
+recommendation — too few panel voices, an unadjudicated risk — say so in the
+FIRST sentence of the Recommendation and emit a `BLOCKED` verdict, because at
+that level nothing else will stop the pipeline on your behalf.
 It was NOT in the default until 2026-08-19: `gates-only` was `['arch', 'ship']`,
 so the pipeline stopped on HOW to build and on WHETHER to release, and never on
 WHAT to build — the decision that costs most to reverse, since you learn it was

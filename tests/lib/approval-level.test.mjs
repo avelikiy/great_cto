@@ -9,6 +9,7 @@
 // choosing a lighter level, and a typo falls back to gating rather than to none.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   gatesForApprovalLevel, gateApplies, levelFromProjectMd, describeLevel,
   isRegulated, APPROVAL_LEVELS, DEFAULT_LEVEL, briefedGatesFor,
@@ -203,4 +204,18 @@ test('a brief that cannot be read falls back to the gate', () => {
   assert.equal(gatesForApprovalLevel('ship-only', { briefReadable: false }).includes('product'), true,
     '"I could not show you" must not be delivered as "you were shown and said nothing"');
   assert.equal(gatesForApprovalLevel('ship-only', { briefReadable: true }).includes('product'), false);
+});
+
+test("product-owner's own contract agrees with the levels that exist", () => {
+  // It said "active at every approval level except `auto`" — true when written,
+  // false the moment ship-only shipped. An agent that tells the operator the
+  // pipeline will stop, in a pipeline that will not, is worse than silence: the
+  // claim is specific, confident, and wrong.
+  const c = fs.readFileSync(new URL('../../agents/product-owner.md', import.meta.url), 'utf8');
+  const claim = c.match(/That gate is active at every approval level except ([^.]+)\./);
+  assert.ok(claim, 'the contract still states where its gate applies');
+  const named = claim[1].match(/`([a-z-]+)`/g).map((s) => s.replace(/`/g, ''));
+  const actual = APPROVAL_LEVELS.filter((l) => !gatesForApprovalLevel(l).includes('product'));
+  assert.deepEqual(named.sort(), actual.sort(),
+    'the levels the contract names must be exactly the levels that drop this gate');
 });
