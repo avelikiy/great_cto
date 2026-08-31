@@ -35,6 +35,24 @@ const LEVEL_GATES = Object.freeze({
   // `/audit` enters at project-auditor, and the request classifier sends both
   // SIMPLE and COMPLEX CODE straight to senior-dev or architect. The pause lands
   // at the moment someone typed `/start` and is by definition at the keyboard.
+  // One pipeline gate, and a briefing where the second one was.
+  //
+  // Four stops were measured at `gates-only` — product, arch, import, ship — and
+  // they do not collapse, because they guard different failures: `arch` is cheap
+  // to undo, `import` destroys data, `product` wastes the whole build, `ship`
+  // escapes the machine. Only the last is irreversible in ADR-009's sense, so it
+  // is the one that stops you.
+  //
+  // `product` does not disappear. A decision about WHAT to build that nobody sees
+  // is how a pipeline spends a day on the wrong thing — and that is precisely why
+  // it was added to the default on 2026-08-19. Here it is surfaced as a mandatory
+  // one-screen console briefing instead: stay silent and it proceeds, speak and it
+  // stops. Not a gate, and not silence either.
+  //
+  // See briefedGatesFor() below, and the fallback in gatesForApprovalLevel: a
+  // brief that cannot be READ re-gates product, because "I could not show you"
+  // must never be delivered as "you were shown and said nothing".
+  'ship-only':     ['ship'],
   'gates-only':    ['product', 'arch', 'ship'],
   strict:          ['arch', 'code', 'ship'],
   expert:          ['product', 'arch', 'plan', 'code', 'qa', 'security', 'ship'],
@@ -81,7 +99,16 @@ export function isRegulated(archetype) {
  * @param {{archetype?: string}} [opts]
  * @returns {string[]} gate names, pipeline order, deduped
  */
-export function gatesForApprovalLevel(level, { archetype } = {}) {
+/**
+ * Decisions this level surfaces as a non-blocking console briefing rather than a
+ * gate. Empty for every level that either gates the decision or never reaches it.
+ * @returns {string[]}
+ */
+export function briefedGatesFor(level) {
+  return level === 'ship-only' ? ['product'] : [];
+}
+
+export function gatesForApprovalLevel(level, { archetype, briefReadable = true } = {}) {
   // An unrecognised or missing level falls back to the default rather than to
   // "no gates": a typo in PROJECT.md must not silently disable human review.
   const key = LEVEL_GATES[level] ? level : DEFAULT_LEVEL;
@@ -89,6 +116,18 @@ export function gatesForApprovalLevel(level, { archetype } = {}) {
 
   // Applies at every level, `auto` included — see IRREVERSIBLE_FLOOR.
   for (const g of IRREVERSIBLE_FLOOR) if (!base.includes(g)) base.push(g);
+
+  // A briefing replaces a gate only while the briefing actually appears.
+  //
+  // `ship-only` trades the `product` gate for a mandatory console screen. If the
+  // brief cannot be read — absent, unreadable, written by a stage that failed —
+  // the trade is off and the gate comes back. Proceeding here would deliver "I
+  // could not show you" as "you were shown and said nothing", which is the exact
+  // substitution this project exists to refuse, arriving through a feature meant
+  // to reduce friction.
+  if (!briefReadable) {
+    for (const g of briefedGatesFor(key)) if (!base.includes(g)) base.push(g);
+  }
 
   if (isRegulated(archetype)) {
     for (const g of REGULATED_FLOOR) if (!base.includes(g)) base.push(g);

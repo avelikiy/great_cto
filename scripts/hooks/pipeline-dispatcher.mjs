@@ -27,7 +27,7 @@
  * Opt out: GREAT_CTO_DISABLE_DISPATCHER=1
  */
 
-import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
@@ -321,6 +321,26 @@ export function handoffFallback(agent, withinMs, now, { readdir, stat, read }) {
     if (!newest || now - newestM > withinMs) return null;
     return parseHandoffVerdict(read(join(dir, newest)), agent);
   } catch { return null; }
+}
+
+/**
+ * The `product` briefing, when the level asks for one.
+ *
+ * @returns {Promise<string|null|'unavailable'>} the screen · null when this level
+ *   does not brief · 'unavailable' when it should and could not, which re-gates.
+ */
+async function briefingFor(level) {
+  const { briefedGatesFor } = await import('../lib/approval-level.mjs');
+  if (!briefedGatesFor(level).includes('product')) return null;
+  try {
+    const { readdirSync } = await import('node:fs');
+    const briefs = readdirSync(join(process.cwd(), 'docs', 'product'))
+      .filter((f) => /^BRIEF-.*\.md$/.test(f)).sort();
+    if (!briefs.length) return 'unavailable';
+    const rel = join('docs', 'product', briefs[briefs.length - 1]);
+    const { briefScreen } = await import('../lib/brief-screen.mjs');
+    return briefScreen(readFileSync(join(process.cwd(), rel), 'utf8'), { path: rel }) || 'unavailable';
+  } catch { return 'unavailable'; }
 }
 
 /**
@@ -759,6 +779,17 @@ function verdictToken(v) {
   return typeof v === 'string' ? v : (v?.verdict ?? null);
 }
 
+/** Has this run already shown the product briefing? */
+function briefedAlready() {
+  try { return existsSync(join(process.cwd(), '.great_cto', '.product-briefed')); }
+  catch { return false; }
+}
+
+function markBriefed() {
+  try { writeFileSync(join(process.cwd(), '.great_cto', '.product-briefed'), new Date().toISOString()); }
+  catch { /* best-effort: re-briefing is the safe failure */ }
+}
+
 function emit(text) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text },
@@ -823,10 +854,23 @@ async function main() {
   // fall back to null = honour every gate in the map, so a missing PROJECT.md
   // makes the pipeline MORE cautious, never less.
   let activeGates = null;
+  /** ship-only's product briefing: the screen, null (not applicable), or 'unavailable'. */
+  let briefing = null;
   try {
     const pm = readFileSync(join(process.cwd(), '.great_cto', 'PROJECT.md'), 'utf8');
     const archetype = (pm.match(/^archetype:\s*(\S+)/m) || [])[1];
-    activeGates = gatesForApprovalLevel(levelFromProjectMd(pm), { archetype });
+    const level = levelFromProjectMd(pm);
+
+    // At `ship-only` the `product` decision is briefed rather than gated — one
+    // screen, non-blocking. The trade holds only while the screen can actually be
+    // produced, so the brief is read HERE and its readability decides whether the
+    // gate comes back. A brief that cannot be shown re-gates product: "I could not
+    // show you" must never arrive as "you were shown and said nothing".
+    briefing = await briefingFor(level);
+    activeGates = gatesForApprovalLevel(level, {
+      archetype,
+      briefReadable: briefing !== 'unavailable',
+    });
   } catch { /* no PROJECT.md or helper — keep every gate */ }
 
   const shape = stopShapeFor(agentIdFrom(payload));
@@ -883,7 +927,18 @@ async function main() {
     next: decision?.nexts ?? [],
     why: decision ? decision.text.slice(0, 240) : journalSilentWhy({ verdict, rule, agent }),
   });
-  if (decision) emit(decision.text);
+  // The briefing rides with the directive rather than on its own line: it is the
+  // context for the transition that is about to happen, and a screen that arrives
+  // detached from what it is briefing is a screen nobody connects to anything.
+  //
+  // Printed once per run — the dispatcher fires on every subagent completion, and
+  // a briefing repeated after each of nine stages is how a mandatory screen
+  // becomes wallpaper. The marker is the first thing checked and the last thing
+  // written, so a crash between them re-briefs rather than skipping.
+  const brief = briefing && briefing !== 'unavailable' && !briefedAlready() ? briefing : '';
+  if (brief) markBriefed();
+  if (decision) emit(brief ? brief + '\n' + decision.text : decision.text);
+  else if (brief) emit(brief);
   return process.exit(0);
 }
 

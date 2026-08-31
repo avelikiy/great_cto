@@ -57,13 +57,23 @@ test('every knowledge pack can be selected by something', () => {
     + '  shipped to every user and selectable by none costs everyone and helps nobody.');
 });
 
-test('the local copy of ARCHETYPES.md has not drifted from the shipped one', () => {
-  // The project-local copy is what a running session reads. A routing table that
-  // exists only in the source is a table the operator's own project does not have.
+test('the shipped ARCHETYPES.md is the one that carries the routing', () => {
+  // This deliberately does NOT compare `.great_cto/ARCHETYPES.md`. That file is
+  // overwritten at every SessionStart from the INSTALLED plugin, so during normal
+  // development it lags the working tree and a drift assertion there fails on a
+  // healthy repository — the first version of this test did exactly that, on the
+  // very commit that added it.
+  //
+  // The distinction is worth stating because it bit: editing the source does not
+  // change what a running session reads. The routing takes effect on the next
+  // install, and until then the ten packs are in the repository and not in the
+  // session. Shipped correctness is what a test can hold; installed state is the
+  // operator's, and `great-cto upgrade --self` is how it moves.
   const shipped = fs.readFileSync(path.join(ROOT, 'skills', 'great_cto', 'ARCHETYPES.md'), 'utf8');
-  const local = fs.readFileSync(path.join(ROOT, '.great_cto', 'ARCHETYPES.md'), 'utf8');
-  assert.equal(local, shipped,
-    'run: cp skills/great_cto/ARCHETYPES.md .great_cto/ARCHETYPES.md');
+  for (const p of ['accounting-pack', 'tax-pack', 'rcm-pack', 'gov-pack', 'edtech-pack',
+    'legaltech-pack', 'msp-pack', 'procurement-pack', 'adtech-privacy-pack', 'us-ai-pack']) {
+    assert.ok(shipped.includes(p), `${p} is not selectable in the file that ships`);
+  }
 });
 
 test('each routed pack names a reviewer that exists', () => {

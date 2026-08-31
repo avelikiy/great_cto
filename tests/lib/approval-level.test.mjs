@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   gatesForApprovalLevel, gateApplies, levelFromProjectMd, describeLevel,
-  isRegulated, APPROVAL_LEVELS, DEFAULT_LEVEL,
+  isRegulated, APPROVAL_LEVELS, DEFAULT_LEVEL, briefedGatesFor,
 } from '../../scripts/lib/approval-level.mjs';
 
 test('product-only pauses at product and ship — and nowhere technical it can skip', () => {
@@ -148,4 +148,59 @@ test('auto remains the way to ask for nothing this level chose', () => {
   // present at every level, including this one, for the reason stated at the top
   // of this file.
   assert.deepEqual(gatesForApprovalLevel('auto').filter((g) => g !== 'import'), []);
+});
+
+// ── ship-only: one gate, and a briefing where the other one was ─────────────
+//
+// The operator asked for a single human gate across every pipeline. Four stops
+// were measured at `gates-only` — product, arch, import, ship — and they do not
+// collapse into one, because they guard different failures: `arch` is cheap to
+// undo, `import` destroys data, `product` wastes the whole build, `ship` escapes
+// the machine.
+//
+// Only `ship` is irreversible in ADR-009's sense. So it is the one gate. `product`
+// does not vanish — a decision about WHAT to build that nobody sees is how a
+// pipeline spends a day on the wrong thing — it becomes a mandatory console
+// briefing instead: one screen, non-blocking, stay silent and it proceeds.
+//
+// A briefing is only an acceptable substitute for a gate while it actually
+// appears. If the brief cannot be read, this falls back to gating `product`,
+// because "I could not show you" must never be delivered as "you were shown and
+// said nothing".
+test('ship-only gates exactly one pipeline decision', () => {
+  const g = gatesForApprovalLevel('ship-only');
+  assert.deepEqual(g.filter((x) => x !== 'import'), ['ship'],
+    'one pipeline gate — the only stop whose consequence leaves the machine');
+});
+
+test('ship-only still cannot bypass a regulated archetype', () => {
+  // A new level must not become a bypass by omission. SKILL.md holds regulated
+  // archetypes to a strict minimum and that is encoded, not remembered.
+  const g = gatesForApprovalLevel('ship-only', { archetype: 'fintech' });
+  assert.ok(g.includes('security') || g.includes('compliance') || g.length > 2,
+    `a regulated archetype keeps its sign-off; got ${g.join(', ')}`);
+});
+
+test('the destructive-import guard survives every level', () => {
+  for (const level of APPROVAL_LEVELS) {
+    assert.ok(gatesForApprovalLevel(level).includes('import'),
+      `${level} dropped the import gate — it guards data loss, not process depth`);
+  }
+});
+
+test('product is briefed, not gated, and only at ship-only', () => {
+  assert.equal(briefedGatesFor('ship-only').includes('product'), true,
+    'the WHAT-to-build decision is still surfaced, as one non-blocking screen');
+  assert.equal(gatesForApprovalLevel('ship-only').includes('product'), false,
+    'and it does not stop the pipeline');
+  for (const level of APPROVAL_LEVELS.filter((l) => l !== 'ship-only')) {
+    assert.deepEqual(briefedGatesFor(level), [],
+      `${level} either gates product or does not run it — briefing belongs to ship-only alone`);
+  }
+});
+
+test('a brief that cannot be read falls back to the gate', () => {
+  assert.equal(gatesForApprovalLevel('ship-only', { briefReadable: false }).includes('product'), true,
+    '"I could not show you" must not be delivered as "you were shown and said nothing"');
+  assert.equal(gatesForApprovalLevel('ship-only', { briefReadable: true }).includes('product'), false);
 });
