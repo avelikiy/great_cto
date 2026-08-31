@@ -57,6 +57,16 @@ checking each stage's work before the next one builds on it.
    🤖  deployed · repo · live URL
 ```
 
+Three checkpoints is the **default**, not the floor. One line in `PROJECT.md`
+takes it to one — you approve the deploy, and checkpoints 1 and 2 become a screen
+you read rather than a form you fill:
+
+```
+approval-level: ship-only
+```
+
+See [When it asks you](#when-it-asks-you).
+
 <p align="center">
   <img src="docs/screenshots/board.png" alt="The board's Tasks screen — gates awaiting a decision, backlog, work in progress, done and blocked, each card showing the agent that owns it" width="900" />
 </p>
@@ -108,12 +118,38 @@ automatically. After init, verify the host actually loaded the plugin —
 
 One setting in `.great_cto/PROJECT.md` decides where the pipeline stops:
 
-| `approval-level` | Stops at | Per feature |
+| `approval-level` | Stops you at | Stops |
 |---|---|---|
+| **`ship-only`** | **the deploy — and briefs you on what gets built** | **1** |
 | `product-only` | what we build · whether it ships | 2 |
 | `gates-only` *(default)* | what we build · the design · the deploy | 3 |
-| `strict` | + code review | 4 |
-| `auto` | nothing | 0 |
+| `strict` | the design · code review · the deploy | 3 |
+| `auto` | nothing in the pipeline | 0 |
+
+Counts are pipeline stops. Every level also carries one guard that is not a
+process choice: importing data over existing records stops you at **every**
+level, `auto` included, because that one destroys what was there.
+
+**`ship-only` is the minimum that is still honest.** One stop — the deploy, the
+only decision whose consequence leaves your machine. The *what gets built*
+decision does not vanish, because a pipeline that spends a day on the wrong thing
+is the expensive failure: it arrives as one screen in your console, printed once,
+before the build starts.
+
+```
+ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
+
+  What gets built:  the offline-first checkout; ship the queue before the UI
+  Why:              reliability wins this segment, not features
+  Stop if:          under 20% of orders are created offline after four weeks
+  Left open:        which conflict rule for a re-submitted order
+
+  Full brief: docs/product/BRIEF-checkout.md
+```
+
+Silence is consent, and the screen says so. If the brief cannot be read, the gate
+comes back — "I could not show you" is never delivered as "you were shown and
+said nothing".
 
 `gates-only` gained the product gate in v3.0.0. It used to stop on *how* to build
 and *whether* to release, and never on *what* to build — the decision that is
