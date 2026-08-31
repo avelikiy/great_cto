@@ -36,7 +36,27 @@ STAMP="$(date -u +%Y-%m-%d)"
 BRANCH="auto/${STAMP}"
 WORKTREE="$ROOT/.great_cto/worktrees/${STAMP}"
 
-die() { echo "nightly-loop: $*" >&2; exit 1; }
+# A refusal must leave the same trace a run does.
+#
+# Without this, a night that did not happen looks exactly like a night with
+# nothing to report: the script exits into a log nobody opens, and the morning
+# summary from three days ago is still the newest file in the directory. That is
+# the defect this whole tool is built to refuse, arriving through the back door.
+die() {
+  echo "nightly-loop: $*" >&2
+  mkdir -p "$SUMMARY_DIR" 2>/dev/null
+  {
+    echo "# Nightly loop — ${STAMP}"
+    echo
+    echo "**It did not run.**"
+    echo
+    echo "> $*"
+    echo
+    echo "No branch was created and nothing was changed. This file exists so that a"
+    echo "night which did not happen does not look like a night with nothing to say."
+  } > "${SUMMARY_DIR}/${STAMP}.md" 2>/dev/null
+  exit 1
+}
 
 plist() {
   cat <<EOF
