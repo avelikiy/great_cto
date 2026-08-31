@@ -9,6 +9,85 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.19.0 — 2026-08-31
+
+The pipeline can now stop you once instead of three times, alerts about a waiting
+decision no longer fall silent after 72 hours, and ten domain knowledge packs
+that shipped to every user became selectable for the first time.
+
+### What's new
+
+- **One gate, if you want one.** `approval-level: ship-only` stops you at the
+  deploy — the only decision whose consequence leaves your machine. What gets
+  built arrives as a one-screen console briefing instead: printed once,
+  non-blocking, silence is consent, and the screen says so. If the brief cannot
+  be read the gate comes back, because "I could not show you" is not "you were
+  shown and said nothing".
+- **Ten industries became selectable.** Accounting, tax, medical billing,
+  government, edtech, legal-tech, MSP, procurement, adtech-privacy and US
+  AI-governance packs were written, complete, and named by nothing that could
+  load them. They now route on a signal in `PROJECT.md`, each paired with the
+  reviewer it already had.
+- **A waiting decision keeps saying so.** Reminders about a pending gate used to
+  stop after 72 hours and fire once per gate for its entire life. They now repeat
+  daily while the wait is under a week and weekly after that — quieter, never
+  silent — and the console and the board read the same source, so they cannot
+  disagree about the same gate.
+- **Alerts say whether this has happened before.** "First time for this project"
+  and "the fifty-third time in thirty days" are different situations and used to
+  produce the same sentence.
+- **Agents offer options and take a pick.** Every agent that reports to you now
+  gives two or three real options with what each costs, says which it would take
+  and why, and names what would make its pick wrong.
+- **The architecture maps are in the documentation.** Both diagrams were computed
+  for months and drawn only for the board; they are now generated into
+  `docs/reference/architecture-map.md`, and CI regenerates and compares them, so
+  a diagram that disagrees with the code fails the build.
+- **An unattended nightly run, on a branch you can delete.** `nightly-loop.sh`
+  runs the loop in a git worktree, never on your branch, never pushing, and
+  leaves a branch and a summary for the morning.
+- **Design documents declare three dials.** `DESIGN_VARIANCE`,
+  `MOTION_INTENSITY` and `VISUAL_DENSITY`, 1–10, each with one line of why — a
+  bare number cannot be reviewed.
+
+---
+
+### The gate that could not be answered, and the reminder that stopped
+
+An operator reported that the tool stops and stands still: if he does not
+remember a pending decision, nothing happens. It was not a bug. It was the sum of
+three reasonable decisions.
+
+`gate.stale` alerted between two hours and seven days, skipped anything marked
+`blocked`, and deduped on the gate id — one alert per gate, ever. `gate-expiry`
+marks a gate `blocked` at 72 hours, which silenced the first rule for exactly the
+gates that had waited longest. And the session-start hook treated anything past
+24 hours as history rather than work waiting.
+
+Measured before the change: six `gate.stale` alerts in the tool's lifetime, the
+most recent 41 days old, across a period that contained a gate open for 29 days.
+
+Age is now the reason to speak rather than the reason to stop. A decision nobody
+has made does not get less urgent by ageing; every stage behind it is still
+stopped. Noise is handled by ranking and a decaying cadence, not by going quiet.
+
+### Ten packs, and the check that was missing
+
+Looking for somewhere to put a set of design rules turned up ten of twenty-six
+knowledge packs named by nothing that could load them — shipped to every user,
+selectable by none. Each already had a matching reviewer agent; only the routing
+was absent.
+
+That was the fourth instance of one shape in a week: a router declared by
+nineteen agents and invoked by none, a verifier whose only caller was its own
+test, an agent for scoring alternatives with zero verdicts since May, and now ten
+packs. Four is not bad luck — it is a missing class of check. Nothing asked
+whether a declared capability was reachable. Now something does, for packs and
+for skills, frozen at zero and verified by making it fail.
+
+---
+
 ## v3.18.0 — 2026-08-29
 
 The board's documents screen now says how often each document is cited, the
