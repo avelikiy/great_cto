@@ -121,6 +121,23 @@ because the number measured the method rather than the market.
    during it, and used once. If that was not done, the repair is to define one now
    and report the current figure as in-sample until it exists.
 
+7. **The label has to be an outcome that could have happened.** A fixed-horizon
+   return — "the return over the next five days" — assumes you held for five days.
+   You would not have: a stop-loss would have taken you out on day two, and the
+   model is being trained on a result that was never available. A label that
+   ignores the path between entry and horizon is invalid, however carefully the
+   rest of the study is done.
+
+   This is a separate failure from sample uniqueness (condition 3). Overlapping
+   windows make the observations non-independent; a fixed horizon makes the
+   OUTCOME wrong. A study can fix one and still fail the other, and answering a
+   labelling question with a uniqueness answer leaves the label wrong.
+
+   → **VALID WHEN**: the label records which of three barriers was touched first —
+   profit-take, stop-loss, time limit — with the price barriers scaled to a
+   volatility estimate rather than fixed, and the time limit stated. The label is
+   which barrier ended the observation, not only the sign of the move.
+
 ## Three states, never two
 
 Every reported result is one of:
@@ -142,7 +159,7 @@ Every reported result is one of:
    could contradict is not one.
 2. **Data** — source, period, frequency, and what is missing or survivorship-biased.
 3. **Method** — features, labels, model, and the validation scheme by name.
-4. **Validity** — the six conditions above, each `held` / `failed` / `not applicable`,
+4. **Validity** — the seven conditions above, each `held` / `failed` / `not applicable`,
    with one line each. This section comes BEFORE the results, deliberately: a
    reader who sees the Sharpe first has already formed a view.
 5. **Result** — `valid` / `invalid` / `unverifiable`, the figures net of costs, and
