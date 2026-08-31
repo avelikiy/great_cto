@@ -137,6 +137,27 @@ async function waitingLine() {
 
 async function main() {
   if (process.env.GREAT_CTO_DISABLE_SESSION_RESUME === '1') return 0;
+
+  // Said first, before anything else this hook might print: if the session is
+  // reading an older plugin than this working tree, every other line here — and
+  // every agent contract loaded this session — describes the OLD one.
+  //
+  // Silent unless it applies. It applies only when the working tree IS the plugin
+  // (developing great_cto itself); in any other project the installed plugin is
+  // the source of truth and there is nothing to warn about. A warning that fires
+  // where it does not apply is how a warning stops being read.
+  try {
+    const { installDrift } = await import('../lib/install-drift.mjs');
+    const d = installDrift(process.cwd());
+    if (d.state === 'ahead' || d.state === 'unknown') {
+      console.error(`⚠ ${d.sentence}`);
+      if (d.files.length) {
+        const shown = d.files.slice(0, 5).map((f) => `    · ${f}`).join('\n');
+        console.error(shown + (d.files.length > 5 ? `\n    · …and ${d.files.length - 5} more` : ''));
+      }
+    }
+  } catch { /* never block a session start on a diagnostic */ }
+
   if (!existsSync(PROJ_DIR) || !existsSync(join('shared', 'pipeline.toml'))) return 0;
 
   // Cheapest question first: is anything in flight at all? A stat per verdict

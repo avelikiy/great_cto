@@ -519,6 +519,38 @@ echo "## Check 8e — Grants & credentials"
 node "$GA" 2>/dev/null || echo "  (grant-audit unavailable)"
 ```
 
+## Check 8f — Is the session reading the plugin you are editing? (v3.19+)
+
+Only when this repository IS great_cto. Everywhere else the installed plugin is
+the source of truth and there is nothing to compare.
+
+great_cto is developed from source and loaded from a versioned cache, so an edit
+to `agents/` or `shared/` does not reach a running session until
+`scripts/install-local.sh` runs. Measured once at 3.16.0-installed against
+3.18.0-in-tree: eleven of 69 agents diverged — exactly the eleven edited that
+week, every one of them invisible to the session making the edits.
+
+Reports, never blocks. Not having reinstalled is a normal state mid-work; the
+defect was that it was invisible, not that it happens.
+
+```bash
+node -e '
+(async () => {
+  try {
+    const { installDrift } = await import("./scripts/lib/install-drift.mjs");
+    const d = installDrift(process.cwd());
+    if (d.state === "not-applicable") return;
+    if (d.state === "match") { console.log("Installed plugin: matches this tree (" + d.repo + ")"); return; }
+    console.log("Installed plugin: " + d.sentence);
+    for (const f of d.files.slice(0, 8)) console.log("  · " + f);
+    if (d.files.length > 8) console.log("  · …and " + (d.files.length - 8) + " more");
+  } catch (e) {
+    // Three states: a check that could not run says so rather than passing.
+    console.log("Installed plugin: could not be compared — " + (e && e.message || e));
+  }
+})()' 2>/dev/null || echo "Installed plugin: check unavailable"
+```
+
 ## Check 9 — Auto-remediation (--fix mode)
 
 If `FIX_MODE=true`, perform safe, non-destructive fixes. Skip silently otherwise.
