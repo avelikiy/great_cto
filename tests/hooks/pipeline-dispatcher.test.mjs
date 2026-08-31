@@ -1026,3 +1026,100 @@ test('the map the plugin ships is actually there', () => {
   const transitions = parsePipelineToml(readFileSync(shipped, 'utf8'));
   assert.ok(Object.keys(transitions).length > 5, 'and it parses into real transitions');
 });
+
+// ── ship-only: the briefing, end to end ─────────────────────────────────────
+//
+// `approval-level.mjs` and `brief-screen.mjs` were unit-tested — 22 and 8 cases —
+// and the WIRING between them and the dispatcher was not. Zero mentions in this
+// file, and no pipeline had ever run at ship-only. The parts were green and the
+// join was unexamined, which is the shape this project keeps finding elsewhere:
+// a mechanism that looks finished because its pieces pass.
+//
+// These drive the real hook, in a sandbox, at the level an operator would set.
+
+function shipOnlySandbox({ brief = null, level = 'ship-only', verdictLines, scored, scoredRunTs } = {}) {
+  const dir = sandbox({ verdictLines, scored, scoredRunTs });
+  writeFileSync(join(dir, '.great_cto', 'PROJECT.md'),
+    `# p\n\n## Project\n\nprimary: web-service\narchetype: web-service\n\n## Team\n\napproval-level: ${level}\n`);
+  if (brief !== null) {
+    mkdirSync(join(dir, 'docs', 'product'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'product', 'BRIEF-x.md'), brief);
+  }
+  return dir;
+}
+
+const GOOD_BRIEF = [
+  '# Product Brief — offline checkout', '',
+  '## Recommendation', '',
+  'Build the offline-first checkout. Ship the queue before the UI.', '',
+  '## The bet', '', 'Reliability wins this segment.', '',
+  '## Risks & kill-criteria', '', 'Kill if under 20% of orders are created offline.', '',
+].join('\n');
+
+test('e2e ship-only: the product briefing reaches the console', () => {
+  const now = new Date().toISOString();
+  const dir = shipOnlySandbox({
+    brief: GOOD_BRIEF,
+    verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` },
+    scored: 'architect', scoredRunTs: now,
+  });
+  const r = runHook(dir, 'great_cto-architect');
+  assert.equal(r.exit, 0);
+  assert.match(r.stdout, /ABOUT TO BUILD/, 'the screen that replaces the gate actually appears');
+  assert.match(r.stdout, /offline-first checkout/, 'and it carries the recommendation');
+  assert.match(r.stdout, /say nothing and this proceeds/, 'and states that silence is consent');
+});
+
+test('e2e ship-only: the briefing is printed once, not after every stage', () => {
+  // The dispatcher fires on every subagent completion. A briefing repeated after
+  // each of nine stages is how a mandatory screen becomes wallpaper.
+  const now = new Date().toISOString();
+  const dir = shipOnlySandbox({
+    brief: GOOD_BRIEF,
+    verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` },
+    scored: 'architect', scoredRunTs: now,
+  });
+  const first = runHook(dir, 'great_cto-architect');
+  const second = runHook(dir, 'great_cto-architect');
+  assert.match(first.stdout, /ABOUT TO BUILD/);
+  assert.doesNotMatch(second.stdout, /ABOUT TO BUILD/, 'the second stage does not re-brief');
+});
+
+test('e2e gates-only: no briefing, because the gate is doing that job', () => {
+  const now = new Date().toISOString();
+  const dir = shipOnlySandbox({
+    brief: GOOD_BRIEF, level: 'gates-only',
+    verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` },
+    scored: 'architect', scoredRunTs: now,
+  });
+  const r = runHook(dir, 'great_cto-architect');
+  assert.doesNotMatch(r.stdout, /ABOUT TO BUILD/,
+    'a level that stops you at product must not also brief you about it');
+});
+
+test('e2e ship-only with no brief: the hook still runs and says nothing false', () => {
+  // The fallback that matters: no brief means the product gate is restored. The
+  // dispatcher must not print a briefing it could not build, and must not crash.
+  const now = new Date().toISOString();
+  const dir = shipOnlySandbox({
+    brief: null,
+    verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` },
+    scored: 'architect', scoredRunTs: now,
+  });
+  const r = runHook(dir, 'great_cto-architect');
+  assert.equal(r.exit, 0, 'a missing brief is not a crash');
+  assert.doesNotMatch(r.stdout, /ABOUT TO BUILD/, 'and not a screen with nothing in it');
+});
+
+test('e2e ship-only with an empty brief: same refusal as no brief', () => {
+  const now = new Date().toISOString();
+  const dir = shipOnlySandbox({
+    brief: '# Product Brief\n\n## Problem\n\nSomething is wrong.\n',
+    verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` },
+    scored: 'architect', scoredRunTs: now,
+  });
+  const r = runHook(dir, 'great_cto-architect');
+  assert.equal(r.exit, 0);
+  assert.doesNotMatch(r.stdout, /ABOUT TO BUILD/,
+    'a brief with no recommendation briefs nothing — it must re-gate, not print an empty screen');
+});
