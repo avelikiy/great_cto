@@ -140,7 +140,7 @@ EXCLUDE_PATHS=(
 # arming a gate nobody can pass.
 _STOPWORDS=" the and or for with from this that a an of to in on at is are be by
  it as not but if then else when where project projects work personal src lib bin
- docs doc test tests script scripts main app api web core data build dist node "
+ docs doc test tests script scripts tools tool main app api web core data build dist node "
 
 TERMS_RE=""
 _REJECTED_TERMS=()

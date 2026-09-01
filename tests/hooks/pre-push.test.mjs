@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, copyFileSync, chmodSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, copyFileSync, chmodSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -314,4 +314,28 @@ test('the allowlist clears a directory name that is an ordinary word', () => {
 
   const res = push(work, home, 'feature/allowed');
   assert.equal(res.status, 0, `an allowlisted word must not block:\n${res.stdout}\n${res.stderr}`);
+});
+
+// A guard that cries wolf gets bypassed, and then it guards nothing.
+//
+// The pre-push privacy hook takes every directory under the workspace as a
+// private project name. `~/development/tools` is a generic container — like
+// `scripts`, `docs`, `lib`, `bin`, already on the stopword list — so the word
+// "tools" in ordinary English blocked a release, in a CHANGELOG sentence about
+// which TOOLS a hook guards.
+//
+// The danger is not the blocked push. It is the habit the block teaches: one
+// `--no-verify` to get past a false positive, and the next one goes past a real
+// leak. Generic container names belong on the list for the same reason the ones
+// already there do.
+test('generic workspace container names are not treated as private projects', () => {
+  const hook = readFileSync(new URL('../../scripts/hooks/pre-push.sh', import.meta.url), 'utf8');
+  const m = hook.match(/_STOPWORDS="([\s\S]*?)"/);
+  assert.ok(m, 'the hook still has a stopword list');
+  const words = new Set(m[1].split(/\s+/).filter(Boolean));
+  for (const generic of ['scripts', 'docs', 'lib', 'bin', 'src', 'tools', 'test', 'data']) {
+    assert.ok(words.has(generic),
+      `"${generic}" names a directory anyone might have and a word anyone might write; `
+      + 'flagging it trains the operator to pass --no-verify');
+  }
 });
