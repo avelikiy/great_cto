@@ -1,0 +1,15 @@
+{
+  "what": "With no project directory the check cannot run, and the directive says THAT — not that the feature was switched off.",
+  "why": "Found by this fixture. Both ways of reaching 'no score' rendered as `the check is disabled (GREAT_CTO_REQUIRE_VERIFY=0)`, which for this one is false: the variable is unset and the real cause is that there was nowhere to look. A directive naming the wrong cause sends its reader somewhere confidently.",
+  "given": {
+    "agent": "architect",
+    "verdict": { "agent": "architect", "verdict": "APPROVED", "ts": "2026-08-26T20:00:00Z" },
+    "transitions": { "architect": { "on": ["APPROVED"], "next": ["pm"] } },
+    "cwd": null, "activeGates": [], "gateStates": {}
+  },
+  "expect": {
+    "kind": "next",
+    "textIncludes": ["the check could not run — no project directory", "This is not a pass"],
+    "textExcludes": ["the check is switched off"]
+  }
+}

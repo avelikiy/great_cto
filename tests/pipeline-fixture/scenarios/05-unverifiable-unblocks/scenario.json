@@ -1,0 +1,12 @@
+{
+  "what": "A recorded score of `unverifiable` lets the run proceed — and the directive says which state was recorded.",
+  "why": "What is required is the LOOK, not a pass. A gate with no honest exit becomes a deadlock, and a deadlock gets switched off.",
+  "givenProject": { "verdicts": ["architect"], "score": "unverifiable" },
+  "given": {
+    "agent": "architect",
+    "verdict": { "agent": "architect", "verdict": "APPROVED", "ts": "2026-08-26T20:00:00Z" },
+    "transitions": { "architect": { "on": ["APPROVED"], "next": ["pm"] } },
+    "activeGates": [], "gateStates": {}
+  },
+  "expect": { "kind": "next", "textIncludes": ["VERIFIED: independent-verify recorded `unverifiable`"] }
+}

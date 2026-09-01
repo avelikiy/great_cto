@@ -1,0 +1,12 @@
+{
+  "what": "A real project directory with a verdict and no score does not dispatch — it asks for the check first.",
+  "why": "Verification was a sentence in a directive, and it ran on a third of the work: 31 agent runs, 10 scores. The dispatch is conditional on a score for THIS run, or it is a suggestion again.",
+  "givenProject": { "verdicts": ["architect"], "score": null },
+  "given": {
+    "agent": "architect",
+    "verdict": { "agent": "architect", "verdict": "APPROVED", "ts": "2026-08-26T20:00:00Z" },
+    "transitions": { "architect": { "on": ["APPROVED"], "next": ["pm"] } },
+    "activeGates": [], "gateStates": {}
+  },
+  "expect": { "kind": "verify-wait", "textIncludes": ["independent-verify", "Exit 2 unverifiable"] }
+}

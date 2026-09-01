@@ -1,0 +1,11 @@
+{
+  "what": "An approved stage with no gate on its edge dispatches the next stage.",
+  "why": "The baseline. If this stops holding, nothing below it means anything.",
+  "given": {
+    "agent": "architect",
+    "verdict": { "agent": "architect", "verdict": "APPROVED", "ts": "2026-08-26T20:00:00Z" },
+    "transitions": { "architect": { "on": ["APPROVED"], "next": ["pm"] } },
+    "cwd": null, "activeGates": [], "gateStates": {}
+  },
+  "expect": { "kind": "next", "textIncludes": ["subagent_type: pm", "Do not stop the turn before dispatching"] }
+}

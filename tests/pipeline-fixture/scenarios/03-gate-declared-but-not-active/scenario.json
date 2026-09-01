@@ -1,0 +1,11 @@
+{
+  "what": "Same edge, same open gate — but the approval level does not activate it. The run advances, and SAYS the gate was delegated rather than passing over it silently.",
+  "why": "The map DECLARES which gates guard an edge; approval-level decides which apply. A level that promises a pause the map cannot deliver, or a map that skips a pause without saying so, are the two halves of the same defect.",
+  "given": {
+    "agent": "architect",
+    "verdict": { "agent": "architect", "verdict": "APPROVED", "ts": "2026-08-26T20:00:00Z" },
+    "transitions": { "architect": { "on": ["APPROVED"], "next": ["pm"], "gate": "gate:arch" } },
+    "cwd": null, "activeGates": ["ship"], "gateStates": { "gate:arch": { "state": "open" } }
+  },
+  "expect": { "kind": "next", "textIncludes": ["NOT active at this approval level", "do not wait for it"] }
+}

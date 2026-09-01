@@ -611,9 +611,21 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
         + `Set GREAT_CTO_REQUIRE_VERIFY=0 to dispatch without a check.`,
     };
   }
+  // Three reasons, not two. This note used to say "the check is disabled
+  // (GREAT_CTO_REQUIRE_VERIFY=0)" for BOTH ways of arriving here without a score,
+  // and for one of them that sentence is simply false: with no `cwd` the checker
+  // had nowhere to look, the variable is unset, and an operator reading the note
+  // goes hunting an environment variable that does not exist while the real cause
+  // — no project directory — is never named.
+  //
+  // The gate itself is unchanged; only the account of why it did not run. A
+  // directive that reports the wrong cause is worse than one that reports none,
+  // because it sends the reader somewhere confidently.
   const verifyNote = score
     ? ` VERIFIED: independent-verify recorded \`${score.state}\` for this run (${score.scorer}).`
-    : ` NOT VERIFIED: the check is disabled (GREAT_CTO_REQUIRE_VERIFY=0); nothing has judged this stage.`;
+    : !requireVerify
+      ? ` NOT VERIFIED: the check is switched off (GREAT_CTO_REQUIRE_VERIFY=0); nothing has judged this stage.`
+      : ` NOT VERIFIED: the check could not run — no project directory was resolved, so there was nowhere to look for a score. This is not a pass.`;
 
   const skipNote = skip.skipped.length
     ? ` (skipping ${skip.skipped.join(', ')} — ${skip.why}; no active gate sat on that edge)`

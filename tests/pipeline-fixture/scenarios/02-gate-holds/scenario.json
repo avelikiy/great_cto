@@ -1,0 +1,11 @@
+{
+  "what": "An approved stage whose edge carries an ACTIVE, OPEN gate waits for a human.",
+  "why": "This is the product. A gate that lets the run continue is decoration — and it is the failure nobody notices until something irreversible has already shipped.",
+  "given": {
+    "agent": "architect",
+    "verdict": { "agent": "architect", "verdict": "APPROVED", "ts": "2026-08-26T20:00:00Z" },
+    "transitions": { "architect": { "on": ["APPROVED"], "next": ["pm"], "gate": "gate:arch" } },
+    "cwd": null, "activeGates": ["arch"], "gateStates": { "gate:arch": { "state": "open" } }
+  },
+  "expect": { "kind": "gate", "textIncludes": ["WAIT for approval", "Do not auto-approve"] }
+}

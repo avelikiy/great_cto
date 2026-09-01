@@ -1,0 +1,11 @@
+{
+  "what": "A stage with no onward edge ends the chain and reports, rather than returning silence.",
+  "why": "A dispatcher that returns null when it has nothing to say is indistinguishable from one that failed to decide.",
+  "given": {
+    "agent": "devops",
+    "verdict": { "agent": "devops", "verdict": "APPROVED", "ts": "2026-08-26T20:00:00Z" },
+    "transitions": { "devops": { "on": ["APPROVED"], "next": [] } },
+    "cwd": null, "activeGates": [], "gateStates": {}
+  },
+  "expect": { "kind": "done", "textIncludes": ["end of chain"] }
+}

@@ -300,6 +300,22 @@ step "lib tests" node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs
 step "eval tests" node --test tests/eval/*.test.mjs
 step "docs tests" bash -c 'node --test tests/docs/*.test.mjs 2>/dev/null || true'
 
+# ── The pipeline, against a written-down answer ──
+#
+# The dispatcher decides whether an irreversible operation gets a human in front
+# of it, and until now the only way to see what it would decide was to run it on a
+# real project with real agents at a real cost per look. So the part of this
+# product that the whole product is for had no check in CI at all.
+#
+# A second, no key, no network. Borrowed from anthropics/oncall-kit — a fixture
+# with an answer key that doubles as the regression test — and extended from the
+# shape this repository already used for archetype detection.
+#
+# It earned its place before it was finished: writing scenario 06 found that both
+# ways of reaching "nothing has checked this stage" printed the same sentence, and
+# that for one of them the sentence named a setting nobody had changed.
+step "pipeline decisions match the key" node tests/pipeline-fixture/run.mjs
+
 # ── The pipeline test suite, blocking (L1–L5) ──
 #
 # `scripts/test-pipeline.sh` existed for months and this file did not call it.
