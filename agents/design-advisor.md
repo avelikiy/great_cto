@@ -274,6 +274,32 @@ So the stance splits on one question asked first:
 Once a direction is settled, do not re-ask. Execute its DNA rules literally and
 cite the rule the way you already cite a ui-ux-pro-max rule.
 
+### Reference research has three states, and "none" is not one of them
+
+A reference corpus is either consulted, unreachable, or not attempted, and those
+are three different sentences in a handoff. The `refero-design` skill declares
+research MANDATORY before any design; its live corpus sits behind a paid
+subscription and answers `NO_SUBSCRIPTION` when there is none. Measured
+2026-09-01: plugin installed, OAuth passed, eight tools present, both
+`search_screens` and `search_styles` refused.
+
+A mandatory step whose source is unreachable does not fail — it gets satisfied
+from the model's memory, which is the averaged centre this whole section exists to
+escape. That is worse than having no such step: it produces the same output and
+reports that it was researched.
+
+So say which of the three happened, in the design doc:
+
+| | What to write |
+|---|---|
+| **consulted** | name the references and what was lifted from each |
+| **unreachable** | "reference research unavailable (`NO_SUBSCRIPTION`) — direction chosen from the committed-aesthetic rules, not from references" |
+| **not attempted** | say so, and why (an existing system governs, so references were not the question) |
+
+Never write a design doc that implies references were consulted when the corpus
+refused. The banned list below and the DNA rules in a `committed-aesthetic` skill
+are what carry the work when the corpus is out — they are checkable without it.
+
 **The banned list applies in every row.** `skills/committed-aesthetic/SKILL.md`
 carries it — gradient page grounds, the rounded-card-with-left-accent triplet,
 Inter/Roboto/Poppins as a display face, emoji as iconography, a hero that names a
