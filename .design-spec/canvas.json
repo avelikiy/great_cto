@@ -1,14 +1,64 @@
 {
   "artboards": [
-    { "file": "Main.dc.html",       "x": 0,    "y": 0,    "w": 1200, "h": 1560, "title": "01 Foundations" },
-    { "file": "Components.dc.html", "x": 1320, "y": 0,    "w": 1200, "h": 1340, "title": "02 Components" },
-    { "file": "Shell.dc.html",      "x": 2640, "y": 0,    "w": 1200, "h": 1020, "title": "03 Shell" },
-    { "file": "Screens.dc.html",    "x": 0,    "y": 1700, "w": 1200, "h": 1320, "title": "04 Screens" },
-    { "file": "Typography.dc.html", "x": 1320, "y": 1700, "w": 1200, "h": 1900, "title": "05 Typography" },
-    { "file": "Findings.dc.html",   "x": 2640, "y": 1700, "w": 1200, "h": 1300, "title": "06 Open findings" }
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 1560,
+      "title": "01 Foundations"
+    },
+    {
+      "file": "Components.dc.html",
+      "x": 1320,
+      "y": 0,
+      "w": 1200,
+      "h": 1340,
+      "title": "02 Components"
+    },
+    {
+      "file": "Shell.dc.html",
+      "x": 2640,
+      "y": 0,
+      "w": 1200,
+      "h": 1020,
+      "title": "03 Shell"
+    },
+    {
+      "file": "Screens.dc.html",
+      "x": 0,
+      "y": 1700,
+      "w": 1200,
+      "h": 1320,
+      "title": "04 Screens"
+    },
+    {
+      "file": "Typography.dc.html",
+      "x": 1320,
+      "y": 1700,
+      "w": 1200,
+      "h": 1900,
+      "title": "05 Typography"
+    },
+    {
+      "file": "Findings.dc.html",
+      "x": 2640,
+      "y": 1700,
+      "w": 1200,
+      "h": 1300,
+      "title": "06 Open findings"
+    }
   ],
   "annotations": [
-    { "id": "how-read", "x": 0, "y": -190, "w": 620, "text": "great_cto board — design specification\n\nRead across the top row for the system (foundations, components, shell),\nthe bottom row for what it is applied to (screens, typography, open findings).\n\nEvery value is transcribed from the source, not proposed." }
+    {
+      "id": "how-read",
+      "x": 0,
+      "y": -190,
+      "w": 620,
+      "text": "great_cto board — design specification\n\nRead across the top row for the system (foundations, components, shell),\nthe bottom row for what it is applied to (screens, typography, open findings).\n\nEvery value is transcribed from the source, not proposed."
+    }
   ],
-  "launch": { "view": "canvas" }
+  "launch": {
+    "view": "canvas"
+  }
 }
