@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600&display=swap">
+  <style>
+    body { margin:0; background:#fafafa; color:#111111;
+           font-family:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+           letter-spacing:-0.006em; -webkit-font-smoothing:antialiased; }
+    a { color:#007a45; text-decoration:none; } a:hover { color:#006b3c; }
+    .h { font-size:11px; letter-spacing:.10em; text-transform:uppercase; color:#737373; }
+    table { border-collapse:collapse; width:100%; }
+    th,td { text-align:left; padding:11px 14px 11px 0; vertical-align:top; }
+    th { border-bottom:1px solid #111111; }
+    td { border-bottom:1px solid #c1c1c1; }
+    .box { border:1px solid #c1c1c1; padding:20px; }
+    .fill { background:#007a45; color:#fff; }
+  </style>
+</helmet>
+
+<div style="padding:56px 64px; display:flex; flex-direction:column; gap:44px; max-width:1280px;">
+<div style="padding:56px 64px; display:flex; flex-direction:column; gap:44px; max-width:1280px;">
+
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div class="h" style="color:#007a45;">02 — Typography</div>
+    <div style="font-size:38px; font-weight:500; letter-spacing:-0.02em; line-height:1.15;">Monospace is not the code font. It is the voice.</div>
+    <div style="font-size:16px; color:#414141; max-width:800px; line-height:1.55;">Rule 4 of our existing system already says mono means machine-truth — anything a person would select and paste. 115 uses against 9 for the display token. The landing's primary call to action is literally <span style="color:#111;">npx great-cto</span>, a string you copy. Setting the whole page in it is finishing a decision we already made, not importing someone else's.</div>
+  </div>
+
+  <div class="box" style="border-color:#f35815; display:flex; flex-direction:column; gap:12px;">
+    <div class="h" style="color:#f35815;">The constraint that shapes the scale</div>
+    <div style="font-size:17px; font-weight:500;">Geist Mono is vendored <span style="color:#f35815;">wght 400–500</span>. There is no bold.</div>
+    <div style="font-size:15px; color:#414141; line-height:1.6; max-width:840px;">Above the axis the browser synthesises a smeared outline — the exact defect fixed in five board rules on 2026-09-01. So hierarchy is built from <strong style="color:#111;font-weight:500;">size and colour</strong>, never weight. This is a constraint that improves the result: a blueprint does not shout, it measures.</div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; align-items:baseline; gap:14px; border-bottom:1px solid #111; padding-bottom:10px;">
+      <div style="font-size:20px; font-weight:500;">The ramp, in the face itself</div>
+      <div style="font-size:14px; color:#737373;">the same 12 --fs-* tokens the board already ships</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <div style="display:flex;align-items:baseline;gap:24px;padding:10px 0;border-bottom:1px solid #e5e5e5;"><span style="font-size:12px;color:#737373;width:120px;">--fs-num-xl 52</span><span style="font-size:52px;font-weight:500;letter-spacing:-0.02em;line-height:1;">1h 26m</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;padding:10px 0;border-bottom:1px solid #e5e5e5;"><span style="font-size:12px;color:#737373;width:120px;">--fs-title-l 22</span><span style="font-size:22px;font-weight:500;letter-spacing:-0.01em;">A section heading</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;padding:10px 0;border-bottom:1px solid #e5e5e5;"><span style="font-size:12px;color:#737373;width:120px;">--fs-base 15</span><span style="font-size:15px;">Running copy. Monospace at 15px with a 1.6 line-height reads comfortably for a paragraph; it is not a code block, it is the page.</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;padding:10px 0;border-bottom:1px solid #e5e5e5;"><span style="font-size:12px;color:#737373;width:120px;">--fs-body 14</span><span style="font-size:14px;">Controls, navigation, table cells</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;padding:10px 0;"><span style="font-size:12px;color:#737373;width:120px;">--fs-eyebrow 11</span><span style="font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:#737373;">Section label</span></div>
+    </div>
+    <div style="font-size:14px;color:#414141;line-height:1.6;">Everything above is weight <strong style="color:#111;">500</strong> or <strong style="color:#111;">400</strong>. Nothing is bold. Hierarchy comes from 52 → 22 → 15 → 14 → 11 and from ink, and the page still reads.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+    <div class="box" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="h">Ink, light ground</div>
+      <div style="font-size:15px;">#111111 &nbsp;<span style="color:#737373;">18.09:1</span> — headings, primary</div>
+      <div style="font-size:15px;color:#414141;">#414141 &nbsp;<span style="color:#737373;">9.78:1</span> — body</div>
+      <div style="font-size:15px;color:#737373;">#737373 &nbsp;<span style="color:#737373;">4.54:1</span> — captions, labels</div>
+      <div style="font-size:14px;color:#414141;line-height:1.55;margin-top:4px;">Three steps that actually step — unlike the board's --text2/--text3, which differ by 5% and encode a hierarchy nobody can see.</div>
+    </div>
+    <div class="box" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="h">What replaces bold</div>
+      <div style="font-size:15px;">Size — the ramp above</div>
+      <div style="font-size:15px;">Ink — three steps, not two</div>
+      <div style="font-size:15px;">Rule — a 1px border under a heading</div>
+      <div style="font-size:15px;"><span class="fill" style="padding:2px 8px;">Fill</span> — for one thing per screen</div>
+      <div style="font-size:14px;color:#414141;line-height:1.55;margin-top:4px;">Four instruments. A page that needs a fifth is a page with too many claims on it.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

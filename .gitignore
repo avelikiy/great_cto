@@ -114,3 +114,7 @@ packages/cli/board/
 # Seeded design-canvas payload (~2 MB, regenerated from the .dc.html sources)
 .design-spec/*.html
 !.design-spec/*.dc.html
+
+# Seeded design-canvas payload (~2 MB, regenerated from the .dc.html sources)
+.design-direction/*.html
+!.design-direction/*.dc.html

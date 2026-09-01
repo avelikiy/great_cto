@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",     "x": 0,    "y": 0,    "w": 1320, "h": 1280, "title": "01 The decision" },
+    { "file": "Type.dc.html",     "x": 1440, "y": 0,    "w": 1320, "h": 1280, "title": "02 Typography" },
+    { "file": "Surfaces.dc.html", "x": 0,    "y": 1420, "w": 1320, "h": 1420, "title": "03 Surfaces + components" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -200, "w": 700, "text": "great_cto — direction ①: light monospace blueprint\n\nThe landing moves to a light ground; the board keeps its dark.\nConsistency is sameness of RULES, not of background — six of\neight rules are shared.\n\nForced by measurement: #00d97e is 1.79:1 on light. One accent\ncannot serve both grounds at text weight.\n\nThis spec is set in the direction it describes." }
+  ],
+  "launch": { "view": "canvas" }
+}

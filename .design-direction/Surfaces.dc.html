@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600&display=swap">
+  <style>
+    body { margin:0; background:#fafafa; color:#111111;
+           font-family:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+           letter-spacing:-0.006em; -webkit-font-smoothing:antialiased; }
+    a { color:#007a45; text-decoration:none; } a:hover { color:#006b3c; }
+    .h { font-size:11px; letter-spacing:.10em; text-transform:uppercase; color:#737373; }
+    table { border-collapse:collapse; width:100%; }
+    th,td { text-align:left; padding:11px 14px 11px 0; vertical-align:top; }
+    th { border-bottom:1px solid #111111; }
+    td { border-bottom:1px solid #c1c1c1; }
+    .box { border:1px solid #c1c1c1; padding:20px; }
+    .fill { background:#007a45; color:#fff; }
+  </style>
+</helmet>
+
+<div style="padding:56px 64px; display:flex; flex-direction:column; gap:44px; max-width:1280px;">
+<div style="padding:56px 64px; display:flex; flex-direction:column; gap:44px; max-width:1280px;">
+
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div class="h" style="color:#007a45;">03 — Surfaces and components</div>
+    <div style="font-size:38px; font-weight:500; letter-spacing:-0.02em; line-height:1.15;">Zero radius, zero shadow, one fill</div>
+    <div style="font-size:16px; color:#414141; max-width:800px; line-height:1.55;">Every component below appears twice — once on each ground — from one set of rules. If a component needs a different rule to work on the other ground, the rule is wrong.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #c1c1c1;">
+    <div style="padding:28px;display:flex;flex-direction:column;gap:22px;border-right:1px solid #c1c1c1;">
+      <div class="h">Light · landing</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span class="fill" style="padding:9px 16px;font-size:14px;">npx great-cto</span>
+        <span style="border:1px solid #111;padding:9px 16px;font-size:14px;">See live demo</span>
+        <span style="color:#007a45;font-size:14px;border-bottom:1px solid #007a45;">a naked link</span>
+      </div>
+      <div style="border:1px solid #c1c1c1;padding:16px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:#737373;">Receipts, not projections</div>
+        <div style="font-size:30px;font-weight:500;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;">1h 26m · $3.40</div>
+        <div style="font-size:14px;color:#414141;">one feature, end to end</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span style="border-radius:999px;border:1px solid #c1c1c1;padding:3px 10px;font-size:12px;color:#414141;">fintech</span>
+        <span style="border-radius:999px;background:#007a45;color:#fff;padding:3px 10px;font-size:12px;">verified</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0;border-top:1px solid #111;">
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #c1c1c1;font-size:14px;"><span>gate:ship</span><span style="color:#737373;">awaiting you</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #c1c1c1;font-size:14px;"><span>architect</span><span style="color:#737373;">—</span></div>
+      </div>
+    </div>
+
+    <div style="padding:28px;background:#0a0e0c;display:flex;flex-direction:column;gap:22px;">
+      <div class="h" style="color:#8a9a92;">Dark · board</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span style="background:#00d97e;color:#04140d;padding:9px 16px;font-size:14px;">Approve gate</span>
+        <span style="border:1px solid #ecf2ee;color:#ecf2ee;padding:9px 16px;font-size:14px;">Open</span>
+        <span style="color:#00d97e;font-size:14px;border-bottom:1px solid #00d97e;">a naked link</span>
+      </div>
+      <div style="border:1px solid #1e272c;padding:16px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:#8a9a92;">Measured this window</div>
+        <div style="font-size:30px;font-weight:500;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:#ecf2ee;">$7,420.18</div>
+        <div style="font-size:14px;color:#8a9a92;">31 agent runs</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span style="border-radius:999px;border:1px solid #1e272c;padding:3px 10px;font-size:12px;color:#8a9a92;">senior-dev</span>
+        <span style="border-radius:999px;background:#00d97e;color:#04140d;padding:3px 10px;font-size:12px;">verified</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0;border-top:1px solid #ecf2ee;">
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #1e272c;font-size:14px;color:#ecf2ee;"><span>gate:ship</span><span style="color:#8a9a92;">awaiting you</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #1e272c;font-size:14px;color:#ecf2ee;"><span>architect</span><span style="color:#8a9a92;">—</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:14px;color:#414141;line-height:1.6;max-width:840px;">Same anatomy, same measurements, same dash-not-nought. Only ground and accent differ — which is the claim on artboard 01, rendered rather than asserted.</div>
+
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; align-items:baseline; gap:14px; border-bottom:1px solid #111; padding-bottom:10px;">
+      <div style="font-size:20px; font-weight:500;">What the board loses, and why it is not a loss</div>
+    </div>
+    <table style="font-size:15px;">
+      <tr><th class="h" style="width:230px;">Today</th><th class="h" style="width:170px;">Becomes</th><th class="h">Why</th></tr>
+      <tr><td>radius 6 / 8 / 12 / 16px</td><td>0px</td><td style="color:#414141;">eleven raw radii were a scale invented one declaration at a time; zero is a decision</td></tr>
+      <tr><td>hover glow, accent at 6%</td><td>border shift</td><td style="color:#414141;">the one coloured shadow in the system — and the trait shared with Depot, Warp, Supabase, Trunk</td></tr>
+      <tr><td>5 surface steps</td><td style="color:#007a45;">kept</td><td style="color:#414141;">depth without shadow is right; it is only the shadow that goes</td></tr>
+      <tr><td>Geist sans for headings</td><td>Geist Mono</td><td style="color:#414141;">one voice on both surfaces; weight caps at 500</td></tr>
+      <tr><td>--text2 / --text3 at 5% apart</td><td>three real steps</td><td style="color:#414141;">closes board finding FIND-3, open since the first spec</td></tr>
+    </table>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
