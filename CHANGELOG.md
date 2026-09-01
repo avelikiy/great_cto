@@ -11,6 +11,59 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.21.0 — 2026-09-01
+
+The file that every session reads is now checked before it is read, and the cost
+log records where the money went rather than only how much.
+
+### What's new
+
+- **Global memory is scanned before it reaches a session.** `~/.great_cto/`
+  preferences, decisions and lessons are read into every session in every
+  project — that is what they are for. Now they are checked for credentials
+  first, and a file with one in it is **not loaded**: the warning names the file,
+  the pattern and the line, never the value, and goes to stderr so it reaches you
+  without becoming part of what the model reads.
+- **A file that cannot be read is withheld too.** Not treated as clean. Emitting
+  an unscanned file would report "I could not check" as "checked and clean", in
+  the one place where being wrong cannot be undone — a context is copied into a
+  transcript, and transcripts are not edited afterwards.
+- **The cost log separates input from output.** It recorded what a run cost and
+  never which half it went on, so every question about context size was a guess
+  about direction. Four trailing fields now carry input, output and both cache
+  counts; absent counts read as unknown rather than zero.
+- **Session learning has a triviality guard.** The learner is opt-in and, once
+  on, used to spawn a paid agent at every session end — including the one that
+  answered a question in thirty seconds. It now skips sessions that changed
+  nothing, and records which happened and why either way.
+
+---
+
+### Two halves that worked, and the gap between them
+
+A credential sat in a global memory file and reached the context of every session
+in every project. From that one line: 29 transcripts, 102 occurrences.
+
+Neither half of the system had failed. The secret scanner is a PreToolUse hook on
+Edit | Write | MultiEdit and guards those tools correctly — it cannot see a shell
+redirect, a hand edit, or another editor. And the memory file is read into every
+session because that is its entire purpose; it was not spread by accident, it was
+delivered as designed.
+
+The missing question sat between them: *is a secret already in the file I am
+about to hand to a model?* Nothing asked it, so a credential arriving by any path
+outside those three tools travelled silently and permanently.
+
+Both checks now share one set of patterns, so the at-rest check cannot drift from
+the at-write one.
+
+If a credential has been in that file, it has been in context for as long as it
+has been there. Revocation is the control. Deleting transcripts is not — it
+destroys the record and protects nothing.
+
+---
+
 ## v3.20.0 — 2026-08-31
 
 A quantitative research agent that refuses to certify a result whose validity
