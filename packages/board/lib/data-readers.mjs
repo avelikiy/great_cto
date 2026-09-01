@@ -1,3 +1,4 @@
+import { reversibilityOf } from '../../../scripts/lib/gate-reversibility.mjs';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -8,6 +9,17 @@ import { readVerdicts, readSecStats } from './verdicts.mjs';
 import { datePlans } from './plan-date.mjs';
 
 // ── Memory: 4-layer file contents ─────────────────────────────────────────────
+/**
+ * The gate's NAME out of a bead title. Titles are shaped `gate:ship — release X`,
+ * and the id is a bead id, so the name only ever lives in the title. A title that
+ * does not carry one yields '' — which reversibilityOf reports as unclassified,
+ * never as routine.
+ */
+function gateNameOf(task) {
+  const m = /^\s*gate[:\-]\s*([a-z0-9-]+)/i.exec(String(task?.title ?? ''));
+  return m ? `gate:${m[1].toLowerCase()}` : '';
+}
+
 function getMemory(cwd = process.cwd()) {
   const home = os.homedir();
   const layers = [
@@ -440,7 +452,15 @@ function getInbox(cwd = process.cwd()) {
     .map((t) => ({ ...t, also: alsoOf.get(t?.id ?? t?.title) || [] }))
     .slice(0, limit);
 
-  const ownedGates = own('gate', pendingGates, 20);
+  // ADR-009 says gates follow cost-of-undo, and the pipeline obeys it — but every
+  // gate reaches this screen looking the same, so `gate:ship` to production and a
+  // brief approval are one purple chip apart at the moment somebody clicks. The
+  // doctrine lived in the ADR and in the map and never reached the pixel where
+  // the decision is taken. This attaches it; nothing here decides anything.
+  const ownedGates = own('gate', pendingGates, 20).map((g) => ({
+    ...g,
+    reversibility: reversibilityOf(gateNameOf(g)),
+  }));
   const ownedP0 = own('p0', p0, 10);
   const ownedBlocked = own('blocked', blocked, 10);
   const ownedStale = own('stale', stale, 10);

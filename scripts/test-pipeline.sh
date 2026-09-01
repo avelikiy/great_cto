@@ -64,6 +64,30 @@ else
   C_OK=""; C_FAIL=""; C_DIM=""; C_HEAD=""; C_RESET=""; C_WARN=""
 fi
 
+# wait_http URL SECONDS — poll until it answers, or give up.
+#
+# The three server checks below used `sleep 1` and then curled once. That is an
+# assumption about how fast a process binds a port, and under a loaded run — which
+# is exactly what ci-local is — it is wrong: the MCP check failed there and passed
+# 3/3 in isolation, which is the signature of a fixed wait, not of a broken server.
+#
+# Polling turns "it was not ready in one second" into "it never became ready",
+# which is the thing the check meant to assert in the first place.
+wait_http() {
+  local url="$1" limit="${2:-10}" i=0
+  while [ "$i" -lt "$((limit * 10))" ]; do
+    curl -sf "$url" >/dev/null 2>&1 && return 0
+    sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+# Exported: `check` runs each command in a fresh `bash -c`, which does not inherit
+# shell functions. Without this the helper is "command not found" and three checks
+# fail for a reason that has nothing to do with what they test — which is how the
+# first cut of this change turned one failure into three.
+export -f wait_http
+
 PASS=0; FAIL=0; SKIP=0
 declare -a FAILURES
 
@@ -229,7 +253,7 @@ else
     bash -c "
       $CLI mcp --sse --port 8766 >/dev/null 2>&1 &
       MCP_PID=\$!
-      sleep 1
+      wait_http http://127.0.0.1:8766/healthz 10
       out=\$(curl -sf http://127.0.0.1:8766/healthz 2>/dev/null)
       kill \$MCP_PID 2>/dev/null
       wait \$MCP_PID 2>/dev/null
@@ -244,7 +268,7 @@ else
       $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
       $CLI serve --port 3144 >/dev/null 2>&1 &
       SRV_PID=\$!
-      sleep 1
+      wait_http http://127.0.0.1:3144/ 10
       code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H 'X-Hub-Signature-256: sha256=baad' -d '{}' http://127.0.0.1:3144/webhook/github)
       kill \$SRV_PID 2>/dev/null
       wait \$SRV_PID 2>/dev/null
@@ -259,7 +283,7 @@ else
       $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
       $CLI serve --port 3145 >/dev/null 2>&1 &
       SRV_PID=\$!
-      sleep 1
+      wait_http http://127.0.0.1:3145/ 10
       payload='{\"action\":\"opened\",\"number\":1,\"repository\":{\"full_name\":\"x/y\"}}'
       sig=\$(echo -n \"\$payload\" | openssl dgst -sha256 -hmac 'testsecret123' | awk '{print \"sha256=\"\$2}')
       code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H \"X-Hub-Signature-256: \$sig\" -d \"\$payload\" http://127.0.0.1:3145/webhook/github)

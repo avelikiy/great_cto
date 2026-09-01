@@ -98,7 +98,11 @@
   --p2-bg: rgba(240, 210, 78, 0.14);  --p2-fg: #fde68a;
   --p3-bg: rgba(255, 255, 255, 0.05); --p3-fg: #9ca3af;
 
-  --serif: "Geist", "Space Grotesk", "Inter", -apple-system, sans-serif;
+  /* Was `--serif`, and there is no serif anywhere in the stack — it is the
+     DISPLAY face, doing display work correctly under a name that promised a
+     contrast this page has never had. greatcto.systems already calls the same
+     stack `--display`; this is that name arriving here. */
+  --display: "Geist", "Space Grotesk", "Inter", -apple-system, sans-serif;
   --sans:  "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono:  "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
@@ -394,7 +398,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .sidebar-brand .brand-mark svg { width: 22px; height: 22px; }
 .sidebar-brand .brand-name {
-  font-family: var(--serif); font-weight: 600;
+  font-family: var(--display); font-weight: 600;
   font-size: var(--fs-title-s); letter-spacing: -0.01em;
   color: var(--text);
 }
@@ -1249,7 +1253,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .mem-item .layer-tag {
   font-family: var(--mono); font-size: var(--fs-eyebrow);
   color: var(--accent); letter-spacing: 0.06em;
-  font-weight: 600;
+  font-weight: 500;
 }
 .mem-item .name {
   font-family: var(--mono); font-size: var(--fs-small);
@@ -1285,8 +1289,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   max-width: 880px;
   margin: 0 auto;
 }
-.memory-doc h1 { font-family: var(--serif); font-weight: 600; font-size: 28px; letter-spacing: -0.02em; margin: 0 0 14px; color: var(--text); }
-.memory-doc h2 { font-family: var(--serif); font-weight: 600; font-size: 20px; margin: 28px 0 10px; color: var(--text); }
+.memory-doc h1 { font-family: var(--display); font-weight: 600; font-size: 28px; letter-spacing: -0.02em; margin: 0 0 14px; color: var(--text); }
+.memory-doc h2 { font-family: var(--display); font-weight: 600; font-size: 20px; margin: 28px 0 10px; color: var(--text); }
 .memory-doc h3 { font-family: var(--sans); font-weight: 600; font-size: var(--fs-title-s); margin: 18px 0 8px; color: var(--text); }
 .memory-doc p { font-size: var(--fs-base); line-height: 1.65; color: var(--text2); margin: 0 0 10px; }
 .memory-doc ul, .memory-doc ol { padding-left: 22px; margin: 0 0 12px; color: var(--text2); }
@@ -1330,7 +1334,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   font-family: var(--mono); font-size: var(--fs-caption);
   background: var(--accent-soft); color: var(--accent);
   padding: 4px 10px; border-radius: 4px;
-  letter-spacing: 0.06em; font-weight: 600;
+  letter-spacing: 0.06em; font-weight: 500;
 }
 .memory-doc-head .filename {
   font-family: var(--mono); font-size: var(--fs-body);
@@ -1547,7 +1551,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   color: var(--text2);
 }
 .cost-cell .v {
-  font-family: var(--serif); font-weight: 500;
+  font-family: var(--display); font-weight: 500;
   font-variant-numeric: tabular-nums;
   font-size: var(--fs-num-s); letter-spacing: -0.02em;
   color: var(--text); line-height: 1.1;
@@ -1669,7 +1673,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   margin: 0 auto;
 }
 .inbox-greet {
-  font-family: var(--serif); font-weight: 600;
+  font-family: var(--display); font-weight: 600;
   font-size: clamp(22px, 2.5vw, 30px);
   letter-spacing: -0.02em;
   margin-bottom: 24px;
@@ -1687,7 +1691,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   display: flex; align-items: center; gap: 10px;
 }
 .inbox-summary .pill-stat .num {
-  font-family: var(--serif); font-weight: 500;
+  font-family: var(--display); font-weight: 500;
   font-variant-numeric: tabular-nums;
   font-size: var(--fs-num-s); letter-spacing: -0.02em;
   color: var(--text);
@@ -1734,6 +1738,14 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   vertical-align: 1px;
 }
 .why-gate    { color: var(--status-gate);     border-color: var(--status-gate); }
+/* An expensive-to-undo gate must not wear the same chip as a routine one — that
+   equivalence is the finding this rule exists to remove. Colour AND a glyph:
+   colour alone fails the reader who cannot see it. */
+/* An expensive-to-undo gate must not wear the same chip as a routine one — that
+   equivalence is the whole finding. And `cost not classified` gets a third look,
+   because a gate nobody has judged is not a cheap gate. */
+.why-gate-expensive    { color: var(--status-blocked); border-color: var(--status-blocked); }
+.why-gate-unclassified { color: var(--p1-fg);          border-color: var(--p1-fg); }
 .why-p0      { color: var(--status-blocked);  border-color: var(--status-blocked); }
 .why-blocked { color: var(--status-progress); border-color: var(--status-progress); }
 .why-stale   { color: var(--text3); }
@@ -2129,7 +2141,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .metric-card.red::before   { background: var(--status-blocked); }
 .metric-card.purple::before { background: var(--metric-purple); }
 .metric-num {
-  font-family: var(--serif); font-weight: 500;
+  font-family: var(--display); font-weight: 500;
   /* The board is live (SSE). In a proportional face a 1 is narrower than an 8,
      so a figure that ticks over re-flows its own width and the number appears to
      breathe. Tabular figures cost nothing here and stop it. */
@@ -2151,7 +2163,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .delta {
   margin-left: 6px;
-  font-family: var(--mono); font-size: var(--fs-eyebrow); font-weight: 600;
+  font-family: var(--mono); font-size: var(--fs-eyebrow); font-weight: 500;
   letter-spacing: 0.02em; white-space: nowrap;
   color: var(--text3); cursor: help;
 }
@@ -2292,7 +2304,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .ab-name { font-family: var(--mono, monospace); color: var(--accent); }
 .ab-cap { color: var(--text3); }
 .agent-card { background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
-.agent-card .ac-name { font-size: var(--fs-small); font-weight: 600; font-family: var(--mono); color: var(--accent); }
+.agent-card .ac-name { font-size: var(--fs-small); font-weight: 500; font-family: var(--mono); color: var(--accent); }
 .agent-card .ac-desc { font-size: var(--fs-caption); color: var(--text3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agent-card .ac-meta { font-size: var(--fs-eyebrow); color: var(--text3); margin-top: 5px; display: flex; gap: 8px; }
 .agent-card .ac-model { background: var(--bg-strong); padding: 1px 5px; border-radius: 3px; }
@@ -2556,7 +2568,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   padding: 32px;
 }
 .share-card h2:not(.section-title) {
-  font-family: var(--serif); font-weight: 500;
+  font-family: var(--display); font-weight: 500;
   font-size: 28px; letter-spacing: -0.01em;
   margin: 0 0 6px;
 }
@@ -2765,7 +2777,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   margin-top: 4px; flex-shrink: 0;
 }
 .tl-content { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; }
-.tl-actor { font-family: var(--mono); font-size: var(--fs-caption); font-weight: 600; color: var(--accent); }
+.tl-actor { font-family: var(--mono); font-size: var(--fs-caption); font-weight: 500; color: var(--accent); }
 .tl-action { color: var(--text2); }
 .tl-change {
   font-family: var(--mono); font-size: var(--fs-caption);
@@ -2777,7 +2789,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
 /* ── Security tab: hero KPI tile + activity feed ──────────────────────────── */
 .kpi-hero .kpi-value-hero {
-  font-family: var(--serif); font-weight: 500;
+  font-family: var(--display); font-weight: 500;
   font-variant-numeric: tabular-nums;
   font-size: var(--fs-num-l); line-height: 1.1; letter-spacing: -0.02em;
 }
@@ -3732,8 +3744,18 @@ function renderQueue(d) {
   const queue = [
     // An expired gate is still a gate, and saying so is the whole point: the row
     // that lost its buttons for 699 hours looked like an ordinary P0.
-    ...withReason(d?.pending_gates, (t) =>
-      (t.raw_status === 'blocked' ? 'expired gate' : 'gate')),
+    // ADR-009 puts gates on cost-of-undo, and the map obeys it — but until now
+    // every gate reached this row as the same word. `gate:ship` to production and
+    // a brief approval read identically at the moment somebody clicks, which is
+    // the one place the doctrine had never been applied. The three states come
+    // from the API; `unclassified` deliberately does NOT fall back to `gate`.
+    ...withReason(d?.pending_gates, (t) => {
+      if (t.raw_status === 'blocked') return 'expired gate';
+      const st = t.reversibility?.state;
+      if (st === 'expensive') return 'gate · expensive to undo';
+      if (st === 'unclassified') return 'gate · cost not classified';
+      return 'gate';
+    }),
     ...withReason(d?.p0_open, (t) => (t.is_gate ? 'expired gate' : 'P0')),
     ...withReason(d?.blocked, 'blocked'),
     ...withReason(d?.stale_in_progress, (t) => {
@@ -4144,7 +4166,14 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     // carry this fact in their headings, where it was lost the moment an item moved
     // between them — which is how an expired gate became indistinguishable from an
     // ordinary P0 for 699 hours.
-    const REASON_TONE = { 'expired gate': 'gate', gate: 'gate', P0: 'p0', blocked: 'blocked' };
+    const REASON_TONE = {
+      'expired gate': 'gate', gate: 'gate', P0: 'p0', blocked: 'blocked',
+      // The class is looked up HERE, not derived from the string — a reason with
+      // no entry renders `class="why why-"` and is styled by nothing. Adding the
+      // reason without adding the tone is how a new chip ships invisible.
+      'gate · expensive to undo': 'gate-expensive',
+      'gate · cost not classified': 'gate-unclassified',
+    };
     const tone = REASON_TONE[t.__reason] || (String(t.__reason || '').startsWith('stale') ? 'stale' : '');
     const reasonChip = (opts.reasons && t.__reason)
       ? `<span class="why why-${tone}">${esc(t.__reason)}</span>`
