@@ -22,11 +22,34 @@ chosen to write this document.
 The subject is an instrument, not a brochure. One person reads it to decide what a
 machine may do next. Everything below follows from that.
 
-## Rule 0 — this is ours, not a default
+## Rule 0 — this is the CATEGORY default, and calling it ours was wrong
 
-Do not reach for this because it is here. A client's dental practice does not want
-a dark instrument panel. This applies to **great_cto's own surfaces**; for a client
-product, go through `committed-aesthetic` and choose deliberately.
+The first version of this file opened "this is ours, not a default". Measured
+against a real corpus on 2026-09-01, that is false, and the correction matters
+more than anything below it.
+
+Refero's top ten styles for a dark technical developer landing describe:
+near-black canvas (Depot, Warp, Supabase, Trunk, Checkly, Cron, Linear, Eraser),
+depth from surface shifts or borders **rather than shadows** (Warp, Supabase,
+Trunk, Linear), and **one green accent used sparingly** (Depot, Warp, Supabase,
+Trunk). Four of them are described with the words "instrument panel", "command
+center" or "cockpit".
+
+Every one of those is a rule below. This aesthetic is not great_cto's identity —
+it is what every infrastructure product looks like, and this file codified the
+modal choice and labelled it a differentiator. A skill that does that produces
+template work while asserting it does not.
+
+**What follows is still correct, and its correctness is functional, not
+distinctive.** Dark, dense, one accent, tabular numerals and a dash that is not a
+nought are right for a surface one operator reads all day to decide what a machine
+may do next. Keep them for the BOARD. Just do not mistake them for a voice.
+
+Where the category default costs something is the LANDING, where a visitor who has
+seen Depot, Warp and Supabase cannot tell us apart. Differentiation there is a
+brand decision made through `committed-aesthetic`, not a repaint of this file. And
+for a client product — a dental practice does not want an instrument panel — go
+through `committed-aesthetic` and choose deliberately.
 
 ## The DNA
 
