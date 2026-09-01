@@ -1,0 +1,10 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",  "x": 0,    "y": 0, "w": 1320, "h": 1360, "title": "01 The gate decision" },
+    { "file": "Table.dc.html", "x": 1440, "y": 0, "w": 1320, "h": 1360, "title": "02 The dense table" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -200, "w": 700, "text": "great_cto board — design specification under direction ①\n\nSibling of the landing spec: same rules, dark ground, dark accent.\nZero radius, mono voice, no shadow.\n\nCloses the two findings the first board spec left open: the gate\ndecision surface was never specified, and gate weight did not follow\ncost-of-undo.\n\nOrientation on Supabase is behavioural — dense craft, not palette." }
+  ],
+  "launch": { "view": "canvas" }
+}

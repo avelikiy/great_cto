@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin:0; background:#0a0e0c; color:#ecf2ee;
+           font-family:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+           letter-spacing:-0.006em; -webkit-font-smoothing:antialiased; }
+    a { color:#00d97e; text-decoration:none; } a:hover { color:#34e69b; }
+    .h { font-size:11px; letter-spacing:.10em; text-transform:uppercase; color:#8a9a92; }
+    .box { border:1px solid #1e272c; padding:20px; }
+    table { border-collapse:collapse; width:100%; }
+    th { text-align:left; padding:0 14px 10px 0; border-bottom:1px solid #ecf2ee; }
+    td { text-align:left; padding:11px 14px 11px 0; border-bottom:1px solid #1e272c; vertical-align:top; }
+  </style>
+</helmet>
+<div style="padding:56px 64px; display:flex; flex-direction:column; gap:44px; max-width:1280px;">
+
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div class="h" style="color:#00d97e;">01 — The gate decision</div>
+    <div style="font-size:38px; font-weight:500; letter-spacing:-0.02em; line-height:1.15;">The board's entire job, specified at last</div>
+    <div style="font-size:16px; color:#8a9a92; max-width:820px; line-height:1.6;">The first board spec ended every screen at the button. A product review named it finding #1: <span style="color:#ecf2ee;">this board exists so a human takes a decision the machine cannot, and what that human sees at that moment was a black box.</span> Set in direction ① — mono, zero radius, no shadow.</div>
+  </div>
+
+  <div class="box" style="border-color:#a78bfa;display:flex;flex-direction:column;gap:10px;">
+    <div class="h" style="color:#a78bfa;">The rule that decides the weight</div>
+    <div style="font-size:16px;line-height:1.6;max-width:840px;">ADR-009: gates follow <span style="color:#ecf2ee;">cost-of-undo</span>, not pipeline position. Until now every gate rendered as one purple chip, so <span style="color:#ecf2ee;">gate:ship</span> to production and a brief approval looked identical at the moment somebody clicks. <span style="color:#ecf2ee;">scripts/lib/gate-reversibility.mjs</span> classifies them; this is that classification reaching the pixel.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="h">Routine — the repair is to run the stage again</div>
+      <div class="box" style="display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:8px;height:8px;background:#a78bfa;"></span>
+          <span style="font-size:15px;">gate:arch</span>
+          <span style="margin-left:auto;font-size:12px;color:#8a9a92;">routine</span>
+        </div>
+        <div style="font-size:14px;color:#8a9a92;line-height:1.55;">Architecture decided for <span style="color:#ecf2ee;">receipt-verification</span>. Undo costs one stage.</div>
+        <div style="border-top:1px solid #1e272c;padding-top:14px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#8a9a92;">
+          <div>ARCH-receipt-verification.md &nbsp;<span style="color:#00d97e;">read</span></div>
+          <div>independent-verify &nbsp;<span style="color:#00d97e;">verified</span></div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <span style="background:#00d97e;color:#04140d;padding:9px 16px;font-size:14px;">Approve</span>
+          <span style="border:1px solid #ecf2ee;padding:9px 16px;font-size:14px;">Send back</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="h" style="color:#ff5466;">Expensive — it escapes the machine</div>
+      <div class="box" style="border-color:#ff5466;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:8px;height:8px;background:#ff5466;"></span>
+          <span style="font-size:15px;">gate:ship</span>
+          <span style="margin-left:auto;font-size:12px;color:#ff5466;">expensive to undo</span>
+        </div>
+        <div style="font-size:14px;color:#8a9a92;line-height:1.55;"><span style="color:#ecf2ee;">Deployed where users can reach it</span>, and provisions paid infrastructure. Guards devops and infra-provisioner — the two stages the pipeline refuses to dispatch unattended.</div>
+        <div style="border-top:1px solid #1e272c;padding-top:14px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#8a9a92;">
+          <div>QA report &nbsp;<span style="color:#00d97e;">passed</span> &nbsp;· security &nbsp;<span style="color:#00d97e;">approved</span></div>
+          <div>rollback &nbsp;<span style="color:#ecf2ee;">documented</span> &nbsp;· cost &nbsp;<span style="color:#ecf2ee;">$18/mo</span></div>
+          <div>e2e against the live URL &nbsp;<span style="color:#fcd34d;">not run</span></div>
+        </div>
+        <div style="border:1px solid #ff5466;padding:12px;display:flex;gap:10px;align-items:flex-start;">
+          <span style="width:13px;height:13px;border:1px solid #ff5466;flex-shrink:0;margin-top:2px;"></span>
+          <span style="font-size:13px;color:#8a9a92;line-height:1.5;">I have read the rollback path and accept that this reaches users.</span>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <span style="background:#1e272c;color:#8a9a92;padding:9px 16px;font-size:14px;">Approve</span>
+          <span style="border:1px solid #ecf2ee;padding:9px 16px;font-size:14px;">Send back</span>
+        </div>
+        <div style="font-size:12px;color:#8a9a92;">Approve stays inert until the acknowledgement is ticked.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="display:flex;align-items:baseline;gap:14px;border-bottom:1px solid #ecf2ee;padding-bottom:10px;">
+      <div style="font-size:20px;font-weight:500;">Three weights, from the classifier</div>
+      <div style="font-size:14px;color:#8a9a92;">and the third is the one that earns its keep</div>
+    </div>
+    <table style="font-size:15px;">
+      <tr><th class="h" style="width:150px;">State</th><th class="h" style="width:230px;">Gates</th><th class="h">What the surface does</th></tr>
+      <tr><td style="color:#a78bfa;">routine</td><td style="color:#8a9a92;">arch · plan · code · qa · security</td><td style="color:#8a9a92;">purple mark, one line of context, Approve is live immediately</td></tr>
+      <tr><td style="color:#ff5466;">expensive</td><td style="color:#8a9a92;">ship · import · product · compliance</td><td style="color:#8a9a92;">red mark, the CATEGORY named in words, evidence list, an acknowledgement that gates the button</td></tr>
+      <tr><td style="color:#fcd34d;">unclassified</td><td style="color:#8a9a92;">anything the table has not heard of</td><td style="color:#8a9a92;"><span style="color:#ecf2ee;">amber, and it says so.</span> Never the routine treatment — a gate nobody judged must not inherit the cheap one</td></tr>
+    </table>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
