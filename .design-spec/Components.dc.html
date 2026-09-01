@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
   <style>
     body { margin: 0; background: #0a0e0c; color: #ecf2ee;
            font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -88,7 +88,7 @@
         </div>
       </div>
 
-      <div class="spec" style="padding-top:4px;">.card<br>height&nbsp;&nbsp;&nbsp;&nbsp;140px&nbsp;(fixed)<br>padding&nbsp;&nbsp;&nbsp;10px 12px<br>radius&nbsp;&nbsp;&nbsp;&nbsp;8px<br>border&nbsp;&nbsp;&nbsp;&nbsp;1px rgba(255,255,255,.06)<br>rest&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0 1px 2px rgba(0,0,0,.30)<br>hover&nbsp;&nbsp;&nbsp;&nbsp;+ 0 8px 24px rgba(0,217,126,.06)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;translateY(-1px), 0.15s<br><br><span style="color:#ecf2ee;">The hover glow is the accent at 6%.</span><br>Elevation is the only place a shadow<br>carries colour; everywhere else depth<br>is a surface step.</div>
+      <div class="spec" style="padding-top:4px;">.card<br>height&nbsp;&nbsp;&nbsp;&nbsp;140px&nbsp;(fixed)<br>padding&nbsp;&nbsp;&nbsp;10px 12px<br>radius&nbsp;&nbsp;&nbsp;&nbsp;8px<br>border&nbsp;&nbsp;&nbsp;&nbsp;1px rgba(255,255,255,.06)<br>rest&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0 1px 2px rgba(0,0,0,.30)<br>hover&nbsp;&nbsp;&nbsp;&nbsp;+ 0 8px 24px rgba(0,217,126,.06)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;translateY(-1px), 0.15s<br><br><span style="color:#ecf2ee;">The hover glow is the accent at 6%.</span><br>It is the only COLOURED shadow. Cards rest on<br>a black 30% shadow, and drawers and modals<br>on --drawer-shadow (0 16px 32px / 50%):<br>twenty box-shadow uses carry depth here,<br>not only the surface steps.</div>
     </div>
   </div>
 
@@ -96,7 +96,7 @@
   <div style="display: flex; flex-direction: column; gap: 16px;">
     <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
       <div style="font-size: 19px; font-weight: 500;">Controls</div>
-      <div style="font-size: 13px; color: #8a9a92;">desktop density — 30/32px, below the 44px touch floor by design</div>
+      <div style="font-size: 13px; color: #8a9a92;">desktop density — 30/32px, restored to 44px under <span class="mono">@media (pointer: coarse)</span>, so WCAG 2.5.8 is met where it applies</div>
     </div>
     <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
 

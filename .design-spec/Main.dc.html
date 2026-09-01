@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
   <style>
     body { margin: 0; background: #0a0e0c; color: #ecf2ee;
            font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -29,7 +29,7 @@
   <div style="display: flex; flex-direction: column; gap: 16px;">
     <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
       <div style="font-size: 19px; font-weight: 500;">Surfaces</div>
-      <div style="font-size: 13px; color: #8a9a92;">five steps of ground, 5% apart — depth is stacking, never shadow</div>
+      <div style="font-size: 13px; color: #8a9a92;">five steps of ground — +3.7, +2.0, +2.0, +2.2 points of HSL lightness, not an even scale</div>
     </div>
     <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
       <div style="display:flex;flex-direction:column;gap:8px;">
@@ -64,7 +64,7 @@
   <div style="display: flex; flex-direction: column; gap: 16px;">
     <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
       <div style="font-size: 19px; font-weight: 500;">Ink and accent</div>
-      <div style="font-size: 13px; color: #8a9a92;">contrast measured against <span class="mono">--bg-card</span></div>
+      <div style="font-size: 13px; color: #8a9a92;">against <span class="mono">--bg-card</span>. Chips and pills sit on <span class="mono">--bg-strong</span> instead — the source calls it &quot;the hardest surface here&quot; — and every figure drops there: <span class="mono">--text2</span> 5.15, <span class="mono">--accent</span> 8.12</div>
     </div>
     <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
       <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;">
@@ -99,7 +99,7 @@
     <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
       <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
         <div style="width:10px;height:10px;border-radius:999px;background:#6b7280;flex-shrink:0;"></div>
-        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">backlog</div><div class="mono" style="font-size:11px;color:#fcd34d;">#6b7280 · 3.77:1</div></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">backlog</div><div class="mono" style="font-size:11px;color:#fca5a5;">#6b7280 · 3.77 card / 3.14 strong</div></div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
         <div style="width:10px;height:10px;border-radius:999px;background:#9ca3af;flex-shrink:0;"></div>

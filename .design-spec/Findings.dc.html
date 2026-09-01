@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
   <style>
     body { margin: 0; background: #0a0e0c; color: #ecf2ee;
            font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -90,16 +90,22 @@
         <div class="mono" style="font-size:11px;color:#8a9a92;">scope</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;flex-grow:1;">
-        <div style="font-size:15px;font-weight:500;">This spec covers the dark theme only.</div>
-        <div style="font-size:13px;color:#8a9a92;line-height:1.6;">The board ships a light theme behind <span class="mono" style="color:#ecf2ee;">data-theme</span> and <span class="mono" style="color:#ecf2ee;">prefers-color-scheme</span>, and <span class="mono" style="color:#ecf2ee;">share.html</span> is a separate artefact with its own palette and sixteen distinct type sizes. Neither was measured here. Said plainly rather than left to look covered — a spec that implies a scope it never checked is the same defect as a check that cannot fail.</div>
+        <div style="font-size:15px;font-weight:500;">The light theme was measured — in the source, not here — and it had failed.</div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.6;">This finding first read &quot;neither was measured here&quot;, which was wrong in the one direction a specification cannot afford: the measurement is sitting in the file this document transcribed. <span class="mono" style="color:#ecf2ee;">index.html:110–120</span> records four light-theme values that had been failing against <span class="mono" style="color:#ecf2ee;">--bg-strong</span> — <span class="mono" style="color:#ecf2ee;">--accent</span> at <span class="mono" style="color:#fca5a5;">1.51:1</span> against a 3:1 floor, plus <span class="mono" style="color:#ecf2ee;">--accent-text</span> 4.17, <span class="mono" style="color:#ecf2ee;">--p1-fg</span> 4.04 and <span class="mono" style="color:#ecf2ee;">--p2-fg</span> 4.09 against 4.5 — each since recomputed rather than eyeballed. What is genuinely unmeasured is <span class="mono" style="color:#ecf2ee;">share.html</span>: a separate artefact, its own palette, sixteen type sizes.</div>
       </div>
     </div>
 
   </div>
 
   <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-left:3px solid #00d97e;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;">
-    <div class="h" style="color:#00d97e;">How this specification was produced</div>
-    <div style="font-size:14px;line-height:1.6;max-width:840px;color:#8a9a92;">Every colour, size, height, radius and ratio was read out of <span class="mono" style="color:#ecf2ee;">packages/board/public/index.html</span> and <span class="mono" style="color:#ecf2ee;">assets/fonts/fonts.css</span>. Contrast figures are WCAG 2.1 relative luminance computed over those exact values, not estimated. Nothing here proposes a redesign; where the source and the intent disagree, the finding names both and stops.</div>
+    <div class="h" style="color:#00d97e;">How this specification was produced — and the five things it got wrong</div>
+    <div style="font-size:14px;line-height:1.6;max-width:840px;color:#8a9a92;">Every colour, size, height, radius and ratio was read out of <span class="mono" style="color:#ecf2ee;">packages/board/public/index.html</span> and <span class="mono" style="color:#ecf2ee;">assets/fonts/fonts.css</span>. Contrast figures are WCAG 2.1 relative luminance computed over those exact values, not estimated. Nothing here proposes a redesign; where the source and the intent disagree, the finding names both and stops.
+      <br><br>A review of this document against that source found <strong style="color:#ecf2ee;">five statements that were never transcribed at all</strong>. They are corrected above and listed here rather than quietly overwritten — a specification whose whole authority is &quot;these numbers were read, not chosen&quot; owes its reader the list.
+      <br><br>· the nav rail was given as <span class="mono">208px</span>. The source says <span class="mono" style="color:#ecf2ee;">240px</span>, and the string <span class="mono">208</span> does not occur in it — read off the mock instead of the stylesheet, which is the exact failure this document exists to prevent.
+      <br>· prose measure was given as <span class="mono">72ch</span>. The source uses <span class="mono" style="color:#ecf2ee;">52ch</span> and <span class="mono" style="color:#ecf2ee;">70ch</span>.
+      <br>· the surface steps were called &quot;5% apart&quot;. They are <span class="mono" style="color:#ecf2ee;">+3.7, +2.0, +2.0, +2.2</span> points of lightness, and not even.
+      <br>· &quot;depth is stacking, never shadow&quot; contradicted twenty <span class="mono">box-shadow</span> uses and three shadow tokens — and contradicted this document's own components page.
+      <br>· controls were called &quot;below the 44px floor by design&quot;, omitting that <span class="mono" style="color:#ecf2ee;">@media (pointer: coarse)</span> restores 44px where the floor applies.</div>
   </div>
 
 </div>
