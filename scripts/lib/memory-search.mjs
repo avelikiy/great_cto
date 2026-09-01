@@ -16,12 +16,25 @@
  * Library:
  *   import { tokenize, buildIndex, search, searchMemory } from './memory-search.mjs';
  * CLI:
- *   node memory-search.mjs "<query>" [--source logs|patterns|memory|all]
+ *   node memory-search.mjs "<query>" [--source logs|patterns|memory|all|docs]
  *                                     [--limit N] [--json] [--cwd DIR]
+ *
+ * `docs` searches the project's `docs/` tree. It is deliberately NOT part of
+ * `all`: `all` is the MEMORY corpus — tens of short documents about what happened
+ * in this project — and folding a hundred and sixty design documents into it would
+ * silently change what /resume and architect-pattern-lookup surface, by drowning
+ * the corpus they were tuned against. The two answer different questions: what
+ * happened here, and what is written down here. Ask one or the other.
  */
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, relative } from 'node:path';
 import { homedir } from 'node:os';
+// The documentation corpus is defined ONCE, in doc-links, and borrowed here.
+// Its two exclusions are decisions, not filters: `.summary.md` files are machine
+// summaries of documents that are already in the corpus, and `docs/<lang>/` holds
+// translations. Re-implementing that rule here is how the board's Docs screen and
+// this search would come to disagree about what a document is.
+import { listDocs } from './doc-links.mjs';
 
 // A small English stopword set — memory is technical, so keep it minimal so
 // domain terms (auth, cache, gate, archetype) are never dropped.
@@ -107,7 +120,11 @@ export function search(index, query, { limit = 8, k1 = K1, b = B } = {}) {
 /** Read a file safely; '' on any error. */
 function slurp(p) { try { return readFileSync(p, 'utf8'); } catch { return ''; } }
 
-/** Gather the memory corpus for a project. source ∈ logs|patterns|memory|all. */
+/** The sources gatherCorpus knows. A typo in --source used to search nothing and
+ *  print "no matches", which is a wrong answer that looks like a right one. */
+export const SOURCES = new Set(['logs', 'patterns', 'memory', 'all', 'docs']);
+
+/** Gather the corpus for a project. source ∈ logs|patterns|memory|all|docs. */
 export function gatherCorpus({ cwd = process.cwd(), source = 'all' } = {}) {
   const docs = [];
   const gc = join(cwd, '.great_cto');
@@ -131,6 +148,18 @@ export function gatherCorpus({ cwd = process.cwd(), source = 'all' } = {}) {
     add('global-decisions.md', join(gcHome, 'decisions.md'), 'memory');
     add('global-lessons.md', join(gcHome, 'lessons.md'), 'memory');
   }
+  // The one corpus that is not memory. Ranked full-text over the documentation
+  // was the single thing a docs browser gives that this board did not have — and
+  // it needed no new dependency, only pointing the BM25 already here at `docs/`.
+  if (source === 'docs') {
+    const root = join(cwd, 'docs');
+    if (existsSync(root)) {
+      // Relative path as the id, not the basename: `docs/plans/README.md` and any
+      // other README.md would otherwise arrive as the same name, and a result you
+      // cannot locate is not a result.
+      for (const full of listDocs(root)) add(relative(cwd, full), full, 'doc');
+    }
+  }
   if (source === 'patterns' || source === 'all') {
     const gpDir = join(gcHome, 'global-patterns');
     if (existsSync(gpDir)) {
@@ -145,11 +174,14 @@ export function gatherCorpus({ cwd = process.cwd(), source = 'all' } = {}) {
 }
 
 /** Convenience: gather corpus + BM25 search in one call. */
-export function searchMemory({ query, cwd = process.cwd(), source = 'all', limit = 8 } = {}) {
-  const docs = gatherCorpus({ cwd, source });
+export function searchMemory({ query, cwd = process.cwd(), source = 'all', limit = 8, corpus } = {}) {
+  const docs = corpus ?? gatherCorpus({ cwd, source });
   if (docs.length === 0) return [];
   return search(buildIndex(docs), query, { limit }).map(r => ({
-    file: basename(r.doc.path), path: r.doc.path, kind: r.doc.kind,
+    // `id`, not `basename`: for docs it is the relative path, and for the two
+    // global memory files it is the label that tells them apart from the
+    // project's own decisions.md — which the basename collapsed.
+    file: r.doc.id, path: r.doc.path, kind: r.doc.kind,
     score: Math.round(r.score * 1000) / 1000, snippet: r.snippet,
   }));
 }
@@ -168,10 +200,20 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     else q.push(a);
   }
   const query = q.join(' ');
-  if (!query) { console.error('usage: memory-search.mjs "<query>" [--source logs|patterns|memory|all] [--limit N] [--json] [--cwd DIR]'); process.exit(2); }
-  const results = searchMemory({ query, cwd, source, limit });
-  if (json) { console.log(JSON.stringify(results, null, 2)); }
-  else if (results.length === 0) { console.log(`no memory matches for: ${query}`); }
+  const USAGE = 'usage: memory-search.mjs "<query>" [--source logs|patterns|memory|all|docs] [--limit N] [--json] [--cwd DIR]';
+  if (!query) { console.error(USAGE); process.exit(2); }
+  if (!SOURCES.has(source)) { console.error(`unknown --source '${source}'\n${USAGE}`); process.exit(2); }
+
+  // Gathered here rather than inside searchMemory so the CLI can tell the two
+  // apart. "Nothing matched" and "there was nothing to search" are different
+  // answers, and printing the first for the second is this repository's oldest
+  // defect wearing a search result: it reads as a corpus that was consulted.
+  const corpus = gatherCorpus({ cwd, source });
+  const results = searchMemory({ query, cwd, source, limit, corpus });
+
+  if (json) { console.log(JSON.stringify({ source, corpus: corpus.length, results }, null, 2)); }
+  else if (corpus.length === 0) { console.log(`nothing to search: --source ${source} found no documents under ${cwd}`); }
+  else if (results.length === 0) { console.log(`no matches in ${corpus.length} ${source} document(s) for: ${query}`); }
   else {
     for (const r of results) console.log(`${r.score.toFixed(2)}  [${r.kind}] ${r.file}\n    ${r.snippet.slice(0, 160)}`);
   }
