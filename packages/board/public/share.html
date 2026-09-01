@@ -17,20 +17,20 @@
 <style>
 :root {
   /* Dark emerald — matches landing greatcto.systems */
-  --bg-page:     #0a0e0c;
-  --bg-card:     #11161a;
+  --bg-page:     #fafafa;
+  --bg-card:     #ffffff;
   --bg-muted:    #161c1f;
   --bg-strong:   #1e272c;
   --bg-elevated: #1a2025;
-  --border:      rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --text:  #ecf2ee;
+  --border:      rgba(17, 17, 17, 0.06);
+  --border-strong: rgba(17, 17, 17, 0.12);
+  --text:  #111111;
   --text2: #8a9a92;
   --text3: #4f5d57;
-  --accent: #00d97e;
-  --accent-soft: rgba(0, 217, 126, 0.10);
-  --accent-strong: rgba(0, 217, 126, 0.18);
-  --status-review:   #00d97e;
+  --accent: #007a45;
+  --accent-soft: rgba(0, 122, 69, 0.10);
+  --accent-strong: rgba(0, 122, 69, 0.18);
+  --status-review:   #007a45;
   --status-progress: #f59e0b;
   --status-blocked:  #ff5466;
   --serif: "Geist", "Space Grotesk", "Inter", -apple-system, sans-serif;
@@ -59,15 +59,15 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute; inset: 0; z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0, 217, 126, 0.10), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(0, 217, 126, 0.05), transparent 70%),
-    linear-gradient(180deg, #050807 0%, var(--bg-page) 100%);
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0, 122, 69, 0.10), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(0, 122, 69, 0.05), transparent 70%),
+    linear-gradient(180deg, #fafafa 0%, var(--bg-page) 100%);
 }
 .report-bg::after {
   content: ""; position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+    linear-gradient(rgba(17, 17, 17, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 17, 17, 0.018) 1px, transparent 1px);
   background-size: 56px 56px;
   mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, #000 30%, transparent 80%);
   -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, #000 30%, transparent 80%);
@@ -81,7 +81,7 @@ button { font-family: inherit; cursor: pointer; }
   -webkit-backdrop-filter: blur(20px);
   border-radius: 16px;
   box-shadow: 0 16px 48px rgba(15, 17, 21, 0.15), 0 1px 3px rgba(15, 17, 21, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(17, 17, 17, 0.08);
   padding: 28px 32px;
 }
 
@@ -148,7 +148,7 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: -0.01em;
   margin: 18px 0 22px;
   padding: 16px 18px;
-  background: linear-gradient(135deg, rgba(0,217,126,0.05), transparent 80%);
+  background: linear-gradient(135deg, rgba(0, 122, 69, 0.05), transparent 80%);
   border-left: 2px solid var(--accent);
   border-radius: 0 8px 8px 0;
 }
@@ -198,7 +198,7 @@ button { font-family: inherit; cursor: pointer; }
 
 /* Compare card — AI vs humans */
 .compare-card {
-  background: linear-gradient(135deg, rgba(0,217,126,0.08), rgba(167,139,250,0.04));
+  background: linear-gradient(135deg, rgba(0, 122, 69, 0.08), rgba(167,139,250,0.04));
   border: 1px solid var(--accent-strong);
   border-radius: 10px;
   padding: 14px 16px; margin-bottom: 18px;
@@ -279,7 +279,7 @@ button { font-family: inherit; cursor: pointer; }
 .coming-agent {
   font-family: var(--mono); font-size: 10.5px;
   color: var(--text2);
-  background: rgba(0, 217, 126, 0.06);
+  background: rgba(0, 122, 69, 0.06);
   padding: 2px 7px; border-radius: 4px;
 }
 
@@ -293,7 +293,7 @@ button { font-family: inherit; cursor: pointer; }
 .pri-p0 { background: rgba(255, 84, 102, 0.14); color: #fca5a5; }
 .pri-p1 { background: rgba(255, 170, 60, 0.14); color: #fcd34d; }
 .pri-p2 { background: rgba(240, 210, 78, 0.14); color: #fde68a; }
-.pri-p3 { background: rgba(255, 255, 255, 0.05); color: #9ca3af; }
+.pri-p3 { background: rgba(17, 17, 17, 0.05); color: #9ca3af; }
 
 /* Shipped categories */
 .ship-cat { margin-bottom: 8px; }
@@ -343,7 +343,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .agent-row .agent-name { font-family: var(--mono); color: var(--text); }
 .agent-row .agent-rail {
-  height: 4px; background: rgba(255,255,255,0.05);
+  height: 4px; background: rgba(17, 17, 17, 0.05);
   border-radius: 2px; overflow: hidden;
 }
 .agent-row .agent-fill {
@@ -385,7 +385,7 @@ button { font-family: inherit; cursor: pointer; }
 .trust-foot {
   margin-top: 22px;
   padding: 16px 18px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(17, 17, 17, 0.015);
   border: 1px solid var(--border);
   border-radius: 10px;
   font-family: var(--mono); font-size: 10.5px;
@@ -400,7 +400,7 @@ button { font-family: inherit; cursor: pointer; }
 .trust-row + .trust-row { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
 .trust-k { color: var(--text-3); letter-spacing: 0.04em; text-transform: uppercase; font-size: 9.5px; }
 .trust-v code {
-  background: rgba(255,255,255,0.04);
+  background: rgba(17, 17, 17, 0.04);
   padding: 1px 5px; border-radius: 3px;
   color: var(--accent);
   border: 1px solid var(--border);
@@ -487,7 +487,7 @@ button { font-family: inherit; cursor: pointer; }
 
 /* 1) HERO BIG — large headline number with sparkline */
 .hero-big {
-  background: linear-gradient(135deg, rgba(0,217,126,0.06), rgba(0,0,0,0));
+  background: linear-gradient(135deg, rgba(0, 122, 69, 0.06), rgba(0,0,0,0));
   border: 1px solid var(--accent-strong);
   border-radius: 14px;
   padding: 24px 24px 18px;
@@ -496,7 +496,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .hero-big::before {
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(ellipse 80% 60% at 20% 0%, rgba(0,217,126,0.10), transparent 60%);
+  background: radial-gradient(ellipse 80% 60% at 20% 0%, rgba(0, 122, 69, 0.10), transparent 60%);
   pointer-events: none;
 }
 .hero-big .hero-row {
@@ -510,7 +510,7 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 92px; line-height: 0.9;
   letter-spacing: -0.04em;
   color: var(--text);
-  background: linear-gradient(180deg, #ecf2ee 0%, #8a9a92 100%);
+  background: linear-gradient(180deg, #111111 0%, #8a9a92 100%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -562,7 +562,7 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text2);
 }
 .cost-bar-row .cb-rail {
-  height: 22px; background: rgba(255,255,255,0.04);
+  height: 22px; background: rgba(17, 17, 17, 0.04);
   border-radius: 4px; overflow: hidden; position: relative;
 }
 .cost-bar-row .cb-fill {
@@ -573,7 +573,7 @@ button { font-family: inherit; cursor: pointer; }
   background: linear-gradient(90deg, #ff5466, #ff8c66);
 }
 .cost-bar-row.ai .cb-fill {
-  background: linear-gradient(90deg, #00d97e, #34d399);
+  background: linear-gradient(90deg, #007a45, #34d399);
 }
 .cost-bar-row .cb-val {
   font-family: var(--mono); font-size: 13px;
@@ -608,12 +608,12 @@ button { font-family: inherit; cursor: pointer; }
 }
 .ah-cell {
   width: 10px; height: 10px; border-radius: 2px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(17, 17, 17, 0.04);
 }
-.ah-cell.l1 { background: rgba(0,217,126,0.18); }
-.ah-cell.l2 { background: rgba(0,217,126,0.36); }
-.ah-cell.l3 { background: rgba(0,217,126,0.58); }
-.ah-cell.l4 { background: rgba(0,217,126,0.92); }
+.ah-cell.l1 { background: rgba(0, 122, 69, 0.18); }
+.ah-cell.l2 { background: rgba(0, 122, 69, 0.36); }
+.ah-cell.l3 { background: rgba(0, 122, 69, 0.58); }
+.ah-cell.l4 { background: rgba(0, 122, 69, 0.92); }
 .ah-grid {
   display: grid; grid-template-columns: repeat(30, 1fr);
   gap: 3px;
@@ -639,7 +639,7 @@ button { font-family: inherit; cursor: pointer; }
 .agent-bubbles-wrap .ab-svg { width: 100%; height: auto; display: block; }
 .agent-bubbles-wrap .ab-bubble text { font-family: var(--mono); }
 .agent-bubbles-wrap .ab-bubble-name { fill: #fff; font-weight: 500; }
-.agent-bubbles-wrap .ab-bubble-meta { fill: rgba(255,255,255,0.7); }
+.agent-bubbles-wrap .ab-bubble-meta { fill: rgba(17, 17, 17, 0.7); }
 .agent-bubbles-wrap .ab-foot {
   display: flex; justify-content: space-between;
   font-family: var(--mono); font-size: 10px;
@@ -923,7 +923,7 @@ if (paused) {
       if (n.includes('architect') || n.includes('pm'))        return '#7c3aed';
       if (n.includes('design'))                                return '#06b6d4';
       if (n.includes('reviewer'))                              return '#a78bfa';
-      return '#00d97e';
+      return '#007a45';
     }
     // Radii proportional to sqrt(time) — area, not linear
     const minR = 22, maxR = 60;
@@ -972,7 +972,7 @@ if (paused) {
   const dailyDone = bucketByDay(doneTasks, 30);
   const last7Done = dailyDone.slice(-7).reduce((s,v)=>s+v, 0);
   const heatmapHtml = heatmapCells(dailyDone);
-  const sparkHtml = sparklineSvg(dailyDone, 280, 56, '#00d97e');
+  const sparkHtml = sparklineSvg(dailyDone, 280, 56, '#007a45');
   const bubblesHtml = agentBubblesSvg(agentsCost);
 
   // Cost bar chart proportions
@@ -988,7 +988,7 @@ if (paused) {
           <div class="report-brand">
             <span class="brand-mark">
               <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                <g stroke="#00d97e" stroke-width="9" stroke-linecap="round">
+                <g stroke="#007a45" stroke-width="9" stroke-linecap="round">
                   <line x1="32" y1="14" x2="32" y2="50"/>
                   <line x1="16.4" y1="23" x2="47.6" y2="41"/>
                   <line x1="16.4" y1="41" x2="47.6" y2="23"/>

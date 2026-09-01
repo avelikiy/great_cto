@@ -20,7 +20,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="dark" />
-<meta name="theme-color" content="#0a0e0c" />
+<meta name="theme-color" content="#fafafa" />
 <title>great_cto board</title>
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -54,17 +54,17 @@
   --chip-agent: #2540d4;
 
   /* Dark emerald — matches landing greatcto.systems */
-  --bg-page: #0a0e0c;
+  --bg-page: #fafafa;
   --bg-panel: rgba(17, 22, 26, 0.85);
-  --bg-card: #11161a;
+  --bg-card: #ffffff;
   --bg-muted: #161c1f;
   --bg-strong: #1e272c;
   --bg-elevated: #1a2025;
 
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.12);
+  --border: rgba(17, 17, 17, 0.06);
+  --border-strong: rgba(17, 17, 17, 0.12);
 
-  --text:  #ecf2ee;
+  --text:  #111111;
   --text2: #8a9a92;
   /* FIND-3. The widest step this ladder allows — 4.53 against the lightest
      surface, where the floor is 4.5. A five-step dark ladder cannot carry
@@ -75,32 +75,32 @@
 
 
   /* Focus ring — a separate token from --accent on purpose.
-     #00d97e measures 9.68:1 on the dark background and 1.87:1 on white, against
+     #007a45 measures 9.68:1 on the dark background and 1.87:1 on white, against
      a 3.0 minimum for a non-text indicator. One colour cannot serve both themes,
      and using the brand colour for focus made the light theme's ring effectively
      invisible. Dark keeps the brand green; light gets #047857 (5.48:1). */
-  --focus-ring: #00d97e;
-  --rail-ok-bg: rgba(0, 217, 126, 0.12);
+  --focus-ring: #007a45;
+  --rail-ok-bg: rgba(0, 122, 69, 0.12);
   --rail-fail-bg: rgba(255, 84, 102, 0.12);
   --surface-drawer: #0f1411;
 
-  --accent: #00d97e;
-  --accent-2: #34e69b;
-  --accent-soft: rgba(0, 217, 126, 0.10);
-  --accent-strong: rgba(0, 217, 126, 0.18);
+  --accent: #007a45;
+  --accent-2: #006b3c;
+  --accent-soft: rgba(0, 122, 69, 0.10);
+  --accent-strong: rgba(0, 122, 69, 0.18);
 
   --status-backlog: #6b7280;
   --status-todo: #9ca3af;
   --status-progress: #f59e0b;
-  --status-review: #00d97e;
-  --status-done: #00d97e;
+  --status-review: #007a45;
+  --status-done: #007a45;
   --status-blocked: #ff5466;
   --status-gate: #a78bfa;
 
   --p0-bg: rgba(255, 84, 102, 0.14);  --p0-fg: #fca5a5;
   --p1-bg: rgba(255, 170, 60, 0.14);  --p1-fg: #fcd34d;
   --p2-bg: rgba(240, 210, 78, 0.14);  --p2-fg: #fde68a;
-  --p3-bg: rgba(255, 255, 255, 0.05); --p3-fg: #9ca3af;
+  --p3-bg: rgba(17, 17, 17, 0.05); --p3-fg: #9ca3af;
 
   /* Was `--serif`, and there is no serif anywhere in the stack — it is the
      DISPLAY face, doing display work correctly under a name that promised a
@@ -113,7 +113,7 @@
   --display: "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --sans:  "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono:  "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --accent-text: #00d97e;   /* contrast-safe accent for TEXT (bright on dark) */
+  --accent-text: #007a45;   /* contrast-safe accent for TEXT (bright on dark) */
   --surface-translucent: rgba(17, 22, 26, 0.7);   /* translucent card surface (themable) */
 }
 /* Light theme — same emerald system, AA-contrast on white. Toggle via data-theme. */
@@ -125,11 +125,11 @@
        --accent      1.51:1 against a 3:1 floor for UI boundaries. Half.
        --accent-text 4.17, --p1-fg 4.04, --p2-fg 4.09 against a 4.5 floor.
      `--accent` was simply the dark theme's green, which is designed to sit on
-     #0a0e0c. Each value below is the same hue darkened until it clears its floor,
+     #fafafa. Each value below is the same hue darkened until it clears its floor,
      computed rather than eyeballed. */
 
   --bg-page: #eef2f0;
-  --bg-panel: rgba(255, 255, 255, 0.9);
+  --bg-panel: rgba(17, 17, 17, 0.9);
   --bg-card: #ffffff;
   --bg-muted: #f0f3f1;
   --bg-strong: #e2e8e4;
@@ -142,7 +142,7 @@
   --focus-ring: #047857;
   --accent: #009657;
   --accent-2: #0a7d4d;
-  --accent-soft: rgba(0, 217, 126, 0.12);
+  --accent-soft: rgba(0, 122, 69, 0.12);
   --accent-strong: rgba(0, 168, 98, 0.20);
   --accent-text: #097648;
   --status-backlog: #6b7280;
@@ -157,7 +157,7 @@
   --p2-bg: rgba(146, 102, 10, 0.12);  --p2-fg: #885f09;
   --p3-bg: rgba(0, 0, 0, 0.05);       --p3-fg: #5c6b65;
   --surface-drawer: #ffffff;
-  --surface-translucent: rgba(255, 255, 255, 0.72);
+  --surface-translucent: rgba(17, 17, 17, 0.72);
   --rail-ok-bg: rgba(10, 125, 77, 0.12);
   --rail-fail-bg: rgba(196, 48, 48, 0.12);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.08);
@@ -290,8 +290,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 50% 40% at 20% 0%, rgba(0, 217, 126, 0.05), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(0, 217, 126, 0.03), transparent 70%);
+    radial-gradient(ellipse 50% 40% at 20% 0%, rgba(0, 122, 69, 0.05), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(0, 122, 69, 0.03), transparent 70%);
 }
 
 .stale-board {
@@ -774,7 +774,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .gate-approve { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
 .gate-approve:hover { background: rgba(22, 163, 74, 0.08); border-color: var(--status-review); }
 /* Agent runner (launch control) */
-#agent-panel { position: fixed; right: 16px; bottom: 16px; width: min(560px, 94vw); max-height: 70vh; display: none; flex-direction: column; background: var(--bg-card, #11161a); border: 1px solid var(--border, #1f2a26); border-radius: 0; box-shadow: none; z-index: 60; overflow: hidden; }
+#agent-panel { position: fixed; right: 16px; bottom: 16px; width: min(560px, 94vw); max-height: 70vh; display: none; flex-direction: column; background: var(--bg-card, #ffffff); border: 1px solid var(--border, #1f2a26); border-radius: 0; box-shadow: none; z-index: 60; overflow: hidden; }
 #agent-panel.open { display: flex; }
 #agent-panel header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border, #1f2a26); background: transparent; }
 #agent-panel header b { font-size: var(--fs-body); }
@@ -783,7 +783,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 #agent-log .al { margin: 2px 0; white-space: pre-wrap; word-break: break-word; }
 #agent-log .al.tool { color: var(--status-review); } #agent-log .al.system { color: var(--text3); } #agent-log .al.error { color: var(--status-blocked, #ff5a5a); } #agent-log .al.done { color: var(--text3); font-weight: 600; }
 #agent-panel .ap-foot { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border, #1f2a26); }
-#agent-panel input { flex: 1; background: var(--bg-muted); color: var(--text, #ecf2ee); border: 1px solid var(--border, #1f2a26); border-radius: 0; padding: 7px 10px; font: inherit; font-size: var(--fs-body); }
+#agent-panel input { flex: 1; background: var(--bg-muted); color: var(--text, #111111); border: 1px solid var(--border, #1f2a26); border-radius: 0; padding: 7px 10px; font: inherit; font-size: var(--fs-body); }
 #agent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
 #agent-dot.live { background: var(--status-review); animation: apulse 1.2s infinite; }
 @keyframes apulse { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -972,7 +972,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .toast-success { background: var(--toast-ok); border-left: 3px solid #22c55e; }
 .toast-error { background: var(--toast-err); border-left: 3px solid #ef4444; }
 .toast-info { background: var(--toast-info); border-left: 3px solid #3b82f6; }
-.toast code { background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 0; }
+.toast code { background: rgba(17, 17, 17, 0.1); padding: 1px 4px; border-radius: 0; }
 .pl-stage { cursor: pointer; transition: background 0.12s; }
 .pl-stage:hover { background: var(--bg-muted); border-radius: 0; }
 .card-selected { outline: 2px solid var(--focus-ring); outline-offset: -1px; }
@@ -1108,7 +1108,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   background: transparent; border: 0; color: var(--text3);
   cursor: pointer; padding: 4px; display: flex; border-radius: 0;
 }
-.ni-close:hover { background: var(--bg-muted, rgba(255,255,255,0.06)); color: var(--text); }
+.ni-close:hover { background: var(--bg-muted, rgba(17, 17, 17, 0.06)); color: var(--text); }
 .ni-form {
   padding: 16px 18px 18px;
   display: flex; flex-direction: column; gap: 14px;
@@ -1124,7 +1124,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .ni-field input[type="text"],
 .ni-field textarea,
 .ni-field select {
-  background: var(--bg-page, #0a0e0c);
+  background: var(--bg-page, #fafafa);
   border: 1px solid var(--border, #2a2d33);
   border-radius: 0;
   color: var(--text);
@@ -1136,7 +1136,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .ni-field input[type="text"]:focus,
 .ni-field textarea:focus,
 .ni-field select:focus {
-  border-color: var(--accent, #00d97e);
+  border-color: var(--accent, #007a45);
 }
 .ni-field textarea {
   resize: vertical; min-height: 80px; font-family: inherit;
@@ -1161,9 +1161,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   background: transparent; color: var(--text2);
   border-color: var(--border);
 }
-.ni-btn-ghost:hover { background: var(--bg-muted, rgba(255,255,255,0.05)); color: var(--text); }
+.ni-btn-ghost:hover { background: var(--bg-muted, rgba(17, 17, 17, 0.05)); color: var(--text); }
 .ni-btn-primary {
-  background: var(--accent, #00d97e);
+  background: var(--accent, #007a45);
   color: var(--bg-page); font-weight: 500;
 }
 .ni-btn-primary:hover { background: var(--accent-hover); }
@@ -1476,8 +1476,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .inbox-allclear .ac-mark {
   width: 34px; height: 34px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: rgba(0, 217, 126, 0.12);
-  color: var(--accent, #00d97e); font-size: 16px; font-weight: 600;
+  border-radius: 50%; background: rgba(0, 122, 69, 0.12);
+  color: var(--accent, #007a45); font-size: 16px; font-weight: 600;
 }
 .inbox-allclear .ac-text { flex: 1; font-size: var(--fs-base); color: var(--text2); }
 .inbox-allclear .ac-text b { color: var(--text); font-weight: 600; }
@@ -1487,8 +1487,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border: 1px solid var(--border-strong); background: transparent;
   color: var(--text); cursor: pointer; transition: background 0.12s, border-color 0.12s;
 }
-.inbox-allclear .ac-btn:hover { background: var(--bg-muted); border-color: var(--accent, #00d97e); }
-.inbox-allclear .ac-btn.ac-primary { background: var(--accent, #00d97e); border-color: var(--accent, #00d97e); color: var(--on-accent); font-weight: 500; }
+.inbox-allclear .ac-btn:hover { background: var(--bg-muted); border-color: var(--accent, #007a45); }
+.inbox-allclear .ac-btn.ac-primary { background: var(--accent, #007a45); border-color: var(--accent, #007a45); color: var(--on-accent); font-weight: 500; }
 .inbox-allclear .ac-btn.ac-primary:hover { filter: brightness(1.06); }
 
 /* Human gate — the signing checkpoint. Visually set apart from agent stages:
@@ -1796,8 +1796,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .proj-status-body .inbox-section { margin-top: 6px; }
 
 .resume-card {
-  background: linear-gradient(135deg, rgba(0, 217, 126, 0.04), var(--surface-translucent));
-  border: 1px solid rgba(0, 217, 126, 0.18);
+  background: linear-gradient(135deg, rgba(0, 122, 69, 0.04), var(--surface-translucent));
+  border: 1px solid rgba(0, 122, 69, 0.18);
   border-radius: 0;
   padding: 18px 20px;
   margin-bottom: 28px;
@@ -1850,11 +1850,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   font-family: var(--mono); font-size: var(--fs-eyebrow);
   padding: 2px 5px; border-radius: 0;
   letter-spacing: 0.04em;
-  background: rgba(255,255,255,0.05);
+  background: rgba(17, 17, 17, 0.05);
   color: var(--text3);
   margin-top: 1px;
 }
-.resume-list .resume-item .ri-tag.ok { color: var(--accent); background: rgba(0,217,126,0.08); }
+.resume-list .resume-item .ri-tag.ok { color: var(--accent); background: rgba(0, 122, 69, 0.08); }
 .resume-list .resume-item .ri-tag.fail { color: var(--p1-fg); background: rgba(255,80,80,0.08); }
 .resume-list .resume-item .ri-text {
   flex: 1; min-width: 0;
@@ -2942,7 +2942,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     <div class="sidebar-brand">
       <span class="brand-mark">
         <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <g stroke="#00d97e" stroke-width="9" stroke-linecap="round">
+          <g stroke="#007a45" stroke-width="9" stroke-linecap="round">
             <line x1="32" y1="14" x2="32" y2="50"/>
             <line x1="16.4" y1="23" x2="47.6" y2="41"/>
             <line x1="16.4" y1="41" x2="47.6" y2="23"/>
@@ -3461,7 +3461,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           </div>
 
           <!-- Step 3: verified -->
-          <div id="notif-step-verified" style="display:none;margin-top:14px;padding:10px 14px;background:rgba(0,217,126,0.08);border:1px solid rgba(0,217,126,0.30);border-radius:0;display:none;align-items:center;gap:10px;font-size: var(--fs-body)">
+          <div id="notif-step-verified" style="display:none;margin-top:14px;padding:10px 14px;background:rgba(0, 122, 69, 0.08);border:1px solid rgba(0, 122, 69, 0.30);border-radius:0;display:none;align-items:center;gap:10px;font-size: var(--fs-body)">
             <span style="color:var(--accent);font-size:var(--fs-title-m)">✓</span>
             <span><strong id="notif-verified-email">—</strong> verified · alerts delivered through <code>greatcto.systems/notify</code></span>
             <button class="btn-ghost-sm" style="margin-left:auto" onclick="changeEmail()">Change</button>
