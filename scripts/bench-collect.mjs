@@ -64,6 +64,38 @@ export function fmtDuration(seconds) {
 }
 
 /**
+ * One cost-history line, or null when it is not one.
+ *
+ * Format: `<ts> <agent> <usd> [turns=N] [in=N] [out=N] [cache_r=N] [cache_w=N]`
+ *
+ * The transcript reader has always returned input_tokens and output_tokens
+ * separately; only the summed dollars were written here. So the log could say
+ * what a run cost and never which half it went on — and any decision about
+ * compressing context was a guess about direction.
+ *
+ * Absent counts read as `null`, never 0. Every line written before this change
+ * has none, and "0 input tokens" beside a real dollar figure is a wrong number
+ * in exactly the direction the question is about.
+ */
+export function parseCostLine(line) {
+  const parts = String(line || '').trim().split(/\s+/);
+  const usd = Number(parts[2]);
+  if (parts.length < 3 || !Number.isFinite(usd)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(parts[0])) return null;
+  const kv = {};
+  for (const p of parts.slice(3)) {
+    const m = p.match(/^([a-z_]+)=(\d+(?:\.\d+)?)$/);
+    if (m) kv[m[1]] = Number(m[2]);
+  }
+  const num = (k) => (k in kv ? kv[k] : null);
+  return {
+    ts: parts[0], agent: parts[1], usd,
+    turns: num('turns'), in: num('in'), out: num('out'),
+    cacheRead: num('cache_r'), cacheWrite: num('cache_w'),
+  };
+}
+
+/**
  * Sum cost-history.log: lines of `<ts> <agent> <cost_usd> [turns=N]`.
  *
  * Two kinds of row live in this file and they must not be added the same way.

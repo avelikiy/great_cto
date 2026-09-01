@@ -284,7 +284,18 @@ async function recordMeasuredCost(stdin) {
     // Trailing field, deliberately: nine readers parse this file with their own
     // regexes and awk `$3`, and all of them keep working.
     appendFileSync(join(PROJ_DIR, 'cost-history.log'),
-                   `${lastTs} ${agent} ${usd} turns=${measured.turns || 0}\n`);
+                   `${lastTs} ${agent} ${usd} turns=${measured.turns || 0}`
+                   // Input and output, kept apart. usageFromTranscript has always
+                   // returned both plus the cache split; only the summed dollars
+                   // were written, so the log could say what a run cost and never
+                   // which half. Any decision about compressing context — a proxy,
+                   // a terser style, a smaller model — was a guess about direction.
+                   //
+                   // Trailing fields: nine readers parse this with their own
+                   // regexes and awk `$3`, and all of them keep working.
+                   + ` in=${measured.input_tokens || 0} out=${measured.output_tokens || 0}`
+                   + ` cache_r=${measured.cache_read_input_tokens || 0}`
+                   + ` cache_w=${measured.cache_creation_input_tokens || 0}\n`);
   } catch { /* fail-open — never block a subagent stop */ }
 }
 

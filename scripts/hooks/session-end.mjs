@@ -23,6 +23,7 @@
  */
 
 import { readFileSync, mkdirSync, writeFileSync, existsSync, symlinkSync, unlinkSync, readdirSync } from 'node:fs';
+import { learnWorthIt } from '../lib/learn-worth-it.mjs';
 import { spawnSync, spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join, resolve, basename, dirname } from 'node:path';
@@ -101,8 +102,26 @@ function countSessionLogs() {
  * Silently skipped when claude CLI is not found.
  * Writes .great_cto/.last-auto-learn on success.
  */
-function spawnLearner() {
+function spawnLearner(git) {
   if (process.env.GREAT_CTO_AUTO_LEARN !== '1') return;
+
+  // A paid agent run needs something to learn from. Spawning at EVERY session
+  // end includes the thirty-second one that answered a question — and /save
+  // already refuses to update brain.md for a trivial session. Same rule, applied
+  // where it costs money. The inputs come from captureGitState(), already
+  // computed above, so this is free to evaluate.
+  //
+  // An unreadable git state RUNS it: skipping would drop a lesson whenever git
+  // is unavailable and deliver "I could not tell" as "nothing to learn".
+  const verdict = learnWorthIt(git);
+  if (!verdict.run) {
+    try {
+      mkdirSync('.great_cto', { recursive: true });
+      writeFileSync('.great_cto/.last-auto-learn',
+        `${new Date().toISOString()} skipped: ${verdict.reason}\n`);
+    } catch { /* never block */ }
+    return;
+  }
 
   try {
     // Locate the claude CLI — prefer PATH resolution
@@ -123,7 +142,8 @@ function spawnLearner() {
     // Write marker file with ISO timestamp on successful spawn
     try {
       mkdirSync('.great_cto', { recursive: true });
-      writeFileSync('.great_cto/.last-auto-learn', new Date().toISOString() + '\n');
+      writeFileSync('.great_cto/.last-auto-learn',
+        `${new Date().toISOString()} ran: ${verdict.reason}\n`);
     } catch { /* never block */ }
   } catch { /* never block session end */ }
 }
@@ -221,7 +241,7 @@ To disable: unset GREAT_CTO_AUTO_LEARN (or set to anything other than 1)
   } catch { /* never block session end */ }
 
   // --- Auto-trigger continuous-learner (Phase 3) ---
-  spawnLearner();
+  spawnLearner(git);
 
   return process.exit(0);
 }

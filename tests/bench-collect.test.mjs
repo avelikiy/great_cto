@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import {
-  wallTimeFromLines, fmtDuration, sumCostHistory, sumCostTags,
+  wallTimeFromLines, fmtDuration, sumCostHistory, parseCostLine, sumCostTags,
   extractPreviewUrl, detectFailure, parseTestCounts,
   accumulateUsage, priceUsage, transcriptDirFor, upsertRow, PRICING_PER_MTOK,
   pipelineCompleted,
@@ -252,4 +252,42 @@ test('two agents each keep their own running total', () => {
     '2026-08-17T11:00:00Z qa-engineer 14 turns=140',
   ].join('\n'));
   assert.equal(r.sum, 18, "senior-dev's 4 does not reset qa-engineer's total");
+});
+
+// ── Input and output, kept apart ────────────────────────────────────────────
+//
+// The transcript reader already returns input_tokens, output_tokens and both
+// cache fields. Only the summed dollars reached cost-history, so the log could
+// say what a run cost and never which half — and any decision about compressing
+// context (a proxy, a terser style, a smaller model) was a guess about which
+// direction the money went.
+//
+// Trailing fields, deliberately: nine readers parse this file with their own
+// regexes and awk `$3`, and all of them keep working.
+test('token counts ride along without breaking the third column', () => {
+  const line = '2026-09-01T05:00:00Z senior-dev 1.25 turns=12 in=340000 out=8200';
+  assert.equal(sumCostHistory(line + '\n').sum, 1.25,
+    'the dollar column is still the dollar column');
+
+  const parsed = parseCostLine(line);
+  assert.equal(parsed.agent, 'senior-dev');
+  assert.equal(parsed.usd, 1.25);
+  assert.equal(parsed.in, 340000);
+  assert.equal(parsed.out, 8200);
+  assert.equal(parsed.turns, 12);
+});
+
+test('a line without token counts reports them as unknown, not zero', () => {
+  // Every line written before this change has no in=/out=. Reading those as zero
+  // would put "0 input tokens" beside a real dollar figure and make the ratio a
+  // lie in the direction that matters.
+  const p = parseCostLine('2026-08-17T10:00:00Z architect 0.80');
+  assert.equal(p.usd, 0.8);
+  assert.equal(p.in, null);
+  assert.equal(p.out, null);
+});
+
+test('a malformed line is null, not a zero-cost run', () => {
+  assert.equal(parseCostLine('garbage'), null);
+  assert.equal(parseCostLine(''), null);
 });
