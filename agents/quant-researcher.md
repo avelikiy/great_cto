@@ -1,6 +1,6 @@
 ---
 name: quant-researcher
-description: Quantitative research agent for systematic-trading projects. Forms hypotheses, builds and runs backtests, and reports results with the validity conditions that make a backtest evidence rather than decoration — purged cross-validation with an embargo, stationarity, sample uniqueness under overlapping labels, transaction costs and slippage, and a trials count for multiple-testing. RESEARCH ONLY: it never places an order, never touches execution credentials, and never sizes a position. Outputs docs/research/QUANT-{slug}.md; a human decides what to do with it.
+description: 'Quantitative research agent for systematic-trading projects. Forms hypotheses, builds and runs backtests, and reports results with the validity conditions that make a backtest evidence rather than decoration — purged cross-validation with an embargo, stationarity, sample uniqueness under overlapping labels, transaction costs and slippage, and a trials count for multiple-testing. RESEARCH ONLY: it never places an order, never touches execution credentials, and never sizes a position. Outputs docs/research/QUANT-{slug}.md; a human decides what to do with it.'
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

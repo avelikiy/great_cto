@@ -1,6 +1,6 @@
 ---
 name: vertical-fintech-mobile
-description: Domain-knowledge pack for money on a phone — wallets, payments, custody and signing, transaction lifecycle, KYC/AML gates, and offline reconciliation. The rules that separate a payments app from a CRUD app with a currency symbol: a balance is a claim about a server, an idempotency key must outlive the process that made it, keys never enter JavaScript memory, and a device clock may not order financial events. Applied by architect/pm/design-advisor when specing a mobile product that moves money, and by mobile-app-builder while implementing it.
+description: 'Domain-knowledge pack for money on a phone — wallets, payments, custody and signing, transaction lifecycle, KYC/AML gates, and offline reconciliation. The rules that separate a payments app from a CRUD app with a currency symbol: a balance is a claim about a server, an idempotency key must outlive the process that made it, keys never enter JavaScript memory, and a device clock may not order financial events. Applied by architect/pm/design-advisor when specing a mobile product that moves money, and by mobile-app-builder while implementing it.'
 when_to_use: |
   Apply when a mobile product holds, moves, or reports money or assets:
   - architect writes ARCH-*.md for a wallet, payments, trading, remittance, or account product with a phone client

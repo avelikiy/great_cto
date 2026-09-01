@@ -1,6 +1,5 @@
 {
   "name": "great_cto",
-  "id": "great_cto",
   "description": "You already have the agent. This is everything around it. great_cto runs Claude Code as a pipeline of 70 specialist agents — an independent model checks each stage before the next builds on it, spending caps refuse rather than warn, and three decisions stay yours: what gets built, how, and whether it ships.",
   "version": "3.21.0",
   "author": {

@@ -1,6 +1,6 @@
 ---
 name: quant-validation
-description: The methods a financial-ML result has to survive before it is evidence — purged cross-validation with an embargo, triple-barrier labelling, sample uniqueness under overlapping labels, fractional differentiation, meta-labelling, and multiple-testing correction. Written because the invariants were required of quant-researcher and nothing in the project explained how to satisfy them: a rule without a method produces either an invention or a block. Applied whenever a backtest, a feature or a label is being designed or judged.
+description: 'The methods a financial-ML result has to survive before it is evidence — purged cross-validation with an embargo, triple-barrier labelling, sample uniqueness under overlapping labels, fractional differentiation, meta-labelling, and multiple-testing correction. Written because the invariants were required of quant-researcher and nothing in the project explained how to satisfy them: a rule without a method produces either an invention or a block. Applied whenever a backtest, a feature or a label is being designed or judged.'
 when_to_use: |
   Apply when work touches the validity of a financial model, not its returns:
   - quant-researcher designs or judges a backtest, a feature set, or a labelling scheme
