@@ -1,6 +1,6 @@
 ---
 name: auth-engineer
-description: Authentication and access-control specialist for SMB Product-Builder products. Owns the auth contract — provider choice (Auth.js default / Clerk fast-path), session model, RBAC, multi-tenant row-level isolation, the protected-route map, account lifecycle (signup/login/reset/invite), and OAuth/magic-link/password flows. Runs after architect, before senior-dev. Writes docs/auth/AUTH-{slug}.md. Every product needs auth and nobody owned it — integrations-engineer handles OAuth to third parties, but the product's own login, sessions, and tenant isolation were unowned. Auth bugs are breaches.
+description: Authentication and access-control specialist for SMB Product-Builder products. Owns the auth contract — provider choice (Auth.js default / Clerk fast-path), session model, RBAC, multi-tenant row-level isolation, the protected-route map, account lifecycle (signup/login/reset/invite), and OAuth/magic-link/password flows. Runs after architect, before senior-dev. Writes docs/auth/AUTH-{slug}.md.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

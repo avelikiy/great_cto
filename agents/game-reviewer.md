@@ -1,6 +1,6 @@
 ---
 name: game-reviewer
-description: Game / interactive-entertainment pre-implementation reviewer. Specialises in COPPA under-13 compliance, ESRB / PEGI / IARC age-rating alignment, IAP age-gates and spending limits, loot-box odds disclosure (BE / NL / DE / China), accessibility (WCAG 2.2 + game a11y guidelines), and PII-in-analytics gates. Outputs threat model TM-{slug}.md and signs off age-rating + COPPA decisions before senior-dev claims tasks.
+description: Game / interactive-entertainment pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off age-rating + COPPA decisions before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

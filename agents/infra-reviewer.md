@@ -1,6 +1,6 @@
 ---
 name: infra-reviewer
-description: Infrastructure-as-code pre-implementation reviewer. Specialises in Terraform / Pulumi / Helm / CDK safety — drift detection, IAM least-privilege, public-resource blocking (S3 / GCS / Azure Blob), CIS benchmarks, KMS rotation, and rollback-path enforcement. Outputs threat model TM-{slug}.md and signs off destructive changes before senior-dev claims tasks.
+description: Infrastructure-as-code pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off destructive changes before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

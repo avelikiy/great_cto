@@ -1,6 +1,6 @@
 ---
 name: mcp-server-reviewer
-description: MCP (Model Context Protocol) server pre-implementation reviewer. Specialises in the surface no other reviewer covers — tool descriptions that enter a model's context as instructions, tool results that must stay data, confused-deputy scope on the user's own credentials, transport binding and DNS-rebinding on localhost HTTP, OAuth audience binding and token passthrough, secret leakage through tool output and logs, context economy (tool count / description size / unbounded results), cross-server name shadowing, and definition drift after a human approved the server. Outputs threat model TM-{slug}.md and signs off the tool surface before senior-dev claims tasks.
+description: MCP (Model Context Protocol) server pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off the tool surface before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

@@ -1,6 +1,6 @@
 ---
 name: us-ai-reviewer
-description: US AI-governance pre-implementation reviewer — the US analogue of the EU AI Act coverage. Specialises in the NIST AI Risk Management Framework (GOVERN / MAP / MEASURE / MANAGE + Generative AI Profile), the Colorado AI Act SB 205 (high-risk AI, algorithmic-discrimination duty of care, consumer notice + right to appeal, impact assessments, AG notification), Utah AI Policy Act (generative-AI disclosure), Texas TRAIGA, and California AB 2013 (training-data transparency) + SB 942 (AI content provenance / detection). Outputs threat model TM-usai-{slug}.md and signs off the AI-governance gate before senior-dev claims tasks.
+description: US AI-governance pre-implementation reviewer — the US analogue of the EU AI Act coverage. Outputs threat model TM-usai-{slug}.md and signs off the AI-governance gate before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

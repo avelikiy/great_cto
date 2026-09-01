@@ -1,6 +1,6 @@
 ---
 name: gov-reviewer
-description: Government / public-sector specialist pre-implementation reviewer for gov-public archetype. Specialises in FedRAMP authorization-boundary scoping (Moderate/High), NIST 800-53 control mapping, FISMA compliance, Section 508 accessibility, Privacy Impact Assessment (PIA) generation, CJIS for law-enforcement integrations, and StateRAMP for state-level. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Government / public-sector specialist pre-implementation reviewer for gov-public archetype. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

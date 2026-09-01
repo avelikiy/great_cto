@@ -1,6 +1,6 @@
 ---
 name: legal-reviewer
-description: Legal-services / legal-tech specialist pre-implementation reviewer for legal archetype (law firms, solo practitioners, legal-SaaS). Specialises in unauthorized practice of law (UPL) guardrails, IOLTA / client-trust accounting (commingling, three-way reconciliation, per-client ledgers), attorney-client privilege & confidentiality (ABA Model Rule 1.6), conflict-of-interest screening (Model Rules 1.7-1.9), e-filing / court integration (PACER/ECF, FRCP 5.2 redaction), records retention & legal hold, and engagement-letter / retainer requirements. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Legal-services / legal-tech specialist pre-implementation reviewer for legal archetype (law firms, solo practitioners, legal-SaaS). Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

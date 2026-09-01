@@ -1,6 +1,6 @@
 ---
 name: geo-routing-engineer
-description: Geospatial and routing specialist for Product-Builder products with maps, scheduling-by-location, or vehicle routing (route-optimization in logistics, dispatch in home services, field-booking). Owns the routing contract — geocoding, the VRP/routing model (constraints, objective), maps/distance-matrix provider selection, ETA + time-window handling, re-optimization on change, and the cost/quBudget of map API calls. Runs after architect, before senior-dev. Writes docs/routing/ROUTE-{slug}.md. Route optimization is the highest-value module in logistics and the easiest to get naively wrong (greedy nearest-neighbor instead of a real VRP).
+description: Geospatial and routing specialist for Product-Builder products with maps, scheduling-by-location, or vehicle routing (route-optimization in logistics, dispatch in home services, field-booking). Owns the routing contract — geocoding, the VRP/routing model (constraints, objective), maps/distance-matrix provider selection, ETA + time-window handling, re-optimization on change, and the cost/quBudget of map API calls. Runs after architect, before senior-dev. Writes docs/routing/ROUTE-{slug}.md.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

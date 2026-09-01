@@ -1,6 +1,6 @@
 ---
 name: streaming-reviewer
-description: Streaming / event-driven pre-implementation reviewer. Specialises in exactly-once semantics (idempotent producer + transactional outbox), backpressure (Flink watermarks / Kinesis throttling), CDC patterns (Debezium / Maxwell), Schema Registry compatibility rules, DLQ handling, p99 latency budgets, and stateful-stream checkpoint storage. Outputs threat model TM-{slug}.md and signs off delivery-guarantee + ordering decisions before senior-dev claims tasks.
+description: Streaming / event-driven pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off delivery-guarantee + ordering decisions before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

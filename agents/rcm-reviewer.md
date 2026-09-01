@@ -1,6 +1,6 @@
 ---
 name: rcm-reviewer
-description: Healthcare Revenue Cycle Management (RCM) / medical-billing specialist pre-implementation reviewer for the healthcare archetype. Specialises in CMS-1500/UB-04 claims, CPT/HCPCS/ICD-10-CM coding accuracy and upcoding/unbundling fraud exposure (False Claims Act, OIG), prior-authorization workflows, denials and appeals management, ERA/835 remittance processing, HIPAA 5010 EDI transaction sets, patient financial responsibility (No Surprises Act, good-faith estimates), and NPI/taxonomy validation. Outputs threat model TM-rcm-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Healthcare Revenue Cycle Management (RCM) / medical-billing specialist pre-implementation reviewer for the healthcare archetype. Outputs threat model TM-rcm-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

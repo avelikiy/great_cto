@@ -1,6 +1,6 @@
 ---
 name: procurement-reviewer
-description: Purchasing / source-to-pay specialist pre-implementation reviewer for enterprise-saas and enterprise archetypes. Specialises in three-way match (PO/receipt/invoice) integrity, segregation of duties, approval thresholds, vendor onboarding with sanctions/OFAC screening, competitive-bid/RFP fairness, SOX procurement controls, punchout/cXML integration, spend analytics, and maverick-spend detection. Outputs threat model TM-procurement-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Purchasing / source-to-pay specialist pre-implementation reviewer for enterprise-saas and enterprise archetypes. Outputs threat model TM-procurement-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

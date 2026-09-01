@@ -1,6 +1,6 @@
 ---
 name: hr-ai-reviewer
-description: HR-AI / AI-recruiting pre-implementation reviewer. Specialises in NYC Local Law 144 AEDT (4/5-rule bias audit, candidate notice ≥10 business days, annual third-party audit), EEOC AI guidance, Illinois AI Video Interview Act, Colorado SB 205, Maryland HB 1202, EU AI Act Annex III «employment» high-risk, GDPR Article 22 automated decisions. Outputs threat model TM-hrai-{slug}.md.
+description: HR-AI / AI-recruiting pre-implementation reviewer. Outputs threat model TM-hrai-{slug}.md.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

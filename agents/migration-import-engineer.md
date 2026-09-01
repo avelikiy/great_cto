@@ -1,6 +1,6 @@
 ---
 name: migration-import-engineer
-description: Data-migration and onboarding-import specialist for SMB Product-Builder archetypes. Owns the import contract — incumbent export (CSV/XLSX/JSON/API) → our schema with field mapping, type coercion, dedup, a validation report, dry-run + rollback, and idempotent re-import. Source playbooks for ServiceTitan, Toast, Mindbody, Shopify, QuickBooks, Follow Up Boss. Runs after architect, before/with senior-dev. Writes docs/data-import/IMPORT-{slug}.md. Switching cost is the #1 adoption barrier for an SMB leaving an incumbent; without a real importer our "low switching" promise is false.
+description: Data-migration and onboarding-import specialist for SMB Product-Builder archetypes. Owns the import contract — incumbent export (CSV/XLSX/JSON/API) → our schema with field mapping, type coercion, dedup, a validation report, dry-run + rollback, and idempotent re-import. Source playbooks for ServiceTitan, Toast, Mindbody, Shopify, QuickBooks, Follow Up Boss. Runs after architect, before/with senior-dev. Writes docs/data-import/IMPORT-{slug}.md.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

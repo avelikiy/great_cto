@@ -1,6 +1,6 @@
 ---
 name: cmmc-reviewer
-description: US defense-contractor (GovCon) pre-implementation reviewer. Specialises in CMMC 2.0 (Level 1 FCI / Level 2 NIST SP 800-171 110-control / Level 3), DFARS 252.204-7012 (safeguarding + 72-hour incident reporting to DoD + media preservation), CUI identification & marking, SPRS score + SSP/POA&M, ITAR/EAR export controls, Section 889 supply-chain ban, and FedRAMP-equivalence for cloud handling CUI. Outputs threat model TM-cmmc-{slug}.md and signs off the CMMC-assessment gate before senior-dev claims tasks.
+description: US defense-contractor (GovCon) pre-implementation reviewer. Outputs threat model TM-cmmc-{slug}.md and signs off the CMMC-assessment gate before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

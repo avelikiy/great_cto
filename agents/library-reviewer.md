@@ -1,6 +1,6 @@
 ---
 name: library-reviewer
-description: Library / SDK pre-implementation reviewer. Specialises in semver enforcement, public API surface diffing (api-extractor / pyright / cargo public-api), backward-compat matrix testing, CHANGELOG discipline, migration guides, and supply-chain hardening (Sigstore / OpenSSF Scorecard). Outputs threat model TM-{slug}.md and signs off API stability decisions before senior-dev claims tasks.
+description: Library / SDK pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off API stability decisions before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

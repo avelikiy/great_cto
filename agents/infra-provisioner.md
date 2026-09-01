@@ -1,6 +1,6 @@
 ---
 name: infra-provisioner
-description: "Provisions the real backing infrastructure for a Product-Builder product so it reaches a live URL — managed Postgres (Neon default), the hosting project (Vercel default), env/secret wiring, and the custom domain + DNS + TLS. Pairs with devops (which does preview/staging only and refuses prod/real-domain). Runs after gate:ship is approved, before the production deploy. Plan-first and human-gated: it shows a provisioning plan with cost and waits for CTO approval before creating anything, is idempotent (re-running never duplicates resources), and records teardown. Writes docs/infra/PROVISION-{slug}.md. This is the last step between a built app and a real live URL."
+description: "Provisions the real backing infrastructure for a Product-Builder product so it reaches a live URL — managed Postgres (Neon default), the hosting project (Vercel default), env/secret wiring, and the custom domain + DNS + TLS. Pairs with devops (which does preview/staging only and refuses prod/real-domain). Runs after gate:ship is approved, before the production deploy. Plan-first and human-gated: it shows a provisioning plan with cost and waits for CTO approval before creating anything, is idempotent (re-running never duplicates resources), and records teardown. Writes docs/infra/PROVISION-{slug}.md."
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

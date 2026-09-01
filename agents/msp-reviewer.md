@@ -1,6 +1,6 @@
 ---
 name: msp-reviewer
-description: Managed Service Provider (MSP) / IT-services specialist pre-implementation reviewer for enterprise-saas and devtools archetypes. Specialises in multi-tenant client isolation, MSA/SOW/SLA enforcement, RMM/PSA integration, least-privilege client access, credential vaulting, patch/backup SLA tracking, incident escalation chains, SOC 2 for MSPs, data-processing agreements, and CIPP breach-notification chains. Outputs threat model TM-msp-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Managed Service Provider (MSP) / IT-services specialist pre-implementation reviewer for enterprise-saas and devtools archetypes. Outputs threat model TM-msp-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

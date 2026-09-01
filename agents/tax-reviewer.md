@@ -1,6 +1,6 @@
 ---
 name: tax-reviewer
-description: Tax preparation / filing specialist pre-implementation reviewer for the fintech archetype. Specialises in IRS e-file (MeF) integration, preparer PTIN + Circular 230 obligations, taxpayer data safeguards (IRS Pub 4557, GLBA Safeguards Rule, WISP), Form 8879 e-signature authorization, multi-state nexus determination, IRC §7216 consent-to-disclose, refund-fraud / identity-theft controls, and ASC 740 for corporate tax provision. Outputs threat model TM-tax-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Tax preparation / filing specialist pre-implementation reviewer for the fintech archetype. Outputs threat model TM-tax-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

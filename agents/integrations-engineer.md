@@ -1,6 +1,6 @@
 ---
 name: integrations-engineer
-description: Third-party integration specialist for SMB Product-Builder archetypes. Owns the integration contract — OAuth2/API-key flows, webhook signature verification, idempotency keys, retry/backoff with jitter, rate-limit handling, secret storage, and sandbox→prod promotion — for Stripe, Twilio, QuickBooks, Google/Microsoft Calendar, Shopify, MLS/IDX, and carrier APIs. Runs after architect/design-advisor, before senior-dev. Writes docs/integrations/INTEGRATE-{slug}.md. Almost every vertical product lives on a third-party API; this agent makes that layer correct and idempotent instead of improvised.
+description: Third-party integration specialist for SMB Product-Builder archetypes. Owns the integration contract — OAuth2/API-key flows, webhook signature verification, idempotency keys, retry/backoff with jitter, rate-limit handling, secret storage, and sandbox→prod promotion — for Stripe, Twilio, QuickBooks, Google/Microsoft Calendar, Shopify, MLS/IDX, and carrier APIs. Runs after architect/design-advisor, before senior-dev. Writes docs/integrations/INTEGRATE-{slug}.md.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

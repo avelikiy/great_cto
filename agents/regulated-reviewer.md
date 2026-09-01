@@ -1,6 +1,6 @@
 ---
 name: regulated-reviewer
-description: Regulated-industry specialist pre-implementation reviewer for fintech / regulated archetypes. Specialises in DORA ICT risk (Articles 5 & 16), NIS2 Article 21 controls, ISO27001 SoA gap analysis, SOX ITGC (access control, change management, SoD), HIPAA PHI handling + BAA requirements. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Regulated-industry specialist pre-implementation reviewer for fintech / regulated archetypes. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

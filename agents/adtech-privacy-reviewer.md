@@ -1,6 +1,6 @@
 ---
 name: adtech-privacy-reviewer
-description: US adtech / web-tracking privacy-litigation pre-implementation reviewer. Specialises in the wave of US class-action exposure around tracking pixels and session replay — VPPA (Video Privacy Protection Act), CIPA (California Invasion of Privacy Act wiretap / pen-register theory), Washington My Health My Data Act (MHMDA consumer-health), state-privacy "sale/share" + Global Privacy Control, and FTC Act § 5 unfair-tracking. Outputs threat model TM-adtech-{slug}.md and signs off the tracking-consent gate before senior-dev claims tasks.
+description: US adtech / web-tracking privacy-litigation pre-implementation reviewer. Outputs threat model TM-adtech-{slug}.md and signs off the tracking-consent gate before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2

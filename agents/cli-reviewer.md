@@ -1,6 +1,6 @@
 ---
 name: cli-reviewer
-description: CLI tool pre-implementation reviewer. Specialises in shell-injection prevention (no shell, argv arrays only), CLI UX conventions (--help / --version / exit codes / --json mode / NO_COLOR), cross-platform path handling, secret redaction in --verbose, and dangerous-default detection. Outputs threat model TM-{slug}.md and signs off CLI surface decisions before senior-dev claims tasks.
+description: CLI tool pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off CLI surface decisions before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 1

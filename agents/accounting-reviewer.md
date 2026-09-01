@@ -1,6 +1,6 @@
 ---
 name: accounting-reviewer
-description: Bookkeeping / general-ledger / financial-close specialist pre-implementation reviewer for fintech and enterprise-saas archetypes. Specialises in double-entry integrity, GAAP compliance, ASC 606 revenue recognition, month-end close checklists, three-way reconciliation, 1099/1096 filing, audit-trail immutability, SOX ITGC, chart-of-accounts controls, and journal-entry approval with segregation of duties. Outputs threat model TM-accounting-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: Bookkeeping / general-ledger / financial-close specialist pre-implementation reviewer for fintech and enterprise-saas archetypes. Outputs threat model TM-accounting-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
 advisor-model: claude-opus-4-8
 advisor-max-uses: 2
