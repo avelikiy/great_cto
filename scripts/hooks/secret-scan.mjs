@@ -25,6 +25,7 @@
 
 import { readFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { PATTERNS, scan } from '../lib/secret-patterns.mjs';
 import { join } from 'node:path';
 
 const STATS_LOG = join(homedir(), '.great_cto', 'secret-scan-stats.jsonl');
@@ -63,23 +64,6 @@ function redactPath(p) {
  *   - https://github.com/Yelp/detect-secrets/blob/master/detect_secrets/plugins
  *   - https://github.com/trufflesecurity/trufflehog/tree/main/pkg/detectors
  */
-const PATTERNS = [
-  // High-confidence vendor tokens (block immediately)
-  { name: 'AWS Access Key ID',     regex: /\bAKIA[0-9A-Z]{16}\b/,                   severity: 'block' },
-  { name: 'AWS Secret Access Key', regex: /\b(?:secret_access_key|AWS_SECRET)["'\s:=]+[A-Za-z0-9/+=]{40}\b/i, severity: 'block' },
-  { name: 'GitHub PAT (classic)',  regex: /\bghp_[A-Za-z0-9]{36}\b/,                severity: 'block' },
-  { name: 'GitHub fine-grained PAT', regex: /\bgithub_pat_[A-Za-z0-9_]{82}\b/,      severity: 'block' },
-  { name: 'GitHub OAuth',          regex: /\bgho_[A-Za-z0-9]{36}\b/,                severity: 'block' },
-  { name: 'Stripe live key',       regex: /\bsk_live_[A-Za-z0-9]{24,}\b/,           severity: 'block' },
-  { name: 'Stripe restricted',     regex: /\brk_live_[A-Za-z0-9]{24,}\b/,           severity: 'block' },
-  { name: 'OpenAI API key',        regex: /\bsk-(?:proj-)?[A-Za-z0-9_-]{32,}\b/,    severity: 'block' },
-  { name: 'Anthropic API key',     regex: /\bsk-ant-[A-Za-z0-9_-]{40,}\b/,          severity: 'block' },
-  { name: 'Google API key',        regex: /\bAIza[0-9A-Za-z_-]{35}\b/,              severity: 'block' },
-  { name: 'Slack token',           regex: /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/,       severity: 'block' },
-  { name: 'Mailgun key',           regex: /\bkey-[a-zA-Z0-9]{32}\b/,                severity: 'warn'  },
-  { name: 'PEM private key',       regex: /-----BEGIN (?:RSA|EC|OPENSSH|DSA|PGP) PRIVATE KEY-----/, severity: 'block' },
-  { name: 'JWT bearer',            regex: /\bey[JK][A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/, severity: 'warn' },
-];
 
 // --- Allow-list ---------------------------------------------------------------
 
@@ -148,13 +132,6 @@ function isOptedOut(filePath, content) {
   return false;
 }
 
-function scan(content) {
-  const findings = [];
-  for (const { name, regex, severity } of PATTERNS) {
-    if (regex.test(content)) findings.push({ name, severity });
-  }
-  return findings;
-}
 
 function main() {
   const raw = readStdin();
