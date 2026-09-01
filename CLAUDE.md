@@ -63,6 +63,14 @@ Rules for agents:
 
 ---
 
+## Project capabilities
+
+`.great_cto/PROJECT.md` may declare what this project's operational tools actually
+are — log store, pager, error tracker — under a `capabilities:` block. Agents refer
+to capabilities, never to a vendor, so swapping Datadog for Grafana changes no
+agent. Three states, and `undeclared` is not `none`:
+`docs/reference/project-capabilities.md`.
+
 ## Agent routing
 
 See `skills/great_cto/SKILL.md` for subagent routing table.

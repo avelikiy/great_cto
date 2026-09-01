@@ -86,6 +86,42 @@ echo "Grafana MCP: $GRAFANA_OK | gcx CLI: $GCX_OK"
 Setup guide: `mcp-servers/grafana.md`
 LogQL patterns + PromQL SLI queries + gcx reference: `skills/great_cto/references/grafana-ops.md`
 
+## Step 0 — what this project actually has
+
+Run this FIRST, before reading the routing table below. The table answers "the
+alert came from X, so use X's tools"; this answers "what is X here" — and it is
+the question you do not want to be deriving while somebody is being paged.
+
+```bash
+SC="$HOME/.claude/plugins/cache/local/great_cto"
+SC="$(ls -d $SC/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/stack-capabilities.mjs"
+[ -f "$SC" ] || SC="scripts/lib/stack-capabilities.mjs"
+[ -f "$SC" ] && node "$SC" || echo "capability map unavailable — route by alert source and say so"
+```
+
+It prints one line per capability in one of three states, and they are three
+different instructions:
+
+| State | What it means | What you do |
+|---|---|---|
+| `logs: grafana-loki` | declared | use it; do not go shopping |
+| `pager: none` | the project decided it has none | do not look for one, do not invent one |
+| `metrics: not declared` | **nobody has said** | this is NOT "there is none" — ask, or fall back to the table below, and SAY in the diagnosis that you routed by guess |
+
+The third row is the one that matters. Treating "nobody said" as "there is none"
+is how an investigation concludes there are no traces for a service that has been
+emitting them for a year.
+
+Declared in the project's `PROJECT.md`:
+
+```yaml
+capabilities:
+  logs: grafana-loki
+  metrics: grafana
+  errors: sentry
+  pager: none
+```
+
 ## Alert Source → Tool Routing
 
 When an alert fires from a known source, **call that source's tools first and in parallel**
