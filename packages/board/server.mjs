@@ -51,6 +51,12 @@ const server = http.createServer(async (req, res) => {
   if (projInfo.resolved === 'fallback') {
     res.setHeader('X-Project-Fallback', `requested='${projInfo.requested}' served='cwd'`);
     res.setHeader('X-Project-Resolved', 'fallback');
+    // WHOSE numbers these are. The two headers above said the request had been
+    // redirected; neither said where to. For someone running eighteen projects
+    // that is the difference between "something is off" and "you are looking at
+    // <other project>'s spend" — and the banner cannot name the other project
+    // without being told it.
+    try { res.setHeader('X-Project-Serving', path.basename(cwd)); } catch { /* headers sent */ }
   } else {
     res.setHeader('X-Project-Resolved', projInfo.resolved);
   }
@@ -58,7 +64,7 @@ const server = http.createServer(async (req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   // Expose our debug headers to browsers (CORS hides custom headers by default)
-  res.setHeader('Access-Control-Expose-Headers', 'X-Project-Fallback, X-Project-Resolved');
+  res.setHeader('Access-Control-Expose-Headers', 'X-Project-Fallback, X-Project-Resolved, X-Project-Serving');
 
   // ── CSRF guard (BH-31) ──────────────────────────────────────────────────────
   // The board binds 127.0.0.1, but a page the user visits in their browser can still

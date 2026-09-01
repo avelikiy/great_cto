@@ -820,6 +820,21 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .degraded-banner strong { color: var(--text); font-weight: 600; }
 .degraded-banner span { color: var(--text2); font-family: var(--mono, ui-monospace, monospace); word-break: break-word; }
 
+/* Louder than .degraded-banner, and after it, so the shared properties are
+   inherited and only the severity is overridden — at equal specificity the later
+   rule wins, which is the whole reason this sits below rather than above.
+
+   The two banners report different failures and must not look alike: amber says
+   a panel could not be read and is showing empty; red says every panel WAS read,
+   correctly, for a different project. The second is the more dangerous, because
+   nothing else on the screen looks wrong. */
+.project-fallback-banner {
+  border-color: var(--status-blocked);
+  background: var(--rail-fail-bg);
+}
+.project-fallback-banner strong { color: var(--status-blocked); }
+.project-fallback-banner span   { color: var(--text); font-family: var(--sans); }
+
 /* ── Side panel ───────────────────────────────────────────────────────────── */
 .side {
   position: absolute;
@@ -6242,12 +6257,71 @@ function renderDegradedBanner(id, reason, headline) {
 /** True when any project-scoped read failed — used to suppress "all clear" claims. */
 function anyDegraded() { return Object.keys(BOARD_DEGRADED).length > 0; }
 
+/**
+ * The project the server actually served, when it is not the one that was asked
+ * for. Null the rest of the time.
+ *
+ * `?project=<unknown>` falls back to the server's own directory and returns that
+ * project's numbers — 242 tasks, $2.70, eighteen scores — byte-identical to a
+ * real answer. The server has announced this since the BH-5 fix, in
+ * `X-Project-Fallback`, and until now NOTHING IN THIS FILE READ THAT HEADER:
+ * the announcement went to a channel with no listener, which is the same defect
+ * as not announcing it, one layer further from where anyone would look.
+ *
+ * This is worse than the degraded case beside it. Degraded means a panel could
+ * not be read and shows empty. This means every panel was read correctly, for
+ * somebody else. For an operator running eighteen projects a mistyped or stale
+ * slug — a bookmark, a shared link, a project dropped from the registry — puts
+ * another client's spend on screen with nothing to distinguish it.
+ */
+let PROJECT_FALLBACK = null;
+
+/** Announce, or clear, "these are not the numbers you asked for". */
+function renderProjectFallbackBanner() {
+  const id = 'project-fallback-banner';
+  const existing = document.getElementById(id);
+  if (!PROJECT_FALLBACK) { if (existing) existing.remove(); return; }
+  const { requested, serving } = PROJECT_FALLBACK;
+  const el = existing || document.createElement('div');
+  el.id = id;
+  el.className = 'degraded-banner project-fallback-banner';
+  el.setAttribute('role', 'alert');
+  // Both names, always. "Project not found" would send the operator looking for
+  // a missing project; the thing they need to know is whose figures they have
+  // been reading while they looked.
+  el.innerHTML = `<strong>${esc(requested)} was not found</strong>`
+    + `<span>Every panel below is showing <strong>${esc(serving || 'another project')}</strong>`
+    + ` — the board fell back to its own directory. Pick a project from the list to fix this.</span>`;
+  if (!existing) {
+    const host = document.querySelector('.workspace')
+      || (document.getElementById('kanban-board') || {}).parentNode;
+    if (host) host.insertBefore(el, host.firstChild);
+  }
+}
+
 function api(url, opts) {
   const key = String(url).split('?')[0];
   return fetch(url, opts).then(r => {
     const d = r.headers && r.headers.get('X-Board-Degraded');
     if (d) { try { BOARD_DEGRADED[key] = decodeURIComponent(d); } catch { BOARD_DEGRADED[key] = d; } }
     else delete BOARD_DEGRADED[key];
+    // Read on EVERY response, not once at boot: the operator switches projects
+    // without a reload, so a banner raised by one slug has to come down when the
+    // next one resolves. Driven by `X-Project-Resolved`, which is present on
+    // every response — keying off the absence of X-Project-Fallback alone would
+    // leave the banner up forever against a server too old to send either.
+    if (r.headers) {
+      const resolved = r.headers.get('X-Project-Resolved');
+      if (resolved === 'fallback') {
+        PROJECT_FALLBACK = {
+          requested: (new URL(String(url), location.origin)).searchParams.get('project') || '(unnamed)',
+          serving: r.headers.get('X-Project-Serving') || '',
+        };
+      } else if (resolved) {
+        PROJECT_FALLBACK = null;
+      }
+      try { renderProjectFallbackBanner(); } catch { /* pre-DOM call */ }
+    }
     return r.json();
   }).catch(() => {
     // A request that never completed is the one case the degradation mechanism
