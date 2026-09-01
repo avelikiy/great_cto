@@ -1,9 +1,15 @@
 // The documentation is one connected island and a field of loose leaves.
 //
-// Measured over docs/, excluding machine summaries and translations: 156
-// documents, 77 of which link to nothing and are linked to by nothing. Every one
-// of the 18 ADRs links to another ADR; `ADR-009` has ten inbound references.
-// Eighteen plans have none in either direction.
+// First measured over docs/, excluding machine summaries and translations: 156
+// documents, 77 of which linked to nothing and were linked to by nothing. Every
+// one of the 18 ADRs links to another ADR; `ADR-009` has ten inbound references.
+//
+// The largest single cluster was `docs/plans` — eighteen plans with no link in
+// either direction, a fifth of the whole debt. `docs/plans/README.md` is the
+// inbound link for all eighteen: hand-written, one line per plan read off its own
+// heading, with each plan's declared status left exactly as the plan declares it.
+// That took the count to 58 of 160. It is the shape the rest of the debt closes
+// in — a real index somebody wrote, not a generated link nobody meant.
 //
 // This test does not try to connect them — see the reasoning in doc-links.mjs.
 // It stops the number growing, the same ratchet the hardcoded-colour count uses,
@@ -46,7 +52,7 @@ test('a link is counted in both directions', () => {
 test('the orphan count is frozen, and only shrinks deliberately', () => {
   // Raising this number means a document was added that connects to nothing.
   // Write the link, or lower the floor in the same commit that earns it.
-  const FROZEN = 76;
+  const FROZEN = 58;
   const { docs, orphans } = linkGraph('docs');
   assert.ok(orphans.length <= FROZEN,
     `${orphans.length} orphaned documents, up from ${FROZEN} of ${docs.length}. ` +

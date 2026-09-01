@@ -105,6 +105,64 @@ function tierSatisfies(tier, expected) {
 
 // ── Severity levels ─────────────────────────────────────────────────────────
 
+
+// ── Resolving a phase-task section that lives in a shared file ──────────────
+//
+// `agents/_shared/phase-task.md` holds the canonical block; each pipeline agent
+// keeps a short section that names it and binds the placeholder to its own slug.
+// The PHASE rules need both halves: the shared file carries the helper
+// invocation, the agent's own section carries the slug claim.
+
+// Resolved from this file's location, not the process cwd: the linter is run
+// from the repo root by ci-local and from anywhere by a person.
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const SHARED_PHASE_TASK = 'agents/_shared/phase-task.md';
+
+/** The agent's own `## Phase task tracking` section, or null. */
+function ownPhaseSection(file) {
+  const m = file.text.match(/##\s+Phase task tracking[\s\S]*?(?=\n##\s|$)/i);
+  return m ? m[0] : null;
+}
+
+/**
+ * @returns {{state:'ok'|'absent'|'unreadable', text:string, own:string,
+ *            shared:boolean, message?:string}}
+ *
+ * Three states, deliberately. `unreadable` is what a section that points at a
+ * shared block nobody can open must return — collapsing it into `ok` would let a
+ * deleted shared file read as eight clean agents.
+ */
+function resolvePhaseSection(file) {
+  const own = ownPhaseSection(file);
+  if (!own) return { state: 'absent', text: '', own: '', shared: false };
+
+  // Any reference to the shared block, however it is written in prose.
+  if (!/_shared\/phase-task\.md/.test(own)) {
+    return { state: 'ok', text: own, own, shared: false };
+  }
+  const abs = resolve(REPO_ROOT, SHARED_PHASE_TASK);
+  let sharedText;
+  try {
+    sharedText = readFileSync(abs, 'utf8');
+  } catch (err) {
+    // The reason is carried, not swallowed: a file that is MISSING and a file
+    // that is present but unreadable are different repairs — restore it, or fix
+    // its permissions — and "could not be read" alone sends the reader to look
+    // for the wrong one.
+    return {
+      state: 'unreadable', text: own, own, shared: true,
+      message: `phase-task section references \`${SHARED_PHASE_TASK}\`, which could not be read (${err.code ?? err.message})`,
+    };
+  }
+  return { state: 'ok', text: own + '\n' + sharedText, own, shared: true };
+}
+
+/** First `open <slug>` argument in a block, or null. */
+function section_open(text) {
+  const m = text.match(/open\s+([A-Za-z][A-Za-z0-9_-]*)/);
+  return m ? m[1] : null;
+}
+
 const SEVERITY = { error: 'error', warn: 'warn' };
 
 // ── Rule definitions ────────────────────────────────────────────────────────
@@ -205,6 +263,22 @@ const RULES = [
   },
 
   // ── Phase task protocol (v2.5.7+) ──
+  //
+  // These three rules used to read ONLY the agent's own text. Then the eight
+  // pipeline agents were refactored to stop duplicating the block and point at
+  // `agents/_shared/phase-task.md` instead — the DRY move the CONS-NOREPEAT rule
+  // asks for elsewhere in this same file. The rules kept looking for the inlined
+  // text, so all eight failed at once, and the fix that would have satisfied them
+  // was to paste the block back into every agent.
+  //
+  // A rule that is only satisfiable by undoing a deliberate refactor is reporting
+  // on itself, not on the agents. So the section is RESOLVED first: a reference to
+  // the shared block pulls that file in and the rules run over both halves.
+  //
+  // Resolution has three outcomes, never two. A section that names a shared block
+  // which cannot be read is an ERROR that says so — it must never come back as
+  // "no shared block referenced, judging the agent's own text", because that reads
+  // exactly like a clean pass on a file whose instructions have gone missing.
   {
     id: 'PHASE-001',
     severity: SEVERITY.error,
@@ -224,10 +298,10 @@ const RULES = [
     desc: 'phase-task block references the helper script',
     appliesTo(file) { return PIPELINE_AGENTS.has(file.slug); },
     test(file) {
-      // Find the Phase task tracking section and verify it invokes the helper
-      const m = file.text.match(/##\s+Phase task tracking[\s\S]*?(?=\n##\s|$)/i);
-      if (!m) return [];  // PHASE-001 catches this
-      const section = m[0];
+      const r = resolvePhaseSection(file);
+      if (r.state === 'absent') return [];        // PHASE-001 catches this
+      if (r.state === 'unreadable') return [r.message];
+      const section = r.text;
       if (!/phase-task\.sh/.test(section)) {
         return ['phase-task section does not reference `phase-task.sh` helper'];
       }
@@ -246,22 +320,34 @@ const RULES = [
     desc: 'phase-task open uses correct agent slug',
     appliesTo(file) { return PIPELINE_AGENTS.has(file.slug); },
     test(file) {
-      const m = file.text.match(/##\s+Phase task tracking[\s\S]*?(?=\n##\s|$)/i);
-      if (!m) return [];
-      const section = m[0];
-      // The first arg to `open` should be the agent slug (file's stem)
-      // Allow either explicit slug or AGENT_NAME_HERE placeholder (will be templated)
+      const r = resolvePhaseSection(file);
+      if (r.state === 'absent') return [];
+      if (r.state === 'unreadable') return [r.message];
       const expected = file.slug;
-      const openMatch = section.match(/open\s+([A-Za-z][A-Za-z0-9_-]*)/);
-      if (!openMatch) {
-        return [`phase-task block missing \`open <agent>\` example`];
+
+      // Shared form: the block is a template, so the agent's own section is where
+      // the placeholder gets bound — `<agent-name> = architect`. That binding IS
+      // the slug claim, and it is the half a copy-paste of another agent's file
+      // gets wrong, so it is checked against the filename.
+      const bind = r.own.match(/<agent[-_ ]?name>\s*=\s*([A-Za-z][A-Za-z0-9_-]*)/i);
+      if (bind) {
+        return bind[1] === expected
+          ? []
+          : [`phase-task block binds <agent-name> = '${bind[1]}' but file is for '${expected}'`];
       }
-      const used = openMatch[1];
-      if (used === 'AGENT_NAME_HERE' || used === '<agent>' || used === '<agent-name>') {
+
+      // Inline form (pre-refactor): the literal invocation carries the slug.
+      const openMatch = section_open(r.text);
+      if (!openMatch) {
+        return [r.shared
+          ? 'phase-task block neither binds `<agent-name> = <slug>` nor shows an `open <agent>` example'
+          : 'phase-task block missing `open <agent>` example'];
+      }
+      if (openMatch === 'AGENT_NAME_HERE' || openMatch === '<agent>' || openMatch === '<agent-name>') {
         return [];  // template placeholder is fine
       }
-      if (used !== expected) {
-        return [`phase-task open uses '${used}' but file is for '${expected}'`];
+      if (openMatch !== expected) {
+        return [`phase-task open uses '${openMatch}' but file is for '${expected}'`];
       }
       return [];
     },

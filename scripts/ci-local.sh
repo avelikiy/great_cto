@@ -300,6 +300,51 @@ step "lib tests" node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs
 step "eval tests" node --test tests/eval/*.test.mjs
 step "docs tests" bash -c 'node --test tests/docs/*.test.mjs 2>/dev/null || true'
 
+# ── The pipeline test suite, blocking (L1–L5) ──
+#
+# `scripts/test-pipeline.sh` existed for months and this file did not call it.
+# Nothing else did either — the only references anywhere were CHANGELOG entries
+# and a permission entry in .claude/settings.local.json. So it was WRITTEN and
+# NOT RUN, the third state the test strategy names, and it had rotted exactly the
+# way an unrun suite does: it asserted 34 agents against a repository that ships
+# 70, a `--platform aider` flag main.ts has never parsed, a `CONVENTIONS.md` no
+# version of this CLI has ever written, and a pytest directory that .gitignore
+# excludes from every clone. Four failures, none of them about the product.
+#
+# It also had a side effect worth naming, because it is why running it was
+# unpleasant enough to stop: an unconditional `pkill -f packages/board/server` in
+# its EXIT trap. Every run — including `--quick`, which never starts a board —
+# killed whatever board the operator had open. It now starts its own on an
+# ephemeral port and kills only the process it started.
+#
+# Bounded, because the L4b phase-task checks drive `bd` and Dolt takes a lock:
+# two clean runs here measured 236s and 739s for identical input. A gate that can
+# hang is worse than one that can fail — it stops a push with no verdict at all.
+# So a timeout, and a timeout REPORTS AS A FAILURE, never as a pass.
+run_bounded() {   # run_bounded <seconds> <command...>
+  local limit="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout --preserve-status "$limit" "$@"; return $?
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout --preserve-status "$limit" "$@"; return $?
+  fi
+  # Stock macOS has neither. The watchdog TERMs the suite, whose own EXIT trap
+  # then stops the board it started.
+  "$@" & local pid=$!
+  ( sleep "$limit"; kill -TERM "$pid" 2>/dev/null ) & local watch=$!
+  wait "$pid"; local rc=$?
+  kill "$watch" 2>/dev/null; wait "$watch" 2>/dev/null
+  return "$rc"
+}
+
+if [ "$QUICK" -eq 1 ]; then
+  # The fast inner loop gets L1+L2 (~90s). Named as a subset rather than passed
+  # off as the suite: --quick skips the board and the plugin-sync levels.
+  step "pipeline suite L1+L2 (--quick)" run_bounded 300 bash scripts/test-pipeline.sh --quick
+else
+  step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh
+fi
+
 # ── CLI build + tests + pack (cli-ci + release) ──
 if [ "$QUICK" -eq 0 ]; then
   step "cli build" bash -c 'cd packages/cli && npm run build'

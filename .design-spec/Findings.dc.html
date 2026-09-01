@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #0a0e0c; color: #ecf2ee;
+           font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    a { color: #00d97e; text-decoration: none; } a:hover { color: #34e69b; }
+    .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+    .h { font-family: "Geist Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.10em;
+         text-transform: uppercase; color: #8a9a92; }
+  </style>
+</helmet>
+
+<div style="padding: 56px 64px; display: flex; flex-direction: column; gap: 40px;">
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div class="mono" style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #00d97e;">06 — Open</div>
+    <div style="font-size: 34px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1;">What the spec cannot settle alone</div>
+    <div style="font-size: 15px; color: #8a9a92; max-width: 780px; line-height: 1.55;">Six findings, each measured rather than felt, each with the repair it implies. None is applied — a specification that quietly changed the product would be the thing this project exists to prevent.</div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:12px;">
+
+    <div style="background:#11161a;border:1px solid rgba(255,84,102,0.30);border-radius:8px;padding:18px 20px;display:flex;gap:18px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:78px;">
+        <div class="mono" style="font-size:11px;color:#fca5a5;">FIND-1</div>
+        <div class="mono" style="font-size:11px;color:#8a9a92;">a11y</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-grow:1;">
+        <div style="font-size:15px;font-weight:500;"><span class="mono">--status-backlog</span> is the only token under the AA floor.</div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.6;"><span class="mono" style="color:#ecf2ee;">#6b7280</span> on <span class="mono" style="color:#ecf2ee;">--bg-card</span> measures <span class="mono" style="color:#fca5a5;">3.77 : 1</span> against a 4.5 floor for text. Every other status hue passes, most comfortably. As a 10px dot it is decoration and the floor does not apply; as the word "backlog" it does. <span style="color:#ecf2ee;">Repair:</span> lighten to ≈ <span class="mono" style="color:#ecf2ee;">#7d848f</span>, or rule that this token is dot-only.</div>
+      </div>
+    </div>
+
+    <div style="background:#11161a;border:1px solid rgba(255,170,60,0.30);border-radius:8px;padding:18px 20px;display:flex;gap:18px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:78px;">
+        <div class="mono" style="font-size:11px;color:#fcd34d;">FIND-2</div>
+        <div class="mono" style="font-size:11px;color:#8a9a92;">palette</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-grow:1;">
+        <div style="font-size:15px;font-weight:500;">Three greens mean "good"; two of them are the same colour.</div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.6;"><span class="mono" style="color:#ecf2ee;">--status-review</span> and <span class="mono" style="color:#ecf2ee;">--status-done</span> are both <span class="mono" style="color:#00d97e;">#00d97e</span> — a card in review is indistinguishable from a card that shipped. <span class="mono" style="color:#4ade80;">--verdict-ok #4ade80</span> is a third, near-miss green beside them. <span style="color:#ecf2ee;">Repair:</span> give review its own hue, or merge the two columns and say so.</div>
+      </div>
+    </div>
+
+    <div style="background:#11161a;border:1px solid rgba(255,170,60,0.30);border-radius:8px;padding:18px 20px;display:flex;gap:18px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:78px;">
+        <div class="mono" style="font-size:11px;color:#fcd34d;">FIND-3</div>
+        <div class="mono" style="font-size:11px;color:#8a9a92;">palette</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-grow:1;">
+        <div style="font-size:15px;font-weight:500;">A two-step text scale that does not step.</div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.6;"><span class="mono" style="color:#ecf2ee;">--text2 #8a9a92</span> at 6.17:1 and <span class="mono" style="color:#ecf2ee;">--text3 #8b958c</span> at 5.87:1 differ by 5% of luminance — indistinguishable side by side, so the hierarchy they encode is not visible to the reader. <span style="color:#ecf2ee;">Repair:</span> separate them to roughly 6.2 and 4.6, or delete one.</div>
+      </div>
+    </div>
+
+    <div style="background:#11161a;border:1px solid rgba(255,170,60,0.30);border-radius:8px;padding:18px 20px;display:flex;gap:18px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:78px;">
+        <div class="mono" style="font-size:11px;color:#fcd34d;">FIND-4</div>
+        <div class="mono" style="font-size:11px;color:#8a9a92;">system</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-grow:1;">
+        <div style="font-size:15px;font-weight:500;">Type is tokenised. Spacing and radius are not.</div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.6;">Twelve <span class="mono" style="color:#ecf2ee;">--fs-*</span> tokens govern every size — and there is no <span class="mono" style="color:#ecf2ee;">--sp-*</span> or <span class="mono" style="color:#ecf2ee;">--r-*</span> at all. The page carries <span class="mono" style="color:#ecf2ee;">gap</span> at 1, 2, 3, 4, 5, 6, 8, 10, 12, 14 and 16px, and radii at 2, 3, 4, 5, 6, 7, 8, 10, 12, 16 and 999. Some of that is deliberate; some is one declaration at a time. <span style="color:#ecf2ee;">Repair:</span> a scale (4 · 8 · 12 · 16 · 24) and a ratchet on new raw values — the pattern already used for orphaned docs and hardcoded colours.</div>
+      </div>
+    </div>
+
+    <div style="background:#11161a;border:1px solid rgba(255,170,60,0.30);border-radius:8px;padding:18px 20px;display:flex;gap:18px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:78px;">
+        <div class="mono" style="font-size:11px;color:#fcd34d;">FIND-5</div>
+        <div class="mono" style="font-size:11px;color:#8a9a92;">type</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-grow:1;">
+        <div style="font-size:15px;font-weight:500;">Synthesised bold on the mono face, in five rules.</div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.6;">Geist Mono is vendored with a <span class="mono" style="color:#ecf2ee;">wght 400–500</span> axis and asked for 600 in five places, so the browser draws a fake bold. Detail on artboard 05. <span style="color:#ecf2ee;">Repair:</span> 500, or widen the vendored axis.</div>
+      </div>
+    </div>
+
+    <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:18px 20px;display:flex;gap:18px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:78px;">
+        <div class="mono" style="font-size:11px;color:#8a9a92;">FIND-6</div>
+        <div class="mono" style="font-size:11px;color:#8a9a92;">scope</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-grow:1;">
+        <div style="font-size:15px;font-weight:500;">This spec covers the dark theme only.</div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.6;">The board ships a light theme behind <span class="mono" style="color:#ecf2ee;">data-theme</span> and <span class="mono" style="color:#ecf2ee;">prefers-color-scheme</span>, and <span class="mono" style="color:#ecf2ee;">share.html</span> is a separate artefact with its own palette and sixteen distinct type sizes. Neither was measured here. Said plainly rather than left to look covered — a spec that implies a scope it never checked is the same defect as a check that cannot fail.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-left:3px solid #00d97e;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;">
+    <div class="h" style="color:#00d97e;">How this specification was produced</div>
+    <div style="font-size:14px;line-height:1.6;max-width:840px;color:#8a9a92;">Every colour, size, height, radius and ratio was read out of <span class="mono" style="color:#ecf2ee;">packages/board/public/index.html</span> and <span class="mono" style="color:#ecf2ee;">assets/fonts/fonts.css</span>. Contrast figures are WCAG 2.1 relative luminance computed over those exact values, not estimated. Nothing here proposes a redesign; where the source and the intent disagree, the finding names both and stops.</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

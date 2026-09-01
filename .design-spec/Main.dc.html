@@ -1,0 +1,199 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #0a0e0c; color: #ecf2ee;
+           font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    a { color: #00d97e; text-decoration: none; } a:hover { color: #34e69b; }
+    .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  </style>
+</helmet>
+
+<div style="padding: 56px 64px; display: flex; flex-direction: column; gap: 48px;">
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div class="mono" style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #00d97e;">01 — Foundations</div>
+    <div style="font-size: 34px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1;">Colour and type, as the board actually defines them</div>
+    <div style="font-size: 15px; color: #8a9a92; max-width: 720px; line-height: 1.55;">Every value on this page was read out of <span class="mono" style="color:#ecf2ee;">packages/board/public/index.html</span>, not chosen for the spec. Where two tokens resolve to the same colour, or a ratio falls under the floor, it is marked — that is the finding, not a rounding error.</div>
+  </div>
+
+  <!-- SURFACES -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">Surfaces</div>
+      <div style="font-size: 13px; color: #8a9a92;">five steps of ground, 5% apart — depth is stacking, never shadow</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="height: 72px; border-radius: 8px; background: #0a0e0c; border: 1px solid rgba(255,255,255,0.12);"></div>
+        <div class="mono" style="font-size: 12px; color: #ecf2ee;">--bg-page</div>
+        <div class="mono" style="font-size: 12px; color: #8a9a92;">#0a0e0c</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="height: 72px; border-radius: 8px; background: #11161a; border: 1px solid rgba(255,255,255,0.06);"></div>
+        <div class="mono" style="font-size: 12px; color: #ecf2ee;">--bg-card</div>
+        <div class="mono" style="font-size: 12px; color: #8a9a92;">#11161a</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="height: 72px; border-radius: 8px; background: #161c1f; border: 1px solid rgba(255,255,255,0.06);"></div>
+        <div class="mono" style="font-size: 12px; color: #ecf2ee;">--bg-muted</div>
+        <div class="mono" style="font-size: 12px; color: #8a9a92;">#161c1f</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="height: 72px; border-radius: 8px; background: #1a2025; border: 1px solid rgba(255,255,255,0.06);"></div>
+        <div class="mono" style="font-size: 12px; color: #ecf2ee;">--bg-elevated</div>
+        <div class="mono" style="font-size: 12px; color: #8a9a92;">#1a2025</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="height: 72px; border-radius: 8px; background: #1e272c; border: 1px solid rgba(255,255,255,0.06);"></div>
+        <div class="mono" style="font-size: 12px; color: #ecf2ee;">--bg-strong</div>
+        <div class="mono" style="font-size: 12px; color: #8a9a92;">#1e272c</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEXT + ACCENT -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">Ink and accent</div>
+      <div style="font-size: 13px; color: #8a9a92;">contrast measured against <span class="mono">--bg-card</span></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size: 20px; color: #ecf2ee; font-weight: 500;">Primary</div>
+        <div class="mono" style="font-size: 12px; color:#8a9a92;">--text · #ecf2ee</div>
+        <div class="mono" style="font-size: 12px; color:#4ade80;">16.04 : 1</div>
+      </div>
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size: 20px; color: #8a9a92; font-weight: 500;">Secondary</div>
+        <div class="mono" style="font-size: 12px; color:#8a9a92;">--text2 · #8a9a92</div>
+        <div class="mono" style="font-size: 12px; color:#4ade80;">6.17 : 1</div>
+      </div>
+      <div style="background:#11161a;border:1px solid rgba(255,84,102,0.30);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size: 20px; color: #8b958c; font-weight: 500;">Tertiary</div>
+        <div class="mono" style="font-size: 12px; color:#8a9a92;">--text3 · #8b958c</div>
+        <div class="mono" style="font-size: 12px; color:#fcd34d;">5.87 : 1 — see finding 1</div>
+      </div>
+      <div style="background:#11161a;border:1px solid rgba(0,217,126,0.30);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size: 20px; color: #00d97e; font-weight: 500;">Accent</div>
+        <div class="mono" style="font-size: 12px; color:#8a9a92;">--accent · #00d97e</div>
+        <div class="mono" style="font-size: 12px; color:#4ade80;">9.73 : 1</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">Status and verdict</div>
+      <div style="font-size: 13px; color: #8a9a92;">one hue per meaning — the rule the palette breaks twice</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+      <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
+        <div style="width:10px;height:10px;border-radius:999px;background:#6b7280;flex-shrink:0;"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">backlog</div><div class="mono" style="font-size:11px;color:#fcd34d;">#6b7280 · 3.77:1</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
+        <div style="width:10px;height:10px;border-radius:999px;background:#9ca3af;flex-shrink:0;"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">todo</div><div class="mono" style="font-size:11px;color:#8a9a92;">#9ca3af · 7.17:1</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
+        <div style="width:10px;height:10px;border-radius:999px;background:#f59e0b;flex-shrink:0;"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">in progress</div><div class="mono" style="font-size:11px;color:#8a9a92;">#f59e0b · 8.48:1</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
+        <div style="width:10px;height:10px;border-radius:999px;background:#ff5466;flex-shrink:0;"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">blocked</div><div class="mono" style="font-size:11px;color:#8a9a92;">#ff5466 · 5.82:1</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(167,139,250,0.30);border-radius:8px;padding:12px 14px;">
+        <div style="width:10px;height:10px;border-radius:999px;background:#a78bfa;flex-shrink:0;"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">gate — awaits a human</div><div class="mono" style="font-size:11px;color:#8a9a92;">#a78bfa · 6.69:1</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
+        <div style="width:10px;height:10px;border-radius:999px;background:#00d97e;flex-shrink:0;"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">review / done</div><div class="mono" style="font-size:11px;color:#fcd34d;">both #00d97e — finding 2</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
+        <div style="width:10px;height:10px;border-radius:999px;background:#4ade80;flex-shrink:0;"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">verdict ok</div><div class="mono" style="font-size:11px;color:#fcd34d;">#4ade80 — third green</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px 14px;">
+        <div style="width:10px;height:10px;border-radius:999px;background:#f87171;flex-shrink:0;"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;">verdict fail</div><div class="mono" style="font-size:11px;color:#8a9a92;">#f87171 · 6.58:1</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TYPE -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">Type ramp</div>
+      <div style="font-size: 13px; color: #8a9a92;">twelve tokens, all declared — <span class="mono">--fs-*</span></div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-eyebrow</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">11px</div>
+        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#8a9a92;">Section label</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-caption</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">12px</div>
+        <div style="font-size:12px;">Chip text, timestamps, table meta</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-small</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">13px</div>
+        <div style="font-size:13px;">Pill text, secondary lines</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-body</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">14px</div>
+        <div style="font-size:14px;">Navigation, buttons, card body — the workhorse</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-base</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">15px</div>
+        <div style="font-size:15px;">Running prose, document bodies</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-title-s</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">16px</div>
+        <div style="font-size:16px;font-weight:500;">Card heading</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-title-m</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">19px</div>
+        <div style="font-size:19px;font-weight:500;">Panel heading</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-title-l</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">22px</div>
+        <div style="font-size:22px;font-weight:500;">Screen heading</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;margin-top:8px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-num-s / m</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">24 · 30</div>
+        <div class="mono" style="font-size:30px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">$7,420</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding:9px 14px;background:#11161a;border-radius:6px;">
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:112px;flex-shrink:0;">--fs-num-l / xl</div>
+        <div class="mono" style="font-size:12px;color:#8a9a92;width:44px;flex-shrink:0;">36 · 52</div>
+        <div class="mono" style="font-size:52px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1.1;">56</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:#8a9a92;line-height:1.6;max-width:760px;">Numerals are always <span class="mono" style="color:#ecf2ee;">tabular-nums</span> at <span class="mono" style="color:#ecf2ee;">-0.02em</span>. A dashboard where a figure changes width as it changes value reads as motion the operator did not cause.</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

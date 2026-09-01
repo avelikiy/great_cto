@@ -2,11 +2,16 @@
  * doc-links — how much of the documentation is connected to the rest of it.
  *
  * The operator's words: "документация — по-прежнему не связана в единое целое."
- * Measured over `docs/`, excluding machine summaries and translations:
+ * First measured over `docs/`, excluding machine summaries and translations:
  *
  *     155 documents
  *      89 orphans — link to nothing, and nothing links to them
  *      18 ADRs, every one of which links to another ADR
+ *
+ * As of 2026-09-01: 160 documents, 58 orphans. The eighteen orphaned plans were
+ * closed by `docs/plans/README.md` — written by hand, one line per plan taken
+ * from the plan's own heading. The ratchet in tests/lib/doc-links.test.mjs
+ * carries the current floor.
  *
  * So the corpus is one connected island and a field of loose leaves. `ADR-009` has
  * ten inbound links; eighteen plans in `docs/plans` have none in either direction.

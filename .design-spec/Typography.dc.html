@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #0a0e0c; color: #ecf2ee;
+           font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    a { color: #00d97e; text-decoration: none; } a:hover { color: #34e69b; }
+    .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+    .h { font-family: "Geist Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.10em;
+         text-transform: uppercase; color: #8a9a92; }
+    .spec { font-family: "Geist Mono", ui-monospace, monospace; font-size: 11px; color: #8a9a92; line-height: 1.7; }
+  </style>
+</helmet>
+
+<div style="padding: 56px 64px; display: flex; flex-direction: column; gap: 44px;">
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div class="mono" style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #00d97e;">05 — Typography</div>
+    <div style="font-size: 34px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1;">Two faces, and the rule for choosing</div>
+    <div style="font-size: 15px; color: #8a9a92; max-width: 780px; line-height: 1.55;">The board is read by one person deciding what the machine may do next. Type here is not decoration — it is how a screen says <em style="color:#ecf2ee;font-style:normal;">this is an identifier you will paste</em> as distinct from <em style="color:#ecf2ee;font-style:normal;">this is a sentence I am telling you</em>. The choice is semantic, not aesthetic.</div>
+  </div>
+
+  <!-- FAMILIES -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">The families, and what each one means here</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;">
+
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:22px;display:flex;flex-direction:column;gap:14px;">
+        <div style="font-size: 44px; font-weight: 500; letter-spacing:-0.02em; line-height:1;">Geist</div>
+        <div style="font-size:14px;line-height:1.55;color:#ecf2ee;">The product's speaking voice. Headings, navigation, buttons, prose — everything the board says <em style="font-style:normal;color:#8a9a92;">to</em> you.</div>
+        <div class="spec">--sans<br>"Geist", "Inter", -apple-system,<br>BlinkMacSystemFont, "Segoe UI", sans-serif<br><br>vendored&nbsp;&nbsp;geist-variable.woff2 · 29 KB<br>axis&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;wght 400–700<br>display&nbsp;&nbsp;&nbsp;swap</div>
+      </div>
+
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:22px;display:flex;flex-direction:column;gap:14px;">
+        <div class="mono" style="font-size: 44px; font-weight: 500; letter-spacing:-0.02em; line-height:1;">Geist Mono</div>
+        <div style="font-size:14px;line-height:1.55;color:#ecf2ee;">Not "the code font". It is the <em style="font-style:normal;color:#00d97e;">machine-truth</em> face: anything you would copy, paste, grep or compare. 115 uses against 9 for the display token — this is the board's real second voice.</div>
+        <div class="spec">--mono<br>"Geist Mono", "JetBrains Mono",<br>ui-monospace, "SF Mono", Menlo, monospace<br><br>vendored&nbsp;&nbsp;geist-mono-variable.woff2 · 23 KB<br>axis&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;wght 400–500 <span style="color:#fcd34d;">← ceiling</span><br>display&nbsp;&nbsp;&nbsp;swap</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WHICH FACE -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">Which face, decided once</div>
+      <div style="font-size: 13px; color: #8a9a92;">the test: would a person select this text and paste it somewhere?</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;">
+
+      <div style="background:#11161a;border:1px solid rgba(0,217,126,0.25);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div class="h" style="color:#00d97e;">Mono — always</div>
+        <div style="display:flex;flex-direction:column;gap:9px;font-size:13px;">
+          <div style="display:flex;gap:12px;align-items:baseline;"><span class="mono" style="color:#ecf2ee;width:150px;flex-shrink:0;">great_cto-ahgj</span><span style="color:#8a9a92;">task and gate ids</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span class="mono" style="color:#ecf2ee;width:150px;flex-shrink:0;">senior-dev</span><span style="color:#8a9a92;">agent slugs</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span class="mono" style="color:#ecf2ee;width:150px;flex-shrink:0;">docs/adr/ADR-009.md</span><span style="color:#8a9a92;">paths and filenames</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span class="mono" style="color:#ecf2ee;width:150px;flex-shrink:0;">$7,420.18</span><span style="color:#8a9a92;">money and counts</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span class="mono" style="color:#ecf2ee;width:150px;flex-shrink:0;">v3.21.0</span><span style="color:#8a9a92;">versions, hashes, ratios</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span class="mono" style="color:#ecf2ee;width:150px;flex-shrink:0;">2026-09-01 14:22</span><span style="color:#8a9a92;">timestamps</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span class="mono" style="color:#ecf2ee;width:150px;flex-shrink:0;">verified · rework</span><span style="color:#8a9a92;">verdict tokens</span></div>
+        </div>
+      </div>
+
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div class="h">Sans — always</div>
+        <div style="display:flex;flex-direction:column;gap:9px;font-size:13px;">
+          <div style="display:flex;gap:12px;align-items:baseline;"><span style="color:#ecf2ee;width:150px;flex-shrink:0;">Waiting on you</span><span style="color:#8a9a92;">screen and panel headings</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span style="color:#ecf2ee;width:150px;flex-shrink:0;">Approve · Decide</span><span style="color:#8a9a92;">every control label</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span style="color:#ecf2ee;width:150px;flex-shrink:0;">Nothing waiting</span><span style="color:#8a9a92;">empty states</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span style="color:#ecf2ee;width:150px;flex-shrink:0;">Task titles</span><span style="color:#8a9a92;">human-written content</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline;"><span style="color:#ecf2ee;width:150px;flex-shrink:0;">Document prose</span><span style="color:#8a9a92;">the Docs reader body</span></div>
+        </div>
+        <div style="border-top:1px dashed rgba(255,255,255,0.12);padding-top:12px;font-size:13px;color:#8a9a92;line-height:1.55;">A task title is sans even though the machine stores it: a person wrote that sentence. Its <span class="mono" style="color:#ecf2ee;">id</span> beside it is mono. The two faces on one row are the point.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NUMERALS -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">Numerals</div>
+      <div style="font-size: 13px; color: #8a9a92;">this board's numbers are decisions, so they are set like a ledger</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div class="h">Tabular, always</div>
+        <div class="mono" style="font-size:30px;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;font-weight:500;display:flex;flex-direction:column;gap:2px;"><span>$1,118.40</span><span>$7,420.18</span></div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.55;">A figure that changes width as it changes value reads as motion the operator did not cause.</div>
+      </div>
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div class="h">Unmeasured is a dash</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:baseline;gap:12px;"><span class="mono" style="font-size:30px;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;font-weight:500;">0</span><span style="font-size:13px;color:#8a9a92;">measured, and it is nought</span></div>
+          <div style="display:flex;align-items:baseline;gap:12px;"><span class="mono" style="font-size:30px;color:#8b958c;letter-spacing:-0.02em;font-weight:400;">—</span><span style="font-size:13px;color:#8a9a92;">never measured</span></div>
+        </div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.55;">Different glyph, different weight, different ink. A nought is a claim.</div>
+      </div>
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div class="h">Direction carries colour</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="mono" style="font-size:20px;font-variant-numeric:tabular-nums;font-weight:500;color:#4ade80;">▲ 12</div>
+          <div class="mono" style="font-size:20px;font-variant-numeric:tabular-nums;font-weight:500;color:#f87171;">▼ 4</div>
+          <div class="mono" style="font-size:20px;font-variant-numeric:tabular-nums;font-weight:400;color:#8a9a92;">— 0</div>
+        </div>
+        <div style="font-size:13px;color:#8a9a92;line-height:1.55;">Colour and glyph together — colour alone fails for the operator who cannot see it.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEIGHT + TRACKING -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">Weight and tracking</div>
+      <div style="font-size: 13px; color: #8a9a92;">four weights in the sans; tracking moves with size, in one direction each way</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;">
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;gap:16px;"><span class="mono" style="font-size:11px;color:#8a9a92;width:60px;flex-shrink:0;">400</span><span style="font-size:16px;font-weight:400;">Body, prose, table cells</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px;"><span class="mono" style="font-size:11px;color:#8a9a92;width:60px;flex-shrink:0;">500</span><span style="font-size:16px;font-weight:500;">Headings, active nav, chips, buttons</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px;"><span class="mono" style="font-size:11px;color:#8a9a92;width:60px;flex-shrink:0;">600</span><span style="font-size:16px;font-weight:600;">Product name, emphasis in a row</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px;"><span class="mono" style="font-size:11px;color:#8a9a92;width:60px;flex-shrink:0;">700</span><span style="font-size:16px;font-weight:700;">Badge counts only — two places</span></div>
+        <div style="border-top:1px dashed rgba(255,255,255,0.12);padding-top:12px;font-size:13px;color:#8a9a92;line-height:1.55;">Weight never carries meaning on its own. Emphasis that matters gets colour or a rail as well.</div>
+      </div>
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div class="mono" style="font-size:11px;color:#8a9a92;">≥ 22px → letter-spacing −0.02em</div>
+          <div style="font-size:34px;font-weight:500;letter-spacing:-0.02em;line-height:1.1;">Tightened at size</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div class="mono" style="font-size:11px;color:#8a9a92;">11px uppercase → +0.10em</div>
+          <div style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:#8a9a92;">Opened at caps</div>
+        </div>
+        <div style="border-top:1px dashed rgba(255,255,255,0.12);padding-top:12px;font-size:13px;color:#8a9a92;line-height:1.55;">Line-height: <span class="mono" style="color:#ecf2ee;">1.1</span> for display numerals, <span class="mono" style="color:#ecf2ee;">1.4</span> for card text, <span class="mono" style="color:#ecf2ee;">1.55</span> for prose. Document prose caps at <span class="mono" style="color:#ecf2ee;">72ch</span>.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TYPOGRAPHIC FINDINGS -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <div style="font-size: 19px; font-weight: 500;">Three things the source says that the design did not intend</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+
+      <div style="background:#11161a;border:1px solid rgba(255,170,60,0.30);border-radius:8px;padding:16px 18px;display:flex;gap:16px;align-items:flex-start;">
+        <div class="mono" style="font-size:11px;color:#fcd34d;padding-top:3px;flex-shrink:0;width:64px;">TYPE-1</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:15px;font-weight:500;">Five rules ask Geist Mono for weight 600. It is vendored at 400–500.</div>
+          <div style="font-size:13px;color:#8a9a92;line-height:1.6;">Above the axis ceiling the browser <em style="font-style:normal;color:#ecf2ee;">synthesises</em> the bold — a smeared outline, not a drawn weight. Affected: <span class="mono" style="color:#ecf2ee;">.layer-tag</span> (×2), <span class="mono" style="color:#ecf2ee;">.delta</span>, <span class="mono" style="color:#ecf2ee;">.agent-card .ac-name</span>, <span class="mono" style="color:#ecf2ee;">.tl-actor</span>. Repair: drop those to 500, or extend the vendored axis.</div>
+        </div>
+      </div>
+
+      <div style="background:#11161a;border:1px solid rgba(255,170,60,0.30);border-radius:8px;padding:16px 18px;display:flex;gap:16px;align-items:flex-start;">
+        <div class="mono" style="font-size:11px;color:#fcd34d;padding-top:3px;flex-shrink:0;width:64px;">TYPE-2</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:15px;font-weight:500;">The token named <span class="mono">--serif</span> contains no serif.</div>
+          <div style="font-size:13px;color:#8a9a92;line-height:1.6;">Its whole stack is sans — <span class="mono" style="color:#ecf2ee;">"Geist", "Space Grotesk", "Inter", -apple-system, sans-serif</span> — and it is used nine times, on the KPI hero numerals. It is a <em style="font-style:normal;color:#ecf2ee;">display</em> token doing display work correctly under a name that promises a contrast the page never had. Repair is the name: <span class="mono" style="color:#ecf2ee;">--display</span>.</div>
+        </div>
+      </div>
+
+      <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:16px 18px;display:flex;gap:16px;align-items:flex-start;">
+        <div class="mono" style="font-size:11px;color:#8a9a92;padding-top:3px;flex-shrink:0;width:64px;">TYPE-3</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:15px;font-weight:500;">Only the latin subset is vendored — by decision, and worth stating.</div>
+          <div style="font-size:13px;color:#8a9a92;line-height:1.6;">A Cyrillic project name or note leaves Geist mid-line and lands in the system stack, at a different weight and width. The UI is English-only and 52 KB of font is the reason; the constraint belongs in the spec so the mixed line is a <em style="font-style:normal;color:#ecf2ee;">known</em> look rather than a bug someone re-discovers.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

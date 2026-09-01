@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #0a0e0c; color: #ecf2ee;
+           font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    a { color: #00d97e; text-decoration: none; } a:hover { color: #34e69b; }
+    .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+    .h { font-family: "Geist Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.10em;
+         text-transform: uppercase; color: #8a9a92; }
+  </style>
+</helmet>
+
+<div style="padding: 56px 64px; display: flex; flex-direction: column; gap: 40px;">
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div class="mono" style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #00d97e;">04 — Screens</div>
+    <div style="font-size: 34px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1;">Eight rooms, each answering one question</div>
+    <div style="font-size: 15px; color: #8a9a92; max-width: 760px; line-height: 1.55;">A screen earns its tab by answering a question no other screen answers. Where two rooms answer the same one, that is a merge candidate, not a feature.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 132px 1fr 200px 150px; gap: 0; font-size: 14px;">
+
+    <div class="h" style="padding: 0 12px 10px 0; border-bottom: 1px solid rgba(255,255,255,0.12);">Screen</div>
+    <div class="h" style="padding: 0 12px 10px 0; border-bottom: 1px solid rgba(255,255,255,0.12);">The question it answers</div>
+    <div class="h" style="padding: 0 12px 10px 0; border-bottom: 1px solid rgba(255,255,255,0.12);">Reads</div>
+    <div class="h" style="padding: 0 0 10px 0; border-bottom: 1px solid rgba(255,255,255,0.12);">Empty state must say</div>
+
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; align-items:flex-start; gap:8px;"><span style="width:6px;height:6px;border-radius:999px;background:#a78bfa;margin-top:6px;flex-shrink:0;"></span><span style="font-weight:500;">Inbox</span></div>
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#ecf2ee; line-height:1.5;">What is waiting on <em>me</em>? Open gates, items blocked past 72h, decisions the machine cannot take.</div>
+    <div class="mono" style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:11px; line-height:1.7;">/api/inbox<br>/api/resume</div>
+    <div style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:13px; line-height:1.5;">nothing waiting <span style="color:#fcd34d;">≠</span> could not read</div>
+
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; align-items:flex-start; gap:8px;"><span style="width:6px;height:6px;border-radius:999px;background:#f59e0b;margin-top:6px;flex-shrink:0;"></span><span style="font-weight:500;">Kanban</span></div>
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#ecf2ee; line-height:1.5;">Where is every piece of work right now? Seven statuses, one card per task.</div>
+    <div class="mono" style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:11px; line-height:1.7;">/api/tasks<br>/api/pipeline</div>
+    <div style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:13px; line-height:1.5;">no tasks <span style="color:#fcd34d;">≠</span> bd unavailable</div>
+
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; align-items:flex-start; gap:8px;"><span style="width:6px;height:6px;border-radius:999px;background:#00d97e;margin-top:6px;flex-shrink:0;"></span><span style="font-weight:500;">Dashboard</span></div>
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#ecf2ee; line-height:1.5;">Is the machine healthy, and what did it cost? Agent runs, verdicts, spend, scores.</div>
+    <div class="mono" style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:11px; line-height:1.7;">/api/metrics<br>/api/cost · /api/scores<br>/api/agents-installed</div>
+    <div style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:13px; line-height:1.5;">unmeasured <span style="color:#fcd34d;">≠</span> zero</div>
+
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; align-items:flex-start; gap:8px;"><span style="width:6px;height:6px;border-radius:999px;background:#9ca3af;margin-top:6px;flex-shrink:0;"></span><span style="font-weight:500;">Docs</span></div>
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#ecf2ee; line-height:1.5;">Which document is about the thing I am looking at? Grouped by question, not by directory. Citation counts and freshness.</div>
+    <div class="mono" style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:11px; line-height:1.7;">/api/docs<br>/api/doc</div>
+    <div style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:13px; line-height:1.5;">no declared date <span style="color:#fcd34d;">≠</span> stale</div>
+
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; align-items:flex-start; gap:8px;"><span style="width:6px;height:6px;border-radius:999px;background:#9ca3af;margin-top:6px;flex-shrink:0;"></span><span style="font-weight:500;">Logs</span></div>
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#ecf2ee; line-height:1.5;">What happened, in order? Verdicts and session history, searchable.</div>
+    <div class="mono" style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:11px; line-height:1.7;">/api/logs<br>/api/sessions<br>/api/session-search</div>
+    <div style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:13px; line-height:1.5;">no runs yet <span style="color:#fcd34d;">≠</span> log unreadable</div>
+
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; align-items:flex-start; gap:8px;"><span style="width:6px;height:6px;border-radius:999px;background:#f59e0b;margin-top:6px;flex-shrink:0;"></span><span style="font-weight:500;">Budgets</span></div>
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#ecf2ee; line-height:1.5;">What may each agent spend, and what has it spent? The cap that can actually refuse.</div>
+    <div class="mono" style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:11px; line-height:1.7;">/api/agent-budgets<br>/api/gate-tiers<br>/api/change-tier</div>
+    <div style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:13px; line-height:1.5;">no cap set <span style="color:#fcd34d;">≠</span> cap of zero</div>
+
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; align-items:flex-start; gap:8px;"><span style="width:6px;height:6px;border-radius:999px;background:#3b82f6;margin-top:6px;flex-shrink:0;"></span><span style="font-weight:500;">Notifications</span></div>
+    <div style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#ecf2ee; line-height:1.5;">What was I told, and did it recur? History with a recurrence count, so a repeat alert is visibly a repeat.</div>
+    <div class="mono" style="padding: 14px 12px 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:11px; line-height:1.7;">/api/notifications<br>/api/notif-history<br>/api/stand-downs</div>
+    <div style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color:#8a9a92; font-size:13px; line-height:1.5;">"at least N" when history is capped</div>
+
+    <div style="padding: 14px 12px 14px 0; display:flex; align-items:flex-start; gap:8px;"><span style="width:6px;height:6px;border-radius:999px;background:#8a9a92;margin-top:6px;flex-shrink:0;"></span><span style="font-weight:500;">Share</span></div>
+    <div style="padding: 14px 12px 14px 0; color:#ecf2ee; line-height:1.5;">What can a person outside this machine see? A self-contained public report — its own palette, its own rules.</div>
+    <div class="mono" style="padding: 14px 12px 14px 0; color:#8a9a92; font-size:11px; line-height:1.7;">/api/share<br>share.html</div>
+    <div style="padding: 14px 0; color:#8a9a92; font-size:13px; line-height:1.5;">reached from the bell, not the rail</div>
+  </div>
+
+  <div style="background:#11161a;border:1px solid rgba(255,255,255,0.06);border-left:3px solid #00d97e;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;">
+    <div class="h" style="color:#00d97e;">The rule every screen obeys</div>
+    <div style="font-size:15px;line-height:1.6;max-width:820px;">A thing that did not happen must never look like a thing that did. Every count on every screen carries a third state — <span class="mono" style="color:#ecf2ee;">unmeasured</span>, <span class="mono" style="color:#ecf2ee;">unreadable</span>, <span class="mono" style="color:#ecf2ee;">unverifiable</span> — and it is rendered differently from zero. A dash is not a nought.</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -110,3 +110,7 @@ packages/cli/board/
 # Design canvases — the seeded artboard payload is ~2 MB of editor code,
 # and the working .dc.html files are scratch for a canvas that lives online.
 .design/
+
+# Seeded design-canvas payload (~2 MB, regenerated from the .dc.html sources)
+.design-spec/*.html
+!.design-spec/*.dc.html

@@ -145,8 +145,22 @@ else
     bash -c "bash -n scripts/release.sh && bash -n scripts/bump-version.sh"
 
   # Board API regression suite (closes QA-002…QA-009 + v2.7.0 logs parser)
-  check "board API regression tests (12 cases)" \
-    bash -c "pytest tests/board/ --tb=line -q >/tmp/gctest-l1-board.log 2>&1 && grep -qE '^[0-9]+ passed' /tmp/gctest-l1-board.log"
+  # `tests/board/` is in .gitignore (line 90) — removed from public history on
+  # 2026-05-10 and never committed since. So this check has never been able to
+  # pass on any clone: not in CI, not for a contributor, not on the release
+  # machine. It was green here only while one person's untracked files survived,
+  # and it went red the day they did not.
+  #
+  # It is NOT deleted, because the board API is worth regression-testing and the
+  # committed Node suite (packages/board/*.test.mjs, 40+ files, run by ci-local)
+  # is what actually covers it. What is deleted is the pretence: when the suite
+  # is absent this reports absent, and absence never reads as a pass.
+  if ls tests/board/test_*.py >/dev/null 2>&1; then
+    check "board API regression tests (pytest)" \
+      bash -c "pytest tests/board/ --tb=line -q >/tmp/gctest-l1-board.log 2>&1 && grep -qE '^[0-9]+ passed' /tmp/gctest-l1-board.log"
+  else
+    skipped "board pytest — suite is not in this repository (.gitignore:90); the committed Node board tests cover this surface"
+  fi
 
   # v2.6.0+: agent prompt structural linter
   check "agent-prompt-lint: 0 errors across all agents/" \
@@ -182,8 +196,21 @@ else
   check "adapt --dry-run for codex previews AGENTS.md" \
     bash -c "tmp=\$(mktemp -d); mkdir -p \$tmp/.great_cto; printf 'primary: fintech\\ncompliance: pci-dss\\n' > \$tmp/.great_cto/PROJECT.md; cd \$tmp && $CLI adapt --platform codex --dry-run 2>&1 | grep -q 'AGENTS.md'"
 
-  check "adapt --platform aider writes .aider.conf.yml + CONVENTIONS.md" \
-    bash -c "tmp=\$(mktemp -d); mkdir -p \$tmp/.great_cto; printf 'primary: fintech\\ncompliance: pci-dss\\n' > \$tmp/.great_cto/PROJECT.md; cd \$tmp && $CLI adapt --platform aider >/dev/null 2>&1 && [ -f .aider.conf.yml ] && [ -f CONVENTIONS.md ] && [ -f AGENTS.md ]"
+  # This asserted `adapt --platform aider` produced `.aider.conf.yml` AND
+  # `CONVENTIONS.md`. Neither half was real: `--platform` is not parsed anywhere
+  # in main.ts, and `CONVENTIONS.md` has never been written by any version of
+  # this CLI. The check was written against an interface that never shipped —
+  # and it stayed that way because nothing ran it.
+  #
+  # The aider target is selected by `ai_tools:` in PROJECT.md, which is what the
+  # code has always done. Asserted against the CLI's real surface:
+  check "ai_tools: [aider] writes .aider.conf.yml alongside AGENTS.md" \
+    bash -c "tmp=\$(mktemp -d); mkdir -p \$tmp/.great_cto; printf 'primary: fintech\\ncompliance: pci-dss\\nai_tools: [aider]\\n' > \$tmp/.great_cto/PROJECT.md; cd \$tmp && $CLI adapt >/dev/null 2>&1 && [ -f .aider.conf.yml ] && [ -f AGENTS.md ] && [ -f CLAUDE.md ]"
+
+  # The negative half, and the reason the check above is not enough: a generator
+  # that wrote every tool's file for every project would also satisfy it.
+  check "a project that did not ask for aider does not get .aider.conf.yml" \
+    bash -c "tmp=\$(mktemp -d); mkdir -p \$tmp/.great_cto; printf 'primary: fintech\\ncompliance: pci-dss\\n' > \$tmp/.great_cto/PROJECT.md; cd \$tmp && $CLI adapt >/dev/null 2>&1 && [ ! -f .aider.conf.yml ]"
 
   # v2.5.0 subcommands
   check "webhook list returns config path" \
@@ -278,13 +305,21 @@ fi
 # L4 — Board API
 # =============================================================================
 section "L4 — Board API (~30s)"
+# L4 starts a board of its own. It used to start it on 3141 and `pkill` anything
+# already serving there first — so running the suite silently killed the board
+# the operator had open, and the run it was measuring was the one it disturbed.
+# A test that has to stop the system to observe it is measuring itself.
+#
+# So: an ephemeral port, and a cleanup that kills the process THIS script
+# started and nothing else. BOARD_PORT is read by packages/board/lib/config.mjs.
+BOARD_PORT_TEST=""
+BOARD_URL=""
 BOARD_PID=""
 cleanup_board() {
   if [ -n "$BOARD_PID" ]; then
     kill "$BOARD_PID" 2>/dev/null || true
     wait "$BOARD_PID" 2>/dev/null || true
   fi
-  pkill -f "packages/board/server" 2>/dev/null || true
 }
 trap cleanup_board EXIT
 
@@ -295,21 +330,27 @@ elif [ -z "$PLUGIN_DIR" ]; then
 elif ! command -v curl >/dev/null; then
   skipped "L4 (no curl)"
 else
-  # Free port if leaked from prior run
-  pkill -f "packages/board/server" 2>/dev/null || true
-  sleep 1
+  # An ephemeral port the OS says is free, asked for once and reused for the
+  # whole level. Not a fixed high port: two runs in parallel would collide and
+  # the second would test the first one's server.
+  BOARD_PORT_TEST=$(node -e '
+    const net = require("node:net"); const s = net.createServer();
+    s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => console.log(p)); });
+  ')
+  BOARD_URL="http://127.0.0.1:$BOARD_PORT_TEST"
+  printf "  ${C_DIM}board under test → %s (operator's board on 3141 is untouched)${C_RESET}\n" "$BOARD_URL"
 
   # --no-open: the server opens a real browser tab on start unless told not to,
       # and a test run must not take over the operator's screen.
-      nohup node "$PLUGIN_DIR/packages/board/server.mjs" --no-open >/tmp/gctest-l4-board.log 2>&1 &
+      BOARD_PORT="$BOARD_PORT_TEST" nohup node "$PLUGIN_DIR/packages/board/server.mjs" --no-open >/tmp/gctest-l4-board.log 2>&1 &
   BOARD_PID=$!
   # Wait up to 5s for server to listen
   for i in 1 2 3 4 5; do
-    curl -sf http://127.0.0.1:3141/api/projects >/dev/null 2>&1 && break
+    curl -sf $BOARD_URL/api/projects >/dev/null 2>&1 && break
     sleep 1
   done
 
-  if ! curl -sf http://127.0.0.1:3141/api/projects >/dev/null 2>&1; then
+  if ! curl -sf $BOARD_URL/api/projects >/dev/null 2>&1; then
     printf "  ${C_FAIL}✗${C_RESET} board failed to start\n"
     cat /tmp/gctest-l4-board.log | tail -5 | sed 's/^/      /'
     FAIL=$((FAIL+1)); FAILURES+=("board startup")
@@ -318,34 +359,34 @@ else
                     /api/memory /api/inbox /api/resume /api/decisions \
                     /api/pipeline /api/logs /api/tasks; do
       check "$endpoint returns valid JSON" \
-        bash -c "curl -sf 'http://127.0.0.1:3141$endpoint' | python3 -m json.tool >/dev/null"
+        bash -c "curl -sf '$BOARD_URL$endpoint' | python3 -m json.tool >/dev/null"
     done
 
-    check "agents-installed reports >=33 agents" \
-      bash -c "n=\$(curl -sf http://127.0.0.1:3141/api/agents-installed | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"total\"])'); [ \"\$n\" -ge 33 ]"
+    check "agents-installed matches the agents/ directory" \
+      bash -c "n=\$(curl -sf $BOARD_URL/api/agents-installed | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"total\"])'); r=\$(ls agents/*.md | wc -l | tr -d ' '); [ \"\$n\" = \"\$r\" ] || { echo \"board reports \$n agents, agents/ holds \$r\" >&2; exit 1; }"
 
     check "agents-installed includes new agents (continuous-learner, edtech, gov, insurance reviewers)" \
-      bash -c "names=\$(curl -sf http://127.0.0.1:3141/api/agents-installed | python3 -c 'import sys,json; print(\" \".join(a[\"name\"] for a in json.load(sys.stdin)[\"agents\"]))'); for must in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do echo \"\$names\" | grep -qw \"\$must\" || exit 1; done"
+      bash -c "names=\$(curl -sf $BOARD_URL/api/agents-installed | python3 -c 'import sys,json; print(\" \".join(a[\"slug\"] for a in json.load(sys.stdin)[\"agents\"]))'); for must in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do echo \"\$names\" | grep -qw \"\$must\" || exit 1; done"
 
     check "memory endpoint surfaces exactly 11 layers" \
-      bash -c "n=\$(curl -sf http://127.0.0.1:3141/api/memory | python3 -c 'import sys,json; print(len(json.load(sys.stdin)[\"layers\"]))'); [ \"\$n\" = '11' ]"
+      bash -c "n=\$(curl -sf $BOARD_URL/api/memory | python3 -c 'import sys,json; print(len(json.load(sys.stdin)[\"layers\"]))'); [ \"\$n\" = '11' ]"
 
     check "memory has both project + global scopes" \
-      bash -c "scopes=\$(curl -sf http://127.0.0.1:3141/api/memory | python3 -c 'import sys,json; m=json.load(sys.stdin); print(\" \".join(set(l.get(\"scope\",\"\") for l in m[\"logs\" if \"logs\" in m else \"layers\"])))'); echo \"\$scopes\" | grep -q project && echo \"\$scopes\" | grep -q global"
+      bash -c "scopes=\$(curl -sf $BOARD_URL/api/memory | python3 -c 'import sys,json; m=json.load(sys.stdin); print(\" \".join(set(l.get(\"scope\",\"\") for l in m[\"logs\" if \"logs\" in m else \"layers\"])))'); echo \"\$scopes\" | grep -q project && echo \"\$scopes\" | grep -q global"
 
     # Math invariant — only applies to task-estimation source (both rates
     # hardcoded: $0.30/AI-hr ÷ $150/human-hr = 500x in v2.5.9+; was 7500x
     # earlier with the unrealistic $0.02/hr default). PLAN sources use
     # real measured numbers and have project-specific ratios.
     check "metrics math: human/llm ratio ≈ 500× when source=tasks" \
-      bash -c "curl -sf 'http://127.0.0.1:3141/api/projects' | python3 -c '
+      bash -c "curl -sf '$BOARD_URL/api/projects' | python3 -c '
 import sys,json,urllib.request
 projs = json.load(sys.stdin)
 projs = projs if isinstance(projs,list) else projs.get(\"projects\",[])
 for p in projs:
     slug = p.get(\"slug\") or p.get(\"name\")
     if not slug: continue
-    m = json.load(urllib.request.urlopen(f\"http://127.0.0.1:3141/api/metrics?project={slug}\"))
+    m = json.load(urllib.request.urlopen(f\"$BOARD_URL/api/metrics?project={slug}\"))
     cost = m[\"cost\"]
     if cost[\"llm_usd\"] <= 0: continue
     if cost.get(\"source\") != \"tasks\": continue
@@ -440,8 +481,25 @@ else
   check "all 22 great_cto commands present in ~/.claude/commands/" \
     bash -c "missing=0; for cmd in start audit inbox digest review ownership oncall rfc release doctor burn cost sec poc promote crystallize migrate resume save learn agent-review agent-retire; do [ -f ~/.claude/commands/\$cmd.md ] || { echo \"missing: \$cmd\" >&2; missing=\$((missing+1)); }; done; [ \"\$missing\" = '0' ]"
 
-  check "34 agents synced into ~/.claude/agents/great_cto-*.md" \
-    bash -c "n=\$(ls ~/.claude/agents/great_cto-*.md 2>/dev/null | wc -l | tr -d ' '); [ \"\$n\" -eq 34 ]"
+  # Was `-eq 34`. The repository ships seventy agents, so this had been failing
+  # for every agent added since the number was written down — and the fix it
+  # invited was to edit the constant, which is the same work again next month.
+  #
+  # The property is PARITY, not a count: everything in agents/ reaches
+  # ~/.claude/agents/. That is what a sync is for, it needs no maintenance, and
+  # unlike a threshold it also catches the opposite failure — a stale synced
+  # agent left behind after the source file was retired.
+  check "every agent in agents/ is synced into ~/.claude/agents/" \
+    bash -c '
+      repo=$(ls agents/*.md 2>/dev/null | xargs -n1 basename | sed "s/\.md$//" | sort)
+      synced=$(ls ~/.claude/agents/great_cto-*.md 2>/dev/null | xargs -n1 basename \
+               | sed "s/^great_cto-//; s/\.md$//" | sort)
+      missing=$(comm -23 <(echo "$repo") <(echo "$synced"))
+      extra=$(comm -13 <(echo "$repo") <(echo "$synced"))
+      [ -n "$missing" ] && { echo "not synced: $missing" >&2; }
+      [ -n "$extra" ]   && { echo "synced but not in agents/: $extra" >&2; }
+      [ -z "$missing$extra" ]
+    '
 
   check "agent-review + agent-retire commands present" \
     bash -c "[ -f ~/.claude/commands/agent-review.md ] && [ -f ~/.claude/commands/agent-retire.md ]"
