@@ -489,13 +489,31 @@ async function dispatch(req, res, url, cwd) {
           via = 'tasks.md';
         }
         bdCacheInvalidate(gateCwd);
-        // Append to global decisions log — still inside the lock window
+
+        // The decision log, and why this is not one try block any more.
+        //
+        // It used to be: look the gate's TITLE up through getTasks(), then write
+        // the line — all inside one `catch { /* best-effort */ }`, after which the
+        // handler returned `{ ok: true }` whatever had happened. getTasks() reads
+        // beads, beads takes a Dolt lock, and under a loaded test run that read
+        // throws. So the approval landed, the API answered 200 ok:true, and the
+        // decision was never recorded — a write that did not happen, wearing the
+        // response of one that did. It surfaced as a test failing one run in four
+        // with "Got 0 decisions", four layers away from the swallowed exception.
+        //
+        // The title is a NICETY — `id` was already its documented fallback. The
+        // line is the record. So the lookup gets its own try and cannot take the
+        // record down with it, and the caller is told which of the two happened.
+        const projectSlug = parsed.project || path.basename(gateCwd);
+        let title = id;
         try {
-          const projectSlug = parsed.project || path.basename(gateCwd);
-          const allTasks = getTasks(gateCwd);
-          const gateTask = allTasks.find(t => t.id === id);
-          const title = gateTask?.title || id;
-          gateTitle = title;
+          const gateTask = getTasks(gateCwd).find((t) => t.id === id);
+          if (gateTask?.title) title = gateTask.title;
+        } catch { /* the id is a documented fallback; the record still gets written */ }
+        gateTitle = title;
+
+        let decision;
+        try {
           appendDecisionLog({
             ts: new Date().toISOString(),
             project: projectSlug,
@@ -505,8 +523,16 @@ async function dispatch(req, res, url, cwd) {
             reason: reason || '',
             cwd: gateCwd,   // project-scoped (ADR-008) — never the global log
           });
-        } catch { /* best-effort */ }
-        return { ok: true, via };
+          decision = { logged: true };
+        } catch (err) {
+          // Named, not swallowed — the same rule the `wake` handler thirty lines
+          // below already states: a handler that reports nothing is only better
+          // than one that guesses. The approval itself stands; what is reported
+          // is that its record does not.
+          log.warn(`[decisions] approve ${id} landed but was not logged: ${err?.message || err}`);
+          decision = { logged: false, why: String(err?.message || err) };
+        }
+        return { ok: true, via, decision };
       });
       if (!result || result.error) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -543,7 +569,11 @@ async function dispatch(req, res, url, cwd) {
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, id, action, via: result.via, ...(wake ? { wake } : {}) }));
+      // `decision` rides out with the response for the same reason `wake` does:
+      // the caller asked for a gate to be approved and a record to be kept, and
+      // `ok: true` alone cannot say whether the second half happened.
+      res.end(JSON.stringify({ ok: true, id, action, via: result.via,
+        ...(result.decision ? { decision: result.decision } : {}), ...(wake ? { wake } : {}) }));
       broadcastTasks(gateCwd);
       // Auto-republish share report when a gate is approved (fire-and-forget)
       if (action === 'approve') {
