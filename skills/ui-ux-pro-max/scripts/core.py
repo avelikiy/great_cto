@@ -60,6 +60,16 @@ CSV_CONFIG = {
         "search_cols": ["Category", "Issue", "Keywords", "Description"],
         "output_cols": ["Category", "Issue", "Platform", "Description", "Do", "Don't", "Code Example Good", "Code Example Bad", "Severity"]
     },
+    # Dense enterprise surfaces — CRM, admin, data tables. The vocabulary an
+    # Attio-class product needs and this corpus had almost none of: measured
+    # before it was written, `saved view` and `inline edit` matched 0 files,
+    # `bulk` 1, `data table` 2. Registered here because CSV_CONFIG is the only
+    # index — a data file not listed here is unreachable, whatever it contains.
+    "dense": {
+        "file": "enterprise-dense.csv",
+        "search_cols": ["Category", "Issue", "Keywords", "Description"],
+        "output_cols": ["Category", "Issue", "Platform", "Description", "Do", "Don't", "Code Example Good", "Code Example Bad", "Severity"]
+    },
     "web": {
         "file": "app-interface.csv",
         "search_cols": ["Category", "Issue", "Keywords", "Description"],

@@ -4,7 +4,7 @@
 > Do not edit by hand — edit the skill and re-run the generator.
 
 A skill is knowledge an agent loads on demand, rather than a thing that runs.
-37 in total: 12 industry domain packs and 25 others.
+39 in total: 12 industry domain packs and 27 others.
 
 ## Industry domain packs (12)
 
@@ -26,14 +26,16 @@ are not naive about the domain.
 | `vertical-restaurants` | Domain-knowledge primer for the restaurants & hospitality vertical (dine-in, pickup, delivery). |
 | `vertical-retail` | Retail & e-commerce domain knowledge for SMB storefront products (storefront, inventory, pricing, cart-recovery). |
 
-## Everything else (25)
+## Everything else (27)
 
 | Skill | What it carries |
 |---|---|
+| `aesthetic-instrument` | great_cto's own committed aesthetic — the instrument panel. |
 | `anti-patterns` | Catalogue of known SDLC anti-patterns that great_cto agents must actively reject when reviewing architecture, plans, code, or post-mortems. |
 | `anydesign` | Analyze images, websites, and Figma files to extract their design and generate a `design.md` with token system, component inventory, and reconstruction notes. |
 | `archetype-review-base` | Shared review framework that every domain reviewer (pci, oracle, gov, edtech, healthcare, mlops, etc.) MUST follow. |
 | `brainstorming` | Structured idea generation + multi-LLM debate for the product-owner stage. |
+| `committed-aesthetic` | How to write — and how to use — a skill that IS one aesthetic rather than a catalogue of them. |
 | `cost-model` | Standardized cost-estimation framework for great_cto plans. |
 | `crystallize` | Distils repeating patterns from session logs and lessons.md into draft skill files. |
 | `decision-eval` | Spawns the decision-scorer agent after architect proposes 2+ variants in an ADR. |

@@ -437,6 +437,7 @@ python3 skills/ui-ux-pro-max/scripts/search.py "<keyword>" --domain <domain> [-n
 | Landing structure | `landing` | `--domain landing "hero social-proof"` |
 | React Native perf | `react` | `--domain react "rerender memo list"` |
 | App interface a11y | `web` | `--domain web "accessibilityLabel touch safe-areas"` |
+| Dense enterprise / CRM | `dense` | `--domain dense "saved view inline edit bulk"` |
 | AI prompt / CSS keywords | `prompt` | `--domain prompt "minimalism"` |
 
 ### Step 4: Stack Guidelines (React Native)
