@@ -70,13 +70,19 @@ function bdCreate(project, title, opts = {}) {
   const m = (r.stdout || '').match(/Created issue:\s*(\S+)/);
   if (!m) throw new Error(`parse bd create: ${r.stdout}`);
   const id = m[1];
+  // Read the result, as bdCreate above and bdClose elsewhere already do. A
+  // label or status that silently failed to apply leaves the fixture in a
+  // state the test did not ask for, and the assertion that then fails names
+  // the wrong cause.
   if (opts.label) {
-    spawnSync('bd', ['update', id, '--add-label', opts.label],
+    const r2 = spawnSync('bd', ['update', id, '--add-label', opts.label],
       { cwd: project, encoding: 'utf8' });
+    if (r2.status !== 0) throw new Error(`bd update ${id} --add-label failed: ${r2.stderr || r2.stdout}`);
   }
   if (opts.status) {
-    spawnSync('bd', ['update', id, '--status', opts.status],
+    const r3 = spawnSync('bd', ['update', id, '--status', opts.status],
       { cwd: project, encoding: 'utf8' });
+    if (r3.status !== 0) throw new Error(`bd update ${id} --status failed: ${r3.stderr || r3.stdout}`);
   }
   return id;
 }

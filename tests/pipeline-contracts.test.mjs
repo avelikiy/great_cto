@@ -514,7 +514,7 @@ test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () =>
 
 // ── BH-6 / BH-7 / BH-8: POST /api/tasks input validation ──────────────────
 
-test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', async () => {
+test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', async (t) => {
   // Bug-hunt 2026-05-15 found 3 ways to crash POST /api/tasks:
   //   BH-6: invalid JSON body → 500 (parser exception bubbled up)
   //   BH-7: 10K-char title → 500 (bd argv too long; needed cap)
@@ -531,8 +531,11 @@ test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', asy
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
     const init = spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8' });
     if (init.status !== 0) {
-      console.log('  skipped: bd not available');
-      return;
+      // Was: console.log('skipped') and a bare return — a pass in the summary.
+      // And "bd not available" was a guess: a failed `init` with bd installed
+      // (a lock, a full disk) took the same exit. The skip now carries what bd
+      // said, and the summary counts it as a skip, not a pass.
+      return t.skip(`bd init failed — not checked, not passed: ${(init.stderr || init.stdout || init.error?.message || '').trim().slice(0, 160)}`);
     }
 
     const port = await freePort();
@@ -710,13 +713,16 @@ test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', asy
 
 // ── BH-14: /api/tasks/<id>/status validation ───────────────────────────────
 
-test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', async () => {
+test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', async (t) => {
   // Pre-fix: invalid JSON in body → 500 (parser exception in catch).
   //          missing/null/invalid status → 400 (already correct).
   // Post-fix: invalid JSON → 400 with error='invalid_json'.
 
   const bdProbe = spawnSync('bd', ['--version'], { encoding: 'utf8' });
-  if (bdProbe.status !== 0) return; // skip when bd unavailable
+  // A bare `return` here made a test that checked nothing look like a test
+  // that passed. Skipping says "not checked" — the third state, and the one
+  // this repository keeps having to put back.
+  if (bdProbe.status !== 0) return t.skip('bd not installed — not checked, not passed');
 
   const home = mkdtempSync(join(tmpdir(), 'bh14-home-'));
   const project = mkdtempSync(join(tmpdir(), 'bh14-proj-'));
@@ -724,7 +730,14 @@ test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', asy
     mkdirSync(join(project, '.great_cto', 'verdicts'), { recursive: true });
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
-    spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8', timeout: 5000 });
+    // No 5-second cap, and the result is read. Measured: `bd init` takes 1.9s
+    // alone and up to 8.7s when ten test files spawn it at once — which is what
+    // `node --test` does. The cap was exceeded by the suite's own parallelism,
+    // and because nothing looked at the result the test died twenty lines
+    // later with "precondition: task creation must succeed", which pointed at
+    // Dolt locking. It was never Dolt. A failure must fail under its own name.
+    const init = spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8' });
+    if (init.status !== 0) throw new Error(`bd init failed (status ${init.status}${init.signal ? `, signal ${init.signal}` : ''}): ${init.stderr || init.stdout}`);
 
     const port = await freePort();
     const board = spawn('node', [
