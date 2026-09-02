@@ -25,7 +25,23 @@ import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROLES, ROLE_ORDER, roleForAgent } from '../shared/lifecycle-map.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+/**
+ * The tree to read and write — the working directory, not this script's home.
+ *
+ * These were the same thing while the only caller was `node
+ * scripts/gen-docs-reference.mjs` from the repository root. Then a PostToolUse
+ * hook started calling it from the INSTALLED PLUGIN, where the script lives in
+ * ~/.claude/plugins/cache/…/<version>/ — so it read that copy's agents/ and
+ * wrote that copy's docs/reference/, leaving the repository the author was
+ * editing untouched. It logged success. The gate then failed on the very file
+ * the hook exists to keep in sync.
+ *
+ * cwd is what identifies the project; the script's own path cannot. Falling
+ * back to the script's parent keeps a bare `node path/to/gen-docs-reference.mjs`
+ * from a random directory behaving as it always did.
+ */
+const SCRIPT_HOME = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = existsSync(join(process.cwd(), 'agents')) ? process.cwd() : SCRIPT_HOME;
 const SKILLS_DIR = join(ROOT, 'skills');
 const AGENTS_DIR = join(ROOT, 'agents');
 const COMMANDS_DIR = join(ROOT, 'commands');
