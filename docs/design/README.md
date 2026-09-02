@@ -20,3 +20,20 @@ later reader can re-run rather than trust:
 
 The canvas is drawn under the rules it documents. If a change to it needs a
 radius, a shadow or a weight above the family's axis, the change is wrong.
+
+## Where it sits
+
+The direction is the answer to reviews that came before it, and those reviews
+are the evidence for it:
+
+- [DESIGN-board-review.md](DESIGN-board-review.md) — the interface review that
+  found the board carrying 116 radii and 15 decorative shadows
+- [DESIGN-inbox-redesign.md](DESIGN-inbox-redesign.md) — the panel where the
+  headline and the stale rows were reworked under these constraints
+- [DESIGN-agents-fleet-view.md](DESIGN-agents-fleet-view.md) and
+  [DESIGN-readme-landing-review.md](DESIGN-readme-landing-review.md) — the other
+  two surfaces the same tokens have to serve
+
+A new document under `docs/design/` should link back to at least one of these,
+or be linked from one. The orphan ratchet in `tests/lib/doc-links.test.mjs`
+enforces it, and this README was itself a finding of that check.

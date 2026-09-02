@@ -186,3 +186,31 @@ test('nothing bypasses the token system', () => {
   assert.deepEqual(found.map((f) => `${f.prop}: ${f.value}`), [],
     'use a token — a colour written into a rule is invisible to the contrast audit');
 });
+
+test('the ink ladder steps DOWN in every theme', () => {
+  // A hierarchy defect no contrast check can see. --text3 is the quietest step
+  // by definition; in the light theme it measured 6.39:1 against --text2's
+  // 6.14:1, so a caption read with more emphasis than the secondary line above
+  // it. Both cleared AA — the floor is a lower bound, and says nothing about
+  // ORDER — so contrast.test and rendered-contrast both passed it for months.
+  //
+  // Measured against --bg-card: it is the surface all three inks share, and the
+  // one the panels actually use for body text.
+  const css = readFileSync(
+    new URL('../../packages/board/public/index.html', import.meta.url), 'utf8');
+  const themes = readThemes(css);
+  for (const [name, tokens] of Object.entries(themes)) {
+    const bed = parseColor(tokens['--bg-card']);
+    assert.ok(bed, `${name}: --bg-card is not a colour`);
+    const steps = ['--text', '--text2', '--text3'].map((t) => {
+      const c = parseColor(tokens[t]);
+      assert.ok(c, `${name}: ${t} is not a colour — the ladder cannot be ordered`);
+      return { token: t, ratio: ratio(c, bed) };
+    });
+    for (let i = 1; i < steps.length; i++) {
+      assert.ok(steps[i].ratio < steps[i - 1].ratio,
+        `${name}: ${steps[i].token} (${steps[i].ratio.toFixed(2)}) is not quieter than `
+        + `${steps[i - 1].token} (${steps[i - 1].ratio.toFixed(2)}) — the ladder does not step down`);
+    }
+  }
+});

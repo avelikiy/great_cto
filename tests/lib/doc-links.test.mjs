@@ -52,7 +52,7 @@ test('a link is counted in both directions', () => {
 test('the orphan count is frozen, and only shrinks deliberately', () => {
   // Raising this number means a document was added that connects to nothing.
   // Write the link, or lower the floor in the same commit that earns it.
-  const FROZEN = 58;
+  const FROZEN = 55;
   const { docs, orphans } = linkGraph('docs');
   assert.ok(orphans.length <= FROZEN,
     `${orphans.length} orphaned documents, up from ${FROZEN} of ${docs.length}. ` +

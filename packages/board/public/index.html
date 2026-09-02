@@ -157,7 +157,15 @@
   --border-strong: rgba(0, 0, 0, 0.18);
   --text:  #0d1a14;
   --text2: #56655e;
-  --text3: #55625b;
+  /* Below --text2, which it was not: #55625b measured 6.39 on --bg-card against
+     text2's 6.14 — the quietest step was the louder one, so a caption read with
+     more emphasis than the secondary line above it. Both cleared AA, so no
+     contrast guard could see it; it is a hierarchy defect, not a readability one.
+     #5b6b64 is the quietest this ladder allows: 5.62 on --bg-card and 4.52 on
+     --bg-strong, the hardest surface here. The step is 0.52 where the dark theme
+     gets 0.74 — --bg-strong is what runs out first, the same way the dark
+     theme's five surfaces limit its own third step. */
+  --text3: #5b6b64;
   --focus-ring: #047857;
   --accent: #009657;
   --accent-2: #097448;   /* 4.06 on the approve tint, floor 4.5 → 4.55 */
