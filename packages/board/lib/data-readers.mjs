@@ -486,4 +486,41 @@ function getInbox(cwd = process.cwd()) {
   };
 }
 
-export { getMemory, getPipeline, getCostHistory, getInbox };
+/**
+ * What is waiting on the PERSON in the projects this one is not.
+ *
+ * The inbox headline said "nothing is waiting on you" while two P0s sat open
+ * in another project of the same operator's. The sentence was true of the
+ * project and false of the person, and the person is who reads it. Every
+ * reader above is scoped to one cwd on purpose; this one walks the registry so
+ * the headline can be scoped to the human.
+ *
+ * Three states per project, and the third is not folded into the first:
+ *   counted     its inbox was read and its gate/P0 counts added.
+ *   nothing     read, and nothing there — contributes zero, honestly.
+ *   unreadable  its inbox threw. Listed by name in `unreadable`, NOT counted
+ *               as zero: a project that could not be read may hold the P0.
+ *
+ * `readInbox` is injectable so the walk can be tested with stub projects
+ * without a beads store behind each one.
+ */
+function inboxElsewhere(projects, currentPath, { readInbox = getInbox } = {}) {
+  const same = (a, b) => {
+    if (!a || !b) return false;
+    try { return fs.realpathSync(a) === fs.realpathSync(b); } catch { return path.resolve(a) === path.resolve(b); }
+  };
+  const out = { p0: 0, gates: 0, projects: [], unreadable: [] };
+  for (const p of projects || []) {
+    if (!p?.path || same(p.path, currentPath)) continue;
+    let s;
+    try { s = readInbox(p.path)?.summary; } catch { out.unreadable.push(p.slug || p.path); continue; }
+    const p0 = Number(s?.p0) || 0;
+    const gates = Number(s?.gates) || 0;
+    if (p0 || gates) out.projects.push({ slug: p.slug || path.basename(p.path), p0, gates });
+    out.p0 += p0;
+    out.gates += gates;
+  }
+  return out;
+}
+
+export { getMemory, getPipeline, getCostHistory, getInbox, inboxElsewhere };

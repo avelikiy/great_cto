@@ -15,7 +15,7 @@ import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { status as routerKeyStatus, writeKey as writeRouterKey } from '../../../scripts/lib/router-key.mjs';
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
-import { getMemory, getPipeline, getCostHistory, getInbox } from './data-readers.mjs';
+import { getMemory, getPipeline, getCostHistory, getInbox, inboxElsewhere } from './data-readers.mjs';
 import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
@@ -590,8 +590,16 @@ async function dispatch(req, res, url, cwd) {
 
   // Inbox — what needs your attention right now
   if (pathname === '/api/inbox') {
+    const inbox = getInbox(cwd);
+    // What is waiting on the person in their OTHER projects. The headline and
+    // the badge are about the person, and the person is not scoped to `cwd`.
+    // If the registry itself cannot be walked, say so — `unreadable` is not
+    // `{p0: 0}`, and the page must not print "nothing elsewhere" from it.
+    let elsewhere;
+    try { elsewhere = inboxElsewhere(listProjects(), cwd, { readInbox: getInbox }); }
+    catch (e) { elsewhere = { state: 'unreadable', why: String(e?.message || e) }; }
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
-    res.end(JSON.stringify(getInbox(cwd)));
+    res.end(JSON.stringify({ ...inbox, elsewhere }));
     return true;
   }
 

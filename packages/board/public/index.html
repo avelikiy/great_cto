@@ -31,6 +31,14 @@
 <script src="/assets/vendor/purify.min.js"></script>
 <style>
 :root {
+  /* The <meta name="color-scheme"> above is static, so it says "dark" in BOTH
+     themes. Every form control that never set its own `color` then takes the
+     dark scheme's UA defaults — `buttontext` is white — and in the light theme
+     six "Copy re-run" buttons rendered white on white, 1.00:1. The token audit
+     could not see it: no declared pair was wrong; the wrong colour was simply
+     never declared. This property wins over the meta, and the light block
+     below flips it. tests/lib/rendered-contrast.test.mjs reads the pixels. */
+  color-scheme: dark;
   /* Colours that used to be written straight into rules.
      Twenty-nine declarations bypassed the token system, so the contrast audit —
      which reads `:root` — could not see any of them. Values are carried across
@@ -118,6 +126,9 @@
 }
 /* Light theme — same emerald system, AA-contrast on white. Toggle via data-theme. */
 [data-theme="light"] {
+  /* Flip the UA scheme with the tokens, or every unstyled control stays on the
+     dark scheme's defaults (see :root). */
+  color-scheme: light;
   /* Four values that had never been measured.
      The contrast audit read `:root` and nothing else, so this theme — 39 token
      overrides, half the board's surface area — was unchecked for months. When it
@@ -228,6 +239,10 @@ body {
 button, input, select, textarea {
   font-family: inherit;
   font-size: var(--fs-body);
+  /* Controls do not inherit `color` by default; they take the UA scheme's.
+     Belt to the color-scheme braces above: authored tokens govern text here
+     regardless of what scheme the browser thinks it is in. */
+  color: inherit;
 }
 button { cursor: pointer; }
 
@@ -3598,6 +3613,30 @@ function greetByHour() {
   return 'Good evening.';
 }
 
+// What is waiting on the person in the projects this screen is not showing.
+//
+// "Nothing is waiting on you" was written above a project inbox while two P0s
+// sat open in another project of the same operator's. True of the project,
+// false of the person — and the person is who reads it. The server now sends
+// `elsewhere` with the inbox; this turns it into the clause the headline needs.
+//
+// Three states. A payload without `elsewhere` (an older server) or one marked
+// unreadable says NOTHING about other projects, so the headline must not claim
+// "nothing elsewhere" — `known` is false and the clause is empty. Known and
+// empty is an honest zero. Known and non-empty is the sentence.
+function elsewhereClause(e) {
+  if (!e || e.state === 'unreadable') return { known: false, text: '' };
+  const p0 = Number(e.p0) || 0;
+  const gates = Number(e.gates) || 0;
+  const m = (e.projects || []).length;
+  if (!p0 && !gates) return { known: true, text: '' };
+  const parts = [];
+  if (p0) parts.push(`${p0} P0`);
+  if (gates) parts.push(`${gates} gate${gates > 1 ? 's' : ''}`);
+  const verb = p0 + gates > 1 ? 'are' : 'is';
+  return { known: true, text: `${parts.join(' and ')} in ${m} other project${m > 1 ? 's' : ''} ${verb} waiting on you.` };
+}
+
 function renderInbox(d) {
   // Kept so renderResume can ask what this section is already showing, rather
   // than the two of them rendering the same task independently.
@@ -3608,8 +3647,20 @@ function renderInbox(d) {
   // anything that matched two of them — a P0 that is also blocked read as two things
   // needing attention when it was one. Older payloads have no `needs_you`, so the sum
   // stays as the fallback rather than rendering nothing.
-  document.getElementById('nav-inbox-count').textContent =
-    Number.isFinite(s.needs_you) ? s.needs_you : s.gates + s.p0 + s.blocked;
+  // The badge counts the PERSON: this project's distinct needs, plus the P0s
+  // and gates waiting in their other projects. A badge reading 0 beside two
+  // open P0s one project over is the same lie as the headline was. When
+  // `elsewhere` is unknown the badge shows what it knows and says so in its
+  // title rather than adding a zero it never measured.
+  const here = Number.isFinite(s.needs_you) ? s.needs_you : s.gates + s.p0 + s.blocked;
+  const ew = d?.elsewhere;
+  const ewKnown = ew && ew.state !== 'unreadable';
+  const away = ewKnown ? (Number(ew.p0) || 0) + (Number(ew.gates) || 0) : 0;
+  const badge = document.getElementById('nav-inbox-count');
+  badge.textContent = here + away;
+  badge.title = ewKnown
+    ? `${here} here · ${away} in other projects`
+    : `${here} here · other projects not read`;
   // Same rule as the all-clear card: "nothing urgent" is a claim about data we
   // may not have. When a read failed, say that instead of reassuring the user.
   // The headline states the SITUATION, not the time of day.
@@ -3644,9 +3695,14 @@ function renderInbox(d) {
     greetEl.textContent = 'Some data could not be read — treat the counts below as incomplete.';
   } else if (newestEventAgeH != null && newestEventAgeH > STALL_H) {
     const days = Math.floor(newestEventAgeH / 24);
+    // "Here", because the count above is this project's. What the person has
+    // waiting in other projects is appended — or, when it could not be read,
+    // nothing is claimed about them at all.
+    const ew = elsewhereClause(d?.elsewhere);
+    const tail = ew.text ? ` ${ew.text}` : (ew.known ? ' Nothing elsewhere either.' : '');
     greetEl.textContent = needs
-      ? `Stalled — nothing has moved in ${days} days, and ${needs} item${needs > 1 ? 's' : ''} ${needs > 1 ? 'are' : 'is'} waiting on you.`
-      : `Stalled — nothing has moved in ${days} days, and nothing is waiting on you either.`;
+      ? `Stalled — nothing has moved in ${days} days, and ${needs} item${needs > 1 ? 's' : ''} ${needs > 1 ? 'are' : 'is'} waiting on you here.${tail}`
+      : `Stalled — nothing has moved in ${days} days, and nothing is waiting on you here.${tail}`;
   } else if (needs) {
     greetEl.textContent = "Here's what needs your decision.";
   } else {
@@ -3688,14 +3744,22 @@ function renderInbox(d) {
       const stalled = newestEventAgeH != null && newestEventAgeH > STALL_H;
       const txt = ac.querySelector('.ac-text');
       const mark = ac.querySelector('.ac-mark');
+      // The card is about the person, so it may not say "all clear" while the
+      // same person has a P0 open one project over. `elsewhere` arrives with the
+      // inbox payload; unknown (older server, unreadable) claims nothing.
+      const ew = elsewhereClause(window.__inboxData?.elsewhere);
+      const elsewhereHtml = ew.text ? ` <b>${ew.text}</b>` : (ew.known ? ' Nothing elsewhere either.' : '');
       if (stalled) {
         const days = Math.floor(newestEventAgeH / 24);
-        if (mark) mark.textContent = '·';
-        if (txt) txt.innerHTML = `<b>Nothing is waiting on you.</b> Nothing has run in `
-          + `${days} days either — this project is idle, not finished.`;
+        if (mark) mark.textContent = ew.text ? '!' : '\u00b7';
+        if (txt) txt.innerHTML = `<b>Nothing is waiting on you here.</b> Nothing has run in `
+          + `${days} days either — this project is idle, not finished.${elsewhereHtml}`;
+      } else if (ew.text) {
+        if (mark) mark.textContent = '!';
+        if (txt) txt.innerHTML = `<b>Nothing needs your decision here.</b>${elsewhereHtml}`;
       } else {
         if (mark) mark.textContent = '\u2713';
-        if (txt) txt.innerHTML = '<b>All clear.</b> Nothing needs your decision — back to deep work.';
+        if (txt) txt.innerHTML = `<b>All clear.</b> Nothing needs your decision here — back to deep work.${elsewhereHtml}`;
       }
     }
   }

@@ -12,6 +12,7 @@ import { recurrence } from './alert-recurrence.mjs';
 import { waitingOnYou, dedupeKeyFor } from '../../../scripts/lib/waiting-on-you.mjs';
 import { listProjects, readProjectMd } from './projects.mjs';
 import { addNotification } from './notifications.mjs';
+import { digestDecision } from './digest-policy.mjs';
 import { getMetrics } from './metrics.mjs';
 import { getCostHistory, getInbox } from './data-readers.mjs';
 // Every sweep below runs over EVERY registered project. `sweep: true` opts a
@@ -410,8 +411,17 @@ function startAlertCron() {
           if (!t.closed_at) return false;
           return t.closed_at.slice(0, 10) === yesterday;
         }).length;
-        // Skip digest if nothing happened yesterday
-        if (ySpend === 0 && doneYesterday === 0 && blocked === 0 && gates === 0) continue;
+        // Two reasons not to speak, and they are different. Nothing happened and
+        // nothing is open: silence. Nothing happened and the same gate is open as
+        // yesterday: that sentence was already sent, and sending it every morning
+        // is how 31 of 44 digests on this machine carried no new information and
+        // two P0s sank among them. Yesterday's reported state is read from
+        // alerts-fired.json; no record means UNKNOWN, which sends once — a
+        // comparison nobody could make is not a match. See digest-policy.mjs.
+        const stateKey = `digest.state:${proj.slug}`;
+        const prevState = readAlertsFired()[stateKey] ?? null;
+        const decision = digestDecision({ ySpend, doneYesterday, blocked, gates, prevState });
+        if (!decision.send) continue;
         const kvObj = {
           date: yesterday,
           'AI spend': `$${ySpend.toFixed(2)}`,
@@ -443,6 +453,12 @@ function startAlertCron() {
         await fireEmailAlert('digest.daily', dedupeKey, dailyPayload);
         addNotification('digest.daily', dailyPayload, dedupeKey);
         await firePushAlert('digest.daily', dedupeKey, dailyPayload);
+        // Record what was reported, so tomorrow can tell "unchanged" from "new".
+        // After the sends, not before: a digest that failed to go out is not one
+        // the operator has read.
+        const firedNow = readAlertsFired();
+        firedNow[stateKey] = decision.state;
+        writeAlertsFired(firedNow);
       }
     } catch (e) { log.warn('cron digest.daily failed:', e.message); }
   }, FIVE_MIN);
