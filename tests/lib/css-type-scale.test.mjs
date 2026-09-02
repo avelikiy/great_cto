@@ -16,11 +16,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fontSizes, offScaleSizes } from '../../scripts/lib/css-type-scale.mjs';
+import { fontSizes, offScaleSizes, declaredScale, danglingRefs } from '../../scripts/lib/css-type-scale.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// The steps declared as --fs-* on :root, in px.
+// A fixture ladder, for the unit tests below that need a fixed one. The BOARD's
+// ladder is read from the board — see the last two tests. A literal array here
+// once claimed to be "the steps declared as --fs-* on :root" and was not: it
+// carried 10 and 18, which no token declares, and lacked 16 and 19, which two
+// do. Nothing could notice, because the array and the tokens were never
+// compared to each other.
 const SCALE = [10, 11, 12, 13, 14, 15, 18, 22, 24, 30, 36, 52];
 
 const EXCEPTIONS = [
@@ -60,7 +65,35 @@ test("every font-size in the board's stylesheet is a step on the scale", () => {
   // When this fails: use a --fs-* token. Add an exception only for a glyph or
   // for longform document content, and say which in EXCEPTIONS above.
   const html = readFileSync(join(REPO, 'packages', 'board', 'public', 'index.html'), 'utf8');
-  const off = offScaleSizes(html, { scale: SCALE, exceptions: EXCEPTIONS });
+  const scale = declaredScale(html);
+  assert.equal(scale.state, 'ok', 'the board declares no --fs-* tokens — this check cannot speak');
+  const off = offScaleSizes(html, { scale: scale.steps, exceptions: EXCEPTIONS });
   assert.deepEqual(off, [],
     off.map((f) => `${f.px}px at line ${f.line} in "${f.selector}"`).join('; '));
+});
+
+test('the ladder is read from the board, not from a number typed here', () => {
+  // The bug this replaces: a literal array in this file that had drifted two
+  // steps from the tokens and could never be caught, because the guard read the
+  // array and the page read the tokens.
+  const html = readFileSync(join(REPO, 'packages', 'board', 'public', 'index.html'), 'utf8');
+  const { state, steps, tokens } = declaredScale(html);
+  assert.equal(state, 'ok');
+  assert.equal(steps.length, new Set(steps).size, 'two tokens declaring the same px is a step that is not a step');
+  assert.deepEqual(steps, [...steps].sort((a, b) => a - b), 'steps come back ordered');
+  assert.equal(steps.filter((n) => !Number.isInteger(n)).length, 0,
+    `half-pixel steps are what a scale looks like when it is invented one declaration at a time: ${steps.filter((n) => !Number.isInteger(n)).join(', ')}`);
+  assert.ok(Object.keys(tokens).length >= 8, `only ${Object.keys(tokens).length} --fs-* tokens found — the parser probably missed the block`);
+});
+
+test('every var(--fs-…) names a token that exists', () => {
+  // 298 of the board's 306 font-size declarations go through var(), and the
+  // literal-only sweep saw none of them. For those the question is not whether
+  // the size is on the ladder — it is by construction — but whether the token
+  // is real: a typo falls back to the inherited size and renders at the wrong
+  // step, silently.
+  const html = readFileSync(join(REPO, 'packages', 'board', 'public', 'index.html'), 'utf8');
+  const dangling = danglingRefs(html);
+  assert.deepEqual(dangling, [],
+    dangling.map((r) => `${r.token} at line ${r.line} is referenced but never declared`).join('; '));
 });

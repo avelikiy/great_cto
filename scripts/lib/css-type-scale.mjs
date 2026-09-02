@@ -19,6 +19,66 @@ function scrub(css) {
             .replace(/"(?:[^"\\\n]|\\.)*"/g, (m) => '"' + ' '.repeat(Math.max(0, m.length - 2)) + '"');
 }
 
+/**
+ * The ladder the stylesheet actually declares: every `--fs-*: <n>px` token.
+ *
+ * This used to be a literal array in the test, above a comment claiming it was
+ * "the steps declared as --fs-* on :root". It was not: the array carried 10 and
+ * 18, which no token declares, and lacked 16 and 19, which two tokens do. Two
+ * ladders, one of them fictional, and nothing could notice because the array
+ * and the tokens were never compared.
+ *
+ * Reading it from the file makes the comment true by construction. A ladder is
+ * whatever the stylesheet says it is; the guard's job is that nothing steps off
+ * it, not that it matches a number somebody typed in a test a year ago.
+ *
+ * @returns {{state:'ok'|'absent', steps:number[], tokens:Record<string,number>}}
+ */
+export function declaredScale(css) {
+  const text = scrub(String(css));
+  const tokens = {};
+  for (const m of text.matchAll(/(--fs-[a-z0-9-]+)\s*:\s*([0-9.]+)px/gi)) {
+    tokens[m[1]] = parseFloat(m[2]);
+  }
+  const steps = [...new Set(Object.values(tokens))].sort((a, b) => a - b);
+  // No tokens at all is not "an empty ladder every size falls off" — it is a
+  // stylesheet this check cannot speak about. Saying so beats reporting every
+  // size in the file as a finding.
+  return { state: steps.length ? 'ok' : 'absent', steps, tokens };
+}
+
+/**
+ * Every `var(--fs-…)` reference, with the token it names.
+ *
+ * The literal-only sweep saw 8 of this board's 306 font-size declarations, and
+ * all 8 were on the exception list — so the guard was measuring nothing while
+ * printing a pass. The other 298 go through `var(--fs-…)`, and the question
+ * that matters for them is different: not "is this size on the ladder" (it is,
+ * by definition) but "does this token exist". A typo'd `var(--fs-titel-m)`
+ * silently falls back to the inherited size and renders at the wrong step.
+ */
+export function scaleRefs(css) {
+  const text = scrub(String(css));
+  const out = [];
+  for (const m of text.matchAll(/var\(\s*(--fs-[a-z0-9-]+)\s*(?:,[^)]*)?\)/gi)) {
+    const before = text.slice(0, m.index);
+    out.push({ token: m[1], line: before.split('\n').length });
+  }
+  return out;
+}
+
+/** References to a `--fs-*` token the stylesheet never declares. */
+export function danglingRefs(css) {
+  const { tokens } = declaredScale(css);
+  const seen = new Set();
+  return scaleRefs(css).filter((r) => {
+    if (tokens[r.token] !== undefined) return false;
+    if (seen.has(r.token)) return false;
+    seen.add(r.token);
+    return true;
+  });
+}
+
 /** Every authored `font-size: <n>px`, with the selector or attribute it sits in. */
 export function fontSizes(css) {
   const text = scrub(css);
