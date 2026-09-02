@@ -110,15 +110,31 @@ const COLLECT_TEXT = () => {
  *
  * So it is frozen, the way the frontmatter budget freezes its over-cap legacy:
  * each entry is a (theme, text colour, painted surface) triple with the task
- * that owns it. A failure not on this list fails the run. A listed triple that
- * NO LONGER OCCURS also fails the run, with the instruction to delete it — the
- * list may only shrink, and it cannot quietly outlive the defect it names.
+ * that owns it. A failure not on this list fails the run.
+ *
+ * An entry that no longer occurs does NOT fail the run — see the note at the
+ * comparison below. This file reads data, not files: the accent chips exist
+ * only when the machine has notifications, so "must still occur" would fail on
+ * every clean CI box. The diagnostic names the unseen entries instead, and the
+ * shrinking is done by hand. (This paragraph used to claim the opposite, which
+ * was never implemented — a comment describing a guard that does not exist is
+ * the same defect this file was written to catch, one level up.)
  */
-const KNOWN_BELOW_AA = [
-  { theme: 'light', color: 'rgb(0, 150, 87)', on: 'rgba(59, 130, 246, 0.06)', owner: 'great_cto-o6j8: accent on the tinted project chip' },
-  { theme: 'light', color: 'rgb(10, 125, 77)', on: 'rgba(22, 163, 74, 0.12)', owner: 'great_cto-o6j8: accent-dark on the approve tint, 4.49 — a hair under' },
-  { theme: 'light', color: 'rgb(238, 242, 240)', on: 'rgb(0, 150, 87)', owner: 'great_cto-o6j8: light text on the accent' },
-];
+// Empty, and it stays that way by shrinking only. All three entries this list
+// was created with are gone — great_cto-o6j8 closed them by splitting the
+// colours that were doing two jobs:
+//
+//   --accent / --accent-text          bed and ink were one token; 23 rules asked
+//                                     the bed to be readable text
+//   --status-review / …-text          same split, same reason: a badge bed and
+//                                     an approve button's ink
+//   --on-solid / --on-accent /        one name for three beds — the near-black
+//   --on-status                       button, the green accent, the status
+//                                     colours. #fff is right for exactly one
+//
+// An entry here is a debt with an owner, not a permission. Adding one needs a
+// task id; removing one needs the ratio to have moved.
+const KNOWN_BELOW_AA = [];
 const knownKey = (f) => `${f.theme}|${f.color}|${f.stack?.[f.stack.length - 1] ?? f.on}`;
 const KNOWN = new Map(KNOWN_BELOW_AA.map((k) => [`${k.theme}|${k.color}|${k.on}`, k]));
 
@@ -249,7 +265,13 @@ test('every panel, both themes: text can be read against what is behind it', { t
     const legacy = report.length - unknown.length;
     const unseen = [...KNOWN.keys()].filter((k) => !seenKnown.has(k));
     if (legacy) t.diagnostic(`${legacy} element(s) below AA are known and owned (KNOWN_BELOW_AA) — counted, not passed`);
-    if (unseen.length) t.diagnostic(`${unseen.length} KNOWN_BELOW_AA entr${unseen.length > 1 ? 'ies' : 'y'} did not occur in this run (data-dependent; not evidence they are fixed)`);
+    // Name them. "1 entry did not occur" tells you a ratchet may be ready to
+    // tighten and then makes you find out which by hand — so the tightening
+    // does not happen. The owner string is the whole point of the entry.
+    if (unseen.length) {
+      t.diagnostic(`${unseen.length} KNOWN_BELOW_AA entr${unseen.length > 1 ? 'ies' : 'y'} did not occur in this run (data-dependent; not evidence they are fixed):`);
+      for (const k of unseen) t.diagnostic(`  ${KNOWN.get(k).owner}  [${KNOWN.get(k).color} on ${KNOWN.get(k).on}]`);
+    }
 
     const worst = unknown.slice(0, 12).map((f) =>
       `  ${f.theme}/${f.panel}  ${f.ratio}:1 (floor ${f.floor})  ${f.path}  "${f.text.slice(0, 20)}"  ${f.color} on [${f.stack.join(' → ')}]`);

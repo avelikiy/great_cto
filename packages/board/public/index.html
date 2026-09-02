@@ -44,7 +44,14 @@
      which reads `:root` — could not see any of them. Values are carried across
      unchanged: this is a rename, not a redesign, and the rendered-layout check
      proves it by comparing the colours the page actually paints. */
-  --on-solid: #fff;           /* text on a solid coloured chip or button */
+  /* Three tokens, because "text on a solid chip" was three different questions
+     wearing one name. --on-solid covered the near-black button (#0f1115), the
+     green accent and the status colours at once, and #fff is right for exactly
+     one of them: white on the accent measures 1.87:1 on dark and 3.82:1 on
+     light. Naming the bed each one sits on is what makes the value checkable. */
+  --on-solid:  #fff;          /* on --bg-solid (#0f1115) — 18.90:1 */
+  --on-accent: #0d1a14;       /* on --accent — 9.55 dark, 4.68 light; white fails both */
+  --on-status: #0d1a14;       /* on --status-* — bright on dark; the light theme flips it */
   --on-warm: #000;            /* text on amber, where white fails contrast */
   --on-accent: #04140d;       /* text on the green accent */
   --bg-solid: #0f1115;        /* opaque button and tooltip surface */
@@ -101,6 +108,7 @@
   --status-todo: #9ca3af;
   --status-progress: #f59e0b;
   --status-review: #00d97e;
+  --status-review-text: #00d97e;  /* bright on dark: the bed and the ink can be one colour */
   --status-done: #00d97e;
   --status-blocked: #ff5466;
   --status-gate: #a78bfa;
@@ -152,14 +160,22 @@
   --text3: #55625b;
   --focus-ring: #047857;
   --accent: #009657;
-  --accent-2: #0a7d4d;
+  --accent-2: #097448;   /* 4.06 on the approve tint, floor 4.5 → 4.55 */
   --accent-soft: rgba(0, 217, 126, 0.12);
   --accent-strong: rgba(0, 168, 98, 0.20);
-  --accent-text: #097648;
+  --accent-text: #097547;
+  /* The light theme's status colours are dark (#0a7d4d, #b45309, #c43030),
+     so the ink that reads on the dark theme's bright ones fails here: 3.45,
+     3.56, 3.24. White gives 5.18, 5.02, 5.51. */
+  --on-status: #fff;
   --status-backlog: #6b7280;
   --status-todo: #6b7280;
   --status-progress: #b45309;
   --status-review: #0a7d4d;
+  /* Same split as --accent / --accent-text: this colour is a BED for tier
+     badges and a dot, and INK for approve buttons and budget chips. As ink it
+     measures 4.06 on the .12 approve tint it most often sits on. */
+  --status-review-text: #097448;
   --status-done: #0a7d4d;
   --status-blocked: #c43030;
   --status-gate: #7c3aed;
@@ -329,7 +345,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border: 1px solid var(--border);
   white-space: nowrap;
 }
-.budget-chip.within     { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
+.budget-chip.within     { color: var(--status-review-text); border-color: rgba(22, 163, 74, 0.35); }
 .budget-chip.exceeded   { color: var(--status-blocked); border-color: rgba(220, 38, 38, 0.35); background: var(--p0-bg); font-weight: 600; }
 .budget-chip.unmeasured { color: var(--status-progress); border-color: rgba(180, 83, 9, 0.35); cursor: help; }
 
@@ -432,7 +448,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   user-select: none;
 }
 .proj-switch:hover { background: var(--bg-muted); }
-.proj-switch .star { color: var(--accent); font-size: 16px; }
+.proj-switch .star { color: var(--accent-text); font-size: 16px; }
 .proj-switch .name { font-weight: 600; font-size: var(--fs-base); }
 .proj-switch .sw-meta { flex: 1; display: flex; flex-direction: column; gap: 1px; }
 .sw-ancestry[hidden] { display: none; }
@@ -483,7 +499,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .proj-item:hover { background: var(--bg-muted); }
 .proj-item.active { background: var(--bg-strong); font-weight: 500; }
-.proj-item .star { color: var(--accent); font-size: var(--fs-base); }
+.proj-item .star { color: var(--accent-text); font-size: var(--fs-base); }
 .proj-icon, .proj-switch .proj-icon, .crumbs .proj-icon {
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
@@ -500,7 +516,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .proj-item .check {
   width: 14px; height: 14px;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .proj-item:not(.active) .check { display: none; }
 .proj-menu-empty {
@@ -532,7 +548,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border-radius: 0;
 }
 .nav-item .icon { width: 16px; height: 16px; color: var(--text2); flex-shrink: 0; }
-.nav-item.active .icon { color: var(--accent); }
+.nav-item.active .icon { color: var(--accent-text); }
 .nav-item .count { margin-left: auto; font-size: var(--fs-caption); color: var(--text3); font-family: var(--mono); }
 .nav-divider { height: 1px; background: var(--border); margin: 12px 8px; }
 
@@ -563,7 +579,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   font-size: var(--fs-body);
 }
 .crumbs { display: flex; align-items: center; gap: 8px; color: var(--text2); }
-.crumbs .star { color: var(--accent); }
+.crumbs .star { color: var(--accent-text); }
 .crumbs .sep { color: var(--text3); }
 .crumbs .here { color: var(--text); font-weight: 500; }
 
@@ -786,7 +802,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    makes a long gate list scannable is left exactly as it is. 44px is the iOS
    minimum; Android asks for 48dp, and the gap does the rest. */
 
-.gate-approve { color: var(--status-review); border-color: rgba(22, 163, 74, 0.35); }
+.gate-approve { color: var(--status-review-text); border-color: rgba(22, 163, 74, 0.35); }
 .gate-approve:hover { background: rgba(22, 163, 74, 0.08); border-color: var(--status-review); }
 /* Agent runner (launch control) */
 #agent-panel { position: fixed; right: 16px; bottom: 16px; width: min(560px, 94vw); max-height: 70vh; display: none; flex-direction: column; background: var(--bg-card, #11161a); border: 1px solid var(--border, #1f2a26); border-radius: 0; box-shadow: none; z-index: 60; overflow: hidden; }
@@ -796,7 +812,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 #agent-panel .ap-x { margin-left: auto; cursor: pointer; border: 0; background: none; color: var(--text3); font-size: 16px; }
 #agent-log { flex: 1; overflow: auto; padding: 10px 14px; font: 12px/1.55 ui-monospace, Menlo, monospace; }
 #agent-log .al { margin: 2px 0; white-space: pre-wrap; word-break: break-word; }
-#agent-log .al.tool { color: var(--status-review); } #agent-log .al.system { color: var(--text3); } #agent-log .al.error { color: var(--status-blocked, #ff5a5a); } #agent-log .al.done { color: var(--text3); font-weight: 600; }
+#agent-log .al.tool { color: var(--status-review-text); } #agent-log .al.system { color: var(--text3); } #agent-log .al.error { color: var(--status-blocked, #ff5a5a); } #agent-log .al.done { color: var(--text3); font-weight: 600; }
 #agent-panel .ap-foot { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border, #1f2a26); }
 #agent-panel input { flex: 1; background: var(--bg-muted); color: var(--text, #ecf2ee); border: 1px solid var(--border, #1f2a26); border-radius: 0; padding: 7px 10px; font: inherit; font-size: var(--fs-body); }
 #agent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
@@ -805,7 +821,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .gate-reject { color: var(--status-blocked); border-color: rgba(220, 38, 38, 0.30); }
 .gate-reject:hover { background: rgba(220, 38, 38, 0.06); border-color: var(--status-blocked); }
 .chip-agent {
-  background: var(--accent-soft); color: var(--accent);
+  background: var(--accent-soft); color: var(--accent-text);
   font-family: var(--mono);
 }
 
@@ -958,7 +974,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   margin: 6px 0;
 }
 .side-desc.md pre.md-pre code { background: none; padding: 0; }
-.side-desc.md a { color: var(--accent); text-decoration: none; }
+.side-desc.md a { color: var(--accent-text); text-decoration: none; }
 .side-desc.md a:hover { text-decoration: underline; }
 .side-desc.md strong { color: var(--text); font-weight: 600; }
 .side-id-row { display: inline-flex; align-items: center; gap: 6px; }
@@ -1179,7 +1195,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .ni-btn-ghost:hover { background: var(--bg-muted, rgba(255,255,255,0.05)); color: var(--text); }
 .ni-btn-primary {
   background: var(--accent, #00d97e);
-  color: var(--bg-page); font-weight: 500;
+  color: var(--on-accent); font-weight: 500;
 }
 .ni-btn-primary:hover { background: var(--accent-hover); }
 .ni-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -1274,7 +1290,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .mem-item.active { background: var(--accent-soft); border-color: rgba(37, 64, 212, 0.16); }
 .mem-item .layer-tag {
   font-family: var(--mono); font-size: var(--fs-eyebrow);
-  color: var(--accent); letter-spacing: 0.06em;
+  color: var(--accent-text); letter-spacing: 0.06em;
   font-weight: 500;
 }
 .mem-item .name {
@@ -1354,7 +1370,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .memory-doc-head .layer-tag {
   font-family: var(--mono); font-size: var(--fs-caption);
-  background: var(--accent-soft); color: var(--accent);
+  background: var(--accent-soft); color: var(--accent-text);
   padding: 4px 10px; border-radius: 0;
   letter-spacing: 0.06em; font-weight: 500;
 }
@@ -1376,9 +1392,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .tier-badge { font-size: var(--fs-caption); padding: 1px 8px; border-radius: 999px; margin-left: 6px;
   font-family: var(--mono); white-space: nowrap; }
 .tier-badge:empty { display: none; }
-.tier-badge.tier-T0 { background: var(--status-review); color: var(--on-solid); }
-.tier-badge.tier-T1 { background: var(--status-progress); color: var(--on-solid); }
-.tier-badge.tier-T2 { background: var(--status-blocked); color: var(--on-solid); }
+.tier-badge.tier-T0 { background: var(--status-review); color: var(--on-status); }
+.tier-badge.tier-T1 { background: var(--status-progress); color: var(--on-status); }
+.tier-badge.tier-T2 { background: var(--status-blocked); color: var(--on-status); }
 
 /* ── Pipeline track ───────────────────────────────────────────────────────── */
 .pipeline-track {
@@ -1581,7 +1597,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .cost-cell .v small { font-size: var(--fs-base); color: var(--text2); margin-left: 2px; font-weight: 400; }
 .cost-cell .sub { font-size: var(--fs-caption); color: var(--text2); }
 .cost-cell.warn .v { color: var(--status-blocked); }
-.cost-cell.good .v { color: var(--status-review); }
+.cost-cell.good .v { color: var(--status-review-text); }
 
 .cost-chart {
   position: relative;
@@ -1804,7 +1820,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    added today without one, and the rendered-layout check found it on both themes
    within the hour. That is the check working on its author. */
 .resume-list a, .empty a { color: var(--accent-text); text-decoration: underline; }
-.resume-list a:hover, .empty a:hover { color: var(--accent); }
+.resume-list a:hover, .empty a:hover { color: var(--accent-text); }
 
 .proj-status-verdict { color: var(--text3); font-family: var(--mono); font-size: var(--fs-eyebrow); }
 .proj-status-body { padding: 0 16px 14px; }
@@ -1823,7 +1839,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   margin-bottom: 14px;
 }
 .resume-icon {
-  display: inline-flex; color: var(--accent);
+  display: inline-flex; color: var(--accent-text);
 }
 .resume-title {
   font-family: var(--sans); font-weight: 600;
@@ -1869,7 +1885,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   color: var(--text3);
   margin-top: 1px;
 }
-.resume-list .resume-item .ri-tag.ok { color: var(--accent); background: rgba(0,217,126,0.08); }
+.resume-list .resume-item .ri-tag.ok { color: var(--accent-text); background: rgba(0,217,126,0.08); }
 .resume-list .resume-item .ri-tag.fail { color: var(--p1-fg); background: rgba(255,80,80,0.08); }
 .resume-list .resume-item .ri-text {
   flex: 1; min-width: 0;
@@ -2146,7 +2162,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .period-chip:hover { color: var(--text); }
 .period-chip.active {
-  background: var(--accent); color: var(--bg-page);
+  background: var(--accent); color: var(--on-accent);
 }
 .metric-card {
   background: var(--bg-card); border: 1px solid var(--border);
@@ -2189,7 +2205,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   letter-spacing: 0.02em; white-space: nowrap;
   color: var(--text3); cursor: help;
 }
-.delta.up   { color: var(--status-review); }
+.delta.up   { color: var(--status-review-text); }
 .delta.down { color: var(--status-progress); }
 .metric-num small {
   font-size: var(--fs-title-l); color: var(--text2);
@@ -2231,7 +2247,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .feed-cost {
   font-family: var(--mono); font-size: var(--fs-eyebrow);
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-soft);
   padding: 2px 6px; border-radius: 0;
   margin-right: 6px;
@@ -2315,7 +2331,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .log-section-label { font-size: var(--fs-caption); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
 .log-bullets { list-style: none; padding: 0; margin: 0; }
 .log-bullets li { padding: 3px 0 3px 12px; position: relative; font-size: var(--fs-body); color: var(--text2); }
-.log-bullets li::before { content: '·'; position: absolute; left: 0; color: var(--accent); }
+.log-bullets li::before { content: '·'; position: absolute; left: 0; color: var(--accent-text); }
 .log-empty { font-size: var(--fs-body); color: var(--text3); font-style: italic; }
 
 /* ── Agents installed list (legacy — kept for fallback) ───────────────── */
@@ -2323,14 +2339,14 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 /* Agent budget bars (Paperclip cascading budget pattern) */
 .ab-title { font-weight: 600; color: var(--text2); margin-bottom: 6px; }
 .ab-row { display: flex; justify-content: space-between; padding: 2px 0; }
-.ab-name { font-family: var(--mono, monospace); color: var(--accent); }
+.ab-name { font-family: var(--mono, monospace); color: var(--accent-text); }
 .ab-cap { color: var(--text3); }
 .agent-card { background: var(--bg-muted); border: 1px solid var(--border); border-radius: 0; padding: 10px 12px; }
-.agent-card .ac-name { font-size: var(--fs-small); font-weight: 500; font-family: var(--mono); color: var(--accent); }
+.agent-card .ac-name { font-size: var(--fs-small); font-weight: 500; font-family: var(--mono); color: var(--accent-text); }
 .agent-card .ac-desc { font-size: var(--fs-caption); color: var(--text3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agent-card .ac-meta { font-size: var(--fs-eyebrow); color: var(--text3); margin-top: 5px; display: flex; gap: 8px; }
 .agent-card .ac-model { background: var(--bg-strong); padding: 1px 5px; border-radius: 0; }
-.agent-card .ac-used { color: var(--status-review); }
+.agent-card .ac-used { color: var(--status-review-text); }
 .agent-card .ac-never { color: var(--text3); font-style: italic; }
 
 /* ── Agents fleet view (DESIGN-agents-fleet-view §3) ───────────────────
@@ -2389,7 +2405,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .facet-chip:hover { color: var(--text); border-color: var(--border-strong); }
 .facet-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .facet-chip[aria-checked="true"] {
-  background: var(--accent-soft); color: var(--accent);
+  background: var(--accent-soft); color: var(--accent-text);
   border-color: var(--accent-strong);
 }
 .facet-chip[disabled] { opacity: 0.4; cursor: not-allowed; }
@@ -2692,7 +2708,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.share-badge.on  { background: rgba(22, 163, 74, 0.12); color: var(--status-review); }
+.share-badge.on  { background: rgba(22, 163, 74, 0.12); color: var(--status-review-text); }
 .share-badge.off { background: var(--bg-strong); color: var(--text3); }
 .share-badge-dot {
   width: 5px; height: 5px; border-radius: 50%;
@@ -2720,7 +2736,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 .fchip:hover { background: var(--bg-elevated); color: var(--text); border-color: var(--border-strong); }
-.fchip.active { background: var(--accent); color: var(--on-solid); border-color: transparent; }
+.fchip.active { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .fchip-agent.active { background: var(--chip-agent); }
 .fchip-priority.active { background: var(--status-progress); color: var(--on-warm); }
 .fchip-label.active { background: var(--accent); }
@@ -2800,7 +2816,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   margin-top: 4px; flex-shrink: 0;
 }
 .tl-content { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; }
-.tl-actor { font-family: var(--mono); font-size: var(--fs-caption); font-weight: 500; color: var(--accent); }
+.tl-actor { font-family: var(--mono); font-size: var(--fs-caption); font-weight: 500; color: var(--accent-text); }
 .tl-action { color: var(--text2); }
 .tl-change {
   font-family: var(--mono); font-size: var(--fs-caption);
@@ -2817,7 +2833,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   font-size: var(--fs-num-l); line-height: 1.1; letter-spacing: -0.02em;
 }
 .kpi-hero .kpi-label { font-size: var(--fs-body); font-weight: 500; }
-.kpi-empty .kpi-value { color: var(--accent); font-size: var(--fs-title-l); }
+.kpi-empty .kpi-value { color: var(--accent-text); font-size: var(--fs-title-l); }
 .kpi-empty .kpi-value::after {
   content: ' all clear'; font-size: var(--fs-caption); color: var(--text3); font-weight: 400;
 }
@@ -3477,7 +3493,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
           <!-- Step 3: verified -->
           <div id="notif-step-verified" style="display:none;margin-top:14px;padding:10px 14px;background:rgba(0,217,126,0.08);border:1px solid rgba(0,217,126,0.30);border-radius:0;display:none;align-items:center;gap:10px;font-size: var(--fs-body)">
-            <span style="color:var(--accent);font-size:var(--fs-title-m)">✓</span>
+            <span style="color:var(--accent-text);font-size:var(--fs-title-m)">✓</span>
             <span><strong id="notif-verified-email">—</strong> verified · alerts delivered through <code>greatcto.systems/notify</code></span>
             <button class="btn-ghost-sm" style="margin-left:auto" onclick="changeEmail()">Change</button>
           </div>
@@ -7747,7 +7763,7 @@ function renderLogDetail(log) {
   el.innerHTML = `
     <div class="log-detail-head">
       <h3>${esc(log.title)}</h3>
-      <div class="log-detail-meta">${esc(log.date)}${log.time ? ' at ' + esc(log.time) : ''}${log.duration ? ' · ' + esc(log.duration) : ''}${log.source === 'verdicts' ? ' · <span style="color:var(--accent)">auto-synthesized from verdicts</span>' : log.source === 'auto' ? ' · <span style="color:var(--accent)">auto-captured by SessionEnd hook</span>' : ''}</div>
+      <div class="log-detail-meta">${esc(log.date)}${log.time ? ' at ' + esc(log.time) : ''}${log.duration ? ' · ' + esc(log.duration) : ''}${log.source === 'verdicts' ? ' · <span style="color:var(--accent-text)">auto-synthesized from verdicts</span>' : log.source === 'auto' ? ' · <span style="color:var(--accent-text)">auto-captured by SessionEnd hook</span>' : ''}</div>
     </div>
     <div class="log-section">
       <div class="log-section-label">Done</div>
@@ -8478,7 +8494,7 @@ function renderNotifDrawer() {
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.title)}</div>
           <div style="font-size:var(--fs-small);color:var(--text3);margin-top:2px;line-height:1.4">${esc(n.body)}</div>
           <div style="font-size:var(--fs-caption);color:var(--text3);margin-top:4px;font-family:var(--mono)">
-            ${n.project ? `<span style="color:var(--accent);margin-right:6px">${esc(n.project)}</span>` : ''}
+            ${n.project ? `<span style="color:var(--accent-text);margin-right:6px">${esc(n.project)}</span>` : ''}
             ${new Date(n.ts).toLocaleString()}
           </div>
         </div>
