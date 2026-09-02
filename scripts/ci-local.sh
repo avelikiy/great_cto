@@ -337,6 +337,14 @@ step "pipeline decisions match the key" node tests/pipeline-fixture/run.mjs
 # two clean runs here measured 236s and 739s for identical input. A gate that can
 # hang is worse than one that can fail — it stops a push with no verdict at all.
 # So a timeout, and a timeout REPORTS AS A FAILURE, never as a pass.
+#
+# This is right BECAUSE this is a fail-closed pre-push gate: there is nothing to
+# resume to, so "still running" and "failed" collapse into one blocking answer.
+# Do not copy the collapse into an async runner. Where a long tool call can yield
+# an execution_id and be polled on a later turn, a wait-timeout is an OBSERVATION
+# ("still running"), not a failure, and hard-timeout / cancelled / orphaned are
+# distinct terminal states. Same "three states, not two" rule, seen from the
+# other side — the context, not the rule, decides how the third state is spelled.
 run_bounded() {   # run_bounded <seconds> <command...>
   local limit="$1"; shift
   if command -v timeout >/dev/null 2>&1; then
