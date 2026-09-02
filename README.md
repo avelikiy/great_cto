@@ -112,7 +112,7 @@ The pipeline takes it from there. Day to day you touch three things:
 
 Requires Node ≥ 18.17. Companion plugins (Superpowers, Beads) install
 automatically. After init, verify the host actually loaded the plugin —
-`claude plugin list --json` should show no `errors` for `great_cto`.
+`claude plugin list --json` should show no `errors` for `great-cto`.
 
 ## When it asks you
 

@@ -53,13 +53,19 @@ export function findBoardServerPath(baseDir?: string, home?: string, cliVersion?
   if (fsExistsSync(cacheRoot)) {
     try {
       for (const marketplace of readdirSync(cacheRoot)) {
-        const pluginBase = join(cacheRoot, marketplace, "great_cto");
-        if (!fsExistsSync(pluginBase)) continue;
-        const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort(byVer);
-        for (const v of versions.slice(0, 5)) {
-          pluginCandidates.push(join(pluginBase, v, "packages", "board", "server.mjs"));
+        // Two directory names, because there are two installers. `npx great-cto`
+        // writes great_cto/; a marketplace install uses the plugin manifest's
+        // name, which is kebab-case (the Claude.ai marketplace requires it). A
+        // machine can hold either or both, so neither may be assumed.
+        for (const dirName of ["great_cto", "great-cto"]) {
+          const pluginBase = join(cacheRoot, marketplace, dirName);
+          if (!fsExistsSync(pluginBase)) continue;
+          const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort(byVer);
+          for (const v of versions.slice(0, 5)) {
+            pluginCandidates.push(join(pluginBase, v, "packages", "board", "server.mjs"));
+          }
+          if (versions[0] && (!newestPlugin || byVer(versions[0], newestPlugin) < 0)) newestPlugin = versions[0];
         }
-        if (versions[0] && (!newestPlugin || byVer(versions[0], newestPlugin) < 0)) newestPlugin = versions[0];
       }
     } catch { /* ignore */ }
   }

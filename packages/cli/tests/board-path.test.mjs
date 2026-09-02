@@ -176,3 +176,43 @@ test('with no CLI version the behaviour is unchanged — no silent difference', 
   assert.match(findBoardServerPath(base, home), /3\.13\.0/,
     'a caller that cannot determine its version must not get a different answer by surprise');
 });
+
+// The plugin manifest's name became kebab-case, because the Claude.ai marketplace
+// requires it. A marketplace install therefore writes the cache directory under
+// `great-cto`, while `npx great-cto` keeps writing `great_cto`. Both exist in the
+// wild — a user who installed from npm before the directory listing, and one who
+// installs from the directory after — and one machine can hold both. Neither name
+// may be assumed. Before this, the scan hardcoded `great_cto` and a
+// marketplace-only install fell through to the bundled board without saying so.
+test("finds server.mjs under the kebab-case marketplace directory name", () => {
+  const home = makeTmp();
+  const base = makeTmp(); // no dev layouts, no bundle
+  try {
+    const vDir = join(home, ".claude", "plugins", "cache", "claude-community", "great-cto", "3.21.0", "packages", "board");
+    mkdirSync(vDir, { recursive: true });
+    writeFileSync(join(vDir, "server.mjs"), "// board\n");
+    assert.equal(findBoardServerPath(base, home), join(vDir, "server.mjs"));
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// And both at once — the npm install and the directory install on one machine.
+// The newer version wins regardless of which directory name carries it.
+test("prefers the newer version across both directory names", () => {
+  const home = makeTmp();
+  const base = makeTmp();
+  try {
+    const older = join(home, ".claude/plugins/cache/local/great_cto/3.20.0/packages/board");
+    const newer = join(home, ".claude/plugins/cache/claude-community/great-cto/3.21.0/packages/board");
+    for (const d of [older, newer]) {
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "server.mjs"), "// board\n");
+    }
+    assert.equal(findBoardServerPath(base, home), join(newer, "server.mjs"));
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(base, { recursive: true, force: true });
+  }
+});
