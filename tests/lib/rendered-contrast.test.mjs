@@ -26,6 +26,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { loadBrowser } from '../../scripts/lib/layout-snapshot.mjs';
@@ -94,6 +95,43 @@ const COLLECT_TEXT = () => {
       stack,
       unmeasurable,
     });
+  }
+  return out;
+};
+
+/**
+ * Weights the vendored font does not have.
+ *
+ * great_cto-bcmi: hierarchy by SIZE, not weight — because Geist Mono is
+ * vendored with a 400-500 weight axis (fonts.css, and the CDN file it came
+ * from). Ask a mono element for 600 and the browser does not pick a heavier
+ * cut, it STROKES the glyph. Measured on this page, ink pixels at 32px:
+ *
+ *   Geist Mono   400 → 1473   500 → 1598   600 → 1926   700 → 1926
+ *   Geist (sans) 400 → 1357   500 → 1538   600 → 1689   700 → 1846
+ *
+ * 600 and 700 identical is the tell: a real axis moves, a synthetic stroke
+ * saturates. So this is not a style preference — it is a declaration the font
+ * cannot honour, and the page renders a fake.
+ *
+ * Read from fonts.css rather than hard-coded, so revendoring a wider axis
+ * relaxes the check by itself instead of leaving a stale number here.
+ */
+const COLLECT_FAUX_BOLD = () => {
+  const out = [];
+  const seen = new Set();
+  for (const el of document.querySelectorAll('body *')) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    const cs = getComputedStyle(el);
+    if (!/mono/i.test(cs.fontFamily)) continue;
+    const w = parseInt(cs.fontWeight, 10) || 400;
+    if (w <= 500) continue;
+    const key = `${el.className}|${w}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ cls: String(el.className || el.tagName).slice(0, 40), weight: w, size: cs.fontSize, text: el.textContent.trim().slice(0, 24) });
   }
   return out;
 };
@@ -222,6 +260,7 @@ test('every panel, both themes: text can be read against what is behind it', { t
     assert.deepEqual(shipped, [...PANELS].sort(), 'a panel the page ships is not in PANELS — it would go unread');
 
     const report = [];
+    const fauxBold = [];
     for (const theme of THEMES) {
       await page.evaluate((th) => { document.documentElement.dataset.theme = th; }, theme);
       let measuredInTheme = 0;
@@ -236,6 +275,7 @@ test('every panel, both themes: text can be read against what is behind it', { t
         measuredInTheme += measured;
         for (const f of failures) report.push({ theme, panel, ...f });
         if (unmeasurable) t.diagnostic(`${theme}/${panel}: ${unmeasurable} element(s) over a gradient or image — not measured, not passed`);
+        for (const f of await page.evaluate(COLLECT_FAUX_BOLD)) fauxBold.push({ theme, panel, ...f });
       }
       // A theme in which nothing was measured is not a theme that passed.
       assert.ok(measuredInTheme > 50, `${theme}: only ${measuredInTheme} text elements measured — the page did not render, or the walker is broken`);
@@ -247,6 +287,19 @@ test('every panel, both themes: text can be read against what is behind it', { t
       const { writeFileSync } = await import('node:fs');
       writeFileSync(process.env.RENDERED_CONTRAST_REPORT, JSON.stringify(report, null, 1));
     }
+    // The mono axis stops at 500 (fonts.css). Anything above it on a mono
+    // element is a synthetic stroke, not a heavier cut — so this is a
+    // declaration the page cannot honour, and the fix is size, not weight.
+    const MONO_MAX = (() => {
+      const css = readFileSync(new URL('../../packages/board/public/assets/fonts/fonts.css', import.meta.url), 'utf8');
+      const m = css.match(/font-family:\s*'Geist Mono'[\s\S]*?font-weight:\s*(\d+)\s+(\d+)/);
+      return m ? Number(m[2]) : 500;
+    })();
+    const over = fauxBold.filter((f) => f.weight > MONO_MAX);
+    assert.equal(over.length, 0,
+      `${over.length} mono element(s) asking for a weight the vendored font does not have (axis ends at ${MONO_MAX}); the browser renders a synthetic bold:\n`
+      + over.slice(0, 8).map((f) => `  ${f.theme}/${f.panel}  .${f.cls}  weight ${f.weight} @ ${f.size}  "${f.text}"`).join('\n'));
+
     // Split what was found into the named legacy and everything else. Only
     // "everything else" is a failure; the legacy is a count that may only fall.
     const seenKnown = new Set();

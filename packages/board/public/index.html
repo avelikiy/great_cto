@@ -435,7 +435,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .sidebar-brand .brand-mark svg { width: 22px; height: 22px; }
 .sidebar-brand .brand-name {
-  font-family: var(--display); font-weight: 600;
+  /* 500, not 600: --display is the mono stack, and Geist Mono's weight axis
+     ends at 500. Asking for 600 gets a SYNTHETIC bold — the browser strokes
+     around the glyph — and 600 and 700 render identically because of it
+     (measured: 1926 ink pixels for both, against a smooth 1473/1598 for
+     400/500). The brand already outranks its neighbours by size, 16px against
+     12-14, which is the hierarchy this direction asks for. */
+  font-family: var(--display); font-weight: 500;
   font-size: var(--fs-title-s); letter-spacing: -0.01em;
   color: var(--text);
 }
@@ -1711,7 +1717,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   margin: 0 auto;
 }
 .inbox-greet {
-  font-family: var(--display); font-weight: 600;
+  font-family: var(--display); font-weight: 500;
   font-size: clamp(22px, 2.5vw, 30px);
   letter-spacing: -0.02em;
   margin-bottom: 24px;
@@ -2003,7 +2009,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    blocked colour — so "sat here longest" is legible at a glance instead of
    requiring five timestamps to be compared by eye. */
 .inbox-row.row-aged { border-left: 3px solid var(--status-blocked); }
-.inbox-row.row-aged .actions.age-col .age { color: var(--status-blocked); font-weight: 600; }
+/* Colour carries this, not weight: the age is mono, whose axis stops at 500,
+   so 600 only buys a synthetic stroke. */
+.inbox-row.row-aged .actions.age-col .age { color: var(--status-blocked); font-weight: 500; }
 
 /* Quiet page footer for conditions that report but do not ask. */
 .inbox-foot-note {
