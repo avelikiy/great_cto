@@ -214,3 +214,34 @@ test('the ink ladder steps DOWN in every theme', () => {
     }
   }
 });
+
+test('the design spec quotes the ratios the board actually has', () => {
+  // The spec canvas argues that every number on it was measured. Twice now it
+  // has held a number that was not: first two ratios computed against colours I
+  // typed from memory rather than read from the file, then a --text3 the board
+  // had since changed. Both were caught by a person reading it, which is the
+  // wrong mechanism for a claim about arithmetic.
+  //
+  // This compares the canvas against the stylesheet directly. It checks that
+  // the ratio APPEARS, not where — the canvas is prose and layout, and pinning
+  // position would break on every edit for no gain.
+  const board = readFileSync(
+    new URL('../../packages/board/public/index.html', import.meta.url), 'utf8');
+  const canvas = readFileSync(
+    new URL('../../docs/design/Tokens.dc.html', import.meta.url), 'utf8');
+  const themes = readThemes(board);
+  const missing = [];
+  for (const [theme, tokens] of Object.entries(themes)) {
+    const bed = parseColor(tokens['--bg-card']);
+    assert.ok(bed, `${theme}: --bg-card is not a colour`);
+    for (const tok of ['--text', '--text2', '--text3', '--accent-text']) {
+      const c = parseColor(tokens[tok]);
+      assert.ok(c, `${theme}: ${tok} is not a colour`);
+      const r = ratio(c, bed).toFixed(2);
+      if (!canvas.includes(r)) missing.push(`${theme} ${tok} = ${r}:1`);
+    }
+  }
+  assert.deepEqual(missing, [],
+    `the spec canvas does not quote these measured ratios — update docs/design/Tokens.dc.html `
+    + `and re-seed: ${missing.join('; ')}`);
+});
