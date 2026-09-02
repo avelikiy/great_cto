@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap');
+    body { margin: 0; font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+    a { color: #097547; } a:hover { color: #04140d; }
+  </style>
+</helmet>
+<div style="background: #eef2f0; color: #0d1a14; padding: 56px 60px; min-height: 100%; box-sizing: border-box">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 44px">
+    <div style="font-size: 11px; letter-spacing: 0.08em; color: #55625b; text-transform: uppercase">great_cto · board + site</div>
+    <div style="font-size: 30px; font-weight: 500; letter-spacing: -0.02em">Direction ①</div>
+    <div style="font-size: 14px; color: #56655e; max-width: 62ch; line-height: 1.55">
+      Not a mood. Five constraints a script can check, each one bought by a defect
+      that shipped. Every number on this canvas was measured on the rendered page,
+      not chosen.
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 1px; background: rgba(0,0,0,0.10); border: 1px solid rgba(0,0,0,0.10)">
+
+    <div style="background: #ffffff; padding: 22px 24px; display: grid; grid-template-columns: 26px 1fr 190px; gap: 20px; align-items: start">
+      <div style="font-size: 19px; color: #55625b">1</div>
+      <div style="display: flex; flex-direction: column; gap: 7px">
+        <div style="font-size: 16px; font-weight: 500">No decorative shadow. No radius.</div>
+        <div style="font-size: 13px; color: #56655e; line-height: 1.6">
+          Depth comes from a 1px border and a change of surface, never from a blur.
+          A shadow is admitted only as a ring — zero offset, zero blur — for focus
+          and for the live pulse.
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #55625b; line-height: 1.7">
+        <div>radius ≠ 0/50%/999px: <b style="color:#097547">0</b></div>
+        <div>box-shadow: none: <b>15</b></div>
+        <div>rings kept: <b>5</b></div>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; padding: 22px 24px; display: grid; grid-template-columns: 26px 1fr 190px; gap: 20px; align-items: start">
+      <div style="font-size: 19px; color: #55625b">2</div>
+      <div style="display: flex; flex-direction: column; gap: 7px">
+        <div style="font-size: 16px; font-weight: 500">Hierarchy by size, never by faux weight.</div>
+        <div style="font-size: 13px; color: #56655e; line-height: 1.6">
+          Geist Mono is vendored with a 400–500 axis. Asking it for 600 does not
+          select a heavier cut — the browser strokes the glyph, and 600 and 700
+          render identically. That is a declaration the font cannot honour.
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #55625b; line-height: 1.7">
+        <div>ink px, mono 32px</div>
+        <div>400 <b>1473</b> · 500 <b>1598</b></div>
+        <div>600 <b style="color:#c43030">1926</b> · 700 <b style="color:#c43030">1926</b></div>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; padding: 22px 24px; display: grid; grid-template-columns: 26px 1fr 190px; gap: 20px; align-items: start">
+      <div style="font-size: 19px; color: #55625b">3</div>
+      <div style="display: flex; flex-direction: column; gap: 7px">
+        <div style="font-size: 16px; font-weight: 500">One token, one job.</div>
+        <div style="font-size: 13px; color: #56655e; line-height: 1.6">
+          A colour that is both a bed and an ink cannot be correct as both.
+          <code style="background:#f0f3f1;padding:1px 5px">--accent</code> was asked to be
+          readable text on 23 rules and a surface under light text on 13.
+          Every such name is split, and the ink half is named for the bed it sits on.
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #55625b; line-height: 1.7">
+        <div>accent / accent-text</div>
+        <div>status-review / …-text</div>
+        <div>on-solid · on-accent · on-status</div>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; padding: 22px 24px; display: grid; grid-template-columns: 26px 1fr 190px; gap: 20px; align-items: start">
+      <div style="font-size: 19px; color: #55625b">4</div>
+      <div style="display: flex; flex-direction: column; gap: 7px">
+        <div style="font-size: 16px; font-weight: 500">Every text pair clears WCAG AA, measured on the pixel.</div>
+        <div style="font-size: 13px; color: #56655e; line-height: 1.6">
+          Not on declared token pairs — on the rendered element, against the
+          background actually painted behind it. Six controls once rendered
+          white-on-white at 1.00:1 while the token audit passed, because the
+          colour that was wrong had never been declared.
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #55625b; line-height: 1.7">
+        <div>floor <b>4.5</b> · large <b>3.0</b></div>
+        <div>panels × themes: <b>11 × 2</b></div>
+        <div>known below AA: <b style="color:#097547">0</b></div>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; padding: 22px 24px; display: grid; grid-template-columns: 26px 1fr 190px; gap: 20px; align-items: start">
+      <div style="font-size: 19px; color: #55625b">5</div>
+      <div style="display: flex; flex-direction: column; gap: 7px">
+        <div style="font-size: 16px; font-weight: 500">A rule with no guard is a preference.</div>
+        <div style="font-size: 13px; color: #56655e; line-height: 1.6">
+          Each constraint above is held by a test that fails the build. Where a
+          debt is accepted it is named with the task that owns it, in a list that
+          may only shrink — never a comment saying it was deliberate.
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #55625b; line-height: 1.7">
+        <div>see <b>Guards</b> artboard</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top: 28px; font-size: 12px; color: #55625b; line-height: 1.65; max-width: 74ch">
+    This canvas is drawn under its own rules: zero radius, no shadow, one mono
+    family, hierarchy by size, and every pair on it above 4.5:1.
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

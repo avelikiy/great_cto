@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap');
+    body { margin: 0; font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+    a { color: #097547; } a:hover { color: #04140d; }
+  </style>
+</helmet>
+<div style="background: #eef2f0; color: #0d1a14; padding: 52px 56px; min-height: 100%; box-sizing: border-box">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 32px">
+    <div style="font-size: 11px; letter-spacing: 0.08em; color: #55625b; text-transform: uppercase">Direction ① · 3</div>
+    <div style="font-size: 22px; font-weight: 500; letter-spacing: -0.015em">Twelve steps, and a ceiling on weight</div>
+    <div style="font-size: 13px; color: #56655e; max-width: 68ch; line-height: 1.55">
+      A size off this ladder fails the type-scale guard. Emphasis is a step up the
+      ladder, not a heavier cut — the mono axis has nowhere to go.
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 320px; gap: 34px; align-items: start">
+
+    <div style="border: 1px solid rgba(0,0,0,0.10); background: #ffffff">
+      <div style="display: grid; grid-template-columns: 128px 62px 1fr; gap: 0">
+        <div style="padding: 11px 18px; font-size: 11px; color: #55625b; border-bottom: 1px solid rgba(0,0,0,0.10)">token</div>
+        <div style="padding: 11px 8px; font-size: 11px; color: #55625b; border-bottom: 1px solid rgba(0,0,0,0.10)">px</div>
+        <div style="padding: 11px 18px; font-size: 11px; color: #55625b; border-bottom: 1px solid rgba(0,0,0,0.10)">where it earns its place</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-eyebrow</div>
+        <div style="padding: 9px 8px; font-size: 12px">11</div>
+        <div style="padding: 9px 18px; font-size: 11px; letter-spacing: 0.06em; color: #55625b; text-transform: uppercase">SECTION LABEL</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-caption</div>
+        <div style="padding: 9px 8px; font-size: 12px">12</div>
+        <div style="padding: 9px 18px; font-size: 12px; color: #56655e">meta, chips, the age column</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-small</div>
+        <div style="padding: 9px 8px; font-size: 12px">13</div>
+        <div style="padding: 9px 18px; font-size: 13px; color: #56655e">secondary body</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-body</div>
+        <div style="padding: 9px 8px; font-size: 12px">14</div>
+        <div style="padding: 9px 18px; font-size: 14px">the default — task titles, prose</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-base</div>
+        <div style="padding: 9px 8px; font-size: 12px">15</div>
+        <div style="padding: 9px 18px; font-size: 15px">emphasised row</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-title-s</div>
+        <div style="padding: 9px 8px; font-size: 12px">16</div>
+        <div style="padding: 9px 18px; font-size: 16px; font-weight: 500">brand, card heading</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-title-m</div>
+        <div style="padding: 9px 8px; font-size: 12px">19</div>
+        <div style="padding: 9px 18px; font-size: 19px; font-weight: 500">panel heading</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-title-l</div>
+        <div style="padding: 9px 8px; font-size: 12px">22</div>
+        <div style="padding: 9px 18px; font-size: 22px; font-weight: 500">section title</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-num-s</div>
+        <div style="padding: 9px 8px; font-size: 12px">24</div>
+        <div style="padding: 9px 18px; font-size: 24px">1,284</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-num-m</div>
+        <div style="padding: 9px 8px; font-size: 12px">30</div>
+        <div style="padding: 9px 18px; font-size: 30px">$3.40</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-num-l</div>
+        <div style="padding: 9px 8px; font-size: 12px">36</div>
+        <div style="padding: 9px 18px; font-size: 36px">70</div>
+
+        <div style="padding: 9px 18px; font-size: 12px; color: #55625b">--fs-num-xl</div>
+        <div style="padding: 9px 8px; font-size: 12px">52</div>
+        <div style="padding: 9px 18px; font-size: 52px; line-height: 1.05">0</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 20px">
+      <div style="border: 1px solid rgba(0,0,0,0.10); background: #ffffff; padding: 18px 20px">
+        <div style="font-size: 13px; font-weight: 500; margin-bottom: 12px">Weight ceiling, per family</div>
+        <div style="display: flex; flex-direction: column; gap: 13px">
+          <div>
+            <div style="font-size: 12px; color: #55625b; margin-bottom: 5px">Geist Mono — axis 400–500</div>
+            <div style="display: flex; gap: 7px; align-items: baseline">
+              <span style="font-size: 15px; font-weight: 400">400</span>
+              <span style="font-size: 15px; font-weight: 500">500</span>
+              <span style="font-size: 15px; font-weight: 500; color: #c43030; text-decoration: line-through">600</span>
+              <span style="font-size: 15px; font-weight: 500; color: #c43030; text-decoration: line-through">700</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: #55625b; margin-bottom: 5px">Geist — axis 400–700</div>
+            <div style="display: flex; gap: 7px; align-items: baseline; font-family: system-ui, sans-serif">
+              <span style="font-size: 15px; font-weight: 400">400</span>
+              <span style="font-size: 15px; font-weight: 500">500</span>
+              <span style="font-size: 15px; font-weight: 600">600</span>
+              <span style="font-size: 15px; font-weight: 700">700</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border: 1px solid rgba(0,0,0,0.10); background: #ffffff; padding: 18px 20px">
+        <div style="font-size: 13px; font-weight: 500; margin-bottom: 10px">How the ceiling was found</div>
+        <div style="font-size: 12px; color: #56655e; line-height: 1.65">
+          Ink pixels rendered at 32px. A real axis moves with the number; a
+          synthetic stroke saturates — which is why 600 and 700 are the same
+          value, and why 600 is not available even though it renders.
+        </div>
+        <div style="margin-top: 12px; font-size: 12px; line-height: 1.8; color: #55625b">
+          <div>mono &nbsp;400 <b style="color:#0d1a14">1473</b> &nbsp;500 <b style="color:#0d1a14">1598</b></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;600 <b style="color:#c43030">1926</b> &nbsp;700 <b style="color:#c43030">1926</b></div>
+          <div style="margin-top: 5px">sans &nbsp;400 <b style="color:#0d1a14">1357</b> &nbsp;500 <b style="color:#0d1a14">1538</b></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;600 <b style="color:#0d1a14">1689</b> &nbsp;700 <b style="color:#0d1a14">1846</b></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

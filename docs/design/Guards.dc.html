@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap');
+    body { margin: 0; font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+    a { color: #097547; } a:hover { color: #04140d; }
+  </style>
+</helmet>
+<div style="background: #eef2f0; color: #0d1a14; padding: 52px 56px; min-height: 100%; box-sizing: border-box">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 32px">
+    <div style="font-size: 11px; letter-spacing: 0.08em; color: #55625b; text-transform: uppercase">Direction ① · 5</div>
+    <div style="font-size: 22px; font-weight: 500; letter-spacing: -0.015em">What holds it when nobody is looking</div>
+    <div style="font-size: 13px; color: #56655e; max-width: 70ch; line-height: 1.55">
+      Four guards, each bought by a defect that shipped. Each fails the build —
+      none of them warns.
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 1px; background: rgba(0,0,0,0.10); border: 1px solid rgba(0,0,0,0.10)">
+
+    <div style="background: #ffffff; padding: 20px 22px; display: grid; grid-template-columns: 230px 1fr; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 13px; font-weight: 500">contrast</div>
+        <div style="font-size: 11px; color: #55625b">every declared token pair,<br>every theme</div>
+      </div>
+      <div style="font-size: 12px; color: #56655e; line-height: 1.65">
+        A stylesheet used <code style="background:#f0f3f1;padding:1px 4px">--muted</code> in 61 places and
+        declared it in none; the densest block on the page rendered at 2.62:1 and a
+        person found it months later. Reads both themes — the light one went
+        unchecked for months because the audit read only <code style="background:#f0f3f1;padding:1px 4px">:root</code>.
+        <div style="margin-top: 7px; color: #55625b">Also: a comment naming a token is not a declaration of it — prose about
+        <code style="background:#f0f3f1;padding:1px 4px">--bg-strong</code> once became its value.</div>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; padding: 20px 22px; display: grid; grid-template-columns: 230px 1fr; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 13px; font-weight: 500">rendered-contrast</div>
+        <div style="font-size: 11px; color: #55625b">the pixel, not the token —<br>11 panels × 2 themes</div>
+      </div>
+      <div style="font-size: 12px; color: #56655e; line-height: 1.65">
+        The token audit has a blind spot the shape of a button: an element whose
+        background comes from a token and whose colour comes from nowhere. Six
+        controls rendered white-on-white at 1.00:1 while every declared pair was
+        correct.
+        <div style="margin-top: 7px; color: #55625b">It also caught the third faux-bold element, which measuring the live board
+        had missed — that headline's text depends on the data.</div>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; padding: 20px 22px; display: grid; grid-template-columns: 230px 1fr; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 13px; font-weight: 500">css-type-scale</div>
+        <div style="font-size: 11px; color: #55625b">every size on the ladder,<br>or excused by name</div>
+      </div>
+      <div style="font-size: 12px; color: #56655e; line-height: 1.65">
+        90 font-size declarations, all on the 14-step scale or on a named
+        exception list. An exception needs a name, so drift cannot arrive as
+        "just this once".
+      </div>
+    </div>
+
+    <div style="background: #ffffff; padding: 20px 22px; display: grid; grid-template-columns: 230px 1fr; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 13px; font-weight: 500">css-unused-selectors</div>
+        <div style="font-size: 11px; color: #55625b">does anything have<br>this class?</div>
+      </div>
+      <div style="font-size: 12px; color: #56655e; line-height: 1.65">
+        The question the other three never ask. 281 rules for classes no page
+        rendered — 36% of a stylesheet — and eleven of fifteen contrast findings
+        in that file were phantoms for those classes.
+        <div style="margin-top: 7px; color: #55625b">Three states: rendered / mentioned-in-code / unused. Only the last is a
+        finding, because <code style="background:#f0f3f1;padding:1px 4px">classList.add()</code> is invisible to a grep of markup.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top: 26px; border: 1px solid rgba(0,0,0,0.10); background: #ffffff; padding: 20px 22px">
+    <div style="font-size: 13px; font-weight: 500; margin-bottom: 9px">When a rule is broken on purpose</div>
+    <div style="font-size: 12px; color: #56655e; line-height: 1.68; max-width: 88ch">
+      It goes on a named list with the task that owns it — never into a comment
+      saying it was deliberate. The list may only shrink, and the guard names
+      every entry that stopped occurring so the tightening actually happens
+      rather than waiting for someone to check by hand.
+      <span style="color: #097547">The board's list is currently empty.</span>
+    </div>
+    <div style="margin-top: 13px; font-size: 11px; color: #55625b; line-height: 1.7">
+      One entry stays that is not a debt: <code style="background:#f0f3f1;padding:1px 4px">.t-title</code> measures 3.12:1 against
+      the page and 5.98:1 against the terminal bar it actually sits on. An audit
+      that reads one rule at a time cannot see the second number — so the reason
+      is written beside the rule, or someone will "fix" a colour that is right.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

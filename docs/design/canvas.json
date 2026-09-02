@@ -1,0 +1,14 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",       "x": 0,    "y": 0,    "w": 900, "h": 900 },
+    { "file": "Tokens.dc.html",     "x": 1000, "y": 0,    "w": 980, "h": 900 },
+    { "file": "Scale.dc.html",      "x": 0,    "y": 1030, "w": 980, "h": 940 },
+    { "file": "Components.dc.html", "x": 1080, "y": 1030, "w": 980, "h": 1180 },
+    { "file": "Guards.dc.html",     "x": 0,    "y": 2100, "w": 980, "h": 900 }
+  ],
+  "annotations": [
+    { "id": "provenance", "x": 0, "y": -150, "w": 420,
+      "text": "Every number here was measured on the rendered page, not chosen.\nContrast: scripts/lib/contrast.mjs\nWeights: ink pixels at 32px in a canvas\nCounts: greps over the shipped index.html" }
+  ],
+  "launch": { "view": "canvas" }
+}

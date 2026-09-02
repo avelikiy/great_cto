@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap');
+    body { margin: 0; font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+    a { color: #097547; } a:hover { color: #04140d; }
+  </style>
+</helmet>
+<div style="background: #eef2f0; color: #0d1a14; padding: 52px 56px; min-height: 100%; box-sizing: border-box">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 34px">
+    <div style="font-size: 11px; letter-spacing: 0.08em; color: #55625b; text-transform: uppercase">Direction ① · 2</div>
+    <div style="font-size: 22px; font-weight: 500; letter-spacing: -0.015em">Colour, and what it measures</div>
+    <div style="font-size: 13px; color: #56655e; max-width: 68ch; line-height: 1.55">
+      Ratios are against the surface each ink is used on. A pair is listed only
+      where the page actually puts it.
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px">
+
+    <div style="display: flex; flex-direction: column; gap: 0">
+      <div style="font-size: 12px; color: #55625b; margin-bottom: 10px; letter-spacing: 0.04em">DARK — the default</div>
+      <div style="border: 1px solid rgba(0,0,0,0.10)">
+        <div style="background: #0a0e0c; padding: 18px 20px; display: flex; flex-direction: column; gap: 11px">
+          <div style="color: #ecf2ee; font-size: 15px">--text on --bg-page<span style="float: right; color: #7d8f85">17.12</span></div>
+          <div style="background: #11161a; padding: 13px 15px; display: flex; flex-direction: column; gap: 9px">
+            <div style="color: #ecf2ee; font-size: 14px">--text on --bg-card<span style="float: right; color: #7d8f85">16.04</span></div>
+            <div style="color: #8a9a92; font-size: 13px">--text2<span style="float: right">8.23</span></div>
+            <div style="color: #848f88; font-size: 13px">--text3<span style="float: right">5.32</span></div>
+            <div style="color: #00d97e; font-size: 13px">--accent-text<span style="float: right">9.73</span></div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center">
+            <div style="background: #00d97e; color: #04140d; font-size: 12px; padding: 6px 11px">--on-accent 10.10</div>
+            <div style="background: #0f1115; color: #fff; font-size: 12px; padding: 6px 11px; border: 1px solid rgba(255,255,255,0.12)">--on-solid 18.90</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: #55625b; margin-top: 9px; line-height: 1.6">
+        --text3 #848f88 is the widest step this five-surface ladder allows; a
+        third distinct ink step does not fit above it.
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 0">
+      <div style="font-size: 12px; color: #55625b; margin-bottom: 10px; letter-spacing: 0.04em">LIGHT — 39 token overrides</div>
+      <div style="border: 1px solid rgba(0,0,0,0.10)">
+        <div style="background: #eef2f0; padding: 18px 20px; display: flex; flex-direction: column; gap: 11px">
+          <div style="color: #0d1a14; font-size: 15px">--text on --bg-page<span style="float: right; color: #55625b">15.83</span></div>
+          <div style="background: #ffffff; padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; border: 1px solid rgba(0,0,0,0.10)">
+            <div style="color: #0d1a14; font-size: 14px">--text on --bg-card<span style="float: right; color: #55625b">17.87</span></div>
+            <div style="color: #56655e; font-size: 13px">--text2<span style="float: right">6.14</span></div>
+            <div style="color: #55625b; font-size: 13px">--text3<span style="float: right">6.39</span></div>
+            <div style="color: #097547; font-size: 13px">--accent-text<span style="float: right">5.76</span></div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center">
+            <div style="background: #009657; color: #04140d; font-size: 12px; padding: 6px 11px">--on-accent 4.95</div>
+            <div style="background: #0f1115; color: #fff; font-size: 12px; padding: 6px 11px">--on-solid 18.90</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: #55625b; margin-top: 9px; line-height: 1.6">
+        This theme went unchecked for months: the audit read <code style="background:#f0f3f1;padding:1px 4px">:root</code>
+        and nothing else. --accent measured 1.51:1 against a 3:1 floor when it
+        was finally read.
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top: 30px; border: 1px solid rgba(0,0,0,0.10); background: #ffffff">
+    <div style="padding: 15px 20px; font-size: 13px; font-weight: 500; border-bottom: 1px solid rgba(0,0,0,0.10)">The split, and why each half exists</div>
+    <div style="display: grid; grid-template-columns: 168px 1fr 116px; gap: 0">
+      <div style="padding: 12px 20px; font-size: 12px; color: #55625b; border-bottom: 1px solid rgba(0,0,0,0.06)">--accent</div>
+      <div style="padding: 12px 16px; font-size: 12px; color: #56655e; border-bottom: 1px solid rgba(0,0,0,0.06)">a bed: chip fills, bars, the active pill</div>
+      <div style="padding: 12px 20px; font-size: 12px; border-bottom: 1px solid rgba(0,0,0,0.06)">13 rules</div>
+
+      <div style="padding: 12px 20px; font-size: 12px; color: #55625b; border-bottom: 1px solid rgba(0,0,0,0.06)">--accent-text</div>
+      <div style="padding: 12px 16px; font-size: 12px; color: #56655e; border-bottom: 1px solid rgba(0,0,0,0.06)">an ink: links, names, the ✓ mark — 3.17:1 before the split</div>
+      <div style="padding: 12px 20px; font-size: 12px; border-bottom: 1px solid rgba(0,0,0,0.06)">23 rules</div>
+
+      <div style="padding: 12px 20px; font-size: 12px; color: #55625b; border-bottom: 1px solid rgba(0,0,0,0.06)">--on-accent</div>
+      <div style="padding: 12px 16px; font-size: 12px; color: #56655e; border-bottom: 1px solid rgba(0,0,0,0.06)">ink ON the green — white measures 1.87 dark, 3.82 light</div>
+      <div style="padding: 12px 20px; font-size: 12px; border-bottom: 1px solid rgba(0,0,0,0.06)">5 rules</div>
+
+      <div style="padding: 12px 20px; font-size: 12px; color: #55625b">--on-status</div>
+      <div style="padding: 12px 16px; font-size: 12px; color: #56655e">ink on the status colours — and it flips per theme, because they do</div>
+      <div style="padding: 12px 20px; font-size: 12px">3 rules</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
