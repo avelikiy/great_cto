@@ -10,7 +10,7 @@ great_cto uses [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-cod
 | `SessionEnd` | — | `session-end.mjs` | Writes session snapshot to `.great_cto/logs/` |
 | `PreToolUse` | `Bash` | inline | Blocks dangerous bash (rm -rf, force push, DROP TABLE, etc.) |
 | `PreToolUse` | `Edit\|Write\|MultiEdit` | `secret-scan.mjs` | Blocks writes containing hardcoded API keys |
-| `PostToolUse` | `Write\|Edit\|MultiEdit` | inline + `format-check.mjs` | Logs writes + auto-formats by extension |
+| `PostToolUse` | `Write\|Edit\|MultiEdit` | inline + `format-check.mjs` + `docs-reference-sync.mjs` | Logs writes + auto-formats by extension + regenerates `docs/reference/` |
 | `UserPromptSubmit` | — | `user-prompt-submit.py` + `cost-guard.mjs` | Sets session title + warns on expensive prompts |
 | `UserPromptSubmit` | — | `classify-telemetry.mjs` **(opt-in)** | Records request-class metadata to a local log — off unless `GREAT_CTO_CLASS_TELEMETRY=1` |
 | `PreCompact` | — | inline | Saves HANDOFF.md before context compaction |
@@ -83,6 +83,30 @@ Failures are logged to `.great_cto/format.log`, never block.
 **Opt-out:**
 ```bash
 export GREAT_CTO_DISABLE_FORMAT=1
+```
+
+### `docs-reference-sync.mjs`
+
+After `Edit`/`Write`/`MultiEdit`, regenerates `docs/reference/` when the edited
+file is one the reference is derived from.
+
+`ci-local` has a `docs-reference in sync` gate and it works — it caught a stale
+page twice in one session, once after editing a command and once after editing an
+agent. The gate is not the problem. The problem is that its feedback arrives
+minutes later, on finished work, about a file nobody edited by hand; that shape
+is what teaches people to reach for `--no-verify`. This moves the feedback to the
+write and leaves the gate as the last word.
+
+Which files count is **not** listed in the hook. `GROUPS` in
+`scripts/lib/system-map.mjs` is what the generator actually reads, so the hook
+asks it — a group added there is watched here automatically, and a test asserts
+that for every directory and extension `GROUPS` names.
+
+Failures are logged to `.great_cto/docs-sync.log`, never block.
+
+**Opt-out:**
+```bash
+export GREAT_CTO_DISABLE_DOCS_SYNC=1
 ```
 
 ### `cost-guard.mjs`

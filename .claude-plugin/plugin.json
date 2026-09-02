@@ -198,6 +198,12 @@
           {
             "type": "command",
             "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/lesson-rules-check.mjs\" 2>/dev/null; true"
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); node \"${PLUGIN_DIR}/scripts/hooks/docs-reference-sync.mjs\" 2>/dev/null; true",
+            "timeout": 25,
+            "async": true
           }
         ]
       },
