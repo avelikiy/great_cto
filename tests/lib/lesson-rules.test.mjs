@@ -299,3 +299,29 @@ try { e(); } catch { }
   assert.equal(pairs[0].binding, 'e');
   assert.equal(pairs[1].binding, null);
 });
+
+test('the success claim must be in the SAME function, not the next one', () => {
+  // packages/cli/src/detect.ts: a loop that skips unreadable files, followed by
+  // an unrelated helper whose `return true` is about something else entirely.
+  // A fixed look-ahead window walked out of one function and into the next and
+  // read that as this try's success claim.
+  const f = js(`
+function collectRegions(tfFiles) {
+  for (const p of tfFiles) {
+    try {
+      const txt = readFileSync(p, 'utf-8').slice(0, 50000);
+      for (const [re, kw] of regionPatterns) {
+        if (re.test(txt)) kws.add(kw);
+      }
+    } catch { /* skip */ }
+  }
+  return Array.from(kws).sort();
+}
+
+function safeGlob(dir, pattern) {
+  if (pattern.test(dir)) return true;
+  return false;
+}`);
+  assert.ok(!ids(f).includes('work-in-try-success-after'),
+    'the `return true` belongs to safeGlob, not to the loop above it');
+});

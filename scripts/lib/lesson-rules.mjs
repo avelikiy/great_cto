@@ -263,7 +263,15 @@ export const RULES = [
         // And the caller must then be told it worked. Look at what follows the
         // catch, up to the end of the enclosing function — a literal success, or
         // a bare `return` that yields undefined where a value was promised.
-        const after = src.slice(p.endIndex, p.endIndex + 900);
+        // Stop at the end of the enclosing function. A fixed window walked out
+        // of one function and into the next, where an unrelated `return true`
+        // (safeGlob, in packages/cli/src/detect.ts) read as this try's success
+        // claim. A closing brace in the first column ends a top-level function,
+        // and a new declaration starts one; either way, what follows belongs to
+        // somebody else.
+        const rawAfter = src.slice(p.endIndex, p.endIndex + 900);
+        const boundary = rawAfter.search(/\n\}|\n(?:export\s+)?(?:async\s+)?function\s|\n(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?\(/);
+        const after = boundary === -1 ? rawAfter : rawAfter.slice(0, boundary);
         const announcesSuccess =
           /return\s*\{[^}]*\b(?:ok|success|logged|written|saved)\s*:\s*true/.test(after) ||
           /return\s+true\s*;/.test(after) ||

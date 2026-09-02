@@ -64,7 +64,7 @@ def parse_frontmatter(md_text: str) -> dict[str, Any]:
         if ":" not in line:
             continue
         key, _, value = line.partition(":")
-        data[key.strip()] = value.strip().strip('"\'')
+        data[key.strip()] = value.strip().strip("\"'")
     return data
 
 
@@ -78,7 +78,14 @@ def check_plugin_json(errors: list[str]) -> dict[str, Any] | None:
     except json.JSONDecodeError as e:
         errors.append(f"plugin.json invalid JSON: {e}")
         return None
-    for required in ("name", "id", "version", "hooks"):
+    # `id` is deliberately not required. Anthropic's own `claude plugin validate`
+    # reports it as belonging in the marketplace entry, not here: "harmless but
+    # unused — Claude Code ignores it at load time". It was dropped from the
+    # manifest when this plugin was submitted to the plugin directory, and this
+    # check then failed the local gate for the absence of a field the platform
+    # says should be absent. Two validators disagreeing is fine; the one that
+    # owns the format wins.
+    for required in ("name", "version", "hooks"):
         if required not in data:
             errors.append(f"plugin.json missing key: {required}")
     version = str(data.get("version", ""))

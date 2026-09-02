@@ -1055,6 +1055,13 @@ async function dispatch(req, res, url, cwd) {
     try {
       const lines = fs.readFileSync(interactionsFile, 'utf8').split('\n').filter(Boolean);
       const events = [];
+      // A row we could not parse is dropped — that is right, one bad line is
+      // not evidence — but it was dropped SILENTLY, so a short history and a
+      // complete one looked identical. Count them and send the count: the
+      // client can then say "3 rows unreadable" instead of quietly showing less
+      // than happened. Same rule as routes.mjs:661 one screen up, which does
+      // report what it skipped.
+      let unreadableRows = 0;
       for (const line of lines) {
         try {
           const obj = JSON.parse(line);
@@ -1068,10 +1075,10 @@ async function dispatch(req, res, url, cwd) {
               notes: obj.notes || null,
             });
           }
-        } catch {}
+        } catch { unreadableRows++; }
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ events }));
+      res.end(JSON.stringify({ events, unreadable_rows: unreadableRows }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(e.message || e) }));
@@ -1497,6 +1504,8 @@ async function dispatch(req, res, url, cwd) {
     let budgetsDeprecatedKey = null;
     const budgetsMalformed = [];
     let goalAncestry = null;
+    let budgetsRead = true;
+    let budgetsWhy = null;
     try {
       const projectTxt = fs.readFileSync(projectMdPath, 'utf8');
       // One parser, in scripts/lib/agent-budget.mjs — the same one the pipeline
@@ -1514,15 +1523,30 @@ async function dispatch(req, res, url, cwd) {
       const phase = (projectTxt.match(/^phase:\s*(\S+)/m) || [])[1] || null;
       const complianceClean = compliance && !/^\[?none\]?$/i.test(compliance.trim()) ? compliance.trim() : null;
       if (archetype) goalAncestry = `[archetype:${archetype}]${complianceClean ? ` [compliance:${complianceClean}]` : ''}${phase ? ` [phase:${phase}]` : ''}`;
-    } catch { /* project not found */ }
+      budgetsRead = true;
+    } catch (err) {
+      // "No PROJECT.md" and "PROJECT.md is there and we could not read it" are
+      // different answers, and budgets={} renders as "no caps set" for both. A
+      // cap its author believes they have, silently not shown, is the same
+      // defect the caps exist to prevent — so say which happened.
+      budgetsRead = false;
+      budgetsWhy = err?.code === 'ENOENT' ? 'no PROJECT.md' : String(err?.message || err);
+    }
 
     // Tool failure rate in last hour
     let toolFailureRate1h = 0;
+    let failuresMeasured = true;
+    let failuresWhy = null;
     try {
       const failLog = fs.readFileSync(path.join(cwd, '.great_cto', 'tool-failures.log'), 'utf8');
       const cutoff = new Date(nowMs - 3600000).toISOString();
       toolFailureRate1h = failLog.split('\n').filter(l => l > cutoff && l.trim()).length;
-    } catch { /* no log */ }
+    } catch (err) {
+      // Zero failures and an unreadable log render identically, and the
+      // reassuring one is what the operator would see.
+      failuresMeasured = false;
+      failuresWhy = err?.code === 'ENOENT' ? 'no tool-failures.log' : String(err?.message || err);
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     // `budgets_deprecated_key` and `budgets_malformed` travel with the caps.
@@ -1533,6 +1557,12 @@ async function dispatch(req, res, url, cwd) {
       stuck, budgets, goal_ancestry: goalAncestry, tool_failure_rate_1h: toolFailureRate1h,
       budgets_deprecated_key: budgetsDeprecatedKey,
       budgets_malformed: budgetsMalformed,
+      // Three states, not two: read / absent / unreadable. Without these, a
+      // failed read is indistinguishable from an empty result on the client.
+      budgets_read: budgetsRead,
+      budgets_why: budgetsWhy,
+      tool_failures_measured: failuresMeasured,
+      tool_failures_why: failuresWhy,
     }));
     return true;
   }
