@@ -941,8 +941,27 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
   let stdout = '';
   proc.stdout.on('data', (b) => { stdout += b.toString(); });
   proc.stderr.on('data', (b) => { stdout += b.toString(); });
+  // 'close' fires after BOTH the process exited and its stdio streams were
+  // fully drained. 'exit'/exitCode alone would race: this CLI prints the URL and
+  // then returns (the server keeps running as a detached grandchild), so exitCode
+  // goes non-null while the line may still be sitting in the pipe unread.
+  let closed = false;
+  proc.on('close', () => { closed = true; });
   try {
-    await new Promise((r) => setTimeout(r, 2500));
+    // Poll for the port to appear, do not sleep a fixed 2500ms and hope. This
+    // file runs under `node --test`, which runs test FILES in parallel; on a
+    // loaded machine several of them spawn a board at once and a bind that
+    // normally takes ~300ms can take seconds. A fixed wait turns that into a
+    // failing assertion on code that is fine — and ci-local is a blocking gate,
+    // so a gate that fails at random on good work teaches --no-verify, which is
+    // the thing the gate exists to prevent. Waiting for the signal instead of
+    // for the clock is also FASTER in the common case: it returns as soon as
+    // the line appears rather than always paying the full budget.
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline && !/:4455/.test(stdout)) {
+      if (closed) break;   // output is drained and finished — waiting longer adds nothing
+      await new Promise((r) => setTimeout(r, 100));
+    }
     assert.match(stdout, /:4455/, `--port=4455 should bind to 4455, got: ${stdout.slice(0, 200)}`);
   } finally {
     // Group-kill reaps the spawned server (grandchild) so no fds linger past
