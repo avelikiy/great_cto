@@ -8,7 +8,7 @@
 // trusts gets worked around, and a worked-around guard protects nothing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { runRules, catchBlocks, RULES, brief } from '../../scripts/lib/lesson-rules.mjs';
+import { runRules, catchBlocks, tryCatchPairs, RULES, brief } from '../../scripts/lib/lesson-rules.mjs';
 
 const js = (text) => runRules(text, 'x.mjs');
 const ids = (findings) => findings.map((f) => f.rule);
@@ -184,4 +184,118 @@ test('the brief tells the agent to fix it now, with file:line', () => {
   assert.match(b, /scripts\/lib\/x\.mjs:\d+/);
   assert.match(b, /Fix these now/);
   assert.equal(brief([], 'x.mjs'), null, 'no findings, no noise');
+});
+
+// ── work-in-try-success-after ───────────────────────────────────────────────
+//
+// The gate-approve decision-log bug (2026-09-01) was invisible to silent-catch
+// twice over: the catch carried `/* best-effort */`, which exempts, AND the
+// catch was empty, so the statement count never applied either. silent-catch
+// counts the CATCH; this shape puts the work in the TRY and leaves the catch
+// with nothing to count.
+
+test('work in the try, an empty catch, and success announced after — the gate-approve shape', () => {
+  const f = js(`
+async function approve(id, action, reason) {
+  let via = 'beads';
+  try {
+    appendDecisionLog({
+      ts: new Date().toISOString(),
+      project: projectSlug,
+      action, id, title,
+      reason: reason || '',
+    });
+  } catch { /* best-effort */ }
+  return { ok: true, via };
+}`);
+  assert.ok(ids(f).includes('work-in-try-success-after'),
+    'the write may not have happened and the caller is told it did');
+});
+
+test('a flag that travels out with the answer is reporting, not swallowing', () => {
+  // The honest form of the same shape, live in routes.mjs: the 200 is truthful
+  // because the body carries `measured: false`. Flagging this would teach people
+  // to delete the flag — the opposite of the lesson.
+  const f = js(`
+function handler() {
+  let historyRead = false;
+  try {
+    const rows = load(histPath);
+    for (const r of rows) parse(r);
+    normalise(rows);
+    historyRead = true;
+  } catch { /* reported below as unmeasured */ }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ measured: historyRead, rows }));
+  return true;
+}`);
+  assert.ok(!ids(f).includes('work-in-try-success-after'));
+});
+
+test('returning what actually happened clears it', () => {
+  // The fix that shipped: the catch records the failure and the caller gets it.
+  const f = js(`
+async function approve(id) {
+  let decision;
+  try {
+    appendDecisionLog({ ts: now(), project: p, action: a, id, title: t });
+    decision = { logged: true };
+  } catch (err) {
+    log.warn('approve landed but was not logged: ' + err.message);
+    decision = { logged: false, why: String(err.message) };
+  }
+  return { ok: true, decision };
+}`);
+  assert.ok(!ids(f).includes('work-in-try-success-after'));
+});
+
+test('a short probe is not work in the dark', () => {
+  // Two statements is a probe, which is this codebase's accepted shape — the
+  // same line silent-catch draws, for the same reason.
+  const f = js(`
+function readMaybe(p) {
+  try {
+    const raw = readFileSync(p, 'utf8');
+    return JSON.parse(raw);
+  } catch { /* absent */ }
+  return true;
+}`);
+  assert.ok(!ids(f).includes('work-in-try-success-after'));
+});
+
+test('a rethrowing catch is not silent — the caller still learns', () => {
+  const f = js(`
+function f() {
+  try {
+    const a = one();
+    const b = two(a);
+    three(b);
+  } catch (e) { throw e; }
+  return { ok: true };
+}`);
+  assert.ok(!ids(f).includes('work-in-try-success-after'));
+});
+
+test('no success claim afterwards, no finding — the shape needs both halves', () => {
+  const f = js(`
+function f() {
+  try {
+    const a = one();
+    const b = two(a);
+    three(b);
+  } catch { }
+  return { ok: false, why: 'unknown' };
+}`);
+  assert.ok(!ids(f).includes('work-in-try-success-after'));
+});
+
+test('tryCatchPairs pairs a try with its own catch, and skips try/finally', () => {
+  const pairs = tryCatchPairs(`
+try { a(); } catch (e) { b(); }
+try { c(); } finally { d(); }
+try { e(); } catch { }
+`);
+  assert.equal(pairs.length, 2, 'try/finally has no catch to pair');
+  assert.equal(pairs[0].binding, 'e');
+  assert.equal(pairs[1].binding, null);
 });

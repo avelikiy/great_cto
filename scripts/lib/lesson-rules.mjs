@@ -67,6 +67,79 @@ export function catchBlocks(text) {
   return out;
 }
 
+/**
+ * `try { … } catch (e?) { … }` pairs, textually.
+ *
+ * catchBlocks reads the catch alone, which is the right frame for a rule about
+ * what a catch does. It is the wrong frame for the shape where the WORK is in
+ * the try and the catch is empty — there is nothing in the catch to count.
+ *
+ * @returns {{binding: string|null, tryBody: string, catchBody: string,
+ *            line: number, endIndex: number}[]}
+ */
+export function tryCatchPairs(text) {
+  const src = String(text ?? '');
+  const out = [];
+  const re = /\btry\s*\{/g;
+  let m;
+  while ((m = re.exec(src))) {
+    // Walk the try block to its closing brace.
+    let i = m.index + m[0].length;
+    const tryStart = i;
+    let depth = 1;
+    while (i < src.length && depth > 0) {
+      const c = src[i];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      i++;
+    }
+    if (depth !== 0) continue;               // unbalanced — not ours to guess at
+    const tryBody = src.slice(tryStart, i - 1);
+
+    // The catch must follow immediately (whitespace only). `try/finally` has none.
+    const rest = src.slice(i);
+    const cm = /^\s*catch\s*(?:\(\s*([A-Za-z_$][\w$]*)\s*\))?\s*\{/.exec(rest);
+    if (!cm) continue;
+    let j = i + cm[0].length;
+    const catchStart = j;
+    depth = 1;
+    while (j < src.length && depth > 0) {
+      const c = src[j];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      j++;
+    }
+    if (depth !== 0) continue;
+
+    out.push({
+      binding: cm[1] ?? null,
+      tryBody,
+      catchBody: src.slice(catchStart, j - 1),
+      line: src.slice(0, m.index).split('\n').length,
+      endIndex: j,
+    });
+  }
+  return out;
+}
+
+/** Statements in a block, ignoring comments and bare control flow. */
+function countStatements(body) {
+  return String(body).split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('//') && !l.startsWith('*') && !l.startsWith('/*'))
+    .filter((l) => !/^[{}()\][;]*$/.test(l))
+    .length;
+}
+
+/** A catch body that is empty, or carries nothing but comments. */
+function isLabelOnlyCatch(body) {
+  const withoutComments = String(body)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '')
+    .trim();
+  return withoutComments === '';
+}
+
 const JS_EXT = /\.(mjs|cjs|js|jsx|ts|tsx)$/;
 
 /**
@@ -144,6 +217,68 @@ export const RULES = [
             why: 'multi-statement recovery that neither uses the error, reports it, nor says why ignoring it is right — this is work done in the dark',
           });
         }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'work-in-try-success-after',
+    lesson: '2026-09-01: /api/gate/:id approve wrote the decision log inside a '
+      + 'try whose catch was `{ /* best-effort */ }`, then returned '
+      + '`{ ok: true }`. When the write failed the gate still landed, the audit '
+      + 'trail silently did not, and the caller was told it had. It read as a '
+      + 'flaky test for weeks. silent-catch could not see it twice over: the '
+      + 'comment exempts, AND the catch was empty so the statement count never '
+      + 'applied — that rule counts the CATCH, and this shape puts the work in '
+      + 'the TRY. Measured before writing this: 214 catch blocks in scripts/ and '
+      + 'packages/ carry a comment and 40 of those are bare labels, so dropping '
+      + 'the comment exemption was never an option — a rule nobody trusts gets '
+      + 'worked around, which is how silent-catch got narrowed in the first place.',
+    appliesTo: (f) => JS_EXT.test(f),
+    check(text) {
+      const findings = [];
+      const src = String(text ?? '');
+      for (const p of tryCatchPairs(src)) {
+        // The work must be substantial. One or two statements is a probe.
+        if (countStatements(p.tryBody) < 3) continue;
+        // The catch must say nothing at all — empty, or comments only.
+        if (!isLabelOnlyCatch(p.catchBody)) continue;
+        // A rethrow inside the try is not swallowed; the caller still learns.
+        if (/\bthrow\b/.test(p.catchBody)) continue;
+
+        // The honest form of this shape, and it must not be flagged: the try
+        // ends by setting a flag, and the flag travels out with the answer.
+        //
+        //   let historyRead = false;
+        //   try { …read…; historyRead = true; } catch { }
+        //   res.end(JSON.stringify({ measured: historyRead, agents }));
+        //
+        // The 200 is truthful because the body carries `measured: false`. That
+        // is reporting the failure, in the same way silent-catch treats a
+        // response as handling. Flagging it would teach people to delete the
+        // flag, which is the opposite of the lesson.
+        const successFlags = [...p.tryBody.matchAll(/([A-Za-z_$][\w$]*)\s*=\s*true\s*;/g)].map((x) => x[1]);
+        if (successFlags.some((v) => new RegExp(`\\b${v}\\b`).test(src.slice(p.endIndex, p.endIndex + 900)))) continue;
+
+        // And the caller must then be told it worked. Look at what follows the
+        // catch, up to the end of the enclosing function — a literal success, or
+        // a bare `return` that yields undefined where a value was promised.
+        const after = src.slice(p.endIndex, p.endIndex + 900);
+        const announcesSuccess =
+          /return\s*\{[^}]*\b(?:ok|success|logged|written|saved)\s*:\s*true/.test(after) ||
+          /return\s+true\s*;/.test(after) ||
+          /\bres\.(?:writeHead\(\s*20\d|statusCode\s*=\s*20\d)/.test(after) ||
+          /\bstatus\s*:\s*['"](?:ok|success|done)['"]/.test(after);
+        if (!announcesSuccess) continue;
+
+        findings.push({
+          line: p.line,
+          excerpt: (p.tryBody.trim().split('\n')[0] || '(empty)').trim().slice(0, 90),
+          why: 'the work is inside the try, the catch says nothing, and the caller '
+            + 'is then told it succeeded — if this throws, the thing did not happen '
+            + 'and nobody is told. Return what actually happened '
+            + '(`{ logged: false, why }`), or let it throw',
+        });
       }
       return findings;
     },
