@@ -58,8 +58,61 @@ test('a colour that cannot be parsed is unknown, never assumed', () => {
     surfaces: ['--bg-page'],
     text: [{ name: '--fg', floor: AA_TEXT }],
   });
-  assert.deepEqual(unknown, ['--fg']);
+  assert.deepEqual(unknown, [{ token: '--fg', state: 'unparseable', value: 'oklch(0.7 0.15 160)' }]);
   assert.equal(results.length, 0, 'an unmeasured token yields no verdict at all');
+});
+
+test('unmeasurable says which kind: never declared, or declared as something that is not a colour', () => {
+  // Both fail closed. The difference is only in what the reader is told, and it
+  // decides where they look: at the declarations, or at the value in front of them.
+  const { unknown } = auditContrast({
+    tokens: { '--bg-page': '#0a0e0c', '--fg': 'prose that is not a colour' },
+    surfaces: ['--bg-page'],
+    text: [{ name: '--fg', floor: AA_TEXT }, { name: '--never-written', floor: AA_TEXT }],
+  });
+  assert.deepEqual(unknown, [
+    { token: '--fg', state: 'unparseable', value: 'prose that is not a colour' },
+    { token: '--never-written', state: 'undeclared' },
+  ]);
+});
+
+test('a comment that names tokens and quotes ratios is not read as a declaration', () => {
+  // The real shape, from this board's own stylesheet: a note about FIND-3 that
+  // mentions --bg-strong and quotes "4.53:1", sitting AFTER the declaration.
+  // `--token : anything ;` matched the sentence, so --bg-strong became "the
+  // darkest surface" and the audit called it unmeasurable — naming a token when
+  // the fault was the prose about it. Shortening the comment made it pass, which
+  // is why this is a test and not a shorter comment.
+  const css = `
+:root {
+  --bg-strong: #1e272c;
+  /* FIND-3. --text3 sits at 4.53:1 on --bg-strong: the darkest surface;
+     --bg-strong: prose that is not a colour; */
+  --text3: #848f88;
+}
+[data-theme="light"] {
+  --bg-strong: #e2e8e4;
+  --text3: #55625b;
+  /* the light ground carries three ink steps, unlike --bg-strong: the dark one;
+     --text3: not this sentence; */
+}`;
+  // readTokens is tested on the raw CSS too, not only through readThemes.
+  // readThemes strips first and hands readTokens clean text, so going through it
+  // alone would leave readTokens' own guard unable to fail — and every other
+  // caller reads raw CSS.
+  const direct = readTokens(css);
+  assert.equal(direct['--bg-strong'], '#1e272c', 'readTokens on raw CSS: the declaration wins');
+  assert.equal(direct['--text3'], '#848f88');
+
+  const themes = readThemes(css);
+  assert.equal(themes.dark['--bg-strong'], '#1e272c', 'dark: the declaration wins, not the sentence');
+  assert.equal(themes.light['--bg-strong'], '#e2e8e4', 'light: same');
+  assert.equal(themes.light['--text3'], '#55625b');
+  for (const [name, t] of Object.entries(themes)) {
+    for (const tok of ['--bg-strong', '--text3']) {
+      assert.ok(parseColor(t[tok]), `${name} ${tok} must still be a colour, got ${JSON.stringify(t[tok])}`);
+    }
+  }
 });
 
 test('the worst surface is the one reported', () => {

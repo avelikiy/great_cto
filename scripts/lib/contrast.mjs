@@ -111,7 +111,7 @@ export function ratio(a, b) {
  * @returns {Record<string, Record<string,string>>}
  */
 export function readThemes(css) {
-  const text = String(css);
+  const text = stripComments(css);
   const base = readTokens(text);
   const themes = { dark: base };
   for (const m of text.matchAll(/\[data-theme=["']?([a-z-]+)["']?\]\s*\{([\s\S]*?)\n\s*\}/gi)) {
@@ -123,8 +123,25 @@ export function readThemes(css) {
 }
 
 /** Pull `--name: value;` pairs out of the first `:root { … }` block. */
+/**
+ * Remove CSS comments, keeping every newline so the brace-matching that follows
+ * still sees the same line structure.
+ *
+ * A comment is prose, and prose in this file talks about tokens by name and
+ * quotes ratios with colons — "--text3 sits at 4.53:1 on --bg-strong: the
+ * darkest surface;". The declaration regex below reads `--token : anything ;`,
+ * which that sentence satisfies exactly, so `--bg-strong` took the value
+ * "the darkest surface" and stopped being a colour. The audit then reported it
+ * as unmeasurable and failed closed — correctly, but naming a token when the
+ * fault was a sentence about it. Shortening the comment "fixed" it, which is
+ * the kind of fix that comes back.
+ */
+export function stripComments(css) {
+  return String(css).replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ''));
+}
+
 export function readTokens(css) {
-  const m = String(css).match(/:root\s*\{([\s\S]*?)\n\s*\}/);
+  const m = stripComments(css).match(/:root\s*\{([\s\S]*?)\n\s*\}/);
   if (!m) return {};
   const out = {};
   for (const [, k, v] of m[1].matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) out[k] = v.trim();
@@ -137,16 +154,33 @@ export function readTokens(css) {
  * @param {string[]} o.surfaces  token names that text sits on
  * @param {Array<{name:string, floor:number}>} o.text  token names that carry text
  * @param {string} o.base        opaque token every translucent colour composites over
- * @returns {{results: object[], failures: object[], unknown: string[]}}
+ * @returns {{results: object[], failures: object[],
+ *            unknown: {token: string, state: 'undeclared'|'unparseable', value?: string}[]}}
  */
 export function auditContrast({ tokens, surfaces, text, base = '--bg-page' }) {
   const unknown = [];
   const baseColor = parseColor(tokens[base]);
-  if (!baseColor) return { results: [], failures: [], unknown: [base] };
+  if (!baseColor) {
+    return { results: [], failures: [], unknown: [tokens[base] === undefined
+      ? { token: base, state: 'undeclared' }
+      : { token: base, state: 'unparseable', value: String(tokens[base]).slice(0, 80) }] };
+  }
 
+  // Two ways to be unmeasurable, and they need different fixes: a token nobody
+  // declared (add it, or stop referring to it) and a token declared as something
+  // that is not a colour (fix the value). Reporting both as "unknown" sent the
+  // last one on a hunt through token declarations for a fault that was in a
+  // comment. Both still fail closed — the distinction is in what you are told,
+  // never in whether it passes.
   const solid = (name) => {
-    const c = parseColor(tokens[name]);
-    if (!c) { unknown.push(name); return null; }
+    const raw = tokens[name];
+    const c = parseColor(raw);
+    if (!c) {
+      unknown.push(raw === undefined
+        ? { token: name, state: 'undeclared' }
+        : { token: name, state: 'unparseable', value: String(raw).slice(0, 80) });
+      return null;
+    }
     return c.a < 1 ? composite(c, baseColor) : c;
   };
 
@@ -162,7 +196,11 @@ export function auditContrast({ tokens, surfaces, text, base = '--bg-page' }) {
     }
     if (worst) results.push({ token: name, floor, ...worst, ok: worst.ratio >= floor });
   }
-  return { results, failures: results.filter((r) => !r.ok), unknown: [...new Set(unknown)] };
+  // Dedupe by token name — a Set of objects would keep every duplicate, since
+  // each `solid()` call builds a fresh one.
+  const seen = new Set();
+  const uniq = unknown.filter((u) => (seen.has(u.token) ? false : seen.add(u.token)));
+  return { results, failures: results.filter((r) => !r.ok), unknown: uniq };
 }
 
 /**
