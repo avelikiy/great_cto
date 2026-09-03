@@ -29,9 +29,10 @@ REPO="${CIRRUS_REPO_FULL_NAME:-${GITHUB_REPOSITORY:-avelikiy/great_cto}}"
 # Deliberately NOT tracked:
 #   awesome-mcp-servers   we bundle an MCP, we are not an MCP server
 #   awesome-ai-agents     that list is for autonomous agents, not frameworks
-# — where `state` is `listed` (we are in it, and falling out
-# is a regression worth an issue) or `pending` (submitted, not accepted yet, so
-# absence is the expected reading and not news).
+#
+# `state` is `listed` (we are in it, and falling out is a regression worth an
+# issue) or `pending` (submitted, not accepted yet, so absence is the expected
+# reading and not news).
 #
 # The third column exists because the first version of this script did not have
 # it and reported "no longer listed" for two lists we had never been in: both
