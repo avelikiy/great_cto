@@ -51,9 +51,23 @@ cells rather than trust that they are there.
 
 1. **Add the project** — app.circleci.com → Projects → `great_cto` → Set Up
    Project → "Fastest" (it finds `.circleci/config.yml` in the repo).
-2. **Apply to the open-source programme** for the macOS credits: up to 400,000
-   credits/month for Linux/Arm/Docker and **30,000 for macOS** on public repos.
-   Without the grant the Linux half still runs; `macos_canary` is what needs it.
+2. **Nothing to apply for.** The credits documentation is explicit: *"Using our
+   Free Plan and keeping your repository public will enable this for you."*
+   400,000 Linux credits/month and 30,000 macOS. An earlier version of this file
+   said to apply to a programme — that came from a marketing page, not the docs.
+
+   The macOS budget is the binding constraint, and it was checked before the
+   first scheduled run rather than when it ran out:
+
+   | | credits/min | monthly budget | what fits |
+   |---|---|---|---|
+   | Linux `medium` | ~10 | 400,000 | 5 cells daily = 22,500 (6%) |
+   | macOS `m4pro.medium` | **200** | 30,000 = **150 minutes** | 2 cells weekly = 24,000 |
+
+   Five macOS cells daily would be 450,000 credits — fifteen times the budget,
+   **exhausted in two days**. So macOS runs weekly on Node 22 only, both
+   sources; Linux keeps the full daily matrix. macOS is also capped at 2
+   concurrent jobs per organisation, which two cells fit exactly.
 3. **Two environment variables**, Project Settings → Environment Variables:
    `OPENROUTER_API_KEY` (weekly eval drift) and `GITHUB_TOKEN` (only to open an
    issue when a canary cell breaks). Missing either, the job that needs it

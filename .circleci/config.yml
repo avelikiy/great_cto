@@ -136,8 +136,26 @@ jobs:
       - run_canary:
           source: << parameters.source >>
 
-  # The job the open-source grant is for. Linux alone cannot fail the way a
-  # user on a Mac fails, which is the reason a canary exists at all.
+  # macOS runs WEEKLY and on two cells, not daily on five, and the arithmetic is
+  # the reason — checked before the first scheduled run rather than when the
+  # credits ran out mid-month:
+  #
+  #   m4pro.medium          200 credits/minute
+  #   open-source budget     30,000 macOS credits/month = 150 minutes
+  #   5 cells × 30 days     450,000 credits — 15× over, exhausted in TWO DAYS
+  #   2 cells × 4 weeks      24,000 credits — fits, with room for a re-run
+  #
+  # Which two: Node 22 (current LTS) on both sources. `local` catches a
+  # regression in the working tree, `npm` catches one in what users actually
+  # install — dropping either would leave a whole class unwatched, whereas
+  # dropping an older Node only narrows the version range.
+  #
+  # Linux keeps all five cells daily: 22,500 of its 400,000 credits, 6%.
+  #
+  # There is no application to make. The docs are explicit — "Using our Free
+  # Plan and keeping your repository public will enable this for you" — so the
+  # earlier instruction here to apply to the programme was wrong; it came from a
+  # marketing page rather than the credits documentation.
   macos_canary:
     parameters:
       node: { type: string }
@@ -223,14 +241,20 @@ workflows:
               source: ["local", "npm"]
             exclude:
               - { node: "18.17.0", source: "npm" }
+
+  # macOS weekly, two cells — see the budget note above the job.
+  weekly_macos_canary:
+    triggers:
+      - schedule:
+          cron: "0 7 * * 1"          # Mondays 07:00 UTC, after the Linux canary
+          filters: { branches: { only: [main] } }
+    jobs:
       - macos_canary:
           name: macos-node<< matrix.node >>-<< matrix.source >>
           matrix:
             parameters:
-              node: ["18.17.0", "20.18", "22.11"]
+              node: ["22.11"]
               source: ["local", "npm"]
-            exclude:
-              - { node: "18.17.0", source: "npm" }
 
   weekly_evals_drift:
     triggers:
