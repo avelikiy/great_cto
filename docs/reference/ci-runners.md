@@ -58,11 +58,17 @@ repository actually needs.
 2. Cirrus Cron is configured in the web UI. The `only_if` guards in
    `.cirrus.yml` expect these **names**:
 
-   | Cron name | Schedule | Task |
-   |---|---|---|
-   | `daily-canary` | `0 6 * * *` | `canary_linux_task`, `canary_macos_task` |
-   | `evals-drift` | `17 6 * * 1` | `evals_drift_task` |
-   | `awesome-list` | `0 8 * * 1` | `awesome_list_task` |
+   | Cron name | Quartz expression | Branch | Task |
+   |---|---|---|---|
+   | `daily-canary` | `0 0 6 ? * *` | `main` | `canary_linux_task`, `canary_macos_task` |
+   | `evals-drift` | `0 17 6 ? * MON` | `main` | `evals_drift_task` |
+   | `awesome-list` | `0 0 8 ? * MON` | `main` | `awesome_list_task` |
+
+   **These are Quartz expressions, not crontab.** Cirrus uses Quartz, which has
+   six fields instead of five — the first is SECONDS — and requires a `?` in
+   either day-of-month or day-of-week but not both. A crontab-shaped `0 6 * * *`
+   pasted here is not a daily 06:00 build; it is rejected or means something
+   else. Times are UTC either way.
 
    A cron whose name does not match runs **nothing** rather than everything —
    a task firing on the wrong trigger is worse than one that does not fire.

@@ -45,9 +45,12 @@
 #   1. Install the Cirrus CI GitHub App on avelikiy/great_cto.
 #   2. Cirrus Cron is configured in the web UI, not here — the `only_if`
 #      guards below expect these cron job NAMES to exist:
-#         daily-canary    0 6 * * *     (06:00 UTC daily)
-#         evals-drift     17 6 * * 1    (Mondays 06:17 UTC)
-#         awesome-list    0 8 * * 1     (Mondays 08:00 UTC)
+#         daily-canary    0 0 6 ? * *      (06:00 UTC daily)
+#         evals-drift     0 17 6 ? * MON   (Mondays 06:17 UTC)
+#         awesome-list    0 0 8 ? * MON    (Mondays 08:00 UTC)
+#      Those are QUARTZ expressions, not crontab: six fields, the first is
+#      seconds, and a `?` is required in either day-of-month or day-of-week.
+#      A crontab-shaped `0 6 * * *` is not a daily 06:00 build here.
 #      A cron whose name does not match runs NOTHING here rather than running
 #      everything — a task that silently runs on the wrong trigger is worse
 #      than one that does not run.
