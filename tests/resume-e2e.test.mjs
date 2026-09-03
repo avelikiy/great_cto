@@ -21,7 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
-import { freePort } from './helpers/free-port.mjs';
+import { startBoard } from './helpers/board-start.mjs';
 import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -32,17 +32,6 @@ const BD_AVAILABLE = bdProbe.status === 0;
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-async function waitForBoard(port, timeoutMs = 8000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-      if (r.ok || r.status === 404) return;
-    } catch {}
-    await new Promise(r => setTimeout(r, 150));
-  }
-  throw new Error(`board did not start on port ${port}`);
-}
 
 async function api(port, path, init) {
   const r = await fetch(`http://127.0.0.1:${port}${path}`, init);
@@ -93,12 +82,6 @@ function seedVerdict(project, agent, ts, verdict, details, costUsd) {
   appendFileSync(file, `${ts} ${verdict} ${details} cost=$${costUsd.toFixed(2)}\n`);
 }
 
-function spawnBoard(project, home, port) {
-  return spawn('node', [CLI_ENTRY, 'board', '--port', String(port), '--no-open'], {
-    cwd: project, env: { ...process.env, HOME: home },
-    stdio: ['ignore', 'pipe', 'pipe'], detached: true,
-  });
-}
 
 // Kill AND wait. SIGKILL is delivered asynchronously, so between the signal and
 // the cleanup below the board could still finish a write into its temp HOME and
@@ -129,12 +112,14 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
   const wipId2 = bdCreate(project, 'add idempotency middleware', { status: 'in_progress' });
 
   // ── Phase 2: start board, capture state ──
-  const port1 = await freePort();
-  let board = spawnBoard(project, home, port1);
+  // startBoard picks the port, spawns, waits, and retries a genuine
+  // EADDRINUSE — the race the hand-written loop reported as
+  // `board did not start on port <n>` and everyone re-ran through.
+  const { port: port1, proc: booted } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
+  let board = booted;
 
   let preRestartResume;
   try {
-    await waitForBoard(port1);
     const r = await api(port1, '/api/resume');
     assert.equal(r.status, 200, `pre-restart /api/resume returned ${r.status}`);
     preRestartResume = r.body;
@@ -146,10 +131,9 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
   await new Promise(r => setTimeout(r, 500));
 
   // ── Phase 3: start FRESH board, verify state recovered from disk ──
-  const port2 = await freePort();
-  board = spawnBoard(project, home, port2);
+  const { port: port2, proc: rebooted } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
+  board = rebooted;
   try {
-    await waitForBoard(port2);
     const r = await api(port2, '/api/resume');
     assert.equal(r.status, 200, `post-restart /api/resume returned ${r.status}`);
     const post = r.body;
@@ -195,10 +179,12 @@ test('resume: approving a gate then restarting reflects the closed state', { ski
   const gateShipId = bdCreate(project, 'gate: ship approval', { label: 'gate' });
 
   // Phase 1: approve gate:plan, leaving only gate:ship open
-  const port1 = await freePort();
-  let board = spawnBoard(project, home, port1);
+  // startBoard picks the port, spawns, waits, and retries a genuine
+  // EADDRINUSE — the race the hand-written loop reported as
+  // `board did not start on port <n>` and everyone re-ran through.
+  const { port: port1, proc: booted } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
+  let board = booted;
   try {
-    await waitForBoard(port1);
     const r = await api(port1, `/api/gates/${gatePlanId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -212,10 +198,9 @@ test('resume: approving a gate then restarting reflects the closed state', { ski
   await new Promise(r => setTimeout(r, 500));
 
   // Phase 2: restart, verify only 1 gate remaining (ship)
-  const port2 = await freePort();
-  board = spawnBoard(project, home, port2);
+  const { port: port2, proc: rebooted } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
+  board = rebooted;
   try {
-    await waitForBoard(port2);
     const r = await api(port2, '/api/resume');
     assert.equal(r.body.open_gates.length, 1,
       `expected 1 open gate after restart, got ${r.body.open_gates.length}`);
@@ -237,10 +222,12 @@ test('resume: decisions log preserves audit trail across restart', { skip: !BD_A
   const gate1 = bdCreate(project, 'gate: pre-restart audit test', { label: 'gate' });
 
   // Phase 1: approve gate to create a decisions.md entry
-  const port1 = await freePort();
-  let board = spawnBoard(project, home, port1);
+  // startBoard picks the port, spawns, waits, and retries a genuine
+  // EADDRINUSE — the race the hand-written loop reported as
+  // `board did not start on port <n>` and everyone re-ran through.
+  const { port: port1, proc: booted } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
+  let board = booted;
   try {
-    await waitForBoard(port1);
     await api(port1, `/api/gates/${gate1}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -254,10 +241,9 @@ test('resume: decisions log preserves audit trail across restart', { skip: !BD_A
   await new Promise(r => setTimeout(r, 500));
 
   // Phase 2: restart, verify /api/decisions surfaces the entry
-  const port2 = await freePort();
-  board = spawnBoard(project, home, port2);
+  const { port: port2, proc: rebooted } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
+  board = rebooted;
   try {
-    await waitForBoard(port2);
     const r = await api(port2, '/api/decisions?limit=20');
     assert.equal(r.status, 200);
     const found = (r.body || []).some(d =>

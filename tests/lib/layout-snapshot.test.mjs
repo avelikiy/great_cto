@@ -24,9 +24,17 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { snapshot, snapshotAll, compare, loadBrowser, checkAgainstTokens, declaredTokens, EXCUSED_SELECTORS } from '../../scripts/lib/layout-snapshot.mjs';
 import { EXCEPTIONS } from '../../scripts/lib/css-type-scale.mjs';
 import { parseColor, readThemes } from '../../scripts/lib/contrast.mjs';
+import { startServerOnFreePort } from '../helpers/board-start.mjs';
 
 const BASELINE = 'tests/baselines/board-layout.json';
-const PORT = 3197 + (process.pid % 40);
+
+// The port is no longer derived from the pid. `3197 + (pid % 40)` gave forty
+// possible values, so two runs on one machine — a second gate, another project's
+// pre-push, a board left over from yesterday — could land on the same number,
+// and the loser waited out its whole deadline before skipping. Forty buckets is
+// the same narrow-range guess free-port.mjs exists to remove; it simply survived
+// in this file. `startServerOnFreePort` asks the kernel and retries a real
+// collision.
 
 test('a rendered value belongs if the stylesheet declares it', () => {
   const declared = { sizes: ['12px', '15px', '36px'], colors: [{ r: 1, g: 1, b: 1 }] };
@@ -95,23 +103,18 @@ test('the shipped board still renders its baseline', { timeout: 120_000 }, async
   // nothing, and this test times out on page.goto. It also opened a real tab on
   // the operator's screen, at a pid-derived port, on every CI run — which is
   // where the mystery `localhost:32xx` tabs were coming from.
-  const server = spawn('node', ['packages/board/server.mjs', '--no-open'], {
-    env: { ...process.env, PORT: String(PORT) },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-  });
-  let up = false;
+  let started;
   try {
-    for (let i = 0; i < 40 && !up; i += 1) {
-      await sleep(500);
-      try {
-        const r = await fetch(`http://127.0.0.1:${PORT}/`, { signal: AbortSignal.timeout(1500) });
-        up = r.ok;
-      } catch { /* not yet */ }
-    }
-    if (!up) return t.skip('board server did not come up — not checked, not passed');
-
-    const shot = await snapshot(`http://127.0.0.1:${PORT}`);
+    started = await startServerOnFreePort({ entry: 'packages/board/server.mjs' });
+  } catch (e) {
+    // Still a skip, not a failure — but the reason travels with it now, so
+    // "could not check" stays distinct from "checked and fine", and a port
+    // collision reads differently from a server that crashed on boot.
+    return t.skip(`board server did not come up — not checked, not passed: ${e.message}`);
+  }
+  const { port, proc: server } = started;
+  try {
+    const shot = await snapshot(`http://127.0.0.1:${port}`);
     if (shot.state !== 'ok') return t.skip(`could not read the page: ${shot.reason}`);
 
     const { diffs } = compare(JSON.parse(readFileSync(BASELINE, 'utf8')), shot.signature);
@@ -162,18 +165,15 @@ test('the whole board is on-system: every screen, every theme', { timeout: 240_0
   // nothing, and this test times out on page.goto. It also opened a real tab on
   // the operator's screen, at a pid-derived port, on every CI run — which is
   // where the mystery `localhost:32xx` tabs were coming from.
-  const server = spawn('node', ['packages/board/server.mjs', '--no-open'], {
-    env: { ...process.env, PORT: String(PORT + 1) }, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
-  });
+  let started;
   try {
-    let up = false;
-    for (let i = 0; i < 60 && !up; i += 1) {
-      await sleep(500);
-      try { up = (await fetch(`http://127.0.0.1:${PORT + 1}/`, { signal: AbortSignal.timeout(1500) })).ok; } catch { /* not yet */ }
-    }
-    if (!up) return t.skip('board server did not come up — not checked, not passed');
-
-    const shot = await snapshotAll(`http://127.0.0.1:${PORT + 1}`, { panels, settleMs: 6000 });
+    started = await startServerOnFreePort({ entry: 'packages/board/server.mjs', timeoutMs: 30000 });
+  } catch (e) {
+    return t.skip(`board server did not come up — not checked, not passed: ${e.message}`);
+  }
+  const { port, proc: server } = started;
+  try {
+    const shot = await snapshotAll(`http://127.0.0.1:${port}`, { panels, settleMs: 6000 });
     if (shot.state !== 'ok') return t.skip(`could not read the board: ${shot.reason}`);
 
     // Each theme is judged against ITS OWN palette. The light theme redefines 39

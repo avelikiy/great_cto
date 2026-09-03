@@ -18,24 +18,13 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
-import { freePort } from './helpers/free-port.mjs';
+import { startBoard } from './helpers/board-start.mjs';
 import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
 const BOARD_HTML = join(__dirname, '..', 'packages', 'board', 'public', 'index.html');
 
-async function waitForBoard(port, timeoutMs = 10000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-      if (r.ok || r.status === 404) return;
-    } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error(`board did not start on port ${port}`);
-}
 
 function makeProject() {
   const home = mkdtempSync(join(tmpdir(), 'gcto-pf-home-'));
@@ -47,12 +36,11 @@ function makeProject() {
 
 test('an unknown project is announced, and the announcement names who is being served', async () => {
   const { home, project } = makeProject();
-  const port = await freePort();
-  const board = spawn('node', [CLI_ENTRY, 'board', '--port', String(port), '--no-open'], {
-    cwd: project, env: { ...process.env, HOME: home }, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
-  });
+  // startBoard: it retries a port taken between pick and bind, and distinguishes
+  // that from a server that crashed on boot — the local wait loop threw the same
+  // `board did not start on port <n>` for either.
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
   try {
-    await waitForBoard(port);
 
     const miss = await fetch(`http://127.0.0.1:${port}/api/metrics?project=__definitely_not_a_project__`);
     assert.equal(miss.headers.get('X-Project-Resolved'), 'fallback');

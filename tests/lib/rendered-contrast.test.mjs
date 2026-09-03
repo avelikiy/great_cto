@@ -31,8 +31,12 @@ import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { loadBrowser } from '../../scripts/lib/layout-snapshot.mjs';
 import { parseColor, composite, ratio, AA_TEXT, AA_LARGE } from '../../scripts/lib/contrast.mjs';
+import { startServerOnFreePort } from '../helpers/board-start.mjs';
 
-const PORT = 3239 + (process.pid % 40);
+// The port comes from the kernel, not from the pid. `3239 + (pid % 40)` gave
+// forty possible values, so a second run on the same machine could take the
+// number and the loser waited out its full deadline before skipping — a check
+// that silently stopped checking. See tests/helpers/board-start.mjs.
 const THEMES = ['dark', 'light'];
 // Every panel the page ships. Read from the DOM at test time as well, and the
 // two lists must agree — a panel added to the page and not here would go unread.
@@ -232,20 +236,17 @@ test('every panel, both themes: text can be read against what is behind it', { t
   const chromium = await loadBrowser();
   if (!chromium) return t.skip('playwright not installed — not checked, not passed');
 
-  const server = spawn('node', ['packages/board/server.mjs', '--no-open'], {
-    env: { ...process.env, PORT: String(PORT) },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-  });
+  let started;
+  try {
+    started = await startServerOnFreePort({ entry: 'packages/board/server.mjs' });
+  } catch (e) {
+    // Still a skip — but the reason travels with it, so a port collision no
+    // longer reads the same as a server that crashed on boot.
+    return t.skip(`board server did not come up — not checked, not passed: ${e.message}`);
+  }
+  const { port: PORT, proc: server } = started;
   let browser;
   try {
-    let up = false;
-    for (let i = 0; i < 40 && !up; i += 1) {
-      await sleep(500);
-      try { up = (await fetch(`http://127.0.0.1:${PORT}/`, { signal: AbortSignal.timeout(1500) })).ok; } catch { /* not yet */ }
-    }
-    if (!up) return t.skip('board server did not come up — not checked, not passed');
-
     try {
       browser = await chromium.launch({ channel: 'chrome', headless: true });
     } catch (e) {

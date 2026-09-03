@@ -19,7 +19,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
-import { freePort } from './helpers/free-port.mjs';
+import { startBoard } from './helpers/board-start.mjs';
 import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,17 +27,6 @@ const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-async function waitForBoard(port, timeoutMs = 8000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-      if (r.ok || r.status === 404) return; // 404 also means server is up
-    } catch {}
-    await new Promise(r => setTimeout(r, 150));
-  }
-  throw new Error(`board did not start on port ${port}`);
-}
 
 async function fetchJson(port, path) {
   const r = await fetch(`http://127.0.0.1:${port}${path}`);
@@ -57,18 +46,6 @@ function makeProject({ verdicts = {}, projectMd = 'archetype: web-service\n' } =
   return { home, project };
 }
 
-function spawnBoard(project, home, port) {
-  // detached: true puts the board in its own process group, so we can kill
-  // the whole tree (including any child SSE keep-alive threads) with one
-  // signal to -PID. Without this, board.kill('SIGTERM') hits only the main
-  // process and orphans children → test runner never exits.
-  return spawn('node', [CLI_ENTRY, 'board', '--port', String(port), '--no-open'], {
-    cwd: project,
-    env: { ...process.env, HOME: home },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-  });
-}
 
 // Kill AND wait. SIGKILL is delivered asynchronously, so between the signal and
 // the cleanup below the board could still finish a write into its temp HOME and
@@ -96,11 +73,12 @@ test('cost: verdict cost=$X values sum into total_llm', async () => {
       'code-reviewer': `${yesterday}T11:00:00Z ok cost=$0.15\n`,
     },
   });
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  // startBoard: one helper that tells a taken port, a crashed server and a
+  // slow one apart, and retries only the first. The local pair this replaces
+  // threw `board did not start on port <n>` for all three.
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
     const data = await fetchJson(port, '/api/cost?days=30');
 
     const expected = 0.42 + 0.38 + 1.20 + 0.80 + 0.15; // 2.95
@@ -141,11 +119,9 @@ test('cost: ratio sanity bounds — anti-regression for the 7,638× class', asyn
       'senior-dev': `${today}T12:00:00Z ok cost=$1.20\n`,
     },
   });
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
     const data = await fetchJson(port, '/api/cost?days=30');
 
     // total_human comes from plans + bd tasks. With no plans + no closed
@@ -177,11 +153,9 @@ test('cost: ratio sanity bounds — anti-regression for the 7,638× class', asyn
 
 test('cost: empty state returns zero (no false numbers)', async () => {
   const { home, project } = makeProject(); // no verdicts seeded
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
     const data = await fetchJson(port, '/api/cost?days=30');
 
     assert.equal(data.total_llm, 0, `empty state total_llm should be 0, got ${data.total_llm}`);
@@ -210,11 +184,9 @@ test('cost: malformed verdict lines do not crash /api/cost', async () => {
       ].join('\n'),
     },
   });
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
     const data = await fetchJson(port, '/api/cost?days=30');
     // Valid lines: $0.50 + $0.25 (regex skips the unparseable "abc" and
     // picks up the next numeric cost= match on that line). $5.00 line is
@@ -254,10 +226,8 @@ test('cost: rejects mid-line "LLM" reference (the $240 regression bug)', async (
 `;
   writeFileSync(join(plansDir, 'PLAN-trap.md'), trapPlan);
 
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
   try {
-    await waitForBoard(port);
     const data = await fetchJson(port, '/api/cost?days=1');
     // No anchored LLM label, no anchored Human label → both should be zero
     assert.equal(data.total_llm, 0,
@@ -279,10 +249,8 @@ test('cost: ratio guard suppresses implausible human/LLM ratios', async () => {
   writeFileSync(join(plansDir, 'PLAN-implausible.md'),
     `# PLAN\n\n**LLM**: $0.01 (one cent, comically low)\n**Human**: $50,000 saved (5 weeks)\n`);
 
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
   try {
-    await waitForBoard(port);
     const data = await fetchJson(port, '/api/cost?days=1');
     // LLM matches $0.01. Human matches $50,000 → ratio = 5,000,000× → suppressed.
     assert.ok(data.total_llm > 0 && data.total_llm < 1,
@@ -305,10 +273,8 @@ test('cost: by_feature aggregates verdict feature= tags', async () => {
       'qa-engineer': `${today}T13:00:00Z DONE feature=auth cost=$0.10\n`,
     },
   });
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
   try {
-    await waitForBoard(port);
     const data = await fetchJson(port, '/api/cost?days=7');
 
     assert.ok(Array.isArray(data.by_feature), 'by_feature must be an array');
@@ -339,10 +305,8 @@ test('metrics: measured verdict cost becomes canonical when it clears the trust 
       'code-reviewer': `${today}T13:00:00Z ok cost=$0.20\n`,
     },
   });
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
   try {
-    await waitForBoard(port);
     const m = await fetchJson(port, '/api/metrics?days=30');
     assert.equal(m.cost.source, 'measured', `expected measured source, got ${m.cost.source}`);
     assert.ok(Math.abs(m.cost.llm_usd - 2.60) < 0.05, `measured llm ~2.60, got ${m.cost.llm_usd}`);
@@ -359,10 +323,8 @@ test('metrics: too few verdict costs → does NOT promote to measured (stays est
   const { home, project } = makeProject({
     verdicts: { 'architect': `${today}T10:00:00Z ok cost=$0.40\n` }, // only 1 → below the coverage bar
   });
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
   try {
-    await waitForBoard(port);
     const m = await fetchJson(port, '/api/metrics?days=30');
     assert.notEqual(m.cost.source, 'measured', 'a single verdict cost must not be treated as measured');
   } finally {
@@ -385,10 +347,8 @@ test('metrics: cost-history enrichment reads PROJECT-LOCAL file (regression — 
   // Project-local cost-history (where log-verdict.sh + the SubagentStop hook write it).
   writeFileSync(join(project, '.great_cto', 'cost-history.log'),
     `${min}:05Z architect 0.80\n${min}:06Z senior-dev 1.40\n${min}:07Z code-reviewer 0.30\n`);
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
   try {
-    await waitForBoard(port);
     const m = await fetchJson(port, '/api/metrics?days=30');
     // Enrichment fired from the project file → measured cost is canonical.
     assert.equal(m.cost.source, 'measured', `expected measured (project cost-history enriched), got ${m.cost.source}`);

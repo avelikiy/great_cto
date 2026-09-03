@@ -18,7 +18,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
-import { freePort } from './helpers/free-port.mjs';
+import { startBoard } from './helpers/board-start.mjs';
 import { reap } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -258,33 +258,17 @@ test('BH-1: pipe-separated verdict lines parse to real verdict (not "|")', async
       `${today}T11:00:00Z APPROVED feature=test cost=$0.40\n`);
 
     // Start board against this seeded state
-    const port = await freePort();
-    // GREAT_CTO_NO_UPDATE_CHECK: the CLI spawns a DETACHED, unref'd process that
-    // queries the npm registry and then writes $HOME/.great_cto/update-check.json. It
-    // is not in the board's process group, so `reap` — which kills that group and waits
-    // for it — never sees it. Under full-suite load the network call outlives teardown,
-    // the file lands after the directory was emptied, and rmSync fails ENOTEMPTY.
-    //
-    // Every failing run left exactly that one file behind. Three hypotheses were tested
-    // and wrong before anyone looked in the directory the failure names.
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    // startBoard, not a hand-rolled wait: the loop this replaces `break`s on
+    // success but on TIMEOUT simply fell out and let the test carry on against
+    // a board that never came up — so the real failure surfaced later as an
+    // unrelated assertion. That is the BH-14 flake: not a taken port, a wait
+    // that could not say it had failed.
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      // Wait for board ready
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       const r = await fetch(`http://127.0.0.1:${port}/api/pipeline`);
       const stages = await r.json();
@@ -336,24 +320,12 @@ test('BH-2: savings_x is null (not 0) when human estimate is missing', async () 
       `${today}T10:00:00Z APPROVED feature=test cost=$0.42\n`);
     // No plans, no human estimate
 
-    const port = await freePort();
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       const r = await fetch(`http://127.0.0.1:${port}/api/cost?days=1`);
       const data = await r.json();
@@ -400,25 +372,17 @@ test('BH-3: non-canonical agents go to legacy_agent_runs, not the main agent map
     writeFileSync(join(project, '.great_cto', 'verdicts', 'frontend.log'),
       `${today}T11:00:00Z DONE feature=test cost=$0.10\n`);
 
-    const port = await freePort();
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    // startBoard, not a hand-rolled wait: the loop this replaces `break`s on
+    // success but on TIMEOUT simply fell out and let the test carry on against
+    // a board that never came up — so the real failure surfaced later as an
+    // unrelated assertion. That is the BH-14 flake: not a taken port, a wait
+    // that could not say it had failed.
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      // Wait for board ready
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       const r = await fetch(`http://127.0.0.1:${port}/api/metrics`);
       const data = await r.json();
@@ -462,24 +426,12 @@ test('BH-4: /api/cost?days clamps malformed input to safe defaults', async () =>
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
-    const port = await freePort();
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       // ?days=999 → clamped to 365 (366 buckets = 365 + today)
       const big = await (await fetch(`http://127.0.0.1:${port}/api/cost?days=999`)).json();
@@ -538,25 +490,17 @@ test('BH-6/7/8: POST /api/tasks rejects malformed input with 400 (not 500)', asy
       return t.skip(`bd init failed — not checked, not passed: ${(init.stderr || init.stdout || init.error?.message || '').trim().slice(0, 160)}`);
     }
 
-    const port = await freePort();
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    // startBoard, not a hand-rolled wait: the loop this replaces `break`s on
+    // success but on TIMEOUT simply fell out and let the test carry on against
+    // a board that never came up — so the real failure surfaced later as an
+    // unrelated assertion. That is the BH-14 flake: not a taken port, a wait
+    // that could not say it had failed.
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      // Wait for board ready
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       const post = async (body) =>
         fetch(`http://127.0.0.1:${port}/api/tasks`, {
@@ -619,24 +563,12 @@ test('BH-5: X-Project-Resolved + X-Project-Fallback headers explain routing', as
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
-    const port = await freePort();
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       // No project param → resolved=cwd
       const r1 = await fetch(`http://127.0.0.1:${port}/api/inbox`);
@@ -673,24 +605,12 @@ test('BH-13: /api/metrics surfaces sse_clients + bd_cache_entries counters', asy
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
-    const port = await freePort();
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       const r = await (await fetch(`http://127.0.0.1:${port}/api/metrics`)).json();
       assert.ok(r.server, '/api/metrics should include "server" observability section');
@@ -739,24 +659,12 @@ test('BH-14: /api/tasks/<id>/status rejects bad JSON + bad status with 400', asy
     const init = spawnSync('bd', ['init'], { cwd: project, encoding: 'utf8' });
     if (init.status !== 0) throw new Error(`bd init failed (status ${init.status}${init.signal ? `, signal ${init.signal}` : ''}): ${init.stderr || init.stdout}`);
 
-    const port = await freePort();
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       // Create a task to update later
       const createRes = await fetch(`http://127.0.0.1:${port}/api/tasks`, {
@@ -818,24 +726,12 @@ test('BH-22: /api/metrics.velocity exposes last_7d + last_30d (honest labels)', 
     mkdirSync(join(project, '.great_cto'), { recursive: true });
     writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
 
-    const port = await freePort();
-    const board = spawn('node', [
-      join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
-      'board', '--port', String(port), '--no-open',
-    ], {
-      cwd: project, env: { ...process.env, HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    const { port, proc: board } = await startBoard({
+      cliEntry: join(__dirname, '..', 'packages', 'cli', 'index.mjs'),
+      project, home, env: { GREAT_CTO_NO_UPDATE_CHECK: '1' },
     });
 
     try {
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-          if (r.ok || r.status === 404) break;
-        } catch {}
-        await new Promise(r => setTimeout(r, 150));
-      }
 
       const r = await (await fetch(`http://127.0.0.1:${port}/api/metrics`)).json();
       const v = r.velocity;
@@ -948,7 +844,15 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
   // otherwise it survives, holds the port, and its piped fds keep node:test's
   // event loop alive past the last test (suite hangs with no final summary).
   const { spawn } = await import('node:child_process');
-  const proc = spawn('node', [cli, 'board', '--port=4455', '--no-open'], {
+  // The port is asked of the kernel, not hard-coded. What this test checks is
+  // the `--port=N` FORM — one argument with an equals sign, rather than two —
+  // and that claim is independent of which number N is. 4455 was fixed here, so
+  // anything already holding it (another gate, a leftover board, a dev server)
+  // failed a test about argument parsing, and the failure named neither the
+  // port nor the collision.
+  const { freePort } = await import('./helpers/free-port.mjs');
+  const wantPort = await freePort();
+  const proc = spawn('node', [cli, 'board', `--port=${wantPort}`, '--no-open'], {
     stdio: ['ignore', 'pipe', 'pipe'], detached: true,
   });
   let stdout = '';
@@ -971,11 +875,11 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
     // for the clock is also FASTER in the common case: it returns as soon as
     // the line appears rather than always paying the full budget.
     const deadline = Date.now() + 20000;
-    while (Date.now() < deadline && !/:4455/.test(stdout)) {
+    while (Date.now() < deadline && !new RegExp(`:${wantPort}`).test(stdout)) {
       if (closed) break;   // output is drained and finished — waiting longer adds nothing
       await new Promise((r) => setTimeout(r, 100));
     }
-    assert.match(stdout, /:4455/, `--port=4455 should bind to 4455, got: ${stdout.slice(0, 200)}`);
+    assert.match(stdout, new RegExp(`:${wantPort}`), `--port=${wantPort} should bind to ${wantPort}, got: ${stdout.slice(0, 200)}`);
   } finally {
     // Group-kill reaps the spawned server (grandchild) so no fds linger past
     // the suite.

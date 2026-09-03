@@ -19,7 +19,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
-import { freePort } from './helpers/free-port.mjs';
+import { startBoard } from './helpers/board-start.mjs';
 import { reap, sweepStrays } from './helpers/reap.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -38,17 +38,6 @@ const BD_AVAILABLE = bdProbe.status === 0;
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-async function waitForBoard(port, timeoutMs = 8000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-      if (r.ok || r.status === 404) return;
-    } catch {}
-    await new Promise(r => setTimeout(r, 150));
-  }
-  throw new Error(`board did not start on port ${port}`);
-}
 
 async function fetchJson(port, path, init) {
   const r = await fetch(`http://127.0.0.1:${port}${path}`, init);
@@ -102,14 +91,6 @@ function bdShow(project, id) {
   } catch { return null; }
 }
 
-function spawnBoard(project, home, port) {
-  return spawn('node', [CLI_ENTRY, 'board', '--port', String(port), '--no-open'], {
-    cwd: project,
-    env: { ...process.env, HOME: home },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-  });
-}
 
 // Kill AND wait. SIGKILL is delivered asynchronously, so between the signal and
 // the cleanup below the board could still finish a write into its temp HOME and
@@ -128,11 +109,12 @@ test('gate: approve via POST /api/gates/<id> closes bd task', { skip: !BD_AVAILA
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: plan approval for billing endpoint');
 
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  // startBoard: one helper that tells a taken port, a crashed server and a
+  // slow one apart, and retries only the first. The local pair this replaces
+  // threw `board did not start on port <n>` for all three.
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
 
     // Sanity: gate appears in inbox as pending
     const inbox = await fetchJson(port, '/api/inbox');
@@ -167,11 +149,9 @@ test('gate: rejection sets bd status=blocked', { skip: !BD_AVAILABLE && 'bd CLI 
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: ship approval for v2.1');
 
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
 
     const reject = await fetchJson(port, `/api/gates/${gateId}`, {
       method: 'POST',
@@ -196,11 +176,9 @@ test('gate: approval appends to the project decisions log, not the global one', 
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: architecture review for payment service');
 
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
 
     await fetchJson(port, `/api/gates/${gateId}`, {
       method: 'POST',
@@ -233,11 +211,9 @@ test('gate: SSE broadcasts updated tasks after approval', { skip: !BD_AVAILABLE 
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: SSE broadcast test');
 
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
 
     // Subscribe to SSE stream
     const sseResp = await fetch(`http://127.0.0.1:${port}/api/sse`);
@@ -298,11 +274,9 @@ test('gate: invalid action returns 400', { skip: !BD_AVAILABLE && 'bd CLI not in
   const { home, project } = makeProject();
   const gateId = bdCreate(project, 'gate: input validation test');
 
-  const port = await freePort();
-  const board = spawnBoard(project, home, port);
+  const { port, proc: board } = await startBoard({ cliEntry: CLI_ENTRY, project, home });
 
   try {
-    await waitForBoard(port);
 
     const r = await fetchJson(port, `/api/gates/${gateId}`, {
       method: 'POST',

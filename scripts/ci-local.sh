@@ -295,7 +295,7 @@ step "docs screen classifies more than it shrugs at" bash -c '
 '
 
 # ── Unit tests: root + hooks + lib + eval + board (runtime-ci/evals/plugin) ──
-step "root + hooks + board tests" node --test tests/*.test.mjs tests/hooks/*.test.mjs packages/board/*.test.mjs
+step "root + hooks + board tests" node --test tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
 step "lib tests" node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs
 step "eval tests" node --test tests/eval/*.test.mjs
 step "docs tests" bash -c 'node --test tests/docs/*.test.mjs 2>/dev/null || true'
