@@ -43,6 +43,7 @@ REPO="${CIRRUS_REPO_FULL_NAME:-${GITHUB_REPOSITORY:-avelikiy/great_cto}}"
 LISTS=(
   "awesome-ai-sdks|https://raw.githubusercontent.com/e2b-dev/awesome-ai-sdks/main/README.md|pending"
   "awesome-claude-code|https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/README.md|pending"
+  "awesome-claude-code-plugins|https://raw.githubusercontent.com/ccplugins/awesome-claude-code-plugins/main/README.md|pending"
 )
 
 missing=0
