@@ -99,28 +99,29 @@ commands:
             bash scripts/ci/canary-report.sh "$CELL"
 
 # ── Jobs ──────────────────────────────────────────────────────────────────
+#
+# There is no `gate` job, and its absence is deliberate.
+#
+# The first version of this file had one: `bash scripts/ci-local.sh` in a clean
+# container, sold as "the same gate the pre-push hook runs, on a machine that is
+# not the author's". It ran once and failed 11 of 109 steps — and every one of
+# them for the same reason:
+#
+#   ✗ all 22 great_cto commands present in ~/.claude/commands/
+#   ✗ every agent in agents/ is synced into ~/.claude/agents/
+#   ✗ pre-push guard in force
+#
+# ci-local.sh is the gate for a CONFIGURED developer machine. A third of it
+# asks whether the plugin is synced into ~/.claude and whether the git hook is
+# installed — questions a fresh container cannot answer yes to, and should not.
+# It was not a broken job; it was a job whose name was a lie about what it
+# measured.
+#
+# The honest version of "does this work from nothing on a clean machine" is the
+# canary, which is already here and does exactly that — installs cold, in an
+# empty directory, and drives the result. So the canary stays and the gate does
+# not: two jobs for one question, one of them mislabelled, is worse than one.
 jobs:
-  # The local gate, on a machine that is not the author's. If it passes here
-  # and fails on a laptop, the laptop is the problem — that reading is the
-  # whole value of this job, since the checks themselves are not new.
-  gate:
-    docker:
-      - image: cimg/node:22.11
-    resource_class: medium
-    environment:
-      CI: "true"
-      GREAT_CTO_NO_UPDATE_CHECK: "1"
-    steps:
-      - checkout
-      - install_linux_deps
-      - run:
-          name: Build CLI
-          command: cd packages/cli && npm install --silent --no-fund --no-audit && npm run build
-      - run:
-          name: ci-local.sh — the same gate the pre-push hook runs
-          command: bash scripts/ci-local.sh
-          no_output_timeout: 25m
-
   linux_canary:
     parameters:
       node: { type: string }
@@ -200,9 +201,11 @@ jobs:
 
 # ── Workflows ─────────────────────────────────────────────────────────────
 workflows:
-  on_push:
-    jobs:
-      - gate
+  # Nothing on push. ci-local.sh already gates every push locally, and the one
+  # thing a remote runner adds — a clean machine — is what the canary tests, on
+  # a schedule, against the PUBLISHED artifact rather than the working tree.
+  # A push-triggered job here would re-run checks that already ran, and the
+  # version of it that tried failed on questions a container cannot answer.
 
   # 10 cells, matching what the GitHub matrix covered: 2 OS × 3 Node × 2
   # sources, minus node 18.17 on the npm path (redundant there).

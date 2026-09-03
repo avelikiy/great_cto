@@ -7,7 +7,7 @@ Three places, and the split is deliberate. See also
 |---|---|---|
 | **`scripts/ci-local.sh`** | 109 checks, before every push | The gate. Fast, free, and on the machine that wrote the code |
 | **GitHub Actions** | publish, Scorecard | The only path to `npm publish --provenance`; Scorecard grades the GitHub repo itself. Free and unlimited here — but the account's billing lock has them refused since 2026-06-25 |
-| **CircleCI** (`.circleci/config.yml`) | the daily canary, two weekly crons, and the local gate on a clean container | Its open-source programme is the only remaining free source of **macOS** runners after Cirrus shut down |
+| **CircleCI** (`.circleci/config.yml`) | the daily canary and two weekly crons — **nothing on push** | Its open-source programme is the only remaining free source of **macOS** runners after Cirrus shut down |
 
 `scripts/lib/guard-parity.mjs` reads the remote configs and asserts that every
 command in them either runs in `ci-local.sh` too or is named in
@@ -63,6 +63,27 @@ cells rather than trust that they are there.
 Schedules are in the config, not a web UI, and they are **standard cron** —
 unlike Cirrus, which wanted Quartz. Six-field Quartz expressions do not belong
 here.
+
+### Why there is no push job
+
+There was one. `bash scripts/ci-local.sh` in a clean container, described as
+"the same gate the pre-push hook runs, on a machine that is not the author's".
+It ran once and failed 11 of 109 steps, all for one reason:
+
+```
+✗ all 22 great_cto commands present in ~/.claude/commands/
+✗ every agent in agents/ is synced into ~/.claude/agents/
+✗ pre-push guard in force
+```
+
+`ci-local.sh` is the gate for a CONFIGURED machine. A third of it asks whether
+the plugin is synced into `~/.claude` and whether the git hook is installed —
+questions a fresh container cannot answer yes to, and should not. The job was
+not broken; its name was a claim about what it measured that was not true.
+
+"Does this work from nothing on a clean machine" already has an honest job: the
+canary installs cold into an empty directory and drives the result. Two jobs for
+one question, one of them mislabelled, is worse than one.
 
 ### The other options, and why not
 
