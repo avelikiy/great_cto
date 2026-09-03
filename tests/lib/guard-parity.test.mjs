@@ -203,3 +203,53 @@ test('GitHub run blocks still parse — the widening did not cost the old shape'
   assert.ok(cmds.includes('bash scripts/ci-local.sh'));
   assert.ok(cmds.includes('node scripts/lib/guard-parity.mjs'));
 });
+
+test("CircleCI's run: is a MAPPING — the command is a key inside it, not the value", () => {
+  // The shape that defeated this parser. GitHub writes `run: <cmd>`; CircleCI
+  // writes a mapping whose keys are `name:` and `command:`. Collecting the
+  // block verbatim yielded "command: bash scripts/x.sh", and classify() read
+  // the `command:` prefix as an unrecognised program — which it sorts as
+  // remote-by-design, i.e. sanctioned and silently skipped.
+  //
+  // So the file was read, its commands were extracted, and not one of them
+  // could ever produce a finding. That is indistinguishable from a config with
+  // nothing wrong in it, which is the exact failure this module exists to
+  // catch, one level up.
+  const yaml = [
+    'jobs:',
+    '  gate:',
+    '    steps:',
+    '      - run:',
+    '          name: The local gate',
+    '          command: bash scripts/ci-local.sh',
+    '      - run:',
+    '          name: Multi-line',
+    '          command: |',
+    '            node scripts/lib/eval-drift.mjs --split holdout',
+  ].join('\n');
+
+  const cmds = runCommands(yaml);
+  assert.ok(cmds.includes('bash scripts/ci-local.sh'),
+    `the command must arrive without its key: ${JSON.stringify(cmds)}`);
+  assert.ok(cmds.some((c) => c.startsWith('node scripts/lib/eval-drift.mjs')),
+    'a block command under `command: |` is still a command');
+  assert.equal(cmds.filter((c) => c.startsWith('command:')).length, 0,
+    'no command may keep its YAML key — that prefix is what made every CircleCI line look sanctioned');
+  assert.equal(cmds.filter((c) => c.startsWith('name:')).length, 0,
+    'a step label is not a command');
+});
+
+test('a guard that runs ONLY in CircleCI is a finding', () => {
+  // The end-to-end version of the above: parity must fail, and name the file.
+  const p = parity({
+    workflows: [{
+      name: '.circleci/config.yml',
+      text: 'jobs:\n  x:\n    steps:\n      - run:\n          name: Only here\n          command: node scripts/lib/contrast.mjs\n',
+    }],
+    ciLocalText: '# ci-local runs no such thing\n',
+    exists: () => true,
+  });
+  assert.equal(p.state, 'gaps');
+  assert.ok(p.actionsOnly.some((f) => f.workflow === '.circleci/config.yml'),
+    'the finding must name the config it came from');
+});

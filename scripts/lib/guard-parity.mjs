@@ -105,11 +105,14 @@ export function runCommands(yamlText) {
   const out = [];
   const lines = String(yamlText ?? '').split('\n');
   for (let i = 0; i < lines.length; i++) {
-    // GitHub says `run:`; Cirrus says `<name>_script:`. Matching only the first
-    // meant a guard declared in .cirrus.yml satisfied a parity check that could
-    // not read it — the file was loaded and every command in it ignored, which
-    // looks exactly like a file with no findings.
-    const m = lines[i].match(/^(\s*)-?\s*(?:run|[a-z0-9_]*script):\s*(\|[-+]?|>|)(.*)$/);
+    // Three dialects, because being blind to one is the defect this file
+    // exists to catch, one level up:
+    //   GitHub     run: <cmd>
+    //   Cirrus     <name>_script: <cmd>        (gone, kept — see above)
+    //   CircleCI   command: <cmd>              under a `run:` mapping
+    // Matching only the first meant a config was loaded and every command in
+    // it ignored, which looks exactly like a config with no findings.
+    const m = lines[i].match(/^(\s*)-?\s*(?:run|command|[a-z0-9_]*script):\s*(\|[-+]?|>|)(.*)$/);
     if (!m) continue;
     const [, indent, block, inline] = m;
 
@@ -123,7 +126,27 @@ export function runCommands(yamlText) {
       if (line.trim() === '') continue;
       const lead = line.match(/^(\s*)/)[1];
       if (lead.length <= indent.length) { i = j - 1; break; }
-      out.push(line.trim().replace(/^-\s*/, ''));
+      let item = line.trim().replace(/^-\s*/, '');
+
+      // CircleCI's `run:` is a MAPPING, not a command: the block under it holds
+      // `name:` and `command:` keys, so the raw lines arrive as
+      // "command: bash scripts/x.sh" and "name: Build CLI".
+      //
+      // Left as-is, that prefix made classify() read EVERY CircleCI command as
+      // remote-by-design — sanctioned, and silently skipped. The config was
+      // read, 61 lines were extracted, and not one of them could ever produce a
+      // finding. A parity check that loads a file and ignores its contents is
+      // indistinguishable from one that finds nothing wrong, which is the
+      // failure this whole file exists to prevent, one level up.
+      //
+      // Two mutations were needed to see it: the first pointed at a script that
+      // does not exist, which parity skips for good reason, and passing looked
+      // like proof.
+      if (/^name:\s/.test(item)) continue;                 // a label, not a command
+      item = item.replace(/^command:\s*(\|[-+]?|>)?\s*/, '');
+      if (!item) continue;
+
+      out.push(item);
       i = j;
     }
   }
@@ -257,7 +280,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   }
 
-  for (const f of ['.cirrus.yml', '.cirrus.yaml']) {
+  // Single-file runners. Cirrus was here and is gone — it shut down on
+  // 2026-06-01 — but the list stays plural on purpose: the whole reason this
+  // block exists is that a second runner arrived once and was invisible, and
+  // the next one will arrive the same way.
+  for (const f of ['.cirrus.yml', '.cirrus.yaml', '.circleci/config.yml', '.circleci/config.yaml']) {
     if (!existsSync(f)) continue;
     try { workflows.push({ name: f, text: readFileSync(f, 'utf8') }); }
     catch { /* same */ }

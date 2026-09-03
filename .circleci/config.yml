@@ -1,0 +1,246 @@
+# CircleCI — the checks a laptop cannot run.
+#
+# WHY THIS EXISTS
+#
+# GitHub Actions is free and unlimited on a public repository, and this one is
+# public, so this is NOT a cost decision. Actions have been refused since
+# 2026-06-25 — 100 consecutive runs, "your account is locked due to a billing
+# issue" — and that lock is on the ACCOUNT, so it disables Actions org-wide,
+# public repos included. If the lock is lifted, prefer Actions and delete this
+# file: it is the only path to `npm publish --provenance`.
+#
+# The previous attempt at a second runner was written for Cirrus CI, which had
+# shut down three months earlier (2026-06-01, Cirrus Labs joined OpenAI). Hence
+# the liveness note below rather than a link: check that a service answers
+# before writing a config for it.
+#   circleci.com     HTTP 200, api/v2/me → 401 (alive, wants a token)
+#   CLI              circleci 1.0.49308, installed via brew, validates locally
+#
+# SCOPE, deliberately narrow. ci-local.sh runs 109 checks before every push and
+# guard-parity asserts every remote command also runs there. So re-running them
+# remotely buys nothing. What a laptop cannot provide:
+#   1. macOS AND Linux, three Node versions, on a clean machine — the canary
+#      exists to catch "works on the author's box"
+#   2. a schedule that fires whether or not anyone is at the keyboard
+#   3. the PUBLISHED npm artifact exercised the way a new user gets it
+#
+# NOT here: `npm publish` (provenance signs only through Actions/GitLab OIDC —
+# publishing from here would ship an UNSIGNED package, worse than
+# scripts/cd-local.sh does today) and Scorecard (it grades the GitHub repo).
+#
+# SETUP that cannot live in this file — see docs/reference/ci-runners.md:
+#   1. Add the project at app.circleci.com (Projects → great_cto → Set Up).
+#   2. Apply to the open-source programme for the macOS credits. Without it the
+#      Linux jobs still run; the macos_canary job is what needs the grant.
+#   3. Two env vars in Project Settings → Environment Variables:
+#        OPENROUTER_API_KEY   the weekly eval-drift run
+#        GITHUB_TOKEN         only to open an issue when a canary cell breaks
+#      Missing either, the job that needs it STOPS and says so. It does not
+#      report a pass over a check that never ran.
+
+version: 2.1
+
+# ── Shared steps ──────────────────────────────────────────────────────────
+commands:
+  install_linux_deps:
+    description: "git, python, jq — the canary validates board JSON with python"
+    steps:
+      - run:
+          name: System packages
+          command: |
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq git python3 python3-pip curl jq bash
+
+  install_agent_hosts:
+    description: >
+      Aider and the Codex CLI as REAL binaries, pointed at scripts/mock-llm.py.
+      The canary drives them for its live-boot steps and spends no API tokens.
+    steps:
+      - run:
+          name: Aider + PyYAML + Codex CLI
+          command: |
+            python3 -m pip install --quiet --upgrade pip 2>/dev/null \
+              || python3 -m pip install --quiet --break-system-packages --upgrade pip
+            python3 -m pip install --quiet aider-chat pyyaml 2>/dev/null \
+              || python3 -m pip install --quiet --break-system-packages aider-chat pyyaml
+            npm install -g @openai/codex || echo "codex install failed — that canary step will skip"
+
+  run_canary:
+    description: "local = the working tree; npm = the published artifact, as a user gets it"
+    parameters:
+      source:
+        type: enum
+        enum: ["local", "npm"]
+    steps:
+      - run:
+          name: Canary (<< parameters.source >>)
+          command: |
+            if [ "<< parameters.source >>" = "local" ]; then
+              cd packages/cli && npm install --silent --no-fund --no-audit && npm run build && cd -
+              bash scripts/canary.sh local
+            else
+              # The npm path must not read the working tree at all — a new user
+              # has only what the registry and the default branch give them.
+              curl -sf -o /tmp/canary.sh   "https://raw.githubusercontent.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/main/scripts/canary.sh"
+              curl -sf -o /tmp/mock-llm.py "https://raw.githubusercontent.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/main/scripts/mock-llm.py"
+              chmod +x /tmp/canary.sh
+              bash /tmp/canary.sh npm
+            fi
+      - run:
+          name: Report a broken cell
+          when: on_fail
+          command: |
+            CELL="${CIRCLE_JOB} / Node $(node --version) / << parameters.source >>"
+            if [ -z "${GITHUB_TOKEN:-}" ]; then
+              echo "canary failed on ${CELL}"
+              echo "GITHUB_TOKEN is not set — NOT REPORTED. That is a missing alert, not a pass."
+              exit 0
+            fi
+            bash scripts/ci/canary-report.sh "$CELL"
+
+# ── Jobs ──────────────────────────────────────────────────────────────────
+jobs:
+  # The local gate, on a machine that is not the author's. If it passes here
+  # and fails on a laptop, the laptop is the problem — that reading is the
+  # whole value of this job, since the checks themselves are not new.
+  gate:
+    docker:
+      - image: cimg/node:22.11
+    resource_class: medium
+    environment:
+      CI: "true"
+      GREAT_CTO_NO_UPDATE_CHECK: "1"
+    steps:
+      - checkout
+      - install_linux_deps
+      - run:
+          name: Build CLI
+          command: cd packages/cli && npm install --silent --no-fund --no-audit && npm run build
+      - run:
+          name: ci-local.sh — the same gate the pre-push hook runs
+          command: bash scripts/ci-local.sh
+          no_output_timeout: 25m
+
+  linux_canary:
+    parameters:
+      node: { type: string }
+      source: { type: enum, enum: ["local", "npm"] }
+    docker:
+      - image: cimg/node:<< parameters.node >>
+    resource_class: medium
+    steps:
+      - checkout
+      - install_linux_deps
+      - install_agent_hosts
+      - run_canary:
+          source: << parameters.source >>
+
+  # The job the open-source grant is for. Linux alone cannot fail the way a
+  # user on a Mac fails, which is the reason a canary exists at all.
+  macos_canary:
+    parameters:
+      node: { type: string }
+      source: { type: enum, enum: ["local", "npm"] }
+    macos:
+      # Checked against the docs the day this was written, because the previous
+      # attempt at a second runner was aimed at a service that had been shut
+      # down for three months. macos.m1.medium.gen1 is sunset and Xcode 16.2.0
+      # reached end-of-life on 2026-01-14; the current classes are m4pro.medium
+      # and m4pro.large, and 26.6 is the newest STABLE image (27.0 is beta, and
+      # a beta image is overwritten in place until GM — not something a daily
+      # canary should stand on).
+      xcode: "26.6"
+    resource_class: m4pro.medium
+    steps:
+      - checkout
+      - run:
+          name: Node << parameters.node >> via nvm, plus jq
+          command: |
+            brew install jq || true
+            curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+            export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
+            nvm install "<< parameters.node >>" && nvm alias default "<< parameters.node >>"
+            echo 'export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"' >> "$BASH_ENV"
+      - install_agent_hosts
+      - run_canary:
+          source: << parameters.source >>
+
+  evals_drift:
+    docker:
+      - image: cimg/node:22.11
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Refuse to report a pass over an eval set that never ran
+          command: |
+            if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+              echo "OPENROUTER_API_KEY is not set — evals NOT RUN. This is not a pass."
+              exit 1
+            fi
+      - run:
+          name: Holdout eval run
+          # `|| true` as in the GitHub workflow: one flaky sample must not fail
+          # the job. Drift is judged by the comparison below, not by this exit.
+          command: node tests/eval/runner.mjs --split holdout --samples 3 --judge-votes 3 || true
+          no_output_timeout: 30m
+      - run:
+          name: Drift against the trailing window
+          command: node scripts/lib/eval-drift.mjs --split holdout --samples 3 --window 5 --threshold 0.1 --max-noise 0.1
+
+  awesome_list:
+    docker:
+      - image: cimg/node:22.11
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Are we still listed where we were listed
+          command: bash scripts/ci/awesome-list-check.sh
+
+# ── Workflows ─────────────────────────────────────────────────────────────
+workflows:
+  on_push:
+    jobs:
+      - gate
+
+  # 10 cells, matching what the GitHub matrix covered: 2 OS × 3 Node × 2
+  # sources, minus node 18.17 on the npm path (redundant there).
+  daily_canary:
+    triggers:
+      - schedule:
+          cron: "0 6 * * *"          # 06:00 UTC. Standard cron here, unlike Quartz elsewhere.
+          filters: { branches: { only: [main] } }
+    jobs:
+      - linux_canary:
+          name: linux-node<< matrix.node >>-<< matrix.source >>
+          matrix:
+            parameters:
+              node: ["18.17.0", "20.18", "22.11"]
+              source: ["local", "npm"]
+            exclude:
+              - { node: "18.17.0", source: "npm" }
+      - macos_canary:
+          name: macos-node<< matrix.node >>-<< matrix.source >>
+          matrix:
+            parameters:
+              node: ["18.17.0", "20.18", "22.11"]
+              source: ["local", "npm"]
+            exclude:
+              - { node: "18.17.0", source: "npm" }
+
+  weekly_evals_drift:
+    triggers:
+      - schedule:
+          cron: "17 6 * * 1"         # Mondays 06:17 UTC
+          filters: { branches: { only: [main] } }
+    jobs:
+      - evals_drift
+
+  weekly_awesome_list:
+    triggers:
+      - schedule:
+          cron: "0 8 * * 1"          # Mondays 08:00 UTC
+          filters: { branches: { only: [main] } }
+    jobs:
+      - awesome_list

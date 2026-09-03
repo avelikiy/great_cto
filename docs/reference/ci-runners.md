@@ -3,89 +3,98 @@
 Three places, and the split is deliberate. See also
 [architecture-map.md](architecture-map.md) for what the checks are checking.
 
-## The short version
-
 | | What runs there | Why not elsewhere |
 |---|---|---|
 | **`scripts/ci-local.sh`** | 109 checks, before every push | The gate. Fast, free, and on the machine that wrote the code |
-| **GitHub Actions** | publishing, OpenSSF Scorecard | `npm publish --provenance` signs only through Actions or GitLab CI OIDC; Scorecard grades the GitHub repository itself |
-| **Cirrus CI** (`.cirrus.yml`) | the daily canary, two weekly crons, and the local gate on a clean container | macOS + Linux matrix, and a schedule that fires whether or not anyone is at a keyboard |
+| **GitHub Actions** | publish, Scorecard | The only path to `npm publish --provenance`; Scorecard grades the GitHub repo itself. Free and unlimited here — but the account's billing lock has them refused since 2026-06-25 |
+| **CircleCI** (`.circleci/config.yml`) | the daily canary, two weekly crons, and the local gate on a clean container | Its open-source programme is the only remaining free source of **macOS** runners after Cirrus shut down |
 
-`scripts/lib/guard-parity.mjs` reads **both** remote configs and asserts that
-every command in them either runs in `ci-local.sh` too or is named in
+`scripts/lib/guard-parity.mjs` reads the remote configs and asserts that every
+command in them either runs in `ci-local.sh` too or is named in
 `REMOTE_BY_DESIGN` with a reason. A correctness gate that exists only remotely
 is not a gate.
 
-## Why Cirrus and not the others
+## The current problem, and the actual fix
 
-GitHub Actions is free and unlimited on a public repository, and this
-repository is public — so `.cirrus.yml` is **not** a cost decision. It exists
-because the account's billing lock disables Actions org-wide, public repos
-included: 100 consecutive runs since 2026-06-25 refused with
-"your account is locked due to a billing issue".
+GitHub Actions has been dead since **2026-06-25**: 100 consecutive runs refused
+with *"your account is locked due to a billing issue"*. The lock is on the
+ACCOUNT and disables Actions org-wide — public repositories included, even
+though Actions are free and unlimited for them.
 
-If that lock is lifted, prefer Actions and delete `.cirrus.yml`. It is the only
-path to npm provenance.
+**The fix is the billing lock, not a second CI provider.** This repository is
+public, so Actions already cost nothing, already have 11 working workflows, are
+the only free source of macOS runners, and are the only path to
+`npm publish --provenance`. Every alternative is paying with work for something
+that is already free here, and losing something on the way.
 
-Ruled out, each for one reason:
+## Do not reach for Cirrus CI
 
-- **Cloud Build** — Linux containers only. A canary without macOS cannot fail
-  the way users fail, which is the entire point of a canary.
-- **Circle CI** — macOS is not in the free tier.
-- **Self-hosted runner** — it would be the same Mac that already runs
-  `ci-local.sh`, so it proves nothing new.
+It was the obvious answer and it is gone: **Cirrus CI shut down on 2026-06-01**
+after Cirrus Labs joined OpenAI. `cirrus-ci.org` no longer resolves and
+`github.com/marketplace/cirrus-ci` is a 404.
 
-Cirrus is free for public repositories and offers macOS, Linux, Windows and
-FreeBSD images. It is the only free option that covers the matrix this
-repository actually needs.
+Recorded here because it was recommended in this repository once, a
+`.cirrus.yml` was written and committed against a service that had been dead
+for three months, and the search results that led there were indexed pages of
+documentation whose domain no longer exists. Search hits are not a liveness
+check. The DNS failure was visible before the config was written and was read
+as a network blip.
 
-## What did NOT move, and why
+## Setting CircleCI up
 
-- **`npm publish`** — provenance signing works only through GitHub Actions or
-  GitLab CI OIDC. Publishing from Cirrus would ship an *unsigned* package,
-  which is worse than `scripts/cd-local.sh --publish`, which is what actually
-  publishes today.
-- **`scorecard.yml`** — OpenSSF Scorecard grades the GitHub repository,
-  including whether it has CI on GitHub. It does not move by definition.
-- **`plugin-ci` / `runtime-ci` / `cli-ci` / `evals-runner`** — these duplicate
-  `ci-local.sh`. The `ci_task` in `.cirrus.yml` runs the whole local gate on a
-  clean container instead, which is the part that is *not* a duplicate: proof
-  that the gate passes somewhere other than the machine that wrote the code.
+Liveness was checked before a line was written, which is the lesson Cirrus
+taught: `circleci.com` answers 200, `api/v2/me` answers 401, and the CLI
+(`brew install circleci`, 1.0.49308) validates the config locally. Run
+`circleci config validate .circleci/config.yml` before pushing config changes;
+`circleci config process` expands the matrix so you can see the ten canary
+cells rather than trust that they are there.
 
-## Setup that cannot live in a file
+1. **Add the project** — app.circleci.com → Projects → `great_cto` → Set Up
+   Project → "Fastest" (it finds `.circleci/config.yml` in the repo).
+2. **Apply to the open-source programme** for the macOS credits: up to 400,000
+   credits/month for Linux/Arm/Docker and **30,000 for macOS** on public repos.
+   Without the grant the Linux half still runs; `macos_canary` is what needs it.
+3. **Two environment variables**, Project Settings → Environment Variables:
+   `OPENROUTER_API_KEY` (weekly eval drift) and `GITHUB_TOKEN` (only to open an
+   issue when a canary cell breaks). Missing either, the job that needs it
+   **stops and says so** rather than reporting a pass over a check that never
+   ran.
 
-1. Install the Cirrus CI GitHub App on `avelikiy/great_cto`.
-2. Cirrus Cron is configured in the web UI. The `only_if` guards in
-   `.cirrus.yml` expect these **names**:
+Schedules are in the config, not a web UI, and they are **standard cron** —
+unlike Cirrus, which wanted Quartz. Six-field Quartz expressions do not belong
+here.
 
-   | Cron name | Quartz expression | Branch | Task |
-   |---|---|---|---|
-   | `daily-canary` | `0 0 6 ? * *` | `main` | `canary_linux_task`, `canary_macos_task` |
-   | `evals-drift` | `0 17 6 ? * MON` | `main` | `evals_drift_task` |
-   | `awesome-list` | `0 0 8 ? * MON` | `main` | `awesome_list_task` |
+### The other options, and why not
 
-   **These are Quartz expressions, not crontab.** Cirrus uses Quartz, which has
-   six fields instead of five — the first is SECONDS — and requires a `?` in
-   either day-of-month or day-of-week but not both. A crontab-shaped `0 6 * * *`
-   pasted here is not a daily 06:00 build; it is rejected or means something
-   else. Times are UTC either way.
+- **Self-hosted runner on the author's Mac** — it is the same machine that
+  already runs `ci-local.sh`, so it proves nothing new. It buys the schedule
+  and nothing else.
+- **Cloud Build / any Linux-only provider** — covers 13 of 19 jobs. The canary
+  loses macOS, which is the failure mode it exists to catch.
 
-   A cron whose name does not match runs **nothing** rather than everything —
-   a task firing on the wrong trigger is worse than one that does not fire.
-3. Encrypted variables: `OPENROUTER_API_KEY` (drift) and `GITHUB_TOKEN`
-   (opening an issue when a canary cell breaks). Without them those tasks
-   **skip and say so**; they do not report a pass.
+Whatever is chosen: `npm publish` stays where it is. Provenance signs only
+through GitHub Actions or GitLab CI OIDC, so publishing from anywhere else
+ships an *unsigned* package — worse than `scripts/cd-local.sh --publish`, which
+is what publishes today.
 
-## The two scripts the config calls
+## The two scripts, which outlive any of this
 
-Both were inline YAML in GitHub workflows and therefore runnable nowhere else.
-They are files now so they can be read, run by hand, and called from any runner:
+Both were inline YAML inside GitHub workflows and therefore runnable nowhere
+else — including on a laptop, when you want to know what a red run meant. They
+are files now, and they do not care which runner calls them:
 
 - **`scripts/ci/canary-report.sh`** — opens one issue per broken matrix cell,
   and not a second while the first is open. Ten cells failing one root cause
   would otherwise file ten issues a day until the label gets muted.
-- **`scripts/ci/awesome-list-check.sh`** — weekly check that lists which had
-  us still do. It distinguishes three states: `listed`, `pending` (submitted,
-  not accepted — absence is expected, not news) and dropped. The first version
-  lacked the middle one and reported "no longer listed" for two lists we had
-  never been in.
+- **`scripts/ci/awesome-list-check.sh`** — weekly check that lists which had us
+  still do. Three states: `listed`, `pending` (submitted, not accepted — absence
+  is expected, not news) and dropped. The first version had two and reported
+  "no longer listed" for two lists we had never been in; both submissions were
+  still open at the time.
+
+Run either by hand:
+
+```bash
+bash scripts/ci/awesome-list-check.sh                    # report only
+GITHUB_TOKEN=… bash scripts/ci/awesome-list-check.sh     # and open issues
+```
