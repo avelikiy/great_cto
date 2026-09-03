@@ -25,6 +25,11 @@ export const PATTERNS = [
   { name: 'GitHub OAuth',          regex: /\bgho_[A-Za-z0-9]{36}\b/,                severity: 'block' },
   { name: 'Stripe live key',       regex: /\bsk_live_[A-Za-z0-9]{24,}\b/,           severity: 'block' },
   { name: 'Stripe restricted',     regex: /\brk_live_[A-Za-z0-9]{24,}\b/,           severity: 'block' },
+  // Before the OpenAI rule, because `sk-` matches both and whichever runs
+  // first names the alert. An OpenRouter key reported as "OpenAI API key"
+  // sends someone to revoke the wrong credential at the wrong provider —
+  // and this repository has leaked an OpenRouter key twice.
+  { name: 'OpenRouter API key',    regex: /\bsk-or-v1-[A-Za-z0-9]{32,}\b/,          severity: 'block' },
   { name: 'OpenAI API key',        regex: /\bsk-(?:proj-)?[A-Za-z0-9_-]{32,}\b/,    severity: 'block' },
   { name: 'Anthropic API key',     regex: /\bsk-ant-[A-Za-z0-9_-]{40,}\b/,          severity: 'block' },
   { name: 'Google API key',        regex: /\bAIza[0-9A-Za-z_-]{35}\b/,              severity: 'block' },

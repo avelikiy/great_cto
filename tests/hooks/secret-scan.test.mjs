@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { scan } from '../../scripts/lib/secret-patterns.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HOOK = resolve(__dirname, '../../scripts/hooks/secret-scan.mjs');
@@ -186,4 +187,23 @@ test('empty stdin passes', () => {
 test('malformed JSON passes (defensive)', () => {
   const r = spawnSync('node', [HOOK], { input: 'not-json', encoding: 'utf8' });
   assert.equal(r.status, 0);
+});
+
+test('an OpenRouter key is named as OpenRouter, not as OpenAI', () => {
+  // `sk-` matches both rules, and whichever runs first names the alert. An
+  // OpenRouter key reported as "OpenAI API key" sends whoever reads the alert
+  // to revoke the wrong credential at the wrong provider, while the live one
+  // stays live. This repository has leaked an OpenRouter key twice, so the
+  // ordering is load-bearing, not cosmetic.
+  const key = `sk-or-v1-${'0123456789abcdef'.repeat(4)}`;
+  const hits = scan(`const k = "${key}";`);
+  assert.ok(hits.length > 0, 'an OpenRouter key must be caught at all');
+  assert.equal(hits[0].name, 'OpenRouter API key',
+    `the FIRST match names the alert; got ${hits.map((h) => h.name).join(', ')}`);
+  assert.equal(hits[0].severity, 'block');
+});
+
+test('an OpenAI key is still named OpenAI', () => {
+  const hits = scan(`const k = "sk-proj-${'A'.repeat(40)}";`);
+  assert.ok(hits.some((h) => h.name === 'OpenAI API key'));
 });
