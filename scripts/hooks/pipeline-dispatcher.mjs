@@ -822,7 +822,17 @@ async function main() {
   const MAP_SOURCE = PIPELINE_PATH === LOCAL_PIPELINE ? 'project' : 'plugin';
   // Never able to fail a dispatch: a journal whose failure stops the pipeline is
   // very much worse than no journal.
-  const journal = (entry) => { try { recordRun(PROJECT_ROOT, { ...entry, mapSource: MAP_SOURCE }); } catch { /* the run still happened */ } };
+  // `startedAt` comes from the agent's own transcript, so the interval does not
+  // depend on the agent remembering to report anything — the same reason
+  // `cost=auto` recorded a measured zero for months.
+  // When this agent's run began, for the interval the journal records. Declared
+  // HERE rather than read off `shape` inside the closure: `shape` is computed
+  // further down, and two `journal()` calls on the no-map path run before it —
+  // reaching for it there is a TDZ ReferenceError that the closure's own catch
+  // would swallow, losing the journal line entirely. A measurement that can
+  // delete a record is worse than no measurement.
+  let runStartedAt = null;
+  const journal = (entry) => { try { recordRun(PROJECT_ROOT, { startedAt: runStartedAt, ...entry, mapSource: MAP_SOURCE }); } catch { /* the run still happened */ } };
 
   if (process.env.GREAT_CTO_DISABLE_DISPATCHER === '1') return process.exit(0);
   // Not a great_cto project: nothing to record, and nowhere to record it.
@@ -886,6 +896,10 @@ async function main() {
   } catch { /* no PROJECT.md or helper — keep every gate */ }
 
   const shape = stopShapeFor(agentIdFrom(payload));
+  // From the transcript, so the interval does not depend on the agent
+  // remembering to report anything — the same reason `cost=auto` recorded a
+  // measured zero for months. Null stays null: an untimed run is unmeasured.
+  runStartedAt = shape?.startedAt ?? null;
   if (!verdictBelongsToRun(verdict, shape?.startedAt)) verdict = null;
 
   // Only when there is no verdict. With one, the run concluded and what it left

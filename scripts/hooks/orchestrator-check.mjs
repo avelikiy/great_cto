@@ -114,6 +114,25 @@ console.log('=== ORCHESTRATOR CONTRACT (shared/orchestrator.toml) ===');
 console.log(`Decomposition matrix required : ${p.decomposition_matrix_required ?? '—'}`);
 console.log(`Inline subagents allowed      : ${p.inline_subagents_allowed ?? '—'}`);
 console.log(`Max parallel streams          : ${p.max_parallel_streams ?? '—'}`);
+
+// The ceiling above is what the contract ALLOWS. This line is what the project
+// has actually used — and until it existed the two were never compared, so a
+// pipeline that ran every stage one after another was indistinguishable from
+// one that ran five at once, except for being slower. Slower is invisible in a
+// verdict.
+//
+// It reports and never blocks. Work with no independent streams SHOULD be
+// serial, and a guard that punished that would push people to parallelise
+// things that share state — the one outcome worse than being slow.
+//
+// Best-effort: a hook that cannot read a journal still has a contract to print.
+try {
+  const { readJournalRuns, parallelismReport } = await import('../lib/agent-runs.mjs');
+  const root = (typeof tomlPath === 'string' && tomlPath ? tomlPath : '').replace(/\/shared\/orchestrator\.toml$/, '') || '.';
+  const { runs, untimed } = readJournalRuns(root);
+  const rep = parallelismReport({ runs, declaredMax: p.max_parallel_streams ?? null, untimed });
+  console.log(`Measured so far               : ${rep.summary}`);
+} catch { /* the contract still prints */ }
 console.log(`Authorization phrase required : ${a.spawn_phrase_required ?? '—'}`);
 if (a.spawn_phrase_required) {
   console.log(`Authorization phrase          : "${a.spawn_phrase ?? ''}"`);

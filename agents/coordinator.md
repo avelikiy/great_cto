@@ -240,12 +240,24 @@ tables — one WPL, referenced from the orchestrator, is the single source.
 **Strict file ownership**: an agent may not write to files outside its ownership list. Before dispatching ≥2 implementation packets, run the mechanical overlap check (`scripts/lib/check-lane-overlap.mjs` — it expands globs; a naive line-level `uniq -d` misses `src/auth/*.ts` vs `src/auth/login.ts`):
 
 ```bash
-# Build lanes.json from the WPL "Owned files" column (implementation packets only):
-#   [{"lane":"packet-3","files":["src/auth/*.ts"]},{"lane":"packet-4","files":["migrations/*.sql"]}]
-CLO="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/check-lane-overlap.mjs"
-[ -f "$CLO" ] || CLO="$(pwd)/scripts/lib/check-lane-overlap.mjs"
-node "$CLO" lanes.json    # exit 0 = disjoint (safe to fan out), 1 = overlap
+# Feed the WPL itself — no hand-built lanes.json. Building that intermediate by
+# hand was the step that got skipped, and a check nobody runs is a check that
+# does not exist.
+WPL="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/wpl.mjs"
+[ -f "$WPL" ] || WPL="$(pwd)/scripts/lib/wpl.mjs"
+node "$WPL" wpl.md        # exit 0 = disjoint (safe to fan out), 1 = overlap or no matrix
 ```
+
+It reads both spellings of the matrix — the WPL's `Name | Class | Owned files`
+and CLAUDE.md's `Stream | Write-zone` — and reports three states, because
+`absent` ("write a matrix") and `malformed` ("fix the one you wrote") send a
+reader in different directions.
+
+The overlap it runs compares patterns, so `src/auth/*.ts` and
+`src/auth/login.ts` are a conflict. They were NOT until 2026-09-03: the checker
+compared normalised strings and returned `ok: true` for that exact pair, while
+this file told readers globs were expanded. Two agents dispatched onto one file
+with a green light from the check that exists to prevent it.
 
 If exit 1 → force sequential: add the dependency in the WPL before dispatching, or re-split the packets until the check passes.
 

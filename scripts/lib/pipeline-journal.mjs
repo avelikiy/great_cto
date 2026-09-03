@@ -52,6 +52,16 @@ export function recordRun(cwd, entry) {
   const line = JSON.stringify({
     v: 1,
     ts: entry.at ? new Date(entry.at).toISOString() : new Date().toISOString(),
+    // `ts` is when the run ENDED; `started_at` is when it began. The pair is
+    // what makes parallelism measurable rather than merely declared — the
+    // contract has capped `max_parallel_streams` since it was written and
+    // nothing ever recorded how many streams a run actually used, so a serial
+    // pipeline and a five-way one left identical journals.
+    //
+    // Null when the transcript could not be timed. NOT defaulted to `ts`, which
+    // would hand the run a zero-length interval — an invented measurement that
+    // reads downstream exactly like a real one.
+    started_at: entry.startedAt ? new Date(entry.startedAt).toISOString() : null,
     agent: entry.agent ?? null,
     verdict: entry.verdict ?? null,
     outcome: entry.outcome,
