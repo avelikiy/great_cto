@@ -104,7 +104,12 @@ function bdEnv() {
 }
 // Centralized bd invocation — resolved binary + augmented PATH for every call site.
 function bd(args, opts = {}) {
-  return spawnSync(BD_BIN, args, { encoding: 'utf8', timeout: 8000, ...opts, env: { ...bdEnv(), ...(opts.env || {}) } });
+  // 20s default. It was 8000, and `bd` was measured in this repository at up to
+  // 8.7s when ten test files spawn it at once (see tests/pipeline-contracts.test.mjs)
+  // — so the default cap sat BELOW the known worst case, and every call site that
+  // did not name its own timeout inherited a cap the machine could exceed while
+  // working correctly. What came back was indistinguishable from beads failing.
+  return spawnSync(BD_BIN, args, { encoding: 'utf8', timeout: 20000, ...opts, env: { ...bdEnv(), ...(opts.env || {}) } });
 }
 // Turn a failed bd result into an actionable message (the bare "bd update failed" hid ENOENT).
 function bdErr(r, what) {

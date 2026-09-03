@@ -480,7 +480,11 @@ async function dispatch(req, res, url, cwd) {
         const r = beadsErr
           ? { status: 1, error: { code: 'NO_BEADS' } }
           : bd(['update', id, '--status', status, ...(reason ? ['--notes', `[${action}] ${reason}`] : [])],
-              { cwd: gateCwd, timeout: 5000 });
+              // 20s: this is the gate-approval write, and it failed in the full
+              // gate at 71s wall-clock with the gate simply absent from the
+              // inbox afterwards. bd was measured at up to 8.7s under the
+              // suite's own parallelism; 5s could not be met.
+              { cwd: gateCwd, timeout: 20000 });
         if (r.status !== 0) {
           if (!setTaskStatusInTasksMd(gateCwd, id, status)) {
             return { error: (beadsErr ? 'beads unavailable' : bdErr(r, 'bd update failed'))
@@ -920,8 +924,20 @@ async function dispatch(req, res, url, cwd) {
         // Concurrent POST /api/tasks calls used to race on bd's file lock —
         // one crash would leave a stale .beads/.lock that froze ALL writes.
         const result = await bdWriteSerialised(() => {
-          const r = bd(args, { cwd, timeout: 5000 });
-          if (r.status !== 0) return { error: bdErr(r, 'bd create failed') };
+          // 20s, not 5s. `bd` was measured in this repository at 1.9s alone and
+          // up to 8.7s when ten test files spawn it at once (see the note in
+          // tests/pipeline-contracts.test.mjs), and bdWriteSerialised queues
+          // every write behind every other write on top of that. A 5s cap could
+          // not be met under the load the suite creates for itself, so "did bd
+          // succeed" was really asking "was the machine quiet" — and the answer
+          // came back as HTTP 500, indistinguishable from a malformed request.
+          const r = bd(args, { cwd, timeout: 20000 });
+          if (r.status !== 0) {
+            // A cap we imposed firing is not the same as beads refusing. The
+            // caller can retry one of them and not the other.
+            const timedOut = r.error && r.error.code === 'ETIMEDOUT';
+            return { error: bdErr(r, 'bd create failed'), timedOut };
+          }
           const idMatch = (r.stdout || '').match(/Created issue:\s*(\S+)/);
           const id = idMatch ? idMatch[1] : null;
 
@@ -935,14 +951,22 @@ async function dispatch(req, res, url, cwd) {
               if (lbl) { updateArgs.push('--add-label', lbl); needUpdate = true; }
             }
             if (agent && !lbls.includes(agent)) { updateArgs.push('--add-label', agent); needUpdate = true; }
-            if (needUpdate) bd(updateArgs, { cwd, timeout: 5000 });
+            if (needUpdate) bd(updateArgs, { cwd, timeout: 20000 });
           }
           return { id };
         });
 
         if (!result || result.error) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: (result && result.error) || 'bd create failed' }));
+          // 503 for a timeout: the request was fine, beads was busy, and coming
+          // back shortly is the right response. 500 told every caller — the UI,
+          // the tests, a person — that they had done something wrong.
+          const status = result && result.timedOut ? 503 : 500;
+          if (status === 503) res.setHeader('Retry-After', '5');
+          res.writeHead(status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: (result && result.error) || 'bd create failed',
+            retryable: status === 503,
+          }));
           return;
         }
 
@@ -980,7 +1004,9 @@ async function dispatch(req, res, url, cwd) {
         return;
       }
       const result = await bdWriteSerialised(() => {
-        const r = bd(['update', id, '--status', status], { cwd, timeout: 5000 });
+        // 20s for the same reason as the create path above: bd was measured at
+        // up to 8.7s under `node --test` parallelism, and 5s could not be met.
+        const r = bd(['update', id, '--status', status], { cwd, timeout: 20000 });
         if (r.status !== 0) return { error: bdErr(r, 'bd update failed') };
         bdCacheInvalidate(cwd);
         return { ok: true };
@@ -1018,7 +1044,7 @@ async function dispatch(req, res, url, cwd) {
         return;
       }
       const result = await bdWriteSerialised(() => {
-        const r = bd(['update', id, '--priority', String(priority)], { cwd, timeout: 5000 });
+        const r = bd(['update', id, '--priority', String(priority)], { cwd, timeout: 20000 });
         if (r.status !== 0) return { error: bdErr(r, 'bd update failed') };
         bdCacheInvalidate(cwd);
         return { ok: true };
