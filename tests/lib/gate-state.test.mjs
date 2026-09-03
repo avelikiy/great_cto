@@ -113,9 +113,25 @@ test('the description cannot smuggle a different gate name', () => {
 
 // ── failing safe ───────────────────────────────────────────────────────────
 
-test('an unreadable store yields no beads, which reads as absent, which waits', () => {
-  // A gate that cannot be read is a gate that has not been approved.
-  assert.deepEqual(readGateBeads({ cwd: '/nonexistent-path-for-this-test', timeoutMs: 500 }), []);
+test('an unreadable store yields no beads, which is not approval, which waits', () => {
+  // A gate that cannot be read is a gate that has not been approved. That is the
+  // property, and it is unchanged.
+  //
+  // What changed: the failure used to be indistinguishable from an empty store,
+  // so the reason given was "the question has not been asked" — which sends a
+  // reader off to raise a second gate bead, when the gate may exist and be
+  // approved and beads simply did not answer. The read now returns an empty
+  // array CARRYING `unreadable`, so iterating still yields nothing (the safe
+  // direction) while anyone who asks gets the truth.
+  const r = readGateBeads({ cwd: '/nonexistent-path-for-this-test', timeoutMs: 500 });
+  assert.deepEqual([...r], [], 'iterating a failed read must still yield no beads');
+  assert.equal(r.unreadable, true, 'and it must say that it failed rather than being empty');
+
+  // The safety property, asserted directly rather than via the name of a state:
+  // whatever it is called, it must not be approval.
+  assert.notEqual(gateState('gate:arch', r).state, 'approved');
+
+  // A store that answered, and had nothing, is still absent.
   assert.equal(gateState('gate:arch', [], { verdictTs: RAISED }).state, 'absent');
   assert.equal(gateState('gate:arch', null).state, 'absent');
 });

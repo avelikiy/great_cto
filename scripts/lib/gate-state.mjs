@@ -100,9 +100,17 @@ export const MAX_VERDICT_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  * @param {string} gate            e.g. 'gate:arch'
  * @param {Array}  beads           bead records: {title, status, updated_at}
  * @param {string} [verdictTs]     ISO ts of the verdict this gate would let past
- * @returns {{state:'approved'|'pending'|'absent'|'stale', bead?:object, why:string}}
+ * @returns {{state:'approved'|'pending'|'absent'|'unreadable'|'stale', bead?:object, why:string}}
  */
 export function gateState(gate, beads, { verdictTs = null, now = Date.now() } = {}) {
+  // The store could not be read. Direction is unchanged — unreadable is not
+  // approved, so the pipeline still waits — but the SENTENCE changes, and that
+  // is the whole point: "the question has not been asked" sends a reader off to
+  // raise a second gate bead, or to conclude the gate was never required, when
+  // in fact the gate may exist and be approved and beads simply did not answer.
+  if (beads && beads.unreadable) {
+    return { state: 'unreadable', why: `could not read gate state for ${gate}: ${beads.why || 'beads did not answer'} — this is not "no gate", it is "not known"` };
+  }
   const rel = (Array.isArray(beads) ? beads : []).filter((b) => titleNamesGate(b?.title, gate));
   if (!rel.length) {
     return { state: 'absent', why: `no ${gate} bead exists — the question has not been asked` };
@@ -165,17 +173,35 @@ export function gateState(gate, beads, { verdictTs = null, now = Date.now() } = 
 }
 
 /**
- * Gate beads from Beads. Returns [] on any failure — which reads as `absent`,
- * which waits. Bounded so a hook never hangs on a slow store.
+ * Gate beads from Beads.
+ *
+ * A failure returns an EMPTY array carrying `unreadable: true`, so iterating it
+ * yields nothing (the safe direction — nothing reads as approved) while a caller
+ * that asks can tell "no gates" from "could not ask". It used to return a plain
+ * `[]`, which said the gate had never been raised.
+ *
+ * Bounded so a hook never hangs on a slow store — at 20s, not the 4s it was:
+ * bd has been measured at up to 8.7s under the parallelism this repo's own test
+ * suite creates, so the old cap made an APPROVED gate unreadable by
+ * construction, stopping the pipeline to ask for a gate that already existed.
  */
-export function readGateBeads({ timeoutMs = 4000, cwd = process.cwd() } = {}) {
+export function readGateBeads({ timeoutMs = 20000, cwd = process.cwd() } = {}) {
   try {
     const out = execFileSync('bd', ['list', '--label', 'gate', '--json', '--status', 'all'],
       { cwd, timeout: timeoutMs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     const parsed = JSON.parse(out || '[]');
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+  } catch (e) {
+    // An empty array with a flag on it, rather than a different shape: every
+    // caller iterates this, and changing the type to signal a failure would
+    // trade a wrong message for a crash. Iterating it yields nothing, which is
+    // the safe direction; reading `.unreadable` yields the truth.
+    const empty = [];
+    empty.unreadable = true;
+    empty.why = String(e?.code === 'ETIMEDOUT'
+      ? `bd did not answer within ${timeoutMs}ms`
+      : (e?.shortMessage || e?.message || e));
+    return empty;
   }
 }
 

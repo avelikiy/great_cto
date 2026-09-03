@@ -39,7 +39,12 @@ export function classifyGates(gates, now, expiryHours = EXPIRY_HOURS) {
 }
 
 function bd(args) {
-  return execFileSync("bd", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  // A hook with no timeout is a hook that can hang a session forever: bd takes a
+  // file lock, and a stale .beads/.lock leaves every later call waiting on it.
+  // 20s because bd has been measured in this repository at up to 8.7s under the
+  // parallelism the test suite creates — a cap below that turns ordinary load
+  // into an error.
+  return execFileSync("bd", args, { encoding: "utf8", timeout: 20000, stdio: ["ignore", "pipe", "ignore"] });
 }
 
 function main() {

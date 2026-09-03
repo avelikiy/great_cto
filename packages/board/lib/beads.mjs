@@ -318,7 +318,13 @@ function bdRefreshAsync(cwd, onDone = () => {}) {
   lastBdRunAt.set(cwd, startedAt);
   let out = '';
   try {
-    const child = spawn(BD_BIN, ['list', '--json', '--all', '--include-gates'], { cwd, env: bdEnv() });
+    // Bounded like every other bd call. Without a timeout a hung bd never fires
+    // 'close', so `refreshing` stays held for this cwd forever and the cache
+    // silently serves stale tasks with no error anywhere — the async twin of the
+    // sync path's 500s. Node kills on timeout, which DOES fire 'close' with a
+    // non-zero code, so the failure handling below reports it rather than the
+    // board simply going quiet.
+    const child = spawn(BD_BIN, ['list', '--json', '--all', '--include-gates'], { cwd, env: bdEnv(), timeout: 20000 });
     child.stdout?.on('data', (d) => { out += d; });
     child.on('error', (e) => {
       refreshing.delete(cwd);

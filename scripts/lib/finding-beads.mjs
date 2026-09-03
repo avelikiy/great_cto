@@ -91,7 +91,7 @@ export function findingFromBead(bead, { comments = [], reproResult = null } = {}
  * Finding beads from the tracker. [] on any failure — a tracker we cannot read
  * is not evidence that nothing is open.
  */
-export function readFindingBeads({ timeoutMs = 6000, cwd = process.cwd(), exec = execFileSync } = {}) {
+export function readFindingBeads({ timeoutMs = 20000, cwd = process.cwd(), exec = execFileSync } = {}) {
   try {
     const out = exec('bd', ['list', '--label', 'finding', '--json', '--status', 'all'],
       { cwd, timeout: timeoutMs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
@@ -103,7 +103,7 @@ export function readFindingBeads({ timeoutMs = 6000, cwd = process.cwd(), exec =
 }
 
 /** Comments for one bead, or [] when they cannot be read. */
-export function readBeadComments(id, { timeoutMs = 6000, cwd = process.cwd(), exec = execFileSync } = {}) {
+export function readBeadComments(id, { timeoutMs = 20000, cwd = process.cwd(), exec = execFileSync } = {}) {
   try {
     const out = exec('bd', ['show', String(id), '--json'],
       { cwd, timeout: timeoutMs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
