@@ -12,6 +12,64 @@ All notable changes to great_cto are documented here.
 
 
 
+## v3.22.0 — 2026-09-03
+
+Two things the machinery had always claimed but never measured: how much of the
+pipeline actually runs in parallel, and whether `bd` was given long enough to
+answer. Both were reporting confidently on questions nobody had asked.
+
+### What's new
+
+- **Parallelism is measured, not only declared.** `shared/orchestrator.toml` has
+  capped `max_parallel_streams` since it was written, and nothing ever recorded
+  how many streams a run used — a serial pipeline and a five-way one left
+  identical journals, the serial one only slower. The dispatch journal now
+  records when each agent run BEGAN as well as when it ended, and the contract
+  print at SubagentStart shows the measured peak beside the declared ceiling.
+  Three states, and the third is the point: `parallel`, `serial`, and
+  `unmeasured` for runs nobody timed — reporting the last as "serial" would be a
+  measurement the code never took.
+- **The Work Packet List can be checked mechanically.** `scripts/lib/wpl.mjs`
+  reads the decomposition matrix straight from its markdown table and runs the
+  lane-overlap check on it. The overlap checker already existed; between it and
+  the table sat a hand-built `lanes.json`, which is the step people skip.
+- **The board's design direction ①** — zero radius, no decorative shadow, one
+  voice — with the light theme's ink ladder corrected and every rendered colour
+  tied to the stylesheet by test rather than by eye.
+- **CircleCI runs the checks a laptop cannot**, on a schedule: the cold-install
+  canary across macOS and Linux, and the weekly eval-drift run. GitHub Actions
+  stays the publish path (provenance signs only there) and returns the moment
+  the account's billing lock is lifted.
+
+### Fixed
+
+- **A busy `bd` was reported as a broken one.** Every timeout cap around beads
+  sat BELOW what beads had been measured to take — 5s and 8s against 8.7s under
+  the parallelism the test suite creates for itself — so ordinary load returned
+  HTTP 500, identical to a malformed request. Caps are now above the
+  measurement, a timeout answers 503 with `Retry-After`, and a test walks every
+  shipping file to keep it that way. Four more calls had no timeout at all,
+  including one in a hook and one on the board's async refresh path, where a
+  hung beads left the cache serving stale tasks with no error anywhere.
+- **A gate that could not be read reported as a gate that was never raised.**
+  The direction was always safe — unreadable is not approved, so the pipeline
+  waits — but the sentence sent readers off to raise a second gate bead for a
+  gate that may already exist and be approved. It now says `unreadable`.
+- **Seven copies of "spawn a board and hope".** One fell out of its wait loop
+  silently and carried on against a board that never came up; none retried a
+  port taken between `freePort()` and the child's bind, though the helper had
+  promised that retry for months; and all of them threw one message for three
+  causes. Now one helper, which watches the child's stderr and says which of the
+  three it was.
+- **Lane overlap compared strings**, so `src/auth/*.ts` and `src/auth/login.ts`
+  were judged disjoint and two agents could be dispatched onto the same file.
+  Globs are expanded before comparison.
+- **An OpenRouter key was named as an OpenAI key** by the secret scanner,
+  because `sk-` matches both rules and the first match wins. Sending someone to
+  revoke the wrong credential is worse than not naming one at all.
+
+---
+
 ## v3.21.0 — 2026-09-01
 
 The file that every session reads is now checked before it is read, and the cost
