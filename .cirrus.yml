@@ -1,0 +1,227 @@
+# Cirrus CI — the checks that cannot run on a laptop.
+#
+# WHY THIS EXISTS, and what it deliberately does NOT do.
+#
+# scripts/ci-local.sh runs 109 checks before every push, and scripts/lib/
+# guard-parity.mjs asserts that every guard in a GitHub workflow either runs
+# there too or is named remote-by-design. So a remote CI that re-runs those
+# checks buys almost nothing. What a laptop genuinely cannot provide is:
+#
+#   1. macOS AND Linux, on three Node versions, on a clean machine — the
+#      canary's whole point is catching "works on the author's box"
+#   2. a schedule that fires whether or not anyone is at the keyboard
+#   3. the published npm artifact exercised as a new user gets it, not the
+#      working tree
+#
+# Those three are what is here. Everything else stays where it is.
+#
+# ── Chosen over the alternatives, for one reason each ────────────────────
+#   GitHub Actions   free and unlimited on a public repo, and already
+#                    configured — this file exists only because the account's
+#                    billing lock disables Actions org-wide, public repos
+#                    included. If that lock is lifted, prefer Actions and
+#                    delete this: it is the only path to npm provenance.
+#   Cloud Build      Linux containers only. The canary without macOS is a
+#                    canary that cannot fail the way users fail.
+#   Circle CI        macOS is not in the free tier.
+#   Cirrus CI        free for public repositories, with macOS, Linux, Windows
+#                    and FreeBSD images. The only free option that covers the
+#                    matrix this repository actually needs.
+#
+# ── What is NOT here, on purpose ─────────────────────────────────────────
+#   npm publish      provenance signing works only through GitHub Actions or
+#                    GitLab CI OIDC. Publishing from Cirrus would ship an
+#                    UNSIGNED package, which is worse than publishing from a
+#                    laptop, which is what scripts/cd-local.sh already does.
+#   scorecard        OpenSSF Scorecard grades the GitHub repository itself,
+#                    including whether it has CI on GitHub. It does not move.
+#   the push checks  plugin-ci / runtime-ci / cli-ci / evals-runner duplicate
+#                    ci-local. One `ci` task below runs the whole local gate
+#                    on a clean container, which is the part that is not a
+#                    duplicate: it proves the gate passes somewhere other than
+#                    the machine that wrote the code.
+#
+# ── SETUP, which cannot be done from this file ───────────────────────────
+#   1. Install the Cirrus CI GitHub App on avelikiy/great_cto.
+#   2. Cirrus Cron is configured in the web UI, not here — the `only_if`
+#      guards below expect these cron job NAMES to exist:
+#         daily-canary    0 6 * * *     (06:00 UTC daily)
+#         evals-drift     17 6 * * 1    (Mondays 06:17 UTC)
+#         awesome-list    0 8 * * 1     (Mondays 08:00 UTC)
+#      A cron whose name does not match runs NOTHING here rather than running
+#      everything — a task that silently runs on the wrong trigger is worse
+#      than one that does not run.
+#   3. Repository-level encrypted variables for OPENROUTER_API_KEY and
+#      GITHUB_TOKEN (the latter only to open an issue when the canary breaks).
+#      Without them the tasks that need them SKIP and say so; they do not pass.
+
+# ── Push: the local gate, on a machine that is not the author's ──────────
+ci_task:
+  only_if: $CIRRUS_CRON == ''
+  timeout_in: 30m
+  container:
+    image: node:22-slim
+    cpu: 4
+    memory: 8G
+  env:
+    CI: "true"
+    GREAT_CTO_NO_UPDATE_CHECK: "1"
+  install_deps_script:
+    - apt-get update -qq
+    - apt-get install -y -qq git python3 curl jq bash
+  cli_build_script:
+    - cd packages/cli && npm install --silent --no-fund --no-audit && npm run build
+  gate_script:
+    # The same gate the pre-push hook runs. If it passes here and fails on a
+    # laptop, the laptop is the problem — which is the reading this task adds.
+    - bash scripts/ci-local.sh
+
+# ── Daily canary: the cold-install path, every supported OS × Node ───────
+# Mirrors .github/workflows/daily-canary.yml cell for cell: 2 OS × 3 Node ×
+# 2 sources, minus node 18.17 on the npm path (redundant there), = 10 cells.
+canary_linux_task:
+  only_if: $CIRRUS_CRON == 'daily-canary'
+  timeout_in: 15m
+  container:
+    image: node:${NODE_VERSION}-slim
+    cpu: 2
+    memory: 4G
+  matrix:
+    - env:
+        NODE_VERSION: "18.17"
+        CANARY_SOURCE: local
+    - env:
+        NODE_VERSION: "20"
+        CANARY_SOURCE: local
+    - env:
+        NODE_VERSION: "20"
+        CANARY_SOURCE: npm
+    - env:
+        NODE_VERSION: "22"
+        CANARY_SOURCE: local
+    - env:
+        NODE_VERSION: "22"
+        CANARY_SOURCE: npm
+  install_deps_script:
+    - apt-get update -qq
+    - apt-get install -y -qq git python3 python3-pip curl jq bash
+    # Aider and the Codex CLI are exercised as REAL binaries against
+    # scripts/mock-llm.py, so the canary spends no API tokens.
+    - python3 -m pip install --quiet --break-system-packages --upgrade pip
+    - python3 -m pip install --quiet --break-system-packages aider-chat pyyaml
+    - npm install -g @openai/codex || echo "codex install failed — that step will skip"
+  build_script: |
+    if [ "$CANARY_SOURCE" = "local" ]; then
+      cd packages/cli && npm install --silent --no-fund --no-audit && npm run build
+    fi
+  canary_script: |
+    if [ "$CANARY_SOURCE" = "local" ]; then
+      bash scripts/canary.sh local
+    else
+      # The npm path must not read the working tree at all — a new user has
+      # only what the registry and the default branch give them.
+      curl -sf -o /tmp/canary.sh   "https://raw.githubusercontent.com/${CIRRUS_REPO_FULL_NAME}/main/scripts/canary.sh"
+      curl -sf -o /tmp/mock-llm.py "https://raw.githubusercontent.com/${CIRRUS_REPO_FULL_NAME}/main/scripts/mock-llm.py"
+      chmod +x /tmp/canary.sh
+      bash /tmp/canary.sh npm
+    fi
+  on_failure:
+    report_script: |
+      if [ -z "$GITHUB_TOKEN" ]; then
+        echo "canary failed on linux/node-${NODE_VERSION}/${CANARY_SOURCE}"
+        echo "GITHUB_TOKEN is not set — no issue opened. NOT REPORTED, not fine."
+        exit 0
+      fi
+      bash scripts/ci/canary-report.sh "linux / Node ${NODE_VERSION} / ${CANARY_SOURCE}"
+
+canary_macos_task:
+  only_if: $CIRRUS_CRON == 'daily-canary'
+  timeout_in: 20m
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-runner:sonoma
+  matrix:
+    - env:
+        NODE_VERSION: "18.17"
+        CANARY_SOURCE: local
+    - env:
+        NODE_VERSION: "20"
+        CANARY_SOURCE: local
+    - env:
+        NODE_VERSION: "20"
+        CANARY_SOURCE: npm
+    - env:
+        NODE_VERSION: "22"
+        CANARY_SOURCE: local
+    - env:
+        NODE_VERSION: "22"
+        CANARY_SOURCE: npm
+  install_deps_script:
+    - brew install node@22 python@3.11 jq || true
+    - curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+    - export PATH="$HOME/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm install "$NODE_VERSION" && fnm use "$NODE_VERSION"
+    - python3 -m pip install --quiet --upgrade pip
+    - python3 -m pip install --quiet aider-chat pyyaml
+    - npm install -g @openai/codex || echo "codex install failed — that step will skip"
+  build_script: |
+    export PATH="$HOME/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm use "$NODE_VERSION"
+    if [ "$CANARY_SOURCE" = "local" ]; then
+      cd packages/cli && npm install --silent --no-fund --no-audit && npm run build
+    fi
+  canary_script: |
+    export PATH="$HOME/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm use "$NODE_VERSION"
+    if [ "$CANARY_SOURCE" = "local" ]; then
+      bash scripts/canary.sh local
+    else
+      curl -sf -o /tmp/canary.sh   "https://raw.githubusercontent.com/${CIRRUS_REPO_FULL_NAME}/main/scripts/canary.sh"
+      curl -sf -o /tmp/mock-llm.py "https://raw.githubusercontent.com/${CIRRUS_REPO_FULL_NAME}/main/scripts/mock-llm.py"
+      chmod +x /tmp/canary.sh
+      bash /tmp/canary.sh npm
+    fi
+  on_failure:
+    report_script: |
+      if [ -z "$GITHUB_TOKEN" ]; then
+        echo "canary failed on macos/node-${NODE_VERSION}/${CANARY_SOURCE}"
+        echo "GITHUB_TOKEN is not set — no issue opened. NOT REPORTED, not fine."
+        exit 0
+      fi
+      bash scripts/ci/canary-report.sh "macos / Node ${NODE_VERSION} / ${CANARY_SOURCE}"
+
+# ── Weekly: has the holdout eval set drifted? ────────────────────────────
+evals_drift_task:
+  only_if: $CIRRUS_CRON == 'evals-drift'
+  timeout_in: 40m
+  container:
+    image: node:22-slim
+    cpu: 2
+    memory: 4G
+  env:
+    OPENROUTER_API_KEY: ENCRYPTED[set-in-cirrus-ui]
+  install_deps_script:
+    - apt-get update -qq && apt-get install -y -qq git python3 curl jq bash
+  guard_script: |
+    # A drift run without a key measures nothing. Saying so beats a green tick
+    # over an eval set that never executed — the exact defect this repository
+    # keeps closing.
+    if [ -z "$OPENROUTER_API_KEY" ] || [ "$OPENROUTER_API_KEY" = "ENCRYPTED[set-in-cirrus-ui]" ]; then
+      echo "OPENROUTER_API_KEY is not set — evals NOT RUN. This is not a pass."
+      exit 1
+    fi
+  eval_script:
+    # `|| true`, as in the GitHub workflow: a flaky sample must not fail the
+    # run. Drift is judged by the comparison below, not by one run's exit code.
+    - node tests/eval/runner.mjs --split holdout --samples 3 --judge-votes 3 || true
+  drift_script:
+    - node scripts/lib/eval-drift.mjs --split holdout --samples 3 --window 5 --threshold 0.1 --max-noise 0.1
+
+# ── Weekly: are we still listed where we were listed? ────────────────────
+awesome_list_task:
+  only_if: $CIRRUS_CRON == 'awesome-list'
+  timeout_in: 10m
+  container:
+    image: node:22-slim
+    cpu: 1
+    memory: 2G
+  install_deps_script:
+    - apt-get update -qq && apt-get install -y -qq git curl jq bash
+  check_script:
+    - bash scripts/ci/awesome-list-check.sh

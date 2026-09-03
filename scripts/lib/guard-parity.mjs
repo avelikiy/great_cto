@@ -43,7 +43,7 @@ export const REMOTE_BY_DESIGN = Object.freeze([
   { match: /great-cto@latest|canary\.sh/i, why: 'probes the package as published — the local tree is the wrong subject' },
   { match: /apt-get|sudo |playwright install|npm ci\b|actions\/setup/i, why: 'runner provisioning, not a check' },
   { match: /cyclonedx|sbom/i, why: 'produces a release artifact for upload; nothing to assert locally' },
-  { match: /announce|awesome-list|scorecard/i, why: 'scheduled reporting, not a gate' },
+  { match: /announce|awesome-list|scorecard|canary-report/i, why: 'scheduled reporting, not a gate' },
   // Shell plumbing is NOT listed here. It is the fallback in `classify`, so that
   // this list stays what it claims to be: commands somebody decided belong on a
   // runner, each with the decision attached.
@@ -105,19 +105,25 @@ export function runCommands(yamlText) {
   const out = [];
   const lines = String(yamlText ?? '').split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^(\s*)-?\s*run:\s*(\|[-+]?|>|)(.*)$/);
+    // GitHub says `run:`; Cirrus says `<name>_script:`. Matching only the first
+    // meant a guard declared in .cirrus.yml satisfied a parity check that could
+    // not read it — the file was loaded and every command in it ignored, which
+    // looks exactly like a file with no findings.
+    const m = lines[i].match(/^(\s*)-?\s*(?:run|[a-z0-9_]*script):\s*(\|[-+]?|>|)(.*)$/);
     if (!m) continue;
     const [, indent, block, inline] = m;
-    if (!block) {
-      if (inline.trim()) out.push(inline.trim());
-      continue;
-    }
+
+    if (!block && inline.trim()) { out.push(inline.trim()); continue; }
+
+    // Two shapes follow a bare key: a literal block (`|`), whose lines are the
+    // script, and a YAML list, whose items are. Both are indented deeper than
+    // the key, so the same walk collects them; list items shed their dash.
     for (let j = i + 1; j < lines.length; j++) {
       const line = lines[j];
       if (line.trim() === '') continue;
       const lead = line.match(/^(\s*)/)[1];
       if (lead.length <= indent.length) { i = j - 1; break; }
-      out.push(line.trim());
+      out.push(line.trim().replace(/^-\s*/, ''));
       i = j;
     }
   }
@@ -232,17 +238,34 @@ export function describeParity(p) {
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  // Every remote CI definition, not just GitHub's.
+  //
+  // This read `.github/workflows` and nothing else, which was correct while
+  // that was the only remote runner. `.cirrus.yml` arrived when the account's
+  // billing lock disabled Actions, and it was invisible here — so a guard
+  // declared only in Cirrus would have satisfied a parity check that never
+  // looked at it. A parity check blind to one of the two runners is the defect
+  // it exists to catch, one level up.
+  const workflows = [];
+
   const WF_DIR = '.github/workflows';
-  if (!existsSync(WF_DIR)) {
-    console.log('guard-parity: no .github/workflows — nothing to compare.');
-    process.exit(0);
+  if (existsSync(WF_DIR)) {
+    for (const f of readdirSync(WF_DIR)) {
+      if (!/\.ya?ml$/.test(f)) continue;
+      try { workflows.push({ name: f, text: readFileSync(join(WF_DIR, f), 'utf8') }); }
+      catch { /* a file that vanished between listing and reading is not a parity gap */ }
+    }
   }
 
-  const workflows = [];
-  for (const f of readdirSync(WF_DIR)) {
-    if (!/\.ya?ml$/.test(f)) continue;
-    try { workflows.push({ name: f, text: readFileSync(join(WF_DIR, f), 'utf8') }); }
-    catch { /* a file that vanished between listing and reading is not a parity gap */ }
+  for (const f of ['.cirrus.yml', '.cirrus.yaml']) {
+    if (!existsSync(f)) continue;
+    try { workflows.push({ name: f, text: readFileSync(f, 'utf8') }); }
+    catch { /* same */ }
+  }
+
+  if (!workflows.length) {
+    console.log('guard-parity: no remote CI definitions found — nothing to compare.');
+    process.exit(0);
   }
 
   // The local side is not one file. `ci-local.sh` is the per-commit gate, but

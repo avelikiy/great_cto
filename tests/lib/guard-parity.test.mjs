@@ -161,3 +161,45 @@ test('no workflows at all is parity, not a silent pass over nothing', () => {
   const p = parity({ workflows: [], ciLocalText: '', exists: always });
   assert.equal(p.state, 'parity');
 });
+
+test('a Cirrus script is read the same as a GitHub run block', () => {
+  // The parity check read `run:` and nothing else. When .cirrus.yml arrived,
+  // the file was loaded and every command in it ignored — which looks exactly
+  // like a config with no findings. A parity check blind to one of the two
+  // runners is the defect it exists to catch, one level up.
+  //
+  // Cirrus writes `<name>_script:` in three shapes; all three carry commands.
+  const cirrus = [
+    'ci_task:',
+    '  gate_script:',
+    '    - bash scripts/ci-local.sh',
+    '    - node scripts/lib/eval-drift.mjs --window 5',
+    '  check_script: bash scripts/ci/awesome-list-check.sh',
+    '  canary_script: |',
+    '    if [ "$SRC" = local ]; then',
+    '      bash scripts/canary.sh local',
+    '    fi',
+  ].join('\n');
+
+  const cmds = runCommands(cirrus);
+  assert.ok(cmds.includes('bash scripts/ci-local.sh'), 'list item, dash stripped');
+  assert.ok(cmds.includes('node scripts/lib/eval-drift.mjs --window 5'), 'second list item');
+  assert.ok(cmds.includes('bash scripts/ci/awesome-list-check.sh'), 'inline value');
+  assert.ok(cmds.includes('bash scripts/canary.sh local'), 'literal block body');
+});
+
+test('GitHub run blocks still parse — the widening did not cost the old shape', () => {
+  const gh = [
+    'jobs:',
+    '  build:',
+    '    steps:',
+    '      - run: npm test',
+    '      - run: |',
+    '          bash scripts/ci-local.sh',
+    '          node scripts/lib/guard-parity.mjs',
+  ].join('\n');
+  const cmds = runCommands(gh);
+  assert.ok(cmds.includes('npm test'));
+  assert.ok(cmds.includes('bash scripts/ci-local.sh'));
+  assert.ok(cmds.includes('node scripts/lib/guard-parity.mjs'));
+});
