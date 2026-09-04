@@ -51,3 +51,55 @@ test('product-owner: brainstorming skill exists and defines the 4-model debate p
   assert.match(read('agents/product-owner.md'), /skills:[\s\S]*brainstorming/,
     'product-owner must load the brainstorming skill');
 });
+
+// ── Economics ───────────────────────────────────────────────────────────────
+//
+// The pipeline can pass a product all the way to a live URL — architecture
+// reviewed, tests green, security signed off — and never once ask whether a unit
+// pays for itself. Every later gate answers "can this be built safely"; none of
+// them answers "should this be built at all, at a price someone will pay", and
+// the silence is indistinguishable from an answer of yes.
+//
+// Same wiring lesson as the rest of this file: writing skills/product-economics
+// is not wiring it. The skill participates only if the brief has the section and
+// the section comes before the decision it informs.
+
+test('product-economics: the skill exists and parses', () => {
+  const md = read('skills/product-economics/SKILL.md');
+  assert.match(md, /^---\n[\s\S]*?\n---/, 'SKILL.md needs frontmatter');
+  for (const field of ['name:', 'description:', 'when_to_use:']) {
+    assert.ok(md.includes(field), `product-economics SKILL.md missing ${field}`);
+  }
+  assert.match(md, /name:\s*product-economics/);
+});
+
+test('product-owner: the brief has an Economics section, and product-owner names the skill', () => {
+  const md = read('agents/product-owner.md');
+  assert.match(md, /^## Economics/m, 'the brief template must carry an Economics section');
+  assert.match(md, /product-economics/, 'product-owner must name the skill that fills it');
+});
+
+test('product-owner: Economics comes BEFORE the recommendation it informs', () => {
+  // Order is the whole point. A margin computed after BUILD / DON'T BUILD has
+  // been written is a justification, not an input — and this pipeline already
+  // learned that a gate placed after the decision it guards changes nothing
+  // (ADR-009).
+  const md = read('agents/product-owner.md');
+  const econ = md.indexOf('\n## Economics');
+  const rec = md.indexOf('\n## Recommendation');
+  assert.ok(econ > 0, 'Economics section not found');
+  assert.ok(rec > 0, 'Recommendation section not found');
+  assert.ok(econ < rec,
+    'Economics must precede Recommendation — otherwise the numbers justify a decision already made');
+});
+
+test('product-economics: reuses the brief\'s provenance notation, does not invent a second one', () => {
+  // The brief already requires `[source: …]` or `[assumption]` on every figure,
+  // and artifact-lint rejects a figure carrying neither. A skill that shipped its
+  // own vocabulary for the same idea would leave two rules for one rule's job,
+  // and the lint would enforce only one of them.
+  const skill = read('skills/product-economics/SKILL.md');
+  assert.match(skill, /\[source:/, 'must use the brief\'s [source: …] marker');
+  assert.match(skill, /\[assumption\]/, 'must use the brief\'s [assumption] marker');
+  assert.match(skill, /artifact-lint/, 'must point at the lint that already enforces this');
+});

@@ -187,6 +187,34 @@ So every line with a `%` or a currency figure ends with one of:
 `[assumption]` is not a defeat. It is the difference between a brief that says
 what it knows and one that reads as if it measured. `artifact-lint` rejects a
 figure carrying neither.
+
+## Economics      (contribution margin · price basis · reachable buyers)
+
+Use the `product-economics` skill. It sits BEFORE the recommendation because
+BUILD / DON'T BUILD rests on it: a product can pass every later gate in this
+pipeline — architecture reviewed, tests green, security signed off, deployed —
+and still lose money on every user, and the pipeline is silent about that.
+Silence reads as approval.
+
+Three numbers, no forecast:
+
+- **contribution margin per unit** — price minus the variable cost of serving
+  one user. For anything LLM-backed this is decided by the token line at p95
+  usage, not at the mean: flat-rate plans are priced by the tail.
+- **the price, and which basis actually set it** — cost-plus, competitor-
+  anchored (name it, with the date you checked), or value-based.
+- **reachable buyers, bottom-up** — enumerated, times a realistic price, times a
+  fraction with a NAMED channel. A top-down slice of someone's market report is
+  arithmetic, not evidence.
+
+The same provenance rule binds here, and harder: arithmetic launders it. Two
+`[assumption]` figures multiplied together produce a margin that reads like a
+measurement. A number nobody knows does not become an `[assumption]` — it
+becomes a line in **Risks & kill-criteria** with the threshold that would end
+the project, plus the cheapest test that would resolve it.
+
+Building at a loss is allowed. Discovering the loss in month four is not.
+
 ## Recommendation (BUILD / DON'T BUILD / PIVOT — one line + the decisive reason)
 ## The bet        (chosen approach + the smallest version that tests it)
 ## Differentiated wedge (why US, vs the named incumbents — one sharp sentence;

@@ -677,7 +677,15 @@ function main() {
     }
   }
 
-  process.exit(errors.length > 0 ? 1 : 0);
+  // `process.exitCode`, not `process.exit()`. On a pipe stdout is asynchronous
+  // and `process.exit()` does not wait for it to drain, so anything past the
+  // ~8KB pipe buffer is discarded — silently, with a zero-length tail that looks
+  // like the end of the report. The JSON report sat just under 8,192 bytes for
+  // months and one added skill pushed it over, which surfaced as four unrelated
+  // agent tests failing on `Unterminated string in JSON`.
+  //
+  // Setting exitCode gives the same status and lets the runtime flush first.
+  process.exitCode = errors.length > 0 ? 1 : 0;
 }
 
 main();

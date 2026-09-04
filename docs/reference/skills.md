@@ -4,7 +4,7 @@
 > Do not edit by hand — edit the skill and re-run the generator.
 
 A skill is knowledge an agent loads on demand, rather than a thing that runs.
-39 in total: 12 industry domain packs and 27 others.
+40 in total: 12 industry domain packs and 28 others.
 
 ## Industry domain packs (12)
 
@@ -26,7 +26,7 @@ are not naive about the domain.
 | `vertical-restaurants` | Domain-knowledge primer for the restaurants & hospitality vertical (dine-in, pickup, delivery). |
 | `vertical-retail` | Retail & e-commerce domain knowledge for SMB storefront products (storefront, inventory, pricing, cart-recovery). |
 
-## Everything else (27)
+## Everything else (28)
 
 | Skill | What it carries |
 |---|---|
@@ -50,6 +50,7 @@ are not naive about the domain.
 | `outcome-roadmap` | Transform an output-focused roadmap (feature list) into an outcome-focused one. |
 | `pm-planning` | Decomposition methodology for pm agent — turns an approved ARCH document into a Beads task list with explicit dependencies, time-boxes, and acceptance criteria. |
 | `pre-mortem` | Imagine the project has already shipped and failed catastrophically — work backwards from the failure to identify the most likely causes BEFORE building. |
+| `product-economics` | Does this product make money at a price someone will pay? |
 | `prose-style` | Reusable writing-style contract for agent outputs (reports, ARCH docs, verdicts, threat models). |
 | `quant-validation` | The methods a financial-ML result has to survive before it is evidence — purged cross-validation with an embargo, triple-barrier labelling, sample uniqueness under overlapping labels, fractional di… |
 | `skeptical-triage` | Reusable 3-round self-challenge + arbiter pattern for filtering false positives from findings/verdicts. |

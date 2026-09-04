@@ -226,9 +226,14 @@ function main(argv) {
       : `Run it: node tests/eval/runner.mjs --split holdout (needs an API key). ` +
         `\`--require ${opts.require}\` means a file that exists is not enough.`;
     console.error(`\ncoverage-gate: BLOCK — ${below.length} agent(s) below \`${opts.require}\`. ${how}`);
-    process.exit(1);
+    // exitCode, not exit(): on a pipe stdout is asynchronous and process.exit()
+      // discards whatever has not drained — anything past the ~8KB pipe buffer
+      // vanishes, leaving a truncated report that reads as a complete one right
+      // up to the byte it stops at. See tests/lib/lint-json-not-truncated.test.mjs.
+      process.exitCode = 1;
+      return;
   }
-  process.exit(0);
+  process.exitCode = 0;
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
