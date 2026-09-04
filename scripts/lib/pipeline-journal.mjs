@@ -38,6 +38,7 @@ export const OUTCOMES = Object.freeze([
   'unknown-verdict', // it wrote a token no branch and no `on` list handles
   'no-map',          // no pipeline map, in the project or the plugin
   'disabled',        // switched off by env
+  'breaker',         // N runs in a row produced nothing; the dispatch was withheld
 ]);
 
 /**
@@ -62,6 +63,9 @@ export function recordRun(cwd, entry) {
     // would hand the run a zero-length interval — an invented measurement that
     // reads downstream exactly like a real one.
     started_at: entry.startedAt ? new Date(entry.startedAt).toISOString() : null,
+    // Whether the attempt left anything behind. Three states: true / false /
+    // null-for-not-looked. The breaker resets on `true` only — see breaker.mjs.
+    progressed: entry.progressed === true ? true : entry.progressed === false ? false : null,
     agent: entry.agent ?? null,
     verdict: entry.verdict ?? null,
     outcome: entry.outcome,

@@ -831,8 +831,17 @@ async function main() {
   // reaching for it there is a TDZ ReferenceError that the closure's own catch
   // would swallow, losing the journal line entirely. A measurement that can
   // delete a record is worse than no measurement.
+  // 0 disables the breaker for one run — an escape hatch that is explicit and
+  // per-run, rather than a flag someone sets once and forgets.
+  const BREAKER_THRESHOLD = Number(process.env.GREAT_CTO_BREAKER_THRESHOLD ?? 5);
   let runStartedAt = null;
-  const journal = (entry) => { try { recordRun(PROJECT_ROOT, { startedAt: runStartedAt, ...entry, mapSource: MAP_SOURCE }); } catch { /* the run still happened */ } };
+  // Did this attempt leave anything behind? Three states, and `null` is not
+  // `false`: null means nobody looked, and letting unknown read as progress
+  // would hand the breaker a reset it never earned. Declared HERE, beside
+  // runStartedAt, for the same reason — `journal()` closes over it and runs on
+  // paths that execute before the effects block.
+  let runProgressed = null;
+  const journal = (entry) => { try { recordRun(PROJECT_ROOT, { startedAt: runStartedAt, progressed: runProgressed, ...entry, mapSource: MAP_SOURCE }); } catch { /* the run still happened */ } };
 
   if (process.env.GREAT_CTO_DISABLE_DISPATCHER === '1') return process.exit(0);
   // Not a great_cto project: nothing to record, and nowhere to record it.
@@ -920,6 +929,10 @@ async function main() {
       effects = summariseEffects(observeEffects({
         since: shape?.startedAt ?? null, verdictSeenAt, changedPaths, delivered: null,
       }));
+      // `some` means the attempt did work despite leaving no verdict — cut
+      // short, not wasted, and the breaker must not count it against the
+      // pipeline. `unknown` stays null: not looked at is not progress.
+      runProgressed = effects.state === 'some' ? true : effects.state === 'none' ? false : null;
     } catch { /* the advice falls back to asking the reader to look */ }
   }
 
@@ -943,6 +956,39 @@ async function main() {
     lastStop: shape || readLastStop(PROJ_DIR),
     agentId: agentIdFrom(payload),
   });
+
+  // The breaker: five runs in a row that produced nothing is not five ordinary
+  // failures, it is a pipeline that has stopped moving. `provider-exhaustion`
+  // cannot see this — it judges ONE error's kind, and five different, each
+  // individually retryable, still add up to no progress. Every run looks like a
+  // run, and nothing happens.
+  //
+  // It overrides a dispatch only. A `gate` decision is the machinery correctly
+  // waiting for a human and must never be overridden by a counter — and `hold`
+  // and `blocked-budget` are not counted as failures at all, so a pipeline
+  // parked on a gate for a week never approaches the threshold.
+  let breaker = { state: 'unmeasured', count: null, why: '' };
+  try {
+    const { breakerState } = await import('../lib/breaker.mjs');
+    const { readRuns } = await import('../lib/pipeline-journal.mjs');
+    const j = readRuns(PROJECT_ROOT);
+    breaker = breakerState(j?.state === 'some' ? j.rows : null, { threshold: BREAKER_THRESHOLD });
+  } catch { /* the dispatch is not blocked by a breaker that cannot be read */ }
+
+  if (breaker.state === 'tripped' && decision?.kind === 'next') {
+    journal({
+      agent, verdict: verdictToken(verdict), outcome: 'breaker',
+      next: [], why: breaker.why.slice(0, 240),
+    });
+    console.log(
+      `PIPELINE-STOP: ${breaker.why}\n`
+      + `The next stage [${(decision.nexts ?? []).join(', ')}] is NOT being dispatched. `
+      + `Read .great_cto/pipeline-runs.jsonl for the runs that went nowhere, fix what is stopping them, `
+      + `then re-run. To override for one run: GREAT_CTO_BREAKER_THRESHOLD=0.`,
+    );
+    return;
+  }
+
   // Every run ends here, and every run is recorded — the ones that decided
   // something and, more importantly, the ones that did not. "Nothing should
   // happen" and "nothing could happen" produce identical output, and only a
