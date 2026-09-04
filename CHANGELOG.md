@@ -12,6 +12,49 @@ All notable changes to great_cto are documented here.
 
 
 
+## v3.23.0 — 2026-09-04
+
+The pipeline could carry a product all the way to a live URL without ever asking
+whether it makes money. It asks now, before it decides to build.
+
+### What's new
+
+- **`product-economics` — the question no gate was asking.** Every stage of this
+  pipeline answers "can this be built safely": architecture reviewed, tests
+  green, security signed off, deployed. None of them answered "should this be
+  built at all, at a price someone will pay" — and silence there read as
+  approval. The skill puts three numbers into the brief, **before** the
+  recommendation that rests on them:
+  - **contribution margin** — price minus the variable cost of serving ONE user.
+    For anything LLM-backed the token line decides it, computed at p95 usage
+    rather than the mean: flat-rate plans are priced by the tail, and the tail
+    is what arrives. A negative margin cannot be fixed by volume.
+  - **the price's basis** — cost-plus, competitor-anchored (named, with the date
+    it was checked), or value-based. One of them: the one that actually decided.
+  - **reachable buyers, bottom-up** — enumerated, at a realistic price, times a
+    fraction with a NAMED channel. A slice of someone else's market report is
+    arithmetic, not evidence.
+
+  It reuses the brief's own `[source: …]` / `[assumption]` markers rather than
+  inventing a second vocabulary, because arithmetic launders provenance: two
+  assumptions multiplied together produce a margin that reads like a
+  measurement. A number nobody knows does not become an assumption — it becomes
+  a kill-criterion with a threshold and the cheapest test that resolves it.
+
+  Building at a loss stays allowed. Discovering it in month four does not.
+
+### Fixed
+
+- **A `--json` report that stopped at 8,192 bytes looked like a report that
+  finished.** `agent-prompt-lint` and `coverage-gate` printed their reports and
+  then called `process.exit()`, which does not wait for a pipe to drain. The
+  reports sat just under the pipe buffer for months; one added skill pushed one
+  of them over, and four unrelated agent tests began failing with
+  `Unterminated string in JSON` — pointing anywhere but at the cause. Both now
+  set `process.exitCode`, and a test pins it.
+
+---
+
 ## v3.22.0 — 2026-09-03
 
 Two things the machinery had always claimed but never measured: how much of the
