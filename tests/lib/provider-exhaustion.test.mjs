@@ -87,3 +87,62 @@ test('an unrecorded cost says so rather than printing $0.00', () => {
   assert.match(out, /unrecorded amount/);
   assert.doesNotMatch(out, /\$0\.00/);
 });
+
+// ── A locked account is not a blip ──────────────────────────────────────────
+//
+// "your account is locked due to a billing issue" classified as `transient`,
+// which means "retry, this resolves". It does not resolve. This repository's own
+// GitHub Actions have been refused with that exact message since 2026-06-25 —
+// one hundred consecutive runs, every one of them failing identically, none of
+// them able to succeed until a human pays a bill.
+//
+// That is the same shape as the 402 this module was written for: a state where
+// every remaining call fails the same way, and calling again is not optimism but
+// waste. The distinction is the whole point of the module, and billing was on
+// the wrong side of it.
+//
+// Found by reading MaxMiksa/Auto-Company, whose usage-limit check greps for
+// `billing` alongside `quota` and `overloaded`. It treats them all as one bucket
+// — we keep the three-way split and only move this one across.
+test('an account locked for billing is terminal, not transient', () => {
+  const r = classifyProviderError('your account is locked due to a billing issue');
+  assert.equal(r.terminal, true,
+    'a billing lock does not clear on its own — retrying spends attempts on a certainty');
+  assert.match(r.why, /billing|pay|bill/i, 'the reason must name what a human has to do');
+});
+
+test('a billing lock is told apart from running out of credits', () => {
+  // Both are terminal and both need a human, but they need DIFFERENT humans doing
+  // different things: topping up a balance is not the same as unlocking an
+  // account, and a message that conflates them sends someone to the wrong screen.
+  const locked = classifyProviderError('your account is locked due to a billing issue');
+  const empty = classifyProviderError('API 402 insufficient credits');
+  assert.equal(locked.terminal, true);
+  assert.equal(empty.terminal, true);
+  assert.notEqual(locked.kind, empty.kind, 'a lock and an empty balance are different states');
+});
+
+test('overload and rate limits stay transient — they really do clear', () => {
+  // The counter-case, so the fix cannot drift into "any provider complaint is
+  // terminal", which would stop runs that would have succeeded on the next call.
+  for (const msg of ['API 529 overloaded_error: Overloaded', 'API 429 rate limit', 'Error: resource_exhausted']) {
+    assert.equal(classifyProviderError(msg).terminal, false, `${msg} must stay retryable`);
+  }
+});
+
+test('every wording of a locked account is recognised, not just the one we met', () => {
+  // Mutation found this: breaking one alternative of the pattern left the suite
+  // green, because a single example exercised only one branch. Providers phrase
+  // the same state differently, and a pattern with an untested alternative is an
+  // alternative that can rot without anyone noticing.
+  for (const msg of [
+    'your account is locked due to a billing issue',   // GitHub Actions, verbatim
+    'Account is locked. Please contact support.',
+    'billing problem — access disabled',
+    'Your billing has been suspended',
+  ]) {
+    const r = classifyProviderError(msg);
+    assert.equal(r.terminal, true, `not recognised as terminal: ${msg}`);
+    assert.equal(r.kind, 'billing', `not classified as billing: ${msg}`);
+  }
+});

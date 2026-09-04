@@ -42,6 +42,19 @@ export function classifyProviderError(err) {
   if (status === '402' || /insufficient (credit|balance|fund)|no credits|out of credits|payment required/.test(body)) {
     return { terminal: true, kind: 'credits', why: 'the provider account is out of credits — every remaining call fails identically until someone tops it up' };
   }
+  // An account locked over billing is terminal, and it is NOT the same state as
+  // an empty balance. This repository's own GitHub Actions have been refused with
+  // this exact message since 2026-06-25 — one hundred consecutive runs, each
+  // failing identically, none able to succeed until a human settles a bill.
+  // Classified as transient it would earn a retry every time, which is the 402
+  // mistake this module exists to prevent, wearing different words.
+  //
+  // Kept apart from `credits` deliberately: topping up a balance and unlocking an
+  // account are different actions by possibly different people, and a message
+  // that merges them sends someone to the wrong screen.
+  if (/account is locked|billing (issue|problem|lock)|locked due to.*billing|billing.*(suspend|disabled)/.test(body)) {
+    return { terminal: true, kind: 'billing', why: 'the provider account is locked over billing — no retry clears it until a human settles the bill' };
+  }
   if (status === '401' || status === '403' || /invalid api key|unauthorized|forbidden/.test(body)) {
     return { terminal: true, kind: 'auth', why: 'the provider rejected the key — no retry inside this run can fix that' };
   }
