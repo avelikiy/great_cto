@@ -25,11 +25,22 @@ test('detectHarness: nothing → unknown', () => {
   assert.equal(detectHarness({}), 'unknown');
 });
 
-test('capabilities: claude-code has hooks+subagents; codex does not', () => {
+test('capabilities: the two harnesses differ where they actually differ', () => {
+  // This test used to assert "codex does not" for BOTH hooks and subagents, and
+  // it was half wrong from the day it was written — nobody had compared the
+  // registry to a running Codex. codex-cli 0.153.4 reports live subagent threads
+  // and ships `[features] multi_agent = true`, so `subagents: false` was us
+  // degrading a capability the harness has. Corrected 2026-09-05; see
+  // docs/analysis/2026-09-05-codex-phase0-findings.md.
   assert.equal(capabilities('claude-code').hooks, true);
   assert.equal(capabilities('claude-code').subagents, true);
+  assert.equal(capabilities('codex').subagents, true);
+
+  // Hooks remain false, and this is a different KIND of claim: not "measured
+  // absent" but "not yet measurable". The config key parses, no shipped plugin
+  // declares one, and whether `exit 2` blocks a tool call is unknown —
+  // secret-scan, a blocking guard, rides on that signal. False until measured.
   assert.equal(capabilities('codex').hooks, false);
-  assert.equal(capabilities('codex').subagents, false);
 });
 
 test('capabilities: unknown harness → null', () => {

@@ -29,7 +29,17 @@ export const HARNESSES = Object.freeze({
   'codex': {
     name: 'OpenAI Codex', cli: 'codex',
     envSignals: ['CODEX', 'CODEX_SANDBOX', 'CODEX_HOME'],
-    capabilities: { hooks: false, mcp: true, subagents: false, slashCommands: true, toolApproval: true, streamJson: true },
+    // subagents: true since 2026-09-05. It read `false` from June until a Phase 0
+    // check compared the registry to a real install: codex-cli 0.153.4 reports
+    // `subagent:thread_spawn=3` and a stock config carries `[features]
+    // multi_agent = true`. We were degrading a capability the harness has.
+    //
+    // hooks stays `false` deliberately, and it is NOT the same claim. The config
+    // key parses, but no shipped plugin declares one and it is unverified whether
+    // `exit 2` blocks a tool call. secret-scan — a BLOCKING guard — depends on
+    // that signal, so hooks read as absent until measured, not as probably-fine.
+    // See docs/analysis/2026-09-05-codex-phase0-findings.md.
+    capabilities: { hooks: false, mcp: true, subagents: true, slashCommands: true, toolApproval: true, streamJson: true },
   },
   'opencode': {
     name: 'OpenCode', cli: 'opencode',
