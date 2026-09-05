@@ -12,27 +12,6 @@ decomposition_matrix_required = true
 # Only Agent tool calls with subagent_type specified are permitted.
 inline_subagents_allowed = false
 
-# Independent tool calls go out together, not one per turn.
-#
-# From Anthropic's "Prompting Claude Fable 5.1": in coding and bash-and-editor
-# loops — where the next independent calls are implied by the task rather than
-# named in the request — the model may issue them one per turn. Quality is
-# unaffected; each extra turn costs a round trip and wall-clock time.
-batch_independent_tool_calls = true
-
-# A lead agent may continue working while the subagents it dispatched run.
-#
-# Same source: "don't force the lead agent to stop and wait for each one...
-# letting the lead continue while subagents run lowers average time to
-# completion at similar quality, token usage, and cost."
-#
-# The ceiling below has been 5 since this file was written; when the measurement
-# went in the observed peak was 2. coordinator.md prescribed `background: true`
-# for Fork (read-only research) and said nothing for Spawn, the mode that does
-# the work — and "don't peek mid-flight" reads as "wait quietly" unless the
-# alternative is stated.
-lead_may_continue_during_subagents = true
-
 # Maximum number of concurrent implementation streams.
 # Research and verification streams are not counted toward this limit.
 max_parallel_streams = 5
