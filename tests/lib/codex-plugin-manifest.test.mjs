@@ -16,7 +16,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -78,41 +78,30 @@ test('the marketplace points at the repo root, not a vendored copy', () => {
   assert.equal(mk.plugins[0].source.path, '.');
 });
 
-test('hooks.json is ready but NOT declared — the host does not run hooks yet', () => {
-  // Three passes on this, and only the last was evidence:
-  //   1. "no plugin surface" — from no shipped plugin declaring one
-  //   2. "carries over" — from the binary's full schema: our wire format, our
-  //      permissionDecision values, `hooks` as a manifest key
-  //   3. it was RUN. codex-cli 0.153.4 fires no hook at all — not from the
-  //      manifest, not from ~/.codex/hooks.json, not with
-  //      --dangerously-bypass-hook-trust. A probe hook that only appends a line
-  //      never ran, and the guarded write went through and put an API key on
-  //      disk.
+test('no hooks file ships in a format Codex rejects', () => {
+  // Four passes on this capability, and the last two came from RUNNING it:
+  //   3. "Codex fires no hooks" — it fires none from our file, but the reason
+  //      was not what I assumed.
+  //   4. Codex READS the file and REJECTS it:
+  //        unknown field `SessionStart`, expected `description` or `hooks`
+  //      Its hooks.json is a different shape from Claude Code's — an object with
+  //      `description` and a `hooks` SEQUENCE, not an event-keyed map.
   //
-  // So the file stays — it is correct, uses ${PLUGIN_ROOT}, and keeps
-  // secret-scan unswallowed — and the manifest does NOT declare it. Declaring a
-  // key the host ignores would read, to anyone opening the manifest, as a hook
-  // chain that works.
+  // Worse than not working: the rejected file surfaced as an error item on
+  // EVERY Codex turn, in every project, for anyone with the plugin installed.
+  // A broken integration that degrades the host is not a partial feature.
+  //
+  // So nothing hooks-shaped ships until it is written to Codex's schema and a
+  // run shows a hook firing. The Claude-format file is kept, disabled and named
+  // for what it is, so the work is not lost.
+  const dir = join(REPO, '.codex-plugin');
+  const shipped = readdirSync(dir).filter((f) => /^hooks.*\.json$/.test(f));
+  assert.deepEqual(shipped, [],
+    `these would be read and rejected by Codex on every turn: ${shipped.join(', ')}`);
+
+  assert.ok(existsSync(join(dir, 'hooks.claude-format.json.disabled')),
+    'the Claude-format file is kept, disabled, for when the Codex schema is implemented');
+
   const m = read('.codex-plugin/plugin.json');
-  assert.equal(m.hooks, undefined,
-    'do not declare hooks until a run shows Codex firing them');
-
-  const hooksPath = join(REPO, '.codex-plugin', 'hooks.json');
-  assert.ok(existsSync(hooksPath), 'the file stays ready for when the host runs hooks');
-
-  const hooks = JSON.parse(readFileSync(hooksPath, 'utf8'));
-  const commands = Object.values(hooks).flat().flatMap((g) => (g.hooks ?? []).map((h) => h.command));
-  assert.ok(commands.length, 'hooks.json must declare commands');
-
-  for (const c of commands) {
-    // ${PLUGIN_ROOT} is what Codex expands; a baked absolute path would work on
-    // the machine that generated it and nowhere else.
-    assert.match(c, /\$\{PLUGIN_ROOT\}/, `command must use \${PLUGIN_ROOT}: ${c}`);
-    assert.doesNotMatch(c, /\/Users\/|\/home\//, `a machine-specific path leaked in: ${c}`);
-  }
-
-  const guard = commands.find((c) => /secret-scan/.test(c));
-  assert.ok(guard, 'secret-scan must be wired for the day hooks work');
-  assert.doesNotMatch(guard, /\|\|\s*true|2>\/dev\/null/,
-    'a guard that cannot fail and cannot explain is not a guard');
+  assert.equal(m.hooks, undefined, 'and the manifest declares none');
 });
