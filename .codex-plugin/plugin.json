@@ -1,0 +1,27 @@
+{
+  "name": "great-cto",
+  "version": "3.23.0",
+  "description": "Runs your coding agent as a pipeline of specialist agents rather than one: architecture, product, implementation, QA, security and deploy, with an independent model reviewing each stage before the next begins.",
+  "author": {
+    "name": "Alexander Velikiy",
+    "url": "https://hashnode.com/@Greatcto"
+  },
+  "homepage": "https://greatcto.systems",
+  "repository": "https://github.com/avelikiy/great_cto",
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "pipeline",
+    "code-review",
+    "qa",
+    "security",
+    "cto"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.codex-plugin/mcp.json",
+  "interface": {
+    "displayName": "great_cto",
+    "shortDescription": "A pipeline of specialist agents, with a gate on whatever is expensive to undo",
+    "longDescription": "great_cto turns a coding agent into a sequence of reviewed stages. Each stage produces an artefact another stage checks, so a claim that something was done has to be backed by something on disk. Human gates sit wherever an action is expensive to undo — a publish, a deploy, a destructive migration. On Codex the skills and the MCP router carry over; hooks, slash commands and role agents are Claude Code surfaces and are documented as absent rather than assumed."
+  }
+}

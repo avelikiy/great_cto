@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "great_cto": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "great-cto@latest",
+        "mcp"
+      ]
+    }
+  }
+}

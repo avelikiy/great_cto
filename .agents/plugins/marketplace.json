@@ -1,0 +1,20 @@
+{
+  "name": "great-cto",
+  "interface": {
+    "displayName": "great_cto"
+  },
+  "plugins": [
+    {
+      "name": "great-cto",
+      "source": {
+        "source": "local",
+        "path": "."
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
