@@ -65,7 +65,58 @@ What the manifest does NOT carry, checked across every shipped plugin:
 `openai.yaml` — display name, icons, a default prompt. It is **interface
 metadata, not agent roles**. Our 71 role agents have no counterpart here.
 
-## SECOND CORRECTION — hooks are in the schema and do NOT run
+## THE HOOK SCHEMA, and where the investigation stops
+
+Four passes, each overturning the last, and only the last two were evidence:
+
+| # | basis | verdict |
+|---|---|---|
+| 1 | no shipped plugin declares a hook | false — absence of USE read as absence of support |
+| 2 | the binary carries the whole contract | true — schema read as behaviour |
+| 3 | it was run; no hook fired | false |
+| 4 | read the error the run printed | **the file was being REJECTED** |
+
+### The format, established by asking the validator
+
+Codex's `hooks.json` is not Claude Code's shape. Two errors mapped it:
+
+```
+unknown field `SessionStart`, expected `description` or `hooks`
+invalid type: map, expected a sequence
+```
+
+The accepted shape — Codex stops complaining about it:
+
+```json
+{
+  "description": "…",
+  "hooks": [
+    { "event": "PreToolUse", "matcher": ".*", "command": ["/abs/path/to/hook"] }
+  ]
+}
+```
+
+Top level is `description` + a `hooks` SEQUENCE, not an event-keyed map, and
+`command` is an **argv array**, not a shell string. That last one is what the
+"expected a sequence" error was pointing at.
+
+### Where it stops
+
+With that file installed, Codex accepts it and announces
+`` `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without
+review `` — so it sees the hooks and considers them enabled. **No hook process
+ever ran.** The probe appends one line to a file; it stayed empty across runs
+that created files (so `PreToolUse` had a tool call to fire on), with an
+explicit `matcher`, with the trust bypass, and with the script present and
+executable.
+
+So: **the config format is known, execution is not demonstrated.** On
+codex-cli 0.153.4 either the feature is gated behind something not found here,
+or it is incomplete. Nothing hooks-shaped ships until a run shows a hook firing —
+and the earlier version of this file did ship, printing a parse error on every
+Codex turn for anyone with the plugin installed.
+
+## The old schema notes
 
 The section below concluded, from the binary's JSON Schema, that hooks carry
 over. Then it was RUN, and they do not.
