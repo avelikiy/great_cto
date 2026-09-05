@@ -34,12 +34,17 @@ export const HARNESSES = Object.freeze({
     // `subagent:thread_spawn=3` and a stock config carries `[features]
     // multi_agent = true`. We were degrading a capability the harness has.
     //
-    // hooks stays `false` deliberately, and it is NOT the same claim. The config
-    // key parses, but no shipped plugin declares one and it is unverified whether
-    // `exit 2` blocks a tool call. secret-scan — a BLOCKING guard — depends on
-    // that signal, so hooks read as absent until measured, not as probably-fine.
+    // hooks: true since 2026-09-05, and it was `false` for the wrong reason —
+    // no shipped plugin declares a hook, which is absence of USE, not absence of
+    // support. The binary's JSON Schema implements our own contract:
+    // hook_event_name, hookSpecificOutput, per-event …HookSpecificOutputWire,
+    // and MORE events than we use (it adds PermissionRequest and PostCompact).
+    // `"hooks": "./hooks.json"` is a manifest key.
+    //
+    // One difference to shim, not a blocker: PreToolUse decides with
+    // `approve`/`block` where Claude Code writes `allow`/`deny`.
     // See docs/analysis/2026-09-05-codex-phase0-findings.md.
-    capabilities: { hooks: false, mcp: true, subagents: true, slashCommands: true, toolApproval: true, streamJson: true },
+    capabilities: { hooks: true, mcp: true, subagents: true, slashCommands: true, toolApproval: true, streamJson: true },
   },
   'opencode': {
     name: 'OpenCode', cli: 'opencode',

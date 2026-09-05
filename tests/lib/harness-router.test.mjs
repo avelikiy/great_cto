@@ -36,11 +36,15 @@ test('capabilities: the two harnesses differ where they actually differ', () => 
   assert.equal(capabilities('claude-code').subagents, true);
   assert.equal(capabilities('codex').subagents, true);
 
-  // Hooks remain false, and this is a different KIND of claim: not "measured
-  // absent" but "not yet measurable". The config key parses, no shipped plugin
-  // declares one, and whether `exit 2` blocks a tool call is unknown —
-  // secret-scan, a blocking guard, rides on that signal. False until measured.
-  assert.equal(capabilities('codex').hooks, false);
+  // Hooks too. This also read `false`, on the evidence that no shipped plugin
+  // declares one — absence of USE, not absence of support. Codex's own JSON
+  // Schema implements our contract and adds events we do not have
+  // (PermissionRequest, PostCompact). Corrected 2026-09-05.
+  assert.equal(capabilities('codex').hooks, true);
+
+  // Where they still differ: slash commands and role agents have no plugin
+  // surface on Codex — checked across every shipped plugin.
+  assert.equal(capabilities('claude-code').slashCommands, true);
 });
 
 test('capabilities: unknown harness → null', () => {
@@ -49,7 +53,10 @@ test('capabilities: unknown harness → null', () => {
 
 test('hasCapability: degrade-safe — unknown harness/cap → false', () => {
   assert.equal(hasCapability('claude-code', 'mcp'), true);
-  assert.equal(hasCapability('codex', 'hooks'), false);
+  // Was `codex/hooks`, which is now true — the example had to change, the
+  // PROPERTY did not: an unknown harness or an unknown capability degrades to
+  // false rather than throwing.
+  assert.equal(hasCapability('opencode', 'hooks'), false);
   assert.equal(hasCapability('unknown', 'hooks'), false);
   assert.equal(hasCapability('claude-code', 'nonexistent'), false);
 });
