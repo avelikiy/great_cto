@@ -16,6 +16,51 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { costForUsage, round4 } from './cost-meter.mjs';
+import { resolveSecondOpinion, codexReview } from './second-opinion.mjs';
+import { existsSync, appendFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * Exit codes. The first version had two: 0 for PASS and 1 for everything else —
+ * BLOCK, a missing API key, a dead network. So "the review blocked this" and
+ * "the review did not happen" were the same number to the agent reading it,
+ * and the instruction to "note the cross-model pass was skipped" rested on the
+ * agent noticing a stderr line. A skipped review now has its own code, and it
+ * is neither of the two that mean a verdict was reached.
+ */
+export const EXIT = Object.freeze({ PASS: 0, BLOCK: 1, USAGE: 2, SKIPPED: 3 });
+
+/**
+ * Which provider reviews, decided from three sources in a fixed order:
+ * an explicit `--provider`, then the project's `capabilities: second_opinion`,
+ * then — for compatibility with every script that set it — the OpenRouter env.
+ *
+ * Returns the resolver's four states plus `source`, so the log line can say
+ * why this provider and not another. Pure: `codex` and `env` are injected.
+ */
+export function decideProvider({ argv = [], projectMd = '', codex = null, env = process.env } = {}) {
+  const forced = readArg(argv, '--provider');
+  if (forced) {
+    const r = resolveSecondOpinion({ projectMd: `capabilities:\n  second_opinion: ${forced}\n`, codex, env });
+    return { ...r, source: '--provider' };
+  }
+  const fromProject = resolveSecondOpinion({ projectMd, codex, env });
+  if (fromProject.state !== 'undeclared') return { ...fromProject, source: 'PROJECT.md' };
+  if (env.OPENROUTER_API_KEY) {
+    return { state: 'declared', provider: 'openrouter', why: '', source: 'OPENROUTER_API_KEY (second_opinion undeclared)' };
+  }
+  return { ...fromProject, source: 'PROJECT.md' };
+}
+
+/** One line per review, so the board can show what the second opinion DID. */
+export function reviewLogLine({ provider, model, state, verdict, findings, cost, source }) {
+  return JSON.stringify({
+    ts: new Date().toISOString(), provider, model: model ?? null, state, verdict: verdict ?? null,
+    findings: Array.isArray(findings) ? findings.length : null,
+    p0: Array.isArray(findings) ? findings.filter((f) => f.severity === 'P0').length : null,
+    cost: cost ?? null, source,
+  });
+}
 
 const OPENROUTER_API = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -78,25 +123,54 @@ function readArg(argv, name) { const i = argv.indexOf(name); return i > -1 ? arg
 
 async function main(argv) {
   const diffPath = readArg(argv, '--diff');
-  if (!diffPath) { console.error('Usage: cross-model-review.mjs --diff <file|-> [--spec <file>] [--model <slug>]'); process.exit(2); }
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) { console.error('ERROR: OPENROUTER_API_KEY not set — cross-model review needs OpenRouter (a non-Claude model).'); process.exit(1); }
+  if (!diffPath) { console.error('Usage: cross-model-review.mjs --diff <file|-> [--spec <file>] [--model <slug>] [--provider codex|openrouter]'); process.exit(EXIT.USAGE); }
+
+  const root = readArg(argv, '--root') || process.cwd();
+  const mdPath = join(root, '.great_cto', 'PROJECT.md');
+  const projectMd = existsSync(mdPath) ? readFileSync(mdPath, 'utf8') : '';
+  const decision = decideProvider({ argv, projectMd });
+  const logPath = join(root, '.great_cto', 'cross-review.log');
+  const log = (rec) => { try { mkdirSync(join(root, '.great_cto'), { recursive: true }); appendFileSync(logPath, reviewLogLine({ ...rec, source: decision.source }) + '\n'); } catch { /* the log is evidence, not a gate */ } };
+
+  // Anything that is not a reviewer reviewing exits SKIPPED — not PASS, and not
+  // the BLOCK code either. The line says why, and the log keeps it.
+  if (decision.state !== 'declared') {
+    console.log(`cross-model-review: SKIPPED (${decision.state}) — ${decision.why}`);
+    log({ provider: decision.provider, state: decision.state, verdict: null, findings: null, cost: null });
+    process.exit(EXIT.SKIPPED);
+  }
 
   const diff = diffPath === '-' ? readFileSync(0, 'utf8') : readFileSync(diffPath, 'utf8');
-  if (!diff.trim()) { console.log('cross-model-review: empty diff, nothing to review.'); process.exit(0); }
+  if (!diff.trim()) { console.log('cross-model-review: empty diff, nothing to review.'); process.exit(EXIT.PASS); }
   const specFile = readArg(argv, '--spec');
   const spec = specFile ? readFileSync(specFile, 'utf8').slice(0, 4000) : null;
-  const model = readArg(argv, '--model') || pickReviewerModel();
+  const prompt = buildReviewPrompt({ diff: diff.slice(0, 24000), spec });
 
-  console.error(`cross-model-review: reviewer=${model} (cross-model red-team)`);
-  const res = await callOpenRouter({ apiKey, model, ...buildReviewPrompt({ diff: diff.slice(0, 24000), spec }) });
+  let res;
+  if (decision.provider === 'codex') {
+    const model = readArg(argv, '--model') || null;   // null = whatever ~/.codex/config.toml names
+    console.error(`cross-model-review: reviewer=codex${model ? ' -m ' + model : ' (' + (decision.codex?.model || 'default model') + ')'} (cross-model red-team, read-only sandbox)`);
+    const r = await codexReview({ ...prompt, cwd: root, model, bin: process.env.GREAT_CTO_CODEX_BIN || 'codex' });
+    if (r.state !== 'ok') {
+      console.log(`cross-model-review: SKIPPED (codex ${r.state}) — ${r.errors.join('; ').slice(0, 300) || 'no answer'}`);
+      log({ provider: 'codex', model: r.model ?? decision.codex?.model, state: r.state, verdict: null, findings: null, cost: null });
+      process.exit(EXIT.SKIPPED);
+    }
+    res = { text: r.text, usage: r.usage, model: r.model ?? decision.codex?.model ?? 'codex' };
+  } else {
+    const model = readArg(argv, '--model') || pickReviewerModel();
+    console.error(`cross-model-review: reviewer=${model} (cross-model red-team via OpenRouter)`);
+    res = await callOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY, model, ...prompt });
+  }
+
   const { findings, verdict } = parseFindings(res.text);
-  const cost = round4(costForUsage({ model: res.model, usage: res.usage }));
+  const cost = res.usage ? round4(costForUsage({ model: res.model, usage: res.usage })) : null;
 
   for (const f of findings) console.log(`  ${f.severity} ${f.file}:${f.line} — ${f.issue}`);
-  console.log(`\ncross-model-review (${model}): ${findings.length} finding(s), VERDICT: ${verdict}  ($${cost})`);
-  process.exit(verdict === 'BLOCK' ? 1 : 0);
+  console.log(`\ncross-model-review (${decision.provider}:${res.model}): ${findings.length} finding(s), VERDICT: ${verdict}  (${cost == null ? 'cost unpriced' : '$' + cost})`);
+  log({ provider: decision.provider, model: res.model, state: 'ok', verdict, findings, cost });
+  process.exit(verdict === 'BLOCK' ? EXIT.BLOCK : EXIT.PASS);
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
-if (isMain) main(process.argv.slice(2)).catch(e => { console.error('FATAL:', e.message); process.exit(1); });
+if (isMain) main(process.argv.slice(2)).catch(e => { console.error('FATAL:', e.message); process.exit(EXIT.SKIPPED); });

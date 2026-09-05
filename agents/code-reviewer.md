@@ -101,11 +101,23 @@ git diff "$(git merge-base HEAD origin/main)"...HEAD | \
   node scripts/lib/cross-model-review.mjs --diff - --spec docs/architecture/ARCH-<slug>.md
 ```
 
-It returns `file:line | severity | issue` findings from a non-Claude model
-(default `openai/gpt-5`, needs `OPENROUTER_API_KEY`). **Merge** its P0/P1 findings
-with your own (dedup by file:line); a cross-model P0 BLOCKS gate:code just like
-yours. If `OPENROUTER_API_KEY` is absent, note the cross-model pass was skipped —
-don't silently drop it.
+Which model reviews is the project's decision, not the environment's: it reads
+`capabilities: second_opinion:` from `.great_cto/PROJECT.md` — `codex` runs
+OpenAI Codex in a read-only sandbox **in parallel with you, on the same diff**
+(no API key; the user's Codex login), `openrouter` uses `OPENROUTER_API_KEY`,
+`none` is a decision to review alone. **Read the exit code, not the prose:**
+
+| exit | meaning | what you do |
+|---|---|---|
+| `0` | reviewed, PASS | merge its P1/P2 with yours (dedup by file:line) |
+| `1` | reviewed, **BLOCK** — a P0 | merge; the cross-model P0 blocks gate:code like yours |
+| `3` | **SKIPPED** — undeclared, `none`, or the provider is unavailable | say so in your verdict: `cross-model: skipped (<reason>)`. Never write PASS for a review that did not happen |
+
+It returns `file:line | severity | issue` findings, and every run — including a
+skipped one — leaves a line in `.great_cto/cross-review.log`, which is what the
+board's Harnesses card shows. Disagreement between you and the second reviewer is
+not resolved by you: both sets of findings go into the verdict, the stricter one
+sets the verdict, and the human at the gate sees both.
 
 ## Output
 

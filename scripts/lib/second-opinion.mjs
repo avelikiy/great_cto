@@ -243,3 +243,83 @@ async function main(argv) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }
+
+// ── Which harness gives the second opinion ───────────────────────────────────
+//
+// Until 2026-09-05 the second opinion was whatever OpenRouter model the
+// environment named, and the environment named it in three different variables.
+// Codex is now a participant: `codex exec` in a read-only sandbox, authenticated
+// by the user's ChatGPT login, a genuinely different model family with no API
+// key to leak. Which one runs is a project decision, declared once in
+// PROJECT.md's `capabilities:` block and read here — by the reviewer, by the
+// verifier, and by the board, so all three agree.
+
+import { capabilitiesFromProjectMd } from './stack-capabilities.mjs';
+import { runCodexExec, detectCodex } from './codex-exec.mjs';
+
+export const SECOND_OPINION_PROVIDERS = Object.freeze(['codex', 'openrouter', 'none']);
+
+/**
+ * FOUR states, and the fourth is the reason this function exists:
+ *
+ *   declared     the project chose a provider and it can run
+ *   none         the project decided: no second opinion
+ *   undeclared   nobody has said — NOT the same as none
+ *   unavailable  the project chose codex and there is no working codex here
+ *
+ * A caller that folds `unavailable` into `none` makes an absent reviewer look
+ * like a decision not to review.
+ *
+ * @param {{projectMd?:string, codex?:object, env?:object}} o
+ *   `codex` is the shape of `codexStatusFrom`; pass it to stay pure.
+ */
+export function resolveSecondOpinion({ projectMd = '', codex = null, env = process.env } = {}) {
+  const cap = capabilitiesFromProjectMd(projectMd).map.second_opinion ?? { state: 'undeclared', tool: null };
+  if (cap.state === 'none') {
+    return { state: 'none', provider: 'none', why: 'the project declared second_opinion: none' };
+  }
+  if (cap.state === 'undeclared') {
+    return { state: 'undeclared', provider: null, why: 'second_opinion is not declared in PROJECT.md capabilities — not declared is not none' };
+  }
+  const provider = String(cap.tool).toLowerCase();
+  if (!SECOND_OPINION_PROVIDERS.includes(provider)) {
+    return { state: 'unavailable', provider, why: `second_opinion: ${provider} is not a provider this plugin knows (${SECOND_OPINION_PROVIDERS.join(', ')})` };
+  }
+  if (provider === 'codex') {
+    const c = codex ?? detectCodex();
+    if (c.state !== 'available') return { state: 'unavailable', provider, why: c.why, codex: c };
+    return { state: 'declared', provider, why: '', codex: c };
+  }
+  if (provider === 'openrouter') {
+    if (!env.OPENROUTER_API_KEY) return { state: 'unavailable', provider, why: 'second_opinion: openrouter needs OPENROUTER_API_KEY' };
+    return { state: 'declared', provider, why: '' };
+  }
+  return { state: 'none', provider: 'none', why: '' };
+}
+
+/**
+ * The judge's `ask(question, allowed) → word` shape, backed by Codex.
+ *
+ * Same contract as `routerAsk` above, so `judge()` cannot tell them apart —
+ * which is the point: a second judge is only a second judge if it is
+ * interchangeable at the call site. Returns '' on anything that is not an
+ * answer, as routerAsk does; the caller already treats '' as "unparsed".
+ */
+export function codexAsk(cwd, { model = null, timeoutMs = 120_000, bin = 'codex' } = {}) {
+  return async (question, allowed) => {
+    const prompt = `${question}\nAnswer with exactly one word from: ${allowed.join(', ')}. No explanation.`;
+    const r = await runCodexExec({ prompt, cwd, model, timeoutMs, bin });
+    return r.state === 'ok' ? r.text : '';
+  };
+}
+
+/**
+ * A full review turn through Codex: system + user prompt in, text + usage out.
+ * The three non-ok states pass through untouched so the reviewer can say
+ * "skipped: unreadable" rather than "PASS".
+ */
+export async function codexReview({ system, user, cwd, model = null, timeoutMs = 300_000, bin = 'codex' }) {
+  const prompt = `${system}\n\n${user}`;
+  const r = await runCodexExec({ prompt, cwd, model, timeoutMs, bin });
+  return { ...r, model: r.model ?? model ?? null };
+}

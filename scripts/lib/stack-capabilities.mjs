@@ -45,6 +45,12 @@ export const CAPABILITIES = Object.freeze([
   'pager',     // who gets woken
   'deploys',   // what shipped, and when
   'code-host', // where the diff and the PR live
+  // Not an incident tool: which harness gives the SECOND opinion in review and
+  // verification — `codex` (a different model family, through `codex exec`),
+  // `openrouter`, or `none`. It lives in this vocabulary rather than in a new
+  // file because the three-state rule is the whole point: a project that has
+  // not said is not a project that has turned it off.
+  'second_opinion',
 ]);
 
 /** `none` is a decision. Anything else is a tool name we pass through verbatim. */
@@ -80,7 +86,7 @@ export function capabilitiesFromProjectMd(text = '') {
     const after = body.slice(start.index + start[0].length);
     for (const line of after.split('\n')) {
       if (/^\S/.test(line)) break;                 // dedent ends the block
-      const m = line.match(/^[ \t]+([a-z][a-z0-9-]*)\s*:\s*(.*)$/i);
+      const m = line.match(/^[ \t]+([a-z][a-z0-9_-]*)\s*:\s*(.*)$/i);
       if (!m) continue;
       const key = m[1].toLowerCase();
       // An unrecognised key is REPORTED, not dropped. A capability nobody reads
@@ -155,4 +161,46 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   } else {
     console.log(describeCapabilities(result));
   }
+}
+
+/**
+ * Set one capability in a PROJECT.md body, returning the new text and what was
+ * there before. Pure, so the board's POST can be tested without a filesystem.
+ *
+ * The previous value is returned, not just the new one: a setting that
+ * silently replaced another is a change the operator cannot see they made —
+ * the same rule /api/agent-budgets follows.
+ *
+ * Creates the `capabilities:` block at the end when it is missing. `null` as
+ * the value removes the key (back to `undeclared`), which is different from
+ * writing `none`.
+ *
+ * @returns {{text:string, previous:string|null, created:boolean}}
+ */
+export function upsertCapability(text, key, value) {
+  if (!CAPABILITIES.includes(key)) throw new Error(`not a capability: ${key}`);
+  if (value != null && !/^[A-Za-z0-9_.:@/-]+$/.test(String(value))) throw new Error(`invalid value for ${key}`);
+  const body = String(text ?? '');
+  const lines = body.split('\n');
+  const start = lines.findIndex((l) => /^capabilities:[ \t]*$/.test(l));
+  const previous = capabilitiesFromProjectMd(body).map[key]?.tool
+    ?? (capabilitiesFromProjectMd(body).map[key]?.state === NONE ? NONE : null);
+
+  if (start === -1) {
+    if (value == null) return { text: body, previous, created: false };
+    const nl = body.endsWith('\n') || body === '' ? '' : '\n';
+    return { text: `${body}${nl}\ncapabilities:\n  ${key}: ${value}\n`, previous, created: true };
+  }
+
+  let end = start + 1;
+  while (end < lines.length && /^[ \t]+\S/.test(lines[end])) end += 1;
+  const idx = lines.findIndex((l, i) => i > start && i < end && new RegExp(`^[ \\t]+${key}[ \\t]*:`).test(l));
+
+  if (value == null) {
+    if (idx !== -1) lines.splice(idx, 1);
+    return { text: lines.join('\n'), previous, created: false };
+  }
+  const line = `  ${key}: ${value}`;
+  if (idx !== -1) lines[idx] = line; else lines.splice(end, 0, line);
+  return { text: lines.join('\n'), previous, created: false };
 }

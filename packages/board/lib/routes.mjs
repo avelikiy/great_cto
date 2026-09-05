@@ -21,6 +21,9 @@ import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, g
 import { getMetrics } from './metrics.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
+import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
+import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
+import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/lib/stack-capabilities.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
@@ -1595,6 +1598,123 @@ async function dispatch(req, res, url, cwd) {
 
   // Set or clear one agent's spending cap, by writing PROJECT.md.
   //
+  // GET /api/harnesses — the two harnesses and which one gives the second opinion.
+  //
+  // Claude Code is the host: it runs the pipeline, so it is always "here". Codex
+  // is detected, not assumed — version, login and the model it would run, read
+  // from disk — and reported in three states, because a card that shows an
+  // absent Codex as a quiet toggle in the off position is the same defect as a
+  // pending gate that renders as passed. The evidence section is the tail of
+  // `.great_cto/cross-review.log`: what the second opinion DID, not what it is
+  // set to.
+  if (pathname === '/api/harnesses' && req.method === 'GET') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const mdPath = path.join(c, '.great_cto', 'PROJECT.md');
+    let projectMd = null;
+    try { projectMd = fs.readFileSync(mdPath, 'utf8'); } catch { projectMd = null; }
+    const codex = detectCodex();
+    const second = resolveSecondOpinion({ projectMd: projectMd ?? '', codex });
+    const declared = projectMd == null ? null : capabilitiesFromProjectMd(projectMd).map.second_opinion;
+
+    // Last 20 review lines, newest first; unparseable lines are counted, not
+    // dropped, so a corrupted log does not read as a quiet one.
+    let evidence = [], unreadable = 0, logState = 'absent';
+    try {
+      const raw = fs.readFileSync(path.join(c, '.great_cto', 'cross-review.log'), 'utf8');
+      logState = 'ok';
+      for (const line of raw.trim().split('\n').filter(Boolean)) {
+        try { evidence.push(JSON.parse(line)); } catch { unreadable += 1; }
+      }
+      evidence = evidence.slice(-20).reverse();
+    } catch (e) { logState = e.code === 'ENOENT' ? 'absent' : 'unreadable'; }
+    const reviewed = evidence.filter((r) => r.state === 'ok');
+    const summary = {
+      runs: evidence.length,
+      reviewed: reviewed.length,
+      skipped: evidence.filter((r) => r.state !== 'ok').length,
+      blocked: reviewed.filter((r) => r.verdict === 'BLOCK').length,
+      unreadable_lines: unreadable,
+    };
+
+    res.writeHead(200, verdictHeaders(c));
+    res.end(JSON.stringify({
+      claude_code: { state: 'host', version: BUILD_VERSION },
+      codex,
+      second_opinion: {
+        ...second,
+        declared: declared ?? { state: projectMd == null ? 'no-project-md' : 'undeclared', tool: null },
+        providers: SECOND_OPINION_PROVIDERS,
+      },
+      evidence: { state: logState, summary, recent: evidence },
+    }));
+    return true;
+  }
+
+  // POST /api/harnesses/second-opinion  { provider: codex|openrouter|none|null }
+  //
+  // Writes `capabilities: second_opinion:` into PROJECT.md — a file the operator
+  // owns and git tracks — from a browser, behind the same origin gate as
+  // /api/agent-budgets. `null` removes the key: back to UNDECLARED, which is a
+  // different state from `none` and is offered on purpose.
+  //
+  // The reply carries the previous value, and the resolved state AFTER the
+  // write: choosing codex on a machine without one succeeds as a declaration
+  // and comes back `unavailable`, so the card can say so at the moment of the
+  // click rather than on the next review.
+  if (pathname === '/api/harnesses/second-opinion' && req.method === 'POST') {
+    if (!originAllowed(req)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'origin not allowed' }));
+      return true;
+    }
+    let body = '';
+    req.on('data', (ch) => { body += ch; if (body.length > 1024) req.destroy(); });
+    req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); }
+      catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+        return;
+      }
+      const provider = parsed.provider == null ? null : String(parsed.provider).toLowerCase();
+      if (provider != null && !SECOND_OPINION_PROVIDERS.includes(provider)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `provider must be one of ${SECOND_OPINION_PROVIDERS.join(', ')}, or null to undeclare` }));
+        return;
+      }
+      const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+      const mdPath = path.join(c, '.great_cto', 'PROJECT.md');
+      let before;
+      try { before = fs.readFileSync(mdPath, 'utf8'); }
+      catch (e) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'no PROJECT.md to write to', detail: String(e.message || e) }));
+        return;
+      }
+      let out;
+      try { out = upsertCapability(before, 'second_opinion', provider); }
+      catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e.message || e) }));
+        return;
+      }
+      try {
+        const tmp = `${mdPath}.tmp-${process.pid}`;
+        fs.writeFileSync(tmp, out.text);
+        fs.renameSync(tmp, mdPath);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `could not write PROJECT.md: ${String(e.message || e)}` }));
+        return;
+      }
+      const resolved = resolveSecondOpinion({ projectMd: out.text, codex: detectCodex() });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, provider, previous: out.previous, created_block: out.created === true, resolved }));
+    });
+    return true;
+  }
+
   // POST /api/agent-budgets  { agent, limit_usd }   set / replace
   // POST /api/agent-budgets  { agent, remove: true } clear
   //

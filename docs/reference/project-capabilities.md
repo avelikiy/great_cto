@@ -43,6 +43,34 @@ a place to write anything, and then nothing can be resolved against it. An
 unrecognised key is reported rather than dropped: silently ignoring `logz:` leaves
 the author believing something is declared that no agent will ever read.
 
+## `second_opinion` — which harness reviews beside the reviewer
+
+Added 2026-09-05. Not an incident tool, and in this vocabulary for the same
+reason the others are: the three-state rule. It names the harness that gives
+the **second opinion** in code review (`cross-model-review`) and in
+`independent-verify`'s second judge — a different model family, running in
+parallel on the same artefact, whose findings are merged with the Claude
+reviewer's and whose P0 blocks the gate just like a Claude P0 does.
+
+```yaml
+capabilities:
+  second_opinion: codex        # OpenAI Codex, `codex exec` in a read-only sandbox,
+                               # authenticated by the user's Codex login — no API key
+  # second_opinion: openrouter # a non-Claude model through OPENROUTER_API_KEY
+  # second_opinion: none       # a decision to review with one family only
+```
+
+A **fourth** state exists here and nowhere else in the table: `unavailable` —
+the project declared `codex` and this machine has no working Codex (not
+installed, or not logged in). It is reported as such by the reviewer (exit
+code `3`, SKIPPED), by the verifier (which says so and falls back to the
+router), and by the board's Harnesses card. It is never folded into `none`:
+an absent reviewer must not read as a decision not to review.
+
+The board sets this from the Harnesses card (`POST /api/harnesses/second-opinion`),
+and shows beside the switch what the second opinion *did* — the tail of
+`.great_cto/cross-review.log` — rather than only what it is set to.
+
 ## Three states, and why two would be wrong
 
 | Written | State | What an agent does |

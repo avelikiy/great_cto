@@ -3177,6 +3177,20 @@ id var(--border);
           </div>
           <div class="pipeline-track" id="pipeline-track"></div>
         </div>
+
+        <!-- Harnesses: the host that runs the pipeline, and the second harness
+             that reviews beside it. Codex is DETECTED, in three states — an
+             absent Codex must not render as a switch in the off position. The
+             evidence rows are the tail of .great_cto/cross-review.log: what the
+             second opinion did, not what it is set to. -->
+        <div class="inbox-section" id="harnesses-section">
+          <div class="inbox-section-head">
+            <span class="dot dot-blue"></span>
+            <h3>Harnesses</h3>
+            <span class="inbox-count" id="harnesses-status">…</span>
+          </div>
+          <div id="harnesses-body" class="muted" style="font-size:13px;line-height:1.5">loading…</div>
+        </div>
           </div>
         </details>
 
@@ -5106,9 +5120,84 @@ async function refreshPipeline() {
   const d = await api(`/api/pipeline${pqs()}`);
   if (Array.isArray(d)) renderPipeline(d);
   renderTierBadge();
+  renderHarnesses();
 }
 
 // change_tier badge — the gate + judge plan for the current working-tree diff (ADR-003/004).
+// The Harnesses card. Four states for the second opinion, and the fourth is
+// the reason the card exists: `unavailable` — declared codex, no codex here —
+// must never look like `none` or like a switch someone turned off.
+async function renderHarnesses() {
+  const body = document.getElementById('harnesses-body');
+  const status = document.getElementById('harnesses-status');
+  if (!body) return;
+  let h;
+  try { h = await api(`/api/harnesses${pqs()}`); }
+  catch (e) { status.textContent = 'unreadable'; body.innerHTML = `<b>Could not read the harnesses.</b> ${esc(String(e.message || e))}`; return; }
+
+  const so = h.second_opinion || {};
+  const cx = h.codex || {};
+  const ev = h.evidence || {};
+  const sum = ev.summary || {};
+
+  const codexLine = cx.state === 'available'
+    ? `<b>OpenAI Codex</b> ${esc(cx.version || '')} · logged in (${esc(cx.auth || '?')}) · runs <code>${esc(cx.model || 'default model')}</code>`
+    : cx.state === 'no-auth'
+      ? `<b>OpenAI Codex</b> ${esc(cx.version || '')} · <span class="warn">not logged in</span> — ${esc(cx.why || '')}`
+      : `<b>OpenAI Codex</b> · <span class="warn">not installed</span> — ${esc(cx.why || '')}`;
+
+  const stateLabel = {
+    declared: `on — <b>${esc(so.provider)}</b> reviews in parallel with the Claude reviewer`,
+    none: 'off — the project decided: one model family only',
+    undeclared: 'not declared — <b>not</b> the same as off; nobody has said',
+    unavailable: `<span class="warn">declared <b>${esc(so.provider)}</b>, but unavailable here</span> — ${esc(so.why || '')}`,
+  }[so.state] || esc(so.state || '?');
+
+  const sel = (so.providers || ['codex', 'openrouter', 'none']).map((p) =>
+    `<option value="${p}" ${so.declared && so.declared.tool === p ? 'selected' : ''}>${p}</option>`).join('');
+  const undecl = `<option value="" ${!so.declared || so.declared.state === 'undeclared' ? 'selected' : ''}>(undeclared)</option>`;
+
+  const rows = (ev.recent || []).slice(0, 6).map((r) => {
+    const when = (r.ts || '').slice(0, 16).replace('T', ' ');
+    const what = r.state === 'ok'
+      ? `${r.verdict === 'BLOCK' ? '<b>BLOCK</b>' : 'PASS'} · ${r.findings ?? 0} finding${r.findings === 1 ? '' : 's'}${r.p0 ? ` · ${r.p0} P0` : ''}${r.cost != null ? ` · $${r.cost}` : ' · unpriced'}`
+      : `<span class="muted">skipped (${esc(r.state)})</span>`;
+    return `<div class="mono" style="font-size:12px">${esc(when)} · ${esc(r.provider || '?')}${r.model ? ':' + esc(r.model) : ''} · ${what}</div>`;
+  }).join('');
+  const evidence = ev.state === 'absent'
+    ? '<span class="muted">no cross-model review has run in this project yet</span>'
+    : ev.state === 'unreadable'
+      ? '<span class="warn">the review log is unreadable</span>'
+      : `${sum.reviewed ?? 0} reviewed · ${sum.skipped ?? 0} skipped · ${sum.blocked ?? 0} blocked${sum.unreadable_lines ? ` · <span class="warn">${sum.unreadable_lines} unreadable line(s)</span>` : ''}<div style="margin-top:4px">${rows}</div>`;
+
+  status.textContent = so.state === 'declared' ? `2 · ${so.provider}` : so.state === 'unavailable' ? 'unavailable' : so.state === 'undeclared' ? 'undeclared' : '1';
+  status.className = 'inbox-count' + (so.state === 'unavailable' ? ' warn' : '');
+  body.innerHTML = `
+    <div><b>Claude Code</b> · host · runs the pipeline, gates and hooks</div>
+    <div>${codexLine}</div>
+    <div style="margin-top:8px">Second opinion: ${stateLabel}</div>
+    <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label for="so-select" class="muted">set</label>
+      <select id="so-select">${undecl}${sel}</select>
+      <button id="so-apply" class="btn-small">apply</button>
+      <span id="so-result" class="muted"></span>
+    </div>
+    <div style="margin-top:8px"><span class="muted">Evidence:</span> ${evidence}</div>`;
+
+  document.getElementById('so-apply').onclick = async () => {
+    const v = document.getElementById('so-select').value;
+    const out = document.getElementById('so-result');
+    out.textContent = 'writing PROJECT.md…';
+    try {
+      const r = await api(`/api/harnesses/second-opinion${pqs()}`, { method: 'POST', body: JSON.stringify({ provider: v || null }) });
+      // Say what it replaced and what it resolved to NOW, so choosing codex on a
+      // machine without one is answered at the click, not on the next review.
+      out.textContent = `was ${r.previous ?? 'undeclared'} → now ${r.provider ?? 'undeclared'} (${r.resolved?.state}${r.resolved?.why ? ': ' + r.resolved.why : ''})`;
+      renderHarnesses();
+    } catch (e) { out.textContent = `failed: ${String(e.message || e)}`; }
+  };
+}
+
 async function renderTierBadge() {
   const el = document.getElementById('tier-badge');
   if (!el) return;

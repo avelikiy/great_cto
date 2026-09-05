@@ -14,7 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
-  CAPABILITIES, capabilitiesFromProjectMd, describeCapability, describeCapabilities,
+  CAPABILITIES, capabilitiesFromProjectMd, describeCapability, describeCapabilities, upsertCapability,
 } from '../../scripts/lib/stack-capabilities.mjs';
 
 const CLI = path.resolve(import.meta.dirname, '../../scripts/lib/stack-capabilities.mjs');
@@ -84,7 +84,7 @@ test('the CLI reads a real project and resolves its declarations', () => {
   const out = execFileSync(process.execPath, [CLI, '--cwd', dir], { encoding: 'utf8' });
   assert.match(out, /logs: datadog/);
   assert.match(out, /pager: pagerduty/);
-  assert.match(out, /declares 2 of 8/);
+  assert.match(out, /declares 2 of 9/);
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -95,4 +95,46 @@ test('l3-support actually reads the map — a layer nothing consults is not a la
   const table = agent.indexOf('Alert Source → Tool Routing');
   assert.ok(step0 > 0 && table > step0,
     'and it runs BEFORE the routing table — the table cannot say which row is this project');
+});
+
+test('second_opinion is in the vocabulary, with the same three states', () => {
+  assert.ok(CAPABILITIES.includes('second_opinion'));
+  const md = 'capabilities:\n  logs: loki\n  second_opinion: codex\n';
+  assert.deepEqual(capabilitiesFromProjectMd(md).map.second_opinion, { state: 'declared', tool: 'codex' });
+  assert.deepEqual(capabilitiesFromProjectMd('capabilities:\n  logs: loki\n').map.second_opinion, { state: 'undeclared', tool: null });
+  assert.deepEqual(capabilitiesFromProjectMd('capabilities:\n  second_opinion: none\n').map.second_opinion, { state: 'none', tool: null });
+});
+
+test('upsertCapability replaces in place and reports what it replaced', () => {
+  const md = '# P\n\ncapabilities:\n  logs: loki\n  second_opinion: openrouter\n\nstack: node\n';
+  const r = upsertCapability(md, 'second_opinion', 'codex');
+  assert.equal(r.previous, 'openrouter');
+  assert.equal(r.created, false);
+  assert.deepEqual(capabilitiesFromProjectMd(r.text).map.second_opinion, { state: 'declared', tool: 'codex' });
+  assert.match(r.text, /\nstack: node\n$/, 'nothing after the block moved');
+  assert.equal((r.text.match(/second_opinion/g) || []).length, 1, 'replaced, not appended');
+});
+
+test('upsertCapability adds to an existing block, or creates one, and says which', () => {
+  const add = upsertCapability('capabilities:\n  logs: loki\n', 'second_opinion', 'codex');
+  assert.equal(add.previous, null); assert.equal(add.created, false);
+  assert.deepEqual(capabilitiesFromProjectMd(add.text).map.logs, { state: 'declared', tool: 'loki' });
+  assert.deepEqual(capabilitiesFromProjectMd(add.text).map.second_opinion, { state: 'declared', tool: 'codex' });
+  const made = upsertCapability('# P\nstack: node\n', 'second_opinion', 'codex');
+  assert.equal(made.created, true);
+  assert.deepEqual(capabilitiesFromProjectMd(made.text).map.second_opinion, { state: 'declared', tool: 'codex' });
+});
+
+test('removing a capability returns it to undeclared — which is not none', () => {
+  const md = 'capabilities:\n  second_opinion: codex\n';
+  const r = upsertCapability(md, 'second_opinion', null);
+  assert.equal(r.previous, 'codex');
+  assert.equal(capabilitiesFromProjectMd(r.text).map.second_opinion.state, 'undeclared');
+  const none = upsertCapability(md, 'second_opinion', 'none');
+  assert.equal(capabilitiesFromProjectMd(none.text).map.second_opinion.state, 'none');
+});
+
+test('upsertCapability refuses a key outside the vocabulary and a value that is not a name', () => {
+  assert.throws(() => upsertCapability('', 'logz', 'x'), /not a capability/);
+  assert.throws(() => upsertCapability('', 'second_opinion', 'a b\nc'), /invalid value/);
 });

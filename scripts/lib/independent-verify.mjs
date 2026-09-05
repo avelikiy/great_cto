@@ -774,10 +774,28 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // be worse than no second opinion at all.
   let second = null;
   if (ask && !argv.includes('--no-second-opinion')) {
-    const { routerAsk } = await import('./second-opinion.mjs');
-    const server = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..',
-                             'mcp-servers', 'llm-router', 'server.py');
-    if (existsSync(server)) second = routerAsk(server, { model: SECOND_OPINION_MODEL });
+    const { routerAsk, codexAsk, resolveSecondOpinion } = await import('./second-opinion.mjs');
+    // The project may have named its second judge. `codex` is a different
+    // model family through a different harness — the correlated-failure escape
+    // this layer was written for, without an API key. The decision is read
+    // from PROJECT.md so the reviewer, the verifier and the board agree.
+    const mdPath = path.join(root, '.great_cto', 'PROJECT.md');
+    const projectMd = existsSync(mdPath) ? readFileSync(mdPath, 'utf8') : '';
+    const so = resolveSecondOpinion({ projectMd });
+    if (so.state === 'declared' && so.provider === 'codex') {
+      second = codexAsk(root, { model: null, bin: process.env.GREAT_CTO_CODEX_BIN || 'codex' });
+      console.error(`  second judge: codex (${so.codex?.model || 'default model'}, read-only sandbox)`);
+    } else if (so.state === 'unavailable' && so.provider === 'codex') {
+      // Declared and absent is said, not swallowed: a project that asked for a
+      // second judge and silently got the router's model would read a
+      // one-family verdict as a two-family one.
+      console.error(`  second judge: codex was declared but is ${so.codex?.state || 'unavailable'} — ${so.why}; falling back to the router (${SECOND_OPINION_MODEL})`);
+    }
+    if (!second) {
+      const server = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..',
+                               'mcp-servers', 'llm-router', 'server.py');
+      if (existsSync(server)) second = routerAsk(server, { model: SECOND_OPINION_MODEL });
+    }
   }
 
   const r = await verifyAgentOutput({ verdict, root, ask, second });
