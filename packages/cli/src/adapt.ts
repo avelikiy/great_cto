@@ -10,6 +10,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { codexInstallPlan } from "./codex.js";
 
 export type Platform = "claude";
 
@@ -345,135 +346,69 @@ dirty-commits: false
 
 // ── Codex adapter helpers ──────────────────────────────────────────────────
 
-/**
- * hooks.json content for ~/.codex/skills/great_cto/hooks.json.
- *
- * Phase 0 findings (2026-06-04, confirmed against Codex Desktop binary):
- * - Hook events: PreToolUse, PostToolUse, SessionStart, SubagentStart,
- *   SubagentStop, PreCompact, PostCompact, UserPromptSubmit, PermissionRequest.
- * - stdin payload: same keys as Claude Code (tool_name, tool_input, is_error).
- * - block/deny: hookSpecificOutput.permissionDecision (same struct as CC)
- *   confirmed by binary string literals.
- * - Hooks enabled by [features].hooks = true in config.toml.
- *
- * @param skillDir - absolute path to ~/.codex/skills/great_cto (used to build hook commands)
- */
-/**
- * hooks.json for Codex.
- *
- * Codex implements our hook contract exactly — same events, same wire format,
- * and `permissionDecision` takes `allow | deny | ask`, the words we already
- * write. No translation layer is needed; see
- * docs/analysis/2026-09-05-codex-phase0-findings.md.
- *
- * What needed care is the shell wrapper. Every command here was written as
- * `node "…" 2>/dev/null || true`, which swallows the exit code AND the reason.
- * On secret-scan — a BLOCKING guard — that produced a guard that cannot block
- * and cannot say why: it would have reported clean on every write.
- *
- * So the wrapper is now split by intent, and the test pins both halves:
- *
- * MATCHERS carry both hosts' tool names. Codex writes through `apply_patch` and
- * runs commands through `shell`; the Claude Code names are `edit`/`write`/
- * `str_replace_editor`. This was found by running it: Codex wrote a file
- * containing an API key and secret-scan never fired — the hook was correct, it
- * was never called. A matcher that matches nothing looks exactly like a guard
- * that passed.
- *   blocking  (secret-scan)              bare, so a non-zero exit reaches Codex
- *   advisory  (format-check, tool-failure) keeps `|| true` — a formatter that
- *                                         dies must not stop the user's write
- */
-export function getCodexHooksJson(skillDir: string): string {
-  const s = skillDir; // shorthand
-  return JSON.stringify({
-    "SessionStart": [
-      {
-        "hooks": [
-          { "command": `node "${s}/scripts/hooks/quota-check.mjs" 2>/dev/null || true`, "timeout": 15 }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "computer|bash|shell",
-        "hooks": [
-          { "command": `node "${s}/scripts/hooks/orchestrator-check.mjs" 2>/dev/null || true`, "timeout": 5 },
-          { "command": `node "${s}/scripts/hooks/cost-guard.mjs" 2>/dev/null || true`, "timeout": 5 }
-        ]
-      },
-      {
-        "matcher": "edit|write|str_replace_editor|computer|apply_patch",
-        "hooks": [
-          { "command": `node "${s}/scripts/hooks/secret-scan.mjs"`, "timeout": 8 }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "edit|write|str_replace_editor|apply_patch",
-        "hooks": [
-          { "command": `node "${s}/scripts/hooks/format-check.mjs" 2>/dev/null; true`, "timeout": 12, "async": true },
-          { "command": `node "${s}/scripts/hooks/tool-failure.mjs" 2>/dev/null || true`, "timeout": 3, "async": true }
-        ]
-      },
-      {
-        "matcher": "",
-        "hooks": [
-          { "command": `node "${s}/scripts/hooks/tool-failure.mjs" 2>/dev/null || true`, "timeout": 3, "async": true }
-        ]
-      }
-    ]
-  }, null, 2);
-}
+// `getCodexHooksJson` used to live here, and `adapt` wrote its output to
+// `.codex/hooks.json`. Six tests certified its shape — the split between
+// blocking and advisory wrappers, the matchers covering `apply_patch` — and all
+// six passed while the file went to a path Codex does not read.
+//
+// Two upstream issues settle it (openai/codex #16430, #39895): hooks load from
+// the config layer only, a plugin cannot carry them, and the `hooks` field is
+// read by nothing "with no warning, error, or log line". `.codex/hooks.json`,
+// project-scoped, was never even the config layer. See
+// docs/analysis/2026-09-05-codex-phase0-findings.md.
+//
+// So the generator is gone rather than corrected. A tested generator writing to
+// a path nothing reads is the exact defect this repository exists to delete: it
+// looked more finished than an absent one.
 
 /**
- * config.toml fragment to merge into ~/.codex/config.toml.
- * Adds: [features].hooks=true, [mcp_servers.great_cto], [agents.great_cto_skill].
- * Written as a separate file (.codex/great_cto.toml) since merging TOML is
- * non-trivial; installer prints merge instructions.
+ * The config.toml fragment for Codex — only the part that runs.
+ *
+ * What this used to emit, and why each line is gone:
+ *
+ *   [features] hooks = true    turns on a feature a plugin cannot reach
+ *                              (openai/codex#16430) and which has an open
+ *                              timeout regression on 0.148.0+ (#42279)
+ *   CODEX_SKILL_DIR = ~/.codex/skills/great_cto
+ *                              a path a working Codex install does not have;
+ *                              Phase 0 checked, the directory is not created
+ *   [agents.great_cto_*]       six role descriptions presented as "the
+ *                              specialist fleet", with a comment claiming
+ *                              "full 57-agent routing" — we ship seventy, and
+ *                              Codex routes none of them
+ *
+ * An MCP server is the one thing here Codex actually starts, so it is the one
+ * thing left. The rest of the fragment is now a statement of what does NOT come
+ * with it, taken from `codexInstallPlan` so the two cannot drift apart again —
+ * which is precisely how they drifted the first time.
  */
 function getCodexConfigFragment(meta: ProjectMeta): string {
-  return `# great_cto Codex integration — generated by great-cto adapt
-# Merge this into ~/.codex/config.toml or copy the sections manually.
+  const plan = codexInstallPlan({ repoDir: "<path-to-great_cto>", codexOnPath: true });
+  const notes = plan.notSupported.map((n) => `#   - ${n}`).join("\n");
+  return `# great_cto ⇄ Codex — generated by great-cto adapt
 # Generated: ${new Date().toISOString().slice(0, 10)}
-
-[features]
-hooks = true
+#
+# This file contains ONE section, because one section is what Codex runs from a
+# config fragment. Merge it into ~/.codex/config.toml.
+#
+# For skills, install the plugin instead of copying anything by hand:
+#   ${plan.commands.join("\n#   ")}
+#
+# What does NOT come with either, on codex-cli as it stands today:
+${notes}
+#
+# Details, measured rather than inferred:
+# docs/analysis/2026-09-05-codex-phase0-findings.md
 
 [mcp_servers.great_cto]
 command = "npx"
 args = ["great-cto@latest", "mcp"]
-# Set startup timeout generously — npx downloads on first run
+# Generous: npx downloads on first run.
 startup_timeout_sec = 60
-
-[mcp_servers.great_cto.env]
-# Point hooks at the skill dir so hook scripts resolve correctly.
-CODEX_SKILL_DIR = "${process.env.HOME ?? "~"}/.codex/skills/great_cto"
-
-# Agents exposed via MCP (great_cto specialist fleet)
-# Codex will use these as subagent personalities via the [agents] table.
-# Full 57-agent routing is handled inside AGENTS.md / SKILL.md.
-[agents.great_cto_architect]
-description = "Deep architectural reasoning, ADRs, cross-cutting design decisions"
-
-[agents.great_cto_senior_dev]
-description = "Feature implementation with TDD — RED→GREEN→REFACTOR"
-
-[agents.great_cto_qa_engineer]
-description = "QA reports, coverage, regression check after implementation"
-
-[agents.great_cto_security_officer]
-description = "Security audit — OWASP Top 10, auth, PII, secrets"
-
-[agents.great_cto_devops]
-description = "Deploy, canary rollout, rollback, SLO monitoring"
-
-[agents.great_cto_pm]
-description = "Feature decomposition into tasks, timeline, dependency graph"
 
 # Archetype: ${meta.archetype}
 # Compliance: ${meta.compliance.join(", ") || "none"}
-# Re-run great-cto adapt --platform codex to refresh.
+# Re-run great-cto adapt to refresh.
 `;
 }
 
@@ -559,15 +494,30 @@ conventions. Generated by \`great-cto adapt\`.
         break;
       }
       case "codex": {
-        // Write hooks.json + config.toml fragment to .codex/ (project-scoped, trusted)
-        const defaultSkillDir = `${process.env.HOME ?? "~"}/.codex/skills/great_cto`;
-        const hooksPath = join(cwd, ".codex", "hooks.json");
+        // One file, and only the MCP section in it. The previous version also
+        // wrote `.codex/hooks.json` and then said "restart Codex to activate
+        // hooks and MCP server" — half of which was true. A user who followed
+        // that line came away believing the gate chain and secret-scan were
+        // guarding their session on Codex. They were not, and nothing said so.
         const configPath = join(cwd, ".codex", "great_cto.toml");
-        if (writeFile(hooksPath, getCodexHooksJson(defaultSkillDir), dryRun)) out.push(".codex/hooks.json");
         if (writeFile(configPath, getCodexConfigFragment(meta), dryRun)) out.push(".codex/great_cto.toml");
+
+        // A file we used to write and no longer do stays on disk. Say so rather
+        // than delete it: it is in the user's project, and it may be theirs now.
+        const stale = join(cwd, ".codex", "hooks.json");
         if (!dryRun) {
-          console.log("  ⚠  Codex: merge .codex/great_cto.toml sections into ~/.codex/config.toml");
-          console.log("     Then restart Codex to activate hooks and MCP server.");
+          console.log("  ⚠  Codex: merge .codex/great_cto.toml into ~/.codex/config.toml, then restart Codex.");
+          console.log("     That gives you the MCP server. For the skills, install the plugin:");
+          for (const c of codexInstallPlan({ repoDir: "<path-to-great_cto>", codexOnPath: true }).commands) {
+            console.log(`       ${c}`);
+          }
+          console.log("     Hooks, slash commands and the role agents do NOT carry over to Codex today —");
+          console.log("     see docs/analysis/2026-09-05-codex-phase0-findings.md.");
+          if (existsSync(stale)) {
+            console.log("");
+            console.log("  ⚠  .codex/hooks.json exists and an older great-cto wrote it. Codex never read it");
+            console.log("     (openai/codex#16430) — delete it yourself if it is not yours.");
+          }
         }
         break;
       }
@@ -637,8 +587,12 @@ export function nextStepsAfterAdapt(aiTools: string[] = []): string[] {
       "  3. great-cto board — Kanban + CTO dashboard at localhost:3141",
     );
   } else {
+    // "is live" was wrong for Codex, whose fragment the user still has to merge
+    // into ~/.codex/config.toml by hand — and a line that says a thing is live
+    // is exactly how an unmerged file passes for a working one.
     out.push(
-      `  Your ${aiTools.join(" / ")} config is live — reload the tool to pick it up.`,
+      `  Config written for ${aiTools.join(" / ")}. A fragment that says to merge it is not active`,
+      "  until you do — then reload the tool to pick it up.",
       "  The agent pipeline (architecture review, QA, security gates) runs inside",
       "  Claude Code. To use it here: add claude-code to ai_tools in PROJECT.md,",
       "  then `npx great-cto install`.",
