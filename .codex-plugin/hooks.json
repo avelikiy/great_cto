@@ -24,7 +24,7 @@
       ]
     },
     {
-      "matcher": "edit|write|str_replace_editor|computer",
+      "matcher": "edit|write|str_replace_editor|computer|apply_patch",
       "hooks": [
         {
           "command": "node \"${PLUGIN_ROOT}/scripts/hooks/secret-scan.mjs\"",
@@ -35,7 +35,7 @@
   ],
   "PostToolUse": [
     {
-      "matcher": "edit|write|str_replace_editor",
+      "matcher": "edit|write|str_replace_editor|apply_patch",
       "hooks": [
         {
           "command": "node \"${PLUGIN_ROOT}/scripts/hooks/format-check.mjs\" 2>/dev/null; true",

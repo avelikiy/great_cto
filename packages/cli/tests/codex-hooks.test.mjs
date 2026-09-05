@@ -60,3 +60,29 @@ test('the events used are ones Codex actually has', () => {
     assert.ok(CODEX_EVENTS.has(e), `${e} is not a Codex hook event`);
   }
 });
+
+test('the matcher covers the tools Codex actually has', () => {
+  // Found by running it: Codex wrote a file containing an API key and
+  // secret-scan never fired. The hook was correct — fed the payload by hand it
+  // returns deny and exits 2 — it was simply never called, because our matcher
+  // reads `edit|write|str_replace_editor` and Codex's write tool is
+  // `apply_patch`. A matcher that matches nothing is a guard that cannot fail,
+  // and it looked identical to a guard that passed.
+  const writeMatchers = (HOOKS.PreToolUse ?? [])
+    .filter((g) => (g.hooks ?? []).some((h) => /secret-scan/.test(h.command)))
+    .map((g) => g.matcher);
+  assert.ok(writeMatchers.length, 'secret-scan must be on PreToolUse');
+  for (const m of writeMatchers) {
+    assert.match(m, /apply_patch/,
+      `Codex writes through apply_patch; this matcher would never fire: ${m}`);
+  }
+});
+
+test('the shell matcher covers Codex shell tools too', () => {
+  const shellMatchers = (HOOKS.PreToolUse ?? [])
+    .filter((g) => (g.hooks ?? []).some((h) => /orchestrator-check|cost-guard/.test(h.command)))
+    .map((g) => g.matcher);
+  for (const m of shellMatchers) {
+    assert.match(m, /shell/, `a shell matcher must name Codex's shell tool: ${m}`);
+  }
+});

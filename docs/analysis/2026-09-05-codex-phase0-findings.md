@@ -65,7 +65,40 @@ What the manifest does NOT carry, checked across every shipped plugin:
 `openai.yaml` — display name, icons, a default prompt. It is **interface
 metadata, not agent roles**. Our 71 role agents have no counterpart here.
 
-## CORRECTION — hooks DO carry over
+## SECOND CORRECTION — hooks are in the schema and do NOT run
+
+The section below concluded, from the binary's JSON Schema, that hooks carry
+over. Then it was RUN, and they do not.
+
+codex-cli 0.153.4 fires **no hook at all**. Tried three ways, each with
+`--dangerously-bypass-hook-trust`:
+
+| where the hook was declared | fired |
+|---|---|
+| plugin manifest (`"hooks": "./hooks.json"`, installed and enabled) | no |
+| `-c hooks_files.paths=[...]` | no — and `hooks_files` appears nowhere in the binary; that key was invented by our own old installer |
+| `~/.codex/hooks.json` | no |
+
+The probe was a hook that only appends a line to a file. It never ran, while the
+tool call it was supposed to guard went through — Codex wrote `cfg.env`
+containing an API key, twice, with `secret-scan` installed and correctly matched
+on `apply_patch`.
+
+Fed the same payload by hand, `secret-scan` denies and exits 2. It is wired,
+matched and correct. It is simply never called.
+
+**A schema in a binary is not a working feature.** That is the lesson of this
+document, and it cost three reversals to learn:
+
+1. *false* — no shipped plugin declares a hook (absence of use ≠ absence of support)
+2. *true* — the binary carries the whole contract (schema ≠ behaviour)
+3. *false* — it was run
+
+Only the third is evidence. `hooks.json` stays in the repository, correct and
+using `${PLUGIN_ROOT}`, and the manifest does **not** declare it: a key the host
+ignores would read as a hook chain that works.
+
+## The schema, for when it does run
 
 The first pass of this document concluded hooks had no plugin surface, on the
 evidence that no shipped plugin declares one. That was reading absence of use as

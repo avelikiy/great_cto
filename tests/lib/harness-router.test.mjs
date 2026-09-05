@@ -36,11 +36,11 @@ test('capabilities: the two harnesses differ where they actually differ', () => 
   assert.equal(capabilities('claude-code').subagents, true);
   assert.equal(capabilities('codex').subagents, true);
 
-  // Hooks too. This also read `false`, on the evidence that no shipped plugin
-  // declares one — absence of USE, not absence of support. Codex's own JSON
-  // Schema implements our contract and adds events we do not have
-  // (PermissionRequest, PostCompact). Corrected 2026-09-05.
-  assert.equal(capabilities('codex').hooks, true);
+  // Hooks: false, and this value has been set three times today. The binary
+  // ships the whole schema — our wire format, our permissionDecision values, a
+  // superset of our events — but running it fires no hook at all. The schema
+  // was not evidence; the run was. See harness-registry-truth.test.mjs.
+  assert.equal(capabilities('codex').hooks, false);
 
   // Where they still differ: slash commands and role agents have no plugin
   // surface on Codex — checked across every shipped plugin.

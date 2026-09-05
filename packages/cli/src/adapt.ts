@@ -372,6 +372,13 @@ dirty-commits: false
  * and cannot say why: it would have reported clean on every write.
  *
  * So the wrapper is now split by intent, and the test pins both halves:
+ *
+ * MATCHERS carry both hosts' tool names. Codex writes through `apply_patch` and
+ * runs commands through `shell`; the Claude Code names are `edit`/`write`/
+ * `str_replace_editor`. This was found by running it: Codex wrote a file
+ * containing an API key and secret-scan never fired — the hook was correct, it
+ * was never called. A matcher that matches nothing looks exactly like a guard
+ * that passed.
  *   blocking  (secret-scan)              bare, so a non-zero exit reaches Codex
  *   advisory  (format-check, tool-failure) keeps `|| true` — a formatter that
  *                                         dies must not stop the user's write
@@ -395,7 +402,7 @@ export function getCodexHooksJson(skillDir: string): string {
         ]
       },
       {
-        "matcher": "edit|write|str_replace_editor|computer",
+        "matcher": "edit|write|str_replace_editor|computer|apply_patch",
         "hooks": [
           { "command": `node "${s}/scripts/hooks/secret-scan.mjs"`, "timeout": 8 }
         ]
@@ -403,7 +410,7 @@ export function getCodexHooksJson(skillDir: string): string {
     ],
     "PostToolUse": [
       {
-        "matcher": "edit|write|str_replace_editor",
+        "matcher": "edit|write|str_replace_editor|apply_patch",
         "hooks": [
           { "command": `node "${s}/scripts/hooks/format-check.mjs" 2>/dev/null; true`, "timeout": 12, "async": true },
           { "command": `node "${s}/scripts/hooks/tool-failure.mjs" 2>/dev/null || true`, "timeout": 3, "async": true }

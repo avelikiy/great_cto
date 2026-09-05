@@ -34,17 +34,26 @@ export const HARNESSES = Object.freeze({
     // `subagent:thread_spawn=3` and a stock config carries `[features]
     // multi_agent = true`. We were degrading a capability the harness has.
     //
-    // hooks: true since 2026-09-05, and it was `false` for the wrong reason —
-    // no shipped plugin declares a hook, which is absence of USE, not absence of
-    // support. The binary's JSON Schema implements our own contract:
-    // hook_event_name, hookSpecificOutput, per-event …HookSpecificOutputWire,
-    // and MORE events than we use (it adds PermissionRequest and PostCompact).
-    // `"hooks": "./hooks.json"` is a manifest key.
+    // hooks: FALSE, and the road here is worth writing down because I got it
+    // wrong twice, in opposite directions.
     //
-    // One difference to shim, not a blocker: PreToolUse decides with
-    // `approve`/`block` where Claude Code writes `allow`/`deny`.
+    //   1. false — because no shipped plugin declares a hook. That is absence
+    //      of USE read as absence of support. Wrong reasoning.
+    //   2. true — because the binary carries the whole schema: our wire format,
+    //      our permissionDecision values (allow|deny|ask), a superset of our
+    //      events, and `hooks` as a manifest key. Wrong conclusion.
+    //   3. false — because it was RUN. codex-cli 0.153.4 fires no hook at all:
+    //      not from the plugin manifest, not from ~/.codex/hooks.json, not with
+    //      --dangerously-bypass-hook-trust. A probe hook that only appends a
+    //      line to a file never ran, while the tool call it guarded went through
+    //      and wrote an API key to disk.
+    //
+    // A schema in a binary is not a working feature. secret-scan is wired and
+    // correct — fed the payload by hand it denies and exits 2 — and on this
+    // build it is never called, which is precisely the shape of a guard that
+    // cannot fail. Absent until a run proves otherwise.
     // See docs/analysis/2026-09-05-codex-phase0-findings.md.
-    capabilities: { hooks: true, mcp: true, subagents: true, slashCommands: true, toolApproval: true, streamJson: true },
+    capabilities: { hooks: false, mcp: true, subagents: true, slashCommands: true, toolApproval: true, streamJson: true },
   },
   'opencode': {
     name: 'OpenCode', cli: 'opencode',

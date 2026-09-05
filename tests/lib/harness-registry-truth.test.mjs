@@ -61,29 +61,20 @@ test('Codex subagents: the registry agrees with the installed CLI', (t) => {
     'the installed Codex runs subagents; the registry says it does not, so we degrade a capability that exists');
 });
 
-test('Codex hooks: the registry agrees with the CLI that ships them', (t) => {
-  // This asserted `false` on the evidence that no shipped plugin declares a
-  // hook — absence of use read as absence of support. The binary's own JSON
-  // Schema disagrees: Codex implements our hook contract, with MORE events than
-  // we use (it adds PermissionRequest and PostCompact), the same wire format,
-  // and `"hooks": "./hooks.json"` as a manifest key.
-  const bin = codexBin();
-  if (!bin) return t.skip('codex is not installed — NOT CHECKED, not verified');
-
-  // Read it from the shipped binary rather than trusting this comment: if a
-  // future Codex drops hooks, this stops asserting rather than going stale.
-  const vendor = bin.replace(/\/bin\/codex$/, '')
-    .replace(/\/versions\/node\/[^/]+\/bin$/, '');
-  let schemaSeen = false;
-  try {
-    const { execFileSync } = require('node:child_process');
-    const out = execFileSync('bash', ['-c',
-      `strings "$(find ${JSON.stringify(vendor).slice(1, -1)} -name codex -type f -size +10M 2>/dev/null | head -1)" 2>/dev/null | grep -c PreToolUseHookSpecificOutputWire`],
-      { encoding: 'utf8', timeout: 60000 });
-    schemaSeen = Number(out.trim()) > 0;
-  } catch { /* fall through to skip */ }
-  if (!schemaSeen) return t.skip('could not read the hook schema from the binary — NOT CHECKED');
-
-  assert.equal(capabilities('codex').hooks, true,
-    'Codex ships the hook contract; declaring false degrades a capability it has');
+test('Codex hooks: absent until a RUN proves otherwise', () => {
+  // Three passes, and only the third was evidence:
+  //   1. false — no shipped plugin declares a hook (absence of use, not support)
+  //   2. true  — the binary carries the full schema, our wire format, our
+  //              permissionDecision values, `hooks` as a manifest key
+  //   3. false — it was run. codex-cli 0.153.4 fires no hook: not from the
+  //              plugin manifest, not from ~/.codex/hooks.json, not with
+  //              --dangerously-bypass-hook-trust. A probe hook that only
+  //              appends a line never ran, and the guarded write went through.
+  //
+  // So this asserts the RESULT, not the schema. If a later Codex starts firing
+  // hooks, this test fails and someone re-runs the probe — which is the right
+  // way round: a capability claim should break when reality changes, not drift
+  // quietly with it.
+  assert.equal(capabilities('codex').hooks, false,
+    'no hook fired on codex-cli 0.153.4; a schema in a binary is not a working feature');
 });

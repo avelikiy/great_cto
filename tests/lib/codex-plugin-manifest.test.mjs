@@ -78,38 +78,41 @@ test('the marketplace points at the repo root, not a vendored copy', () => {
   assert.equal(mk.plugins[0].source.path, '.');
 });
 
-test('hooks are wired through the manifest, and the file exists', () => {
-  // Phase 0 first concluded hooks had no plugin surface. They do: `hooks` is a
-  // manifest key, Codex implements our wire format exactly, and
-  // `permissionDecision` takes the same allow|deny|ask we already write.
+test('hooks.json is ready but NOT declared — the host does not run hooks yet', () => {
+  // Three passes on this, and only the last was evidence:
+  //   1. "no plugin surface" — from no shipped plugin declaring one
+  //   2. "carries over" — from the binary's full schema: our wire format, our
+  //      permissionDecision values, `hooks` as a manifest key
+  //   3. it was RUN. codex-cli 0.153.4 fires no hook at all — not from the
+  //      manifest, not from ~/.codex/hooks.json, not with
+  //      --dangerously-bypass-hook-trust. A probe hook that only appends a line
+  //      never ran, and the guarded write went through and put an API key on
+  //      disk.
+  //
+  // So the file stays — it is correct, uses ${PLUGIN_ROOT}, and keeps
+  // secret-scan unswallowed — and the manifest does NOT declare it. Declaring a
+  // key the host ignores would read, to anyone opening the manifest, as a hook
+  // chain that works.
   const m = read('.codex-plugin/plugin.json');
-  assert.equal(typeof m.hooks, 'string', 'hooks must be a path, like skills and mcpServers');
-  assert.ok(existsSync(join(REPO, m.hooks)), `hooks path does not exist: ${m.hooks}`);
-});
+  assert.equal(m.hooks, undefined,
+    'do not declare hooks until a run shows Codex firing them');
 
-test('hook commands resolve through ${PLUGIN_ROOT}, not an absolute path', () => {
-  // The installed plugin lives under ~/.codex/plugins/cache/…, a path unknown at
-  // authoring time. ${PLUGIN_ROOT} is what Codex expands — the counterpart of
-  // ${CLAUDE_PLUGIN_ROOT}. A baked absolute path would work on the machine that
-  // generated it and nowhere else.
-  const m = read('.codex-plugin/plugin.json');
-  const hooks = JSON.parse(readFileSync(join(REPO, m.hooks), 'utf8'));
+  const hooksPath = join(REPO, '.codex-plugin', 'hooks.json');
+  assert.ok(existsSync(hooksPath), 'the file stays ready for when the host runs hooks');
+
+  const hooks = JSON.parse(readFileSync(hooksPath, 'utf8'));
   const commands = Object.values(hooks).flat().flatMap((g) => (g.hooks ?? []).map((h) => h.command));
   assert.ok(commands.length, 'hooks.json must declare commands');
+
   for (const c of commands) {
+    // ${PLUGIN_ROOT} is what Codex expands; a baked absolute path would work on
+    // the machine that generated it and nowhere else.
     assert.match(c, /\$\{PLUGIN_ROOT\}/, `command must use \${PLUGIN_ROOT}: ${c}`);
     assert.doesNotMatch(c, /\/Users\/|\/home\//, `a machine-specific path leaked in: ${c}`);
   }
-});
 
-test('the blocking guard survives the trip into the manifest', () => {
-  // The generator was fixed to stop swallowing secret-scan; this checks the file
-  // that actually ships, not the generator's return value.
-  const m = read('.codex-plugin/plugin.json');
-  const hooks = JSON.parse(readFileSync(join(REPO, m.hooks), 'utf8'));
-  const commands = Object.values(hooks).flat().flatMap((g) => (g.hooks ?? []).map((h) => h.command));
   const guard = commands.find((c) => /secret-scan/.test(c));
-  assert.ok(guard, 'secret-scan must be wired on Codex too');
+  assert.ok(guard, 'secret-scan must be wired for the day hooks work');
   assert.doesNotMatch(guard, /\|\|\s*true|2>\/dev\/null/,
     'a guard that cannot fail and cannot explain is not a guard');
 });
