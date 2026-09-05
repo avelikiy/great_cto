@@ -12,6 +12,88 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.24.0 — 2026-09-05
+
+Two things this release is honest about that it was not before: what runs on
+Codex, and what an agent is actually allowed to do.
+
+### What's new
+
+- **Codex support, stated as it is.** `great_cto` installs into OpenAI Codex
+  through a plugin manifest (`.codex-plugin/plugin.json`) and a marketplace entry
+  — verified by installing it, not by reading a schema. **Forty skills and the
+  MCP router carry over. Hooks, slash commands and the sixty-nine role agents do
+  not**, because Codex's plugin format has no surface for them (upstream
+  [#16430](https://github.com/openai/codex/issues/16430),
+  [#39895](https://github.com/openai/codex/issues/39895)). The README used to
+  offer `--host codex` and, two lines later, `/start` — a command that does not
+  exist there. A test now fails if a future edit promises more than the harness
+  delivers.
+- **A Codex arm for the evals.** `tests/eval/arm-codex.mjs` runs the same case
+  against the Codex CLI, so a comparison of harnesses measures harnesses instead
+  of a shim. Its stream parser has three states — `ok`, `empty`, `unreadable` —
+  and reports token usage as `null` when the stream never said, rather than `0`.
+- **A circuit breaker on the dispatcher.** Five consecutive runs that produced
+  nothing — no verdict, an unreadable one, no rule, no map — and the pipeline
+  stops instead of spending another turn. `hold` and a blocked budget are
+  deliberately not failures: waiting is not the same as getting nowhere. Any run
+  that moves the board resets it, and a threshold of zero turns it off.
+- **Agent postures — ADR-009's question, asked of every tool grant.** The ADR
+  asks "is this expensive to undo?"; an agent file answers "which tools". Those
+  are different questions and reviewing the second never answered the first.
+  `scripts/lib/agent-posture.mjs` names a grant in the language of the decision —
+  `code.destructive`, `credential.read`, `communication.external.send`,
+  `payments` — reusing the ADR's own cost categories rather than inventing a
+  second vocabulary. `/agent-review` prints it for the agent under review.
+  - **`Bash(node:*)` is `node -e '<anything>'`.** So are `Bash(python3:*)`,
+    `Bash(xargs:*)`, `Bash(awk:*)` and `Bash(find:*)`. **Twenty-eight of seventy
+    agents advertised a scoped shell and held a full one** — almost all of them
+    the `*-reviewer` agents, whose narrow tool lists were the visible evidence of
+    their care. **Forty-four of those grants were never used by the agent holding
+    them and are gone.** No reviewer had ever invoked `find`. The thirteen that
+    remain are used, and each is now written down with the reason.
+  - A tool the table has never heard of is **`unknown`, never harmless** — a new
+    MCP server on an agent's line fails the guard until somebody judges it.
+- **A locked account is not a blip.** `provider-exhaustion` gained a terminal
+  `billing` kind, separate from `credits`: a suspended account was being retried
+  like a rate limit.
+- **Subagents are told they may batch.** The orchestrator contract now says
+  outright that independent tool calls go in one message. Guidance that lives
+  only in the parent never reaches the agent doing the work.
+
+### Fixed
+
+- **The session refresh was overwriting this repository's own contracts.**
+  `shared/orchestrator.toml` reverted to the installed plugin's copy nine times
+  in one day, and once rode into a commit as a deletion of two contract rules
+  while the tests asserting them stayed. The SessionStart hook copies
+  `shared/*.toml` into a consumer project and skips it when the directory IS the
+  plugin — detected by grepping the manifest for `"name": "great_cto"`. The
+  plugin was renamed to kebab-case, the grep stopped matching, and the repository
+  began reading as a consumer of itself. **The guard for exactly this passed the
+  whole time**, because it built its fixture with the literal old name.
+- **secret-scan missed the two AWS spellings people actually write.** A `\b`
+  before `secret_access_key` cannot match `aws_secret_access_key = …` or
+  `AWS_SECRET_ACCESS_KEY=…`, because `_` is a word character. The rule caught
+  only the bare form and reported CLEAN on the common ones.
+- **Which a new fixture table found, minutes after it existed** and seventeen
+  code-level tests had not. Rules and expected verdicts now live as data
+  (`tests/fixtures/secret-scan-verdicts.json`); every shipped pattern must have a
+  deny row, and a row naming a rule that no longer exists fails too. Rows are
+  templates assembled at test time, so nothing key-shaped sits in the tree.
+- **Four tests failed because the calendar moved, not the code.** A frozen ISO
+  date compared against a 30-day freshness limit is a bomb with no commit to
+  blame. `tests/lib/no-calendar-bombs.test.mjs` fails on the next one, with a
+  ratchet for the dates that are fixtures rather than comparands.
+- **A `hooks.json` Codex reads and rejects** was printing a parse error on every
+  turn for every user with the plugin installed. Renamed to `.disabled`, guarded.
+- **`bump-version.sh` had never heard of the Codex manifest**, so the first
+  release after it landed would have published a plugin advertising the previous
+  version. A missing manifest is now fatal there, not skipped.
+
+---
+
 ## v3.23.0 — 2026-09-04
 
 The pipeline could carry a product all the way to a live URL without ever asking

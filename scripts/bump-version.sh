@@ -58,6 +58,25 @@ data["version"] = new
 with open(path, "w") as f: json.dump(data, f, indent=2); f.write("\n")
 PY
 
+# .codex-plugin/plugin.json — the Codex manifest, in lockstep with the Claude one.
+# It shipped at 3.23.0 and this script had never heard of it, so the first release
+# after it landed would have published a plugin advertising the previous version,
+# with no commit to blame. A missing file is fatal, not skipped: "the manifest is
+# not there" and "the manifest is up to date" must never look the same.
+CODEX_JSON="$ROOT/.codex-plugin/plugin.json"
+if [ ! -f "$CODEX_JSON" ]; then
+  echo "FAIL: $CODEX_JSON is missing — it is a shipped manifest, not an optional one" >&2
+  exit 1
+fi
+python3 - "$CODEX_JSON" "$NEW" <<'CODEXPY'
+import json, sys
+path, new = sys.argv[1], sys.argv[2]
+with open(path) as f: data = json.load(f)
+data["version"] = new
+with open(path, "w") as f: json.dump(data, f, indent=2); f.write("\n")
+CODEXPY
+echo "  ✓ $CODEX_JSON"
+
 # packages/cli/package-lock.json — top-level version fields follow package.json
 CLI_LOCK="$ROOT/packages/cli/package-lock.json"
 if [ -f "$CLI_LOCK" ]; then
