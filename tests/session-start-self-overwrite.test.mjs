@@ -49,7 +49,15 @@ test('the plugin source tree is never overwritten with its own cached copy', () 
   try {
     fs.mkdirSync(path.join(dir, '.claude-plugin'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'shared'), { recursive: true });
-    fs.writeFileSync(path.join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'great_cto' }, null, 2));
+    // The REAL name from the shipped manifest, not a literal. This test wrote
+    // `great_cto` while the plugin itself was renamed to kebab-case (ca0af925),
+    // so the guard kept passing against a name nothing uses — while the hook,
+    // which greps for the old spelling, quietly overwrote this repository's own
+    // contracts on every session start. Nine times in one day before it was
+    // traced: the file reverts, git status shows an ordinary modification, and
+    // that reads as "I edited this".
+    fs.writeFileSync(path.join(dir, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({ name: manifest.name }, null, 2));
     const mine = '# edited in the source tree, not yet installed\n';
     fs.writeFileSync(path.join(dir, 'shared', 'pipeline.toml'), mine);
     runIn(dir);

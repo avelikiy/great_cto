@@ -65,6 +65,50 @@ What the manifest does NOT carry, checked across every shipped plugin:
 `openai.yaml` — display name, icons, a default prompt. It is **interface
 metadata, not agent roles**. Our 71 role agents have no counterpart here.
 
+## The open question this leaves, and one answer to it
+
+`secret-scan` is a BLOCKING guard and it is Claude-Code-shaped: it runs as a
+`PreToolUse` hook, so on Codex it does not run at all. Waiting for upstream is
+one answer. There is another, and it is worth writing down before it is needed.
+
+**Enforcement can live OUTSIDE the harness.** `Firma-AI/openfirma` (GPL-3.0,
+Rust) is a local sidecar: `firma run -- claude` puts every outbound call through
+a Cedar policy before it happens — deterministic, no model in the hot path. The
+same command works as `firma run -- codex`, because it does not care what the
+agent is.
+
+That is the property we lack. Ours are portable markdown until the moment they
+have to BLOCK, and blocking is the one thing bound to the host.
+
+The two are different cuts, not competitors:
+
+| | our hooks | a sidecar |
+|---|---|---|
+| sits | inside the harness (`PreToolUse`) | outside, on the network call |
+| sees | file contents, tool arguments | host, path, action class |
+| portable | **no — Claude Code only** | any process |
+| blind to | outbound HTTP | a key written to a local file |
+
+`secret-scan` catches an API key the agent writes into `cfg.env` — there is no
+network call there, so a sidecar would not see it. The reverse holds too.
+
+**Not adopted, and the licence is only half the reason.** GPL-3.0 is viral and
+this project is MIT, so the code cannot be taken — but neither should the
+architecture be, yet: we run local tools and one MCP router, and building
+network interception against a threat we do not have is work that will not pay
+for itself.
+
+Two things from it are worth keeping now, and neither needs their code:
+
+1. **Policies with allow/deny fixtures.** `firma policy test fixture.toml` keeps
+   the rules and the expected verdicts as data. Ours live inside hook scripts —
+   `secret-scan` has 17 tests, but they test the code, not a table of "this call
+   yes, this call no".
+2. **Their posture vocabulary** — `credential.read`,
+   `communication.external.send`, `code.read/write`, `code.destructive`,
+   payments. That is ADR-009's expensive-to-undo axis written out as a list, and
+   it reads well as a reviewer's checklist.
+
 ## HOOKS: ANSWERED — a plugin cannot carry them, and that is upstream's position
 
 Two open issues in openai/codex settle it, and finding them cost less than the

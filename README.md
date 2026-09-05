@@ -93,10 +93,10 @@ counting files — which is why it says 70 and not a rounder, prettier number.
 ## Quick start
 
 ```bash
-npx great-cto init            # Claude Code (default) · add --host codex for OpenAI Codex
+npx great-cto init
 ```
 
-Restart your AI host, then:
+Restart Claude Code, then:
 
 ```bash
 /start "build a dispatch & scheduling app for an HVAC business"
@@ -113,6 +113,15 @@ The pipeline takes it from there. Day to day you touch three things:
 Requires Node ≥ 18.17. Companion plugins (Superpowers, Beads) install
 automatically. After init, verify the host actually loaded the plugin —
 `claude plugin list --json` should show no `errors` for `great-cto`.
+
+**On OpenAI Codex** (`npx great-cto init --host codex`) you get the **skills and
+the MCP server** — not the pipeline above. Codex has no plugin surface for
+hooks, slash commands or role agents, so `/start`, `/inbox`, the gate chain and
+`secret-scan` do not run there. That is a limit of the host, not a setting:
+`hooks` in a plugin manifest is never read
+([openai/codex#16430](https://github.com/openai/codex/issues/16430),
+[#39895](https://github.com/openai/codex/issues/39895)). The installer prints
+the same split before it does anything.
 
 ## When it asks you
 

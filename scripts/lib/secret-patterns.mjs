@@ -19,7 +19,14 @@
 export const PATTERNS = [
   // High-confidence vendor tokens (block immediately)
   { name: 'AWS Access Key ID',     regex: /\bAKIA[0-9A-Z]{16}\b/,                   severity: 'block' },
-  { name: 'AWS Secret Access Key', regex: /\b(?:secret_access_key|AWS_SECRET)["'\s:=]+[A-Za-z0-9/+=]{40}\b/i, severity: 'block' },
+  // `\b` before `secret_access_key` was the bug: the two spellings people
+  // actually write — `aws_secret_access_key = …` (Terraform, boto, .env) and
+  // `AWS_SECRET_ACCESS_KEY=…` — put an underscore in front, and `_` is a word
+  // character, so there is no word boundary there to match. The rule caught only
+  // the bare `secret_access_key:` form and reported clean on the common ones.
+  // Found by tests/fixtures/secret-scan-verdicts.json, minutes after that table
+  // existed; seventeen code-level tests had not asked the question.
+  { name: 'AWS Secret Access Key', regex: /(?:^|[^A-Za-z0-9])(?:aws[_-])?secret[_-]access[_-]key["'\s:=]+[A-Za-z0-9/+=]{40}\b/i, severity: 'block' },
   { name: 'GitHub PAT (classic)',  regex: /\bghp_[A-Za-z0-9]{36}\b/,                severity: 'block' },
   { name: 'GitHub fine-grained PAT', regex: /\bgithub_pat_[A-Za-z0-9_]{82}\b/,      severity: 'block' },
   { name: 'GitHub OAuth',          regex: /\bgho_[A-Za-z0-9]{36}\b/,                severity: 'block' },
