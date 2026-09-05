@@ -120,6 +120,16 @@ Choose the dispatch mode before sending:
 Rules:
 - Fork → `background: true`, no subagent_type override needed
 - Spawn → always specify `subagent_type:` from the routing table
+- **Spawn does not block you.** After dispatching, keep working on anything that
+  does not depend on the result: brief the next stream, read the files the
+  synthesis will need, prepare the acceptance checks. Anthropic's guidance for
+  this model is explicit — a lead that continues while subagents run finishes
+  sooner at the same quality, tokens and cost. The measurement here agrees: the
+  ceiling has been 5 streams since the contract was written and the observed
+  peak was 2, because nothing ever said the waiting was optional.
+- **Carrying on is not peeking.** Continuing with OTHER work is the win. Asking a
+  running agent for partial results is the thing the next rule forbids, and it
+  stays forbidden.
 - Don't peek mid-flight: do not query a background agent before it finishes
 - Don't race: if two spawned agents could modify the same Beads task, serialize them
 - **Protect the window** — isolate file reads / greps / dead-end exploration in

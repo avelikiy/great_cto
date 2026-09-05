@@ -772,7 +772,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .card-footer > * { flex-shrink: 0; }
 .card-time {
   margin-left: auto;
-  font-family: var(--mono); font-size: var(--fs-caption);
+  /* Explicit, because the weight is inherited from an ancestor while the family
+     is switched here. Geist Mono stops at 500; anything above is synthetic. */
+  font-family: var(--mono); font-weight: 500; font-size: var(--fs-caption);
   color: var(--text3);
 }
 
@@ -1341,13 +1343,27 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   max-width: 880px;
   margin: 0 auto;
 }
-.memory-doc h1 { font-family: var(--display); font-weight: 600; font-size: 28px; letter-spacing: -0.02em; margin: 0 0 14px; color: var(--text); }
-.memory-doc h2 { font-family: var(--display); font-weight: 600; font-size: 20px; margin: 28px 0 10px; color: var(--text); }
+/* 500, not 600: --display is Geist Mono and the vendored face's weight axis
+   ends at 500. Asking for 600 does not get a bolder cut — the browser paints a
+   synthetic bold, which is a smeared stroke rather than a designed one, and
+   tests/lib/rendered-contrast.test.mjs fails on exactly that. The tell is that
+   600 and 700 measure identically: a real axis moves, a synthetic stroke does
+   not. Both headings are fixed together; the test only caught the h1 because
+   the h2 happened not to be on screen. */
+    .memory-doc h1 { font-family: var(--display); font-weight: 500; font-size: 28px; letter-spacing: -0.02em; margin: 0 0 14px; color: var(--text); }
+.memory-doc h2 { font-family: var(--display); font-weight: 500; font-size: 20px; margin: 28px 0 10px; color: var(--text); }
 .memory-doc h3 { font-family: var(--sans); font-weight: 600; font-size: var(--fs-title-s); margin: 18px 0 8px; color: var(--text); }
 .memory-doc p { font-size: var(--fs-base); line-height: 1.65; color: var(--text2); margin: 0 0 10px; }
 .memory-doc ul, .memory-doc ol { padding-left: 22px; margin: 0 0 12px; color: var(--text2); }
 .memory-doc li { line-height: 1.6; font-size: var(--fs-base); }
-.memory-doc code {
+/* An explicit weight, because inheritance crosses the family boundary. A
+   heading is sans at 600 — legitimate — and `code` inside it switches the family
+   to Geist Mono while KEEPING the inherited 600. That face's axis ends at 500,
+   so the browser paints a synthetic bold. No CSS rule sets a mono weight above
+   500 anywhere in this file; the offending value arrives from a parent, which
+   is why grepping for it found nothing. */
+    .memory-doc code {
+  font-weight: 500;
   font-family: var(--mono); font-size: var(--fs-small);
   background: var(--bg-muted);
   padding: 1px 6px; border-radius: 0;
@@ -1546,7 +1562,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   padding: 12px 12px 10px;
 }
 .pl-gate .gate-glyph { font-size: var(--fs-small); line-height: 1; flex-shrink: 0; filter: grayscale(1); opacity: 0.6; }
-.pl-gate .pl-name { font-weight: 600; }
+/* 500: .pl-name is mono (see .pl-stage .pl-name) and Geist Mono's axis ends
+   there. 600 buys a synthetic bold, not a bolder cut. The .gate-glyph inside it
+   inherits this, which is why it was failing too. */
+.pl-gate .pl-name { font-weight: 500; }
 .pl-gate.active {
   border-left-color: var(--status-blocked);
   background: color-mix(in srgb, var(--status-blocked) 8%, var(--surface-translucent));
@@ -1664,7 +1683,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-small); white-space: nowrap;
 }
-.cost-table th { font-family: var(--mono); font-size: var(--fs-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2); }
+.cost-table th { font-family: var(--mono); font-weight: 500; font-size: var(--fs-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2); }
 .cost-table td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
 .cost-axis {
   display: flex; justify-content: space-between;
@@ -2082,10 +2101,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   background: var(--bg-card); color: var(--text); min-width: 26ch;
 }
 .budgets-table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
-.budgets-table th {
-  text-align: left; font-family: var(--mono); font-size: var(--fs-eyebrow);
+.
+  text-align: left; font-family: var(--mono); font-weight: 500; font-size: var(--fs-eyebrow);
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2);
   padding: 0 12px 8px 0; border-bottom: 1px solid var(--border);
+id var(--border);
 }
 .budgets-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
 /* A row has to answer three questions: what is this agent, what does it cost,
@@ -4190,7 +4210,7 @@ function renderInboxList(rootId, items, countId, opts = {}) {
       // Gates (the showApprove list) get the exact date+time the decision has been
       // waiting since; other rows carry their age in the right-hand column instead.
       (opts.showApprove || t.is_gate === true) && t.updated_at
-        ? `<span title="${esc(fmtDate(t.updated_at))}" style="color:var(--status-gate);font-weight:600">⏳ ${fmtDT(t.updated_at)}</span>`
+        ? `<span title="${esc(fmtDate(t.updated_at))}" style="color:var(--status-gate);font-weight:500">⏳ ${fmtDT(t.updated_at)}</span>`
         : '',
     ].filter(Boolean).join(' · ');
     // 48h is this board's own staleness line — the "Stale (in progress > 48h)"
@@ -6708,7 +6728,7 @@ function cardHTML(t) {
     ? `<span class="card-time">${relTime(t.updated_at)}</span>`
     // A gate is a human decision — show exactly WHEN it's been waiting since (date + time).
     : (isGate && (t.updated_at || t.created_at))
-      ? `<span class="card-time" title="${esc(fmtDate(t.updated_at || t.created_at))}" style="color:var(--status-gate);font-weight:600">⏳ ${fmtDT(t.updated_at || t.created_at)}</span>` : '';
+      ? `<span class="card-time" title="${esc(fmtDate(t.updated_at || t.created_at))}" style="color:var(--status-gate);font-weight:500">⏳ ${fmtDT(t.updated_at || t.created_at)}</span>` : '';
   const descPreview = t.description ? `<div class="card-desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : '';
   const statusColor = { backlog:'var(--text3)', in_progress:'var(--status-progress)', done:'var(--status-done)', blocked:'var(--status-blocked)', gate:'var(--status-gate)' };
   const statusDotColor = statusColor[t.status] || 'var(--text3)';

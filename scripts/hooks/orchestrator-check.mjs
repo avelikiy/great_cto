@@ -114,6 +114,19 @@ console.log('=== ORCHESTRATOR CONTRACT (shared/orchestrator.toml) ===');
 console.log(`Decomposition matrix required : ${p.decomposition_matrix_required ?? '—'}`);
 console.log(`Inline subagents allowed      : ${p.inline_subagents_allowed ?? '—'}`);
 console.log(`Max parallel streams          : ${p.max_parallel_streams ?? '—'}`);
+console.log(`Batch independent tool calls  : ${p.batch_independent_tool_calls ?? '—'}`);
+console.log(`Lead may work during subagents: ${p.lead_may_continue_during_subagents ?? '—'}`);
+if (p.batch_independent_tool_calls) {
+  // Anthropic's wording, verbatim. It is reported to address the one-per-turn
+  // behaviour; paraphrasing it would be untested rewriting of tested advice.
+  console.log('  → First privately list what you need next; then request every item that');
+  console.log("    doesn't depend on another's result in this one response.");
+}
+if (p.lead_may_continue_during_subagents) {
+  console.log('  → After dispatching subagents you may KEEP WORKING on anything that does');
+  console.log('    not depend on their results. Carrying on is not the same as peeking:');
+  console.log('    do not query a running agent for partial results.');
+}
 
 // The ceiling above is what the contract ALLOWS. This line is what the project
 // has actually used — and until it existed the two were never compared, so a
