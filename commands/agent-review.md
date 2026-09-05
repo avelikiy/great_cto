@@ -125,6 +125,34 @@ CURRENT=$(awk -v ts="$SINCE_TS" '$1 > ts' "$LOG")
 PREVIOUS=$(awk -v ts1="$PREV_TS" -v ts2="$SINCE_TS" '$1 > ts1 && $1 <= ts2' "$LOG")
 ```
 
+### The grant, in the language of consequence
+
+A review of an agent that never looks at what it is allowed to do is half a
+review. The `tools:` line answers "which tools"; ADR-009 asks "how expensive is
+this to undo". This prints the second, so the reviewer sees the capability they
+are renewing:
+
+```bash
+_AP=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/agent-posture.mjs 2>/dev/null | sort -V | tail -1)
+[ -z "$_AP" ] && _AP="scripts/lib/agent-posture.mjs"
+_AF="agents/$AGENT_NAME.md"
+if [ -f "$_AP" ] && [ -f "$_AF" ]; then
+  TOOLS=$(awk '/^---$/{n++; next} n==1 && /^tools:/{sub(/^tools:[ \t]*/,""); print; exit}' "$_AF")
+  POSTURE=$(node --input-type=module -e "
+    import { postureOf, describePosture } from '$_AP';
+    console.log(describePosture(postureOf(process.argv[1])));
+  " -- "$TOOLS" 2>/dev/null)
+  [ -n "$POSTURE" ] && echo "Posture: $POSTURE"
+fi
+```
+
+Read the three states literally. `expensive:` names what a mistake costs and
+cannot be undone by re-running the stage. `scoped in name only:` means the grant
+reads as a restriction and is a full shell — `Bash(node:*)` is `node -e
+'<anything>'`. `NOT CLASSIFIED:` is not "harmless": it is a grant nobody has
+judged, and it belongs in `scripts/lib/agent-posture.mjs` before this review is
+finished.
+
 Now use the **Task tool** to spawn a Haiku-powered analysis sub-task. The subtask reads the verdicts data + cost history and produces a structured scorecard:
 
 ```

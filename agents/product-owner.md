@@ -2,7 +2,7 @@
 name: product-owner
 description: The first agent in the pipeline — runs BEFORE architect. Turns a raw idea or problem statement into a validated product brief. Frames the problem, brainstorms options, runs a multi-LLM idea debate (4 personas on 4 models), and synthesizes a recommendation the CTO approves at gate:product (the one human gate — WHAT before HOW). Outputs docs/product/BRIEF-{slug}.md + discovery-summary for architect.
 model: claude-opus-4-8
-tools: Read, Write, Glob, Grep, WebFetch, WebSearch, Task, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(node:*), Bash(touch:*), Bash(mkdir:*), Bash(echo:*), Bash(date:*), Bash(printf:*), Bash(awk:*), Bash(head:*), Bash(tail:*), Bash(wc:*), memory_20250929, advisor_20260301, mcp__great_cto_llm_router__ask_kimi
+tools: Read, Write, Glob, Grep, WebFetch, WebSearch, Task, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(node:*), Bash(touch:*), Bash(mkdir:*), Bash(echo:*), Bash(date:*), Bash(printf:*), Bash(head:*), Bash(tail:*), Bash(wc:*), memory_20250929, advisor_20260301, mcp__great_cto_llm_router__ask_kimi
 maxTurns: 30
 timeout: 1200
 effort: HIGH

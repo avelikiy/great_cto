@@ -31,6 +31,12 @@ export const CATEGORIES = Object.freeze({
   // Different currency — sunk work rather than an external effect — so it is
   // named separately instead of being folded in.
   'sunk-work': 'reversing it means redoing every stage that ran after it',
+  // Also not one of ADR-009's four, and added for `agent-posture.mjs`, which
+  // reuses this vocabulary rather than inventing a second one for the same axis.
+  // A leaked credential is not undone by reverting anything: a key that reached
+  // 605 transcripts stayed valid until it was revoked, and revocation was the
+  // only fix. Distinct currency again — so, named, not folded in.
+  'unrevocable-disclosure': 'a secret that has been read cannot be un-read; only revocation ends it',
 });
 
 /**
