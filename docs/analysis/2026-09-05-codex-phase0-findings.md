@@ -65,7 +65,62 @@ What the manifest does NOT carry, checked across every shipped plugin:
 `openai.yaml` — display name, icons, a default prompt. It is **interface
 metadata, not agent roles**. Our 71 role agents have no counterpart here.
 
-## THE HOOK SCHEMA, and where the investigation stops
+## HOOKS: ANSWERED — a plugin cannot carry them, and that is upstream's position
+
+Two open issues in openai/codex settle it, and finding them cost less than the
+five reversals that preceded them:
+
+- **[#16430](https://github.com/openai/codex/issues/16430)** — plugin-local
+  `hooks.json` **does not run**. The runtime loads hooks only from the config
+  layer (`~/.codex/hooks.json`). A plugin can contribute `skills`, `.mcp.json`
+  and `.app.json`; hooks are not among them.
+- **[#39895](https://github.com/openai/codex/issues/39895)** — a root
+  `plugin.json` routes the plugin through the Agent Plugins loader, which has no
+  hook support, so the `hooks` field in `.codex-plugin/plugin.json` is never
+  read — "with no warning, error, or log line".
+
+That is why nothing fired: not our format, not our matcher, not the version.
+A plugin is simply not a hook surface on Codex today.
+
+**A regression compounds it.** [#42279](https://github.com/openai/codex/issues/42279)
+reports hooks timing out before the command body runs, reproduced across two
+operating systems:
+
+| works | broken |
+|---|---|
+| 0.131.0 · 0.140.0 · 0.146.0 · 0.147.0 | 0.148.0 · 0.150.0 · 0.153.2 |
+
+We are on 0.153.4. Tested 0.147.0 in an isolated prefix as well — the config-layer
+path is where that regression lives, and a plugin-local file does not run on
+either version, which matches #16430 exactly.
+
+### The correct format, for when this is worth doing
+
+From the working example in #42279 — note it is Claude Code's shape after all,
+inside a `hooks` wrapper, with `type` and a string command:
+
+```json
+{ "hooks": { "SessionStart": [ { "matcher": "startup|resume|clear|compact",
+      "hooks": [ { "type": "command", "command": "…", "timeout": 30 } ] } ] } }
+```
+
+My earlier reading of the binary's validator produced a different shape
+(`description` + a `hooks` sequence + argv `command`). Codex ACCEPTS that one —
+it stops complaining — and still never runs it. An accepted config that does
+nothing is worse than a rejected one: the rejection at least said something.
+
+### What this means for great_cto
+
+Hooks on Codex are reachable **only by writing the user's `~/.codex/hooks.json`**
+— which is what the original `install --host codex` was reaching for, and it was
+right about the direction while being wrong about the details (`hooks_files` is
+not a key; `~/.codex/skills/` is not a path Codex reads).
+
+That is a real installer touching a user's config, so it needs their consent and
+a working upstream. Both are missing today: the regression is open, and hooks
+via plugin are not supported at all. **Not built.**
+
+## The investigation, kept for the record
 
 Four passes, each overturning the last, and only the last two were evidence:
 
