@@ -65,6 +65,38 @@ What the manifest does NOT carry, checked across every shipped plugin:
 `openai.yaml` — display name, icons, a default prompt. It is **interface
 metadata, not agent roles**. Our 71 role agents have no counterpart here.
 
+## CORRECTION — hooks DO carry over
+
+The first pass of this document concluded hooks had no plugin surface, on the
+evidence that no shipped plugin declares one. That was reading absence of use as
+absence of support, which is the mistake this repository exists to catch.
+
+Reading the binary's own JSON Schema says otherwise. Codex implements the
+**same hook contract as Claude Code**, with a wider event set:
+
+```
+PreToolUse · PermissionRequest · PostToolUse · PreCompact · PostCompact
+SessionStart · SessionEnd · UserPromptSubmit · SubagentStart · SubagentStop · Stop
+```
+
+Ours are a subset — Codex adds `PermissionRequest` and `PostCompact`, and has no
+`PermissionDenied`. The wire format matches: `hook_event_name`,
+`hookSpecificOutput`, `stop_hook_active`, and per-event
+`…HookSpecificOutputWire` definitions. `"hooks": "./hooks.json"` is a manifest
+key.
+
+**One difference, and it is the one that matters for secret-scan.** The
+PreToolUse decision enum is:
+
+```json
+"PreToolUseDecisionWire": { "enum": ["approve", "block"] }
+```
+
+Claude Code writes `permissionDecision: "allow" | "deny"`. Same idea, different
+words — so our blocking hooks need a small output shim, not a rewrite. Whether
+`exit 2` alone blocks (as it does on Claude Code) is still unverified; the JSON
+decision is the documented path and the one to use.
+
 ## The five unknowns
 
 | # | question | answer |
@@ -86,8 +118,13 @@ claim we cannot honour:
 
 - **Carries over as-is** — skills and the MCP server, through a plugin manifest
   that mirrors the one we already ship.
-- **Has no plugin surface** — hooks, slash commands, and role agents. The gate
-  chain, `secret-scan`, and the 71 agents are Claude Code shapes.
+- **Carries over with a shim** — hooks. Same events, same wire format, and
+  `hooks.json` is a manifest key. The one change is the PreToolUse decision
+  vocabulary: `approve`/`block` where we write `allow`/`deny`.
+- **Has no plugin surface** — slash commands and role agents. Checked across
+  every shipped plugin: no manifest declares `commands` or `prompts`, and the
+  `agents/` directory holds interface metadata, not roles.
 
-Anything claiming more than the first row is a claim about a surface that does
-not exist.
+The first version of this section put hooks in the last row. It was wrong, and
+wrong in the direction that costs most: we would have shipped "hooks do not work
+on Codex" while the host implements our own contract.
