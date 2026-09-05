@@ -358,6 +358,24 @@ dirty-commits: false
  *
  * @param skillDir - absolute path to ~/.codex/skills/great_cto (used to build hook commands)
  */
+/**
+ * hooks.json for Codex.
+ *
+ * Codex implements our hook contract exactly — same events, same wire format,
+ * and `permissionDecision` takes `allow | deny | ask`, the words we already
+ * write. No translation layer is needed; see
+ * docs/analysis/2026-09-05-codex-phase0-findings.md.
+ *
+ * What needed care is the shell wrapper. Every command here was written as
+ * `node "…" 2>/dev/null || true`, which swallows the exit code AND the reason.
+ * On secret-scan — a BLOCKING guard — that produced a guard that cannot block
+ * and cannot say why: it would have reported clean on every write.
+ *
+ * So the wrapper is now split by intent, and the test pins both halves:
+ *   blocking  (secret-scan)              bare, so a non-zero exit reaches Codex
+ *   advisory  (format-check, tool-failure) keeps `|| true` — a formatter that
+ *                                         dies must not stop the user's write
+ */
 export function getCodexHooksJson(skillDir: string): string {
   const s = skillDir; // shorthand
   return JSON.stringify({
@@ -379,7 +397,7 @@ export function getCodexHooksJson(skillDir: string): string {
       {
         "matcher": "edit|write|str_replace_editor|computer",
         "hooks": [
-          { "command": `node "${s}/scripts/hooks/secret-scan.mjs" 2>/dev/null || true`, "timeout": 8 }
+          { "command": `node "${s}/scripts/hooks/secret-scan.mjs"`, "timeout": 8 }
         ]
       }
     ],

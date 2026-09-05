@@ -19,6 +19,7 @@
   ],
   "skills": "./skills/",
   "mcpServers": "./.codex-plugin/mcp.json",
+  "hooks": "./.codex-plugin/hooks.json",
   "interface": {
     "displayName": "great_cto",
     "shortDescription": "A pipeline of specialist agents, with a gate on whatever is expensive to undo",

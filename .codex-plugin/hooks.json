@@ -1,0 +1,63 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "command": "node \"${PLUGIN_ROOT}/scripts/hooks/quota-check.mjs\" 2>/dev/null || true",
+          "timeout": 15
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "computer|bash|shell",
+      "hooks": [
+        {
+          "command": "node \"${PLUGIN_ROOT}/scripts/hooks/orchestrator-check.mjs\" 2>/dev/null || true",
+          "timeout": 5
+        },
+        {
+          "command": "node \"${PLUGIN_ROOT}/scripts/hooks/cost-guard.mjs\" 2>/dev/null || true",
+          "timeout": 5
+        }
+      ]
+    },
+    {
+      "matcher": "edit|write|str_replace_editor|computer",
+      "hooks": [
+        {
+          "command": "node \"${PLUGIN_ROOT}/scripts/hooks/secret-scan.mjs\"",
+          "timeout": 8
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "edit|write|str_replace_editor",
+      "hooks": [
+        {
+          "command": "node \"${PLUGIN_ROOT}/scripts/hooks/format-check.mjs\" 2>/dev/null; true",
+          "timeout": 12,
+          "async": true
+        },
+        {
+          "command": "node \"${PLUGIN_ROOT}/scripts/hooks/tool-failure.mjs\" 2>/dev/null || true",
+          "timeout": 3,
+          "async": true
+        }
+      ]
+    },
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "command": "node \"${PLUGIN_ROOT}/scripts/hooks/tool-failure.mjs\" 2>/dev/null || true",
+          "timeout": 3,
+          "async": true
+        }
+      ]
+    }
+  ]
+}

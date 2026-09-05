@@ -77,3 +77,39 @@ test('the marketplace points at the repo root, not a vendored copy', () => {
   const mk = read('.agents/plugins/marketplace.json');
   assert.equal(mk.plugins[0].source.path, '.');
 });
+
+test('hooks are wired through the manifest, and the file exists', () => {
+  // Phase 0 first concluded hooks had no plugin surface. They do: `hooks` is a
+  // manifest key, Codex implements our wire format exactly, and
+  // `permissionDecision` takes the same allow|deny|ask we already write.
+  const m = read('.codex-plugin/plugin.json');
+  assert.equal(typeof m.hooks, 'string', 'hooks must be a path, like skills and mcpServers');
+  assert.ok(existsSync(join(REPO, m.hooks)), `hooks path does not exist: ${m.hooks}`);
+});
+
+test('hook commands resolve through ${PLUGIN_ROOT}, not an absolute path', () => {
+  // The installed plugin lives under ~/.codex/plugins/cache/…, a path unknown at
+  // authoring time. ${PLUGIN_ROOT} is what Codex expands — the counterpart of
+  // ${CLAUDE_PLUGIN_ROOT}. A baked absolute path would work on the machine that
+  // generated it and nowhere else.
+  const m = read('.codex-plugin/plugin.json');
+  const hooks = JSON.parse(readFileSync(join(REPO, m.hooks), 'utf8'));
+  const commands = Object.values(hooks).flat().flatMap((g) => (g.hooks ?? []).map((h) => h.command));
+  assert.ok(commands.length, 'hooks.json must declare commands');
+  for (const c of commands) {
+    assert.match(c, /\$\{PLUGIN_ROOT\}/, `command must use \${PLUGIN_ROOT}: ${c}`);
+    assert.doesNotMatch(c, /\/Users\/|\/home\//, `a machine-specific path leaked in: ${c}`);
+  }
+});
+
+test('the blocking guard survives the trip into the manifest', () => {
+  // The generator was fixed to stop swallowing secret-scan; this checks the file
+  // that actually ships, not the generator's return value.
+  const m = read('.codex-plugin/plugin.json');
+  const hooks = JSON.parse(readFileSync(join(REPO, m.hooks), 'utf8'));
+  const commands = Object.values(hooks).flat().flatMap((g) => (g.hooks ?? []).map((h) => h.command));
+  const guard = commands.find((c) => /secret-scan/.test(c));
+  assert.ok(guard, 'secret-scan must be wired on Codex too');
+  assert.doesNotMatch(guard, /\|\|\s*true|2>\/dev\/null/,
+    'a guard that cannot fail and cannot explain is not a guard');
+});
