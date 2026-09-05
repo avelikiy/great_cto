@@ -5,7 +5,7 @@ user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Write, Bash, Glob, Grep, advisor_20260301
 model: haiku
-advisor-model: claude-sonnet-4-6
+advisor-model: claude-sonnet-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 ---

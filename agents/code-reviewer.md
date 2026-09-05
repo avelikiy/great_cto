@@ -2,7 +2,7 @@
 name: code-reviewer
 description: Use after senior-dev completes a task and before gate:ship. One stable, human-grade reviewer (correctness, security, performance, readability) — replaces ad-hoc inline review forks. Reads the diff, files bugs in Beads, emits a verdict.
 model: haiku
-advisor-model: claude-sonnet-4-6
+advisor-model: claude-sonnet-5
 advisor-max-uses: 3
 beta: advisor-tool-2026-03-01
 tools: Read, Glob, Grep, Bash, Write, Edit, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi

@@ -2,7 +2,7 @@
 name: mobile-store-reviewer
 description: Mobile-app pre-implementation reviewer for App Store / Play Store policy compliance. Outputs threat model TM-{slug}.md and signs off store-policy decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(npm:*), advisor_20260301

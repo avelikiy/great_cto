@@ -1,12 +1,12 @@
 // tests/eval/runner.mjs — Automated LLM-judge runner for EVAL-*.md scenario files.
 //
 // Two-agent pattern:
-//   Actor  (claude-sonnet-4-5) — responds AS the agent under test. The actor's
+//   Actor  (claude-sonnet-5)   — responds AS the agent under test. The actor's
 //                                system prompt is the real body of agents/<X>.md
 //                                (or a candidate --prompt-file), NOT a generic
 //                                stand-in — otherwise baseline ≡ candidate and the
 //                                whole learning loop measures sampling noise.
-//   Judge  (claude-opus-4-5)   — evaluates the actor's response against criteria
+//   Judge  (claude-opus-5)     — evaluates the actor's response against criteria
 //
 // Provider (same fallback as the rest of great_cto): OPENROUTER_API_KEY (default
 // path here) or ANTHROPIC_API_KEY (direct; wins if both set).
@@ -30,7 +30,7 @@
 // Env overrides (model ids):
 //   EVAL_ACTOR_MODEL / EVAL_JUDGE_MODEL  — override regardless of provider
 //   OpenRouter defaults: anthropic/claude-sonnet-4 (override via GREAT_CTO_ROUTER_MODEL
-//     / GREAT_CTO_JUDGE_MODEL); Anthropic defaults: claude-sonnet-4-5 / claude-opus-4-5
+//     / GREAT_CTO_JUDGE_MODEL); Anthropic defaults: claude-sonnet-5 / claude-opus-5
 //
 // Recommended flags for AGENT evals (`> Agent:`): --actor-tools --judge-votes 3
 //   A/B (security-officer holdout, n=3): --actor-tools raised mean rate 0.50→0.64 and
@@ -474,8 +474,8 @@ const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 const OPENROUTER_API = 'https://openrouter.ai/api/v1/chat/completions';
 
-const DEFAULT_ACTOR_MODEL_ANTHROPIC = 'claude-sonnet-4-5';
-const DEFAULT_JUDGE_MODEL_ANTHROPIC = 'claude-opus-4-5';
+const DEFAULT_ACTOR_MODEL_ANTHROPIC = 'claude-sonnet-5';
+const DEFAULT_JUDGE_MODEL_ANTHROPIC = 'claude-opus-5';
 const DEFAULT_ACTOR_MODEL_OPENROUTER = 'anthropic/claude-sonnet-4';
 const DEFAULT_JUDGE_MODEL_OPENROUTER = 'anthropic/claude-sonnet-4';
 

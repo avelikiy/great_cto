@@ -11,7 +11,7 @@
 //
 // Pairs with change-tier.mjs (the tier) + gate-plan.mjs (per-change plan) + ADR-004.
 
-export const DEFAULT_FRONTIER_JUDGE = 'claude-opus-4-8';
+export const DEFAULT_FRONTIER_JUDGE = 'claude-opus-5';
 export const DEFAULT_CHEAP_JUDGE = 'claude-haiku-4-5';
 
 /**

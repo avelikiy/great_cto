@@ -45,7 +45,7 @@ test('product-owner: present in routing table + installed by plugin.json', () =>
 
 test('product-owner: brainstorming skill exists and defines the 4-model debate panel', () => {
   const skill = read('skills/brainstorming/SKILL.md');
-  for (const model of ['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'ask_kimi']) {
+  for (const model of ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'ask_kimi']) {
     assert.ok(skill.includes(model), `brainstorming skill missing debate model ${model}`);
   }
   assert.match(read('agents/product-owner.md'), /skills:[\s\S]*brainstorming/,

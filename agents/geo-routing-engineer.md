@@ -2,7 +2,7 @@
 name: geo-routing-engineer
 description: Geospatial and routing specialist for Product-Builder products with maps, scheduling-by-location, or vehicle routing (route-optimization in logistics, dispatch in home services, field-booking). Owns the routing contract — geocoding, the VRP/routing model (constraints, objective), maps/distance-matrix provider selection, ETA + time-window handling, re-optimization on change, and the cost/quBudget of map API calls. Runs after architect, before senior-dev. Writes docs/routing/ROUTE-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi

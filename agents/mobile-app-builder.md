@@ -2,7 +2,7 @@
 name: mobile-app-builder
 description: React Native implementer for Product-Builder products whose users work in the field (home-services dispatch, construction field-docs, field-booking, delivery). Builds the mobile app to the design-advisor's RN contract with TDD — offline-first sync, camera/photo + location capture, push notifications, and store-submission readiness — then hands off to mobile-store-reviewer for policy sign-off. Activated when a product's design contract specifies a React Native target. Field crews live on a phone; we had a mobile-store-reviewer (policy) but no builder — this is the builder.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi

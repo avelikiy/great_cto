@@ -2,7 +2,7 @@
 name: e2e-test-engineer
 description: Use after qa-engineer passes and before/around devops deploy. Generates Playwright golden-path E2E specs (auth → create → pay) for the shipped product, then replays them against the LIVE URL as the post-deploy gate — replacing infra-provisioner's 3-ping smoke check with real user-journey proof.
 model: haiku
-advisor-model: claude-sonnet-4-6
+advisor-model: claude-sonnet-5
 advisor-max-uses: 3
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi

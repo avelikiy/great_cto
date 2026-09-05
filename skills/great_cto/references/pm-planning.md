@@ -60,7 +60,7 @@
 
 ## Token cost model
 
-> Always estimate LLM cost per task and total project cost. Use claude-sonnet-4-6 as default model.
+> Always estimate LLM cost per task and total project cost. Use claude-sonnet-5 as default model.
 > Pricing (as of 2026): input $3/M tokens · output $15/M tokens · cache read $0.30/M tokens.
 > Prompt caching is active for agent system prompts (assume 80% cache hit rate for long agents).
 

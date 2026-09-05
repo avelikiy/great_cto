@@ -15,7 +15,7 @@ Copy the structure below; fill the domain parts; delete nothing from the base sk
 name: {domain}-reviewer
 description: {one-line — domain, what it specialises in, that it outputs TM-{slug}.md and signs off Critical/High before senior-dev}.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, Bash(git:*), Bash(bd:*), advisor_20260301

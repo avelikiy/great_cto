@@ -2,7 +2,7 @@
 name: subscription-billing-engineer
 description: Subscription and billing specialist for SMB Product-Builder archetypes. Owns the billing contract — Stripe Billing/Connect plans and tiers, usage metering, proration, dunning, webhook reconciliation, tax (Stripe Tax), customer portal, trial→paid, and refund/dispute hand-off. Runs after architect, before senior-dev. Writes docs/billing/BILLING-{slug}.md.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi

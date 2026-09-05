@@ -2,7 +2,7 @@
 name: us-privacy-reviewer
 description: US privacy law specialist pre-implementation reviewer. Covers CCPA/CPRA, US state privacy matrix (VA CDPA · TX TDPSA · FL FDBR · CO CPA · CT CTDPA), FTC Act § 5, COPPA (under-13), and GLBA (financial). Auto-invoked on us / us-ca jurisdiction signals. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), advisor_20260301

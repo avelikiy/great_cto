@@ -17,10 +17,10 @@ Frames the problem and turns a raw idea into a validated brief, an architecture,
 
 | Agent | Model | Effort | What it does |
 |---|---|---|---|
-| `architect` | claude-opus-4-8 | XHIGH | Use when starting any new feature. Creates architecture docs, ADRs, cost estimates, Well-Architected review. Always first in the pipeline. |
-| `decision-scorer` | claude-sonnet-4-5 | MEDIUM | Scores 2+ architectural alternatives against PROJECT.md criteria. Called by architect after proposing variants. Outputs a weighted scoring table and recommended choice. |
-| `design-advisor` | claude-opus-4-8 | XHIGH | Use after architect, before/parallel to pm, for any UI-bearing feature (landing pages, dashboards, admin panels, web apps, React Native apps). Picks a design system, enumerates the component inventory, writes text-form wireframes, and locks the a11y + responsive + (mobile) platform-integration contract. Outputs docs/design/DESIGN-{slug}.md. Plan altitude only — never writes implementation code. |
-| `product-owner` | claude-opus-4-8 | HIGH | The first agent in the pipeline — runs BEFORE architect. Turns a raw idea or problem statement into a validated product brief. Frames the problem, brainstorms options, runs a multi-LLM idea debate (4 personas on 4 models), and synthesizes a recommendation the CTO approves at gate:product (the one human gate — WHAT before HOW). Outputs docs/product/BRIEF-{slug}.md + discovery-summary for architect. |
+| `architect` | claude-opus-5 | XHIGH | Use when starting any new feature. Creates architecture docs, ADRs, cost estimates, Well-Architected review. Always first in the pipeline. |
+| `decision-scorer` | claude-sonnet-5 | MEDIUM | Scores 2+ architectural alternatives against PROJECT.md criteria. Called by architect after proposing variants. Outputs a weighted scoring table and recommended choice. |
+| `design-advisor` | claude-opus-5 | XHIGH | Use after architect, before/parallel to pm, for any UI-bearing feature (landing pages, dashboards, admin panels, web apps, React Native apps). Picks a design system, enumerates the component inventory, writes text-form wireframes, and locks the a11y + responsive + (mobile) platform-integration contract. Outputs docs/design/DESIGN-{slug}.md. Plan altitude only — never writes implementation code. |
+| `product-owner` | claude-opus-5 | HIGH | The first agent in the pipeline — runs BEFORE architect. Turns a raw idea or problem statement into a validated product brief. Frames the problem, brainstorms options, runs a multi-LLM idea debate (4 personas on 4 models), and synthesizes a recommendation the CTO approves at gate:product (the one human gate — WHAT before HOW). Outputs docs/product/BRIEF-{slug}.md + discovery-summary for architect. |
 
 ## Builder — Prototype → production product
 
@@ -125,7 +125,7 @@ Coordinates multi-stream work, decomposes plans, audits existing codebases, and 
 |---|---|---|---|
 | `continuous-learner` | claude-haiku-4-5 | LOW | Use at session end (auto-triggered by SessionEnd hook) or via /learn command. Extracts repeatable patterns, decisions, and cost outliers from the session and writes structured entries to .great_cto/lessons.md. Promotes high-confidence patterns to ~/.great_cto/decisions.md after ≥3 occurrences. |
 | `coordinator` | sonnet | — | Multi-agent coordinator. Use when a CTO request spans 3+ independent work streams, requires parallel research before implementation, or the task graph is complex enough that sequencing matters. Orchestrates agents across the full DECOMPOSE→CLASSIFY→DISPATCH→MONITOR→SYNTHESIZE→VERIFY lifecycle. |
-| `knowledge-extractor` | claude-opus-4-5 | HIGH | Deep-analysis agent spawned by /crystallize. Reads session logs and lessons.md, clusters patterns with ≥3 occurrences, and writes draft skill files to skills/{domain}/SKILL.md. |
+| `knowledge-extractor` | claude-opus-5 | HIGH | Deep-analysis agent spawned by /crystallize. Reads session logs and lessons.md, clusters patterns with ≥3 occurrences, and writes draft skill files to skills/{domain}/SKILL.md. |
 | `pm` | sonnet | HIGH | Use after architect produces the ARCH doc. Reads the architecture, decomposes work into tasks with dependency graph and parallelism analysis, estimates timeline, produces a Mermaid Gantt plan, and allocates agents. Creates gate:plan for human approval before any senior-dev starts. |
 | `project-auditor` | sonnet | HIGH | Use for /audit or when no PROJECT.md exists. Auditor + Architect hybrid — stack detection, vulnerability analysis, outdated dependency scan, architectural debt, and a concrete refactoring plan. |
 

@@ -2,7 +2,7 @@
 name: connector-builder
 description: "Source-connector specialist for dashboard / analytics Product-Builder products. The read-side twin of integrations-engineer — owns the connector contract for pulling data IN from sources (Stripe, Google Analytics, QuickBooks, Google/Meta Ads, Shopify, carrier APIs): OAuth source auth, incremental sync (cursors/CDC), schema mapping into the warehouse-lite, backfill, freshness SLAs, and partial-failure handling. Runs after architect, before senior-dev. Writes docs/connectors/CONNECT-{slug}.md."
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi

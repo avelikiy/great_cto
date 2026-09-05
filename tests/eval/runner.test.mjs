@@ -244,8 +244,8 @@ test('modelFor: GREAT_CTO_ROUTER_MODEL overrides the OpenRouter actor default', 
 });
 
 test('modelFor: Anthropic defaults; EVAL_*_MODEL overrides any provider', () => {
-  assert.equal(modelFor('actor', { ANTHROPIC_API_KEY: 'a' }), 'claude-sonnet-4-5');
-  assert.equal(modelFor('judge', { ANTHROPIC_API_KEY: 'a' }), 'claude-opus-4-5');
+  assert.equal(modelFor('actor', { ANTHROPIC_API_KEY: 'a' }), 'claude-sonnet-5');
+  assert.equal(modelFor('judge', { ANTHROPIC_API_KEY: 'a' }), 'claude-opus-5');
   assert.equal(modelFor('actor', { OPENROUTER_API_KEY: 'o', EVAL_ACTOR_MODEL: 'x/y' }), 'x/y');
 });
 

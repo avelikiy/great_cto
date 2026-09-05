@@ -2,7 +2,7 @@
 name: accounting-reviewer
 description: Bookkeeping / general-ledger / financial-close specialist pre-implementation reviewer for fintech and enterprise-saas archetypes. Outputs threat model TM-accounting-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), Bash(npm:*), advisor_20260301

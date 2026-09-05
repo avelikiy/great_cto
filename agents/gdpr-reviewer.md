@@ -2,7 +2,7 @@
 name: gdpr-reviewer
 description: GDPR + EU AI Act + NIS2 specialist pre-implementation reviewer. Auto-invoked when jurisdiction detection finds eu, uk, or br signals. Covers GDPR Art.5/6/9/25/32/35, DPIA, EU AI Act risk classification, and NIS2 Article 21 controls. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash(git:*), Bash(bd:*), Bash(grep:*), Bash(ls:*), Bash(cat:*), advisor_20260301

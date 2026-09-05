@@ -2,7 +2,7 @@
 name: cli-reviewer
 description: CLI tool pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off CLI surface decisions before senior-dev claims tasks.
 model: sonnet
-advisor-model: claude-opus-4-8
+advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301

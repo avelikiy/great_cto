@@ -2,7 +2,7 @@
 name: devops
 description: Use after gate:ship is approved. Deploys using the method matching the project type.
 model: haiku
-advisor-model: claude-sonnet-4-6
+advisor-model: claude-sonnet-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi
