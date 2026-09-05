@@ -14,6 +14,41 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.25.0 — 2026-09-05
+
+Every model the plugin chooses is now a current one. Nothing else changed in
+what the agents do; what changed is which generation answers when they ask.
+
+### What's new
+
+- **The whole fleet moved to the Claude 5 family.** Fifty-seven of seventy
+  agents pinned their advisor — the one-shot second opinion — to
+  `claude-opus-4-8` or `claude-sonnet-4-6` by exact id, and six pinned their
+  main model the same way. Those ids still resolved, so nothing broke; but a
+  plugin that says it is built for Claude Fable 5.1 while every advisor asks the
+  previous generation is making a claim about the harness, not about itself.
+  Advisors now name `claude-opus-5` / `claude-sonnet-5`; main-model pins moved
+  the same way; `claude-haiku-4-5` stays, because Haiku 4.5 is the current Haiku.
+  Same price as 4.8 at the Opus tier, cheaper at the Sonnet tier.
+- **The same move everywhere a model is chosen rather than priced:** the
+  frontier judge default, the eval runner's actor and judge, the product-owner's
+  four-model debate panel, `/review` and `/digest`, the pm-planning default —
+  and `archetype-review-base/reviewer-template.md`, which stamps every new
+  reviewer; left alone, the next reviewer would have been born on 4.8. Price
+  tables keep their 4.x rows: a cost meter must price what ran last month, not
+  only what runs now.
+- **Agent postures, from 3.24.0, now reach the reference docs** — the regenerated
+  agent table carries the current models.
+
+### Cost meter
+
+- `claude-fable-5-1` prices by family prefix (`source: prefix`), and an OpenAI
+  model id prices as `null` with `source: none` — unpriced, not free. Neither
+  state pretends to be the other.
+
+---
+
 ## v3.24.1 — 2026-09-05
 
 `adapt` was telling Codex users their hooks were active. They were not, and six
