@@ -16,12 +16,28 @@ import assert from 'node:assert/strict';
 import { gateState, gateStates, titleNamesGate, readGateBeads } from '../../scripts/lib/gate-state.mjs';
 
 const bead = (title, status, updated_at, id = 'b1') => ({ id, title, status, updated_at });
-const RAISED = '2026-08-06T10:00:00Z';
+// Times are RELATIVE to now, not frozen dates.
+//
+// They were frozen at 2026-08-06, and `gateState` treats an approval older than
+// MAX_VERDICT_AGE_MS (30 days) as `stale` — "a bound on absurdity". So on
+// 2026-09-05, exactly thirty days later, three tests in this file began failing
+// on their own: green the day before, red the next morning, with no commit
+// between. A test whose verdict depends on the calendar reports a regression
+// that did not happen, and the first thing anyone does with one is go looking
+// for a change that is not there. (It cost exactly that here.)
+//
+// Anchored to now, the same scenarios hold whenever they run.
+const NOW = Date.now();
+const at = (offsetMs) => new Date(NOW + offsetMs).toISOString();
+const MIN = 60 * 1000;
+const HOUR = 60 * MIN;
+
+const RAISED = at(-2 * HOUR);
 
 // ── the approving case ─────────────────────────────────────────────────────
 
 test('a gate closed after the verdict is approved', () => {
-  const r = gateState('gate:arch', [bead('gate:arch — pipeline-position review', 'closed', '2026-08-06T11:00:00Z')], { verdictTs: RAISED });
+  const r = gateState('gate:arch', [bead('gate:arch — pipeline-position review', 'closed', at(-1 * HOUR))], { verdictTs: RAISED });
   assert.equal(r.state, 'approved');
   assert.match(r.why, /approved/);
 });
@@ -31,31 +47,31 @@ test('a gate closed after the verdict is approved', () => {
 test('an absent gate is NOT approval', () => {
   // Silence is the dangerous reading: the question was never asked, and taking
   // that as a yes is how an ungated operation ships.
-  const r = gateState('gate:ship', [bead('gate:arch — something else', 'closed', '2026-08-06T11:00:00Z')], { verdictTs: RAISED });
+  const r = gateState('gate:ship', [bead('gate:arch — something else', 'closed', at(-1 * HOUR))], { verdictTs: RAISED });
   assert.equal(r.state, 'absent');
   assert.match(r.why, /never|not been asked/i);
 });
 
 test('an open gate is pending', () => {
-  assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'open', '2026-08-06T11:00:00Z')], { verdictTs: RAISED }).state, 'pending');
+  assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'open', at(-1 * HOUR))], { verdictTs: RAISED }).state, 'pending');
 });
 
 test('a blocked or in-progress gate is pending, not approved', () => {
   for (const s of ['blocked', 'in_progress', 'in-progress']) {
-    assert.equal(gateState('gate:arch', [bead('gate:arch — x', s, '2026-08-06T11:00:00Z')], { verdictTs: RAISED }).state, 'pending', s);
+    assert.equal(gateState('gate:arch', [bead('gate:arch — x', s, at(-1 * HOUR))], { verdictTs: RAISED }).state, 'pending', s);
   }
 });
 
 test('an unrecognised status is pending, not approved', () => {
   // A status this reader does not know must not be optimistically accepted.
-  const r = gateState('gate:arch', [bead('gate:arch — x', 'wontfix', '2026-08-06T11:00:00Z')], { verdictTs: RAISED });
+  const r = gateState('gate:arch', [bead('gate:arch — x', 'wontfix', at(-1 * HOUR))], { verdictTs: RAISED });
   assert.equal(r.state, 'pending');
   assert.match(r.why, /unrecognised/);
 });
 
 test('a gate closed BEFORE the verdict approved an earlier run', () => {
   // gate:plan closed for one feature must not wave through the next one.
-  const r = gateState('gate:plan', [bead('gate:plan — weekly-digest', 'closed', '2026-08-01T09:00:00Z')], { verdictTs: RAISED });
+  const r = gateState('gate:plan', [bead('gate:plan — weekly-digest', 'closed', at(-7 * 24 * HOUR - HOUR))], { verdictTs: RAISED });
   assert.equal(r.state, 'stale');
   assert.match(r.why, /earlier run/);
 });
@@ -64,8 +80,8 @@ test('a gate closed BEFORE the verdict approved an earlier run', () => {
 
 test('the newest bead decides, so a new run reopens a gate an old bead closed', () => {
   const r = gateState('gate:arch', [
-    bead('gate:arch — last feature', 'closed', '2026-08-01T09:00:00Z', 'old'),
-    bead('gate:arch — this feature', 'open', '2026-08-06T11:00:00Z', 'new'),
+    bead('gate:arch — last feature', 'closed', at(-7 * 24 * HOUR - HOUR), 'old'),
+    bead('gate:arch — this feature', 'open', at(-1 * HOUR), 'new'),
   ], { verdictTs: RAISED });
   assert.equal(r.state, 'pending');
   assert.equal(r.bead.id, 'new');
@@ -144,7 +160,7 @@ test('an unparseable date does not become an approval', () => {
   // forbids is worse than no test.
   assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'closed', 'not-a-date')], { verdictTs: RAISED }).state,
     'stale', 'a close time that cannot be read cannot be shown to be after the verdict');
-  assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'closed', '2026-08-06T11:00:00Z')], { verdictTs: 'not-a-date' }).state,
+  assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'closed', at(-1 * HOUR))], { verdictTs: 'not-a-date' }).state,
     'stale', 'a verdict time that cannot be read cannot be shown to precede the approval');
   assert.equal(gateState('gate:arch', [bead('gate:arch — x', 'closed', '')], { verdictTs: RAISED }).state,
     'stale', 'a blank updated_at from an export quirk needs no attacker');
@@ -156,12 +172,16 @@ test('a back-dated verdict cannot make an old approval cover a new run', () => {
   // trivially true of every gate ever closed once the verdict claims to be from
   // 1970. The check meant to stop an old approval carrying a new run did the
   // opposite.
-  const NOW = Date.parse('2026-08-06T12:00:00Z');
-  const closed = [bead('gate:ship — x', 'closed', '2026-08-06T09:00:00Z')];
-  assert.equal(gateState('gate:ship', closed, { verdictTs: '1970-01-01T00:00:00Z', now: NOW }).state, 'stale');
-  assert.equal(gateState('gate:ship', closed, { verdictTs: '2027-01-01T00:00:00Z', now: NOW }).state, 'stale',
+  // This test supplies its OWN `now`, so its bead must be dated against that
+  // clock — not the file-level one. Mixing the two silently compares an
+  // September bead against an August "now".
+  const FIXED_NOW = Date.parse('2026-08-06T12:00:00Z');
+  const atFixed = (o) => new Date(FIXED_NOW + o).toISOString();
+  const closed = [bead('gate:ship — x', 'closed', atFixed(-3 * HOUR))];
+  assert.equal(gateState('gate:ship', closed, { verdictTs: '1970-01-01T00:00:00Z', now: FIXED_NOW }).state, 'stale');
+  assert.equal(gateState('gate:ship', closed, { verdictTs: '2027-01-01T00:00:00Z', now: FIXED_NOW }).state, 'stale',
     'a future-dated verdict is equally impossible to have been approved');
-  assert.equal(gateState('gate:ship', closed, { verdictTs: '2026-08-06T08:00:00Z', now: NOW }).state, 'approved',
+  assert.equal(gateState('gate:ship', closed, { verdictTs: atFixed(-4 * HOUR), now: FIXED_NOW }).state, 'approved',
     'the ordinary case must still pass, or the bound is just a refusal');
 });
 
@@ -170,17 +190,17 @@ test('an open gate outranks a newer closed one with a matching title', () => {
   // second `gate:ship — …` bead, closed later, silently answer for the CTO's
   // real still-open one. A later close cannot answer an earlier question.
   const r = gateState('gate:ship', [
-    { id: 'real-42', title: 'gate:ship — deploy X', status: 'open', updated_at: '2026-08-01T10:00:00Z' },
-    { id: 'forged-99', title: 'gate:ship — unrelated note', status: 'closed', updated_at: '2026-08-06T09:00:00Z' },
-  ], { verdictTs: '2026-08-01T09:00:00Z' });
+    { id: 'real-42', title: 'gate:ship — deploy X', status: 'open', updated_at: at(-7 * 24 * HOUR) },
+    { id: 'forged-99', title: 'gate:ship — unrelated note', status: 'closed', updated_at: at(-3 * HOUR) },
+  ], { verdictTs: at(-7 * 24 * HOUR - HOUR) });
   assert.equal(r.state, 'pending');
   assert.equal(r.bead.id, 'real-42', 'the report must name the bead that is actually blocking');
 });
 
 test('several gates on one edge are resolved from one read', () => {
   const beads = [
-    bead('gate:qa — x', 'closed', '2026-08-06T11:00:00Z'),
-    bead('gate:ship — x', 'open', '2026-08-06T11:00:00Z'),
+    bead('gate:qa — x', 'closed', at(-1 * HOUR)),
+    bead('gate:ship — x', 'open', at(-1 * HOUR)),
   ];
   const st = gateStates(['gate:qa', 'gate:ship'], beads, { verdictTs: RAISED });
   assert.equal(st['gate:qa'].state, 'approved');

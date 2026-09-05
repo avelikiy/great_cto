@@ -412,9 +412,16 @@ test('CLI idle project (no verdicts yet) reports idle, exit 0', () => {
 // action and continuing the pipeline a second one carrying no decision.
 
 test('an approved gate moves the position from awaiting-gate to ready-to-dispatch', () => {
+  // Dates relative to now. Frozen at 2026-08-06, this passed until exactly
+  // thirty days later, when gate-state's MAX_VERDICT_AGE_MS started calling the
+  // approval `stale` — green one morning, red the next, with no commit between.
+  const NOW = Date.now();
+  const at = (o) => new Date(NOW + o).toISOString();
+  const HOUR = 60 * 60 * 1000;
+
   const base = {
     transitions: { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } },
-    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z', ageMs: 0, fresh: true } },
+    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: at(-2 * HOUR), ageMs: 0, fresh: true } },
     activeGates: ['arch'],
   };
   const waiting = pipelinePosition({ ...base, readGates: () => [] });
@@ -422,7 +429,7 @@ test('an approved gate moves the position from awaiting-gate to ready-to-dispatc
 
   const approved = pipelinePosition({
     ...base,
-    readGates: () => [{ id: 'g1', title: 'gate:arch — x', status: 'closed', updated_at: '2026-08-06T11:00:00Z' }],
+    readGates: () => [{ id: 'g1', title: 'gate:arch — x', status: 'closed', updated_at: at(-1 * HOUR) }],
   });
   assert.equal(approved.position, 'ready-to-dispatch');
   assert.deepEqual(approved.next, ['pm']);
@@ -430,19 +437,29 @@ test('an approved gate moves the position from awaiting-gate to ready-to-dispatc
 
 test('a gate closed before this stage ran does not carry it', () => {
   // gate:arch closed for the previous feature must not wave this one through.
+  // Dates relative to now: frozen, they eventually cross gate-state's 30-day
+  // staleness bound and this passes for the wrong reason — the gate would read
+  // `stale` instead of "closed too early", asserting the right answer from the
+  // wrong cause.
+  const NOW_ = Date.now();
+  const at_ = (o) => new Date(NOW_ + o).toISOString();
+  const HOUR_ = 60 * 60 * 1000;
   const p = pipelinePosition({
     transitions: { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } },
-    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z', ageMs: 0, fresh: true } },
+    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: at_(-2 * HOUR_), ageMs: 0, fresh: true } },
     activeGates: ['arch'],
-    readGates: () => [{ id: 'old', title: 'gate:arch — last feature', status: 'closed', updated_at: '2026-08-01T09:00:00Z' }],
+    readGates: () => [{ id: 'old', title: 'gate:arch — last feature', status: 'closed', updated_at: at_(-7 * 24 * HOUR_) }],
   });
   assert.equal(p.position, 'awaiting-gate');
 });
 
 test('an unreadable gate store waits rather than dispatching', () => {
+  // Relative, like its neighbours: the assertion is about an unreadable store,
+  // and a date that ages into `stale` would make it pass for that reason
+  // instead — right answer, wrong cause, and nothing would say so.
   const p = pipelinePosition({
     transitions: { architect: { on: ['APPROVED'], gate: 'gate:arch', next: ['pm'] } },
-    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z', ageMs: 0, fresh: true } },
+    verdicts: { architect: { agent: 'architect', verdict: 'APPROVED', ts: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), ageMs: 0, fresh: true } },
     activeGates: ['arch'],
     readGates: () => { throw new Error('bd unavailable'); },
   });
