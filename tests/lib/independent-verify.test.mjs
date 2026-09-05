@@ -367,3 +367,29 @@ test('a decided no is untouched by the tie-break — a second model never overru
   assert.equal(r.state, STATE.REWORK, 'three no votes stand against one dissenting model');
   assert.match(r.findings.join(' '), /answered no/);
 });
+
+// The second-judge choice, as a function — because inline it opted the project
+// back in after it had opted out. Found by Codex on 2026-09-05, reviewing the
+// commit that wired Codex in.
+import { chooseSecondJudge } from '../../scripts/lib/independent-verify.mjs';
+
+test('second_opinion: none means NO second judge — not the router, not codex', () => {
+  const c = chooseSecondJudge({ so: { state: 'none', provider: 'none', why: '' }, routerAvailable: true });
+  assert.equal(c.kind, 'none');
+  assert.match(c.note, /declared second_opinion: none/);
+});
+
+test('codex declared and available is codex; declared and absent falls back to the router and SAYS so', () => {
+  const ok = chooseSecondJudge({ so: { state: 'declared', provider: 'codex', codex: { model: 'gpt-x' } }, routerAvailable: true });
+  assert.equal(ok.kind, 'codex'); assert.match(ok.note, /gpt-x/);
+  const gone = chooseSecondJudge({ so: { state: 'unavailable', provider: 'codex', why: 'not on PATH', codex: { state: 'absent' } }, routerAvailable: true });
+  assert.equal(gone.kind, 'router'); assert.match(gone.note, /declared but is absent/);
+  const nothing = chooseSecondJudge({ so: { state: 'unavailable', provider: 'codex', why: 'not on PATH', codex: { state: 'absent' } }, routerAvailable: false });
+  assert.equal(nothing.kind, 'none'); assert.match(nothing.note, /no router either/);
+});
+
+test('undeclared keeps the router, and no router is none with a reason', () => {
+  assert.equal(chooseSecondJudge({ so: { state: 'undeclared', provider: null }, routerAvailable: true }).kind, 'router');
+  const c = chooseSecondJudge({ so: { state: 'undeclared', provider: null }, routerAvailable: false });
+  assert.equal(c.kind, 'none'); assert.match(c.note, /not found/);
+});

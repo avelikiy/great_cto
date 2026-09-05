@@ -485,6 +485,36 @@ function questionFor(req, excerpt) {
       `presence of the implementation, not evidence that it works.`;
 }
 
+/**
+ * Which second judge, from the project's declaration — pure, because the first
+ * version of this decision was inline in main() and got it wrong in a way only
+ * a second reviewer noticed: `second_opinion: none` left `second` null, and the
+ * fallback below then wired the router judge anyway. A declared opt-out that
+ * still sent every verification prompt to an external model. Found by Codex,
+ * in the first real cross-model review this project ran, reviewing the commit
+ * that wired Codex in.
+ *
+ * THREE outcomes. `none` is an outcome, not the absence of one.
+ *
+ * @returns {{kind:'codex'|'router'|'none', note:string}}
+ */
+export function chooseSecondJudge({ so, routerAvailable }) {
+  if (so.state === 'none') return { kind: 'none', note: 'none — the project declared second_opinion: none' };
+  if (so.state === 'declared' && so.provider === 'codex') {
+    return { kind: 'codex', note: `codex (${so.codex?.model || 'default model'}, read-only sandbox)` };
+  }
+  if (so.state === 'unavailable' && so.provider === 'codex') {
+    // Declared and absent is said, not swallowed — and falls back, because a
+    // project that asked for a second judge would rather have one from the
+    // router than none. The note is what keeps that from reading as two families.
+    return routerAvailable
+      ? { kind: 'router', note: `codex was declared but is ${so.codex?.state || 'unavailable'} — ${so.why}; falling back to the router (${SECOND_OPINION_MODEL})` }
+      : { kind: 'none', note: `codex was declared but is ${so.codex?.state || 'unavailable'} — ${so.why}; no router either, so no second judge` };
+  }
+  // undeclared, or openrouter: the router is the second judge, as before.
+  return routerAvailable ? { kind: 'router', note: '' } : { kind: 'none', note: 'llm-router server not found — no second judge' };
+}
+
 export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDGED, samples = SAMPLES, second = null } = {}) {
   // Gated on REQUIREMENTS, not on a document. This read `if (!doc || …)`, which
   // was right while criteria could only come from an ACCEPTANCE section — and
@@ -775,27 +805,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   let second = null;
   if (ask && !argv.includes('--no-second-opinion')) {
     const { routerAsk, codexAsk, resolveSecondOpinion } = await import('./second-opinion.mjs');
-    // The project may have named its second judge. `codex` is a different
-    // model family through a different harness — the correlated-failure escape
-    // this layer was written for, without an API key. The decision is read
-    // from PROJECT.md so the reviewer, the verifier and the board agree.
     const mdPath = path.join(root, '.great_cto', 'PROJECT.md');
     const projectMd = existsSync(mdPath) ? readFileSync(mdPath, 'utf8') : '';
-    const so = resolveSecondOpinion({ projectMd });
-    if (so.state === 'declared' && so.provider === 'codex') {
-      second = codexAsk(root, { model: null, bin: process.env.GREAT_CTO_CODEX_BIN || 'codex' });
-      console.error(`  second judge: codex (${so.codex?.model || 'default model'}, read-only sandbox)`);
-    } else if (so.state === 'unavailable' && so.provider === 'codex') {
-      // Declared and absent is said, not swallowed: a project that asked for a
-      // second judge and silently got the router's model would read a
-      // one-family verdict as a two-family one.
-      console.error(`  second judge: codex was declared but is ${so.codex?.state || 'unavailable'} — ${so.why}; falling back to the router (${SECOND_OPINION_MODEL})`);
-    }
-    if (!second) {
-      const server = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..',
-                               'mcp-servers', 'llm-router', 'server.py');
-      if (existsSync(server)) second = routerAsk(server, { model: SECOND_OPINION_MODEL });
-    }
+    const server = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..',
+                             'mcp-servers', 'llm-router', 'server.py');
+    const choice = chooseSecondJudge({ so: resolveSecondOpinion({ projectMd }), routerAvailable: existsSync(server) });
+    if (choice.note) console.error(`  second judge: ${choice.note}`);
+    if (choice.kind === 'codex') second = codexAsk(root, { model: null, bin: process.env.GREAT_CTO_CODEX_BIN || 'codex' });
+    else if (choice.kind === 'router') second = routerAsk(server, { model: SECOND_OPINION_MODEL });
   }
 
   const r = await verifyAgentOutput({ verdict, root, ask, second });

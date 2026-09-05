@@ -15,7 +15,7 @@
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { costForUsage, round4 } from './cost-meter.mjs';
+import { costForUsage, round4, resolvePrice } from './cost-meter.mjs';
 import { resolveSecondOpinion, codexReview } from './second-opinion.mjs';
 import { existsSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -164,7 +164,12 @@ async function main(argv) {
   }
 
   const { findings, verdict } = parseFindings(res.text);
-  const cost = res.usage ? round4(costForUsage({ model: res.model, usage: res.usage })) : null;
+  // Unpriced is null, not zero. The first real Codex review logged `cost: 0`
+  // for gpt-5.6-terra — a model the price table does not carry — because usage
+  // was present and costForUsage prices an unknown model at nothing. A reviewer
+  // that reads as free is the defect this repository has removed twice already.
+  const priced = resolvePrice(res.model).price != null;
+  const cost = res.usage && priced ? round4(costForUsage({ model: res.model, usage: res.usage })) : null;
 
   for (const f of findings) console.log(`  ${f.severity} ${f.file}:${f.line} — ${f.issue}`);
   console.log(`\ncross-model-review (${decision.provider}:${res.model}): ${findings.length} finding(s), VERDICT: ${verdict}  (${cost == null ? 'cost unpriced' : '$' + cost})`);

@@ -85,3 +85,15 @@ test('second_opinion: none is honoured as a decision — SKIPPED (none), no prov
   assert.equal(r.status, EXIT.SKIPPED);
   assert.match(r.stdout, /SKIPPED \(none\)/);
 });
+
+test('an unpriced model logs cost null and prints "unpriced" — never $0', () => {
+  // The fake codex reports usage; the model it claims is not in the price
+  // table. The first real run logged 0 here.
+  const dir = project('capabilities:\n  second_opinion: codex\n');
+  const r = run(dir, ['--model', 'gpt-5.6-terra'], { GREAT_CTO_CODEX_BIN: fakeCodex(dir, ['VERDICT: PASS']) });
+  assert.equal(r.status, EXIT.PASS, r.stdout + r.stderr);
+  assert.match(r.stdout, /cost unpriced/);
+  const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
+  assert.equal(last.cost, null);
+  assert.equal(last.model, 'gpt-5.6-terra');
+});
