@@ -13,6 +13,48 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.24.1 — 2026-09-05
+
+`adapt` was telling Codex users their hooks were active. They were not, and six
+passing tests had been guarding the file that said so.
+
+### Fixed
+
+- **`great-cto adapt` wrote a Codex hooks file nothing reads.** On a project with
+  `ai_tools: [codex]` it produced `.codex/hooks.json`, set `[features] hooks =
+  true`, pointed `CODEX_SKILL_DIR` at `~/.codex/skills/great_cto` — a directory a
+  working Codex install does not have — listed six role agents above a comment
+  claiming "full 57-agent routing" (we ship seventy; Codex routes none), and then
+  printed **"Then restart Codex to activate hooks and MCP server."** Half of that
+  sentence was true. Someone who followed it believed the gate chain and
+  secret-scan were guarding their Codex session.
+  - Hooks load only from the config layer, and a plugin cannot carry them at all
+    — [openai/codex#16430](https://github.com/openai/codex/issues/16430),
+    [#39895](https://github.com/openai/codex/issues/39895), where the field is
+    read by nothing "with no warning, error, or log line". `.codex/hooks.json`,
+    project-scoped, was never even the config layer.
+  - **Six tests covered that generator and all six passed.** They checked the
+    shape of the JSON carefully — that the blocking guard was not wrapped in
+    `|| true`, that the matchers reached `apply_patch` — and none asked whether
+    anything reads the file. So the generator is deleted rather than corrected,
+    and the tests with it.
+  - What remains is the one section Codex actually starts,
+    `[mcp_servers.great_cto]`. The rest of the fragment now says what does **not**
+    come with it, in `codexInstallPlan`'s own words, verbatim — a test fails if
+    the installer and the adapter drift apart again, which is how they drifted.
+  - A stale `.codex/hooks.json` from an older version is reported, not silently
+    left and not silently deleted: it sits in the user's project and may be
+    theirs now.
+- **"Your config is live"** was printed after writing a fragment the user still
+  has to merge into `~/.codex/config.toml` by hand. A line that says a thing is
+  live is exactly how an unmerged file passes for a working one.
+
+Found by asking Codex to audit its own support here a second time. `3.24.0`
+corrected the README; this corrects the code that contradicted it.
+
+---
+
 ## v3.24.0 — 2026-09-05
 
 Two things this release is honest about that it was not before: what runs on

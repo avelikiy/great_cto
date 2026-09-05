@@ -1,6 +1,6 @@
 {
   "name": "great-cto",
-  "version": "3.24.0",
+  "version": "3.24.1",
   "description": "Runs your coding agent as a pipeline of specialist agents rather than one: architecture, product, implementation, QA, security and deploy, with an independent model reviewing each stage before the next begins.",
   "author": {
     "name": "Alexander Velikiy",
