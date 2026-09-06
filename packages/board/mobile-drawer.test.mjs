@@ -119,7 +119,7 @@ test('the topbar fits, and the buttons it shrinks keep their names', () => {
   // Hiding a label is only acceptable if the name survives somewhere a screen
   // reader reaches.
   assert.match(html, /<button class="btn-new"[^>]*aria-label="New issue"/);
-  assert.match(html, /<span class="btn-label"[^>]*>Share<\/span>/);
+  assert.match(html, /<span class="btn-label"[^>]*>Settings<\/span>/);
 });
 
 test('the stat grids wrap instead of being clipped', () => {

@@ -65,7 +65,9 @@ test('rejecting still asks for a reason', () => {
 
 test('every nav-item is keyboard reachable — including the default one', () => {
   const items = html.match(/<div class="nav-item[^"]*"[^>]*>/g) || [];
-  assert.ok(items.length >= 6, `expected the full nav, found ${items.length}`);
+  // Four destinations since the redesign (great_cto-ki1x.5): Decisions, Ledger,
+  // Fleet, Harness. Settings is a topbar button, kanban a deep link.
+  assert.ok(items.length >= 4, `expected the full nav, found ${items.length}`);
   const broken = items.filter((el) =>
     !/role="tab"/.test(el) || !/tabindex="0"/.test(el) || !/onkeydown=/.test(el));
   assert.deepEqual(broken, [],
