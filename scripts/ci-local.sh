@@ -329,7 +329,7 @@ step "docs tests" bash -c 'node --test tests/docs/*.test.mjs 2>/dev/null || true
 # existed since the kanban, the button had not — and every gate was green.
 # This step presses the buttons. It SKIPS (loudly) when Playwright or the
 # server is unavailable; a skip is "not checked", never "checked and fine".
-step "board e2e (browser)" node --test tests/e2e/board.e2e.test.mjs
+step "board e2e (browser)" node --test tests/e2e/*.test.mjs
 
 # ── The pipeline, against a written-down answer ──
 #

@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { startServerOnFreePort } from '../helpers/board-start.mjs';
+import { reapAndClean } from '../helpers/reap.mjs';
 import { buildFixture, FIXTURE_NAME } from '../../scripts/lib/screenshot-fixture.mjs';
 
 let chromium = null;
@@ -69,8 +70,7 @@ async function boardUnderTest() {
   try {
     browser = await chromium.launch();
   } catch (e) {
-    try { process.kill(-started.proc.pid); } catch { started.proc.kill(); }
-    fs.rmSync(dir, { recursive: true, force: true });
+    await reapAndClean(started.proc, dir);
     return { skip: `chromium would not launch — not checked, not passed: ${String(e.message).split('\n')[0]}` };
   }
   return {
@@ -78,8 +78,10 @@ async function boardUnderTest() {
     url: `http://127.0.0.1:${started.port}`,
     async close() {
       await browser.close().catch(() => {});
-      try { process.kill(-started.proc.pid); } catch { started.proc.kill(); }
-      fs.rmSync(dir, { recursive: true, force: true });
+      // reapAndClean, not a bare kill: it WAITS for the process group to empty
+      // before removing the fixture. A board still holding the directory is the
+      // orphan that wedges the next gate on this machine.
+      await reapAndClean(started.proc, dir);
     },
   };
 }
