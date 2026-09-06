@@ -8132,6 +8132,19 @@ const LEGACY_ROUTES = { inbox: 'decisions', budgets: 'ledger', dashboard: 'ledge
 function routeFromHash() {
   const h = (location.hash || '').replace(/^#\/?/, '');
   if (!h || h.startsWith('agents/')) return null;
+  // #/fleet/<slug>: open the agent in place (DESIGN §2 deep link).
+  const m = h.match(/^fleet\/([a-z0-9-]+)$/i);
+  if (m) {
+    // Open once the board has a project and a fleet to open into; a deep link
+    // that fires before init has set currentProject asks the API for nothing.
+    const slug = m[1];
+    const tryOpen = (n) => {
+      if (typeof openAgentDrawer === 'function' && typeof currentProject !== 'undefined' && currentProject && (fleetState.agents || []).length) openAgentDrawer(slug, { fromHash: true });
+      else if (n < 50) setTimeout(() => tryOpen(n + 1), 100);
+    };
+    setTimeout(() => tryOpen(0), 0);
+    return 'fleet';
+  }
   return ROUTES[h] ? h : (LEGACY_ROUTES[h] || null);
 }
 addEventListener('hashchange', () => { const r = routeFromHash(); if (r) switchTab(r); });
@@ -8627,13 +8640,33 @@ async function openAgentDrawer(slug, opts = {}) {
     document.getElementById('agent-drawer-close')?.focus();
   }, 50);
 
-  const profile = await api(`/api/agents/${encodeURIComponent(slug)}`);
+  // Agent detail (great_cto-ki1x.9): the profile plus the three facts the
+  // decision needs — its gate tier and eval count, its stand-downs, and whether
+  // the last approval's receipt still describes the tree. Each is its own read
+  // and its own state; one failing must not blank the others.
+  // The profile paints first; the slower facts — tier + evals, stand-downs,
+  // and the receipt, which hashes the tree and takes seconds — arrive on their
+  // own and replace their `· unloaded` cells. A slow read never holds the
+  // drawer, and a failed one is a state on its cell, not a spinner.
+  let profile;
+  try { profile = await api(`/api/agents/${encodeURIComponent(slug)}`); }
+  catch (err) {
+    body.innerHTML = `<div class="cost-empty">Could not load <code>${esc(slug)}</code>: ${esc(String(err && err.message || err))} <button type="button" class="btn-ghost-sm" onclick="openAgentDrawer('${esc(slug)}', { fromHash: true })">Try again</button></div>`;
+    return;
+  }
   if (!profile || profile.error) {
     body.innerHTML = `<div class="cost-empty">Agent <code>${esc(slug)}</code> not found.</div>`;
     return;
   }
   if (fleetState.drawerSlug !== slug) return; // drawer swapped while loading
-  renderAgentProfile(profile);
+  const extra = { tier: null, tiersState: null, receipt: null, standDowns: null };
+  renderAgentProfile(profile, extra);
+  const settle = (p, apply) => p.then(apply, () => {}).then(() => { if (fleetState.drawerSlug === slug) renderAgentProfile(profile, extra); });
+  await Promise.all([
+    settle(api(`/api/gate-tiers${pqs()}`), (t) => { extra.tiersState = t; extra.tier = t?.agents?.[slug] || null; }),
+    settle(api(`/api/stand-downs${pqs()}`), (d) => { extra.standDowns = d; }),
+    settle(api(`/api/receipt${pqs()}`), (r) => { extra.receipt = r; }),
+  ]);
 }
 
 function closeAgentDrawer() {
@@ -8656,50 +8689,84 @@ function closeAgentDrawer() {
   document.querySelectorAll('.agent-row').forEach(r => r.setAttribute('aria-current', 'false'));
 }
 
-function renderAgentProfile(p) {
+function renderAgentProfile(p, extra = {}) {
   const body  = document.getElementById('agent-drawer-body');
   const title = document.getElementById('agent-drawer-title');
   const pill  = document.getElementById('agent-drawer-pill');
   if (!body) return;
   title.textContent = p.slug;
+  const row = (fleetState.agents || []).find((a) => a.slug === p.slug) || {};
+  const tier = extra.tier;
+  const tierChip = tier
+    ? `<span class="chip mono" style="background:var(--bg-strong);color:var(--text)" title="${esc(tier.why || '')}">${esc(tier.tier)}</span>`
+    : (extra.tiersState && extra.tiersState.enabled === false
+        ? '<span class="abs" title="gate tiering is off for this project">— tiering off</span>'
+        : '<span class="abs" title="no tier computed for this agent — no eval has judged it">? tier</span>');
   pill.innerHTML = `<span class="status-pill tone-${esc(p.health)}">
     <span class="pill-dot" aria-hidden="true"></span>${esc(p.retired ? 'retired' : p.health)}
-  </span>`;
+  </span> ${tierChip}`;
 
-  const savings = p.savings_x != null ? `${p.savings_x}× ($${(p.llm_usd_30d_est ?? 0).toFixed(2)} vs $${(p.human_usd_30d_est ?? 0).toLocaleString()})` : '—';
-  const realCost = p.llm_usd_30d_real != null ? `· measured $${p.llm_usd_30d_real.toFixed(4)}` : '';
+  const model = row.model_state === 'pinned' && p.model ? `<span class="mono">${esc(p.model)}</span> <span class="muted">pinned</span>`
+    : row.model_state === 'undeclared' ? '<span class="abs" title="declares no model — not pinned to any default">— no model pinned</span>'
+    : `<span class="mono">${esc(p.model || '')}</span>`;
+  const spend = p.llm_usd_30d_real != null ? `<span class="mono">$${p.llm_usd_30d_real.toFixed(2)}</span> <span class="muted">measured · 30d</span>`
+    : (p.llm_usd_30d_est != null && p.llm_usd_30d_est > 0) ? `<span class="mono">≈$${p.llm_usd_30d_est.toFixed(2)}</span> <span class="muted">estimated · 30d</span>`
+    : '<span class="abs" title="no verdict carries a cost for this agent">— spend unmeasured</span>';
+  const posture = row.posture || {};
+  const strip = (posture.scopedInNameOnly || []).length
+    ? `<div class="strip" style="margin-top:8px" title="a grant that reads as a restriction and is a full shell">⚠ <span><span class="mono">${esc((posture.scopedInNameOnly || []).join(', '))}</span> — scoped in name only: a full shell</span></div>`
+    : '';
+  // Evals: a count of zero is "measured, none"; a missing tier read is "not measured".
+  const evals = tier
+    ? (tier.evals > 0 ? `<span class="mono">${tier.evals}</span> <span class="muted">eval(s) · ${esc(tier.why || '')}</span>` : '<span class="abs" title="measured — no eval names this agent">— none</span>')
+    : '<span class="abs" title="no eval→agent mapping was read — not measured, not zero">· not measured</span>';
+  const sd = extra.standDowns;
+  const sdRows = Array.isArray(sd?.rows) ? sd.rows.filter((r) => !r.agent || r.agent === p.slug) : null;
+  const standDowns = sd == null ? '<span class="abs" title="stand-down log not read">· unloaded</span>'
+    : sd.state === 'unreadable' ? `<span class="abs" title="${esc(sd.why || '')}">! unreadable</span>`
+    : sdRows && sdRows.length ? `<span class="mono">${sdRows.length}</span> <span class="muted">— last ${esc(agoStr(sdRows[sdRows.length - 1].ts || sdRows[sdRows.length - 1].at))}, record reached the inbox</span>`
+    : '<span class="abs" title="measured — no gate stood down for this agent">—</span>';
+  const rc = extra.receipt;
+  const receipt = rc == null ? '<span class="abs" title="receipt not read">· unloaded</span>'
+    : rc.state === 'no-receipt' ? `<span class="abs" title="${esc(rc.why || '')}">— no approval carries a receipt yet</span>`
+    : rc.state === 'unreadable' ? `<span class="abs" title="${esc(rc.why || '')}">! unreadable</span>`
+    : rc.state === 'differs' ? `<span style="color:var(--status-progress)">differs</span> <span class="muted">— ${(rc.changed || []).length} changed, ${(rc.added || []).length} added since ${esc(rc.agent || 'the last')} approval${rc.ts ? ' ' + esc(agoStr(rc.ts)) : ''}</span>`
+    : `<span style="color:var(--status-done)">${esc(rc.state)}</span> <span class="muted">— the approved bytes are the bytes in the tree</span>`;
 
   body.innerHTML = `
     <div class="mp-card">
-      <h4>Summary</h4>
+      <h4>Grant <span class="muted" style="font-weight:normal">· hover a chip for what it permits</span></h4>
+      <div class="mono cap" style="color:var(--text2);margin:6px 0 8px">${(p.tools || []).length ? esc(p.tools.join(', ')) : '<span class="abs" title="the agent declares no tools: line">— no tools line</span>'}</div>
+      <div class="ar-posture">${postureChips({ posture })}</div>
+      ${strip}
+    </div>
+    <div class="mp-card">
       <dl class="agent-summary-grid">
-        <dt>domain</dt>      <dd>${esc(p.domain)}</dd>
-        <dt>model</dt>       <dd>${esc(p.model)}</dd>
-        ${p.applies_to.length ? `<dt>applies_to</dt><dd>${esc(p.applies_to.join(', '))}</dd>` : ''}
-        ${(p.tools && p.tools.length) ? `<dt>tools</dt><dd>${p.tools.map(t => `<span class="chip" style="font-size:var(--fs-caption)">${esc(t)}</span>`).join(' ')}</dd>` : '<dt>tools</dt><dd style="color:var(--text3)">none declared</dd>'}
-        ${(p.skills && p.skills.length) ? `<dt>skills</dt><dd>${p.skills.map(s => `<span class="chip chip-agent" style="font-size:var(--fs-caption)">${esc(s)}</span>`).join(' ')}</dd>` : ''}
-        <dt>runs total</dt>  <dd>${p.runs_total} · ${p.runs_30d} in 30d</dd>
-        <dt>success</dt>     <dd>${p.success_rate != null ? `${p.success_rate}% (${p.ok_30d}/${p.ok_30d + p.fail_30d})` : 'no verdicts in 30d'}</dd>
-        <dt>last run</dt>    <dd>${p.last_run ? esc(p.last_run.slice(0, 16).replace('T', ' ') + ' · ' + agoStr(p.last_run)) : 'never'}</dd>
-        <dt>savings</dt>     <dd>${esc(savings)} ${esc(realCost)}</dd>
+        <dt>model</dt>        <dd>${model}</dd>
+        <dt>spend</dt>        <dd>${spend} ${budgetChip(row.budget)}</dd>
+        <dt>runs there</dt>   <dd>Claude Code <span class="muted">· host</span> &nbsp;·&nbsp; Codex <span class="abs" title="skills + MCP only — a role does not run there">·</span></dd>
+        <dt>evals</dt>        <dd>${evals}</dd>
+        <dt>stand-downs</dt>  <dd>${standDowns}</dd>
+        <dt>receipt</dt>      <dd>${receipt}</dd>
+        <dt>prompt</dt>       <dd><code style="font-size:var(--fs-caption)">${esc(p.file_path || '')}</code></dd>
       </dl>
       ${p.description ? `<div style="font-size:var(--fs-caption);color:var(--text3);margin-top:8px;line-height:1.5">${esc(p.description)}</div>` : ''}
     </div>
 
     <div class="mp-card">
-      <h4>Recent runs <span style="color:var(--text3);font-weight:normal">(last ${p.recent_runs.length})</span></h4>
+      <h4>Runs <span style="color:var(--text3);font-weight:normal">(last ${p.recent_runs.length} · ${p.runs_30d} in 30d${p.success_rate != null ? ` · ${p.success_rate}% pass` : ''})</span></h4>
       ${p.recent_runs.length ? `
         <ul class="run-list" role="list">
           ${p.recent_runs.map(r => {
             const tone = isSuccessVerdict(r.verdict) ? 'ok' : (isFailureVerdict(r.verdict) ? 'fail' : 'neutral');
             return `<li class="run-row">
-              <span>${esc((r.ts || '').slice(5, 16).replace('T', ' '))}</span>
+              <span class="mono">${esc((r.ts || '').slice(5, 16).replace('T', ' '))}</span>
               <span class="rr-verdict ${tone}">${esc(r.verdict || '—')}</span>
               <span class="rr-raw" title="${esc(r.raw)}">${esc(r.raw)}</span>
-              <span>${r.cost_usd != null ? '$' + r.cost_usd.toFixed(4) : ''}</span>
+              <span class="mono tab">${r.cost_usd != null ? (r.cost_usd > 0 && r.cost_usd < 0.0001 ? '~0' : '$' + r.cost_usd.toFixed(4)) : '<span class="abs" title="this verdict carried no cost">—</span>'}</span>
             </li>`;
           }).join('')}
-        </ul>` : '<div class="cost-empty">No recent runs.</div>'}
+        </ul>` : (p.runs_total > 0 ? '<div class="cost-empty">No run in this window.</div>' : '<div class="cost-empty"><span class="abs" title="no verdict line names this agent — absence of a log is not absence of a run">never observed</span></div>')}
     </div>
 
     <div class="mp-card">
@@ -8711,18 +8778,17 @@ function renderAgentProfile(p) {
             <span class="fm-count">×${f.count}</span>
             <span class="fm-last">${esc(agoStr(f.last_seen))}</span>
           </li>`).join('')}
-        </ul>` : '<div class="cost-empty">No failures clustered in 30d. Quiet agent.</div>'}
+        </ul>` : `<div class="cost-empty">${p.runs_total > 0 ? '— none in 30d' : '<span class="abs" title="never observed — nothing to cluster">· not measured</span>'}</div>`}
     </div>
 
     <div class="mp-card">
       <h4>Actions</h4>
       <div class="agent-actions">
+        <button type="button" title="Copy the line that re-runs this agent" onclick="copyRerun('${esc(p.slug)}')">Copy re-run</button>
+        <button type="button" title="Caps live in the Ledger's budgets table" onclick="switchTab('ledger')">Raise budget…</button>
         ${p.retired
           ? `<button type="button" onclick="restoreAgentAction('${esc(p.slug)}')">Restore agent</button>`
-          : `<button type="button" class="danger" onclick="retireAgentAction('${esc(p.slug)}')">Retire agent</button>`}
-      </div>
-      <div style="font-size:var(--fs-caption);color:var(--text3);margin-top:8px">
-        File: <code>${esc(p.file_path)}</code>
+          : `<button type="button" class="danger" onclick="retireAgentAction('${esc(p.slug)}')">Retire agent…</button>`}
       </div>
     </div>`;
 }
