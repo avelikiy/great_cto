@@ -105,3 +105,43 @@ test('the large live figures use tabular numerals', () => {
       `${rule} is a serif face on a page that updates over SSE — a 1 is narrower than an 8`);
   }
 });
+
+// ── Absence vocabulary extended to five states ──────────────────────────────
+
+test('ABSENCE declares all five required keys: unloaded, uncomputable, none, unreadable, unjudged', { skip: 'RED until great_cto-ki1x.4 lands' }, () => {
+  const dict = html.match(/const ABSENCE = \{[\s\S]*?\};/)?.[0];
+  assert.ok(dict, 'located the absence vocabulary');
+  for (const kind of ['unloaded', 'uncomputable', 'none', 'unreadable', 'unjudged']) {
+    assert.match(dict, new RegExp(`${kind}:`), `${kind} is declared as a key in ABSENCE`);
+  }
+});
+
+test('ABSENCE glyphs are unique; no two absence states share a glyph', { skip: 'RED until great_cto-ki1x.4 lands' }, () => {
+  const dict = html.match(/const ABSENCE = \{[\s\S]*?\};/)?.[0];
+  assert.ok(dict, 'located the absence vocabulary');
+  const glyphs = [...dict.matchAll(/'([^']+)',/g)].map((m) => m[1]);
+  assert.equal(new Set(glyphs).size, glyphs.length, 'all glyphs must be distinct; duplicates indicate a contract violation');
+});
+
+test('ABSENCE glyphs never use success indicators: no checkmark, no filled green, no filled dot', { skip: 'RED until great_cto-ki1x.4 lands' }, () => {
+  const dict = html.match(/const ABSENCE = \{[\s\S]*?\};/)?.[0];
+  assert.ok(dict, 'located the absence vocabulary');
+  assert.ok(!/✓/.test(dict), 'no checkmark in ABSENCE — absence is never success');
+  assert.ok(!/●/.test(dict), 'no filled circle/bullet in ABSENCE — filled means settled to a clear outcome');
+  // Also check for common success patterns in HTML/CSS classes that might be referenced
+  for (const glyph of [...dict.matchAll(/'([^']+)',/g)].map((m) => m[1])) {
+    assert.ok(!/pass|ok|success|done/.test(glyph.toLowerCase()), `glyph '${glyph}' reads as success; use neutral absence terms`);
+  }
+});
+
+test('each ABSENCE entry carries a human why label in the source comments', { skip: 'RED until great_cto-ki1x.4 lands' }, () => {
+  const dict = html.match(/const ABSENCE = \{[\s\S]*?\};/)?.[0];
+  assert.ok(dict, 'located the absence vocabulary');
+  // Check that each key has a comment explaining the human meaning
+  for (const kind of ['unloaded', 'uncomputable', 'none', 'unreadable', 'unjudged']) {
+    // Look for the key followed by a comment explaining why (the "why" label)
+    const pattern = new RegExp(`${kind}:\\s*'[^']*',\\s*//\\s*(.{10,})`);
+    const match = dict.match(pattern);
+    assert.ok(match && match[1], `${kind} must have a comment explaining the human meaning; found: ${match ? match[1] : '(no comment)'}`);
+  }
+});

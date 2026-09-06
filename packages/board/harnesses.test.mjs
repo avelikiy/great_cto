@@ -108,6 +108,104 @@ test('the evidence tail reads the review log, counts unreadable lines, and never
   assert.equal(h.evidence.recent[0].state, 'unavailable', 'newest first');
 });
 
+// Extended harness tests: skipped rows are dimmed + excluded, unparseable lines counted.
+// A run in state 'unavailable', 'quota', or 'skipped' does not count as reviewed;
+// blocked is counted only from reviewed runs (state 'ok'); unparseable lines are
+// counted in the summary but never silently dropped.
+
+test('summary counts: 2 ok/PASS + 1 ok/BLOCK + 1 unavailable + 1 quota + 1 unparseable → runs 5, reviewed 3, skipped 2, blocked 1, unparseable 1', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  writeFileSync(log, [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'PASS', findings: 0, cost: 0.01 }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'PASS', findings: 1, cost: 0.02 }),
+    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'BLOCK', findings: 2, cost: 0.03 }),
+    JSON.stringify({ ts: '2026-09-05T10:03:00Z', provider: 'codex', model: 'm', state: 'unavailable', verdict: null, findings: null, cost: null }),
+    JSON.stringify({ ts: '2026-09-05T10:04:00Z', provider: 'codex', model: 'm', state: 'quota', verdict: null, findings: null, cost: null }),
+    'garbage line that is not json',
+  ].join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  assert.equal(h.evidence.state, 'ok');
+  assert.deepEqual(h.evidence.summary, {
+    runs: 5,
+    reviewed: 3,
+    skipped: 2,
+    blocked: 1,
+    unreadable_lines: 1,
+  }, '5 parsed lines in runs; the garbage line is counted in its own figure, never in runs and never dropped');
+});
+
+test('skipped rows (unavailable/quota/skipped state) are excluded from reviewed and blocked counts', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  writeFileSync(log, [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01 }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', verdict: null, cost: null }),
+    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'ok', verdict: 'BLOCK', cost: 0.02 }),
+    JSON.stringify({ ts: '2026-09-05T10:03:00Z', provider: 'codex', state: 'quota', verdict: null, cost: null }),
+  ].join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  // runs includes all parsed lines (4), reviewed counts only state 'ok' (2),
+  // skipped counts state != 'ok' (2), blocked counts verdict 'BLOCK' among reviewed (1)
+  assert.equal(h.evidence.summary.runs, 4);
+  assert.equal(h.evidence.summary.reviewed, 2, 'only ok state rows are reviewed');
+  assert.equal(h.evidence.summary.skipped, 2, 'unavailable + quota are skipped');
+  assert.equal(h.evidence.summary.blocked, 1, 'blocked only among reviewed (state ok)');
+});
+
+test({ skip: 'RED until great_cto-ki1x.10 lands' }, 'skipped rows are marked in the recent output and never carry a verdict', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  writeFileSync(log, [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS' }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', verdict: null }),
+    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'quota', verdict: null }),
+  ].join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  // Newest first (reversed)
+  const recent = h.evidence.recent;
+  assert.equal(recent.length, 3);
+  // recent[0] is the newest: quota
+  assert.equal(recent[0].state, 'quota');
+  assert.strictEqual(recent[0].verdict, null, 'skipped row never carries a verdict');
+  // recent[1] is unavailable
+  assert.equal(recent[1].state, 'unavailable');
+  assert.strictEqual(recent[1].verdict, null, 'skipped row never carries a verdict');
+  // recent[2] is ok/PASS
+  assert.equal(recent[2].state, 'ok');
+  assert.equal(recent[2].verdict, 'PASS');
+});
+
+test('cost on skipped rows is null, never 0', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  writeFileSync(log, [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01 }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', cost: null }),
+    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'quota', cost: null }),
+  ].join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  const recent = h.evidence.recent;
+  assert.strictEqual(recent[0].cost, null, 'quota row cost is null');
+  assert.strictEqual(recent[1].cost, null, 'unavailable row cost is null');
+  assert.strictEqual(typeof recent[2].cost, 'number', 'ok row has a numeric cost');
+  assert.notEqual(recent[2].cost, 0, 'ok row cost is not 0');
+});
+
+test('unparseable lines are counted in the summary and never silently dropped', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  const lines = [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01 }),
+    'this is garbage',
+    'also garbage but different',
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'ok', verdict: 'BLOCK', cost: 0.02 }),
+    '{"incomplete json',
+  ];
+  writeFileSync(log, lines.join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  // 5 total lines: 2 parseable + 3 unparseable
+  assert.equal(h.evidence.summary.runs, 2, 'only the 2 parsed lines are runs');
+  assert.equal(h.evidence.summary.unreadable_lines, 3, 'exactly 3 unparseable lines counted, in their own figure');
+  assert.equal(h.evidence.summary.reviewed, 2, 'only 2 reviewed (the parseable ones)');
+  assert.equal(h.evidence.summary.blocked, 1, 'only 1 blocked verdict');
+});
+
 // The card's own CSS classes must exist. The first version used `class="warn"`
 // five times and `var(--warn, …)` once; the token was caught by the css-tokens
 // guard, the CLASS by nothing — those spans rendered as ordinary prose, so

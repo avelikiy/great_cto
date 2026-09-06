@@ -164,3 +164,104 @@ test('the phone keeps where you are, not the whole path', () => {
   assert.match(mobileBlock, /#crumb-project \{ display: none; \}/);
   assert.match(mobileBlock, /\.topbar \.crumbs \.here \{ color: var\(--text\)/);
 });
+
+// ── Tablet breakpoint (768–1199px: icon rail) ───────────────────────────────
+
+test('the 768–1199 breakpoint collapses sidebar to 56px icon rail', { skip: 'RED until great_cto-ki1x.13 lands' }, () => {
+  // At 768–1199px (tablet), the sidebar collapses from 240px to 56px showing icons only.
+  // Labels appear in title/aria-label attributes, not on-screen text.
+  const TABLET = '@media (min-width: 768px) and (max-width: 1199px)';
+  const at = html.indexOf(TABLET);
+  assert.ok(at >= 0, `tablet breakpoint block exists at ${TABLET}`);
+  const tabletBlock = blockAt(TABLET);
+  assert.match(tabletBlock, /\.sidebar \{[\s\S]*?width: 56px;/,
+    'sidebar width is 56px in tablet view');
+});
+
+test('icon rail nav items carry accessible labels', { skip: 'RED until great_cto-ki1x.13 lands' }, () => {
+  const TABLET = '@media (min-width: 768px) and (max-width: 1199px)';
+  const at = html.indexOf(TABLET);
+  if (at < 0) {
+    // Tablet styles not yet implemented
+    return;
+  }
+  const tabletBlock = blockAt(TABLET);
+  // The rail hides the label text, so the name must live on the element itself:
+  // an `aria-label` (screen readers) and a `title` (pointer tooltip) on every
+  // nav item in the markup — attributes, not CSS. The CSS block only proves the
+  // rail exists; the markup proves it is still navigable.
+  const navItems = [...html.matchAll(/<(?:a|button|div)[^>]*class="[^"]*\bnav-item\b[^"]*"[^>]*>/g)].map((m) => m[0]);
+  assert.ok(navItems.length >= 4, `at least the four destinations render as .nav-item (found ${navItems.length})`);
+  for (const tag of navItems) {
+    assert.match(tag, /aria-label="[^"]+"/, `nav item carries aria-label: ${tag.slice(0, 80)}`);
+    assert.match(tag, /title="[^"]+"/, `nav item carries title: ${tag.slice(0, 80)}`);
+  }
+});
+
+test('tablet media query sits AFTER desktop rules it overrides', { skip: 'RED until great_cto-ki1x.13 lands' }, () => {
+  const TABLET = '@media (min-width: 768px) and (max-width: 1199px)';
+  const at = html.indexOf(TABLET);
+  if (at < 0) {
+    // Tablet styles not yet implemented
+    return;
+  }
+  // Must come after .sidebar at desktop width
+  assert.ok(html.indexOf('.sidebar {') < at,
+    'tablet breakpoint comes after base .sidebar rule');
+});
+
+// ── 375px viewport specific checks ──────────────────────────────────────────
+
+test('at 375px, no horizontal scroll on existing tabs', () => {
+  // Even with 44px touch targets and full-width buttons, document must not
+  // overflow horizontally. This is a static check that the CSS itself does not
+  // introduce horizontal scroll via width constraints.
+  assert.match(mobileBlock, /max-width:/,
+    'mobile block constrains widths to prevent overflow');
+  // The gate-btn flex rule prevents buttons from forcing overflow
+  assert.match(html, /\.gate-btn[^\}]*flex:/,
+    'gate buttons use flex to fit container width');
+});
+
+test('all interactive elements meet 44px touch target minimum', { skip: 'RED until selectors unified' }, () => {
+  // At 375px, every button, [role=button], .nav-item, label.radio, .copy must
+  // have computed min-height >= 44px. The @media (pointer: coarse) rule provides
+  // a global floor, but exceptions and new controls must opt-in or out explicitly.
+  const coarseBlock = blockAt('@media (pointer: coarse)');
+  assert.match(coarseBlock, /button[^\}]*min-height: 44px;/,
+    'button selector has min-height 44px');
+  assert.match(coarseBlock, /\[role="button"\][^\}]*min-height: 44px;/,
+    '[role=button] has min-height 44px');
+  assert.match(coarseBlock, /\.nav-item[^\}]*min-height: 44px;/,
+    '.nav-item has min-height 44px');
+  assert.match(coarseBlock, /label\.radio[^\}]*min-height: 44px;/,
+    'label.radio has min-height 44px');
+  assert.match(coarseBlock, /\.copy[^\}]*min-height: 44px;/,
+    '.copy has min-height 44px');
+});
+
+test('gate actions stack at 375 when full-width required', { skip: 'RED until gate actions styled' }, () => {
+  // At 375px on an EXPENSIVE gate (Reject/Approve pair), actions must stack
+  // vertically, each taking ≥90% of content width. ROUTINE gates may sit
+  // side by side if both reach ≥44px. This is a layout rule in the mobile block.
+  const mobileStyles = mobileBlock;
+  assert.match(mobileStyles, /\.gate-actions[^\}]*flex-wrap: wrap;/,
+    'gate actions wrap to next line when needed');
+  assert.match(mobileStyles, /\.gate-actions[^\}]*flex: 1 0 100%;/,
+    'gate actions each take full width in stack mode');
+});
+
+// ── Media query cascade order ──────────────────────────────────────────────
+
+test('the ≤768px mobile block sits AFTER the 768–1199px tablet block', () => {
+  // At equal specificity (both are media queries), later wins. The tablet
+  // block (768–1199) must come before the mobile block (≤768) so mobile
+  // overrides are not lost to cascade order.
+  const MOBILE_IDX = html.indexOf('@media (max-width: 768px)');
+  const TABLET_IDX = html.indexOf('@media (min-width: 768px) and (max-width: 1199px)');
+  if (TABLET_IDX >= 0) {
+    assert.ok(TABLET_IDX < MOBILE_IDX,
+      `tablet block (${TABLET_IDX}) must come before mobile block (${MOBILE_IDX})`);
+  }
+  // If tablet block does not exist yet, this test passes (no ordering violation)
+});

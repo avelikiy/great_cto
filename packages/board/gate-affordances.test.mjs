@@ -144,3 +144,75 @@ test('cycle time keeps its dash, and says why', () => {
   assert.match(html, /means "could not be computed", not "took no time"/,
     'and the reason is written down where the next reader will look');
 });
+
+// ── Typed-name confirmation for expensive and unclassified gates ──────────────
+
+test('approveConsequence accepts reversibility info with categories', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+  const fn = html.match(/function approveConsequence\([\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'located approveConsequence');
+  // After implementation, approveConsequence should accept a second parameter
+  // for reversibility info containing categories array
+  assert.match(fn, /reversibility/i,
+    'approveConsequence accepts reversibility parameter (or extracted from context)');
+  assert.match(fn, /categories/i,
+    'function handles gate categories from reversibility state');
+});
+
+test('approveConsequence includes category words for expensive gates', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+  const fn = html.match(/function approveConsequence\([\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'located approveConsequence');
+  // For expensive gates, the consequence text should include human-readable
+  // category names like "escapes-the-machine" or "costs-money"
+  assert.match(fn, /escapes[\s\S]*machine|costs[\s\S]*money/i,
+    'consequence text references the category vocabulary (expensive gate categories)');
+});
+
+test('approveConsequence labels unclassified gates as such', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+  const fn = html.match(/function approveConsequence\([\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'located approveConsequence');
+  // For unclassified (unknown) gates, the text should warn that cost is unknown
+  assert.match(fn, /unclassified|not.*harmless|unknown.*cost/i,
+    'consequence text for unclassified gates includes warning about unknown cost');
+});
+
+test('expensive gates require typed-name confirmation in gateAction', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+  assert.ok(gateAction, 'located gateAction');
+  // For expensive and unclassified gates, before posting the approval,
+  // gateAction should require the operator to type the gate name exactly
+  // to prove they read the consequences.
+  // The logic should check reversibility state and only allow confirm dismissal
+  // if typed value === gate id (case-sensitive)
+  assert.match(gateAction, /typed|typed.*name|confirmName/i,
+    'gateAction logic includes typed-name confirmation for expensive gates');
+  assert.match(gateAction, /expensive|unclassified/i,
+    'gateAction references reversibility state (expensive or unclassified)');
+});
+
+test('routine gates do not require typed-name confirmation', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+  assert.ok(gateAction, 'located gateAction');
+  // For routine gates (cheap to undo), the single confirm dialog is enough.
+  // No typed-name affordance should be required.
+  // The condition that branches on gate type should explicitly handle routine case
+  assert.match(gateAction, /routine|state.*routine/i,
+    'gateAction has logic path for routine gates');
+});
+
+test('typed-name input is disabled until exact match', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+  // After implementation, look for a UI affordance that:
+  // 1. Shows an input field for expensive/unclassified gates
+  // 2. Disables the approve button by default
+  // 3. Enables it only when input value === gate id (case-sensitive)
+  // This may appear in gateAction or in a separate approve dialog handler
+  assert.match(html, /disabled|disabled[^}]*|input.*type|confirm.*typed/i,
+    'UI includes disabled state management for typed-name affordance');
+});
+
+test('approveConsequence invariants: verdict log, pipeline, public report', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+  const fn = html.match(/function approveConsequence\([\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'located approveConsequence');
+  // Original invariants must remain: the consequence always names the three effects
+  assert.match(fn, /verdict log/i, 'still says what is recorded');
+  assert.match(fn, /pipeline/i, 'still says what proceeds');
+  assert.match(fn, /public report/i, 'still says what leaves the machine');
+  assert.match(fn, /shareState/, 'and still claims the public part only when sharing is on');
+});
