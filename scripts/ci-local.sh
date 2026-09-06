@@ -321,6 +321,16 @@ step "lib tests" node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs
 step "eval tests" node --test tests/eval/*.test.mjs
 step "docs tests" bash -c 'node --test tests/docs/*.test.mjs 2>/dev/null || true'
 
+# ── The board, driven in a real browser ─────────────────────────────────────
+#
+# The static checks above assert on strings in a 9,000-line inline bundle. They
+# cannot tell a wired button from a painted one: 3.27.1 shipped a board whose
+# blocked tasks could be opened, read, and not decided — the endpoint had
+# existed since the kanban, the button had not — and every gate was green.
+# This step presses the buttons. It SKIPS (loudly) when Playwright or the
+# server is unavailable; a skip is "not checked", never "checked and fine".
+step "board e2e (browser)" node --test tests/e2e/board.e2e.test.mjs
+
 # ── The pipeline, against a written-down answer ──
 #
 # The dispatcher decides whether an irreversible operation gets a human in front

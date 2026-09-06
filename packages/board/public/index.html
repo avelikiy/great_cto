@@ -3046,7 +3046,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .inbox-row .ttl { font-size: var(--fs-small); }
 /* A stalled task is one line: id · reason · title · agent, and the re-run button
    sits at the row's right instead of on a second grid row under it. */
-.inbox-row { grid-template-columns: 110px 1fr auto auto; align-items: center; }
+.inbox-row { grid-template-columns: 110px 1fr auto auto auto; align-items: center; }
+.inbox-row .actions:empty { display: none; }
+.ledger-title-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.side-task-actions .gate-btn { flex: 0 0 auto; min-width: 96px; }
 .inbox-row .ttl { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .inbox-row .ttl > :first-child { display: inline; }
 .inbox-row .ttl .why { display: inline-block; font-size: var(--fs-eyebrow); padding: 0 6px; line-height: 18px; white-space: nowrap; }
@@ -3629,7 +3632,21 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
     <div class="panel" id="panel-budgets" role="tabpanel">
       <div class="metrics-page">
-        <h1 class="page-title">Ledger</h1>
+        <div class="ledger-title-row">
+          <h1 class="page-title" style="margin:0">Ledger</h1>
+          <!-- The period governs every figure below it, so it sits where the
+               figures start — beside the name, not under the stuck list. -->
+          <div class="period-toolbar" style="margin:0">
+            <span class="period-label">PERIOD</span>
+            <div class="period-chips" id="period-chips">
+              <button class="period-chip" data-period="1">1D</button>
+              <button class="period-chip" data-period="7">7D</button>
+              <button class="period-chip active" data-period="30">30D</button>
+              <button class="period-chip" data-period="90">90D</button>
+              <button class="period-chip" data-period="365">1Y</button>
+            </div>
+          </div>
+        </div>
         <!-- Ledger (great_cto-ki1x.7): the one decision this screen supports is
              "is something running that I should stop". Two figures, the stage
              strip and the stuck list answer it; the caps table below is where
@@ -3638,16 +3655,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <!-- From the old Metrics tab (great_cto-ki1x.16): the period chips, the caps
              card and the cost panel keep their ids — the code that fills them did
              not move, only the screen that shows them. -->
-        <div class="period-toolbar">
-          <span class="period-label">PERIOD</span>
-          <div class="period-chips" id="period-chips">
-            <button class="period-chip" data-period="1">1D</button>
-            <button class="period-chip" data-period="7">7D</button>
-            <button class="period-chip active" data-period="30">30D</button>
-            <button class="period-chip" data-period="90">90D</button>
-            <button class="period-chip" data-period="365">1Y</button>
-          </div>
-        </div>
         <!-- Budgets live HERE, on Metrics, not two clicks deep in the Agents
              drill-in. A control the operator could not find is a control they do
              not have — and it was invisible on top of that, hidden whenever a
@@ -4553,6 +4560,11 @@ function renderInboxList(rootId, items, countId, opts = {}) {
         + `<button type="button" class="gate-btn" title="Copy a git diff limited to the reviewed files"`
         + ` onclick="event.stopPropagation(); copyDiff(${esc(JSON.stringify(JSON.stringify(t.__files)))})">Copy diff</button></div>`
       : '';
+    const unblock = (!canDecide && !t.__synthetic && t.id && (t.raw_status || t.status) === 'blocked')
+      ? `<div class="actions" onclick="event.stopPropagation()">`
+        + `<button type="button" class="gate-btn gate-approve" title="Set the task back to open"`
+        + ` onclick="event.stopPropagation(); taskDecision('${esc(t.id)}', 'open')">Unblock</button></div>`
+      : '';
     const rerun = (!canDecide && !t.__synthetic && t.agent && t.id)
       ? `<div class="actions" onclick="event.stopPropagation()">`
         + `<button type="button" class="gate-btn" title="Copy the line that re-runs this agent"`
@@ -4607,7 +4619,7 @@ function renderInboxList(rootId, items, countId, opts = {}) {
         ${canDecide ? gateChip(t) : `<span class="id">${esc(t.id || '')}</span>`}
         <span class="ttl">${canDecide ? '' : reasonChip}${esc(canDecide ? String(t.title || '').replace(/^gate:[a-z-]+\s*[—–-]?\s*/, '') : t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
         ${canDecide ? reviewerCells(t) : ''}
-        ${actions}${rerun}${diffBtn}
+        ${actions}${unblock}${rerun}${diffBtn}
       </div>`;
   }).join('');
 }
@@ -7877,11 +7889,22 @@ function openSide(task) {
         Reject
       </button>
     </div>` : '';
+  // A task that is not a gate still needs a decision the operator can take
+  // here: a blocked one is unblocked, an open one is started, either is closed.
+  // Before this the drawer showed the status and told the operator to go run
+  // `bd update` — a board that could read the state but not change it.
+  const taskActions = (!task.is_gate && rawStatus !== 'closed') ? `
+    <div class="side-gate-actions side-task-actions">
+      ${rawStatus === 'blocked' ? `<button class="gate-btn gate-approve" onclick="taskDecision('${esc(task.id)}', 'open')">Unblock</button>` : ''}
+      ${rawStatus === 'open' ? `<button class="gate-btn gate-approve" onclick="taskDecision('${esc(task.id)}', 'in_progress')">Start</button>` : ''}
+      ${rawStatus === 'in_progress' || rawStatus === 'open' ? `<button class="gate-btn" onclick="taskDecision('${esc(task.id)}', 'blocked')">Block</button>` : ''}
+      <button class="gate-btn gate-reject" onclick="taskDecision('${esc(task.id)}', 'closed')">Close</button>
+    </div>` : '';
   _sideTask = task;   // so the doc viewer's "← back" can restore this task
   document.getElementById('side-body').innerHTML = `
     <div class="side-title">${esc(task.title)}</div>
     ${desc}
-    ${gateActions}
+    ${gateActions}${taskActions}
     <div class="props">
       ${rows.map(([k, v]) => `<div class="prop-key">${k}</div><div class="prop-val">${v}</div>`).join('')}
     </div>
@@ -7913,6 +7936,23 @@ function openSide(task) {
         </div>
       </div>`).join('')}`;
   });
+}
+// One status change, through the endpoint the board has had since the kanban:
+// POST /api/tasks/:id/status. Closing asks once — it is the only transition the
+// list stops showing; the rest are visible and reversible from the same drawer.
+async function taskDecision(id, status) {
+  if (status === 'closed' && !confirm(`Close ${id}? It leaves every list on this board.`)) return;
+  const r = await api(`/api/tasks/${encodeURIComponent(id)}/status${pqs()}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
+  }).catch(() => null);
+  if (!r || r.error) { showToast('✗ ' + esc(r?.error || 'status not changed'), 'error', 4000); return; }
+  const said = { open: 'unblocked', in_progress: 'started', blocked: 'blocked', closed: 'closed' }[status] || status;
+  showToast(`<strong>${esc(id)}</strong> ${said}`, status === 'closed' ? 'error' : 'success', 2500);
+  if (_sideTask && _sideTask.id === id) {
+    if (status === 'closed') closeSide();
+    else openSide({ ..._sideTask, status, raw_status: status });
+  }
+  refreshInbox();
 }
 // ── Documents referenced by a task: extraction + the inline side-panel viewer ──
 let _sideTask = null;

@@ -223,3 +223,26 @@ test('approveConsequence invariants: verdict log, pipeline, public report', () =
   assert.match(fn, /public report/i, 'still says what leaves the machine');
   assert.match(fn, /shareState/, 'and still claims the public part only when sharing is on');
 });
+
+// ── A task that is not a gate can still be decided here ─────────────────────
+//
+// 3.27.1 on a live project: a blocked task opened in the drawer with its status
+// as a pill and a sentence telling the operator to go run `bd update`. The
+// board could read the state and not change it — while the endpoint that
+// changes it had existed since the kanban. The drawer and the blocked row now
+// carry the transition; closing is the one that asks, because it is the one
+// that removes the row from every list.
+test('a non-gate task in the drawer carries Unblock / Start / Close, wired to the status endpoint', () => {
+  const fn = html.match(/async function taskDecision\([\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'taskDecision is defined');
+  assert.match(fn, /\/api\/tasks\/\$\{encodeURIComponent\(id\)\}\/status/, 'posts to the status endpoint');
+  assert.match(fn, /status === 'closed' && !confirm\(/, 'closing asks once; the other transitions do not');
+  const openSide = html.match(/function openSide\(task\) \{[\s\S]*?_sideTask = task;/)?.[0];
+  assert.ok(openSide);
+  assert.match(openSide, /rawStatus === 'blocked' \? `<button[^`]*taskDecision\('\$\{esc\(task\.id\)\}', 'open'\)/, 'a blocked task offers Unblock');
+  assert.match(openSide, /taskDecision\('\$\{esc\(task\.id\)\}', 'closed'\)/, 'every open task offers Close');
+  assert.match(openSide, /!task\.is_gate && rawStatus !== 'closed'/, 'gates keep their own ritual; closed tasks offer nothing');
+  const row = html.match(/const unblock = [\s\S]*?: '';/)?.[0];
+  assert.ok(row && /=== 'blocked'\)/.test(row) && /taskDecision\('\$\{esc\(t\.id\)\}', 'open'\)/.test(row),
+    'a blocked inbox row carries Unblock without opening the drawer');
+});

@@ -22,6 +22,49 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.27.2 — 2026-09-06
+
+A blocked task could be opened on the board, read, and not decided. The
+endpoint that changes a task's status had existed since the kanban; the button
+had not. Every gate was green — three CSS checks read the source, the layout
+snapshot compares what rendered, and none of them had ever clicked anything.
+
+### Added
+
+- **A task carries its decision on the board.** The drawer offers **Unblock ·
+  Start · Block · Close** on any task that is not a gate and not already
+  closed, and a blocked row carries **Unblock** in the row itself, where it is
+  visible without opening anything. All of it goes to the
+  `POST /api/tasks/:id/status` endpoint that was already there. Closing asks
+  once — it is the only transition that removes the row from every list; the
+  rest are visible and reversible from the same drawer.
+- **`tests/e2e/board.e2e.test.mjs` — the board, driven in a real browser.**
+  Seven cases, each starting its own board over the screenshot fixture on a
+  free port: every screen paints its own content with no console error and no
+  sideways scroll; the sidebar moves by mouse and by keyboard; a blocked task
+  is unblocked from the row and from the drawer, and the request is checked for
+  method, path and status; a gate is approved through its ritual and a
+  *dismissed* ritual approves nothing; ⌘K opens and Escape closes it; at 375
+  every visible control clears 44px. It SKIPS, loudly, when Playwright or the
+  browser binary is absent — "not checked" is not "checked and fine".
+  Wired into `scripts/ci-local.sh`, so every release runs it.
+
+### Changed
+
+- **The period chips move to the top of Ledger**, into the title row. They
+  govern every figure below them, so they sit where the figures start rather
+  than under the stuck list.
+
+### Under it
+
+- The suite was proved by deletion: with both decision affordances removed it
+  goes red on exactly that case and stays green everywhere else. The first
+  version of it did NOT — it opened the first row, which is a gate, and passed
+  through the gate path without ever touching the one it was written for.
+
+---
+
 ## v3.27.1 — 2026-09-06
 
 3.27.0 shipped the redesign's structure with the old stylesheet's density
