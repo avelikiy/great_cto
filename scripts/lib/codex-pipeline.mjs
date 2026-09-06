@@ -105,7 +105,16 @@ export function advance(state) {
     }
     const gates = list(rule.gate).filter(gate => !state.approvals.some(a => a.role === role && a.gate === gate && a.result === result.digest));
     if (gates.length) {
-      state.pending = { token: randomUUID(), role, gates, result: result.digest };
+      // The receipt the gate is guarded by is taken HERE, at the moment the gate is
+      // raised — not reused from the end of the role's own stage. Those are
+      // different moments, and on a join they diverge: qa-engineer finishes,
+      // its gate waits for security-officer, security-officer legitimately
+      // writes its report, and only then is qa-engineer's gate raised. Compared
+      // against the stage-end snapshot, the partner's own artifact read as
+      // tampering, and gate:ship could never be approved on the shipped graph.
+      // Found by walking shared/pipeline.toml end to end; the two-role fixture
+      // has no join and could not see it.
+      state.pending = { token: randomUUID(), role, gates, result: result.digest, receipt: treeReceipt(state.root) };
       state.status = 'awaiting-gate'; return;
     }
     state.released.push(role);
@@ -124,7 +133,11 @@ export function approve(state, token) {
     if (!existsSync(path) || hash(readFileSync(path)) !== expected) throw Error(`artifact changed since gate was raised: ${name}`);
   }
   const { role, gates, result } = state.pending;
-  if (state.results[role].receipt && JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(state.results[role].receipt)) throw Error('working tree changed since gate was raised');
+  // Compared against the receipt taken when THIS gate was raised, so the check
+  // means what its message says. A pending record without one is from before
+  // this fix and must not be approved on a guess.
+  if (!('receipt' in state.pending)) throw Error('gate was raised without a receipt — re-raise it');
+  if (state.pending.receipt && JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(state.pending.receipt)) throw Error('working tree changed since gate was raised');
   for (const gate of gates) state.approvals.push({ role, gate, result, at: new Date().toISOString() });
   state.pending = null;
   advance(state);

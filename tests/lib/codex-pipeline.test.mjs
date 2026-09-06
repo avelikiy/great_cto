@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { newRun, runStage as stage, approve, safePath, validateProposal, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
 
@@ -108,5 +110,72 @@ test('join waits for both branches; duplicate downstream dispatch is suppressed'
   await runStage(s, { execute: async () => response('PASS', []) });
   assert.deepEqual(s.queue, ['reviewer']);
   await runStage(s, { execute: async () => response('PASS', []) });
+  assert.equal(s.status, 'done');
+});
+
+// The SHIPPED graph, walked end to end. The two-role fixture above proves the
+// state machine; this proves it on shared/pipeline.toml, which has a join
+// (qa-engineer ∥ security-officer) the fixture does not — and the join is where
+// the receipt check was wrong: a partner's legitimate write read as tampering
+// and gate:ship could never be approved. Every role that produces a receipt
+// needs a real git tree, so the project gets one.
+test('the shipped pipeline.toml walks from product-owner to done, through the join and every gate', async t => {
+  const REPO = resolve(fileURLToPath(import.meta.url), '../../..');
+  const root = mkdtempSync(join(tmpdir(), 'codex-real-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'docs'), { recursive: true }); mkdirSync(join(root, 'src'), { recursive: true });
+  execSync('git init -q . && git -c user.email=t@t -c user.name=t commit -q -m base --allow-empty', { cwd: root });
+
+  const s = newRun({ root, pluginRoot: REPO, prompt: 'walk the shipped graph', allowed: ['docs', 'src'], entry: 'product-owner' });
+  const list = v => (Array.isArray(v) ? v : [v]).filter(Boolean);
+  const execute = async () => {
+    const role = s.active?.role ?? s.queue[0];
+    const rule = s.graph[role] || {};
+    const verdict = list(rule.on)[0] || 'DONE';
+    const produces = list(rule.produces).filter(k => k !== 'receipt');
+    const files = produces.map((k, i) => ({ path: `docs/${role}-${k}.md`, before: null, content: `# ${role} ${k}\n\nbody ${i}\n` }));
+    if (list(rule.produces).includes('receipt')) files.push({ path: `src/${role}.js`, before: null, content: `// ${role}\n` });
+    const meta = Object.fromEntries(produces.map((k, i) => [k, files[i].path]));
+    return { state: 'ok', code: 0, errors: [], usage: null, text: JSON.stringify({ verdict, summary: role, meta, files }) };
+  };
+
+  // `manual-action` is terminal for this controller, on purpose: devops deploys
+  // and publishes, and a step with side effects is not a file proposal. The
+  // full cycle the controller can honestly claim is every proposal-shaped role
+  // through every gate INCLUDING gate:ship, then a hand-off for the one step
+  // that must not be a proposal — not `done`.
+  const TERMINAL = ['done', 'blocked', 'manual-action'];
+  const walked = [], gates = [];
+  for (let i = 0; i < 80 && !TERMINAL.includes(s.status); i += 1) {
+    if (s.status === 'awaiting-gate') { gates.push(s.pending.gates.join(',')); approve(s, s.pending.token); continue; }
+    walked.push(s.queue[0]);
+    await runStage(s, { execute });
+  }
+  assert.equal(s.status, 'manual-action', `${s.status}: ${s.reason} after ${walked.join(' → ')}`);
+  assert.match(s.reason, /^devops requires execution outside/, 'the hand-off is devops, and it says so');
+  assert.ok(walked.includes('qa-engineer') && walked.includes('security-officer'), 'the join ran both branches');
+  assert.ok(gates.some(g => g.includes('gate:ship')), 'gate:ship was raised AND approved before the hand-off');
+  assert.equal(walked.filter(r => r === 'devops').length, 1, 'devops is dispatched once, not re-queued in a loop');
+  assert.deepEqual(walked, ['product-owner', 'architect', 'pm', 'senior-dev', 'code-reviewer', 'qa-engineer', 'security-officer', 'devops']);
+});
+
+// The exact failure the walk found, isolated: a partner writes AFTER the first
+// branch's stage ends and BEFORE its gate is raised. That is not tampering.
+test('a join partner writing before the gate is raised is not "working tree changed"', async t => {
+  const graph = [
+    '[transitions.writer]', 'on = ["DONE"]', 'produces = ["report"]', 'next = ["qa", "security"]',
+    '[transitions.qa]', 'on = ["DONE"]', 'produces = ["qa"]', 'join = ["security"]', 'gate = "gate:ship"', 'next = []',
+    '[transitions.security]', 'on = ["DONE"]', 'produces = ["sec"]', 'next = []',
+  ].join('\n') + '\n';
+  const s = fixture(t, graph);
+  const exec = (path, key) => async () => ({ state: 'ok', code: 0, errors: [], usage: null,
+    text: JSON.stringify({ verdict: 'DONE', summary: key, meta: { [key]: path }, files: [{ path, before: null, content: `${key}\n` }] }) });
+  await runStage(s, { execute: exec('src/w.js', 'report') });
+  assert.equal(s.status, 'ready');
+  await runStage(s, { execute: exec('src/qa.js', 'qa') });        // qa ends; gate must wait for security
+  assert.notEqual(s.status, 'awaiting-gate', 'the join is not complete yet');
+  await runStage(s, { execute: exec('src/sec.js', 'sec') });      // security writes its own file
+  assert.equal(s.status, 'awaiting-gate'); assert.deepEqual(s.pending.gates, ['gate:ship']);
+  approve(s, s.pending.token);                                      // used to throw "working tree changed"
   assert.equal(s.status, 'done');
 });
