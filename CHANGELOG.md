@@ -19,6 +19,72 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.26.4 — 2026-09-06
+
+**3.26.3 never reached npm.** Its tag and GitHub Release exist; its publish was
+refused by the dirty-tree guard because the controller fix below was being
+written while the publish ran. This release carries everything 3.26.3 carried,
+plus that fix. Install from npm and you get 3.26.4; the 3.26.3 tag carries the
+bug described here.
+
+### Fixed
+
+- **`codex-pipeline`'s `gate:ship` could never be approved on the shipped
+  graph.** The controller (written by Codex itself, shipped undocumented in
+  3.26.3 — see below) compared the working tree at approval against the receipt
+  taken at the **end of the role's stage**. On a join those are different
+  moments: `qa-engineer` finishes, its gate waits for `security-officer`,
+  `security-officer` legitimately writes its report, and only then is
+  `qa-engineer`'s gate raised — so the partner's own file read as *"working tree
+  changed since gate was raised"*. The receipt is now taken **when the gate is
+  raised**, in `advance()`, and stored on the pending record; `approve()`
+  compares against that. A pending record from before this fix, with no
+  receipt, is refused rather than approved on a guess.
+  - Found by walking the real `shared/pipeline.toml` end to end. The shipped
+    two-role fixture has no join and could not see it. That walk is a test now:
+    product-owner → architect → pm → senior-dev → code-reviewer →
+    qa-engineer ∥ security-officer → **gate:ship approved** → devops.
+  - **`manual-action` is the honest terminal state on the shipped graph, not
+    `done`.** devops deploys and publishes; a step with side effects is not a
+    file proposal, and the controller hands it off by design (ADR-009 in code).
+    A driver that treats only `done|blocked` as terminal re-dispatches devops
+    forever — the first version of the test did exactly that, 70 times.
+
+- **`release.sh` no longer sweeps the working tree into the version commit.**
+  It ran `git add -A`, and on 2026-09-06 that put unrelated work into two
+  version commits in one day: a reverted contract in the morning, and in the
+  afternoon an entire untracked feature plus two design documents — none in the
+  release notes, all public the moment the tag was pushed. It now stages the
+  eight files `bump-version.sh` writes (plus re-shot screenshots) **by name**,
+  and **refuses** with a list if anything else is dirty. A shape test pins it:
+  no `add -A`, an explicit list, a refusal branch — and the list must cover every
+  path the bump writes, so a new version file cannot become the next stray.
+
+### About `codex-pipeline`, which 3.26.3 shipped without saying so
+
+`scripts/codex-pipeline.mjs` and `scripts/lib/codex-pipeline.mjs` were written
+by the owner's **Codex session**, not by this project's agents: Codex
+implemented the controlled host it had itself audited as missing. Roles come
+from `agents/<role>.md`, transitions from `shared/pipeline.toml`; a worker runs
+read-only and returns JSON file proposals; the controller checks paths and
+secrets before writing, verifies with a second Codex process, and stops on
+gates. State lives in `~/.great_cto/codex-runs/<uuid>.json` under an exclusive
+lock. It is not in the npm package (`scripts/` is not shipped); it runs from a
+checkout or the plugin cache. See `docs/HOST-CODEX.md`.
+
+It reached the 3.26.3 tag through `release.sh`'s `git add -A`, which swept
+untracked work into the version commit — the second time that day. The
+release notes for 3.26.3 do not mention it; these do.
+
+**Verified:** the controller, deterministically, on the real graph (12 tests).
+**Not yet verified:** a full live run against Codex — one real stage
+(`architect` → verify → `gate:arch`) was run by Codex before its quota ran out.
+The quota returns today; the live run is prepared and will be reported as a
+fact when it has happened, not before.
+
+---
+
 ## v3.26.3 — 2026-09-06
 
 The agent's own configuration is now scanned as an attack surface, and the two
