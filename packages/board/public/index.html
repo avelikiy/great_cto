@@ -1497,6 +1497,16 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .tab { font-variant-numeric: tabular-nums; text-align: right; }
   .bar { height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
   .bar > i { display: block; height: 100%; background: var(--accent); }
+  /* Fleet (great_cto-ki1x.8): saved views in the sidebar, domain groups, AgentRow cells */
+  .nav-view-item { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+  .nav-view-item:hover { background: var(--bg-muted); color: var(--text); }
+  .nav-view-item.active { background: var(--bg-strong); color: var(--text); font-weight: 500; }
+  .nav-view-count { font-family: var(--mono); font-size: var(--fs-caption); color: var(--text3); font-variant-numeric: tabular-nums; }
+  .fleet-group-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px 4px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); font-weight: 500; }
+  .fleet-group-collapsed { display: flex; flex-wrap: wrap; gap: 20px; padding: 10px 12px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
+  .ar-cells { display: grid; grid-template-columns: minmax(200px, 1.4fr) 130px 48px 56px 80px auto; gap: 12px; align-items: center; margin-top: 4px; }
+  .ar-posture { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ar-last { color: var(--text2); }
   /* Two-ring focus (§7.1): the outer ring is the focus token, the inner ring is
      the page itself, so the ring reads on any bed — a card, a solid pill, a strip.
      Element selectors only; the per-component rules above keep their own offsets. */
@@ -3011,6 +3021,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .chip-filter-bar { flex-direction: column; align-items: stretch; }
 }
 @media (max-width: 768px) {
+  .ar-cells { grid-template-columns: 1fr auto; }
+  .ar-posture { grid-column: 1 / -1; }
+
   /* The one asymmetry DESIGN §3.2 draws: an expensive or unclassified gate's
      Reject/Approve stack full-width at phone width; a routine gate's may sit
      side by side. Cheap and expensive must not share a motor cost. */
@@ -3216,10 +3229,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
          switch a top-level destination nor do anything yet, and a control that
          looks live and isn't fails `ui-ux-pro-max` empty-nav-state. -->
     <div class="nav-views">
-      <div class="nav-view-item">Needs me</div>
-      <div class="nav-view-item">Expensive grants</div>
-      <div class="nav-view-item">Never observed</div>
-      <div class="nav-view-item">All agents</div>
+      <div class="nav-view-item" id="nav-view-needs" role="button" tabindex="0" onclick="setFleetView('needs')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('needs')}">Needs attention</div>
+      <div class="nav-view-item" id="nav-view-expensive" role="button" tabindex="0" onclick="setFleetView('expensive')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('expensive')}">Expensive grants</div>
+      <div class="nav-view-item" id="nav-view-never" role="button" tabindex="0" onclick="setFleetView('never')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('never')}">Never observed</div>
+      <div class="nav-view-item" id="nav-view-all" role="button" tabindex="0" onclick="setFleetView('all')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('all')}">All agents</div>
+      <div class="nav-view-item" id="nav-view-retired" role="button" tabindex="0" onclick="setFleetView('retired')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('retired')}">Retired</div>
     </div>
     <div class="sidebar-footer">
       <!-- Ships in the CONNECTING state. This markup used to say "live · synced
@@ -3484,23 +3498,25 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     <div class="panel" id="panel-agents" role="tabpanel" aria-labelledby="tab-agents">
       <div class="metrics-page">
         <!-- §3.1 Fleet summary -->
+        <!-- The summary tiles ("Installed agents 70", "Active last 30d") left with
+             the redesign: a count of installed agents is not a decision (brief,
+             "What must NOT be on the board"). The view title carries the one
+             number that is — how many need attention, of how many. -->
         <section aria-label="Fleet summary">
-          <div class="mp-section-label">Fleet</div>
-          <div class="mp-row" id="fleet-summary">
-            <div class="cost-empty">Loading…</div>
-          </div>
+          <h1 class="page-title" id="fleet-view-title">Fleet</h1>
         </section>
 
         <!-- §3.1 Fleet controls -->
         <section aria-label="Fleet controls" style="margin-top:20px">
-          <div class="mp-card fleet-controls">
+          <div class="mp-card fleet-controls" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:8px 12px">
             <div class="fleet-search">
               <input type="search" id="fleet-search" placeholder="Filter agents (press / to focus)" aria-label="Filter agents by slug" />
               <span class="search-hint"><kbd>/</kbd> focus · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close</span>
             </div>
-            <div class="fleet-facets" id="fleet-facets">
-              <!-- populated via renderFleetFacets() -->
-            </div>
+            <!-- The Domain / Activity / Health facet chips left with the redesign:
+                 domain is the grouping, activity and health are the saved views in
+                 the sidebar (DESIGN §5 — five views, not user-creatable). The
+                 functions stay for the drawer's deep links. -->
             <div class="fleet-sort">
               <label for="fleet-sort-by">Sort by</label>
               <select id="fleet-sort-by">
@@ -8244,6 +8260,9 @@ const fleetState = {
   // doing work on most projects; showing all 35 by default is noise.
   // User flips activity to `all` to see the full installation.
   filters: { domain: 'all', activity: 'all', health: 'all' },
+  // Five saved views, and only five (DESIGN §5): the default is the subset
+  // nobody has judged yet, not the roster.
+  view: 'needs',
   search: '',
   sort: 'runs_30d',
   drawerSlug: null,
@@ -8357,10 +8376,60 @@ function setFleetFilter(key, value) {
   renderFleetList();
 }
 
+const FLEET_VIEWS = [
+  ['needs', 'Needs attention'], ['expensive', 'Expensive grants'], ['never', 'Never observed'], ['all', 'All agents'], ['retired', 'Retired'],
+];
+// What "needs attention" means, in one place: failing, an unjudged posture, a
+// grant that is scoped in name only, or spend past its cap. Not "idle" — the
+// brief refuses an inferred idle/retired status in v1.
+function agentNeedsAttention(a) {
+  const p = a.posture || {};
+  return a.health === 'failing'
+    || p.state === 'unclassified' || p.state === 'unreadable'
+    || (Array.isArray(p.scopedInNameOnly) && p.scopedInNameOnly.length > 0)
+    || String(a.budget?.state || '').startsWith('over');
+}
+function inFleetView(a, view) {
+  if (view === 'retired') return !!a.retired;
+  if (a.retired) return false;
+  if (view === 'needs') return agentNeedsAttention(a);
+  if (view === 'expensive') return a.posture?.state === 'expensive';
+  if (view === 'never') return !(a.runs_total > 0);
+  return true;
+}
+function setFleetView(view) {
+  fleetState.view = FLEET_VIEWS.some(([k]) => k === view) ? view : 'all';
+  renderFleetViews();
+  renderFleetList();
+  if (currentTab !== 'agents') switchTab('fleet');
+}
+// The sidebar's Views block: counts per view, the active one marked, and the
+// Fleet item's absence glyph lit when something is unclassified — a glyph, not
+// a count, because "2" would read as two new items.
+function renderFleetViews() {
+  const agents = fleetState.agents || [];
+  for (const [key, label] of FLEET_VIEWS) {
+    const el = document.getElementById(`nav-view-${key}`);
+    if (!el) continue;
+    const n = agents.filter((a) => inFleetView(a, key)).length;
+    el.classList.toggle('active', fleetState.view === key);
+    el.innerHTML = `<span>${esc(label)}</span><span class="nav-view-count">${n}</span>`;
+  }
+  const abs = document.getElementById('nav-fleet-abs');
+  if (abs) abs.hidden = !agents.some((a) => a.posture?.state === 'unclassified' || a.posture?.state === 'unreadable');
+  const title = document.getElementById('fleet-view-title');
+  if (title) {
+    const [, label] = FLEET_VIEWS.find(([k]) => k === fleetState.view) || ['all', 'All agents'];
+    const n = agents.filter((a) => inFleetView(a, fleetState.view)).length;
+    title.innerHTML = `${esc(label)} <span class="muted" style="font-weight:400;font-size:var(--fs-title-s)">${n} of ${agents.length}</span>`;
+  }
+}
+
 function applyFleetFilters(agents) {
   const { domain, activity, health } = fleetState.filters;
   const q = (fleetState.search || '').toLowerCase().trim();
   return agents.filter(a => {
+    if (!inFleetView(a, fleetState.view)) return false;
     if (q && !a.slug.toLowerCase().includes(q) && !(a.description || '').toLowerCase().includes(q)) return false;
     if (domain !== 'all' && a.domain !== domain) return false;
     // `used` = has at least one verdict, not retired. Default filter.
@@ -8406,43 +8475,92 @@ function budgetChip(b) {
 function renderFleetList() {
   const el = document.getElementById('fleet-list');
   if (!el) return;
+  renderFleetViews();
   const filtered = sortFleet(applyFleetFilters(fleetState.agents));
   if (!filtered.length) {
-    el.innerHTML = '<li class="empty" style="padding:20px;text-align:center;color:var(--text3)">No agents match these filters.</li>';
+    el.innerHTML = '<li class="empty" style="padding:20px;text-align:center;color:var(--text3)">No agents match this view.</li>';
     return;
   }
-  el.innerHTML = filtered.map(a => {
-    const rate = a.success_rate;
-    const rateLabel = rate != null ? `${rate}% ok` : 'no verdicts';
-    const lastRunStr = a.last_run ? agoStr(a.last_run) : 'never run';
-    const savingsStr = a.savings_x != null ? `${a.savings_x}× savings` : '';
-    const runsStr = `${a.runs_30d} run${a.runs_30d === 1 ? '' : 's'} 30d`;
-    return `<li>
+  // Groups come from deriveDomain() on the server — one taxonomy, not two. A
+  // group with rows in this view is expanded; the rest are one line each with
+  // their count, so 70 agents fit a screen without a scroll or a virtualizer.
+  const DOMAINS = ['arch', 'security', 'qa', 'ops', 'domain', 'pm', 'memory', 'other'];
+  const totals = {}; for (const a of fleetState.agents) totals[a.domain] = (totals[a.domain] || 0) + 1;
+  const byDomain = {}; for (const a of filtered) (byDomain[a.domain] = byDomain[a.domain] || []).push(a);
+  const order = [...DOMAINS, ...Object.keys(byDomain).filter((d) => !DOMAINS.includes(d))];
+  const expanded = order.filter((d) => (byDomain[d] || []).length);
+  const collapsed = order.filter((d) => !(byDomain[d] || []).length && totals[d]);
+  const rows = expanded.map((d) => `
+    <li class="fleet-group-head"><span>${esc(d)} · ${byDomain[d].length} of ${totals[d] || 0}</span></li>
+    ${byDomain[d].map(agentRowHtml).join('')}`).join('');
+  const tail = collapsed.length
+    ? `<li class="fleet-group-collapsed">${collapsed.map((d) => `<span title="no ${esc(d)} agent is in this view">${esc(d)} · 0 of ${totals[d]}</span>`).join('')}</li>`
+    : '';
+  el.innerHTML = rows + tail;
+}
+
+// AgentRow (DESIGN §6.4 / §8.5): slug · posture · last verdict · runs · pass · 30d $.
+// Numbers that can be summed are tabular and right-aligned; identifiers are not.
+// Every absence carries its reason on hover.
+function postureChips(a) {
+  const p = a.posture || {};
+  const out = [];
+  if (p.state === 'expensive') {
+    const first = (p.expensive || [])[0] || 'expensive';
+    const more = (p.expensive || []).length - 1;
+    out.push(`<span class="pos exp" title="${esc((p.expensive || []).join(' · '))}">▲ ${esc(first)}${more > 0 ? ` +${more}` : ''}</span>`);
+  } else if (p.state === 'routine') {
+    out.push('<span class="pos rou" title="every granted tool is routine — cheap to undo">· routine</span>');
+  } else if (p.state === 'unclassified') {
+    out.push(`<span class="pos unj" title="${esc((p.unknownTools || []).join(', ') || 'a tool agent-posture.mjs does not classify')} — unjudged, not harmless">? not classified</span>`);
+  } else if (p.state === 'undeclared') {
+    out.push('<span class="abs" title="the agent declares no tools: line — nothing is granted, nothing is known">— no tools line</span>');
+  } else {
+    out.push(`<span class="abs" title="${esc(p.why || 'the agent file could not be read')}">! unreadable</span>`);
+  }
+  for (const t of (p.scopedInNameOnly || [])) {
+    out.push(`<span class="pos warn" title="scoped in name only: ${esc(t)} — this grant reads as a restriction and is a full shell">⚠ ${esc(String(t).replace(/^Bash\(|\)$/g, ''))}</span>`);
+  }
+  return out.join('');
+}
+function agentRowHtml(a) {
+  const rate = a.success_rate;
+  const runs = a.runs_30d ?? 0;
+  const observed = a.runs_total > 0 || !!a.last_run;
+  const last = observed
+    ? (a.health === 'failing' ? `<span style="color:var(--status-blocked)">failing</span> ${esc(agoStr(a.last_run))}` : `<span style="color:var(--status-done)">ok</span> ${esc(agoStr(a.last_run))}`)
+    : '<span class="abs" title="no verdict line names this agent — absence of a log is not absence of a run">never observed</span>';
+  const pass = !observed ? '<span class="abs" title="never observed">—</span>'
+    : runs === 0 ? '<span class="abs" title="no run in this window — measured, none">—</span>'
+    : rate != null ? `${rate}%` : '<span class="abs" title="runs exist but no verdict carried a result yet">·</span>';
+  const spend = a.llm_usd_30d_real != null ? `$${a.llm_usd_30d_real.toFixed(2)}`
+    : a.llm_usd_30d_est != null && a.llm_usd_30d_est > 0 ? `<span title="estimated from time, not from a verdict">≈$${a.llm_usd_30d_est.toFixed(2)}</span>`
+    : `<span class="abs" title="no verdict carries a cost for this agent">—</span>`;
+  const model = a.model_state === 'pinned' && a.model ? esc(a.model)
+    : a.model_state === 'undeclared' ? '<span class="abs" title="declares no model — not pinned to any default">—</span>'
+    : '<span class="abs" title="the agent file could not be read">!</span>';
+  return `<li>
       <button class="agent-row status-${esc(a.health)}${a.retired ? ' retired' : ''}"
               role="button" data-slug="${esc(a.slug)}"
-              aria-label="${esc(a.slug)} · ${esc(a.health)} · ${rateLabel} · ${esc(lastRunStr)}${a.budget && a.budget.state !== 'no-limit' ? ' · ' + esc(a.budget.why) : ''}"
+              aria-label="${esc(a.slug)} · ${esc(a.health)} · ${runs} runs 30d"
               onclick="openAgentDrawer('${esc(a.slug)}')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();openAgentDrawer('${esc(a.slug)}')}">
         <span class="ar-status" aria-hidden="true"></span>
         <span class="ar-body">
-          <span class="ar-name">${esc(a.slug)}</span>
-          <span class="ar-meta">
-            <span class="ar-domain">${esc(a.domain)}</span>
-            <span>${esc(runsStr)}</span>
-            <span>${esc(rateLabel)}</span>
-            <span>last: ${esc(lastRunStr)}</span>
-            ${savingsStr ? `<span>${esc(savingsStr)}</span>` : ''}
+          <span class="ar-name">${esc(a.slug)} <span class="mono cap muted" style="font-weight:400">${model}</span></span>
+          <span class="ar-cells">
+            <span class="ar-posture">${postureChips(a)}</span>
+            <span class="mono cap ar-last">${last}</span>
+            <span class="mono cap tab" title="runs in the last 30 days">${runs}</span>
+            <span class="mono cap tab" title="pass rate over those runs">${pass}</span>
+            <span class="mono cap tab" title="LLM spend, last 30 days">${spend}</span>
             ${budgetChip(a.budget)}
             ${a.retired ? '<span style="color:var(--agent-retired)">retired</span>' : ''}
           </span>
         </span>
-        <span class="ar-rail" aria-hidden="true">
-          ${rate != null ? `<span class="ar-rail-fill" style="width:${rate}%"></span>` : ''}
-        </span>
         <span class="ar-chev" aria-hidden="true">›</span>
       </button>
     </li>`;
-  }).join('');
 }
 
 function renderLegacyAgentsSection() {
