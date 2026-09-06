@@ -17,6 +17,103 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.26.2 — 2026-09-06
+
+Three things that were being thrown away in silence: two CSS rules the parser
+discarded, and every document under a two-letter directory.
+
+Most of this release was found and written by a **second Claude Code session**
+working in its own worktree, reviewing the board while this one shipped 3.26.1.
+Two agents on one repository, correcting each other — including several times in
+both directions.
+
+### Fixed
+
+- **Two CSS rules were not unstyled — they never parsed.** A stray `}` at the
+  top level of a stylesheet is not an error CSS reports: it *opens* a qualified
+  rule whose prelude runs to the next `{`, swallowing the comment and selector
+  after it and dropping the rule that follows. There were two, both confirmed
+  against the browser's own engine:
+  - **`.icon-btn`** — a brace left behind when `.leash-chip` was deleted ate the
+    base rule (30×30, inline-flex centring). The icon buttons have been rendering
+    at the browser's default size, beside an `.icon-btn:hover` that still worked.
+  - **`.budgets-table`** — a commit normalising font weights overwrote the
+    selector `.budgets-table th` with a bare `.` and left a duplicate
+    `id var(--border);` fragment. The invalid prelude reached forward and took
+    `td`'s block with it, so the budgets table has had **no header styling and no
+    cell padding or borders**. `th[title] { cursor: help }` survived one rule
+    further down, so the headers still changed the cursor on hover and the table
+    read as styled — which is most of why nobody caught it.
+- **No guard could see either.** `css-tokens` checks `var()` tokens;
+  class-parity checks classes. A rule that never parses declares no class, so
+  every check agreed the file was fine. `scripts/lib/css-classes.mjs` now reads
+  classes out of selector **preludes** — `.a.b:hover` and `.x .y` count as
+  declarations, and `url(logo.png)` no longer silently exempts a real `.png` —
+  and reads `className =` and `classList.*` as well as `class="…"`: 411 classes
+  seen where scanning markup alone saw 400. It checks for stray braces directly.
+  Twelve classes were undeclared, not the fourteen first counted — four are
+  declared as compound selectors, and `.why-` was never a class at all: it is a
+  comment quoting `class="why why-"` to explain that very bug.
+- **`docs/qa/` was being dropped as a translation.** `IS_TRANSLATION` matched any
+  two-letter directory, so `docs/qa/`, `docs/ai/`, `docs/ci/`, `docs/ux/` and
+  `docs/db/` read as language codes and their documents vanished from the board's
+  docs tab and from the link graph — silently, because a dropped document
+  declares nothing that could go missing. A translation is now recognised
+  **structurally**: a file under a two-letter directory whose *name* also exists
+  outside every such directory. No whitelist to rot, and it self-corrects when a
+  language is added.
+  - **Visible consequence, stated because it hides inside a regex fix:**
+    `docs/qa/` drafts now appear on the board's docs tab. That is the intended
+    direction — the board is a local tool and should show drafts.
+- **The orphan ratchet counted the machine, not the repository.** `listDocs`
+  walks docs/ on disk, so gitignored local files counted: one checkout reported
+  55 of 164 where a clean one reported 49 of 157. The filter went into the
+  **test**, not the reader — making the reader git-aware would have fixed the
+  count by breaking the board's docs tab. Verified in two checkouts, converging
+  on the same number in each.
+
+### Three changes you will see
+
+Repairing classes that were declared nowhere means the elements using them stop
+rendering as browser defaults. All three are intended, and all three were
+measured in a real browser rather than reasoned about:
+
+| | before | after |
+|---|---|---|
+| **`.btn` ×3** — "Replace"/"Connect" in the judge-status form, "Try again" in the budgets failure card | bare user-agent button | the house solid pill (`.btn-black`) |
+| **`#session-q`** — the Sessions search box | user-agent input, 147px | house input, 202px |
+| **`.sr-only`** | inline `left:-10000px` | `clip-path: inset(50%)` — nothing visible either way, but an off-screen box still counts as layout and widened the page in RTL |
+
+The search box sits flush to the right edge at 375px. That is pre-existing and
+symmetric — `.panel` has `padding: 0` at that width and the heading is equally
+flush at left 0 — confirmed by disabling the new rule at runtime and
+re-measuring: the input still ends at 375, page `scrollWidth` equals
+`clientWidth`, no horizontal scroll.
+
+### Known, and not fixed here
+
+`tests/board-gate.test.mjs` flakes roughly one run in two under a full gate,
+including after the Beads schema migration on an idle machine — nine full runs,
+four reds, a different test each time. The cause is now known and is in a test
+helper, not in the product: `spawnSync` returns `status: null` when it cannot
+run or reap the child, `null !== 0` fires the failure branch, and bd's own
+success banner gets printed under the words "bd init failed". The test cannot
+tell "bd said no" from "we could not run bd", and the `bd show` site returns
+`null` for both — so a could-not-spawn reads as "the task does not exist".
+
+Not fixed in this release because it touches no shipped code and the repair
+needs a measured rate rather than two green runs to be worth believing.
+
+### A test assertion changed, deliberately
+
+`doc-links.test.mjs` asserted that *no* file under a two-letter directory is a
+document — the buggy rule, written down as a guarantee. It now asserts the real
+property: real translations are excluded, topic directories are not. The reason
+is in the test, so the next reader does not mistake it for a weakened check.
+
+---
+
 ## v3.26.1 — 2026-09-06
 
 A review that did not happen told the reader to fix the wrong thing.
