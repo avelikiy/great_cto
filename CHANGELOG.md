@@ -18,6 +18,102 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.26.3 — 2026-09-06
+
+The agent's own configuration is now scanned as an attack surface, and the two
+halves of a Codex install can no longer be different versions of this product.
+
+### What's new
+
+- **`agent-shield` — the config read as an attack surface.** `agent-posture`
+  (3.24.0) says what a tool grant *permits*; this says what is actually *in* the
+  files. A hook is a shell command that runs on every session of every user who
+  installs the plugin; an MCP server is a binary it starts; an agent's
+  frontmatter is text that reaches the model. Nothing was reading any of them.
+  - **Blocks:** a hook or MCP command that downloads and pipes into an
+    interpreter; a secret written literally into a hook, an MCP `env`, or an
+    agent's frontmatter. The last one is not hypothetical here — a key in a
+    context file once reached 605 transcripts, and revocation was the only fix.
+  - **Warns:** a hook ending in `|| true`, which cannot fail and therefore
+    cannot block; an MCP command outside the known interpreters — reported as
+    **"unrecognised, not forbidden"**, because a guard that calls the unfamiliar
+    malicious teaches people to ignore it.
+  - **Three states, three exit codes:** `ok` 0, `blocked` 1, **`unscannable` 2**.
+    A section that could not be read is never reported as a section that was read
+    and found clean, and one unreadable section cannot make the rest say `ok`.
+  - It reuses the shipped `secret-patterns` rather than a second copy — a second
+    list is a list that drifts, and that one has already learned that `\b` before
+    `secret_access_key` cannot match `aws_secret_access_key`.
+  - On this repository: 27 hooks, 1 MCP server, 70 agents scanned; **0 blocking,
+    0 unscannable**, 8 advisory `|| true` hooks that are deliberate and are now
+    at least visible. Asserted as a test, because a guard that is not true of us
+    is not a guard.
+  - Shape borrowed from ECC's AgentShield (MIT, as here); the rules are ours.
+
+### Fixed — the board answered questions it had never asked
+
+Mapping the board against its own API turned up seven places where a value that
+was never measured rendered as a measured one. Each is the same defect in a
+different costume, and the first is the one that matters:
+
+- **A security scan that never ran displayed as a passing scan, in green.**
+  `m.security?.blocked ?? 0` with `cls: … ? 'red' : 'green'` meant a project with
+  no security data showed **"Open security blocks: 0"** in the colour that means
+  safe. The tile one line above it goes out of its way to avoid exactly this.
+  Now `n/a` with no colour and the reason on hover — *"no security scan has run
+  — this is not a clean result"*. Green claims safe, red claims unsafe; neither
+  was known.
+- **"Rework rounds: 0"**, same shape, same fix.
+- **The live indicator shipped asserting a sync that had not happened.** The
+  markup said `live · synced just now` before any connection existed, and stayed
+  that way forever if neither SSE handler fired. It ships as `connecting…` now,
+  with a third CSS state of its own.
+- **`/api/agents-installed` never read `tools:`.** `agent-posture.mjs` has
+  classified tool grants since 3.24.0 — code.destructive, credential.read,
+  communication.external.send, payments — and the board had nowhere to get them.
+  Every agent row now carries a posture in **five** states: `expensive`,
+  `routine`, `unclassified`, `undeclared`, `unreadable`.
+- **An agent that pinned no model was reported as pinned to sonnet.**
+  `model: modelM?.[1] || 'sonnet'` collapsed "pinned to sonnet", "declares no
+  model" and "the file could not be read" into one string. `model` is `null`
+  when unpinned now, beside a `model_state` that says which of the three it is.
+- **`/api/heartbeat.stuck` was always empty, and always had been.** It read
+  `t.startedAt`, a field no code path in this repository produces, so every row
+  got `age_h: null` and the filter removed all of them — the panel reported
+  "nothing is stuck" about a question it never asked. It reads `updated_at` now,
+  and a task whose age cannot be determined is **counted**, not dropped. There
+  were seven in-progress tasks here when this was found.
+- **`savings_x` per agent was 500 by construction** — both sides of the ratio are
+  a run count times the same constant, so it was the rate ratio for every agent
+  that ran at all. `metrics.mjs` nulls its equivalent for that reason; the fleet
+  shipped it as a per-agent measurement. Labelled `savings_source: 'ratio'`.
+
+### Fixed — a timeout below its own measured runtime
+
+`layout-snapshot`'s browser test was capped at 240s and takes **148s on a quiet
+machine** — a 38% margin, which a full gate eats. Nine gate runs on 2026-09-06
+produced four reds and this was among them; in isolation it passes 8/8. Raised
+to 600s, with the measurement written into the file.
+
+This is the same defect the bd timeout caps had, and the same fix: a cap set
+below the measured worst case turns a busy dependency into a broken one.
+
+### Fixed
+
+- **A Codex install could run two different versions of this product.**
+  `.codex-plugin/mcp.json` started the MCP server with `npx great-cto@latest`,
+  which is not a version at all: a user on plugin 3.26.0 would get the MCP server
+  from whatever npm had published since, and during any release window the two
+  halves disagree by construction. It is pinned to the plugin's own version now,
+  `bump-version.sh` keeps them in lockstep, and a missing manifest there is fatal
+  rather than skipped. A test fails if `@latest` ever comes back.
+  - Found by asking Codex to audit its own support here — the third real defect
+    that audit has produced, after the README overclaim and the `adapt` generator
+    writing a hooks file nothing reads.
+
+---
+
 ## v3.26.2 — 2026-09-06
 
 Three things that were being thrown away in silence: two CSS rules the parser
