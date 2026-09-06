@@ -141,6 +141,12 @@ EXCLUDE_PATHS=(
 _STOPWORDS=" the and or for with from this that a an of to in on at is are be by
  it as not but if then else when where project projects work personal src lib bin
  docs doc test tests script scripts tools tool main app api web core data build dist node "
+# The list is written across lines for reading, and the match below asks for
+# " word " with a space on both sides. A word that ends a line was followed by a
+# newline instead, so `bin` — last on its line — was never rejected and the
+# derived term from a nested bin/ directory blocked a push over
+# GREAT_CTO_CODEX_BIN (2026-09-06). Newlines become spaces before any compare.
+_STOPWORDS=$(printf '%s' "$_STOPWORDS" | tr '\n' ' ')
 
 TERMS_RE=""
 _REJECTED_TERMS=()
