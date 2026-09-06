@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 
@@ -216,15 +216,28 @@ test('an approval does not override the refusals, only the shortcut', () => {
 test('a board answering for ANOTHER project (fallback header) is not a hint about this one', async () => {
   // A stand-in board: knows no project, serves its own, and says so — exactly
   // what a real board does for an unregistered directory.
+  //
+  // The hook runs ASYNCHRONOUSLY here. The first version used execFileSync,
+  // which blocks this process's event loop — the very loop the stand-in server
+  // needs to answer — so the hook's 400ms fetch timed out, returned null, and
+  // the test passed without the server ever being asked. Found by the Codex
+  // second opinion on this diff, 2026-09-06. The request count is asserted so
+  // the case cannot pass vacuously again.
+  let asked = 0;
   const srv = http.createServer((req, res) => {
+    asked += 1;
     res.writeHead(200, { 'Content-Type': 'application/json', 'X-Project-Resolved': 'fallback', 'X-Project-Serving': 'somebody-else' });
-    res.end(JSON.stringify([{ id: 'x-1', title: 'gate:ship — someone else\'s release', status: 'open', labels: ['gate'], updated_at: new Date().toISOString() }]));
+    res.end(JSON.stringify([{ id: 'x-1', title: 'gate:ship — someone else\'s release', status: 'open', is_gate: true, labels: ['gate'], updated_at: new Date(Date.now() - 3 * 24 * 3600_000).toISOString() }]));
   });
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   const port = String(srv.address().port);
   const dir = project({ verdictAgeMs: 7 * 24 * 3600_000 });
   try {
-    const { out } = run(dir, { GREAT_CTO_BOARD_PORT: port });
+    const out = await new Promise((resolve, reject) => {
+      execFile('node', [HOOK], { cwd: dir, encoding: 'utf8', env: { ...process.env, GREAT_CTO_BOARD_PORT: port } },
+        (err, stdout) => (err ? reject(err) : resolve(stdout)));
+    });
+    assert.equal(asked, 1, 'the hook asked the stand-in board');
     assert.equal(out.trim(), '', 'nothing is announced on behalf of another project');
     assert.match(traceOf(dir), /idle/, 'the hook records that this project is idle');
   } finally { clean(dir); srv.close(); }
