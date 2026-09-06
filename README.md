@@ -68,7 +68,7 @@ approval-level: ship-only
 See [When it asks you](#when-it-asks-you).
 
 <p align="center">
-  <img src="docs/screenshots/board.png" alt="The board's Tasks screen — gates awaiting a decision, backlog, work in progress, done and blocked, each card showing the agent that owns it" width="900" />
+  <img src="docs/screenshots/board.png" alt="The board's Decisions screen — every waiting gate as one row: its cost of undo, both reviewers' verdicts, and an Approve that asks for the gate's name when undoing would be expensive" width="900" />
 </p>
 
 <p align="center">
@@ -76,7 +76,14 @@ See [When it asks you](#when-it-asks-you).
 </p>
 
 The board at `localhost:3141` fills itself in — pipeline state, pending gates,
-per-agent cost, 30-day spend. You do not feed it; you check it.
+per-agent cost, 30-day spend. You do not feed it; you check it. Four screens,
+one question each: **Decisions** (what needs you — every gate with both
+reviewers' verdicts, sorted by cost of undo), **Ledger** (what it cost and what
+is running), **Fleet** (which agent to stop trusting — its tool grant, its
+runs, its spend), **Harness** (who is host, who gives the second opinion, and
+what it actually did). Settings sits behind the gear; `⌘K` finds any agent,
+doc, session, memory or decision by name. Nothing on it renders an absence
+as a pass — a scan that never ran is `n/a`, never a green zero.
 
 ## Numbers, measured
 
@@ -136,7 +143,7 @@ and on every high-stakes change the Claude `code-reviewer` and **`codex exec`**
 (read-only sandbox, your Codex login, no API key) review the **same diff at the
 same time**. Findings merge; a P0 from either side blocks; where they disagree,
 both sets reach the human at the gate — the stricter one sets the verdict, and
-nobody averages. The board's **Harnesses** card detects Codex, holds the switch,
+nobody averages. The board's **Harness** screen detects Codex, holds the choice,
 and shows beside it what the second opinion *did*: every run, including skipped
 ones, from `.great_cto/cross-review.log`. Four states, and the fourth is the
 point — *declared but unavailable* is never shown as *off*.

@@ -79,7 +79,7 @@ annotations inline on PR diffs. Exit codes: 0 clean / 1 findings / 2 setup error
 
 Five events that need you within two hours get emailed — no Resend account, no
 API keys; delivery routes through `greatcto.systems/notify` (free, 100
-emails/24h per verified address). Setup: board → Notifications → verify your
+emails/24h per verified address). Setup: board → Settings → Email alerts → verify your
 email → pick triggers.
 
 | Trigger | When |

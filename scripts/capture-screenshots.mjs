@@ -35,12 +35,13 @@ const CHECK = process.argv.includes('--check');
 
 /** Panel id (data-tab) → output file. */
 const SHOTS = [
-  { tab: 'inbox', file: 'inbox.png', settle: 1500 },
-  { tab: 'kanban', file: 'board.png', settle: 1500 },
-  { tab: 'dashboard', file: 'metrics.png', settle: 2000 },
-  { tab: 'docs', file: 'docs.png', settle: 2000 },
-  { tab: 'budgets', file: 'budgets.png', settle: 1500 },
-  { tab: 'logs', file: 'activity.png', settle: 1500 },
+  // The redesign's screens (great_cto-ki1x.26). `board.png` is the one README
+  // embeds, so it shows the screen the board opens on.
+  { tab: 'decisions', file: 'board.png', settle: 1500 },
+  { tab: 'ledger', file: 'ledger.png', settle: 2000 },
+  { tab: 'fleet', file: 'fleet.png', settle: 2000 },
+  { tab: 'harness', file: 'harness.png', settle: 2000 },
+  { tab: 'settings', file: 'settings.png', settle: 1500 },
 ];
 
 const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'cli', 'package.json'), 'utf8')).version;
@@ -120,7 +121,7 @@ async function main() {
     // Not `networkidle`: the board holds an SSE stream open for live updates, so
     // the network is never idle and the wait can only time out.
     await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.waitForSelector('[data-tab="inbox"]', { timeout: 30_000 });
+    await page.waitForSelector('[data-tab="decisions"]', { timeout: 30_000 });
     await sleep(2500);
 
     const destDir = CHECK ? fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-shots-')) : OUT;
