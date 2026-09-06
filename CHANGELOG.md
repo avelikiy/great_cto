@@ -15,6 +15,61 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.26.0 — 2026-09-06
+
+Claude Code and OpenAI Codex now work on the same task at the same time — and
+the switch is on the board.
+
+### What's new
+
+- **Codex reviews beside the Claude reviewer.** For high-stakes changes the
+  cross-model red-team and `independent-verify`'s second judge can run through
+  **`codex exec`** — a read-only sandbox, `--ephemeral`, authenticated by your
+  Codex login, **no API key**. Codex runs *in parallel* with the Claude reviewer
+  on the same diff; findings merge; a P0 from either side blocks; disagreement
+  escalates to the human at the gate. That rule was already right — it just had
+  one model family on both sides.
+- **One decision, read by everyone.** `capabilities: second_opinion: codex |
+  openrouter | none` in `PROJECT.md`. The reviewer, the verifier and the board
+  read the same line, so they cannot disagree about it. **Four states**:
+  `declared`, `none`, `undeclared`, and `unavailable` — declared Codex, no
+  working Codex here — which is never folded into `none`. An absent reviewer
+  must not read as a decision not to review.
+- **Harnesses card on the dashboard.** Claude Code as host; Codex *detected* in
+  three states (absent / not logged in / available, with version, auth mode and
+  the model it will run); the switch; and beside it the tail of
+  `.great_cto/cross-review.log` — what the second opinion **did**, not what it
+  is set to. Choosing Codex on a machine without one succeeds as a declaration
+  and answers `unavailable` at the click. `GET /api/harnesses`,
+  `POST /api/harnesses/second-opinion`.
+- **The feature reviewed itself, and found two bugs.** The first real Codex
+  review — of the commit that wired Codex in — reported a P1: `second_opinion:
+  none` still fell through to the router judge, an opt-out that opted back in.
+  The same run logged `cost: 0` for an unpriced model. Both fixed before this
+  release; the second review of the fix returned zero findings and
+  `cost unpriced`. Both runs are on the card, oldest included.
+
+### Fixed
+
+- **`cross-model-review` exited 1 for a missing key — the BLOCK code.** "The
+  review blocked this" and "the review did not happen" were one number. SKIPPED
+  is exit **3** now, and `code-reviewer` is told to read the code, not the prose:
+  never write PASS for a review that did not happen.
+- **The capability key regex dropped every key with an underscore** as
+  `undeclared` — the state that means "nobody said".
+- **`GREAT_CTO_CODEX_BIN`** is the one lever for the Codex binary across the
+  reviewer, the verifier and the board's detector.
+
+### Not built, on purpose
+
+Dual-run of implementation (Codex in a worktree on the same task — doubles every
+task's cost, needs a merge policy) and routing pipeline stages to Codex (a
+harness with no role agents). Hooks, slash commands and role agents on Codex
+remain an upstream limitation.
+
+---
+
 ## v3.25.0 — 2026-09-05
 
 Every model the plugin chooses is now a current one. Nothing else changed in
