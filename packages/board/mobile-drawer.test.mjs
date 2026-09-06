@@ -68,7 +68,9 @@ test('visibility is switched, never eased', () => {
   // mark: the drawer is invisible for the first half of its own slide-in and —
   // worse — still unfocusable at the instant openMenu() moves focus into it,
   // which left focus on the button and the menu unreachable by keyboard.
-  assert.match(mobileBlock, /transition: transform 200ms ease-out, visibility 0s linear 200ms;/,
+  // Exit faster than enter (DESIGN §10): 140ms in, and visibility switches only
+  // once the slide has finished — still switched, never eased.
+  assert.match(mobileBlock, /transition: transform 140ms ease-in, visibility 0s linear 140ms;/,
     'on the way out it waits for the slide to finish');
   assert.match(mobileBlock, /\.sidebar\.open \{[\s\S]*?transition: transform 200ms ease-out, visibility 0s;/,
     'on the way in it flips immediately');
@@ -167,7 +169,7 @@ test('the phone keeps where you are, not the whole path', () => {
 
 // ── Tablet breakpoint (768–1199px: icon rail) ───────────────────────────────
 
-test('the 768–1199 breakpoint collapses sidebar to 56px icon rail', { skip: 'RED until great_cto-ki1x.13 lands' }, () => {
+test('the 768–1199 breakpoint collapses sidebar to 56px icon rail', () => {
   // At 768–1199px (tablet), the sidebar collapses from 240px to 56px showing icons only.
   // Labels appear in title/aria-label attributes, not on-screen text.
   const TABLET = '@media (min-width: 768px) and (max-width: 1199px)';
@@ -178,7 +180,7 @@ test('the 768–1199 breakpoint collapses sidebar to 56px icon rail', { skip: 'R
     'sidebar width is 56px in tablet view');
 });
 
-test('icon rail nav items carry accessible labels', { skip: 'RED until great_cto-ki1x.13 lands' }, () => {
+test('icon rail nav items carry accessible labels', () => {
   const TABLET = '@media (min-width: 768px) and (max-width: 1199px)';
   const at = html.indexOf(TABLET);
   if (at < 0) {
@@ -198,7 +200,7 @@ test('icon rail nav items carry accessible labels', { skip: 'RED until great_cto
   }
 });
 
-test('tablet media query sits AFTER desktop rules it overrides', { skip: 'RED until great_cto-ki1x.13 lands' }, () => {
+test('tablet media query sits AFTER desktop rules it overrides', () => {
   const TABLET = '@media (min-width: 768px) and (max-width: 1199px)';
   const at = html.indexOf(TABLET);
   if (at < 0) {
@@ -223,7 +225,7 @@ test('at 375px, no horizontal scroll on existing tabs', () => {
     'gate buttons use flex to fit container width');
 });
 
-test('all interactive elements meet 44px touch target minimum', { skip: 'RED until selectors unified' }, () => {
+test('all interactive elements meet 44px touch target minimum', () => {
   // At 375px, every button, [role=button], .nav-item, label.radio, .copy must
   // have computed min-height >= 44px. The @media (pointer: coarse) rule provides
   // a global floor, but exceptions and new controls must opt-in or out explicitly.
@@ -240,7 +242,7 @@ test('all interactive elements meet 44px touch target minimum', { skip: 'RED unt
     '.copy has min-height 44px');
 });
 
-test('gate actions stack at 375 when full-width required', { skip: 'RED until gate actions styled' }, () => {
+test('gate actions stack at 375 when full-width required', () => {
   // At 375px on an EXPENSIVE gate (Reject/Approve pair), actions must stack
   // vertically, each taking ≥90% of content width. ROUTINE gates may sit
   // side by side if both reach ≥44px. This is a layout rule in the mobile block.

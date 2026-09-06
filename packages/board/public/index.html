@@ -3045,6 +3045,29 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 @media (max-width:480px) {
 .chip-filter-bar { flex-direction: column; align-items: stretch; }
 }
+/* ── Motion contract (DESIGN §10, MOTION_INTENSITY 2/10): motion for state the
+   operator caused, none for state the machine caused. Hover and focus 90ms
+   linear; the drawer 200ms out / 140ms in (exit faster than enter); SSE
+   arrival 0ms — rows and figures swap, they do not animate in. ── */
+.nav-item, .nav-view-item, .agent-row, .inbox-row, .gate-btn, .btn-black, .btn-ghost-sm, .pill, .so-option { transition: background-color 90ms linear, border-color 90ms linear, outline-color 90ms linear; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
+/* ── 768–1199: the sidebar becomes a 56px icon rail (DESIGN §9). Labels leave
+   the screen but not the element — every nav item carries its name as
+   aria-label and title. The Views block and the switcher's text go with the
+   labels; the destinations stay one tap away. ── */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .sidebar { width: 56px; }
+  .nav-item { justify-content: center; padding: 0; gap: 0; }
+  .nav-item > span { display: none; }
+  .nav-item .count.abs { display: inline; position: absolute; top: 2px; right: 6px; }
+  .nav-item { position: relative; }
+  .nav-divider, .nav-views-label, .nav-views { display: none; }
+  .proj-switch > :not(.proj-arch-icon):not(svg) { display: none; }
+  .proj-switch { justify-content: center; padding: 14px 8px; }
+  #live-label { display: none; }
+}
 @media (max-width: 768px) {
   .settings-row { grid-template-columns: 1fr; gap: 6px; }
   .sr-action { justify-content: flex-start; }
@@ -3057,7 +3080,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   /* The one asymmetry DESIGN §3.2 draws: an expensive or unclassified gate's
      Reject/Approve stack full-width at phone width; a routine gate's may sit
      side by side. Cheap and expensive must not share a motor cost. */
-  .inbox-row .actions.gate-actions-stack { flex-direction: column; align-items: stretch; flex-basis: 100%; }
+  .inbox-row .actions.gate-actions-stack { flex-wrap: wrap; flex-direction: column; align-items: stretch; flex: 1 0 100%; }
   .inbox-row .actions.gate-actions-stack .gate-btn { width: 100%; min-height: 44px; }
   .gate-review { flex-basis: 100%; }
 
@@ -3073,7 +3096,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
        focus on the button and the menu unreachable by keyboard. On the way out
        it waits for the slide to finish (`0s linear 200ms`), so the panel does
        not vanish mid-animation. */
-    transition: transform 200ms ease-out, visibility 0s linear 200ms;
+    transition: transform 140ms ease-in, visibility 0s linear 140ms;
     box-shadow: none;
   }
   .sidebar.open {
@@ -3165,7 +3188,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
      So: every control gets the floor, and the ones with something to say about
      their own size say it after. A button added tomorrow is covered by default;
      one that must stay small has to opt out in writing. */
-  button, [role="button"], .nav-item, .toggle, summary { min-height: 44px; }
+  button, [role="button"], .nav-item, .toggle, summary, label.radio, .copy, .so-option, .nav-view-item { min-height: 44px; }
   .gate-btn, .inbox-row .actions .gate-btn { height: 44px; font-size: var(--fs-body); }
   .menu-btn { width: 44px; height: 44px; }
   .btn-bell { min-width: 44px; justify-content: center; }
@@ -3224,12 +3247,12 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
          reachable from the topbar gear, not a fifth item here (kept under the
          ≤5 ceiling `ui-ux-pro-max` sets for the same nav to also serve mobile). -->
     <nav class="nav" id="nav-tablist" role="tablist" aria-orientation="vertical">
-      <div class="nav-item active" data-tab="decisions" role="tab" tabindex="0" onkeydown="navTabKeydown(event, this)" onclick="switchTab('decisions', this)">
+      <div class="nav-item active" data-tab="decisions" role="tab" tabindex="0" aria-label="Decisions" title="Decisions" onkeydown="navTabKeydown(event, this)" onclick="switchTab('decisions', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
         <span>Decisions</span>
         <span class="count" id="nav-inbox-count">0</span>
       </div>
-      <div class="nav-item" data-tab="ledger" role="tab" tabindex="0" onkeydown="navTabKeydown(event, this)" onclick="switchTab('ledger', this)">
+      <div class="nav-item" data-tab="ledger" role="tab" tabindex="0" aria-label="Ledger" title="Ledger" onkeydown="navTabKeydown(event, this)" onclick="switchTab('ledger', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         <span>Ledger</span>
         <!-- Real spend total is Ledger's own content (.7); this keeps the count
@@ -3237,7 +3260,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              than inventing a $ figure with nothing behind it yet. -->
         <span class="count" id="nav-budget-count"></span>
       </div>
-      <div class="nav-item" data-tab="fleet" role="tab" tabindex="0" onkeydown="navTabKeydown(event, this)" onclick="switchTab('fleet', this)">
+      <div class="nav-item" data-tab="fleet" role="tab" tabindex="0" aria-label="Fleet" title="Fleet" onkeydown="navTabKeydown(event, this)" onclick="switchTab('fleet', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h8M6 8v8M18 8v8M8 18h8"/></svg>
         <span>Fleet</span>
         <!-- The absence glyph, not a count (DESIGN §5): something in Fleet is
@@ -3245,7 +3268,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              Fleet screen body (.8/.9), out of this shell task's scope. -->
         <span class="count abs" id="nav-fleet-abs" hidden title="something in Fleet is unclassified — not a count">!</span>
       </div>
-      <div class="nav-item" data-tab="harness" role="tab" tabindex="0" onkeydown="navTabKeydown(event, this)" onclick="switchTab('harness', this)">
+      <div class="nav-item" data-tab="harness" role="tab" tabindex="0" aria-label="Harness" title="Harness" onkeydown="navTabKeydown(event, this)" onclick="switchTab('harness', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-5 3 10 2-5h7"/></svg>
         <span>Harness</span>
         <span class="count" id="nav-harness-count"></span>
