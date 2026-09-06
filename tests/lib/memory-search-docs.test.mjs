@@ -90,5 +90,17 @@ test('a mistyped source is refused, not silently searched as nothing', () => {
 test('summaries and translations are excluded, because doc-links defines the corpus', () => {
   const corpus = gatherCorpus({ cwd: ROOT, source: 'docs' });
   assert.equal(corpus.filter((d) => d.id.endsWith('.summary.md')).length, 0);
-  assert.equal(corpus.filter((d) => /^docs\/[a-z]{2}(-[A-Z]{2})?\//.test(d.id)).length, 0);
+  // NOT "nothing under a two-letter directory" — that shape was the bug, and it
+  // had been written down as a guarantee in two separate guards. `docs/qa/`,
+  // `docs/ai/`, `docs/ci/` are topic directories, and their documents belong in
+  // the searchable corpus. A translation is one whose NAME also exists outside
+  // every two-letter directory.
+  const lang = (id) => /^docs\/[a-z]{2}(-[A-Z]{2})?\//.test(id);
+  const names = new Set(corpus.filter((d) => !lang(d.id)).map((d) => d.id.slice(d.id.lastIndexOf('/') + 1)));
+  for (const d of corpus.filter((x) => lang(x.id))) {
+    assert.ok(!names.has(d.id.slice(d.id.lastIndexOf('/') + 1)),
+      `${d.id} mirrors a document of the same name — it is a translation and should not be in the corpus`);
+  }
+  assert.equal(corpus.filter((d) => /^docs\/(ru|de|es|fr|ja|ko|zh-CN|zh-TW|pt-BR)\//.test(d.id)).length, 0,
+    'every real language directory is still excluded');
 });

@@ -53,7 +53,21 @@ test('summaries and translations are copies, not documents', () => {
   // machine-written summary in the index beside the document it summarises.
   const docs = listDocs('docs');
   assert.equal(docs.filter((f) => f.endsWith('.summary.md')).length, 0);
-  assert.equal(docs.filter((f) => /^docs\/[a-z]{2}(-[A-Z]{2})?\//.test(f)).length, 0);
+  // NOT "nothing under a two-letter directory". That was the rule until
+  // 2026-09-06 and it read `docs/qa/`, `docs/ai/`, `docs/ci/` as language codes
+  // and dropped their documents silently. A translation is now recognised
+  // structurally — a file under a two-letter directory whose NAME also exists
+  // outside every such directory — so the assertion is that the real
+  // translations are gone, not that the directory shape is banned.
+  const underLangDir = docs.filter((f) => /^docs\/[a-z]{2}(-[A-Z]{2})?\//.test(f));
+  const names = new Set(docs.filter((f) => !/^docs\/[a-z]{2}(-[A-Z]{2})?\//.test(f))
+    .map((f) => f.slice(f.lastIndexOf('/') + 1)));
+  for (const f of underLangDir) {
+    assert.ok(!names.has(f.slice(f.lastIndexOf('/') + 1)),
+      `${f} mirrors a document of the same name and should have been excluded as a translation`);
+  }
+  assert.equal(docs.filter((f) => /^docs\/(ru|de|es|fr|ja|ko|zh-CN|zh-TW|pt-BR)\//.test(f)).length, 0,
+    'every real language directory is still excluded');
   assert.ok(docs.length > 100, 'the real documents are still there');
 });
 

@@ -32,13 +32,38 @@
  * authoring work, done deliberately, a few documents at a time.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
 /** Generated summaries and translations are copies, not documents. */
 const IS_SUMMARY = /\.summary\.md$/;
-const IS_TRANSLATION = /^docs\/[a-z]{2}(-[A-Z]{2})?\//;
 
+/**
+ * A two-letter directory is not evidence of a language.
+ *
+ * This used to be `/^docs\/[a-z]{2}(-[A-Z]{2})?\//`, which reads `docs/qa/`,
+ * `docs/ai/`, `docs/ci/`, `docs/ux/` and `docs/db/` as language codes and drops
+ * every document under them — silently, from the board's docs tab and from the
+ * link graph both, because a dropped document declares nothing that could go
+ * missing. `docs/qa/` was already being eaten; the rest were waiting.
+ *
+ * A whitelist of language codes would rot the first time someone adds one, so
+ * the test is STRUCTURAL instead: a translation MIRRORS a document at the docs
+ * root. `docs/ru/index.md` is a translation because `docs/index.md` exists;
+ * `docs/qa/QA-judge-provenance.md` is not, because `docs/QA-judge-provenance.md`
+ * does not. Measured across all ten two-letter directories here — de, es, fr,
+ * ja, ko, pt-BR, ru, zh-CN, zh-TW each mirror 1 of 1; qa mirrors 0 of 2 — and it
+ * self-corrects when a language is added or removed.
+ *
+ * Consequence worth stating, because it is a visible surface change hiding
+ * inside a classifier fix: `docs/qa/` drafts now APPEAR on the board's docs tab.
+ * That is the intended direction — the board is local and should show drafts —
+ * but it is not what a reader expects from a regex change.
+ */
+const LANG_DIR = /^docs\/[a-z]{2}(?:-[A-Z]{2})?\//;
+
+/** The basename a translation would be a translation OF. */
+const baseName = (rel) => rel.slice(rel.lastIndexOf('/') + 1);
 export function listDocs(root = 'docs') {
   // The translation rule is written against a path that starts at the docs
   // directory. `root` may be relative ('docs') or absolute (the board serves
@@ -47,7 +72,7 @@ export function listDocs(root = 'docs') {
   // matches nothing on an absolute walk and translations count as documents,
   // which is a wrong number that looks like a right one.
   const base = path.dirname(root);
-  const out = [];
+  const found = [];
   const walk = (dir) => {
     let entries;
     try { entries = readdirSync(dir); } catch { return; }
@@ -56,11 +81,24 @@ export function listDocs(root = 'docs') {
       let st;
       try { st = statSync(full); } catch { continue; }
       if (st.isDirectory()) walk(full);
-      else if (e.endsWith('.md') && !IS_SUMMARY.test(e) && !IS_TRANSLATION.test(path.relative(base, full))) out.push(full);
+      else if (e.endsWith('.md') && !IS_SUMMARY.test(e)) found.push({ full, rel: path.relative(base, full) });
     }
   };
   walk(root);
-  return out.sort();
+
+  // Two passes, because whether a file under a two-letter directory is a
+  // TRANSLATION depends on the rest of the tree: it is one when a document of
+  // the same name lives outside every language directory. One pass cannot know
+  // that, and the single-pass version of this rule only looked at the docs
+  // root — which called `docs/ru/ADR-001-a.md` a document because its source
+  // sits in `docs/adr/`.
+  const sources = new Set(
+    found.filter((f) => !LANG_DIR.test(f.rel)).map((f) => baseName(f.rel)),
+  );
+  return found
+    .filter((f) => !(LANG_DIR.test(f.rel) && sources.has(baseName(f.rel))))
+    .map((f) => f.full)
+    .sort();
 }
 
 /**
