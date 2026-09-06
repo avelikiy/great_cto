@@ -20,6 +20,98 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.27.0 — 2026-09-06
+
+The board is rebuilt. Eight tabs become four screens, each answering one
+question an operator actually asks, and nothing on it renders an absence as
+a pass.
+
+### The four screens
+
+- **Decisions** — every waiting gate as one row: a chip that says what
+  undoing would cost (solid for expensive, outline for routine, dashed for
+  unclassified — treated as expensive, because nobody judged it cheap), the
+  pipeline's own reviewer and the second opinion side by side, and the wait.
+  Rows sort by cost of undo. Approving an expensive or unclassified gate means
+  typing the gate's name; the consequence text names the cost-of-undo
+  categories. The Codex cell has four states and none of the three absences —
+  `not run`, `unmeasured`, `unreadable` — renders like a verdict or is
+  counted.
+- **Ledger** — spend with its provenance (`measured`, `estimated`, or
+  unmeasured; `no cap` when none is set, never `$0`), what is running now,
+  the stage strip from `shared/pipeline.toml`, the stuck list — a task whose
+  age cannot be read is counted as `+N?`, not dropped — and the caps table.
+  The old Metrics tab folds in here: its three-way figures (a zero is a
+  count, an absence names its kind) came with it; its vanity tiles did not.
+- **Fleet** — opens on *Needs attention*, not the roster: failing, an
+  unjudged posture, a grant scoped in name only, or spend past its cap. Five
+  saved views with live counts in the sidebar. Rows group by domain — one
+  taxonomy, the server's — and an agent row says what the agent may do:
+  `▲ code.destructive`, `· routine`, `? not classified`, `⚠ node:*` for a
+  Bash grant that is a full shell. `never observed`, never `0 runs`.
+  Agent detail carries the grant, the pinned model (or why there is none),
+  spend, tier and evals (`none` when measured and empty, `not measured`
+  when no tier was read), stand-downs, the last approval's receipt, and the
+  runs with their cost. `#/fleet/<slug>` deep-links it.
+- **Harness** — Claude Code and Codex as status, not switches (the board
+  cannot install Codex). The second opinion as declared → resolved here,
+  four options each carrying what it would resolve to *before* Save, and
+  the evidence table where a skipped or unreadable row is dimmed, carries no
+  verdict and no cost, and the summary counts runs, reviewed, skipped,
+  unreadable and blocked as five figures. The judge key says
+  `stored · not verified` — a stored key is not a working key.
+- **Settings** (behind the gear) — every write named by its file:
+  PROJECT.md (cap, second opinion, gate tiering, share), `~/.great_cto`
+  (judge key, Codex binary, telemetry — off, opt-in, read-only), the project
+  registry with a register form that names the HOME rule, and the alerts
+  the deleted tabs used to hold.
+- **⌘K** — one palette, extended: agents by slug, docs and sessions
+  searched server-side, memory layers and the decision log.
+
+### Gone, on purpose
+
+The kanban tab (the `#/kanban` deep link stays — revisited on 2026-09-20
+against a local per-view counter), the notifications and share tabs, the
+Metrics tab, and the tiles "Cost savings vs FTE", "Rework rounds", "Open
+security blocks", "Retire candidates", "Installed agents": fleet-wide
+aggregates over unmeasured inputs, one of them a green zero for a scan that
+never ran.
+
+### Under it
+
+- **Every cross-review log line carries `sha` and `dirty`** — the join key
+  the Decisions row needs. Additive only; absent → `null`, never omitted.
+  Approved at `gate:evidence-schema`. A line written before the field reads
+  as `unreadable`, never as a verdict — which today is every line, and the
+  board says so.
+- **`/api/inbox` resolves the second opinion for the tree at HEAD** once;
+  `/api/harnesses` classifies parsed-but-unpaired lines and counts them
+  apart from lines that did not parse.
+- **A local per-view counter** (`.great_cto/view-counter.log`, no network,
+  not telemetry) so the redesign's kill criteria are measured, not assumed.
+- Three widths: a 56px icon rail between 768 and 1199 (labels leave the
+  screen, not the element), a 44px floor under touch, no sideways scroll at
+  375; the expensive gate's buttons stack, the routine one's may not.
+  Motion only for what the operator caused; reduced motion collapses every
+  transition to 1ms.
+- Guards: seven cells that must never render an absence as a pass, the
+  typed-name ritual, the harness counts, the icon rail, and a new one —
+  every `<script>` block closed — written after the sweep cut one and the
+  old check could not see it.
+
+### Not fixed
+
+- `/api/receipt` takes ~8s (it hashes the tree) and holds a browser
+  connection; the agent drawer paints its profile first and streams the
+  receipt in, but the underlying cost is filed, not fixed.
+- The bottom portfolio band covers the lower half at phone width; it
+  predates the redesign and is out of its scope.
+- `codex-pipeline`'s verifier `rework` verdict is terminal — the live run of
+  2026-09-06 blocked at its first stage on a gate-name mismatch. Filed.
+
+---
+
 ## v3.26.4 — 2026-09-06
 
 **3.26.3 never reached npm.** Its tag and GitHub Release exist; its publish was
