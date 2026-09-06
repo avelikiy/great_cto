@@ -15,6 +15,7 @@
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { costForUsage, round4, resolvePrice } from './cost-meter.mjs';
 import { resolveSecondOpinion, codexReview } from './second-opinion.mjs';
 import { principalError } from './provider-exhaustion.mjs';
@@ -53,14 +54,23 @@ export function decideProvider({ argv = [], projectMd = '', codex = null, env = 
   return { ...fromProject, source: 'PROJECT.md' };
 }
 
-/** One line per review, so the board can show what the second opinion DID. */
-export function reviewLogLine({ provider, model, state, verdict, findings, cost, source, error_kind, resets_at }) {
+/**
+ * One line per review, so the board can show what the second opinion DID.
+ *
+ * `sha` (git HEAD) and `dirty` (working tree had uncommitted changes) are the
+ * diff-identity fields BRD-R2's reader keys on, to tell "this line covers the
+ * code you're looking at" from "it covered something else". Additive only:
+ * both default to `null` — never `undefined`, never omitted — so a line
+ * written before this field existed, and any caller that doesn't supply them,
+ * still serializes to the same shape a reader already knows how to parse.
+ */
+export function reviewLogLine({ provider, model, state, verdict, findings, cost, source, error_kind, resets_at, sha, dirty }) {
   return JSON.stringify({
     ts: new Date().toISOString(), provider, model: model ?? null, state, verdict: verdict ?? null,
     error_kind: error_kind ?? null, resets_at: resets_at ?? null,
     findings: Array.isArray(findings) ? findings.length : null,
     p0: Array.isArray(findings) ? findings.filter((f) => f.severity === 'P0').length : null,
-    cost: cost ?? null, source,
+    cost: cost ?? null, source, sha: sha ?? null, dirty: dirty ?? null,
   });
 }
 
@@ -123,6 +133,24 @@ async function callOpenRouter({ apiKey, model, system, user }) {
 
 function readArg(argv, name) { const i = argv.indexOf(name); return i > -1 ? argv[i + 1] : null; }
 
+/**
+ * The tree's identity at review time — git HEAD and whether it was dirty.
+ * CLI-only: the pure `reviewLogLine` above never shells out; per this file's
+ * own pure/CLI split (see file header), the git call lives here and the
+ * result is injected. Returns nulls outside a git repo rather than throwing —
+ * "couldn't determine identity" is data for the log line, not a reason to
+ * fail the review.
+ */
+function gitIdentity(cwd) {
+  try {
+    const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return { sha: sha || null, dirty: status.trim().length > 0 };
+  } catch {
+    return { sha: null, dirty: null };
+  }
+}
+
 async function main(argv) {
   const diffPath = readArg(argv, '--diff');
   if (!diffPath) { console.error('Usage: cross-model-review.mjs --diff <file|-> [--spec <file>] [--model <slug>] [--provider codex|openrouter]'); process.exit(EXIT.USAGE); }
@@ -131,8 +159,9 @@ async function main(argv) {
   const mdPath = join(root, '.great_cto', 'PROJECT.md');
   const projectMd = existsSync(mdPath) ? readFileSync(mdPath, 'utf8') : '';
   const decision = decideProvider({ argv, projectMd });
+  const identity = gitIdentity(root);
   const logPath = join(root, '.great_cto', 'cross-review.log');
-  const log = (rec) => { try { mkdirSync(join(root, '.great_cto'), { recursive: true }); appendFileSync(logPath, reviewLogLine({ ...rec, source: decision.source }) + '\n'); } catch { /* the log is evidence, not a gate */ } };
+  const log = (rec) => { try { mkdirSync(join(root, '.great_cto'), { recursive: true }); appendFileSync(logPath, reviewLogLine({ ...rec, source: decision.source, sha: identity.sha, dirty: identity.dirty }) + '\n'); } catch { /* the log is evidence, not a gate */ } };
 
   // Anything that is not a reviewer reviewing exits SKIPPED — not PASS, and not
   // the BLOCK code either. The line says why, and the log keeps it.

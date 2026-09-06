@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReviewerModel, buildReviewPrompt, parseFindings } from '../../scripts/lib/cross-model-review.mjs';
+import { pickReviewerModel, buildReviewPrompt, parseFindings, reviewLogLine } from '../../scripts/lib/cross-model-review.mjs';
 
 test('pickReviewerModel: defaults to a non-Claude model; env overrides', () => {
   const def = pickReviewerModel({});
@@ -49,4 +49,44 @@ test('parseFindings: no findings, no verdict → PASS', () => {
   const { findings, verdict } = parseFindings('looks clean to me');
   assert.equal(findings.length, 0);
   assert.equal(verdict, 'PASS');
+});
+
+// BRD-R1: diff-identity fields on reviewLogLine (sha, dirty) — additive only.
+
+test('reviewLogLine: sha+dirty supplied are serialized verbatim', () => {
+  const line = reviewLogLine({
+    provider: 'codex', model: 'gpt-5.6-terra', state: 'ok', verdict: 'PASS',
+    findings: [], cost: 0, source: 'PROJECT.md', sha: 'abc123', dirty: false,
+  });
+  const parsed = JSON.parse(line);
+  assert.equal(parsed.sha, 'abc123');
+  assert.equal(parsed.dirty, false);
+});
+
+test('reviewLogLine: sha/dirty omitted at the call site → null, never undefined, never absent', () => {
+  const line = reviewLogLine({
+    provider: 'codex', model: 'gpt-5.6-terra', state: 'ok', verdict: 'PASS',
+    findings: [], cost: 0, source: 'PROJECT.md',
+  });
+  const parsed = JSON.parse(line);
+  assert.ok('sha' in parsed, 'sha key must be present even when not supplied');
+  assert.ok('dirty' in parsed, 'dirty key must be present even when not supplied');
+  assert.equal(parsed.sha, null);
+  assert.equal(parsed.dirty, null);
+});
+
+test('reviewLogLine: additive — a pre-existing (no sha/dirty) log line still parses with every original key unchanged', () => {
+  // Verbatim line from .great_cto/cross-review.log, written before this change.
+  const oldLine = '{"ts":"2026-09-05T19:04:47.612Z","provider":"codex","model":"gpt-5.6-terra","state":"ok","verdict":"PASS","findings":1,"p0":0,"cost":0,"source":"PROJECT.md"}';
+  const parsed = JSON.parse(oldLine);
+  assert.equal(parsed.ts, '2026-09-05T19:04:47.612Z');
+  assert.equal(parsed.provider, 'codex');
+  assert.equal(parsed.model, 'gpt-5.6-terra');
+  assert.equal(parsed.state, 'ok');
+  assert.equal(parsed.verdict, 'PASS');
+  assert.equal(parsed.findings, 1);
+  assert.equal(parsed.p0, 0);
+  assert.equal(parsed.cost, 0);
+  assert.equal(parsed.source, 'PROJECT.md');
+  assert.equal(parsed.sha, undefined, 'a pre-change line has no sha key at all — that is the additive contract, not a parse failure');
 });
