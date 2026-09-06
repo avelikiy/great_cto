@@ -104,3 +104,20 @@ test('the evidence tail reads the review log, counts unreadable lines, and never
   assert.deepEqual(h.evidence.summary, { runs: 2, reviewed: 1, skipped: 1, blocked: 1, unreadable_lines: 1 });
   assert.equal(h.evidence.recent[0].state, 'unavailable', 'newest first');
 });
+
+// The card's own CSS classes must exist. The first version used `class="warn"`
+// five times and `var(--warn, …)` once; the token was caught by the css-tokens
+// guard, the CLASS by nothing — those spans rendered as ordinary prose, so
+// "declared codex, but unavailable here" looked exactly like a normal line.
+test('every class and token the Harnesses card emits is declared in the stylesheet', () => {
+  const html = readFileSync(path.join(HERE, 'public', 'index.html'), 'utf8');
+  const card = html.slice(html.indexOf('async function renderHarnesses()'), html.indexOf('async function renderTierBadge()'));
+  assert.ok(card.length > 500, 'found the renderer');
+
+  for (const cls of new Set([...card.matchAll(/class="([a-z0-9 _-]+)"/g)].flatMap((m) => m[1].split(/\s+/)).filter(Boolean))) {
+    assert.match(html, new RegExp(`\\.${cls}\\s*[,{]`), `class .${cls} is used by the card but declared nowhere`);
+  }
+  for (const tok of new Set([...card.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]))) {
+    assert.match(html, new RegExp(`^\\s*${tok}\\s*:`, 'm'), `token ${tok} is used by the card but declared nowhere`);
+  }
+});

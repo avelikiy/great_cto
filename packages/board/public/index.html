@@ -1419,6 +1419,20 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 
 /* ── change_tier badge ────────────────────────────────────────────────────── */
+  /* `.warn` was used by the Harnesses card before it existed: five spans that
+     said "declared but unavailable" and rendered as ordinary prose. A warning
+     that does not look like a warning is this repository's own defect class,
+     and the css-tokens guard could not see it — it checks var() tokens, not
+     class names. Declared here, and asserted by the harnesses UI test. */
+  .warn { color: var(--status-blocked); }
+  /* `.muted` is used 68 times across this board and was declared nowhere, so
+     every de-emphasised line rendered at full weight — found by the guard added
+     for the Harnesses card, not by the eye. One declaration, the same token the
+     rest of the board de-emphasises with. */
+  .muted { color: var(--text3); }
+  /* Same shape as `.muted`: the `--mono` token exists and is used 115×, the
+     CLASS that applies it did not. */
+  .mono { font-family: var(--mono); }
 .tier-badge { font-size: var(--fs-caption); padding: 1px 8px; border-radius: 999px; margin-left: 6px;
   font-family: var(--mono); white-space: nowrap; }
 .tier-badge:empty { display: none; }
@@ -3174,6 +3188,7 @@ id var(--border);
             <h3>Active pipeline</h3>
             <span class="inbox-count" id="pipeline-status">idle</span>
             <span class="tier-badge" id="tier-badge" title="change_tier for the current working-tree diff — which gates + judge open (ADR-003/004)"></span>
+            <span class="tier-badge" id="harness-badge" title="which harness gives the second opinion in review — from capabilities: second_opinion in PROJECT.md"></span>
           </div>
           <div class="pipeline-track" id="pipeline-track"></div>
         </div>
@@ -5172,6 +5187,17 @@ async function renderHarnesses() {
 
   status.textContent = so.state === 'declared' ? `2 · ${so.provider}` : so.state === 'unavailable' ? 'unavailable' : so.state === 'undeclared' ? 'undeclared' : '1';
   status.className = 'inbox-count' + (so.state === 'unavailable' ? ' warn' : '');
+  // The header badge: two harnesses when a second one actually reviews.
+  // `unavailable` is shown as such — a declared-but-absent Codex in the header
+  // reading "2 harnesses" would be the pending-gate-as-passed defect in a badge.
+  const hb = document.getElementById('harness-badge');
+  if (hb) {
+    hb.textContent = so.state === 'declared' ? `2 harnesses · ${so.provider}`
+      : so.state === 'unavailable' ? `${so.provider} unavailable` : '';
+    hb.className = 'tier-badge';
+    hb.style.color = so.state === 'unavailable' ? 'var(--status-blocked)' : '';
+    hb.style.display = hb.textContent ? '' : 'none';
+  }
   body.innerHTML = `
     <div><b>Claude Code</b> · host · runs the pipeline, gates and hooks</div>
     <div>${codexLine}</div>
@@ -5179,7 +5205,7 @@ async function renderHarnesses() {
     <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <label for="so-select" class="muted">set</label>
       <select id="so-select">${undecl}${sel}</select>
-      <button id="so-apply" class="btn-small">apply</button>
+      <button id="so-apply" class="btn-ghost-sm">apply</button>
       <span id="so-result" class="muted"></span>
     </div>
     <div style="margin-top:8px"><span class="muted">Evidence:</span> ${evidence}</div>`;

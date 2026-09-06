@@ -123,6 +123,30 @@ hooks, slash commands or role agents, so `/start`, `/inbox`, the gate chain and
 [#39895](https://github.com/openai/codex/issues/39895)). The installer prints
 the same split before it does anything.
 
+**Two harnesses, one review.** Since 3.26.0 Codex *does* take part in the
+pipeline — from inside Claude Code, as the second reviewer. Declare it once:
+
+```yaml
+# .great_cto/PROJECT.md
+capabilities:
+  second_opinion: codex      # or: openrouter · none
+```
+
+and on every high-stakes change the Claude `code-reviewer` and **`codex exec`**
+(read-only sandbox, your Codex login, no API key) review the **same diff at the
+same time**. Findings merge; a P0 from either side blocks; where they disagree,
+both sets reach the human at the gate — the stricter one sets the verdict, and
+nobody averages. The board's **Harnesses** card detects Codex, holds the switch,
+and shows beside it what the second opinion *did*: every run, including skipped
+ones, from `.great_cto/cross-review.log`. Four states, and the fourth is the
+point — *declared but unavailable* is never shown as *off*.
+
+How much it helps is measured there, not asserted here. What the log holds so
+far: the first real Codex review — of the commit that wired Codex in — found a
+P1 that the author and the test suite had both missed; the review of the fix
+found nothing. Two runs is evidence of the mechanism, not a rate. The rate is
+the card's job.
+
 ## When it asks you
 
 One setting in `.great_cto/PROJECT.md` decides where the pipeline stops:
