@@ -16,6 +16,42 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.26.1 — 2026-09-06
+
+A review that did not happen told the reader to fix the wrong thing.
+
+### Fixed
+
+- **The skipped-review reason named advisory noise instead of the cause.** When
+  Codex declined a cross-model review because the plan's usage limit was spent,
+  the line printed was *"Skill descriptions were shortened to fit the skills
+  context budget"* — the first message Codex emitted, and irrelevant. The
+  sentence that named the cause **and the date it returns** sat second and was
+  cut off by a 300-character truncation. Someone reading it goes and disables
+  skills over a problem that fixes itself.
+  - `principalError` now ranks what a human is shown: terminal beats advisory,
+    and among equals the earliest wins. The other messages are counted, not
+    hidden — *"(1 other message(s) from codex, not the cause)"*.
+- **A spent plan quota is its own kind.** `classifyProviderError` gained
+  `quota`, and it is neither of the two it used to be mistaken for: not
+  `credits` (a balance somebody tops up), not `rate-limit` (seconds). Nobody has
+  to act, and it comes back **on a date the message names** — so the date is
+  extracted rather than described, and `resets_at` reaches the review log
+  beside `error_kind`. Read as a rate limit it earns a retry loop that cannot
+  succeed for a month; read as credits it sends someone to a billing page they
+  do not need.
+
+### Held up under a failure it was not designed for
+
+The bug was found by the feature meeting a real outage rather than a fixture:
+the Codex plan hit its limit mid-session. The property the four states exist for
+survived it — the reviewer returned SKIPPED with `verdict: null` and
+`cost: null`, never a silent PASS. What failed was only the sentence explaining
+why, which is the part a person acts on.
+
+---
+
 ## v3.26.0 — 2026-09-06
 
 Claude Code and OpenAI Codex now work on the same task at the same time — and
