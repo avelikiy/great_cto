@@ -1523,6 +1523,15 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .ev-head, .ev-row { display: grid; grid-template-columns: 110px 1fr 90px; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); font-size: var(--fs-small); }
   .ev-head { font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); border-top: none; }
   .ev-row.dim { color: var(--text3); }
+  /* Settings (great_cto-ki1x.11) */
+  .settings-rows { display: flex; flex-direction: column; gap: 16px; margin-bottom: 8px; }
+  .settings-group { background: var(--bg-card); border: 1px solid var(--border); padding: 8px 16px 4px; }
+  .settings-row { display: grid; grid-template-columns: 200px 1fr 140px; gap: 14px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); font-size: var(--fs-small); }
+  .settings-group > .settings-row:first-of-type { border-top: none; }
+  .sr-name { display: flex; flex-direction: column; min-width: 0; }
+  .sr-value { min-width: 0; }
+  .sr-action { display: flex; justify-content: flex-end; gap: 8px; }
+  .pill.on { background: var(--text); color: var(--bg-page); }
   /* Two-ring focus (§7.1): the outer ring is the focus token, the inner ring is
      the page itself, so the ring reads on any bed — a card, a solid pill, a strip.
      Element selectors only; the per-component rules above keep their own offsets. */
@@ -3037,6 +3046,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .chip-filter-bar { flex-direction: column; align-items: stretch; }
 }
 @media (max-width: 768px) {
+  .settings-row { grid-template-columns: 1fr; gap: 6px; }
+  .sr-action { justify-content: flex-start; }
+
   .harness-hosts, .so-options { grid-template-columns: 1fr; }
 
   .ar-cells { grid-template-columns: 1fr auto; }
@@ -3667,7 +3679,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
          (not their .panel class) so every function that renders into them still
          finds its element. -->
     <div class="panel" id="panel-settings" role="tabpanel">
-      <div class="panel-head"><h2>Settings</h2></div>
+      <div class="panel-head"><h2>Settings <span class="muted" style="font-weight:400;font-size:var(--fs-small)">everything that writes to <code>PROJECT.md</code> or <code>~/.great_cto</code> — each row names its file</span></h2></div>
+      <div id="settings-rows" class="settings-rows"><div class="muted">loading…</div></div>
       <div id="panel-share">
       <div class="share-page">
         <div class="share-card">
@@ -4944,6 +4957,86 @@ function renderLedgerHead({ heartbeat, pipeline, cost, metrics }) {
       </div>
       ${stuckRows || `<div class="muted cap">${Array.isArray(heartbeat?.stuck) ? 'nothing over the line' : '<span class="abs" title="heartbeat not read">· stuck state unloaded</span>'}</div>`}
     </div>`;
+}
+
+// Settings (great_cto-ki1x.11). A row is a fact and the file that holds it;
+// what writes elsewhere links to the screen that owns the write (caps → Ledger,
+// second opinion and judge → Harness). Nothing here is a toggle for a fact the
+// board cannot change: the Codex binary and telemetry are read-only rows.
+async function loadSettingsPage() {
+  const el = document.getElementById('settings-rows');
+  if (!el) return;
+  const get = (u) => api(u).catch(() => null);
+  const [tiers, share, harn, projects, cost] = await Promise.all([
+    get(`/api/gate-tiers${pqs()}`), get(`/api/share${pqs()}`), get(`/api/harnesses${pqs()}`), get('/api/projects'), get(`/api/cost${pqsd()}`),
+  ]);
+  const row = (name, file, value, action) => `
+    <div class="settings-row">
+      <div class="sr-name"><span>${name}</span><span class="cap muted mono">${esc(file)}</span></div>
+      <div class="sr-value">${value}</div>
+      <div class="sr-action">${action || ''}</div>
+    </div>`;
+  const link = (label, fn) => `<button type="button" class="btn-ghost-sm" onclick="${fn}">${label}</button>`;
+  const so = harn?.second_opinion || null;
+  const cx = harn?.codex || null;
+  const cap = cost ? (cost.monthly_budget ? `<span class="mono">$${fmtMoney(cost.monthly_budget)}</span> <span class="muted">monthly</span>` : '<span class="abs" title="no cap set — spend is not being stopped">no cap</span>') : '<span class="abs" title="cost not read">· unloaded</span>';
+  const tiering = tiers == null ? '<span class="abs" title="gate-tiers not read">· unloaded</span>'
+    : tiers.enabled === false ? '<span class="mono">off</span> <span class="muted">— every gate waits for a human</span>'
+    : `<span class="mono">on</span> <span class="muted">— ${tiers.measured ? 'evidence-tiered: an agent with a passing eval may stand a gate down to notify-only' : 'declared, nothing measured yet'}</span>`;
+  const shareV = share == null ? '<span class="abs" title="share state not read">· unloaded</span>'
+    : share.enabled ? `<span class="mono">on</span> <span class="muted">— <a href="${esc(share.url || '#')}" target="_blank" rel="noopener">public report</a>, gate confirms name it</span>`
+    : '<span class="mono">off</span> <span class="muted">— gate confirms never claim a public report</span>';
+  const soV = so == null ? '<span class="abs" title="harness state not read">· unloaded</span>'
+    : `<span class="mono">${esc(so.declared?.tool || so.declared?.state || 'undeclared')}</span> <span class="muted">→ resolves</span> <span class="mono" style="color:${so.state === 'declared' ? 'var(--status-done)' : so.state === 'unavailable' ? 'var(--status-blocked)' : 'var(--absent-warn-fg)'}">${esc(so.state || '?')}</span>`;
+  const codexV = cx == null ? '<span class="abs" title="harness state not read">· unloaded</span>'
+    : cx.state === 'available' ? `<span class="mono">codex</span> <span class="muted">· on PATH · ${esc(cx.auth || 'authenticated')} · ${esc(cx.version || '')}</span>`
+    : cx.state === 'no-auth' ? '<span class="mono">codex</span> <span style="color:var(--status-blocked)">· not logged in</span>'
+    : `<span class="abs" title="${esc(cx.why || '')}">— absent</span>`;
+  const plist = Array.isArray(projects) ? projects : (projects?.projects || null);
+  const projRows = plist == null ? '<div class="abs" title="the project registry could not be read">! registry unreadable</div>'
+    : plist.slice(0, 40).map((pr) => `
+      <div class="settings-row">
+        <div class="sr-name"><span>${esc(pr.slug)}${pr.slug === currentProject ? ' <span class="cap muted">current</span>' : ''}</span><span class="cap muted mono">${esc(String(pr.path || '').replace(/^\/Users\/[^/]+/, '~'))}</span></div>
+        <div class="sr-value">${pr.archetype ? `<span class="mono cap">${esc(pr.archetype)}</span>` : '<span class="abs" title="no PROJECT.md read for this project">· no archetype</span>'}${pr.last_activity ? ` <span class="muted cap">· ${esc(agoStr(pr.last_activity))}</span>` : ''}</div>
+        <div class="sr-action">${pr.slug === currentProject ? '' : link('switch', `switchProject('${esc(pr.slug)}')`)}</div>
+      </div>`).join('');
+  const theme = document.documentElement.dataset.theme || 'dark';
+  el.innerHTML = `
+    <div class="settings-group">
+      <div class="eyebrow">Project · .great_cto/PROJECT.md</div>
+      ${row('Budget cap', 'agent-budgets · monthly, USD', cap, link('Ledger', "switchTab('ledger')"))}
+      ${row('Second opinion', 'capabilities.second_opinion', soV, link('Harness', "switchTab('harness')"))}
+      ${row('Gate tiering', 'gate-tiering', tiering, '')}
+      ${row('Share', 'promote / public report', shareV, link('below', "document.getElementById('panel-share').scrollIntoView({behavior:'smooth'})"))}
+    </div>
+    <div class="settings-group">
+      <div class="eyebrow">Machine · ~/.great_cto</div>
+      ${row('Judge key', 'secrets.env · OPENROUTER_API_KEY', '<span class="muted">stored and replaced on the Harness screen</span>', link('Harness', "switchTab('harness')"))}
+      ${row('Codex binary', 'GREAT_CTO_CODEX_BIN', codexV, '')}
+      ${row('Telemetry', 'opt-in, off by default', '<span class="mono">off</span>', '<a class="cap" href="https://github.com/avelikiy/great_cto/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener">PRIVACY.md</a>')}
+      ${row('Theme', 'localStorage · this browser', `<span class="pill${theme !== 'light' ? ' on' : ''}" role="button" tabindex="0" onclick="if(document.documentElement.dataset.theme==='light')toggleBoardTheme();loadSettingsPage()">Dark</span> <span class="pill${theme === 'light' ? ' on' : ''}" role="button" tabindex="0" onclick="if(document.documentElement.dataset.theme!=='light')toggleBoardTheme();loadSettingsPage()">Light</span>`, '')}
+    </div>
+    <div class="settings-group">
+      <div class="eyebrow">Projects · ~/.great_cto/projects.json · ${plist ? plist.length + ' registered' : ''}</div>
+      ${projRows}
+      <div class="settings-row" style="border-top:none">
+        <div class="sr-name"><span class="muted cap">Paths must live inside HOME — /tmp and /etc are refused.</span></div>
+        <div class="sr-value"><input id="settings-register-path" class="input" placeholder="~/path/to/project" style="width:100%"></div>
+        <div class="sr-action">${link('Register', 'registerProjectFromSettings()')}</div>
+      </div>
+    </div>
+    <div class="eyebrow" style="margin:18px 0 6px">Alerts · the channel delivers, the board does not</div>`;
+}
+async function registerProjectFromSettings() {
+  const inp = document.getElementById('settings-register-path');
+  const v = (inp?.value || '').trim();
+  if (!v) return;
+  try {
+    const r = await api('/api/projects/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: v }) });
+    if (r && r.error) { showToast(`Not registered: ${r.error}`, 'error', 3000); return; }
+    showToast('Registered', 'info', 1500);
+    loadSettingsPage();
+  } catch (e) { showToast(`Not registered: ${String(e.message || e)}`, 'error', 3000); }
 }
 
 async function loadBudgetsPage() {
@@ -8188,6 +8281,7 @@ function switchTab(id, el) {
   if (lid === 'sessions') loadSessions();
   if (lid === 'logs') refreshLogs();
   if (lid === 'notifications' || lid === 'settings') loadNotifications();
+  if (lid === 'settings') loadSettingsPage();
   if (lid === 'harness') renderHarnesses();
 }
 
