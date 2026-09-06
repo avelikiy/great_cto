@@ -234,7 +234,12 @@ test('a board answering for ANOTHER project (fallback header) is not a hint abou
   const dir = project({ verdictAgeMs: 7 * 24 * 3600_000 });
   try {
     const out = await new Promise((resolve, reject) => {
-      execFile('node', [HOOK], { cwd: dir, encoding: 'utf8', env: { ...process.env, GREAT_CTO_BOARD_PORT: port } },
+      // A generous budget on purpose: this case is about the BRANCH the hook
+      // takes when the answer carries a fallback header, and `asked === 1`
+      // below is what stops it passing vacuously. Under the product's own
+      // 400ms the assertion measures how loaded the machine is instead.
+      execFile('node', [HOOK], { cwd: dir, encoding: 'utf8',
+        env: { ...process.env, GREAT_CTO_BOARD_PORT: port, GREAT_CTO_BOARD_TIMEOUT_MS: '10000' } },
         (err, stdout) => (err ? reject(err) : resolve(stdout)));
     });
     assert.equal(asked, 1, 'the hook asked the stand-in board');

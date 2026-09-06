@@ -115,10 +115,18 @@ export function resumeBrief(decision, position) {
  */
 async function waitingLine() {
   const port = process.env.GREAT_CTO_BOARD_PORT || '3141';
+  // 400ms is the session-start budget, not a fact about the network: a hint
+  // that arrives late is worse than no hint. It is overridable because a TEST
+  // of this function's BRANCHES must measure the branch and not the machine —
+  // asserting "the board was asked" inside a 400ms budget flakes under
+  // `node --test`, which runs a dozen files at once, and a gate that flakes is
+  // a gate people stop reading. Same reasoning as the dead port the other cases
+  // use. Never raise it in a shipped configuration to make a slow board answer.
+  const budgetMs = Number(process.env.GREAT_CTO_BOARD_TIMEOUT_MS) || 400;
   let tasks;
   try {
     const r = await fetch(`http://127.0.0.1:${port}/api/tasks?project=${encodeURIComponent(process.cwd())}`,
-      { signal: AbortSignal.timeout(400) });
+      { signal: AbortSignal.timeout(budgetMs) });
     if (!r.ok) return null;
     // The board serves ITS OWN project when it does not know the one asked for,
     // and says so in a header. That answer is about another project: taken as
