@@ -1497,6 +1497,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .tab { font-variant-numeric: tabular-nums; text-align: right; }
   .cap { font-size: var(--fs-caption); }
   .ledger-head { display: flex; flex-direction: column; }
+  .ledger-facts { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 10px; font-size: var(--fs-small); align-items: baseline; }
   .bar { height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
   .bar > i { display: block; height: 100%; background: var(--accent); }
   /* Fleet (great_cto-ki1x.8): saved views in the sidebar, domain groups, AgentRow cells */
@@ -2330,10 +2331,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--text3); margin: 0 0 12px;
 }
-.mp-hero {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 14px; margin-bottom: 24px;
-}
 .window-fill {
   font-size: var(--fs-body); color: var(--text2); line-height: 1.5;
   padding: 8px 12px; margin-bottom: 12px; border-radius: 0;
@@ -2420,12 +2417,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   margin-top: 6px; font-size: var(--fs-small); color: var(--text2);
 }
 
-.mp-secondary {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: 12px; margin-bottom: 28px;
-}
-.mp-secondary .metric-card { padding: 18px; }
-.mp-secondary .metric-num { font-size: var(--fs-num-m); }
 
 .mp-row {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
@@ -2587,15 +2578,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border-radius: 0; padding: 1px 5px; font-size: var(--fs-eyebrow);
 }
 
-.fleet-facets { display: flex; flex-direction: column; gap: 6px; }
-.fleet-facets fieldset {
-  border: none; padding: 0; margin: 0;
-  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
-}
-.fleet-facets legend {
-  font-size: var(--fs-caption); color: var(--text3); text-transform: uppercase;
-  letter-spacing: 0.05em; margin-right: 6px; min-width: 60px;
-}
 .facet-chip {
   background: var(--bg-muted); border: 1px solid var(--border);
   color: var(--text2); font-size: var(--fs-small); font-family: var(--mono);
@@ -3157,8 +3139,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   /* Four columns of numbers do not fit in 375px; they were being clipped, which
      silently dropped the fourth stat rather than wrapping it. */
   .inbox-summary { grid-template-columns: repeat(2, 1fr); }
-  .mp-secondary { grid-template-columns: repeat(2, 1fr); }
-  .mp-hero { grid-template-columns: 1fr; }
   .mp-row { grid-template-columns: 1fr; }
 }
 @media (pointer: coarse) {
@@ -3496,38 +3476,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
 
     <!-- Metrics -->
-    <div class="panel" id="panel-dashboard">
-      <div class="metrics-page">
-        <h1 class="page-title">Metrics</h1>
-        <div id="mp-window-fill" class="window-fill" hidden></div>
-        <div class="period-toolbar">
-          <span class="period-label">PERIOD</span>
-          <div class="period-chips" id="period-chips">
-            <button class="period-chip" data-period="1">1D</button>
-            <button class="period-chip" data-period="7">7D</button>
-            <button class="period-chip active" data-period="30">30D</button>
-            <button class="period-chip" data-period="90">90D</button>
-            <button class="period-chip" data-period="365">1Y</button>
-          </div>
-        </div>
-        <div class="mp-section-label" id="mp-sprint-label">Last 30 days</div>
-        <div class="mp-hero" id="mp-hero"></div>
-        <div class="mp-secondary" id="mp-secondary"></div>
-
-        <!-- Budgets live HERE, on Metrics, not two clicks deep in the Agents
-             drill-in. A control the operator could not find is a control they do
-             not have — and it was invisible on top of that, hidden whenever a
-             project had declared no caps, which is exactly the project that
-             needs the button to declare one. -->
-        <div class="mp-section-label" style="margin-top:24px">Agent budgets</div>
-        <div id="agent-budgets" class="mp-card" style="padding:12px 16px;font-size:var(--fs-small);margin-bottom:4px;"></div>
-
-        <div class="mp-section-label" id="mp-cost-label" style="margin-top:24px">Cost · last 30 days</div>
-        <div class="mp-card cost-panel" id="cost-panel">
-          <div class="cost-empty">Loading…</div>
-        </div>
-      </div>
-    </div>
 
     <!-- Agents -->
     <!-- Session Logs -->
@@ -3653,6 +3601,30 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              strip and the stuck list answer it; the caps table below is where
              the money is stopped. -->
         <div id="ledger-head" class="ledger-head"><div class="muted">loading…</div></div>
+        <!-- From the old Metrics tab (great_cto-ki1x.16): the period chips, the caps
+             card and the cost panel keep their ids — the code that fills them did
+             not move, only the screen that shows them. -->
+        <div class="period-toolbar">
+          <span class="period-label">PERIOD</span>
+          <div class="period-chips" id="period-chips">
+            <button class="period-chip" data-period="1">1D</button>
+            <button class="period-chip" data-period="7">7D</button>
+            <button class="period-chip active" data-period="30">30D</button>
+            <button class="period-chip" data-period="90">90D</button>
+            <button class="period-chip" data-period="365">1Y</button>
+          </div>
+        </div>
+        <!-- Budgets live HERE, on Metrics, not two clicks deep in the Agents
+             drill-in. A control the operator could not find is a control they do
+             not have — and it was invisible on top of that, hidden whenever a
+             project had declared no caps, which is exactly the project that
+             needs the button to declare one. -->
+        <div class="mp-section-label" style="margin-top:24px">Agent budgets</div>
+        <div id="agent-budgets" class="mp-card" style="padding:12px 16px;font-size:var(--fs-small);margin-bottom:4px;"></div>
+        <div class="mp-section-label" id="mp-cost-label" style="margin-top:24px">Cost · last 30 days</div>
+        <div class="mp-card cost-panel" id="cost-panel">
+          <div class="cost-empty">Loading…</div>
+        </div>
         <p class="muted" style="max-width:70ch;margin:14px 0 12px">
           A cap on what one agent may spend. When measured spend passes it, the pipeline
           refuses to dispatch that agent and says so — it does not fail quietly.
@@ -4934,15 +4906,41 @@ async function saveJudgeKey() {
 function renderLedgerHead({ heartbeat, pipeline, cost, metrics }) {
   const el = document.getElementById('ledger-head');
   if (!el) return;
-  const real = metrics?.cost?.real_llm_usd;
-  const est = metrics?.cost?.llm_usd;
-  const spent = real != null ? real : (est != null ? est : null);
-  const spentState = real != null ? 'measured' : (est != null ? 'estimated' : 'unmeasured');
+  // Spend, three states, and $0.00 is only one of them (carried over from the
+  // Metrics tab this replaced): a measured figure; a time-based ESTIMATE that
+  // says so; and a zero that is the estimate with nothing to estimate from,
+  // which is not a figure at all.
+  const costKnown = !!(metrics && metrics.cost);
+  const realLlmUsd = metrics?.cost?.real_llm_usd ?? null;
+  const llmUsd = metrics?.cost?.llm_usd ?? null;
+  const spent = realLlmUsd != null ? realLlmUsd : llmUsd;
+  const spentState = realLlmUsd != null ? 'measured' : (llmUsd != null ? 'estimated' : 'unmeasured');
   const cap = cost?.monthly_budget;
   const pct = (spent != null && cap) ? Math.min(100, Math.round(spent / cap * 100)) : null;
-  const spentCell = spent == null
-    ? absent('uncomputable', 'no verdict carries a cost and there is nothing to estimate from')
-    : `$${spent < 10 ? spent.toFixed(2) : fmtMoney(spent)}`;
+  const spentCell = !costKnown
+    ? absent('unloaded', 'the metrics payload carried no cost section')
+    : (realLlmUsd === 0 && llmUsd === 0) || spent == null
+      ? absent('uncomputable', 'no verdict carries a cost and there is nothing to estimate from')
+      : `$${spent < 10 ? spent.toFixed(2) : fmtMoney(spent)}`;
+  // Tasks done: a zero is a count; only a payload with no tasks section is an absence.
+  const doneKnown = !!(metrics && metrics.tasks);
+  const done = (metrics?.tasks?.done_in_window || metrics?.tasks?.done) ?? 0;
+  const acc = metrics?.acceptance || {};
+  const avgMin = metrics?.avg_completion_min;
+  // The same tiles the Metrics tab drew, as facts on one line. Each keeps its
+  // three-way distinction: a zero is a count, an absence names its kind.
+  const facts = [
+    { label: 'Done', v: doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section'), sub: 'in window' },
+    // A dash here means "could not be computed", not "took no time".
+    { label: 'Cycle', v: avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure'), sub: avgMin ? 'min median' : '' },
+    { label: 'Cost', v: acc.cost_per_accepted != null ? `$${Number(acc.cost_per_accepted).toFixed(2)}` : absent('none', 'nothing was accepted in this window'), sub: acc.cost_per_accepted != null ? '/ accepted' : '' },
+  ];
+  // Fleet 30d spend from verdicts — measured for some agents, or not at all.
+  const s = fleetState?.summary || null;
+  const fleetSpend = s == null ? absent('unloaded', 'the fleet summary has not been read')
+    : s.llm_usd_30d != null ? `$${s.llm_usd_30d.toFixed(2)} <span class="muted">measured for ${s.llm_usd_30d_measured_for} agent(s)</span>`
+    : absent('uncomputable', `no verdict carries a cost — ${s.llm_usd_30d_agents_with_runs ?? 0} agent(s) ran in this window`);
+  facts.push({ label: 'Fleet 30d', v: fleetSpend, sub: '' });
   const capCell = cap ? `of $${fmtMoney(cap)}${pct != null ? ` · ${pct}%` : ''}` : `<span class="abs" title="no monthly cap in PROJECT.md — spend is not being stopped">no cap</span>`;
   const stages = Array.isArray(pipeline) ? pipeline : [];
   const running = stages.filter((st) => st.status === 'active');
@@ -4971,6 +4969,9 @@ function renderLedgerHead({ heartbeat, pipeline, cost, metrics }) {
         <div class="metric-label">Running now</div>
         <div class="metric-trend">${running.length ? esc(running.map((st) => st.stage).join(' · ')) : (Array.isArray(pipeline) ? 'nothing active' : '')}</div>
       </div>
+    </div>
+    <div class="ledger-facts">
+      ${facts.map((f) => `<span><span class="eyebrow">${esc(f.label)}</span> <span class="mono">${f.v}</span>${f.sub ? ` <span class="muted cap">${esc(f.sub)}</span>` : ''}</span>`).join('')}
     </div>
     <div class="ledger-strip">${strip}</div>
     <div class="ledger-stuck">
@@ -5895,8 +5896,9 @@ async function refreshMetricsForPeriod() {
   if (lbl) lbl.textContent = `Last ${periodLabel(currentPeriod)}`;
   // Use seq-guarded fetch so stale init/SSE fetches can't overwrite us
   const m = await _refreshMetricsRaced(`/api/metrics${pqsd()}`);
-  if (m) { renderDashboard(m); renderWindowFill(m); }
+  if (m) { metrics = m; if (typeof renderWindowFill === 'function') renderWindowFill(m); }
   refreshCost();
+  if (currentTab === 'budgets') loadBudgetsPage();
 }
 
   /* Why four periods can show the same number.
@@ -6750,7 +6752,6 @@ async function switchProject(slug) {
   try { renderInbox(inbox); } catch (e) { console.warn('renderInbox failed', e); }
   try { renderFilterBar(); } catch (e) { console.warn('renderFilterBar failed', e); }
   try { renderKanban(allTasks); } catch (e) { console.warn('renderKanban failed', e); }
-  try { renderDashboard(metrics); } catch (e) { console.warn('renderDashboard failed', e); }
   try { renderShareState(shareState); } catch (e) { console.warn('renderShareState failed', e); }
   loadMemory();
   refreshDocsCount();   // the badge said 0 until the tab was opened — same bug the Logs badge had
@@ -6939,7 +6940,6 @@ async function init() {
   try { renderInbox(inbox); } catch (e) { console.warn('renderInbox failed', e); }
   try { renderFilterBar(); } catch (e) { console.warn('renderFilterBar failed', e); }
   try { renderKanban(allTasks); } catch (e) { console.warn('renderKanban failed', e); }
-  try { renderDashboard(metrics); } catch (e) { console.warn('renderDashboard failed', e); }
   try { renderShareState(shareState); } catch (e) { console.warn('renderShareState failed', e); }
   loadMemory();
   refreshDocsCount();   // the badge said 0 until the tab was opened — same bug the Logs badge had
@@ -7558,150 +7558,6 @@ function deltaBadge(current, prev, comparable, { invert = false } = {}) {
 }
 
 /* ── Dashboard ──────────────────────────────────────────────────────────── */
-function renderDashboard(m) {
-  const llmUsd = m.cost?.llm_usd ?? 0;
-  const realLlmUsd = m.cost?.real_llm_usd ?? 0;
-  const planSavingsX = m.cost?.savings_x;
-  // Prefer the window-scoped count, but fall back to the all-time total when it
-  // is 0 — otherwise projects with completed-but-untimestamped tasks (e.g. a
-  // tasks.md fallback with no dates) show a meaningless "—" despite real work.
-  // (`??` kept 0 because done_in_window is 0, not null; `||` fixes that.)
-  const done = (m.tasks?.done_in_window || m.tasks?.done) ?? 0;
-  // Three states, not two. `?? 0` folds "the payload has no tasks section" into
-  // the same 0 as "zero tasks done", and the tile then rendered that 0 as an
-  // absence — so a day-one project read "—" beside "+0 this week", the board
-  // reporting a failure to measure something it had measured fine. The backend
-  // always sends `tasks` (lib/metrics.mjs), so this is "—" only for a payload
-  // that really is missing it.
-  const doneKnown = m.tasks != null;
-  const costKnown = m.cost != null;
-  // NOT the same shape: avg_completion_min is a median over completions that
-  // carry timestamps, and the backend emits 0 when there are none — so 0 here
-  // means "could not be computed", not "took no time". "—" is the correct
-  // reading; do not "fix" this into a literal 0 m.
-  const avgMin = m.avg_completion_min ?? 0;
-  const cycleStat = m.cycle_time_stat === 'median_30d' ? 'Median cycle (30d)' : 'Avg cycle time';
-
-  // Honest cost model — the backend is the source of truth:
-  //   cost.savings_x  = MEASURED savings, only set when real verdict cost data
-  //                     exists. NULL for the time-based (tasks) estimate, because
-  //                     that ratio is just the hardcoded rate ratio, not a real
-  //                     measurement — showing it would fabricate a number.
-  //   cost.human_usd  = the backend's conservative human-cost estimate.
-  // The frontend must NOT recompute its own human/savings figures (that produced
-  // an inflated "×" that contradicted the API); it displays the backend fields.
-  const aiSpend = realLlmUsd > 0 ? realLlmUsd : llmUsd;
-  const humanEst = m.cost?.human_usd ?? 0;
-  const savingsX = (typeof planSavingsX === 'number' && planSavingsX > 1)
-    ? planSavingsX
-    : null;
-
-  const llmTrend = realLlmUsd > 0
-    ? `real tokens spent (from verdicts)`
-    : (llmUsd > 0 ? `time-based estimate (no verdict data yet)` : 'no plans or tasks yet');
-
-  const hero = [
-    {
-      v: doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section'),
-      sub: 'shipped', label: 'Tasks done',
-      trend: `+${m.velocity?.this_week ?? 0} this week`,
-      delta: deltaBadge(done, m.previous?.done, m.previous?.comparable),
-    },
-    {
-      // Three states, and $0.00 is only one of them. A measured zero is worth
-      // showing; a zero that is the TIME-BASED ESTIMATE with no plans or tasks
-      // to estimate from is not a figure at all, and rendering it as $0.00 told
-      // a project with dozens of agent runs that it had spent nothing.
-      v: !costKnown
-        ? absent('unloaded', 'the metrics payload carried no cost section')
-        : (realLlmUsd === 0 && llmUsd === 0
-            ? absent('uncomputable', 'no verdict carries a cost and there is nothing to estimate from')
-            : `$${aiSpend < 10 ? aiSpend.toFixed(2) : fmtMoney(aiSpend)}`),
-      sub: '',
-      label: 'AI spend',
-      delta: deltaBadge(aiSpend, m.previous?.llm_usd, m.previous?.comparable, { invert: true }),
-      trend: llmTrend,
-      cls: 'amber',
-    },
-    // 'Cost savings vs FTE' left with the redesign: an estimate dressed as a
-    // multiplier is the brief's definition of a vanity count.
-  ];
-  document.getElementById('mp-hero').innerHTML = hero.map(s => `
-    <div class="metric-card ${s.cls || ''}">
-      <div class="metric-num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
-      <div class="metric-label">${s.label}${s.delta || ''}</div>
-      <div class="metric-trend">${s.trend}</div>
-    </div>`).join('');
-
-  const acc = m.acceptance || {};
-  const secondary = [
-    { v: avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure'), sub: avgMin ? 'm' : '', label: cycleStat },
-    { v: m.qa?.pass_rate != null ? m.qa.pass_rate : absent('none', 'no QA run recorded in this window'), sub: m.qa?.pass_rate != null ? '%' : '', label: m.qa?.pass_rate != null ? 'QA pass rate' : 'QA — run /qa', cls: 'green' },
-    // Verified-acceptance metrics: cost of a change a gate actually APPROVED, and
-    // how often work bounced. '—' when nothing was accepted in the window — an
-    // honest gap, not a zero.
-    { v: acc.cost_per_accepted != null ? `$${acc.cost_per_accepted.toFixed(2)}` : absent('none', 'nothing was accepted in this window'), sub: '', label: acc.accepted ? `Cost / accepted (${acc.accepted})` : 'Cost / accepted' },
-    // 'Rework rounds' and 'Open security blocks' left with the redesign: both
-    // were fleet-wide aggregates over unmeasured inputs. Security is a fact per
-    // agent and per run (Fleet, Harness), not a green zero on a dashboard.
-    { v: m.tasks?.in_progress ?? 0, sub: '', label: 'In progress', cls: 'amber' },
-  ];
-  document.getElementById('mp-secondary').innerHTML = secondary.map(s => `
-    <div class="metric-card ${s.cls || ''}">
-      <div class="metric-num">${s.v}${s.sub ? `<small>${s.sub}</small>` : ''}</div>
-      <div class="metric-label">${s.label}</div>
-    </div>`).join('');
-
-  const agents = m.agents || {};
-  const maxRuns = Math.max(...Object.values(agents), 1);
-  const colors = ['#2540d4','#7c3aed','#16a34a','#f59e0b','#06b6d4','#2563eb','#64748b','#94a3b8'];
-  const agentKeys = Object.entries(agents).sort((a,b)=>b[1]-a[1]);
-  const agentListEl = document.getElementById('agent-list');
-  if (agentListEl) {
-    agentListEl.innerHTML = agentKeys.length ? agentKeys.map(([a, n], i) => `
-      <div class="bar-row">
-        <span class="name">${esc(a)}</span>
-        <span class="rail"><span class="fill" style="width:${(n/maxRuns*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
-        <span class="pct">${Math.round(n/maxRuns*100)}%</span>
-      </div>`).join('') : '<div class="empty">No agent runs yet</div>';
-  }
-
-  // Agent cost breakdown
-  const agentsCost = m.agents_cost || [];
-  const costPanel = document.getElementById('agent-cost-panel');
-  if (costPanel) {
-    if (agentsCost.length) {
-      const maxCost = Math.max(...agentsCost.map(a => a.llm_usd), 0.0001);
-      costPanel.innerHTML = agentsCost.map((a, i) => `
-        <div class="agent-cost-row">
-          <span class="name">${esc(a.agent)}</span>
-          <span class="rail"><span class="fill" style="width:${(a.llm_usd/maxCost*100).toFixed(0)}%; background:${colors[i % colors.length]}"></span></span>
-          <span class="amt">$${a.llm_usd.toFixed(4)}</span>
-        </div>`).join('');
-    } else {
-      costPanel.innerHTML = '<div class="cost-empty">No agent cost data — tasks need estimated_minutes set.</div>';
-    }
-  }
-
-  const verdicts = (m.verdicts || []).slice().reverse().slice(0, 10);
-  const timelineEl = document.getElementById('timeline');
-  if (timelineEl) {
-    timelineEl.innerHTML = verdicts.length ? verdicts.map(v => {
-      const vu = (v.verdict || '').toUpperCase();
-      const cls = ['APPROVED','DONE','PASS'].includes(vu) ? 'ok' : ['BLOCKED','FAILED','FAIL'].includes(vu) ? 'fail' : 'def';
-      const raw = v.raw || '';
-      const afterColon = raw.indexOf(': ') !== -1 ? raw.slice(raw.indexOf(': ') + 2) : raw;
-      const text = afterColon.length > 80 ? afterColon.slice(0, 80) + '…' : afterColon;
-      return `
-        <div class="feed-row">
-          <span class="feed-dot ${cls}"></span>
-          <span class="agent">${esc(v.agent)}</span>
-          <span class="msg">${esc(text)}</span>
-          <span class="time">${relTime(v.ts)}</span>
-        </div>`;
-    }).join('') : '<div class="empty">No activity yet</div>';
-  }
-}
 
 /* ── Share ──────────────────────────────────────────────────────────────── */
 function renderShareState(state) {
@@ -8305,7 +8161,7 @@ try {
 // still used by deep links, the SSE handlers and the kanban drill-in — maps
 // back to the destination that should light up (NAV). Screens .6–.11 replace
 // panels, not keys.
-const DEST = { decisions: 'inbox', ledger: 'budgets', fleet: 'agents', share: 'settings', notifications: 'settings' };
+const DEST = { decisions: 'inbox', ledger: 'budgets', fleet: 'agents', dashboard: 'budgets', share: 'settings', notifications: 'settings' };
 const NAV = { inbox: 'decisions', budgets: 'ledger', agents: 'fleet', dashboard: 'ledger', share: 'settings', notifications: 'settings' };
 const ROUTES = { decisions: 1, ledger: 1, fleet: 1, harness: 1, settings: 1, kanban: 1 };
 function switchTab(id, el) {
@@ -8345,8 +8201,8 @@ function switchTab(id, el) {
   // promised 50 unread and the screen showed settings. Declared and not
   // consumed, in the UI this time.
   if (lid === 'notifications') loadNotifHistory();
-  if (lid === 'budgets') loadBudgetsPage();
-  if (lid === 'dashboard' || lid === 'agents') {
+  if (lid === 'budgets') { loadBudgetsPage(); refreshCost(); }
+  if (lid === 'agents') {
     // pqsd(), not pqs(): this call omitted `days` entirely, so the server applied
     // its 30-day default and overwrote whatever window the period chips had
     // selected. Pick "7d", switch tabs, come back — the chip still read 7d and
@@ -8355,8 +8211,7 @@ function switchTab(id, el) {
     //
     // Through the sequence guard too, so a tab switch cannot land after a newer
     // period request and clobber it.
-    _refreshMetricsRaced(`/api/metrics${pqsd()}`).then(m => { if (m) { metrics = m; renderDashboard(m); } });
-    if (lid === 'dashboard') refreshCost();
+    _refreshMetricsRaced(`/api/metrics${pqsd()}`).then(m => { if (m) { metrics = m; } });
     if (lid === 'agents') refreshAgentsInstalled();
   }
   if (lid === 'inbox') refreshInbox();
@@ -8550,8 +8405,6 @@ async function refreshAgentsInstalled() {
   }
   // legacy_agent_count comes from /api/metrics — pull from cached metrics if present
   fleetState.legacy_count = (typeof metrics !== 'undefined' && metrics && metrics.legacy_agent_count) || 0;
-  renderFleetSummary();
-  renderFleetFacets();
   renderFleetList();
   renderLegacyAgentsSection();
   // If the URL hash names a drawer, open it (post-load).
@@ -8559,90 +8412,9 @@ async function refreshAgentsInstalled() {
   if (m) openAgentDrawer(m[1], { fromHash: true });
 }
 
-function renderFleetSummary() {
-  const el = document.getElementById('fleet-summary');
-  if (!el) return;
-  const s = fleetState.summary;
-  if (!s) { el.innerHTML = '<div class="cost-empty">No data yet</div>'; return; }
-  const tiles = [
-    { v: s.installed, label: 'Installed agents', cls: '' },
-    { v: s.active_30d, label: 'Active last 30d', cls: 'green', trend: s.active_30d > 0 ? '' : 'no activity yet' },
-    {
-      // `?? 0` turned "nothing was measured" into "$0.00 spent", and before that
-      // the number here was an ESTIMATE from verdict counts while the metrics
-      // page estimated from tasks — two screens, one label, $3.90 against $1.65.
-      v: s.llm_usd_30d != null
-        ? '$' + s.llm_usd_30d.toFixed(2)
-        : absent('uncomputable', `no verdict carries a cost — ${s.llm_usd_30d_agents_with_runs ?? 0} agent(s) ran in this window`),
-      vHtml: s.llm_usd_30d == null,
-      label: 'LLM spend 30d',
-      cls: '',
-      trend: s.llm_usd_30d != null
-        ? `measured for ${s.llm_usd_30d_measured_for} agent(s)`
-        : (s.failing_7d ? `${s.failing_7d} failing` : 'measured from verdicts'),
-    },
-  ];
-  // `t.v` is HTML when it is an absence marker — a span carrying the reason on
-  // hover and in the accessible name — and a plain string otherwise. Escaping it
-  // unconditionally printed the markup as text on the fleet tile. `vHtml` is the
-  // deliberate opt-in; every value without it is still escaped.
-  //
-  // This comment lives out here because it names `t.v` in backticks, and a
-  // backtick inside the template literal below terminates it — which is how the
-  // board shipped a syntax error for about ninety seconds.
-  el.innerHTML = tiles.map(t => `
-    <div class="metric-card ${t.cls}" ${t.onClick ? `role="button" tabindex="0" onclick='${t.onClick}' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();${t.onClick}}'` : ''}>
-      <div class="metric-num">${t.vHtml ? t.v : esc(String(t.v))}</div>
-      <div class="metric-label">${esc(t.label)}</div>
-      ${t.trend ? `<div class="metric-trend">${esc(t.trend)}</div>` : ''}
-    </div>`).join('');
-}
 
-const FACET_GROUPS = [
-  {
-    key: 'domain', legend: 'Domain',
-    options: [
-      ['all', 'all'], ['arch', 'arch'], ['pm', 'pm'], ['qa', 'qa'],
-      ['security', 'security'], ['ops', 'ops'], ['domain', 'domain'],
-      ['memory', 'memory'], ['other', 'other'],
-    ],
-  },
-  {
-    key: 'activity', legend: 'Activity',
-    options: [
-      ['all', 'all'], ['used', 'used'], ['active', 'active'], ['idle', 'idle ≥30d'], ['never', 'never run'], ['retired', 'retired'],
-    ],
-  },
-  {
-    key: 'health', legend: 'Health',
-    options: [
-      ['all', 'all'], ['ok', 'ok'], ['failing', 'failing ≥3 in 7d'],
-    ],
-  },
-];
 
-function renderFleetFacets() {
-  const el = document.getElementById('fleet-facets');
-  if (!el) return;
-  el.innerHTML = FACET_GROUPS.map(g => `
-    <fieldset>
-      <legend>${esc(g.legend)}</legend>
-      ${g.options.map(([val, label]) => {
-        const checked = fleetState.filters[g.key] === val;
-        return `<button type="button" class="facet-chip"
-                role="checkbox" aria-checked="${checked}"
-                data-facet="${esc(g.key)}" data-value="${esc(val)}"
-                onclick="setFleetFilter('${esc(g.key)}', '${esc(val)}')">
-                ${esc(label)}</button>`;
-      }).join('')}
-    </fieldset>`).join('');
-}
 
-function setFleetFilter(key, value) {
-  fleetState.filters[key] = value;
-  renderFleetFacets();
-  renderFleetList();
-}
 
 const FLEET_VIEWS = [
   ['needs', 'Needs attention'], ['expensive', 'Expensive grants'], ['never', 'Never observed'], ['all', 'All agents'], ['retired', 'Retired'],
@@ -9116,7 +8888,6 @@ function wireFleetKeyboard() {
     fleetState.search = '';
     const input = document.getElementById('fleet-search');
     if (input) input.value = '';
-    renderFleetFacets();
     renderFleetList();
   });
   // Drawer close button + backdrop click
@@ -9339,21 +9110,11 @@ let _notifHistory = [];
 let _unreadCount = 0;
 let _emailChannelActive = false;  // true when email enabled + verified
 
-function openNotifDrawer() {
-  document.getElementById('notif-drawer').style.right = '0';
-  document.getElementById('notif-drawer-overlay').style.display = 'block';
-  loadNotifHistory();
-}
-function closeNotifDrawer() {
-  document.getElementById('notif-drawer').style.right = '-400px';
-  document.getElementById('notif-drawer-overlay').style.display = 'none';
-}
 async function loadNotifHistory() {
   try {
     const r = await fetch('/api/notif-history');
     if (!r.ok) return;
     _notifHistory = await r.json();
-    renderNotifDrawer();
     const unread = _notifHistory.filter(n => !n.read).length;
     updateNotifBadge(unread);
     renderNotifHistoryInline();
@@ -9361,35 +9122,6 @@ async function loadNotifHistory() {
 }
 function _notifLevelIcon(level) {
   return { info: 'ℹ️', warning: '⚠️', error: '🚨', success: '✅' }[level] || '🔔';
-}
-function renderNotifDrawer() {
-  const list = document.getElementById('notif-drawer-list');
-  const empty = document.getElementById('notif-drawer-empty');
-  if (!list) return;
-  if (!_notifHistory.length) {
-    list.innerHTML = '';
-    if (empty) empty.style.display = 'flex';
-    return;
-  }
-  if (empty) empty.style.display = 'none';
-  list.innerHTML = _notifHistory.map(n => `
-    <div class="notif-item${n.read ? '' : ' unread'}" data-id="${esc(n.id)}"
-      style="padding:12px 16px;border-bottom:1px solid var(--border);
-      ${n.read ? '' : 'background:rgba(59,130,246,0.06);'}">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="font-size:var(--fs-title-s);flex-shrink:0;margin-top:1px">${_notifLevelIcon(n.level)}</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:var(--fs-body);font-weight:${n.read ? '400' : '600'};color:var(--text);
-            white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.title)}</div>
-          <div style="font-size:var(--fs-small);color:var(--text3);margin-top:2px;line-height:1.4">${esc(n.body)}</div>
-          <div style="font-size:var(--fs-caption);color:var(--text3);margin-top:4px;font-family:var(--mono)">
-            ${n.project ? `<span style="color:var(--accent-text);margin-right:6px">${esc(n.project)}</span>` : ''}
-            ${new Date(n.ts).toLocaleString()}
-          </div>
-        </div>
-        ${n.read ? '' : '<span style="width:7px;height:7px;background:var(--dot-unread);border-radius:50%;flex-shrink:0;margin-top:5px"></span>'}
-      </div>
-    </div>`).join('');
 }
 function renderNotifHistoryInline() {
   const el = document.getElementById('notif-history-inline');
@@ -9447,7 +9179,6 @@ async function markAllNotifsRead() {
     await fetch('/api/notif-history/read', { method: 'POST',
       headers: {'Content-Type':'application/json'}, body: '{}' });
     _notifHistory.forEach(n => n.read = true);
-    renderNotifDrawer();
     renderNotifHistoryInline();
     updateNotifBadge(0);
   } catch(e) {}
@@ -9456,7 +9187,6 @@ function prependNotifLive(notif) {
   _notifHistory.unshift(notif);
   if (_notifHistory.length > 100) _notifHistory.length = 100;
   updateNotifBadge(_unreadCount + 1);
-  renderNotifDrawer();
   renderNotifHistoryInline();
 }
 
@@ -9557,29 +9287,5 @@ const _costLbl = document.getElementById('mp-cost-label');
 if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}`;
 </script>
 
-<!-- ── Notification drawer ──────────────────────────────────────────────── -->
-<div id="notif-drawer" style="position:fixed;top:0;right:-400px;width:380px;height:100vh;
-  background:var(--bg-elevated);border-left:1px solid var(--border);z-index:9999;
-  transition:right .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;
-  box-shadow: none;border-bottom:1px solid var(--border);
-    display:flex;align-items:center;gap:8px;flex-shrink:0">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-      style="width:16px;height:16px;color:var(--text2)">
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
-    </svg>
-    <span style="font-weight:600;font-size:var(--fs-base);flex:1;color:var(--text)">Notifications</span>
-    <button class="btn-ghost-sm" onclick="markAllNotifsRead()"
-      style="font-size:var(--fs-small)">Mark all read</button>
-    <button onclick="closeNotifDrawer()" style="background:none;border:none;cursor:pointer;
-      color:var(--text3);font-size:var(--fs-title-l);line-height:1;padding:0 4px;margin-left:4px">&times;</button>
-  </div>
-  <div id="notif-drawer-list" tabindex="0" role="region" aria-label="Notifications list" style="flex:1;overflow-y:auto"></div>
-  <div id="notif-drawer-empty" style="display:flex;flex:1;align-items:center;
-    justify-content:center;flex-direction:column;gap:8px;color:var(--text3);font-size:var(--fs-body)">
-    <span style="font-size:var(--fs-num-l)">🔔</span>No notifications yet
-  </div>
-</div>
-<div id="notif-drawer-overlay" onclick="closeNotifDrawer()"
-  style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4)"></div>
 </body>
 </html>

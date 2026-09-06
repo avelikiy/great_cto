@@ -48,7 +48,7 @@ test('the mobile block sits AFTER every rule it overrides', () => {
   // grids stayed at four columns and the topbar kept its 20px padding.
   const at = html.indexOf(MOBILE);
   assert.ok(at > 0, 'the mobile block exists');
-  for (const base of ['.topbar {', '.inbox-summary {', '.mp-hero {', '.mp-secondary {', '.sidebar {']) {
+  for (const base of ['.topbar {', '.inbox-summary {', '.sidebar {']) {
     assert.ok(html.indexOf(base) < at, `${base} must be declared before the block that overrides it`);
   }
 });
@@ -127,8 +127,6 @@ test('the topbar fits, and the buttons it shrinks keep their names', () => {
 test('the stat grids wrap instead of being clipped', () => {
   for (const [sel, cols] of [
     ['.inbox-summary', 'repeat(2, 1fr)'],
-    ['.mp-secondary', 'repeat(2, 1fr)'],
-    ['.mp-hero', '1fr'],
     ['.mp-row', '1fr'],
   ]) {
     assert.ok(mobileBlock.includes(`${sel} { grid-template-columns: ${cols}; }`),
