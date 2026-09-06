@@ -483,6 +483,15 @@ PRODUCT BRIEF: Board redesign — from eight tabs to four decisions
 → approve  ·  comment (I revise, max 3 rounds)  ·  reject
 ```
 
+**Decision — 2026-09-06: APPROVED** by the owner, with two additions from the coverage
+review of the design canvas (`DESIGN-board-redesign-2026-09`, 10 artboards): a
+**Settings** screen (every write to `PROJECT.md` / `~/.great_cto`, each row naming its
+file — push, email, share, judge key, project register) and the **⌘K palette** drawn as
+a screen (docs · sessions · memory · decisions · agents · gates). `kanban` is demoted to
+the `#/kanban` deep link, not deleted; the BRD-R9 view counter decides on **2026-09-20**:
+under one open a day → the route goes, more → a `Work` screen (contract §2) is drawn.
+The "opened approximately never" claim above stays labelled an assumption until then.
+
 ---
 
 ## Related
