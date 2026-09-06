@@ -63,6 +63,26 @@ PY
 # after it landed would have published a plugin advertising the previous version,
 # with no commit to blame. A missing file is fatal, not skipped: "the manifest is
 # not there" and "the manifest is up to date" must never look the same.
+# .codex-plugin/mcp.json — the MCP server Codex starts, pinned to THIS version.
+# It said `great-cto@latest`, which is not a version at all: a user on plugin
+# 3.26.0 would run the MCP server from whatever npm published since, and during
+# any release window the two halves of one product disagree. Found by asking
+# Codex to audit its own support here; it called the split-brain correctly.
+CODEX_MCP="$ROOT/.codex-plugin/mcp.json"
+if [ ! -f "$CODEX_MCP" ]; then
+  echo "FAIL: $CODEX_MCP is missing — it is a shipped manifest, not an optional one" >&2
+  exit 1
+fi
+python3 - "$CODEX_MCP" "$NEW" <<'CODEXMCP'
+import json, re, sys
+path, new = sys.argv[1], sys.argv[2]
+with open(path) as f: data = json.load(f)
+for cfg in (data.get("mcpServers") or {}).values():
+    cfg["args"] = [re.sub(r"great-cto@[^\s\"]+", f"great-cto@{new}", a) for a in cfg.get("args", [])]
+with open(path, "w") as f: json.dump(data, f, indent=2); f.write("\n")
+CODEXMCP
+echo "  ✓ $CODEX_MCP"
+
 CODEX_JSON="$ROOT/.codex-plugin/plugin.json"
 if [ ! -f "$CODEX_JSON" ]; then
   echo "FAIL: $CODEX_JSON is missing — it is a shipped manifest, not an optional one" >&2

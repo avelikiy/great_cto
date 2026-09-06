@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { postureOf } from '../../../scripts/lib/agent-posture.mjs';
 import os from 'os';
 import { GREAT_CTO_DIR } from './config.mjs';
 import { readFileSafe } from './util.mjs';
@@ -128,12 +129,34 @@ function getAgentsFleet(projectCwd) {
   const LLM_RATE_PER_HR   = parseFloat(process.env.GREATCTO_LLM_RATE_PER_HR || '0.30');
   const DEFAULT_TASK_MIN  = 30;
 
+/**
+ * The agent's tool grant, in the language of consequence.
+ *
+ * FOUR states, because three of them are not "no grant": an unreadable agent
+ * file, a file with no `tools:` line, a grant that is entirely routine, and a
+ * grant that holds something expensive to undo. The board rendered all of them
+ * identically before, because it never saw any of them.
+ */
+function posture(toolsLine, fileReadable) {
+  if (!fileReadable) return { state: 'unreadable', expensive: [], scopedInNameOnly: [], why: 'the agent file could not be read' };
+  if (toolsLine == null) return { state: 'undeclared', expensive: [], scopedInNameOnly: [], why: 'the agent declares no tools: line' };
+  const r = postureOf(toolsLine);
+  return {
+    state: r.unknownTools.length ? 'unclassified' : r.expensive.length ? 'expensive' : 'routine',
+    expensive: r.expensive,
+    scopedInNameOnly: r.scopedInNameOnly,
+    unknownTools: r.unknownTools,
+    why: r.unknownTools.length ? `unclassified grant(s): ${r.unknownTools.join(', ')}` : '',
+  };
+}
+
   for (const f of files) {
     const slug = f.replace(/^great_cto-/, '').replace(/\.md$/, '');
     const fp = path.join(AGENTS_DIR, f);
     const raw = readFileSafe(fp) || '';
     const descM = raw.match(/^description:\s*"?([^"\n]+)"?/m);
     const modelM = raw.match(/^model:\s*(\S+)/m);
+    const toolsM = raw.match(/^tools:\s*(.*)$/m);
     const colorM = raw.match(/^color:\s*(\S+)/m);
 
     const vs = byAgent.get(slug) || [];
@@ -155,6 +178,11 @@ function getAgentsFleet(projectCwd) {
     // Estimated cost — DEFAULT_TASK_MIN per verdict (no real timing data here).
     const estLlmUsd   = (vs30d.length * DEFAULT_TASK_MIN / 60) * LLM_RATE_PER_HR;
     const estHumanUsd = (vs30d.length * DEFAULT_TASK_MIN / 60) * HUMAN_RATE_PER_HR;
+    // NOT a measurement. Both sides are runs x DEFAULT_TASK_MIN x a rate, so this
+    // ratio is HUMAN_RATE/LLM_RATE for every agent that ran at all — 500 by
+    // construction. metrics.mjs nulls its equivalent for exactly this reason;
+    // this one shipped as a per-agent number and read like one. Kept, because
+    // removing a field breaks the board, but labelled at the source.
     const savingsX = estLlmUsd > 0 ? Math.round(estHumanUsd / estLlmUsd) : null;
     const realLlmUsd = vs30d.reduce((s, v) => s + (v.cost_usd || 0), 0);
 
@@ -167,7 +195,18 @@ function getAgentsFleet(projectCwd) {
     agents.push({
       slug,
       description: descM?.[1]?.trim() || '',
-      model: modelM?.[1]?.trim() || 'sonnet',
+      // THREE states, not a default. `model: modelM || 'sonnet'` reported every
+      // agent with no `model:` line as pinned to sonnet, so "pinned to sonnet"
+      // and "not pinned at all" were the same string — and an unreadable agent
+      // file produced the same answer a third time. The fleet cannot show what
+      // it cannot distinguish.
+      model: raw ? (modelM?.[1]?.trim() ?? null) : null,
+      model_state: !raw ? 'unreadable' : modelM ? 'pinned' : 'undeclared',
+      // The tool grant, named in the language of consequence rather than listed.
+      // `/api/agents-installed` did not read `tools:` at all, so the board had
+      // nowhere to get it — scripts/lib/agent-posture.mjs has classified these
+      // since 3.24.0 and nothing was consuming it.
+      posture: posture(toolsM?.[1] ?? null, Boolean(raw)),
       color: colorM?.[1]?.trim() || null,
       domain: deriveDomain(slug),
       runs_total: vs.length,
@@ -182,6 +221,9 @@ function getAgentsFleet(projectCwd) {
       human_usd_30d_est: Math.round(estHumanUsd),
       llm_usd_30d_real: realLlmUsd > 0 ? Math.round(realLlmUsd * 100) / 100 : null,
       savings_x: savingsX,
+      // 'ratio' = the rate ratio, identical for every agent. 'measured' would
+      // require per-run timing, which no path produces today.
+      savings_source: savingsX == null ? null : 'ratio',
       health,
       retired: isRetired(slug),
       // Four states, and only `exceeded` can hold a dispatch — see

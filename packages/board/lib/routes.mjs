@@ -1518,14 +1518,26 @@ async function dispatch(req, res, url, cwd) {
     const tasks = getTasks(cwd);
     const nowMs = Date.now();
     const STUCK_H = 48;
-    const stuck = tasks
-      .filter(t => t.status === 'in_progress')
+    // `stuck` was ALWAYS EMPTY and had been since it was written. It read
+    // `t.startedAt`, a field no code path in this repository produces — a task
+    // carries created_at / updated_at / closed_at and nothing else. Every row
+    // got `age_h: null` and was removed by the filter below, so the panel
+    // reported "nothing is stuck" about a question it never asked. There are
+    // seven in-progress tasks here as this is written.
+    //
+    // `updated_at` is the honest proxy: in progress, and unchanged for STUCK_H.
+    // A task whose age cannot be determined is COUNTED, not dropped — an
+    // unmeasurable task is not a healthy one.
+    const inProgress = tasks.filter(t => t.status === 'in_progress');
+    let stuckUnmeasurable = 0;
+    const stuck = inProgress
       .map(t => {
-        const startedAt = t.startedAt ? new Date(t.startedAt).getTime() : null;
-        const ageH = startedAt ? (nowMs - startedAt) / 3600000 : null;
-        return { id: t.id, title: t.title, agent: t.agent, age_h: ageH ? Math.round(ageH) : null };
+        const since = t.updated_at || t.created_at || null;
+        const ms = since ? new Date(since).getTime() : NaN;
+        if (!Number.isFinite(ms)) { stuckUnmeasurable += 1; return null; }
+        return { id: t.id, title: t.title, agent: t.agent, age_h: Math.round((nowMs - ms) / 3600000), since };
       })
-      .filter(t => t.age_h !== null && t.age_h > STUCK_H);
+      .filter(t => t && t.age_h > STUCK_H);
 
     // Per-agent budgets from PROJECT.md
     const projectMdPath = path.join(cwd, '.great_cto', 'PROJECT.md');
@@ -1583,7 +1595,8 @@ async function dispatch(req, res, url, cwd) {
     // line the parser could not read is reported rather than dropped, because a
     // budget silently ignored is a limit its author believes they have.
     res.end(JSON.stringify({
-      stuck, budgets, goal_ancestry: goalAncestry, tool_failure_rate_1h: toolFailureRate1h,
+      stuck, stuck_in_progress: inProgress.length, stuck_unmeasurable: stuckUnmeasurable,
+      budgets, goal_ancestry: goalAncestry, tool_failure_rate_1h: toolFailureRate1h,
       budgets_deprecated_key: budgetsDeprecatedKey,
       budgets_malformed: budgetsMalformed,
       // Three states, not two: read / absent / unreadable. Without these, a

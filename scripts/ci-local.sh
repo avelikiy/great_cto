@@ -58,6 +58,7 @@ step "structural validation" python3 tests/structural/validate.py
 # finding here is a regression against a rule a real incident bought. Test
 # files are excluded — they carry the hunted shapes as fixtures.
 step "lesson rules (incident-bought)" node scripts/lib/lesson-rules.mjs --sweep --strict
+step "agent-shield (config as attack surface)" node scripts/agent-shield-check.mjs
 step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
 # Both of these were wired ONLY to .github/workflows/runtime-ci.yml, and GitHub
 # Actions has been billing-locked for weeks — every run fails in seconds with no

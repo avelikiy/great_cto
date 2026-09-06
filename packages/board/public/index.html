@@ -577,6 +577,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--status-review); }
 .live-dot.error { background: var(--status-blocked); }
+  /* Neither live nor failed: the handshake has not resolved. Three states. */
+  .live-dot.connecting { background: var(--text3); animation: none; }
 .live-dot.pulse { animation: pulse 2s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -3131,8 +3133,12 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       </div>
     </nav>
     <div class="sidebar-footer">
-      <span class="live-dot pulse" id="live-dot"></span>
-      <span id="live-label">live · synced just now</span>
+      <!-- Ships in the CONNECTING state. This markup used to say "live · synced
+           just now" before any connection existed, so from first paint until the
+           SSE handshake resolved — or forever, if neither handler ever fired —
+           the footer asserted a sync that had not happened. -->
+      <span class="live-dot connecting" id="live-dot"></span>
+      <span id="live-label">connecting…</span>
     </div>
   </aside>
 
@@ -7206,8 +7212,25 @@ function renderDashboard(m) {
     // how often work bounced. '—' when nothing was accepted in the window — an
     // honest gap, not a zero.
     { v: acc.cost_per_accepted != null ? `$${acc.cost_per_accepted.toFixed(2)}` : absent('none', 'nothing was accepted in this window'), sub: '', label: acc.accepted ? `Cost / accepted (${acc.accepted})` : 'Cost / accepted' },
-    { v: acc.rework_rounds ?? 0, sub: '', label: 'Rework rounds', cls: acc.rework_rounds ? 'amber' : 'green' },
-    { v: m.security?.blocked ?? 0, sub: '', label: 'Open security blocks', cls: m.security?.blocked ? 'red' : 'green' },
+    // `?? 0` here painted a GREEN ZERO over a question nobody asked. The tile one
+    // line above goes out of its way to avoid exactly this, and these two did not:
+    // a project whose acceptance data is missing showed "0 rework rounds" in
+    // green, and — worse — a project where security has NEVER BEEN SCANNED showed
+    // "0 open security blocks" in green, which is a passing security scan that
+    // did not happen. That is this board's governing defect rendered in its most
+    // reassuring colour.
+    {
+      v: acc.rework_rounds != null ? acc.rework_rounds : absent('uncomputable', 'no accepted work in this window, so rework cannot be counted'),
+      sub: '', label: 'Rework rounds',
+      cls: acc.rework_rounds == null ? '' : acc.rework_rounds ? 'amber' : 'green',
+    },
+    {
+      v: m.security?.blocked != null ? m.security.blocked : absent('uncomputable', 'no security scan has run — this is not a clean result'),
+      sub: '', label: 'Open security blocks',
+      // No colour when unmeasured. Green would say "safe"; red would say
+      // "unsafe"; neither is known.
+      cls: m.security?.blocked == null ? '' : m.security.blocked ? 'red' : 'green',
+    },
     { v: m.tasks?.in_progress ?? 0, sub: '', label: 'In progress', cls: 'amber' },
   ];
   document.getElementById('mp-secondary').innerHTML = secondary.map(s => `

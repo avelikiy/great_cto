@@ -153,7 +153,15 @@ test('both checks excuse the same things, or one of them accuses the other\'s de
   }
 });
 
-test('the whole board is on-system: every screen, every theme', { timeout: 240_000 }, async (t) => {
+// 600s, not 240s. Measured on a QUIET machine this test takes 148s — 62% of the
+// old budget — so under a full gate, where it shares a headless browser and a
+// beads store with everything else, it times out. Nine gate runs on 2026-09-06
+// produced four reds and this was one of them; in isolation it passes 8/8.
+//
+// This is the same defect the bd timeout caps had: a cap set below the measured
+// worst case turns a busy dependency into a broken one. The fix there was to
+// raise the cap above what was actually measured, and it is the fix here.
+test('the whole board is on-system: every screen, every theme', { timeout: 600_000 }, async (t) => {
   if (!(await loadBrowser())) return t.skip('playwright not installed — not checked, not passed');
   const html = readFileSync('packages/board/public/index.html', 'utf8');
   const panels = [...new Set([...html.matchAll(/id="panel-([a-z-]+)"/g)].map((m) => m[1]))];
