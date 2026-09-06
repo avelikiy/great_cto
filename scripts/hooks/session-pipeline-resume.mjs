@@ -120,6 +120,12 @@ async function waitingLine() {
     const r = await fetch(`http://127.0.0.1:${port}/api/tasks?project=${encodeURIComponent(process.cwd())}`,
       { signal: AbortSignal.timeout(400) });
     if (!r.ok) return null;
+    // The board serves ITS OWN project when it does not know the one asked for,
+    // and says so in a header. That answer is about another project: taken as
+    // ours, a session starting in any unregistered directory announced the
+    // board project's gate as waiting here (seen 2026-09-06 — a temp fixture
+    // was told about great_cto's gate:ship). Not a hint; nothing.
+    if (r.headers.get('X-Project-Resolved') === 'fallback') return null;
     const body = await r.json();
     tasks = Array.isArray(body) ? body : body.tasks;
   } catch { return null; }

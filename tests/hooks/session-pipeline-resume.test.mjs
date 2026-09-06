@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -32,9 +33,16 @@ function project({ verdictAgeMs = null } = {}) {
   return dir;
 }
 const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
-const run = (cwd) => {
+// The hook asks the board on 3141 what is waiting. On the author's machine a
+// board IS running there, serving great_cto — and for a temp fixture it answers
+// with great_cto's gates under a fallback header. Point the hook at a port
+// nothing listens on, so the test measures the hook and not the machine; the
+// fallback case gets its own test below with a server that says so.
+const DEAD_PORT = '1';
+const run = (cwd, env = {}) => {
   const started = Date.now();
-  const out = execFileSync('node', [HOOK], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const out = execFileSync('node', [HOOK], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    env: { ...process.env, GREAT_CTO_BOARD_PORT: DEAD_PORT, ...env } });
   return { out, ms: Date.now() - started };
 };
 
@@ -203,4 +211,21 @@ test('an approval does not override the refusals, only the shortcut', () => {
     const { out } = run(dir);
     assert.equal(out.trim(), '', 'a woken hook that finds nothing dispatchable still says nothing');
   } finally { clean(dir); }
+});
+
+test('a board answering for ANOTHER project (fallback header) is not a hint about this one', async () => {
+  // A stand-in board: knows no project, serves its own, and says so — exactly
+  // what a real board does for an unregistered directory.
+  const srv = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'X-Project-Resolved': 'fallback', 'X-Project-Serving': 'somebody-else' });
+    res.end(JSON.stringify([{ id: 'x-1', title: 'gate:ship — someone else\'s release', status: 'open', labels: ['gate'], updated_at: new Date().toISOString() }]));
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const port = String(srv.address().port);
+  const dir = project({ verdictAgeMs: 7 * 24 * 3600_000 });
+  try {
+    const { out } = run(dir, { GREAT_CTO_BOARD_PORT: port });
+    assert.equal(out.trim(), '', 'nothing is announced on behalf of another project');
+    assert.match(traceOf(dir), /idle/, 'the hook records that this project is idle');
+  } finally { clean(dir); srv.close(); }
 });
