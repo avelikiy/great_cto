@@ -17,23 +17,18 @@ const ROOT = path.resolve(import.meta.dirname, '../..');
 const board = readFileSync(path.join(ROOT, 'packages/board/public/index.html'), 'utf8');
 
 // ── Cell 1: Security tile — no scan ran → `n/a`, never `0` in green
-test('Cell 1: security tile — no scan ran → n/a, never 0 in green', () => {
-  // `m.security?.blocked ?? 0` with `cls: … ? 'red' : 'green'` painted a GREEN
-  // ZERO for a project that has never been scanned. Green means safe. Nobody
-  // had established that.
+test('Cell 1: security tile — gone with the redesign; nothing defaults a missing scan to zero', () => {
+  // The green-zero tile was deleted (great_cto-ki1x.7, brief: "What must NOT be
+  // on the board"). What remains must never default the measurement.
+  assert.doesNotMatch(board, /label: 'Open security blocks'/, 'the fleet-wide security tile is gone');
   assert.doesNotMatch(board, /m\.security\?\.blocked \?\? 0/,
-    'the security tile must not default a missing measurement to zero');
-  assert.match(board, /no security scan has run — this is not a clean result/,
-    'and it must say so where a reader can see it');
-  // No colour when unmeasured: green claims safe, red claims unsafe, and
-  // neither is known.
-  assert.match(board, /cls: m\.security\?\.blocked == null \? '' :/);
+    'no surface may default a missing security measurement to zero');
 });
 
 // ── Cell 2: Rework rounds — unmeasured → `n/a`, never `0`
-test('Cell 2: rework rounds — unmeasured → n/a, never 0', () => {
+test('Cell 2: rework rounds — gone with the redesign; nothing defaults it to zero', () => {
+  assert.doesNotMatch(board, /label: 'Rework rounds'/, 'the rework tile is gone');
   assert.doesNotMatch(board, /acc\.rework_rounds \?\? 0/);
-  assert.match(board, /rework cannot be counted/);
 });
 
 // ── Cell 3: Eval coverage — no eval→agent mapping → `not measured` (`·`), never `0%`

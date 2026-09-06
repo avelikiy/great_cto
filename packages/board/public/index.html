@@ -1486,6 +1486,17 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
      actions; each glyph explains itself on hover. */
   .gate-review { display: inline-flex; gap: 14px; align-items: center; font-family: var(--mono); font-size: var(--fs-caption); white-space: nowrap; color: var(--text2); }
   .gate-review > span { display: inline-flex; gap: 6px; align-items: center; }
+  /* Ledger head (great_cto-ki1x.7) */
+  .ledger-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .ledger-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; margin-top: 12px; background: var(--bg-card); border: 1px solid var(--border); font-family: var(--mono); font-size: var(--fs-caption); }
+  .ledger-stage { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--border); }
+  .ledger-stuck { margin-top: 12px; background: var(--bg-card); border: 1px solid var(--border); padding: 10px 12px; }
+  .ledger-stuck-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .ledger-stuck-row { display: grid; grid-template-columns: 150px 1fr 60px; gap: 12px; align-items: center; font-size: var(--fs-small); padding: 4px 0; border-top: 1px solid var(--border); }
+  .eyebrow { font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); font-weight: 500; }
+  .tab { font-variant-numeric: tabular-nums; text-align: right; }
+  .bar { height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
   /* Two-ring focus (§7.1): the outer ring is the focus token, the inner ring is
      the page itself, so the ring reads on any bed — a card, a solid pill, a strip.
      Element selectors only; the per-component rules above keep their own offsets. */
@@ -3563,8 +3574,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
     <div class="panel" id="panel-budgets" role="tabpanel">
       <div class="metrics-page">
-        <h1 class="page-title">Agent budgets</h1>
-        <p class="muted" style="max-width:70ch;margin:6px 0 20px">
+        <h1 class="page-title">Ledger</h1>
+        <!-- Ledger (great_cto-ki1x.7): the one decision this screen supports is
+             "is something running that I should stop". Two figures, the stage
+             strip and the stuck list answer it; the caps table below is where
+             the money is stopped. -->
+        <div id="ledger-head" class="ledger-head"><div class="muted">loading…</div></div>
+        <p class="muted" style="max-width:70ch;margin:14px 0 12px">
           A cap on what one agent may spend. When measured spend passes it, the pipeline
           refuses to dispatch that agent and says so — it does not fail quietly.
           Spend is measured from verdicts that carry a cost; while none does, the cap
@@ -4841,6 +4857,62 @@ async function saveJudgeKey() {
   loadJudgeStatus();
 }
 
+// Ledger head (great_cto-ki1x.7). Every figure names its state: spend is
+// `measured` only when a verdict carried a cost, otherwise `estimated` and
+// labelled so; a cap that is not set says "no cap", never $0; a stage is a
+// filled dot when done, hollow when active, red when failed, bare when idle;
+// a stuck task with no readable age is counted and shown as `?`, never dropped.
+function renderLedgerHead({ heartbeat, pipeline, cost, metrics }) {
+  const el = document.getElementById('ledger-head');
+  if (!el) return;
+  const real = metrics?.cost?.real_llm_usd;
+  const est = metrics?.cost?.llm_usd;
+  const spent = real != null ? real : (est != null ? est : null);
+  const spentState = real != null ? 'measured' : (est != null ? 'estimated' : 'unmeasured');
+  const cap = cost?.monthly_budget;
+  const pct = (spent != null && cap) ? Math.min(100, Math.round(spent / cap * 100)) : null;
+  const spentCell = spent == null
+    ? absent('uncomputable', 'no verdict carries a cost and there is nothing to estimate from')
+    : `$${spent < 10 ? spent.toFixed(2) : fmtMoney(spent)}`;
+  const capCell = cap ? `of $${fmtMoney(cap)}${pct != null ? ` · ${pct}%` : ''}` : `<span class="abs" title="no monthly cap in PROJECT.md — spend is not being stopped">no cap</span>`;
+  const stages = Array.isArray(pipeline) ? pipeline : [];
+  const running = stages.filter((st) => st.status === 'active');
+  const dotFor = (st) => st.status === 'done' ? 'dot ok' : st.status === 'active' ? 'dot run' : st.status === 'failed' ? 'dot bad' : 'dot';
+  const strip = stages.length
+    ? stages.map((st, i) => `${i ? '<span class="muted">→</span>' : ''}<span class="ledger-stage${st.status === 'idle' ? ' muted' : ''}" title="${esc(st.stage)} · ${esc(st.status)}${st.verdict ? ' · ' + esc(st.verdict) : ''}${st.ts ? ' · ' + esc(fmtDT(st.ts)) : ''}"><span class="${dotFor(st)}"${st.status === 'idle' ? ' style="background:var(--bg-strong)"' : ''}></span>${esc(st.stage)}</span>`).join('')
+    : `<span class="abs" title="/api/pipeline returned nothing — stage state unknown, not idle">· pipeline state unloaded</span>`;
+  const stuck = Array.isArray(heartbeat?.stuck) ? heartbeat.stuck : [];
+  const unmeasurable = Number(heartbeat?.stuck_unmeasurable) || 0;
+  const stuckRows = stuck.slice(0, 5).map((t) => `
+    <div class="ledger-stuck-row">
+      <span class="mono">${esc(t.id || '')}</span>
+      <span class="ttl-desc">${esc(t.title || '')}</span>
+      <span class="mono tab" style="color:var(--status-progress)" title="${t.since ? esc(fmtDate(t.since)) : 'no timestamp'}">${t.age_h != null ? Math.round(t.age_h) + 'h' : '<span class="abs" title="updated_at unreadable — counted, age unknown">?</span>'}</span>
+    </div>`).join('');
+  el.innerHTML = `
+    <div class="ledger-kpis">
+      <div class="metric-card">
+        <div class="metric-num">${spentCell}</div>
+        <div class="metric-label">Spent · ${esc(spentState)}</div>
+        <div class="metric-trend">${capCell}</div>
+        ${pct != null ? `<div class="bar" style="margin-top:8px"><i style="width:${pct}%${pct >= 100 ? ';background:var(--status-blocked)' : ''}"></i></div>` : ''}
+      </div>
+      <div class="metric-card">
+        <div class="metric-num"><span class="dot run" style="width:12px;height:12px;vertical-align:middle;margin-right:8px"></span>${Array.isArray(pipeline) ? running.length : absent('unloaded', 'pipeline state not read')}</div>
+        <div class="metric-label">Running now</div>
+        <div class="metric-trend">${running.length ? esc(running.map((st) => st.stage).join(' · ')) : (Array.isArray(pipeline) ? 'nothing active' : '')}</div>
+      </div>
+    </div>
+    <div class="ledger-strip">${strip}</div>
+    <div class="ledger-stuck">
+      <div class="ledger-stuck-head">
+        <span class="eyebrow">Stuck · in progress over the line</span>
+        <span class="mono cap" style="color:var(--status-progress)">${stuck.length}${unmeasurable ? ` <span class="abs" title="${unmeasurable} in-progress task(s) with no readable age — counted, not dropped">+${unmeasurable}?</span>` : ''}</span>
+      </div>
+      ${stuckRows || `<div class="muted cap">${Array.isArray(heartbeat?.stuck) ? 'nothing over the line' : '<span class="abs" title="heartbeat not read">· stuck state unloaded</span>'}</div>`}
+    </div>`;
+}
+
 async function loadBudgetsPage() {
   loadJudgeStatus();
   loadJudgeScores();
@@ -4856,13 +4928,17 @@ async function loadBudgetsPage() {
   // promise rejected, and the page sat there looking busy. A page that failed
   // and a page still working are the same picture, and the one you are looking
   // at is the one where nothing more is coming.
-  let h;
+  let h, pipe = null, cost = null, m = null;
   try {
-    [h] = await Promise.all([
+    [h, pipe, cost, m] = await Promise.all([
       api(`/api/heartbeat${pqs()}`),
+      api(`/api/pipeline${pqs()}`).catch(() => null),
+      api(`/api/cost${pqsd()}`).catch(() => null),
+      api(`/api/metrics${pqsd()}`).catch(() => null),
       (typeof refreshAgentsInstalled === 'function' && !(fleetState?.agents || []).length)
         ? refreshAgentsInstalled() : Promise.resolve(),
     ]);
+    renderLedgerHead({ heartbeat: h, pipeline: pipe, cost, metrics: m });
   } catch (err) {
     body.innerHTML = `
       <div class="budgets-failed">
@@ -7338,25 +7414,8 @@ function renderDashboard(m) {
       trend: llmTrend,
       cls: 'amber',
     },
-    (savingsX != null && savingsX > 1)
-      ? {
-          v: savingsX.toLocaleString(),
-          sub: '×',
-          label: 'Cost savings vs FTE',
-          trend: humanEst > 0 ? `measured · human est. $${fmtMoney(humanEst)}` : 'measured savings',
-          cls: 'green',
-        }
-      : {
-          // No MEASURED savings yet (no verdict cost data). Don't fabricate a
-          // multiplier from the time-based estimate — show it's not measured.
-          v: absent('uncomputable', 'a measured multiplier needs verdict cost data, and there is none yet'),
-          sub: '',
-          label: 'Cost savings vs FTE',
-          trend: aiSpend > 0
-            ? 'estimate only · run pipelines for measured savings'
-            : (done > 0 ? 'no spend recorded yet' : 'no tasks done yet'),
-          cls: '',
-        },
+    // 'Cost savings vs FTE' left with the redesign: an estimate dressed as a
+    // multiplier is the brief's definition of a vanity count.
   ];
   document.getElementById('mp-hero').innerHTML = hero.map(s => `
     <div class="metric-card ${s.cls || ''}">
@@ -7373,25 +7432,9 @@ function renderDashboard(m) {
     // how often work bounced. '—' when nothing was accepted in the window — an
     // honest gap, not a zero.
     { v: acc.cost_per_accepted != null ? `$${acc.cost_per_accepted.toFixed(2)}` : absent('none', 'nothing was accepted in this window'), sub: '', label: acc.accepted ? `Cost / accepted (${acc.accepted})` : 'Cost / accepted' },
-    // `?? 0` here painted a GREEN ZERO over a question nobody asked. The tile one
-    // line above goes out of its way to avoid exactly this, and these two did not:
-    // a project whose acceptance data is missing showed "0 rework rounds" in
-    // green, and — worse — a project where security has NEVER BEEN SCANNED showed
-    // "0 open security blocks" in green, which is a passing security scan that
-    // did not happen. That is this board's governing defect rendered in its most
-    // reassuring colour.
-    {
-      v: acc.rework_rounds != null ? acc.rework_rounds : absent('uncomputable', 'no accepted work in this window, so rework cannot be counted'),
-      sub: '', label: 'Rework rounds',
-      cls: acc.rework_rounds == null ? '' : acc.rework_rounds ? 'amber' : 'green',
-    },
-    {
-      v: m.security?.blocked != null ? m.security.blocked : absent('uncomputable', 'no security scan has run — this is not a clean result'),
-      sub: '', label: 'Open security blocks',
-      // No colour when unmeasured. Green would say "safe"; red would say
-      // "unsafe"; neither is known.
-      cls: m.security?.blocked == null ? '' : m.security.blocked ? 'red' : 'green',
-    },
+    // 'Rework rounds' and 'Open security blocks' left with the redesign: both
+    // were fleet-wide aggregates over unmeasured inputs. Security is a fact per
+    // agent and per run (Fleet, Harness), not a green zero on a dashboard.
     { v: m.tasks?.in_progress ?? 0, sub: '', label: 'In progress', cls: 'amber' },
   ];
   document.getElementById('mp-secondary').innerHTML = secondary.map(s => `
@@ -8237,13 +8280,6 @@ function renderFleetSummary() {
   const tiles = [
     { v: s.installed, label: 'Installed agents', cls: '' },
     { v: s.active_30d, label: 'Active last 30d', cls: 'green', trend: s.active_30d > 0 ? '' : 'no activity yet' },
-    {
-      v: s.retire_candidates,
-      label: 'Retire candidates',
-      cls: s.retire_candidates > s.installed * 0.5 ? 'amber' : '',
-      trend: s.retire_candidates > 0 ? 'click to filter' : 'fleet is lean',
-      onClick: 'setFleetFilter("activity", "never")',
-    },
     {
       // `?? 0` turned "nothing was measured" into "$0.00 spent", and before that
       // the number here was an ESTIMATE from verdict counts while the metrics

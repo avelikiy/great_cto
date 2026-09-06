@@ -52,7 +52,10 @@ test('the dashboard tells apart "we looked and there is none" from "we could not
   // The distinction that costs money to get wrong: a zero you can act on versus
   // a gap you cannot.
   assert.match(html, /absent\('unloaded', 'the metrics payload carried no tasks section'\)/);
-  assert.match(html, /absent\('uncomputable', 'a measured multiplier needs verdict cost data/);
+  // The savings multiplier left with the redesign; Ledger carries the same
+  // three-way distinction on spend and on the stage strip (great_cto-ki1x.7).
+  assert.match(html, /absent\('uncomputable', 'no verdict carries a cost and there is nothing to estimate from'\)/);
+  assert.match(html, /absent\('unloaded', 'pipeline state not read'\)/);
   assert.match(html, /absent\('none', 'nothing was accepted in this window'\)/);
 });
 
