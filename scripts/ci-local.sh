@@ -109,6 +109,26 @@ step "css tokens resolve" bash -c '
   done
 '
 
+# One level up from the token: the CLASS that carries it. A `class="muted"` with
+# no `.muted` rule is dropped just as quietly — the span renders as ordinary
+# prose — and `.muted` was applied 70 times on the board and declared nowhere.
+# The same scan answers a second question a parity check cannot: whether the
+# rule survives PARSING. A stray `}` does not error; at the top level it opens a
+# rule whose prelude runs to the next `{`, swallowing the selector after it.
+# Two of those were live here, and each was introduced by a commit about
+# something else — `.budgets-table th` and `.icon-btn` had been rendering
+# unstyled with nothing to read as wrong.
+#
+# share.html only, and the asymmetry is the point rather than an oversight:
+# index.html carries seven classes that are deliberately names rather than
+# styles (a JS handle, grid children, cells the parent styles), so its parity is
+# asserted in packages/board/harnesses.test.mjs where the exemptions live beside
+# the reason each one is safe. An allowlist passed on a command line is one
+# nobody reads. share.html has no exemptions and this keeps it that way.
+step "css classes declared" bash -c '
+  node scripts/lib/css-classes.mjs packages/board/public/share.html
+'
+
 # Type scale, index.html only — and the omission is deliberate rather than
 # overlooked. share.html is a self-contained report published to an external
 # host, with its own palette and its own visual language (a 92px hero figure

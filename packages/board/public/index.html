@@ -648,9 +648,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .tab-btn:hover { background: var(--bg-muted); color: var(--text); }
 .tab-btn.active { background: var(--bg-strong); color: var(--text); font-weight: 500; }
 
-
-}
-/* Period chip-bar — slim version of tab-btn */
+/* A stray `}` stood here, left behind when `.leash-chip` was removed (34657cf5
+   added it, a later cleanup took the rule and not its brace) along with the
+   comment that introduced it. At the top level a `}` opens a qualified rule, so
+   it swallowed everything up to the next `{` — brace, dead comment and the
+   `.icon-btn` selector became one invalid prelude, and `.icon-btn`'s box went
+   with it. The icon buttons had been rendering at the browser's default size,
+   beside a `:hover` rule that still worked. */
 .icon-btn {
   background: transparent; border: 1px solid transparent;
   width: 30px; height: 30px;
@@ -1433,6 +1437,26 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   /* Same shape as `.muted`: the `--mono` token exists and is used 115×, the
      CLASS that applies it did not. */
   .mono { font-family: var(--mono); }
+  /* The board has two text inputs styled in place — `#agent-panel input` and
+     `.fleet-search input[type="search"]` — and a third, the Sessions search box,
+     that asked for the house look by name and got the user agent's. Same values
+     as those two, said once, so the name now means what it says. */
+  .input {
+    background: var(--bg-muted); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: var(--fs-body);
+    padding: 8px 12px; border-radius: 0;
+  }
+  .input:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; border-color: transparent; }
+  /* Visually hidden, still read aloud. The one use — the verdict modal's
+     `aria-labelledby` target — carried the whole pattern inline, which is how a
+     second use would have got a heading that is merely invisible to everyone, or
+     merely visible to everyone. `clip-path` over the old `left:-10000px`: an
+     off-screen box still counts as layout, and in an RTL context widens the page. */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    margin: -1px; padding: 0; border: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
 .tier-badge { font-size: var(--fs-caption); padding: 1px 8px; border-radius: 999px; margin-left: 6px;
   font-family: var(--mono); white-space: nowrap; }
 .tier-badge:empty { display: none; }
@@ -2115,11 +2139,30 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   background: var(--bg-card); color: var(--text); min-width: 26ch;
 }
 .budgets-table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
-.
+/* Restored from ad779c7a~1. That commit — about subagent batching — replaced
+   this selector with a bare `.` and left `id var(--border);`, the tail of a
+   duplicated border-bottom, before the closing brace.
+
+   `.` is not a selector, and CSS does not stop there: the prelude runs on to the
+   next `{`, which is `td`'s, and takes `td`'s block with it. Confirmed against
+   the released 3.26.0 with the browser's own parser — of this region it keeps
+   `.budgets-table`, `.bt-slug`, `.bt-desc`, `.bt-runs`, `.bt-cap`, `.bt-spend`,
+   `.bt-usd`, `th[title]` and `.budgets-idle summary`, and exactly `th` and `td`
+   are gone. So the table has had no header typography AND no cell padding or
+   borders since that commit. `th[title] { cursor: help }` survived, one rule
+   further down, which is part of why nobody looked: the headers still did
+   something on hover.
+
+   `font-weight: 500` is kept deliberately and is NOT a line that crept in. It
+   was ad779c7a's own edit — one of seven in that commit, and its sibling
+   `.cost-table th` took the identical change on the line above and parses fine.
+   The weight normalisation was the point of the commit; only this rule's
+   selector was destroyed while applying it. Dropping it would leave `th` at the
+   UA's 700, the one weight this design says it does not have. */
+.budgets-table th {
   text-align: left; font-family: var(--mono); font-weight: 500; font-size: var(--fs-eyebrow);
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2);
   padding: 0 12px 8px 0; border-bottom: 1px solid var(--border);
-id var(--border);
 }
 .budgets-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
 /* A row has to answer three questions: what is this agent, what does it cost,
@@ -4554,7 +4597,7 @@ async function loadJudgeStatus() {
        <span class="js-where">${esc(s.fingerprint || '')} · from ${esc(String(s.from || '').replace(/^.*\/(?=\.great_cto)/, '~/'))}</span>
        <span class="js-form">
          <input id="judge-key" type="password" autocomplete="off" spellcheck="false" placeholder="replace key (sk-or-…)">
-         <button class="btn" onclick="saveJudgeKey()">Replace</button>
+         <button class="btn-black" onclick="saveJudgeKey()">Replace</button>
        </span>`
     : `<span class="js-dot"></span>
        <span><strong>No judge connected.</strong> Every stage will be scored
@@ -4563,7 +4606,7 @@ async function loadJudgeStatus() {
           ? `<span class="js-where">${esc(s.problems.join('; '))}</span>` : ''}
        <span class="js-form">
          <input id="judge-key" type="password" autocomplete="off" spellcheck="false" placeholder="OpenRouter key (sk-or-…)">
-         <button class="btn" onclick="saveJudgeKey()">Connect</button>
+         <button class="btn-black" onclick="saveJudgeKey()">Connect</button>
        </span>`;
 }
 
@@ -4685,7 +4728,7 @@ async function loadBudgetsPage() {
         <div class="bf-why">${esc(String(err && err.message || err))}</div>
         <div class="bf-note">Caps already set are unaffected — this failed to
           <em>read</em> them, and the pipeline reads them itself, not from here.</div>
-        <button class="btn" onclick="loadBudgetsPage()">Try again</button>
+        <button class="btn-black" onclick="loadBudgetsPage()">Try again</button>
       </div>`;
     return;
   }
@@ -5070,7 +5113,7 @@ function showVerdictDetail(idx) {
   modal.innerHTML = `
     <div class="rdm-backdrop" onclick="document.getElementById('resume-detail-modal').remove()"></div>
     <div class="rdm-card" role="dialog" aria-modal="true" aria-labelledby="rdm-title-verdict">
-      <h2 id="rdm-title-verdict" class="sr-only" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">Verdict detail: ${esc(v.agent || 'agent')} ${esc(v.verdict || '')}</h2>
+      <h2 id="rdm-title-verdict" class="sr-only">Verdict detail: ${esc(v.agent || 'agent')} ${esc(v.verdict || '')}</h2>
       <div class="rdm-head">
         <span class="ri-tag ${cls}">${esc(v.agent || 'agent')}</span>
         <span class="rdm-verdict ${cls}">${esc(v.verdict || '')}</span>
@@ -5971,8 +6014,8 @@ async function loadSessions() {
         <span class="muted" style="white-space:nowrap">${ago(s.modified)} · ${fmtMB(s.size_bytes)}</span>
       </div>
       <div style="margin-top:6px">
-        <button class="btn-sm" onclick="openSession('${esc(s.id)}')">transcript</button>
-        <button class="btn-sm" onclick="openEdits('${esc(s.id)}')">edits</button>
+        <button class="btn-ghost-sm" onclick="openSession('${esc(s.id)}')">transcript</button>
+        <button class="btn-ghost-sm" onclick="openEdits('${esc(s.id)}')">edits</button>
       </div>
       <div id="sess-${esc(s.id)}" style="margin-top:8px"></div>
     </div>`).join('');
@@ -6024,12 +6067,12 @@ async function searchTranscripts() {
   if (!d) { body.innerHTML = '<div class="muted">Search failed.</div>'; return; }
   if (!d.hits?.length) {
     body.innerHTML = `<div class="muted">No match for “${esc(q)}”.${d.note ? ' ' + esc(d.note) : ''}
-      <button class="btn-sm" onclick="loadSessions()">back</button></div>`;
+      <button class="btn-ghost-sm" onclick="loadSessions()">back</button></div>`;
     return;
   }
   body.innerHTML =
     `<div class="muted" style="margin-bottom:8px">${d.hits.length} match(es)${d.truncated ? ', capped' : ''}
-      <button class="btn-sm" onclick="loadSessions()">back</button></div>` +
+      <button class="btn-ghost-sm" onclick="loadSessions()">back</button></div>` +
     d.hits.map(h => `
       <div class="card" style="margin-bottom:6px">
         <div class="muted" style="font-size:.8em">${esc(h.title || h.session)} · ${esc(h.role)} · ${h.ts ? ago(h.ts) : ''}</div>
