@@ -27,6 +27,7 @@ import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/li
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
+import { recordView, summarizeViews } from './view-counter.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -171,6 +172,65 @@ async function dispatch(req, res, url, cwd) {
     if (days > 365) days = 365;
     res.writeHead(200, verdictHeaders(cwd));
     res.end(JSON.stringify(getMetrics(cwd, days)));
+    return true;
+  }
+
+  // GET /api/views?since=<ISO>[&project=<name>]
+  //
+  // BRD-R9 (great_cto-ki1x.15): the only source for the K2/K3 kill-criteria in
+  // docs/product/BRIEF-board-redesign-2026-09.md and the 2026-09-20 kanban
+  // deep-link review already logged in .great_cto/decisions.md. Three states,
+  // not two — see lib/view-counter.mjs — mirroring the choice already made
+  // for /api/harnesses' evidence log just below: a line that fails to parse
+  // is counted in `unreadable_lines`, not silently dropped, and does not by
+  // itself flip the whole read to `unreadable`.
+  if (pathname === '/api/views' && req.method === 'GET') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const since = url.searchParams.get('since') || null;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(summarizeViews({ root: c, since })));
+    return true;
+  }
+
+  // POST /api/view  { view: 'decisions'|'ledger'|'fleet'|'harness'|'settings'|'kanban' }
+  //
+  // One line per top-level view open, appended to the resolved project's own
+  // `.great_cto/view-counter.log` — never sent anywhere (docs/PRIVACY.md:
+  // telemetry is opt-in and off by default; this is not telemetry, it is a
+  // local file). Guarded by origin like every other state-changing POST on
+  // this server (the board listens on 127.0.0.1, and a page the user happens
+  // to be visiting can still issue a simple cross-origin POST to localhost).
+  //
+  // Called once from switchTab() when the redesigned tabs land
+  // (great_cto-ki1x.5 / .13) — see that task's dispatch note for the exact line.
+  if (pathname === '/api/view' && req.method === 'POST') {
+    if (!originAllowed(req)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'origin not allowed' }));
+      return true;
+    }
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    let body = '';
+    req.on('data', (ch) => { body += ch; if (body.length > 1024) req.destroy(); });
+    req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); }
+      catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+        return;
+      }
+      const view = String(parsed.view || '');
+      try {
+        recordView({ root: c, view });
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e.message || e) }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, view }));
+    });
     return true;
   }
 
