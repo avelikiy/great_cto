@@ -1640,11 +1640,29 @@ async function dispatch(req, res, url, cwd) {
       }
       evidence = evidence.slice(-20).reverse();
     } catch (e) { logState = e.code === 'ENOENT' ? 'absent' : 'unreadable'; }
+
+    // BRD-R2: a parsed row without a usable `sha` (BRD-R1's join key, additive
+    // since a2f5d4e7 — scripts/lib/cross-model-review.mjs) cannot be paired
+    // with the tree it reviewed. A verdict you cannot pair with a tree is not
+    // a verdict about this tree, so it renders `unreadable` here — distinct
+    // from `ok`/`skipped`/`BLOCK`, and from the whole-log `unreadable` state
+    // above (that one means "could not read the file"; this one means "read
+    // the line fine, but it predates the field"). `sha` must be a non-empty
+    // string: missing, `null`, or `''` all mean "not supplied". Verdict/cost
+    // are nulled in the response so neither renders as a real result; the
+    // original line is kept under `raw` so nothing is lost.
+    evidence = evidence.map((r) => (
+      typeof r.sha === 'string' && r.sha !== ''
+        ? r
+        : { ...r, state: 'unreadable', verdict: null, cost: null, raw: r }
+    ));
+
     const reviewed = evidence.filter((r) => r.state === 'ok');
     const summary = {
       runs: evidence.length,
       reviewed: reviewed.length,
-      skipped: evidence.filter((r) => r.state !== 'ok').length,
+      skipped: evidence.filter((r) => r.state !== 'ok' && r.state !== 'unreadable').length,
+      unreadable: evidence.filter((r) => r.state === 'unreadable').length,
       blocked: reviewed.filter((r) => r.verdict === 'BLOCK').length,
       unreadable_lines: unreadable,
     };

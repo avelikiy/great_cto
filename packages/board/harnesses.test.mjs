@@ -98,13 +98,16 @@ test('a foreign origin cannot write PROJECT.md', async () => {
 test('the evidence tail reads the review log, counts unreadable lines, and never drops them', async () => {
   const log = path.join(project, '.great_cto', 'cross-review.log');
   writeFileSync(log, [
-    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'BLOCK', findings: 2, p0: 1, cost: 0.01 }),
+    // sha/dirty present on both rows — this test is about parse failures and
+    // provider states, not the join-key classification (see BRD-R2 tests below),
+    // so both rows must keep their original ok/skipped shape.
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'BLOCK', findings: 2, p0: 1, cost: 0.01, sha: 'abc123', dirty: false }),
     'not json at all',
-    JSON.stringify({ ts: '2026-09-05T10:05:00Z', provider: 'codex', state: 'unavailable', verdict: null, findings: null }),
+    JSON.stringify({ ts: '2026-09-05T10:05:00Z', provider: 'codex', state: 'unavailable', verdict: null, findings: null, sha: 'abc123', dirty: false }),
   ].join('\n') + '\n');
   const h = await get('/api/harnesses');
   assert.equal(h.evidence.state, 'ok');
-  assert.deepEqual(h.evidence.summary, { runs: 2, reviewed: 1, skipped: 1, blocked: 1, unreadable_lines: 1 });
+  assert.deepEqual(h.evidence.summary, { runs: 2, reviewed: 1, skipped: 1, unreadable: 0, blocked: 1, unreadable_lines: 1 });
   assert.equal(h.evidence.recent[0].state, 'unavailable', 'newest first');
 });
 
@@ -116,11 +119,13 @@ test('the evidence tail reads the review log, counts unreadable lines, and never
 test('summary counts: 2 ok/PASS + 1 ok/BLOCK + 1 unavailable + 1 quota + 1 unparseable → runs 5, reviewed 3, skipped 2, blocked 1, unparseable 1', async () => {
   const log = path.join(project, '.great_cto', 'cross-review.log');
   writeFileSync(log, [
-    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'PASS', findings: 0, cost: 0.01 }),
-    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'PASS', findings: 1, cost: 0.02 }),
-    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'BLOCK', findings: 2, cost: 0.03 }),
-    JSON.stringify({ ts: '2026-09-05T10:03:00Z', provider: 'codex', model: 'm', state: 'unavailable', verdict: null, findings: null, cost: null }),
-    JSON.stringify({ ts: '2026-09-05T10:04:00Z', provider: 'codex', model: 'm', state: 'quota', verdict: null, findings: null, cost: null }),
+    // sha/dirty on every parseable row — this test is about provider-state
+    // counting, not the join-key classification (see BRD-R2 tests below).
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'PASS', findings: 0, cost: 0.01, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'PASS', findings: 1, cost: 0.02, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'BLOCK', findings: 2, cost: 0.03, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:03:00Z', provider: 'codex', model: 'm', state: 'unavailable', verdict: null, findings: null, cost: null, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:04:00Z', provider: 'codex', model: 'm', state: 'quota', verdict: null, findings: null, cost: null, sha: 'abc123', dirty: false }),
     'garbage line that is not json',
   ].join('\n') + '\n');
   const h = await get('/api/harnesses');
@@ -129,6 +134,7 @@ test('summary counts: 2 ok/PASS + 1 ok/BLOCK + 1 unavailable + 1 quota + 1 unpar
     runs: 5,
     reviewed: 3,
     skipped: 2,
+    unreadable: 0,
     blocked: 1,
     unreadable_lines: 1,
   }, '5 parsed lines in runs; the garbage line is counted in its own figure, never in runs and never dropped');
@@ -137,26 +143,28 @@ test('summary counts: 2 ok/PASS + 1 ok/BLOCK + 1 unavailable + 1 quota + 1 unpar
 test('skipped rows (unavailable/quota/skipped state) are excluded from reviewed and blocked counts', async () => {
   const log = path.join(project, '.great_cto', 'cross-review.log');
   writeFileSync(log, [
-    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01 }),
-    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', verdict: null, cost: null }),
-    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'ok', verdict: 'BLOCK', cost: 0.02 }),
-    JSON.stringify({ ts: '2026-09-05T10:03:00Z', provider: 'codex', state: 'quota', verdict: null, cost: null }),
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', verdict: null, cost: null, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'ok', verdict: 'BLOCK', cost: 0.02, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:03:00Z', provider: 'codex', state: 'quota', verdict: null, cost: null, sha: 'abc123', dirty: false }),
   ].join('\n') + '\n');
   const h = await get('/api/harnesses');
   // runs includes all parsed lines (4), reviewed counts only state 'ok' (2),
-  // skipped counts state != 'ok' (2), blocked counts verdict 'BLOCK' among reviewed (1)
+  // skipped counts state != 'ok' and != 'unreadable' (2), blocked counts
+  // verdict 'BLOCK' among reviewed (1)
   assert.equal(h.evidence.summary.runs, 4);
   assert.equal(h.evidence.summary.reviewed, 2, 'only ok state rows are reviewed');
   assert.equal(h.evidence.summary.skipped, 2, 'unavailable + quota are skipped');
+  assert.equal(h.evidence.summary.unreadable, 0, 'every row here has a real sha');
   assert.equal(h.evidence.summary.blocked, 1, 'blocked only among reviewed (state ok)');
 });
 
 test({ skip: 'RED until great_cto-ki1x.10 lands' }, 'skipped rows are marked in the recent output and never carry a verdict', async () => {
   const log = path.join(project, '.great_cto', 'cross-review.log');
   writeFileSync(log, [
-    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS' }),
-    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', verdict: null }),
-    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'quota', verdict: null }),
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', verdict: null, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'quota', verdict: null, sha: 'abc123', dirty: false }),
   ].join('\n') + '\n');
   const h = await get('/api/harnesses');
   // Newest first (reversed)
@@ -176,9 +184,9 @@ test({ skip: 'RED until great_cto-ki1x.10 lands' }, 'skipped rows are marked in 
 test('cost on skipped rows is null, never 0', async () => {
   const log = path.join(project, '.great_cto', 'cross-review.log');
   writeFileSync(log, [
-    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01 }),
-    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', cost: null }),
-    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'quota', cost: null }),
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'unavailable', cost: null, sha: 'abc123', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:02:00Z', provider: 'codex', state: 'quota', cost: null, sha: 'abc123', dirty: false }),
   ].join('\n') + '\n');
   const h = await get('/api/harnesses');
   const recent = h.evidence.recent;
@@ -191,10 +199,10 @@ test('cost on skipped rows is null, never 0', async () => {
 test('unparseable lines are counted in the summary and never silently dropped', async () => {
   const log = path.join(project, '.great_cto', 'cross-review.log');
   const lines = [
-    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01 }),
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01, sha: 'abc123', dirty: false }),
     'this is garbage',
     'also garbage but different',
-    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'ok', verdict: 'BLOCK', cost: 0.02 }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'ok', verdict: 'BLOCK', cost: 0.02, sha: 'abc123', dirty: false }),
     '{"incomplete json',
   ];
   writeFileSync(log, lines.join('\n') + '\n');
@@ -204,6 +212,89 @@ test('unparseable lines are counted in the summary and never silently dropped', 
   assert.equal(h.evidence.summary.unreadable_lines, 3, 'exactly 3 unparseable lines counted, in their own figure');
   assert.equal(h.evidence.summary.reviewed, 2, 'only 2 reviewed (the parseable ones)');
   assert.equal(h.evidence.summary.blocked, 1, 'only 1 blocked verdict');
+});
+
+// BRD-R2 (great_cto-ki1x.3): a parsed row without a usable join key (`sha`)
+// cannot be paired with the tree it reviewed, so it classifies `unreadable` —
+// distinct from `ok`/`skipped`/`BLOCK`, and never rendered as 0 or "not
+// reviewed". `sha` must be a non-empty string: missing, `null`, or `''` are
+// all "not supplied". Writer side (sha/dirty, additive-only) landed in
+// a2f5d4e7 — see scripts/lib/cross-model-review.mjs reviewLogLine().
+
+test('BRD-R2 #1: a line with no sha key at all classifies unreadable, verdict/cost nulled, original kept under raw', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  writeFileSync(log, [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', model: 'm', state: 'ok', verdict: 'BLOCK', cost: 0.05 }),
+  ].join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  const row = h.evidence.recent[0];
+  assert.equal(row.state, 'unreadable', 'no sha key — cannot pair with a tree');
+  assert.strictEqual(row.verdict, null, 'a verdict you cannot pair with a tree is not a verdict about this tree');
+  assert.strictEqual(row.cost, null);
+  assert.equal(row.raw.verdict, 'BLOCK', 'the original line survives under raw — nothing is lost');
+  assert.equal(h.evidence.summary.unreadable, 1);
+  assert.equal(h.evidence.summary.blocked, 0, 'never counted toward blocked, whatever the raw verdict said');
+  assert.equal(h.evidence.summary.reviewed, 0);
+  assert.equal(h.evidence.summary.runs, 1, 'still a parsed row — counted in runs');
+});
+
+test('BRD-R2 #2: sha: null means "not supplied", same as a missing key — still unreadable', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  writeFileSync(log, [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01, sha: null, dirty: null }),
+  ].join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  assert.equal(h.evidence.recent[0].state, 'unreadable');
+  assert.equal(h.evidence.summary.unreadable, 1);
+  assert.equal(h.evidence.summary.reviewed, 0);
+});
+
+test('BRD-R2 #3: a real sha string follows the existing ok/skipped logic unchanged', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  writeFileSync(log, [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'BLOCK', cost: 0.02, sha: 'deadbeef', dirty: false }),
+    JSON.stringify({ ts: '2026-09-05T10:01:00Z', provider: 'codex', state: 'quota', verdict: null, cost: null, sha: 'deadbeef', dirty: true }),
+  ].join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  const recent = h.evidence.recent; // newest first: [quota, ok/BLOCK]
+  assert.equal(recent[0].state, 'quota');
+  assert.equal(recent[1].state, 'ok');
+  assert.equal(recent[1].verdict, 'BLOCK');
+  assert.deepEqual(h.evidence.summary, { runs: 2, reviewed: 1, skipped: 1, unreadable: 0, blocked: 1, unreadable_lines: 0 });
+});
+
+test('BRD-R2 #4: a line that fails JSON.parse increments unreadable_lines, never the row-level unreadable counter', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  writeFileSync(log, [
+    JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', cost: 0.01, sha: 'cafef00d', dirty: false }),
+    'not even json',
+  ].join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  assert.equal(h.evidence.summary.unreadable_lines, 1, 'a line that never parsed cannot become a row at all');
+  assert.equal(h.evidence.summary.unreadable, 0, 'the one row that did parse has a real sha — not unreadable');
+  assert.equal(h.evidence.summary.runs, 1);
+});
+
+test('BRD-R2 #5: the 3 lines in today\'s real evidence log (pre-BRD-R1, no sha) all classify unreadable, blocked 0', async () => {
+  const log = path.join(project, '.great_cto', 'cross-review.log');
+  // Verbatim from .great_cto/cross-review.log as of 2026-09-06 (great_cto's own
+  // repo) — the actual majority-case fixture at ship time. None of these three
+  // lines carries the join key, so all three must render unreadable, never
+  // 0/BLOCK/"not reviewed".
+  const lines = [
+    '{"ts":"2026-09-05T19:04:47.612Z","provider":"codex","model":"gpt-5.6-terra","state":"ok","verdict":"PASS","findings":1,"p0":0,"cost":0,"source":"PROJECT.md"}',
+    '{"ts":"2026-09-05T19:10:24.413Z","provider":"codex","model":"gpt-5.6-terra","state":"ok","verdict":"PASS","findings":0,"p0":0,"cost":null,"source":"PROJECT.md"}',
+    '{"ts":"2026-09-06T07:27:39.920Z","provider":"codex","model":"gpt-5.6-terra","state":"empty","verdict":null,"findings":null,"p0":null,"cost":null,"source":"PROJECT.md"}',
+  ];
+  writeFileSync(log, lines.join('\n') + '\n');
+  const h = await get('/api/harnesses');
+  assert.equal(h.evidence.summary.runs, 3, 'all 3 lines are valid JSON');
+  assert.equal(h.evidence.summary.unreadable, 3, 'none carries a sha — all predate the join key');
+  assert.equal(h.evidence.summary.unreadable_lines, 0, 'valid JSON missing a field is not a parse failure');
+  assert.equal(h.evidence.summary.reviewed, 0);
+  assert.equal(h.evidence.summary.skipped, 0);
+  assert.equal(h.evidence.summary.blocked, 0);
+  for (const r of h.evidence.recent) assert.equal(r.state, 'unreadable');
 });
 
 // The card's own CSS classes must exist. The first version used `class="warn"`
