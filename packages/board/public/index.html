@@ -1482,6 +1482,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   /* A row-level band, not a chip: `Bash(node:*)` reads as a restriction and is a
      full shell — the subtlest finding agent-posture produces must not be scanned past. */
   .strip { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--absent-warn-bg); color: var(--absent-warn-fg); font-size: var(--fs-caption); }
+  /* Decisions row (BRD-R3): the two reviewer cells sit between the title and the
+     actions; each glyph explains itself on hover. */
+  .gate-review { display: inline-flex; gap: 14px; align-items: center; font-family: var(--mono); font-size: var(--fs-caption); white-space: nowrap; color: var(--text2); }
+  .gate-review > span { display: inline-flex; gap: 6px; align-items: center; }
   /* Two-ring focus (§7.1): the outer ring is the focus token, the inner ring is
      the page itself, so the ring reads on any bed — a card, a solid pill, a strip.
      Element selectors only; the per-component rules above keep their own offsets. */
@@ -2996,6 +3000,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .chip-filter-bar { flex-direction: column; align-items: stretch; }
 }
 @media (max-width: 768px) {
+  /* The one asymmetry DESIGN §3.2 draws: an expensive or unclassified gate's
+     Reject/Approve stack full-width at phone width; a routine gate's may sit
+     side by side. Cheap and expensive must not share a motor cost. */
+  .inbox-row .actions.gate-actions-stack { flex-direction: column; align-items: stretch; flex-basis: 100%; }
+  .inbox-row .actions.gate-actions-stack .gate-btn { width: 100%; min-height: 44px; }
+  .gate-review { flex-basis: 100%; }
+
   .sidebar {
     position: fixed; top: 0; left: 0; bottom: 0;
     z-index: 40;
@@ -3845,7 +3856,52 @@ function elsewhereClause(e) {
   return { known: true, text: `${parts.join(' and ')} in ${m} other project${m > 1 ? 's' : ''} ${verb} waiting on you.` };
 }
 
+// gate id → reversibilityOf() as served on the inbox row; read by gateAction and
+// approveConsequence so a gate clicked from anywhere (row, palette) gets the
+// ritual its cost of undo demands.
+const GATE_REVERSIBILITY = {};
+// BRD-R3 ordering: expensive first, then unclassified — sorted WITH the expensive
+// group, never with routine, because "nobody judged this" is not evidence of
+// cheapness — then routine; inside a group, longest-waiting first.
+const REV_RANK = { expensive: 0, unclassified: 1, routine: 2 };
+function sortGatesByCostOfUndo(gates) {
+  return (gates || []).slice().sort((a, b) => {
+    const ra = REV_RANK[a?.reversibility?.state] ?? 1, rb = REV_RANK[b?.reversibility?.state] ?? 1;
+    if (ra !== rb) return ra - rb;
+    return (ageHours(b.updated_at) ?? -1) - (ageHours(a.updated_at) ?? -1);
+  });
+}
+// The second opinion for the tree at HEAD, as /api/inbox resolved it — one
+// value for every pending gate, four states, none a verdict unless `ok`.
+let inboxSecondOpinion = null;
+function reviewerCells(t) {
+  // Claude: the pipeline's own reviewer raised this gate — the gate exists
+  // because a stage finished and asked for a human. `agent` names the stage
+  // when the task carries one; the cell stays hollow (in flight) until the
+  // operator decides, because the decision IS the settled state.
+  const raised = t.agent && t.agent !== 'gate' ? esc(t.agent) : 'pipeline';
+  const claude = `<span title="raised by ${raised} — waiting on you"><span class="dot run"></span> Claude</span>`;
+  const so = inboxSecondOpinion;
+  let codex;
+  if (!so || so.state === 'not-run') codex = `<span class="abs" title="${esc(so?.why || 'second opinion not run')}">— Codex</span>`;
+  else if (so.state === 'unmeasured') codex = `<span class="abs" title="${esc(so.why)}">· Codex</span>`;
+  else if (so.state === 'unreadable') codex = `<span class="abs" title="${esc(so.why)}">! Codex</span>`;
+  else if (so.verdict === 'BLOCK') codex = `<span title="Codex BLOCK on ${esc((so.sha || '').slice(0, 8))} — ${esc(String(so.p0 ?? '?'))}×P0"><span class="dot bad"></span> Codex ✗</span>`;
+  else codex = `<span title="Codex ${esc(so.verdict || 'PASS')} on ${esc((so.sha || '').slice(0, 8))}"><span class="dot ok"></span> Codex ✓</span>`;
+  return `<span class="gate-review">${claude}${codex}</span>`;
+}
+function gateChip(t) {
+  const r = t.reversibility || { state: 'unclassified', gate: '', why: 'no reversibility on this row' };
+  const name = r.gate ? `gate:${r.gate}` : (String(t.title || '').match(/gate:[a-z-]+/) || ['gate'])[0];
+  const cls = r.state === 'expensive' ? 'exp' : r.state === 'routine' ? 'rou' : 'unc';
+  const glyph = r.state === 'expensive' ? '▲' : r.state === 'routine' ? '▢' : '?';
+  const why = r.state === 'expensive' ? (r.categories || []).join(' · ') : r.state === 'routine' ? `routine — ${r.why || 'cheap to undo'}` : `unclassified — ${r.why || 'not in gate-reversibility.mjs'}. Unjudged, not harmless.`;
+  return `<span class="gate ${cls}" title="${esc(why)}">${glyph} ${esc(name)}</span>`;
+}
 function renderInbox(d) {
+  inboxSecondOpinion = d?.second_opinion || null;
+  for (const g of (d?.pending_gates || [])) if (g?.id && g.reversibility) GATE_REVERSIBILITY[g.id] = g.reversibility;
+  if (d && Array.isArray(d.pending_gates)) d = { ...d, pending_gates: sortGatesByCostOfUndo(d.pending_gates) };
   // Kept so renderResume can ask what this section is already showing, rather
   // than the two of them rendering the same task independently.
   window.__inboxData = d;
@@ -4415,10 +4471,11 @@ function renderInboxList(rootId, items, countId, opts = {}) {
         + `<button type="button" class="gate-btn" title="Copy the line that re-runs this agent"`
         + ` onclick="event.stopPropagation(); copyRerun('${esc(t.agent)}')">Copy re-run</button></div>`
       : '';
+    const guardedGate = canDecide && t.reversibility && t.reversibility.state !== 'routine';
     const actions = canDecide
-      ? `<div class="actions" onclick="event.stopPropagation()">
-           <button class="gate-btn gate-approve" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">Approve</button>
-           <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject</button>
+      ? `<div class="actions${guardedGate ? ' gate-actions-stack' : ''}" onclick="event.stopPropagation()">
+           <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject…</button>
+           <button class="gate-btn gate-approve" title="${guardedGate ? 'expensive to undo — you will be asked to type the gate name' : 'one confirm names the consequence'}" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">${guardedGate ? 'Approve…' : 'Approve'}</button>
          </div>`
       // Age is promoted out of the metadata run into its own column, because it
       // is the only field that differs between these rows. `status` stays,
@@ -4460,8 +4517,9 @@ function renderInboxList(rootId, items, countId, opts = {}) {
       : '';
     return `
       <div class="inbox-row${aged ? ' row-aged' : ''}" tabindex="0" role="button" aria-label="${esc(t.title || t.id)}" onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();this.click();}' onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
-        <span class="id">${esc(t.id || '')}</span>
-        <span class="ttl">${reasonChip}${esc(t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
+        ${canDecide ? gateChip(t) : `<span class="id">${esc(t.id || '')}</span>`}
+        <span class="ttl">${canDecide ? '' : reasonChip}${esc(canDecide ? String(t.title || '').replace(/^gate:[a-z-]+\s*[—–-]?\s*/, '') : t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
+        ${canDecide ? reviewerCells(t) : ''}
         ${actions}${rerun}${diffBtn}
       </div>`;
   }).join('');
@@ -7016,13 +7074,23 @@ function cardHTML(t) {
 // following stage, and — when the share report is on — a public URL is
 // republished. That last line is the one worth reading: it leaves the machine,
 // and revoking the link later does not un-see what was already served.
-function approveConsequence(id) {
+function approveConsequence(id, reversibility) {
+  // The gate's cost of undo is part of the consequence (ADR-009, DESIGN §6.2):
+  // `expensive` names its categories in the words gate-reversibility.mjs uses —
+  // escapes-the-machine, costs-money, destroys-evidence, unrevocable-disclosure;
+  // `unclassified` says so, because an unknown cost is not a low one.
+  const r = reversibility || GATE_REVERSIBILITY[id] || null;
   const lines = [
     `Approve ${id}?`,
     '',
     'Records your approval in the verdict log and wakes the pipeline —',
     'the next session dispatches the following stage.',
   ];
+  if (r && r.state === 'expensive') {
+    lines.push('', `Expensive to undo: ${(r.categories || []).join(' · ') || 'see gate-reversibility.mjs'}.`);
+  } else if (r && r.state === 'unclassified') {
+    lines.push('', 'Unclassified gate — its cost of undo is unknown, and unknown is not harmless.');
+  }
   if (shareState && shareState.enabled) {
     lines.push('', `Also republishes the public report at ${shareState.url || 'the share URL'} —`,
                    'anyone holding that link sees the update.');
@@ -7046,7 +7114,18 @@ async function gateAction(id, action, runAgent) {
     // a typed-name ritual on a button pressed several times a day. The runAgent
     // path already shows an editable prompt that says what it will approve and
     // run, and is cancellable — a second dialog there would be pure friction.
-    if (!runAgent && !confirm(approveConsequence(id))) return;
+    // Approve ritual follows cost of undo (DESIGN §6.2). `routine`: one confirm
+    // naming the consequence. `expensive` and `unclassified`: the operator types
+    // the gate name — exact, case-sensitive — before the approval is posted; an
+    // unclassified gate gets the expensive ritual because nobody judged it cheap.
+    const rev = GATE_REVERSIBILITY[id] || null;
+    const guarded = rev && (rev.state === 'expensive' || rev.state === 'unclassified');
+    if (!runAgent && guarded) {
+      const gateName = rev.gate ? `gate:${rev.gate}` : id;
+      const typed = prompt(`${approveConsequence(id, rev)}\n\nType ${gateName} to approve:`, '');
+      if (typed === null) return;
+      if (typed.trim() !== gateName) { alert(`Not approved — "${typed.trim()}" is not ${gateName}.`); return; }
+    } else if (!runAgent && !confirm(approveConsequence(id, rev))) return;   // routine
     body = { action, project: currentProject };
     if (runAgent) {
       const generic = `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it with TDD.`;

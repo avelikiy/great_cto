@@ -34,8 +34,13 @@ test('approving asks before it posts', () => {
   assert.ok(confirmAt > 0, 'the approve branch confirms');
   assert.ok(confirmAt < gateAction.indexOf('/api/gates/'),
     'the confirm must come BEFORE the request, or it is a receipt, not a gate');
-  assert.match(gateAction, /if \(!runAgent && !confirm\(approveConsequence\(id\)\)\) return;/,
-    'a dismissed confirm returns without approving');
+  // Two rituals since the redesign (great_cto-ki1x.6): a routine gate's dismissed
+  // confirm returns; an expensive/unclassified gate's cancelled or mistyped name
+  // returns. Neither path reaches the request.
+  assert.match(gateAction, /else if \(!runAgent && !confirm\(approveConsequence\(id, rev\)\)\) return;/,
+    'a dismissed confirm returns without approving (routine)');
+  assert.match(gateAction, /if \(typed === null\) return;/, 'a cancelled typed-name prompt returns without approving');
+  assert.match(gateAction, /typed\.trim\(\) !== gateName[\s\S]{0,120}return;/, 'a mistyped gate name returns without approving');
 });
 
 test('the confirm names consequences rather than asking "are you sure"', () => {
@@ -149,7 +154,7 @@ test('cycle time keeps its dash, and says why', () => {
 
 // ── Typed-name confirmation for expensive and unclassified gates ──────────────
 
-test('approveConsequence accepts reversibility info with categories', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+test('approveConsequence accepts reversibility info with categories', () => {
   const fn = html.match(/function approveConsequence\([\s\S]*?\n\}/)?.[0];
   assert.ok(fn, 'located approveConsequence');
   // After implementation, approveConsequence should accept a second parameter
@@ -160,7 +165,7 @@ test('approveConsequence accepts reversibility info with categories', { skip: 'R
     'function handles gate categories from reversibility state');
 });
 
-test('approveConsequence includes category words for expensive gates', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+test('approveConsequence includes category words for expensive gates', () => {
   const fn = html.match(/function approveConsequence\([\s\S]*?\n\}/)?.[0];
   assert.ok(fn, 'located approveConsequence');
   // For expensive gates, the consequence text should include human-readable
@@ -169,7 +174,7 @@ test('approveConsequence includes category words for expensive gates', { skip: '
     'consequence text references the category vocabulary (expensive gate categories)');
 });
 
-test('approveConsequence labels unclassified gates as such', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+test('approveConsequence labels unclassified gates as such', () => {
   const fn = html.match(/function approveConsequence\([\s\S]*?\n\}/)?.[0];
   assert.ok(fn, 'located approveConsequence');
   // For unclassified (unknown) gates, the text should warn that cost is unknown
@@ -177,7 +182,7 @@ test('approveConsequence labels unclassified gates as such', { skip: 'RED until 
     'consequence text for unclassified gates includes warning about unknown cost');
 });
 
-test('expensive gates require typed-name confirmation in gateAction', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+test('expensive gates require typed-name confirmation in gateAction', () => {
   assert.ok(gateAction, 'located gateAction');
   // For expensive and unclassified gates, before posting the approval,
   // gateAction should require the operator to type the gate name exactly
@@ -190,7 +195,7 @@ test('expensive gates require typed-name confirmation in gateAction', { skip: 'R
     'gateAction references reversibility state (expensive or unclassified)');
 });
 
-test('routine gates do not require typed-name confirmation', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+test('routine gates do not require typed-name confirmation', () => {
   assert.ok(gateAction, 'located gateAction');
   // For routine gates (cheap to undo), the single confirm dialog is enough.
   // No typed-name affordance should be required.
@@ -199,7 +204,7 @@ test('routine gates do not require typed-name confirmation', { skip: 'RED until 
     'gateAction has logic path for routine gates');
 });
 
-test('typed-name input is disabled until exact match', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+test('typed-name input is disabled until exact match', () => {
   // After implementation, look for a UI affordance that:
   // 1. Shows an input field for expensive/unclassified gates
   // 2. Disables the approve button by default
@@ -209,7 +214,7 @@ test('typed-name input is disabled until exact match', { skip: 'RED until great_
     'UI includes disabled state management for typed-name affordance');
 });
 
-test('approveConsequence invariants: verdict log, pipeline, public report', { skip: 'RED until great_cto-ki1x.6 lands' }, () => {
+test('approveConsequence invariants: verdict log, pipeline, public report', () => {
   const fn = html.match(/function approveConsequence\([\s\S]*?\n\}/)?.[0];
   assert.ok(fn, 'located approveConsequence');
   // Original invariants must remain: the consequence always names the three effects
