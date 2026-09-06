@@ -40,8 +40,11 @@ import { startServerOnFreePort } from '../helpers/board-start.mjs';
 const THEMES = ['dark', 'light'];
 // Every panel the page ships. Read from the DOM at test time as well, and the
 // two lists must agree — a panel added to the page and not here would go unread.
-const PANELS = ['inbox', 'kanban', 'dashboard', 'agents', 'budgets', 'docs', 'logs',
-  'memory', 'notifications', 'sessions', 'share'];
+// Since the redesign (great_cto-ki1x.16): Metrics is gone (its live pieces sit
+// in Ledger = budgets); Harness and Settings are panels of their own; share and
+// notifications survive as id'd blocks inside Settings, so they stay listed.
+const PANELS = ['inbox', 'kanban', 'agents', 'budgets', 'docs', 'logs',
+  'memory', 'notifications', 'sessions', 'share', 'harness', 'settings'];
 
 /**
  * Runs in the page. For every element that owns visible text, report its

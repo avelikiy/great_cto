@@ -442,6 +442,17 @@ PLAN: Board redesign — build to the design canvas
 
 ---
 
+## Implementation briefs
+
+One per task that had a brief written before it was built; the rest were built from this table and the design canvas directly.
+
+- [IMPL-BRIEF-great_cto-ki1x.1](../impl-briefs/IMPL-BRIEF-great_cto-ki1x.1.md) — BRD-R1 join key on the review log
+- [IMPL-BRIEF-great_cto-ki1x.3](../impl-briefs/IMPL-BRIEF-great_cto-ki1x.3.md) — BRD-R2 unreadable classification
+- [IMPL-BRIEF-great_cto-ki1x.4](../impl-briefs/IMPL-BRIEF-great_cto-ki1x.4.md) — foundation: tokens and primitives
+- [IMPL-BRIEF-great_cto-ki1x.5](../impl-briefs/IMPL-BRIEF-great_cto-ki1x.5.md) — nav shell cutover
+- [IMPL-BRIEF-great_cto-ki1x.6](../impl-briefs/IMPL-BRIEF-great_cto-ki1x.6.md) — Decisions screen
+- [IMPL-BRIEF-great_cto-ki1x.7](../impl-briefs/IMPL-BRIEF-great_cto-ki1x.7.md) — Ledger screen
+
 ## Revision history
 
 | Date | Author | Change |
