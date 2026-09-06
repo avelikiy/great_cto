@@ -250,9 +250,29 @@ else
   [ -z "$SUBJECT_LINE" ] && SUBJECT_LINE="release"
   COMMIT_MSG="feat(v$NEW): $SUBJECT_LINE"
 
-  color_dim "    $(git status --porcelain | wc -l | tr -d ' ') file(s) staged"; echo ""
+  # EXPLICIT paths, never `git add -A`. On 2026-09-06 the sweep put unrelated
+  # work into two version commits in one day: a contract revert in the morning,
+  # and in the afternoon an entire untracked feature (codex-pipeline, written by
+  # a Codex session) plus two design documents — none mentioned in the release
+  # notes, all public the moment the tag was pushed. A version commit carries
+  # the files the bump wrote and nothing else; anything else dirty is a reason
+  # to stop, not a passenger.
+  VERSION_FILES=(
+    .claude-plugin/plugin.json .codex-plugin/plugin.json .codex-plugin/mcp.json
+    CHANGELOG.md README.md
+    packages/cli/package.json packages/cli/package-lock.json packages/cli/jsr.json
+  )
+  STRAY=$(git status --porcelain | awk '{print $2}' | grep -vE '^(\.claude-plugin/plugin\.json|\.codex-plugin/(plugin|mcp)\.json|CHANGELOG\.md|README\.md|packages/cli/(package|package-lock|jsr)\.json|docs/screenshots/[^/]+\.png)$' || true)
+  if [ -n "$STRAY" ]; then
+    echo ""; color_red "✗ refusing to commit — the tree carries changes that are not version files:"; echo ""
+    echo "$STRAY" | sed 's/^/      /'
+    echo ""; echo "    Commit or set them aside first. A version commit must contain only what the bump wrote."
+    exit 1
+  fi
   color_dim "    commit message: $COMMIT_MSG"; echo ""
-  run git add -A
+  for f in "${VERSION_FILES[@]}"; do [ -e "$f" ] && run git add -- "$f"; done
+  [ -d docs/screenshots ] && run git add -- docs/screenshots/*.png
+  color_dim "    $(git diff --cached --name-only | wc -l | tr -d ' ') file(s) staged"; echo ""
   run git commit -m "$COMMIT_MSG"
   ok "committed"
 fi
