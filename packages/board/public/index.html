@@ -11,11 +11,8 @@
   function toggleBoardTheme() {
     var r = document.documentElement, t = r.dataset.theme === 'light' ? 'dark' : 'light';
     r.dataset.theme = t; try { localStorage.setItem('gcto_board_theme', t); } catch (e) {}
-    var b = document.getElementById('board-theme-btn'); if (b) b.textContent = t === 'light' ? '☀️' : '🌙';
+    /* The icon follows data-theme in CSS; nothing to repaint here. */
   }
-  addEventListener('DOMContentLoaded', function () {
-    var b = document.getElementById('board-theme-btn'); if (b) b.textContent = document.documentElement.dataset.theme === 'light' ? '☀️' : '🌙';
-  });
 </script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -118,6 +115,17 @@
   --p2-bg: rgba(240, 210, 78, 0.14);  --p2-fg: #fde68a;
   --p3-bg: rgba(255, 255, 255, 0.05); --p3-fg: #9ca3af;
 
+  /* Absence — two states the board already produces and could not render
+     (§4/§6.3 of DESIGN-board-redesign-2026-09): `!` unreadable, `?` unjudged.
+     Reuses the p1 values verbatim rather than introducing a fifth amber. */
+  --absent-warn-fg: #fcd34d;
+  --absent-warn-bg: rgba(255, 170, 60, 0.14);
+  /* Posture — aliases onto the measured p0 pair, not new colours (§6.5): one
+     hue for "expensive", distinguished by words. Aliased, not copied, so a
+     future change to p0 cannot silently desynchronise these. */
+  --posture-expensive-bg: var(--p0-bg);
+  --posture-expensive-fg: var(--p0-fg);
+
   /* Was `--serif`, and there is no serif anywhere in the stack — it is the
      DISPLAY face, doing display work correctly under a name that promised a
      contrast this page has never had. greatcto.systems already calls the same
@@ -191,6 +199,13 @@
   --p1-bg: rgba(180, 83, 9, 0.12);    --p1-fg: #a64c08;
   --p2-bg: rgba(146, 102, 10, 0.12);  --p2-fg: #885f09;
   --p3-bg: rgba(0, 0, 0, 0.05);       --p3-fg: #5c6b65;
+  /* Absence / posture — see :root for the rationale. Both blocks in the same
+     commit: a token added to only one theme is the defect this file's own
+     comments document (the light block is 39 overrides nobody was checking). */
+  --absent-warn-fg: #a64c08;
+  --absent-warn-bg: rgba(180, 83, 9, 0.12);
+  --posture-expensive-bg: var(--p0-bg);
+  --posture-expensive-fg: var(--p0-fg);
   --surface-drawer: #ffffff;
   --surface-translucent: rgba(255, 255, 255, 0.72);
   --rail-ok-bg: rgba(10, 125, 77, 0.12);
@@ -1439,6 +1454,43 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   /* Same shape as `.muted`: the `--mono` token exists and is used 115×, the
      CLASS that applies it did not. */
   .mono { font-family: var(--mono); }
+  /* ── Redesign primitives (DESIGN-board-redesign §6.2 GateChip, §6.3 StatusDot,
+     §6.5 PostureStrip). Declared here, ahead of the screens that use them, so
+     each screen task adds markup, not CSS. Rule they all share: weight and
+     glyph carry meaning, hue is one-per-meaning — a filled dot is settled, a
+     hollow one is in flight, an amber glyph is an absence. */
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok { background: var(--status-done); }
+  .dot.bad { background: var(--status-blocked); }
+  .dot.run { background: transparent; border: 1px solid var(--status-progress); }
+  /* An absence glyph (`·` `—` `!` `?`): mono, amber, never green and never grey-filled. */
+  .abs { font-family: var(--mono); color: var(--absent-warn-fg); }
+  /* GateChip — one violet; solid = expensive, outline = routine, dashed = unclassified. */
+  .gate { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 999px; font-family: var(--mono); font-size: var(--fs-caption); font-weight: 500; white-space: nowrap; }
+  .gate.exp { background: var(--status-gate); color: var(--on-status); }
+  .gate.rou { border: 1px solid var(--status-gate); color: var(--status-gate); }
+  .gate.unc { border: 1px dashed var(--border-strong); color: var(--absent-warn-fg); }
+  /* PostureStrip — one bed for "expensive", distinguished by words; routine is a hairline. */
+  .pos { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 999px; font-family: var(--mono); font-size: var(--fs-eyebrow); white-space: nowrap; }
+  .pos.exp { background: var(--posture-expensive-bg); color: var(--posture-expensive-fg); }
+  .pos.rou { border: 1px solid var(--border); color: var(--text2); }
+  .pos.unj { color: var(--absent-warn-fg); }
+  .pos.warn { background: var(--absent-warn-bg); color: var(--absent-warn-fg); }
+  /* A row-level band, not a chip: `Bash(node:*)` reads as a restriction and is a
+     full shell — the subtlest finding agent-posture produces must not be scanned past. */
+  .strip { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--absent-warn-bg); color: var(--absent-warn-fg); font-size: var(--fs-caption); }
+  /* Two-ring focus (§7.1): the outer ring is the focus token, the inner ring is
+     the page itself, so the ring reads on any bed — a card, a solid pill, a strip.
+     Element selectors only; the per-component rules above keep their own offsets. */
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, [role="button"]:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--focus-ring); outline-offset: 2px; box-shadow: 0 0 0 2px var(--bg-page);
+  }
+  /* Theme toggle: two stroke icons, the theme picks one. No emoji — an emoji is
+     a font the platform chooses, and it was rendering at three sizes on three OSes. */
+  #board-theme-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  #board-theme-btn .ico-sun { display: none; }
+  [data-theme="light"] #board-theme-btn .ico-sun { display: inline; }
+  [data-theme="light"] #board-theme-btn .ico-moon { display: none; }
   /* The board has two text inputs styled in place — `#agent-panel input` and
      `.fleet-search input[type="search"]` — and a third, the Sessions search box,
      that asked for the house look by name and got the user agent's. Same values
@@ -3169,7 +3221,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           <span class="btn-label" style="font-size:var(--fs-small);font-weight:500">Share</span>
           <span id="share-nav-badge" class="share-badge off"><span class="share-badge-dot"></span>off</span>
         </button>
-        <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
+        <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme"><svg class="ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7z"></path></svg><svg class="ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"></path></svg></button>
         <button class="btn-bell" id="topbar-bell" onclick="openNotifDrawer()" title="Notifications">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
           <span class="btn-bell-badge" id="topbar-bell-badge"></span>
@@ -7076,6 +7128,8 @@ const ABSENCE = {
   none:         '—',      // measured; the answer is that there is none
   uncomputable: 'n/a',    // the inputs for this figure do not exist
   unloaded:     '·',      // no answer yet — the read has not landed
+  unreadable:   '!',      // it was there and could not be parsed
+  unjudged:     '?',      // it exists and nobody has classified it yet
 };
 
 function absent(kind, why) {

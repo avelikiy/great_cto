@@ -108,7 +108,7 @@ test('the large live figures use tabular numerals', () => {
 
 // ── Absence vocabulary extended to five states ──────────────────────────────
 
-test('ABSENCE declares all five required keys: unloaded, uncomputable, none, unreadable, unjudged', { skip: 'RED until great_cto-ki1x.4 lands' }, () => {
+test('ABSENCE declares all five required keys: unloaded, uncomputable, none, unreadable, unjudged', () => {
   const dict = html.match(/const ABSENCE = \{[\s\S]*?\};/)?.[0];
   assert.ok(dict, 'located the absence vocabulary');
   for (const kind of ['unloaded', 'uncomputable', 'none', 'unreadable', 'unjudged']) {
@@ -116,14 +116,14 @@ test('ABSENCE declares all five required keys: unloaded, uncomputable, none, unr
   }
 });
 
-test('ABSENCE glyphs are unique; no two absence states share a glyph', { skip: 'RED until great_cto-ki1x.4 lands' }, () => {
+test('ABSENCE glyphs are unique; no two absence states share a glyph', () => {
   const dict = html.match(/const ABSENCE = \{[\s\S]*?\};/)?.[0];
   assert.ok(dict, 'located the absence vocabulary');
   const glyphs = [...dict.matchAll(/'([^']+)',/g)].map((m) => m[1]);
   assert.equal(new Set(glyphs).size, glyphs.length, 'all glyphs must be distinct; duplicates indicate a contract violation');
 });
 
-test('ABSENCE glyphs never use success indicators: no checkmark, no filled green, no filled dot', { skip: 'RED until great_cto-ki1x.4 lands' }, () => {
+test('ABSENCE glyphs never use success indicators: no checkmark, no filled green, no filled dot', () => {
   const dict = html.match(/const ABSENCE = \{[\s\S]*?\};/)?.[0];
   assert.ok(dict, 'located the absence vocabulary');
   assert.ok(!/✓/.test(dict), 'no checkmark in ABSENCE — absence is never success');
@@ -134,7 +134,7 @@ test('ABSENCE glyphs never use success indicators: no checkmark, no filled green
   }
 });
 
-test('each ABSENCE entry carries a human why label in the source comments', { skip: 'RED until great_cto-ki1x.4 lands' }, () => {
+test('each ABSENCE entry carries a human why label in the source comments', () => {
   const dict = html.match(/const ABSENCE = \{[\s\S]*?\};/)?.[0];
   assert.ok(dict, 'located the absence vocabulary');
   // Check that each key has a comment explaining the human meaning
