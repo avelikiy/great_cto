@@ -97,3 +97,38 @@ test('an unpriced model logs cost null and prints "unpriced" — never $0', () =
   assert.equal(last.cost, null);
   assert.equal(last.model, 'gpt-5.6-terra');
 });
+
+// A review that did not happen must say WHY, and the why must be the cause —
+// not whatever the provider happened to mention first. On 2026-09-06 an
+// exhausted plan quota displayed "Skill descriptions were shortened to fit the
+// skills context budget", so the reader is sent to disable skills over a
+// problem that fixes itself on a date the real message names.
+test('the skipped reason is the ranked cause, not the first message, and the log carries its kind', () => {
+  const dir = project('capabilities:\n  second_opinion: codex\n');
+  // The stream is written to a file and the fake codex cats it. Building it as
+  // shell `printf` arguments broke on the apostrophe in "You've" — the fixture
+  // failed while the product was correct, which is the worst way for a test to
+  // fail.
+  const noise = 'Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill.';
+  const cause = "You've hit your usage limit. Upgrade to Plus to continue using Codex, or try again at Oct 5th, 2026 9:41 AM.";
+  const stream = path.join(dir, 'stream.jsonl');
+  writeFileSync(stream, [noise, cause]
+    .map((message) => JSON.stringify({ type: 'item.completed', item: { type: 'error', message } }))
+    .join('\n') + '\n');
+  const bin = path.join(dir, 'codex');
+  writeFileSync(bin, `#!/bin/sh\ncat >/dev/null\ncat ${stream}\n`);
+  chmodSync(bin, 0o755);
+
+  const r = run(dir, [], { GREAT_CTO_CODEX_BIN: bin });
+  assert.equal(r.status, EXIT.SKIPPED, r.stdout + r.stderr);
+  assert.match(r.stdout, /quota:/, 'names the kind');
+  assert.match(r.stdout, /Oct 5th, 2026/, 'and the date the reader actually needs');
+  const headline = r.stdout.split('\n').find((l) => l.includes('SKIPPED')) ?? '';
+  assert.doesNotMatch(headline, /Skill descriptions/, 'the advisory noise is not presented as the cause');
+  assert.match(r.stdout, /other message\(s\) from codex, not the cause/, 'but it is not hidden either');
+
+  const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
+  assert.equal(last.error_kind, 'quota');
+  assert.equal(last.resets_at, 'Oct 5th, 2026 9:41 AM');
+  assert.equal(last.verdict, null, 'still no verdict — a skipped review has none');
+});

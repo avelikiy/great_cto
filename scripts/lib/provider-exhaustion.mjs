@@ -29,7 +29,8 @@
  * only by someone topping up, which will not happen inside this run.
  *
  * @param {Error|string} err
- * @returns {{terminal:boolean, kind:'credits'|'auth'|'rate-limit'|'transient', why:string}}
+ * @returns {{terminal:boolean, kind:'credits'|'billing'|'quota'|'auth'|'rate-limit'|'transient',
+ *            why:string, resetsAt?:string}}
  */
 export function classifyProviderError(err) {
   const msg = String(err?.message ?? err ?? '');
@@ -54,6 +55,26 @@ export function classifyProviderError(err) {
   // that merges them sends someone to the wrong screen.
   if (/account is locked|billing (issue|problem|lock)|locked due to.*billing|billing.*(suspend|disabled)/.test(body)) {
     return { terminal: true, kind: 'billing', why: 'the provider account is locked over billing — no retry clears it until a human settles the bill' };
+  }
+  // A PLAN QUOTA is its own kind, and merging it into rate-limit was costing a
+  // real answer. Codex on a ChatGPT plan answers "You've hit your usage limit.
+  // Upgrade to Plus to continue, or try again at Oct 5th, 2026 9:41 AM" — which
+  // is terminal for anything running today and NOT terminal in the way `credits`
+  // is: nobody has to do anything, it comes back by itself, on a date the
+  // message names. Read as `rate-limit` it earns a retry loop that cannot
+  // succeed for a month; read as `credits` it sends someone to a billing page
+  // they do not need.
+  //
+  // The date is the actionable half, so it is extracted rather than described.
+  if (/usage limit|quota (exceeded|exhausted)|monthly limit|plan limit/.test(body)) {
+    const at = msg.match(/try again at ([^.\n"]{4,40})/i)?.[1]?.trim() ?? null;
+    return {
+      terminal: true, kind: 'quota',
+      why: at
+        ? `the provider plan's usage limit is spent — it returns on its own at ${at}, and no retry before then can succeed`
+        : "the provider plan's usage limit is spent — it returns on its own, and no retry before then can succeed",
+      ...(at ? { resetsAt: at } : {}),
+    };
   }
   if (status === '401' || status === '403' || /invalid api key|unauthorized|forbidden/.test(body)) {
     return { terminal: true, kind: 'auth', why: 'the provider rejected the key — no retry inside this run can fix that' };
@@ -97,4 +118,35 @@ export function admissibleToHistory(result) {
   }
   if (!result.judged) return { ok: false, why: 'no case was judged' };
   return { ok: true };
+}
+
+/**
+ * Pick the error a human should be shown, out of everything a provider emitted.
+ *
+ * Codex reports advisory problems and fatal ones through the same channel, in
+ * arrival order. On 2026-09-06 a review that failed on an exhausted plan quota
+ * displayed "Skill descriptions were shortened to fit the skills context
+ * budget" — the first error in the array, and pure noise — while the sentence
+ * naming the cause and its reset date sat second and was cut off by a 300-char
+ * truncation. The reader is then sent to disable skills over a quota problem.
+ *
+ * Terminal beats non-terminal; among terminal, the earliest listed wins. An
+ * empty list is `null`, not an invented reason.
+ *
+ * @param {string[]} errors
+ * @returns {{message:string, kind:string, why:string, terminal:boolean, resetsAt?:string}|null}
+ */
+export function principalError(errors) {
+  const list = (Array.isArray(errors) ? errors : []).filter((e) => String(e ?? '').trim());
+  if (!list.length) return null;
+  const RANK = { credits: 0, billing: 0, auth: 0, quota: 0, 'rate-limit': 1, transient: 2 };
+  let best = null;
+  for (const [i, message] of list.entries()) {
+    const c = classifyProviderError(message);
+    const score = [RANK[c.kind] ?? 2, i];
+    if (!best || score[0] < best.score[0] || (score[0] === best.score[0] && score[1] < best.score[1])) {
+      best = { score, value: { message: String(message), ...c } };
+    }
+  }
+  return best.value;
 }

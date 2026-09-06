@@ -9,7 +9,7 @@
 // overnight and alarmed on an empty wallet.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyProviderError, exhaustionReport, admissibleToHistory } from '../../scripts/lib/provider-exhaustion.mjs';
+import { classifyProviderError, principalError, exhaustionReport, admissibleToHistory } from '../../scripts/lib/provider-exhaustion.mjs';
 
 test('out of credits is terminal — no retry inside this run can help', () => {
   const c = classifyProviderError(new Error('OpenRouter API 402: {"error":{"message":"Insufficient credits, or ..."}}'));
@@ -145,4 +145,30 @@ test('every wording of a locked account is recognised, not just the one we met',
     assert.equal(r.terminal, true, `not recognised as terminal: ${msg}`);
     assert.equal(r.kind, 'billing', `not classified as billing: ${msg}`);
   }
+});
+
+// A plan quota is not a rate limit and not an empty balance: nobody has to act,
+// and it returns on a date the message names. Merging it into either sends the
+// reader to the wrong screen — or into a retry loop that cannot succeed for a
+// month.
+test('an exhausted plan quota is its own terminal kind, and the reset date is extracted', () => {
+  const c = classifyProviderError("You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Oct 5th, 2026 9:41 AM.");
+  assert.equal(c.kind, 'quota');
+  assert.equal(c.terminal, true, 'terminal for this run — no retry today succeeds');
+  assert.equal(c.resetsAt, 'Oct 5th, 2026 9:41 AM');
+  assert.match(c.why, /returns on its own/);
+  assert.notEqual(classifyProviderError('429 too many requests').kind, 'quota', 'a rate limit is still a rate limit');
+  assert.equal(classifyProviderError('quota exceeded').kind, 'quota');
+  assert.equal(classifyProviderError('quota exceeded').resetsAt, undefined, 'no date claimed when none was given');
+});
+
+test('principalError ranks the cause above the noise, and invents nothing', () => {
+  assert.equal(principalError([]), null);
+  assert.equal(principalError(['   ', '']), null, 'blank strings are not an error');
+  const p = principalError(['Skill descriptions were shortened to fit the budget.', 'You have hit your usage limit, try again at Oct 5th, 2026.']);
+  assert.equal(p.kind, 'quota');
+  assert.match(p.message, /usage limit/);
+  // Among equals, arrival order decides — a stable answer beats a clever one.
+  const two = principalError(['401 unauthorized', 'no credits left']);
+  assert.equal(two.kind, 'auth');
 });

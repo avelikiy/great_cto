@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { costForUsage, round4, resolvePrice } from './cost-meter.mjs';
 import { resolveSecondOpinion, codexReview } from './second-opinion.mjs';
+import { principalError } from './provider-exhaustion.mjs';
 import { existsSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -53,9 +54,10 @@ export function decideProvider({ argv = [], projectMd = '', codex = null, env = 
 }
 
 /** One line per review, so the board can show what the second opinion DID. */
-export function reviewLogLine({ provider, model, state, verdict, findings, cost, source }) {
+export function reviewLogLine({ provider, model, state, verdict, findings, cost, source, error_kind, resets_at }) {
   return JSON.stringify({
     ts: new Date().toISOString(), provider, model: model ?? null, state, verdict: verdict ?? null,
+    error_kind: error_kind ?? null, resets_at: resets_at ?? null,
     findings: Array.isArray(findings) ? findings.length : null,
     p0: Array.isArray(findings) ? findings.filter((f) => f.severity === 'P0').length : null,
     cost: cost ?? null, source,
@@ -152,8 +154,21 @@ async function main(argv) {
     console.error(`cross-model-review: reviewer=codex${model ? ' -m ' + model : ' (' + (decision.codex?.model || 'default model') + ')'} (cross-model red-team, read-only sandbox)`);
     const r = await codexReview({ ...prompt, cwd: root, model, bin: process.env.GREAT_CTO_CODEX_BIN || 'codex' });
     if (r.state !== 'ok') {
-      console.log(`cross-model-review: SKIPPED (codex ${r.state}) — ${r.errors.join('; ').slice(0, 300) || 'no answer'}`);
-      log({ provider: 'codex', model: r.model ?? decision.codex?.model, state: r.state, verdict: null, findings: null, cost: null });
+      // The reason a human is shown is RANKED, not the first thing Codex said.
+      // A quota-exhausted review used to display "Skill descriptions were
+      // shortened…" — advisory noise that arrived first — while the sentence
+      // naming the cause and its reset date was truncated away.
+      const principal = principalError(r.errors);
+      const reason = principal ? `${principal.kind}: ${principal.why}` : 'no answer';
+      console.log(`cross-model-review: SKIPPED (codex ${r.state}) — ${reason}`);
+      if (principal && r.errors.length > 1) {
+        console.log(`  (${r.errors.length - 1} other message(s) from codex, not the cause)`);
+      }
+      log({
+        provider: 'codex', model: r.model ?? decision.codex?.model, state: r.state,
+        verdict: null, findings: null, cost: null,
+        error_kind: principal?.kind ?? null, resets_at: principal?.resetsAt ?? null,
+      });
       process.exit(EXIT.SKIPPED);
     }
     res = { text: r.text, usage: r.usage, model: r.model ?? decision.codex?.model ?? 'codex' };
