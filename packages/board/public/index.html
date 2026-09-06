@@ -8105,7 +8105,65 @@ function cmdkActions() {
     out.push({ group: 'Gate', label: `Approve — ${t.title}`, hint: t.id,
                run: () => gateAction(t.id, 'approve') });
   }
+  // ⌘K is where the board's artifacts are found by name (brief: docs, sessions,
+  // memory and decisions are one job — find the artifact — and a job done by
+  // recalling a name belongs in a palette, not a tab). Agents by slug (DESIGN
+  // §5 device 4): `sec` → security-officer, opened in place.
+  for (const a of (fleetState?.agents || [])) {
+    if (a.retired) continue;
+    out.push({ group: 'Agent', label: a.slug, hint: a.posture?.state === 'expensive' ? '▲ ' + ((a.posture.expensive || [])[0] || '') : (a.posture?.state === 'unclassified' ? '? not classified' : ''),
+               run: () => { switchTab('fleet'); openAgentDrawer(a.slug); } });
+  }
+  for (const m of (cmdkCache.memory || [])) {
+    out.push({ group: 'Memory', label: `${m.name} — ${m.desc || ''}`, hint: m.layer || '', run: () => switchTab('memory') });
+  }
+  for (const d of (cmdkCache.decisions || [])) {
+    out.push({ group: 'Decisions', label: `${d.id} — ${d.title || ''}`, hint: `${d.verdict || ''} ${(d.ts || '').slice(0, 10)}`.trim(),
+               run: () => switchTab('decisions') });
+  }
+  for (const it of (cmdkAsync.q === cmdkLastNeedle ? cmdkAsync.items : [])) out.push(it);
   return out;
+}
+
+// Memory layers and the decision log are small and stable: read once per
+// palette session. Docs and sessions are searched server-side per query
+// (BM25 over the files), debounced, and only shown while the query they
+// answered is still the one typed — a stale result is a wrong result.
+const cmdkCache = { memory: null, decisions: null };
+let cmdkAsync = { q: '', items: [] };
+let cmdkLastNeedle = '';
+let cmdkTimer = null;
+async function cmdkWarm() {
+  if (cmdkCache.memory == null) {
+    try { const m = await api(`/api/memory${pqs()}`); cmdkCache.memory = Array.isArray(m?.layers) ? m.layers : []; } catch { cmdkCache.memory = []; }
+  }
+  if (cmdkCache.decisions == null) {
+    try { const d = await api(`/api/decisions${pqs()}`); cmdkCache.decisions = Array.isArray(d) ? d.slice(-30).reverse() : []; } catch { cmdkCache.decisions = []; }
+  }
+  cmdkRender(document.getElementById('cmdk-input')?.value || '');
+}
+function cmdkSearch(needle) {
+  clearTimeout(cmdkTimer);
+  if (needle.length < 2) { cmdkAsync = { q: '', items: [] }; return; }
+  cmdkTimer = setTimeout(async () => {
+    const items = [];
+    const [docs, sessions] = await Promise.all([
+      api(`/api/docs/search?q=${encodeURIComponent(needle)}${pqs().replace(/^\?/, '&')}`).catch(() => null),
+      api(`/api/session-search?q=${encodeURIComponent(needle)}${pqs().replace(/^\?/, '&')}`).catch(() => null),
+    ]);
+    for (const r of (docs?.results || []).slice(0, 6)) {
+      const hit = (r.hits || [])[0];
+      items.push({ group: 'Docs', label: r.title || r.path, hint: hit ? `L${hit.line} · ${String(hit.text || '').slice(0, 60)}` : r.path, run: () => openDoc(r.path) });
+    }
+    if (docs && docs.unreadable) items.push({ group: 'Docs', label: `! ${docs.unreadable} document(s) could not be read`, hint: 'counted, not dropped', run: () => switchTab('docs') });
+    for (const h of (sessions?.hits || []).slice(0, 6)) {
+      items.push({ group: 'Sessions', label: `${h.title || h.session} · ${(h.ts || '').slice(0, 10)}`, hint: String(h.excerpt || '').replace(/\s+/g, ' ').slice(0, 70), run: () => openSession(h.session) });
+    }
+    if (docs == null && sessions == null) items.push({ group: 'Docs', label: '· search unavailable — the board could not read docs or sessions', hint: '', run: () => {} });
+    cmdkAsync = { q: needle, items };
+    const cur = (document.getElementById('cmdk-input')?.value || '').toLowerCase().trim();
+    if (cur === needle) cmdkRender(cur);
+  }, 150);
 }
 
 function cmdkOpen() {
@@ -8115,7 +8173,7 @@ function cmdkOpen() {
     el.id = 'cmdk';
     el.innerHTML = `
       <div class="cmdk-box" role="dialog" aria-modal="true" aria-label="Command palette">
-        <input id="cmdk-input" type="text" placeholder="Type a command…" aria-label="Command"
+        <input id="cmdk-input" type="text" placeholder="Go, do, gate · agents · docs · sessions · memory · decisions" aria-label="Command"
                autocomplete="off" oninput="cmdkRender(this.value)" />
         <div id="cmdk-list" role="listbox" aria-label="Commands"></div>
       </div>`;
@@ -8126,16 +8184,19 @@ function cmdkOpen() {
   cmdkIndex = 0;
   const input = document.getElementById('cmdk-input');
   input.value = '';
+  cmdkLastNeedle = ''; cmdkAsync = { q: '', items: [] };
   cmdkRender('');
   input.focus();
+  cmdkWarm();
 }
 
 function cmdkClose() { document.getElementById('cmdk')?.classList.remove('open'); }
 
 function cmdkRender(q) {
   const needle = (q || '').toLowerCase().trim();
+  if (needle !== cmdkLastNeedle) { cmdkLastNeedle = needle; cmdkSearch(needle); }
   cmdkItems = cmdkActions().filter((a) =>
-    !needle || a.label.toLowerCase().includes(needle) || (a.hint || '').toLowerCase().includes(needle));
+    !needle || a.group === 'Docs' || a.group === 'Sessions' || a.label.toLowerCase().includes(needle) || (a.hint || '').toLowerCase().includes(needle));
   if (cmdkIndex >= cmdkItems.length) cmdkIndex = 0;
   const list = document.getElementById('cmdk-list');
   if (!list) return;
