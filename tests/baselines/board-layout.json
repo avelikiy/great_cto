@@ -6,7 +6,7 @@
     "14px",
     "15px",
     "16px",
-    "30px"
+    "22px"
   ],
   "colors": [
     "rgb(13, 26, 20)",
@@ -27,10 +27,10 @@
     "board-theme-btn",
     "budgets-page-body",
     "build-version",
-    "cost-panel",
     "crumb-here",
     "crumb-icon",
     "crumb-project",
+    "decisions-count",
     "docs-body",
     "docs-q",
     "docs-results",
@@ -67,7 +67,6 @@
     "memory-layers",
     "memory-patterns",
     "menu-btn",
-    "mp-cost-label",
     "nav-budget-count",
     "nav-fleet-abs",
     "nav-harness-count",

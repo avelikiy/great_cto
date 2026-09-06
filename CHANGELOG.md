@@ -21,6 +21,40 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.27.1 — 2026-09-06
+
+3.27.0 shipped the redesign's structure with the old stylesheet's density
+under it: 52px metric numerals over an accent bar, a greeting in display type,
+two-line agent cards with no column headers, and a cost panel the brief had
+refused. Held against the design canvas it did not match. This release is the
+fidelity pass — CSS and shell markup only; no logic, no API, no data shape
+changed.
+
+### Fixed
+
+- **Decisions** opens on its name and its count (`Decisions · 3 waiting`,
+  `nothing waiting`); the stalled sentence stays, one line, muted. A stalled
+  task is one row — id · reason · title · agent · age — with the re-run button
+  at its right instead of on a second line under it.
+- **Ledger** loses the old cost panel: four tiles (`vs human team`, a projected
+  month, a daily burn, an empty chart) and the caps prose. A forecast and a
+  human-team comparison are two of the brief's refusals, and the head already
+  carries spend with its provenance. Metric cards are 30px numerals in 14px of
+  padding, no accent bar; the caps table drops its description column.
+- **Fleet** is a table: a header row (AGENT · POSTURE · LAST VERDICT · RUNS ·
+  PASS · 30D $), one 36px line per agent, posture chips inline, the budget chip
+  under the spend figure inside its column. Filter and sort sit on one line
+  under the title; the hint text and the controls box are gone. At phone width
+  the row wraps to three lines (124px, was 172) and the page still does not
+  scroll sideways.
+- `tests/baselines/board-layout.json` re-recorded; the only diff is the two
+  anchors of the deleted cost panel. The budget chip's 10px is on the ramp as
+  `--fs-eyebrow`, which is what `css-type-scale` caught. Screenshots re-shot at
+  this version.
+
+---
+
 ## v3.27.0 — 2026-09-06
 
 The board is rebuilt. Eight tabs become four screens, each answering one

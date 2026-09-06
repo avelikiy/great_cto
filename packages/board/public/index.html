@@ -3035,6 +3035,41 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
+/* ── Fidelity pass (v3.27.1): the density the design canvas draws. These come
+   after the rules they override — same specificity, later wins. ── */
+.metric-card { padding: 14px 16px; }
+.metric-card::before { display: none; }
+.metric-num { font-size: var(--fs-num-m); }
+.metric-label { margin-top: 6px; }
+.inbox-greet { font-family: var(--sans); font-size: var(--fs-small); color: var(--text2); line-height: 1.5; margin: 0 0 12px; font-weight: 400; letter-spacing: 0; }
+.inbox-row { padding: 8px 12px; gap: 12px; }
+.inbox-row .ttl { font-size: var(--fs-small); }
+/* A stalled task is one line: id · reason · title · agent, and the re-run button
+   sits at the row's right instead of on a second grid row under it. */
+.inbox-row { grid-template-columns: 110px 1fr auto auto; align-items: center; }
+.inbox-row .ttl { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.inbox-row .ttl > :first-child { display: inline; }
+.inbox-row .ttl .why { display: inline-block; font-size: var(--fs-eyebrow); padding: 0 6px; line-height: 18px; white-space: nowrap; }
+.inbox-row .ttl .meta { margin-top: 0; }
+.inbox-row .ttl .ttl-desc { flex-basis: 100%; -webkit-line-clamp: 1; margin-top: 0; }
+.inbox-row .id { padding-top: 0; }
+.agent-row .budget-chip { display: block; font-size: var(--fs-eyebrow); line-height: 14px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px; margin-left: auto; }
+.inbox-section-head h3 { font-size: var(--fs-small); }
+.fleet-title-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.fleet-controls-row { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.fleet-controls-row input[type="search"] { width: 260px; max-width: 100%; background: var(--bg-muted); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: var(--fs-small); padding: 6px 10px; }
+.fleet-controls-row select { background: var(--bg-muted); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: var(--fs-small); padding: 5px 8px; }
+.fleet-list { padding: 0; margin: 0; list-style: none; }
+.fleet-list > li { margin: 0; }
+.fleet-head, .agent-row { display: grid; grid-template-columns: 10px minmax(200px, 1fr) minmax(220px, 1.3fr) 130px 48px 56px 100px 16px; gap: 12px; align-items: center; }
+.fleet-head { padding: 6px 12px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); border-bottom: 1px solid var(--border); }
+.agent-row { min-height: 36px; padding: 4px 12px; border-radius: 0; border: none; border-bottom: 1px solid var(--border); width: 100%; }
+.agent-row .ar-name { font-size: var(--fs-small); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agent-row .ar-posture { display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
+.agent-row .ar-status { width: 6px; height: 6px; border-radius: 50%; }
+.agent-row .ar-chev { color: var(--text3); }
+.budgets-table .bt-desc { display: none; }
+.mp-card { padding: 14px 16px; }
 /* ── 768–1199: the sidebar becomes a 56px icon rail (DESIGN §9). Labels leave
    the screen but not the element — every nav item carries its name as
    aria-label and title. The Views block and the switcher's text go with the
@@ -3056,8 +3091,15 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
   .harness-hosts, .so-options { grid-template-columns: 1fr; }
 
-  .ar-cells { grid-template-columns: 1fr auto; }
-  .ar-posture { grid-column: 1 / -1; }
+  .fleet-head { display: none; }
+  .agent-row { grid-template-columns: 10px 1fr auto auto auto 16px; grid-template-areas: "dot name name name name chev" "dot posture posture posture posture chev" "dot last runs pass spend chev"; row-gap: 4px; padding: 8px 12px; }
+  .agent-row .ar-status { grid-area: dot; }
+  .agent-row .ar-name { grid-area: name; white-space: normal; }
+  .agent-row .ar-posture { grid-area: posture; flex-wrap: wrap; }
+  .agent-row .ar-last { grid-area: last; }
+  .agent-row .ar-chev { grid-area: chev; }
+  .fleet-controls-row { flex-wrap: wrap; }
+  .fleet-controls-row input[type="search"] { width: 100%; }
 
   /* The one asymmetry DESIGN §3.2 draws: an expensive or unclassified gate's
      Reject/Approve stack full-width at phone width; a routine gate's may sit
@@ -3319,6 +3361,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     <!-- Inbox -->
     <div class="panel active" id="panel-inbox">
       <div class="inbox-page">
+        <!-- Fidelity pass (v3.27.1): the design's header is the screen's name and
+             its count; the sentence the board used to shout in 52px display
+             type is still said, one line, muted, because it carries the stall. -->
+        <div class="panel-head" style="margin-bottom:6px"><h1 class="page-title" style="margin:0">Decisions <span id="decisions-count" class="muted" style="font-weight:400;font-size:var(--fs-title-s)"></span></h1></div>
         <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
         <!-- Top rung of the evidence ladder: are the bytes that were reviewed
              still the bytes in the tree? Hidden while they match — and now only
@@ -3507,34 +3553,22 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              the redesign: a count of installed agents is not a decision (brief,
              "What must NOT be on the board"). The view title carries the one
              number that is — how many need attention, of how many. -->
-        <section aria-label="Fleet summary">
-          <h1 class="page-title" id="fleet-view-title">Fleet</h1>
+        <section aria-label="Fleet summary" class="fleet-title-row">
+          <h1 class="page-title" id="fleet-view-title" style="margin:0">Fleet</h1>
         </section>
 
         <!-- §3.1 Fleet controls -->
-        <section aria-label="Fleet controls" style="margin-top:20px">
-          <div class="mp-card fleet-controls" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:8px 12px">
-            <div class="fleet-search">
-              <input type="search" id="fleet-search" placeholder="Filter agents (press / to focus)" aria-label="Filter agents by slug" />
-              <span class="search-hint"><kbd>/</kbd> focus · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close</span>
-            </div>
-            <!-- The Domain / Activity / Health facet chips left with the redesign:
-                 domain is the grouping, activity and health are the saved views in
-                 the sidebar (DESIGN §5 — five views, not user-creatable). The
-                 functions stay for the drawer's deep links. -->
-            <div class="fleet-sort">
-              <label for="fleet-sort-by">Sort by</label>
-              <select id="fleet-sort-by">
-                <option value="runs_30d">runs (30d)</option>
-                <option value="last_run">last run</option>
-                <option value="success_rate">success rate</option>
-                <option value="savings_x">savings ×</option>
-                <option value="llm_usd_30d_est">LLM spend (30d)</option>
-                <option value="slug">slug A→Z</option>
-              </select>
-              <button type="button" id="fleet-reset-filters">Reset filters</button>
-            </div>
-          </div>
+        <section aria-label="Fleet controls" class="fleet-controls-row">
+          <input type="search" id="fleet-search" placeholder="Filter agents  ( / )" aria-label="Filter agents by slug" />
+          <label for="fleet-sort-by" class="muted cap">Sort</label>
+          <select id="fleet-sort-by">
+            <option value="runs_30d">runs (30d)</option>
+            <option value="last_run">last run</option>
+            <option value="success_rate">success rate</option>
+            <option value="llm_usd_30d_est">LLM spend (30d)</option>
+            <option value="slug">slug A→Z</option>
+          </select>
+          <button type="button" id="fleet-reset-filters" class="btn-ghost-sm">Reset</button>
         </section>
 
         <!-- §3.1 Fleet list -->
@@ -3621,16 +3655,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              needs the button to declare one. -->
         <div class="mp-section-label" style="margin-top:24px">Agent budgets</div>
         <div id="agent-budgets" class="mp-card" style="padding:12px 16px;font-size:var(--fs-small);margin-bottom:4px;"></div>
-        <div class="mp-section-label" id="mp-cost-label" style="margin-top:24px">Cost · last 30 days</div>
-        <div class="mp-card cost-panel" id="cost-panel">
-          <div class="cost-empty">Loading…</div>
-        </div>
-        <p class="muted" style="max-width:70ch;margin:14px 0 12px">
-          A cap on what one agent may spend. When measured spend passes it, the pipeline
-          refuses to dispatch that agent and says so — it does not fail quietly.
-          Spend is measured from verdicts that carry a cost; while none does, the cap
-          cannot fire and says that too. An estimate never refuses.
-        </p>
+        <!-- The old cost panel (four tiles: 'vs human team', a projected month, a
+             daily burn, an empty chart) left in the fidelity pass — a forecast and a
+             human-team comparison are two of the brief's refusals, and the
+             Ledger head already carries spend with its provenance. -->
+
         <!-- Whether the judge is connected at all. Without a key nothing breaks
              — every stage is scored `unverifiable`, honestly — but "not
              connected" and "nothing to check" read the same from here, and the
@@ -3957,6 +3986,7 @@ function gateChip(t) {
 }
 function renderInbox(d) {
   inboxSecondOpinion = d?.second_opinion || null;
+  { const c = document.getElementById('decisions-count'); const n = (d?.pending_gates || []).length; if (c) c.textContent = n ? `${n} waiting` : 'nothing waiting'; }
   for (const g of (d?.pending_gates || [])) if (g?.id && g.reversibility) GATE_REVERSIBILITY[g.id] = g.reversibility;
   if (d && Array.isArray(d.pending_gates)) d = { ...d, pending_gates: sortGatesByCostOfUndo(d.pending_gates) };
   // Kept so renderResume can ask what this section is already showing, rather
@@ -8201,7 +8231,7 @@ function switchTab(id, el) {
   // promised 50 unread and the screen showed settings. Declared and not
   // consumed, in the UI this time.
   if (lid === 'notifications') loadNotifHistory();
-  if (lid === 'budgets') { loadBudgetsPage(); refreshCost(); }
+  if (lid === 'budgets') loadBudgetsPage();
   if (lid === 'agents') {
     // pqsd(), not pqs(): this call omitted `days` entirely, so the server applied
     // its 30-day default and overwrote whatever window the period chips had
@@ -8530,7 +8560,8 @@ function renderFleetList() {
   const order = [...DOMAINS, ...Object.keys(byDomain).filter((d) => !DOMAINS.includes(d))];
   const expanded = order.filter((d) => (byDomain[d] || []).length);
   const collapsed = order.filter((d) => !(byDomain[d] || []).length && totals[d]);
-  const rows = expanded.map((d) => `
+  const head = `<li class="fleet-head" aria-hidden="true"><span></span><span>Agent</span><span>Posture</span><span>Last verdict</span><span class="tab">Runs</span><span class="tab">Pass</span><span class="tab">30d $</span><span></span></li>`;
+  const rows = head + expanded.map((d) => `
     <li class="fleet-group-head"><span>${esc(d)} · ${byDomain[d].length} of ${totals[d] || 0}</span></li>
     ${byDomain[d].map(agentRowHtml).join('')}`).join('');
   const tail = collapsed.length
@@ -8586,18 +8617,12 @@ function agentRowHtml(a) {
               onclick="openAgentDrawer('${esc(a.slug)}')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();openAgentDrawer('${esc(a.slug)}')}">
         <span class="ar-status" aria-hidden="true"></span>
-        <span class="ar-body">
-          <span class="ar-name">${esc(a.slug)} <span class="mono cap muted" style="font-weight:400">${model}</span></span>
-          <span class="ar-cells">
-            <span class="ar-posture">${postureChips(a)}</span>
-            <span class="mono cap ar-last">${last}</span>
-            <span class="mono cap tab" title="runs in the last 30 days">${runs}</span>
-            <span class="mono cap tab" title="pass rate over those runs">${pass}</span>
-            <span class="mono cap tab" title="LLM spend, last 30 days">${spend}</span>
-            ${budgetChip(a.budget)}
-            ${a.retired ? '<span style="color:var(--agent-retired)">retired</span>' : ''}
-          </span>
-        </span>
+        <span class="ar-name">${esc(a.slug)} <span class="mono cap muted" style="font-weight:400">${model}</span>${a.retired ? ' <span class="cap" style="color:var(--agent-retired)">retired</span>' : ''}</span>
+        <span class="ar-posture">${postureChips(a)}</span>
+        <span class="mono cap ar-last">${last}</span>
+        <span class="mono cap tab" title="runs in the last 30 days">${runs}</span>
+        <span class="mono cap tab" title="pass rate over those runs">${pass}</span>
+        <span class="mono cap tab" title="LLM spend, last 30 days">${spend}${budgetChip(a.budget)}</span>
         <span class="ar-chev" aria-hidden="true">›</span>
       </button>
     </li>`;
