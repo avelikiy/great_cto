@@ -159,7 +159,7 @@ test('skipped rows (unavailable/quota/skipped state) are excluded from reviewed 
   assert.equal(h.evidence.summary.blocked, 1, 'blocked only among reviewed (state ok)');
 });
 
-test({ skip: 'RED until great_cto-ki1x.10 lands' }, 'skipped rows are marked in the recent output and never carry a verdict', async () => {
+test('skipped rows are marked in the recent output and never carry a verdict', async () => {
   const log = path.join(project, '.great_cto', 'cross-review.log');
   writeFileSync(log, [
     JSON.stringify({ ts: '2026-09-05T10:00:00Z', provider: 'codex', state: 'ok', verdict: 'PASS', sha: 'abc123', dirty: false }),

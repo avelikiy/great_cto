@@ -47,7 +47,7 @@ test('Cell 3: eval coverage — no eval→agent mapping → not measured (·), n
 });
 
 // ── Cell 4: Paired-diff count (Harness) — join key absent → `unmeasured`, never `0` and never "they agree"
-test('Cell 4: paired-diff count (Harness) — join key absent → unmeasured, never 0 or "they agree"', { skip: 'RED until great_cto-ki1x.10 lands — join-key field (BRD-R1/R2) not yet in routes.mjs' }, () => {
+test('Cell 4: paired-diff count (Harness) — join key absent → unmeasured, never 0 or "they agree"', () => {
   // The Harness screen shows evidence from the cross-review log. When the join
   // key is absent (pre-BRD-R1 lines), the lines are classified `unreadable`.
   // An `unreadable` line must never render as "0 findings" or "they agree".

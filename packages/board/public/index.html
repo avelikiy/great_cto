@@ -1495,6 +1495,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .ledger-stuck-row { display: grid; grid-template-columns: 150px 1fr 60px; gap: 12px; align-items: center; font-size: var(--fs-small); padding: 4px 0; border-top: 1px solid var(--border); }
   .eyebrow { font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); font-weight: 500; }
   .tab { font-variant-numeric: tabular-nums; text-align: right; }
+  .cap { font-size: var(--fs-caption); }
+  .ledger-head { display: flex; flex-direction: column; }
   .bar { height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
   .bar > i { display: block; height: 100%; background: var(--accent); }
   /* Fleet (great_cto-ki1x.8): saved views in the sidebar, domain groups, AgentRow cells */
@@ -1507,6 +1509,20 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .ar-cells { display: grid; grid-template-columns: minmax(200px, 1.4fr) 130px 48px 56px 80px auto; gap: 12px; align-items: center; margin-top: 4px; }
   .ar-posture { display: flex; gap: 6px; flex-wrap: wrap; }
   .ar-last { color: var(--text2); }
+  /* Harness (great_cto-ki1x.10) */
+  .harness-hosts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .harness-hosts > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .so-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  .so-option { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--bg-page); border: 1px solid var(--border); cursor: pointer; min-height: 44px; }
+  .so-option.on { border-color: var(--accent); }
+  .so-option input { position: absolute; opacity: 0; pointer-events: none; }
+  .so-option:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .so-label { font-size: var(--fs-small); }
+  .so-why { font-size: var(--fs-caption); }
+  .ev-table { margin-top: 8px; }
+  .ev-head, .ev-row { display: grid; grid-template-columns: 110px 1fr 90px; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); font-size: var(--fs-small); }
+  .ev-head { font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); border-top: none; }
+  .ev-row.dim { color: var(--text3); }
   /* Two-ring focus (§7.1): the outer ring is the focus token, the inner ring is
      the page itself, so the ring reads on any bed — a card, a solid pill, a strip.
      Element selectors only; the per-component rules above keep their own offsets. */
@@ -3021,6 +3037,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .chip-filter-bar { flex-direction: column; align-items: stretch; }
 }
 @media (max-width: 768px) {
+  .harness-hosts, .so-options { grid-template-columns: 1fr; }
+
   .ar-cells { grid-template-columns: 1fr auto; }
   .ar-posture { grid-column: 1 / -1; }
 
@@ -3420,15 +3438,19 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     <!-- Harness (great_cto-ki1x.5): the second-opinion card used to sit inside
          Inbox. It is a destination now; .10 draws the full screen around it. -->
     <div class="panel" id="panel-harness" role="tabpanel">
-      <div class="panel-head"><h2>Harness</h2></div>
-        <div class="inbox-section" id="harnesses-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-blue"></span>
-            <h3>Harnesses</h3>
-            <span class="inbox-count" id="harnesses-status">…</span>
-          </div>
-          <div id="harnesses-body" class="muted" style="font-size:13px;line-height:1.5">loading…</div>
-        </div>
+      <div class="metrics-page">
+        <h1 class="page-title">Harness <span class="muted" style="font-weight:400;font-size:var(--fs-small)">who is host, who gives the second opinion, and what it actually did</span></h1>
+        <!-- Harness (great_cto-ki1x.10). The one decision: is the second opinion
+             actually on for this project. Codex is a status panel, not a switch —
+             the board cannot install it. Four radios, not one toggle, because
+             `undeclared` and `none` are different states. -->
+        <div id="harnesses-body" class="muted" style="font-size:13px;line-height:1.5">loading…</div>
+        <span id="harnesses-status" hidden></span>
+        <!-- The judge (OpenRouter key) and its scores: is anything checking, and
+             what did it find. Moved here from the caps page — a harness fact. -->
+        <div id="judge-status" class="judge-status" hidden style="margin-top:12px"></div>
+        <div id="judge-scores" class="jscores" hidden></div>
+      </div>
     </div>
 
     <div class="panel" id="panel-kanban">
@@ -3607,11 +3629,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              connected" and "nothing to check" read the same from here, and the
              key is not discoverable: the README names OpenRouter once without
              saying where it goes. -->
-        <div id="judge-status" class="judge-status" hidden></div>
-          <!-- The verdicts of the verifier itself. Kept beside the connection
-               status because the two answer consecutive questions: is anything
-               checking, and what did it find. -->
-          <div id="judge-scores" class="jscores" hidden></div>
         <div id="budgets-page-body">loading…</div>
       </div>
     </div>
@@ -4767,7 +4784,7 @@ async function loadJudgeStatus() {
   el.hidden = false;
   el.innerHTML = connected
     ? `<span class="js-dot"></span>
-       <span><strong>Judge connected</strong> — ${esc(s.model || 'default model')}</span>
+       <span><strong>Judge key stored</strong> <span class="abs" title="a stored key is not a working key — no probe has verified it from here">· not verified</span> — ${esc(s.model || 'default model')}</span>
        <span class="js-where">${esc(s.fingerprint || '')} · from ${esc(String(s.from || '').replace(/^.*\/(?=\.great_cto)/, '~/'))}</span>
        <span class="js-form">
          <input id="judge-key" type="password" autocomplete="off" spellcheck="false" placeholder="replace key (sk-or-…)">
@@ -5475,20 +5492,80 @@ async function renderHarnesses() {
     hb.style.color = so.state === 'unavailable' ? 'var(--status-blocked)' : '';
     hb.style.display = hb.textContent ? '' : 'none';
   }
+  // Pre-click consequence per option (DESIGN §3.7 point 3): what choosing it
+  // would resolve to HERE, before Save.
+  let rk = null;
+  try { rk = await api(`/api/router-key${pqs()}`); } catch { rk = null; }
+  const routerKeyPresent = rk && rk.state === 'present';
+  const codexDot = cx.state === 'available' ? 'dot ok' : cx.state === 'no-auth' ? 'dot bad' : 'dot';
+  const codexState = cx.state === 'available' ? `<span style="color:var(--status-done)">detected · ${esc(cx.auth === 'chatgpt' ? 'authenticated' : cx.auth || 'authenticated')}</span>`
+    : cx.state === 'no-auth' ? `<span style="color:var(--status-blocked)">detected · not logged in</span>`
+    : `<span class="abs" title="${esc(cx.why || 'codex is not on PATH')}">— absent</span>`;
+  const consequence = {
+    '': 'PROJECT.md says nothing. A future harness may be picked up.',
+    none: 'deliberately off — recorded as a decision.',
+    codex: cx.state === 'available' ? 'resolves to declared here' : `⚠ would resolve to unavailable here — ${cx.why || 'codex is not on PATH'}`,
+    openrouter: routerKeyPresent ? 'resolves to declared here' : '⚠ would resolve to unavailable here — no key configured',
+  };
+  const current = so.declared && so.declared.state !== 'undeclared' ? (so.declared.tool || (so.declared.state === 'none' ? 'none' : '')) : '';
+  const radio = (val, label) => `
+    <label class="so-option${current === val ? ' on' : ''}" title="${esc(consequence[val] || '')}">
+      <input type="radio" name="so" value="${val}" ${current === val ? 'checked' : ''}>
+      <span class="so-label">${esc(label)}</span>
+      <span class="so-why ${/^⚠/.test(consequence[val] || '') ? 'abs' : 'muted'}">${esc(consequence[val] || '')}</span>
+    </label>`;
+  const paired = sum.reviewed ?? 0;
+  const pairedCell = ev.state === 'absent' ? '<span class="abs" title="no cross-review has run in this project">— none yet</span>'
+    : paired > 0 ? `<span class="mono">${paired}</span> <span class="muted">paired review(s)</span>`
+    : `<span class="abs" title="join key absent on ${sum.unreadable ?? 0} of ${sum.runs ?? 0} log line(s) — nothing can be paired with a tree">unmeasured — 0 paired, join key absent on ${sum.unreadable ?? 0} of ${sum.runs ?? 0}</span>`;
+  const evRows = (ev.recent || []).slice(0, 8).map((r) => {
+    const when = (r.ts || '').slice(5, 16).replace('T', ' ');
+    const dim = r.state !== 'ok';
+    const verdict = r.state === 'ok'
+      ? (r.verdict === 'BLOCK' ? `<span style="color:var(--status-blocked)">BLOCK</span>` : `<span style="color:var(--status-done)">${esc(r.verdict || 'PASS')}</span>`) + ` <span class="muted">· ${r.findings ?? 0} finding${r.findings === 1 ? '' : 's'}${r.p0 ? ` · ${r.p0} P0` : ''}</span>`
+      : r.state === 'unreadable' ? '<span class="abs" title="predates the join key — cannot be paired with any tree">! unreadable</span>'
+      : `<span class="abs" title="skipped — not counted as reviewed">${esc(r.state)}</span>${r.resets_at ? ` <span class="muted">→ ${esc(String(r.resets_at).slice(11, 16) || r.resets_at)}</span>` : ''}`;
+    const cost = r.cost != null ? `$${Number(r.cost).toFixed(4)}` : '<span class="abs" title="no cost — nothing ran">—</span>';
+    return `<div class="ev-row${dim ? ' dim' : ''}" title="${esc(r.provider || '')}${r.model ? ' · ' + esc(r.model) : ''}${r.sha ? ' · ' + esc(String(r.sha).slice(0, 8)) : ''}"><span class="mono">${esc(when)}</span><span>${verdict}</span><span class="mono tab">${cost}</span></div>`;
+  }).join('');
+  const evidenceBlock = ev.state === 'absent'
+    ? '<div class="muted cap">no cross-model review has run in this project yet</div>'
+    : ev.state === 'unreadable'
+      ? '<div class="abs">! the review log could not be read</div>'
+      : `<div class="ev-head"><span>When</span><span>Verdict</span><span class="tab">Cost</span></div>${evRows}${sum.unreadable_lines ? `<div class="abs cap" style="padding:6px 0" title="counted, not dropped">! ${sum.unreadable_lines} line(s) could not be parsed</div>` : ''}`;
+
   body.innerHTML = `
-    <div><b>Claude Code</b> · host · runs the pipeline, gates and hooks</div>
-    <div>${codexLine}</div>
-    <div style="margin-top:8px">Second opinion: ${stateLabel}</div>
-    <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <label for="so-select" class="muted">set</label>
-      <select id="so-select">${undecl}${sel}</select>
-      <button id="so-apply" class="btn-ghost-sm">apply</button>
-      <span id="so-result" class="muted"></span>
+    <div class="mp-card harness-hosts">
+      <div><span class="dot ok"></span><b>Claude Code</b> <span class="mono cap muted">host · v${esc(h.claude_code?.version || '')}</span><span class="cap muted" style="margin-left:auto" title="70 agents · commands · skills · hooks">full pipeline</span></div>
+      <div><span class="${codexDot}"></span><b>OpenAI Codex</b> <span class="mono cap">${codexState}</span>${cx.version ? `<span class="mono cap muted">${esc(cx.version)}</span>` : ''}${cx.model ? `<span class="mono cap muted" style="margin-left:auto">${esc(cx.model)}</span>` : ''}</div>
     </div>
-    <div style="margin-top:8px"><span class="muted">Evidence:</span> ${evidence}</div>`;
+    <div class="mp-card" style="margin-top:12px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span class="eyebrow">Second opinion</span>
+        <span class="mono cap">${esc(so.declared?.tool || so.declared?.state || 'undeclared')}</span>
+        <span class="mono cap" style="color:${so.state === 'declared' ? 'var(--status-done)' : so.state === 'unavailable' ? 'var(--status-blocked)' : 'var(--absent-warn-fg)'}" title="${esc(so.why || '')}">${esc(so.state || '?')}</span>
+        <span class="cap" style="margin-left:auto">${pairedCell}</span>
+      </div>
+      <div class="so-options">${radio('', 'Undeclared')}${radio('none', 'None')}${radio('codex', 'Codex')}${radio('openrouter', 'OpenRouter')}</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+        <span id="so-result" class="muted cap"></span>
+        <button id="so-apply" class="btn-black" style="margin-left:auto">Save to PROJECT.md</button>
+      </div>
+    </div>
+    <div class="mp-card" style="margin-top:12px">
+      <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <span class="eyebrow">What it did</span>
+        <span class="mono cap">${sum.runs ?? 0} runs · ${sum.reviewed ?? 0} reviewed · <span class="muted">${sum.skipped ?? 0} skipped</span> · <span class="abs">${sum.unreadable ?? 0} unreadable</span> · <span style="color:var(--status-blocked)">${sum.blocked ?? 0} blocked</span></span>
+        <span class="mono cap muted" style="margin-left:auto">.great_cto/cross-review.log</span>
+      </div>
+      <div class="ev-table">${evidenceBlock}</div>
+    </div>`;
+  // The judge and its scores sit under the harness facts now.
+  if (typeof loadJudgeStatus === 'function') loadJudgeStatus();
+  if (typeof loadJudgeScores === 'function') loadJudgeScores();
 
   document.getElementById('so-apply').onclick = async () => {
-    const v = document.getElementById('so-select').value;
+    const v = (document.querySelector('input[name="so"]:checked') || {}).value || '';
     const out = document.getElementById('so-result');
     out.textContent = 'writing PROJECT.md…';
     try {
