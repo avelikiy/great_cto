@@ -24,6 +24,56 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.27.4 — 2026-09-07
+
+Installed any way but one, this plugin did nothing and said nothing.
+
+Every hook, agent, command and script located the plugin by globbing
+`~/.claude/plugins/cache/local/great_cto/*/` — a path that exists only for the
+directory marketplace the CLI's own installer writes. Installed from a GitHub
+marketplace the plugin lands under `cache/<marketplace>/`, that glob matches
+nothing, and all 21 hooks then run as `node "/scripts/hooks/…"` behind
+`2>/dev/null || true`: the session starts, the plugin looks installed, and not
+one hook fires. Silently, which is the failure this project exists to make
+impossible.
+
+### Fixed
+
+- **71 files ask `${CLAUDE_PLUGIN_ROOT}` first**, and fall back across *every*
+  marketplace rather than assuming `local`. Both paths are exercised: without the
+  variable the fallback resolves a real plugin directory; with it, the host's
+  answer wins. `install-local.sh` and `canary.sh` keep the local path on
+  purpose — one writes that copy, the other asserts it in a throwaway HOME — and
+  say so where the guard can read it.
+- **Stale copies are found by a rule, not by a roster.** The session hook carried
+  two hand-written kill lists (`for STALE in triage gates dora …`,
+  `for STALE_AGENT in tech-lead`), so a command or agent dropped from the plugin
+  kept working at the user level until somebody remembered to add its name.
+  Now: a file great_cto wrote whose source no longer ships is stale, by
+  definition. Files it did not write are never touched.
+
+### Added
+
+- **`.claude-plugin/marketplace.json`** — `/plugin marketplace add avelikiy/great_cto`.
+  Held back until the paths above were fixed, because publishing it earlier would
+  have invited installs that silently did nothing. Auto-update stays off by
+  default for third-party marketplaces, and an update applies to the next session,
+  never the running one.
+- **`tests/lib/plugin-root-resolution.test.mjs`** — four guards: nothing shipped
+  may hardcode the `local` path, every resolving hook must ask the host first,
+  at least one must report an unresolvable plugin out loud, and the kill lists may
+  not come back. A deliberate exception is allowed only where the three lines
+  above it explain itself.
+
+### Under it
+
+- The blanket rewrite put `*/` inside a block comment in `install-drift.mjs`,
+  which closes it — the file stopped parsing. Caught by the full run (2,369 pass,
+  that one fail), and the comment now names the path without spelling the glob.
+
+---
+
 ## v3.27.3 — 2026-09-07
 
 The cross-model review has worked since the day it was written, and it ran when
