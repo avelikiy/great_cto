@@ -621,7 +621,7 @@ manual configuration needed.
 
    **Create the gate — if this level asks for it:**
    ```bash
-   PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+   PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
    ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
    # Resolve the helper out of the plugin cache: your cwd is the TARGET project,
    # which has no scripts/lib. A repo-relative path made node fail, the grep find

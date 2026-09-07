@@ -359,7 +359,7 @@ grep -q "PENDING_APPROVAL" "$PROP_FILE" || { echo "ERROR: $GP_ID is not pending"
 #   • no evidence        → blocked unless --no-eval "<reason>" (recorded)
 #   • improvement/noisy  → allowed
 GP_FILE_PRE=$(ls "$GP_DIR"/"${GP_ID}"-*.md 2>/dev/null | head -1)
-_GATE=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/gp-approve-gate.mjs 2>/dev/null | sort -V | tail -1)
+_GATE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/gp-approve-gate.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_GATE" ] && _GATE="scripts/lib/gp-approve-gate.mjs"
 if [ -n "$GP_FILE_PRE" ] && [ -f "$_GATE" ]; then
   if [ -n "$NO_EVAL_REASON" ]; then

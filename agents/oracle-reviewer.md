@@ -62,7 +62,7 @@ SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
 TM="docs/sec-threats/TM-${SLUG}.md"
 
 if [ ! -f "$TM" ]; then
-  PLUGIN_DIR=$(ls -d "$HOME/.claude/plugins/cache/local/great_cto/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+  PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
   cp "${PLUGIN_DIR}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM"
   sed -i.bak "s/{slug}/${SLUG}/g" "$TM" && rm -f "$TM.bak"
 fi

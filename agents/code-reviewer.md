@@ -169,7 +169,7 @@ Before you report the work as complete, run the checker on your own report and
 paste its output:
 
 ```bash
-_FE=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | sort -V | tail -1)
+_FE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_FE" ] && _FE="scripts/lib/finding-evidence.mjs"
 node "$_FE" <your-report.md> --strict
 ```

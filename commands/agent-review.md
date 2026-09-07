@@ -133,7 +133,7 @@ this to undo". This prints the second, so the reviewer sees the capability they
 are renewing:
 
 ```bash
-_AP=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/agent-posture.mjs 2>/dev/null | sort -V | tail -1)
+_AP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/agent-posture.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_AP" ] && _AP="scripts/lib/agent-posture.mjs"
 _AF="agents/$AGENT_NAME.md"
 if [ -f "$_AP" ] && [ -f "$_AF" ]; then

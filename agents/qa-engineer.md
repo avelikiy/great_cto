@@ -504,7 +504,7 @@ compressor so the `AssertionError` / `FAIL` / stack frames survive while thousan
 lines collapse — then reason on the compressed view:
 
 ```bash
-PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 _C="$PD/scripts/lib/compress/index.mjs"; [ -f "$_C" ] || _C="scripts/lib/compress/index.mjs"
 _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
 RAW="$(npm test 2>&1)"                                  # or pytest / cargo test / go test
@@ -882,7 +882,7 @@ fi
 # hand-copied subset pasted here, so a phrase added to the file never reached
 # the report it was meant to catch. SLOP-HEDGE is asked for explicitly: a QA
 # report is exactly where "appears to" needs evidence behind it.
-SLOP=$(ls "$HOME"/.claude/plugins/cache/local/great_cto/*/scripts/lib/prose-slop.mjs 2>/dev/null | sort -V | tail -1)
+SLOP=$(ls "$HOME"/.claude/plugins/cache/*/great_cto/*/scripts/lib/prose-slop.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$SLOP" ] && [ -f scripts/lib/prose-slop.mjs ] && SLOP=scripts/lib/prose-slop.mjs
 if [ -n "$SLOP" ] && command -v node >/dev/null 2>&1; then
   PROSE_BAD=$(node "$SLOP" "$QA_FILE" --quiet 2>/dev/null | head -20)
@@ -924,7 +924,7 @@ Before you report the work as complete, run the checker on your own report and
 paste its output:
 
 ```bash
-_FE=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | sort -V | tail -1)
+_FE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_FE" ] && _FE="scripts/lib/finding-evidence.mjs"
 node "$_FE" <your-report.md> --strict
 ```

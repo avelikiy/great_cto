@@ -2,7 +2,7 @@
  * Is the session reading the plugin you are editing?
  *
  * great_cto is developed from source and LOADED from a versioned cache
- * (`~/.claude/plugins/cache/local/great_cto/<version>/`), populated by rsync via
+ * (`~/.claude/plugins/cache/<marketplace>/great_cto/<version>/`), by rsync via
  * `scripts/install-local.sh`. An edit to `agents/` or `shared/` therefore does
  * not change what a running session reads. Nothing said so.
  *

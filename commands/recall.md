@@ -42,7 +42,7 @@ a tenth of a second over this repository's corpus.
 
 ```bash
 QUERY="${ARGUMENTS:-}"
-MS="$HOME/.claude/plugins/cache/local/great_cto"
+MS="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}"
 MS="$(ls -d $MS/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/memory-search.mjs"
 [ -f "$MS" ] || MS="scripts/lib/memory-search.mjs"
 

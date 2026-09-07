@@ -23,7 +23,7 @@ this exist?"), tracing **up** = impact ("what breaks if I change this?").
 ## Step 0 — Resolve the engine + require bd
 
 ```bash
-PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 TRACE() { node "$PD/scripts/lib/trace.mjs" "$@" 2>/dev/null || node scripts/lib/trace.mjs "$@"; }
 
 bd --help >/dev/null 2>&1 || {

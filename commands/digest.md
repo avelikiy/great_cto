@@ -26,7 +26,7 @@ for arg in $ARGS; do
   esac
 done
 
-PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
 HELPER="${PLUGIN_DIR}/scripts/cmd-data/digest-data.sh"
 [ -f "$HELPER" ] || HELPER="$(pwd)/scripts/cmd-data/digest-data.sh"
 

@@ -82,7 +82,7 @@ calls or repeat a killed idea:
 ```bash
 # Cross-project decisions + project lessons, filtered to this idea
 TASK="<the idea in 6 words>"
-MF="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/memory-filter.mjs"
+MF="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/memory-filter.mjs"
 [ -f "$MF" ] || MF="$(pwd)/scripts/memory-filter.mjs"
 node "$MF" decisions "$TASK" 2>/dev/null | head -40
 node "$MF" lessons "$TASK" 2>/dev/null | head -40

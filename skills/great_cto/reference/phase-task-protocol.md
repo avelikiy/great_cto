@@ -14,7 +14,7 @@ Use the helper `scripts/phase-task.sh` (synced into every project's
 `.great_cto/cache/`):
 
 ```bash
-PT="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ | sort -V | tail -1 | sed 's|/$||')/scripts/phase-task.sh"
+PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/phase-task.sh"
 [ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
 
 # At phase start (idempotent — re-running returns the same id)

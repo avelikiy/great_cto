@@ -190,7 +190,7 @@ approaches in the current archetype:
 # e.g.  TASK=$(cat .great_cto/tasks.md | grep "in_progress" | head -1 | sed 's/.*title: //')
 
 # Locate memory-filter script (plugin install path or local dev path)
-_MF=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/memory-filter.mjs 2>/dev/null | sort -V | tail -1)
+_MF=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/memory-filter.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_MF" ] && _MF="scripts/memory-filter.mjs"
 
 # This project's own gate decisions (ADR-008: gate approvals are project-scoped —

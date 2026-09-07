@@ -20,7 +20,7 @@ COUNT=$(echo "$ARGUMENTS" | grep -oE '\-\-count [0-9]+' | grep -oE '[0-9]+' || e
 [ -z "$AGENT_NAME" ] && echo "Usage: /gen-evals <agent-name> [--count N]" && exit 1
 
 # Locate agent file in plugin dir or repo
-PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
 AGENT_FILE="${PLUGIN_DIR}/agents/${AGENT_NAME}.md"
 [ ! -f "$AGENT_FILE" ] && AGENT_FILE="agents/${AGENT_NAME}.md"
 [ ! -f "$AGENT_FILE" ] && echo "ERROR: agent not found: ${AGENT_NAME}" && exit 1

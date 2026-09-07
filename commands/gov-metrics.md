@@ -21,7 +21,7 @@ a control. This reports the numbers (idea adapted from SantanderAI/mech-gov-fram
 ## Run
 
 ```bash
-PT="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')"
+PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}"
 [ -d "$PT" ] || PT="$(pwd)"
 node "$PT/scripts/lib/gov-metrics.mjs" $ARGUMENTS
 ```

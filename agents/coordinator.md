@@ -253,7 +253,7 @@ tables — one WPL, referenced from the orchestrator, is the single source.
 # Feed the WPL itself — no hand-built lanes.json. Building that intermediate by
 # hand was the step that got skipped, and a check nobody runs is a check that
 # does not exist.
-WPL="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/wpl.mjs"
+WPL="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/wpl.mjs"
 [ -f "$WPL" ] || WPL="$(pwd)/scripts/lib/wpl.mjs"
 node "$WPL" wpl.md        # exit 0 = disjoint (safe to fan out), 1 = overlap or no matrix
 ```

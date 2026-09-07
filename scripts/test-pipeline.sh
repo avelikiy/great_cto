@@ -54,7 +54,7 @@ cd "$ROOT"
 
 # Find latest installed plugin dir (for L2/L4/L5 — runs against the SYNCED
 # version, not the working tree, to catch packaging issues)
-PLUGIN_DIR="$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null \
+PLUGIN_DIR="$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null \
               | sort -V | tail -1 | sed 's|/$||')"
 
 if [ -t 1 ]; then
@@ -198,7 +198,7 @@ section "L2 — Smoke CLI (~1m)"
 if [ "$SKIP_L2" = "1" ]; then
   skipped "L2 (--skip-l2)"
 elif [ -z "$PLUGIN_DIR" ]; then
-  skipped "L2 (no plugin dir found in ~/.claude/plugins/cache/local/great_cto/)"
+  skipped "L2 (no plugin dir found in ~/.claude/plugins/cache/*/great_cto/)"
 else
   CLI="node $PLUGIN_DIR/packages/cli/index.mjs"
 

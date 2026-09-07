@@ -20,7 +20,7 @@ TASK="${TASK:-}"
 ARCH=$(grep -E '^archetype:|^primary:' .great_cto/PROJECT.md 2>/dev/null | head -1 | awk '{print $2}')
 
 # Locate memory-filter script (plugin install path or local dev path)
-_MF=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/memory-filter.mjs 2>/dev/null | sort -V | tail -1)
+_MF=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/memory-filter.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_MF" ] && _MF="scripts/memory-filter.mjs"
 
 # 1. Cross-project decisions — filtered to top-5 relevant to TASK

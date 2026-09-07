@@ -9,7 +9,7 @@ Agent prompts reference THIS file instead of restating the mechanics. The only
 per-agent parts are `<agent-name>` and `<feature-slug>`.
 
 ```bash
-PT="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/phase-task.sh"
+PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/phase-task.sh"
 [ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
 
 # Phase start (idempotent — returns the existing id if you re-run)

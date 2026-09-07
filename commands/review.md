@@ -31,7 +31,7 @@ if [ "$1" = "trace" ]; then
     exit 0
   fi
 
-  PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+  PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
   TRACE() { node "$PD/scripts/lib/trace.mjs" "$@" 2>/dev/null || node scripts/lib/trace.mjs "$@"; }
 
   # feature-<slug> → coverage audit; otherwise node-centric trace.
@@ -579,7 +579,7 @@ recorded its verdict as **CODE-REVIEW**, and the board displayed that instead of
 whether the review passed. Use the canonical writer, which names the fields:
 
 ```bash
-_LV=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/log-verdict.sh 2>/dev/null | sort -V | tail -1)
+_LV=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/log-verdict.sh 2>/dev/null | sort -V | tail -1)
 [ -z "$_LV" ] && _LV="scripts/log-verdict.sh"
 
 # The verdict is the OUTCOME: a P0 blocks, anything else passes.

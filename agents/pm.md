@@ -414,7 +414,7 @@ review. senior-dev reads it before coding (Step 4) and runs the scope check befo
 
 ```bash
 mkdir -p docs/impl-briefs
-TMPL="$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/skills/great_cto/templates/IMPL-BRIEF-template.md"
+TMPL="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/skills/great_cto/templates/IMPL-BRIEF-template.md"
 [ -f "$TMPL" ] || TMPL="$(pwd)/skills/great_cto/templates/IMPL-BRIEF-template.md"
 ```
 
@@ -481,7 +481,7 @@ still gets it. Regulated archetypes keep their security/compliance floor either
 way (the helper re-adds it).
 
 ```bash
-PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}   # awk exits 0 on no match, so `|| echo` never fires

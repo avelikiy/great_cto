@@ -102,6 +102,9 @@ step "PROJECT.md has archetype field" \
 echo
 echo "▸ step 3 — plugin install side-effects"
 step "plugin dir created in CANARY_HOME" \
+  # Deliberately the `local` path and no other: this asserts what install-local.sh
+  # writes, in a throwaway HOME. A wider glob would pass on a plugin that landed
+  # somewhere else, which is what a canary exists to catch.
   bash -c "ls -d '$CANARY_HOME/.claude/plugins/cache/local/great_cto'/*/ >/dev/null 2>&1"
 step "settings.json updated" test -f "$CANARY_HOME/.claude/settings.json"
 

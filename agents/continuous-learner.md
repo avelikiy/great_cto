@@ -141,7 +141,7 @@ same `pattern:` slug — accumulating evidence, incrementing `occurrences:`, rai
 decision has reversed.
 
 ```bash
-_LW=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lib/lessons-write.mjs 2>/dev/null | sort -V | tail -1)
+_LW=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/lessons-write.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_LW" ] && _LW="scripts/lib/lessons-write.mjs"
 printf '%s' "$ENTRY" | node "$_LW" .great_cto/lessons.md --stdin
 ```
@@ -217,7 +217,7 @@ here is how the two drift apart — and the prose version silently omitted
 
 ```bash
 # Resolve the script from the plugin cache, else the local checkout.
-_LM=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/lessons-merge.mjs 2>/dev/null | sort -V | tail -1)
+_LM=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lessons-merge.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_LM" ] && _LM="scripts/lessons-merge.mjs"
 
 # Always preview first — this writes to a file every project's agents read.

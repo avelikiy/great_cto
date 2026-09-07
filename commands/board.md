@@ -64,7 +64,7 @@ fi
 ```bash
 # Find the great-cto binary — prefer locally-installed plugin version,
 # fall back to PATH.
-PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
 if [ -f "$PLUGIN_DIR/packages/cli/index.mjs" ]; then
   CLI="node $PLUGIN_DIR/packages/cli/index.mjs"
 elif command -v great-cto >/dev/null 2>&1; then

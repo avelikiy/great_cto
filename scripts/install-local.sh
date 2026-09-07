@@ -23,6 +23,9 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Deliberately the `local` marketplace: this script IS what writes that copy.
+# Everything the plugin ships resolves itself through ${CLAUDE_PLUGIN_ROOT}
+# instead — see tests/lib/plugin-root-resolution.test.mjs.
 CACHE_ROOT="$HOME/.claude/plugins/cache/local/great_cto"
 AGENTS_DIR="$HOME/.claude/agents"
 

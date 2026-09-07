@@ -309,7 +309,7 @@ fi
 ```bash
 echo ""
 echo "Plugin install:"
-PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
 if [ -n "$PLUGIN_DIR" ]; then
   VER=$(grep '"version"' "$PLUGIN_DIR/.claude-plugin/plugin.json" 2>/dev/null | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/')
   echo "  ✓ plugin cached at $PLUGIN_DIR (v$VER)"
@@ -468,7 +468,7 @@ echo ""
 if [ ! -f "$REGISTRY" ] && [ ! -d skills/great_cto/packs ]; then
   echo "  skipped (no packs registry visible)"
 else
-  PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+  PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
   if [ -n "$PLUGIN_DIR" ] && [ -f "$PLUGIN_DIR/packages/cli/dist/packs.js" ]; then
     MATCHED=$(node -e "
 const { detect } = await import('$PLUGIN_DIR/packages/cli/dist/detect.js');
@@ -513,7 +513,7 @@ provider configured in PROJECT.md with no matching key). A `critical` here means
 LLM-calling parts of the pipeline cannot run.
 
 ```bash
-PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
 GA="$PLUGIN_DIR/scripts/lib/grant-audit.mjs"; [ -f "$GA" ] || GA="scripts/lib/grant-audit.mjs"
 echo "## Check 8e — Grants & credentials"
 node "$GA" 2>/dev/null || echo "  (grant-audit unavailable)"

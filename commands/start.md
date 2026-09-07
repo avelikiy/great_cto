@@ -167,7 +167,7 @@ i.e. building one of our **autopilots**. If so, lead with the *flow* (business l
 "archetype + pack". This is the positioning surface (see `docs/positioning/vocabulary.md`).
 
 ```bash
-PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 DESC=$(echo "$ARGUMENTS" | tr '[:upper:]' '[:lower:]')
 V=""
 echo "$DESC" | grep -qE "medical cod|icd-?10|\bcpt\b|claim|revenue cycle|\brcm\b|837|clearinghouse|denial|payer"      && V=rcm
@@ -383,7 +383,7 @@ This is the **biggest single UX win** of the v2.8 cost-control suite: the CTO se
 After archetype + size are decided, run the pack detector to attach overlay packs. Packs ride on top of the base archetype and add their own reviewer agents, threat-model templates, EVAL suites, and human gates — regardless of the base archetype's defaults.
 
 ```bash
-PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
 PACKS=""
 if [ -n "$PLUGIN_DIR" ] && [ -f "$PLUGIN_DIR/packages/cli/dist/packs.js" ]; then
   PACKS=$(node -e "

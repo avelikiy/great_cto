@@ -14,7 +14,7 @@ compress it first, reason on the compressed view, and recall the original only i
 
 ```bash
 # Locate the scripts (plugin install path or local dev)
-PD=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||'); [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 _COMPRESS="$PD/scripts/lib/compress/index.mjs"; [ -f "$_COMPRESS" ] || _COMPRESS="scripts/lib/compress/index.mjs"
 _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
 

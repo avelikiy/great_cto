@@ -70,7 +70,7 @@ fi
 
 # packs (v2.8+) — opt-in to domain pack overlays
 if ! grep -q "^packs:" "$PROJECT_FILE" 2>/dev/null; then
-  PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+  PLUGIN_DIR=$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
   DETECTED=""
   if [ -n "$PLUGIN_DIR" ] && [ -f "$PLUGIN_DIR/packages/cli/dist/packs.js" ]; then
     DETECTED=$(node -e "

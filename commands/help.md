@@ -14,7 +14,7 @@ card itself.
 ## Step 1 — Read the static card
 
 ```bash
-PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
 CARD="${PLUGIN_DIR}/docs/help-card.md"
 [ -f "$CARD" ] || CARD="$(pwd)/docs/help-card.md"
 VERSION=$(cat "${PLUGIN_DIR}/.claude-plugin/plugin.json" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version":[[:space:]]*"\([^"]*\)".*/\1/')

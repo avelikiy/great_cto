@@ -20,7 +20,7 @@ ls -t .great_cto/logs/session-*.md 2>/dev/null | head -3
 # RELEVANT past sessions (BM25 ranked, not just recent) — query = current branch
 # + open task titles, so resuming to work on X surfaces the X sessions even if
 # they aren't the newest. Fail-open: silent if node/module unavailable.
-MS="$HOME/.claude/plugins/cache/local/great_cto"; MS="$(ls -d $MS/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/memory-search.mjs"
+MS="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/memory-search.mjs"
 if command -v node >/dev/null 2>&1 && [ -f "$MS" ]; then
   RQ="$(git branch --show-current 2>/dev/null) $(bd list --status open 2>/dev/null | head -5 | sed 's/^[^ ]* //' | tr '\n' ' ')"
   [ -n "$(echo "$RQ" | tr -d ' ')" ] && { echo "# Relevant past sessions (ranked):"; node "$MS" "$RQ" --source logs --limit 4 2>/dev/null; }
@@ -44,7 +44,7 @@ find .great_cto/verdicts -name "*.md" 2>/dev/null | xargs grep -l "status: open\
 # reconstructs the answer from the verdict logs instead of the operator having to
 # hand-write "these stages are done" into the resume prompt. Exit 3 = a mandatory
 # stage (QA / security) still has no terminal verdict.
-_PS=$(ls ~/.claude/plugins/cache/local/great_cto/*/scripts/pipeline-state.mjs 2>/dev/null | sort -V | tail -1)
+_PS=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/pipeline-state.mjs 2>/dev/null | sort -V | tail -1)
 [ -z "$_PS" ] && _PS="scripts/pipeline-state.mjs"
 [ -f "$_PS" ] && node "$_PS" . 2>/dev/null || echo "NO_PIPELINE_STATE"
 
