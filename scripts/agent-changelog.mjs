@@ -41,7 +41,7 @@ export function summarizeDelta(gen) {
   const impr = gen.gate?.improvements?.length ?? 0;
   const regs = gen.gate?.regressions?.length ?? 0;
   if (gen.verdict === 'rejected') return `rejected — ${regs} regression(s) on holdout`;
-  if (impr > 0 && regs === 0) return `promoted — ${impr} eval(s) improved, no regressions`;
+  if (impr > 0 && regs === 0) return `promoted — ${impr} evals improved, no regressions`;
   if (impr === 0 && regs === 0) return 'promoted — held steady on holdout (no delta)';
   return `promoted — ${impr} improved / ${regs} regressed (within tolerance)`;
 }

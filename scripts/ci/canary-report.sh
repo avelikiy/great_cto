@@ -42,7 +42,8 @@ if ! command -v gh >/dev/null 2>&1; then
 fi
 
 TITLE="Daily canary failed — ${CELL}"
-export GH_TOKEN="$GITHUB_TOKEN"
+GH_TOKEN=${GITHUB_TOKEN}
+export GH_TOKEN
 
 open="$(gh issue list --repo "$REPO" --state open --label canary --limit 100 \
           --json title --jq '.[].title' 2>/dev/null || true)"

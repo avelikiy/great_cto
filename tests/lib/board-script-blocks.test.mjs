@@ -13,7 +13,9 @@
 // or a string does not, and is not a tag.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -44,7 +46,19 @@ test('every inline <script> block is closed, and none nests', () => {
 test('each inline block parses on its own', () => {
   const blocks = [...html.matchAll(/^<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)^<\/script>/gm)];
   assert.ok(blocks.length >= 2, `expected the head script and the main script, found ${blocks.length}`);
-  for (const m of blocks) {
-    assert.doesNotThrow(() => new Function(m[1]), `block at ${line(m.index)} does not parse`);
-  }
+  // `node --check` rather than `new Function`. The old form COMPILED the board's
+  // own source inside this process to find out whether it parses — a real
+  // dynamic execution, in a file whose only job is to read text. --check parses
+  // and exits; it never runs a line. It also reports the offending line, which
+  // `new Function` did not.
+  const dir = mkdtempSync(path.join(tmpdir(), 'board-blocks-'));
+  try {
+    for (const m of blocks) {
+      const file = path.join(dir, `block-${m.index}.js`);
+      writeFileSync(file, m[1]);
+      const r = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
+      assert.equal(r.status, 0,
+        `block at ${line(m.index)} does not parse:\n${(r.stderr || '').split('\n').slice(0, 4).join('\n')}`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

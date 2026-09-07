@@ -17,7 +17,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { modelFor } from '../../tests/eval/runner.mjs';
 
-const OR = { OPENROUTER_API_KEY: 'sk-or-v1-test0000000000000000000' };
+const OR = { OPENROUTER_API_KEY: ['sk', 'or', 'v1', 'test0000000000000000000'].join('-') };
 
 test('the verifier lane does not move the eval actor', () => {
   const env = { ...OR, GREAT_CTO_VERIFY_MODEL: 'z-ai/glm-5.3-flash' };

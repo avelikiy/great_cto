@@ -170,7 +170,7 @@ export function explainPlan(plan) {
     if (lines.length) lines.push('');
     // "not acted on", not "failing": most of these were never established as
     // failures at all, which is exactly why the loop leaves them alone.
-    lines.push(`${plan.blocked.length} eval(s) the loop will NOT act on:`);
+    lines.push(`${plan.blocked.length} evals the loop will NOT act on:`);
     for (const d of plan.blocked) lines.push(`  [${d.action}] ${d.name} — ${d.why}`);
   }
   if (!lines.length) return 'improve-loop: nothing conclusive to act on.';

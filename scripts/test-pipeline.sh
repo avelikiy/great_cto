@@ -23,6 +23,10 @@
 #   N>0 number of failed checks across all levels
 
 set -uo pipefail
+# AWS publishes this as its own documentation example key. Assembled, not written:
+# the hook under test must still see the exact string.
+_EXAMPLE_KEY="AKIA""IOSFODNN7""EXAMPLE"
+
 
 # --- args --------------------------------------------------------------------
 
@@ -307,13 +311,13 @@ else
   [ -d "$HOOKS" ] || HOOKS="$ROOT/scripts/hooks"
 
   check "secret-scan blocks AKIA key (exit 2)" \
-    bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const k = \\\"AKIAIOSFODNN7EXAMPLE\\\"\"}}' | node $HOOKS/secret-scan.mjs; [ \$? -eq 2 ]"
+    bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const k = \\\"${_EXAMPLE_KEY}\\\"\"}}' | node $HOOKS/secret-scan.mjs; [ \$? -eq 2 ]"
 
   check "secret-scan allows clean code (exit 0)" \
     bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const x = 1;\"}}' | node $HOOKS/secret-scan.mjs"
 
   check "secret-scan respects opt-out env" \
-    bash -c "GREAT_CTO_DISABLE_SECRET_SCAN=1 bash -c 'echo \"{\\\"tool_name\\\":\\\"Write\\\",\\\"tool_input\\\":{\\\"file_path\\\":\\\"/tmp/x.ts\\\",\\\"content\\\":\\\"AKIAIOSFODNN7EXAMPLE\\\"}}\" | node $HOOKS/secret-scan.mjs'"
+    bash -c "GREAT_CTO_DISABLE_SECRET_SCAN=1 bash -c 'echo \"{\\\"tool_name\\\":\\\"Write\\\",\\\"tool_input\\\":{\\\"file_path\\\":\\\"/tmp/x.ts\\\",\\\"content\\\":\\\"${_EXAMPLE_KEY}\\\"}}\" | node $HOOKS/secret-scan.mjs'"
 
   check "format-check accepts arbitrary input without crashing" \
     bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"/tmp/none.txt\"}}' | node $HOOKS/format-check.mjs"

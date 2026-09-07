@@ -140,7 +140,7 @@ function main(argv) {
   for (const r of rows) perEval.set(r.eval, (perEval.get(r.eval) || 0) + 1);
   const withHistory = [...perEval.values()].filter((n) => n > 1).length;
   if (withHistory === 0) {
-    console.log(`eval-drift: ${perEval.size} eval(s) at ${shape}, each seen once — this run establishes the baseline. `
+    console.log(`eval-drift: ${perEval.size} evals at ${shape}, each seen once — this run establishes the baseline. `
       + 'Nothing to compare against yet; the next run at this shape is the first that can drift.');
     process.exit(0);
   }
@@ -160,7 +160,7 @@ function main(argv) {
   // Map eval→rate into the metrics-trend drift detector.
   const drift = detectDrift(rows.map(r => ({ key: r.eval, value: r.rate })), { window, threshold });
   const alerts = drift.filter(d => d.alert);
-  console.log(`eval-drift: ${drift.length} eval(s) at ${shape} of ${all.length} history rows `
+  console.log(`eval-drift: ${drift.length} evals at ${shape} of ${all.length} history rows `
     + `(${withHistory} with prior runs at this shape), window=${window}, threshold=${threshold}, noise=${noise.toFixed(2)}`);
   for (const d of drift) {
     const arrow = d.drift > 0 ? '▲' : d.drift < 0 ? '▼' : '·';
@@ -179,10 +179,10 @@ function main(argv) {
   const drops = alerts.filter((d) => d.drift < 0);
   const rises = alerts.filter((d) => d.drift > 0);
   if (rises.length) {
-    console.log(`eval-drift: ${rises.length} eval(s) rose beyond ${threshold} — worth a look, not an alarm.`);
+    console.log(`eval-drift: ${rises.length} evals rose beyond ${threshold} — worth a look, not an alarm.`);
   }
   if (drops.length > 0) {
-    console.error(`\neval-drift: ${drops.length} eval(s) DROPPED beyond ${threshold}.`);
+    console.error(`\neval-drift: ${drops.length} evals DROPPED beyond ${threshold}.`);
     process.exit(1);
   }
   console.log('eval-drift: no regression.');

@@ -104,9 +104,9 @@ export function failureDigest(agent, { rows = undefined, split = null, samples =
   }
 
   if (!failures.length) {
-    return { state: 'clean', why: `${runs.length} eval(s) measured for ${agent}, no failing case`, agent, evals: runs.length, failures: [] };
+    return { state: 'clean', why: `${runs.length} evals measured for ${agent}, no failing case`, agent, evals: runs.length, failures: [] };
   }
-  return { state: 'failures', why: `${failures.length} failing case(s) across ${runs.length} eval(s)`, agent, evals: runs.length, failures };
+  return { state: 'failures', why: `${failures.length} failing case(s) across ${runs.length} evals`, agent, evals: runs.length, failures };
 }
 
 /**

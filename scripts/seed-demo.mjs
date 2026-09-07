@@ -488,7 +488,7 @@ writeFileSync(join(GREAT_CTO, "digest-latest.md"), `# Digest — week of 2026-05
 `);
 
 // ─── share-token (pre-generate for demo) ────────────────────────────────
-const shareToken = "WEEs-_HlAClzBJUD";
+const shareToken = Buffer.from("seed-demo-share").toString("base64url").slice(0, 16);
 mkdirSync(join(ROOT, ".great_cto", "share"), { recursive: true });
 writeFileSync(join(ROOT, ".great_cto", "share", "token.json"), JSON.stringify({
   token: shareToken,

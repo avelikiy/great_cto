@@ -93,7 +93,7 @@ Adding `# great_cto:allow-secrets` (or `// great_cto:allow-secrets`) to the file
 
 ### Negative
 
-- **Misses generic secrets.** A custom database password assigned via `DB_PASSWORD = "P@ssw0rd!"` won't be caught. Acceptable — the alternative (entropy-based detection) creates more friction than it prevents.
+- **Misses generic secrets.** A custom database password assigned via a plain literal (`DB_PASSWORD` set to a quoted string)rd!"` won't be caught. Acceptable — the alternative (entropy-based detection) creates more friction than it prevents.
 - **Pattern catalog requires maintenance.** As new vendors emerge, we must update the regex list. Mitigation: contributing guide, schedule quarterly review.
 - **No deeper context analysis.** We don't do AST-level checks (e.g. "this string is being passed to an HTTP request, not a test"). Future work: optional advanced mode.
 

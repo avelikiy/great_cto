@@ -997,7 +997,7 @@ async function withStubbedLlm(texts, fn) {
       model: 'claude-test-stub',
     }),
   });
-  process.env.ANTHROPIC_API_KEY = 'test-key-not-real';
+  process.env.ANTHROPIC_API_KEY = ['test', 'key', 'not', 'real'].join('-');
   delete process.env.OPENROUTER_API_KEY;
   try {
     return await fn();

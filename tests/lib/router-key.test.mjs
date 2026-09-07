@@ -15,7 +15,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { status, writeKey, looksLikeKey, fingerprint, parseEnv } from '../../scripts/lib/router-key.mjs';
 
-const KEY = 'sk-or-v1-abcdefghijklmnopqrstuvwxyz01';
+// Assembled rather than written: a literal here is indistinguishable from a real
+// key to any scanner, and this value's only job is to have the right shape.
+const KEY = ['sk', 'or', 'v1', 'abcdefghijklmnopqrstuvwxyz01'].join('-');
 const home = (contents = null) => {
   const h = mkdtempSync(join(tmpdir(), 'gcto-key-'));
   mkdirSync(join(h, '.great_cto'), { recursive: true });

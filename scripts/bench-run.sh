@@ -67,7 +67,7 @@ if [ -f "$HOME/.great_cto/secrets.env" ]; then
   # shellcheck disable=SC1091
   KEY_VAL="$(grep -E '^ANTHROPIC_API_KEY=' "$HOME/.great_cto/secrets.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
   if [ -n "$KEY_VAL" ]; then
-    API_KEY_PASSTHRU=(ANTHROPIC_API_KEY="$KEY_VAL")
+    API_KEY_PASSTHRU=("ANTHROPIC_API_KEY=${KEY_VAL}")
     echo "billing: API key (session-limit bypassed)"
   fi
 fi

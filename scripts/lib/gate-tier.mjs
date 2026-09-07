@@ -122,7 +122,7 @@ export function tierFor(agent, { rows = [], classA = CLASS_A } = {}) {
   const failing = ev.filter((r) => r.power?.status !== 'passed');
   if (failing.length) {
     const kinds = [...new Set(failing.map((r) => r.power?.status ?? 'unknown'))].join(', ');
-    return { tier: 'gated', evals: ev.length, why: `${failing.length} of ${ev.length} eval(s) not conclusively passed (${kinds}) — the interval, not the point` };
+    return { tier: 'gated', evals: ev.length, why: `${failing.length} of ${ev.length} evals not conclusively passed (${kinds}) — the interval, not the point` };
   }
 
   const inlined = ev.filter((r) => (r.sharedExpanded || []).length);
@@ -136,7 +136,7 @@ export function tierFor(agent, { rows = [], classA = CLASS_A } = {}) {
     return { tier: 'gated', evals: ev.length, why: 'ran against the generic actor — that measures the eval, not this agent\'s prompt' };
   }
 
-  const passed = `${ev.length} eval(s) conclusively passed at ${REQUIRED_SPLIT}×${REQUIRED_SAMPLES}, none fixture-inlined`;
+  const passed = `${ev.length} evals conclusively passed at ${REQUIRED_SPLIT}×${REQUIRED_SAMPLES}, none fixture-inlined`;
 
   if (ev.length < BROAD_EVALS) {
     return {

@@ -50,20 +50,20 @@ test('a gate decision writes to the project log, never the global one', () => {
 
 test('a project-specific token never reaches the global log', () => {
   const proj = makeProject('beta');
-  const secret = 'Quibblewick_Rust';   // stands in for a private client name
+  const privateName = 'Quibblewick_Rust';   // stands in for a private client name
   appendDecisionLog({
     ts: '2026-07-19T11:00:00.000Z',
     project: 'beta',
     action: 'reject',
     id: 'GATE-2',
-    title: `gate:arch — ${secret} migration`,
-    reason: `blocked pending ${secret} legal review`,
+    title: `gate:arch — ${privateName} migration`,
+    reason: `blocked pending ${privateName} legal review`,
     cwd: proj,
   });
 
-  assert.match(fs.readFileSync(projectLog(proj), 'utf8'), new RegExp(secret));
+  assert.match(fs.readFileSync(projectLog(proj), 'utf8'), new RegExp(privateName));
   const globalText = fs.existsSync(globalLog()) ? fs.readFileSync(globalLog(), 'utf8') : '';
-  assert.ok(!globalText.includes(secret),
+  assert.ok(!globalText.includes(privateName),
     'the private token must never appear in the cross-project log');
 });
 

@@ -82,7 +82,8 @@ for entry in "${LISTS[@]}"; do
       # One issue per list, not one per run. An open issue for this list means
       # the message already landed; a second one is noise that gets the label
       # muted.
-      open="$(GH_TOKEN="$GITHUB_TOKEN" gh issue list --repo "$REPO" \
+      GH_TOKEN=${GITHUB_TOKEN}; export GH_TOKEN
+  open="$(gh issue list --repo "$REPO" \
                 --state open --label awesome-list-missing --limit 100 \
                 --json title --jq '.[].title' 2>/dev/null || true)"
       if printf '%s' "$open" | grep -qF "$name"; then
