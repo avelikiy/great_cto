@@ -15,7 +15,7 @@
  */
 import { mkdirSync, writeFileSync, rmSync, existsSync, appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const ROOT = "/tmp/great_cto-demo";
 const HOME = process.env.HOME;
@@ -123,22 +123,28 @@ const TASKS = [
   { title: "Cost dashboard for non-eng stakeholders", labels: ["product"],      pri: 3, agent: "pm",              days_ago: 0, dur_h: 3, status: "open" },
 ];
 
+/** One bd call, arguments as an array, no shell between us and the tool. */
+function bd(args, stdio = "pipe") {
+  return execFileSync("bd", args, { cwd: ROOT, encoding: "utf8", stdio });
+}
+
 console.log("[seed-demo] bd init");
-execSync(`cd ${ROOT} && bd init --prefix demo 2>&1 | tail -2`, { stdio: "inherit" });
+// execFileSync with a cwd option, not `cd X && …` in a shell. The titles and
+// ids below come from data; interpolating data into a command string is how a
+// title becomes an instruction, and the hand-rolled quote escaping that used
+// to guard it only covered double quotes.
+bd(["init", "--prefix", "demo"], "inherit");
 
 for (let i = 0; i < TASKS.length; i++) {
   const t = TASKS[i];
   const labels = t.labels.join(",");
-  const titleSafe = t.title.replace(/"/g, '\\"');
   console.log(`[seed-demo] ${i + 1}/${TASKS.length} [${t.status}] ${t.title}`);
-  execSync(
-    `cd ${ROOT} && bd create "${titleSafe}" --priority ${t.pri} --labels "${labels}" --assignee ${t.agent} --estimate ${t.dur_h * 60} 2>&1 | tail -1`,
-    { stdio: "pipe" }
-  );
+  bd(["create", t.title, "--priority", String(t.pri), "--labels", labels,
+      "--assignee", t.agent, "--estimate", String(t.dur_h * 60)]);
 }
 
 // Get all created issues
-const listJson = execSync(`cd ${ROOT} && bd list --json --all`, { encoding: "utf8" });
+const listJson = bd(["list", "--json", "--all"]);
 const issues = JSON.parse(listJson);
 console.log(`[seed-demo] created ${issues.length} issues`);
 
@@ -147,9 +153,9 @@ for (let i = 0; i < issues.length; i++) {
   const issue = issues[i];
   const meta = TASKS[i];
   if (meta.status === "done") {
-    execSync(`cd ${ROOT} && bd close ${issue.id} 2>&1 | tail -1`, { stdio: "pipe" });
+    bd(["close", issue.id]);
   } else if (meta.status !== "open") {
-    execSync(`cd ${ROOT} && bd update ${issue.id} --status ${meta.status} 2>&1 | tail -1`, { stdio: "pipe" });
+    bd(["update", issue.id, "--status", meta.status]);
   }
 }
 

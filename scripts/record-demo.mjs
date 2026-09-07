@@ -19,7 +19,7 @@
  *   18–21s  Agents      "34 specialists · real-time activity"
  */
 import { chromium } from "playwright";
-import { spawn, execSync } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { mkdirSync, renameSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -155,15 +155,15 @@ console.log(`[record-demo] webm → ${dstWebm}`);
 const dstMp4 = join(OUT_DIR, "demo.mp4");
 const dstPoster = join(OUT_DIR, "demo-poster.jpg");
 console.log("[record-demo] transcoding mp4 + poster");
-execSync(
-  `ffmpeg -y -i "${dstWebm}" -c:v libx264 -preset slow -crf 26 -pix_fmt yuv420p -movflags +faststart -an "${dstMp4}"`,
-  { stdio: ["ignore", "ignore", "inherit"] }
-);
+// Argument arrays, not a command string: a path containing a space or a quote
+// used to be a broken command, and interpolating one into a shell is how a path
+// becomes an instruction.
+execFileSync("ffmpeg", ["-y", "-i", dstWebm, "-c:v", "libx264", "-preset", "slow",
+  "-crf", "26", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", dstMp4],
+  { stdio: ["ignore", "ignore", "inherit"] });
 // Poster at 1.8s — first frame is blank during fade-in
-execSync(
-  `ffmpeg -y -ss 1.8 -i "${dstWebm}" -frames:v 1 -q:v 2 "${dstPoster}"`,
-  { stdio: ["ignore", "ignore", "inherit"] }
-);
+execFileSync("ffmpeg", ["-y", "-ss", "1.8", "-i", dstWebm, "-frames:v", "1", "-q:v", "2", dstPoster],
+  { stdio: ["ignore", "ignore", "inherit"] });
 
 try { process.kill(-boardProc.pid, "SIGKILL"); } catch {}
 

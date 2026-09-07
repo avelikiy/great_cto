@@ -20,7 +20,7 @@
  * Exit codes: 0 always. Silent if no matches or no .great_cto dir.
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -339,14 +339,16 @@ export function shouldExclude(path) {
 // captures uncommitted edits + recent work). Falls back to last 50 commits.
 function getChangedFiles() {
   try {
-    const sevenDaysAgo = `@{7.days.ago}`;
-    // Files in last 7 days of commits
-    const recent = execSync(
-      `git log --since='${sevenDaysAgo}' --name-only --pretty=format: 2>/dev/null | sort -u`,
+    // execFileSync, not execSync: no shell at all. Nothing here is interpolated
+    // today, but this runs on EVERY tool use, and a hook that builds a command
+    // as a string is one careless edit away from running whatever a path
+    // contains. `sort -u` was the only reason a shell was needed; a Set does it.
+    const recent = execFileSync(
+      "git", ["log", "--since=@{7.days.ago}", "--name-only", "--pretty=format:"],
       { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
     ).split("\n").filter(Boolean);
     // Plus currently uncommitted
-    const uncommitted = execSync(`git status --porcelain 2>/dev/null`, {
+    const uncommitted = execFileSync("git", ["status", "--porcelain"], {
       cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"]
     }).split("\n").map(l => l.slice(3)).filter(Boolean);
     return [...new Set([...recent, ...uncommitted])];
