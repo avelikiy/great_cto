@@ -121,9 +121,10 @@ test('a collision reported only as text still retries', async () => {
 
 // ── startBoard: the three causes told apart ─────────────────────────────────
 import { startBoard } from './board-start.mjs';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { reap } from './reap.mjs';
 
 /** A stand-in for the CLI that behaves however the test needs. */
 function fakeCli(body) {
@@ -153,7 +154,7 @@ test('a child that reports EADDRINUSE is retried, not timed out', async () => {
     assert.ok(port > 0);
     const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
     assert.equal(r.status, 200, 'the second attempt actually serves');
-  } finally { try { proc.kill('SIGKILL'); } catch {} }
+  } finally { await reap(proc); }
 });
 
 test('a board that crashes on boot fails fast WITH its stderr, not as a timeout', async () => {
@@ -179,19 +180,33 @@ test('a CLI that daemonises and exits 0 is not a crash', async () => {
   // normally — a detector strict enough to reject the real thing.
   const cli = fakeCli(`
     import { spawn } from 'node:child_process';
+    import { writeFileSync } from 'node:fs';
     import http from 'node:http';
     const port = Number(process.argv[process.argv.indexOf('--port') + 1]);
     if (process.env.GC_CHILD) {
       http.createServer((_q, s) => { s.writeHead(200, {'content-type':'application/json'}); s.end('[]'); }).listen(port, '127.0.0.1');
     } else {
-      spawn(process.execPath, [process.argv[1], '--port', String(port), '--no-open'],
-        { env: { ...process.env, GC_CHILD: '1' }, detached: true, stdio: 'ignore' }).unref();
+      const kid = spawn(process.execPath, [process.argv[1], '--port', String(port), '--no-open'],
+        { env: { ...process.env, GC_CHILD: '1' }, detached: true, stdio: 'ignore' });
+      kid.unref();
+      // The grandchild leads its OWN process group, so nothing the test can kill
+      // from the parent reaches it. Leave its pid where the test can find it.
+      writeFileSync(process.env.GC_PIDFILE, String(kid.pid));
       process.exit(0);
     }
   `);
-  const { port, proc } = await startBoard({ cliEntry: cli, project: process.cwd(), timeoutMs: 8000 });
+  const pidFile = join(mkdtempSync(join(tmpdir(), 'gc-daemonpid-')), 'pid');
+  const { port, proc } = await startBoard({
+    cliEntry: cli, project: process.cwd(), timeoutMs: 8000,
+    env: { ...process.env, GC_PIDFILE: pidFile },
+  });
   try {
     const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
     assert.equal(r.status, 200, 'the daemonised server must be reached');
-  } finally { try { process.kill(-proc.pid, 'SIGKILL'); } catch { try { proc.kill('SIGKILL'); } catch {} } }
+  } finally {
+    await reap(proc);
+    // And the grandchild, which reap() cannot see: it is not in proc's group.
+    try { process.kill(Number(readFileSync(pidFile, 'utf8').trim()), 'SIGKILL'); } catch { /* already gone */ }
+    rmSync(dirname(pidFile), { recursive: true, force: true });
+  }
 });

@@ -54,3 +54,40 @@ test('a test that group-kills a process and cleans up waits for the group', () =
     'use reap() from tests/helpers/reap.mjs, which waits for the group to empty, '
     + 'or write "// reap-exempt: <reason>" above the kill');
 });
+
+// ── A process that leads its own group is not reachable from its parent's ───
+//
+// Measured 2026-09-07: 93 orphaned `node` processes on the machine, all of them
+// the fake CLI from tests/helpers/board-start.test.mjs, the oldest alive for two
+// days and six hours. One leaked per gate run for as long as that test existed.
+//
+// The mechanism: the test's stand-in CLI DAEMONISES — it spawns itself again
+// with `detached: true` and exits 0 — so the grandchild leads a process group of
+// its own. `process.kill(-proc.pid)` reaps the parent's group and never touches
+// it, and the cleanup looked correct while leaking every time.
+//
+// That is why the gate flaked and why fixing each flaky test kept not working:
+// the machine's load floor rose run by run until tests with a time budget
+// started missing it. Three beads describe the symptom; this is the cause.
+//
+// A test that spawns something detached must be able to name it — a pid file, a
+// port it can find, anything — and kill it by that. Spawning detached with
+// nothing written down is the leak.
+test('a test that spawns a DETACHED grandchild records how to kill it', () => {
+  const offenders = [];
+  for (const file of testFiles(TESTS)) {
+    const text = readFileSync(file, 'utf8');
+    if (file.endsWith('kill-without-reap.test.mjs')) continue;
+    // `detached: true` inside a string the test writes to disk and runs: that is
+    // a grandchild, outside every group the test itself can reap.
+    if (!/detached:\s*true/.test(text)) continue;
+    const spawnsInsideAFixture = /writeFileSync\([^)]*\bcli\b|fakeCli\(/.test(text);
+    if (!spawnsInsideAFixture) continue;
+    // The escape hatch is naming it: a pid written somewhere the test reads back.
+    if (/PIDFILE|pidFile|pidfile/i.test(text)) continue;
+    offenders.push(file.replace(`${TESTS}/`, ''));
+  }
+  assert.deepEqual(offenders, [],
+    'these spawn a detached grandchild from a fixture and keep no way to kill it — '
+    + 'it survives the run, and the next run adds another');
+});
