@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync, realpathSync } from 'node:fs';
+import { join, resolve, relative, sep } from 'node:path';
 import { homedir } from 'node:os';
-import { newRun, runStage, approve } from './lib/codex-pipeline.mjs';
+import { newRun, runStage, approve, recover, cancel } from './lib/codex-pipeline.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
@@ -19,7 +19,15 @@ let locked = null;
 try {
   let state;
   if (command === 'start') {
-    state = newRun({ root: resolve(value('--dir') || '.'), prompt: value('--prompt'),
+    const root = realpathSync(resolve(value('--dir') || '.'));
+    let checkPolicy = null;
+    if (value('--checks-policy')) {
+      const policyPath = realpathSync(value('--checks-policy'));
+      const rel = relative(root, policyPath);
+      if (rel !== '..' && !rel.startsWith(`..${sep}`)) throw Error('checks policy must be operator-owned outside the target workspace');
+      checkPolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    }
+    state = newRun({ root, prompt: value('--prompt'), checkPolicy,
       allowed: (value('--allow') || '').split(',').filter(Boolean), entry: value('--entry') || 'product-owner',
       maxAttempts: value('--max-attempts') === null ? 3 : Number(value('--max-attempts')) });
     save(state);
@@ -29,13 +37,15 @@ try {
     state = JSON.parse(readFileSync(join(store, `${id}.json`), 'utf8'));
     if (state.id !== id || state.version !== 1) throw Error('invalid run state');
   }
-  if (!['start', 'resume', 'status', 'approve'].includes(command)) throw Error('expected start, resume, status or approve');
+  if (!['start', 'resume', 'status', 'approve', 'recover', 'cancel'].includes(command)) throw Error('expected start, resume, status, approve, recover or cancel');
   if (command !== 'status') {
     const lock = join(store, `${state.id}.lock`);
     mkdirSync(lock); locked = lock;
     // Reload under lock so simultaneous approvals cannot overwrite one another.
     state = JSON.parse(readFileSync(join(store, `${state.id}.json`), 'utf8'));
     if (command === 'approve') { approve(state, value('--token')); save(state); }
+    else if (command === 'recover') { recover(state); save(state); }
+    else if (command === 'cancel') { cancel(state); save(state); }
     else while (state.status === 'ready') await runStage(state, { save });
   }
   console.log(JSON.stringify({ id: state.id, status: state.status, reason: state.reason,
