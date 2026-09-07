@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlin
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { newRun, runStage as stage, approve, safePath, validateProposal, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
@@ -58,10 +59,72 @@ test('reject path escapes, protected files, symlinks and changes outside ownersh
 });
 
 test('semantic verification failure prevents gate approval and downstream dispatch', async t => {
-  const s = fixture(t);
-  await runStage(s, { execute: async () => response(), verify: async () => ({ state: 'rework', findings: ['wrong implementation'] }) });
+  const s = fixture(t); s.maxAttempts = 1;
+  await runStage(s, { execute: async () => response(), verify: async () => ({ state: 'rework', findings: ['wrong implementation'], checks: ['read implementation'] }) });
   assert.equal(s.status, 'blocked'); assert.equal(s.pending, null); assert.equal(s.results.writer, undefined);
   assert.match(s.reason, /wrong implementation/);
+});
+
+test('verifier rework survives serialization, carries findings and opens gate only after correction', async t => {
+  let s = fixture(t);
+  await runStage(s, { execute: async () => response(), verify: async () => ({ state: 'rework', findings: ['x must equal 2'], checks: ['read x'] }) });
+  assert.equal(s.status, 'ready'); assert.equal(s.active, null); assert.equal(s.pending, null);
+  assert.deepEqual(s.queue, ['writer']); assert.equal(s.results.writer, undefined);
+  s = JSON.parse(JSON.stringify(s));
+  await runStage(s, { execute: async opts => {
+    assert.match(opts.prompt, /x must equal 2/);
+    return response('DONE', [{ path: 'src/app.js', before: createHash('sha256').update(readFileSync(join(s.root, 'src/app.js'))).digest('hex'), content: 'export const x = 2;\n' }]);
+  } });
+  assert.equal(s.status, 'awaiting-gate'); assert.equal(s.rework, null);
+  assert.deepEqual(s.attempts.map(a => a.status), ['rework', 'verified']);
+  assert.notEqual(s.attempts[0].id, s.attempts[1].id);
+  assert.equal(s.results.writer.attemptId, s.attempts[1].id);
+});
+
+test('bounded rework cannot dispatch forever or approve failed output', async t => {
+  const s = fixture(t);
+  for (let i = 0; i < 3; i++) await runStage(s, {
+    execute: async () => response('DONE', i === 0 ? undefined : []),
+    verify: async () => ({ state: 'rework', findings: ['still wrong'], checks: ['inspected'] }),
+  });
+  assert.equal(s.status, 'blocked'); assert.match(s.reason, /rework limit/);
+  assert.equal(s.attempts.length, 3); assert.equal(s.pending, null);
+  await runStage(s, { execute: async () => { throw Error('must not execute'); } });
+  assert.equal(s.attempts.length, 3);
+});
+
+test('old run state does not silently opt in to automatic rework', async t => {
+  const s = fixture(t); delete s.maxAttempts; delete s.attempts;
+  await runStage(s, { execute: async () => response(), verify: async () => ({ state: 'rework', findings: ['wrong'], checks: ['read'] }) });
+  assert.equal(s.status, 'blocked'); assert.equal(s.attempts.length, 1);
+});
+
+test('unverifiable and malformed evidence never trigger automatic retries', async t => {
+  for (const verification of [{ state: 'unverifiable', checks: ['test unavailable'], findings: ['missing runtime'] }, { state: 'verified', checks: [], findings: [] }]) {
+    const s = fixture(t);
+    await runStage(s, { execute: async () => response(), verify: async () => verification });
+    assert.equal(s.status, 'blocked'); assert.equal(s.active, 'writer'); assert.equal(s.pending, null);
+    assert.equal(s.attempts[0].status, 'blocked');
+  }
+});
+
+test('drift after gate approval and between rework attempts blocks worker launch', async t => {
+  for (const rework of [false, true]) {
+    const s = fixture(t);
+    await runStage(s, { execute: async () => response(), ...(rework ? { verify: async () => ({ state: 'rework', findings: ['fix'], checks: ['read'] }) } : {}) });
+    if (!rework) approve(s, s.pending.token);
+    writeFileSync(join(s.root, 'src/app.js'), 'external change');
+    await assert.rejects(runStage(s, { execute: async () => { assert.fail('worker must not launch'); } }), /artifact changed/);
+  }
+});
+
+test('verifier cannot change a controlled artifact and still verify the stage', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response(), verify: async () => {
+    writeFileSync(join(s.root, 'src/app.js'), 'changed by verifier');
+    return { state: 'verified', findings: [], checks: ['read'] };
+  } });
+  assert.equal(s.status, 'blocked'); assert.match(s.reason, /artifact changed/);
 });
 
 test('verifier runs separately with actual file paths and refuses empty evidence', async t => {
