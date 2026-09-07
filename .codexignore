@@ -1,0 +1,28 @@
+# What a Codex host must not read out of this repository.
+#
+# Not a scanner suppression: the plugin scanner's verdict ignores repository-owned
+# config by default, and it should. This is the narrower thing it is named for —
+# local artefacts and machine state that are not part of the plugin and would only
+# mislead a model reading the tree.
+
+# Local project state, per-machine and per-session.
+.great_cto/
+.claude/worktrees/
+node_modules/
+dist/
+coverage/
+
+# Anything that carries a real credential. Nothing here is committed; the entry
+# exists so an accidental one is not read either.
+.env
+.env.*
+!.env.example
+secrets.env
+*.pem
+*.key
+
+# Build and test output.
+tests/baselines/*.png
+docs/screenshots/*.png
+*.tgz
+*.log
