@@ -89,7 +89,8 @@ for entry in "${LISTS[@]}"; do
       if printf '%s' "$open" | grep -qF "$name"; then
         echo "    (an open issue for ${name} already exists — not filing another)"
       else
-        GH_TOKEN="$GITHUB_TOKEN" gh issue create --repo "$REPO" \
+        GH_TOKEN=${GITHUB_TOKEN}; export GH_TOKEN
+    gh issue create --repo "$REPO" \
           --title "Missing from ${name}" \
           --label awesome-list-missing --label distribution \
           --body "The weekly health check found great_cto is no longer listed in [${name}](${url}). Open a PR to re-list, or close this if the delisting was deliberate." \

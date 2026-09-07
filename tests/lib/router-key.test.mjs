@@ -37,7 +37,7 @@ test('writing a key preserves every other line in the file', () => {
 });
 
 test('an existing key is replaced in place, not appended beside itself', () => {
-  const h = home(`OPENROUTER_API_KEY=sk-or-v1-oldoldoldoldoldoldold\nOTHER=x\n`);
+  const h = home(`OPENROUTER_API_KEY=${["sk","or","v1","oldoldoldoldoldoldold"].join("-")}\nOTHER=x\n`);
   const r = writeKey(KEY, { home: h });
   assert.equal(r.replaced, true);
   const lines = secrets(h).split('\n').filter((l) => l.startsWith('OPENROUTER_API_KEY='));

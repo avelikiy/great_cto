@@ -2,7 +2,7 @@
 //
 // Why this exists: the executing oracle only matched the node:test/TAP summary
 // shape, while every product in the 2026-07 benchmark runs vitest. The parser
-// returned all-nulls, runEval's `total || 1` fallback turned that into
+// returned all-nulls, runEvaluation's `total || 1` fallback turned that into
 // "1 test, and it failed", and nine of ten products were scored 0/1 — including
 // two the collector had measured at 269/269 and 368/368. A parse failure must
 // never be reported as a test result. See docs/benchmarks/RESCORE-2026-07-19.md.
@@ -106,8 +106,8 @@ test('empty / undefined input is safe', () => {
 
 // ── reproducibility: no network input in the score by default ──────────────
 
-test('runEval does not consult the network unless explicitly asked', async () => {
-  const { runEval } = await import('../../scripts/lib/product-eval.mjs');
+test('runEvaluation does not consult the network unless explicitly asked', async () => {
+  const { runEvaluation } = await import('../../scripts/lib/product-eval.mjs');
   const fs = await import('node:fs');
   const os = await import('node:os');
   const path = await import('node:path');
@@ -117,7 +117,7 @@ test('runEval does not consult the network unless explicitly asked', async () =>
     fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"x","version":"1.0.0"}');
     fs.writeFileSync(path.join(dir, 'package-lock.json'), '{"lockfileVersion":3}');
     delete process.env.GREAT_CTO_EVAL_AUDIT;
-    const r = runEval(dir);
+    const r = runEvaluation(dir);
     assert.equal(r.auditHigh, null, 'audit must not run by default — its answer changes with the calendar');
     assert.equal(r.auditAt, null, 'and no date is claimed when nothing was measured');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

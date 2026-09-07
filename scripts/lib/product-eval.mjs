@@ -5,7 +5,7 @@
 // secret scan, and turns the real results into a measured 0-100 score. Presence ≠
 // excellence — this is "does it actually work + is it clean", not "does it have the shape".
 //
-// Pure scoreExecution(results) is unit-tested; runEval(dir) spawns the real commands.
+// Pure scoreExecution(results) is unit-tested; runEvaluation(dir) spawns the real commands.
 //
 // Usage:
 //   node scripts/lib/product-eval.mjs <product-dir> [--json]
@@ -110,7 +110,7 @@ export function parseTestCounts(out) {
 }
 
 /** Execute checks in a product dir → results for scoreExecution. */
-export function runEval(dir) {
+export function runEvaluation(dir) {
   const pkgPath = join(dir, 'package.json');
   let pkg = {};
   try { pkg = JSON.parse(readFileSync(pkgPath, 'utf8')); } catch { /* none */ }
@@ -201,7 +201,7 @@ async function main(argv) {
   const dir = argv.find(a => !a.startsWith('--'));
   if (!dir || !existsSync(dir) || !statSync(dir).isDirectory()) { console.error('Usage: product-eval.mjs <dir> [--json] [--gate --min N [--baseline f]] [--browser]'); process.exit(2); }
 
-  const results = runEval(dir);
+  const results = runEvaluation(dir);
   const res = scoreExecution(results);
 
   // F6a/F6b: opt-in browser signals (a11y + Web Vitals). Additive report only — never

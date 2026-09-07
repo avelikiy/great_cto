@@ -16,7 +16,7 @@ import { existsSync, statSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scoreProduct, inspect, detectArchetype } from './product-score.mjs';
-import { runEval, scoreExecution } from './product-eval.mjs';
+import { runEvaluation, scoreExecution } from './product-eval.mjs';
 import { checkContracts, readTestText } from './archetype-contracts.mjs';
 import { parseHistory } from './metrics-trend.mjs';
 
@@ -44,7 +44,7 @@ function grade(t) { return t >= 90 ? 'A' : t >= 75 ? 'B' : t >= 60 ? 'C' : t >= 
 export function assess(dir, archetypeFlag = null) {
   const archetype = detectArchetype(dir, archetypeFlag);
   const floor = scoreProduct(inspect(dir, archetype), archetype).total;
-  const evalResults = runEval(dir);
+  const evalResults = runEvaluation(dir);
   const ceiling = scoreExecution(evalResults).total;
   const c = checkContracts(archetype, readTestText(dir));
   const contracts = c.coverage; // null when archetype has no contracts
