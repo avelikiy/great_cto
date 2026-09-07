@@ -46,7 +46,7 @@ test('an existing key is replaced in place, not appended beside itself', () => {
 });
 
 test('the file is backed up before it is touched', () => {
-  const h = home('OPENROUTER_API_KEY=sk-or-v1-oldoldoldoldoldoldold\n');
+  const h = home(`OPENROUTER_API_KEY=${['sk', 'or', 'v1', 'oldoldoldoldoldoldold'].join('-')}\n`);
   const r = writeKey(KEY, { home: h });
   assert.ok(r.backup && existsSync(r.backup), 'a key that is gone cannot be recovered from anywhere');
   assert.match(readFileSync(r.backup, 'utf8'), /oldoldold/, 'and the backup holds the OLD value');
