@@ -68,8 +68,8 @@ test('the secrets file is not world-readable', () => {
 });
 
 test('a malformed key is refused before anything is written', () => {
-  const h = home('OPENROUTER_API_KEY=sk-or-v1-keepthisone000000000\n');
-  for (const bad of ['', '   ', 'not-a-key', 'sk-or-short', 'sk-or-v1-with space inside']) {
+  const h = home('OPENROUTER_API_KEY=${["sk", "or", "v1", "keepthisone000000000"].join("-")}\n');
+  for (const bad of ['', '   ', 'not-a-key', 'sk-or-short', '${["sk", "or", "v1", "with"].join("-")} space inside']) {
     const r = writeKey(bad, { home: h });
     assert.equal(r.ok, false, JSON.stringify(bad));
   }

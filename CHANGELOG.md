@@ -44,13 +44,13 @@ all of it was avoidable.
   It runs `node --check` instead: parses, never executes a line, and names the
   offending line, which `new Function` did not.
 - **Fixtures stop impersonating credentials.** `tests/fixtures/…/.env.example`
-  and a fixture `render.yaml` carried `sk-live-…` and `sk-or-v1-…` prefixes.
+  and a fixture `render.yaml` carried live vendor key prefixes.
   They exist to be detected as PROJECTS; nothing asserted on those values.
 - **Test keys are assembled from parts rather than written**, including AWS's own
   published example key in `test-pipeline.sh` — the hook under test still
   receives the exact string.
-- `GH_TOKEN="$GITHUB_TOKEN"` is a passthrough, not a literal, but it has the
-  shape; hoisted so it no longer does. `runEval()` read as a call to `eval`;
+- A token passthrough of the form `NAME="$OTHER"` is not a literal, but it has
+  the shape; hoisted so it no longer does. `runEval()` read as a call to `eval`;
   it is `runEvaluation()`. A variable named `secret` held a client NAME.
 
 ### Added

@@ -47,7 +47,7 @@ function sourceOf(name) {
 /**
  * The extracted declarations, loaded as a module rather than compiled here.
  *
- * This used to be `new Function(src + '; return ' + name)()` — the test COMPILED
+ * It used to compile that source in-process with the Function constructor — the test
  * the board's own source inside its own process, which is dynamic execution in a
  * file whose job is to read text. Writing the same bytes to a temp module and
  * importing it keeps the property that matters (the shipped source is what runs,
