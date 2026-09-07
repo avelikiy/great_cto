@@ -21,9 +21,9 @@ Codex sessions outside this controller do not inherit its guarantees.
 | GitHub plugin install, skills and MCP configuration | Available | Installation from the supported channel and matching runtime versions |
 | Specialist prompts, guarded text proposals, joins and gates | Available | Graph and negative-path regression tests |
 | Same-stage verifier rework | Bounded attempts with retained findings | Correction, exhaustion, serialization and artifact-drift tests |
-| Cross-role repair and graph back-edges | Not complete | Dependency invalidation and repeat QA/security on the current candidate |
-| General crash recovery | Fail-closed interruption marker only | Fault injection at persistence and execution boundaries |
-| Dependency installation and write-requiring build/test | Not available | Isolated real executor; filesystem/network/secret-denial tests |
+| Cross-role repair and graph back-edges | Core review-to-developer repair and declared back-edges; dependent results/approvals invalidated | Broader graph coverage remains |
+| General crash recovery | Explicit unchanged pre-write/fully applied Git stage recovery; partial writes refused | Full persistence-boundary fault testing remains |
+| Dependency installation and write-requiring build/test | Offline Docker checks; no network install or artifact export | Real sandbox denial tests; release artifact collection remains |
 | Release and post-release verification | Manual handoff only | Adapter integration and live lifecycle evidence |
 | Board/Beads integration | Separate from controller authority | Consistent projections; task closure cannot authorize release |
 
@@ -65,7 +65,9 @@ A structurally valid `rework` result with inspection evidence retains feedback
 and queues the same role. Only a verified attempt creates a successful stage
 result or gate. Exhaustion blocks; `unverifiable`, execution failures and
 interruption remain fail-closed. Existing v1 runs without the new policy retain
-one attempt. This is not general recovery or cross-role repair.
+one attempt. Subsequent work adds core cross-role repair, explicit safe-stage
+recovery, cancellation and offline checks. This is not arbitrary partial-write
+recovery or exactly-once external execution.
 
 The installed stable GitHub plugin and an implementation branch are distinct.
 Do not describe branch-only changes as released or active in the installed plugin.

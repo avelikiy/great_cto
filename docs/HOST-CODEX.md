@@ -14,6 +14,8 @@ node <plugin-root>/scripts/codex-pipeline.mjs start --dir /path/to/project --all
 node <plugin-root>/scripts/codex-pipeline.mjs status <run-uuid>
 node <plugin-root>/scripts/codex-pipeline.mjs approve <run-uuid> --token <pending-token>
 node <plugin-root>/scripts/codex-pipeline.mjs resume <run-uuid>
+node <plugin-root>/scripts/codex-pipeline.mjs recover <run-uuid>
+node <plugin-root>/scripts/codex-pipeline.mjs cancel <run-uuid>
 ```
 
 The entry role defaults to `product-owner`. `--entry architect` can be used when
@@ -49,11 +51,16 @@ the local operator and Codex's read-only sandbox; it is not a security boundary
 against another process running as the same OS user.
 
 This initial mode accepts full text file proposals only. It does not delete files,
-apply binary patches, run write-requiring tests/builds, install dependencies or
-perform deployment. `devops`, `infra-provisioner` and
+apply binary patches or perform deployment. Optional offline Docker checks can
+run write-requiring tests/builds (see below). `devops`, `infra-provisioner` and
 `migration-import-engineer` stop with `manual-action`. It limits a run to 32 stages.
-Cross-role/back-edge retries are not automatic. A verifier `rework` result retries
-the same stage up to three total attempts by default (`start --max-attempts 1..5`).
+A verifier `rework` retries the same stage, except code-reviewer, QA and security
+return to a previously completed senior-dev in their dependency chain. Reviewer
+`FAIL`/`REJECTED` follows that repair route without applying the negative
+proposal's files. `BLOCKED` remains a stop. Declared verdict back-edges such as
+`SPEC-OBJECTION` reopen their target after the declared gate. Dependent results
+and approvals are archived and invalidated; QA/security must complete again.
+There are three total attempts per role by default (`start --max-attempts 1..5`).
 Each attempt has a unique ID, timestamps, receipt and verification evidence;
 findings are passed to the next attempt. Exhaustion blocks. Existing saved runs
 without an attempt policy retain single-attempt behavior. Process failures,
@@ -85,6 +92,55 @@ Codex run is a separate integration check; passing these tests is not evidence
 that an entire product was built and deployed.
 
 ---
+
+## Recovery and cancellation
+
+The persisted attempt phase distinguishes worker execution, file application,
+checks and verification. `recover` permits an explicit retry only for unchanged
+Git stages before writes, or fully applied candidates with a persisted receipt.
+It does not execute a worker; call `resume` afterwards. Partial writes, truncated
+receipts, non-Git projects, exhausted budgets and tree drift require inspection.
+`cancel` invalidates a pending gate, not files already written. Both commands
+take the existing exclusive lock: cancellation does not interrupt a running CLI.
+
+## Offline build/test executor
+
+At `start`, pass `--checks-policy /absolute/operator-owned/checks.json`. The JSON
+must be outside the target workspace; its content is snapshotted into run state.
+The operator selects the image and commands, not the worker. Example shape:
+
+```json
+{
+  "image": "node@sha256:<actual 64-character lowercase hex digest>",
+  "inputs": ["src", "tests", "package.json"],
+  "commands": [["node", "--test"], ["npm", "run", "build"]],
+  "timeoutMs": 60000
+}
+```
+
+Inputs must also be inside `--allow` paths. Only selected files are copied into
+a temporary read-only snapshot. Symlinks, protected paths and detected secrets
+are rejected. Input is limited to 2000 files / 20 MiB. Docker receives no host
+project, home, credential or daemon-socket mount. Commands run as nonroot with
+no network, no capabilities, read-only root and bounded writable tmpfs.
+
+The approved image must already exist locally (`--pull=never`). Dependencies must
+be included in that image or installable offline; network package installation
+is not implemented. Build outputs remain temporary, not release artifacts.
+
+Checks run on senior-dev and QA stages before semantic verification. Failing
+checks request repair. Timeouts and Docker/runtime unavailability are
+`unverifiable`, not code defects. Semantic verification cannot override mandatory
+failed checks. Commands, output, exit status and policy/input digests are retained
+on the attempt. No policy means no deterministic checks, not passing checks.
+
+To exercise the real sandbox with an approved preloaded image:
+
+```sh
+GREAT_CTO_LIVE_DOCKER_IMAGE=node@sha256:<digest> node --test tests/lib/codex-checks.test.mjs
+```
+
+Without the variable, the live test is explicitly skipped, not simulated.
 
 ## Related
 
