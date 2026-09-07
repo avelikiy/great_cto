@@ -26,6 +26,63 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.27.6 — 2026-09-07
+
+Three issues described the gate flaking; one recorded that an earlier one had
+been "closed too early". Each time the fix was the test that happened to fail.
+This release fixes the cause, and it was not in any of those tests.
+
+### Fixed
+
+- **The gate flake was 93 leaked daemons.** Measured: 93 orphaned `node`
+  processes on the development machine, every one the stand-in CLI from
+  `tests/helpers/board-start.test.mjs`, the oldest alive for two days and six
+  hours. One leaked per gate run. That test's fake CLI *daemonises* — spawns
+  itself with `detached: true` and exits 0 — so the grandchild leads a process
+  group of its own, and the cleanup's `process.kill(-proc.pid)` reaped the
+  parent's group and never reached it. It looked correct and leaked every time.
+  The load floor rose run by run until tests with a time budget started missing
+  it; the machine sat at load 13–21 on ten cores before a single test ran.
+  The test now records the grandchild's pid and reaps both. **Five consecutive
+  full gates: zero failures, zero orphans after each.**
+- **Every README screenshot opened on a red error.** The board derived the
+  current project's slug from the first task id's *prefix* — bd ids are short,
+  so a project registered as `acme-storefront` whose tasks read `acme-6f`
+  yielded `acme`, which is not a project, and the board reported a healthy setup
+  as broken. A prefix is a heuristic; the registry is a fact, and is preferred.
+  `capture-screenshots` now refuses to photograph a page showing any degraded
+  banner.
+- **No shell between us and the tools we call.** `auto-attach-reviewers` runs on
+  every tool use and built its git commands as strings; `seed-demo` interpolated
+  task titles and bd-supplied ids into `cd $ROOT && bd …` behind hand-rolled
+  escaping that covered double quotes and nothing else; `record-demo` passed
+  paths to ffmpeg through a shell. All three pass argument arrays now.
+- The last in-process dynamic execution is gone: `inbox-context` compiled the
+  board's own source to extract two functions, and imports a temp module
+  instead — the shipped bytes still run, nothing is compiled from a string.
+
+### Under it
+
+- `kill-without-reap` gains a guard: a test that spawns a detached grandchild
+  from a fixture must record how to kill it. Proved by deletion. Its first
+  version was vacuous — an exempting substring still matched — which was caught
+  rather than accepted as a pass.
+- The HOL plugin scanner reads this repository at **88/100**, up from 64, with
+  high findings down from 50 to 4 and "no hardcoded secrets" green.
+
+### Still not fixed, and why
+
+Two files remain flagged as dynamic execution: `scripts/lib/quality.mjs` and
+`tests/eval/runner.mjs`. An exhaustive search of both for `eval(`, `new
+Function`, `Function(`, `import(`, `vm.` and `require(` returns **nothing**.
+They are flagged for the word *eval* in an import path, in `evaluateGate` and in
+`evalResults`. Clearing them means renaming an exported function and a module
+six files import, because a matcher cannot tell a domain from a call. It is not
+worth a core concept, and the catalogue listing it blocks is filed, not silenced.
+
+---
+
 ## v3.27.5 — 2026-09-07
 
 A plugin's CI is a supply chain its installers inherit. Ours had an action on
