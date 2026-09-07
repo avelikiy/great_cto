@@ -96,6 +96,16 @@ OpenAI's own Codex plugin ships the same idea and warns about exactly that. It
 also blocks a given diff **once** — a hook that can refuse to end the turn
 forever is a hang, not a guardrail.
 
+Two documents govern how this product describes itself, both approved at
+`gate:product` on 2026-09-07:
+[BRIEF-story-rewrite-2026-09](product/BRIEF-story-rewrite-2026-09.md) — what the
+landing and the README may claim, and the five claims removed because nothing in
+the repository could prove them — and
+[DESIGN-story-rewrite-2026-09](design/DESIGN-story-rewrite-2026-09.md), which
+governs how those two surfaces look and how a figure is allowed to appear on
+them. The cross-provider harness those claims are measured against is described
+in [SPRINT-2-CROSS-PROVIDER](testing/SPRINT-2-CROSS-PROVIDER.md).
+
 ## CI integration
 
 ```yaml

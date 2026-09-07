@@ -100,9 +100,9 @@ test('the orphan count is frozen, and only shrinks deliberately', (t) => {
   // green red. A floor that moves with who is running it is not a ratchet;
   // it is the always-red gate this repository already knows stops being read.
   //
-  // Ignored paths dropped, both trees now agree on 49, and the number means the
+  // Ignored paths dropped, both trees now agree, and the number means the
   // same thing in a clean clone as it does on a machine full of drafts.
-  const FROZEN = 49;
+  const FROZEN = 48;
   const ignored = gitIgnoredDocs();
   if (!ignored) return t.skip('git could not list ignored paths — the count would be the machine, not the repo');
 

@@ -1,3 +1,13 @@
+---
+surface: web
+feature: story-rewrite-2026-09
+target: great_cto-site/index.html (landing, private repo); README.md (first screen)
+status: draft
+author: design-advisor
+date: 2026-09-07
+stale_after: 2026-12-07
+---
+
 # DESIGN — story rewrite, September 2026
 
 **Scope:** two surfaces — the `greatcto.systems` landing page and the README's first
@@ -14,6 +24,91 @@ is right unless the difference is named as deliberate below.
 invent — that is the whole thesis of the product being marketed.
 
 ---
+
+## 0. Dials
+
+```
+DESIGN_VARIANCE:  3/10 — a marketing surface may carry more variance than the
+                  instrument it sells, because a stranger arrives once and an
+                  operator returns daily. But the whole argument of this rewrite is
+                  that the page should look like the product; 5 would start buying
+                  novelty with recognition, and 1 would make the landing a second
+                  board, which nobody visits twice.
+MOTION_INTENSITY: 1/10 — the page makes one claim, that nothing here is dressed up.
+                  Reveal-on-scroll already hides content from a headless capture and
+                  from anyone with reduced motion; 0 would forbid the install-command
+                  copy confirmation, which is feedback the reader asked for.
+VISUAL_DENSITY:   4/10 — the first screen carries one sentence, one prerequisite,
+                  one dated figure and one command. 7 is the industry grid's current
+                  density and it is why the grid reads as a catalogue; 2 would lose
+                  the prerequisite line, which is the thing a stranger most needs.
+```
+
+## 0.1 Design system pick
+
+**No framework. The board's own tokens, lifted.** The site is one hand-written
+`index.html`; adopting a system now would mean re-theming it to match the board
+anyway, and a system's defaults are exactly the templated look this page must not
+have. The vocabulary is therefore the board's `:root` block, read from
+`packages/board/public/index.html` and restated in §1 with resolved values.
+
+**Rejected:** Tailwind (a build step for one page), any component kit (its opinions
+are not the board's, and the mismatch is what §1 catalogues as drift).
+
+## 0.2 Component inventory
+
+Every element the two surfaces need. Nothing here is new; the point is that the
+list is short and each item already exists in one of the two places.
+
+| Component | Where it exists now | Change |
+|---|---|---|
+| Eyebrow chip | landing hero | text only — the harness split replaces "runs on … or …" |
+| Display headline | landing hero | copy only |
+| Lede + subordinate note | landing hero | new `.hero-note` for the prerequisite and the benchmark's date |
+| Primary / ghost button pair | landing hero | none |
+| Live-figure span (npm count) | landing hero, twice | renders an absence until the fetch answers |
+| Harness/property strip | landing hero | percentages out, model names in |
+| Screenshot frame + caption | landing `#board` | caption must say the shot is a fixture |
+| Feature card grid | landing `.lp-grid` | two cards' copy |
+| Industry card | landing `#industries` | untouched in v1 — see the brief's open question 3 |
+| Badge row | README | one badge per harness, not one badge for both |
+| Fenced install command | both | none |
+
+## 0.3 Numeric contract — how a figure is allowed to appear
+
+The product's rule, applied to its own marketing. A figure on either surface is
+one of exactly three things, and it must be legible which:
+
+| State | Renders as | Example on these surfaces |
+|---|---|---|
+| **measured** | the value, with the date it was measured | `median $171 in tokens across seven products, measured 2026-07` |
+| **live** | the value, or an absence glyph until it arrives | the npm counter: `—` until the fetch answers, never a baked-in last-known number |
+| **absent / uncomputable** | said in words, never a zero and never a stand-in | the paired review's catch rate: not published, because n=4 |
+
+Tabular figures (the caps table, any comparison) use tabular numerals and align
+right. No figure appears in prose on the landing without its provenance beside it.
+
+**Forbidden outright:** a hardcoded fallback that reads as current (the `46,819`
+this rewrite removed), a projection, and any comparison against a baseline the
+product does not measure.
+
+## 0.4 Destructive actions and the cost of recovery
+
+The marketing surfaces have no destructive controls: nothing on either page
+deletes, publishes, or spends. The cost of recovery that *does* apply here is
+reputational and asymmetric, which is why it belongs in this section rather than
+being marked "not applicable":
+
+| Action | Cost of undo |
+|---|---|
+| Shipping a claim the product cannot prove | **Expensive.** It is quoted, cached and indexed before it is corrected; the correction reaches a fraction of the readers the claim did. The five claims this rewrite removed had stood for months. |
+| Removing a true claim | Cheap. It goes back in a commit. |
+| Changing the install command | **Expensive.** It is copied into other people's scripts and blog posts. Not in this scope. |
+| Restyling a section | Cheap and reversible. |
+
+The rule that follows: **when a claim's evidence is uncertain, cut it.** The
+asymmetry above is the whole reason the brief's STOP list is executed before any
+new copy is written.
 
 ## 1. Visual vocabulary the site inherits from the board
 

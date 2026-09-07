@@ -28,7 +28,7 @@ minute:
 
 | # | The statement | Where | Why it is wrong |
 |---|---|---|---|
-| 1 | "100% OpenAI Codex" | landing `index.html:174`; repeated in four meta/schema blocks at `:11`, `:13`, `:35`, `:43` | `README.md:150-158` says the opposite in the product's own voice: on Codex you get skills and the MCP server, **not** the pipeline — no `/start`, no `/inbox`, no gate chain, no `secret-scan`, because a plugin manifest's `hooks` is never read there |
+| 1 | "100% OpenAI Codex" | landing `index.html:174`; repeated in four meta/schema blocks at `:11`, `:13`, `:35`, `:43` [source: the landing page as committed] | `README.md:150-158` says the opposite in the product's own voice: on Codex you get skills and the MCP server, **not** the pipeline — no `/start`, no `/inbox`, no gate chain, no `secret-scan`, because a plugin manifest's `hooks` is never read there |
 | 2 | "one CTO gate" / "One gate — the spec" | landing `:184`, `:217`, `:256`, `:297` | contradicted at `:290` on the same page ("Building a product is now three approvals") and by `README.md:41-63`, which documents three default stops |
 | 3 | the board shows "30-day LLM spend **vs a human-team baseline**" | landing `:323` | that panel was **deleted** in v3.27.1. `CHANGELOG.md` v3.27.1 → *Ledger*: "loses the old cost panel: four tiles (`vs human team`, a projected month, a daily burn, an empty chart)". The landing describes a feature the product removed on purpose |
 | 4 | "against a human baseline of weeks and tens of thousands of dollars per product" | landing `:336` | no derivation exists anywhere in the repository. `docs/product/REVIEW-readme-landing.md` §1 row 4 flagged the same class of claim on 2026-07-29 and it survived |
@@ -184,6 +184,41 @@ an argument about incentives, not about features — which is why it survives a 
 competitor shipping the same feature next quarter.
 
 **"Do the simpler thing first" is not the wedge, and neither is the agent count.**
+
+---
+
+## Differentiated wedge
+
+Every tool in this category orchestrates an agent. What none of them does is
+**report what did not happen.**
+
+**[vs: agent orchestrators that report only what ran — Maestro Orchestrate, Claw-Kanban,
+and every CI dashboard whose green means "no failures recorded"]**
+
+| | The category | great_cto |
+|---|---|---|
+| A stage that was skipped | absent from the report, which reads as clean | rendered as itself; never counted as a pass |
+| A review that never ran | shown as no findings | shown as *not run*, distinct from *ran and found nothing* |
+| A cost nothing measured | `$0` | *unmeasured*, distinct from a measured zero |
+| A second opinion | the same model family, or none | another family, joined to the diff by `sha` |
+
+The wedge is not "more agents" and not "cheaper builds" — both are claims a
+competitor can make next week, and one of them is a number this product refuses
+to publish. It is that **the report is trustworthy in the negative direction**,
+which is the direction every dashboard in this category is biased against,
+because a clean-looking report is what the vendor wants to show.
+
+The proof is unusual and it is the reason this wedge is defensible: **the vendor
+deleted its own favourable numbers to keep it true.** v3.27.0 and v3.27.1 removed
+"cost savings vs FTE", a spend comparison against a human team, and a projected
+month from this product's own dashboard, because none could be shown to be true.
+A competitor can copy the feature list. Copying that costs them the numbers their
+own marketing runs on.
+
+**Where the wedge is weak:** it is a claim about *reporting*, and a reader who has
+never been burned by a confident agent report does not feel the problem yet. That
+reader is not this brief's audience, and pretending otherwise is how the current
+landing ended up assuming everyone already owns a coding agent.
 
 ---
 
@@ -348,14 +383,17 @@ survived that review. If it survives this one it needs a reason, which is Open q
 
 ### OUT — v1
 
-- The nine translated README mirrors. They lag one cycle by design; a factual patch does not
+**Out (v1) — explicit anti-scope.** Each of these was considered and left out on
+purpose; the reason is the point, not the omission.
+
+- **STORY-X1** — the nine translated README mirrors. They lag one cycle by design; a factual patch does not
   make them lie further than they already do, and a re-narration would.
-- The hero A/B test. Not paused, not forked, not touched.
-- Any new page — including the public cross-review ledger the Visionary proposed. It is the
+- **STORY-X2** — the hero A/B test. Not paused, not forked, not touched.
+- **STORY-X3** — any new page, including the public cross-review ledger the Visionary proposed. It is the
   right instrument and it is a build, not a rewrite. See Open question 2.
-- The 15-industry grid. Not deleted in v1; see Open question 3.
-- Body sections of either surface below the first screen.
-- Repositioning great_cto as an evidence or provenance platform. Explicitly deferred, with a
+- **STORY-X4** — the 15-industry grid. Not deleted in v1; see Open question 3.
+- **STORY-X5** — body sections of either surface below the first screen.
+- **STORY-X6** — repositioning great_cto as an evidence or provenance platform. Explicitly deferred, with a
   named trigger — see K1.
 
 ---
