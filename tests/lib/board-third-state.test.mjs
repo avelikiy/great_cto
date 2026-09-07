@@ -53,16 +53,21 @@ test('Cell 4: paired-diff count (Harness) — join key absent → unmeasured, ne
   // An `unreadable` line must never render as "0 findings" or "they agree".
   // The routes.mjs BRD-R2 implementation classifies pre-join-key lines as
   // `unreadable`. The UI must not show these as passed/0 or "all reviewers agree".
-  const raw = readFileSync(path.join(ROOT, 'packages/board/lib/routes.mjs'), 'utf8');
+  // The reader moved to scripts/lib so the cross-review Stop hook could ask the
+  // same question without importing a server; routes.mjs re-exports it. This
+  // cell is about the CLASSIFICATION, not about which file holds it, so it reads
+  // both — and would still catch the classification being deleted from either.
+  const raw = ['packages/board/lib/routes.mjs', 'scripts/lib/second-opinion-for-tree.mjs']
+    .map((f) => readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
   const routes = raw.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
 
   // The join-key field must exist and be used in classification
   assert.match(routes, /sha.*dirty|join.*key/i,
-    'routes.mjs must have a join-key field (sha+dirty) to classify evidence');
+    'the second-opinion reader must have a join-key field (sha+dirty) to classify evidence');
 
   // Pre-join-key lines are classified as `unreadable`, not `0 blocked`.
   assert.match(routes, /unreadable/,
-    'routes.mjs must classify pre-join-key evidence as unreadable');
+    'the second-opinion reader must classify pre-join-key evidence as unreadable');
 
   // The board's `ABSENCE` object must have a symbol for unreadable.
   assert.match(board, /unreadable.*:.*['\"].*['\"]/,

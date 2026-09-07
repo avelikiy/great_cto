@@ -25,6 +25,9 @@ import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../.
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
 import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/lib/stack-capabilities.mjs';
+// Moved to scripts/lib so the cross-review Stop hook can ask the same question
+// without importing a server. Re-exported here: this module's callers are unchanged.
+import { secondOpinionForTree } from '../../../scripts/lib/second-opinion-for-tree.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
@@ -1952,34 +1955,5 @@ async function dispatch(req, res, url, cwd) {
  * a throw, because "could not tell" is data for the row, not a reason to lose
  * the inbox.
  */
-export function secondOpinionForTree(c) {
-  let projectMd = null;
-  try { projectMd = fs.readFileSync(path.join(c, '.great_cto', 'PROJECT.md'), 'utf8'); } catch { projectMd = null; }
-  let declared = null;
-  try { declared = projectMd == null ? null : capabilitiesFromProjectMd(projectMd).map.second_opinion; } catch { declared = null; }
-  const tool = declared?.tool ?? null;
-  const declaredState = declared?.state ?? (projectMd == null ? 'no-project-md' : 'undeclared');
-  let head = null;
-  try { head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: c, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null; } catch { head = null; }
-  const base = { declared: declaredState, tool, head, verdict: null, findings: null, p0: null, sha: null, ts: null };
-  if (declaredState !== 'declared' || !tool) {
-    return { ...base, state: 'not-run', why: declaredState === 'none' ? 'second_opinion: none — deliberately off' : 'no second opinion declared in PROJECT.md' };
-  }
-  let lines = [];
-  try { lines = fs.readFileSync(path.join(c, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').filter(Boolean); }
-  catch { return { ...base, state: 'unmeasured', why: `declared (${tool}), no review has been written yet` }; }
-  const rows = [];
-  for (const line of lines) { try { rows.push(JSON.parse(line)); } catch { /* counted by /api/harnesses; not a verdict either way */ } }
-  const paired = rows.filter((r) => typeof r.sha === 'string' && r.sha !== '' && head && (r.sha === head || head.startsWith(r.sha) || r.sha.startsWith(head)) && r.state === 'ok');
-  if (paired.length) {
-    const r = paired[paired.length - 1];
-    return { ...base, state: 'ok', verdict: r.verdict ?? null, findings: r.findings ?? null, p0: r.p0 ?? null, sha: r.sha, ts: r.ts ?? null, why: '' };
-  }
-  const anyKeyed = rows.some((r) => typeof r.sha === 'string' && r.sha !== '');
-  if (!anyKeyed && rows.length) {
-    return { ...base, state: 'unreadable', why: `${rows.length} review line(s) predate the join key — none can be paired with this tree` };
-  }
-  return { ...base, state: 'unmeasured', why: `declared (${tool}), no review line for ${head ? head.slice(0, 8) : 'this tree'}` };
-}
 
-export { dispatch };
+export { dispatch, secondOpinionForTree };

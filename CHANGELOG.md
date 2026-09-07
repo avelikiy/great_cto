@@ -23,6 +23,50 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.27.3 — 2026-09-07
+
+The cross-model review has worked since the day it was written, and it ran when
+somebody remembered to run it. That is a shape this pipeline has measured before:
+an instruction depending on the model remembering held at 18%, and removing the
+remembering took it to 92%. The second opinion was still an instruction.
+
+### Added
+
+- **`scripts/hooks/cross-review-gate.mjs` — a Stop hook that will not end the
+  turn on a diff no second model has read.** It reads `.great_cto/cross-review.log`
+  and joins a line to the current `HEAD` by the `sha` added at
+  `gate:evidence-schema` for exactly this purpose. Four outcomes, and an absence
+  is never one of the passes: a joined `PASS` ends the turn; a joined `BLOCK`
+  holds it and names the findings and the P0 count; **no** line holds it once
+  and says nothing has read this diff; lines that cannot be joined hold it once
+  and say they predate the join key. A project that declared
+  `second_opinion: none` is not nagged — declaring none is a decision.
+- **It is off unless you turn it on:** `GREAT_CTO_CROSS_REVIEW_GATE=1`. A gate
+  that runs a second model at the end of every turn spends the user's money
+  without being asked and can loop one model against the other until a limit
+  stops it; OpenAI's own Codex plugin ships the same idea and warns about that in
+  its README. It also holds a given diff **once** — a hook that can refuse to end
+  the turn forever is a hang, not a guardrail. It does not run the review itself:
+  a Stop hook holds the turn open while it works, and a Codex run takes minutes.
+
+### Changed
+
+- **`secondOpinionForTree` moved to `scripts/lib/second-opinion-for-tree.mjs`**,
+  and `packages/board/lib/routes.mjs` re-exports it. The gate asks the board's
+  question and must not import a server to do it. One reader, because two would
+  drift and then disagree about whether a diff had been reviewed.
+
+### Under it
+
+- Nine cases on the decision function, written before it existed, including the
+  one this whole design turns on: "not reviewed" and "reviewed and objected"
+  never collapse into the same message or the same kind. The cross-model CLI
+  learned that the expensive way — `EXIT.SKIPPED` exists because PASS/BLOCK-only
+  made a review that never happened indistinguishable from one that objected.
+
+---
+
 ## v3.27.2 — 2026-09-06
 
 A blocked task could be opened on the board, read, and not decided. The

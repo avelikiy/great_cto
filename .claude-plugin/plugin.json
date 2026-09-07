@@ -1,7 +1,7 @@
 {
   "name": "great-cto",
   "description": "You already have the agent. This is everything around it. great_cto runs Claude Code as a pipeline of 70 specialist agents \u2014 an independent model checks each stage before the next builds on it, spending caps refuse rather than warn, and three decisions stay yours: what gets built, how, and whether it ships.",
-  "version": "3.27.2",
+  "version": "3.27.3",
   "author": {
     "name": "Alexander Velikiy",
     "url": "https://hashnode.com/@Greatcto"
@@ -284,6 +284,10 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pipeline-stall-guard.mjs\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/cross-review-gate.mjs\" 2>/dev/null || true"
           }
         ]
       }

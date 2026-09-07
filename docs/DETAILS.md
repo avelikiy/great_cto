@@ -63,6 +63,39 @@ You pay your own LLM provider. No per-seat fee, no SaaS. Routine triage
 auto-routes to a cheaper model (~5× lower cost) for a 60–80% reduction on
 log clustering.
 
+## The second opinion, made unavoidable
+
+A cross-model review has shipped for a while: `scripts/lib/cross-model-review.mjs`
+sends the diff to a model from another family — Codex, or OpenRouter — and writes
+one line per review to `.great_cto/cross-review.log`, each carrying the `sha` of
+the tree it read. It runs when somebody remembers to run it.
+
+That is the shape this pipeline has already measured. An instruction that depends
+on the model remembering held at 18%; removing the remembering took it to 92%.
+
+So there is now a Stop hook, `scripts/hooks/cross-review-gate.mjs`, that will not
+let a turn end on a diff no second model has read. It does not run the review
+itself — a Stop hook holds the turn open while it works, and a Codex run is
+measured in minutes. It reads the log, joins a line to the current `HEAD` by that
+`sha`, and blocks with the command that clears it.
+
+Four states, and only one of them ends the turn quietly:
+
+| the log says | the gate does |
+|---|---|
+| a line joins this tree, verdict `PASS` | nothing — the turn ends |
+| a line joins this tree, verdict `BLOCK` | blocks, naming the findings and the P0 count |
+| no line joins this tree | blocks once: nothing has read this diff |
+| lines exist, none can be joined | blocks once: they predate the join key, and are neither a pass nor a verdict |
+| no second opinion is declared | nothing — declaring `none` is a decision, not an omission |
+
+**It is off unless you turn it on:** `GREAT_CTO_CROSS_REVIEW_GATE=1`. A gate that
+runs a second model at the end of every turn spends your money without being
+asked, and can loop one model against the other until a rate limit stops it.
+OpenAI's own Codex plugin ships the same idea and warns about exactly that. It
+also blocks a given diff **once** — a hook that can refuse to end the turn
+forever is a hang, not a guardrail.
+
 ## CI integration
 
 ```yaml
