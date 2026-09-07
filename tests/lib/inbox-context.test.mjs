@@ -20,9 +20,10 @@
 // re-invented as a global strip the next time someone touches the row renderer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HTML = readFileSync(join(REPO, 'packages', 'board', 'public', 'index.html'), 'utf8');
@@ -35,17 +36,30 @@ const HTML = readFileSync(join(REPO, 'packages', 'board', 'public', 'index.html'
  * evaluating it tests the bytes that actually ship, which is the point —
  * a copy of the function in this test would pass forever while the page broke.
  */
-function extractFn(name) {
+function sourceOf(name) {
   const start = HTML.indexOf(`\nfunction ${name}(`);
   assert.notEqual(start, -1, `${name}() is no longer a top-level function in index.html`);
   const end = HTML.indexOf('\n}\n', start);
   assert.notEqual(end, -1, `could not find the end of ${name}()`);
-  const src = HTML.slice(start, end + 3);
-  return new Function(`${src}; return ${name};`)();
+  return HTML.slice(start, end + 3);
 }
 
-const splitContextBlock = extractFn('splitContextBlock');
-const ageHours = extractFn('ageHours');
+/**
+ * The extracted declarations, loaded as a module rather than compiled here.
+ *
+ * This used to be `new Function(src + '; return ' + name)()` — the test COMPILED
+ * the board's own source inside its own process, which is dynamic execution in a
+ * file whose job is to read text. Writing the same bytes to a temp module and
+ * importing it keeps the property that matters (the shipped source is what runs,
+ * not a copy that could drift) and drops the compile-a-string step.
+ */
+const NAMES = ['splitContextBlock', 'ageHours'];
+const modDir = mkdtempSync(join(tmpdir(), 'gc-inbox-ctx-'));
+const modPath = join(modDir, 'extracted.mjs');
+writeFileSync(modPath, `${NAMES.map(sourceOf).join('\n')}\nexport { ${NAMES.join(', ')} };\n`);
+const extracted = await import(pathToFileURL(modPath).href);
+rmSync(modDir, { recursive: true, force: true });
+const { splitContextBlock, ageHours } = extracted;
 
 const WIRE = '## Context\n[archetype:web3] [compliance:[owasp-api, owasp-masvs, pci-dss]] '
   + '[feature:web-wallet] [phase:implementation] | Why: see docs/plans/PLAN-web-wallet.md';
