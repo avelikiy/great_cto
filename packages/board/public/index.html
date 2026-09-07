@@ -6957,10 +6957,19 @@ async function init() {
   shareState = share || { enabled: false, url: null };
   allProjects = projs || [];
 
-  // Prefer URL param slug; fall back to extracting from first task id
+  // Prefer the URL, then a REGISTERED project, then a guess that is known to be
+  // one. Deriving the slug from a task id's prefix is a heuristic: bd ids are
+  // short, so a project registered as `acme-storefront` whose tasks read
+  // `acme-6f` yielded `acme`, which is not a project, and the board then told
+  // the operator in red that `acme was not found` — on a perfectly healthy
+  // setup. Every README screenshot has carried that banner since.
+  // A prefix is used only when it names something the registry actually has.
+  const fromTaskId = (allTasks[0]?.id || '').split('-')[0];
+  const registered = (allProjects || []).some((p) => p.slug === fromTaskId) ? fromTaskId : '';
   const proj = urlProject
-    || (allTasks[0]?.id || '').split('-')[0]
+    || registered
     || (allProjects[0]?.slug)
+    || fromTaskId
     || 'project';
   currentProject = proj;
   document.getElementById('project-name').textContent = proj;

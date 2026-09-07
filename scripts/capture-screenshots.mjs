@@ -124,6 +124,18 @@ async function main() {
     await page.waitForSelector('[data-tab="decisions"]', { timeout: 30_000 });
     await sleep(2500);
 
+    // Refuse to photograph an error. Every README screenshot from v3.26 to
+    // v3.27.5 opened on a red 'acme was not found' banner: the board derived the
+    // project slug from a task id's prefix (`acme-6f` -> `acme`) while the
+    // fixture registers `acme-storefront`, so a healthy setup reported itself
+    // broken in the product's own shop window. Fixed in the board; this is the
+    // guard, at the only place that can see the rendered page.
+    const banner = await page.$('#project-fallback-banner, .degraded-banner');
+    if (banner) {
+      const text = (await banner.innerText()).replace(/\s+/g, ' ').trim();
+      throw new Error(`the board is showing an error banner, so these screenshots would ship it: "${text}"`);
+    }
+
     const destDir = CHECK ? fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-shots-')) : OUT;
     fs.mkdirSync(destDir, { recursive: true });
     const written = [];
