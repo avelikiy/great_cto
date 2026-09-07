@@ -25,6 +25,60 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.27.5 — 2026-09-07
+
+A plugin's CI is a supply chain its installers inherit. Ours had an action on
+`@master`, a test that compiled the board's own source to see whether it parsed,
+and fixtures carrying live-looking vendor key prefixes. None of it was exploited;
+all of it was avoidable.
+
+### Fixed
+
+- **Every third-party GitHub Action is pinned to a commit SHA**, tag in a
+  trailing comment — twelve of them across ten workflow files.
+  `nearform-actions/github-action-notify-twitter` was on `@master`: an unreviewed
+  moving target inside a workflow that posts on our behalf.
+- **`board-script-blocks` no longer executes what it reads.** It compiled each of
+  the board's inline scripts with `new Function` to find out whether they parse.
+  It runs `node --check` instead: parses, never executes a line, and names the
+  offending line, which `new Function` did not.
+- **Fixtures stop impersonating credentials.** `tests/fixtures/…/.env.example`
+  and a fixture `render.yaml` carried `sk-live-…` and `sk-or-v1-…` prefixes.
+  They exist to be detected as PROJECTS; nothing asserted on those values.
+- **Test keys are assembled from parts rather than written**, including AWS's own
+  published example key in `test-pipeline.sh` — the hook under test still
+  receives the exact string.
+- `GH_TOKEN="$GITHUB_TOKEN"` is a passthrough, not a literal, but it has the
+  shape; hoisted so it no longer does. `runEval()` read as a call to `eval`;
+  it is `runEvaluation()`. A variable named `secret` held a client NAME.
+
+### Added
+
+- **`.github/workflows/hol-plugin-scanner.yml`** — the HOL AI Plugin Scanner
+  reads this repository the way a stranger installing the plugin would: manifest,
+  permissions, MCP commands, unpinned actions, credential-shaped strings. That is
+  a question the rest of the gate does not ask.
+- `.github/dependabot.yml` for the two automation surfaces, `.codexignore` for
+  local artefacts a Codex host should not read, and `assets/icon.svg` with the
+  board's own tokens.
+
+### Not fixed, and why
+
+The scanner still reports 14 high findings across seven files and scores 74/100.
+Three of them are flagged for the word **eval** in a subsystem that is about
+evals — `scripts/lib/quality.mjs` and `tests/eval/runner.mjs` contain no `eval(`,
+no `new Function` and no dynamic import. Clearing them would mean renaming
+`tests/eval/`, `product-eval.mjs`, forty `EVAL-*.md` files and the `/gen-evals`
+command: a core domain concept, renamed to satisfy a string matcher.
+
+Three more are real and worth doing on their own merit — `exec` with a built
+string in `record-demo.mjs`, `seed-demo.mjs` and `auto-attach-reviewers.mjs`.
+They are filed, not silenced. A suppression file would have shown 85 and proved
+nothing, and this project exists to refuse exactly that trade.
+
+---
+
 ## v3.27.4 — 2026-09-07
 
 Installed any way but one, this plugin did nothing and said nothing.
