@@ -25,7 +25,9 @@ jobs:
     #     skip from auto-tracking
     #
     # Removed (wrong fits):
-    #   - awesome-mcp-servers — we're a plugin that bundles an MCP, not an MCP server
+    #   (was excluded as 'not an MCP server' — that was wrong. packages/cli/src/mcp.ts IS a
+    #    stdio JSON-RPC MCP server with eight tools, and the exclusion cost us the cheapest
+    #    listing channel there is. Re-included below.)
     #   - awesome-ai-agents (e2b-dev) — that list is for autonomous agents themselves,
     #     not frameworks/SDKs (use awesome-ai-sdks instead)
     strategy:

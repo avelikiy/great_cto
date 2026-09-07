@@ -17,8 +17,8 @@ set -euo pipefail
 
 PROJECT_NAME="great_cto"
 PROJECT_NPM="great-cto"
-PROJECT_TAGLINE="29 specialist AI agents that ship from idea to production"
-PROJECT_DESC="Open-source Claude Code plugin orchestrating 29 specialist agents (architect, PM, security reviewers, parallel senior-devs, QA, DevOps) across 22 project archetypes. You make 2 decisions per feature; everything else is automatic."
+PROJECT_TAGLINE="Your coding agent ships code. This is what checks it."
+PROJECT_DESC="Open-source MIT plugin for Claude Code: a spec-first pipeline whose report is trustworthy in the negative direction — a skipped stage, a review that never ran and an unmeasured cost each render as themselves and are never counted as a pass. Three approvals stay yours; spending caps refuse rather than warn. On OpenAI Codex it ships a skills bundle and an MCP server, and Codex reviews the same diff as a cross-model second opinion."
 PROJECT_URL="https://greatcto.systems"
 PROJECT_REPO="https://github.com/avelikiy/great_cto"
 PROJECT_NPM_URL="https://www.npmjs.com/package/great-cto"
