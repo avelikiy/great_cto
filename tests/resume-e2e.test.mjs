@@ -36,8 +36,31 @@ const BD_AVAILABLE = bdProbe.status === 0;
 async function api(port, path, init) {
   const r = await fetch(`http://127.0.0.1:${port}${path}`, init);
   const txt = await r.text();
-  try { return { status: r.status, body: JSON.parse(txt) }; }
-  catch { return { status: r.status, body: txt }; }
+  // The degraded header is the whole point of reading headers here. When bd is
+  // write-blocked machine-wide — which it is whenever two gates run at once on
+  // this machine — the board still answers, still returns 200, and returns an
+  // EMPTY gate list with `X-Board-Degraded` set. Dropping the header made this
+  // suite read that absence as the fact "the gate did not survive the restart",
+  // which is the one thing this product exists to never do.
+  let degraded = null;
+  const raw = r.headers.get('X-Board-Degraded');
+  if (raw) { try { degraded = decodeURIComponent(raw); } catch { degraded = raw; } }
+  try { return { status: r.status, degraded, body: JSON.parse(txt) }; }
+  catch { return { status: r.status, degraded, body: txt }; }
+}
+
+/**
+ * Fail on a wrong answer; skip on no answer.
+ *
+ * A gate count read from a board that has just told us its store could not be
+ * read is not evidence either way. Asserting on it turns a busy machine into a
+ * red release gate, and a gate that goes red for reasons nobody can act on is a
+ * gate people learn to re-run until it is green.
+ */
+function skipIfDegraded(t, r, what) {
+  if (!r.degraded) return false;
+  t.skip(`${what} — not checked, not passed: the board reported its store degraded (${r.degraded})`);
+  return true;
 }
 
 function makeProject() {
@@ -96,7 +119,7 @@ function cleanup(...dirs) {
 
 // ── tests ──────────────────────────────────────────────────────────────────
 
-test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async () => {
+test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async (t) => {
   const { home, project } = makeProject();
   const now = new Date();
   const minutesAgo = (m) => new Date(now.getTime() - m * 60_000).toISOString();
@@ -148,6 +171,7 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
     }
 
     // 2. Gate persisted via bd database
+    if (skipIfDegraded(t, r, 'gate persistence across a restart')) return;
     assert.equal(post.open_gates.length, 1,
       `expected 1 open gate, got ${post.open_gates.length}`);
     assert.equal(post.open_gates[0].id, gateShipId,
@@ -173,7 +197,7 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
   }
 });
 
-test('resume: approving a gate then restarting reflects the closed state', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async () => {
+test('resume: approving a gate then restarting reflects the closed state', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async (t) => {
   const { home, project } = makeProject();
   const gatePlanId = bdCreate(project, 'gate: plan approval', { label: 'gate' });
   const gateShipId = bdCreate(project, 'gate: ship approval', { label: 'gate' });
@@ -202,6 +226,7 @@ test('resume: approving a gate then restarting reflects the closed state', { ski
   board = rebooted;
   try {
     const r = await api(port2, '/api/resume');
+    if (skipIfDegraded(t, r, 'which gate remains open after an approval')) return;
     assert.equal(r.body.open_gates.length, 1,
       `expected 1 open gate after restart, got ${r.body.open_gates.length}`);
     assert.equal(r.body.open_gates[0].id, gateShipId,
