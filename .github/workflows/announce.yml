@@ -26,7 +26,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set release info
         id: info
@@ -50,7 +50,7 @@ jobs:
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
         continue-on-error: true
-        uses: nearform-actions/github-action-notify-twitter@master
+        uses: nearform-actions/github-action-notify-twitter@cb817521e4f8e6a4534236871c046a7e19db4e8e # master
         with:
           message: |
             🚀 great_cto ${{ steps.info.outputs.version }} released!

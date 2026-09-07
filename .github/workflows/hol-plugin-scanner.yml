@@ -1,0 +1,34 @@
+# The HOL AI Plugin Scanner, required by hashgraph-online/awesome-codex-plugins
+# for any listed plugin: score >= 80/130, no critical or high findings, SARIF
+# uploaded so the result is readable rather than asserted.
+#
+# It is here on its own terms as well as theirs. It reads this repository the way
+# a stranger installing the plugin would — manifest, permissions, MCP commands,
+# unpinned actions, hardcoded secrets — which is a question the rest of our gate
+# does not ask.
+name: HOL Plugin Scanner
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: HOL Plugin Scanner
+        uses: hashgraph-online/ai-plugin-scanner-action@v1
+        with:
+          plugin_dir: "."
+          mode: scan
+          min_score: 80
+          fail_on_severity: high
+          format: sarif
+          upload_sarif: true

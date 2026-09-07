@@ -1,0 +1,20 @@
+# Automation surfaces get their own update channel. The HOL plugin scanner asks
+# for this because a plugin's CI is a supply chain the installer inherits: an
+# unmaintained action in our workflow is an unmaintained action in everyone's.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci)"
+
+  - package-ecosystem: "npm"
+    directory: "/packages/cli"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
