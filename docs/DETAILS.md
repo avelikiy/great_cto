@@ -121,7 +121,7 @@ email → pick triggers.
 | Gate stale > 2h | a `gate:ship` has been waiting on you for hours |
 | Security BLOCKED | `security-officer` rejected a merge |
 | Budget alert | monthly LLM spend crosses 80% / 100% of budget |
-| Weekly digest | Friday 09:00 — shipped, spent, savings, QA |
+| Weekly digest | Friday 09:00 — shipped, spent with its provenance, QA |
 
 ## Test pyramid
 

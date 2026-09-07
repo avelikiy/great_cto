@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Claude Code + Codex](https://img.shields.io/badge/Claude_Code_·_Codex-supported-blueviolet)](https://claude.com/claude-code)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-skills_·_MCP_·_second_opinion-blueviolet)](https://github.com/openai/codex)
 
 ```bash
 npx great-cto init
@@ -22,22 +22,36 @@ npx great-cto init
 ---
 
 great_cto is the layer **around the coding agent you already run**. It drives
-your Claude Code — or OpenAI Codex — through a whole build and hands you a
-**repository you own** and a **URL that already works**: architecture, data
-model, backend, frontend, generated tests and the deploy, finished. Not a plan.
-Not a prototype.
+your Claude Code through a whole build and hands you a **repository you own** and
+a **URL that already works**: architecture, data model, backend, frontend,
+generated tests and the deploy, finished. Not a plan. Not a prototype.
+
+The one job it does that a prompt bundle does not: **it tells you what the agent
+did not do.** A stage that was skipped, a review that never ran, a cost nothing
+measured — each renders as itself and is never counted as a pass. The proof is
+subtraction: v3.27.0 and v3.27.1 deleted this project's own favourable
+numbers — "cost savings vs FTE", a spend comparison against a human team, a
+projected month — because none of them could be shown to be true.
+
+On Codex the pipeline does not run: what runs there is the skills bundle and an
+MCP server. Codex's other job is to be the **second opinion** — from inside
+Claude Code it reads the same diff, and each review line carries the `sha` of the
+tree it read, so "reviewed" can be proven about *this* diff rather than asserted.
+The log holds **4 lines so far, 1 carrying a sha**; no catch-rate is claimed
+from that, and none should be.
 
 It is not a hosted app builder and does not replace your agent; without one there
 is nothing for it to orchestrate.
 
 Seven products built end to end in the open benchmark cost a **median of $171**
-in tokens. You pay your own LLM provider; great_cto bills you nothing and is MIT.
+in tokens, measured 2026-07. You pay your own LLM provider; great_cto bills you nothing and is MIT.
 
 You are stopped **three times** — on *what* gets built, on *how*, and on *whether
 it ships*. Everything between those runs unattended, and it is the pipeline's job
-to be worth leaving alone: **69 specialist agents** (architect, design-advisor,
-senior-dev, code-reviewer, QA, security, devops) with an independent model
-checking each stage's work before the next one builds on it.
+to be worth leaving alone: specialists with narrow jobs (architect,
+design-advisor, senior-dev, code-reviewer, QA, security, devops) and an
+independent model checking each stage's work before the next one builds on it.
+The full roster is in [docs/reference/agents.md](docs/reference/agents.md).
 
 ```
    describe a product
@@ -222,7 +236,7 @@ Next.js, Postgres and Stripe that any engineer can pick up.
 
 ## What makes it different
 
-- **Specialists, not a generalist** — 69 agents with narrow jobs and their own
+- **Specialists, not a generalist** — 70 agents with narrow jobs and their own
   review gates, instead of one assistant that types faster than it thinks.
   [The roster →](docs/reference/agents.md)
 - **Critics before code** — architecture, spec, and schema critics run before
