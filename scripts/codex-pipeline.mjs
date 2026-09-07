@@ -20,7 +20,8 @@ try {
   let state;
   if (command === 'start') {
     state = newRun({ root: resolve(value('--dir') || '.'), prompt: value('--prompt'),
-      allowed: (value('--allow') || '').split(',').filter(Boolean), entry: value('--entry') || 'product-owner' });
+      allowed: (value('--allow') || '').split(',').filter(Boolean), entry: value('--entry') || 'product-owner',
+      maxAttempts: value('--max-attempts') === null ? 3 : Number(value('--max-attempts')) });
     save(state);
   } else {
     const id = args[0];
