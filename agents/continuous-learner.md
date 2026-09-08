@@ -136,9 +136,9 @@ Look for these specific shapes (high-signal):
 
 **Do not append, and do not de-dupe by reading.** Pipe each entry through
 `scripts/lib/lessons-write.mjs`, which merges it into the existing entry with the
-same `pattern:` slug — accumulating evidence, incrementing `occurrences:`, raising
-(never lowering) `confidence:`, and recording a `**Superseded:**` line when the
-decision has reversed.
+same `pattern:` slug — accumulating evidence, incrementing `occurrences:`, recomputing
+`support:`, raising (never lowering) `confidence:`, and recording a `**Superseded:**`
+line when the decision has reversed.
 
 ```bash
 _LW=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/lessons-write.mjs 2>/dev/null | sort -V | tail -1)
@@ -182,9 +182,16 @@ date: 2026-05-08
 session-id: <8-char>
 archetype: <from PROJECT.md>
 project: <basename of cwd>
-confidence: medium|high
+confidence: medium|high     # YOUR OWN rating. Never authoritative — see below
 shape: A|B|C|D|E
 ---
+
+**Two axes, and only one of them is earned.** `support:` is written by
+`lessons-write.mjs`, not by you — it is computed from sightings and evidence
+(`unsupported` → `self-asserted` → `corroborated` → `cross-project`) and it
+overwrites anything you put there. Do not emit a `support:` line; a lesson
+cannot vouch for itself. `confidence:` stays yours, and stays non-authoritative:
+it never admits a lesson, never promotes one, and never decides which survive.
 
 ## pattern: <one-line slug, lowercase, kebab-case>
 
@@ -246,7 +253,9 @@ This is a **feature**, not a failure. Most sessions don't produce transferable l
 
 ## Output rules
 
-- Maximum **3 lesson entries per session** — if more candidates pass gates, keep the highest-confidence 3 only
+- Maximum **3 lesson entries per session** — if more candidates pass gates, keep the 3
+  with the most evidence lines. Do **not** rank by `confidence:`: that is your own rating
+  of your own extraction, and ranking by it lets a lesson argue itself into the file
 - Lessons must be **readable in 30 seconds** — no walls of text
 - Use **active voice, concrete nouns**, no hedging ("we should consider…")
 - Cite **specific evidence** — sha, file:line, cost number, agent name

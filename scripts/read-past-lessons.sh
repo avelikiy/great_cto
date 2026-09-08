@@ -6,7 +6,7 @@
 #   TASK="design auth system with SAML SSO" bash scripts/read-past-lessons.sh
 #
 # Reads:
-#   ~/.great_cto/decisions.md   — cross-project decisions (higher confidence, checked first)
+#   ~/.great_cto/decisions.md   — decisions seen in 3+ projects (cross-project support, checked first)
 #   .great_cto/lessons.md       — project-local lessons
 #   .great_cto/PROJECT.md       — for archetype fallback filtering
 #

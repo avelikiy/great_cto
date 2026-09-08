@@ -23,7 +23,10 @@
  *   - same `pattern:` slug        → merge into the existing entry
  *   - evidence lines              → union, de-duplicated, newest last
  *   - `occurrences:`              → incremented (the count that promotion reads)
- *   - `confidence:`               → may only rise; a repeat never weakens a lesson
+ *   - `support:`                  → RECOMPUTED from sightings + evidence, always
+ *                                   overwriting what the entry claimed
+ *   - `confidence:`               → the agent's own rating. May only rise; carries
+ *                                   no authority, so its monotonicity is harmless
  *   - Context / Decision / Outcome→ kept from the existing entry unless it is
  *                                   empty, because the first careful write is
  *                                   usually better than a later hurried one
@@ -39,8 +42,45 @@
  *   node scripts/lib/lessons-write.mjs <lessons.md> --stdin --dry-run
  */
 
-const FIELD_ORDER = ['date', 'session-id', 'archetype', 'project', 'confidence', 'shape', 'occurrences'];
+const FIELD_ORDER = ['date', 'session-id', 'archetype', 'project', 'projects', 'support', 'confidence', 'shape', 'occurrences'];
 const CONFIDENCE_RANK = { low: 1, medium: 2, high: 3 };
+
+/**
+ * How much this lesson is actually backed by, as opposed to how sure the agent
+ * that wrote it felt.
+ *
+ * `confidence:` is a self-rating: continuous-learner assigns it to its own
+ * extraction. It rendered in frontmatter beside `occurrences:` and `projects:`,
+ * which are independent facts, with nothing marking which was which — so a
+ * number an agent gave itself read exactly like corroboration, and it decided
+ * which three lessons survived a session.
+ *
+ * So support is computed here, from sightings and evidence, and it OVERWRITES
+ * whatever the incoming entry claimed. A lesson cannot vouch for itself.
+ *
+ *   unsupported   — no evidence line. Nine sightings of nothing is still nothing.
+ *   self-asserted — evidence, but one sighting: the agent's own account, once.
+ *   corroborated  — seen again in a later, separate session.
+ *   cross-project — seen in a second project, which is what promotion reads.
+ *
+ * @param {{occurrences?:string|number, project?:string, projects?:string}} meta
+ * @param {string[]} evidence
+ * @returns {'unsupported'|'self-asserted'|'corroborated'|'cross-project'}
+ */
+export function computeSupport(meta, evidence) {
+  if (!Array.isArray(evidence) || evidence.length === 0) return 'unsupported';
+  if (projectList(meta).length >= 2) return 'cross-project';
+  const seen = Number(meta?.occurrences || 1);
+  return (Number.isFinite(seen) ? seen : 1) >= 2 ? 'corroborated' : 'self-asserted';
+}
+
+/** Distinct projects this lesson has been seen in. `projects:` wins over `project:`. */
+function projectList(meta) {
+  const many = String(meta?.projects || '').split(',').map((p) => p.trim()).filter(Boolean);
+  if (many.length) return [...new Set(many)];
+  const one = String(meta?.project || '').trim();
+  return one ? [one] : [];
+}
 
 /**
  * Split a lessons.md into entries. An entry is a `---` frontmatter block plus
@@ -148,6 +188,15 @@ export function mergeEntry(existing, incoming) {
   const now = CONFIDENCE_RANK[(incoming.meta.confidence || '').toLowerCase()] || 0;
   if (now > was) { meta.confidence = incoming.meta.confidence.toLowerCase(); changed.push(`confidence → ${meta.confidence}`); }
 
+  // A sighting in a second project is the strongest thing a repeat can buy, and
+  // it is also what `lessons-merge.mjs` reads when it promotes. Accumulate it
+  // here so support is derivable from the entry itself.
+  const projects = [...new Set([...projectList(meta), ...projectList(incoming.meta)])];
+  if (projects.length > 1) {
+    if (meta.projects !== projects.join(', ')) changed.push(`projects → ${projects.join(', ')}`);
+    meta.projects = projects.join(', ');
+  }
+
   // `last-seen` is what makes a stale lesson visible. `date` stays the first
   // sighting, because when a pattern STARTED is a different fact from when it
   // was last true, and collapsing them loses the age of the pattern.
@@ -194,6 +243,11 @@ export function mergeEntry(existing, incoming) {
     changed.push(`+${add.length} evidence`);
   }
 
+  // Recomputed, never latched and never inherited: support answers to the facts
+  // in the entry as they stand now.
+  const support = computeSupport(meta, evidenceLines(body));
+  if (meta.support !== support) { changed.push(`support → ${support}`); meta.support = support; }
+
   return { entry: { ...existing, meta, body: body.replace(/\s+$/, '') }, changed, conflict };
 }
 
@@ -227,6 +281,8 @@ export function addLesson(lessonsText, incomingText) {
 
   if (idx === -1) {
     if (!('occurrences' in incoming.meta)) incoming.meta.occurrences = '1';
+    // Whatever the entry claimed about its own support is discarded here.
+    incoming.meta.support = computeSupport(incoming.meta, evidenceLines(incoming.body));
     const next = [...entries, incoming];
     return { text: render(preamble, next), action: 'appended', slug: incoming.slug, conflict: null, changed: ['new pattern'] };
   }

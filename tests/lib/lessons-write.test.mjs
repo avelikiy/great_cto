@@ -212,3 +212,84 @@ test('a new pattern and a refused entry both report no conflict', () => {
   assert.equal(addLesson('', entry()).conflict, null);
   assert.equal(addLesson('', '---\ndate: 2026-05-08\n---\n\nno slug\n').conflict, null);
 });
+
+// ── support vs self-rating ─────────────────────────────────────────────────
+//
+// `confidence:` is written by continuous-learner about its OWN extraction. It
+// was allowed to rank which lessons survive and it rendered in frontmatter
+// beside `occurrences:` and `projects:` — which are independent facts — with
+// nothing marking which was which. A number an agent assigned to itself read
+// exactly like corroboration.
+//
+// So there are two axes now, and only one of them is earned:
+//
+//   support:    computed here, from sightings and evidence. Authoritative.
+//   confidence: the agent's own rating. Kept, never authoritative, never ranks.
+//
+// Borrowed from Puppetmaster's ARTIFACT_STATUS split, where a worker writing
+// `independently_supported` about itself is coerced down to `worker_asserted`.
+
+import { computeSupport } from '../../scripts/lib/lessons-write.mjs';
+import { readFileSync } from 'node:fs';
+
+const supportOf = (text) => parseLessons(text).entries[0].meta.support;
+
+test('a lesson cannot declare its own support — the incoming value is discarded', () => {
+  const claimed = entry().replace('confidence: medium', 'confidence: medium\nsupport: cross-project');
+  const text = addLesson('', claimed).text;
+  assert.equal(supportOf(text), 'self-asserted',
+    'an entry that asserted cross-project support on its first sighting kept the claim');
+});
+
+test('one sighting is self-asserted, however sure the agent was', () => {
+  const text = addLesson('', entry({ confidence: 'high' })).text;
+  assert.equal(supportOf(text), 'self-asserted');
+});
+
+test('a lesson with no evidence line is unsupported', () => {
+  const text = addLesson('', entry({ evidence: [] })).text;
+  assert.equal(supportOf(text), 'unsupported');
+});
+
+test('a second sighting corroborates — that is what a repeat buys', () => {
+  let text = addLesson('', entry()).text;
+  text = addLesson(text, entry({ date: '2026-05-19', evidence: ['commit: def5678'] })).text;
+  assert.equal(supportOf(text), 'corroborated');
+});
+
+test('a sighting in a second project is cross-project', () => {
+  let text = addLesson('', entry()).text;
+  const elsewhere = entry({ date: '2026-05-19', evidence: ['commit: def5678'] })
+    .replace('project: demo', 'project: other');
+  text = addLesson(text, elsewhere).text;
+  assert.equal(supportOf(text), 'cross-project');
+  assert.match(parseLessons(text).entries[0].meta.projects, /demo/);
+  assert.match(parseLessons(text).entries[0].meta.projects, /other/);
+});
+
+test('support falls back when a repeat brings no new evidence — it is recomputed, not latched', () => {
+  assert.equal(computeSupport({ occurrences: '1' }, []), 'unsupported');
+  assert.equal(computeSupport({ occurrences: '1' }, ['commit: abc']), 'self-asserted');
+  assert.equal(computeSupport({ occurrences: '9' }, []), 'unsupported',
+    'nine sightings of nothing is still nothing');
+});
+
+test('confidence is still recorded, and still may only rise — it just no longer ranks', () => {
+  let text = addLesson('', entry({ confidence: 'high' })).text;
+  text = addLesson(text, entry({ confidence: 'low', date: '2026-05-19' })).text;
+  const meta = parseLessons(text).entries[0].meta;
+  assert.equal(meta.confidence, 'high');
+  assert.equal(meta.support, 'corroborated', 'support is the axis that moved');
+});
+
+test('nothing tells a reader that a self-rating is evidence', () => {
+  // The two places that did. `read-past-lessons.sh` called decisions.md "higher
+  // confidence" — conflating cross-project support with the self-rating field —
+  // and continuous-learner picked which lessons survive by "highest-confidence".
+  const learner = readFileSync(new URL('../../agents/continuous-learner.md', import.meta.url), 'utf8');
+  const reader = readFileSync(new URL('../../scripts/read-past-lessons.sh', import.meta.url), 'utf8');
+  assert.doesNotMatch(learner, /highest-confidence/i,
+    'continuous-learner still ranks surviving lessons by a rating it wrote itself');
+  assert.doesNotMatch(reader, /higher confidence/i,
+    'read-past-lessons.sh still presents cross-project support as "confidence"');
+});
