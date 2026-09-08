@@ -1,0 +1,40 @@
+{
+  "$schema-note": "Each entry names one file and one literal substring that must still be in it. Adding an entry is how a fix with no test of its own keeps a guard. See tests/witness.test.mjs for what this does and does not prove.",
+  "fixes": [
+    {
+      "id": "cross-review-gate-off-by-default",
+      "file": "scripts/hooks/cross-review-gate.mjs",
+      "marker": "process.env.GREAT_CTO_CROSS_REVIEW_GATE === '1'",
+      "why": "The gate is opt-in. Its test file exercises the pure decision function and never this line, so relaxing the comparison to `!== '0'` would turn a Stop hook on for every user with the whole suite green. CLAUDE.md forbids anything new being on by default.",
+      "fixed-in": "3.27.3"
+    },
+    {
+      "id": "board-slug-prefers-registry-over-prefix",
+      "file": "packages/board/public/index.html",
+      "marker": "(allProjects || []).some((p) => p.slug === fromTaskId) ? fromTaskId : ''",
+      "why": "A task id's prefix is a heuristic; bd ids are short, so `acme-storefront` with tasks reading `acme-6f` resolved to `acme`, and the board told the operator in red that a healthy setup was broken. The E2E test covers this but SKIPs when Playwright is absent, and a skip is not a check.",
+      "fixed-in": "3.27.6"
+    },
+    {
+      "id": "screenshots-refuse-a-degraded-page",
+      "file": "scripts/capture-screenshots.mjs",
+      "marker": "'#project-fallback-banner, .degraded-banner'",
+      "why": "Every README screenshot carried a red error banner for releases because nothing looked at the page before photographing it. Deleting this selector restores that silently — the shots still generate, they are just wrong, and nobody re-reads their own README.",
+      "fixed-in": "3.27.6"
+    },
+    {
+      "id": "seed-demo-passes-argument-arrays",
+      "file": "scripts/seed-demo.mjs",
+      "marker": "execFileSync(\"bd\", args",
+      "why": "This interpolated task titles and bd-supplied ids into `cd $ROOT && bd ...` behind hand-rolled escaping that covered double quotes and nothing else. The file has no test of its own, so a return to string commands would be caught by nothing.",
+      "fixed-in": "3.27.6"
+    },
+    {
+      "id": "record-demo-passes-argument-arrays",
+      "file": "scripts/record-demo.mjs",
+      "marker": "execFileSync(\"ffmpeg\", [\"-y\", \"-i\", dstWebm",
+      "why": "Paths reached ffmpeg through a shell here. Like seed-demo this file has no test, and a demo recorder is exactly the kind of script whose regression nobody notices until a path contains a space or a quote.",
+      "fixed-in": "3.27.6"
+    }
+  ]
+}

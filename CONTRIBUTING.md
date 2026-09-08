@@ -137,6 +137,19 @@ Just open a PR. No tests required for `docs/**`, `*.md`, or `README.md`. CI will
 
 ---
 
+### 7. Fix a bug whose fix nothing would notice losing
+
+Before you open the PR, delete the line your fix turned on and run the gate. If
+nothing goes red, the fix has no guard — and a fix with no guard comes back.
+
+Write a test if the behaviour can be tested at its own altitude. When it cannot
+— the line lives in a file tested at a different level, or in one with no test
+at all — add an entry to [`verification/witness.json`](verification/README.md),
+which fails when the line disappears. It is the weaker instrument; use it only
+where the stronger one does not fit.
+
+---
+
 ## PR conventions
 
 | Field | Rule |
