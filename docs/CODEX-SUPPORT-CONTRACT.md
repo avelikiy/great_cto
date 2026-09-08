@@ -1,7 +1,7 @@
 # Codex host support contract
 
 Status: implementation in progress. This is an acceptance contract, not a claim
-that the complete lifecycle already works. Baseline: GitHub `ad5eb634`, v3.27.6.
+that the complete lifecycle already works. Baseline: GitHub `a67ff7de`, v3.27.6.
 
 ## Meaning of complete support
 
