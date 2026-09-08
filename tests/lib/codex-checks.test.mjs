@@ -55,6 +55,19 @@ test('timeout and nonzero exit cannot be reported as passed', async t => {
   }
 });
 
+test('export separates artifact bytes from logs and validates exact policy output set', async t => {
+  const s = fixture(t); s.checkPolicy.outputs = ['dist/app.mjs'];
+  const invokeDocker = async args => args[0] === 'rm' ? { code: 0 } : {
+    code: 0, stdout: JSON.stringify([{ path: 'dist/app.mjs', base64: Buffer.from('built').toString('base64') }]), stderr: 'build log',
+  };
+  const result = await runChecks(s, { safePath, invokeDocker });
+  assert.equal(result.state, 'passed'); assert.equal(result.stderr, 'build log');
+  assert.equal(result.artifacts[0].base64, 'YnVpbHQ='); assert.match(result.artifactDigest, /^[a-f0-9]{64}$/);
+  assert.doesNotMatch(result.stdout, /YnVpbHQ=/);
+  s.checkPolicy.outputs = ['different.mjs'];
+  await assert.rejects(runChecks(s, { safePath, invokeDocker }), /differs from policy/);
+});
+
 test('mandatory failing checks cannot be overridden by semantic verifier', async t => {
   const s = fixture(t); const pluginRoot = join(s.root, 'plugin');
   mkdirSync(join(pluginRoot, 'shared'), { recursive: true }); mkdirSync(join(pluginRoot, 'agents'));
