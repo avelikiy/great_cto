@@ -14,14 +14,15 @@ const artifacts = () => validateArtifacts([{ path: 'dist/index.mjs', base64: Buf
 function fixture(t) {
   const base = mkdtempSync(join(tmpdir(), 'codex-release-test-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
-  const root = join(base, 'project'), destination = join(base, 'releases');
-  mkdirSync(root); mkdirSync(destination); mkdirSync(join(root, 'src'));
+  const root = join(base, 'project'), releaseRoot = join(base, 'releases');
+  mkdirSync(root); mkdirSync(releaseRoot); mkdirSync(join(root, 'src'));
+  writeFileSync(join(releaseRoot, '.great-cto-release-root'), 'great-cto-release-root:v1\n');
   writeFileSync(join(root, 'src/index.mjs'), content);
   execFileSync('git', ['init', '-q'], { cwd: root });
   execFileSync('git', ['add', 'src'], { cwd: root });
   execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'base'], { cwd: root });
   const checkPolicy = { image, inputs: ['src'], commands: [['node', '-e', "require('fs').mkdirSync('dist');require('fs').copyFileSync('src/index.mjs','dist/index.mjs')"]], outputs: ['dist/index.mjs'], timeoutMs: 60000 };
-  const releasePolicy = validateReleasePolicy({ adapter: 'local', destination, image,
+  const releasePolicy = validateReleasePolicy({ adapter: 'local', releaseRoot, image,
     smokeCommands: [['node', '--input-type=module', '-e', "import assert from 'node:assert/strict';import {x} from './dist/index.mjs';assert.equal(x,2)"]], timeoutMs: 60000 }, root);
   const roles = ['senior-dev', 'code-reviewer', 'qa-engineer', 'security-officer'];
   const results = Object.fromEntries(roles.map(role => [role, { verification: { state: 'verified' } }]));
@@ -40,7 +41,7 @@ test('local release requires independent explicit approval and stores exact cand
   const s = fixture(t); prepareRelease(s);
   assert.equal(s.status, 'awaiting-release');
   await assert.rejects(executeRelease(s, { safePath, checks: smoke }), /not approved/);
-  assert.deepEqual(readdirSync(s.releasePolicy.destination), []);
+  assert.deepEqual(readdirSync(s.releasePolicy.releaseRoot), ['.great-cto-release-root']);
   assert.throws(() => approveRelease(s, 'wrong'), /token/);
   const token = s.release.token; approveRelease(s, token);
   await executeRelease(s, { safePath, checks: smoke });
@@ -49,12 +50,12 @@ test('local release requires independent explicit approval and stores exact cand
   assert.throws(() => approveRelease(s, token), /token/);
 });
 
-test('artifact, destination and source changes invalidate release approval', async t => {
+test('artifact, release root and source changes invalidate release approval', async t => {
   for (const mutate of [s => { s.release.artifacts[0].base64 = 'eA=='; }, s => { s.releasePolicy.smokeCommands = [['true']]; },
-    s => { writeFileSync(join(s.root, 'src/index.mjs'), 'changed'); }, s => { s.release.destination = s.root; }]) {
+    s => { writeFileSync(join(s.root, 'src/index.mjs'), 'changed'); }, s => { s.release.releaseRoot = s.root; }]) {
     const s = fixture(t); prepareRelease(s); const token = s.release.token; mutate(s);
     assert.throws(() => approveRelease(s, token));
-    assert.deepEqual(readdirSync(s.releasePolicy.destination), []);
+    assert.deepEqual(readdirSync(s.releasePolicy.releaseRoot), ['.great-cto-release-root']);
   }
 });
 
@@ -72,7 +73,7 @@ test('cancellation revokes unexecuted release approval', async t => {
   const s = fixture(t); prepareRelease(s); const token = s.release.token; cancel(s);
   assert.throws(() => approveRelease(s, token), /token/);
   await assert.rejects(executeRelease(s, { safePath, checks: smoke }), /not approved/);
-  assert.deepEqual(readdirSync(s.releasePolicy.destination), []);
+  assert.deepEqual(readdirSync(s.releasePolicy.releaseRoot), ['.great-cto-release-root']);
 });
 
 test('post-release incident invalidates release identity and dependent approvals', t => {
@@ -97,8 +98,15 @@ test('failed smoke is not success; recovery reuses publication without overwriti
   assert.equal(s.release.status, 'failed'); const path = s.release.path;
   s = JSON.parse(JSON.stringify(s)); recoverRelease(s);
   await executeRelease(s, { safePath, checks: smoke });
-  assert.equal(s.release.path, path); assert.equal(readdirSync(s.releasePolicy.destination).length, 1);
+  assert.equal(s.release.path, path); assert.equal(readdirSync(s.releasePolicy.releaseRoot).length, 2);
   assert.equal(s.release.status, 'verified');
+});
+
+test('an arbitrary outside directory, including the workspace parent, is not a release root', t => {
+  const s = fixture(t); const parent = join(s.root, '..');
+  assert.throws(() => validateReleasePolicy({ ...s.releasePolicy, releaseRoot: parent }, s.root), /not designated/);
+  const unmarked = join(parent, 'unmarked'); mkdirSync(unmarked);
+  assert.throws(() => validateReleasePolicy({ ...s.releasePolicy, releaseRoot: unmarked }, s.root), /not designated/);
 });
 
 test('reconciliation refuses to overwrite a tampered published artifact', async t => {

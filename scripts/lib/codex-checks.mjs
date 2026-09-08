@@ -9,7 +9,7 @@ import { scan } from './secret-patterns.mjs';
 import { artifactPath, validateArtifacts, exporter, bundleDigest } from './codex-artifacts.mjs';
 const exec = promisify(execFile);
 const sha = value => createHash('sha256').update(value).digest('hex');
-const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
+export const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
 
 export function validateCheckPolicy(policy) {
   if (!policy || !/^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/.test(policy.image || '')) throw Error('checks require an image pinned by sha256 digest');
@@ -56,8 +56,8 @@ export async function runChecks(state, { safePath, invokeDocker = invoke } = {})
     };
     for (const path of policy.inputs) copy(path);
     if (!Object.keys(files).length) throw Error('empty checks snapshot');
-    const commands = policy.commands.map(argv => argv.map(quote).join(' ') + (policy.outputs ? ' 1>&2' : '')).join('\n');
-    const script = 'set -eu\ncp -R /input/. /work/\n' + commands + (policy.outputs ? `\nnode -e ${quote(exporter)} ${quote(JSON.stringify(policy.outputs))}` : '');
+    const commands = policy.commands.map(argv => argv.map(shellQuote).join(' ') + (policy.outputs ? ' 1>&2' : '')).join('\n');
+    const script = 'set -eu\ncp -R /input/. /work/\n' + commands + (policy.outputs ? `\nnode -e ${shellQuote(exporter)} ${shellQuote(JSON.stringify(policy.outputs))}` : '');
     const args = ['run', '--rm', '--pull=never', '--name', name, '--network=none', '--read-only', '--cap-drop=ALL',
       '--security-opt=no-new-privileges', '--pids-limit=128', '--memory=512m', '--cpus=1', '--user=65534:65534',
       '--mount', `type=bind,source=${input},target=/input,readonly`,

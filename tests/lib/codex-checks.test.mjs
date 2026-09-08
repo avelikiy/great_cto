@@ -4,7 +4,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
-import { runChecks, validateCheckPolicy } from '../../scripts/lib/codex-checks.mjs';
+import { execFileSync } from 'node:child_process';
+import { runChecks, validateCheckPolicy, shellQuote } from '../../scripts/lib/codex-checks.mjs';
 import { safePath, newRun, runStage } from '../../scripts/lib/codex-pipeline.mjs';
 const image = `node@sha256:${'a'.repeat(64)}`;
 function fixture(t) {
@@ -16,6 +17,12 @@ function fixture(t) {
 test('policy requires pinned image, argv and bounded time', () => {
   for (const policy of [{}, { image: 'node:latest' }, { image, inputs: ['src'], commands: 'sh', timeoutMs: 10000 },
     { image, inputs: ['src'], commands: [['node']], timeoutMs: 0 }]) assert.throws(() => validateCheckPolicy(policy));
+});
+
+test('shell quoting preserves hostile arguments as one literal value', () => {
+  const hostile = `space ' quote ; echo injected $(uname) \\ newline\nend`;
+  const actual = execFileSync('/bin/sh', ['-c', `printf %s ${shellQuote(hostile)}`], { encoding: 'utf8' });
+  assert.equal(actual, hostile);
 });
 
 test('checks mount only a filtered readonly snapshot, isolate writes and retain evidence', async t => {

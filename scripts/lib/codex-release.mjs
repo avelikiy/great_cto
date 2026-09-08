@@ -1,28 +1,34 @@
 /** Local artifact release. Publication and reconciliation are controller-owned. */
-import { realpathSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, lstatSync, readdirSync, renameSync, rmSync } from 'node:fs';
+import { realpathSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, lstatSync, readdirSync, renameSync, rmSync, existsSync } from 'node:fs';
 import { join, relative, dirname, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { validateArtifacts, bundleDigest, digest, artifactPath } from './codex-artifacts.mjs';
 import { validateCheckPolicy, runChecks } from './codex-checks.mjs';
 import { treeReceipt } from './receipt.mjs';
+const ROOT_MARKER = '.great-cto-release-root';
+const ROOT_MARKER_CONTENT = 'great-cto-release-root:v1\n';
 
 export function validateReleasePolicy(policy, root) {
-  if (policy?.adapter !== 'local' || typeof policy.destination !== 'string') throw Error('release requires the local adapter and an explicit destination');
-  const destination = realpathSync(policy.destination);
-  if (!lstatSync(destination).isDirectory()) throw Error('release destination must be a directory');
-  const rel = relative(realpathSync(root), destination);
-  if (rel !== '..' && !rel.startsWith(`..${sep}`)) throw Error('release destination must be outside the target workspace');
+  if (policy?.adapter !== 'local' || typeof policy.releaseRoot !== 'string') throw Error('release requires the local adapter and an explicit releaseRoot');
+  const releaseRoot = realpathSync(policy.releaseRoot);
+  if (!lstatSync(releaseRoot).isDirectory()) throw Error('release root must be a directory');
+  const rel = relative(realpathSync(root), releaseRoot);
+  if (rel !== '..' && !rel.startsWith(`..${sep}`)) throw Error('release root must be outside the target workspace');
+  const marker = join(releaseRoot, ROOT_MARKER);
+  if (!existsSync(marker) || !lstatSync(marker).isFile() || lstatSync(marker).isSymbolicLink() || readFileSync(marker, 'utf8') !== ROOT_MARKER_CONTENT) {
+    throw Error(`release root is not designated: create ${ROOT_MARKER} with the documented v1 content`);
+  }
   validateCheckPolicy({ image: policy.image, inputs: ['artifact'], commands: policy.smokeCommands, timeoutMs: policy.timeoutMs });
-  return { adapter: 'local', destination, image: policy.image, smokeCommands: JSON.parse(JSON.stringify(policy.smokeCommands)), timeoutMs: policy.timeoutMs };
+  return { adapter: 'local', releaseRoot, image: policy.image, smokeCommands: JSON.parse(JSON.stringify(policy.smokeCommands)), timeoutMs: policy.timeoutMs };
 }
 
 function assertRelease(state) {
   const r = state.release;
   if (!/^[a-f0-9-]{36}$/.test(r?.id || '')) throw Error('invalid release operation ID');
   if (!r || r.policyDigest !== digest(JSON.stringify(state.releasePolicy)) || r.artifactDigest !== bundleDigest(r.artifacts)) throw Error('release approval binding changed');
-  if (r.destination !== state.releasePolicy.destination || r.bindingDigest !== digest(JSON.stringify({ id: r.id, destination: r.destination,
+  if (r.releaseRoot !== state.releasePolicy.releaseRoot || r.bindingDigest !== digest(JSON.stringify({ id: r.id, releaseRoot: r.releaseRoot,
     policyDigest: r.policyDigest, artifactDigest: r.artifactDigest, receipt: r.receipt }))) throw Error('release candidate binding changed');
-  if (realpathSync(r.destination) !== r.destination) throw Error('release destination changed');
+  if (realpathSync(r.releaseRoot) !== r.releaseRoot) throw Error('release root changed');
   if (!r.receipt || r.receipt.truncated || JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(r.receipt)) throw Error('release source changed since preparation');
   return r;
 }
@@ -48,11 +54,11 @@ export function prepareRelease(state) {
   if (bundleDigest(artifacts) !== evidence.artifactDigest) throw Error('QA artifact evidence changed');
   const receipt = treeReceipt(state.root);
   if (!receipt || receipt.truncated) throw Error('release requires a complete Git receipt');
-  state.release = { id: randomUUID(), status: 'awaiting-approval', token: randomUUID(), destination: policy.destination,
+  state.release = { id: randomUUID(), status: 'awaiting-approval', token: randomUUID(), releaseRoot: policy.releaseRoot,
     policyDigest: digest(JSON.stringify(policy)), artifacts, artifactDigest: bundleDigest(artifacts), receipt,
     preparedAt: new Date().toISOString() };
   const r = state.release;
-  r.bindingDigest = digest(JSON.stringify({ id: r.id, destination: r.destination, policyDigest: r.policyDigest, artifactDigest: r.artifactDigest, receipt: r.receipt }));
+  r.bindingDigest = digest(JSON.stringify({ id: r.id, releaseRoot: r.releaseRoot, policyDigest: r.policyDigest, artifactDigest: r.artifactDigest, receipt: r.receipt }));
   state.status = 'awaiting-release';
 }
 
@@ -92,13 +98,13 @@ export async function executeRelease(state, { safePath, checks = runChecks, save
   const r = assertRelease(state);
   if (!r.approvedAt || !['approved', 'publishing', 'failed', 'verified'].includes(r.status)) throw Error('release was not approved');
   r.status = 'publishing'; save(state);
-  const target = join(r.destination, `${r.id}-${r.artifactDigest}`);
+  const target = join(r.releaseRoot, `${r.id}-${r.artifactDigest}`);
   let staging;
   try {
     let present = false;
     try { lstatSync(target); present = true; } catch (error) { if (error.code !== 'ENOENT') throw error; }
     if (!present) {
-      staging = mkdtempSync(join(r.destination, `.great-cto-${r.id}-`));
+      staging = mkdtempSync(join(r.releaseRoot, `.great-cto-${r.id}-`));
       for (const file of validateArtifacts(r.artifacts)) {
         const path = join(staging, file.path); mkdirSync(dirname(path), { recursive: true });
         writeFileSync(path, Buffer.from(file.base64, 'base64'), { flag: 'wx', mode: 0o444 });

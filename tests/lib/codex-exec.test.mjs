@@ -117,3 +117,15 @@ test('a run that finishes in time says it did not time out', async () => {
   assert.equal(r.state, 'ok');
   assert.equal(r.timedOut, false);
 });
+
+test('the runner exposes the final protocol message without losing prose messages', () => {
+  const raw = [
+    '{"type":"item.completed","item":{"type":"agent_message","text":"Inspecting files"}}',
+    '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"verdict\\":\\"DONE\\"}"}}',
+    '{"type":"turn.completed","usage":{"input_tokens":3,"output_tokens":2}}',
+  ].join('\n');
+  const result = parseCodexStream(raw);
+  assert.equal(result.finalText, '{"verdict":"DONE"}');
+  assert.equal(result.text, 'Inspecting files\n{"verdict":"DONE"}');
+  assert.deepEqual(result.messages, ['Inspecting files', '{"verdict":"DONE"}']);
+});
