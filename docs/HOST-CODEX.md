@@ -1,7 +1,7 @@
 # Controlled Codex host (experimental)
 
 The plugin provides an explicit controller in `scripts/codex-pipeline.mjs`.
-Each worker receives the installed `agents/<role>.md` and runs through Codex CLI
+Each worker receives a controller-owned, side-effect-free Codex role profile and runs through Codex CLI
 in read-only mode. The controller validates and writes its JSON file proposals,
 then routes the next role using the installed `shared/pipeline.toml`.
 
@@ -133,8 +133,11 @@ can export 1..50 explicit files via `"outputs": ["dist/add.mjs"]`. Export-enable
 images require Node. The exporter rejects symlinks, limits combined data to
 8 MiB and returns bytes through bounded stdout, without a writable host export
 mount. Controller validation checks paths, detected secrets and SHA256 digests;
-artifact data is retained separately from logs in the run state. Directory
-exports and executable mode preservation are not supported.
+artifact data is retained separately from logs in the run state. Secret scanning
+decodes content as UTF-8 and covers text only. It does **not** establish that a
+binary, compressed file or archive contains no secret; embedded data can pass
+undetected. Such formats need a format-aware scanner before they can carry that
+claim. Directory exports and executable mode preservation are not supported.
 
 Checks run on senior-dev and QA stages before semantic verification. Failing
 checks request repair. Timeouts and Docker/runtime unavailability are
@@ -154,12 +157,16 @@ Without the variable, the live test is explicitly skipped, not simulated.
 
 `start --release-policy /absolute/operator-owned/release.json` opts into a
 local adapter. As with checks policy, this file must be outside the project.
-Its destination directory must already exist outside the project. Example:
+Its release root must already exist outside the project and contain the exact
+operator-created marker `.great-cto-release-root` with content
+`great-cto-release-root:v1` followed by a newline. This prevents a project parent
+or sibling-project directory from becoming a release target merely because it is
+outside the workspace. Example:
 
 ```json
 {
   "adapter": "local",
-  "destination": "/absolute/local/releases",
+  "releaseRoot": "/absolute/local/releases",
   "image": "node@sha256:<actual 64-character lowercase hex digest>",
   "smokeCommands": [["node", "dist/add.mjs"]],
   "timeoutMs": 60000
@@ -170,7 +177,7 @@ Choose smoke commands that actually assert your artifact's behavior; the example
 only demonstrates invocation. The controller requires released/verified developer,
 reviewer, QA and security results, QA-exported artifacts and unchanged QA inputs.
 The ordinary graph gates must complete first. Devops then prepares an additional
-`awaiting-release` gate showing destination and artifact digest. Approve it with:
+`awaiting-release` gate showing release root and artifact digest. Approve it with:
 
 ```sh
 node <plugin-root>/scripts/codex-pipeline.mjs approve-release <run-uuid> --token <release-token>
@@ -201,6 +208,8 @@ unverifiable run is not a successful end-to-end acceptance.
 
 ## Related
 
+- [ADR-021: controlled shell inside the offline check container](adr/ADR-021-controlled-shell-inside-offline-check-container.md) —
+  trust boundary and removal criteria for sequencing operator-owned checks.
 - [Codex support contract](CODEX-SUPPORT-CONTRACT.md) — acceptance criteria and
   explicit remaining lifecycle boundaries; not a claim of complete support.
 

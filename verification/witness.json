@@ -84,6 +84,20 @@
       "marker": "ships nothing — an empty source is not a reason to delete",
       "why": "SessionStart pruned every managed agent and command whose source was absent under the plugin directory, without asking whether that directory existed. After install-local --prune deleted the version six open sessions ran from, one session start wiped all 70 agents and 38 of 44 commands. Removing this guard lets an empty source delete everything again.",
       "fixed-in": "3.28.6"
+    },
+    {
+      "id": "codex-check-shell-quote-is-posix-safe",
+      "file": "scripts/lib/codex-checks.mjs",
+      "marker": "value.replaceAll(\"'\", \"'\\\\''\")",
+      "why": "The offline executor intentionally sequences argv commands through a container shell. Weakening this escaping lets one operator-policy argument become shell syntax instead of one literal value.",
+      "fixed-in": "unreleased"
+    },
+    {
+      "id": "codex-release-root-stays-outside-workspace",
+      "file": "scripts/lib/codex-release.mjs",
+      "marker": "release root must be outside the target workspace",
+      "why": "A release target inside the worker project lets later worker writes mutate or replace the candidate after approval, collapsing the source and publication trust boundaries.",
+      "fixed-in": "unreleased"
     }
   ]
 }

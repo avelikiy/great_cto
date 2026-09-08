@@ -13,15 +13,16 @@ if (!process.argv.includes('--approve-fixture-gates') || !process.env.GREAT_CTO_
 }
 const live = process.argv.includes('--live-codex');
 const base = mkdtempSync(join(tmpdir(), 'great-cto-release-e2e-'));
-const root = join(base, 'project'), destination = join(base, 'releases');
-mkdirSync(root); mkdirSync(destination);
+const root = join(base, 'project'), releaseRoot = join(base, 'releases');
+mkdirSync(root); mkdirSync(releaseRoot);
+writeFileSync(join(releaseRoot, '.great-cto-release-root'), 'great-cto-release-root:v1\n');
 execFileSync('git', ['init', '-q'], { cwd: root });
 execFileSync('git', ['-c', 'user.name=Acceptance', '-c', 'user.email=acceptance@example.invalid', 'commit', '--allow-empty', '-qm', 'fixture base'], { cwd: root });
 const image = process.env.GREAT_CTO_LIVE_DOCKER_IMAGE;
 const prompt = 'Disposable LOCAL RELEASE acceptance fixture. Build a package-free JavaScript module src/add.mjs exporting add(a,b). Accept only finite numbers; reject other inputs with TypeError. Add tests/test.mjs using node:test. No dependencies, external services or production deployment. Planning roles create only docs artifacts: brief, architecture, plan and briefs; implementation is senior-dev responsibility. Required meta paths must be in docs/ or src/ or tests/. Do not request Beads or .great_cto files. Keep planning minimal, one short document per contract key; provide precise semantics for overflow (reject non-finite result). Runtime checks and local artifact release are controller-owned. QA/security inspect current implementation, record reports in docs/. L3 is read-only and checks the local release receipt; no production observability claim. Each role should complete ONLY its own stage responsibility, not the entire product.';
 const state = newRun({ root, prompt, allowed: ['src', 'tests', 'docs'], checkPolicy: { image, inputs: ['src', 'tests'],
   commands: [['node', '--test', 'tests/test.mjs'], ['node', '-e', "require('fs').mkdirSync('dist');require('fs').copyFileSync('src/add.mjs','dist/add.mjs')"]],
-  outputs: ['dist/add.mjs'], timeoutMs: 60000 }, releasePolicy: { adapter: 'local', destination, image, timeoutMs: 60000,
+  outputs: ['dist/add.mjs'], timeoutMs: 60000 }, releasePolicy: { adapter: 'local', releaseRoot, image, timeoutMs: 60000,
   smokeCommands: [['node', '--input-type=module', '-e', "import assert from 'node:assert/strict';import {add} from './dist/add.mjs';assert.equal(add(2,3),5);assert.throws(()=>add(NaN,1),TypeError)"]] } });
 const stateFile = join(base, 'run.json');
 const save = s => writeFileSync(stateFile, JSON.stringify(s, null, 2));

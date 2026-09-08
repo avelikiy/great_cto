@@ -57,9 +57,12 @@ export function parseCodexStream(raw) {
     else if (item.type === 'error' && item.message) errors.push(String(item.message));
   }
 
-  if (!parsedAny) return { state: 'unreadable', text: null, usage: null, errors };
-  if (!messages.length) return { state: 'empty', text: null, usage, errors };
-  return { state: 'ok', text: messages.join('\n'), usage, errors };
+  if (!parsedAny) return { state: 'unreadable', text: null, finalText: null, messages, usage: null, errors };
+  if (!messages.length) return { state: 'empty', text: null, finalText: null, messages, usage, errors };
+  // Preserve the historic aggregate for prose consumers such as cross-model
+  // review, while making the protocol-final message explicit for JSON users.
+  // A single implicit choice cannot serve both shapes safely.
+  return { state: 'ok', text: messages.join('\n'), finalText: messages.at(-1), messages, usage, errors };
 }
 
 /**
@@ -114,7 +117,11 @@ export function runCodexExec({
       const parsed = parseCodexStream(out);
       // stderr is kept even on success: Codex writes warnings there that change
       // how a result should be read.
-      if (err.trim()) parsed.errors.push(err.trim().slice(0, 500));
+      // Retain complete recent diagnostics. Keeping the first 500 bytes cut a
+      // shell-snapshot warning before its reason, so the caller could neither
+      // classify the exact known fallback nor distinguish it from a sandbox
+      // or validation failure.
+      if (err.trim()) parsed.errors.push(err.trim().slice(-4000));
       // A run cut off by the clock may have printed a verdict before it was done.
       // That is a truncated answer, and a truncated answer is not an answer.
       if (timedOut) {
