@@ -51,9 +51,11 @@ the local operator and Codex's read-only sandbox; it is not a security boundary
 against another process running as the same OS user.
 
 This initial mode accepts full text file proposals only. It does not delete files,
-apply binary patches or perform deployment. Optional offline Docker checks can
-run write-requiring tests/builds (see below). `devops`, `infra-provisioner` and
-`migration-import-engineer` stop with `manual-action`. It limits a run to 32 stages.
+apply binary patches or deploy a production service. Optional offline Docker checks
+can run write-requiring tests/builds (see below). Devops can release an approved
+local artifact bundle when configured; otherwise it stops with `manual-action`.
+Infra-provisioner and migration-import-engineer still require manual action.
+It limits a run to 32 worker stages.
 A verifier `rework` retries the same stage, except code-reviewer, QA and security
 return to a previously completed senior-dev in their dependency chain. Reviewer
 `FAIL`/`REJECTED` follows that repair route without applying the negative
@@ -126,7 +128,13 @@ no network, no capabilities, read-only root and bounded writable tmpfs.
 
 The approved image must already exist locally (`--pull=never`). Dependencies must
 be included in that image or installable offline; network package installation
-is not implemented. Build outputs remain temporary, not release artifacts.
+is not implemented. Without `outputs`, build outputs remain temporary. A policy
+can export 1..50 explicit files via `"outputs": ["dist/add.mjs"]`. Export-enabled
+images require Node. The exporter rejects symlinks, limits combined data to
+8 MiB and returns bytes through bounded stdout, without a writable host export
+mount. Controller validation checks paths, detected secrets and SHA256 digests;
+artifact data is retained separately from logs in the run state. Directory
+exports and executable mode preservation are not supported.
 
 Checks run on senior-dev and QA stages before semantic verification. Failing
 checks request repair. Timeouts and Docker/runtime unavailability are
@@ -141,6 +149,55 @@ GREAT_CTO_LIVE_DOCKER_IMAGE=node@sha256:<digest> node --test tests/lib/codex-che
 ```
 
 Without the variable, the live test is explicitly skipped, not simulated.
+
+## Local artifact release
+
+`start --release-policy /absolute/operator-owned/release.json` opts into a
+local adapter. As with checks policy, this file must be outside the project.
+Its destination directory must already exist outside the project. Example:
+
+```json
+{
+  "adapter": "local",
+  "destination": "/absolute/local/releases",
+  "image": "node@sha256:<actual 64-character lowercase hex digest>",
+  "smokeCommands": [["node", "dist/add.mjs"]],
+  "timeoutMs": 60000
+}
+```
+
+Choose smoke commands that actually assert your artifact's behavior; the example
+only demonstrates invocation. The controller requires released/verified developer,
+reviewer, QA and security results, QA-exported artifacts and unchanged QA inputs.
+The ordinary graph gates must complete first. Devops then prepares an additional
+`awaiting-release` gate showing destination and artifact digest. Approve it with:
+
+```sh
+node <plugin-root>/scripts/codex-pipeline.mjs approve-release <run-uuid> --token <release-token>
+node <plugin-root>/scripts/codex-pipeline.mjs resume <run-uuid>
+```
+
+Approval binds the operation ID, candidate bytes, source receipt, destination and
+smoke policy. The local adapter writes a private staging directory, checks bytes,
+then renames it into an operation-specific release directory. Post-release smoke
+runs on a snapshot of the published files, not rebuilt source. Only then is the
+devops result recorded and l3-support scheduled. Post-release workers are read-only;
+an INCIDENT reopens implementation and invalidates the previous release identity.
+
+On failure, the candidate is retained for inspection, not silently removed or
+overwritten. `recover` / `resume` reconciles the same operation and candidate;
+tampering causes refusal. An interrupted operation can leave a private staging
+directory requiring operator cleanup. This is a local artifact release, **not**
+activation of a service, production monitoring, a rollback mechanism, npm publish
+or GitHub Release support. Those adapters remain unimplemented.
+
+The opt-in driver `tests/eval/codex-host-live.mjs --approve-fixture-gates` creates
+its own disposable project and destination and exercises the shipped graph.
+It needs `GREAT_CTO_LIVE_DOCKER_IMAGE`. Add `--live-codex` to use actual Codex
+workers/verifiers (incurs model usage); otherwise they are explicitly fixtures.
+Only gates of that disposable project are auto-approved. It retains `run.json`
+and `acceptance.json` outside the worker project for inspection. A blocked or
+unverifiable run is not a successful end-to-end acceptance.
 
 ## Related
 

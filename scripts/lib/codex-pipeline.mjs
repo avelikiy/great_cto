@@ -8,6 +8,7 @@ import { scan } from './secret-patterns.mjs';
 import { runCodexExec } from './codex-exec.mjs';
 import { treeReceipt } from './receipt.mjs';
 import { runChecks, validateCheckPolicy } from './codex-checks.mjs';
+import { validateReleasePolicy, prepareRelease, executeRelease, recoverRelease } from './codex-release.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -58,7 +59,7 @@ export function safePath(root, name, allowed) {
   return target;
 }
 
-export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, checkPolicy = null }) {
+export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, checkPolicy = null, releasePolicy = null }) {
   root = realpathSync(root);
   pluginRoot = realpathSync(pluginRoot);
   if (root === pluginRoot) throw Error('run from a target project, not the controller installation');
@@ -71,7 +72,8 @@ export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginR
   if (!graph[entry] || entry.includes('.')) throw Error(`unknown entry role: ${entry}`);
   return { version: 1, id: randomUUID(), root, prompt, allowed, pluginRoot, graph, graphHash: hash(graphText),
     queue: [entry], results: {}, released: [], pending: null, approvals: [], active: null, status: 'ready', writes: {}, steps: 0,
-    attempts: [], maxAttempts, rework: null, checkPolicy: checkPolicy ? JSON.parse(JSON.stringify(checkPolicy)) : null };
+    attempts: [], maxAttempts, rework: null, releasePolicy: releasePolicy ? validateReleasePolicy(releasePolicy, root) : null,
+    checkPolicy: checkPolicy ? JSON.parse(JSON.stringify(checkPolicy)) : null };
 }
 
 function assertArtifacts(state) {
@@ -104,6 +106,10 @@ function rewind(state, target, feedback) {
   const results = Object.fromEntries(Object.entries(state.results).filter(([role]) => affected.has(role)));
   const approvals = state.approvals.filter(a => affected.has(a.role));
   state.invalidations.push({ id: randomUUID(), target, feedback, results, approvals, at: new Date().toISOString() });
+  if (affected.has('devops') && state.release) {
+    state.invalidations.at(-1).release = state.release;
+    state.release = null;
+  }
   for (const role of affected) delete state.results[role];
   state.approvals = state.approvals.filter(a => !affected.has(a.role));
   state.released = state.released.filter(role => !affected.has(role));
@@ -127,6 +133,7 @@ function checkSummary(checks) {
 
 /** Explicit operator recovery; never infer that a partly applied write is safe. */
 export function recover(state) {
+  if (state.release && ['publishing', 'failed'].includes(state.release.status)) { recoverRelease(state); return; }
   if (!['blocked', 'ready'].includes(state.status) || !state.active) throw Error('no recoverable interrupted stage');
   const attempt = state.attempts?.at(-1);
   const expected = attempt?.phase === 'worker' ? attempt.inputReceipt : attempt?.receipt;
@@ -144,6 +151,7 @@ export function cancel(state) {
   if (state.status === 'done') throw Error('completed run cannot be cancelled');
   state.cancelledAt = new Date().toISOString(); state.status = 'cancelled';
   state.pending = null;
+  if (state.release && state.release.status !== 'verified') { state.release.status = 'cancelled'; delete state.release.token; }
   // Preserve active/attempt evidence: cancellation is not rollback.
 }
 
@@ -231,6 +239,14 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
   assertArtifacts(state);
   const role = state.queue[0];
   if (!/^[a-z][a-z0-9-]*$/.test(role)) throw Error('invalid role');
+  if (role === 'devops' && state.releasePolicy) {
+    if (!state.release) { prepareRelease(state); save(state); return state; }
+    const release = await executeRelease(state, { safePath, checks, save });
+    state.results.devops = { verdict: 'DEPLOYED', summary: 'Local artifact release verified; not a production service deployment',
+      meta: { path: release.path, artifactDigest: release.artifactDigest }, digest: hash(JSON.stringify({ id: release.id, artifactDigest: release.artifactDigest })),
+      verification: { state: 'verified', findings: [], checks: ['published bytes match approved candidate', 'post-release smoke passed'] } };
+    state.queue.shift(); advance(state); save(state); return state;
+  }
   if (externalRoles.has(role)) {
     state.status = 'manual-action'; state.reason = `${role} requires execution outside the file-proposal controller`; save(state); return state;
   }
@@ -262,6 +278,7 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
     // Keep the diagnostic in the receipt; every other warning/error blocks.
     const proposal = cleanResponse(response);
     const files = validateProposal(state, proposal);
+    if (state.release?.status === 'verified' && files.length) throw Error('post-release workers are read-only; report an incident to reopen implementation');
     const rule = state.graph[`${role}.${proposal.verdict}`] || state.graph[role];
     if (['FAIL', 'REJECTED'].includes(proposal.verdict) && repairTarget(state, role) !== role) {
       Object.assign(attempt, { status: 'rework', verdict: proposal.verdict, summary: proposal.summary, finishedAt: new Date().toISOString() });

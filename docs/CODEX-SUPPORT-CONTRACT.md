@@ -23,8 +23,8 @@ Codex sessions outside this controller do not inherit its guarantees.
 | Same-stage verifier rework | Bounded attempts with retained findings | Correction, exhaustion, serialization and artifact-drift tests |
 | Cross-role repair and graph back-edges | Core review-to-developer repair and declared back-edges; dependent results/approvals invalidated | Broader graph coverage remains |
 | General crash recovery | Explicit unchanged pre-write/fully applied Git stage recovery; partial writes refused | Full persistence-boundary fault testing remains |
-| Dependency installation and write-requiring build/test | Offline Docker checks; no network install or artifact export | Real sandbox denial tests; release artifact collection remains |
-| Release and post-release verification | Manual handoff only | Adapter integration and live lifecycle evidence |
+| Dependency installation and write-requiring build/test | Offline Docker checks and bounded explicit-file artifact export; no network install | Export/live lifecycle evidence required |
+| Release and post-release verification | Approval-bound local artifact release, smoke and same-operation reconciliation; other adapters absent | Local adapter regression tests; full live lifecycle evidence still required |
 | Board/Beads integration | Separate from controller authority | Consistent projections; task closure cannot authorize release |
 
 ## Execution and release requirements
