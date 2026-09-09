@@ -83,3 +83,15 @@ test('the transitive case specifically: gate-plan pulls in files the board never
     assert.ok(!boardText.includes(`scripts/lib/${f}`), `${f} is expected to be unnamed by the board — that is the point of the case`);
   }
 });
+
+test('the npm bundle seeds the controlled Codex host and its dependency closure', () => {
+  const bundler = readFileSync(join(REPO, 'packages', 'cli', 'scripts', 'bundle-board.mjs'), 'utf8');
+  const controller = readFileSync(join(REPO, 'scripts', 'codex-pipeline.mjs'), 'utf8');
+  const direct = [...controller.matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)].map(match => match[1]);
+  assert.ok(direct.length > 0, 'the controller must have runtime dependencies for this test to protect');
+  assert.match(bundler, /const codexController =/);
+  assert.match(bundler, /copyFileSync\(codexController/);
+  assert.match(bundler, /shared["'], ["']pipeline\.toml/);
+  assert.match(bundler, /readFileSync\(codexController/,
+    'controller imports must seed the same transitive dependency fixpoint as board imports');
+});

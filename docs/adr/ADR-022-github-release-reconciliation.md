@@ -61,3 +61,9 @@ health checks and approval binding.
 - **Trust GitHub metadata only.** Names and sizes do not prove approved bytes.
 - **Delete on rollback.** Removal does not reverse a deployment and destroys the
   evidence needed to understand it.
+
+## References
+
+- [GitHub CLI: `gh release create`](https://cli.github.com/manual/gh_release_create)
+- [GitHub CLI: `gh release upload`](https://cli.github.com/manual/gh_release_upload)
+- [GitHub CLI: `gh release view`](https://cli.github.com/manual/gh_release_view)

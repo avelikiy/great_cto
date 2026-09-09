@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync, realpathSync } from 'node:fs';
-import { join, resolve, relative, sep } from 'node:path';
-import { homedir } from 'node:os';
+import { join, resolve, relative, sep, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { newRun, runStage, approve, recover, cancel } from './lib/codex-pipeline.mjs';
 import { approveRelease } from './lib/codex-release.mjs';
+import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-state.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
 const command = args.shift();
 const value = name => { const i = args.indexOf(name); return i < 0 ? null : args[i + 1]; };
-const store = join(homedir(), '.great_cto', 'codex-runs');
+const store = codexRunStore();
 mkdirSync(store, { recursive: true, mode: 0o700 });
 const save = state => {
   const file = join(store, `${state.id}.json`);
@@ -18,6 +19,14 @@ const save = state => {
 };
 let locked = null;
 try {
+  if (command === 'doctor') {
+    const result = codexHostDoctor({ pluginRoot: resolve(value('--plugin-root') || join(dirname(fileURLToPath(import.meta.url)), '..')), store });
+    console.log(JSON.stringify(result, null, 2)); process.exit(result.state === 'ready' ? 0 : 2);
+  }
+  if (command === 'list') {
+    console.log(JSON.stringify(listCodexRuns({ root: value('--dir') ? realpathSync(resolve(value('--dir'))) : null, store }), null, 2));
+    process.exit(0);
+  }
   let state;
   if (command === 'start') {
     const root = realpathSync(resolve(value('--dir') || '.'));
@@ -45,7 +54,7 @@ try {
     state = JSON.parse(readFileSync(join(store, `${id}.json`), 'utf8'));
     if (state.id !== id || state.version !== 1) throw Error('invalid run state');
   }
-  if (!['start', 'resume', 'status', 'approve', 'approve-release', 'recover', 'cancel'].includes(command)) throw Error('expected start, resume, status, approve, approve-release, recover or cancel');
+  if (!['start', 'resume', 'status', 'approve', 'approve-release', 'recover', 'cancel'].includes(command)) throw Error('expected start, resume, status, approve, approve-release, recover, cancel, list or doctor');
   if (command !== 'status') {
     const lock = join(store, `${state.id}.lock`);
     mkdirSync(lock); locked = lock;

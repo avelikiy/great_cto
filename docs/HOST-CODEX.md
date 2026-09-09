@@ -7,15 +7,17 @@ then routes the next role using the installed `shared/pipeline.toml`.
 
 ## Usage
 
-Run from a target project, using an absolute path to the installed plugin:
+Run through the packaged CLI entrypoint:
 
 ```sh
-node <plugin-root>/scripts/codex-pipeline.mjs start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
-node <plugin-root>/scripts/codex-pipeline.mjs status <run-uuid>
-node <plugin-root>/scripts/codex-pipeline.mjs approve <run-uuid> --token <pending-token>
-node <plugin-root>/scripts/codex-pipeline.mjs resume <run-uuid>
-node <plugin-root>/scripts/codex-pipeline.mjs recover <run-uuid>
-node <plugin-root>/scripts/codex-pipeline.mjs cancel <run-uuid>
+great-cto codex-host doctor
+great-cto codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
+great-cto codex-host status <run-uuid>
+great-cto codex-host approve <run-uuid> --token <pending-token>
+great-cto codex-host resume <run-uuid>
+great-cto codex-host recover <run-uuid>
+great-cto codex-host cancel <run-uuid>
+great-cto codex-host list --dir /path/to/project
 ```
 
 The entry role defaults to `product-owner`. `--entry architect` can be used when
@@ -53,7 +55,7 @@ against another process running as the same OS user.
 This initial mode accepts full text file proposals only. It does not delete files,
 apply binary patches or deploy a production service. Optional offline Docker checks
 can run write-requiring tests/builds (see below). Devops can release an approved
-local artifact bundle when configured; otherwise it stops with `manual-action`.
+local or GitHub Release artifact bundle when configured; otherwise it stops with `manual-action`.
 Infra-provisioner and migration-import-engineer still require manual action.
 It limits a run to 32 worker stages.
 A verifier `rework` retries the same stage, except code-reviewer, QA and security
