@@ -19,48 +19,22 @@ npx great-cto init
 
 </div>
 
-> Übersetzung des englischen [README](../../README.md), Stand **v3.28.0** (2026-09-09).
+> Übersetzung des englischen [README](../../README.md), Stand **v3.28.2** (2026-09-09).
 > Bei Abweichungen gilt die englische Fassung.
 
 ---
 
-great_cto ist die Schicht **um den Coding-Agenten herum, den du bereits
-betreibst**. Es führt deinen Claude Code durch einen kompletten Build und
-übergibt dir ein **Repository, das dir gehört**, und eine **URL, die schon
-funktioniert**: Architektur, Datenmodell, Backend, Frontend, generierte Tests und
-den Deploy, fertig. Kein Plan. Kein Prototyp.
+**Dein Coding-Agent liefert Code. Das hier ist das, was ihn prüft.**
 
-Die eine Aufgabe, die es erledigt und ein Prompt-Bundle nicht: **es sagt dir, was
-der Agent nicht getan hat.** Eine übersprungene Stufe, ein Review, das nie lief,
-Kosten, die niemand gemessen hat — jedes davon erscheint als das, was es ist, und
-zählt nie als Bestanden. Der Beweis ist Subtraktion: v3.27.0 und v3.27.1 haben
-die eigenen günstigen Zahlen dieses Projekts gelöscht — „Kostenersparnis
-gegenüber einer Vollzeitkraft", einen Ausgabenvergleich mit einem menschlichen
-Team, einen hochgerechneten Monat — weil sich für keine davon zeigen ließ, dass
-sie stimmt.
+Du schreibst eine Spezifikation. Dein Claude Code baut dagegen, ein zweites
+Modell aus einer anderen Familie liest denselben Diff, und wo die beiden sich
+uneinig sind, siehst du die Uneinigkeit und entscheidest. Drei Entscheidungen
+bleiben deine — was gebaut wird, wie, und ob es live geht. Was am Ende dasteht,
+ist ein **Repository, das dir gehört**, und eine **URL, die funktioniert**.
 
-Auf Codex läuft die Pipeline nicht: Dort laufen das Skills-Bundle und ein
-MCP-Server. Die andere Aufgabe von Codex ist die **zweite Meinung** — aus Claude
-Code heraus liest es denselben Diff, und jede Review-Zeile trägt den `sha` des
-Baums, den sie gelesen hat, sodass sich „reviewt" über *diesen* Diff beweisen
-lässt, statt behauptet zu werden. Das Log enthält **bisher 4 Zeilen, 1 davon mit
-einem sha**; daraus wird keine Trefferquote abgeleitet, und das sollte auch
-niemand tun.
-
-Es ist kein gehosteter App-Builder und ersetzt deinen Agenten nicht; ohne einen
-gibt es nichts zu orchestrieren.
-
-Sieben Produkte, im offenen Benchmark Ende zu Ende gebaut, kosteten im **Median
-$171** an Tokens, gemessen 2026-07. Du zahlst deinen eigenen LLM-Anbieter;
-great_cto stellt dir nichts in Rechnung und ist MIT.
-
-Du wirst **dreimal** angehalten — bei *was* gebaut wird, bei *wie*, und bei *ob
-es live geht*. Alles dazwischen läuft unbeaufsichtigt, und es ist die Aufgabe der
-Pipeline, es wert zu sein, allein gelassen zu werden: Spezialisten mit engen
-Aufgaben (architect, design-advisor, senior-dev, code-reviewer, QA, security,
-devops) und ein unabhängiges Modell, das die Arbeit jeder Stufe prüft, bevor die
-nächste darauf aufbaut. Die vollständige Besetzung steht in
-[docs/reference/agents.md](../reference/agents.md).
+Sieben Produkte, im offenen Benchmark so gebaut: **Median $171** an Tokens,
+gemessen 2026-07-10. Du zahlst deinen eigenen LLM-Anbieter; great_cto ist MIT und
+stellt dir nichts in Rechnung.
 
 ```
    describe a product
@@ -80,16 +54,11 @@ nächste darauf aufbaut. Die vollständige Besetzung steht in
    🤖  deployed · repo · live URL
 ```
 
-Drei Checkpoints sind der **Standard**, nicht die Untergrenze. Eine Zeile in
-`PROJECT.md` macht daraus einen — du genehmigst den Deploy, und Checkpoint 1
-und 2 werden zu einem Bildschirm, den du liest, statt zu einem Formular, das du
-ausfüllst:
+Drei Stopps sind der Standard, nicht die Untergrenze. Eine Zeile macht daraus einen:
 
 ```
 approval-level: ship-only
 ```
-
-Siehe [Wann es dich fragt](#wann-es-dich-fragt).
 
 <p align="center">
   <img src="../screenshots/board.png" alt="Der Decisions-Bildschirm des Boards — jedes wartende Gate als eine Zeile: seine Rückabwicklungskosten, die Urteile beider Reviewer und ein Approve, das nach dem Namen des Gates fragt, wenn das Rückgängigmachen teuer wäre" width="900" />
@@ -99,17 +68,11 @@ Siehe [Wann es dich fragt](#wann-es-dich-fragt).
   <img src="../tapes/ci.gif" alt="Terminal: npx great-cto register fügt das Projekt dem Umschalter des Boards hinzu, dann prüft npx great-cto ci den deklarierten Archetyp gegen den Code und das Monatsbudget — und besteht" width="900" />
 </p>
 
-Das Board auf `localhost:3141` füllt sich selbst — Pipeline-Zustand, offene
-Gates, Kosten pro Agent, 30-Tage-Ausgaben. Du fütterst es nicht; du schaust
-darauf. Vier Bildschirme, je eine Frage: **Decisions** (was dich braucht — jedes
-Gate mit den Urteilen beider Reviewer, sortiert nach Rückabwicklungskosten),
-**Ledger** (was es gekostet hat und was gerade läuft), **Fleet** (welchem Agenten
-du das Vertrauen entziehen solltest — seine Tool-Rechte, seine Läufe, seine
-Ausgaben), **Harness** (wer Host ist, wer die zweite Meinung liefert und was sie
-tatsächlich getan hat). Die Einstellungen liegen hinter dem Zahnrad; `⌘K` findet
-jeden Agenten, jedes Dokument, jede Session, jede Erinnerung und jede
-Entscheidung per Name. Nichts darauf stellt eine Abwesenheit als Bestanden dar —
-ein Scan, der nie lief, ist `n/a`, nie eine grüne Null.
+Das Board auf `localhost:3141` füllt sich selbst — **Decisions** (was dich
+braucht), **Ledger** (was es gekostet hat), **Fleet** (welchem Agenten du das
+Vertrauen entziehen solltest), **Harness** (wer die zweite Meinung geliefert hat
+und was sie tatsächlich getan hat). Nichts darauf stellt eine Abwesenheit als
+Bestanden dar: ein Scan, der nie lief, ist `n/a`, nie eine grüne Null.
 
 ## Gemessene Zahlen
 
@@ -157,8 +120,16 @@ gelesen ([openai/codex#16430](https://github.com/openai/codex/issues/16430),
 [#39895](https://github.com/openai/codex/issues/39895)). Der Installer druckt
 dieselbe Aufteilung, bevor er irgendetwas tut.
 
-**Zwei Harnesses, ein Review.** Seit 3.26.0 nimmt Codex *doch* an der Pipeline
-teil — aus Claude Code heraus, als zweiter Reviewer. Einmal deklarieren:
+**Zwei Harnesses, ein Review.** Auf Codex läuft die Pipeline nicht: Dort laufen
+das Skills-Bundle und ein MCP-Server. Die andere Aufgabe von Codex ist die
+**zweite Meinung** — aus Claude Code heraus liest es denselben Diff, und jede
+Review-Zeile trägt den `sha` des Baums, den sie gelesen hat, sodass sich
+„reviewt" über *diesen* Diff beweisen lässt, statt behauptet zu werden. Das Log
+enthält **bisher 4 Zeilen, 1 davon mit einem sha**; daraus wird keine
+Trefferquote abgeleitet, und das sollte auch niemand tun.
+
+Seit 3.26.0 nimmt Codex als dieser zweite Reviewer an der Pipeline teil. Einmal
+deklarieren:
 
 ```yaml
 # .great_cto/PROJECT.md
@@ -247,6 +218,11 @@ nicht passiert ist, darf nie aussehen wie etwas, das passiert ist.**
 Jede dieser Stellen ist eine, an der die ehrliche Antwort länger, hässlicher und
 schwerer zu bauen ist als die selbstsichere. Das ist das ganze Produkt.
 
+Der Beweis ist Subtraktion. v3.27.0 und v3.27.1 haben die eigenen günstigen
+Zahlen dieses Projekts gelöscht — „Kostenersparnis gegenüber einer Vollzeitkraft",
+einen Ausgabenvergleich mit einem menschlichen Team, einen hochgerechneten Monat
+— weil sich für keine davon zeigen ließ, dass sie stimmt.
+
 ## Die drei Zweifel, die sich lohnen
 
 **„Ich kann Code nicht trauen, bei dessen Entstehung ich nicht zugesehen habe."**
@@ -321,6 +297,8 @@ sonst hin. Telemetrie ist **standardmäßig aus** ([docs/PRIVACY.md](../PRIVACY.
 
 ## Grenzen
 
+- **Kein gehosteter App-Builder** — es ersetzt deinen Coding-Agenten nicht; ohne
+  einen gibt es nichts zu orchestrieren.
 - **Für eine Person** — Solo-Gründer oder CTO. Zwei oder mehr Engineers an einer
   Pipeline sind ihr entwachsen.
 - **Kein CI/CD-System** — Gates laufen lokal; gemergt wird weiterhin über GitHub

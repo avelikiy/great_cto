@@ -75,6 +75,18 @@ function lastCommit(path) {
     return sha || null;
   } catch { return null; }
 }
+/**
+ * Uncommitted edits count as "ahead of everything". Without this the check
+ * reads history only, so `edit README.md → run gate → green → commit` was a
+ * legal sequence — and the drift appeared one commit later, after the gate had
+ * already said yes. A guard that is green at the moment it matters and red
+ * afterwards is decoration.
+ */
+function isDirty(path) {
+  try { execFileSync('git', ['diff', '--quiet', 'HEAD', '--', path], { cwd: ROOT }); return false; }
+  catch { return true; }
+}
+const englishDirty = isDirty('README.md');
 const englishCommit = lastCommit('README.md');
 
 /** The agent count the English README states, so the check follows the source. */
@@ -123,6 +135,9 @@ for (const lang of LANGS) {
 
   test(`${lang}: the translation is not behind the English README`, (t) => {
     const mine = lastCommit(path);
+    if (englishDirty && !isDirty(path)) {
+      assert.fail(`README.md has uncommitted edits and ${path} does not — the English moved and this did not follow.`);
+    }
     if (!englishCommit || !mine) return t.skip('git history unavailable — not checked, which is not the same as fine');
     if (mine === englishCommit) return;   // both moved in the same commit
     let behind;

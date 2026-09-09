@@ -19,46 +19,21 @@ npx great-cto init
 
 </div>
 
-> Traducción del [README](../../README.md) inglés en la versión **v3.28.0** (2026-09-09).
+> Traducción del [README](../../README.md) inglés en la versión **v3.28.2** (2026-09-09).
 > Ante cualquier discrepancia, la versión inglesa es la canónica.
 
 ---
 
-great_cto es la capa **alrededor del agente de código que ya ejecutas**. Conduce
-tu Claude Code a lo largo de una construcción entera y te entrega un
-**repositorio que es tuyo** y una **URL que ya funciona**: arquitectura, modelo
-de datos, backend, frontend, tests generados y el despliegue, terminados. No un
-plan. No un prototipo.
+**Tu agente de código entrega código. Esto es lo que lo comprueba.**
 
-Lo único que hace y que un paquete de prompts no hace: **te dice lo que el agente
-no hizo.** Una etapa que se saltó, una revisión que nunca corrió, un coste que
-nadie midió — cada uno se muestra como lo que es y nunca se cuenta como aprobado.
-La prueba es una resta: v3.27.0 y v3.27.1 borraron los números favorables de este
-mismo proyecto — «ahorro de coste frente a un FTE», una comparación de gasto
-contra un equipo humano, un mes proyectado — porque de ninguno se pudo demostrar
-que fuera cierto.
+Tú escribes una spec. Tu Claude Code construye contra ella, un segundo modelo de
+otra familia lee el mismo diff, y donde discrepan ves la discrepancia y decides.
+Tres decisiones siguen siendo tuyas — qué se construye, cómo, y si se despliega.
+Lo que queda es un **repositorio que es tuyo** y una **URL que funciona**.
 
-En Codex el pipeline no corre: lo que corre allí es el paquete de skills y un
-servidor MCP. El otro trabajo de Codex es ser la **segunda opinión** — desde
-dentro de Claude Code lee el mismo diff, y cada línea de revisión lleva el `sha`
-del árbol que leyó, de modo que «revisado» se puede demostrar sobre *este* diff
-en lugar de afirmarse. El log contiene **4 líneas hasta ahora, 1 con un sha**; de
-ahí no se afirma ninguna tasa de detección, y no debería afirmarse ninguna.
-
-No es un constructor de apps alojado y no sustituye a tu agente; sin uno no hay
-nada que orquestar.
-
-Siete productos construidos de punta a punta en el benchmark abierto costaron una
-**mediana de $171** en tokens, medido en 2026-07. Pagas a tu propio proveedor de
-LLM; great_cto no te cobra nada y es MIT.
-
-Te detiene **tres veces** — en *qué* se construye, en *cómo*, y en *si se
-despliega*. Todo lo que hay en medio corre sin ti, y es trabajo del pipeline
-merecer que lo dejen solo: especialistas con encargos acotados (architect,
-design-advisor, senior-dev, code-reviewer, QA, security, devops) y un modelo
-independiente que comprueba el trabajo de cada etapa antes de que la siguiente
-construya sobre él. La plantilla completa está en
-[docs/reference/agents.md](../reference/agents.md).
+Siete productos construidos así en el benchmark abierto: **mediana de $171** en
+tokens, medido el 2026-07-10. Pagas a tu propio proveedor de LLM; great_cto es
+MIT y no cobra nada.
 
 ```
    describe un producto
@@ -78,15 +53,11 @@ construya sobre él. La plantilla completa está en
    🤖  desplegado · repositorio · URL en vivo
 ```
 
-Tres checkpoints es el **valor por defecto**, no el suelo. Una línea en
-`PROJECT.md` lo baja a uno — apruebas el despliegue, y los checkpoints 1 y 2 se
-convierten en una pantalla que lees en vez de un formulario que rellenas:
+Tres paradas es el valor por defecto, no el suelo. Una línea lo baja a una:
 
 ```
 approval-level: ship-only
 ```
-
-Ver [Cuándo te pregunta](#cuándo-te-pregunta).
 
 <p align="center">
   <img src="../screenshots/board.png" alt="La pantalla Decisions del tablero — cada gate en espera como una fila: su coste de deshacer, los veredictos de ambos revisores, y un Approve que pide el nombre del gate cuando deshacer saldría caro" width="900" />
@@ -96,16 +67,11 @@ Ver [Cuándo te pregunta](#cuándo-te-pregunta).
   <img src="../tapes/ci.gif" alt="Terminal: npx great-cto register añade el proyecto al selector del tablero, luego npx great-cto ci comprueba el arquetipo declarado contra el código y contra el presupuesto mensual, y pasa" width="900" />
 </p>
 
-El tablero en `localhost:3141` se rellena solo — estado del pipeline, gates
-pendientes, coste por agente, gasto de 30 días. No lo alimentas; lo consultas.
-Cuatro pantallas, una pregunta cada una: **Decisions** (qué te necesita — cada
-gate con los veredictos de ambos revisores, ordenados por coste de deshacer),
-**Ledger** (qué costó y qué está corriendo), **Fleet** (en qué agente dejar de
-confiar — sus permisos de herramientas, sus ejecuciones, su gasto), **Harness**
-(quién es el host, quién da la segunda opinión, y qué hizo realmente). Settings
-está detrás del engranaje; `⌘K` encuentra por nombre cualquier agente, documento,
-sesión, memoria o decisión. Nada en él muestra una ausencia como un aprobado — un
-escaneo que nunca corrió es `n/a`, nunca un cero verde.
+El tablero en `localhost:3141` se rellena solo — **Decisions** (qué te necesita),
+**Ledger** (qué costó), **Fleet** (en qué agente dejar de confiar), **Harness**
+(quién dio la segunda opinión, y qué hizo realmente). Nada en él muestra una
+ausencia como un aprobado: un escaneo que nunca corrió es `n/a`, nunca un cero
+verde.
 
 ## Números medidos
 
@@ -152,8 +118,16 @@ ajuste: `hooks` en un manifiesto de plugin nunca se lee
 [#39895](https://github.com/openai/codex/issues/39895)). El instalador imprime
 esta misma separación antes de hacer nada.
 
-**Dos harnesses, una revisión.** Desde 3.26.0 Codex *sí* participa en el
-pipeline — desde dentro de Claude Code, como segundo revisor. Se declara una vez:
+**Dos harnesses, una revisión.** En Codex el pipeline no corre: lo que corre allí
+es el paquete de skills y un servidor MCP. El otro trabajo de Codex es ser la
+**segunda opinión** — desde dentro de Claude Code lee el mismo diff, y cada línea
+de revisión lleva el `sha` del árbol que leyó, de modo que «revisado» se puede
+demostrar sobre *este* diff en lugar de afirmarse. El log contiene **4 líneas
+hasta ahora, 1 con un sha**; de ahí no se afirma ninguna tasa de detección, y no
+debería afirmarse ninguna.
+
+Desde 3.26.0 Codex participa en el pipeline como ese segundo revisor. Se declara
+una vez:
 
 ```yaml
 # .great_cto/PROJECT.md
@@ -240,6 +214,11 @@ ocurrió nunca debe parecerse a algo que sí ocurrió.**
 Cada uno de estos es un sitio donde la respuesta honesta es más larga, más fea y
 más difícil de construir que la segura. Eso es el producto entero.
 
+La prueba es una resta. v3.27.0 y v3.27.1 borraron los números favorables de este
+mismo proyecto — «ahorro de coste frente a un FTE», una comparación de gasto
+contra un equipo humano, un mes proyectado — porque de ninguno se pudo demostrar
+que fuera cierto.
+
 ## Las tres dudas que vale la pena tener
 
 **«No puedo confiar en código que no vi escribirse.»**
@@ -308,6 +287,8 @@ telemetría está **desactivada por defecto** ([docs/PRIVACY.md](../PRIVACY.md))
 
 ## Limitaciones
 
+- **No es un constructor de apps alojado** — no sustituye a tu agente de código;
+  sin uno no hay nada que orquestar.
 - **Para un solo constructor** — un fundador o CTO en solitario. Dos o más
   ingenieros compartiendo el pipeline ya lo han superado.
 - **No es un CI/CD** — los gates corren en local; el merge sigue pasando por

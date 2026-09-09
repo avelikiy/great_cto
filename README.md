@@ -21,37 +21,15 @@ npx great-cto init
 
 ---
 
-great_cto is the layer **around the coding agent you already run**. It drives
-your Claude Code through a whole build and hands you a **repository you own** and
-a **URL that already works**: architecture, data model, backend, frontend,
-generated tests and the deploy, finished. Not a plan. Not a prototype.
+**Your coding agent ships code. This is what checks it.**
 
-The one job it does that a prompt bundle does not: **it tells you what the agent
-did not do.** A stage that was skipped, a review that never ran, a cost nothing
-measured — each renders as itself and is never counted as a pass. The proof is
-subtraction: v3.27.0 and v3.27.1 deleted this project's own favourable
-numbers — "cost savings vs FTE", a spend comparison against a human team, a
-projected month — because none of them could be shown to be true.
+You write a spec. Your Claude Code builds against it, a second model from
+another family reads the same diff, and where they disagree you see the
+disagreement and decide. Three decisions stay yours — what gets built, how, and
+whether it ships. What lands is a **repository you own** and a **URL that works**.
 
-On Codex the pipeline does not run: what runs there is the skills bundle and an
-MCP server. Codex's other job is to be the **second opinion** — from inside
-Claude Code it reads the same diff, and each review line carries the `sha` of the
-tree it read, so "reviewed" can be proven about *this* diff rather than asserted.
-The log holds **4 lines so far, 1 carrying a sha**; no catch-rate is claimed
-from that, and none should be.
-
-It is not a hosted app builder and does not replace your agent; without one there
-is nothing for it to orchestrate.
-
-Seven products built end to end in the open benchmark cost a **median of $171**
-in tokens, measured 2026-07. You pay your own LLM provider; great_cto bills you nothing and is MIT.
-
-You are stopped **three times** — on *what* gets built, on *how*, and on *whether
-it ships*. Everything between those runs unattended, and it is the pipeline's job
-to be worth leaving alone: specialists with narrow jobs (architect,
-design-advisor, senior-dev, code-reviewer, QA, security, devops) and an
-independent model checking each stage's work before the next one builds on it.
-The full roster is in [docs/reference/agents.md](docs/reference/agents.md).
+Seven products built this way in the open benchmark: **median $171** in tokens,
+measured 2026-07-10. You pay your own LLM provider; great_cto is MIT and bills nothing.
 
 ```
    describe a product
@@ -71,15 +49,11 @@ The full roster is in [docs/reference/agents.md](docs/reference/agents.md).
    🤖  deployed · repo · live URL
 ```
 
-Three checkpoints is the **default**, not the floor. One line in `PROJECT.md`
-takes it to one — you approve the deploy, and checkpoints 1 and 2 become a screen
-you read rather than a form you fill:
+Three stops is the default, not the floor. One line takes it to one:
 
 ```
 approval-level: ship-only
 ```
-
-See [When it asks you](#when-it-asks-you).
 
 <p align="center">
   <img src="docs/screenshots/board.png" alt="The board's Decisions screen — every waiting gate as one row: its cost of undo, both reviewers' verdicts, and an Approve that asks for the gate's name when undoing would be expensive" width="900" />
@@ -89,16 +63,10 @@ See [When it asks you](#when-it-asks-you).
   <img src="docs/tapes/ci.gif" alt="Terminal: npx great-cto register adds the project to the board's switcher, then npx great-cto ci checks the declared archetype against the code and the monthly budget, and passes" width="900" />
 </p>
 
-The board at `localhost:3141` fills itself in — pipeline state, pending gates,
-per-agent cost, 30-day spend. You do not feed it; you check it. Four screens,
-one question each: **Decisions** (what needs you — every gate with both
-reviewers' verdicts, sorted by cost of undo), **Ledger** (what it cost and what
-is running), **Fleet** (which agent to stop trusting — its tool grant, its
-runs, its spend), **Harness** (who is host, who gives the second opinion, and
-what it actually did). Settings sits behind the gear; `⌘K` finds any agent,
-doc, session, memory or decision by name. Nothing on it renders an absence
-as a pass — a scan that never ran is `n/a`, never a green zero.
-
+The board at `localhost:3141` fills itself in — **Decisions** (what needs you),
+**Ledger** (what it cost), **Fleet** (which agent to stop trusting), **Harness**
+(who gave the second opinion, and what it actually did). Nothing on it renders
+an absence as a pass: a scan that never ran is `n/a`, never a green zero.
 ## Numbers, measured
 
 | | |
@@ -144,8 +112,14 @@ hooks, slash commands or role agents, so `/start`, `/inbox`, the gate chain and
 [#39895](https://github.com/openai/codex/issues/39895)). The installer prints
 the same split before it does anything.
 
-**Two harnesses, one review.** Since 3.26.0 Codex *does* take part in the
-pipeline — from inside Claude Code, as the second reviewer. Declare it once:
+**Two harnesses, one review.** On Codex the pipeline does not run: what runs
+there is the skills bundle and an MCP server. Codex's other job is to be the
+**second opinion** — from inside Claude Code it reads the same diff, and each
+review line carries the `sha` of the tree it read, so "reviewed" can be proven
+about *this* diff rather than asserted. The log holds **4 lines so far, 1
+carrying a sha**; no catch-rate is claimed from that, and none should be.
+
+Since 3.26.0 Codex takes part in the pipeline as that second reviewer. Declare it once:
 
 ```yaml
 # .great_cto/PROJECT.md
@@ -229,6 +203,10 @@ not happen must never look like a thing that did.**
 Each of these is a place where the honest answer is longer, uglier, and harder to
 build than the confident one. That is the whole product.
 
+The proof is subtraction. v3.27.0 and v3.27.1 deleted this project's own
+favourable numbers — "cost savings vs FTE", a spend comparison against a human
+team, a projected month — because none of them could be shown to be true.
+
 ## The three doubts worth having
 
 **“I can't trust code I didn't watch being written.”**
@@ -291,6 +269,8 @@ machine; prompts go to your LLM provider and nowhere else. Telemetry is
 
 ## Limitations
 
+- **Not a hosted app builder** — it does not replace your coding agent; without
+  one there is nothing for it to orchestrate.
 - **For one builder** — a solo founder or CTO. Two or more engineers sharing the
   pipeline have outgrown it.
 - **Not a CI/CD system** — gates run locally; you still merge through GitHub Actions.

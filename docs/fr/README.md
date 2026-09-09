@@ -19,47 +19,22 @@ npx great-cto init
 
 </div>
 
-> Traduction du [README](../../README.md) anglais à la version **v3.28.0** (2026-09-09).
+> Traduction du [README](../../README.md) anglais à la version **v3.28.2** (2026-09-09).
 > En cas de divergence, la version anglaise fait foi.
 
 ---
 
-great_cto est la couche **autour de l'agent de code que vous faites déjà
-tourner**. Il conduit votre Claude Code à travers une construction entière et
-vous remet un **dépôt qui vous appartient** et une **URL qui fonctionne déjà** :
-architecture, modèle de données, backend, frontend, tests générés et le
-déploiement, terminés. Pas un plan. Pas un prototype.
+**Votre agent de code livre du code. Voici ce qui le vérifie.**
 
-Le seul travail qu'il fait et qu'un paquet de prompts ne fait pas : **il vous dit
-ce que l'agent n'a pas fait.** Une étape sautée, une revue qui n'a jamais tourné,
-un coût que rien n'a mesuré — chacun s'affiche pour ce qu'il est et n'est jamais
-compté comme une réussite. La preuve est une soustraction : v3.27.0 et v3.27.1
-ont supprimé les chiffres favorables de ce projet lui-même — « économies face à
-un ETP », une comparaison de dépense contre une équipe humaine, un mois projeté —
-parce qu'aucun ne pouvait être démontré vrai.
+Vous écrivez une spec. Votre Claude Code construit contre elle, un second modèle
+d'une autre famille lit le même diff, et là où ils divergent vous voyez le
+désaccord et vous tranchez. Trois décisions restent les vôtres — *ce qui* est
+construit, *comment*, et *si ça part en production*. Ce qui arrive au bout, c'est
+un **dépôt qui vous appartient** et une **URL qui fonctionne**.
 
-Sur Codex, le pipeline ne tourne pas : ce qui y tourne, c'est le paquet de skills
-et un serveur MCP. L'autre rôle de Codex est d'être le **second avis** — depuis
-l'intérieur de Claude Code, il lit le même diff, et chaque ligne de revue porte
-le `sha` de l'arbre qu'elle a lu, si bien que « relu » peut être prouvé à propos
-de *ce* diff au lieu d'être affirmé. Le journal contient **4 lignes à ce jour, 1
-portant un sha** ; aucun taux de détection n'en est tiré, et aucun ne devrait
-l'être.
-
-Ce n'est pas un constructeur d'applications hébergé et il ne remplace pas votre
-agent ; sans agent, il n'a rien à orchestrer.
-
-Sept produits construits de bout en bout dans le benchmark ouvert ont coûté une
-**médiane de $171** en tokens, mesurée en 2026-07. Vous payez votre propre
-fournisseur de LLM ; great_cto ne vous facture rien et est sous licence MIT.
-
-Vous êtes arrêté **trois fois** — sur *ce qui* est construit, sur *comment*, et
-sur *si ça part en production*. Tout ce qui se trouve entre ces arrêts tourne
-sans surveillance, et c'est le travail du pipeline de mériter qu'on le laisse
-seul : des spécialistes aux rôles étroits (architect, design-advisor,
-senior-dev, code-reviewer, QA, security, devops) et un modèle indépendant qui
-vérifie le travail de chaque étape avant que la suivante ne s'appuie dessus.
-L'effectif complet est dans [docs/reference/agents.md](../reference/agents.md).
+Sept produits construits ainsi dans le benchmark ouvert : **médiane $171** en
+tokens, mesurée le 2026-07-10. Vous payez votre propre fournisseur de LLM ;
+great_cto est sous licence MIT et ne facture rien.
 
 ```
    describe a product
@@ -79,16 +54,11 @@ L'effectif complet est dans [docs/reference/agents.md](../reference/agents.md).
    🤖  deployed · repo · live URL
 ```
 
-Trois checkpoints, c'est le **défaut**, pas le plancher. Une ligne dans
-`PROJECT.md` le ramène à un — vous approuvez le déploiement, et les checkpoints 1
-et 2 deviennent un écran que vous lisez plutôt qu'un formulaire que vous
-remplissez :
+Trois arrêts, c'est le défaut, pas le plancher. Une ligne le ramène à un :
 
 ```
 approval-level: ship-only
 ```
-
-Voir [Quand il vous demande](#quand-il-vous-demande).
 
 <p align="center">
   <img src="../screenshots/board.png" alt="L'écran Decisions du board — chaque gate en attente sur une ligne : son coût de retour arrière, les verdicts des deux relecteurs, et un Approve qui réclame le nom du gate quand défaire coûterait cher" width="900" />
@@ -98,16 +68,10 @@ Voir [Quand il vous demande](#quand-il-vous-demande).
   <img src="../tapes/ci.gif" alt="Terminal : npx great-cto register ajoute le projet au sélecteur du board, puis npx great-cto ci confronte l'archétype déclaré au code et au budget mensuel, et passe" width="900" />
 </p>
 
-Le board sur `localhost:3141` se remplit tout seul — état du pipeline, gates en
-attente, coût par agent, dépenses sur 30 jours. Vous ne le nourrissez pas ; vous
-le consultez. Quatre écrans, une question chacun : **Decisions** (ce qui vous
-attend — chaque gate avec les verdicts des deux relecteurs, trié par coût de
-retour arrière), **Ledger** (ce que ça a coûté et ce qui tourne), **Fleet**
-(quel agent cesser de croire — ses droits d'outils, ses exécutions, sa
-dépense), **Harness** (qui est l'hôte, qui donne le second avis, et ce qu'il a
-réellement fait). Les réglages sont derrière l'engrenage ; `⌘K` retrouve
-n'importe quel agent, document, session, mémoire ou décision par son nom. Rien
-n'y présente une absence comme une réussite — un scan qui n'a jamais tourné est
+Le board sur `localhost:3141` se remplit tout seul — **Decisions** (ce qui vous
+attend), **Ledger** (ce que ça a coûté), **Fleet** (quel agent cesser de croire),
+**Harness** (qui a donné le second avis, et ce qu'il a réellement fait). Rien n'y
+présente une absence comme une réussite : un scan qui n'a jamais tourné est
 `n/a`, jamais un zéro vert.
 
 ## Chiffres mesurés
@@ -157,8 +121,15 @@ n'est jamais lu
 [#39895](https://github.com/openai/codex/issues/39895)). L'installeur affiche la
 même distinction avant de faire quoi que ce soit.
 
-**Deux harnais, une seule revue.** Depuis la 3.26.0, Codex *participe* bel et
-bien au pipeline — depuis l'intérieur de Claude Code, comme second relecteur.
+**Deux harnais, une seule revue.** Sur Codex, le pipeline ne tourne pas : ce qui
+y tourne, c'est le paquet de skills et un serveur MCP. L'autre rôle de Codex est
+d'être le **second avis** — depuis l'intérieur de Claude Code, il lit le même
+diff, et chaque ligne de revue porte le `sha` de l'arbre qu'elle a lu, si bien
+que « relu » peut être prouvé à propos de *ce* diff au lieu d'être affirmé. Le
+journal contient **4 lignes à ce jour, 1 portant un sha** ; aucun taux de
+détection n'en est tiré, et aucun ne devrait l'être.
+
+Depuis la 3.26.0, Codex participe au pipeline comme ce second relecteur.
 Déclarez-le une fois :
 
 ```yaml
@@ -250,6 +221,11 @@ Chacun de ces cas est un endroit où la réponse honnête est plus longue, plus
 laide et plus difficile à construire que la réponse assurée. C'est tout le
 produit.
 
+La preuve est une soustraction. v3.27.0 et v3.27.1 ont supprimé les chiffres
+favorables de ce projet lui-même — « économies face à un ETP », une comparaison
+de dépense contre une équipe humaine, un mois projeté — parce qu'aucun ne
+pouvait être démontré vrai.
+
 ## Les trois doutes qui méritent d'être posés
 
 **« Je ne peux pas faire confiance à du code que je n'ai pas vu s'écrire. »**
@@ -325,6 +301,8 @@ ailleurs. La télémétrie est **désactivée par défaut**
 
 ## Limites
 
+- **Pas un constructeur d'applications hébergé** — il ne remplace pas votre agent
+  de code ; sans agent, il n'a rien à orchestrer.
 - **Pour un seul bâtisseur** — fondateur solo ou CTO. À deux ingénieurs ou plus
   sur le même pipeline, vous l'avez dépassé.
 - **Pas un système CI/CD** — les gates tournent en local ; le merge passe
