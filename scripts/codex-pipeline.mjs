@@ -58,7 +58,9 @@ try {
     else while (state.status === 'ready') await runStage(state, { save });
   }
   console.log(JSON.stringify({ id: state.id, status: state.status, reason: state.reason,
-    release: state.release ? { status: state.release.status, token: state.release.token, artifactDigest: state.release.artifactDigest, releaseRoot: state.release.releaseRoot, path: state.release.path } : null,
+    release: state.release ? { status: state.release.status, token: state.release.token, adapter: state.release.adapter,
+      artifactDigest: state.release.artifactDigest, target: state.release.target, path: state.release.path, url: state.release.url,
+      activation: state.release.activation, rollback: state.release.rollback } : null,
     pending: state.pending, queue: state.queue, rolesCompleted: Object.keys(state.results), stateFile: join(store, `${state.id}.json`) }, null, 2));
   process.exitCode = ['blocked', 'manual-action', 'join-wait'].includes(state.status) ? 2 : 0;
 } catch (error) {

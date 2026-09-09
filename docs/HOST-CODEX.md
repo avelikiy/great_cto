@@ -156,8 +156,8 @@ Without the variable, the live test is explicitly skipped, not simulated.
 ## Local artifact release
 
 `start --release-policy /absolute/operator-owned/release.json` opts into a
-local adapter. As with checks policy, this file must be outside the project.
-Its release root must already exist outside the project and contain the exact
+release adapter. As with checks policy, this file must be outside the project.
+The `local` adapter's release root must already exist outside the project and contain the exact
 operator-created marker `.great-cto-release-root` with content
 `great-cto-release-root:v1` followed by a newline. This prevents a project parent
 or sibling-project directory from becoming a release target merely because it is
@@ -194,9 +194,39 @@ an INCIDENT reopens implementation and invalidates the previous release identity
 On failure, the candidate is retained for inspection, not silently removed or
 overwritten. `recover` / `resume` reconciles the same operation and candidate;
 tampering causes refusal. An interrupted operation can leave a private staging
-directory requiring operator cleanup. This is a local artifact release, **not**
-activation of a service, production monitoring, a rollback mechanism, npm publish
-or GitHub Release support. Those adapters remain unimplemented.
+directory requiring operator cleanup.
+
+The `github-release` adapter uses a pre-existing repository and an explicit tag
+and 40-character target commit. It creates a draft, uploads assets without
+clobbering, downloads every asset and compares it with the approved SHA-256,
+runs smoke against those downloaded bytes, and only then publishes the release:
+
+```json
+{
+  "adapter": "github-release",
+  "repository": "owner/repository",
+  "tag": "v1.2.3",
+  "targetCommitish": "0123456789abcdef0123456789abcdef01234567",
+  "title": "Release 1.2.3",
+  "notes": "Approval-bound release.",
+  "image": "node@sha256:<actual 64-character lowercase hex digest>",
+  "smokeCommands": [["node", "dist/add.mjs"]],
+  "timeoutMs": 60000
+}
+```
+
+Authentication and repository authorization belong to `gh`; the controller
+never accepts a token in its policy or run state. Recovery reuses the same draft
+and uploads only missing assets. An unexpected asset, target change or byte
+mismatch blocks publication. The adapter never uses `--clobber` and never
+deletes a release.
+
+Both shipped adapters declare `activation: none`: publishing an immutable
+artifact is not activation of a service. Local rollback is consumer selection
+of a previous immutable directory. GitHub rollback is a new, separately approved
+superseding release. Deleting or rewriting release evidence is explicitly not a
+rollback. npm publish, service activation and infrastructure rollback remain
+outside this controller.
 
 The opt-in driver `tests/eval/codex-host-live.mjs --approve-fixture-gates` creates
 its own disposable project and destination and exercises the shipped graph.
@@ -210,6 +240,8 @@ unverifiable run is not a successful end-to-end acceptance.
 
 - [ADR-021: controlled shell inside the offline check container](adr/ADR-021-controlled-shell-inside-offline-check-container.md) —
   trust boundary and removal criteria for sequencing operator-owned checks.
+- [ADR-022: reconcile GitHub assets before publishing](adr/ADR-022-github-release-reconciliation.md) —
+  draft, byte verification and rollback semantics for the external adapter.
 - [Codex support contract](CODEX-SUPPORT-CONTRACT.md) — acceptance criteria and
   explicit remaining lifecycle boundaries; not a claim of complete support.
 
