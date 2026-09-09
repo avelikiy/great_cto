@@ -1123,3 +1123,77 @@ test('e2e ship-only with an empty brief: same refusal as no brief', () => {
   assert.doesNotMatch(r.stdout, /ABOUT TO BUILD/,
     'a brief with no recommendation briefs nothing — it must re-gate, not print an empty screen');
 });
+
+// ── a launch is not a finish ────────────────────────────────────────────────
+//
+// This hook fires on PostToolUse:Agent. When the Agent tool runs in the
+// background, it returns as soon as the agent is LAUNCHED — and the hook read
+// that return as the agent having finished, then reported:
+//
+//   "PIPELINE: product-owner finished but recorded no verdict line"
+//
+// while the agent was still working. Twice in one session. The directive that
+// follows asks the reader to record a verdict — so obeying it would write a
+// verdict about work that had not happened, into the log this project treats
+// as evidence. The hook that exists to enforce three-state completion was
+// collapsing two of the states.
+//
+// Measured from a real transcript, 83 Agent results, two shapes and no others:
+//
+//   isAsync=true,  status="async_launched", no content, no usage   × 67
+//   isAsync=absent,status="completed",      content + usage        × 16
+//
+// So the two are distinguishable at the payload, with no guessing needed.
+import { isAsyncLaunch } from '../../scripts/hooks/pipeline-dispatcher.mjs';
+
+const launched = {
+  agentId: 'a8ecd5f569b84b8f1', description: 'Study README craft', isAsync: true,
+  outputFile: '/tmp/x.output', prompt: '...', resolvedModel: 'claude-opus-5', status: 'async_launched',
+};
+const completed = {
+  agentId: 'ad169c8401758c113', agentType: 'product-owner', content: 'the brief is written',
+  prompt: '...', resolvedModel: 'claude-opus-5', status: 'completed',
+  totalTokens: 103695, usage: { output_tokens: 927 },
+};
+
+test('a backgrounded agent that has only been launched is not treated as finished', () => {
+  assert.equal(isAsyncLaunch({ tool_response: launched }), true);
+  assert.equal(isAsyncLaunch({ tool_response: JSON.stringify(launched) }), true,
+    'the payload arrives stringified as often as not');
+});
+
+test('a completed agent is still a finish', () => {
+  assert.equal(isAsyncLaunch({ tool_response: completed }), false);
+  assert.equal(isAsyncLaunch({ tool_response: JSON.stringify(completed) }), false);
+});
+
+test('an unrecognisable payload is not called a launch — silence is not a state', () => {
+  // Fail CLOSED: if we cannot establish that this was only a launch, the hook
+  // keeps its old behaviour and asks for the verdict. A detector that guessed
+  // "launch" on anything it did not understand would silence the check this
+  // whole file exists for.
+  for (const p of [null, {}, { tool_response: null }, { tool_response: 'not json' },
+                   { tool_response: { agentId: 'x' } }, { tool_response: { status: 'completed' } }]) {
+    assert.equal(isAsyncLaunch(p), false, `${JSON.stringify(p)} was read as a launch`);
+  }
+});
+
+test('the hook says nothing at all when the agent was only launched', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'gc-dispatch-launch-'));
+  mkdirSync(join(dir, '.great_cto', 'verdicts'), { recursive: true });
+  writeFileSync(join(dir, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n');
+  const r = spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: 'PostToolUse', tool_name: 'Agent',
+      tool_input: { subagent_type: 'product-owner' },
+      tool_response: launched,
+    }),
+    cwd: dir, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '.great_cto' },
+  });
+  rmSync(dir, { recursive: true, force: true });
+  const out = `${r.stdout || ''}${r.stderr || ''}`;
+  assert.doesNotMatch(out, /finished but recorded no verdict/,
+    'the hook still reports a launched agent as finished');
+  assert.doesNotMatch(out, /log-verdict/,
+    'the hook still asks for a verdict about work that has not happened');
+});

@@ -49,6 +49,13 @@
       "marker": "if (opinion.verdict !== 'PASS') {",
       "why": "The gate used to treat anything that was not BLOCK as a pass, which is why the laundering one floor below reached it unnoticed. Widening this back to `=== 'BLOCK'` re-opens the same path and no other test would fail.",
       "fixed-in": "3.27.7"
+    },
+    {
+      "id": "dispatcher-tells-a-launch-from-a-finish",
+      "file": "scripts/hooks/pipeline-dispatcher.mjs",
+      "marker": "if (r.status !== 'async_launched' && r.isAsync !== true) return false;",
+      "why": "Without this the hook reads a backgrounded agent's launch as its completion and tells the reader to record a verdict for work that has not happened. Widening it to a bare `return true` silences the no-verdict check entirely, and only the fail-closed test notices.",
+      "fixed-in": "3.27.7"
     }
   ]
 }

@@ -186,6 +186,36 @@ export function agentIdFrom(payload) {
 }
 
 /**
+ * Did this PostToolUse fire on a LAUNCH rather than a finish?
+ *
+ * The Agent tool returns as soon as a backgrounded agent is started. This hook
+ * read that return as the agent having concluded and reported "<agent> finished
+ * but recorded no verdict line" — twice in one session, while the agent was
+ * still working. The directive that follows asks the reader to record a verdict,
+ * so obeying it writes a verdict about work that has not happened into the log
+ * this project treats as evidence. A hook built to enforce three-state
+ * completion was collapsing two of the states.
+ *
+ * Measured from a real transcript — 83 Agent results, two shapes and no others:
+ *
+ *   isAsync=true,   status="async_launched", no content, no usage   x67
+ *   isAsync absent, status="completed",      content + usage        x16
+ *
+ * So this is read, not guessed. It fails CLOSED: anything it cannot positively
+ * identify as a launch keeps the old behaviour and still asks for the verdict.
+ * A detector that answered "launch" on an unfamiliar payload would silence the
+ * check this whole file exists for.
+ */
+export function isAsyncLaunch(payload) {
+  let r = payload?.tool_response;
+  if (typeof r === 'string') { try { r = JSON.parse(r); } catch { return false; } }
+  if (!r || typeof r !== 'object') return false;
+  if (r.status !== 'async_launched' && r.isAsync !== true) return false;
+  // A finished run carries what it produced. A launch cannot.
+  return r.content === undefined && r.usage === undefined && r.totalTokens === undefined;
+}
+
+/**
  * How the subagent stopped — read from ITS OWN transcript, found by the agentId
  * the tool result printed.
  *
@@ -856,6 +886,14 @@ async function main() {
   const toolInput = payload.tool_input || {};
   const agent = normalizeAgent(toolInput.subagent_type);
   if (!agent || agent === 'general-purpose' || agent === 'Explore' || agent === 'Plan') return process.exit(0);
+
+  // The agent was started, not finished. Say nothing: this hook fires again on
+  // the completion, which is the event it is actually about. Journalled so the
+  // silence is a recorded decision rather than an absence.
+  if (isAsyncLaunch(payload)) {
+    journal({ agent, outcome: 'launched', why: 'the Agent tool returned on launch; the run has not concluded' });
+    return process.exit(0);
+  }
 
   let transitions;
   try { transitions = parsePipelineToml(readFileSync(PIPELINE_PATH, 'utf8')); }
