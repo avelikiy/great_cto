@@ -38,6 +38,11 @@ function releaseSummary(state) {
   return {
     status: release.status,
     path: release.path ?? null,
+    url: release.url ?? null,
+    adapter: release.adapter,
+    target: release.target,
+    activation: release.activation,
+    rollback: release.rollback,
     artifactDigest: release.artifactDigest ?? null,
     artifacts: (release.artifacts || []).map(({ path, sha256 }) => ({ path, sha256 })),
     smoke: release.smoke ? {

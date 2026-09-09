@@ -52,7 +52,7 @@ test('local release requires independent explicit approval and stores exact cand
 
 test('artifact, release root and source changes invalidate release approval', async t => {
   for (const mutate of [s => { s.release.artifacts[0].base64 = 'eA=='; }, s => { s.releasePolicy.smokeCommands = [['true']]; },
-    s => { writeFileSync(join(s.root, 'src/index.mjs'), 'changed'); }, s => { s.release.releaseRoot = s.root; }]) {
+    s => { writeFileSync(join(s.root, 'src/index.mjs'), 'changed'); }, s => { s.release.target.releaseRoot = s.root; }]) {
     const s = fixture(t); prepareRelease(s); const token = s.release.token; mutate(s);
     assert.throws(() => approveRelease(s, token));
     assert.deepEqual(readdirSync(s.releasePolicy.releaseRoot), ['.great-cto-release-root']);
@@ -118,6 +118,73 @@ test('reconciliation refuses to overwrite a tampered published artifact', async 
   recoverRelease(s);
   await assert.rejects(executeRelease(s, { safePath, checks: smoke }), /differs/);
   assert.equal(readFileSync(file, 'utf8'), 'tampered');
+});
+
+function githubFixture(t) {
+  const s = fixture(t);
+  const targetCommitish = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: s.root, encoding: 'utf8' }).trim();
+  s.releasePolicy = validateReleasePolicy({ adapter: 'github-release', repository: 'acme/widget', tag: 'v1.2.3', targetCommitish,
+    title: 'Widget 1.2.3', notes: 'Approval-bound acceptance fixture.', image,
+    smokeCommands: [['node', '--input-type=module', '-e', "import {x} from './dist/index.mjs';if(x!==2)process.exit(1)"]], timeoutMs: 60000 }, s.root);
+  return s;
+}
+
+function fakeGitHub(policy, { failFirstPublish = false } = {}) {
+  let release = null, publishFailures = 0;
+  const assets = new Map(), calls = [];
+  const gh = async args => {
+    calls.push(args);
+    const op = `${args[0]} ${args[1]}`;
+    if (op === 'release view') {
+      if (!release) { const error = Error('release not found'); error.code = 'RELEASE_NOT_FOUND'; throw error; }
+      return { stdout: JSON.stringify({ ...release, assets: [...assets].map(([name]) => ({ name })) }) };
+    }
+    if (op === 'release create') {
+      assert.equal(args.includes('--draft'), true); assert.equal(args[args.indexOf('--target') + 1], policy.targetCommitish);
+      release = { isDraft: true, tagName: policy.tag, targetCommitish: policy.targetCommitish, url: 'https://github.example/acme/widget/releases/v1.2.3' };
+      return { stdout: '' };
+    }
+    if (op === 'release upload') {
+      assert.equal(args.includes('--clobber'), false);
+      const path = args[3], name = path.slice(path.lastIndexOf('/') + 1);
+      if (assets.has(name)) throw Error('duplicate upload');
+      assets.set(name, readFileSync(path)); return { stdout: '' };
+    }
+    if (op === 'release download') {
+      const name = args[args.indexOf('--pattern') + 1], output = args[args.indexOf('--output') + 1];
+      writeFileSync(output, assets.get(name)); return { stdout: '' };
+    }
+    if (op === 'release edit') {
+      if (failFirstPublish && publishFailures++ === 0) throw Error('connection lost during publish');
+      release.isDraft = false; return { stdout: '' };
+    }
+    throw Error(`unexpected gh call: ${args.join(' ')}`);
+  };
+  return { gh, calls, assets, remote: () => release };
+}
+
+test('GitHub release uploads to a draft, verifies downloaded bytes, then publishes', async t => {
+  const s = githubFixture(t), remote = fakeGitHub(s.releasePolicy);
+  prepareRelease(s); approveRelease(s, s.release.token);
+  await executeRelease(s, { safePath, gh: remote.gh, checks: async context => {
+    assert.equal(readFileSync(join(context.root, 'dist/index.mjs'), 'utf8'), content);
+    return { state: 'passed', code: 0, files: { 'dist/index.mjs': digest(content) } };
+  } });
+  assert.equal(s.release.status, 'verified'); assert.equal(remote.remote().isDraft, false);
+  assert.equal(s.release.url, 'https://github.example/acme/widget/releases/v1.2.3');
+  assert.equal(s.release.activation, 'none'); assert.equal(s.release.rollback, 'superseding-release');
+  assert.equal(remote.calls.some(args => args.includes('--clobber')), false);
+});
+
+test('GitHub reconciliation reuses the same draft and never uploads an asset twice', async t => {
+  const s = githubFixture(t), remote = fakeGitHub(s.releasePolicy, { failFirstPublish: true });
+  prepareRelease(s); approveRelease(s, s.release.token);
+  await assert.rejects(executeRelease(s, { safePath, gh: remote.gh, checks: smoke }), /connection lost/);
+  assert.equal(s.release.status, 'failed'); recoverRelease(s);
+  await executeRelease(s, { safePath, gh: remote.gh, checks: smoke });
+  assert.equal(s.release.status, 'verified');
+  assert.equal(remote.calls.filter(args => `${args[0]} ${args[1]}` === 'release create').length, 1);
+  assert.equal(remote.calls.filter(args => `${args[0]} ${args[1]}` === 'release upload').length, 1);
 });
 
 test('live build export -> explicit release approval -> artifact smoke without rebuilding', { skip: !process.env.GREAT_CTO_LIVE_DOCKER_IMAGE }, async t => {
