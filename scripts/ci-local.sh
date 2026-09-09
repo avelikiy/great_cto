@@ -319,7 +319,13 @@ step "docs screen classifies more than it shrugs at" bash -c '
 step "root + hooks + board tests" node --test tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
 step "lib tests" node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs
 step "eval tests" node --test tests/eval/*.test.mjs
-step "docs tests" bash -c 'node --test tests/docs/*.test.mjs 2>/dev/null || true'
+# `|| true` used to end this line, from the days when tests/docs/ might be empty
+# in a partial checkout. It made the step incapable of failing — and on v3.28.1
+# the README parity check was RED here while the gate reported ALL GATES GREEN.
+# A guard wired into a step that cannot fail is a guard that is declared and
+# never consumed, which is the defect this repository exists to find.
+# The empty case is handled by asking, not by swallowing the exit code.
+step "docs tests" bash -c 'ls tests/docs/*.test.mjs >/dev/null 2>&1 || { echo "no tests/docs — nothing to run"; exit 0; }; node --test tests/docs/*.test.mjs'
 
 # ── The board, driven in a real browser ─────────────────────────────────────
 #

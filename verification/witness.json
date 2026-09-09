@@ -56,6 +56,13 @@
       "marker": "if (r.status !== 'async_launched' && r.isAsync !== true) return false;",
       "why": "Without this the hook reads a backgrounded agent's launch as its completion and tells the reader to record a verdict for work that has not happened. Widening it to a bare `return true` silences the no-verdict check entirely, and only the fail-closed test notices.",
       "fixed-in": "3.27.7"
+    },
+    {
+      "id": "docs-tests-can-fail-the-gate",
+      "file": "scripts/ci-local.sh",
+      "marker": "no tests/docs — nothing to run\"; exit 0; }; node --test tests/docs/*.test.mjs'",
+      "why": "This step ended in `|| true` for months. On v3.28.1 the README parity check was red inside it while the gate printed ALL GATES GREEN, so a guard added that same day could not fail anything. Restoring the swallow is a one-character edit and every test still passes.",
+      "fixed-in": "3.28.2"
     }
   ]
 }

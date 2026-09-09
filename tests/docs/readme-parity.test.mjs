@@ -20,13 +20,14 @@
 //   - the same number of table rows
 //   - every state token present, untranslated (`unverifiable`, `ship-only`, …)
 //   - the same agent count as the English file
-//   - a stamp naming the CURRENT package version
+//   - the translation is not BEHIND the English file in history
 //
 // A translation can pass all five and still read badly. It cannot pass them and
 // be missing the approval-level table.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
@@ -54,10 +55,27 @@ const TOKENS = [
 ];
 
 const english = read('README.md');
-// The shipped version, which is NOT the root package.json — that one is a
-// workspace stub pinned at 0.0.1. Reading it made this check compare every
-// translation against a version nothing has ever been released as.
-const version = JSON.parse(read('packages/cli/package.json')).version;
+
+/**
+ * The commit that last changed a file, or null when git cannot answer.
+ *
+ * Currency is asked of HISTORY, not of a version string. The first version of
+ * this check required the stamp to name the CURRENT package version — which
+ * made every patch bump turn nine files stale even though the English text had
+ * not moved. It went red on v3.28.1 for exactly that reason, in a step that
+ * could not fail the gate, so nobody found out from the gate. A check that
+ * cries on a release nobody would act on is a check that gets deleted.
+ *
+ * The honest question is narrower: is the translation BEHIND the English?
+ */
+function lastCommit(path) {
+  try {
+    const sha = execFileSync('git', ['log', '-1', '--format=%H', '--', path],
+      { cwd: ROOT, encoding: 'utf8' }).trim();
+    return sha || null;
+  } catch { return null; }
+}
+const englishCommit = lastCommit('README.md');
 
 /** The agent count the English README states, so the check follows the source. */
 const englishAgentCount = (english.match(/\*\*(\d+)\s+agents?/) || english.match(/(\d+)\s+agents\b/) || [])[1];
@@ -97,9 +115,23 @@ for (const lang of LANGS) {
       `${path} does not state ${englishAgentCount} agents — it shipped 69 for six weeks while there were 70`);
   });
 
-  test(`${lang}: the stamp names the version it actually translates`, () => {
+  test(`${lang}: the reader is told which version this mirrors`, () => {
     const t = read(path);
-    assert.match(t, new RegExp(`v?${version.replace(/\./g, '\\.')}`),
-      `${path} does not name v${version} — a stamp that names an older version is honest only until it is wrong about which one`);
+    assert.match(t, /v\d+\.\d+\.\d+/,
+      `${path} carries no version stamp — the reader cannot tell what it mirrors`);
+  });
+
+  test(`${lang}: the translation is not behind the English README`, (t) => {
+    const mine = lastCommit(path);
+    if (!englishCommit || !mine) return t.skip('git history unavailable — not checked, which is not the same as fine');
+    if (mine === englishCommit) return;   // both moved in the same commit
+    let behind;
+    try {
+      execFileSync('git', ['merge-base', '--is-ancestor', mine, englishCommit], { cwd: ROOT });
+      behind = true;                       // the translation's commit precedes the English one
+    } catch { behind = false; }
+    assert.equal(behind, false,
+      `${path} was last touched before README.md was — the English moved and this did not follow. `
+      + `Regenerate it; ${englishCommit.slice(0, 8)} is what it must mirror.`);
   });
 }
