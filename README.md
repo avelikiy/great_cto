@@ -104,7 +104,7 @@ as a pass — a scan that never ran is `n/a`, never a green zero.
 | | |
 |---|---|
 | One feature, end to end, fully traced | **1h 26m · $3.40** in tokens — [the receipts](https://greatcto.systems/proof) |
-| A whole product — 7 built in the open benchmark | median **$171** in tokens · **70/100** quality (58–86) — [reproduce it](docs/benchmarks/BENCH-2026-07-batch1.md) |
+| A whole product — 7 built in the open benchmark | median **$171** in tokens · **70/100** quality (58–86), measured **2026-07-10** — [reproduce it](docs/benchmarks/BENCH-2026-07-batch1.md) |
 | Typical month, 20 pipeline runs | **~$34** — you pay your own LLM provider, nothing else |
 | Products it knows how to build | **60**, across 15 US industries, through [6 reusable pipelines](https://greatcto.systems/pipelines) |
 
@@ -214,6 +214,21 @@ A regulated archetype — fintech, healthcare, gov — keeps its security,
 compliance and ship gates **at every level, including `auto`**. A lighter level
 delegates judgement; it never skips compliance. Full table: [docs/GATES.md](docs/GATES.md).
 
+## Four things it refuses to say
+
+The same rule, in the four places it costs something to keep: **a thing that did
+not happen must never look like a thing that did.**
+
+| When | What is easy to show | What it shows instead |
+|---|---|---|
+| A second opinion is declared but its harness is missing | *off* | **`unavailable`** — declared and unreachable is not a choice you made |
+| A check ran and could not decide | *pass* | **`unverifiable`** — and the stage does not proceed on it |
+| A run's cost was never measured | **`$0.00`** | **`unmeasured`** — and budgets do not fire on it |
+| A stage was assessed by nobody | *0* | **`null`** — a pass rate divides by what was actually assessed |
+
+Each of these is a place where the honest answer is longer, uglier, and harder to
+build than the confident one. That is the whole product.
+
 ## The three doubts worth having
 
 **“I can't trust code I didn't watch being written.”**
@@ -250,30 +265,21 @@ Next.js, Postgres and Stripe that any engineer can pick up.
 - **Cost you can see** — per-agent spend, estimate-vs-actual drift, and
   cost-per-accepted-change on the board, not in a spreadsheet.
 - **Spending caps that refuse** — `agent-budgets:` in PROJECT.md caps what a
-  stage may spend, and the pipeline declines to dispatch past it, naming the
-  number. An **estimate never refuses**: while no verdict carries a real cost the
-  cap reads `unmeasured` and holds nothing, because a limit firing on a number
-  nobody measured is worse than no limit. Set and cleared from the board.
-- **A stage is checked before the next builds on it** — the pipeline used to
-  hand one agent's output to the next on the strength of a line the agent wrote
-  about itself. Now a second model (Kimi K3 via OpenRouter) checks it, cheapest
-  question first: do the files the verdict names exist, do the frozen
-  `## ACCEPTANCE` criteria pass when run, and only then is a model asked whether
-  each requirement is addressed. Three answers, never two — `verified`,
-  `rework`, or **`unverifiable`**, which is not a pass: an agent that claims
-  nothing and freezes no criteria is reported, or the cheapest way to pass
-  becomes claiming nothing.
-- **Work goes back, and the return has a ceiling** — a stage that fails
-  verification returns `REWORK` with the findings quoted, and the agent that just
-  ran fixes it. Distinct from `BLOCKED`, which means a human must decide. After
-  three passes it stops being the agent's problem and becomes one, because two
-  machines handing work back and forth do not get bored.
-- **Quality kept apart from what happened** — the verdict says what a run did;
-  a *score* says how well, in its own append-only store, produced by a different
-  actor at a different time. A re-score appends rather than rewrites, several
-  scorers can disagree about one run, and every score names who made it. An
-  unassessed run counts as `null`, never zero — a pass rate divides by what was
-  actually assessed and reports the rest beside it.
+  stage may spend; the pipeline declines to dispatch past it and names the
+  number. An estimate never refuses — see the table above.
+- **A stage is checked before the next builds on it** — files named by the
+  verdict must exist, frozen `## ACCEPTANCE` criteria must pass when run, and
+  only then is a second model asked whether each requirement is addressed.
+  Cheapest question first, and three answers rather than two: `verified`,
+  `rework`, or `unverifiable`. An agent that claims nothing and freezes no
+  criteria is reported — otherwise the cheapest way to pass is claiming nothing.
+- **Work goes back, and the return has a ceiling** — a failed stage returns
+  `REWORK` with the findings quoted and the same agent fixes it; `BLOCKED` means
+  a human must decide. After three passes it becomes the human's problem, because
+  two machines handing work back and forth do not get bored.
+- **Quality kept apart from what happened** — the verdict says what a run did, a
+  *score* says how well, in its own append-only store by a different actor at a
+  different time. Scorers may disagree, and every score names who made it.
 - **Silence is recorded** — the dispatcher writes what it decided to
   `.great_cto/pipeline-runs.jsonl`, *including when it decided nothing* and why.
   Every pipeline defect found this year hid in the gap between "nothing should
