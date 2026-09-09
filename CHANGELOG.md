@@ -30,6 +30,53 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.3 — 2026-09-09
+
+The README spent 239 words defending the product before showing it. A reader who
+had not yet raised an objection was being answered — sixteen times on the first
+screen.
+
+### Changed
+
+- **The README leads with the product.** The first screen now opens on the line
+  the landing page has used since the story rewrite was approved at
+  `gate:product`: *"Your coding agent ships code. This is what checks it."* The
+  README had ignored that decision. Honesty is claiming only what can be shown;
+  it is not hedging every sentence, and the first screen was confusing the two.
+
+  | | before | after |
+  |---|---|---|
+  | words before the diagram | 239 | **94** |
+  | hedges on the first screen | 16 | **3** |
+  | words overall | 2582 | **2383** |
+
+- **Nothing was deleted — three claims moved to where their reader looks.** The
+  proof-by-subtraction (v3.27.0 and v3.27.1 deleting this project's own
+  favourable numbers) now sits under the "Four things it refuses to say" table,
+  where it is evidence for the rule instead of an unprompted confession. Codex's
+  status and the four-line review log open the two-harness section. "Not a
+  hosted app builder" is the first bullet of Limitations.
+- **All nine translations updated**, each verified to carry the three
+  relocations exactly once, with section and table-row counts matching English.
+
+### Fixed
+
+- **The parity check was green at the only moment it mattered.** It read git
+  history alone, so *edit README.md → run the gate → green → commit* was a legal
+  sequence, and the drift appeared one commit later. Uncommitted English edits
+  now count as ahead of every translation. A guard that goes red only after the
+  gate has said yes is decoration.
+
+### Recorded
+
+Two checks run during this work were wrong the same way: translations were
+reported as missing content while the agents were still writing the files.
+**"Modified" is not "finished"** — the same defect v3.28.0's dispatcher fix was
+about, rebuilt in a shell loop two hours later by the person who wrote that fix.
+
+---
+
 ## v3.28.2 — 2026-09-09
 
 v3.28.1 shipped with a red check inside a step that could not fail. Both halves
