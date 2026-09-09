@@ -27,6 +27,87 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.0 — 2026-09-09
+
+Four places where this project broke its own rule — a thing that did not happen
+looked like a thing that did — found by reading other people's code and by
+measuring our own.
+
+### Fixed
+
+- **A cross-model review we could not read was recorded as a pass.**
+  `parseFindings` answered `PASS` whenever the model wrote no `VERDICT:` line and
+  no P0 was parsed. Measured, four answers: an empty body, `I cannot review this
+  diff.`, and a correct finding in the wrong format all came back **PASS**; only
+  a truncated line came back BLOCK. Three ways of not getting a review read as a
+  review that passed, and that value fed the cross-review Stop hook — whose own
+  header states the rule it was breaking. The line drawn: **a derivation that
+  BLOCKS costs a second look, a derivation that PASSES spends the guarantee.** A
+  P0 with no verdict line still blocks; nothing else becomes a verdict. The CLI
+  now logs `state: unreadable` and exits SKIPPED, the reader reports it as its
+  own state, and the gate passes only on an explicit `PASS`. This reverses a
+  decision a test had pinned — the charitable parse covered the dishonest cases
+  too, and the replacement test says why.
+- **A backgrounded agent that was launched was reported as finished.**
+  `PostToolUse:Agent` fires when the tool returns, which for a background agent
+  is the launch. The dispatcher printed "finished but recorded no verdict line"
+  twice in one session while the agent was still working — and the directive
+  that follows asks for a verdict, so obeying it writes a verdict about work that
+  has not happened. Read from 83 real Agent results, which carry exactly two
+  shapes: `status="async_launched"` with no content or usage (67), and
+  `status="completed"` with both (16). The detector fails **closed** — anything
+  it cannot positively identify as a launch keeps the old behaviour — and the
+  silence is journalled as `outcome=launched`, so a decision not to speak is a
+  record rather than an absence.
+
+### Added
+
+- **A lesson's support is now computed, not claimed.** `confidence:` in
+  `lessons.md` is written by continuous-learner about its own extraction; it
+  could only rise, it decided which three lessons survived a session, and it
+  rendered beside `occurrences:` and `projects:` — independent facts — with
+  nothing marking which was which. There are two axes now and only one is
+  earned: **`support:`** (`unsupported` → `self-asserted` → `corroborated` →
+  `cross-project`) is computed by `lessons-write.mjs` from sightings and
+  evidence and overwrites whatever the entry claimed, so a lesson cannot vouch
+  for itself. `confidence:` stays, explicitly non-authoritative — harmless once
+  it carries no authority. Promotion to `decisions.md` was never keyed on it and
+  still is not.
+- **`verification/witness.json` — a fix with no test of its own keeps a marker.**
+  Three regressions in 3.27.x passed every unit test on the broken commit,
+  because the load-bearing line sat in a file tested at a different altitude.
+  Each entry names one file and one literal substring that must still be in it;
+  `tests/witness.test.mjs` fails when one disappears, and refuses a marker under
+  20 characters, one matching more than one site, or a `why` under 40. Eight
+  entries, each verified to have no guard today and each probed by deletion. It
+  proves a line was **not deleted**, never that a fix still works — a test is the
+  stronger instrument and belongs wherever it fits (`verification/README.md`,
+  `CONTRIBUTING.md` §7).
+
+### Under it
+
+- ADR-002 is unchanged. `docs/plans/PLAN-2026-09-09-openrouter-routing.md` asks
+  the next question — what leaves Claude Code at all — and answers it against
+  measurement rather than intuition. Recorded there and worth stating here: on a
+  real session, **69% of the token cost is re-reading the conversation's own
+  history**, at an average of 533k tokens per call across 21,778 calls. Moving
+  agents to a metered API converts plan quota into cash without touching that.
+- `BRIEF-readme-craft-2026-09` (product-owner, four personas across three
+  models, one substitution declared). The nine translated READMEs lag the
+  English one by 160 lines and say 69 agents where there are 70 — but each
+  declares the version it translates, so they are stale-and-self-declaring
+  rather than false. The decision they need is whether to keep or remove them.
+
+### Not fixed, and why
+
+- Of 67 backgrounded agent launches in that transcript, only 16 completions
+  carry usage. Where the rest are recorded is **not established**, so per-agent
+  cost stays `unmeasured` — not zero. Said here rather than left to look like a
+  measurement nobody took.
+
+---
+
 ## v3.27.6 — 2026-09-07
 
 Three issues described the gate flaking; one recorded that an earlier one had
