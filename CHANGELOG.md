@@ -28,6 +28,62 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.1 — 2026-09-09
+
+Nine translated READMEs told nine languages this tool ships 69 agents. It ships
+70, and has for weeks. They were not lying — each carried a stamp naming the
+version it translated — but a reader who arrives from a search result reads the
+composition, not the stamp.
+
+### Fixed
+
+- **The nine translations say what the English README says again.** They were
+  160 lines shorter and 40 days behind. Missing from all nine: the
+  `approval-level` table, and therefore `ship-only` — the level the English
+  README calls the minimum that is still honest; the Codex second-opinion
+  section; the Limitations entry on per-agent cost attribution. Regenerated from
+  the current English, one agent per language, 317-374 lines against the English
+  335.
+- **The console screen is in the language the console prints it in.** All nine
+  translators independently reached the same question — the ASCII pipeline
+  diagram and the `ABOUT TO BUILD` screen sit in code fences — and all nine
+  reported it rather than deciding quietly. Eight left the screen in English;
+  one rendered it in Spanish, and that is reverted. The diagram is illustrative
+  and stays in each language's voice.
+
+### Added
+
+- **`tests/docs/readme-parity.test.mjs`** — 55 checks, and the reason this does
+  not recur: same section count, same table-row count, state tokens present and
+  untranslated, the agent count read FROM the English file rather than
+  hardcoded, and a stamp naming the shipped version. Deliberately mechanical:
+  asking whether a translation is *faithful* cannot be automated, and a rule
+  nobody can run is not a rule.
+
+### English README
+
+- The four refusals — `unavailable` not *off*, `unverifiable` not *pass*,
+  `unmeasured` not `$0.00`, `null` not *0* — were the last clause of four
+  paragraphs spread over 140 lines. They are now one table. The pattern is the
+  product and a first-time reader could not see it.
+- The `$171` median carries `measured 2026-07-10` beside the number.
+- "What makes it different" drops from 48 lines to 33, no claim removed.
+
+### Not done, and why
+
+- The brief asked for the long bullets' detail to move behind existing links.
+  `docs/` holds no page for `agent-budgets` or `pipeline-runs.jsonl`, and
+  `docs/SECOND-OPINION.md` covers two judges disagreeing, not the
+  acceptance-criteria chain — it contains neither `unverifiable` nor
+  `ACCEPTANCE`. A link to evidence that is not there is worse than a long
+  bullet, so two claims kept their prose. **Two README claims have no
+  reader-facing documentation at all**; that is now a known gap rather than a
+  silent one.
+- RDME-R6, a recording of a gate pausing, is a recording and not an edit.
+
+---
+
 ## v3.28.0 — 2026-09-09
 
 Four places where this project broke its own rule — a thing that did not happen
