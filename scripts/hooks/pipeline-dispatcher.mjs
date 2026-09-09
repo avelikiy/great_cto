@@ -39,6 +39,8 @@ import { stopShape } from '../lib/stop-shape.mjs';
 import { recordRun } from '../lib/pipeline-journal.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { latestScore as _latestScore } from '../lib/scores.mjs';
+import { parsePipelineToml } from '../lib/pipeline-toml.mjs';
+export { parsePipelineToml } from '../lib/pipeline-toml.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 /**
@@ -139,32 +141,6 @@ function verifyClaimedArtefacts(agent, verdict, cwd) {
 }
 
 
-
-/** Minimal TOML-subset parser for pipeline.toml:
- *  [transitions.<name>] sections with string / string-array values. */
-export function parsePipelineToml(text) {
-  const transitions = {};
-  let cur = null;
-  for (const raw of String(text).split('\n')) {
-    const line = raw.replace(/#.*$/, '').trim();
-    if (!line) continue;
-    const sec = line.match(/^\[transitions\.([\w.-]+)\]$/);
-    if (sec) { cur = transitions[sec[1]] = {}; continue; }
-    if (/^\[/.test(line)) { cur = null; continue; }
-    if (!cur) continue;
-    const kv = line.match(/^([\w-]+)\s*=\s*(.+)$/);
-    if (!kv) continue;
-    const [, key, valRaw] = kv;
-    if (valRaw.startsWith('[')) {
-      const items = valRaw.replace(/^\[|\]$/g, '').split(',')
-        .map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean);
-      cur[key] = items;
-    } else {
-      cur[key] = valRaw.trim().replace(/^"|"$/g, '');
-    }
-  }
-  return transitions;
-}
 
 /**
  * The agentId out of a PostToolUse payload, if the tool reported one.

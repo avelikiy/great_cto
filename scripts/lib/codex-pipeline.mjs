@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, lstatSync, existsSync, realpath
 import { resolve, relative, dirname, join, isAbsolute, sep } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { parsePipelineToml } from '../hooks/pipeline-dispatcher.mjs';
+import { parsePipelineToml } from './pipeline-toml.mjs';
 import { scan } from './secret-patterns.mjs';
 import { runCodexExec } from './codex-exec.mjs';
 import { treeReceipt } from './receipt.mjs';

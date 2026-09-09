@@ -1,4 +1,6 @@
 # great_cto pipeline transition map
+# Codex hosts invoke the `codex-host` skill as the supported controller entrypoint
+# for this graph. Claude Code consumes the same graph through its hook dispatcher.
 # Machine-readable agent→agent handoff graph. Consumed by
 # scripts/hooks/pipeline-dispatcher.mjs (PostToolUse on Agent/Task) to tell the
 # orchestrating model what to run next when a subagent finishes.

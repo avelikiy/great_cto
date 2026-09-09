@@ -55,7 +55,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "telemetry" | "task" | "worker" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "telemetry" | "task" | "worker" | "codex-host" | "chat-only-hint" | "unknown";
   taskArgs?: string[];
   unknownToken?: string;
   dir: string;
@@ -129,6 +129,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--self") args.upgradeSelf = true;
     else if (a === "task") { args.command = "task"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "worker") { args.command = "worker"; args.taskArgs = argv.slice(i + 1); break; }
+    else if (a === "codex-host") { args.command = "codex-host"; args.taskArgs = argv.slice(i + 1); break; }
     // Slash-commands surfaced as CLI subcommands so users get a clear hint
     // instead of a confusing usage error. These work only in the chat plugin.
     else if (
@@ -583,6 +584,7 @@ ${bold("Usage:")}
   npx great-cto ci [path] [--no-archetype] [--no-budget]
   npx great-cto mcp [--sse --port N]
   npx great-cto adapt [--dry-run]
+  npx great-cto codex-host doctor|list|start|resume|status ...
   npx great-cto serve [--port 3142]
   npx great-cto upgrade [superpowers|beads]  Re-clone companions to latest tag + re-apply overlays
   npx great-cto upgrade --self                Upgrade the great-cto CLI itself, in place
@@ -640,6 +642,12 @@ ${bold("Claude Code adapter:")}
   great-cto adapt                      Generate AGENTS.md + CLAUDE.md
   great-cto adapt --dry-run            Preview what would be written
   ${dim("Idempotent — re-run after editing .great_cto/PROJECT.md")}
+
+${bold("Controlled Codex host:")}
+  great-cto codex-host doctor          Check Codex auth, state store, Docker and GitHub CLI
+  great-cto codex-host list --dir .    Show sanitized runs for this project
+  great-cto codex-host start --dir . --prompt "..." --allow src,tests,docs
+  ${dim("The controller owns writes, verification, gates and release approvals.")}
 
 ${bold("Webhook server (preview):")}
   great-cto serve --port 3142          Webhook receiver (logs to ~/.great_cto/webhook-events.log)
@@ -1464,6 +1472,10 @@ async function main(): Promise<void> {
   if (args.command === "worker") {
     const { runWorker } = await import("./worker.js");
     await finish(await runWorker(args.taskArgs ?? []));
+  }
+  if (args.command === "codex-host") {
+    const { runCodexHost } = await import('./codex-host.js');
+    await finish(runCodexHost(args.taskArgs ?? []));
   }
   if (args.command === "serve") {
     try {
