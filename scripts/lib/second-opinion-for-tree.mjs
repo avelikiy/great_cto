@@ -40,6 +40,17 @@ export function secondOpinionForTree(c) {
     const r = paired[paired.length - 1];
     return { ...base, state: 'ok', verdict: r.verdict ?? null, findings: r.findings ?? null, p0: r.p0 ?? null, sha: r.sha, ts: r.ts ?? null, why: '' };
   }
+  // A line that joins this tree but reached no verdict is not "no review line".
+  // It is a review that produced nothing readable, and saying so is the whole
+  // point — falling through to `unmeasured` would tell the operator to run a
+  // review that already ran.
+  const joins = (r) => typeof r.sha === 'string' && r.sha !== '' && head && (r.sha === head || head.startsWith(r.sha) || r.sha.startsWith(head));
+  const noVerdict = rows.filter((r) => joins(r) && r.state === 'unreadable');
+  if (noVerdict.length) {
+    const r = noVerdict[noVerdict.length - 1];
+    return { ...base, state: 'unreadable', sha: r.sha, ts: r.ts ?? null,
+      why: `${tool} answered for this tree and the answer carries no verdict — it is not a pass` };
+  }
   const anyKeyed = rows.some((r) => typeof r.sha === 'string' && r.sha !== '');
   if (!anyKeyed && rows.length) {
     return { ...base, state: 'unreadable', why: `${rows.length} review line(s) predate the join key — none can be paired with this tree` };

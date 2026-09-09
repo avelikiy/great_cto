@@ -45,10 +45,42 @@ test('parseFindings: derives BLOCK from a P0 when VERDICT line absent', () => {
   assert.equal(verdict, 'BLOCK');
 });
 
-test('parseFindings: no findings, no verdict → PASS', () => {
-  const { findings, verdict } = parseFindings('looks clean to me');
-  assert.equal(findings.length, 0);
-  assert.equal(verdict, 'PASS');
+// A charitable parse covers the dishonest cases too.
+//
+// This used to assert PASS: the model read the diff, said something clean in
+// prose, and forgot the `VERDICT:` line the prompt asked for. Charitable, and
+// wrong — because "looks clean to me", an empty body, a refusal and a reply in
+// some other format are the SAME input to this parser. All four produce zero
+// findings and no verdict line, so reading any of them as PASS reads all of
+// them as PASS, and a review that could not be read becomes a review that
+// approved.
+//
+// The rule now: a derivation that BLOCKS is safe to make, because the worst
+// case is a human looks again. A derivation that PASSES is the one that turns
+// absence into approval, and this file does not make it.
+//
+// Borrowed from mco-org/mco: "It does not turn natural-language output into
+// findings, severity, confidence, consensus, or an automatic decision."
+
+test('a model that never said PASS is not made to say it', () => {
+  for (const answer of ['looks clean to me', '', 'I cannot review this diff.',
+                        '- src/a.js line 12: this is a P0 null deref']) {
+    const { verdict } = parseFindings(answer);
+    assert.equal(verdict, null, `\`${answer.slice(0, 30)}\` was read as a verdict`);
+  }
+});
+
+test('a P0 with no VERDICT line still blocks — blocking derivations stay', () => {
+  const { verdict } = parseFindings('a.ts:1 | P0 | boom');
+  assert.equal(verdict, 'BLOCK');
+});
+
+test('parsed findings without a P0 and without a VERDICT line are not a pass', () => {
+  // The model produced readable findings and still never reached a verdict.
+  // Readable is not the same as decided.
+  const { findings, verdict } = parseFindings('a.ts:1 | P2 | nit');
+  assert.equal(findings.length, 1);
+  assert.equal(verdict, null);
 });
 
 // BRD-R1: diff-identity fields on reviewLogLine (sha, dirty) — additive only.

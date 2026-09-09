@@ -82,3 +82,27 @@ test('a Stop that is itself the result of a block never blocks again', () => {
   const d = decideCrossReviewGate(ok({ stopHookActive: true, opinion: { state: 'unmeasured', why: 'x' } }));
   assert.equal(d.block, false);
 });
+
+// A fourth property, learned from mco-org/mco and paid for by our own code.
+//
+// The gate reads `opinion.verdict` and treats anything that is not BLOCK as a
+// pass. That was safe only while the writer could not produce a third value —
+// and it could: `parseFindings` used to answer PASS for an empty body, a
+// refusal, and a reply in the wrong format. The laundering happened one floor
+// below, and this file's own header rule ("not reviewed" and "reviewed and
+// blocked" never collapse) could not see it.
+//
+// So the gate stops trusting the shape of what it is handed. A review line
+// that reached no verdict is not a pass here either, whatever wrote it.
+test('an ok line that reached no verdict is not a pass', () => {
+  const r = decideCrossReviewGate(ok({ opinion: { state: 'ok', verdict: null, sha: 'abcd1234', findings: 0, p0: 0 } }));
+  assert.equal(r.block, true, 'a review that never said PASS ended the turn');
+  assert.notEqual(r.kind, 'reviewed');
+  assert.match(r.reason || r.why, /verdict/i);
+});
+
+test('a verdict this gate does not recognise is not a pass', () => {
+  const r = decideCrossReviewGate(ok({ opinion: { state: 'ok', verdict: 'MAYBE', sha: 'abcd1234' } }));
+  assert.equal(r.block, true);
+  assert.notEqual(r.kind, 'reviewed');
+});

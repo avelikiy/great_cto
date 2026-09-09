@@ -112,8 +112,21 @@ export function parseFindings(text) {
     const m = line.match(/^(.+?):(\d+)\s*\|\s*(P[012])\s*\|\s*(.+)$/i);
     if (m) findings.push({ file: m[1].trim(), line: parseInt(m[2], 10), severity: m[3].toUpperCase(), issue: m[4].trim() });
   }
-  // Derive verdict if the model omitted it: any P0 → BLOCK.
-  if (!verdict) verdict = findings.some(f => f.severity === 'P0') ? 'BLOCK' : 'PASS';
+  // Derive a verdict only in the direction that is safe to be wrong about.
+  //
+  // This used to answer PASS whenever no `VERDICT:` line was found and no P0
+  // was parsed. But an empty body, a refusal, a reply in some other format and
+  // a model that genuinely said "looks clean" are the SAME input here — all
+  // four leave `verdict` null and `findings` without a P0. Reading any of them
+  // as PASS reads all of them as PASS, so a review that could not be read
+  // became a review that approved, and the Stop hook downstream ended the turn
+  // on it.
+  //
+  // A derivation that BLOCKS costs a second look. A derivation that PASSES
+  // spends the guarantee. So: a P0 with no verdict line still blocks; nothing
+  // else is turned into a verdict, and `null` means the model never reached
+  // one. Callers must treat null as "no verdict", never as a pass.
+  if (!verdict && findings.some(f => f.severity === 'P0')) verdict = 'BLOCK';
   return { findings, verdict };
 }
 
@@ -216,6 +229,17 @@ async function main(argv) {
   const cost = res.usage && priced ? round4(costForUsage({ model: res.model, usage: res.usage })) : null;
 
   for (const f of findings) console.log(`  ${f.severity} ${f.file}:${f.line} — ${f.issue}`);
+  if (verdict == null) {
+    // The call succeeded and the answer is unusable. `ok` would put it in the
+    // log as a reviewed tree and exit 0 would tell the caller it passed; both
+    // are the claim this tool exists to refuse to make.
+    console.log(`\ncross-model-review (${decision.provider}:${res.model}): the answer carries no verdict `
+      + `(${findings.length} finding(s) parsed). Not a pass — re-run, or say in your answer that the reviewer `
+      + `returned nothing readable.`);
+    log({ provider: decision.provider, model: res.model, state: 'unreadable', verdict: null, findings, cost,
+      error_kind: 'no-verdict' });
+    process.exit(EXIT.SKIPPED);
+  }
   console.log(`\ncross-model-review (${decision.provider}:${res.model}): ${findings.length} finding(s), VERDICT: ${verdict}  (${cost == null ? 'cost unpriced' : '$' + cost})`);
   log({ provider: decision.provider, model: res.model, state: 'ok', verdict, findings, cost });
   process.exit(verdict === 'BLOCK' ? EXIT.BLOCK : EXIT.PASS);

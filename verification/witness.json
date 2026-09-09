@@ -35,6 +35,20 @@
       "marker": "execFileSync(\"ffmpeg\", [\"-y\", \"-i\", dstWebm",
       "why": "Paths reached ffmpeg through a shell here. Like seed-demo this file has no test, and a demo recorder is exactly the kind of script whose regression nobody notices until a path contains a space or a quote.",
       "fixed-in": "3.27.6"
+    },
+    {
+      "id": "cross-review-derives-only-blocking-verdicts",
+      "file": "scripts/lib/cross-model-review.mjs",
+      "marker": "if (!verdict && findings.some(f => f.severity === 'P0')) verdict = 'BLOCK';",
+      "why": "The previous line ended `: 'PASS'`, which turned an empty body, a refusal and a wrong-format reply into a passing review that the Stop hook then ended the turn on. Restoring the PASS branch is a one-word edit whose damage is silent and downstream.",
+      "fixed-in": "3.27.7"
+    },
+    {
+      "id": "cross-review-gate-requires-an-explicit-pass",
+      "file": "scripts/hooks/cross-review-gate.mjs",
+      "marker": "if (opinion.verdict !== 'PASS') {",
+      "why": "The gate used to treat anything that was not BLOCK as a pass, which is why the laundering one floor below reached it unnoticed. Widening this back to `=== 'BLOCK'` re-opens the same path and no other test would fail.",
+      "fixed-in": "3.27.7"
     }
   ]
 }

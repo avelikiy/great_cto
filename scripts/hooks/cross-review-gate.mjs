@@ -90,6 +90,20 @@ export function decideCrossReviewGate({ enabled, stopHookActive, blockedBefore, 
           + `unanswered P0.`,
       };
     }
+    if (opinion.verdict !== 'PASS') {
+      // A line exists and the call succeeded, but nothing in it is a verdict.
+      // Treating "not BLOCK" as a pass is how an unreadable answer used to end
+      // the turn; the writer no longer produces that, and this no longer
+      // trusts it to.
+      return {
+        block: true, kind: 'no-verdict',
+        why: 'the second opinion answered but reached no verdict',
+        reason: `The second opinion was asked about this diff (${String(opinion.sha || '').slice(0, 8)}) and its answer `
+          + `carries no verdict — ${opinion.verdict == null ? 'none was written' : `\`${opinion.verdict}\` is not one`}. `
+          + `An answer that reached no verdict is not a pass. Re-run \`node scripts/lib/cross-model-review.mjs\` and, if it `
+          + `keeps coming back without one, say so in your answer rather than ending the turn on it.`,
+      };
+    }
     return { block: false, kind: 'reviewed', why: `the second opinion passed this diff (${String(opinion.sha || '').slice(0, 8)})` };
   }
 
