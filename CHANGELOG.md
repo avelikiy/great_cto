@@ -29,6 +29,50 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.2 — 2026-09-09
+
+v3.28.1 shipped with a red check inside a step that could not fail. Both halves
+of that sentence were defects, and both were introduced the same day as the
+check itself.
+
+### Fixed
+
+- **The docs step can fail again.** `scripts/ci-local.sh` ran the docs tests as
+  `node --test tests/docs/*.test.mjs 2>/dev/null || true`. The README parity
+  check was red inside it on v3.28.1 while the gate printed ALL GATES GREEN and
+  the release went out. **A guard wired into a step that cannot fail is declared
+  and never consumed** — the shape this repository exists to find. The empty
+  directory that `|| true` was covering is now handled by asking whether the
+  files exist, not by discarding the exit code.
+- **The parity check asks about currency, not about a version string.** It
+  required each translation's stamp to name the CURRENT package version, so a
+  patch bump turned nine files stale even when the English text had not moved.
+  That is exactly what went red: the translations were generated from the
+  current English and stamped v3.28.0 minutes before the bump to v3.28.1. A
+  check that cries on a release where there is nothing to do is a check somebody
+  deletes. It now asks history — *is the translation behind the English?* — and
+  fails only when the last commit touching a translation precedes the last
+  commit touching `README.md`. The stamp is still required to exist, because it
+  is what tells a reader what they are looking at; it is no longer required to
+  match.
+
+### Under it
+
+- Both probes were run in throwaway worktrees, after the first attempt used
+  `git reset --hard` in the working tree and destroyed the very edit it was
+  testing. Nothing belonging to another session was touched; the rule against
+  that exists because the next time it might be.
+- Witness entry for the un-swallowed step: restoring `|| true` is a
+  one-character edit after which every test still passes.
+
+### Found by
+
+Rebasing `codex/host-lifecycle-v2` onto this release — not by the gate, which is
+the point of the first bullet.
+
+---
+
 ## v3.28.1 — 2026-09-09
 
 Nine translated READMEs told nine languages this tool ships 69 agents. It ships
