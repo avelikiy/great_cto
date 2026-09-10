@@ -129,19 +129,38 @@ function githubFixture(t) {
   return s;
 }
 
-function fakeGitHub(policy, { failFirstPublish = false } = {}) {
-  let release = null, publishFailures = 0;
+function fakeGitHub(policy, {
+  failFirstPublish = false, unreachable = false, tagAt = null, extraAsset = false,
+  corruptDownload = false, tagMovesTo = null,
+} = {}) {
+  let release = null, publishFailures = 0, tagCommit = tagAt;
   const assets = new Map(), calls = [];
+  // Real gh run through execFile: a non-zero exit with the message on stderr.
+  // It never sets a semantic error.code — an earlier fake did, so the stderr
+  // branch production actually depends on was never exercised.
+  const ghError = stderr => Object.assign(Error(`Command failed: gh\n${stderr}`), { code: 1, stderr });
   const gh = async args => {
     calls.push(args);
+    if (args[0] === 'api') {
+      if (unreachable) throw ghError('gh: Not Found (HTTP 404)');
+      const path = args[1];
+      if (path === `repos/${policy.repository}`) return { stdout: JSON.stringify({ full_name: policy.repository }) };
+      if (path === `repos/${policy.repository}/git/ref/tags/${policy.tag}`) {
+        if (!tagCommit) throw ghError('gh: Not Found (HTTP 404)');
+        return { stdout: JSON.stringify({ object: { sha: tagCommit, type: 'commit' } }) };
+      }
+      throw Error(`unexpected gh api call: ${path}`);
+    }
     const op = `${args[0]} ${args[1]}`;
     if (op === 'release view') {
-      if (!release) { const error = Error('release not found'); error.code = 'RELEASE_NOT_FOUND'; throw error; }
+      if (unreachable) throw ghError('HTTP 404: Not Found');
+      if (!release) throw ghError('release not found');
       return { stdout: JSON.stringify({ ...release, assets: [...assets].map(([name]) => ({ name })) }) };
     }
     if (op === 'release create') {
       assert.equal(args.includes('--draft'), true); assert.equal(args[args.indexOf('--target') + 1], policy.targetCommitish);
       release = { isDraft: true, tagName: policy.tag, targetCommitish: policy.targetCommitish, url: 'https://github.example/acme/widget/releases/v1.2.3' };
+      if (extraAsset) assets.set('stray-asset.txt', Buffer.from('not approved'));
       return { stdout: '' };
     }
     if (op === 'release upload') {
@@ -152,11 +171,15 @@ function fakeGitHub(policy, { failFirstPublish = false } = {}) {
     }
     if (op === 'release download') {
       const name = args[args.indexOf('--pattern') + 1], output = args[args.indexOf('--output') + 1];
-      writeFileSync(output, assets.get(name)); return { stdout: '' };
+      writeFileSync(output, corruptDownload ? Buffer.from('tampered in transit') : assets.get(name)); return { stdout: '' };
     }
     if (op === 'release edit') {
       if (failFirstPublish && publishFailures++ === 0) throw Error('connection lost during publish');
-      release.isDraft = false; return { stdout: '' };
+      release.isDraft = false;
+      // Publishing creates the tag at target_commitish only when it does not
+      // exist yet; an existing tag keeps pointing wherever it pointed.
+      tagCommit = tagMovesTo ?? tagCommit ?? policy.targetCommitish;
+      return { stdout: '' };
     }
     throw Error(`unexpected gh call: ${args.join(' ')}`);
   };
@@ -197,4 +220,73 @@ test('live build export -> explicit release approval -> artifact smoke without r
   assert.equal(s.release.status, 'verified', JSON.stringify(s.release.smoke));
   assert.equal(s.release.smoke.code, 0);
   assert.deepEqual(Object.keys(s.release.smoke.files), ['dist/index.mjs']);
+});
+
+// ── GitHub adapter: what "fails closed" means, one case each ────────────────
+//
+// ADR-022 lists these consequences. Until now only the happy path and the
+// lost-publish retry were exercised, so each "refuses" below was a claim.
+
+const ops = (remote, since = 0) => remote.calls.slice(since).map(args => `${args[0]} ${args[1]}`);
+const runGitHub = async (t, options, checks = smoke) => {
+  const s = githubFixture(t), remote = fakeGitHub(s.releasePolicy, options);
+  prepareRelease(s); approveRelease(s, s.release.token);
+  const outcome = executeRelease(s, { safePath, gh: remote.gh, checks });
+  return { s, remote, outcome };
+};
+
+test('GitHub release refuses an unreachable repository instead of reading it as "no release"', async t => {
+  const { s, remote, outcome } = await runGitHub(t, { unreachable: true });
+  await assert.rejects(outcome, /not reachable/);
+  assert.equal(ops(remote).includes('release create'), false, 'created a release in a repository it could not see');
+  assert.equal(s.release.status, 'failed');
+});
+
+test('GitHub release refuses a tag that already points at another commit', async t => {
+  const { remote, outcome } = await runGitHub(t, { tagAt: 'f'.repeat(40) });
+  await assert.rejects(outcome, /already points at/);
+  assert.equal(ops(remote).includes('release create'), false);
+  assert.equal(ops(remote).includes('release upload'), false);
+});
+
+test('GitHub release rejects a draft carrying an unapproved asset, and never publishes it', async t => {
+  const { remote, outcome } = await runGitHub(t, { extraAsset: true });
+  await assert.rejects(outcome, /unapproved asset/);
+  assert.equal(ops(remote).includes('release edit'), false);
+  assert.equal(remote.remote().isDraft, true);
+});
+
+test('GitHub release rejects downloaded bytes that differ, and never publishes them', async t => {
+  const { remote, outcome } = await runGitHub(t, { corruptDownload: true });
+  await assert.rejects(outcome, /differs from approved/);
+  assert.equal(ops(remote).includes('release edit'), false);
+  assert.equal(remote.remote().isDraft, true);
+});
+
+test('a failing smoke leaves the GitHub release a draft', async t => {
+  const { remote, outcome } = await runGitHub(t, {}, async () => ({ state: 'failed', code: 1 }));
+  await assert.rejects(outcome, /smoke/);
+  assert.equal(ops(remote).includes('release edit'), false, 'published a release whose smoke failed');
+  assert.equal(remote.remote().isDraft, true);
+});
+
+test('an already-published release is accepted again only by re-downloading and re-smoking it', async t => {
+  const s = githubFixture(t), remote = fakeGitHub(s.releasePolicy);
+  prepareRelease(s); approveRelease(s, s.release.token);
+  await executeRelease(s, { safePath, gh: remote.gh, checks: smoke });
+  const before = remote.calls.length;
+  let smoked = 0;
+  await executeRelease(s, { safePath, gh: remote.gh, checks: async (...a) => { smoked += 1; return smoke(...a); } });
+  const again = ops(remote, before);
+  assert.equal(again.includes('release create'), false);
+  assert.equal(again.includes('release upload'), false);
+  assert.ok(again.includes('release download'), 'existing assets were accepted without being re-verified');
+  assert.equal(smoked, 1);
+  assert.equal(s.release.status, 'verified');
+});
+
+test('the published tag must resolve to the approved commit, not merely carry it as an attribute', async t => {
+  const { s, outcome } = await runGitHub(t, { tagMovesTo: 'e'.repeat(40) });
+  await assert.rejects(outcome, /resolves to/);
+  assert.equal(s.release.status, 'failed');
 });

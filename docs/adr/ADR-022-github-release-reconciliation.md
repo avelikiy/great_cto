@@ -26,6 +26,16 @@ missing names without `--clobber`, download every remote asset and compare its
 SHA-256 with the approved candidate. Run the pinned offline smoke policy against
 the downloaded bytes. Publish only after all checks pass.
 
+Two checks precede everything else, because the release object cannot answer
+them. First, confirm the repository is reachable with the current credentials:
+a 404 from an unreachable repository must not be read as "no release yet".
+Second, resolve the tag itself. GitHub documents `target_commitish` as "Unused
+if the Git tag already exists", so a release whose attribute matches the
+approved commit can still be attached to a tag that points elsewhere. Refuse to
+create or accept a release when the tag already exists at another commit, and
+after publication resolve the tag again (dereferencing an annotated tag) and
+fail closed unless it names the approved `targetCommitish`.
+
 The release policy stores no GitHub token. Authentication and authorization are
 delegated to the installed `gh` credential store. The controller invokes `gh`
 with argument arrays and disables interactive prompting.
@@ -37,6 +47,10 @@ with argument arrays and disables interactive prompting.
 - A remote release with an unexpected asset, different target or different bytes
   fails closed and requires operator investigation.
 - Temporary upload and download files are private and deleted after verification.
+- An unreachable repository, or a tag already pointing at another commit, is
+  refused before any remote effect. A tag found at the wrong commit AFTER
+  publication cannot be undone by this adapter: the release is public, the run
+  is marked failed, and the operator decides.
 - A pre-existing published release is accepted only when its target and every
   asset match the approved candidate and smoke passes again.
 - No live GitHub release is created by automated tests; integration tests use a
