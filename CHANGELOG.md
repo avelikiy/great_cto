@@ -31,6 +31,48 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.4 — 2026-09-10
+
+The agent panel under the prompt now names the great_cto stage that is running.
+
+### Added
+
+- **A great_cto row in Claude Code's agent panel.** The plugin now ships
+  `subagentStatusLine` from `settings.json` — one of the only two keys a plugin
+  may set there; the main `statusLine` is not one of them, and hooks cannot
+  change a status line at all.
+
+  ```
+  ◆ senior-dev   opus-5 · 4m12s · 38k/1M · implement pipeline-position lib
+  ◆ qa-engineer  sonnet-5 · 1m01s · 0/1M · completed · verify rework loop
+  ```
+
+  In one real session the default row hid two things: one agent answered to two
+  names (`senior-dev` and `great-cto:senior-dev`), and forty `general-purpose`
+  subagents looked exactly like pipeline stages. The row fixes both, and what it
+  refuses to do is most of the design: only a name found in `agents/*.md` gets
+  the ◆ row, while any other subagent keeps the host's default; a value that was
+  not reported — model, start time, tokens — is left out, never printed as
+  `undefined` or `0k`, while a reported zero is shown; unreadable input produces
+  no overrides and exit 0. 16 tests; removing the prefix normalisation, giving a
+  non-stage the ◆ row, or printing unmeasured tokens each turns them red.
+
+### Fixed
+
+- **`docs/reference/architecture-map.md` regenerated** (603 files, 126 libs). The
+  first gate after the statusline merged failed on it. A later `--check` passed
+  only because a PostToolUse hook had rewritten the file on disk in the
+  meantime — green because the checked file changed, not because anyone fixed
+  it. The regenerated counts are now committed.
+
+### Not verified
+
+- How the row renders in a live agent panel. That needs a real session after
+  installing this version.
+
+---
+
 ## v3.28.3 — 2026-09-09
 
 The README spent 239 words defending the product before showing it. A reader who
