@@ -1,6 +1,6 @@
 # PLAN — Measure each agent run, and say when it ran on another model
 
-**Status:** in progress · **Date:** 2026-09-11 · **Owner:** senior-dev
+**Status:** implemented, not released · **Date:** 2026-09-11 · **Owner:** senior-dev
 **Beads:** `great_cto-ja2u` (T1), `great_cto-z6cd` (T1), `great_cto-y4oq` (T2), `great_cto-xzpa` (T3) ·
 out of scope, filed: `great_cto-601c`, `great_cto-z2jm`
 **Unblocks:** [What leaves Claude Code, and what it costs to move it](PLAN-2026-09-09-openrouter-routing.md),
@@ -134,6 +134,27 @@ session needs measuring.
 - `great_cto-601c` — `cost-guard` parses `cost_usd=N`, the writer emits a bare number, so budgets
   compare against zero measured spend. Fixing it once Task 1 records real figures can start
   blocking prompts under `enforce=block`; that is a behaviour change to decide on its own.
+
+## Result (2026-09-11)
+
+| Task | Commit | Proof |
+|---|---|---|
+| 1 — agent-attributed cost + model check | `cecec2ff` | 20 tests; mutation (ignore `agent_transcript_path`) turns 4 red; on real transcripts: `great-cto:senior-dev` → `match asked=sonnet served=claude-sonnet-5`, `general-purpose` → `unverifiable` |
+| 2 — Codex timeout kills the group | `6f78469c` | mutation (no process group): `resolved after 30169ms` |
+| 3 — skips are not ALL GATES GREEN | `fbe4281c` | real `step()` under `/bin/bash` 3.2; three mutations killed |
+| docs | `1f9987a2`, `9d61e8e2` | architecture map; this plan indexed (it had been an orphan and turned the gate red) |
+
+Full `ci-local.sh`: inner exit 0, `ALL GATES GREEN`, no skips, no orphaned runners.
+
+What this does not prove yet:
+- A live SubagentStop writing an attributed line — needs `install-local` (not run: it would put
+  unreleased hooks into every live session on the machine) and a real subagent stop.
+- The model check is only valid at stop time. Replayed over an old transcript it compares against
+  today's frontmatter: a 2026-08-09 `product-owner` run read as `substituted` because its
+  `model:` changed on 2026-09-05.
+- `count-skips` does not read `test-pipeline.sh`'s own `– N skipped` summary.
+- Found on the way, filed: `great_cto-slm0` — SessionStart copies a hardcoded 55-agent list;
+  15 agents had vanished from `~/.claude/agents` and were restored by hand.
 
 ## Verification before calling it done
 
