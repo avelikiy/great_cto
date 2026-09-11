@@ -85,24 +85,43 @@ export function runCodexExec({
     if (cwd) args.push('-C', cwd);
     args.push(...extraArgs, '-');
 
-    const proc = spawn(bin, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env } });
+    // Its own process group, so a timeout stops the CLI AND whatever it started.
+    // Killing only the CLI left its children running — the same orphan that kept
+    // a release gate's test runner alive for a day (2026-09-10).
+    const group = process.platform !== 'win32';
+    const proc = spawn(bin, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env }, detached: group });
     let out = '';
     let err = '';
-    const timer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* gone */ } }, timeoutMs);
+    let timedOut = false;
+    const killGroup = () => {
+      try {
+        if (group && proc.pid) process.kill(-proc.pid, 'SIGKILL');
+        else proc.kill('SIGKILL');
+      } catch { try { proc.kill('SIGKILL'); } catch { /* gone */ } }
+    };
+    const timer = setTimeout(() => { timedOut = true; killGroup(); }, timeoutMs);
 
     proc.stdout.on('data', (b) => { out += String(b); });
     proc.stderr.on('data', (b) => { err += String(b); });
     proc.on('error', (e) => {
       clearTimeout(timer);
-      resolve({ state: 'unreadable', text: null, usage: null, errors: [String(e.message || e)], code: null, model });
+      resolve({ state: 'unreadable', text: null, usage: null, errors: [String(e.message || e)], code: null, model, timedOut });
     });
     proc.on('close', (code) => {
       clearTimeout(timer);
+      // Best effort: a child the CLI left behind must not outlive the review.
+      if (group && proc.pid) { try { process.kill(-proc.pid, 'SIGKILL'); } catch { /* group already gone */ } }
       const parsed = parseCodexStream(out);
       // stderr is kept even on success: Codex writes warnings there that change
       // how a result should be read.
       if (err.trim()) parsed.errors.push(err.trim().slice(0, 500));
-      resolve({ ...parsed, code, model });
+      // A run cut off by the clock may have printed a verdict before it was done.
+      // That is a truncated answer, and a truncated answer is not an answer.
+      if (timedOut) {
+        parsed.errors.push(`timed out after ${timeoutMs}ms`);
+        if (parsed.state === 'ok') parsed.state = 'unreadable';
+      }
+      resolve({ ...parsed, code, model, timedOut });
     });
 
     proc.stdin.write(prompt);

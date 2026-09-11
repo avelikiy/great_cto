@@ -70,3 +70,50 @@ test('an empty stream is empty, not an answer', () => {
   assert.equal(parseCodexStream('{"type":"turn.completed","usage":{}}').state, 'empty');
   assert.equal(parseCodexStream('garbage').state, 'unreadable');
 });
+
+test('a timed-out run leaves no process behind, and is not an answer', async (t) => {
+  // A fake `codex` that starts a child and waits on it — the shape of a CLI whose
+  // tool or MCP server is still running when the review runs out of time. Killing
+  // only the CLI left that child alive: the same orphan that wedged a release gate.
+  if (process.platform === 'win32') return t.skip('process groups are POSIX');
+  const dir = mkdtempSync(path.join(tmpdir(), 'gc-codex-timeout-'));
+  const bin = path.join(dir, 'codex');
+  const pidFile = path.join(dir, 'child.pid');
+  writeFileSync(bin, [
+    '#!/bin/sh',
+    'cat > /dev/null',
+    'echo \'{"type":"item.completed","item":{"type":"agent_message","text":"VERDICT: PASS"}}\'',
+    `sleep 30 & echo $! > "${pidFile}"`,
+    'wait',
+  ].join('\n'));
+  chmodSync(bin, 0o755);
+  const started = Date.now();
+  const r = await runCodexExec({ prompt: 'x', cwd: dir, bin, timeoutMs: 800 });
+  const elapsed = Date.now() - started;
+  // Time is the witness, not only liveness. With the CLI alone killed, the child
+  // keeps stdout open, so the result arrives when the child ends ON ITS OWN —
+  // 30 s later — and by then it is gone, so a liveness check alone passes.
+  assert.ok(elapsed < 5000, `resolved after ${elapsed}ms — the child held the run open until it exited by itself`);
+  assert.equal(r.timedOut, true);
+  assert.notEqual(r.state, 'ok', 'a truncated answer read as an answer');
+  assert.ok(r.errors.some((e) => /timed out after 800ms/.test(e)), JSON.stringify(r.errors));
+  const fs = await import('node:fs');
+  const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+  let alive = true;
+  for (let i = 0; i < 20 && alive; i += 1) {
+    try { process.kill(pid, 0); await new Promise((res) => setTimeout(res, 50)); } catch { alive = false; }
+  }
+  if (alive) { try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ } }
+  assert.equal(alive, false, `child ${pid} of the timed-out codex is still running`);
+});
+
+test('a run that finishes in time says it did not time out', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'gc-codex-intime-'));
+  const bin = path.join(dir, 'codex');
+  writeFileSync(bin, ['#!/bin/sh', 'cat > /dev/null',
+    'echo \'{"type":"item.completed","item":{"type":"agent_message","text":"ok"}}\''].join('\n'));
+  chmodSync(bin, 0o755);
+  const r = await runCodexExec({ prompt: 'x', cwd: dir, bin, timeoutMs: 10000 });
+  assert.equal(r.state, 'ok');
+  assert.equal(r.timedOut, false);
+});
