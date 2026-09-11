@@ -24,18 +24,21 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync, appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { checkExecution, explainExecution } from '../lib/execution-claims.mjs';
 import { stopShape, stopRemedy } from '../lib/stop-shape.mjs';
 import { worktreesWithChanges, explainWorktrees } from '../lib/worktree-state.mjs';
+import { stopTranscript, stopAgent, requestedModel, modelCheck, costLine } from '../lib/subagent-cost.mjs';
 import { fileURLToPath } from 'node:url';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const ORCH_PATH = join('shared', 'orchestrator.toml');
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
 const RECENT_MS = 5 * 60 * 1000; // a verdict written in the last 5 min counts as "this stop"
+// Where an agent's `model:` is declared. Overridable so a test can hand the hook its own agents.
+const AGENTS_DIR = process.env.GREAT_CTO_AGENTS_DIR || join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'agents');
 
 /** Parse the [completion] flags from orchestrator.toml text. */
 export function readCompletionFlags(tomlText) {
@@ -211,6 +214,25 @@ function verdictTimestamp(line) {
 }
 
 /**
+ * The timestamp of THIS agent's own verdict, when it wrote one within the window.
+ *
+ * Not the newest verdict in the directory: in a parallel fan-out that is some
+ * other agent's, and a cost keyed to another agent's minute attaches to its run.
+ * Verdict files exist under both the bare and the plugin-prefixed name.
+ */
+function agentVerdictTs(dir, agent, withinMs, now) {
+  for (const name of [agent, `great-cto:${agent}`]) {
+    const p = join(dir, `${name}.log`);
+    try {
+      if (now - statSync(p).mtimeMs > withinMs) continue;
+      const ts = verdictTimestamp(readFileSync(p, 'utf8').trim().split('\n').pop());
+      if (ts) return ts;
+    } catch { /* no log under this name */ }
+  }
+  return null;
+}
+
+/**
  * The largest turn count that can plausibly be ONE subagent run.
  *
  * Not a tuning knob — a discriminator. Agent runs in this repository's own logs
@@ -225,12 +247,31 @@ const MAX_RUN_TURNS = 400;
 async function recordMeasuredCost(stdin) {
   if (process.env.GREAT_CTO_NO_MEASURED_COST === '1') return;
   try {
-    const tp = JSON.parse(stdin || '{}').transcript_path;
+    const payload = JSON.parse(stdin || '{}');
+    const { path: tp, source } = stopTranscript(payload);
     if (!tp || !existsSync(tp)) return;
     const { usageFromTranscript } = await import('../lib/usage-from-transcript.mjs');
     const measured = usageFromTranscript(tp);
     const { usd } = measured;
     if (!(usd > 0)) return;
+
+    // The host names the agent and hands its own transcript. Until 2026-09-11
+    // this read `transcript_path` — the session — so every stop measured ~10k
+    // turns, the guard below set each figure aside, and no agent run was ever
+    // measured. With the agent's transcript and its name, nothing has to be
+    // inferred from whichever verdict file happens to be newest.
+    const stopped = stopAgent(payload);
+    if (source === 'agent' && stopped) {
+      const check = modelCheck(requestedModel(AGENTS_DIR, stopped), Object.keys(measured.by_model || {}));
+      const ts = agentVerdictTs(VERDICT_DIR, stopped, RECENT_MS, Date.now())
+        || new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+      appendFileSync(join(PROJ_DIR, 'cost-history.log'), costLine({ ts, agent: stopped, measured, check }));
+      // Reported, never blocking: a stop is not the moment to refuse work that is done.
+      if (check.state === 'substituted') process.stderr.write(`[great_cto:model] ${stopped}: ${check.why}\n`);
+      return;
+    }
+
+    // Legacy host (no agent_transcript_path): the path may be the session's.
 
     // A figure that cannot belong to ONE agent run must not be recorded as one.
     //
@@ -312,10 +353,13 @@ async function main() {
   // How the subagent stopped — read from the transcript the hook is already given.
   let stop = null;
   try {
-    const tp = JSON.parse(stdin || '{}').transcript_path;
+    const payload = JSON.parse(stdin || '{}');
+    // The subagent's own transcript. `transcript_path` is the session's, and a
+    // cut-off read from the whole session describes no agent in particular.
+    const tp = stopTranscript(payload).path;
     if (tp) {
       const sh = stopShape(tp);
-      stop = { shape: sh.shape, turns: sh.turns, agent: fresh?.agent || null };
+      stop = { shape: sh.shape, turns: sh.turns, agent: fresh?.agent || stopAgent(payload) };
       // Handed to the dispatcher, which runs in the ORCHESTRATOR's context and
       // is the only thing here that can resume anything. A hook cannot call
       // SendMessage; the orchestrator can, and it does not know how the subagent

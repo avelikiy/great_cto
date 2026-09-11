@@ -63,6 +63,13 @@
       "marker": "no tests/docs — nothing to run\"; exit 0; }; node --test tests/docs/*.test.mjs'",
       "why": "This step ended in `|| true` for months. On v3.28.1 the README parity check was red inside it while the gate printed ALL GATES GREEN, so a guard added that same day could not fail anything. Restoring the swallow is a one-character edit and every test still passes.",
       "fixed-in": "3.28.2"
+    },
+    {
+      "id": "subagent-stop-measures-the-agent-not-the-session",
+      "file": "scripts/hooks/subagent-stop-completion.mjs",
+      "marker": "const { path: tp, source } = stopTranscript(payload);",
+      "why": "SubagentStop read transcript_path, which is the session transcript. Every stop measured ~10k turns, the 400-turn guard set each figure aside as unattributed, and September held zero per-agent measured costs while the board looked unmeasured rather than broken. Reverting to transcript_path keeps every older test green.",
+      "fixed-in": "3.28.5"
     }
   ]
 }
