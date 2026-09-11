@@ -32,6 +32,51 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.5 — 2026-09-11
+
+Each agent run is measured again — against the agent that ran, with the model that served it.
+
+### Fixed
+
+- **SubagentStop measured the session, so no agent run had a measured cost.** Claude Code
+  hands the hook two paths: `agent_transcript_path` for the subagent that stopped and
+  `transcript_path` for the whole session. The hook read the second. Every stop measured
+  ~10k turns, the 400-turn guard set the figure aside as `(unattributed)`, and September held
+  no per-agent cost at all — a board that looked unmeasured rather than broken. The hook now
+  measures the agent's own transcript, attributes it by `agent_type`, and keys it to that
+  agent's own verdict minute rather than whichever verdict file is newest. Cut-off detection
+  read the same wrong path and is fixed with it. Hosts that send only `transcript_path` keep
+  the old guard.
+- **A timed-out Codex review left what it started running.** `codex-exec` killed only the CLI;
+  a child it had started held stdout open, and the result arrived when that child ended on
+  its own — 60 s for an 800 ms timeout. The CLI now leads its own process group, a timeout
+  kills the group, the result carries `timedOut`, and a verdict printed before the clock ran
+  out is `unreadable`, not `ok`.
+- **`ci-local.sh` printed ALL GATES GREEN when tests were skipped.** `node --test` exits 0 on
+  a skip, so a board e2e that could not launch a browser printed ✓. Each step now counts its
+  skipped tests; with no failures and N skips the gate prints
+  `GREEN, N TEST(S) SKIPPED — NOT CHECKED` and lists the steps. Exit codes are unchanged.
+
+### Added
+
+- **A model check on every measured run.** Each `cost-history.log` line ends with
+  `model=match|substituted|unverifiable`, `asked=` and `served=`, in trailing fields the
+  existing readers ignore. An alias (`sonnet`) matches its family; an exact id matches its
+  dated alias and not another number; the agent's `advisor-model` is allowed. A substitution
+  is written to stderr and never blocks a stop.
+
+### Not verified
+
+- A live SubagentStop writing an agent-attributed line. The hook was run on real subagent
+  transcripts (`great-cto:senior-dev` → `match asked=sonnet served=claude-sonnet-5`), not yet
+  from a session running this version.
+- The model check is only meaningful at stop time: replayed over an old transcript it
+  compares against today's frontmatter.
+- `count-skips` does not read `test-pipeline.sh`'s own `– N skipped` summary.
+
+---
+
 ## v3.28.4 — 2026-09-10
 
 The agent panel under the prompt now names the great_cto stage that is running.
