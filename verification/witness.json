@@ -70,6 +70,13 @@
       "marker": "const { path: tp, source } = stopTranscript(payload);",
       "why": "SubagentStop read transcript_path, which is the session transcript. Every stop measured ~10k turns, the 400-turn guard set each figure aside as unattributed, and September held zero per-agent measured costs while the board looked unmeasured rather than broken. Reverting to transcript_path keeps every older test green.",
       "fixed-in": "3.28.5"
+    },
+    {
+      "id": "skipped-tests-are-not-all-gates-green",
+      "file": "scripts/ci-local.sh",
+      "marker": "if [ \"$FAIL\" -eq 0 ] && [ \"$SKIP_TOTAL\" -eq 0 ]; then",
+      "why": "step() judged each step by exit code, and node --test exits 0 when tests skip. A board e2e that could not launch a browser printed a check mark and the gate printed ALL GATES GREEN. Dropping the skip total from this condition keeps every exit code the same and the gate reads as fully checked again.",
+      "fixed-in": "3.28.5"
     }
   ]
 }

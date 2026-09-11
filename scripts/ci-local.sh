@@ -28,14 +28,33 @@ for a in "$@"; do
 done
 
 FAIL=0
+SKIP_TOTAL=0
+SKIP_LINES=""
 step() {
   local name="$1"; shift
   printf '\n\033[1m── %s\033[0m\n' "$name"
-  if "$@"; then
+  # Output goes to the terminal AND a log, so the step can be asked how many tests
+  # it skipped. `node --test` exits 0 when tests skip: judged by exit code alone, a
+  # board e2e that pressed no button printed ✓ and the gate ALL GATES GREEN.
+  # No arrays below — macOS /bin/bash is 3.2, and with `set -u` an empty one is fatal.
+  local log rc skips
+  log="$(mktemp "${TMPDIR:-/tmp}/ci-local-step.XXXXXX")"
+  "$@" 2>&1 | tee "$log"
+  rc=${PIPESTATUS[0]}
+  skips="$(node scripts/lib/count-skips.mjs "$log" 2>/dev/null)" || skips=""
+  rm -f "$log"
+  if [ "$rc" -eq 0 ]; then
     printf '\033[32m   ✓ %s\033[0m\n' "$name"
   else
-    printf '\033[31m   ✗ %s (exit %s)\033[0m\n' "$name" "$?"
+    printf '\033[31m   ✗ %s (exit %s)\033[0m\n' "$name" "$rc"
     FAIL=1
+  fi
+  if [ -z "$skips" ]; then
+    printf '\033[33m   ⚠ %s: skipped tests could not be counted\033[0m\n' "$name"
+  elif [ "$skips" -gt 0 ]; then
+    printf '\033[33m   ⚠ %s: %s test(s) skipped — not checked\033[0m\n' "$name" "$skips"
+    SKIP_TOTAL=$((SKIP_TOTAL + skips))
+    SKIP_LINES="${SKIP_LINES}   - ${name}: ${skips}\n"
   fi
 }
 
@@ -419,8 +438,14 @@ if [ "$E2E" -eq 1 ]; then
 fi
 
 printf '\n'
-if [ "$FAIL" -eq 0 ]; then
+if [ "$FAIL" -eq 0 ] && [ "$SKIP_TOTAL" -eq 0 ]; then
   printf '\033[42;30m CI-LOCAL: ALL GATES GREEN \033[0m\n'
+  exit 0
+elif [ "$FAIL" -eq 0 ]; then
+  # Exit 0 on purpose: a skip is not a failure, and cd-local keys on the exit code.
+  # It is not a pass either, so it does not get the banner that means one.
+  printf '\033[43;30m CI-LOCAL: GREEN, %s TEST(S) SKIPPED — NOT CHECKED \033[0m\n' "$SKIP_TOTAL"
+  printf '%b' "$SKIP_LINES"
   exit 0
 else
   printf '\033[41;97m CI-LOCAL: FAILURES ABOVE \033[0m\n'
