@@ -58,6 +58,9 @@ How many stages there are, who runs them, and where a human is asked.
 What a run spends, and what it can hold.
 
 - [Context compression (headroom-inspired)](PLAN-headroom-context-compression.md)
+- [Measure each agent run, and say when it ran on another model](PLAN-2026-09-11-measured-agent-cost.md) —
+  *declares: in progress · 2026-09-11*. SubagentStop read the session transcript, so no
+  agent run had ever been measured; §1 of the OpenRouter plan below had nothing to stand on.
 - [Token economy initiative (2026 Q2)](PLAN-token-economy-2026-q2.md) — *declares: active*
 - [Tune great_cto for Claude Opus 4.8 and the Fable/4.x family](PLAN-opus48-tuning.md)
 

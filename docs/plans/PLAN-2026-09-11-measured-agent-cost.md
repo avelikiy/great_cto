@@ -3,6 +3,8 @@
 **Status:** in progress · **Date:** 2026-09-11 · **Owner:** senior-dev
 **Beads:** `great_cto-ja2u` (T1), `great_cto-z6cd` (T1), `great_cto-y4oq` (T2), `great_cto-xzpa` (T3) ·
 out of scope, filed: `great_cto-601c`, `great_cto-z2jm`
+**Unblocks:** [What leaves Claude Code, and what it costs to move it](PLAN-2026-09-09-openrouter-routing.md),
+whose §1 is "no agent has been measured".
 **Sources:** HarnessRouter CE `docs/harness-verification.md` rule 2 and conformance C-03 / report
 states; UltraContext `packages/parsers` (both Apache-2.0). Ideas taken, no code copied.
 
