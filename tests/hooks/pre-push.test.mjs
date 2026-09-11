@@ -333,7 +333,7 @@ test('generic workspace container names are not treated as private projects', ()
   const m = hook.match(/_STOPWORDS="([\s\S]*?)"/);
   assert.ok(m, 'the hook still has a stopword list');
   const words = new Set(m[1].split(/\s+/).filter(Boolean));
-  for (const generic of ['scripts', 'docs', 'lib', 'bin', 'src', 'tools', 'test', 'data']) {
+  for (const generic of ['scripts', 'docs', 'lib', 'bin', 'src', 'tools', 'test', 'data', 'plugin', 'plugins']) {
     assert.ok(words.has(generic),
       `"${generic}" names a directory anyone might have and a word anyone might write; `
       + 'flagging it trains the operator to pass --no-verify');
