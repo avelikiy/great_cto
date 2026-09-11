@@ -28,7 +28,7 @@ flowchart TD
   board["Board<br/><small>69 files</small>"]
   cli["CLI<br/><small>33 files</small>"]
   evals["Evals<br/><small>80 files</small>"]
-  hooks -->|24| libs
+  hooks -->|25| libs
   board -->|16| libs
   libs -->|4| hooks
   libs -->|1| evals
