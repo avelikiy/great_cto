@@ -280,6 +280,9 @@ else
       [ \"\$code\" = '401' ]
     "
 
+  # The digest is the LAST field: OpenSSL 3 prints `SHA2-256(stdin)= <hex>`, macOS's
+  # /usr/bin/openssl (LibreSSL) prints the bare hex, where `$2` is empty and the
+  # check signed with nothing. It went red on 2026-09-11 the day PATH put /usr/bin first.
   check "serve enforces HMAC: valid signature returns 200" \
     bash -c "
       cfg=~/.great_cto/webhooks.json
@@ -535,11 +538,12 @@ else
   check "all 4 new agents synced (continuous-learner + 3 reviewers)" \
     bash -c "for a in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do [ -f ~/.claude/agents/great_cto-\$a.md ] || exit 1; done"
 
-  check "plugin.json sync list includes new commands" \
-    bash -c "grep -q 'agent-review' .claude-plugin/plugin.json && grep -q 'agent-retire' .claude-plugin/plugin.json"
-
-  check "plugin.json sync list includes all 4 new agents" \
-    bash -c "grep -q 'continuous-learner' .claude-plugin/plugin.json && grep -q 'edtech-reviewer' .claude-plugin/plugin.json && grep -q 'gov-reviewer' .claude-plugin/plugin.json && grep -q 'insurance-reviewer' .claude-plugin/plugin.json"
+  # Was two greps for names in a hand-kept install list. That list had left out
+  # fifteen agents by 2026-09-11; SessionStart now installs every agents/*.md and
+  # commands/*.md through scripts/lib/sync-managed.mjs, so the property is that
+  # no list is back.
+  check "SessionStart installs every agent and command, from no hand-kept list" \
+    bash -c "grep -q 'scripts/lib/sync-managed.mjs' .claude-plugin/plugin.json && ! grep -qE 'for (AGENT|CMD) in ' .claude-plugin/plugin.json"
 fi
 
 # =============================================================================

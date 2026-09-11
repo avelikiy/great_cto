@@ -77,6 +77,13 @@
       "marker": "if [ \"$FAIL\" -eq 0 ] && [ \"$SKIP_TOTAL\" -eq 0 ]; then",
       "why": "step() judged each step by exit code, and node --test exits 0 when tests skip. A board e2e that could not launch a browser printed a check mark and the gate printed ALL GATES GREEN. Dropping the skip total from this condition keeps every exit code the same and the gate reads as fully checked again.",
       "fixed-in": "3.28.5"
+    },
+    {
+      "id": "a-missing-plugin-directory-deletes-no-agent",
+      "file": "scripts/lib/sync-managed.mjs",
+      "marker": "ships nothing — an empty source is not a reason to delete",
+      "why": "SessionStart pruned every managed agent and command whose source was absent under the plugin directory, without asking whether that directory existed. After install-local --prune deleted the version six open sessions ran from, one session start wiped all 70 agents and 38 of 44 commands. Removing this guard lets an empty source delete everything again.",
+      "fixed-in": "3.28.6"
     }
   ]
 }

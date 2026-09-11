@@ -239,14 +239,15 @@ test('mcp-server-reviewer does not fire on a word that merely starts with mcp', 
   assert.ok(!reviewersFor('docs/mcp-notes.md').includes('mcp-server-reviewer'));
 });
 
-test('every reviewer in RULES has a prompt file and a slot in the sync list', async () => {
+test('every reviewer in RULES has a prompt file, which is what gets it installed', async () => {
   const { readFileSync, existsSync } = await import('node:fs');
   const plugin = readFileSync(new URL('../../.claude-plugin/plugin.json', import.meta.url), 'utf8');
   for (const { reviewer } of RULES) {
     const prompt = new URL(`../../agents/${reviewer}.md`, import.meta.url);
     assert.ok(existsSync(prompt), `${reviewer} is routed to but has no agents/${reviewer}.md`);
-    assert.ok(plugin.includes(` ${reviewer} `) || plugin.includes(`${reviewer};`),
-      `${reviewer} is routed to but never synced into ~/.claude/agents`);
+    // SessionStart installs every agents/*.md; there is no list to be missing from.
+    assert.ok(plugin.includes('scripts/lib/sync-managed.mjs'),
+      `${reviewer} is routed to but SessionStart no longer syncs agents into ~/.claude/agents`);
   }
 });
 

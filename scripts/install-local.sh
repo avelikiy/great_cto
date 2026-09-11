@@ -75,33 +75,29 @@ for f in .claude-plugin/plugin.json skills/great_cto/ARCHETYPES.md skills/great_
 done
 ok "PLUGIN_DIR resolves and required files present"
 
-# ── 2. Refresh global agents (what SessionStart does on session start) ───────
+# ── 2. Refresh global agents and commands (what SessionStart does) ───────────
+# The same script SessionStart runs, so the two can no longer disagree about
+# which agents exist: every agents/*.md and commands/*.md is installed, and only
+# files great_cto marked are ever retired.
 if [ "$DO_AGENTS" -eq 1 ]; then
-  step "Refresh global agents (~/.claude/agents)"
-  mkdir -p "$AGENTS_DIR"
-  n=0
-  for AGENT_FILE in "$DEST"/agents/*.md; do
-    base="$(basename "$AGENT_FILE")"
-    case "$base" in _*) continue ;; esac   # skip _shared partials
-    slug="${base%.md}"
-    if cp "$AGENT_FILE" "$AGENTS_DIR/great_cto-${slug}.md" 2>/dev/null; then
-      grep -q 'great_cto-managed' "$AGENTS_DIR/great_cto-${slug}.md" 2>/dev/null \
-        || echo '<!-- great_cto-managed -->' >> "$AGENTS_DIR/great_cto-${slug}.md"
-      n=$((n+1))
-    fi
-  done
-  ok "refreshed $n agents"
+  step "Refresh global agents and commands (~/.claude)"
+  node "$DEST/scripts/lib/sync-managed.mjs" --plugin-dir "$DEST" --report | sed 's/^/  ✓ /'
 fi
 
 # ── 3. Optional prune of other cached versions ───────────────────────────────
 if [ "$DO_PRUNE" -eq 1 ]; then
   step "Prune other cached versions"
+  # Not every other version: an open session runs hooks from the version it
+  # started on, and deleting that directory is how a session start wiped every
+  # agent and command on 2026-09-11. prune-versions keeps what a live process
+  # names, and removes nothing when it cannot tell.
   removed=0
-  for d in "$CACHE_ROOT"/*/; do
-    d="${d%/}"
-    if [ "$d" != "$DEST" ]; then rm -rf "$d" && removed=$((removed+1)); fi
-  done
-  ok "pruned $removed other version(s) — only v$VERSION remains"
+  plan="$(node "$DEST/scripts/lib/prune-versions.mjs" --cache-root "$CACHE_ROOT" --keep "$DEST")" || plan=""
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    case "$d" in "$CACHE_ROOT"/*) rm -rf "$d" && removed=$((removed+1)) ;; esac
+  done <<< "$plan"
+  ok "pruned $removed other version(s)"
 fi
 
 step "Validate the manifest"

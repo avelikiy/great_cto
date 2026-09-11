@@ -7,9 +7,12 @@ Checks that plugin artefacts are internally consistent BEFORE any runtime:
  2. Every command file has a parseable YAML frontmatter.
  3. Every agent file has a parseable YAML frontmatter with a name, model,
     tools, maxTurns, timeout.
- 4. The SessionStart CMD-copy loop references only command files that exist,
-    and every command file in commands/ is listed in the CMD loop (or
-    explicitly exempted).
+ 4. SessionStart installs agents and commands through scripts/lib/sync-managed.mjs,
+    which copies every commands/*.md and agents/*.md, and no hand-kept
+    `for CMD in` / `for AGENT in` list is back in any hook. (Until 2026-09-11
+    this checked such a list against the disk; the agent list had drifted to 55
+    of 70, and the inline prune beside it wiped every agent and command when
+    the plugin directory it read had been deleted.)
  5. TYPE_MAP.md has at least one backticked slug per row.
  6. Every keyword in TYPE_MAP.md maps to a slug that appears in at least
     one row's right-hand column (no dangling keywords).
@@ -30,9 +33,6 @@ from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-# Commands in the repo that are intentionally hidden from the SessionStart
-# CMD-copy loop (e.g. experimental or scheduler-only).
-EXEMPT_FROM_CMD_LOOP: set[str] = set()
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "model", "tools", "maxTurns", "timeout"}
 
@@ -94,17 +94,13 @@ def check_plugin_json(errors: list[str]) -> dict[str, Any] | None:
     return data
 
 
-def extract_cmd_loop(plugin_data: dict[str, Any]) -> list[str]:
-    hooks = plugin_data.get("hooks", {})
-    start = hooks.get("SessionStart", [])
-    commands: list[str] = []
-    for group in start:
-        for hook in group.get("hooks", []):
-            cmd = hook.get("command", "")
-            match = re.search(r"for CMD in ([a-z][a-z0-9\s\-]*?);\s*do", cmd)
-            if match:
-                commands.extend(match.group(1).split())
-    return commands
+def hook_commands(plugin_data: dict[str, Any]) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    for event, groups in (plugin_data.get("hooks", {}) or {}).items():
+        for group in groups:
+            for hook in group.get("hooks", []):
+                out.append((event, hook.get("command", "")))
+    return out
 
 
 def check_commands(plugin_data: dict[str, Any], errors: list[str]) -> None:
@@ -112,16 +108,14 @@ def check_commands(plugin_data: dict[str, Any], errors: list[str]) -> None:
     if not cmd_dir.is_dir():
         errors.append("commands/ directory missing")
         return
-    on_disk = {p.stem for p in cmd_dir.glob("*.md")}
-    in_loop = set(extract_cmd_loop(plugin_data))
-
-    missing_files = in_loop - on_disk
-    missing_loop = on_disk - in_loop - EXEMPT_FROM_CMD_LOOP
-
-    for cmd in sorted(missing_files):
-        errors.append(f"CMD loop references non-existent command: {cmd}")
-    for cmd in sorted(missing_loop):
-        errors.append(f"command on disk but not in CMD loop: {cmd}")
+    hooks = hook_commands(plugin_data)
+    if not any(ev == "SessionStart" and "scripts/lib/sync-managed.mjs" in c for ev, c in hooks):
+        errors.append("SessionStart does not run scripts/lib/sync-managed.mjs — agents and commands are never installed")
+    if not (ROOT / "scripts" / "lib" / "sync-managed.mjs").is_file():
+        errors.append("scripts/lib/sync-managed.mjs missing")
+    for ev, c in hooks:
+        if re.search(r"for (CMD|AGENT) in ", c):
+            errors.append(f"{ev}: a hand-kept install list is back — sync-managed installs every file instead")
 
     # Frontmatter sanity on each command file.
     for path in sorted(cmd_dir.glob("*.md")):

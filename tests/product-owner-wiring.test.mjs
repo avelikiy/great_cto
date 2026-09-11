@@ -39,8 +39,11 @@ test('product-owner: mapped in phase-task.sh (phase label + priority)', () => {
 test('product-owner: present in routing table + installed by plugin.json', () => {
   assert.match(read('skills/great_cto/SKILL.md'), /`product-owner`/,
     'product-owner missing from SKILL.md routing table');
-  assert.match(read('.claude-plugin/plugin.json'), /for AGENT in product-owner /,
-    'product-owner missing from plugin.json install loop');
+  // SessionStart installs every file in agents/ (scripts/lib/sync-managed.mjs);
+  // the hand-kept list it replaced had silently left out fifteen agents.
+  assert.ok(read('agents/product-owner.md'), 'agents/product-owner.md missing — nothing to install');
+  assert.match(read('.claude-plugin/plugin.json'), /scripts\/lib\/sync-managed\.mjs/,
+    'SessionStart no longer runs the sync that installs every agent');
 });
 
 test('product-owner: brainstorming skill exists and defines the 4-model debate panel', () => {

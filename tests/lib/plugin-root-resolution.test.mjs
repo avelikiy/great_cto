@@ -95,18 +95,18 @@ test('stale copies are found by a rule, not by a list somebody must remember to 
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude-plugin/plugin.json'), 'utf8'));
   const commands = Object.values(manifest.hooks || {})
     .flat().flatMap((g) => g.hooks || []).map((h) => h.command || '');
-  const copyHook = commands.find((c) => c.includes('.claude/commands') && c.includes('great_cto-managed'));
-  assert.ok(copyHook, 'the hook that copies commands and agents to the user level still exists');
-
-  assert.ok(!/for STALE(_AGENT)? in /.test(copyHook),
-    'a hand-maintained list of names to delete is back — the rule reads the plugin instead');
-
-  // The rule, in both halves: only OUR files, and only when the source is gone.
-  for (const dir of ['commands', 'agents']) {
-    const half = copyHook.slice(copyHook.indexOf(`~/.claude/${dir}/`));
-    assert.match(half, /grep -q 'great_cto-managed'/,
-      `the ${dir} sweep must touch only files great_cto wrote`);
-    assert.match(half, new RegExp(`\\[ -f "\\$\\{PLUGIN_DIR\\}/${dir}/`),
-      `the ${dir} sweep must decide by whether the plugin still ships it`);
+  // Since 2026-09-11 the rule lives in scripts/lib/sync-managed.mjs, where it is
+  // tested against a deleted plugin directory — the case the inline loop got
+  // wrong, wiping every agent and command. Here: the hook calls it with the
+  // resolved root, and no hand-kept list of names is back in any hook.
+  const copyHook = commands.find((c) => c.includes('scripts/lib/sync-managed.mjs'));
+  assert.ok(copyHook, 'the hook that installs commands and agents at the user level still exists');
+  assert.match(copyHook, /sync-managed\.mjs" --plugin-dir "\$\{PLUGIN_DIR\}"/,
+    'the sync must be told which plugin directory it reads');
+  for (const c of commands) {
+    assert.ok(!/for (STALE(_AGENT)?|AGENT|CMD) in /.test(c),
+      'a hand-maintained list of names is back in a hook — the sync reads the plugin instead');
   }
+  const lib = fs.readFileSync(path.join(ROOT, 'scripts/lib/sync-managed.mjs'), 'utf8');
+  assert.match(lib, /great_cto-managed/, 'the sync must touch only files great_cto wrote');
 });
