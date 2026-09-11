@@ -1,6 +1,6 @@
 # PLAN — Measure each agent run, and say when it ran on another model
 
-**Status:** implemented, not released · **Date:** 2026-09-11 · **Owner:** senior-dev
+**Status:** released in 3.28.5 · **Date:** 2026-09-11 · **Owner:** senior-dev
 **Beads:** `great_cto-ja2u` (T1), `great_cto-z6cd` (T1), `great_cto-y4oq` (T2), `great_cto-xzpa` (T3) ·
 out of scope, filed: `great_cto-601c`, `great_cto-z2jm`
 **Unblocks:** [What leaves Claude Code, and what it costs to move it](PLAN-2026-09-09-openrouter-routing.md),
@@ -147,8 +147,8 @@ session needs measuring.
 Full `ci-local.sh`: inner exit 0, `ALL GATES GREEN`, no skips, no orphaned runners.
 
 What this does not prove yet:
-- A live SubagentStop writing an attributed line — needs `install-local` (not run: it would put
-  unreleased hooks into every live session on the machine) and a real subagent stop.
+- A live SubagentStop writing an attributed line. 3.28.5 is installed; it needs a real subagent
+  stop in a session started on that version.
 - The model check is only valid at stop time. Replayed over an old transcript it compares against
   today's frontmatter: a 2026-08-09 `product-owner` run read as `substituted` because its
   `model:` changed on 2026-09-05.
