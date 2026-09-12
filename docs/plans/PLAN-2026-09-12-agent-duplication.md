@@ -1,6 +1,6 @@
 # PLAN — Three copies of a rule are three rules
 
-**Status:** in progress · **Date:** 2026-09-12 · **Owner:** senior-dev
+**Status:** implemented, not released · **Date:** 2026-09-12 · **Owner:** senior-dev
 **Applies to:** the eight pipeline agents, `agents/_shared/`, `agents/pm.md`
 
 **Measured before deciding anything.** Eleven section headings repeat across four
@@ -115,6 +115,42 @@ copy of the model prices.
   existing skill. Extracting them would flatten real differences.
 - `contract-agent-altitude.md`: unused, but its adoption is a decision about what
   every agent must be told, not a deduplication. Filed separately.
+
+## Result (2026-09-12)
+
+| Task | Commit | Outcome |
+|---|---|---|
+| 1 — Environment Setup | not done | Three shell lines whose first sets PATH. A fragment is an instruction to read a file, not an inlined block, so the pointer buys three lines and costs an agent its PATH when it does not read it. `great_cto-yb78` closed with this reason |
+| 2 — Pattern Lookup | `16ec8a21` | Not a fragment: a tool. `scripts/lib/pattern-lookup.mjs --role implement\|deploy\|incident\|review` replaces five inline copies. 123 lines leave the prompts and the behaviour has tests for the first time — including the empty-instruction case those copies' own comments worried about |
+| 3 — fragments with no reader | `6a5d3058` | Three adopted or moved; `argument-quality.md` now read by the three gate-bearing agents as well as code-reviewer |
+| 4 — one price table | `6a5d3058` | `pm` carried `$5/$25` in a table and `$15/$75` in the report line below it, both for models no longer routed. Replaced by `scripts/lib/cost-meter.mjs` |
+| follow-up | `d45c9cf6` | Three checks failed on the change and were right to: the pattern contract followed the text instead of the behaviour, a moved fragment stayed on a list, and two new documents had no inbound link |
+
+**The trade, measured.** 123 lines of duplicated shell left the prompts, and the
+effective prompt of four agents grew, because `prompt-size` counts a pointed-at
+fragment in full and two of the adopted fragments had been costing nothing by
+being read by nobody:
+
+| Agent | Before | After |
+|---|---|---|
+| senior-dev | 12 929 | 12 362 |
+| l3-support | 15 396 | 14 983 |
+| pm | 10 530 | 11 303 |
+| qa-engineer | 17 068 | 18 019 |
+| security-officer | 18 100 | 19 011 |
+| devops | 20 402 | 21 136 |
+
+So this was not a saving. It is one source per rule, two rules that were written
+and unread now read, and a shell loop that is now a tested tool. If the context
+cost matters more than the rules, the lever is the fragments' own length —
+`artifact-summary-contract.md` is 68 lines for a rule about writing a 250-token
+summary.
+
+Three corrections this plan made to itself, all from reading rather than
+assuming: `Interaction Checkpoints` is a shared heading over six different
+bodies; `contract-agent-altitude.md` is read by seven agents, not none (the
+first count looked at eight of seventy); and `architect` had already extracted
+its own lookup, which is why it matched the other five at 7%.
 
 ## Verification before calling it done
 
