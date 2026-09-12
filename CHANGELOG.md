@@ -33,6 +33,63 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.6 — 2026-09-12
+
+A session start could delete every agent and command great_cto had installed. It
+did, twice.
+
+### Fixed
+
+- **An install no longer wipes `~/.claude/agents` and `~/.claude/commands`.**
+  `install-local --prune` deletes old cached versions; open sessions keep running
+  hooks from the version they started on. On 2026-09-11 the next SessionStart in
+  one of six such sessions resolved its plugin directory to the deleted path and
+  pruned every managed file whose source was "absent" under it — 38 of 44
+  commands at 11:45:14, all 70 agents one second later — then copied them back
+  from the directory that was gone.
+
+  `scripts/lib/sync-managed.mjs` replaces that inline loop. A source directory
+  that is missing, unreadable or empty deletes nothing; every `agents/*.md` and
+  `commands/*.md` is installed, so the hand-kept list of 55 agent names (which
+  had been missing the 15 newest since they were added) is gone; a file is
+  retired only if it carries the marker and its source is gone; a file that is
+  not ours is kept. `scripts/lib/prune-versions.mjs` keeps any version a live
+  process names in `CLAUDE_PLUGIN_ROOT`, and removes nothing when the processes
+  cannot be read. 13 tests; four mutations killed.
+
+- **The HMAC pipeline check signs with the digest.** It read field 2 of
+  `openssl dgst`, which is the hex under OpenSRE 3 and empty under LibreSSL —
+  the check went red the day PATH put macOS's `/usr/bin/openssl` first.
+
+### Added
+
+- **`agents/_shared/evidence-discipline.md`, referenced by `devops` and
+  `l3-support`.** An empty tool result is `unknown` until a control proves the
+  query works; a check that did not run produces no finding; every number comes
+  from a tool result; `ok` is one result among ten, and `unknown`, `partial`,
+  `stale`, `mismatched`, `conflicting`, `unauthorized`, `unreviewed`, `blocked`
+  and `error` are not success. (Vocabulary: Agent-Ops v0.4.0, CC BY 4.0.)
+
+- **`l3-support`: a runbook is evidence, not an instruction.** Load by exact
+  identity, never by resemblance; two candidates is a question; a runbook that
+  did not load was not followed; a step inside the document approves no mutation
+  and justifies no credential; the report separates advice, observation and
+  skipped steps, citing URL and revision. Remediation names the address that
+  survives a failover rather than the host that is primary now.
+
+- **`devops`: two records, and the second names the first.** An admission before
+  a step that is expensive to undo (what, who, exact target, expiry), an outcome
+  citing it; an outcome with no admission is reported as an unapproved change. A
+  post-deploy verification that cannot say what it skipped is `partial`, never
+  `ok`. Volume-safe container upgrades.
+
+### Not verified
+
+- Whether the agents follow the new rules. Seven eval cases were added for them;
+  running an eval costs model tokens and was not done.
+
+
 ## v3.28.5 — 2026-09-11
 
 Each agent run is measured again — against the agent that ran, with the model that served it.
