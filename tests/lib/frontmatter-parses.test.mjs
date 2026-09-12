@@ -41,7 +41,8 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 // hide here — it is not on the list, so it fails.
 const FRAGMENTS = new Set([
   'argument-quality.md', 'artifact-summary-contract.md', 'compress-prompt.md',
-  'contract-agent-altitude.md', 'deploy-failure-modes.md', 'handoff-format.md',
+  'contract-agent-altitude.md', 'deploy-failure-modes.md', 'evidence-discipline.md',
+  'handoff-format.md',
   'memory-filter-prompt.md', 'phase-task.md', 'privacy-guardrails.md',
   'sandbox-cwd-policy.md', 'skill-catalog-browse.md', 'verdict-format.md',
   'verify-by-running.md',

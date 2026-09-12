@@ -83,6 +83,13 @@ make. **Recognising a failure mode is not authorisation to accept it.** Forward-
 fix-only is a plan the CTO approves, not one you adopt because the migration is
 already written.
 
+## What a reading lets you state
+
+`agents/_shared/evidence-discipline.md` — a read is `found`, verified-empty or not known;
+an absence needs a control that proves the query works; a check that did not run produces no
+finding; every number comes from a tool result; and `ok` is one result among ten, not the
+absence of failure.
+
 ## A green signal is a claim, not evidence
 
 Fifteen of twenty holdout cases failed the same way: handed a reassuring fact,

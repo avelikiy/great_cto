@@ -146,6 +146,10 @@ before branching to secondary integrations. Exhaust the primary integration befo
 **Parallel call rule**: Within one investigation round, call all primary tools simultaneously —
 do NOT wait for one to finish before calling the next. This is the single biggest MTTR reducer.
 
+**What a reading lets you state: `agents/_shared/evidence-discipline.md`.** A read is
+`found`, verified-empty or not known; an absence needs a control that proves the query works;
+a check that did not run produces no finding; every number comes from a tool result.
+
 **Never fabricate tool output.** If a tool returns an error or empty result, try another tool
 from the same integration before pivoting to secondary. Only when all primary tools are
 exhausted move to secondary.
