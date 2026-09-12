@@ -51,6 +51,21 @@ test('GET: Claude Code is the host, Codex is detected (absent here), second opin
   assert.deepEqual(h.second_opinion.providers, ['codex', 'openrouter', 'none']);
 });
 
+test('GET /api/codex-runs projects only this project and never exposes controller secrets', async () => {
+  const store = path.join(home, '.great_cto', 'codex-runs'); mkdirSync(store, { recursive: true, mode: 0o700 });
+  const id = '55555555-5555-4555-8555-555555555555';
+  writeFileSync(path.join(store, `${id}.json`), JSON.stringify({ version: 1, id, root: project, prompt: 'private prompt',
+    status: 'awaiting-release', queue: ['devops'], results: {}, attempts: [], pending: { token: 'gate-token', role: 'devops' },
+    release: { token: 'release-token', adapter: 'local', status: 'awaiting-approval', path: '/private/published',
+      target: { releaseRoot: '/private/release' }, artifacts: [{ base64: 'c2VjcmV0' }] } }));
+  const result = await get('/api/codex-runs');
+  assert.equal(result.runs.length, 1); assert.equal(result.runs[0].id, id);
+  const encoded = JSON.stringify(result);
+  for (const forbidden of ['private prompt', 'gate-token', 'release-token', 'c2VjcmV0', project, store, '/private/release', '/private/published']) {
+    assert.equal(encoded.includes(forbidden), false);
+  }
+});
+
 test('POST codex on a machine without one: the declaration is written, and it resolves UNAVAILABLE at the click', async () => {
   const r = await post('/api/harnesses/second-opinion', { provider: 'codex' });
   assert.equal(r.status, 200, JSON.stringify(r.body));

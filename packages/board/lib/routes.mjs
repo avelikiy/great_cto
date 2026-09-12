@@ -24,6 +24,7 @@ import { readVerdicts } from './verdicts.mjs';
 import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
+import { listCodexRuns } from '../../../scripts/lib/codex-host-state.mjs';
 import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/lib/stack-capabilities.mjs';
 // Moved to scripts/lib so the cross-review Stop hook can ask the same question
 // without importing a server. Re-exported here: this module's callers are unchanged.
@@ -905,6 +906,18 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/pipeline') {
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(getPipeline(cwd)));
+    return true;
+  }
+
+  // Controlled Codex host runs are stored outside worker projects. Return the
+  // shared sanitized projection only: prompts, approval tokens and artifact
+  // bytes never cross into the browser payload.
+  if (pathname === '/api/codex-runs') {
+    const result = listCodexRuns({ root: cwd });
+    const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+    if (result.state === 'degraded') headers['X-Board-Degraded'] = encodeURIComponent(`${result.unreadable} unreadable Codex run state file(s)`);
+    res.writeHead(200, headers);
+    res.end(JSON.stringify(result));
     return true;
   }
 

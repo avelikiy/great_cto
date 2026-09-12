@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { homedir } from 'node:os';
-import { newRun, runStage, approve } from './lib/codex-pipeline.mjs';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync, realpathSync } from 'node:fs';
+import { join, resolve, relative, sep, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { newRun, runStage, approve, recover, cancel } from './lib/codex-pipeline.mjs';
+import { approveRelease } from './lib/codex-release.mjs';
+import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-state.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
 const command = args.shift();
 const value = name => { const i = args.indexOf(name); return i < 0 ? null : args[i + 1]; };
-const store = join(homedir(), '.great_cto', 'codex-runs');
+const store = codexRunStore();
 mkdirSync(store, { recursive: true, mode: 0o700 });
 const save = state => {
   const file = join(store, `${state.id}.json`);
@@ -17,10 +19,34 @@ const save = state => {
 };
 let locked = null;
 try {
+  if (command === 'doctor') {
+    const result = codexHostDoctor({ pluginRoot: resolve(value('--plugin-root') || join(dirname(fileURLToPath(import.meta.url)), '..')), store });
+    console.log(JSON.stringify(result, null, 2)); process.exit(result.state === 'ready' ? 0 : 2);
+  }
+  if (command === 'list') {
+    console.log(JSON.stringify(listCodexRuns({ root: value('--dir') ? realpathSync(resolve(value('--dir'))) : null, store }), null, 2));
+    process.exit(0);
+  }
   let state;
   if (command === 'start') {
-    state = newRun({ root: resolve(value('--dir') || '.'), prompt: value('--prompt'),
-      allowed: (value('--allow') || '').split(',').filter(Boolean), entry: value('--entry') || 'product-owner' });
+    const root = realpathSync(resolve(value('--dir') || '.'));
+    let checkPolicy = null;
+    if (value('--checks-policy')) {
+      const policyPath = realpathSync(value('--checks-policy'));
+      const rel = relative(root, policyPath);
+      if (rel !== '..' && !rel.startsWith(`..${sep}`)) throw Error('checks policy must be operator-owned outside the target workspace');
+      checkPolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    }
+    let releasePolicy = null;
+    if (value('--release-policy')) {
+      const policyPath = realpathSync(value('--release-policy'));
+      const rel = relative(root, policyPath);
+      if (rel !== '..' && !rel.startsWith(`..${sep}`)) throw Error('release policy must be operator-owned outside the target workspace');
+      releasePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    }
+    state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy,
+      allowed: (value('--allow') || '').split(',').filter(Boolean), entry: value('--entry') || 'product-owner',
+      maxAttempts: value('--max-attempts') === null ? 3 : Number(value('--max-attempts')) });
     save(state);
   } else {
     const id = args[0];
@@ -28,16 +54,22 @@ try {
     state = JSON.parse(readFileSync(join(store, `${id}.json`), 'utf8'));
     if (state.id !== id || state.version !== 1) throw Error('invalid run state');
   }
-  if (!['start', 'resume', 'status', 'approve'].includes(command)) throw Error('expected start, resume, status or approve');
+  if (!['start', 'resume', 'status', 'approve', 'approve-release', 'recover', 'cancel'].includes(command)) throw Error('expected start, resume, status, approve, approve-release, recover, cancel, list or doctor');
   if (command !== 'status') {
     const lock = join(store, `${state.id}.lock`);
     mkdirSync(lock); locked = lock;
     // Reload under lock so simultaneous approvals cannot overwrite one another.
     state = JSON.parse(readFileSync(join(store, `${state.id}.json`), 'utf8'));
     if (command === 'approve') { approve(state, value('--token')); save(state); }
+    else if (command === 'approve-release') { approveRelease(state, value('--token')); save(state); }
+    else if (command === 'recover') { recover(state); save(state); }
+    else if (command === 'cancel') { cancel(state); save(state); }
     else while (state.status === 'ready') await runStage(state, { save });
   }
   console.log(JSON.stringify({ id: state.id, status: state.status, reason: state.reason,
+    release: state.release ? { status: state.release.status, token: state.release.token, adapter: state.release.adapter,
+      artifactDigest: state.release.artifactDigest, target: state.release.target, path: state.release.path, url: state.release.url,
+      activation: state.release.activation, rollback: state.release.rollback } : null,
     pending: state.pending, queue: state.queue, rolesCompleted: Object.keys(state.results), stateFile: join(store, `${state.id}.json`) }, null, 2));
   process.exitCode = ['blocked', 'manual-action', 'join-wait'].includes(state.status) ? 2 : 0;
 } catch (error) {
