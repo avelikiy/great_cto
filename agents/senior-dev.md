@@ -380,40 +380,8 @@ for this stack. A matched pattern means a past agent already hit this bug and do
 Apply it rather than re-discovering it.
 
 ```bash
-GP_DIR="$HOME/.great_cto/global-patterns"
-ARCH=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-STACK=$(grep "^stack:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-
-echo "=== KNOWN PATTERNS for archetype=${ARCH:-unknown} stack=${STACK:-unknown} ==="
-if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
-  grep -rl "status: active" "$GP_DIR" 2>/dev/null | while read f; do
-    if grep -qiE "applies_to:.*${ARCH}|applies_to:.*${STACK}|stack_fingerprint:.*${STACK}" "$f" 2>/dev/null; then
-      SLUG=$(basename "$f" .md)
-      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
-      FIX=$(grep "^fix:" "$f" 2>/dev/null | head -1 | sed 's/fix: //')
-      HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
-      # A pattern may record only how to DIAGNOSE the problem. Fall back to its
-      # detection steps, and if there is no remedy at all, say so instead of
-      # printing "→ apply:" with nothing after it — an empty instruction reads
-      # as knowledge and is worse than staying silent.
-      if [ -z "$FIX" ]; then
-        FIX=$(sed -n '/^detection_order:/,/^[a-z_]/p' "$f" 2>/dev/null \
-              | grep '^  - ' | head -2 | sed 's/^  - //' | paste -sd';' - | sed 's/;/; /g')
-        [ -n "$FIX" ] && FIX="diagnose first — $FIX"
-      fi
-      if [ -n "$FIX" ]; then
-        printf "  %s (hits=%s)\n  pitfall: %s\n  → apply: %s\n\n" \
-          "$SLUG" "${HITS:-0}" "$SYMPTOM" "$FIX"
-      else
-        printf "  %s (hits=%s)\n  pitfall: %s\n  (no remedy recorded — treat as a caution, verify before acting)\n\n" \
-          "$SLUG" "${HITS:-0}" "$SYMPTOM"
-      fi
-    fi
-  done
-  echo "  Verify: does this task touch any of the above patterns?"
-else
-  echo "  No global patterns yet. Run /crystallize after first incident."
-fi
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role implement
 ```
 
 **KE trigger**: if you call the advisor tool AND the root cause was absent from the ARCH doc,

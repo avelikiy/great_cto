@@ -240,30 +240,8 @@ Before any diagnostic, surface known patterns that match this project's archetyp
 Skipping costs the hours already paid on a previous project. One matching pattern → skip Steps 2-3 entirely.
 
 ```bash
-GP_DIR="$HOME/.great_cto/global-patterns"
-ARCH=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-STACK=$(grep "^stack:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-
-echo "=== KNOWN PATTERNS for archetype=${ARCH:-unknown} stack=${STACK:-unknown} ==="
-if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
-  FOUND=0
-  grep -rl "status: active" "$GP_DIR" 2>/dev/null | while read f; do
-    if grep -qiE "applies_to:.*${ARCH}|applies_to:.*${STACK}|stack_fingerprint:.*${STACK}" "$f" 2>/dev/null; then
-      SLUG=$(basename "$f" .md)
-      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
-      DETECT=$(grep -A 2 "^detection_order:" "$f" 2>/dev/null | grep "^  - " | head -1 | sed 's/^  - //')
-      HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
-      MTTR=$(grep "^mttr_reduction:" "$f" 2>/dev/null | awk -F': ' '{print $2}')
-      printf "  %s (hits=%s, mttr=%s)\n  symptom: %s\n  → CHECK FIRST: %s\n\n" \
-        "$SLUG" "${HITS:-0}" "${MTTR:-?}" "$SYMPTOM" "$DETECT"
-      FOUND=$((FOUND + 1))
-    fi
-  done
-  [ "$FOUND" -eq 0 ] && echo "  No patterns match archetype=${ARCH} yet."
-else
-  echo "  No global patterns yet. After resolving this incident, run /crystallize to build the library."
-fi
-echo "=== Pattern lookup complete — apply matching patterns above BEFORE Steps 2–3 ==="
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role incident
 ```
 
 **If a matching pattern is found**: the first item in `detection_order` becomes your Priority 0 diagnostic — run it before anything in Step 2.
