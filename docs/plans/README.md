@@ -58,6 +58,9 @@ How many stages there are, who runs them, and where a human is asked.
 What a run spends, and what it can hold.
 
 - [Context compression (headroom-inspired)](PLAN-headroom-context-compression.md)
+- [Three copies of a rule are three rules](PLAN-2026-09-12-agent-duplication.md) —
+  *declares: in progress · 2026-09-12*. What the eight pipeline agents actually share, and
+  what only looks shared: two of its three candidates did not survive reading the text.
 - [Measure each agent run, and say when it ran on another model](PLAN-2026-09-11-measured-agent-cost.md) —
   *declares: released in 3.28.5 · 2026-09-11*. SubagentStop read the session transcript, so no
   agent run had ever been measured; §1 of the OpenRouter plan below had nothing to stand on.

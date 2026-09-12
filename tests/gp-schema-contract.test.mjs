@@ -63,10 +63,17 @@ test('fix: specifically is written — the key whose absence emptied "→ apply:
   assert.ok(written.has('symptom'), 'and the symptom');
 });
 
-test('senior-dev still reads both halves of a pattern', () => {
-  const text = read('agents/senior-dev.md');
-  assert.match(text, /grep "\^symptom:"/, 'reads the symptom');
-  assert.match(text, /grep "\^fix:"/, 'reads the remedy');
+test('the lookup still reads both halves of a pattern', () => {
+  // Was asserted against senior-dev's inline shell until 2026-09-12, when five
+  // agents' copies became one tool. The contract did not move — the reader did.
+  const text = read('scripts/lib/pattern-lookup.mjs');
+  assert.match(text, /field\(text, 'symptom'\)/, 'reads the symptom');
+  assert.match(text, /field\(text, 'fix'\)/, 'reads the remedy');
+  const agents = ['senior-dev', 'devops', 'l3-support', 'qa-engineer', 'security-officer'];
+  for (const a of agents) {
+    assert.match(read(`agents/${a}.md`), /pattern-lookup\.mjs"? --role/,
+      `${a} no longer calls the lookup, so it reads no pattern at all`);
+  }
 });
 
 test('a pattern with no remedy would be injected as an empty instruction', () => {

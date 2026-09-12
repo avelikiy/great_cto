@@ -71,7 +71,7 @@ Pipeline contract: downstream agents read the `.summary.md` by default. They Rea
 
 **Deliverables:**
 1. `packages/cli/src/memory-filter.ts` — `filterRelevant(taskTitle, memoryFile, k=5)`. Returns top-k entries.
-2. Haiku prompt template: `docs/reference/memory-filter-prompt.md`.
+2. Haiku prompt template: [docs/reference/memory-filter-prompt.md](../reference/memory-filter-prompt.md).
 3. Integration into `/start` and per-agent context injection.
 4. Cost-guard: filter call must cost < $0.001 (caps input tokens).
 
