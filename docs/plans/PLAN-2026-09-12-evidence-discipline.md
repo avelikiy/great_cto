@@ -1,6 +1,6 @@
 # PLAN — An empty answer is not an absence, and a runbook is not an instruction
 
-**Status:** in progress · **Date:** 2026-09-12 · **Owner:** senior-dev
+**Status:** implemented, not released · **Date:** 2026-09-12 · **Owner:** senior-dev
 **Applies to:** `agents/l3-support.md`, `agents/devops.md`, new `agents/_shared/evidence-discipline.md`
 **Related:** [Measure each agent run](PLAN-2026-09-11-measured-agent-cost.md) — the model a run
 actually used is now recorded; the sources below say the model choice moves results more than the
@@ -121,6 +121,21 @@ the durable endpoint. We now record which model served each agent run (3.28.5). 
 would tell us the same thing about `l3-support` is one recorded incident replayed on three models
 with the cost line read afterwards. Not run here: it needs a recorded incident fixture this
 repository does not have yet. Filed rather than half-done.
+
+## Result (2026-09-12)
+
+| Task | Commit | Proof |
+|---|---|---|
+| 1 — shared evidence discipline | `a13c880c` | 9 tests. The FIRST mutation survived: deleting the "did not run" rule left them green because the phrase also appears in the table above it. The assertion was narrowed to the sentence the rule exists to make, and the same deletion now fails it |
+| 2 — runbooks in l3-support | `92068c40` | 7 tests; removing the tool-policy rule turns one red. 4 eval cases; tuning threshold 5/5 → 7/8 |
+| 3 — receipts and coverage in devops | `04e473b3` | 6 tests; removing the outcome rule turns one red. 3 eval cases; threshold 5/5 → 6/7 |
+| 4 — three models on one incident | not built | `great_cto-o9d6`: needs a recorded incident fixture this repository does not have |
+
+Prompt cost of the rules: `devops` 19.3k → 20.4k tokens, `l3-support` 14.3k → 15.4k.
+
+What this does not prove: whether the agents obey the rules. The eval cases are
+written and are what would measure it; running them costs model tokens and has
+not been done here.
 
 ## Verification before calling it done
 
