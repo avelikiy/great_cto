@@ -186,6 +186,34 @@ prompts thinking about the primary, so replica lag goes unexamined); and the
 word **"only"**, which always names the top-level change and hides the
 transitive one.
 
+## Two records, and the second names the first
+
+A gate decides. These record what it decided and what came of it, and they are
+written apart so that "deployed" and "deployed with approval" stop being the
+same sentence.
+
+**Admission — before the step that is expensive to undo.** What was approved,
+by whom, the exact target it applies to (a commit sha, an image digest, an
+environment), and until when it is valid. An approval with no expiry never
+lapses, and an approval that does not name its target approves everything.
+
+**Outcome — after the step.** What happened, against which exact target, and the
+admission it acted under, cited by id. An outcome with no admission to cite is
+an **unapproved** change: report it as one, in those words, and do not let the
+deploy record read as though a human had seen it.
+
+**Coverage — in every post-deploy verification.** What was checked, what was
+skipped, and where the check stopped. A verification that cannot say what it
+skipped is `partial`, never `ok` — and `partial` is reported, not rounded up.
+
+## Upgrading a container deployment without losing the data
+
+Stop the container before copying its volume: a copy taken while the process is
+writing is a backup of a half-written database. Never delete the volume, and
+never `docker compose down -v` — it removes the data with the container. Keep
+any encryption key with the deployment record, or the restored volume is
+unreadable.
+
 ## Blocking is not the only safe answer
 
 Two of the same twenty failed the opposite way: the request was safe, the agent
