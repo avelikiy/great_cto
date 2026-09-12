@@ -62,7 +62,7 @@ for (const agent of CONSUMERS) {
     assert.match(read(`agents/${agent}.md`), new RegExp(FRAGMENT.replace(/[.]/g, '\\.')),
       `${agent} does not point at ${FRAGMENT}`);
     assert.ok(promptProfile(agent).shared.includes('evidence-discipline.md'),
-      `${agent}'s profile does not expand the fragment — the reference is not in the form prompt-size reads`);
+      `${agent}'s profile does not expand the fragment — the pointer is not in the form prompt-size reads`);
   });
 
   test(`${agent} does not copy the rules inline`, () => {

@@ -28,7 +28,7 @@ and a document treated as an instruction because it was called a runbook.
 
 - Three states, never two. `unknown` is not `ok`.
 - Prompt budget: `devops` is 19.3k tokens and `l3-support` 14.3k. Shared rules go in ONE fragment
-  both reference (`prompt-size.mjs` counts a referenced fragment once per agent); nothing is
+  both point at (`prompt-size.mjs` counts a pointed-at fragment once per agent); nothing is
   duplicated into both files.
 - `agent-prompt-lint.mjs` is blocking in the gate; PHASE/FM/CONS rules must stay green.
 - Agent prose is checked by `prose-slop` against `agents/_shared/prose-deny.txt`.
@@ -57,9 +57,9 @@ Content, four rules:
 
 Steps:
 - [ ] Write `tests/lib/evidence-discipline.test.mjs`: the fragment exists; it names all four rules
-      and the nine non-success results; both agents reference it by path; no agent copies the rule
+      and the nine non-success results; both agents point at it by path; no agent copies the rule
       text inline (the drift `prose-deny.txt` documents). Run — fails.
-- [ ] Write the fragment; add one reference line to each agent under an existing section.
+- [ ] Write the fragment; add one pointer line to each agent under an existing section.
 - [ ] `node scripts/agent-prompt-lint.mjs`, `node --test tests/lib/prompt-size.test.mjs
       tests/lib/evidence-discipline.test.mjs tests/lib/prose-slop.test.mjs`, then commit.
 
@@ -69,7 +69,7 @@ Steps:
 
 Rules to add, in the incident workflow:
 - Load a runbook by exact identity — an explicit URL, or exact `alertname` + service + labels. No
-  fuzzy matching, no searching for a document that might be the one.
+  fuzzy matching, no searching for the document that looks closest.
 - Ambiguous: show the candidates and ask; never pick one.
 - Not found or unreachable: say so, continue the ordinary investigation, and never report that the
   runbook was followed.

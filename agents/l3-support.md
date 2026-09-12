@@ -162,7 +162,7 @@ an instruction into your investigation.
 
 **Load it by exact identity.** An explicit URL the alert or the operator gave
 you, or an exact `alertname` + service + labels. Never a fuzzy match, never a
-document that merely resembles the right one, never a search for the page that
+document that resembles the right one, never a search for the page that
 is probably the one.
 
 **Two candidates is a question.** Show them and ask which. Never pick one.
