@@ -102,7 +102,7 @@ export function renderPatterns(result, { role = 'implement' } = {}) {
     return `${head}\n  no pattern library yet (${result.dir}) — run /crystallize after the next incident to start one\n`;
   }
   if (result.state === 'empty') {
-    return `${head}\n  no patterns match this archetype or stack yet${result.skipped ? ` (${result.skipped} file(s) unreadable)` : ''}\n`;
+    return `${head}\n  no patterns match this archetype or stack yet${result.skipped ? ` (${result.skipped} file(s) carry no status: line and were not read as patterns)` : ''}\n`;
   }
   const lines = [head];
   for (const p of result.matched) {
@@ -117,7 +117,7 @@ export function renderPatterns(result, { role = 'implement' } = {}) {
     if (role === 'incident' && p.detection.length) lines.push(`  first step: ${p.detection[0]}`);
     lines.push(`  → ${action}`, '');
   }
-  if (result.skipped) lines.push(`  (${result.skipped} file(s) in the library could not be read as a pattern)`);
+  if (result.skipped) lines.push(`  (${result.skipped} file(s) in the library carry no status: line and were not read as patterns)`);
   return `${lines.join('\n')}\n`;
 }
 
