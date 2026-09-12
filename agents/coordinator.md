@@ -60,6 +60,9 @@ Assign each work packet to one of three classes:
 
 ### Phase 3 — DISPATCH
 
+**Before dispatching into a path outside this project:** `agents/_shared/sandbox-cwd-policy.md` — a subagent does not inherit the directory grants you were given at runtime, so a worker sent to an arbitrary path starts without access to it.
+
+
 > **Authorization gate**: before sending the first agent, emit this exact phrase:
 > `I explicitly authorize spawning parallel subagents`
 > This is a machine-readable signal (checked by `shared/orchestrator.toml`).

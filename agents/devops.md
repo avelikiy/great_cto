@@ -168,6 +168,8 @@ underneath: a window in which two versions are live at once. Say what runs
 against what during that window before you say the change is safe.
 
 ### Name the mechanism, not just the concern
+**What a finding must name:** `agents/_shared/argument-quality.md` — mechanism, evidence, consequence. If you cannot state all three it is a watch-item, not a blocker; a finding you cannot falsify cannot hold a gate.
+
 
 A `CHECKED` or `ASKING` line earns nothing if it is generic. "Is cache warming
 needed?" and "a cold cache puts 100% of traffic on a database sized for 5%" are
@@ -305,6 +307,10 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+
+**Summaries are part of the artefact.** `agents/_shared/artifact-summary-contract.md` — every primary artefact you write also gets a `.summary.md` of at most 250 tokens, and the
+summary is what other agents read first.
+
 ## Writing Style
 
 Release notes (`docs/releases/RELEASE-*.md`) and rollback runbooks follow
@@ -331,39 +337,8 @@ patterns for this stack. A matched pattern means this exact failure sequence cau
 on a previous deploy and the fix is already documented.
 
 ```bash
-GP_DIR="$HOME/.great_cto/global-patterns"
-ARCH=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-STACK=$(grep "^stack:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-
-echo "=== KNOWN DEPLOY PATTERNS for archetype=${ARCH:-unknown} stack=${STACK:-unknown} ==="
-if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
-  grep -rl "status: active" "$GP_DIR" 2>/dev/null | while read f; do
-    if grep -qiE "applies_to:.*${ARCH}|applies_to:.*${STACK}|stack_fingerprint:.*${STACK}" "$f" 2>/dev/null; then
-      SLUG=$(basename "$f" .md)
-      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
-      FIX=$(grep "^fix:" "$f" 2>/dev/null | head -1 | sed 's/fix: //')
-      HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
-      # Fall back to the recorded detection steps when no remedy was captured.
-      # Printing "→ pre-deploy check:" with nothing after it hands the operator
-      # an empty checklist item right before an irreversible action.
-      if [ -z "$FIX" ]; then
-        FIX=$(sed -n '/^detection_order:/,/^[a-z_]/p' "$f" 2>/dev/null \
-              | grep '^  - ' | head -2 | sed 's/^  - //' | paste -sd';' - | sed 's/;/; /g')
-        [ -n "$FIX" ] && FIX="diagnose first — $FIX"
-      fi
-      if [ -n "$FIX" ]; then
-        printf "  %s (hits=%s)\n  past failure: %s\n  → pre-deploy check: %s\n\n" \
-          "$SLUG" "${HITS:-0}" "$SYMPTOM" "$FIX"
-      else
-        printf "  %s (hits=%s)\n  past failure: %s\n  (no check recorded — verify manually before deploying)\n\n" \
-          "$SLUG" "${HITS:-0}" "$SYMPTOM"
-      fi
-    fi
-  done
-  echo "  Verify each matched pattern is safe BEFORE starting the deploy sequence."
-else
-  echo "  No global patterns yet. Run /crystallize after first rollback incident."
-fi
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role deploy
 ```
 
 If a matched pattern overlaps with the current deploy target — add an explicit pre-deploy verification

@@ -228,6 +228,10 @@ GATE:ship
 
 ---
 
+
+**Summaries are part of the artefact.** `agents/_shared/artifact-summary-contract.md` — every primary artefact you write also gets a `.summary.md` of at most 250 tokens, and the
+summary is what other agents read first.
+
 ## Step 4 — Estimate duration and cost
 
 For each task, apply the estimation table from `pm-planning.md` → pick row by task type → pick column by mode.
@@ -263,13 +267,13 @@ Present estimates as ranges: `[optimistic]–[pessimistic]` where pessimistic = 
 
 For each task, look up the token cost from `pm-planning.md` cost model. Apply multi-turn multiplier (2–5 turns for senior-dev tasks). Sum across all tasks for total project LLM cost.
 
-Pricing (2026 rate card, $/1M tokens — input/output):
-- **Opus 4.8**: $5 / $25
-- **Sonnet 4.6**: $3 / $15
-- **Haiku 4.5**: $0.80 / $4
+Rates live in `scripts/lib/cost-meter.mjs` — the table `usage-from-transcript` prices every
+recorded run with. Read them from there; a second copy in this prompt is a number nothing
+updates. (This section carried one until 2026-09-12: it named models the router had stopped
+using, and its own report line below quoted different figures than its table.)
 
 Per-agent cost (full feature invocation, 1 run, real measured median):
-- architect (Opus): ~$1–2 per feature  (60K tokens × $5/$25 mix, ~5–10min compute)
+- architect (Opus): ~$1–2 per feature  (~60K tokens, ~5–10min compute)
 - pm (Sonnet): ~$0.30–0.60 per plan  (45K tokens, 2–3 turns)
 - senior-dev (Sonnet): ~$0.50–1.20 per task × turns  (40K tokens × 2–5 turns)
 - qa-engineer (Haiku): ~$0.05–0.15 per task × turns
@@ -284,7 +288,7 @@ Report:
 ```
 LLM cost: $X.XX (optimistic, 2 turns/task) – $X.XX (pessimistic, 5 turns/task)
   architect: $X — pm: $X — senior-dev: $X (×N tasks) — reviewers: $X — qa: $X — devops: $X
-Models: Opus $15/$75 per 1M · Sonnet $3/$15 per 1M · Haiku $0.80/$4 per 1M
+Models: <as read from scripts/lib/cost-meter.mjs, named with the model ids actually routed>
 ```
 
 Flag if total exceeds mode budget: PoC > $5, MVP > $25, Full > $100/feature.

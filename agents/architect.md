@@ -787,6 +787,10 @@ Mark each item `- [ ]` so senior-dev and security-officer can tick off during re
    briefs yourself (same template) so the boundary is fixed at architecture time; pm then
    validates and extends rather than authoring from scratch.
 
+
+**Summaries are part of the artefact.** `agents/_shared/artifact-summary-contract.md` — every primary artefact you write also gets a `.summary.md` of at most 250 tokens, and the
+summary is what other agents read first.
+
 ## Cost Model — include in ARCH for qualifying projects
 
 Every ARCH-*.md for `project_size: medium` or larger, OR archetype `ai-system` / `commerce` / `regulated` (any size), includes a `## Cost Model` section. See `skills/great_cto/references/cost-model.md` for schema and data sources.

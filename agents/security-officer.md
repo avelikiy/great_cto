@@ -121,6 +121,13 @@ Follow standard checkpoint pattern from SKILL.md § Interaction Mode (Checkpoint
 
 ---
 
+
+**Summaries are part of the artefact.** `agents/_shared/artifact-summary-contract.md` — every primary artefact you write also gets a `.summary.md` of at most 250 tokens, and the
+summary is what other agents read first.
+
+
+**What a finding must name:** `agents/_shared/argument-quality.md` — mechanism, evidence, consequence. If you cannot state all three it is a watch-item, not a blocker; a finding you cannot falsify cannot hold a gate.
+
 ## Writing Style
 
 CSO reports (`docs/security/CSO-*.md`), threat models (`docs/security/STRIDE-*.md`),
@@ -148,28 +155,8 @@ classes discovered on past projects with this archetype and stack. A matched pat
 this exact attack surface was missed by a prior audit and escalated to production.
 
 ```bash
-GP_DIR="$HOME/.great_cto/global-patterns"
-ARCH=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-STACK=$(grep "^stack:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | head -1)
-
-echo "=== KNOWN SECURITY PATTERNS for archetype=${ARCH:-unknown} stack=${STACK:-unknown} ==="
-if [ -d "$GP_DIR" ] && ls "$GP_DIR"/GP-*.md >/dev/null 2>&1; then
-  grep -rl "status: active" "$GP_DIR" 2>/dev/null | while read f; do
-    # Prioritise security-gap source types
-    if grep -qiE "applies_to:.*${ARCH}|applies_to:.*${STACK}|stack_fingerprint:.*${STACK}" "$f" 2>/dev/null; then
-      SLUG=$(basename "$f" .md)
-      SOURCE=$(grep "^source_type:" "$f" 2>/dev/null | awk '{print $2}')
-      SYMPTOM=$(grep "^symptom:" "$f" 2>/dev/null | head -1 | sed 's/symptom: //')
-      DETECT=$(grep -A 2 "^detection_order:" "$f" 2>/dev/null | grep "^  - " | head -1 | sed 's/^  - //')
-      HITS=$(grep "^hits:" "$f" 2>/dev/null | awk '{print $2}')
-      printf "  %s [%s] (hits=%s)\n  gap: %s\n  → verify first: %s\n\n" \
-        "$SLUG" "${SOURCE:-incident}" "${HITS:-0}" "$SYMPTOM" "$DETECT"
-    fi
-  done
-  echo "  Add matched pattern checks to the audit checklist as Priority 0 items."
-else
-  echo "  No global patterns yet. Run /crystallize after discovering a new vulnerability class."
-fi
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role review
 ```
 
 **KE trigger**: if you discover a vulnerability class NOT already in the security checklist for this
