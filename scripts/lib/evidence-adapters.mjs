@@ -34,14 +34,46 @@ const dispatcherState = (outcome) => ({
   'no-verdict': 'failed', 'no-rule': 'failed', 'unknown-verdict': 'failed', 'no-map': 'failed',
 }[outcome] || 'unknown');
 
+/**
+ * Resolve the stable run identity shared by a verdict and every consumer of
+ * that verdict. A host-owned id wins. Without one, the canonical verdict
+ * itself is the immutable join key: both the verdict writer and the dispatcher
+ * read the same record and therefore derive the same id without timestamps or
+ * nearest-neighbour guesses.
+ */
+export function verdictRunIdentity(lineOrRecord, context = {}) {
+  const parsed = typeof lineOrRecord === 'string'
+    ? parseVerdictLine(lineOrRecord)
+    : lineOrRecord && typeof lineOrRecord === 'object'
+      ? { ok: true, rec: lineOrRecord }
+      : { ok: false, reason: 'missing verdict record' };
+  if (!parsed.ok) {
+    return { state: 'unreadable', why: `verdict line: ${parsed.reason}`, runId: null, identity: null };
+  }
+  const rec = parsed.rec;
+  const identity = sha(JSON.stringify(rec));
+  const proposedRunId = context.runId || rec.meta?.run_id || null;
+  if (typeof proposedRunId === 'string' && REAL_RUN_ID.test(proposedRunId)) {
+    return { state: 'declared', why: null, runId: proposedRunId, identity, rec };
+  }
+  return {
+    state: proposedRunId ? 'invalid' : 'derived',
+    why: proposedRunId ? 'declared run id does not match the identifier contract' : null,
+    runId: `verdict-${identity.slice(0, 24)}`,
+    identity,
+    rec,
+  };
+}
+
 /** One legacy pipeline-runs row -> one canonical dispatcher fact. */
 export function recordDispatcherEvidence(cwd, row) {
   const identity = sha(JSON.stringify(row));
+  const joinedRunId = typeof row.run_id === 'string' && REAL_RUN_ID.test(row.run_id) ? row.run_id : null;
   return appendEvidence(cwd, {
     eventType: 'pipeline.dispatcher.completed',
     occurredAt: row.ts,
     projectId: projectIdentity(cwd),
-    runId: `dispatcher-${identity.slice(0, 24)}`,
+    runId: joinedRunId || `dispatcher-${identity.slice(0, 24)}`,
     stageId: row.agent || null,
     idempotencyKey: `dispatcher:${identity}`,
     state: dispatcherState(row.outcome),
@@ -53,6 +85,9 @@ export function recordDispatcherEvidence(cwd, row) {
       progressed: row.progressed === true ? true : row.progressed === false ? false : null,
       started_at: row.started_at ?? null,
       verdict: row.verdict ?? null,
+      join_key_state: joinedRunId
+        ? (row.join_key_state || 'declared')
+        : (row.join_key_state || (row.run_id ? 'invalid' : 'unavailable')),
     },
   });
 }
@@ -65,13 +100,10 @@ const verdictState = (verdict) => ({
 
 /** One canonical/legacy verdict line -> one canonical agent fact. */
 export function recordVerdictEvidence(cwd, lineOrRecord, context = {}) {
-  const parsed = typeof lineOrRecord === 'string' ? parseVerdictLine(lineOrRecord) : { ok: true, rec: lineOrRecord };
-  if (!parsed.ok) return { state: 'unreadable', why: `verdict line: ${parsed.reason}`, event: null };
-  const rec = parsed.rec;
-  const identity = sha(JSON.stringify(rec));
+  const runIdentity = verdictRunIdentity(lineOrRecord, context);
+  if (runIdentity.state === 'unreadable') return { ...runIdentity, event: null };
+  const { rec, identity } = runIdentity;
   const receiptFiles = rec.receipt?.files && typeof rec.receipt.files === 'object' ? rec.receipt.files : null;
-  const proposedRunId = context.runId || rec.meta?.run_id || null;
-  const joinedRunId = typeof proposedRunId === 'string' && REAL_RUN_ID.test(proposedRunId) ? proposedRunId : null;
   const proposedAttempt = Number(context.attempt || rec.meta?.attempt);
   const attempt = Number.isSafeInteger(proposedAttempt) && proposedAttempt > 0 ? proposedAttempt : null;
   const stageId = identifier(context.stageId || rec.meta?.stage_id || rec.agent, 'unknown-agent');
@@ -80,7 +112,7 @@ export function recordVerdictEvidence(cwd, lineOrRecord, context = {}) {
     eventType: 'agent.verdict.recorded',
     occurredAt: rec.ts,
     projectId: projectIdentity(cwd, rec.project),
-    runId: joinedRunId || `verdict-${identity.slice(0, 24)}`,
+    runId: runIdentity.runId,
     stageId,
     attempt,
     host: host ? identifier(host, 'unknown-host') : null,
@@ -91,7 +123,7 @@ export function recordVerdictEvidence(cwd, lineOrRecord, context = {}) {
     artifactSha: receiptFiles && Object.keys(receiptFiles).length ? sha(JSON.stringify(receiptFiles)) : null,
     details: {
       cost_usd: typeof rec.cost_usd === 'number' ? rec.cost_usd : null,
-      join_key_state: joinedRunId ? 'declared' : proposedRunId ? 'invalid' : 'unavailable',
+      join_key_state: runIdentity.state,
       receipt_files: receiptFiles ? Object.keys(receiptFiles).length : 0,
       receipt_head: rec.receipt?.head ?? null,
       receipt_truncated: rec.receipt?.truncated === true,

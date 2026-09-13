@@ -390,6 +390,9 @@ export function parseVerdictLine(line) {
     // enforced from MEASURED spend, and this is where measured spend lives —
     // `hasCost` alone could only answer "was anything recorded".
     costUsd: r.rec.cost_usd != null ? Number(r.rec.cost_usd) : null,
+    // Preserve the schema owner's exact record. The journal derives the same
+    // content-addressed run id as the verdict adapter from this value.
+    record: r.rec,
     // The claims the verdict makes — artefact paths among them. Carried so the
     // completion hook can check whether what the agent named actually exists.
     meta: r.rec.meta ?? {},
@@ -1113,7 +1116,7 @@ async function main() {
 
   if (breaker.state === 'tripped' && decision?.kind === 'next') {
     journal({
-      agent, verdict: verdictToken(verdict), outcome: 'breaker',
+      agent, verdict: verdictToken(verdict), verdictRecord: verdict?.record, outcome: 'breaker',
       next: [], why: breaker.why.slice(0, 240),
     });
     console.log(
@@ -1130,7 +1133,7 @@ async function main() {
   // happen" and "nothing could happen" produce identical output, and only a
   // reason written at the moment separates them afterwards.
   journal({
-    agent, verdict: verdictToken(verdict),
+    agent, verdict: verdictToken(verdict), verdictRecord: verdict?.record,
     outcome: journalOutcome({ decision, verdict, rule }),
     next: decision?.nexts ?? [],
     why: decision ? decision.text.slice(0, 240) : journalSilentWhy({ verdict, rule, agent }),

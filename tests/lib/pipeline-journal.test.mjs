@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { recordRun, readRuns, OUTCOMES } from '../../scripts/lib/pipeline-journal.mjs';
 import { readEvidence } from '../../scripts/lib/evidence-ledger.mjs';
+import { recordVerdictEvidence } from '../../scripts/lib/evidence-adapters.mjs';
 
 const sandbox = () => { const d = mkdtempSync(join(tmpdir(), 'pj-')); mkdirSync(join(d, '.great_cto')); return d; };
 const clean = (d) => rmSync(d, { recursive: true, force: true });
@@ -55,6 +56,49 @@ test('dispatcher decisions are dual-written to the canonical evidence ledger', (
     assert.equal(evidence.rows[0].stage_id, 'pm');
     assert.equal(evidence.rows[0].state, 'completed');
     assert.deepEqual(evidence.rows[0].details.next, ['senior-dev']);
+    assert.equal(evidence.rows[0].details.join_key_state, 'unavailable');
+    assert.equal(readRuns(d).rows[0].run_id, null);
+  } finally { clean(d); }
+});
+
+test('a Claude verdict and the dispatcher decision consuming it share one run id', () => {
+  const d = sandbox();
+  try {
+    const verdict = {
+      v: 1, ts: '2026-09-13T10:00:00.000Z', agent: 'architect', verdict: 'APPROVED',
+      project: 'join-test', cost_usd: 0.25, meta: { feature: 'ledger' },
+    };
+    const written = recordVerdictEvidence(d, verdict);
+    const dispatched = recordRun(d, {
+      at: '2026-09-13T10:00:01.000Z', agent: 'architect', verdict: 'APPROVED',
+      verdictRecord: verdict, outcome: 'dispatch', next: ['pm'], mapSource: 'plugin',
+    });
+    assert.equal(written.state, 'appended');
+    assert.equal(dispatched.evidence.state, 'appended');
+    const [verdictEvent, dispatcherEvent] = readEvidence(d).rows;
+    assert.equal(verdictEvent.run_id, dispatcherEvent.run_id);
+    assert.equal(verdictEvent.details.join_key_state, 'derived');
+    assert.equal(dispatcherEvent.details.join_key_state, 'derived');
+    assert.equal(readRuns(d).rows[0].run_id, verdictEvent.run_id, 'legacy journal carries the additive join key');
+  } finally { clean(d); }
+});
+
+test('a malformed declared run id stays invalid while retaining deterministic correlation', () => {
+  const d = sandbox();
+  try {
+    const verdict = {
+      v: 1, ts: '2026-09-13T10:00:00.000Z', agent: 'architect', verdict: 'APPROVED',
+      project: 'join-test', meta: {},
+    };
+    recordVerdictEvidence(d, verdict, { runId: 'not a valid run id' });
+    recordRun(d, {
+      at: '2026-09-13T10:00:01.000Z', agent: 'architect', verdict: 'APPROVED',
+      verdictRecord: verdict, runId: 'not a valid run id', outcome: 'dispatch', next: ['pm'],
+    });
+    const [verdictEvent, dispatcherEvent] = readEvidence(d).rows;
+    assert.equal(verdictEvent.run_id, dispatcherEvent.run_id);
+    assert.equal(verdictEvent.details.join_key_state, 'invalid');
+    assert.equal(dispatcherEvent.details.join_key_state, 'invalid');
   } finally { clean(d); }
 });
 

@@ -21,7 +21,7 @@
 
 import { openSync, writeSync, fsyncSync, closeSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { recordDispatcherEvidence } from './evidence-adapters.mjs';
+import { recordDispatcherEvidence, verdictRunIdentity } from './evidence-adapters.mjs';
 
 export const JOURNAL_FILE = 'pipeline-runs.jsonl';
 
@@ -52,6 +52,9 @@ export const OUTCOMES = Object.freeze([
  */
 export function recordRun(cwd, entry) {
   const path = join(cwd, '.great_cto', JOURNAL_FILE);
+  const runIdentity = entry.verdictRecord
+    ? verdictRunIdentity(entry.verdictRecord, { runId: entry.runId })
+    : null;
   const row = {
     v: 1,
     ts: entry.at ? new Date(entry.at).toISOString() : new Date().toISOString(),
@@ -68,6 +71,10 @@ export function recordRun(cwd, entry) {
     // Whether the attempt left anything behind. Three states: true / false /
     // null-for-not-looked. The breaker resets on `true` only — see breaker.mjs.
     progressed: entry.progressed === true ? true : entry.progressed === false ? false : null,
+    // Additive v1 fields: old readers ignore them; the canonical adapter uses
+    // them to join this decision to the exact verdict it consumed.
+    run_id: runIdentity?.runId ?? null,
+    join_key_state: runIdentity?.state ?? 'unavailable',
     agent: entry.agent ?? null,
     verdict: entry.verdict ?? null,
     outcome: entry.outcome,

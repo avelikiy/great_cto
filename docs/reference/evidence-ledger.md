@@ -125,9 +125,12 @@ Codex controller verdicts carry the controller run UUID directly, so stage and
 verdict events join without timestamps or filename heuristics. Other hosts pass
 the same real key through `GREAT_CTO_RUN_ID` (plus optional
 `GREAT_CTO_STAGE_ID`, `GREAT_CTO_ATTEMPT`, and `GREAT_CTO_HOST`) or verdict
-`run_id` metadata. If no valid key is available, the event remains readable but
-records `join_key_state=unavailable` and uses an isolated fallback identity; it
-is never silently attached to the nearest run.
+`run_id` metadata. If no host key is available, the canonical verdict record is
+hashed into a stable content-addressed key and records `join_key_state=derived`;
+the dispatcher reuses that exact key when it consumes the verdict. A dispatcher
+path with no verdict remains `join_key_state=unavailable`; malformed declared
+keys remain `invalid` rather than being presented as joined. An event is never
+silently attached to the nearest run.
 
 ## Deliberate non-goals of v1
 
