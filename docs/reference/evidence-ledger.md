@@ -102,6 +102,25 @@ may use them to claim completeness or to satisfy a gate.
 5. Retire a legacy reader only after a measured parity window. Historical files
    remain immutable evidence; they are not rewritten into synthetic v1 facts.
 
+## Dual-write adapters
+
+`scripts/lib/evidence-adapters.mjs` maps the current write paths without making
+the new ledger an availability dependency:
+
+| Existing fact | Canonical event |
+|---|---|
+| `pipeline-runs.jsonl` dispatcher row | `pipeline.dispatcher.completed` |
+| `verdicts/<agent>.log` row | `agent.verdict.recorded` |
+| Codex run creation/completion | `pipeline.run.created` / `pipeline.run.completed` |
+| Codex stage start/success/failure | `pipeline.stage.started` / `pipeline.stage.completed` / `pipeline.stage.blocked` |
+| Codex gate wait/approval | `pipeline.gate.pending` / `pipeline.gate.approved` |
+
+The established writer commits first. If the ledger is busy, corrupt or
+unwritable, the existing fact remains valid and the adapter returns or reports
+`degraded`. This is deliberate during the parity window: a migration observer
+must not change the control-plane outcome it is observing. Cutover to a
+ledger-backed gate is a later, explicit fail-closed decision.
+
 ## Deliberate non-goals of v1
 
 - No remote event bus or distributed consensus. Great CTO remains a local-first

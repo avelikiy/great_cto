@@ -7,6 +7,7 @@ import { parsePipelineToml } from '../hooks/pipeline-dispatcher.mjs';
 import { scan } from './secret-patterns.mjs';
 import { runCodexExec } from './codex-exec.mjs';
 import { treeReceipt } from './receipt.mjs';
+import { recordCodexEvidence } from './evidence-adapters.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -17,6 +18,22 @@ const externalRoles = new Set(['devops', 'infra-provisioner', 'migration-import-
 const workerArgs = ['--ignore-user-config', '--ignore-rules', '--disable', 'plugins', '--disable', 'apps', '--disable', 'multi_agent',
   '--enable', 'skip_host_skill_discovery', '-c', 'suppress_unstable_features_warning=true',
   '-c', 'approval_policy="never"', '-c', 'sandbox_read_only.network_access=false'];
+
+function emitEvidence(state, eventType, fields) {
+  let result;
+  try { result = recordCodexEvidence(state, eventType, fields); }
+  catch (error) {
+    result = { state: 'unreadable', why: String(error?.message || error), event: null };
+  }
+  const recorded = ['appended', 'duplicate'].includes(result.state);
+  state.evidence = {
+    state: recorded ? 'recorded' : 'degraded',
+    last_outcome: result.state,
+    why: result.why || '',
+    at: new Date().toISOString(),
+  };
+  return result;
+}
 function cleanResponse(response) {
   const errors = (response.errors || []).filter(e => !String(e).split('\n').every(line =>
     /WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back$/.test(line.trim())));
@@ -66,8 +83,14 @@ export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginR
   const graphText = readFileSync(join(pluginRoot, 'shared/pipeline.toml'), 'utf8');
   const graph = parsePipelineToml(graphText);
   if (!graph[entry] || entry.includes('.')) throw Error(`unknown entry role: ${entry}`);
-  return { version: 1, id: randomUUID(), root, prompt, allowed, pluginRoot, graph, graphHash: hash(graphText),
+  const state = { version: 1, id: randomUUID(), root, prompt, allowed, pluginRoot, graph, graphHash: hash(graphText),
     queue: [entry], results: {}, released: [], pending: null, approvals: [], active: null, status: 'ready', writes: {}, steps: 0 };
+  emitEvidence(state, 'pipeline.run.created', {
+    lifecycleState: 'pending',
+    discriminator: state.graphHash,
+    details: { entry, graph_sha: state.graphHash },
+  });
+  return state;
 }
 
 /** Preflight the WHOLE proposal before writing a single byte. A hash binds replacement to what the worker read. */
@@ -114,6 +137,10 @@ export function advance(state) {
       // tampering, and gate:ship could never be approved on the shipped graph.
       // Found by walking shared/pipeline.toml end to end; the two-role fixture
       // has no join and could not see it.
+      emitEvidence(state, 'pipeline.gate.pending', {
+        stageId: role, lifecycleState: 'pending', discriminator: `${result.digest}:${gates.join(',')}`,
+        artifactSha: result.digest, details: { gates },
+      });
       state.pending = { token: randomUUID(), role, gates, result: result.digest, receipt: treeReceipt(state.root) };
       state.status = 'awaiting-gate'; return;
     }
@@ -124,6 +151,12 @@ export function advance(state) {
   }
   if (state.queue.length) state.status = 'ready';
   else state.status = Object.keys(state.results).every(role => state.released.includes(role)) ? 'done' : 'join-wait';
+  if (state.status === 'done') {
+    emitEvidence(state, 'pipeline.run.completed', {
+      lifecycleState: 'completed', discriminator: state.graphHash,
+      details: { roles_completed: Object.keys(state.results).sort(), steps: state.steps },
+    });
+  }
 }
 
 export function approve(state, token) {
@@ -139,6 +172,10 @@ export function approve(state, token) {
   if (!('receipt' in state.pending)) throw Error('gate was raised without a receipt — re-raise it');
   if (state.pending.receipt && JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(state.pending.receipt)) throw Error('working tree changed since gate was raised');
   for (const gate of gates) state.approvals.push({ role, gate, result, at: new Date().toISOString() });
+  emitEvidence(state, 'pipeline.gate.approved', {
+    stageId: role, lifecycleState: 'passed', discriminator: `${result}:${gates.join(',')}`,
+    artifactSha: result, details: { gates },
+  });
   state.pending = null;
   advance(state);
 }
@@ -150,7 +187,11 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
   const role = state.queue[0];
   if (!/^[a-z][a-z0-9-]*$/.test(role)) throw Error('invalid role');
   if (externalRoles.has(role)) {
-    state.status = 'manual-action'; state.reason = `${role} requires execution outside the file-proposal controller`; save(state); return state;
+    state.status = 'manual-action'; state.reason = `${role} requires execution outside the file-proposal controller`;
+    emitEvidence(state, 'pipeline.stage.manual-action', {
+      stageId: role, attempt: 1, lifecycleState: 'blocked', reason: state.reason,
+    });
+    save(state); return state;
   }
   // Project MCP/config can restore side-effecting tools even for a read-only shell.
   for (let p = state.root; ; p = dirname(p)) {
@@ -164,7 +205,11 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
     `before must be SHA256 of the current file bytes or null for a new file. No deletion, symlink or binary proposals. Allowed paths: ${JSON.stringify(state.allowed)}.\n` +
     `Successful tokens: ${JSON.stringify(state.graph[role]?.on)}. Required artifact keys in meta: ${JSON.stringify(state.graph[role]?.produces || [])}. Use BLOCKED if the task requires unsupported execution.\n` +
     `User task: ${state.prompt}\nPrevious results: ${JSON.stringify(state.results)}\n`;
-  state.active = role; state.steps++; save(state);
+  state.active = role; state.steps++;
+  emitEvidence(state, 'pipeline.stage.started', {
+    stageId: role, attempt: 1, lifecycleState: 'running', details: { step: state.steps },
+  });
+  save(state);
   try {
     const response = await execute({ prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
       bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
@@ -223,10 +268,19 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
     if (verification.state !== 'verified') throw Error(`stage verification ${verification.state}: ${JSON.stringify(verification.findings)}`);
     state.results[role] = { verdict: proposal.verdict, summary: proposal.summary, meta: proposal.meta || {},
       receipt, verification, digest: hash(JSON.stringify(proposal)), usage: response.usage ?? null, diagnostics: response.errors || [], at: new Date().toISOString() };
+    emitEvidence(state, 'pipeline.stage.completed', {
+      stageId: role, attempt: 1, lifecycleState: 'passed', discriminator: state.results[role].digest,
+      diffSha: receipt?.dirty ?? null, artifactSha: state.results[role].digest,
+      details: { checks: verification.checks.length, files: files.length, verdict: proposal.verdict },
+    });
     state.queue.shift(); state.active = null;
     advance(state); save(state);
   } catch (error) {
     state.status = 'blocked'; state.reason = error.message;
+    emitEvidence(state, 'pipeline.stage.blocked', {
+      stageId: role, attempt: 1, lifecycleState: 'blocked', reason: error.message,
+      details: { step: state.steps },
+    });
     // Keep active set: a partial write or interrupted process must not be replayed.
     save(state);
   }

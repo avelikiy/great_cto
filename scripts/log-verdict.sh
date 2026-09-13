@@ -148,3 +148,12 @@ echo "$LINE" >> "$PROJ_DIR/verdicts/$AGENT.log"
 # The fallback log carries the same distinction: an unmeasured cost is written
 # as `-`, never as 0, so a parser cannot read it back as spend.
 echo "$TS $AGENT ${COST:--}" >> "$PROJ_DIR/cost-history.log"
+
+# Additive migration: the verdict log remains authoritative until projection
+# parity is measured, while every new verdict is also offered to the canonical
+# Evidence Ledger. A ledger fault is loud but cannot erase or invalidate the
+# verdict that was already durably recorded by the established writer.
+PROJECT_ROOT="$(cd "$PROJ_DIR/.." && pwd)"
+if ! printf '%s\n' "$LINE" | node "$SCRIPT_DIR/lib/evidence-adapters.mjs" verdict "$PROJECT_ROOT"; then
+  echo "warning: verdict recorded, but Evidence Ledger dual-write failed" >&2
+fi
