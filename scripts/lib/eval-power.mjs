@@ -85,7 +85,24 @@ export function wilson(passed, n, z = 1.96) {
  */
 export const DROPOUT_LIMIT = 0.15;
 
-export function dropout({ skippedNums = [], orderedNums = [], skipped, attempted } = {}) {
+/** The kinds of unjudged case, as words — "4 refused by the judge, 1 call failed". */
+const KIND_LABEL = {
+  refused: 'refused by the judge',
+  truncated: 'truncated',
+  empty: 'empty reply',
+  unparseable: 'no verdict in the reply',
+  'no-leaf': 'graph did not reach a leaf',
+  'call-failed': 'call failed',
+};
+export function describeKinds(kinds) {
+  if (!kinds) return null;
+  const parts = Object.entries(kinds).filter(([, n]) => n > 0)
+    .sort(([, a], [, b]) => b - a)
+    .map(([k, n]) => `${n} ${KIND_LABEL[k] || k}`);
+  return parts.length ? parts.join(', ') : null;
+}
+
+export function dropout({ skippedNums = [], orderedNums = [], skipped, attempted, kinds = null } = {}) {
   const total = Number.isFinite(attempted) ? attempted : orderedNums.length;
   const lost = Number.isFinite(skipped) ? skipped : skippedNums.length;
   if (!total) return { rate: 0, lost: 0, attempted: 0, tail: false, severe: false, why: null };
@@ -99,11 +116,19 @@ export function dropout({ skippedNums = [], orderedNums = [], skipped, attempted
   const tail = run >= 2;
 
   const severe = tail || rate > DROPOUT_LIMIT;
+  // "Never reached the provider" is a network fact, and it was printed for every
+  // unjudged case. On 2026-09-12 four of five cases carried it while the provider
+  // had answered each one — with a refusal. Say it only when every lost case was
+  // a failed call; otherwise say what is known: the case was not judged, and why.
+  const cause = describeKinds(kinds);
+  const onlyFailedCalls = Boolean(kinds) && Object.entries(kinds).some(([, n]) => n > 0)
+    && Object.entries(kinds).every(([k, n]) => k === 'call-failed' || !n);
+  const lostHow = onlyFailedCalls ? 'never reached the provider' : 'were not judged';
   const why = !severe ? null
     : tail
-      ? `the run stopped: the last ${run} case(s) never reached the provider, so the sample is the start of the list rather than a draw from it`
-      : `${lost} of ${total} case(s) never reached the provider (${(rate * 100).toFixed(0)}%)`;
-  return { rate, lost, attempted: total, tail, tailRun: run, severe, why };
+      ? `the run stopped: the last ${run} case(s) ${lostHow}${cause ? ` (${cause})` : ''}, so the sample is the start of the list rather than a draw from it`
+      : `${lost} of ${total} case(s) ${lostHow} (${(rate * 100).toFixed(0)}%)${cause ? ` — ${cause}` : ''}`;
+  return { rate, lost, attempted: total, tail, tailRun: run, severe, why, kinds: kinds || null };
 }
 
 export function verdict(passed, n, threshold, { z = 1.96, dropout: drop = null } = {}) {

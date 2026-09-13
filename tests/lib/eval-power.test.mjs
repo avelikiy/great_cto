@@ -199,3 +199,39 @@ test('severe dropout downgrades a fail too', () => {
   const cut = verdict(2, 20, 0.67, { dropout: dropout({ skippedNums: ordered.slice(20), orderedNums: ordered }) });
   assert.equal(cut.status, 'inconclusive');
 });
+
+// ── what kind of case went unjudged ─────────────────────────────────────────
+//
+// "Never reached the provider" was printed for every case without a verdict. On
+// 2026-09-12 four of five security-officer cases carried that label while the
+// provider had answered each of them — with a refusal: the opus-5 judge declined
+// the graph's closed question about an exploit path, returning empty content and
+// finish_reason content_filter. A refusal, a truncation and a failed call are
+// three different faults with three different fixes, and one label hid all of them.
+
+test('a run whose unjudged cases were all refused does not say the provider was never reached', () => {
+  const d = dropout({ skipped: 4, attempted: 5, kinds: { refused: 4 } });
+  assert.equal(d.severe, true);
+  assert.doesNotMatch(d.why, /never reached the provider/,
+    'the provider answered — with a refusal — so this sentence is false');
+  assert.match(d.why, /4 refused by the judge/);
+});
+
+test('a call that failed is still the provider never being reached', () => {
+  const d = dropout({ skipped: 2, attempted: 5, kinds: { 'call-failed': 2 } });
+  assert.match(d.why, /never reached the provider/);
+});
+
+test('a mix names each kind, so the fix is not guesswork', () => {
+  const d = dropout({ skipped: 3, attempted: 5, kinds: { refused: 1, truncated: 1, 'call-failed': 1 } });
+  assert.match(d.why, /1 refused by the judge/);
+  assert.match(d.why, /1 truncated/);
+  assert.match(d.why, /1 call failed/);
+});
+
+test('without kinds the dropout does not claim a cause it was not told', () => {
+  const d = dropout({ skipped: 3, attempted: 5 });
+  assert.doesNotMatch(d.why, /never reached the provider/,
+    'an unclassified gap is "not judged", not a network fact nobody observed');
+  assert.match(d.why, /not judged/);
+});

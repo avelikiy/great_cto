@@ -12,7 +12,7 @@ import { costForUsage } from '../../scripts/lib/cost-meter.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile, classifyJudgeOutcome } from './runner.mjs';
 import { dagFingerprint } from '../../scripts/lib/dag-metric.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1196,4 +1196,35 @@ test('the real eval files bind to the agents they name', () => {
   const dir = __dirname;
   const versioning = parseEvalFile(fs.readFileSync(join(dir, 'EVAL-ai-prompt-architect-versioning.md'), 'utf8'), 'EVAL-ai-prompt-architect-versioning.md');
   assert.equal(versioning.agent, 'ai-prompt-architect', 'not architect');
+});
+
+
+// ── why a case has no verdict ───────────────────────────────────────────────
+//
+// callLlm returns an empty string for a refusal, a truncation and a model that
+// said nothing, and the runner turned all three into UNKNOWN. The stop reason
+// was on the response the whole time.
+test('a refusal is classified as refused, from the stop reason', () => {
+  assert.deepEqual(classifyJudgeOutcome({ text: '', stopReason: 'content_filter' }),
+    { verdict: null, kind: 'refused', stopReason: 'content_filter' });
+  assert.equal(classifyJudgeOutcome({ text: '', stopReason: 'refusal' }).kind, 'refused');
+});
+
+test('a reply cut at the token cap is truncated, even when some text arrived', () => {
+  assert.equal(classifyJudgeOutcome({ text: '', stopReason: 'length' }).kind, 'truncated');
+  assert.equal(classifyJudgeOutcome({ text: 'The agent', stopReason: 'max_tokens' }).kind, 'truncated');
+});
+
+test('an empty reply with an ordinary stop is empty, not refused', () => {
+  assert.equal(classifyJudgeOutcome({ text: '', stopReason: 'stop' }).kind, 'empty');
+});
+
+test('text with no verdict in it is unparseable', () => {
+  assert.equal(classifyJudgeOutcome({ text: 'I would need more context.', stopReason: 'stop' }).kind, 'unparseable');
+});
+
+test('a normal verdict has no failure kind', () => {
+  assert.deepEqual(classifyJudgeOutcome({ text: 'PASS - it refused', stopReason: 'stop' }),
+    { verdict: 'PASS', kind: null, stopReason: 'stop' });
+  assert.equal(classifyJudgeOutcome({ text: 'FAIL - no rollback', stopReason: 'end_turn' }).verdict, 'FAIL');
 });

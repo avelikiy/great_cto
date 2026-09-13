@@ -781,12 +781,38 @@ async function judgeVote(args, votes = 1) {
   for (let i = 0; i < votes; i++) {
     const j = await callJudge(args);
     costUsd += costForUsage({ model: j.model, usage: j.usage });
-    replies.push({ verdict: parseJudgeVerdict(j.text), text: j.text });
+    replies.push({ verdict: parseJudgeVerdict(j.text), text: j.text, stopReason: j.stopReason ?? null });
   }
   const verdict = majorityVerdict(replies.map(r => r.verdict));
+  if (verdict === 'UNKNOWN') {
+    const o = classifyJudgeOutcome(replies[0]);
+    return { verdict, reason: `${o.kind}${o.stopReason ? ` (${o.stopReason})` : ''}`, costUsd, skipKind: o.kind, stopReason: o.stopReason };
+  }
   const reason = (replies.find(r => r.verdict === verdict) || replies[0]).text
     .replace(/^(PASS|FAIL)\s*[-–]\s*/i, '').slice(0, JUDGE_REASON_CHARS);
   return { verdict, reason, costUsd };
+}
+
+/**
+ * Why a judge reply carries no verdict, read from the stop reason the provider
+ * returned. callLlm turns a refusal, a truncation and a silent model into the
+ * same empty string; the stop reason was on the response all along.
+ * Measured 2026-09-12: opus-5 as DAG judge declined a closed question about an
+ * exploit path — empty content, finish_reason content_filter, native "refusal" —
+ * at 8 and at 64 tokens alike. It was recorded as "never reached the provider".
+ */
+export function classifyJudgeOutcome({ text, stopReason }) {
+  const t = String(text ?? '').trim();
+  const stop = stopReason ?? null;
+  const s = String(stop ?? '').toLowerCase();
+  if (/content_filter|refusal/.test(s)) return { verdict: null, kind: 'refused', stopReason: stop };
+  if (t) {
+    const v = parseJudgeVerdict(t);
+    if (v !== 'UNKNOWN') return { verdict: v, kind: null, stopReason: stop };
+  }
+  if (/^(length|max_tokens)$/.test(s)) return { verdict: null, kind: 'truncated', stopReason: stop };
+  if (!t) return { verdict: null, kind: 'empty', stopReason: stop };
+  return { verdict: null, kind: 'unparseable', stopReason: stop };
 }
 
 export function parseJudgeVerdict(reply) {
@@ -833,17 +859,25 @@ export function loadDagFor(evalName, dir) {
  */
 async function dagJudgeCase({ dag, judgeModel, scenario, test, expected, passCriterion, actorResponse }) {
   let costUsd = 0;
+  let last = { text: '', stopReason: null };
   const ask = async (question, allowed) => {
     const { system, user } = questionPrompt(question, allowed,
       { scenario, test, expected: passCriterion || expected, actorResponse });
     const r = await callLlm({ model: judgeModel || modelFor('judge'), system, user, maxTokens: 8 });
     costUsd += costForUsage({ model: r.model, usage: r.usage });
+    last = { text: r.text, stopReason: r.stopReason ?? null };
     return r.text;
   };
 
   const r = await judgeWithDag(dag, ask);
   if (r.score === null) {
-    return { verdict: 'UNKNOWN', reason: (r.error || 'graph did not reach a leaf').slice(0, 120), score: null, costUsd, dagPath: r.path || [] };
+    // "No usable answer" is a judge reply that carried nothing parseable; anything
+    // else is the graph itself not reaching a leaf. Only the first has a stop reason.
+    const replyFault = /no usable answer/.test(String(r.error || ''));
+    const o = replyFault ? classifyJudgeOutcome(last) : { kind: 'no-leaf', stopReason: null };
+    const skipKind = o.kind || 'unparseable';
+    return { verdict: 'UNKNOWN', reason: `${skipKind}${o.stopReason ? ` (${o.stopReason})` : ''}: ${(r.error || 'graph did not reach a leaf')}`.slice(0, 120),
+      score: null, costUsd, dagPath: r.path || [], skipKind, stopReason: o.stopReason };
   }
   const passAt = typeof dag.passAt === 'number' ? dag.passAt : 1;
   return {
@@ -926,6 +960,7 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
       else if (verdict === 'UNKNOWN') skipped++;
       caseResults.push({
         num: c.num, verdict, reason: judge.reason,
+        ...(verdict === 'UNKNOWN' ? { skip: { kind: judge.skipKind || 'unparseable', stopReason: judge.stopReason ?? null } } : {}),
         // What the agent actually said. Without it a run records only the
         // judge's summary, and "does not name the migration" is unfalsifiable
         // from the record — it could be a gap in the agent or a keyword the
@@ -944,13 +979,13 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
       if (cls.terminal) {
         console.warn(`    [STOP] ${cls.kind}: ${cls.why}`);
         skipped += selectedCases.length - selectedCases.indexOf(c);
-        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${cls.kind}: run stopped` });
+        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${cls.kind}: run stopped`, skip: { kind: 'call-failed', error: cls.kind } });
         terminalFailure = cls;
         break;
       }
       console.warn(`    [WARN] Case ${c.num} in ${evalName} skipped: ${err.message.slice(0, 80)}`);
       skipped++;
-      caseResults.push({ num: c.num, verdict: 'SKIP', reason: err.message.slice(0, 80) });
+      caseResults.push({ num: c.num, verdict: 'SKIP', reason: err.message.slice(0, 80), skip: { kind: 'call-failed', error: classifyProviderError(err).kind || null } });
     }
   }
 
@@ -1017,11 +1052,18 @@ export async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, 
   const threshold = thresholdForSplit(parsed.thresholdRaw, split);
 
   const orderedNums = selectCases(parsed, split).map((c) => String(c.num));
+  const unjudged = (c) => c.verdict === 'SKIP' || c.verdict === 'UNKNOWN';
+  const kinds = {};
+  for (const c of runs.flatMap((r) => r.caseResults || []).filter(unjudged)) {
+    const k = c.skip?.kind || (c.verdict === 'SKIP' ? 'call-failed' : 'unparseable');
+    kinds[k] = (kinds[k] || 0) + 1;
+  }
   const runDropout = dropoutOf({
-    skippedNums: last.caseResults.filter((c) => c.verdict === 'SKIP').map((c) => String(c.num)),
+    skippedNums: last.caseResults.filter(unjudged).map((c) => String(c.num)),
     orderedNums,
     skipped: runs.reduce((a, r) => a + r.skipped, 0),
     attempted: orderedNums.length * runs.length,
+    kinds,
   });
 
   // A whole-set run against a dual threshold is two gates, not one — see
