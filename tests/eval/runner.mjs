@@ -696,7 +696,15 @@ export async function runActorLoop({ system, scenario, test, llmFn, maxTurns = 4
 //
 // A cap is not a spend: raising it costs nothing unless the model uses it. The
 // old value was quietly buying cheaper runs by truncating the thing under test.
-let ACTOR_MAX_TOKENS = 2500;
+//
+// Raised 2500 -> 6000 on 2026-09-12, after a batch where the judge's own reasons
+// read "the response is empty", "the agent produced no response at all" and "the
+// response is truncated" — with dropout at zero, so the answers reached the
+// provider and were cut. The agent prompts that produced them are 18-21k tokens
+// of system prompt before the first question; 2500 output tokens was the opening
+// ceremony and nothing else. Those runs scored 20% and 43% and were measuring
+// this constant.
+let ACTOR_MAX_TOKENS = 6000;
 
 /**
  * Step 1 — Actor: responds AS the agent under test.

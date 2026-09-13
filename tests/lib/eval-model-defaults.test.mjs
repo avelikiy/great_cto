@@ -46,3 +46,14 @@ test('the defaults name models the price table carries', () => {
       `${constant(c)} is not in cost-meter.mjs, so a run with it is priced by a family guess`);
   }
 });
+
+test('the actor is given room to answer, not only to introduce itself', () => {
+  const m = RUNNER.match(/let ACTOR_MAX_TOKENS = (\d+);/);
+  assert.ok(m, 'the actor budget is gone from the runner');
+  const budget = Number(m[1]);
+  // The largest agent prompt is over 20k tokens of system text before the first
+  // question. At 2500 the judge read "the response is empty" for three of seven
+  // devops cases, with dropout at zero — the answers arrived and were cut.
+  assert.ok(budget >= 6000,
+    `actor budget ${budget} — below this, a long-prompt agent is scored on a truncated answer`);
+});
