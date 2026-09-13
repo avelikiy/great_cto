@@ -121,6 +121,14 @@ unwritable, the existing fact remains valid and the adapter returns or reports
 must not change the control-plane outcome it is observing. Cutover to a
 ledger-backed gate is a later, explicit fail-closed decision.
 
+Codex controller verdicts carry the controller run UUID directly, so stage and
+verdict events join without timestamps or filename heuristics. Other hosts pass
+the same real key through `GREAT_CTO_RUN_ID` (plus optional
+`GREAT_CTO_STAGE_ID`, `GREAT_CTO_ATTEMPT`, and `GREAT_CTO_HOST`) or verdict
+`run_id` metadata. If no valid key is available, the event remains readable but
+records `join_key_state=unavailable` and uses an isolated fallback identity; it
+is never silently attached to the nearest run.
+
 ## Deliberate non-goals of v1
 
 - No remote event bus or distributed consensus. Great CTO remains a local-first

@@ -273,6 +273,11 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
       diffSha: receipt?.dirty ?? null, artifactSha: state.results[role].digest,
       details: { checks: verification.checks.length, files: files.length, verdict: proposal.verdict },
     });
+    emitEvidence(state, 'agent.verdict.recorded', {
+      stageId: role, attempt: 1, lifecycleState: 'passed', discriminator: state.results[role].digest,
+      diffSha: receipt?.dirty ?? null, artifactSha: state.results[role].digest,
+      details: { join_key_state: 'declared', source: 'codex-controller', verdict: proposal.verdict },
+    });
     state.queue.shift(); state.active = null;
     advance(state); save(state);
   } catch (error) {

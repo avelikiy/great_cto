@@ -11,6 +11,7 @@ import { parseVerdictLine } from './verdict-record.mjs';
 
 const sha = (value) => createHash('sha256').update(String(value)).digest('hex');
 const bounded = (value, max = 2000) => value == null ? null : String(value).slice(0, max);
+const REAL_RUN_ID = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,255}$/;
 
 function identifier(value, fallback) {
   const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9._:@-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 128);
@@ -63,18 +64,26 @@ const verdictState = (verdict) => ({
 }[String(verdict || '').toUpperCase()] || 'unknown');
 
 /** One canonical/legacy verdict line -> one canonical agent fact. */
-export function recordVerdictEvidence(cwd, lineOrRecord) {
+export function recordVerdictEvidence(cwd, lineOrRecord, context = {}) {
   const parsed = typeof lineOrRecord === 'string' ? parseVerdictLine(lineOrRecord) : { ok: true, rec: lineOrRecord };
   if (!parsed.ok) return { state: 'unreadable', why: `verdict line: ${parsed.reason}`, event: null };
   const rec = parsed.rec;
   const identity = sha(JSON.stringify(rec));
   const receiptFiles = rec.receipt?.files && typeof rec.receipt.files === 'object' ? rec.receipt.files : null;
+  const proposedRunId = context.runId || rec.meta?.run_id || null;
+  const joinedRunId = typeof proposedRunId === 'string' && REAL_RUN_ID.test(proposedRunId) ? proposedRunId : null;
+  const proposedAttempt = Number(context.attempt || rec.meta?.attempt);
+  const attempt = Number.isSafeInteger(proposedAttempt) && proposedAttempt > 0 ? proposedAttempt : null;
+  const stageId = identifier(context.stageId || rec.meta?.stage_id || rec.agent, 'unknown-agent');
+  const host = context.host || rec.meta?.host || null;
   return appendEvidence(cwd, {
     eventType: 'agent.verdict.recorded',
     occurredAt: rec.ts,
     projectId: projectIdentity(cwd, rec.project),
-    runId: `verdict-${identity.slice(0, 24)}`,
-    stageId: identifier(rec.agent, 'unknown-agent'),
+    runId: joinedRunId || `verdict-${identity.slice(0, 24)}`,
+    stageId,
+    attempt,
+    host: host ? identifier(host, 'unknown-host') : null,
     agent: identifier(rec.agent, 'unknown-agent'),
     idempotencyKey: `verdict:${identity}`,
     state: verdictState(rec.verdict),
@@ -82,6 +91,7 @@ export function recordVerdictEvidence(cwd, lineOrRecord) {
     artifactSha: receiptFiles && Object.keys(receiptFiles).length ? sha(JSON.stringify(receiptFiles)) : null,
     details: {
       cost_usd: typeof rec.cost_usd === 'number' ? rec.cost_usd : null,
+      join_key_state: joinedRunId ? 'declared' : proposedRunId ? 'invalid' : 'unavailable',
       receipt_files: receiptFiles ? Object.keys(receiptFiles).length : 0,
       receipt_head: rec.receipt?.head ?? null,
       receipt_truncated: rec.receipt?.truncated === true,
@@ -127,7 +137,14 @@ async function main(argv) {
   const cwd = resolve(argv[1] || '.');
   const line = readFileSync(0, 'utf8').trim();
   let result;
-  try { result = recordVerdictEvidence(cwd, line); }
+  try {
+    result = recordVerdictEvidence(cwd, line, {
+      runId: process.env.GREAT_CTO_RUN_ID || null,
+      stageId: process.env.GREAT_CTO_STAGE_ID || null,
+      attempt: process.env.GREAT_CTO_ATTEMPT || null,
+      host: process.env.GREAT_CTO_HOST || null,
+    });
+  }
   catch (error) {
     result = { state: 'unreadable', why: String(error?.message || error), event: null };
   }

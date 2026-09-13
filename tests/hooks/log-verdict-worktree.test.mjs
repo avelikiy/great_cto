@@ -76,6 +76,20 @@ test('a verdict written from the main tree is unaffected', () => {
   } finally { clean(root); }
 });
 
+test('an explicit host run id becomes the canonical join key', () => {
+  const { root, main } = repoWithWorktree();
+  try {
+    execFileSync('bash', [SCRIPT, 'architect', 'APPROVED', '0', 'task=t2'], {
+      cwd: main, stdio: 'ignore',
+      env: { ...process.env, GREAT_CTO_RUN_ID: 'run-real-42', GREAT_CTO_HOST: 'claude-code' },
+    });
+    const evidence = readEvidence(main);
+    assert.equal(evidence[0].run_id, 'run-real-42');
+    assert.equal(evidence[0].host, 'claude-code');
+    assert.equal(evidence[0].details.join_key_state, 'declared');
+  } finally { clean(root); }
+});
+
 test('a broken ledger is warned about after the verdict remains recorded', () => {
   const { root, main } = repoWithWorktree();
   try {

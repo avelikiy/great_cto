@@ -40,11 +40,13 @@ test('role -> guarded write -> human gate -> resume -> terminal gate -> done', a
   assert.equal(events.state, 'some');
   assert.deepEqual(events.rows.map((event) => event.event_type), [
     'pipeline.run.created',
-    'pipeline.stage.started', 'pipeline.stage.completed', 'pipeline.gate.pending', 'pipeline.gate.approved',
-    'pipeline.stage.started', 'pipeline.stage.completed', 'pipeline.gate.pending', 'pipeline.gate.approved',
+    'pipeline.stage.started', 'pipeline.stage.completed', 'agent.verdict.recorded', 'pipeline.gate.pending', 'pipeline.gate.approved',
+    'pipeline.stage.started', 'pipeline.stage.completed', 'agent.verdict.recorded', 'pipeline.gate.pending', 'pipeline.gate.approved',
     'pipeline.run.completed',
   ]);
   assert.ok(events.rows.every((event) => event.run_id === s.id));
+  assert.ok(events.rows.filter((event) => event.event_type === 'agent.verdict.recorded')
+    .every((event) => event.details.join_key_state === 'declared'));
 });
 
 test('secret in any proposed file prevents ALL writes', async t => {
