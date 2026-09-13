@@ -32,6 +32,7 @@ import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecis
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 import { recordView, summarizeViews } from './view-counter.mjs';
+import { evidenceProjection } from '../../../scripts/lib/evidence-projection.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -176,6 +177,23 @@ async function dispatch(req, res, url, cwd) {
     if (days > 365) days = 365;
     res.writeHead(200, verdictHeaders(cwd));
     res.end(JSON.stringify(getMetrics(cwd, days)));
+    return true;
+  }
+
+  // Canonical control-plane evidence. The body owns its health state so API
+  // clients do not need header access; the header lets the existing Board
+  // transport surface degraded reads consistently with verdict-backed routes.
+  if (pathname === '/api/evidence' && req.method === 'GET') {
+    let limit = parseInt(url.searchParams.get('limit') || '100', 10);
+    if (!Number.isFinite(limit) || limit < 1) limit = 100;
+    if (limit > 500) limit = 500;
+    const projection = evidenceProjection(cwd, { limit });
+    const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+    if (projection.state === 'unreadable' || projection.state === 'degraded') {
+      headers['X-Board-Degraded'] = encodeURIComponent(projection.why);
+    }
+    res.writeHead(200, headers);
+    res.end(JSON.stringify(projection));
     return true;
   }
 
