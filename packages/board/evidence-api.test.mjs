@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { appendEvidence } from '../../scripts/lib/evidence-ledger.mjs';
 import { evidenceProjection, projectEvidenceRows } from '../../scripts/lib/evidence-projection.mjs';
-import { dispatch } from './lib/routes.mjs';
+import { dispatch, decisionEvidenceFor } from './lib/routes.mjs';
 
 const project = () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-ev-api-'));
@@ -65,6 +65,38 @@ test('explicit uncertain evidence degrades the projection without becoming empty
   assert.equal(p.state, 'degraded');
   assert.equal(p.summary.uncertain, 1);
   assert.match(p.degraded[0], /host status unavailable/);
+});
+
+test('decision evidence uses gate identity, never timestamp proximity', () => {
+  const projection = projectEvidenceRows([
+    event({ n: 1, run_id: 'run-old', event_type: 'pipeline.gate.pending', state: 'pending',
+      details: { gates: ['gate:ship'] }, occurred_at: '2026-09-13T09:59:59.000Z' }),
+    event({ n: 2, run_id: 'run-real', event_type: 'pipeline.gate.pending', state: 'pending',
+      details: { gates: ['gate:arch'] }, occurred_at: '2026-09-13T10:00:00.000Z' }),
+  ]);
+  const evidence = decisionEvidenceFor(projection, { title: 'gate:arch — approve architecture' });
+  assert.equal(evidence.freshness, 'current');
+  assert.equal(evidence.run_id, 'run-real');
+  assert.equal(evidence.gate_id, 'gate:arch');
+});
+
+test('decision evidence distinguishes unmeasured, unreadable and stale', () => {
+  const task = { title: 'gate:ship — release' };
+  assert.equal(decisionEvidenceFor({ state: 'none', decisions: [] }, task).freshness, 'unmeasured');
+  assert.equal(decisionEvidenceFor({ state: 'unreadable', why: 'torn line' }, task).freshness, 'unreadable');
+  const resolved = projectEvidenceRows([
+    event({ n: 1, event_type: 'pipeline.gate.approved', state: 'passed', details: { gates: ['gate:ship'] } }),
+  ]);
+  assert.equal(decisionEvidenceFor(resolved, task).freshness, 'stale');
+});
+
+test('a degraded projection never produces a partially green decision badge', () => {
+  const projection = projectEvidenceRows([
+    event({ n: 1, event_type: 'pipeline.gate.pending', state: 'pending', details: { gates: ['gate:ship'] } }),
+    event({ n: 2, event_type: 'pipeline.run.created', state: 'unknown', reason: 'host evidence missing' }),
+  ]);
+  assert.equal(projection.state, 'degraded');
+  assert.equal(decisionEvidenceFor(projection, { title: 'gate:ship — release' }).freshness, 'degraded');
 });
 
 test('reader keeps absent, readable and corrupt ledgers distinct', () => {
