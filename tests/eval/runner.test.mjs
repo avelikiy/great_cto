@@ -232,10 +232,14 @@ test('pickProvider: null when no key', () => {
   assert.equal(pickProvider({}).provider, null);
 });
 
-test('modelFor: OpenRouter defaults to anthropic/claude-sonnet-4 slugs', () => {
+test('modelFor: OpenRouter defaults to the same pair as the direct path', () => {
+  // This pinned anthropic/claude-sonnet-4 for BOTH roles until 2026-09-12 — the
+  // defaults that measured a model the router had stopped calling, graded by the
+  // model that wrote the answer. It is the behavioural half of
+  // tests/lib/eval-model-defaults.test.mjs, which checks the constants agree.
   const env = { OPENROUTER_API_KEY: 'o' };
-  assert.equal(modelFor('actor', env), 'anthropic/claude-sonnet-4');
-  assert.equal(modelFor('judge', env), 'anthropic/claude-sonnet-4');
+  assert.equal(modelFor('actor', env), 'anthropic/claude-sonnet-5');
+  assert.equal(modelFor('judge', env), 'anthropic/claude-opus-5');
 });
 
 test('modelFor: GREAT_CTO_ROUTER_MODEL overrides the OpenRouter actor default', () => {

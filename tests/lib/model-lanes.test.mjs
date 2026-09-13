@@ -18,11 +18,18 @@ import assert from 'node:assert/strict';
 import { modelFor } from '../../tests/eval/runner.mjs';
 
 const OR = { OPENROUTER_API_KEY: ['sk', 'or', 'v1', 'test0000000000000000000'].join('-') };
+// What each lane resolves to with no override set. The property is that another
+// lane's variable does not MOVE these — not what they are. This compared against
+// the literal 'anthropic/claude-sonnet-4' and went red the day that default was
+// corrected (2f598143), which is a test of the constant wearing the name of a
+// test of the lanes.
+const BASE_ACTOR = modelFor('actor', OR);
+const BASE_JUDGE = modelFor('judge', OR);
 
 test('the verifier lane does not move the eval actor', () => {
   const env = { ...OR, GREAT_CTO_VERIFY_MODEL: 'z-ai/glm-5.3-flash' };
-  assert.equal(modelFor('actor', env), 'anthropic/claude-sonnet-4');
-  assert.equal(modelFor('judge', env), 'anthropic/claude-sonnet-4');
+  assert.equal(modelFor('actor', env), BASE_ACTOR);
+  assert.equal(modelFor('judge', env), BASE_JUDGE);
 });
 
 test('the router lane still moves what it always did, and that is why it is not the verifier lane', () => {
@@ -36,7 +43,7 @@ test('the router lane still moves what it always did, and that is why it is not 
 test('the eval judge has its own override, and the verifier must not share it', async () => {
   const env = { ...OR, GREAT_CTO_JUDGE_MODEL: 'some/eval-judge' };
   assert.equal(modelFor('judge', env), 'some/eval-judge');
-  assert.equal(modelFor('actor', env), 'anthropic/claude-sonnet-4');
+  assert.equal(modelFor('actor', env), BASE_ACTOR);
 
   const iv = await import('../../scripts/lib/independent-verify.mjs');
   assert.notEqual(iv.JUDGE_MODEL, 'some/eval-judge',

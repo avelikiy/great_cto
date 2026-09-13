@@ -29,7 +29,8 @@
 //
 // Env overrides (model ids):
 //   EVAL_ACTOR_MODEL / EVAL_JUDGE_MODEL  — override regardless of provider
-//   OpenRouter defaults: anthropic/claude-sonnet-4 (override via GREAT_CTO_ROUTER_MODEL
+//   OpenRouter defaults: anthropic/claude-sonnet-5 actor, anthropic/claude-opus-5 judge —
+//   the same pair as the direct path (override via GREAT_CTO_ROUTER_MODEL
 //     / GREAT_CTO_JUDGE_MODEL); Anthropic defaults: claude-sonnet-5 / claude-opus-5
 //
 // Recommended flags for AGENT evals (`> Agent:`): --actor-tools --judge-votes 3
@@ -476,8 +477,8 @@ const OPENROUTER_API = 'https://openrouter.ai/api/v1/chat/completions';
 
 const DEFAULT_ACTOR_MODEL_ANTHROPIC = 'claude-sonnet-5';
 const DEFAULT_JUDGE_MODEL_ANTHROPIC = 'claude-opus-5';
-const DEFAULT_ACTOR_MODEL_OPENROUTER = 'anthropic/claude-sonnet-4';
-const DEFAULT_JUDGE_MODEL_OPENROUTER = 'anthropic/claude-sonnet-4';
+const DEFAULT_ACTOR_MODEL_OPENROUTER = 'anthropic/claude-sonnet-5';
+const DEFAULT_JUDGE_MODEL_OPENROUTER = 'anthropic/claude-opus-5';
 
 /** Which provider to use, based on which key is present (Anthropic wins if both). */
 export function pickProvider(env = process.env) {
