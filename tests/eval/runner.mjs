@@ -560,7 +560,7 @@ export function normalizeCacheUsage(usage, raw) {
  * { text, usage:{input_tokens,output_tokens}, stopReason, model } (usage keys
  * are normalized so cost-meter works for both providers). Throws on non-2xx.
  */
-async function callLlm({ model, system, user, maxTokens = 300 }) {
+async function callLlm({ model, system, user, maxTokens = 300, reasoning = undefined }) {
   const { provider, apiKey } = pickProvider();
   if (!provider) throw new Error('No ANTHROPIC_API_KEY or OPENROUTER_API_KEY set.');
 
@@ -594,6 +594,10 @@ async function callLlm({ model, system, user, maxTokens = 300 }) {
     },
     body: JSON.stringify({
       model, max_tokens: maxTokens, temperature: 0,
+      // Only when a caller asks. The direct Anthropic path does not think unless
+      // thinking is requested, so it needs nothing; OpenRouter turned reasoning on
+      // for opus-5 by default, and the reasoning is billed against max_tokens.
+      ...(reasoning ? { reasoning } : {}),
       messages: [
         ...(cacheableSystem(system, 'openrouter') ?? [{ role: 'system', content: system }]),
         { role: 'user', content: user },
@@ -760,7 +764,7 @@ export async function callJudge({ judgeModel, scenario, test, expected, passCrit
     `Agent response: ${actorResponse}\n\n` +
     `Verdict (PASS or FAIL - reason):`;
 
-  return callLlm({ model: judgeModel || modelFor('judge'), system, user, maxTokens: 220 });
+  return callLlm({ model: judgeModel || modelFor('judge'), system, user, maxTokens: 220, reasoning: JUDGE_REASONING });
 }
 
 /** Majority verdict over an odd number of judge replies. UNKNOWN only if no PASS/FAIL at all. */
@@ -857,13 +861,37 @@ export function loadDagFor(evalName, dir) {
  * on a full-credit leaf). The score itself is carried through so an A/B against
  * the rubric judge has something finer than a boolean to compare.
  */
+const DAG_JUDGE_MAX_TOKENS = 64;
+
+/**
+ * Judges do not reason before answering.
+ *
+ * A judge replies with one word (DAG) or one line (rubric). Over OpenRouter the
+ * opus-5 judge reasons first, and the reasoning is counted against max_tokens.
+ * Measured 2026-09-13 on a real security-officer case, same prompt each time:
+ *
+ *   max_tokens   64   content ""     reasoning 64 of 64    stop length
+ *   max_tokens  256   content ""     reasoning 256 of 256  stop length
+ *   max_tokens 1024   content "yes"  reasoning 315 of 319  stop end_turn
+ *   max_tokens   64   reasoning disabled → content "yes", 4 tokens, 0 reasoning
+ *
+ * So raising the DAG cap from 8 to 64 (3f5e6499) fixed nothing: 3 of 5 cases were
+ * still cut, and that commit's message claimed otherwise. The answer budget was
+ * not too small; something else was spending it. The actor is not given this
+ * setting — it is the agent under test, and its reasoning is part of what is
+ * being measured.
+ */
+const JUDGE_REASONING = { enabled: false };
+
 async function dagJudgeCase({ dag, judgeModel, scenario, test, expected, passCriterion, actorResponse }) {
   let costUsd = 0;
   let last = { text: '', stopReason: null };
   const ask = async (question, allowed) => {
     const { system, user } = questionPrompt(question, allowed,
       { scenario, test, expected: passCriterion || expected, actorResponse });
-    const r = await callLlm({ model: judgeModel || modelFor('judge'), system, user, maxTokens: 8 });
+    // The cap is 64, but the cap was never the fault — see JUDGE_REASONING. With
+    // reasoning on, 8, 64 and 256 all came back empty with stop_reason "length".
+    const r = await callLlm({ model: judgeModel || modelFor('judge'), system, user, maxTokens: DAG_JUDGE_MAX_TOKENS, reasoning: JUDGE_REASONING });
     costUsd += costForUsage({ model: r.model, usage: r.usage });
     last = { text: r.text, stopReason: r.stopReason ?? null };
     return r.text;

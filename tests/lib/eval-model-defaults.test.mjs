@@ -57,3 +57,24 @@ test('the actor is given room to answer, not only to introduce itself', () => {
   assert.ok(budget >= 6000,
     `actor budget ${budget} — below this, a long-prompt agent is scored on a truncated answer`);
 });
+
+test('the DAG judge has room for a one-word answer', () => {
+  const m = RUNNER.match(/const DAG_JUDGE_MAX_TOKENS = (\d+);/);
+  assert.ok(m, 'the DAG judge budget is gone from the runner');
+  // At 8, two of five opus-5 answers came back empty with stop_reason "length".
+  assert.ok(Number(m[1]) >= 64, `DAG judge budget ${m[1]} — below this the answer is cut before the word arrives`);
+  assert.doesNotMatch(RUNNER, /maxTokens: 8\b/, 'a hard-coded 8-token judge call is back');
+});
+
+test('judges are asked not to reason, and the actor is not', () => {
+  // The actor is the agent under test; its reasoning is part of what is measured.
+  const calls = [...RUNNER.matchAll(/callLlm\(\{[^}]*\}\)/g)].map((m) => m[0]);
+  const judge = calls.filter((c) => /modelFor\('judge'\)/.test(c));
+  const actor = calls.filter((c) => /actorModel/.test(c));
+  assert.ok(judge.length >= 2, `expected the rubric and DAG judge calls, found ${judge.length}`);
+  assert.ok(actor.length >= 1, 'no actor call found — the check below would pass on nothing');
+  for (const c of judge) assert.match(c, /reasoning: JUDGE_REASONING/, `a judge call reasons before answering: ${c}`);
+  for (const c of actor) assert.doesNotMatch(c, /reasoning:/, `the actor was told not to reason: ${c}`);
+  assert.match(RUNNER, /const JUDGE_REASONING = \{ enabled: false \};/,
+    'reasoning.max_tokens=0 did not work on OpenRouter — only enabled:false stopped it');
+});

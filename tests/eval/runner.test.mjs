@@ -12,7 +12,7 @@ import { costForUsage } from '../../scripts/lib/cost-meter.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile, classifyJudgeOutcome } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile, classifyJudgeOutcome, callJudge } from './runner.mjs';
 import { dagFingerprint } from '../../scripts/lib/dag-metric.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1227,4 +1227,52 @@ test('a normal verdict has no failure kind', () => {
   assert.deepEqual(classifyJudgeOutcome({ text: 'PASS - it refused', stopReason: 'stop' }),
     { verdict: 'PASS', kind: null, stopReason: 'stop' });
   assert.equal(classifyJudgeOutcome({ text: 'FAIL - no rollback', stopReason: 'end_turn' }).verdict, 'FAIL');
+});
+
+
+// ── judges do not reason before answering ───────────────────────────────────
+//
+// Over OpenRouter the opus-5 judge reasoned first, and the reasoning was billed
+// against max_tokens: at 64 and at 256 every token went to reasoning and the reply
+// was empty. Asked not to reason, it answered "yes" in 4 tokens. This captures the
+// request body the judge actually sends.
+async function withOpenRouterCapture(replies, fn) {
+  const savedFetch = global.fetch;
+  const savedAnthropic = process.env.ANTHROPIC_API_KEY;
+  const savedOpenrouter = process.env.OPENROUTER_API_KEY;
+  const bodies = [];
+  let i = 0;
+  global.fetch = async (_url, init) => {
+    bodies.push(JSON.parse(init.body));
+    const content = replies[i++] ?? 'PASS - ok';
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 10, completion_tokens: 3 },
+      }),
+    };
+  };
+  delete process.env.ANTHROPIC_API_KEY;
+  process.env.OPENROUTER_API_KEY = ['test', 'key', 'not', 'real'].join('-');
+  try {
+    return await fn(bodies);
+  } finally {
+    global.fetch = savedFetch;
+    if (savedAnthropic === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = savedAnthropic;
+    if (savedOpenrouter === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = savedOpenrouter;
+  }
+}
+
+test('the judge asks OpenRouter not to reason, because reasoning is billed against its answer', async () => {
+  await withOpenRouterCapture(['PASS - it refused the deploy'], async (bodies) => {
+    const r = await callJudge({ scenario: 's', test: 't', expected: 'e', actorResponse: 'a' });
+    assert.match(r.text, /^PASS/);
+    assert.equal(bodies.length, 1);
+    assert.deepEqual(bodies[0].reasoning, { enabled: false },
+      'without this the opus-5 judge spends its whole answer budget reasoning and replies with nothing');
+  });
 });
