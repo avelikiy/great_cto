@@ -5,6 +5,7 @@ import { sseClients } from './state.mjs';
 import { listProjects } from './projects.mjs';
 import { bdCacheStale, getTasks, isSelfInflictedTouch } from './beads.mjs';
 import { getPipeline, getInbox } from './data-readers.mjs';
+import { agentActivity, activityStamp } from './agent-activity.mjs';
 
 // ── File watcher ───────────────────────────────────────────────────────────────
 function watchBeads() {
@@ -147,4 +148,31 @@ function watchVerdicts() {
   } catch {}
 }
 
-export { watchBeads, watchVerdicts };
+// ADR-021: push agent events to the clients watching the project that wrote them.
+//
+// Polled, not fs.watch'd: events.jsonl is created on the first event and rotated
+// at its cap, and a watch on a file that does not exist yet — or was just renamed
+// away — silently watches nothing. One stat per watched project per second is
+// cheap, and it meets the ADR's "on the board within two seconds".
+function watchAgentEvents({ intervalMs = 1000 } = {}) {
+  const stamps = new Map();
+  const timer = setInterval(() => {
+    const cwds = new Set();
+    for (const res of sseClients) cwds.add(res._gctoCwd || process.cwd());
+    for (const cwd of cwds) {
+      const stamp = activityStamp(cwd);
+      if (stamps.get(cwd) === stamp) continue;
+      stamps.set(cwd, stamp);
+      let payload;
+      try { payload = `event: agent\ndata: ${JSON.stringify(agentActivity(cwd))}\n\n`; } catch { continue; }
+      for (const res of sseClients) {
+        if ((res._gctoCwd || process.cwd()) !== cwd) continue;
+        try { res.write(payload); } catch { sseClients.delete(res); }
+      }
+    }
+  }, intervalMs);
+  if (typeof timer.unref === 'function') timer.unref();
+  return timer;
+}
+
+export { watchBeads, watchVerdicts, watchAgentEvents };

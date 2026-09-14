@@ -42,6 +42,7 @@ import {
 } from './pipeline-dispatcher.mjs';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
+import { appendEvent } from '../lib/agent-events.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
@@ -130,10 +131,13 @@ function gateStatesFor(rule, verdict) {
 }
 
 function main() {
-  if (process.env.GREAT_CTO_DISABLE_STALL_GUARD === '1') return 0;
-
   let payload = {};
   try { payload = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { /* Stop may send nothing */ }
+  // ADR-021: the turn stopping is an agent event, recorded before this guard's own
+  // switch and before it returns early for a project with no pipeline.
+  appendEvent(PROJ_DIR, { kind: 'stop', session: payload.session_id });
+
+  if (process.env.GREAT_CTO_DISABLE_STALL_GUARD === '1') return 0;
 
   if (!existsSync(VERDICT_DIR)) return 0;              // not a great_cto project mid-pipeline
 

@@ -20,6 +20,7 @@ import { getMemory, getPipeline, getCostHistory, getInbox, inboxElsewhere } from
 import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
+import { agentActivity } from './agent-activity.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
@@ -93,6 +94,8 @@ async function dispatch(req, res, url, cwd) {
     res._gctoCwd = cwd;  // remember which project this client wants
     sseClients.add(res);
     res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(cwd))}\n\n`);
+    // ADR-021: the agent activity strip starts from a snapshot, then follows pushes.
+    try { res.write(`event: agent\ndata: ${JSON.stringify(agentActivity(cwd))}\n\n`); } catch { /* the strip loads on its own */ }
     req.on('close', () => sseClients.delete(res));
     return true;
   }
@@ -903,6 +906,17 @@ async function dispatch(req, res, url, cwd) {
   }
 
   // Pipeline — current stage states (idle / active / done / failed)
+  // ADR-021: agent events for this project — three states, never an empty list
+  // that could mean either "nothing happened" or "could not read".
+  if (pathname === '/api/agent-events') {
+    let limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    if (!Number.isFinite(limit) || limit < 1) limit = 20;
+    if (limit > 200) limit = 200;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(agentActivity(cwd, { limit })));
+    return true;
+  }
+
   if (pathname === '/api/pipeline') {
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(getPipeline(cwd)));

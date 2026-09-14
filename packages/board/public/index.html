@@ -1582,6 +1582,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border-radius: 0;
   overflow-x: auto;
 }
+.agent-activity { margin-top: 8px; font-size: var(--fs-small); }
+.agent-activity .aa-row { display: flex; gap: 10px; align-items: baseline; padding: 2px 16px; }
+.agent-activity .aa-time { font-family: var(--mono); opacity: 0.7; min-width: 64px; }
+.agent-activity .aa-ok { color: var(--status-done); }
+.agent-activity .aa-bad { color: var(--status-blocked); }
+.agent-activity .aa-attn { color: var(--status-progress); }
+.agent-activity .aa-empty { padding: 2px 16px; opacity: 0.75; }
 .pl-stage {
     /* `flex: 1` let a cell shrink below its own label, and `.pl-name` below
        refuses to wrap — so the text simply ran over its neighbour. Measured at
@@ -3424,6 +3431,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
             <span class="tier-badge" id="harness-badge" title="which harness gives the second opinion in review — from capabilities: second_opinion in PROJECT.md"></span>
           </div>
           <div class="pipeline-track" id="pipeline-track"></div>
+          <!-- ADR-021: what agents are doing, streamed as it happens. -->
+          <div class="agent-activity" id="agent-activity" aria-live="polite"></div>
         </div>
 
         <!-- Harnesses: the host that runs the pipeline, and the second harness
@@ -4136,7 +4145,24 @@ function renderInbox(d) {
 function renderStatusVerdict(d, ageH) {
   const el = document.getElementById('proj-status-verdict');
   if (!el) return;
+  // Kept so the agent activity strip, which loads after this line is first drawn,
+  // can redraw it.
+  window.__statusVerdictArgs = [d, ageH];
+  // ADR-021: agent events count as activity, and a stage that did not chain is
+  // said on this collapsed line. The strip sits inside the closed disclosure, and
+  // a warning behind a closed disclosure is as unseen as the journal line it
+  // replaced — the first look at the page showed "no activity recorded" beside
+  // five events and a stalled stage.
+  const aa = window.__agentActivity;
+  const events = aa && aa.state === 'live' && Array.isArray(aa.events) ? aa.events : [];
+  const lastEvent = events.length ? Date.parse(events[events.length - 1].ts) : NaN;
+  if (Number.isFinite(lastEvent)) {
+    const eventH = Math.max(0, (Date.now() - lastEvent) / 3600000);
+    if (ageH == null || eventH < ageH) ageH = eventH;
+  }
   const parts = [];
+  const stalled = aa && Array.isArray(aa.attention) ? aa.attention.length : 0;
+  if (stalled) parts.push(`⚠ ${stalled} stage${stalled > 1 ? 's' : ''} did not chain`);
   if (ageH == null) parts.push('no activity recorded');
   else if (ageH < 1) parts.push(`last activity ${Math.max(1, Math.round(ageH * 60))}m ago`);
   else if (ageH < 48) parts.push(`last activity ${Math.round(ageH)}h ago`);
@@ -5589,6 +5615,55 @@ async function refreshPipeline() {
   if (Array.isArray(d)) renderPipeline(d);
   renderTierBadge();
   renderHarnesses();
+  loadAgentActivity();
+}
+
+// ADR-021 phase 1: what agents are doing, streamed as it happens. Three states,
+// and each says which: no events recorded is not an idle agent, and events the
+// board could not read are "not measured", never an empty strip.
+async function loadAgentActivity() {
+  const snap = await api(`/api/agent-events${pqs()}`).catch(() => null);
+  renderAgentActivity(snap);
+}
+
+function renderAgentActivity(snap) {
+  // Stored before anything else, so the collapsed status line can say what the
+  // strip knows even when the strip itself is not on the page.
+  window.__agentActivity = snap;
+  if (window.__statusVerdictArgs) {
+    try { renderStatusVerdict(...window.__statusVerdictArgs); } catch { /* the strip still renders */ }
+  }
+  const root = document.getElementById('agent-activity');
+  if (!root) return;
+  if (!snap) {
+    root.innerHTML = `<div class="aa-empty aa-bad">Agent events not measured: the board could not load them.</div>`;
+    return;
+  }
+  if (snap.state === 'unreadable') {
+    root.innerHTML = `<div class="aa-empty aa-bad">Agent events not measured: ${esc(snap.why || 'the events file could not be read')}</div>`;
+    return;
+  }
+  const events = Array.isArray(snap.events) ? snap.events : [];
+  if (snap.state === 'none' || !events.length) {
+    root.innerHTML = `<div class="aa-empty">No agent events recorded yet — they start with the next agent run.</div>`;
+    return;
+  }
+  const time = (ts) => { try { return new Date(ts).toLocaleTimeString([], { hour12: false }); } catch { return ''; } };
+  const what = (e) => {
+    if (e.kind === 'tool') {
+      const p = Array.isArray(e.paths) && e.paths.length ? ` ${esc(e.paths[0])}${e.paths.length > 1 ? ` +${e.paths.length - 1}` : ''}` : '';
+      return `${esc(e.tool || 'tool')}${p}`;
+    }
+    if (e.kind === 'pipeline') return `pipeline: ${esc(e.outcome || '')}${e.verdict ? ' · ' + esc(e.verdict) : ''}`;
+    return esc(e.kind || '');
+  };
+  const attention = (Array.isArray(snap.attention) ? snap.attention : []).map((e) =>
+    `<div class="aa-row aa-attn" title="The pipeline did not move on after this stage">⚠ <span>${esc(e.agent || 'stage')}: ${esc(e.outcome || '')} — the pipeline did not chain</span></div>`).join('');
+  const rows = events.slice(-8).reverse().map((e) => {
+    const mark = e.ok === true ? '<span class="aa-ok">✓</span>' : e.ok === false ? '<span class="aa-bad">✗</span>' : '';
+    return `<div class="aa-row"><span class="aa-time">${esc(time(e.ts))}</span><span>${esc(e.agent || '')}</span><span>${what(e)}</span>${mark}</div>`;
+  }).join('');
+  root.innerHTML = attention + rows;
 }
 
 // change_tier badge — the gate + judge plan for the current working-tree diff (ADR-003/004).
@@ -7176,6 +7251,9 @@ function connectSSE() {
       }
       renderPipeline(stages);
     } catch {}
+  });
+  es.addEventListener('agent', e => {
+    try { renderAgentActivity(JSON.parse(e.data)); } catch {}
   });
   es.addEventListener('inbox', e => {
     try { renderInbox(JSON.parse(e.data)); } catch {}

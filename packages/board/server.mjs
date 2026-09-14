@@ -17,7 +17,7 @@ import { warmTasksAsync } from './lib/beads.mjs';
 import { originAllowed, isInsideDir } from './lib/util.mjs';
 import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
-import { watchBeads, watchVerdicts } from './lib/watchers.mjs';
+import { watchBeads, watchVerdicts, watchAgentEvents } from './lib/watchers.mjs';
 import { dispatch } from './lib/routes.mjs';
 import { log } from './lib/log.mjs';
 
@@ -159,6 +159,7 @@ server.listen(PORT, HOST, () => {
   watchBeads();
   startAlertCron();
   watchVerdicts();
+  watchAgentEvents();
 
   // Auto-open browser unless --no-open
   if (!process.argv.includes('--no-open')) {

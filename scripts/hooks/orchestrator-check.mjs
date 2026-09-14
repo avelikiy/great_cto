@@ -15,6 +15,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { cwd } from 'node:process';
+import { appendEvent } from '../lib/agent-events.mjs';
 
 // ─── Locate orchestrator.toml ────────────────────────────────────────────────
 // Walk up from cwd() to find shared/orchestrator.toml (handles worktrees).
@@ -60,9 +61,8 @@ function checkInlineSubagent() {
   try {
     // Non-blocking: only read if stdin has data (TTY check)
     if (process.stdin.isTTY) return false;
-    // In hook context stdin is a pipe — read synchronously via fd 0
-    const buf = readFileSync('/dev/stdin', { encoding: 'utf8' });
-    input = buf;
+    // Read once at the top of the script (STDIN); a pipe cannot be read twice.
+    input = STDIN;
   } catch {
     return false;
   }
@@ -78,6 +78,18 @@ function checkInlineSubagent() {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
+let STDIN = '';
+try { if (!process.stdin.isTTY) STDIN = readFileSync(0, 'utf8'); } catch { /* no stdin */ }
+
+// ADR-021: a subagent starting is an agent event. Before the toml check below,
+// which exits for projects without a contract — the event is still a fact there.
+try {
+  const started = JSON.parse(STDIN || '{}');
+  if (started.hook_event_name === 'SubagentStart' || started.agent_type) {
+    appendEvent(process.env.GREAT_CTO_DIR || '.great_cto', { kind: 'agent-start', agent: started.agent_type, session: started.session_id });
+  }
+} catch { /* not JSON — a Bash-context payload, not a start */ }
+
 const tomlPath = findToml();
 
 if (!tomlPath) {

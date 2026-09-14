@@ -168,6 +168,27 @@ stdio) and for non-interactive/CI runs (the prompt additionally requires an
 interactive stdin). Opt out with `GREAT_CTO_NO_UPDATE_CHECK=1`.
 Source: `packages/cli/src/update-check.ts`.
 
+## Local agent events (not telemetry — on by default, never sent)
+
+So the board can show what agents are doing while they run (ADR-021), the hooks
+append one line per agent event to `.great_cto/events.jsonl` **inside your
+project**. Nothing in this file is sent anywhere; it is read only by the board
+running on your machine.
+
+An event records facts, and only these fields: `ts`, `kind` (`agent-start`,
+`agent-stop`, `tool`, `denied`, `stop`, `pipeline`), `session`, `agent`, `tool`,
+up to ten `paths` a tool touched, `ok`, `duration_ms`, and for pipeline events an
+`outcome` and a verdict token.
+
+It **never** records command text, file contents, prompts, tool output or
+environment variables — those can hold secrets. The allowlist is enforced in code
+(`scripts/lib/agent-events.mjs`), not by convention, and a test fails if an event
+carries any other field.
+
+The file is capped at 5 MB and keeps one previous generation
+(`events.1.jsonl`). Delete either whenever you like. Turn recording off with
+`GREAT_CTO_DISABLE_EVENTS=1`.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.

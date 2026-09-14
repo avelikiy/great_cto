@@ -1,6 +1,6 @@
 # ADR-021 — A live stream of agent events on the board
 
-**Status:** Proposed
+**Status:** Accepted (phase 1 implemented 2026-09-14)
 **Date:** 2026-09-14
 **Deciders:** great_cto core
 **Supersedes:** —

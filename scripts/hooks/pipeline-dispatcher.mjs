@@ -39,6 +39,7 @@ import { stopShape } from '../lib/stop-shape.mjs';
 import { recordRun } from '../lib/pipeline-journal.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { latestScore as _latestScore, readScores as _readScores } from '../lib/scores.mjs';
+import { appendEvent } from '../lib/agent-events.mjs';
 import { parsePipelineToml } from '../lib/pipeline-toml.mjs';
 export { parsePipelineToml } from '../lib/pipeline-toml.mjs';
 
@@ -993,7 +994,18 @@ async function main() {
   // runStartedAt, for the same reason — `journal()` closes over it and runs on
   // paths that execute before the effects block.
   let runProgressed = null;
-  const journal = (entry) => { try { recordRun(PROJECT_ROOT, { startedAt: runStartedAt, progressed: runProgressed, ...entry, mapSource: MAP_SOURCE }); } catch { /* the run still happened */ } };
+  const journal = (entry) => {
+    try { recordRun(PROJECT_ROOT, { startedAt: runStartedAt, progressed: runProgressed, ...entry, mapSource: MAP_SOURCE }); } catch { /* the run still happened */ }
+    // ADR-021: the outcome is an agent event as well, so a stage that did not
+    // chain (no-rule, no-verdict, verify-wait) shows on the board when it happens
+    // instead of in a journal read by hand.
+    try {
+      appendEvent(join(PROJECT_ROOT, '.great_cto'), {
+        kind: 'pipeline', agent: entry.agent, outcome: entry.outcome,
+        verdict: typeof entry.verdict === 'string' ? entry.verdict : undefined,
+      });
+    } catch { /* never break a dispatch over an event */ }
+  };
 
   if (process.env.GREAT_CTO_DISABLE_DISPATCHER === '1') return process.exit(0);
   // Not a great_cto project: nothing to record, and nowhere to record it.

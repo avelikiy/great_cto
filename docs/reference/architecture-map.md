@@ -15,7 +15,7 @@ See also: [Agents](agents.md) · [Commands](commands.md) · [Skills](skills.md).
 
 ## How the code is arranged
 
-Derived from what imports what, across 618 files in 9 groups.
+Derived from what imports what, across 621 files in 9 groups.
 
 ```mermaid
 flowchart TD
@@ -24,12 +24,12 @@ flowchart TD
   commands["Commands<br/><small>44 files</small>"]
   skills["Skills<br/><small>153 files</small>"]
   hooks["Hooks<br/><small>26 files</small>"]
-  libs["Libraries<br/><small>139 files</small>"]
-  board["Board<br/><small>69 files</small>"]
+  libs["Libraries<br/><small>140 files</small>"]
+  board["Board<br/><small>71 files</small>"]
   cli["CLI<br/><small>34 files</small>"]
   evals["Evals<br/><small>80 files</small>"]
-  hooks -->|26| libs
-  board -->|17| libs
+  hooks -->|31| libs
+  board -->|19| libs
   libs -->|3| hooks
   libs -->|1| evals
 ```
@@ -41,8 +41,8 @@ flowchart TD
 | `commands` | 44 | what a human can invoke directly |
 | `skills` | 153 | knowledge agents load on demand |
 | `hooks` | 26 | what fires on session, tool and stop events |
-| `libs` | 139 | the logic hooks and commands share |
-| `board` | 69 | the admin view, zero runtime dependencies |
+| `libs` | 140 | the logic hooks and commands share |
+| `board` | 71 | the admin view, zero runtime dependencies |
 | `cli` | 34 | the published npm package |
 | `evals` | 80 | what each agent is measured against |
 

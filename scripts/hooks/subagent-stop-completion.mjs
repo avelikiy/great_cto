@@ -32,6 +32,7 @@ import { stopShape, stopRemedy } from '../lib/stop-shape.mjs';
 import { worktreesWithChanges, explainWorktrees } from '../lib/worktree-state.mjs';
 import { stopTranscript, stopAgent, requestedModel, modelCheck, costLine } from '../lib/subagent-cost.mjs';
 import { fileURLToPath } from 'node:url';
+import { appendEvent } from '../lib/agent-events.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const ORCH_PATH = join('shared', 'orchestrator.toml');
@@ -341,9 +342,15 @@ async function recordMeasuredCost(stdin) {
 }
 
 async function main() {
-  if (process.env.GREAT_CTO_DISABLE_COMPLETION_CHECK === '1') return process.exit(0);
   let stdin = '';
   try { stdin = readFileSync(0, 'utf8'); } catch { /* no stdin */ }
+  // ADR-021: the stop is an agent event whatever the completion check decides, so
+  // it is recorded before that check's off switch.
+  try {
+    const stopped = JSON.parse(stdin || '{}');
+    appendEvent(PROJ_DIR, { kind: 'agent-stop', agent: stopped.agent_type || stopAgent(stopped), session: stopped.session_id });
+  } catch { /* no payload — nothing to name */ }
+  if (process.env.GREAT_CTO_DISABLE_COMPLETION_CHECK === '1') return process.exit(0);
   await recordMeasuredCost(stdin);
 
   let flags = { threeState: false, acceptanceRequired: false };

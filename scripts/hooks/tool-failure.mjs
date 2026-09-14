@@ -16,6 +16,7 @@
  */
 
 import { readFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { appendEvent } from '../lib/agent-events.mjs';
 
 const LOG = '.great_cto/tool-failures.log';
 
@@ -62,6 +63,18 @@ function main() {
 
   let payload;
   try { payload = JSON.parse(raw); } catch { return; }
+
+  // ADR-021: every tool call is an agent event — the tool, the paths it touched,
+  // whether it failed. Facts only; the command and the content stay out. Recorded
+  // before the early return below, which exists for the failure log.
+  const inp = payload.tool_input || {};
+  appendEvent(process.env.GREAT_CTO_DIR || '.great_cto', {
+    kind: 'tool',
+    tool: String(payload.tool_name || payload.tool || ''),
+    session: payload.session_id,
+    paths: [inp.file_path, inp.path, inp.notebook_path].filter((x) => typeof x === 'string'),
+    ok: !isFailure(payload),
+  });
 
   if (!isFailure(payload)) return; // success — nothing to log
 

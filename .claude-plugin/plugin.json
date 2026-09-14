@@ -272,7 +272,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat 2>/dev/null); TOOL=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('tool_name','unknown'))\" 2>/dev/null); mkdir -p .great_cto 2>/dev/null; printf '%s PERMISSION_DENIED tool=%s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$TOOL\" >> .great_cto/permission-denied.log 2>/dev/null; if [ \"$TOOL\" = \"Bash\" ] || [ \"$TOOL\" = \"Write\" ]; then printf '%s PERMISSION_DENIED %s \u2014 agent may be stuck. Run /inbox.\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$TOOL\" >> .great_cto/permission-denied.log 2>/dev/null; fi; true",
+            "command": "INPUT=$(cat 2>/dev/null); TOOL=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('tool_name','unknown'))\" 2>/dev/null); mkdir -p .great_cto 2>/dev/null; printf '%s PERMISSION_DENIED tool=%s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$TOOL\" >> .great_cto/permission-denied.log 2>/dev/null; if [ \"$TOOL\" = \"Bash\" ] || [ \"$TOOL\" = \"Write\" ]; then printf '%s PERMISSION_DENIED %s \u2014 agent may be stuck. Run /inbox.\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$TOOL\" >> .great_cto/permission-denied.log 2>/dev/null; fi; true; node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/agent-events.mjs\" --emit denied --tool \"$TOOL\" 2>/dev/null || true",
             "timeout": 3
           }
         ]
