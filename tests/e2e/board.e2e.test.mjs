@@ -92,6 +92,9 @@ async function openBoard(env, route = '') {
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('response', (response) => {
+    if (response.status() >= 400) errors.push(`http ${response.status()}: ${response.url()}`);
+  });
   await page.goto(`${env.url}/${route}`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.panel.active, #panel-inbox', { timeout: 15000 });
   await page.waitForTimeout(1200);   // the board paints, then fills from /api/*
