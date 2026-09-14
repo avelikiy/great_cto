@@ -35,6 +35,68 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.8 — 2026-09-14
+
+A reviewer's blocking finding that the author can fix now goes back to the author
+instead of stopping for the CTO, and the time a decision waits at a gate is
+measured for the first time.
+
+### Added
+
+- **`need` on halting verdicts.** `qa-engineer` (FAIL), `security-officer` and
+  `code-reviewer` (BLOCKED) write `need=implementer|decision` and `finding=<id>`.
+  Absent is **undeclared**, and undeclared is never routed — it halts exactly as
+  BLOCKED always has. An unknown value is refused by `log-verdict.sh` when the
+  verdict is written, and read as undeclared when it is already on disk, so no
+  recorded verdict is lost. Defined once in `agents/_shared/verdict-format.md`.
+
+- **The dispatcher routes `need=implementer` back to the owner.** The owner is the
+  latest verdict of an agent the pipeline map sends on to code-reviewer
+  (`senior-dev`, `mobile-app-builder`), matched by `task`, else `feature`.
+  `PIPELINE-ROUTE` re-spawns it with the finding verbatim and spawns nothing
+  downstream. The ceiling is the existing three passes, shared with REWORK; the
+  same finding reported again before the owner answers is held, not re-spawned.
+  `need=decision`, undeclared, or no owner found: halt, with the reason named.
+  Checked with the real `log-verdict.sh` and the real hook: `need=implementer`
+  routes to senior-dev, `need=decision` halts.
+
+- **How long a gate waits** — `scripts/lib/flow-metrics.mjs`. Closed gates:
+  `closed_at − created_at`, listed rather than summarised under five; open gates:
+  the oldest, and those past 24h as stale. Beads that could not be read are
+  `not measured`, never zero. `/inbox` shows it as `## GATE_WAIT`.
+
+- **Docs are part of done.** senior-dev searches the docs for the old name or
+  value before closing and records `docs: updated`, `docs: none describe it` or
+  `docs: not checked`. code-reviewer treats a doc still describing the old
+  behaviour as a P2 finding citing both lines.
+
+### Fixed
+
+- **`/inbox` printed none of the sections it told the agent to read.** Since the
+  helper was written, every block's output ran into the next; `## BLOCKED` was
+  promised and nothing produced it. Every line now sits under a `## NAME`
+  heading, a section appears only when it has content, `## BLOCKED` lists
+  blocked tasks, and bd's `No issues found.` no longer turns an empty list into
+  a heading. The command's table and the helper are checked against each other
+  in both directions.
+
+- **`/inbox` never reported a stale gate.** The check read `bd list`'s status
+  symbol `○` as the task id and grepped `created:` where bd prints `Created:`.
+  A gate open about 65 days had never been reported.
+
+- **The board's rework count skipped REWORK**, the token work is actually sent
+  back with, and counted every halt as rework. It now returns
+  `rework_rounds`, `decisions` and `undeclared_blocks`; the verdict reader
+  keeps `meta`, which it had been dropping.
+
+- **The pipeline journal recorded REWORK as the chain stopping.** Send-backs are
+  now `dispatch`, a held repeat is `hold`.
+
+- The REWORK loop and its three-pass ceiling had no test; they do now.
+
+---
+
 ## v3.28.7 — 2026-09-14
 
 The agents carry one copy of each rule, and the eval scores now measure the
