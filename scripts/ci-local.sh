@@ -79,6 +79,10 @@ step "structural validation" python3 tests/structural/validate.py
 step "lesson rules (incident-bought)" node scripts/lib/lesson-rules.mjs --sweep --strict
 step "agent-shield (config as attack surface)" node scripts/agent-shield-check.mjs
 step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
+# A release candidate cannot earn green from a tiny or weakly linked outcome
+# sample. The same threshold implementation powers the CLI release gate and the
+# Board's explicit insufficient_data state.
+step "outcome regression thresholds" node --test tests/lib/outcome-eval.test.mjs
 # Both of these were wired ONLY to .github/workflows/runtime-ci.yml, and GitHub
 # Actions has been billing-locked for weeks — every run fails in seconds with no
 # logs. So they were configured, correct, and had not executed: six structural

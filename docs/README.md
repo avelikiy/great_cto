@@ -42,6 +42,8 @@ Information-oriented, exhaustive lookups. **Auto-generated** pages stay in sync 
 - **[Skills](reference/skills.md)** — every skill an agent can load, and when. _auto-generated_
 - **[Architecture maps](reference/architecture-map.md)** — how the code is arranged and how a
   feature moves, both derived from the source rather than drawn. _auto-generated_
+- [Evidence Ledger](reference/evidence-ledger.md) — canonical run, stage, gate and receipt facts.
+- [Outcome feedback](reference/OUTCOME-FEEDBACK.md) — outcome capture, coverage and release regression gates.
 - [Archetypes](ARCHETYPES.md) — the 25 project archetypes and the pipelines they select.
 - [Agent lint rules](AGENT-LINT-RULES.md) — the rules `agent-prompt-lint.mjs` enforces.
 - [Help card](help-card.md) — one-page cheat sheet.
@@ -74,5 +76,5 @@ Localized READMEs: [de](de/) · [es](es/) · [fr](fr/) · [ja](ja/) · [ko](ko/)
 
 `adr/` (decisions) · `plans/` (implementation plans) · `architecture/` · `benchmarks/` ·
 `qa/` · [`testing/`](testing/TEST-STRATEGY-end-to-end.md) — how the end-to-end layer is
-gated, and why it was not · `security/` · `validation/` · `design/` · `analysis/` · `operations/` ·
+gated, and why it was not · [E2E coverage plan](testing/E2E-PLAN.md) · `security/` · `validation/` · `design/` · `analysis/` · `operations/` ·
 `launch/` · `marketing/` · `blog/` · `superpowers/` — these are maintainer-facing and not part of the user docs surface.

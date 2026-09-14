@@ -3657,6 +3657,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              strip and the stuck list answer it; the caps table below is where
              the money is stopped. -->
         <div id="ledger-head" class="ledger-head"><div class="muted">loading…</div></div>
+        <div class="mp-section-label" style="margin-top:24px">Outcome feedback</div>
+        <div id="outcome-feedback" class="mp-card" style="padding:16px;margin-bottom:4px;">
+          <div class="muted">loading…</div>
+        </div>
         <!-- From the old Metrics tab (great_cto-ki1x.16): the period chips, the caps
              card and the cost panel keep their ids — the code that fills them did
              not move, only the screen that shows them. -->
@@ -4900,7 +4904,8 @@ async function loadJudgeScores() {
   const el = document.getElementById('judge-scores');
   if (!el) return;
   let d;
-  try { d = await api(`/api/scores${pqs()}&limit=40`); } catch { d = null; }
+  const scope = pqs();
+  try { d = await api(`/api/scores${scope}${scope ? '&' : '?'}limit=40`); } catch { d = null; }
 
   // Three states, and the empty one earns a sentence rather than a blank space:
   // "nothing has been verified yet" and "the panel is broken" look identical
@@ -5152,17 +5157,19 @@ async function loadBudgetsPage() {
   // promise rejected, and the page sat there looking busy. A page that failed
   // and a page still working are the same picture, and the one you are looking
   // at is the one where nothing more is coming.
-  let h, pipe = null, cost = null, m = null;
+  let h, pipe = null, cost = null, m = null, outcomes = null;
   try {
-    [h, pipe, cost, m] = await Promise.all([
+    [h, pipe, cost, m, outcomes] = await Promise.all([
       api(`/api/heartbeat${pqs()}`),
       api(`/api/pipeline${pqs()}`).catch(() => null),
       api(`/api/cost${pqsd()}`).catch(() => null),
       api(`/api/metrics${pqsd()}`).catch(() => null),
+      api(`/api/outcomes${pqs()}`).catch((error) => ({ state: 'unreadable', why: String(error?.message || error) })),
       (typeof refreshAgentsInstalled === 'function' && !(fleetState?.agents || []).length)
         ? refreshAgentsInstalled() : Promise.resolve(),
     ]);
     renderLedgerHead({ heartbeat: h, pipeline: pipe, cost, metrics: m });
+    renderOutcomeFeedback(outcomes);
   } catch (err) {
     body.innerHTML = `
       <div class="budgets-failed">
@@ -5285,6 +5292,31 @@ async function loadBudgetsPage() {
 
   const badge = document.getElementById('nav-budget-count');
   if (badge) badge.textContent = Object.keys(caps).length ? String(Object.keys(caps).length) : '';
+}
+
+function renderOutcomeFeedback(result) {
+  const el = document.getElementById('outcome-feedback');
+  if (!el) return;
+  if (!result || result.state === 'unreadable') {
+    el.innerHTML = `<div class="ab-title">Outcome evidence · unreadable</div>
+      <div class="ab-note ab-bad">${esc(result?.why || 'Outcome evaluation did not return a readable result.')}</div>`;
+    return;
+  }
+  const coverage = result.coverage || {};
+  const ratio = coverage.ratio == null ? 'unmeasured' : `${(coverage.ratio * 100).toFixed(1)}%`;
+  const state = result.state === 'measured' ? 'measured' : 'insufficient_data';
+  const recommendations = (result.recommendations || []).length
+    ? `<div class="ab-note">${result.recommendations.map((row) => `${esc(row.action)} · ${esc(row.target)} · ${esc(row.reason)}`).join('<br>')}</div>`
+    : '<div class="ab-note">No policy recommendation is eligible. Recommendations never apply themselves.</div>';
+  el.innerHTML = `<div class="ab-title">Outcome evidence · <code>${state}</code></div>
+    <div style="display:flex;gap:22px;flex-wrap:wrap;margin:10px 0">
+      <div><span class="muted">Sample size</span><br><strong>${coverage.linked || 0}</strong></div>
+      <div><span class="muted">Eligible runs</span><br><strong>${coverage.eligible || 0}</strong></div>
+      <div><span class="muted">Link coverage</span><br><strong>${ratio}</strong></div>
+    </div>
+    <div class="ab-note">${esc(result.why || '')}</div>
+    <div class="ab-note">Policy <code>${esc(result.policy_version || 'unmeasured')}</code> · benchmark <code>${esc(result.benchmark_version || 'unmeasured')}</code> · dataset <code>${esc((result.dataset_revision || 'unmeasured').slice(0, 12))}</code></div>
+    ${recommendations}`;
 }
 
 /** Set a cap for a named agent, skipping the "which agent?" question. */

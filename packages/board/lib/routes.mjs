@@ -37,6 +37,7 @@ import { materializeSnapshot } from './read-model.mjs';
 import { receiptReadModel } from './receipt-read-model.mjs';
 import { boardInbox, decisionEvidenceFor } from './board-projection.mjs';
 import { runSnapshotWorker } from './snapshot-process.mjs';
+import { outcomeEvaluation } from '../../../scripts/lib/outcome-eval.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -215,6 +216,18 @@ async function dispatch(req, res, url, cwd) {
     }
     res.writeHead(200, headers);
     res.end(JSON.stringify(projection));
+    return true;
+  }
+
+  // Outcomes stay separate from execution evidence because a release can be
+  // observed days later. The join inside outcomeEvaluation is nevertheless
+  // strict: project_id + run_id, never timestamp proximity.
+  if (pathname === '/api/outcomes' && req.method === 'GET') {
+    const evaluation = outcomeEvaluation(cwd);
+    const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+    if (evaluation.state === 'unreadable') headers['X-Board-Degraded'] = encodeURIComponent(evaluation.why);
+    res.writeHead(200, headers);
+    res.end(JSON.stringify(evaluation));
     return true;
   }
 
