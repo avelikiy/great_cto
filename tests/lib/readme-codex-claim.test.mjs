@@ -35,9 +35,17 @@ test('mentioning --host codex requires saying what it does NOT give', () => {
   if (!/--host codex/.test(s)) return;
 
   // The limits must appear, not be left to the installer's output.
-  assert.match(s, /skills and\s*\n?the MCP server|skills \+ MCP|skills and the MCP/i,
+  //
+  // PR #142 (controlled Codex host) rewrote this passage: `--host codex` still gives
+  // "the skills and MCP server", Codex still has "no native plugin surface", and
+  // Claude hooks "do not silently run there" — the same boundary, in words the
+  // literal patterns below did not accept, so main went red on an honest README.
+  // "not the pipeline" is no longer the whole truth either: `great-cto codex-host`
+  // now runs the pipeline under its own controller. What stays required is the
+  // point of this test — say what carries over, and say what does not.
+  assert.match(s, /skills and\s+(the\s+)?MCP server|skills \+ MCP/i,
     'say what does carry over');
-  assert.match(s, /no plugin surface|do not run there|not the pipeline/i,
+  assert.match(s, /no (native )?plugin surface|do not (silently )?run there|not the pipeline/i,
     'and say plainly what does not');
 });
 
