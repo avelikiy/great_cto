@@ -19,6 +19,7 @@ The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for
 | `/api/cost?project=<slug>&days=30` | GET | `{series, total_llm, total_human, ...}` |
 | `/api/memory?project=<slug>` | GET | `{layers: [...11], patterns: [...]}` |
 | `/api/inbox?project=<slug>` | GET | `{pending_gates, p0_open, blocked, ...}`; every gate carries canonical `evidence` freshness |
+| `/api/bootstrap?project=<slug>` | GET | Revisioned core Board projection. Returns `current`, explicit `loading`, or last-good `stale`; materialisation completes over SSE `snapshot`. |
 | `/api/logs?project=<slug>` | GET | `{logs: [...]}` |
 | `/api/decisions?limit=20` | GET | `Decision[]` |
 | `/api/pipeline?project=<slug>` | GET | `Stage[]` — 8 SDLC stages with status |
@@ -76,6 +77,16 @@ POST endpoints return structured errors when state is missing:
 HTTP `409 Conflict` is returned in this case (not `500`). The UI can render an "Initialize project" button instead of an opaque error.
 
 ## SSE stream
+
+`snapshot` carries a newly materialised bootstrap revision. `receipt` carries a
+repository receipt computed in a child process. Neither Git hashing nor a cold
+Beads read runs on the HTTP event loop. Clients must render `loading`, `stale`,
+and `unreadable` as evidence states, not as empty or green data.
+
+The last good bootstrap revision is stored locally under
+`~/.great_cto/cache/board/` with mode `0600`. A process restart can serve it
+within the cold-load budget, but it is labelled `stale` until the isolated
+worker publishes a fresh revision. The cache is an accelerator, never evidence.
 
 ```bash
 curl -N "http://127.0.0.1:3141/api/sse"

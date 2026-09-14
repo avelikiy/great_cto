@@ -3897,6 +3897,10 @@ let currentTab = 'inbox';
 let searchQuery = '';
 let allProjects = [];
 let currentProject = '';
+// False means "the server's own cwd". Its display name is still useful, but
+// sending an unregistered worktree basename back as ?project= would trigger a
+// false fallback banner and could resolve to another directory.
+let currentProjectScoped = false;
 let inboxData = null;
 let activeFilters = { agents: new Set(), priorities: new Set(), labels: new Set() };
 // Period selector for dashboard (1/7/30/90/365 days). Persists in localStorage.
@@ -3904,12 +3908,12 @@ let currentPeriod = parseInt(localStorage.getItem('gcto.period') || '30', 10) ||
 
 // Returns ?project=slug query string for all API calls after init() sets currentProject
 function pqs() {
-  return currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+  return currentProject && currentProjectScoped ? `?project=${encodeURIComponent(currentProject)}` : '';
 }
 // Combined query string: ?project=X&days=Y (for metrics/cost APIs)
 function pqsd() {
   const parts = [];
-  if (currentProject) parts.push(`project=${encodeURIComponent(currentProject)}`);
+  if (currentProject && currentProjectScoped) parts.push(`project=${encodeURIComponent(currentProject)}`);
   parts.push(`days=${currentPeriod}`);
   return '?' + parts.join('&');
 }
@@ -4017,7 +4021,7 @@ function decisionConsequence(t) {
       : ' Routine to undo by repeating the stage.';
   return `<span class="decision-consequence">Approve records the verdict and wakes the next stage.${esc(tail)}</span>`;
 }
-function renderInbox(d) {
+function renderInbox(d, opts = {}) {
   inboxSecondOpinion = d?.second_opinion || null;
   { const c = document.getElementById('decisions-count'); const n = (d?.pending_gates || []).length; if (c) c.textContent = n ? `${n} waiting` : 'nothing waiting'; }
   for (const g of (d?.pending_gates || [])) if (g?.id && g.reversibility) GATE_REVERSIBILITY[g.id] = g.reversibility;
@@ -4099,9 +4103,11 @@ function renderInbox(d) {
   // below already carry. The counts still reach the nav badge.
   renderQueue(d);
   renderStatusVerdict(d, newestEventAgeH);
-  refreshStandDowns();
-  refreshReceipt();
-  refreshBudgetLine();
+  if (opts.hydrate !== false) {
+    refreshStandDowns();
+    refreshReceipt();
+    refreshBudgetLine();
+  }
   // Idle focus: collapse the empty sections into one all-clear card when nothing needs a decision.
   const attention = (d?.pending_gates || []).length + (d?.p0_open || []).length
     + (d?.blocked || []).length + (d?.stale_in_progress || []).length;
@@ -4269,7 +4275,7 @@ async function refreshReceipt() {
   const d = await api(`/api/receipt${pqs()}`);
   el.style.display = 'none';
   if (foot) foot.style.display = 'none';
-  if (!d || d.state === 'matches' || d.state === 'no-receipt') return;
+  if (!d || d.state === 'matches' || d.state === 'no-receipt' || d.state === 'computing') return;
 
   const stamp = d.agent ? `${esc(d.agent)}${d.ts ? ' · ' + relTime(d.ts) : ''}` : '';
   // The FACT is one line; the file list is evidence for it.
@@ -6790,20 +6796,21 @@ async function switchProject(slug) {
   // Close existing SSE so it doesn't push the wrong project's data
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} window._gctoSSE = null; }
   currentProject = slug;
+  currentProjectScoped = true;
   // Optimistic UI clear
   allTasks = [];
   renderKanban([]);
   updateNavCounts();
-  // Refetch project-scoped data in parallel (no /api/projects, no full HTML reload)
-  const [tasks, met, share, inbox] = await Promise.all([
-    api(`/api/tasks${pqs()}`),
-    api(`/api/metrics${pqsd()}`),
-    api(`/api/share${pqs()}`),
-    api(`/api/inbox${pqs()}`),
-  ]);
-  allTasks = tasks || [];
-  metrics = met || {};
-  shareState = share || { enabled: false, url: null };
+  // Project switching consumes the same atomic projection as initial boot;
+  // four independent reads could otherwise describe four different revisions.
+  const boot = await api(`/api/bootstrap${pqs()}`);
+  const bootData = boot?.data || {};
+  allTasks = bootData.tasks || [];
+  metrics = bootData.metrics || {};
+  shareState = bootData.share || { enabled: false, url: null };
+  allProjects = bootData.projects || allProjects || [];
+  const inbox = bootData.inbox || { pending_gates: [], p0_open: [], blocked: [], stale: [] };
+  window._gctoNeedsSnapshot = !boot?.data;
   document.getElementById('project-name').textContent = slug;
   document.getElementById('crumb-project').textContent = slug;
   document.title = `${slug} · great_cto`;
@@ -6817,7 +6824,7 @@ async function switchProject(slug) {
   if (swArch) swArch.textContent = arch !== 'default' ? arch : '';
   // Update sidebar counters FIRST — independent of render chain (BH-fix).
   updateNavCounts();
-  try { renderInbox(inbox); } catch (e) { console.warn('renderInbox failed', e); }
+  try { renderInbox(inbox, { hydrate: boot?.state === 'current' }); } catch (e) { console.warn('renderInbox failed', e); }
   try { renderFilterBar(); } catch (e) { console.warn('renderFilterBar failed', e); }
   try { renderKanban(allTasks); } catch (e) { console.warn('renderKanban failed', e); }
   try { renderShareState(shareState); } catch (e) { console.warn('renderShareState failed', e); }
@@ -6966,22 +6973,25 @@ async function init() {
   // Read ?project=slug from URL — set by switchProject() on reload
   const urlParams = new URLSearchParams(window.location.search);
   const urlProject = urlParams.get('project') || '';
+  currentProjectScoped = !!urlProject;
   const qs = urlProject ? `?project=${encodeURIComponent(urlProject)}` : '';
 
-  // Build version badge (fire-and-forget — never blocks the board).
-  api('/api/version').then(v => { const el = document.getElementById('build-version'); if (el && v && v.version) el.textContent = 'v' + v.version; }).catch(() => {});
-
-  const [tasks, met, share, projs, inbox] = await Promise.all([
-    api(`/api/tasks${qs}`),
-    api(`/api/metrics${qs}`),
-    api(`/api/share${qs}`),
-    api('/api/projects'),
-    api(`/api/inbox${qs}`),
-  ]);
-  allTasks = tasks || [];
-  metrics = met || {};
-  shareState = share || { enabled: false, url: null };
-  allProjects = projs || [];
+  // One revisioned projection replaces the old tasks/metrics/share/projects/
+  // inbox fan-out. Cold boot is a valid state: the server answers immediately,
+  // then publishes the first materialised revision over SSE.
+  const boot = await api(`/api/bootstrap${qs}`);
+  const bootData = boot?.data || {};
+  allTasks = bootData.tasks || [];
+  metrics = bootData.metrics || {};
+  shareState = bootData.share || { enabled: false, url: null };
+  allProjects = bootData.projects || [];
+  const inbox = bootData.inbox || { pending_gates: [], p0_open: [], blocked: [], stale: [] };
+  const versionEl = document.getElementById('build-version');
+  if (versionEl && bootData.version?.version) versionEl.textContent = 'v' + bootData.version.version;
+  renderDegradedBanner('degraded-snapshot', boot?.state === 'current' ? null
+    : (boot?.state === 'stale' ? `Showing revision ${boot.revision}; refresh is still materialising.`
+      : boot?.why || 'Project snapshot is materialising; empty values are not yet evidence of absence.'),
+    'Board snapshot is not current');
 
   // Prefer the URL, then a REGISTERED project, then a guess that is known to be
   // one. Deriving the slug from a task id's prefix is a heuristic: bd ids are
@@ -6994,6 +7004,8 @@ async function init() {
   const registered = (allProjects || []).some((p) => p.slug === fromTaskId) ? fromTaskId : '';
   const proj = urlProject
     || registered
+    || bootData.project
+    || boot?.project
     || (allProjects[0]?.slug)
     || fromTaskId
     || 'project';
@@ -7014,16 +7026,15 @@ async function init() {
   // Update sidebar counters FIRST — independent of render chain.
   // If a render below throws, counters still reflect actual state.
   updateNavCounts();
-  try { renderInbox(inbox); } catch (e) { console.warn('renderInbox failed', e); }
+  try { renderInbox(inbox, { hydrate: boot?.state === 'current' }); } catch (e) { console.warn('renderInbox failed', e); }
   try { renderFilterBar(); } catch (e) { console.warn('renderFilterBar failed', e); }
   try { renderKanban(allTasks); } catch (e) { console.warn('renderKanban failed', e); }
   try { renderShareState(shareState); } catch (e) { console.warn('renderShareState failed', e); }
-  loadMemory();
-  refreshDocsCount();   // the badge said 0 until the tab was opened — same bug the Logs badge had
-  refreshCost();
-  refreshPipeline();
-  refreshLogs();   // populate the Logs nav badge (was lazy — stuck at 0 until the tab was opened)
-  refreshAgentsInstalled();  // preload fleet so Agents tab is instant
+  // Non-default destinations load on demand. Preloading all of them made the
+  // first paint pay for Fleet, Docs, Ledger, Activity and Harness even though
+  // the operator opened Decisions.
+  window._gctoBootReady = true;
+  window._gctoNeedsSnapshot = !boot?.data;
   connectSSE();
 
   // Deep-link: ?task=<id> opens the side panel for that task (from email alerts).
@@ -7153,6 +7164,45 @@ function connectSSE() {
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} }
   const es = new EventSource(`/api/sse${pqs()}`);
   window._gctoSSE = es;
+  const applyMaterializedSnapshot = (snap) => {
+    const d = snap?.data;
+    if (!d) return;
+    window._gctoNeedsSnapshot = false;
+    allTasks = d.tasks || [];
+    metrics = d.metrics || {};
+    shareState = d.share || { enabled: false, url: null };
+    allProjects = d.projects || allProjects || [];
+    const versionEl = document.getElementById('build-version');
+    if (versionEl && d.version?.version) versionEl.textContent = 'v' + d.version.version;
+    renderDegradedBanner('degraded-snapshot', snap.state === 'current' ? null
+      : snap.why || `Showing stale revision ${snap.revision || 0}.`, 'Board snapshot is not current');
+    updateNavCounts();
+    renderInbox(d.inbox || { pending_gates: [], p0_open: [], blocked: [], stale: [] }, { hydrate: snap.state === 'current' });
+    renderFilterBar();
+    renderKanban(allTasks);
+    renderShareState(shareState);
+  };
+  // If materialisation completed before EventSource connected, the event was
+  // legitimately missed. One handshake-bound read closes that race; if the
+  // build is still running, its later snapshot event completes the boot.
+  es.addEventListener('open', async () => {
+    if (!window._gctoNeedsSnapshot) return;
+    try { applyMaterializedSnapshot(await api(`/api/bootstrap${pqs()}`)); }
+    catch (err) { console.warn('bootstrap handshake refresh failed', err); }
+  });
+  es.addEventListener('snapshot', e => {
+    try {
+      const snap = JSON.parse(e.data || '{}');
+      applyMaterializedSnapshot(snap);
+    } catch (err) { console.warn('SSE snapshot error', err); }
+  });
+  es.addEventListener('receipt', e => {
+    try {
+      JSON.parse(e.data || '{}');
+      if (fleetState.drawerSlug) openAgentDrawer(fleetState.drawerSlug, { fromHash: true });
+      if (currentTab === 'decisions') refreshReceipt();
+    } catch (err) { console.warn('SSE receipt error', err); }
+  });
   const applyTasksSnapshot = (newTasks) => {
     // Detect status transitions for toast feed
     if (allTasks.length) {
@@ -8319,7 +8369,7 @@ function switchTab(id, el) {
     _refreshMetricsRaced(`/api/metrics${pqsd()}`).then(m => { if (m) { metrics = m; } });
     if (lid === 'agents') refreshAgentsInstalled();
   }
-  if (lid === 'inbox') refreshInbox();
+  if (lid === 'inbox' && window._gctoBootReady) refreshInbox();
   if (lid === 'logs') setActivityView('logs');
   if (lid === 'docs') loadDocs();
   if (lid === 'sessions') loadSessions();
@@ -8855,6 +8905,7 @@ function renderAgentProfile(p, extra = {}) {
     : '<span class="abs" title="measured — no gate stood down for this agent">—</span>';
   const rc = extra.receipt;
   const receipt = rc == null ? '<span class="abs" title="receipt not read">· unloaded</span>'
+    : rc.state === 'computing' ? '<span class="abs">· computing in background</span>'
     : rc.state === 'no-receipt' ? `<span class="abs" title="${esc(rc.why || '')}">— no approval carries a receipt yet</span>`
     : rc.state === 'unreadable' ? `<span class="abs" title="${esc(rc.why || '')}">! unreadable</span>`
     : rc.state === 'differs' ? `<span style="color:var(--status-progress)">differs</span> <span class="muted">— ${(rc.changed || []).length} changed, ${(rc.added || []).length} added since ${esc(rc.agent || 'the last')} approval${rc.ts ? ' ' + esc(agoStr(rc.ts)) : ''}</span>`
