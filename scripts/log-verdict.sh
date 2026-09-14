@@ -130,7 +130,10 @@ SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # Best-effort and never fatal: a verdict that cannot be fingerprinted is still a
 # verdict. `RECEIPT=""` then means "no receipt", which the checker reports as its
 # own state rather than as a match.
-RECEIPT="$(node "$SCRIPT_DIR/lib/receipt.mjs" --emit 2>/dev/null || true)"
+# --verdicts: the change is measured from where the previous stage stood, not from
+# merge-base-or-HEAD, which on main or without an upstream is HEAD itself and left
+# work committed before this verdict out of the receipt (great_cto-zfsj).
+RECEIPT="$(node "$SCRIPT_DIR/lib/receipt.mjs" --emit --verdicts "$PROJ_DIR/verdicts" 2>/dev/null || true)"
 
 LINE=$(TS="$TS" AGENT="$AGENT" VERDICT="$VERDICT" COST="$COST" \
        PROJECT_SLUG="$PROJECT_SLUG" META="$META" RECEIPT="$RECEIPT" \

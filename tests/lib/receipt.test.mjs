@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { treeReceipt, compareReceipts, describeDrift, fileDigest, receiptHash, writeAcceptance, readAcceptance, clearAcceptance } from '../../scripts/lib/receipt.mjs';
+import { treeReceipt, compareReceipts, describeDrift, fileDigest, receiptHash, writeAcceptance, readAcceptance, clearAcceptance, taskBase } from '../../scripts/lib/receipt.mjs';
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-'));
@@ -305,4 +305,118 @@ test('an unreadable acceptance is not a valid one', async () => {
     assert.equal(r.valid, false);
     assert.equal(r.unreadable, true);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── what the change is measured against (great_cto-zfsj) ─────────────────────
+//
+// A live pipeline run on 2026-09-14: senior-dev committed its fix, then recorded
+// TASK_DONE. The receipt measured the change against merge-base-or-HEAD; with no
+// upstream that was HEAD, so the change set held only uncommitted leftovers and
+// not the code. The independent judge, shown that, correctly said the change did
+// not implement the feature — a false rework on a correct fix.
+//
+// The change a stage made starts where the previous stage stood: the head
+// recorded by the newest earlier verdict that is still in this history.
+
+const HEX = (s) => s.trim();
+function headOf(d) { return HEX(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: d, encoding: 'utf8' })); }
+function commitAll(d, msg) {
+  execFileSync('git', ['add', '-A'], { cwd: d, stdio: 'ignore' });
+  execFileSync('git', ['commit', '-qm', msg], { cwd: d, stdio: 'ignore' });
+}
+function recordVerdict(d, agent, ts, head) {
+  const dir = path.join(d, '.great_cto', 'verdicts');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.appendFileSync(path.join(dir, `${agent}.log`),
+    JSON.stringify({ v: 1, ts, agent, verdict: 'FAIL', receipt: { head, dirty: null, base: head, files: {} } }) + '\n');
+  return dir;
+}
+function withIgnoredState(d) {
+  write(d, '.gitignore', '.great_cto/\n');
+  commitAll(d, 'ignore pipeline state');
+}
+
+test('work committed after the previous stage recorded its verdict is part of the change', () => {
+  const d = repo();
+  try {
+    withIgnoredState(d);
+    const before = headOf(d);
+    const dir = recordVerdict(d, 'qa-engineer', '2026-09-14T10:00:00Z', before);
+    write(d, 'src/cart.mjs', 'export const fixed = true;\n');
+    commitAll(d, 'fix');
+    const r = treeReceipt(d, { verdictsDir: dir });
+    assert.equal(r.base, before, 'measured from where the previous stage stood');
+    assert.equal(r.base_from, 'task');
+    assert.ok('src/cart.mjs' in r.files, 'the committed fix is in the change the judge will read');
+  } finally { clean(d); }
+});
+
+test('without the verdicts the base is what it was — a repository with no upstream measures against HEAD', () => {
+  const d = repo();
+  try {
+    withIgnoredState(d);
+    recordVerdict(d, 'qa-engineer', '2026-09-14T10:00:00Z', headOf(d));
+    write(d, 'src/cart.mjs', 'x\n');
+    commitAll(d, 'fix');
+    const r = treeReceipt(d);
+    assert.equal(r.base, headOf(d));
+    assert.ok(!('src/cart.mjs' in r.files), 'callers that do not ask for the task base are unchanged');
+  } finally { clean(d); }
+});
+
+test('a recorded head that is not in this history is not a base', () => {
+  const d = repo();
+  try {
+    withIgnoredState(d);
+    const dir = recordVerdict(d, 'qa-engineer', '2026-09-14T10:00:00Z', 'f'.repeat(40));
+    write(d, 'src/cart.mjs', 'x\n');
+    commitAll(d, 'fix');
+    assert.equal(taskBase(d, { verdictsDir: dir }), null);
+    assert.notEqual(treeReceipt(d, { verdictsDir: dir }).base_from, 'task');
+  } finally { clean(d); }
+});
+
+test('a recorded head equal to HEAD is not a base, and uncommitted work still counts', () => {
+  const d = repo();
+  try {
+    withIgnoredState(d);
+    const dir = recordVerdict(d, 'qa-engineer', '2026-09-14T10:00:00Z', headOf(d));
+    write(d, 'base.txt', 'edited, not committed\n');
+    assert.equal(taskBase(d, { verdictsDir: dir }), null, 'nothing was committed since that stage');
+    const r = treeReceipt(d, { verdictsDir: dir });
+    assert.ok('base.txt' in r.files);
+  } finally { clean(d); }
+});
+
+test('the newest earlier verdict wins over an older one', () => {
+  const d = repo();
+  try {
+    withIgnoredState(d);
+    const first = headOf(d);
+    recordVerdict(d, 'architect', '2026-09-14T09:00:00Z', first);
+    write(d, 'docs/plan.md', 'plan\n'); commitAll(d, 'plan');
+    const second = headOf(d);
+    const dir = recordVerdict(d, 'qa-engineer', '2026-09-14T10:00:00Z', second);
+    write(d, 'src/cart.mjs', 'x\n'); commitAll(d, 'fix');
+    const r = treeReceipt(d, { verdictsDir: dir });
+    assert.equal(r.base, second);
+    assert.ok('src/cart.mjs' in r.files);
+    assert.ok(!('docs/plan.md' in r.files), 'the earlier stage’s work is not attributed to this one');
+  } finally { clean(d); }
+});
+
+test('a previous stage recorded at HEAD ends the search — an older verdict is not used instead', () => {
+  // Killed a surviving mutation: with only one verdict at HEAD, "stop" and "skip
+  // to an older one" both return null. With an older ancestor verdict behind it,
+  // skipping would hand this stage the earlier stage's commits as its own work.
+  const d = repo();
+  try {
+    withIgnoredState(d);
+    const older = headOf(d);
+    recordVerdict(d, 'architect', '2026-09-14T09:00:00Z', older);
+    write(d, 'docs/plan.md', 'plan\n'); commitAll(d, 'plan');
+    const dir = recordVerdict(d, 'qa-engineer', '2026-09-14T10:00:00Z', headOf(d));
+    assert.equal(taskBase(d, { verdictsDir: dir }), null);
+    assert.ok(!('docs/plan.md' in treeReceipt(d, { verdictsDir: dir }).files));
+  } finally { clean(d); }
 });

@@ -52,7 +52,7 @@ export const MAX_FILES = 200;
  * Returns `null` outside a git repository rather than a fabricated receipt: a
  * receipt that cannot be built must not look like one that matched.
  */
-export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES } = {}) {
+export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null } = {}) {
   const head = git(['rev-parse', 'HEAD'], cwd)?.trim();
   if (!head) return null;
 
@@ -73,7 +73,35 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   // Which files the change touches. `--diff-filter=d` drops deletions: a file
   // that is gone cannot have a blob sha, and its absence is already visible in
   // the map as a missing key.
-  const ref = base || mergeBase(cwd) || 'HEAD';
+  // What the change is measured against. The merge-base with the default branch
+  // is right on a feature branch, and wrong on the branch itself: once the work is
+  // on main, or there is no upstream at all, the merge-base IS HEAD, and a stage
+  // that committed before recording its verdict gets a change set holding only
+  // uncommitted leftovers. A live run on 2026-09-14 did exactly that — senior-dev
+  // committed its fix, the receipt named two logs and a report, and the
+  // independent judge, shown no code, correctly said nothing was implemented.
+  //
+  // So when the caller hands in the project's verdicts, the change starts where
+  // the previous stage stood (taskBase), unless the merge-base is closer.
+  // `base_from` records which, so a reader can tell what the judge was shown.
+  let ref, baseFrom;
+  if (base) {
+    ref = base; baseFrom = 'explicit';
+  } else {
+    const tb = verdictsDir ? taskBase(cwd, { verdictsDir, head }) : null;
+    const mb = mergeBase(cwd);
+    const mbBelow = mb && mb !== head ? mb : null;
+    if (tb && mbBelow) {
+      ref = isAncestor(cwd, mbBelow, tb) ? tb : mbBelow;
+      baseFrom = ref === tb ? 'task' : 'merge-base';
+    } else if (tb) {
+      ref = tb; baseFrom = 'task';
+    } else if (mbBelow) {
+      ref = mbBelow; baseFrom = 'merge-base';
+    } else {
+      ref = mb || 'HEAD'; baseFrom = 'head';
+    }
+  }
   const names = [
     ...(git(['diff', '--name-only', '--diff-filter=d', ref], cwd) ?? '')
       .split('\n').map((s) => s.trim()).filter(Boolean),
@@ -90,7 +118,7 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
     if (blob) files[p] = blob;
   }
 
-  return { head, dirty, base: ref, files, ...(truncated ? { truncated: true } : {}) };
+  return { head, dirty, base: ref, base_from: baseFrom, files, ...(truncated ? { truncated: true } : {}) };
 }
 
 /**
@@ -103,6 +131,50 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
 export function fileDigest(cwd, path) {
   const out = git(['hash-object', '--', path], cwd);
   return out ? out.trim() : null;
+}
+
+/** Is `ancestor` in the history of `descendant`? */
+function isAncestor(cwd, ancestor, descendant) {
+  return git(['merge-base', '--is-ancestor', ancestor, descendant], cwd) !== null;
+}
+
+/**
+ * Where the current stage's work began: the commit the previous stage stood on.
+ *
+ * The newest verdict in `verdictsDir` that carries a receipt names that commit as
+ * `receipt.head`. It is a base only if it is still in this history and is not
+ * HEAD itself — a previous stage recorded at HEAD means nothing has been
+ * committed since, and an earlier verdict would attribute another stage's work
+ * to this one. A recorded head that is not an ancestor (rebased away, or from a
+ * different clone) is skipped for the next newest.
+ *
+ * Null when there is no such commit; the caller falls back to the merge-base.
+ */
+export function taskBase(cwd, { verdictsDir, head = null, read = readFileSync, list = null } = {}) {
+  if (!verdictsDir) return null;
+  const now = head || git(['rev-parse', 'HEAD'], cwd)?.trim();
+  if (!now) return null;
+  let names;
+  try { names = (list || fsModule.readdirSync)(verdictsDir).filter((f) => f.endsWith('.log')); }
+  catch { return null; }
+  const recorded = [];
+  for (const f of names) {
+    let text;
+    try { text = read(join(verdictsDir, f), 'utf8'); } catch { continue; }
+    for (const line of String(text).split('\n')) {
+      if (!line.trim()) continue;
+      let rec;
+      try { rec = JSON.parse(line); } catch { continue; }
+      const h = rec?.receipt?.head;
+      if (typeof h === 'string' && /^[0-9a-f]{7,40}$/.test(h)) recorded.push({ ts: String(rec.ts || ''), head: h });
+    }
+  }
+  recorded.sort((a, b) => b.ts.localeCompare(a.ts));
+  for (const { head: h } of recorded) {
+    if (h === now) return null;
+    if (isAncestor(cwd, h, now)) return h;
+  }
+  return null;
 }
 
 /** The fork point from the default branch, or null when there isn't one. */
@@ -301,7 +373,10 @@ function requireFs() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const argv = process.argv.slice(2);
   if (argv.includes('--emit')) {
-    const r = treeReceipt(process.cwd());
+    // `--verdicts <dir>`: measure the change from where the previous stage stood.
+    const vi = argv.indexOf('--verdicts');
+    const verdictsDir = vi >= 0 && argv[vi + 1] ? argv[vi + 1] : null;
+    const r = treeReceipt(process.cwd(), { verdictsDir });
     process.stdout.write(r ? JSON.stringify(r) : '');
     process.exit(r ? 0 : 1);
   }
