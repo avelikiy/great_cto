@@ -56,6 +56,11 @@ How many stages there are, who runs them, and where a human is asked.
   *declares: implemented, not released · 2026-09-14*. BLOCKED always paged the CTO, even when
   qa's own contract said "senior-dev fix"; the board's rework count skipped `REWORK`; and
   /inbox's stale-gate check could never fire. All four tasks landed; the live run is still owed.
+- [The board is safe to leave open, and it shows every agent live](PLAN-2026-09-14-board-live-and-safe.md) —
+  *declares: in progress · 2026-09-14*. A DNS-rebinding page could read the board and approve
+  gates because "same origin" meant "matches this request's Host". Item 1, the Host
+  allowlist, landed first; stream resume, Codex events, per-turn diffs and board
+  approvals follow, approvals last.
 
 ## Cost, context and the model
 

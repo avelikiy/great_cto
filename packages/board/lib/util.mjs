@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { PORT } from './config.mjs';
+import { PORT, HOST } from './config.mjs';
 
 /**
  * Escape a single value for inclusion in a CSV cell.
@@ -14,13 +14,41 @@ function csvCell(v) {
 }
 
 // Only same-origin (the board's own page) may make a state-changing request — a malicious page must not.
+//
+// "Same origin" used to mean: the Origin matches the Host this request arrived with.
+// A DNS-rebinding page points its own domain at 127.0.0.1, so the browser sends
+// Host: evil.test:PORT and Origin: http://evil.test:PORT — a perfect match. It could
+// read every GET and pass this guard for POST, gate approvals included (great_cto-xq9h).
+// So the Host itself must be a name the board was told about: loopback on its port,
+// the concrete bind host, or an entry in GREAT_CTO_ALLOWED_HOSTS (a tunnel or hosted
+// console). server.mjs checks it for every request; the Origin must name one too.
+const WILDCARD_BINDS = new Set(['0.0.0.0', '::', '[::]', '']);
+
+function parseAllowedHosts(raw = process.env.GREAT_CTO_ALLOWED_HOSTS) {
+  return String(raw || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
+}
+
+function allowedHostList({ port = PORT, bindHost = HOST, extra = parseAllowedHosts() } = {}) {
+  const list = [`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`];
+  const b = String(bindHost || '').toLowerCase();
+  if (!WILDCARD_BINDS.has(b)) list.push(`${b.includes(':') && !b.startsWith('[') ? `[${b}]` : b}:${port}`);
+  return [...list, ...extra];
+}
+
+function hostAllowed(hostHeader, opts = {}) {
+  if (typeof hostHeader !== 'string' || !hostHeader.trim()) return false;
+  return allowedHostList(opts).includes(hostHeader.trim().toLowerCase());
+}
+
 function originAllowed(req) {
   const o = req.headers.origin || req.headers.referer || '';
   if (!o) return true; // same-origin fetch / curl with no Origin
-  // True same-origin: the browser's Origin matches the host this request arrived on
-  // (covers a tunnelled/hosted console at console.client.com, http or https).
-  const self = req.headers.host ? [`http://${req.headers.host}`, `https://${req.headers.host}`] : [];
-  return [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`, ...self].some((e) => o === e || o.startsWith(e + '/'));
+  let u;
+  try { u = new URL(o); } catch { return false; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  // u.host keeps an explicit port and drops a default one (https://x → "x"), which is
+  // how a tunnel host is listed. Never "whatever Host this request came with".
+  return allowedHostList().includes(u.host.toLowerCase());
 }
 
 // Which surface an alert belongs to. Operate-side events (autopilot runtime: dead-letters,
@@ -93,4 +121,4 @@ function isInsideDir(base, target) {
   return resolvedTarget === resolvedBase || resolvedTarget.startsWith(resolvedBase + path.sep);
 }
 
-export { csvCell, originAllowed, eventSurface, readFileSafe, readSafe, parseSafe, isInsideDir };
+export { csvCell, originAllowed, hostAllowed, allowedHostList, parseAllowedHosts, eventSurface, readFileSafe, readSafe, parseSafe, isInsideDir };

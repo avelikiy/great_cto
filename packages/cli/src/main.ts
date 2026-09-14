@@ -604,7 +604,8 @@ ${bold("Operator console (the second surface — invite-only, hostable):")}
   great-cto console                 Serve ONLY the operator console (no dev board)
   great-cto console --port 8788     Different port
   great-cto console --bind 0.0.0.0  Reachable beyond this machine (tunnel/hosting);
-                                    operators sign in via invite links
+                                    operators sign in via invite links. Only names you
+                                    list are answered: GREAT_CTO_ALLOWED_HOSTS=console.example.com
 
 ${bold("Telemetry (anonymous, opt-IN — OFF by default):")}
   great-cto telemetry status   Show state + endpoint + your anon_id

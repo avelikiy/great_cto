@@ -14,7 +14,7 @@ import path from 'path';
 import { spawnSync } from 'child_process';
 import { PORT, PUBLIC, HOST } from './lib/config.mjs';
 import { warmTasksAsync } from './lib/beads.mjs';
-import { originAllowed, isInsideDir } from './lib/util.mjs';
+import { originAllowed, hostAllowed, parseAllowedHosts, isInsideDir } from './lib/util.mjs';
 import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
 import { watchBeads, watchVerdicts, watchAgentEvents } from './lib/watchers.mjs';
@@ -39,6 +39,18 @@ const server = http.createServer(async (req, res) => {
       }
     });
   }
+  // ── Host allowlist (great_cto-xq9h) ─────────────────────────────────────────
+  // Before anything is read or written: a request addressed to a name the board
+  // does not know is a DNS-rebinding page, not the user. Reads count — the SSE
+  // stream and every GET carry the project's tasks, verdicts and costs.
+  if (!hostAllowed(req.headers.host)) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: 'host not allowed — the board answers only on localhost, 127.0.0.1, its bind address, or a host listed in GREAT_CTO_ALLOWED_HOSTS',
+    }));
+    return;
+  }
+
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
   const proj = url.searchParams.get('project');
@@ -120,6 +132,10 @@ server.listen(PORT, HOST, () => {
   if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
     log.info(`  ⚠ bound to ${HOST} — reachable beyond this machine. Operators authenticate via invite`);
     log.info(`    links; put your reverse-proxy auth in front for anything admin-grade.`);
+  }
+  if (['0.0.0.0', '::'].includes(HOST) && parseAllowedHosts().length === 0) {
+    log.info(`  ⚠ bound to ${HOST} with no GREAT_CTO_ALLOWED_HOSTS — only localhost / 127.0.0.1 names are answered.`);
+    log.info(`    Reaching it by LAN address or through a tunnel? Set GREAT_CTO_ALLOWED_HOSTS=<host[:port]>,...`);
   }
   // Warm the task cache for THIS project before a browser asks — asynchronously.
   //
