@@ -144,7 +144,14 @@ A decision document only: a git ref per agent turn (the checkpoint idea), built 
 `scripts/lib/receipt.mjs`, with retention, and how the board would show a turn's
 diff without holding content in `events.jsonl`.
 
-## 5 — Approvals from the board (great_cto-dyfn)
+## 5 — Approvals from the board (great_cto-dyfn) · [ADR-024](../adr/ADR-024-board-approvals.md)
+
+Decision written, status Proposed, no code yet. Writing it found the gap is not
+only a future feature: the board already approves pipeline gates with no token, no
+expiry and no check against the reviewed state, and the typed-name ritual for
+expensive gates is enforced only in the page. Section 1 of the ADR (gate approvals)
+can be implemented now; section 2 (live tool permissions) waits for a live
+`PermissionRequest` hook to establish its decision fields.
 
 After 1 and 2 ship. A short ADR first, then code, on ADR-021's conditions: a
 one-time token issued per pending request, Origin and Host both checked, and a
