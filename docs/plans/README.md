@@ -52,6 +52,10 @@ How many stages there are, who runs them, and where a human is asked.
 - [Dev board as a launch control (approve gate → spawn agent)](PLAN-board-agent-launch.md) — *declares: in progress · 2026-06-09*
 - [SIA → great_cto self-improvement loop](PLAN-sia-self-improvement-loop.md)
 - [Fewer confirmations, and a loop that earns them away](PLAN-2026-08-08-self-improving-pipeline.md)
+- [A finding the implementer can fix should reach the implementer](PLAN-2026-09-14-flow-and-routing.md) —
+  *declares: draft · 2026-09-14*. BLOCKED always pages the CTO, even when qa's own contract
+  says "senior-dev fix"; and the board's rework count skips `REWORK`, the token work is
+  actually sent back with.
 
 ## Cost, context and the model
 
