@@ -55,6 +55,7 @@ Total ~10–50 KB per project, indexed at session start. We synthesize, not reco
 
 ## See also
 
+- [Evidence Ledger v1](reference/evidence-ledger.md) — canonical append-only contract for host, stage, gate, review, and release evidence
 - [docs/MCP.md](MCP.md) — MCP server + client integrations
 - [docs/BOARD-API.md](BOARD-API.md) — board JSON API surface
 - [packages/board/server.mjs](../packages/board/server.mjs) — board server source (every route is a top-level `if (pathname === ...)` block)
