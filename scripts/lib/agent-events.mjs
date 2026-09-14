@@ -24,7 +24,7 @@
 // CLI (for hooks written in shell):
 //   node scripts/lib/agent-events.mjs --emit <kind> [--tool <name>] [--agent <name>]
 
-import { appendFileSync, mkdirSync, readFileSync, renameSync, statSync } from 'node:fs';
+import { appendFileSync, closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const EVENTS_FILE = 'events.jsonl';
@@ -76,7 +76,9 @@ export function appendEvent(dir, input, { now = Date.now(), env = process.env, m
     try { size = statSync(file).size; } catch { /* no file yet */ }
     // One previous generation: enough for the board to replay a restart, small
     // enough that a busy project cannot fill a disk with its own activity log.
-    if (size > 0 && size + line.length > maxBytes) renameSync(file, join(dir, 'events.1.jsonl'));
+    // Bytes, not characters: a path in Cyrillic is two bytes a letter, and the
+    // board's replay cursor is a byte offset into this file.
+    if (size > 0 && size + Buffer.byteLength(line) > maxBytes) renameSync(file, join(dir, 'events.1.jsonl'));
     appendFileSync(file, line);
     return { ok: true };
   } catch (err) {
@@ -97,6 +99,12 @@ export function readEvents(dir, { limit = 50 } = {}) {
     if (err?.code === 'ENOENT') return { state: 'none', events: [] };
     return { state: 'unreadable', events: [], why: String(err?.code || err?.message || err) };
   }
+  const { events, bad } = parseLines(text);
+  return { state: 'live', events: events.slice(-Math.max(1, limit)), bad };
+}
+
+/** Events and the count of lines that were not one. Shared, so both readers agree. */
+function parseLines(text) {
   const events = [];
   let bad = 0;
   for (const line of text.split('\n')) {
@@ -105,7 +113,68 @@ export function readEvents(dir, { limit = 50 } = {}) {
     try { rec = JSON.parse(line); } catch { bad++; continue; }
     if (rec && EVENT_KINDS.includes(rec.kind)) events.push(rec); else bad++;
   }
-  return { state: 'live', events: events.slice(-Math.max(1, limit)), bad };
+  return { events, bad };
+}
+
+// ── resuming (ADR-021 phase 2, great_cto-c0hb) ─────────────────────────────
+
+/** The most events one replay sends before it gives up and sends a snapshot. */
+export const MAX_DELTA = 500;
+
+function parseCursor(cursor) {
+  const m = /^(\d+)-(\d+)$/.exec(String(cursor ?? ''));
+  return m ? { ino: Number(m[1]), offset: Number(m[2]) } : null;
+}
+
+/**
+ * Events after a cursor, or a snapshot when the cursor no longer points into this file.
+ *
+ * The cursor is `<inode>-<byte offset>`: the offset just past the last complete line
+ * consumed. A snapshot — never a read from the wrong place — when there is no cursor,
+ * it is not one of ours, the inode differs (the file rotated or was replaced), the
+ * file is shorter than the offset (truncated), the offset does not sit just after a
+ * newline (truncated and grown back past it), or the gap holds more than maxDelta
+ * events (then `gap: true`, so the board can say events were skipped).
+ *
+ * Not caught: a file truncated and regrown so that a newline lands exactly on the old
+ * offset. Same inode, a plausible boundary — indistinguishable from a real resume.
+ * Nothing in the plugin truncates this file; rotation renames it.
+ *
+ * @returns {{state:'live'|'none'|'unreadable', mode?:'delta'|'snapshot', events:object[],
+ *            cursor:string|null, bad?:number, gap?:boolean, why?:string}}
+ */
+export function readEventsSince(dir, cursor, { limit = 50, maxDelta = MAX_DELTA } = {}) {
+  let buf, ino;
+  try {
+    const fd = openSync(join(dir, EVENTS_FILE), 'r');
+    try {
+      const st = fstatSync(fd);
+      ino = st.ino;
+      buf = Buffer.alloc(st.size);
+      let read = 0;
+      while (read < st.size) {
+        const n = readSync(fd, buf, read, st.size - read, read);
+        if (n === 0) break;
+        read += n;
+      }
+      buf = buf.subarray(0, read);
+    } finally { closeSync(fd); }
+  } catch (err) {
+    if (err?.code === 'ENOENT') return { state: 'none', events: [], cursor: null };
+    return { state: 'unreadable', events: [], cursor: null, why: String(err?.code || err?.message || err) };
+  }
+  // Only complete lines: a hook may be mid-append.
+  const end = buf.lastIndexOf(0x0a) + 1;
+  const next = `${ino}-${end}`;
+  const snapshot = (extra = {}) => {
+    const { events, bad } = parseLines(buf.subarray(0, end).toString('utf8'));
+    return { state: 'live', mode: 'snapshot', events: events.slice(-Math.max(1, limit)), cursor: next, bad, ...extra };
+  };
+  const c = parseCursor(cursor);
+  if (!c || c.ino !== ino || c.offset > end || (c.offset > 0 && buf[c.offset - 1] !== 0x0a)) return snapshot();
+  const { events, bad } = parseLines(buf.subarray(c.offset, end).toString('utf8'));
+  if (events.length > maxDelta) return snapshot({ gap: true });
+  return { state: 'live', mode: 'delta', events, cursor: next, bad };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

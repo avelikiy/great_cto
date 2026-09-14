@@ -88,6 +88,20 @@ test('the file rotates at its cap and keeps one previous generation', () => {
   assert.ok(existsSync(join(dir, 'events.1.jsonl')), 'one previous generation is kept');
 });
 
+test('the cap is bytes: paths in Cyrillic do not let the file grow past it', () => {
+  // A character count under-measures a two-byte alphabet by half, and the board's
+  // replay cursor is a byte offset into this file.
+  const dir = stateDir();
+  const path = `docs/${'обзор'.repeat(30)}.md`;     // 150 letters, ~300 bytes
+  // Checked after every append, not once at the end: an over-cap generation can
+  // rotate away and leave a small remainder that passes a final check.
+  for (let i = 0; i < 20; i++) {
+    appendEvent(dir, { kind: 'tool', tool: 'Edit', paths: [path] }, { now: NOW + i, env: {}, maxBytes: 1024 });
+    const size = statSync(join(dir, EVENTS_FILE)).size;
+    assert.ok(size <= 1024, `after append ${i + 1} the live file is ${size} bytes, over its 1024-byte cap`);
+  }
+});
+
 test('a directory that cannot be written returns a reason instead of throwing', () => {
   const dir = stateDir();
   mkdirSync(dir, { recursive: true });
