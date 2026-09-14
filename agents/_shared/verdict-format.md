@@ -18,7 +18,26 @@ shows zeros (BUG QA-006/007).
 - `verdict`  — `APPROVED` / `REJECTED` / `PASS` / `FAIL` / `TASK_DONE` / `PLAN_READY` / …
 - `cost_usd` — required. `0` if the cost truly is zero; omitting it makes
                `/api/cost` report zero spend for the stage.
-- `meta`     — freeform object.
+- `meta`     — freeform object, with one key that has a defined meaning: `need`.
+
+### `need` — who a halting verdict is for
+
+On `BLOCKED`, `FAIL` or `REJECTED`, say who has to act:
+
+| Value | Means | Example |
+|---|---|---|
+| `need=implementer` | the agent that did the work can fix it; no human choice | a failing test, a missing check, an unhandled input |
+| `need=decision` | a human must choose | a waiver, a scope change, a trade-off between two requirements |
+| absent | **undeclared** | — |
+
+Add `finding=<short id>` naming the finding, so the same one is recognised if it
+comes back.
+
+Undeclared is not a guess at either value, and it is never routed anywhere: the
+chain halts and the CTO is asked, exactly as for any BLOCKED before this field
+existed. Writing nothing therefore costs a human interruption, not a skipped
+review. An unknown value (`need=maybe`) is refused by the helper when the verdict
+is written.
 
 Named fields exist because the previous text dialects were guessed apart by
 looking for ` | `, and agents write prose in the details field. `BLOCKED 3

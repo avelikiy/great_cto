@@ -55,6 +55,24 @@ export const KNOWN_VERDICTS = Object.freeze([
  * @property {object} [meta]    free-form key/value from the caller
  */
 
+/**
+ * Who a halting verdict is for, as `meta.need`.
+ *
+ *   implementer — the agent that did the work can fix this; no human choice
+ *   decision    — a waiver, a scope change or a trade-off; a human decides
+ *
+ * Anything else, including absence, reads as `undeclared`, and undeclared is never
+ * routed anywhere: it halts exactly as a BLOCKED always has. qa and security wrote
+ * this distinction in prose for months and no verdict line carried it.
+ */
+export const NEED_VALUES = Object.freeze(['implementer', 'decision']);
+
+/** 'implementer' | 'decision' | 'undeclared'. Never throws. */
+export function needOf(rec) {
+  const n = rec?.meta?.need;
+  return NEED_VALUES.includes(n) ? n : 'undeclared';
+}
+
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
 /**
@@ -97,9 +115,15 @@ export function makeVerdict({ ts, agent, verdict, project, cost_usd, meta, recei
   if (receipt && typeof receipt === 'object' && receipt.head) rec.receipt = receipt;
 
   const { valid, errors } = validateVerdict(rec);
+  // An unknown `need` is refused HERE, at write time, and not in validateVerdict:
+  // that also runs on read, where refusing would discard the verdict itself. On
+  // read the value survives and needOf() calls it undeclared.
+  if (rec.meta && 'need' in rec.meta && !NEED_VALUES.includes(rec.meta.need)) {
+    errors.push(`meta.need must be one of ${NEED_VALUES.join(', ')}, got ${JSON.stringify(rec.meta.need)}`);
+  }
   // Refusing here is the point: a malformed record that reaches the log is read
   // by something later, and by then nobody knows which agent wrote it.
-  if (!valid) throw new Error(`invalid verdict record: ${errors.join('; ')}`);
+  if (errors.length) throw new Error(`invalid verdict record: ${errors.join('; ')}`);
   return rec;
 }
 

@@ -146,8 +146,11 @@ sets the verdict, and the human at the gate sees both.
    (severity · file:line · evidence · fix), Observations, and what the change does
    well.
 3. Emit the verdict (see `agents/_shared/verdict-format.md`):
-   `scripts/log-verdict.sh code-reviewer <APPROVED|BLOCKED> auto feature=<slug> review=docs/reviews/REVIEW-<slug>.md`
+   `scripts/log-verdict.sh code-reviewer <APPROVED|BLOCKED> auto feature=<slug> review=docs/reviews/REVIEW-<slug>.md need=<implementer|decision> finding=<id>`
    — `BLOCKED` if any P0 (or unresolved P1) Finding exists; else `APPROVED`.
+   On BLOCKED, `need=implementer` when the author can fix every blocking
+   Finding, `decision` when one needs a human choice. Omit both on APPROVED;
+   omitting `need` on a BLOCKED halts the chain and asks the CTO.
    Use `auto` cost so the real token spend is recorded (cost-meter), not guessed.
 
 Done = verdict emitted, review artefact written, P0/P1 bugs filed. gate:code reads

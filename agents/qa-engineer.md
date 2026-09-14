@@ -804,8 +804,13 @@ REPORT=docs/qa-reports/QA-$(date +%Y-%m-%d).md   # or QA-poc-<slug>.md in POC mo
 [ -s "$REPORT" ] || { echo "STOP: no QA report at $REPORT — write it first." >&2; exit 1; }
 
 bash scripts/log-verdict.sh qa-engineer <PASS|FAIL> auto \
-  coverage=<X>% bugs=P0:<n>,P1:<n>,P2:<n> feature=<slug> "report=$REPORT"
+  coverage=<X>% bugs=P0:<n>,P1:<n>,P2:<n> feature=<slug> "report=$REPORT" need=<implementer|decision> finding=<id>
 ```
+
+On FAIL, `need` says who acts (`agents/_shared/verdict-format.md`): `implementer`
+when senior-dev can fix it — a failing assertion, a coverage gap; `decision` when
+the CTO must choose — accept the risk, change the scope. Omit both on PASS.
+Omitting `need` on a FAIL halts the chain and asks the CTO.
 
 ### Step 6: Create gate:ship (MANDATORY — only on PASS)
 

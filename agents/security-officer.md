@@ -652,8 +652,12 @@ Observations (signal < 2 or no direct evidence): record in a separate `## Observ
    the pipeline dispatcher and the board parse this line):
    ```bash
    bash scripts/log-verdict.sh security-officer <APPROVED|BLOCKED> auto \
-     findings=P0:<n>,P1:<n>,P2:<n> triaged=<n> valid=<n> invalid=<n> feature=<slug>
+     findings=P0:<n>,P1:<n>,P2:<n> triaged=<n> valid=<n> invalid=<n> feature=<slug> need=<implementer|decision> finding=<id>
    ```
+   On BLOCKED, `need` mirrors the report's `need` line: `implementer` for
+   "senior-dev fix <finding>", `decision` for "CTO waive risk on <finding>".
+   Omit both on APPROVED. Omitting `need` on a BLOCKED halts the chain and asks
+   the CTO.
 
 7. **Close or block gate:ship** (gate was created by qa-engineer):
    ```bash
