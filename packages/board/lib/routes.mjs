@@ -21,6 +21,13 @@ import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { agentActivity, agentActivitySince } from './agent-activity.mjs';
+import { issueTokens, checkToken, checkBinding, consumeToken } from './gate-tokens.mjs';
+import { appendEvent } from '../../../scripts/lib/agent-events.mjs';
+
+/** A gate decision — made or refused — as an agent event (ADR-024 §1). */
+function recordGateEvent(cwd, id, outcome) {
+  return appendEvent(path.join(cwd, '.great_cto'), { kind: 'pipeline', agent: id, outcome });
+}
 import { readVerdicts } from './verdicts.mjs';
 import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
@@ -535,6 +542,26 @@ async function dispatch(req, res, url, cwd) {
         res.end(JSON.stringify({ error: 'invalid action' }));
         return;
       }
+      // ADR-024 §1 — an approval is bound to one request and one state. Checked before
+      // anything is written: a refused request changes no gate, logs no decision,
+      // wakes nothing and publishes nothing. A rejection needs the token too (a forged
+      // reject is still a forged request) but is never refused for a changed tree.
+      const refuse = (r) => {
+        recordGateEvent(gateCwd, id, r.outcome);
+        res.writeHead(r.status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: r.why, outcome: r.outcome, ...(r.changed ? { changed: r.changed } : {}) }));
+      };
+      const tok = checkToken(gateCwd, id, parsed.token);
+      if (!tok.ok) { refuse(tok); return; }
+      if (action === 'approve') {
+        // The typed-name ritual used to live only in the page; the server now agrees.
+        if (tok.entry.guarded && String(parsed.confirm ?? '').trim() !== tok.entry.gate) {
+          refuse({ status: 403, outcome: 'refused-confirm', why: `this gate is expensive to undo — type ${tok.entry.gate} to approve it` });
+          return;
+        }
+        const bound = checkBinding(gateCwd, tok.entry);
+        if (!bound.ok) { refuse(bound); return; }
+      }
       // A project can be tasks.md-backed (no working beads — e.g. its path
       // contains a space, which embedded-dolt can't open). Only 409 when there
       // is neither a beads store NOR a tasks.md to record the decision in.
@@ -625,6 +652,9 @@ async function dispatch(req, res, url, cwd) {
         res.end(JSON.stringify({ error: (result && result.error) || 'bd update failed' }));
         return;
       }
+      // Single use: the decision landed, so its token is spent.
+      consumeToken(gateCwd, id);
+      recordGateEvent(gateCwd, id, action === 'approve' ? 'approved' : 'rejected');
       // An approval is evidence that the pipeline is waiting — record it.
       //
       // `session-pipeline-resume` opens with a freshness shortcut: a pipeline
@@ -692,8 +722,19 @@ async function dispatch(req, res, url, cwd) {
     let elsewhere;
     try { elsewhere = inboxElsewhere(listProjects(), cwd, { readInbox: getInbox }); }
     catch (e) { elsewhere = { state: 'unreadable', why: String(e?.message || e) }; }
+    // ADR-024 §1: each pending gate carries the token an approval must present,
+    // bound to the project as it is now. The typed name stored with it is the one
+    // the page asks for; a store that cannot be read issues nothing and says so.
+    const gates = inbox.pending_gates || [];
+    const issued = issueTokens(cwd, gates.map((g) => ({
+      id: g.id,
+      gate: g.reversibility?.gate ? `gate:${g.reversibility.gate}` : g.id,
+      guarded: ['expensive', 'unclassified'].includes(g.reversibility?.state),
+    })));
+    const pending_gates = gates.map((g) => ({ ...g, token: issued.tokens[g.id] || null }));
+    const approval_tokens = { state: issued.state, ...(issued.why ? { why: issued.why } : {}) };
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
-    res.end(JSON.stringify({ ...inbox, elsewhere, second_opinion }));
+    res.end(JSON.stringify({ ...inbox, pending_gates, approval_tokens, elsewhere, second_opinion }));
     return true;
   }
 

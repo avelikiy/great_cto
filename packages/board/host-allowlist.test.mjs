@@ -117,7 +117,7 @@ test('the server refuses a rebinding Host for reads, the event stream and a gate
     const approve = await request(port, {
       method: 'POST', path: '/api/gates/g-1',
       headers: { Host: evil, Origin: `http://${evil}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ decision: 'approve' }),
+      body: JSON.stringify({ action: 'approve' }),
     });
     assert.equal(approve.status, 403, 'a matching Origin and Host on a rebinding name is not same-origin');
 
@@ -138,13 +138,15 @@ test('a host listed in GREAT_CTO_ALLOWED_HOSTS is served, and same-origin state 
     const post = await request(port, {
       method: 'POST', path: '/api/gates/does-not-exist',
       headers: { Host: 'console.example.com', Origin: 'https://console.example.com', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ decision: 'approve' }),
+      body: JSON.stringify({ action: 'approve' }),
     });
-    assert.notEqual(post.status, 403, 'not refused as cross-origin — whatever the route then decides about the gate');
+    // It passes the Host and Origin checks and reaches the gate's own rules — which
+    // refuse it for having no approval token (ADR-024), not for being cross-origin.
+    assert.match(post.body, /"outcome":"refused-token"/, `reached the token check, not the cross-origin guard: ${post.body}`);
     const foreign = await request(port, {
       method: 'POST', path: '/api/gates/does-not-exist',
       headers: { Host: 'console.example.com', Origin: 'https://evil.test', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ decision: 'approve' }),
+      body: JSON.stringify({ action: 'approve' }),
     });
     assert.equal(foreign.status, 403, 'an allowed Host does not make a foreign Origin same-origin');
   } finally {

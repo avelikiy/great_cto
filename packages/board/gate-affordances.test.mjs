@@ -37,7 +37,7 @@ test('approving asks before it posts', () => {
   // Two rituals since the redesign (great_cto-ki1x.6): a routine gate's dismissed
   // confirm returns; an expensive/unclassified gate's cancelled or mistyped name
   // returns. Neither path reaches the request.
-  assert.match(gateAction, /else if \(!runAgent && !confirm\(approveConsequence\(id, rev\)\)\) return;/,
+  assert.match(gateAction, /else if \(!confirm\(approveConsequence\(id, rev\)\)\) return;/,
     'a dismissed confirm returns without approving (routine)');
   assert.match(gateAction, /if \(typed === null\) return;/, 'a cancelled typed-name prompt returns without approving');
   assert.match(gateAction, /typed\.trim\(\) !== gateName[\s\S]{0,120}return;/, 'a mistyped gate name returns without approving');
@@ -52,12 +52,16 @@ test('the confirm names consequences rather than asking "are you sure"', () => {
   assert.match(fn, /shareState/, 'and only claims the public part when sharing is actually on');
 });
 
-test('the runAgent path is not confirmed twice', () => {
-  // It already shows an editable prompt naming what it will approve and run,
-  // and cancelling it aborts the whole action. A second dialog is friction with
-  // no information in it.
-  assert.match(gateAction, /!runAgent && !confirm/,
-    'the extra confirm is skipped when the agent prompt already asked');
+test('a decision carries the token and, for an expensive gate, the typed name the server checks', () => {
+  // ADR-024 §1. The ritual used to live only here; the server now refuses a decision
+  // without the token the inbox issued, and an expensive approval without the name.
+  // The old runAgent branch posted fields the server had ignored since agent launch
+  // was removed (d3a001c8) — gone with this change.
+  assert.match(gateAction, /pending_gates[\s\S]{0,80}\.token/, 'the token comes from the inbox entry for this gate');
+  assert.match(gateAction, /body = \{ action, reason, token,/, 'a rejection sends it');
+  assert.match(gateAction, /body = \{ action, token,/, 'an approval sends it');
+  assert.match(gateAction, /body\.confirm = typed\.trim\(\);/, 'the typed name is sent, not only compared in the page');
+  assert.doesNotMatch(gateAction, /runAgent|agentPrompt/, 'no control for an action the server does not take');
 });
 
 test('rejecting still asks for a reason', () => {

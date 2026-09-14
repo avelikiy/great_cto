@@ -7546,48 +7546,37 @@ function approveConsequence(id, reversibility) {
   return lines.join('\n');
 }
 
-async function gateAction(id, action, runAgent) {
+async function gateAction(id, action) {
+  // ADR-024 §1: the server refuses a decision without the token the inbox issued for
+  // this gate, and an approval of an expensive gate without its typed name. The page
+  // sends both; it no longer decides alone.
+  const token = ((window.__inboxData && window.__inboxData.pending_gates) || []).find((g) => g.id === id)?.token || null;
   let body;
   if (action === 'reject') {
     const reason = prompt(`Reject ${id}. Reason (optional)?`);
     if (reason === null) return;
-    body = { action, reason, project: currentProject };
+    body = { action, reason, token, project: currentProject };
   } else {
     // The gate is the human signature the pipeline waits on. Rejecting has
     // always asked for a reason and approving asked for nothing, so the cheaper
     // click was the one that advanced work nobody can un-advance — friction
     // pointing exactly the wrong way.
     //
-    // Medium cost-of-undo (ADR-009): one confirm that NAMES the consequence, not
-    // a typed-name ritual on a button pressed several times a day. The runAgent
-    // path already shows an editable prompt that says what it will approve and
-    // run, and is cancellable — a second dialog there would be pure friction.
-    // Approve ritual follows cost of undo (DESIGN §6.2). `routine`: one confirm
-    // naming the consequence. `expensive` and `unclassified`: the operator types
-    // the gate name — exact, case-sensitive — before the approval is posted; an
-    // unclassified gate gets the expensive ritual because nobody judged it cheap.
+    // Approve ritual follows cost of undo (ADR-009, DESIGN §6.2). `routine`: one
+    // confirm naming the consequence. `expensive` and `unclassified`: the operator
+    // types the gate name — exact, case-sensitive — and the server checks the same
+    // name; an unclassified gate gets the expensive ritual because nobody judged it
+    // cheap.
     const rev = GATE_REVERSIBILITY[id] || null;
     const guarded = rev && (rev.state === 'expensive' || rev.state === 'unclassified');
-    if (!runAgent && guarded) {
+    body = { action, token, project: currentProject };
+    if (guarded) {
       const gateName = rev.gate ? `gate:${rev.gate}` : id;
       const typed = prompt(`${approveConsequence(id, rev)}\n\nType ${gateName} to approve:`, '');
       if (typed === null) return;
       if (typed.trim() !== gateName) { alert(`Not approved — "${typed.trim()}" is not ${gateName}.`); return; }
-    } else if (!runAgent && !confirm(approveConsequence(id, rev))) return;   // routine
-    body = { action, project: currentProject };
-    if (runAgent) {
-      const generic = `Gate ${id} was just approved. Continue the great_cto pipeline: claim the next ready task and implement it with TDD.`;
-      // Prefer a ready-to-run prompt derived from the task's own body (title/description/labels),
-      // falling back to the generic one. The operator still sees and edits it before launch.
-      let dflt = generic;
-      try {
-        const pf = await api(`/api/agent/prompt-for?id=${encodeURIComponent(id)}${pqs().replace(/^\?/, '&')}`);
-        if (pf && pf.prompt) dflt = pf.prompt;
-      } catch (_) { /* fall back to generic */ }
-      const p = prompt(`Approve ${id} and run an agent in the project.\n\nPrompt for the agent (edit as needed):`, dflt);
-      if (p === null) return;                 // cancelled the whole action
-      body.runAgent = true; body.agentPrompt = p.trim() || dflt;
-    }
+      body.confirm = typed.trim();
+    } else if (!confirm(approveConsequence(id, rev))) return;   // routine
   }
   const res = await api(`/api/gates/${encodeURIComponent(id)}${pqs()}`, {
     method: 'POST',
@@ -7596,6 +7585,8 @@ async function gateAction(id, action, runAgent) {
   });
   if (!res || res.error) {
     alert('Gate action failed: ' + (res?.error || 'network error'));
+    // A refused token or a changed project: reload, so the gate is shown as it is now.
+    api(`/api/inbox${pqs()}`).then(d => d && renderInbox(d));
     return;
   }
   showToast(`Gate <strong>${esc(id)}</strong> ${action === 'approve' ? '✓ approved' : '✗ rejected'}`, action === 'approve' ? 'success' : 'error', 3000);

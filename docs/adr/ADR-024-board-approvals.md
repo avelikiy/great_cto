@@ -80,11 +80,20 @@ before any code relies on them.
    `unclassified` gate the server requires the typed gate name in the request and
    refuses without it; the page keeps asking for it, and now the server agrees.
    The dead `runAgent` branch is removed in the same change.
-3. **Bound to what was reviewed.** The token records the receipt hash of the tree
-   when the gate was raised (`receiptHash` in `scripts/lib/receipt.mjs`). An
-   approval is refused if the tree now differs, with the changed paths — the same
-   rule `approve()` in the controlled Codex host already enforces. A rejection is
-   always accepted: refusing to stop is never the safe side.
+3. **Bound to what was reviewed.** The token records the receipt hash
+   (`receiptHash` in `scripts/lib/receipt.mjs`) of **the project tree outside
+   `.great_cto/`, as it was when the board first showed the gate**. An approval is
+   refused if that tree now differs, with the changed paths — the same rule
+   `approve()` in the controlled Codex host already enforces. A rejection is always
+   accepted: refusing to stop is never the safe side.
+
+   Two corrections found while writing the tests, before any code. The board does
+   not observe the moment a gate is raised, so "when it was first shown" is the
+   binding it can actually make. And `.great_cto/` is excluded because an approval
+   writes the pipeline's own files there — the gate row, the decision log, the wake
+   record, the token store. `init` does not gitignore that directory, so a binding
+   over the whole tree would let the first approval invalidate every other open
+   gate's token though no reviewed code moved.
 4. **It expires.** A token older than 24 hours is refused; the board fetches a
    fresh one, which re-reads the state. An approval given on yesterday's view of
    the tree is not an approval of today's.

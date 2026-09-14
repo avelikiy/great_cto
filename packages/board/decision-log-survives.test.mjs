@@ -71,10 +71,15 @@ test('an approval that cannot reach beads still records its decision, and says s
   });
   try {
     await waitForBoard(port);
+    // ADR-024 §1: a decision presents the token the inbox issued for this gate, and
+    // gate:ship is expensive to undo, so the approval also carries its typed name.
+    const inbox = await api(port, '/api/inbox');
+    const token = (inbox.body.pending_gates || []).find((g) => g.id === 'g-1')?.token;
+    assert.ok(token, `the inbox issued a token for g-1: ${JSON.stringify(inbox.body.approval_tokens)}`);
     const r = await api(port, '/api/gates/g-1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', reason: 'decision-log-marker' }),
+      body: JSON.stringify({ action: 'approve', reason: 'decision-log-marker', token, confirm: 'gate:ship' }),
     });
 
     assert.equal(r.status, 200, 'the approval itself lands');

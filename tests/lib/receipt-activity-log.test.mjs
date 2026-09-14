@@ -67,3 +67,38 @@ test('real work beside the log still changes the receipt', (t) => {
   assert.ok(!same(edited, withArtifact), 'other files under .great_cto/ still count — only the log is excluded');
   assert.ok('.great_cto/notes.md' in withArtifact.files);
 });
+
+// ADR-024: a gate approval token binds to the project tree outside .great_cto/.
+// An approval writes the pipeline's own files there (the gate row, the decision log,
+// the wake record, the token store); bound to the whole tree, the first approval
+// would make every other open gate read "tree changed". So a caller can exclude
+// directories — on top of the activity logs, never instead of them — and a caller
+// that does not ask gets exactly the receipt it got before.
+
+test('exclude drops a directory from the receipt, and only when asked', (t) => {
+  const { root, events } = repo(t);
+  const before = { all: treeReceipt(root), outside: treeReceipt(root, { exclude: ['.great_cto'] }) };
+  writeFileSync(join(root, '.great_cto', 'decisions.md'), '| APPROVED | g-1 |\n');
+  writeFileSync(join(root, '.great_cto', 'gate-tokens.json'), '{}\n');
+  const after = { all: treeReceipt(root), outside: treeReceipt(root, { exclude: ['.great_cto'] }) };
+  assert.ok(same(before.outside, after.outside), 'files under an excluded directory do not move the receipt');
+  assert.ok(!same(before.all, after.all), 'without exclude, the same files still count — the default is unchanged');
+  assert.ok(!Object.keys(after.outside.files).some((p) => p.startsWith('.great_cto/')));
+});
+
+test('exclude never hides work outside what it names', (t) => {
+  const { root } = repo(t);
+  const before = treeReceipt(root, { exclude: ['.great_cto'] });
+  writeFileSync(join(root, 'app.js'), 'export const x = 9;\n');
+  const after = treeReceipt(root, { exclude: ['.great_cto'] });
+  assert.ok(!same(before, after), 'a code change still changes the receipt');
+  assert.ok('app.js' in after.files);
+});
+
+test('exclude adds to the activity-log exclusion rather than replacing it', (t) => {
+  const { root, events } = repo(t);
+  const before = treeReceipt(root, { exclude: ['docs'] });
+  appendEvent(events, { kind: 'tool', tool: 'Edit', ok: true }, { env: {} });
+  const after = treeReceipt(root, { exclude: ['docs'] });
+  assert.ok(same(before, after), 'the events log stays excluded when a caller excludes something else');
+});

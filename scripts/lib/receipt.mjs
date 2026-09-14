@@ -63,9 +63,22 @@ const excludeLogs = ACTIVITY_LOGS.map((p) => `:(exclude)${p}`);
  * Returns `null` outside a git repository rather than a fabricated receipt: a
  * receipt that cannot be built must not look like one that matched.
  */
-export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null } = {}) {
+export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [] } = {}) {
   const head = git(['rev-parse', 'HEAD'], cwd)?.trim();
   if (!head) return null;
+
+  // Directories a caller does not want in this receipt, ON TOP OF the activity logs.
+  // ADR-024: a gate token binds to the project outside .great_cto/, because an
+  // approval writes the pipeline's own files there and must not invalidate every
+  // other open gate. A caller that passes nothing gets the receipt it always got.
+  // An entry holding ':' is dropped, not passed through: pathspec magic that
+  // includes rather than excludes must not reach a receipt others compare against.
+  const pathspecExclude = [
+    ...excludeLogs,
+    ...(Array.isArray(exclude) ? exclude : [])
+      .filter((d) => typeof d === 'string' && d.trim() && !d.includes(':'))
+      .map((d) => `:(exclude)${d.trim().replace(/\/+$/, '')}`),
+  ];
 
   // Uncommitted content, hashed rather than stored: the receipt has to fit on a
   // verdict line, and the question it answers is "the same or not".
@@ -78,8 +91,8 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   // Pathspecs keep each call's scope as it was — `:/` is the whole repository, as a
   // bare `git diff` is; `.` is this directory, as a bare `ls-files` is — and drop
   // the activity logs, named relative to this directory (the project's own).
-  const diff = git(['diff', 'HEAD', '--', ':/', ...excludeLogs], cwd) ?? '';
-  const untracked = (git(['ls-files', '--others', '--exclude-standard', '--', '.', ...excludeLogs], cwd) ?? '')
+  const diff = git(['diff', 'HEAD', '--', ':/', ...pathspecExclude], cwd) ?? '';
+  const untracked = (git(['ls-files', '--others', '--exclude-standard', '--', '.', ...pathspecExclude], cwd) ?? '')
     .split('\n').map((s) => s.trim()).filter(Boolean);
   const untrackedDigest = untracked.map((p) => `${p}:${fileDigest(cwd, p) ?? '?'}`).join('\n');
   const dirty = (diff.trim() || untrackedDigest) ? sha(`${diff}\n--untracked--\n${untrackedDigest}`) : null;
@@ -117,7 +130,7 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
     }
   }
   const names = [
-    ...(git(['diff', '--name-only', '--diff-filter=d', ref, '--', ':/', ...excludeLogs], cwd) ?? '')
+    ...(git(['diff', '--name-only', '--diff-filter=d', ref, '--', ':/', ...pathspecExclude], cwd) ?? '')
       .split('\n').map((s) => s.trim()).filter(Boolean),
     // A new file is part of the change under review, and is exactly the kind a
     // reviewer reads most closely.
