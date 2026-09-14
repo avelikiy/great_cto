@@ -34,6 +34,69 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.7 — 2026-09-14
+
+The agents carry one copy of each rule, and the eval scores now measure the
+agents instead of the harness that ran them.
+
+### Changed
+
+- **The pattern lookup is a tool, not five copies of a shell loop.**
+  `scripts/lib/pattern-lookup.mjs --role implement|deploy|incident|review`
+  replaces the inline loop in `senior-dev`, `devops`, `l3-support`, `qa-engineer`
+  and `security-officer`. 123 lines leave the prompts, and the behaviour has
+  tests for the first time — 6, including the empty-instruction case the old
+  copies' own comments worried about.
+
+- **Every shared fragment has a reader.** `argument-quality.md` is now read by
+  the three gate-bearing agents (`qa-engineer`, `security-officer`, `devops`)
+  and `devops` no longer restates it inline; `artifact-summary-contract.md` by
+  five agents; `sandbox-cwd-policy.md` by `coordinator`. `memory-filter-prompt.md`
+  was a template, not an agent instruction, and moved to `docs/reference/`.
+
+- **`pm` carries no price table.** It had `$5/$25` in a table and `$15/$75` in
+  the report line below it, both for models no longer routed. It now points at
+  `scripts/lib/cost-meter.mjs`, which is what runs are billed against.
+  `tests/lib/agent-dedup.test.mjs` fails on an unread fragment or a per-model
+  price table in any agent.
+
+  Not a saving: `prompt-size` counts a pointed-at fragment in full, and the
+  effective prompt of four agents grew (e.g. `qa-engineer` 17 068 → 18 019),
+  because two fragments had cost nothing by being read by nobody. The trade is
+  in `docs/plans/PLAN-2026-09-12-agent-duplication.md`.
+
+### Fixed — the eval harness
+
+Three defects made agent pass rates a measurement of the runner:
+
+- **OpenRouter runs used `sonnet-4` as both actor and judge.** The defaults are
+  now `claude-sonnet-5` (actor) and `claude-opus-5` (judge), the same pair as the
+  direct path; a test fails if the two paths disagree or the judge is the actor.
+
+- **The actor had 2 500 tokens,** which an agent spends before its answer. Now
+  6 000.
+
+- **A judge that spent its budget reasoning was reported as a call that never
+  reached the provider.** Over OpenRouter the opus-5 judge reasons first and the
+  reasoning is billed against `max_tokens`: at 64 and at 256 the reply was empty
+  with stop reason `length`. Judges are now called with `reasoning:
+  {enabled:false}` (the actor is not — its reasoning is what is measured), and
+  every unjudged case records why: `refused`, `truncated`, `empty`,
+  `unparseable`, `no-leaf` or `call-failed`.
+
+Re-measured on the eight pipeline agents: 1 of 50 cases unjudged (`call-failed`),
+$2.29. `l3-support` 8/8, `devops` 6/6, `pm`, `senior-dev` and `security-officer`
+4/5, `product-owner` 6/10, `architect` 3/5, `qa-engineer` 2/5 — with five cases
+the 95% interval spans 50–60 points, so none of these is a verdict on its own;
+`qa-engineer` is the one worth a closer look.
+
+### Fixed
+
+- The v3.28.6 entry below said `OpenSRE 3` where it meant OpenSSL 3.
+
+---
+
 ## v3.28.6 — 2026-09-12
 
 A session start could delete every agent and command great_cto had installed. It
@@ -59,7 +122,7 @@ did, twice.
   cannot be read. 13 tests; four mutations killed.
 
 - **The HMAC pipeline check signs with the digest.** It read field 2 of
-  `openssl dgst`, which is the hex under OpenSRE 3 and empty under LibreSSL —
+  `openssl dgst`, which is the hex under OpenSSL 3 and empty under LibreSSL —
   the check went red the day PATH put macOS's `/usr/bin/openssl` first.
 
 ### Added
