@@ -55,6 +55,42 @@ function verdictHeaders(cwd, base = { 'Content-Type': 'application/json', 'Cache
   return base;
 }
 
+/**
+ * Correlate one legacy/Beads decision row with the canonical ledger without
+ * guessing by timestamp. `current` means the newest ledger fact for that gate
+ * still says pending; `stale` means the two sources disagree. Missing and
+ * unreadable evidence stay explicit so the UI cannot turn them into a green
+ * absence.
+ */
+function decisionEvidenceFor(projection, task) {
+  const base = {
+    source: projection?.provenance?.source || '.great_cto/evidence-ledger.jsonl',
+    revision: projection?.revision || null,
+    projection_state: projection?.state || 'none',
+  };
+  if (projection?.state === 'unreadable') {
+    return { ...base, freshness: 'unreadable', observed_at: null, why: projection.why || 'evidence ledger is unreadable' };
+  }
+  const gate = (String(task?.title || '').match(/gate:[a-z0-9-]+/i) || [])[0]?.toLowerCase() || null;
+  if (!gate) return { ...base, freshness: 'unmeasured', observed_at: null, why: 'decision row has no gate identity' };
+  const fact = (projection?.decisions || []).find((d) => String(d.gate_id || '').toLowerCase() === gate);
+  if (!fact) return { ...base, freshness: 'unmeasured', observed_at: null, gate_id: gate, why: 'no canonical gate event recorded' };
+  return {
+    ...base,
+    freshness: fact.state !== 'pending' ? 'stale' : projection.state === 'degraded' ? 'degraded' : 'current',
+    observed_at: fact.updated_at || null,
+    gate_id: gate,
+    run_id: fact.run_id || null,
+    event_id: fact.event_id || null,
+    evidence_state: fact.state || 'unknown',
+    why: fact.state === 'pending'
+      ? projection.state === 'degraded'
+        ? `canonical ledger agrees that this gate is waiting, but the projection is degraded: ${projection.why || 'see projection state'}`
+        : 'canonical ledger agrees that this gate is waiting'
+      : `task is waiting but canonical ledger says ${fact.state || 'unknown'}`,
+  };
+}
+
 async function dispatch(req, res, url, cwd) {
   const pathname = url.pathname;
 
@@ -680,6 +716,11 @@ async function dispatch(req, res, url, cwd) {
   // Inbox — what needs your attention right now
   if (pathname === '/api/inbox') {
     const inbox = getInbox(cwd);
+    const canonical = evidenceProjection(cwd, { limit: 100 });
+    inbox.pending_gates = (inbox.pending_gates || []).map((gate) => ({
+      ...gate,
+      evidence: decisionEvidenceFor(canonical, gate),
+    }));
     // BRD-R3: the Decisions row shows both reviewers. The second opinion is a
     // fact about the TREE, not about a gate — every pending gate on this tree
     // shares it — so it is resolved once: the newest cross-review line whose
@@ -1974,4 +2015,4 @@ async function dispatch(req, res, url, cwd) {
  * the inbox.
  */
 
-export { dispatch, secondOpinionForTree };
+export { dispatch, secondOpinionForTree, decisionEvidenceFor };

@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const { recordView, summarizeViews } = await import('./lib/view-counter.mjs');
+const html = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), 'public', 'index.html'), 'utf8');
 
 function tmpRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-viewcounter-'));
@@ -134,4 +135,11 @@ test('summarizeViews reports {state:"unreadable", why} when the file exists but 
     assert.equal(summary.state, 'unreadable');
     assert.ok(typeof summary.why === 'string' && summary.why.length > 0);
   } finally { clean(root); }
+});
+
+test('the default Decisions surface and selected project are counted', () => {
+  assert.match(html, /DOMContentLoaded[^\n]+switchTab\(r \|\| 'decisions'\)/,
+    'opening the default route records Decisions instead of only counting explicit tab switches');
+  assert.match(html, /fetch\(`\/api\/view\$\{pqs\(\)\}`/,
+    'the counter is scoped to the project selected in the board');
 });

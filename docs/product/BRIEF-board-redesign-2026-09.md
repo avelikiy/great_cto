@@ -1,11 +1,11 @@
 # Product Brief — Board redesign: from eight tabs to four decisions
 
 **Slug:** `board-redesign-2026-09` · requirement prefix `BRD-R<n>`
-**Date:** 2026-09-06 · **Author:** product-owner · **Status:** awaiting gate:product
+**Date:** 2026-09-06 · **Author:** product-owner · **Status:** gate:product APPROVED 2026-09-06
 
-> **Gate disclosure.** This brief was produced by direct invocation, not by the pipeline
-> dispatcher. `gate:product` has **not** been raised and no human has approved it. Nothing
-> downstream may treat this document as gated.
+> **Gate disclosure.** This brief was produced by direct invocation rather than the pipeline
+> dispatcher. The owner subsequently approved `gate:product` on 2026-09-06; the binding
+> decision and its two additions are recorded in the gate section below.
 
 ---
 

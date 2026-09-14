@@ -1486,6 +1486,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
      actions; each glyph explains itself on hover. */
   .gate-review { display: inline-flex; gap: 14px; align-items: center; font-family: var(--mono); font-size: var(--fs-caption); white-space: nowrap; color: var(--text2); }
   .gate-review > span { display: inline-flex; gap: 6px; align-items: center; }
+  .decision-evidence { display: block; width: fit-content; margin-top: 5px; font-family: var(--mono); font-size: var(--fs-eyebrow); }
+  .decision-evidence.ok { color: var(--status-done); }
+  .decision-evidence.bad { color: var(--status-blocked); }
+  .decision-evidence.abs { color: var(--absent-warn-fg); }
+  .decision-consequence { display: block; margin-top: 3px; color: var(--text2); font-size: var(--fs-caption); line-height: 1.35; }
   /* Ledger head (great_cto-ki1x.7) */
   .ledger-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .ledger-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; margin-top: 12px; background: var(--bg-card); border: 1px solid var(--border); font-family: var(--mono); font-size: var(--fs-caption); }
@@ -3991,6 +3996,27 @@ function gateChip(t) {
   const why = r.state === 'expensive' ? (r.categories || []).join(' · ') : r.state === 'routine' ? `routine — ${r.why || 'cheap to undo'}` : `unclassified — ${r.why || 'not in gate-reversibility.mjs'}. Unjudged, not harmless.`;
   return `<span class="gate ${cls}" title="${esc(why)}">${glyph} ${esc(name)}</span>`;
 }
+function decisionEvidenceBadge(t) {
+  const e = t?.evidence || { freshness: 'unmeasured', why: 'canonical evidence was not supplied' };
+  const label = e.freshness === 'current'
+    ? `evidence ${e.observed_at ? relTime(e.observed_at) : 'recorded'}`
+    : e.freshness === 'stale' ? '! evidence conflicts'
+    : e.freshness === 'degraded' ? '! evidence degraded'
+    : e.freshness === 'unreadable' ? '! evidence unreadable'
+    : '· evidence unmeasured';
+  const cls = e.freshness === 'current' ? 'ok' : ['stale', 'degraded', 'unreadable'].includes(e.freshness) ? 'bad' : 'abs';
+  const revision = e.revision ? ` · revision ${String(e.revision).slice(0, 8)}` : '';
+  return `<span class="decision-evidence ${cls}" title="${esc(e.why || '')}${esc(revision)}">${esc(label)}</span>`;
+}
+function decisionConsequence(t) {
+  const r = t?.reversibility || { state: 'unclassified', categories: [] };
+  const tail = r.state === 'expensive'
+    ? ` Expensive to undo: ${(r.categories || []).join(' · ') || 'classification details unavailable'}.`
+    : r.state === 'unclassified'
+      ? ' Cost of undo is unclassified; approval uses the guarded ritual.'
+      : ' Routine to undo by repeating the stage.';
+  return `<span class="decision-consequence">Approve records the verdict and wakes the next stage.${esc(tail)}</span>`;
+}
 function renderInbox(d) {
   inboxSecondOpinion = d?.second_opinion || null;
   { const c = document.getElementById('decisions-count'); const n = (d?.pending_gates || []).length; if (c) c.textContent = n ? `${n} waiting` : 'nothing waiting'; }
@@ -4617,7 +4643,7 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     return `
       <div class="inbox-row${aged ? ' row-aged' : ''}" tabindex="0" role="button" aria-label="${esc(t.title || t.id)}" onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();this.click();}' onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         ${canDecide ? gateChip(t) : `<span class="id">${esc(t.id || '')}</span>`}
-        <span class="ttl">${canDecide ? '' : reasonChip}${esc(canDecide ? String(t.title || '').replace(/^gate:[a-z-]+\s*[—–-]?\s*/, '') : t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
+        <span class="ttl">${canDecide ? '' : reasonChip}${esc(canDecide ? String(t.title || '').replace(/^gate:[a-z-]+\s*[—–-]?\s*/, '') : t.title)}${desc}<span class="meta">${meta}</span>${canDecide ? `${decisionEvidenceBadge(t)}${decisionConsequence(t)}` : ''}${tierNote}</span>
         ${canDecide ? reviewerCells(t) : ''}
         ${actions}${unblock}${rerun}${diffBtn}
       </div>`;
@@ -8252,7 +8278,7 @@ function switchTab(id, el) {
   if (ROUTES[id]) {
     if (location.hash !== `#/${id}`) history.replaceState(null, '', `#/${id}`);
     // BRD-R9: one local line per destination open, never blocking, never surfaced.
-    try { fetch('/api/view', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ view: id }) }).catch(() => {}); } catch (e) {}
+    try { fetch(`/api/view${pqs()}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ view: id }) }).catch(() => {}); } catch (e) {}
   }
   closeMenu(false);   // choosing a destination is the end of using the menu
   // sidebar nav
@@ -8337,7 +8363,7 @@ function routeFromHash() {
   return ROUTES[h] ? h : (LEGACY_ROUTES[h] || null);
 }
 addEventListener('hashchange', () => { const r = routeFromHash(); if (r) switchTab(r); });
-addEventListener('DOMContentLoaded', () => { const r = routeFromHash(); if (r && r !== 'decisions') switchTab(r); });
+addEventListener('DOMContentLoaded', () => { const r = routeFromHash(); switchTab(r || 'decisions'); });
 
 async function refreshLogs() {
   const data = await api(`/api/logs${pqs()}`);

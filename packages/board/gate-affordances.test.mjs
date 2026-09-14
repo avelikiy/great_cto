@@ -52,6 +52,15 @@ test('the confirm names consequences rather than asking "are you sure"', () => {
   assert.match(fn, /shareState/, 'and only claims the public part when sharing is actually on');
 });
 
+test('every gate row exposes canonical evidence freshness and approval consequences before click', () => {
+  const evidence = html.match(/function decisionEvidenceBadge\([\s\S]*?\n\}/)?.[0];
+  const consequence = html.match(/function decisionConsequence\([\s\S]*?\n\}/)?.[0];
+  assert.ok(evidence && consequence);
+  assert.match(html, /canDecide \? `\$\{decisionEvidenceBadge\(t\)\}\$\{decisionConsequence\(t\)\}`/);
+  for (const state of ['current', 'stale', 'degraded', 'unreadable', 'unmeasured']) assert.match(evidence, new RegExp(state));
+  assert.match(consequence, /records the verdict and wakes the next stage/i);
+});
+
 test('the runAgent path is not confirmed twice', () => {
   // It already shows an editable prompt naming what it will approve and run,
   // and cancelling it aborts the whole action. A second dialog is friction with

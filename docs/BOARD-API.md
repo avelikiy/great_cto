@@ -18,11 +18,13 @@ The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for
 | `/api/metrics?project=<slug>` | GET | `{tasks, velocity, cost, qa, security, agents, agents_cost}` |
 | `/api/cost?project=<slug>&days=30` | GET | `{series, total_llm, total_human, ...}` |
 | `/api/memory?project=<slug>` | GET | `{layers: [...11], patterns: [...]}` |
-| `/api/inbox?project=<slug>` | GET | `{open_gates, p0_open, blocked, recent_activity, ...}` |
+| `/api/inbox?project=<slug>` | GET | `{pending_gates, p0_open, blocked, ...}`; every gate carries canonical `evidence` freshness |
 | `/api/logs?project=<slug>` | GET | `{logs: [...]}` |
 | `/api/decisions?limit=20` | GET | `Decision[]` |
 | `/api/pipeline?project=<slug>` | GET | `Stage[]` — 8 SDLC stages with status |
 | `/api/evidence?project=<slug>&limit=100` | GET | Canonical evidence projection: `{state, revision, provenance, summary, runs, decisions, harnesses, fleet, receipts, events, migration}` |
+| `/api/views?project=<slug>&since=<ISO>` | GET | Local usage evidence for IA kill criteria: `{state, views, unreadable_lines}` |
+| `/api/view?project=<slug>` | POST | Record one selected-project view open (body: `{view}`) |
 | `/api/gates/<id>` | POST | Approve/reject gate (body: `{action, reason?}`); returns 409 without `.beads/` |
 | `/api/healthz` | GET | `{ok: true}` |
 
@@ -36,6 +38,14 @@ legacy-only and canonical-only counts; `count-match` explicitly does not claim
 semantic parity.
 Legacy-only facts make the top-level state `degraded`; they are never hidden
 behind an otherwise readable canonical subset.
+
+Each `/api/inbox` `pending_gates[]` row carries an `evidence` object with
+`freshness=current|stale|degraded|unmeasured|unreadable`, the canonical `run_id`,
+`event_id`, `observed_at`, projection revision and a human-readable reason.
+Correlation uses the gate identity, never nearest-timestamp matching. `stale`
+means the task still says waiting while the newest canonical gate fact says it
+was resolved. `degraded` prevents a valid-looking subset from turning a
+degraded projection into a green decision row.
 
 ## Common gotcha — array vs object
 
