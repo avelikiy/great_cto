@@ -38,7 +38,7 @@ import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcrip
 import { stopShape } from '../lib/stop-shape.mjs';
 import { recordRun } from '../lib/pipeline-journal.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
-import { latestScore as _latestScore } from '../lib/scores.mjs';
+import { latestScore as _latestScore, readScores as _readScores } from '../lib/scores.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 /**
@@ -739,6 +739,46 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
         + `Set GREAT_CTO_REQUIRE_VERIFY=0 to dispatch without a check.`,
     };
   }
+
+  // A recorded `rework` is not a pass.
+  //
+  // This branch did not exist: any score satisfied the gate, and the directive
+  // said "spawn <next> now … do not stop the turn before dispatching", with the
+  // rework mentioned only as a trailing note. The verify-wait text above tells the
+  // orchestrator to hand rework back; the dispatch that followed it said the
+  // opposite, and a reader acts on the directive (great_cto-hxuv).
+  //
+  // Bounded like REWORK verdicts: after MAX_REWORK rework scores for this agent it
+  // is a decision. The stop names the other cause worth checking — a receipt
+  // measured from the wrong base shows the judge none of the code.
+  if (score && score.state === 'rework') {
+    let passes = 1;
+    try {
+      const n = _readScores(cwd, { agent, name: 'independent-verify' }).scores.filter((x) => x.state === 'rework').length;
+      if (n > 0) passes = n;
+    } catch { /* the count falls back to this one score */ }
+    const listed = Array.isArray(score.findings)
+      ? score.findings.map((f) => (typeof f === 'string' ? f : (f?.text || f?.detail || f?.why || ''))).filter(Boolean)
+      : [];
+    const findings = [...listed, score.comment].filter(Boolean).join(' | ').slice(0, 800);
+    const downstream = (skip.nexts || []).join(', ') || 'the next stage';
+    if (passes >= MAX_REWORK) {
+      return {
+        kind: 'blocked',
+        text: `PIPELINE-STOP: independent verification has recorded rework for ${agent} ${passes} times. `
+          + `That is the ceiling — this is now a decision, not another pass. `
+          + `Show the CTO the verifier's findings${findings ? `: ${findings}` : ''}. `
+          + `Also check that the judged change named the files ${agent} actually changed: a receipt measured from the wrong base shows the judge none of the code.`,
+      };
+    }
+    return {
+      kind: 'rework',
+      text: `PIPELINE-REWORK: independent verification recorded rework for ${agent} (pass ${passes} of ${MAX_REWORK}). `
+        + `Re-spawn ${agent} with the verifier's findings quoted verbatim and require it to address each one`
+        + `${findings ? `: ${findings}` : '.'} `
+        + `Do NOT spawn ${downstream} — that work would rest on a stage that did not pass verification.`,
+    };
+  }
   // Three reasons, not two. This note used to say "the check is disabled
   // (GREAT_CTO_REQUIRE_VERIFY=0)" for BOTH ways of arriving here without a score,
   // and for one of them that sentence is simply false: with no `cwd` the checker
@@ -894,6 +934,8 @@ export const OUTCOME_BY_KIND = Object.freeze({
   rework: 'dispatch',
   route: 'dispatch',
   'route-pending': 'hold',
+  // Waiting for independent verification is a hold, not the chain stopping.
+  'verify-wait': 'hold',
   gate: 'hold',
   'join-wait': 'hold',
   done: 'stop',

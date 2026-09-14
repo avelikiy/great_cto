@@ -138,4 +138,7 @@ test('a send-back is journalled as a dispatch, and a pending one as a hold', () 
   assert.equal(OUTCOME_BY_KIND.rework, 'dispatch', 'REWORK names a stage to run again — it was recorded as the chain stopping');
   assert.equal(OUTCOME_BY_KIND.route, 'dispatch');
   assert.equal(OUTCOME_BY_KIND['route-pending'], 'hold');
+  // Waiting for independent verification was journalled as the chain stopping;
+  // seen in the 2026-09-14 live run's journal.
+  assert.equal(OUTCOME_BY_KIND['verify-wait'], 'hold');
 });

@@ -73,11 +73,34 @@ test('unverifiable is a recorded answer and unblocks — the look is what is req
     'a gate nothing can satisfy is a deadlock, not a gate');
 });
 
-test('rework is also a recorded answer — the gate is about having looked', () => {
+// This used to pin the opposite: a `rework` score dispatched the next stage, on
+// the reasoning that acting on the finding was the orchestrator's job. A live run
+// on 2026-09-14 showed what the orchestrator was actually told — "spawn
+// code-reviewer now … do not stop the turn before dispatching", with the rework
+// mentioned only as a trailing note. A check whose failure moves the work
+// forward is a check in name only (great_cto-hxuv).
+test('rework is not a pass: the stage goes back to its agent with the findings, and nothing downstream runs', () => {
   const root = project();
+  writeScore(root, {
+    agent: 'architect', runTs: TS, name: 'independent-verify', state: 'rework', scorer: 'mechanical+judge',
+    comment: 'judgement: the ARCH doc names no data model',
+  });
+  const r = decide(root, verdict());
+  assert.equal(r.kind, 'rework');
+  assert.match(r.text, /PIPELINE-REWORK/);
+  assert.match(r.text, /architect/);
+  assert.match(r.text, /names no data model/, 'the findings travel with the send-back');
+  assert.doesNotMatch(r.text, /PIPELINE-NEXT|spawn Agent\(subagent_type: pm\)/);
+});
+
+test('rework past the ceiling becomes a decision for the CTO', () => {
+  const root = project();
+  score(root, '2026-08-26T18:00:00Z', 'rework');
+  score(root, '2026-08-26T19:00:00Z', 'rework');
   score(root, TS, 'rework');
-  assert.equal(decide(root, verdict()).kind, 'next',
-    'acting on a rework finding is the orchestrator’s job; this gate only asks that one exists');
+  const r = decide(root, verdict());
+  assert.equal(r.kind, 'blocked');
+  assert.match(r.text, /ceiling/);
 });
 
 test('the escape hatch says the stage was not checked, rather than implying it passed', () => {
