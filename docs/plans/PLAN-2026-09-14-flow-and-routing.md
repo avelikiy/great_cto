@@ -1,6 +1,6 @@
 # PLAN — A finding the implementer can fix should reach the implementer, and a decision that waits should be counted
 
-**Status:** draft · **Date:** 2026-09-14 · **Owner:** senior-dev
+**Status:** implemented, not released · **Date:** 2026-09-14 · **Owner:** senior-dev
 **Applies to:** `scripts/hooks/pipeline-dispatcher.mjs`, `scripts/log-verdict.sh`,
 `scripts/lib/verdict-record.mjs`, `packages/board/lib/metrics.mjs`, new
 `scripts/lib/flow-metrics.mjs`, the verdict lines of `qa-engineer`,
@@ -118,6 +118,35 @@ age of the oldest. Output per project and total: `n`, median, max, oldest open.
   without runs (`packages/board/lib/fleet.mjs:192`). Worth its own small plan.
 - **Plan lifecycle** (`status`, `owner`, a result section, checked by
   `artifact-lint`) — habr 1081076. Separate.
+
+## Result (2026-09-14)
+
+| Task | Commit | Outcome |
+|---|---|---|
+| 3 — rework counted as rework | `cb09d50f` | Three counts instead of one: `rework_rounds`, `decisions`, `undeclared_blocks`. The plan had put decision and undeclared in one bucket; they are kept apart because undeclared is not known to be either. `readVerdicts` dropped `meta`, so the split needed the reader fixed too. Four mutations killed |
+| 1 — `need` as a field | `791ab723` | `NEED_VALUES`, `needOf()`. An unknown value is refused when the verdict is written, and read as undeclared when it is already on disk — refusing on read would discard the verdict. Checked through the real `log-verdict.sh`. Four mutations killed |
+| 2 — route to the owner | `78174d13` | Owner = latest verdict of an agent the map sends on to code-reviewer, matched by `task`, else `feature` — reviewers carry feature far more often than task. Shared ceiling, repeat held as `route-pending`. Seven mutations killed |
+| 4 — how long a decision waits | `8a990064` | `scripts/lib/flow-metrics.mjs`; `/inbox` prints `## STALE_GATES` and `## GATE_WAIT`. This repository: 6 closed gates, median 157h, max 962h. Eight mutations killed |
+
+**Found on the way, fixed in the same commits:**
+
+- The dispatcher's REWORK loop and its ceiling had no test at all.
+- The journal recorded REWORK as `stop`: `OUTCOME_BY_KIND` had no entry for it.
+- `/inbox`'s stale-gate loop could never fire (status symbol read as the task id,
+  `created:` grepped where bd prints `Created:`). A gate open about 65 days had
+  never been reported.
+
+**Replay:** over 14 projects' verdict logs, 2 halting verdicts were recorded, both
+undeclared, both unchanged. The sample is small; it shows no existing chain
+changed, not that routing works in the field.
+
+**Not done, and named:**
+
+- A board route for gate wait (task 4 listed one). `/inbox` carries the number;
+  the board does not yet.
+- The live run in the verification list below: no pipeline has yet recorded
+  `need=implementer`.
+- `/inbox` promises twelve labelled sections and prints two — great_cto-3foo.
 
 ## Verification before calling it done
 

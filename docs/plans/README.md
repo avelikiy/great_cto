@@ -53,9 +53,9 @@ How many stages there are, who runs them, and where a human is asked.
 - [SIA → great_cto self-improvement loop](PLAN-sia-self-improvement-loop.md)
 - [Fewer confirmations, and a loop that earns them away](PLAN-2026-08-08-self-improving-pipeline.md)
 - [A finding the implementer can fix should reach the implementer](PLAN-2026-09-14-flow-and-routing.md) —
-  *declares: draft · 2026-09-14*. BLOCKED always pages the CTO, even when qa's own contract
-  says "senior-dev fix"; and the board's rework count skips `REWORK`, the token work is
-  actually sent back with.
+  *declares: implemented, not released · 2026-09-14*. BLOCKED always paged the CTO, even when
+  qa's own contract said "senior-dev fix"; the board's rework count skipped `REWORK`; and
+  /inbox's stale-gate check could never fire. All four tasks landed; the live run is still owed.
 
 ## Cost, context and the model
 
