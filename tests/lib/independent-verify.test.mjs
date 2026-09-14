@@ -400,3 +400,39 @@ test('undeclared keeps the router, and no router is none with a reason', () => {
   const c = chooseSecondJudge({ so: { state: 'undeclared', provider: null }, routerAvailable: false });
   assert.equal(c.kind, 'none'); assert.match(c.note, /not found/);
 });
+
+// ── a count from a test run is not a claim about the diff ────────────────────
+//
+// A live pipeline run on 2026-09-14: senior-dev fixed a bug whose failing test
+// already existed, and recorded `tests=2` — how many tests ran. The verifier
+// turned that into "the change adds or updates automated tests", the judge read
+// a change containing no test file and answered no, and a correct fix came back
+// as rework. The module's own rule is that only claims a reader can settle from
+// the files become questions; a test count is a fact about a run. It is asked
+// only when the change actually contains a test file, where "are these real
+// tests" is something the files can answer.
+import { claimsAsRequirements } from '../../scripts/lib/independent-verify.mjs';
+
+const withFiles = (files, meta = {}) => ({
+  agent: 'senior-dev', verdict: 'TASK_DONE',
+  meta: { feature: 'checkout-discount', tests: '2', ...meta },
+  receipt: { head: 'a'.repeat(40), files: Object.fromEntries(files.map((f) => [f, 'b'.repeat(40)])) },
+});
+const asksAboutTests = (reqs) => reqs.some((r) => /tests/.test(r) && /automated/.test(r));
+
+test('a test count is not asked about when the change contains no test file', () => {
+  const reqs = claimsAsRequirements(withFiles(['src/cart.mjs', 'docs/architecture/ARCH-checkout-discount.md']));
+  assert.ok(!asksAboutTests(reqs), `asked anyway: ${reqs.join(' / ')}`);
+  assert.ok(reqs.some((r) => /checkout-discount/.test(r)), 'the feature claim is still a question');
+});
+
+test('a changed test file brings the tests question back', () => {
+  for (const f of ['test/cart.test.mjs', 'tests/lib/cart.test.mjs', 'src/__tests__/cart.js', 'spec/cart_spec.rb', 'pkg/cart_test.go', 'tests/test_cart.py']) {
+    assert.ok(asksAboutTests(claimsAsRequirements(withFiles(['src/cart.mjs', f]))), `not asked for ${f}`);
+  }
+});
+
+test('with no receipt there are no changed files to settle a test count against', () => {
+  const v = withFiles([]); delete v.receipt;
+  assert.ok(!asksAboutTests(claimsAsRequirements(v)));
+});

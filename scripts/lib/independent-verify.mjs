@@ -421,6 +421,14 @@ export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXC
  * is a fact about a run that happened elsewhere and no amount of reading the
  * diff will confirm it, so it is left alone rather than asked about badly.
  */
+/** Does the change the receipt names include a test file? No receipt: no. */
+const TEST_PATH = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z0-9]+$|_(test|spec)\.[a-z0-9]+$|(^|\/)test_[^/]+\.py$/i;
+export function changesATestFile(verdict) {
+  const files = verdict?.receipt?.files;
+  if (!files || typeof files !== 'object') return false;
+  return Object.keys(files).some((p) => TEST_PATH.test(p));
+}
+
 export function claimsAsRequirements(verdict) {
   const meta = verdict?.meta || {};
   const out = [];
@@ -428,7 +436,13 @@ export function claimsAsRequirements(verdict) {
   if (feature) {
     out.push(`The change implements "${feature}" — the feature this verdict claims to have delivered.`);
   }
-  if (meta.tests) {
+  // `tests=N` is how many tests ran — a fact about a run, like `ci=pass`, which
+  // the files cannot settle. Asked as "the change adds or updates tests" it sent a
+  // correct bug fix back as rework in a live run on 2026-09-14: the failing test
+  // already existed, the change held no test file, and the judge rightly said no.
+  // Asked only when the change does contain a test file, where "are these real
+  // tests" is something the files can answer.
+  if (meta.tests && changesATestFile(verdict)) {
     out.push(`The change adds or updates automated tests (the verdict claims \`tests=${meta.tests}\`).`);
   }
   if (meta.report || meta.findings) {
