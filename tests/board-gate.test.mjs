@@ -103,6 +103,21 @@ function cleanup(...dirs) {
   for (const d of dirs) try { rmSync(d, { recursive: true, force: true }); } catch {}
 }
 
+/**
+ * ADR-024 §1: a gate decision presents the token /api/inbox issued for that gate,
+ * and an expensive or unclassified approval also carries the typed gate name —
+ * exactly what the page sends. Read from the server being posted to, so the test
+ * never guesses a gate's cost-of-undo from its title.
+ */
+async function decisionAuth(port, id) {
+  const inbox = await fetchJson(port, '/api/inbox');
+  const g = (inbox.body?.pending_gates || []).find((x) => x.id === id);
+  if (!g?.token) throw new Error(`no approval token for ${id}: ${JSON.stringify(inbox.body?.approval_tokens)}`);
+  const rev = g.reversibility || {};
+  const guarded = rev.state === 'expensive' || rev.state === 'unclassified';
+  return { token: g.token, ...(guarded ? { confirm: rev.gate ? `gate:${rev.gate}` : id } : {}) };
+}
+
 // ── tests ──────────────────────────────────────────────────────────────────
 
 test('gate: approve via POST /api/gates/<id> closes bd task', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async () => {
@@ -129,7 +144,7 @@ test('gate: approve via POST /api/gates/<id> closes bd task', { skip: !BD_AVAILA
     const approve = await fetchJson(port, `/api/gates/${gateId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', reason: 'lgtm — E2E test' }),
+      body: JSON.stringify({ action: 'approve', reason: 'lgtm — E2E test', ...(await decisionAuth(port, gateId)) }),
     });
     assert.equal(approve.status, 200, `approve returned ${approve.status}: ${JSON.stringify(approve.body)}`);
     assert.equal(approve.body?.ok, true);
@@ -156,7 +171,7 @@ test('gate: rejection sets bd status=blocked', { skip: !BD_AVAILABLE && 'bd CLI 
     const reject = await fetchJson(port, `/api/gates/${gateId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reject', reason: 'not ready — security concern' }),
+      body: JSON.stringify({ action: 'reject', reason: 'not ready — security concern', ...(await decisionAuth(port, gateId)) }),
     });
     assert.equal(reject.status, 200, `reject returned ${reject.status}: ${JSON.stringify(reject.body)}`);
     assert.equal(reject.body?.action, 'reject');
@@ -183,7 +198,7 @@ test('gate: approval appends to the project decisions log, not the global one', 
     await fetchJson(port, `/api/gates/${gateId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', reason: 'audit trail check' }),
+      body: JSON.stringify({ action: 'approve', reason: 'audit trail check', ...(await decisionAuth(port, gateId)) }),
     });
 
     // Wait briefly for async append to flush
@@ -250,7 +265,7 @@ test('gate: SSE broadcasts updated tasks after approval', { skip: !BD_AVAILABLE 
     await fetchJson(port, `/api/gates/${gateId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', reason: 'SSE test' }),
+      body: JSON.stringify({ action: 'approve', reason: 'SSE test', ...(await decisionAuth(port, gateId)) }),
     });
 
     await readPromise;

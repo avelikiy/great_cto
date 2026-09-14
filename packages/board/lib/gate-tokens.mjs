@@ -22,10 +22,12 @@ import { treeReceipt, receiptHash, compareReceipts } from '../../../scripts/lib/
 
 export const TOKENS_FILE = 'gate-tokens.json';
 export const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
-// Why .great_cto/ is outside the binding: it is the pipeline's own state, and the
-// approval itself writes there (gate row, decision log, wake, this store). Counting
-// it would let one approval refuse every other open gate as "changed".
-export const BINDING_EXCLUDE = Object.freeze(['.great_cto']);
+// Why these are outside the binding: both are the pipeline's own state, and a
+// decision itself writes to them — .great_cto/ gets the gate row, decision log, wake
+// and this store; .beads/ gets `bd update`'s interactions.jsonl. Counting either would
+// let one approval refuse every other open gate as "changed". .beads/ was found by
+// tests/pipeline-e2e.test.mjs: approving gate:plan made gate:ship read stale.
+export const BINDING_EXCLUDE = Object.freeze(['.great_cto', '.beads']);
 
 /** Test seam: GREAT_CTO_GATE_TOKEN_TTL_MS; production is 24 h. */
 export function tokenTtlMs(env = process.env) {

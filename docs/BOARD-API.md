@@ -18,11 +18,11 @@ The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for
 | `/api/metrics?project=<slug>` | GET | `{tasks, velocity, cost, qa, security, agents, agents_cost}` |
 | `/api/cost?project=<slug>&days=30` | GET | `{series, total_llm, total_human, ...}` |
 | `/api/memory?project=<slug>` | GET | `{layers: [...11], patterns: [...]}` |
-| `/api/inbox?project=<slug>` | GET | `{open_gates, p0_open, blocked, recent_activity, ...}` |
+| `/api/inbox?project=<slug>` | GET | `{pending_gates, p0_open, blocked, approval_tokens, ...}` — each pending gate carries the `token` a decision on it must present (ADR-024); `approval_tokens.state` is `unreadable` when tokens could not be issued |
 | `/api/logs?project=<slug>` | GET | `{logs: [...]}` |
 | `/api/decisions?limit=20` | GET | `Decision[]` |
 | `/api/pipeline?project=<slug>` | GET | `Stage[]` — 8 SDLC stages with status |
-| `/api/gates/<id>` | POST | Approve/reject gate (body: `{action, reason?}`); returns 409 without `.beads/` |
+| `/api/gates/<id>` | POST | Approve/reject gate (body: `{action, reason?, token, confirm?}`). `token` comes from that gate's `/api/inbox` entry and is single-use; `confirm` is the typed gate name, required to approve an expensive or unclassified gate. 403 `refused-token` / `refused-expired` / `refused-confirm`; 409 `refused-stale` with `changed` paths when the project changed since the gate was listed; 409 without `.beads/` and without `tasks.md` |
 | `/api/healthz` | GET | `{ok: true}` |
 
 ## Common gotcha — array vs object

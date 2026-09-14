@@ -82,7 +82,7 @@ before any code relies on them.
    The dead `runAgent` branch is removed in the same change.
 3. **Bound to what was reviewed.** The token records the receipt hash
    (`receiptHash` in `scripts/lib/receipt.mjs`) of **the project tree outside
-   `.great_cto/`, as it was when the board first showed the gate**. An approval is
+   `.great_cto/` and `.beads/`, as it was when the board first showed the gate**. An approval is
    refused if that tree now differs, with the changed paths — the same rule
    `approve()` in the controlled Codex host already enforces. A rejection is always
    accepted: refusing to stop is never the safe side.
@@ -94,6 +94,12 @@ before any code relies on them.
    record, the token store. `init` does not gitignore that directory, so a binding
    over the whole tree would let the first approval invalidate every other open
    gate's token though no reviewed code moved.
+
+   The same holds for `.beads/`: on a beads-backed project the decision's own
+   `bd update` appends to `.beads/interactions.jsonl`. The first cut excluded only
+   `.great_cto/`, and `tests/pipeline-e2e.test.mjs` caught it — approving `gate:plan`
+   made `gate:ship` read as stale. The token tests had used a `tasks.md` project, so
+   they could not.
 4. **It expires.** A token older than 24 hours is refused; the board fetches a
    fresh one, which re-reads the state. An approval given on yesterday's view of
    the tree is not an approval of today's.

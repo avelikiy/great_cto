@@ -197,6 +197,21 @@ test('resume: pipeline state survives board restart', { skip: !BD_AVAILABLE && '
   }
 });
 
+/**
+ * ADR-024 §1: a gate decision presents the token /api/inbox issued for that gate,
+ * and an expensive or unclassified approval also carries the typed gate name —
+ * exactly what the page sends. Read from the server being posted to; the token
+ * store lives in the project, so it outlives a restart.
+ */
+async function decisionAuth(port, id) {
+  const inbox = await api(port, '/api/inbox');
+  const g = (inbox.body?.pending_gates || []).find((x) => x.id === id);
+  if (!g?.token) throw new Error(`no approval token for ${id}: ${JSON.stringify(inbox.body?.approval_tokens)}`);
+  const rev = g.reversibility || {};
+  const guarded = rev.state === 'expensive' || rev.state === 'unclassified';
+  return { token: g.token, ...(guarded ? { confirm: rev.gate ? `gate:${rev.gate}` : id } : {}) };
+}
+
 test('resume: approving a gate then restarting reflects the closed state', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async (t) => {
   const { home, project } = makeProject();
   const gatePlanId = bdCreate(project, 'gate: plan approval', { label: 'gate' });
@@ -212,7 +227,7 @@ test('resume: approving a gate then restarting reflects the closed state', { ski
     const r = await api(port1, `/api/gates/${gatePlanId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', reason: 'pre-restart approval' }),
+      body: JSON.stringify({ action: 'approve', reason: 'pre-restart approval', ...(await decisionAuth(port1, gatePlanId)) }),
     });
     assert.equal(r.status, 200, `pre-restart approve failed: ${JSON.stringify(r.body)}`);
   } finally {
@@ -256,7 +271,7 @@ test('resume: decisions log preserves audit trail across restart', { skip: !BD_A
     await api(port1, `/api/gates/${gate1}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', reason: 'audit-test-marker-xyz' }),
+      body: JSON.stringify({ action: 'approve', reason: 'audit-test-marker-xyz', ...(await decisionAuth(port1, gate1)) }),
     });
     await new Promise(r => setTimeout(r, 300));
   } finally {

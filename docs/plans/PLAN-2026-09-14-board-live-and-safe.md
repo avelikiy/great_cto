@@ -152,7 +152,7 @@ state, and the typed-name ritual for expensive gates was enforced only in the pa
 
 **Section 1 landed (gate approvals).** Each pending gate `/api/inbox` returns
 carries a token (`packages/board/lib/gate-tokens.mjs`): single-use, 24 h, bound to
-the project tree outside `.great_cto/` as the board first showed it. The server
+the project tree outside `.great_cto/` and `.beads/` as the board first showed it. The server
 refuses — before writing anything — a missing, used or expired token, an expensive
 or unclassified approval without the typed gate name, and an approval after the
 project changed (409 with the paths). A rejection needs the token but is never
@@ -162,7 +162,10 @@ refused for drift. Every decision and refusal is an agent event. The page's dead
 Found while writing the tests, before code: an approval writes the pipeline's own
 files under `.great_cto/`, which `init` does not gitignore, so a binding over the
 whole tree would have let the first approval refuse every other open gate.
-`treeReceipt` gained an `exclude` option; its default is unchanged.
+`treeReceipt` gained an `exclude` option; its default is unchanged. The first cut
+excluded only `.great_cto/`; the full gate's `pipeline-e2e` test then showed a
+beads-backed approval writing `.beads/interactions.jsonl` and making the next gate
+stale, so `.beads/` is excluded too.
 
 Checked: tests red first; ten mutations caught; on a running board over a
 throwaway project, a routine approval landed, a wrong typed name was stopped before

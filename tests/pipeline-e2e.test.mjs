@@ -189,6 +189,20 @@ test('pipeline: full 9-stage simulation reports each stage as done', { skip: !BD
   }
 });
 
+/**
+ * ADR-024 §1: a gate decision presents the token /api/inbox issued for that gate,
+ * and an expensive or unclassified approval also carries the typed gate name —
+ * exactly what the page sends. Read from the server being posted to.
+ */
+async function decisionAuth(port, id) {
+  const inbox = await api(port, '/api/inbox');
+  const g = (inbox.body?.pending_gates || []).find((x) => x.id === id);
+  if (!g?.token) throw new Error(`no approval token for ${id}: ${JSON.stringify(inbox.body?.approval_tokens)}`);
+  const rev = g.reversibility || {};
+  const guarded = rev.state === 'expensive' || rev.state === 'unclassified';
+  return { token: g.token, ...(guarded ? { confirm: rev.gate ? `gate:${rev.gate}` : id } : {}) };
+}
+
 test('pipeline: gate state transitions reflect in /api/inbox', { skip: !BD_AVAILABLE && 'bd CLI not installed' }, async () => {
   const { home, project } = makeProject();
 
@@ -212,7 +226,7 @@ test('pipeline: gate state transitions reflect in /api/inbox', { skip: !BD_AVAIL
     const r1 = await api(port, `/api/gates/${gatePlan}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', reason: 'plan looks good' }),
+      body: JSON.stringify({ action: 'approve', reason: 'plan looks good', ...(await decisionAuth(port, gatePlan)) }),
     });
     assert.equal(r1.status, 200, `approve gate:plan failed: ${JSON.stringify(r1.body)}`);
 
@@ -226,7 +240,7 @@ test('pipeline: gate state transitions reflect in /api/inbox', { skip: !BD_AVAIL
     const r2 = await api(port, `/api/gates/${gateShip}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', reason: 'shipping' }),
+      body: JSON.stringify({ action: 'approve', reason: 'shipping', ...(await decisionAuth(port, gateShip)) }),
     });
     assert.equal(r2.status, 200, `approve gate:ship failed: ${JSON.stringify(r2.body)}`);
 
