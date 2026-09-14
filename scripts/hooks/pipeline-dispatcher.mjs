@@ -32,7 +32,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
-import { parseVerdictLine as parseVerdictRecord } from '../lib/verdict-record.mjs';
+import { parseVerdictLine as parseVerdictRecord, needOf } from '../lib/verdict-record.mjs';
 import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch } from '../lib/agent-budget.mjs';
 import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcript.mjs';
 import { stopShape } from '../lib/stop-shape.mjs';
@@ -116,6 +116,94 @@ function latestScoreFor(cwd, agent, runTs) {
 export function countRework(agent, allVerdicts) {
   if (!Array.isArray(allVerdicts)) return 0;
   return allVerdicts.filter((v) => v?.agent === agent && v?.verdict === REWORK_TOKEN).length;
+}
+
+/**
+ * The agents whose work a reviewer's finding can be sent back to: every agent the
+ * map sends on to code-reviewer. Read from the map so a new builder is covered the
+ * day its edge is added, and nobody has to remember a list.
+ */
+export function implementersOf(transitions) {
+  return Object.entries(transitions || {})
+    .filter(([name, r]) => !name.includes('.') && (r?.next || []).includes('code-reviewer'))
+    .map(([name]) => name);
+}
+
+/**
+ * A halting verdict declared `need=implementer`: send it back to the agent that
+ * did the work, or say why not. Returns null when the verdict is not routable
+ * at all (need is `decision` or undeclared) so the caller halts as before.
+ *
+ * Every answer other than a route is a halt. No owner, no key to find one by, or
+ * the ceiling reached — each is a reason the CTO has to look, and each is named.
+ *
+ * The owner is the latest implementer verdict with the same `task`, else the same
+ * `feature`. Measured across the registered projects before choosing: senior-dev
+ * writes task on 25 of 27 verdicts, but reviewers write task on 2 of 9 (qa) and
+ * 2 of 8 (code-reviewer), while feature is on 17, 5 and 10 — so task is preferred
+ * when both sides carry it, and feature is what usually joins them.
+ *
+ * The ceiling is MAX_REWORK and is shared: the owner's REWORK passes and the
+ * findings already routed on the same key count together, so two send-back paths
+ * cannot each run three times.
+ */
+export function routeToOwner({ agent, verdict, transitions, allVerdicts, rule }) {
+  if (needOf(verdict) !== 'implementer') return null;
+  const meta = verdict.meta || {};
+  const downstream = ((rule?.next || []).join(', ')) || 'downstream agents';
+  const halt = (why) => ({
+    kind: 'blocked',
+    text: `PIPELINE: ${agent} returned ${verdict.verdict} with need=implementer, but ${why} — the pipeline is halted at this stage. `
+      + `Surface the blocking findings to the CTO. Do NOT spawn ${downstream} until resolved.`,
+  });
+  if (!meta.task && !meta.feature) return halt('the verdict names no task or feature to find its owner by');
+
+  const implementers = implementersOf(transitions);
+  const prior = (Array.isArray(allVerdicts) ? allVerdicts : [])
+    .filter((v) => v && v !== verdict && String(v.ts || '') < String(verdict.ts || ''));
+  const ownedBy = (field) => (meta[field]
+    ? prior.filter((v) => implementers.includes(v.agent) && v.meta?.[field] === meta[field])
+    : []);
+
+  let field = 'task';
+  let owned = ownedBy('task');
+  if (!owned.length) { field = 'feature'; owned = ownedBy('feature'); }
+  if (!owned.length) {
+    const keys = [meta.task && `task=${meta.task}`, meta.feature && `feature=${meta.feature}`].filter(Boolean).join(' or ');
+    return halt(`no implementer verdict (${implementers.join(', ')}) matches ${keys}`);
+  }
+  const ownerLast = owned.reduce((a, b) => (String(a.ts) >= String(b.ts) ? a : b));
+  const owner = ownerLast.agent;
+  const key = `${field}=${meta[field]}`;
+  const finding = meta.finding || null;
+
+  const routed = prior.filter((v) => BLOCKED_TOKENS.has(v.verdict) && needOf(v) === 'implementer' && v.meta?.[field] === meta[field]);
+
+  // Reported again before the owner answered: it is already on its way back.
+  if (finding && routed.some((v) => v.agent === agent && v.meta?.finding === finding && String(v.ts) > String(ownerLast.ts))) {
+    return {
+      kind: 'route-pending',
+      text: `PIPELINE-HOLD: ${agent} reported finding ${finding} on ${key} again, and it was already sent back to ${owner}, which has recorded no verdict since. `
+        + `Nothing is dispatched: wait for ${owner} to finish. Do NOT spawn ${downstream}.`,
+    };
+  }
+
+  const passes = countRework(owner, prior) + routed.length;
+  if (passes >= MAX_REWORK) {
+    return {
+      kind: 'blocked',
+      text: `PIPELINE-STOP: ${owner} has been sent back ${passes} times on ${key} and it still does not pass. `
+        + `That is the ceiling — this is now a decision, not another pass. `
+        + `Show the CTO ${agent}'s finding${finding ? ` ${finding}` : ''} and what ${owner} changed on each attempt.`,
+    };
+  }
+  return {
+    kind: 'route',
+    text: `PIPELINE-ROUTE: ${agent} returned ${verdict.verdict} with need=implementer${finding ? ` (finding ${finding})` : ''} on ${key} (pass ${passes + 1} of ${MAX_REWORK}). `
+      + `Re-spawn ${owner} with ${agent}'s finding quoted verbatim and require it to address it. `
+      + `The CTO is not asked: the reviewer declared this fixable without a decision. `
+      + `Do NOT spawn ${downstream} — that work would rest on a stage that has not passed.`,
+  };
 }
 
 /**
@@ -523,6 +611,10 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   }
 
   if (BLOCKED_TOKENS.has(verdict.verdict)) {
+    // A finding the implementer can fix goes back to the implementer. Only an
+    // explicit need=implementer is routed; decision and undeclared halt below.
+    const routed = routeToOwner({ agent, verdict, transitions, allVerdicts, rule });
+    if (routed) return routed;
     return {
       kind: 'blocked',
       text: `PIPELINE: ${agent} returned ${verdict.verdict} — the pipeline is halted at this stage. ` +
@@ -787,9 +879,15 @@ export function applyAgentBudgets(nexts, { cwd, verdicts }) {
  * about a gate not being active. Classifying output by pattern-matching its own
  * wording is a guess dressed as a fact, and it was wrong on the first row.
  */
-const OUTCOME_BY_KIND = Object.freeze({
+export const OUTCOME_BY_KIND = Object.freeze({
   next: 'dispatch',
   resume: 'dispatch',
+  // A send-back names a stage to run again. REWORK was missing here and fell
+  // through to 'stop', so the journal recorded work going back as the chain
+  // ending on purpose.
+  rework: 'dispatch',
+  route: 'dispatch',
+  'route-pending': 'hold',
   gate: 'hold',
   'join-wait': 'hold',
   done: 'stop',
