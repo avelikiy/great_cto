@@ -43,6 +43,17 @@ function git(args, cwd, { maxBuffer = 32 * 1024 * 1024 } = {}) {
 export const MAX_FILES = 200;
 
 /**
+ * Files the tooling writes while agents work — an activity record, not reviewed
+ * content. ADR-021's hooks append to the events log on every tool call, and `init`
+ * does not gitignore .great_cto/, so counting it made a receipt drift by itself:
+ * a gate read "reviewed files changed" one tool call later, and the controlled
+ * Codex host would block on "working tree changed during verification" (bkvj).
+ * Only these files: anything else under .great_cto/ is still part of the tree.
+ */
+export const ACTIVITY_LOGS = Object.freeze(['.great_cto/events.jsonl', '.great_cto/events.1.jsonl']);
+const excludeLogs = ACTIVITY_LOGS.map((p) => `:(exclude)${p}`);
+
+/**
  * The state of the tree right now, as something comparable later.
  *
  * `base` names what the change is measured against — the merge-base with the
@@ -64,8 +75,11 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   // reviewing four brand-new modules — which is most of what a new feature is.
   // Their names and content go into the hash; `--exclude-standard` keeps
   // .gitignore'd build output and node_modules out of it.
-  const diff = git(['diff', 'HEAD'], cwd) ?? '';
-  const untracked = (git(['ls-files', '--others', '--exclude-standard'], cwd) ?? '')
+  // Pathspecs keep each call's scope as it was — `:/` is the whole repository, as a
+  // bare `git diff` is; `.` is this directory, as a bare `ls-files` is — and drop
+  // the activity logs, named relative to this directory (the project's own).
+  const diff = git(['diff', 'HEAD', '--', ':/', ...excludeLogs], cwd) ?? '';
+  const untracked = (git(['ls-files', '--others', '--exclude-standard', '--', '.', ...excludeLogs], cwd) ?? '')
     .split('\n').map((s) => s.trim()).filter(Boolean);
   const untrackedDigest = untracked.map((p) => `${p}:${fileDigest(cwd, p) ?? '?'}`).join('\n');
   const dirty = (diff.trim() || untrackedDigest) ? sha(`${diff}\n--untracked--\n${untrackedDigest}`) : null;
@@ -103,7 +117,7 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
     }
   }
   const names = [
-    ...(git(['diff', '--name-only', '--diff-filter=d', ref], cwd) ?? '')
+    ...(git(['diff', '--name-only', '--diff-filter=d', ref, '--', ':/', ...excludeLogs], cwd) ?? '')
       .split('\n').map((s) => s.trim()).filter(Boolean),
     // A new file is part of the change under review, and is exactly the kind a
     // reviewer reads most closely.
