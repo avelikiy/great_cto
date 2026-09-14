@@ -86,6 +86,25 @@ lists negatives is miscalibrated. Distinguish:
 A speculative risk with no exploit/repro path shown in the diff is an Observation,
 not a Finding.
 
+## Docs follow the behaviour
+
+When the diff changes something a user or operator relies on — a command, flag,
+environment variable, config key, API field, output format or default — search
+the docs for the old name or value:
+
+```bash
+grep -rn "<old-name-or-value>" README* docs/ commands/ skills/ 2>/dev/null | head -20
+```
+
+- A document that still describes the old behaviour is a **Finding**, P2, with
+  two citations: the doc's file:line and the diff line that changed the
+  behaviour. It ships two sources that disagree, and the reader cannot tell which
+  one is current.
+- No document describes the behaviour → no finding. New public surface with no
+  documentation at all is an Observation.
+- If you did not search (the diff is too large, the old name is too common to
+  grep), write `docs not checked` and why. Silence reads as a clean search.
+
 ## Fresh-context, cross-model pass (architect-loop R3)
 
 You review in a **fresh context**, separate from the builder's session — never grade

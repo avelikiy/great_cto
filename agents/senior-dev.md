@@ -573,7 +573,25 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    bd dep add "$NEW_ID" <current-task-id> --type discovered-from
    ```
    Do NOT fix discoveries inline — create the task, link it, continue with current task. Exception: P0 security bug → pause and fix immediately.
-11. **Close** (only after Proof Loop passes): `bd close <id> "Implemented: [brief description] — PR: #<number>"`
+10c. **Docs follow the behaviour.** If the change alters something a user or
+   operator relies on — a command, flag, environment variable, config key, API
+   field, output format or default — search for the old name or value before you
+   close:
+   ```bash
+   grep -rn "<old-name-or-value>" README* docs/ commands/ skills/ 2>/dev/null | head -20
+   ```
+   Every hit that now describes the old behaviour is updated in this change, not
+   filed for later: two documents that disagree leave the reader unable to tell
+   which is current. Then record one of three states in the close message:
+   - `docs: updated <files>`
+   - `docs: none describe it (searched <terms>)`
+   - `docs: not checked (<reason>)`
+
+   A change with no user-visible behaviour (a refactor, a test) records
+   `docs: none describe it (internal)`. Never leave the line out: a close message
+   without it cannot be told apart from one where nobody looked.
+
+11. **Close** (only after Proof Loop passes): `bd close <id> "Implemented: [brief description] — PR: #<number> — docs: <state>"`
     **If bd unavailable**: write to `.great_cto/tasks.md` — mark task complete with PR number and date.
     Then release the edit-scope for the next task: `rm -f .great_cto/active-brief`.
 
