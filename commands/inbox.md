@@ -33,9 +33,16 @@ prompt and may trip `Prompt is too long` on heavy sessions.
 Use the `Read` tool on the `out=` path, default first 200 lines.
 Sections (only present when relevant, separated by blank lines):
 `## ARCHETYPE_CONFIDENCE`, `## OPEN_GATES`, `## STALE_GATES`,
-`## P0_OPEN`, `## BLOCKED`, `## RECENT_ACTIVITY`, `## SLO_BURN`,
+`## GATE_WAIT`, `## P0_OPEN`, `## BLOCKED`, `## RECENT_ACTIVITY`, `## SLO_BURN`,
 `## DORA_CFR`, `## GATE_DRIFT`, `## COST_ALERT`, `## ON_CALL`,
 `## RFC_OVERDUE`.
+
+**Only `## STALE_GATES` and `## GATE_WAIT` are printed as headings today.** The
+helper emits the rest as unlabelled command output, and has since it was written
+— read those by their content, not by a heading that is not there (bug
+great_cto-3foo). `## GATE_WAIT` is always present: the oldest open gate and how
+long closed gates waited, listed rather than summarised under five, or
+`not measured` when beads could not be read — which is not the same as no gates.
 
 ## Step 2b — Strict-mode governance (signed exceptions)
 

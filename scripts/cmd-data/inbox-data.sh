@@ -34,17 +34,19 @@ fi
 # ── block 3 ────────────────────────
 bd list --label gate --status open 2>/dev/null || true
 bd list --status open --priority 0 2>/dev/null || true
-# Detect stale gates (open > 24h) — pre-compute epoch outside arithmetic to survive zsh subshell scoping
-NOW=$(date +%s)
-bd list --label gate --status open 2>/dev/null | while read line; do
-  TASK_ID=$(echo "$line" | awk '{print $1}')
-  CREATED=$(bd show "$TASK_ID" 2>/dev/null | grep "created:" | awk '{print $2}')
-  [ -z "$CREATED" ] && continue
-  CREATED_EPOCH=$(date -d "$CREATED" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$CREATED" +%s 2>/dev/null || echo "$NOW")
-  CREATED_EPOCH=${CREATED_EPOCH:-$NOW}
-  AGE=$(( (NOW - CREATED_EPOCH) / 3600 ))
-  [ "${AGE:-0}" -gt 24 ] && echo "STALE:$TASK_ID age:${AGE}h"
-done
+# Stale gates (open > 24h) and how long gates wait — from bead timestamps.
+#
+# The loop that stood here could not fire. It took the task id as the first field
+# of `bd list`, which is the status symbol `○`, and grepped `created:` where bd
+# prints `Created:`. Checked 2026-09-14 in two projects with gates open since
+# 2026-07-11: never reported stale. flow-metrics.mjs reads `bd list --json`
+# instead, and says "not measured" when it cannot, rather than printing nothing.
+_FM="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../lib" 2>/dev/null && pwd)/flow-metrics.mjs"
+if command -v node >/dev/null 2>&1 && [ -f "$_FM" ]; then
+  node "$_FM" --stale-hours 24 2>/dev/null || printf '## GATE_WAIT\nnot measured: flow-metrics.mjs exited with an error\n'
+else
+  printf '## GATE_WAIT\nnot measured: node or flow-metrics.mjs unavailable\n'
+fi
 
 # ── block 4 ────────────────────────
 git log --oneline --since="24 hours ago" 2>/dev/null | head -15
