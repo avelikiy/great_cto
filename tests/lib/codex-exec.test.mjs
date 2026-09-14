@@ -1,11 +1,16 @@
 // Whether a Codex is here to give a second opinion, in three states — because
 // "codex is not installed" must never render as "codex agreed".
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { codexStatusFrom, codexToolEvent, parseCodexStream, runCodexExec } from '../../scripts/lib/codex-exec.mjs';
-import { mkdtempSync, writeFileSync, chmodSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+// Every fake `codex` lives in a temp dir this file removes when it is done.
+const TMP_DIRS = [];
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+const tmp = (prefix) => { const d = mkdtempSync(path.join(tmpdir(), prefix)); TMP_DIRS.push(d); return d; };
 
 test('no binary is absent, and says how to get one', () => {
   const r = codexStatusFrom({ versionOut: null, authJson: null, configToml: null });
@@ -37,7 +42,7 @@ test('an unparseable auth.json is no-auth — a broken login is not a login', ()
 
 test('the runner passes a read-only sandbox and the prompt on stdin, and parses what comes back', async () => {
   // A fake `codex` that records its argv and answers with a canned stream.
-  const dir = mkdtempSync(path.join(tmpdir(), 'gc-codex-'));
+  const dir = tmp('gc-codex-');
   const bin = path.join(dir, 'codex');
   writeFileSync(bin, [
     '#!/bin/sh',
@@ -76,7 +81,7 @@ test('a timed-out run leaves no process behind, and is not an answer', async (t)
   // tool or MCP server is still running when the review runs out of time. Killing
   // only the CLI left that child alive: the same orphan that wedged a release gate.
   if (process.platform === 'win32') return t.skip('process groups are POSIX');
-  const dir = mkdtempSync(path.join(tmpdir(), 'gc-codex-timeout-'));
+  const dir = tmp('gc-codex-timeout-');
   const bin = path.join(dir, 'codex');
   const pidFile = path.join(dir, 'child.pid');
   writeFileSync(bin, [
@@ -108,7 +113,7 @@ test('a timed-out run leaves no process behind, and is not an answer', async (t)
 });
 
 test('a run that finishes in time says it did not time out', async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gc-codex-intime-'));
+  const dir = tmp('gc-codex-intime-');
   const bin = path.join(dir, 'codex');
   writeFileSync(bin, ['#!/bin/sh', 'cat > /dev/null',
     'echo \'{"type":"item.completed","item":{"type":"agent_message","text":"ok"}}\''].join('\n'));
@@ -181,7 +186,7 @@ test('only finished tool items become events: started items, messages and reason
 });
 
 test('the runner hands each JSON event to onEvent as it streams', async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gc-codex-ev-'));
+  const dir = tmp('gc-codex-ev-');
   const bin = path.join(dir, 'codex');
   writeFileSync(bin, [
     '#!/bin/sh',
