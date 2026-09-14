@@ -146,12 +146,32 @@ diff without holding content in `events.jsonl`.
 
 ## 5 — Approvals from the board (great_cto-dyfn) · [ADR-024](../adr/ADR-024-board-approvals.md)
 
-Decision written, status Proposed, no code yet. Writing it found the gap is not
-only a future feature: the board already approves pipeline gates with no token, no
-expiry and no check against the reviewed state, and the typed-name ritual for
-expensive gates is enforced only in the page. Section 1 of the ADR (gate approvals)
-can be implemented now; section 2 (live tool permissions) waits for a live
-`PermissionRequest` hook to establish its decision fields.
+Writing the decision found the gap is not only a future feature: the board already
+approved pipeline gates with no token, no expiry and no check against the reviewed
+state, and the typed-name ritual for expensive gates was enforced only in the page.
+
+**Section 1 landed (gate approvals).** Each pending gate `/api/inbox` returns
+carries a token (`packages/board/lib/gate-tokens.mjs`): single-use, 24 h, bound to
+the project tree outside `.great_cto/` as the board first showed it. The server
+refuses — before writing anything — a missing, used or expired token, an expensive
+or unclassified approval without the typed gate name, and an approval after the
+project changed (409 with the paths). A rejection needs the token but is never
+refused for drift. Every decision and refusal is an agent event. The page's dead
+`runAgent` branch is gone.
+
+Found while writing the tests, before code: an approval writes the pipeline's own
+files under `.great_cto/`, which `init` does not gitignore, so a binding over the
+whole tree would have let the first approval refuse every other open gate.
+`treeReceipt` gained an `exclude` option; its default is unchanged.
+
+Checked: tests red first; ten mutations caught; on a running board over a
+throwaway project, a routine approval landed, a wrong typed name was stopped before
+any request, a direct POST without the name got `403 refused-confirm`, the right
+name landed, and both tokens were consumed.
+
+**Section 2 (live tool permissions) is still open**: it waits for a live
+`PermissionRequest` hook to establish the decision output fields — the docs came
+through a summariser with two inconsistent readings.
 
 After 1 and 2 ship. A short ADR first, then code, on ADR-021's conditions: a
 one-time token issued per pending request, Origin and Host both checked, and a
