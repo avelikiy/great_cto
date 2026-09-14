@@ -20,7 +20,7 @@ import { getMemory, getPipeline, getCostHistory, getInbox, inboxElsewhere } from
 import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
-import { agentActivity } from './agent-activity.mjs';
+import { agentActivity, agentActivitySince } from './agent-activity.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
@@ -95,7 +95,18 @@ async function dispatch(req, res, url, cwd) {
     sseClients.add(res);
     res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(cwd))}\n\n`);
     // ADR-021: the agent activity strip starts from a snapshot, then follows pushes.
-    try { res.write(`event: agent\ndata: ${JSON.stringify(agentActivity(cwd))}\n\n`); } catch { /* the strip loads on its own */ }
+    // Phase 2: a client that hands back the cursor of the last frame it saw — the
+    // Last-Event-ID header, or ?since= from a page that had to recreate its
+    // EventSource — gets only what came after it. Each frame names its cursor.
+    let a;
+    try {
+      a = agentActivitySince(cwd, req.headers['last-event-id'] || url.searchParams.get('since') || null);
+    } catch (err) {
+      // Not "no events": the strip must say it could not measure them.
+      a = { state: 'unreadable', mode: 'snapshot', why: String(err?.message || err), events: [], attention: [], bad: 0, cursor: null, gap: false };
+    }
+    res._gctoAgentCursor = a.cursor;
+    res.write(`${a.cursor ? `id: ${a.cursor}\n` : ''}event: agent\ndata: ${JSON.stringify(a)}\n\n`);
     req.on('close', () => sseClients.delete(res));
     return true;
   }

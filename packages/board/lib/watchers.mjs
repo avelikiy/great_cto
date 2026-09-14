@@ -5,7 +5,7 @@ import { sseClients } from './state.mjs';
 import { listProjects } from './projects.mjs';
 import { bdCacheStale, getTasks, isSelfInflictedTouch } from './beads.mjs';
 import { getPipeline, getInbox } from './data-readers.mjs';
-import { agentActivity, activityStamp } from './agent-activity.mjs';
+import { agentActivitySince, activityStamp } from './agent-activity.mjs';
 
 // ── File watcher ───────────────────────────────────────────────────────────────
 function watchBeads() {
@@ -163,11 +163,16 @@ function watchAgentEvents({ intervalMs = 1000 } = {}) {
       const stamp = activityStamp(cwd);
       if (stamps.get(cwd) === stamp) continue;
       stamps.set(cwd, stamp);
-      let payload;
-      try { payload = `event: agent\ndata: ${JSON.stringify(agentActivity(cwd))}\n\n`; } catch { continue; }
+      // Phase 2: each client gets what came after ITS cursor — a delta, or a snapshot
+      // when its cursor stopped pointing into this file — and the frame names the new
+      // cursor. Nothing new for a client is nothing sent.
       for (const res of sseClients) {
         if ((res._gctoCwd || process.cwd()) !== cwd) continue;
-        try { res.write(payload); } catch { sseClients.delete(res); }
+        let a;
+        try { a = agentActivitySince(cwd, res._gctoAgentCursor ?? null); } catch { continue; }
+        res._gctoAgentCursor = a.cursor;
+        if (a.mode === 'delta' && a.events.length === 0) continue;
+        try { res.write(`${a.cursor ? `id: ${a.cursor}\n` : ''}event: agent\ndata: ${JSON.stringify(a)}\n\n`); } catch { sseClients.delete(res); }
       }
     }
   }, intervalMs);

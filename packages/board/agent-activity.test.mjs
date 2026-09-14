@@ -15,6 +15,8 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { freePort } from '../../tests/helpers/free-port.mjs';
 import { reap } from '../../tests/helpers/reap.mjs';
+import http from 'node:http';
+import { startServerOnFreePort } from '../../tests/helpers/board-start.mjs';
 import { appendEvent } from '../../scripts/lib/agent-events.mjs';
 import { agentActivity, activityStamp } from './lib/agent-activity.mjs';
 
@@ -96,6 +98,149 @@ test('/api/agent-events serves the project’s events, and "none" for a project 
   } finally {
     await reap(board);
   }
+});
+
+// ── resuming the stream (ADR-021 phase 2, great_cto-c0hb) ──────────────────
+//
+// Phase 1 pushed a snapshot of the newest twenty events on every change, with no
+// `id`. A board that dropped its connection came back to whatever twenty were
+// newest then. Now every agent frame carries a cursor, the board hands it back on
+// reconnect, and the server sends what came after — nothing missed, nothing twice.
+
+const SERVER = join(HERE, 'server.mjs');
+
+async function board(cwd) {
+  const home = tmp('gcto-resume-home-');
+  const { port, proc } = await startServerOnFreePort({
+    entry: SERVER, cwd, env: { HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
+    readyPath: '/api/heartbeat', portEnv: 'BOARD_PORT',
+  });
+  return { port, proc };
+}
+
+/** Open /api/sse and collect `agent` frames as {id, data} until `want` arrive. */
+function agentFrames(port, { query = '', headers = {}, want = 1, timeoutMs = 8000, onOpen } = {}) {
+  return new Promise((resolve, reject) => {
+    const frames = [];
+    let buf = '';
+    const req = http.get({ host: '127.0.0.1', port, path: `/api/sse${query}`, headers: { Accept: 'text/event-stream', ...headers } }, (res) => {
+      if (onOpen) onOpen();
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        buf += chunk;
+        let i;
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          const block = buf.slice(0, i); buf = buf.slice(i + 2);
+          const field = (name) => (block.split('\n').find((l) => l.startsWith(`${name}: `)) || '').slice(name.length + 2);
+          if (field('event') !== 'agent') continue;
+          frames.push({ id: field('id') || null, data: JSON.parse(field('data')) });
+          if (frames.length >= want) { req.destroy(); resolve(frames); return; }
+        }
+      });
+    });
+    req.on('error', (e) => (frames.length >= want ? null : reject(e)));
+    setTimeout(() => { req.destroy(); resolve(frames); }, timeoutMs);
+  });
+}
+
+test('an agent frame carries an id, and ?since= resumes with only what came after it', async () => {
+  const p = project({ events: [{ kind: 'agent-start', agent: 'senior-dev' }, { kind: 'tool', tool: 'Edit' }] });
+  const { port, proc } = await board(p);
+  try {
+    const [first] = await agentFrames(port);
+    assert.ok(first, 'a snapshot arrives on connect');
+    assert.match(first.id || '', /^\d+-\d+$/, 'the frame names its cursor');
+    assert.equal(first.data.mode, 'snapshot');
+    assert.equal(first.data.events.length, 2);
+
+    appendEvent(join(p, '.great_cto'), { kind: 'agent-stop', agent: 'senior-dev', ok: true }, { env: {} });
+    const [resumed] = await agentFrames(port, { query: `?since=${encodeURIComponent(first.id)}` });
+    assert.equal(resumed.data.mode, 'delta', 'a known cursor is resumed, not restarted');
+    assert.deepEqual(resumed.data.events.map((e) => e.kind), ['agent-stop'], 'only what came after');
+    assert.notEqual(resumed.id, first.id);
+
+    const [viaHeader] = await agentFrames(port, { headers: { 'Last-Event-ID': first.id } });
+    assert.equal(viaHeader.data.mode, 'delta', 'the standard header works too');
+    assert.deepEqual(viaHeader.data.events.map((e) => e.kind), ['agent-stop']);
+
+    const [junk] = await agentFrames(port, { query: '?since=not-a-cursor' });
+    assert.equal(junk.data.mode, 'snapshot', 'a cursor that is not ours starts over');
+  } finally {
+    await reap(proc);
+  }
+});
+
+test('the watcher pushes deltas with an advancing id — each event once', async () => {
+  const p = project({ events: [{ kind: 'agent-start', agent: 'qa-engineer' }] });
+  const { port, proc } = await board(p);
+  const dir = join(p, '.great_cto');
+  try {
+    let step = 0;
+    const got = agentFrames(port, {
+      want: 3, timeoutMs: 12000,
+      onOpen: () => {
+        // After the connect snapshot: one event, a pause longer than the watcher's poll, another.
+        setTimeout(() => { appendEvent(dir, { kind: 'tool', tool: 'Read' }, { env: {} }); step = 1; }, 500);
+        setTimeout(() => { appendEvent(dir, { kind: 'tool', tool: 'Grep' }, { env: {} }); step = 2; }, 3000);
+      },
+    });
+    const frames = await got;
+    assert.equal(frames.length, 3, `expected snapshot + 2 pushes, got ${frames.length} (step ${step})`);
+    const [snap, one, two] = frames;
+    assert.equal(snap.data.mode, 'snapshot');
+    assert.equal(one.data.mode, 'delta');
+    assert.deepEqual(one.data.events.map((e) => e.tool), ['Read'], 'the push holds only the new event');
+    assert.equal(two.data.mode, 'delta');
+    assert.deepEqual(two.data.events.map((e) => e.tool), ['Grep'], 'and the next push does not repeat it');
+    const offset = (f) => Number(f.id.split('-')[1]);
+    assert.ok(offset(one) > offset(snap) && offset(two) > offset(one), 'the cursor only moves forward');
+  } finally {
+    await reap(proc);
+  }
+});
+
+// The page recreates its EventSource after an error, so the browser never sends
+// Last-Event-ID on its own; the page keeps the cursor and sends it back itself.
+function pageFunction(name) {
+  const html = readFileSync(join(HERE, 'public', 'index.html'), 'utf8');
+  const start = html.indexOf(`function ${name}(`);
+  assert.ok(start >= 0, `the page defines ${name}()`);
+  return html.slice(start, html.indexOf('\n}\n', start) + 2);
+}
+
+test('the page merges a delta, replaces on a snapshot, and says when events were skipped', () => {
+  const merge = new Function(`${pageFunction('mergeAgentActivity')}\nreturn mergeAgentActivity;`)();
+  const ev = (tool) => ({ kind: 'tool', tool });
+  const prev = { state: 'live', events: [ev('A'), ev('B')], attention: [] };
+
+  const d = merge(prev, { state: 'live', mode: 'delta', events: [ev('C')], attention: [{ kind: 'pipeline', outcome: 'no-rule' }] });
+  assert.deepEqual(d.events.map((e) => e.tool), ['A', 'B', 'C'], 'a delta appends');
+  assert.equal(d.attention.length, 1, 'and brings its attention rows');
+
+  const s = merge(prev, { state: 'live', mode: 'snapshot', events: [ev('X')], attention: [] });
+  assert.deepEqual(s.events.map((e) => e.tool), ['X'], 'a snapshot replaces');
+
+  const g = merge(prev, { state: 'live', mode: 'snapshot', gap: true, events: [ev('Y')], attention: [] });
+  assert.equal(g.gap, true, 'a snapshot that skipped events keeps saying so');
+
+  const many = merge({ state: 'live', events: Array.from({ length: 60 }, (_, i) => ev(`E${i}`)), attention: [] },
+    { state: 'live', mode: 'delta', events: [ev('Z')], attention: [] });
+  assert.ok(many.events.length <= 50 && many.events.at(-1).tool === 'Z', 'bounded, newest kept');
+
+  const none = merge(null, { state: 'live', mode: 'delta', events: [ev('Q')], attention: [] });
+  assert.deepEqual(none.events.map((e) => e.tool), ['Q'], 'a delta with nothing to merge into is still shown');
+});
+
+test('the page sends its cursor back only to the project the cursor came from', () => {
+  const src = pageFunction('agentSinceParam');
+  const param = (cursor, project) => new Function('window', 'currentProject', `${src}\nreturn agentSinceParam();`)({ __agentCursor: cursor }, project);
+  assert.equal(param({ project: 'alpha', id: '12-340' }, 'alpha'), 'since=12-340');
+  assert.equal(param({ project: 'alpha', id: '12-340' }, 'beta'), '', 'another project’s file has other offsets');
+  assert.equal(param(undefined, 'alpha'), '');
+  const html = readFileSync(join(HERE, 'public', 'index.html'), 'utf8');
+  const connect = html.slice(html.indexOf('function connectSSE('), html.indexOf('\n}\n', html.indexOf('function connectSSE(')));
+  assert.match(connect, /agentSinceParam\(\)/, 'connectSSE uses it');
+  assert.match(connect, /lastEventId/, 'and keeps the id each agent frame carries');
 });
 
 // ── wiring the page and the server can only be checked as text here ─────────

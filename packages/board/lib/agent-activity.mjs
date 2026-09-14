@@ -12,7 +12,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { readEvents, EVENTS_FILE } from '../../../scripts/lib/agent-events.mjs';
+import { readEvents, readEventsSince, EVENTS_FILE } from '../../../scripts/lib/agent-events.mjs';
 
 /** Journal outcomes after which the pipeline did not move on. */
 export const STALLED_OUTCOMES = Object.freeze(['no-rule', 'no-verdict', 'unknown-verdict', 'no-map', 'breaker', 'blocked-budget']);
@@ -21,6 +21,21 @@ export function agentActivity(cwd, { limit = 20 } = {}) {
   const r = readEvents(path.join(cwd, '.great_cto'), { limit });
   const attention = r.events.filter((e) => e.kind === 'pipeline' && STALLED_OUTCOMES.includes(e.outcome)).slice(-3);
   return { state: r.state, why: r.why ?? null, events: r.events, attention, bad: r.bad ?? 0 };
+}
+
+/**
+ * The same, resumable (ADR-021 phase 2): events after `cursor` as a `delta`, or a
+ * `snapshot` when the cursor no longer points into this project's file. `cursor` is
+ * what the next call should pass; `gap` says a snapshot replaced more events than a
+ * replay sends. `attention` covers only the events returned — the page merges.
+ */
+export function agentActivitySince(cwd, cursor, { limit = 20 } = {}) {
+  const r = readEventsSince(path.join(cwd, '.great_cto'), cursor, { limit });
+  const attention = r.events.filter((e) => e.kind === 'pipeline' && STALLED_OUTCOMES.includes(e.outcome)).slice(-3);
+  return {
+    state: r.state, mode: r.mode ?? 'snapshot', why: r.why ?? null, events: r.events, attention,
+    bad: r.bad ?? 0, cursor: r.cursor, gap: r.gap === true,
+  };
 }
 
 /**

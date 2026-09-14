@@ -5622,8 +5622,33 @@ async function refreshPipeline() {
 // and each says which: no events recorded is not an idle agent, and events the
 // board could not read are "not measured", never an empty strip.
 async function loadAgentActivity() {
+  // Once the stream holds a cursor for this project it owns the strip: a GET
+  // snapshot landing after its deltas would show those events twice.
+  const c = window.__agentCursor;
+  if (c && c.project === currentProject && window.__agentActivity) return;
   const snap = await api(`/api/agent-events${pqs()}`).catch(() => null);
   renderAgentActivity(snap);
+}
+
+// ADR-021 phase 2: the stream resumes. A delta appends to what the strip holds; a
+// snapshot replaces it (and one that skipped events keeps saying so until the next).
+function mergeAgentActivity(prev, frame) {
+  if (!frame) return prev || null;
+  const cap = (a, n) => (Array.isArray(a) ? a : []).slice(-n);
+  if (frame.mode !== 'delta') return frame;
+  if (!prev || prev.state !== 'live') return { ...frame, events: cap(frame.events, 50), attention: cap(frame.attention, 3) };
+  return {
+    ...frame,
+    events: cap([...(prev.events || []), ...(frame.events || [])], 50),
+    attention: cap([...(prev.attention || []), ...(frame.attention || [])], 3),
+    gap: prev.gap === true,
+  };
+}
+
+// The cursor belongs to one project's events file; another project's file has other offsets.
+function agentSinceParam() {
+  const c = window.__agentCursor;
+  return c && c.id && c.project === currentProject ? `since=${encodeURIComponent(c.id)}` : '';
 }
 
 function renderAgentActivity(snap) {
@@ -5663,7 +5688,10 @@ function renderAgentActivity(snap) {
     const mark = e.ok === true ? '<span class="aa-ok">✓</span>' : e.ok === false ? '<span class="aa-bad">✗</span>' : '';
     return `<div class="aa-row"><span class="aa-time">${esc(time(e.ts))}</span><span>${esc(e.agent || '')}</span><span>${what(e)}</span>${mark}</div>`;
   }).join('');
-  root.innerHTML = attention + rows;
+  const gap = snap.gap === true
+    ? `<div class="aa-row aa-attn" title="More events arrived while the board was disconnected than a resume sends">⚠ <span>Some agent events were skipped while the board was disconnected — showing the newest.</span></div>`
+    : '';
+  root.innerHTML = gap + attention + rows;
 }
 
 // change_tier badge — the gate + judge plan for the current working-tree diff (ADR-003/004).
@@ -7200,7 +7228,10 @@ function api(url, opts) {
 
 function connectSSE() {
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} }
-  const es = new EventSource(`/api/sse${pqs()}`);
+  // This page recreates its EventSource after an error, so the browser never sends
+  // Last-Event-ID by itself: hand the agent cursor back explicitly.
+  const since = agentSinceParam();
+  const es = new EventSource(`/api/sse${pqs()}${since ? (pqs() ? '&' : '?') + since : ''}`);
   window._gctoSSE = es;
   const applyTasksSnapshot = (newTasks) => {
     // Detect status transitions for toast feed
@@ -7253,7 +7284,10 @@ function connectSSE() {
     } catch {}
   });
   es.addEventListener('agent', e => {
-    try { renderAgentActivity(JSON.parse(e.data)); } catch {}
+    try {
+      if (e.lastEventId) window.__agentCursor = { project: currentProject, id: e.lastEventId };
+      renderAgentActivity(mergeAgentActivity(window.__agentActivity, JSON.parse(e.data)));
+    } catch {}
   });
   es.addEventListener('inbox', e => {
     try { renderInbox(JSON.parse(e.data)); } catch {}

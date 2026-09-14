@@ -78,8 +78,27 @@ release's notes must too.
   that offset. The page's `EventSource` does this by itself.
 - Rotation: an offset beyond the current file size means the file rotated — send a
   full snapshot and reset the cursor, never a partial read from the wrong file.
-- [ ] Tests: reader by offset; replay after a gap; rotation resets; a client that
+- [x] Tests: reader by offset; replay after a gap; rotation resets; a client that
       reconnects receives the events it missed and nothing twice.
+
+**Landed.** The cursor is `<inode>-<byte offset>` past the last complete line
+(`readEventsSince` in `scripts/lib/agent-events.mjs`). Snapshot, never a read from
+the wrong place, when the cursor is not ours, the inode differs (even with a line
+boundary exactly at the old offset), the file is shorter, or the offset no longer
+sits after a newline. A gap of more than 500 events is a snapshot marked `gap`, and
+the strip says events were skipped. The rotation cap now counts bytes.
+
+Measured on the way: the page recreates its `EventSource` after an error, so the
+browser never sends `Last-Event-ID` — the page keeps the cursor per project and
+sends `?since=`; the server accepts both.
+
+Checked: tests red first; eleven mutations caught (five in the reader — two survived
+the first tests and got tests of their own — and six in route, watcher and page);
+and on a running board, an event written while the page had no connection arrived
+on reconnect through `since=`, with no duplicates.
+
+Not caught: a file truncated and regrown so a newline lands exactly on the old
+offset. Nothing in the plugin truncates the file; rotation renames it.
 
 ## 3 — Codex in the same feed (great_cto-5i4i)
 
