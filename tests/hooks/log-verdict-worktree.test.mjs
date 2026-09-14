@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -39,6 +39,10 @@ const readVerdict = (dir, agent) => {
   const p = path.join(dir, '.great_cto', 'verdicts', `${agent}.log`);
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8').trim().split('\n').pop()) : null;
 };
+const readEvidence = (dir) => {
+  const p = path.join(dir, '.great_cto', 'evidence-ledger.jsonl');
+  return fs.existsSync(p) ? fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse) : [];
+};
 
 test('a verdict written from a worktree lands in the main tree', () => {
   const { root, main, wt } = repoWithWorktree();
@@ -46,6 +50,11 @@ test('a verdict written from a worktree lands in the main tree', () => {
     execFileSync('bash', [SCRIPT, 'senior-dev', 'TASK_DONE', '0', 'task=t1'], { cwd: wt, stdio: 'ignore' });
     assert.equal(readVerdict(wt, 'senior-dev'), null, 'nothing is left in the worktree, which is about to be deleted');
     assert.equal(readVerdict(main, 'senior-dev')?.verdict, 'TASK_DONE');
+    const evidence = readEvidence(main);
+    assert.equal(evidence.length, 1);
+    assert.equal(evidence[0].event_type, 'agent.verdict.recorded');
+    assert.equal(evidence[0].agent, 'senior-dev');
+    assert.equal(evidence[0].state, 'completed');
   } finally { clean(root); }
 });
 
@@ -63,6 +72,33 @@ test('a verdict written from the main tree is unaffected', () => {
   const { root, main } = repoWithWorktree();
   try {
     execFileSync('bash', [SCRIPT, 'qa-engineer', 'PASS', '0', 'task=t2'], { cwd: main, stdio: 'ignore' });
+    assert.equal(readVerdict(main, 'qa-engineer')?.verdict, 'PASS');
+  } finally { clean(root); }
+});
+
+test('an explicit host run id becomes the canonical join key', () => {
+  const { root, main } = repoWithWorktree();
+  try {
+    execFileSync('bash', [SCRIPT, 'architect', 'APPROVED', '0', 'task=t2'], {
+      cwd: main, stdio: 'ignore',
+      env: { ...process.env, GREAT_CTO_RUN_ID: 'run-real-42', GREAT_CTO_HOST: 'claude-code' },
+    });
+    const evidence = readEvidence(main);
+    assert.equal(evidence[0].run_id, 'run-real-42');
+    assert.equal(evidence[0].host, 'claude-code');
+    assert.equal(evidence[0].details.join_key_state, 'declared');
+  } finally { clean(root); }
+});
+
+test('a broken ledger is warned about after the verdict remains recorded', () => {
+  const { root, main } = repoWithWorktree();
+  try {
+    fs.writeFileSync(path.join(main, '.great_cto', 'evidence-ledger.jsonl'), 'torn\n');
+    const result = spawnSync('bash', [SCRIPT, 'qa-engineer', 'PASS', '0', 'task=t2'], {
+      cwd: main, encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /Evidence Ledger dual-write failed/);
     assert.equal(readVerdict(main, 'qa-engineer')?.verdict, 'PASS');
   } finally { clean(root); }
 });

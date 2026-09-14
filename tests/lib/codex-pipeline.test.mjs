@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { newRun, runStage as stage, approve, safePath, validateProposal, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
+import { readEvidence } from '../../scripts/lib/evidence-ledger.mjs';
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
 
 function fixture(t, graph = '[transitions.writer]\non = ["DONE"]\nproduces = ["report"]\ngate = "gate:code"\nnext = ["reviewer"]\n[transitions.reviewer]\non = ["PASS"]\ngate = "gate:ship"\nnext = []') {
@@ -35,6 +36,17 @@ test('role -> guarded write -> human gate -> resume -> terminal gate -> done', a
   assert.equal(s.status, 'awaiting-gate'); assert.deepEqual(s.pending.gates, ['gate:ship']);
   assert.throws(() => approve(s, oldToken), /token/);
   approve(s, s.pending.token); assert.equal(s.status, 'done');
+  const events = readEvidence(s.root);
+  assert.equal(events.state, 'some');
+  assert.deepEqual(events.rows.map((event) => event.event_type), [
+    'pipeline.run.created',
+    'pipeline.stage.started', 'pipeline.stage.completed', 'agent.verdict.recorded', 'pipeline.gate.pending', 'pipeline.gate.approved',
+    'pipeline.stage.started', 'pipeline.stage.completed', 'agent.verdict.recorded', 'pipeline.gate.pending', 'pipeline.gate.approved',
+    'pipeline.run.completed',
+  ]);
+  assert.ok(events.rows.every((event) => event.run_id === s.id));
+  assert.ok(events.rows.filter((event) => event.event_type === 'agent.verdict.recorded')
+    .every((event) => event.details.join_key_state === 'declared'));
 });
 
 test('secret in any proposed file prevents ALL writes', async t => {
@@ -62,6 +74,19 @@ test('semantic verification failure prevents gate approval and downstream dispat
   await runStage(s, { execute: async () => response(), verify: async () => ({ state: 'rework', findings: ['wrong implementation'] }) });
   assert.equal(s.status, 'blocked'); assert.equal(s.pending, null); assert.equal(s.results.writer, undefined);
   assert.match(s.reason, /wrong implementation/);
+  const rows = readEvidence(s.root).rows;
+  assert.equal(rows.at(-1).event_type, 'pipeline.stage.blocked');
+  assert.equal(rows.at(-1).state, 'blocked');
+});
+
+test('ledger degradation is explicit but does not rewrite a successful Codex transition as blocked', async t => {
+  const s = fixture(t);
+  writeFileSync(join(s.root, '.great_cto', 'evidence-ledger.jsonl'), 'torn\n');
+  await runStage(s, { execute: async () => response() });
+  assert.equal(s.status, 'awaiting-gate');
+  assert.equal(s.results.writer.verdict, 'DONE');
+  assert.equal(s.evidence.state, 'degraded');
+  assert.equal(s.evidence.last_outcome, 'unreadable');
 });
 
 test('verifier runs separately with actual file paths and refuses empty evidence', async t => {

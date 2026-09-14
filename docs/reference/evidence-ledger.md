@@ -102,6 +102,36 @@ may use them to claim completeness or to satisfy a gate.
 5. Retire a legacy reader only after a measured parity window. Historical files
    remain immutable evidence; they are not rewritten into synthetic v1 facts.
 
+## Dual-write adapters
+
+`scripts/lib/evidence-adapters.mjs` maps the current write paths without making
+the new ledger an availability dependency:
+
+| Existing fact | Canonical event |
+|---|---|
+| `pipeline-runs.jsonl` dispatcher row | `pipeline.dispatcher.completed` |
+| `verdicts/<agent>.log` row | `agent.verdict.recorded` |
+| Codex run creation/completion | `pipeline.run.created` / `pipeline.run.completed` |
+| Codex stage start/success/failure | `pipeline.stage.started` / `pipeline.stage.completed` / `pipeline.stage.blocked` |
+| Codex gate wait/approval | `pipeline.gate.pending` / `pipeline.gate.approved` |
+
+The established writer commits first. If the ledger is busy, corrupt or
+unwritable, the existing fact remains valid and the adapter returns or reports
+`degraded`. This is deliberate during the parity window: a migration observer
+must not change the control-plane outcome it is observing. Cutover to a
+ledger-backed gate is a later, explicit fail-closed decision.
+
+Codex controller verdicts carry the controller run UUID directly, so stage and
+verdict events join without timestamps or filename heuristics. Other hosts pass
+the same real key through `GREAT_CTO_RUN_ID` (plus optional
+`GREAT_CTO_STAGE_ID`, `GREAT_CTO_ATTEMPT`, and `GREAT_CTO_HOST`) or verdict
+`run_id` metadata. If no host key is available, the canonical verdict record is
+hashed into a stable content-addressed key and records `join_key_state=derived`;
+the dispatcher reuses that exact key when it consumes the verdict. A dispatcher
+path with no verdict remains `join_key_state=unavailable`; malformed declared
+keys remain `invalid` rather than being presented as joined. An event is never
+silently attached to the nearest run.
+
 ## Deliberate non-goals of v1
 
 - No remote event bus or distributed consensus. Great CTO remains a local-first

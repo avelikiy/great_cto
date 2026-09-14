@@ -9,6 +9,8 @@ import { dirname, resolve, join } from 'node:path';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { gatesForApprovalLevel, APPROVAL_LEVELS } from '../../scripts/lib/approval-level.mjs';
+import { recordVerdictEvidence } from '../../scripts/lib/evidence-adapters.mjs';
+import { readEvidence } from '../../scripts/lib/evidence-ledger.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HOOK = resolve(__dirname, '../../scripts/hooks/pipeline-dispatcher.mjs');
@@ -60,7 +62,8 @@ test('normalizeAgent strips the great_cto- prefix', () => {
 test('parseVerdictLine handles pipe- and space-separated formats', () => {
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z | architect | APPROVED | feature=x | cost=$0.50'),
-    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: false, hasCost: true, costUsd: 0.5, meta: { feature: 'x' } });
+    { ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', canonical: false, hasCost: true, costUsd: 0.5,
+      record: { v: 1, ts: '2026-07-02T10:00:00Z', agent: 'architect', verdict: 'APPROVED', cost_usd: 0.5, meta: { feature: 'x' } }, meta: { feature: 'x' } });
   // The space dialect comes in TWO shapes, and this test used to assert only one
   // of them — `<ts> <verdict> <details>`, on the premise that it "never carried
   // an agent (the filename did)".
@@ -78,11 +81,13 @@ test('parseVerdictLine handles pipe- and space-separated formats', () => {
   // the original reading stands rather than a second guess.
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z qa-engineer PASS coverage=80%'),
-    { ts: '2026-07-02T10:00:00Z', agent: 'qa-engineer', verdict: 'PASS', canonical: false, hasCost: false, costUsd: null, meta: { coverage: '80%' } });
+    { ts: '2026-07-02T10:00:00Z', agent: 'qa-engineer', verdict: 'PASS', canonical: false, hasCost: false, costUsd: null,
+      record: { v: 1, ts: '2026-07-02T10:00:00Z', agent: 'qa-engineer', verdict: 'PASS', meta: { coverage: '80%' } }, meta: { coverage: '80%' } });
   // The agentless shape is unchanged: `DONE` is a known verdict in position 1.
   assert.deepEqual(
     parseVerdictLine('2026-07-02T10:00:00Z DONE postgres replica: failover wired'),
-    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'DONE', canonical: false, hasCost: false, costUsd: null, meta: {} });
+    { ts: '2026-07-02T10:00:00Z', agent: null, verdict: 'DONE', canonical: false, hasCost: false, costUsd: null,
+      record: { v: 1, ts: '2026-07-02T10:00:00Z', agent: '', verdict: 'DONE' }, meta: {} });
   assert.equal(parseVerdictLine(''), null);
 });
 
@@ -255,15 +260,23 @@ function runHook(cwd, subagentType, env = {}) {
 
 test('e2e: fresh success verdict emits additionalContext with PIPELINE-NEXT', () => {
   const now = new Date().toISOString();
-  const dir = sandbox({ verdictLines: { architect: `${now} | architect | APPROVED | feature=x | cost=$0.10` },
+  const line = JSON.stringify({
+    v: 1, ts: now, agent: 'architect', verdict: 'APPROVED', cost_usd: 0.10, meta: { feature: 'x' },
+  });
+  const dir = sandbox({ verdictLines: { architect: line },
                         scored: 'architect', scoredRunTs: now });
   try {
+    assert.equal(recordVerdictEvidence(dir, line).state, 'appended');
     const r = runHook(dir, 'great_cto-architect');
     assert.equal(r.exit, 0);
     const out = JSON.parse(r.stdout);
     assert.equal(out.hookSpecificOutput.hookEventName, 'PostToolUse');
     assert.match(out.hookSpecificOutput.additionalContext, /PIPELINE-NEXT/);
     assert.match(out.hookSpecificOutput.additionalContext, /pm/);
+    const joined = readEvidence(dir).rows.filter((event) =>
+      ['agent.verdict.recorded', 'pipeline.dispatcher.completed'].includes(event.event_type));
+    assert.equal(joined.length, 2);
+    assert.equal(joined[0].run_id, joined[1].run_id, 'the real hook consumes the verdict under the same run id');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

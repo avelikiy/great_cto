@@ -21,6 +21,7 @@
 
 import { openSync, writeSync, fsyncSync, closeSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { recordDispatcherEvidence, verdictRunIdentity } from './evidence-adapters.mjs';
 
 export const JOURNAL_FILE = 'pipeline-runs.jsonl';
 
@@ -29,6 +30,7 @@ export const JOURNAL_FILE = 'pipeline-runs.jsonl';
  * ways a run ends without one, each of which used to look like the others.
  */
 export const OUTCOMES = Object.freeze([
+  'launched',        // async worker started; completion will be observed later
   'dispatch',        // one or more next stages named
   'hold',            // a join is incomplete, or a gate is waiting
   'stop',            // the chain ended, deliberately
@@ -50,7 +52,10 @@ export const OUTCOMES = Object.freeze([
  */
 export function recordRun(cwd, entry) {
   const path = join(cwd, '.great_cto', JOURNAL_FILE);
-  const line = JSON.stringify({
+  const runIdentity = entry.verdictRecord
+    ? verdictRunIdentity(entry.verdictRecord, { runId: entry.runId })
+    : null;
+  const row = {
     v: 1,
     ts: entry.at ? new Date(entry.at).toISOString() : new Date().toISOString(),
     // `ts` is when the run ENDED; `started_at` is when it began. The pair is
@@ -66,6 +71,10 @@ export function recordRun(cwd, entry) {
     // Whether the attempt left anything behind. Three states: true / false /
     // null-for-not-looked. The breaker resets on `true` only — see breaker.mjs.
     progressed: entry.progressed === true ? true : entry.progressed === false ? false : null,
+    // Additive v1 fields: old readers ignore them; the canonical adapter uses
+    // them to join this decision to the exact verdict it consumed.
+    run_id: runIdentity?.runId ?? null,
+    join_key_state: runIdentity?.state ?? 'unavailable',
     agent: entry.agent ?? null,
     verdict: entry.verdict ?? null,
     outcome: entry.outcome,
@@ -74,7 +83,8 @@ export function recordRun(cwd, entry) {
     // Which map answered decides whether a finding is about this project or
     // about the chain everybody shares.
     map: entry.mapSource ?? null,
-  }) + '\n';
+  };
+  const line = JSON.stringify(row) + '\n';
 
   let fd;
   try {
@@ -84,7 +94,12 @@ export function recordRun(cwd, entry) {
     // "The bytes reached the OS" is the same failure as "the bytes were never
     // written", in slower motion.
     fsyncSync(fd);
-    return { ok: true };
+    let evidence;
+    try { evidence = recordDispatcherEvidence(cwd, row); }
+    catch (error) {
+      evidence = { state: 'unreadable', why: String(error?.message || error), event: null };
+    }
+    return { ok: true, evidence };
   } catch (e) {
     return { ok: false, why: String(e?.message || e) };
   } finally {
