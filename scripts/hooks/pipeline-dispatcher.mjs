@@ -355,7 +355,13 @@ export function readLastStop(dir, { withinMs = 10 * 60 * 1000, now = Date.now(),
 
 /** Normalize "great_cto-architect" → "architect". */
 export function normalizeAgent(subagentType) {
-  return String(subagentType || '').replace(/^great_cto-/, '').trim();
+  // Three spellings reach this hook. `great_cto-architect` is the installed copy in
+  // ~/.claude/agents; `great-cto:architect` is the plugin namespace, which is how the
+  // plugin itself spawns agents. Only the first was stripped, so every stage run
+  // under the plugin name looked up a rule for `great-cto:architect`, found none,
+  // and the pipeline did not chain — 19 such runs in three projects' journals since
+  // 2026-09-06. Another plugin's namespace is left alone: not ours to route.
+  return String(subagentType || '').trim().replace(/^great[-_]cto[:-]/, '');
 }
 
 /**

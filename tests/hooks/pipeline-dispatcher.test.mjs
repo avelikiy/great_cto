@@ -52,6 +52,20 @@ test('normalizeAgent strips the great_cto- prefix', () => {
   assert.equal(normalizeAgent('pm'), 'pm');
 });
 
+test('normalizeAgent strips the plugin namespace, which is how the plugin spawns its agents', () => {
+  // A live run on 2026-09-14: a real qa-engineer spawned as `great-cto:qa-engineer`
+  // recorded FAIL need=implementer, and the dispatcher said nothing — it looked up
+  // `great-cto:qa-engineer` in the map and found no rule. The journals of three
+  // projects held 19 `no-rule` outcomes for that name form since 2026-09-06: stage
+  // completions after which the pipeline silently did not chain.
+  assert.equal(normalizeAgent('great-cto:qa-engineer'), 'qa-engineer');
+  assert.equal(normalizeAgent('great-cto:senior-dev'), 'senior-dev');
+  assert.equal(normalizeAgent('great_cto:architect'), 'architect');
+  assert.equal(normalizeAgent('  great-cto:pm '), 'pm');
+  // Another plugin's agent keeps its namespace: it is not ours to route.
+  assert.equal(normalizeAgent('feature-dev:code-reviewer'), 'feature-dev:code-reviewer');
+});
+
 // `costUsd` joined the shape when per-agent budgets arrived. `hasCost` could
 // only answer whether anything was recorded; a budget is enforced against the
 // AMOUNT, and it must come from the verdict rather than from the board's
