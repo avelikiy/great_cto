@@ -5,16 +5,23 @@
 // history, and always attributable. Plus the one that matters most — an
 // unassessed run must never be averaged in as a failure.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   makeScore, writeScore, readScores, latestScore, summarizeScores, SCORE_VALUES,
 } from '../../scripts/lib/scores.mjs';
 
-const proj = () => mkdtempSync(join(tmpdir(), 'gcto-scores-'));
+const proj = () => tmpDir(mkdtempSync(join(tmpdir(), 'gcto-scores-')));
 const base = { agent: 'senior-dev', name: 'independent-verify', scorer: 'mechanical' };
 
 test('unverifiable has a NULL value, not zero', () => {

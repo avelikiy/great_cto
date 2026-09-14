@@ -2,10 +2,17 @@
 //
 // Run with:  node --test tests/hooks/summary-enforce.test.mjs
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, statSync, utimesSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, statSync, utimesSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +23,7 @@ const GENERATE = resolve(__dirname, '../../scripts/generate-summary.mjs');
 const HOOK = resolve(__dirname, '../../scripts/hooks/summary-enforce.mjs');
 
 function tempArtifactDir() {
-  const root = mkdtempSync(join(tmpdir(), 'gcto-summary-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-summary-')));
   for (const sub of ['docs/architecture', 'docs/plans', 'docs/qa', 'docs/security']) {
     spawnSync('mkdir', ['-p', join(root, sub)]);
   }

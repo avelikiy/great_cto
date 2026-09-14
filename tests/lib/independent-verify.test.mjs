@@ -10,9 +10,16 @@
 // here is the machinery around the judge: ordering, short-circuiting, the
 // majority vote, and the three states.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -41,7 +48,7 @@ function writeMap(root, body) {
 }
 
 function project({ brief = null, artefactPresent = true, map = null } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'gcto-iv-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-iv-')));
   mkdirSync(join(root, 'docs', 'impl-briefs'), { recursive: true });
   // Default: the stage exists in the map and declares nothing. That is the
   // "no contract to hold it to" case most of these tests mean.
@@ -223,7 +230,7 @@ test('the obligation comes from the pipeline map, not from this module', () => {
   // the example here and stopped being one when it gained `produces = ["receipt"]`;
   // a stage picked because it happens to declare nothing today will keep breaking
   // this test, so the case is made against a map written for it.
-  const bare = mkdtempSync(join(tmpdir(), 'gcto-iv-bare-'));
+  const bare = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-iv-bare-')));
   mkdirSync(join(bare, 'shared'), { recursive: true });
   writeFileSync(join(bare, 'shared/pipeline.toml'),
     '[transitions.some-stage]\non = ["DONE"]\nnext = ["other"]\n');
@@ -243,7 +250,7 @@ test('the obligation comes from the pipeline map, not from this module', () => {
 // hash.
 
 test('a receipt satisfies a contract that asks for one', () => {
-  const root = mkdtempSync(join(tmpdir(), 'gcto-iv-receipt-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-iv-receipt-')));
   mkdirSync(join(root, 'shared'), { recursive: true });
   writeFileSync(join(root, 'shared/pipeline.toml'),
     '[transitions.senior-dev]\non = ["DONE"]\nproduces = ["receipt"]\nnext = ["code-reviewer"]\n');
@@ -257,7 +264,7 @@ test('a receipt satisfies a contract that asks for one', () => {
 });
 
 test('an empty receipt does not satisfy it — a fingerprint of nothing is not evidence', () => {
-  const root = mkdtempSync(join(tmpdir(), 'gcto-iv-receipt2-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-iv-receipt2-')));
   mkdirSync(join(root, 'shared'), { recursive: true });
   writeFileSync(join(root, 'shared/pipeline.toml'),
     '[transitions.senior-dev]\non = ["DONE"]\nproduces = ["receipt"]\nnext = ["x"]\n');
@@ -270,7 +277,7 @@ test('an empty receipt does not satisfy it — a fingerprint of nothing is not e
 });
 
 test('a path key is still a path key — receipt is an addition, not a replacement', () => {
-  const root = mkdtempSync(join(tmpdir(), 'gcto-iv-mixed-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-iv-mixed-')));
   mkdirSync(join(root, 'shared'), { recursive: true });
   writeFileSync(join(root, 'shared/pipeline.toml'),
     '[transitions.pm]\non = ["DONE"]\nproduces = ["plan", "brief"]\nnext = ["x"]\n');

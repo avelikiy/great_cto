@@ -18,7 +18,14 @@
 // states stay three; nothing is ever dropped from the listing; and "Other" is
 // not the largest group on a real tree.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) fs.rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -32,7 +39,7 @@ const GROUP_KEYS = new Set(DOC_GROUPS.map((g) => g.key));
 
 /** A throwaway project tree: `{ 'docs/x.md': '# X' }` → a root to hand listDocs. */
 function tree(files) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-docs-'));
+  const root = tmpDir(fs.mkdtempSync(path.join(os.tmpdir(), 'gc-docs-')));
   for (const [rel, body] of Object.entries(files)) {
     const abs = path.join(root, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });
@@ -229,7 +236,7 @@ test('on this repository, the freshness mark is on a minority of rows', () => {
 // and lets the reader sort by it. Zero is then visible without being shouted.
 
 test('a machine summary and a translation are not documents', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'boarddocs-'));
+  const dir = tmpDir(fs.mkdtempSync(path.join(os.tmpdir(), 'boarddocs-')));
   fs.mkdirSync(path.join(dir, 'docs', 'adr'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'docs', 'ru'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'docs', 'adr', 'ADR-001-a.md'), '# A');
@@ -245,7 +252,7 @@ test('a machine summary and a translation are not documents', () => {
 });
 
 test('a row carries how many documents cite it — and null when unmeasured', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'boarddocs-in-'));
+  const dir = tmpDir(fs.mkdtempSync(path.join(os.tmpdir(), 'boarddocs-in-')));
   fs.mkdirSync(path.join(dir, 'docs', 'adr'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'docs', 'adr', 'ADR-001-a.md'), '# A\n');
   fs.writeFileSync(path.join(dir, 'docs', 'adr', 'ADR-002-b.md'),

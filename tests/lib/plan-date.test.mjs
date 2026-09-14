@@ -9,9 +9,16 @@
 // So the tests below do not check "is the date right" against a fixed string.
 // They change the timestamp and assert the answer does not.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, utimesSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -19,7 +26,7 @@ import { planDate, datePlans, frontMatterDate, fileNameDate, gitAddedIndex } fro
 
 const LONG_AGO = new Date('2001-01-01T00:00:00Z');
 const dir = () => {
-  const root = mkdtempSync(join(tmpdir(), 'gcto-plandate-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-plandate-')));
   mkdirSync(join(root, 'docs', 'plans'), { recursive: true });
   return root;
 };

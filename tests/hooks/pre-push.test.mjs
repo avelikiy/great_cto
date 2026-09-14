@@ -6,10 +6,17 @@
 //
 // Run: node --test tests/hooks/pre-push.test.mjs
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, copyFileSync, chmodSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, copyFileSync, chmodSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +33,7 @@ function git(cwd, args, env = {}) {
  * Returns { work, bare, home }.
  */
 function setupRepo() {
-  const root = mkdtempSync(join(tmpdir(), 'prepush-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'prepush-')));
   const home = join(root, 'home');
   const bare = join(root, 'remote.git');
   const work = join(root, 'work');

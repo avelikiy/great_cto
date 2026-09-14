@@ -7,9 +7,16 @@
 // are the ones that make it a gate rather than another suggestion — including
 // the two that keep it from becoming a trap.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { decideNext } from '../../scripts/hooks/pipeline-dispatcher.mjs';
@@ -19,7 +26,7 @@ const TS = '2026-08-26T20:00:00Z';
 const TRANSITIONS = { architect: { on: ['APPROVED'], next: ['pm'] } };
 
 function project() {
-  const root = mkdtempSync(join(tmpdir(), 'gcto-vgate-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-vgate-')));
   mkdirSync(join(root, '.great_cto', 'verdicts'), { recursive: true });
   mkdirSync(join(root, 'docs', 'architecture'), { recursive: true });
   writeFileSync(join(root, 'docs/architecture/ARCH-x.md'), '# ARCH\n' + 'x'.repeat(400));

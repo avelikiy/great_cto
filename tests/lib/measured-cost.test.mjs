@@ -8,9 +8,16 @@
 // themselves. Every link was present. Three were broken and one was mislabelled,
 // and the result looked exactly like a project that had never been measured.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readVerdicts } from '../../packages/board/lib/verdicts.mjs';
@@ -19,7 +26,7 @@ import { priceUsage, resolvePrice, DEFAULT_PRICES } from '../../scripts/lib/cost
 const TS = '2026-08-26T10:00:00Z';
 
 function project({ verdictCost = 0, history = null } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'gcto-cost-'));
+  const root = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-cost-')));
   mkdirSync(join(root, '.great_cto', 'verdicts'), { recursive: true });
   writeFileSync(join(root, '.great_cto/verdicts/senior-dev.log'),
     JSON.stringify({ v: 1, ts: TS, agent: 'senior-dev', verdict: 'APPROVED',

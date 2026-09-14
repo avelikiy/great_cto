@@ -8,9 +8,16 @@
 // not losing one: the file it writes holds other keys, and a careless `cat >`
 // destroyed it once already.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { status, writeKey, looksLikeKey, fingerprint, parseEnv } from '../../scripts/lib/router-key.mjs';
@@ -19,7 +26,7 @@ import { status, writeKey, looksLikeKey, fingerprint, parseEnv } from '../../scr
 // key to any scanner, and this value's only job is to have the right shape.
 const KEY = ['sk', 'or', 'v1', 'abcdefghijklmnopqrstuvwxyz01'].join('-');
 const home = (contents = null) => {
-  const h = mkdtempSync(join(tmpdir(), 'gcto-key-'));
+  const h = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-key-')));
   mkdirSync(join(h, '.great_cto'), { recursive: true });
   if (contents != null) writeFileSync(join(h, '.great_cto', 'secrets.env'), contents);
   return h;
@@ -53,7 +60,7 @@ test('the file is backed up before it is touched', () => {
 });
 
 test('a first-time write needs no backup and creates the file', () => {
-  const h = mkdtempSync(join(tmpdir(), 'gcto-key-empty-'));
+  const h = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-key-empty-')));
   const r = writeKey(KEY, { home: h });
   assert.equal(r.ok, true);
   assert.equal(r.backup, null);
@@ -89,7 +96,7 @@ test('status finds a key without returning it', () => {
 });
 
 test('the environment wins over a file, and says so', () => {
-  const s = status({ cwd: mkdtempSync(join(tmpdir(), 'gcto-key-none-')), env: { OPENROUTER_API_KEY: KEY } });
+  const s = status({ cwd: tmpDir(mkdtempSync(join(tmpdir(), 'gcto-key-none-'))), env: { OPENROUTER_API_KEY: KEY } });
   assert.equal(s.state, 'present');
   assert.equal(s.from, 'environment');
   assert.equal(s.fingerprint, 'sk-or-v1…yz01');
@@ -97,7 +104,7 @@ test('the environment wins over a file, and says so', () => {
 });
 
 test('no key is `absent`, and an unreadable file is neither present nor absent', () => {
-  const empty = mkdtempSync(join(tmpdir(), 'gcto-key-none-'));
+  const empty = tmpDir(mkdtempSync(join(tmpdir(), 'gcto-key-none-')));
   const s = status({ cwd: empty, env: {} });
   assert.ok(['absent', 'present'].includes(s.state));
   // The third state exists because telling an operator "no key" when the answer

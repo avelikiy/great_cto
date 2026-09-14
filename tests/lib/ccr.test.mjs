@@ -2,10 +2,17 @@
 //
 // Run: node --test tests/lib/ccr.test.mjs
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+
+// Temp dirs this file creates, removed when the file finishes. Before this, every
+// run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
+const TMP_DIRS = [];
+const tmpDir = (d) => (TMP_DIRS.push(d), d);
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +21,7 @@ import { hashId, store, retrieve, list, prune, registerDrops, formatRecallFooter
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(__dirname, '..', '..', 'scripts', 'lib', 'ccr.mjs');
-function tmp() { return mkdtempSync(join(tmpdir(), 'ccr-')); }
+function tmp() { return tmpDir(mkdtempSync(join(tmpdir(), 'ccr-'))); }
 
 // ── hashId ────────────────────────────────────────────────────────────────────
 
