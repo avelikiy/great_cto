@@ -66,6 +66,40 @@ export function parseCodexStream(raw) {
 }
 
 /**
+ * One finished Codex tool call → an agent event (ADR-021, great_cto-5i4i), or null.
+ *
+ * Facts only, the same ones a Claude Code hook records: which tool, whether it
+ * worked, which files a patch touched. Never the command text, its output, MCP
+ * arguments or results, or a search query — any of those can hold a secret.
+ * Only `item.completed`: one event per call, when it has an outcome.
+ *
+ * Shapes follow codex-rs/exec/src/exec_events.rs. Status is compared
+ * case-insensitively as a precaution.
+ */
+export function codexToolEvent(ev) {
+  if (!ev || typeof ev !== 'object' || ev.type !== 'item.completed' || !ev.item) return null;
+  const item = ev.item;
+  const status = String(item.status ?? '').toLowerCase();
+  switch (item.type) {
+    case 'command_execution':
+      if (status === 'declined') return { kind: 'denied', tool: 'shell' };
+      return { kind: 'tool', tool: 'shell', ok: status === 'completed' && (item.exit_code == null || item.exit_code === 0) };
+    case 'file_change': {
+      const paths = (Array.isArray(item.changes) ? item.changes : []).map((c) => c?.path).filter((p) => typeof p === 'string' && p);
+      return { kind: 'tool', tool: 'apply_patch', ...(paths.length ? { paths } : {}), ok: status === 'completed' };
+    }
+    case 'mcp_tool_call': {
+      const name = [item.server, item.tool].filter((s) => typeof s === 'string' && s).join('.');
+      return { kind: 'tool', tool: `mcp:${name || 'unknown'}`, ok: status === 'completed' };
+    }
+    case 'web_search':
+      return { kind: 'tool', tool: 'web_search' };
+    default:
+      return null;
+  }
+}
+
+/**
  * Run one prompt through the Codex CLI and parse the result.
  *
  * The prompt goes on stdin: passing it as an argument alongside `-c` overrides
@@ -78,7 +112,7 @@ export function parseCodexStream(raw) {
  */
 export function runCodexExec({
   prompt, cwd, timeoutMs = 300000, bin = 'codex', model = null,
-  sandbox = 'read-only', ephemeral = true, extraArgs = [],
+  sandbox = 'read-only', ephemeral = true, extraArgs = [], onEvent = null,
 }) {
   return new Promise((resolve) => {
     const args = ['exec', '--json', '--skip-git-repo-check'];
@@ -104,7 +138,25 @@ export function runCodexExec({
     };
     const timer = setTimeout(() => { timedOut = true; killGroup(); }, timeoutMs);
 
-    proc.stdout.on('data', (b) => { out += String(b); });
+    // Each JSON event is handed to onEvent as it arrives, so a watcher sees a tool
+    // call while the run is still going. A listener that throws is its own bug:
+    // it must not fail the run, and the final parse below is unchanged.
+    let pending = '';
+    proc.stdout.on('data', (b) => {
+      const chunk = String(b);
+      out += chunk;
+      if (typeof onEvent !== 'function') return;
+      pending += chunk;
+      let nl;
+      while ((nl = pending.indexOf('\n')) >= 0) {
+        const line = pending.slice(0, nl).trim();
+        pending = pending.slice(nl + 1);
+        if (!line.startsWith('{')) continue;
+        let ev;
+        try { ev = JSON.parse(line); } catch { continue; }
+        try { onEvent(ev); } catch { /* a failing listener must not fail the run */ }
+      }
+    });
     proc.stderr.on('data', (b) => { err += String(b); });
     proc.on('error', (e) => {
       clearTimeout(timer);

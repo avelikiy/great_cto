@@ -108,8 +108,32 @@ helpers), `scripts/lib/codex-exec.mjs`, tests.
 - Role start and finish become `agent-start` / `agent-stop` with
   `agent: codex-<role>`; tool calls the host already parses become `tool` events.
   The allowed field set does not change; only the `agent` value does.
-- [ ] Tests: a recorded Codex JSONL stream produces the expected events and none
+- [x] Tests: a recorded Codex JSONL stream produces the expected events and none
       of its content.
+
+**Landed.** `codexToolEvent` (in `scripts/lib/codex-exec.mjs`) maps a finished
+`command_execution`, `file_change`, `mcp_tool_call` or `web_search` item to a
+`tool` event — a declined command to `denied` — and never carries the command,
+its output, MCP arguments or a query. `runCodexExec` hands each JSON line to
+`onEvent` as it streams. The controller records `agent-start` / `agent-stop` for
+each dispatched stage as `codex-<role>`, and for the verifier as
+`codex-verifier`, with `session` = the run id; a stage that throws still records
+its end, as not ok.
+
+The item shapes come from Codex's own event definitions
+(`codex-rs/exec/src/exec_events.rs`), not from a live run: the streams recorded in
+this repository carry no tool items, and a live call spends the user's
+subscription. Worth one observed run before calling the mapping proven.
+
+Checked: tests red first; nine mutations caught (started items counted, non-zero
+exit as ok, command text leaking, listener errors uncaught, no `onEvent`, stop only
+on success, start before dispatch, silent verifier, no session).
+
+**Found on the way, fixed first (great_cto-bkvj):** receipts counted the events log.
+`init` does not gitignore `.great_cto/`, so one appended event changed a tree
+receipt — a gate drifted by itself, and these controller writes would have tripped
+its own "working tree changed during verification". `treeReceipt` now excludes the
+log.
 
 ## 4 — ADR-022: per-turn diffs (great_cto-mx9y)
 

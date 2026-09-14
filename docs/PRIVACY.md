@@ -189,6 +189,17 @@ The file is capped at 5 MB and keeps one previous generation
 (`events.1.jsonl`). Delete either whenever you like. Turn recording off with
 `GREAT_CTO_DISABLE_EVENTS=1`.
 
+The controlled Codex host (`great-cto codex-host`) writes the same file, with the
+same fields, because Codex has no hook surface of its own. Its agents appear as
+`codex-<role>` and `codex-verifier`, and `session` is the run id. A tool call is
+recorded as `shell`, `apply_patch` (with the paths it touched), `mcp:<server>.<tool>`
+or `web_search`, a command the sandbox declined as `denied` — **never** with the
+command text, its output, MCP arguments or results, or a search query.
+`GREAT_CTO_DISABLE_EVENTS=1` silences the host too.
+
+The events log is not part of a review receipt: appending to it does not make a
+reviewed tree look changed.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.

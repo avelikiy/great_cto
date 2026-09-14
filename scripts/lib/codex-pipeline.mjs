@@ -5,7 +5,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { parsePipelineToml } from './pipeline-toml.mjs';
 import { scan } from './secret-patterns.mjs';
-import { runCodexExec } from './codex-exec.mjs';
+import { runCodexExec, codexToolEvent } from './codex-exec.mjs';
+import { appendEvent } from './agent-events.mjs';
 import { treeReceipt } from './receipt.mjs';
 import { runChecks, validateCheckPolicy } from './codex-checks.mjs';
 import { validateReleasePolicy, prepareRelease, executeRelease, recoverRelease } from './codex-release.mjs';
@@ -31,6 +32,22 @@ function cleanResponse(response) {
   if (response.code !== 0 || response.state !== 'ok' || errors.length) throw Error(`Codex stage did not complete cleanly: ${JSON.stringify(errors)}`);
   return JSON.parse(response.finalText ?? response.text);
 }
+
+/**
+ * Agent events for a Codex run (ADR-021, great_cto-5i4i). The board's strip was fed
+ * by Claude Code hooks only, and Codex has no hook surface — so the controller
+ * records what it already sees: a stage starting and ending, and each tool call the
+ * exec stream reports. Written to the project's own .great_cto, tagged with the run
+ * id. appendEvent never throws and honours GREAT_CTO_DISABLE_EVENTS; the events log
+ * is excluded from receipts, so these writes cannot trip the tree checks below.
+ */
+function emit(state, event) {
+  return appendEvent(join(state.root, '.great_cto'), { ...event, session: state.id });
+}
+const toolListener = (state, agent) => (ev) => {
+  const e = codexToolEvent(ev);
+  if (e) emit(state, { ...e, agent });
+};
 
 function releaseSummary(state) {
   const release = state.release;
@@ -58,20 +75,30 @@ function releaseSummary(state) {
 }
 
 export async function verifyStage(state, role, proposal, execute) {
-  const result = cleanResponse(await execute({
-    cwd: state.root, sandbox: 'read-only', ephemeral: true, extraArgs: workerArgs,
-    bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
-    prompt: `You are an independent verifier for the ${role} stage. Read the ACTUAL files and assess whether they satisfy the task for this stage.\n` +
-      `User task: ${state.prompt}\nStage contract: ${JSON.stringify(state.graph[role])}\n` +
-      `Claimed metadata: ${JSON.stringify(proposal.meta || {})}\nChanged paths: ${JSON.stringify(proposal.files.map(f => f.path))}\n` +
-      `Controller release evidence: ${JSON.stringify(releaseSummary(state))}\n` +
-      `You may inspect files and run tests that work in the read-only sandbox. Never modify files or call external services. ` +
-      `Do not treat file existence, a previous agent's statement or tests that were not executed as evidence of correctness. ` +
-      `Return ONLY JSON {"state":"verified|rework|unverifiable","findings":["..."],"checks":["what you actually inspected or ran"]}. ` +
-      `Use unverifiable if unable to inspect the evidence. Use rework when you find defects. No gate approval or file proposals.`,
-  }));
-  if (!['verified', 'rework', 'unverifiable'].includes(result.state) || !Array.isArray(result.findings) || !Array.isArray(result.checks) || !result.checks.length) throw Error('invalid or empty verifier evidence');
-  return result;
+  const agent = 'codex-verifier';
+  const t0 = Date.now();
+  let ok = false;
+  emit(state, { kind: 'agent-start', agent });
+  try {
+    const result = cleanResponse(await execute({
+      cwd: state.root, sandbox: 'read-only', ephemeral: true, extraArgs: workerArgs,
+      bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
+      onEvent: toolListener(state, agent),
+      prompt: `You are an independent verifier for the ${role} stage. Read the ACTUAL files and assess whether they satisfy the task for this stage.\n` +
+        `User task: ${state.prompt}\nStage contract: ${JSON.stringify(state.graph[role])}\n` +
+        `Claimed metadata: ${JSON.stringify(proposal.meta || {})}\nChanged paths: ${JSON.stringify(proposal.files.map(f => f.path))}\n` +
+        `Controller release evidence: ${JSON.stringify(releaseSummary(state))}\n` +
+        `You may inspect files and run tests that work in the read-only sandbox. Never modify files or call external services. ` +
+        `Do not treat file existence, a previous agent's statement or tests that were not executed as evidence of correctness. ` +
+        `Return ONLY JSON {"state":"verified|rework|unverifiable","findings":["..."],"checks":["what you actually inspected or ran"]}. ` +
+        `Use unverifiable if unable to inspect the evidence. Use rework when you find defects. No gate approval or file proposals.`,
+    }));
+    if (!['verified', 'rework', 'unverifiable'].includes(result.state) || !Array.isArray(result.findings) || !Array.isArray(result.checks) || !result.checks.length) throw Error('invalid or empty verifier evidence');
+    ok = true;
+    return result;
+  } finally {
+    emit(state, { kind: 'agent-stop', agent, ok, duration_ms: Date.now() - t0 });
+  }
 }
 
 export function safePath(root, name, allowed) {
@@ -307,10 +334,16 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
   if (attempt.number > (state.maxAttempts ?? 1)) throw Error('stage attempt limit reached');
   state.attempts.push(attempt);
   state.active = role; state.steps++; save(state);
+  // Recorded only once the stage is really dispatched: a run awaiting a gate, or
+  // one that returned above, is not an agent starting.
+  const agent = `codex-${role}`;
+  const t0 = Date.now();
+  let stageOk = false;
+  emit(state, { kind: 'agent-start', agent });
   try {
     const response = await execute({ prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
       bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
-      extraArgs: workerArgs });
+      extraArgs: workerArgs, onEvent: toolListener(state, agent) });
     // Codex can recover its session-index lookup without degrading the worker.
     // Keep the diagnostic in the receipt; every other warning/error blocks.
     const proposal = cleanResponse(response);
@@ -322,6 +355,7 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
       // A negative reviewer verdict cannot write or approve anything. It can
       // only request bounded repair through the controller-owned route.
       rewind(state, repairTarget(state, role), { role, attemptId: attempt.id, verdict: proposal.verdict, summary: proposal.summary });
+      stageOk = true;   // the worker answered; its verdict was routed
       save(state); return state;
     }
     if (!rule.on.includes(proposal.verdict)) throw Error(`${role} returned ${proposal.verdict}: ${proposal.summary}`);
@@ -400,6 +434,7 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
         state.status = 'blocked'; state.reason = `verifier rework limit reached for ${role}: ${JSON.stringify(verification.findings)}`;
       }
       // Same queued role, no successful result and no gate until verified.
+      stageOk = true;   // the stage ran to a verdict; rework is an outcome, not a crash
       save(state); return state;
     }
     if (verification.state !== 'verified') throw Error(`stage verification ${verification.state}: ${JSON.stringify(verification.findings)}`);
@@ -408,11 +443,14 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
       attemptId: attempt.id, checks: attempt.checks ?? null, receipt, verification, digest: hash(JSON.stringify({ attemptId: attempt.id, proposal })), usage: response.usage ?? null, diagnostics: response.errors || [], at: new Date().toISOString() };
     state.queue.shift(); state.active = null;
     advance(state); save(state);
+    stageOk = true;
   } catch (error) {
     Object.assign(attempt, { status: 'blocked', reason: error.message, finishedAt: new Date().toISOString() });
     state.status = 'blocked'; state.reason = error.message;
     // Keep active set: a partial write or interrupted process must not be replayed.
     save(state);
+  } finally {
+    emit(state, { kind: 'agent-stop', agent, ok: stageOk, duration_ms: Date.now() - t0 });
   }
   return state;
 }

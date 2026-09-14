@@ -335,3 +335,79 @@ test('a join partner writing before the gate is raised is not "working tree chan
   approve(s, s.pending.token);                                      // used to throw "working tree changed"
   assert.equal(s.status, 'done');
 });
+
+// ── the controlled host records what Codex did (ADR-021, great_cto-5i4i) ────
+//
+// The board's activity strip came only from Claude Code hooks, and Codex has no
+// hook surface, so a Codex run was invisible on it. The controller already sees
+// every stage start and end, and the exec stream reports every tool call. Events
+// go to the project's own .great_cto/events.jsonl, as `codex-<role>`, with facts
+// only. (Needs the receipt fix bkvj: otherwise these writes would trip the
+// controller's own "working tree changed during verification" check.)
+import { readFileSync as readEventsFile, existsSync as eventsExist } from 'node:fs';
+const eventsOf = (root) => {
+  const file = join(root, '.great_cto', 'events.jsonl');
+  return eventsExist(file) ? readEventsFile(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l)) : [];
+};
+const shell = (command, exit_code, status) => ({ type: 'item.completed', item: { type: 'command_execution', command, aggregated_output: 'OUTPUT-TEXT', exit_code, status } });
+
+test('a Codex stage records its start, its tool calls and its end — as facts', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async opts => {
+    assert.equal(typeof opts.onEvent, 'function', 'the controller listens to the stream');
+    opts.onEvent({ type: 'item.started', item: { type: 'command_execution', command: 'cat secrets.env', status: 'in_progress' } });
+    opts.onEvent(shell('cat secrets.env', 0, 'completed'));
+    opts.onEvent(shell('npm test', 1, 'failed'));
+    return response();
+  } });
+  const ev = eventsOf(s.root);
+  assert.deepEqual(ev.map(e => `${e.kind}:${e.agent}`), ['agent-start:codex-writer', 'tool:codex-writer', 'tool:codex-writer', 'agent-stop:codex-writer']);
+  assert.deepEqual(ev.filter(e => e.kind === 'tool').map(e => e.ok), [true, false]);
+  const stop = ev.at(-1);
+  assert.equal(stop.ok, true, 'the stage completed');
+  assert.ok(Number.isFinite(stop.duration_ms));
+  assert.ok(ev.every(e => e.session === s.id), 'events carry the run id, so two runs can be told apart');
+  const raw = readFileSync(join(s.root, '.great_cto', 'events.jsonl'), 'utf8');
+  for (const leak of ['secrets.env', 'npm test', 'OUTPUT-TEXT', 'Build a fixture']) assert.ok(!raw.includes(leak), `events carried ${leak}`);
+  assert.equal(s.status, 'awaiting-gate', 'recording changed nothing about the run');
+});
+
+test('a stage that fails still records its end, as not ok', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => { throw Error('codex crashed'); } });
+  assert.equal(s.status, 'blocked');
+  const ev = eventsOf(s.root);
+  assert.deepEqual(ev.map(e => e.kind), ['agent-start', 'agent-stop']);
+  assert.equal(ev[1].ok, false, 'a blocked stage is not a completed one');
+});
+
+test('the verifier is its own agent on the strip', async t => {
+  const s = fixture(t);
+  await stage(s, { execute: async opts => {
+    if (/independent verifier/.test(opts.prompt)) {
+      opts.onEvent?.(shell('node --test', 0, 'completed'));
+      return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['ran node --test'] }) };
+    }
+    return response();
+  } });
+  const agents = eventsOf(s.root).map(e => `${e.kind}:${e.agent}`);
+  assert.deepEqual(agents, ['agent-start:codex-writer', 'agent-start:codex-verifier', 'tool:codex-verifier', 'agent-stop:codex-verifier', 'agent-stop:codex-writer']);
+});
+
+test('a run that does not dispatch records nothing', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  const before = eventsOf(s.root).length;
+  await runStage(s, { execute: async () => { throw Error('must not run across gate'); } });
+  assert.equal(eventsOf(s.root).length, before, 'awaiting a gate is not an agent starting');
+});
+
+test('GREAT_CTO_DISABLE_EVENTS=1 keeps the controller silent', async t => {
+  const s = fixture(t);
+  const prev = process.env.GREAT_CTO_DISABLE_EVENTS;
+  process.env.GREAT_CTO_DISABLE_EVENTS = '1';
+  t.after(() => { if (prev === undefined) delete process.env.GREAT_CTO_DISABLE_EVENTS; else process.env.GREAT_CTO_DISABLE_EVENTS = prev; });
+  await runStage(s, { execute: async opts => { opts.onEvent(shell('ls', 0, 'completed')); return response(); } });
+  assert.deepEqual(eventsOf(s.root), []);
+  assert.equal(s.status, 'awaiting-gate');
+});
