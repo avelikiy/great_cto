@@ -5,7 +5,28 @@
 
 set -o pipefail  # do not -e -u: preserve partial output
 
+# Every block prints under a `## NAME` heading, and only when it printed something.
+#
+# commands/inbox.md has told the agent to read sections by name since this file
+# was written on 2026-05-09, and this file printed no headings: one block's output
+# ran into the next. Each block is a function rather than inline inside $( ), because
+# macOS's bash 3.2 cannot parse a `case` pattern ending in `)` inside a command
+# substitution, and two blocks below use one.
+emit() {
+  case "$2" in
+    *[![:space:]]*) printf '## %s\n%s\n\n' "$1" "$2" ;;
+  esac
+}
+
+# `bd list` prints "No issues found." for an empty list. Passed through, that line
+# made OPEN_GATES, P0_OPEN and PRODUCTION_OPEN appear on every run — headings that
+# read as "something needs you" — beside a GATE_WAIT saying no gate was open.
+_bd_list() {
+  bd list "$@" 2>/dev/null | grep -vE '^No .* found\.?$' || true
+}
+
 # ── block 1 ────────────────────────
+_s_archetype_confidence() {
 # Surface low/medium detection confidence so user can override before pipeline commits
 CONF=$(grep "^archetype_confidence:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 if [ -n "$CONF" ] && [ "$CONF" != "high" ] && [ "$CONF" != "user-specified" ]; then
@@ -13,8 +34,11 @@ if [ -n "$CONF" ] && [ "$CONF" != "high" ] && [ "$CONF" != "user-specified" ]; t
   ARCH=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
   echo "ARCHETYPE_CONFIDENCE:level=${CONF} archetype=${ARCH} alternatives=${ALT}"
 fi
+}
+emit ARCHETYPE_CONFIDENCE "$(_s_archetype_confidence)"
 
 # ── block 2 ────────────────────────
+_s_poc() {
 if grep -q "^mode:\s*poc" .great_cto/PROJECT.md 2>/dev/null; then
   POC_SLUG=$(grep "^poc_slug:" .great_cto/PROJECT.md | awk '{print $2}')
   POC_EXPIRES=$(grep "^poc_expires:" .great_cto/PROJECT.md | awk '{print $2}')
@@ -30,10 +54,17 @@ if grep -q "^mode:\s*poc" .great_cto/PROJECT.md 2>/dev/null; then
     fi
   fi
 fi
+}
+emit POC "$(_s_poc)"
 
 # ── block 3 ────────────────────────
-bd list --label gate --status open 2>/dev/null || true
-bd list --status open --priority 0 2>/dev/null || true
+_s_open_gates() { _bd_list --label gate --status open; }
+emit OPEN_GATES "$(_s_open_gates)"
+_s_p0_open() { _bd_list --status open --priority 0; }
+emit P0_OPEN "$(_s_p0_open)"
+# BLOCKED was named in commands/inbox.md and nothing produced it.
+_s_blocked() { _bd_list --status blocked; }
+emit BLOCKED "$(_s_blocked)"
 # Stale gates (open > 24h) and how long gates wait — from bead timestamps.
 #
 # The loop that stood here could not fire. It took the task id as the first field
@@ -49,39 +80,67 @@ else
 fi
 
 # ── block 4 ────────────────────────
+_s_recent_activity() {
 git log --oneline --since="24 hours ago" 2>/dev/null | head -15
 git diff --stat $(git rev-list --max-parents=0 HEAD 2>/dev/null)..HEAD 2>/dev/null | tail -5
+}
+emit RECENT_ACTIVITY "$(_s_recent_activity)"
 
 # ── block 5 ────────────────────────
+_s_backlog() {
 bd stats 2>/dev/null || true
 bd ready 2>/dev/null | head -10
+}
+emit BACKLOG "$(_s_backlog)"
 
 # ── block 6 ────────────────────────
+_s_recent_docs() {
 find docs/ -name "*.md" -mtime -1 2>/dev/null | sort | head -10
+}
+emit RECENT_DOCS "$(_s_recent_docs)"
 
 # ── block 7 ────────────────────────
+_s_open_prs() {
 gh pr list --state open 2>/dev/null | head -5 || true
+}
+emit OPEN_PRS "$(_s_open_prs)"
 
 # ── block 8 ────────────────────────
-bd list --label production --status open 2>/dev/null || true
+_s_production_open() {
+_bd_list --label production --status open
+}
+emit PRODUCTION_OPEN "$(_s_production_open)"
 
 # ── block 9 ────────────────────────
+_s_rfc_overdue() {
 # Overdue RFCs
 [ -d "docs/rfcs" ] && ls docs/rfcs/RFC-*.md 2>/dev/null | sort | xargs grep -l "Status: DRAFT\|Status: REVIEW" 2>/dev/null | xargs grep "^Review deadline:" 2>/dev/null | awk -v today="$(date +%Y-%m-%d)" '$3 < today {print FILENAME, "OVERDUE:", $3}' | sed 's|docs/rfcs/||'
+}
+emit RFC_OVERDUE "$(_s_rfc_overdue)"
 
+_s_on_call() {
 # On-call
 [ -f ".great_cto/oncall-schedule.md" ] && grep "^Current:" .great_cto/oncall-schedule.md | head -5 || echo "oncall: not configured"
+}
+emit ON_CALL "$(_s_on_call)"
 
 # ── block 10 ────────────────────────
+_s_recent_decisions() {
 [ -f "docs/decisions/DECISION-LOG.md" ] && grep "^## D-" docs/decisions/DECISION-LOG.md | tail -3 | sed 's/^## //' || true
+}
+emit RECENT_DECISIONS "$(_s_recent_decisions)"
 
 # ── block 11 ────────────────────────
+_s_health() {
 bd list --status open --priority 2 2>/dev/null | wc -l
 tail -5 .great_cto/perf-baseline.log 2>/dev/null || echo "NO_BASELINE"
 ls .great_cto/retrospectives/*.md 2>/dev/null | sort | tail -1 | xargs grep -h "What slowed down:" 2>/dev/null | sort | uniq -c | sort -rn | head -3
 ls docs/audits/AUDIT-*.md 2>/dev/null | sort -V | tail -1 || echo "NO_AUDIT"
+}
+emit HEALTH "$(_s_health)"
 
 # ── block 12 ────────────────────────
+_s_risks() {
 if [ -f "docs/risks/RISK-REGISTER.md" ]; then
   # Filter active H×H and H×M lines from the Active section
   awk '/## Active risks/,/^## /' docs/risks/RISK-REGISTER.md 2>/dev/null | \
@@ -90,21 +149,30 @@ if [ -f "docs/risks/RISK-REGISTER.md" ]; then
       if ((imp=="H" && (prob=="H" || prob=="M")) || (imp=="M" && prob=="H")) print $0
     }' | head -5
 fi
+}
+emit RISKS "$(_s_risks)"
 
 # ── block 13 ────────────────────────
+_s_deprecations() {
 if [ -f "docs/deprecations/DEPRECATION-CALENDAR.md" ]; then
   # Entries with EOL within 90 days — human-readable list from Active section
   awk '/## Active/,/## Completed/' docs/deprecations/DEPRECATION-CALENDAR.md 2>/dev/null | \
     grep -E "^\|" | tail -n +3 | head -10
 fi
+}
+emit DEPRECATIONS "$(_s_deprecations)"
 
 # ── block 14 ────────────────────────
+_s_slo_budget() {
 if [ -f ".great_cto/slo-budget-current.md" ]; then
   # Show any row at WARN or EXHAUSTED status — these need attention
   grep -E "\| (WARN|EXHAUSTED) \|" .great_cto/slo-budget-current.md 2>/dev/null | head -5
 fi
+}
+emit SLO_BUDGET "$(_s_slo_budget)"
 
 # ── block 15 ────────────────────────
+_s_waivers() {
 if [ -d "docs/waivers" ]; then
   ACTIVE=$(ls docs/waivers/WAIVER-*.md 2>/dev/null | wc -l | tr -d ' ')
   # Expired: any active waiver whose Expires date is in the past
@@ -116,8 +184,11 @@ if [ -d "docs/waivers" ]; then
   done 2>/dev/null | wc -l | tr -d ' ')
   echo "waivers_active=$ACTIVE expired_unresolved=$EXPIRED"
 fi
+}
+emit WAIVERS "$(_s_waivers)"
 
 # ── block 16 ────────────────────────
+_s_slo_burn() {
 # Cheap check: only compute for the most-burning service+SLI in latest snapshot.
 # Full breakdown lives in /burn.
 if [ -f .great_cto/slo-burn-history.log ]; then
@@ -163,8 +234,11 @@ for k, snaps in series.items():
                 print(f"BURN_ALERT:{k[0]}/{k[1]} slow={mult7:.1f}× window=7d")
 PY
 fi
+}
+emit SLO_BURN "$(_s_slo_burn)"
 
 # ── block 17 ────────────────────────
+_s_dora_cfr() {
 # Lightweight check — only fires if there's enough data and CFR is concerning.
 # Full breakdown lives in /dora.
 if [ -f .great_cto/deploys.log ] && [ -d docs/postmortems ]; then
@@ -207,8 +281,11 @@ if [ -f .great_cto/deploys.log ] && [ -d docs/postmortems ]; then
     [ "$RWR" -gt 10 ] && echo "REWORK_TRIGGER:rate=${RWR}% rework=${REWORK_7D}/${DEPLOYS_7D}"
   fi
 fi
+}
+emit DORA_CFR "$(_s_dora_cfr)"
 
 # ── block 18 ────────────────────────
+_s_gate_drift() {
 # Fires when a gate is at >85% pass AND drifted +10pp vs prior 30d window.
 # Gate drift — cheap inline check. Rubber-stamping shows as >85% pass + rising trend.
 if [ -d .great_cto/verdicts ]; then
@@ -255,8 +332,11 @@ for agent, snaps in verdicts.items():
         print(f"GATE_DRIFT:{agent} pass={cur_rate:.0f}% drift=+{drift:.0f}pp n={len(cur)}")
 PY
 fi
+}
+emit GATE_DRIFT "$(_s_gate_drift)"
 
 # ── block 19 ────────────────────────
+_s_cost_alert() {
 # Fires when run-rate crosses alert_threshold of budget OR any service +30% MoM.
 # Cheap version — full breakdown lives in /cost.
 if [ -f .great_cto/cost-history.log ]; then
@@ -327,8 +407,11 @@ for svc in cur:
             print(f"COST_MOVER:{svc} delta=+{delta:.0f}% added=${cur[svc]:.0f}")
 PY
 fi
+}
+emit COST_ALERT "$(_s_cost_alert)"
 
 # ── block 20 ────────────────────────
+_s_security() {
 # SEC_CVE_ALERT — ≥1 critical CVE still open > 14 days
 if [ -f docs/cve-log.md ]; then
   python3 - <<'PY' 2>/dev/null
@@ -379,8 +462,11 @@ if [ -d docs/architecture ] && [ -f .great_cto/PROJECT.md ]; then
       ;;
   esac
 fi
+}
+emit SECURITY "$(_s_security)"
 
 # ── block 21 ────────────────────────
+_s_ai_health() {
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 case "$ARCHETYPE" in
   ai-system|agent-product)
@@ -486,8 +572,11 @@ case "$ARCHETYPE" in
     fi
     ;;
 esac
+}
+emit AI_HEALTH "$(_s_ai_health)"
 
 # ── block 22 ────────────────────────
+_s_hygiene() {
 OPEN_TASKS=$(bd list --status open 2>/dev/null | wc -l | tr -d ' ')
 # Duplicate titles (case-insensitive, exact match)
 DUP_COUNT=$(bd list --status open 2>/dev/null | awk -F'  +' '{print tolower($NF)}' | sort | uniq -d | wc -l | tr -d ' ')
@@ -507,3 +596,5 @@ if [ "$OPEN_TASKS" -gt 100 ] || [ "$DUP_COUNT" -gt 0 ] || [ "$UNOWNED_URGENT" -g
   [ "$STALE_TASKS" -gt 10 ] && HYGIENE_LINES+=("Stale: ${STALE_TASKS} tasks untouched for 60+ days")
   printf 'HYGIENE_%s\n' "${HYGIENE_LINES[@]}"
 fi
+}
+emit HYGIENE "$(_s_hygiene)"

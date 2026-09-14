@@ -31,18 +31,42 @@ prompt and may trip `Prompt is too long` on heavy sessions.
 ## Step 2 — Read the file
 
 Use the `Read` tool on the `out=` path, default first 200 lines.
-Sections (only present when relevant, separated by blank lines):
-`## ARCHETYPE_CONFIDENCE`, `## OPEN_GATES`, `## STALE_GATES`,
-`## GATE_WAIT`, `## P0_OPEN`, `## BLOCKED`, `## RECENT_ACTIVITY`, `## SLO_BURN`,
-`## DORA_CFR`, `## GATE_DRIFT`, `## COST_ALERT`, `## ON_CALL`,
-`## RFC_OVERDUE`.
+Every line of output sits under a `## NAME` heading, and a section is printed only
+when it has something in it (blank line between sections). In the order they appear:
 
-**Only `## STALE_GATES` and `## GATE_WAIT` are printed as headings today.** The
-helper emits the rest as unlabelled command output, and has since it was written
-— read those by their content, not by a heading that is not there (bug
-great_cto-3foo). `## GATE_WAIT` is always present: the oldest open gate and how
-long closed gates waited, listed rather than summarised under five, or
-`not measured` when beads could not be read — which is not the same as no gates.
+| Section | What is in it |
+|---|---|
+| `## ARCHETYPE_CONFIDENCE` | detection confidence below high, with alternatives |
+| `## POC` | `POC_ACTIVE:` / `POC_URGENT:` / `POC_EXPIRED:` |
+| `## OPEN_GATES` | open gate beads |
+| `## P0_OPEN` | open P0 tasks |
+| `## BLOCKED` | blocked tasks |
+| `## STALE_GATES` | `STALE:<id> age:<h>h` — gates open more than 24h |
+| `## GATE_WAIT` | always present: oldest open gate, how long closed gates waited (listed, not summarised, under five), or `not measured` when beads could not be read — which is not the same as no gates |
+| `## RECENT_ACTIVITY` | commits in the last 24h |
+| `## BACKLOG` | `bd stats`, ready tasks |
+| `## RECENT_DOCS` | docs changed in the last day |
+| `## OPEN_PRS` | open pull requests |
+| `## PRODUCTION_OPEN` | open `production`-labelled tasks |
+| `## RFC_OVERDUE` | RFCs past their review deadline |
+| `## ON_CALL` | current on-call, or `oncall: not configured` |
+| `## RECENT_DECISIONS` | last three decision-log entries |
+| `## HEALTH` | P2 count, perf baseline tail, retro slow-downs, latest audit |
+| `## RISKS` | active high-impact risks |
+| `## DEPRECATIONS` | deprecation calendar, active |
+| `## SLO_BUDGET` | SLO rows at WARN or EXHAUSTED |
+| `## WAIVERS` | `waivers_active=` / `expired_unresolved=` |
+| `## SLO_BURN` | `BURN_ALERT:` |
+| `## DORA_CFR` | `DORA_TRIGGER:` / `REWORK_TRIGGER:` |
+| `## GATE_DRIFT` | `GATE_DRIFT:` — a gate passing more than before |
+| `## COST_ALERT` | `COST_ALERT:` / `COST_MOVER:` |
+| `## SECURITY` | `SEC_CVE_ALERT:` / `SEC_ROTATION:` / `SEC_TM_GAP:` |
+| `## AI_HEALTH` | ai-system / agent-product signals |
+| `## HYGIENE` | `HYGIENE_…` backlog hygiene |
+
+The line prefixes inside a section are unchanged. Until 2026-09-14 the helper
+printed none of these headings — every block ran into the next — so an older
+cached copy of the plugin may still produce unlabelled output.
 
 ## Step 2b — Strict-mode governance (signed exceptions)
 
