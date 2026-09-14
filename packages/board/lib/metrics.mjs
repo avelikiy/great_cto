@@ -13,15 +13,33 @@ import { readVerdicts, readPlanCosts, readQAStats, readSecStats } from './verdic
 // accepted change yet" is the honest reading (same discipline as the null-score
 // oracle). Only two of the five metrics the literature lists are built here on
 // purpose — a solo project's denominator is tiny and the other three would be noise.
+//
+// A halting verdict is split three ways by the `need` its author declared:
+// `implementer` is a pass the implementer can make (rework), `decision` is a
+// question for a human, and anything else is undeclared. Counting every halt as
+// rework called a waiver request "rework"; and REWORK itself, the token the
+// dispatcher sends work back with, matched none of the old patterns and was never
+// counted. Undeclared is its own count because it is not known to be either.
 function acceptanceMetrics(verdicts = [], windowCostUsd = null) {
-  const isAccepted = (v) => /^APPROVED$/i.test(v.verdict || '');
-  const isRework = (v) => /^(CHANGES(_REQUESTED)?|REJECT(ED)?|FAIL(ED)?|BLOCKED)$/i.test(v.verdict || '');
+  const token = (v) => String(v?.verdict || '');
+  const isAccepted = (v) => /^APPROVED$/i.test(token(v));
+  const isSentBack = (v) => /^(REWORK|CHANGES(_REQUESTED)?)$/i.test(token(v));
+  const isHalt = (v) => /^(REJECT(ED)?|FAIL(ED)?|BLOCKED)$/i.test(token(v));
+  const needOf = (v) => v?.meta?.need;
+  let rework_rounds = 0, decisions = 0, undeclared_blocks = 0;
+  for (const v of verdicts) {
+    if (isSentBack(v)) rework_rounds++;
+    else if (isHalt(v)) {
+      if (needOf(v) === 'implementer') rework_rounds++;
+      else if (needOf(v) === 'decision') decisions++;
+      else undeclared_blocks++;
+    }
+  }
   const accepted = verdicts.filter(isAccepted).length;
-  const rework_rounds = verdicts.filter(isRework).length;
   const cost_per_accepted = (accepted > 0 && windowCostUsd != null)
     ? Math.round((windowCostUsd / accepted) * 100) / 100
     : null;
-  return { accepted, cost_per_accepted, rework_rounds };
+  return { accepted, cost_per_accepted, rework_rounds, decisions, undeclared_blocks };
 }
 
 // ── Metrics ────────────────────────────────────────────────────────────────────

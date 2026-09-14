@@ -77,7 +77,8 @@ test('cost per accepted change is null when nothing was accepted', () => {
   const a = acceptanceMetrics([{ verdict: 'BLOCKED' }], 12.5);
   assert.equal(a.accepted, 0);
   assert.equal(a.cost_per_accepted, null, 'dividing a real cost by zero approvals would invent a number');
-  assert.equal(a.rework_rounds, 1);
+  assert.equal(a.rework_rounds, 0, 'a BLOCKED that declares no need is not known to be rework');
+  assert.equal(a.undeclared_blocks, 1);
 });
 
 test('cost per accepted change is computed when there is a denominator', () => {
@@ -90,12 +91,39 @@ test('cost per accepted change is null when the cost itself is unknown', () => {
   assert.equal(acceptanceMetrics([{ verdict: 'APPROVED' }], null).cost_per_accepted, null);
 });
 
-test('rework counts every way a change was sent back, and an approval is not one', () => {
-  const a = acceptanceMetrics(
-    ['BLOCKED', 'REJECTED', 'FAILED', 'CHANGES_REQUESTED', 'APPROVED', 'DONE'].map((verdict) => ({ verdict })),
-  );
-  assert.equal(a.rework_rounds, 4);
+test('rework counts what went back to the implementer, and an approval is not one', () => {
+  const a = acceptanceMetrics([
+    { verdict: 'REWORK' },
+    { verdict: 'CHANGES_REQUESTED' },
+    { verdict: 'BLOCKED', meta: { need: 'implementer' } },
+    { verdict: 'REJECTED', meta: { need: 'decision' } },
+    { verdict: 'FAILED' },
+    { verdict: 'APPROVED' },
+    { verdict: 'DONE' },
+  ]);
+  assert.equal(a.rework_rounds, 3);
+  assert.equal(a.decisions, 1);
+  assert.equal(a.undeclared_blocks, 1);
   assert.equal(a.accepted, 1, 'DONE is not an approval — only a gate approving is');
+});
+
+test('need reaches the metrics from the log, so the split is not computed over nothing', () => {
+  // readVerdicts used to keep ts, agent, verdict and cost — and drop meta. Every
+  // record then read as undeclared, and a correct split would have reported zero
+  // rework forever.
+  const line = (verdict, meta) => JSON.stringify({ v: 1, ts: iso(1), agent: 'qa-engineer', verdict, meta }) + '\n';
+  const dir = project({
+    verdicts: {
+      'qa-engineer': line('BLOCKED', { need: 'implementer', finding: 'F1' }) + line('BLOCKED', { need: 'decision' }),
+    },
+  });
+  try {
+    const a = getMetrics(dir, 7).acceptance;
+    assert.ok(a, 'getMetrics exposes acceptance');
+    assert.equal(a.rework_rounds, 1);
+    assert.equal(a.decisions, 1);
+    assert.equal(a.undeclared_blocks, 0);
+  } finally { clean(dir); }
 });
 
 test('a verdict with no value is neither accepted nor rework', () => {

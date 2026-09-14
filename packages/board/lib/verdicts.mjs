@@ -140,6 +140,9 @@ function readVerdicts(cwd = null, health = null) {
         agent,
         verdict,
         cost_usd: parsed.rec.cost_usd ?? null,
+        // Kept so a metric can read what the author declared (`need`, `task`).
+        // Dropping it made every halt look undeclared.
+        meta: parsed.rec.meta ?? null,
         raw: line.replace(/\s*\bcost=\$?\d+\.?\d*\b/i, ''),
       });
     }
