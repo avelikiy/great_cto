@@ -14,9 +14,9 @@ import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInf
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { status as routerKeyStatus, writeKey as writeRouterKey } from '../../../scripts/lib/router-key.mjs';
-import { broadcastTasks } from './sse.mjs';
+import { broadcastTasks, broadcastProject } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
-import { getMemory, getPipeline, getCostHistory, getInbox, inboxElsewhere } from './data-readers.mjs';
+import { getMemory, getPipeline, getCostHistory } from './data-readers.mjs';
 import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
@@ -33,6 +33,10 @@ import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 import { recordView, summarizeViews } from './view-counter.mjs';
 import { evidenceProjection } from '../../../scripts/lib/evidence-projection.mjs';
+import { materializeSnapshot } from './read-model.mjs';
+import { receiptReadModel } from './receipt-read-model.mjs';
+import { boardInbox, decisionEvidenceFor } from './board-projection.mjs';
+import { runSnapshotWorker } from './snapshot-process.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -53,42 +57,6 @@ function verdictHeaders(cwd, base = { 'Content-Type': 'application/json', 'Cache
     if (unread) return { ...base, 'X-Board-Degraded': encodeURIComponent(unread) };
   } catch { /* never fail a response over its own health check */ }
   return base;
-}
-
-/**
- * Correlate one legacy/Beads decision row with the canonical ledger without
- * guessing by timestamp. `current` means the newest ledger fact for that gate
- * still says pending; `stale` means the two sources disagree. Missing and
- * unreadable evidence stay explicit so the UI cannot turn them into a green
- * absence.
- */
-function decisionEvidenceFor(projection, task) {
-  const base = {
-    source: projection?.provenance?.source || '.great_cto/evidence-ledger.jsonl',
-    revision: projection?.revision || null,
-    projection_state: projection?.state || 'none',
-  };
-  if (projection?.state === 'unreadable') {
-    return { ...base, freshness: 'unreadable', observed_at: null, why: projection.why || 'evidence ledger is unreadable' };
-  }
-  const gate = (String(task?.title || '').match(/gate:[a-z0-9-]+/i) || [])[0]?.toLowerCase() || null;
-  if (!gate) return { ...base, freshness: 'unmeasured', observed_at: null, why: 'decision row has no gate identity' };
-  const fact = (projection?.decisions || []).find((d) => String(d.gate_id || '').toLowerCase() === gate);
-  if (!fact) return { ...base, freshness: 'unmeasured', observed_at: null, gate_id: gate, why: 'no canonical gate event recorded' };
-  return {
-    ...base,
-    freshness: fact.state !== 'pending' ? 'stale' : projection.state === 'degraded' ? 'degraded' : 'current',
-    observed_at: fact.updated_at || null,
-    gate_id: gate,
-    run_id: fact.run_id || null,
-    event_id: fact.event_id || null,
-    evidence_state: fact.state || 'unknown',
-    why: fact.state === 'pending'
-      ? projection.state === 'degraded'
-        ? `canonical ledger agrees that this gate is waiting, but the projection is degraded: ${projection.why || 'see projection state'}`
-        : 'canonical ledger agrees that this gate is waiting'
-      : `task is waiting but canonical ledger says ${fact.state || 'unknown'}`,
-  };
 }
 
 async function dispatch(req, res, url, cwd) {
@@ -128,7 +96,9 @@ async function dispatch(req, res, url, cwd) {
     });
     res._gctoCwd = cwd;  // remember which project this client wants
     sseClients.add(res);
-    res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(cwd))}\n\n`);
+    // Never turn the SSE handshake into a synchronous cold Beads read. The
+    // bootstrap materialiser will publish the first complete snapshot.
+    res.write('event: tasks-loading\ndata: {"state":"loading"}\n\n');
     req.on('close', () => sseClients.delete(res));
     return true;
   }
@@ -204,6 +174,21 @@ async function dispatch(req, res, url, cwd) {
     if (degraded) headers['X-Board-Degraded'] = encodeURIComponent(degraded);
     res.writeHead(200, headers);
     res.end(JSON.stringify(tasks));
+    return true;
+  }
+
+  // One revisioned read model replaces the five-way boot fan-out. A cold
+  // request gets an explicit loading projection immediately; the materialised
+  // snapshot arrives over the already-open SSE stream. Refresh failure keeps
+  // the last good revision and marks it stale.
+  if (pathname === '/api/bootstrap' && req.method === 'GET') {
+    const snapshot = materializeSnapshot(cwd, () => runSnapshotWorker(cwd),
+      {
+        persistDir: path.join(GREAT_CTO_DIR, 'cache', 'board'),
+        onUpdate: (next) => broadcastProject('snapshot', next, cwd),
+      });
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ ...snapshot, project: path.basename(cwd) }));
     return true;
   }
 
@@ -715,12 +700,6 @@ async function dispatch(req, res, url, cwd) {
 
   // Inbox — what needs your attention right now
   if (pathname === '/api/inbox') {
-    const inbox = getInbox(cwd);
-    const canonical = evidenceProjection(cwd, { limit: 100 });
-    inbox.pending_gates = (inbox.pending_gates || []).map((gate) => ({
-      ...gate,
-      evidence: decisionEvidenceFor(canonical, gate),
-    }));
     // BRD-R3: the Decisions row shows both reviewers. The second opinion is a
     // fact about the TREE, not about a gate — every pending gate on this tree
     // shares it — so it is resolved once: the newest cross-review line whose
@@ -728,16 +707,12 @@ async function dispatch(req, res, url, cwd) {
     // verdict: `not-run` (capability none / undeclared / unavailable),
     // `unmeasured` (declared, no line for this sha), `unreadable` (only
     // pre-join-key lines exist), `ok` (a paired verdict).
-    const second_opinion = secondOpinionForTree(cwd);
     // What is waiting on the person in their OTHER projects. The headline and
     // the badge are about the person, and the person is not scoped to `cwd`.
     // If the registry itself cannot be walked, say so — `unreadable` is not
     // `{p0: 0}`, and the page must not print "nothing elsewhere" from it.
-    let elsewhere;
-    try { elsewhere = inboxElsewhere(listProjects(), cwd, { readInbox: getInbox }); }
-    catch (e) { elsewhere = { state: 'unreadable', why: String(e?.message || e) }; }
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
-    res.end(JSON.stringify({ ...inbox, elsewhere, second_opinion }));
+    res.end(JSON.stringify(boardInbox(cwd)));
     return true;
   }
 
@@ -750,23 +725,7 @@ async function dispatch(req, res, url, cwd) {
   // longer describes the tree is the one thing a gate button cannot tell you.
   if (pathname === '/api/receipt') {
     const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
-    let out;
-    try {
-      const { latestApproval, treeReceipt, compareReceipts, mergeBase } = await import('../../../scripts/lib/receipt.mjs');
-      const approval = latestApproval(c);
-      if (!approval?.receipt) {
-        out = { state: 'no-receipt', why: 'no approving verdict carries a receipt yet', agent: approval?.agent || null, ts: approval?.ts || null };
-      } else {
-        const current = treeReceipt(c, { base: approval.receipt.base || mergeBase(c) });
-        const cmp = compareReceipts(approval.receipt, current, { cwd: c });
-        out = { ...cmp, agent: approval.agent, ts: approval.ts };
-      }
-    } catch (e) {
-      // Never "matches" on an error. Not knowing whether the approval still
-      // holds is its own state, and calling it a match would put the strongest
-      // reassurance exactly where the least is known.
-      out = { state: 'unreadable', why: String(e?.message || e), agent: null, ts: null };
-    }
+    const out = receiptReadModel(c, { onUpdate: (next) => broadcastProject('receipt', next, c) });
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(out));
     return true;

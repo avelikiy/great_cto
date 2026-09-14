@@ -5,6 +5,8 @@ import { sseClients } from './state.mjs';
 import { listProjects } from './projects.mjs';
 import { bdCacheStale, getTasks, isSelfInflictedTouch } from './beads.mjs';
 import { getPipeline, getInbox } from './data-readers.mjs';
+import { invalidateSnapshot } from './read-model.mjs';
+import { invalidateReceipt } from './receipt-read-model.mjs';
 
 // ── File watcher ───────────────────────────────────────────────────────────────
 function watchBeads() {
@@ -48,6 +50,8 @@ function watchBeads() {
     // broadcastTasks itself; a write from outside is not a self-touch and lands
     // in the branch below.
     if (isSelfInflictedTouch(dir)) return;
+    invalidateSnapshot(dir);
+    invalidateReceipt(dir);
     // Stale, not deleted. A change we NOTICED must not make the next reader pay
     // for it — they asked for something else. The broadcast below still reads
     // fresh, because a stale entry refreshes on read.
@@ -131,6 +135,8 @@ function watchVerdicts() {
     pushTimer = setTimeout(() => {
       for (const res of sseClients) {
         const dir = res._gctoCwd || process.cwd();
+        invalidateSnapshot(dir);
+        invalidateReceipt(dir);
         try {
           res.write(`event: pipeline\ndata: ${JSON.stringify(getPipeline(dir))}\n\n`);
           res.write(`event: inbox\ndata: ${JSON.stringify(getInbox(dir))}\n\n`);
