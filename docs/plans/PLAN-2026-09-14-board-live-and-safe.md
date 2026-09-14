@@ -135,7 +135,10 @@ receipt — a gate drifted by itself, and these controller writes would have tri
 its own "working tree changed during verification". `treeReceipt` now excludes the
 log.
 
-## 4 — ADR-022: per-turn diffs (great_cto-mx9y)
+## 4 — [ADR-023](../adr/ADR-023-per-turn-diffs.md): per-turn diffs (great_cto-mx9y)
+
+ADR-022 was already taken (GitHub release reconciliation). The decision is written,
+with its mechanism measured first — status Proposed; no code yet.
 
 A decision document only: a git ref per agent turn (the checkpoint idea), built on
 `scripts/lib/receipt.mjs`, with retention, and how the board would show a turn's
