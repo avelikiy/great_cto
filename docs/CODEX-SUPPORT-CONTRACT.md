@@ -1,7 +1,9 @@
 # Codex host support contract
 
-Status: implementation in progress. This is an acceptance contract, not a claim
-that the complete lifecycle already works. Baseline: GitHub `a67ff7de`, v3.27.6.
+Status: implemented on the Codex Host GA branch and awaiting merge/release.
+Baseline: GitHub `fec1840a`, v3.28.9. This document describes the controlled
+`great-cto codex-host` runtime. It does not claim that an ordinary Codex chat
+inherits Claude Code hooks or that an unmerged branch is already installed.
 
 ## Meaning of complete support
 
@@ -21,10 +23,10 @@ Codex sessions outside this controller do not inherit its guarantees.
 | GitHub plugin install, skills and MCP configuration | Available | Installation from the supported channel and matching runtime versions |
 | Specialist prompts, guarded text proposals, joins and gates | Available | Graph and negative-path regression tests |
 | Same-stage verifier rework | Bounded attempts with retained findings | Correction, exhaustion, serialization and artifact-drift tests |
-| Cross-role repair and graph back-edges | Core review-to-developer repair and declared back-edges; dependent results/approvals invalidated | Broader graph coverage remains |
-| General crash recovery | Explicit unchanged pre-write/fully applied Git stage recovery; partial writes refused | Full persistence-boundary fault testing remains |
-| Dependency installation and write-requiring build/test | Offline Docker checks and bounded explicit-file artifact export; no network install | Export/live lifecycle evidence required |
-| Release and post-release verification | Approval-bound local artifact release, smoke and same-operation reconciliation; other adapters absent | Local adapter regression tests; full live lifecycle evidence still required |
+| Cross-role repair and graph back-edges | Core review-to-developer repair and declared back-edges; dependent results/approvals invalidated | Golden repair and invalidation tests |
+| Bounded crash recovery | Explicit unchanged pre-write/fully applied Git stage recovery; partial writes refused | Interruption, serialization, drift and reconciliation tests |
+| Write-requiring build/test | Offline Docker checks and bounded explicit-file artifact export; no network install | Export regression tests and opt-in live Docker acceptance |
+| Release and post-release verification | Approval-bound local and GitHub Release adapters, exact-byte verification, smoke and same-operation reconciliation | Adapter fault tests plus opt-in live local/GitHub acceptance |
 | Board/Beads integration | Separate from controller authority | Consistent projections; task closure cannot authorize release |
 
 ## Execution and release requirements
@@ -58,15 +60,17 @@ tests, and real Codex runs for success, repair and release recovery. Record the
 run ID, source revision, tool versions, approvals and resulting artifact for
 each. Passing a few live runs proves those scenarios, not statistical reliability.
 
-## First implementation slice
+## Implemented lifecycle
 
 New runs allow three same-stage attempts by default (`--max-attempts 1..5`).
 A structurally valid `rework` result with inspection evidence retains feedback
 and queues the same role. Only a verified attempt creates a successful stage
 result or gate. Exhaustion blocks; `unverifiable`, execution failures and
 interruption remain fail-closed. Existing v1 runs without the new policy retain
-one attempt. Subsequent work adds core cross-role repair, explicit safe-stage
-recovery, cancellation and offline checks. This is not arbitrary partial-write
+one attempt. The controller also implements core cross-role repair, explicit
+safe-stage recovery, cancellation, offline checks, artifact export, release
+approval and reconciliation. Repeated resume is a no-op after completion and a
+consumed gate token cannot be approved again. This is not arbitrary partial-write
 recovery or exactly-once external execution.
 
 The installed stable GitHub plugin and an implementation branch are distinct.

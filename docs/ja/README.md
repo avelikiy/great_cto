@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-skills_·_MCP_·_second_opinion-blueviolet)](https://github.com/openai/codex)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
 ```bash
 npx great-cto init
@@ -19,7 +19,7 @@ npx great-cto init
 
 </div>
 
-> 本文書は英語版 [README](../../README.md)（**v3.28.2**、2026-09-09 時点）の翻訳です。
+> 本文書は英語版 [README](../../README.md)（**v3.28.9**、2026-09-14 時点）の翻訳です。
 > 相違がある場合は英語版が正となります。
 
 ---
@@ -108,17 +108,14 @@ Node ≥ 18.17 が必要。コンパニオンプラグイン（Superpowers、Bea
 init 後、ホストが本当にプラグインを読み込んだか確認してください —
 `claude plugin list --json` で `great-cto` の `errors` が空であること。
 
-**OpenAI Codex では**（`npx great-cto init --host codex`）**スキルと MCP サーバー**が
-手に入ります — 上のパイプラインではありません。Codex にはフック、スラッシュコマンド、
-ロールエージェントのためのプラグイン面がないため、`/start`、`/inbox`、ゲート連鎖、
-`secret-scan` はそこでは動きません。これは設定ではなくホストの制約です：プラグイン
-マニフェストの `hooks` は読まれることがありません
-（[openai/codex#16430](https://github.com/openai/codex/issues/16430)、
-[#39895](https://github.com/openai/codex/issues/39895)）。インストーラは何かをする前に、
-同じ切り分けを表示します。
+**OpenAI Codex では**（`npx great-cto init --host codex`）スキルと MCP サーバーを利用
+できます。ネイティブのフック、スラッシュコマンド、ロールエージェントは依然として
+ありません。サポートされるパイプライン経路は別コントローラ `great-cto codex-host` で、
+制御されたロール、verifier、gate、recovery、任意のローカルまたは GitHub Release を
+実行します。ネイティブフックの模倣や任意の本番サービス有効化ではありません。
+[Codex ホストガイド](../HOST-CODEX.md)を参照してください。
 
-**ハーネスは 2 つ、レビューは 1 つ。** Codex ではパイプラインは走りません。そこで動くのは
-スキル束と MCP サーバーです。Codex のもう一つの役割は**セカンドオピニオン**であること —
+**ハーネスは 2 つ、レビューは 1 つ。** 制御ホストとは別に、Codex は**セカンドオピニオン**として
 Claude Code の内側から同じ diff を読み、レビュー行はそれぞれ読んだツリーの `sha` を持ち
 ます。だから「レビュー済み」は*この* diff について、主張ではなく証明できます。ログにある
 のは**現時点で 4 行、うち 1 行が sha 付き**。そこから検出率は主張しませんし、すべきでも

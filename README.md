@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-skills_·_MCP_·_second_opinion-blueviolet)](https://github.com/openai/codex)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
 ```bash
 npx great-cto init
@@ -103,18 +103,35 @@ Requires Node ≥ 18.17. Companion plugins (Superpowers, Beads) install
 automatically. After init, verify the host actually loaded the plugin —
 `claude plugin list --json` should show no `errors` for `great-cto`.
 
-**On OpenAI Codex** (`npx great-cto init --host codex`) you get the **skills and
-the MCP server** — not the pipeline above. Codex has no plugin surface for
-hooks, slash commands or role agents, so `/start`, `/inbox`, the gate chain and
-`secret-scan` do not run there. That is a limit of the host, not a setting:
+**On OpenAI Codex** (`npx great-cto init --host codex`) you get the skills and
+MCP server. Codex still has no native plugin surface for hooks, slash commands
+or role agents, so `/start` does not become a Codex slash command and Claude
+hooks do not silently run there. That is a limit of the host, not a setting:
 `hooks` in a plugin manifest is never read
 ([openai/codex#16430](https://github.com/openai/codex/issues/16430),
-[#39895](https://github.com/openai/codex/issues/39895)). The installer prints
-the same split before it does anything.
+[#39895](https://github.com/openai/codex/issues/39895)).
 
-**Two harnesses, one review.** On Codex the pipeline does not run: what runs
-there is the skills bundle and an MCP server. Codex's other job is to be the
-**second opinion** — from inside Claude Code it reads the same diff, and each
+The supported pipeline path is the separate controller shipped by the npm CLI:
+
+```bash
+great-cto codex-host doctor
+great-cto codex-host start --dir "$PWD" --prompt "build the feature" --allow src,tests,docs
+great-cto codex-host resume <run-uuid>
+```
+
+It routes the shared graph through controlled Codex role profiles, applies only
+validated text proposals, runs an independent verifier, preserves the run cursor
+outside the worker repository and enforces human gates. Optional operator-owned
+policies add offline Docker checks and approval-bound local or GitHub Release
+publication with byte verification and recovery. The boundary is deliberate:
+this is a controlled host runtime, not emulation of native Codex hooks, arbitrary
+shell deployment, npm publishing or service activation. See the
+[Codex host guide](docs/HOST-CODEX.md) and
+[support contract](docs/CODEX-SUPPORT-CONTRACT.md).
+
+**Two harnesses, one review.** Independently of the controlled host, Codex can
+also be the **second opinion** for a Claude Code run. From inside Claude Code it
+reads the same diff, and each
 review line carries the `sha` of the tree it read, so "reviewed" can be proven
 about *this* diff rather than asserted. The log holds **4 lines so far, 1
 carrying a sha**; no catch-rate is claimed from that, and none should be.

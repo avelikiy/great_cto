@@ -40,6 +40,38 @@ test('role -> guarded write -> human gate -> resume -> terminal gate -> done', a
   approve(s, s.pending.token); assert.equal(s.status, 'done');
 });
 
+test('completed stages and gates are idempotent under repeated resume and stale approval', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  const writerToken = s.pending.token;
+  approve(s, writerToken);
+  await runStage(s, { execute: async () => response('PASS', []) });
+  const shipToken = s.pending.token;
+  approve(s, shipToken);
+
+  const snapshot = JSON.parse(JSON.stringify({
+    status: s.status,
+    results: s.results,
+    approvals: s.approvals,
+    released: s.released,
+    attempts: s.attempts,
+    steps: s.steps,
+  }));
+  await runStage(s, { execute: async () => assert.fail('completed run dispatched again') });
+  assert.deepEqual({
+    status: s.status,
+    results: s.results,
+    approvals: s.approvals,
+    released: s.released,
+    attempts: s.attempts,
+    steps: s.steps,
+  }, snapshot);
+  assert.throws(() => approve(s, shipToken), /pending gate/);
+  assert.throws(() => approve(s, writerToken), /pending gate/);
+  assert.equal(s.approvals.length, 2);
+  assert.equal(new Set(s.approvals.map(({ role, gate, result }) => `${role}:${gate}:${result}`)).size, 2);
+});
+
 test('controlled role profiles cover the shipped graph and exclude host prompt authority', async t => {
   const s = fixture(t);
   assert.throws(() => codexRoleProfile('unknown-side-effecting-role'), /no controlled Codex profile/);

@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-skills_·_MCP_·_second_opinion-blueviolet)](https://github.com/openai/codex)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
 ```bash
 npx great-cto init
@@ -19,7 +19,7 @@ npx great-cto init
 
 </div>
 
-> Traducción del [README](../../README.md) inglés en la versión **v3.28.2** (2026-09-09).
+> Traducción del [README](../../README.md) inglés en la versión **v3.28.9** (2026-09-14).
 > Ante cualquier discrepancia, la versión inglesa es la canónica.
 
 ---
@@ -109,17 +109,15 @@ Requiere Node ≥ 18.17. Los plugins compañeros (Superpowers, Beads) se instala
 solos. Tras el init, verifica que el host cargó el plugin de verdad:
 `claude plugin list --json` no debe mostrar `errors` para `great-cto`.
 
-**En OpenAI Codex** (`npx great-cto init --host codex`) obtienes **las skills y
-el servidor MCP** — no el pipeline de arriba. Codex no tiene superficie de plugin
-para hooks, slash commands ni agentes con rol, así que `/start`, `/inbox`, la
-cadena de gates y `secret-scan` no corren allí. Es un límite del host, no un
-ajuste: `hooks` en un manifiesto de plugin nunca se lee
-([openai/codex#16430](https://github.com/openai/codex/issues/16430),
-[#39895](https://github.com/openai/codex/issues/39895)). El instalador imprime
-esta misma separación antes de hacer nada.
+**En OpenAI Codex** (`npx great-cto init --host codex`) obtienes las skills y el
+servidor MCP. Los hooks, slash commands y agentes con rol nativos siguen sin
+existir. La ruta de pipeline soportada es el controlador separado
+`great-cto codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
+opcionalmente, releases locales o de GitHub. No emula hooks nativos ni activa
+servicios de producción arbitrarios. Consulta la
+[guía del host Codex](../HOST-CODEX.md).
 
-**Dos harnesses, una revisión.** En Codex el pipeline no corre: lo que corre allí
-es el paquete de skills y un servidor MCP. El otro trabajo de Codex es ser la
+**Dos harnesses, una revisión.** Independientemente del host controlado, Codex puede ser la
 **segunda opinión** — desde dentro de Claude Code lee el mismo diff, y cada línea
 de revisión lleva el `sha` del árbol que leyó, de modo que «revisado» se puede
 demostrar sobre *este* diff en lugar de afirmarse. El log contiene **4 líneas

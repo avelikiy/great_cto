@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-skills_·_MCP_·_second_opinion-blueviolet)](https://github.com/openai/codex)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
 ```bash
 npx great-cto init
@@ -19,7 +19,7 @@ npx great-cto init
 
 </div>
 
-> 本文是英文 [README](../../README.md) 於 **v3.28.2**（2026-09-09）時的翻譯。
+> 本文是英文 [README](../../README.md) 於 **v3.28.9**（2026-09-14）時的翻譯。
 > 如有出入，以英文版為準。
 
 ---
@@ -108,16 +108,13 @@ npx great-cto init
 宿主真的載入了外掛 —— `claude plugin list --json` 裡 `great-cto` 的 `errors`
 應該是空的。
 
-**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你得到的是**技能與
-MCP server** —— 不是上面那條流水線。Codex 沒有給 hooks、斜線指令或角色代理的
-外掛介面，所以 `/start`、`/inbox`、閘門鏈和 `secret-scan` 在那裡不會執行。
-這是宿主的限制，不是一個設定：外掛 manifest 裡的 `hooks` 永遠不會被讀取
-（[openai/codex#16430](https://github.com/openai/codex/issues/16430)、
-[#39895](https://github.com/openai/codex/issues/39895)）。安裝程式在動手之前
-就會印出同一份切分。
+**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你會得到技能與 MCP
+server。原生 hooks、斜線指令與角色代理仍然不存在。受支援的流水線路徑是獨立
+控制器 `great-cto codex-host`：它執行受控角色、verifier、gate、recovery，以及
+可選的本機或 GitHub Release。它不模擬原生 hooks，也不執行任意 production
+服務啟用。詳見 [Codex host 指南](../HOST-CODEX.md)。
 
-**兩個 harness，一次審查。** 在 Codex 上這條流水線不會執行：在那裡跑的是
-技能套件和一個 MCP server。Codex 的另一個工作是當**第二意見** —— 從
+**兩個 harness，一次審查。** 獨立於受控 host，Codex 也能當**第二意見** —— 從
 Claude Code 內部讀同一份 diff，每一行審查都帶著它所讀那棵樹的 `sha`，
 所以「已審查」是能對*這份* diff 被證明的，而不是被斷言的。目前日誌裡有
 **4 行，其中 1 行帶 sha**；不從這裡宣稱任何抓錯率，也不該宣稱。
