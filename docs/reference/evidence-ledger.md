@@ -132,6 +132,24 @@ path with no verdict remains `join_key_state=unavailable`; malformed declared
 keys remain `invalid` rather than being presented as joined. An event is never
 silently attached to the nearest run.
 
+## Board projection
+
+`scripts/lib/evidence-projection.mjs` folds validated events into deterministic
+run, stage, decision, harness, fleet and receipt views. `/api/evidence` exposes
+that read model plus bounded recent events and aggregate counters. Rows are
+ordered by `occurred_at`, then `event_id`, so replaying the same ledger always
+produces the same SHA-256 revision and result.
+
+The projection returns `degraded` when readable events explicitly say evidence
+is `unknown`, `unreadable`, `unmeasured` or `not_run`. If the ledger itself is
+unreadable, no partial run or gate state is emitted: valid-looking rows beside a
+torn row are diagnostic material, not enough evidence for an operator claim.
+During dual-write migration the response also compares canonical and legacy
+dispatcher/verdict counts. A count match is visibility, not semantic parity;
+reader cutover still requires a measured parity window. Any legacy-only facts
+degrade the top-level projection until they gain canonical counterparts or an
+explicit migration policy retires them.
+
 ## Deliberate non-goals of v1
 
 - No remote event bus or distributed consensus. Great CTO remains a local-first

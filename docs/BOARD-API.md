@@ -2,7 +2,7 @@
 
 [← back to README](../README.md)
 
-The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for external integrations and smoke tests. Every route is a top-level `if (pathname === '/api/...')` block in `packages/board/server.mjs` — read the source if a behaviour surprises you.
+The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for external integrations and smoke tests. API routes live in `packages/board/lib/routes.mjs` — read the source if a behaviour surprises you.
 
 ## Endpoints
 
@@ -22,8 +22,20 @@ The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for
 | `/api/logs?project=<slug>` | GET | `{logs: [...]}` |
 | `/api/decisions?limit=20` | GET | `Decision[]` |
 | `/api/pipeline?project=<slug>` | GET | `Stage[]` — 8 SDLC stages with status |
+| `/api/evidence?project=<slug>&limit=100` | GET | Canonical evidence projection: `{state, revision, provenance, summary, runs, decisions, harnesses, fleet, receipts, events, migration}` |
 | `/api/gates/<id>` | POST | Approve/reject gate (body: `{action, reason?}`); returns 409 without `.beads/` |
 | `/api/healthz` | GET | `{ok: true}` |
+
+`/api/evidence` has four explicit top-level states: `none`, `some`,
+`degraded`, and `unreadable`. A malformed ledger returns empty `runs` and
+`events`; the API never presents a projection built from only the rows that
+happened to parse. `limit` caps returned recent events to 1–500 and does not
+change aggregate counters. `revision` is the SHA-256 of the deterministically
+ordered canonical event set. `migration.sources` reports canonical, legacy,
+legacy-only and canonical-only counts; `count-match` explicitly does not claim
+semantic parity.
+Legacy-only facts make the top-level state `degraded`; they are never hidden
+behind an otherwise readable canonical subset.
 
 ## Common gotcha — array vs object
 
