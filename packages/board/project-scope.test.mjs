@@ -56,8 +56,15 @@ test('logs come from the selected project, not the server directory', async () =
   // therefore compared undefined with undefined, which passes for the wrong
   // reason in one direction and fails for the wrong reason in the other.
   assert.ok(a.json.logs[0].file && b.json.logs[0].file, 'each entry names its file');
-  assert.notEqual(a.json.logs[0].file, b.json.logs[0].file,
-    'two different projects must not return the same newest session log');
+  // Compare the whole list, not the newest name. A log name is not unique across
+  // projects: the compaction hook writes session-<date>-autocompact.md into every
+  // project it runs in, and it sorts above timestamped names, so on 2026-09-14 two
+  // different projects correctly returned two different files with the same name
+  // and this test went red on the machine's own state. Two projects with their
+  // own histories do not return the same list.
+  const names = (r) => r.json.logs.map((l) => l.file).join('\n');
+  assert.notEqual(names(a), names(b),
+    'two different projects must not return the same session logs');
 });
 
 test('an unresolvable slug does not quietly serve another project', async () => {
