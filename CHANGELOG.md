@@ -36,6 +36,51 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.28.9 — 2026-09-14
+
+A live run of the pipeline with real agents found that it did not chain for agents
+spawned under the plugin name, and that independent verification both judged the
+wrong change and was ignored when it failed. Those are fixed, and each fix was
+replayed on the run that exposed it.
+
+### Fixed
+
+- **An agent spawned as `great-cto:<name>` now reaches its pipeline rule.** The
+  dispatcher stripped only the `great_cto-` prefix of the installed copy. The
+  plugin spawns agents under its namespace, so the dispatcher looked up
+  `great-cto:qa-engineer`, found no rule, and the pipeline did not chain. Three
+  projects' journals held 19 such runs since 2026-09-06.
+
+- **Independent verification judges the change the stage actually made.** A
+  verdict's receipt measured the change against merge-base-or-HEAD; on the
+  default branch or with no upstream that is HEAD, so work committed before the
+  verdict — as senior-dev is told to — was not in it. The judge was shown logs
+  and a report instead of the code and sent a correct fix back. The change now
+  starts at the commit the previous stage recorded; `receipt.base_from` says which
+  base was used.
+
+- **A failed verification sends the stage back instead of forward.** Any recorded
+  score let the next stage dispatch, including `rework`. It now re-spawns the
+  agent with the verifier's findings, and after three rework scores stops for the
+  CTO. Waiting for verification is journalled as a hold, not a stop.
+
+- **A test count is not a claim that tests were added.** `tests=2` was asked as
+  "the change adds or updates automated tests" even when the fix was to code whose
+  failing test already existed. It is asked only when the change contains a test
+  file.
+
+- **Tests remove the temp directories they create.** About 28,000 had built up
+  from ten test files. A guard test fails any new test file that creates temp
+  directories and removes none; 38 older files are listed and the list only
+  shrinks.
+
+Replayed on the live project after the fixes: senior-dev's receipt includes the
+fixed file, independent verification returns VERIFIED, and the hook dispatches
+code-reviewer.
+
+---
+
 ## v3.28.8 — 2026-09-14
 
 A reviewer's blocking finding that the author can fix now goes back to the author
