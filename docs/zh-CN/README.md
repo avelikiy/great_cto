@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-skills_·_MCP_·_second_opinion-blueviolet)](https://github.com/openai/codex)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
 ```bash
 npx great-cto init
@@ -19,7 +19,7 @@ npx great-cto init
 
 </div>
 
-> 本文翻译自英文 [README](../../README.md) 的 **v3.28.2**（2026-09-09）版本。
+> 本文翻译自英文 [README](../../README.md) 的 **v3.28.9**（2026-09-14）版本。
 > 两者如有出入，以英文版为准。
 
 ---
@@ -106,16 +106,13 @@ npx great-cto init
 需要 Node ≥ 18.17。伴生插件（Superpowers、Beads）自动安装。init 之后，确认宿主
 真的加载了插件 —— `claude plugin list --json` 里 `great-cto` 的 `errors` 应为空。
 
-**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你得到的是 **skills 和
-MCP 服务器** —— 不是上面那条流水线。Codex 没有承载钩子、斜杠命令或角色 agent 的
-插件面，所以 `/start`、`/inbox`、门禁链和 `secret-scan` 在那里不运行。这是宿主
-的限制，不是一个设置：插件清单里的 `hooks` 根本不会被读取
-（[openai/codex#16430](https://github.com/openai/codex/issues/16430)、
-[#39895](https://github.com/openai/codex/issues/39895)）。安装器在动手之前就会
-打印同样的分野。
+**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你会得到 skills 和 MCP
+服务器。原生 hooks、斜杠命令和角色 agent 仍然不存在。受支持的流水线路径是独立
+控制器 `great-cto codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
+的本地或 GitHub Release。它不模拟原生 hooks，也不执行任意生产服务激活。详见
+[Codex host 指南](../HOST-CODEX.md)。
 
-**两个宿主，一次评审。**在 Codex 上流水线不运行：跑在那里的是 skills 合集和一个
-MCP 服务器。Codex 的另一份工作是充当**第二意见** —— 从 Claude Code 内部，它读同
+**两个宿主，一次评审。**独立于受控 host，Codex 也可以充当**第二意见** —— 从 Claude Code 内部，它读同
 一份 diff，每一行评审都带着它所读那棵树的 `sha`，所以「已评审」可以针对*这一份*
 diff 被证明，而不只是被断言。日志目前有 **4 条记录，其中 1 条带 sha**；不会据此
 宣称任何捕获率，也不该有。

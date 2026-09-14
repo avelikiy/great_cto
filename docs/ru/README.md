@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-skills_·_MCP_·_second_opinion-blueviolet)](https://github.com/openai/codex)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
 ```bash
 npx great-cto init
@@ -19,7 +19,7 @@ npx great-cto init
 
 </div>
 
-> Перевод английского [README](../../README.md) версии **v3.28.2** (2026-09-09).
+> Перевод английского [README](../../README.md) версии **v3.28.9** (2026-09-14).
 > При расхождении канонична английская версия.
 
 ---
@@ -110,18 +110,17 @@ npx great-cto init
 init проверьте, что хост реально загрузил плагин: в
 `claude plugin list --json` у `great-cto` не должно быть `errors`.
 
-**На OpenAI Codex** (`npx great-cto init --host codex`) вы получаете **скиллы и
-MCP-сервер** — не пайплайн выше. У Codex нет плагинной поверхности для хуков,
-слэш-команд и ролевых агентов, поэтому `/start`, `/inbox`, цепочка гейтов и
-`secret-scan` там не работают. Это ограничение хоста, а не настройка: `hooks` в
-манифесте плагина никогда не читается
-([openai/codex#16430](https://github.com/openai/codex/issues/16430),
-[#39895](https://github.com/openai/codex/issues/39895)). Установщик печатает то
-же разделение до того, как что-либо сделает.
+**На OpenAI Codex** (`npx great-cto init --host codex`) вы получаете скиллы и
+MCP-сервер. Нативных хуков, слэш-команд и ролевых агентов по-прежнему нет.
+Поддерживаемый путь пайплайна реализован отдельным контроллером
+`great-cto codex-host`: он запускает контролируемые роли, verifier, gates,
+recovery и опциональный локальный или GitHub Release. Это не эмуляция нативных
+хуков и не произвольная активация production-сервисов. Подробности в
+[руководстве по Codex host](../HOST-CODEX.md).
 
-**Два хоста, одно ревью.** На Codex пайплайн не работает: там работают набор
-скиллов и MCP-сервер. Вторая работа Codex — быть **вторым мнением**: изнутри
-Claude Code он читает тот же дифф, и каждая строка ревью несёт `sha` дерева,
+**Два хоста, одно ревью.** Независимо от controlled host, Codex может быть
+**вторым мнением** для Claude Code: он читает тот же дифф, и каждая строка
+ревью несёт `sha` дерева,
 которое он прочитал, — поэтому «отревьюено» можно доказать про *этот* дифф, а не
 заявить. В логе **пока 4 строки, 1 из них с sha**; никакой процент отлова из
 этого не заявляется и не должен.

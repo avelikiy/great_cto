@@ -65,6 +65,12 @@ for (const f of boardFiles) {
   for (const m of readFileSync(f, "utf8").matchAll(/scripts\/lib\/([\w.-]+\.mjs)/g)) needed.add(m[1]);
 }
 
+// The npm CLI is also a supported entrypoint for the controlled Codex host.
+// Seed the same dependency closure from its executable instead of maintaining
+// a second hand-written runtime list.
+const codexController = join(repoRoot, "scripts", "codex-pipeline.mjs");
+for (const m of readFileSync(codexController, "utf8").matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)) needed.add(m[1]);
+
 // Then their own siblings, to a fixpoint.
 //
 // The direct scan alone was WRONG and would have shipped a broken bundle:
@@ -91,6 +97,10 @@ for (const f of [...needed].sort()) {
   if (!existsSync(src)) { missing.push(f); continue; }
   copyFileSync(src, join(out, "scripts", "lib", f));
 }
+
+copyFileSync(codexController, join(out, "scripts", "codex-pipeline.mjs"));
+mkdirSync(join(out, "shared"), { recursive: true });
+copyFileSync(join(repoRoot, "shared", "pipeline.toml"), join(out, "shared", "pipeline.toml"));
 // Loud, not best-effort. Shipping a bundle whose imports cannot resolve is the
 // failure this block exists to prevent, so it must not be possible to do it
 // quietly.

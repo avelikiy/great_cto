@@ -52,6 +52,7 @@ test('and it names what DOES carry over, so the result is not read as nothing', 
   const text = p.supported.join(' ').toLowerCase();
   assert.match(text, /skill/, 'skills carry over');
   assert.match(text, /mcp/, 'so does the MCP server');
+  assert.match(text, /controlled role pipeline/, 'the packaged controller is a supported replacement path');
 });
 
 test('the repo directory is what gets registered', () => {

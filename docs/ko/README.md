@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-skills_·_MCP_·_second_opinion-blueviolet)](https://github.com/openai/codex)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
 ```bash
 npx great-cto init
@@ -19,7 +19,7 @@ npx great-cto init
 
 </div>
 
-> 이 문서는 영어 [README](../../README.md)의 **v3.28.2**(2026-09-09) 시점 번역입니다.
+> 이 문서는 영어 [README](../../README.md)의 **v3.28.9**(2026-09-14) 시점 번역입니다.
 > 차이가 있을 경우 영어판이 기준입니다.
 
 ---
@@ -109,17 +109,13 @@ Node ≥ 18.17 필요. 동반 플러그인(Superpowers, Beads)은 자동 설치�
 호스트가 플러그인을 실제로 로드했는지 확인하세요 — `claude plugin list --json`에
 `great-cto`의 `errors`가 없어야 합니다.
 
-**OpenAI Codex에서는**(`npx great-cto init --host codex`) **스킬과 MCP 서버**만
-얻습니다 — 위의 파이프라인은 아닙니다. Codex에는 훅·슬래시 커맨드·역할 에이전트를
-위한 플러그인 표면이 없어서 `/start`, `/inbox`, 게이트 체인, `secret-scan`은 거기서
-돌지 않습니다. 이것은 설정이 아니라 호스트의 한계입니다: 플러그인 매니페스트의
-`hooks`는 읽히지 않습니다
-([openai/codex#16430](https://github.com/openai/codex/issues/16430),
-[#39895](https://github.com/openai/codex/issues/39895)). 설치 프로그램도 아무것도
-하기 전에 같은 구분을 출력합니다.
+**OpenAI Codex에서는**(`npx great-cto init --host codex`) 스킬과 MCP 서버를 얻습니다.
+네이티브 훅·슬래시 커맨드·역할 에이전트는 여전히 없습니다. 지원되는 파이프라인 경로는
+별도 컨트롤러 `great-cto codex-host`이며, 통제된 역할, verifier, gate, recovery와 선택적
+로컬 또는 GitHub Release를 실행합니다. 네이티브 훅을 흉내 내거나 임의의 프로덕션
+서비스를 활성화하는 기능은 아닙니다. [Codex 호스트 가이드](../HOST-CODEX.md)를 보세요.
 
-**하니스 둘, 리뷰 하나.** Codex에서는 파이프라인이 돌지 않습니다. 거기서 도는 것은
-스킬 번들과 MCP 서버입니다. Codex의 다른 역할은 **세컨드 오피니언**입니다 — Claude
+**하니스 둘, 리뷰 하나.** 통제 호스트와 별개로 Codex는 **세컨드 오피니언**이 될 수 있습니다 — Claude
 Code 안에서 같은 diff를 읽고, 리뷰의 각 줄은 자신이 읽은 트리의 `sha`를 달고
 있습니다. 그래서 "리뷰했다"를 주장이 아니라 *이* diff에 대해 증명할 수 있습니다.
 로그에 쌓인 것은 **지금까지 4줄, 그중 sha가 붙은 것은 1줄**. 여기서 어떤 검출률도
