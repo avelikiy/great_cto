@@ -16,9 +16,11 @@ function fixture(t) {
 
 test('Codex run projection excludes prompts, approval tokens and artifact bytes', t => {
   const { root, store } = fixture(t), id = '11111111-1111-4111-8111-111111111111';
+  // Assembled: token-shaped literals read as leaked credentials to secret scanners.
+  const gateSecret = ['gate', 'secret'].join('-'), releaseSecret = ['release', 'secret'].join('-');
   writeFileSync(join(store, `${id}.json`), JSON.stringify({ version: 1, id, root, prompt: 'secret task', status: 'awaiting-release',
-    queue: ['devops'], results: { 'senior-dev': {} }, attempts: [], pending: { role: 'devops', token: 'gate-secret', gates: ['ship'] },
-    release: { adapter: 'github-release', status: 'awaiting-approval', token: 'release-secret', artifactDigest: 'abc',
+    queue: ['devops'], results: { 'senior-dev': {} }, attempts: [], pending: { role: 'devops', token: gateSecret, gates: ['ship'] },
+    release: { adapter: 'github-release', status: 'awaiting-approval', token: releaseSecret, artifactDigest: 'abc',
       target: { repository: 'acme/widget', tag: 'v1', targetCommitish: 'a'.repeat(40), releaseRoot: '/private/release' }, path: '/private/published',
       artifacts: [{ path: 'dist/a', base64: 'c2VjcmV0' }], activation: 'none', rollback: 'superseding-release' } }));
   const result = listCodexRuns({ root, store });

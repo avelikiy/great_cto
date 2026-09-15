@@ -190,7 +190,7 @@ export function parseCasesTable(tableText) {
  *
  * Header line is one of:
  *   > Agent: <agent-name> · Reviewer: ...   → binds the actor to agents/<name>.md
- *   > Pack:  <pack-name>  · Reviewer: ...    → archetype pack eval (no single agent)
+ *   > Pack:  <pack-name>  · Reviewer: ...    → archetype pack eval, no single agent
  */
 export function parseEvalFile(content, filename) {
   try {

@@ -3,7 +3,7 @@
 // Runs all three quality lenses on a product and blends them into one verdict, so the
 // pipeline has a single command/gate instead of three tools:
 //   • floor    — product-score   (presence of quality machinery, static)
-//   • ceiling  — product-eval    (executed: tests/typecheck/lint/audit/secrets)
+//   • ceiling  — product-eval    — executed: tests/typecheck/lint/audit/secrets
 //   • domain   — archetype-contracts (does the suite cover the dangerous domain paths)
 // Optionally records the verdict to metrics-history for trend, and gates deploy.
 //

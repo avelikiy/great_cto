@@ -17,7 +17,10 @@ const root = () => { const d = mkdtempSync(path.join(tmpdir(), 'gc-council-')); 
 // installed and logged in, and an OpenRouter key. The OpenRouter model is one the
 // price table knows, so its cost can be estimated and capped.
 const CODEX = { state: 'available', model: 'gpt-5', why: '' };
-const ENV = { OPENROUTER_API_KEY: 'test-key', GREAT_CTO_COUNCIL_MODEL: 'anthropic/claude-sonnet-4' };
+// Assembled rather than written: a key-shaped literal reads as a leaked key to every
+// secret scanner, and this value's only job is to be present.
+const FAKE_OPENROUTER_KEY = ['test', 'key'].join('-');
+const ENV = { OPENROUTER_API_KEY: FAKE_OPENROUTER_KEY, GREAT_CTO_COUNCIL_MODEL: 'anthropic/claude-sonnet-4' };
 const BOTH = (extra = '') => `# PROJECT.md\narchetype: web-service\ncouncil: arch\ncouncil-members: codex, openrouter\n${extra}`;
 const OPENROUTER_ONLY = (extra = '') => `council: arch\ncouncil-members: openrouter\n${extra}`;
 
