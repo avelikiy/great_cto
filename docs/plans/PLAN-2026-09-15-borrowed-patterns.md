@@ -79,6 +79,8 @@ and measured after, through the existing cost meter; unknown cost stays unknown.
 merged; the merged doc passes the same checks as a solo one; cost appears in the
 ledger as measured or explicitly unverifiable.
 
+**ADR:** [ADR-025 — a council of independent architecture drafts](../adr/ADR-025-council-architecture-drafts.md) — *Proposed, awaiting a decision (it adds spend).*
+
 ### 3. Authority per agent
 
 **Gap.** ADR-009 says an expensive-to-undo action needs a decision wherever it
@@ -118,6 +120,13 @@ model actually knew.
 **Acceptance.** ADR accepted; codex-pipeline stage transitions write the packet
 and the event; a test pins that a second handoff to the same model carries only
 the delta.
+
+**ADR:** [ADR-026 — what a Codex stage knew](../adr/ADR-026-stage-context-packet.md) — *Proposed.*
+Reading `runStage` changed the design: Codex workers are ephemeral, so there is no
+"model that has seen part of the run" to send a delta to. Every stage is fresh and
+gets every previous result inline, unbounded and unrecorded. The ADR moves that
+context to a file referenced by path with a byte budget, and records on each
+attempt what it was given — `native_resume` is reserved and never claimed.
 
 ### 5. Numbered invariants with a verify hint
 
