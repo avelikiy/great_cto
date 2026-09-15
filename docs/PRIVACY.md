@@ -225,6 +225,17 @@ board page itself (another site cannot trigger it). The answer is kept in the bo
 memory for that key; a restart or a replaced key checks again. Nothing is sent when
 no key is stored.
 
+## Architecture council (not telemetry — sent only to the models you declared, only if you opt in)
+
+Off unless `.great_cto/PROJECT.md` says `council: arch` (ADR-025). When it does,
+before the architect writes, the project's brief and `PROJECT.md` are sent to each
+council member — the providers you declared (`council-members:`, or your
+`second_opinion` capability): Codex through your own `codex` login, OpenRouter with
+your own key. Each member's draft is written to
+`docs/architecture/council/<feature>/` in your project, with a `council.json`
+recording who drafted, who failed or was skipped, and what it cost. Nothing is sent
+to great_cto, and nothing is sent when `council:` is absent.
+
 ## Local project registry (not telemetry — never sent)
 
 The board's project switcher reads `~/.great_cto/projects.json`. At session start and

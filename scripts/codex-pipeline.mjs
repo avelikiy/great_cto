@@ -64,7 +64,9 @@ try {
     else if (command === 'approve-release') { approveRelease(state, value('--token')); save(state); }
     else if (command === 'recover') { recover(state); save(state); }
     else if (command === 'cancel') { cancel(state); save(state); }
-    else while (state.status === 'ready') await runStage(state, { save });
+    // ADR-026: each stage's context goes to <store>/<run-id>/context/, outside the
+    // worker workspace like the state file itself.
+    else while (state.status === 'ready') await runStage(state, { save, contextStore: store });
   }
   console.log(JSON.stringify({ id: state.id, status: state.status, reason: state.reason,
     release: state.release ? { status: state.release.status, token: state.release.token, adapter: state.release.adapter,

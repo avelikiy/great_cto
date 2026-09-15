@@ -1,6 +1,6 @@
 # ADR-025 — A council of independent architecture drafts, merged into one
 
-**Status:** Proposed — not implemented. Needs a CTO decision: it adds model spend to every run that opts in.
+**Status:** Accepted — approved by the CTO and implemented 2026-09-15: `scripts/lib/council.mjs`, the council step in `agents/architect.md`, `tests/lib/council.test.mjs`. Two changes from the proposal, found while implementing — see *As implemented*.
 **Date:** 2026-09-15
 **Deciders:** great_cto core
 **Supersedes:** —
@@ -66,6 +66,23 @@ set. The idea is taken here, not the code.
    skipped and recorded as such. After: each member's usage is recorded as
    measured, or as unverifiable when the provider returns none — never as `$0`
    (INV-007).
+
+## As implemented
+
+- **Members.** `council-members: codex, openrouter` names them explicitly; without it
+  the council has one member, the project's declared `second_opinion` provider. Each
+  is resolved through `resolveSecondOpinion`, so an undeclared or unauthenticated
+  provider is `unavailable` with the resolver's own reason.
+- **The cap applies to OpenRouter, not to Codex.** Codex runs on the user's
+  subscription: there is no per-call dollar figure to estimate or cap. Skipping it
+  for a price that does not exist would make a Codex council impossible, and pricing
+  it at zero would be the false `$0` INV-007 forbids. A Codex member is therefore
+  run with `estimate: { usd: null, priceSource: 'subscription' }` and its cost
+  recorded `unverifiable — billed to the Codex subscription`. An OpenRouter member
+  must have a known price — without one it is skipped, because an unknown price
+  cannot be kept under a cap.
+- **Output budget.** Each draft is requested with a 4,000-token output limit; the
+  estimate uses that limit and ~4 characters per input token.
 
 ## Not decided here
 

@@ -132,11 +132,16 @@ export function parseFindings(text) {
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
-async function callOpenRouter({ apiKey, model, system, user }) {
+/**
+ * One chat call to OpenRouter: text + usage out. Exported so the architecture
+ * council (scripts/lib/council.mjs) uses this call rather than a second copy of it.
+ * `usage` is null when the provider returns none — a caller must not price that as zero.
+ */
+export async function callOpenRouter({ apiKey, model, system, user, maxTokens = 1200, title = 'great_cto-xmodel-review' }) {
   const res = await fetch(OPENROUTER_API, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'HTTP-Referer': 'https://greatcto.systems', 'X-Title': 'great_cto-xmodel-review', 'content-type': 'application/json' },
-    body: JSON.stringify({ model, max_tokens: 1200, temperature: 0, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
+    headers: { Authorization: `Bearer ${apiKey}`, 'HTTP-Referer': 'https://greatcto.systems', 'X-Title': title, 'content-type': 'application/json' },
+    body: JSON.stringify({ model, max_tokens: maxTokens, temperature: 0, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
   });
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();

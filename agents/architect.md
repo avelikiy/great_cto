@@ -488,6 +488,16 @@ constraint in the new ARCH doc — document why this design choice was not taken
 
    **Step 3b:** Design architecture using the `superpowers:writing-plans` skill — propose 2-3 options with trade-offs and a clear recommendation. When the choice is binding — hard to reverse, or the options differ on more than one axis — hand them to `Agent(subagent_type: decision-scorer)`, which scores them against this project's own criteria from PROJECT.md and returns a weighted table. That agent has existed since May and has never once been invoked: it is named in SKILL.md and in the lifecycle map, and in no agent that could call it, so the scoring it exists to do has never happened. For the recommended option: **attack it first**. This is the canonical form of the rule in `agents/_shared/handoff-format.md` — every open question carries options and a pick — held here since before it was written down. Ask: what would make this fail? If the attack holds, deform the design. If it shatters the approach entirely, discard it and explain why.
 
+   **Step 3c — Council (only when PROJECT.md says `council: arch`, ADR-025).** Before writing, get independent drafts of the same architecture from other models. They draft from the brief and PROJECT.md only — never from your draft or each other's.
+
+   ```bash
+   CO="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/council.mjs"
+   [ -f "$CO" ] || CO="$(pwd)/scripts/lib/council.mjs"
+   grep -qE '^council:[[:space:]]*arch' .great_cto/PROJECT.md 2>/dev/null && node "$CO" --feature <feature> --brief docs/product/BRIEF-<slug>.md
+   ```
+
+   Then read `docs/architecture/council/<feature>/council.json` and every `draft-*.md` it lists, by path. In the ARCH doc, add `## Council`: its first line is the manifest's `summary` exactly (`council: 2 of 2 members drafted`, or `council: degraded — 0 of 1 members drafted`). Under it, list **where the drafts diverged from your design** — a different datastore, a boundary drawn elsewhere, a risk one draft names and yours does not — each with your resolution, or moved into `## Open Questions` for the CTO. Do not report agreement as confidence: models that agree share blind spots. A `failed`, `skipped` or `unavailable` member is named with its reason; a degraded council is a solo design and says so.
+
    **If the product's core claim is empirical** — a systematic-trading strategy, a signal, a model whose value IS its measured edge — the architecture question is downstream of whether the claim survives testing. Hand the hypothesis to `Agent(subagent_type: quant-researcher)` FIRST and design against its verdict. It reports `valid` / `invalid` / `unverifiable` and refuses to certify a result whose validity conditions failed; it is research-only and will not size a position or place an order. Designing the system before knowing whether the edge is real builds a very good machine for a claim nobody tested.
 
 4. **Write** `docs/architecture/ARCH-<feature>.md` with: Problem, Decision (with alternatives), Components, API/Data contracts, Security considerations, DB migration plan (if schema changes), Implementation tasks, Definition of Done, Cost Estimate, Requirements Checklist. **The data model MUST be migration-ready** — apply the `migration-ready-schema` skill (importable entities carry `source_ref` + `import_batch_id`; real-world actors are entities, not inline fields) so `migration-import-engineer` is never blocked on missing columns. **If the product is in one of the 10 SMB industries, FIRST apply the matching `vertical-<industry>` domain skill** (`vertical-home-services`, `vertical-professional-services`, `vertical-restaurants`, `vertical-retail`, `vertical-real-estate`, `vertical-fitness`, `vertical-creator`, `vertical-hr-recruiting`, `vertical-construction`, `vertical-logistics`) so the spec uses the right domain vocabulary, models the right entities, and isn't naive about the incumbent — otherwise quoting/proposals/bid-builder come out technically correct but domain-naive. **If the product moves money on a phone** — a wallet, payments, trading, remittance, or an account with a balance — ALSO apply `vertical-fintech-mobile`; it is orthogonal to the ten industries above and covers what the client gets wrong rather than the server: a balance that must carry its own staleness, an idempotency key that has to outlive the process, a transaction state machine with a real `unknown` state, and a device clock that may not order financial events.
@@ -957,6 +967,17 @@ if [ -z "$ARCH_LATEST" ]; then
   echo "failed_because: ARCH doc missing (likely Write denied or run truncated)"
   echo "need: check .great_cto/permission-denied.log; exit plan mode; re-run /start"
   exit 1
+fi
+# ADR-025: a declared council leaves a manifest and a ## Council section, or the run is not done.
+if grep -qE '^council:[[:space:]]*arch' .great_cto/PROJECT.md 2>/dev/null; then
+  FEATURE_SLUG=$(basename "$ARCH_LATEST" .md | sed 's/^ARCH-//')
+  if [ ! -f "docs/architecture/council/$FEATURE_SLUG/council.json" ] || ! grep -q '^## Council' "$ARCH_LATEST"; then
+    echo "BLOCKED: architect post-condition failed — council: arch is declared but the council did not run or was not merged"
+    echo "tried: architecture pipeline with council"
+    echo "failed_because: missing docs/architecture/council/$FEATURE_SLUG/council.json or ## Council in $ARCH_LATEST"
+    echo "need: run Step 3c, then write ## Council"
+    exit 1
+  fi
 fi
 ```
 

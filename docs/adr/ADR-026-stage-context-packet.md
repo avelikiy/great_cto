@@ -1,6 +1,6 @@
 # ADR-026 — What a Codex stage knew: context by file, and a record of it
 
-**Status:** Proposed — not implemented.
+**Status:** Accepted — approved by the CTO and implemented 2026-09-15 in `scripts/lib/codex-pipeline.mjs` (`buildStageContext`, `writeStageContext`, `runStage`), the host `scripts/codex-pipeline.mjs`, and `tests/lib/codex-stage-context.test.mjs`. Three changes from the proposal — see *As implemented*.
 **Date:** 2026-09-15
 **Deciders:** great_cto core
 **Supersedes:** —
@@ -54,6 +54,28 @@ fresh. The idea is taken here, not the code.
 
 4. **The digest is checked, not trusted.** Before dispatch the controller
    re-hashes the file; a mismatch blocks the stage like a changed tree does.
+
+## As implemented
+
+- **The file lives in the run store, not the project.** Proposed as
+  `.great_cto/codex-runs/<run-id>/context/` inside the project. But `treeReceipt`
+  counts every file under `.great_cto/` except the activity logs, so a context file
+  there would move every stage's receipt — and could let a stage that wrote nothing
+  pass the "receipt has changed files" check on the controller's own file. It is
+  written to `<run store>/<run-id>/context/<attempt-id>.md` instead, next to the
+  run's state file and outside the worker workspace, as the state already is. The
+  worker's read-only sandbox reads it by absolute path.
+- **The record is on the attempt, not an event.** The agent events vocabulary
+  (`EVENT_KINDS`, `EVENT_FIELDS`) is closed and documented in PRIVACY.md; a new
+  kind carrying paths and digests is a change to that contract, not a side effect
+  of this one. `attempt.context` in the run state answers "what did this stage
+  know?" on its own.
+- **Without a store, the context stays inline.** A caller that keeps no run store
+  — the library's own tests, any embedding host — gets the previous behaviour, and
+  the attempt records `mode: 'inline'`, so the two can never be confused. The
+  controlled host passes its store and gets `packet`.
+- **The digest check** runs after the state is saved and before dispatch, so a file
+  changed in that window blocks the stage.
 
 ## Not decided here
 

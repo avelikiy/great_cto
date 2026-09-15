@@ -8,6 +8,27 @@ All notable changes to great_cto are documented here.
 
 ### Added
 
+- **Architecture council, opt-in (ADR-025).** With `council: arch` in PROJECT.md,
+  before the architect writes, other models draft the same architecture
+  independently from the brief and PROJECT.md — never from each other's drafts.
+  `scripts/lib/council.mjs` writes each draft and a `council.json` under
+  `docs/architecture/council/<feature>/`; the architect merges them into one ARCH doc
+  with a `## Council` section naming where the drafts diverged, and one set of open
+  questions at gate:arch. Every member ends `drafted`, `failed`, `skipped` or
+  `unavailable`; a run with no draft reads `council: degraded`, never as agreement.
+  OpenRouter members are estimated first and skipped above `council-max-usd`
+  (default $2) or when unpriced; Codex runs on the subscription and its cost is
+  recorded as unverifiable, never $0. Nothing is sent without the declaration — see
+  PRIVACY.md.
+- **What a Codex stage knew (ADR-026).** Every previous stage result used to ride
+  each worker's prompt inline, growing with the run and recorded nowhere. The
+  controlled host now writes that evidence to `<run store>/<run-id>/context/<attempt>.md`
+  and the prompt names its path and SHA-256; past 64 KiB the oldest results are
+  reduced to verdict and summary, the newest kept whole, and the cut is listed. Each
+  attempt records `context: { mode, path, sha256, bytes, results, truncated }` —
+  `fresh`, `packet`, or `inline` for a caller with no store; `native_resume` is never
+  claimed. A context file changed before dispatch blocks the stage.
+
 - **A builder's actual diff is checked against the write zone it claimed.**
   `scripts/lib/wpl.mjs` proved a Work Packet List was disjoint before a fan-out, but
   nothing proved the work stayed inside it: a packet could claim `src/auth/*.ts`, also
