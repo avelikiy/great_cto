@@ -1,0 +1,21 @@
+{
+  "about": "Questions an operator actually asks /recall, each with the document that answers it — and, for questions about a detail inside a long document, the section. Worded the way someone half-remembers a decision; a question that repeats the document's title only measures string matching. Revised 2026-09-15 after an ai-eval-engineer review found four questions copying title words and none reaching past a document's first section. Used by tests/lib/recall-golden.test.mjs.",
+  "questions": [
+    { "q": "why does a risky action need a human even when it is not at a stage boundary", "doc": "docs/adr/ADR-009-gates-follow-reversibility.md" },
+    { "q": "can I review what an agent edited in a single step afterwards", "doc": "docs/adr/ADR-023-per-turn-diffs.md" },
+    { "q": "can another web page approve a gate through the board", "doc": "docs/adr/ADR-024-board-approvals.md" },
+    { "q": "what stops an API key from being written into a file", "doc": "docs/adr/ADR-014-secret-detection-patterns.md" },
+    { "q": "do hooks block the turn or run in the background", "doc": "docs/adr/ADR-019-hook-execution-modes.md" },
+    { "q": "what shell commands an agent is allowed to run", "doc": "docs/adr/ADR-020-bash-execution-boundary.md" },
+    { "q": "what the learning loop keeps private and never shares", "doc": "docs/adr/ADR-016-learning-privacy.md" },
+    { "q": "how many times does a pattern have to recur before it becomes reusable", "doc": "docs/adr/ADR-017-skill-candidate-promotion.md" },
+    { "q": "tag and github release out of sync reconciliation", "doc": "docs/adr/ADR-022-github-release-reconciliation.md" },
+    { "q": "watching agents work in real time from the admin page", "doc": "docs/adr/ADR-021-live-agent-events.md" },
+    { "q": "is the openrouter key sent anywhere when the board checks it", "doc": "docs/PRIVACY.md", "section": "Judge key check" },
+    { "q": "where are turn snapshot refs stored and are they pushed", "doc": "docs/PRIVACY.md", "section": "Local turn snapshots" },
+    { "q": "router key verify endpoint response states", "doc": "docs/BOARD-API.md" },
+    { "q": "why approving a gate in one project could expose another project's vocabulary", "doc": "docs/adr/ADR-008-decisions-log-isolation.md", "section": "Context" },
+    { "q": "how long are raw telemetry events kept before deletion", "doc": "docs/PRIVACY.md", "section": "Data retention" },
+    { "q": "maximum size of the patch the turn diff endpoint returns", "doc": "docs/BOARD-API.md", "section": "Endpoints" }
+  ]
+}

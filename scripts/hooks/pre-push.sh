@@ -297,6 +297,21 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     check_content "commit message" "$msg"
   done < <(git log "$range" --format="%B" 2>/dev/null || true)
 
+  # 1b. docs/INVARIANTS.md changes only in the open (INV-013). Weakening a rule
+  # there reads exactly like rewording it, so a commit that touches the file has
+  # to name the invariants it changed: INVARIANT-CHANGE(INV-NNN[, INV-MMM]).
+  # No skip variable, for the same reason the privacy scan has none.
+  while IFS= read -r c; do
+    [[ -z "$c" ]] && continue
+    if git diff-tree --root --no-commit-id --name-only -r "$c" 2>/dev/null | grep -qx 'docs/INVARIANTS.md'; then
+      if ! git log -1 --format=%B "$c" 2>/dev/null | grep -qE 'INVARIANT-CHANGE\(INV-[0-9]{3}(, *INV-[0-9]{3})*\)'; then
+        echo -e "\n${RED}[pre-push] BLOCKED — commit ${c:0:8} edits docs/INVARIANTS.md without naming what it changed.${NC}" >&2
+        echo -e "${YELLOW}Add INVARIANT-CHANGE(INV-NNN) to that commit's message, one id per invariant added, edited or retired.${NC}" >&2
+        exit 1
+      fi
+    fi
+  done < <(git rev-list "$range" 2>/dev/null || true)
+
   # 2. Scan diff content (added lines only — lines starting with +)
   diff_output=$(git diff "$range" -- 2>/dev/null || true)
   if [[ -n "$diff_output" ]]; then

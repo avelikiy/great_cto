@@ -51,9 +51,18 @@ if [ -n "$QUERY" ] && command -v node >/dev/null 2>&1 && [ -f "$MS" ]; then
   # Prints one of three things, and they are different answers: ranked hits,
   # "no matches in N documents" (the corpus was read and holds nothing), or
   # "nothing to search" (this project has no docs/ at all).
+  # Each hit is `file:line  § section` — open the document at that line.
+  # A line "not in any docs document: <terms>" names the words nothing written
+  # down contains: that part of the question has no answer in this project.
   node "$MS" "$QUERY" --source docs --limit 6
 fi
 ```
+
+**State the gap as printed.** If the search prints `not in any docs document: …`,
+say so in the answer, in those words — "nothing in this project's documents
+mentions kubernetes" — and do NOT fill that part in from general knowledge. A
+result that matched one of several query words is a partial match; present it as
+one, not as the answer.
 
 ## Step 2 — Display results
 

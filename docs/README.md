@@ -44,6 +44,8 @@ Information-oriented, exhaustive lookups. **Auto-generated** pages stay in sync 
   feature moves, both derived from the source rather than drawn. _auto-generated_
 - [Archetypes](ARCHETYPES.md) — the 25 project archetypes and the pipelines they select.
 - [Agent lint rules](AGENT-LINT-RULES.md) — the rules `agent-prompt-lint.mjs` enforces.
+- [Invariants](INVARIANTS.md) — the rules that must not quietly stop being true, each with the
+  test or hook that proves it; changing one needs `INVARIANT-CHANGE(INV-NNN)` in the commit.
 - [Help card](help-card.md) — one-page cheat sheet.
 
 > Regenerate the auto pages: `node scripts/gen-docs-reference.mjs`

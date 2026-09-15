@@ -173,16 +173,124 @@ export function gatherCorpus({ cwd = process.cwd(), source = 'all' } = {}) {
   return docs;
 }
 
-/** Convenience: gather corpus + BM25 search in one call. */
-export function searchMemory({ query, cwd = process.cwd(), source = 'all', limit = 8, corpus } = {}) {
+/**
+ * Query terms no document in the corpus contains.
+ *
+ * BM25 ranks any document matching any term, so a five-word query can return a
+ * confident-looking list while its most specific word appears nowhere. That word
+ * is the gap: what the written record does not say. Naming it is the difference
+ * between "here is the answer" and "here is what is close, and this part is not
+ * written down anywhere". (The honest-gap step in agentic-rag-for-dummies, MIT.)
+ */
+export function missingTerms(corpus, query) {
+  const terms = [...new Set(tokenize(query))];
+  if (terms.length === 0 || !corpus?.length) return terms;
+  const seen = new Set();
+  for (const d of corpus) for (const t of tokenize(d.text)) seen.add(t);
+  return terms.filter((t) => !seen.has(t));
+}
+
+/** Which of the query's terms a document contains. */
+function matchedTerms(text, query) {
+  const have = new Set(tokenize(text));
+  return [...new Set(tokenize(query))].filter((t) => have.has(t));
+}
+
+/**
+ * A markdown document as its heading sections (#, ##, ###).
+ *
+ * A hundred-and-sixty-line ADR ranked as one bag of words answers "which file",
+ * and then the reader scrolls. Ranked by section it answers "which part", and the
+ * result can say where to open it. Headings inside a code fence are not headings.
+ * Text before the first heading is its own section, so nothing is dropped.
+ * (Small chunks searched, the surrounding context returned — the hierarchical
+ * indexing in agentic-rag-for-dummies, MIT.)
+ *
+ * @returns {Array<{heading:string, level:number, line:number, text:string}>}
+ */
+export function splitSections(text) {
+  const lines = String(text ?? '').split('\n');
+  const out = [];
+  let cur = { heading: '', level: 0, line: 1, lines: [] };
+  let fence = false;
+  const flush = () => { if (cur.heading || cur.lines.join('').trim()) out.push(cur); };
+  lines.forEach((l, i) => {
+    if (/^\s*(```|~~~)/.test(l)) fence = !fence;
+    const m = fence ? null : l.match(/^(#{1,3})\s+(.+?)\s*#*\s*$/);
+    if (m) {
+      flush();
+      cur = { heading: m[2], level: m[1].length, line: i + 1, lines: [l] };
+    } else {
+      cur.lines.push(l);
+    }
+  });
+  flush();
+  return out.map((s) => ({ heading: s.heading, level: s.level, line: s.line, text: s.lines.join('\n') }));
+}
+
+/**
+ * Rank documents as before; then point at the section inside each one.
+ *
+ * The first version ranked SECTIONS and reported each document's best one. On
+ * the golden set (tests/fixtures/recall-golden.json) that found the answer in the top
+ * three 10 times out of 14, against 12 for whole-document ranking: a short section
+ * that happens to repeat the query's words outranks the long document that is
+ * actually about the subject. It did not ship.
+ *
+ * What shipped keeps the document order exactly — the ranking the golden set was
+ * measured on — and adds only where to open each result. The section is scored
+ * against an index over every section (so rare words weigh what they weigh in the
+ * corpus) and carries its document's title, because a section called
+ * "Consequences" means nothing without the ADR it belongs to. A document none of
+ * whose sections holds a query term gets no pointer, rather than an invented one.
+ */
+function searchSections(docs, query, limit) {
+  const ranked = search(buildIndex(docs), query, { limit });
+  if (ranked.length === 0) return [];
+
+  const units = [];
+  for (const d of docs) {
+    const title = (d.text.match(/^#\s+(.+)$/m) || [])[1] || '';
+    for (const s of splitSections(d.text)) {
+      units.push({ id: `${d.id}#L${s.line}`, text: `${title}\n${s.text}`, parent: d.id, section: s });
+    }
+  }
+  const bestByDoc = new Map();
+  for (const r of search(buildIndex(units), query, { limit: units.length })) {
+    if (!bestByDoc.has(r.doc.parent)) bestByDoc.set(r.doc.parent, r);
+  }
+
+  return ranked.map((r) => {
+    const best = bestByDoc.get(r.doc.id);
+    const out = {
+      file: r.doc.id, path: r.doc.path, kind: r.doc.kind,
+      score: Math.round(r.score * 1000) / 1000, snippet: best ? best.snippet : r.snippet,
+      matched: matchedTerms(r.doc.text, query),
+    };
+    if (best) { out.section = best.doc.section.heading; out.line = best.doc.section.line; }
+    return out;
+  });
+}
+
+/**
+ * Convenience: gather corpus + BM25 search in one call.
+ *
+ * `granularity` defaults to `section` for the docs corpus and `document`
+ * everywhere else: session logs and memory files are short, and `all` was tuned
+ * against whole documents — changing its unit would change what /resume surfaces.
+ */
+export function searchMemory({ query, cwd = process.cwd(), source = 'all', limit = 8, corpus, granularity } = {}) {
   const docs = corpus ?? gatherCorpus({ cwd, source });
   if (docs.length === 0) return [];
+  const mode = granularity ?? (source === 'docs' ? 'section' : 'document');
+  if (mode === 'section') return searchSections(docs, query, limit);
   return search(buildIndex(docs), query, { limit }).map(r => ({
     // `id`, not `basename`: for docs it is the relative path, and for the two
     // global memory files it is the label that tells them apart from the
     // project's own decisions.md — which the basename collapsed.
     file: r.doc.id, path: r.doc.path, kind: r.doc.kind,
     score: Math.round(r.score * 1000) / 1000, snippet: r.snippet,
+    matched: matchedTerms(r.doc.text, query),
   }));
 }
 
@@ -210,11 +318,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // defect wearing a search result: it reads as a corpus that was consulted.
   const corpus = gatherCorpus({ cwd, source });
   const results = searchMemory({ query, cwd, source, limit, corpus });
+  const missing = corpus.length ? missingTerms(corpus, query) : [];
+  // Printed on every path that read a corpus: it is the part of the question the
+  // written record does not answer, and a ranked list must not hide it.
+  const gap = () => { if (missing.length) console.log(`not in any ${source} document: ${missing.join(', ')}`); };
 
-  if (json) { console.log(JSON.stringify({ source, corpus: corpus.length, results }, null, 2)); }
+  if (json) { console.log(JSON.stringify({ source, corpus: corpus.length, missing, results }, null, 2)); }
   else if (corpus.length === 0) { console.log(`nothing to search: --source ${source} found no documents under ${cwd}`); }
-  else if (results.length === 0) { console.log(`no matches in ${corpus.length} ${source} document(s) for: ${query}`); }
+  else if (results.length === 0) { console.log(`no matches in ${corpus.length} ${source} document(s) for: ${query}`); gap(); }
   else {
-    for (const r of results) console.log(`${r.score.toFixed(2)}  [${r.kind}] ${r.file}\n    ${r.snippet.slice(0, 160)}`);
+    gap();
+    for (const r of results) {
+      const where = r.line ? `${r.file}:${r.line}${r.section ? `  § ${r.section}` : ''}` : r.file;
+      console.log(`${r.score.toFixed(2)}  [${r.kind}] ${where}\n    ${r.snippet.slice(0, 160)}`);
+    }
   }
 }

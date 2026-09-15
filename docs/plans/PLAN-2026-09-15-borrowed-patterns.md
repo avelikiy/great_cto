@@ -136,20 +136,49 @@ hook refuses one without it.
 **Design.** `memory-search.mjs` ranks whole documents. Index headed sections as
 the unit (child), return the whole section it belongs to (parent), so `/recall
 quota` lands on the ADR section about quota instead of the first 40 lines of the
-file. Add `tests/eval/recall-golden.json` — questions whose correct section is
+file. Add `tests/fixtures/recall-golden.json` — questions whose correct section is
 known — and a test that reports hit@3.
 
 **Acceptance.** hit@3 on the golden set is measured before and after; the change
 ships only if it does not drop.
 
+**Measured (2026-09-15).** Whole-document ranking on HEAD: 12 of 14. Ranking
+sections and reporting each document's best one: 10 of 14 — a short section that
+repeats the query's words outranked the long document actually about the subject,
+and the existing "ADR-009 ranks first" test failed. That design did not ship.
+What shipped keeps the document ranking unchanged and adds only a pointer — the
+best section and its line inside each result. A test pins that the pointer never
+reorders results.
+
+The golden set itself was then reviewed (ai-eval-engineer): four questions copied
+words from their document's title, so they measured string matching, and none
+asked about a detail inside a long document — the one case a section pointer
+exists for. Revised to 16 questions, five of which name the section that answers
+them. On the revised set document ranking finds the answer 11 times (lower than
+12, because the questions stopped giving the answer away) and the pointer lands in
+the right section 5 of 5. Those are the floors; questions are not reworded to
+raise them.
+
 ### 7. Bounded re-query with an honest gap
 
-**Design.** `/recall` tries a second, simpler query when the first returns
-nothing relevant, with a hard cap of three searches, and ends with what was
-found and what was not — never an answer assembled from nothing.
+**Design, as first written.** `/recall` tries a second, simpler query when the
+first returns nothing relevant, with a hard cap of three searches, and ends with
+what was found and what was not.
 
-**Acceptance.** The command states the cap; a test pins that a query with no
-match produces a gap statement, not an empty success.
+**Why the re-query did not ship.** memory-search's BM25 scores a document that
+matches *any* query term. A query that returned nothing therefore has no term in
+the corpus at all, and a query built from fewer of those terms cannot find
+anything either. The retry would have cost a search and added nothing — it only
+earns its place with a model that rewrites the query, and /recall runs without one.
+
+**What shipped instead: the gap, named.** The search reports the query terms no
+document contains (`not in any docs document: …`) and, per result, which terms it
+matched. /recall states that gap as printed and does not fill a missing term from
+general knowledge. A result matching one term of five is visibly that, instead of
+reading as an answer.
+
+**Acceptance.** A test pins that an absent term is named, that a present term is
+never listed as missing, and that a query matching nothing names every term.
 
 ## Decomposition
 
@@ -161,7 +190,7 @@ sequentially.
 | 1 guard | scripts/lib/lane-diff.mjs, scripts/lib/check-lane-overlap.mjs, tests/lib/lane-diff.test.mjs, agents/coordinator.md | — | no other stream touches these |
 | 3 authority | agents, scripts/lib/agent-lint.mjs | 1 | agents/coordinator.md belongs to stream 1, so it waits |
 | 5 invariants | docs/INVARIANTS.md, scripts/hooks/pre-push.sh | — | disjoint |
-| 6 recall sections | scripts/lib/memory-search.mjs, tests/eval/recall-golden.json | — | disjoint |
+| 6 recall sections | scripts/lib/memory-search.mjs, tests/fixtures/recall-golden.json | — | disjoint |
 | 7 re-query | commands/recall.md | 6 | shares the recall surface |
 | 2 council | docs/adr, scripts/lib/council.mjs | ADR | design first |
 | 4 handoff | docs/adr, scripts/lib/codex-pipeline.mjs | ADR | design first |

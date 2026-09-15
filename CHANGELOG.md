@@ -25,6 +25,21 @@ All notable changes to great_cto are documented here.
   The agent linter's FM-005 requires it, refuses to gate an agent with no write tools,
   and pins the value for the agents whose work is expensive to undo (ADR-009), so it
   cannot be relaxed in a frontmatter edit. The coordinator reads it before committing.
+- **`docs/INVARIANTS.md` — the rules that must not quietly stop being true.**
+  Thirteen numbered invariants (privacy, secrets, honest states, gates, parallel work),
+  each with a `verify:` line naming the test or hook that proves it; where no check
+  exists yet the file says so and why. A test fails when a `verify:` names a missing
+  file, and the pre-push hook refuses a commit that edits the file without
+  `INVARIANT-CHANGE(INV-NNN)` in its message — rewording and weakening a rule look the
+  same in a diff. (Format from claudexor's `CLAUDEXOR_BIBLE.md`, MIT.)
+- **`/recall` says where to open a document, and what nothing answers.** A docs hit
+  now reads `file:line  § section` — the best-matching section inside the document —
+  and each result lists the query words it matched. Words no document contains are
+  printed as `not in any docs document: …`, and /recall states that gap instead of
+  filling it in. Document ranking is unchanged: ranking by section instead was
+  measured on a golden question set (`tests/fixtures/recall-golden.json`) and found the
+  answer less often, so it did not ship; a test pins that the pointer never reorders
+  results.
 
 ### Fixed
 
